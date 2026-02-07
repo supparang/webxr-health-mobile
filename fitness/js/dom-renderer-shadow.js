@@ -1,9 +1,10 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
+// DOM renderer for Shadow Breaker targets — PATCH A
 // ✅ spawn/remove targets in #sb-target-layer
+// ✅ SAFE SPAWN: avoids HUD top/bottom + meta side
+// ✅ RESPONSIVE SIZE: scales by diff + viewport + playfield size
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH: smaller targets + mobile-first safe playfield (avoid HUD/meta/bottom bars)
+// ✅ FX via FxBurst (optional)
 
 'use strict';
 
@@ -15,16 +16,27 @@ function rand(min,max){ return min + Math.random()*(max-min); }
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
-    this.feedbackEl = opts.feedbackEl || null;
+    this.wrapEl = opts.wrapEl || null;         // (optional) #sb-wrap
+    this.stageEl = opts.stageEl || null;       // (optional) .sb-stage (recommended)
+    this.hudTopEl = opts.hudTopEl || null;     // (optional) .sb-hud-top
+    this.barsTopEl = opts.barsTopEl || null;   // (optional) .sb-bars-top
+    this.barsBottomEl = opts.barsBottomEl || null; // (optional) .sb-bars-bottom
+    this.metaEl = opts.metaEl || null;         // (optional) .sb-meta
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
     this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
+
+    // harden: ensure layer is positioned
+    try{
+      const cs = window.getComputedStyle(this.layer);
+      if (cs.position === 'static') this.layer.style.position = 'absolute';
+      if (!this.layer.style.inset) this.layer.style.inset = '0';
+    }catch{}
   }
 
-  setDifficulty(k){ this.diffKey = k || 'normal'; }
+  setDifficulty(k){ this.diffKey = (k || 'normal'); }
 
   destroy(){
     for (const [id, el] of this.targets.entries()) {
@@ -34,24 +46,89 @@ export class DomRendererShadow {
     this.targets.clear();
   }
 
+  // ---- compute safe spawn area inside stage/layer, excluding HUD + meta ----
   _safeAreaRect(){
-    const r = this.layer.getBoundingClientRect();
+    const layer = this.layer;
+    const stage = this.stageEl || layer;
 
-    // base pad
-    const pad = Math.min(44, Math.max(18, r.width * 0.045));
-    const isMobile = r.width <= 520;
+    const rStage = stage.getBoundingClientRect();
+    const rLayer = layer.getBoundingClientRect();
 
-    // reserve zones (mobile tighter)
-    const topReserve = isMobile ? 150 : 120;     // HUD + top bars
-    const rightReserve = isMobile ? 0 : 280;     // meta panel only on desktop/tablet
-    const bottomReserve = isMobile ? 170 : 140;  // fever + bottom bars + controls
+    // base padding from edges (responsive)
+    const basePad = clamp(Math.round(Math.min(rStage.width, rStage.height) * 0.045), 14, 34);
 
-    const left = pad + 10;
-    const top = pad + topReserve;
-    const right = r.width - pad - 10 - rightReserve;
-    const bottom = r.height - pad - 10 - bottomReserve;
+    // reserve top area for HUD + bars (if provided)
+    const hudTop = this.hudTopEl ? this.hudTopEl.getBoundingClientRect() : null;
+    const barsTop = this.barsTopEl ? this.barsTopEl.getBoundingClientRect() : null;
+    const barsBottom = this.barsBottomEl ? this.barsBottomEl.getBoundingClientRect() : null;
 
-    return { r, left, top, right, bottom, isMobile };
+    // convert reserved bands into stage local offsets
+    // (we just need a rough "no-spawn zone" band inside stage)
+    let topBan = basePad;
+    if (hudTop) topBan = Math.max(topBan, Math.round((hudTop.bottom - rStage.top) + 10));
+    if (barsTop) topBan = Math.max(topBan, Math.round((barsTop.bottom - rStage.top) + 8));
+
+    let bottomBan = basePad;
+    if (barsBottom) bottomBan = Math.max(bottomBan, Math.round((rStage.bottom - barsBottom.top) + 10));
+
+    // reserve right area for meta panel
+    const meta = this.metaEl ? this.metaEl.getBoundingClientRect() : null;
+    let rightBan = basePad;
+    if (meta && meta.width > 0) {
+      // meta sits inside stage (absolute). Reserve its width + small gap
+      const metaLeftFromStage = meta.left - rStage.left;
+      // If meta overlaps stage interior, reserve from metaLeft to stageRight.
+      if (metaLeftFromStage > 0 && metaLeftFromStage < rStage.width) {
+        const reserve = Math.round(rStage.width - metaLeftFromStage + 10);
+        rightBan = Math.max(rightBan, reserve);
+      } else {
+        // fallback: reserve meta width
+        rightBan = Math.max(rightBan, Math.round(meta.width + 10));
+      }
+    }
+
+    // left ban slightly smaller (no big UI there)
+    const leftBan = basePad;
+
+    // final safe box in stage coords
+    const safeLeft = leftBan;
+    const safeTop = topBan;
+    const safeRight = Math.max(safeLeft + 40, Math.round(rStage.width - rightBan));
+    const safeBottom = Math.max(safeTop + 40, Math.round(rStage.height - bottomBan));
+
+    // also return stage/layer rects for conversions
+    return { rStage, rLayer, safeLeft, safeTop, safeRight, safeBottom, basePad };
+  }
+
+  // ---- target size: responsive + per difficulty + per stage size ----
+  _sizePx(type){
+    // baseline by difficulty
+    const diff = (this.diffKey || 'normal').toLowerCase();
+    let base = 112; // normal baseline (was feeling too big)
+    if (diff === 'easy') base = 104;
+    if (diff === 'hard') base = 96;
+
+    // type tweaks
+    if (type === 'bossface') base += 10;
+    if (type === 'bomb') base -= 6;      // smaller but scary
+    if (type === 'decoy') base -= 4;     // slightly smaller
+    if (type === 'heal' || type === 'shield') base -= 2;
+
+    // responsive scale by stage size
+    const stage = this.stageEl || this.layer;
+    const r = stage.getBoundingClientRect();
+    const minSide = Math.min(r.width, r.height);
+
+    // scale down on small phones
+    let s = 1;
+    if (minSide < 420) s = 0.78;
+    else if (minSide < 520) s = 0.86;
+    else if (minSide < 680) s = 0.94;
+    else s = 1.0;
+
+    // clamp final
+    const out = clamp(Math.round(base * s), 66, 150);
+    return out;
   }
 
   _emojiForType(t, bossEmoji){
@@ -67,29 +144,41 @@ export class DomRendererShadow {
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const { left, top, right, bottom, isMobile } = this._safeAreaRect();
+    const { rStage, rLayer, safeLeft, safeTop, safeRight, safeBottom } = this._safeAreaRect();
+
+    // ensure we can spawn (avoid negative area)
+    const size = this._sizePx(data.type || 'normal');
+    const maxX = Math.max(safeLeft, safeRight - size);
+    const maxY = Math.max(safeTop, safeBottom - size);
+
+    // if area too tight, soften bans instead of "no spawn"
+    let left = safeLeft, top = safeTop, right = safeRight, bottom = safeBottom;
+    if ((right - left) < (size + 16)) { left = 10; right = Math.max(20, Math.round(rStage.width - 10)); }
+    if ((bottom - top) < (size + 16)) { top = 10; bottom = Math.max(20, Math.round(rStage.height - 10)); }
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
-    // ✅ PATCH: smaller target sizes (and cap max)
-    const fallback = isMobile ? 92 : 112;
-    const size = clamp(Number(data.sizePx) || fallback, 56, 180);
-
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position (clamped)
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
+    // random pos inside safe area (stage coords)
+    const xStage = rand(left, Math.max(left, right - size));
+    const yStage = rand(top, Math.max(top, bottom - size));
+
+    // convert stage coords -> layer absolute coords
+    // layer is inside stage; use rect offset
+    const x = (rStage.left + xStage) - rLayer.left;
+    const y = (rStage.top + yStage) - rLayer.top;
+
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
     // content
-    const emoji = this._emojiForType(data.type, data.bossEmoji);
-    el.textContent = emoji;
+    el.textContent = this._emojiForType(data.type, data.bossEmoji);
 
+    // pointer
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
@@ -107,7 +196,7 @@ export class DomRendererShadow {
     }
   }
 
-  removeTarget(id, reason){
+  removeTarget(id){
     const el = this.targets.get(id);
     if (!el) return;
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
