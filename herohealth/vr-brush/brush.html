@@ -6,11 +6,12 @@
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush-vr.css"/>
+  <link rel="stylesheet" href="./brush.css"/>
 
   <!-- A-Frame minimal scene (for Enter VR reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
+
 <body data-view="pc">
   <!-- Tap-to-start overlay -->
   <div id="tapStart" class="tapStart" aria-hidden="true">
@@ -95,16 +96,15 @@
   <!-- DOM90 play layer -->
   <main id="playLayer" class="playLayer" aria-label="play"></main>
 
-  <!-- Optional Bank button placeholder (safe.js will auto-create if missing) -->
-  <!-- <button id="bankBtn" class="bankBtn" type="button">BANK</button> -->
-
   <script>
     // vr-ui aim tuning (mobile/cvr)
     window.HHA_VRUI_CONFIG = { lockPx: 30, cooldownMs: 90 };
   </script>
+
+  <!-- Universal VR UI (from root /herohealth/vr/) -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- engine + boot -->
+  <!-- engine + boot (local folder) -->
   <script src="./brush.safe.js"></script>
   <script src="./brush.boot.js"></script>
 </body>
