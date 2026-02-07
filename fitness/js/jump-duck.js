@@ -1,4 +1,4 @@
-// === /fitness/js/jump-duck.js — Jump-Duck (HHA Standard PACK 1-3 + LOG + MOTION) v20260207a ===
+// === /fitness/js/jump-duck.js — Jump-Duck (Boss 3 phases + Hype Pack + LOG + MOTION) v20260207b ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -10,7 +10,6 @@ function fatal(msg){
   box.textContent = msg;
   box.classList.remove('jd-hidden');
 }
-
 window.addEventListener('error', (e)=>{
   fatal('JS ERROR:\n' + (e?.message || e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
 });
@@ -19,7 +18,7 @@ window.addEventListener('unhandledrejection', (e)=>{
 });
 
 /* -------------------------
-   HHA ctx / params
+   QS / HHA ctx
 ------------------------- */
 function getQS(){
   try { return new URL(location.href).searchParams; }
@@ -33,8 +32,8 @@ function qsGet(k, d=''){
 
 const HHA_CTX = {
   hub: qsGet('hub',''),
-  view: (qsGet('view','') || '').toLowerCase(), // pc/mobile/cvr/vr (NO override)
-  mode: (qsGet('mode','') || qsGet('runMode','') || '').toLowerCase(), // training/test/research
+  view: (qsGet('view','') || '').toLowerCase(),
+  mode: (qsGet('mode','') || qsGet('runMode','') || '').toLowerCase(),
   diff: (qsGet('diff','') || '').toLowerCase(),
   duration: qsGet('duration', qsGet('time','')),
   seed: qsGet('seed',''),
@@ -44,7 +43,7 @@ const HHA_CTX = {
   pid: qsGet('pid',''),
   group: qsGet('group',''),
   note: qsGet('note',''),
-  log: qsGet('log','') // ✅ endpoint
+  log: qsGet('log','')
 };
 
 function detectView(){
@@ -59,7 +58,6 @@ function detectView(){
   if (touch || isMobileUA) return 'mobile';
   return 'pc';
 }
-
 function applyViewClass(view){
   const b = document.body;
   b.classList.remove('view-pc','view-mobile','view-cvr','view-vr');
@@ -184,14 +182,43 @@ function playSfx(id){
 }
 
 /* -------------------------
-   Config
+   Core Config
 ------------------------- */
 const JD_DIFFS = {
   easy:   { speed: 38, spawnMs: 1300, hitWinMs: 260, stabDmg: 10, stabGain: 3, score: 12 },
   normal: { speed: 48, spawnMs: 1000, hitWinMs: 220, stabDmg: 13, stabGain: 3, score: 14 },
   hard:   { speed: 62, spawnMs:  800, hitWinMs: 200, stabDmg: 16, stabGain: 4, score: 16 }
 };
-const PHASE_THRESH = [0.33, 0.70];
+
+/* A) Boss 3 phases */
+const PHASE_THRESH = [0.30, 0.62]; // phase1/2/3 timing
+const BOSS = {
+  // “บอส” ทำงานใน phase3: เปิดตอน progress >= PHASE_THRESH[1]
+  hpBase: { easy: 9, normal: 12, hard: 15 },
+  // บอสต้อง “ชนะ” ด้วย hit สะสม (ทุก hit ใน phase3 ลด hp)
+  // มี pattern เป็นช่วงๆ สร้างแรงกดดัน
+  patternSec: 7.0,
+  telegraphMs: 260,     // เตือนก่อน “พายุ” เล็กน้อย
+  stormSec: 2.8,        // ช่วงพายุ = spawn แน่น
+  stormSpawnMul: 0.60,  // spawn interval * 0.60
+  speedMul: 1.22        // speed * 1.22 ในพายุ
+};
+
+/* B) Hype pack */
+const HYPE = {
+  perfectMs: 85,         // rt <= perfectMs => PERFECT
+  nearMissWindow: 1.25,  // ถ้า rt เกิน hitWin แต่ไม่เกิน *nearMissWindow => NEAR MISS
+  slowmoMs: 220,         // slow-mo duration
+  slowmoScale: 0.62,     // dt scale
+  feverPerHit: 8.5,
+  feverPerPerfect: 13,
+  feverDrainPerSec: 5.4,
+  feverOnAt: 55,
+  feverOffAt: 25,
+  feverBonusMul: 1.20,   // score bonus in fever
+  perkComboAt: 10        // combo >= perkComboAt => “Shield 1 hit”
+};
+
 const SPAWN_X  = 100;
 const CENTER_X = 24;
 const MISS_X   = 4;
@@ -204,64 +231,46 @@ let state = null;
 let rafId = null;
 let lastFrame = null;
 let judgeTimer = null;
-let lastAction = null; // {type:'jump'|'duck', time:number}
+let lastAction = null;
 let nextObstacleId = 1;
 
 /* -------------------------
-   AI Predictor (lightweight + fair)
+   AI Predictor (fair)
 ------------------------- */
 function createAIPredictor(){
-  const mem = {
-    streakMiss: 0,
-    missJump: 0,
-    missDuck: 0,
-    lastRT: 220,
-    bias: 0
-  };
+  const mem = { streakMiss:0, missJump:0, missDuck:0, lastRT:220, bias:0 };
 
   function onHit(needType, rt){
     mem.streakMiss = 0;
     if (Number.isFinite(rt)) mem.lastRT = 0.85*mem.lastRT + 0.15*rt;
     mem.bias *= 0.92;
   }
-
   function onMiss(needType){
     mem.streakMiss++;
-    if (needType === 'jump') mem.missJump++;
-    else mem.missDuck++;
-
+    if (needType === 'jump') mem.missJump++; else mem.missDuck++;
     const total = mem.missJump + mem.missDuck + 1;
     const dj = mem.missDuck / total;
     const jj = mem.missJump / total;
     mem.bias = (dj - jj) * 0.35;
     mem.bias = Math.max(-0.35, Math.min(0.35, mem.bias));
   }
-
   function pickType(baseRand){
     const t = baseRand + mem.bias;
     return (t >= 0.5) ? 'high' : 'low';
   }
-
   function adjustSpawnInterval(ms, phase, mode){
     let out = ms;
     if (mode === 'training'){
-      if (phase === 3) out *= 0.90;
+      if (phase === 3) out *= 0.92;
       if (mem.streakMiss >= 2) out *= 1.12;
     }
-    out = Math.max(520, Math.min(1800, out));
-    return out;
+    return Math.max(480, Math.min(1900, out));
   }
-
   function getHint(){
-    if (mem.streakMiss >= 2){
-      return 'ทิป: ดูป้าย JUMP/DUCK แล้วกด “ก่อนถึงเส้น” นิดเดียว ✨';
-    }
-    if (mem.lastRT > 260){
-      return 'ทิป: ลองกดให้เร็วขึ้นอีกนิด จะได้ PERFECT ง่ายขึ้น 🔥';
-    }
+    if (mem.streakMiss >= 2) return 'ทิป: กด “ก่อนถึงเส้น” นิดเดียว จะนิ่งขึ้น ✨';
+    if (mem.lastRT > 260) return 'ทิป: ลองตอบสนองเร็วขึ้นอีกนิด จะได้ PERFECT 🔥';
     return '';
   }
-
   return { onHit, onMiss, pickType, adjustSpawnInterval, getHint };
 }
 const AI = createAIPredictor();
@@ -275,16 +284,14 @@ function showView(name){
   if (name === 'play')   viewPlay?.classList.remove('jd-hidden');
   if (name === 'result') viewResult?.classList.remove('jd-hidden');
 }
-
 function showJudge(text, kind){
   if (!elJudge) return;
   elJudge.textContent = text;
   elJudge.className = 'jd-judge show';
   if (kind) elJudge.classList.add(kind);
   if (judgeTimer) clearTimeout(judgeTimer);
-  judgeTimer = setTimeout(()=> elJudge.classList.remove('show'), 520);
+  judgeTimer = setTimeout(()=> elJudge.classList.remove('show'), 560);
 }
-
 function modeLabel(mode){
   if (mode === 'training') return 'Training';
   if (mode === 'test') return 'Test';
@@ -299,9 +306,7 @@ function modeLabel(mode){
 function setHubLinks(){
   const hub = HHA_CTX.hub || '';
   if (!hub) return;
-  [backHubMenu, backHubPlay, backHubResult].forEach(a=>{
-    if (a) a.href = hub;
-  });
+  [backHubMenu, backHubPlay, backHubResult].forEach(a=>{ if (a) a.href = hub; });
 }
 
 /* -------------------------
@@ -313,7 +318,6 @@ function updateResearchVisibility(){
   if (mode === 'research') elResearchBlock.classList.remove('jd-hidden');
   else elResearchBlock.classList.add('jd-hidden');
 }
-
 function collectParticipant(metaMode){
   if (metaMode !== 'research') return {id:'', group:'', note:''};
   return {
@@ -327,10 +331,7 @@ function collectParticipant(metaMode){
    Logger (sessions/events) + flush-hardened
 ------------------------- */
 const LOG_URL = HHA_CTX.log || '';
-
-function safeJson(v){
-  try{ return JSON.stringify(v); }catch{ return ''; }
-}
+function safeJson(v){ try{ return JSON.stringify(v); }catch{ return ''; } }
 function postBeacon(url, payloadObj){
   try{
     if (!url) return false;
@@ -350,11 +351,8 @@ async function postKeepalive(url, payloadObj){
       mode: 'no-cors'
     });
     return true;
-  }catch{
-    return false;
-  }
+  }catch{ return false; }
 }
-
 const __JD_FLUSH = { flushing:false, flushed:false, lastHash:'' };
 
 function toCsv(rows){
@@ -397,6 +395,12 @@ function buildSummary(){
     rt_mean_ms: rtMean ? +rtMean.toFixed(1) : 0,
     stability_min_pct: +(state.minStability||0).toFixed(1),
     score_final: Math.round(state.score||0),
+    boss_hp_start: state.boss?.hpStart ?? '',
+    boss_hp_end: state.boss?.hp ?? '',
+    boss_defeated: state.boss?.defeated ? 1 : 0,
+    fever_time_s: +(state.feverTimeMs/1000).toFixed(2),
+    perfect_hits: state.perfectHits||0,
+    near_miss: state.nearMiss||0,
     participant_id: state.participant?.id || '',
     group: state.participant?.group || '',
     note: state.participant?.note || '',
@@ -409,12 +413,9 @@ function buildSummary(){
 
 function buildPayload(reason){
   const summary = buildSummary();
-
   const events = (state && state.events) ? state.events : [];
   const sessions = summary ? [summary] : [];
-
   const hash = (summary?.session_id||'') + '|' + (reason||'') + '|' + events.length;
-
   return {
     kind: 'herohealth_log_v2',
     game: 'jump-duck',
@@ -427,9 +428,8 @@ function buildPayload(reason){
       phase: HHA_CTX.phase || '',
       conditionGroup: HHA_CTX.conditionGroup || ''
     },
-    // ✅ แยก “ตาราง” ชัด ๆ: sessions / events
-    sessions,              // array of rows
-    events,                // array of rows
+    sessions,
+    events,
     sessions_csv: toCsv(sessions),
     events_csv: toCsv(events),
     _hash: hash
@@ -439,9 +439,7 @@ function buildPayload(reason){
 async function flushLog(reason){
   if (!LOG_URL) return false;
   if (__JD_FLUSH.flushing) return false;
-
   const payload = buildPayload(reason);
-
   if (__JD_FLUSH.flushed && __JD_FLUSH.lastHash === payload._hash) return true;
 
   __JD_FLUSH.flushing = true;
@@ -460,23 +458,13 @@ async function flushLog(reason){
 
 /* -------------------------
    Motion Control (opt-in)
-   - duck: device pitch down / or sustained tilt
-   - jump: accel spike (Z) with cooldown
 ------------------------- */
 const MOT = {
-  enabled: false,
-  allowed: false,
-  active: false,
-  basePitch: 0,
-  pitch: 0,
-  az: 0,
-  lastJumpAt: 0,
-  lastDuckAt: 0,
-  // tuning
-  duckPitchDeg: 18,     // pitch delta threshold
-  jumpAz: 14.0,         // accel spike threshold
-  cooldownMs: 550,
-  smooth: 0.18
+  enabled:false, allowed:false, active:false,
+  basePitch:0, pitch:0, az:0,
+  lastJumpAt:0, lastDuckAt:0,
+  duckPitchDeg:18, jumpAz:14.0,
+  cooldownMs:550, smooth:0.18
 };
 
 function setMotionUI(){
@@ -495,7 +483,6 @@ function setMotionUI(){
 
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent||'');
   const needPerm = isIOS && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
-
   elMotionEnable.classList.toggle('jd-hidden', !needPerm);
 
   elMotionStatus.textContent =
@@ -508,7 +495,6 @@ async function requestMotionPermissionIfNeeded(){
     if (!isIOS) { MOT.allowed = true; setMotionUI(); return true; }
     if (typeof DeviceMotionEvent === 'undefined') return false;
     if (typeof DeviceMotionEvent.requestPermission !== 'function'){ MOT.allowed = true; setMotionUI(); return true; }
-
     const res = await DeviceMotionEvent.requestPermission();
     MOT.allowed = (res === 'granted');
     setMotionUI();
@@ -519,69 +505,44 @@ async function requestMotionPermissionIfNeeded(){
     return false;
   }
 }
-
-function motionCalibrate(){
-  MOT.basePitch = MOT.pitch || 0;
-  showJudge('CALIBRATE ✅', 'ok');
-}
-
+function motionCalibrate(){ MOT.basePitch = MOT.pitch || 0; showJudge('CALIBRATE ✅', 'ok'); }
 function onDeviceOrientation(ev){
-  // beta ~ front/back tilt in degrees
   const beta = Number(ev && ev.beta);
   if (!Number.isFinite(beta)) return;
-  const smooth = MOT.smooth;
-  MOT.pitch = (1-smooth)*MOT.pitch + smooth*beta;
+  const s = MOT.smooth;
+  MOT.pitch = (1-s)*MOT.pitch + s*beta;
 }
-
 function onDeviceMotion(ev){
   const acc = ev && (ev.accelerationIncludingGravity || ev.acceleration);
   if (!acc) return;
   const z = Number(acc.z);
   if (!Number.isFinite(z)) return;
-  const smooth = MOT.smooth;
-  MOT.az = (1-smooth)*MOT.az + smooth*z;
+  const s = MOT.smooth;
+  MOT.az = (1-s)*MOT.az + s*z;
 }
-
 function motionUpdate(now){
-  if (!running || !state) return;
-  if (!MOT.active) return;
-
-  // Duck: pitch delta beyond threshold (g้ม)
+  if (!running || !state || !MOT.active) return;
   const dp = (MOT.pitch - MOT.basePitch);
   if (dp > MOT.duckPitchDeg && now - MOT.lastDuckAt > MOT.cooldownMs){
-    MOT.lastDuckAt = now;
-    triggerAction('duck');
+    MOT.lastDuckAt = now; triggerAction('duck', {source:'motion'});
   }
-
-  // Jump: accel spike (absolute) — jump/เด้ง
   const az = Math.abs(MOT.az);
   if (az > MOT.jumpAz && now - MOT.lastJumpAt > MOT.cooldownMs){
-    MOT.lastJumpAt = now;
-    triggerAction('jump');
+    MOT.lastJumpAt = now; triggerAction('jump', {source:'motion'});
   }
 }
-
 function motionStartIfWanted(){
   const want = !!(elMotionOpt && elMotionOpt.checked);
   MOT.enabled = want;
-  if (!want){
-    MOT.active = false;
-    setMotionUI();
-    return;
-  }
-
-  // start listeners
+  if (!want){ MOT.active = false; setMotionUI(); return; }
   MOT.active = MOT.allowed;
   setMotionUI();
-
   if (MOT.active){
     window.addEventListener('deviceorientation', onDeviceOrientation, true);
     window.addEventListener('devicemotion', onDeviceMotion, true);
-    // quick calibrate at start
     setTimeout(()=>motionCalibrate(), 120);
   }
 }
-
 function motionStop(){
   if (!MOT.active) return;
   MOT.active = false;
@@ -591,7 +552,7 @@ function motionStop(){
 }
 
 /* -------------------------
-   Events (for sheet)
+   Events helper
 ------------------------- */
 function pushEvent(row){
   if (!state) return;
@@ -600,7 +561,70 @@ function pushEvent(row){
 }
 
 /* -------------------------
-   Game
+   Boss + Fever + Slowmo helpers (A+B)
+------------------------- */
+function bossHpForDiff(diffKey){
+  const base = BOSS.hpBase[diffKey] ?? BOSS.hpBase.normal;
+  // test/research ให้แฟร์คงที่
+  return base;
+}
+
+function setPlayFX(className, on){
+  if (!elPlayArea) return;
+  if (on) elPlayArea.classList.add(className);
+  else elPlayArea.classList.remove(className);
+}
+
+function startSlowmo(){
+  if (!state) return;
+  state.slowmoUntil = performance.now() + HYPE.slowmoMs;
+}
+
+function feverTick(dtMs){
+  if (!state) return;
+  // drain
+  state.fever = Math.max(0, state.fever - HYPE.feverDrainPerSec*(dtMs/1000));
+  if (!state.feverOn && state.fever >= HYPE.feverOnAt){
+    state.feverOn = true;
+    showJudge('🔥 FEVER ON!', 'combo');
+  } else if (state.feverOn && state.fever <= HYPE.feverOffAt){
+    state.feverOn = false;
+    showJudge('FEVER down…', 'ok');
+  }
+  if (state.feverOn) state.feverTimeMs += dtMs;
+}
+
+function addFever(amount){
+  if (!state) return;
+  state.fever = Math.min(100, state.fever + amount);
+}
+
+function bossPhaseUpdate(now){
+  if (!state || !state.boss) return;
+  const b = state.boss;
+
+  // pattern loop inside phase3
+  const t = (now - b.startAt) / 1000;
+  const cycle = BOSS.patternSec;
+  const p = (t % cycle);
+
+  const stormStart = cycle - BOSS.stormSec;
+  const inStorm = (p >= stormStart);
+
+  // telegraph
+  if (!b.warned && p >= stormStart - (BOSS.telegraphMs/1000)){
+    b.warned = true;
+    showJudge('⚠️ BOSS STORM!', 'miss');
+    setPlayFX('jd-boss-warn', true);
+    setTimeout(()=>setPlayFX('jd-boss-warn', false), BOSS.telegraphMs);
+  }
+  if (p < 0.25) b.warned = false;
+
+  b.inStorm = inStorm;
+}
+
+/* -------------------------
+   Gameplay
 ------------------------- */
 function makeSessionId(){
   const t = new Date();
@@ -615,52 +639,49 @@ function startGameBase(opts){
   const durationMs = opts.durationMs ?? 60000;
   const isTutorial = !!opts.isTutorial;
 
-  // reseed
   RNG = mulberry32(getSeed());
-
   const now = performance.now();
+
   state = {
     sessionId: makeSessionId(),
-    mode,
-    diffKey,
-    cfg0,
-    durationMs,
-    isTutorial,
+    mode, diffKey, cfg0, durationMs, isTutorial,
+    startTime: now, elapsedMs:0, remainingMs:durationMs,
 
-    startTime: now,
-    elapsedMs: 0,
-    remainingMs: durationMs,
-
-    stability: 100,
-    minStability: 100,
-
+    stability:100, minStability:100,
     nextSpawnAt: now + 650,
-    obstacles: [],
-    obstaclesSpawned: 0,
+    obstacles: [], obstaclesSpawned:0,
 
-    hits: 0,
-    miss: 0,
+    hits:0, miss:0,
+    jumpHit:0, duckHit:0, jumpMiss:0, duckMiss:0,
 
-    jumpHit:0, duckHit:0,
-    jumpMiss:0, duckMiss:0,
-
-    combo: 0,
-    maxCombo: 0,
-    score: 0,
+    combo:0, maxCombo:0,
+    score:0,
     hitRTs: [],
-
     events: [],
+
+    // B) hype metrics
+    perfectHits: 0,
+    nearMiss: 0,
+    fever: 0,
+    feverOn: false,
+    feverTimeMs: 0,
+    slowmoUntil: 0,
+    shield: 0, // perk: blocks 1 miss when combo high
+
+    // A) boss
+    boss: null,
 
     participant: collectParticipant(mode),
     ctx: { ...HHA_CTX }
   };
 
+  // boss init will happen when entering phase3
+
   running = true;
   lastFrame = now;
-  __JD_FLUSH.flushed = false; // new run, allow flush
+  __JD_FLUSH.flushed = false;
   __JD_FLUSH.lastHash = '';
 
-  // UI reset
   elObsHost && (elObsHost.innerHTML = '');
   elAvatar && elAvatar.classList.remove('jump','duck');
 
@@ -675,7 +696,6 @@ function startGameBase(opts){
 
   showView('play');
 
-  // motion handling
   motionStop();
   motionStartIfWanted();
 
@@ -698,7 +718,6 @@ function startTutorial(){
 function endGame(reason='ended'){
   running = false;
   motionStop();
-
   if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
   if (!state) return;
 
@@ -733,21 +752,19 @@ function endGame(reason='ended'){
   if (resRank){
     let rank = 'C';
     const stab = state.minStability;
-    if (acc >= 0.90 && stab >= 85) rank='S';
-    else if (acc >= 0.80 && stab >= 75) rank='A';
-    else if (acc >= 0.65 && stab >= 60) rank='B';
+    if (acc >= 0.92 && stab >= 86) rank='S';
+    else if (acc >= 0.82 && stab >= 76) rank='A';
+    else if (acc >= 0.66 && stab >= 60) rank='B';
     else if (acc < 0.40 || stab < 40)   rank='D';
     resRank.textContent = rank;
   }
 
   showView('result');
-
-  // ✅ flush to sheet (sessions/events)
   flushLog('end:' + reason);
 }
 
 /* -------------------------
-   Loop
+   Phase logic
 ------------------------- */
 function getPhase(progress){
   if (progress < PHASE_THRESH[0]) return 1;
@@ -755,71 +772,50 @@ function getPhase(progress){
   return 3;
 }
 
-function loop(ts){
-  if (!running || !state) return;
-  const dt = ts - (lastFrame||ts);
-  lastFrame = ts;
-
-  state.elapsedMs = ts - state.startTime;
-  state.remainingMs = Math.max(0, state.durationMs - state.elapsedMs);
-
-  const progress = Math.min(1, state.elapsedMs / state.durationMs);
-  const phase = getPhase(progress);
-
-  elHudTime && (elHudTime.textContent = (state.remainingMs/1000).toFixed(1));
-
-  // motion tick
-  motionUpdate(ts);
-
-  if (state.elapsedMs >= state.durationMs){
-    endGame('timeup');
-    return;
-  }
-
-  while (ts >= state.nextSpawnAt){
-    spawnObstacle(ts, phase);
-    let interval = state.cfg0.spawnMs;
-
-    if (state.mode === 'training'){
-      const factor = 1 - 0.30*progress;
-      interval = interval * Math.max(0.58, factor);
-      interval = AI.adjustSpawnInterval(interval, phase, state.mode);
-    }
-    state.nextSpawnAt += interval;
-  }
-
-  updateObstacles(dt, ts, phase, progress);
-
-  elHudStab && (elHudStab.textContent = state.stability.toFixed(1)+'%');
-  elHudObs && (elHudObs.textContent = `${state.hits} / ${state.obstaclesSpawned}`);
-  elHudScore && (elHudScore.textContent = String(Math.round(state.score)));
-  elHudCombo && (elHudCombo.textContent = String(state.combo));
-
-  const tip = AI.getHint();
-  if (tip && phase === 2 && (state.elapsedMs % 7000 < 30)){
-    showJudge(tip, 'combo');
-  }
-
-  rafId = requestAnimationFrame(loop);
+/* -------------------------
+   Spawn rules (A: boss patterns)
+------------------------- */
+function bossSpawnMultiplier(){
+  if (!state?.boss) return 1.0;
+  return state.boss.inStorm ? BOSS.stormSpawnMul : 1.0;
+}
+function bossSpeedMultiplier(){
+  if (!state?.boss) return 1.0;
+  return state.boss.inStorm ? BOSS.speedMul : 1.0;
 }
 
-/* -------------------------
-   Obstacles
-------------------------- */
 function spawnObstacle(ts, phase){
   if (!elObsHost || !state) return;
   const last = state.obstacles[state.obstacles.length - 1];
   if (last && last.x > 70) return;
 
   const r = RNG();
-  const type = AI.pickType(r); // 'high' or 'low'
-  const spawnPair = (phase === 3 && state.mode === 'training' && RNG() < 0.14);
+
+  // Phase 1: ให้ “อ่านเกม” ง่าย (สลับ)
+  // Phase 2: ผสม + AI bias ฝึกจุดอ่อน
+  // Phase 3: boss pattern: burst + pair บางที
+  let type;
+  if (phase === 1){
+    type = (state.obstaclesSpawned % 2 === 0) ? 'low' : 'high';
+  } else if (phase === 2){
+    type = AI.pickType(r);
+  } else {
+    // boss: pattern director
+    const b = state.boss;
+    const t = b ? ((ts - b.startAt)/1000) : 0;
+    const p = b ? (t % BOSS.patternSec) : 0;
+
+    // ช่วงต้น cycle: alternation / กลาง: random / ท้าย: storm (bias จี้จุดอ่อนเล็กน้อย)
+    if (p < 2.2) type = (state.obstaclesSpawned % 2 === 0) ? 'low' : 'high';
+    else if (p < (BOSS.patternSec - BOSS.stormSec)) type = (RNG() < 0.52) ? 'low' : 'high';
+    else type = AI.pickType(r); // storm ใช้ predictor ฝึก
+  }
+
+  const spawnPair = (phase === 3 && state.mode === 'training' && RNG() < 0.16);
 
   makeOne(type, ts);
   if (spawnPair){
-    setTimeout(()=> {
-      if (running && state) makeOne(RNG()<0.5?'high':'low', performance.now());
-    }, 120);
+    setTimeout(()=>{ if (running && state) makeOne(RNG()<0.5?'high':'low', performance.now()); }, 120);
   }
 }
 
@@ -861,15 +857,62 @@ function makeOne(type, ts){
   playSfx('jd-sfx-beep');
 }
 
+/* -------------------------
+   Input
+------------------------- */
+function triggerAction(type, meta={}){
+  if (!state || !running) return;
+  const now = performance.now();
+  lastAction = { type, time: now, source: meta.source || 'input' };
+
+  if (elAvatar){
+    elAvatar.classList.remove('jump','duck');
+    elAvatar.classList.add(type);
+    setTimeout(()=> elAvatar?.classList.remove(type), 180);
+  }
+}
+function handleKeyDown(ev){
+  if (!running) return;
+  if (ev.code === 'ArrowUp' || ev.code === 'KeyW'){ ev.preventDefault(); triggerAction('jump', {source:'kbd'}); }
+  else if (ev.code === 'ArrowDown' || ev.code === 'KeyS'){ ev.preventDefault(); triggerAction('duck', {source:'kbd'}); }
+}
+function handlePointerDown(ev){
+  if (!running || !elPlayArea) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const rect = elPlayArea.getBoundingClientRect();
+  const y = ev.clientY;
+  const mid = rect.top + rect.height/2;
+  if (y < mid) triggerAction('jump', {source:'touch'});
+  else triggerAction('duck', {source:'touch'});
+}
+function onHhaShoot(ev){
+  if (!running || !elPlayArea) return;
+  const d = ev?.detail || {};
+  const rect = elPlayArea.getBoundingClientRect();
+  const y = Number.isFinite(d.y) ? d.y : (rect.top + rect.height/2);
+  const mid = rect.top + rect.height/2;
+  if (y < mid) triggerAction('jump', {source:'vrui'});
+  else triggerAction('duck', {source:'vrui'});
+}
+
+/* -------------------------
+   Obstacles update + HIT/MISS (A+B)
+------------------------- */
 function updateObstacles(dt, now, phase, progress){
   const cfg = state.cfg0;
+
+  // speed
   let speed = cfg.speed;
 
+  // training ramp
   if (state.mode === 'training'){
     if (phase === 2) speed *= 1.12;
     if (phase === 3) speed *= 1.26;
     speed *= (1 + 0.18*progress);
   }
+  // boss storm speed
+  speed *= bossSpeedMultiplier();
 
   const move = speed * (dt/1000);
   const keep = [];
@@ -878,45 +921,76 @@ function updateObstacles(dt, now, phase, progress){
     obs.x -= move;
     if (obs.element) obs.element.style.left = obs.x + '%';
 
-    // HIT
+    // HIT window
     if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
       const a = lastAction;
       if (a && a.time){
         const rt = Math.abs(a.time - now);
+
+        // PERFECT / HIT / NEAR MISS
         if (a.type === obs.need && rt <= cfg.hitWinMs){
           obs.resolved = true;
+
+          const isPerfect = rt <= HYPE.perfectMs;
+          if (isPerfect) state.perfectHits++;
 
           state.hits++;
           state.combo++;
           state.maxCombo = Math.max(state.maxCombo, state.combo);
 
+          // perk shield (B)
+          if (state.combo === HYPE.perkComboAt){
+            state.shield = 1;
+            showJudge('🛡️ SHIELD ได้ 1 ครั้ง!', 'combo');
+          }
+
+          // score multipliers
           const comboM = 1 + Math.min(state.combo-1, 6)*0.15;
           const phaseM = (phase === 3) ? 1.18 : (phase === 2 ? 1.08 : 1.0);
-          const gain = Math.round(cfg.score * comboM * phaseM);
+          const feverM = state.feverOn ? HYPE.feverBonusMul : 1.0;
+          const perfectM = isPerfect ? 1.18 : 1.0;
+
+          const gain = Math.round(cfg.score * comboM * phaseM * feverM * perfectM);
           state.score += gain;
 
           if (obs.need === 'jump') state.jumpHit++; else state.duckHit++;
-          state.stability = Math.min(100, state.stability + cfg.stabGain);
+          state.stability = Math.min(100, state.stability + cfg.stabGain + (isPerfect ? 1.0 : 0));
           state.minStability = Math.min(state.minStability, state.stability);
 
           state.hitRTs.push(rt);
           AI.onHit(obs.need, rt);
 
-          // log event
+          // fever add
+          addFever(isPerfect ? HYPE.feverPerPerfect : HYPE.feverPerHit);
+
+          // boss hp tick (A)
+          if (phase === 3 && state.boss && !state.boss.defeated){
+            state.boss.hp = Math.max(0, state.boss.hp - 1);
+            if (state.boss.hp === 0){
+              state.boss.defeated = true;
+              showJudge('🏆 BOSS DEFEATED!!', 'combo');
+              // reward: fever burst + stability heal
+              addFever(35);
+              state.stability = Math.min(100, state.stability + 18);
+            }
+          }
+
+          // event log
           pushEvent({
-            session_id: state.sessionId,
-            game: 'jump-duck',
-            mode: state.mode,
-            diff: state.diffKey,
-            event_type: 'hit',
+            session_id: state.sessionId, game:'jump-duck',
+            mode: state.mode, diff: state.diffKey,
+            event_type: isPerfect ? 'perfect' : 'hit',
             required_action: obs.need,
             obstacle_type: obs.type,
             action: a.type,
+            input_source: a.source || '',
             rt_ms: Math.round(rt),
             time_ms: Math.round(state.elapsedMs),
             combo_after: state.combo,
             score_after: Math.round(state.score),
             stability_after_pct: +state.stability.toFixed(1),
+            fever_after: +state.fever.toFixed(1),
+            boss_hp_after: state.boss ? state.boss.hp : '',
             participant_id: state.participant?.id || '',
             group: state.participant?.group || '',
             note: state.participant?.note || '',
@@ -932,8 +1006,36 @@ function updateObstacles(dt, now, phase, progress){
           playSfx('jd-sfx-hit');
           if (state.combo >= 8) playSfx('jd-sfx-combo');
 
-          showJudge(obs.need === 'jump' ? 'JUMP ดีมาก 🦘' : 'DUCK ทันเวลา 🛡️', state.combo>=8?'combo':'ok');
+          if (isPerfect) showJudge('PERFECT ✨', 'combo');
+          else showJudge(obs.need === 'jump' ? 'JUMP ดีมาก 🦘' : 'DUCK ทันเวลา 🛡️', state.combo>=8?'combo':'ok');
           continue;
+        }
+
+        // NEAR MISS (B): action ถูก แต่ช้า/เร็วเกินนิดเดียว
+        if (a.type === obs.need && rt <= cfg.hitWinMs * HYPE.nearMissWindow){
+          state.nearMiss++;
+          startSlowmo();
+          showJudge('NEAR MISS 😱', 'miss');
+
+          pushEvent({
+            session_id: state.sessionId, game:'jump-duck',
+            mode: state.mode, diff: state.diffKey,
+            event_type: 'near_miss',
+            required_action: obs.need,
+            obstacle_type: obs.type,
+            action: a.type,
+            input_source: a.source || '',
+            rt_ms: Math.round(rt),
+            time_ms: Math.round(state.elapsedMs),
+            combo_after: state.combo,
+            score_after: Math.round(state.score),
+            stability_after_pct: +state.stability.toFixed(1),
+            fever_after: +state.fever.toFixed(1),
+            boss_hp_after: state.boss ? state.boss.hp : '',
+            participant_id: state.participant?.id || '',
+            group: state.participant?.group || '',
+            note: state.participant?.note || ''
+          });
         }
       }
     }
@@ -941,6 +1043,33 @@ function updateObstacles(dt, now, phase, progress){
     // MISS
     if (!obs.resolved && obs.x <= MISS_X){
       obs.resolved = true;
+
+      // perk shield blocks 1 miss (B)
+      if (state.shield > 0){
+        state.shield = 0;
+        showJudge('🛡️ SHIELD BLOCK!', 'ok');
+
+        pushEvent({
+          session_id: state.sessionId, game:'jump-duck',
+          mode: state.mode, diff: state.diffKey,
+          event_type: 'shield_block',
+          required_action: obs.need,
+          obstacle_type: obs.type,
+          action: lastAction ? lastAction.type : '',
+          input_source: lastAction ? (lastAction.source||'') : '',
+          rt_ms: '',
+          time_ms: Math.round(state.elapsedMs),
+          combo_after: state.combo,
+          score_after: Math.round(state.score),
+          stability_after_pct: +state.stability.toFixed(1),
+          fever_after: +state.fever.toFixed(1),
+          boss_hp_after: state.boss ? state.boss.hp : ''
+        });
+
+        obs.element && obs.element.remove();
+        obs.element = null;
+        continue;
+      }
 
       state.miss++;
       state.combo = 0;
@@ -951,28 +1080,21 @@ function updateObstacles(dt, now, phase, progress){
 
       AI.onMiss(obs.need);
 
-      // log event
       pushEvent({
-        session_id: state.sessionId,
-        game: 'jump-duck',
-        mode: state.mode,
-        diff: state.diffKey,
+        session_id: state.sessionId, game:'jump-duck',
+        mode: state.mode, diff: state.diffKey,
         event_type: 'miss',
         required_action: obs.need,
         obstacle_type: obs.type,
         action: lastAction ? lastAction.type : '',
+        input_source: lastAction ? (lastAction.source||'') : '',
         rt_ms: '',
         time_ms: Math.round(state.elapsedMs),
         combo_after: state.combo,
         score_after: Math.round(state.score),
         stability_after_pct: +state.stability.toFixed(1),
-        participant_id: state.participant?.id || '',
-        group: state.participant?.group || '',
-        note: state.participant?.note || '',
-        seed: HHA_CTX.seed || '',
-        studyId: HHA_CTX.studyId || '',
-        phase: HHA_CTX.phase || '',
-        conditionGroup: HHA_CTX.conditionGroup || ''
+        fever_after: +state.fever.toFixed(1),
+        boss_hp_after: state.boss ? state.boss.hp : ''
       });
 
       obs.element && obs.element.remove();
@@ -1004,80 +1126,101 @@ function updateObstacles(dt, now, phase, progress){
 }
 
 /* -------------------------
-   Input (PC/Mobile/tap + VRUI shoot) — ✅ FIX “กดไม่ได้”
+   Loop
 ------------------------- */
-function triggerAction(type){
-  if (!state || !running) return;
-  const now = performance.now();
-  lastAction = { type, time: now };
+function loop(ts){
+  if (!running || !state) return;
 
-  if (elAvatar){
-    elAvatar.classList.remove('jump','duck');
-    elAvatar.classList.add(type);
-    setTimeout(()=> elAvatar?.classList.remove(type), 180);
+  // Slowmo scale (B)
+  const slow = (state.slowmoUntil && ts < state.slowmoUntil) ? HYPE.slowmoScale : 1.0;
+
+  const rawDt = ts - (lastFrame||ts);
+  const dt = rawDt * slow;
+  lastFrame = ts;
+
+  state.elapsedMs = ts - state.startTime;
+  state.remainingMs = Math.max(0, state.durationMs - state.elapsedMs);
+
+  const progress = Math.min(1, state.elapsedMs / state.durationMs);
+  const phase = getPhase(progress);
+
+  elHudTime && (elHudTime.textContent = (state.remainingMs/1000).toFixed(1));
+
+  // Motion tick
+  motionUpdate(ts);
+
+  // Fever tick (B)
+  feverTick(dt);
+
+  // A) enter boss at phase3 start
+  if (phase === 3 && !state.boss){
+    const hp = bossHpForDiff(state.diffKey);
+    state.boss = {
+      hpStart: hp,
+      hp: hp,
+      defeated: false,
+      startAt: ts,
+      inStorm: false,
+      warned: false
+    };
+    showJudge('👑 BOSS PHASE!!', 'combo');
   }
-}
+  // boss pattern update
+  if (phase === 3 && state.boss && !state.boss.defeated){
+    bossPhaseUpdate(ts);
+  }
 
-function handleKeyDown(ev){
-  if (!running) return;
-  if (ev.code === 'ArrowUp' || ev.code === 'KeyW'){ ev.preventDefault(); triggerAction('jump'); }
-  else if (ev.code === 'ArrowDown' || ev.code === 'KeyS'){ ev.preventDefault(); triggerAction('duck'); }
-}
+  if (state.elapsedMs >= state.durationMs){
+    endGame('timeup');
+    return;
+  }
 
-function handlePointerDown(ev){
-  if (!running || !elPlayArea) return;
+  // Spawn scheduling
+  while (ts >= state.nextSpawnAt){
+    spawnObstacle(ts, phase);
 
-  // ✅ กันโดน element อื่นทับ: บังคับให้ใช้ playArea rect
-  ev.preventDefault();
-  ev.stopPropagation();
+    let interval = state.cfg0.spawnMs;
 
-  const rect = elPlayArea.getBoundingClientRect();
-  const y = ev.clientY;
-  const mid = rect.top + rect.height/2;
-  if (y < mid) triggerAction('jump');
-  else triggerAction('duck');
-}
+    // training ramp
+    if (state.mode === 'training'){
+      const factor = 1 - 0.30*progress;
+      interval = interval * Math.max(0.58, factor);
+      interval = AI.adjustSpawnInterval(interval, phase, state.mode);
+    }
 
-function onHhaShoot(ev){
-  if (!running || !elPlayArea) return;
-  const d = ev?.detail || {};
-  const rect = elPlayArea.getBoundingClientRect();
-  const y = Number.isFinite(d.y) ? d.y : (rect.top + rect.height/2);
-  const mid = rect.top + rect.height/2;
-  if (y < mid) triggerAction('jump');
-  else triggerAction('duck');
-}
+    // boss storm density (A)
+    interval *= bossSpawnMultiplier();
 
-/* -------------------------
-   Gamepad
-------------------------- */
-let gpPrev = { up:false, down:false, a:false, b:false };
-function pollGamepad(){
-  if (!running) return;
-  const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-  const gp = gps && gps[0];
-  if (!gp || !gp.buttons) return;
+    // fever makes it spicy but fair (B)
+    if (state.feverOn) interval *= 0.92;
 
-  const up   = !!gp.buttons[12]?.pressed;
-  const down = !!gp.buttons[13]?.pressed;
-  const a    = !!gp.buttons[0]?.pressed;
-  const b    = !!gp.buttons[1]?.pressed;
+    state.nextSpawnAt += interval;
+  }
 
-  if (up && !gpPrev.up) triggerAction('jump');
-  if (down && !gpPrev.down) triggerAction('duck');
-  if (a && !gpPrev.a) triggerAction('jump');
-  if (b && !gpPrev.b) triggerAction('duck');
+  // Update obstacles
+  updateObstacles(dt, ts, phase, progress);
 
-  gpPrev = { up, down, a, b };
+  // HUD
+  elHudStab && (elHudStab.textContent = state.stability.toFixed(1)+'%');
+  elHudObs && (elHudObs.textContent = `${state.hits} / ${state.obstaclesSpawned}`);
+  elHudScore && (elHudScore.textContent = String(Math.round(state.score)));
+  elHudCombo && (elHudCombo.textContent = String(state.combo));
+
+  // micro-tip
+  const tip = AI.getHint();
+  if (tip && phase === 2 && (state.elapsedMs % 7000 < 30)){
+    showJudge(tip, 'combo');
+  }
+
+  rafId = requestAnimationFrame(loop);
 }
 
 /* -------------------------
-   Init
+   Init + hooks
 ------------------------- */
 async function initJD(){
   setHubLinks();
 
-  // prefill menu from URL
   if (HHA_CTX.mode && elMode) elMode.value = HHA_CTX.mode;
   if (HHA_CTX.diff && elDiff) elDiff.value = HHA_CTX.diff;
   if (HHA_CTX.duration && elDuration) elDuration.value = String(HHA_CTX.duration);
@@ -1089,25 +1232,17 @@ async function initJD(){
   elMode?.addEventListener('change', updateResearchVisibility);
   updateResearchVisibility();
 
-  // motion UI
+  // motion ui
   elMotionOpt?.addEventListener('change', setMotionUI);
   setMotionUI();
 
   elMotionEnable?.addEventListener('click', async ()=>{
     const ok = await requestMotionPermissionIfNeeded();
-    if (ok){
-      showJudge('Motion READY ✅', 'ok');
-      setMotionUI();
-    }else{
-      showJudge('Motion ไม่พร้อม ❌', 'miss');
-      setMotionUI();
-    }
-  });
-
-  elMotionCalib?.addEventListener('click', ()=>{
-    motionCalibrate();
+    if (ok){ showJudge('Motion READY ✅', 'ok'); }
+    else { showJudge('Motion ไม่พร้อม ❌', 'miss'); }
     setMotionUI();
   });
+  elMotionCalib?.addEventListener('click', ()=>{ motionCalibrate(); setMotionUI(); });
 
   $('[data-action="start"]')?.addEventListener('click', startGameFromMenu);
   $('[data-action="tutorial"]')?.addEventListener('click', startTutorial);
@@ -1116,45 +1251,30 @@ async function initJD(){
   $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click', ()=> showView('menu')));
 
   // actionbar
-  $('[data-action="jump"]')?.addEventListener('click', ()=> triggerAction('jump'));
-  $('[data-action="duck"]')?.addEventListener('click', ()=> triggerAction('duck'));
+  $('[data-action="jump"]')?.addEventListener('click', ()=> triggerAction('jump', {source:'btn'}));
+  $('[data-action="duck"]')?.addEventListener('click', ()=> triggerAction('duck', {source:'btn'}));
 
   window.addEventListener('keydown', handleKeyDown, {passive:false});
-
-  // ✅ IMPORTANT: pointerdown capture เพื่อ “กดได้แน่นอน”
   elPlayArea?.addEventListener('pointerdown', handlePointerDown, {passive:false, capture:true});
 
-  // VR UI integration
   await ensureVrUi();
   window.addEventListener('hha:shoot', onHhaShoot);
 
-  // flush hardened hooks
+  // flush hardened
   window.addEventListener('pagehide', ()=> flushLog('pagehide'));
   document.addEventListener('visibilitychange', ()=>{
     if (document.visibilityState === 'hidden') flushLog('visibility:hidden');
   });
 
-  // tick gamepad inside RAF (cheap)
-  const _gpTick = ()=>{
-    if (running) pollGamepad();
-    requestAnimationFrame(_gpTick);
-  };
-  requestAnimationFrame(_gpTick);
-
   showView('menu');
 }
 
-// export
+// exports
 window.JD_EXPORT = {
   getState(){ return state ? JSON.parse(JSON.stringify(state)) : null; },
   getSummary(){ return buildSummary(); },
-  getEventsCsv(){
-    return state?.events ? toCsv(state.events) : '';
-  },
-  getSessionCsv(){
-    const s = buildSummary();
-    return s ? toCsv([s]) : '';
-  }
+  getEventsCsv(){ return state?.events ? toCsv(state.events) : ''; },
+  getSessionCsv(){ const s = buildSummary(); return s ? toCsv([s]) : ''; }
 };
 
 window.addEventListener('DOMContentLoaded', initJD);
