@@ -3,6 +3,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 ✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
 ✅ Engine: hydration.safe.js (ESM)
 ✅ Layers: #playfield + #hydration-layer
+✅ PATCH: tap-anywhere start actually starts (dispatch hha:start)
 -->
 <!doctype html>
 <html lang="th">
@@ -35,7 +36,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       pointer-events:auto;
     }
 
-    /* HUD */
     .hud{
       position:absolute; left:0; right:0; top:0;
       display:flex; gap:10px; flex-wrap:wrap;
@@ -73,7 +73,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     }
     .bar > i{ display:block; height:100%; width:50%; background:rgba(34,197,94,.55); }
 
-    /* Quest box */
     .quest{
       position:absolute;
       left: 10px;
@@ -89,7 +88,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .q1{ font-weight:900; }
     .q2,.q3,.q4{ color:rgba(148,163,184,.95); font-size:12px; margin-top:4px; white-space:pre-line; }
 
-    /* Start overlay */
     #startOverlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -116,7 +114,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .btn.primary{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.16); }
     .btn.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.14); }
 
-    /* Result overlay */
     #resultBackdrop{
       position:fixed; inset:0;
       background: rgba(2,6,23,.72);
@@ -137,13 +134,11 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .k{ color:rgba(148,163,184,.95); font-size:12px; }
     .v{ font-weight:900; font-size:16px; margin-top:4px; }
 
-    /* FX classes */
     body.hha-bossfx::after{
       content:""; position:fixed; inset:-80px;
       background: radial-gradient(circle at 40% 30%, rgba(34,211,238,.12), transparent 58%),
                   radial-gradient(circle at 70% 70%, rgba(168,85,247,.10), transparent 60%);
       pointer-events:none;
-      filter: blur(0px);
       z-index: 2;
       opacity: .9;
     }
@@ -156,7 +151,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       opacity: .9;
     }
 
-    /* Shock FX placeholder (engine injects .hha-shock) */
     .hha-shock{
       position:absolute;
       left: var(--x); top: var(--y);
@@ -164,7 +158,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       border-radius: 999px;
       background: rgba(34,211,238,.9);
       transform: translate(-50%,-50%);
-      filter: blur(.2px);
       animation: shock .65s ease-out forwards;
       pointer-events:none;
       z-index: 999;
@@ -173,7 +166,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       0%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
       100%{ opacity:0; transform:translate(-50%,-50%) scale(9); }
     }
-
     @media (max-width:520px){
       .grid{ grid-template-columns: 1fr; }
       .card{ min-width: unset; }
@@ -217,7 +209,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- START -->
   <div id="startOverlay">
     <div id="startCard">
       <div style="display:flex;gap:10px;align-items:center;">
@@ -225,7 +216,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
         <div>
           <div style="font-weight:900;font-size:16px;">Hydration VR</div>
           <div style="color:rgba(148,163,184,.95);font-size:12px;line-height:1.35;margin-top:4px;">
-            แตะ “เริ่มเล่น” เพื่อเข้าเกม (ถ้าเป็น VR กด ENTER VR ได้จากปุ่มด้านบน)
+            แตะ “เริ่มเล่น” หรือแตะตรงไหนก็ได้เพื่อเข้าเกม (VR ใช้ ENTER VR จากปุ่มด้านบน)
           </div>
         </div>
       </div>
@@ -236,7 +227,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- RESULT -->
   <div id="resultBackdrop" hidden>
     <div id="resultCard">
       <div style="font-weight:900;font-size:16px;">สรุปผล</div>
@@ -266,33 +256,45 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   </div>
 
   <script>
-    // view + layers default (engine reads HHA_VIEW.layers)
     window.HHA_VIEW = window.HHA_VIEW || { layers:['hydration-layer'] };
 
-    // start overlay -> emit hha:start (engine listens)
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
       const hub = String(qs('hub','../hub.html'));
+
+      const ov = document.getElementById('startOverlay');
+      const btnStart = document.getElementById('btnStart');
+
+      const startNow = ()=>{
+        if(ov) ov.hidden = true;
+
+        // ส่ง detail มาตรฐาน (engine จริงอ่านจาก query แต่ส่งไว้ก็ไม่เสีย)
+        const u = new URL(location.href);
+        const runMode = String(u.searchParams.get('run') || 'play').toLowerCase()==='research' ? 'research' : 'play';
+        const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
+        const timePlannedSec = Number(u.searchParams.get('time') || 70) || 70;
+        const seed = Number(u.searchParams.get('seed') || 0) || 0;
+
+        window.dispatchEvent(new CustomEvent('hha:start', { detail:{
+          game:'hydration', runMode, diff, timePlannedSec, seed
+        }}));
+      };
+
       document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
       document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', ()=> location.href = hub));
-      document.getElementById('btnStart')?.addEventListener('click', ()=>{
-        const ov = document.getElementById('startOverlay');
-        if(ov) ov.hidden = true;
-        window.dispatchEvent(new CustomEvent('hha:start', { detail:{game:'hydration'} }));
-      });
-      // allow tap anywhere to start (mobile friendly)
-      document.getElementById('startOverlay')?.addEventListener('pointerdown', (e)=>{
+
+      btnStart?.addEventListener('click', startNow);
+
+      // ✅ tap anywhere on overlay = start (ยกเว้นปุ่ม HUB)
+      ov?.addEventListener('pointerdown', (e)=>{
         const id = e.target && e.target.id;
-        if(id==='btnBackHub') return;
-        if(id==='btnStart') return;
+        if (id === 'btnBackHub') return;
+        startNow();
       }, {passive:true});
     })();
   </script>
 
-  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js"></script>
-
-  <!-- Engine -->
   <script type="module">
     import './hydration.safe.js';
   </script>
