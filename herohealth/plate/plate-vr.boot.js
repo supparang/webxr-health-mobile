@@ -1,13 +1,14 @@
 // === /herohealth/plate/plate.boot.js ===
 // PlateVR Boot — PRODUCTION (HARDENED)
-// ✅ Auto view detect (no UI override)
+// ✅ Auto view detect (no menu; allow ?view= for experiments)
 // ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD (hha:score, hha:time, quest:update, hha:coach, hha:end)
-// ✅ End overlay: aria-hidden only
+// ✅ Wires HUD: hha:score, hha:time, quest:update
+// ✅ Coach: hha:coach
+// ✅ Judge: hha:judge => Miss breakdown (junk / expire_good)
+// ✅ End overlay: hha:end (supports NEW schema + legacy keys)
 // ✅ Back HUB + Restart
-// ✅ Pass-through research context params (run/diff/time/seed/studyId/...)
-// ✅ HARDEN: guard against "start freeze" + robust mount check + visible error
-// ✅ PATCH: Miss breakdown (junk vs timeout) from hha:judge stream
+// ✅ Pass-through research ctx params (run/diff/time/seed/studyId/...)
+// ✅ HARDEN: visible fatal overlay + mount size wait + catch boot errors
 
 'use strict';
 
@@ -21,6 +22,17 @@ const qs = (k, def=null)=>{
   catch { return def; }
 };
 
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
+}
+
+function pct(n){
+  n = Number(n);
+  if(!isFinite(n)) return '—';
+  return `${Math.round(n)}%`;
+}
+
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
@@ -28,7 +40,7 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow query param for experiments; otherwise auto.
+  // Allow forcing for experiments: ?view=pc/mobile/vr/cvr
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -43,21 +55,50 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n)||0;
-  return `${Math.round(n)}%`;
-}
-
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
+
+function ensureFatalBox(){
+  let box = DOC.getElementById('plateFatal');
+  if(box) return box;
+  box = DOC.createElement('div');
+  box.id = 'plateFatal';
+  box.style.position = 'fixed';
+  box.style.inset = '12px';
+  box.style.zIndex = '9999';
+  box.style.padding = '12px';
+  box.style.borderRadius = '14px';
+  box.style.background = 'rgba(2,6,23,.92)';
+  box.style.border = '1px solid rgba(239,68,68,.35)';
+  box.style.color = '#e5e7eb';
+  box.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  box.style.whiteSpace = 'pre-wrap';
+  box.style.display = 'none';
+  DOC.body.appendChild(box);
+  return box;
+}
+
+function fatal(msg, err){
+  console.error('[PlateVR] FATAL', msg, err || '');
+  const box = ensureFatalBox();
+  box.textContent =
+    'PLATEVR ERROR\n' +
+    '-------------------------\n' +
+    String(msg || 'Unknown error') +
+    (err ? '\n\n' + (err.stack || err.message || String(err)) : '') +
+    '\n\nTip: เปิด DevTools Console เพื่อดูรายละเอียด';
+  box.style.display = 'block';
+}
+
+WIN.addEventListener('error', (e)=>{
+  fatal((e && e.message) ? e.message : 'JS Error', e?.error || e);
+});
+WIN.addEventListener('unhandledrejection', (e)=>{
+  fatal('Promise Rejection', e?.reason || e);
+});
 
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
@@ -66,7 +107,8 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = meta;
+  if(metaEl) metaEl.textContent = String(meta || 'Coach');
+
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -77,32 +119,20 @@ function showCoach(msg, meta='Coach'){
   }, 2400);
 }
 
-/* ------------------------------------------------
- * Miss breakdown (reset per run)
- * ------------------------------------------------ */
+/* ----------------------------
+   Miss breakdown (from judge)
+---------------------------- */
 const MISS = {
   junk: 0,
-  timeout: 0,
-  // (optional future) shot:0
+  expire: 0,
+  // keep last summary too (for debug)
+  last: null
 };
 
-function resetMissBreakdown(){
+function resetMiss(){
   MISS.junk = 0;
-  MISS.timeout = 0;
-  // MISS.shot = 0;
-}
-
-function wireMissStream(){
-  // Count from judge stream so it's "what happened", not just final number.
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    if(kind === 'junk'){
-      MISS.junk++;
-    }else if(kind === 'expire_good'){
-      MISS.timeout++;
-    }
-  });
+  MISS.expire = 0;
+  MISS.last = null;
 }
 
 function wireHUD(){
@@ -158,6 +188,17 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
+
+  // ✅ Miss breakdown source of truth
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind || '').toLowerCase();
+    if(kind === 'junk'){
+      MISS.junk++;
+    }else if(kind === 'expire_good'){
+      MISS.expire++;
+    }
+  });
 }
 
 function wireEndControls(){
@@ -186,35 +227,40 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
-  // breakdown nodes (optional in HTML but we support if present)
-  const kMissJunk    = DOC.getElementById('kMissJunk');
-  const kMissTimeout = DOC.getElementById('kMissTimeout');
-  const kGrade       = DOC.getElementById('kGrade');
+  // ✅ optional breakdown fields (only if you add them in HTML)
+  const kMissJunk   = DOC.getElementById('kMissJunk');
+  const kMissExpire = DOC.getElementById('kMissExpire');
+  const kGrade      = DOC.getElementById('kGrade'); // optional
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+    MISS.last = d;
 
-    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
-    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
+    // New schema preferred:
+    // scoreFinal, comboMax, miss, accuracyPct, grade, timePlannedSec
+    // Legacy fallback:
+    // scoreFinal/score, comboMax/combo, misses/miss, accuracyGoodPct, durationPlannedSec
 
-    // ✅ total miss from engine (source of truth)
-    const missTotal = (d.miss ?? d.misses ?? d.missTotal ?? 0);
-    if(kMiss)  kMiss.textContent  = String(missTotal);
+    const score = (d.scoreFinal ?? d.score ?? 0);
+    const combo = (d.comboMax ?? d.combo ?? 0);
+    const miss  = (d.miss ?? d.misses ?? 0);
 
-    // accuracy
     const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
-    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
+    const grade = (d.grade ?? '');
 
-    // quests
+    if(kScore) kScore.textContent = String(score);
+    if(kCombo) kCombo.textContent = String(combo);
+    if(kMiss)  kMiss.textContent  = String(miss);
+    if(kAcc)   kAcc.textContent   = (acc==null) ? '—' : pct(acc);
+
+    if(kGrade && grade) kGrade.textContent = String(grade);
+
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // ✅ breakdown from judge stream
-    if(kMissJunk)    kMissJunk.textContent    = String(MISS.junk|0);
-    if(kMissTimeout) kMissTimeout.textContent = String(MISS.timeout|0);
-
-    // grade if provided
-    if(kGrade) kGrade.textContent = String(d.grade || '—');
+    // ✅ breakdown from judge stream (more “felt” accurate)
+    if(kMissJunk)   kMissJunk.textContent   = String(MISS.junk);
+    if(kMissExpire) kMissExpire.textContent = String(MISS.expire);
 
     setOverlayOpen(true);
   });
@@ -256,39 +302,58 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-ready(()=>{
-  // 0) reset per-run counters
-  resetMissBreakdown();
+/* ----------------------------
+   Harden: wait mount has size
+---------------------------- */
+function waitForMountReady(mount, timeoutMs=1200){
+  const t0 = performance.now();
+  return new Promise((resolve, reject)=>{
+    const tick = ()=>{
+      const r = mount.getBoundingClientRect();
+      if(r.width >= 60 && r.height >= 60) return resolve(r);
+      if(performance.now() - t0 > timeoutMs) return reject(new Error('mount has no size'));
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
 
+ready(async ()=>{
   // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
   // 2) wire UI first (so errors are visible)
+  resetMiss();
   wireHUD();
-  wireMissStream();
   wireEndControls();
   wireEndSummary();
 
   // 3) ensure overlay closed at start
   setOverlayOpen(false);
 
-  // 4) mount check (prevents "clicked start but nothing spawned")
+  // 4) mount check
   const mount = DOC.getElementById('plate-layer');
   if(!mount){
-    console.error('[PlateVR] mount #plate-layer missing');
+    fatal('หา playfield ไม่เจอ (#plate-layer)');
     showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
     return;
   }
 
-  // 5) boot engine with hard guard
+  // 5) ensure mount has size (prevents “เริ่มแล้วนิ่ง” จาก layout ยังไม่ settle)
   try{
-    // microtask yield helps some mobile browsers settle layout
-    Promise.resolve().then(()=>{
-      engineBoot({ mount, cfg });
-    });
+    await waitForMountReady(mount, 1400);
   }catch(err){
-    console.error('[PlateVR] boot error', err);
+    console.warn('[PlateVR] mount size not ready; continuing anyway', err);
+  }
+
+  // 6) boot engine with guard
+  try{
+    // microtask yield helps some mobile browsers settle CSS vars before computeSpawnRect()
+    await Promise.resolve();
+    engineBoot({ mount, cfg });
+  }catch(err){
+    fatal('เกิดข้อผิดพลาดตอนเริ่มเกม', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
   }
 });
