@@ -1,25 +1,19 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.3-std+PATCH1 (Boss+Progress+Missions+End Summary + HISTORY)
+// GoodJunkVR SAFE — v4.2 + AI PACK 1–4 PATCH (Predict/ML/DL-ready/Pattern)
 // ✅ FIX: target position uses LAYER rect (no more top-left bug)
 // ✅ FIX: force position:absolute in JS (robust even if CSS delayed)
 // ✅ FIX: cVR spawns paired targets (left+right) with same uid, counted once
 // ✅ FIX: onShoot uses ev.detail.x/y when provided
-// ✅ AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
-// ✅ Never crash if AI missing (stub getDifficulty/getTip/onEvent)
+// ✅ AI hooks compat (window.HHA.AIHooks.create OR window.HHA.createAIHooks)
+// ✅ PATCH(AI 1–4): spawn uid events + hit uid events + getDifficulty(ctx) + expireGood event
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
-// ✅ PATCH: Standardize hha:end summary + save HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY + legacy keys
-// ✅ PATCH1: Safe rect INSIDE layer (do NOT subtract --gj-top-safe/--gj-bottom-safe again) + soft top clamp
-
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
-import { awardBadge, getPid } from '../badges.safe.js';
+import { awardBadge, hasBadge, getPid } from '../badges.safe.js';
 
 const WIN = window;
 const DOC = document;
-
-const LS_LAST = 'HHA_LAST_SUMMARY';
-const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
@@ -27,22 +21,6 @@ const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }ca
 
 function nowMs(){
   try{ return (performance && performance.now) ? performance.now() : Date.now(); }catch(_){ return Date.now(); }
-}
-
-function saveLastAndHistory(summary){
-  try{
-    localStorage.setItem(LS_LAST, JSON.stringify(summary));
-    const hist = JSON.parse(localStorage.getItem(LS_HIST) || '[]');
-    hist.unshift({
-      ts: summary.ts || Date.now(),
-      game: summary.game || 'goodjunk',
-      score: summary.scoreFinal ?? summary.score ?? 0,
-      grade: summary.grade || '',
-      diff: summary.diff || '',
-      run: summary.runMode || ''
-    });
-    localStorage.setItem(LS_HIST, JSON.stringify(hist.slice(0, 50)));
-  }catch(_){}
 }
 
 function makeRNG(seed){
@@ -92,24 +70,22 @@ function cssPx(varName, fallback){
   }
 }
 
-/** ✅ PATCH1: Safe rect INSIDE layer (do NOT subtract --gj-top-safe/--gj-bottom-safe again)
-    เพราะ CSS ทำ layer ให้เป็น safe-area แล้ว:
-    #gj-layer { top: var(--gj-top-safe); bottom: var(--gj-bottom-safe); ... }
-*/
+/** ✅ Safe rect relative to a specific layer element */
 function getSafeRectForLayer(layerEl){
   const r = layerEl.getBoundingClientRect();
+  const topSafe = cssPx('--gj-top-safe', 90);
+  const botSafe = cssPx('--gj-bottom-safe', 95);
 
-  // padding ภายใน layer กันเป้าชนขอบเล็กน้อย
+  // safe padding inside layer
   const padX = 14;
-  const padY = 10;
 
+  // coordinates are RELATIVE TO layer (not viewport)
   const x = padX;
-  const y = padY;
+  const y = Math.max(8, topSafe); // keep away from HUD
+  const w = Math.max(140, r.width - padX*2);
+  const h = Math.max(190, r.height - y - botSafe);
 
-  const w = Math.max(160, r.width  - padX*2);
-  const h = Math.max(220, r.height - padY*2);
-
-  return { x, y, w, h, rect:r };
+  return { x,y,w,h, rect:r };
 }
 
 /** ยิงจากจุด (x,y) viewport แล้ว pick target ที่ใกล้สุดใน lockPx */
@@ -182,25 +158,11 @@ function makeAI(opts){
   ai = ai || {};
   if(typeof ai.onEvent !== 'function') ai.onEvent = ()=>{};
   if(typeof ai.getTip !== 'function') ai.getTip = ()=>null;
+  // allow 3rd arg ctx (ignored safely if AI doesn't use it)
   if(typeof ai.getDifficulty !== 'function') ai.getDifficulty = (_sec, base)=>Object.assign({}, base||{});
   if(typeof ai.enabled !== 'boolean') ai.enabled = false;
 
   return ai;
-}
-
-function gradeFrom(score, accPct, miss){
-  if(score >= 260 && accPct >= 90 && miss <= 2) return 'S';
-  if(score >= 190 && accPct >= 85) return 'A';
-  if(score >= 125 && accPct >= 75) return 'B';
-  if(score >= 70) return 'C';
-  return 'D';
-}
-function tierFrom(grade){
-  return (grade === 'S') ? '🏆 Master'
-    : (grade === 'A') ? '🔥 Elite'
-    : (grade === 'B') ? '⚡ Skilled'
-    : (grade === 'C') ? '✅ Ok'
-    : '🧊 Warm-up';
 }
 
 export function boot(opts={}){
@@ -230,8 +192,10 @@ export function boot(opts={}){
   const elLowOverlay = DOC.getElementById('lowTimeOverlay');
   const elLowNum = DOC.getElementById('gj-lowtime-num');
 
+  // ✅ progress
   const elProgFill = DOC.getElementById('gjProgressFill');
 
+  // ✅ boss UI (optional in HTML; safe if missing)
   const elBossBar  = DOC.getElementById('bossBar');
   const elBossFill = DOC.getElementById('bossFill');
   const elBossHint = DOC.getElementById('bossHint');
@@ -241,6 +205,7 @@ export function boot(opts={}){
 
   const rng = makeRNG(seed);
 
+  // map uid -> { els:[...], alive:boolean, kind:string, groupId:number|null }
   const Pair = new Map();
   let uidSeq = 1;
 
@@ -274,6 +239,7 @@ export function boot(opts={}){
       cleared: false
     },
 
+    // BADGES runtime flags
     badge_streak10:false,
     badge_mini:false,
     badge_boss:false
@@ -294,10 +260,18 @@ export function boot(opts={}){
     elShield.textContent = (S.shield>0) ? `x${S.shield}` : '—';
   }
 
+  function gradeNow(){
+    if(S.score >= 190 && S.miss <= 3) return 'A';
+    if(S.score >= 125 && S.miss <= 6) return 'B';
+    if(S.score >= 70) return 'C';
+    return 'D';
+  }
+
   function setHUD(){
     if(elScore) elScore.textContent = String(S.score);
     if(elTime)  elTime.textContent  = String(Math.ceil(S.timeLeft));
     if(elMiss)  elMiss.textContent  = String(S.miss);
+    if(elGrade) elGrade.textContent = gradeNow();
     setShieldUI();
     emit('hha:score',{ score:S.score });
   }
@@ -307,6 +281,8 @@ export function boot(opts={}){
     if(S.score<0) S.score = 0;
   }
 
+  // --- quests ---
+  function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
   function resetMiniWindow(){
     S.mini.windowStartAt = nowMs();
     S.mini.groups.clear();
@@ -314,7 +290,7 @@ export function boot(opts={}){
   }
 
   function updateQuestUI(){
-    const g = S.goals[S.goalIndex] || S.goals[0];
+    const g = currentGoal();
     if(elGoalName) elGoalName.textContent = g?.name || '—';
     if(elGoalDesc) elGoalDesc.textContent = g?.desc || '—';
 
@@ -357,7 +333,7 @@ export function boot(opts={}){
   }
 
   function advanceGoalIfDone(){
-    const g = S.goals[S.goalIndex] || S.goals[0];
+    const g = currentGoal();
     let done = false;
     if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
@@ -366,7 +342,7 @@ export function boot(opts={}){
       const prev = S.goalIndex;
       S.goalIndex = Math.min(S.goals.length - 1, S.goals.length>0 ? (S.goalIndex + 1) : 0);
       if(S.goalIndex !== prev){
-        emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${(S.goals[S.goalIndex]||{}).name||'—'}`, tag:'Coach' });
+        emit('hha:coach', { msg:`GOAL ผ่านแล้ว ✅ ไปต่อ: ${currentGoal().name}`, tag:'Coach' });
       }
     }
   }
@@ -382,6 +358,7 @@ export function boot(opts={}){
       if(S.mini.groups.size >= tar){
         S.mini.done = true;
 
+        // BADGE: mini_clear_1 (once per run)
         if(!S.badge_mini){
           S.badge_mini = true;
           awardOnce('goodjunk','mini_clear_1',{
@@ -409,6 +386,7 @@ export function boot(opts={}){
     }
   }
 
+  // --- low time overlay ---
   function updateLowTime(){
     if(!elLowOverlay || !elLowNum) return;
     const t = Math.ceil(S.timeLeft);
@@ -420,6 +398,7 @@ export function boot(opts={}){
     }
   }
 
+  // --- progress ---
   function updateProgress(){
     if(!elProgFill) return;
     const played = clamp(S.timePlan - S.timeLeft, 0, S.timePlan);
@@ -427,10 +406,11 @@ export function boot(opts={}){
     elProgFill.style.width = `${Math.round(p*100)}%`;
   }
 
+  // --- boss ui ---
   function setBossUI(active){
     if(!elBossBar) return;
     elBossBar.setAttribute('aria-hidden', active ? 'false' : 'true');
-    emit('gj:measureSafe', {});
+    emit('gj:measureSafe', {}); // boot will remeasure now
   }
   function updateBossUI(){
     if(!elBossFill) return;
@@ -462,6 +442,7 @@ export function boot(opts={}){
     setBossUI(false);
 
     if(success){
+      // BADGE: boss_clear_1
       if(!S.badge_boss){
         S.badge_boss = true;
         awardOnce('goodjunk','boss_clear_1', {
@@ -486,6 +467,7 @@ export function boot(opts={}){
     setHUD();
   }
 
+  // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
     const tNow = nowMs();
@@ -495,6 +477,7 @@ export function boot(opts={}){
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
 
+      // BADGE: streak_10
       if(!S.badge_streak10 && S.combo >= 10){
         S.badge_streak10 = true;
         awardOnce('goodjunk','streak_10',{
@@ -509,7 +492,9 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      if(aiOn) AI.onEvent('hitGood', { t:tNow });
+
+      // keep legacy AI signals (still ok)
+      if(aiOn) AI.onEvent('hitGood', { t:tNow, combo:S.combo|0 });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -529,7 +514,8 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
+
+        if(aiOn) AI.onEvent('hitJunk', { t:tNow, combo:S.combo|0 });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -543,12 +529,16 @@ export function boot(opts={}){
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
+
+      if(aiOn) AI.onEvent('star', { t:tNow, combo:S.combo|0 });
     }
     else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
+
+      if(aiOn) AI.onEvent('shield', { t:tNow, combo:S.combo|0 });
     }
 
     if(aiOn){
@@ -562,6 +552,7 @@ export function boot(opts={}){
     advanceGoalIfDone();
   }
 
+  /** ลบ/ฆ่าเป้าแบบ uid (รองรับ cVR pair) */
   function killUid(uid){
     const p = Pair.get(uid);
     if(!p || !p.alive) return;
@@ -572,11 +563,13 @@ export function boot(opts={}){
     Pair.delete(uid);
   }
 
+  /** สร้าง element target (ใช้ได้ทั้ง L/R) */
   function makeTargetEl(kind, obj, sizePx){
     const t = DOC.createElement('div');
     t.className = 'gj-target spawn';
     t.dataset.kind = kind;
 
+    // ✅ robustness even if CSS delayed
     t.style.position = 'absolute';
     t.style.lineHeight = '1';
     t.style.willChange = 'transform,left,top';
@@ -591,6 +584,7 @@ export function boot(opts={}){
     return t;
   }
 
+  /** spawn หนึ่งเป้า (ใน PC/mobile = 1 element, ใน cVR = 2 elements UID เดียว) */
   function spawn(kind){
     if(S.ended) return;
     if(!layerL) return;
@@ -604,13 +598,10 @@ export function boot(opts={}){
 
     const uid = String(uidSeq++);
 
-    // ✅ PATCH1: pick inside layer safe rect (layer already excludes HUD-safe via CSS)
+    // เลือกตำแหน่งจาก layerL เสมอ แล้ว map ไป layerR (ให้เหมือนกันทั้งสองตา)
     const safeL = getSafeRectForLayer(layerL);
     const xL = safeL.x + S.rng()*safeL.w;
-
-    // ✅ soft top clamp: กันอัดแน่นใกล้ขอบบนของ layer (มือถือจอเตี้ย)
-    const topBias = 6; // 0-14 ได้
-    const yL = safeL.y + topBias + S.rng()*(Math.max(10, safeL.h - topBias));
+    const yL = safeL.y + S.rng()*safeL.h;
 
     const elL = makeTargetEl(kind, obj, size);
     elL.dataset.uid = uid;
@@ -622,9 +613,10 @@ export function boot(opts={}){
 
     if(isCVR){
       const safeR = getSafeRectForLayer(layerR);
+      // scale x to right layer width (in case widths differ a bit)
       const xRatio = safeR.w / Math.max(1, safeL.w);
       const xR = safeR.x + (xL - safeL.x) * xRatio;
-      const yR = yL;
+      const yR = yL; // same y
 
       const elR = makeTargetEl(kind, obj, size);
       elR.dataset.uid = uid;
@@ -634,6 +626,19 @@ export function boot(opts={}){
     }
 
     Pair.set(uid, { els, alive:true, kind, groupId: obj.groupId });
+
+    // ✅ AI PATCH 1: notify spawn (for RT proxy + DL stream)
+    if(aiOn){
+      try{
+        AI.onEvent('spawn', {
+          uid,
+          kind,
+          groupId: obj.groupId || null,
+          bossActive: !!(S.boss && S.boss.active),
+          t: nowMs()
+        });
+      }catch(_){}
+    }
 
     function hitThis(){
       const p = Pair.get(uid);
@@ -656,6 +661,7 @@ export function boot(opts={}){
       const p = Pair.get(uid);
       if(!p || !p.alive || S.ended) return;
 
+      // timeout: only "good" counts as miss on expire (your original rule)
       killUid(uid);
 
       if(kind==='good'){
@@ -664,7 +670,18 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        if(aiOn) AI.onEvent('miss', { t:nowMs() });
+
+        // ✅ AI PATCH 2: expireGood signal
+        if(aiOn){
+          try{
+            AI.onEvent('expireGood', {
+              uid,
+              bossActive: !!(S.boss && S.boss.active),
+              ctx:{ combo:S.combo|0, comboMax:S.comboMax|0, miss:S.miss|0 }
+            });
+            AI.onEvent('miss', { t: nowMs() }); // keep legacy
+          }catch(_){}
+        }
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -682,6 +699,7 @@ export function boot(opts={}){
 
     const lockPx = Number(ev?.detail?.lockPx ?? 28) || 28;
 
+    // ✅ use explicit xy if provided; fallback to center
     let x = Number(ev?.detail?.x);
     let y = Number(ev?.detail?.y);
     if(!Number.isFinite(x) || !Number.isFinite(y)){
@@ -690,7 +708,7 @@ export function boot(opts={}){
       y = r.top  + r.height/2;
     }
 
-    if(aiOn) AI.onEvent('shoot', { t:nowMs() });
+    if(aiOn) AI.onEvent('shoot', { t: nowMs() });
 
     const picked = pickByShootAt(x, y, lockPx);
     if(!picked) return;
@@ -700,9 +718,29 @@ export function boot(opts={}){
     const groupId = picked.dataset.group ? Number(picked.dataset.group) : null;
 
     if(uid){
+      // remove both eyes
       killUid(uid);
     }else{
       try{ picked.remove(); }catch(_){}
+    }
+
+    // ✅ AI PATCH 3: hit events with uid + ctx (for RT proxy / ML profile / pattern)
+    if(aiOn){
+      try{
+        const ctx = {
+          bossActive: !!(S.boss && S.boss.active),
+          combo: S.combo|0,
+          comboMax: S.comboMax|0,
+          miss: S.miss|0,
+          hitGood: S.hitGood|0,
+          hitJunk: S.hitJunk|0,
+          expireGood: S.expireGood|0
+        };
+        if(kind === 'good') AI.onEvent('hitGood', { uid, groupId, combo: S.combo|0, ctx });
+        else if(kind === 'junk') AI.onEvent('hitJunk', { uid, combo: S.combo|0, ctx });
+        else if(kind === 'star') AI.onEvent('star', { uid, ctx });
+        else if(kind === 'shield') AI.onEvent('shield', { uid, ctx });
+      }catch(_){}
     }
 
     if(kind === 'good') onHit('good', { groupId });
@@ -715,12 +753,13 @@ export function boot(opts={}){
 
     if(S.boss.active) endBoss(false);
 
-    // ✅ accuracy (judged only; no double-count)
-    const judged = Math.max(0, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0));
-    const acc = judged ? (S.hitGood / judged) : 0;
-    const accPct = Math.round(acc * 1000) / 10; // 1 decimal
+    const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
 
-    // end badges
+    // --- badges on end (score_80p, perfect_run) ---
+    // accuracy = hitGood / (hitGood + hitJunk + expireGood + miss)
+    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
+    const acc = (S.hitGood|0) / denom;
+
     if(acc >= 0.80){
       awardOnce('goodjunk','score_80p',{
         accuracy: Number(acc.toFixed(4)),
@@ -746,51 +785,28 @@ export function boot(opts={}){
       });
     }
 
-    const playedSec = Math.round(clamp(S.timePlan - S.timeLeft, 0, S.timePlan));
-
-    const grade = gradeFrom(S.score|0, accPct, S.miss|0);
-    const tier = tierFrom(grade);
-
     const summary = {
-      game:'goodjunk',
-      ts: Date.now(),
-      pack:'goodjunk-v4.3-std+patch1',
-
-      reason,
-
+      game:'GoodJunkVR',
+      pack:'fair-v4.2-boss-layout-ai14',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
       seed:S.seed,
-
-      timePlannedSec:S.timePlan,
-      timePlayedSec: playedSec,
-
-      scoreFinal:S.score|0,
+      durationPlannedSec:S.timePlan,
+      durationPlayedSec: Math.round(S.timePlan - S.timeLeft),
+      scoreFinal:S.score,
+      miss:S.miss,
+      comboMax:S.comboMax,
+      hitGood:S.hitGood,
+      hitJunk:S.hitJunk,
+      expireGood:S.expireGood,
+      shieldRemaining:S.shield,
+      bossCleared:S.boss.cleared,
       grade,
-      tier,
-
-      miss:S.miss|0,
-      comboMax:S.comboMax|0,
-
-      accuracyPct: accPct,
-      judgedShots: judged|0,
-
-      hitGood:S.hitGood|0,
-      hitJunk:S.hitJunk|0,
-      expireGood:S.expireGood|0,
-
-      shieldRemaining:S.shield|0,
-      bossCleared: !!S.boss.cleared,
-
-      // ✅ legacy keys (กันของเก่า/หน้า summary เดิม)
-      misses: S.miss|0,
-      durationPlannedSec: S.timePlan,
-      durationPlayedSec: playedSec
+      reason
     };
 
-    saveLastAndHistory(summary);
-
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
     try{
       WIN.removeEventListener('hha:shoot', onShoot);
       WIN.removeEventListener('gj:shoot', onShoot);
@@ -828,7 +844,18 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base)
+    // ✅ AI PATCH 4: pass ctx to getDifficulty (Pattern + Predict + PlayerModel)
+    const ctx = {
+      bossActive: !!(S.boss && S.boss.active),
+      combo: S.combo|0,
+      comboMax: S.comboMax|0,
+      miss: S.miss|0,
+      hitGood: S.hitGood|0,
+      hitJunk: S.hitJunk|0,
+      expireGood: S.expireGood|0
+    };
+
+    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base, ctx)
             : (adaptiveOn ? {
                 spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
                 pGood: base.pGood - Math.min(0.10, played*0.002),
@@ -837,8 +864,9 @@ export function boot(opts={}){
                 pShield: base.pShield
               } : { ...base });
 
+    // normalize
     {
-      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
+      let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
       if(s <= 0) s = 1;
       D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
     }
@@ -875,11 +903,13 @@ export function boot(opts={}){
   updateProgress();
   setBossUI(false);
 
+  // BADGE: first_play
   awardOnce('goodjunk','first_play',{});
 
+  // listen both shoot events
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
   WIN.addEventListener('gj:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'goodjunk', pack:'goodjunk-v4.3-std+patch1', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.2-boss-layout-ai14', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
