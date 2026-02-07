@@ -1,12 +1,14 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v2-test)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH D)
 // ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
-// ✅ FIX 5 (สำคัญ): ลด missTimeout แบบ “ยุติธรรม” (ถ้าเป้าถูก HUD บังตอนหมดอายุ => ไม่คิด MISS)
-// ✅ FIX 5B: กัน missShot พุ่งใน cVR/crosshair (ยิงว่างยังรีเซ็ตคอมโบ+FX แต่ไม่บวก miss)
-// ✅ EXTRA: breakdown counters ใน end summary: missShotCounted/Skipped + missTimeoutCounted/SkippedOccluded
 // ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
+// ✅ FAIR MISS: timeout miss counted only if NOT occluded by HUD + is current group
+// ✅ FAIR SHOT: shot miss DOES NOT inflate MISS (still resets combo + penalty)
+// ✅ AI Director v0 (via /herohealth/vr/ai-hooks.js):
+//    - play: adaptive ON by default (?ai=0 to disable)
+//    - research/practice: OFF deterministic
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 (function(){
   'use strict';
@@ -56,6 +58,8 @@
     return arr[(rng()*arr.length)|0];
   }
 
+  function safeBool(v){ return !!v && v !== '0' && v !== 'false'; }
+
   // ---------------- BADGES (classic bridge) ----------------
   function badgeMeta(extra){
     let pid = '';
@@ -72,7 +76,7 @@
       run: String(q.get('run')||'').toLowerCase() || 'play',
       diff: String(q.get('diff')||'').toLowerCase() || 'normal',
       time: Number(q.get('time')||0) || 0,
-      seed: Number(q.get('seed')||0) || 0,
+      seed: String(q.get('seed')||'') || '',
       view: String(q.get('view')||'').toLowerCase() || '',
       style: String(q.get('style')||'').toLowerCase() || '',
       game: 'groups'
@@ -128,7 +132,7 @@
     shots:0,
     goodShots:0,
 
-    // breakdown miss (FIX 5)
+    // ✅ miss breakdown (fairness)
     missShotCounted:0,
     missShotSkipped:0,
     missTimeoutCounted:0,
@@ -165,119 +169,16 @@
     lastCoachAt:0,
     lastQuestEmitAt:0,
 
-    // cached forbidden rects (HUD zones)
-    _forbiddenRects:null,
-    _forbiddenStamp:0
+    // ✅ AI hooks
+    ai:null,
+    aiEnabled:false
   };
 
   function cfgForDiff(diff){
     diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4 };
-    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6 };
-    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5 };
-  }
-
-  // ---------------- HUD-aware forbidden zones (FIX 5) ----------------
-  function rectOf(el){
-    try{
-      if(!el || !el.getBoundingClientRect) return null;
-      const r = el.getBoundingClientRect();
-      if (!isFinite(r.left) || !isFinite(r.top)) return null;
-      if (r.width <= 1 || r.height <= 1) return null;
-      return { l:r.left, t:r.top, r:r.right, b:r.bottom, w:r.width, h:r.height, el };
-    }catch(_){
-      return null;
-    }
-  }
-
-  function inflateRect(R, pad){
-    if(!R) return null;
-    pad = Number(pad)||0;
-    return { l:R.l-pad, t:R.t-pad, r:R.r+pad, b:R.b+pad };
-  }
-
-  function pointInRect(x,y,R){
-    return !!R && x>=R.l && x<=R.r && y>=R.t && y<=R.b;
-  }
-
-  function gatherForbiddenRects(){
-    const now = nowMs();
-    // throttle refresh (relayout-safe)
-    if (S._forbiddenRects && (now - S._forbiddenStamp) < 160) return S._forbiddenRects;
-
-    const list = [];
-    const host = S.layerEl || DOC.body;
-    const hostR = rectOf(host) || { l:0, t:0, r:(WIN.innerWidth||360), b:(WIN.innerHeight||640) };
-
-    // heuristic selectors (ครอบคลุมหลาย layout)
-    const SEL = [
-      '#hud', '#groups-hud', '#hha-hud', '#hud-top', '#hudBottom',
-      '#quest', '#questBox', '#quest-card', '#questCard',
-      '#coach', '#coachCard', '#coach-card',
-      '#power', '#powerBar', '#groups-power',
-      '#vrui', '#vr-ui', '#vr-ui-wrap',
-      '.hud', '.hud-top', '.hud-bottom', '.quest', '.quest-card',
-      '.coach', '.coach-card', '.power', '.power-bar',
-      '[data-hud="1"]', '[data-ui="hud"]', '[data-overlay="hud"]'
-    ];
-
-    // collect uniques
-    const seen = new Set();
-    for(const s of SEL){
-      let nodes = [];
-      try{ nodes = Array.from(DOC.querySelectorAll(s)); }catch(_){}
-      for(const el of nodes){
-        if(!el || seen.has(el)) continue;
-        seen.add(el);
-        const r = rectOf(el);
-        if(!r) continue;
-
-        // only if overlaps host area (so we don’t block off-screen widgets)
-        const overlap =
-          !(r.r < hostR.l || r.l > hostR.r || r.b < hostR.t || r.t > hostR.b);
-        if(!overlap) continue;
-
-        // pad to be safe (HUD shadow/edges)
-        list.push(inflateRect(r, 10));
-      }
-    }
-
-    S._forbiddenRects = list;
-    S._forbiddenStamp = now;
-    return list;
-  }
-
-  function isOccludedAtViewportPoint(x,y, targetEl){
-    x = Number(x)||0; y = Number(y)||0;
-    let topEl = null;
-    try{ topEl = DOC.elementFromPoint(x,y); }catch(_){ topEl = null; }
-
-    // if cannot detect -> assume NOT occluded (avoid skipping too much)
-    if(!topEl) return false;
-
-    // if the top element is the target or inside it -> not occluded
-    try{
-      if (topEl === targetEl) return false;
-      if (targetEl && targetEl.contains && targetEl.contains(topEl)) return false;
-    }catch(_){}
-
-    // If top element is within HUD/overlay selectors => occluded
-    try{
-      if (topEl.closest){
-        const hitHud = topEl.closest(
-          '#hud,#groups-hud,#hha-hud,#quest,#questBox,#questCard,#coach,#coachCard,#power,#powerBar,#groups-power,#vrui,#vr-ui,' +
-          '.hud,.quest,.quest-card,.coach,.coach-card,.power,.power-bar,[data-hud="1"],[data-ui="hud"],[data-overlay="hud"]'
-        );
-        if (hitHud) return true;
-      }
-    }catch(_){}
-
-    // fallback: if the point is inside forbidden rects => occluded
-    const forb = gatherForbiddenRects();
-    for (let i=0;i<forb.length;i++){
-      if (pointInRect(x,y,forb[i])) return true;
-    }
-    return false;
+    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4, biasCorrect:0.58 };
+    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6, biasCorrect:0.56 };
+    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5, biasCorrect:0.58 };
   }
 
   // ---------------- DOM helpers ----------------
@@ -324,72 +225,29 @@
     }, { passive:true });
   }
 
-  function pickSpawnPoint(targetSizePx){
+  function mkTarget(groupKey, emoji, lifeMs){
+    const el = DOC.createElement('div');
+    el.className = 'tgt';
+    el.setAttribute('data-group', groupKey);
+    el.setAttribute('role','button');
+    el.textContent = emoji;
+
+    // position inside playLayer padded box (CSS makes safe zones)
     const host = S.layerEl || DOC.body;
     const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
     const w = Math.max(240, r.width||360);
     const h = Math.max(240, r.height||520);
 
-    const pad = 10;
-    const size = Math.max(40, Number(targetSizePx)||72);
+    // fallback size (CSS can override)
+    const size = 72;
+    const pad = 6;
 
-    // spawn in host-local space -> translate to wrap local (wrap is inside host)
-    // But we store element left/top relative to wrap; so use host box coordinates.
-    const forb = gatherForbiddenRects();
-    const tries = 18;
+    const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
+    const y = pad + (S.rng() * Math.max(1, (h - pad*2 - size)));
 
-    for(let k=0;k<tries;k++){
-      const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
-      const y = pad + (S.rng() * Math.max(1, (h - pad*2 - size)));
-
-      // convert to viewport center for occlusion check
-      const cxV = r.left + x + size/2;
-      const cyV = r.top  + y + size/2;
-
-      // do not spawn under forbidden rects (HUD zones)
-      let ok = true;
-      for(let i=0;i<forb.length;i++){
-        if (pointInRect(cxV, cyV, forb[i])) { ok=false; break; }
-      }
-      if (ok) return { x, y };
-    }
-
-    // fallback: center-ish (still playable)
-    return { x: Math.round((w - size)/2), y: Math.round((h - size)/2) };
-  }
-
-  function mkTarget(groupKey, emoji, lifeMs){
-    const el = DOC.createElement('div');
-    el.className = 'tgt';
-    el.setAttribute('data-group', groupKey);
-    el.setAttribute('role','button');
-
-    // NOTE: size is controlled by CSS in groups-vr.css; inline here is just fallback
-    const fallbackSize = 72;
-    el.style.cssText =
-      'position:absolute; width:72px; height:72px; border-radius:18px; '+
-      'display:flex; align-items:center; justify-content:center; '+
-      'font-size:34px; font-weight:900; '+
-      'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
-      'box-shadow:0 12px 30px rgba(0,0,0,.22); '+
-      'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
-
-    el.textContent = emoji;
-
-    ensureWrap();
-    S.wrapEl.appendChild(el);
-
-    // try read real size after appended (CSS may override)
-    let sizePx = fallbackSize;
-    try{
-      const rr = el.getBoundingClientRect();
-      if (rr && rr.width) sizePx = Math.max(40, rr.width);
-    }catch(_){}
-
-    const p = pickSpawnPoint(sizePx);
-    el.style.left = Math.round(p.x) + 'px';
-    el.style.top  = Math.round(p.y) + 'px';
+    el.style.left = Math.round(x) + 'px';
+    el.style.top  = Math.round(y) + 'px';
 
     // simple appear anim
     el.style.transform = 'scale(.82)';
@@ -402,6 +260,9 @@
 
     const born = nowMs();
     const t = { el, groupKey, born, dieAt: born + lifeMs, hit:false };
+    ensureWrap();
+    S.wrapEl.appendChild(el);
+
     wireDirectTap(el);
     return t;
   }
@@ -465,6 +326,12 @@
     emit('hha:coach', { text, mood: mood||'neutral' });
   }
 
+  function maybeAiTip(){
+    if(!S.aiEnabled || !S.ai || !S.ai.getTip) return;
+    const tip = S.ai.getTip(aiState());
+    if(tip && tip.text) coach(String(tip.text), String(tip.mood||'neutral'));
+  }
+
   // ---------------- gameplay rules ----------------
   function resetMini(){
     S.miniActive = true;
@@ -482,6 +349,7 @@
       resetMini();
       coach('MINI มาแล้ว! ยิงให้ “ถูกหมู่” ติดกันเร็ว ๆ ⚡', 'fever');
       emitQuest(true);
+      if(S.aiEnabled) maybeAiTip();
     }
   }
 
@@ -494,6 +362,7 @@
     emitPower();
     emitQuest(true);
     coach('สลับหมู่แล้ว! ดูชื่อหมู่แล้วค่อยยิง 🎯', 'neutral');
+    if(S.aiEnabled) maybeAiTip();
   }
 
   function addScore(isGood){
@@ -505,11 +374,12 @@
       // badge: streak_10 once
       if (!S.streak10Awarded && S.combo >= 10){
         S.streak10Awarded = true;
-        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, score:S.score|0 });
+        awardOnce('groups','streak_10', { combo:S.combo, maxCombo:S.maxCombo, scoreFinal:S.score|0 });
       }
 
       const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
       S.score += (10 + comboBonus);
+
       S.powerCur = Math.min(S.powerThr, S.powerCur + 1);
       if (S.powerCur >= S.powerThr){
         switchGroup();
@@ -518,8 +388,9 @@
       }
     }else{
       S.combo = 0;
-      S.miss++;
       S.score = Math.max(0, S.score - 8);
+      // ✅ shot miss: DO NOT inflate MISS (feels fair)
+      S.missShotSkipped++;
     }
     emitScore();
     emitRank();
@@ -541,8 +412,8 @@
           awardOnce('groups','mini_clear_1', {
             miniKind:S.miniKind,
             miniTot:S.miniTot|0,
-            score:S.score|0,
-            maxCombo:S.maxCombo|0
+            scoreFinal:S.score|0,
+            comboMax:S.maxCombo|0
           });
         }
       }
@@ -565,6 +436,7 @@
       S.storm = true;
       emit('groups:progress', { kind:'storm_on' });
       coach('พายุมาแล้ว! ช้าลงนิด แต่ยิงให้ชัวร์ 🌪️', 'fever');
+      if(S.aiEnabled) maybeAiTip();
     }
   }
   function endStormIfNeeded(){
@@ -586,6 +458,7 @@
       S.bossHp = 6;
       emit('groups:progress', { kind:'boss_spawn' });
       coach('บอสมา! ยิง “หมู่ที่ถูก” ให้แม่น 👊', 'fever');
+      if(S.aiEnabled) maybeAiTip();
     }
   }
 
@@ -600,10 +473,10 @@
       emit('groups:progress', { kind:'boss_down' });
       coach('บอสแตก! โคตรดี 💥', 'happy');
 
-      // badge: boss_clear_1
+      // badge: boss_clear_1 (this game has 1 boss moment)
       if(!S.bossAwarded){
         S.bossAwarded = true;
-        awardOnce('groups','boss_clear_1', { score:S.score|0, maxCombo:S.maxCombo|0, misses:S.miss|0 });
+        awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
       }
     }
   }
@@ -688,6 +561,19 @@
     }catch(_){}
   }
 
+  function aiState(){
+    const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
+    return {
+      accuracyPct: acc,
+      miss: S.miss|0,
+      combo: S.combo|0,
+      timeLeftSec: S.timeLeftSec|0,
+      timePlannedSec: S.timePlannedSec|0,
+      storm: !!S.storm,
+      boss: !!S.boss
+    };
+  }
+
   function handleShoot(ev){
     if (!S.running) return;
     if (!ev || !ev.detail) return;
@@ -697,8 +583,13 @@
     const y = Number(d.y)||0;
 
     // lockPx from vr-ui.js (mobile/cvr tuned in groups-vr.html)
-    const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
-    const src = String(d.source || '').toLowerCase();
+    let lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
+
+    // ✅ AI director can scale lockPx feel (play only)
+    if(S.aiEnabled && S.ai && S.ai.getTuning){
+      const tune = S.ai.getTuning(aiState());
+      if(tune && tune.lockPxMul) lockPx = clamp(lockPx * Number(tune.lockPxMul||1), 0, 96);
+    }
 
     S.shots++;
 
@@ -711,26 +602,7 @@
     }
 
     if (!tgtEl){
-      // ✅ FIX 5B: กัน missShot พุ่งใน cVR/crosshair
-      // - direct tap/click: นับ MISS ตามจริง (เพราะผู้เล่นแตะพื้นที่ผิด)
-      // - cVR / crosshair / assisted shot: ไม่บวก miss แต่รีเซ็ตคอมโบ + FX (ยังท้าทาย)
-      const isDirect = (src === 'direct');
-      const isCVRish = (S.view === 'cvr') || (src.includes('cvr')) || (src.includes('cross')) || (lockPx >= 16);
-
-      if (!isDirect && isCVRish){
-        S.missShotSkipped++;
-        S.combo = 0;
-        // penalty เล็กน้อยพอรู้สึกกดดัน แต่ไม่โกง
-        S.score = Math.max(0, S.score - 2);
-        emitScore();
-        emitRank();
-        onBadHit();
-        emitFx('shot_miss', x, y, false);
-        return;
-      }
-
-      // default: นับ miss ตามปกติ
-      S.missShotCounted++;
+      // ✅ shot miss: fair (no MISS++), but still punishing
       addScore(false);
       onBadHit();
       emitFx('shot_miss', x, y, false);
@@ -743,17 +615,66 @@
     removeTargetEl(tgtEl);
 
     const good = (tg === cg);
-    addScore(good);
-
-    // FX
     if (good){
+      // counted good shot
+      S.goodShots++;
+      // correct: score path (custom to keep balance)
+      S.combo = Math.min(99, (S.combo|0) + 1);
+      S.maxCombo = Math.max(S.maxCombo|0, S.combo|0);
+      const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
+      S.score += (10 + comboBonus);
+      S.powerCur = Math.min(S.powerThr, S.powerCur + 1);
+
       emitFx('hit_good', x, y, true);
       onGoodHit();
       if (S.boss) bossHit();
-    }else{
-      emitFx('hit_bad', x, y, false);
-      onBadHit();
-      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+
+      // badge streak_10
+      if (!S.streak10Awarded && S.combo >= 10){
+        S.streak10Awarded = true;
+        awardOnce('groups','streak_10', { combo:S.combo, comboMax:S.maxCombo, scoreFinal:S.score|0 });
+      }
+
+      if (S.powerCur >= S.powerThr){
+        switchGroup();
+      }else{
+        emitPower();
+      }
+
+      emitScore(); emitRank(); emitQuest(false);
+      return;
+    }
+
+    // wrong group: MISS++ (true miss)
+    S.combo = 0;
+    S.miss++;
+    S.missShotCounted++;
+    S.score = Math.max(0, S.score - 8);
+    emitFx('hit_bad', x, y, false);
+    onBadHit();
+    emitScore(); emitRank(); emitQuest(false);
+    coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+  }
+
+  // ---------------- FAIR timeout miss (HUD occlusion guard) ----------------
+  function isOccludedByHud(tgEl){
+    try{
+      const r = tgEl.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      // If elementFromPoint at its center is NOT the target (or inside target), it's occluded
+      const topEl = DOC.elementFromPoint(cx, cy);
+      if(!topEl) return true;
+      if(topEl === tgEl) return false;
+      if(topEl.closest && topEl.closest('.tgt') === tgEl) return false;
+
+      // If the top element is within HUD containers -> treat as occluded
+      const hud = topEl.closest && (topEl.closest('#groups-hud') || topEl.closest('.groups-hud') || topEl.closest('.groups-topbar') || topEl.closest('.groups-quest') || topEl.closest('.groups-coach') || topEl.closest('.groups-bottombar'));
+      return !!hud;
+    }catch(_){
+      // conservative: if uncertain, do NOT count miss
+      return true;
     }
   }
 
@@ -789,7 +710,7 @@
       startBossIfNeeded();
     }
 
-    // target expiry => timeout miss (only if current group for fairness)
+    // target expiry => timeout miss (only if current group AND not occluded by HUD)
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
@@ -797,29 +718,24 @@
         const cg = currentGroup().key;
         const isFairMiss = (tg.groupKey === cg);
 
-        // compute viewport center
-        let cxV = 0, cyV = 0;
-        try{
-          const r = tg.el.getBoundingClientRect();
-          cxV = r.left + r.width/2;
-          cyV = r.top  + r.height/2;
-        }catch(_){}
-
-        // ✅ FIX 5: ถ้า HUD บังตอนหมดอายุ -> ไม่คิด missTimeout
-        const occluded = (cxV && cyV) ? isOccludedAtViewportPoint(cxV, cyV, tg.el) : false;
-
         if (isFairMiss){
-          if (occluded){
-            S.missTimeoutSkippedOccluded++;
-          } else {
-            S.missTimeoutCounted++;
+          const occluded = isOccludedByHud(tg.el);
+          if(!occluded){
             S.miss++;
+            S.missTimeoutCounted++;
             S.combo = 0;
             S.score = Math.max(0, S.score - 6);
             emitScore();
             emitRank();
             onBadHit();
-            emitFx('timeout_miss', cxV, cyV, false);
+
+            // FX for timeout miss — use target center in viewport coords
+            try{
+              const r = tg.el.getBoundingClientRect();
+              emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
+            }catch(_){}
+          }else{
+            S.missTimeoutSkippedOccluded++;
           }
         }
 
@@ -833,15 +749,23 @@
       }
     }
 
-    // spawn pacing
+    // spawn pacing (AI director can adjust)
     if (S.running){
       S.spawnIt -= dt;
       if (S.spawnIt <= 0){
-        const base = cfgForDiff(S.diff).spawnMs;
+        const baseCfg = cfgForDiff(S.diff);
+        let base = baseCfg.spawnMs;
+
         const stormMul = S.storm ? 0.70 : 1.0;
         const bossMul  = S.boss ? 0.80 : 1.0;
 
-        const intervalMs = clamp(base * stormMul * bossMul, 360, 1400);
+        let aiSpawnMul = 1.0;
+        if(S.aiEnabled && S.ai && S.ai.getTuning){
+          const tune = S.ai.getTuning(aiState());
+          if(tune && tune.spawnMul) aiSpawnMul = clamp(Number(tune.spawnMul||1), 0.80, 1.25);
+        }
+
+        const intervalMs = clamp(base * stormMul * bossMul * aiSpawnMul, 360, 1500);
         S.spawnIt = intervalMs / 1000;
 
         spawnOne();
@@ -864,21 +788,39 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // bias toward correct group so playable
-    let gKey = '';
-    const r = S.rng();
-    if (r < 0.58) gKey = cg.key;
-    else gKey = pick(S.rng, GROUPS).key;
+    // base bias toward correct group so playable
+    let pCorrect = C.biasCorrect;
+
+    // AI director can nudge correct-bias slightly (play only)
+    if(S.aiEnabled && S.ai && S.ai.getTuning){
+      const tune = S.ai.getTuning(aiState());
+      if(tune && tune.biasCorrect){
+        pCorrect = clamp(pCorrect + Number(tune.biasCorrect||0), 0.48, 0.74);
+      }
+    }
 
     // in boss: increase correct targets
-    if (S.boss && S.rng() < 0.70) gKey = cg.key;
+    if (S.boss) pCorrect = clamp(pCorrect + 0.10, 0.55, 0.82);
 
+    let gKey = (S.rng() < pCorrect) ? cg.key : pick(S.rng, GROUPS).key;
     const g = GROUPS.find(x=>x.key===gKey) || cg;
+
     const em = pick(S.rng, g.emoji);
 
-    const lifeMin = C.lifeMs[0];
-    const lifeMax = C.lifeMs[1];
-    const life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5200);
+    // life tuning (AI director can make life a bit longer if struggling)
+    let lifeMin = C.lifeMs[0];
+    let lifeMax = C.lifeMs[1];
+
+    if(S.aiEnabled && S.ai && S.ai.getTuning){
+      const tune = S.ai.getTuning(aiState());
+      if(tune && tune.lifeMul){
+        const m = clamp(Number(tune.lifeMul||1), 0.86, 1.12);
+        lifeMin = Math.round(lifeMin * m);
+        lifeMax = Math.round(lifeMax * m);
+      }
+    }
+
+    const life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5400);
 
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
@@ -900,13 +842,32 @@
     S.style = String(qs('style','mix')||'mix').toLowerCase();
   }
 
+  function initAI(ctx){
+    S.ai = null; S.aiEnabled = false;
+    try{
+      const runMode = String(S.runMode||'play').toLowerCase();
+      const enabled = (String(qs('ai','1')) !== '0');
+
+      if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
+        const ai = WIN.HHA.createAIHooks({
+          game:'groups',
+          seed: String(S.seed||''),
+          runMode,
+          diff: String(S.diff||'normal'),
+          enabled
+        });
+        S.ai = ai;
+        S.aiEnabled = !!(ai && ai.enabled);
+      }
+    }catch(_){}
+  }
+
   function resetRun(ctx){
     const C = cfgForDiff(S.diff);
 
     S.score = 0; S.combo = 0; S.miss = 0;
     S.shots = 0; S.goodShots = 0;
 
-    // breakdown (FIX 5)
     S.missShotCounted = 0;
     S.missShotSkipped = 0;
     S.missTimeoutCounted = 0;
@@ -939,21 +900,21 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
-    S._forbiddenRects = null;
-    S._forbiddenStamp = 0;
-
     // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
     S.rng = makeRng(u32);
 
     // time
-    const tt = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
-    S.timePlannedSec = clamp(tt, 15, 180);
+    const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
+    S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
     // spawn timer
     S.spawnIt = 0;
+
+    // AI
+    initAI(ctx);
 
     emitPower();
     emitScore();
@@ -961,7 +922,12 @@
     emitTime();
     emitQuest(true);
 
-    coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    coach(
+      (S.runMode==='practice')
+        ? 'โหมดฝึก: ลองเล็ง แล้วแตะยิง 🎯'
+        : (S.aiEnabled ? 'เริ่มแล้ว! AI จะจูนให้ “ท้าทายแต่ยุติธรรม” 🔥' : 'เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥'),
+      'neutral'
+    );
   }
 
   function start(diff, ctx){
@@ -1053,38 +1019,39 @@
 
     // badges on end:
     if (acc >= 80){
-      awardOnce('groups','score_80p', { accuracyGoodPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
+      awardOnce('groups','score_80p', { accuracyPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, miss:S.miss|0, scoreFinal:S.score|0, comboMax:S.maxCombo|0 });
     }
     if ((S.miss|0) === 0){
-      awardOnce('groups','perfect_run', { accuracyGoodPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, misses:S.miss|0, scoreFinal:S.score|0, maxCombo:S.maxCombo|0 });
+      awardOnce('groups','perfect_run', { accuracyPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, miss:0, scoreFinal:S.score|0, comboMax:S.maxCombo|0 });
     }
 
     const summary = {
       reason: reason || 'end',
       scoreFinal: S.score|0,
-      misses: S.miss|0,
+      miss: S.miss|0,
       shots: S.shots|0,
       goodShots: S.goodShots|0,
-      accuracyGoodPct: acc|0,
+      accuracyPct: acc|0,
       grade,
       seed: S.seed,
       runMode: S.runMode,
       diff: S.diff,
       style: S.style,
       view: S.view,
-      maxCombo: S.maxCombo|0,
+      comboMax: S.maxCombo|0,
       miniCleared: !!S.miniAwarded,
       bossCleared: !!S.bossAwarded,
 
-      // ✅ FIX 5 breakdown
+      // ✅ fairness breakdown
       missShotCounted: S.missShotCounted|0,
       missShotSkipped: S.missShotSkipped|0,
       missTimeoutCounted: S.missTimeoutCounted|0,
-      missTimeoutSkippedOccluded: S.missTimeoutSkippedOccluded|0
+      missTimeoutSkippedOccluded: S.missTimeoutSkippedOccluded|0,
+
+      aiEnabled: !!S.aiEnabled
     };
 
     emit('hha:end', summary);
-
     clearTargets();
   }
 
