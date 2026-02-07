@@ -1,12 +1,12 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
-// PATCH v20260206c
-// ✅ FIX: Target must disappear instantly on hit (robust remove for Android/WebView)
-// ✅ FIX: Use pointerdown (no 300ms click delay) + prevent multi-fire
-// ✅ FIX: FX appears at the actual hit target position (DOM rect center / event xy)
-// ✅ FIX: Guard double-judge (obj.dead)
-// Emits: hha:start, hha:time, hha:judge, hha:end
-// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// PATCH v20260206d
+// ✅ Exports: boot()
+// ✅ FX at exact hit target center (DOM rect -> viewport px)
+// ✅ Target disappears immediately on hit (lock + pointer-events none + fast fade + remove)
+// ✅ Prevent double-hit race (obj.dead / obj.locked)
+// ✅ Mobile: uses pointerdown for responsiveness (not click)
+// ✅ Anti-overflow: cap targets + prune oldest
 'use strict';
 
 const WIN = window;
@@ -32,18 +32,6 @@ function saveJson(key, obj){
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
 function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
-
-function safeRemoveEl(el){
-  if(!el) return;
-  try{
-    // fastest path
-    if(typeof el.remove === 'function'){ el.remove(); return; }
-  }catch{}
-  try{
-    const p = el.parentNode;
-    if(p) p.removeChild(el);
-  }catch{}
-}
 
 // ------------------ Steps (emoji mapping) ------------------
 const STEPS = [
@@ -148,8 +136,14 @@ export function boot(){
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead?}
+  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead, locked}
   let nextId=1;
+
+  // tuning
+  const MAX_TARGETS = 18;
+  const HARD_CAP_TARGETS = 26;
+  const HIT_REMOVE_DELAY_MS = 30;  // feels instant
+  const PRUNE_OLDEST_EVERY_SPAWN = true;
 
   function showBanner(msg){
     if(!banner) return;
@@ -159,41 +153,38 @@ export function boot(){
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  // ✅ FX on hit (particles.js) — uses hitX/hitY if provided
-  function fxHit(kind, obj, extra){
+  // ---------- FX helpers ----------
+  function getTargetCenterPx(obj, fallback){
+    try{
+      const el = obj?.el;
+      if(el && el.getBoundingClientRect){
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width/2;
+        const y = r.top  + r.height/2;
+        if(Number.isFinite(x) && Number.isFinite(y)) return {x,y};
+      }
+    }catch{}
+    return fallback || { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 };
+  }
+
+  function fxHit(kind, obj, fallbackXY){
     const P = WIN.Particles;
     if(!P) return;
-
-    let x = Number(extra?.hitX);
-    let y = Number(extra?.hitY);
-
-    // fallback to DOM rect center
-    if((!isFinite(x) || !isFinite(y)) && obj?.el?.getBoundingClientRect){
-      try{
-        const r = obj.el.getBoundingClientRect();
-        x = r.left + r.width/2;
-        y = r.top  + r.height/2;
-      }catch{}
-    }
-
-    // final fallback
-    if(!isFinite(x) || !isFinite(y)){
-      x = Number(obj?.x || WIN.innerWidth*0.5);
-      y = Number(obj?.y || WIN.innerHeight*0.5);
-    }
+    const pt = getTargetCenterPx(obj, fallbackXY);
 
     if(kind === 'good'){
-      P.popText(x, y, '✅ +1', 'good');
-      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+      P.popText(pt.x, pt.y, '✅ +1', 'good');
+      P.burst(pt.x, pt.y, { count: 12, spread: 46, upBias: 0.86 });
     }else if(kind === 'wrong'){
-      P.popText(x, y, '⚠️ ผิด!', 'warn');
-      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+      P.popText(pt.x, pt.y, '⚠️ ผิด!', 'warn');
+      P.burst(pt.x, pt.y, { count: 10, spread: 40, upBias: 0.82 });
     }else if(kind === 'haz'){
-      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+      P.popText(pt.x, pt.y, '🦠 โดนเชื้อ!', 'bad');
+      P.burst(pt.x, pt.y, { count: 14, spread: 54, upBias: 0.90 });
     }
   }
 
+  // ---------- Quiz ----------
   function setQuizVisible(on){
     quizOpen = !!on;
     if(!quizBox) return;
@@ -238,10 +229,11 @@ export function boot(){
     }
   }
 
+  // ---------- Spawn rect ----------
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 160;
-    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 160;
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 170;
+    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 190;
     const pad = 14;
 
     const x0 = pad, x1 = w - pad;
@@ -255,6 +247,14 @@ export function boot(){
     return (wrongStepHits + hazHits);
   }
 
+  function getStepAcc(){
+    return totalStepHits ? (correctHits / totalStepHits) : 0;
+  }
+
+  function elapsedSec(){
+    return running ? ((nowMs() - tStartMs)/1000) : 0;
+  }
+
   function setHud(){
     const s = STEPS[stepIdx];
     pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
@@ -262,7 +262,7 @@ export function boot(){
     pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
     pillMiss && (pillMiss.textContent = `MISS ${getMissCount()} / ${missLimit}`);
 
-    const stepAcc = totalStepHits ? (correctHits / totalStepHits) : 0;
+    const stepAcc = getStepAcc();
     const riskIncomplete = clamp(1 - stepAcc, 0, 1);
     const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
 
@@ -273,34 +273,44 @@ export function boot(){
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
 
+  // ---------- Target lifecycle ----------
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
-      try{
-        t.dead = true;
-        if(t.el) t.el.style.pointerEvents = 'none';
-      }catch{}
-      safeRemoveEl(t.el);
+      try{ t.el?.remove(); }catch{}
     }
   }
 
-  function removeTarget(obj){
-    if(!obj) return;
-    // ✅ make sure it is not hittable again
+  function hardRemove(obj){
+    if(!obj || obj.dead) return;
+    obj.dead = true;
     try{
-      obj.dead = true;
       if(obj.el){
         obj.el.style.pointerEvents = 'none';
         obj.el.style.opacity = '0';
-        obj.el.style.transform = 'translate(-50%,-50%) scale(.92)';
+        obj.el.style.transform = 'translate(-50%,-50%) scale(0.88)';
       }
     }catch{}
+    setTimeout(()=>{
+      try{ obj.el?.remove(); }catch{}
+    }, HIT_REMOVE_DELAY_MS);
+  }
+
+  function removeTarget(obj){
+    if(!obj || obj.dead) return;
+    obj.dead = true;
 
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
 
-    // ✅ remove asap (next task) to avoid UI "stuck"
-    setTimeout(()=>{ safeRemoveEl(obj.el); }, 0);
+    hardRemove(obj);
+  }
+
+  function pruneOldest(){
+    if(targets.length <= MAX_TARGETS) return;
+    // remove oldest first
+    const oldest = targets.reduce((acc,t)=> (!acc || t.bornMs < acc.bornMs) ? t : acc, null);
+    if(oldest) removeTarget(oldest);
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -316,20 +326,24 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
+    // NOTE: CSS uses vw/vh from --x/--y
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false, locked:false };
     targets.push(obj);
 
-    // ✅ pointerdown = immediate on mobile
+    // ✅ Mobile-friendly immediate response
+    // - Use pointerdown instead of click
+    // - lock & remove immediately to prevent stacking
     if(view !== 'cvr'){
       el.addEventListener('pointerdown', (ev)=>{
-        if(ev){ try{ ev.preventDefault(); ev.stopPropagation(); }catch{} }
-        onHitByPointer(obj, 'tap', ev);
+        if(ev && ev.preventDefault) ev.preventDefault();
+        onHitByPointer(obj, ev);
       }, { passive:false });
     }
+
     return obj;
   }
 
@@ -353,25 +367,35 @@ export function boot(){
   }
 
   function computeRt(obj){
-    const dt = nowMs() - obj.bornMs;
+    const dt = nowMs() - (obj?.bornMs||nowMs());
     return clamp(dt, 0, 60000);
   }
 
-  function onHitByPointer(obj, source, ev){
-    if(!running || paused) return;
-    if(!obj || obj.dead) return;
+  // ---------- Input / judge ----------
+  function getEventXY(ev, obj){
+    // prefer pointer coords
+    try{
+      if(ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number'){
+        return { x: ev.clientX, y: ev.clientY };
+      }
+    }catch{}
+    // else center of target
+    return getTargetCenterPx(obj, { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 });
+  }
 
-    // hit position
-    let hitX = ev?.clientX;
-    let hitY = ev?.clientY;
-    if((!isFinite(hitX) || !isFinite(hitY)) && obj.el?.getBoundingClientRect){
-      try{
-        const r = obj.el.getBoundingClientRect();
-        hitX = r.left + r.width/2;
-        hitY = r.top + r.height/2;
-      }catch{}
-    }
-    judgeHit(obj, source, { hitX, hitY });
+  function onHitByPointer(obj, ev){
+    if(!running || paused) return;
+    if(!obj || obj.dead || obj.locked) return;
+
+    obj.locked = true;              // ✅ stop double fire
+    try{ obj.el && (obj.el.style.pointerEvents = 'none'); }catch{}
+    const xy = getEventXY(ev, obj);  // ✅ FX at true hit point
+
+    // remove immediately (visual) then judge
+    // (judge will also call removeTarget; safe because obj.dead flag)
+    hardRemove(obj);
+
+    judgeHit(obj, 'tap', xy);
   }
 
   // cVR shoot: pick nearest target within lockPx
@@ -387,24 +411,21 @@ export function boot(){
 
     let best=null, bestDist=1e9;
     for(const t of targets){
-      if(!t || t.dead) continue;
-      const dx = (t.x - cx), dy = (t.y - cy);
+      if(!t || t.dead || t.locked) continue;
+      const pt = getTargetCenterPx(t, {x:t.x||cx,y:t.y||cy});
+      const dx = (pt.x - cx), dy = (pt.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
         best = t; bestDist = dist;
       }
     }
     if(best){
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist, hitX: cx, hitY: cy });
+      best.locked = true;
+      try{ best.el && (best.el.style.pointerEvents = 'none'); }catch{}
+      const hitXY = getTargetCenterPx(best, {x:cx,y:cy});
+      hardRemove(best);
+      judgeHit(best, 'shoot', hitXY, { lockPx, dist: bestDist });
     }
-  }
-
-  function getStepAcc(){
-    return totalStepHits ? (correctHits / totalStepHits) : 0;
-  }
-
-  function elapsedSec(){
-    return running ? ((nowMs() - tStartMs)/1000) : 0;
   }
 
   function bumpQuestOnGoodHit(){
@@ -448,9 +469,9 @@ export function boot(){
     }
   }
 
-  function judgeHit(obj, source, extra){
-    if(!obj || obj.dead) return;
-    obj.dead = true; // ✅ lock immediately (prevents double fire)
+  function judgeHit(obj, source, xy, extra){
+    // ensure removed from list
+    removeTarget(obj);
 
     const rt = computeRt(obj);
 
@@ -480,9 +501,10 @@ export function boot(){
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
-      bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
-      fxHit('good', obj, extra);
+      fxHit('good', obj, xy);
+
+      bumpQuestOnGoodHit();
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
@@ -509,7 +531,6 @@ export function boot(){
         }
       }
 
-      removeTarget(obj);
       setHud();
       return;
     }
@@ -529,9 +550,8 @@ export function boot(){
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-      fxHit('wrong', obj, extra);
+      fxHit('wrong', obj, xy);
 
-      removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -551,15 +571,15 @@ export function boot(){
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
-      fxHit('haz', obj, extra);
+      fxHit('haz', obj, xy);
 
-      removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
     }
   }
 
+  // ---------- Loop ----------
   function tick(){
     if(!running){ return; }
     const t = nowMs();
@@ -583,10 +603,13 @@ export function boot(){
       spawnAcc -= 1;
       spawnOne();
 
-      // cap
-      if(targets.length > 18){
-        const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
-        if(oldest) removeTarget(oldest);
+      if(PRUNE_OLDEST_EVERY_SPAWN) pruneOldest();
+
+      // hard safety: if something goes wrong, slash oldest until safe
+      while(targets.length > HARD_CAP_TARGETS){
+        const oldest = targets.reduce((acc,t)=> (!acc || t.bornMs < acc.bornMs) ? t : acc, null);
+        if(!oldest) break;
+        removeTarget(oldest);
       }
     }
 
@@ -596,6 +619,7 @@ export function boot(){
     requestAnimationFrame(tick);
   }
 
+  // ---------- Reset/Start/End ----------
   function resetGame(){
     running=false; paused=false;
     clearTargets();
@@ -737,7 +761,6 @@ export function boot(){
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // optional: badge/coach visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
