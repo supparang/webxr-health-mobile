@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Protocol Router</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ --bg:#020617; --panel:rgba(2,6,23,.76); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; }
+    body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial; color:var(--text); padding:14px; }
+    .box{ width:min(820px,92vw); border:1px solid var(--stroke); background:var(--panel); border-radius:20px; padding:14px; }
+    .t{ font-weight:950; font-size:16px; }
+    .m{ color:var(--muted); font-size:12px; line-height:1.45; margin-top:6px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .pill{ border:1px solid var(--stroke); background: rgba(2,6,23,.35); padding:8px 10px; border-radius:999px; font-size:12px; color:var(--muted); }
+    .pill b{ color:var(--text); }
+    .btn{ border:1px solid var(--stroke); background: rgba(2,6,23,.42); padding:10px 12px; border-radius:14px; cursor:pointer; user-select:none; }
+    .btn.secondary{ color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="t">🧭 Protocol Router</div>
+    <div class="m" id="msg">กำลังประมวลผล…</div>
+    <div class="row" id="pills"></div>
+    <div class="row">
+      <div class="btn" id="btnContinue">▶️ Continue</div>
+      <div class="btn secondary" id="btnToHub">🏫 Back to Hub</div>
+      <div class="btn secondary" id="btnResetProto">♻️ Reset protocol progress</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ========= Protocol definition =========
+  // ปรับลำดับตามงานวิจัยจริงของคุณได้เลย
+  // href ใช้ root shortcuts ที่คุณมี (เด้งไป run จริงเอง)
+  const PROTOCOLS = {
+    P1: {
+      name: 'Hygiene Basic',
+      steps: [
+        { id:'handwash', title:'Handwash VR', href:'./hygiene-vr.html' },
+        { id:'brush',    title:'Brush VR',    href:'./brush-vr.html' },
+      ]
+    },
+    P2: {
+      name: 'Nutrition Core',
+      steps: [
+        { id:'groups',   title:'Food Groups VR',   href:'./groups-vr.html' },
+        { id:'plate',    title:'Balanced Plate VR',href:'./plate-vr.html' },
+        { id:'hydration',title:'Hydration Quest VR',href:'./hydration-vr.html' },
+        { id:'goodjunk', title:'GoodJunkVR',       href:'./goodjunk-vr.html' },
+      ]
+    },
+    P3: {
+      name: 'Fitness Set',
+      steps: [
+        { id:'shadow', title:'Shadow Breaker', href:'../fitness/shadow-breaker.html' },
+        { id:'jump',   title:'Jump-Duck',      href:'../fitness/jump-duck.html' },
+        { id:'rhythm', title:'Rhythm Boxer',   href:'../fitness/rhythm-boxer.html' },
+        { id:'balance',title:'Balance Hold',   href:'../fitness/balance-hold.html' },
+      ]
+    }
+  };
+
+  // ========= Storage key for protocol progress =========
+  // per pid + proto
+  const LS_PROTO_PROGRESS = 'HHA_PROTO_PROGRESS_V1';
+  // schema: { "<pid>__<proto>": { stepIndex, updatedAt, completed: {stepId: iso} } }
+
+  const $ = (s)=>document.querySelector(s);
+  const esc = (s)=>String(s??'').replace(/</g,'&lt;');
+
+  function parseQS(){ try{ return new URL(location.href).searchParams; } catch { return new URLSearchParams(); } }
+  function baseUrl(){ return location.href.split('#')[0]; }
+  function hubUrlFallback(){
+    // ถ้าไม่มี hub= ให้กลับ hub.html
+    return new URL('./hub.html', location.href).toString();
+  }
+
+  function readProg(){
+    try{
+      const s = localStorage.getItem(LS_PROTO_PROGRESS);
+      return s ? JSON.parse(s) : {};
+    }catch{ return {}; }
+  }
+  function writeProg(obj){
+    localStorage.setItem(LS_PROTO_PROGRESS, JSON.stringify(obj||{}));
+  }
+
+  function key(pid, proto){ return `${pid}__${proto}`; }
+
+  function getState(pid, proto){
+    const all = readProg();
+    return all[key(pid, proto)] || { stepIndex: 0, updatedAt: new Date().toISOString(), completed:{} };
+  }
+  function setState(pid, proto, state){
+    const all = readProg();
+    all[key(pid, proto)] = state;
+    writeProg(all);
+  }
+  function resetState(pid, proto){
+    const all = readProg();
+    delete all[key(pid, proto)];
+    writeProg(all);
+  }
+
+  function buildGameUrl(stepHref, qs){
+    // ส่ง param เดิมทั้งหมด + ตั้ง hub ให้กลับมาที่ router นี้
+    const u = new URL(stepHref, location.href);
+    for(const [k,v] of qs.entries()){
+      if(k==='hub') continue;
+      u.searchParams.set(k, v);
+    }
+    u.searchParams.set('hub', baseUrl());
+    return u.toString();
+  }
+
+  function detectCompletionFromLastSummary(pid){
+    // อาศัย HHA_LAST_SUMMARY ที่เกมของคุณบันทึกไว้ตาม HHA Standard
+    // ถ้าเกมไหนยังไม่บันทึก ก็ไม่พัง แค่ไม่ auto-advance
+    try{
+      const s = localStorage.getItem('HHA_LAST_SUMMARY');
+      if(!s) return null;
+      const obj = JSON.parse(s);
+      if(!obj) return null;
+      if((obj.pid||'').trim() !== (pid||'').trim()) return null;
+
+      // พยายามอ่าน gameId/title ที่เกมเขียน
+      const gid = (obj.gameId||obj.game||obj.gameKey||'').toString().trim().toLowerCase();
+      const title = (obj.gameTitle||obj.title||'').toString().trim().toLowerCase();
+
+      return { gameId: gid, title };
+    }catch{ return null; }
+  }
+
+  function matchStepBySummary(protoDef, summary){
+    if(!summary) return -1;
+    const gid = summary.gameId || '';
+    const title = summary.title || '';
+    if(!gid && !title) return -1;
+
+    // match by step id
+    let idx = protoDef.steps.findIndex(s => (s.id||'').toLowerCase() === gid);
+    if(idx>=0) return idx;
+
+    // match by title includes
+    idx = protoDef.steps.findIndex(s => title && (s.title||'').toLowerCase().includes(title));
+    if(idx>=0) return idx;
+
+    // fallback: title contains step title
+    idx = protoDef.steps.findIndex(s => title && title.includes((s.title||'').toLowerCase()));
+    return idx;
+  }
+
+  function markCompletedAndAdvance(pid, proto, protoDef){
+    const qs = parseQS();
+    const state = getState(pid, proto);
+
+    const sum = detectCompletionFromLastSummary(pid);
+    const doneIdx = matchStepBySummary(protoDef, sum);
+
+    // ถ้าเดาได้ว่าเพิ่งจบ step ไหน → mark completed
+    if(doneIdx >= 0){
+      const step = protoDef.steps[doneIdx];
+      state.completed = state.completed || {};
+      if(!state.completed[step.id]){
+        state.completed[step.id] = new Date().toISOString();
+      }
+      // advance if current step <= doneIdx
+      if(state.stepIndex <= doneIdx) state.stepIndex = doneIdx + 1;
+      state.updatedAt = new Date().toISOString();
+      setState(pid, proto, state);
+    }
+
+    // skip already completed steps (safety)
+    while(state.stepIndex < protoDef.steps.length){
+      const sid = protoDef.steps[state.stepIndex].id;
+      if(state.completed && state.completed[sid]) state.stepIndex++;
+      else break;
+    }
+    setState(pid, proto, state);
+
+    return state;
+  }
+
+  function render(){
+    const qs = parseQS();
+    const pid = (qs.get('pid')||'').trim();
+    const proto = (qs.get('proto')||qs.get('protocol')||'P1').trim().toUpperCase();
+    const hub = (qs.get('hub')||'').trim() || hubUrlFallback();
+
+    const def = PROTOCOLS[proto] || PROTOCOLS.P1;
+
+    const state = markCompletedAndAdvance(pid, proto, def);
+
+    const step = def.steps[state.stepIndex] || null;
+
+    const pills = [
+      ['pid', pid || '—'],
+      ['proto', proto],
+      ['protocolName', def.name],
+      ['step', String(state.stepIndex + 1) + '/' + String(def.steps.length)],
+      ['next', step ? step.title : 'DONE'],
+      ['hub', hub],
+    ];
+    $('#pills').innerHTML = pills.map(([k,v])=>`<span class="pill"><b>${esc(k)}</b>: ${esc(v)}</span>`).join('');
+
+    if(!pid){
+      $('#msg').textContent = 'ยังไม่มี pid — กลับไป Check-in หรือ Hub เพื่อเลือก pid';
+      $('#btnContinue').textContent = '▶️ Go Hub';
+      $('#btnContinue').onclick = ()=> location.href = hub;
+      return;
+    }
+
+    if(!step){
+      $('#msg').textContent = '🎉 โปรโตคอลครบแล้ว! กำลังพากลับ Hub…';
+      setTimeout(()=>{ location.href = hub; }, 350);
+      return;
+    }
+
+    $('#msg').textContent = `ถัดไป: ${step.title} — กด Continue เพื่อเข้าเกม`;
+    $('#btnContinue').textContent = '▶️ Continue';
+    $('#btnContinue').onclick = ()=>{
+      location.href = buildGameUrl(step.href, qs);
+    };
+
+    $('#btnToHub').onclick = ()=> location.href = hub;
+    $('#btnResetProto').onclick = ()=>{
+      const ok = confirm(`Reset progress ของ ${pid} / ${proto}?`);
+      if(!ok) return;
+      resetState(pid, proto);
+      location.reload();
+    };
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
