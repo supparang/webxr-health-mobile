@@ -3,15 +3,25 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Jump-Duck</title>
+  <title>HeroHealth — Jump-Duck Launcher</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
 </head>
 <body>
 <script type="module">
+  // ✅ correct path: /herohealth/launch/launcher-core.js
   import { hhGo } from './launch/launcher-core.js';
-  // from /herohealth/* -> /fitness/jump-duck.html
-  hhGo('../fitness/jump-duck.html', { defaults: {} });
+
+  // ✅ from /herohealth/* -> /fitness/jump-duck.html
+  // (NO override params, pass-through hub/view/seed/etc.)
+  hhGo('../fitness/jump-duck.html', {
+    defaults: {
+      // เติมเฉพาะ “ที่ยังไม่มี” เท่านั้น
+      mode: 'training',
+      diff: 'normal',
+      duration: '60'
+    }
+  });
 </script>
 </body>
 </html>
