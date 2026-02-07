@@ -1,10 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
-// PATCH v20260206b
-// ✅ Mobile tap reliability: use pointerdown (not click) + prevent ghost
-// ✅ FX position: use real element center at hit time (not stale obj.x/y)
-// ✅ Spawn limiter: cap spawns per frame + FPS guard to prevent target flood
-// ✅ Keep HUD-safe measure (body vars) + collision avoidance + kill animation
+// PATCH v20260206c
+// ✅ Mobile hitbox bigger (kid-friendly) via CSS + pointerdown remains
+// ✅ Haptics (vibrate) on hit: good/wrong/haz (if supported)
+// ✅ Micro slow-mo 150ms on step clear / loop clear (adds punch without stalling)
+// ✅ Keeps: FX position accurate + spawn limiter + fps guard + safe end on tick crash
 'use strict';
 
 const WIN = window;
@@ -59,7 +59,8 @@ export function boot(){
   const pillQuest= DOC.getElementById('pillQuest');
   const hudSub   = DOC.getElementById('hudSub');
   const banner   = DOC.getElementById('banner');
-  const hudTop   = DOC.getElementById('hudTop');
+
+  const hudTop = DOC.getElementById('hudTop'); // optional if you add later
 
   const quizBox  = DOC.getElementById('quizBox');
   const quizQ    = DOC.getElementById('quizQ');
@@ -144,6 +145,21 @@ export function boot(){
     lastDt: 0
   };
 
+  // 🔥 timeScale for micro slow-mo
+  let timeScale = 1.0;
+  let slowmoUntil = 0;
+
+  // haptics
+  const hapticsOn = (qs('haptics','1') !== '0');
+  function vibrate(pattern){
+    if(!hapticsOn) return;
+    try{
+      if(WIN.navigator && typeof WIN.navigator.vibrate === 'function'){
+        WIN.navigator.vibrate(pattern);
+      }
+    }catch{}
+  }
+
   function showBanner(msg){
     if(!banner) return;
     banner.textContent = msg;
@@ -183,7 +199,7 @@ export function boot(){
     WIN.visualViewport.addEventListener('resize', ()=>{ measureHudSafe(); }, { passive:true });
   }
 
-  // FX: take real element center (always correct)
+  // FX position from real element center
   function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P || !obj) return;
@@ -311,9 +327,11 @@ export function boot(){
 
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
-
     pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • mul=${PERF.spawnMul.toFixed(2)}`);
+
+    hudSub && (hudSub.textContent =
+      `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • mul=${PERF.spawnMul.toFixed(2)} • ts=${timeScale.toFixed(2)}`
+    );
   }
 
   function clearTargets(){
@@ -373,10 +391,9 @@ export function boot(){
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    // ✅ Mobile reliable: pointerdown (no 300ms delay, less missed taps)
+    // ✅ pointerdown for mobile reliability
     if(view !== 'cvr'){
       el.addEventListener('pointerdown', (ev)=>{
-        // prevent ghost/double
         try{ ev.preventDefault(); ev.stopPropagation(); }catch{}
         onHitByPointer(obj, 'tap');
       }, { passive:false });
@@ -446,6 +463,26 @@ export function boot(){
     return running ? ((nowMs() - tStartMs)/1000) : 0;
   }
 
+  // 🔥 micro slow-mo helper
+  function slowMo(ms=150, scale=0.35){
+    const t = nowMs();
+    slowmoUntil = Math.max(slowmoUntil, t + ms);
+    timeScale = Math.min(timeScale, scale);
+  }
+  function updateSlowMo(){
+    const t = nowMs();
+    if(slowmoUntil && t < slowmoUntil){
+      // keep
+      return;
+    }
+    // recover smoothly
+    timeScale = Math.min(1.0, timeScale + 0.10);
+    if(timeScale >= 0.98){
+      timeScale = 1.0;
+      slowmoUntil = 0;
+    }
+  }
+
   function bumpQuestOnGoodHit(){
     const t = elapsedSec();
     if(t < 2) return;
@@ -499,6 +536,8 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
+      vibrate(10);
+
       if(quizOpen && quizOpen._armed){
         const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
@@ -523,6 +562,11 @@ export function boot(){
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
+
+        // slow-mo punch
+        slowMo(150, 0.35);
+        vibrate([12, 20, 12]);
+
         stepIdx++;
         hitsInStep=0;
 
@@ -537,6 +581,10 @@ export function boot(){
         if(stepIdx >= STEPS.length){
           stepIdx=0;
           loopsDone++;
+
+          slowMo(180, 0.30);
+          vibrate([15, 25, 15]);
+
           showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
           if(!quizOpen) openRandomQuiz();
         }else{
@@ -555,6 +603,8 @@ export function boot(){
       wrongStepHits++;
       totalStepHits++;
       combo = 0;
+
+      vibrate([20, 40, 20]);
 
       if(quizOpen && quizOpen._armed){
         quizWrong++;
@@ -578,6 +628,8 @@ export function boot(){
       hazHits++;
       combo = 0;
 
+      vibrate([30, 50, 30]);
+
       if(quizOpen && quizOpen._armed){
         quizWrong++;
         closeQuiz('❌ Quiz พลาด!');
@@ -597,20 +649,15 @@ export function boot(){
     }
   }
 
-  // FPS guard + spawn limiter
   function adjustPerf(dt){
     PERF.lastDt = dt;
-
-    // dt > 0.050 ~ <20fps
     if(dt > 0.050) PERF.slowFrames++;
     else PERF.slowFrames = Math.max(0, PERF.slowFrames - 1);
 
-    // if slow for a while => reduce spawn multiplier
     if(PERF.slowFrames > 18){
       PERF.spawnMul = Math.max(0.60, PERF.spawnMul - 0.06);
       PERF.slowFrames = 10;
     }else{
-      // recover slowly
       PERF.spawnMul = Math.min(1.00, PERF.spawnMul + 0.01);
     }
   }
@@ -620,7 +667,7 @@ export function boot(){
 
     try{
       const t = nowMs();
-      const dt = Math.max(0, (t - tLastMs)/1000);
+      let dt = Math.max(0, (t - tLastMs)/1000);
       tLastMs = t;
 
       if(paused){ requestAnimationFrame(tick); return; }
@@ -628,6 +675,10 @@ export function boot(){
       if((tick._n = (tick._n||0) + 1) % 45 === 0) measureHudSafe();
 
       adjustPerf(dt);
+      updateSlowMo();
+
+      // ✅ apply timeScale
+      dt *= timeScale;
 
       timeLeft -= dt;
       emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
@@ -639,11 +690,9 @@ export function boot(){
 
       const P = dd ? dd.getParams() : base;
 
-      // apply perf multiplier + hard cap by target count
-      const spawnPerSec = P.spawnPerSec * PERF.spawnMul;
+      const spawnPerSec = P.spawnPerSec * PERF.spawnMul * (0.90 + 0.10*timeScale);
       spawnAcc += (spawnPerSec * dt);
 
-      // ✅ cap spawns per frame (prevents flood if dt spikes)
       let spawnedThisFrame = 0;
       const MAX_SPAWNS_FRAME = 3;
 
@@ -652,14 +701,12 @@ export function boot(){
         spawnOne();
         spawnedThisFrame++;
 
-        // cap targets
         if(targets.length > 18){
           const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
           if(oldest) removeTarget(oldest);
         }
       }
 
-      // if still accumulating too much, bleed it
       if(spawnAcc > 3) spawnAcc = 2.2;
 
       dd?.onEvent('tick', { elapsedSec: elapsedSec() });
@@ -693,6 +740,9 @@ export function boot(){
 
     PERF.slowFrames = 0;
     PERF.spawnMul = 1.0;
+
+    timeScale = 1.0;
+    slowmoUntil = 0;
 
     measureHudSafe();
     setHud();
@@ -742,7 +792,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.4-prod',
+      version:'1.0.5-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode, diff, view, seed,
@@ -798,7 +848,7 @@ export function boot(){
     else location.href = '../hub.html';
   }
 
-  // UI binds
+  // binds
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
@@ -814,10 +864,8 @@ export function boot(){
     setTimeout(measureHudSafe, 0);
   }, { passive:true });
 
-  // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge fx
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
