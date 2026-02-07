@@ -1,41 +1,35 @@
-<!-- === /herohealth/groups-vr.html ===
-GroupsVR ROOT LAUNCHER — PRODUCTION (HHA Standard)
-Redirects -> ./vr-groups/groups-vr.html
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Groups VR (Launcher)</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — GroupsVR (Launcher)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{ color-scheme: dark; --bg:#020617; --panel:rgba(2,6,23,.72); --text:#e5e7eb; --muted:#94a3b8; --stroke:rgba(148,163,184,.18); }
+    body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto; }
+    .box{ width:min(720px,92vw); padding:18px; border:1px solid var(--stroke); border-radius:16px; background:var(--panel); }
+    .muted{ color:var(--muted); }
+    #fatal{ white-space:pre-wrap; color:#fecaca; }
+  </style>
 </head>
 <body>
-<script>
-(function(){
-  const RUN_PATH = './vr-groups/groups-vr.html';
-  const HUB_DEFAULT = './hub.html';
+  <div class="box">
+    <div style="font-weight:800; font-size:18px;">กำลังเข้าเกม…</div>
+    <div class="muted">GroupsVR</div>
+    <div id="fatal"></div>
+  </div>
 
-  const from = new URL(location.href);
-  const to = new URL(RUN_PATH, from);
-
-  // pass-through all params
-  for (const [k,v] of from.searchParams.entries()) to.searchParams.set(k, v);
-
-  // ensure hub
-  if (!to.searchParams.has('hub')) to.searchParams.set('hub', HUB_DEFAULT);
-
-  // fill view only if missing (never override)
-  if (!to.searchParams.has('view')) {
-    const isMobile =
-      (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) ||
-      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-    to.searchParams.set('view', isMobile ? 'mobile' : 'pc');
-  }
-
-  location.replace(to.toString());
-})();
-</script>
+  <script src="./vr/research-ctx.js"></script>
+  <script src="./vr/launcher-redirect.js"></script>
+  <script>
+    // ROOT -> RUN
+    const RUN_URL = './vr-groups/groups-vr.html';
+    HHA_LauncherRedirect.go(RUN_URL, {
+      autoViewIfMissing: false,  // ✅ no override policy (keep view empty if missing)
+      overrides: { game:'groups' } // optional tag
+    });
+  </script>
 </body>
 </html>
