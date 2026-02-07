@@ -1,424 +1,171 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — Pack 1-4 (Risk Predictor + Director + Coach + Pattern Waves)
-// ✅ Exposes: window.HHA.AIHooks.create(opts)
-// ✅ Works with GoodJunk safe.js (calls AI.getDifficulty / AI.getTip / AI.onEvent)
-// ✅ Play mode only by default; research mode => AI OFF (deterministic baseline)
-// ✅ Explainable tips + rate limit
-// ✅ Pattern waves (warmup/groove/rush) + boss intensifier
+// HHA AI Hooks — PRODUCTION (Seeded / Deterministic-ready)
+// ✅ createAIHooks({game, runMode, diff, seed})
+// ✅ getTuning(state) => { spawnMul,sizeMul,ttlMul,pBadAdd,driftMul,stormEverySec,bossMul,lockPx }
+// ✅ getPattern(state) => { name, mode, params }  (seeded)
+// ✅ getTip(state, recent) => { msg, why, code }
+// ✅ onEvent(ev) (no-op default)
+// Notes:
+// - In research mode: deterministic suggestions (based on seed + counters), no adaptive randomness.
+// - In play mode: adaptive but bounded, "fair" (no spikes).
 
 (function(){
   'use strict';
   const WIN = window;
 
-  // Ensure namespace
-  WIN.HHA = WIN.HHA || {};
-  WIN.HHA.AIHooks = WIN.HHA.AIHooks || {};
+  function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
+  function clamp01(v){ return clamp(v,0,1); }
 
-  // ---------------------------
-  // utilities
-  // ---------------------------
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  function makeRNG(seed){
+    let x = (Number(seed) || Date.now()) >>> 0;
+    return () => (x = (1664525 * x + 1013904223) >>> 0) / 4294967296;
   }
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function nowMs(){ try{ return (performance && performance.now) ? performance.now() : Date.now(); }catch{ return Date.now(); } }
 
-  // hash + rng (deterministic without consuming engine rng)
   function hashStr(s){
     s = String(s||'');
     let h = 2166136261 >>> 0;
     for(let i=0;i<s.length;i++){
       h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
+      h = Math.imul(h, 16777619) >>> 0;
     }
     return h >>> 0;
   }
-  function mulberry32(seedU32){
-    let a = (seedU32 >>> 0) || 0x12345678;
-    return function(){
-      a |= 0; a = a + 0x6D2B79F5 | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+
+  function normDiff(diff){
+    diff = String(diff||'normal').toLowerCase();
+    return (diff==='easy'||diff==='hard') ? diff : 'normal';
   }
 
-  function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+  // ---- Difficulty Director (lite but real)
+  function computeTuning(ctx, state){
+    const diff = normDiff(ctx.diff);
+    const runMode = ctx.runMode;
 
-  // ---------------------------
-  // Risk Predictor (Pack 1)
-  // ---------------------------
-  function makeRiskModel(seedStr){
-    // Logistic model (tiny + fast) — can be replaced by ML weights later
-    // features normalized into roughly [-1..+1] bands
-    const baseSeed = hashStr('HHA-RISK:' + seedStr);
-    const r = mulberry32(baseSeed);
+    // skill signals
+    const acc = clamp01((state.accuracyPct||0)/100);
+    const combo = clamp(state.comboMax||0, 0, 50);
+    const green = clamp01((state.greenHoldSec||0)/Math.max(1, state.timePlannedSec||70));
+    const stormRate = (state.stormCycles>0) ? clamp01((state.stormOk||0)/state.stormCycles) : 0.7;
 
-    // Start with sensible weights; add tiny deterministic jitter (so not identical across studies if desired)
-    const W = {
-      b: -0.8 + (r()-0.5)*0.10,
-      // Higher miss/expire => higher risk
-      missRate:  2.2 + (r()-0.5)*0.15,
-      expireRate: 2.0 + (r()-0.5)*0.15,
-      // Low accuracy => higher risk
-      acc:      -2.4 + (r()-0.5)*0.15,
-      // Slow RT => higher risk
-      rt:        1.8 + (r()-0.5)*0.15,
-      // High alive density => higher risk
-      density:   1.2 + (r()-0.5)*0.12,
-      // Boss phase => higher baseline risk
-      boss:      0.9 + (r()-0.5)*0.08,
-      // Low time => higher risk (panic)
-      lowTime:   0.8 + (r()-0.5)*0.08
-    };
+    // reaction estimate
+    const rt = clamp(state.rtAvgMs||520, 250, 1200);
+    const rtScore = clamp01((900 - rt) / 650); // faster => higher
 
-    function score(feat){
-      const x =
-        W.b +
-        W.missRate   * feat.missRate +
-        W.expireRate * feat.expireRate +
-        W.acc        * feat.acc +
-        W.rt         * feat.rt +
-        W.density    * feat.density +
-        W.boss       * feat.boss +
-        W.lowTime    * feat.lowTime;
-      return sigmoid(x);
-    }
+    // composite skill (bounded)
+    let skill = 0.28*acc + 0.22*rtScore + 0.18*green + 0.18*clamp01(combo/14) + 0.14*stormRate;
+    skill = clamp01(skill);
 
-    return { score, W };
+    // base by diff
+    const base = (diff==='easy') ? 0.90 : (diff==='hard') ? 1.12 : 1.00;
+
+    // Play: adaptive, Research: fixed-ish (still deterministic based on state counters)
+    const adapt = (runMode==='play') ? (0.88 + skill*0.38) : (0.96 + skill*0.12);
+
+    // fairness guards: do not punish low skill too hard
+    const safe = (runMode==='play') ? (0.92 + 0.10*green) : 1.0;
+
+    let spawnMul = clamp(base*adapt*safe, 0.82, 1.35);
+    let sizeMul  = clamp(1.00 - (spawnMul-1)*0.25, 0.86, 1.02);
+    let ttlMul   = clamp(1.00 - (spawnMul-1)*0.18, 0.88, 1.05);
+
+    // BAD probability shaping: more bad as skill rises, but bounded
+    let pBadAdd  = clamp((skill-0.5)*0.10, -0.06, 0.08);
+
+    // drift shaping: if player gets stuck out of green, drift helps slightly
+    let driftMul = clamp(1.00 + (1-green)*0.20, 1.00, 1.18);
+
+    // storm pacing: ensure storm appears sometimes even if player never leaves green
+    // (for excitement + research events). In research, keep stable.
+    let stormEverySec = (runMode==='play') ? clamp(18 - skill*6, 12, 18) : 16;
+
+    // boss intensity
+    let bossMul = clamp(0.96 + skill*0.22, 0.95, 1.20);
+
+    // aim assist lockPx suggestion
+    let lockPx = clamp(ctx.lockPx||28, 18, 46);
+    if(runMode==='play' && rt>800) lockPx = clamp(lockPx+6, 18, 52);
+    if(runMode==='play' && rt<380) lockPx = clamp(lockPx-2, 18, 52);
+
+    return { spawnMul, sizeMul, ttlMul, pBadAdd, driftMul, stormEverySec, bossMul, lockPx, skill };
   }
 
-  // rolling stats helper (EWMA)
-  function ewma(prev, val, alpha){
-    if(!Number.isFinite(val)) return prev;
-    if(!Number.isFinite(prev)) return val;
-    return prev + alpha * (val - prev);
-  }
+  // ---- Pattern Generator (seeded)
+  function pickPattern(ctx, state, rng){
+    const phase = String(state.phase||'MAIN').toUpperCase();
+    const n = state.patternIndex||0;
 
-  // ---------------------------
-  // Pattern Generator (Pack 4)
-  // ---------------------------
-  function patternWave(playedSec, seedStr){
-    // returns wave object describing intensity (0..1) + type
-    // deterministic per time block
-    const block = Math.floor(playedSec / 4); // 4s blocks
-    const rng = mulberry32(hashStr(seedStr + ':WAVE:' + block));
-    const tInBlock = (playedSec % 4) / 4;
-
-    // schedule: warmup (0-12s), groove (12-45s), rush bursts afterwards
-    let type = 'groove';
-    let intensity = 0.35;
-
-    if(playedSec < 12){
-      type = 'warmup';
-      intensity = 0.18 + (playedSec/12)*0.18; // ramp
-    }else if(playedSec < 45){
-      type = 'groove';
-      intensity = 0.32 + 0.10*Math.sin(playedSec/3.8);
-    }else{
-      // rush chance every block
-      const rush = (rng() < 0.22); // 22% blocks become rush
-      if(rush){
-        type = 'rush';
-        // pulse in the middle of the block
-        const pulse = 1 - Math.abs(tInBlock - 0.5) / 0.5; // 0..1..0
-        intensity = 0.70 + 0.25*pulse;
-      }else{
-        type = 'groove';
-        intensity = 0.42 + 0.12*Math.sin(playedSec/5.2);
-      }
-    }
-
-    intensity = clamp(intensity, 0, 1);
-    return { type, intensity };
-  }
-
-  // ---------------------------
-  // Coach (Pack 3)
-  // ---------------------------
-  function makeCoach(){
-    const tips = [
-      { key:'expire', cause:'expire', msg:'⏱️ ของดีหายบ่อย! ลอง “ยิงทันทีที่เห็น” ก่อนคิดนานนะ', cool:7 },
-      { key:'junk',   cause:'junk',   msg:'🧨 โดนของเสียติดกัน! ลอง “รอของดี” แล้วค่อยยิง ลดพลาดได้เยอะ', cool:7 },
-      { key:'dense',  cause:'dense',  msg:'🎯 เป้าหนาแน่น! โฟกัส “เป้าที่ใกล้สุด” ทีละอัน จะคุมเกมง่ายขึ้น', cool:7 },
-      { key:'boss',   cause:'boss',   msg:'⚡ ช่วงบอสมาแล้ว! เน้นของดีเพื่อลด HP บอส และหลบของเสีย', cool:7 },
-      { key:'lowtime',cause:'lowtime',msg:'⏳ ใกล้หมดเวลา! เล็งให้ชัวร์ก่อนยิง 1 จังหวะ จะได้คะแนนพุ่ง', cool:7 },
-      { key:'combo',  cause:'combo',  msg:'🔥 คอมโบกำลังมา! รักษาจังหวะเดิม แล้วคะแนนจะวิ่งแรงมาก', cool:7 }
+    // deterministic rotation
+    const main = [
+      {name:'sprinkle', mode:'scatter', params:{bias:'center'}},
+      {name:'lane-left', mode:'lane', params:{side:'left'}},
+      {name:'lane-right', mode:'lane', params:{side:'right'}},
+      {name:'ring', mode:'ring', params:{radius:0.34}},
+      {name:'zigzag', mode:'zigzag', params:{amp:0.28}},
+    ];
+    const storm = [
+      {name:'storm-core', mode:'center-burst', params:{coreChance:0.16}},
+      {name:'storm-ring', mode:'ring', params:{radius:0.38, coreChance:0.12}},
+      {name:'storm-lanes', mode:'lane', params:{side:(rng()<0.5?'left':'right'), coreChance:0.14}},
+    ];
+    const boss = [
+      {name:'boss-weakpoint', mode:'weakpoint', params:{weakChance:0.22}},
+      {name:'boss-sweep', mode:'sweep', params:{dir:(rng()<0.5?'lr':'rl'), weakChance:0.18}},
     ];
 
-    let lastTipAt = 0;
-    let lastKey = '';
+    let list = main;
+    if(phase==='STORM') list = storm;
+    if(phase==='BOSS') list = boss;
 
-    function pick(cause){
-      // avoid repeating the same key too often
-      const pool = tips.filter(t=>t.cause === cause && t.key !== lastKey);
-      const t = pool[0] || tips.find(t=>t.cause===cause) || null;
-      return t;
-    }
-
-    function getTip(cause){
-      const t = pick(cause);
-      if(!t) return null;
-
-      const now = nowMs();
-      if(now - lastTipAt < (t.cool*1000)) return null;
-
-      lastTipAt = now;
-      lastKey = t.key;
-
-      return { msg: t.msg, tag:'AI Coach', cause:t.cause };
-    }
-
-    return { getTip };
+    return list[n % list.length];
   }
 
-  // ---------------------------
-  // Difficulty Director (Pack 2)
-  // ---------------------------
-  function applyDirector(base, ctx){
-    // ctx: {risk, wave, accEwma, rtEwma, missRateEwma, expireEwma, boss, lowTime}
-    // Goal: "แฟร์" — ถ้าเสี่ยงพลาดสูง ให้ผ่อนนิด แต่ถ้าเล่นเก่งให้เร้าใจขึ้น
-    const out = Object.assign({}, base);
+  // ---- Coach Tips (explainable)
+  function getCoachTip(ctx, state){
+    // prioritize actionable, short
+    const missShot = state.missShot||0;
+    const missExpire = state.missExpireGood||0;
+    const badHits = state.missBadHit||0;
+    const zone = String(state.zone||'GREEN');
+    const rt = Math.round(state.rtAvgMs||520);
 
-    const risk = clamp(ctx.risk, 0, 1);
-    const waveI = clamp(ctx.wave?.intensity ?? 0.35, 0, 1);
-    const waveType = String(ctx.wave?.type || 'groove');
-
-    // skill proxy: acc high + rt fast => skill high
-    const skill = clamp(
-      ( (ctx.accEwma ?? 0.75) - 0.70 ) * 1.8 +
-      ( (0.55 - (ctx.rtEwma ?? 0.45)) ) * 1.2,
-      -1, 1
-    );
-
-    // intensity target from wave + skill, reduced a bit by risk
-    let intensity = waveI + (skill*0.18) - (risk*0.22);
-    if(ctx.boss) intensity += 0.18;
-    intensity = clamp(intensity, 0.10, 0.95);
-
-    // spawnMs: lower = harder
-    const spawnHardness = intensity; // 0.1..0.95
-    out.spawnMs = clamp(
-      base.spawnMs * (1.05 - 0.40*spawnHardness),
-      520,
-      1150
-    );
-
-    // probability shaping
-    // more intensity => more junk, less good; risk => add relief via star/shield
-    const relief = clamp((risk - 0.55) * 0.20, 0, 0.10); // up to +0.10 total relief
-    const junkBoost = clamp(0.10*intensity + (skill>0?0.05:0) - (risk>0.65?0.06:0), -0.06, 0.18);
-
-    out.pJunk = clamp(base.pJunk + junkBoost, 0.16, 0.58);
-    out.pGood = clamp(base.pGood - junkBoost - relief*0.6, 0.34, 0.82);
-
-    // relief split
-    out.pStar   = clamp(base.pStar   + relief*0.45 + (waveType==='rush'?0.01:0), 0.01, 0.08);
-    out.pShield = clamp(base.pShield + relief*0.55 + (ctx.lowTime?0.01:0), 0.01, 0.10);
-
-    // normalize later in engine (safe.js already normalizes)
-    return out;
+    if(zone!=='GREEN' && (state.offGreenSec||0) > 2.5){
+      return { msg:'หลุด GREEN นานไปแล้ว! ยิง 💧 1–2 ครั้งก่อน แล้วค่อยจัดการ 🥤', why:'เวลาหลุดโซนต้อง “ดึงกลับ” ก่อน ไม่งั้นจะยิ่งไหลออก', code:'zone_recover' };
+    }
+    if(missExpire >= 3){
+      return { msg:'GOOD หมดเวลาเยอะ—เล็งที่เป้าใกล้กลางจอก่อน จะทันมากขึ้น', why:'มือถือ/VR เล็งกลางจอเร็วกว่า ลด GOOD expire', code:'expire_focus' };
+    }
+    if(missShot >= 3){
+      return { msg:`ยิงพลาดบ่อย (RT~${rt}ms) ลองหยุดครึ่งจังหวะแล้วค่อยยิง จะนิ่งขึ้น`, why:'ยิงรัวทำให้ lock หลุด เป้าหลุดขอบ', code:'shot_pace' };
+    }
+    if(badHits >= 3){
+      return { msg:'โดน 🥤 บ่อย—ถ้า Pct ใกล้ 40/70 ให้ “งดยิงสุ่ม” แล้วเลือกยิงเฉพาะ 💧', why:'ช่วงขอบโซน GREEN เสี่ยงหลุดมาก', code:'avoid_bad_edge' };
+    }
+    return { msg:'ฟอร์มดี! ลองคุมให้ GREEN ต่อเนื่อง แล้วเตรียมรับ STORM ให้ครบ', why:'สกิลหลักคือ “คุมโซน + คอมโบ”', code:'keep_green' };
   }
 
-  // ---------------------------
-  // CREATE entry
-  // ---------------------------
-  WIN.HHA.AIHooks.create = function create(opts){
-    opts = opts || {};
+  function createAIHooks(opts){
+    const ctx = Object.assign({
+      game:'unknown',
+      runMode:'play',
+      diff:'normal',
+      seed: Date.now(),
+      lockPx: 28
+    }, opts||{});
 
-    const run = String(opts.mode || qs('run','play')).toLowerCase();
-    const enabled = (run === 'play'); // play only
-    const seedStr = String(qs('seed', '') || opts.seed || 'seedless');
+    const rng = makeRNG((Number(ctx.seed)||0) ^ hashStr(ctx.game));
 
-    const coach = makeCoach();
-    const riskModel = makeRiskModel(seedStr);
-
-    // rolling stats (EWMA)
-    const S = {
-      enabled: !!enabled,
-      // event counters in short windows
-      shots:0,
-      hitGood:0,
-      hitJunk:0,
-      expireGood:0,
-
-      // EWMAs
-      accEwma: 0.78,        // 0..1
-      rtEwma: 0.42,         // seconds
-      missRateEwma: 0.10,   // 0..1
-      expireEwma: 0.08,     // 0..1
-      densityEwma: 0.25,    // 0..1
-      lastEventAt: 0,
-
-      // tip timing
-      lastCause: '',
-      boss: false,
-      lowTime: false
+    const api = {
+      ctx,
+      rng,
+      getTuning: (state)=>computeTuning(ctx, state||{}),
+      getPattern: (state)=>pickPattern(ctx, state||{}, rng),
+      getTip: (state)=>getCoachTip(ctx, state||{}),
+      onEvent: (_ev)=>{}
     };
+    return api;
+  }
 
-    // For RT approximation: measure time since last shoot to next judged event
-    let lastShootAt = 0;
-    let awaitingJudge = false;
-
-    function updateRollingFromWindow(){
-      const judged = Math.max(1, S.hitGood + S.hitJunk + S.expireGood);
-      const acc = clamp(S.hitGood / judged, 0, 1);
-      const missRate = clamp((S.hitJunk + S.expireGood) / judged, 0, 1);
-      const expireRate = clamp(S.expireGood / judged, 0, 1);
-
-      S.accEwma = ewma(S.accEwma, acc, 0.22);
-      S.missRateEwma = ewma(S.missRateEwma, missRate, 0.22);
-      S.expireEwma = ewma(S.expireEwma, expireRate, 0.22);
-
-      // decay window counts a bit (so it keeps reacting)
-      S.shots *= 0.35;
-      S.hitGood *= 0.35;
-      S.hitJunk *= 0.35;
-      S.expireGood *= 0.35;
-    }
-
-    function computeRisk(playedSec, base){
-      // features normalized
-      const acc = clamp(S.accEwma, 0.2, 0.98);
-      const rt = clamp(S.rtEwma, 0.12, 0.95);
-
-      // map to centered ranges
-      const feat = {
-        // higher -> risk
-        missRate: clamp((S.missRateEwma - 0.10) / 0.22, -1, 1),
-        expireRate: clamp((S.expireEwma - 0.08) / 0.22, -1, 1),
-        acc: clamp((acc - 0.80) / 0.12, -1, 1), // high acc reduces risk (negative weight)
-        rt: clamp((rt - 0.38) / 0.18, -1, 1),
-        density: clamp((S.densityEwma - 0.28) / 0.22, -1, 1),
-        boss: S.boss ? 1 : 0,
-        lowTime: S.lowTime ? 1 : 0
-      };
-
-      const risk = riskModel.score(feat);
-      return clamp(risk, 0, 1);
-    }
-
-    function pickCauseForTip(risk, playedSec){
-      // explainable cause selection
-      if(S.boss) return 'boss';
-      if(S.lowTime) return 'lowtime';
-
-      if(S.expireEwma > 0.16) return 'expire';
-      if(S.missRateEwma > 0.20 && S.hitJunk > S.hitGood*0.4) return 'junk';
-      if(S.densityEwma > 0.38) return 'dense';
-      if(S.accEwma > 0.86 && playedSec > 10) return 'combo';
-
-      if(risk > 0.72) return 'dense';
-      return '';
-    }
-
-    return {
-      enabled: !!enabled,
-
-      // engine calls this on shoot/hit/miss events
-      onEvent: function(type, payload){
-        if(!S.enabled) return;
-        type = String(type||'').toLowerCase();
-        const t = nowMs();
-
-        if(type === 'shoot'){
-          S.shots += 1;
-          lastShootAt = t;
-          awaitingJudge = true;
-        }
-
-        if(type === 'hitgood'){
-          S.hitGood += 1;
-          if(awaitingJudge && lastShootAt){
-            const rtSec = clamp((t - lastShootAt)/1000, 0.08, 1.2);
-            S.rtEwma = ewma(S.rtEwma, rtSec, 0.18);
-            awaitingJudge = false;
-          }
-          updateRollingFromWindow();
-        }
-
-        if(type === 'hitjunk'){
-          S.hitJunk += 1;
-          if(awaitingJudge && lastShootAt){
-            const rtSec = clamp((t - lastShootAt)/1000, 0.08, 1.2);
-            S.rtEwma = ewma(S.rtEwma, rtSec, 0.18);
-            awaitingJudge = false;
-          }
-          updateRollingFromWindow();
-        }
-
-        if(type === 'miss'){ // good expired miss in safe.js
-          S.expireGood += 1;
-          awaitingJudge = false;
-          updateRollingFromWindow();
-        }
-
-        // Optional: external signals
-        if(type === 'boss'){
-          S.boss = !!(payload && payload.active);
-        }
-        if(type === 'lowtime'){
-          S.lowTime = !!(payload && payload.active);
-        }
-
-        S.lastEventAt = t;
-      },
-
-      // engine calls every tick to get difficulty values
-      getDifficulty: function(playedSec, base){
-        // research mode => no AI
-        if(!S.enabled) return Object.assign({}, base||{});
-
-        // measure density quickly from DOM (cheap)
-        try{
-          const alive = document.querySelectorAll('.gj-target').length || 0;
-          const dens = clamp(alive / 10, 0, 1); // 10 alive ~ dense
-          S.densityEwma = ewma(S.densityEwma, dens, 0.20);
-        }catch(_){}
-
-        // low time heuristic
-        S.lowTime = (playedSec != null && playedSec > 0) ? ((Number(qs('time','80'))||80) - playedSec <= 6) : S.lowTime;
-
-        // compute wave + risk
-        const wave = patternWave(Number(playedSec)||0, seedStr);
-        const risk = computeRisk(Number(playedSec)||0, base);
-
-        // director output
-        const out = applyDirector(base||{}, {
-          risk,
-          wave,
-          accEwma: S.accEwma,
-          rtEwma: S.rtEwma,
-          missRateEwma: S.missRateEwma,
-          expireEwma: S.expireEwma,
-          boss: S.boss,
-          lowTime: S.lowTime
-        });
-
-        // keep for coach selection
-        S._lastRisk = risk;
-        S._lastWave = wave;
-
-        return out;
-      },
-
-      // engine sometimes calls for a tip
-      getTip: function(playedSec){
-        if(!S.enabled) return null;
-
-        const risk = clamp(S._lastRisk ?? 0.4, 0, 1);
-        const cause = pickCauseForTip(risk, Number(playedSec)||0);
-        if(!cause) return null;
-
-        // rate-limited inside coach
-        const tip = coach.getTip(cause);
-        return tip || null;
-      }
-    };
-  };
-
-  // Backward compat if some game calls this older name
-  WIN.HHA.createAIHooks = WIN.HHA.createAIHooks || function(opts){
-    try{ return WIN.HHA.AIHooks.create(opts); }catch(_){ return { enabled:false, onEvent:()=>{}, getTip:()=>null, getDifficulty:(_t,b)=>Object.assign({},b||{}) }; }
-  };
+  // expose
+  WIN.HHA = WIN.HHA || {};
+  WIN.HHA.createAIHooks = WIN.HHA.createAIHooks || createAIHooks;
 })();
