@@ -3,7 +3,7 @@
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
-// ✅ Safe-spawn: avoid overlapping targets
+// ✅ PATCH: smaller targets + mobile-first safe playfield (avoid HUD/meta/bottom bars)
 
 'use strict';
 
@@ -36,12 +36,22 @@ export class DomRendererShadow {
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-    const pad = Math.min(42, Math.max(18, r.width * 0.04));
-    const top = pad + 10;
+
+    // base pad
+    const pad = Math.min(44, Math.max(18, r.width * 0.045));
+    const isMobile = r.width <= 520;
+
+    // reserve zones (mobile tighter)
+    const topReserve = isMobile ? 150 : 120;     // HUD + top bars
+    const rightReserve = isMobile ? 0 : 280;     // meta panel only on desktop/tablet
+    const bottomReserve = isMobile ? 170 : 140;  // fever + bottom bars + controls
+
     const left = pad + 10;
-    const right = r.width - pad - 10;
-    const bottom = r.height - pad - 10;
-    return { r, left, top, right, bottom };
+    const top = pad + topReserve;
+    const right = r.width - pad - 10 - rightReserve;
+    const bottom = r.height - pad - 10 - bottomReserve;
+
+    return { r, left, top, right, bottom, isMobile };
   }
 
   _emojiForType(t, bossEmoji){
@@ -54,53 +64,29 @@ export class DomRendererShadow {
     return '🎯';
   }
 
-  _pickSpawnPoint(left, top, right, bottom, size, maxTry = 18){
-    const r2 = size * 0.52; // collision radius
-    const pts = [];
-    for (const el of this.targets.values()){
-      try{
-        const b = el.getBoundingClientRect();
-        const cx = b.left + b.width/2;
-        const cy = b.top + b.height/2;
-        pts.push({ x: cx, y: cy, r: (b.width/2) });
-      }catch{}
-    }
-
-    for(let i=0;i<maxTry;i++){
-      const x = rand(left, Math.max(left, right - size));
-      const y = rand(top,  Math.max(top,  bottom - size));
-      const cx = x + size/2;
-      const cy = y + size/2;
-
-      let ok = true;
-      for(const p of pts){
-        const dx = cx - p.x;
-        const dy = cy - p.y;
-        const rr = (p.r + r2);
-        if ((dx*dx + dy*dy) < rr*rr){ ok = false; break; }
-      }
-      if (ok) return { x, y };
-    }
-    return { x: left, y: top };
-  }
-
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const { left, top, right, bottom } = this._safeAreaRect();
+    const { left, top, right, bottom, isMobile } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
-    const size = clamp(Number(data.sizePx) || 120, 70, 320);
+    // ✅ PATCH: smaller target sizes (and cap max)
+    const fallback = isMobile ? 92 : 112;
+    const size = clamp(Number(data.sizePx) || fallback, 56, 180);
+
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    const pt = this._pickSpawnPoint(left, top, right, bottom, size);
-    el.style.left = Math.round(pt.x) + 'px';
-    el.style.top  = Math.round(pt.y) + 'px';
+    // random position (clamped)
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
 
+    // content
     const emoji = this._emojiForType(data.type, data.bossEmoji);
     el.textContent = emoji;
 
