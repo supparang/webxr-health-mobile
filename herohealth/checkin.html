@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Check-in</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+    }
+    .wrap{ max-width:980px; margin:0 auto; }
+    .panel{
+      border:1px solid var(--stroke);
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding:14px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      display:inline-flex; align-items:center; gap:8px;
+      white-space:nowrap;
+    }
+    .btn.secondary{ color: var(--muted); }
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.34);
+      border-radius: 18px;
+      padding: 14px;
+      margin-top:12px;
+    }
+    .muted{ color: var(--muted); font-size:12px; line-height:1.45; }
+    .big{ font-size:18px; font-weight:900; }
+    .pill{ display:inline-flex; gap:6px; align-items:center; padding:7px 10px; border-radius:999px; border:1px solid var(--stroke); background: rgba(2,6,23,.30); color:var(--muted); font-size:12px; margin-right:8px; margin-top:8px;}
+    .pill b{ color:var(--text); }
+    input{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.30);
+      color: var(--text);
+      border-radius: 12px;
+      padding:10px 10px;
+      outline:none;
+      width: 220px;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="row">
+      <div>
+        <div class="big">✅ Check-in</div>
+        <div class="muted">สแกน QR หรือกรอก pid → กด Start Protocol เพื่อเข้าเกมแรกทันที</div>
+      </div>
+      <div class="row">
+        <div class="btn secondary" id="btnToHub">🏫 ไป Hub</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="muted">Participant (pid)</div>
+          <input id="pid" placeholder="เช่น P-8K2FQ-7D">
+        </div>
+        <div>
+          <div class="muted">Protocol</div>
+          <input id="proto" placeholder="เช่น P1">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="btn" id="btnCheckin">✅ Check-in</div>
+        <div class="btn" id="btnStart">🎮 Start Protocol</div>
+        <div class="btn secondary" id="btnExport">⬇️ Export Check-ins CSV</div>
+        <div class="btn secondary" id="btnClear">🧹 Clear Today</div>
+      </div>
+
+      <div id="pills"></div>
+      <div class="muted" style="margin-top:10px;">
+        * Check-in จะถูกเก็บในเครื่องนี้เท่านั้น (localStorage) • เหมาะกับครูถือเครื่องเดียว
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="big" style="font-size:14px;">วันนี้เช็คอินแล้ว</div>
+      <div id="list" class="muted" style="margin-top:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const LS_CHECKIN = 'HHA_CHECKIN_LOG_V1';
+
+  const $ = (s)=>document.querySelector(s);
+  const esc = (s)=>String(s??'').replace(/</g,'&lt;');
+
+  function hubUrl(){
+    const u = new URL('./hub.html', location.href);
+    // pass-through everything except checkin-only params
+    const cur = new URL(location.href).searchParams;
+    for(const [k,v] of cur.entries()){
+      if(k==='checkin') continue;
+      u.searchParams.set(k,v);
+    }
+    return u.toString();
+  }
+
+  function parseQS(){
+    try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
+  }
+
+  function readLog(){
+    try{
+      const s = localStorage.getItem(LS_CHECKIN);
+      return s ? JSON.parse(s) : [];
+    }catch{ return []; }
+  }
+  function writeLog(a){
+    localStorage.setItem(LS_CHECKIN, JSON.stringify(Array.isArray(a)?a:[]));
+  }
+
+  function todayKey(){
+    const d = new Date();
+    const pad=(n)=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function addCheckin(pid, proto){
+    pid = (pid||'').trim();
+    if(!pid){ alert('ต้องมี pid'); return; }
+    proto = (proto||'').trim() || 'P1';
+
+    const log = readLog();
+    const day = todayKey();
+    const at = new Date().toISOString();
+
+    // prevent duplicate same day
+    const exists = log.find(x=>x.day===day && x.pid===pid && x.proto===proto);
+    if(exists) return;
+
+    log.push({ day, at, pid, proto });
+    writeLog(log);
+  }
+
+  function render(){
+    const q = parseQS();
+    const pid = (q.get('pid')||'').trim();
+    const proto = (q.get('proto')||q.get('protocol')||'P1').trim();
+
+    $('#pid').value = pid || $('#pid').value || '';
+    $('#proto').value = proto || $('#proto').value || 'P1';
+
+    const pills = [
+      ['pid', $('#pid').value],
+      ['proto', $('#proto').value],
+      ['hub', hubUrl()],
+    ].filter(x=>x[1] && String(x[1]).trim()!=='');
+    $('#pills').innerHTML = pills.map(([k,v])=>`<span class="pill"><b>${esc(k)}</b>: ${esc(v)}</span>`).join('');
+
+    const log = readLog().filter(x=>x.day===todayKey());
+    log.sort((a,b)=> (a.at||'').localeCompare(b.at||''));
+    $('#list').innerHTML = log.length
+      ? log.map(x=>`• ${esc(x.pid)} (${esc(x.proto)}) — ${esc(String(x.at).slice(11,16))}`).join('<br/>')
+      : 'ยังไม่มี';
+  }
+
+  function firstGameHrefByProto(proto){
+    // โปรโตคอลพื้นฐาน: เริ่มเกม hygiene ก่อน
+    // ปรับ mapping ได้ตามที่คุณตั้ง protocol ใน hub
+    // ตัวอย่าง: proto P1 => hygiene-vr (handwash)
+    if((proto||'').toUpperCase()==='P2') return './brush-vr.html';
+    return './hygiene-vr.html';
+  }
+
+  function buildGameUrl(href, pid, proto){
+    const u = new URL(href, location.href);
+    const cur = parseQS();
+
+    // pass-through current params
+    for(const [k,v] of cur.entries()){
+      if(k==='hub') continue;
+      u.searchParams.set(k,v);
+    }
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('proto', proto);
+    u.searchParams.set('hub', hubUrl());
+    return u.toString();
+  }
+
+  function toCsv(rows){
+    const escv = (v)=>{
+      const s = String(v??'');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    };
+    return rows.map(r=>r.map(escv).join(',')).join('\n');
+  }
+
+  function downloadText(name, text, mime){
+    const blob = new Blob([text], {type: mime || 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 1500);
+  }
+
+  $('#btnToHub').addEventListener('click', ()=> location.href = hubUrl());
+
+  $('#btnCheckin').addEventListener('click', ()=>{
+    const pid = $('#pid').value.trim();
+    const proto = $('#proto').value.trim() || 'P1';
+    addCheckin(pid, proto);
+    render();
+  });
+
+  $('#btnStart').addEventListener('click', ()=>{
+    const pid = $('#pid').value.trim();
+    const proto = $('#proto').value.trim() || 'P1';
+    addCheckin(pid, proto);
+
+    const href = firstGameHrefByProto(proto);
+    location.href = buildGameUrl(href, pid, proto);
+  });
+
+  $('#btnExport').addEventListener('click', ()=>{
+    const log = readLog().filter(x=>x.day===todayKey());
+    const rows = [['day','at','pid','proto']].concat(log.map(x=>[x.day,x.at,x.pid,x.proto]));
+    downloadText(`herohealth-checkins-${todayKey()}.csv`, toCsv(rows), 'text/csv');
+  });
+
+  $('#btnClear').addEventListener('click', ()=>{
+    const ok = confirm('ลบ check-in ของวันนี้?');
+    if(!ok) return;
+    const log = readLog().filter(x=>x.day!==todayKey());
+    writeLog(log);
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
