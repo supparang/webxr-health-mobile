@@ -1,12 +1,8 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
-// PATCH v20260206c
-//
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) v20260206c
 // ✅ Imports engine: hygiene.safe.js (must export boot)
-// ✅ If missing DOM or import fails -> show readable error on screen
+// ✅ Shows readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-// ✅ Anti-stall watchdog: if no tick for >4s while running => show warning banner
-//
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -73,7 +69,6 @@ async function main(){
     return;
   }
 
-  // CSS hint
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
@@ -82,14 +77,13 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  // Wait for deferred scripts
-  const P = await waitForGlobal(()=>window.Particles, 1200);
+  const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
   }
 
-  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 1200);
+  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
     showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
@@ -97,7 +91,6 @@ async function main(){
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
-  // Import engine
   let engine;
   try{
     engine = await import('./hygiene.safe.js?v=20260206c');
@@ -111,20 +104,6 @@ async function main(){
     return;
   }
 
-  // Watchdog: detect stalls while running (based on hha:time events)
-  let lastTimeEvt = Date.now();
-  window.addEventListener('hha:time', ()=>{ lastTimeEvt = Date.now(); }, { passive:true });
-
-  setInterval(()=>{
-    const now = Date.now();
-    if(now - lastTimeEvt > 4200){
-      // Only warn (do not force end)
-      showBanner('⚠️ เกมเหมือนสะดุด (ถ้าค้างบ่อย: เช็ค FPS/ทรัพยากร/ไฟล์ cache)');
-      lastTimeEvt = now;
-    }
-  }, 2000);
-
-  // Run boot
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
