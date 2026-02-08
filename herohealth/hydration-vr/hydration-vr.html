@@ -376,5 +376,51 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   <script type="module">
     import './hydration.safe.js';
   </script>
+   <script>
+(function(){
+  'use strict';
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
+  }
+  function buildUrl(base, add){
+    const u = new URL(base, location.href);
+    Object.entries(add||{}).forEach(([k,v])=>{
+      if (v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }
+
+  // enable gate flow only when gate=1
+  const gateOn = String(qs('gate','0')||'0');
+  if (!(gateOn==='1' || gateOn==='true')) return;
+
+  const hub  = String(qs('hub','../hub.html'));
+  const view = String(qs('view','mobile'));
+  const run  = String(qs('run','play'));
+  const diff = String(qs('diff','normal'));
+  const time = String(qs('time','80'));
+  const seed = String(qs('seed',''));
+  const cdur = String(qs('cdur','20'));
+
+  // cooldown gate is at root
+  const cooldownGate = '../warmup-gate.html';
+
+  window.addEventListener('hha:end', function(){
+    // cooldown -> autonext -> hub
+    const nextHub = hub;
+    const url = buildUrl(cooldownGate, {
+      view, run, diff, time, seed,
+      phase: 'cooldown',
+      cdur: cdur,
+      hub: hub,
+      next: nextHub,
+      autonext: 1
+    });
+    location.href = url;
+  }, { passive:true });
+})();
+</script>
 </body>
 </html>
