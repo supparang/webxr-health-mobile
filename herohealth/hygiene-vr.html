@@ -1,8 +1,8 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO) v20260206c
+HygieneVR Launcher — ROOT (AUTO)
 ✅ Auto-detect view if no ?view=
 ✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
-✅ DO NOT override existing ?view=
+✅ Root=launcher, folder=run
 -->
 <!doctype html>
 <html lang="th">
@@ -77,7 +77,10 @@ HygieneVR Launcher — ROOT (AUTO) v20260206c
     const w = Math.max(1, innerWidth||1);
     const h = Math.max(1, innerHeight||1);
     const landscape = w >= h;
+
+    // ✅ ไม่ override ถ้า user ส่ง view มาเอง
     if (isTouch){
+      // แนวทางเดิมของคุณ: จอกว้าง+touch => cvr, ไม่งั้น mobile
       if (landscape && w >= 740) return 'cvr';
       return 'mobile';
     }
@@ -88,16 +91,14 @@ HygieneVR Launcher — ROOT (AUTO) v20260206c
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
+    // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
     if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
-
-    // ✅ cache-bust on root -> run
-    u.searchParams.set('v', cur.searchParams.get('v') || '20260206c');
-
     return u.toString();
   }
 
