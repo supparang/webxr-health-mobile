@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Exercise Planner (VR)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="./planner.css" />
+</head>
+<body>
+  <div id="fp-fatal" class="fp-fatal fp-hidden"></div>
+
+  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement:true"
+    background="color: #060a12">
+    <a-entity position="0 1.6 -2">
+      <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
+      <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
+    </a-entity>
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+  </a-scene>
+
+  <!-- HUD / UI Layer -->
+  <div id="fp-wrap" data-state="build">
+    <header class="fp-top">
+      <div class="fp-brand">
+        <span class="fp-pill">HeroHealth · Fitness</span>
+        <h1 class="fp-title">Exercise Planner</h1>
+        <p class="fp-sub">ออกแบบคอมโบเอง แล้วลองเล่นใน VR</p>
+      </div>
+
+      <div class="fp-ctx">
+        <div class="fp-ctxrow"><span class="k">view</span><span id="fp-ctx-view" class="v">-</span></div>
+        <div class="fp-ctxrow"><span class="k">seed</span><span id="fp-ctx-seed" class="v">-</span></div>
+      </div>
+    </header>
+
+    <!-- BUILD VIEW -->
+    <main id="fp-view-build" class="fp-view">
+      <section class="fp-panel">
+        <h2 class="fp-h2">1) เลือกท่า (3–5 ท่า)</h2>
+        <p class="fp-help">แตะเพื่อเพิ่มลงคอมโบ · แตะที่คอมโบเพื่อเอาออก</p>
+
+        <div class="fp-palette" role="list">
+          <button class="fp-card" data-move="punch_shadow" aria-label="ต่อยเงา">🥊<span>ต่อยเงา</span></button>
+          <button class="fp-card" data-move="punch_rhythm" aria-label="ต่อยตามจังหวะ">🎵<span>ต่อยจังหวะ</span></button>
+          <button class="fp-card" data-move="jump" aria-label="กระโดด">🦘<span>กระโดด</span></button>
+          <button class="fp-card" data-move="duck" aria-label="หมอบหลบ">🧎<span>หมอบหลบ</span></button>
+          <button class="fp-card" data-move="balance" aria-label="ทรงตัว">⚖️<span>ทรงตัว</span></button>
+        </div>
+
+        <div class="fp-comboWrap">
+          <div class="fp-comboHead">
+            <div class="fp-h3">คอมโบของฉัน</div>
+            <div class="fp-mini"><span id="fp-count">0</span>/5</div>
+          </div>
+          <div id="fp-combo" class="fp-combo" aria-label="รายการคอมโบ"></div>
+
+          <div class="fp-actions">
+            <button id="fp-clear" class="fp-btn fp-btn-ghost" type="button">ล้างคอมโบ</button>
+            <button id="fp-start" class="fp-btn fp-btn-primary" type="button" disabled>เริ่มเล่น</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="fp-panel fp-panel2">
+        <h2 class="fp-h2">2) กติกาสั้น ๆ (เด็ก ป.5)</h2>
+        <ul class="fp-bul">
+          <li><b>ต่อย</b>: แตะ/ยิงที่เป้าให้โดน</li>
+          <li><b>กระโดด</b>: แตะปุ่ม “JUMP” ให้ทัน</li>
+          <li><b>หมอบ</b>: กดค้างปุ่ม “DUCK” จนครบเวลา</li>
+          <li><b>ทรงตัว</b>: เล็งกากบาทให้นิ่งที่ “จุดกลาง” จนครบเวลา</li>
+        </ul>
+      </section>
+    </main>
+
+    <!-- RUN VIEW -->
+    <main id="fp-view-run" class="fp-view fp-hidden">
+      <section class="fp-runTop">
+        <div class="fp-runRow">
+          <div class="fp-runLabel">ด่าน</div>
+          <div class="fp-runValue"><span id="fp-step-idx">1</span>/<span id="fp-step-total">1</span></div>
+        </div>
+        <div class="fp-runRow">
+          <div class="fp-runLabel">คะแนน</div>
+          <div class="fp-runValue" id="fp-score">0</div>
+        </div>
+        <div class="fp-runRow">
+          <div class="fp-runLabel">เวลา</div>
+          <div class="fp-runValue"><span id="fp-time">0.0</span>s</div>
+        </div>
+      </section>
+
+      <section class="fp-stage">
+        <div class="fp-instr" id="fp-instr">เตรียมตัว…</div>
+
+        <!-- Punch Target -->
+        <button id="fp-target" class="fp-target fp-hidden" aria-label="เป้าหมาย"></button>
+
+        <!-- Center Balance Dot -->
+        <div id="fp-center" class="fp-center fp-hidden" aria-hidden="true"></div>
+
+        <!-- Action Buttons -->
+        <div id="fp-actbar" class="fp-actbar fp-hidden">
+          <button id="fp-btn-jump" class="fp-act fp-act-jump" type="button">JUMP</button>
+          <button id="fp-btn-duck" class="fp-act fp-act-duck" type="button">DUCK</button>
+        </div>
+
+        <div class="fp-progress">
+          <div id="fp-bar" class="fp-bar"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- SUMMARY VIEW -->
+    <main id="fp-view-summary" class="fp-view fp-hidden">
+      <section class="fp-panel">
+        <h2 class="fp-h2">สรุปผล</h2>
+        <div class="fp-sumGrid">
+          <div class="fp-sumBox">
+            <div class="k">คะแนน</div>
+            <div class="v" id="fp-sum-score">0</div>
+          </div>
+          <div class="fp-sumBox">
+            <div class="k">ผ่านด่าน</div>
+            <div class="v"><span id="fp-sum-pass">0</span>/<span id="fp-sum-total">0</span></div>
+          </div>
+          <div class="fp-sumBox">
+            <div class="k">เวลา</div>
+            <div class="v"><span id="fp-sum-time">0.0</span>s</div>
+          </div>
+        </div>
+
+        <div class="fp-reflect">
+          <h3 class="fp-h3">คำถามสะท้อนคิด (สำหรับวิจัย)</h3>
+          <p class="fp-help">เลือก 1 ข้อ (ง่าย/พอดี/ยาก) แล้วกดบันทึก</p>
+          <div class="fp-choices">
+            <label class="fp-choice"><input type="radio" name="diff" value="easy"> ง่าย</label>
+            <label class="fp-choice"><input type="radio" name="diff" value="ok" checked> พอดี</label>
+            <label class="fp-choice"><input type="radio" name="diff" value="hard"> ยาก</label>
+          </div>
+          <button id="fp-save" class="fp-btn fp-btn-primary" type="button">บันทึกผล</button>
+        </div>
+
+        <div class="fp-actions">
+          <button id="fp-retry" class="fp-btn fp-btn-ghost" type="button">เล่นคอมโบเดิมอีกครั้ง</button>
+          <a id="fp-backhub" class="fp-btn fp-btn-primary fp-link" href="../hub.html">กลับ HUB</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../vr/vr-ui.js"></script>
+  <script src="./planner.boot.js"></script>
+</body>
+</html>
