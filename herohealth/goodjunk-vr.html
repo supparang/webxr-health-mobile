@@ -29,22 +29,26 @@
   'use strict';
   const QS = new URL(location.href).searchParams;
 
-  const hub = QS.get('hub') || './hub.html';
-  const dur = Number(QS.get('dur') || 20) || 20;
+  const hub  = QS.get('hub')  || './hub.html';
+  const dur  = Math.max(5, Number(QS.get('dur')  || 20) || 20);
+  const cdur = Math.max(5, Number(QS.get('cdur') || 20) || 20);
 
-  // keep passthrough (do not forward these)
-  const deny = new Set(['next','phase','dur','cdur','autonext']);
+  // do not forward these
+  const deny = new Set(['next','phase','dur','cdur','autonext','cooled']);
   const pass = new URLSearchParams();
   QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
-  // target game RUN (real)
+  // target game RUN
   const gameRun = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
   pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
   gameRun.searchParams.set('hub', hub);
-  gameRun.searchParams.set('gate', '1'); // ✅ enforce gate
-  // if warmup buff exists later: wType/wPct/... will be appended by warmup gate
 
-  // go warmup gate
+  // ✅ mark this run as "gate-enforced" so game page will redirect to cooldown on end
+  gameRun.searchParams.set('gate', '1');
+  gameRun.searchParams.set('cdur', String(cdur));
+  gameRun.searchParams.set('cooled', '0');
+
+  // warmup gate (same file used for warmup)
   const gate = new URL('./warmup-gate.html', location.href);
   gate.searchParams.set('phase','warmup');
   gate.searchParams.set('dur', String(dur));
@@ -53,7 +57,7 @@
   gate.searchParams.set('autonext','1');
 
   document.getElementById('dbg').textContent =
-    'gate => ' + gate.toString() + '\n\nnext(game) => ' + gameRun.toString();
+    'warmupGate => ' + gate.toString() + '\n\nnext(game) => ' + gameRun.toString();
 
   location.replace(gate.toString());
 })();
