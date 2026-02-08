@@ -1,7 +1,8 @@
 <!-- === /herohealth/jump-duck-vr.html ===
-Jump-Duck LAUNCHER — ROOT (HHA Standard)
-✅ Redirects to /fitness/jump-duck.html
-✅ Pass-through params (hub/view/mode/diff/duration/seed/.../log)
+Jump-Duck Launcher — ROOT (HeroHealth)
+✅ Redirects to: ../fitness/jump-duck.html
+✅ Uses: ./launch/launcher-core.js
+✅ Pass-through: hub/view/mode/diff/duration/seed/studyId/phase/conditionGroup/pid/group/note/log/boss
 -->
 <!doctype html>
 <html lang="th">
@@ -16,14 +17,14 @@ Jump-Duck LAUNCHER — ROOT (HHA Standard)
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
+  // ✅ target คือเกมจริง
   hhGo('../fitness/jump-duck.html', {
-    defaults: { mode:'training', diff:'normal', duration:'60' },
-    passthrough: [
-      'hub','view','mode','diff','duration','time',
-      'seed','studyId','phase','conditionGroup',
-      'pid','group','note',
-      'log' // ✅ Apps Script Web App URL
-    ]
+    defaults: {
+      mode: 'training',
+      diff: 'normal',
+      duration: '60'
+      // แนะนำ (วิจัย): seed/studyId/phase/conditionGroup/pid และ log
+    }
   });
 </script>
 </body>
