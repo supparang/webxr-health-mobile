@@ -3,16 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — PlateVR</title>
+  <title>HeroHealth — PlateVR (Launcher)</title>
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#050614" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{--bg:#050614;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--accent:#22c55e;
-      --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
-    html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 20% 10%, rgba(255,43,214,.18) 0%, transparent 55%),
-                                   radial-gradient(1100px 650px at 80% 25%, rgba(34,211,238,.14) 0%, transparent 55%),
-                                   linear-gradient(180deg,#07081b,var(--bg));color:var(--text);}
+    :root{--bg:#050614;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;
+      --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1200px 700px at 20% 10%, rgba(255,43,214,.18) 0%, transparent 55%),
+      radial-gradient(1100px 650px at 80% 25%, rgba(34,211,238,.14) 0%, transparent 55%),
+      linear-gradient(180deg,#07081b,var(--bg));color:var(--text);}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));}
     .card{width:min(820px,100%);background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.55);}
     h1{margin:0 0 6px;font-size:18px}
@@ -32,7 +34,7 @@
   <div class="wrap">
     <div class="card">
       <h1>🍽️ HeroHealth — PlateVR</h1>
-      <p>กำลังพาไปวอร์มอัปก่อนเข้าบอส…</p>
+      <p>กำลังพาไปวอร์มอัป 20 วิ ก่อนเข้าเกม…</p>
       <div class="hr"></div>
       <div class="row">
         <a class="primary" id="manual" href="#">▶️ ไปต่อ (ถ้าไม่เด้งเอง)</a>
@@ -47,10 +49,9 @@
 (()=> {
   'use strict';
 
-  // ---------- Config ----------
-  const RUN  = './plate/plate-vr.html';
-  const GATE = './warmup-gate.html';
-  const HUB_DEFAULT = './hub.html';
+  const RUN  = '/herohealth/plate/plate-vr.html';
+  const GATE = '/herohealth/warmup-gate.html';
+  const HUB_DEFAULT = '/herohealth/hub.html';
   const GAME = 'plate';
 
   function getQS(){ try{ return new URL(location.href).searchParams; } catch(_){ return new URLSearchParams(); } }
@@ -84,7 +85,7 @@
   const HUB = q('hub','') || HUB_DEFAULT;
   const SKIP = (q('skipGate','0') === '1');
 
-  const runUrl  = buildUrl(RUN, { ...passthrough(), hub: HUB, game: GAME });
+  const runUrl  = buildUrl(RUN,  { ...passthrough(), hub: HUB, game: GAME });
   const gateUrl = buildUrl(GATE, { ...passthrough(), phase:'warmup', game: GAME, dur: 20, hub: HUB, next: runUrl, autonext: 0 });
 
   const $ = (s)=>document.querySelector(s);
@@ -93,8 +94,7 @@
   $('#manual').href = (SKIP ? runUrl : gateUrl);
   $('#dbg').textContent = `RUN=${runUrl}\nGATE=${gateUrl}\nHUB=${HUB}\nSKIP=${SKIP}`;
 
-  if(SKIP) location.replace(runUrl);
-  else location.replace(gateUrl);
+  location.replace(SKIP ? runUrl : gateUrl);
 })();
 </script>
 </body>
