@@ -1,13 +1,11 @@
 <!-- === /herohealth/quest-gate.html ===
-HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next Game)
-✅ Zone Daily Gate: 1x/day per zone per pid (via hha-gate.js)
-✅ Strict inside this page: Quest 1–3 → Boss win → Cooldown → Next
-✅ After success: marks warmup+cooldown done for (zone,pid) today
-✅ Smart skip:
-   - If warmup already done today => skip to READY (auto go next)
-   - If boss+cooldown already done today => READY (auto go next)
+HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Target Game)
+✅ Strict: must finish Quest 1–3 before Boss unlock
+✅ Must win zone boss to proceed
+✅ Cooldown auto after win, then redirect to target=... (preferred) or next=...
+✅ Daily per zone per pid: markDone(pid, zone) when cleared
 ✅ Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view + hub
-✅ Never override existing params; only adds hub if missing on next
+✅ Never override existing params on target; only adds hub if missing
 -->
 <!doctype html>
 <html lang="th">
@@ -335,7 +333,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     <div class="top">
       <div class="brand">
         <h1 class="title">🛡️ HeroHealth — Quest Gate</h1>
-        <p class="subtitle" id="subTitle">ทำให้ครบ 3 Quest → ชนะบอสประจำโซน → คูลดาวน์ → เข้าเกมหลัก (คุมเข้ม ไม่ข้าม)</p>
+        <p class="subtitle" id="subTitle">ทำให้ครบ 3 Quest → ชนะบอสประจำโซน → คูลดาวน์ → เข้าเกมที่เลือก (คุมเข้ม ไม่ข้าม)</p>
       </div>
       <div class="pillrow" id="pillrow"></div>
     </div>
@@ -345,13 +343,13 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
         <div class="leftbar">
           <div class="badge" id="badgeState"><span class="dot"></span><span id="badgeText">LOCKED</span></div>
           <div class="badge ok" id="badgeZone"><span class="dot"></span><span id="zoneText">zone</span></div>
-          <div class="badge" id="badgeNext"><span class="dot"></span><span id="nextText">next</span></div>
+          <div class="badge" id="badgeNext"><span class="dot"></span><span id="nextText">target</span></div>
         </div>
 
         <div class="actions">
           <div class="btn ghost" id="btnBackHub">↩️ กลับ Hub</div>
           <div class="btn warn" id="btnRestart">♻️ เริ่มใหม่</div>
-          <div class="btn good disabled" id="btnGoNext">➡️ เข้าเกมหลัก</div>
+          <div class="btn good disabled" id="btnGoNext">➡️ เข้าเกม</div>
         </div>
       </div>
 
@@ -359,7 +357,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
         <div class="card" id="cardFlow">
           <div class="glow" id="flowGlow"></div>
           <h3 id="flowTitle">Warm-up Gate</h3>
-          <p id="flowDesc">ทำครบ 3 Quest ด้านล่างก่อน บอสจะปลดล็อก และต้อง “ชนะ” ก่อนถึงจะเข้าเกมหลักได้</p>
+          <p id="flowDesc">ทำครบ 3 Quest ด้านล่างก่อน บอสจะปลดล็อก และต้อง “ชนะ” ก่อนถึงจะเข้าเกมที่เลือกได้</p>
 
           <div class="stepRow">
             <div class="step" id="s1"><span class="n">1</span> Quest: หายใจ</div>
@@ -431,7 +429,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
           </div>
 
           <div class="hint" id="arenaFoot">
-            ✅ เมื่อชนะบอสแล้ว จะคูลดาวน์อัตโนมัติ 15 วินาที แล้วค่อยเข้าเกมหลัก
+            ✅ เมื่อชนะบอสแล้ว จะคูลดาวน์อัตโนมัติ 15 วินาที แล้วค่อยเข้าเกมที่เลือก
           </div>
         </div>
       </div>
@@ -451,7 +449,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
 
   <div class="toast" id="toast"></div>
 
-  <!-- ✅ Gate module (zone daily) -->
+  <!-- Daily per-zone gate helper -->
   <script src="./hha-gate.js"></script>
 
 <script>
@@ -467,47 +465,47 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
   function toObj(sp){ const o={}; for (const [k,v] of sp.entries()) o[k]=v; return o; }
 
   const ZONE = (qs('zone','nutrition')||'nutrition').toLowerCase();
-  const NEXT = qs('next', './hub.html'); // relative ok
+  const NEXT = qs('next', './hub.html');          // fallback
+  const TARGET = qs('target', null);              // preferred destination (the chosen game)
   const HUB  = qs('hub', null);
-  const RETURN = qs('return', null); // may exist from requireWarmup redirect helper
 
   // Pass-through keys we keep
   const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
+
+  function readPid(){
+    const p = qs('pid', null);
+    return (p && String(p).trim()) ? p : 'ANON';
+  }
 
   function hubUrl(){
     if (HUB && String(HUB).trim()) return HUB;
     try{ return new URL('./hub.html', location.href).toString(); }catch(_){ return './hub.html'; }
   }
 
-  function buildNextUrl(){
-    const base = new URL(NEXT, location.href);
+  // Copy pass-through into a destination, but DO NOT override destination keys.
+  function passThroughInto(baseUrl){
+    const base = new URL(baseUrl, location.href);
     const cur = parseQS();
 
-    // copy pass-through (do NOT override if already on next)
     for (const k of PASS_KEYS){
       if (!base.searchParams.has(k) && cur.has(k)){
         const v = cur.get(k);
         if (v!=null && String(v).trim()!=='') base.searchParams.set(k, v);
       }
     }
-
-    // ensure hub exists on next (do NOT override)
+    // ensure hub exists (do NOT override)
     if (!base.searchParams.has('hub') || String(base.searchParams.get('hub')||'').trim()===''){
       base.searchParams.set('hub', hubUrl());
     }
-
-    // keep zone (useful for downstream gating/logging)
-    if (!base.searchParams.has('zone') || String(base.searchParams.get('zone')||'').trim()===''){
-      base.searchParams.set('zone', ZONE);
-    }
-
     return base.toString();
   }
 
-  function buildReturnUrl(){
-    // Prefer explicit return= if present, else hub
-    if (RETURN && String(RETURN).trim()) return RETURN;
-    return hubUrl();
+  function buildDestUrl(){
+    if (TARGET && String(TARGET).trim()){
+      return passThroughInto(TARGET);
+    }
+    // fallback to NEXT
+    return passThroughInto(NEXT);
   }
 
   // -----------------------------
@@ -644,7 +642,12 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
 
   function setHeader(){
     setText('#zoneText', `${Z.icon} ${Z.name}`);
-    setText('#nextText', 'next: ' + (NEXT || '—'));
+
+    const destLabel = (TARGET && String(TARGET).trim()) ? 'target' : 'next';
+    const raw = (TARGET && String(TARGET).trim()) ? String(TARGET) : String(NEXT||'');
+    const short = raw.length>36 ? (raw.slice(0,36)+'…') : raw;
+    setText('#nextText', `${destLabel}: ${short}`);
+
     setText('#bossBrief', Z.bossBrief);
 
     const g = $('#flowGlow');
@@ -662,6 +665,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     const q = parseQS();
     const pills = [
       {k:'zone', v:ZONE},
+      {k:'target', v:TARGET},
       {k:'next', v:(NEXT||'')},
       {k:'pid', v:q.get('pid')},
       {k:'run', v:q.get('run')},
@@ -672,8 +676,6 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
       {k:'phase', v:q.get('phase')},
       {k:'conditionGroup', v:q.get('conditionGroup')},
       {k:'log', v:q.get('log')},
-      {k:'hub', v:q.get('hub')},
-      {k:'return', v:qs('return', null)},
     ].filter(x => x.v != null && String(x.v).trim() !== '');
     $('#pillrow').innerHTML = pills
       .slice(0, 14)
@@ -682,55 +684,8 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
   }
 
   // -----------------------------
-  // Gate helpers (daily zone)
+  // Quest 1 — Breathing (8 cycles tap)
   // -----------------------------
-  function getDayKey(){
-    try{ return window.HHA_GATE?.getDayKey ? window.HHA_GATE.getDayKey() : ''; }catch(_){ return ''; }
-  }
-  function getPid(){
-    try{ return window.HHA_GATE?.getPid ? window.HHA_GATE.getPid() : (qs('pid','')||''); }catch(_){ return (qs('pid','')||''); }
-  }
-  function profileKey(pid){
-    return `HHA_GATE_PROFILE::${pid||'ANON'}`;
-  }
-  function loadGateProfile(pid){
-    try{
-      const raw = localStorage.getItem(profileKey(pid));
-      if (!raw) return null;
-      return JSON.parse(raw);
-    }catch(_){ return null; }
-  }
-  function isWarmupDoneToday(zoneId){
-    try{
-      const pid = getPid() || 'ANON';
-      const dayKey = getDayKey();
-      const prof = loadGateProfile(pid);
-      const z = prof?.zones?.[zoneId];
-      return !!(z && z.warmupDay === dayKey);
-    }catch(_){ return false; }
-  }
-  function isCooldownDoneToday(zoneId){
-    try{
-      const pid = getPid() || 'ANON';
-      const dayKey = getDayKey();
-      const prof = loadGateProfile(pid);
-      const z = prof?.zones?.[zoneId];
-      return !!(z && z.cooldownDay === dayKey);
-    }catch(_){ return false; }
-  }
-
-  function markWarmupDone(){
-    try{ window.HHA_GATE?.markWarmupDone?.(ZONE); }catch(_){}
-  }
-  function markCooldownDone(){
-    try{ window.HHA_GATE?.markCooldownDone?.(ZONE); }catch(_){}
-  }
-
-  // -----------------------------
-  // Quests + Boss (ของเดิมคุณ) — คง logic เดิมทั้งหมด
-  // -----------------------------
-
-  // Quest 1 — Breathing
   function startQ1(){
     st.step = 1;
     resetArena();
@@ -787,7 +742,9 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     update();
   }
 
-  // Quest 2 — Focus
+  // -----------------------------
+  // Quest 2 — Focus (10 taps)
+  // -----------------------------
   function startQ2(){
     if (!st.q1){ toast('ต้องทำ Quest 1 ก่อน'); return; }
     st.step = 2;
@@ -847,7 +804,9 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     spawn();
   }
 
-  // Quest 3 — Stretch
+  // -----------------------------
+  // Quest 3 — Stretch (3 holds)
+  // -----------------------------
   function startQ3(){
     if (!(st.q1 && st.q2)){ toast('ต้องทำ Quest 1–2 ก่อน'); return; }
     st.step = 3;
@@ -939,7 +898,9 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     updatePose();
   }
 
-  // Boss router
+  // -----------------------------
+  // Boss (must win)
+  // -----------------------------
   function startBoss(){
     if (!(st.q1 && st.q2 && st.q3)){ toast('ต้องทำ Quest 1–3 ให้ครบก่อน'); return; }
     st.step = 4;
@@ -955,7 +916,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     return bossFitness();
   }
 
-  // Nutrition boss
+  // Nutrition Boss: 8 flashes — choose ดี/ขยะ; pass >=6
   function bossNutrition(){
     const items = [
       {emo:'🍎', name:'แอปเปิล', good:true},
@@ -1023,8 +984,6 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
           lockCtas(); syncSteps();
           return;
         }
-
-        // ✅ WIN
         st.bossWin = true;
         setBadge('ok'); badgeText.textContent = 'BOSS WIN';
         arenaBig.textContent = '🏆 BOSS CLEARED';
@@ -1043,7 +1002,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     show();
   }
 
-  // Hygiene boss
+  // Hygiene Boss: tap steps in order; pass >=6
   function bossHygiene(){
     const steps = [
       {k:'ล้างมือ: เปียกมือ', order:1},
@@ -1129,7 +1088,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     update();
   }
 
-  // Fitness boss
+  // Fitness Boss: 12 prompts; pass >=10
   function bossFitness(){
     const actions = [
       {k:'PUNCH', emo:'🥊', hint:'ชก'},
@@ -1138,8 +1097,9 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
       {k:'HOLD', emo:'🧘', hint:'ทรงตัว'},
     ];
     const prompts = [];
-    for (let i=0;i<12;i++) prompts.push(actions[Math.floor(Math.random()*actions.length)]);
-
+    for (let i=0;i<12;i++){
+      prompts.push(actions[Math.floor(Math.random()*actions.length)]);
+    }
     let i=0, correct=0;
     const need = 10;
 
@@ -1205,11 +1165,15 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
       show();
     }
 
-    Object.keys(mapBtn).forEach(k=> mapBtn[k].addEventListener('click', ()=>answer(k)));
+    Object.keys(mapBtn).forEach(k=>{
+      mapBtn[k].addEventListener('click', ()=>answer(k));
+    });
     show();
   }
 
-  // Cooldown (15s auto) then unlock Go Next
+  // -----------------------------
+  // Cooldown (15s auto) then auto enter target
+  // -----------------------------
   function startCooldown(){
     st.step = 5;
     resetArena();
@@ -1220,7 +1184,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     const box = document.createElement('div');
     box.innerHTML = `
       <div class="big">15</div>
-      <div class="hint">ครบเวลาแล้ว ระบบจะเข้าเกมหลักให้อัตโนมัติ</div>
+      <div class="hint">ครบเวลาแล้ว ระบบจะเข้าเกมให้อัตโนมัติ</div>
       <div class="pill" style="margin-top:10px;">Tip: สูด 4 วินาที → กลั้น 2 → ผ่อน 4</div>
     `;
     arenaBody.appendChild(box);
@@ -1241,13 +1205,8 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
         syncSteps(); lockCtas();
         setBadge('ok'); badgeText.textContent = 'READY';
         arenaBig.textContent = '✅ READY';
-        arenaHint.textContent = 'เข้าเกมหลักได้แล้ว';
-        toast('พร้อมเข้าเกมหลัก!');
-
-        // ✅ Mark daily gate completion for this zone
-        markWarmupDone();
-        markCooldownDone();
-
+        arenaHint.textContent = 'เข้าเกมได้แล้ว';
+        toast('พร้อมเข้าเกม!');
         setTimeout(()=>goNext(true), 650);
       }
     }, 1000);
@@ -1257,35 +1216,28 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
   // Navigation
   // -----------------------------
   function goBackHub(){
-    location.href = buildReturnUrl();
+    location.href = hubUrl();
   }
 
   function goNext(auto){
     if (!(st.bossWin && st.cooldownDone)){
-      toast('ยังเข้าเกมหลักไม่ได้ (ต้องชนะบอสและคูลดาวน์)');
+      toast('ยังเข้าเกมไม่ได้ (ต้องชนะบอสและคูลดาวน์)');
       return;
     }
-    const url = buildNextUrl();
+
+    // mark done for today/zone/pid
+    try{
+      if (window.HHA_GATE && typeof window.HHA_GATE.markDone === 'function'){
+        window.HHA_GATE.markDone(readPid(), ZONE);
+      }
+    }catch(_){}
+
+    const url = buildDestUrl();
     if (!auto){
-      showModal('เข้าเกมหลัก', 'ระบบจะส่งต่อพารามิเตอร์เดิมทั้งหมด และมี hub กลับได้เสมอ', 'เข้าเกม', ()=> location.href = url);
+      showModal('เข้าเกม', 'ระบบจะส่งต่อพารามิเตอร์เดิมทั้งหมด และมี hub กลับได้เสมอ', 'เข้าเกม', ()=> location.href = url);
       return;
     }
     location.href = url;
-  }
-
-  function setReadySkip(reason){
-    // Make page show READY state & auto go next
-    st.q1 = st.q2 = st.q3 = true;
-    st.bossWin = true;
-    st.cooldownDone = true;
-    st.step = 6;
-    setBadge('ok'); badgeText.textContent = 'SKIP';
-    syncSteps(); lockCtas();
-    resetArena();
-    arenaBig.textContent = '✅ READY';
-    arenaHint.textContent = reason || 'วันนี้ทำโซนนี้แล้ว — เข้าเกมหลักได้เลย';
-    toast('วันนี้ทำโซนนี้แล้ว ✅');
-    setTimeout(()=>goNext(true), 700);
   }
 
   function restartAll(){
@@ -1325,8 +1277,27 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
     setHeader();
     renderPills();
 
+    // If already done today for this pid+zone → skip gate (direct to target/next)
+    try{
+      if (window.HHA_GATE && typeof window.HHA_GATE.isDone === 'function'){
+        const pid = readPid();
+        if (window.HHA_GATE.isDone(pid, ZONE)){
+          setBadge('ok'); badgeText.textContent = 'DONE TODAY';
+          arenaBig.textContent = '✅ DONE TODAY';
+          arenaHint.textContent = 'วันนี้ทำโซนนี้แล้ว — เข้าเกมได้เลย';
+          setProgress(100,'good');
+          btnGoNext.classList.remove('disabled');
+          st.bossWin = true;
+          st.cooldownDone = true;
+          syncSteps(); lockCtas();
+          setTimeout(()=>goNext(true), 500);
+          return;
+        }
+      }
+    }catch(_){}
+
     badgeText.textContent = 'LOCKED';
-    setBadge(); // neutral
+    setBadge();
     $('#bossBrief').textContent = Z.bossBrief;
 
     syncSteps(); lockCtas();
@@ -1334,25 +1305,7 @@ HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next 
 
     $('#badgeZone').classList.add('ok');
     $('#badgeNext').classList.add('ok');
-    $('#subTitle').textContent = `โซน: ${Z.icon} ${Z.name} • กติกา: 3 Quest → ชนะ ${Z.bossName} → Cooldown → Next`;
-
-    const nx = (NEXT||'').toString();
-    $('#nextText').textContent = 'next: ' + (nx.length>34 ? (nx.slice(0,34)+'…') : nx);
-
-    // ✅ Daily skip logic:
-    // If warmup already done today => skip gate (ready -> go next)
-    const warmDone = isWarmupDoneToday(ZONE);
-    const coolDone = isCooldownDoneToday(ZONE);
-
-    if (warmDone && coolDone){
-      setReadySkip('วันนี้ผ่าน Warm-up + Cooldown ของโซนนี้แล้ว — เข้าเกมหลักได้เลย');
-      return;
-    }
-    if (warmDone){
-      // Warmup done but cooldown not recorded (edge case) => still allow ready
-      setReadySkip('วันนี้ผ่าน Warm-up ของโซนนี้แล้ว — เข้าเกมหลักได้เลย');
-      return;
-    }
+    $('#subTitle').textContent = `โซน: ${Z.icon} ${Z.name} • กติกา: 3 Quest → ชนะ ${Z.bossName} → Cooldown → เข้าเกม`;
 
     setTimeout(()=> toast('เริ่มที่ Quest 1 ได้เลย'), 120);
   }
