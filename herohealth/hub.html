@@ -51,6 +51,7 @@
       font-size:12px;
       color:var(--muted);
       backdrop-filter: blur(8px);
+      white-space:nowrap;
     }
     .pill b{ color:var(--text); font-weight:700; }
 
@@ -140,6 +141,8 @@
     .card p{ margin:0; color:var(--muted); font-size: 13px; line-height: 1.45; }
     .tags{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
     .tag{ border:1px solid var(--stroke); padding:6px 8px; border-radius:999px; color:var(--muted); font-size:12px; background: rgba(2,6,23,.30); }
+    .tag.ok{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); color: var(--text); }
+    .tag.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); color: var(--text); }
 
     .glow{
       position:absolute; inset:-40% -30% auto auto;
@@ -168,7 +171,7 @@
     .kv{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .kv .box{ border:1px solid var(--stroke); background: rgba(2,6,23,.30); border-radius:14px; padding:10px; }
     .kv .k{ color:var(--muted); font-size:12px; }
-    .kv .v{ margin-top:4px; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .kv .v{ margin-top:4px; font-weight:800; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
     .note{
       border:1px dashed rgba(148,163,184,.28);
@@ -267,11 +270,13 @@
         <aside class="side">
           <h4>สถานะ & พารามิเตอร์ปัจจุบัน</h4>
           <div class="kv" id="kv"></div>
+
           <div class="note" id="note">
             ✅ ไม่ override พารามิเตอร์เดิม (ส่งต่อทั้งหมด)<br/>
             ✅ ปุ่มลัดจะ “เติมค่า” เฉพาะตอนที่ยังไม่มี param นั้น<br/>
             ✅ Preset วิจัยเติม: <b>studyId/phase/conditionGroup/log</b> เฉพาะที่ว่าง<br/>
-            ✅ New participant เติม <b>pid</b> เฉพาะตอนที่ยังไม่มี (ไม่ override)
+            ✅ New participant เติม <b>pid</b> เฉพาะตอนที่ยังไม่มี (ไม่ override)<br/>
+            ✅ โหมด “วันละ 1 ครั้ง/โซน” จะอาศัยสถานะใน <b>localStorage</b> (ตั้งโดย quest-gate)
           </div>
         </aside>
       </div>
@@ -288,38 +293,44 @@
   'use strict';
 
   // ========= CONFIG: 3 ZONES =========
+  // NOTE: Hub -> root launchers only (ตามที่คุณกำหนด)
   const ZONES = [
     {
       id: 'nutrition', icon:'🥗', name:'โภชนาการ', color:'green',
       games: [
-        { title:'Food Groups VR', icon:'🧩', desc:'จัดหมวดอาหารหลัก 5 หมู่ แบบเร็วและแม่น', href:'./groups-vr.html', tags:['Launcher@root','PC/Mobile/VR','FX+HUD'] },
-        { title:'Balanced Plate VR', icon:'🍽️', desc:'จัดจานอาหารให้สมดุลครบหมู่', href:'./plate-vr.html', tags:['Launcher@root','5 หมู่','Quest'] },
-        { title:'Hydration Quest VR', icon:'💧', desc:'บริหารการดื่มน้ำตามเวลา/เป้าหมาย', href:'./hydration-vr.html', tags:['Launcher@root','Streak','Logging'] },
-        { title:'GoodJunkVR', icon:'🍎', desc:'แยกอาหารดี/ขยะ + เควส + บอส', href:'./goodjunk-vr.html', tags:['Launcher@root','Boss','Research'] },
+        { title:'Food Groups VR',  icon:'🧩', desc:'จัดหมวดอาหารหลัก 5 หมู่ แบบเร็วและแม่น', href:'./groups-vr.html',    tags:['ROOT launcher','PC/Mobile/VR','FX+HUD'] },
+        { title:'Balanced Plate',  icon:'🍽️', desc:'จัดจานอาหารให้สมดุลครบหมู่',            href:'./plate-vr.html',     tags:['ROOT launcher','5 หมู่','Quest/Boss'] },
+        { title:'Hydration Quest', icon:'💧', desc:'บริหารการดื่มน้ำตามเวลา/เป้าหมาย',        href:'./hydration-vr.html', tags:['ROOT launcher','Streak','Logging'] },
+        { title:'GoodJunkVR',      icon:'🍎', desc:'แยกอาหารดี/ขยะ + เควส + บอส',             href:'./goodjunk-vr.html',  tags:['ROOT launcher','Boss','Research'] },
       ]
     },
     {
       id: 'hygiene', icon:'🧼', name:'อนามัยส่วนบุคคล', color:'cyan',
       games: [
-        { title:'Handwash VR', icon:'🫧', desc:'ฝึกล้างมือ + จับเวลา + แบบทดสอบ', href:'./hygiene-vr.html', tags:['Launcher@root','7 Steps','Quiz'] },
-        { title:'Brush VR', icon:'🦷', desc:'แปรงฟันกำจัดคราบ + คะแนนความเนี๊ยบ', href:'./brush-vr.html', tags:['Launcher@root','Combo','Boss-ready'] },
+        { title:'Handwash VR', icon:'🫧', desc:'ฝึกล้างมือ + จับเวลา + แบบทดสอบ', href:'./hygiene-vr.html', tags:['ROOT launcher','7 Steps','Quiz'] },
+        { title:'Brush VR',    icon:'🦷', desc:'แปรงฟันกำจัดคราบ + คะแนนความเนี๊ยบ', href:'./brush-vr.html',   tags:['ROOT launcher','Combo','Boss-ready'] },
       ]
     },
     {
       id: 'fitness', icon:'🏃', name:'ออกกำลังกาย', color:'violet',
       games: [
-        { title:'Shadow Breaker', icon:'🥊', desc:'ต่อยตามแพทเทิร์น + คอมโบ + บอส', href:'./shadow-breaker-vr.html', tags:['Launcher@root','Boss','VR Ready'] },
-        { title:'Jump-Duck', icon:'🦘', desc:'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส', href:'./jump-duck-vr.html', tags:['Launcher@root','Boss 3 Phases','Agility','Fast'] },
-        { title:'Rhythm Boxer', icon:'🎵', desc:'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม', href:'./rhythm-boxer-vr.html', tags:['Launcher@root','Rhythm','Timing','cVR'] },
-        { title:'Balance Hold', icon:'🧘', desc:'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด', href:'./balance-hold-vr.html', tags:['Launcher@root','Balance','Stability','Endurance'] },
+        { title:'Shadow Breaker', icon:'🥊', desc:'ต่อยตามแพทเทิร์น + คอมโบ + บอส', href:'../fitness/shadow-breaker.html', tags:['Boss','Reflex','VR Ready'] },
+        { title:'Jump-Duck',      icon:'🦘', desc:'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส', href:'../fitness/jump-duck.html',    tags:['Boss 3 Phases','Agility','Fast'] },
+        { title:'Rhythm Boxer',   icon:'🎵', desc:'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม', href:'../fitness/rhythm-boxer.html', tags:['Rhythm','Timing','cVR'] },
+        { title:'Balance Hold',   icon:'🧘', desc:'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด', href:'../fitness/balance-hold.html', tags:['Balance','Stability','Endurance'] },
       ]
     }
   ];
 
   // ========= STORAGE KEYS =========
-  const LS_LAST_ZONE = 'HHA_HUB_LAST_ZONE';
-  const LS_LAST_GAME_URL = 'HHA_HUB_LAST_GAME_URL';
-  const LS_LAST_GAME_TITLE = 'HHA_HUB_LAST_GAME_TITLE';
+  const LS_LAST_ZONE      = 'HHA_HUB_LAST_ZONE';
+  const LS_LAST_GAME_URL  = 'HHA_HUB_LAST_GAME_URL';
+  const LS_LAST_GAME_TITLE= 'HHA_HUB_LAST_GAME_TITLE';
+  const LS_PID            = 'HHA_PID';
+
+  // "วันละ 1 ครั้ง/โซน" (quest-gate จะเป็นคน set key นี้ตอนผ่านโซน)
+  // value = "1"
+  const LS_ZONE_DAILY_PREFIX = 'HHA_ZONE_DAILY_DONE';
 
   // ========= DOM =========
   const $ = (sel)=>document.querySelector(sel);
@@ -344,13 +355,81 @@
     return isMobile ? 'mobile' : 'pc';
   }
 
+  // ========= DATE (local) =========
+  function todayKey(){
+    // local yyyy-mm-dd (stable)
+    try{
+      return new Date().toLocaleDateString('en-CA'); // 2026-02-08 style
+    }catch(_){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const dd= String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${dd}`;
+    }
+  }
+
+  // ========= PID =========
+  function getPid(){
+    const q = parseQS();
+    const pidQ = (q.get('pid')||'').trim();
+    if (pidQ){
+      try{ localStorage.setItem(LS_PID, pidQ); }catch(_){}
+      return pidQ;
+    }
+    try{
+      const pidLS = (localStorage.getItem(LS_PID)||'').trim();
+      return pidLS || '';
+    }catch(_){
+      return '';
+    }
+  }
+
+  function makePid(){
+    // short, readable, unique-enough (no deps)
+    const a = Math.random().toString(36).slice(2,7).toUpperCase();
+    const b = Math.random().toString(36).slice(2,4).toUpperCase();
+    return `P-${a}-${b}`;
+  }
+
+  // ========= Zone daily status =========
+  function zoneDailyKey(zoneId, pid){
+    const p = (pid && String(pid).trim()) ? String(pid).trim() : 'anon';
+    return `${LS_ZONE_DAILY_PREFIX}:${zoneId}:${todayKey()}:${p}`;
+  }
+  function isZoneDoneToday(zoneId){
+    const pid = getPid();
+    const k = zoneDailyKey(zoneId, pid);
+    try{
+      return (localStorage.getItem(k) === '1');
+    }catch(_){
+      return false;
+    }
+  }
+
+  // ========= build target URL =========
   function buildTargetUrl(baseHref){
     const base = new URL(baseHref, location.href);
     const cur = parseQS();
+
+    // copy ALL current params (except hub) as pass-through
     for (const [k,v] of cur.entries()){
       if (k === 'hub') continue;
       base.searchParams.set(k, v);
     }
+
+    // ensure view exists (if missing)
+    if (!base.searchParams.has('view')){
+      base.searchParams.set('view', detectView());
+    }
+
+    // ensure pid exists (prefer query pid, fallback localStorage)
+    const pid = getPid();
+    if (pid && !base.searchParams.has('pid')){
+      base.searchParams.set('pid', pid);
+    }
+
+    // always set hub back link (do not remove)
     base.searchParams.set('hub', hubUrl());
     return base.toString();
   }
@@ -390,14 +469,15 @@
   function normalizeResumeUrl(storedUrl){
     const u = new URL(storedUrl, location.href);
     u.searchParams.set('hub', hubUrl());
+    // also keep view/pid from hub if missing
+    const pid = getPid();
+    if (pid && (!u.searchParams.has('pid') || !String(u.searchParams.get('pid')||'').trim())){
+      u.searchParams.set('pid', pid);
+    }
+    if (!u.searchParams.has('view') || !String(u.searchParams.get('view')||'').trim()){
+      u.searchParams.set('view', detectView());
+    }
     return u.toString();
-  }
-
-  // ========= PID generator =========
-  function makePid(){
-    const a = Math.random().toString(36).slice(2,7).toUpperCase();
-    const b = Math.random().toString(36).slice(2,4).toUpperCase();
-    return `P-${a}-${b}`;
   }
 
   // ========= Presets =========
@@ -429,11 +509,12 @@
   function renderPills(){
     const q = parseQS();
     const presetLabel = getPresetLabel(q);
+    const pid = getPid();
 
     const pills = [
       {k:'view', v:detectView()},
       presetLabel ? {k:'preset', v:presetLabel} : null,
-      {k:'pid', v:q.get('pid')},
+      {k:'pid', v:pid || q.get('pid')},
       {k:'run', v:q.get('run')},
       {k:'diff', v:q.get('diff')},
       {k:'time', v:q.get('time')},
@@ -442,6 +523,9 @@
       {k:'phase', v:q.get('phase')},
       {k:'condition', v:q.get('conditionGroup')},
       {k:'log', v:q.get('log')},
+      {k:'N:today', v:isZoneDoneToday('nutrition') ? 'DONE' : ''},
+      {k:'H:today', v:isZoneDoneToday('hygiene') ? 'DONE' : ''},
+      {k:'F:today', v:isZoneDoneToday('fitness') ? 'DONE' : ''},
     ].filter(Boolean);
 
     pillRow.innerHTML = pills
@@ -453,10 +537,11 @@
 
   function renderKV(){
     const q = parseQS();
+    const pid = getPid();
     const data = [
+      ['today', todayKey()],
       ['view', detectView()],
-      ['preset', getPresetLabel(q)],
-      ['pid', q.get('pid')],
+      ['pid', pid || q.get('pid')],
       ['run', q.get('run')],
       ['diff', q.get('diff')],
       ['time', q.get('time')],
@@ -465,6 +550,12 @@
       ['phase', q.get('phase')],
       ['conditionGroup', q.get('conditionGroup')],
       ['log', q.get('log')],
+
+      // per-zone daily status
+      ['nutrition today', isZoneDoneToday('nutrition') ? 'DONE ✅' : '—'],
+      ['hygiene today',   isZoneDoneToday('hygiene')   ? 'DONE ✅' : '—'],
+      ['fitness today',   isZoneDoneToday('fitness')   ? 'DONE ✅' : '—'],
+
       ['hub', hubUrl()],
     ];
     kvEl.innerHTML = data.map(([k,v]) => `
@@ -499,7 +590,7 @@
     try{
       lastUrl = localStorage.getItem(LS_LAST_GAME_URL);
       lastTitle = localStorage.getItem(LS_LAST_GAME_TITLE);
-    }catch{}
+    }catch(_){}
     if (lastUrl && String(lastUrl).trim()){
       btn.classList.remove('disabled');
       const t = (lastTitle && String(lastTitle).trim()) ? lastTitle : 'last game';
@@ -516,16 +607,30 @@
     const zone = ZONES.find(z => z.id === state.zoneId) || ZONES[0];
     cardsEl.innerHTML = '';
 
+    const doneToday = isZoneDoneToday(zone.id);
+
     zone.games.forEach(g => {
       const card = document.createElement('div');
       card.className = 'card';
       const glowCls = zoneGlowClass(zone);
 
+      const tags = (g.tags||[]).slice(0,6);
+      // add zone daily hint tag (read-only from LS)
+      if (doneToday){
+        tags.unshift('โซนนี้ DONE วันนี้ ✅');
+      } else {
+        tags.unshift('โซนนี้ยังไม่ DONE วันนี้');
+      }
+
       card.innerHTML = `
         <div class="glow ${glowCls}"></div>
         <h3>${g.icon} ${g.title}</h3>
         <p>${g.desc}</p>
-        <div class="tags">${(g.tags||[]).slice(0,6).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="tags">${tags.map(t=>{
+          const isOk = String(t).includes('DONE วันนี้ ✅');
+          const cls = isOk ? 'tag ok' : 'tag';
+          return `<span class="${cls}">${t}</span>`;
+        }).join('')}</div>
       `;
 
       const href = (g.href || '#').trim();
@@ -535,7 +640,7 @@
         try{
           localStorage.setItem(LS_LAST_GAME_URL, finalUrl);
           localStorage.setItem(LS_LAST_GAME_TITLE, g.title);
-        }catch{}
+        }catch(_){}
         updateResumeBtn();
         location.href = finalUrl;
       });
@@ -547,7 +652,7 @@
   function setZone(zoneId, save){
     state.zoneId = zoneId;
     if (save){
-      try{ localStorage.setItem(LS_LAST_ZONE, zoneId); }catch{}
+      try{ localStorage.setItem(LS_LAST_ZONE, zoneId); }catch(_){}
     }
     renderTabs();
     renderCards();
@@ -588,11 +693,11 @@
   // ========= BUTTONS =========
   $('#btnCopyLink').addEventListener('click', async ()=>{
     try{ await navigator.clipboard.writeText(hubUrl()); toast('คัดลอกลิงก์ Hub แล้ว'); }
-    catch{ toast('คัดลอกไม่สำเร็จ'); }
+    catch(_){ toast('คัดลอกไม่สำเร็จ'); }
   });
 
   $('#btnReset').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(LS_LAST_ZONE); }catch{}
+    try{ localStorage.removeItem(LS_LAST_ZONE); }catch(_){}
     setZone(ZONES[0].id, false);
     toast('รีเซ็ตโซนแล้ว');
   });
@@ -600,7 +705,15 @@
   $('#btnShowDebug').addEventListener('click', ()=>{
     state.debug = !state.debug;
     const obj = toObj(parseQS());
-    if (state.debug) alert('DEBUG — params:\n\n' + JSON.stringify(obj, null, 2));
+    const extra = {
+      today: todayKey(),
+      pidFromLocalStorage: (function(){ try{ return localStorage.getItem(LS_PID)||''; }catch(_){ return ''; } })(),
+      zoneDailyKeys: ZONES.map(z=>{
+        const pid = getPid() || 'anon';
+        return `${zoneDailyKey(z.id, pid)} = ${(function(){ try{ return localStorage.getItem(zoneDailyKey(z.id,pid))||''; }catch(_){ return ''; } })()}`;
+      })
+    };
+    if (state.debug) alert('DEBUG — params:\n\n' + JSON.stringify(obj, null, 2) + '\n\nDEBUG — extra:\n\n' + JSON.stringify(extra, null, 2));
     else toast('ปิด Debug แล้ว');
   });
 
@@ -608,7 +721,7 @@
     const btn = $('#btnResume');
     if (btn.classList.contains('disabled')){ toast('ยังไม่มีเกมล่าสุด — เข้าเกมสักครั้งก่อน'); return; }
     let lastUrl=null;
-    try{ lastUrl = localStorage.getItem(LS_LAST_GAME_URL); }catch{}
+    try{ lastUrl = localStorage.getItem(LS_LAST_GAME_URL); }catch(_){}
     if (!lastUrl){ toast('ยังไม่มีเกมล่าสุด'); updateResumeBtn(); return; }
     location.href = normalizeResumeUrl(lastUrl);
   });
@@ -668,6 +781,7 @@
       toast(`มี pid อยู่แล้ว: ${res.current} (ไม่ override) — ถ้าจะเปลี่ยนให้กด Clear pid ก่อน`);
       return;
     }
+    try{ localStorage.setItem(LS_PID, pid); }catch(_){}
     toast('สร้าง participant: ' + pid);
     location.href = res.url;
   });
@@ -688,8 +802,14 @@
 
   // ========= INIT =========
   function init(){
+    // ensure local pid shows up even if URL missing
+    const pid = getPid();
+    if (pid){
+      // optional: do nothing; we do not auto-inject pid into hub url to avoid override behavior
+    }
+
     let last=null;
-    try{ last = localStorage.getItem(LS_LAST_ZONE); }catch{}
+    try{ last = localStorage.getItem(LS_LAST_ZONE); }catch(_){}
     const zoneId = ZONES.some(z=>z.id===last) ? last : ZONES[0].id;
     renderTabs();
     setZone(zoneId, false);
