@@ -1,10 +1,10 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.8 (Boss Pack 2)
+// BrushVR SAFE Engine — DOM90 v0.8 (Boss Pack 2 + UX Shockwave Patch)
 // ✅ Ultimate #1 Laser Sweep (Pack1)
-// ✅ Ultimate #2 Shockwave Pulse (Pack2)  <-- NEW
+// ✅ Ultimate #2 Shockwave Pulse (Pack2) + "ตีเลย!" indicator + beep/vibrate
 // ✅ Perfect Gate (Pack1)
-// ✅ Boss Personality: ANGER affects patterns/spawn  <-- NEW
-// ✅ Badges + storage + end overlay
+// ✅ Boss Personality: ANGER affects patterns/spawn
+// ✅ Anti-spam gentle + BANK + pickups + UV stealth + end summary + badges
 // Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, brush:badge, hha:end
 (function(){
   'use strict';
@@ -12,7 +12,7 @@
 
   // ---------- helpers ----------
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>performance.now();
+  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
   const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(_){ } };
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
@@ -23,12 +23,8 @@
 
   // ---------- badges storage ----------
   const LS_BADGES = 'HHA_BADGES_V1';
-  function loadBadges(){
-    try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; }
-  }
-  function saveBadges(all){
-    try{ localStorage.setItem(LS_BADGES, JSON.stringify(all)); }catch(_){}
-  }
+  function loadBadges(){ try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; } }
+  function saveBadges(all){ try{ localStorage.setItem(LS_BADGES, JSON.stringify(all)); }catch(_){ } }
   function grantBadge(gameKey, badgeId){
     const all = loadBadges();
     all[gameKey] = all[gameKey] || {};
@@ -152,9 +148,10 @@
   function buildNoSpawnZones(view){
     const vp = { w: WIN.innerWidth, h: WIN.innerHeight };
 
-    let mTop=96, mBot=140, mL=120, mR=120;
-    if(view==='mobile'){ mTop+=16; mBot+=20; mL+=12; mR+=12; }
-    if(view==='cvr' || view==='vr'){ mTop+=14; mBot+=18; mL+=16; mR+=16; }
+    // tuned to avoid HUD overlap better on mobile
+    let mTop=108, mBot=156, mL=124, mR=124;
+    if(view==='mobile'){ mTop+=18; mBot+=24; mL+=14; mR+=14; }
+    if(view==='cvr' || view==='vr'){ mTop+=16; mBot+=18; mL+=18; mR+=18; }
 
     const safePlay = {
       x: mL, y: mTop,
@@ -382,7 +379,6 @@
       weakChanceP3: 0.34,
       weakChanceP4: 0.42,
 
-      // Ultimate #1 Laser Sweep
       laser: {
         enabled: true,
         minGapSec: 7.5,
@@ -393,19 +389,17 @@
         comboCut: 0.55
       },
 
-      // Ultimate #2 Shockwave Pulse (NEW)
       shock: {
         enabled: true,
         minGapSec: 8.5,
         maxGapSec: 13.0,
         pulses: 3,
         pulseGapSec: 0.55,
-        windowSec: 0.18,      // hit window around pulse
+        windowSec: 0.18,
         penaltySec: 2.8,
         comboCut: 0.72
       },
 
-      // Perfect Gate (Phase 4)
       gate: {
         enabled: true,
         phase: 4,
@@ -413,7 +407,6 @@
         windowSec: 7.0
       },
 
-      // Personality / anger (NEW)
       mood: {
         enabled: true,
         angerUpMiss: 10,
@@ -501,7 +494,57 @@
       'SHOCKWAVE — ตี “ตามจังหวะ”!'
     );
 
-    // shock ring canvas (NEW)
+    // Shock indicator "ตีเลย!" (NEW UX)
+    function ensureShockHitNow(){
+      let el = DOC.getElementById('shockHitNow');
+      if(el) return el;
+      el = DOC.createElement('div');
+      el.id = 'shockHitNow';
+      el.style.position='fixed';
+      el.style.left='50%';
+      el.style.top='50%';
+      el.style.transform='translate(-50%,-50%)';
+      el.style.zIndex='59';
+      el.style.pointerEvents='none';
+      el.style.padding='10px 14px';
+      el.style.borderRadius='999px';
+      el.style.border='1px solid rgba(34,197,94,.40)';
+      el.style.background='rgba(34,197,94,.16)';
+      el.style.color='rgba(229,231,235,.98)';
+      el.style.fontWeight='950';
+      el.style.letterSpacing='.6px';
+      el.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
+      el.style.opacity='0';
+      el.style.transition='opacity .08s ease, transform .08s ease';
+      el.textContent='ตีเลย!';
+      DOC.body.appendChild(el);
+      return el;
+    }
+    const shockHitNow = ensureShockHitNow();
+    function showHitNow(on){
+      if(!shockHitNow) return;
+      shockHitNow.style.opacity = on ? '1' : '0';
+      shockHitNow.style.transform = on ? 'translate(-50%,-55%) scale(1.02)' : 'translate(-50%,-50%) scale(1)';
+    }
+    function pulseFeedback(){
+      try{ if(navigator.vibrate) navigator.vibrate([10,20,10]); }catch(_){}
+      // tiny beep (safe)
+      try{
+        const AC = WIN.AudioContext || WIN.webkitAudioContext;
+        if(!AC) return;
+        const ac = new AC();
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = 'sine';
+        o.frequency.value = 880;
+        g.gain.value = 0.04;
+        o.connect(g); g.connect(ac.destination);
+        o.start();
+        setTimeout(()=>{ try{o.stop();}catch(_){} try{ac.close();}catch(_){} }, 60);
+      }catch(_){}
+    }
+
+    // shock ring canvas
     function ensureShockRing(){
       let c = DOC.getElementById('shockRing');
       if(c) return c;
@@ -539,7 +582,6 @@
       quadIndex:0,
       q:'q1',
       qTime:0,
-      qTimes:[0,0,0,0],
 
       coverage:{ q1:0, q2:0, q3:0, q4:0 },
 
@@ -574,7 +616,6 @@
       bossOn:false,
       bossHp: CFG.boss.hpMax,
       bossPhase: 1,
-      lastBossSpawn: 0,
 
       bossPattern: 'DUEL',
       patternLeft: 3.2,
@@ -592,7 +633,7 @@
       laserLeft: 0,
       laserViolations: 0,
 
-      // Shockwave (NEW)
+      // Shockwave
       shockNextAt: 0,
       shockOn:false,
       shockPulsesLeft: 0,
@@ -600,7 +641,6 @@
       shockWindowLeft: 0,
       shockWindowOpen: false,
       shockPunishCount: 0,
-      shockPulseIdx: 0,
       shockCenter: {x:0,y:0},
       shockRingR: 0,
 
@@ -609,13 +649,14 @@
       gateNeed: CFG.boss.gate.needPerfectStreak,
       gateLeft: 0,
 
-      // Mood (NEW)
+      // Mood
       anger: 12,
       angerSum: 0,
       angerSamples: 0,
 
       lastTimeEmit:0,
       lastSpawn:0,
+      lastBossSpawn:0,
 
       notes:new Map(),
       noteSeq:0,
@@ -629,7 +670,7 @@
     rebuildNoSpawn();
     WIN.addEventListener('resize', rebuildNoSpawn);
 
-    // ---------- BANK button ----------
+    // ---------- BANK button (auto if missing in html) ----------
     function ensureBankBtn(){
       if(!CFG.bank.enabled) return null;
       if(HUD.el.bankBtn) return HUD.el.bankBtn;
@@ -689,6 +730,7 @@
         HUD.toast('BANK: 🛡 Shield!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
       }
       rebuildNoSpawn();
+      emit('brush:bank', { used:true, comboLeft:S.combo, uv:S.uvEnergy, shield:S.shieldLeft });
     }
     if(bankBtn){
       bankBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); applyBank(); }, {passive:false});
@@ -724,15 +766,10 @@
       }
     }
 
-    // ---------- mood / anger (NEW) ----------
-    function angerUp(n){
-      if(!CFG.boss.mood.enabled) return;
-      S.anger = clamp(S.anger + n, 0, CFG.boss.mood.angerClamp);
-    }
-    function angerDown(n){
-      if(!CFG.boss.mood.enabled) return;
-      S.anger = clamp(S.anger - n, 0, CFG.boss.mood.angerClamp);
-    }
+    // ---------- mood / anger ----------
+    function angerUp(n){ if(!CFG.boss.mood.enabled) return; S.anger = clamp(S.anger + n, 0, CFG.boss.mood.angerClamp); }
+    function angerDown(n){ if(!CFG.boss.mood.enabled) return; S.anger = clamp(S.anger - n, 0, CFG.boss.mood.angerClamp); }
+    function angerFactor(){ return clamp(S.anger / 100, 0, 1); }
 
     // ---------- gentle ----------
     function recordHitAndDetectHeavy(hitMs){
@@ -801,10 +838,7 @@
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
-    function spawnNormal(){
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
-      spawnNormalAt(p);
-    }
+    function spawnNormal(){ spawnNormalAt(pickSpawnPoint(S.rng, S.ns, CFG.noteRadius)); }
 
     function spawnStealthAt(p){
       const id = ++S.noteSeq;
@@ -826,10 +860,7 @@
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
-    function spawnStealth(){
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
-      spawnStealthAt(p);
-    }
+    function spawnStealth(){ spawnStealthAt(pickSpawnPoint(S.rng, S.ns, CFG.noteRadius)); }
 
     function spawnBossAt(p, weak=false){
       const id = ++S.noteSeq;
@@ -892,7 +923,6 @@
     function onPerfectProgress(){
       S.perfectStreak++;
       if(S.perfectStreak > 20) S.perfectStreak = 20;
-
       angerDown(CFG.boss.mood.angerDownPerfect);
 
       if(CFG.uv.enabled && S.perfectStreak >= CFG.uv.refillStreak){
@@ -929,7 +959,7 @@
       HUD.el.uvBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); tryUseUV(); }, {passive:false});
     }
 
-    // ---------- Boss + patterns ----------
+    // ---------- Boss patterns ----------
     function updateBossPhaseFromHp(){
       if(!S.bossOn) return;
       const hp = S.bossHp;
@@ -944,7 +974,6 @@
         emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase });
       }
 
-      // Gate armed only in phase 4
       if(CFG.boss.gate.enabled && S.bossPhase >= CFG.boss.gate.phase && !S.gateOn){
         S.gateOn = true;
         S.gateNeed = CFG.boss.gate.needPerfectStreak;
@@ -953,16 +982,9 @@
       }
     }
 
-    function angerFactor(){
-      // 0..1
-      return clamp(S.anger / 100, 0, 1);
-    }
-
     function bossSpawnInterval(){
       const baseMult = 1.0 - 0.18*(S.bossPhase-1);
-      const angry = angerFactor();
-      // more anger => faster spawns
-      const moodMult = 1.0 - 0.22*angry;
+      const moodMult = 1.0 - 0.22*angerFactor();
       return clamp(CFG.boss.bossSpawnEverySecBase * baseMult * moodMult, CFG.boss.bossSpawnEverySecMin, 2.0);
     }
 
@@ -971,7 +993,6 @@
       const ph = S.bossPhase;
       const angry = angerFactor();
 
-      // Anger pushes toward STORM / DUEL, reduces RING
       const wD = clamp((0.62 - 0.10*(ph-1)) + 0.18*angry, 0.25, 0.80);
       const wR = clamp((0.24 + 0.05*(ph-1)) - 0.14*angry, 0.10, 0.45);
       const wS = clamp(1.0 - (wD+wR), 0.12, 0.55);
@@ -988,7 +1009,6 @@
       }else if(p==='RING'){
         S.patternLeft = 1.1 + S.rng()*0.5;
       }else{
-        // anger adds more storm queue
         const extra = Math.round(2 * angerFactor());
         S.patternLeft = 1.5 + S.rng()*0.7;
         S.stormQueue = CFG.boss.stormBurst + (S.bossPhase>=3 ? 2 : 0) + extra;
@@ -1041,6 +1061,7 @@
       if(S.shieldLeft > 0) kind = 'cleanser';
       else kind = (r < 0.55 ? 'shield' : 'cleanser');
       spawnPickup(kind);
+      emit('brush:pickup', { spawn:true, kind });
     }
 
     // ---------- Laser Sweep ----------
@@ -1048,7 +1069,6 @@
       const g = CFG.boss.laser;
       if(!g.enabled) return;
       const angry = angerFactor();
-      // anger => shorter gaps
       const minG = Math.max(4.8, g.minGapSec - 2.0*angry);
       const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
       const gap = minG + (S.rng()*(maxG - minG));
@@ -1083,59 +1103,77 @@
       HUD.toast('โดนเลเซอร์!', 'ช่วงเลเซอร์ต้อง “หยุดตี”', 1200);
     }
 
-    // ---------- Shockwave Pulse (NEW) ----------
+    // ---------- Shockwave Pulse ----------
     function scheduleNextShock(){
       const g = CFG.boss.shock;
       if(!g.enabled) return;
       const angry = angerFactor();
-      // anger => shorter gaps
       const minG = Math.max(5.2, g.minGapSec - 2.0*angry);
       const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
       const gap = minG + (S.rng()*(maxG - minG));
       S.shockNextAt = S.t + gap;
     }
+    function clearShockDraw(){ try{ shockCtx.clearRect(0,0,WIN.innerWidth, WIN.innerHeight); }catch(_){ } }
+    function drawShockRing(r, alpha){
+      clearShockDraw();
+      const c = S.shockCenter;
+      shockCtx.save();
+      shockCtx.globalAlpha = alpha;
+      shockCtx.lineWidth = 6;
+      shockCtx.beginPath();
+      shockCtx.arc(c.x, c.y, r, 0, Math.PI*2);
+      shockCtx.strokeStyle = 'rgba(34,211,238,.70)';
+      shockCtx.stroke();
+
+      if(S.shockWindowOpen){
+        shockCtx.globalAlpha = 0.92;
+        shockCtx.lineWidth = 10;
+        shockCtx.beginPath();
+        shockCtx.arc(c.x, c.y, r, 0, Math.PI*2);
+        shockCtx.strokeStyle = 'rgba(34,197,94,.70)';
+        shockCtx.stroke();
+      }
+      shockCtx.restore();
+    }
+
+    function openShockWindow(){
+      const g = CFG.boss.shock;
+      S.shockWindowOpen = true;
+      S.shockWindowLeft = g.windowSec;
+      showHitNow(true);
+      pulseFeedback();
+      setTimeout(()=>showHitNow(false), Math.max(60, g.windowSec*1000));
+    }
+    function closeShockWindow(){
+      S.shockWindowOpen = false;
+      S.shockWindowLeft = 0;
+      showHitNow(false);
+    }
+
     function startShock(){
       const g = CFG.boss.shock;
       S.shockOn = true;
-      S.shockPulsesLeft = g.pulses + Math.round(angFactorBoost(1)); // 3..4
-      S.shockPulseTimer = 0.02; // start quickly
+      S.shockPulsesLeft = g.pulses + (angerFactor() > 0.72 ? 1 : 0); // 3..4
+      S.shockPulseTimer = 0.15;
       S.shockWindowLeft = 0;
       S.shockWindowOpen = false;
-      S.shockPulseIdx = 0;
 
-      // center = safe center
       const c = safeCenter();
       S.shockCenter = { x:c.x, y:c.y };
       S.shockRingR = 0;
 
       shockOverlay.style.opacity = '1';
       shockCanvas.style.opacity = '1';
-
-      HUD.toast('SHOCKWAVE!', 'ตี “ตามจังหวะ” เท่านั้น!', 1200);
+      HUD.toast('SHOCKWAVE!', 'ตีเฉพาะตอนขึ้น “ตีเลย!”', 1200);
     }
     function stopShock(){
       S.shockOn = false;
       S.shockPulsesLeft = 0;
-      S.shockWindowLeft = 0;
-      S.shockWindowOpen = false;
+      closeShockWindow();
       shockOverlay.style.opacity = '0';
       shockCanvas.style.opacity = '0';
       clearShockDraw();
       scheduleNextShock();
-    }
-    function angFactorBoost(scale){
-      return clamp(angFactor()*scale, 0, 1);
-    }
-    function angFactor(){ return clamp(S.anger/100, 0, 1); }
-
-    function openShockWindow(){
-      const g = CFG.boss.shock;
-      S.shockWindowOpen = true;
-      S.shockWindowLeft = g.windowSec;
-    }
-    function closeShockWindow(){
-      S.shockWindowOpen = false;
-      S.shockWindowLeft = 0;
     }
     function shockPunish(x,y){
       const g = CFG.boss.shock;
@@ -1148,35 +1186,7 @@
       HUD.toast('พลาดจังหวะ!', 'Shockwave ต้องตี “ตรงจังหวะ”', 1200);
     }
 
-    function clearShockDraw(){
-      try{
-        shockCtx.clearRect(0,0,WIN.innerWidth, WIN.innerHeight);
-      }catch(_){}
-    }
-    function drawShockRing(r, alpha){
-      clearShockDraw();
-      const c = S.shockCenter;
-      shockCtx.save();
-      shockCtx.globalAlpha = alpha;
-      shockCtx.lineWidth = 6;
-      shockCtx.beginPath();
-      shockCtx.arc(c.x, c.y, r, 0, Math.PI*2);
-      shockCtx.strokeStyle = 'rgba(34,211,238,.70)';
-      shockCtx.stroke();
-
-      // window hint (green-ish) when open
-      if(S.shockWindowOpen){
-        shockCtx.globalAlpha = 0.92;
-        shockCtx.lineWidth = 10;
-        shockCtx.beginPath();
-        shockCtx.arc(c.x, c.y, r, 0, Math.PI*2);
-        shockCtx.strokeStyle = 'rgba(34,197,94,.70)';
-        shockCtx.stroke();
-      }
-      shockCtx.restore();
-    }
-
-    // ---------- Perfect Gate ----------
+    // ---------- Gate ----------
     function gateTick(dt){
       if(!S.gateOn) return;
       S.gateLeft = Math.max(0, S.gateLeft - dt);
@@ -1254,6 +1264,7 @@
         HUD.toast('💧 Cleanser!', 'ล้างคราบ + หยุดยึดคืนชั่วคราว', 1400);
       }
       rebuildNoSpawn();
+      emit('brush:pickup', { used:true, kind });
     }
 
     // ---------- judgement ----------
@@ -1263,7 +1274,6 @@
 
       // Ultimate blocks: Laser and Shock
       if(S.bossOn && (source==='tap' || source==='shoot')){
-        // Laser active => always punish
         if(S.laserLeft > 0){
           laserPunish(note.x, note.y);
           emit('hha:judge', { type:'laser', judge:'violation', boss:true, source });
@@ -1271,8 +1281,6 @@
           S.notes.delete(note.id);
           return;
         }
-
-        // Shock active: only allow hit inside window
         if(S.shockOn){
           if(!S.shockWindowOpen){
             shockPunish(note.x, note.y);
@@ -1281,9 +1289,8 @@
             S.notes.delete(note.id);
             return;
           }
-          // if window open: reward for correct timing
           closeShockWindow();
-          HUD.toast('จังหวะดี!', 'Shockwave timing สำเร็จ', 900);
+          HUD.toast('จังหวะดี!', 'Shockwave timing สำเร็จ', 650);
           angerDown(4.0);
         }
       }
@@ -1301,10 +1308,7 @@
 
       const removeNote = ()=>{
         try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
-        try{
-          note.el.style.opacity='0';
-          note.el.style.transform='translate(-50%,-50%) scale(0.85)';
-        }catch(_){}
+        try{ note.el.style.opacity='0'; note.el.style.transform='translate(-50%,-50%) scale(0.85)'; }catch(_){}
         setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
         S.notes.delete(note.id);
       };
@@ -1370,6 +1374,7 @@
 
             popJudgeFx(layer, note.x, note.y, 'perfect');
             emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
+            emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
             removeNote(); return;
           }else{
             S.stealthMiss++;
@@ -1432,7 +1437,6 @@
           const baseD = (judge==='perfect') ? CFG.boss.dmg.bossPerfect : CFG.boss.dmg.bossGood;
           dmg = (S.bossPhase >= 3) ? Math.round(baseD * CFG.boss.dmg.nonWeakScaleLate) : baseD;
         }
-
         if(S.gateOn) dmg = Math.max(1, Math.round(dmg * 0.28));
 
         S.bossHp = clamp(S.bossHp - dmg, 0, CFG.boss.hpMax);
@@ -1441,13 +1445,8 @@
 
         if(isWeak) angerDown(CFG.boss.mood.angerDownWeak);
 
-        if(judge==='perfect'){
-          onPerfectProgress();
-          if(S.gateOn) gateOnPerfect();
-        }else{
-          resetPerfectStreak();
-          if(S.gateOn) gateOnMiss();
-        }
+        if(judge==='perfect'){ onPerfectProgress(); if(S.gateOn) gateOnPerfect(); }
+        else { resetPerfectStreak(); if(S.gateOn) gateOnMiss(); }
 
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1498,13 +1497,8 @@
         S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
         S.lastTouchedAt[S.q] = S.t;
 
-        if(judge==='perfect'){
-          onPerfectProgress();
-          if(S.gateOn) gateOnPerfect();
-        }else{
-          resetPerfectStreak();
-          if(S.gateOn) gateOnMiss();
-        }
+        if(judge==='perfect'){ onPerfectProgress(); if(S.gateOn) gateOnPerfect(); }
+        else { resetPerfectStreak(); if(S.gateOn) gateOnMiss(); }
 
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1531,6 +1525,7 @@
       if(S.quadIndex < 3){
         S.quadIndex++;
         setPhase('RUN_Q');
+        HUD.toast('เปลี่ยนโซน!', `${S.q.toUpperCase()} → ${CFG.quads[S.quadIndex].toUpperCase()}`, 900);
       }else{
         if(CFG.boss.enabled) setPhase('BOSS');
         else endGame('quad_done');
@@ -1561,23 +1556,19 @@
 
       const total = S.score + coverageScore + (S.stealthHit*25) + bossBonus + finBonus - laserPenalty - shockPenalty;
 
-      // badges evaluation
       const earned = [];
       const gameKey = 'brush';
 
       if(reason === 'boss_win'){
         if(grantBadge(gameKey, 'TARTAR_SLAYER')) earned.push('TARTAR_SLAYER');
-
         if(S.shockPunishCount === 0){
           if(grantBadge(gameKey, 'TIMING_MASTER')) earned.push('TIMING_MASTER');
         }
-
-        const avgAnger = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
-        if(avgAnger <= CFG.badges.calmAvgAngerMax){
+        const avgAnger2 = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
+        if(avgAnger2 <= CFG.badges.calmAvgAngerMax){
           if(grantBadge(gameKey, 'CALM_BREAKER')) earned.push('CALM_BREAKER');
         }
       }
-
       if(S.stealthHit >= CFG.badges.uvHunterStealthHit){
         if(grantBadge(gameKey, 'UV_HUNTER')) earned.push('UV_HUNTER');
       }
@@ -1614,17 +1605,11 @@
 
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-        const histKey = 'HHA_SUMMARY_HISTORY';
-        const hist = JSON.parse(localStorage.getItem(histKey) || '[]');
-        hist.unshift(Object.assign({ts:Date.now()}, summary));
-        localStorage.setItem(histKey, JSON.stringify(hist.slice(0,40)));
       }catch(_){}
 
       emit('hha:end', { summary });
 
-      for(const note of S.notes.values()){
-        try{ note.el.remove(); }catch(_){}
-      }
+      for(const note of S.notes.values()){ try{ note.el.remove(); }catch(_){ } }
       S.notes.clear();
 
       HUD.showBoss(false);
@@ -1632,8 +1617,8 @@
       shockOverlay.style.opacity = '0';
       shockCanvas.style.opacity = '0';
       clearShockDraw();
+      showHitNow(false);
 
-      // end overlay
       const done = DOC.createElement('div');
       done.style.position='fixed';
       done.style.inset='0';
@@ -1771,7 +1756,7 @@
             if(S.laserWarnLeft <= 0) startLaser();
           }else if(S.laserLeft > 0){
             S.laserLeft = Math.max(0, S.laserLeft - dt);
-            laserOverlay.style.opacity = String(0.95);
+            laserOverlay.style.opacity = '0.95';
             if(S.laserLeft <= 0) stopLaser();
           }else{
             if(S.t >= S.laserNextAt && S.bossHp > 0){
@@ -1780,36 +1765,29 @@
           }
         }
 
-        // Shock timing (NEW) — never overlap with laser
+        // Shock timing — never overlap with laser
         if(CFG.boss.shock.enabled && S.laserLeft <= 0 && S.laserWarnLeft <= 0){
           if(!S.shockOn){
             if(S.t >= S.shockNextAt && S.bossHp > 0){
               startShock();
             }
           }else{
-            // pulse scheduler
             const g = CFG.boss.shock;
 
-            // window countdown
             if(S.shockWindowLeft > 0){
               S.shockWindowLeft = Math.max(0, S.shockWindowLeft - dt);
               if(S.shockWindowLeft <= 0) closeShockWindow();
             }
 
-            // pulse timer
             S.shockPulseTimer = Math.max(0, S.shockPulseTimer - dt);
             if(S.shockPulseTimer <= 0 && S.shockPulsesLeft > 0){
               S.shockPulsesLeft--;
-              S.shockPulseIdx++;
               openShockWindow();
               S.shockPulseTimer = g.pulseGapSec;
-
-              // visual ring animate (simple)
+              HUD.toast('PULSE!', 'ตีตอนขึ้น “ตีเลย!”', 520);
               S.shockRingR = 0;
-              HUD.toast('PULSE!', 'ตีในจังหวะสีเขียว', 600);
             }
 
-            // ring expand
             const sp = S.ns?.safePlay;
             if(sp){
               const maxR = Math.max(sp.w, sp.h) * 0.62;
@@ -1823,10 +1801,8 @@
           }
         }
 
-        // Gate tick
         gateTick(dt);
 
-        // patterns
         S.patternLeft -= dt;
         if(S.patternLeft <= 0){
           startPattern(pickPattern());
@@ -1947,26 +1923,7 @@
     }
     requestAnimationFrame(loop);
 
-    // schedule next ultimates after boss starts
-    function scheduleNextLaser(){
-      const g = CFG.boss.laser;
-      if(!g.enabled) return;
-      const angry = clamp(S.anger/100,0,1);
-      const minG = Math.max(4.8, g.minGapSec - 2.0*angry);
-      const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
-      const gap = minG + (S.rng()*(maxG - minG));
-      S.laserNextAt = S.t + gap;
-    }
-    function scheduleNextShock(){
-      const g = CFG.boss.shock;
-      if(!g.enabled) return;
-      const angry = clamp(S.anger/100,0,1);
-      const minG = Math.max(5.2, g.minGapSec - 2.0*angry);
-      const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
-      const gap = minG + (S.rng()*(maxG - minG));
-      S.shockNextAt = S.t + gap;
-    }
-    // initial schedules
+    // initial schedules (only once)
     scheduleNextLaser();
     scheduleNextShock();
   }
