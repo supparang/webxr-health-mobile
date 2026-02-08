@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GoodJunkVR (Root Launcher)</title>
+  <title>HeroHealth — GoodJunkVR (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
   <style>
@@ -11,15 +11,15 @@
     .c{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px;}
     .p{max-width:760px;width:100%;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.72);border-radius:22px;padding:14px;box-shadow:0 20px 70px rgba(0,0,0,.45);}
     .t{font-weight:1000;font-size:16px;}
-    .s{color:rgba(148,163,184,.95);margin-top:6px;font-size:12.5px;line-height:1.4;}
+    .s{color:rgba(148,163,184,.95);margin-top:6px;font-size:12.5px;line-height:1.45;}
     .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:rgba(229,231,235,.9);margin-top:10px;white-space:pre-wrap;}
   </style>
 </head>
 <body>
 <div class="c">
   <div class="p">
-    <div class="t">🥗 GoodJunkVR — กำลังเปิดผ่าน Warmup Gate…</div>
-    <div class="s">บังคับ: Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
+    <div class="t">🥗 GoodJunkVR — บังคับผ่าน Warmup Gate…</div>
+    <div class="s">Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
     <div class="mono" id="dbg"></div>
   </div>
 </div>
@@ -27,32 +27,28 @@
 <script>
 (() => {
   'use strict';
-
   const QS = new URL(location.href).searchParams;
 
-  // HUB (fallback)
-  const hub  = QS.get('hub') || './hub.html';
-
   // durations
-  const wdur = Math.max(5, Number(QS.get('dur')  || 20) || 20);  // warmup seconds
-  const cdur = Math.max(5, Number(QS.get('cdur') || 20) || 20);  // cooldown seconds
+  const wdur = Math.max(5, Math.min(60, Number(QS.get('wdur') || QS.get('dur') || 20) || 20));
+  const cdur = Math.max(5, Math.min(60, Number(QS.get('cdur') || 20) || 20));
 
-  // passthrough: forward everything EXCEPT these
-  const deny = new Set(['next','phase','dur','wdur','cdur','autonext','gate','cooled']);
+  // hub default (adjust if your root hub is different)
+  const hub = QS.get('hub') || './hub.html';
+
+  // passthrough: copy all params except gate/phase/next/dur/autonext (internal)
+  const deny = new Set(['next','phase','dur','wdur','cdur','autonext','gate']);
   const pass = new URLSearchParams();
   QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
-  // ✅ Target game RUN (real)
+  // ✅ target game RUN
   const gameRun = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
   pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
-
-  // enforce gate chain params on game
   gameRun.searchParams.set('hub', hub);
-  gameRun.searchParams.set('gate', '1');
-  gameRun.searchParams.set('cooled', '0');
-  gameRun.searchParams.set('cdur', String(cdur));
+  gameRun.searchParams.set('gate', '1');   // enforce gate chain
+  gameRun.searchParams.set('cdur', String(cdur)); // tell game how long cooldown is
 
-  // ✅ Warmup gate
+  // ✅ go warmup gate (relative = fixes 404 path mismatch)
   const gate = new URL('./warmup-gate.html', location.href);
   gate.searchParams.set('phase', 'warmup');
   gate.searchParams.set('dur', String(wdur));
@@ -60,11 +56,13 @@
   gate.searchParams.set('next', gameRun.toString());
   gate.searchParams.set('autonext', '1');
 
+  // debug
   const dbg = document.getElementById('dbg');
   if (dbg){
     dbg.textContent =
-      'warmup gate => ' + gate.toString() +
-      '\n\nnext(game) => ' + gameRun.toString();
+      'gate => ' + gate.toString() + '\n\n' +
+      'next(game) => ' + gameRun.toString() + '\n\n' +
+      'hub => ' + hub + '\nwdur => ' + wdur + '  cdur => ' + cdur;
   }
 
   location.replace(gate.toString());
