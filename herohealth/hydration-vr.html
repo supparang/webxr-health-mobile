@@ -3,43 +3,98 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HydrationVR Launcher</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — HydrationVR</title>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#050614" />
   <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{--bg:#050614;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--accent:#22c55e;
+      --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 20% 10%, rgba(255,43,214,.18) 0%, transparent 55%),
+                                   radial-gradient(1100px 650px at 80% 25%, rgba(34,211,238,.14) 0%, transparent 55%),
+                                   linear-gradient(180deg,#07081b,var(--bg));color:var(--text);}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));}
+    .card{width:min(820px,100%);background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.55);}
+    h1{margin:0 0 6px;font-size:18px}
+    p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    a{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.55);color:var(--text);text-decoration:none}
+    a:hover{border-color:rgba(148,163,184,.32);background:rgba(2,6,23,.72)}
+    .primary{border-color:rgba(34,197,94,.32);background:rgba(34,197,94,.14)}
+    .primary:hover{border-color:rgba(34,197,94,.48);background:rgba(34,197,94,.20)}
+    .small{margin-top:10px;font-size:12px;color:var(--muted)}
+    .hr{height:1px;background:rgba(148,163,184,.14);margin:12px 0}
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="card">
+      <h1>💧 HeroHealth — HydrationVR</h1>
+      <p>กำลังพาไปวอร์มอัปก่อนเข้าบอส…</p>
+      <div class="hr"></div>
+      <div class="row">
+        <a class="primary" id="manual" href="#">▶️ ไปต่อ (ถ้าไม่เด้งเอง)</a>
+        <a id="skip" href="#">⏭️ ข้าม Gate</a>
+        <a id="hub" href="./hub.html">🏠 HUB</a>
+      </div>
+      <div class="small mono" id="dbg"></div>
+    </div>
+  </div>
+
 <script>
-(() => {
+(()=> {
   'use strict';
 
-  const RUN_URL  = './hydration-vr/hydration-vr.html';
-  const HUB_URL  = './hub.html';
-  const GATE_URL = './warmup-gate.html';
+  // ---------- Config ----------
+  const RUN  = './hydration-vr/hydration-vr.html';
+  const GATE = './warmup-gate.html';
+  const HUB_DEFAULT = './hub.html';
+  const GAME = 'hydration';
 
-  function qs(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
-  const QS = qs();
-  const q = (k, def='') => (QS.get(k) ?? def);
+  function getQS(){ try{ return new URL(location.href).searchParams; } catch(_){ return new URLSearchParams(); } }
+  const QS = getQS();
+  const q = (k,d='') => (QS.get(k) ?? d);
 
-  if(q('wg','') === '1'){
-    const deny = new Set(['wg']);
-    const u = new URL(RUN_URL, location.href);
-    QS.forEach((v,k)=>{ if(!deny.has(k)) u.searchParams.set(k,v); });
-    location.replace(u.toString());
-    return;
+  function buildUrl(base, add){
+    try{
+      const u = new URL(base, location.href);
+      Object.entries(add||{}).forEach(([k,v])=>{
+        if(v===undefined||v===null||v==='') return;
+        u.searchParams.set(k, String(v));
+      });
+      return u.toString();
+    }catch(_){
+      const join = base.includes('?') ? '&' : '?';
+      const qs = Object.entries(add||{})
+        .filter(([,v])=>!(v===undefined||v===null||v===''))
+        .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
+      return qs ? (base + join + qs) : base;
+    }
   }
 
-  const gate = new URL(GATE_URL, location.href);
-  gate.searchParams.set('phase', 'warmup');
-  gate.searchParams.set('game', 'hydration');
-  gate.searchParams.set('dur', String(Math.max(5, Math.min(60, Number(q('dur','20')||20)))));
-  gate.searchParams.set('hub', new URL(HUB_URL, location.href).toString());
+  function passthrough(){
+    const deny = new Set(['skipGate','hub','next','phase','game','pool','autonext','dur','cdur']);
+    const out = {};
+    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
 
-  const next = new URL(RUN_URL, location.href);
-  const deny2 = new Set(['phase','game','dur','cdur','next','hub','wg']);
-  QS.forEach((v,k)=>{ if(!deny2.has(k)) next.searchParams.set(k, v); });
-  gate.searchParams.set('next', next.toString());
+  const HUB = q('hub','') || HUB_DEFAULT;
+  const SKIP = (q('skipGate','0') === '1');
 
-  location.replace(gate.toString());
+  const runUrl  = buildUrl(RUN, { ...passthrough(), hub: HUB, game: GAME });
+  const gateUrl = buildUrl(GATE, { ...passthrough(), phase:'warmup', game: GAME, dur: 20, hub: HUB, next: runUrl, autonext: 0 });
+
+  const $ = (s)=>document.querySelector(s);
+  $('#hub').href = HUB;
+  $('#skip').href = runUrl;
+  $('#manual').href = (SKIP ? runUrl : gateUrl);
+  $('#dbg').textContent = `RUN=${runUrl}\nGATE=${gateUrl}\nHUB=${HUB}\nSKIP=${SKIP}`;
+
+  if(SKIP) location.replace(runUrl);
+  else location.replace(gateUrl);
 })();
 </script>
 </body>
