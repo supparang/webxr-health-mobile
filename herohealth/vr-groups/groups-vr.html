@@ -7,6 +7,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ PATCH 6N: Highlight current group (listen groups:group) + hint goalSub
 ✅ PATCH 6O: Show director status (listen groups:director) [optional]
 ✅ Uses groups.safe.js (standalone)
+
+✅ ADD: Warmup/Cooldown Gate (20s, boss theme via warmup-gate.html)
+   - gate=1 (default) => warmup -> back here with gate=0 -> start packs normally
+   - gate=0 => skip gates
 -->
 <!doctype html>
 <html lang="th">
@@ -171,6 +175,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
+  // ------------------------------
+  // Query + utils
+  // ------------------------------
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
@@ -183,6 +190,95 @@ GroupsVR Run (PC/Mobile/Cardboard)
     b.classList.add('view-'+view);
   }
 
+  // ------------------------------
+  // ✅ Warmup/Cooldown Gate Router (20s) — Boss Theme uses your warmup-gate.html
+  // ------------------------------
+  const GATE_PATH = '/herohealth/warmup-gate.html';
+
+  function getSP(){
+    try { return new URL(location.href).searchParams; }
+    catch { return new URLSearchParams(); }
+  }
+  const SP = getSP();
+
+  function passthrough(){
+    // do not forward these keys into gate
+    const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
+    const out = {};
+    SP.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
+
+  function buildUrl(base, add){
+    try{
+      const u = new URL(base, location.href);
+      Object.entries(add||{}).forEach(([k,v])=>{
+        if(v===undefined || v===null || v==='') return;
+        u.searchParams.set(k, String(v));
+      });
+      return u.toString();
+    }catch(_){
+      const join = base.includes('?') ? '&' : '?';
+      const qss = Object.entries(add||{})
+        .filter(([,v])=>!(v===undefined||v===null||v===''))
+        .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
+      return qss ? (base + join + qss) : base;
+    }
+  }
+
+  function currentUrlWith(add){
+    return buildUrl(location.href, add || {});
+  }
+
+  function goWarmupThenBack(){
+    // mark to prevent loop when coming back
+    const backHere = currentUrlWith({ gate: 0 });
+
+    const url = buildUrl(GATE_PATH, {
+      ...passthrough(),
+      phase: 'warmup',
+      dur: 20,
+      hub: qs('hub','/herohealth/hub.html'),
+      next: backHere,
+      autonext: 1
+    });
+    location.replace(url);
+  }
+
+  function goCooldownTo(dest){
+    if(!dest){
+      // fallback: just go hub if present
+      dest = qs('hub','/herohealth/hub.html');
+    }
+    const url = buildUrl(GATE_PATH, {
+      ...passthrough(),
+      phase: 'cooldown',
+      cdur: 20,
+      hub: qs('hub','/herohealth/hub.html'),
+      next: dest,
+      autonext: 0
+    });
+    location.href = url;
+  }
+
+  // expose (optional)
+  window.HHA = window.HHA || {};
+  window.HHA.goCooldownTo = goCooldownTo;
+
+  // auto warmup on first enter (default gate=1)
+  const gateFlag = String(qs('gate','1'));
+  if(gateFlag !== '0'){
+    try{
+      if(!String(location.pathname||'').includes('warmup-gate')){
+        goWarmupThenBack();
+        return; // stop init; will come back with gate=0
+      }
+    }catch(_){}
+  }
+
+  // ------------------------------
+  // AI toggle
+  // ------------------------------
   function aiEnabled(){
     const run = String(qs('run','play')||'play').toLowerCase();
     const on  = String(qs('ai','0')||'0');
@@ -298,7 +394,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const el = DOC.getElementById('vMode');
     if (!el) return;
-    // keep RUN MODE visible as base; director gives extra info
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'RESEARCH' : 'PLAY';
     if (run === 'RESEARCH') el.textContent = 'RESEARCH';
     else el.textContent = String(d.text || 'PLAY');
@@ -383,7 +478,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  $('btnBackLauncher').addEventListener('click', ()=>{
+  // ✅ PATCH: Back Launcher => COOLDOWN first
+  $('btnBackLauncher').addEventListener('click', (e)=>{
+    e.preventDefault();
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
@@ -391,15 +488,20 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const sp = new URL(location.href).searchParams;
     sp.forEach((v,k)=>{
       if (k==='hub') return;
+      // avoid infinite loop: when go to launcher, let it decide its own warmup (if any)
+      if (k==='gate') return;
       u.searchParams.set(k,v);
     });
-    location.href = u.toString();
+
+    goCooldownTo(u.toString());
   });
 
-  $('btnHub').addEventListener('click', ()=>{
+  // ✅ PATCH: Hub => COOLDOWN first
+  $('btnHub').addEventListener('click', (e)=>{
+    e.preventDefault();
     const hub = String(qs('hub','')||'');
     if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
+    goCooldownTo(hub);
   });
 
   // ---------- Engine helpers ----------
@@ -498,7 +600,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     showCal(false);
   }
 
-  // count shots in calibration step 2
   window.addEventListener('hha:shoot', ()=>{
     if (!cal.on) return;
     if (cal.step !== 2) return;
@@ -506,7 +607,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     setCalStep(2);
   }, {passive:true});
 
-  // buttons
   $('btnCalNext') && $('btnCalNext').addEventListener('click', ()=>{
     if (!cal.on) return;
     if (cal.step === 1){
@@ -585,12 +685,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
   // ---------- Start ----------
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
 
     setView(view);
     initViewHelper(view);
 
-    const gated = startCalibrationIfNeeded(view, run);
+    const gated = startCalibrationIfNeeded(view);
     if (gated) return;
 
     const practiceSec = getPracticeSec(view);
