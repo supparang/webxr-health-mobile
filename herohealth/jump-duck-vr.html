@@ -1,205 +1,23 @@
-<!-- === /herohealth/jump-duck-vr.html ===
-Jump-Duck ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
-✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
-✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
-✅ Always redirects to ../fitness/jump-duck.html with ctx/query passthrough
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Jump-Duck</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#a78bfa;
-      --radius:22px;
-      --pill:999px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-    }
-    body{
-      margin:0;
-      min-height:100vh;
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
-                  radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
-                  radial-gradient(900px 650px at 85% 25%, rgba(167,139,250,.12), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
-    }
-    .card{
-      width:min(560px, 92vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      padding:18px;
-    }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .title{ font-size:20px; font-weight:900; letter-spacing:.2px; margin:2px 0 6px; }
-    .sub{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.35; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.55);
-      color:var(--text); font-size:12px; font-weight:800;
-      user-select:none; white-space:nowrap;
-    }
-    .grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:10px; }
-    .kv{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px 12px;
-      min-height:52px;
-    }
-    .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
-    .v{ font-size:13px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .btn{
-      margin-top:14px; width:100%;
-      padding:12px 14px; border-radius:16px;
-      border:1px solid rgba(34,197,94,.40);
-      background: rgba(34,197,94,.16);
-      color:var(--text); font-weight:900; font-size:14px;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .hint{ margin-top:10px; color:var(--muted); font-size:12px; line-height:1.35; }
-    @media (max-width:520px){ .grid{ grid-template-columns: 1fr; } }
-  </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Jump-Duck (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
 </head>
 <body>
-  <main class="card" role="main" aria-label="Jump-Duck Launcher">
-    <div class="row">
-      <div>
-        <div class="title">🦘 Jump-Duck</div>
-        <p class="sub">กำลังเข้าสู่เกม… ระบบจะส่งต่อค่าทดลอง (run/diff/time/seed/studyId/phase/conditionGroup/log/hub) ให้อัตโนมัติ</p>
-      </div>
-      <span class="pill" id="statusPill">LOADING</span>
-    </div>
-
-    <section class="grid" aria-label="Context preview">
-      <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
-      <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
-      <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
-      <div class="kv"><div class="k">seed</div><div class="v" id="pv-seed">—</div></div>
-      <div class="kv"><div class="k">studyId</div><div class="v" id="pv-studyId">—</div></div>
-      <div class="kv"><div class="k">phase</div><div class="v" id="pv-phase">—</div></div>
-      <div class="kv"><div class="k">conditionGroup</div><div class="v" id="pv-cond">—</div></div>
-      <div class="kv"><div class="k">log</div><div class="v" id="pv-log">—</div></div>
-      <div class="kv"><div class="k">hub</div><div class="v" id="pv-hub">—</div></div>
-    </section>
-
-    <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
-    <div class="hint">หน้า RUN จะจัดการการเล่นตามแพลตฟอร์มของเกมเอง</div>
-  </main>
-
-  <script src="./vr/hha-ctx.js"></script>
-  <script src="./vr/hha-launch.js"></script>
-
-  <script>
-  (function(){
-    'use strict';
-
-    const qs = (k, def=null)=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
-    };
-    const $ = (id)=>document.getElementById(id);
-    const pill = $('statusPill');
-
-    function readCtxSafe(){
-      try{
-        if(window.HHA_CTX && typeof HHA_CTX.readCtx === 'function'){
-          return HHA_CTX.readCtx() || null;
-        }
-      }catch(_){}
-      return null;
+<script type="module">
+  import { hhGo } from './launch/launcher-core.js';
+  // ✅ target คือเกมจริง
+  hhGo('../fitness/jump-duck.html', {
+    defaults: {
+      mode: 'training',
+      diff: 'normal',
+      duration: '60'
     }
-
-    function mergeCtxWithQuery(ctx){
-      const out = Object.assign({}, ctx || {});
-      out.run  = out.run  ?? qs('run','play');
-      out.diff = out.diff ?? qs('diff','normal');
-      out.time = out.time ?? qs('time','80');
-      out.seed = out.seed ?? qs('seed', null);
-
-      out.studyId = out.studyId ?? (qs('studyId', qs('study', null)));
-      out.phase   = out.phase   ?? qs('phase', null);
-      out.conditionGroup = out.conditionGroup ?? (qs('conditionGroup', qs('cond', null)));
-      out.log = out.log ?? qs('log', null);
-      out.hub = out.hub ?? qs('hub', null);
-
-      return out;
-    }
-
-    function preview(ctx){
-      const set = (id,v)=>{ const el=$(id); if(el) el.textContent = (v==null||v==='') ? '—' : String(v); };
-      set('pv-run', ctx.run);
-      set('pv-diff', ctx.diff);
-      set('pv-time', ctx.time);
-      set('pv-seed', ctx.seed);
-      set('pv-studyId', ctx.studyId);
-      set('pv-phase', ctx.phase);
-      set('pv-cond', ctx.conditionGroup);
-      set('pv-log', ctx.log ? 'ON' : '—');
-      set('pv-hub', ctx.hub ? 'SET' : '—');
-    }
-
-    function buildRunUrl(ctx){
-      const u = new URL('../fitness/jump-duck.html', location.href);
-
-      if(ctx.run) u.searchParams.set('run', ctx.run);
-      if(ctx.diff) u.searchParams.set('diff', ctx.diff);
-      if(ctx.time) u.searchParams.set('time', ctx.time);
-      if(ctx.seed) u.searchParams.set('seed', ctx.seed);
-
-      if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-      if(ctx.phase) u.searchParams.set('phase', ctx.phase);
-      if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
-      if(ctx.log) u.searchParams.set('log', ctx.log);
-      if(ctx.hub) u.searchParams.set('hub', ctx.hub);
-
-      return u.toString();
-    }
-
-    function go(){
-      const ctx0 = readCtxSafe();
-      const ctx  = mergeCtxWithQuery(ctx0);
-      preview(ctx);
-
-      const runUrl = buildRunUrl(ctx);
-
-      try{
-        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go === 'function'){
-          pill.textContent = 'LAUNCH';
-          HHA_LAUNCH.go(runUrl);
-          return;
-        }
-      }catch(_){}
-
-      pill.textContent = 'REDIRECT';
-      location.replace(runUrl);
-    }
-
-    const btn = $('btnGo');
-    if(btn) btn.addEventListener('click', go, { passive:true });
-
-    pill.textContent = 'READY';
-    setTimeout(go, 60);
-  })();
-  </script>
+  });
+</script>
 </body>
 </html>
