@@ -4,6 +4,11 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 ✅ Engine: hydration.safe.js (ESM)
 ✅ Layers: #playfield + #hydration-layer
 ✅ PATCH: tap-anywhere start actually starts (dispatch hha:start)
+
+✅ ADD: Warmup/Cooldown Gate (20s, boss theme via warmup-gate.html)
+   - gate=1 (default) => warmup -> back here with gate=0
+   - gate=0 => skip gates
+   - all "Back HUB" buttons => cooldown -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -260,15 +265,81 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+      // ------------------------------
+      // ✅ Warmup/Cooldown Gate Router (20s)
+      // ------------------------------
+      const warmupSec = 20;
+      const cooldownSec = 20;
+      const GATE_PATH = '/herohealth/warmup-gate.html';
+
+      const sp = (()=>{ try{return new URL(location.href).searchParams;}catch{return new URLSearchParams();} })();
+
+      function passthrough(){
+        const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
+        const out = {};
+        sp.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+        return out;
+      }
+      function buildUrl(base, add){
+        const u = new URL(base, location.href);
+        Object.entries(add||{}).forEach(([k,v])=>{
+          if(v===undefined || v===null || v==='') return;
+          u.searchParams.set(k, String(v));
+        });
+        return u.toString();
+      }
+      function currentUrlWith(add){
+        return buildUrl(location.href, add || {});
+      }
+      function goWarmupThenBack(hub){
+        const backHere = currentUrlWith({ gate: 0 });
+        const url = buildUrl(GATE_PATH, {
+          ...passthrough(),
+          phase: 'warmup',
+          dur: warmupSec,
+          hub: hub,
+          next: backHere,
+          autonext: 1
+        });
+        location.replace(url);
+      }
+      function goCooldownTo(dest, hub){
+        const url = buildUrl(GATE_PATH, {
+          ...passthrough(),
+          phase: 'cooldown',
+          cdur: cooldownSec,
+          hub: hub,
+          next: dest,
+          autonext: 0
+        });
+        location.href = url;
+      }
+
+      // hub destination
       const hub = String(qs('hub','../hub.html'));
 
+      // auto warmup on first enter (default gate=1)
+      const gateFlag = String(qs('gate','1'));
+      if(gateFlag !== '0'){
+        // prevent accidental recursion if gate page shares path fragments
+        try{
+          if(!String(location.pathname||'').includes('warmup-gate')){
+            goWarmupThenBack(hub);
+            return; // stop init; will come back with gate=0
+          }
+        }catch(_){}
+      }
+
+      // ------------------------------
+      // Start overlay logic (your original)
+      // ------------------------------
       const ov = document.getElementById('startOverlay');
       const btnStart = document.getElementById('btnStart');
 
       const startNow = ()=>{
         if(ov) ov.hidden = true;
 
-        // ส่ง detail มาตรฐาน (engine จริงอ่านจาก query แต่ส่งไว้ก็ไม่เสีย)
         const u = new URL(location.href);
         const runMode = String(u.searchParams.get('run') || 'play').toLowerCase()==='research' ? 'research' : 'play';
         const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
@@ -280,8 +351,11 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
         }}));
       };
 
-      document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
-      document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', ()=> location.href = hub));
+      // ✅ all hub buttons => cooldown first
+      const goHub = ()=> goCooldownTo(hub, hub);
+
+      document.getElementById('btnBackHub')?.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
+      document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); }));
 
       btnStart?.addEventListener('click', startNow);
 
@@ -291,6 +365,10 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
         if (id === 'btnBackHub') return;
         startNow();
       }, {passive:true});
+
+      // expose helper (optional)
+      window.HHA = window.HHA || {};
+      window.HHA.goCooldownTo = (dest)=>goCooldownTo(dest, hub);
     })();
   </script>
 
