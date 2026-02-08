@@ -1,97 +1,126 @@
-// === /herohealth/brush-vr/brush.boot.js ===
+// === /herohealth/vr-brush/brush.boot.js ===
 // BrushVR Boot — PRODUCTION (HHA Standard)
-// ✅ Auto-detect view ONLY when missing (never override)
-// ✅ Reads query: view/run/diff/time/seed/hub/pid/log/studyId/phase/conditionGroup
-// ✅ Sets body data-view
-// ✅ Tap-to-start for mobile/cvr/vr
-// ✅ Calls BrushVR.boot(ctx)
+// ✅ Auto detect view (no override if ?view= exists)
+// ✅ Tap-to-start on mobile/cvr (required for audio/vibrate + stable input)
+// ✅ Pass-through ctx: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/hub
+// ✅ Show "how to score" 10s once per device
 (function(){
   'use strict';
   const WIN = window, DOC = document;
 
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const has = (k)=>{ try{ return new URL(location.href).searchParams.has(k); }catch(_){ return false; } };
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  function getQS(){
+    try { return new URL(location.href).searchParams; }
+    catch { return new URLSearchParams(); }
+  }
+  const QS = getQS();
+  const q = (k, def='') => (QS.get(k) ?? def);
 
   function detectView(){
+    const v = String(q('view','')||'').toLowerCase();
+    if (v) return v;
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
     return isMobile ? 'mobile' : 'pc';
   }
 
-  function getCtx(){
-    // view: NEVER override if provided
-    const view = String(has('view') ? qs('view','') : detectView()).toLowerCase() || 'pc';
+  function clamp(n,a,b){ n = Number(n)||0; return Math.max(a, Math.min(b,n)); }
 
-    const run  = String(qs('run','play')).toLowerCase();
-    const diff = String(qs('diff','normal')).toLowerCase();
-    const time = clamp(qs('time','90'), 30, 180);
-
-    // seed: if missing, generate once per page load (still deterministic enough)
-    const seed = Number(qs('seed','')) || Date.now();
-
-    const hub = String(qs('hub',''));
-
-    // research/session
-    const pid = String(qs('pid',''));
-    const log = String(qs('log',''));
-
-    const studyId = String(qs('studyId',''));
-    const phase = String(qs('phase',''));
-    const conditionGroup = String(qs('conditionGroup',''));
-
-    return { view, run, diff, time, seed, hub, pid, log, studyId, phase, conditionGroup };
+  function buildCtx(){
+    const ctx = {
+      game: 'brush',
+      view: detectView(),
+      pid: q('pid',''),
+      run: (q('run','play')||'play').toLowerCase(),            // play | research
+      diff: (q('diff','normal')||'normal').toLowerCase(),
+      time: clamp(q('time', 90), 30, 180),
+      seed: q('seed','') || String(Date.now()),
+      studyId: q('studyId',''),
+      phase: q('phase',''),
+      conditionGroup: q('conditionGroup',''),
+      log: q('log',''),
+      hub: q('hub','')
+    };
+    return ctx;
   }
 
-  function needsTapOverlay(view){
-    return (view === 'mobile' || view === 'cvr' || view === 'vr');
+  function setBodyView(view){
+    try{
+      DOC.body.setAttribute('data-view', view);
+      // optional: class hooks
+      DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      DOC.body.classList.add('view-' + view);
+    }catch(_){}
   }
 
-  function start(){
-    const ctx = getCtx();
-    DOC.body.setAttribute('data-view', ctx.view);
+  function isMobileLike(view){
+    return (view==='mobile' || view==='cvr' || view==='vr');
+  }
+
+  function showHowtoOnce(){
+    const key = 'HHA_BRUSH_HOWTO_SEEN_V1';
+    let seen = false;
+    try{ seen = localStorage.getItem(key) === '1'; }catch(_){}
+    if(seen) return;
+
+    const el = DOC.getElementById('howto');
+    if(!el) return;
+
+    el.style.display = 'grid';
+    const close = ()=>{
+      el.style.display = 'none';
+      try{ localStorage.setItem(key, '1'); }catch(_){}
+      DOC.removeEventListener('pointerdown', onAny, true);
+    };
+    const onAny = (ev)=>{ ev.preventDefault(); close(); };
+    DOC.addEventListener('pointerdown', onAny, true);
+
+    // auto close 10s
+    setTimeout(()=>{ if(el.style.display!=='none') close(); }, 10000);
+  }
+
+  function startGame(){
+    const ctx = buildCtx();
+    setBodyView(ctx.view);
 
     if(!WIN.BrushVR || typeof WIN.BrushVR.boot !== 'function'){
-      console.warn('[BrushVR] missing BrushVR.boot()');
+      console.warn('[BrushVR] missing BrushVR.boot');
       return;
     }
-    WIN.BrushVR.boot(ctx);
+    try{ WIN.BrushVR.boot(ctx); }catch(err){ console.error(err); }
+
+    showHowtoOnce();
   }
 
-  function wireTapStart(){
-    const wrap = DOC.getElementById('tapStart');
-    const btn  = DOC.getElementById('tapBtn');
-    if(!wrap || !btn) return false;
+  // Tap-to-start gating for mobile
+  function init(){
+    const view = detectView();
+    setBodyView(view);
 
-    wrap.setAttribute('aria-hidden','false');
-    wrap.classList.add('on');
+    const tapStart = DOC.getElementById('tapStart');
+    const tapBtn = DOC.getElementById('tapBtn');
 
-    const go = ()=>{
-      wrap.setAttribute('aria-hidden','true');
-      wrap.classList.remove('on');
-      try{ start(); }catch(_){}
-    };
+    // if mobile-like => require user gesture
+    if(isMobileLike(view)){
+      if(tapStart) tapStart.setAttribute('aria-hidden','false');
+      if(tapStart) tapStart.style.display = 'grid';
 
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
-    wrap.addEventListener('click', (e)=>{
-      const card = wrap.querySelector('.tapCard');
-      if(card && card.contains(e.target)) return;
-      e.preventDefault();
-      go();
-    }, {passive:false});
+      const go = ()=>{
+        try{ tapStart.style.display='none'; tapStart.setAttribute('aria-hidden','true'); }catch(_){}
+        // small vibration = confirm input (safe)
+        try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
+        startGame();
+      };
 
-    return true;
-  }
-
-  (function init(){
-    const ctx = getCtx();
-    DOC.body.setAttribute('data-view', ctx.view);
-
-    if(needsTapOverlay(ctx.view)){
-      const ok = wireTapStart();
-      if(!ok) start();
-      return;
+      // button + overlay tap
+      if(tapBtn) tapBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); go(); }, {passive:false});
+      if(tapStart) tapStart.addEventListener('click', (ev)=>{ ev.preventDefault(); go(); }, {passive:false});
+    }else{
+      if(tapStart) { tapStart.style.display='none'; tapStart.setAttribute('aria-hidden','true'); }
+      startGame();
     }
-    start();
-  })();
+  }
+
+  // Boot after DOM ready
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
