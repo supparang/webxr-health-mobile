@@ -1,9 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
-✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
-✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
-✅ Daily gate: once per day per pid per zone (nutrition) via ./hha-gate.js
-✅ Redirect target: ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
+RUN: ./vr-goodjunk/goodjunk-vr.html
+WARMUP: ./quest-gate.html?zone=nutrition&target=<RUN_URL>
 -->
 <!doctype html>
 <html lang="th">
@@ -30,10 +28,11 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
     body{
       margin:0;
       min-height:100vh;
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
-                  radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
-                  radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
-                  var(--bg);
+      background:
+        radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
+        radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
+        var(--bg);
       color:var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
       display:flex;
@@ -110,10 +109,7 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
     <div class="hint">ถ้าวันนี้ยังไม่ทำโซนโภชนาการ ระบบจะพาไป Quest Gate ก่อน แล้วกลับเข้าเกมนี้ให้อัตโนมัติ</div>
   </main>
 
-  <!-- Daily per-zone gate -->
   <script src="./hha-gate.js"></script>
-
-  <!-- HHA Standard ctx + launcher -->
   <script src="./vr/hha-ctx.js"></script>
   <script src="./vr/hha-launch.js"></script>
 
@@ -211,7 +207,6 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
 
       const runUrl = buildRunUrl(ctx);
 
-      // Daily zone gate (nutrition)
       try{
         if (window.HHA_GATE && typeof window.HHA_GATE.requireWarmup === 'function'){
           const res = window.HHA_GATE.requireWarmup({
@@ -220,11 +215,10 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
             targetHref: runUrl,
             autoStart: true
           });
-          if (res && res.status === 'redirect') return; // sent to quest-gate already
+          if (res && res.status === 'redirect') return;
         }
       }catch(_){}
 
-      // already done today → straight to game
       launch(runUrl);
     }
 
