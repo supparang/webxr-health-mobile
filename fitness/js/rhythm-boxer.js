@@ -1,152 +1,244 @@
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// PRODUCTION (PATCH)
+// ✅ Menu -> Play -> Result flow
+// ✅ Applies ?mode=research|play from URL (hub passthrough)
+// ✅ Research fields visible only in research
+// ✅ Downloads Events CSV + Sessions CSV
+// ✅ Shows AI prediction HUD (locked in research; assist only if ?ai=1 in normal)
+
 'use strict';
 
-(function(){
-  const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>document.querySelectorAll(s);
+(function () {
 
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  const wrap = $('#rb-wrap');
   const viewMenu   = $('#rb-view-menu');
   const viewPlay   = $('#rb-view-play');
   const viewResult = $('#rb-view-result');
 
-  const btnStart = $('#rb-btn-start');
-  const btnStop  = $('#rb-btn-stop');
-  const btnAgain = $('#rb-btn-again');
-  const btnBackMenu = $('#rb-btn-back-menu');
+  const flashEl    = $('#rb-flash');
+  const fieldEl    = $('#rb-field');
+  const lanesEl    = $('#rb-lanes');
+  const feedbackEl = $('#rb-feedback');
+  const audioEl    = $('#rb-audio');
 
-  const modeDesc = $('#rb-mode-desc');
-  const researchFields = $('#rb-research-fields');
-  const trackModeLabel = $('#rb-track-mode-label');
-  const trackOptions = $('#rb-track-options');
+  // Menu
+  const btnStart      = $('#rb-btn-start');
+  const modeRadios    = $$('input[name="rb-mode"]');
+  const trackRadios   = $$('input[name="rb-track"]');
+  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
+  const modeDescEl    = $('#rb-mode-desc');
+  const trackModeLbl  = $('#rb-track-mode-label');
+  const researchBox   = $('#rb-research-fields');
 
-  const inpParticipant = $('#rb-participant');
-  const inpGroup = $('#rb-group');
-  const inpNote = $('#rb-note');
+  // Research form
+  const inputParticipant = $('#rb-participant');
+  const inputGroup       = $('#rb-group');
+  const inputNote        = $('#rb-note');
 
-  const audio = $('#rb-audio');
-  const lanesEl = $('#rb-lanes');
-  const field = $('#rb-field');
-  const flash = $('#rb-flash');
+  // Play / Result buttons
+  const btnStop        = $('#rb-btn-stop');
+  const btnAgain       = $('#rb-btn-again');
+  const btnBackMenu    = $('#rb-btn-back-menu');
+  const btnDlEvents    = $('#rb-btn-dl-events');
+  const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements
+  // HUD
   const hud = {
-    mode: $('#rb-hud-mode'),
-    track: $('#rb-hud-track'),
-    score: $('#rb-hud-score'),
-    combo: $('#rb-hud-combo'),
-    acc: $('#rb-hud-acc'),
-
-    aiFatigue: $('#rb-hud-ai-fatigue'),
-    aiSkill: $('#rb-hud-ai-skill'),
-    aiSuggest: $('#rb-hud-ai-suggest'),
-    aiTip: $('#rb-hud-ai-tip'),
-
-    hp: $('#rb-hud-hp'),
+    mode:   $('#rb-hud-mode'),
+    track:  $('#rb-hud-track'),
+    score:  $('#rb-hud-score'),
+    combo:  $('#rb-hud-combo'),
+    acc:    $('#rb-hud-acc'),
+    hp:     $('#rb-hud-hp'),
     shield: $('#rb-hud-shield'),
-    time: $('#rb-hud-time'),
-
+    time:   $('#rb-hud-time'),
     countPerfect: $('#rb-hud-perfect'),
-    countGreat: $('#rb-hud-great'),
-    countGood: $('#rb-hud-good'),
-    countMiss: $('#rb-hud-miss'),
-
-    feverFill: $('#rb-fever-fill'),
-    feverStatus: $('#rb-fever-status'),
-    progFill: $('#rb-progress-fill'),
-    progText: $('#rb-progress-text')
+    countGreat:   $('#rb-hud-great'),
+    countGood:    $('#rb-hud-good'),
+    countMiss:    $('#rb-hud-miss'),
+    feverFill:    $('#rb-fever-fill'),
+    feverStatus:  $('#rb-fever-status'),
+    progFill:     $('#rb-progress-fill'),
+    progText:     $('#rb-progress-text'),
+    aiFatigue:    $('#rb-hud-ai-fatigue'),
+    aiSkill:      $('#rb-hud-ai-skill'),
+    aiSuggest:    $('#rb-hud-ai-suggest'),
+    aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // result UI
+  // Result view
   const res = {
-    mode: $('#rb-res-mode'),
-    track: $('#rb-res-track'),
-    endReason: $('#rb-res-endreason'),
-    score: $('#rb-res-score'),
-    maxCombo: $('#rb-res-maxcombo'),
-    hit: $('#rb-res-detail-hit'),
-    acc: $('#rb-res-acc'),
-    dur: $('#rb-res-duration'),
-    rank: $('#rb-res-rank'),
-    offAvg: $('#rb-res-offset-avg'),
-    offStd: $('#rb-res-offset-std'),
+    mode:        $('#rb-res-mode'),
+    track:       $('#rb-res-track'),
+    endReason:   $('#rb-res-endreason'),
+    score:       $('#rb-res-score'),
+    maxCombo:    $('#rb-res-maxcombo'),
+    hits:        $('#rb-res-detail-hit'),
+    acc:         $('#rb-res-acc'),
+    duration:    $('#rb-res-duration'),
+    rank:        $('#rb-res-rank'),
+    offsetAvg:   $('#rb-res-offset-avg'),
+    offsetStd:   $('#rb-res-offset-std'),
     participant: $('#rb-res-participant'),
-    quality: $('#rb-res-quality-note')
+    qualityNote: $('#rb-res-quality-note')
   };
 
-  const btnDlEvents = $('#rb-btn-dl-events');
-  const btnDlSessions = $('#rb-btn-dl-sessions');
+  // Menu mapping -> engine trackId
+  const TRACK_CONFIG = {
+    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
+    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
+    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
+    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
+  };
 
-  const feedback = $('#rb-feedback');
-
-  // dom renderer
-  const renderer = window.DomRendererRhythm ? new window.DomRendererRhythm({
-    field,
-    lanesEl,
-    flashEl: flash,
-    feedbackEl: feedback
-  }) : null;
-
-  // engine
   let engine = null;
-  let curMode = 'normal';
-  let curTrack = 'n1';
 
-  function setView(which){
-    [viewMenu, viewPlay, viewResult].forEach(v=>v && v.classList.add('hidden'));
-    if(which==='menu') viewMenu.classList.remove('hidden');
-    if(which==='play') viewPlay.classList.remove('hidden');
-    if(which==='result') viewResult.classList.remove('hidden');
+  function getSelectedMode() {
+    const r = modeRadios.find(x => x.checked);
+    return r ? r.value : 'normal';
   }
 
-  function getSelectedMode(){
-    const el = document.querySelector('input[name="rb-mode"]:checked');
-    return (el && el.value) ? el.value : 'normal';
-  }
-  function getSelectedTrack(){
-    const el = document.querySelector('input[name="rb-track"]:checked');
-    return (el && el.value) ? el.value : 'n1';
+  function getSelectedTrackKey() {
+    const r = trackRadios.find(x => x.checked);
+    return r ? r.value : 'n1';
   }
 
-  function updateModeUI(){
-    const m = getSelectedMode();
-    curMode = m;
-    const isResearch = (m === 'research');
-    researchFields.classList.toggle('hidden', !isResearch);
+  function setSelectedTrackKey(key) {
+    trackRadios.forEach(r => { r.checked = (r.value === key); });
+  }
 
-    modeDesc.textContent = isResearch
-      ? 'Research: เก็บข้อมูล CSV (Event/Session) · แนะนำให้กรอก Participant ID'
-      : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+  function updateModeUI() {
+    const mode = getSelectedMode();
 
-    trackModeLabel.textContent = isResearch
-      ? 'โหมด Research — ใช้เพลงทดสอบ (fixed BPM) เพื่อความเที่ยงตรงของข้อมูล'
-      : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+    if (mode === 'normal') {
+      if (modeDescEl) {
+        modeDescEl.textContent =
+          'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      }
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      if (researchBox) researchBox.classList.add('hidden');
 
-    // show/hide track options by data-mode
-    trackOptions.querySelectorAll('[data-mode]').forEach(lbl=>{
-      const ok = (lbl.getAttribute('data-mode') === (isResearch?'research':'normal'));
-      lbl.style.display = ok ? '' : 'none';
-    });
+      // show normal tracks, hide research track
+      trackLabels.forEach(lbl => {
+        const m = (lbl.getAttribute('data-mode') || 'normal').toLowerCase();
+        if (m === 'research') lbl.classList.add('hidden');
+        else lbl.classList.remove('hidden');
+      });
 
-    // if current selected track is hidden, auto select first visible
-    const checked = document.querySelector('input[name="rb-track"]:checked');
-    const checkedLbl = checked ? checked.closest('[data-mode]') : null;
-    if(checkedLbl && checkedLbl.style.display === 'none'){
-      const first = trackOptions.querySelector(isResearch
-        ? 'label[data-mode="research"] input[name="rb-track"]'
-        : 'label[data-mode="normal"] input[name="rb-track"]');
-      if(first){ first.checked = true; }
+      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+
+    } else {
+      if (modeDescEl) {
+        modeDescEl.textContent =
+          'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction แต่ไม่ปรับเกม)';
+      }
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      if (researchBox) researchBox.classList.remove('hidden');
+
+      // show research track, hide normal tracks
+      trackLabels.forEach(lbl => {
+        const m = (lbl.getAttribute('data-mode') || 'normal').toLowerCase();
+        if (m === 'research') lbl.classList.remove('hidden');
+        else lbl.classList.add('hidden');
+      });
+
+      setSelectedTrackKey('r1');
     }
   }
 
-  function updateHudHeader(){
-    if(hud.mode) hud.mode.textContent = (curMode==='research') ? 'Research' : 'Normal';
-    const trackRadio = document.querySelector('input[name="rb-track"]:checked');
-    const label = trackRadio ? trackRadio.closest('label') : null;
-    const tText = label ? (label.textContent||'').trim() : '';
-    if(hud.track) hud.track.textContent = tText.replace(/\s+/g,' ').split('·')[0].trim() || '—';
+  function switchView(name) {
+    if (viewMenu) viewMenu.classList.add('hidden');
+    if (viewPlay) viewPlay.classList.add('hidden');
+    if (viewResult) viewResult.classList.add('hidden');
+
+    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
+    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
+    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+  function createEngine() {
+    const renderer = new window.RbDomRenderer(fieldEl, {
+      flashEl,
+      feedbackEl,
+      wrapEl: document.body
+    });
+
+    engine = new window.RhythmBoxerEngine({
+      wrap: wrap,
+      field: fieldEl,
+      lanesEl: lanesEl,
+      audio: audioEl,
+      renderer: renderer,
+      hud: hud,
+      hooks: { onEnd: handleEngineEnd }
+    });
+  }
+
+  function startGame() {
+    if (!engine) createEngine();
+
+    const mode = getSelectedMode();
+    const trackKey = getSelectedTrackKey();
+    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
+
+    if (wrap) wrap.dataset.diff = cfg.diff;
+
+    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    if (hud.track) hud.track.textContent = cfg.labelShort;
+
+    const meta = {
+      id:   (inputParticipant && inputParticipant.value || '').trim(),
+      group:(inputGroup && inputGroup.value || '').trim(),
+      note: (inputNote && inputNote.value || '').trim()
+    };
+
+    engine.start(mode, cfg.engineId, meta);
+    switchView('play');
+  }
+
+  function stopGame(reason) {
+    if (engine) engine.stop(reason || 'manual-stop');
+  }
+
+  function handleEngineEnd(summary) {
+    if (!summary) summary = {};
+
+    if (res.mode) res.mode.textContent      = summary.modeLabel || '-';
+    if (res.track) res.track.textContent    = summary.trackName || '-';
+    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
+    if (res.score) res.score.textContent    = (summary.finalScore != null) ? summary.finalScore : 0;
+    if (res.maxCombo) res.maxCombo.textContent = (summary.maxCombo != null) ? summary.maxCombo : 0;
+    if (res.hits) res.hits.textContent      = `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
+    if (res.acc) res.acc.textContent        = (summary.accuracyPct != null) ? summary.accuracyPct.toFixed(1) + ' %' : '0.0 %';
+    if (res.duration) res.duration.textContent = (summary.durationSec != null) ? summary.durationSec.toFixed(1) + ' s' : '0.0 s';
+    if (res.rank) res.rank.textContent      = summary.rank || '-';
+
+    if (res.offsetAvg) res.offsetAvg.textContent =
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    if (res.offsetStd) res.offsetStd.textContent =
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+
+    if (res.participant) res.participant.textContent = summary.participant || '-';
+
+    if (res.qualityNote) {
+      if (summary.qualityNote) {
+        res.qualityNote.textContent = summary.qualityNote;
+        res.qualityNote.classList.remove('hidden');
+      } else {
+        res.qualityNote.textContent = '';
+        res.qualityNote.classList.add('hidden');
+      }
+    }
+
+    switchView('result');
+  }
+
+  function downloadCsv(csvText, filename) {
+    if (!csvText) return;
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -154,121 +246,42 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2500);
+    URL.revokeObjectURL(url);
   }
 
-  function fillResult(summary){
-    res.mode.textContent = summary.modeLabel || '-';
-    res.track.textContent = summary.trackName || '-';
-    res.endReason.textContent = summary.endReason || '-';
-    res.score.textContent = String(summary.finalScore ?? 0);
-    res.maxCombo.textContent = String(summary.maxCombo ?? 0);
-    res.hit.textContent = `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
-    res.acc.textContent = (summary.accuracyPct!=null ? summary.accuracyPct.toFixed(1) : '0.0') + ' %';
-    res.dur.textContent = (summary.durationSec!=null ? summary.durationSec.toFixed(1) : '0.0') + ' s';
-    res.rank.textContent = summary.rank || '-';
-    res.offAvg.textContent = (summary.offsetMean!=null ? summary.offsetMean.toFixed(4) : '-') + ' s';
-    res.offStd.textContent = (summary.offsetStd!=null ? summary.offsetStd.toFixed(4) : '-') + ' s';
-    res.participant.textContent = summary.participant || '-';
+  // ---- wiring ----
+  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+  if (btnStart) btnStart.addEventListener('click', startGame);
+  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
+  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-    if(summary.qualityNote){
-      res.quality.textContent = summary.qualityNote;
-      res.quality.classList.remove('hidden');
-    }else{
-      res.quality.classList.add('hidden');
-    }
-  }
+  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+  });
 
-  function ensureEngine(){
-    if(engine) return engine;
-    engine = new window.RhythmBoxerEngine({
-      wrap: $('#rb-wrap'),
-      field,
-      lanesEl,
-      audio,
-      renderer,
-      hud,
-      hooks: {
-        onStart(info){
-          // update header
-          updateHudHeader();
-        },
-        onEnd(summary){
-          fillResult(summary);
-          setView('result');
-        }
+  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+  });
+
+  // ==== apply mode from URL (?mode=research|play|normal) ====
+  (function applyModeFromQuery(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      const m = (sp.get('mode')||'').toLowerCase();
+      if (m === 'research'){
+        const r = modeRadios.find(x => x.value === 'research');
+        if (r) r.checked = true;
+      } else if (m === 'play' || m === 'normal'){
+        const r = modeRadios.find(x => x.value === 'normal');
+        if (r) r.checked = true;
       }
-    });
-    return engine;
-  }
+    }catch(_){}
+  })();
 
-  function startGame(){
-    updateModeUI();
-    curMode = getSelectedMode();
-    curTrack = getSelectedTrack();
-
-    // meta for research
-    const meta = {
-      id: inpParticipant ? inpParticipant.value.trim() : '',
-      group: inpGroup ? inpGroup.value.trim() : '',
-      note: inpNote ? inpNote.value.trim() : ''
-    };
-
-    // enforce minimal research meta if desired (optional)
-    // (we keep it permissive for classroom testing)
-
-    // switch view
-    setView('play');
-    updateHudHeader();
-
-    // start
-    const e = ensureEngine();
-    e.start(curMode, curTrack, meta);
-  }
-
-  function stopGame(){
-    if(engine) engine.stop('manual-stop');
-  }
-
-  // wiring mode toggle
-  document.addEventListener('change', (ev)=>{
-    const t = ev.target;
-    if(t && t.name === 'rb-mode'){
-      updateModeUI();
-    }
-  });
-
-  btnStart.addEventListener('click', startGame);
-  btnStop.addEventListener('click', stopGame);
-
-  btnAgain.addEventListener('click', ()=>{
-    setView('play');
-    updateHudHeader();
-    const meta = {
-      id: inpParticipant ? inpParticipant.value.trim() : '',
-      group: inpGroup ? inpGroup.value.trim() : '',
-      note: inpNote ? inpNote.value.trim() : ''
-    };
-    ensureEngine().start(curMode, curTrack, meta);
-  });
-
-  btnBackMenu.addEventListener('click', ()=>{
-    setView('menu');
-  });
-
-  btnDlEvents.addEventListener('click', ()=>{
-    if(!engine) return;
-    const csv = engine.getEventsCsv();
-    downloadText(`rhythm_events_${engine.sessionId||'session'}.csv`, csv);
-  });
-
-  btnDlSessions.addEventListener('click', ()=>{
-    if(!engine) return;
-    const csv = engine.getSessionCsv();
-    downloadText(`rhythm_sessions_${engine.sessionId||'session'}.csv`, csv);
-  });
-
-  // init menu state
   updateModeUI();
-  setView('menu');
+  switchView('menu');
+
 })();
