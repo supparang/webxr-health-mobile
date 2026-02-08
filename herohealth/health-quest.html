@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚔️ HEALTH QUEST — WARM-UP GATE (STRICT)</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- (optional) SDKs ของคุณ -->
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+
+  <!-- HHA Gate (สำคัญ) -->
+  <script src="./hha-gate.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    body { box-sizing:border-box; }
+    html, body { height:100%; margin:0; padding:0; }
+    * { font-family:'Orbitron', monospace; }
+
+    @keyframes epicGlow {
+      0%,100% { box-shadow: 0 0 40px rgba(255, 0, 127, 0.5), 0 0 80px rgba(0, 255, 255, 0.3); }
+      50%     { box-shadow: 0 0 80px rgba(255, 0, 127, 0.8), 0 0 120px rgba(0, 255, 255, 0.6); }
+    }
+    @keyframes explosionPop {
+      0% { transform: scale(0) rotate(-360deg); opacity: 1; }
+      50% { transform: scale(1.5) rotate(0deg); opacity: 1; }
+      100% { transform: scale(3) rotate(360deg); opacity: 0; }
+    }
+    @keyframes glitchEffect {
+      0%,100% { transform: translate(0) scaleX(1); }
+      20% { transform: translate(-3px, 2px) scaleX(0.98); }
+      40% { transform: translate(3px, -2px) scaleX(1.02); }
+      60% { transform: translate(-2px, 3px) scaleX(1); }
+      80% { transform: translate(2px, -3px) scaleX(0.99); }
+    }
+    @keyframes bossRage {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.1) rotate(-5deg); }
+      50% { transform: scale(1.2) rotate(5deg); }
+      75% { transform: scale(1.15) rotate(-3deg); }
+    }
+    @keyframes criticalHit {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.3) rotate(10deg); }
+      50% { transform: scale(1.5) rotate(20deg); }
+      75% { transform: scale(1.3) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    @keyframes damageFloat {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-120px) scale(2); }
+    }
+    @keyframes neonFlash {
+      0%, 100% { color: #ff00ff; text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff; }
+      50% { color: #00ffff; text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff; }
+    }
+    @keyframes rainbowWave {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes particleRain {
+      0% { opacity: 1; transform: translateY(-10px) scale(1); }
+      100% { opacity: 0; transform: translateY(100px) scale(0); }
+    }
+
+    .neon { animation: neonFlash 0.8s infinite; }
+    .epic-glow { animation: epicGlow 2s ease-in-out infinite; }
+    .explosion { animation: explosionPop 1s ease-out forwards; }
+    .glitch { animation: glitchEffect 0.3s; }
+    .boss-rage { animation: bossRage 0.6s ease-in-out; }
+    .crit-hit { animation: criticalHit 0.8s ease-out; }
+    .damage-float { animation: damageFloat 1.5s ease-out forwards; }
+
+    .bg-gradient-epic {
+      background: linear-gradient(-45deg, #ff00ff, #00ffff, #ffff00, #00ff00);
+      background-size: 400% 400%;
+      animation: rainbowWave 15s ease infinite;
+    }
+
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      animation: particleRain 1s ease-out forwards;
+    }
+  </style>
+</head>
+
+<body class="h-full m-0 p-0 overflow-hidden">
+  <div id="app" class="h-full w-full bg-gradient-epic relative">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div id="particle-container" class="absolute inset-0 pointer-events-none z-50"></div>
+
+    <div class="relative z-10 h-full w-full flex flex-col overflow-auto">
+
+      <!-- HEADER -->
+      <header class="p-4 md:p-6 bg-black/80 border-b-4 border-purple-500 backdrop-blur-xl epic-glow">
+        <div class="flex justify-between items-start mb-4 gap-4">
+          <div>
+            <h1 class="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-epic neon">
+              ⚔️ HEALTH QUEST (WARM-UP) ⚔️
+            </h1>
+            <p class="text-cyan-300 font-black text-xs md:text-sm mt-2">
+              โหมดคุมเข้ม: ต้องทำเควส + ชนะบอส 1 รอบ ถึงจะเข้าเกมหลักได้
+            </p>
+          </div>
+
+          <div class="text-right hidden md:block">
+            <p class="text-yellow-300 font-black text-sm">🔒 STRICT GATE ENABLED</p>
+            <p class="text-cyan-400 font-black text-xs">mainId: <span id="gate-mainId">—</span></p>
+          </div>
+        </div>
+
+        <!-- GATE STATUS -->
+        <div class="bg-black/60 border-2 border-cyan-400 rounded-xl p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-cyan-300 font-black text-xs md:text-sm">
+              สถานะ: <span id="gate-status" class="text-yellow-300">ต้องทำ Power Up 1 ครั้ง + ชนะบอส</span>
+            </div>
+            <div class="flex gap-2">
+              <span id="badge-quest" class="px-3 py-1 rounded-full border border-cyan-400 text-cyan-200 text-xs font-black bg-cyan-900/30">QUEST: ✖</span>
+              <span id="badge-win" class="px-3 py-1 rounded-full border border-yellow-400 text-yellow-200 text-xs font-black bg-yellow-900/30">WIN: ✖</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HEALTH BAR (player) -->
+        <div class="mt-4">
+          <div class="flex justify-between text-xs text-cyan-400 mb-1 font-bold">
+            <span>PLAYER HP</span>
+            <span id="hp-text">100/100</span>
+          </div>
+          <div class="h-3 bg-black/60 rounded-full overflow-hidden border-2 border-cyan-400">
+            <div id="hp-bar" class="h-full bg-gradient-to-r from-green-400 to-cyan-500 transition-all duration-500" style="width: 100%"></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- MAIN -->
+      <main class="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
+
+        <!-- HOME -->
+        <div id="home-screen" class="w-full max-w-6xl">
+
+          <!-- STEP 1 -->
+          <div class="bg-gradient-to-br from-green-900/60 to-emerald-900/60 rounded-2xl p-6 backdrop-blur-md border-4 border-emerald-400 epic-glow mb-8">
+            <h3 class="text-2xl md:text-3xl font-black text-emerald-300 mb-2 neon text-center">✅ STEP 1: POWER UP QUEST</h3>
+            <p class="text-emerald-100 font-black text-center mb-6 text-sm md:text-base">
+              ต้องทำอย่างน้อย 1 อัน เพื่อ “ปลดล็อก” การเลือกบอส
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button onclick="startQuest('breathing')" class="p-6 rounded-xl bg-blue-600/40 hover:bg-blue-600/60 border-2 border-blue-400 text-blue-300 font-black transition-all hover:scale-110 active:scale-95">
+                <div class="text-6xl mb-2">🌬️</div>
+                <p class="text-lg">BREATHING</p>
+                <p class="text-sm">+ATK 📈</p>
+              </button>
+              <button onclick="startQuest('meditation')" class="p-6 rounded-xl bg-purple-600/40 hover:bg-purple-600/60 border-2 border-purple-400 text-purple-300 font-black transition-all hover:scale-110 active:scale-95">
+                <div class="text-6xl mb-2">🧘</div>
+                <p class="text-lg">MEDITATION</p>
+                <p class="text-sm">+DEF 📈</p>
+              </button>
+              <button onclick="startQuest('stretching')" class="p-6 rounded-xl bg-green-600/40 hover:bg-green-600/60 border-2 border-green-400 text-green-300 font-black transition-all hover:scale-110 active:scale-95">
+                <div class="text-6xl mb-2">🤸</div>
+                <p class="text-lg">STRETCHING</p>
+                <p class="text-sm">+HP HEAL 📈</p>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 2 -->
+          <div class="text-center mb-6">
+            <h2 class="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-epic neon mb-2">👹 STEP 2: CHOOSE YOUR ENEMY 👹</h2>
+            <p class="text-yellow-200 font-black text-sm md:text-base">
+              ต้องทำ Quest ก่อน! แล้วค่อยชนะบอส 1 รอบ
+            </p>
+          </div>
+
+          <!-- BOSS SELECT (ล็อกจนกว่าจะทำ quest) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div id="boss-shadow" onclick="selectBoss('shadow')" class="group cursor-pointer p-6 rounded-2xl bg-gradient-to-br from-purple-900/60 to-black/60 border-4 border-purple-500 hover:border-purple-300 hover:scale-110 transition-all hover:shadow-2xl hover:shadow-purple-500/50 epic-glow opacity-50 pointer-events-none">
+              <div class="text-8xl mb-4 group-hover:scale-150 transition-transform">👹</div>
+              <h3 class="text-3xl font-black text-purple-400 neon mb-2">SHADOW BEAST</h3>
+              <p class="text-purple-200 mb-4 font-bold">⭐ LVL 5 | 50 HP | EASY ⭐</p>
+              <div class="bg-black/50 rounded p-3 space-y-1">
+                <p class="text-purple-300 text-sm font-black">🎁 REWARD: +500 XP</p>
+                <p class="text-purple-300 text-sm font-black">⚔️ WEAKNESS: FIRE</p>
+              </div>
+            </div>
+
+            <div id="boss-cyber" onclick="selectBoss('cyber')" class="group cursor-pointer p-6 rounded-2xl bg-gradient-to-br from-cyan-900/60 to-black/60 border-4 border-cyan-500 hover:border-cyan-300 hover:scale-110 transition-all hover:shadow-2xl hover:shadow-cyan-500/50 epic-glow opacity-50 pointer-events-none">
+              <div class="text-8xl mb-4 group-hover:scale-150 transition-transform">🤖</div>
+              <h3 class="text-3xl font-black text-cyan-400 neon mb-2">CYBER DEMON</h3>
+              <p class="text-cyan-200 mb-4 font-bold">⭐⭐ LVL 10 | 100 HP | NORMAL ⭐⭐</p>
+              <div class="bg-black/50 rounded p-3 space-y-1">
+                <p class="text-cyan-300 text-sm font-black">🎁 REWARD: +1500 XP</p>
+                <p class="text-cyan-300 text-sm font-black">⚔️ WEAKNESS: ICE</p>
+              </div>
+            </div>
+
+            <div id="boss-omega" onclick="selectBoss('omega')" class="group cursor-pointer p-6 rounded-2xl bg-gradient-to-br from-red-900/60 to-black/60 border-4 border-red-500 hover:border-red-300 hover:scale-110 transition-all hover:shadow-2xl hover:shadow-red-500/50 epic-glow opacity-50 pointer-events-none">
+              <div class="text-8xl mb-4 group-hover:scale-150 transition-transform">😈</div>
+              <h3 class="text-3xl font-black text-red-400 neon mb-2">OMEGA LORD</h3>
+              <p class="text-red-200 mb-4 font-bold">⭐⭐⭐ LVL 15 | 150 HP | HARD ⭐⭐⭐</p>
+              <div class="bg-black/50 rounded p-3 space-y-1">
+                <p class="text-red-300 text-sm font-black">🎁 REWARD: +5000 XP</p>
+                <p class="text-red-300 text-sm font-black">⚔️ WEAKNESS: HOLY</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-black/60 border-2 border-yellow-400 rounded-xl p-4 text-center">
+            <p class="text-yellow-200 font-black">
+              🔒 ตอนนี้: <span id="lock-msg" class="text-cyan-300">ยังล็อกอยู่ — ทำ Power Up Quest ก่อน!</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- BATTLE -->
+        <div id="battle-screen" class="hidden w-full max-w-6xl">
+
+          <div class="grid grid-cols-5 gap-2 mb-6">
+            <div class="bg-red-600/40 rounded p-2 border-2 border-red-400 epic-glow text-center">
+              <div class="text-red-300 font-black text-xs">ROUND</div>
+              <div id="battle-round" class="text-3xl font-black text-red-400">1</div>
+            </div>
+            <div class="bg-purple-600/40 rounded p-2 border-2 border-purple-400 epic-glow text-center">
+              <div class="text-purple-300 font-black text-xs">⏰</div>
+              <div id="battle-time" class="text-3xl font-black text-purple-400">60</div>
+            </div>
+            <div class="bg-orange-600/40 rounded p-2 border-2 border-orange-400 epic-glow text-center">
+              <div class="text-orange-300 font-black text-xs">🔥 COMBO</div>
+              <div id="battle-combo" class="text-3xl font-black text-orange-400">x1</div>
+            </div>
+            <div class="bg-cyan-600/40 rounded p-2 border-2 border-cyan-400 epic-glow text-center">
+              <div class="text-cyan-300 font-black text-xs">CRIT%</div>
+              <div id="battle-crit" class="text-3xl font-black text-cyan-400">—</div>
+            </div>
+            <div class="bg-pink-600/40 rounded p-2 border-2 border-pink-400 epic-glow text-center">
+              <div class="text-pink-300 font-black text-xs">PHASE</div>
+              <div id="battle-phase" class="text-3xl font-black text-pink-400">I</div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-r from-red-900/60 to-black/60 rounded-2xl p-6 border-4 border-red-500 epic-glow mb-6">
+            <div class="flex justify-between items-center mb-3">
+              <h3 id="boss-name-display" class="text-3xl font-black text-red-400 neon">BOSS</h3>
+              <div id="boss-emoji-display" class="text-5xl">👹</div>
+            </div>
+            <div class="flex justify-between text-sm text-red-400 mb-2 font-bold">
+              <span id="boss-status-text">🟩 HEALTHY</span>
+              <span id="boss-hp-text">0/0</span>
+            </div>
+            <div class="h-6 bg-black/60 rounded-full overflow-hidden border-3 border-red-500 epic-glow">
+              <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-600 to-red-900 transition-all duration-500" style="width: 100%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="text-center">
+              <div id="player-emoji" class="text-9xl mb-4">💪</div>
+              <p id="player-action-text" class="text-cyan-300 font-black text-sm h-6">READY!</p>
+              <div id="player-effect-display" class="text-6xl h-16 flex items-center justify-center"></div>
+            </div>
+
+            <div class="flex flex-col items-center justify-center">
+              <div id="center-effect" class="text-8xl h-32 flex items-center justify-center"></div>
+              <p id="battle-message" class="text-xl md:text-2xl font-black text-pink-400 text-center h-10 neon">READY!</p>
+              <div id="damage-display" class="text-6xl font-black text-yellow-300 mt-4 h-16"></div>
+            </div>
+
+            <div class="text-center">
+              <div id="boss-emoji" class="text-9xl mb-4 transition-transform">👹</div>
+              <p id="boss-action-text" class="text-red-400 font-black text-sm h-6">ATTACKING!</p>
+              <div id="boss-effect-display" class="text-6xl h-16 flex items-center justify-center"></div>
+            </div>
+          </div>
+
+          <div class="mb-8">
+            <div class="flex justify-between text-sm text-yellow-400 mb-2 font-bold">
+              <span>YOUR HEALTH</span>
+              <span id="player-hp-display">100/100</span>
+            </div>
+            <div class="h-4 bg-black/60 rounded-full overflow-hidden border-2 border-yellow-400">
+              <div id="player-hp-bar-battle" class="h-full bg-gradient-to-r from-green-400 to-yellow-500 transition-all duration-500" style="width: 100%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <button onclick="playerAction('normal')" class="p-4 rounded-xl bg-red-600/40 hover:bg-red-600/60 border-2 border-red-400 text-red-300 font-black text-lg transition-all hover:scale-110 active:scale-95">
+              ⚔️ ATTACK
+            </button>
+            <button onclick="playerAction('heavy')" class="p-4 rounded-xl bg-yellow-600/40 hover:bg-yellow-600/60 border-2 border-yellow-400 text-yellow-300 font-black text-lg transition-all hover:scale-110 active:scale-95">
+              💥 HEAVY
+            </button>
+            <button onclick="playerAction('defend')" class="p-4 rounded-xl bg-cyan-600/40 hover:bg-cyan-600/60 border-2 border-cyan-400 text-cyan-300 font-black text-lg transition-all hover:scale-110 active:scale-95">
+              🛡️ DEFEND
+            </button>
+            <button onclick="playerAction('heal')" class="p-4 rounded-xl bg-green-600/40 hover:bg-green-600/60 border-2 border-green-400 text-green-300 font-black text-lg transition-all hover:scale-110 active:scale-95">
+              💚 HEAL
+            </button>
+          </div>
+
+          <div class="bg-gradient-to-r from-purple-600/40 to-pink-600/40 rounded-xl p-4 border-2 border-purple-400 text-center text-purple-200 font-black neon">
+            <span id="ai-coach-text">🤖 ANALYZING BATTLE...</span>
+          </div>
+        </div>
+
+        <!-- RESULT -->
+        <div id="result-screen" class="hidden w-full max-w-2xl">
+
+          <div id="victory-panel" class="hidden bg-gradient-to-br from-yellow-900/60 to-orange-900/60 rounded-2xl p-8 backdrop-blur-md border-4 border-yellow-400 epic-glow text-center overflow-hidden relative">
+            <div class="relative z-10">
+              <div class="text-9xl mb-4">🏆</div>
+              <h2 class="text-4xl md:text-5xl font-black text-yellow-300 mb-2 neon">PASS!</h2>
+              <p class="text-yellow-100 mb-6 text-lg md:text-xl font-black">
+                ผ่าน Warm-up แล้ว — กำลังกลับไปเกมหลัก...
+              </p>
+
+              <div class="bg-black/60 rounded-xl p-4 border-2 border-yellow-400 space-y-2">
+                <div class="flex justify-between bg-purple-600/40 p-3 rounded border border-purple-400 font-black text-purple-300">
+                  <span>🎁 XP EARNED</span>
+                  <span id="victory-xp">+0</span>
+                </div>
+                <div class="flex justify-between bg-green-600/40 p-3 rounded border border-green-400 font-black text-green-300">
+                  <span>❤️ HP LEFT</span>
+                  <span id="victory-hp">0</span>
+                </div>
+              </div>
+
+              <button onclick="forceReturnNow()" class="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white font-black text-xl border-2 border-yellow-300 transition-all">
+                🚀 กลับไปเกมหลักทันที
+              </button>
+            </div>
+          </div>
+
+          <div id="defeat-panel" class="hidden bg-gradient-to-br from-red-900/60 to-black/60 rounded-2xl p-8 backdrop-blur-md border-4 border-red-500 epic-glow text-center">
+            <div class="text-9xl mb-4">💀</div>
+            <h2 class="text-4xl md:text-5xl font-black text-red-400 mb-2 neon">FAILED</h2>
+            <p class="text-red-300 mb-8 text-lg md:text-xl font-black">
+              ยังไม่ผ่าน! ต้องชนะบอสให้ได้เพื่อปลดล็อก
+            </p>
+            <button onclick="backHome()" class="w-full py-4 rounded-xl bg-red-600/60 hover:bg-red-600/80 text-red-200 font-black text-xl border-2 border-red-400 transition-all">
+              🔄 TRY AGAIN
+            </button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // Gate / Query
+    // =========================
+    function qs(k, def=null){
+      try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+    }
+    function asNum(v, d){ const n=Number(v); return Number.isFinite(n)?n:d; }
+
+    // mainId = เกมหลักที่จะกลับไป เช่น goodjunk / hydration / groups / plate / shadow-breaker ...
+    const GATE_MAIN_ID = (qs('mainId', qs('main', 'generic')) || 'generic').toLowerCase();
+    // next = url เกมหลัก (ถ้ามี) / hub fallback
+    const GATE_NEXT = qs('next', null);
+    const GATE_HUB  = qs('hub', null);
+
+    // cat ใช้แยกโปรไฟล์ warm-up ต่อโซนได้ (A/B/C) — optional
+    const GATE_CAT  = (qs('cat', 'A') || 'A').toUpperCase();
+
+    // ป้องกันออกก่อนผ่าน
+    let gateQuestDone = false;  // ทำ power up แล้ว
+    let gateWinDone = false;    // ชนะบอสแล้ว
+    let allowLeave = false;     // เปิดให้กลับได้เมื่อผ่าน
+
+    function setGateUI(){
+      const mainEl = document.getElementById('gate-mainId');
+      if (mainEl) mainEl.textContent = GATE_MAIN_ID;
+
+      const bq = document.getElementById('badge-quest');
+      const bw = document.getElementById('badge-win');
+      const st = document.getElementById('gate-status');
+      const lm = document.getElementById('lock-msg');
+
+      if (bq) bq.textContent = 'QUEST: ' + (gateQuestDone ? '✔' : '✖');
+      if (bw) bw.textContent = 'WIN: ' + (gateWinDone ? '✔' : '✖');
+
+      if (!gateQuestDone){
+        if (st) st.textContent = 'ต้องทำ Power Up 1 ครั้งก่อน';
+        if (lm) lm.textContent = 'ยังล็อกอยู่ — ทำ Power Up Quest ก่อน!';
+      } else if (!gateWinDone){
+        if (st) st.textContent = 'ปลดล็อกบอสแล้ว — ต้อง “ชนะ” 1 รอบ';
+        if (lm) lm.textContent = 'เลือกบอสได้แล้ว — ชนะให้ได้ 1 รอบ!';
+      } else {
+        if (st) st.textContent = 'ผ่านแล้ว ✅ กำลังกลับไปเกมหลัก';
+        if (lm) lm.textContent = 'ผ่านแล้ว ✅';
+      }
+    }
+
+    function unlockBossCards(){
+      const ids = ['boss-shadow','boss-cyber','boss-omega'];
+      ids.forEach(id=>{
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (gateQuestDone){
+          el.classList.remove('opacity-50','pointer-events-none');
+        } else {
+          el.classList.add('opacity-50','pointer-events-none');
+        }
+      });
+    }
+
+    function safeReturnUrl(){
+      // priority: next (เต็ม) > hub > fallback /herohealth/hub.html
+      if (GATE_NEXT) return GATE_NEXT;
+      if (GATE_HUB) return GATE_HUB;
+      return './hub.html';
+    }
+
+    function markPassAndReturn(){
+      gateWinDone = true;
+      allowLeave = true;
+      setGateUI();
+
+      // ยิงใบผ่านให้ Gate (สำคัญ!)
+      try{
+        if (window.HHA_GATE && typeof window.HHA_GATE.markWarmupDone === 'function'){
+          window.HHA_GATE.markWarmupDone(GATE_MAIN_ID);
+        }
+      }catch(_){}
+
+      // เด้งกลับไปเกมหลัก
+      const url = safeReturnUrl();
+      setTimeout(()=>{ location.replace(url); }, 650);
+    }
+
+    function forceReturnNow(){
+      allowLeave = true;
+      location.replace(safeReturnUrl());
+    }
+
+    // กันออกก่อนผ่าน (คุมเข้ม)
+    window.addEventListener('beforeunload', (e)=>{
+      if (!allowLeave){
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // =========================
+    // BOSS DATABASE (เหมือนเดิม)
+    // =========================
+    const BOSSES = {
+      shadow: { name:'👹 SHADOW BEAST', emoji:'👹', level:5, maxHP:50, attack:8, defense:3, xp:500, color:'purple', weakness:'FIRE', patterns:['normal','normal','heavy','defend'] },
+      cyber:  { name:'🤖 CYBER DEMON',  emoji:'🤖', level:10, maxHP:100, attack:12, defense:5, xp:1500, color:'cyan', weakness:'ICE', patterns:['normal','heavy','normal','heavy','defend'] },
+      omega:  { name:'😈 OMEGA LORD',   emoji:'😈', level:15, maxHP:150, attack:18, defense:8, xp:5000, color:'red', weakness:'HOLY', patterns:['heavy','heavy','normal','heavy','defend','heavy'] }
+    };
+
+    // =========================
+    // GAME DATA (คุมให้เป็น warm-up)
+    // =========================
+    let gameData = {
+      level: 1, xp: 0,
+      hp: 100, maxHP: 100,
+      attack: 10, defense: 5,
+      battles: 0, wins: 0,
+      bestStreak: 0, currentStreak: 0
+    };
+
+    let battleData = {
+      boss: null, bossHP: 0,
+      round: 1, combo: 1,
+      totalDmg: 0, dmgReceived: 0,
+      phase: 1, active: false,
+      defending: false
+    };
+
+    // =========================
+    // DATA SDK (optional)
+    // =========================
+    async function initGame(){
+      // ใน warm-up จริง ๆ จะไม่ต้อง save ก็ได้ แต่เก็บไว้ไม่เสียหาย
+      try{
+        if (window.dataSdk){
+          await window.dataSdk.init({
+            onDataChanged: (data) => { updateUI(); }
+          });
+        }
+      }catch(_){}
+      updateUI();
+    }
+
+    // =========================
+    // UI
+    // =========================
+    function updateUI(){
+      const hpText = document.getElementById('hp-text');
+      const hpBar = document.getElementById('hp-bar');
+      if (hpText) hpText.textContent = `${Math.max(0, gameData.hp)}/${gameData.maxHP}`;
+      const hpPct = (gameData.hp / gameData.maxHP) * 100;
+      if (hpBar) hpBar.style.width = Math.max(0, Math.min(100, hpPct)) + '%';
+    }
+
+    function showScreen(id){
+      ['home-screen','battle-screen','result-screen'].forEach(s=>{
+        const el = document.getElementById(s);
+        if (el) el.classList.add('hidden');
+      });
+      const target = document.getElementById(id);
+      if (target) target.classList.remove('hidden');
+    }
+
+    // =========================
+    // Quest (ต้องทำก่อน)
+    // =========================
+    function startQuest(type){
+      let questTime = 3;
+
+      const questScreen = document.createElement('div');
+      questScreen.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+      questScreen.innerHTML = `
+        <div class="bg-gradient-to-br from-purple-900/80 to-black/80 rounded-2xl p-8 text-center border-4 border-yellow-400 max-w-md">
+          <div class="text-7xl mb-4">✨</div>
+          <div class="text-6xl font-black text-yellow-300 mb-4" id="quest-timer">3</div>
+          <p class="text-yellow-200 font-black text-xl mb-2">GET READY!</p>
+          <p class="text-green-300 font-black mb-6">POWER UP INCOMING 📈</p>
+          <p class="text-cyan-200 font-black text-sm">โหมดคุมเข้ม: ทำเสร็จแล้วถึงจะเลือกบอสได้</p>
+        </div>
+      `;
+      document.body.appendChild(questScreen);
+
+      const timer = setInterval(()=>{
+        questTime--;
+        const elem = document.getElementById('quest-timer');
+        if (elem) elem.textContent = String(Math.max(0, questTime));
+
+        if (questTime <= 0){
+          clearInterval(timer);
+          questScreen.remove();
+
+          // Apply buff (โหมด warm-up: ไม่แรงเวอร์เกิน)
+          if (type === 'breathing') gameData.attack += 8;
+          if (type === 'meditation') gameData.defense += 6;
+          if (type === 'stretching') gameData.hp = Math.min(gameData.hp + 25, gameData.maxHP);
+
+          gateQuestDone = true;
+          unlockBossCards();
+          setGateUI();
+          updateUI();
+        }
+      }, 1000);
+    }
+
+    // =========================
+    // Boss select (ล็อกจนกว่าจะทำ quest)
+    // =========================
+    function selectBoss(key){
+      if (!gateQuestDone){
+        const lm = document.getElementById('lock-msg');
+        if (lm) lm.textContent = '❗ยังเลือกบอสไม่ได้ — ทำ Power Up Quest ก่อน!';
+        return;
+      }
+      battleData.boss = key;
+      showScreen('battle-screen');
+      setTimeout(()=>startBattle(), 450);
+    }
+
+    // =========================
+    // Battle
+    // =========================
+    function startBattle(){
+      const boss = BOSSES[battleData.boss];
+      battleData.bossHP = boss.maxHP;
+      battleData.round = 1;
+      battleData.combo = 1;
+      battleData.totalDmg = 0;
+      battleData.dmgReceived = 0;
+      battleData.phase = 1;
+      battleData.active = true;
+      battleData.defending = false;
+
+      // warm-up: HP เริ่มเต็ม แต่ไม่รีเซ็ตบัฟที่ได้จาก quest
+      gameData.hp = gameData.maxHP;
+
+      document.getElementById('boss-name-display').textContent = boss.name;
+      document.getElementById('boss-emoji-display').textContent = boss.emoji;
+      document.getElementById('boss-emoji').textContent = boss.emoji;
+
+      document.getElementById('boss-hp-text').textContent = `${battleData.bossHP}/${boss.maxHP}`;
+      document.getElementById('boss-hp-bar').style.width = '100%';
+
+      document.getElementById('player-hp-display').textContent = `${gameData.hp}/${gameData.maxHP}`;
+      document.getElementById('player-hp-bar-battle').style.width = '100%';
+
+      document.getElementById('battle-crit').textContent = '15%';
+
+      updateAICoach();
+      showScreen('battle-screen');
+
+      // timer 60s
+      let battleTime = 0;
+      const battleTimer = setInterval(()=>{
+        if (!battleData.active){
+          clearInterval(battleTimer);
+          return;
+        }
+        battleTime++;
+        document.getElementById('battle-time').textContent = String(Math.max(0, 60 - battleTime));
+        if (battleTime >= 60){
+          // time up = fail (คุมเข้ม)
+          endBattle(false);
+          clearInterval(battleTimer);
+        }
+      }, 1000);
+    }
+
+    function updateAICoach(){
+      const boss = BOSSES[battleData.boss];
+      const hpPct = (battleData.bossHP / boss.maxHP) * 100;
+
+      let advice = '🤖 ';
+      if (gameData.hp < gameData.maxHP * 0.3) advice += 'HEAL NOW! 💚';
+      else if (battleData.defending) advice += 'COUNTER NOW! ⚡';
+      else if (hpPct > 60) advice += 'BUILD COMBO (HEAVY)! 💥';
+      else if (hpPct > 30) advice += 'PUSH HARD! 🔥';
+      else advice += 'FINISH IT! ⭐';
+
+      document.getElementById('ai-coach-text').textContent = advice;
+    }
+
+    function showEffect(effectClass, element){
+      if (!element) return;
+      element.classList.remove(effectClass);
+      void element.offsetWidth;
+      element.classList.add(effectClass);
+    }
+
+    function playerAction(type){
+      if (!battleData.active) return;
+
+      const boss = BOSSES[battleData.boss];
+      let damage = 0;
+      let action = '';
+      let isCrit = Math.random() < 0.15;
+
+      if (type === 'normal'){
+        damage = gameData.attack + Math.floor(Math.random() * 5);
+        action = '⚔️ STRIKE';
+      } else if (type === 'heavy'){
+        damage = Math.floor(gameData.attack * 2.2 + Math.random() * 10);
+        action = '💥 HEAVY BLOW';
+        battleData.combo += 2;
+        isCrit = Math.random() < 0.28;
+      } else if (type === 'defend'){
+        damage = 0;
+        action = '🛡️ DEFEND';
+        battleData.defending = true;
+      } else if (type === 'heal'){
+        gameData.hp = Math.min(gameData.hp + 28, gameData.maxHP);
+        action = '💚 HEAL';
+        damage = 0;
+      }
+
+      if (isCrit && type !== 'defend' && type !== 'heal'){
+        damage = Math.floor(damage * 2);
+        showEffect('crit-hit', document.getElementById('center-effect'));
+        document.getElementById('battle-message').textContent = '⚡ CRITICAL HIT! ⚡';
+      } else {
+        document.getElementById('battle-message').textContent = (damage>0) ? `💥 +${damage} DMG!` : '…';
+      }
+
+      battleData.totalDmg += damage;
+      battleData.combo += 1;
+      document.getElementById('player-action-text').textContent = action;
+      showEffect('glitch', document.getElementById('player-emoji'));
+
+      battleData.bossHP -= damage;
+      updateBattle();
+
+      if (battleData.bossHP <= 0){
+        endBattle(true);
+        return;
+      }
+
+      setTimeout(()=>bossAttack(), 900);
+    }
+
+    function bossAttack(){
+      if (!battleData.active) return;
+
+      const boss = BOSSES[battleData.boss];
+      const pattern = boss.patterns[Math.floor(Math.random() * boss.patterns.length)];
+
+      let damage = 0;
+      let action = '';
+
+      if (pattern === 'normal'){
+        damage = boss.attack + Math.floor(Math.random() * 3);
+        action = '⚔️ SLASH';
+      } else if (pattern === 'heavy'){
+        damage = boss.attack * 2;
+        action = '💥 RAMPAGE';
+      } else if (pattern === 'defend'){
+        document.getElementById('boss-action-text').textContent = '🛡️ DEFEND';
+        updateAICoach();
+        return;
+      }
+
+      if (battleData.defending){
+        damage = Math.max(1, Math.floor(damage / 2));
+        document.getElementById('battle-message').textContent = '✨ BLOCKED! ✨';
+        battleData.defending = false;
+      } else {
+        damage = Math.max(1, damage - gameData.defense);
+      }
+
+      gameData.hp -= damage;
+      battleData.dmgReceived += damage;
+
+      document.getElementById('boss-action-text').textContent = action;
+      showEffect('boss-rage', document.getElementById('boss-emoji'));
+
+      updateBattle();
+
+      if (gameData.hp <= 0){
+        endBattle(false);
+      } else if (battleData.bossHP <= 0){
+        endBattle(true);
+      } else {
+        updateAICoach();
+      }
+    }
+
+    function updateBattle(){
+      const boss = BOSSES[battleData.boss];
+      const hpPct = (battleData.bossHP / boss.maxHP) * 100;
+
+      if (hpPct > 66){
+        battleData.phase = 1;
+        document.getElementById('battle-phase').textContent = 'I';
+        document.getElementById('boss-status-text').textContent = '🟩 HEALTHY';
+      } else if (hpPct > 33){
+        battleData.phase = 2;
+        document.getElementById('battle-phase').textContent = 'II';
+        document.getElementById('boss-status-text').textContent = '🟨 WOUNDED';
+        showEffect('boss-rage', document.getElementById('boss-emoji'));
+      } else {
+        battleData.phase = 3;
+        document.getElementById('battle-phase').textContent = 'III';
+        document.getElementById('boss-status-text').textContent = '🔴 CRITICAL';
+      }
+
+      document.getElementById('boss-hp-bar').style.width = Math.max(0, hpPct) + '%';
+      document.getElementById('boss-hp-text').textContent = `${Math.max(0, battleData.bossHP)}/${boss.maxHP}`;
+
+      document.getElementById('battle-round').textContent = String(battleData.round++);
+      document.getElementById('battle-combo').textContent = 'x' + battleData.combo;
+
+      const playerHpPct = (gameData.hp / gameData.maxHP) * 100;
+      document.getElementById('player-hp-bar-battle').style.width = Math.max(0, playerHpPct) + '%';
+      document.getElementById('player-hp-display').textContent = `${Math.max(0, gameData.hp)}/${gameData.maxHP}`;
+
+      updateUI();
+    }
+
+    // =========================
+    // End battle (คุมเข้ม)
+    // =========================
+    function endBattle(victory){
+      if (!battleData.active) return;
+      battleData.active = false;
+
+      if (victory){
+        gateWinDone = true;
+        setGateUI();
+
+        // UI result
+        document.getElementById('victory-xp').textContent = '+1';
+        document.getElementById('victory-hp').textContent = String(Math.max(0, gameData.hp));
+        document.getElementById('victory-panel').classList.remove('hidden');
+        document.getElementById('defeat-panel').classList.add('hidden');
+        showScreen('result-screen');
+
+        createParticles('victory');
+
+        // ผ่านแล้ว → mark + return
+        setTimeout(()=>markPassAndReturn(), 850);
+      } else {
+        gateWinDone = false;
+        setGateUI();
+
+        document.getElementById('defeat-panel').classList.remove('hidden');
+        document.getElementById('victory-panel').classList.add('hidden');
+        showScreen('result-screen');
+      }
+    }
+
+    function createParticles(type){
+      const container = document.getElementById('particle-container');
+      if (!container) return;
+      for (let i=0;i<20;i++){
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.textContent = (type==='victory') ? ['⭐','✨','💥','🎉'][Math.floor(Math.random()*4)] : '💀';
+        p.style.left = Math.random()*100 + '%';
+        p.style.top = '50%';
+        p.style.fontSize = (Math.random()*20 + 20) + 'px';
+        container.appendChild(p);
+        setTimeout(()=>p.remove(), 1000);
+      }
+    }
+
+    function backHome(){
+      // คุมเข้ม: กลับได้เฉพาะลองใหม่ (ยังไม่ถือว่าผ่าน)
+      battleData.boss = null;
+      battleData.active = false;
+
+      // อย่าลบ questDone เพื่อกันหนีด้วยการรีเฟรชวน
+      // (ยังคงต้อง “ชนะ” ให้ได้ 1 รอบ)
+      gameData.hp = gameData.maxHP;
+
+      updateUI();
+      showScreen('home-screen');
+    }
+
+    // =========================
+    // INIT
+    // =========================
+    function init(){
+      // เริ่มต้น: ล็อกบอส
+      unlockBossCards();
+      setGateUI();
+      initGame();
+    }
+    init();
+  </script>
+</body>
+</html>
