@@ -1,15 +1,14 @@
 <!-- === /herohealth/jump-duck-vr.html ===
-HeroHealth — Jump-Duck Launcher (VR entry)
-✅ Imports: ./launch/launcher-core.js
-✅ Redirects to: ../fitness/jump-duck.html
-✅ Pass-through params (NO override) + fill defaults only if missing
+Jump-Duck LAUNCHER — ROOT (HHA Standard)
+✅ Redirects to /fitness/jump-duck.html
+✅ Pass-through params (hub/view/mode/diff/duration/seed/.../log)
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Jump-Duck (VR Launcher)</title>
+  <title>HeroHealth — Jump-Duck (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
 </head>
@@ -17,21 +16,15 @@ HeroHealth — Jump-Duck Launcher (VR entry)
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ เป้าหมาย: เกมจริงอยู่ที่ /fitness/jump-duck.html
-  // ✅ defaults เติมเฉพาะ "ที่ยังไม่มี" (ตาม launcher-core ของคุณ)
   hhGo('../fitness/jump-duck.html', {
-    defaults: {
-      mode: 'training',
-      diff: 'normal',
-      duration: '60',
-
-      // ✅ ถ้าจะบังคับเข้าหน้า VR โดยพฤติกรรม ให้ใส่ view=vr ผ่าน URL ตอนเรียก launcher
-      // (launcher-core จะไม่ override ถ้ามี view อยู่แล้ว)
-      // view: 'vr'  // <-- แนะนำ "อย่าใส่" ตรงนี้ ถ้าอยากคุมด้วย URL
-    }
+    defaults: { mode:'training', diff:'normal', duration:'60' },
+    passthrough: [
+      'hub','view','mode','diff','duration','time',
+      'seed','studyId','phase','conditionGroup',
+      'pid','group','note',
+      'log' // ✅ Apps Script Web App URL
+    ]
   });
 </script>
-
-<noscript>กรุณาเปิด JavaScript เพื่อเล่นเกม</noscript>
 </body>
 </html>
