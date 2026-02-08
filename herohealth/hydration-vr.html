@@ -4,97 +4,80 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — HydrationVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#050614" />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{--bg:#050614;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;
-      --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
-    html,body{height:100%;margin:0;background:
-      radial-gradient(1200px 700px at 20% 10%, rgba(255,43,214,.18) 0%, transparent 55%),
-      radial-gradient(1100px 650px at 80% 25%, rgba(34,211,238,.14) 0%, transparent 55%),
-      linear-gradient(180deg,#07081b,var(--bg));color:var(--text);}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));}
-    .card{width:min(820px,100%);background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.55);}
-    h1{margin:0 0 6px;font-size:18px}
-    p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    a{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);color:var(--text);text-decoration:none}
-    a:hover{border-color:rgba(148,163,184,.32);background:rgba(2,6,23,.72)}
-    .primary{border-color:rgba(34,197,94,.32);background:rgba(34,197,94,.14)}
-    .primary:hover{border-color:rgba(34,197,94,.48);background:rgba(34,197,94,.20)}
-    .small{margin-top:10px;font-size:12px;color:var(--muted)}
-    .hr{height:1px;background:rgba(148,163,184,.14);margin:12px 0}
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+    .card{width:min(720px,100%);background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:16px}
+    .t{font-weight:1000;font-size:18px}
+    .s{color:#94a3b8;margin-top:6px;font-size:13px;line-height:1.5}
+    .pill{display:inline-flex;gap:8px;align-items:center;margin-top:10px;padding:8px 10px;border:1px solid rgba(148,163,184,.18);border-radius:999px;background:rgba(15,23,42,.55);font-size:12px;color:#cbd5e1}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>💧 HeroHealth — HydrationVR</h1>
-      <p>กำลังพาไปวอร์มอัป 20 วิ ก่อนเข้าเกม…</p>
-      <div class="hr"></div>
-      <div class="row">
-        <a class="primary" id="manual" href="#">▶️ ไปต่อ (ถ้าไม่เด้งเอง)</a>
-        <a id="skip" href="#">⏭️ ข้าม Gate</a>
-        <a id="hub" href="./hub.html">🏠 HUB</a>
-      </div>
-      <div class="small mono" id="dbg"></div>
+      <div class="t">💧 Hydration VR</div>
+      <div class="s">กำลังพาไป Warmup 20 วิ…</div>
+      <div class="pill" id="p">กำลังเตรียมลิงก์</div>
     </div>
   </div>
 
 <script>
-(()=> {
+(() => {
   'use strict';
-
-  const RUN  = '/herohealth/hydration-vr/hydration-vr.html';
-  const GATE = '/herohealth/warmup-gate.html';
-  const HUB_DEFAULT = '/herohealth/hub.html';
-  const GAME = 'hydration';
-
-  function getQS(){ try{ return new URL(location.href).searchParams; } catch(_){ return new URLSearchParams(); } }
-  const QS = getQS();
+  const QS = (()=>{ try{return new URL(location.href).searchParams;}catch{return new URLSearchParams();} })();
   const q = (k,d='') => (QS.get(k) ?? d);
 
+  function detectView(){
+    if (QS.has('view')) return String(q('view','')).toLowerCase();
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 820);
+    const isVRCapable = !!(navigator.xr && navigator.xr.isSessionSupported);
+    if (isVRCapable && isMobile) return 'cvr';
+    if (isMobile) return 'mobile';
+    return 'pc';
+  }
+
   function buildUrl(base, add){
-    try{
-      const u = new URL(base, location.href);
-      Object.entries(add||{}).forEach(([k,v])=>{
-        if(v===undefined||v===null||v==='') return;
-        u.searchParams.set(k, String(v));
-      });
-      return u.toString();
-    }catch(_){
-      const join = base.includes('?') ? '&' : '?';
-      const qs = Object.entries(add||{})
-        .filter(([,v])=>!(v===undefined||v===null||v===''))
-        .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
-      return qs ? (base + join + qs) : base;
-    }
+    const u = new URL(base, location.href);
+    Object.entries(add||{}).forEach(([k,v])=>{
+      if (v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
   }
 
-  function passthrough(){
-    const deny = new Set(['skipGate','hub','next','phase','game','pool','autonext','dur','cdur']);
-    const out = {};
-    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-    return out;
-  }
+  const hub  = String(q('hub','./hub.html'));
+  const run  = String(q('run','play'));
+  const diff = String(q('diff','normal'));
+  const time = String(q('time','70'));
+  const seed = String(q('seed',''));
+  const view = detectView();
 
-  const HUB = q('hub','') || HUB_DEFAULT;
-  const SKIP = (q('skipGate','0') === '1');
+  const RUN  = './hydration-vr/hydration-vr.html';
+  const gate = './warmup-gate.html';
 
-  const runUrl  = buildUrl(RUN,  { ...passthrough(), hub: HUB, game: GAME });
-  const gateUrl = buildUrl(GATE, { ...passthrough(), phase:'warmup', game: GAME, dur: 20, hub: HUB, next: runUrl, autonext: 0 });
+  const nextGame = buildUrl(RUN, {
+    view, run, diff, time, seed,
+    hub,
+    gate: 1,
+    cdur: 20
+  });
 
-  const $ = (s)=>document.querySelector(s);
-  $('#hub').href = HUB;
-  $('#skip').href = runUrl;
-  $('#manual').href = (SKIP ? runUrl : gateUrl);
-  $('#dbg').textContent = `RUN=${runUrl}\nGATE=${gateUrl}\nHUB=${HUB}\nSKIP=${SKIP}`;
+  const warmupUrl = buildUrl(gate, {
+    view, run, diff, time, seed,
+    phase: 'warmup',
+    dur: 20,
+    cdur: 20,
+    hub,
+    next: nextGame,
+    autonext: 1
+  });
 
-  location.replace(SKIP ? runUrl : gateUrl);
+  document.getElementById('p').textContent = `view=${view} • run=${run} • diff=${diff}`;
+  location.replace(warmupUrl);
 })();
 </script>
 </body>
