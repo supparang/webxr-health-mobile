@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
+GoodJunkVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
 ✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
 ✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
-✅ Always redirects to ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
-✅ STRICT: Requires Health Quest warm-up completion before entering main game
-✅ Path: /herohealth/goodjunk-vr.html -> /herohealth/vr-goodjunk/goodjunk-vr.html
+✅ Daily gate: once per day per pid per zone (nutrition) via ./hha-gate.js
+✅ Redirect target: ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
 -->
 <!doctype html>
 <html lang="th">
@@ -51,45 +50,20 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
       padding:18px;
     }
     .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .title{
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:.2px;
-      margin:2px 0 6px;
-    }
-    .sub{
-      margin:0 0 12px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-    }
+    .title{ font-size:20px; font-weight:800; letter-spacing:.2px; margin:2px 0 6px; }
+    .sub{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.35; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:var(--pill);
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:var(--pill);
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.55);
       color:var(--text);
-      font-size:12px;
-      font-weight:700;
+      font-size:12px; font-weight:700;
       user-select:none;
       white-space:nowrap;
     }
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    .kv{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px 12px;
-      min-height:52px;
-    }
+    .grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:10px; }
+    .kv{ border:1px solid var(--stroke); background: rgba(2,6,23,.35); border-radius: 16px; padding:10px 12px; min-height:52px; }
     .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
     .v{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .btn{
@@ -102,17 +76,11 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
       color:var(--text);
       font-weight:900;
       font-size:14px;
+      cursor:pointer;
     }
     .btn:active{ transform: translateY(1px); }
-    .hint{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.35;
-    }
-    @media (max-width:520px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    .hint{ margin-top:10px; color:var(--muted); font-size:12px; line-height:1.35; }
+    @media (max-width:520px){ .grid{ grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -120,12 +88,13 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
     <div class="row">
       <div>
         <div class="title">🥗 GoodJunkVR</div>
-        <p class="sub">กำลังเข้าสู่เกม… ระบบจะส่งต่อค่าทดลอง (run/diff/time/seed/studyId/phase/conditionGroup/log/hub) ให้อัตโนมัติ</p>
+        <p class="sub">กำลังเข้าสู่เกม… ส่งต่อค่าทดลอง (pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/hub) ให้อัตโนมัติ</p>
       </div>
       <span class="pill" id="statusPill">LOADING</span>
     </div>
 
     <section class="grid" aria-label="Context preview">
+      <div class="kv"><div class="k">pid</div><div class="v" id="pv-pid">—</div></div>
       <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
       <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
       <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
@@ -138,10 +107,10 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
     </section>
 
     <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
-    <div class="hint">ถ้าอยู่บนมือถือและกด Enter VR ระบบในหน้า RUN จะ auto-load vr-ui.js เมื่อเครื่องรองรับ WebXR</div>
+    <div class="hint">ถ้าวันนี้ยังไม่ทำโซนโภชนาการ ระบบจะพาไป Quest Gate ก่อน แล้วกลับเข้าเกมนี้ให้อัตโนมัติ</div>
   </main>
 
-  <!-- STRICT Warm-up Gate (MUST PASS BEFORE MAIN GAME) -->
+  <!-- Daily per-zone gate -->
   <script src="./hha-gate.js"></script>
 
   <!-- HHA Standard ctx + launcher -->
@@ -152,18 +121,9 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
   (function(){
     'use strict';
 
-    // ========== STRICT WARM-UP GATE (MUST PASS) ==========
-    // If warm-up is not completed, this will redirect to Health Quest immediately.
-    // mainId MUST match the id that Health Quest calls: HHA_GATE.markWarmupDone(mainId)
-    try{
-      if (window.HHA_GATE && typeof window.HHA_GATE.requireWarmup === 'function'){
-        window.HHA_GATE.requireWarmup({
-          mainId: 'goodjunk',
-          cat: 'A',
-          healthQuestHref: './health-quest.html'
-        });
-      }
-    }catch(_){}
+    const RUN_HREF = './vr-goodjunk/goodjunk-vr.html';
+    const ZONE_ID = 'nutrition';
+    const WARMUP_HREF = './quest-gate.html?zone=nutrition';
 
     const qs = (k, def=null)=>{
       try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
@@ -182,8 +142,9 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
     }
 
     function mergeCtxWithQuery(ctx){
-      // ctx preferred; fallback to query
       const out = Object.assign({}, ctx || {});
+      out.pid  = out.pid  ?? qs('pid', null);
+
       out.run  = out.run  ?? qs('run','play');
       out.diff = out.diff ?? qs('diff','normal');
       out.time = out.time ?? qs('time','80');
@@ -193,14 +154,15 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
       out.phase   = out.phase   ?? qs('phase', null);
       out.conditionGroup = out.conditionGroup ?? (qs('conditionGroup', qs('cond', null)));
       out.log = out.log ?? qs('log', null);
+      out.view = out.view ?? qs('view', null);
       out.hub = out.hub ?? qs('hub', null);
 
-      // keep any other ctx fields too (pid, style, etc.)
       return out;
     }
 
     function preview(ctx){
       const set = (id,v)=>{ const el=$(id); if(el) el.textContent = (v==null||v==='') ? '—' : String(v); };
+      set('pv-pid', ctx.pid);
       set('pv-run', ctx.run);
       set('pv-diff', ctx.diff);
       set('pv-time', ctx.time);
@@ -213,10 +175,8 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
     }
 
     function buildRunUrl(ctx){
-      // IMPORTANT: root -> ./vr-goodjunk/goodjunk-vr.html
-      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-
-      // send only known keys (clean)
+      const u = new URL(RUN_HREF, location.href);
+      if(ctx.pid) u.searchParams.set('pid', ctx.pid);
       if(ctx.run) u.searchParams.set('run', ctx.run);
       if(ctx.diff) u.searchParams.set('diff', ctx.diff);
       if(ctx.time) u.searchParams.set('time', ctx.time);
@@ -226,9 +186,22 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
       if(ctx.phase) u.searchParams.set('phase', ctx.phase);
       if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
       if(ctx.log) u.searchParams.set('log', ctx.log);
+      if(ctx.view) u.searchParams.set('view', ctx.view);
       if(ctx.hub) u.searchParams.set('hub', ctx.hub);
 
       return u.toString();
+    }
+
+    function launch(url){
+      try{
+        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go === 'function'){
+          pill.textContent = 'LAUNCH';
+          HHA_LAUNCH.go(url);
+          return;
+        }
+      }catch(_){}
+      pill.textContent = 'REDIRECT';
+      location.replace(url);
     }
 
     function go(){
@@ -238,24 +211,24 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
 
       const runUrl = buildRunUrl(ctx);
 
-      // Prefer HHA_LAUNCH.go if available (keeps your launch conventions)
+      // Daily zone gate (nutrition)
       try{
-        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go === 'function'){
-          pill.textContent = 'LAUNCH';
-          HHA_LAUNCH.go(runUrl);
-          return;
+        if (window.HHA_GATE && typeof window.HHA_GATE.requireWarmup === 'function'){
+          const res = window.HHA_GATE.requireWarmup({
+            zoneId: ZONE_ID,
+            warmupHref: WARMUP_HREF,
+            targetHref: runUrl,
+            autoStart: true
+          });
+          if (res && res.status === 'redirect') return; // sent to quest-gate already
         }
       }catch(_){}
 
-      pill.textContent = 'REDIRECT';
-      location.replace(runUrl);
+      // already done today → straight to game
+      launch(runUrl);
     }
 
-    // button = manual
-    const btn = $('btnGo');
-    if(btn) btn.addEventListener('click', go, { passive:true });
-
-    // auto launch quickly (but allow DOM paint)
+    $('btnGo').addEventListener('click', go, { passive:true });
     pill.textContent = 'READY';
     setTimeout(go, 60);
   })();
