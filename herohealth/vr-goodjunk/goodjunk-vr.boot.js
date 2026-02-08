@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX)
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX + GATE FLOW)
 // ✅ Guard: prevent double boot (fix: time ends too fast)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile (UA-based)
@@ -10,6 +10,8 @@
 // ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
 // ✅ Listens gj:measureSafe to re-measure instantly
 // ✅ Boots engine: ./goodjunk.safe.js (module export boot())
+// ✅ GATE FLOW (gate=1):
+//    Warmup(20s) -> Game -> Cooldown(20s) -> HUB (absolute gateUrl to avoid 404)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -50,6 +52,133 @@ function setBodyView(view) {
   b.dataset.view = view;
 }
 
+/* =========================
+ * Gate helpers (avoid 404)
+ * ========================= */
+function getGateUrl(){
+  // prefer explicit param (so you can swap gate page later)
+  const g = String(qs('gateUrl', '') || '').trim();
+  return g || 'https://supparang.github.io/herohealth/warmup-gate.html';
+}
+
+function buildUrl(base, add){
+  if(!base) return '';
+  try{
+    const u = new URL(base, location.href);
+    Object.entries(add||{}).forEach(([k,v])=>{
+      if (v === undefined || v === null || v === '') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }catch(_){
+    const join = base.includes('?') ? '&' : '?';
+    const qx = Object.entries(add||{})
+      .filter(([,v])=>!(v===undefined||v===null||v===''))
+      .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
+    return qx ? (base + join + qx) : base;
+  }
+}
+
+function getPassthrough(){
+  // keep everything EXCEPT internal gate params that would recurse weirdly
+  const deny = new Set(['next','hub','phase','dur','cdur','autonext']);
+  const out = {};
+  try{
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+  }catch(_){}
+  return out;
+}
+
+function normalizeRunMode(){
+  const r = String(qs('run','play')||'play').toLowerCase();
+  return (r === 'research') ? 'research' : 'play';
+}
+
+function normalizeDiff(){
+  return String(qs('diff','normal')||'normal').toLowerCase();
+}
+
+function normalizeTime(def=80){
+  const t = Number(qs('time', String(def)) || def);
+  return Number.isFinite(t) ? t : def;
+}
+
+function normalizeHub(){
+  return String(qs('hub','../hub.html') || '../hub.html');
+}
+
+function goWarmupGate(){
+  const gateUrl = getGateUrl();
+  const hub = normalizeHub();
+
+  const curWithDone = buildUrl(location.href, { wDone: 1 }); // ✅ กัน loop
+  const u = new URL(gateUrl);
+
+  u.searchParams.set('phase','warmup');
+  u.searchParams.set('dur', String(qs('dur','20')||20));
+  u.searchParams.set('hub', hub);
+
+  // pass main params
+  u.searchParams.set('view', String(DOC.body?.dataset?.view || baseAutoView()));
+  u.searchParams.set('run', normalizeRunMode());
+  u.searchParams.set('diff', normalizeDiff());
+  u.searchParams.set('time', String(normalizeTime(80)));
+
+  // keep passthrough (studyId/seed/etc)
+  const pass = getPassthrough();
+  Object.entries(pass).forEach(([k,v])=>{
+    // do not duplicate keys already set above
+    if (!u.searchParams.has(k)) u.searchParams.set(k, v);
+  });
+
+  // absolute gate url param (for subsequent redirects)
+  u.searchParams.set('gateUrl', gateUrl);
+
+  // next = back to this game, but marked done
+  u.searchParams.set('next', curWithDone);
+  u.searchParams.set('autonext','1');
+
+  location.replace(u.toString());
+}
+
+function goCooldownGate(summary){
+  const gateUrl = getGateUrl();
+  const hub = normalizeHub();
+
+  // optional: pack a tiny hint
+  const reason = summary?.reason || summary?.tier || 'end';
+
+  const hubWithDone = buildUrl(hub, { cdDone: 1 }); // ✅ กัน loop ถ้าย้อนกลับมาแบบประหลาด
+  const u = new URL(gateUrl);
+
+  u.searchParams.set('phase','cooldown');
+  u.searchParams.set('cdur', String(qs('cdur','20')||20));
+  u.searchParams.set('hub', hub);
+
+  u.searchParams.set('view', String(DOC.body?.dataset?.view || baseAutoView()));
+  u.searchParams.set('run', normalizeRunMode());
+  u.searchParams.set('diff', normalizeDiff());
+  u.searchParams.set('time', String(normalizeTime(80)));
+
+  const pass = getPassthrough();
+  Object.entries(pass).forEach(([k,v])=>{
+    if (!u.searchParams.has(k)) u.searchParams.set(k, v);
+  });
+
+  u.searchParams.set('gateUrl', gateUrl);
+  u.searchParams.set('next', hubWithDone);
+  u.searchParams.set('autonext','1');
+
+  // tiny debug tag (optional)
+  u.searchParams.set('end', String(reason).slice(0,32));
+
+  location.href = u.toString();
+}
+
+/* =========================
+ * vr-ui.js loader
+ * ========================= */
 function ensureVrUiLoaded() {
   if (!('xr' in navigator)) return;
   if (WIN.__HHA_VRUI_LOADED__ || WIN.__HHA_VR_UI_LOADED__) return;
@@ -119,7 +248,6 @@ function hudSafeMeasure() {
       const hudBot   = DOC.querySelector('.gj-hud-bot') || DOC.getElementById('gjHudBot');
       const controls = DOC.querySelector('.hha-controls');
 
-      // ✅ keep playfield big: do NOT over-reserve
       let topSafe = 0;
       topSafe = Math.max(topSafe, h(topbar));
       topSafe = Math.max(topSafe, h(progress));
@@ -185,6 +313,20 @@ async function start() {
   bindDebugKeys();
   hudSafeMeasure();
 
+  // =========================
+  // ✅ Gate: Warmup required
+  // =========================
+  const gateOn = String(qs('gate','0')||'0');
+  const wDone  = String(qs('wDone','0')||'0');
+  if (gateOn === '1' && wDone !== '1') {
+    // go to warmup gate (absolute) to avoid 404
+    goWarmupGate();
+    return;
+  }
+
+  // =========================
+  // Boot engine
+  // =========================
   engineBoot({
     view,
     diff: qs('diff', 'normal'),
@@ -197,6 +339,22 @@ async function start() {
     conditionGroup: qs('conditionGroup', qs('cond', null)),
     lockPx: Number(qs('lockPx', '0')) || undefined,
   });
+
+  // =========================
+  // ✅ Gate: After end -> cooldown -> hub
+  // =========================
+  WIN.addEventListener('hha:end', (ev)=>{
+    try{
+      const gateOn2 = String(qs('gate','0')||'0');
+      if (gateOn2 !== '1') return;
+
+      const cdDone = String(qs('cdDone','0')||'0');
+      if (cdDone === '1') return;
+
+      // small delay to let end overlay / logger flush start
+      setTimeout(()=> goCooldownGate(ev?.detail||{}), 220);
+    }catch(_){}
+  }, { passive:true });
 }
 
 if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', start);
