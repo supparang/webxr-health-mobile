@@ -3,36 +3,41 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth — PlateVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 </head>
 <body>
 <script>
 (() => {
   'use strict';
-  function getQS(){
-    try { return new URL(location.href).searchParams; }
-    catch { return new URLSearchParams(); }
+
+  const RUN_URL  = './plate/plate-vr.html';
+  const HUB_URL  = './hub.html';
+  const GATE_URL = './warmup-gate.html';
+
+  function qs(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
+  const QS = qs();
+  const q = (k, def='') => (QS.get(k) ?? def);
+
+  if(q('wg','') === '1'){
+    const deny = new Set(['wg']);
+    const u = new URL(RUN_URL, location.href);
+    QS.forEach((v,k)=>{ if(!deny.has(k)) u.searchParams.set(k,v); });
+    location.replace(u.toString());
+    return;
   }
-  const QS = getQS();
 
-  const HUB = QS.get('hub') || new URL('./hub.html', location.href).toString();
+  const gate = new URL(GATE_URL, location.href);
+  gate.searchParams.set('phase', 'warmup');
+  gate.searchParams.set('game', 'plate');
+  gate.searchParams.set('dur', String(Math.max(5, Math.min(60, Number(q('dur','20')||20)))));
+  gate.searchParams.set('hub', new URL(HUB_URL, location.href).toString());
 
-  // ✅ NEXT = actual RUN page for Plate
-  // (คุณมี plate/plate.safe.js เป็น engine — run page มักอยู่ /herohealth/plate/plate-vr.html หรือ /herohealth/plate/plate.html)
-  // ถ้าของคุณชื่อไม่ตรง เปลี่ยนบรรทัดนี้บรรทัดเดียว
-  const NEXT = new URL('./plate/plate-vr.html', location.href).toString();
-
-  const deny = new Set(['next','phase','dur','cdur']);
-  const pass = new URLSearchParams();
-  QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
-
-  const gate = new URL('./quest-gate.html', location.href);
-  gate.searchParams.set('phase','warmup');
-  gate.searchParams.set('next', NEXT);
-  gate.searchParams.set('hub', HUB);
-  pass.forEach((v,k)=> gate.searchParams.set(k,v));
+  const next = new URL(RUN_URL, location.href);
+  const deny2 = new Set(['phase','game','dur','cdur','next','hub','wg']);
+  QS.forEach((v,k)=>{ if(!deny2.has(k)) next.searchParams.set(k, v); });
+  gate.searchParams.set('next', next.toString());
 
   location.replace(gate.toString());
 })();
