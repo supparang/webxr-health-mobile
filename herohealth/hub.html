@@ -1,7 +1,9 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
+HeroHealth — Hub (3 Zones) — UPDATED (BIG ZONE STATUS + RESET TODAY)
 ✅ No forced order: user can pick any game
 ✅ Nutrition games go to ROOT launchers (daily gate happens there)
+✅ Big status banner shows Nutrition DONE today (pid-aware)
+✅ Reset today button (debug): clears Nutrition DONE for today (this pid)
 ✅ Pass-through hub param to all roots (so games can return to hub)
 -->
 <!doctype html>
@@ -20,6 +22,7 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
       --green:#22c55e; --cyan:#22d3ee; --violet:#a78bfa;
+      --warn:#f59e0b; --bad:#ef4444;
       --radius:22px;
       --shadow: 0 18px 60px rgba(0,0,0,.45);
       --sat: env(safe-area-inset-top, 0px);
@@ -70,13 +73,101 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
       overflow:hidden;
     }
 
+    /* BIG STATUS BANNER */
+    .statusBar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+    }
+    .statusLeft{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      min-width: 0;
+    }
+    .badgeBig{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      font-weight: 900;
+      letter-spacing:.2px;
+      user-select:none;
+      box-shadow: 0 10px 30px rgba(0,0,0,.20);
+      max-width: 100%;
+    }
+    .badgeBig .dot{
+      width:12px; height:12px;
+      border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+      flex: 0 0 auto;
+    }
+    .badgeBig.ok{
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.10);
+    }
+    .badgeBig.ok .dot{
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(34,197,94,.35);
+    }
+    .badgeBig .txt{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-size: 13px;
+    }
+    .miniMeta{
+      color: var(--muted);
+      font-size: 12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .btnSmall{
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.42);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:900;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease;
+      white-space:nowrap;
+    }
+    .btnSmall:active{ transform: translateY(1px); }
+    .btnSmall.warn{
+      border-color: rgba(245,158,11,.25);
+      background: rgba(245,158,11,.10);
+    }
+    .btnSmall.disabled{ opacity:.45; cursor:not-allowed; }
+    .statusRight{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap:12px;
       padding:12px;
     }
-    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } .pillrow{ justify-content:flex-start; } }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .statusBar{ align-items:flex-start; }
+      .statusRight{ justify-content:flex-start; }
+    }
 
     .zone{
       border:1px solid var(--stroke);
@@ -148,6 +239,28 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     }
     .foot .mini{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .foot .mini .pill{ margin:0; }
+
+    /* toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
 <body>
@@ -161,6 +274,26 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     </div>
 
     <div class="panel">
+      <!-- BIG STATUS BAR -->
+      <div class="statusBar" aria-label="Zone status">
+        <div class="statusLeft">
+          <div class="badgeBig" id="nutriBadge">
+            <span class="dot"></span>
+            <span class="txt" id="nutriBadgeText">🥗 Nutrition วันนี้: —</span>
+          </div>
+          <div class="miniMeta">
+            <span class="pill"><b>today</b>: <span id="metaToday">—</span></span>
+            <span class="pill"><b>pid</b>: <span id="metaPid">anon</span></span>
+          </div>
+        </div>
+
+        <div class="statusRight">
+          <div class="btnSmall warn" id="btnResetToday" title="ล้างสถานะ DONE วันนี้ (เฉพาะ debug)">
+            🧹 Reset today
+          </div>
+        </div>
+      </div>
+
       <div class="grid">
 
         <!-- Nutrition -->
@@ -221,7 +354,7 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
           </div>
         </section>
 
-        <!-- Hygiene (placeholder links) -->
+        <!-- Hygiene -->
         <section class="zone" aria-label="Hygiene Zone">
           <div class="glow"></div>
           <div class="zHead">
@@ -257,7 +390,7 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
           </div>
         </section>
 
-        <!-- Fitness (placeholder links) -->
+        <!-- Fitness -->
         <section class="zone" aria-label="Fitness Zone">
           <div class="glow violet"></div>
           <div class="zHead">
@@ -302,13 +435,31 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     </div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
 <script>
 (function(){
   'use strict';
 
+  const ZONE_ID = 'nutrition';
+  const LS_ZONE_DAILY_PREFIX = 'HHA_ZONE_DAILY_DONE';
+
   function pageUrl(){ return location.href.split('#')[0]; }
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   function qs(k, def=null){ const q=parseQS(); const v=q.get(k); return (v==null||String(v).trim()==='') ? def : v; }
+
+  const $ = (id)=>document.getElementById(id);
+
+  // toast
+  const toastEl = $('toast');
+  let toastTimer=null;
+  function toast(msg){
+    if(!toastEl) return;
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
 
   function hubSelf(){
     try{ return new URL('./hub.html', location.href).toString(); }
@@ -330,15 +481,20 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     try{ return (localStorage.getItem('HHA_PID')||'').trim() || ''; }catch(_){ return ''; }
   }
 
-  const LS_ZONE_DAILY_PREFIX = 'HHA_ZONE_DAILY_DONE';
   function zoneDailyKey(zoneId){
     const pid = getPid();
     const p = (pid && pid.trim()) ? pid.trim() : 'anon';
     return `${LS_ZONE_DAILY_PREFIX}:${zoneId}:${todayKey()}:${p}`;
   }
+
   function isZoneDoneToday(zoneId){
     const k = zoneDailyKey(zoneId);
     try{ return localStorage.getItem(k) === '1'; }catch(_){ return false; }
+  }
+
+  function clearZoneDoneToday(zoneId){
+    const k = zoneDailyKey(zoneId);
+    try{ localStorage.removeItem(k); }catch(_){}
   }
 
   function renderPills(){
@@ -356,15 +512,31 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     if (time) pills.push({k:'time', v: time});
     if (seed) pills.push({k:'seed', v: seed});
 
-    const el = document.getElementById('pillrow');
+    const el = $('pillrow');
     el.innerHTML = pills.map(x => `<span class="pill"><b>${x.k}</b>: ${String(x.v).replace(/</g,'&lt;')}</span>`).join('')
       || `<span class="pill"><b>hub</b>: ready</span>`;
   }
 
   function updateZoneTags(){
-    const done = isZoneDoneToday('nutrition');
-    const tag = document.getElementById('tagNutrition');
+    const done = isZoneDoneToday(ZONE_ID);
+    const tag = $('tagNutrition');
     tag.textContent = done ? 'DONE today ✅' : 'daily gate';
+  }
+
+  function updateBigStatus(){
+    const done = isZoneDoneToday(ZONE_ID);
+    const badge = $('nutriBadge');
+    const txt = $('nutriBadgeText');
+    const t = todayKey();
+    const pid = getPid() || 'anon';
+
+    $('metaToday').textContent = t;
+    $('metaPid').textContent = pid;
+
+    badge.classList.toggle('ok', !!done);
+    txt.textContent = done
+      ? `🥗 Nutrition วันนี้: DONE ✅ (เล่นเกมในโซนนี้ได้เลย)`
+      : `🥗 Nutrition วันนี้: ยังไม่ DONE (เข้าเกมครั้งแรกจะไป Quest Gate)`;
   }
 
   function wireButtons(){
@@ -374,7 +546,7 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
         const target = b.getAttribute('data-go');
         if (!target) return;
 
-        // always pass hub as param (do NOT override if already exists)
+        // pass hub if missing
         const u = new URL(target, location.href);
         if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
           u.searchParams.set('hub', hubSelf());
@@ -396,8 +568,8 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
   }
 
   function miniInfo(){
-    const box = document.getElementById('miniInfo');
-    const done = isZoneDoneToday('nutrition');
+    const box = $('miniInfo');
+    const done = isZoneDoneToday(ZONE_ID);
     const pid = getPid() || 'anon';
     box.innerHTML = `
       <span class="pill"><b>nutrition</b>: ${done ? 'DONE ✅' : 'NOT YET'}</span>
@@ -406,10 +578,35 @@ HeroHealth — Hub (3 Zones) — UPDATED (Nutrition -> ROOT Launchers)
     `;
   }
 
+  function wireReset(){
+    const btn = $('btnResetToday');
+    btn.addEventListener('click', ()=>{
+      const done = isZoneDoneToday(ZONE_ID);
+      const pid = getPid() || 'anon';
+      const t = todayKey();
+      const msg =
+        `Reset today?\n\n` +
+        `Zone: ${ZONE_ID}\n` +
+        `Date: ${t}\n` +
+        `PID: ${pid}\n\n` +
+        `ระบบจะล้างสถานะ DONE วันนี้ เพื่อให้เข้า Quest Gate ใหม่ได้`;
+
+      if (!confirm(msg)) return;
+
+      clearZoneDoneToday(ZONE_ID);
+      toast('Reset today: cleared ✅');
+      updateZoneTags();
+      updateBigStatus();
+      miniInfo();
+    }, { passive:true });
+  }
+
   renderPills();
   updateZoneTags();
+  updateBigStatus();
   wireButtons();
   miniInfo();
+  wireReset();
 
 })();
 </script>
