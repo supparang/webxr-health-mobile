@@ -1,4 +1,4 @@
-/* === /fitness/css/jump-duck.css — Jump Duck Rush UI (FULL + Boss Patch) v20260207a === */
+/* === /fitness/css/jump-duck.css — Jump-Duck Rush UI (Boss+Actionbar) v20260208a === */
 
 :root{
   color-scheme: dark;
@@ -12,6 +12,7 @@
   --jd-danger: #fb7185;
   --jd-gold: #facc15;
   --jd-fever: #f97316;
+  --jd-radius: 18px;
 }
 
 *,
@@ -19,9 +20,7 @@
 *::after{ box-sizing:border-box; }
 
 html,body{
-  margin:0;
-  padding:0;
-  height:100%;
+  margin:0; padding:0; height:100%;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
     radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
@@ -30,7 +29,6 @@ html,body{
   color:var(--jd-text);
 }
 
-/* Shell */
 .jd-shell{
   min-height:100vh;
   max-width:1100px;
@@ -38,32 +36,25 @@ html,body{
   padding:18px 14px 26px;
 }
 .jd-wrap{ width:100%; }
-
-/* Generic view wrapper */
 .jd-view{ margin-bottom:18px; }
 
-/* Card */
 .jd-card{
   background:
     radial-gradient(circle at top left,rgba(56,189,248,0.14),transparent 55%),
     radial-gradient(circle at bottom right,rgba(34,197,94,0.12),transparent 55%),
     rgba(15,23,42,0.98);
-  border-radius:18px;
+  border-radius:var(--jd-radius);
   border:1px solid var(--jd-border);
   padding:16px 16px 18px;
   box-shadow:0 24px 50px rgba(0,0,0,0.7);
 }
 
-/* Typography */
 .jd-title{ margin:0 0 4px; font-size:1.6rem; }
 .jd-subtitle{ margin:0 0 12px; font-size:0.95rem; color:var(--jd-muted); }
-
 .jd-section-title{ margin:0 0 12px; font-size:1.3rem; }
-.jd-section-subtitle{ margin:10px 0 4px; font-size:1rem; }
-
 .jd-note{ margin:10px 0 12px; font-size:0.85rem; color:var(--jd-muted); }
+.jd-muted{ color:var(--jd-muted); }
 
-/* Menu layout */
 .jd-menu-grid{
   display:grid;
   grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
@@ -73,12 +64,9 @@ html,body{
 .jd-menu-block{ margin-bottom:10px; }
 .jd-hint{ font-size:0.8rem; color:var(--jd-muted); margin:6px 0 0; }
 
-/* Field rows / inputs */
 .jd-field-row{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  margin-bottom:8px;
+  display:flex; flex-direction:column;
+  gap:4px; margin-bottom:8px;
   font-size:0.9rem;
 }
 .jd-field-row label{ color:var(--jd-muted); }
@@ -102,7 +90,6 @@ html,body{
   box-shadow:0 0 0 1px rgba(56,189,248,0.55);
 }
 
-/* Research meta box */
 .jd-research{
   background:rgba(15,23,42,0.92);
   border-radius:14px;
@@ -112,7 +99,6 @@ html,body{
 }
 .jd-research-hint{ margin:4px 0 0; font-size:0.8rem; color:var(--jd-muted); }
 
-/* How-to */
 .jd-howto-block{
   padding:10px 12px;
   border-radius:14px;
@@ -142,8 +128,11 @@ html,body{
   color:var(--jd-text);
   transition:transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.08s;
   text-decoration:none;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
 }
 .jd-btn:hover{ transform:translateY(-1px); }
+
 .jd-btn-primary{
   background:linear-gradient(90deg,#22c55e,#38bdf8);
   color:#020617;
@@ -151,27 +140,16 @@ html,body{
   box-shadow:0 14px 30px rgba(16,185,129,0.55);
 }
 .jd-btn-primary:hover{ filter:brightness(1.05); }
+
 .jd-btn-sub{
   border-color:#1f2937;
   background:linear-gradient(90deg,#0f172a,#020617);
 }
 .jd-btn-sub:hover{ filter:brightness(1.06); }
-.jd-btn-ghost{
-  background:transparent;
-  border-color:transparent;
-  color:var(--jd-muted);
-}
-.jd-btn-ghost:hover{ color:var(--jd-text); }
 
-.jd-btn-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:10px;
-}
+.jd-btn-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .jd-btn-row-secondary{ margin-top:6px; }
 
-/* Helpers */
 .jd-hidden{ display:none !important; }
 
 /* HUD */
@@ -181,22 +159,10 @@ html,body{
   gap:10px;
   margin-bottom:10px;
 }
-.jd-hud-col{
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-  min-width:0;
-}
+.jd-hud-col{ display:flex; flex-direction:column; gap:3px; min-width:0; }
 .jd-hud-center{ align-items:center; }
 .jd-hud-right{ align-items:flex-end; }
-
-.jd-hud-row{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  font-size:0.85rem;
-}
-
+.jd-hud-row{ display:flex; align-items:center; gap:6px; font-size:0.85rem; }
 .jd-tag{
   font-size:0.75rem;
   text-transform:uppercase;
@@ -211,6 +177,92 @@ html,body{
   font-variant-numeric:tabular-nums;
 }
 
+/* Play Top (Boss + progress) */
+.jd-play-top{ margin-bottom:10px; }
+
+.jd-bossbar{
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.55);
+  border-radius:14px;
+  padding:10px 10px 10px;
+  margin:8px 0 10px;
+}
+.jd-bossbar-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+.jd-boss-label{
+  font-size:.75rem;
+  letter-spacing:.10em;
+  text-transform:uppercase;
+  color:var(--jd-muted);
+}
+.jd-phase-chip{
+  font-size:.75rem;
+  padding:2px 10px;
+  border-radius:999px;
+  border:1px solid rgba(56,189,248,.35);
+  background:rgba(56,189,248,.10);
+}
+.jd-bossbar-track{
+  height:10px;
+  border-radius:999px;
+  border:1px solid rgba(31,41,55,.9);
+  background:rgba(15,23,42,.95);
+  overflow:hidden;
+}
+.jd-bossbar-fill{
+  height:100%;
+  transform-origin:left center;
+  transform:scaleX(0);
+  background:linear-gradient(90deg,#fb7185,#facc15,#22c55e,#38bdf8);
+}
+.jd-bossbar-bottom{
+  margin-top:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  font-size:.8rem;
+}
+.jd-boss-hp{
+  font-variant-numeric:tabular-nums;
+  color:#e5e7eb;
+}
+
+/* Progress (time) */
+.jd-prog{
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(2,6,23,.45);
+  border-radius:14px;
+  padding:8px 10px;
+  margin:0 0 10px;
+}
+.jd-prog-track{
+  height:8px;
+  border-radius:999px;
+  border:1px solid rgba(31,41,55,.9);
+  background:rgba(15,23,42,.95);
+  overflow:hidden;
+}
+.jd-prog-fill{
+  height:100%;
+  transform-origin:left center;
+  transform:scaleX(0);
+  background:linear-gradient(90deg,#22c55e,#38bdf8);
+}
+.jd-prog-meta{
+  margin-top:6px;
+  display:flex;
+  justify-content:space-between;
+  font-size:.8rem;
+  color:var(--jd-muted);
+}
+.jd-prog-text{ font-variant-numeric:tabular-nums; }
+.jd-prog-time{ font-variant-numeric:tabular-nums; }
+
 /* Field */
 .jd-field{
   position:relative;
@@ -224,14 +276,7 @@ html,body{
   box-shadow:0 16px 40px rgba(0,0,0,0.8);
 }
 .jd-play-area{ position:relative; }
-
-/* track + ground */
-.jd-track{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:flex-end;
-}
+.jd-track{ position:absolute; inset:0; display:flex; align-items:flex-end; }
 .jd-ground{
   width:100%;
   height:36px;
@@ -252,17 +297,11 @@ html,body{
   font-size:2.4rem;
   filter:drop-shadow(0 8px 12px rgba(0,0,0,0.9));
 }
-
-/* Jump/Duck */
 .jd-avatar.jump{ transform:translateY(-40px); }
 .jd-avatar.duck{ transform:translateY(16px) scaleY(0.88); }
 
 /* Obstacles */
-.jd-obstacles{
-  position:absolute;
-  inset:0;
-  z-index:2;
-}
+.jd-obstacles{ position:absolute; inset:0; z-index:2; pointer-events:none; }
 .jd-obstacle{
   position:absolute;
   left:100%;
@@ -277,13 +316,10 @@ html,body{
   align-items:center;
   justify-content:center;
   color:#e5e7eb;
-  font-size:2rem;
   transform:translate3d(0,0,0);
 }
 .jd-obstacle--low{ bottom:28px; }
 .jd-obstacle--high{ bottom:80px; }
-
-/* obstacle inner */
 .jd-obstacle-inner{
   display:flex;
   flex-direction:column;
@@ -301,11 +337,10 @@ html,body{
 .jd-obstacle--low .jd-obs-tag{ color:#22c55e; }
 .jd-obstacle--high .jd-obs-tag{ color:#38bdf8; }
 
-/* HIT line */
+/* Hit line */
 .jd-hit-line{
   position:absolute;
-  left:0;
-  right:0;
+  left:0; right:0;
   bottom:54px;
   height:2px;
   background:linear-gradient(90deg,transparent,#e5e7eb,transparent);
@@ -331,11 +366,41 @@ html,body{
   opacity:0;
   pointer-events:none;
   transition:opacity 0.18s ease-out, transform 0.18s ease-out;
+  z-index:10;
 }
 .jd-judge.show{ opacity:1; transform:translate(-50%, 0); }
 .jd-judge.ok{ color:var(--jd-accent2); }
 .jd-judge.miss{ color:var(--jd-danger); }
 .jd-judge.combo{ color:var(--jd-gold); }
+
+/* Actionbar (แก้ “กดไม่ได้” ให้ชัด ๆ) */
+.jd-actionbar{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+.jd-act{
+  flex:1;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.18);
+  padding:12px 12px;
+  font-size:1.05rem;
+  font-weight:700;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  pointer-events:auto;
+}
+.jd-act:active{ transform:translateY(1px); }
+.jd-act-jump{
+  background:linear-gradient(90deg,rgba(34,197,94,.95),rgba(34,197,94,.35));
+  color:#04140a;
+}
+.jd-act-duck{
+  background:linear-gradient(90deg,rgba(56,189,248,.95),rgba(56,189,248,.35));
+  color:#001019;
+}
 
 /* Result */
 .jd-result-grid{
@@ -372,127 +437,17 @@ html,body{
   100%{ transform:translateX(0); }
 }
 
-/* =========================
-   PATCH: fatal
-========================= */
+/* Fatal */
 .jd-fatal{
   white-space:pre-wrap;
-  background:rgba(15,23,42,0.96);
-  border:1px solid rgba(251,113,133,0.55);
-  color:#fda4af;
+  padding:12px 14px;
+  margin:10px auto;
+  max-width:1100px;
   border-radius:14px;
-  padding:12px 12px;
-  margin:0 0 12px;
-  box-shadow:0 18px 42px rgba(0,0,0,0.75);
-}
-
-/* =========================
-   PATCH: actionbar (แก้กดไม่ได้)
-========================= */
-.jd-actionbar{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:10px;
-}
-.jd-act{
-  border-radius:16px;
-  border:1px solid rgba(31,41,55,0.9);
-  padding:14px 12px;
-  font-size:1.05rem;
-  font-weight:800;
-  letter-spacing:0.03em;
-  cursor:pointer;
-  user-select:none;
-  box-shadow:0 18px 36px rgba(0,0,0,0.65);
-}
-.jd-act:active{ transform:translateY(1px); }
-.jd-act-jump{
-  background:linear-gradient(90deg, rgba(34,197,94,0.95), rgba(56,189,248,0.8));
-  color:#041007;
-}
-.jd-act-duck{
-  background:linear-gradient(90deg, rgba(56,189,248,0.95), rgba(34,197,94,0.8));
-  color:#041007;
-}
-
-/* =========================
-   PATCH: boss bar
-========================= */
-.jd-bossbar{
-  margin:10px 0 10px;
-  border-radius:16px;
-  border:1px solid rgba(31,41,55,0.9);
-  background:rgba(15,23,42,0.86);
-  padding:10px 10px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.jd-boss-left,.jd-boss-right{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:0 0 auto;
-}
-.jd-boss-title{
-  font-weight:900;
-  letter-spacing:0.04em;
-}
-.jd-boss-chip{
-  font-size:0.85rem;
-  color:var(--jd-text);
-  border:1px solid rgba(31,41,55,0.9);
-  background:rgba(2,6,23,0.7);
-  padding:3px 8px;
-  border-radius:999px;
-}
-.jd-boss-track{
-  position:relative;
-  height:12px;
-  flex:1 1 auto;
-  border-radius:999px;
-  overflow:hidden;
-  border:1px solid rgba(31,41,55,0.9);
-  background:rgba(2,6,23,0.6);
-}
-.jd-boss-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  background:linear-gradient(90deg, rgba(250,204,21,0.95), rgba(249,115,22,0.9), rgba(251,113,133,0.9));
-}
-
-/* =========================
-   PATCH: Boss Skills FX
-   - feint: flash / shimmer
-   - swap: warning pulse
-   - burst: red outline
-========================= */
-.jd-obstacle.skill-feint{
-  box-shadow:0 0 0 1px rgba(250,204,21,0.35), 0 12px 28px rgba(0,0,0,0.85);
-  animation:jd-feint-flicker 0.25s ease-in-out 1;
-}
-@keyframes jd-feint-flicker{
-  0%{ filter:brightness(1); transform:scale(1); }
-  50%{ filter:brightness(1.35); transform:scale(1.02); }
-  100%{ filter:brightness(1); transform:scale(1); }
-}
-
-.jd-obstacle.skill-swap{
-  border-color:rgba(56,189,248,0.55);
-  box-shadow:0 0 0 2px rgba(56,189,248,0.22), 0 10px 26px rgba(0,0,0,0.85);
-  animation:jd-swap-pulse 0.32s ease-in-out 1;
-}
-@keyframes jd-swap-pulse{
-  0%{ transform:scale(1); }
-  45%{ transform:scale(1.06); }
-  100%{ transform:scale(1); }
-}
-
-.jd-obstacle.skill-burst{
-  border-color:rgba(251,113,133,0.55);
-  box-shadow:0 0 0 2px rgba(251,113,133,0.18), 0 10px 26px rgba(0,0,0,0.85);
+  border:1px solid rgba(251,113,133,.35);
+  background:rgba(251,113,133,.10);
+  color:#fecdd3;
+  font-size:.9rem;
 }
 
 /* Responsive */
@@ -500,5 +455,4 @@ html,body{
   .jd-shell{ padding:10px 8px 18px; }
   .jd-menu-grid{ grid-template-columns:1fr; }
   .jd-field{ min-height:240px; }
-  .jd-act{ padding:16px 12px; font-size:1.1rem; }
 }
