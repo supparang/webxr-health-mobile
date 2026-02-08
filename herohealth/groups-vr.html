@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GroupsVR (Launcher)</title>
+  <title>HeroHealth — GoodJunkVR (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
   <style>
@@ -18,8 +18,8 @@
 <body>
 <div class="c">
   <div class="p">
-    <div class="t">🍱 GroupsVR — กำลังเปิดผ่าน Warmup Gate…</div>
-    <div class="s">Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
+    <div class="t">🥗 GoodJunkVR — กำลังเปิดผ่าน Warmup Gate…</div>
+    <div class="s">ระบบจะบังคับ: Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
     <div class="mono" id="dbg"></div>
   </div>
 </div>
@@ -32,15 +32,19 @@
   const hub = QS.get('hub') || './hub.html';
   const dur = Number(QS.get('dur') || 20) || 20;
 
+  // keep passthrough (do not forward these)
   const deny = new Set(['next','phase','dur','cdur','autonext']);
   const pass = new URLSearchParams();
   QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
-  const gameRun = new URL('./vr-groups/groups-vr.html', location.href);
+  // target game RUN (real)
+  const gameRun = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
   pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
   gameRun.searchParams.set('hub', hub);
-  gameRun.searchParams.set('gate', '1');
+  gameRun.searchParams.set('gate', '1'); // ✅ enforce gate
+  // if warmup buff exists later: wType/wPct/... will be appended by warmup gate
 
+  // go warmup gate
   const gate = new URL('./warmup-gate.html', location.href);
   gate.searchParams.set('phase','warmup');
   gate.searchParams.set('dur', String(dur));
