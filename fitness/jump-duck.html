@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump-Duck — VR Fitness Academy</title>
+  <title>HeroHealth — Jump-Duck</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
+  <meta name="theme-color" content="#020617"/>
+  <link rel="icon" href="./favicon.ico"/>
 
   <link rel="stylesheet" href="css/jump-duck.css"/>
 </head>
 <body>
-  <!-- ใช้โชว์ error แบบไม่เงียบ -->
-  <pre id="jd-fatal" class="jd-fatal jd-hidden"></pre>
-
   <div id="jd-app" class="jd-shell">
     <div class="jd-wrap">
+
+      <!-- fatal overlay (debug) -->
+      <pre id="jd-fatal" class="jd-fatal jd-hidden"></pre>
 
       <!-- ===== VIEW: MENU ===== -->
       <section id="view-menu" class="jd-view">
@@ -26,6 +27,7 @@
 
           <div class="jd-menu-grid">
             <div class="jd-menu-block">
+
               <div class="jd-field-row">
                 <label for="jd-mode">โหมดการเล่น</label>
                 <select id="jd-mode">
@@ -33,7 +35,9 @@
                   <option value="test">ทดสอบ (Test) — ใช้วัดสมรรถภาพ</option>
                   <option value="research">วิจัย (Research) — เก็บข้อมูลผู้เข้าร่วม</option>
                 </select>
-                <p class="jd-hint">Training: เร่งช่วงท้าย + Boss · Test/Research: คงที่/seeded</p>
+                <p class="jd-hint">
+                  Training: ปรับความถี่/ความเร็ว + บอส · Test/Research: deterministic เมื่อใส่ seed
+                </p>
               </div>
 
               <div class="jd-field-row">
@@ -67,12 +71,17 @@
                   <label for="jd-note">หมายเหตุ</label>
                   <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
                 </div>
-                <p class="jd-research-hint">จะบันทึก event+summary และส่งขึ้น Logger ถ้าใส่ ?log=</p>
+                <p class="jd-research-hint">
+                  โหมดวิจัยแนะนำใส่ <code>?seed=...</code> เพื่อให้แพทเทิร์น deterministic
+                </p>
               </div>
 
               <div class="jd-btn-row">
                 <button class="jd-btn jd-btn-primary" data-action="start">▶ เริ่มเล่น Jump-Duck</button>
-                <button class="jd-btn jd-btn-sub" data-action="tutorial">❓ Tutorial 15s</button>
+              </div>
+
+              <div class="jd-btn-row">
+                <button class="jd-btn jd-btn-sub" data-action="tutorial">❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที</button>
               </div>
 
               <div class="jd-btn-row jd-btn-row-secondary">
@@ -82,15 +91,21 @@
 
             <div class="jd-menu-block">
               <div class="jd-howto-block">
-                <h3 class="jd-section-title">วิธีเล่น (PC / Mobile / Cardboard)</h3>
+                <h3 class="jd-section-title">วิธีการเล่น</h3>
                 <ul class="jd-howto-list">
-                  <li><b>PC</b>: ⬆/W = Jump · ⬇/S = Duck</li>
-                  <li><b>Mobile</b>: แตะครึ่งบน = Jump · ครึ่งล่าง = Duck (หรือกดปุ่มใหญ่ด้านล่าง)</li>
-                  <li><b>Cardboard/cVR</b>: ใช้ crosshair/tap-to-shoot จาก <code>vr-ui.js</code> แล้วระบบจะตีความเป็น Jump/Duck ตามตำแหน่งแตะ</li>
+                  <li>แตะครึ่งบน = <strong>Jump</strong> 🦘</li>
+                  <li>แตะครึ่งล่าง = <strong>Duck</strong> 🛡️</li>
+                  <li>คีย์บอร์ด: ⬆ / W = Jump, ⬇ / S = Duck</li>
+                  <li>คอนโทรลเลอร์: D-pad ↑/↓ หรือ A=Jump, B=Duck</li>
                 </ul>
               </div>
+
               <p class="jd-howto-inline">
-                เกมมี 3 เฟส + บอส 3 เฟสท้ายเกม (ทั้ง Jump+Duck) — เน้นเร็วขึ้น, pattern แยบยล, แต่ยังแฟร์
+                โหมด Cardboard/cVR: ให้ผู้เล่น “ย่อ/ลุกจริง” แล้วแตะบนจอ (หรือใช้ปุ่ม Enter VR + ยิง hha:shoot จาก vr-ui.js)
+              </p>
+
+              <p class="jd-howto-inline">
+                บอส 3 เฟส: เฟส 1 อุ่นเครื่อง · เฟส 2 เร่งเกม · เฟส 3 บอส + Burst + Special patterns
               </p>
             </div>
           </div>
@@ -100,68 +115,110 @@
       <!-- ===== VIEW: PLAY ===== -->
       <section id="view-play" class="jd-view jd-hidden">
         <div class="jd-card">
-          <div class="jd-play-top">
-            <h2 class="jd-section-title">โหมดเล่น Jump-Duck</h2>
+          <h2 class="jd-section-title">โหมดเล่น Jump-Duck</h2>
 
-            <!-- Boss HUD -->
-            <div class="jd-bossbar">
-              <div class="jd-bossbar-top">
-                <span class="jd-boss-label">BOSS</span>
-                <span id="hud-phase" class="jd-phase-chip">PHASE 1</span>
-              </div>
-              <div class="jd-bossbar-track">
-                <div id="hud-boss-fill" class="jd-bossbar-fill"></div>
-              </div>
-              <div class="jd-bossbar-bottom">
-                <span class="jd-muted">Break the boss with correct Jump/Duck streak</span>
-                <span id="hud-boss-hp" class="jd-boss-hp">HP 0/0</span>
-              </div>
-            </div>
-
-            <!-- Progress bar (time) -->
-            <div class="jd-prog">
-              <div class="jd-prog-track"><div id="hud-prog-fill" class="jd-prog-fill"></div></div>
-              <div class="jd-prog-meta">
-                <span id="hud-prog-text" class="jd-prog-text">0%</span>
-                <span id="hud-time" class="jd-prog-time">60.0s</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- HUD -->
+          <!-- HUD TOP -->
           <div class="jd-hud">
             <div class="jd-hud-col">
-              <div class="jd-hud-row"><span class="jd-tag">Mode</span><span class="jd-hud-chip"><strong id="hud-mode">Training</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Diff</span><span class="jd-hud-chip"><strong id="hud-diff">normal</strong></span></div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Mode</span>
+                <span class="jd-hud-chip"><strong id="hud-mode">Training</strong></span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Diff</span>
+                <span class="jd-hud-chip"><strong id="hud-diff">normal</strong></span>
+              </div>
             </div>
 
             <div class="jd-hud-col jd-hud-center">
-              <div class="jd-hud-row"><span class="jd-tag">Duration</span><span class="jd-hud-chip"><strong id="hud-duration">60s</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Stability</span><span class="jd-hud-chip"><strong id="hud-stability">100%</strong></span></div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Phase</span>
+                <span class="jd-hud-chip"><strong id="hud-phase">1</strong></span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Boss HP</span>
+                <span class="jd-hud-chip"><strong id="hud-boss">—</strong></span>
+              </div>
             </div>
 
             <div class="jd-hud-col jd-hud-right">
-              <div class="jd-hud-row"><span class="jd-tag">Obstacles</span><span class="jd-hud-chip"><strong id="hud-obstacles">0 / 0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Score</span><span class="jd-hud-chip"><strong id="hud-score">0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Combo</span><span class="jd-hud-chip"><strong id="hud-combo">0</strong></span></div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Time left</span>
+                <span class="jd-hud-chip"><strong id="hud-time">60.0</strong>s</span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Stability</span>
+                <span class="jd-hud-chip"><strong id="hud-stability">100%</strong></span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Obstacles</span>
+                <span class="jd-hud-chip"><strong id="hud-obstacles">0 / 0</strong></span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Score</span>
+                <span class="jd-hud-chip"><strong id="hud-score">0</strong></span>
+              </div>
+              <div class="jd-hud-row">
+                <span class="jd-tag">Combo</span>
+                <span class="jd-hud-chip"><strong id="hud-combo">0</strong></span>
+              </div>
             </div>
           </div>
 
-          <!-- Play area -->
+          <!-- PROGRESS + FEVER -->
+          <div class="jd-bars">
+            <div class="jd-bar">
+              <div class="jd-bar-top">
+                <span class="jd-bar-label">Progress</span>
+                <span class="jd-bar-value" id="hud-prog-text">0%</span>
+              </div>
+              <div class="jd-bar-track"><div class="jd-bar-fill" id="hud-prog-fill"></div></div>
+            </div>
+
+            <div class="jd-bar">
+              <div class="jd-bar-top">
+                <span class="jd-bar-label">Fever</span>
+                <span class="jd-bar-value" id="hud-fever-status">Ready</span>
+              </div>
+              <div class="jd-bar-track jd-bar-track-fever"><div class="jd-bar-fill" id="hud-fever-fill"></div></div>
+            </div>
+
+            <div class="jd-bar jd-hidden" id="boss-bar-wrap">
+              <div class="jd-bar-top">
+                <span class="jd-bar-label">Boss</span>
+                <span class="jd-bar-value" id="hud-boss-status">—</span>
+              </div>
+              <div class="jd-bar-track jd-bar-track-boss"><div class="jd-bar-fill" id="hud-boss-fill"></div></div>
+            </div>
+          </div>
+
+          <!-- PLAYFIELD -->
           <div id="jd-play-area" class="jd-field jd-play-area">
             <div class="jd-track"><div class="jd-ground"></div></div>
             <div class="jd-hit-line"></div>
 
-            <div id="jd-avatar" class="jd-avatar"><div class="jd-avatar-body">🧍‍♂️</div></div>
+            <div id="jd-avatar" class="jd-avatar">
+              <div class="jd-avatar-body">🧍‍♂️</div>
+            </div>
+
             <div id="jd-obstacles" class="jd-obstacles"></div>
+
+            <!-- Judge -->
             <div id="jd-judge" class="jd-judge">READY</div>
+
+            <!-- boss telegraph overlay -->
+            <div id="jd-telegraph" class="jd-telegraph jd-hidden"></div>
           </div>
 
-          <!-- Big action buttons (แก้ “กดไม่ได้” + เหมาะ mobile/cVR) -->
+          <!-- ACTIONBAR (Mobile/cVR friendly) -->
           <div class="jd-actionbar">
-            <button class="jd-act jd-act-jump" data-action="jump">⬆ JUMP</button>
-            <button class="jd-act jd-act-duck" data-action="duck">⬇ DUCK</button>
+            <button class="jd-action jd-action-jump" data-action="jump">⬆ JUMP</button>
+            <button class="jd-action jd-action-duck" data-action="duck">⬇ DUCK</button>
           </div>
+
+          <p class="jd-howto-inline">
+            แตะครึ่งบน=Jump · แตะครึ่งล่าง=Duck · ⬆/⬇ หรือ W/S · Gamepad ↑/↓ · VR: hha:shoot
+          </p>
 
           <div class="jd-btn-row">
             <button class="jd-btn jd-btn-primary" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
@@ -197,14 +254,14 @@
           </div>
 
           <p class="jd-note">
-            *ถ้าใส่ <code>?log=</code> ระบบจะส่ง events+summary ไปยัง HeroHealth Cloud Logger (Apps Script Web App)
+            โหมดวิจัย: แนะนำส่ง log ผ่าน <code>?log=WEB_APP_URL</code> เพื่อเก็บ sessions/events
           </p>
 
           <div class="jd-btn-row">
             <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
           </div>
           <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู</button>
+            <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
             <a id="jd-back-hub-result" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
           </div>
         </div>
@@ -218,6 +275,8 @@
   <audio id="jd-sfx-miss"  src="audio/jd-miss.mp3"  preload="auto"></audio>
   <audio id="jd-sfx-combo" src="audio/jd-combo.mp3" preload="auto"></audio>
   <audio id="jd-sfx-beep"  src="audio/jd-beep.mp3"  preload="auto"></audio>
+  <audio id="jd-sfx-fever" src="audio/jd-fever.mp3" preload="auto"></audio>
+  <audio id="jd-sfx-boss"  src="audio/jd-boss.mp3"  preload="auto"></audio>
 
   <script src="js/jump-duck.js"></script>
 </body>
