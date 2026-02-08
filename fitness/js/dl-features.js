@@ -1,43 +1,57 @@
 // === /fitness/js/dl-features.js ===
-// DL-lite features bridge (safe for Research; AI only in Play when ?ai=1)
-// ✅ FIX: ai-predictor.js is Classic (no exports) => import side-effect then read window.RB_AI
-// Export helpers used by engine.
+// Shadow Breaker — DLFeatures (lightweight feature logger)
+// ✅ No dependency on RB_AI (แก้ error import RB_AI)
+// ✅ Used by engine.js for accuracy + shot/hit counters
 
 'use strict';
 
-// Load predictor as side-effect module (it sets window.RB_AI)
-async function loadPredictor(){
-  try{
-    await import('./ai-predictor.js'); // classic IIFE runs, sets window.RB_AI
-  }catch(e){
-    // ignore; engine must not crash if AI missing
-    console.warn('[dl-features] ai-predictor load failed', e);
+export class DLFeatures {
+  constructor(){
+    this.reset();
   }
-  return (typeof window !== 'undefined') ? (window.RB_AI || null) : null;
+
+  reset(){
+    this._shots = 0;
+    this._hits = 0;
+    this._lastHitMs = 0;
+    this._streak = 0;
+    this._missBurst = 0;
+  }
+
+  onShot(){
+    this._shots++;
+  }
+
+  onHit(tMs){
+    this._hits++;
+    this._streak++;
+    this._missBurst = Math.max(0, this._missBurst - 1);
+    if (typeof tMs === 'number') this._lastHitMs = tMs;
+  }
+
+  onMiss(){
+    this._streak = 0;
+    this._missBurst = Math.min(10, this._missBurst + 1);
+  }
+
+  getTotalShots(){ return this._shots; }
+  getHits(){ return this._hits; }
+  getStreak(){ return this._streak; }
+  getMissBurst(){ return this._missBurst; }
+
+  snapshot(){
+    const shots = this._shots;
+    const hits = this._hits;
+    const acc = shots > 0 ? hits / shots : 0;
+    return {
+      shots,
+      hits,
+      acc,
+      streak: this._streak,
+      missBurst: this._missBurst,
+      lastHitMs: this._lastHitMs
+    };
+  }
 }
 
-let _AI_PROMISE = null;
-export function getAI(){
-  if(!_AI_PROMISE) _AI_PROMISE = loadPredictor();
-  return _AI_PROMISE;
-}
-
-export async function isAssistEnabled(){
-  const ai = await getAI();
-  try{ return !!ai?.isAssistEnabled?.(); }catch{ return false; }
-}
-
-export async function predict(snapshot){
-  const ai = await getAI();
-  try{ return ai?.predict?.(snapshot || {}) || null; }catch{ return null; }
-}
-
-export async function getMode(){
-  const ai = await getAI();
-  try{ return ai?.getMode?.() || 'normal'; }catch{ return 'normal'; }
-}
-
-export async function isLocked(){
-  const ai = await getAI();
-  try{ return !!ai?.isLocked?.(); }catch{ return false; }
-}
+export default DLFeatures;
