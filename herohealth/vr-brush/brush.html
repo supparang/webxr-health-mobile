@@ -1,10 +1,17 @@
+<!-- === /herohealth/vr-brush/brush.html ===
+BrushVR RUN — PRODUCTION (HHA Standard)
+✅ Uses: ./brush.css
+✅ Engine: ./brush.safe.js
+✅ Boot: ./brush.boot.js
+✅ Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR</title>
-  <meta name="color-scheme" content="dark"/>
+  <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
   <link rel="stylesheet" href="./brush.css"/>
 
@@ -19,6 +26,23 @@
       <div class="tapTitle">Tap to Start</div>
       <div class="tapSub">แตะเพื่อเริ่มเกม (มือถือ/คาร์ดบอร์ด)</div>
       <button class="tapBtn" id="tapBtn">START</button>
+    </div>
+  </div>
+
+  <!-- Quick tutorial overlay (10s, dismiss on tap) -->
+  <div id="howto" style="position:fixed;inset:0;z-index:61;display:none;place-items:center;background:rgba(2,6,23,.62);backdrop-filter:blur(10px);">
+    <div style="width:min(720px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:16px 14px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
+      <div style="font-weight:950;font-size:16px;">วิธีได้คะแนน (เด็ก ป.5 เข้าใจทันที)</div>
+      <div style="margin-top:8px;color:rgba(229,231,235,.90);font-size:13px;line-height:1.6;">
+        • <b>PERFECT</b> = ตีให้ “ตรงจังหวะ” ได้แต้ม+คอมโบเยอะสุด<br/>
+        • <b>GOOD</b> = เร็ว/ช้าไปนิด แต้มลดลง<br/>
+        • <b>MISS</b> = คอมโบร่วง + บอสโกรธ (ANGRY) เกมจะโหดขึ้น<br/>
+        • <b>Q1–Q4 (Quadrant)</b> = 4 โซน ต้องปัดให้ครบ <b>≥ 80%</b> ถึงผ่านโซน<br/>
+        • <b>UV</b> = เปิดแล้วถึงจะเห็น/ตี “คราบล่องหน” ได้ (ได้แต้มแรง)<br/>
+        • <b>LASER</b> = ช่วงนี้ <b>ห้ามตี</b> • <b>SHOCKWAVE</b> = ตีเฉพาะตอนขึ้น “ตีเลย!”<br/>
+        • <b>BANK</b> = ใช้คอมโบแลก UV/Shield
+      </div>
+      <div style="margin-top:12px;color:rgba(148,163,184,1);font-size:12px;">แตะที่ไหนก็ได้เพื่อปิด</div>
     </div>
   </div>
 
