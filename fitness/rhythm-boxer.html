@@ -39,7 +39,9 @@
           </label>
         </div>
 
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
+        <p id="rb-mode-desc" class="rb-mode-desc">
+          Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+        </p>
 
         <div id="rb-research-fields" class="rb-section hidden">
           <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
@@ -59,13 +61,16 @@
 
           <p class="rb-hint-inline">
             Research จะบันทึก Event CSV + Session CSV (offset, side, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
+            <br/>* AI แสดง prediction ได้ แต่ “ล็อก” ไม่ให้ปรับเกม (งานวิจัย 100%)
           </p>
         </div>
       </div>
 
       <div class="rb-research-box">
         <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">
+          โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
+        </p>
 
         <div id="rb-track-options" class="rb-section">
           <label class="rb-mode-btn" data-mode="normal">
@@ -90,7 +95,7 @@
         <div class="rb-hint-block">
           <p class="rb-hint-title">วิธีเล่น</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้ “หัวโน้ต” ลงมาชนเส้นทองด้านล่างพอดี</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
             <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
           </ul>
@@ -118,18 +123,24 @@
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
       </div>
+
       <div class="rb-hud-row">
         <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
         <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
         <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai rb-chip-tip"><span class="rb-chip-tip-label">Coach:</span> <b id="rb-hud-ai-tip" class="hidden"></b></span>
+        <span class="rb-chip rb-chip-ai rb-chip-tip">
+          <span class="rb-chip-tip-label">Coach:</span>
+          <b id="rb-hud-ai-tip" class="hidden"></b>
+        </span>
       </div>
 
       <div class="rb-hud-row">
@@ -137,6 +148,7 @@
         <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
         <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-judge-row">
         <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
         <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
@@ -161,6 +173,8 @@
     <section class="rb-field-wrap">
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+
+        <!-- lanes (5-lane) -->
         <div class="rb-lanes" id="rb-lanes">
           <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
           <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
@@ -168,8 +182,14 @@
           <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
+
+        <!-- hit line overlay (CSS draws it; this is optional helper) -->
+        <div class="rb-hitline" aria-hidden="true"></div>
       </div>
-      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
+
+      <p class="rb-howto-inline">
+        แตะเลนให้โน้ต “ลงมาถึงเส้นทองด้านล่าง” แล้วตี · ใช้ได้ทั้งจอสัมผัสและเมาส์
+      </p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
@@ -225,6 +245,7 @@
   </main>
 </div>
 
+<!-- classic scripts (NO export) -->
 <script src="js/ai-predictor.js"></script>
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
