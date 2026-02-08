@@ -1,153 +1,164 @@
-<!-- === /herohealth/rhythm-boxer-vr.html ===
-Rhythm Boxer ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
-✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
-✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
-✅ Always redirects to ../fitness/rhythm-boxer.html with ctx/query passthrough
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Rhythm Boxer</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — Rhythm Boxer (Launcher)</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22d3ee;
-      --radius:22px;
-      --pill:999px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22d3ee;
+      --radius:18px;
     }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
-      min-height:100vh;
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,211,238,.14), transparent 55%),
-                  radial-gradient(900px 650px at 15% 20%, rgba(34,197,94,.08), transparent 50%),
-                  radial-gradient(900px 650px at 85% 25%, rgba(167,139,250,.10), transparent 55%),
-                  var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      background:
+        radial-gradient(900px 520px at 20% 20%, rgba(34,211,238,.16), transparent 55%),
+        radial-gradient(1000px 650px at 80% 30%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg, #020617, #0b1226);
+      padding: 18px;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
     }
-    .card{ width:min(560px, 92vw); background:var(--panel); border:1px solid var(--stroke);
-      border-radius:var(--radius); box-shadow: 0 18px 60px rgba(0,0,0,.35); padding:18px; }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .title{ font-size:20px; font-weight:900; letter-spacing:.2px; margin:2px 0 6px; }
-    .sub{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.35; }
-    .pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--pill);
-      border:1px solid var(--stroke); background: rgba(2,6,23,.55); color:var(--text);
-      font-size:12px; font-weight:800; user-select:none; white-space:nowrap; }
-    .grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:10px; }
-    .kv{ border:1px solid var(--stroke); background: rgba(2,6,23,.35); border-radius: 16px; padding:10px 12px; min-height:52px; }
-    .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
-    .v{ font-size:13px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .btn{ margin-top:14px; width:100%; padding:12px 14px; border-radius:16px;
-      border:1px solid rgba(34,211,238,.40); background: rgba(34,211,238,.16);
-      color:var(--text); font-weight:900; font-size:14px; }
-    .btn:active{ transform: translateY(1px); }
-    .hint{ margin-top:10px; color:var(--muted); font-size:12px; line-height:1.35; }
-    @media (max-width:520px){ .grid{ grid-template-columns: 1fr; } }
+    .card{
+      width:min(680px, 92vw);
+      background: rgba(2,6,23,.72);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+    }
+    .row{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .title{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .sub{ margin:6px 0 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .pillrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .pill{
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+    }
+    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      user-select:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .btn.primary{
+      border-color: rgba(34,211,238,.35);
+      background: rgba(34,211,238,.12);
+    }
+    .muted{ color: var(--muted); font-size:12px; margin-top:10px; }
+    code{ color:#a5f3fc; }
   </style>
 </head>
+
 <body>
-  <main class="card" role="main" aria-label="Rhythm Boxer Launcher">
+  <div class="card">
     <div class="row">
       <div>
-        <div class="title">🎵 Rhythm Boxer</div>
-        <p class="sub">กำลังเข้าสู่เกม… ระบบจะส่งต่อค่าทดลอง (run/diff/time/seed/studyId/phase/conditionGroup/log/hub) ให้อัตโนมัติ</p>
+        <h1 class="title">🎵 Rhythm Boxer — Launcher</h1>
+        <p class="sub">กำลังพาเข้าเกม… (ส่งต่อพารามิเตอร์เดิมครบ และตั้ง <code>hub=</code> ให้กลับ Hub ได้เสมอ)</p>
       </div>
-      <span class="pill" id="statusPill">LOADING</span>
+      <div class="pill" id="viewPill">view: —</div>
     </div>
 
-    <section class="grid" aria-label="Context preview">
-      <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
-      <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
-      <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
-      <div class="kv"><div class="k">seed</div><div class="v" id="pv-seed">—</div></div>
-      <div class="kv"><div class="k">studyId</div><div class="v" id="pv-studyId">—</div></div>
-      <div class="kv"><div class="k">phase</div><div class="v" id="pv-phase">—</div></div>
-      <div class="kv"><div class="k">conditionGroup</div><div class="v" id="pv-cond">—</div></div>
-      <div class="kv"><div class="k">log</div><div class="v" id="pv-log">—</div></div>
-      <div class="kv"><div class="k">hub</div><div class="v" id="pv-hub">—</div></div>
-    </section>
+    <div class="pillrow" id="pillrow"></div>
 
-    <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
-    <div class="hint">หน้า RUN จะจัดการการเล่น (PC/Mobile/VR/cVR) ตามระบบเกม</div>
-  </main>
+    <div class="btnrow">
+      <div class="btn primary" id="btnGo">▶️ Tap-to-Start</div>
+      <div class="btn" id="btnCopy">🔗 คัดลอกลิงก์ปลายทาง</div>
+      <div class="btn" id="btnBack">🏫 กลับ Hub</div>
+    </div>
 
-  <script src="./vr/hha-ctx.js"></script>
-  <script src="./vr/hha-launch.js"></script>
+    <div class="muted" id="hint">ถ้าไม่เด้งอัตโนมัติ ให้กด <b>Tap-to-Start</b></div>
+  </div>
 
-  <script>
-  (function(){
-    'use strict';
-    const qs=(k,def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
-    const $=(id)=>document.getElementById(id);
-    const pill=$('statusPill');
+<script>
+(function(){
+  'use strict';
 
-    function readCtxSafe(){
-      try{ if(window.HHA_CTX && typeof HHA_CTX.readCtx==='function') return HHA_CTX.readCtx()||null; }catch(_){}
-      return null;
+  const TARGET = '../fitness/rhythm-boxer.html';
+  const $ = (s)=>document.querySelector(s);
+
+  function hubUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try { return new URL(hubUrl()).searchParams; } catch { return new URLSearchParams(); } }
+
+  function detectView(){
+    const q = parseQS();
+    const v = (q.get('view') || '').toLowerCase();
+    if (v) return v;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
+    return isMobile ? 'mobile' : 'pc';
+  }
+
+  function buildTargetUrl(){
+    const base = new URL(TARGET, location.href);
+    const cur = parseQS();
+    for (const [k,v] of cur.entries()){
+      if (k === 'hub') continue;
+      base.searchParams.set(k, v);
     }
-    function mergeCtxWithQuery(ctx){
-      const out=Object.assign({},ctx||{});
-      out.run=out.run ?? qs('run','play');
-      out.diff=out.diff ?? qs('diff','normal');
-      out.time=out.time ?? qs('time','80');
-      out.seed=out.seed ?? qs('seed',null);
-      out.studyId=out.studyId ?? (qs('studyId',qs('study',null)));
-      out.phase=out.phase ?? qs('phase',null);
-      out.conditionGroup=out.conditionGroup ?? (qs('conditionGroup',qs('cond',null)));
-      out.log=out.log ?? qs('log',null);
-      out.hub=out.hub ?? qs('hub',null);
-      return out;
+    if (!cur.has('view') || String(cur.get('view')||'').trim() === ''){
+      base.searchParams.set('view', detectView());
     }
-    function preview(ctx){
-      const set=(id,v)=>{ const el=$(id); if(el) el.textContent=(v==null||v==='')?'—':String(v); };
-      set('pv-run',ctx.run); set('pv-diff',ctx.diff); set('pv-time',ctx.time);
-      set('pv-seed',ctx.seed); set('pv-studyId',ctx.studyId); set('pv-phase',ctx.phase);
-      set('pv-cond',ctx.conditionGroup); set('pv-log',ctx.log?'ON':'—'); set('pv-hub',ctx.hub?'SET':'—');
+    base.searchParams.set('hub', hubUrl());
+    return base.toString();
+  }
+
+  function renderPills(url){
+    const u = new URL(url);
+    const keep = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
+    const pills = [];
+    keep.forEach(k=>{
+      const v = u.searchParams.get(k);
+      if (v && String(v).trim() !== '') pills.push(`${k}: ${v}`);
+    });
+    $('#viewPill').textContent = 'view: ' + (u.searchParams.get('view') || detectView() || '—');
+    $('#pillrow').innerHTML = pills.length
+      ? pills.slice(0,14).map(t=>`<span class="pill">${t.replace(/</g,'&lt;')}</span>`).join('')
+      : `<span class="pill">params: none</span>`;
+  }
+
+  const finalUrl = buildTargetUrl();
+  renderPills(finalUrl);
+
+  $('#btnGo').addEventListener('click', ()=> location.href = finalUrl);
+  $('#btnCopy').addEventListener('click', async ()=>{
+    try { await navigator.clipboard.writeText(finalUrl); $('#hint').textContent = 'คัดลอกลิงก์ปลายทางแล้ว ✅'; }
+    catch { $('#hint').textContent = 'คัดลอกไม่สำเร็จ ❌'; }
+  });
+  $('#btnBack').addEventListener('click', ()=>{
+    const back = new URL('./hub.html', location.href);
+    const cur = parseQS();
+    for (const [k,v] of cur.entries()){
+      if (k === 'hub') continue;
+      back.searchParams.set(k, v);
     }
-    function buildRunUrl(ctx){
-      const u=new URL('../fitness/rhythm-boxer.html',location.href);
-      if(ctx.run) u.searchParams.set('run',ctx.run);
-      if(ctx.diff) u.searchParams.set('diff',ctx.diff);
-      if(ctx.time) u.searchParams.set('time',ctx.time);
-      if(ctx.seed) u.searchParams.set('seed',ctx.seed);
-      if(ctx.studyId) u.searchParams.set('studyId',ctx.studyId);
-      if(ctx.phase) u.searchParams.set('phase',ctx.phase);
-      if(ctx.conditionGroup) u.searchParams.set('conditionGroup',ctx.conditionGroup);
-      if(ctx.log) u.searchParams.set('log',ctx.log);
-      if(ctx.hub) u.searchParams.set('hub',ctx.hub);
-      return u.toString();
-    }
-    function go(){
-      const ctx=mergeCtxWithQuery(readCtxSafe());
-      preview(ctx);
-      const runUrl=buildRunUrl(ctx);
-      try{
-        if(window.HHA_LAUNCH && typeof HHA_LAUNCH.go==='function'){
-          pill.textContent='LAUNCH'; HHA_LAUNCH.go(runUrl); return;
-        }
-      }catch(_){}
-      pill.textContent='REDIRECT';
-      location.replace(runUrl);
-    }
-    const btn=$('btnGo'); if(btn) btn.addEventListener('click',go,{passive:true});
-    pill.textContent='READY';
-    setTimeout(go,60);
-  })();
-  </script>
+    location.href = back.toString();
+  });
+
+  setTimeout(()=> { try { location.replace(finalUrl); } catch { location.href = finalUrl; } }, 120);
+
+})();
+</script>
 </body>
 </html>
