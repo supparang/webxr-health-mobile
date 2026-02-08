@@ -1,44 +1,138 @@
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// PRODUCTION (PATCH)
+// ✅ FX position anchored to lane hitline (gold line near bottom)
+// ✅ Works on PC/Mobile/cVR (pointerdown)
+// ✅ Spawns hit particles + score text + feedback + flash
+
 'use strict';
 
 (function(){
-  const DOC = document;
-
-  class DomRendererRhythm{
-    constructor(opts={}){
-      this.field = opts.field || null;
-      this.lanesEl = opts.lanesEl || null;
+  class RbDomRenderer{
+    constructor(host, opts = {}){
+      this.host = host;
+      this.wrapEl = opts.wrapEl || document.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
-
-      this._fbT = 0;
-      this._flashT = 0;
+      this._flashT = null;
     }
 
-    _flash(){
+    _laneEl(lane){
+      return document.querySelector(`.rb-lane[data-lane="${lane}"]`);
+    }
+
+    _readCssVarPx(el, name, fallbackPx){
+      try{
+        const v = getComputedStyle(el).getPropertyValue(name);
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : fallbackPx;
+      }catch(_){
+        return fallbackPx;
+      }
+    }
+
+    _screenPosFromLane(lane){
+      const laneEl = this._laneEl(lane);
+      if(!laneEl){
+        const r = this.wrapEl.getBoundingClientRect();
+        return { x: r.left + r.width/2, y: r.top + r.height*0.72 };
+      }
+
+      const rect = laneEl.getBoundingClientRect();
+      const x = rect.left + rect.width/2;
+
+      // ✅ Hit line = lane bottom - --rb-hitline-bottom - safe-area-bottom
+      const hitlineBottom = this._readCssVarPx(document.documentElement, '--rb-hitline-bottom', 72);
+      // safe-area-bottom isn't directly numeric in CSS on some browsers; approximate via env is hard.
+      // We'll keep it simple: use lane rect bottom - hitlineBottom - small extra (label spacing).
+      const y = rect.bottom - hitlineBottom - 1;
+
+      return { x, y };
+    }
+
+    _flash(kind){
       if(!this.flashEl) return;
-      this.flashEl.classList.add('on');
+      this.flashEl.classList.add('active');
       clearTimeout(this._flashT);
-      this._flashT = setTimeout(()=>this.flashEl.classList.remove('on'), 140);
+      this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
     }
 
-    _feedback(text){
+    _feedback(text, cls){
       if(!this.feedbackEl) return;
       this.feedbackEl.textContent = text;
-      clearTimeout(this._fbT);
-      this._fbT = setTimeout(()=>{ this.feedbackEl.textContent = ''; }, 650);
+      this.feedbackEl.classList.remove('perfect','great','good','miss');
+      if(cls) this.feedbackEl.classList.add(cls);
     }
 
-    showHitFx({lane, judgment}){
-      this._flash();
-      if(judgment === 'perfect') this._feedback('PERFECT!');
-      else if(judgment === 'great') this._feedback('GREAT!');
-      else this._feedback('GOOD!');
+    showHitFx({ lane, judgment, scoreDelta }){
+      const p = this._screenPosFromLane(lane);
+      this.spawnHitParticle(p.x, p.y, judgment);
+      this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
+      this._feedback((judgment||'hit').toUpperCase(), judgment||'good');
     }
 
-    showMissFx({lane}){
-      this._feedback('MISS');
+    showMissFx({ lane }){
+      const p = this._screenPosFromLane(lane);
+      this.spawnMissParticle(p.x, p.y);
+      this._flash('miss');
+      this._feedback('MISS', 'miss');
+    }
+
+    spawnScoreText(x, y, scoreDelta, judgment){
+      if(!Number.isFinite(scoreDelta)) return;
+      const el = document.createElement('div');
+      el.className = `rb-score-fx rb-score-${judgment||'good'}`;
+      el.textContent = `${scoreDelta>0?'+':''}${scoreDelta}`;
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+      document.body.appendChild(el);
+      void el.offsetWidth;
+      el.classList.add('is-live');
+      setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 420);
+    }
+
+    spawnHitParticle(x, y, judgment){
+      const n = 12;
+      for(let i=0;i<n;i++){
+        const el = document.createElement('div');
+        el.className = `rb-frag rb-frag-${judgment||'good'}`;
+
+        const size = 6 + Math.random()*7;
+        const ang = (i/n) * Math.PI*2 + (Math.random()*0.2);
+        const dist = 26 + Math.random()*38;
+        const dx = Math.cos(ang)*dist;
+        const dy = Math.sin(ang)*dist;
+
+        const life = 420 + Math.random()*200;
+
+        el.style.width = size+'px';
+        el.style.height = size+'px';
+        el.style.left = x+'px';
+        el.style.top  = y+'px';
+        el.style.setProperty('--dx', dx+'px');
+        el.style.setProperty('--dy', dy+'px');
+        el.style.setProperty('--life', life+'ms');
+
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(), life);
+      }
+    }
+
+    spawnMissParticle(x, y){
+      const el = document.createElement('div');
+      el.className = 'rb-frag rb-frag-miss';
+      const size = 14;
+      const life = 460;
+      el.style.width = size+'px';
+      el.style.height = size+'px';
+      el.style.left = x+'px';
+      el.style.top  = y+'px';
+      el.style.setProperty('--dx', '0px');
+      el.style.setProperty('--dy', '28px');
+      el.style.setProperty('--life', life+'ms');
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), life);
     }
   }
 
-  window.DomRendererRhythm = DomRendererRhythm;
+  window.RbDomRenderer = RbDomRenderer;
 })();
