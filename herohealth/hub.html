@@ -308,10 +308,10 @@
     {
       id: 'fitness', icon:'🏃', name:'ออกกำลังกาย', color:'violet',
       games: [
-        { title:'Shadow Breaker', icon:'🥊', desc:'ต่อยตามแพทเทิร์น + คอมโบ + บอส', href:'../fitness/shadow-breaker.html', tags:['Boss','Reflex','VR Ready'] },
-        { title:'Jump-Duck', icon:'🦘', desc:'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส', href:'../fitness/jump-duck.html', tags:['Boss 3 Phases','Agility','Fast'] },
-        { title:'Rhythm Boxer', icon:'🎵', desc:'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม', href:'../fitness/rhythm-boxer.html', tags:['Rhythm','Timing','cVR'] },
-        { title:'Balance Hold', icon:'🧘', desc:'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด', href:'../fitness/balance-hold.html', tags:['Balance','Stability','Endurance'] },
+        { title:'Shadow Breaker', icon:'🥊', desc:'ต่อยตามแพทเทิร์น + คอมโบ + บอส', href:'./shadow-breaker-vr.html', tags:['Launcher@root','Boss','VR Ready'] },
+        { title:'Jump-Duck', icon:'🦘', desc:'กระโดด/ก้มหลบอุปสรรค + บอส 3 เฟส', href:'./jump-duck-vr.html', tags:['Launcher@root','Boss 3 Phases','Agility','Fast'] },
+        { title:'Rhythm Boxer', icon:'🎵', desc:'ชกตามจังหวะ (lane-based) เล่นได้ทุกแพลตฟอร์ม', href:'./rhythm-boxer-vr.html', tags:['Launcher@root','Rhythm','Timing','cVR'] },
+        { title:'Balance Hold', icon:'🧘', desc:'ทรงตัวค้างท่า + วัดความนิ่ง + ความอึด', href:'./balance-hold-vr.html', tags:['Launcher@root','Balance','Stability','Endurance'] },
       ]
     }
   ];
@@ -395,8 +395,6 @@
 
   // ========= PID generator =========
   function makePid(){
-    // short, readable, unique-enough (no deps)
-    // example: P-8K2FQ-7D
     const a = Math.random().toString(36).slice(2,7).toUpperCase();
     const b = Math.random().toString(36).slice(2,4).toUpperCase();
     return `P-${a}-${b}`;
