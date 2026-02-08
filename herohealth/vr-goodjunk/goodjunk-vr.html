@@ -6,6 +6,10 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
 ✅ Optional: ai-hooks.js (Pack 1–4)
 ✅ Optional: hha-cloud-logger.js (flush-hardened)
 ✅ NO MENU / NO view override (boot ignores ?view)
+
+✅ ADD: Warmup (20s) gate before enter, Cooldown (20s) gate before Hub
+   - gate=1 (default) => warmup -> back here -> game starts
+   - gate=0 => skip gates
 -->
 <!doctype html>
 <html lang="th">
@@ -107,9 +111,7 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
   <!-- ===== PLAYFIELD (fixed full) ===== -->
   <div class="gj-field" id="playfield" aria-hidden="true"></div>
 
-  <!-- ===== TARGET LAYERS =====
-   left layer always exists, right layer for cVR split
-  -->
+  <!-- ===== TARGET LAYERS ===== -->
   <div class="gj-layer" id="gj-layer" aria-label="Play layer left"></div>
   <div class="gj-layer gj-layer-r" id="gj-layer-r" aria-label="Play layer right" aria-hidden="true"></div>
 
@@ -128,7 +130,7 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
       <div class="meter-tip" id="feverTip">เก็บของดีให้ต่อเนื่องเพื่อคอมโบ / ระวังของเสีย!</div>
     </div>
 
-    <!-- How-to (auto hidden on small screens by CSS; can force show via body.show-howto) -->
+    <!-- How-to -->
     <div class="meter" id="howtoBox" aria-label="How to play">
       <div class="meter-title">วิธีเล่น</div>
       <div class="meter-tip">
@@ -217,7 +219,6 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
   <script src="../vr/ai-hooks.js"></script>
 
   <!-- OPTIONAL: Cloud Logger (flush-hardened) -->
-  <!-- ถ้าคุณไม่ใช้ ให้คอมเมนต์บรรทัดนี้ได้ -->
   <script src="../vr/hha-cloud-logger.js"></script>
 
   <!-- ======================================================
@@ -226,7 +227,7 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
   <!-- ======================================================
-       UI wiring (pure DOM; does not override boot)
+       UI wiring + Warmup/Cooldown Gate Router (NO boot override)
        ====================================================== -->
   <script>
   (function(){
@@ -240,7 +241,97 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
 
     const $ = (id)=>DOC.getElementById(id);
 
+    // ---------------------------
+    // Gate Router (20s) — Boss Theme uses your warmup-gate.html
+    // ---------------------------
+    const GATE_PATH = '/herohealth/warmup-gate.html';
+
+    function getSearchParams(){
+      try{ return new URL(location.href).searchParams; }
+      catch{ return new URLSearchParams(); }
+    }
+    const QS = getSearchParams();
+
+    function passthrough(){
+      const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
+      const out = {};
+      QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+      return out;
+    }
+
+    function buildUrl(base, add){
+      try{
+        const u = new URL(base, location.href);
+        Object.entries(add||{}).forEach(([k,v])=>{
+          if(v===undefined || v===null || v==='') return;
+          u.searchParams.set(k, String(v));
+        });
+        return u.toString();
+      }catch(_){
+        const join = base.includes('?') ? '&' : '?';
+        const qss = Object.entries(add||{})
+          .filter(([,v])=>!(v===undefined||v===null||v===''))
+          .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
+        return qss ? (base + join + qss) : base;
+      }
+    }
+
+    function currentUrlWith(add){
+      const u = buildUrl(location.href, add || {});
+      return u;
+    }
+
+    function goWarmupThenBack(){
+      // prevent loop: mark that we came back from gate
+      const backHere = currentUrlWith({ gate: 0 });
+
+      const url = buildUrl(GATE_PATH, {
+        ...passthrough(),
+        phase: 'warmup',
+        dur: 20,
+        hub: qs('hub','/herohealth/hub.html'),
+        next: backHere,
+        autonext: 1
+      });
+
+      location.replace(url);
+    }
+
+    function goCooldownThenHub(){
+      const hub = qs('hub','/herohealth/hub.html');
+
+      const url = buildUrl(GATE_PATH, {
+        ...passthrough(),
+        phase: 'cooldown',
+        cdur: 20,
+        hub,
+        next: hub,
+        autonext: 0
+      });
+
+      location.href = url;
+    }
+
+    // expose
+    WIN.HHA = WIN.HHA || {};
+    WIN.HHA.goCooldownThenHub = goCooldownThenHub;
+
+    // auto warmup on first enter (default gate=1)
+    const gateFlag = String(qs('gate','1'));
+    if(gateFlag !== '0'){
+      // avoid running gate inside iframes etc.
+      try{
+        // only redirect if not already in gate url
+        if(!String(location.pathname || '').includes('warmup-gate')){
+          goWarmupThenBack();
+          return; // stop normal init, page will reload after gate
+        }
+      }catch(_){}
+    }
+
+    // ---------------------------
     // chips
+    // ---------------------------
     function setChips(){
       const run = String(qs('run','play')).toUpperCase();
       const diff = String(qs('diff','normal')).toUpperCase();
@@ -272,23 +363,19 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
 
     function openPeek(){
       DOC.body.classList.add('show-missions');
-      // fill from current HUD text
       const g = $('hud-goal')?.textContent || '—';
       const gd = $('goalDesc')?.textContent || '—';
       const mini = $('hud-mini')?.textContent || '—';
       if(peekGoal) peekGoal.textContent = `GOAL: ${g} — ${gd}`;
       if(peekMini) peekMini.textContent = `MINI: ${mini}`;
     }
-    function closePeek(){
-      DOC.body.classList.remove('show-missions');
-    }
+    function closePeek(){ DOC.body.classList.remove('show-missions'); }
 
     if(btnMissions) btnMissions.addEventListener('click', openPeek, { passive:true });
     if(btnClosePeek) btnClosePeek.addEventListener('click', closePeek, { passive:true });
 
     if(peek){
       peek.addEventListener('click', (e)=>{
-        // click backdrop closes
         if(e.target === peek) closePeek();
       }, { passive:true });
     }
@@ -303,7 +390,6 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
     function restart(){
       try{
         const u = new URL(location.href);
-        // keep everything; reload
         location.replace(u.toString());
       }catch{
         location.reload();
@@ -314,20 +400,11 @@ GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
     if(btnRestart) btnRestart.addEventListener('click', restart, { passive:true });
     if(btnEndRestart) btnEndRestart.addEventListener('click', restart, { passive:true });
 
-    // Back HUB
-    function backHub(){
-      const hub = qs('hub', null);
-      if(hub){
-        location.href = hub;
-        return;
-      }
-      // fallback: go up to herohealth hub if exists
-      location.href = '../hub.html';
-    }
+    // Back HUB => COOLDOWN first
     const btnBackHub = $('btnBackHub');
     const btnEndBackHub = $('btnEndBackHub');
-    if(btnBackHub) btnBackHub.addEventListener('click', backHub, { passive:true });
-    if(btnEndBackHub) btnEndBackHub.addEventListener('click', backHub, { passive:true });
+    if(btnBackHub) btnBackHub.addEventListener('click', (e)=>{ e.preventDefault(); goCooldownThenHub(); });
+    if(btnEndBackHub) btnEndBackHub.addEventListener('click', (e)=>{ e.preventDefault(); goCooldownThenHub(); });
 
     // End overlay from safe.js summary (v4.3-std emits hha:end)
     const endOverlay = $('endOverlay');
