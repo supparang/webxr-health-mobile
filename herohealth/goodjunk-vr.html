@@ -3,6 +3,7 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
 ✅ Reads ctx from ./vr/hha-ctx.js (HHA_CTX.readCtx)
 ✅ Uses ./vr/hha-launch.js (HHA_LAUNCH.go) if available
 ✅ Always redirects to ./vr-goodjunk/goodjunk-vr.html with ctx/query passthrough
+✅ STRICT: Requires Health Quest warm-up completion before entering main game
 ✅ Path: /herohealth/goodjunk-vr.html -> /herohealth/vr-goodjunk/goodjunk-vr.html
 -->
 <!doctype html>
@@ -140,6 +141,9 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
     <div class="hint">ถ้าอยู่บนมือถือและกด Enter VR ระบบในหน้า RUN จะ auto-load vr-ui.js เมื่อเครื่องรองรับ WebXR</div>
   </main>
 
+  <!-- STRICT Warm-up Gate (MUST PASS BEFORE MAIN GAME) -->
+  <script src="./hha-gate.js"></script>
+
   <!-- HHA Standard ctx + launcher -->
   <script src="./vr/hha-ctx.js"></script>
   <script src="./vr/hha-launch.js"></script>
@@ -147,6 +151,19 @@ GoodJunkVR ROOT LAUNCHER — PRODUCTION (CTX + PASS-THROUGH)
   <script>
   (function(){
     'use strict';
+
+    // ========== STRICT WARM-UP GATE (MUST PASS) ==========
+    // If warm-up is not completed, this will redirect to Health Quest immediately.
+    // mainId MUST match the id that Health Quest calls: HHA_GATE.markWarmupDone(mainId)
+    try{
+      if (window.HHA_GATE && typeof window.HHA_GATE.requireWarmup === 'function'){
+        window.HHA_GATE.requireWarmup({
+          mainId: 'goodjunk',
+          cat: 'A',
+          healthQuestHref: './health-quest.html'
+        });
+      }
+    }catch(_){}
 
     const qs = (k, def=null)=>{
       try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
