@@ -7,6 +7,9 @@
 // ✅ AI hooks compat (window.HHA.AIHooks.create OR window.HHA.createAIHooks)
 // ✅ PATCH(AI 1–4): spawn uid events + hit uid events + getDifficulty(ctx) + expireGood event
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
+// ✅ PATCH (GATE): emit hha:end on leave/pagehide/hidden to ensure cooldown gate works
+// ✅ PATCH (ACC): fix accuracy denom to avoid double counting expireGood (since miss already includes expireGood)
+
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
@@ -756,8 +759,9 @@ export function boot(opts={}){
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
 
     // --- badges on end (score_80p, perfect_run) ---
-    // accuracy = hitGood / (hitGood + hitJunk + expireGood + miss)
-    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
+    // ✅ ACC FIX: miss already includes expireGood + junk hit (no shield)
+    const totalBad = Math.max(0, (S.miss|0));
+    const denom = Math.max(1, (S.hitGood|0) + totalBad);
     const acc = (S.hitGood|0) / denom;
 
     if(acc >= 0.80){
@@ -812,6 +816,24 @@ export function boot(opts={}){
       WIN.removeEventListener('gj:shoot', onShoot);
     }catch(_){}
     emit('hha:end', summary);
+  }
+
+  // ✅ PATCH (GATE): ensure hha:end fires even if user leaves early
+  function bindEndOnLeave(){
+    let fired = false;
+    const fire = (why)=>{
+      if(fired || S.ended) return;
+      fired = true;
+      endGame(why || 'leave');
+    };
+
+    WIN.addEventListener('pagehide', ()=> fire('pagehide'), { passive:true });
+
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden') fire('hidden');
+    }, { passive:true });
+
+    WIN.addEventListener('beforeunload', ()=> fire('beforeunload'));
   }
 
   function tick(ts){
@@ -895,6 +917,7 @@ export function boot(opts={}){
 
   // start
   S.started = true;
+  bindEndOnLeave(); // ✅ PATCH: make gate reliable (cooldown always triggers)
   resetMiniWindow();
   setFever(S.fever);
   setShieldUI();
