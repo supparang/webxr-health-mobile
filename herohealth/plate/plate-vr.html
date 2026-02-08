@@ -4,6 +4,11 @@
      ✅ Boots: plate.boot.js (module)
      ✅ Includes: particles + cloud logger + vr-ui
      ✅ Adds: Miss breakdown slots (junk / expireGood) in End Overlay
+
+     ✅ ADD: Warmup/Cooldown Gate (20s, boss theme via /herohealth/warmup-gate.html)
+        - gate=1 (default) => warmup -> back here with gate=0
+        - gate=0 => skip gates
+        - Back HUB => cooldown -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -139,6 +144,95 @@
       </div>
     </div>
   </div>
+
+  <!-- ✅ Warmup/Cooldown Gate wiring (boss theme gate page) -->
+  <script>
+  (function(){
+    'use strict';
+    const DOC = document;
+
+    function getSP(){
+      try{ return new URL(location.href).searchParams; }
+      catch{ return new URLSearchParams(); }
+    }
+    const SP = getSP();
+    const qs = (k, d=null)=> (SP.get(k) ?? d);
+
+    // ---- config ----
+    const warmupSec = 20;
+    const cooldownSec = 20;
+    const GATE_PATH = '/herohealth/warmup-gate.html';
+
+    function passthrough(){
+      const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
+      const out = {};
+      SP.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+      return out;
+    }
+    function buildUrl(base, add){
+      const u = new URL(base, location.href);
+      Object.entries(add||{}).forEach(([k,v])=>{
+        if(v===undefined || v===null || v==='') return;
+        u.searchParams.set(k, String(v));
+      });
+      return u.toString();
+    }
+    function currentUrlWith(add){
+      return buildUrl(location.href, add || {});
+    }
+
+    const hub = String(qs('hub','../hub.html'));
+    const gateFlag = String(qs('gate','1'));
+
+    function goWarmupThenBack(){
+      const backHere = currentUrlWith({ gate: 0 });
+      const url = buildUrl(GATE_PATH, {
+        ...passthrough(),
+        phase: 'warmup',
+        dur: warmupSec,
+        hub: hub,
+        next: backHere,
+        autonext: 1
+      });
+      location.replace(url);
+    }
+    function goCooldownTo(dest){
+      const url = buildUrl(GATE_PATH, {
+        ...passthrough(),
+        phase: 'cooldown',
+        cdur: cooldownSec,
+        hub: hub,
+        next: dest,
+        autonext: 0
+      });
+      location.href = url;
+    }
+
+    // auto warmup on first enter (default gate=1)
+    if(gateFlag !== '0'){
+      try{
+        if(!String(location.pathname||'').includes('warmup-gate')){
+          goWarmupThenBack();
+          return;
+        }
+      }catch(_){}
+    }
+
+    // Back HUB => cooldown first
+    const btnBackHub = DOC.getElementById('btnBackHub');
+    if(btnBackHub){
+      btnBackHub.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        goCooldownTo(hub);
+      }, { passive:false });
+    }
+
+    // expose helper for engines/overlays if needed
+    window.HHA = window.HHA || {};
+    window.HHA.goCooldownTo = (dest)=>goCooldownTo(dest || hub);
+  })();
+  </script>
 
   <!-- NOTE:
     vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
