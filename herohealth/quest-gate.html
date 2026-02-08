@@ -1,579 +1,653 @@
-<!-- === /herohealth/quest-gate.html ===
-HeroHealth — Quest Gate (Daily Gate) — PRODUCTION (Kid Friendly)
-✅ Very short (20–45s) gate for Grade 5
-✅ Big progress Q1–Q3
-✅ Pass-through ctx: pid, diff, time, seed, studyId, phase, conditionGroup, log, view, hub, run
-✅ Daily key: HHA_ZONE_DONE::<zone>::YYYY-MM-DD (same as hub)
-✅ After complete => redirect to go=
-✅ Buttons: Back to Hub, Reset today (all zones)
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Quest Gate</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <title>HeroHealth — Warmup & Cooldown (20s)</title>
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
+      --panel: rgba(2,6,23,.72);
+      --stroke: rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa;
+      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b;
       --radius:22px;
-      --shadow: 0 18px 60px rgba(0,0,0,.45);
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      font-synthesis-weight: none;
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      overflow:auto;
-    }
-    a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width: 980px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+    html,body{ height:100%; margin:0; background: radial-gradient(1200px 800px at 20% 10%, #10224b 0%, transparent 55%),
+                               radial-gradient(1100px 700px at 80% 30%, #2a1646 0%, transparent 55%),
+                               linear-gradient(180deg, var(--bg2), var(--bg1));
+             color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif; }
+    a{ color:inherit; }
+
+    .wrap{ min-height:100%; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); display:flex; justify-content:center; }
     .card{
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      width:min(920px, 100%);
+      background: var(--panel);
       border:1px solid var(--stroke);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      box-shadow: 0 20px 70px rgba(0,0,0,.45);
       overflow:hidden;
     }
-    .head{
-      padding: 14px 14px 12px;
-      border-bottom:1px solid var(--stroke);
-      background: rgba(2,6,23,.38);
-      display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .title{
-      margin:0;
-      font-size: clamp(18px, 2.4vw, 26px);
-      font-weight: 900;
-      letter-spacing: .2px;
-    }
-    .sub{
-      margin:6px 0 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height:1.45;
-      max-width: 72ch;
-    }
-    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
-    .pill{
-      background: rgba(2,6,23,.50);
-      border:1px solid var(--stroke);
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      user-select:none;
-      white-space:nowrap;
-    }
-    .pill b{ color:var(--text); font-weight:900; }
-    .body{ padding: 12px 12px 14px; }
 
-    .bigProgress{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:10px;
-    }
-    @media (max-width: 720px){ .bigProgress{ grid-template-columns: 1fr; } }
+    header{ padding:18px 18px 12px; border-bottom:1px solid var(--stroke); display:flex; gap:14px; align-items:center; justify-content:space-between; }
+    .title{ display:flex; flex-direction:column; gap:4px; }
+    .title h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .title p{ margin:0; color:var(--muted); font-size:12.5px; }
 
-    .step{
+    .pill{ display:inline-flex; gap:8px; align-items:center; padding:7px 10px; border:1px solid var(--stroke);
+           border-radius: 999px; font-size:12px; color:var(--muted); background: rgba(15,23,42,.40); }
+    .pill b{ color:var(--text); font-weight:700; }
+
+    main{ padding:16px; display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; }
+    @media (max-width: 820px){ main{ grid-template-columns: 1fr; } }
+
+    .panel{
+      background: rgba(15,23,42,.55);
       border:1px solid var(--stroke);
-      background: rgba(2,6,23,.40);
       border-radius: 18px;
-      padding: 14px;
-      position:relative;
-      overflow:hidden;
-      min-height: 120px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.20);
+      padding:14px;
     }
-    .step .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size:12px;
-      font-weight:900;
-      color: var(--text);
-    }
-    .step .badge .dot{
-      width:10px; height:10px; border-radius:999px;
-      background: var(--warn);
-      box-shadow: 0 0 16px rgba(245,158,11,.30);
-    }
-    .step.ok .badge .dot{ background: var(--good); box-shadow: 0 0 16px rgba(34,197,94,.30); }
-    .stepTitle{ margin:10px 0 6px; font-weight: 950; font-size: 16px; }
-    .stepDesc{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
-    .btnRow{
-      display:flex; gap:10px; flex-wrap:wrap;
-      margin-top: 12px;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .btns{ display:flex; gap:8px; flex-wrap:wrap; }
-    .btn{
+
+    .grid3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    @media (max-width: 520px){ .grid3{ grid-template-columns: 1fr; } }
+
+    button{
       border:1px solid var(--stroke);
-      background: rgba(2,6,23,.44);
-      padding: 10px 12px;
-      border-radius: 14px;
-      color: var(--text);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding:12px 12px;
+      border-radius: 16px;
       cursor:pointer;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
       user-select:none;
-      font-weight: 950;
-      font-size: 13px;
-      display:inline-flex; align-items:center; gap:8px;
-      transition: transform .12s ease, opacity .12s ease, background .12s ease, border-color .12s ease;
-      white-space:nowrap;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
-    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.09); }
-    .btn.ghost{ color: var(--muted); }
-    .btn.disabled{ opacity:.55; cursor:not-allowed; }
+    button:hover{ background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); transform: translateY(-1px); }
+    button:active{ transform: translateY(0px) scale(.99); }
+    button[disabled]{ opacity:.5; cursor:not-allowed; transform:none; }
 
-    .quiz{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top: 10px;
-    }
-    @media (max-width: 720px){ .quiz{ grid-template-columns: 1fr; } }
-    .qcard{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.36);
-      border-radius: 18px;
+    .modeBtn{ text-align:left; display:flex; gap:12px; align-items:center; }
+    .modeIcon{ width:46px; height:46px; border-radius: 14px; display:flex; align-items:center; justify-content:center;
+               background: rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.25); font-size:22px; }
+    .modeMeta{ display:flex; flex-direction:column; gap:2px; }
+    .modeMeta .name{ font-weight:800; }
+    .modeMeta .desc{ font-size:12px; color:var(--muted); }
+    .modeMeta .tag{ font-size:11px; color:rgba(229,231,235,.86); }
+
+    .big{
+      display:flex; flex-direction:column; gap:10px;
+      align-items:center; justify-content:center;
+      min-height: 260px;
+      text-align:center;
       padding: 12px;
     }
-    .qtitle{ margin:0 0 10px; font-weight: 950; }
-    .choices{ display:grid; gap:8px; }
-    .choice{
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      border-radius: 14px;
-      padding: 10px 12px;
-      cursor:pointer;
-      user-select:none;
-      font-weight: 900;
-      color: var(--text);
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    .emoji{
+      font-size: 64px; line-height:1;
+      filter: drop-shadow(0 10px 28px rgba(0,0,0,.45));
     }
-    .choice:active{ transform: translateY(1px); }
-    .choice.ok{ border-color: rgba(34,197,94,.40); background: rgba(34,197,94,.16); }
-    .choice.no{ border-color: rgba(239,68,68,.40); background: rgba(239,68,68,.12); }
+    .h2{ font-size: 22px; margin: 0; }
+    .hint{ margin:0; color:var(--muted); font-size: 13px; }
 
-    .meter{
-      margin-top: 12px;
-      height: 10px;
+    .timerRow{ width:min(520px,100%); display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    .timeBox{
+      flex:0 0 auto;
+      padding: 8px 12px;
+      border-radius: 14px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
+      font-weight: 800;
+    }
+
+    .bar{
+      width:min(520px,100%);
+      height: 14px;
       border-radius: 999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.35);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
       overflow:hidden;
     }
-    .fill{ height:100%; width: 0%; background: rgba(34,197,94,.85); transition: width .18s ease; }
-
-    .toast{
-      position: fixed;
-      left: 50%;
-      bottom: calc(18px + var(--sab));
-      transform: translateX(-50%);
-      background: rgba(2,6,23,.88);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      max-width: 92vw;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity .18s ease;
-      pointer-events:none;
+    .bar > i{
+      display:block; height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.92));
+      transition: width .12s linear;
     }
-    .toast.show{ opacity: 1; }
 
-    .bigCTA{
-      margin-top: 12px;
-      width: 100%;
-      border: 1px solid rgba(34,197,94,.28);
-      background: linear-gradient(90deg, rgba(34,197,94,.16), rgba(34,211,238,.12));
-      padding: 14px 14px;
-      border-radius: 18px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      flex-wrap:wrap;
+    .actionRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top: 6px; }
+    .primary{
+      background: rgba(34,197,94,.16);
+      border-color: rgba(34,197,94,.32);
     }
-    .bigCTA .left{ display:flex; flex-direction:column; gap:4px; }
-    .bigCTA .left .h{ font-weight: 950; }
-    .bigCTA .left .p{ color: var(--muted); font-size: 13px; }
+    .primary:hover{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.45); }
+    .danger{
+      background: rgba(239,68,68,.12);
+      border-color: rgba(239,68,68,.28);
+    }
+
+    .side h3{ margin:0 0 8px; font-size: 14px; color: rgba(229,231,235,.95); }
+    .side p{ margin:0 0 10px; color:var(--muted); font-size: 12.5px; line-height:1.45; }
+    .kv{ display:grid; grid-template-columns: 1fr auto; gap:8px; margin-top:10px; }
+    .kv div{ padding:10px 10px; border:1px solid var(--stroke); border-radius: 14px; background: rgba(2,6,23,.45); font-size: 12.5px; }
+    .kv b{ font-weight:900; }
+    .muted{ color:var(--muted); }
+
+    footer{ padding: 12px 16px; border-top:1px solid var(--stroke); display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; }
+    .mini{ font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-
-    <section class="card">
-      <div class="head">
-        <div>
-          <h1 class="title">🧩 ภารกิจประจำวัน (Quest Gate)</h1>
-          <p class="sub">
-            ทำ <b>3 ข้อ</b> ให้ผ่านก่อนเข้าเล่นเกมในโซนนี้ (ใช้เวลาไม่นาน) แล้วจะได้ ⭐ และปลดล็อก “วันนี้ผ่านแล้ว”
-          </p>
-        </div>
-        <div class="row">
-          <span class="pill"><b>zone</b>: <span id="zoneText">—</span></span>
-          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
-        </div>
+<div class="wrap">
+  <div class="card" id="app">
+    <header>
+      <div class="title">
+        <h1>🌟 Warmup + Cooldown (20 วิ)</h1>
+        <p>เล่นก่อนเข้าเกม 20 วิ → ได้บัฟพอดี ๆ / จบเกมคูลดาวน์ 20 วิ → ใจนิ่งพร้อมไปต่อ</p>
       </div>
-
-      <div class="body">
-        <div class="bigProgress">
-          <div class="step" id="s1">
-            <div class="badge"><span class="dot"></span> Q1</div>
-            <div class="stepTitle">👀 อ่านเป้าหมาย</div>
-            <p class="stepDesc">วันนี้เราจะ “เล่นอย่างตั้งใจ” และไม่กดรัวมั่ว ๆ</p>
-            <div style="margin-top:10px;">
-              <button class="btn good" id="btnS1">✅ รับทราบแล้ว</button>
-            </div>
-          </div>
-
-          <div class="step" id="s2">
-            <div class="badge"><span class="dot"></span> Q2</div>
-            <div class="stepTitle">🧠 ตอบคำถามเร็ว ๆ 1 ข้อ</div>
-            <p class="stepDesc">ตอบให้ถูกเพื่อรับ ⭐ (ง่ายมาก)</p>
-            <div class="quiz" id="quizWrap"></div>
-          </div>
-
-          <div class="step" id="s3">
-            <div class="badge"><span class="dot"></span> Q3</div>
-            <div class="stepTitle">💪 สัญญา 5 วิ</div>
-            <p class="stepDesc">พร้อมแล้วค่อยกดเริ่ม จะได้เล่นสนุกขึ้น</p>
-            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn" id="btnS3a">⭐ ฉันจะตั้งใจเล่น</button>
-              <button class="btn" id="btnS3b">⏱️ ฉันจะไม่รีบกดมั่ว</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="meter" aria-label="progress">
-          <div class="fill" id="fill"></div>
-        </div>
-
-        <div class="bigCTA">
-          <div class="left">
-            <div class="h" id="ctaTitle">ยังไม่ผ่าน Gate</div>
-            <div class="p" id="ctaSub">ทำ Q1–Q3 ให้ครบ แล้วปุ่ม “เริ่มเกม” จะเปิด</div>
-          </div>
-          <div class="btns">
-            <button class="btn ghost" id="btnBackHub">↩️ กลับ Hub</button>
-            <button class="btn warn" id="btnResetToday">♻️ Reset today</button>
-            <button class="btn good disabled" id="btnStart">🚀 เริ่มเกม</button>
-          </div>
-        </div>
-
+      <div class="pill">
+        โหมด: <b id="modeBadge">เลือกกิจกรรม</b>
       </div>
-    </section>
+    </header>
 
+    <main>
+      <!-- LEFT: main stage -->
+      <section class="panel">
+        <div id="screen-select">
+          <div class="panel" style="margin-bottom:12px;">
+            <div class="mini">เลือก 1 อย่าง (แนะนำ: Breathing ก่อน) — เวลา 20 วิเท่ากันทุกแบบ</div>
+          </div>
+
+          <div class="grid3">
+            <button class="modeBtn" id="btn-breath">
+              <div class="modeIcon" style="background: rgba(34,211,238,.10); border-color: rgba(34,211,238,.25);">🌬️</div>
+              <div class="modeMeta">
+                <div class="name">Breathing</div>
+                <div class="desc">กดตามจังหวะ “หายใจเข้า/ออก”</div>
+                <div class="tag">บัฟ: ⭐ Critical +</div>
+              </div>
+            </button>
+
+            <button class="modeBtn" id="btn-meditate">
+              <div class="modeIcon" style="background: rgba(167,139,250,.10); border-color: rgba(167,139,250,.25);">🧘</div>
+              <div class="modeMeta">
+                <div class="name">Meditation</div>
+                <div class="desc">แตะเฉพาะ “วงกลมสีเขียว”</div>
+                <div class="tag">บัฟ: 🛡️ Damage ลด</div>
+              </div>
+            </button>
+
+            <button class="modeBtn" id="btn-stretch">
+              <div class="modeIcon" style="background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.25);">🤸</div>
+              <div class="modeMeta">
+                <div class="name">Stretching</div>
+                <div class="desc">กดค้างให้ได้มากที่สุด</div>
+                <div class="tag">บัฟ: 💚 Heal +</div>
+              </div>
+            </button>
+          </div>
+
+          <div class="actionRow" style="margin-top:14px;">
+            <button id="btn-cooldown" class="primary">😌 ไปคูลดาวน์ 20 วิ</button>
+          </div>
+        </div>
+
+        <div id="screen-run" class="big" style="display:none;">
+          <div class="emoji" id="run-emoji">🌬️</div>
+          <h2 class="h2" id="run-title">Warmup</h2>
+          <p class="hint" id="run-hint">ทำตามคำแนะนำด้านล่าง</p>
+
+          <div class="timerRow">
+            <div class="timeBox" id="run-time">เหลือเวลา: 20 วิ</div>
+            <div class="timeBox" id="run-score">ความคืบหน้า: 0%</div>
+          </div>
+
+          <div class="bar"><i id="run-bar"></i></div>
+
+          <!-- interaction zone -->
+          <div class="actionRow" id="run-actions" style="margin-top:10px;"></div>
+
+          <div class="actionRow" style="margin-top:10px;">
+            <button id="btn-stop" class="danger">หยุด</button>
+          </div>
+        </div>
+
+        <div id="screen-done" class="big" style="display:none;">
+          <div class="emoji">🎉</div>
+          <h2 class="h2">เสร็จแล้ว!</h2>
+          <p class="hint" id="done-text">คุณได้บัฟ</p>
+
+          <div class="panel" style="width:min(520px,100%); text-align:left;">
+            <div class="mini muted">BUFF ที่ได้ (ส่งต่อให้เกมหลักได้เลย)</div>
+            <pre id="done-json" style="margin:10px 0 0; white-space:pre-wrap; color:#e5e7eb; font-size:12px;"></pre>
+          </div>
+
+          <div class="actionRow">
+            <button id="btn-again">เล่นอีกรอบ</button>
+            <button id="btn-go-cooldown" class="primary">ไปคูลดาวน์ 20 วิ</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: info -->
+      <aside class="panel side">
+        <h3>✨ หลักการ</h3>
+        <p>
+          Warmup 20 วิ คือ “เข้าเกมแบบพร้อม” ไม่ยาวเกินไป
+          และ Cooldown 20 วิ ช่วย “จบแบบใจนิ่ง” เด็กไม่หัวร้อน
+        </p>
+
+        <h3>🎯 บัฟ (บาลานซ์สำหรับ 20 วิ)</h3>
+        <div class="kv">
+          <div>⭐ Critical Bonus</div><div><b>3% → 7%</b></div>
+          <div>🛡️ Damage Reduce</div><div><b>6% → 16%</b></div>
+          <div>💚 Heal Bonus</div><div><b>+4 → +10</b></div>
+        </div>
+
+        <h3 style="margin-top:14px;">💾 เก็บผล</h3>
+        <p>บันทึกผลล่าสุดไว้ที่ <span class="muted">localStorage["HHA_WARMUP_LAST"]</span></p>
+
+        <div class="actionRow" style="justify-content:flex-start;">
+          <button id="btn-clear-last">ล้างผลล่าสุด</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <div class="mini">HeroHealth · Warmup/Cooldown Gate</div>
+      <div class="mini">Tip: ใช้บนมือถือให้ “แตะ” ได้ลื่น ๆ</div>
+    </footer>
   </div>
-
-  <div class="toast" id="toast"></div>
+</div>
 
 <script>
-(function(){
+(() => {
   'use strict';
 
-  // ---------- helpers ----------
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = parseQS();
+  // ------------------------------
+  // Config
+  // ------------------------------
+  const WARMUP_SECONDS = 20;
+  const COOLDOWN_SECONDS = 20;
 
-  function ymdLocal(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
-  }
+  const KEY_LAST = 'HHA_WARMUP_LAST';
 
-  function toast(msg){
-    const el = document.getElementById('toast');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=> el.classList.remove('show'), 1400);
-  }
+  // ------------------------------
+  // DOM helpers
+  // ------------------------------
+  const $ = (s) => document.querySelector(s);
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 
-  const PASS_KEYS = ['pid','diff','time','seed','studyId','phase','conditionGroup','log','view','run','hub'];
-  function applyPassThrough(urlStr){
-    const u = new URL(urlStr, location.href);
-    for(const k of PASS_KEYS){
-      if(!u.searchParams.has(k) && QS.has(k)){
-        const v = QS.get(k);
-        if(v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-      }
-    }
-    // ensure hub exists
-    if(!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
-      u.searchParams.set('hub', QS.get('hub') || location.origin + location.pathname.replace(/\/[^\/]*$/, '/hub.html'));
-    }
-    return u.toString();
-  }
+  const screenSelect = $('#screen-select');
+  const screenRun    = $('#screen-run');
+  const screenDone   = $('#screen-done');
 
-  function zoneFromQS(){
-    const z = (QS.get('zone') || 'nutrition').toLowerCase().trim();
-    if(z === 'hygiene' || z === 'fitness' || z === 'nutrition') return z;
-    return 'nutrition';
-  }
-  const ZONE = zoneFromQS();
+  const modeBadge = $('#modeBadge');
 
-  function zoneDoneKey(zone){
-    return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`;
-  }
-  function isZoneDoneToday(zone){
-    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
-  }
-  function setZoneDoneToday(zone){
-    try{ localStorage.setItem(zoneDoneKey(zone), '1'); }catch(_){}
-  }
-  function clearZoneToday(zone){
-    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
-  }
+  const runEmoji = $('#run-emoji');
+  const runTitle = $('#run-title');
+  const runHint  = $('#run-hint');
+  const runTime  = $('#run-time');
+  const runScore = $('#run-score');
+  const runBar   = $('#run-bar');
+  const runActions = $('#run-actions');
 
-  // ---------- destination ----------
-  // go can be absolute or relative. recommended: encoded run url from launcher.
-  function getGo(){
-    const raw = QS.get('go') || QS.get('to') || '';
-    if(raw){
-      try{
-        // if already encoded, decode once safely
-        const dec = decodeURIComponent(raw);
-        return dec;
-      }catch(_){
-        return raw;
-      }
-    }
-    // fallback: if run is provided, go to it
-    const run = QS.get('run') || '';
-    if(run) return run;
-    // ultimate fallback: hub
-    return QS.get('hub') || './hub.html';
-  }
-  const GO = getGo();
+  const doneText = $('#done-text');
+  const doneJson = $('#done-json');
 
-  // ---------- UI refs ----------
-  const zoneText = document.getElementById('zoneText');
-  const todayText = document.getElementById('todayText');
-  const s1 = document.getElementById('s1');
-  const s2 = document.getElementById('s2');
-  const s3 = document.getElementById('s3');
-  const fill = document.getElementById('fill');
+  // ------------------------------
+  // State
+  // ------------------------------
+  let timerId = null;
+  let tickId = null;
 
-  const btnS1 = document.getElementById('btnS1');
-  const btnS3a = document.getElementById('btnS3a');
-  const btnS3b = document.getElementById('btnS3b');
-  const btnStart = document.getElementById('btnStart');
-  const btnResetToday = document.getElementById('btnResetToday');
-  const btnBackHub = document.getElementById('btnBackHub');
-
-  const ctaTitle = document.getElementById('ctaTitle');
-  const ctaSub = document.getElementById('ctaSub');
-  const quizWrap = document.getElementById('quizWrap');
-
-  // ---------- state ----------
-  let done1 = false;
-  let done2 = false;
-  let done3 = false;
-
-  // ---------- quiz bank (simple & kid friendly) ----------
-  // You can expand later by zone/game; for now keep 1 question only (fast).
-  const QUIZ = {
-    nutrition: {
-      q: '🥗 คำถาม: “น้ำเปล่า” อยู่หมวดไหน?',
-      choices: [
-        { t:'💧 น้ำดื่ม', ok:true },
-        { t:'🍭 ขนมหวาน', ok:false },
-        { t:'🧋 น้ำหวาน', ok:false },
-      ]
-    },
-    hygiene: {
-      q: '🧼 คำถาม: ล้างมือควรถูอย่างน้อยกี่วินาที?',
-      choices: [
-        { t:'⏱️ 20 วินาที', ok:true },
-        { t:'⏱️ 5 วินาที', ok:false },
-        { t:'⏱️ 60 วินาที', ok:false },
-      ]
-    },
-    fitness: {
-      q: '🏃 คำถาม: ก่อนออกกำลังกายควรทำอะไร?',
-      choices: [
-        { t:'🤸 วอร์มอัป', ok:true },
-        { t:'😴 นอนทันที', ok:false },
-        { t:'🍟 กินของทอด', ok:false },
-      ]
-    }
+  const state = {
+    mode: null,       // 'breathing' | 'meditation' | 'stretching' | 'cooldown'
+    tLeft: 0,
+    pct: 0,
+    // breathing
+    step: 0,          // 0 inhale, 1 exhale
+    hits: 0,
+    // meditation
+    focusGood: 0,
+    // stretching
+    holding: false,
+    holdMs: 0,
+    // cooldown
+    calm: 0
   };
 
-  function renderQuiz(){
-    const q = QUIZ[ZONE] || QUIZ.nutrition;
-    quizWrap.innerHTML = `
-      <div class="qcard" style="grid-column: 1 / -1;">
-        <p class="qtitle">${escapeHtml(q.q)}</p>
-        <div class="choices" id="choices"></div>
+  function resetRunState(){
+    state.tLeft = WARMUP_SECONDS;
+    state.pct = 0;
+    state.step = 0;
+    state.hits = 0;
+    state.focusGood = 0;
+    state.holding = false;
+    state.holdMs = 0;
+    state.calm = 0;
+  }
+
+  function show(which){
+    screenSelect.style.display = (which==='select') ? '' : 'none';
+    screenRun.style.display    = (which==='run') ? '' : 'none';
+    screenDone.style.display   = (which==='done') ? '' : 'none';
+  }
+
+  function setProgress(pct){
+    state.pct = clamp(pct,0,100);
+    runScore.textContent = `ความคืบหน้า: ${Math.round(state.pct)}%`;
+    runBar.style.width = `${state.pct}%`;
+  }
+
+  function setTimeLeft(sec){
+    state.tLeft = sec;
+    runTime.textContent = `เหลือเวลา: ${sec} วิ`;
+  }
+
+  function stopTimers(){
+    if (timerId){ clearInterval(timerId); timerId = null; }
+    if (tickId){ clearInterval(tickId); tickId = null; }
+  }
+
+  function finishRun(){
+    stopTimers();
+
+    const pct = clamp(state.pct,0,100);
+
+    // Balanced for 20s:
+    // critBonus: 3%..7%
+    // dmgReduce: 6%..16%
+    // healBonus: +4..+10
+    let buff = { type: state.mode, pct };
+
+    if (state.mode === 'breathing'){
+      buff = {
+        type: 'breathing',
+        pct,
+        critBonus: +(0.03 + (pct/100)*0.04).toFixed(3) // 0.03..0.07
+      };
+    } else if (state.mode === 'meditation'){
+      buff = {
+        type: 'meditation',
+        pct,
+        dmgReduce: +(0.06 + (pct/100)*0.10).toFixed(3) // 0.06..0.16
+      };
+    } else if (state.mode === 'stretching'){
+      buff = {
+        type: 'stretching',
+        pct,
+        healBonus: Math.round(4 + (pct/100)*6) // 4..10
+      };
+    } else if (state.mode === 'cooldown'){
+      buff = {
+        type: 'cooldown',
+        pct,
+        calm: Math.round(pct) // 0..100
+      };
+    }
+
+    // Save last
+    try{
+      localStorage.setItem(KEY_LAST, JSON.stringify({
+        ...buff,
+        at: new Date().toISOString()
+      }));
+    }catch(_){}
+
+    doneText.textContent = (state.mode === 'cooldown')
+      ? 'คูลดาวน์เสร็จแล้ว ✅ ใจนิ่งขึ้น!'
+      : 'วอร์มอัปเสร็จแล้ว ✅ ได้บัฟไปลุยเกม!';
+
+    doneJson.textContent = JSON.stringify(buff, null, 2);
+
+    modeBadge.textContent = (state.mode === 'cooldown') ? 'Cooldown' : 'Warmup';
+    show('done');
+
+    // Optional: dispatch event to parent/game
+    try{
+      window.dispatchEvent(new CustomEvent('hha:warmup_done', { detail: buff }));
+    }catch(_){}
+  }
+
+  // ------------------------------
+  // Modes
+  // ------------------------------
+  function startBreathing(){
+    stopTimers();
+    resetRunState();
+    state.mode = 'breathing';
+    modeBadge.textContent = 'Breathing';
+    runEmoji.textContent = '🌬️';
+    runTitle.textContent = 'Warmup: Breathing (20 วิ)';
+    runHint.textContent = 'กดตามคำสั่ง: “หายใจเข้า” แล้ว “หายใจออก” สลับกันไป';
+
+    runActions.innerHTML = `
+      <button class="primary" id="btn-breath-act">เริ่ม!</button>
+    `;
+
+    const actBtn = $('#btn-breath-act');
+
+    function updatePrompt(){
+      const inhale = (state.step % 2) === 0;
+      actBtn.textContent = inhale ? 'หายใจเข้า' : 'หายใจออก';
+      actBtn.dataset.want = inhale ? 'in' : 'out';
+    }
+
+    updatePrompt();
+    setTimeLeft(WARMUP_SECONDS);
+    setProgress(0);
+    show('run');
+
+    actBtn.addEventListener('click', () => {
+      // every tap counts if correct sequence; encourage rhythm
+      state.hits++;
+      state.step++;
+
+      // Score: hits per second (cap 100)
+      const ideal = WARMUP_SECONDS * 1.0; // ~1 tap per sec
+      const pct = clamp((state.hits / ideal) * 100, 0, 100);
+      setProgress(pct);
+
+      updatePrompt();
+    });
+
+    // Timer
+    let t = WARMUP_SECONDS;
+    timerId = setInterval(() => {
+      t--;
+      setTimeLeft(t);
+      if (t <= 0) finishRun();
+    }, 1000);
+  }
+
+  function startMeditation(){
+    stopTimers();
+    resetRunState();
+    state.mode = 'meditation';
+    modeBadge.textContent = 'Meditation';
+    runEmoji.textContent = '🧘';
+    runTitle.textContent = 'Warmup: Meditation (20 วิ)';
+    runHint.textContent = 'แตะ “วงกลมสีเขียว” เท่านั้น (วงกลมจะย้ายที่เรื่อย ๆ)';
+
+    runActions.innerHTML = `
+      <div id="med-box" style="position:relative; width:min(520px,100%); height:180px; border-radius:18px; border:1px dashed rgba(148,163,184,.35); background:rgba(2,6,23,.35); overflow:hidden;">
+        <button id="med-dot" class="primary" style="position:absolute; left:40%; top:40%; width:70px; height:70px; border-radius:999px; font-weight:900;">●</button>
+        <button id="bad-dot" style="position:absolute; left:70%; top:20%; width:56px; height:56px; border-radius:999px; border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10);">●</button>
       </div>
     `;
-    const choicesEl = document.getElementById('choices');
-    q.choices.forEach((c)=>{
-      const btn = document.createElement('div');
-      btn.className = 'choice';
-      btn.textContent = c.t;
-      btn.addEventListener('click', ()=>{
-        if(done2) return;
-        if(c.ok){
-          btn.classList.add('ok');
-          done2 = true;
-          s2.classList.add('ok');
-          toast('ถูกต้อง! ได้ ⭐');
-          sync();
-        }else{
-          btn.classList.add('no');
-          toast('ลองใหม่อีกครั้ง 🙂');
-          // remove wrong mark after a moment
-          setTimeout(()=> btn.classList.remove('no'), 450);
-        }
-      }, {passive:true});
-      choicesEl.appendChild(btn);
+
+    const box = $('#med-box');
+    const good = $('#med-dot');
+    const bad = $('#bad-dot');
+
+    function place(el){
+      const w = box.clientWidth, h = box.clientHeight;
+      const ew = el.offsetWidth, eh = el.offsetHeight;
+      const x = Math.random() * (w - ew);
+      const y = Math.random() * (h - eh);
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+    }
+
+    const onGood = () => {
+      state.focusGood++;
+      place(good);
+      // pct based on hits / seconds (20)
+      setProgress(clamp((state.focusGood / WARMUP_SECONDS) * 100, 0, 100));
+    };
+
+    const onBad = () => {
+      // small penalty
+      state.focusGood = Math.max(0, state.focusGood - 1);
+      place(bad);
+      setProgress(clamp((state.focusGood / WARMUP_SECONDS) * 100, 0, 100));
+    };
+
+    good.addEventListener('click', onGood);
+    bad.addEventListener('click', onBad);
+
+    // move targets periodically
+    tickId = setInterval(() => { place(good); place(bad); }, 650);
+
+    setTimeLeft(WARMUP_SECONDS);
+    setProgress(0);
+    show('run');
+
+    let t = WARMUP_SECONDS;
+    timerId = setInterval(() => {
+      t--;
+      setTimeLeft(t);
+      if (t <= 0) finishRun();
+    }, 1000);
+  }
+
+  function startStretching(){
+    stopTimers();
+    resetRunState();
+    state.mode = 'stretching';
+    modeBadge.textContent = 'Stretching';
+    runEmoji.textContent = '🤸';
+    runTitle.textContent = 'Warmup: Stretching (20 วิ)';
+    runHint.textContent = 'กดค้างปุ่ม “ยืด!” ให้นานที่สุด (ปล่อยได้ แต่คะแนนลด)';
+
+    runActions.innerHTML = `
+      <button class="primary" id="btn-hold" style="padding:16px 22px; font-size:16px; font-weight:900;">ยืด! (กดค้าง)</button>
+      <div class="mini muted">เคล็ดลับ: กดค้างให้ต่อเนื่อง</div>
+    `;
+
+    const hold = $('#btn-hold');
+
+    const down = () => { state.holding = true; hold.textContent='ยืดอยู่... ✨'; };
+    const up   = () => { state.holding = false; hold.textContent='ยืด! (กดค้าง)'; };
+
+    hold.addEventListener('pointerdown', (e)=>{ e.preventDefault(); down(); });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+
+    // 20ms tick for hold
+    tickId = setInterval(() => {
+      if (state.holding) state.holdMs += 20;
+      // pct based on hold ms / 20s
+      setProgress(clamp((state.holdMs / (WARMUP_SECONDS*1000)) * 100, 0, 100));
+    }, 20);
+
+    setTimeLeft(WARMUP_SECONDS);
+    setProgress(0);
+    show('run');
+
+    let t = WARMUP_SECONDS;
+    timerId = setInterval(() => {
+      t--;
+      setTimeLeft(t);
+      if (t <= 0) finishRun();
+    }, 1000);
+  }
+
+  function startCooldown(){
+    stopTimers();
+    resetRunState();
+    state.mode = 'cooldown';
+    state.tLeft = COOLDOWN_SECONDS;
+
+    modeBadge.textContent = 'Cooldown';
+    runEmoji.textContent = '😌';
+    runTitle.textContent = 'Cooldown: หายใจช้า ๆ (20 วิ)';
+    runHint.textContent = 'ทำตามจังหวะ: “เข้า 4 วิ” → “ออก 4 วิ” (ดูคำสั่งเปลี่ยน)';
+
+    runActions.innerHTML = `
+      <button class="primary" id="btn-calm" style="padding:14px 18px; font-size:15px; font-weight:900;">พร้อมแล้ว ✅</button>
+      <div class="mini muted" id="calm-step">เข้า... 4</div>
+    `;
+
+    const calmBtn = $('#btn-calm');
+    const calmStep = $('#calm-step');
+
+    let phase = 'in';
+    let k = 4;
+    calmBtn.addEventListener('click', () => {
+      // tiny interaction to keep attention; increases calm slightly
+      state.calm = clamp(state.calm + 2, 0, 100);
+      setProgress(state.calm);
     });
+
+    setTimeLeft(COOLDOWN_SECONDS);
+    setProgress(0);
+    show('run');
+
+    // breath cue tick
+    tickId = setInterval(() => {
+      k--;
+      if (k <= 0){
+        phase = (phase === 'in') ? 'out' : 'in';
+        k = 4;
+      }
+      calmStep.textContent = (phase === 'in') ? `เข้า... ${k}` : `ออก... ${k}`;
+
+      // passive calm gain
+      state.calm = clamp(state.calm + 1.2, 0, 100);
+      setProgress(state.calm);
+    }, 1000);
+
+    let t = COOLDOWN_SECONDS;
+    timerId = setInterval(() => {
+      t--;
+      setTimeLeft(t);
+      if (t <= 0) finishRun();
+    }, 1000);
   }
 
-  function escapeHtml(s){
-    return String(s||'').replace(/[&<>"']/g, (m)=>({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[m]));
-  }
+  // ------------------------------
+  // Buttons
+  // ------------------------------
+  $('#btn-breath').addEventListener('click', startBreathing);
+  $('#btn-meditate').addEventListener('click', startMeditation);
+  $('#btn-stretch').addEventListener('click', startStretching);
 
-  function setStepOK(stepEl, ok){
-    stepEl.classList.toggle('ok', !!ok);
-  }
+  $('#btn-cooldown').addEventListener('click', startCooldown);
 
-  function sync(){
-    const total = (done1?1:0) + (done2?1:0) + (done3?1:0);
-    const pct = Math.round((total/3)*100);
-    fill.style.width = pct + '%';
-
-    setStepOK(s1, done1);
-    setStepOK(s2, done2);
-    setStepOK(s3, done3);
-
-    const all = (done1 && done2 && done3);
-
-    if(all){
-      ctaTitle.textContent = 'ผ่าน Gate แล้ว ✅';
-      ctaSub.textContent = 'กด “เริ่มเกม” ได้เลย!';
-      btnStart.classList.remove('disabled');
-    }else{
-      ctaTitle.textContent = 'ยังไม่ผ่าน Gate';
-      ctaSub.textContent = 'ทำ Q1–Q3 ให้ครบ แล้วปุ่ม “เริ่มเกม” จะเปิด';
-      btnStart.classList.add('disabled');
-    }
-  }
-
-  function zoneLabel(z){
-    if(z==='nutrition') return '🥗 nutrition';
-    if(z==='hygiene') return '🧼 hygiene';
-    if(z==='fitness') return '🏃 fitness';
-    return z;
-  }
-
-  // ---------- init header ----------
-  zoneText.textContent = zoneLabel(ZONE);
-  todayText.textContent = ymdLocal();
-  renderQuiz();
-
-  // if already done today: allow start immediately (but still show the steps as done)
-  if(isZoneDoneToday(ZONE)){
-    done1 = done2 = done3 = true;
-    toast('วันนี้โซนนี้ “ผ่านแล้ว” ✅');
-  }
-  sync();
-
-  // ---------- bind actions ----------
-  btnS1.addEventListener('click', ()=>{
-    if(done1) return;
-    done1 = true;
-    toast('Q1 ผ่าน ✅');
-    sync();
+  $('#btn-stop').addEventListener('click', () => {
+    stopTimers();
+    show('select');
+    modeBadge.textContent = 'เลือกกิจกรรม';
   });
 
-  function tryDone3(){
-    // require both promises for Q3 (simple but intentional)
-    const a = btnS3a.dataset.ok === '1';
-    const b = btnS3b.dataset.ok === '1';
-    done3 = !!(a && b);
-    if(done3){
-      toast('Q3 ผ่าน ✅');
-    }else{
-      toast('กดให้ครบ 2 อันนะ 🙂');
-    }
-    sync();
-  }
-
-  btnS3a.addEventListener('click', ()=>{
-    btnS3a.dataset.ok = '1';
-    btnS3a.classList.add('good');
-    tryDone3();
-  });
-  btnS3b.addEventListener('click', ()=>{
-    btnS3b.dataset.ok = '1';
-    btnS3b.classList.add('good');
-    tryDone3();
+  $('#btn-again').addEventListener('click', () => {
+    stopTimers();
+    show('select');
+    modeBadge.textContent = 'เลือกกิจกรรม';
   });
 
-  btnStart.addEventListener('click', ()=>{
-    if(btnStart.classList.contains('disabled')) return;
-    // mark zone done today and go
-    setZoneDoneToday(ZONE);
-    toast('ปลดล็อกแล้ว! ไปเล่นเกม 🚀');
+  $('#btn-go-cooldown').addEventListener('click', startCooldown);
 
-    const url = applyPassThrough(GO);
-    setTimeout(()=>{ location.href = url; }, 250);
+  $('#btn-clear-last').addEventListener('click', () => {
+    try{ localStorage.removeItem(KEY_LAST); }catch(_){}
+    alert('ล้างผลล่าสุดแล้ว');
   });
 
-  btnBackHub.addEventListener('click', ()=>{
-    const hub = QS.get('hub') || './hub.html';
-    location.href = applyPassThrough(hub);
-  });
-
-  btnResetToday.addEventListener('click', ()=>{
-    clearZoneToday('nutrition');
-    clearZoneToday('hygiene');
-    clearZoneToday('fitness');
-    toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
-    // reset local steps too
-    done1 = done2 = done3 = false;
-    btnS3a.dataset.ok = ''; btnS3b.dataset.ok = '';
-    btnS3a.classList.remove('good'); btnS3b.classList.remove('good');
-    renderQuiz();
-    sync();
-  });
-
+  // init
+  show('select');
 })();
 </script>
 </body>
