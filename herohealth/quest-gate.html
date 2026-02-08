@@ -1,0 +1,1294 @@
+<!-- === /herohealth/quest-gate.html ===
+HeroHealth — Quest Gate (Warm-up 3 Quests → Zone Boss → Cooldown → Next Game)
+✅ Strict: must finish Quest 1–3 before Boss unlock
+✅ Must win zone boss to proceed
+✅ Cooldown auto after win, then redirect to next (next=...)
+✅ Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view + hub
+✅ Never override existing params; only adds hub if missing on next
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Quest Gate</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa;
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:hidden;
+    }
+    a{ color:inherit; text-decoration:none; }
+    .wrap{ height:100%; max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 10px 10px 0 10px;
+    }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{ margin:0; font-size: clamp(20px, 2.0vw, 28px); letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size: 13px; line-height:1.4; max-width: 72ch; }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); font-weight:800; }
+
+    .panel{
+      flex:1;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+
+    .bar{
+      display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      gap:10px; padding:12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+    }
+    .leftbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      font-size:12px;
+      color:var(--text);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .badge .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .badge.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .badge.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
+
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.disabled{ opacity:.45; cursor:not-allowed; }
+    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); color: var(--text); }
+    .btn.ghost{ color:var(--muted); }
+
+    .content{
+      flex:1;
+      display:grid;
+      grid-template-columns: 1fr .95fr;
+      gap: 12px;
+      padding: 12px;
+      min-height:0;
+    }
+    @media (max-width: 980px){
+      .content{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      overflow:hidden;
+      min-height: 180px;
+      position:relative;
+    }
+    .card h3{ margin:0 0 6px 0; font-size:16px; letter-spacing:.2px; }
+    .card p{ margin:0; color:var(--muted); font-size: 13px; line-height: 1.45; }
+    .glow{
+      position:absolute; inset:-40% -30% auto auto;
+      width:240px; height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%);
+      filter: blur(10px);
+      transform: rotate(14deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .glow.green{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), transparent 60%); }
+    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+
+    .stepRow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .step{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.32);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+    }
+    .step.ok{ color:var(--text); border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .step .n{
+      width:20px; height:20px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      display:inline-flex; align-items:center; justify-content:center;
+      font-weight:900;
+      color:var(--text);
+      background: rgba(255,255,255,.06);
+    }
+
+    .arena{
+      border:1px dashed rgba(148,163,184,.26);
+      background: rgba(2,6,23,.22);
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 12px;
+      min-height: 260px;
+      position:relative;
+      overflow:hidden;
+    }
+    .arenaTop{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      margin-bottom:10px;
+    }
+    .meter{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.30);
+      border-radius: 14px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 220px;
+    }
+    .meter .k{ color:var(--muted); font-size:12px; }
+    .barWrap{ height:10px; background: rgba(0,0,0,.35); border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.10); }
+    .barFill{ height:100%; width:0%; background: rgba(34,211,238,.85); transition: width .15s ease; }
+    .barFill.good{ background: rgba(34,197,94,.85); }
+    .barFill.bad{ background: rgba(239,68,68,.85); }
+
+    .big{
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 900;
+      letter-spacing: .5px;
+      margin: 6px 0 2px 0;
+    }
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.4;
+      margin-top:6px;
+    }
+
+    .ctaRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .cta{
+      flex: 1 1 220px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius:16px;
+      padding:12px;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .cta:hover{ border-color: rgba(255,255,255,.20); background: rgba(255,255,255,.08); }
+    .cta:active{ transform: translateY(1px); }
+    .cta.disabled{ opacity:.45; cursor:not-allowed; }
+    .cta .ico{ font-size:20px; }
+    .cta .t{ font-weight:900; }
+    .cta .d{ color:var(--muted); font-size:12px; line-height:1.35; margin-top:2px; }
+
+    .overlay{
+      position:absolute; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.66);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      padding: 14px;
+    }
+    .overlay.show{ display:flex; }
+    .modal{
+      width: min(680px, 92vw);
+      background: rgba(2,6,23,.80);
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 18px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+      padding: 14px;
+    }
+    .modal h4{ margin:0 0 6px 0; font-size:16px; }
+    .modal p{ margin:0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .modal .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; justify-content:space-between; }
+    .modal .btn{ flex: 1 1 220px; justify-content:center; }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
+
+    /* mini “targets” */
+    .dotTarget{
+      position:absolute;
+      width:44px; height:44px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer;
+      user-select:none;
+      box-shadow: 0 12px 34px rgba(0,0,0,.35);
+      transform: translate(-50%,-50%);
+    }
+    .dotTarget:active{ transform: translate(-50%,-50%) scale(.97); }
+    .dotTarget .e{ font-size: 18px; }
+
+    /* list buttons */
+    .choices{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px; }
+    @media (max-width:520px){ .choices{ grid-template-columns: 1fr; } }
+    .choiceBtn{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.34);
+      border-radius: 14px;
+      padding: 12px;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .choiceBtn:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .choiceBtn:active{ transform: translateY(1px); }
+    .choiceBtn.good{ border-color: rgba(34,197,94,.28); }
+    .choiceBtn.bad{ border-color: rgba(239,68,68,.28); }
+    .choiceBtn .lhs{ display:flex; align-items:center; gap:10px; }
+    .choiceBtn .emo{ font-size:20px; }
+    .choiceBtn .txt{ font-weight:900; }
+    .choiceBtn .sub{ color:var(--muted); font-size:12px; }
+
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1 class="title">🛡️ HeroHealth — Quest Gate</h1>
+        <p class="subtitle" id="subTitle">ทำให้ครบ 3 Quest → ชนะบอสประจำโซน → คูลดาวน์ → เข้าเกมหลัก (คุมเข้ม ไม่ข้าม)</p>
+      </div>
+      <div class="pillrow" id="pillrow"></div>
+    </div>
+
+    <div class="panel">
+      <div class="bar">
+        <div class="leftbar">
+          <div class="badge" id="badgeState"><span class="dot"></span><span id="badgeText">LOCKED</span></div>
+          <div class="badge ok" id="badgeZone"><span class="dot"></span><span id="zoneText">zone</span></div>
+          <div class="badge" id="badgeNext"><span class="dot"></span><span id="nextText">next</span></div>
+        </div>
+
+        <div class="actions">
+          <div class="btn ghost" id="btnBackHub">↩️ กลับ Hub</div>
+          <div class="btn warn" id="btnRestart">♻️ เริ่มใหม่</div>
+          <div class="btn good disabled" id="btnGoNext">➡️ เข้าเกมหลัก</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- LEFT: Flow card -->
+        <div class="card" id="cardFlow">
+          <div class="glow" id="flowGlow"></div>
+          <h3 id="flowTitle">Warm-up Gate</h3>
+          <p id="flowDesc">ทำครบ 3 Quest ด้านล่างก่อน บอสจะปลดล็อก และต้อง “ชนะ” ก่อนถึงจะเข้าเกมหลักได้</p>
+
+          <div class="stepRow">
+            <div class="step" id="s1"><span class="n">1</span> Quest: หายใจ</div>
+            <div class="step" id="s2"><span class="n">2</span> Quest: โฟกัส</div>
+            <div class="step" id="s3"><span class="n">3</span> Quest: ยืดเหยียด</div>
+            <div class="step" id="sb"><span class="n">B</span> Boss โซน</div>
+            <div class="step" id="sc"><span class="n">C</span> Cooldown</div>
+          </div>
+
+          <div class="ctaRow">
+            <div class="cta" id="ctaQ1">
+              <div class="ico">🫁</div>
+              <div>
+                <div class="t">Quest 1 — Breathing</div>
+                <div class="d">ทำ “รอบหายใจ” ให้ครบ 8 ครั้ง (กดปุ่มตามจังหวะ) เพื่อเริ่มเกมแบบนิ่ง ๆ</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaQ2">
+              <div class="ico">👀</div>
+              <div>
+                <div class="t">Quest 2 — Focus</div>
+                <div class="d">แตะเป้าให้ครบ 10 ครั้ง (สุ่มตำแหน่ง) ภายในเวลา</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaQ3">
+              <div class="ico">🤸</div>
+              <div>
+                <div class="t">Quest 3 — Stretch</div>
+                <div class="d">ทำท่า 3 ท่า (ค้าง 4 วิ/ท่า) ให้ครบ</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaBoss">
+              <div class="ico">👑</div>
+              <div>
+                <div class="t">Zone Boss — Challenge</div>
+                <div class="d" id="bossBrief">ปลดล็อกเมื่อทำ Quest 1–3 ครบ</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hint" id="hintStrict">
+            🔒 โหมดคุมเข้ม: ทำไม่ผ่าน = ต้อง “ทำซ้ำ” เฉพาะด่านที่ไม่ผ่าน (ข้ามไม่ได้)
+          </div>
+        </div>
+
+        <!-- RIGHT: Arena -->
+        <div class="card" id="cardArena">
+          <div class="glow green" id="arenaGlow"></div>
+          <h3 id="arenaTitle">สนามภารกิจ</h3>
+          <p id="arenaDesc">ระบบจะแสดงภารกิจทีละด่าน และบังคับให้ทำจนจบ</p>
+
+          <div class="arena" id="arena">
+            <div class="arenaTop">
+              <div>
+                <div class="big" id="arenaBig">READY</div>
+                <div class="hint" id="arenaHint">กดเริ่ม Quest 1</div>
+              </div>
+
+              <div class="meter">
+                <div class="k" id="meterLabel">progress</div>
+                <div class="barWrap"><div class="barFill" id="barFill"></div></div>
+                <div class="k"><span id="meterText">0%</span></div>
+              </div>
+            </div>
+
+            <div id="arenaBody"></div>
+          </div>
+
+          <div class="hint" id="arenaFoot">
+            ✅ เมื่อชนะบอสแล้ว จะคูลดาวน์อัตโนมัติ 15 วินาที แล้วค่อยเข้าเกมหลัก
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h4 id="modalTitle">Modal</h4>
+      <p id="modalDesc">—</p>
+      <div class="row">
+        <div class="btn ghost" id="modalCancel">ปิด</div>
+        <div class="btn good" id="modalOk">เริ่ม</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // -----------------------------
+  // URL / Params (pass-through)
+  // -----------------------------
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  function qs(k, def=null){ const q=parseQS(); const v=q.get(k); return (v==null||String(v).trim()==='') ? def : v; }
+  function toObj(sp){ const o={}; for (const [k,v] of sp.entries()) o[k]=v; return o; }
+
+  const ZONE = (qs('zone','nutrition')||'nutrition').toLowerCase();
+  const NEXT = qs('next', './hub.html'); // relative ok
+  const HUB  = qs('hub', null);
+
+  // Pass-through keys we keep
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
+
+  function hubUrl(){
+    // If user passed hub=... keep it, else fallback to current directory hub.html (same as your project uses)
+    if (HUB && String(HUB).trim()) return HUB;
+    // default guess: ./hub.html in /herohealth/
+    try{ return new URL('./hub.html', location.href).toString(); }catch(_){ return './hub.html'; }
+  }
+
+  function buildNextUrl(){
+    const base = new URL(NEXT, location.href);
+    const cur = parseQS();
+
+    // copy pass-through (do NOT override if already on next)
+    for (const k of PASS_KEYS){
+      if (!base.searchParams.has(k) && cur.has(k)){
+        const v = cur.get(k);
+        if (v!=null && String(v).trim()!=='') base.searchParams.set(k, v);
+      }
+    }
+
+    // ensure hub exists on next (do NOT override)
+    if (!base.searchParams.has('hub') || String(base.searchParams.get('hub')||'').trim()===''){
+      base.searchParams.set('hub', hubUrl());
+    }
+    return base.toString();
+  }
+
+  // -----------------------------
+  // UI helpers
+  // -----------------------------
+  const $ = (s)=>document.querySelector(s);
+  function setText(id, v){ const el=$(id); if(el) el.textContent = (v==null||String(v).trim()==='') ? '—' : String(v); }
+
+  const toastEl = $('#toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
+
+  // overlay modal
+  const overlay = $('#overlay');
+  const modalTitle = $('#modalTitle');
+  const modalDesc  = $('#modalDesc');
+  const modalCancel = $('#modalCancel');
+  const modalOk = $('#modalOk');
+  let modalOkFn = null;
+
+  function showModal(title, desc, okText, okFn){
+    modalTitle.textContent = title;
+    modalDesc.textContent  = desc || '';
+    modalOk.textContent = okText || 'เริ่ม';
+    modalOkFn = okFn || null;
+    overlay.classList.add('show');
+  }
+  function hideModal(){
+    overlay.classList.remove('show');
+    modalOkFn = null;
+  }
+  modalCancel.addEventListener('click', hideModal);
+  modalOk.addEventListener('click', ()=>{
+    const fn = modalOkFn;
+    hideModal();
+    if (typeof fn === 'function') fn();
+  });
+
+  // -----------------------------
+  // Zone definitions
+  // -----------------------------
+  const ZONE_DEF = {
+    nutrition: {
+      icon:'🥗', name:'โภชนาการ', glow:'green',
+      bossName:'Food Flash Boss',
+      bossBrief:'จำแนกอาหาร “ดี vs ขยะ” ให้ถูก ≥ 6/8',
+    },
+    hygiene: {
+      icon:'🧼', name:'อนามัยส่วนบุคคล', glow:'cyan',
+      bossName:'Sequence Boss',
+      bossBrief:'กดเรียง “ขั้นตอน” ให้ถูก ≥ 6/8',
+    },
+    fitness: {
+      icon:'🏃', name:'ออกกำลังกาย', glow:'violet',
+      bossName:'Reflex Mini-Boss',
+      bossBrief:'ตอบปฏิกิริยา (PUNCH/DUCK/JUMP/HOLD) ถูก ≥ 10/12',
+    },
+  };
+  const Z = ZONE_DEF[ZONE] || ZONE_DEF.nutrition;
+
+  // -----------------------------
+  // Strict flow state
+  // -----------------------------
+  const st = {
+    step: 0,         // 0=idle, 1=Q1,2=Q2,3=Q3,4=boss,5=cooldown,6=done
+    q1:false, q2:false, q3:false,
+    bossUnlocked:false,
+    bossWin:false,
+    cooldownDone:false,
+  };
+
+  // Steps pill
+  const s1=$('#s1'), s2=$('#s2'), s3=$('#s3'), sb=$('#sb'), sc=$('#sc');
+  function syncSteps(){
+    s1.classList.toggle('ok', st.q1);
+    s2.classList.toggle('ok', st.q2);
+    s3.classList.toggle('ok', st.q3);
+    sb.classList.toggle('ok', st.bossWin);
+    sc.classList.toggle('ok', st.cooldownDone);
+  }
+
+  // Buttons / CTAs
+  const ctaQ1=$('#ctaQ1'), ctaQ2=$('#ctaQ2'), ctaQ3=$('#ctaQ3'), ctaBoss=$('#ctaBoss');
+  const btnGoNext=$('#btnGoNext');
+  const badgeState=$('#badgeState');
+  const badgeText=$('#badgeText');
+
+  function setBadge(state){
+    badgeState.classList.remove('ok','bad');
+    if (state==='ok') badgeState.classList.add('ok');
+    if (state==='bad') badgeState.classList.add('bad');
+  }
+
+  function lockCtas(){
+    ctaQ1.classList.toggle('disabled', false);
+    ctaQ2.classList.toggle('disabled', !st.q1);
+    ctaQ3.classList.toggle('disabled', !(st.q1 && st.q2));
+    ctaBoss.classList.toggle('disabled', !(st.q1 && st.q2 && st.q3));
+    btnGoNext.classList.toggle('disabled', !(st.bossWin && st.cooldownDone));
+  }
+
+  // Progress meter
+  const barFill = $('#barFill');
+  const meterText = $('#meterText');
+  const meterLabel = $('#meterLabel');
+  function setProgress(pct, mode){
+    const p = Math.max(0, Math.min(100, Number(pct)||0));
+    barFill.style.width = p + '%';
+    barFill.classList.remove('good','bad');
+    if (mode==='good') barFill.classList.add('good');
+    if (mode==='bad') barFill.classList.add('bad');
+    meterText.textContent = Math.round(p) + '%';
+  }
+
+  // Arena UI
+  const arenaBig = $('#arenaBig');
+  const arenaHint = $('#arenaHint');
+  const arenaBody = $('#arenaBody');
+
+  function resetArena(){
+    arenaBody.innerHTML = '';
+    arenaBig.textContent = 'READY';
+    arenaHint.textContent = 'กดเริ่ม Quest 1';
+    meterLabel.textContent = 'progress';
+    setProgress(0);
+    // remove any leftover targets
+    const old = document.querySelectorAll('.dotTarget');
+    old.forEach(x=>x.remove());
+  }
+
+  function setHeader(){
+    setText('#zoneText', `${Z.icon} ${Z.name}`);
+    setText('#nextText', 'next: ' + (NEXT || '—'));
+    setText('#bossBrief', Z.bossBrief);
+
+    // glows
+    const g = $('#flowGlow');
+    const a = $('#arenaGlow');
+    g.classList.remove('green','violet');
+    a.classList.remove('green','violet');
+    if (Z.glow==='green'){ g.classList.add('green'); a.classList.add('green'); }
+    if (Z.glow==='violet'){ g.classList.add('violet'); a.classList.add('violet'); }
+
+    setText('#flowTitle', `Warm-up Gate — ${Z.icon} ${Z.name}`);
+    setText('#arenaTitle', `สนามภารกิจ — ${Z.bossName}`);
+  }
+
+  function renderPills(){
+    const q = parseQS();
+    const pills = [
+      {k:'zone', v:ZONE},
+      {k:'next', v:(NEXT||'')},
+      {k:'pid', v:q.get('pid')},
+      {k:'run', v:q.get('run')},
+      {k:'diff', v:q.get('diff')},
+      {k:'time', v:q.get('time')},
+      {k:'seed', v:q.get('seed')},
+      {k:'studyId', v:q.get('studyId')},
+      {k:'phase', v:q.get('phase')},
+      {k:'conditionGroup', v:q.get('conditionGroup')},
+      {k:'log', v:q.get('log')},
+    ].filter(x => x.v != null && String(x.v).trim() !== '');
+    $('#pillrow').innerHTML = pills
+      .slice(0, 14)
+      .map(x => `<span class="pill"><b>${x.k}</b>: ${String(x.v).replace(/</g,'&lt;')}</span>`)
+      .join('') || `<span class="pill"><b>params</b>: none</span>`;
+  }
+
+  // -----------------------------
+  // Quest 1 — Breathing (8 cycles tap)
+  // Strict: must complete; fail resets this quest only
+  // -----------------------------
+  function startQ1(){
+    st.step = 1;
+    resetArena();
+    arenaBig.textContent = '🫁 BREATH';
+    arenaHint.textContent = 'กดตามจังหวะ: IN → OUT (ครบ 8 รอบ)';
+    meterLabel.textContent = 'breathing cycles';
+
+    const total = 8;
+    let done = 0;
+    let phase = 'IN';
+
+    const box = document.createElement('div');
+    box.style.marginTop = '8px';
+    box.innerHTML = `
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div class="btn good" id="breatheBtn" style="flex:1 1 240px; justify-content:center;">เริ่ม IN</div>
+        <div class="pill" id="breatheState">รอบ: 0/${total}</div>
+      </div>
+      <div class="hint" style="margin-top:10px;">Tip: กดให้ครบ “IN แล้ว OUT” จะนับ 1 รอบ</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const breatheBtn = box.querySelector('#breatheBtn');
+    const breatheState = box.querySelector('#breatheState');
+
+    function update(){
+      breatheBtn.textContent = (phase==='IN') ? 'กด IN (หายใจเข้า)' : 'กด OUT (หายใจออก)';
+      breatheState.textContent = `รอบ: ${done}/${total}`;
+      setProgress((done/total)*100, done>=total ? 'good' : null);
+    }
+
+    breatheBtn.addEventListener('click', ()=>{
+      // toggle phase; count on completing OUT
+      if (phase === 'IN'){
+        phase = 'OUT';
+        toast('ดีมาก! ต่อ OUT');
+      } else {
+        phase = 'IN';
+        done++;
+        toast('ครบ 1 รอบ ✅');
+      }
+      update();
+
+      if (done >= total){
+        st.q1 = true;
+        st.step = 0;
+        setBadge('ok'); badgeText.textContent = 'Q1 DONE';
+        syncSteps(); lockCtas();
+        arenaBig.textContent = '✅ Q1 COMPLETE';
+        arenaHint.textContent = 'ปลดล็อก Quest 2 แล้ว';
+        toast('ผ่าน Quest 1!');
+      }
+    });
+
+    update();
+  }
+
+  // -----------------------------
+  // Quest 2 — Focus (10 taps targets in arena)
+  // -----------------------------
+  function startQ2(){
+    if (!st.q1){ toast('ต้องทำ Quest 1 ก่อน'); return; }
+    st.step = 2;
+    resetArena();
+    arenaBig.textContent = '👀 FOCUS';
+    arenaHint.textContent = 'แตะเป้าให้ครบ 10 ครั้ง (สุ่มตำแหน่ง)';
+    meterLabel.textContent = 'targets';
+
+    const arena = $('#arena');
+    const total = 10;
+    let hit = 0;
+    let alive = null;
+
+    function spawn(){
+      if (alive) alive.remove();
+
+      const rect = arena.getBoundingClientRect();
+      const pad = 46; // keep inside
+      const x = pad + Math.random() * Math.max(1, (rect.width - pad*2));
+      const y = 110 + Math.random() * Math.max(1, (rect.height - 140)); // avoid top UI
+
+      const d = document.createElement('div');
+      d.className = 'dotTarget';
+      d.style.left = x + 'px';
+      d.style.top  = y + 'px';
+      d.innerHTML = `<div class="e">🎯</div>`;
+      d.addEventListener('click', ()=>{
+        hit++;
+        toast('Hit! ✅');
+        setProgress((hit/total)*100, hit>=total ? 'good' : null);
+        if (hit >= total){
+          if (alive) alive.remove();
+          st.q2 = true;
+          st.step = 0;
+          setBadge('ok'); badgeText.textContent = 'Q2 DONE';
+          syncSteps(); lockCtas();
+          arenaBig.textContent = '✅ Q2 COMPLETE';
+          arenaHint.textContent = 'ปลดล็อก Quest 3 แล้ว';
+          return;
+        }
+        spawn();
+      });
+      arena.appendChild(d);
+      alive = d;
+    }
+
+    const info = document.createElement('div');
+    info.className = 'pill';
+    info.textContent = `Hit: 0/${total}`;
+    arenaBody.appendChild(info);
+
+    const timer = setInterval(()=>{
+      if (st.step !== 2){ clearInterval(timer); return; }
+      info.textContent = `Hit: ${hit}/${total}`;
+    }, 120);
+
+    spawn();
+  }
+
+  // -----------------------------
+  // Quest 3 — Stretch (3 holds)
+  // -----------------------------
+  function startQ3(){
+    if (!(st.q1 && st.q2)){ toast('ต้องทำ Quest 1–2 ก่อน'); return; }
+    st.step = 3;
+    resetArena();
+    arenaBig.textContent = '🤸 STRETCH';
+    arenaHint.textContent = 'ทำท่า 3 ท่า (ค้าง 4 วินาที/ท่า)';
+    meterLabel.textContent = 'poses';
+
+    const poses = [
+      { emo:'🙆‍♂️', name:'ยืดแขนเหนือศีรษะ' },
+      { emo:'🧍‍♂️', name:'บิดตัวซ้าย-ขวา' },
+      { emo:'🦵', name:'ยืดขา-น่อง' },
+    ];
+    let idx = 0;
+    let holding = false;
+    let t = 0;
+    let tick = null;
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill" id="poseName">ท่า 1/3</div>
+      <div class="big" id="poseEmo" style="margin-top:10px;">${poses[0].emo}</div>
+      <div class="hint" id="poseHint">${poses[0].name}</div>
+      <div class="btn good" id="holdBtn" style="margin-top:12px; justify-content:center;">กดค้างเพื่อเริ่ม (4 วิ)</div>
+      <div class="hint" style="margin-top:10px;">ต้องค้างครบเวลา ถ้าปล่อยก่อน = เริ่มใหม่ท่านั้น</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const poseName = box.querySelector('#poseName');
+    const poseEmo = box.querySelector('#poseEmo');
+    const poseHint = box.querySelector('#poseHint');
+    const holdBtn = box.querySelector('#holdBtn');
+
+    function updatePose(){
+      poseName.textContent = `ท่า ${idx+1}/3`;
+      poseEmo.textContent = poses[idx].emo;
+      poseHint.textContent = poses[idx].name;
+      t = 0;
+      setProgress((idx/poses.length)*100, null);
+      holdBtn.textContent = 'กดค้างเพื่อเริ่ม (4 วิ)';
+    }
+
+    function startHold(){
+      if (holding) return;
+      holding = true;
+      holdBtn.textContent = 'กำลังค้าง...';
+      tick = setInterval(()=>{
+        t += 0.1;
+        setProgress(((idx + Math.min(1, t/4)) / poses.length)*100, null);
+        const left = Math.max(0, 4 - t);
+        holdBtn.textContent = `ค้างอีก ${left.toFixed(1)} วิ`;
+        if (t >= 4){
+          clearInterval(tick); tick=null;
+          holding = false;
+          idx++;
+          toast('ผ่าน 1 ท่า ✅');
+          if (idx >= poses.length){
+            st.q3 = true;
+            st.step = 0;
+            setProgress(100,'good');
+            setBadge('ok'); badgeText.textContent = 'Q3 DONE';
+            syncSteps(); lockCtas();
+            arenaBig.textContent = '✅ Q3 COMPLETE';
+            arenaHint.textContent = 'ปลดล็อก Zone Boss แล้ว';
+            toast('ปลดล็อกบอส!');
+            return;
+          }
+          updatePose();
+        }
+      }, 100);
+    }
+
+    function cancelHold(){
+      if (!holding) return;
+      holding = false;
+      if (tick){ clearInterval(tick); tick=null; }
+      t = 0;
+      setProgress((idx/poses.length)*100, null);
+      holdBtn.textContent = 'ปล่อยก่อน — เริ่มใหม่ท่านี้';
+      toast('ยังไม่ครบเวลา ❗');
+      setTimeout(()=>{ if(!holding) holdBtn.textContent='กดค้างเพื่อเริ่ม (4 วิ)'; }, 550);
+    }
+
+    holdBtn.addEventListener('pointerdown', startHold);
+    holdBtn.addEventListener('pointerup', cancelHold);
+    holdBtn.addEventListener('pointercancel', cancelHold);
+    holdBtn.addEventListener('mouseleave', cancelHold);
+
+    updatePose();
+  }
+
+  // -----------------------------
+  // Boss (must win)
+  // -----------------------------
+  function startBoss(){
+    if (!(st.q1 && st.q2 && st.q3)){ toast('ต้องทำ Quest 1–3 ให้ครบก่อน'); return; }
+    st.step = 4;
+    st.bossUnlocked = true;
+    resetArena();
+
+    arenaBig.textContent = '👑 ZONE BOSS';
+    arenaHint.textContent = `${Z.bossName} — ${Z.bossBrief}`;
+    meterLabel.textContent = 'boss';
+
+    if (ZONE === 'nutrition') return bossNutrition();
+    if (ZONE === 'hygiene') return bossHygiene();
+    return bossFitness();
+  }
+
+  // Nutrition Boss: 8 flashes — choose ดี/ขยะ; pass >=6
+  function bossNutrition(){
+    const items = [
+      {emo:'🍎', name:'แอปเปิล', good:true},
+      {emo:'🥦', name:'บรอกโคลี', good:true},
+      {emo:'🐟', name:'ปลา', good:true},
+      {emo:'🥛', name:'นม', good:true},
+      {emo:'🍬', name:'ลูกอม', good:false},
+      {emo:'🍟', name:'เฟรนช์ฟรายส์', good:false},
+      {emo:'🥤', name:'น้ำหวาน', good:false},
+      {emo:'🍩', name:'โดนัท', good:false},
+    ];
+    // shuffle copy
+    const seq = items.slice().sort(()=>Math.random()-0.5).slice(0,8);
+
+    let i=0, correct=0;
+    const need = 6;
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill" id="bossStat">ข้อ 1/8 • ถูก 0 • ต้องถูก ≥ ${need}</div>
+      <div class="big" id="bossItem" style="margin-top:10px;">🍎</div>
+      <div class="hint" id="bossName">—</div>
+      <div class="choices">
+        <div class="choiceBtn good" id="btnGood">
+          <div class="lhs"><span class="emo">✅</span><div><div class="txt">อาหารดี</div><div class="sub">เลือกถ้าเป็นประโยชน์</div></div></div>
+          <div class="pill">GOOD</div>
+        </div>
+        <div class="choiceBtn bad" id="btnBad">
+          <div class="lhs"><span class="emo">⚠️</span><div><div class="txt">อาหารขยะ</div><div class="sub">หวานมันเค็มจัด</div></div></div>
+          <div class="pill">JUNK</div>
+        </div>
+      </div>
+      <div class="hint">กติกา: ตอบให้ครบ 8 ข้อ ผ่านเมื่อถูกอย่างน้อย ${need} ข้อ</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const bossStat = box.querySelector('#bossStat');
+    const bossItem = box.querySelector('#bossItem');
+    const bossName = box.querySelector('#bossName');
+    const btnGood = box.querySelector('#btnGood');
+    const btnBad = box.querySelector('#btnBad');
+
+    function show(){
+      const it = seq[i];
+      bossItem.textContent = it.emo;
+      bossName.textContent = it.name;
+      bossStat.textContent = `ข้อ ${i+1}/8 • ถูก ${correct} • ต้องถูก ≥ ${need}`;
+      setProgress((i/8)*100, null);
+    }
+
+    function answer(isGood){
+      const it = seq[i];
+      const ok = (!!isGood) === (!!it.good);
+      if (ok){ correct++; toast('ถูก ✅'); }
+      else { toast('ผิด ❗'); }
+
+      i++;
+      if (i >= 8){
+        const pass = correct >= need;
+        if (!pass){
+          setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+          setProgress(100,'bad');
+          arenaBig.textContent = '❌ BOSS FAILED';
+          arenaHint.textContent = `ยังไม่ผ่าน (ถูก ${correct}/8) — ต้องทำใหม่`;
+          toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+          // strict: boss can retry; quests remain complete
+          lockCtas(); syncSteps();
+          return;
+        }
+        // win
+        st.bossWin = true;
+        setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+        arenaBig.textContent = '🏆 BOSS CLEARED';
+        arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+        setProgress(100,'good');
+        syncSteps(); lockCtas();
+        toast('ชนะบอส!');
+        setTimeout(startCooldown, 650);
+        return;
+      }
+      show();
+    }
+
+    btnGood.addEventListener('click', ()=>answer(true));
+    btnBad.addEventListener('click', ()=>answer(false));
+    show();
+  }
+
+  // Hygiene Boss: order 8 steps — press in correct order; pass >=6 correct in streak of 8 presses
+  function bossHygiene(){
+    // simplified “sequence boss” (no drag): player taps steps in order
+    // Use 8 prompts (random mix from handwash/brush common)
+    const steps = [
+      {k:'ล้างมือ: เปียกมือ', order:1},
+      {k:'ล้างมือ: ฟอกสบู่', order:2},
+      {k:'ล้างมือ: ถูซอกนิ้ว', order:3},
+      {k:'ล้างมือ: ถูหลังมือ', order:4},
+      {k:'ล้างมือ: ถูนิ้วหัวแม่มือ', order:5},
+      {k:'ล้างมือ: ถูปลายนิ้ว', order:6},
+      {k:'ล้างมือ: ล้างน้ำ/เช็ดแห้ง', order:7},
+      {k:'แปรงฟัน: ปัดคราบรอบ ๆ', order:8},
+    ];
+    const pool = steps.slice(); // already ordered 1..8
+    // shuffle display order
+    const display = pool.slice().sort(()=>Math.random()-0.5);
+
+    let expected = 1;
+    let correct = 0;
+    const need = 6;
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill" id="bossStat">แตะตามลำดับ 1→8 • ถูก 0 • ต้องถูก ≥ ${need}</div>
+      <div class="hint">กติกา: แตะปุ่มให้เรียงลำดับถูกต้อง (พลาดได้ แต่ต้องถูกอย่างน้อย ${need} จาก 8)</div>
+      <div class="choices" id="choiceList"></div>
+    `;
+    arenaBody.appendChild(box);
+
+    const bossStat = box.querySelector('#bossStat');
+    const choiceList = box.querySelector('#choiceList');
+
+    function update(){
+      bossStat.textContent = `แตะลำดับ ${expected}/8 • ถูก ${correct} • ต้องถูก ≥ ${need}`;
+      setProgress(((expected-1)/8)*100, null);
+    }
+
+    display.forEach(it=>{
+      const b = document.createElement('div');
+      b.className = 'choiceBtn';
+      b.innerHTML = `
+        <div class="lhs">
+          <span class="emo">🧼</span>
+          <div>
+            <div class="txt">${it.k}</div>
+            <div class="sub">ลำดับที่ถูกคือ ${it.order}</div>
+          </div>
+        </div>
+        <div class="pill">TAP</div>
+      `;
+      b.addEventListener('click', ()=>{
+        if (it.order === expected){
+          correct++;
+          toast('ถูก ✅');
+          b.classList.add('good');
+        } else {
+          toast('ผิด ❗');
+          b.classList.add('bad');
+        }
+        b.style.pointerEvents = 'none';
+        expected++;
+        update();
+
+        if (expected > 8){
+          const pass = correct >= need;
+          if (!pass){
+            setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+            setProgress(100,'bad');
+            arenaBig.textContent = '❌ BOSS FAILED';
+            arenaHint.textContent = `ยังไม่ผ่าน (ถูก ${correct}/8) — ต้องทำใหม่`;
+            toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+            return;
+          }
+          st.bossWin = true;
+          setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+          arenaBig.textContent = '🏆 BOSS CLEARED';
+          arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+          setProgress(100,'good');
+          syncSteps(); lockCtas();
+          toast('ชนะบอส!');
+          setTimeout(startCooldown, 650);
+        }
+      });
+      choiceList.appendChild(b);
+    });
+
+    update();
+  }
+
+  // Fitness Boss: 12 prompts — choose correct action; pass >=10
+  function bossFitness(){
+    const actions = [
+      {k:'PUNCH', emo:'🥊', hint:'ชก'},
+      {k:'DUCK', emo:'🦆', hint:'ก้มหลบ'},
+      {k:'JUMP', emo:'🦘', hint:'กระโดด'},
+      {k:'HOLD', emo:'🧘', hint:'ทรงตัว'},
+    ];
+    const prompts = [];
+    for (let i=0;i<12;i++){
+      prompts.push(actions[Math.floor(Math.random()*actions.length)]);
+    }
+    let i=0, correct=0;
+    const need = 10;
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill" id="bossStat">ข้อ 1/12 • ถูก 0 • ต้องถูก ≥ ${need}</div>
+      <div class="big" id="promptEmo" style="margin-top:10px;">🥊</div>
+      <div class="hint" id="promptTxt">PUNCH</div>
+      <div class="choices">
+        <div class="choiceBtn" id="b1"><div class="lhs"><span class="emo">🥊</span><div><div class="txt">PUNCH</div><div class="sub">ชก</div></div></div><div class="pill">1</div></div>
+        <div class="choiceBtn" id="b2"><div class="lhs"><span class="emo">🦆</span><div><div class="txt">DUCK</div><div class="sub">ก้มหลบ</div></div></div><div class="pill">2</div></div>
+        <div class="choiceBtn" id="b3"><div class="lhs"><span class="emo">🦘</span><div><div class="txt">JUMP</div><div class="sub">กระโดด</div></div></div><div class="pill">3</div></div>
+        <div class="choiceBtn" id="b4"><div class="lhs"><span class="emo">🧘</span><div><div class="txt">HOLD</div><div class="sub">ทรงตัว</div></div></div><div class="pill">4</div></div>
+      </div>
+      <div class="hint">กติกา: ตอบให้ครบ 12 ข้อ ผ่านเมื่อถูกอย่างน้อย ${need} ข้อ</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const bossStat=box.querySelector('#bossStat');
+    const promptEmo=box.querySelector('#promptEmo');
+    const promptTxt=box.querySelector('#promptTxt');
+    const mapBtn = {
+      PUNCH: box.querySelector('#b1'),
+      DUCK:  box.querySelector('#b2'),
+      JUMP:  box.querySelector('#b3'),
+      HOLD:  box.querySelector('#b4'),
+    };
+
+    function show(){
+      const p = prompts[i];
+      promptEmo.textContent = p.emo;
+      promptTxt.textContent = p.k + ' — ' + p.hint;
+      bossStat.textContent = `ข้อ ${i+1}/12 • ถูก ${correct} • ต้องถูก ≥ ${need}`;
+      setProgress((i/12)*100, null);
+    }
+
+    function answer(key){
+      const p = prompts[i];
+      const ok = key === p.k;
+      if (ok){ correct++; toast('ถูก ✅'); }
+      else { toast('ผิด ❗'); }
+      i++;
+      if (i>=12){
+        const pass = correct >= need;
+        if (!pass){
+          setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+          setProgress(100,'bad');
+          arenaBig.textContent = '❌ BOSS FAILED';
+          arenaHint.textContent = `ยังไม่ผ่าน (ถูก ${correct}/12) — ต้องทำใหม่`;
+          toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+          return;
+        }
+        st.bossWin = true;
+        setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+        arenaBig.textContent = '🏆 BOSS CLEARED';
+        arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+        setProgress(100,'good');
+        syncSteps(); lockCtas();
+        toast('ชนะบอส!');
+        setTimeout(startCooldown, 650);
+        return;
+      }
+      show();
+    }
+
+    Object.keys(mapBtn).forEach(k=>{
+      mapBtn[k].addEventListener('click', ()=>answer(k));
+    });
+    show();
+  }
+
+  // -----------------------------
+  // Cooldown (15s auto) then unlock Go Next
+  // -----------------------------
+  function startCooldown(){
+    st.step = 5;
+    resetArena();
+    arenaBig.textContent = '🧘 COOLDOWN';
+    arenaHint.textContent = 'หายใจช้า ๆ + ยืดเบา ๆ 15 วินาที';
+    meterLabel.textContent = 'cooldown';
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="big">15</div>
+      <div class="hint">ครบเวลาแล้ว ระบบจะเข้าเกมหลักให้อัตโนมัติ</div>
+      <div class="pill" style="margin-top:10px;">Tip: สูด 4 วินาที → กลั้น 2 → ผ่อน 4</div>
+    `;
+    arenaBody.appendChild(box);
+    const big = box.querySelector('.big');
+
+    let t = 15;
+    setProgress(0, null);
+
+    const timer = setInterval(()=>{
+      if (st.step !== 5){ clearInterval(timer); return; }
+      t--;
+      big.textContent = String(Math.max(0,t));
+      setProgress(((15 - Math.max(0,t))/15)*100, 'good');
+      if (t <= 0){
+        clearInterval(timer);
+        st.cooldownDone = true;
+        st.step = 6;
+        syncSteps(); lockCtas();
+        setBadge('ok'); badgeText.textContent = 'READY';
+        arenaBig.textContent = '✅ READY';
+        arenaHint.textContent = 'เข้าเกมหลักได้แล้ว';
+        toast('พร้อมเข้าเกมหลัก!');
+        // auto redirect (strict)
+        setTimeout(()=>goNext(true), 650);
+      }
+    }, 1000);
+  }
+
+  // -----------------------------
+  // Navigation
+  // -----------------------------
+  function goBackHub(){
+    const u = hubUrl();
+    location.href = u;
+  }
+
+  function goNext(auto){
+    if (!(st.bossWin && st.cooldownDone)){
+      toast('ยังเข้าเกมหลักไม่ได้ (ต้องชนะบอสและคูลดาวน์)');
+      return;
+    }
+    const url = buildNextUrl();
+    if (!auto){
+      showModal('เข้าเกมหลัก', 'ระบบจะส่งต่อพารามิเตอร์เดิมทั้งหมด และมี hub กลับได้เสมอ', 'เข้าเกม', ()=> location.href = url);
+      return;
+    }
+    location.href = url;
+  }
+
+  function restartAll(){
+    // strict restart only gate progress (not query)
+    st.step=0; st.q1=false; st.q2=false; st.q3=false;
+    st.bossUnlocked=false; st.bossWin=false; st.cooldownDone=false;
+    setBadge(); badgeText.textContent='LOCKED';
+    resetArena();
+    syncSteps(); lockCtas();
+    toast('เริ่มใหม่แล้ว');
+  }
+
+  // -----------------------------
+  // Bind CTAs
+  // -----------------------------
+  ctaQ1.addEventListener('click', ()=> showModal('Quest 1 — Breathing', 'กดตามจังหวะ IN/OUT ให้ครบ 8 รอบ', 'เริ่ม Quest 1', startQ1));
+  ctaQ2.addEventListener('click', ()=>{
+    if (!st.q1) return;
+    showModal('Quest 2 — Focus', 'แตะเป้าให้ครบ 10 ครั้ง', 'เริ่ม Quest 2', startQ2);
+  });
+  ctaQ3.addEventListener('click', ()=>{
+    if (!(st.q1 && st.q2)) return;
+    showModal('Quest 3 — Stretch', 'ค้างท่า 3 ท่า (4 วินาที/ท่า)', 'เริ่ม Quest 3', startQ3);
+  });
+  ctaBoss.addEventListener('click', ()=>{
+    if (!(st.q1 && st.q2 && st.q3)) return;
+    showModal('Zone Boss', `${Z.bossName} — ${Z.bossBrief}`, 'เริ่มสู้บอส', startBoss);
+  });
+
+  $('#btnBackHub').addEventListener('click', goBackHub);
+  $('#btnRestart').addEventListener('click', restartAll);
+  $('#btnGoNext').addEventListener('click', ()=>goNext(false));
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  function init(){
+    setHeader();
+    renderPills();
+
+    badgeText.textContent = 'LOCKED';
+    setBadge(); // neutral
+    $('#bossBrief').textContent = Z.bossBrief;
+
+    syncSteps(); lockCtas();
+    resetArena();
+
+    // label badges
+    $('#badgeZone').classList.add('ok');
+    $('#badgeNext').classList.add('ok');
+    $('#subTitle').textContent = `โซน: ${Z.icon} ${Z.name} • กติกา: 3 Quest → ชนะ ${Z.bossName} → Cooldown → Next`;
+
+    // show next name shortened
+    const nx = (NEXT||'').toString();
+    $('#nextText').textContent = 'next: ' + (nx.length>34 ? (nx.slice(0,34)+'…') : nx);
+
+    // strict: focus first CTA
+    setTimeout(()=> toast('เริ่มที่ Quest 1 ได้เลย'), 120);
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>
