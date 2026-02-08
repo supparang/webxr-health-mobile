@@ -1,259 +1,1429 @@
-<!-- === /herohealth/groups-vr.html ===
-Groups ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + PASS-THROUGH)
-✅ Nutrition zone daily gate (pid-aware)
-✅ Direct -> ./vr-groups/groups-vr.html
-✅ Or -> ./quest-gate.html?zone=nutrition&next=...
+<!-- === /herohealth/quest-gate.html ===
+HeroHealth — Quest Gate (Daily Zone Warm-up: 3 Mini Quests → Zone Boss → Cooldown)
+✅ Daily-per-zone: 1 time/day/zone (nutrition/hygiene/fitness)
+✅ Strict: must finish Quest 1–3 before Boss unlock; must WIN boss; cooldown then DONE
+✅ Sets localStorage:
+   - HHA_ZONE_DONE::<zone>::YYYY-MM-DD = "1"
+✅ Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view + hub
+✅ Never override existing params; only adds hub if missing on next
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — Quest Gate</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#a78bfa;
+      --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa;
       --radius:22px;
-      --pill:999px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
       --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
-      min-height:100vh;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       background:
-        radial-gradient(1200px 800px at 50% 0%, rgba(167,139,250,.12), transparent 55%),
-        radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.08), transparent 50%),
-        radial-gradient(900px 650px at 85% 25%, rgba(34,197,94,.08), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:hidden;
     }
-    .card{
-      width:min(560px, 92vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      padding:18px;
+    a{ color:inherit; text-decoration:none; }
+    .wrap{ height:100%; max-width:1120px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 10px 10px 0 10px;
     }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .title{ font-size:20px; font-weight:900; letter-spacing:.2px; margin:2px 0 6px; }
-    .sub{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.35; }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{ margin:0; font-size: clamp(20px, 2.0vw, 28px); letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size: 13px; line-height:1.4; max-width: 74ch; }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:var(--pill);
-      border:1px solid var(--stroke);
       background: rgba(2,6,23,.55);
-      color:var(--text); font-size:12px; font-weight:800;
-      user-select:none; white-space:nowrap;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    .kv{
       border:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px 12px;
-      min-height:52px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
     }
-    .k{ color:var(--muted); font-size:11px; margin-bottom:4px; }
-    .v{ font-size:13px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .btn{
-      margin-top:14px;
-      width:100%;
-      padding:12px 14px;
-      border-radius:16px;
-      border:1px solid rgba(167,139,250,.35);
-      background: rgba(167,139,250,.14);
+    .pill b{ color:var(--text); font-weight:800; }
+
+    .panel{
+      flex:1;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+
+    .bar{
+      display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      gap:10px; padding:12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+    }
+    .leftbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      font-size:12px;
       color:var(--text);
-      font-weight:900;
-      font-size:14px;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .badge .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .badge.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .badge.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
+
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
     }
     .btn:active{ transform: translateY(1px); }
-    .hint{ margin-top:10px; color:var(--muted); font-size:12px; line-height:1.35; }
-    @media (max-width:520px){ .grid{ grid-template-columns: 1fr; } }
+    .btn.disabled{ opacity:.45; cursor:not-allowed; }
+    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); color: var(--text); }
+    .btn.ghost{ color:var(--muted); }
+
+    .content{
+      flex:1;
+      display:grid;
+      grid-template-columns: 1fr .95fr;
+      gap: 12px;
+      padding: 12px;
+      min-height:0;
+    }
+    @media (max-width: 980px){
+      .content{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      overflow:hidden;
+      min-height: 180px;
+      position:relative;
+    }
+    .card h3{ margin:0 0 6px 0; font-size:16px; letter-spacing:.2px; }
+    .card p{ margin:0; color:var(--muted); font-size: 13px; line-height: 1.45; }
+    .glow{
+      position:absolute; inset:-40% -30% auto auto;
+      width:240px; height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%);
+      filter: blur(10px);
+      transform: rotate(14deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .glow.green{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), transparent 60%); }
+    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+
+    .stepRow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .step{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.32);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+    }
+    .step.ok{ color:var(--text); border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .step .n{
+      width:20px; height:20px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      display:inline-flex; align-items:center; justify-content:center;
+      font-weight:900;
+      color:var(--text);
+      background: rgba(255,255,255,.06);
+    }
+
+    .arena{
+      border:1px dashed rgba(148,163,184,.26);
+      background: rgba(2,6,23,.22);
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 12px;
+      min-height: 260px;
+      position:relative;
+      overflow:hidden;
+    }
+    .arenaTop{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      margin-bottom:10px;
+    }
+    .meter{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.30);
+      border-radius: 14px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 240px;
+    }
+    .meter .k{ color:var(--muted); font-size:12px; }
+    .barWrap{ height:10px; background: rgba(0,0,0,.35); border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.10); }
+    .barFill{ height:100%; width:0%; background: rgba(34,211,238,.85); transition: width .12s ease; }
+    .barFill.good{ background: rgba(34,197,94,.85); }
+    .barFill.bad{ background: rgba(239,68,68,.85); }
+
+    .big{
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 900;
+      letter-spacing: .5px;
+      margin: 6px 0 2px 0;
+    }
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.4;
+      margin-top:6px;
+    }
+
+    .ctaRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .cta{
+      flex: 1 1 220px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius:16px;
+      padding:12px;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      position:relative;
+      overflow:hidden;
+    }
+    .cta:hover{ border-color: rgba(255,255,255,.20); background: rgba(255,255,255,.08); }
+    .cta:active{ transform: translateY(1px); }
+    .cta.disabled{ opacity:.45; cursor:not-allowed; }
+    .cta .ico{ font-size:20px; }
+    .cta .t{ font-weight:900; }
+    .cta .d{ color:var(--muted); font-size:12px; line-height:1.35; margin-top:2px; }
+    .cta .spark{
+      position:absolute; inset:-40% -50% auto auto;
+      width:220px; height:220px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.18), transparent 60%);
+      filter: blur(10px);
+      transform: rotate(10deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+
+    .overlay{
+      position:absolute; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.66);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      padding: 14px;
+    }
+    .overlay.show{ display:flex; }
+    .modal{
+      width: min(720px, 92vw);
+      background: rgba(2,6,23,.82);
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 18px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+      padding: 14px;
+    }
+    .modal h4{ margin:0 0 6px 0; font-size:16px; }
+    .modal p{ margin:0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .modal .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; justify-content:space-between; }
+    .modal .btn{ flex: 1 1 220px; justify-content:center; }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
+
+    /* targets */
+    .tgt{
+      position:absolute;
+      width:48px; height:48px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer;
+      user-select:none;
+      box-shadow: 0 12px 34px rgba(0,0,0,.35);
+      transform: translate(-50%,-50%);
+      transition: transform .08s ease, opacity .12s ease;
+    }
+    .tgt:active{ transform: translate(-50%,-50%) scale(.96); }
+    .tgt .e{ font-size: 18px; }
+    .pop{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      font-weight: 900;
+      font-size: 14px;
+      opacity: 0;
+      animation: pop 520ms ease forwards;
+      pointer-events:none;
+      text-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    @keyframes pop{
+      0%{ opacity:0; transform: translate(-50%,-50%) scale(.8); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform: translate(-50%,-76%) scale(1.08); }
+    }
+
+    .statRow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .chip{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.34);
+      border-radius: 999px;
+      padding:7px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .chip b{ color: var(--text); }
+
+    .choiceGrid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px; }
+    @media (max-width:520px){ .choiceGrid{ grid-template-columns: 1fr; } }
+    .choiceBtn{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.34);
+      border-radius: 14px;
+      padding: 12px;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .choiceBtn:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .choiceBtn:active{ transform: translateY(1px); }
+    .choiceBtn.good{ border-color: rgba(34,197,94,.28); }
+    .choiceBtn.bad{ border-color: rgba(239,68,68,.28); }
+    .choiceBtn .lhs{ display:flex; align-items:center; gap:10px; }
+    .choiceBtn .emo{ font-size:20px; }
+    .choiceBtn .txt{ font-weight:900; }
+    .choiceBtn .sub{ color:var(--muted); font-size:12px; }
+
   </style>
 </head>
+
 <body>
-  <main class="card" role="main" aria-label="Groups Launcher">
-    <div class="row">
-      <div>
-        <div class="title">🍱 GroupsVR</div>
-        <p class="sub">กำลังเข้าสู่เกม… ถ้าโซน Nutrition ยังไม่ผ่านวันนี้ ระบบจะพาไปทำ Quest Gate ก่อน (วันละ 1 ครั้ง/โซน)</p>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1 class="title">🛡️ HeroHealth — Quest Gate</h1>
+        <p class="subtitle" id="subTitle">Daily gate: วันนี้โซนนี้ยังไม่ผ่าน → ทำ 3 Mini Quest → ชนะบอส → Cooldown แล้วค่อยเข้าเกมหลัก</p>
       </div>
-      <span class="pill" id="statusPill">LOADING</span>
+      <div class="pillrow" id="pillrow"></div>
     </div>
 
-    <section class="grid" aria-label="Context preview">
-      <div class="kv"><div class="k">zone</div><div class="v" id="pv-zone">nutrition</div></div>
-      <div class="kv"><div class="k">zone today</div><div class="v" id="pv-zoneDone">—</div></div>
-      <div class="kv"><div class="k">pid</div><div class="v" id="pv-pid">—</div></div>
-      <div class="kv"><div class="k">run</div><div class="v" id="pv-run">—</div></div>
-      <div class="kv"><div class="k">diff</div><div class="v" id="pv-diff">—</div></div>
-      <div class="kv"><div class="k">time</div><div class="v" id="pv-time">—</div></div>
-      <div class="kv"><div class="k">seed</div><div class="v" id="pv-seed">—</div></div>
-      <div class="kv"><div class="k">studyId</div><div class="v" id="pv-studyId">—</div></div>
-      <div class="kv"><div class="k">phase</div><div class="v" id="pv-phase">—</div></div>
-      <div class="kv"><div class="k">conditionGroup</div><div class="v" id="pv-cond">—</div></div>
-      <div class="kv"><div class="k">log</div><div class="v" id="pv-log">—</div></div>
-      <div class="kv"><div class="k">hub</div><div class="v" id="pv-hub">—</div></div>
-    </section>
+    <div class="panel">
+      <div class="bar">
+        <div class="leftbar">
+          <div class="badge" id="badgeState"><span class="dot"></span><span id="badgeText">LOCKED</span></div>
+          <div class="badge ok" id="badgeZone"><span class="dot"></span><span id="zoneText">zone</span></div>
+          <div class="badge" id="badgeNext"><span class="dot"></span><span id="nextText">next</span></div>
+        </div>
 
-    <button class="btn" id="btnGo" type="button">เข้าเกมทันที</button>
-    <div class="hint">หมายเหตุ: ระบบจะไม่บังคับ Quest Gate ถ้าโซน Nutrition ถูกทำ “DONE วันนี้” แล้ว</div>
-  </main>
+        <div class="actions">
+          <div class="btn ghost" id="btnBackHub">↩️ กลับ Hub</div>
+          <div class="btn warn" id="btnRestart">♻️ เริ่มใหม่</div>
+          <div class="btn good disabled" id="btnGoNext">➡️ เข้าเกมหลัก</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- LEFT -->
+        <div class="card" id="cardFlow">
+          <div class="glow" id="flowGlow"></div>
+          <h3 id="flowTitle">Daily Warm-up</h3>
+          <p id="flowDesc">ทำครบ 3 Mini Quest (สั้น ๆ เร็ว ๆ) → ปลดล็อกบอสโซน → ต้องชนะ → คูลดาวน์ แล้วเข้าเกมหลัก</p>
+
+          <div class="stepRow">
+            <div class="step" id="s1"><span class="n">1</span> Power Tap</div>
+            <div class="step" id="s2"><span class="n">2</span> Focus Rush</div>
+            <div class="step" id="s3"><span class="n">3</span> Pose Hold</div>
+            <div class="step" id="sb"><span class="n">B</span> Zone Boss</div>
+            <div class="step" id="sc"><span class="n">C</span> Cooldown</div>
+          </div>
+
+          <div class="ctaRow">
+            <div class="cta" id="ctaQ1">
+              <div class="spark"></div>
+              <div class="ico">⚡</div>
+              <div>
+                <div class="t">Quest 1 — Power Tap</div>
+                <div class="d">แตะ “ออร์บพลังงาน” ให้ครบ 12 ชิ้น (เป้าจะโผล่ไวขึ้น)</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaQ2">
+              <div class="spark"></div>
+              <div class="ico">🎯</div>
+              <div>
+                <div class="t">Quest 2 — Focus Rush</div>
+                <div class="d">ยิง/แตะเป้าแบบ “ต่อเนื่อง” ให้ได้ streak ≥ 6</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaQ3">
+              <div class="spark"></div>
+              <div class="ico">🧘</div>
+              <div>
+                <div class="t">Quest 3 — Pose Hold</div>
+                <div class="d">ค้างท่า 3 ท่า (ท่าละ 3 วิ) ห้ามปล่อยก่อน</div>
+              </div>
+            </div>
+
+            <div class="cta disabled" id="ctaBoss">
+              <div class="spark"></div>
+              <div class="ico">👑</div>
+              <div>
+                <div class="t">Zone Boss</div>
+                <div class="d" id="bossBrief">ปลดล็อกเมื่อทำ Quest 1–3 ครบ</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hint" id="hintStrict">
+            🔒 คุมเข้ม: เควสไหนไม่ผ่าน = ต้องทำซ้ำเควสนั้น (ข้ามไม่ได้) • บอสแพ้ = รีบอสได้ (ไม่รีเซ็ตเควส)
+          </div>
+
+          <div class="hint" id="hintDaily">
+            📌 Daily: ผ่านโซนนี้แล้ววันนี้ เกมในโซนนี้จะเข้าได้เลย (ไม่ต้องผ่าน gate ซ้ำ)
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card" id="cardArena">
+          <div class="glow green" id="arenaGlow"></div>
+          <h3 id="arenaTitle">สนามภารกิจ</h3>
+          <p id="arenaDesc">เริ่มจาก Quest 1 ได้เลย</p>
+
+          <div class="arena" id="arena">
+            <div class="arenaTop">
+              <div>
+                <div class="big" id="arenaBig">READY</div>
+                <div class="hint" id="arenaHint">เริ่ม Quest 1</div>
+                <div class="statRow" id="statRow"></div>
+              </div>
+
+              <div class="meter">
+                <div class="k" id="meterLabel">progress</div>
+                <div class="barWrap"><div class="barFill" id="barFill"></div></div>
+                <div class="k"><span id="meterText">0%</span></div>
+              </div>
+            </div>
+
+            <div id="arenaBody"></div>
+          </div>
+
+          <div class="hint" id="arenaFoot">
+            ✅ ชนะบอสแล้วคูลดาวน์ 12 วินาที → ระบบจะ “mark วันนี้ของโซนนี้ = DONE” แล้วเด้งเข้าเกมหลัก
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h4 id="modalTitle">Modal</h4>
+      <p id="modalDesc">—</p>
+      <div class="row">
+        <div class="btn ghost" id="modalCancel">ปิด</div>
+        <div class="btn good" id="modalOk">เริ่ม</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
 
 <script>
 (function(){
   'use strict';
 
-  const ZONE_ID = 'nutrition';
-  const RUN_PATH = './vr-groups/groups-vr.html';
-  const GATE_PATH = './quest-gate.html';
-
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','hub'];
-  const $ = (id)=>document.getElementById(id);
-  const pill = $('statusPill');
-
+  // -----------------------------
+  // URL / Params (pass-through)
+  // -----------------------------
   function pageUrl(){ return location.href.split('#')[0]; }
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   function qs(k, def=null){ const q=parseQS(); const v=q.get(k); return (v==null||String(v).trim()==='') ? def : v; }
+  function toObj(sp){ const o={}; for (const [k,v] of sp.entries()) o[k]=v; return o; }
 
-  function todayKey(){
-    try{ return new Date().toLocaleDateString('en-CA'); }
-    catch(_){
-      const d=new Date();
-      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${dd}`;
-    }
-  }
-  function getPid(){
-    const p = qs('pid', null);
-    if (p && String(p).trim()) return String(p).trim();
-    try{ return (localStorage.getItem('HHA_PID')||'').trim() || ''; }catch(_){ return ''; }
-  }
+  const ZONE = (qs('zone','nutrition')||'nutrition').toLowerCase();
+  const NEXT = qs('next', './hub.html'); // relative ok
+  const HUB  = qs('hub', null);
 
-  const LS_ZONE_DAILY_PREFIX = 'HHA_ZONE_DAILY_DONE';
-  function zoneDailyKey(zoneId){
-    const pid = getPid();
-    const p = (pid && pid.trim()) ? pid.trim() : 'anon';
-    return `${LS_ZONE_DAILY_PREFIX}:${zoneId}:${todayKey()}:${p}`;
-  }
-  function isZoneDoneToday(zoneId){
-    const k = zoneDailyKey(zoneId);
-    try{ return localStorage.getItem(k) === '1'; }catch(_){ return false; }
-  }
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
 
   function hubUrl(){
-    const h = qs('hub', null);
-    if (h && String(h).trim()) return String(h).trim();
+    if (HUB && String(HUB).trim()) return HUB;
     try{ return new URL('./hub.html', location.href).toString(); }catch(_){ return './hub.html'; }
   }
 
-  function preview(ctx){
-    const set = (id,v)=>{ const el=$(id); if(el) el.textContent = (v==null||v==='') ? '—' : String(v); };
-    set('pv-zone', ZONE_ID);
-    set('pv-zoneDone', isZoneDoneToday(ZONE_ID) ? 'DONE ✅' : '—');
-    set('pv-pid', ctx.pid);
-    set('pv-run', ctx.run);
-    set('pv-diff', ctx.diff);
-    set('pv-time', ctx.time);
-    set('pv-seed', ctx.seed);
-    set('pv-studyId', ctx.studyId);
-    set('pv-phase', ctx.phase);
-    set('pv-cond', ctx.conditionGroup);
-    set('pv-log', ctx.log ? 'ON' : '—');
-    set('pv-hub', ctx.hub ? 'SET' : '—');
-  }
+  function buildNextUrl(){
+    const base = new URL(NEXT, location.href);
+    const cur = parseQS();
 
-  function readCtxFromQuery(){
-    const out = {};
-    out.pid  = getPid() || qs('pid', null);
-    out.run  = qs('run','play');
-    out.diff = qs('diff','normal');
-    out.time = qs('time','80');
-    out.seed = qs('seed', null);
-    out.studyId = qs('studyId', qs('study', null));
-    out.phase   = qs('phase', null);
-    out.conditionGroup = qs('conditionGroup', qs('cond', null));
-    out.log = qs('log', null);
-    out.view = qs('view', null);
-    out.hub = hubUrl();
-    return out;
-  }
-
-  function applyPassThrough(baseUrl, ctx){
-    const u = new URL(baseUrl, location.href);
     for (const k of PASS_KEYS){
-      const v = ctx[k];
-      if (v==null || String(v).trim()==='') continue;
-      if (!u.searchParams.has(k) || String(u.searchParams.get(k)||'').trim()===''){
-        u.searchParams.set(k, String(v));
+      if (!base.searchParams.has(k) && cur.has(k)){
+        const v = cur.get(k);
+        if (v!=null && String(v).trim()!=='') base.searchParams.set(k, v);
       }
     }
-    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
-      u.searchParams.set('hub', ctx.hub || hubUrl());
+    if (!base.searchParams.has('hub') || String(base.searchParams.get('hub')||'').trim()===''){
+      base.searchParams.set('hub', hubUrl());
     }
-    return u.toString();
+    return base.toString();
   }
 
-  function buildRunUrl(ctx){
-    const u = new URL(RUN_PATH, location.href);
-    if (ctx.pid) u.searchParams.set('pid', ctx.pid);
-    if (ctx.run) u.searchParams.set('run', ctx.run);
-    if (ctx.diff) u.searchParams.set('diff', ctx.diff);
-    if (ctx.time) u.searchParams.set('time', ctx.time);
-    if (ctx.seed) u.searchParams.set('seed', ctx.seed);
-    if (ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-    if (ctx.phase) u.searchParams.set('phase', ctx.phase);
-    if (ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
-    if (ctx.log) u.searchParams.set('log', ctx.log);
-    if (ctx.view) u.searchParams.set('view', ctx.view);
-    u.searchParams.set('hub', ctx.hub || hubUrl());
-    return u.toString();
+  // -----------------------------
+  // Daily key
+  // -----------------------------
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function markZoneDoneToday(zone){
+    try{ localStorage.setItem(zoneDoneKey(zone), '1'); }catch(_){}
   }
 
-  function buildGateUrl(ctx, runUrl){
-    const u = new URL(GATE_PATH, location.href);
-    u.searchParams.set('zone', ZONE_ID);
-    u.searchParams.set('next', runUrl);
-    return applyPassThrough(u.toString(), ctx);
+  // -----------------------------
+  // UI helpers
+  // -----------------------------
+  const $ = (s)=>document.querySelector(s);
+  function setText(id, v){ const el=$(id); if(el) el.textContent = (v==null||String(v).trim()==='') ? '—' : String(v); }
+
+  const toastEl = $('#toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
   }
 
-  function go(){
-    const ctx = readCtxFromQuery();
-    preview(ctx);
+  // overlay modal
+  const overlay = $('#overlay');
+  const modalTitle = $('#modalTitle');
+  const modalDesc  = $('#modalDesc');
+  const modalCancel = $('#modalCancel');
+  const modalOk = $('#modalOk');
+  let modalOkFn = null;
 
-    const runUrl = buildRunUrl(ctx);
-    if (isZoneDoneToday(ZONE_ID)){
-      pill.textContent = 'DIRECT';
-      location.replace(runUrl);
+  function showModal(title, desc, okText, okFn){
+    modalTitle.textContent = title;
+    modalDesc.textContent  = desc || '';
+    modalOk.textContent = okText || 'เริ่ม';
+    modalOkFn = okFn || null;
+    overlay.classList.add('show');
+  }
+  function hideModal(){
+    overlay.classList.remove('show');
+    modalOkFn = null;
+  }
+  modalCancel.addEventListener('click', hideModal);
+  modalOk.addEventListener('click', ()=>{ const fn = modalOkFn; hideModal(); if (typeof fn === 'function') fn(); });
+
+  // -----------------------------
+  // Zone definitions (Boss flavor)
+  // -----------------------------
+  const ZONE_DEF = {
+    nutrition: {
+      icon:'🥗', name:'โภชนาการ', glow:'green',
+      bossName:'Food Rush Boss',
+      bossBrief:'ตอบ “ดี vs ขยะ” ให้เร็ว • ทำ streak เพื่อชนะบอส (HP จะลดลงเมื่อทำถูกต่อเนื่อง)',
+    },
+    hygiene: {
+      icon:'🧼', name:'อนามัยส่วนบุคคล', glow:'cyan',
+      bossName:'Sequence Boss',
+      bossBrief:'แตะเรียงขั้นตอนให้ถูกเร็วที่สุด (พลาด HP ลด)',
+    },
+    fitness: {
+      icon:'🏃', name:'ออกกำลังกาย', glow:'violet',
+      bossName:'Reflex Boss',
+      bossBrief:'เลือกท่าถูกต้องแบบเร็ว ๆ (ถูกต่อเนื่อง = boost)',
+    },
+  };
+  const Z = ZONE_DEF[ZONE] || ZONE_DEF.nutrition;
+
+  // -----------------------------
+  // State
+  // -----------------------------
+  const st = {
+    step: 0,
+    q1:false, q2:false, q3:false,
+    bossWin:false,
+    cooldownDone:false,
+  };
+
+  const s1=$('#s1'), s2=$('#s2'), s3=$('#s3'), sb=$('#sb'), sc=$('#sc');
+  function syncSteps(){
+    s1.classList.toggle('ok', st.q1);
+    s2.classList.toggle('ok', st.q2);
+    s3.classList.toggle('ok', st.q3);
+    sb.classList.toggle('ok', st.bossWin);
+    sc.classList.toggle('ok', st.cooldownDone);
+  }
+
+  const ctaQ1=$('#ctaQ1'), ctaQ2=$('#ctaQ2'), ctaQ3=$('#ctaQ3'), ctaBoss=$('#ctaBoss');
+  const btnGoNext=$('#btnGoNext');
+  function lockCtas(){
+    ctaQ1.classList.toggle('disabled', false);
+    ctaQ2.classList.toggle('disabled', !st.q1);
+    ctaQ3.classList.toggle('disabled', !(st.q1 && st.q2));
+    ctaBoss.classList.toggle('disabled', !(st.q1 && st.q2 && st.q3));
+    btnGoNext.classList.toggle('disabled', !(st.bossWin && st.cooldownDone));
+  }
+
+  const badgeState=$('#badgeState');
+  const badgeText=$('#badgeText');
+  function setBadge(state){
+    badgeState.classList.remove('ok','bad');
+    if (state==='ok') badgeState.classList.add('ok');
+    if (state==='bad') badgeState.classList.add('bad');
+  }
+
+  // Progress meter
+  const barFill = $('#barFill');
+  const meterText = $('#meterText');
+  const meterLabel = $('#meterLabel');
+  function setProgress(pct, mode){
+    const p = Math.max(0, Math.min(100, Number(pct)||0));
+    barFill.style.width = p + '%';
+    barFill.classList.remove('good','bad');
+    if (mode==='good') barFill.classList.add('good');
+    if (mode==='bad') barFill.classList.add('bad');
+    meterText.textContent = Math.round(p) + '%';
+  }
+
+  const arenaBig = $('#arenaBig');
+  const arenaHint = $('#arenaHint');
+  const arenaBody = $('#arenaBody');
+  const statRow = $('#statRow');
+
+  function clearTargets(){
+    const old = document.querySelectorAll('.tgt, .pop');
+    old.forEach(x=>x.remove());
+  }
+  function resetArena(){
+    arenaBody.innerHTML = '';
+    statRow.innerHTML = '';
+    arenaBig.textContent = 'READY';
+    arenaHint.textContent = 'เริ่ม Quest 1';
+    meterLabel.textContent = 'progress';
+    setProgress(0);
+    clearTargets();
+  }
+
+  function addChip(key, val){
+    const el = document.createElement('div');
+    el.className = 'chip';
+    el.innerHTML = `<b>${key}</b>: ${String(val)}`;
+    statRow.appendChild(el);
+    return el;
+  }
+
+  function popText(x,y,txt){
+    const p = document.createElement('div');
+    p.className = 'pop';
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    p.textContent = txt;
+    $('#arena').appendChild(p);
+    setTimeout(()=>p.remove(), 650);
+  }
+
+  function setHeader(){
+    setText('#zoneText', `${Z.icon} ${Z.name}`);
+    const nx = (NEXT||'').toString();
+    $('#nextText').textContent = 'next: ' + (nx.length>34 ? (nx.slice(0,34)+'…') : nx);
+
+    const g = $('#flowGlow');
+    const a = $('#arenaGlow');
+    g.classList.remove('green','violet');
+    a.classList.remove('green','violet');
+    if (Z.glow==='green'){ g.classList.add('green'); a.classList.add('green'); }
+    if (Z.glow==='violet'){ g.classList.add('violet'); a.classList.add('violet'); }
+
+    setText('#flowTitle', `Daily Gate — ${Z.icon} ${Z.name}`);
+    setText('#arenaTitle', `สนามภารกิจ — ${Z.bossName}`);
+    setText('#bossBrief', Z.bossBrief);
+    $('#subTitle').textContent = `โซน: ${Z.icon} ${Z.name} • Daily: วันละ 1 ครั้ง/โซน • 3 Quest → ชนะบอส → Cooldown → Next`;
+  }
+
+  function renderPills(){
+    const q = parseQS();
+    const pills = [
+      {k:'zone', v:ZONE},
+      {k:'today', v:ymdLocal()},
+      {k:'done', v:isZoneDoneToday(ZONE) ? 'YES' : ''},
+      {k:'pid', v:q.get('pid')},
+      {k:'run', v:q.get('run')},
+      {k:'diff', v:q.get('diff')},
+      {k:'time', v:q.get('time')},
+      {k:'seed', v:q.get('seed')},
+      {k:'studyId', v:q.get('studyId')},
+      {k:'phase', v:q.get('phase')},
+      {k:'conditionGroup', v:q.get('conditionGroup')},
+      {k:'log', v:q.get('log')},
+    ].filter(x => x.v != null && String(x.v).trim() !== '');
+    $('#pillrow').innerHTML = pills
+      .slice(0, 14)
+      .map(x => `<span class="pill"><b>${x.k}</b>: ${String(x.v).replace(/</g,'&lt;')}</span>`)
+      .join('') || `<span class="pill"><b>params</b>: none</span>`;
+  }
+
+  // -----------------------------
+  // Quest 1 — Power Tap (12 orbs, speed-up)
+  // -----------------------------
+  function startQ1(){
+    st.step = 1;
+    resetArena();
+    arenaBig.textContent = '⚡ POWER TAP';
+    arenaHint.textContent = 'แตะออร์บให้ครบ 12 (โผล่ไวขึ้นเรื่อย ๆ)';
+    meterLabel.textContent = 'orbs';
+
+    const arena = $('#arena');
+    const total = 12;
+    let hit = 0;
+    let alive = null;
+    let lifeMs = 1100;
+
+    const chip = addChip('hit', `0/${total}`);
+    addChip('speed', 'x1');
+
+    function spawn(){
+      if (alive) alive.remove();
+      const rect = arena.getBoundingClientRect();
+      const pad = 56;
+      const x = pad + Math.random() * Math.max(1, (rect.width - pad*2));
+      const y = 120 + Math.random() * Math.max(1, (rect.height - 150));
+
+      const d = document.createElement('div');
+      d.className = 'tgt';
+      d.style.left = x + 'px';
+      d.style.top  = y + 'px';
+      d.innerHTML = `<div class="e">⚡</div>`;
+      arena.appendChild(d);
+      alive = d;
+
+      let dead = false;
+      const t0 = performance.now();
+
+      function miss(){
+        if (dead) return;
+        dead = true;
+        popText(x,y,'MISS');
+        toast('พลาด! โผล่อีกครั้ง');
+        d.remove();
+        spawn();
+      }
+
+      const tm = setTimeout(miss, lifeMs);
+
+      d.addEventListener('click', ()=>{
+        if (dead) return;
+        dead = true;
+        clearTimeout(tm);
+        hit++;
+        popText(x,y,'+1');
+        toast('Nice!');
+        d.remove();
+
+        lifeMs = Math.max(420, Math.floor(lifeMs * 0.90));
+        chip.innerHTML = `<b>hit</b>: ${hit}/${total}`;
+        setProgress((hit/total)*100, hit>=total ? 'good' : null);
+
+        if (hit >= total){
+          st.q1 = true; st.step = 0;
+          setBadge('ok'); badgeText.textContent = 'Q1 DONE';
+          syncSteps(); lockCtas();
+          arenaBig.textContent = '✅ Q1 COMPLETE';
+          arenaHint.textContent = 'ปลดล็อก Quest 2 แล้ว';
+          toast('ผ่าน Quest 1!');
+          return;
+        }
+        spawn();
+      });
+    }
+
+    spawn();
+  }
+
+  // -----------------------------
+  // Quest 2 — Focus Rush (need streak >=6)
+  // -----------------------------
+  function startQ2(){
+    if (!st.q1){ toast('ต้องทำ Quest 1 ก่อน'); return; }
+    st.step = 2;
+    resetArena();
+    arenaBig.textContent = '🎯 FOCUS RUSH';
+    arenaHint.textContent = 'ทำ streak ให้ถึง 6 (พลาด = streak รีเซ็ต)';
+    meterLabel.textContent = 'streak';
+
+    const arena = $('#arena');
+    const need = 6;
+    let streak = 0;
+    let best = 0;
+    let alive = null;
+    let lifeMs = 900;
+
+    const chipS = addChip('streak', `0/${need}`);
+    const chipB = addChip('best', '0');
+
+    function spawn(){
+      if (alive) alive.remove();
+      const rect = arena.getBoundingClientRect();
+      const pad = 56;
+      const x = pad + Math.random() * Math.max(1, (rect.width - pad*2));
+      const y = 120 + Math.random() * Math.max(1, (rect.height - 150));
+
+      const d = document.createElement('div');
+      d.className = 'tgt';
+      d.style.left = x + 'px';
+      d.style.top  = y + 'px';
+      d.innerHTML = `<div class="e">🎯</div>`;
+      arena.appendChild(d);
+      alive = d;
+
+      let dead = false;
+      const tm = setTimeout(()=>{
+        if (dead) return;
+        dead = true;
+        popText(x,y,'-streak');
+        streak = 0;
+        chipS.innerHTML = `<b>streak</b>: ${streak}/${need}`;
+        setProgress((streak/need)*100, 'bad');
+        d.remove();
+        toast('พลาด! streak รีเซ็ต');
+        spawn();
+      }, lifeMs);
+
+      d.addEventListener('click', ()=>{
+        if (dead) return;
+        dead = true;
+        clearTimeout(tm);
+        streak++;
+        best = Math.max(best, streak);
+        chipS.innerHTML = `<b>streak</b>: ${streak}/${need}`;
+        chipB.innerHTML = `<b>best</b>: ${best}`;
+        popText(x,y,`STREAK ${streak}`);
+        setProgress((streak/need)*100, streak>=need ? 'good' : null);
+        d.remove();
+
+        lifeMs = Math.max(380, Math.floor(lifeMs * 0.92));
+
+        if (streak >= need){
+          st.q2 = true; st.step = 0;
+          setBadge('ok'); badgeText.textContent = 'Q2 DONE';
+          syncSteps(); lockCtas();
+          arenaBig.textContent = '✅ Q2 COMPLETE';
+          arenaHint.textContent = 'ปลดล็อก Quest 3 แล้ว';
+          toast('ผ่าน Quest 2!');
+          return;
+        }
+        spawn();
+      });
+    }
+
+    spawn();
+  }
+
+  // -----------------------------
+  // Quest 3 — Pose Hold (3 poses, 3s each)
+  // -----------------------------
+  function startQ3(){
+    if (!(st.q1 && st.q2)){ toast('ต้องทำ Quest 1–2 ก่อน'); return; }
+    st.step = 3;
+    resetArena();
+    arenaBig.textContent = '🧘 POSE HOLD';
+    arenaHint.textContent = 'ค้างท่า 3 ท่า (ท่าละ 3 วิ) ห้ามปล่อยก่อน';
+    meterLabel.textContent = 'poses';
+
+    const poses = [
+      { emo:'🙆‍♂️', name:'ยืดแขนเหนือศีรษะ' },
+      { emo:'🧍‍♂️', name:'บิดตัวซ้าย-ขวา' },
+      { emo:'🦵', name:'ยืดน่อง/ขา' },
+    ];
+    let idx = 0;
+    let holding = false;
+    let t = 0;
+    let tick = null;
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="chip"><b>pose</b>: <span id="poseIdx">1</span>/3</div>
+      <div class="big" id="poseEmo" style="margin-top:10px;">${poses[0].emo}</div>
+      <div class="hint" id="poseHint">${poses[0].name}</div>
+      <div class="btn good" id="holdBtn" style="margin-top:12px; justify-content:center;">กดค้างเพื่อเริ่ม (3 วิ)</div>
+      <div class="hint" style="margin-top:10px;">ปล่อยก่อนครบเวลา = รีเซ็ตท่านั้น</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const poseIdx = box.querySelector('#poseIdx');
+    const poseEmo = box.querySelector('#poseEmo');
+    const poseHint = box.querySelector('#poseHint');
+    const holdBtn = box.querySelector('#holdBtn');
+
+    function updatePose(){
+      poseIdx.textContent = String(idx+1);
+      poseEmo.textContent = poses[idx].emo;
+      poseHint.textContent = poses[idx].name;
+      t = 0;
+      setProgress((idx/poses.length)*100, null);
+      holdBtn.textContent = 'กดค้างเพื่อเริ่ม (3 วิ)';
+    }
+
+    function startHold(){
+      if (holding) return;
+      holding = true;
+      holdBtn.textContent = 'กำลังค้าง...';
+      tick = setInterval(()=>{
+        t += 0.1;
+        setProgress(((idx + Math.min(1, t/3)) / poses.length)*100, null);
+        const left = Math.max(0, 3 - t);
+        holdBtn.textContent = `ค้างอีก ${left.toFixed(1)} วิ`;
+        if (t >= 3){
+          clearInterval(tick); tick=null;
+          holding = false;
+          toast('ผ่าน 1 ท่า ✅');
+          idx++;
+          if (idx >= poses.length){
+            st.q3 = true; st.step = 0;
+            setProgress(100,'good');
+            setBadge('ok'); badgeText.textContent = 'Q3 DONE';
+            syncSteps(); lockCtas();
+            arenaBig.textContent = '✅ Q3 COMPLETE';
+            arenaHint.textContent = 'ปลดล็อกบอสแล้ว!';
+            toast('ปลดล็อกบอส!');
+            return;
+          }
+          updatePose();
+        }
+      }, 100);
+    }
+
+    function cancelHold(){
+      if (!holding) return;
+      holding = false;
+      if (tick){ clearInterval(tick); tick=null; }
+      t = 0;
+      setProgress((idx/poses.length)*100, null);
+      holdBtn.textContent = 'ปล่อยก่อน — รีเซ็ตท่านี้';
+      toast('ยังไม่ครบเวลา ❗');
+      setTimeout(()=>{ if(!holding) holdBtn.textContent='กดค้างเพื่อเริ่ม (3 วิ)'; }, 520);
+    }
+
+    holdBtn.addEventListener('pointerdown', startHold);
+    holdBtn.addEventListener('pointerup', cancelHold);
+    holdBtn.addEventListener('pointercancel', cancelHold);
+    holdBtn.addEventListener('mouseleave', cancelHold);
+
+    updatePose();
+  }
+
+  // -----------------------------
+  // Boss (Nutrition = fast classify with HP/streak)
+  // -----------------------------
+  function startBoss(){
+    if (!(st.q1 && st.q2 && st.q3)){ toast('ต้องทำ Quest 1–3 ให้ครบก่อน'); return; }
+    st.step = 4;
+    resetArena();
+
+    arenaBig.textContent = '👑 ZONE BOSS';
+    arenaHint.textContent = `${Z.bossName} — ${Z.bossBrief}`;
+    meterLabel.textContent = 'boss';
+
+    if (ZONE === 'nutrition') return bossNutrition();
+    if (ZONE === 'hygiene') return bossHygiene();
+    return bossFitness();
+  }
+
+  function bossNutrition(){
+    // timed + streak → reduce HP
+    const pool = [
+      {emo:'🍎', name:'แอปเปิล', good:true},
+      {emo:'🥦', name:'บรอกโคลี', good:true},
+      {emo:'🐟', name:'ปลา', good:true},
+      {emo:'🥛', name:'นม', good:true},
+      {emo:'🍚', name:'ข้าว', good:true},
+      {emo:'🥜', name:'ถั่ว', good:true},
+      {emo:'🍬', name:'ลูกอม', good:false},
+      {emo:'🍟', name:'เฟรนช์ฟรายส์', good:false},
+      {emo:'🥤', name:'น้ำหวาน', good:false},
+      {emo:'🍩', name:'โดนัท', good:false},
+      {emo:'🍕', name:'พิซซ่า', good:false},
+      {emo:'🌭', name:'ฮอทด็อก', good:false},
+    ];
+
+    let hp = 100;
+    let streak = 0;
+    let score = 0;
+    let left = 18; // seconds
+    let cur = null;
+
+    const chipHP = addChip('HP', '100');
+    const chipSt = addChip('streak', '0');
+    const chipSc = addChip('score', '0');
+    const chipT  = addChip('time', left + 's');
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill" id="bossStat">ตอบให้เร็ว: ถูกต่อเนื่อง = ลด HP แรงขึ้น</div>
+      <div class="big" id="bossItem" style="margin-top:10px;">🍎</div>
+      <div class="hint" id="bossName">—</div>
+      <div class="choiceGrid">
+        <div class="choiceBtn good" id="btnGood">
+          <div class="lhs"><span class="emo">✅</span><div><div class="txt">อาหารดี</div><div class="sub">มีประโยชน์</div></div></div>
+          <div class="pill">GOOD</div>
+        </div>
+        <div class="choiceBtn bad" id="btnBad">
+          <div class="lhs"><span class="emo">⚠️</span><div><div class="txt">อาหารขยะ</div><div class="sub">หวานมันเค็มจัด</div></div></div>
+          <div class="pill">JUNK</div>
+        </div>
+      </div>
+      <div class="hint">ชนะเงื่อนไข: ทำให้ HP บอสเหลือ 0 ก่อนหมดเวลา (18s)</div>
+    `;
+    arenaBody.appendChild(box);
+
+    const bossStat = box.querySelector('#bossStat');
+    const bossItem = box.querySelector('#bossItem');
+    const bossName = box.querySelector('#bossName');
+    const btnGood = box.querySelector('#btnGood');
+    const btnBad = box.querySelector('#btnBad');
+
+    function pick(){
+      cur = pool[Math.floor(Math.random()*pool.length)];
+      bossItem.textContent = cur.emo;
+      bossName.textContent = cur.name;
+    }
+    function sync(){
+      chipHP.innerHTML = `<b>HP</b>: ${Math.max(0,Math.round(hp))}`;
+      chipSt.innerHTML = `<b>streak</b>: ${streak}`;
+      chipSc.innerHTML = `<b>score</b>: ${score}`;
+      chipT.innerHTML  = `<b>time</b>: ${left}s`;
+      setProgress(100 - Math.max(0, hp), hp<=0 ? 'good' : null);
+    }
+
+    function endFail(){
+      setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+      setProgress(100,'bad');
+      arenaBig.textContent = '❌ BOSS FAILED';
+      arenaHint.textContent = 'ยังไม่ผ่าน — กดเริ่มสู้บอสใหม่ได้';
+      toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+      st.step = 0;
+      syncSteps(); lockCtas();
+    }
+
+    function endWin(){
+      st.bossWin = true;
+      setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+      arenaBig.textContent = '🏆 BOSS CLEARED';
+      arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+      setProgress(100,'good');
+      syncSteps(); lockCtas();
+      toast('ชนะบอส!');
+      setTimeout(startCooldown, 550);
+    }
+
+    function hit(isGood, ev){
+      const ok = (!!isGood) === (!!cur.good);
+      const rect = $('#arena').getBoundingClientRect();
+      const px = Math.max(20, Math.min(rect.width-20, (ev?.clientX||rect.left+rect.width/2) - rect.left));
+      const py = Math.max(120, Math.min(rect.height-20, (ev?.clientY||rect.top+rect.height/2) - rect.top));
+      if (ok){
+        streak++;
+        score += 10 + Math.min(10, streak);
+        const dmg = 7 + Math.min(10, Math.floor(streak/2)); // streak => more dmg
+        hp -= dmg;
+        popText(px, py, `-${dmg}HP`);
+        toast('ถูก ✅');
+      } else {
+        streak = 0;
+        score = Math.max(0, score - 6);
+        hp -= 2; // still chip boss slightly to keep flow
+        popText(px, py, 'OOPS');
+        toast('ผิด ❗ streak รีเซ็ต');
+      }
+      if (hp <= 0){ sync(); return endWin(); }
+      pick(); sync();
+    }
+
+    btnGood.addEventListener('click', (e)=>hit(true,e));
+    btnBad.addEventListener('click', (e)=>hit(false,e));
+
+    pick(); sync();
+
+    const timer = setInterval(()=>{
+      if (st.step !== 4){ clearInterval(timer); return; }
+      left--;
+      chipT.innerHTML  = `<b>time</b>: ${Math.max(0,left)}s`;
+      if (left <= 0){
+        clearInterval(timer);
+        if (hp > 0) endFail();
+      }
+    }, 1000);
+  }
+
+  function bossHygiene(){
+    // quick sequence (8 taps) with HP
+    const steps = [
+      {k:'เปียกมือ', order:1},
+      {k:'ฟอกสบู่', order:2},
+      {k:'ถูซอกนิ้ว', order:3},
+      {k:'ถูหลังมือ', order:4},
+      {k:'ถูนิ้วหัวแม่มือ', order:5},
+      {k:'ถูปลายนิ้ว', order:6},
+      {k:'ล้างน้ำ', order:7},
+      {k:'เช็ดแห้ง', order:8},
+    ];
+    const display = steps.slice().sort(()=>Math.random()-0.5);
+
+    let expected = 1;
+    let hp = 100;
+
+    addChip('HP', '100');
+    addChip('need', '0');
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill">แตะตามลำดับ 1→8 • ถูก = ลด HP • ผิด = HP ไม่ลด</div>
+      <div class="choiceGrid" id="choiceList"></div>
+    `;
+    arenaBody.appendChild(box);
+
+    const choiceList = box.querySelector('#choiceList');
+
+    function sync(){
+      statRow.children[0].innerHTML = `<b>HP</b>: ${Math.max(0,Math.round(hp))}`;
+      setProgress(100 - Math.max(0,hp), hp<=0 ? 'good' : null);
+    }
+
+    function win(){
+      st.bossWin = true;
+      setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+      arenaBig.textContent = '🏆 BOSS CLEARED';
+      arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+      setProgress(100,'good');
+      syncSteps(); lockCtas();
+      toast('ชนะบอส!');
+      setTimeout(startCooldown, 550);
+    }
+
+    display.forEach(it=>{
+      const b = document.createElement('div');
+      b.className = 'choiceBtn';
+      b.innerHTML = `
+        <div class="lhs">
+          <span class="emo">🧼</span>
+          <div><div class="txt">${it.k}</div><div class="sub">ควรเป็นลำดับ ${it.order}</div></div>
+        </div>
+        <div class="pill">TAP</div>
+      `;
+      b.addEventListener('click', (e)=>{
+        const ok = it.order === expected;
+        if (ok){
+          const dmg = 14;
+          hp -= dmg;
+          toast('ถูก ✅');
+          b.classList.add('good');
+        } else {
+          toast('ผิด ❗');
+          b.classList.add('bad');
+        }
+        b.style.pointerEvents='none';
+        expected++;
+        sync();
+        if (hp <= 0 || expected > 8){
+          if (hp <= 0) return win();
+          // if didn't drop to 0, fail → retry boss
+          setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+          arenaBig.textContent = '❌ BOSS FAILED';
+          arenaHint.textContent = 'ยังไม่ผ่าน — กดเริ่มสู้บอสใหม่ได้';
+          toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+          st.step=0;
+          syncSteps(); lockCtas();
+        }
+      });
+      choiceList.appendChild(b);
+    });
+
+    sync();
+  }
+
+  function bossFitness(){
+    const actions = [
+      {k:'PUNCH', emo:'🥊', hint:'ชก'},
+      {k:'DUCK', emo:'🦆', hint:'ก้มหลบ'},
+      {k:'JUMP', emo:'🦘', hint:'กระโดด'},
+      {k:'HOLD', emo:'🧘', hint:'ทรงตัว'},
+    ];
+    let hp = 100;
+    let left = 14;
+
+    const chipHP = addChip('HP','100');
+    const chipT  = addChip('time', left+'s');
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="pill">ตอบให้ถูกเร็ว ๆ ลด HP บอส • 14s</div>
+      <div class="big" id="promptEmo" style="margin-top:10px;">🥊</div>
+      <div class="hint" id="promptTxt">PUNCH</div>
+      <div class="choiceGrid">
+        <div class="choiceBtn" data-k="PUNCH"><div class="lhs"><span class="emo">🥊</span><div><div class="txt">PUNCH</div><div class="sub">ชก</div></div></div><div class="pill">1</div></div>
+        <div class="choiceBtn" data-k="DUCK"><div class="lhs"><span class="emo">🦆</span><div><div class="txt">DUCK</div><div class="sub">ก้มหลบ</div></div></div><div class="pill">2</div></div>
+        <div class="choiceBtn" data-k="JUMP"><div class="lhs"><span class="emo">🦘</span><div><div class="txt">JUMP</div><div class="sub">กระโดด</div></div></div><div class="pill">3</div></div>
+        <div class="choiceBtn" data-k="HOLD"><div class="lhs"><span class="emo">🧘</span><div><div class="txt">HOLD</div><div class="sub">ทรงตัว</div></div></div><div class="pill">4</div></div>
+      </div>
+    `;
+    arenaBody.appendChild(box);
+
+    const promptEmo = box.querySelector('#promptEmo');
+    const promptTxt = box.querySelector('#promptTxt');
+    const buttons = [...box.querySelectorAll('.choiceBtn')];
+
+    let cur = null;
+
+    function pick(){
+      cur = actions[Math.floor(Math.random()*actions.length)];
+      promptEmo.textContent = cur.emo;
+      promptTxt.textContent = cur.k + ' — ' + cur.hint;
+    }
+    function sync(){
+      chipHP.innerHTML = `<b>HP</b>: ${Math.max(0,Math.round(hp))}`;
+      chipT.innerHTML = `<b>time</b>: ${Math.max(0,left)}s`;
+      setProgress(100 - Math.max(0,hp), hp<=0 ? 'good' : null);
+    }
+    function win(){
+      st.bossWin = true;
+      setBadge('ok'); badgeText.textContent = 'BOSS WIN';
+      arenaBig.textContent = '🏆 BOSS CLEARED';
+      arenaHint.textContent = 'ผ่านแล้ว! เข้าสู่ Cooldown';
+      setProgress(100,'good');
+      syncSteps(); lockCtas();
+      toast('ชนะบอส!');
+      setTimeout(startCooldown, 550);
+    }
+    function fail(){
+      setBadge('bad'); badgeText.textContent = 'BOSS FAIL';
+      setProgress(100,'bad');
+      arenaBig.textContent = '❌ BOSS FAILED';
+      arenaHint.textContent = 'ยังไม่ผ่าน — กดเริ่มสู้บอสใหม่ได้';
+      toast('ยังไม่ผ่าน ต้องสู้ใหม่');
+      st.step=0;
+      syncSteps(); lockCtas();
+    }
+
+    buttons.forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const k = b.getAttribute('data-k');
+        const ok = k === cur.k;
+        if (ok){ hp -= 18; toast('ถูก ✅'); }
+        else { hp -= 4; toast('ผิด ❗'); }
+        if (hp <= 0){ sync(); return win(); }
+        pick(); sync();
+      });
+    });
+
+    pick(); sync();
+
+    const timer = setInterval(()=>{
+      if (st.step !== 4){ clearInterval(timer); return; }
+      left--;
+      sync();
+      if (left<=0){
+        clearInterval(timer);
+        if (hp>0) fail();
+      }
+    }, 1000);
+  }
+
+  // -----------------------------
+  // Cooldown then DONE + Next
+  // -----------------------------
+  function startCooldown(){
+    st.step = 5;
+    resetArena();
+    arenaBig.textContent = '🧘 COOLDOWN';
+    arenaHint.textContent = 'พักหายใจ 12 วินาที';
+    meterLabel.textContent = 'cooldown';
+
+    const box = document.createElement('div');
+    box.innerHTML = `
+      <div class="big">12</div>
+      <div class="hint">ครบเวลาแล้วจะ mark โซนนี้ว่า DONE วันนี้ และเข้าเกมหลักอัตโนมัติ</div>
+      <div class="pill" style="margin-top:10px;">Tip: สูด 4 → กลั้น 2 → ผ่อน 4</div>
+    `;
+    arenaBody.appendChild(box);
+    const big = box.querySelector('.big');
+
+    let t = 12;
+    setProgress(0, null);
+
+    const timer = setInterval(()=>{
+      if (st.step !== 5){ clearInterval(timer); return; }
+      t--;
+      big.textContent = String(Math.max(0,t));
+      setProgress(((12 - Math.max(0,t))/12)*100, 'good');
+      if (t <= 0){
+        clearInterval(timer);
+        st.cooldownDone = true;
+        st.step = 6;
+        syncSteps(); lockCtas();
+        setBadge('ok'); badgeText.textContent = 'READY';
+        arenaBig.textContent = '✅ READY';
+        arenaHint.textContent = 'เข้าเกมหลักได้แล้ว';
+        toast('พร้อมเข้าเกมหลัก!');
+
+        // IMPORTANT: mark zone done today (daily)
+        markZoneDoneToday(ZONE);
+
+        setTimeout(()=>goNext(true), 550);
+      }
+    }, 1000);
+  }
+
+  // -----------------------------
+  // Navigation
+  // -----------------------------
+  function goBackHub(){ location.href = hubUrl(); }
+
+  function goNext(auto){
+    if (!(st.bossWin && st.cooldownDone)){
+      toast('ยังเข้าเกมหลักไม่ได้ (ต้องชนะบอสและคูลดาวน์)');
       return;
     }
-    pill.textContent = 'GATE';
-    location.replace(buildGateUrl(ctx, runUrl));
+    const url = buildNextUrl();
+    if (!auto){
+      showModal('เข้าเกมหลัก', 'ระบบจะส่งต่อพารามิเตอร์เดิมทั้งหมด และมี hub กลับได้เสมอ', 'เข้าเกม', ()=> location.href = url);
+      return;
+    }
+    location.href = url;
   }
 
-  $('btnGo').addEventListener('click', go, { passive:true });
-  pill.textContent = 'READY';
-  setTimeout(go, 60);
+  function restartAll(){
+    st.step=0; st.q1=false; st.q2=false; st.q3=false;
+    st.bossWin=false; st.cooldownDone=false;
+    setBadge(); badgeText.textContent='LOCKED';
+    resetArena();
+    syncSteps(); lockCtas();
+    toast('เริ่มใหม่แล้ว');
+  }
+
+  // -----------------------------
+  // Bind CTAs
+  // -----------------------------
+  ctaQ1.addEventListener('click', ()=> showModal('Quest 1 — Power Tap', 'แตะออร์บให้ครบ 12 (พลาดได้ แต่ต้องครบ)', 'เริ่ม Quest 1', startQ1));
+  ctaQ2.addEventListener('click', ()=>{ if (!st.q1) return; showModal('Quest 2 — Focus Rush', 'ทำ streak ให้ถึง 6 (พลาด = รีเซ็ต)', 'เริ่ม Quest 2', startQ2); });
+  ctaQ3.addEventListener('click', ()=>{ if (!(st.q1 && st.q2)) return; showModal('Quest 3 — Pose Hold', 'ค้างท่า 3 ท่า ท่าละ 3 วิ ห้ามปล่อยก่อน', 'เริ่ม Quest 3', startQ3); });
+  ctaBoss.addEventListener('click', ()=>{ if (!(st.q1 && st.q2 && st.q3)) return; showModal('Zone Boss', `${Z.bossName}\n${Z.bossBrief}`, 'เริ่มสู้บอส', startBoss); });
+
+  $('#btnBackHub').addEventListener('click', goBackHub);
+  $('#btnRestart').addEventListener('click', restartAll);
+  $('#btnGoNext').addEventListener('click', ()=>goNext(false));
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  function init(){
+    setHeader();
+    renderPills();
+
+    badgeText.textContent = 'LOCKED';
+    setBadge();
+    syncSteps(); lockCtas();
+    resetArena();
+
+    $('#badgeZone').classList.add('ok');
+    $('#badgeNext').classList.add('ok');
+
+    // If zone already done today, gate should not really be needed,
+    // but in case user lands here directly, offer to go next immediately.
+    if (isZoneDoneToday(ZONE)){
+      st.q1 = st.q2 = st.q3 = true;
+      st.bossWin = true;
+      st.cooldownDone = true;
+      syncSteps(); lockCtas();
+      setBadge('ok'); badgeText.textContent = 'DONE TODAY';
+      arenaBig.textContent = '✅ DONE TODAY';
+      arenaHint.textContent = 'โซนนี้ผ่านแล้ววันนี้ → เข้าเกมหลักได้เลย';
+      toast('โซนนี้ผ่านแล้ววันนี้');
+    } else {
+      setTimeout(()=> toast('เริ่ม Quest 1 ได้เลย ⚡'), 120);
+    }
+  }
+  init();
 
 })();
 </script>
