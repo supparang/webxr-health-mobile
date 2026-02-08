@@ -1,6 +1,6 @@
 <!-- === /herohealth/groups-vr.html ===
 GroupsVR ROOT LAUNCHER — PRODUCTION (ZONE DAILY GATE + CTX + PASS-THROUGH)
-Path: /herohealth/groups-vr.html -> /herohealth/vr-groups/groups.html
+RUN: ./vr-groups/groups-vr.html
 -->
 <!doctype html>
 <html lang="th">
@@ -27,10 +27,11 @@ Path: /herohealth/groups-vr.html -> /herohealth/vr-groups/groups.html
     body{
       margin:0;
       min-height:100vh;
-      background: radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
-                  radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
-                  radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
-                  var(--bg);
+      background:
+        radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(900px 650px at 15% 20%, rgba(34,211,238,.10), transparent 50%),
+        radial-gradient(900px 650px at 85% 25%, rgba(168,85,247,.10), transparent 55%),
+        var(--bg);
       color:var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
       display:flex;
@@ -115,7 +116,7 @@ Path: /herohealth/groups-vr.html -> /herohealth/vr-groups/groups.html
   (function(){
     'use strict';
 
-    const RUN_HREF = './vr-groups/groups.html';
+    const RUN_HREF = './vr-groups/groups-vr.html';
     const ZONE_ID = 'nutrition';
     const WARMUP_HREF = './quest-gate.html?zone=nutrition';
 
