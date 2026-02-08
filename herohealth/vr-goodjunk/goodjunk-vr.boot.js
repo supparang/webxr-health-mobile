@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX + GATE FLOW)
+// GoodJunkVR Boot — PRODUCTION (STRICT AUTO + SAFE-MEASURE FIX + GATE FLOW + MANUAL COOLDOWN)
 // ✅ Guard: prevent double boot (fix: time ends too fast)
 // ✅ NO MENU, NO OVERRIDE: ignores ?view= entirely
 // ✅ Auto base view: pc / mobile (UA-based)
@@ -11,7 +11,9 @@
 // ✅ Listens gj:measureSafe to re-measure instantly
 // ✅ Boots engine: ./goodjunk.safe.js (module export boot())
 // ✅ GATE FLOW (gate=1):
-//    Warmup(20s) -> Game -> Cooldown(20s) -> HUB (absolute gateUrl to avoid 404)
+//    Warmup(20s) -> Game
+//    End Summary shown -> USER presses "Cooldown → HUB" (manual)
+//    (Optional auto) if autoCd=1 => auto cooldown after short delay
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
@@ -53,12 +55,14 @@ function setBodyView(view) {
 }
 
 /* =========================
- * Gate helpers (avoid 404)
+ * Gate helpers
  * ========================= */
 function getGateUrl(){
-  // prefer explicit param (so you can swap gate page later)
+  // if provided, use it; else resolve relative to current goodjunk-vr.html (safe on GitHub Pages)
   const g = String(qs('gateUrl', '') || '').trim();
-  return g || 'https://supparang.github.io/herohealth/warmup-gate.html';
+  if (g) return g;
+  try { return new URL('../warmup-gate.html', location.href).toString(); }
+  catch { return '../warmup-gate.html'; }
 }
 
 function buildUrl(base, add){
@@ -81,7 +85,7 @@ function buildUrl(base, add){
 
 function getPassthrough(){
   // keep everything EXCEPT internal gate params that would recurse weirdly
-  const deny = new Set(['next','hub','phase','dur','cdur','autonext']);
+  const deny = new Set(['next','hub','phase','dur','cdur','autonext','wDone','cdDone']);
   const out = {};
   try{
     const sp = new URL(location.href).searchParams;
@@ -113,7 +117,7 @@ function goWarmupGate(){
   const hub = normalizeHub();
 
   const curWithDone = buildUrl(location.href, { wDone: 1 }); // ✅ กัน loop
-  const u = new URL(gateUrl);
+  const u = new URL(gateUrl, location.href);
 
   u.searchParams.set('phase','warmup');
   u.searchParams.set('dur', String(qs('dur','20')||20));
@@ -128,7 +132,6 @@ function goWarmupGate(){
   // keep passthrough (studyId/seed/etc)
   const pass = getPassthrough();
   Object.entries(pass).forEach(([k,v])=>{
-    // do not duplicate keys already set above
     if (!u.searchParams.has(k)) u.searchParams.set(k, v);
   });
 
@@ -146,12 +149,10 @@ function goCooldownGate(summary){
   const gateUrl = getGateUrl();
   const hub = normalizeHub();
 
-  // optional: pack a tiny hint
   const reason = summary?.reason || summary?.tier || 'end';
+  const hubWithDone = buildUrl(hub, { cdDone: 1 }); // ✅ กัน loop
 
-  const hubWithDone = buildUrl(hub, { cdDone: 1 }); // ✅ กัน loop ถ้าย้อนกลับมาแบบประหลาด
-  const u = new URL(gateUrl);
-
+  const u = new URL(gateUrl, location.href);
   u.searchParams.set('phase','cooldown');
   u.searchParams.set('cdur', String(qs('cdur','20')||20));
   u.searchParams.set('hub', hub);
@@ -170,7 +171,6 @@ function goCooldownGate(summary){
   u.searchParams.set('next', hubWithDone);
   u.searchParams.set('autonext','1');
 
-  // tiny debug tag (optional)
   u.searchParams.set('end', String(reason).slice(0,32));
 
   location.href = u.toString();
@@ -319,10 +319,16 @@ async function start() {
   const gateOn = String(qs('gate','0')||'0');
   const wDone  = String(qs('wDone','0')||'0');
   if (gateOn === '1' && wDone !== '1') {
-    // go to warmup gate (absolute) to avoid 404
     goWarmupGate();
     return;
   }
+
+  // =========================
+  // Expose manual cooldown helper
+  // =========================
+  WIN.HHA = WIN.HHA || {};
+  WIN.HHA.GoodJunk = WIN.HHA.GoodJunk || {};
+  WIN.HHA.GoodJunk.goCooldownThenHub = (summary)=>goCooldownGate(summary || WIN.__HHA_GJ_LAST_SUMMARY__ || {});
 
   // =========================
   // Boot engine
@@ -341,18 +347,23 @@ async function start() {
   });
 
   // =========================
-  // ✅ Gate: After end -> cooldown -> hub
+  // ✅ End: store summary + (optional) auto cooldown
   // =========================
   WIN.addEventListener('hha:end', (ev)=>{
     try{
+      const sum = ev?.detail || {};
+      WIN.__HHA_GJ_LAST_SUMMARY__ = sum;
+
       const gateOn2 = String(qs('gate','0')||'0');
       if (gateOn2 !== '1') return;
 
       const cdDone = String(qs('cdDone','0')||'0');
       if (cdDone === '1') return;
 
-      // small delay to let end overlay / logger flush start
-      setTimeout(()=> goCooldownGate(ev?.detail||{}), 220);
+      const autoCd = String(qs('autoCd','0')||'0'); // ✅ default OFF
+      if (autoCd === '1') {
+        setTimeout(()=> goCooldownGate(sum), 260);
+      }
     }catch(_){}
   }, { passive:true });
 }
