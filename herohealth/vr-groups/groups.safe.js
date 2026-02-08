@@ -1,15 +1,16 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH D)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v20260208-groupsHUDsafe)
+// ✅ FIX A: HUD-safe spawn + Occlusion guard => timeout_miss NOT counted if target center is under HUD/overlay
+// ✅ FIX B: Emit groups:group on start + switchGroup (for highlight current group)
+// ✅ FIX C: Emit groups:director (optional HUD MODE pill)
+// ✅ FIX D: Shot rate-limit (prevents missShot spikes from accidental double taps)
+// ✅ FIX E: AI hooks attach point via window.HHA.createAIHooks (play only, enable only with ?ai=1; disabled in research/practice)
 // ✅ FIX 1: LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
 // ✅ FIX 2: FX restored — emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
 // ✅ EXTRA: direct tap/click on target also works (pointerdown => same pipeline)
 // ✅ BADGES: first_play, streak_10, mini_clear_1, boss_clear_1, score_80p, perfect_run
-// ✅ FAIR MISS: timeout miss counted only if NOT occluded by HUD + is current group
-// ✅ FAIR SHOT: shot miss DOES NOT inflate MISS (still resets combo + penalty)
-// ✅ AI Director v0 (via /herohealth/vr/ai-hooks.js):
-//    - play: adaptive ON by default (?ai=0 to disable)
-//    - research/practice: OFF deterministic
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
+
 (function(){
   'use strict';
 
@@ -57,8 +58,6 @@
   function pick(rng, arr){
     return arr[(rng()*arr.length)|0];
   }
-
-  function safeBool(v){ return !!v && v !== '0' && v !== 'false'; }
 
   // ---------------- BADGES (classic bridge) ----------------
   function badgeMeta(extra){
@@ -132,12 +131,6 @@
     shots:0,
     goodShots:0,
 
-    // ✅ miss breakdown (fairness)
-    missShotCounted:0,
-    missShotSkipped:0,
-    missTimeoutCounted:0,
-    missTimeoutSkippedOccluded:0,
-
     // badges runtime flags
     maxCombo:0,
     streak10Awarded:false,
@@ -169,16 +162,20 @@
     lastCoachAt:0,
     lastQuestEmitAt:0,
 
-    // ✅ AI hooks
+    // shot throttle (prevents missShot spikes)
+    lastShotAt:0,
+    shotCooldownMs: 70,
+
+    // AI hooks (optional)
     ai:null,
     aiEnabled:false
   };
 
   function cfgForDiff(diff){
     diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4, biasCorrect:0.58 };
-    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6, biasCorrect:0.56 };
-    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5, biasCorrect:0.58 };
+    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4 };
+    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6 };
+    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5 };
   }
 
   // ---------------- DOM helpers ----------------
@@ -219,9 +216,11 @@
     if(!el) return;
     el.addEventListener('pointerdown', (e)=>{
       if(!S.running) return;
+      // Use the real pointer coordinate
       const x = Number(e.clientX)||0;
       const y = Number(e.clientY)||0;
-      emit('hha:shoot', { x, y, lockPx: 8, source:'direct' });
+      // "direct" hit should not need aim-assist, but keep small lock to be forgiving
+      emit('hha:shoot', { x, y, lockPx: 10, source:'direct' });
     }, { passive:true });
   }
 
@@ -230,18 +229,27 @@
     el.className = 'tgt';
     el.setAttribute('data-group', groupKey);
     el.setAttribute('role','button');
+
+    // NOTE: size is controlled by CSS in groups-vr.css; inline here is just fallback
+    el.style.cssText =
+      'position:absolute; width:72px; height:72px; border-radius:18px; '+
+      'display:flex; align-items:center; justify-content:center; '+
+      'font-size:34px; font-weight:900; '+
+      'background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.22); '+
+      'box-shadow:0 12px 30px rgba(0,0,0,.22); '+
+      'pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent;';
+
     el.textContent = emoji;
 
-    // position inside playLayer padded box (CSS makes safe zones)
+    // position inside playLayer area, not the whole viewport
     const host = S.layerEl || DOC.body;
     const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
 
     const w = Math.max(240, r.width||360);
     const h = Math.max(240, r.height||520);
 
-    // fallback size (CSS can override)
-    const size = 72;
-    const pad = 6;
+    const size = 72; // fallback; CSS may override
+    const pad = 10;
 
     const x = pad + (S.rng() * Math.max(1, (w - pad*2 - size)));
     const y = pad + (S.rng() * Math.max(1, (h - pad*2 - size)));
@@ -267,6 +275,36 @@
     return t;
   }
 
+  // ---------------- HUD occlusion guard ----------------
+  // returns true if target center is under your HUD/overlay elements
+  function isOccludedByHud(tgEl){
+    try{
+      const r = tgEl.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      const topEl = DOC.elementFromPoint(cx, cy);
+      if(!topEl) return true;
+
+      // visible if the top element is the target itself
+      if(topEl === tgEl) return false;
+      if(topEl.closest && topEl.closest('.tgt') === tgEl) return false;
+
+      // ✅ match your groups-vr.html classes
+      const hud = topEl.closest && (
+        topEl.closest('.hud') ||
+        topEl.closest('.questTop') ||
+        topEl.closest('.powerWrap') ||
+        topEl.closest('.coachWrap') ||
+        topEl.closest('.overlay')
+      );
+      return !!hud;
+    }catch(_){
+      // conservative: if uncertain, do NOT count miss
+      return true;
+    }
+  }
+
   // ---------------- events (HUD/Quest/Coach) ----------------
   function emitScore(){
     emit('hha:score', { score:S.score, combo:S.combo, misses:S.miss });
@@ -289,6 +327,15 @@
 
   function currentGroup(){
     return GROUPS[clamp(S.groupIdx, 0, GROUPS.length-1)];
+  }
+
+  function emitGroup(){
+    const g = currentGroup();
+    emit('groups:group', { key: g.key, name: g.name });
+  }
+
+  function emitDirectorStatus(text){
+    emit('groups:director', { text: String(text||'') });
   }
 
   function emitQuest(force){
@@ -326,10 +373,48 @@
     emit('hha:coach', { text, mood: mood||'neutral' });
   }
 
-  function maybeAiTip(){
-    if(!S.aiEnabled || !S.ai || !S.ai.getTip) return;
-    const tip = S.ai.getTip(aiState());
-    if(tip && tip.text) coach(String(tip.text), String(tip.mood||'neutral'));
+  // ---------------- AI hooks (optional) ----------------
+  function isAiEnabledByParams(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    if (run === 'research') return false;
+    const on = String(qs('ai','0')||'0').toLowerCase();
+    return (on === '1' || on === 'true');
+  }
+
+  function initAI(){
+    S.aiEnabled = (S.runMode === 'play') && isAiEnabledByParams();
+    S.ai = null;
+
+    if (!S.aiEnabled){
+      emitDirectorStatus(S.runMode === 'research' ? 'RESEARCH' :
+                         S.runMode === 'practice' ? 'PRACTICE' : 'PLAY');
+      return;
+    }
+
+    // Attach point: window.HHA.createAIHooks (safe)
+    try{
+      if (WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
+        S.ai = WIN.HHA.createAIHooks({
+          game: 'groups',
+          runMode: S.runMode,
+          diff: S.diff,
+          seed: S.seed,
+          enabled: true
+        });
+      }
+    }catch(_){
+      S.ai = null;
+    }
+
+    emitDirectorStatus(S.ai ? 'AI ON' : 'PLAY');
+  }
+
+  function aiOnEvent(name, payload){
+    try{
+      if (S.ai && typeof S.ai.onEvent === 'function'){
+        S.ai.onEvent(name, payload || {});
+      }
+    }catch(_){}
   }
 
   // ---------------- gameplay rules ----------------
@@ -345,11 +430,12 @@
     if (S.miniActive) return;
     if (S.timeLeftSec <= 0) return;
 
+    // deterministic-ish trigger (based on timeLeft)
     if (S.timeLeftSec % 11 === 0 && S.timeLeftSec <= (S.timePlannedSec-6)){
       resetMini();
       coach('MINI มาแล้ว! ยิงให้ “ถูกหมู่” ติดกันเร็ว ๆ ⚡', 'fever');
       emitQuest(true);
-      if(S.aiEnabled) maybeAiTip();
+      aiOnEvent('mini:start', { timeLeft: S.timeLeftSec });
     }
   }
 
@@ -361,8 +447,9 @@
     emit('groups:progress', { kind:'perfect_switch' });
     emitPower();
     emitQuest(true);
+    emitGroup();
     coach('สลับหมู่แล้ว! ดูชื่อหมู่แล้วค่อยยิง 🎯', 'neutral');
-    if(S.aiEnabled) maybeAiTip();
+    aiOnEvent('group:switch', { groupKey: currentGroup().key });
   }
 
   function addScore(isGood){
@@ -379,8 +466,8 @@
 
       const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
       S.score += (10 + comboBonus);
-
       S.powerCur = Math.min(S.powerThr, S.powerCur + 1);
+
       if (S.powerCur >= S.powerThr){
         switchGroup();
       }else{
@@ -388,9 +475,8 @@
       }
     }else{
       S.combo = 0;
+      S.miss++;
       S.score = Math.max(0, S.score - 8);
-      // ✅ shot miss: DO NOT inflate MISS (feels fair)
-      S.missShotSkipped++;
     }
     emitScore();
     emitRank();
@@ -416,6 +502,7 @@
             comboMax:S.maxCombo|0
           });
         }
+        aiOnEvent('mini:clear', { score:S.score|0, combo:S.combo|0 });
       }
     }
     emitQuest(false);
@@ -436,7 +523,7 @@
       S.storm = true;
       emit('groups:progress', { kind:'storm_on' });
       coach('พายุมาแล้ว! ช้าลงนิด แต่ยิงให้ชัวร์ 🌪️', 'fever');
-      if(S.aiEnabled) maybeAiTip();
+      aiOnEvent('storm:on', { frac });
     }
   }
   function endStormIfNeeded(){
@@ -447,6 +534,7 @@
       S.storm = false;
       emit('groups:progress', { kind:'storm_off' });
       coach('พายุจบ! เก็บคอมโบต่อเลย ✨', 'happy');
+      aiOnEvent('storm:off', { frac });
     }
   }
 
@@ -458,7 +546,7 @@
       S.bossHp = 6;
       emit('groups:progress', { kind:'boss_spawn' });
       coach('บอสมา! ยิง “หมู่ที่ถูก” ให้แม่น 👊', 'fever');
-      if(S.aiEnabled) maybeAiTip();
+      aiOnEvent('boss:spawn', { hp:S.bossHp|0 });
     }
   }
 
@@ -478,6 +566,7 @@
         S.bossAwarded = true;
         awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
       }
+      aiOnEvent('boss:down', { score:S.score|0, miss:S.miss|0 });
     }
   }
 
@@ -561,35 +650,21 @@
     }catch(_){}
   }
 
-  function aiState(){
-    const acc = (S.shots>0) ? Math.round((S.goodShots/S.shots)*100) : 0;
-    return {
-      accuracyPct: acc,
-      miss: S.miss|0,
-      combo: S.combo|0,
-      timeLeftSec: S.timeLeftSec|0,
-      timePlannedSec: S.timePlannedSec|0,
-      storm: !!S.storm,
-      boss: !!S.boss
-    };
-  }
-
   function handleShoot(ev){
     if (!S.running) return;
     if (!ev || !ev.detail) return;
+
+    // Shot rate-limit (prevents accidental multi-shot spikes)
+    const tNow = nowMs();
+    if ((tNow - (S.lastShotAt||0)) < S.shotCooldownMs) return;
+    S.lastShotAt = tNow;
 
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
 
     // lockPx from vr-ui.js (mobile/cvr tuned in groups-vr.html)
-    let lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
-
-    // ✅ AI director can scale lockPx feel (play only)
-    if(S.aiEnabled && S.ai && S.ai.getTuning){
-      const tune = S.ai.getTuning(aiState());
-      if(tune && tune.lockPxMul) lockPx = clamp(lockPx * Number(tune.lockPxMul||1), 0, 96);
-    }
+    const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
 
     S.shots++;
 
@@ -602,10 +677,10 @@
     }
 
     if (!tgtEl){
-      // ✅ shot miss: fair (no MISS++), but still punishing
       addScore(false);
       onBadHit();
       emitFx('shot_miss', x, y, false);
+      aiOnEvent('shot:miss', { x, y, lockPx });
       return;
     }
 
@@ -615,66 +690,19 @@
     removeTargetEl(tgtEl);
 
     const good = (tg === cg);
-    if (good){
-      // counted good shot
-      S.goodShots++;
-      // correct: score path (custom to keep balance)
-      S.combo = Math.min(99, (S.combo|0) + 1);
-      S.maxCombo = Math.max(S.maxCombo|0, S.combo|0);
-      const comboBonus = Math.min(25, (S.combo>=3)? (S.combo*2) : 0);
-      S.score += (10 + comboBonus);
-      S.powerCur = Math.min(S.powerThr, S.powerCur + 1);
+    addScore(good);
 
+    // FX
+    if (good){
       emitFx('hit_good', x, y, true);
       onGoodHit();
       if (S.boss) bossHit();
-
-      // badge streak_10
-      if (!S.streak10Awarded && S.combo >= 10){
-        S.streak10Awarded = true;
-        awardOnce('groups','streak_10', { combo:S.combo, comboMax:S.maxCombo, scoreFinal:S.score|0 });
-      }
-
-      if (S.powerCur >= S.powerThr){
-        switchGroup();
-      }else{
-        emitPower();
-      }
-
-      emitScore(); emitRank(); emitQuest(false);
-      return;
-    }
-
-    // wrong group: MISS++ (true miss)
-    S.combo = 0;
-    S.miss++;
-    S.missShotCounted++;
-    S.score = Math.max(0, S.score - 8);
-    emitFx('hit_bad', x, y, false);
-    onBadHit();
-    emitScore(); emitRank(); emitQuest(false);
-    coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
-  }
-
-  // ---------------- FAIR timeout miss (HUD occlusion guard) ----------------
-  function isOccludedByHud(tgEl){
-    try{
-      const r = tgEl.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top  + r.height/2;
-
-      // If elementFromPoint at its center is NOT the target (or inside target), it's occluded
-      const topEl = DOC.elementFromPoint(cx, cy);
-      if(!topEl) return true;
-      if(topEl === tgEl) return false;
-      if(topEl.closest && topEl.closest('.tgt') === tgEl) return false;
-
-      // If the top element is within HUD containers -> treat as occluded
-      const hud = topEl.closest && (topEl.closest('#groups-hud') || topEl.closest('.groups-hud') || topEl.closest('.groups-topbar') || topEl.closest('.groups-quest') || topEl.closest('.groups-coach') || topEl.closest('.groups-bottombar'));
-      return !!hud;
-    }catch(_){
-      // conservative: if uncertain, do NOT count miss
-      return true;
+      aiOnEvent('shot:hit_good', { groupKey: tg, combo:S.combo|0, score:S.score|0 });
+    }else{
+      emitFx('hit_bad', x, y, false);
+      onBadHit();
+      coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
+      aiOnEvent('shot:hit_bad', { groupKey: tg, wanted: cg });
     }
   }
 
@@ -700,6 +728,7 @@
           S.miniActive = false;
           S.miniNow = 0;
           coach('MINI หมดเวลา! เล่นต่อได้เลย 🔥', 'neutral');
+          aiOnEvent('mini:timeout', {});
         }
         emitQuest(false);
       }
@@ -718,25 +747,27 @@
         const cg = currentGroup().key;
         const isFairMiss = (tg.groupKey === cg);
 
-        if (isFairMiss){
-          const occluded = isOccludedByHud(tg.el);
-          if(!occluded){
-            S.miss++;
-            S.missTimeoutCounted++;
-            S.combo = 0;
-            S.score = Math.max(0, S.score - 6);
-            emitScore();
-            emitRank();
-            onBadHit();
+        // ✅ occlusion guard: if HUD/overlay covers target, do NOT count miss
+        let occluded = false;
+        try{ occluded = isOccludedByHud(tg.el); }catch(_){ occluded = true; }
 
-            // FX for timeout miss — use target center in viewport coords
-            try{
-              const r = tg.el.getBoundingClientRect();
-              emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
-            }catch(_){}
-          }else{
-            S.missTimeoutSkippedOccluded++;
-          }
+        if (isFairMiss && !occluded){
+          S.miss++;
+          S.combo = 0;
+          S.score = Math.max(0, S.score - 6);
+          emitScore();
+          emitRank();
+          onBadHit();
+
+          // FX for timeout miss — use target center in viewport coords
+          try{
+            const r = tg.el.getBoundingClientRect();
+            emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
+          }catch(_){}
+          aiOnEvent('target:timeout_miss', { groupKey: tg.groupKey, timeLeft: S.timeLeftSec|0 });
+        }else{
+          // optional FX could be silent; keep it silent to avoid confusing player
+          aiOnEvent('target:timeout_ignored', { reason: occluded ? 'occluded' : 'not_fair', groupKey: tg.groupKey });
         }
 
         try{
@@ -749,23 +780,27 @@
       }
     }
 
-    // spawn pacing (AI director can adjust)
+    // spawn pacing
     if (S.running){
       S.spawnIt -= dt;
       if (S.spawnIt <= 0){
-        const baseCfg = cfgForDiff(S.diff);
-        let base = baseCfg.spawnMs;
+        const base = cfgForDiff(S.diff).spawnMs;
+
+        // director (optional): tiny adjustments if AI exists
+        let mul = 1.0;
+        if (S.aiEnabled && S.ai && typeof S.ai.getDifficulty === 'function'){
+          try{
+            const d = S.ai.getDifficulty();
+            // expect 0.8..1.2; clamp to stay fair
+            mul = clamp(d, 0.85, 1.18);
+            emitDirectorStatus('AI ON');
+          }catch(_){}
+        }
 
         const stormMul = S.storm ? 0.70 : 1.0;
         const bossMul  = S.boss ? 0.80 : 1.0;
 
-        let aiSpawnMul = 1.0;
-        if(S.aiEnabled && S.ai && S.ai.getTuning){
-          const tune = S.ai.getTuning(aiState());
-          if(tune && tune.spawnMul) aiSpawnMul = clamp(Number(tune.spawnMul||1), 0.80, 1.25);
-        }
-
-        const intervalMs = clamp(base * stormMul * bossMul * aiSpawnMul, 360, 1500);
+        const intervalMs = clamp(base * stormMul * bossMul * mul, 360, 1500);
         S.spawnIt = intervalMs / 1000;
 
         spawnOne();
@@ -788,39 +823,21 @@
     const C = cfgForDiff(S.diff);
     const cg = currentGroup();
 
-    // base bias toward correct group so playable
-    let pCorrect = C.biasCorrect;
-
-    // AI director can nudge correct-bias slightly (play only)
-    if(S.aiEnabled && S.ai && S.ai.getTuning){
-      const tune = S.ai.getTuning(aiState());
-      if(tune && tune.biasCorrect){
-        pCorrect = clamp(pCorrect + Number(tune.biasCorrect||0), 0.48, 0.74);
-      }
-    }
+    // bias toward correct group so playable
+    let gKey = '';
+    const r = S.rng();
+    if (r < 0.58) gKey = cg.key;
+    else gKey = pick(S.rng, GROUPS).key;
 
     // in boss: increase correct targets
-    if (S.boss) pCorrect = clamp(pCorrect + 0.10, 0.55, 0.82);
+    if (S.boss && S.rng() < 0.70) gKey = cg.key;
 
-    let gKey = (S.rng() < pCorrect) ? cg.key : pick(S.rng, GROUPS).key;
     const g = GROUPS.find(x=>x.key===gKey) || cg;
-
     const em = pick(S.rng, g.emoji);
 
-    // life tuning (AI director can make life a bit longer if struggling)
-    let lifeMin = C.lifeMs[0];
-    let lifeMax = C.lifeMs[1];
-
-    if(S.aiEnabled && S.ai && S.ai.getTuning){
-      const tune = S.ai.getTuning(aiState());
-      if(tune && tune.lifeMul){
-        const m = clamp(Number(tune.lifeMul||1), 0.86, 1.12);
-        lifeMin = Math.round(lifeMin * m);
-        lifeMax = Math.round(lifeMax * m);
-      }
-    }
-
-    const life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5400);
+    const lifeMin = C.lifeMs[0];
+    const lifeMax = C.lifeMs[1];
+    const life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5200);
 
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
@@ -842,36 +859,11 @@
     S.style = String(qs('style','mix')||'mix').toLowerCase();
   }
 
-  function initAI(ctx){
-    S.ai = null; S.aiEnabled = false;
-    try{
-      const runMode = String(S.runMode||'play').toLowerCase();
-      const enabled = (String(qs('ai','1')) !== '0');
-
-      if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
-        const ai = WIN.HHA.createAIHooks({
-          game:'groups',
-          seed: String(S.seed||''),
-          runMode,
-          diff: String(S.diff||'normal'),
-          enabled
-        });
-        S.ai = ai;
-        S.aiEnabled = !!(ai && ai.enabled);
-      }
-    }catch(_){}
-  }
-
   function resetRun(ctx){
     const C = cfgForDiff(S.diff);
 
     S.score = 0; S.combo = 0; S.miss = 0;
     S.shots = 0; S.goodShots = 0;
-
-    S.missShotCounted = 0;
-    S.missShotSkipped = 0;
-    S.missTimeoutCounted = 0;
-    S.missTimeoutSkippedOccluded = 0;
 
     // badges runtime flags reset per run
     S.maxCombo = 0;
@@ -900,6 +892,8 @@
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
 
+    S.lastShotAt = 0;
+
     // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
@@ -913,21 +907,17 @@
     // spawn timer
     S.spawnIt = 0;
 
-    // AI
-    initAI(ctx);
+    // init AI (after seed ready)
+    initAI();
 
     emitPower();
     emitScore();
     emitRank();
     emitTime();
     emitQuest(true);
+    emitGroup();
 
-    coach(
-      (S.runMode==='practice')
-        ? 'โหมดฝึก: ลองเล็ง แล้วแตะยิง 🎯'
-        : (S.aiEnabled ? 'เริ่มแล้ว! AI จะจูนให้ “ท้าทายแต่ยุติธรรม” 🔥' : 'เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥'),
-      'neutral'
-    );
+    coach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
   }
 
   function start(diff, ctx){
@@ -973,7 +963,7 @@
     resetRun(ctx||{});
 
     // badge: first play (safe, no override)
-    awardOnce('groups','first_play',{});
+    awardOnce('groups','first_play',{ startedAt: Date.now() });
 
     S.running = true;
     S.startT = nowMs();
@@ -981,6 +971,8 @@
 
     // listen shoot (from vr-ui crosshair / tap-to-shoot)
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
+
+    aiOnEvent('run:start', { diff:S.diff, runMode:S.runMode, seed:S.seed, time:S.timePlannedSec|0 });
 
     // GO!
     S.rafId = requestAnimationFrame(rafLoop);
@@ -1019,10 +1011,10 @@
 
     // badges on end:
     if (acc >= 80){
-      awardOnce('groups','score_80p', { accuracyPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, miss:S.miss|0, scoreFinal:S.score|0, comboMax:S.maxCombo|0 });
+      awardOnce('groups','score_80p', { scoreFinal:S.score|0, miss:S.miss|0, accuracyPct:acc|0, shots:S.shots|0, goodShots:S.goodShots|0, comboMax:S.maxCombo|0 });
     }
     if ((S.miss|0) === 0){
-      awardOnce('groups','perfect_run', { accuracyPct: acc|0, shots:S.shots|0, goodShots:S.goodShots|0, miss:0, scoreFinal:S.score|0, comboMax:S.maxCombo|0 });
+      awardOnce('groups','perfect_run', { scoreFinal:S.score|0, miss:0, accuracyPct:acc|0, shots:S.shots|0, goodShots:S.goodShots|0, comboMax:S.maxCombo|0 });
     }
 
     const summary = {
@@ -1041,17 +1033,12 @@
       comboMax: S.maxCombo|0,
       miniCleared: !!S.miniAwarded,
       bossCleared: !!S.bossAwarded,
-
-      // ✅ fairness breakdown
-      missShotCounted: S.missShotCounted|0,
-      missShotSkipped: S.missShotSkipped|0,
-      missTimeoutCounted: S.missTimeoutCounted|0,
-      missTimeoutSkippedOccluded: S.missTimeoutSkippedOccluded|0,
-
       aiEnabled: !!S.aiEnabled
     };
 
     emit('hha:end', summary);
+    aiOnEvent('run:end', summary);
+
     clearTargets();
   }
 
