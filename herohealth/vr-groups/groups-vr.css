@@ -1,193 +1,484 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-   GroupsVR UI + Safe Zones (PATCH A)
-   ✅ HUD-safe zones: top/bottom/left (prevents target under HUD)
-   ✅ Works with engine occlusion-skip + spawn within playLayer
-   ✅ Mobile/VR friendly target sizing + hit affordance
+   GroupsVR UI + HUD-safe Layout (PATCH v20260208-hudsafecss)
+   ✅ HUD/Quest/Power/Coach: fixed layers with safe padding
+   ✅ Spawn-safe zone: playLayer is inset so targets won't appear under HUD
+   ✅ view-pc / view-mobile / view-cvr / view-vr supported
+   ✅ mini-urgent pulse
+   ✅ group highlight (g-g1..g-g5) border glow on GOAL card
 */
 
 :root{
   --bg:#020617;
-  --panel:rgba(2,6,23,.78);
+  --panel:rgba(2,6,23,.72);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
   --accent:#22c55e;
 
-  --radius:22px;
-  --pill:999px;
-
+  /* safe area insets */
   --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ Safe zone defaults (tuned to your HUD layout) */
-  --hudTop: 148px;
-  --hudBot: 132px;
-  --hudLeft: 210px;
-  --hudRight: 18px;
+  /* === HUD geometry (tweak here) === */
+  --hudTopH: 66px;          /* main HUD bar height */
+  --questTopH: 152px;       /* quest cards area height */
+  --powerBottomH: 92px;     /* power bar area height */
+  --coachBottomH: 98px;     /* coach area height */
 
-  /* Targets */
-  --tSize: 76px;
-  --tFont: 34px;
-  --tRad: 18px;
-  --tShadow: 0 12px 30px rgba(0,0,0,.22);
+  /* gap between blocks */
+  --gap: 10px;
+
+  /* target fallback size (engine also sets fallback 72) */
+  --tgt: 72px;
 }
 
-html,body{
+*{ box-sizing:border-box; }
+html, body{
+  width:100%;
   height:100%;
   margin:0;
+  padding:0;
   background:var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-  overscroll-behavior:none;
-}
-
-/* ===== Views (optional classes) ===== */
-body.view-pc{
-  --hudLeft: 260px;
-  --tSize: 80px;
-  --tFont: 36px;
-}
-body.view-vr, body.view-cvr{
-  --hudTop: 138px;
-  --hudBot: 120px;
-  --hudLeft: 200px;
-  --tSize: 82px;
-  --tFont: 36px;
-}
-
-/* ===== Main layout wrappers (adapt to your HTML ids) ===== */
-#groups-wrap{
-  position:relative;
-  width:100%;
-  height:100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
   overflow:hidden;
 }
 
-/* Playfield layer (where engine spawns) */
-#playLayer, #groups-playlayer, .groups-playlayer{
-  position:absolute;
+/* XR scene behind DOM */
+.xr-scene{
+  position:fixed;
   inset:0;
-  overflow:hidden;
-  /* ✅ Ensure layer is the coordinate space */
+  z-index:0;
   pointer-events:none;
 }
 
-/* ✅ REAL playable region: we carve out HUD with padding */
-#playLayer{
-  padding-top: calc(var(--hudTop) + var(--sat));
-  padding-bottom: calc(var(--hudBot) + var(--sab));
-  padding-left: calc(var(--hudLeft) + var(--sal));
-  padding-right: calc(var(--hudRight) + var(--sar));
-  box-sizing:border-box;
-}
+/* -------------------------------------------------
+   VIEW MODES
+------------------------------------------------- */
+body.view-pc{ --hudTopH: 68px; --questTopH: 150px; --powerBottomH: 92px; --coachBottomH: 98px; }
+body.view-mobile{ --hudTopH: 62px; --questTopH: 152px; --powerBottomH: 92px; --coachBottomH: 96px; }
+body.view-cvr{ --hudTopH: 56px; --questTopH: 146px; --powerBottomH: 88px; --coachBottomH: 94px; }
+body.view-vr{ --hudTopH: 56px; --questTopH: 140px; --powerBottomH: 86px; --coachBottomH: 92px; }
 
-/* Optional: show safe-zone debug if body has .debug-safe */
-body.debug-safe #playLayer{
-  outline:2px dashed rgba(34,197,94,.5);
-  outline-offset:-6px;
-}
-
-/* ===== HUD containers (keep them above playLayer) ===== */
-.groups-hud, #groups-hud{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  z-index:50;
-}
-
-.groups-topbar{
-  position:absolute;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
+/* -------------------------------------------------
+   HUD — top
+------------------------------------------------- */
+.hud{
+  position:fixed;
+  left:0; right:0;
+  top:0;
+  padding: calc(var(--sat) + 8px) calc(var(--sar) + 10px) 8px calc(var(--sal) + 10px);
   display:flex;
+  justify-content:space-between;
   gap:10px;
+  z-index:50;
+  pointer-events:auto;
+}
+
+.hudLeft, .hudRight{
+  display:flex;
+  gap:8px;
   align-items:center;
-  pointer-events:none;
-  z-index:60;
+  flex-wrap:wrap;
 }
 
-.groups-coach{
-  position:absolute;
-  left: calc(10px + var(--sal));
-  top: calc(var(--hudTop) - 118px + var(--sat)); /* stays inside top safe area */
-  width: min(240px, calc(var(--hudLeft) - 18px));
-  pointer-events:none;
-  z-index:60;
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:14px;
+  background:var(--panel);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow:0 10px 26px rgba(0,0,0,.25);
+  backdrop-filter: blur(8px);
 }
 
-.groups-quest{
-  position:absolute;
-  top: calc(62px + var(--sat));
-  left: calc(10px + var(--sal));
-  width: min(320px, calc(var(--hudLeft) - 18px));
-  pointer-events:none;
-  z-index:60;
+.pill .lbl{
+  font-size:12px;
+  color:var(--muted);
+  letter-spacing:.3px;
+  font-weight:700;
+}
+.pill .val{
+  font-size:14px;
+  font-weight:900;
+  color:var(--text);
 }
 
-.groups-bottombar{
-  position:absolute;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  bottom: calc(10px + var(--sab));
-  pointer-events:none;
-  z-index:60;
+/* -------------------------------------------------
+   Quest — below HUD (fixed top)
+   IMPORTANT: pointer-events auto for buttons (if any)
+------------------------------------------------- */
+.questTop{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--sat) + var(--hudTopH) + var(--gap));
+  padding: 0 calc(var(--sar) + 10px) 0 calc(var(--sal) + 10px);
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  z-index:45;
+  pointer-events:auto;
 }
 
-/* ===== Targets ===== */
-#groupsPlayWrap{
-  position:absolute;
-  inset:0;
+.questCard{
+  background:var(--panel);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  padding:10px 12px;
+  box-shadow:0 10px 26px rgba(0,0,0,.22);
+  backdrop-filter: blur(8px);
+  min-height: 78px;
+}
+
+.qTitle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-weight:900;
+  letter-spacing:.3px;
+}
+
+.tag{
+  font-size:12px;
+  font-weight:900;
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.20);
+  color:var(--text);
+}
+
+.bar{
   width:100%;
-  height:100%;
-  pointer-events:none; /* engine turns each target pointer-events:auto */
+  height:10px;
+  background:rgba(148,163,184,.12);
+  border-radius:999px;
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
+  margin-top:8px;
 }
 
-.tgt{
-  width: var(--tSize);
-  height: var(--tSize);
-  border-radius: var(--tRad);
+.fill{
+  height:100%;
+  width:0%;
+  background:rgba(34,197,94,.9);
+  border-radius:999px;
+  transition: width 160ms ease;
+}
+
+.qSub{
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  line-height:1.25;
+}
+
+/* mini urgent pulse */
+body.mini-urgent .questCard:nth-child(2){
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.12), 0 10px 26px rgba(0,0,0,.22);
+  animation: miniPulse 520ms ease-in-out infinite alternate;
+}
+@keyframes miniPulse{
+  from{ transform: translateY(0); }
+  to{ transform: translateY(-2px); }
+}
+
+/* -------------------------------------------------
+   Power — bottom fixed
+------------------------------------------------- */
+.powerWrap{
+  position:fixed;
+  left:0; right:0;
+  bottom: calc(var(--sab) + var(--coachBottomH) + var(--gap));
+  padding: 0 calc(var(--sar) + 10px) 0 calc(var(--sal) + 10px);
+  z-index:40;
+  pointer-events:auto;
+}
+
+.powerCard{
+  background:var(--panel);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  padding:10px 12px;
+  box-shadow:0 10px 26px rgba(0,0,0,.22);
+  backdrop-filter: blur(8px);
+}
+
+.pHead{
+  font-weight:900;
+  letter-spacing:.3px;
+}
+
+.powerBar{ margin-top:8px; }
+.pFoot{
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+}
+
+/* -------------------------------------------------
+   Coach — bottom fixed (lowest HUD layer)
+------------------------------------------------- */
+.coachWrap{
+  position:fixed;
+  left:0; right:0;
+  bottom:0;
+  padding: 8px calc(var(--sar) + 10px) calc(var(--sab) + 10px) calc(var(--sal) + 10px);
+  z-index:35;
+  pointer-events:auto;
+}
+
+.coachCard{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:18px;
+  background:var(--panel);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow:0 10px 26px rgba(0,0,0,.22);
+  backdrop-filter: blur(8px);
+}
+
+.coachImg{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(148,163,184,.10);
+  object-fit:cover;
+}
+
+.coachBubble{ flex:1; min-width:0; }
+.coachName{
+  font-weight:900;
+  letter-spacing:.3px;
+}
+.coachText{
+  margin-top:4px;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  line-height:1.25;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* -------------------------------------------------
+   PLAY LAYER — spawn-safe inset area
+   ✅ key: targets spawn inside this box so they won't be under HUD/Quest/Power/Coach
+------------------------------------------------- */
+.playLayer{
+  position:fixed;
+  z-index:10;
+
+  /* safe inset: top = HUD + Quest area; bottom = Power + Coach area */
+  top: calc(var(--sat) + var(--hudTopH) + var(--gap) + var(--questTopH) + var(--gap));
+  left: calc(var(--sal) + 8px);
+  right: calc(var(--sar) + 8px);
+  bottom: calc(var(--sab) + var(--powerBottomH) + var(--gap) + var(--coachBottomH) + var(--gap));
+
+  border-radius: 18px;
+  overflow:hidden;
+  pointer-events:none;
+
+  /* optional faint guide (debug) */
+  /* outline: 1px dashed rgba(148,163,184,.18); */
+}
+
+/* targets */
+.playLayer .tgt{
+  pointer-events:auto;
+  /* keep them snappy */
+  will-change: transform, opacity, left, top;
+}
+
+/* make targets slightly larger on pc */
+body.view-pc .playLayer .tgt{
+  width: 78px;
+  height: 78px;
+  font-size: 36px;
+  border-radius: 20px;
+}
+
+/* on cVR slightly larger + higher contrast */
+body.view-cvr .playLayer .tgt{
+  background: rgba(15,23,42,.82);
+  border-color: rgba(148,163,184,.30);
+}
+
+/* -------------------------------------------------
+   Overlays
+------------------------------------------------- */
+.overlay{
+  position:fixed;
+  inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: var(--tFont);
-  font-weight:900;
-  background: rgba(15,23,42,.72);
-  border: 1px solid rgba(148,163,184,.22);
-  box-shadow: var(--tShadow);
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
+  padding: calc(var(--sat) + 18px) calc(var(--sar) + 18px) calc(var(--sab) + 18px) calc(var(--sal) + 18px);
+  z-index:80;
+  background: rgba(0,0,0,.42);
+  backdrop-filter: blur(8px);
   pointer-events:auto;
-
-  /* Make taps easier */
-  touch-action: manipulation;
 }
 
-.tgt:active{
-  transform: scale(.96);
+.hidden{ display:none !important; }
+
+.panel{
+  width: min(560px, 92vw);
+  background: rgba(2,6,23,.88);
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 22px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  padding: 16px 16px;
+  color: var(--text);
 }
 
-/* ✅ Visual pressure (optional; matches your engine classes if used) */
-body.fx-miss{ animation: fxmiss .22s ease; }
-@keyframes fxmiss{ 0%{ filter:none } 45%{ filter:brightness(1.18) saturate(1.08) } 100%{ filter:none } }
+.title{
+  font-weight: 1000;
+  letter-spacing: .4px;
+  font-size: 18px;
+}
 
-body.fx-bad{ animation: fxbad .24s ease; }
-@keyframes fxbad{ 0%{ filter:none } 45%{ filter:brightness(1.08) saturate(1.18) } 100%{ filter:none } }
+.sub{
+  margin-top:8px;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.35;
+}
 
-/* ===== Tiny responsive tweaks ===== */
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top: 12px;
+}
+
+.stat{
+  background: rgba(148,163,184,.10);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+.stat .k{
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+}
+.stat .v{
+  margin-top:6px;
+  font-weight: 1000;
+  font-size: 18px;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  margin-top: 12px;
+  flex-wrap:wrap;
+}
+
+.row2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(148,163,184,.10);
+  color: var(--text);
+  font-weight: 900;
+  cursor:pointer;
+  user-select:none;
+}
+
+.btn:hover{ background: rgba(148,163,184,.16); }
+.btn:active{ transform: translateY(1px); }
+
+.btn-strong{
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.30);
+}
+.btn-strong:hover{
+  background: rgba(34,197,94,.24);
+}
+
+.btn-ghost{
+  background: transparent;
+}
+.btn-ghost:hover{
+  background: rgba(148,163,184,.12);
+}
+
+.note{
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+/* -------------------------------------------------
+   Calibration state (optional cosmetics)
+------------------------------------------------- */
+body.calibration .hud,
+body.calibration .questTop,
+body.calibration .powerWrap,
+body.calibration .coachWrap{
+  filter: blur(1.2px);
+  opacity: .55;
+  pointer-events:none;
+}
+
+/* -------------------------------------------------
+   Group highlight (from groups:group => body.g-g1..g-g5)
+   Make GOAL card pop with a colored rim
+------------------------------------------------- */
+body.g-g1 .questCard:first-child{ box-shadow: 0 0 0 3px rgba(59,130,246,.16), 0 10px 26px rgba(0,0,0,.22); border-color: rgba(59,130,246,.35); }
+body.g-g2 .questCard:first-child{ box-shadow: 0 0 0 3px rgba(168,85,247,.16), 0 10px 26px rgba(0,0,0,.22); border-color: rgba(168,85,247,.35); }
+body.g-g3 .questCard:first-child{ box-shadow: 0 0 0 3px rgba(34,197,94,.16), 0 10px 26px rgba(0,0,0,.22); border-color: rgba(34,197,94,.35); }
+body.g-g4 .questCard:first-child{ box-shadow: 0 0 0 3px rgba(245,158,11,.16), 0 10px 26px rgba(0,0,0,.22); border-color: rgba(245,158,11,.35); }
+body.g-g5 .questCard:first-child{ box-shadow: 0 0 0 3px rgba(239,68,68,.16), 0 10px 26px rgba(0,0,0,.22); border-color: rgba(239,68,68,.35); }
+
+/* -------------------------------------------------
+   Small screens: stack quest cards (avoid covering too much height)
+------------------------------------------------- */
 @media (max-width: 420px){
-  :root{
-    --hudLeft: 190px;
-    --tSize: 74px;
-    --tFont: 34px;
+  .questTop{
+    grid-template-columns: 1fr;
   }
+  :root{
+    --questTopH: 230px; /* two stacked cards */
+  }
+  body.view-cvr{ --questTopH: 220px; }
 }
-@media (max-width: 360px){
+
+/* -------------------------------------------------
+   Ultra short height: shrink quest/power/coach
+------------------------------------------------- */
+@media (max-height: 640px){
   :root{
-    --hudLeft: 170px;
-    --tSize: 70px;
-    --tFont: 32px;
+    --questTopH: 136px;
+    --coachBottomH: 86px;
+    --powerBottomH: 84px;
   }
+  .coachText{ font-size:11px; }
+  .stat .v{ font-size:16px; }
 }
