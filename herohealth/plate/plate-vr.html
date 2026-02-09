@@ -1,14 +1,10 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-     HeroHealth — Balanced Plate VR (RUN)
-     ✅ Uses: plate-vr.css
-     ✅ Boots: plate.boot.js (module)
-     ✅ Includes: particles + cloud logger + vr-ui
-     ✅ Adds: Miss breakdown slots (junk / expireGood) in End Overlay
-
-     ✅ ADD: Warmup/Cooldown Gate (20s, boss theme via /herohealth/warmup-gate.html)
-        - gate=1 (default) => warmup -> back here with gate=0
-        - gate=0 => skip gates
-        - Back HUB => cooldown -> hub
+HeroHealth — Balanced Plate VR (RUN)
+✅ Uses: plate-vr.css
+✅ Boots: plate.boot.js (module)
+✅ Includes: particles + cloud logger + vr-ui
+✅ Adds: Miss breakdown slots (junk / expireGood) in End Overlay
+✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(20s) => hub
 -->
 <!doctype html>
 <html lang="th">
@@ -145,145 +141,46 @@
     </div>
   </div>
 
-  <!-- ✅ Warmup/Cooldown Gate wiring (boss theme gate page) -->
+  <!-- ✅ Gate Flow (Warmup/Cooldown Enforcer) -->
   <script>
   (function(){
     'use strict';
-    const DOC = document;
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-    function getSP(){
-      try{ return new URL(location.href).searchParams; }
-      catch{ return new URLSearchParams(); }
-    }
-    const SP = getSP();
-    const qs = (k, d=null)=> (SP.get(k) ?? d);
+    const gateOn = String(qs('gate','0')||'0') === '1';
+    const hub = String(qs('hub','../hub.html')||'../hub.html');
+    const cdur = Math.max(5, Math.min(60, Number(qs('cdur', 20) || 20)));
 
-    // ---- config ----
-    const warmupSec = 20;
-    const cooldownSec = 20;
-    const GATE_PATH = '/herohealth/warmup-gate.html';
+    let navigated = false;
 
-    function passthrough(){
-      const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
-      const out = {};
-      SP.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-      return out;
-    }
-    function buildUrl(base, add){
-      const u = new URL(base, location.href);
-      Object.entries(add||{}).forEach(([k,v])=>{
-        if(v===undefined || v===null || v==='') return;
-        u.searchParams.set(k, String(v));
-      });
-      return u.toString();
-    }
-    function currentUrlWith(add){
-      return buildUrl(location.href, add || {});
-    }
+    function goCooldownThenHub(summary){
+      if (!gateOn) return;
+      if (navigated) return;
+      navigated = true;
 
-    const hub = String(qs('hub','../hub.html'));
-    const gateFlag = String(qs('gate','1'));
-
-    function goWarmupThenBack(){
-      const backHere = currentUrlWith({ gate: 0 });
-      const url = buildUrl(GATE_PATH, {
-        ...passthrough(),
-        phase: 'warmup',
-        dur: warmupSec,
-        hub: hub,
-        next: backHere,
-        autonext: 1
-      });
-      location.replace(url);
-    }
-    function goCooldownTo(dest){
-      const url = buildUrl(GATE_PATH, {
-        ...passthrough(),
-        phase: 'cooldown',
-        cdur: cooldownSec,
-        hub: hub,
-        next: dest,
-        autonext: 0
-      });
-      location.href = url;
-    }
-
-    // auto warmup on first enter (default gate=1)
-    if(gateFlag !== '0'){
       try{
-        if(!String(location.pathname||'').includes('warmup-gate')){
-          goWarmupThenBack();
-          return;
-        }
+        if(summary) localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
       }catch(_){}
+
+      const gate = new URL('../warmup-gate.html', location.href);
+      gate.searchParams.set('phase','cooldown');
+      gate.searchParams.set('dur', String(cdur));
+      gate.searchParams.set('hub', hub);
+      gate.searchParams.set('next', hub);
+      gate.searchParams.set('autonext','1');
+
+      location.href = gate.toString();
     }
 
-    // Back HUB => cooldown first
-    const btnBackHub = DOC.getElementById('btnBackHub');
-    if(btnBackHub){
-      btnBackHub.addEventListener('click', (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        goCooldownTo(hub);
-      }, { passive:false });
-    }
-
-    // expose helper for engines/overlays if needed
-    window.HHA = window.HHA || {};
-    window.HHA.goCooldownTo = (dest)=>goCooldownTo(dest || hub);
+    window.addEventListener('hha:end', (e)=>{
+      goCooldownThenHub(e && e.detail ? e.detail : null);
+    }, {passive:true});
   })();
   </script>
-     <script>
-(function(){
-  'use strict';
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
-  function buildUrl(base, add){
-    const u = new URL(base, location.href);
-    Object.entries(add||{}).forEach(([k,v])=>{
-      if (v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }
-
-  // enable gate flow only when gate=1
-  const gateOn = String(qs('gate','0')||'0');
-  if (!(gateOn==='1' || gateOn==='true')) return;
-
-  const hub  = String(qs('hub','../hub.html'));
-  const view = String(qs('view','mobile'));
-  const run  = String(qs('run','play'));
-  const diff = String(qs('diff','normal'));
-  const time = String(qs('time','80'));
-  const seed = String(qs('seed',''));
-  const cdur = String(qs('cdur','20'));
-
-  // cooldown gate is at root
-  const cooldownGate = '../warmup-gate.html';
-
-  window.addEventListener('hha:end', function(){
-    // cooldown -> autonext -> hub
-    const nextHub = hub;
-    const url = buildUrl(cooldownGate, {
-      view, run, diff, time, seed,
-      phase: 'cooldown',
-      cdur: cdur,
-      hub: hub,
-      next: nextHub,
-      autonext: 1
-    });
-    location.href = url;
-  }, { passive:true });
-})();
-</script>
-
 
   <!-- NOTE:
-    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js will set view class and boot the engine.
+    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js sets view class and boots the engine.
   -->
 </body>
 </html>
