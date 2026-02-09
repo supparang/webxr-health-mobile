@@ -1,9 +1,9 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// GroupsVR Flush Log — PRODUCTION (PATCH v20260208c)
-// ✅ Flush-hardened: pagehide / beforeunload / visibilitychange(hidden)
-// ✅ Also flush on hha:end (immediate) + tiny retry
-// ✅ Safe no-op if GroupsVR.Telemetry missing
-// ✅ Exposes: window.GroupsVR.FlushLog.bind(getSummaryFn)
+// GroupsVR Flush-Harden — PRODUCTION (PATCH v20260208e)
+// ✅ Hooks: pagehide, beforeunload, visibilitychange(hidden)
+// ✅ Calls: GroupsVR.Telemetry.flush(lastSummary) if present
+// ✅ Safe: never throws; throttled; does not block UI
+// ✅ Also exposes: window.GroupsVR.flushNow(summary)
 
 (function(){
   'use strict';
@@ -14,105 +14,77 @@
   WIN.GroupsVR = WIN.GroupsVR || {};
 
   const S = {
-    bound:false,
-    lastFlushAt:0,
-    lastReason:'',
-    lastSummary:null
+    inited: false,
+    lastFlushAt: 0
   };
 
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  function now(){
+    try{ return performance.now(); }catch{ return Date.now(); }
+  }
 
   function safeGetTelemetry(){
     try{
-      const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
-      if (T && typeof T.flush === 'function') return T;
+      return WIN.GroupsVR && WIN.GroupsVR.Telemetry ? WIN.GroupsVR.Telemetry : null;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function flushOnce(summary){
+    const t = now();
+    if (t - S.lastFlushAt < 350) return; // throttle
+    S.lastFlushAt = t;
+
+    try{
+      const T = safeGetTelemetry();
+      if (!T || typeof T.flush !== 'function') return;
+      T.flush(summary || null);
     }catch(_){}
-    return null;
   }
 
-  function safeCall(fn){
-    try{ return fn(); }catch(_){ return null; }
-  }
+  function init(opts){
+    if (S.inited) return;
+    S.inited = true;
 
-  function normalizeSummary(s){
-    // keep it small + consistent
-    if (!s || typeof s !== 'object') return null;
+    const getSummary =
+      (opts && typeof opts.getSummary === 'function')
+        ? opts.getSummary
+        : null;
 
-    const out = {};
-    // allowlist common keys (don’t bloat)
-    const keys = [
-      'timestampIso','projectTag','gameTag','runMode','diff','style','view',
-      'durationPlannedSec','startTimeIso','endTimeIso','seed',
-      'reason','scoreFinal','miss','misses','shots','goodShots',
-      'accuracyPct','accuracyGoodPct','grade','comboMax','maxCombo',
-      'miniCleared','bossCleared',
-      'pid','studyId','phase','conditionGroup','siteCode','schoolYear','semester','hub'
-    ];
-    for (const k of keys){
-      if (k in s) out[k] = s[k];
+    function grab(){
+      try{ return getSummary ? getSummary() : null; }catch(_){ return null; }
     }
 
-    // normalize some aliases
-    if (out.miss == null && out.misses != null) out.miss = out.misses;
-    if (out.accuracyPct == null && out.accuracyGoodPct != null) out.accuracyPct = out.accuracyGoodPct;
-    if (out.comboMax == null && out.maxCombo != null) out.comboMax = out.maxCombo;
-
-    return out;
-  }
-
-  function flush(reason, getSummaryFn){
-    const t = nowMs();
-    if ((t - S.lastFlushAt) < 220 && reason === S.lastReason) return false;
-    S.lastFlushAt = t;
-    S.lastReason = String(reason||'');
-
-    const T = safeGetTelemetry();
-    if (!T) return false;
-
-    const summaryRaw = safeCall(()=> getSummaryFn ? getSummaryFn() : null);
-    const summary = normalizeSummary(summaryRaw);
-    S.lastSummary = summary;
-
-    // telemetry.flush may accept summary; if not, it will ignore
-    safeCall(()=> T.flush(summary));
-
-    return true;
-  }
-
-  function bind(getSummaryFn){
-    if (S.bound) return true;
-    S.bound = true;
-
-    // 1) pagehide — best for mobile/iOS
+    // pagehide: best for mobile safari + bfcache
     WIN.addEventListener('pagehide', ()=>{
-      flush('pagehide', getSummaryFn);
-      // micro retry (some browsers drop the first async batch)
-      setTimeout(()=>flush('pagehide_retry', getSummaryFn), 80);
+      flushOnce(grab());
     }, { passive:true });
 
-    // 2) beforeunload — desktop fallback
+    // beforeunload: desktop browsers
     WIN.addEventListener('beforeunload', ()=>{
-      flush('beforeunload', getSummaryFn);
+      flushOnce(grab());
     });
 
-    // 3) visibilitychange — when app goes background
+    // visibility hidden: tab switch / app background
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden'){
-        flush('hidden', getSummaryFn);
-        setTimeout(()=>flush('hidden_retry', getSummaryFn), 120);
+        flushOnce(grab());
       }
     }, { passive:true });
 
-    // 4) immediate on end — ensures final batch contains end summary
-    WIN.addEventListener('hha:end', ()=>{
-      flush('hha:end', getSummaryFn);
-      // retry once after a short delay in case end overlay triggers navigation quickly
-      setTimeout(()=>flush('hha:end_retry', getSummaryFn), 140);
-    }, { passive:true });
-
-    return true;
+    // optional: freeze (Chrome)
+    try{
+      DOC.addEventListener('freeze', ()=>{
+        flushOnce(grab());
+      }, { passive:true });
+    }catch(_){}
   }
 
-  WIN.GroupsVR.FlushLog = { bind };
+  // Expose a manual flush
+  WIN.GroupsVR.flushNow = function(summary){
+    flushOnce(summary || null);
+  };
+
+  WIN.GroupsVR.FlushLog = { init };
 
 })();
