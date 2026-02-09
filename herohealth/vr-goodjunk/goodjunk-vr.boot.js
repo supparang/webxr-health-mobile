@@ -1,11 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR BOOT — PRODUCTION (HHA Standard)
-// ✅ Auto view detect (pc/mobile/vr/cvr) — no override unless ?view= provided
-// ✅ Uses ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-// ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/gate
-// ✅ Gate flow: if ?gate=1 -> on hha:end => cooldown(20s) => hub
-// ✅ Wires layers: #gj-layer (main) + #gj-layer-r (cVR right eye)
-// ✅ Robust fatal overlay (#gj-fatal) if boot fails
+// ✅ Detect view: pc/mobile/vr/cvr (NO override)
+// ✅ Mount layers (#gj-layer + optional #gj-layer-r)
+// ✅ Integrates vr-ui.js tap-to-shoot (hha:shoot) already handled in goodjunk.safe.js
+// ✅ Pass-through ctx: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log
+// ✅ Starts by tap overlay -> dispatch hha:start (or auto-start if overlay missing)
+// ✅ Back-to-hub helper via ?hub=...
 
 'use strict';
 
@@ -14,162 +14,157 @@ import { boot as bootGame } from './goodjunk.safe.js';
 const WIN = window;
 const DOC = document;
 
-function qs(){
-  try{ return new URL(location.href).searchParams; }
-  catch{ return new URLSearchParams(); }
+function qs(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }
+  catch{ return d; }
 }
-const Q = qs();
-const q  = (k, d='') => (Q.get(k) ?? d);
-const qn = (k, d=0) => {
-  const v = Number(q(k, d));
-  return Number.isFinite(v) ? v : d;
-};
-
-function safeDecode(s){
-  try{ return decodeURIComponent(String(s||'')); }catch{ return String(s||''); }
+function qn(k, d=0){
+  const v = Number(qs(k, d));
+  return Number.isFinite(v) ? v : Number(d)||0;
 }
 
-function pickView(){
-  // explicit override wins
-  const v = String(q('view','')||'').toLowerCase().trim();
-  if(v) return v; // pc|mobile|vr|cvr
-
-  // auto detect
-  const w = Math.max(1, WIN.innerWidth||0);
-  const h = Math.max(1, WIN.innerHeight||0);
-  const isSmall = Math.min(w,h) <= 520;
-
-  // If WebXR is present, let "vr" be default suggestion (user still clicks ENTER VR)
-  const hasXR = !!(navigator && navigator.xr);
-
-  if(hasXR && isSmall) return 'mobile';
-  if(hasXR && !isSmall) return 'pc';
-  return isSmall ? 'mobile' : 'pc';
+function setBodyViewClass(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
 }
 
-function applyBodyView(view){
-  DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'cvr') DOC.body.classList.add('view-cvr');
-  else if(view === 'vr') DOC.body.classList.add('view-vr');
-  else if(view === 'pc') DOC.body.classList.add('view-pc');
-  else DOC.body.classList.add('view-mobile');
+function detectView(){
+  // IMPORTANT: do NOT override if URL already provides view
+  const v = String(qs('view','')||'').toLowerCase();
+  if(v==='pc' || v==='mobile' || v==='vr' || v==='cvr') return v;
+
+  // heuristic detect
+  const isCoarse = WIN.matchMedia ? WIN.matchMedia('(pointer: coarse)').matches : false;
+  const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+
+  // WebXR presence => prefer vr (but keep mobile if user is on phone without entering XR)
+  const hasXR = !!(navigator.xr);
+  const small = Math.min(WIN.innerWidth||9999, WIN.innerHeight||9999) < 620;
+
+  if(hasXR && !small) return 'vr';
+  if(isCoarse || isTouch || small) return 'mobile';
+  return 'pc';
 }
 
-function setText(id, txt){
-  const el = DOC.getElementById(id);
-  if(el) el.textContent = String(txt ?? '');
+function applyCtxToUI(ctx){
+  try{
+    const el = DOC.getElementById('gj-pill-view');
+    if(el) el.textContent = ctx.view || '';
+  }catch(_){}
 }
 
-function showFatal(err){
-  const pre = DOC.getElementById('gj-fatal');
-  if(!pre) return;
-  pre.classList.remove('gj-hidden');
-  pre.textContent =
-    '[GoodJunkVR FATAL]\n' +
-    (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
+function dispatchStart(){
+  try{
+    WIN.dispatchEvent(new CustomEvent('hha:start', { detail:{ game:'goodjunk' } }));
+  }catch(_){}
 }
 
-function startCooldownAndGoHub(summary){
-  const gate = String(q('gate','0')||'0');
-  if(gate !== '1') return;
+function safeHideStartOverlay(){
+  const ov = DOC.getElementById('startOverlay');
+  if(ov) ov.hidden = true;
+}
 
-  const hubRaw = q('hub','');
-  const hub = safeDecode(hubRaw);
-  if(!hub) return;
-
-  const cd = DOC.getElementById('gj-cooldown');
-  const num = DOC.getElementById('gj-cooldown-num');
-
-  let left = 20;
-  if(cd){
-    cd.setAttribute('aria-hidden','false');
-    if(num) num.textContent = String(left);
+function isOverlayActuallyVisible(el){
+  try{
+    if(!el) return false;
+    if(el.hidden) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display === 'none') return false;
+    if(cs.visibility === 'hidden') return false;
+    if(Number(cs.opacity||'1') <= 0) return false;
+    const r = el.getBoundingClientRect();
+    if(r.width < 2 || r.height < 2) return false;
+    return true;
+  }catch(_){
+    return true;
   }
-
-  const t = setInterval(()=>{
-    left--;
-    if(num) num.textContent = String(Math.max(0,left));
-    if(left <= 0){
-      clearInterval(t);
-      // pass last summary as optional param
-      try{
-        const u = new URL(hub, location.href);
-        if(summary){
-          u.searchParams.set('last', encodeURIComponent(JSON.stringify(summary)));
-        }
-        location.href = u.toString();
-      }catch(_){
-        location.href = hub;
-      }
-    }
-  }, 1000);
 }
 
-function bindEndListener(){
-  WIN.addEventListener('hha:end', (ev)=>{
-    const summary = ev && ev.detail ? ev.detail : null;
+function boot(){
+  const view = detectView();
+  setBodyViewClass(view);
 
-    // write last summary (redundant-safe; engine already writes too)
-    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary||{})); }catch(_){}
+  const ctx = {
+    view,
+    run: String(qs('run','play')).toLowerCase(),
+    diff: String(qs('diff','normal')).toLowerCase(),
+    time: qn('time', 80),
+    seed: String(qs('seed', Date.now())),
+    pid: String(qs('pid','')||''),
+    studyId: String(qs('studyId','')||''),
+    phase: String(qs('phase','')||''),
+    conditionGroup: String(qs('conditionGroup','')||''),
+    hub: String(qs('hub','../hub.html')||'../hub.html'),
+    log: String(qs('log','')||'')
+  };
 
-    // gate->hub after 20s
-    startCooldownAndGoHub(summary);
-  }, { passive:true });
-}
+  applyCtxToUI(ctx);
 
-function attachVrUI(){
-  // If vr-ui.js is included in HTML, this just configures its lockPx.
-  // GoodJunk: slightly forgiving on mobile/cvr.
-  WIN.HHA_VRUI_CONFIG = Object.assign({}, WIN.HHA_VRUI_CONFIG || {}, {
-    lockPx: qn('lock', 28),
-    cooldownMs: qn('cd', 90)
-  });
-}
-
-function main(){
-  const view = pickView();
-  applyBodyView(view);
-
-  // Expose view for CSS/HUD labels
-  setText('gj-view', view.toUpperCase());
-
-  // wire vr-ui config
-  attachVrUI();
-
-  // layers must exist
+  // ensure required layers exist
   const layerL = DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
 
-  // if not cVR, hide right layer safely
-  if(view !== 'cvr' && layerR){
-    try{ layerR.style.display = 'none'; }catch(_){}
-  }else if(view === 'cvr' && layerR){
-    try{ layerR.style.display = ''; }catch(_){}
+  // expose for debugging
+  try{ WIN.GoodJunkVR_CTX = ctx; }catch(_){}
+
+  // bind Start overlay
+  const ov = DOC.getElementById('startOverlay');
+  const btn = DOC.getElementById('btnStart');
+
+  function startNow(){
+    safeHideStartOverlay();
+    // start engine
+    bootGame({
+      view: ctx.view,
+      run: ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed,
+      layerL,
+      layerR
+    });
+    dispatchStart();
   }
 
-  // bind end->gate flow
-  bindEndListener();
+  if(btn){
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      startNow();
+    });
+  }
 
-  // pass-through config
-  const cfg = {
-    view,
-    run:  String(q('run','play')||'play').toLowerCase(),
-    diff: String(q('diff','normal')||'normal').toLowerCase(),
-    time: qn('time', 80),
-    seed: q('seed', String(Date.now()))
-  };
+  // tap anywhere start (if overlay uses full screen)
+  if(ov){
+    ov.addEventListener('pointerdown', (e)=>{
+      // allow clicking inner buttons without double triggering
+      const t = e.target;
+      if(t && (t.id === 'btnStart')) return;
+      startNow();
+    }, { passive:true });
+  }
 
-  // Start engine
-  bootGame(cfg);
+  // Harden: overlay might exist but not visible -> auto-start
+  setTimeout(()=>{
+    const visible = isOverlayActuallyVisible(ov);
+    if(!visible){
+      startNow();
+    }
+  }, 240);
+
+  // back hub buttons (if any)
+  DOC.querySelectorAll('.btnBackHub').forEach((b)=>{
+    b.addEventListener('click', ()=>{
+      location.href = ctx.hub;
+    });
+  });
 }
 
-// Boot when DOM ready
-try{
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', ()=>{ try{ main(); }catch(e){ showFatal(e); } }, { once:true });
-  }else{
-    main();
-  }
-}catch(e){
-  showFatal(e);
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', boot);
+}else{
+  boot();
 }
