@@ -1,72 +1,69 @@
-<!-- === /herohealth/brush-vr.html ===
-BrushVR LAUNCHER — ROOT
-✅ Redirects to ./vr-brush/brush.html
-✅ Auto-detect view (no override if ?view= exists)
-✅ Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log + hub
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — BrushVR Launcher</title>
-  <meta name="color-scheme" content="dark"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020617;color:#e5e7eb;
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial;}
-    .card{width:min(520px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;
-      padding:16px;background:rgba(2,6,23,.72);box-shadow:0 18px 60px rgba(0,0,0,.45)}
-    .t{font-weight:900;font-size:18px;margin:0}
-    .s{margin:8px 0 0;color:rgba(148,163,184,1);font-size:13px;line-height:1.55}
-    .pill{display:inline-block;margin-top:10px;padding:8px 10px;border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.04);font-size:12px;color:rgba(148,163,184,1)}
+    :root{ --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; }
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(900px 520px at 20% 15%, rgba(34,211,238,.12), transparent 60%),linear-gradient(180deg,#020617,#0b1226);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial;display:grid;place-items:center}
+    .card{width:min(720px,92vw);border:1px solid var(--stroke);background:var(--panel);border-radius:22px;box-shadow:0 18px 60px rgba(0,0,0,.45);padding:18px}
+    .t{font-weight:900;font-size:18px}
+    .s{margin-top:6px;color:var(--muted);font-size:13px;line-height:1.5}
+    .mono{margin-top:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";font-size:12px;color:rgba(229,231,235,.8);white-space:pre-wrap;word-break:break-word}
   </style>
 </head>
 <body>
   <div class="card">
-    <p class="t">🦷 BrushVR</p>
-    <p class="s">กำลังพาเข้าเกม… (ส่งต่อพารามิเตอร์เดิม + ตั้งค่า view อัตโนมัติ)</p>
-    <span class="pill" id="p"></span>
+    <div class="t">🦷 BrushVR — Launcher</div>
+    <div class="s">กำลังพาเข้าเกม… (ส่งต่อพารามิเตอร์เดิมครบ และเติม hub ให้เสมอ)</div>
+    <div class="mono" id="dbg"></div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  function getQS(){
-    try { return new URL(location.href).searchParams; }
-    catch { return new URLSearchParams(); }
-  }
+
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+  const cur = getQS();
+
   function detectView(){
-    const q = getQS();
-    const v = (q.get('view')||'').toLowerCase();
-    if (v) return v;
-    const ua = navigator.userAgent || '';
+    const v = (cur.get('view')||'').toLowerCase();
+    if(v) return v; // ✅ ไม่ override
+    const ua = navigator.userAgent||'';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
     return isMobile ? 'mobile' : 'pc';
   }
 
-  const q = getQS();
-  const dest = new URL('./vr-brush/brush.html', location.href);
+  // build run url
+  const run = new URL('./vr-brush/brush.html', location.href);
 
   // pass-through all params
-  for (const [k,v] of q.entries()){
-    dest.searchParams.set(k, v);
-  }
-
-  // ensure hub param
-  if(!dest.searchParams.get('hub')){
-    dest.searchParams.set('hub', location.href.split('#')[0]);
+  for(const [k,v] of cur.entries()){
+    run.searchParams.set(k, v);
   }
 
   // ensure view (only if missing)
-  if(!dest.searchParams.get('view')){
-    dest.searchParams.set('view', detectView());
+  if(!cur.has('view')) run.searchParams.set('view', detectView());
+
+  // ensure hub (if missing)
+  if(!cur.has('hub')){
+    const hubGuess = new URL('./hub.html', location.href).toString();
+    run.searchParams.set('hub', hubGuess);
   }
 
-  const t = dest.toString();
-  document.getElementById('p').textContent = 'view=' + (dest.searchParams.get('view')||'') + ' • run=' + (dest.searchParams.get('run')||'');
-  location.replace(t);
+  // default time if missing (optional)
+  if(!cur.has('time')) run.searchParams.set('time', '90');
+
+  // debug
+  const dbg = document.getElementById('dbg');
+  if(dbg) dbg.textContent = '→ ' + run.toString();
+
+  // go
+  location.replace(run.toString());
 })();
 </script>
 </body>
