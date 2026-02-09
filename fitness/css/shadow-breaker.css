@@ -1,6 +1,11 @@
 /* === /fitness/css/shadow-breaker.css ===
    Shadow Breaker UI (PC/Mobile)
-   ✅ PATCH: layout less tight + meta not blocking + target scales better
+   PATCH D:
+   ✅ Layout looser (less cramped)
+   ✅ Safe playfield padding (HUD/meta won't block targets)
+   ✅ Targets visually smaller + capped max-size
+   ✅ Mobile meta panel smaller + less intrusive
+   ✅ FX layer styles included
 */
 
 :root{
@@ -23,6 +28,18 @@
 
   --sat: env(safe-area-inset-top,0px);
   --sab: env(safe-area-inset-bottom,0px);
+
+  /* ===== Playfield safety (สำคัญ: กัน HUD/meta บังเป้า) ===== */
+  --pf-pad: 14px;             /* padding พื้นฐานของสนาม */
+  --pf-safe-top: 56px;        /* กัน HUD ด้านบน */
+  --pf-safe-right: 280px;     /* กัน meta panel ขวา (PC) */
+  --pf-safe-bottom: 24px;     /* กันด้านล่าง (fever/controls) */
+  --pf-safe-left: 18px;
+
+  /* ===== Target visuals ===== */
+  --t-font: 38px;             /* ลดขนาด emoji บนเป้า */
+  --t-shadow: 0 14px 34px rgba(0,0,0,.45); /* เบาเงาลง */
+  --t-max: 150px;             /* cap max size ใน CSS กันเป้าใหญ่เกิน */
 }
 
 *{ box-sizing:border-box; }
@@ -31,7 +48,7 @@ html,body{
   height:100%;
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
-    radial-gradient(circle at 10% 12%, rgba(56,189,248,.18), transparent 55%),
+    radial-gradient(circle at 10% 12%, rgba(56,189,248,.20), transparent 55%),
     radial-gradient(circle at 95% 85%, rgba(168,85,247,.18), transparent 55%),
     var(--bg);
   color:var(--text);
@@ -44,7 +61,7 @@ a:hover{ text-decoration:underline; }
   width:100%;
   max-width:1100px;
   margin:0 auto;
-  padding: calc(12px + var(--sat)) 14px calc(16px + var(--sab));
+  padding: calc(14px + var(--sat)) 14px calc(18px + var(--sab));
   min-height:100vh;
 }
 
@@ -56,9 +73,9 @@ a:hover{ text-decoration:underline; }
   gap:14px;
   padding:14px 14px;
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(15,23,42,.76), rgba(2,6,23,.52));
+  background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.55));
   border:1px solid var(--stroke);
-  box-shadow: 0 16px 38px rgba(0,0,0,.50);
+  box-shadow: 0 18px 42px rgba(0,0,0,.55);
 }
 .sb-header-left{ max-width:650px; }
 .sb-kicker{
@@ -68,13 +85,15 @@ a:hover{ text-decoration:underline; }
   opacity:.95;
 }
 .sb-title{
-  margin:4px 0 6px;
-  font-size:1.65rem;
+  margin:6px 0 6px;
+  font-size:1.62rem;
   letter-spacing:.2px;
+  font-weight:900;
 }
 .sb-sub{
   font-size:.9rem;
   color:rgba(226,232,240,.86);
+  line-height:1.35;
 }
 .sb-header-right{
   text-align:right;
@@ -93,11 +112,11 @@ a:hover{ text-decoration:underline; }
   padding:8px 12px;
   border-radius: var(--pill);
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.40);
+  background: rgba(2,6,23,.45);
 }
 
 /* ===== Main / Views ===== */
-.sb-main{ margin-top:12px; }
+.sb-main{ margin-top:14px; }
 
 /* View switching */
 .sb-view{ display:none; }
@@ -110,9 +129,9 @@ a:hover{ text-decoration:underline; }
   background:
     radial-gradient(circle at 15% 0%, rgba(56,189,248,.14), transparent 55%),
     radial-gradient(circle at 90% 90%, rgba(168,85,247,.14), transparent 55%),
-    rgba(15,23,42,.76);
+    rgba(15,23,42,.78);
   border:1px solid var(--stroke);
-  box-shadow: 0 16px 38px rgba(0,0,0,.50);
+  box-shadow: 0 18px 42px rgba(0,0,0,.55);
 }
 
 /* ===== Menu ===== */
@@ -122,8 +141,9 @@ a:hover{ text-decoration:underline; }
   padding:4px;
   border-radius: var(--pill);
   border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.32);
+  background: rgba(2,6,23,.35);
   width:max-content;
+  margin-bottom:10px;
 }
 .sb-mode-btn{
   border:none;
@@ -141,12 +161,13 @@ a:hover{ text-decoration:underline; }
   background: linear-gradient(135deg, var(--accent), var(--violet));
   color: #020617;
   font-weight:800;
-  box-shadow: 0 0 16px rgba(56,189,248,.38);
+  box-shadow: 0 0 18px rgba(56,189,248,.35);
 }
 .sb-mode-desc{
-  margin:10px 2px 12px;
+  margin:6px 2px 12px;
   font-size:.86rem;
   color: var(--muted);
+  line-height:1.35;
 }
 
 .sb-form{
@@ -168,7 +189,7 @@ a:hover{ text-decoration:underline; }
   padding:10px 12px;
   border-radius: 14px;
   border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.42);
+  background: rgba(2,6,23,.45);
   color: var(--text);
   outline:none;
 }
@@ -182,7 +203,7 @@ a:hover{ text-decoration:underline; }
   padding:12px;
   border-radius: 18px;
   border:1px solid rgba(56,189,248,.25);
-  background: rgba(2,6,23,.30);
+  background: rgba(2,6,23,.35);
 }
 .sb-research-box.is-on{ display:block; }
 
@@ -190,7 +211,7 @@ a:hover{ text-decoration:underline; }
   padding:12px;
   border-radius: 18px;
   border:1px solid rgba(168,85,247,.22);
-  background: rgba(2,6,23,.22);
+  background: rgba(2,6,23,.25);
 }
 .sb-ai-title{
   font-size:.82rem;
@@ -207,7 +228,7 @@ a:hover{ text-decoration:underline; }
   padding:3px 9px;
   border-radius: var(--pill);
   border:1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.30);
+  background: rgba(2,6,23,.35);
   color: var(--muted);
 }
 
@@ -225,7 +246,7 @@ a:hover{ text-decoration:underline; }
   font-size:.92rem;
   cursor:pointer;
   color: var(--text);
-  background: rgba(2,6,23,.30);
+  background: rgba(2,6,23,.35);
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -235,7 +256,7 @@ a:hover{ text-decoration:underline; }
 .sb-btn:hover{
   transform: translateY(-1px);
   filter: brightness(1.04);
-  box-shadow: 0 12px 26px rgba(0,0,0,.30);
+  box-shadow: 0 12px 28px rgba(0,0,0,.35);
 }
 .sb-btn-primary{
   background: linear-gradient(135deg, var(--accent), var(--violet));
@@ -244,7 +265,7 @@ a:hover{ text-decoration:underline; }
   font-weight:900;
 }
 .sb-btn-ghost{
-  background: rgba(2,6,23,.18);
+  background: rgba(2,6,23,.20);
   color: var(--muted);
 }
 .sb-btn-ghost:hover{ color: var(--text); }
@@ -254,10 +275,11 @@ a:hover{ text-decoration:underline; }
   margin-top:10px;
   padding:12px 12px;
   border-radius: 18px;
-  background: rgba(2,6,23,.24);
-  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.28);
+  border:1px solid rgba(148,163,184,.18);
   color: rgba(226,232,240,.86);
   font-size:.86rem;
+  line-height:1.4;
 }
 .sb-howto.is-on{ display:block; }
 .sb-howto ul{ margin:0; padding-left:18px; }
@@ -266,31 +288,30 @@ a:hover{ text-decoration:underline; }
 /* ===== Play ===== */
 .sb-play{
   border-radius: var(--radius);
-  padding:12px;
+  padding:14px; /* เพิ่มนิด ให้หายแน่น */
   background:
     radial-gradient(circle at 15% 0%, rgba(56,189,248,.12), transparent 60%),
     radial-gradient(circle at 90% 90%, rgba(245,158,11,.08), transparent 60%),
-    rgba(15,23,42,.68);
+    rgba(15,23,42,.72);
   border:1px solid var(--stroke);
-  box-shadow: 0 16px 38px rgba(0,0,0,.50);
+  box-shadow: 0 18px 42px rgba(0,0,0,.55);
   min-height: 72vh;
   position:relative;
 }
 
-/* HUD */
 .sb-hud{
   display:flex;
   justify-content:space-between;
   align-items:center;
   gap:10px;
-  padding:10px 10px;
+  padding:10px 12px;
   border-radius: 18px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.24);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.26);
 }
 .sb-hud-left,.sb-hud-right{
   display:flex;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
 }
 .sb-stat{
@@ -318,12 +339,12 @@ a:hover{ text-decoration:underline; }
 
 /* HP bars */
 .sb-bars{
-  margin-top:10px;
+  margin-top:12px;
   display:flex;
-  gap:10px;
+  gap:12px;
   align-items:center;
 }
-.sb-bars-top{ margin-top:10px; }
+.sb-bars-top{ margin-top:12px; }
 .sb-bar{
   flex:1;
   display:flex;
@@ -342,7 +363,7 @@ a:hover{ text-decoration:underline; }
   border-radius: var(--pill);
   overflow:hidden;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.32);
+  background: rgba(2,6,23,.35);
 }
 .sb-bar-fill{
   position:absolute;
@@ -355,24 +376,32 @@ a:hover{ text-decoration:underline; }
   background: linear-gradient(90deg, #fb7185, #f43f5e);
 }
 
+/* ===== Stage (สำคัญ: กัน HUD/meta บังเป้า) ===== */
 .sb-stage{
   position:relative;
   margin-top:12px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.14);
+  background: rgba(2,6,23,.16);
   overflow:hidden;
   min-height: 46vh;
 }
 
-/* layer for targets */
+/* Layer ที่ spawn เป้า */
 .sb-target-layer{
   position:absolute;
   inset:0;
   z-index: 2;
+
+  /* ✅ PATCH: safe zone ให้ JS render random ได้ไม่ชน HUD/meta (ถ้า JS ยังไม่ทำ safe) */
+  padding:
+    calc(var(--pf-pad) + var(--pf-safe-top))
+    calc(var(--pf-pad) + var(--pf-safe-right))
+    calc(var(--pf-pad) + var(--pf-safe-bottom))
+    calc(var(--pf-pad) + var(--pf-safe-left));
+  /* ให้ pointer ทำงานปกติ */
 }
 
-/* center message */
 .sb-center-msg{
   position:absolute;
   inset:0;
@@ -381,40 +410,38 @@ a:hover{ text-decoration:underline; }
   justify-content:center;
   z-index: 1;
   pointer-events:none;
-  padding: 12px;
+  padding: 14px;
 }
 .sb-msg-main{
   padding:10px 12px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.30);
+  background: rgba(2,6,23,.32);
   color: rgba(226,232,240,.92);
   font-weight:800;
   text-align:center;
-  max-width: 520px;
+  max-width: 560px;
+  line-height:1.35;
 }
-.sb-msg-main.good{ border-color: rgba(34,197,94,.22); }
-.sb-msg-main.bad{ border-color: rgba(251,113,133,.22); }
-.sb-msg-main.miss{ border-color: rgba(245,158,11,.22); }
+.sb-msg-main.good{ border-color: rgba(34,197,94,.24); }
+.sb-msg-main.bad{ border-color: rgba(251,113,133,.24); }
+.sb-msg-main.miss{ border-color: rgba(245,158,11,.24); }
 .sb-msg-main.perfect{ border-color: rgba(168,85,247,.26); }
 
-/* meta boss card (ลดการบัง) */
 .sb-meta{
   position:absolute;
   top:10px;
   right:10px;
-  width:min(240px, 42vw);
+  width:min(260px, 40vw);
   z-index: 3;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.22);
+  background: rgba(2,6,23,.26);
   padding: 10px 10px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
-.sb-meta-emoji{ font-size:1.55rem; }
+.sb-meta-emoji{ font-size:1.65rem; }
 .sb-meta-name{ font-weight:900; margin-top:4px; }
-.sb-meta-desc{ color: var(--muted); font-size:.82rem; margin-top:4px; }
+.sb-meta-desc{ color: var(--muted); font-size:.82rem; margin-top:4px; line-height:1.35; }
 .sb-meta-row{
   display:flex;
   justify-content:space-between;
@@ -426,7 +453,7 @@ a:hover{ text-decoration:underline; }
 
 /* Fever + bottom bars */
 .sb-bars-bottom{
-  margin-top:10px;
+  margin-top:12px;
   gap:12px;
   align-items:stretch;
 }
@@ -443,16 +470,18 @@ a:hover{ text-decoration:underline; }
   font-size:.82rem;
   color: rgba(226,232,240,.86);
   margin-bottom:8px;
+  gap:10px;
+  align-items:center;
 }
 .sb-fever-head .k{ color: var(--muted); }
 .sb-fever-head .v{ font-weight:900; }
-.sb-fever-head .v.on{ color: #ddd6fe; text-shadow: 0 0 12px rgba(168,85,247,.40); }
+.sb-fever-head .v.on{ color: #ddd6fe; text-shadow: 0 0 14px rgba(168,85,247,.35); }
 
 .sb-fever-track{
   height:12px;
   border-radius: var(--pill);
   border:1px solid rgba(168,85,247,.16);
-  background: rgba(2,6,23,.32);
+  background: rgba(2,6,23,.35);
   overflow:hidden;
 }
 .sb-fever-fill{
@@ -471,12 +500,12 @@ a:hover{ text-decoration:underline; }
   padding: 8px 8px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.14);
+  background: rgba(2,6,23,.16);
 }
 
 /* Controls */
 .sb-controls{
-  margin-top:10px;
+  margin-top:12px;
   display:flex;
   justify-content:space-between;
   align-items:center;
@@ -492,7 +521,7 @@ a:hover{ text-decoration:underline; }
 .sb-toggle input{ width:18px; height:18px; }
 
 /* ===== Result ===== */
-.sb-result-title{ margin:0 0 12px; font-size:1.15rem; }
+.sb-result-title{ margin:0 0 12px; font-size:1.15rem; font-weight:900; }
 .sb-result-grid{
   display:grid;
   grid-template-columns: repeat(4, minmax(0,1fr));
@@ -514,26 +543,33 @@ a:hover{ text-decoration:underline; }
   gap:10px;
 }
 
-/* ===== Targets ===== */
+/* ===== Targets (ปรับให้ไม่ใหญ่เกิน + ไม่หนักเงา) ===== */
 .sb-target{
   position:absolute;
   border-radius: 999px;
   display:flex;
   align-items:center;
   justify-content:center;
-  /* ✅ สำคัญ: font-size ตาม --sb-size (ถ้า JS set ให้) */
-  font-size: calc(var(--sb-size, 108px) * 0.36);
+
+  /* ✅ PATCH: ลดความรู้สึก “เป้าใหญ่” */
+  font-size: var(--t-font);
   font-weight: 900;
+
   cursor: pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
   animation: sb-pop-in .14s ease-out;
-  box-shadow: 0 16px 38px rgba(0,0,0,.50);
-  text-shadow: 0 6px 20px rgba(0,0,0,.35);
+
+  box-shadow: var(--t-shadow);
+
+  /* ✅ cap size กันหลุดใหญ่จาก JS */
+  max-width: var(--t-max);
+  max-height: var(--t-max);
 }
+
 @keyframes sb-pop-in{
-  from{ transform: scale(.84); opacity:.0; }
+  from{ transform: scale(.86); opacity:.0; }
   to{ transform: scale(1); opacity:1; }
 }
 
@@ -542,25 +578,25 @@ a:hover{ text-decoration:underline; }
   border:1px solid rgba(56,189,248,.30);
 }
 .sb-target--decoy{
-  background: radial-gradient(circle at 30% 25%, rgba(148,163,184,.24), rgba(2,6,23,.12));
-  border:1px solid rgba(148,163,184,.24);
+  background: radial-gradient(circle at 30% 25%, rgba(148,163,184,.22), rgba(2,6,23,.12));
+  border:1px solid rgba(148,163,184,.22);
 }
 .sb-target--bomb{
-  background: radial-gradient(circle at 30% 25%, rgba(245,158,11,.28), rgba(2,6,23,.12));
-  border:1px solid rgba(245,158,11,.26);
+  background: radial-gradient(circle at 30% 25%, rgba(245,158,11,.26), rgba(2,6,23,.12));
+  border:1px solid rgba(245,158,11,.24);
 }
 .sb-target--heal{
-  background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.26), rgba(2,6,23,.12));
-  border:1px solid rgba(34,197,94,.26);
+  background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.24), rgba(2,6,23,.12));
+  border:1px solid rgba(34,197,94,.24);
 }
 .sb-target--shield{
-  background: radial-gradient(circle at 30% 25%, rgba(59,130,246,.26), rgba(2,6,23,.12));
-  border:1px solid rgba(59,130,246,.24);
+  background: radial-gradient(circle at 30% 25%, rgba(59,130,246,.24), rgba(2,6,23,.12));
+  border:1px solid rgba(59,130,246,.22);
 }
 .sb-target--bossface{
-  background: radial-gradient(circle at 30% 25%, rgba(168,85,247,.28), rgba(2,6,23,.12));
-  border:1px solid rgba(168,85,247,.26);
-  box-shadow: 0 20px 54px rgba(168,85,247,.14), 0 16px 38px rgba(0,0,0,.50);
+  background: radial-gradient(circle at 30% 25%, rgba(168,85,247,.26), rgba(2,6,23,.12));
+  border:1px solid rgba(168,85,247,.24);
+  box-shadow: 0 18px 52px rgba(168,85,247,.14), var(--t-shadow);
 }
 
 /* ===== FX layer ===== */
@@ -575,7 +611,7 @@ a:hover{ text-decoration:underline; }
   height: 10px;
   border-radius: 999px;
   background: rgba(255,255,255,.92);
-  box-shadow: 0 0 16px rgba(255,255,255,.30);
+  box-shadow: 0 0 18px rgba(255,255,255,.30);
   will-change: transform, opacity;
 }
 .sb-fx-text{
@@ -583,8 +619,8 @@ a:hover{ text-decoration:underline; }
   letter-spacing: .2px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(2,6,23,.55);
-  border: 1px solid rgba(148,163,184,.25);
+  background: rgba(2,6,23,.52);
+  border: 1px solid rgba(148,163,184,.22);
   color: rgba(255,255,255,.95);
   text-shadow: 0 1px 10px rgba(0,0,0,.35);
   backdrop-filter: blur(8px);
@@ -593,38 +629,58 @@ a:hover{ text-decoration:underline; }
 }
 
 /* optional FX styles */
-.sb-fx-hit { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
-.sb-fx-plus { background: rgba(34,211,238,.18); border-color: rgba(34,211,238,.35); }
-.sb-fx-miss { background: rgba(239,68,68,.20); border-color: rgba(239,68,68,.35); }
-.sb-fx-bomb { background: rgba(245,158,11,.22); border-color: rgba(245,158,11,.40); }
-.sb-fx-decoy{ background: rgba(148,163,184,.18); border-color: rgba(148,163,184,.30); }
-.sb-fx-heal { background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.35); }
-.sb-fx-shield{ background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.35); }
-.sb-fx-fever{ background: rgba(168,85,247,.20); border-color: rgba(168,85,247,.38); }
-.sb-fx-tip{ background: rgba(2,6,23,.70); border-color: rgba(34,211,238,.25); }
-.sb-fx-win{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.40); }
+.sb-fx-hit { background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.32); }
+.sb-fx-plus { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.32); }
+.sb-fx-miss { background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.32); }
+.sb-fx-bomb { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.34); }
+.sb-fx-decoy{ background: rgba(148,163,184,.14); border-color: rgba(148,163,184,.26); }
+.sb-fx-heal { background: rgba(16,185,129,.16); border-color: rgba(16,185,129,.30); }
+.sb-fx-shield{ background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.30); }
+.sb-fx-fever{ background: rgba(168,85,247,.18); border-color: rgba(168,85,247,.34); }
+.sb-fx-tip{ background: rgba(2,6,23,.62); border-color: rgba(34,211,238,.22); }
+.sb-fx-win{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.34); }
 
 /* ===== Responsive ===== */
 @media (max-width:900px){
   .sb-result-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .sb-meta{ width:min(220px, 52vw); }
+
+  /* ลดพื้นที่กัน meta ลง เพราะจอเล็ก */
+  :root{
+    --pf-safe-right: 210px;
+    --t-font: 36px;
+    --t-max: 142px;
+  }
+  .sb-meta{ width:min(240px, 54vw); }
 }
 
 @media (max-width:640px){
   .sb-header{ flex-direction:column; align-items:flex-start; }
   .sb-header-right{ text-align:left; }
+
   .sb-hud{ flex-direction:column; align-items:stretch; gap:10px; }
   .sb-hud-center{ justify-content:flex-start; }
+
   .sb-bars{ flex-direction:column; }
 
-  /* ✅ สำคัญ: meta ย้ายลงล่าง/เล็กลง เพื่อลดการบังเป้า */
-  .sb-meta{
-    top:auto;
-    bottom:10px;
-    right:10px;
-    width: min(210px, 60vw);
-    opacity:.92;
+  /* ✅ มือถือ: meta เล็กลง + safe-right ลดลงมาก */
+  :root{
+    --pf-safe-top: 44px;
+    --pf-safe-right: 136px;
+    --pf-safe-left: 12px;
+    --pf-safe-bottom: 18px;
+
+    --t-font: 34px;
+    --t-max: 132px;
   }
 
-  .sb-stage{ min-height: 52vh; }
+  .sb-meta{
+    right: 8px;
+    top: 8px;
+    width: min(200px, 58vw);
+    padding: 8px 8px;
+  }
+  .sb-meta-emoji{ font-size:1.5rem; }
+  .sb-meta-desc{ font-size:.80rem; }
+
+  .sb-play{ padding:12px; }
 }
