@@ -6,7 +6,7 @@
   <title>HeroHealth — Exercise Planner (VR)</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="./planner.css" />
+  <link rel="stylesheet" href="./planner.css?v=20260209a" />
 </head>
 <body>
   <div id="fp-fatal" class="fp-fatal fp-hidden"></div>
@@ -154,7 +154,9 @@
     </main>
   </div>
 
-  <script src="../vr/vr-ui.js"></script>
-  <script src="./planner.boot.js"></script>
+  <!-- ✅ IMPORTANT: safe.js MUST load before boot.js -->
+  <script src="../vr/vr-ui.js?v=20260209a"></script>
+  <script src="./planner.safe.js?v=20260209a"></script>
+  <script src="./planner.boot.js?v=20260209a"></script>
 </body>
 </html>
