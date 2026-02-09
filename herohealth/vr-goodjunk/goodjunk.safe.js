@@ -1,15 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.2 + AI PACK 1–4 PATCH (Predict/ML/DL-ready/Pattern)
+// GoodJunkVR SAFE — v4.2 (Boss+Progress+Missions+End Summary + LAYOUT FIX)
 // ✅ FIX: target position uses LAYER rect (no more top-left bug)
 // ✅ FIX: force position:absolute in JS (robust even if CSS delayed)
 // ✅ FIX: cVR spawns paired targets (left+right) with same uid, counted once
 // ✅ FIX: onShoot uses ev.detail.x/y when provided
-// ✅ AI hooks compat (window.HHA.AIHooks.create OR window.HHA.createAIHooks)
-// ✅ PATCH(AI 1–4): spawn uid events + hit uid events + getDifficulty(ctx) + expireGood event
+// ✅ AI hooks compat with CLASSIC script (window.HHA.createAIHooks)
+// ✅ Never crash if AI missing (stub getDifficulty/getTip/onEvent)
 // ✅ Supports shoot from both: hha:shoot and gj:shoot
-// ✅ PATCH (GATE): emit hha:end on leave/pagehide/hidden to ensure cooldown gate works
-// ✅ PATCH (ACC): fix accuracy denom to avoid double counting expireGood (since miss already includes expireGood)
-
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
@@ -21,10 +18,6 @@ const DOC = document;
 const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
 const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
-
-function nowMs(){
-  try{ return (performance && performance.now) ? performance.now() : Date.now(); }catch(_){ return Date.now(); }
-}
 
 function makeRNG(seed){
   let x = (Number(seed)||Date.now()) % 2147483647;
@@ -161,7 +154,6 @@ function makeAI(opts){
   ai = ai || {};
   if(typeof ai.onEvent !== 'function') ai.onEvent = ()=>{};
   if(typeof ai.getTip !== 'function') ai.getTip = ()=>null;
-  // allow 3rd arg ctx (ignored safely if AI doesn't use it)
   if(typeof ai.getDifficulty !== 'function') ai.getDifficulty = (_sec, base)=>Object.assign({}, base||{});
   if(typeof ai.enabled !== 'boolean') ai.enabled = false;
 
@@ -287,7 +279,7 @@ export function boot(opts={}){
   // --- quests ---
   function currentGoal(){ return S.goals[S.goalIndex] || S.goals[0]; }
   function resetMiniWindow(){
-    S.mini.windowStartAt = nowMs();
+    S.mini.windowStartAt = (performance.now ? performance.now() : Date.now());
     S.mini.groups.clear();
     S.mini.done = false;
   }
@@ -314,7 +306,7 @@ export function boot(opts={}){
     if(elGoalCur) elGoalCur.textContent = String(cur);
     if(elGoalTarget) elGoalTarget.textContent = String(target);
 
-    const now = nowMs();
+    const now = (performance.now ? performance.now() : Date.now());
     const left = Math.max(0, (S.mini.windowSec*1000 - (now - S.mini.windowStartAt)) / 1000);
     const miniCur = S.mini.groups.size;
     const miniTar = 3;
@@ -351,7 +343,7 @@ export function boot(opts={}){
   }
 
   function onHitGoodMeta(groupId){
-    const now = nowMs();
+    const now = (performance.now ? performance.now() : Date.now());
     if(!S.mini.windowStartAt) resetMiniWindow();
     if(now - S.mini.windowStartAt > S.mini.windowSec*1000) resetMiniWindow();
 
@@ -473,7 +465,7 @@ export function boot(opts={}){
   // --- hits ---
   function onHit(kind, extra = {}){
     if(S.ended) return;
-    const tNow = nowMs();
+    const tNow = performance.now();
 
     if(kind==='good'){
       S.hitGood++;
@@ -495,9 +487,7 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-
-      // keep legacy AI signals (still ok)
-      if(aiOn) AI.onEvent('hitGood', { t:tNow, combo:S.combo|0 });
+      if(aiOn) AI.onEvent('hitGood', { t:tNow });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -517,8 +507,7 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-
-        if(aiOn) AI.onEvent('hitJunk', { t:tNow, combo:S.combo|0 });
+        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -532,16 +521,12 @@ export function boot(opts={}){
       addScore(18);
       setFever(Math.max(0, S.fever - 8));
       emit('hha:judge', { type:'perfect', label: (before!==S.miss) ? 'MISS -1!' : 'STAR!' });
-
-      if(aiOn) AI.onEvent('star', { t:tNow, combo:S.combo|0 });
     }
     else if(kind==='shield'){
       S.shield = Math.min(3, S.shield + 1);
       setShieldUI();
       addScore(8);
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
-
-      if(aiOn) AI.onEvent('shield', { t:tNow, combo:S.combo|0 });
     }
 
     if(aiOn){
@@ -630,19 +615,6 @@ export function boot(opts={}){
 
     Pair.set(uid, { els, alive:true, kind, groupId: obj.groupId });
 
-    // ✅ AI PATCH 1: notify spawn (for RT proxy + DL stream)
-    if(aiOn){
-      try{
-        AI.onEvent('spawn', {
-          uid,
-          kind,
-          groupId: obj.groupId || null,
-          bossActive: !!(S.boss && S.boss.active),
-          t: nowMs()
-        });
-      }catch(_){}
-    }
-
     function hitThis(){
       const p = Pair.get(uid);
       if(!p || !p.alive || S.ended) return;
@@ -673,18 +645,7 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-
-        // ✅ AI PATCH 2: expireGood signal
-        if(aiOn){
-          try{
-            AI.onEvent('expireGood', {
-              uid,
-              bossActive: !!(S.boss && S.boss.active),
-              ctx:{ combo:S.combo|0, comboMax:S.comboMax|0, miss:S.miss|0 }
-            });
-            AI.onEvent('miss', { t: nowMs() }); // keep legacy
-          }catch(_){}
-        }
+        if(aiOn) AI.onEvent('miss', { t:performance.now() });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -711,7 +672,7 @@ export function boot(opts={}){
       y = r.top  + r.height/2;
     }
 
-    if(aiOn) AI.onEvent('shoot', { t: nowMs() });
+    if(aiOn) AI.onEvent('shoot', { t:performance.now() });
 
     const picked = pickByShootAt(x, y, lockPx);
     if(!picked) return;
@@ -727,25 +688,6 @@ export function boot(opts={}){
       try{ picked.remove(); }catch(_){}
     }
 
-    // ✅ AI PATCH 3: hit events with uid + ctx (for RT proxy / ML profile / pattern)
-    if(aiOn){
-      try{
-        const ctx = {
-          bossActive: !!(S.boss && S.boss.active),
-          combo: S.combo|0,
-          comboMax: S.comboMax|0,
-          miss: S.miss|0,
-          hitGood: S.hitGood|0,
-          hitJunk: S.hitJunk|0,
-          expireGood: S.expireGood|0
-        };
-        if(kind === 'good') AI.onEvent('hitGood', { uid, groupId, combo: S.combo|0, ctx });
-        else if(kind === 'junk') AI.onEvent('hitJunk', { uid, combo: S.combo|0, ctx });
-        else if(kind === 'star') AI.onEvent('star', { uid, ctx });
-        else if(kind === 'shield') AI.onEvent('shield', { uid, ctx });
-      }catch(_){}
-    }
-
     if(kind === 'good') onHit('good', { groupId });
     else onHit(kind);
   }
@@ -759,9 +701,8 @@ export function boot(opts={}){
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
 
     // --- badges on end (score_80p, perfect_run) ---
-    // ✅ ACC FIX: miss already includes expireGood + junk hit (no shield)
-    const totalBad = Math.max(0, (S.miss|0));
-    const denom = Math.max(1, (S.hitGood|0) + totalBad);
+    // accuracy = hitGood / (hitGood + hitJunk + expireGood + miss)
+    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
     const acc = (S.hitGood|0) / denom;
 
     if(acc >= 0.80){
@@ -791,7 +732,7 @@ export function boot(opts={}){
 
     const summary = {
       game:'GoodJunkVR',
-      pack:'fair-v4.2-boss-layout-ai14',
+      pack:'fair-v4.2-boss-layout',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -816,24 +757,6 @@ export function boot(opts={}){
       WIN.removeEventListener('gj:shoot', onShoot);
     }catch(_){}
     emit('hha:end', summary);
-  }
-
-  // ✅ PATCH (GATE): ensure hha:end fires even if user leaves early
-  function bindEndOnLeave(){
-    let fired = false;
-    const fire = (why)=>{
-      if(fired || S.ended) return;
-      fired = true;
-      endGame(why || 'leave');
-    };
-
-    WIN.addEventListener('pagehide', ()=> fire('pagehide'), { passive:true });
-
-    DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') fire('hidden');
-    }, { passive:true });
-
-    WIN.addEventListener('beforeunload', ()=> fire('beforeunload'));
   }
 
   function tick(ts){
@@ -866,18 +789,7 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    // ✅ AI PATCH 4: pass ctx to getDifficulty (Pattern + Predict + PlayerModel)
-    const ctx = {
-      bossActive: !!(S.boss && S.boss.active),
-      combo: S.combo|0,
-      comboMax: S.comboMax|0,
-      miss: S.miss|0,
-      hitGood: S.hitGood|0,
-      hitJunk: S.hitJunk|0,
-      expireGood: S.expireGood|0
-    };
-
-    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base, ctx)
+    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base)
             : (adaptiveOn ? {
                 spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
                 pGood: base.pGood - Math.min(0.10, played*0.002),
@@ -888,7 +800,7 @@ export function boot(opts={}){
 
     // normalize
     {
-      let s = (D.pGood||0) + (D.pJunk||0) + (D.pStar||0) + (D.pShield||0);
+      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
       if(s <= 0) s = 1;
       D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
     }
@@ -917,7 +829,6 @@ export function boot(opts={}){
 
   // start
   S.started = true;
-  bindEndOnLeave(); // ✅ PATCH: make gate reliable (cooldown always triggers)
   resetMiniWindow();
   setFever(S.fever);
   setShieldUI();
@@ -933,6 +844,6 @@ export function boot(opts={}){
   WIN.addEventListener('hha:shoot', onShoot, { passive:true });
   WIN.addEventListener('gj:shoot', onShoot, { passive:true });
 
-  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.2-boss-layout-ai14', view, runMode:run, diff, timePlanSec:timePlan, seed });
+  emit('hha:start', { game:'GoodJunkVR', pack:'fair-v4.2-boss-layout', view, runMode:run, diff, timePlanSec:timePlan, seed });
   requestAnimationFrame(tick);
 }
