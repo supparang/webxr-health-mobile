@@ -1,16 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-FULL v20260206h
-
-✅ HUD safe zones (top/bottom) for spawn logic (JS reads: --hw-top-safe / --hw-bottom-safe)
-✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
-✅ Targets: uses --x (vw%), --y (vh%), --s scale
-✅ HUD pointer-events:none (buttons override to auto)
-✅ Patch v20260206h:
-   - Better safe zones to avoid HUD overlap
-   - Targets: touch-action manipulation (mobile tap)
-   - Targets: .is-dead (fast fade out / no click)
-   - z-index discipline (targets above stage, HUD above targets but non-blocking)
+PATCH v20260206h
+✅ FIX: .hw-tgt.is-dead => vanish immediately + disable interactions
+✅ Better safe zones so HUD doesn't block targets (JS reads --hw-top-safe/--hw-bottom-safe)
+✅ Targets positioned with vw/vh and align to stored viewport px
 */
 
 :root{
@@ -36,7 +29,7 @@ FULL v20260206h
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
+  /* ✅ spawn safe zones (JS reads these) — ปรับไม่ให้ HUD บัง */
   --hw-top-safe: 190px;
   --hw-bottom-safe: 210px;
 
@@ -53,7 +46,6 @@ html,body{
   color:var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
-
 button{ font: inherit; }
 
 .hw-root{
@@ -71,7 +63,6 @@ button{ font: inherit; }
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
     radial-gradient(900px 600px at 50% 90%, rgba(245,158,11,.05), transparent 65%),
     linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
-  z-index: 0;
 }
 
 /* ===== HUD ===== */
@@ -137,7 +128,7 @@ button{ font: inherit; }
   pointer-events: none;
   position: absolute;
   left: 50%;
-  top: calc(106px + var(--sat));
+  top: calc(124px + var(--sat));
   transform: translateX(-50%);
   padding: 10px 12px;
   border-radius: var(--pill);
@@ -163,9 +154,8 @@ button{ font: inherit; }
   display: grid;
   place-items: center;
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background:
-    radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
-    rgba(2,6,23,.66);
+  background: radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
+              rgba(2,6,23,.66);
   z-index: 90;
 }
 
@@ -231,7 +221,7 @@ button{ font: inherit; }
 
 /* ===== Targets ===== */
 .hw-tgt{
-  position: fixed; /* ✅ place in viewport so obj.x/y align */
+  position: fixed; /* ✅ viewport anchored */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -248,9 +238,10 @@ button{ font: inherit; }
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation; /* ✅ mobile tap */
-  z-index: 20;
+  z-index: 10;
   animation: hwPopIn 180ms ease-out both;
+  /* ✅ reduce “double tap” / “ghost click” issues */
+  touch-action: manipulation;
 }
 
 .hw-tgt .emoji{
@@ -276,12 +267,13 @@ button{ font: inherit; }
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* ✅ fast-disappear state (JS can add class then remove soon) */
+/* ✅ PATCH: hit then vanish immediately (prevents “ตีแล้วไม่หาย/ค้าง”) */
 .hw-tgt.is-dead{
-  pointer-events: none !important;
   opacity: 0 !important;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)) !important;
-  transition: opacity 90ms ease, transform 90ms ease;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .82)) !important;
+  filter: blur(1px);
+  transition: opacity 60ms linear, transform 60ms ease-out;
+  pointer-events: none !important;
 }
 
 /* subtle float */
@@ -306,7 +298,6 @@ button{ font: inherit; }
   font-weight: 950;
   font-size: 14px;
 }
-
 .hw-quiz-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -314,71 +305,17 @@ button{ font: inherit; }
   line-height: 1.35;
 }
 
-.hw-quiz-opts{
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.hw-quiz-opt{
-  pointer-events: auto;
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-  padding: 12px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 16px 50px rgba(0,0,0,.35);
-  min-height: 54px;
-}
-
-.hw-quiz-opt .n{
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.45);
-}
-
-.hw-quiz-opt .t{
-  font-weight: 900;
-  font-size: 13px;
-  line-height: 1.25;
-  text-align: left;
-}
-
-.hw-quiz-opt:hover{ filter: brightness(1.05); }
-.hw-quiz-opt:active{ transform: translateY(1px); }
-
-/* optional states (if you add class later) */
-.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
-.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
-
-.hw-quiz-hint{
-  margin-top: 10px;
-  font-size: 11px;
-  color: rgba(148,163,184,.92);
-}
-
 /* ===== View tweaks ===== */
 body.view-mobile{
-  --hw-top-safe: 210px;
-  --hw-bottom-safe: 250px;
+  --hw-top-safe: 205px;
+  --hw-bottom-safe: 245px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
 
 body.view-cvr{
-  /* cVR: HUD มักกินพื้นที่มาก ให้ปล่อยพื้นที่เล่นเพิ่ม */
-  --hw-top-safe: 180px;
+  /* cVR: HUD กินพื้นที่มาก -> ให้พื้นที่เล่นเพิ่ม และกัน HUD บัง */
+  --hw-top-safe: 185px;
   --hw-bottom-safe: 280px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
@@ -386,12 +323,11 @@ body.view-cvr{
 
 /* VR: ลด HUD และขยายปุ่ม */
 body.view-vr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 230px;
+  --hw-top-safe: 175px;
+  --hw-bottom-safe: 235px;
 }
 
-/* Quiz on small screens => 1 column */
+/* small screens */
 @media (max-width: 520px){
-  .hw-quiz-opts{ grid-template-columns: 1fr; }
-  .hw-banner{ top: calc(118px + var(--sat)); }
+  .hw-banner{ top: calc(138px + var(--sat)); }
 }
