@@ -1,14 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
+GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260209-dailyCatA
 ✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
-✅ Auto-detect view (pc/mobile/cvr/vr) — BUT never override if ?view exists
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/...
-✅ NEW: Warmup/Cooldown Gate routing (optional)
-   - preGate=1 or gate=warmup => go to gate first (next=RUN)
-   - If wType/wPct exists => assume already passed gate => go RUN
-   - gateUrl=... (default ./warmup-gate.html) + dur/cdur + games list
-✅ NEW: Cooldown policy passthrough hints for RUN
-   - cdGateUrl, cdur, cdDailyKey (RUN can use to force “cooldown once per day”)
+✅ Never override if ?view exists
+✅ Enforce WARMUP once-per-day by CATEGORY (cat=nutrition)
+✅ Pass daily keys to gate + to RUN: warmDailyKey / cdDailyKey
+✅ Provide cooldown hints to RUN: cdGateUrl / cdur / cdDailyKey
 -->
 <!doctype html>
 <html lang="th">
@@ -123,6 +119,7 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
       <div class="row">
         <div class="title">
           <span class="pill">🥗 GoodJunkVR</span>
+          <span class="pill" id="pillCat">CAT: …</span>
           <span class="pill" id="pillView">VIEW: …</span>
           <span class="pill" id="pillMode">MODE: …</span>
           <span class="pill" id="pillRoute">ROUTE: …</span>
@@ -131,7 +128,7 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
       </div>
 
       <div class="sub" id="subLine">
-        ระบบจะตรวจอุปกรณ์อัตโนมัติ และส่งพารามิเตอร์วิจัย/โหมดการเล่นไปหน้า RUN
+        ตรวจสอบรายวัน (warmup/cooldown) และส่งพารามิเตอร์ไปหน้า RUN
       </div>
 
       <div class="bar" aria-hidden="true"><i></i></div>
@@ -142,7 +139,7 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
         <div class="k"><div class="h">diff</div><div class="v" id="vDiff">—</div></div>
         <div class="k"><div class="h">time</div><div class="v" id="vTime">—</div></div>
         <div class="k"><div class="h">seed</div><div class="v" id="vSeed">—</div></div>
-        <div class="k"><div class="h">gate</div><div class="v" id="vGate">—</div></div>
+        <div class="k"><div class="h">warmup today?</div><div class="v" id="vWarm">—</div></div>
       </div>
 
       <div class="hint">
@@ -161,19 +158,14 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
     'use strict';
 
     // -----------------------------
-    // Paths (edit once, use everywhere)
+    // Paths
     // -----------------------------
     const RUN_URL_DEFAULT     = './vr-goodjunk/goodjunk-vr.html';
-
-    // Your Warmup/Cooldown gate page (the big file you pasted)
-    // Put it at /herohealth/warmup-gate.html (recommended) or set gateUrl=... in query.
     const GATE_URL_DEFAULT    = './warmup-gate.html';
-
-    // Optional: default games list for gate "next=random"
     const GATE_GAMES_DEFAULT  = 'goodjunk-vr.html,groups-vr.html,hydration-vr.html,plate-vr.html';
 
-    // Cooldown daily key (RUN can use this to enforce “once per day”)
-    const CD_DAILY_KEY_DEFAULT = 'HHA_COOLDOWN_DONE_DAY';
+    // ✅ CATEGORY FIXED for this launcher (Nutrition)
+    const CAT_FIXED = 'nutrition';
 
     // -----------------------------
     // QS utils
@@ -223,11 +215,9 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
     function mergeParams(){
       const ctx = collectCtx();
 
-      // Start with current URL params (user-provided > ctx)
       const out = {};
       QS.forEach((v,k)=>{ out[k] = v; });
 
-      // Fill missing from ctx (only if not present)
       if(ctx && typeof ctx === 'object'){
         const map = {
           run: 'run',
@@ -268,14 +258,25 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
     }
 
     // -----------------------------
+    // Daily helpers
+    // -----------------------------
+    function dayStamp(){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function isDoneToday(key){
+      try{ return localStorage.getItem(key) === dayStamp(); }catch(_){ return false; }
+    }
+
+    // -----------------------------
     // Gate routing rules
     // -----------------------------
     function hasGateBuff(params){
-      // If already passed warmup gate, it will send wType/wPct/... (at least wType or wPct)
+      // Gate sends at least wType/wPct/rank or wCrit/wDmg/wHeal/calm
       return !!(params.wType || params.wPct || params.rank || params.wCrit || params.wDmg || params.wHeal || params.calm);
     }
 
-    function wantsPreGate(params){
+    function wantsPreGateByFlag(params){
       // preGate=1 OR gate=warmup OR gate=1
       const pre = String(params.preGate || '').toLowerCase();
       const g   = String(params.gate || '').toLowerCase();
@@ -285,40 +286,43 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
     }
 
     function shouldGoGateFirst(params){
-      // If user wants gate AND we don't already have gate buff
-      return wantsPreGate(params) && !hasGateBuff(params);
+      // ✅ DAILY ENFORCE:
+      // Go gate if warmup not done today AND no gate buff yet.
+      if(!hasGateBuff(params) && !isDoneToday(params.warmDailyKey)){
+        return true;
+      }
+      // Or if user explicitly requests gate
+      return wantsPreGateByFlag(params) && !hasGateBuff(params);
     }
 
     function makeGateParams(params){
-      // Use same research params, but set gate-specific fields:
-      // gate page uses: phase=warmup|cooldown, next=..., hub=..., dur/cdur, games
       const gateUrl = params.gateUrl || params.gate_page || GATE_URL_DEFAULT;
 
       const dur  = clampInt(params.dur  || q('dur','20'),  5, 60, 20);
       const cdur = clampInt(params.cdur || q('cdur','20'), 5, 60, 20);
 
-      // IMPORTANT: Gate should NOT receive preGate/gate flags again (avoid loops)
+      // avoid loops
       const deny = new Set(['preGate','gate','gateUrl','gate_page']);
       const pass = {};
       Object.entries(params).forEach(([k,v])=>{
         if(deny.has(k)) return;
-        // also gate page itself uses next/hub/phase/dur/cdur/games; we will set those explicitly below.
         if(['next','hub','phase','dur','cdur','games'].includes(k)) return;
         pass[k] = v;
       });
 
-      // Force warmup phase when used as preGate for a game
-      // (Cooldown is typically used POST-game; RUN will open it later)
       const gateParams = {
         ...pass,
+
+        // ✅ category + daily keys forwarded to gate
+        cat: params.cat || CAT_FIXED,
+        warmDailyKey: params.warmDailyKey,
+        cdDailyKey: params.cdDailyKey,
+
         phase: 'warmup',
         dur: String(dur),
         cdur: String(cdur),
-        // next points to RUN page
         next: absUrlMaybe(params.runUrl || RUN_URL_DEFAULT),
-        // hub passthrough
         hub: absUrlMaybe(params.hub || ''),
-        // games list for next=random support
         games: String(params.games || GATE_GAMES_DEFAULT)
       };
 
@@ -329,27 +333,27 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
     // Main
     // -----------------------------
     const params = mergeParams();
-
-    // allow overriding RUN url from query if you want to A/B
     const RUN_URL = params.runUrl || RUN_URL_DEFAULT;
+
+    // ✅ category fixed for this launcher (nutrition)
+    params.cat = String(params.cat || CAT_FIXED).toLowerCase();
+
+    // ✅ daily keys by category (shared across ALL nutrition games)
+    params.warmDailyKey = params.warmDailyKey || `HHA_WARMUP_DONE_DAY_${params.cat}`;
+    params.cdDailyKey   = params.cdDailyKey   || `HHA_COOLDOWN_DONE_DAY_${params.cat}`;
 
     // Decide view (never override if ?view exists)
     if(!hasViewInUrl()){
       params.view = detectView();
     }
 
-    // Provide cooldown hints for RUN (RUN decides enforcement)
-    // If you already implemented end-summary->cooldown flow in goodjunk.safe.js,
-    // it can read these:
-    //  - cdGateUrl: where cooldown gate page is
-    //  - cdur: cooldown seconds
-    //  - cdDailyKey: storage key name
+    // Provide cooldown hints for RUN (RUN decides enforcement at end)
     params.cdGateUrl  = params.cdGateUrl || params.gateUrl || GATE_URL_DEFAULT;
     params.cdur       = params.cdur || q('cdur','20') || '20';
-    params.cdDailyKey = params.cdDailyKey || CD_DAILY_KEY_DEFAULT;
 
     // Debug UI
     try{
+      const pillCat   = document.getElementById('pillCat');
       const pillView  = document.getElementById('pillView');
       const pillMode  = document.getElementById('pillMode');
       const pillRoute = document.getElementById('pillRoute');
@@ -359,40 +363,44 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
       const vDiff   = document.getElementById('vDiff');
       const vTime   = document.getElementById('vTime');
       const vSeed   = document.getElementById('vSeed');
-      const vGate   = document.getElementById('vGate');
+      const vWarm   = document.getElementById('vWarm');
       const subLine = document.getElementById('subLine');
 
       const view = String(params.view || '').toUpperCase();
       const run  = String(params.run || 'play').toUpperCase();
 
-      if(pillView)  pillView.textContent = 'VIEW: ' + (view || 'AUTO');
-      if(pillMode)  pillMode.textContent = 'MODE: ' + run;
+      if(pillCat)  pillCat.textContent  = 'CAT: ' + String(params.cat || CAT_FIXED).toUpperCase();
+      if(pillView) pillView.textContent = 'VIEW: ' + (view || 'AUTO');
+      if(pillMode) pillMode.textContent = 'MODE: ' + run;
 
-      const preGateOn = wantsPreGate(params);
-      const gateBuff  = hasGateBuff(params);
-      const routeText = preGateOn ? (gateBuff ? 'GATE: done → RUN' : 'GATE: warmup → RUN') : 'DIRECT → RUN';
+      const warmDone = isDoneToday(params.warmDailyKey);
+      const gateBuff = hasGateBuff(params);
+
+      const routeText = shouldGoGateFirst(params)
+        ? (warmDone ? 'GATE: by flag → RUN' : 'GATE: daily warmup → RUN')
+        : (gateBuff ? 'GATE: done → RUN' : 'DIRECT → RUN');
+
       if(pillRoute) pillRoute.textContent = 'ROUTE: ' + routeText;
 
       if(vHub)  vHub.textContent  = String(params.hub || '(none)');
       if(vDiff) vDiff.textContent = String(params.diff || 'normal');
       if(vTime) vTime.textContent = String(params.time || '80');
       if(vSeed) vSeed.textContent = String(params.seed || '');
-      if(vGate) vGate.textContent = preGateOn ? (gateBuff ? 'passed' : 'pending') : 'off';
+      if(vWarm) vWarm.textContent = warmDone ? 'YES (skip gate)' : 'NO (go gate)';
 
       if(subLine){
-        subLine.textContent = preGateOn
-          ? (gateBuff
-              ? 'ตรวจพบผลวอร์มอัปแล้ว → กำลังส่งต่อไปหน้า RUN'
-              : 'กำลังพาไปหน้า Warmup Gate ก่อนเข้าเกมจริง…')
+        subLine.textContent = shouldGoGateFirst(params)
+          ? 'วันนี้ยังไม่วอร์มอัป (หมวด Nutrition) → กำลังพาไป Warmup Gate…'
           : 'กำลังส่งพารามิเตอร์ไปหน้า RUN…';
       }
 
       if(vTarget){
-        vTarget.textContent = shouldGoGateFirst(params) ? String(params.gateUrl || GATE_URL_DEFAULT) : String(RUN_URL);
+        vTarget.textContent = shouldGoGateFirst(params)
+          ? String(params.gateUrl || GATE_URL_DEFAULT)
+          : String(RUN_URL);
       }
     }catch(_){}
 
-    // Prefer using HHA_LAUNCH if available (keeps behavior consistent across games)
     function go(url){
       try{
         if(window.HHA_LAUNCH && typeof window.HHA_LAUNCH.go === 'function'){
@@ -403,7 +411,7 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
       location.replace(url);
     }
 
-    // Route: Gate first (warmup) OR direct to RUN
+    // Route
     if(shouldGoGateFirst(params)){
       const { gateUrl, gateParams } = makeGateParams(params);
       const urlGate = buildUrl(gateUrl, gateParams);
@@ -411,7 +419,6 @@ GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260208-gateA
       return;
     }
 
-    // Direct to RUN (or after gate with wType/wPct already present)
     const urlRun = buildUrl(RUN_URL, params);
     go(urlRun);
   })();
