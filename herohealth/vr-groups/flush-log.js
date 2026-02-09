@@ -1,226 +1,118 @@
 // === /herohealth/vr-groups/flush-log.js ===
-// GroupsVR FlushLog — PRODUCTION (PACK 13.95 companion)
-// ✅ window.GroupsVR.FlushLog.send(payload, {endpoint})
-// ✅ window.GroupsVR.bindFlushOnLeave(getterFn)  (flush-hardened final summary)
-// ✅ Best-effort delivery order: sendBeacon -> fetch(no-cors, text/plain) -> GET ?payload=
-// ✅ Safe: never throws
-//
-// Endpoint expectations (recommended Apps Script style):
-// - POST text/plain body = JSON string (no preflight)
-// - OR GET ?payload=... (urlencoded JSON)
-// - (Optional) JSONP ?callback=fn&payload=...
-//
-// Notes:
-// - This module does NOT require CORS to succeed (no-cors + beacon).
-// - It won't block navigation (fire-and-forget).
-// - Large payloads: beacon/fetch OK; GET fallback may be truncated by URL limits.
+// GroupsVR Flush Log — PRODUCTION (PATCH v20260208c)
+// ✅ Flush-hardened: pagehide / beforeunload / visibilitychange(hidden)
+// ✅ Also flush on hha:end (immediate) + tiny retry
+// ✅ Safe no-op if GroupsVR.Telemetry missing
+// ✅ Exposes: window.GroupsVR.FlushLog.bind(getSummaryFn)
 
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
+
   WIN.GroupsVR = WIN.GroupsVR || {};
-  if (WIN.GroupsVR.FlushLog && WIN.GroupsVR.FlushLog.__loaded) return;
+
+  const S = {
+    bound:false,
+    lastFlushAt:0,
+    lastReason:'',
+    lastSummary:null
+  };
 
   const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  function safeJson(obj){
-    try{ return JSON.stringify(obj); }catch(_){ return ''; }
-  }
-  function enc(s){
-    try{ return encodeURIComponent(String(s||'')); }catch(_){ return ''; }
-  }
-
-  // -------------------------
-  // Internal state
-  // -------------------------
-  const S = {
-    __loaded: true,
-    inited: false,
-    endpoint: '',
-    lastSendAt: 0,
-    minGapMs: 120,        // anti-spam
-    finalGetter: null,    // function => summary object
-    finalSent: false
-  };
-
-  function canSend(endpoint){
-    return !!(endpoint && String(endpoint).trim());
-  }
-
-  function normEndpoint(ep){
-    ep = String(ep||'').trim();
-    return ep;
-  }
-
-  // -------------------------
-  // Transport methods
-  // -------------------------
-  function tryBeacon(endpoint, bodyStr){
+  function safeGetTelemetry(){
     try{
-      if (!WIN.navigator || typeof WIN.navigator.sendBeacon !== 'function') return false;
-      if (!canSend(endpoint)) return false;
-      const blob = new Blob([bodyStr], { type:'text/plain;charset=utf-8' });
-      return WIN.navigator.sendBeacon(endpoint, blob);
-    }catch(_){
-      return false;
+      const T = WIN.GroupsVR && WIN.GroupsVR.Telemetry;
+      if (T && typeof T.flush === 'function') return T;
+    }catch(_){}
+    return null;
+  }
+
+  function safeCall(fn){
+    try{ return fn(); }catch(_){ return null; }
+  }
+
+  function normalizeSummary(s){
+    // keep it small + consistent
+    if (!s || typeof s !== 'object') return null;
+
+    const out = {};
+    // allowlist common keys (don’t bloat)
+    const keys = [
+      'timestampIso','projectTag','gameTag','runMode','diff','style','view',
+      'durationPlannedSec','startTimeIso','endTimeIso','seed',
+      'reason','scoreFinal','miss','misses','shots','goodShots',
+      'accuracyPct','accuracyGoodPct','grade','comboMax','maxCombo',
+      'miniCleared','bossCleared',
+      'pid','studyId','phase','conditionGroup','siteCode','schoolYear','semester','hub'
+    ];
+    for (const k of keys){
+      if (k in s) out[k] = s[k];
     }
+
+    // normalize some aliases
+    if (out.miss == null && out.misses != null) out.miss = out.misses;
+    if (out.accuracyPct == null && out.accuracyGoodPct != null) out.accuracyPct = out.accuracyGoodPct;
+    if (out.comboMax == null && out.maxCombo != null) out.comboMax = out.maxCombo;
+
+    return out;
   }
 
-  async function tryFetch(endpoint, bodyStr){
-    try{
-      if (!canSend(endpoint)) return false;
-      // no-cors: cannot read response, but prevents CORS from blocking
-      await fetch(endpoint, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type':'text/plain;charset=utf-8' },
-        body: bodyStr
-      });
-      return true;
-    }catch(_){
-      return false;
-    }
+  function flush(reason, getSummaryFn){
+    const t = nowMs();
+    if ((t - S.lastFlushAt) < 220 && reason === S.lastReason) return false;
+    S.lastFlushAt = t;
+    S.lastReason = String(reason||'');
+
+    const T = safeGetTelemetry();
+    if (!T) return false;
+
+    const summaryRaw = safeCall(()=> getSummaryFn ? getSummaryFn() : null);
+    const summary = normalizeSummary(summaryRaw);
+    S.lastSummary = summary;
+
+    // telemetry.flush may accept summary; if not, it will ignore
+    safeCall(()=> T.flush(summary));
+
+    return true;
   }
 
-  function tryGetPixel(endpoint, bodyStr){
-    // Fallback for environments where fetch/beacon is blocked.
-    // WARNING: URL length limits apply.
-    try{
-      if (!canSend(endpoint)) return false;
-      const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'payload=' + enc(bodyStr);
-      const img = new Image();
-      img.decoding = 'async';
-      img.referrerPolicy = 'no-referrer';
-      img.src = url;
-      return true;
-    }catch(_){
-      return false;
-    }
-  }
+  function bind(getSummaryFn){
+    if (S.bound) return true;
+    S.bound = true;
 
-  // -------------------------
-  // Public sender
-  // -------------------------
-  async function send(payload, opts = {}){
-    try{
-      const endpoint = normEndpoint(opts.endpoint || S.endpoint);
-      if (!canSend(endpoint)) return true; // local-only OK
+    // 1) pagehide — best for mobile/iOS
+    WIN.addEventListener('pagehide', ()=>{
+      flush('pagehide', getSummaryFn);
+      // micro retry (some browsers drop the first async batch)
+      setTimeout(()=>flush('pagehide_retry', getSummaryFn), 80);
+    }, { passive:true });
 
-      // throttle
-      const t = nowMs();
-      if ((t - S.lastSendAt) < S.minGapMs){
-        // still try, but do not spam: just allow once per gap
-        // we silently drop extra calls
-        return true;
+    // 2) beforeunload — desktop fallback
+    WIN.addEventListener('beforeunload', ()=>{
+      flush('beforeunload', getSummaryFn);
+    });
+
+    // 3) visibilitychange — when app goes background
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden'){
+        flush('hidden', getSummaryFn);
+        setTimeout(()=>flush('hidden_retry', getSummaryFn), 120);
       }
-      S.lastSendAt = t;
+    }, { passive:true });
 
-      const bodyStr = safeJson(payload) || '{}';
+    // 4) immediate on end — ensures final batch contains end summary
+    WIN.addEventListener('hha:end', ()=>{
+      flush('hha:end', getSummaryFn);
+      // retry once after a short delay in case end overlay triggers navigation quickly
+      setTimeout(()=>flush('hha:end_retry', getSummaryFn), 140);
+    }, { passive:true });
 
-      // 1) Beacon (best for unload)
-      const b = tryBeacon(endpoint, bodyStr);
-      if (b) return true;
-
-      // 2) Fetch POST text/plain (no-cors)
-      const f = await tryFetch(endpoint, bodyStr);
-      if (f) return true;
-
-      // 3) GET fallback
-      return tryGetPixel(endpoint, bodyStr);
-    }catch(_){
-      return false;
-    }
+    return true;
   }
 
-  // -------------------------
-  // Flush-hardened final summary
-  // -------------------------
-  function buildFinalEnvelope(summary){
-    const ts = new Date().toISOString();
-    return {
-      v: 'final-v1',
-      projectTag: 'HeroHealth',
-      gameTag: 'GroupsVR',
-      ts,
-      kind: 'final',
-      summary: summary || null
-    };
-  }
-
-  function sendFinalOnce(reason){
-    try{
-      if (S.finalSent) return;
-      S.finalSent = true;
-
-      const getter = S.finalGetter;
-      const summary = (typeof getter === 'function') ? getter() : null;
-
-      // include reason
-      const payload = buildFinalEnvelope(Object.assign({}, summary||{}, { flushReason: reason||'leave' }));
-
-      // fire-and-forget; do not await
-      send(payload, { endpoint: S.endpoint });
-
-    }catch(_){}
-  }
-
-  function bindFlushOnLeave(getterFn){
-    try{
-      S.finalGetter = (typeof getterFn === 'function') ? getterFn : null;
-      S.finalSent = false;
-
-      const onPageHide = ()=> sendFinalOnce('pagehide');
-      const onBeforeUnload = ()=> sendFinalOnce('beforeunload');
-      const onVis = ()=>{
-        if (DOC && DOC.visibilityState === 'hidden') sendFinalOnce('hidden');
-      };
-
-      WIN.addEventListener('pagehide', onPageHide, { passive:true });
-      WIN.addEventListener('beforeunload', onBeforeUnload, { passive:true });
-      DOC && DOC.addEventListener('visibilitychange', onVis, { passive:true });
-
-      // expose unbinder if needed
-      return ()=>{
-        try{
-          WIN.removeEventListener('pagehide', onPageHide);
-          WIN.removeEventListener('beforeunload', onBeforeUnload);
-          DOC && DOC.removeEventListener('visibilitychange', onVis);
-        }catch(_){}
-      };
-    }catch(_){
-      return ()=>{};
-    }
-  }
-
-  // -------------------------
-  // Init
-  // -------------------------
-  function init(cfg = {}){
-    try{
-      S.endpoint = normEndpoint(cfg.endpoint || S.endpoint);
-      S.inited = true;
-    }catch(_){}
-  }
-
-  // -------------------------
-  // Export
-  // -------------------------
-  const API = {
-    __loaded: true,
-    init,
-    send,
-    bindFlushOnLeave
-  };
-
-  WIN.GroupsVR.FlushLog = API;
-
-  // ✅ convenience alias used by your run file
-  // window.GroupsVR.bindFlushOnLeave(()=>summary)
-  WIN.GroupsVR.bindFlushOnLeave = function(getterFn){
-    try{ return bindFlushOnLeave(getterFn); }
-    catch(_){ return ()=>{}; }
-  };
+  WIN.GroupsVR.FlushLog = { bind };
 
 })();
