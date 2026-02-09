@@ -1,11 +1,4 @@
 // === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
-// PRODUCTION (PATCH)
-// ✅ Menu -> Play -> Result flow
-// ✅ Applies ?mode=research|play from URL (hub passthrough)
-// ✅ Research fields visible only in research
-// ✅ Downloads Events CSV + Sessions CSV
-// ✅ Shows AI prediction HUD (locked in research; assist only if ?ai=1 in normal)
-
 'use strict';
 
 (function () {
@@ -24,7 +17,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // Menu
+  // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -33,19 +26,19 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // Research form
+  // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // Play / Result buttons
+  // ปุ่มตอนเล่น / สรุปผล
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD
+  // HUD elements
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -69,7 +62,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // Result view
+  // แสดงผลสรุป
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -86,7 +79,7 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // Menu mapping -> engine trackId
+  // mapping เพลงในเมนู → engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -95,6 +88,8 @@
   };
 
   let engine = null;
+  let _lastStartMode = 'normal';
+  let _lastStartTrackKey = 'n1';
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -114,16 +109,13 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      if (modeDescEl) {
-        modeDescEl.textContent =
-          'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      }
+      if (modeDescEl) modeDescEl.textContent =
+        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       if (researchBox) researchBox.classList.add('hidden');
 
-      // show normal tracks, hide research track
       trackLabels.forEach(lbl => {
-        const m = (lbl.getAttribute('data-mode') || 'normal').toLowerCase();
+        const m = (lbl.getAttribute('data-mode') || 'normal');
         if (m === 'research') lbl.classList.add('hidden');
         else lbl.classList.remove('hidden');
       });
@@ -131,16 +123,13 @@
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      if (modeDescEl) {
-        modeDescEl.textContent =
-          'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction แต่ไม่ปรับเกม)';
-      }
+      if (modeDescEl) modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดงผลได้ แต่ไม่ปรับเกม)';
       if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
-      // show research track, hide normal tracks
       trackLabels.forEach(lbl => {
-        const m = (lbl.getAttribute('data-mode') || 'normal').toLowerCase();
+        const m = (lbl.getAttribute('data-mode') || 'normal');
         if (m === 'research') lbl.classList.remove('hidden');
         else lbl.classList.add('hidden');
       });
@@ -160,6 +149,15 @@
   }
 
   function createEngine() {
+    if (!window.RhythmBoxerEngine) {
+      alert('Rhythm Engine ยังไม่โหลด (rhythm-engine.js)');
+      return;
+    }
+    if (!window.RbDomRenderer) {
+      alert('DOM Renderer ยังไม่โหลด (dom-renderer-rhythm.js)');
+      return;
+    }
+
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
       feedbackEl,
@@ -179,14 +177,18 @@
 
   function startGame() {
     if (!engine) createEngine();
+    if (!engine) return;
 
     const mode = getSelectedMode();
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
+    _lastStartMode = mode;
+    _lastStartTrackKey = trackKey;
+
     if (wrap) wrap.dataset.diff = cfg.diff;
 
-    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    if (hud.mode) hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
 
     const meta = {
@@ -195,7 +197,9 @@
       note: (inputNote && inputNote.value || '').trim()
     };
 
+    // IMPORTANT: engine reads mode from param passed here
     engine.start(mode, cfg.engineId, meta);
+
     switchView('play');
   }
 
@@ -207,13 +211,20 @@
     if (!summary) summary = {};
 
     if (res.mode) res.mode.textContent      = summary.modeLabel || '-';
-    if (res.track) res.track.textContent    = summary.trackName || '-';
+    if (res.track) res.track.textContent     = summary.trackName || '-';
     if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score) res.score.textContent    = (summary.finalScore != null) ? summary.finalScore : 0;
-    if (res.maxCombo) res.maxCombo.textContent = (summary.maxCombo != null) ? summary.maxCombo : 0;
-    if (res.hits) res.hits.textContent      = `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-    if (res.acc) res.acc.textContent        = (summary.accuracyPct != null) ? summary.accuracyPct.toFixed(1) + ' %' : '0.0 %';
-    if (res.duration) res.duration.textContent = (summary.durationSec != null) ? summary.durationSec.toFixed(1) + ' s' : '0.0 s';
+    if (res.score) res.score.textContent     = (summary.finalScore != null) ? summary.finalScore : '0';
+    if (res.maxCombo) res.maxCombo.textContent  = (summary.maxCombo != null) ? summary.maxCombo : '0';
+    if (res.hits) res.hits.textContent      =
+      `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
+    if (res.acc) res.acc.textContent        =
+      (summary.accuracyPct != null && Number.isFinite(summary.accuracyPct))
+        ? summary.accuracyPct.toFixed(1) + ' %'
+        : '0.0 %';
+    if (res.duration) res.duration.textContent  =
+      (summary.durationSec != null && Number.isFinite(summary.durationSec))
+        ? summary.durationSec.toFixed(1) + ' s'
+        : '-';
     if (res.rank) res.rank.textContent      = summary.rank || '-';
 
     if (res.offsetAvg) res.offsetAvg.textContent =
@@ -249,12 +260,30 @@
     URL.revokeObjectURL(url);
   }
 
-  // ---- wiring ----
+  // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+
   if (btnStart) btnStart.addEventListener('click', startGame);
   if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
-  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
+
+  if (btnAgain) btnAgain.addEventListener('click', () => {
+    // play same selection again (keeps UI state)
+    startGame();
+  });
+
+  if (btnBackMenu) btnBackMenu.addEventListener('click', () => {
+    // stop if still running
+    stopGame('back-menu');
+    switchView('menu');
+    // restore previous selection for convenience
+    try{
+      const m = _lastStartMode;
+      const r = modeRadios.find(x => x.value === (m === 'research' ? 'research' : 'normal'));
+      if (r) r.checked = true;
+      updateModeUI();
+      setSelectedTrackKey(_lastStartTrackKey || (m === 'research' ? 'r1' : 'n1'));
+    }catch(_){}
+  });
 
   if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
@@ -266,7 +295,7 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play|normal) ====
+  // ==== apply mode from URL (?mode=research|play) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
