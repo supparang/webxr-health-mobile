@@ -1,143 +1,170 @@
 // === /herohealth/vr-groups/research-ctx.js ===
-// GroupsVR Research Context — PRODUCTION (PATCH v20260208c)
-// ✅ Read ctx from querystring + normalize keys across games
-// ✅ Safe defaults (empty strings) + supports aliases
-// ✅ Exposes: window.GroupsVR.ResearchCtx.get(), set(extra), toJSON()
-// ✅ Notes:
-//    - Keep ONLY non-sensitive study fields (no names/phone etc.)
-//    - Intended to be merged into summary + telemetry meta
+// GroupsVR Research Context — PRODUCTION (PATCH v20260208e)
+// ✅ Reads URL params and normalizes keys
+// ✅ Exposes: window.GroupsVR.ResearchCtx.get(), .toQuery(), .merge(extra)
+// ✅ Safe: never throws; returns {} if not present
+// ✅ Canonical keys used across HeroHealth games:
+//    pid, studyId, phase, conditionGroup, siteCode, schoolYear, semester, cohort, classId, teacherId, deviceTag
+// ✅ Also keeps hub/log/seed/time/run/view/style/diff pass-through
 
 (function(){
   'use strict';
 
   const WIN = window;
+
   WIN.GroupsVR = WIN.GroupsVR || {};
 
-  function qs(){
-    try { return new URL(location.href).searchParams; }
-    catch { return new URLSearchParams(); }
+  function getQS(){
+    try{ return new URL(location.href).searchParams; }
+    catch{ return new URLSearchParams(); }
   }
 
-  function pickFirst(sp, keys, def=''){
-    for (const k of keys){
-      const v = sp.get(k);
-      if (v != null && String(v).trim() !== '') return String(v);
-    }
-    return String(def||'');
-  }
-
-  function normStr(v){
-    v = String(v ?? '').trim();
-    return v;
-  }
-
-  function normInt(v, def=0){
+  function s(v){ return String(v ?? '').trim(); }
+  function lower(v){ return s(v).toLowerCase(); }
+  function num(v, def=0){
     const n = Number(v);
-    return Number.isFinite(n) ? (n|0) : (def|0);
+    return Number.isFinite(n) ? n : def;
   }
 
-  function normBool(v){
-    const s = String(v ?? '').toLowerCase().trim();
-    return (s === '1' || s === 'true' || s === 'yes' || s === 'on');
+  // Accept aliases and map to canonical keys
+  const ALIASES = {
+    pid: ['pid','participant','participantId','p','id'],
+    studyId: ['studyId','study','sid','study_id'],
+    phase: ['phase','pH','sessionPhase'],
+    conditionGroup: ['conditionGroup','cond','group','arm','cg'],
+    siteCode: ['siteCode','site','schoolCode','sc'],
+    schoolYear: ['schoolYear','year','sy'],
+    semester: ['semester','term','sem'],
+    cohort: ['cohort','batch'],
+    classId: ['classId','class','room'],
+    teacherId: ['teacherId','teacher','tid'],
+    deviceTag: ['deviceTag','device','dev'],
+
+    // passthrough (not strictly research but needed)
+    hub: ['hub'],
+    log: ['log','logger','endpoint'],
+    run: ['run','runMode','mode'],
+    diff: ['diff','difficulty'],
+    view: ['view'],
+    style: ['style'],
+    time: ['time','t','duration'],
+    seed: ['seed']
+  };
+
+  function readFirst(q, keys){
+    for (let i=0;i<keys.length;i++){
+      const k = keys[i];
+      const v = q.get(k);
+      if (v !== null && String(v).trim() !== '') return v;
+    }
+    return null;
   }
 
-  function sanitizeTag(v, maxLen=80){
-    v = normStr(v);
-    if (!v) return '';
-    // allow Thai/English/numbers/_-.
-    v = v.replace(/[^\p{L}\p{N}_\-. ]/gu, '').trim();
-    if (v.length > maxLen) v = v.slice(0, maxLen);
-    return v;
+  function normalize(){
+    const q = getQS();
+
+    const ctx = {};
+
+    // canonical research fields
+    ctx.pid            = s(readFirst(q, ALIASES.pid) || '');
+    ctx.studyId        = s(readFirst(q, ALIASES.studyId) || '');
+    ctx.phase          = s(readFirst(q, ALIASES.phase) || '');
+    ctx.conditionGroup = s(readFirst(q, ALIASES.conditionGroup) || '');
+    ctx.siteCode       = s(readFirst(q, ALIASES.siteCode) || '');
+    ctx.schoolYear     = s(readFirst(q, ALIASES.schoolYear) || '');
+    ctx.semester       = s(readFirst(q, ALIASES.semester) || '');
+    ctx.cohort         = s(readFirst(q, ALIASES.cohort) || '');
+    ctx.classId        = s(readFirst(q, ALIASES.classId) || '');
+    ctx.teacherId      = s(readFirst(q, ALIASES.teacherId) || '');
+    ctx.deviceTag      = s(readFirst(q, ALIASES.deviceTag) || '');
+
+    // passthrough
+    ctx.hub   = s(readFirst(q, ALIASES.hub) || '');
+    ctx.log   = s(readFirst(q, ALIASES.log) || '');
+    ctx.run   = lower(readFirst(q, ALIASES.run) || 'play') || 'play';
+    ctx.diff  = lower(readFirst(q, ALIASES.diff) || 'normal') || 'normal';
+    ctx.view  = lower(readFirst(q, ALIASES.view) || '') || '';
+    ctx.style = lower(readFirst(q, ALIASES.style) || '') || '';
+
+    // time/seed are often needed as-is
+    ctx.time  = num(readFirst(q, ALIASES.time), 0) || 0;
+    ctx.seed  = s(readFirst(q, ALIASES.seed) || '');
+
+    // also allow free-form tags (optional)
+    // e.g., ?tag=a&tag=b  => tags:["a","b"]
+    try{
+      const tags = q.getAll('tag').map(s).filter(Boolean);
+      if (tags.length) ctx.tags = tags.slice(0, 12);
+    }catch(_){}
+
+    // Remove empty keys to keep payload clean
+    for (const k of Object.keys(ctx)){
+      const v = ctx[k];
+      const empty =
+        v === null ||
+        v === undefined ||
+        (typeof v === 'string' && v.trim() === '') ||
+        (typeof v === 'number' && !Number.isFinite(v)) ||
+        (Array.isArray(v) && v.length === 0);
+      if (empty) delete ctx[k];
+    }
+
+    return ctx;
   }
-
-  function buildFromQuery(){
-    const sp = qs();
-
-    // canonical fields (prefer these)
-    const studyId        = sanitizeTag(pickFirst(sp, ['studyId','study','sid','expId'], ''));
-    const pid            = sanitizeTag(pickFirst(sp, ['pid','participant','userId'], ''), 40);
-    const phase          = sanitizeTag(pickFirst(sp, ['phase','ph'], ''), 40);
-    const conditionGroup = sanitizeTag(pickFirst(sp, ['conditionGroup','cond','group','cg'], ''), 40);
-
-    // site/school
-    const siteCode  = sanitizeTag(pickFirst(sp, ['siteCode','site','campus'], ''), 40);
-    const schoolYear= sanitizeTag(pickFirst(sp, ['schoolYear','sy'], ''), 20);
-    const semester  = sanitizeTag(pickFirst(sp, ['semester','sem'], ''), 20);
-
-    // run meta (duplicated in summary too, but keep here for consistency)
-    const runMode = sanitizeTag(pickFirst(sp, ['runMode','run'], 'play'), 20).toLowerCase(); // play|research|practice
-    const diff    = sanitizeTag(pickFirst(sp, ['diff'], 'normal'), 20).toLowerCase();
-    const view    = sanitizeTag(pickFirst(sp, ['view'], ''), 20).toLowerCase();
-    const style   = sanitizeTag(pickFirst(sp, ['style'], ''), 30).toLowerCase();
-    const seed    = sanitizeTag(pickFirst(sp, ['seed'], ''), 64);
-
-    const timePlannedSec = normInt(pickFirst(sp, ['timePlannedSec','time'], '0'), 0);
-
-    // hub passthrough (for back button / gate flow)
-    const hub = normStr(pickFirst(sp, ['hub'], ''));
-
-    // optional flags
-    const ai = normBool(pickFirst(sp, ['ai'], '0')) ? '1' : '0';
-    const gate = normBool(pickFirst(sp, ['gate'], '0')) ? '1' : '0';
-
-    // optional: cohort/classroom
-    const classCode  = sanitizeTag(pickFirst(sp, ['classCode','class','room'], ''), 40);
-    const teacherCode= sanitizeTag(pickFirst(sp, ['teacherCode','teacher'], ''), 40);
-
-    return {
-      // canonical research ctx
-      studyId,
-      pid,
-      phase,
-      conditionGroup,
-      siteCode,
-      schoolYear,
-      semester,
-
-      // optional classroom tags
-      classCode,
-      teacherCode,
-
-      // meta passthrough
-      runMode,
-      diff,
-      view,
-      style,
-      seed,
-      timePlannedSec,
-      hub,
-      ai,
-      gate
-    };
-  }
-
-  const CTX = buildFromQuery();
 
   function get(){
-    // return a shallow copy so callers don’t mutate internals
-    return Object.assign({}, CTX);
+    try{ return normalize(); }catch(_){ return {}; }
   }
 
-  function set(extra){
-    if (!extra || typeof extra !== 'object') return get();
-    for (const k of Object.keys(extra)){
-      const v = extra[k];
-      // keep only string/number/bool that are safe
-      if (v == null) continue;
-      if (typeof v === 'string') CTX[k] = sanitizeTag(v, 120);
-      else if (typeof v === 'number') CTX[k] = Number.isFinite(v) ? v : CTX[k];
-      else if (typeof v === 'boolean') CTX[k] = v ? '1' : '0';
-      else {
-        // ignore objects/arrays
+  function merge(extra){
+    const base = get();
+    if (extra && typeof extra === 'object'){
+      for (const k of Object.keys(extra)){
+        const v = extra[k];
+        if (v === undefined) continue;
+        base[k] = v;
       }
     }
-    return get();
+    // clean again
+    for (const k of Object.keys(base)){
+      const v = base[k];
+      const empty =
+        v === null ||
+        v === undefined ||
+        (typeof v === 'string' && v.trim() === '') ||
+        (typeof v === 'number' && !Number.isFinite(v)) ||
+        (Array.isArray(v) && v.length === 0);
+      if (empty) delete base[k];
+    }
+    return base;
   }
 
-  function toJSON(){
-    return JSON.stringify(get());
+  function toQuery(extra){
+    const ctx = merge(extra);
+    const sp = new URLSearchParams();
+
+    // write canonical keys (keep consistent with other games)
+    const keys = [
+      'pid','studyId','phase','conditionGroup','siteCode','schoolYear','semester',
+      'cohort','classId','teacherId','deviceTag',
+      'hub','log','run','diff','view','style','time','seed'
+    ];
+
+    for (const k of keys){
+      if (!(k in ctx)) continue;
+      const v = ctx[k];
+      if (v === null || v === undefined) continue;
+      sp.set(k, String(v));
+    }
+
+    // tags
+    if (Array.isArray(ctx.tags)){
+      ctx.tags.slice(0,12).forEach(t=> sp.append('tag', String(t)));
+    }
+
+    return sp.toString();
   }
 
-  WIN.GroupsVR.ResearchCtx = { get, set, toJSON };
+  WIN.GroupsVR.ResearchCtx = { get, merge, toQuery };
 
 })();
