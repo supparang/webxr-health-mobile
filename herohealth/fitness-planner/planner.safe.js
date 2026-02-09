@@ -1,5 +1,8 @@
 // === HeroHealth — Fitness Planner SAFE Engine (Standalone) ===
-// VR/cVR ready, uses vr-ui.js => hha:shoot
+// PATCH v20260209-ABC
+// A) Balance easier for Grade 5: assist ring + hold-to-count
+// B) Combo drag/touch reorder
+// C) Research rubric + Copy JSON
 'use strict';
 
 (function(){
@@ -7,9 +10,9 @@
   const DOC = document;
 
   const $ = (s)=>DOC.querySelector(s);
+  const $$ = (s)=>Array.from(DOC.querySelectorAll(s));
 
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
   }
@@ -26,7 +29,7 @@
   }
 
   function stepSpec(move){
-    // Designed for Grade 5: short, clear, forgiving but still fun
+    // Grade 5 friendly (for research use)
     switch(move){
       case 'punch_shadow':
       case 'punch_rhythm':
@@ -34,9 +37,10 @@
       case 'jump':
         return { kind:'jump', ttlMs: 2200, score: 8 };
       case 'duck':
-        return { kind:'duck', ttlMs: 1800, holdMs: 900, score: 9 };
+        return { kind:'duck', ttlMs: 1900, holdMs: 900, score: 9 };
       case 'balance':
-        return { kind:'balance', ttlMs: 2600, holdMs: 1200, lockPx: 34, score: 12 };
+        // A) easier: larger lock + hold-to-count
+        return { kind:'balance', ttlMs: 2800, holdMs: 1100, lockPx: 80, score: 12 };
       default:
         return { kind:'punch', ttlMs: 2200, score: 10 };
     }
@@ -69,7 +73,6 @@
       if(!buf.length) return;
       const payload = buf.splice(0, buf.length);
       if(!endpoint){
-        // fallback: console only
         try{ console.log('[FP LOG]', reason, payload); }catch(e){}
         return;
       }
@@ -80,7 +83,6 @@
           body: JSON.stringify({ kind:'fitness_planner', reason, items: payload })
         });
       }catch(e){
-        // if fail, restore (best effort)
         Array.prototype.unshift.apply(buf, payload);
       }
     }
@@ -100,6 +102,48 @@
     }
 
     return { push, flush, harden };
+  }
+
+  // C) rubric scoring for Create (research)
+  function rubricCreate(combo){
+    const moves = Array.isArray(combo) ? combo : [];
+    const len = moves.length;
+    const uniq = new Set(moves);
+    const uniqueCount = uniq.size;
+
+    const hasBalance = uniq.has('balance');
+    const hasPunch = uniq.has('punch_shadow') || uniq.has('punch_rhythm');
+    const hasJump = uniq.has('jump');
+    const hasDuck = uniq.has('duck');
+
+    // Simple, explainable rubric (0–10)
+    let score = 0;
+    // length
+    if(len >= 3) score += 2;
+    if(len >= 4) score += 1;
+    if(len >= 5) score += 1;
+
+    // diversity
+    if(uniqueCount >= 2) score += 2;
+    if(uniqueCount >= 3) score += 2;
+    if(uniqueCount >= 4) score += 1;
+
+    // balance of skills
+    if(hasPunch) score += 1;
+    if(hasBalance) score += 1;
+    if(hasJump && hasDuck) score += 1;
+
+    score = clamp(score, 0, 10);
+
+    return {
+      createScore: score,
+      len,
+      uniqueCount,
+      hasBalance,
+      hasPunch,
+      hasJump,
+      hasDuck
+    };
   }
 
   // ---------- Engine ----------
@@ -125,6 +169,7 @@
     const barEl = $('#fp-bar');
 
     const targetEl = $('#fp-target');
+    const centerRingEl = $('#fp-centerRing');
     const centerEl = $('#fp-center');
     const actbarEl = $('#fp-actbar');
     const btnJump = $('#fp-btn-jump');
@@ -136,10 +181,16 @@
     const sumTime = $('#fp-sum-time');
     const btnSave = $('#fp-save');
     const btnRetry = $('#fp-retry');
+    const btnCopy = $('#fp-copy');
     const backHub = $('#fp-backhub');
+
+    const stageEl = viewRun ? viewRun.querySelector('.fp-stage') : null;
 
     let combo = []; // array of move ids (3-5)
     let run = null;
+
+    // B) drag/touch reorder state
+    let dragState = { active:false, idx:-1, el:null, pointerId:null };
 
     function setCount(){
       countEl.textContent = String(combo.length);
@@ -149,12 +200,15 @@
     function renderCombo(){
       comboEl.innerHTML = '';
       combo.forEach((mv, i)=>{
-        const b = DOC.createElement('button');
-        b.type = 'button';
+        const b = DOC.createElement('div');
         b.className = 'fp-chip';
         b.dataset.idx = String(i);
         b.innerHTML = `<span class="t">${pickLabel(mv)}</span><span class="x">✕</span>`;
-        b.addEventListener('click', ()=>{
+        // tap X remove (kid-friendly)
+        b.addEventListener('click', (ev)=>{
+          // if dragging, ignore click
+          if(dragState.active) return;
+          // remove when tapping the chip (simple)
           const idx = Number(b.dataset.idx);
           if(Number.isFinite(idx)){
             combo.splice(idx, 1);
@@ -162,6 +216,56 @@
             log.push('combo_remove', { idx, move: mv, combo: combo.slice() });
           }
         });
+
+        // B) pointer drag reorder
+        b.addEventListener('pointerdown', (ev)=>{
+          // long press not required; start drag immediately
+          dragState.active = true;
+          dragState.idx = Number(b.dataset.idx);
+          dragState.el = b;
+          dragState.pointerId = ev.pointerId;
+          b.classList.add('fp-dragging');
+          b.setPointerCapture(ev.pointerId);
+          log.push('drag_start', { idx: dragState.idx, move: mv });
+
+          // prevent scroll while dragging
+          ev.preventDefault();
+        });
+
+        b.addEventListener('pointermove', (ev)=>{
+          if(!dragState.active || dragState.el !== b || dragState.pointerId !== ev.pointerId) return;
+
+          // detect target index by elementFromPoint
+          const el = DOC.elementFromPoint(ev.clientX, ev.clientY);
+          const chip = el ? el.closest('.fp-chip') : null;
+          if(!chip || chip === b) return;
+
+          const from = dragState.idx;
+          const to = Number(chip.dataset.idx);
+          if(!Number.isFinite(to) || to === from) return;
+
+          // reorder array
+          const item = combo.splice(from, 1)[0];
+          combo.splice(to, 0, item);
+          dragState.idx = to;
+
+          renderCombo(); setCount();
+          log.push('drag_reorder', { from, to, combo: combo.slice() });
+        });
+
+        const endDrag = (ev)=>{
+          if(!dragState.active || dragState.el !== b) return;
+          dragState.active = false;
+          dragState.pointerId = null;
+          dragState.idx = -1;
+          dragState.el = null;
+          b.classList.remove('fp-dragging');
+          log.push('drag_end', { combo: combo.slice() });
+        };
+
+        b.addEventListener('pointerup', endDrag);
+        b.addEventListener('pointercancel', endDrag);
+
         comboEl.appendChild(b);
       });
     }
@@ -203,52 +307,55 @@
     function setStage(kind){
       targetEl.classList.add('fp-hidden');
       centerEl.classList.add('fp-hidden');
+      if(centerRingEl) centerRingEl.classList.add('fp-hidden');
       actbarEl.classList.add('fp-hidden');
+
       if(kind === 'punch') targetEl.classList.remove('fp-hidden');
-      if(kind === 'balance') centerEl.classList.remove('fp-hidden');
+      if(kind === 'balance'){
+        if(centerRingEl) centerRingEl.classList.remove('fp-hidden');
+        centerEl.classList.remove('fp-hidden');
+      }
       if(kind === 'jump' || kind === 'duck') actbarEl.classList.remove('fp-hidden');
-      if(kind === 'duck') actbarEl.classList.remove('fp-hidden');
     }
 
     function moveTargetRandom(){
-      // place within stage bounds, avoid HUD top; forgiving for kids
-      const stage = viewRun.querySelector('.fp-stage');
+      const stage = stageEl;
       if(!stage) return;
       const r = stage.getBoundingClientRect();
       const pad = 30;
       const w = Math.min(180, r.width * 0.4);
       const h = w;
       const x = pad + rng() * (r.width - pad*2 - w);
-      const y = 110 + rng() * (r.height - 160 - h); // keep away from title/progress area
+      const y = 110 + rng() * (r.height - 160 - h);
       targetEl.style.left = (x + w/2) + 'px';
       targetEl.style.top = (y + h/2) + 'px';
     }
 
-    function hitTestShoot(ev){
-      // ev.detail: {x,y,lockPx,source} (from vr-ui.js)
+    // A) easier balance: accept "hold finger on stage" as continuous OK,
+    // plus aim assist via lockPx when using shoot events
+    function hitTestShoot(ev, lockOverride){
       const d = ev?.detail || {};
       const x = Number(d.x), y = Number(d.y);
       if(!Number.isFinite(x) || !Number.isFinite(y)) return false;
 
-      // Punch: within target rect (plus lockPx assist)
+      // Punch
       if(!targetEl.classList.contains('fp-hidden')){
         const tr = targetEl.getBoundingClientRect();
-        const lock = clamp(Number(d.lockPx || 0), 0, 80);
-        const inside =
+        const lock = clamp(Number(lockOverride ?? d.lockPx ?? 0), 0, 140);
+        return (
           x >= (tr.left - lock) && x <= (tr.right + lock) &&
-          y >= (tr.top - lock) && y <= (tr.bottom + lock);
-        return inside;
+          y >= (tr.top - lock) && y <= (tr.bottom + lock)
+        );
       }
 
-      // Balance: must be close to screen center dot area (use lockPx)
+      // Balance
       if(!centerEl.classList.contains('fp-hidden')){
         const cr = centerEl.getBoundingClientRect();
-        const lock = clamp(Number(d.lockPx || 0), 0, 120);
         const cx = (cr.left + cr.right)/2, cy = (cr.top + cr.bottom)/2;
+        const lock = clamp(Number(lockOverride ?? d.lockPx ?? 0), 0, 180);
         const dx = x - cx, dy = y - cy;
         return (dx*dx + dy*dy) <= (lock*lock);
       }
-
       return false;
     }
 
@@ -264,13 +371,21 @@
         t0: now(),
         stepT0: now(),
         stepDone: false,
+        // A) balance hold tracking
         balanceHoldStart: null,
-        duckHoldStart: null
+        balancePressing: false,
+        // duck hold
+        duckHoldStart: null,
       };
 
       stepTotEl.textContent = String(steps.length);
       scoreEl.textContent = '0';
       timeEl.textContent = '0.0';
+
+      // C) rubric at start (based on created combo)
+      const rb = rubricCreate(combo);
+      log.push('rubric', Object.assign({ combo: combo.slice() }, rb));
+      emit('hha:session', { kind:'fitness_planner', action:'rubric', ...rb });
 
       log.push('run_start', { combo: combo.slice(), steps: steps.map(s=>s.move) });
       emit('hha:session', { kind:'fitness_planner', action:'start', combo: combo.slice(), seed: ctx.seed>>>0 });
@@ -287,7 +402,8 @@
       sumTot.textContent = String(run.steps.length);
       sumTime.textContent = dt.toFixed(1);
 
-      // save last summary (HHA style)
+      const rb = rubricCreate(combo);
+
       const last = {
         game: 'fitness_planner',
         ts: Date.now(),
@@ -301,12 +417,13 @@
         score: run.score,
         pass: run.pass,
         total: run.steps.length,
-        timeSec: Number(dt.toFixed(2))
+        timeSec: Number(dt.toFixed(2)),
+        rubric: rb
       };
       try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(last)); }catch(e){}
 
       log.push('run_end', last);
-      log.flush('run_end'); // best effort now
+      log.flush('run_end');
 
       showSummary();
     }
@@ -320,22 +437,18 @@
 
       run.stepDone = false;
       run.balanceHoldStart = null;
+      run.balancePressing = false;
       run.duckHoldStart = null;
 
       const st = run.steps[run.i];
       const spec = st.spec;
 
       stepIdxEl.textContent = String(run.i + 1);
-
-      // instruction
       instrEl.textContent = `ด่าน ${run.i+1}: ${st.label}`;
-
       setStage(spec.kind);
       barEl.style.width = '0%';
 
-      // move target if punch
       if(spec.kind === 'punch') moveTargetRandom();
-
       run.stepT0 = now();
 
       log.push('step_start', { idx: run.i, move: st.move, kind: spec.kind });
@@ -364,8 +477,7 @@
       });
 
       run.i += 1;
-      // small delay for readability (kid-friendly)
-      setTimeout(nextStep, 380);
+      setTimeout(nextStep, 360);
     }
 
     function loop(){
@@ -375,27 +487,27 @@
       timeEl.textContent = totalSec.toFixed(1);
 
       const st = run.steps[run.i];
-      if(!st){
-        requestAnimationFrame(loop);
-        return;
-      }
+      if(!st){ requestAnimationFrame(loop); return; }
       const spec = st.spec;
+
       const elapsed = t - run.stepT0;
       const p = clamp(elapsed / spec.ttlMs, 0, 1);
       barEl.style.width = (p*100).toFixed(1) + '%';
 
-      // balance / duck hold detection
+      // A) Balance: if pressing, count hold (very Grade-5 friendly)
       if(spec.kind === 'balance'){
-        // hold aim at center using hha:shoot + lockPx -> accumulate hold time
-        // if user doesn't "shoot", they can still tap target by screen center (vr-ui sends shoot on tap)
-        // here we just check state variables updated by events
-        if(run.balanceHoldStart != null){
+        if(run.balancePressing){
+          if(run.balanceHoldStart == null){
+            run.balanceHoldStart = t;
+            log.push('balance_hold_start', { idx: run.i, mode:'press' });
+          }
           if((t - run.balanceHoldStart) >= spec.holdMs){
-            finishStep(true, 'balance_hold_ok');
+            finishStep(true, 'balance_hold_press_ok');
           }
         }
       }
 
+      // Duck hold
       if(spec.kind === 'duck'){
         if(run.duckHoldStart != null){
           if((t - run.duckHoldStart) >= spec.holdMs){
@@ -412,16 +524,11 @@
     }
 
     // ----- input handlers -----
-    function onPunchHit(){
-      finishStep(true, 'hit');
-    }
+    function onPunchHit(){ finishStep(true, 'hit'); }
 
-    function onJump(){
-      finishStep(true, 'jump_ok');
-    }
+    function onJump(){ finishStep(true, 'jump_ok'); }
 
     function onDuckDown(){
-      // start hold
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'duck') return;
@@ -430,18 +537,33 @@
     }
 
     function onDuckUp(){
-      // if released too early, fail softly (but still time-based)
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'duck') return;
       if(run.duckHoldStart == null) return;
       const held = now() - run.duckHoldStart;
       log.push('duck_hold_end', { idx: run.i, heldMs: Math.round(held) });
-      // don't auto-fail; let timer continue (kid-friendly)
       if(held < st.spec.holdMs * 0.6){
-        // gentle hint
         instrEl.textContent = `กดค้าง DUCK ให้นานขึ้นอีกนิดนะ`;
       }
+    }
+
+    // A) balance press-to-count: press anywhere on stage to hold
+    function onStageDown(){
+      if(!run) return;
+      const st = run.steps[run.i]; if(!st) return;
+      if(st.spec.kind !== 'balance') return;
+      run.balancePressing = true;
+    }
+    function onStageUp(){
+      if(!run) return;
+      const st = run.steps[run.i]; if(!st) return;
+      if(st.spec.kind !== 'balance') return;
+      if(run.balancePressing){
+        log.push('balance_hold_break', { idx: run.i, mode:'press' });
+      }
+      run.balancePressing = false;
+      run.balanceHoldStart = null;
     }
 
     function onShoot(ev){
@@ -449,35 +571,36 @@
       const st = run.steps[run.i]; if(!st) return;
       const spec = st.spec;
 
-      // balance: treat valid aim as "hold started" (continuous)
+      // Balance (optional): shoot-based aim assist (still works), but press mode is primary
       if(spec.kind === 'balance'){
-        const ok = hitTestShoot(ev);
+        const ok = hitTestShoot(ev, spec.lockPx);
         if(ok){
-          if(run.balanceHoldStart == null){
-            run.balanceHoldStart = now();
-            log.push('balance_hold_start', { idx: run.i });
+          // if not pressing, allow shoot to start hold too (bonus)
+          if(!run.balancePressing){
+            if(run.balanceHoldStart == null){
+              run.balanceHoldStart = now();
+              log.push('balance_hold_start', { idx: run.i, mode:'shoot' });
+            }
+            // keep holding as long as repeated shoot events remain ok
           }
         }else{
-          if(run.balanceHoldStart != null){
-            log.push('balance_hold_break', { idx: run.i });
+          if(!run.balancePressing){
+            run.balanceHoldStart = null;
           }
-          run.balanceHoldStart = null;
         }
         return;
       }
 
-      // punch: hit if within target rect (+ lockPx)
+      // Punch
       if(spec.kind === 'punch'){
-        const ok = hitTestShoot(ev);
+        const ok = hitTestShoot(ev, 0);
         log.push('shot', { idx: run.i, ok: !!ok, source: ev?.detail?.source || '' });
         if(ok) onPunchHit();
         return;
       }
-
-      // other kinds: ignore shoots
     }
 
-    // direct tap/click on target (mobile/pc friendly)
+    // direct tap/click on target
     targetEl.addEventListener('pointerdown', ()=>{
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
@@ -496,11 +619,19 @@
     btnDuck.addEventListener('pointercancel', onDuckUp);
     btnDuck.addEventListener('pointerleave', onDuckUp);
 
+    // Stage press for balance (A)
+    if(stageEl){
+      stageEl.addEventListener('pointerdown', onStageDown);
+      stageEl.addEventListener('pointerup', onStageUp);
+      stageEl.addEventListener('pointercancel', onStageUp);
+      stageEl.addEventListener('pointerleave', onStageUp);
+    }
+
     // Listen to vr-ui.js shoot
     WIN.addEventListener('hha:shoot', onShoot);
 
     // Build palette clicks
-    DOC.querySelectorAll('.fp-card').forEach((btn)=>{
+    $$('.fp-card').forEach((btn)=>{
       btn.addEventListener('click', ()=>{
         const mv = (btn.dataset.move || '').trim();
         if(!mv) return;
@@ -517,7 +648,6 @@
       log.push('reflect', { diff });
       emit('hha:session', { kind:'fitness_planner', action:'reflect', diff });
 
-      // merge into last summary
       try{
         const s = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
         if(s && s.game === 'fitness_planner'){
@@ -527,8 +657,7 @@
       }catch(e){}
 
       await log.flush('reflect_save');
-      instrEl.textContent = 'บันทึกแล้ว ✅';
-      btnSave.textContent = 'บันทึกแล้ว';
+      btnSave.textContent = 'บันทึกแล้ว ✅';
       btnSave.disabled = true;
       setTimeout(()=>{
         btnSave.textContent = 'บันทึกผล';
@@ -536,22 +665,47 @@
       }, 1200);
     });
 
+    // C) copy JSON to clipboard
+    if(btnCopy){
+      btnCopy.addEventListener('click', async ()=>{
+        let txt = '';
+        try{
+          const s = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+          txt = s || '';
+        }catch(e){ txt = ''; }
+
+        if(!txt){
+          btnCopy.textContent = 'ยังไม่มีผลให้คัดลอก';
+          setTimeout(()=>btnCopy.textContent='คัดลอกผล (JSON)', 900);
+          return;
+        }
+
+        try{
+          await navigator.clipboard.writeText(txt);
+          log.push('copy_json', { ok:true });
+          btnCopy.textContent = 'คัดลอกแล้ว ✅';
+        }catch(e){
+          // fallback: prompt
+          try{ WIN.prompt('คัดลอกผล (JSON):', txt); }catch(_){}
+          log.push('copy_json', { ok:false });
+          btnCopy.textContent = 'คัดลอกด้วยหน้าต่าง ✅';
+        }
+        setTimeout(()=>btnCopy.textContent='คัดลอกผล (JSON)', 900);
+      });
+    }
+
     // Summary: retry
     btnRetry.addEventListener('click', ()=>{
-      // reset UI only; keep same combo
       log.push('retry', { combo: combo.slice() });
       showBuild();
-      // quick auto-start again if you want:
-      // startRun();
     });
 
     // Back hub: flush before leaving
-    backHub.addEventListener('click', async (e)=>{
+    backHub.addEventListener('click', async ()=>{
       try{
         log.push('back_hub', {});
         await log.flush('back_hub');
       }catch(err){}
-      // allow navigation
       unHarden && unHarden();
     });
 
@@ -560,7 +714,6 @@
     setCount();
     renderCombo();
 
-    // emit ready
     log.push('ready', { view: ctx.view, seed: ctx.seed>>>0 });
     emit('hha:session', { kind:'fitness_planner', action:'ready', view: ctx.view, seed: ctx.seed>>>0 });
   }
