@@ -1,106 +1,89 @@
 // === /fitness/js/ai-predictor.js ===
-// Classic Script (NO export) — safe for <script src="...">
-// ✅ Prediction only (heuristic now; replaceable by ML later)
-// ✅ Research lock: show prediction but NEVER adjust gameplay
-// ✅ Normal assist gate: enable only with ?ai=1
+// Shadow Breaker — AI Predictor (DL-lite stub + robust exports)
+// ✅ FIX: provide named exports used by engine.js
+// Exports: AIPredictor, RB_AI (optional compat), default
+
 'use strict';
 
-(function () {
-  const WIN = window;
-
-  // ---- small helpers ----
-  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
-
-  function readQueryFlag(key) {
-    try {
-      const v = new URL(location.href).searchParams.get(key);
-      return v === '1' || v === 'true' || v === 'yes';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function readQueryMode() {
-    try {
-      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
-      if (m === 'research') return 'research';
-      return 'normal';
-    } catch (_) {
-      return 'normal';
-    }
-  }
-
-  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
-  // Expected snapshot (best effort) from engine:
-  // { accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo, offsetAbsMean, hp, songTime, durationSec }
-  function predictFromSnapshot(s) {
-    const acc = clamp01((Number(s.accPct) || 0) / 100);
-    const hp = clamp01((Number(s.hp) || 100) / 100);
-
-    // offsetAbsMean in seconds; smaller => better
-    const off = Number(s.offsetAbsMean);
-    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ loose cap
-
-    const miss = Number(s.hitMiss) || 0;
-    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
-    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
-
-    // fatigueRisk: rises if hp low, missRate high, offset large
-    const fatigueRisk = clamp01(
-      (1 - hp) * 0.45 +
-      missRate * 0.35 +
-      (1 - offScore) * 0.20
-    );
-
-    // skillScore: high if accuracy high + offset good + miss low
-    const skillScore = clamp01(
-      acc * 0.55 +
-      offScore * 0.30 +
-      (1 - missRate) * 0.15
-    );
-
-    // suggest difficulty (string) — suggestion only (engine decides whether to use)
-    let suggestedDifficulty = 'normal';
-    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
-    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
-
-    // micro tip
-    let tip = '';
-    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
-    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
-    else if (skillScore > 0.80 && fatigueRisk < 0.30) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
-    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
-
-    return {
-      fatigueRisk,
-      skillScore,
-      suggestedDifficulty,
-      tip
+// DL-lite แบบเบา ๆ (ไม่ใช้ lib) — ใช้ feature ง่าย ๆ เพื่อคาดการณ์ “ความเสี่ยงพลาด”
+export class AIPredictor {
+  constructor(opts = {}) {
+    this.enabled = opts.enabled ?? true;
+    this.last = {
+      risk: 0,
+      fatigue: 0,
+      pace: 0,
+      note: ''
     };
   }
 
-  // ---- Public bridge used by engine/UI ----
-  // Research lock rule:
-  // - if mode=research => lock adjustments ALWAYS (prediction ok)
-  // - if normal => allow assist only when ?ai=1
-  const API = {
-    getMode() {
-      return readQueryMode(); // 'research' | 'normal'
-    },
-    isAssistEnabled() {
-      const mode = readQueryMode();
-      if (mode === 'research') return false;   // locked 100%
-      return readQueryFlag('ai');              // normal: require ?ai=1
-    },
-    isLocked() {
-      return readQueryMode() === 'research';
-    },
-    predict(snapshot) {
-      return predictFromSnapshot(snapshot || {});
-    }
-  };
+  setEnabled(v){ this.enabled = !!v; }
+  isEnabled(){ return this.enabled; }
 
-  // expose globally
-  WIN.RB_AI = API;
-})();
+  // snapshot: { missRate, combo, avgRtMs, streakMiss, timeLeftMs, fever, phase, diff }
+  predict(snapshot = {}) {
+    if (!this.enabled) return { ...this.last, note:'disabled' };
+
+    const missRate = Number(snapshot.missRate ?? 0);        // 0..1
+    const avgRt    = Number(snapshot.avgRtMs ?? 0);         // ms
+    const streakM  = Number(snapshot.streakMiss ?? 0);      // int
+    const combo    = Number(snapshot.combo ?? 0);           // int
+    const phase    = Number(snapshot.phase ?? 1);           // 1..
+    const diff     = String(snapshot.diff ?? 'normal');
+
+    // normalize
+    const rtScore = clamp((avgRt - 350) / 550, 0, 1);       // 350..900ms
+    const missScore = clamp(missRate / 0.28, 0, 1);         // 0..28% missRate
+    const streakScore = clamp(streakM / 4, 0, 1);
+
+    // fatigue (0..1)
+    const fatigue = clamp(0.45*rtScore + 0.35*missScore + 0.20*streakScore, 0, 1);
+
+    // risk of next miss (0..1)
+    const diffBoost = diff === 'hard' ? 0.10 : diff === 'easy' ? -0.06 : 0;
+    const phaseBoost = clamp((phase-1) * 0.05, 0, 0.15);
+
+    let risk = clamp(0.55*missScore + 0.30*rtScore + 0.15*streakScore + diffBoost + phaseBoost, 0, 1);
+
+    // combo ลด risk นิดหน่อย (คนกำลังเข้าจังหวะ)
+    risk = clamp(risk - clamp(combo/40, 0, 0.18), 0, 1);
+
+    // pace suggestion (spawn interval multiplier)
+    // >1 = ช้าลง, <1 = เร็วขึ้น
+    const pace = clamp(1.0 + (fatigue - 0.5) * 0.35, 0.78, 1.28);
+
+    const note =
+      risk >= 0.72 ? 'high-risk' :
+      risk >= 0.48 ? 'mid-risk'  :
+      'low-risk';
+
+    this.last = { risk, fatigue, pace, note };
+    return this.last;
+  }
+
+  // micro-tip แบบอธิบายได้ (ไม่ spam)
+  tip(snapshot = {}) {
+    const p = this.predict(snapshot);
+    if (p.note === 'high-risk') {
+      return { code:'reset', text:'จังหวะเริ่มหลุดแล้ว—พักครึ่งวิ แล้วกลับไปตี “Normal” ให้ตรงก่อน', why:'miss/RT สูงขึ้น' };
+    }
+    if (p.note === 'mid-risk') {
+      return { code:'focus', text:'โฟกัสเป้าใหญ่ก่อน แล้วค่อยเก็บเป้าอื่น', why:'เสถียรภาพยังแกว่ง' };
+    }
+    return { code:'keep', text:'ดีมาก! รักษาจังหวะไว้', why:'ความเสี่ยงพลาดต่ำ' };
+  }
+}
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+// ===== compat exports =====
+// บางไฟล์เคยเรียก RB_AI มาก่อน: ให้มีไว้ไม่พัง
+export const RB_AI = {
+  _inst: new AIPredictor(),
+  isAssistEnabled(){ return true; },
+  predict(s){ return this._inst.predict(s); },
+  tip(s){ return this._inst.tip(s); }
+};
+
+// default export เผื่อ import แบบ default
+export default AIPredictor;
