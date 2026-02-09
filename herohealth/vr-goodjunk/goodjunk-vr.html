@@ -8,6 +8,7 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
 ✅ HUD safe areas via CSS vars: --gj-top-safe / --gj-bottom-safe
 ✅ GATE FLOW:
    - if ?gate=1 => on hha:end => redirect to ../warmup-gate.html?phase=cooldown&cdur=20&autonext=1&next=<hub>
+✅ PATCH v20260209pcfix: Start-click + fatal overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -21,7 +22,6 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
   <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
-  <!-- (optional) preload fonts -->
   <style>
     :root{
       --bg:#020617;
@@ -51,6 +51,24 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
       overflow:hidden;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans Thai", sans-serif;
     }
+
+    /* =========================================================
+       PATCH 1: Start overlay clickable (stop layer stealing clicks)
+       ========================================================= */
+    #startOverlay{
+      position:absolute;
+      inset:0;
+      z-index: 9999;
+      pointer-events:auto;
+    }
+    #startOverlay *{ pointer-events:auto; }
+
+    /* layer เป้า: ยังไม่เริ่ม -> ห้ามกินคลิก */
+    #gj-layer, #gj-layer-r{ pointer-events:none; }
+
+    /* เริ่มแล้ว -> เปิดคลิกให้เป้า */
+    body.gj-playing #gj-layer,
+    body.gj-playing #gj-layer-r{ pointer-events:auto; }
   </style>
 </head>
 
@@ -184,15 +202,13 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
     const cdur = Math.max(5, Math.min(60, Number(q('cdur','20') || 20)));
 
     function buildCooldownGateUrl(){
-      // from /herohealth/vr-goodjunk/goodjunk-vr.html => /herohealth/warmup-gate.html
       const gate = new URL('../warmup-gate.html', location.href);
       gate.searchParams.set('phase', 'cooldown');
       gate.searchParams.set('cdur', String(cdur));
       gate.searchParams.set('hub', hub);
-      gate.searchParams.set('next', hub);       // ✅ cooldown ends -> HUB
-      gate.searchParams.set('autonext', '1');   // ✅ auto go
+      gate.searchParams.set('next', hub);
+      gate.searchParams.set('autonext', '1');
 
-      // passthrough (keep research ids, diff, run, seed, etc.)
       const deny = new Set(['next','hub','phase','dur','cdur','games','autonext']);
       QS.forEach((v,k)=>{ if(!deny.has(k)) gate.searchParams.set(k, v); });
 
@@ -203,12 +219,93 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
       if(!gateOn) return;
       if(window.__HHA_GJ_TO_COOLDOWN__) return;
       window.__HHA_GJ_TO_COOLDOWN__ = true;
-
-      try{
-        location.href = buildCooldownGateUrl();
-      }catch(_){}
+      try{ location.href = buildCooldownGateUrl(); }catch(_){}
     }, { passive:true });
   })();
+  </script>
+
+  <!-- =========================================================
+       PATCH 3: Fatal overlay (show errors instead of silent fail)
+       ========================================================= -->
+  <script>
+    (function(){
+      const pre = document.createElement('pre');
+      pre.id = 'gj-fatal';
+      pre.style.cssText =
+        'position:fixed;left:12px;right:12px;bottom:12px;max-height:40vh;overflow:auto;z-index:10000;' +
+        'padding:10px;border-radius:12px;background:rgba(0,0,0,.72);border:1px solid rgba(148,163,184,.25);' +
+        'color:#e5e7eb;font:12px ui-monospace,Menlo,Consolas;display:none;';
+      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(pre));
+
+      function show(msg){
+        try{ pre.textContent = msg; pre.style.display = ''; }catch(_){}
+      }
+      window.addEventListener('error', (e)=> show('[error] ' + (e.message || e.error || 'unknown error')));
+      window.addEventListener('unhandledrejection', (e)=>{
+        const r = e && e.reason;
+        show('[promise] ' + (r && r.message ? r.message : String(r || 'unhandled rejection')));
+      });
+    })();
+  </script>
+
+  <!-- =========================================================
+       PATCH 2: Force Start binder (PC click always starts)
+       - hide overlay + set body class gj-playing
+       - dispatch hha:start
+       - import boot and call start/boot/init/default if exists
+       ========================================================= -->
+  <script type="module">
+    const QS = new URL(location.href).searchParams;
+    const q = (k,d='') => (QS.get(k) ?? d);
+
+    const btn = document.getElementById('btnStart');
+    const overlay = document.getElementById('startOverlay');
+
+    function hideOverlay(){
+      try{ document.body.classList.add('gj-playing'); }catch(_){}
+      try{
+        if(overlay){
+          overlay.style.display = 'none';
+          overlay.setAttribute('aria-hidden','true');
+        }
+      }catch(_){}
+    }
+
+    function goHub(){
+      const hub = q('hub','') || '../hub.html';
+      try{ location.href = hub; }catch(_){}
+    }
+    document.querySelectorAll('.btnBackHub').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
+    });
+
+    async function forceStart(){
+      if(window.__HHA_GJ_FORCE_STARTED__) return;
+      window.__HHA_GJ_FORCE_STARTED__ = true;
+
+      hideOverlay();
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:start', { detail:{ source:'btnStart', forced:true } }));
+      }catch(_){}
+
+      try{
+        const mod = await import('./goodjunk-vr.boot.js');
+        const fn = mod.start || mod.boot || mod.init || mod.default;
+        if(typeof fn === 'function') fn();
+      }catch(e){
+        console.error('[GoodJunkVR] boot import failed:', e);
+        window.__HHA_GJ_FORCE_STARTED__ = false;
+        alert('เริ่มเกมไม่สำเร็จ (boot import fail) — ดู Console/กล่อง error ด้านล่าง');
+      }
+    }
+
+    if(btn){
+      const on = (e)=>{ e.preventDefault(); e.stopPropagation(); forceStart(); };
+      btn.addEventListener('click', on, { passive:false });
+      btn.addEventListener('pointerup', on, { passive:false });
+      btn.addEventListener('touchend', on, { passive:false });
+    }
   </script>
 
   <!-- Boot (ESM) -->
