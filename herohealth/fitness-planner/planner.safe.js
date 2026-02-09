@@ -1,8 +1,12 @@
 // === HeroHealth — Fitness Planner SAFE Engine (Standalone) ===
-// PATCH v20260209-ABC
-// A) Balance easier for Grade 5: assist ring + hold-to-count
-// B) Combo drag/touch reorder
+// FULL PATCH v20260209-ABC123
+// A) Balance easier for Grade 5: assist ring + press/hold-to-count
+// B) Combo drag/touch reorder + explicit ✕ remove
 // C) Research rubric + Copy JSON
+// 1) Badges
+// 2) FX pop + SFX (WebAudio)
+// 3) Practice 15s (skipable) then auto-start real run
+
 'use strict';
 
 (function(){
@@ -13,10 +17,40 @@
   const $$ = (s)=>Array.from(DOC.querySelectorAll(s));
 
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function nowMs(){ return performance.now(); }
+
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
   }
 
+  function qsp(){
+    try{ return new URL(location.href).searchParams; }
+    catch{ return new URLSearchParams(); }
+  }
+  const QS = qsp();
+  const q = (k, d='') => (QS.get(k) ?? d);
+
+  // --- deterministic RNG (seeded) ---
+  function hash32(s){
+    let h = 2166136261 >>> 0;
+    for(let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function makeRng(seedU32){
+    let x = (seedU32 >>> 0) || 123456789;
+    return function rng(){
+      // xorshift32
+      x ^= x << 13; x >>>= 0;
+      x ^= x >>> 17; x >>>= 0;
+      x ^= x << 5;  x >>>= 0;
+      return (x >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- labels ----------
   function pickLabel(move){
     switch(move){
       case 'punch_shadow': return '🥊 ต่อ ย เง า';
@@ -28,8 +62,9 @@
     }
   }
 
+  // ---------- step specs ----------
   function stepSpec(move){
-    // Grade 5 friendly (for research use)
+    // Grade 5 friendly
     switch(move){
       case 'punch_shadow':
       case 'punch_rhythm':
@@ -39,14 +74,14 @@
       case 'duck':
         return { kind:'duck', ttlMs: 1900, holdMs: 900, score: 9 };
       case 'balance':
-        // A) easier: larger lock + hold-to-count
+        // A) easier: press/hold and larger lock (shoot assist)
         return { kind:'balance', ttlMs: 2800, holdMs: 1100, lockPx: 80, score: 12 };
       default:
         return { kind:'punch', ttlMs: 2200, score: 10 };
     }
   }
 
-  // ---------- lightweight logger (optional ?log= endpoint) ----------
+  // ---------- logger (optional ?log= endpoint) ----------
   function makeLogger(ctx){
     const endpoint = ctx?.log || '';
     const buf = [];
@@ -61,7 +96,7 @@
         phase: ctx.phase || '',
         conditionGroup: ctx.conditionGroup || '',
         view: ctx.view || '',
-        seed: ctx.seed >>> 0
+        seed: (ctx.seed >>> 0)
       };
     }
 
@@ -104,7 +139,7 @@
     return { push, flush, harden };
   }
 
-  // C) rubric scoring for Create (research)
+  // ---------- rubric (C) ----------
   function rubricCreate(combo){
     const moves = Array.isArray(combo) ? combo : [];
     const len = moves.length;
@@ -116,19 +151,16 @@
     const hasJump = uniq.has('jump');
     const hasDuck = uniq.has('duck');
 
-    // Simple, explainable rubric (0–10)
+    // explainable 0–10
     let score = 0;
-    // length
     if(len >= 3) score += 2;
     if(len >= 4) score += 1;
     if(len >= 5) score += 1;
 
-    // diversity
     if(uniqueCount >= 2) score += 2;
     if(uniqueCount >= 3) score += 2;
     if(uniqueCount >= 4) score += 1;
 
-    // balance of skills
     if(hasPunch) score += 1;
     if(hasBalance) score += 1;
     if(hasJump && hasDuck) score += 1;
@@ -146,13 +178,120 @@
     };
   }
 
-  // ---------- Engine ----------
-  function boot({ ctx, rng, now }){
+  // ---------- FX / SFX (2) ----------
+  let __fpAudio = null;
+
+  function sfx(type='ok'){
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!AC) return;
+      if(!__fpAudio) __fpAudio = new AC();
+      const ac = __fpAudio;
+      if(ac.state === 'suspended') ac.resume().catch(()=>{});
+
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+
+      const t0 = ac.currentTime;
+      const dur = (type==='end') ? 0.22 : (type==='bad') ? 0.14 : 0.10;
+      const f0 = (type==='end') ? 740 : (type==='bad') ? 180 : 520;
+      const f1 = (type==='end') ? 980 : (type==='bad') ? 120 : 720;
+
+      o.frequency.setValueAtTime(f0, t0);
+      o.frequency.linearRampToValueAtTime(f1, t0 + dur);
+
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.10, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
+    }catch(e){}
+  }
+
+  function fxPop(fxLayer, text, x, y){
+    if(!fxLayer) return;
+    const p = DOC.createElement('div');
+    p.className = 'fp-pop';
+    p.textContent = text;
+    p.style.left = (Number(x)|| (WIN.innerWidth/2)) + 'px';
+    p.style.top  = (Number(y)|| (WIN.innerHeight/2)) + 'px';
+    fxLayer.appendChild(p);
+    setTimeout(()=>{ try{ p.remove(); }catch(e){} }, 650);
+  }
+
+  // ---------- Badges (1) ----------
+  function computeBadges(last){
+    const rb = last?.rubric || {};
+    const b = [];
+
+    if((rb.createScore||0) >= 9) b.push({ icon:'👑', title:'Creator King' });
+    else if((rb.createScore||0) >= 7) b.push({ icon:'🧠', title:'Smart Planner' });
+    else if((rb.createScore||0) >= 5) b.push({ icon:'✨', title:'Good Try' });
+
+    if(rb.hasBalance) b.push({ icon:'⚖️', title:'Balance Pro' });
+    if((rb.len||0) >= 5) b.push({ icon:'🔥', title:'Combo Master' });
+    if((last.pass||0) === (last.total||999)) b.push({ icon:'🏅', title:'Perfect!' });
+
+    return b.slice(0, 4);
+  }
+
+  function renderBadges(badgesEl, list){
+    if(!badgesEl) return;
+    badgesEl.innerHTML = '';
+    if(!list || !list.length){
+      badgesEl.classList.add('fp-hidden');
+      return;
+    }
+    badgesEl.classList.remove('fp-hidden');
+    list.forEach((it)=>{
+      const d = DOC.createElement('div');
+      d.className = 'fp-badge';
+      d.innerHTML = `<span class="i">${it.icon}</span><span class="t">${it.title}</span>`;
+      badgesEl.appendChild(d);
+    });
+  }
+
+  // ---------- hit test helper for shoot events ----------
+  function hitTestShootForPunch(targetEl, ev, lockOverride){
+    const d = ev?.detail || {};
+    const x = Number(d.x), y = Number(d.y);
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return false;
+
+    const tr = targetEl.getBoundingClientRect();
+    const lock = clamp(Number(lockOverride ?? d.lockPx ?? 0), 0, 140);
+    return (
+      x >= (tr.left - lock) && x <= (tr.right + lock) &&
+      y >= (tr.top - lock) && y <= (tr.bottom + lock)
+    );
+  }
+
+  function hitTestShootForBalance(centerEl, ev, lockPx){
+    const d = ev?.detail || {};
+    const x = Number(d.x), y = Number(d.y);
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return false;
+
+    const cr = centerEl.getBoundingClientRect();
+    const cx = (cr.left + cr.right)/2, cy = (cr.top + cr.bottom)/2;
+
+    const lock = clamp(Number(lockPx ?? d.lockPx ?? 0), 0, 180);
+    const dx = x - cx, dy = y - cy;
+    return (dx*dx + dy*dy) <= (lock*lock);
+  }
+
+  // =========================
+  // PUBLIC BOOT
+  // =========================
+  function boot({ ctx }){
     const log = makeLogger(ctx);
     const unHarden = log.harden();
 
+    // UI elements
     const wrap = $('#fp-wrap');
+
     const viewBuild = $('#fp-view-build');
+    const viewPractice = $('#fp-view-practice');
     const viewRun = $('#fp-view-run');
     const viewSum = $('#fp-view-summary');
 
@@ -168,6 +307,8 @@
     const instrEl = $('#fp-instr');
     const barEl = $('#fp-bar');
 
+    const stageEl = viewRun ? viewRun.querySelector('.fp-stage') : null;
+
     const targetEl = $('#fp-target');
     const centerRingEl = $('#fp-centerRing');
     const centerEl = $('#fp-center');
@@ -176,20 +317,44 @@
     const btnDuck = $('#fp-btn-duck');
 
     const sumScore = $('#fp-sum-score');
-    const sumPass = $('#fp-sum-pass');
-    const sumTot = $('#fp-sum-total');
-    const sumTime = $('#fp-sum-time');
+    const sumPass  = $('#fp-sum-pass');
+    const sumTot   = $('#fp-sum-total');
+    const sumTime  = $('#fp-sum-time');
+    const sumCreate = $('#fp-sum-create');
+
+    const badgesEl = $('#fp-badges');
+    const fxLayer  = $('#fp-fx');
+
     const btnSave = $('#fp-save');
     const btnRetry = $('#fp-retry');
     const btnCopy = $('#fp-copy');
     const backHub = $('#fp-backhub');
 
-    const stageEl = viewRun ? viewRun.querySelector('.fp-stage') : null;
+    // Practice elements
+    const practiceLeftEl = $('#fp-practice-left');
+    const practiceHintEl = $('#fp-practice-hint');
+    const practiceTargetEl = $('#fp-practice-target');
+    const btnSkipPractice = $('#fp-skip-practice');
 
-    let combo = []; // array of move ids (3-5)
+    // Context header (optional)
+    const ctxView = $('#fp-ctx-view');
+    const ctxSeed = $('#fp-ctx-seed');
+
+    // Seed & RNG
+    const seedStr = String(q('seed','') || ctx.seed || '');
+    const seedU32 = (Number(seedStr) >>> 0) || hash32(seedStr || (Date.now()+'')) || 123456789;
+    ctx.seed = seedU32;
+
+    const rng = makeRng(seedU32);
+
+    if(ctxView) ctxView.textContent = ctx.view || q('view','') || '-';
+    if(ctxSeed) ctxSeed.textContent = String(seedU32);
+
+    // State
+    let combo = [];
     let run = null;
 
-    // B) drag/touch reorder state
+    // Drag state (B)
     let dragState = { active:false, idx:-1, el:null, pointerId:null };
 
     function setCount(){
@@ -197,54 +362,66 @@
       btnStart.disabled = !(combo.length >= 3 && combo.length <= 5);
     }
 
+    // B) explicit ✕ remove + drag reorder
     function renderCombo(){
       comboEl.innerHTML = '';
       combo.forEach((mv, i)=>{
-        const b = DOC.createElement('div');
-        b.className = 'fp-chip';
-        b.dataset.idx = String(i);
-        b.innerHTML = `<span class="t">${pickLabel(mv)}</span><span class="x">✕</span>`;
-        // tap X remove (kid-friendly)
-        b.addEventListener('click', (ev)=>{
-          // if dragging, ignore click
-          if(dragState.active) return;
-          // remove when tapping the chip (simple)
-          const idx = Number(b.dataset.idx);
+        const chip = DOC.createElement('div');
+        chip.className = 'fp-chip';
+        chip.dataset.idx = String(i);
+
+        const t = DOC.createElement('span');
+        t.className = 't';
+        t.textContent = pickLabel(mv);
+
+        const x = DOC.createElement('button');
+        x.type = 'button';
+        x.className = 'x';
+        x.textContent = '✕';
+        x.style.border = '0';
+        x.style.background = 'transparent';
+        x.style.color = 'var(--muted)';
+        x.style.fontWeight = '1000';
+        x.style.cursor = 'pointer';
+
+        x.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          const idx = Number(chip.dataset.idx);
           if(Number.isFinite(idx)){
-            combo.splice(idx, 1);
+            const removed = combo.splice(idx, 1)[0];
             renderCombo(); setCount();
-            log.push('combo_remove', { idx, move: mv, combo: combo.slice() });
+            log.push('combo_remove', { idx, move: removed, combo: combo.slice() });
           }
         });
 
-        // B) pointer drag reorder
-        b.addEventListener('pointerdown', (ev)=>{
-          // long press not required; start drag immediately
-          dragState.active = true;
-          dragState.idx = Number(b.dataset.idx);
-          dragState.el = b;
-          dragState.pointerId = ev.pointerId;
-          b.classList.add('fp-dragging');
-          b.setPointerCapture(ev.pointerId);
-          log.push('drag_start', { idx: dragState.idx, move: mv });
+        chip.appendChild(t);
+        chip.appendChild(x);
 
-          // prevent scroll while dragging
+        chip.addEventListener('pointerdown', (ev)=>{
+          if(ev.target === x) return;
+          dragState.active = true;
+          dragState.idx = Number(chip.dataset.idx);
+          dragState.el = chip;
+          dragState.pointerId = ev.pointerId;
+
+          chip.classList.add('fp-dragging');
+          chip.setPointerCapture(ev.pointerId);
+
+          log.push('drag_start', { idx: dragState.idx, move: mv });
           ev.preventDefault();
         });
 
-        b.addEventListener('pointermove', (ev)=>{
-          if(!dragState.active || dragState.el !== b || dragState.pointerId !== ev.pointerId) return;
+        chip.addEventListener('pointermove', (ev)=>{
+          if(!dragState.active || dragState.el !== chip || dragState.pointerId !== ev.pointerId) return;
 
-          // detect target index by elementFromPoint
           const el = DOC.elementFromPoint(ev.clientX, ev.clientY);
-          const chip = el ? el.closest('.fp-chip') : null;
-          if(!chip || chip === b) return;
+          const other = el ? el.closest('.fp-chip') : null;
+          if(!other || other === chip) return;
 
           const from = dragState.idx;
-          const to = Number(chip.dataset.idx);
+          const to = Number(other.dataset.idx);
           if(!Number.isFinite(to) || to === from) return;
 
-          // reorder array
           const item = combo.splice(from, 1)[0];
           combo.splice(to, 0, item);
           dragState.idx = to;
@@ -253,20 +430,20 @@
           log.push('drag_reorder', { from, to, combo: combo.slice() });
         });
 
-        const endDrag = (ev)=>{
-          if(!dragState.active || dragState.el !== b) return;
+        const endDrag = ()=>{
+          if(!dragState.active || dragState.el !== chip) return;
           dragState.active = false;
           dragState.pointerId = null;
           dragState.idx = -1;
           dragState.el = null;
-          b.classList.remove('fp-dragging');
+          chip.classList.remove('fp-dragging');
           log.push('drag_end', { combo: combo.slice() });
         };
 
-        b.addEventListener('pointerup', endDrag);
-        b.addEventListener('pointercancel', endDrag);
+        chip.addEventListener('pointerup', endDrag);
+        chip.addEventListener('pointercancel', endDrag);
 
-        comboEl.appendChild(b);
+        comboEl.appendChild(chip);
       });
     }
 
@@ -284,148 +461,202 @@
     }
 
     function showBuild(){
-      viewBuild.classList.remove('fp-hidden');
-      viewRun.classList.add('fp-hidden');
-      viewSum.classList.add('fp-hidden');
+      viewBuild?.classList.remove('fp-hidden');
+      viewPractice?.classList.add('fp-hidden');
+      viewRun?.classList.add('fp-hidden');
+      viewSum?.classList.add('fp-hidden');
       wrap.dataset.state = 'build';
     }
 
+    function showPractice(){
+      viewBuild?.classList.add('fp-hidden');
+      viewPractice?.classList.remove('fp-hidden');
+      viewRun?.classList.add('fp-hidden');
+      viewSum?.classList.add('fp-hidden');
+      wrap.dataset.state = 'practice';
+    }
+
     function showRun(){
-      viewBuild.classList.add('fp-hidden');
-      viewRun.classList.remove('fp-hidden');
-      viewSum.classList.add('fp-hidden');
+      viewBuild?.classList.add('fp-hidden');
+      viewPractice?.classList.add('fp-hidden');
+      viewRun?.classList.remove('fp-hidden');
+      viewSum?.classList.add('fp-hidden');
       wrap.dataset.state = 'run';
     }
 
     function showSummary(){
-      viewBuild.classList.add('fp-hidden');
-      viewRun.classList.add('fp-hidden');
-      viewSum.classList.remove('fp-hidden');
+      viewBuild?.classList.add('fp-hidden');
+      viewPractice?.classList.add('fp-hidden');
+      viewRun?.classList.add('fp-hidden');
+      viewSum?.classList.remove('fp-hidden');
       wrap.dataset.state = 'summary';
     }
 
     function setStage(kind){
-      targetEl.classList.add('fp-hidden');
-      centerEl.classList.add('fp-hidden');
-      if(centerRingEl) centerRingEl.classList.add('fp-hidden');
-      actbarEl.classList.add('fp-hidden');
+      targetEl?.classList.add('fp-hidden');
+      centerEl?.classList.add('fp-hidden');
+      centerRingEl?.classList.add('fp-hidden');
+      actbarEl?.classList.add('fp-hidden');
 
-      if(kind === 'punch') targetEl.classList.remove('fp-hidden');
+      if(kind === 'punch') targetEl?.classList.remove('fp-hidden');
       if(kind === 'balance'){
-        if(centerRingEl) centerRingEl.classList.remove('fp-hidden');
-        centerEl.classList.remove('fp-hidden');
+        centerRingEl?.classList.remove('fp-hidden');
+        centerEl?.classList.remove('fp-hidden');
       }
-      if(kind === 'jump' || kind === 'duck') actbarEl.classList.remove('fp-hidden');
+      if(kind === 'jump' || kind === 'duck') actbarEl?.classList.remove('fp-hidden');
     }
 
     function moveTargetRandom(){
-      const stage = stageEl;
-      if(!stage) return;
-      const r = stage.getBoundingClientRect();
+      if(!stageEl || !targetEl) return;
+      const r = stageEl.getBoundingClientRect();
       const pad = 30;
       const w = Math.min(180, r.width * 0.4);
       const h = w;
       const x = pad + rng() * (r.width - pad*2 - w);
       const y = 110 + rng() * (r.height - 160 - h);
       targetEl.style.left = (x + w/2) + 'px';
-      targetEl.style.top = (y + h/2) + 'px';
+      targetEl.style.top  = (y + h/2) + 'px';
     }
 
-    // A) easier balance: accept "hold finger on stage" as continuous OK,
-    // plus aim assist via lockPx when using shoot events
-    function hitTestShoot(ev, lockOverride){
-      const d = ev?.detail || {};
-      const x = Number(d.x), y = Number(d.y);
-      if(!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    // =========================
+    // PRACTICE 15s (3)
+    // =========================
+    let practiceTimer = null;
+    let practiceLeft = 15;
 
-      // Punch
-      if(!targetEl.classList.contains('fp-hidden')){
-        const tr = targetEl.getBoundingClientRect();
-        const lock = clamp(Number(lockOverride ?? d.lockPx ?? 0), 0, 140);
-        return (
-          x >= (tr.left - lock) && x <= (tr.right + lock) &&
-          y >= (tr.top - lock) && y <= (tr.bottom + lock)
-        );
+    function startPracticeThenRun(){
+      if(!viewPractice || !practiceTargetEl){
+        // fallback: if practice view not present, start real run immediately
+        startRunCore();
+        return;
       }
 
-      // Balance
-      if(!centerEl.classList.contains('fp-hidden')){
-        const cr = centerEl.getBoundingClientRect();
-        const cx = (cr.left + cr.right)/2, cy = (cr.top + cr.bottom)/2;
-        const lock = clamp(Number(lockOverride ?? d.lockPx ?? 0), 0, 180);
-        const dx = x - cx, dy = y - cy;
-        return (dx*dx + dy*dy) <= (lock*lock);
+      showPractice();
+      practiceLeft = 15;
+      if(practiceLeftEl) practiceLeftEl.textContent = String(practiceLeft);
+
+      if(practiceHintEl){
+        practiceHintEl.textContent = 'ลอง “ต่อย” โดยแตะที่เป้า หรือเล็งกากบาทแล้วแตะจอ';
       }
-      return false;
-    }
 
-    function startRun(){
-      if(combo.length < 3) return;
-
-      const steps = combo.map((mv)=>({ move: mv, label: pickLabel(mv), spec: stepSpec(mv) }));
-      run = {
-        steps,
-        i: 0,
-        score: 0,
-        pass: 0,
-        t0: now(),
-        stepT0: now(),
-        stepDone: false,
-        // A) balance hold tracking
-        balanceHoldStart: null,
-        balancePressing: false,
-        // duck hold
-        duckHoldStart: null,
+      const box = viewPractice.querySelector('.fp-practiceStage');
+      const movePracticeTarget = ()=>{
+        if(!box || !practiceTargetEl) return;
+        const r = box.getBoundingClientRect();
+        const w = Math.min(180, r.width*0.45);
+        const pad = 20;
+        const x = pad + rng()*(r.width - pad*2 - w);
+        const y = 20 + rng()*(r.height - 60 - w);
+        practiceTargetEl.style.left = (x + w/2) + 'px';
+        practiceTargetEl.style.top  = (y + w/2) + 'px';
       };
 
-      stepTotEl.textContent = String(steps.length);
-      scoreEl.textContent = '0';
-      timeEl.textContent = '0.0';
+      const onHit = (x,y)=>{
+        sfx('ok');
+        fxPop(fxLayer, '✅ เยี่ยม!', x||WIN.innerWidth*0.5, y||WIN.innerHeight*0.38);
+        movePracticeTarget();
+      };
 
-      // C) rubric at start (based on created combo)
-      const rb = rubricCreate(combo);
-      log.push('rubric', Object.assign({ combo: combo.slice() }, rb));
-      emit('hha:session', { kind:'fitness_planner', action:'rubric', ...rb });
+      const onTap = (ev)=>{
+        onHit(ev?.clientX, ev?.clientY);
+      };
 
-      log.push('run_start', { combo: combo.slice(), steps: steps.map(s=>s.move) });
-      emit('hha:session', { kind:'fitness_planner', action:'start', combo: combo.slice(), seed: ctx.seed>>>0 });
+      const onShootPractice = (ev)=>{
+        if(!practiceTargetEl) return;
+        const d = ev?.detail || {};
+        const x = Number(d.x), y = Number(d.y);
+        if(!Number.isFinite(x) || !Number.isFinite(y)) return;
 
-      showRun();
-      nextStep();
-      loop();
+        const tr = practiceTargetEl.getBoundingClientRect();
+        const lock = clamp(Number(d.lockPx||34), 0, 120);
+        const ok = x >= tr.left-lock && x <= tr.right+lock && y >= tr.top-lock && y <= tr.bottom+lock;
+        if(ok) onHit(x,y);
+      };
+
+      function cleanup(){
+        try{ practiceTargetEl.removeEventListener('pointerdown', onTap); }catch(e){}
+        WIN.removeEventListener('hha:shoot', onShootPractice);
+        if(practiceTimer) clearInterval(practiceTimer);
+        practiceTimer = null;
+      }
+
+      practiceTargetEl.addEventListener('pointerdown', onTap);
+      WIN.addEventListener('hha:shoot', onShootPractice);
+
+      btnSkipPractice?.addEventListener('click', ()=>{
+        cleanup();
+        startRunCore();
+      }, { once:true });
+
+      movePracticeTarget();
+      log.push('practice_start', { sec: 15 });
+
+      practiceTimer = setInterval(()=>{
+        practiceLeft -= 1;
+        if(practiceLeftEl) practiceLeftEl.textContent = String(practiceLeft);
+        if(practiceLeft <= 0){
+          cleanup();
+          log.push('practice_end', {});
+          startRunCore();
+        }
+      }, 1000);
     }
 
-    function endRun(){
-      const dt = (now() - run.t0) / 1000;
-      sumScore.textContent = String(run.score);
-      sumPass.textContent = String(run.pass);
-      sumTot.textContent = String(run.steps.length);
-      sumTime.textContent = dt.toFixed(1);
+    // =========================
+    // RUN CORE
+    // =========================
+    let rafId = 0;
 
-      const rb = rubricCreate(combo);
+    function stopLoop(){
+      if(rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
 
-      const last = {
-        game: 'fitness_planner',
-        ts: Date.now(),
-        pid: ctx.pid || '',
-        studyId: ctx.studyId || '',
-        phase: ctx.phase || '',
-        conditionGroup: ctx.conditionGroup || '',
-        view: ctx.view || '',
-        seed: ctx.seed >>> 0,
-        combo: combo.slice(),
-        score: run.score,
-        pass: run.pass,
-        total: run.steps.length,
-        timeSec: Number(dt.toFixed(2)),
-        rubric: rb
-      };
-      try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(last)); }catch(e){}
+    function loop(){
+      if(!run) return;
+      const t = nowMs();
 
-      log.push('run_end', last);
-      log.flush('run_end');
+      const totalSec = (t - run.t0) / 1000;
+      timeEl.textContent = totalSec.toFixed(1);
 
-      showSummary();
+      const st = run.steps[run.i];
+      if(!st){
+        rafId = requestAnimationFrame(loop);
+        return;
+      }
+      const spec = st.spec;
+
+      const elapsed = t - run.stepT0;
+      const p = clamp(elapsed / spec.ttlMs, 0, 1);
+      barEl.style.width = (p*100).toFixed(1) + '%';
+
+      // A) balance: press/hold-to-count
+      if(spec.kind === 'balance'){
+        if(run.balancePressing){
+          if(run.balanceHoldStart == null){
+            run.balanceHoldStart = t;
+            log.push('balance_hold_start', { idx: run.i, mode:'press' });
+          }
+          if((t - run.balanceHoldStart) >= spec.holdMs){
+            finishStep(true, 'balance_hold_press_ok');
+          }
+        }
+      }
+
+      // duck hold
+      if(spec.kind === 'duck'){
+        if(run.duckHoldStart != null){
+          if((t - run.duckHoldStart) >= spec.holdMs){
+            finishStep(true, 'duck_hold_ok');
+          }
+        }
+      }
+
+      if(!run.stepDone && elapsed >= spec.ttlMs){
+        finishStep(false, 'timeout');
+      }
+
+      rafId = requestAnimationFrame(loop);
     }
 
     function nextStep(){
@@ -449,7 +680,7 @@
       barEl.style.width = '0%';
 
       if(spec.kind === 'punch') moveTargetRandom();
-      run.stepT0 = now();
+      run.stepT0 = nowMs();
 
       log.push('step_start', { idx: run.i, move: st.move, kind: spec.kind });
     }
@@ -460,12 +691,18 @@
 
       const st = run.steps[run.i];
       const spec = st.spec;
-      const dt = now() - run.stepT0;
+      const dt = nowMs() - run.stepT0;
 
       if(ok){
         run.pass += 1;
         run.score += spec.score;
+        sfx('ok');
+        fxPop(fxLayer, `✅ +${spec.score}`, WIN.innerWidth*0.5, WIN.innerHeight*0.32);
+      }else{
+        sfx('bad');
+        fxPop(fxLayer, `⏱️ ลองใหม่!`, WIN.innerWidth*0.5, WIN.innerHeight*0.32);
       }
+
       scoreEl.textContent = String(run.score);
 
       log.push('step_end', {
@@ -480,82 +717,139 @@
       setTimeout(nextStep, 360);
     }
 
-    function loop(){
-      if(!run) return;
-      const t = now();
-      const totalSec = (t - run.t0) / 1000;
-      timeEl.textContent = totalSec.toFixed(1);
+    function startRunCore(){
+      if(combo.length < 3) return;
 
-      const st = run.steps[run.i];
-      if(!st){ requestAnimationFrame(loop); return; }
-      const spec = st.spec;
+      const steps = combo.map((mv)=>({ move: mv, label: pickLabel(mv), spec: stepSpec(mv) }));
+      run = {
+        steps,
+        i: 0,
+        score: 0,
+        pass: 0,
+        t0: nowMs(),
+        stepT0: nowMs(),
+        stepDone: false,
+        balanceHoldStart: null,
+        balancePressing: false,
+        duckHoldStart: null,
+      };
 
-      const elapsed = t - run.stepT0;
-      const p = clamp(elapsed / spec.ttlMs, 0, 1);
-      barEl.style.width = (p*100).toFixed(1) + '%';
+      stepTotEl.textContent = String(steps.length);
+      scoreEl.textContent = '0';
+      timeEl.textContent = '0.0';
 
-      // A) Balance: if pressing, count hold (very Grade-5 friendly)
-      if(spec.kind === 'balance'){
-        if(run.balancePressing){
-          if(run.balanceHoldStart == null){
-            run.balanceHoldStart = t;
-            log.push('balance_hold_start', { idx: run.i, mode:'press' });
-          }
-          if((t - run.balanceHoldStart) >= spec.holdMs){
-            finishStep(true, 'balance_hold_press_ok');
-          }
-        }
-      }
+      // C) rubric at run start
+      const rb = rubricCreate(combo);
+      log.push('rubric', Object.assign({ combo: combo.slice() }, rb));
+      emit('hha:session', { kind:'fitness_planner', action:'rubric', ...rb });
 
-      // Duck hold
-      if(spec.kind === 'duck'){
-        if(run.duckHoldStart != null){
-          if((t - run.duckHoldStart) >= spec.holdMs){
-            finishStep(true, 'duck_hold_ok');
-          }
-        }
-      }
+      log.push('run_start', { combo: combo.slice(), steps: steps.map(s=>s.move) });
+      emit('hha:session', { kind:'fitness_planner', action:'start', combo: combo.slice(), seed: ctx.seed>>>0 });
 
-      if(!run.stepDone && elapsed >= spec.ttlMs){
-        finishStep(false, 'timeout');
-      }
-
-      requestAnimationFrame(loop);
+      showRun();
+      nextStep();
+      stopLoop();
+      loop();
     }
 
-    // ----- input handlers -----
-    function onPunchHit(){ finishStep(true, 'hit'); }
+    function endRun(){
+      if(!run) return;
 
-    function onJump(){ finishStep(true, 'jump_ok'); }
+      stopLoop();
 
-    function onDuckDown(){
+      const dt = (nowMs() - run.t0) / 1000;
+      sumScore.textContent = String(run.score);
+      sumPass.textContent = String(run.pass);
+      sumTot.textContent = String(run.steps.length);
+      sumTime.textContent = dt.toFixed(1);
+
+      const rb = rubricCreate(combo);
+      if(sumCreate) sumCreate.textContent = String(rb.createScore);
+      log.push('rubric_summary', rb);
+
+      const last = {
+        game: 'fitness_planner',
+        ts: Date.now(),
+        pid: ctx.pid || '',
+        studyId: ctx.studyId || '',
+        phase: ctx.phase || '',
+        conditionGroup: ctx.conditionGroup || '',
+        view: ctx.view || '',
+        seed: ctx.seed >>> 0,
+        combo: combo.slice(),
+        score: run.score,
+        pass: run.pass,
+        total: run.steps.length,
+        timeSec: Number(dt.toFixed(2)),
+        rubric: rb
+      };
+
+      try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(last)); }catch(e){}
+
+      // 1) badges
+      const b = computeBadges(last);
+      renderBadges(badgesEl, b);
+      log.push('badges', { items: b });
+
+      log.push('run_end', last);
+      log.flush('run_end');
+
+      sfx('end');
+      fxPop(fxLayer, '🏁 จบแล้ว!', WIN.innerWidth*0.5, WIN.innerHeight*0.28);
+
+      showSummary();
+    }
+
+    // =========================
+    // INPUTS
+    // =========================
+
+    // Direct tap/click on target for punch
+    targetEl?.addEventListener('pointerdown', (ev)=>{
+      if(!run) return;
+      const st = run.steps[run.i]; if(!st) return;
+      if(st.spec.kind === 'punch') finishStep(true, 'hit_ptr');
+    });
+
+    // Jump
+    btnJump?.addEventListener('click', ()=>{
+      if(!run) return;
+      const st = run.steps[run.i]; if(!st) return;
+      if(st.spec.kind !== 'jump') return;
+      finishStep(true, 'jump_ok');
+    });
+
+    // Duck hold
+    btnDuck?.addEventListener('pointerdown', ()=>{
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'duck') return;
-      run.duckHoldStart = now();
+      run.duckHoldStart = nowMs();
       log.push('duck_hold_start', { idx: run.i });
-    }
-
-    function onDuckUp(){
+    });
+    function duckUp(){
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'duck') return;
       if(run.duckHoldStart == null) return;
-      const held = now() - run.duckHoldStart;
+      const held = nowMs() - run.duckHoldStart;
       log.push('duck_hold_end', { idx: run.i, heldMs: Math.round(held) });
       if(held < st.spec.holdMs * 0.6){
         instrEl.textContent = `กดค้าง DUCK ให้นานขึ้นอีกนิดนะ`;
       }
     }
+    btnDuck?.addEventListener('pointerup', duckUp);
+    btnDuck?.addEventListener('pointercancel', duckUp);
+    btnDuck?.addEventListener('pointerleave', duckUp);
 
-    // A) balance press-to-count: press anywhere on stage to hold
-    function onStageDown(){
+    // A) Balance press/hold: press anywhere on stage counts
+    function stageDown(){
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'balance') return;
       run.balancePressing = true;
     }
-    function onStageUp(){
+    function stageUp(){
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       if(st.spec.kind !== 'balance') return;
@@ -565,72 +859,44 @@
       run.balancePressing = false;
       run.balanceHoldStart = null;
     }
+    stageEl?.addEventListener('pointerdown', stageDown);
+    stageEl?.addEventListener('pointerup', stageUp);
+    stageEl?.addEventListener('pointercancel', stageUp);
+    stageEl?.addEventListener('pointerleave', stageUp);
 
+    // Shoot events from vr-ui.js
     function onShoot(ev){
       if(!run) return;
       const st = run.steps[run.i]; if(!st) return;
       const spec = st.spec;
 
-      // Balance (optional): shoot-based aim assist (still works), but press mode is primary
-      if(spec.kind === 'balance'){
-        const ok = hitTestShoot(ev, spec.lockPx);
-        if(ok){
-          // if not pressing, allow shoot to start hold too (bonus)
-          if(!run.balancePressing){
-            if(run.balanceHoldStart == null){
-              run.balanceHoldStart = now();
-              log.push('balance_hold_start', { idx: run.i, mode:'shoot' });
-            }
-            // keep holding as long as repeated shoot events remain ok
-          }
-        }else{
-          if(!run.balancePressing){
-            run.balanceHoldStart = null;
-          }
-        }
-        return;
-      }
-
-      // Punch
-      if(spec.kind === 'punch'){
-        const ok = hitTestShoot(ev, 0);
+      // Punch: shoot must hit target rect
+      if(spec.kind === 'punch' && targetEl){
+        const ok = hitTestShootForPunch(targetEl, ev, 0);
         log.push('shot', { idx: run.i, ok: !!ok, source: ev?.detail?.source || '' });
-        if(ok) onPunchHit();
+        if(ok) finishStep(true, 'hit_shoot');
         return;
       }
+
+      // Balance: optional aim-based hold (bonus). Press mode is primary.
+      if(spec.kind === 'balance' && centerEl){
+        const ok = hitTestShootForBalance(centerEl, ev, spec.lockPx);
+        if(ok && !run.balancePressing){
+          // if user keeps shooting on center, it behaves like hold
+          if(run.balanceHoldStart == null){
+            run.balanceHoldStart = nowMs();
+            log.push('balance_hold_start', { idx: run.i, mode:'shoot' });
+          }
+        }else if(!ok && !run.balancePressing){
+          run.balanceHoldStart = null;
+        }
+      }
     }
-
-    // direct tap/click on target
-    targetEl.addEventListener('pointerdown', ()=>{
-      if(!run) return;
-      const st = run.steps[run.i]; if(!st) return;
-      if(st.spec.kind === 'punch') onPunchHit();
-    });
-
-    btnJump.addEventListener('click', ()=>{
-      if(!run) return;
-      const st = run.steps[run.i]; if(!st) return;
-      if(st.spec.kind !== 'jump') return;
-      onJump();
-    });
-
-    btnDuck.addEventListener('pointerdown', onDuckDown);
-    btnDuck.addEventListener('pointerup', onDuckUp);
-    btnDuck.addEventListener('pointercancel', onDuckUp);
-    btnDuck.addEventListener('pointerleave', onDuckUp);
-
-    // Stage press for balance (A)
-    if(stageEl){
-      stageEl.addEventListener('pointerdown', onStageDown);
-      stageEl.addEventListener('pointerup', onStageUp);
-      stageEl.addEventListener('pointercancel', onStageUp);
-      stageEl.addEventListener('pointerleave', onStageUp);
-    }
-
-    // Listen to vr-ui.js shoot
     WIN.addEventListener('hha:shoot', onShoot);
 
-    // Build palette clicks
+    // =========================
+    // BUILD UI
+    // =========================
     $$('.fp-card').forEach((btn)=>{
       btn.addEventListener('click', ()=>{
         const mv = (btn.dataset.move || '').trim();
@@ -639,11 +905,18 @@
       });
     });
 
-    btnClear.addEventListener('click', clearCombo);
-    btnStart.addEventListener('click', startRun);
+    btnClear?.addEventListener('click', clearCombo);
 
-    // Summary: save reflection
-    btnSave.addEventListener('click', async ()=>{
+    // Start => Practice => Run
+    btnStart?.addEventListener('click', ()=>{
+      if(combo.length < 3) return;
+      startPracticeThenRun();
+    });
+
+    // =========================
+    // SUMMARY UI
+    // =========================
+    btnSave?.addEventListener('click', async ()=>{
       const diff = (DOC.querySelector('input[name="diff"]:checked') || {}).value || 'ok';
       log.push('reflect', { diff });
       emit('hha:session', { kind:'fitness_planner', action:'reflect', diff });
@@ -665,43 +938,36 @@
       }, 1200);
     });
 
-    // C) copy JSON to clipboard
-    if(btnCopy){
-      btnCopy.addEventListener('click', async ()=>{
-        let txt = '';
-        try{
-          const s = localStorage.getItem('HHA_LAST_SUMMARY') || '';
-          txt = s || '';
-        }catch(e){ txt = ''; }
+    // Copy JSON
+    btnCopy?.addEventListener('click', async ()=>{
+      let txt = '';
+      try{ txt = localStorage.getItem('HHA_LAST_SUMMARY') || ''; }catch(e){ txt = ''; }
 
-        if(!txt){
-          btnCopy.textContent = 'ยังไม่มีผลให้คัดลอก';
-          setTimeout(()=>btnCopy.textContent='คัดลอกผล (JSON)', 900);
-          return;
-        }
-
-        try{
-          await navigator.clipboard.writeText(txt);
-          log.push('copy_json', { ok:true });
-          btnCopy.textContent = 'คัดลอกแล้ว ✅';
-        }catch(e){
-          // fallback: prompt
-          try{ WIN.prompt('คัดลอกผล (JSON):', txt); }catch(_){}
-          log.push('copy_json', { ok:false });
-          btnCopy.textContent = 'คัดลอกด้วยหน้าต่าง ✅';
-        }
+      if(!txt){
+        btnCopy.textContent = 'ยังไม่มีผลให้คัดลอก';
         setTimeout(()=>btnCopy.textContent='คัดลอกผล (JSON)', 900);
-      });
-    }
+        return;
+      }
 
-    // Summary: retry
-    btnRetry.addEventListener('click', ()=>{
+      try{
+        await navigator.clipboard.writeText(txt);
+        log.push('copy_json', { ok:true });
+        btnCopy.textContent = 'คัดลอกแล้ว ✅';
+      }catch(e){
+        try{ WIN.prompt('คัดลอกผล (JSON):', txt); }catch(_){}
+        log.push('copy_json', { ok:false });
+        btnCopy.textContent = 'คัดลอกด้วยหน้าต่าง ✅';
+      }
+      setTimeout(()=>btnCopy.textContent='คัดลอกผล (JSON)', 900);
+    });
+
+    btnRetry?.addEventListener('click', ()=>{
       log.push('retry', { combo: combo.slice() });
+      run = null;
       showBuild();
     });
 
-    // Back hub: flush before leaving
-    backHub.addEventListener('click', async ()=>{
+    backHub?.addEventListener('click', async ()=>{
       try{
         log.push('back_hub', {});
         await log.flush('back_hub');
@@ -709,7 +975,7 @@
       unHarden && unHarden();
     });
 
-    // init UI
+    // Init
     showBuild();
     setCount();
     renderCombo();
