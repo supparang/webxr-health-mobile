@@ -1,8 +1,11 @@
 // === /herohealth/vr-groups/effects-pack.js ===
-// GroupsVR Effects Pack — PRODUCTION (SAFE)
-// ✅ Hooks: listens to 'groups:hit' => pop/burst effects
-// ✅ Uses window.Particles if available, else safe DOM fallback
-// ✅ Self-test: add ?selftest=1 to see "FX READY" + demo pings
+// GroupsVR Effects Pack — PRODUCTION (PATCH v20260208b)
+// ✅ Listens: 'groups:hit'  => { kind, x, y, good, miss }
+// ✅ Kinds: hit_good | hit_bad | shot_miss | timeout_miss
+// ✅ Uses particles.js if present (window.HHA_Particles) else DOM fallback
+// ✅ Rate-limit + cleanup (mobile safe)
+// API: window.GroupsVR.EffectsPack.init({ layerEl }), .burst(kind,x,y), .destroy()
+
 (function(){
   'use strict';
 
@@ -10,220 +13,266 @@
   const DOC = document;
 
   WIN.GroupsVR = WIN.GroupsVR || {};
-  const NS = (WIN.GroupsVR.EffectsPack = WIN.GroupsVR.EffectsPack || {});
 
-  let _layerEl = null;
-  let _ready = false;
-  let _installed = false;
-  let _fallbackLayer = null;
-  let _selftest = false;
+  const S = {
+    inited:false,
+    layerEl:null,
+    root:null,
+    lastAt:0,
+    // throttle per-kind (ms)
+    lastKindAt: Object.create(null),
+    // counts
+    active:0,
+    maxActive: 22,
+    // config
+    cfg:{
+      enabled:true,
+      throttleMs: 26,
+      perKindThrottle:{
+        hit_good: 14,
+        hit_bad: 22,
+        shot_miss: 30,
+        timeout_miss: 46
+      }
+    }
+  };
 
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
   const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
 
-  function ensureFallbackLayer(){
-    if(_fallbackLayer && DOC.body.contains(_fallbackLayer)) return _fallbackLayer;
-    const d = DOC.createElement('div');
-    d.id = 'hha-fx-fallback';
-    d.style.cssText = [
-      'position:fixed','inset:0','pointer-events:none','z-index:54',
-      'contain:layout style paint'
-    ].join(';');
-    DOC.body.appendChild(d);
-    _fallbackLayer = d;
-    return d;
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
   }
 
-  function safeLayer(){
-    return _layerEl || DOC.getElementById('playLayer') || DOC.body;
+  function getView(){
+    const v = String(qs('view','mobile')||'mobile').toLowerCase();
+    return v;
   }
 
-  // --------- Fallback FX (DOM) ----------
-  function popDot(x,y, tone){
-    const L = ensureFallbackLayer();
-    const el = DOC.createElement('div');
-    const s = (tone==='good') ? 'rgba(34,197,94,.95)' :
-              (tone==='bad')  ? 'rgba(239,68,68,.95)' :
-              (tone==='warn') ? 'rgba(245,158,11,.95)' :
-                               'rgba(229,231,235,.95)';
-
-    const r = 7;
-    el.style.cssText = [
-      'position:fixed',
-      `left:${Math.round(x-r)}px`,
-      `top:${Math.round(y-r)}px`,
-      `width:${r*2}px`,
-      `height:${r*2}px`,
-      `border-radius:${r*2}px`,
-      `background:${s}`,
-      'opacity:.0',
-      'transform:scale(.6)',
-      'filter:drop-shadow(0 10px 14px rgba(0,0,0,.28))'
-    ].join(';');
-    L.appendChild(el);
-
-    requestAnimationFrame(()=>{
-      el.style.transition = 'transform 140ms ease, opacity 120ms ease';
-      el.style.opacity = '1';
-      el.style.transform = 'scale(1.25)';
-    });
-
-    setTimeout(()=>{
-      try{
-        el.style.transition = 'transform 220ms ease, opacity 220ms ease';
-        el.style.opacity = '0';
-        el.style.transform = 'scale(.8)';
-      }catch(_){}
-    }, 120);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 430);
+  function ensureRoot(){
+    if (S.root && DOC.body.contains(S.root)) return;
+    const r = DOC.createElement('div');
+    r.id = 'groupsFxRoot';
+    r.style.cssText =
+      'position:fixed; inset:0; pointer-events:none; z-index:60; '+
+      'contain:layout style paint;';
+    S.root = r;
+    DOC.body.appendChild(r);
   }
 
-  function popText(x,y, text, tone){
-    const L = ensureFallbackLayer();
-    const el = DOC.createElement('div');
-    const c = (tone==='good') ? 'rgba(34,197,94,.98)' :
-              (tone==='bad')  ? 'rgba(239,68,68,.98)' :
-              (tone==='warn') ? 'rgba(245,158,11,.98)' :
-                               'rgba(229,231,235,.98)';
-    el.textContent = text;
-    el.style.cssText = [
-      'position:fixed',
-      `left:${Math.round(x)}px`,
-      `top:${Math.round(y)}px`,
-      'transform:translate(-50%,-50%) translateY(6px) scale(.96)',
-      'opacity:0',
-      'font-weight:1100',
-      'font-size:13px',
-      `color:${c}`,
-      'text-shadow:0 10px 24px rgba(0,0,0,.36)',
-      'padding:6px 10px',
-      'border-radius:999px',
-      'background:rgba(2,6,23,.45)',
-      'border:1px solid rgba(148,163,184,.18)',
-      'backdrop-filter:blur(8px)'
-    ].join(';');
-    L.appendChild(el);
-
-    requestAnimationFrame(()=>{
-      el.style.transition = 'transform 160ms ease, opacity 140ms ease';
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%,-50%) translateY(0px) scale(1)';
-    });
-
-    setTimeout(()=>{
-      try{
-        el.style.transition = 'transform 260ms ease, opacity 260ms ease';
-        el.style.opacity = '0';
-        el.style.transform = 'translate(-50%,-50%) translateY(-10px) scale(.98)';
-      }catch(_){}
-    }, 520);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 900);
+  function setLayerEl(el){
+    S.layerEl = el || S.layerEl || DOC.body;
   }
 
-  function burst(x,y, tone){
-    const n = 10;
-    for(let i=0;i<n;i++){
-      const a = (Math.PI*2) * (i/n);
-      const dx = Math.cos(a) * (10 + Math.random()*18);
-      const dy = Math.sin(a) * (10 + Math.random()*18);
-      popDot(x + dx, y + dy, tone);
-    }
-  }
+  function canEmit(kind){
+    if (!S.cfg.enabled) return false;
+    const t = nowMs();
 
-  // --------- Particles wrapper ----------
-  function hasParticles(){
-    return !!(WIN.Particles && (WIN.Particles.popText || WIN.Particles.pop));
-  }
+    // global throttle
+    if ((t - S.lastAt) < S.cfg.throttleMs) return false;
 
-  function fxPop(x,y, text, tone){
-    x = clamp(x, 0, Math.max(320, WIN.innerWidth||360));
-    y = clamp(y, 0, Math.max(480, WIN.innerHeight||640));
-    if(hasParticles()){
-      try{
-        const cls =
-          (tone==='good') ? 'fx-good' :
-          (tone==='bad')  ? 'fx-bad' :
-          (tone==='warn') ? 'fx-warn' : 'fx-neutral';
-        (WIN.Particles.popText || WIN.Particles.pop)(x, y, text, cls);
-        return;
-      }catch(_){}
-    }
-    popText(x,y,text,tone);
-  }
-
-  function fxBurst(x,y, tone){
-    x = clamp(x, 0, Math.max(320, WIN.innerWidth||360));
-    y = clamp(y, 0, Math.max(480, WIN.innerHeight||640));
-    if(hasParticles()){
-      try{
-        if(WIN.Particles.burst) WIN.Particles.burst(x,y,{});
-        else (WIN.Particles.popText || WIN.Particles.pop)(x, y, '✨', 'fx-neutral');
-        return;
-      }catch(_){}
-    }
-    burst(x,y,tone);
-  }
-
-  // --------- Event handler ----------
-  function onHit(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const x = Number(d.x)||0;
-    const y = Number(d.y)||0;
-
-    const kind = String(d.kind||'').toLowerCase();
-    const good = !!d.good;
-    const miss = !!d.miss;
-
-    if(kind === 'hit_good' || (good && !miss)){
-      fxBurst(x,y,'good');
-      fxPop(x,y,'✅','good');
-    }else if(kind === 'hit_bad'){
-      fxBurst(x,y,'bad');
-      fxPop(x,y,'❌','bad');
-    }else if(kind === 'shot_miss'){
-      fxPop(x,y,'⚠️','warn');
-    }else if(kind === 'timeout_miss'){
-      fxPop(x,y,'⌛','warn');
-    }else{
-      fxPop(x,y, good ? '✅' : '⚠️', good ? 'good' : 'warn');
-    }
-  }
-
-  function banner(text){
-    // safe top banner-ish ping
-    const w = (WIN.innerWidth||360);
-    const x = Math.max(26, Math.min(w-26, w/2));
-    const y = 70;
-    fxPop(x,y, text, 'neutral');
-  }
-
-  function installOnce(){
-    if(_installed) return;
-    _installed = true;
-    WIN.addEventListener('groups:hit', onHit, { passive:true });
-  }
-
-  // --------- Public API ----------
-  NS.init = function init(opts={}){
-    _layerEl = opts.layerEl || _layerEl || DOC.getElementById('playLayer') || DOC.body;
-    installOnce();
-
-    _selftest = String(qs('selftest','0')||'0') === '1';
-    _ready = true;
-
-    if(_selftest){
-      setTimeout(()=>{ banner('FX READY'); }, 200);
-      setTimeout(()=>{ fxPop((WIN.innerWidth||360)*0.35, (WIN.innerHeight||640)*0.48, '✅', 'good'); }, 600);
-      setTimeout(()=>{ fxPop((WIN.innerWidth||360)*0.50, (WIN.innerHeight||640)*0.48, '❌', 'bad'); }, 900);
-      setTimeout(()=>{ fxPop((WIN.innerWidth||360)*0.65, (WIN.innerHeight||640)*0.48, '⚠️', 'warn'); }, 1200);
+    // per-kind throttle
+    const pk = S.cfg.perKindThrottle && S.cfg.perKindThrottle[kind];
+    if (pk){
+      const prev = Number(S.lastKindAt[kind]||0);
+      if ((t - prev) < pk) return false;
     }
 
+    S.lastAt = t;
+    S.lastKindAt[kind] = t;
     return true;
-  };
+  }
 
-  NS.isReady = ()=>!!_ready;
+  // -------------------- particles bridge --------------------
+  function particleBurst(kind, x, y){
+    try{
+      const P = WIN.HHA_Particles;
+      if (!P || typeof P.burst !== 'function') return false;
 
+      // tune by kind
+      const view = getView();
+      const scale = (view==='pc') ? 1.05 : (view==='cvr' ? 1.10 : 1.0);
+
+      if (kind === 'hit_good'){
+        P.burst({ x, y, count: Math.round(14*scale), spread: 0.92, speed: 1.15, life: 520, gravity: 0.9 });
+        return true;
+      }
+      if (kind === 'hit_bad'){
+        P.burst({ x, y, count: Math.round(9*scale), spread: 0.70, speed: 0.95, life: 420, gravity: 1.0 });
+        return true;
+      }
+      if (kind === 'shot_miss'){
+        P.burst({ x, y, count: Math.round(6*scale), spread: 0.55, speed: 0.70, life: 340, gravity: 1.1 });
+        return true;
+      }
+      // timeout_miss: “poof / fade” style
+      if (kind === 'timeout_miss'){
+        P.burst({ x, y, count: Math.round(8*scale), spread: 0.35, speed: 0.42, life: 520, gravity: 0.45 });
+        return true;
+      }
+    }catch(_){}
+    return false;
+  }
+
+  // -------------------- DOM fallback FX --------------------
+  function mkRing(x, y, opts){
+    ensureRoot();
+
+    const el = DOC.createElement('div');
+    el.className = 'fx-ring';
+
+    const size = Number(opts.size||46);
+    el.style.cssText =
+      'position:absolute; left:0; top:0; width:'+size+'px; height:'+size+'px; '+
+      'border-radius:999px; border:'+ (opts.border||'2px solid rgba(34,197,94,.85)') +'; '+
+      'transform: translate('+(x-size/2)+'px,'+(y-size/2)+'px) scale(.70); '+
+      'opacity: 0.95; filter: blur(0px);';
+
+    S.root.appendChild(el);
+    S.active++;
+
+    // animate
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 320ms ease, opacity 260ms ease, filter 320ms ease';
+      el.style.transform = 'translate('+(x-size/2)+'px,'+(y-size/2)+'px) scale(1.50)';
+      el.style.opacity = '0';
+      el.style.filter = 'blur(0.6px)';
+    });
+
+    setTimeout(()=>{
+      try{ el.remove(); }catch(_){}
+      S.active = Math.max(0, S.active-1);
+    }, 360);
+  }
+
+  function mkPopText(x, y, text, opts){
+    ensureRoot();
+
+    const el = DOC.createElement('div');
+    el.className = 'fx-pop';
+    el.textContent = text || '';
+
+    const fs = Number(opts.fontSize||18);
+    el.style.cssText =
+      'position:absolute; left:0; top:0; transform: translate('+x+'px,'+y+'px) translate(-50%,-50%) scale(.9); '+
+      'font-weight: 1000; font-size:'+fs+'px; letter-spacing:.2px; '+
+      'color:'+(opts.color||'#e5e7eb')+'; '+
+      'text-shadow: 0 10px 20px rgba(0,0,0,.45); '+
+      'opacity: 0.98;';
+
+    S.root.appendChild(el);
+    S.active++;
+
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 360ms cubic-bezier(.2,.9,.2,1), opacity 280ms ease';
+      el.style.transform = 'translate('+x+'px,'+y+'px) translate(-50%,-70%) scale(1.08)';
+      el.style.opacity = '0';
+    });
+
+    setTimeout(()=>{
+      try{ el.remove(); }catch(_){}
+      S.active = Math.max(0, S.active-1);
+    }, 390);
+  }
+
+  function mkX(x, y){
+    ensureRoot();
+
+    const el = DOC.createElement('div');
+    el.textContent = '✖';
+    el.style.cssText =
+      'position:absolute; left:0; top:0; transform: translate('+x+'px,'+y+'px) translate(-50%,-50%) scale(.9); '+
+      'font-weight: 1000; font-size: 22px; color: rgba(239,68,68,.95); '+
+      'text-shadow: 0 10px 20px rgba(0,0,0,.45); opacity:.96;';
+
+    S.root.appendChild(el);
+    S.active++;
+
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 280ms ease, opacity 220ms ease';
+      el.style.transform = 'translate('+x+'px,'+y+'px) translate(-50%,-65%) scale(1.05)';
+      el.style.opacity = '0';
+    });
+
+    setTimeout(()=>{
+      try{ el.remove(); }catch(_){}
+      S.active = Math.max(0, S.active-1);
+    }, 300);
+  }
+
+  function domBurst(kind, x, y){
+    if (S.active > S.maxActive) return;
+
+    if (kind === 'hit_good'){
+      mkRing(x,y,{ size:50, border:'2px solid rgba(34,197,94,.92)' });
+      mkPopText(x, y-18, '+', { fontSize:18, color:'rgba(34,197,94,.98)' });
+      return;
+    }
+    if (kind === 'hit_bad'){
+      mkRing(x,y,{ size:46, border:'2px solid rgba(245,158,11,.90)' });
+      mkX(x, y-2);
+      return;
+    }
+    if (kind === 'shot_miss'){
+      mkRing(x,y,{ size:44, border:'2px dashed rgba(148,163,184,.60)' });
+      return;
+    }
+    if (kind === 'timeout_miss'){
+      // timeout = “poof fade” (soft ring + text)
+      mkRing(x,y,{ size:56, border:'2px solid rgba(148,163,184,.35)' });
+      mkPopText(x, y-18, 'หมดเวลา', { fontSize:14, color:'rgba(148,163,184,.85)' });
+      return;
+    }
+  }
+
+  function burst(kind, x, y){
+    kind = String(kind||'').toLowerCase();
+    x = Number(x)||0;
+    y = Number(y)||0;
+
+    if (!canEmit(kind)) return false;
+
+    // prefer particles (if present)
+    if (particleBurst(kind, x, y)) return true;
+
+    // fallback DOM fx
+    domBurst(kind, x, y);
+    return true;
+  }
+
+  function onHit(ev){
+    try{
+      const d = ev.detail||{};
+      const kind = String(d.kind||'').toLowerCase();
+      const x = Number(d.x)||0;
+      const y = Number(d.y)||0;
+      burst(kind, x, y);
+    }catch(_){}
+  }
+
+  function init(opts){
+    if (S.inited) return true;
+    S.inited = true;
+
+    ensureRoot();
+    setLayerEl(opts && opts.layerEl);
+
+    // allow disable fx for research if you want (default ON)
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const fx  = String(qs('fx','1')||'1');
+    if (run === 'research' && fx === '0') S.cfg.enabled = false;
+
+    WIN.addEventListener('groups:hit', onHit, { passive:true });
+    return true;
+  }
+
+  function destroy(){
+    try{ WIN.removeEventListener('groups:hit', onHit, { passive:true }); }catch(_){}
+    try{ if (S.root) S.root.remove(); }catch(_){}
+    S.root = null;
+    S.inited = false;
+    S.active = 0;
+  }
+
+  WIN.GroupsVR.EffectsPack = { init, burst, destroy };
 })();
