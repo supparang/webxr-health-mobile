@@ -1,398 +1,164 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (v4.3-std compatible)
-✅ Uses: goodjunk-vr.css
-✅ Boot: goodjunk-vr.boot.js (strict auto view + safe-measure + MANUAL cooldown)
-✅ Engine: goodjunk.safe.js (v4.3-std) imported by boot
-✅ Optional: ai-hooks.js (Pack 1–4)
-✅ Optional: hha-cloud-logger.js (flush-hardened)
-✅ NO MENU / NO view override (boot ignores ?view)
-
-✅ END UX:
-- Show summary first
-- Buttons:
-  1) Cooldown 20s → HUB (primary)
-  2) Play again
-  3) HUB now (hidden in research)
+GoodJunkVR RUN — PRODUCTION (HHA Standard)
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Engine: ./goodjunk-vr.boot.js  (imports goodjunk.safe.js)
+✅ Layers: #gj-layer + #gj-layer-r (cVR)
+✅ HUD: score/time/miss/grade + goal/mini + fever + shield + progress + boss UI
+✅ Gate: if ?gate=1 -> listen hha:end in boot => cooldown => hub
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#020617" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./goodjunk-vr.css" />
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#0b1220"/>
+  <link rel="icon" href="../favicon.ico"/>
 
-  <style>
-    html,body{ overscroll-behavior:none; }
+  <!-- Styles -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
-    /* Hide Hub-now in research mode */
-    body.run-research #btnEndHubNow{ display:none !important; }
-  </style>
+  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot -> hha:shoot) -->
+  <script src="../vr/vr-ui.js"></script>
 </head>
 
-<body class="gj" data-game="goodjunk" data-pack="goodjunk-v4.3-std">
+<body class="view-mobile">
+  <!-- fatal overlay (กันหน้าเงียบเวลา error) -->
+  <pre id="gj-fatal" class="gj-fatal gj-hidden"></pre>
 
-  <!-- ===== TOPBAR ===== -->
-  <header class="gj-topbar" role="banner" aria-label="GoodJunkVR Topbar">
-    <div class="left">
-      <span class="gj-chip" aria-label="Game name">🥗 GoodJunkVR</span>
-      <span class="gj-chip" aria-label="Mode" id="chipMode">PLAY</span>
-      <span class="gj-chip" aria-label="Difficulty" id="chipDiff">NORMAL</span>
+  <!-- ===== ROOT WRAP ===== -->
+  <div id="gj-root" class="gj-root">
+
+    <!-- ===== HUD TOP ===== -->
+    <header class="gj-hud-top" aria-label="HUD">
+      <div class="gj-pill">
+        <span class="gj-pill-badge">Nutrition · GoodJunk</span>
+        <span class="gj-pill-view" id="gj-view">—</span>
+      </div>
+
+      <div class="gj-stats" role="group" aria-label="stats">
+        <div class="gj-stat">
+          <div class="gj-stat-label">SCORE</div>
+          <div class="gj-stat-val" id="hud-score">0</div>
+        </div>
+        <div class="gj-stat">
+          <div class="gj-stat-label">TIME</div>
+          <div class="gj-stat-val" id="hud-time">0</div>
+        </div>
+        <div class="gj-stat">
+          <div class="gj-stat-label">MISS</div>
+          <div class="gj-stat-val" id="hud-miss">0</div>
+        </div>
+        <div class="gj-stat">
+          <div class="gj-stat-label">GRADE</div>
+          <div class="gj-stat-val" id="hud-grade">—</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== HUD MID: GOAL / MINI ===== -->
+    <section class="gj-hud-mid" aria-label="Goals">
+      <div class="gj-card">
+        <div class="gj-card-title">
+          <span class="gj-dot"></span>
+          <span id="hud-goal">—</span>
+        </div>
+        <div class="gj-card-sub" id="goalDesc">—</div>
+
+        <div class="gj-row">
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel">CURRENT</div>
+            <div class="gj-miniVal"><span id="hud-goal-cur">0</span></div>
+          </div>
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel">TARGET</div>
+            <div class="gj-miniVal"><span id="hud-goal-target">0</span></div>
+          </div>
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel">SHIELD</div>
+            <div class="gj-miniVal" id="shieldPills">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gj-card">
+        <div class="gj-card-title">
+          <span class="gj-dot gj-dot2"></span>
+          <span>MINI</span>
+        </div>
+        <div class="gj-card-sub" id="hud-mini">—</div>
+
+        <div class="gj-row">
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel">TIMER</div>
+            <div class="gj-miniVal" id="miniTimer">—</div>
+          </div>
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel">FEVER</div>
+            <div class="gj-miniVal"><span id="feverText">0%</span></div>
+          </div>
+          <div class="gj-miniStat">
+            <div class="gj-miniLabel"> </div>
+            <div class="gj-miniVal"></div>
+          </div>
+        </div>
+
+        <div class="gj-feverBar" aria-label="fever bar">
+          <div class="gj-feverFill" id="feverFill" style="width:0%"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PROGRESS (BOTTOM) ===== -->
+    <div class="gj-progress" aria-label="progress">
+      <div class="gj-progress-track">
+        <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+      </div>
     </div>
 
-    <div class="right">
-      <button class="gj-btn" id="btnMissions" type="button" aria-label="Show missions">ภารกิจ</button>
-      <button class="gj-btn" id="btnHideHud" type="button" aria-label="Toggle HUD">ซ่อน HUD</button>
-      <button class="gj-btn primary" id="btnBackHub" type="button" aria-label="Back to Hub">กลับ HUB</button>
-    </div>
-  </header>
-
-  <!-- ===== PROGRESS BAR ===== -->
-  <div class="gj-progress" aria-label="Progress">
-    <div class="gj-progress-fill" id="gjProgressFill"></div>
-  </div>
-
-  <!-- ===== HUD TOP ===== -->
-  <section class="gj-hud-top" id="hud" aria-label="HUD Top">
-    <div class="hud-row">
-      <div class="hud-pill">
-        <div class="hud-label">SCORE</div>
-        <div class="hud-value" id="hud-score">0</div>
+    <!-- ===== BOSS UI (optional) ===== -->
+    <section id="bossBar" class="gj-boss" aria-hidden="true">
+      <div class="gj-boss-head">
+        <div class="gj-boss-title">BOSS PHASE</div>
+        <div class="gj-boss-hint" id="bossHint">—</div>
       </div>
-      <div class="hud-pill warn">
-        <div class="hud-label">TIME</div>
-        <div class="hud-value" id="hud-time">—</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">MISS</div>
-        <div class="hud-value" id="hud-miss">0</div>
-      </div>
-      <div class="hud-pill grade">
-        <div class="hud-label">GRADE</div>
-        <div class="hud-value" id="hud-grade">—</div>
-      </div>
-      <div class="hud-pill">
-        <div class="hud-label">SHIELD</div>
-        <div class="hud-value" id="shieldPills">—</div>
-      </div>
-    </div>
-
-    <!-- Boss bar -->
-    <div class="gj-boss" id="bossBar" aria-hidden="true">
-      <div class="gj-boss-title">👾 BOSS</div>
-      <div class="gj-boss-meter">
+      <div class="gj-boss-track">
         <div class="gj-boss-fill" id="bossFill" style="width:100%"></div>
       </div>
-      <div class="gj-boss-hint" id="bossHint">—</div>
-    </div>
+    </section>
 
-    <!-- Quests -->
-    <div class="quest-row" aria-label="Quests">
-      <div class="quest-card">
-        <div class="q-title">GOAL: <span id="hud-goal">—</span></div>
-        <div class="q-desc" id="goalDesc">—</div>
-        <div class="q-bar">
-          <div class="q-num"><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">0</span></div>
-          <div class="q-hint">ทำให้ผ่านเพื่อปลดล็อกภารกิจถัดไป</div>
-        </div>
+    <!-- ===== PLAYFIELD ===== -->
+    <main id="gj-playfield" class="gj-playfield" aria-label="playfield">
+      <!-- LAYER (main) -->
+      <div id="gj-layer" class="gj-layer" aria-label="layer-left"></div>
+
+      <!-- LAYER (right eye for cVR) -->
+      <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-label="layer-right"></div>
+    </main>
+
+    <!-- ===== LOW TIME OVERLAY ===== -->
+    <aside id="lowTimeOverlay" class="gj-lowtime" aria-hidden="true">
+      <div class="gj-lowtime-inner">
+        <div class="gj-lowtime-title">TIME</div>
+        <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
       </div>
+    </aside>
 
-      <div class="quest-card mini">
-        <div class="q-title">MINI</div>
-        <div class="q-desc" id="hud-mini">—</div>
-        <div class="q-bar">
-          <div class="q-num" id="miniTimer">—</div>
-          <div class="q-hint">เก็บครบ 3 หมู่เร็ว ๆ</div>
-        </div>
+    <!-- ===== GATE COOLDOWN (optional) ===== -->
+    <aside id="gj-cooldown" class="gj-cooldown" aria-hidden="true">
+      <div class="gj-cooldown-inner">
+        <div class="gj-cooldown-title">Cooldown</div>
+        <div class="gj-cooldown-sub">กลับ HUB ใน</div>
+        <div class="gj-cooldown-num"><span id="gj-cooldown-num">20</span>s</div>
       </div>
-    </div>
-  </section>
+    </aside>
 
-  <!-- ===== PLAYFIELD ===== -->
-  <div class="gj-field" id="playfield" aria-hidden="true"></div>
+  </div><!-- /gj-root -->
 
-  <!-- ===== TARGET LAYERS ===== -->
-  <div class="gj-layer" id="gj-layer" aria-label="Play layer left"></div>
-  <div class="gj-layer gj-layer-r" id="gj-layer-r" aria-label="Play layer right" aria-hidden="true"></div>
-
-  <!-- ===== FX Layer ===== -->
-  <div class="hha-fx-layer" id="fxLayer" aria-hidden="true"></div>
-
-  <!-- ===== BOTTOM HUD ===== -->
-  <footer class="gj-hud-bot" id="gjHudBot" aria-label="HUD Bottom">
-    <div class="meter" id="feverBox" aria-label="Fever meter">
-      <div class="meter-title">FEVER</div>
-      <div class="meter-bar">
-        <div class="meter-fill" id="feverFill"></div>
-      </div>
-      <div class="meter-num">พลัง: <span id="feverText">0%</span></div>
-      <div class="meter-tip" id="feverTip">เก็บของดีให้ต่อเนื่องเพื่อคอมโบ / ระวังของเสีย!</div>
-    </div>
-
-    <div class="meter" id="howtoBox" aria-label="How to play">
-      <div class="meter-title">วิธีเล่น</div>
-      <div class="meter-tip">
-        แตะ/ยิง “ของดี” ✅ เพื่อได้คะแนนและคอมโบ<br/>
-        หลีกเลี่ยง “ของเสีย” ❌ (ถ้ามีโล่จะ BLOCK ได้)<br/>
-        ⭐ ลด MISS, 🛡️ เพิ่มโล่ (Shield)
-      </div>
-    </div>
-  </footer>
-
-  <!-- ===== Quick controls ===== -->
-  <div class="hha-controls" aria-label="Quick controls">
-    <button class="gj-btn" id="btnHideHud2" type="button">HUD</button>
-    <button class="gj-btn" id="btnRestart" type="button">เริ่มใหม่</button>
-  </div>
-
-  <!-- ===== Missions Peek Overlay ===== -->
-  <section class="gj-peek" id="missionsPeek" aria-label="Missions Overlay">
-    <div class="peek-card" role="dialog" aria-modal="true" aria-label="Missions">
-      <div class="peek-title">🎯 ภารกิจ</div>
-      <div class="peek-sub" id="peekGoal">GOAL: —</div>
-      <div class="peek-mini" id="peekMini">MINI: —</div>
-      <div class="peek-tip">ทิป: ปิดหน้าต่างนี้แล้วลุยต่อเลย! (แตะพื้นหลังเพื่อปิด)</div>
-      <div style="margin-top:12px; display:flex; gap:10px;">
-        <button class="gj-btn primary" id="btnClosePeek" type="button" style="flex:1;">ลุยต่อ</button>
-        <button class="gj-btn" id="btnShowHowto" type="button" style="flex:1;">แสดง HOWTO</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== Low time overlay ===== -->
-  <div class="gj-lowtime-overlay" id="lowTimeOverlay" aria-hidden="true">
-    <div class="gj-lowtime-ring"></div>
-    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
-  </div>
-
-  <!-- ===== End overlay ===== -->
-  <section id="endOverlay" aria-hidden="true"
-    style="position:fixed; inset:0; z-index:260; display:none; align-items:center; justify-content:center; padding:16px;">
-    <div style="width:min(720px, 94vw); background:rgba(2,6,23,.78); border:1px solid rgba(148,163,184,.18);
-                border-radius:22px; padding:16px; box-shadow: 0 18px 60px rgba(0,0,0,.45);">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-        <div style="font-weight:1000; font-size:18px;">สรุปผล</div>
-        <div id="endBadge"
-          style="display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:999px;
-                 border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.55); font-weight:900;">
-          —
-        </div>
-      </div>
-
-      <div id="endGrid"
-        style="margin-top:12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;">
-        <div style="border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-          <div style="color:rgba(148,163,184,.92); font-size:11px; font-weight:900;">SCORE</div>
-          <div id="endScore" style="font-size:18px; font-weight:1100;">0</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-          <div style="color:rgba(148,163,184,.92); font-size:11px; font-weight:900;">GRADE</div>
-          <div id="endGrade" style="font-size:18px; font-weight:1100;">—</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-          <div style="color:rgba(148,163,184,.92); font-size:11px; font-weight:900;">MISS</div>
-          <div id="endMiss" style="font-size:18px; font-weight:1100;">0</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-          <div style="color:rgba(148,163,184,.92); font-size:11px; font-weight:900;">ACCURACY</div>
-          <div id="endAcc" style="font-size:18px; font-weight:1100;">—</div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px; color:rgba(229,231,235,.80); font-weight:900; font-size:12px; line-height:1.35;">
-        เคล็ดลับ: อ่านผลก่อน แล้วค่อยกด “Cooldown → HUB” เพื่อพัก 20 วินาที (มาตรฐานงานวิจัย)
-      </div>
-
-      <!-- ✅ 3 Buttons -->
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="gj-btn primary" id="btnEndCooldown" type="button" style="flex:1 1 220px;">Cooldown 20s → HUB</button>
-        <button class="gj-btn" id="btnEndRestart" type="button" style="flex:1 1 180px;">เล่นอีกครั้ง</button>
-        <button class="gj-btn" id="btnEndHubNow" type="button" style="flex:1 1 160px;">กลับ HUB ทันที</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- OPTIONAL: AI Hooks -->
-  <script src="../vr/ai-hooks.js"></script>
-
-  <!-- OPTIONAL: Cloud Logger -->
-  <script src="../vr/hha-cloud-logger.js"></script>
-
-  <!-- Boot (ESM) -->
+  <!-- Boot -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
-
-  <!-- UI wiring -->
-  <script>
-  (function(){
-    'use strict';
-    const DOC = document;
-    const WIN = window;
-
-    const qs = (k, def=null)=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
-    };
-
-    const $ = (id)=>DOC.getElementById(id);
-
-    // mark run mode on body (for hiding Hub-now in research)
-    const run = String(qs('run','play')||'play').toLowerCase();
-    if(run === 'research') DOC.body.classList.add('run-research');
-
-    // chips
-    function setChips(){
-      const runUp = String(qs('run','play')).toUpperCase();
-      const diffUp = String(qs('diff','normal')).toUpperCase();
-      const chipMode = $('chipMode');
-      const chipDiff = $('chipDiff');
-      if(chipMode) chipMode.textContent = runUp;
-      if(chipDiff) chipDiff.textContent = diffUp;
-    }
-    setChips();
-
-    // HUD toggle
-    function toggleHud(){
-      DOC.body.classList.toggle('hud-hidden');
-    }
-    const btnHideHud  = $('btnHideHud');
-    const btnHideHud2 = $('btnHideHud2');
-    if(btnHideHud)  btnHideHud.addEventListener('click', toggleHud, { passive:true });
-    if(btnHideHud2) btnHideHud2.addEventListener('click', toggleHud, { passive:true });
-
-    // Missions peek
-    const btnMissions = $('btnMissions');
-    const peek = $('missionsPeek');
-    const btnClosePeek = $('btnClosePeek');
-    const btnShowHowto = $('btnShowHowto');
-    const peekGoal = $('peekGoal');
-    const peekMini = $('peekMini');
-
-    function openPeek(){
-      DOC.body.classList.add('show-missions');
-      const g = $('hud-goal')?.textContent || '—';
-      const gd = $('goalDesc')?.textContent || '—';
-      const mini = $('hud-mini')?.textContent || '—';
-      if(peekGoal) peekGoal.textContent = `GOAL: ${g} — ${gd}`;
-      if(peekMini) peekMini.textContent = `MINI: ${mini}`;
-    }
-    function closePeek(){ DOC.body.classList.remove('show-missions'); }
-
-    if(btnMissions) btnMissions.addEventListener('click', openPeek, { passive:true });
-    if(btnClosePeek) btnClosePeek.addEventListener('click', closePeek, { passive:true });
-    if(peek){
-      peek.addEventListener('click', (e)=>{ if(e.target === peek) closePeek(); }, { passive:true });
-    }
-    if(btnShowHowto){
-      btnShowHowto.addEventListener('click', ()=>{ DOC.body.classList.toggle('show-howto'); }, { passive:true });
-    }
-
-    // Restart (reload keeps params)
-    function restart(){
-      try{ location.replace(new URL(location.href).toString()); }
-      catch{ location.reload(); }
-    }
-    const btnRestart = $('btnRestart');
-    const btnEndRestart = $('btnEndRestart');
-    if(btnRestart) btnRestart.addEventListener('click', restart, { passive:true });
-    if(btnEndRestart) btnEndRestart.addEventListener('click', restart, { passive:true });
-
-    // Hub now (direct)
-    function hubNow(){
-      const hub = qs('hub', '../hub.html');
-      location.href = hub;
-    }
-
-    // Cooldown -> Hub (manual, uses boot-exposed function if present)
-    function cooldownThenHub(){
-      try{
-        const fn = WIN?.HHA?.GoodJunk?.goCooldownThenHub;
-        if(typeof fn === 'function'){ fn(WIN.__HHA_GJ_LAST_SUMMARY__ || null); return; }
-      }catch(_){}
-      // fallback if boot not loaded (shouldn't happen)
-      try{
-        const gateUrl = qs('gateUrl','') || new URL('../warmup-gate.html', location.href).toString();
-        const hub = qs('hub','../hub.html');
-        const u = new URL(gateUrl, location.href);
-        u.searchParams.set('phase','cooldown');
-        u.searchParams.set('cdur', String(qs('cdur','20')||20));
-        u.searchParams.set('hub', hub);
-        u.searchParams.set('next', hub);
-        u.searchParams.set('autonext','1');
-        location.href = u.toString();
-      }catch(_){
-        hubNow();
-      }
-    }
-
-    // Top "Back HUB" => go cooldown (main standard)
-    const btnBackHub = $('btnBackHub');
-    if(btnBackHub) btnBackHub.addEventListener('click', (e)=>{ e.preventDefault(); cooldownThenHub(); });
-
-    // End overlay buttons
-    const btnEndCooldown = $('btnEndCooldown');
-    const btnEndHubNow = $('btnEndHubNow');
-    if(btnEndCooldown) btnEndCooldown.addEventListener('click', (e)=>{ e.preventDefault(); cooldownThenHub(); });
-    if(btnEndHubNow) btnEndHubNow.addEventListener('click', (e)=>{ e.preventDefault(); hubNow(); });
-
-    // End overlay from safe.js summary (v4.3-std emits hha:end)
-    const endOverlay = $('endOverlay');
-    const endScore = $('endScore');
-    const endGrade = $('endGrade');
-    const endMiss = $('endMiss');
-    const endAcc = $('endAcc');
-    const endBadge = $('endBadge');
-
-    function showEnd(summary){
-      try{
-        if(!endOverlay) return;
-        endOverlay.style.display = 'flex';
-        endOverlay.setAttribute('aria-hidden','false');
-
-        const score = summary?.scoreFinal ?? summary?.score ?? 0;
-        const grade = summary?.grade ?? '—';
-        const miss  = summary?.miss ?? summary?.misses ?? 0;
-
-        // compute accuracy if not provided
-        let accText = '—';
-        const hitGood = Number(summary?.hitGood ?? 0) || 0;
-        const hitJunk = Number(summary?.hitJunk ?? 0) || 0;
-        const expGood = Number(summary?.expireGood ?? 0) || 0;
-        const missN   = Number(summary?.miss ?? 0) || 0;
-        const denom = Math.max(1, hitGood + hitJunk + expGood + missN);
-        const acc = hitGood / denom;
-        accText = Math.round(acc * 100) + '%';
-
-        const tier  = summary?.tier || '';
-
-        if(endScore) endScore.textContent = String(score);
-        if(endGrade) endGrade.textContent = String(grade);
-        if(endMiss)  endMiss.textContent  = String(miss);
-        if(endAcc)   endAcc.textContent   = String(accText);
-
-        if(endBadge) endBadge.textContent = tier ? `${tier} · ${grade}` : String(grade);
-      }catch(_){}
-    }
-
-    WIN.addEventListener('hha:end', (e)=>{ showEnd(e?.detail || {}); });
-
-    // Optional: initialize logger context
-    try{
-      if(WIN.HHA_LOGGER && typeof WIN.HHA_LOGGER.init === 'function'){
-        WIN.HHA_LOGGER.init({
-          game:'goodjunk',
-          pack:'goodjunk-v4.3-std',
-          studyId: qs('studyId', qs('study', '')),
-          phase: qs('phase',''),
-          conditionGroup: qs('conditionGroup', qs('cond','')),
-          run: qs('run','play'),
-          diff: qs('diff','normal')
-        });
-      }
-    }catch(_){}
-  })();
-  </script>
 </body>
 </html>
