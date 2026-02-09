@@ -88,8 +88,6 @@
   };
 
   let engine = null;
-  let _lastStartMode = 'normal';
-  let _lastStartTrackKey = 'n1';
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -115,7 +113,7 @@
       if (researchBox) researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
-        const m = (lbl.getAttribute('data-mode') || 'normal');
+        const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.add('hidden');
         else lbl.classList.remove('hidden');
       });
@@ -124,12 +122,12 @@
 
     } else {
       if (modeDescEl) modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดงผลได้ แต่ไม่ปรับเกม)';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
       if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
-        const m = (lbl.getAttribute('data-mode') || 'normal');
+        const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.remove('hidden');
         else lbl.classList.add('hidden');
       });
@@ -150,11 +148,11 @@
 
   function createEngine() {
     if (!window.RhythmBoxerEngine) {
-      alert('Rhythm Engine ยังไม่โหลด (rhythm-engine.js)');
+      console.error('RhythmBoxerEngine missing (check js/rhythm-engine.js)');
       return;
     }
     if (!window.RbDomRenderer) {
-      alert('DOM Renderer ยังไม่โหลด (dom-renderer-rhythm.js)');
+      console.error('RbDomRenderer missing (check js/dom-renderer-rhythm.js)');
       return;
     }
 
@@ -183,12 +181,10 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    _lastStartMode = mode;
-    _lastStartTrackKey = trackKey;
-
+    // ใช้สำหรับ CSS theme per diff (optional)
     if (wrap) wrap.dataset.diff = cfg.diff;
 
-    if (hud.mode) hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
 
     const meta = {
@@ -197,9 +193,7 @@
       note: (inputNote && inputNote.value || '').trim()
     };
 
-    // IMPORTANT: engine reads mode from param passed here
     engine.start(mode, cfg.engineId, meta);
-
     switchView('play');
   }
 
@@ -213,24 +207,27 @@
     if (res.mode) res.mode.textContent      = summary.modeLabel || '-';
     if (res.track) res.track.textContent     = summary.trackName || '-';
     if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score) res.score.textContent     = (summary.finalScore != null) ? summary.finalScore : '0';
-    if (res.maxCombo) res.maxCombo.textContent  = (summary.maxCombo != null) ? summary.maxCombo : '0';
-    if (res.hits) res.hits.textContent      =
+    if (res.score) res.score.textContent     = (summary.finalScore != null ? summary.finalScore : 0);
+    if (res.maxCombo) res.maxCombo.textContent  = (summary.maxCombo != null ? summary.maxCombo : 0);
+
+    if (res.hits) res.hits.textContent =
       `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-    if (res.acc) res.acc.textContent        =
-      (summary.accuracyPct != null && Number.isFinite(summary.accuracyPct))
-        ? summary.accuracyPct.toFixed(1) + ' %'
-        : '0.0 %';
-    if (res.duration) res.duration.textContent  =
-      (summary.durationSec != null && Number.isFinite(summary.durationSec))
-        ? summary.durationSec.toFixed(1) + ' s'
-        : '-';
-    if (res.rank) res.rank.textContent      = summary.rank || '-';
+
+    if (res.acc) res.acc.textContent =
+      (summary.accuracyPct != null ? Number(summary.accuracyPct).toFixed(1) : '0.0') + ' %';
+
+    if (res.duration) res.duration.textContent =
+      (summary.durationSec != null ? Number(summary.durationSec).toFixed(1) : '0.0') + ' s';
+
+    if (res.rank) res.rank.textContent = summary.rank || '-';
 
     if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+        ? summary.offsetMean.toFixed(3) + ' s' : '-';
+
     if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+        ? summary.offsetStd.toFixed(3) + ' s' : '-';
 
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
@@ -262,40 +259,21 @@
 
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-
   if (btnStart) btnStart.addEventListener('click', startGame);
   if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-
-  if (btnAgain) btnAgain.addEventListener('click', () => {
-    // play same selection again (keeps UI state)
-    startGame();
-  });
-
-  if (btnBackMenu) btnBackMenu.addEventListener('click', () => {
-    // stop if still running
-    stopGame('back-menu');
-    switchView('menu');
-    // restore previous selection for convenience
-    try{
-      const m = _lastStartMode;
-      const r = modeRadios.find(x => x.value === (m === 'research' ? 'research' : 'normal'));
-      if (r) r.checked = true;
-      updateModeUI();
-      setSelectedTrackKey(_lastStartTrackKey || (m === 'research' ? 'r1' : 'n1'));
-    }catch(_){}
-  });
+  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
+  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
 
   if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
-    if (!engine) return;
+    if (!engine || !engine.getEventsCsv) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-
   if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
-    if (!engine) return;
+    if (!engine || !engine.getSessionCsv) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play) ====
+  // ==== apply mode from URL (?mode=research|play|normal) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
