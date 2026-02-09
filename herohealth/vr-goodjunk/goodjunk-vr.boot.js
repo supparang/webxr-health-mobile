@@ -1,11 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — PRODUCTION (HHA Standard)
+// GoodJunkVR BOOT — PRODUCTION (HHA Standard) — PATCH v20260209-cdDailyCatA
 // ✅ Detect view: pc/mobile/vr/cvr (NO override)
 // ✅ Mount layers (#gj-layer + optional #gj-layer-r)
-// ✅ Integrates vr-ui.js tap-to-shoot (hha:shoot) already handled in goodjunk.safe.js
-// ✅ Pass-through ctx: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log
 // ✅ Starts by tap overlay -> dispatch hha:start (or auto-start if overlay missing)
-// ✅ Back-to-hub helper via ?hub=...
+// ✅ Cooldown Gate ON hha:end (once per day, by category cat=nutrition)
+// ✅ Pass-through ctx: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log + cat + cdGateUrl/cdur/cdDailyKey/warmDailyKey
 
 'use strict';
 
@@ -84,12 +83,48 @@ function isOverlayActuallyVisible(el){
   }
 }
 
+// ------------------------------
+// Daily helpers (for cooldown once/day)
+// ------------------------------
+function dayStamp(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isDoneToday(key){
+  if(!key) return false;
+  try{ return localStorage.getItem(key) === dayStamp(); }catch(_){ return false; }
+}
+
+function buildUrl(base, add){
+  try{
+    const u = new URL(base, location.href);
+    Object.entries(add||{}).forEach(([k,v])=>{
+      if(v === undefined || v === null || v === '') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }catch(_){
+    return base || '';
+  }
+}
+
 function boot(){
   const view = detectView();
   setBodyViewClass(view);
 
+  const cat = String(qs('cat','nutrition')||'nutrition').toLowerCase();
+
+  // daily keys may be passed from launcher; fallback by cat
+  const warmDailyKey = String(qs('warmDailyKey', `HHA_WARMUP_DONE_DAY_${cat}`) || `HHA_WARMUP_DONE_DAY_${cat}`);
+  const cdDailyKey   = String(qs('cdDailyKey',   `HHA_COOLDOWN_DONE_DAY_${cat}`) || `HHA_COOLDOWN_DONE_DAY_${cat}`);
+
+  // cooldown gate routing hints (passed from launcher)
+  const cdGateUrl = String(qs('cdGateUrl','../warmup-gate.html') || '../warmup-gate.html');
+  const cdur      = qn('cdur', 20);
+
   const ctx = {
     view,
+    cat,
     run: String(qs('run','play')).toLowerCase(),
     diff: String(qs('diff','normal')).toLowerCase(),
     time: qn('time', 80),
@@ -99,7 +134,11 @@ function boot(){
     phase: String(qs('phase','')||''),
     conditionGroup: String(qs('conditionGroup','')||''),
     hub: String(qs('hub','../hub.html')||'../hub.html'),
-    log: String(qs('log','')||'')
+    log: String(qs('log','')||''),
+    warmDailyKey,
+    cdDailyKey,
+    cdGateUrl,
+    cdur
   };
 
   applyCtxToUI(ctx);
@@ -111,13 +150,85 @@ function boot(){
   // expose for debugging
   try{ WIN.GoodJunkVR_CTX = ctx; }catch(_){}
 
+  // ------------------------------
+  // Cooldown routing on end (once/day, by category)
+  // ------------------------------
+  let routed = false;
+
+  function goHub(){
+    try{ location.href = ctx.hub; }catch(_){}
+  }
+
+  function goCooldownGate(endDetail){
+    // prevent loops / double triggers
+    if(routed) return;
+    routed = true;
+
+    // If cooldown already done today, go hub directly.
+    if(isDoneToday(ctx.cdDailyKey)){
+      goHub();
+      return;
+    }
+
+    const pass = {
+      // keep research context
+      view: qs('view','') ? undefined : ctx.view, // if user forced view in URL, don't change; gate doesn't need it anyway
+      run: ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed,
+      pid: ctx.pid,
+      studyId: ctx.studyId,
+      phase: ctx.phase,
+      conditionGroup: ctx.conditionGroup,
+      log: ctx.log,
+
+      // category + daily keys for gate to stamp
+      cat: ctx.cat,
+      warmDailyKey: ctx.warmDailyKey,
+      cdDailyKey: ctx.cdDailyKey,
+
+      // gate controls
+      phase_gate: undefined,
+      phase: 'cooldown',
+      cdur: ctx.cdur,
+      hub: ctx.hub
+    };
+
+    // Optional: forward last game summary snapshot (small)
+    try{
+      if(endDetail && typeof endDetail === 'object'){
+        if(endDetail.score != null) pass.lastScore = endDetail.score;
+        if(endDetail.miss  != null) pass.lastMiss  = endDetail.miss;
+        if(endDetail.grade != null) pass.lastGrade = endDetail.grade;
+      }
+    }catch(_){}
+
+    const url = buildUrl(ctx.cdGateUrl, pass);
+    if(url) location.replace(url);
+    else goHub();
+  }
+
+  WIN.addEventListener('hha:end', (ev)=>{
+    // Only handle once per run
+    if(routed) return;
+    // Some engines may emit multiple end signals; harden
+    if(WIN.__GJ_CD_ROUTED__) return;
+    WIN.__GJ_CD_ROUTED__ = true;
+
+    const detail = (ev && ev.detail) ? ev.detail : null;
+    goCooldownGate(detail);
+  }, { passive:true });
+
+  // ------------------------------
   // bind Start overlay
+  // ------------------------------
   const ov = DOC.getElementById('startOverlay');
   const btn = DOC.getElementById('btnStart');
 
   function startNow(){
     safeHideStartOverlay();
-    // start engine
+
     bootGame({
       view: ctx.view,
       run: ctx.run,
@@ -127,6 +238,7 @@ function boot(){
       layerL,
       layerR
     });
+
     dispatchStart();
   }
 
@@ -140,7 +252,6 @@ function boot(){
   // tap anywhere start (if overlay uses full screen)
   if(ov){
     ov.addEventListener('pointerdown', (e)=>{
-      // allow clicking inner buttons without double triggering
       const t = e.target;
       if(t && (t.id === 'btnStart')) return;
       startNow();
