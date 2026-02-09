@@ -1,19 +1,23 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.8 (Boss Pack 2 + UX Shockwave Patch)
+// BrushVR SAFE Engine — DOM90 v0.9 (FULL PATCH: Smart Spawn + Online ML + CSV Export)
 // ✅ Ultimate #1 Laser Sweep (Pack1)
-// ✅ Ultimate #2 Shockwave Pulse (Pack2) + "ตีเลย!" indicator + beep/vibrate
+// ✅ Ultimate #2 Shockwave Pulse (Pack2)
 // ✅ Perfect Gate (Pack1)
 // ✅ Boss Personality: ANGER affects patterns/spawn
-// ✅ Anti-spam gentle + BANK + pickups + UV stealth + end summary + badges
+// ✅ Badges + storage + end overlay
+// ✅ NEW (Pack10): Smart Spawn (anti-clump + anti-overlap)
+// ✅ NEW (Pack11): AI hooks + Online ML Predictor (play adaptive; research deterministic)
+// ✅ NEW (Pack12): Event logging + Export CSV from end screen
 // Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, brush:badge, hha:end
+
 (function(){
   'use strict';
   const WIN = window, DOC = document;
 
   // ---------- helpers ----------
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
-  const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(_){ } };
+  const nowMs = ()=>performance.now();
+  const emitRaw = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(_){ } };
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
   function makeRNG(seed){
@@ -23,15 +27,19 @@
 
   // ---------- badges storage ----------
   const LS_BADGES = 'HHA_BADGES_V1';
-  function loadBadges(){ try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; } }
-  function saveBadges(all){ try{ localStorage.setItem(LS_BADGES, JSON.stringify(all)); }catch(_){ } }
+  function loadBadges(){
+    try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; }
+  }
+  function saveBadges(all){
+    try{ localStorage.setItem(LS_BADGES, JSON.stringify(all)); }catch(_){}
+  }
   function grantBadge(gameKey, badgeId){
     const all = loadBadges();
     all[gameKey] = all[gameKey] || {};
     if(all[gameKey][badgeId]) return false;
     all[gameKey][badgeId] = { ts: Date.now() };
     saveBadges(all);
-    emit('brush:badge', { game: gameKey, badge: badgeId });
+    emitRaw('brush:badge', { game: gameKey, badge: badgeId });
     return true;
   }
 
@@ -148,10 +156,9 @@
   function buildNoSpawnZones(view){
     const vp = { w: WIN.innerWidth, h: WIN.innerHeight };
 
-    // tuned to avoid HUD overlap better on mobile
-    let mTop=108, mBot=156, mL=124, mR=124;
-    if(view==='mobile'){ mTop+=18; mBot+=24; mL+=14; mR+=14; }
-    if(view==='cvr' || view==='vr'){ mTop+=16; mBot+=18; mL+=18; mR+=18; }
+    let mTop=96, mBot=140, mL=120, mR=120;
+    if(view==='mobile'){ mTop+=16; mBot+=20; mL+=12; mR+=12; }
+    if(view==='cvr' || view==='vr'){ mTop+=14; mBot+=18; mL+=16; mR+=16; }
 
     const safePlay = {
       x: mL, y: mTop,
@@ -173,22 +180,62 @@
     return { safePlay, zones };
   }
 
-  function pickSpawnPoint(rng, ns, radius){
+  // ---------- NEW: Smart Spawn (Pack10) ----------
+  // repel from last N spawn positions (avoid clumping), while still respecting no-spawn zones
+  function dist2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; }
+
+  function pickSpawnPointSmart(rng, ns, radius, recentPts, preferCenter=0.15){
     const { safePlay, zones } = ns;
-    const tries = 90;
+    const tries = 110;
     const w = Math.max(10, safePlay.w - radius*2);
     const h = Math.max(10, safePlay.h - radius*2);
+
+    const center = { x: safePlay.x + safePlay.w*0.5, y: safePlay.y + safePlay.h*0.5 };
+    const repelN = Math.min(10, recentPts?.length||0);
+    const repelMinR = Math.max(90, radius*3.2);
+    const repelMinR2 = repelMinR*repelMinR;
+
+    let best = null, bestScore = -1e18;
+
     for(let i=0;i<tries;i++){
       const x = safePlay.x + radius + rng() * w;
       const y = safePlay.y + radius + rng() * h;
       const p = {x,y};
+
+      // zone block
       let ok = true;
       for(const z of zones){
         if(pointInRect(p, z)){ ok=false; break; }
       }
-      if(ok) return p;
+      if(!ok) continue;
+
+      // score = repel from recent + small center preference
+      let score = 0;
+
+      // repel
+      if(repelN>0){
+        for(let k=0;k<repelN;k++){
+          const rp = recentPts[recentPts.length-1-k];
+          if(!rp) continue;
+          const d = dist2(p, rp);
+          if(d < repelMinR2){ score -= 9000; } // hard penalty if too close
+          score += Math.min(1800, d/120); // encourage farther spread
+        }
+      }
+
+      // tiny center preference for UX (optional)
+      if(preferCenter>0){
+        const dc = dist2(p, center);
+        score += (1.0 - Math.min(1, dc/(Math.max(1, safePlay.w*safePlay.w)))) * (250*preferCenter);
+      }
+
+      if(score > bestScore){
+        bestScore = score;
+        best = p;
+      }
     }
-    return { x: safePlay.x + safePlay.w/2, y: safePlay.y + safePlay.h/2 };
+
+    return best || { x: safePlay.x + safePlay.w/2, y: safePlay.y + safePlay.h/2 };
   }
 
   // ---------- DOM notes ----------
@@ -305,12 +352,20 @@
     covPass: 80,
     minQuadSec: 12,
 
+    // base judge windows (will be adapted by OnlineML in play mode)
     judgeMs: { perfect: 120, good: 210 },
     pts: { perfect: 12, good: 7, stealth: 22 },
 
     noteRadius: 26,
     noteLifeSec: 1.9,
     spawnEverySec: 0.72,
+
+    // SmartSpawn knobs
+    smartSpawn: {
+      enabled: true,
+      keep: 12,
+      preferCenter: 0.12
+    },
 
     gentle: {
       tapRateHeavyPerSec: 7,
@@ -438,6 +493,89 @@
     return 1.0;
   }
 
+  // ---------- NEW: Online ML Predictor (Pack11) ----------
+  // lightweight online learning: track timing error + tap rate, adapt spawn/judge in PLAY only
+  function createOnlineML(){
+    const M = {
+      n:0,
+      meanAbsDelta: 140,
+      meanTapRate: 4.2,
+      meanHeavy: 0,
+      // smoothed difficulty scalar 0..1 (higher = harder)
+      diff: 0.50
+    };
+    function ema(prev, x, a){ return prev + a*(x - prev); }
+
+    function updateOnJudge(deltaMs, tapRate, heavyHit){
+      // robust clamp
+      const d = clamp(Math.abs(deltaMs||0), 0, 480);
+      const tr = clamp(tapRate||0, 0, 16);
+      const hv = heavyHit ? 1 : 0;
+
+      M.n++;
+      const a = 0.06;
+      M.meanAbsDelta = ema(M.meanAbsDelta, d, a);
+      M.meanTapRate  = ema(M.meanTapRate,  tr, a);
+      M.meanHeavy    = ema(M.meanHeavy,    hv, a);
+
+      // build a “skill” score: lower delta + moderate tap rate + low heavy => higher skill
+      const sTiming = clamp(1 - (M.meanAbsDelta/260), 0, 1);
+      const sRate   = clamp(1 - (Math.abs(M.meanTapRate - 5.0)/6.0), 0, 1);
+      const sGentle = clamp(1 - M.meanHeavy, 0, 1);
+
+      const skill = (0.62*sTiming + 0.22*sRate + 0.16*sGentle);
+      // diff should be inverse of skill, but not too jumpy
+      const targetDiff = clamp(1 - skill, 0.08, 0.95);
+      M.diff = ema(M.diff, targetDiff, 0.08);
+    }
+
+    function getAdaptiveParams(baseJudgePerfect, baseJudgeGood, baseSpawnEvery){
+      // harder => tighter judge & faster spawns; easier => wider & slower
+      const d = M.diff; // 0..1
+      const judgeScale = clamp(1.18 - 0.36*d, 0.78, 1.22);
+      const spawnScale = clamp(1.25 - 0.50*d, 0.78, 1.25);
+
+      const perfect = Math.round(baseJudgePerfect * judgeScale);
+      const good    = Math.round(baseJudgeGood    * judgeScale);
+      const spawn   = baseSpawnEvery * spawnScale;
+
+      return {
+        judgeMs: { perfect: clamp(perfect, 80, 170), good: clamp(good, 150, 290) },
+        spawnEverySec: clamp(spawn, 0.52, 0.98),
+        diff: d,
+        stats: { meanAbsDelta: Math.round(M.meanAbsDelta), meanTapRate: M.meanTapRate.toFixed(1), meanHeavy: M.meanHeavy.toFixed(2) }
+      };
+    }
+
+    return { updateOnJudge, getAdaptiveParams };
+  }
+
+  // ---------- NEW: Event Log + CSV (Pack12) ----------
+  function csvEscape(v){
+    const s = String(v ?? '');
+    if(/[,"\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+  function toCSV(rows){
+    if(!rows || !rows.length) return 'ts,type,judge\n';
+    const keys = Object.keys(rows[0]);
+    const head = keys.map(csvEscape).join(',');
+    const lines = rows.map(r => keys.map(k => csvEscape(r[k])).join(','));
+    return head + '\n' + lines.join('\n') + '\n';
+  }
+  function downloadText(filename, text){
+    try{
+      const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = DOC.createElement('a');
+      a.href = url;
+      a.download = filename;
+      DOC.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ try{ a.remove(); URL.revokeObjectURL(url); }catch(_){} }, 250);
+    }catch(_){}
+  }
+
   // ---------- engine ----------
   function boot(ctx){
     const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
@@ -447,6 +585,48 @@
     if(!layer){
       console.warn('[BrushVR] missing #playLayer');
       return;
+    }
+
+    // AI hooks (optional)
+    const AI = (function(){
+      const fallback = { getDifficulty(){return null;}, getTip(){return null;}, onEvent(){} };
+      try{
+        if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
+          const h = WIN.HHA.createAIHooks(ctx.seed, 'brush');
+          return Object.assign({}, fallback, h||{});
+        }
+      }catch(_){}
+      return fallback;
+    })();
+
+    // Online ML (play only)
+    const isResearch = String(ctx.mode||'').toLowerCase() === 'research';
+    const isPlay = !isResearch && String(ctx.mode||'').toLowerCase() !== 'practice';
+    const onlineML = createOnlineML();
+
+    // logging enabled? (research should log by default; play logs if ctx.log=="1")
+    const logOn = isResearch || String(ctx.log||'') === '1';
+    const evlog = [];
+    function emit(n, d){
+      // push minimal log rows for key events
+      if(logOn){
+        try{
+          evlog.push(Object.assign({
+            ts: Date.now(),
+            t: Number(S?.t||0).toFixed(3),
+            game:'brush',
+            mode: String(ctx.mode||''),
+            pid: String(ctx.pid||''),
+            studyId: String(ctx.studyId||''),
+            phase: String(ctx.phase||''),
+            conditionGroup: String(ctx.conditionGroup||''),
+            view: String(view||''),
+            type: n
+          }, d||{}));
+        }catch(_){}
+      }
+      emitRaw(n, d);
+      try{ AI.onEvent?.(n, d); }catch(_){}
     }
 
     function ensureOverlay(id, baseBg, title){
@@ -494,56 +674,6 @@
       'SHOCKWAVE — ตี “ตามจังหวะ”!'
     );
 
-    // Shock indicator "ตีเลย!" (NEW UX)
-    function ensureShockHitNow(){
-      let el = DOC.getElementById('shockHitNow');
-      if(el) return el;
-      el = DOC.createElement('div');
-      el.id = 'shockHitNow';
-      el.style.position='fixed';
-      el.style.left='50%';
-      el.style.top='50%';
-      el.style.transform='translate(-50%,-50%)';
-      el.style.zIndex='59';
-      el.style.pointerEvents='none';
-      el.style.padding='10px 14px';
-      el.style.borderRadius='999px';
-      el.style.border='1px solid rgba(34,197,94,.40)';
-      el.style.background='rgba(34,197,94,.16)';
-      el.style.color='rgba(229,231,235,.98)';
-      el.style.fontWeight='950';
-      el.style.letterSpacing='.6px';
-      el.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
-      el.style.opacity='0';
-      el.style.transition='opacity .08s ease, transform .08s ease';
-      el.textContent='ตีเลย!';
-      DOC.body.appendChild(el);
-      return el;
-    }
-    const shockHitNow = ensureShockHitNow();
-    function showHitNow(on){
-      if(!shockHitNow) return;
-      shockHitNow.style.opacity = on ? '1' : '0';
-      shockHitNow.style.transform = on ? 'translate(-50%,-55%) scale(1.02)' : 'translate(-50%,-50%) scale(1)';
-    }
-    function pulseFeedback(){
-      try{ if(navigator.vibrate) navigator.vibrate([10,20,10]); }catch(_){}
-      // tiny beep (safe)
-      try{
-        const AC = WIN.AudioContext || WIN.webkitAudioContext;
-        if(!AC) return;
-        const ac = new AC();
-        const o = ac.createOscillator();
-        const g = ac.createGain();
-        o.type = 'sine';
-        o.frequency.value = 880;
-        g.gain.value = 0.04;
-        o.connect(g); g.connect(ac.destination);
-        o.start();
-        setTimeout(()=>{ try{o.stop();}catch(_){} try{ac.close();}catch(_){} }, 60);
-      }catch(_){}
-    }
-
     // shock ring canvas
     function ensureShockRing(){
       let c = DOC.getElementById('shockRing');
@@ -582,6 +712,7 @@
       quadIndex:0,
       q:'q1',
       qTime:0,
+      qTimes:[0,0,0,0],
 
       coverage:{ q1:0, q2:0, q3:0, q4:0 },
 
@@ -616,6 +747,7 @@
       bossOn:false,
       bossHp: CFG.boss.hpMax,
       bossPhase: 1,
+      lastBossSpawn: 0,
 
       bossPattern: 'DUEL',
       patternLeft: 3.2,
@@ -641,6 +773,7 @@
       shockWindowLeft: 0,
       shockWindowOpen: false,
       shockPunishCount: 0,
+      shockPulseIdx: 0,
       shockCenter: {x:0,y:0},
       shockRingR: 0,
 
@@ -656,12 +789,14 @@
 
       lastTimeEmit:0,
       lastSpawn:0,
-      lastBossSpawn:0,
 
       notes:new Map(),
       noteSeq:0,
 
-      ns:null
+      ns:null,
+
+      // NEW: store recent spawn points (SmartSpawn)
+      recentPts: []
     };
 
     emit('hha:start', { game:'brush', ctx });
@@ -670,7 +805,7 @@
     rebuildNoSpawn();
     WIN.addEventListener('resize', rebuildNoSpawn);
 
-    // ---------- BANK button (auto if missing in html) ----------
+    // ---------- BANK button ----------
     function ensureBankBtn(){
       if(!CFG.bank.enabled) return null;
       if(HUD.el.bankBtn) return HUD.el.bankBtn;
@@ -730,7 +865,7 @@
         HUD.toast('BANK: 🛡 Shield!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
       }
       rebuildNoSpawn();
-      emit('brush:bank', { used:true, comboLeft:S.combo, uv:S.uvEnergy, shield:S.shieldLeft });
+      emit('brush:bank', { combo:S.combo, bankCd:S.bankCdLeft, uvEnergy:S.uvEnergy, shieldLeft:S.shieldLeft });
     }
     if(bankBtn){
       bankBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); applyBank(); }, {passive:false});
@@ -767,9 +902,14 @@
     }
 
     // ---------- mood / anger ----------
-    function angerUp(n){ if(!CFG.boss.mood.enabled) return; S.anger = clamp(S.anger + n, 0, CFG.boss.mood.angerClamp); }
-    function angerDown(n){ if(!CFG.boss.mood.enabled) return; S.anger = clamp(S.anger - n, 0, CFG.boss.mood.angerClamp); }
-    function angerFactor(){ return clamp(S.anger / 100, 0, 1); }
+    function angerUp(n){
+      if(!CFG.boss.mood.enabled) return;
+      S.anger = clamp(S.anger + n, 0, CFG.boss.mood.angerClamp);
+    }
+    function angerDown(n){
+      if(!CFG.boss.mood.enabled) return;
+      S.anger = clamp(S.anger - n, 0, CFG.boss.mood.angerClamp);
+    }
 
     // ---------- gentle ----------
     function recordHitAndDetectHeavy(hitMs){
@@ -794,11 +934,20 @@
         }
         emit('brush:gentle', { heavyCount:S.heavyCount, penaltyActive:S.penaltyLeft>0, tapRate });
       }
+
+      return { tapRate, heavy };
     }
 
     // ---------- notes registry ----------
     function addNote(note){
       S.notes.set(note.id, note);
+
+      // remember recent points for SmartSpawn
+      if(CFG.smartSpawn.enabled){
+        S.recentPts.push({x:note.x, y:note.y});
+        if(S.recentPts.length > CFG.smartSpawn.keep) S.recentPts.shift();
+      }
+
       const life =
         (note.kind==='stealth') ? CFG.uv.stealthLifeSec :
         (note.kind==='boss' || note.kind==='weak') ? CFG.boss.noteLifeSec :
@@ -821,6 +970,26 @@
     }
 
     // ---------- spawners ----------
+    function smartPoint(radius){
+      if(!CFG.smartSpawn.enabled){
+        // fallback old
+        const sp = S.ns;
+        const tries = 90;
+        const w = Math.max(10, sp.safePlay.w - radius*2);
+        const h = Math.max(10, sp.safePlay.h - radius*2);
+        for(let i=0;i<tries;i++){
+          const x = sp.safePlay.x + radius + S.rng() * w;
+          const y = sp.safePlay.y + radius + S.rng() * h;
+          const p = {x,y};
+          let ok = true;
+          for(const z of sp.zones){ if(pointInRect(p, z)){ ok=false; break; } }
+          if(ok) return p;
+        }
+        return { x: sp.safePlay.x + sp.safePlay.w/2, y: sp.safePlay.y + sp.safePlay.h/2 };
+      }
+      return pickSpawnPointSmart(S.rng, S.ns, radius, S.recentPts, CFG.smartSpawn.preferCenter);
+    }
+
     function spawnNormalAt(p){
       const id = ++S.noteSeq;
       const el = mkNoteEl('normal');
@@ -838,7 +1007,10 @@
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
-    function spawnNormal(){ spawnNormalAt(pickSpawnPoint(S.rng, S.ns, CFG.noteRadius)); }
+    function spawnNormal(){
+      const p = smartPoint(CFG.noteRadius);
+      spawnNormalAt(p);
+    }
 
     function spawnStealthAt(p){
       const id = ++S.noteSeq;
@@ -860,7 +1032,10 @@
       el.addEventListener('click', (ev)=>{ ev.preventDefault(); judgeNote(note, nowMs(), 'tap'); }, {passive:false});
       addNote(note);
     }
-    function spawnStealth(){ spawnStealthAt(pickSpawnPoint(S.rng, S.ns, CFG.noteRadius)); }
+    function spawnStealth(){
+      const p = smartPoint(CFG.noteRadius);
+      spawnStealthAt(p);
+    }
 
     function spawnBossAt(p, weak=false){
       const id = ++S.noteSeq;
@@ -884,7 +1059,7 @@
     }
 
     function spawnBossNote(){
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
+      const p = smartPoint(CFG.noteRadius+6);
       let weak = false;
       if(S.bossOn && S.bossPhase >= 3){
         const ch = (S.bossPhase===3) ? CFG.boss.weakChanceP3 : CFG.boss.weakChanceP4;
@@ -896,7 +1071,7 @@
     function spawnPickup(kind){
       const id = ++S.noteSeq;
       const el = mkNoteEl(kind);
-      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
+      const p = smartPoint(CFG.noteRadius+6);
 
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
@@ -923,6 +1098,7 @@
     function onPerfectProgress(){
       S.perfectStreak++;
       if(S.perfectStreak > 20) S.perfectStreak = 20;
+
       angerDown(CFG.boss.mood.angerDownPerfect);
 
       if(CFG.uv.enabled && S.perfectStreak >= CFG.uv.refillStreak){
@@ -959,7 +1135,7 @@
       HUD.el.uvBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); tryUseUV(); }, {passive:false});
     }
 
-    // ---------- Boss patterns ----------
+    // ---------- Boss + patterns ----------
     function updateBossPhaseFromHp(){
       if(!S.bossOn) return;
       const hp = S.bossHp;
@@ -982,9 +1158,12 @@
       }
     }
 
+    function angerFactor(){ return clamp(S.anger / 100, 0, 1); }
+
     function bossSpawnInterval(){
       const baseMult = 1.0 - 0.18*(S.bossPhase-1);
-      const moodMult = 1.0 - 0.22*angerFactor();
+      const angry = angerFactor();
+      const moodMult = 1.0 - 0.22*angry;
       return clamp(CFG.boss.bossSpawnEverySecBase * baseMult * moodMult, CFG.boss.bossSpawnEverySecMin, 2.0);
     }
 
@@ -1061,7 +1240,7 @@
       if(S.shieldLeft > 0) kind = 'cleanser';
       else kind = (r < 0.55 ? 'shield' : 'cleanser');
       spawnPickup(kind);
-      emit('brush:pickup', { spawn:true, kind });
+      emit('brush:pickup', { kind });
     }
 
     // ---------- Laser Sweep ----------
@@ -1113,7 +1292,60 @@
       const gap = minG + (S.rng()*(maxG - minG));
       S.shockNextAt = S.t + gap;
     }
-    function clearShockDraw(){ try{ shockCtx.clearRect(0,0,WIN.innerWidth, WIN.innerHeight); }catch(_){ } }
+
+    function openShockWindow(){
+      const g = CFG.boss.shock;
+      S.shockWindowOpen = true;
+      S.shockWindowLeft = g.windowSec;
+    }
+    function closeShockWindow(){
+      S.shockWindowOpen = false;
+      S.shockWindowLeft = 0;
+    }
+
+    function startShock(){
+      const g = CFG.boss.shock;
+      S.shockOn = true;
+      S.shockPulsesLeft = g.pulses + Math.round(angerFactor()); // 3..4
+      S.shockPulseTimer = 0.02;
+      S.shockWindowLeft = 0;
+      S.shockWindowOpen = false;
+      S.shockPulseIdx = 0;
+
+      const c = safeCenter();
+      S.shockCenter = { x:c.x, y:c.y };
+      S.shockRingR = 0;
+
+      shockOverlay.style.opacity = '1';
+      shockCanvas.style.opacity = '1';
+
+      HUD.toast('SHOCKWAVE!', 'ตี “ตามจังหวะ” เท่านั้น!', 1200);
+    }
+    function stopShock(){
+      S.shockOn = false;
+      S.shockPulsesLeft = 0;
+      S.shockWindowLeft = 0;
+      S.shockWindowOpen = false;
+      shockOverlay.style.opacity = '0';
+      shockCanvas.style.opacity = '0';
+      clearShockDraw();
+      scheduleNextShock();
+    }
+
+    function shockPunish(x,y){
+      const g = CFG.boss.shock;
+      S.shockPunishCount++;
+      S.penaltyLeft = Math.max(S.penaltyLeft, g.penaltySec);
+      S.combo = Math.floor(S.combo * g.comboCut);
+      resetPerfectStreak();
+      angerUp(CFG.boss.mood.angerUpUltimatePunish);
+      popJudgeFx(layer, x, y, 'SHOCK');
+      HUD.toast('พลาดจังหวะ!', 'Shockwave ต้องตี “ตรงจังหวะ”', 1200);
+    }
+
+    function clearShockDraw(){
+      try{ shockCtx.clearRect(0,0,WIN.innerWidth, WIN.innerHeight); }catch(_){}
+    }
     function drawShockRing(r, alpha){
       clearShockDraw();
       const c = S.shockCenter;
@@ -1136,57 +1368,7 @@
       shockCtx.restore();
     }
 
-    function openShockWindow(){
-      const g = CFG.boss.shock;
-      S.shockWindowOpen = true;
-      S.shockWindowLeft = g.windowSec;
-      showHitNow(true);
-      pulseFeedback();
-      setTimeout(()=>showHitNow(false), Math.max(60, g.windowSec*1000));
-    }
-    function closeShockWindow(){
-      S.shockWindowOpen = false;
-      S.shockWindowLeft = 0;
-      showHitNow(false);
-    }
-
-    function startShock(){
-      const g = CFG.boss.shock;
-      S.shockOn = true;
-      S.shockPulsesLeft = g.pulses + (angerFactor() > 0.72 ? 1 : 0); // 3..4
-      S.shockPulseTimer = 0.15;
-      S.shockWindowLeft = 0;
-      S.shockWindowOpen = false;
-
-      const c = safeCenter();
-      S.shockCenter = { x:c.x, y:c.y };
-      S.shockRingR = 0;
-
-      shockOverlay.style.opacity = '1';
-      shockCanvas.style.opacity = '1';
-      HUD.toast('SHOCKWAVE!', 'ตีเฉพาะตอนขึ้น “ตีเลย!”', 1200);
-    }
-    function stopShock(){
-      S.shockOn = false;
-      S.shockPulsesLeft = 0;
-      closeShockWindow();
-      shockOverlay.style.opacity = '0';
-      shockCanvas.style.opacity = '0';
-      clearShockDraw();
-      scheduleNextShock();
-    }
-    function shockPunish(x,y){
-      const g = CFG.boss.shock;
-      S.shockPunishCount++;
-      S.penaltyLeft = Math.max(S.penaltyLeft, g.penaltySec);
-      S.combo = Math.floor(S.combo * g.comboCut);
-      resetPerfectStreak();
-      angerUp(CFG.boss.mood.angerUpUltimatePunish);
-      popJudgeFx(layer, x, y, 'SHOCK');
-      HUD.toast('พลาดจังหวะ!', 'Shockwave ต้องตี “ตรงจังหวะ”', 1200);
-    }
-
-    // ---------- Gate ----------
+    // ---------- Perfect Gate ----------
     function gateTick(dt){
       if(!S.gateOn) return;
       S.gateLeft = Math.max(0, S.gateLeft - dt);
@@ -1264,7 +1446,6 @@
         HUD.toast('💧 Cleanser!', 'ล้างคราบ + หยุดยึดคืนชั่วคราว', 1400);
       }
       rebuildNoSpawn();
-      emit('brush:pickup', { used:true, kind });
     }
 
     // ---------- judgement ----------
@@ -1281,6 +1462,7 @@
           S.notes.delete(note.id);
           return;
         }
+
         if(S.shockOn){
           if(!S.shockWindowOpen){
             shockPunish(note.x, note.y);
@@ -1290,25 +1472,41 @@
             return;
           }
           closeShockWindow();
-          HUD.toast('จังหวะดี!', 'Shockwave timing สำเร็จ', 650);
+          HUD.toast('จังหวะดี!', 'Shockwave timing สำเร็จ', 900);
           angerDown(4.0);
         }
       }
 
+      let tapMeta = { tapRate:0, heavy:false };
       if(source==='tap' || source==='shoot'){
-        recordHitAndDetectHeavy(hitMs);
+        tapMeta = recordHitAndDetectHeavy(hitMs);
       }
 
       const delta = Math.abs(hitMs - note.dueMs);
+
+      // --- OnlineML adaptation (play only) ---
+      let judgeCfg = CFG.judgeMs;
+      let spawnEvery = CFG.spawnEverySec;
+      let mlPack = null;
+      if(isPlay){
+        onlineML.updateOnJudge(delta, tapMeta.tapRate, tapMeta.heavy);
+        mlPack = onlineML.getAdaptiveParams(CFG.judgeMs.perfect, CFG.judgeMs.good, CFG.spawnEverySec);
+        judgeCfg = mlPack.judgeMs;
+        spawnEvery = mlPack.spawnEverySec;
+      }
+
       let judge = 'miss';
       if(source!=='expire'){
-        if(delta <= CFG.judgeMs.perfect) judge = 'perfect';
-        else if(delta <= CFG.judgeMs.good) judge = 'good';
+        if(delta <= judgeCfg.perfect) judge = 'perfect';
+        else if(delta <= judgeCfg.good) judge = 'good';
       }
 
       const removeNote = ()=>{
         try{ note.el.style.transition = 'transform .18s ease, opacity .18s ease'; }catch(_){}
-        try{ note.el.style.opacity='0'; note.el.style.transform='translate(-50%,-50%) scale(0.85)'; }catch(_){}
+        try{
+          note.el.style.opacity='0';
+          note.el.style.transform='translate(-50%,-50%) scale(0.85)';
+        }catch(_){}
         setTimeout(()=>{ try{ note.el.remove(); }catch(_){} }, 220);
         S.notes.delete(note.id);
       };
@@ -1340,7 +1538,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire' });
+          emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
           removeNote(); return;
         }else{
           if(S.uvOn){
@@ -1373,8 +1571,7 @@
             }
 
             popJudgeFx(layer, note.x, note.y, 'perfect');
-            emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
-            emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
+            emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
             removeNote(); return;
           }else{
             S.stealthMiss++;
@@ -1385,7 +1582,7 @@
             if(S.gateOn) gateOnMiss();
             HUD.toast('ยังไม่เห็นคราบ!', 'กด UV ก่อนถึงจะปราบคราบล่องหนได้', 1400);
             popJudgeFx(layer, note.x, note.y, 'miss');
-            emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source });
+            emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source, deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
             removeNote(); return;
           }
         }
@@ -1403,7 +1600,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire' });
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
           removeNote(); return;
         }
 
@@ -1415,7 +1612,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source });
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source, deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
           removeNote(); return;
         }
 
@@ -1445,8 +1642,13 @@
 
         if(isWeak) angerDown(CFG.boss.mood.angerDownWeak);
 
-        if(judge==='perfect'){ onPerfectProgress(); if(S.gateOn) gateOnPerfect(); }
-        else { resetPerfectStreak(); if(S.gateOn) gateOnMiss(); }
+        if(judge==='perfect'){
+          onPerfectProgress();
+          if(S.gateOn) gateOnPerfect();
+        }else{
+          resetPerfectStreak();
+          if(S.gateOn) gateOnMiss();
+        }
 
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1457,7 +1659,7 @@
         if(S.bossHp <= 0){ removeNote(); return bossWin(); }
 
         popJudgeFx(layer, note.x, note.y, isWeak ? 'WEAK' : judge);
-        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, gateOn:S.gateOn, anger:S.anger, source });
+        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, gateOn:S.gateOn, anger:S.anger, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
         removeNote(); return;
       }
 
@@ -1470,7 +1672,7 @@
         if(S.finisherOn) finisherMissReset();
         if(S.gateOn) gateOnMiss();
         popJudgeFx(layer, note.x, note.y, 'miss');
-        emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire' });
+        emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
         removeNote(); return;
       }
 
@@ -1497,8 +1699,13 @@
         S.coverage[S.q] = clamp(S.coverage[S.q] + add, 0, 100);
         S.lastTouchedAt[S.q] = S.t;
 
-        if(judge==='perfect'){ onPerfectProgress(); if(S.gateOn) gateOnPerfect(); }
-        else { resetPerfectStreak(); if(S.gateOn) gateOnMiss(); }
+        if(judge==='perfect'){
+          onPerfectProgress();
+          if(S.gateOn) gateOnPerfect();
+        }else{
+          resetPerfectStreak();
+          if(S.gateOn) gateOnMiss();
+        }
 
         if(S.finisherOn && judge==='perfect'){
           S.finisherNeed = Math.max(0, S.finisherNeed - 1);
@@ -1508,8 +1715,14 @@
       }
 
       popJudgeFx(layer, note.x, note.y, judge);
-      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, anger:S.anger, source });
+      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, anger:S.anger, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
       emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
+
+      // apply adaptive spawn every (play only)
+      if(isPlay){
+        // smooth update: only affects RUN_Q section below
+        S._spawnEverySec = spawnEvery;
+      }
 
       removeNote();
     }
@@ -1525,7 +1738,6 @@
       if(S.quadIndex < 3){
         S.quadIndex++;
         setPhase('RUN_Q');
-        HUD.toast('เปลี่ยนโซน!', `${S.q.toUpperCase()} → ${CFG.quads[S.quadIndex].toUpperCase()}`, 900);
       }else{
         if(CFG.boss.enabled) setPhase('BOSS');
         else endGame('quad_done');
@@ -1556,19 +1768,23 @@
 
       const total = S.score + coverageScore + (S.stealthHit*25) + bossBonus + finBonus - laserPenalty - shockPenalty;
 
+      // badges evaluation
       const earned = [];
       const gameKey = 'brush';
 
       if(reason === 'boss_win'){
         if(grantBadge(gameKey, 'TARTAR_SLAYER')) earned.push('TARTAR_SLAYER');
+
         if(S.shockPunishCount === 0){
           if(grantBadge(gameKey, 'TIMING_MASTER')) earned.push('TIMING_MASTER');
         }
-        const avgAnger2 = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
-        if(avgAnger2 <= CFG.badges.calmAvgAngerMax){
+
+        const avgAnger0 = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
+        if(avgAnger0 <= CFG.badges.calmAvgAngerMax){
           if(grantBadge(gameKey, 'CALM_BREAKER')) earned.push('CALM_BREAKER');
         }
       }
+
       if(S.stealthHit >= CFG.badges.uvHunterStealthHit){
         if(grantBadge(gameKey, 'UV_HUNTER')) earned.push('UV_HUNTER');
       }
@@ -1605,11 +1821,17 @@
 
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+        const histKey = 'HHA_SUMMARY_HISTORY';
+        const hist = JSON.parse(localStorage.getItem(histKey) || '[]');
+        hist.unshift(Object.assign({ts:Date.now()}, summary));
+        localStorage.setItem(histKey, JSON.stringify(hist.slice(0,40)));
       }catch(_){}
 
       emit('hha:end', { summary });
 
-      for(const note of S.notes.values()){ try{ note.el.remove(); }catch(_){ } }
+      for(const note of S.notes.values()){
+        try{ note.el.remove(); }catch(_){}
+      }
       S.notes.clear();
 
       HUD.showBoss(false);
@@ -1617,8 +1839,8 @@
       shockOverlay.style.opacity = '0';
       shockCanvas.style.opacity = '0';
       clearShockDraw();
-      showHitNow(false);
 
+      // end overlay (with Export CSV)
       const done = DOC.createElement('div');
       done.style.position='fixed';
       done.style.inset='0';
@@ -1629,28 +1851,39 @@
       done.style.backdropFilter='blur(10px)';
 
       const badgeLine = earned.length ? `🎖 Badges: ${earned.join(', ')}` : '🎖 Badges: -';
+      const logLine = logOn ? `📄 Log: ON (${evlog.length} rows)` : '📄 Log: OFF';
 
       done.innerHTML = `
-        <div style="width:min(640px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
+        <div style="width:min(720px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
           <div style="font-weight:900;font-size:18px;">จบเกมแล้ว • Rank ${summary.rank}</div>
           <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:13px;line-height:1.5;">
             Score ${summary.scoreTotal} • BossHP ${summary.boss.hpLeft} • Avg Anger ${summary.boss.angerAvg}
           </div>
           <div style="margin-top:8px;color:rgba(229,231,235,.85);font-size:13px;line-height:1.5;">
-            ${badgeLine}
+            ${badgeLine}<br>${logLine}
           </div>
+
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
             <button id="btnRestart" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,197,94,.22);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Restart</button>
             <button id="btnBack" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.40);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Back HUB</button>
+            <button id="btnExport" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,211,238,.18);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Export CSV</button>
           </div>
         </div>
       `;
       DOC.body.appendChild(done);
+
       done.querySelector('#btnRestart')?.addEventListener('click', ()=>location.reload());
       done.querySelector('#btnBack')?.addEventListener('click', ()=>{
         const hub = ctx.hub || '';
         if(hub) location.href = hub;
         else history.back();
+      });
+      done.querySelector('#btnExport')?.addEventListener('click', ()=>{
+        const base = (ctx.pid ? `brush_${ctx.pid}` : 'brush');
+        const ts = new Date().toISOString().replace(/[:.]/g,'-');
+        const filename = `${base}_${ts}.csv`;
+        const csv = toCSV(evlog);
+        downloadText(filename, csv);
       });
     }
 
@@ -1730,7 +1963,10 @@
       if(S.phase==='RUN_Q'){
         S.qTime += dt;
 
-        if(S.t - S.lastSpawn >= CFG.spawnEverySec){
+        // adaptive spawn every (play only)
+        const spawnEvery = (isPlay && S._spawnEverySec) ? S._spawnEverySec : CFG.spawnEverySec;
+
+        if(S.t - S.lastSpawn >= spawnEvery){
           S.lastSpawn = S.t;
           spawnNormal();
         }
@@ -1756,7 +1992,7 @@
             if(S.laserWarnLeft <= 0) startLaser();
           }else if(S.laserLeft > 0){
             S.laserLeft = Math.max(0, S.laserLeft - dt);
-            laserOverlay.style.opacity = '0.95';
+            laserOverlay.style.opacity = String(0.95);
             if(S.laserLeft <= 0) stopLaser();
           }else{
             if(S.t >= S.laserNextAt && S.bossHp > 0){
@@ -1782,10 +2018,12 @@
             S.shockPulseTimer = Math.max(0, S.shockPulseTimer - dt);
             if(S.shockPulseTimer <= 0 && S.shockPulsesLeft > 0){
               S.shockPulsesLeft--;
+              S.shockPulseIdx++;
               openShockWindow();
               S.shockPulseTimer = g.pulseGapSec;
-              HUD.toast('PULSE!', 'ตีตอนขึ้น “ตีเลย!”', 520);
+
               S.shockRingR = 0;
+              HUD.toast('PULSE!', 'ตีในจังหวะสีเขียว', 600);
             }
 
             const sp = S.ns?.safePlay;
@@ -1880,7 +2118,7 @@
         HUD.showBoss(false);
       }
 
-      // emit time
+      // emit time (and log snapshot occasionally)
       if((t - S.lastTimeEmit) > 250){
         S.lastTimeEmit = t;
         emit('hha:time', {
@@ -1923,7 +2161,7 @@
     }
     requestAnimationFrame(loop);
 
-    // initial schedules (only once)
+    // initial schedules
     scheduleNextLaser();
     scheduleNextShock();
   }
