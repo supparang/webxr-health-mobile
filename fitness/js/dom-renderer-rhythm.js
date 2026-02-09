@@ -1,9 +1,4 @@
 // === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
-// PRODUCTION (PATCH)
-// ✅ FX position anchored to lane hitline (gold line near bottom)
-// ✅ Works on PC/Mobile/cVR (pointerdown)
-// ✅ Spawns hit particles + score text + feedback + flash
-
 'use strict';
 
 (function(){
@@ -13,38 +8,48 @@
       this.wrapEl = opts.wrapEl || document.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
-      this._flashT = null;
+
+      // try read hitline from CSS variable on field or :root
+      this._hitLineCache = null;
     }
 
-    _laneEl(lane){
-      return document.querySelector(`.rb-lane[data-lane="${lane}"]`);
-    }
-
-    _readCssVarPx(el, name, fallbackPx){
+    _getHitLineY(laneEl){
+      // Hit line is defined in CSS as "--rb-hitline-y" (px from bottom of lane)
+      // We compute absolute screen Y for FX placement.
       try{
-        const v = getComputedStyle(el).getPropertyValue(name);
-        const n = parseFloat(v);
-        return Number.isFinite(n) ? n : fallbackPx;
+        const csLane = laneEl ? getComputedStyle(laneEl) : null;
+        const csHost = this.host ? getComputedStyle(this.host) : null;
+        const csRoot = getComputedStyle(document.documentElement);
+
+        const v =
+          (csLane && csLane.getPropertyValue('--rb-hitline-y')) ||
+          (csHost && csHost.getPropertyValue('--rb-hitline-y')) ||
+          csRoot.getPropertyValue('--rb-hitline-y') ||
+          '86px';
+
+        const px = parseFloat(String(v).trim()) || 86;
+
+        const rect = laneEl.getBoundingClientRect();
+        // y is (bottom - px)
+        return rect.top + rect.height - px;
       }catch(_){
-        return fallbackPx;
+        const rect = laneEl.getBoundingClientRect();
+        return rect.top + rect.height - 86;
       }
     }
 
     _screenPosFromLane(lane){
-      const laneEl = this._laneEl(lane);
+      // เอา center ของ lane + y ที่ hit line (bottom)
+      const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
         const r = this.wrapEl.getBoundingClientRect();
-        return { x: r.left + r.width/2, y: r.top + r.height*0.72 };
+        return { x: r.left + r.width/2, y: r.top + r.height/2 };
       }
-
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
 
-      // ✅ Hit line = lane bottom - --rb-hitline-bottom - safe-area-bottom
-      const hitlineBottom = this._readCssVarPx(document.documentElement, '--rb-hitline-bottom', 72);
-      // safe-area-bottom isn't directly numeric in CSS on some browsers; approximate via env is hard.
-      // We'll keep it simple: use lane rect bottom - hitlineBottom - small extra (label spacing).
-      const y = rect.bottom - hitlineBottom - 1;
+      // IMPORTANT: y aligns to HIT LINE (yellow line at bottom)
+      const y = this._getHitLineY(laneEl);
 
       return { x, y };
     }
@@ -67,7 +72,7 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback((judgment||'hit').toUpperCase(), judgment||'good');
+      this._feedback(String(judgment || '').toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
@@ -91,19 +96,16 @@
     }
 
     spawnHitParticle(x, y, judgment){
-      const n = 12;
+      const n = 10;
       for(let i=0;i<n;i++){
         const el = document.createElement('div');
         el.className = `rb-frag rb-frag-${judgment||'good'}`;
-
-        const size = 6 + Math.random()*7;
-        const ang = (i/n) * Math.PI*2 + (Math.random()*0.2);
-        const dist = 26 + Math.random()*38;
+        const size = 6 + Math.random()*6;
+        const ang = (i/n) * Math.PI*2;
+        const dist = 26 + Math.random()*34;
         const dx = Math.cos(ang)*dist;
         const dy = Math.sin(ang)*dist;
-
-        const life = 420 + Math.random()*200;
-
+        const life = 420 + Math.random()*180;
         el.style.width = size+'px';
         el.style.height = size+'px';
         el.style.left = x+'px';
@@ -111,7 +113,6 @@
         el.style.setProperty('--dx', dx+'px');
         el.style.setProperty('--dy', dy+'px');
         el.style.setProperty('--life', life+'ms');
-
         document.body.appendChild(el);
         setTimeout(()=>el.remove(), life);
       }
