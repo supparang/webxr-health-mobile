@@ -1,101 +1,106 @@
 // === /fitness/js/ai-predictor.js ===
-// Shadow Breaker — AI Predictor (DL-lite, no deps)
-// ✅ FIX: exports named 'AIPredictor' (prevents engine.js import crash)
-// ✅ Safe: works even if disabled / in research mode
-// ✅ Optional global compat: window.RB_AI (legacy)
-
+// Classic Script (NO export) — safe for <script src="...">
+// ✅ Prediction only (heuristic now; replaceable by ML later)
+// ✅ Research lock: show prediction but NEVER adjust gameplay
+// ✅ Normal assist gate: enable only with ?ai=1
 'use strict';
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+(function () {
+  const WIN = window;
 
-export class AIPredictor {
-  constructor(opts = {}){
-    this.enabled = !!opts.enabled;               // play-only by default
-    this.alpha = clamp(opts.alpha ?? 0.25, 0.05, 0.65); // EMA smoothing
-    this.state = {
-      // simple running signals
-      fatigue: 0,          // 0..1
-      rhythm: 0,           // 0..1
-      streak: 0,           // 0..1
-      missRate: 0,         // 0..1
-      lastTs: 0
+  // ---- small helpers ----
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+
+  function readQueryFlag(key) {
+    try {
+      const v = new URL(location.href).searchParams.get(key);
+      return v === '1' || v === 'true' || v === 'yes';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function readQueryMode() {
+    try {
+      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
+      if (m === 'research') return 'research';
+      return 'normal';
+    } catch (_) {
+      return 'normal';
+    }
+  }
+
+  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
+  // Expected snapshot (best effort) from engine:
+  // { accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo, offsetAbsMean, hp, songTime, durationSec }
+  function predictFromSnapshot(s) {
+    const acc = clamp01((Number(s.accPct) || 0) / 100);
+    const hp = clamp01((Number(s.hp) || 100) / 100);
+
+    // offsetAbsMean in seconds; smaller => better
+    const off = Number(s.offsetAbsMean);
+    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ loose cap
+
+    const miss = Number(s.hitMiss) || 0;
+    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
+    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
+
+    // fatigueRisk: rises if hp low, missRate high, offset large
+    const fatigueRisk = clamp01(
+      (1 - hp) * 0.45 +
+      missRate * 0.35 +
+      (1 - offScore) * 0.20
+    );
+
+    // skillScore: high if accuracy high + offset good + miss low
+    const skillScore = clamp01(
+      acc * 0.55 +
+      offScore * 0.30 +
+      (1 - missRate) * 0.15
+    );
+
+    // suggest difficulty (string) — suggestion only (engine decides whether to use)
+    let suggestedDifficulty = 'normal';
+    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+
+    // micro tip
+    let tip = '';
+    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
+    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
+    else if (skillScore > 0.80 && fatigueRisk < 0.30) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
+    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+
+    return {
+      fatigueRisk,
+      skillScore,
+      suggestedDifficulty,
+      tip
     };
   }
 
-  setEnabled(on){
-    this.enabled = !!on;
-  }
-
-  isEnabled(){
-    return !!this.enabled;
-  }
-
-  // snapshot: { dtMs, hit:boolean, miss:boolean, combo:number, reactionMs:number, pace:number }
-  // return: { fatigue01, paceHint, aimHint, tipKey }
-  predict(snapshot = {}){
-    if(!this.enabled){
-      return { fatigue01: 0, paceHint: 'steady', aimHint: 'none', tipKey: '' };
+  // ---- Public bridge used by engine/UI ----
+  // Research lock rule:
+  // - if mode=research => lock adjustments ALWAYS (prediction ok)
+  // - if normal => allow assist only when ?ai=1
+  const API = {
+    getMode() {
+      return readQueryMode(); // 'research' | 'normal'
+    },
+    isAssistEnabled() {
+      const mode = readQueryMode();
+      if (mode === 'research') return false;   // locked 100%
+      return readQueryFlag('ai');              // normal: require ?ai=1
+    },
+    isLocked() {
+      return readQueryMode() === 'research';
+    },
+    predict(snapshot) {
+      return predictFromSnapshot(snapshot || {});
     }
+  };
 
-    const dt = clamp(Number(snapshot.dtMs ?? 16), 8, 500);
-    const hit = !!snapshot.hit;
-    const miss = !!snapshot.miss;
-    const combo = clamp(Number(snapshot.combo ?? 0), 0, 999);
-    const reaction = clamp(Number(snapshot.reactionMs ?? 260), 80, 900);
-
-    // derive raw signals
-    const missRaw = miss ? 1 : 0;
-    const hitRaw  = hit ? 1 : 0;
-
-    // fatigue proxy: slow reaction + misses
-    const fatigueRaw =
-      clamp((reaction - 220) / 520, 0, 1) * 0.55 +
-      missRaw * 0.35 +
-      clamp(1 - hitRaw, 0, 1) * 0.10;
-
-    // rhythm proxy: stable hit stream + combo
-    const rhythmRaw =
-      hitRaw * 0.55 +
-      clamp(combo / 18, 0, 1) * 0.45;
-
-    // streak proxy: combo
-    const streakRaw = clamp(combo / 12, 0, 1);
-
-    // EMA update
-    const a = this.alpha;
-    const S = this.state;
-    S.fatigue = S.fatigue ? (S.fatigue*(1-a) + fatigueRaw*a) : fatigueRaw;
-    S.rhythm  = S.rhythm  ? (S.rhythm*(1-a)  + rhythmRaw*a)  : rhythmRaw;
-    S.streak  = S.streak  ? (S.streak*(1-a)  + streakRaw*a)  : streakRaw;
-    S.missRate= S.missRate? (S.missRate*(1-a)+ missRaw*a)    : missRaw;
-    S.lastTs  = (S.lastTs||0) + dt;
-
-    const fatigue01 = clamp(S.fatigue, 0, 1);
-
-    // heuristics → hints
-    let paceHint = 'steady';
-    if(fatigue01 > 0.70) paceHint = 'slowdown';
-    else if(S.rhythm > 0.78 && fatigue01 < 0.45) paceHint = 'speedup';
-
-    let aimHint = 'none';
-    if(S.missRate > 0.35) aimHint = 'center';
-    else if(S.missRate > 0.20) aimHint = 'focus';
-
-    // tip key (for coach to map to text)
-    let tipKey = '';
-    if(aimHint === 'center') tipKey = 'aim_center';
-    else if(paceHint === 'slowdown') tipKey = 'pace_breathe';
-    else if(paceHint === 'speedup') tipKey = 'pace_push';
-    else if(S.streak > 0.75) tipKey = 'keep_combo';
-
-    return { fatigue01, paceHint, aimHint, tipKey };
-  }
-}
-
-/* ---------- Legacy/global compat (optional) ---------- */
-try{
-  // Provide a default instance for older code paths if needed
-  const inst = new AIPredictor({ enabled: false });
-  // legacy name people used before
-  window.RB_AI = window.RB_AI || inst;
-}catch(_){}
+  // expose globally
+  WIN.RB_AI = API;
+})();
