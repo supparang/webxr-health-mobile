@@ -1,11 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Views: pc/mobile/vr/cvr (auto detect in boot; DO NOT override if ?view= exists)
 ✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Engine: ./goodjunk-vr.boot.js  (imports goodjunk.safe.js)
-✅ Layers: #gj-layer + #gj-layer-r (cVR)
-✅ HUD: score/time/miss/grade + goal/mini + fever + shield + progress + boss UI
-✅ Gate: if ?gate=1 -> listen hha:end in boot => cooldown => hub
+✅ Engine: goodjunk.safe.js (ESM)
+✅ Boot: goodjunk-vr.boot.js (mount + start overlay hardened)
+✅ Layers: #gj-layer (+ #gj-layer-r for cVR)
+✅ HUD safe areas via CSS vars: --gj-top-safe / --gj-bottom-safe
 -->
 <!doctype html>
 <html lang="th">
@@ -13,152 +13,164 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — GoodJunkVR</title>
-
   <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#0b1220"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- Styles -->
+  <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot -> hha:shoot) -->
-  <script src="../vr/vr-ui.js"></script>
+  <!-- (optional) preload fonts -->
+  <style>
+    :root{
+      --bg:#020617;
+      --panel: rgba(2,6,23,.72);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --amber:#f59e0b;
+
+      /* SAFE for target spawns inside layer */
+      --gj-top-safe: 92;    /* px */
+      --gj-bottom-safe: 96; /* px */
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 50% 0%, rgba(59,130,246,.12), transparent 60%),
+                  radial-gradient(900px 520px at 90% 30%, rgba(34,211,238,.10), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans Thai", sans-serif;
+    }
+  </style>
 </head>
 
 <body class="view-mobile">
-  <!-- fatal overlay (กันหน้าเงียบเวลา error) -->
-  <pre id="gj-fatal" class="gj-fatal gj-hidden"></pre>
+  <!-- ===== PLAYFIELD ===== -->
+  <div id="gj-playfield" class="gj-playfield">
+    <!-- layers for spawning targets -->
+    <div id="gj-layer" class="gj-layer" aria-hidden="false"></div>
+    <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="false"></div>
 
-  <!-- ===== ROOT WRAP ===== -->
-  <div id="gj-root" class="gj-root">
-
-    <!-- ===== HUD TOP ===== -->
-    <header class="gj-hud-top" aria-label="HUD">
-      <div class="gj-pill">
-        <span class="gj-pill-badge">Nutrition · GoodJunk</span>
-        <span class="gj-pill-view" id="gj-view">—</span>
+    <!-- ===== HUD ===== -->
+    <header id="gj-hud" class="gj-hud" aria-label="HUD">
+      <div class="gj-hud-left">
+        <span class="gj-pill">HeroHealth · Nutrition</span>
+        <span class="gj-pill gj-pill-view" id="gj-pill-view">—</span>
       </div>
 
-      <div class="gj-stats" role="group" aria-label="stats">
+      <div class="gj-hud-mid">
         <div class="gj-stat">
-          <div class="gj-stat-label">SCORE</div>
-          <div class="gj-stat-val" id="hud-score">0</div>
+          <div class="gj-stat-k">SCORE</div>
+          <div class="gj-stat-v" id="hud-score">0</div>
         </div>
         <div class="gj-stat">
-          <div class="gj-stat-label">TIME</div>
-          <div class="gj-stat-val" id="hud-time">0</div>
+          <div class="gj-stat-k">TIME</div>
+          <div class="gj-stat-v" id="hud-time">0</div>
         </div>
         <div class="gj-stat">
-          <div class="gj-stat-label">MISS</div>
-          <div class="gj-stat-val" id="hud-miss">0</div>
+          <div class="gj-stat-k">MISS</div>
+          <div class="gj-stat-v" id="hud-miss">0</div>
         </div>
         <div class="gj-stat">
-          <div class="gj-stat-label">GRADE</div>
-          <div class="gj-stat-val" id="hud-grade">—</div>
+          <div class="gj-stat-k">GRADE</div>
+          <div class="gj-stat-v" id="hud-grade">—</div>
+        </div>
+      </div>
+
+      <div class="gj-hud-right">
+        <div class="gj-mini">
+          <div class="gj-mini-k">FEVER</div>
+          <div class="gj-fever">
+            <div id="feverFill" class="gj-fever-fill"></div>
+          </div>
+          <div id="feverText" class="gj-mini-v">0%</div>
+        </div>
+        <div class="gj-mini">
+          <div class="gj-mini-k">SHIELD</div>
+          <div id="shieldPills" class="gj-mini-v">—</div>
         </div>
       </div>
     </header>
 
-    <!-- ===== HUD MID: GOAL / MINI ===== -->
-    <section class="gj-hud-mid" aria-label="Goals">
-      <div class="gj-card">
-        <div class="gj-card-title">
-          <span class="gj-dot"></span>
-          <span id="hud-goal">—</span>
-        </div>
-        <div class="gj-card-sub" id="goalDesc">—</div>
+    <!-- ===== QUEST PANEL ===== -->
+    <aside id="gj-quest" class="gj-quest" aria-label="Quest">
+      <div class="gj-quest-title" id="hud-goal">—</div>
+      <div class="gj-quest-desc" id="goalDesc">—</div>
 
-        <div class="gj-row">
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel">CURRENT</div>
-            <div class="gj-miniVal"><span id="hud-goal-cur">0</span></div>
-          </div>
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel">TARGET</div>
-            <div class="gj-miniVal"><span id="hud-goal-target">0</span></div>
-          </div>
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel">SHIELD</div>
-            <div class="gj-miniVal" id="shieldPills">—</div>
-          </div>
-        </div>
+      <div class="gj-quest-row">
+        <span class="gj-quest-k">Goal</span>
+        <span class="gj-quest-v"><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">0</b></span>
       </div>
 
-      <div class="gj-card">
-        <div class="gj-card-title">
-          <span class="gj-dot gj-dot2"></span>
-          <span>MINI</span>
-        </div>
-        <div class="gj-card-sub" id="hud-mini">—</div>
-
-        <div class="gj-row">
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel">TIMER</div>
-            <div class="gj-miniVal" id="miniTimer">—</div>
-          </div>
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel">FEVER</div>
-            <div class="gj-miniVal"><span id="feverText">0%</span></div>
-          </div>
-          <div class="gj-miniStat">
-            <div class="gj-miniLabel"> </div>
-            <div class="gj-miniVal"></div>
-          </div>
-        </div>
-
-        <div class="gj-feverBar" aria-label="fever bar">
-          <div class="gj-feverFill" id="feverFill" style="width:0%"></div>
-        </div>
+      <div class="gj-quest-row">
+        <span class="gj-quest-k">Mini</span>
+        <span class="gj-quest-v"><span id="hud-mini">—</span> · <b id="miniTimer">—</b></span>
       </div>
-    </section>
+    </aside>
 
-    <!-- ===== PROGRESS (BOTTOM) ===== -->
-    <div class="gj-progress" aria-label="progress">
-      <div class="gj-progress-track">
-        <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+    <!-- ===== PROGRESS BAR ===== -->
+    <div class="gj-progress" aria-hidden="false">
+      <div id="gjProgressFill" class="gj-progress-fill"></div>
+    </div>
+
+    <!-- ===== BOSS BAR (optional) ===== -->
+    <div id="bossBar" class="gj-boss" aria-hidden="true">
+      <div class="gj-boss-top">
+        <span class="gj-boss-title">BOSS</span>
+        <span id="bossHint" class="gj-boss-hint">—</span>
+      </div>
+      <div class="gj-boss-bar">
+        <div id="bossFill" class="gj-boss-fill"></div>
       </div>
     </div>
 
-    <!-- ===== BOSS UI (optional) ===== -->
-    <section id="bossBar" class="gj-boss" aria-hidden="true">
-      <div class="gj-boss-head">
-        <div class="gj-boss-title">BOSS PHASE</div>
-        <div class="gj-boss-hint" id="bossHint">—</div>
-      </div>
-      <div class="gj-boss-track">
-        <div class="gj-boss-fill" id="bossFill" style="width:100%"></div>
-      </div>
-    </section>
-
-    <!-- ===== PLAYFIELD ===== -->
-    <main id="gj-playfield" class="gj-playfield" aria-label="playfield">
-      <!-- LAYER (main) -->
-      <div id="gj-layer" class="gj-layer" aria-label="layer-left"></div>
-
-      <!-- LAYER (right eye for cVR) -->
-      <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-label="layer-right"></div>
-    </main>
-
     <!-- ===== LOW TIME OVERLAY ===== -->
-    <aside id="lowTimeOverlay" class="gj-lowtime" aria-hidden="true">
+    <div id="lowTimeOverlay" class="gj-lowtime" aria-hidden="true">
       <div class="gj-lowtime-inner">
-        <div class="gj-lowtime-title">TIME</div>
-        <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
+        <div class="gj-lowtime-k">เหลือเวลา</div>
+        <div id="gj-lowtime-num" class="gj-lowtime-num">5</div>
       </div>
-    </aside>
+    </div>
 
-    <!-- ===== GATE COOLDOWN (optional) ===== -->
-    <aside id="gj-cooldown" class="gj-cooldown" aria-hidden="true">
-      <div class="gj-cooldown-inner">
-        <div class="gj-cooldown-title">Cooldown</div>
-        <div class="gj-cooldown-sub">กลับ HUB ใน</div>
-        <div class="gj-cooldown-num"><span id="gj-cooldown-num">20</span>s</div>
+    <!-- ===== START OVERLAY ===== -->
+    <div id="startOverlay" class="gj-start" aria-hidden="false">
+      <div class="gj-start-card">
+        <div class="gj-start-pill">GoodJunkVR</div>
+        <h1 class="gj-start-title">แยก “ของดี” vs “ของเสีย”</h1>
+        <p class="gj-start-sub">
+          แตะเพื่อยิง • คุม MISS • เก็บคอมโบ • ช่วงท้ายมีบอส
+        </p>
+        <div class="gj-start-actions">
+          <button id="btnStart" class="gj-btn gj-btn-primary">เริ่มเล่น</button>
+          <button class="gj-btn btnBackHub">กลับ HUB</button>
+        </div>
+        <p class="gj-start-foot">
+          Tip: โหมด cVR จะมี 2 เลเยอร์ (ซ้าย/ขวา) แต่ “นับเป้า” แค่ครั้งเดียวต่อ UID
+        </p>
       </div>
-    </aside>
+    </div>
+  </div>
 
-  </div><!-- /gj-root -->
+  <!-- VR UI (Universal): ENTER VR/EXIT/RECENTER + Crosshair + tap-to-shoot -->
+  <script src="../vr/vr-ui.js"></script>
 
-  <!-- Boot -->
+  <!-- Optional: tweak lockPx for GoodJunk -->
+  <script>
+    window.HHA_VRUI_CONFIG = Object.assign(
+      { lockPx: 28, cooldownMs: 85 },
+      window.HHA_VRUI_CONFIG || {}
+    );
+  </script>
+
+  <!-- Boot (ESM) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
