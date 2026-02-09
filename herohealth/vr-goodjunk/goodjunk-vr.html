@@ -1,11 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr (auto detect in boot; DO NOT override if ?view= exists)
+✅ Views: pc/mobile/vr/cvr (auto detect in boot; DO NOT override)
 ✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
 ✅ Engine: goodjunk.safe.js (ESM)
 ✅ Boot: goodjunk-vr.boot.js (mount + start overlay hardened)
 ✅ Layers: #gj-layer (+ #gj-layer-r for cVR)
 ✅ HUD safe areas via CSS vars: --gj-top-safe / --gj-bottom-safe
+✅ GATE FLOW:
+   - if ?gate=1 => on hha:end => redirect to ../warmup-gate.html?phase=cooldown&cdur=20&autonext=1&next=<hub>
 -->
 <!doctype html>
 <html lang="th">
@@ -168,6 +170,45 @@ GoodJunkVR RUN — PRODUCTION (HHA Standard)
       { lockPx: 28, cooldownMs: 85 },
       window.HHA_VRUI_CONFIG || {}
     );
+  </script>
+
+  <!-- ✅ GATE FLOW: on end => cooldown gate => hub -->
+  <script>
+  (() => {
+    'use strict';
+    const QS = new URL(location.href).searchParams;
+    const q = (k, d='') => (QS.get(k) ?? d);
+
+    const gateOn = String(q('gate','0')) === '1';
+    const hub = q('hub','') || '../hub.html';
+    const cdur = Math.max(5, Math.min(60, Number(q('cdur','20') || 20)));
+
+    function buildCooldownGateUrl(){
+      // from /herohealth/vr-goodjunk/goodjunk-vr.html => /herohealth/warmup-gate.html
+      const gate = new URL('../warmup-gate.html', location.href);
+      gate.searchParams.set('phase', 'cooldown');
+      gate.searchParams.set('cdur', String(cdur));
+      gate.searchParams.set('hub', hub);
+      gate.searchParams.set('next', hub);       // ✅ cooldown ends -> HUB
+      gate.searchParams.set('autonext', '1');   // ✅ auto go
+
+      // passthrough (keep research ids, diff, run, seed, etc.)
+      const deny = new Set(['next','hub','phase','dur','cdur','games','autonext']);
+      QS.forEach((v,k)=>{ if(!deny.has(k)) gate.searchParams.set(k, v); });
+
+      return gate.toString();
+    }
+
+    window.addEventListener('hha:end', () => {
+      if(!gateOn) return;
+      if(window.__HHA_GJ_TO_COOLDOWN__) return;
+      window.__HHA_GJ_TO_COOLDOWN__ = true;
+
+      try{
+        location.href = buildCooldownGateUrl();
+      }catch(_){}
+    }, { passive:true });
+  })();
   </script>
 
   <!-- Boot (ESM) -->
