@@ -9,16 +9,18 @@
 </head>
 <body>
 <script type="module">
-  // ✅ ถูกที่: /herohealth/launch/launcher-core.js
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target คือเกมจริงในโฟลเดอร์ /fitness/
+  // ✅ target คือเกมจริง (อยู่ใน /fitness/)
+  // ✅ pass-through params ทั้งหมดจาก URL ปัจจุบัน
+  // ✅ ใส่ defaults เฉพาะกรณี "ยังไม่มี" (NO override)
   hhGo('../fitness/jump-duck.html', {
     defaults: {
-      mode: 'training',   // training | test | research
-      diff: 'normal',     // easy | normal | hard
-      duration: '60'      // 45 | 60 | 90
-      // note: ไม่ใส่ view เพื่อ "NO override"
+      mode: 'training',
+      diff: 'normal',
+      duration: '60'
+      // ถ้าจะบังคับ/แนะนำ boss type แบบเติมเฉพาะที่ขาด:
+      // boss: 'mix'
     }
   });
 </script>
