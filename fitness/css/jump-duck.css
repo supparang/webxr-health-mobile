@@ -1,524 +1,550 @@
-/* === /fitness/css/jump-duck.css ===
-Jump-Duck — VR Fitness Academy (HHA Standard)
-✅ HUD safe-area + ไม่บัง playfield
-✅ Progress/Fever/Boss bars + Telegraph overlay
-✅ Mobile/cVR actionbar ปุ่มใหญ่กดง่าย
-✅ รองรับ view classes: view-pc / view-mobile / view-cvr / view-vr
-*/
+]/* === /fitness/css/jump-duck.css — PRODUCTION v20260210a === */
 
 :root{
-  --bg0:#020617;
-  --bg1:#0b1226;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.72);
+  --bg0:#050814;
+  --bg1:#0b1026;
+  --panel: rgba(8,12,28,.72);
+  --panel2: rgba(10,16,40,.55);
   --stroke: rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
-  --accent:#22c55e;
-  --warn:#fbbf24;
-  --bad:#fb7185;
+
+  --good:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+
   --cyan:#22d3ee;
   --violet:#a78bfa;
+  --pink:#ff4fd8;
 
   --radius: 22px;
-  --shadow: 0 18px 60px rgba(0,0,0,.45);
+  --shadow: 0 16px 48px rgba(0,0,0,.45);
 
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  --hudH: 168px;     /* desktop/mobile default HUD block height */
-  --actionH: 64px;   /* actionbar height (mobile/cvr) */
+  --hudH: 110px;
+  --actionH: 72px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  background: radial-gradient(1200px 900px at 20% 0%, #0b1226, var(--bg0));
-  color:var(--text);
+html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 20% 0%, #141a3a 0%, transparent 55%),
+                          radial-gradient(1000px 700px at 90% 10%, #1a2b24 0%, transparent 52%),
+                          linear-gradient(180deg, var(--bg0), var(--bg1));
+  color: var(--text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-  overflow-x:hidden;
 }
-
 a{ color:inherit; text-decoration:none; }
-button, select, input{ font:inherit; }
-b,strong{ font-weight:800; }
+button, input, select{ font: inherit; }
+pre{ white-space: pre-wrap; }
 
-/* ---- fatal overlay ---- */
+/* -------------------------
+   Fatal overlay
+------------------------- */
 .jd-fatal{
-  position: fixed;
-  inset: 10px;
+  position:fixed;
+  inset: 0;
+  padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
+  background: rgba(0,0,0,.86);
+  color: #fff;
   z-index: 9999;
-  padding: 14px 14px 14px 14px;
-  white-space: pre-wrap;
-  background: rgba(0,0,0,.85);
-  border: 1px solid rgba(248,113,113,.35);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
   overflow:auto;
 }
 .jd-hidden{ display:none !important; }
 
-/* ---- layout shell ---- */
+/* -------------------------
+   Shell / layout
+------------------------- */
 .jd-shell{
   min-height:100%;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  padding: calc(18px + var(--sat)) calc(14px + var(--sal)) calc(18px + var(--sab)) calc(14px + var(--sar));
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .jd-wrap{
-  width:min(1080px, 100%);
-  margin:0 auto;
+  width: min(1040px, 100%);
 }
 
-/* ---- card ---- */
+.jd-view{ width:100%; }
 .jd-card{
-  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.64));
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
   border: 1px solid var(--stroke);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
   padding: 18px;
 }
-.jd-card-play{ padding: 14px; }
-
-/* ---- header/menu ---- */
-.jd-header{ margin-bottom: 12px; }
-.jd-title{
-  margin:0;
-  font-size: 32px;
-  letter-spacing:.3px;
-}
-.jd-subtitle{
-  margin: 6px 0 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.jd-menu-grid{
-  display:grid;
-  grid-template-columns: 1.1fr .9fr;
-  gap: 14px;
-  margin-top: 14px;
-}
-.jd-menu-block{
-  background: rgba(15,23,42,.42);
-  border: 1px solid rgba(148,163,184,.14);
-  border-radius: 18px;
+.jd-card-play{
   padding: 14px;
 }
-.jd-field-row{ margin-bottom: 12px; }
-.jd-field-row label{
-  display:block;
-  font-weight: 750;
-  margin-bottom: 6px;
+
+/* -------------------------
+   Header
+------------------------- */
+.jd-header{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+  padding: 4px 4px 14px;
 }
+.jd-title{
+  margin:0;
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: .2px;
+}
+.jd-subtitle{
+  margin:0;
+  color: var(--muted);
+  line-height:1.45;
+}
+
+/* -------------------------
+   Menu grid
+------------------------- */
+.jd-menu-grid{
+  display:grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: 14px;
+  margin-top: 6px;
+}
+.jd-menu-block{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: calc(var(--radius) - 4px);
+  padding: 14px;
+}
+.jd-field-row{ display:flex; flex-direction:column; gap: 8px; margin-bottom: 12px; }
+.jd-field-row label{ font-weight: 700; font-size: 14px; color: #f1f5f9; }
 .jd-field-row select,
 .jd-field-row input{
   width:100%;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.55);
   color: var(--text);
   outline: none;
 }
 .jd-field-row select:focus,
 .jd-field-row input:focus{
-  border-color: rgba(34,197,94,.55);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+  border-color: rgba(34,211,238,.55);
+  box-shadow: 0 0 0 3px rgba(34,211,238,.18);
 }
-.jd-hint{
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-}
+.jd-hint{ margin:0; color: var(--muted); font-size: 13px; line-height:1.35; }
+
 .jd-research{
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(148,163,184,.18);
+  border-top: 1px dashed rgba(148,163,184,.25);
+  padding-top: 12px;
+  margin-top: 6px;
 }
 .jd-research-hint{
   margin: 6px 0 0;
-  color: var(--muted);
+  color: rgba(34,211,238,.9);
   font-size: 12.5px;
 }
 
-/* ---- buttons ---- */
-.jd-btn-row{
-  display:flex;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
+.jd-btn-row{ display:flex; gap: 10px; margin-top: 10px; }
+.jd-btn-row-secondary{ margin-top: 12px; flex-wrap:wrap; }
+
 .jd-btn{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap: 8px;
-  padding: 11px 14px;
+  padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid rgba(148,163,184,.22);
   background: rgba(2,6,23,.55);
   color: var(--text);
   cursor:pointer;
   user-select:none;
-  transition: transform .08s ease, filter .15s ease, border-color .15s ease;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
 }
-.jd-btn:hover{ filter: brightness(1.06); border-color: rgba(148,163,184,.28); }
-.jd-btn:active{ transform: translateY(1px); }
+.jd-btn:hover{ transform: translateY(-1px); border-color: rgba(34,211,238,.45); }
+.jd-btn:active{ transform: translateY(0px) scale(.99); }
 .jd-btn-primary{
-  background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(22,163,74,.85));
-  border-color: rgba(34,197,94,.50);
-  color: #04130a;
-  font-weight: 850;
+  background: linear-gradient(180deg, rgba(34,211,238,.32), rgba(34,197,94,.18));
+  border-color: rgba(34,211,238,.35);
 }
-.jd-btn-sub{ background: rgba(15,23,42,.55); }
-.jd-btn-row-secondary{ margin-top: 12px; }
-
+.jd-btn-sub{
+  background: rgba(2,6,23,.4);
+}
 .jd-mini-note{
   margin-top: 12px;
+  display:flex;
+  align-items:center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.38);
-  display:flex;
-  gap: 10px;
-  align-items:center;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
 .jd-pill{
   font-size: 12px;
-  padding: 4px 10px;
+  font-weight: 800;
+  padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(34,211,238,.32);
-  background: rgba(34,211,238,.10);
-  color: #bafcff;
+  border: 1px solid rgba(34,211,238,.35);
+  color: rgba(34,211,238,.95);
+  background: rgba(34,211,238,.08);
 }
 .jd-mini-note-text{ color: var(--muted); font-size: 13px; }
 
-/* ---- howto ---- */
+.jd-howto-block{
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: var(--panel2);
+}
 .jd-section-title{
-  margin:0 0 10px;
+  margin: 0 0 8px;
   font-size: 18px;
-  letter-spacing:.2px;
+  letter-spacing: .2px;
 }
 .jd-howto-list{
-  margin: 0;
+  margin:0;
   padding-left: 18px;
-  color: var(--text);
+  color: #e2e8f0;
+  line-height:1.5;
 }
-.jd-howto-list li{
-  margin: 6px 0;
-  color: rgba(229,231,235,.92);
-}
+.jd-howto-list li{ margin: 6px 0; }
 .jd-howto-inline{
-  margin: 10px 0 0;
+  margin: 12px 2px 0;
   color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.45;
+  line-height:1.45;
 }
 .jd-callout{
   margin-top: 12px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(167,139,250,.30);
-  background: rgba(167,139,250,.10);
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(168,85,247,.22);
+  background: rgba(168,85,247,.08);
 }
-.jd-callout-text{ color: rgba(229,231,235,.88); margin-top: 6px; font-size: 13.5px; }
+.jd-callout b{ color: #f8fafc; }
+.jd-callout-text{ margin-top: 6px; color: rgba(248,250,252,.85); }
 
-/* ---- PLAY view ---- */
+/* -------------------------
+   Play topbar / badges
+------------------------- */
 .jd-topbar{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-.jd-topbar-actions{
-  display:flex;
-  gap: 8px;
-  flex-wrap:wrap;
-}
+.jd-topbar-actions{ display:flex; gap: 8px; flex-wrap:wrap; }
 .jd-badge{
   display:inline-flex;
-  gap: 6px;
   align-items:center;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 8px 10px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.40);
-  font-size: 12.5px;
-  color: rgba(229,231,235,.92);
+  background: rgba(2,6,23,.35);
+  color: rgba(226,232,240,.92);
+  font-size: 13px;
 }
+.jd-badge b{ color:#fff; }
 
-/* ---- bars ---- */
+/* -------------------------
+   Bars: Progress / Fever
+------------------------- */
 .jd-bars{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 10px;
+  margin: 8px 0 10px;
 }
 .jd-bar{
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.40);
-  border-radius: 18px;
-  padding: 10px 10px;
-  display:grid;
-  grid-template-columns: auto 1fr auto;
+  display:flex;
   align-items:center;
   gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
-.jd-bar-label{ font-size: 12.5px; color: rgba(229,231,235,.92); font-weight: 800; }
+.jd-bar-label{ font-weight: 800; font-size: 13px; color: #e2e8f0; }
 .jd-bar-track{
+  flex:1;
   height: 10px;
   border-radius: 999px;
-  background: rgba(148,163,184,.16);
+  background: rgba(148,163,184,.18);
   overflow:hidden;
 }
 .jd-bar-fill{
-  height: 100%;
-  width: 100%;
+  height:100%;
+  width:100%;
   transform-origin: left center;
   transform: scaleX(0);
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.92));
+  background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.85));
 }
-.jd-bar-fever .jd-bar-fill{
-  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(251,113,133,.92));
-}
-.jd-bar-text{ font-size: 12.5px; color: rgba(229,231,235,.88); font-weight: 800; }
+.jd-bar-text{ font-size: 12.5px; color: rgba(226,232,240,.9); min-width: 48px; text-align:right; }
 
-/* ---- boss bar ---- */
+.jd-bar-fever .jd-bar-fill{
+  background: linear-gradient(90deg, rgba(255,79,216,.92), rgba(245,158,11,.85));
+}
+
+/* -------------------------
+   Boss HP bar
+------------------------- */
 .jd-bossbar{
-  border: 1px solid rgba(251,191,36,.25);
-  background: rgba(2,6,23,.42);
-  border-radius: 18px;
-  padding: 10px;
   margin: 10px 0 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(239,68,68,.22);
+  background: rgba(239,68,68,.08);
 }
 .jd-bossbar-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap: 10px;
   margin-bottom: 8px;
 }
 .jd-bossbar-title{
   font-weight: 900;
-  letter-spacing:.5px;
-  color: rgba(251,191,36,.95);
+  letter-spacing: .6px;
 }
 .jd-bossbar-status{
-  font-weight: 900;
-  color: rgba(229,231,235,.92);
-  padding: 4px 10px;
+  font-size: 12.5px;
+  color: rgba(255,255,255,.9);
+  padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(251,191,36,.22);
-  background: rgba(251,191,36,.10);
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.16);
 }
 .jd-bossbar-status.on{
-  box-shadow: 0 0 0 3px rgba(251,191,36,.10);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.16);
 }
 .jd-bossbar-track{
   height: 12px;
   border-radius: 999px;
+  background: rgba(255,255,255,.16);
   overflow:hidden;
-  background: rgba(148,163,184,.14);
 }
 .jd-bossbar-fill{
-  height: 100%;
-  width: 100%;
-  transform-origin: left center;
+  height:100%;
+  width:100%;
+  transform-origin:left center;
   transform: scaleX(1);
-  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(251,113,133,.92));
+  background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(245,158,11,.85));
 }
 
-/* ---- HUD ---- */
+/* -------------------------
+   HUD
+------------------------- */
 .jd-hud{
   display:grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
-  margin: 8px 0 10px;
+  margin: 10px 0 10px;
 }
 .jd-hud-col{
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.35);
-  border-radius: 18px;
-  padding: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
+.jd-hud-center{ text-align:center; }
+.jd-hud-right{ text-align:right; }
+
 .jd-hud-row{
   display:flex;
-  justify-content:space-between;
   align-items:center;
+  justify-content:space-between;
   gap: 10px;
   margin: 6px 0;
 }
+.jd-hud-right .jd-hud-row{ justify-content:flex-end; gap: 10px; }
 .jd-tag{
-  font-size: 12px;
   color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .2px;
 }
 .jd-hud-chip{
   display:inline-flex;
   align-items:center;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.42);
-  font-size: 12.5px;
+  background: rgba(0,0,0,.18);
 }
+.jd-hud-chip strong{ color:#fff; }
 
-/* ---- play area ---- */
+/* -------------------------
+   Playfield
+------------------------- */
 .jd-play-area{
-  position: relative;
-  border: 1px solid rgba(148,163,184,.14);
-  background: linear-gradient(180deg, rgba(2,6,23,.30), rgba(2,6,23,.55));
-  border-radius: 18px;
+  position:relative;
+  height: 320px;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid rgba(148,163,184,.18);
+  background:
+    radial-gradient(800px 300px at 50% 0%, rgba(34,211,238,.12), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.35), rgba(2,6,23,.55));
   overflow:hidden;
-
-  /* ✅ กัน HUD/actionbar บัง: สูงพอ และมี padding ภายใน */
-  height: clamp(280px, 44vh, 420px);
 }
-
 .jd-track{
   position:absolute;
-  inset: 0;
+  inset:0;
 }
 .jd-ground{
   position:absolute;
-  left:0; right:0;
-  bottom: 0;
-  height: 42%;
-  background: linear-gradient(180deg, rgba(34,211,238,.0), rgba(34,211,238,.08));
-}
-.jd-hit-line{
-  position:absolute;
-  top: 0;
-  bottom: 0;
-  left: 24%;
-  width: 2px;
-  background: rgba(34,211,238,.22);
-  box-shadow: 0 0 0 1px rgba(34,211,238,.08);
+  left:-20%;
+  right:-20%;
+  bottom:0;
+  height: 76px;
+  background: linear-gradient(180deg, rgba(34,197,94,.10), rgba(2,6,23,.0));
+  border-top: 1px solid rgba(34,197,94,.15);
 }
 
-/* ---- telegraph overlay ---- */
-.jd-tele{
+/* hit line */
+.jd-hit-line{
   position:absolute;
-  left: 50%;
-  top: 10px;
-  transform: translateX(-50%);
-  z-index: 4;
+  top:0;
+  bottom:0;
+  left: 24%;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(34,211,238,.0), rgba(34,211,238,.55), rgba(34,211,238,.0));
+  opacity: .9;
   pointer-events:none;
 }
+
+/* telegraph overlay */
+.jd-tele{
+  position:absolute;
+  inset: 12px 12px auto 12px;
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
+  z-index: 3;
+}
 .jd-tele-inner{
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(167,139,250,.30);
-  background: rgba(167,139,250,.12);
-  font-weight: 950;
-  letter-spacing:.4px;
-  color: rgba(229,231,235,.95);
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.95);
+  font-weight: 900;
+  letter-spacing: .5px;
+  transform: translateY(-8px);
   opacity: 0;
-  transform: translateY(-6px) scale(.98);
   transition: opacity .18s ease, transform .18s ease;
 }
 .jd-tele.on .jd-tele-inner{
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
+  box-shadow: 0 0 0 3px rgba(34,211,238,.14);
 }
 
-/* ---- avatar ---- */
+/* avatar */
 .jd-avatar{
   position:absolute;
-  left: 14%;
-  bottom: 16%;
-  width: 60px;
-  height: 60px;
-  display:grid;
-  place-items:center;
-  z-index: 3;
+  left: 18%;
+  bottom: 56px;
+  width: 52px;
+  height: 52px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 34px;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
+  z-index: 2;
 }
 .jd-avatar-body{
-  font-size: 42px;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+  transform: translateY(0);
+  transition: transform .12s ease;
 }
-.jd-avatar.jump{ animation: jdJump .18s ease-out; }
-.jd-avatar.duck{ animation: jdDuck .18s ease-out; }
-@keyframes jdJump{
-  0%{ transform: translateY(0); }
-  100%{ transform: translateY(-18px); }
-}
-@keyframes jdDuck{
-  0%{ transform: translateY(0) scale(1); }
-  100%{ transform: translateY(10px) scale(.92); }
-}
+.jd-avatar.jump .jd-avatar-body{ transform: translateY(-26px) scale(1.04); }
+.jd-avatar.duck .jd-avatar-body{ transform: translateY(10px) scale(.98); opacity: .92; }
 
-/* ---- obstacles ---- */
+/* obstacles host */
 .jd-obstacles{
   position:absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events:none;
+  inset:0;
+  z-index: 1;
 }
 .jd-obstacle{
   position:absolute;
   top: 0;
   left: 100%;
-  width: 78px;
-  height: 58px;
+  width: 96px;
+  height: 56px;
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  display:grid;
-  place-items:center;
-  box-shadow: 0 14px 32px rgba(0,0,0,.30);
+  background: rgba(0,0,0,.22);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 12px 24px rgba(0,0,0,.25);
 }
-.jd-obstacle--low{ bottom: 20%; top:auto; }
-.jd-obstacle--high{ top: 18%; }
-
 .jd-obstacle-inner{
-  display:grid;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
   gap: 2px;
-  text-align:center;
-  padding: 8px 10px;
 }
 .jd-obs-icon{
-  font-size: 18px;
-  opacity: .95;
+  font-size: 20px;
+  line-height: 1;
 }
 .jd-obs-tag{
   font-size: 12px;
-  font-weight: 950;
-  letter-spacing:.6px;
-  color: rgba(229,231,235,.92);
+  font-weight: 900;
+  letter-spacing: .6px;
+  opacity: .95;
 }
-.jd-obstacle--low{ border-color: rgba(34,197,94,.28); }
-.jd-obstacle--high{ border-color: rgba(251,191,36,.26); }
+.jd-obstacle--low{
+  top: 58%;
+  transform: translateY(-50%);
+  background: rgba(34,211,238,.10);
+  border-color: rgba(34,211,238,.28);
+}
+.jd-obstacle--high{
+  top: 34%;
+  transform: translateY(-50%);
+  background: rgba(245,158,11,.10);
+  border-color: rgba(245,158,11,.28);
+}
 
-/* ---- judge ---- */
+/* judge */
 .jd-judge{
   position:absolute;
   left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  z-index: 5;
-  padding: 8px 12px;
+  top: 14px;
+  transform: translateX(-50%) translateY(-10px);
+  opacity: 0;
+  padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.68);
-  font-weight: 950;
-  letter-spacing:.2px;
-  opacity: 0;
-  transition: opacity .12s ease, transform .12s ease;
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.95);
+  font-weight: 900;
+  letter-spacing: .3px;
+  z-index: 4;
+  transition: opacity .14s ease, transform .14s ease, box-shadow .14s ease;
   pointer-events:none;
 }
 .jd-judge.show{
   opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateX(-50%) translateY(0);
 }
-.jd-judge.ok{ border-color: rgba(34,197,94,.28); }
-.jd-judge.miss{ border-color: rgba(251,113,133,.30); }
-.jd-judge.combo{ border-color: rgba(251,191,36,.30); box-shadow: 0 0 0 3px rgba(251,191,36,.10); }
+.jd-judge.ok{ box-shadow: 0 0 0 3px rgba(34,197,94,.14); }
+.jd-judge.miss{ box-shadow: 0 0 0 3px rgba(239,68,68,.14); }
+.jd-judge.combo{ box-shadow: 0 0 0 3px rgba(255,79,216,.14); }
 
-/* ---- shake ---- */
-.shake{ animation: jdShake .18s linear; }
+/* shake */
+#jd-play-area.shake{
+  animation: jdShake .18s linear 1;
+}
 @keyframes jdShake{
   0%{ transform: translateX(0); }
   25%{ transform: translateX(-4px); }
@@ -527,73 +553,98 @@ b,strong{ font-weight:800; }
   100%{ transform: translateX(0); }
 }
 
-/* ---- actionbar (mobile/cVR) ---- */
+/* howto under playfield */
+.jd-howto-play{ margin-top: 10px; }
+
+/* -------------------------
+   Actionbar (mobile/cvr)
+------------------------- */
 .jd-actionbar{
+  margin-top: 10px;
   display:none;
   gap: 10px;
-  margin-top: 10px;
 }
 .jd-btn-action{
-  flex: 1;
-  padding: 14px 12px;
+  flex:1;
+  padding: 14px 14px;
   border-radius: 18px;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
+  font-weight: 900;
 }
-.jd-btn-action.jd-jump{ border-color: rgba(34,197,94,.26); }
-.jd-btn-action.jd-duck{ border-color: rgba(251,191,36,.22); }
+.jd-btn-action.jd-jump{
+  border-color: rgba(34,211,238,.28);
+  background: rgba(34,211,238,.10);
+}
+.jd-btn-action.jd-duck{
+  border-color: rgba(245,158,11,.28);
+  background: rgba(245,158,11,.10);
+}
 
-/* ---- result ---- */
+/* -------------------------
+   Result
+------------------------- */
 .jd-result-grid{
+  margin-top: 10px;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 10px 14px;
 }
 .jd-result-row{
   display:flex;
+  align-items:center;
   justify-content:space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.35);
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
-.jd-result-row span{ color: var(--muted); }
+.jd-result-row span{ color: var(--muted); font-size: 13px; }
+.jd-result-row b{ color:#fff; }
 .jd-note{
-  margin: 12px 0 0;
+  margin: 12px 2px 0;
   color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.5;
+  line-height:1.45;
 }
 
-/* =========================
-   Responsive
-========================= */
-@media (max-width: 920px){
-  .jd-menu-grid{ grid-template-columns: 1fr; }
-  .jd-title{ font-size: 28px; }
-}
-
-body.view-mobile{
-  --hudH: 154px;
-}
-body.view-cvr{
-  --hudH: 148px;
-}
-
+/* -------------------------
+   View modes
+------------------------- */
 body.view-mobile .jd-actionbar,
 body.view-cvr .jd-actionbar{
   display:flex;
 }
 
+body.view-cvr .jd-shell{
+  padding: calc(10px + var(--sat)) calc(10px + var(--sal)) calc(10px + var(--sab)) calc(10px + var(--sar));
+}
+body.view-cvr .jd-play-area{
+  height: 300px;
+}
+body.view-cvr .jd-hud{
+  grid-template-columns: 1fr 1fr;
+}
+body.view-cvr .jd-hud-right{ text-align:left; }
+body.view-cvr .jd-bars{
+  grid-template-columns: 1fr;
+}
+
+/* VR / view-vr: ให้พื้นที่กว้างขึ้น ลดความหนาแน่น */
+body.view-vr .jd-wrap{ width: min(1100px, 100%); }
+body.view-vr .jd-play-area{ height: 340px; }
+body.view-vr .jd-actionbar{ display:none; } /* VR ใช้ยิง/แตะกลางจอ */
+
+/* -------------------------
+   Responsive
+------------------------- */
+@media (max-width: 880px){
+  .jd-menu-grid{ grid-template-columns: 1fr; }
+  .jd-title{ font-size: 30px; }
+}
 @media (max-width: 520px){
   .jd-card{ padding: 14px; }
+  .jd-title{ font-size: 28px; }
   .jd-hud{ grid-template-columns: 1fr; }
+  .jd-hud-col{ text-align:left !important; }
   .jd-bars{ grid-template-columns: 1fr; }
-  .jd-play-area{ height: clamp(300px, 46vh, 420px); }
-  .jd-obstacle{ width: 74px; height: 56px; }
-  .jd-avatar-body{ font-size: 40px; }
-  .jd-result-grid{ grid-template-columns: 1fr; }
+  .jd-obstacle{ width: 88px; height: 54px; }
 }
