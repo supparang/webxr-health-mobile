@@ -4,8 +4,9 @@
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
 // ✅ PATCH H: smart safe-zone spawn (avoid HUD / bars / meta panel)
-//   - uses wrapEl query to measure occluders
-//   - expands padding on small screens, keeps targets out of blocked zones
+// ✅ PATCH I: TTL auto-expire (targets disappear if not hit)
+// ✅ PATCH I: pickSpawnPos(sizePx) + spawnTarget supports fixed x/y
+// ✅ PATCH I: telegraph(x,y,sizeMs) helper (warning ring)
 
 'use strict';
 
@@ -19,10 +20,14 @@ export class DomRendererShadow {
     this.layer = layerEl;
     this.wrapEl = opts.wrapEl || document;
     this.feedbackEl = opts.feedbackEl || null;
+
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
+    this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
     this.targets = new Map();
+    this._ttlTimers = new Map();
+
     this._onPointer = this._onPointer.bind(this);
   }
 
@@ -34,6 +39,11 @@ export class DomRendererShadow {
       try { el.remove(); } catch {}
     }
     this.targets.clear();
+
+    for (const [id, t] of this._ttlTimers.entries()) {
+      try { clearTimeout(t); } catch {}
+    }
+    this._ttlTimers.clear();
   }
 
   _rectIntersect(a, b){
@@ -48,16 +58,13 @@ export class DomRendererShadow {
   }
 
   _measureOccluders(layerRect){
-    // We avoid these areas (in viewport coords): HUD, top bars, bottom bars, meta panel
     const root = this.wrapEl || document;
-
     const hudTop   = root.querySelector('.sb-hud-top');
     const barsTop  = root.querySelector('.sb-bars-top');
     const barsBot  = root.querySelector('.sb-bars-bottom');
     const meta     = root.querySelector('.sb-meta');
 
     const occ = [];
-
     for (const el of [hudTop, barsTop, barsBot, meta]) {
       if (!el) continue;
       const r = el.getBoundingClientRect();
@@ -70,20 +77,18 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // base padding: looser on small screens
     const vw = Math.max(320, window.innerWidth || r.width || 820);
     const basePad = vw < 520 ? 18 : 22;
     const dynPad  = Math.min(44, Math.max(basePad, r.width * 0.035));
+
     let left   = r.left   + dynPad;
     let top    = r.top    + dynPad;
     let right  = r.right  - dynPad;
     let bottom = r.bottom - dynPad;
 
-    // occluder-aware tightening
     const occ = this._measureOccluders(r);
 
-    // 1) protect TOP area (HUD + top bars)
-    // find the lowest bottom among occluders that sit near top
+    // top block
     let topBlockBottom = null;
     for (const o of occ){
       const oMidY = (o.top + o.bottom) * 0.5;
@@ -91,12 +96,9 @@ export class DomRendererShadow {
       if (!nearTop) continue;
       topBlockBottom = topBlockBottom == null ? o.bottom : Math.max(topBlockBottom, o.bottom);
     }
-    if (topBlockBottom != null){
-      top = Math.max(top, topBlockBottom + 12);
-    }
+    if (topBlockBottom != null) top = Math.max(top, topBlockBottom + 12);
 
-    // 2) protect BOTTOM area (bottom bars)
-    // find the highest top among occluders that sit near bottom
+    // bottom block
     let bottomBlockTop = null;
     for (const o of occ){
       const oMidY = (o.top + o.bottom) * 0.5;
@@ -104,39 +106,30 @@ export class DomRendererShadow {
       if (!nearBot) continue;
       bottomBlockTop = bottomBlockTop == null ? o.top : Math.min(bottomBlockTop, o.top);
     }
-    if (bottomBlockTop != null){
-      bottom = Math.min(bottom, bottomBlockTop - 12);
-    }
+    if (bottomBlockTop != null) bottom = Math.min(bottom, bottomBlockTop - 12);
 
-    // 3) protect RIGHT area (meta panel)
-    // if meta overlaps, shrink right bound to the meta's left
+    // right block (meta)
     const metaEl = (this.wrapEl || document).querySelector('.sb-meta');
     if (metaEl){
       const m = metaEl.getBoundingClientRect();
       const mi = this._rectIntersect(r, m);
       if (mi){
-        // only if meta is actually on right side
         const metaOnRight = mi.left > (r.left + r.width * 0.45);
-        if (metaOnRight){
-          right = Math.min(right, mi.left - 12);
-        }
+        if (metaOnRight) right = Math.min(right, mi.left - 12);
       }
     }
 
-    // keep sane min size
+    // minimum box
     const minW = 220, minH = 220;
     if ((right - left) < minW){
       const cx = (r.left + r.right) * 0.5;
-      left = cx - minW/2;
-      right = cx + minW/2;
+      left = cx - minW/2; right = cx + minW/2;
     }
     if ((bottom - top) < minH){
       const cy = (r.top + r.bottom) * 0.52;
-      top = cy - minH/2;
-      bottom = cy + minH/2;
+      top = cy - minH/2; bottom = cy + minH/2;
     }
 
-    // convert back to local coords (relative to layer)
     return {
       r,
       left: left - r.left,
@@ -144,6 +137,16 @@ export class DomRendererShadow {
       right: right - r.left,
       bottom: bottom - r.top
     };
+  }
+
+  // ✅ PATCH I: allow engine to compute a position once (for telegraph -> spawn)
+  pickSpawnPos(sizePx){
+    if (!this.layer) return { x: 0, y: 0 };
+    const { left, top, right, bottom } = this._safeAreaRect();
+    const size = clamp(Number(sizePx) || 110, 64, 260);
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    return { x: Math.round(x), y: Math.round(y) };
   }
 
   _emojiForType(t, bossEmoji){
@@ -159,8 +162,6 @@ export class DomRendererShadow {
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const { left, top, right, bottom } = this._safeAreaRect();
-
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
@@ -169,18 +170,37 @@ export class DomRendererShadow {
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position in safe rect
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
+    // ✅ PATCH I: support fixed x/y
+    let x = Number.isFinite(data.x) ? data.x : null;
+    let y = Number.isFinite(data.y) ? data.y : null;
+    if (x == null || y == null) {
+      const pos = this.pickSpawnPos(size);
+      x = pos.x; y = pos.y;
+    }
+
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
     el.textContent = this._emojiForType(data.type, data.bossEmoji);
-
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
     this.targets.set(data.id, el);
+
+    // ✅ PATCH I: TTL auto-expire (fix "target not disappearing")
+    const ttl = clamp(Number(data.ttlMs) || 0, 0, 20000);
+    if (ttl > 0) {
+      const old = this._ttlTimers.get(data.id);
+      if (old) { try { clearTimeout(old); } catch {} }
+      const t = setTimeout(() => {
+        // if still alive
+        if (this.targets.has(data.id)) {
+          this.removeTarget(data.id, 'ttl');
+          try { this.onTargetExpire && this.onTargetExpire(data.id, data); } catch {}
+        }
+      }, ttl);
+      this._ttlTimers.set(data.id, t);
+    }
   }
 
   _onPointer(e){
@@ -200,6 +220,28 @@ export class DomRendererShadow {
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
     this.targets.delete(id);
+
+    const t = this._ttlTimers.get(id);
+    if (t) { try { clearTimeout(t); } catch {} }
+    this._ttlTimers.delete(id);
+  }
+
+  // ✅ PATCH I: warning ring before spawn
+  telegraph(x, y, sizePx, ms = 120, cls = ''){
+    const layer = this.layer;
+    if (!layer) return;
+
+    const ring = document.createElement('div');
+    ring.className = 'sb-telegraph' + (cls ? ' ' + cls : '');
+    const s = clamp(Number(sizePx) || 110, 64, 260);
+
+    ring.style.width = s + 'px';
+    ring.style.height = s + 'px';
+    ring.style.left = Math.round(x) + 'px';
+    ring.style.top = Math.round(y) + 'px';
+
+    layer.appendChild(ring);
+    setTimeout(()=>{ try{ ring.remove(); }catch{} }, clamp(ms, 60, 380));
   }
 
   playHitFx(id, info = {}){
