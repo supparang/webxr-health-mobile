@@ -1,186 +1,305 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN)
-✅ Uses: plate-vr.css
-✅ Boots: plate.boot.js (module)
-✅ Includes: particles + cloud logger + vr-ui
-✅ Adds: Miss breakdown slots (junk / expireGood) in End Overlay
-✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(20s) => hub
+PlateVR RUN — PRODUCTION (HHA Standard)
+✅ CSS: ./plate-vr.css
+✅ Boot: ./plate.boot.js
+✅ UI: HUD + Coach + End Overlay (KPI + Miss breakdown + Grade)
+✅ Post-game: Evaluate + Create + immediate feedback + badges (silent)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — PlateVR</title>
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#020617"/>
+  <link rel="icon" href="../favicon.ico"/>
 
-  <!-- A-Frame: helps WebXR Enter VR reliability -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="stylesheet" href="./plate-vr.css"/>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./plate-vr.css" />
-
-  <!-- Global FX + Logger + Universal VR UI -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- Boot -->
-  <script type="module" src="./plate.boot.js"></script>
+  <!-- (optional) fatal overlay กันหน้าเงียบเวลา error -->
+  <style>
+    #plate-fatal{
+      position:fixed; inset:0; z-index:9999;
+      display:none; padding:14px;
+      background:#020617; color:#e5e7eb;
+      white-space:pre-wrap; overflow:auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    #plate-fatal.show{ display:block; }
+  </style>
 </head>
 
 <body class="view-pc">
+  <pre id="plate-fatal"></pre>
+
   <div id="app">
-    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
-    <a-scene
-      embedded
-      renderer="antialias:true; colorManagement:true"
-      xr-mode-ui="enabled:false"
-      style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
-    >
-      <a-entity camera position="0 1.6 0"></a-entity>
-    </a-scene>
+    <!-- optional FX layers -->
+    <div id="bossFx"></div>
+    <div id="stormFx"></div>
 
-    <!-- FX layers (optional hooks) -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
-
-    <!-- Playfield (targets spawn inside this rect) -->
-    <div id="plate-layer" aria-label="playfield"></div>
+    <!-- playfield / mount for mode-factory targets -->
+    <div id="plate-layer" aria-label="PlateVR Playfield"></div>
 
     <!-- HUD -->
-    <div id="hud" aria-label="hud">
+    <section id="hud" aria-label="HUD">
       <div class="hudRow">
         <div class="chip score">
-          <span class="lbl">SCORE</span>
-          <span class="val" id="hudScore">0</span>
+          <div class="lbl">SCORE</div>
+          <div class="val" id="hudScore">0</div>
         </div>
         <div class="chip time">
-          <span class="lbl">TIME</span>
-          <span class="val" id="hudTime">0</span>
+          <div class="lbl">TIME</div>
+          <div class="val" id="hudTime">0</div>
         </div>
         <div class="chip combo">
-          <span class="lbl">COMBO</span>
-          <span class="val" id="hudCombo">0</span>
+          <div class="lbl">COMBO</div>
+          <div class="val" id="hudCombo">0</div>
         </div>
       </div>
 
-      <div class="card" id="questCard">
+      <div class="card" aria-label="Quests">
         <div class="cardTitle">
-          <div class="t">🎯 ภารกิจ</div>
-          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
+          <div class="t">Missions</div>
+          <div class="hint">เติมจานให้ครบ + คุมความแม่น</div>
         </div>
 
-        <!-- GOAL -->
-        <div class="qItem" id="goalItem">
+        <div class="qItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
+            <div class="sub"  id="goalSub"></div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/1</div>
+            <div class="qNums" id="goalNums">0/0</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
 
-        <!-- MINI -->
-        <div class="qItem" id="miniItem">
+        <div class="qItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
+            <div class="sub"  id="miniSub"></div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/1</div>
+            <div class="qNums" id="miniNums">0/0</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Coach bubble (optional) -->
+    <!-- Coach bubble -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
-        <div id="coachMsg">…</div>
-        <div class="meta" id="coachMeta">Coach</div>
+        <div id="coachMsg">พร้อมแล้ว!</div>
+        <div id="coachMeta">Coach</div>
       </div>
     </div>
 
-    <!-- End Overlay -->
-    <div id="endOverlay" aria-hidden="true">
-      <div class="endPanel">
+    <!-- End overlay -->
+    <section id="endOverlay" aria-hidden="true">
+      <div class="endPanel" role="dialog" aria-label="ผลการเล่น">
+
         <div class="endTitle">
-          <h2 id="endTitle">สรุปผล</h2>
-          <div class="tag" id="endTag">PlateVR</div>
+          <h2>สรุปผลการเล่น</h2>
+          <div class="tag">
+            Grade: <b id="kGrade">—</b>
+          </div>
         </div>
 
         <div class="endGrid">
-          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
-          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
-          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
+          <div class="kpi"><div class="k">Score</div><div class="v" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">Accuracy</div><div class="v" id="kAcc">—</div></div>
+          <div class="kpi"><div class="k">Max Combo</div><div class="v" id="kCombo">0</div></div>
 
-          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
-          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Goals</div><div class="v" id="kGoals">0/0</div></div>
+          <div class="kpi"><div class="k">Mini</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Miss (Total)</div><div class="v" id="kMiss">0</div></div>
 
-          <!-- ✅ Miss (total) -->
-          <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
+          <!-- Miss breakdown -->
+          <div class="kpi"><div class="k">Miss: Junk</div><div class="v" id="kMissJunk">0</div></div>
+          <div class="kpi"><div class="k">Miss: Timeout</div><div class="v" id="kMissTimeout">0</div></div>
+          <div class="kpi"><div class="k">Miss: Shot</div><div class="v" id="kMissShot">0</div></div>
+        </div>
 
-          <!-- ✅ Miss breakdown -->
-          <div class="kpi"><div class="k">Miss: โดนของหวาน/ทอด</div><div class="v" id="kMissJunk">0</div></div>
-          <div class="kpi"><div class="k">Miss: ปล่อยดีหมดเวลา</div><div class="v" id="kMissExpire">0</div></div>
+        <!-- badges (silent) -->
+        <div class="kpi" style="margin:0 6px 10px;">
+          <div class="k">Badges (this run)</div>
+          <div class="v" id="badgeRow" style="font-size:13px;font-weight:900;color:#e5e7eb;line-height:1.35;">
+            —
+          </div>
+        </div>
 
-          <!-- (optional) Grade -->
-          <div class="kpi"><div class="k">เกรด</div><div class="v" id="kGrade">—</div></div>
+        <!-- Post-game: Evaluate -->
+        <div class="kpi" style="margin:0 6px 10px;">
+          <div class="k">Evaluate (เลือกเหตุผลหลังจัดจาน)</div>
+          <div class="v" style="font-size:13px;font-weight:800;color:#e5e7eb;">
+            <form id="evalForm" style="margin-top:8px;">
+              <label style="display:block;margin:6px 0;">
+                <input type="radio" name="eval" value="too_much_carb"> ข้าว/แป้งมากไป
+              </label>
+              <label style="display:block;margin:6px 0;">
+                <input type="radio" name="eval" value="too_little_veg"> ผักน้อยไป
+              </label>
+              <label style="display:block;margin:6px 0;">
+                <input type="radio" name="eval" value="need_more_protein"> ควรเพิ่มโปรตีน
+              </label>
+              <label style="display:block;margin:6px 0;">
+                <input type="radio" name="eval" value="too_much_fat"> ไขมันมากไป
+              </label>
+
+              <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+                <button class="btn" type="button" id="btnEvalSend">บันทึกเหตุผล</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Post-game: Create -->
+        <div class="kpi" style="margin:0 6px 10px;">
+          <div class="k">Create (ปรับ 1 อย่าง แล้วเห็นผลทันที)</div>
+          <div class="v" style="font-size:13px;font-weight:800;color:#e5e7eb;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;">
+              <button class="btn" type="button" data-create="add_veg">เพิ่มผัก 🥦</button>
+              <button class="btn" type="button" data-create="reduce_rice">ลดข้าว 🍚</button>
+              <button class="btn" type="button" data-create="swap_snack_fruit">เปลี่ยนขนมเป็นผลไม้ 🍎</button>
+            </div>
+
+            <div id="createResult" style="margin-top:10px;color:#94a3b8;font-weight:900;">
+              เลือก 1 อย่างเพื่อดูผลลัพธ์
+            </div>
+          </div>
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
+          <button class="btn" id="btnBackHub">กลับ HUB</button>
+          <button class="btn primary" id="btnRestart">เล่นอีกครั้ง</button>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- ✅ Gate Flow (Warmup/Cooldown Enforcer) -->
+  <!-- Boot -->
+  <script type="module" src="./plate.boot.js"></script>
+
+  <!-- UI glue: Evaluate/Create + show immediate effect + badge row -->
   <script>
-  (function(){
-    'use strict';
-    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    (function(){
+      'use strict';
+      const WIN = window, DOC = document;
 
-    const gateOn = String(qs('gate','0')||'0') === '1';
-    const hub = String(qs('hub','../hub.html')||'../hub.html');
-    const cdur = Math.max(5, Math.min(60, Number(qs('cdur', 20) || 20)));
+      const fatal = (msg)=>{
+        const box = DOC.getElementById('plate-fatal');
+        if(!box) return;
+        box.textContent = String(msg||'Fatal error');
+        box.classList.add('show');
+      };
 
-    let navigated = false;
+      WIN.addEventListener('error', (e)=>fatal(e && e.message ? e.message : 'Unknown error'));
+      WIN.addEventListener('unhandledrejection', (e)=>fatal(e && e.reason ? (e.reason.stack || e.reason) : 'Unhandled rejection'));
 
-    function goCooldownThenHub(summary){
-      if (!gateOn) return;
-      if (navigated) return;
-      navigated = true;
+      // last summary snapshot for Create "immediate feedback"
+      let LAST = null;
 
-      try{
-        if(summary) localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      }catch(_){}
+      function emit(name, detail){
+        try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+      }
 
-      const gate = new URL('../warmup-gate.html', location.href);
-      gate.searchParams.set('phase','cooldown');
-      gate.searchParams.set('dur', String(cdur));
-      gate.searchParams.set('hub', hub);
-      gate.searchParams.set('next', hub);
-      gate.searchParams.set('autonext','1');
+      function setBadgeRow(arr){
+        const row = DOC.getElementById('badgeRow');
+        if(!row) return;
+        if(!arr || !arr.length){ row.textContent = '—'; return; }
+        // แสดงเป็นชิปข้อความสั้น ๆ
+        const map = {
+          plate_eval: '📝 Evaluate',
+          plate_create: '🛠️ Create',
+          plate_fix: '🏅 Fix-It'
+        };
+        row.textContent = arr.map(x=>map[x] || x).join('  ·  ');
+      }
 
-      location.href = gate.toString();
-    }
+      // When game ends, capture summary & badges
+      WIN.addEventListener('hha:end', (e)=>{
+        LAST = e.detail || {};
+        setBadgeRow(LAST.badgesEarned || []);
+      });
 
-    window.addEventListener('hha:end', (e)=>{
-      goCooldownThenHub(e && e.detail ? e.detail : null);
-    }, {passive:true});
-  })();
+      // Evaluate send
+      DOC.addEventListener('click', (ev)=>{
+        const t = ev.target;
+        if(!t) return;
+
+        // Save Evaluate choice
+        if(t.id === 'btnEvalSend'){
+          const form = DOC.getElementById('evalForm');
+          if(!form) return;
+          const picked = form.querySelector('input[name="eval"]:checked');
+          const choice = picked ? picked.value : '';
+          if(!choice){
+            // เบา ๆ ไม่ต้องเด้ง coach รัว
+            const cr = DOC.getElementById('createResult');
+            if(cr) cr.textContent = 'กรุณาเลือกเหตุผล 1 ข้อก่อน';
+            return;
+          }
+          emit('plate:evaluate', { choice });
+
+          // อัปเดต badge row ทันที (silent)
+          const b = (Array.isArray(LAST && LAST.badgesEarned) ? LAST.badgesEarned.slice(0) : []);
+          if(!b.includes('plate_eval')) b.push('plate_eval');
+          setBadgeRow(b);
+
+          const cr = DOC.getElementById('createResult');
+          if(cr) cr.textContent = 'บันทึก Evaluate แล้ว ✅';
+        }
+
+        // Create buttons
+        if(t && t.matches && t.matches('button[data-create]')){
+          const choice = String(t.getAttribute('data-create') || '');
+          if(!choice) return;
+
+          // ---- immediate "เห็นผลทันที" แบบ ป.5 ----
+          // ใช้ข้อมูล g1..g5 ถ้ามี (จาก plate.safe.js summary schema ใหม่)
+          const g1 = Number(LAST && (LAST.g1 ?? 0))||0; // โปรตีน
+          const g2 = Number(LAST && (LAST.g2 ?? 0))||0; // คาร์บ
+          const g3 = Number(LAST && (LAST.g3 ?? 0))||0; // ผัก
+          const g4 = Number(LAST && (LAST.g4 ?? 0))||0; // ผลไม้
+          const g5 = Number(LAST && (LAST.g5 ?? 0))||0; // ไขมัน
+          const haveAll5 = [g1,g2,g3,g4,g5].filter(v=>v>0).length >= 5;
+
+          let improved = false;
+          let msg = '';
+
+          if(choice === 'add_veg'){
+            improved = (g3 === 0) || (!haveAll5);
+            msg = improved
+              ? 'เพิ่มผักแล้ว! ✅ จานสมดุลขึ้น (ผักช่วยให้ครบ 5 หมู่)'
+              : 'เพิ่มผักแล้ว! ✅ ยิ่งดีต่อสุขภาพ (ไฟเบอร์สูง)';
+          }else if(choice === 'reduce_rice'){
+            improved = (g2 > Math.max(g1,g3,g4)) || (g2 >= 3);
+            msg = improved
+              ? 'ลดข้าวแล้ว! ✅ พลังงานพอดีขึ้น (ไม่หนักคาร์บเกิน)'
+              : 'ลดข้าวแล้ว! ✅ ลองเพิ่มผัก/โปรตีนเสริมสมดุลด้วย';
+          }else if(choice === 'swap_snack_fruit'){
+            improved = (g4 === 0) || (!haveAll5);
+            msg = improved
+              ? 'เปลี่ยนเป็นผลไม้แล้ว! ✅ วิตามินเพิ่มขึ้น (ช่วยให้ครบหมู่)'
+              : 'ผลไม้ดีมาก! ✅ ต่อไปลองลดของทอด/หวานด้วยนะ';
+          }
+
+          // ส่งไป engine (ให้ summary บันทึก createChoice + improved)
+          emit('plate:create', { choice, improved });
+
+          // badge UI (silent)
+          const b = (Array.isArray(LAST && LAST.badgesEarned) ? LAST.badgesEarned.slice(0) : []);
+          if(!b.includes('plate_create')) b.push('plate_create');
+          if(improved && !b.includes('plate_fix')) b.push('plate_fix');
+          setBadgeRow(b);
+
+          const out = DOC.getElementById('createResult');
+          if(out) out.textContent = msg + (improved ? ' 🏅 +Badge' : '');
+        }
+      });
+    })();
   </script>
-
-  <!-- NOTE:
-    vr-ui.js injects ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
-    plate.boot.js sets view class and boots the engine.
-  -->
 </body>
 </html>
