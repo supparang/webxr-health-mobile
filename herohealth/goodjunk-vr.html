@@ -1,427 +1,107 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (PRODUCTION) — PATCH v20260209-dailyCatA
-✅ Redirects to: ./vr-goodjunk/goodjunk-vr.html
-✅ Never override if ?view exists
-✅ Enforce WARMUP once-per-day by CATEGORY (cat=nutrition)
-✅ Pass daily keys to gate + to RUN: warmDailyKey / cdDailyKey
-✅ Provide cooldown hints to RUN: cdGateUrl / cdur / cdDailyKey
+<!-- === /herohealth/groups-vr.html ===
+Food Groups VR — ROOT LAUNCHER (Warmup Gate)
+✅ Hub -> launcher -> warmup-gate -> run (/herohealth/vr-groups/groups-vr.html หรือของคุณ)
+✅ Prevent loop by wType
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#020617" />
+  <title>HeroHealth — GroupsVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --radius:22px;
-      --shadow: 0 18px 60px rgba(0,0,0,.45);
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    html,body{
-      height:100%; margin:0;
-      background: radial-gradient(1200px 900px at 20% 10%, rgba(34,197,94,.16), transparent 55%),
-                  radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.10), transparent 60%),
-                  var(--bg);
-      color:var(--text);
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      overscroll-behavior:none;
-    }
-    .wrap{
-      min-height:100%;
-      display:flex; align-items:center; justify-content:center;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-    }
-    .card{
-      width:min(720px, 96vw);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(2,6,23,.85), rgba(2,6,23,.55));
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
-    .row{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .title{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight: 1000; letter-spacing:.2px;
-    }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.45);
-      font-weight:900;
-      color: var(--text);
-      user-select:none;
-    }
-    .sub{ color: var(--muted); font-weight:800; font-size:12px; margin-top:8px; line-height:1.35; }
-    .bar{
-      height:10px; border-radius:999px;
-      background: rgba(148,163,184,.16);
-      overflow:hidden;
-      margin-top: 14px;
-      border:1px solid rgba(148,163,184,.14);
-    }
-    .bar > i{
-      display:block; height:100%;
-      width: 62%;
-      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
-      border-radius:999px;
-      animation: ind 1.2s ease-in-out infinite;
-    }
-    @keyframes ind{
-      0%{ transform: translateX(-60%); opacity:.55; }
-      50%{ opacity:1; }
-      100%{ transform: translateX(120%); opacity:.55; }
-    }
-    .kv{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    .k{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      border-radius:16px;
-      padding:10px 12px;
-    }
-    .k .h{ color:rgba(148,163,184,.9); font-size:11px; font-weight:900; }
-    .k .v{ font-size:13px; font-weight:950; margin-top:3px; word-break:break-word; }
-    .hint{
-      margin-top:12px;
-      color: rgba(229,231,235,.82);
-      font-size:12px;
-      font-weight:850;
-      line-height:1.35;
-    }
+    :root{ --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --sat: env(safe-area-inset-top,0px); --sab: env(safe-area-inset-bottom,0px); }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial; background: radial-gradient(900px 520px at 20% 15%, rgba(34,211,238,.12), transparent 55%), linear-gradient(180deg, #0b1226, var(--bg)); }
+    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); }
+    .card{ width:min(820px,100%); border:1px solid var(--stroke); background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.55)); border-radius:22px; padding:16px; box-shadow: 0 18px 60px rgba(0,0,0,.45); }
+    .title{ margin:0; font-weight:1000; letter-spacing:.2px; font-size:18px; }
+    .sub{ margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.4; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:var(--muted); margin-top:10px; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
-    <div class="card" role="status" aria-live="polite">
-      <div class="row">
-        <div class="title">
-          <span class="pill">🥗 GoodJunkVR</span>
-          <span class="pill" id="pillCat">CAT: …</span>
-          <span class="pill" id="pillView">VIEW: …</span>
-          <span class="pill" id="pillMode">MODE: …</span>
-          <span class="pill" id="pillRoute">ROUTE: …</span>
-        </div>
-        <div class="pill" style="border-color:rgba(34,197,94,.35);">กำลังเข้าเกม…</div>
-      </div>
-
-      <div class="sub" id="subLine">
-        ตรวจสอบรายวัน (warmup/cooldown) และส่งพารามิเตอร์ไปหน้า RUN
-      </div>
-
-      <div class="bar" aria-hidden="true"><i></i></div>
-
-      <div class="kv" aria-label="debug params">
-        <div class="k"><div class="h">target</div><div class="v" id="vTarget">—</div></div>
-        <div class="k"><div class="h">hub</div><div class="v" id="vHub">—</div></div>
-        <div class="k"><div class="h">diff</div><div class="v" id="vDiff">—</div></div>
-        <div class="k"><div class="h">time</div><div class="v" id="vTime">—</div></div>
-        <div class="k"><div class="h">seed</div><div class="v" id="vSeed">—</div></div>
-        <div class="k"><div class="h">warmup today?</div><div class="v" id="vWarm">—</div></div>
-      </div>
-
-      <div class="hint">
-        ถ้าต้องการบังคับมุมมอง: เพิ่ม <b>?view=pc</b> / <b>?view=mobile</b> / <b>?view=cvr</b> / <b>?view=vr</b>
-        (ถ้ามี view อยู่แล้ว Launcher จะไม่ไป override)
-      </div>
+    <div class="card">
+      <div class="title">🧩 Food Groups VR — Launcher</div>
+      <p class="sub">กำลังพาไป <b>Warmup Gate</b> แล้วเข้าเกมจริง…</p>
+      <div class="mono" id="dbg"></div>
     </div>
   </div>
 
-  <!-- Optional ctx helpers (if you already have them) -->
-  <script src="./vr/hha-ctx.js"></script>
-  <script src="./vr/hha-launch.js"></script>
+<script>
+(function(){
+  'use strict';
 
-  <script>
-  (function(){
-    'use strict';
+  const RUN_PATH = './vr-groups/groups-vr.html';   // ✅ ปรับให้ตรงกับ run ของคุณถ้าใช้ชื่ออื่น
+  const WARMUP_GATE = './warmup-gate.html';
 
-    // -----------------------------
-    // Paths
-    // -----------------------------
-    const RUN_URL_DEFAULT     = './vr-goodjunk/goodjunk-vr.html';
-    const GATE_URL_DEFAULT    = './warmup-gate.html';
-    const GATE_GAMES_DEFAULT  = 'goodjunk-vr.html,groups-vr.html,hydration-vr.html,plate-vr.html';
+  function qs(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = qs();
+  const q = (k, d='') => (QS.get(k) ?? d);
 
-    // ✅ CATEGORY FIXED for this launcher (Nutrition)
-    const CAT_FIXED = 'nutrition';
+  function getPid(){ return (q('pid','') || q('studyId','') || 'anon').trim() || 'anon'; }
+  function getView(){
+    const v = (q('view','')||'').toLowerCase();
+    if(v) return v;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    return isMobile ? 'mobile' : 'pc';
+  }
 
-    // -----------------------------
-    // QS utils
-    // -----------------------------
-    function getQS(){
-      try { return new URL(location.href).searchParams; }
-      catch { return new URLSearchParams(); }
-    }
-    const QS = getQS();
-    const q = (k, def='') => (QS.get(k) ?? def);
+  function passthrough(deny){
+    const out = {};
+    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
 
-    function clampInt(v, a, b, def){
-      const n = Number(v);
-      if(!Number.isFinite(n)) return def;
-      return Math.max(a, Math.min(b, Math.floor(n)));
-    }
+  function buildUrl(base, add){
+    const u = new URL(base, location.href);
+    Object.entries(add||{}).forEach(([k,v])=>{
+      if(v===undefined || v===null || String(v).trim()==='') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }
 
-    function hasViewInUrl(){
-      const v = String(q('view','')).trim();
-      return !!v;
-    }
+  const HUB = q('hub','') || './hub.html';
+  const alreadyWarm = !!(q('wType','') || q('wPct',''));
+  const skipWarm = (q('skipWarmup','0') === '1');
 
-    function detectView(){
-      // Never override if ?view exists
-      try{
-        const hint = String(q('hint','')).toLowerCase();
-        if(hint.includes('cvr') || hint.includes('cardboard')) return 'cvr';
-      }catch(_){}
+  document.getElementById('dbg').textContent =
+    `pid=${getPid()}  view=${getView()}  warmed=${alreadyWarm?1:0}  skipWarmup=${skipWarm?1:0}`;
 
-      const ua = navigator.userAgent || '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+  if(skipWarm || alreadyWarm){
+    const deny = new Set(['next','phase','dur','cdur','games','autonext','wmode','skipWarmup']);
+    const add = passthrough(deny);
+    if(!add.hub) add.hub = HUB;
+    if(!add.pid) add.pid = getPid();
+    if(!add.view) add.view = getView();
+    location.href = buildUrl(RUN_PATH, add);
+    return;
+  }
 
-      if(String(q('view','')).toLowerCase() === 'cvr') return 'cvr';
-      if(isMobile) return 'mobile';
-      return 'pc';
-    }
+  // go warmup
+  const deny = new Set(['next','phase','dur','cdur','games','autonext','wmode']);
+  const ctx = passthrough(deny);
+  if(!ctx.hub) ctx.hub = HUB;
+  if(!ctx.pid) ctx.pid = getPid();
+  if(!ctx.view) ctx.view = getView();
 
-    function collectCtx(){
-      try{
-        if(window.HHA_CTX && typeof window.HHA_CTX.readCtx === 'function'){
-          return window.HHA_CTX.readCtx() || null;
-        }
-      }catch(_){}
-      return null;
-    }
+  const dur = q('dur','20') || '20';
+  location.href = buildUrl(WARMUP_GATE, {
+    phase: 'warmup',
+    dur,
+    next: RUN_PATH,
+    hub: HUB,
+    autonext: '1',
+    wmode: 'random',
+    ...ctx
+  });
 
-    function mergeParams(){
-      const ctx = collectCtx();
-
-      const out = {};
-      QS.forEach((v,k)=>{ out[k] = v; });
-
-      if(ctx && typeof ctx === 'object'){
-        const map = {
-          run: 'run',
-          diff: 'diff',
-          time: 'time',
-          seed: 'seed',
-          studyId: 'studyId',
-          phase: 'phase',
-          conditionGroup: 'conditionGroup',
-          log: 'log',
-          hub: 'hub'
-        };
-        Object.keys(map).forEach((k)=>{
-          const key = map[k];
-          if(out[key] == null || out[key] === ''){
-            const v = ctx[k];
-            if(v != null && v !== '') out[key] = String(v);
-          }
-        });
-      }
-
-      return out;
-    }
-
-    function buildUrl(base, params){
-      const u = new URL(base, location.href);
-      Object.entries(params||{}).forEach(([k,v])=>{
-        if(v === undefined || v === null || v === '') return;
-        u.searchParams.set(k, String(v));
-      });
-      return u.toString();
-    }
-
-    function absUrlMaybe(url){
-      if(!url) return '';
-      try{ return new URL(url, location.href).toString(); }
-      catch(_){ return url; }
-    }
-
-    // -----------------------------
-    // Daily helpers
-    // -----------------------------
-    function dayStamp(){
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-    function isDoneToday(key){
-      try{ return localStorage.getItem(key) === dayStamp(); }catch(_){ return false; }
-    }
-
-    // -----------------------------
-    // Gate routing rules
-    // -----------------------------
-    function hasGateBuff(params){
-      // Gate sends at least wType/wPct/rank or wCrit/wDmg/wHeal/calm
-      return !!(params.wType || params.wPct || params.rank || params.wCrit || params.wDmg || params.wHeal || params.calm);
-    }
-
-    function wantsPreGateByFlag(params){
-      // preGate=1 OR gate=warmup OR gate=1
-      const pre = String(params.preGate || '').toLowerCase();
-      const g   = String(params.gate || '').toLowerCase();
-      if(pre === '1' || pre === 'true' || pre === 'yes') return true;
-      if(g === 'warmup' || g === '1' || g === 'true' || g === 'yes') return true;
-      return false;
-    }
-
-    function shouldGoGateFirst(params){
-      // ✅ DAILY ENFORCE:
-      // Go gate if warmup not done today AND no gate buff yet.
-      if(!hasGateBuff(params) && !isDoneToday(params.warmDailyKey)){
-        return true;
-      }
-      // Or if user explicitly requests gate
-      return wantsPreGateByFlag(params) && !hasGateBuff(params);
-    }
-
-    function makeGateParams(params){
-      const gateUrl = params.gateUrl || params.gate_page || GATE_URL_DEFAULT;
-
-      const dur  = clampInt(params.dur  || q('dur','20'),  5, 60, 20);
-      const cdur = clampInt(params.cdur || q('cdur','20'), 5, 60, 20);
-
-      // avoid loops
-      const deny = new Set(['preGate','gate','gateUrl','gate_page']);
-      const pass = {};
-      Object.entries(params).forEach(([k,v])=>{
-        if(deny.has(k)) return;
-        if(['next','hub','phase','dur','cdur','games'].includes(k)) return;
-        pass[k] = v;
-      });
-
-      const gateParams = {
-        ...pass,
-
-        // ✅ category + daily keys forwarded to gate
-        cat: params.cat || CAT_FIXED,
-        warmDailyKey: params.warmDailyKey,
-        cdDailyKey: params.cdDailyKey,
-
-        phase: 'warmup',
-        dur: String(dur),
-        cdur: String(cdur),
-        next: absUrlMaybe(params.runUrl || RUN_URL_DEFAULT),
-        hub: absUrlMaybe(params.hub || ''),
-        games: String(params.games || GATE_GAMES_DEFAULT)
-      };
-
-      return { gateUrl: absUrlMaybe(gateUrl), gateParams };
-    }
-
-    // -----------------------------
-    // Main
-    // -----------------------------
-    const params = mergeParams();
-    const RUN_URL = params.runUrl || RUN_URL_DEFAULT;
-
-    // ✅ category fixed for this launcher (nutrition)
-    params.cat = String(params.cat || CAT_FIXED).toLowerCase();
-
-    // ✅ daily keys by category (shared across ALL nutrition games)
-    params.warmDailyKey = params.warmDailyKey || `HHA_WARMUP_DONE_DAY_${params.cat}`;
-    params.cdDailyKey   = params.cdDailyKey   || `HHA_COOLDOWN_DONE_DAY_${params.cat}`;
-
-    // Decide view (never override if ?view exists)
-    if(!hasViewInUrl()){
-      params.view = detectView();
-    }
-
-    // Provide cooldown hints for RUN (RUN decides enforcement at end)
-    params.cdGateUrl  = params.cdGateUrl || params.gateUrl || GATE_URL_DEFAULT;
-    params.cdur       = params.cdur || q('cdur','20') || '20';
-
-    // Debug UI
-    try{
-      const pillCat   = document.getElementById('pillCat');
-      const pillView  = document.getElementById('pillView');
-      const pillMode  = document.getElementById('pillMode');
-      const pillRoute = document.getElementById('pillRoute');
-
-      const vTarget = document.getElementById('vTarget');
-      const vHub    = document.getElementById('vHub');
-      const vDiff   = document.getElementById('vDiff');
-      const vTime   = document.getElementById('vTime');
-      const vSeed   = document.getElementById('vSeed');
-      const vWarm   = document.getElementById('vWarm');
-      const subLine = document.getElementById('subLine');
-
-      const view = String(params.view || '').toUpperCase();
-      const run  = String(params.run || 'play').toUpperCase();
-
-      if(pillCat)  pillCat.textContent  = 'CAT: ' + String(params.cat || CAT_FIXED).toUpperCase();
-      if(pillView) pillView.textContent = 'VIEW: ' + (view || 'AUTO');
-      if(pillMode) pillMode.textContent = 'MODE: ' + run;
-
-      const warmDone = isDoneToday(params.warmDailyKey);
-      const gateBuff = hasGateBuff(params);
-
-      const routeText = shouldGoGateFirst(params)
-        ? (warmDone ? 'GATE: by flag → RUN' : 'GATE: daily warmup → RUN')
-        : (gateBuff ? 'GATE: done → RUN' : 'DIRECT → RUN');
-
-      if(pillRoute) pillRoute.textContent = 'ROUTE: ' + routeText;
-
-      if(vHub)  vHub.textContent  = String(params.hub || '(none)');
-      if(vDiff) vDiff.textContent = String(params.diff || 'normal');
-      if(vTime) vTime.textContent = String(params.time || '80');
-      if(vSeed) vSeed.textContent = String(params.seed || '');
-      if(vWarm) vWarm.textContent = warmDone ? 'YES (skip gate)' : 'NO (go gate)';
-
-      if(subLine){
-        subLine.textContent = shouldGoGateFirst(params)
-          ? 'วันนี้ยังไม่วอร์มอัป (หมวด Nutrition) → กำลังพาไป Warmup Gate…'
-          : 'กำลังส่งพารามิเตอร์ไปหน้า RUN…';
-      }
-
-      if(vTarget){
-        vTarget.textContent = shouldGoGateFirst(params)
-          ? String(params.gateUrl || GATE_URL_DEFAULT)
-          : String(RUN_URL);
-      }
-    }catch(_){}
-
-    function go(url){
-      try{
-        if(window.HHA_LAUNCH && typeof window.HHA_LAUNCH.go === 'function'){
-          window.HHA_LAUNCH.go(url);
-          return;
-        }
-      }catch(_){}
-      location.replace(url);
-    }
-
-    // Route
-    if(shouldGoGateFirst(params)){
-      const { gateUrl, gateParams } = makeGateParams(params);
-      const urlGate = buildUrl(gateUrl, gateParams);
-      go(urlGate);
-      return;
-    }
-
-    const urlRun = buildUrl(RUN_URL, params);
-    go(urlRun);
-  })();
-  </script>
+})();
+</script>
 </body>
 </html>
