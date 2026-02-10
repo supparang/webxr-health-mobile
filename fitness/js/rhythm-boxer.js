@@ -1,11 +1,4 @@
-// === /fitness/js/rhythm-boxer.js ===
-// UI glue (menu / play / result) — PRODUCTION
-// ✅ Normal/Research toggle (Research shows fields + forces track r1)
-// ✅ Start/Stop/Again/Back wiring
-// ✅ CSV download events/sessions
-// ✅ Reads mode from URL (?mode=research|play)
-// ✅ Safe if some DOM nodes missing
-
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
 'use strict';
 
 (function () {
@@ -24,7 +17,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // Menu buttons/controls
+  // Menu buttons / inputs
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -33,12 +26,12 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // Research fields
+  // Research form
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // Play/result buttons
+  // Play/Result buttons
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
@@ -63,8 +56,6 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
-
-    // AI HUD
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
@@ -88,7 +79,7 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
+  // mapping menu -> engine trackId/diff/label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -98,16 +89,19 @@
 
   let engine = null;
 
+  // ---------- helpers ----------
+  function qsParam(name){
+    try{ return new URL(location.href).searchParams.get(name); }
+    catch(_){ return null; }
+  }
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
-
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
-
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
@@ -116,38 +110,31 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      if (modeDescEl) {
+      if (modeDescEl){
         modeDescEl.textContent =
           'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       }
-      if (trackModeLbl) {
-        trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      }
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       if (researchBox) researchBox.classList.add('hidden');
 
-      // show normal tracks only
       trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
+        const m = (lbl.getAttribute('data-mode') || 'normal');
         if (m === 'research') lbl.classList.add('hidden');
         else lbl.classList.remove('hidden');
       });
 
-      // if currently on r1, revert to n1
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      if (modeDescEl) {
+      if (modeDescEl){
         modeDescEl.textContent =
-          'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+          'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (ล็อก AI assist 100%)';
       }
-      if (trackModeLbl) {
-        trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      }
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
-      // show research track only
       trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
+        const m = (lbl.getAttribute('data-mode') || 'normal');
         if (m === 'research') lbl.classList.remove('hidden');
         else lbl.classList.add('hidden');
       });
@@ -161,9 +148,9 @@
     if (viewPlay)   viewPlay.classList.add('hidden');
     if (viewResult) viewResult.classList.add('hidden');
 
-    if (name === 'menu'   && viewMenu)   viewMenu.classList.remove('hidden');
-    if (name === 'play'   && viewPlay)   viewPlay.classList.remove('hidden');
-    if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
+    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
+    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
+    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
   function createEngine() {
@@ -202,6 +189,7 @@
       note: (inputNote && inputNote.value || '').trim()
     };
 
+    // IMPORTANT: research lock is enforced inside ai-predictor.js by mode=research
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
   }
@@ -211,44 +199,31 @@
   }
 
   function handleEngineEnd(summary) {
-    if (!summary) summary = {};
+    if (res.mode)      res.mode.textContent      = summary.modeLabel;
+    if (res.track)     res.track.textContent     = summary.trackName;
+    if (res.endReason) res.endReason.textContent = summary.endReason;
+    if (res.score)     res.score.textContent     = summary.finalScore;
+    if (res.maxCombo)  res.maxCombo.textContent  = summary.maxCombo;
+    if (res.hits)      res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    if (res.acc)       res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
+    if (res.duration)  res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    if (res.rank)      res.rank.textContent      = summary.rank;
 
-    if (res.mode)      res.mode.textContent      = summary.modeLabel || '-';
-    if (res.track)     res.track.textContent     = summary.trackName || '-';
-    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score)     res.score.textContent     = summary.finalScore ?? 0;
-    if (res.maxCombo)  res.maxCombo.textContent  = summary.maxCombo ?? 0;
-
-    if (res.hits) {
-      res.hits.textContent =
-        `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
+    if (res.offsetAvg){
+      res.offsetAvg.textContent =
+        (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+          ? summary.offsetMean.toFixed(3) + ' s'
+          : '-';
     }
-
-    if (res.acc) {
-      const a = Number(summary.accuracyPct);
-      res.acc.textContent = Number.isFinite(a) ? a.toFixed(1) + ' %' : '0.0 %';
+    if (res.offsetStd){
+      res.offsetStd.textContent =
+        (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+          ? summary.offsetStd.toFixed(3) + ' s'
+          : '-';
     }
-
-    if (res.duration) {
-      const d = Number(summary.durationSec);
-      res.duration.textContent = Number.isFinite(d) ? d.toFixed(1) + ' s' : '0.0 s';
-    }
-
-    if (res.rank) res.rank.textContent = summary.rank || '-';
-
-    if (res.offsetAvg) {
-      const v = Number(summary.offsetMean);
-      res.offsetAvg.textContent = Number.isFinite(v) ? v.toFixed(3) + ' s' : '-';
-    }
-
-    if (res.offsetStd) {
-      const v = Number(summary.offsetStd);
-      res.offsetStd.textContent = Number.isFinite(v) ? v.toFixed(3) + ' s' : '-';
-    }
-
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
-    if (res.qualityNote) {
+    if (res.qualityNote){
       if (summary.qualityNote) {
         res.qualityNote.textContent = summary.qualityNote;
         res.qualityNote.classList.remove('hidden');
@@ -274,31 +249,26 @@
     URL.revokeObjectURL(url);
   }
 
-  // wiring
+  // ---------- wiring ----------
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
   if (btnStart) btnStart.addEventListener('click', startGame);
   if (btnStop)  btnStop.addEventListener('click', () => stopGame('manual-stop'));
   if (btnAgain) btnAgain.addEventListener('click', () => startGame());
   if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-  if (btnDlEvents) {
-    btnDlEvents.addEventListener('click', () => {
-      if (!engine) return;
-      downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
-    });
-  }
-  if (btnDlSessions) {
-    btnDlSessions.addEventListener('click', () => {
-      if (!engine) return;
-      downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
-    });
-  }
+  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+  });
+  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+  });
 
   // ==== apply mode from URL (?mode=research|play|normal) ====
   (function applyModeFromQuery(){
     try{
-      const sp = new URL(location.href).searchParams;
-      const m = (sp.get('mode')||'').toLowerCase();
+      const m = (qsParam('mode') || '').toLowerCase();
       if (m === 'research'){
         const r = modeRadios.find(x => x.value === 'research');
         if (r) r.checked = true;
