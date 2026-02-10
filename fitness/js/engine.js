@@ -1,8 +1,8 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — PATCH A (target TTL cleanup + no-stuck targets + robust AI import)
-// ✅ FIX: เป้าหมดอายุแล้ว “ต้องหายเอง” (timeout => remove + miss + reset combo)
-// ✅ FIX: ล้าง targetMeta เมื่อเริ่มเกม/ออกเมนู/จบเกม กันค้างสะสม
-// ✅ FIX: กันเกมพังจาก AI export mismatch (dynamic import + stub)
+// Shadow Breaker engine — PATCH B (safe playfield + responsive target size)
+// ✅ FIX: เป้าเกิดเฉพาะ safe zone (ไม่ชน HUD/การ์ด/แถบล่าง)
+// ✅ FIX: baseSize ปรับตามหน้าจอ (mobile เล็กลงอัตโนมัติ)
+// ✅ keeps PATCH A: target TTL cleanup + no-stuck targets + robust AI import
 
 'use strict';
 
@@ -23,7 +23,7 @@ const qNum = (k, def=0) => {
   return Number.isFinite(v) ? v : def;
 };
 
-const MODE = (q('mode','normal') || 'normal').toLowerCase(); // normal | research
+const MODE = (q('mode','normal') || 'normal').toLowerCase();
 const PID  = q('pid','');
 const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
@@ -99,25 +99,26 @@ const BOSSES = [
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
-// ----- Difficulty config -----
-// (คุณปรับ baseSize ต่อได้อีก ถ้าอยากให้เล็กลงบน mobile)
-const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:118, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:110, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:102, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
-};
-
-// ----- FEVER / HP -----
 const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
 
+// ----- Difficulty config -----
+// ✅ PATCH B: ลด baseSize ลง “อีกนิด” และปล่อยให้ responsiveScale คุมต่อ
+const DIFF_CONFIG = {
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:104, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:98,  bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:92,  bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+};
+
+// -------------------------
+// Views / HUD
+// -------------------------
 function setScaleX(el, pct){
   if(!el) return;
   const p = clamp(pct, 0, 1);
   el.style.transform = `scaleX(${p})`;
 }
-
 function showView(which){
   viewMenu?.classList.toggle('is-active', which === 'menu');
   viewPlay?.classList.toggle('is-active', which === 'play');
@@ -153,7 +154,7 @@ let bossesCleared = 0;
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
 
-// Events log
+// logs
 const events = [];
 const session = {
   pid: PID || '',
@@ -170,49 +171,7 @@ const session = {
   accPct: 0
 };
 
-// ✅ DL features always on (ใช้คำนวณ acc)
 const dl = new DLFeatures();
-
-// ✅ AI import (กัน export mismatch ไม่ให้เกมพัง)
-let ai = null;
-async function loadAI(){
-  const stub = {
-    enabled: false,
-    predict(){ return null; },
-    tip(){ return null; }
-  };
-  try{
-    const mod = await import('./ai-predictor.js');
-    const Cand =
-      mod?.AIPredictor ||
-      mod?.RB_AI ||
-      mod?.default ||
-      null;
-
-    // 1) class/function constructor
-    if (typeof Cand === 'function'){
-      try { return new Cand(); } catch { return stub; }
-    }
-    // 2) object already
-    if (Cand && typeof Cand === 'object'){
-      return Cand;
-    }
-    // 3) global fallback
-    const g = window.AIPredictor || window.RB_AI || null;
-    if (typeof g === 'function') return new g();
-    if (g && typeof g === 'object') return g;
-
-    return stub;
-  }catch(_){
-    // global fallback
-    try{
-      const g = window.AIPredictor || window.RB_AI || null;
-      if (typeof g === 'function') return new g();
-      if (g && typeof g === 'object') return g;
-    }catch{}
-    return stub;
-  }
-}
 
 // -------------------------
 // Renderer
@@ -224,8 +183,77 @@ const renderer = new DomRendererShadow(layerEl, {
 });
 renderer.setDifficulty(diff);
 
-// ✅ PATCH A: target expiry bookkeeping
+// -------------------------
+// PATCH A: expiry bookkeeping
+// -------------------------
 const targetMeta = new Map(); // id -> { spawnAt, expireAt, type }
+
+// -------------------------
+// PATCH B: safe playfield + responsive size
+// -------------------------
+let SAFE = { left:0, top:0, width:0, height:0, right:0, bottom:0 };
+let VIEW = { w: 0, h: 0, scale: 1 };
+
+function computeViewScale(){
+  // เป้าหมาย: บน mobile เล็กลง, บนจอใหญ่ก็ไม่เล็กเกิน
+  const w = Math.max(1, window.innerWidth || 1);
+  const h = Math.max(1, window.innerHeight || 1);
+  VIEW.w = w; VIEW.h = h;
+
+  // อิง “ด้านสั้น” เป็นหลัก
+  const shortSide = Math.min(w, h);
+
+  // baseline 420px => scale=1
+  // 360px => ~0.92
+  // 320px => ~0.86
+  // 768px => capped ~1.05
+  let s = shortSide / 420;
+  s = clamp(s, 0.82, 1.06);
+  VIEW.scale = s;
+}
+
+function computeSafeRect(){
+  // โซนห้ามชน: แถบหัวบน + แถบ HUD บนของเกม + แถบล่าง (fever+pause+hp)
+  // และด้านขวาเผื่อการ์ดบอส (บน desktop)
+  const w = Math.max(1, window.innerWidth || 1);
+  const h = Math.max(1, window.innerHeight || 1);
+
+  // header+topHUD (โดยประมาณ) — ปรับได้
+  const topPad = Math.round(160 * clamp(VIEW.scale, 0.82, 1.06)); // กันส่วนหัว+แถบคะแนน
+  const bottomPad = Math.round(150 * clamp(VIEW.scale, 0.82, 1.06)); // กัน fever + hp bottom
+  const sidePad = Math.round(18 * VIEW.scale);
+
+  // desktop มีการ์ดขวา: กันพื้นที่เพิ่ม ถ้าหน้ากว้างพอ
+  const rightPad = (w >= 980)
+    ? Math.round(320 * clamp(VIEW.scale, 0.90, 1.06))
+    : Math.round(18 * VIEW.scale);
+
+  const left = sidePad;
+  const top = topPad;
+  const right = Math.max(0, w - rightPad);
+  const bottom = Math.max(0, h - bottomPad);
+
+  const width = Math.max(10, right - left);
+  const height = Math.max(10, bottom - top);
+
+  SAFE = { left, top, width, height, right, bottom };
+
+  // ส่งให้ renderer ใช้ตอนสุ่มตำแหน่ง
+  renderer.setSafeRect(SAFE);
+}
+
+function refreshLayout(){
+  if(!wrapEl) return;
+  computeViewScale();
+  computeSafeRect();
+
+  // ส่ง scale ให้ renderer เอาไปคูณ sizePx ด้วย
+  renderer.setSizeScale(VIEW.scale);
+}
+
+window.addEventListener('resize', ()=>{
+  refreshLayout();
+});
 
 // -------------------------
 // Helpers
@@ -286,28 +314,22 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-// ✅ PATCH A: cleanup expired targets (timeout => miss + remove)
+// -------------------------
+// PATCH A: cleanup expired
+// -------------------------
 function cleanupExpired(){
   if(!running || ended || paused) return;
   const t = now();
-
   for (const [id, m] of targetMeta.entries()){
     if (t < m.expireAt) continue;
-
     targetMeta.delete(id);
 
     if (renderer.targets?.has?.(id)){
       renderer.removeTarget(id, 'timeout');
-
       miss++;
       combo = 0;
       say('MISS! รับจังหวะกลับมา', 'miss');
-
       events.push({ t: (TIME*1000 - timeLeft), type:'timeout', id, targetType:m.type });
-
-      // optional: ลงโทษเบา ๆ
-      // youHp = Math.max(0, youHp - 3);
-      // if(youHp<=0) endGame('dead');
     }
   }
 }
@@ -322,14 +344,13 @@ function spawnOne(){
   else if(roll < 0.20) type = 'heal';
   else if(roll < 0.26) type = 'shield';
 
-  // Boss face appears when boss low
   if(bossHp <= 26 && Math.random() < 0.22){
     type = 'bossface';
   }
 
-  // size
+  // size base + type multiplier (renderer จะคูณ VIEW.scale ให้อีกชั้น)
   let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.18;
+  if(type === 'bossface') sizePx = CFG.baseSize * 1.16;
   if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
 
   const spawnAt = now();
@@ -342,12 +363,7 @@ function spawnOne(){
     ttlMs
   });
 
-  // ✅ record expiry
-  targetMeta.set(id, {
-    spawnAt,
-    expireAt: spawnAt + ttlMs,
-    type
-  });
+  targetMeta.set(id, { spawnAt, expireAt: spawnAt + ttlMs, type });
 
   events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
 }
@@ -414,18 +430,12 @@ function onTargetHit(id, pt){
 
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
-
-  // ✅ PATCH A: remove meta too
   targetMeta.delete(id);
 
   events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
-  if(bossHp <= 0){
-    nextBossOrPhase();
-  }
-  if(youHp <= 0){
-    endGame('dead');
-  }
+  if(bossHp <= 0) nextBossOrPhase();
+  if(youHp <= 0) endGame('dead');
 
   setHUD();
 }
@@ -435,7 +445,6 @@ function endGame(reason='timeup'){
   ended = true;
   running = false;
 
-  // ✅ stop accumulating meta
   targetMeta.clear();
 
   session.endedAt = new Date().toISOString();
@@ -471,17 +480,14 @@ function endGame(reason='timeup'){
 function tick(){
   if(!running || ended) return;
   requestAnimationFrame(tick);
-
   if(paused) return;
 
-  // ✅ PATCH A: remove expired targets every frame
   cleanupExpired();
 
   const t = now();
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // spawn
   const since = t - tLastSpawn;
   const targetInterval = clamp(
     CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
@@ -491,10 +497,9 @@ function tick(){
   if(since >= targetInterval){
     tLastSpawn = t;
     spawnOne();
-    dl.onShot(); // attempt opportunity
+    dl.onShot();
   }
 
-  // decay FEVER slowly if active
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
@@ -506,9 +511,6 @@ function tick(){
   setHUD();
 }
 
-// -------------------------
-// Boot
-// -------------------------
 function start(mode){
   ended = false;
   running = true;
@@ -522,8 +524,10 @@ function start(mode){
 
   dl.reset();
 
-  renderer.destroy();      // clear old targets
-  targetMeta.clear();      // ✅ PATCH A: clear expiry meta too
+  renderer.destroy();
+  targetMeta.clear();
+
+  refreshLayout(); // ✅ PATCH B: recompute safe zone before spawn
 
   setBossUI();
   setHUD();
@@ -548,7 +552,7 @@ btnBackMenu?.addEventListener('click', ()=>{
   ended = false;
   paused = false;
   renderer.destroy();
-  targetMeta.clear(); // ✅ PATCH A
+  targetMeta.clear();
   showView('menu');
 });
 
@@ -559,7 +563,7 @@ btnPause?.addEventListener('change', ()=>{
 btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
   renderer.destroy();
-  targetMeta.clear(); // ✅ PATCH A
+  targetMeta.clear();
   showView('menu');
 });
 
@@ -589,9 +593,7 @@ btnSesCsv?.addEventListener('click', ()=>{
 });
 
 // init
-(async ()=>{
-  ai = await loadAI(); // ✅ ไม่พังถ้า export ไม่ตรง
-  showView('menu');
-  setBossUI();
-  setHUD();
-})();
+showView('menu');
+setBossUI();
+setHUD();
+refreshLayout();
