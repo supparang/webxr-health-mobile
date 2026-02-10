@@ -1,14 +1,11 @@
 // === /herohealth/plate/plate.boot.js ===
-// PlateVR Boot — PRODUCTION (HARDENED)
-// ✅ Auto view detect (no menu; allow ?view= for experiments)
-// ✅ Boots engine from ./plate.safe.js
-// ✅ Wires HUD: hha:score, hha:time, quest:update
-// ✅ Coach: hha:coach
-// ✅ Judge: hha:judge => Miss breakdown (junk / expire_good)
-// ✅ End overlay: hha:end (supports NEW schema + legacy keys)
-// ✅ Back HUB + Restart
-// ✅ Pass-through research ctx params (run/diff/time/seed/studyId/...)
-// ✅ HARDEN: visible fatal overlay + mount size wait + catch boot errors
+// PlateVR Boot — PRODUCTION vNEXT
+// ✅ Auto view detect
+// ✅ Boots engine
+// ✅ HUD + End summary
+// ✅ Miss breakdown (junk/timeout/shot)
+// ✅ NEW: Evaluate/Create panel after end
+// ✅ NEW: Silent badge (no popup) stored in localStorage
 
 'use strict';
 
@@ -22,17 +19,6 @@ const qs = (k, def=null)=>{
   catch { return def; }
 };
 
-function clamp(v, a, b){
-  v = Number(v)||0;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function pct(n){
-  n = Number(n);
-  if(!isFinite(n)) return '—';
-  return `${Math.round(n)}%`;
-}
-
 function isMobile(){
   const ua = navigator.userAgent || '';
   const touch = ('ontouchstart' in WIN) || navigator.maxTouchPoints > 0;
@@ -40,7 +26,6 @@ function isMobile(){
 }
 
 function getViewAuto(){
-  // Allow forcing for experiments: ?view=pc/mobile/vr/cvr
   const forced = (qs('view','')||'').toLowerCase();
   if(forced) return forced;
   return isMobile() ? 'mobile' : 'pc';
@@ -55,50 +40,19 @@ function setBodyView(view){
   else b.classList.add('view-pc');
 }
 
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function pct(n){ n=Number(n)||0; return `${Math.round(n)}%`; }
+
 function setOverlayOpen(open){
   const ov = DOC.getElementById('endOverlay');
   if(!ov) return;
   ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
-
-function ensureFatalBox(){
-  let box = DOC.getElementById('plateFatal');
-  if(box) return box;
-  box = DOC.createElement('div');
-  box.id = 'plateFatal';
-  box.style.position = 'fixed';
-  box.style.inset = '12px';
-  box.style.zIndex = '9999';
-  box.style.padding = '12px';
-  box.style.borderRadius = '14px';
-  box.style.background = 'rgba(2,6,23,.92)';
-  box.style.border = '1px solid rgba(239,68,68,.35)';
-  box.style.color = '#e5e7eb';
-  box.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-  box.style.whiteSpace = 'pre-wrap';
-  box.style.display = 'none';
-  DOC.body.appendChild(box);
-  return box;
+function setReflectOpen(open){
+  const ov = DOC.getElementById('reflectOverlay');
+  if(!ov) return;
+  ov.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
-
-function fatal(msg, err){
-  console.error('[PlateVR] FATAL', msg, err || '');
-  const box = ensureFatalBox();
-  box.textContent =
-    'PLATEVR ERROR\n' +
-    '-------------------------\n' +
-    String(msg || 'Unknown error') +
-    (err ? '\n\n' + (err.stack || err.message || String(err)) : '') +
-    '\n\nTip: เปิด DevTools Console เพื่อดูรายละเอียด';
-  box.style.display = 'block';
-}
-
-WIN.addEventListener('error', (e)=>{
-  fatal((e && e.message) ? e.message : 'JS Error', e?.error || e);
-});
-WIN.addEventListener('unhandledrejection', (e)=>{
-  fatal('Promise Rejection', e?.reason || e);
-});
 
 function showCoach(msg, meta='Coach'){
   const card = DOC.getElementById('coachCard');
@@ -107,8 +61,7 @@ function showCoach(msg, meta='Coach'){
   if(!card || !mEl) return;
 
   mEl.textContent = String(msg || '');
-  if(metaEl) metaEl.textContent = String(meta || 'Coach');
-
+  if(metaEl) metaEl.textContent = meta;
   card.classList.add('show');
   card.setAttribute('aria-hidden','false');
 
@@ -119,22 +72,44 @@ function showCoach(msg, meta='Coach'){
   }, 2400);
 }
 
-/* ----------------------------
-   Miss breakdown (from judge)
----------------------------- */
-const MISS = {
-  junk: 0,
-  expire: 0,
-  // keep last summary too (for debug)
-  last: null
-};
-
-function resetMiss(){
-  MISS.junk = 0;
-  MISS.expire = 0;
-  MISS.last = null;
+/* -------------------- Silent badge -------------------- */
+function loadBadges(){
+  try{
+    const raw = localStorage.getItem('HHA_BADGES_V1');
+    return raw ? JSON.parse(raw) : {};
+  }catch{ return {}; }
+}
+function saveBadges(obj){
+  try{ localStorage.setItem('HHA_BADGES_V1', JSON.stringify(obj||{})); }catch{}
+}
+function awardSilentBadge(id, meta={}){
+  if(!id) return false;
+  const b = loadBadges();
+  if(b[id]) return false; // already
+  b[id] = { at: Date.now(), ...meta };
+  saveBadges(b);
+  try{ WIN.dispatchEvent(new CustomEvent('hha:badge',{ detail:{ id, ...b[id] } })); }catch{}
+  return true;
 }
 
+/* -------------------- Miss breakdown from judge stream -------------------- */
+const MISS = { junk:0, timeout:0, shot:0 };
+
+function resetMissBreakdown(){
+  MISS.junk=0; MISS.timeout=0; MISS.shot=0;
+}
+
+function wireMissStream(){
+  WIN.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+    if(kind === 'junk') MISS.junk++;
+    else if(kind === 'expire_good') MISS.timeout++;
+    else if(kind === 'shot_miss') MISS.shot++;
+  });
+}
+
+/* -------------------- HUD -------------------- */
 function wireHUD(){
   const hudScore = DOC.getElementById('hudScore');
   const hudTime  = DOC.getElementById('hudTime');
@@ -188,36 +163,23 @@ function wireHUD(){
     const d = e.detail || {};
     if(d && (d.msg || d.text)) showCoach(d.msg || d.text, d.tag || 'Coach');
   });
-
-  // ✅ Miss breakdown source of truth
-  WIN.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    if(kind === 'junk'){
-      MISS.junk++;
-    }else if(kind === 'expire_good'){
-      MISS.expire++;
-    }
-  });
 }
 
+/* -------------------- End controls -------------------- */
 function wireEndControls(){
   const btnRestart = DOC.getElementById('btnRestart');
   const btnBackHub = DOC.getElementById('btnBackHub');
   const hub = qs('hub','') || '';
 
-  if(btnRestart){
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
-  }
-  if(btnBackHub){
-    btnBackHub.addEventListener('click', ()=>{
-      if(hub) location.href = hub;
-      else history.back();
-    });
-  }
+  if(btnRestart) btnRestart.addEventListener('click', ()=>location.reload());
+  if(btnBackHub) btnBackHub.addEventListener('click', ()=>{
+    if(hub) location.href = hub;
+    else history.back();
+  });
 }
+
+/* -------------------- End summary + Reflect flow -------------------- */
+let LAST_SUMMARY = null;
 
 function wireEndSummary(){
   const kScore = DOC.getElementById('kScore');
@@ -227,58 +189,157 @@ function wireEndSummary(){
   const kMini  = DOC.getElementById('kMini');
   const kMiss  = DOC.getElementById('kMiss');
 
-  // ✅ optional breakdown fields (only if you add them in HTML)
-  const kMissJunk   = DOC.getElementById('kMissJunk');
-  const kMissExpire = DOC.getElementById('kMissExpire');
-  const kGrade      = DOC.getElementById('kGrade'); // optional
+  const kMissJunk    = DOC.getElementById('kMissJunk');
+  const kMissTimeout = DOC.getElementById('kMissTimeout');
+  const kMissShot    = DOC.getElementById('kMissShot');
+  const kGrade       = DOC.getElementById('kGrade');
 
   WIN.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    MISS.last = d;
+    LAST_SUMMARY = d;
 
-    // New schema preferred:
-    // scoreFinal, comboMax, miss, accuracyPct, grade, timePlannedSec
-    // Legacy fallback:
-    // scoreFinal/score, comboMax/combo, misses/miss, accuracyGoodPct, durationPlannedSec
+    if(kScore) kScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+    if(kCombo) kCombo.textContent = String(d.comboMax ?? d.combo ?? 0);
 
-    const score = (d.scoreFinal ?? d.score ?? 0);
-    const combo = (d.comboMax ?? d.combo ?? 0);
-    const miss  = (d.miss ?? d.misses ?? 0);
+    const missTotal = (d.miss ?? d.misses ?? 0);
+    if(kMiss) kMiss.textContent = String(missTotal);
 
     const acc = (d.accuracyPct ?? d.accuracyGoodPct ?? null);
-    const grade = (d.grade ?? '');
-
-    if(kScore) kScore.textContent = String(score);
-    if(kCombo) kCombo.textContent = String(combo);
-    if(kMiss)  kMiss.textContent  = String(miss);
-    if(kAcc)   kAcc.textContent   = (acc==null) ? '—' : pct(acc);
-
-    if(kGrade && grade) kGrade.textContent = String(grade);
+    if(kAcc) kAcc.textContent = (acc==null) ? '—' : pct(acc);
 
     if(kGoals) kGoals.textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
     if(kMini)  kMini.textContent  = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
 
-    // ✅ breakdown from judge stream (more “felt” accurate)
-    if(kMissJunk)   kMissJunk.textContent   = String(MISS.junk);
-    if(kMissExpire) kMissExpire.textContent = String(MISS.expire);
+    // breakdown: prefer engine keys, fallback to stream counters
+    if(kMissJunk)    kMissJunk.textContent    = String(d.missJunk ?? MISS.junk ?? 0);
+    if(kMissTimeout) kMissTimeout.textContent = String(d.missExpire ?? MISS.timeout ?? 0);
+    if(kMissShot)    kMissShot.textContent    = String(d.missShot ?? MISS.shot ?? 0);
+
+    if(kGrade) kGrade.textContent = String(d.grade || '—');
 
     setOverlayOpen(true);
+
+    // ✅ open reflect panel after a beat (Kid-friendly)
+    setTimeout(()=>{ openReflectPanel(d); }, 350);
   });
 }
 
+/* -------------------- Evaluate/Create UI -------------------- */
+function openReflectPanel(summary){
+  // if HTML not present, just skip safely
+  const ov = DOC.getElementById('reflectOverlay');
+  if(!ov) return;
+
+  // seed recommended “create” based on misses
+  const missJ = Number(summary?.missJunk ?? 0);
+  const missE = Number(summary?.missExpire ?? 0);
+  const missS = Number(summary?.missShot ?? 0);
+  const acc = Number(summary?.accuracyPct ?? summary?.accuracyGoodPct ?? 0);
+
+  const hint = DOC.getElementById('reflectHint');
+  if(hint){
+    const bestTip =
+      (missJ > 0) ? 'ลดของทอด/หวาน แล้วลองใหม่!' :
+      (missE > 0) ? 'ลองเพิ่มความเร็ว/เล็งให้แม่นขึ้น!' :
+      (missS > 0) ? 'เล็งกลางเป้าแล้วค่อยยิง!' :
+      (acc >= 85) ? 'เยี่ยมมาก! ลองปรับให้ “สมดุลขึ้น” อีกนิด!' :
+      'ลองปรับ 1 อย่าง แล้วดูผลทันที!';
+    hint.textContent = bestTip;
+  }
+
+  setReflectOpen(true);
+}
+
+function wireReflectActions(){
+  const ov = DOC.getElementById('reflectOverlay');
+  if(!ov) return;
+
+  // Evaluate radios
+  const evalRadios = Array.from(DOC.querySelectorAll('input[name="plateEval"]'));
+
+  // Create buttons
+  const btnAddVeg = DOC.getElementById('btnAddVeg');
+  const btnLessRice = DOC.getElementById('btnLessRice');
+  const btnSwapFruit = DOC.getElementById('btnSwapFruit');
+
+  const result = DOC.getElementById('reflectResult');
+  const badgeLine = DOC.getElementById('reflectBadge');
+
+  function setResult(text){
+    if(result) result.textContent = text || '';
+  }
+  function setBadge(text){
+    if(badgeLine) badgeLine.textContent = text || '';
+  }
+
+  function readEval(){
+    const picked = evalRadios.find(r=>r.checked);
+    return picked ? picked.value : '';
+  }
+
+  function applyCreate(kind){
+    // Show instant effect (simple, kid-friendly)
+    const evalChoice = readEval();
+    const base = `คุณเลือกเหตุผล: ${evalChoice || 'ยังไม่เลือก'}`;
+
+    if(kind === 'addVeg'){
+      setResult(`${base}\n✅ ปรับแล้ว: เพิ่มผัก → จานสมดุลขึ้น`);
+      const got = awardSilentBadge('PLATE_VEG_FIX', { game:'plate', why:evalChoice });
+      setBadge(got ? '🏅 ได้รับเหรียญลับ: Veg Fix!' : '🏅 เหรียญลับนี้ได้แล้ว');
+    }
+    if(kind === 'lessRice'){
+      setResult(`${base}\n✅ ปรับแล้ว: ลดข้าว/แป้ง → ลดมากไป/พอดีขึ้น`);
+      const got = awardSilentBadge('PLATE_RICE_TUNE', { game:'plate', why:evalChoice });
+      setBadge(got ? '🏅 ได้รับเหรียญลับ: Rice Tuner!' : '🏅 เหรียญลับนี้ได้แล้ว');
+    }
+    if(kind === 'swapFruit'){
+      setResult(`${base}\n✅ ปรับแล้ว: เปลี่ยนขนมเป็นผลไม้ → เลือกสุขภาพขึ้น`);
+      const got = awardSilentBadge('PLATE_FRUIT_SWAP', { game:'plate', why:evalChoice });
+      setBadge(got ? '🏅 ได้รับเหรียญลับ: Fruit Swap!' : '🏅 เหรียญลับนี้ได้แล้ว');
+    }
+
+    // Optional: tag summary/log
+    try{
+      WIN.dispatchEvent(new CustomEvent('plate:reflect', {
+        detail: { evalChoice, create: kind, summary: LAST_SUMMARY || null }
+      }));
+    }catch{}
+  }
+
+  if(btnAddVeg) btnAddVeg.addEventListener('click', ()=>applyCreate('addVeg'));
+  if(btnLessRice) btnLessRice.addEventListener('click', ()=>applyCreate('lessRice'));
+  if(btnSwapFruit) btnSwapFruit.addEventListener('click', ()=>applyCreate('swapFruit'));
+
+  // close
+  const btnClose = DOC.getElementById('btnReflectClose');
+  if(btnClose){
+    btnClose.addEventListener('click', ()=>{
+      setReflectOpen(false);
+    });
+  }
+}
+
+/* -------------------- config -------------------- */
 function buildEngineConfig(){
   const view = getViewAuto();
   const run  = (qs('run','play')||'play').toLowerCase();
   const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','90'), 10, 999);
+
+  // if time not provided => engine will pick defaults by mode/diff
+  const timeRaw = qs('time', '');
+  const time = timeRaw==='' ? null : clamp(timeRaw, 10, 999);
+
   const seed = Number(qs('seed', Date.now())) || Date.now();
 
   return {
     view,
     runMode: run,
     diff,
-    durationPlannedSec: Number(time),
+    durationPlannedSec: (time==null ? undefined : Number(time)),
     seed: Number(seed),
+
+    // play tuning
+    allowEarlyEnd: qs('earlyEnd','0'), // default 0
 
     // passthrough
     hub: qs('hub','') || '',
@@ -302,58 +363,34 @@ function ready(fn){
   else DOC.addEventListener('DOMContentLoaded', fn, { once:true });
 }
 
-/* ----------------------------
-   Harden: wait mount has size
----------------------------- */
-function waitForMountReady(mount, timeoutMs=1200){
-  const t0 = performance.now();
-  return new Promise((resolve, reject)=>{
-    const tick = ()=>{
-      const r = mount.getBoundingClientRect();
-      if(r.width >= 60 && r.height >= 60) return resolve(r);
-      if(performance.now() - t0 > timeoutMs) return reject(new Error('mount has no size'));
-      requestAnimationFrame(tick);
-    };
-    tick();
-  });
-}
+ready(()=>{
+  resetMissBreakdown();
 
-ready(async ()=>{
-  // 1) init view
   const cfg = buildEngineConfig();
   setBodyView(cfg.view);
 
-  // 2) wire UI first (so errors are visible)
-  resetMiss();
   wireHUD();
+  wireMissStream();
   wireEndControls();
   wireEndSummary();
+  wireReflectActions();
 
-  // 3) ensure overlay closed at start
   setOverlayOpen(false);
+  setReflectOpen(false);
 
-  // 4) mount check
   const mount = DOC.getElementById('plate-layer');
   if(!mount){
-    fatal('หา playfield ไม่เจอ (#plate-layer)');
+    console.error('[PlateVR] mount #plate-layer missing');
     showCoach('หา playfield ไม่เจอ (#plate-layer)', 'System');
     return;
   }
 
-  // 5) ensure mount has size (prevents “เริ่มแล้วนิ่ง” จาก layout ยังไม่ settle)
   try{
-    await waitForMountReady(mount, 1400);
+    Promise.resolve().then(()=>{
+      engineBoot({ mount, cfg });
+    });
   }catch(err){
-    console.warn('[PlateVR] mount size not ready; continuing anyway', err);
-  }
-
-  // 6) boot engine with guard
-  try{
-    // microtask yield helps some mobile browsers settle CSS vars before computeSpawnRect()
-    await Promise.resolve();
-    engineBoot({ mount, cfg });
-  }catch(err){
-    fatal('เกิดข้อผิดพลาดตอนเริ่มเกม', err);
+    console.error('[PlateVR] boot error', err);
     showCoach('เกิดข้อผิดพลาดตอนเริ่มเกม (ดู Console)', 'System');
   }
 });
