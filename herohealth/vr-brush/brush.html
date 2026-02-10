@@ -1,12 +1,12 @@
-<!-- === /herohealth/vr-brush/brush-vr.html ===
-BrushVR RUN — PRODUCTION (HHA Standard)
-✅ HUD ids match brush.safe.js: hud-timer/hud-coverage/hud-combo/hud-uv/hud-boss/hud-toast + #playLayer
-✅ Auto view detect (pc/mobile). Does NOT honor ?view override.
-✅ Optional VR UI: ../vr/vr-ui.js (auto-load if WebXR exists)
-✅ Boots window.BrushVR.boot(ctx) from brush.safe.js
-URL params pass-through:
-  pid, mode=play|research|practice, run, diff, time, seed, studyId, phase, conditionGroup, hub, log=1
+<!-- === /herohealth/vr-brush/brush.html ===
+BrushVR RUN — PRODUCTION (HHA Standard-ish) — v20260210a
+✅ Views: pc/mobile/vr/cvr (auto detect, NO override if ?view exists)
+✅ Tap-to-start gate (mobile/cvr)
+✅ Uses: ../vr/vr-ui.js => Enter VR/Exit/Recenter + crosshair + hha:shoot
+✅ Engine: ./brush.safe.js (window.BrushVR.boot)
+✅ Boot:   ./brush.boot.js  (starts engine + end overlay)
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,418 +14,114 @@ URL params pass-through:
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; background:radial-gradient(1200px 720px at 50% 30%, rgba(34,197,94,.10), transparent 60%), var(--bg);
-      color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      overflow:hidden;
-    }
-
-    /* play layer */
-    #playLayer{
-      position:fixed; inset:0;
-      z-index:10;
-      overflow:hidden;
-      touch-action:manipulation;
-    }
-
-    /* notes base (JS sets class brush-note) */
-    .brush-note{
-      -webkit-tap-highlight-color: transparent;
-      outline:none;
-    }
-
-    /* ===== HUD layout ===== */
-    .hud{
-      position:fixed;
-      left:0; right:0; top:0;
-      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) 10px calc(10px + var(--sal));
-      z-index:50;
-      pointer-events:none; /* important: do not block targets */
-    }
-
-    /* timer bar */
-    #hud-timer{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-    }
-    #hud-timer .left{display:flex; gap:10px; align-items:center}
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      font-weight:900; letter-spacing:.4px;
-      white-space:nowrap;
-    }
-    .time{
-      font-variant-numeric: tabular-nums;
-      font-weight:950;
-      font-size:16px;
-    }
-    .phase{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      letter-spacing:.4px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-      max-width:min(64vw, 560px);
-    }
-    .bar{
-      flex:1;
-      height:10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(148,163,184,.08);
-      overflow:hidden;
-      min-width:80px;
-    }
-    .bar > i{
-      display:block; height:100%;
-      width:100%;
-      background:linear-gradient(90deg, rgba(34,197,94,.65), rgba(34,211,238,.55));
-      border-radius:999px;
-    }
-
-    /* mid row */
-    .hud-mid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-      align-items:start;
-      pointer-events:none;
-    }
-
-    /* coverage panel */
-    #hud-coverage{
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-    }
-    .cov-head{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      margin-bottom:8px;
-    }
-    .cov-title{font-weight:950; letter-spacing:.4px}
-    .cov-sub{color:var(--muted); font-size:12px; font-weight:800}
-    .cov-grid{
-      display:grid; grid-template-columns: repeat(4, 1fr);
-      gap:8px;
-    }
-    .cov-cell{
-      padding:8px 8px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.35);
-      display:grid; gap:2px;
-      place-items:center;
-    }
-    .cov-cell .q{font-size:11px; color:var(--muted); font-weight:900; letter-spacing:.6px}
-    .cov-cell .p{font-size:14px; font-weight:950}
-    .cov-cell[data-ok="1"]{ border-color: rgba(34,197,94,.40); }
-    .cov-cell[data-ok="1"] .p{ color: rgba(34,197,94,.95); }
-    .cov-cell[data-reclaim="1"]{ border-color: rgba(239,68,68,.35); }
-
-    /* combo panel */
-    #hud-combo{
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-      justify-self:end;
-      width:min(320px, 100%);
-    }
-    .combo-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
-    .combo-title{font-weight:950; letter-spacing:.4px}
-    .combo-num{font-size:20px; font-weight:950; font-variant-numeric:tabular-nums}
-    .combo-mul{color:var(--muted); font-weight:900; font-size:12px}
-
-    /* UV panel (right bottom-ish) */
-    #hud-uv{
-      position:fixed;
-      right: calc(10px + var(--sar));
-      bottom: calc(12px + var(--sab));
-      z-index:55;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-      pointer-events:none;
-      min-width:220px;
-    }
-    #hud-uv[data-on="0"]{ display:none; }
-    .uv-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
-    .uv-title{font-weight:950}
-    #uvBtn{
-      pointer-events:auto;
-      padding:8px 10px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(34,211,238,.16);
-      color:var(--text);
-      font-weight:950;
-      cursor:pointer;
-    }
-    #uvEnergy{display:flex; gap:6px; margin-top:8px}
-    #uvEnergy .dot{
-      width:12px; height:12px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(34,211,238,.35);
-    }
-    #uvEnergy .dot[data-off="1"]{ background:rgba(148,163,184,.12); }
-    #uvSub{margin-top:6px; color:var(--muted); font-size:12px; font-weight:850}
-
-    /* Boss panel */
-    #hud-boss{
-      position:fixed;
-      left: calc(10px + var(--sal));
-      bottom: calc(12px + var(--sab));
-      z-index:55;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-      pointer-events:none;
-      min-width:240px;
-    }
-    #hud-boss[data-on="0"]{ display:none; }
-    .boss-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
-    .boss-title{font-weight:950}
-    #bPhase{color:var(--muted); font-size:12px; font-weight:900}
-    .boss-bar{
-      margin-top:8px;
-      height:12px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(148,163,184,.08);
-      overflow:hidden;
-    }
-    .boss-bar > i{
-      display:block; height:100%;
-      width:100%;
-      background:linear-gradient(90deg, rgba(244,63,94,.70), rgba(251,191,36,.55));
-      border-radius:999px;
-    }
-
-    /* toast */
-    #hud-toast{
-      position:fixed;
-      left:50%;
-      bottom: calc(92px + var(--sab));
-      transform:translateX(-50%);
-      z-index:56;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    #hud-toast[data-on="1"]{
-      opacity:1;
-      transform:translateX(-50%) translateY(-6px);
-    }
-    .toast-card{
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.78);
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
-      min-width:min(520px, 92vw);
-      text-align:center;
-    }
-    #toastT{font-weight:950}
-    #toastS{margin-top:2px; color:var(--muted); font-size:12px; font-weight:850}
-
-    /* mobile adjustments */
-    body[data-view="mobile"] .hud{
-      padding: calc(8px + var(--sat)) calc(8px + var(--sar)) 8px calc(8px + var(--sal));
-    }
-    body[data-view="mobile"] #hud-coverage .cov-grid{ gap:6px; }
-    body[data-view="mobile"] #hud-uv{ min-width:200px; }
-    body[data-view="mobile"] #hud-boss{ min-width:220px; }
-
-    /* keep HUD non-blocking */
-    #hud-timer, #hud-coverage, #hud-combo, #hud-uv, #hud-boss, #hud-toast { pointer-events:none; }
-    #uvBtn{ pointer-events:auto; } /* only allow UV button */
-  </style>
+  <link rel="stylesheet" href="./brush.css"/>
 </head>
-<body data-view="pc">
-  <!-- PLAYFIELD -->
-  <div id="playLayer" aria-label="BrushVR Play Layer"></div>
 
-  <!-- ===== HUD ===== -->
-  <div class="hud">
-    <section id="hud-timer" aria-label="Timer">
-      <div class="left">
-        <span class="pill">
-          <span class="time" id="tLeft">01:30</span>
-        </span>
-        <div>
-          <div class="phase" id="tPhase">INTRO • Ready</div>
-        </div>
+<body data-view="pc" class="view-pc">
+  <!-- ===== Tap-to-start overlay (mobile/cvr) ===== -->
+  <div id="tapStart" class="tapStart" aria-hidden="false">
+    <div class="tapCard">
+      <div class="tapTitle">Tap to Start</div>
+      <div class="tapSub">แตะเพื่อเริ่มเกม (มือถือ/คาร์ดบอร์ด)</div>
+      <button class="tapBtn" id="tapBtn" type="button">START</button>
+      <div class="tapHint">Tip: โหมด cVR ยิงจากเป้ากลางจอ (crosshair)</div>
+    </div>
+  </div>
+
+  <!-- ===== Minimal A-Frame scene (helps Enter VR reliability) =====
+       NOTE: kept behind + invisible; we rely on vr-ui.js buttons -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: false"
+    style="position:fixed;inset:0;z-index:0;opacity:0.001;pointer-events:none;">
+    <a-entity position="0 1.6 -1"></a-entity>
+  </a-scene>
+
+  <!-- ===== HUD (top) ===== -->
+  <header class="hud">
+    <section id="hud-timer" class="hudCard hudTimer">
+      <div class="row">
+        <div class="label">TIME</div>
+        <div id="tLeft" class="value">00:00</div>
       </div>
-      <div class="bar" aria-hidden="true"><i id="tFill" style="width:100%"></i></div>
+      <div class="bar"><div id="tFill" class="fill"></div></div>
+      <div id="tPhase" class="sub">INTRO</div>
     </section>
 
-    <div class="hud-mid">
-      <section id="hud-coverage" aria-label="Coverage">
-        <div class="cov-head">
-          <div class="cov-title">Coverage</div>
-          <div class="cov-sub">เป้าหมาย ≥ 80%</div>
-        </div>
-        <div class="cov-grid">
-          <div class="cov-cell" id="cov-q1" data-ok="0" data-reclaim="0"><div class="q">Q1</div><div class="p">0%</div></div>
-          <div class="cov-cell" id="cov-q2" data-ok="0" data-reclaim="0"><div class="q">Q2</div><div class="p">0%</div></div>
-          <div class="cov-cell" id="cov-q3" data-ok="0" data-reclaim="0"><div class="q">Q3</div><div class="p">0%</div></div>
-          <div class="cov-cell" id="cov-q4" data-ok="0" data-reclaim="0"><div class="q">Q4</div><div class="p">0%</div></div>
-        </div>
-      </section>
+    <section id="hud-combo" class="hudCard hudCombo">
+      <div class="row">
+        <div class="label">COMBO</div>
+        <div class="value"><span id="cCombo">0</span></div>
+      </div>
+      <div class="sub">Multiplier <span id="cMul">x1.0</span></div>
+      <div class="miniHint">BANK ใช้คอมโบแลก UV/Shield</div>
+    </section>
 
-      <section id="hud-combo" aria-label="Combo">
-        <div class="combo-row">
-          <div class="combo-title">Combo</div>
-          <div class="combo-num" id="cCombo">0</div>
-        </div>
-        <div class="combo-row" style="margin-top:6px;">
-          <div class="combo-mul">Multiplier</div>
-          <div class="combo-mul" id="cMul">x1.0</div>
-        </div>
-      </section>
-    </div>
-  </div>
+    <section id="hud-coverage" class="hudCard hudCoverage">
+      <div class="row">
+        <div class="label">COVERAGE</div>
+        <div class="value">4 Zones</div>
+      </div>
+      <div class="grid">
+        <div id="cov-q1" class="cell"><div class="k">Q1</div><div class="p">0%</div></div>
+        <div id="cov-q2" class="cell"><div class="k">Q2</div><div class="p">0%</div></div>
+        <div id="cov-q3" class="cell"><div class="k">Q3</div><div class="p">0%</div></div>
+        <div id="cov-q4" class="cell"><div class="k">Q4</div><div class="p">0%</div></div>
+      </div>
+      <div class="sub">ผ่านเมื่อครบ ≥ 80% + อยู่โซนขั้นต่ำ</div>
+    </section>
+  </header>
 
-  <!-- Boss HUD -->
-  <section id="hud-boss" data-on="0" aria-label="Boss">
-    <div class="boss-head">
-      <div class="boss-title">BOSS</div>
-      <div id="bPhase">Phase 1/4</div>
-    </div>
-    <div class="boss-bar" aria-hidden="true"><i id="bFill" style="width:100%"></i></div>
-  </section>
+  <!-- ===== HUD (floating) ===== -->
+  <aside class="hudFloat">
+    <section id="hud-boss" class="hudCard hudBoss" data-on="0">
+      <div class="row">
+        <div class="label">BOSS</div>
+        <div id="bPhase" class="value">Phase 1/4</div>
+      </div>
+      <div class="bar"><div id="bFill" class="fill"></div></div>
+      <div class="sub">Phase 3–4 มี Weak Spot 🎯</div>
+    </section>
 
-  <!-- UV HUD -->
-  <section id="hud-uv" data-on="1" aria-label="UV">
-    <div class="uv-head">
-      <div class="uv-title">UV</div>
-      <button id="uvBtn" type="button">UV</button>
-    </div>
-    <div id="uvEnergy" aria-label="UV energy">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    </div>
-    <div id="uvSub">Reveal stealth plaque</div>
-  </section>
+    <section id="hud-uv" class="hudCard hudUV" data-on="0">
+      <div class="row">
+        <div class="label">UV</div>
+        <button id="uvBtn" class="uvBtn" type="button">UV</button>
+      </div>
+      <div id="uvEnergy" class="dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div id="uvSub" class="sub">Reveal stealth plaque</div>
+    </section>
 
-  <!-- Toast -->
-  <div id="hud-toast" data-on="0" aria-live="polite" aria-atomic="true">
-    <div class="toast-card">
-      <div id="toastT">แจ้งเตือน</div>
-      <div id="toastS">-</div>
-    </div>
-  </div>
+    <section id="hud-toast" class="toast" data-on="0">
+      <div id="toastT" class="toastT">แจ้งเตือน</div>
+      <div id="toastS" class="toastS">…</div>
+    </section>
+  </aside>
 
-  <script type="module">
-    // ---------- view detect (NO override) ----------
-    function detectBaseView(){
-      try{
-        const ua = navigator.userAgent || '';
-        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-        return isMobile ? 'mobile' : 'pc';
-      }catch(_){
-        return 'pc';
-      }
-    }
-    document.body.setAttribute('data-view', detectBaseView());
+  <!-- ===== DOM90 play layer ===== -->
+  <main id="playLayer" class="playLayer" aria-label="play"></main>
 
-    // ---------- query helpers ----------
-    function getQS(){ try{ return new URL(location.href).searchParams; } catch(_){ return new URLSearchParams(); } }
-    const QS = getQS();
-    const q = (k, def='') => (QS.get(k) ?? def);
-    const qNum = (k, def=0) => {
-      const v = Number(q(k, def));
-      return Number.isFinite(v) ? v : def;
-    };
-
-    const ctx = {
-      mode: String(q('mode', q('run','play')) || 'play').toLowerCase(), // play|research|practice
-      pid: String(q('pid','')||''),
-      diff: String(q('diff','normal')||'normal').toLowerCase(),
-      time: Math.max(30, Math.min(180, qNum('time', 90))),
-      seed: String(q('seed','')||''),
-      studyId: String(q('studyId','')||''),
-      phase: String(q('phase','')||''),
-      conditionGroup: String(q('conditionGroup','')||''),
-      hub: String(q('hub','')||''),
-      log: String(q('log','')||'')
-    };
-
-    if(!ctx.seed){
-      // deterministic-ish default for play; stable per pid+date
-      const base = (ctx.pid || 'anon') + '|' + new Date().toISOString().slice(0,10);
-      let h=2166136261>>>0;
-      for(let i=0;i<base.length;i++){ h ^= base.charCodeAt(i); h = Math.imul(h, 16777619); }
-      ctx.seed = String(h>>>0);
-    }
-
-    // ---------- load vr-ui.js if WebXR exists ----------
-    async function ensureVRUI(){
-      try{
-        if(window.__HHA_VRUI_LOADED__) return;
-        if(navigator && navigator.xr){
-          await import('../vr/vr-ui.js');
-        }
-      }catch(_){}
-    }
-
-    // optional: adjust view flag on enter/exit VR (for HUD spacing)
-    window.addEventListener('hha:enter-vr', (ev)=>{
-      const d = ev?.detail || {};
-      const v = String(d.view||'vr');
-      document.body.setAttribute('data-view', v.includes('cvr') ? 'cvr' : 'vr');
-    });
-    window.addEventListener('hha:exit-vr', ()=>{
-      document.body.setAttribute('data-view', detectBaseView());
-    });
-
-    // ---------- boot engine ----------
-    async function start(){
-      await ensureVRUI();
-      await import('./brush.safe.js');
-      if(!window.BrushVR || typeof window.BrushVR.boot !== 'function'){
-        console.error('[BrushVR] BrushVR.boot not found');
-        return;
-      }
-      window.BrushVR.boot(ctx);
-    }
-    start();
+  <!-- ===== VR UI aim tuning ===== -->
+  <script>
+    // Important: must be set BEFORE vr-ui.js loads
+    // lockPx = ระยะล็อกเป้าจากจุดยิง (crosshair / tap)
+    window.HHA_VRUI_CONFIG = { lockPx: 30, cooldownMs: 90 };
   </script>
+
+  <!-- ===== Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot) ===== -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- ===== A-Frame (optional): load after vr-ui (to avoid blocking) ===== -->
+  <script defer src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- ===== Engine then Boot (ORDER MUST BE THIS) ===== -->
+  <script src="./brush.safe.js"></script>
+  <script src="./brush.boot.js"></script>
 </body>
 </html>
