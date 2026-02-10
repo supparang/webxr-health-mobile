@@ -1,70 +1,157 @@
+<!-- === /herohealth/brush-vr.html ===
+BrushVR LAUNCHER — ROOT (HHA Standard)
+✅ Auto-detect view: pc/mobile/vr/cvr
+✅ DOES NOT override if ?view exists (pass-through only)
+✅ Pass-through: hub, run/mode, diff, time, seed, pid, studyId, phase, conditionGroup, log
+✅ Redirects to ./vr-brush/brush-vr.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — BrushVR Launcher</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — BrushVR (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{ --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; }
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:radial-gradient(900px 520px at 20% 15%, rgba(34,211,238,.12), transparent 60%),linear-gradient(180deg,#020617,#0b1226);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial;display:grid;place-items:center}
-    .card{width:min(720px,92vw);border:1px solid var(--stroke);background:var(--panel);border-radius:22px;box-shadow:0 18px 60px rgba(0,0,0,.45);padding:18px}
-    .t{font-weight:900;font-size:18px}
-    .s{margin-top:6px;color:var(--muted);font-size:13px;line-height:1.5}
-    .mono{margin-top:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";font-size:12px;color:rgba(229,231,235,.8);white-space:pre-wrap;word-break:break-word}
+    body{
+      margin:0; display:grid; place-items:center;
+      background:radial-gradient(1000px 520px at 50% 35%, rgba(34,197,94,.10), transparent 60%), var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+    }
+    .card{
+      width:min(720px, 92vw);
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:16px 16px;
+    }
+    .title{font-weight:950; font-size:18px; letter-spacing:.3px}
+    .sub{margin-top:6px; color:var(--muted); font-weight:800; font-size:13px; line-height:1.5}
+    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    .pill{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      font-weight:900;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="t">🦷 BrushVR — Launcher</div>
-    <div class="s">กำลังพาเข้าเกม… (ส่งต่อพารามิเตอร์เดิมครบ และเติม hub ให้เสมอ)</div>
-    <div class="mono" id="dbg"></div>
+  <div class="card" role="status" aria-live="polite">
+    <div class="title">BrushVR — launching…</div>
+    <div class="sub">กำลังตรวจอุปกรณ์และเข้าเกมอัตโนมัติ (ไม่ต้องเลือกเมนู)</div>
+    <div class="row" id="pills"></div>
   </div>
 
-<script>
-(function(){
-  'use strict';
+  <script>
+    (function(){
+      'use strict';
+      const WIN = window;
 
-  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
-  const cur = getQS();
+      function getQS(){
+        try{ return new URL(location.href).searchParams; }
+        catch(_){ return new URLSearchParams(); }
+      }
+      const QS = getQS();
 
-  function detectView(){
-    const v = (cur.get('view')||'').toLowerCase();
-    if(v) return v; // ✅ ไม่ override
-    const ua = navigator.userAgent||'';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
-    return isMobile ? 'mobile' : 'pc';
-  }
+      // NOTE: "ห้าม override" -> ถ้า user ใส่ view มาแล้ว ให้เคารพและส่งต่อเฉย ๆ
+      const hasView = QS.has('view') && String(QS.get('view')||'').trim().length>0;
 
-  // build run url
-  const run = new URL('./vr-brush/brush.html', location.href);
+      function isMobileUA(){
+        try{
+          const ua = navigator.userAgent || '';
+          return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+        }catch(_){ return false; }
+      }
 
-  // pass-through all params
-  for(const [k,v] of cur.entries()){
-    run.searchParams.set(k, v);
-  }
+      async function detectXRView(){
+        // returns 'vr'|'cvr' or '' if not in XR / not supported
+        try{
+          if(!navigator || !navigator.xr) return '';
+          // If already presenting in XR (rare in launcher), treat as vr.
+          // Prefer immersive-vr capability check.
+          const ok = await navigator.xr.isSessionSupported('immersive-vr');
+          if(!ok) return '';
+          // We can't know cardboard vs headset reliably here.
+          // Use 'vr' and let vr-ui.js handle cVR behavior in-game if needed.
+          return 'vr';
+        }catch(_){
+          return '';
+        }
+      }
 
-  // ensure view (only if missing)
-  if(!cur.has('view')) run.searchParams.set('view', detectView());
+      function setPills(items){
+        const wrap = document.getElementById('pills');
+        if(!wrap) return;
+        wrap.innerHTML = '';
+        for(const t of items){
+          const s = document.createElement('span');
+          s.className = 'pill';
+          s.textContent = t;
+          wrap.appendChild(s);
+        }
+      }
 
-  // ensure hub (if missing)
-  if(!cur.has('hub')){
-    const hubGuess = new URL('./hub.html', location.href).toString();
-    run.searchParams.set('hub', hubGuess);
-  }
+      function passKeys(url, keys){
+        const u = new URL(url, location.origin);
+        for(const k of keys){
+          if(QS.has(k)){
+            u.searchParams.set(k, QS.get(k));
+          }
+        }
+        // pass everything else too (safe) — but keep it controlled:
+        // If you want strict allowlist only, comment the block below.
+        for(const [k,v] of QS.entries()){
+          if(!u.searchParams.has(k)) u.searchParams.set(k, v);
+        }
+        return u;
+      }
 
-  // default time if missing (optional)
-  if(!cur.has('time')) run.searchParams.set('time', '90');
+      (async function go(){
+        const dest = './vr-brush/brush-vr.html';
 
-  // debug
-  const dbg = document.getElementById('dbg');
-  if(dbg) dbg.textContent = '→ ' + run.toString();
+        const pills = [];
+        const base = isMobileUA() ? 'mobile' : 'pc';
+        pills.push('base:' + base);
 
-  // go
-  location.replace(run.toString());
-})();
-</script>
+        let view = '';
+        if(hasView){
+          view = String(QS.get('view')||'').toLowerCase();
+          pills.push('view:passthrough=' + view);
+        }else{
+          const xr = await detectXRView();
+          view = xr || base;
+          pills.push('view:auto=' + view);
+        }
+
+        const u = passKeys(dest, [
+          'hub','run','mode','diff','time','seed','pid',
+          'studyId','phase','conditionGroup','log'
+        ]);
+
+        // only set view when we auto-detect (not override user)
+        if(!hasView && view) u.searchParams.set('view', view);
+
+        setPills(pills);
+
+        // redirect now
+        location.replace(u.toString());
+      })();
+    })();
+  </script>
 </body>
 </html>
