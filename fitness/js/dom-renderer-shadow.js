@@ -1,9 +1,8 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH: safe-zone from CSS vars (--sb-safe-top/right/bottom/left) to avoid HUD/meta overlap
+// DOM renderer for Shadow Breaker targets — PATCH E
+// ✅ Safe spawn rect avoids HUD(top/bottom) + boss card area
+// ✅ Anti-cluster spawn (rejection sampling + min distance)
+// ✅ TTL hint supported (engine still enforces hard TTL)
 
 'use strict';
 
@@ -11,16 +10,7 @@ import { FxBurst } from './fx-burst.js';
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
-
-function readCssPx(el, name, fallback){
-  try{
-    const v = getComputedStyle(el || document.documentElement).getPropertyValue(name);
-    const n = Number(String(v||'').trim().replace('px',''));
-    return Number.isFinite(n) ? n : fallback;
-  }catch(_){
-    return fallback;
-  }
-}
+function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
 
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
@@ -32,9 +22,28 @@ export class DomRendererShadow {
     this.diffKey = 'normal';
     this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
+
+    // PATCH E: stage metrics (hud/card sizes) injected by engine each tick/start
+    this.stageMetrics = {
+      topHudH: 0,
+      bottomHudH: 0,
+      rightPanelW: 0,
+      pad: 20
+    };
+
+    // keep some recent spawns to avoid clustering
+    this._recent = []; // {x,y,r,ts}
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
+
+  // PATCH E: update stage constraints from engine
+  setStageMetrics(m = {}){
+    this.stageMetrics.topHudH = Math.max(0, Number(m.topHudH)||0);
+    this.stageMetrics.bottomHudH = Math.max(0, Number(m.bottomHudH)||0);
+    this.stageMetrics.rightPanelW = Math.max(0, Number(m.rightPanelW)||0);
+    this.stageMetrics.pad = Math.max(10, Math.min(42, Number(m.pad)||20));
+  }
 
   destroy(){
     for (const [id, el] of this.targets.entries()) {
@@ -42,33 +51,42 @@ export class DomRendererShadow {
       try { el.remove(); } catch {}
     }
     this.targets.clear();
+    this._recent.length = 0;
   }
 
-  _safeAreaRect(){
+  _safeAreaRect(size){
     const r = this.layer.getBoundingClientRect();
+    const pad = Math.min(42, Math.max(16, r.width * 0.03, this.stageMetrics.pad || 20));
 
-    // ✅ Read safe-zone from CSS vars (defined in shadow-breaker.css)
-    const base = this.wrapEl || document.documentElement;
-    const safeTop = readCssPx(base, '--sb-safe-top', 90);
-    const safeRight = readCssPx(base, '--sb-safe-right', 260);
-    const safeBottom = readCssPx(base, '--sb-safe-bottom', 90);
-    const safeLeft = readCssPx(base, '--sb-safe-left', 26);
+    // HUD offsets (real measured by engine)
+    const topHud = Math.min(r.height*0.45, Math.max(0, this.stageMetrics.topHudH || 0));
+    const bottomHud = Math.min(r.height*0.45, Math.max(0, this.stageMetrics.bottomHudH || 0));
 
-    // keep a little pad as well
-    const pad = readCssPx(base, '--sb-safe-pad', Math.min(34, Math.max(18, r.width * 0.04)));
+    // Boss card area on the right
+    const rightPanel = Math.min(r.width*0.55, Math.max(0, this.stageMetrics.rightPanelW || 0));
 
-    const left = pad + safeLeft;
-    const top = pad + safeTop;
-    const right = r.width - pad - safeRight;
-    const bottom = r.height - pad - safeBottom;
+    const left = pad + 8;
+    const top = pad + 8 + topHud;
+    const right = r.width - pad - 8 - rightPanel;
+    const bottom = r.height - pad - 8 - bottomHud;
 
-    // if extreme small screens cause inverted rect, relax gracefully
-    const L = clamp(left, 8, r.width - 8);
-    const T = clamp(top, 8, r.height - 8);
-    const R = Math.max(L + 8, right);
-    const B = Math.max(T + 8, bottom);
+    // clamp usable area
+    const minW = Math.max(120, size + 12);
+    const minH = Math.max(140, size + 12);
 
-    return { r, left: L, top: T, right: R, bottom: B };
+    let L = left, T = top, R = right, B = bottom;
+
+    if(R - L < minW){
+      // if boss card eats too much, allow under it (still try keep a small gutter)
+      R = r.width - pad - 8;
+    }
+    if(B - T < minH){
+      // if HUD eats too much, relax it slightly
+      T = pad + 8 + Math.max(0, topHud*0.55);
+      B = r.height - pad - 8 - Math.max(0, bottomHud*0.55);
+    }
+
+    return { r, left:L, top:T, right:R, bottom:B };
   }
 
   _emojiForType(t, bossEmoji){
@@ -81,42 +99,88 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _pruneRecent(){
+    const t = performance.now();
+    // keep only last 1.8s of samples
+    this._recent = this._recent.filter(p => (t - p.ts) < 1800);
+  }
+
+  _pickNonClusterPos(size){
+    const { left, top, right, bottom } = this._safeAreaRect(size);
+    const W = Math.max(left, right - size);
+    const H = Math.max(top, bottom - size);
+
+    const cx0 = (left + right)/2;
+    const cy0 = (top + bottom)/2;
+
+    // min distance between centers (depends on size)
+    const minD = clamp(size * 0.78, 64, 148);
+    const minD2 = minD * minD;
+
+    this._pruneRecent();
+
+    let best = null;
+    let bestScore = -1;
+
+    // rejection sampling with scoring (try 16 candidates, pick best)
+    const tries = 16;
+    for(let i=0;i<tries;i++){
+      // bias toward center but still random
+      const x = clamp(rand(left, W), left, W);
+      const y = clamp(rand(top, H), top, H);
+
+      const cx = x + size/2;
+      const cy = y + size/2;
+
+      // score: far from recent points + mild pull to center
+      let ok = true;
+      let nearest2 = 1e18;
+      for(const p of this._recent){
+        const d2 = dist2(cx,cy,p.x,p.y);
+        nearest2 = Math.min(nearest2, d2);
+        if(d2 < minD2){ ok = false; break; }
+      }
+      if(!ok) continue;
+
+      const center2 = dist2(cx,cy,cx0,cy0);
+      const score = nearest2 - center2*0.08; // prefer spaced out, slightly prefer not too far from center
+
+      if(score > bestScore){
+        bestScore = score;
+        best = { x, y, cx, cy };
+      }
+    }
+
+    // fallback: just random inside safe rect
+    if(!best){
+      const x = rand(left, W);
+      const y = rand(top, H);
+      best = { x, y, cx:x+size/2, cy:y+size/2 };
+    }
+
+    // record
+    this._recent.push({ x: best.cx, y: best.cy, r: size/2, ts: performance.now() });
+    return best;
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
-
-    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
-    // keep ttl (optional) for debugging / future timeout handling
-    if (data.ttlMs != null) el.dataset.ttl = String(Math.max(0, Number(data.ttlMs)||0));
-
-    // size
-    const size = clamp(Number(data.sizePx) || 110, 66, 260);
+    const size = clamp(Number(data.sizePx) || 120, 68, 260); // PATCH E: cap max size
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position (safe-zone)
-    const maxX = Math.max(left, right - size);
-    const maxY = Math.max(top, bottom - size);
-
-    // If safe-zone too tight, fall back to broader area
-    const fallbackMaxX = Math.max(8, (this.layer.clientWidth || window.innerWidth) - size - 8);
-    const fallbackMaxY = Math.max(8, (this.layer.clientHeight || window.innerHeight) - size - 8);
-
-    const useFallback = !Number.isFinite(maxX) || !Number.isFinite(maxY) || (maxX <= left + 2) || (maxY <= top + 2);
-
-    const x = useFallback ? rand(8, fallbackMaxX) : rand(left, maxX);
-    const y = useFallback ? rand(8, fallbackMaxY) : rand(top, maxY);
-
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    // PATCH E: anti-cluster + safe spawn
+    const pos = this._pickNonClusterPos(size);
+    el.style.left = Math.round(pos.x) + 'px';
+    el.style.top = Math.round(pos.y) + 'px';
 
     // content
-    const emoji = this._emojiForType(data.type, data.bossEmoji);
-    el.textContent = emoji;
+    el.textContent = this._emojiForType(data.type, data.bossEmoji);
 
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
@@ -130,7 +194,6 @@ export class DomRendererShadow {
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
-    // forward hit
     if (this.onTargetHit) {
       this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
