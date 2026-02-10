@@ -1,10 +1,11 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260206j
-✅ Fix: target die animation (is-dead) => disappear instantly
-✅ Fix: z-index layering clear (stage < targets < HUD < overlays < particles)
-✅ Fix: safer HUD zones so targets won't spawn under HUD
-✅ Mobile touch QoL: faster taps, less stuck feeling
+PATCH v20260204b companion
+✅ HUD safe zones (top/bottom) for spawn logic
+✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
+✅ Targets: uses --x (vw%), --y (vh%), --s scale
+✅ Fix: targets die instantly with .is-dead (no linger)
+✅ Fix: keep targets above stage but below HUD buttons
 */
 
 :root{
@@ -60,7 +61,7 @@ button{ font: inherit; }
 .hw-stage{
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
@@ -122,7 +123,6 @@ button{ font: inherit; }
   pointer-events: auto; /* ✅ allow click */
   cursor: pointer;
   background: rgba(15,23,42,.70);
-  touch-action: manipulation;
 }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
@@ -199,7 +199,6 @@ button{ font: inherit; }
   padding: 10px 12px;
   font-weight: 950;
   border: 1px solid var(--stroke);
-  touch-action: manipulation;
 }
 .hw-cta{
   background: rgba(34,197,94,.18);
@@ -225,8 +224,9 @@ button{ font: inherit; }
 }
 
 /* ===== Targets ===== */
+/* NOTE: z-index must be above stage but below HUD */
 .hw-tgt{
-  position: fixed; /* viewport-anchored */
+  position: fixed; /* align with viewport px from JS */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -239,15 +239,13 @@ button{ font: inherit; }
   box-shadow: 0 18px 65px rgba(0,0,0,.45);
   display: grid;
   place-items: center;
-
   cursor: pointer;
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  z-index: 10;
+  z-index: 20;
   animation: hwPopIn 180ms ease-out both;
+  touch-action: manipulation;
 }
 
 .hw-tgt .emoji{
@@ -273,20 +271,18 @@ button{ font: inherit; }
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* spawn in */
+/* ✅ When JS marks as dead: remove interaction + fade instantly */
+.hw-tgt.is-dead{
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: translate(-50%,-50%) scale(0.86) !important;
+  transition: opacity .06s linear, transform .06s linear;
+}
+
+/* subtle float */
 @keyframes hwPopIn{
   from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
-/* ✅ die fast (JS adds .is-dead) */
-.hw-tgt.is-dead{
-  pointer-events: none !important;
-  animation: hwDie 120ms ease-out both !important;
-}
-@keyframes hwDie{
-  from{ opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); filter: saturate(1); }
-  to  { opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .70)); filter: saturate(1.2); }
 }
 
 /* ===== Quiz box ===== */
@@ -334,7 +330,6 @@ button{ font: inherit; }
   cursor: pointer;
   box-shadow: 0 16px 50px rgba(0,0,0,.35);
   min-height: 54px;
-  touch-action: manipulation;
 }
 
 .hw-quiz-opt .n{
@@ -369,18 +364,15 @@ button{ font: inherit; }
 
 /* ===== View tweaks ===== */
 body.view-mobile{
-  /* ✅ เพิ่ม safe zone กัน HUD บังเป้าบนมือถือ */
-  --hw-top-safe: 200px;
-  --hw-bottom-safe: 240px;
-
+  --hw-top-safe: 188px;     /* เพิ่มให้กัน HUD บังจริงบนมือถือ */
+  --hw-bottom-safe: 230px;  /* กันปุ่มล่าง/gesture bar */
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
 
 body.view-cvr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 260px;
-
+  --hw-top-safe: 176px;
+  --hw-bottom-safe: 250px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
@@ -388,7 +380,7 @@ body.view-cvr{
 /* VR: ลด HUD และขยายปุ่ม */
 body.view-vr{
   --hw-top-safe: 160px;
-  --hw-bottom-safe: 230px;
+  --hw-bottom-safe: 220px;
 }
 
 /* Quiz on small screens => 1 column */
