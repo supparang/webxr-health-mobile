@@ -1,17 +1,18 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + watchdog)
-// PATCH v20260206i
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + harden)
+// PATCH v20260206m
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-// ✅ Watchdog: detect "game frozen" and soft-recover
+// ✅ Adds watchdog for "stall/freeze" (RAF + hha:time heartbeat)
+// ✅ Hooks window.onerror + unhandledrejection for on-screen error
 //
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function showBanner(msg, ms=1700){
+function showBanner(msg, ms=1800){
   const banner = $id('banner');
   if(!banner) return;
   banner.textContent = msg;
@@ -37,8 +38,13 @@ function showFatal(msg, err){
       card.innerHTML = `
         <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
         <span style="color:#94a3b8">${msg}</span><br>
-        <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
+        <span style="color:#94a3b8">ตรวจ Console/Network ว่าไฟล์ 404 หรือ import ผิด</span><br>
+        <button id="btnReloadGame" style="margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.75);color:#e5e7eb;font-weight:900;cursor:pointer">🔄 Reload เกม</button>
       `;
+      setTimeout(()=>{
+        const b = document.getElementById('btnReloadGame');
+        if(b) b.onclick = ()=>location.reload();
+      }, 0);
     }
     startOverlay.style.display = 'grid';
   }
@@ -66,89 +72,129 @@ function waitForGlobal(getter, ms){
   });
 }
 
-/* ---------------------------
-   WATCHDOG (anti-freeze)
-   Idea:
-   - engine should "ping" window.__HHA_HEARTBEAT__ occasionally (we provide helper)
-   - if not pinged, we still can detect RAF stalls by measuring time drifts
---------------------------- */
+/* -----------------------------
+   Anti-stall watchdog
+   - RAF heartbeat: checks if frames keep moving
+   - hha:time heartbeat: checks engine tick loop still alive
+-------------------------------- */
 function installWatchdog(){
-  // shared heartbeat object
-  const HB = (window.__HHA_HEARTBEAT__ = window.__HHA_HEARTBEAT__ || {
-    lastMs: Date.now(),
-    ticks: 0,
-    mark(){ this.lastMs = Date.now(); this.ticks++; }
-  });
+  const state = {
+    lastRafMs: performance.now(),
+    lastTimeEvtMs: performance.now(),
+    rafOk: true,
+    timeEvtOk: true,
+    armed: false,
+    // thresholds
+    stallWarnMs: 1500,
+    stallHardMs: 2800,
+    timer: null
+  };
 
-  // expose helper for engine (optional)
-  window.HHA_BOOT_DIAG = window.HHA_BOOT_DIAG || {};
-  window.HHA_BOOT_DIAG.heartbeat = ()=>{ try{ HB.mark(); }catch{} };
-
-  let lastFrameMs = Date.now();
-  let frameCount = 0;
-  let stalledCount = 0;
-  let lastWarnMs = 0;
-
-  // very light RAF monitor
-  function rafLoop(){
-    const now = Date.now();
-    const dt = now - lastFrameMs;
-    lastFrameMs = now;
-    frameCount++;
-
-    // if browser tab/background, dt can be large; don't panic too quickly
-    const hbAge = now - (HB.lastMs || now);
-
-    // "soft stall" conditions:
-    // - heartbeat not updated for 4500ms AND
-    // - we are still getting RAF frames (so the page isn't totally backgrounded)
-    if(frameCount > 25){
-      if(hbAge > 4500){
-        stalledCount++;
-      }else{
-        stalledCount = Math.max(0, stalledCount-1);
-      }
-    }
-
-    // warn + ask engine to recover when persistent
-    if(stalledCount >= 18){ // ~18 cycles of suspicion (~18*~16ms-ish with throttle)
-      stalledCount = 0;
-      const since = Math.round(hbAge/1000);
-      const now2 = Date.now();
-      if(now2 - lastWarnMs > 2500){
-        lastWarnMs = now2;
-        showBanner(`🧯 เกมเหมือนค้าง (${since}s) → กำลังพยายามกู้…`, 2000);
-      }
-
-      // tell engine to soft-recover if it supports it
-      try{
-        if(window.HHA_BOOT_DIAG){
-          window.HHA_BOOT_DIAG.recoverRequestedAt = Date.now();
-        }
-      }catch{}
-
-      try{
-        window.dispatchEvent(new CustomEvent('hha:recover', {
-          detail: { reason:'watchdog', hbAgeMs: hbAge }
-        }));
-      }catch{}
-    }
-
-    requestAnimationFrame(rafLoop);
+  function pokeRAF(){
+    state.lastRafMs = performance.now();
   }
-  requestAnimationFrame(rafLoop);
+  function onTimeEvt(){
+    state.lastTimeEvtMs = performance.now();
+  }
 
-  // debug ping in case engine doesn't call heartbeat:
-  // we still mark heartbeat when user interacts (tap/click) so hbAge isn't falsely huge
-  const mark = ()=>{ try{ HB.mark(); }catch{} };
-  window.addEventListener('pointerdown', mark, { passive:true });
-  window.addEventListener('touchstart', mark, { passive:true });
-  window.addEventListener('keydown', mark, { passive:true });
+  // listen to engine time events once it starts emitting
+  window.addEventListener('hha:time', onTimeEvt);
 
-  return HB;
+  // RAF pulse
+  (function rafLoop(){
+    pokeRAF();
+    requestAnimationFrame(rafLoop);
+  })();
+
+  function ensureOverlayButton(){
+    const startOverlay = $id('startOverlay');
+    if(!startOverlay) return;
+
+    const card = startOverlay.querySelector('.hw-card');
+    if(!card) return;
+
+    let btn = document.getElementById('btnReloadGame2');
+    if(btn) return;
+
+    const row = card.querySelector('.hw-card-row');
+    if(!row) return;
+
+    btn = document.createElement('button');
+    btn.id = 'btnReloadGame2';
+    btn.type = 'button';
+    btn.className = 'hw-ghost';
+    btn.textContent = '🔄 Reload เกม';
+    btn.addEventListener('click', ()=>location.reload(), { passive:true });
+    row.appendChild(btn);
+  }
+
+  function showStall(kind){
+    // kind: 'warn' | 'hard'
+    const startOverlay = $id('startOverlay');
+    const sub = $id('hudSub');
+
+    if(kind === 'warn'){
+      showBanner('⚠️ เกมเหมือนสะดุด… ถ้ายังไม่หายให้กด Reload', 2200);
+      if(sub) sub.textContent = '⚠️ stall detected (try reload)';
+      return;
+    }
+
+    showBanner('❌ เกมค้าง (stall) — กด Reload เกม', 2600);
+    if(sub) sub.textContent = '❌ stall hard — reload recommended';
+
+    if(startOverlay){
+      const cardSub = startOverlay.querySelector('.hw-card-sub');
+      if(cardSub){
+        cardSub.innerHTML = `
+          <b style="color:#fca5a5">เกมค้าง/สะดุด</b><br>
+          <span style="color:#94a3b8">แนะนำกด Reload เกม (มักเกิดจาก memory/JS error/มือถือหน่วง)</span><br>
+          <span style="color:#94a3b8">เปิด Console ดู error ได้</span>
+        `;
+      }
+      ensureOverlayButton();
+      startOverlay.style.display = 'grid';
+    }
+  }
+
+  state.timer = setInterval(()=>{
+    const now = performance.now();
+    const rafGap = now - state.lastRafMs;
+    const timeGap = now - state.lastTimeEvtMs;
+
+    // NOTE: บางเครื่อง RAF ยังเดินแต่เกมหยุด (engine tick หยุด) => timeGap จะช่วยจับ
+    // เราจะเริ่มตรวจจริงจังหลังโหลดไปสักครู่
+    if(!state.armed){
+      if(timeGap < 1200) state.armed = true; // engine ส่ง time แล้ว => armed
+      return;
+    }
+
+    const stalled = (rafGap > state.stallHardMs) || (timeGap > state.stallHardMs);
+    const warned  = (rafGap > state.stallWarnMs) || (timeGap > state.stallWarnMs);
+
+    if(stalled) showStall('hard');
+    else if(warned) showStall('warn');
+  }, 450);
+
+  return state;
 }
 
 async function main(){
+  // Error hooks -> show on-screen immediately (avoid "ค้างเงียบ")
+  window.addEventListener('error', (ev)=>{
+    try{
+      const msg = (ev && ev.message) ? ev.message : 'Unknown error';
+      showFatal(`Runtime error: ${msg}`, ev && (ev.error || ev));
+    }catch{}
+  });
+
+  window.addEventListener('unhandledrejection', (ev)=>{
+    try{
+      const r = ev && ev.reason;
+      const msg = (r && (r.message || String(r))) || 'Unhandled promise rejection';
+      showFatal(`Promise error: ${msg}`, r);
+    }catch{}
+  });
+
   // DOM must exist
   const stage = $id('stage');
   if(!stage){
@@ -156,34 +202,34 @@ async function main(){
     return;
   }
 
-  // install watchdog early
-  installWatchdog();
-
   // CSS hint
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
     const sub = $id('hudSub');
     if(sub) sub.textContent = '⚠️ CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)';
-    showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)', 2000);
+    showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)', 2200);
   }
 
   // Wait a bit for deferred scripts to populate globals
   // particles.js -> window.Particles
-  const P = await waitForGlobal(()=>window.Particles, 900);
+  const P = await waitForGlobal(()=>window.Particles, 1100);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)', 2200);
   }
 
   // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
-  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
+  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 1100);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
-    showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)', 2300);
+    showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)', 2200);
   }else{
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
+
+  // Install watchdog (after DOM ready)
+  installWatchdog();
 
   // Import engine safely
   let engine;
@@ -203,26 +249,9 @@ async function main(){
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
-    showBanner('✅ โหลดเกมพร้อมแล้ว', 1200);
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
-
-  // extra: catch unexpected errors to avoid "ค้างเงียบ"
-  window.addEventListener('error', (e)=>{
-    try{
-      const msg = (e && e.message) ? e.message : 'runtime error';
-      showBanner(`❌ ERROR: ${msg}`, 2600);
-      console.error('[HygieneBoot] window.error', e);
-    }catch{}
-  });
-
-  window.addEventListener('unhandledrejection', (e)=>{
-    try{
-      showBanner('❌ Promise error (unhandledrejection)', 2600);
-      console.error('[HygieneBoot] unhandledrejection', e);
-    }catch{}
-  });
 }
 
 main();
