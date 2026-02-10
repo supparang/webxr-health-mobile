@@ -1,9 +1,14 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — PRODUCTION (HHA Standard) — PATCH v20260209-summaryCdPerUserA
-// ✅ Show end summary overlay BEFORE cooldown
-// ✅ Cooldown once/day PER PLAYER (pid/studyId) + per category (cat)
-// ✅ If already cooldown today -> summary continues to HUB
-// ✅ Still NO override view
+// GoodJunkVR BOOT — PRODUCTION (HHA Standard) — FULL v20260209a
+// ✅ Detect view: pc/mobile/vr/cvr (NO override if ?view exists)
+// ✅ Mount layers (#gj-layer + optional #gj-layer-r)
+// ✅ Starts by overlay -> boot engine (goodjunk.safe.js)
+// ✅ Handles end-flow:
+//    1) Show End Summary overlay (read from goodjunk.safe.js summary keys)
+//    2) If first cooldown today (per-user + per-category) -> go cooldown gate
+//    3) Else -> back HUB
+// ✅ Cooldown once/day per-user per-category (cat=nutrition|hygiene|exercise)
+// ✅ Does NOT emit hha:start (engine emits it already) — avoid duplicate logs
 
 'use strict';
 
@@ -12,15 +17,43 @@ import { boot as bootGame } from './goodjunk.safe.js';
 const WIN = window;
 const DOC = document;
 
-function qs(k, d=null){
+// -----------------------------
+// QS utils
+// -----------------------------
+function qs(k, d = null){
   try{ return new URL(location.href).searchParams.get(k) ?? d; }
   catch{ return d; }
 }
-function qn(k, d=0){
+function qn(k, d = 0){
   const v = Number(qs(k, d));
-  return Number.isFinite(v) ? v : Number(d)||0;
+  return Number.isFinite(v) ? v : Number(d) || 0;
+}
+function hasQS(k){
+  try{ return new URL(location.href).searchParams.has(k); }
+  catch{ return false; }
+}
+function absUrlMaybe(url){
+  if(!url) return '';
+  try{ return new URL(url, location.href).toString(); }
+  catch(_){ return String(url); }
+}
+function buildUrl(base, params){
+  const u = new URL(base, location.href);
+  Object.entries(params || {}).forEach(([k,v])=>{
+    if(v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, String(v));
+  });
+  return u.toString();
+}
+function clampInt(v, a, b, def){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return def;
+  return Math.max(a, Math.min(b, Math.floor(n)));
 }
 
+// -----------------------------
+// View detect
+// -----------------------------
 function setBodyViewClass(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
@@ -31,11 +64,15 @@ function setBodyViewClass(view){
 }
 
 function detectView(){
+  // IMPORTANT: do NOT override if URL already provides view
   const v = String(qs('view','')||'').toLowerCase();
   if(v==='pc' || v==='mobile' || v==='vr' || v==='cvr') return v;
 
+  // heuristic detect
   const isCoarse = WIN.matchMedia ? WIN.matchMedia('(pointer: coarse)').matches : false;
   const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+
+  // WebXR presence => prefer vr on larger screens
   const hasXR = !!(navigator.xr);
   const small = Math.min(WIN.innerWidth||9999, WIN.innerHeight||9999) < 620;
 
@@ -47,21 +84,45 @@ function detectView(){
 function applyCtxToUI(ctx){
   try{
     const el = DOC.getElementById('gj-pill-view');
-    if(el) el.textContent = ctx.view || '';
+    if(el) el.textContent = (ctx.view || '').toUpperCase();
   }catch(_){}
 }
 
-function dispatchStart(){
+// -----------------------------
+// Daily key helpers (per-user + per-category)
+// -----------------------------
+function dayStamp(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function makePerUserKey(base, userId, cat){
+  const b = String(base || 'HHA_COOLDOWN_DONE_DAY');
+  const u = String(userId || 'anon').trim() || 'anon';
+  const c = String(cat || 'nutrition').trim() || 'nutrition';
+  return `${b}::${c}::${u}`;
+}
+function isDoneToday(key){
   try{
-    WIN.dispatchEvent(new CustomEvent('hha:start', { detail:{ game:'goodjunk' } }));
-  }catch(_){}
+    const v = localStorage.getItem(key);
+    return (v === dayStamp());
+  }catch(_){
+    return false;
+  }
+}
+function markDoneToday(key){
+  try{ localStorage.setItem(key, dayStamp()); }catch(_){}
 }
 
+// -----------------------------
+// Start overlay helpers
+// -----------------------------
 function safeHideStartOverlay(){
   const ov = DOC.getElementById('startOverlay');
   if(ov) ov.hidden = true;
 }
-
 function isOverlayActuallyVisible(el){
   try{
     if(!el) return false;
@@ -78,196 +139,242 @@ function isOverlayActuallyVisible(el){
   }
 }
 
-// ------------------------------
-// Daily helpers (per-player)
-// ------------------------------
-function dayStamp(){
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function safeGet(k){
-  try{ return localStorage.getItem(k); }catch(_){ return null; }
-}
-function safeSet(k,v){
-  try{ localStorage.setItem(k,String(v)); }catch(_){}
-}
-function makePerUserKey(base, userId, cat){
-  const u = (userId && String(userId).trim()) ? String(userId).trim() : 'anon';
-  const c = (cat && String(cat).trim()) ? String(cat).trim() : 'all';
-  return `${base}__${c}__${u}`;
-}
-function isDoneToday(perUserKey){
-  const v = safeGet(perUserKey);
-  return v === dayStamp();
-}
-function markDoneToday(perUserKey){
-  safeSet(perUserKey, dayStamp());
-}
-
-function buildUrl(base, add){
-  try{
-    const u = new URL(base, location.href);
-    Object.entries(add||{}).forEach(([k,v])=>{
-      if(v === undefined || v === null || v === '') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }catch(_){
-    return base || '';
-  }
-}
-
-// ------------------------------
-// End Summary Overlay (in BOOT)
-// ------------------------------
-function ensureEndOverlay(){
-  let ov = DOC.getElementById('gj-endOverlay');
-  if(ov) return ov;
-
-  ov = DOC.createElement('div');
-  ov.id = 'gj-endOverlay';
-  ov.style.cssText = `
-    position:fixed; inset:0; z-index:99999;
-    display:none; align-items:center; justify-content:center;
-    padding:16px; background:rgba(0,0,0,.55);
-    backdrop-filter: blur(10px);
+// -----------------------------
+// End Summary overlay (created by boot)
+// -----------------------------
+function ensureEndStyles(){
+  if(DOC.getElementById('gj-end-style')) return;
+  const st = DOC.createElement('style');
+  st.id = 'gj-end-style';
+  st.textContent = `
+    .gj-end{
+      position: fixed; inset:0;
+      z-index: 9999;
+      display:flex; align-items:center; justify-content:center;
+      padding: calc(16px + env(safe-area-inset-top,0px))
+               calc(16px + env(safe-area-inset-right,0px))
+               calc(16px + env(safe-area-inset-bottom,0px))
+               calc(16px + env(safe-area-inset-left,0px));
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    }
+    .gj-end-card{
+      width: min(860px, 96vw);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.62));
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 16px;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .gj-end-top{
+      display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    .gj-end-pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.45);
+      font-weight: 900;
+      user-select:none;
+    }
+    .gj-end-title{
+      margin: 12px 0 6px 0;
+      font-size: 18px;
+      font-weight: 1000;
+      letter-spacing: .2px;
+    }
+    .gj-end-sub{
+      margin: 0 0 12px 0;
+      color: rgba(148,163,184,.95);
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+    .gj-end-grid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 10px;
+    }
+    @media (max-width: 680px){
+      .gj-end-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    .gj-end-kv{
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      border-radius: 16px;
+      padding: 10px 12px;
+    }
+    .gj-end-kv .k{
+      color: rgba(148,163,184,.9);
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .gj-end-kv .v{
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 1000;
+      word-break: break-word;
+    }
+    .gj-end-actions{
+      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+      margin-top: 14px;
+    }
+    .gj-end-btn{
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.45);
+      color: #e5e7eb;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 950;
+      cursor: pointer;
+      user-select:none;
+    }
+    .gj-end-btn.primary{
+      border-color: rgba(34,197,94,.45);
+      background: linear-gradient(180deg, rgba(34,197,94,.20), rgba(2,6,23,.50));
+    }
+    .gj-end-btn:active{ transform: translateY(1px); }
   `;
-  ov.innerHTML = `
-    <div style="
-      width:min(720px,96vw);
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.62));
-      border-radius:22px;
-      box-shadow:0 24px 90px rgba(0,0,0,.6);
-      padding:16px;
-      color:#e5e7eb;
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;
-    ">
-      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-        <div style="font-weight:1000; letter-spacing:.2px; font-size:16px;">
-          🏁 สรุปผล GoodJunkVR
-        </div>
-        <div id="gj-endBadge" style="
-          padding:7px 10px; border-radius:999px;
-          border:1px solid rgba(148,163,184,.18);
-          background:rgba(2,6,23,.55);
-          font-weight:900; font-size:12px; color:rgba(229,231,235,.9);
-        ">—</div>
-      </div>
-
-      <div style="margin-top:10px; color:rgba(148,163,184,.95); font-size:12.5px; line-height:1.4;" id="gj-endSub">
-        ดูผลก่อน แล้วค่อยไปคูลดาวน์ (ถ้าเป็นครั้งแรกของวันของคนนี้)
-      </div>
-
-      <div style="margin-top:12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;">
-        <div style="border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.40); border-radius:16px; padding:10px 12px;">
-          <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">SCORE</div>
-          <div id="gj-endScore" style="font-size:18px; font-weight:1000; margin-top:4px;">0</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.40); border-radius:16px; padding:10px 12px;">
-          <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">MISS</div>
-          <div id="gj-endMiss" style="font-size:18px; font-weight:1000; margin-top:4px;">0</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.40); border-radius:16px; padding:10px 12px;">
-          <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">TIME</div>
-          <div id="gj-endTime" style="font-size:18px; font-weight:1000; margin-top:4px;">—</div>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.40); border-radius:16px; padding:10px 12px;">
-          <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">GRADE</div>
-          <div id="gj-endGrade" style="font-size:18px; font-weight:1000; margin-top:4px;">—</div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px; border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.35); border-radius:16px; padding:10px 12px;">
-        <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">PLAYER</div>
-        <div id="gj-endPlayer" style="font-size:12.5px; font-weight:900; margin-top:4px; word-break:break-word;">—</div>
-      </div>
-
-      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-        <button id="gj-endHub" style="
-          border:1px solid rgba(148,163,184,.22);
-          background:rgba(148,163,184,.10);
-          color:#e5e7eb; padding:12px 14px; border-radius:16px;
-          font-weight:900; cursor:pointer;
-        ">🏠 กลับ HUB</button>
-
-        <button id="gj-endNext" style="
-          border:1px solid rgba(34,197,94,.32);
-          background:rgba(34,197,94,.18);
-          color:#e5e7eb; padding:12px 14px; border-radius:16px;
-          font-weight:1000; cursor:pointer;
-        ">😌 ไปคูลดาวน์</button>
-      </div>
-    </div>
-  `;
-  DOC.body.appendChild(ov);
-  return ov;
-}
-
-function showEndOverlay(data, opts){
-  const ov = ensureEndOverlay();
-  const badge = DOC.getElementById('gj-endBadge');
-  const sub   = DOC.getElementById('gj-endSub');
-  const vScore = DOC.getElementById('gj-endScore');
-  const vMiss  = DOC.getElementById('gj-endMiss');
-  const vTime  = DOC.getElementById('gj-endTime');
-  const vGrade = DOC.getElementById('gj-endGrade');
-  const vPlayer= DOC.getElementById('gj-endPlayer');
-  const btnHub = DOC.getElementById('gj-endHub');
-  const btnNext= DOC.getElementById('gj-endNext');
-
-  const score = (data && data.score != null) ? data.score : 0;
-  const miss  = (data && data.miss  != null) ? data.miss  : 0;
-  const time  = (data && (data.time != null || data.seconds != null)) ? (data.time ?? data.seconds) : '—';
-  const grade = (data && data.grade != null) ? data.grade : '—';
-
-  vScore.textContent = String(score);
-  vMiss.textContent  = String(miss);
-  vTime.textContent  = String(time);
-  vGrade.textContent = String(grade);
-
-  const player = (opts && opts.playerLabel) ? opts.playerLabel : 'anon';
-  vPlayer.textContent = player;
-
-  badge.textContent = (opts && opts.firstCooldownToday) ? 'Cooldown: FIRST of day ✅' : 'Cooldown: already done today';
-  sub.textContent = (opts && opts.firstCooldownToday)
-    ? 'วันนี้คนนี้ยังไม่ได้คูลดาวน์ → กด “ไปคูลดาวน์” เพื่อจบเซสชันแบบสมบูรณ์'
-    : 'วันนี้คนนี้คูลดาวน์แล้ว → กดกลับ HUB ได้เลย (ไม่ต้องคูลดาวน์ซ้ำ)';
-
-  btnNext.style.display = (opts && opts.firstCooldownToday) ? '' : 'none';
-
-  ov.style.display = 'flex';
-  return { ov, btnHub, btnNext };
+  DOC.head.appendChild(st);
 }
 
 function hideEndOverlay(){
-  const ov = DOC.getElementById('gj-endOverlay');
-  if(ov) ov.style.display = 'none';
+  const el = DOC.getElementById('gjEndOverlay');
+  if(el) el.remove();
 }
 
-// ------------------------------
-// BOOT main
-// ------------------------------
+function showEndOverlay(summary, opts){
+  ensureEndStyles();
+  hideEndOverlay();
+
+  const data = summary || {};
+  const firstCooldownToday = !!opts?.firstCooldownToday;
+  const playerLabel = String(opts?.playerLabel || '');
+
+  // ✅ Map keys from goodjunk.safe.js summary
+  const score = (data && (data.scoreFinal ?? data.score) != null) ? (data.scoreFinal ?? data.score) : 0;
+  const miss  = (data && data.miss != null) ? data.miss : 0;
+  const time  = (data && (data.durationPlayedSec ?? data.time ?? data.seconds) != null)
+    ? (data.durationPlayedSec ?? data.time ?? data.seconds)
+    : '—';
+  const grade = (data && data.grade != null) ? data.grade : '—';
+
+  const pack  = String(data.pack || '');
+  const diff  = String(data.diff || '');
+  const run   = String(data.runMode || data.run || '');
+
+  const root = DOC.createElement('div');
+  root.className = 'gj-end';
+  root.id = 'gjEndOverlay';
+
+  const card = DOC.createElement('div');
+  card.className = 'gj-end-card';
+
+  card.innerHTML = `
+    <div class="gj-end-top">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <span class="gj-end-pill">🏁 GoodJunkVR · Summary</span>
+        <span class="gj-end-pill">${(run||'').toUpperCase() || 'MODE'}</span>
+        <span class="gj-end-pill">${(diff||'').toUpperCase() || 'DIFF'}</span>
+        ${pack ? `<span class="gj-end-pill">${pack}</span>` : ``}
+      </div>
+      <span class="gj-end-pill" style="border-color: rgba(34,197,94,.35);">
+        ${firstCooldownToday ? 'ครั้งแรกของวัน → มีคูลดาวน์' : 'วันนี้คูลดาวน์แล้ว'}
+      </span>
+    </div>
+
+    <div class="gj-end-title">สรุปผลการเล่น</div>
+    <div class="gj-end-sub">${playerLabel ? playerLabel : 'ดูผลก่อนกลับ HUB / ไปคูลดาวน์'}</div>
+
+    <div class="gj-end-grid" aria-label="summary">
+      <div class="gj-end-kv"><div class="k">SCORE</div><div class="v">${score}</div></div>
+      <div class="gj-end-kv"><div class="k">TIME</div><div class="v">${time}s</div></div>
+      <div class="gj-end-kv"><div class="k">MISS</div><div class="v">${miss}</div></div>
+      <div class="gj-end-kv"><div class="k">GRADE</div><div class="v">${grade}</div></div>
+    </div>
+
+    <div class="gj-end-actions">
+      <button class="gj-end-btn" id="gjEndHub">กลับ HUB</button>
+      ${firstCooldownToday ? `<button class="gj-end-btn primary" id="gjEndCooldown">ไปคูลดาวน์</button>` : ``}
+    </div>
+  `;
+
+  root.appendChild(card);
+  DOC.body.appendChild(root);
+
+  const btnHub = DOC.getElementById('gjEndHub');
+  const btnNext = DOC.getElementById('gjEndCooldown');
+
+  return { btnHub, btnNext };
+}
+
+// -----------------------------
+// Navigation helpers
+// -----------------------------
+function goHub(){
+  const hub = String(qs('hub','../hub.html') || '../hub.html');
+  location.href = hub;
+}
+
+function goCooldownGate(ctx, summary){
+  // Gate location:
+  // - Prefer ?cdGateUrl (passed from launcher)
+  // - Else fallback to ../warmup-gate.html (recommended location at /herohealth/warmup-gate.html)
+  const gateUrlRaw =
+    String(qs('cdGateUrl','') || '') ||
+    String(qs('gateUrl','') || '') ||
+    '../warmup-gate.html';
+
+  // durations
+  const cdur = clampInt(qs('cdur','20'), 5, 60, 20);
+
+  // build gate params
+  const params = {
+    // gate uses phase=warmup|cooldown
+    phase: 'cooldown',
+    // use dur for actual countdown (also keep cdur for compatibility)
+    dur: String(cdur),
+    cdur: String(cdur),
+
+    // after cooldown -> go hub
+    next: absUrlMaybe(ctx.hub),
+    hub: absUrlMaybe(ctx.hub),
+
+    // pass-through research ids + category
+    pid: ctx.pid || '',
+    studyId: ctx.studyId || '',
+    conditionGroup: ctx.conditionGroup || '',
+    run: ctx.run || '',
+    diff: ctx.diff || '',
+    time: String(ctx.time || ''),
+    seed: String(ctx.seed || ''),
+    view: ctx.view || '',
+    cat: ctx.cat || 'nutrition',
+
+    // pass a little summary for logs (optional)
+    score: (summary && (summary.scoreFinal ?? summary.score) != null) ? (summary.scoreFinal ?? summary.score) : '',
+    miss: (summary && summary.miss != null) ? summary.miss : '',
+    grade: (summary && summary.grade != null) ? summary.grade : ''
+  };
+
+  const urlGate = buildUrl(absUrlMaybe(gateUrlRaw), params);
+  location.replace(urlGate);
+}
+
+// -----------------------------
+// Main boot
+// -----------------------------
 function boot(){
   const view = detectView();
   setBodyViewClass(view);
 
-  const cat = String(qs('cat','nutrition')||'nutrition').toLowerCase();
+  // category (default nutrition)
+  const cat = String(qs('cat','nutrition') || 'nutrition').toLowerCase();
 
-  const warmDailyKeyBase = String(qs('warmDailyKey', `HHA_WARMUP_DONE_DAY`) || 'HHA_WARMUP_DONE_DAY');
-  const cdDailyKeyBase   = String(qs('cdDailyKey',   `HHA_COOLDOWN_DONE_DAY`) || 'HHA_COOLDOWN_DONE_DAY');
-
-  const cdGateUrl = String(qs('cdGateUrl','../warmup-gate.html') || '../warmup-gate.html');
-  const cdur      = qn('cdur', 20);
-
-  const pid = String(qs('pid','')||'').trim();
-  const studyId = String(qs('studyId','')||'').trim();
-  const userId = pid || studyId || 'anon';
-
-  // per-player keys (category-aware)
-  const warmDailyKey = makePerUserKey(warmDailyKeyBase, userId, cat);
-  const cdDailyKey   = makePerUserKey(cdDailyKeyBase,   userId, cat);
-
+  // ctx
   const ctx = {
     view,
     cat,
@@ -275,112 +382,45 @@ function boot(){
     diff: String(qs('diff','normal')).toLowerCase(),
     time: qn('time', 80),
     seed: String(qs('seed', Date.now())),
-    pid,
-    studyId,
-    phase: String(qs('phase','')||''),
-    conditionGroup: String(qs('conditionGroup','')||''),
-    hub: String(qs('hub','../hub.html')||'../hub.html'),
-    log: String(qs('log','')||''),
-    warmDailyKeyBase,
-    cdDailyKeyBase,
-    warmDailyKey,
-    cdDailyKey,
-    cdGateUrl,
-    cdur
+    pid: String(qs('pid','') || ''),
+    studyId: String(qs('studyId','') || ''),
+    conditionGroup: String(qs('conditionGroup','') || ''),
+    hub: String(qs('hub','../hub.html') || '../hub.html'),
+    log: String(qs('log','') || '')
   };
+
+  // userId priority: pid > studyId > anon
+  const userId = (ctx.pid || ctx.studyId || 'anon').trim() || 'anon';
+
+  // cooldown daily key base:
+  // - accept ?cdDailyKey from launcher (base name)
+  // - else fallback
+  const cdDailyBase = String(qs('cdDailyKey','HHA_COOLDOWN_DONE_DAY') || 'HHA_COOLDOWN_DONE_DAY');
+  const cdDailyKey = makePerUserKey(cdDailyBase, userId, ctx.cat);
 
   applyCtxToUI(ctx);
 
+  // expose for debugging
+  try{ WIN.GoodJunkVR_CTX = Object.assign({}, ctx, { userId, cdDailyKey }); }catch(_){}
+
+  // required layers
   const layerL = DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
 
-  try{ WIN.GoodJunkVR_CTX = ctx; }catch(_){}
-
-  // route helpers
-  let routed = false;
-  function goHub(){
-    if(routed) return;
-    routed = true;
-    location.href = ctx.hub;
-  }
-
-  function goCooldownGate(endDetail){
-    if(routed) return;
-    routed = true;
-
-    // mark cooldown done today NOW (so if user comes back immediately it won't loop)
-    markDoneToday(ctx.cdDailyKey);
-
-    const pass = {
-      // pass context for logs/research
-      run: ctx.run, diff: ctx.diff, time: ctx.time, seed: ctx.seed,
-      pid: ctx.pid, studyId: ctx.studyId, phase: ctx.phase,
-      conditionGroup: ctx.conditionGroup, log: ctx.log,
-
-      // category + per-user daily keys so gate can also stamp if you want
-      cat: ctx.cat,
-      warmDailyKey: ctx.warmDailyKey,
-      cdDailyKey: ctx.cdDailyKey,
-
-      // cooldown gate controls
-      phase: 'cooldown',
-      cdur: ctx.cdur,
-      hub: ctx.hub
-    };
-
-    // optional: small snapshot
-    try{
-      if(endDetail && typeof endDetail === 'object'){
-        if(endDetail.score != null) pass.lastScore = endDetail.score;
-        if(endDetail.miss  != null) pass.lastMiss  = endDetail.miss;
-        if(endDetail.grade != null) pass.lastGrade = endDetail.grade;
-        if(endDetail.time  != null) pass.lastTime  = endDetail.time;
-      }
-    }catch(_){}
-
-    const url = buildUrl(ctx.cdGateUrl, pass);
-    location.replace(url);
-  }
-
-  // ---- END: show summary first, then decide cooldown once/day per user
-  WIN.addEventListener('hha:end', (ev)=>{
-    if(routed) return;
-    if(WIN.__GJ_END_HANDLED__) return;
-    WIN.__GJ_END_HANDLED__ = true;
-
-    const detail = (ev && ev.detail) ? ev.detail : {};
-    const firstCooldownToday = !isDoneToday(ctx.cdDailyKey);
-
-    const playerLabel = `cat=${ctx.cat} · user=${userId} · day=${dayStamp()}`;
-    const { btnHub, btnNext } = showEndOverlay(detail, { firstCooldownToday, playerLabel });
-
-    btnHub.onclick = ()=>{
-      hideEndOverlay();
-      goHub();
-    };
-
-    if(btnNext){
-      btnNext.onclick = ()=>{
-        hideEndOverlay();
-        // if it was first-of-day at display time, still re-check before routing
-        if(!isDoneToday(ctx.cdDailyKey)){
-          goCooldownGate(detail);
-        }else{
-          goHub();
-        }
-      };
-    }
-  }, { passive:true });
-
-  // ------------------------------
-  // Start overlay logic
-  // ------------------------------
-  const ov = DOC.getElementById('startOverlay');
+  // bind start overlay
+  const ov  = DOC.getElementById('startOverlay');
   const btn = DOC.getElementById('btnStart');
 
+  let started = false;
+  let routed  = false;
+
   function startNow(){
+    if(started) return;
+    started = true;
+
     safeHideStartOverlay();
 
+    // start engine (engine will emit hha:start itself)
     bootGame({
       view: ctx.view,
       run: ctx.run,
@@ -390,8 +430,6 @@ function boot(){
       layerL,
       layerR
     });
-
-    dispatchStart();
   }
 
   if(btn){
@@ -401,6 +439,7 @@ function boot(){
     });
   }
 
+  // tap anywhere start (if overlay uses full screen)
   if(ov){
     ov.addEventListener('pointerdown', (e)=>{
       const t = e.target;
@@ -409,18 +448,60 @@ function boot(){
     }, { passive:true });
   }
 
+  // Harden: overlay might exist but not visible -> auto-start
   setTimeout(()=>{
     const visible = isOverlayActuallyVisible(ov);
-    if(!visible){
-      startNow();
-    }
+    if(!visible) startNow();
   }, 240);
 
+  // back hub buttons (if any)
   DOC.querySelectorAll('.btnBackHub').forEach((b)=>{
     b.addEventListener('click', ()=>{
-      location.href = ctx.hub;
+      goHub();
     });
   });
+
+  // end-flow (summary -> cooldown once/day -> hub)
+  WIN.addEventListener('hha:end', (ev)=>{
+    if(routed) return;
+
+    const detail = (ev && ev.detail) ? ev.detail : {};
+
+    // fallback grade from HUD if missing
+    if(detail && (detail.grade == null || detail.grade === '—')){
+      try{
+        const g = DOC.getElementById('hud-grade')?.textContent;
+        if(g) detail.grade = g;
+      }catch(_){}
+    }
+
+    const firstCooldownToday = !isDoneToday(cdDailyKey);
+
+    const playerLabel = `cat=${ctx.cat} · user=${userId} · day=${dayStamp()}`;
+    const { btnHub, btnNext } = showEndOverlay(detail, { firstCooldownToday, playerLabel });
+
+    if(btnHub){
+      btnHub.onclick = ()=>{
+        hideEndOverlay();
+        routed = true;
+        goHub();
+      };
+    }
+
+    if(btnNext){
+      btnNext.onclick = ()=>{
+        hideEndOverlay();
+        routed = true;
+
+        // mark cooldown done immediately to enforce “once/day”
+        // (even if user backs out of cooldown)
+        if(!isDoneToday(cdDailyKey)) markDoneToday(cdDailyKey);
+
+        goCooldownGate(ctx, detail);
+      };
+    }
+
+  }, { passive:true });
 }
 
 if(DOC.readyState === 'loading'){
