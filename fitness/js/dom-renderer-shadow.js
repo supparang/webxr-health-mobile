@@ -1,12 +1,10 @@
 // === /fitness/js/dom-renderer-shadow.js ===
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ pointer hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ TTL auto-expire (fix: targets not disappearing)
+// ✅ Telegraph ring (.sb-telegraph) before spawn (optional)
 // ✅ FX via FxBurst
-// ✅ PATCH H: smart safe-zone spawn (avoid HUD / bars / meta panel)
-// ✅ PATCH I: TTL auto-expire (targets disappear if not hit)
-// ✅ PATCH I: pickSpawnPos(sizePx) + spawnTarget supports fixed x/y
-// ✅ PATCH I: telegraph(x,y,sizeMs) helper (warning ring)
 
 'use strict';
 
@@ -18,15 +16,19 @@ function rand(min,max){ return min + Math.random()*(max-min); }
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || document;
+    this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
 
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map();
-    this._ttlTimers = new Map();
+
+    // keep existing public map used by engine
+    this.targets = new Map(); // id -> element
+
+    // internal meta
+    this._meta = new Map();   // id -> { type, bornAt, ttlMs, timer, teleEl }
 
     this._onPointer = this._onPointer.bind(this);
   }
@@ -40,113 +42,34 @@ export class DomRendererShadow {
     }
     this.targets.clear();
 
-    for (const [id, t] of this._ttlTimers.entries()) {
-      try { clearTimeout(t); } catch {}
+    for (const [id, m] of this._meta.entries()) {
+      try { if (m.timer) clearTimeout(m.timer); } catch {}
+      try { if (m.teleEl) m.teleEl.remove(); } catch {}
     }
-    this._ttlTimers.clear();
+    this._meta.clear();
   }
 
-  _rectIntersect(a, b){
-    const left = Math.max(a.left, b.left);
-    const top = Math.max(a.top, b.top);
-    const right = Math.min(a.right, b.right);
-    const bottom = Math.min(a.bottom, b.bottom);
-    const w = right - left;
-    const h = bottom - top;
-    if (w <= 0 || h <= 0) return null;
-    return { left, top, right, bottom, width:w, height:h };
-  }
-
-  _measureOccluders(layerRect){
-    const root = this.wrapEl || document;
-    const hudTop   = root.querySelector('.sb-hud-top');
-    const barsTop  = root.querySelector('.sb-bars-top');
-    const barsBot  = root.querySelector('.sb-bars-bottom');
-    const meta     = root.querySelector('.sb-meta');
-
-    const occ = [];
-    for (const el of [hudTop, barsTop, barsBot, meta]) {
-      if (!el) continue;
-      const r = el.getBoundingClientRect();
-      const x = this._rectIntersect(layerRect, r);
-      if (x) occ.push(x);
-    }
-    return occ;
+  getType(id){
+    const m = this._meta.get(id);
+    return (m && m.type) ? m.type : 'normal';
   }
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    const vw = Math.max(320, window.innerWidth || r.width || 820);
-    const basePad = vw < 520 ? 18 : 22;
-    const dynPad  = Math.min(44, Math.max(basePad, r.width * 0.035));
+    // keep margins away from HUD/meta (CSS also helps, but keep robust here)
+    const pad = Math.min(40, Math.max(18, r.width * 0.035));
+    const top = pad + 8;
+    const left = pad + 8;
 
-    let left   = r.left   + dynPad;
-    let top    = r.top    + dynPad;
-    let right  = r.right  - dynPad;
-    let bottom = r.bottom - dynPad;
+    // reserve area for boss meta panel (right top) a bit
+    const reserveRight = Math.min(260, Math.max(190, r.width * 0.26));
+    const reserveTopH  = Math.min(210, Math.max(140, r.height * 0.22));
 
-    const occ = this._measureOccluders(r);
+    const right = r.width - pad - 8;
+    const bottom = r.height - pad - 8;
 
-    // top block
-    let topBlockBottom = null;
-    for (const o of occ){
-      const oMidY = (o.top + o.bottom) * 0.5;
-      const nearTop = oMidY < (r.top + r.height * 0.45);
-      if (!nearTop) continue;
-      topBlockBottom = topBlockBottom == null ? o.bottom : Math.max(topBlockBottom, o.bottom);
-    }
-    if (topBlockBottom != null) top = Math.max(top, topBlockBottom + 12);
-
-    // bottom block
-    let bottomBlockTop = null;
-    for (const o of occ){
-      const oMidY = (o.top + o.bottom) * 0.5;
-      const nearBot = oMidY > (r.top + r.height * 0.55);
-      if (!nearBot) continue;
-      bottomBlockTop = bottomBlockTop == null ? o.top : Math.min(bottomBlockTop, o.top);
-    }
-    if (bottomBlockTop != null) bottom = Math.min(bottom, bottomBlockTop - 12);
-
-    // right block (meta)
-    const metaEl = (this.wrapEl || document).querySelector('.sb-meta');
-    if (metaEl){
-      const m = metaEl.getBoundingClientRect();
-      const mi = this._rectIntersect(r, m);
-      if (mi){
-        const metaOnRight = mi.left > (r.left + r.width * 0.45);
-        if (metaOnRight) right = Math.min(right, mi.left - 12);
-      }
-    }
-
-    // minimum box
-    const minW = 220, minH = 220;
-    if ((right - left) < minW){
-      const cx = (r.left + r.right) * 0.5;
-      left = cx - minW/2; right = cx + minW/2;
-    }
-    if ((bottom - top) < minH){
-      const cy = (r.top + r.bottom) * 0.52;
-      top = cy - minH/2; bottom = cy + minH/2;
-    }
-
-    return {
-      r,
-      left: left - r.left,
-      top: top - r.top,
-      right: right - r.left,
-      bottom: bottom - r.top
-    };
-  }
-
-  // ✅ PATCH I: allow engine to compute a position once (for telegraph -> spawn)
-  pickSpawnPos(sizePx){
-    if (!this.layer) return { x: 0, y: 0 };
-    const { left, top, right, bottom } = this._safeAreaRect();
-    const size = clamp(Number(sizePx) || 110, 64, 260);
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    return { x: Math.round(x), y: Math.round(y) };
+    return { r, left, top, right, bottom, reserveRight, reserveTopH };
   }
 
   _emojiForType(t, bossEmoji){
@@ -159,53 +82,110 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _pickXY(size){
+    const { r, left, top, right, bottom, reserveRight, reserveTopH } = this._safeAreaRect();
+
+    // Try several times to avoid reserved top-right meta area
+    for (let i=0; i<14; i++){
+      const x = rand(left, Math.max(left, right - size));
+      const y = rand(top, Math.max(top, bottom - size));
+
+      const inReserved =
+        (x > (r.width - reserveRight)) &&
+        (y < (reserveTopH));
+
+      if (!inReserved) return { x, y };
+    }
+
+    // fallback (even if overlaps)
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    return { x, y };
+  }
+
+  _addTelegraph(x, y, size, isBoss=false, ms=120){
+    if (!this.layer) return null;
+
+    const tele = document.createElement('div');
+    tele.className = 'sb-telegraph' + (isBoss ? ' boss' : '');
+    tele.style.width = Math.round(size) + 'px';
+    tele.style.height = Math.round(size) + 'px';
+    tele.style.left = Math.round(x) + 'px';
+    tele.style.top = Math.round(y) + 'px';
+
+    // IMPORTANT: telegraph must be inside target layer so it matches coordinates
+    this.layer.appendChild(tele);
+
+    // auto-remove
+    setTimeout(()=>{ try{ tele.remove(); }catch{} }, clamp(ms, 60, 260));
+    return tele;
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const el = document.createElement('div');
-    el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(data.id);
+    const id = Number(data.id);
+    if (!Number.isFinite(id)) return;
 
-    const size = clamp(Number(data.sizePx) || 110, 64, 260);
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
+    // ensure unique id (if reused, remove old)
+    if (this.targets.has(id)) this.removeTarget(id, 'respawn');
 
-    // ✅ PATCH I: support fixed x/y
-    let x = Number.isFinite(data.x) ? data.x : null;
-    let y = Number.isFinite(data.y) ? data.y : null;
-    if (x == null || y == null) {
-      const pos = this.pickSpawnPos(size);
-      x = pos.x; y = pos.y;
+    const type = String(data.type || 'normal');
+    const ttlMs = clamp(Number(data.ttlMs) || 1200, 350, 4000);
+
+    const size = clamp(Number(data.sizePx) || 110, 66, 260);
+    const { x, y } = this._pickXY(size);
+
+    // Optional telegraph (quick ring before real spawn)
+    const teleMs = clamp(Number(data.teleMs) || 110, 60, 260);
+    const doTele = (data.telegraph === 1 || data.telegraph === true);
+    let teleEl = null;
+    if (doTele) {
+      teleEl = this._addTelegraph(x, y, size, type === 'bossface', teleMs);
     }
 
+    const el = document.createElement('div');
+    el.className = 'sb-target sb-target--' + type;
+    el.dataset.id = String(id);
+
+    el.style.width = Math.round(size) + 'px';
+    el.style.height = Math.round(size) + 'px';
+
+    // NOTE: targets are positioned within layer rect
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
-    el.textContent = this._emojiForType(data.type, data.bossEmoji);
+    // content
+    const emoji = this._emojiForType(type, data.bossEmoji);
+    el.textContent = emoji;
+
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(data.id, el);
+    this.targets.set(id, el);
 
-    // ✅ PATCH I: TTL auto-expire (fix "target not disappearing")
-    const ttl = clamp(Number(data.ttlMs) || 0, 0, 20000);
-    if (ttl > 0) {
-      const old = this._ttlTimers.get(data.id);
-      if (old) { try { clearTimeout(old); } catch {} }
-      const t = setTimeout(() => {
-        // if still alive
-        if (this.targets.has(data.id)) {
-          this.removeTarget(data.id, 'ttl');
-          try { this.onTargetExpire && this.onTargetExpire(data.id, data); } catch {}
-        }
-      }, ttl);
-      this._ttlTimers.set(data.id, t);
-    }
+    // TTL auto-expire
+    const bornAt = performance.now();
+    const timer = setTimeout(() => {
+      // already removed by hit?
+      if (!this.targets.has(id)) return;
+
+      const t = this.getType(id);
+      this.removeTarget(id, 'ttl');
+
+      // notify engine
+      if (this.onTargetExpire) {
+        try { this.onTargetExpire(id, { type: t }); } catch {}
+      }
+    }, ttlMs);
+
+    this._meta.set(id, { type, bornAt, ttlMs, timer, teleEl });
   }
 
   _onPointer(e){
     const el = e.currentTarget;
     if (!el) return;
+
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
@@ -214,34 +194,24 @@ export class DomRendererShadow {
     }
   }
 
-  removeTarget(id, reason){
+  removeTarget(id, reason='remove'){
     const el = this.targets.get(id);
-    if (!el) return;
-    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-    try { el.remove(); } catch {}
+    const m = this._meta.get(id);
+
+    if (m && m.timer) {
+      try { clearTimeout(m.timer); } catch {}
+    }
+    if (m && m.teleEl) {
+      try { m.teleEl.remove(); } catch {}
+    }
+
+    if (el) {
+      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el.remove(); } catch {}
+    }
+
     this.targets.delete(id);
-
-    const t = this._ttlTimers.get(id);
-    if (t) { try { clearTimeout(t); } catch {} }
-    this._ttlTimers.delete(id);
-  }
-
-  // ✅ PATCH I: warning ring before spawn
-  telegraph(x, y, sizePx, ms = 120, cls = ''){
-    const layer = this.layer;
-    if (!layer) return;
-
-    const ring = document.createElement('div');
-    ring.className = 'sb-telegraph' + (cls ? ' ' + cls : '');
-    const s = clamp(Number(sizePx) || 110, 64, 260);
-
-    ring.style.width = s + 'px';
-    ring.style.height = s + 'px';
-    ring.style.left = Math.round(x) + 'px';
-    ring.style.top = Math.round(y) + 'px';
-
-    layer.appendChild(ring);
-    setTimeout(()=>{ try{ ring.remove(); }catch{} }, clamp(ms, 60, 380));
+    this._meta.delete(id);
   }
 
   playHitFx(id, info = {}){
