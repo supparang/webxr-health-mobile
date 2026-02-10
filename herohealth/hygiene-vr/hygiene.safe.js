@@ -1,10 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
 // PATCH v20260206h
-// ✅ FIX: tap on mobile/cVR always works (do not block taps in view=cvr)
-// ✅ FIX: target "hit then not disappear" => mark .is-dead immediately + remove on next frame
-// ✅ FIX: FX shows at actual hit position (event/client + rect center), not stale spawn coords
-// ✅ Anti-pile: hard cap + emergency cleanup if DOM grows
+// ✅ FIX: hit -> target vanish immediately (no “ค้าง/ไม่หาย”)
+// ✅ FIX: FX position uses element rect center (exact on mobile)
+// ✅ FIX: guard double hit + remove from array atomically
+//
 // Exports: boot()
 // Emits: hha:start, hha:time, hha:judge, hha:end
 // Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
@@ -137,15 +137,8 @@ export function boot(){
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead?, _hitX?, _hitY?}
+  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead}
   let nextId=1;
-
-  // limits
-  const LIMIT = {
-    maxTargets: 18,          // preferred cap
-    hardMaxTargets: 28,      // emergency cap
-    emergencyRemove: 8       // remove N oldest if exceed hard cap
-  };
 
   function showBanner(msg){
     if(!banner) return;
@@ -153,6 +146,37 @@ export function boot(){
     banner.classList.add('show');
     clearTimeout(showBanner._t);
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
+  }
+
+  function getCenterFromEl(el, fallback){
+    try{
+      const r = el?.getBoundingClientRect?.();
+      if(r && Number.isFinite(r.left)){
+        return { x: r.left + r.width/2, y: r.top + r.height/2 };
+      }
+    }catch{}
+    return fallback || { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 };
+  }
+
+  // ✅ FX on hit (particles.js) — position EXACT at target
+  function fxHit(kind, obj){
+    const P = WIN.Particles;
+    if(!P || !obj) return;
+
+    const c = getCenterFromEl(obj.el, { x: Number(obj.x||WIN.innerWidth*0.5), y: Number(obj.y||WIN.innerHeight*0.5) });
+    const x = clamp(c.x, 0, WIN.innerWidth||999999);
+    const y = clamp(c.y, 0, WIN.innerHeight||999999);
+
+    if(kind === 'good'){
+      P.popText(x, y, '✅ +1', 'good');
+      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+    }else if(kind === 'wrong'){
+      P.popText(x, y, '⚠️ ผิด!', 'warn');
+      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+    }else if(kind === 'haz'){
+      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
+      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+    }
   }
 
   function setQuizVisible(on){
@@ -181,8 +205,7 @@ export function boot(){
       [options[i],options[j]] = [options[j],options[i]];
     }
 
-    quizSub.textContent =
-      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+    quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
       + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
 
     quizOpen._armed = true;
@@ -202,8 +225,8 @@ export function boot(){
 
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 170;
-    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 190;
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 190;
+    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 210;
     const pad = 14;
 
     const x0 = pad, x1 = w - pad;
@@ -238,44 +261,29 @@ export function boot(){
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
+      try{ t.dead = true; t.el?.classList?.add('is-dead'); }catch{}
       try{ t.el?.remove(); }catch{}
     }
   }
 
-  function markDead(obj){
+  // ✅ PATCH: kill target NOW (no lingering)
+  function killTargetNow(obj){
     if(!obj || obj.dead) return;
     obj.dead = true;
+
+    // disable interaction immediately + trigger CSS vanish
     try{
-      if(obj.el){
-        obj.el.classList.add('is-dead');   // ✅ CSS makes it vanish immediately
-        obj.el.disabled = true;
-        obj.el.style.pointerEvents = 'none';
-      }
+      obj.el?.classList?.add('is-dead');
+      obj.el && (obj.el.disabled = true);
+      obj.el && (obj.el.style.pointerEvents = 'none');
     }catch{}
-  }
 
-  function removeTarget(obj){
-    // ✅ immediate vanish
-    markDead(obj);
-
-    // remove from array now
-    const i = targets.findIndex(t=>t.id===obj.id);
+    // remove from array immediately
+    const i = targets.findIndex(t=>t && t.id===obj.id);
     if(i>=0) targets.splice(i,1);
 
-    // remove DOM on next frame (avoid race with click/touch on mobile)
-    requestAnimationFrame(()=>{
-      try{ obj.el?.remove(); }catch{}
-    });
-  }
-
-  function hardCleanupIfNeeded(){
-    if(targets.length <= LIMIT.hardMaxTargets) return;
-    // remove oldest N
-    const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
-    const cut = Math.min(LIMIT.emergencyRemove, sorted.length);
-    for(let i=0;i<cut;i++){
-      try{ removeTarget(sorted[i]); }catch{}
-    }
+    // remove DOM ASAP (next microtask)
+    Promise.resolve().then(()=>{ try{ obj.el?.remove(); }catch{} });
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -291,20 +299,17 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
-    // store pixels for cVR lock + FX fallback
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
-
-    // set CSS position (vw/vh)
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
     targets.push(obj);
 
-    // ✅ IMPORTANT: allow tap always (even view=cvr) to prevent "ตีไม่แตก" on mobile landscape
-    // Use pointerdown for fast response on mobile
-    el.addEventListener('pointerdown', (ev)=> onHitByPointer(obj, 'tap', ev), { passive:true });
-
+    if(view !== 'cvr'){
+      // ✅ do NOT set passive:true on click (mobile reliability)
+      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'));
+    }
     return obj;
   }
 
@@ -332,57 +337,9 @@ export function boot(){
     return clamp(dt, 0, 60000);
   }
 
-  function getElCenterPx(el){
-    try{
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      if(Number.isFinite(cx) && Number.isFinite(cy)) return { x: cx, y: cy };
-    }catch{}
-    return { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 };
-  }
-
-  function setHitXY(obj, ev){
-    // prefer actual pointer coordinate, else element center, else stored x/y
-    if(ev && Number.isFinite(ev.clientX) && Number.isFinite(ev.clientY)){
-      obj._hitX = ev.clientX;
-      obj._hitY = ev.clientY;
-      return;
-    }
-    if(obj?.el){
-      const c = getElCenterPx(obj.el);
-      obj._hitX = c.x;
-      obj._hitY = c.y;
-      return;
-    }
-    obj._hitX = Number(obj.x || WIN.innerWidth*0.5);
-    obj._hitY = Number(obj.y || WIN.innerHeight*0.5);
-  }
-
-  // ✅ FX on hit (particles.js) — now uses obj._hitX/_hitY
-  function fxHit(kind, obj){
-    const P = WIN.Particles;
-    if(!P || !obj) return;
-
-    const x = Number.isFinite(obj._hitX) ? obj._hitX : Number(obj.x || WIN.innerWidth*0.5);
-    const y = Number.isFinite(obj._hitY) ? obj._hitY : Number(obj.y || WIN.innerHeight*0.5);
-
-    if(kind === 'good'){
-      P.popText(x, y, '✅ +1', 'good');
-      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
-    }else if(kind === 'wrong'){
-      P.popText(x, y, '⚠️ ผิด!', 'warn');
-      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
-    }else if(kind === 'haz'){
-      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
-    }
-  }
-
-  function onHitByPointer(obj, source, ev){
+  function onHitByPointer(obj, source){
     if(!running || paused) return;
     if(!obj || obj.dead) return;
-    setHitXY(obj, ev);
     judgeHit(obj, source, null);
   }
 
@@ -399,17 +356,17 @@ export function boot(){
 
     let best=null, bestDist=1e9;
     for(const t of targets){
-      if(t.dead) continue;
-      // use stored spawn pixels for aim-lock
-      const dx = (t.x - cx), dy = (t.y - cy);
+      if(!t || t.dead) continue;
+
+      // ✅ use element rect center (more accurate than stored x/y after resize)
+      const c = getCenterFromEl(t.el, { x:t.x, y:t.y });
+      const dx = (c.x - cx), dy = (c.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
         best = t; bestDist = dist;
       }
     }
     if(best){
-      // FX at actual element center (more accurate than stored x/y after layout)
-      setHitXY(best, null);
       judgeHit(best, 'shoot', { lockPx, dist: bestDist });
     }
   }
@@ -466,9 +423,6 @@ export function boot(){
   function judgeHit(obj, source, extra){
     if(!obj || obj.dead) return;
 
-    // ✅ prevent double-hit spam: mark dead immediately
-    markDead(obj);
-
     const rt = computeRt(obj);
 
     if(obj.kind === 'good'){
@@ -494,16 +448,18 @@ export function boot(){
 
       coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
-
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
-      bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
       fxHit('good', obj);
 
+      // ✅ vanish now (prevents lingering)
+      killTargetNow(obj);
+
+      bumpQuestOnGoodHit();
+
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
-
         stepIdx++;
         hitsInStep=0;
 
@@ -526,7 +482,6 @@ export function boot(){
         }
       }
 
-      removeTarget(obj);
       setHud();
       return;
     }
@@ -543,12 +498,13 @@ export function boot(){
 
       coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
-
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
+
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
       fxHit('wrong', obj);
 
-      removeTarget(obj);
+      killTargetNow(obj);
+
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -565,12 +521,13 @@ export function boot(){
 
       coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
       dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
-
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
+
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
       fxHit('haz', obj);
 
-      removeTarget(obj);
+      killTargetNow(obj);
+
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -600,14 +557,11 @@ export function boot(){
       spawnAcc -= 1;
       spawnOne();
 
-      // soft cap
-      if(targets.length > LIMIT.maxTargets){
+      // ✅ cap targets harder to avoid "เต็มจอ"
+      if(targets.length > 16){
         const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
-        if(oldest) removeTarget(oldest);
+        if(oldest) killTargetNow(oldest);
       }
-
-      // hard cap (emergency)
-      hardCleanupIfNeeded();
     }
 
     dd?.onEvent('tick', { elapsedSec: elapsedSec() });
@@ -679,8 +633,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.1-prod',
-      patch:'20260206h',
+      version:'1.0.2-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -741,19 +694,19 @@ export function boot(){
   }
 
   // UI binds
-  btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
-  btnPlayAgain?.addEventListener('click', startGame, { passive:true });
-  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
-  btnBack?.addEventListener('click', goHub, { passive:true });
-  btnBack2?.addEventListener('click', goHub, { passive:true });
+  btnStart?.addEventListener('click', startGame);
+  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); });
+  btnPlayAgain?.addEventListener('click', startGame);
+  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''));
+  btnBack?.addEventListener('click', goHub);
+  btnBack2?.addEventListener('click', goHub);
 
   btnPause?.addEventListener('click', ()=>{
     if(!running) return;
     paused = !paused;
     if(btnPause) btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
-  }, { passive:true });
+  });
 
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
