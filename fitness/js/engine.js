@@ -1,12 +1,13 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine (PATCH: smaller targets + robust boot)
-// NOTE: Only DIFF_CONFIG.baseSize changed here for size reduction.
+// Shadow Breaker engine — PATCH A (target TTL cleanup + no-stuck targets + robust AI import)
+// ✅ FIX: เป้าหมดอายุแล้ว “ต้องหายเอง” (timeout => remove + miss + reset combo)
+// ✅ FIX: ล้าง targetMeta เมื่อเริ่มเกม/ออกเมนู/จบเกม กันค้างสะสม
+// ✅ FIX: กันเกมพังจาก AI export mismatch (dynamic import + stub)
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
-import { AIPredictor } from './ai-predictor.js';
 
 // -------------------------
 // URL params
@@ -99,7 +100,7 @@ const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
 // ----- Difficulty config -----
-// ✅ PATCH: ลดขนาดเป้าให้ “ไม่อึดอัด” บน mobile
+// (คุณปรับ baseSize ต่อได้อีก ถ้าอยากให้เล็กลงบน mobile)
 const DIFF_CONFIG = {
   easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:118, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
   normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:110, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
@@ -152,7 +153,7 @@ let bossesCleared = 0;
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
 
-// Events log (simple, can expand)
+// Events log
 const events = [];
 const session = {
   pid: PID || '',
@@ -169,8 +170,49 @@ const session = {
   accPct: 0
 };
 
+// ✅ DL features always on (ใช้คำนวณ acc)
 const dl = new DLFeatures();
-const ai = new AIPredictor();
+
+// ✅ AI import (กัน export mismatch ไม่ให้เกมพัง)
+let ai = null;
+async function loadAI(){
+  const stub = {
+    enabled: false,
+    predict(){ return null; },
+    tip(){ return null; }
+  };
+  try{
+    const mod = await import('./ai-predictor.js');
+    const Cand =
+      mod?.AIPredictor ||
+      mod?.RB_AI ||
+      mod?.default ||
+      null;
+
+    // 1) class/function constructor
+    if (typeof Cand === 'function'){
+      try { return new Cand(); } catch { return stub; }
+    }
+    // 2) object already
+    if (Cand && typeof Cand === 'object'){
+      return Cand;
+    }
+    // 3) global fallback
+    const g = window.AIPredictor || window.RB_AI || null;
+    if (typeof g === 'function') return new g();
+    if (g && typeof g === 'object') return g;
+
+    return stub;
+  }catch(_){
+    // global fallback
+    try{
+      const g = window.AIPredictor || window.RB_AI || null;
+      if (typeof g === 'function') return new g();
+      if (g && typeof g === 'object') return g;
+    }catch{}
+    return stub;
+  }
+}
 
 // -------------------------
 // Renderer
@@ -181,6 +223,9 @@ const renderer = new DomRendererShadow(layerEl, {
   onTargetHit: onTargetHit
 });
 renderer.setDifficulty(diff);
+
+// ✅ PATCH A: target expiry bookkeeping
+const targetMeta = new Map(); // id -> { spawnAt, expireAt, type }
 
 // -------------------------
 // Helpers
@@ -227,7 +272,6 @@ function say(text, cls){
 }
 
 function nextBossOrPhase(){
-  // phase cleared?
   if(phase < boss().phases){
     phase++;
     bossHp = BOSS_HP_MAX;
@@ -240,6 +284,32 @@ function nextBossOrPhase(){
     say(`Boss Clear! ไปต่อ 🎉`, 'perfect');
   }
   setBossUI();
+}
+
+// ✅ PATCH A: cleanup expired targets (timeout => miss + remove)
+function cleanupExpired(){
+  if(!running || ended || paused) return;
+  const t = now();
+
+  for (const [id, m] of targetMeta.entries()){
+    if (t < m.expireAt) continue;
+
+    targetMeta.delete(id);
+
+    if (renderer.targets?.has?.(id)){
+      renderer.removeTarget(id, 'timeout');
+
+      miss++;
+      combo = 0;
+      say('MISS! รับจังหวะกลับมา', 'miss');
+
+      events.push({ t: (TIME*1000 - timeLeft), type:'timeout', id, targetType:m.type });
+
+      // optional: ลงโทษเบา ๆ
+      // youHp = Math.max(0, youHp - 3);
+      // if(youHp<=0) endGame('dead');
+    }
+  }
 }
 
 function spawnOne(){
@@ -257,21 +327,29 @@ function spawnOne(){
     type = 'bossface';
   }
 
-  // size: based on CFG.baseSize (patched smaller)
+  // size
   let sizePx = CFG.baseSize;
   if(type === 'bossface') sizePx = CFG.baseSize * 1.18;
   if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
+
+  const spawnAt = now();
+  const ttlMs = CFG.targetLifetime;
 
   renderer.spawnTarget({
     id, type,
     sizePx,
     bossEmoji: boss().emoji,
-    ttlMs: CFG.targetLifetime
+    ttlMs
   });
 
-  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx) });
+  // ✅ record expiry
+  targetMeta.set(id, {
+    spawnAt,
+    expireAt: spawnAt + ttlMs,
+    type
+  });
 
-  // miss when expired handled by timeout in engine tick (below)
+  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
 }
 
 function onTargetHit(id, pt){
@@ -282,10 +360,8 @@ function onTargetHit(id, pt){
 
   const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
-  // hit timing feature
   dl.onHit();
 
-  // scoring & effects
   let grade = 'good';
   let scoreDelta = 0;
 
@@ -334,21 +410,19 @@ function onTargetHit(id, pt){
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever gain
   fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
-  // FX + remove
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
+  // ✅ PATCH A: remove meta too
+  targetMeta.delete(id);
+
   events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
-  // boss clear?
   if(bossHp <= 0){
     nextBossOrPhase();
   }
-
-  // player dead?
   if(youHp <= 0){
     endGame('dead');
   }
@@ -360,6 +434,9 @@ function endGame(reason='timeup'){
   if(ended) return;
   ended = true;
   running = false;
+
+  // ✅ stop accumulating meta
+  targetMeta.clear();
 
   session.endedAt = new Date().toISOString();
   session.score = score|0;
@@ -373,7 +450,6 @@ function endGame(reason='timeup'){
   const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
-  // result UI
   if(resTime) resTime.textContent = `${(TIME - timeLeft/1000).toFixed(1)} s`;
   if(resScore) resScore.textContent = String(score|0);
   if(resMaxCombo) resMaxCombo.textContent = String(maxCombo|0);
@@ -382,7 +458,6 @@ function endGame(reason='timeup'){
   if(resBossCleared) resBossCleared.textContent = String(bossesCleared|0);
   if(resAcc) resAcc.textContent = `${accPct.toFixed(1)} %`;
 
-  // grade
   let g = 'C';
   if(accPct >= 85 && bossesCleared >= 1) g='A';
   else if(accPct >= 70) g='B';
@@ -399,6 +474,9 @@ function tick(){
 
   if(paused) return;
 
+  // ✅ PATCH A: remove expired targets every frame
+  cleanupExpired();
+
   const t = now();
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
@@ -413,7 +491,7 @@ function tick(){
   if(since >= targetInterval){
     tLastSpawn = t;
     spawnOne();
-    dl.onShot(); // attempt = spawn as "shot opportunity"
+    dl.onShot(); // attempt opportunity
   }
 
   // decay FEVER slowly if active
@@ -421,7 +499,6 @@ function tick(){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
-  // time up
   if(timeLeft <= 0){
     endGame('timeup');
   }
@@ -433,7 +510,6 @@ function tick(){
 // Boot
 // -------------------------
 function start(mode){
-  // reset
   ended = false;
   running = true;
   paused = false;
@@ -445,9 +521,9 @@ function start(mode){
   bossIndex=0; phase=1; bossesCleared=0;
 
   dl.reset();
-  renderer.destroy(); // clear old
-  // recreate renderer targets map (cheap): easiest by new instance? keep instance but clear map done by destroy
-  // (DomRendererShadow.destroy() already clears targets; spawnTarget will rebuild)
+
+  renderer.destroy();      // clear old targets
+  targetMeta.clear();      // ✅ PATCH A: clear expiry meta too
 
   setBossUI();
   setHUD();
@@ -472,6 +548,7 @@ btnBackMenu?.addEventListener('click', ()=>{
   ended = false;
   paused = false;
   renderer.destroy();
+  targetMeta.clear(); // ✅ PATCH A
   showView('menu');
 });
 
@@ -482,10 +559,12 @@ btnPause?.addEventListener('change', ()=>{
 btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
   renderer.destroy();
+  targetMeta.clear(); // ✅ PATCH A
   showView('menu');
 });
 
 function downloadCSV(filename, rows){
+  if(!rows || !rows.length) return;
   const esc = (v)=> String(v ?? '').replace(/"/g,'""');
   const keys = Object.keys(rows[0] || {});
   const lines = [
@@ -510,6 +589,9 @@ btnSesCsv?.addEventListener('click', ()=>{
 });
 
 // init
-showView('menu');
-setBossUI();
-setHUD();
+(async ()=>{
+  ai = await loadAI(); // ✅ ไม่พังถ้า export ไม่ตรง
+  showView('menu');
+  setBossUI();
+  setHUD();
+})();
