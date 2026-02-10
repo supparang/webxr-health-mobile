@@ -1,7 +1,9 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine (PATCH: smaller targets + robust boot + TTL expire)
-// ✅ PATCH G: Targets auto-expire by ttlMs -> remove + MISS + combo reset + feedback
-// NOTE: Keep your existing imports; only add TTL meta tracking + expire check.
+// Shadow Breaker engine (PATCH I)
+// ✅ Telegraph 120ms before spawn
+// ✅ Streak multiplier (combo tiers)
+// ✅ Boss phase special patterns
+// ✅ Fix: targets auto-expire via renderer ttlMs (no more "stuck targets")
 
 'use strict';
 
@@ -98,13 +100,13 @@ const BOSSES = [
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
+const r01 = ()=>Math.random();
 
 // ----- Difficulty config -----
-// (ตามไฟล์ของคุณ: ลดขนาดเป้าแล้ว)
 const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:118, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:110, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:102, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:820, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:660, spawnIntervalMax:980,  targetLifetime:1150, baseSize:98,  bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
 };
 
 // ----- FEVER / HP -----
@@ -150,11 +152,23 @@ let bossIndex = 0;
 let phase = 1;
 let bossesCleared = 0;
 
+// PATCH I: special pattern timer
+let tLastSpecial = 0;
+
+// Telegraph constants
+const TELEGRAPH_MS = 120;
+
+// Combo multiplier tiers (เร้าใจแบบเห็นผล)
+function comboMul(c){
+  if (c >= 30) return 2.2;
+  if (c >= 18) return 1.8;
+  if (c >= 10) return 1.4;
+  if (c >= 5)  return 1.15;
+  return 1.0;
+}
+
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
-
-// ---- PATCH G: track TTL per target ----
-const targetMeta = new Map(); // id -> { bornMs, ttlMs, type, sizePx }
 
 // Events log (simple, can expand)
 const events = [];
@@ -182,7 +196,8 @@ const ai = new AIPredictor();
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
   feedbackEl: msgMainEl,
-  onTargetHit: onTargetHit
+  onTargetHit: onTargetHit,
+  onTargetExpire: onTargetExpire
 });
 renderer.setDifficulty(diff);
 
@@ -242,83 +257,108 @@ function nextBossOrPhase(){
     bossHp = BOSS_HP_MAX;
     say(`Boss Clear! ไปต่อ 🎉`, 'perfect');
   }
+  tLastSpecial = now();
   setBossUI();
 }
 
-// -------------------------
-// Spawn / Expire (PATCH G)
-// -------------------------
-function spawnOne(){
-  const id = Math.floor(Math.random()*1e9);
-  const roll = Math.random();
+function targetRoll(){
+  // PATCH I: phase affects probabilities (รู้สึก “บอสกดดันจริง”)
+  const p = phase;
+  const base = {
+    bomb:  0.08,
+    decoy: 0.07,
+    heal:  0.05,
+    shield:0.06
+  };
 
-  let type = 'normal';
-  if(roll < 0.08) type = 'bomb';
-  else if(roll < 0.15) type = 'decoy';
-  else if(roll < 0.20) type = 'heal';
-  else if(roll < 0.26) type = 'shield';
-
-  if(bossHp <= 26 && Math.random() < 0.22){
-    type = 'bossface';
+  if (p === 2) {
+    base.decoy += 0.05; base.bomb += 0.02;
+  } else if (p >= 3) {
+    base.decoy += 0.07; base.bomb += 0.05;
+    base.heal  -= 0.01;
   }
 
-  let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.18;
-  if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
+  // boss-specific flavor
+  if (bossIndex === 0) { // Bubble Glove
+    base.decoy -= 0.01; base.heal += 0.01;
+  } else if (bossIndex === 1) { // Meteor Punch
+    base.bomb += 0.04;
+  } else { // Neon Hydra
+    base.decoy += 0.03;
+  }
 
-  const bornMs = now();
-  const ttlMs = CFG.targetLifetime;
+  // clamp safe
+  base.bomb = clamp(base.bomb, 0.02, 0.22);
+  base.decoy = clamp(base.decoy, 0.02, 0.22);
+  base.heal = clamp(base.heal, 0.02, 0.12);
+  base.shield = clamp(base.shield, 0.03, 0.14);
 
-  renderer.spawnTarget({
-    id, type,
-    sizePx,
-    bossEmoji: boss().emoji,
-    ttlMs
-  });
+  const roll = r01();
+  let type = 'normal';
+  if (roll < base.bomb) type = 'bomb';
+  else if (roll < base.bomb + base.decoy) type = 'decoy';
+  else if (roll < base.bomb + base.decoy + base.heal) type = 'heal';
+  else if (roll < base.bomb + base.decoy + base.heal + base.shield) type = 'shield';
 
-  // ✅ PATCH G: store meta for TTL expire
-  targetMeta.set(id, { bornMs, ttlMs, type, sizePx: Math.round(sizePx) });
+  // bossface appears more when boss low, and more often on higher phase
+  const bossfaceChance = bossHp <= 28 ? (0.18 + (phase-1)*0.05) : 0.0;
+  if (bossfaceChance > 0 && r01() < bossfaceChance) type = 'bossface';
 
-  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
+  return type;
 }
 
-function expireTargets(){
-  // ✅ PATCH G: if target exists past ttl => remove + MISS
-  const t = now();
-  for (const [id, m] of targetMeta.entries()){
-    if(!m) { targetMeta.delete(id); continue; }
+function sizeFor(type){
+  let sizePx = CFG.baseSize;
+  if(type === 'bossface') sizePx = CFG.baseSize * 1.15;
+  if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
+  if(type === 'heal' || type === 'shield') sizePx = CFG.baseSize * 0.98;
+  return sizePx;
+}
 
-    // target already removed?
-    const el = renderer.targets.get(id);
-    if(!el){
-      targetMeta.delete(id);
-      continue;
-    }
+// ✅ PATCH I: spawn with telegraph
+function spawnTelegraphed(type){
+  const id = Math.floor(Math.random()*1e9);
+  const sizePx = sizeFor(type);
 
-    if((t - m.bornMs) >= m.ttlMs){
-      // expire
-      renderer.removeTarget(id, 'ttl');
-      targetMeta.delete(id);
+  // pick position once
+  const pos = renderer.pickSpawnPos(sizePx);
 
-      miss++;
-      combo = 0;
+  // telegraph ring
+  renderer.telegraph(pos.x, pos.y, sizePx, TELEGRAPH_MS, type === 'bossface' ? 'boss' : '');
 
-      // feedback: MISS (only for meaningful targets)
-      if(m.type === 'normal' || m.type === 'bossface'){
-        say('MISS!', 'miss');
-      }else{
-        // softer feedback for decoy/heal/shield bombs
-        say('พลาดจังหวะ!', 'miss');
-      }
+  // spawn after 120ms
+  setTimeout(()=>{
+    if(!running || ended) return;
 
-      // small miss FX (reuse "bad")
-      renderer.playHitFx(id, { clientX: window.innerWidth*0.5, clientY: window.innerHeight*0.45, grade:'bad', scoreDelta:0 });
+    renderer.spawnTarget({
+      id, type,
+      sizePx,
+      x: pos.x, y: pos.y,
+      bossEmoji: boss().emoji,
+      ttlMs: CFG.targetLifetime
+    });
 
-      events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:m.type, reason:'ttl' });
+    events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx) });
+    dl.onShot(); // attempt opportunity
+  }, TELEGRAPH_MS);
 
-      setHUD();
-    }
-  }
+  return id;
+}
+
+function onTargetExpire(id, data){
+  // TTL expired => miss (unless game ended)
+  if(!running || ended) return;
+  miss++;
+  combo = 0;
+
+  // small penalty pressure (but not too harsh for kids)
+  youHp = Math.max(0, youHp - 4);
+
+  say('ช้าไป! เป้าหายแล้ว', 'miss');
+  events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:data?.type || '', sizePx: data?.sizePx || 0 });
+
+  if(youHp <= 0) endGame('dead');
+  setHUD();
 }
 
 function onTargetHit(id, pt){
@@ -327,75 +367,84 @@ function onTargetHit(id, pt){
   const el = renderer.targets.get(id);
   if(!el) return;
 
-  // once hit, remove meta (so it won't expire later)
-  targetMeta.delete(id);
-
   const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
   dl.onHit();
 
+  // multiplier: based on current combo before increment (feel snappy)
+  const mul = comboMul(combo);
+
   let grade = 'good';
+  let baseScore = 0;
   let scoreDelta = 0;
 
   if(type === 'decoy'){
     grade = 'bad';
-    scoreDelta = -6;
+    baseScore = -6;
     combo = 0;
     say('หลงเป้าล่อ!', 'bad');
+    scoreDelta = baseScore;
   }else if(type === 'bomb'){
     grade = 'bomb';
-    scoreDelta = -14;
+    baseScore = -14;
     combo = 0;
     if(shield>0){
       shield--;
       say('กันระเบิดด้วย Shield!', 'good');
-      scoreDelta = 0;
+      baseScore = 0;
       grade = 'shield';
+      scoreDelta = 0;
     }else{
       youHp = Math.max(0, youHp - 18);
       say('โดนระเบิด!', 'bad');
+      scoreDelta = baseScore;
     }
   }else if(type === 'heal'){
     grade = 'heal';
-    scoreDelta = 6;
+    baseScore = 6;
     youHp = Math.min(YOU_HP_MAX, youHp + 16);
     say('+HP!', 'good');
+    scoreDelta = Math.round(baseScore * mul);
+    combo++; // heal should still reward streak
   }else if(type === 'shield'){
     grade = 'shield';
-    scoreDelta = 6;
+    baseScore = 6;
     shield = Math.min(5, shield + 1);
     say('+SHIELD!', 'good');
+    scoreDelta = Math.round(baseScore * mul);
+    combo++;
   }else if(type === 'bossface'){
     grade = 'perfect';
-    scoreDelta = 18;
+    baseScore = 18;
     combo++;
     bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * CFG.bossDamageBossFace));
     say('CRIT! ใส่หน้า Boss!', 'perfect');
+    scoreDelta = Math.round(baseScore * mul);
   }else{
     grade = (fever >= FEVER_MAX) ? 'perfect' : 'good';
-    scoreDelta = (grade === 'perfect') ? 14 : 10;
+    baseScore = (grade === 'perfect') ? 14 : 10;
     combo++;
     bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * CFG.bossDamageNormal));
-    say(grade === 'perfect' ? 'PERFECT!' : 'ดีมาก!', grade === 'perfect' ? 'perfect' : 'good');
+    say(grade === 'perfect' ? `PERFECT x${mul.toFixed(1)}!` : `ดีมาก x${mul.toFixed(1)}!`, grade === 'perfect' ? 'perfect' : 'good');
+    scoreDelta = Math.round(baseScore * mul);
   }
 
-  score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
+  score = Math.max(0, score + scoreDelta);
 
-  fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
+  // fever gain (slightly boosted with multiplier)
+  const feverGain = (grade === 'perfect' ? 10 : 6) * (mul >= 1.8 ? 1.15 : 1.0);
+  fever = clamp(fever + feverGain, 0, FEVER_MAX);
 
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
-  events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
+  events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta, mul:Number(mul.toFixed(2)) });
 
-  if(bossHp <= 0){
-    nextBossOrPhase();
-  }
-  if(youHp <= 0){
-    endGame('dead');
-  }
+  if(bossHp <= 0) nextBossOrPhase();
+  if(youHp <= 0) endGame('dead');
 
+  setBossUI();
   setHUD();
 }
 
@@ -403,10 +452,6 @@ function endGame(reason='timeup'){
   if(ended) return;
   ended = true;
   running = false;
-
-  // clear remaining targets & metas
-  targetMeta.clear();
-  renderer.destroy();
 
   session.endedAt = new Date().toISOString();
   session.score = score|0;
@@ -438,6 +483,41 @@ function endGame(reason='timeup'){
   showView('result');
 }
 
+// ✅ PATCH I: boss special patterns (every few seconds)
+function runSpecialPattern(){
+  const b = bossIndex;
+  const p = phase;
+
+  // cooldown per diff (hard triggers more often)
+  const cd = (diff === 'hard') ? 3400 : (diff === 'easy' ? 5200 : 4200);
+
+  const t = now();
+  if ((t - tLastSpecial) < cd) return;
+  tLastSpecial = t;
+
+  // Pattern intensity scales with phase
+  const k = (p === 1) ? 1 : (p === 2 ? 2 : 3);
+
+  if (b === 0) {
+    // Bubble Glove: "Bubble Wave" (safe fun streak builder)
+    say('BUBBLE WAVE!', 'good');
+    for (let i=0;i<k+1;i++) spawnTelegraphed('normal');
+    if (p >= 2 && r01() < 0.35) spawnTelegraphed('heal');
+  } else if (b === 1) {
+    // Meteor Punch: "Meteor Rain" (pressure)
+    say('METEOR RAIN!', 'miss');
+    for (let i=0;i<k;i++) spawnTelegraphed('bomb');
+    for (let i=0;i<k;i++) spawnTelegraphed('normal');
+    if (p >= 3) spawnTelegraphed('decoy');
+  } else {
+    // Neon Hydra: "Hydra Heads" (combo test)
+    say('HYDRA HEADS!', 'perfect');
+    for (let i=0;i<k;i++) spawnTelegraphed('decoy');
+    for (let i=0;i<k;i++) spawnTelegraphed('normal');
+    if (bossHp <= 40) spawnTelegraphed('bossface');
+  }
+}
+
 function tick(){
   if(!running || ended) return;
   requestAnimationFrame(tick);
@@ -447,22 +527,23 @@ function tick(){
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // spawn
-  const since = t - tLastSpawn;
+  // spawn interval: phase increases pressure slightly
+  const phaseMul = (phase === 1) ? 1.0 : (phase === 2 ? 0.92 : 0.86);
   const targetInterval = clamp(
-    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
-    450, 1800
+    (CFG.spawnIntervalMin + r01()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin)) * phaseMul,
+    420, 1800
   );
-  if(since >= targetInterval){
+
+  if ((t - tLastSpawn) >= targetInterval){
     tLastSpawn = t;
-    spawnOne();
-    dl.onShot(); // attempt = spawn as "shot opportunity"
+    const type = targetRoll();
+    spawnTelegraphed(type);
   }
 
-  // ✅ PATCH G: expire targets by ttlMs
-  expireTargets();
+  // special pattern
+  runSpecialPattern();
 
-  // decay FEVER slowly if active
+  // FEVER decay if active
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
@@ -488,19 +569,19 @@ function start(mode){
   bossHp=BOSS_HP_MAX;
   bossIndex=0; phase=1; bossesCleared=0;
 
-  // clear
-  targetMeta.clear();
   dl.reset();
-  renderer.destroy(); // clear targets
+  renderer.destroy();
 
   setBossUI();
   setHUD();
-  say('แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!', '');
+  say('วงเตือนจะขึ้นก่อน—เตรียมชก/แตะ!', '');
 
   showView('play');
 
   tStart = now();
   tLastSpawn = tStart;
+  tLastSpecial = tStart;
+
   requestAnimationFrame(tick);
 }
 
@@ -515,7 +596,6 @@ btnBackMenu?.addEventListener('click', ()=>{
   running = false;
   ended = false;
   paused = false;
-  targetMeta.clear();
   renderer.destroy();
   showView('menu');
 });
@@ -526,13 +606,11 @@ btnPause?.addEventListener('change', ()=>{
 
 btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
-  targetMeta.clear();
   renderer.destroy();
   showView('menu');
 });
 
 function downloadCSV(filename, rows){
-  if(!rows || !rows.length) return;
   const esc = (v)=> String(v ?? '').replace(/"/g,'""');
   const keys = Object.keys(rows[0] || {});
   const lines = [
