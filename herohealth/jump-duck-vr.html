@@ -1,8 +1,8 @@
 <!-- === /herohealth/jump-duck-vr.html ===
-Jump-Duck Launcher (ROOT)
+Jump-Duck LAUNCHER — ROOT (HeroHealth)
 ✅ Uses: /herohealth/launch/launcher-core.js
-✅ Redirects to: /fitness/jump-duck.html
-✅ Pass-through all params + ensure hub + auto view (NO override)
+✅ Redirect to: /fitness/jump-duck.html
+✅ Pass-through all params + hub backlink + NO override view
 -->
 <!doctype html>
 <html lang="th">
@@ -17,8 +17,6 @@ Jump-Duck Launcher (ROOT)
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target คือเกมจริง
-  // NOTE: จาก /herohealth/ -> /fitness/ = ../fitness/ ถูกต้อง
   hhGo('../fitness/jump-duck.html', {
     defaults: {
       mode: 'training',
