@@ -1,8 +1,11 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets — PATCH E
-// ✅ Safe spawn rect avoids HUD(top/bottom) + boss card area
-// ✅ Anti-cluster spawn (rejection sampling + min distance)
-// ✅ TTL hint supported (engine still enforces hard TTL)
+// DOM renderer for Shadow Breaker targets
+// ✅ spawn/remove targets in #sb-target-layer
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ FX via FxBurst
+// ✅ PATCH H: smart safe-zone spawn (avoid HUD / bars / meta panel)
+//   - uses wrapEl query to measure occluders
+//   - expands padding on small screens, keeps targets out of blocked zones
 
 'use strict';
 
@@ -10,40 +13,20 @@ import { FxBurst } from './fx-burst.js';
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
-function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
 
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
+    this.wrapEl = opts.wrapEl || document;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
     this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
-
-    // PATCH E: stage metrics (hud/card sizes) injected by engine each tick/start
-    this.stageMetrics = {
-      topHudH: 0,
-      bottomHudH: 0,
-      rightPanelW: 0,
-      pad: 20
-    };
-
-    // keep some recent spawns to avoid clustering
-    this._recent = []; // {x,y,r,ts}
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
-
-  // PATCH E: update stage constraints from engine
-  setStageMetrics(m = {}){
-    this.stageMetrics.topHudH = Math.max(0, Number(m.topHudH)||0);
-    this.stageMetrics.bottomHudH = Math.max(0, Number(m.bottomHudH)||0);
-    this.stageMetrics.rightPanelW = Math.max(0, Number(m.rightPanelW)||0);
-    this.stageMetrics.pad = Math.max(10, Math.min(42, Number(m.pad)||20));
-  }
 
   destroy(){
     for (const [id, el] of this.targets.entries()) {
@@ -51,42 +34,116 @@ export class DomRendererShadow {
       try { el.remove(); } catch {}
     }
     this.targets.clear();
-    this._recent.length = 0;
   }
 
-  _safeAreaRect(size){
+  _rectIntersect(a, b){
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    const w = right - left;
+    const h = bottom - top;
+    if (w <= 0 || h <= 0) return null;
+    return { left, top, right, bottom, width:w, height:h };
+  }
+
+  _measureOccluders(layerRect){
+    // We avoid these areas (in viewport coords): HUD, top bars, bottom bars, meta panel
+    const root = this.wrapEl || document;
+
+    const hudTop   = root.querySelector('.sb-hud-top');
+    const barsTop  = root.querySelector('.sb-bars-top');
+    const barsBot  = root.querySelector('.sb-bars-bottom');
+    const meta     = root.querySelector('.sb-meta');
+
+    const occ = [];
+
+    for (const el of [hudTop, barsTop, barsBot, meta]) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      const x = this._rectIntersect(layerRect, r);
+      if (x) occ.push(x);
+    }
+    return occ;
+  }
+
+  _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-    const pad = Math.min(42, Math.max(16, r.width * 0.03, this.stageMetrics.pad || 20));
 
-    // HUD offsets (real measured by engine)
-    const topHud = Math.min(r.height*0.45, Math.max(0, this.stageMetrics.topHudH || 0));
-    const bottomHud = Math.min(r.height*0.45, Math.max(0, this.stageMetrics.bottomHudH || 0));
+    // base padding: looser on small screens
+    const vw = Math.max(320, window.innerWidth || r.width || 820);
+    const basePad = vw < 520 ? 18 : 22;
+    const dynPad  = Math.min(44, Math.max(basePad, r.width * 0.035));
+    let left   = r.left   + dynPad;
+    let top    = r.top    + dynPad;
+    let right  = r.right  - dynPad;
+    let bottom = r.bottom - dynPad;
 
-    // Boss card area on the right
-    const rightPanel = Math.min(r.width*0.55, Math.max(0, this.stageMetrics.rightPanelW || 0));
+    // occluder-aware tightening
+    const occ = this._measureOccluders(r);
 
-    const left = pad + 8;
-    const top = pad + 8 + topHud;
-    const right = r.width - pad - 8 - rightPanel;
-    const bottom = r.height - pad - 8 - bottomHud;
-
-    // clamp usable area
-    const minW = Math.max(120, size + 12);
-    const minH = Math.max(140, size + 12);
-
-    let L = left, T = top, R = right, B = bottom;
-
-    if(R - L < minW){
-      // if boss card eats too much, allow under it (still try keep a small gutter)
-      R = r.width - pad - 8;
+    // 1) protect TOP area (HUD + top bars)
+    // find the lowest bottom among occluders that sit near top
+    let topBlockBottom = null;
+    for (const o of occ){
+      const oMidY = (o.top + o.bottom) * 0.5;
+      const nearTop = oMidY < (r.top + r.height * 0.45);
+      if (!nearTop) continue;
+      topBlockBottom = topBlockBottom == null ? o.bottom : Math.max(topBlockBottom, o.bottom);
     }
-    if(B - T < minH){
-      // if HUD eats too much, relax it slightly
-      T = pad + 8 + Math.max(0, topHud*0.55);
-      B = r.height - pad - 8 - Math.max(0, bottomHud*0.55);
+    if (topBlockBottom != null){
+      top = Math.max(top, topBlockBottom + 12);
     }
 
-    return { r, left:L, top:T, right:R, bottom:B };
+    // 2) protect BOTTOM area (bottom bars)
+    // find the highest top among occluders that sit near bottom
+    let bottomBlockTop = null;
+    for (const o of occ){
+      const oMidY = (o.top + o.bottom) * 0.5;
+      const nearBot = oMidY > (r.top + r.height * 0.55);
+      if (!nearBot) continue;
+      bottomBlockTop = bottomBlockTop == null ? o.top : Math.min(bottomBlockTop, o.top);
+    }
+    if (bottomBlockTop != null){
+      bottom = Math.min(bottom, bottomBlockTop - 12);
+    }
+
+    // 3) protect RIGHT area (meta panel)
+    // if meta overlaps, shrink right bound to the meta's left
+    const metaEl = (this.wrapEl || document).querySelector('.sb-meta');
+    if (metaEl){
+      const m = metaEl.getBoundingClientRect();
+      const mi = this._rectIntersect(r, m);
+      if (mi){
+        // only if meta is actually on right side
+        const metaOnRight = mi.left > (r.left + r.width * 0.45);
+        if (metaOnRight){
+          right = Math.min(right, mi.left - 12);
+        }
+      }
+    }
+
+    // keep sane min size
+    const minW = 220, minH = 220;
+    if ((right - left) < minW){
+      const cx = (r.left + r.right) * 0.5;
+      left = cx - minW/2;
+      right = cx + minW/2;
+    }
+    if ((bottom - top) < minH){
+      const cy = (r.top + r.bottom) * 0.52;
+      top = cy - minH/2;
+      bottom = cy + minH/2;
+    }
+
+    // convert back to local coords (relative to layer)
+    return {
+      r,
+      left: left - r.left,
+      top: top - r.top,
+      right: right - r.left,
+      bottom: bottom - r.top
+    };
   }
 
   _emojiForType(t, bossEmoji){
@@ -99,87 +156,25 @@ export class DomRendererShadow {
     return '🎯';
   }
 
-  _pruneRecent(){
-    const t = performance.now();
-    // keep only last 1.8s of samples
-    this._recent = this._recent.filter(p => (t - p.ts) < 1800);
-  }
-
-  _pickNonClusterPos(size){
-    const { left, top, right, bottom } = this._safeAreaRect(size);
-    const W = Math.max(left, right - size);
-    const H = Math.max(top, bottom - size);
-
-    const cx0 = (left + right)/2;
-    const cy0 = (top + bottom)/2;
-
-    // min distance between centers (depends on size)
-    const minD = clamp(size * 0.78, 64, 148);
-    const minD2 = minD * minD;
-
-    this._pruneRecent();
-
-    let best = null;
-    let bestScore = -1;
-
-    // rejection sampling with scoring (try 16 candidates, pick best)
-    const tries = 16;
-    for(let i=0;i<tries;i++){
-      // bias toward center but still random
-      const x = clamp(rand(left, W), left, W);
-      const y = clamp(rand(top, H), top, H);
-
-      const cx = x + size/2;
-      const cy = y + size/2;
-
-      // score: far from recent points + mild pull to center
-      let ok = true;
-      let nearest2 = 1e18;
-      for(const p of this._recent){
-        const d2 = dist2(cx,cy,p.x,p.y);
-        nearest2 = Math.min(nearest2, d2);
-        if(d2 < minD2){ ok = false; break; }
-      }
-      if(!ok) continue;
-
-      const center2 = dist2(cx,cy,cx0,cy0);
-      const score = nearest2 - center2*0.08; // prefer spaced out, slightly prefer not too far from center
-
-      if(score > bestScore){
-        bestScore = score;
-        best = { x, y, cx, cy };
-      }
-    }
-
-    // fallback: just random inside safe rect
-    if(!best){
-      const x = rand(left, W);
-      const y = rand(top, H);
-      best = { x, y, cx:x+size/2, cy:y+size/2 };
-    }
-
-    // record
-    this._recent.push({ x: best.cx, y: best.cy, r: size/2, ts: performance.now() });
-    return best;
-  }
-
   spawnTarget(data){
     if (!this.layer || !data) return;
+
+    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
 
-    const size = clamp(Number(data.sizePx) || 120, 68, 260); // PATCH E: cap max size
+    const size = clamp(Number(data.sizePx) || 110, 64, 260);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // PATCH E: anti-cluster + safe spawn
-    const pos = this._pickNonClusterPos(size);
-    el.style.left = Math.round(pos.x) + 'px';
-    el.style.top = Math.round(pos.y) + 'px';
+    // random position in safe rect
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
 
-    // content
     el.textContent = this._emojiForType(data.type, data.bossEmoji);
 
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
