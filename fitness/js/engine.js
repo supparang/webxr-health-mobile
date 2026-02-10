@@ -1,22 +1,19 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — PATCH E
-// ✅ Renderer stage metrics (avoid HUD/card)
-// ✅ Anti-cluster is inside DomRendererShadow (needs setStageMetrics)
-// ✅ More exciting per-phase intensity (slightly faster + more traps)
-// ✅ Keeps PATCH D: robust AI import + hard TTL miss
+// Shadow Breaker engine — PATCH F
+// ✅ Boss Skills + Telegraph + Ultimate (FEVER Moment)
+// ✅ Keeps PATCH E (stage metrics + anti-cluster via renderer setStageMetrics)
+// ✅ Keeps hard TTL miss removal
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
+import { BossSkills } from './boss-skills.js';
 
 // -------------------------
 // URL params
 // -------------------------
-function getQS(){
-  try { return new URL(location.href).searchParams; }
-  catch { return new URLSearchParams(); }
-}
+function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
 const QS = getQS();
 const q = (k, def='') => (QS.get(k) ?? def);
 const qNum = (k, def=0) => {
@@ -30,11 +27,13 @@ const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
 const HUB  = q('hub','./hub.html');
 
+const $ = (s)=>document.querySelector(s);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const now = ()=>performance.now();
+
 // -------------------------
 // DOM
 // -------------------------
-const $ = (s)=>document.querySelector(s);
-
 const viewMenu   = $('#sb-view-menu');
 const viewPlay   = $('#sb-view-play');
 const viewResult = $('#sb-view-result');
@@ -72,7 +71,6 @@ const bossShieldLabel= $('#sb-boss-shield-label');
 const feverBar   = $('#sb-fever-bar');
 const feverLabel = $('#sb-label-fever');
 
-// Result
 const resTime   = $('#sb-res-time');
 const resScore  = $('#sb-res-score');
 const resMaxCombo = $('#sb-res-max-combo');
@@ -87,20 +85,12 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const now = ()=>performance.now();
-
 function showView(which){
-  viewMenu?.classList.toggle('is-active', which === 'menu');
-  viewPlay?.classList.toggle('is-active', which === 'play');
-  viewResult?.classList.toggle('is-active', which === 'result');
+  viewMenu?.classList.toggle('is-active', which==='menu');
+  viewPlay?.classList.toggle('is-active', which==='play');
+  viewResult?.classList.toggle('is-active', which==='result');
 }
-
-function setScaleX(el, pct){
-  if(!el) return;
-  el.style.transform = `scaleX(${clamp(pct,0,1)})`;
-}
-
+function setScaleX(el,pct){ if(el) el.style.transform = `scaleX(${clamp(pct,0,1)})`; }
 function say(text, cls){
   if(!msgMainEl) return;
   msgMainEl.textContent = text;
@@ -108,7 +98,7 @@ function say(text, cls){
 }
 
 // -------------------------
-// Bosses
+// Data
 // -------------------------
 const BOSSES = [
   { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
@@ -116,23 +106,6 @@ const BOSSES = [
   { name:'Neon Hydra', emoji:'🐉', desc:'คอมโบสำคัญมาก — รักษาจังหวะ', phases: 3 },
 ];
 
-function boss(){ return BOSSES[Math.max(0, Math.min(BOSSES.length-1, bossIndex))]; }
-
-function setBossUI(){
-  const b = boss();
-  bossNameEl && (bossNameEl.textContent = `${b.name} ${b.emoji}`);
-  metaEmoji && (metaEmoji.textContent = b.emoji);
-  metaName && (metaName.textContent = b.name);
-  metaDesc && (metaDesc.textContent = b.desc);
-  bossPhaseLabel && (bossPhaseLabel.textContent = String(phase));
-  bossShieldLabel && (bossShieldLabel.textContent = String(shield));
-  textPhase && (textPhase.textContent = String(phase));
-  textShield && (textShield.textContent = String(shield));
-}
-
-// -------------------------
-// Config
-// -------------------------
 const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
@@ -144,6 +117,19 @@ const DIFF_CONFIG = {
 };
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG0 = DIFF_CONFIG[diff];
+
+function boss(){ return BOSSES[clamp(bossIndex,0,BOSSES.length-1)]; }
+function setBossUI(){
+  const b = boss();
+  bossNameEl && (bossNameEl.textContent = `${b.name} ${b.emoji}`);
+  metaEmoji && (metaEmoji.textContent = b.emoji);
+  metaName && (metaName.textContent = b.name);
+  metaDesc && (metaDesc.textContent = b.desc);
+  bossPhaseLabel && (bossPhaseLabel.textContent = String(phase));
+  bossShieldLabel && (bossShieldLabel.textContent = String(shield));
+  textPhase && (textPhase.textContent = String(phase));
+  textShield && (textShield.textContent = String(shield));
+}
 
 // -------------------------
 // State
@@ -163,31 +149,12 @@ const events = [];
 const session = { pid: PID||'', mode: MODE, diff, timeSec: TIME, startedAt: new Date().toISOString(), endedAt:'', score:0, maxCombo:0, miss:0, phase:1, bossesCleared:0, accPct:0 };
 
 // -------------------------
-// AI import (robust) — same idea as D (kept)
-// -------------------------
-let ai = null;
-async function loadAI(){
-  try{
-    const mod = await import('./ai-predictor.js');
-    const Ctor = mod?.AIPredictor || mod?.default || null;
-    ai = Ctor ? new Ctor() : (window.RB_AI || null);
-  }catch(_e){
-    ai = window.RB_AI || null;
-  }
-}
-await loadAI();
-
-// -------------------------
 // Renderer
 // -------------------------
-const renderer = new DomRendererShadow(layerEl, {
-  onTargetHit
-});
+const renderer = new DomRendererShadow(layerEl, { onTargetHit });
 renderer.setDifficulty(diff);
 
-// PATCH E: measure HUD/card sizes -> setStageMetrics()
 function measureStageMetrics(){
-  // In this layout: HUD top exists in play view, bottom exists, boss card is aside
   const topHud = document.querySelector('.sb-hud-top');
   const bottomHud = document.querySelector('.sb-hud-bottom');
   const bossCard = document.querySelector('.sb-boss-card');
@@ -195,11 +162,9 @@ function measureStageMetrics(){
   const topHudH = topHud ? topHud.getBoundingClientRect().height : 0;
   const bottomHudH = bottomHud ? bottomHud.getBoundingClientRect().height : 0;
 
-  // boss card only blocks if it sits next to layer (desktop); on mobile it's below (css)
   let rightPanelW = 0;
   if(bossCard){
     const st = getComputedStyle(bossCard);
-    // if it's in same row grid, it takes width
     if(st.position !== 'fixed'){
       rightPanelW = bossCard.getBoundingClientRect().width + 12;
     }
@@ -214,7 +179,7 @@ function measureStageMetrics(){
 }
 
 // -------------------------
-// TTL hard expiry (same as D)
+// TTL miss removal (fix "เป้าไม่หาย")
 // -------------------------
 const ttlTimers = new Map();
 function clearTTL(id){
@@ -238,8 +203,100 @@ function scheduleTTL(id, ttlMs){
     events.push({ t:(TIME*1000-timeLeft), type:'miss', id });
 
     setHUD();
-  }, Math.max(60, (ttlMs|0) + 50));
+  }, Math.max(80, (ttlMs|0) + 50));
   ttlTimers.set(id, t);
+}
+
+// -------------------------
+// PATCH F: Ultimate UI (injected)
+// -------------------------
+let ultReady = false;
+let ultActiveUntil = 0;
+let ultCooldownUntil = 0;
+
+let ultBtn = null;
+function ensureUltimateBtn(){
+  if(ultBtn) return ultBtn;
+  ultBtn = document.createElement('button');
+  ultBtn.id = 'sb-btn-ultimate';
+  ultBtn.className = 'sb-ult-btn';
+  ultBtn.type = 'button';
+  ultBtn.textContent = '⚡ ULTIMATE';
+  ultBtn.style.display = 'none';
+  document.body.appendChild(ultBtn);
+
+  ultBtn.addEventListener('click', ()=>{
+    if(!running || ended || paused) return;
+    if(!ultReady) return;
+    if(now() < ultCooldownUntil) return;
+    activateUltimate();
+  });
+
+  return ultBtn;
+}
+
+function activateUltimate(){
+  // consume FEVER
+  ultReady = false;
+  fever = 0;
+  ultActiveUntil = now() + 3600;     // 3.6s power window
+  ultCooldownUntil = now() + 6200;   // cooldown
+  document.body.classList.add('sb-ult-on');
+  say('ULTIMATE! 🔥 ตีรัว ๆ!', 'perfect');
+  events.push({ t:(TIME*1000-timeLeft), type:'ultimate', on:1 });
+
+  // "freeze" feel: briefly slow spawns + more normals
+  // (handled in tick by scaling spawn interval)
+
+  // end marker
+  setTimeout(()=>{
+    document.body.classList.remove('sb-ult-on');
+    events.push({ t:(TIME*1000-timeLeft), type:'ultimate', on:0 });
+  }, 3650);
+
+  // burst reward targets (kids love this)
+  burstSpawn([
+    { type:'normal', count: 6, sizeMul: 0.96, ttlMul: 0.92 },
+    { type:'bossface', count: 1, sizeMul: 1.08, ttlMul: 0.92 }
+  ], 'ultimateBurst');
+}
+
+// -------------------------
+// PATCH F: Boss Skills + Telegraph
+// -------------------------
+const skills = new BossSkills({
+  onTelegraph: ({name, ms, kind})=>{
+    if(!running || ended) return;
+    // visual telegraph
+    layerEl?.classList.add('sb-telegraph');
+    document.body.classList.add('sb-tele-on');
+    say(`⚠️ ${name}! เตรียมตัว!`, kind==='reward' ? 'good' : 'miss');
+    events.push({ t:(TIME*1000-timeLeft), type:'telegraph', name, ms, kind });
+
+    setTimeout(()=>{
+      layerEl?.classList.remove('sb-telegraph');
+      document.body.classList.remove('sb-tele-on');
+    }, Math.max(240, ms|0));
+  },
+  onFire: (payload)=>{
+    if(!running || ended) return;
+    burstSpawn(payload.plan || [], payload.tag || 'skill');
+    events.push({ t:(TIME*1000-timeLeft), type:'skill', tag: payload.tag || '', plan: (payload.plan||[]).map(p=>({t:p.type,c:p.count})) });
+  }
+});
+
+function burstSpawn(plan, tag='burst'){
+  if(!plan || !plan.length) return;
+  for(const p of plan){
+    const type = p.type || 'normal';
+    const count = Math.max(1, Math.min(16, p.count|0));
+    const sizeMul = clamp(Number(p.sizeMul)||1, 0.75, 1.25);
+    const ttlMul  = clamp(Number(p.ttlMul)||1, 0.75, 1.30);
+
+    for(let i=0;i<count;i++){
+      spawnOne({ forcedType: type, sizeMul, ttlMul, tag });
+    }
+  }
 }
 
 // -------------------------
@@ -257,23 +314,33 @@ function setHUD(){
   setScaleX(hpBossBottom, bossHp/BOSS_HP_MAX);
 
   setScaleX(feverBar, fever/FEVER_MAX);
+
+  // FEVER ready => ultimate ready (play mode only)
+  if(fever >= FEVER_MAX && MODE !== 'research'){
+    ultReady = true;
+  }
+  const on = ultReady && MODE !== 'research';
+  ensureUltimateBtn();
+  if(ultBtn){
+    ultBtn.style.display = on ? 'flex' : 'none';
+    ultBtn.classList.toggle('is-ready', on);
+    ultBtn.textContent = on ? '⚡ ULTIMATE (READY)' : '⚡ ULTIMATE';
+  }
+
   if(feverLabel){
-    const on = fever >= FEVER_MAX;
-    feverLabel.textContent = on ? 'READY' : `FEVER ${Math.round(fever)}%`;
-    feverLabel.classList.toggle('on', on);
+    const ready = fever >= FEVER_MAX;
+    feverLabel.textContent = ready ? 'READY' : `${Math.round(fever)}%`;
+    feverLabel.classList.toggle('on', ready);
   }
 }
 
 // -------------------------
-// Intensity (PATCH E)
+// Difficulty / excitement scaling
 // -------------------------
-// Phase makes it more exciting: slightly faster spawn + more bomb/decoy
 function phaseIntensityMul(){
-  // phase: 1..3 => mul 1.00, 0.92, 0.86
   return clamp(1.04 - (phase-1)*0.09, 0.82, 1.04);
 }
 function trapBoost(){
-  // phase increases traps a bit
   return clamp((phase-1)*0.035, 0, 0.085);
 }
 
@@ -295,39 +362,47 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-function spawnOne(){
+function spawnOne(opts = {}){
   const id = Math.floor(Math.random()*1e9);
 
-  // roll with phase traps
-  const roll = Math.random();
   const b = trapBoost();
+  const roll = Math.random();
 
-  let type = 'normal';
-  // base rates: bomb 0.08, decoy 0.07, heal 0.05, shield 0.06
-  // phase boost: more bomb/decoy a bit
-  const pBomb  = 0.08 + b;
-  const pDecoy = 0.15 + b;     // cumulative after bomb
-  const pHeal  = 0.20;         // keep stable
-  const pShield= 0.26;         // keep stable
+  let type = opts.forcedType || 'normal';
+  if(!opts.forcedType){
+    const pBomb  = 0.08 + b;
+    const pDecoy = 0.15 + b;
+    const pHeal  = 0.20;
+    const pShield= 0.26;
 
-  if(roll < pBomb) type='bomb';
-  else if(roll < pDecoy) type='decoy';
-  else if(roll < pHeal) type='heal';
-  else if(roll < pShield) type='shield';
+    if(roll < pBomb) type='bomb';
+    else if(roll < pDecoy) type='decoy';
+    else if(roll < pHeal) type='heal';
+    else if(roll < pShield) type='shield';
 
-  if(bossHp <= 26 && Math.random() < 0.22){
-    type = 'bossface';
+    if(bossHp <= 26 && Math.random() < 0.22){
+      type = 'bossface';
+    }
   }
 
-  // size
-  let sizePx = CFG0.baseSize;
-  if(type==='bossface') sizePx = CFG0.baseSize * 1.14; // PATCH E: slightly smaller bossface than before
-  if(type==='bomb') sizePx = CFG0.baseSize * 1.03;
+  const sizeMul = clamp(Number(opts.sizeMul)||1, 0.75, 1.25);
+  const ttlMul  = clamp(Number(opts.ttlMul)||1, 0.75, 1.30);
 
-  renderer.spawnTarget({ id, type, sizePx, bossEmoji: boss().emoji, ttlMs: CFG0.ttl });
+  let sizePx = CFG0.baseSize * sizeMul;
+  if(type === 'bossface') sizePx = CFG0.baseSize * 1.14 * sizeMul;
+  if(type === 'bomb') sizePx = CFG0.baseSize * 1.03 * sizeMul;
 
-  scheduleTTL(id, CFG0.ttl);
-  events.push({ t:(TIME*1000-timeLeft), type:'spawn', id, targetType:type, sizePx:Math.round(sizePx) });
+  const ttl = Math.round(CFG0.ttl * ttlMul);
+
+  renderer.spawnTarget({
+    id, type,
+    sizePx,
+    bossEmoji: boss().emoji,
+    ttlMs: ttl
+  });
+
+  scheduleTTL(id, ttl);
+  events.push({ t:(TIME*1000-timeLeft), type:'spawn', id, targetType:type, sizePx:Math.round(sizePx), tag: opts.tag||'' });
 }
 
 function onTargetHit(id, pt){
@@ -339,45 +414,54 @@ function onTargetHit(id, pt){
   clearTTL(id);
 
   const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
+
   dl.onHit();
 
   let grade='good', scoreDelta=0;
 
+  const ultOn = now() < ultActiveUntil;
+
   if(type==='decoy'){
-    grade='bad'; scoreDelta=-6; combo=0;
+    grade='bad'; scoreDelta= ultOn ? -2 : -6; combo=0;
     say('หลงเป้าล่อ!', 'bad');
   }else if(type==='bomb'){
-    grade='bomb'; scoreDelta=-14; combo=0;
+    grade='bomb'; scoreDelta= ultOn ? -6 : -14; combo=0;
     if(shield>0){
       shield--; scoreDelta=0; grade='shield';
       say('กันระเบิดด้วย Shield!', 'good');
     }else{
-      youHp = Math.max(0, youHp-18);
+      youHp = Math.max(0, youHp-(ultOn ? 10 : 18));
       say('โดนระเบิด!', 'bad');
     }
   }else if(type==='heal'){
     grade='heal'; scoreDelta=6;
-    youHp = Math.min(YOU_HP_MAX, youHp+16);
+    youHp = Math.min(YOU_HP_MAX, youHp + (ultOn ? 22 : 16));
     say('+HP!', 'good');
   }else if(type==='shield'){
     grade='shield'; scoreDelta=6;
     shield = Math.min(5, shield+1);
     say('+SHIELD!', 'good');
   }else if(type==='bossface'){
-    grade='perfect'; scoreDelta=18; combo++;
-    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX*CFG0.bossFaceDmg));
+    grade='perfect';
+    scoreDelta = ultOn ? 26 : 18;
+    combo++;
+    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * (ultOn ? (CFG0.bossFaceDmg*1.18) : CFG0.bossFaceDmg)));
     say('CRIT! ใส่หน้า Boss!', 'perfect');
   }else{
-    grade = (fever>=FEVER_MAX) ? 'perfect':'good';
-    scoreDelta = (grade==='perfect') ? 14 : 10;
+    const perfect = (ultOn || fever >= FEVER_MAX);
+    grade = perfect ? 'perfect' : 'good';
+    scoreDelta = perfect ? (ultOn ? 18 : 14) : 10;
     combo++;
-    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX*CFG0.bossDmg));
-    say(grade==='perfect' ? 'PERFECT!' : 'ดีมาก!', grade==='perfect' ? 'perfect':'good');
+    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * (ultOn ? (CFG0.bossDmg*1.16) : CFG0.bossDmg)));
+    say(perfect ? 'PERFECT!' : 'ดีมาก!', perfect ? 'perfect' : 'good');
   }
 
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
-  fever = clamp(fever + (grade==='perfect' ? 10 : 6), 0, FEVER_MAX);
+
+  // fever gain
+  const feverGain = (grade==='perfect') ? (ultOn ? 7 : 10) : 6;
+  fever = clamp(fever + feverGain, 0, FEVER_MAX);
 
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
@@ -434,34 +518,53 @@ function tick(){
   if(paused) return;
 
   // update safe-zone occasionally
-  if((Math.random()<0.06)) measureStageMetrics();
+  if(Math.random() < 0.06) measureStageMetrics();
 
   const t = now();
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // phase intensity affects spawn
+  // spawn interval
   const mul = phaseIntensityMul();
-  const spawnMin = CFG0.spawnMin * mul;
-  const spawnMax = CFG0.spawnMax * mul;
+
+  // PATCH F: Ultimate slows spawn slightly (gives "slow-mo control" feel)
+  const ultOn = t < ultActiveUntil;
+  const slowMul = ultOn ? 1.18 : 1.0;
+
+  const spawnMin = CFG0.spawnMin * mul * slowMul;
+  const spawnMax = CFG0.spawnMax * mul * slowMul;
 
   const since = t - tLastSpawn;
   const targetInterval = clamp(spawnMin + Math.random()*(spawnMax-spawnMin), 420, 1800);
 
   if(since >= targetInterval){
     tLastSpawn = t;
-    spawnOne();
+
+    // During ultimate: bias normals (reward feeling)
+    if(ultOn && Math.random() < 0.72){
+      spawnOne({ forcedType:'normal', sizeMul:0.96, ttlMul:0.92, tag:'ult' });
+    }else{
+      spawnOne();
+    }
+
     dl.onShot();
   }
 
+  // FEVER decay while "ready" (keeps tension)
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
-  // optional AI (play only)
-  if(MODE !== 'research' && ai && typeof ai.predict === 'function'){
-    // can hook later
-    // ai.predict({ score, combo, miss, fever, youHp, bossHp, phase, diff, shield });
+  // Boss skill system only in play (not research) to keep research clean/deterministic
+  if(MODE !== 'research'){
+    skills.tick(dt, {
+      diffKey: diff,
+      phase,
+      bossIndex,
+      feverOn: ultOn,
+      youHpPct: youHp/YOU_HP_MAX,
+      bossHpPct: bossHp/BOSS_HP_MAX
+    });
   }
 
   if(timeLeft <= 0) endGame('timeup');
@@ -477,11 +580,16 @@ function start(mode){
   youHp=YOU_HP_MAX; bossHp=BOSS_HP_MAX;
   bossIndex=0; phase=1; bossesCleared=0;
 
+  ultReady = false;
+  ultActiveUntil = 0;
+  ultCooldownUntil = 0;
+
   for(const [,t] of ttlTimers.entries()) clearTimeout(t);
   ttlTimers.clear();
 
   dl.reset();
   renderer.destroy();
+  skills.reset();
 
   setBossUI();
   setHUD();
@@ -489,39 +597,17 @@ function start(mode){
 
   showView('play');
 
-  // measure once at start + after small delay (layout settle)
   measureStageMetrics();
   setTimeout(measureStageMetrics, 120);
 
   tStart = now();
   tLastSpawn = tStart;
+
+  ensureUltimateBtn();
   requestAnimationFrame(tick);
 }
 
-// UI binds
-btnPlay?.addEventListener('click', ()=> start('normal'));
-btnResearch?.addEventListener('click', ()=> start('research'));
-btnHowto?.addEventListener('click', ()=>{
-  if(!howtoBox) return;
-  howtoBox.style.display = (howtoBox.style.display==='none'||!howtoBox.style.display) ? '' : 'none';
-});
-btnBackMenu?.addEventListener('click', ()=>{
-  running=false; ended=false; paused=false;
-  for(const [,t] of ttlTimers.entries()) clearTimeout(t);
-  ttlTimers.clear();
-  renderer.destroy();
-  showView('menu');
-});
-btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
-
-btnRetry?.addEventListener('click', ()=> start(MODE));
-btnMenu?.addEventListener('click', ()=>{
-  for(const [,t] of ttlTimers.entries()) clearTimeout(t);
-  ttlTimers.clear();
-  renderer.destroy();
-  showView('menu');
-});
-
+// downloads
 function downloadCSV(filename, rows){
   if(!rows || !rows.length) return;
   const esc = (v)=> String(v ?? '').replace(/"/g,'""');
@@ -537,6 +623,34 @@ function downloadCSV(filename, rows){
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 800);
 }
+
+// UI binds
+btnPlay?.addEventListener('click', ()=> start('normal'));
+btnResearch?.addEventListener('click', ()=> start('research'));
+
+btnHowto?.addEventListener('click', ()=>{
+  if(!howtoBox) return;
+  howtoBox.classList.toggle('is-on');
+});
+
+btnBackMenu?.addEventListener('click', ()=>{
+  running=false; ended=false; paused=false;
+  for(const [,t] of ttlTimers.entries()) clearTimeout(t);
+  ttlTimers.clear();
+  renderer.destroy();
+  showView('menu');
+});
+
+btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
+
+btnRetry?.addEventListener('click', ()=> start(MODE));
+btnMenu?.addEventListener('click', ()=>{
+  for(const [,t] of ttlTimers.entries()) clearTimeout(t);
+  ttlTimers.clear();
+  renderer.destroy();
+  showView('menu');
+});
+
 btnEvtCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_events.csv', events));
 btnSesCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_session.csv', [session]));
 
@@ -544,7 +658,3 @@ btnSesCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_session.csv
 showView('menu');
 setBossUI();
 setHUD();
-try{
-  const hubBtn = document.getElementById('sb-btn-hub');
-  if(hubBtn && HUB) hubBtn.href = HUB;
-}catch(_){}
