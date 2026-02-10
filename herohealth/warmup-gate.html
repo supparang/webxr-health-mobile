@@ -314,7 +314,6 @@
       <section class="panel">
         <div id="screen-select">
           <div class="note" id="routeNote"></div>
-
           <div style="height:10px;"></div>
 
           <div class="grid3">
@@ -560,6 +559,7 @@
   // ------------------------------
   let timerId = null;
   let tickId = null;
+  let started = false; // ✅ PATCH: guard double-start
 
   const state = {
     mode: null,   // breathing | meditation | stretching | cooldown
@@ -573,6 +573,7 @@
     // meditation
     goodHits: 0,
     streak: 0,
+    bestStreak: 0, // ✅ PATCH
 
     // stretching
     holding: false,
@@ -595,17 +596,24 @@
   }
   function resetRunState(){
     stopTimers();
+    started = true;
+
     state.tLeft = (PHASE==='cooldown') ? COOLDOWN_SECONDS : WARMUP_SECONDS;
     state.pct = 0;
+
     state.combo = 0;
     state.perfect = 0;
     state.miss = 0;
+
     state.goodHits = 0;
     state.streak = 0;
+    state.bestStreak = 0;
+
     state.holding = false;
     state.holdMs = 0;
     state.waveOn = false;
     state.wavePassed = 0;
+
     state.calm = 0;
 
     setCombo(0);
@@ -648,7 +656,7 @@
       buff.miss = state.miss;
     } else if(state.mode === 'meditation'){
       buff.dmgReduce = +(0.06 + (pct/100)*0.10).toFixed(3); // 0.06..0.16
-      buff.streak = state.streak;
+      buff.bestStreak = state.bestStreak; // ✅ PATCH
     } else if(state.mode === 'stretching'){
       buff.healBonus = Math.round(4 + (pct/100)*6); // 4..10
       buff.wavePassed = state.wavePassed;
@@ -690,6 +698,7 @@
     if(buff.dmgReduce !== undefined) add.wDmg = buff.dmgReduce;
     if(buff.healBonus !== undefined) add.wHeal = buff.healBonus;
     if(buff.calm !== undefined) add.calm = buff.calm;
+    if(buff.bestStreak !== undefined) add.wBestStreak = buff.bestStreak; // optional
 
     const url = buildUrl(nextUrl, add);
     if(url) location.href = url;
@@ -708,14 +717,12 @@
     doneJson.textContent = JSON.stringify(buff, null, 2);
     show('done');
 
-    // enable/disable "go"
     const nextResolved = resolveNextMaybeRandom();
     $('#btn-go').disabled = !(nextResolved || (PHASE==='cooldown' && HUB));
 
     try{ burstEmoji(50,50,'🏆'); }catch(_){}
     try{ window.dispatchEvent(new CustomEvent('hha:warmup_done', { detail: buff })); }catch(_){}
 
-    // ✅ AUTO NEXT for enforced flow
     if(AUTONEXT){
       setTimeout(()=>goNextWithBuff(), 650);
     }
@@ -725,8 +732,8 @@
   // Modes
   // ------------------------------
 
-  // 1) Breathing: tap on beat
   function startBreathing(){
+    if(started) return;
     resetRunState();
     state.mode = 'breathing';
     modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
@@ -734,7 +741,6 @@
     runTitle.textContent = `⚔️ Breathing — PERFECT WINDOW (${WARMUP_SECONDS}s)`;
     runHint.textContent = 'กดตามจังหวะ (ใกล้บีท = PERFECT) | หลุดจังหวะ = MISS';
 
-    // beat: 0.9s / perfect window ±140ms
     const beatMs = 900;
     const windowMs = 140;
     let nextBeatAt = performance.now() + beatMs;
@@ -751,7 +757,6 @@
 
     function judgeTap(){
       const now = performance.now();
-      // advance beat if too late
       while(nextBeatAt < now - windowMs) nextBeatAt += beatMs;
 
       const diff = Math.abs(now - nextBeatAt);
@@ -785,7 +790,6 @@
     let t = WARMUP_SECONDS;
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
 
-    // beat hint
     tickId = setInterval(()=>{
       const now = performance.now();
       const remain = nextBeatAt - now;
@@ -794,8 +798,8 @@
     }, 60);
   }
 
-  // 2) Meditation: tap green only
   function startMeditation(){
+    if(started) return;
     resetRunState();
     state.mode = 'meditation';
     modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
@@ -837,12 +841,13 @@
     function onGood(){
       state.goodHits++;
       state.streak++;
+      state.bestStreak = Math.max(state.bestStreak, state.streak); // ✅ PATCH
       setCombo(state.combo + 1);
 
       let gain = 8;
       if(state.streak >= 3){
         gain += 18;
-        state.streak = 0;
+        state.streak = 0; // burst resets
         say('FOCUS BURST ✨', 'good');
         flash();
         burstEmoji(48,52,'✨');
@@ -886,7 +891,6 @@
       place(bad);
     }
 
-    // use pointer events for mobile
     good.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onGood(); });
     decoy.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onDecoy(); });
     bad.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onBad(); });
@@ -904,8 +908,8 @@
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 3) Stretching: hold vs wave
   function startStretching(){
+    if(started) return;
     resetRunState();
     state.mode = 'stretching';
     modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
@@ -991,8 +995,8 @@
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 4) Cooldown: calm rank
   function startCooldown(){
+    if(started) return;
     resetRunState();
     state.mode = 'cooldown';
     modeBadge.textContent = 'cooldown';
@@ -1013,6 +1017,7 @@
       </div>
     `;
     const calmBtn = $('#btn-calm');
+    const breatheBtn = $('#btn-breathe');
     const calmStep = $('#calm-step');
 
     calmBtn.addEventListener('click', () => {
@@ -1020,6 +1025,15 @@
       setProgress(state.calm);
       say('CALM +', 'good');
       burstEmoji(50,50,'✨');
+      setRank(calcRank(state.pct));
+    });
+
+    // ✅ PATCH: breathe button actually does something (small boost + feedback)
+    breatheBtn.addEventListener('click', () => {
+      state.calm = clamp(state.calm + 3.5, 0, 100);
+      setProgress(state.calm);
+      say('BREATHE…', 'pink');
+      burstEmoji(50,52,'🌬️');
       setRank(calcRank(state.pct));
     });
 
@@ -1049,17 +1063,21 @@
   // ------------------------------
   // Wire buttons
   // ------------------------------
-  $('#btn-breath').addEventListener('click', startBreathing);
-  $('#btn-meditate').addEventListener('click', startMeditation);
-  $('#btn-stretch').addEventListener('click', startStretching);
+  $('#btn-breath').addEventListener('click', ()=>{ started=false; startBreathing(); });
+  $('#btn-meditate').addEventListener('click', ()=>{ started=false; startMeditation(); });
+  $('#btn-stretch').addEventListener('click', ()=>{ started=false; startStretching(); });
 
   $('#btn-cooldown').addEventListener('click', ()=>{
-    // manual open cooldown: if next not provided, we still allow as mini tool
+    started=false;
     startCooldown();
   });
 
-  $('#btn-stop').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
-  $('#btn-again').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
+  $('#btn-stop').addEventListener('click', ()=>{
+    stopTimers(); started=false; show('select'); say('');
+  });
+  $('#btn-again').addEventListener('click', ()=>{
+    stopTimers(); started=false; show('select'); say('');
+  });
 
   $('#btn-go').addEventListener('click', goNextWithBuff);
   $('#btn-backhub').addEventListener('click', goHub);
@@ -1080,6 +1098,17 @@
     ? `random (from games=...)`
     : (NEXT||'(none)');
 
+  function normalizeWmode(s){
+    const v = (s||'').toLowerCase().trim();
+    if(!v) return '';
+    if(v==='breath' || v==='breathing') return 'breath';
+    if(v==='meditate' || v==='meditation') return 'meditate';
+    if(v==='stretch' || v==='stretching') return 'stretch';
+    if(v==='random') return 'random';
+    return '';
+  }
+  const WM = normalizeWmode(WM0);
+
   if(PHASE === 'cooldown'){
     topTitle.textContent = `😌 Cooldown Boss Gate (${COOLDOWN_SECONDS} วิ)`;
     topSub.textContent = 'ค่อย ๆ หายใจ แล้วกลับ HUB แบบใจนิ่ง';
@@ -1088,9 +1117,12 @@
       ${HUB ? `กลับ HUB: <span class="mono">${HUB}</span>` : 'ยังไม่ส่ง hub มา (ใช้ปุ่ม Back ของเบราว์เซอร์แทนได้)'}
       <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span>
     `;
-    routeMini.textContent = `phase=cooldown  dur=${COOLDOWN_SECONDS}  hub=${HUB||'(none)'}  next=${nextPreview}  autonext=${AUTONEXT?1:0}`;
+    routeMini.textContent = `phase=cooldown  cdur=${COOLDOWN_SECONDS}  hub=${HUB||'(none)'}  next=${nextPreview}  autonext=${AUTONEXT?1:0}`;
     show('run');
-    startCooldown(); // ✅ auto start cooldown
+
+    // auto start cooldown
+    started=false;
+    startCooldown();
   }else{
     topTitle.textContent = `⚔️ Warmup Boss Gate (${WARMUP_SECONDS} วิ)`;
     topSub.textContent = 'เลือกกิจกรรม 1 อย่าง → รับบัฟ → ไปลงสนามจริง';
@@ -1099,24 +1131,21 @@
       ไปเกมต่อ: <span class="mono">${nextPreview}</span>
       ${HUB ? `<br/>HUB: <span class="mono">${HUB}</span>` : ''}
       <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span>
-      <br/>wmode=<span class="mono">${WM0||'(auto)'}</span>
+      <br/>wmode=<span class="mono">${WM||'(auto)'}</span>
     `;
-    routeMini.textContent = `phase=warmup  dur=${WARMUP_SECONDS}  next=${nextPreview}  hub=${HUB||'(none)'}  autonext=${AUTONEXT?1:0}  wmode=${WM0||'(auto)'}`;
+    routeMini.textContent = `phase=warmup  dur=${WARMUP_SECONDS}  next=${nextPreview}  hub=${HUB||'(none)'}  autonext=${AUTONEXT?1:0}  wmode=${WM||'(auto)'}`;
     show('select');
 
-    // ✅ Enforced flow: auto start (no menu) when autonext=1
+    // enforced flow: auto start (no menu) when autonext=1
     if(AUTONEXT){
-      // choose warmup mode:
-      // - if wmode specified -> use it
-      // - else default random for variety
       const modes = ['breath','meditate','stretch'];
-      let choose = (WM0 && modes.includes(WM0)) ? WM0 : 'random';
+      let choose = WM || 'random';
       if(choose === 'random'){
         choose = modes[Math.floor(Math.random()*modes.length)];
       }
 
-      // small delay so UI paints
       setTimeout(()=>{
+        started=false;
         if(choose === 'breath') startBreathing();
         else if(choose === 'meditate') startMeditation();
         else startStretching();
