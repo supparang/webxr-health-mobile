@@ -1,88 +1,332 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR LAUNCHER — ROOT (Warmup Gate)
-✅ Hub -> launcher -> warmup-gate (phase=warmup) -> run (./vr-goodjunk/goodjunk-vr.html)
-✅ Prevent loop: if wType exists (already warmed) -> go run directly
-✅ Pass-through: all params except internal launcher keys
+HeroHealth — GoodJunkVR ROOT LAUNCHER (Warmup Gate + Zone Status)
+✅ Path: /herohealth/goodjunk-vr.html  (THIS is the launcher)
+✅ Sends to Warmup Gate when Nutrition zone NOT done today
+✅ If Nutrition done today -> goes straight to run (still can choose Warmup manually)
+✅ Shows daily status for: nutrition / hygiene / fitness (NOT DONE vs DONE TODAY)
+✅ Pass-through ctx: pid,run,diff,time,seed,studyId,phase,conditionGroup,log,view (+ keeps any extra params)
+✅ Does NOT override view if already provided (per your rule)
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — GoodJunk VR (Launcher)</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --sat: env(safe-area-inset-top,0px); --sab: env(safe-area-inset-bottom,0px); }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial; background:
-      radial-gradient(900px 520px at 20% 15%, rgba(34,197,94,.14), transparent 55%),
-      linear-gradient(180deg, #0b1226, var(--bg));
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa; --pink:#ff4fd8;
+
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    .wrap{ height:100%; display:flex; align-items:center; justify-content:center; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); }
-    .card{ width:min(860px,100%); border:1px solid var(--stroke); background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.55)); border-radius:22px; padding:16px; box-shadow: 0 18px 60px rgba(0,0,0,.45); }
-    .h{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; }
-    .title{ margin:0; font-weight:1000; letter-spacing:.2px; font-size:18px; }
-    .sub{ margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.4; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:var(--muted); }
-    .pill{ border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); padding:8px 10px; border-radius:999px; font-size:12px; color:var(--muted); }
-    .pill b{ color:var(--text); font-weight:1000; }
-    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-    .btn{ border:1px solid var(--stroke); background: rgba(2,6,23,.55); color:var(--text); padding:10px 12px; border-radius:14px; cursor:pointer; font-weight:1000; }
-    .btn.primary{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      background:
+        radial-gradient(1200px 700px at 12% 12%, rgba(34,197,94,.16), transparent 55%),
+        radial-gradient(1000px 600px at 82% 20%, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(900px 520px at 55% 92%, rgba(255,79,216,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+    }
+    a{ color:inherit; text-decoration:none; }
+    .wrap{ max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      flex-wrap:wrap;
+      padding: 6px 6px 0;
+    }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{
+      margin:0;
+      font-size: clamp(22px, 2.2vw, 30px);
+      letter-spacing:.2px;
+    }
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.4;
+      max-width: 78ch;
+    }
+
+    .panel{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .head{
+      padding: 12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      flex-wrap:wrap;
+    }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+    }
+    .pill b{ color:var(--text); font-weight:900; }
+
+    .body{
+      padding: 12px 12px 14px;
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px){
+      .body{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      border-radius: 18px;
+      padding: 14px;
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      min-height: 160px;
+    }
+    .card h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; }
+    .card p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
+
+    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.46);
+      padding: 12px 12px;
+      border-radius: 16px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; gap:10px;
+      white-space:nowrap;
+      font-weight:1000;
+      font-size: 13px;
+    }
+    .btn:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); transform: translateY(-1px); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+    .btn.cyan{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+    .btn.ghost{ color: var(--muted); }
+    .btn.disabled{ opacity:.55; cursor:not-allowed; transform:none !important; }
+
+    .zoneGrid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .zoneLine{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.34);
+      padding: 10px 10px;
+      border-radius: 14px;
+      font-size: 13px;
+    }
+    .dot{
+      width:10px; height:10px; border-radius: 999px;
+      background: var(--warn);
+      box-shadow: 0 0 16px rgba(245,158,11,.35);
+      flex: 0 0 auto;
+    }
+    .zoneLine.ok .dot{ background: var(--good); box-shadow: 0 0 16px rgba(34,197,94,.35); }
+    .zoneLeft{ display:flex; align-items:center; gap:10px; }
+    .zoneName{ font-weight:1000; letter-spacing:.2px; }
+    .zoneVal{ color: var(--muted); font-weight:900; }
+
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .note{
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.30);
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="h">
-        <div>
-          <div class="title">🍭 GoodJunk VR — Launcher</div>
-          <p class="sub">กำลังพาไป <b>Warmup Gate</b> แล้วเข้าเกมจริง…</p>
-        </div>
-        <div class="pill">mode: <b id="modeText">—</b></div>
+    <div class="top">
+      <div class="brand">
+        <h1 class="title">🍭 GoodJunk VR — Launcher</h1>
+        <p class="subtitle">
+          ถ้า <b>Nutrition ยังไม่ DONE วันนี้</b> → จะพาไป <b>Warmup Gate 20 วิ</b> ก่อน แล้วค่อยเข้าด่านจริง<br/>
+          ถ้า DONE แล้ว → เข้าด่านจริงได้เลย (ยังเลือก Warmup ซ้ำได้)
+        </p>
       </div>
-      <div class="mono" id="dbg" style="margin-top:10px;"></div>
-      <div class="btnrow">
-        <button class="btn primary" id="btnGo">ไปเลย</button>
-        <button class="btn" id="btnHub">กลับ HUB</button>
-      </div>
+      <div class="pillrow" id="pillrow"></div>
     </div>
+
+    <section class="panel" aria-label="Launcher">
+      <div class="head">
+        <div class="pillrow">
+          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
+          <span class="pill"><b>zone</b>: nutrition</span>
+          <span class="pill"><b>launcher</b>: /herohealth/goodjunk-vr.html</span>
+        </div>
+        <div class="pillrow">
+          <span class="pill"><b>run</b>: <span class="mono" id="runPath">—</span></span>
+        </div>
+      </div>
+
+      <div class="body">
+        <!-- LEFT: main actions -->
+        <div class="card">
+          <h3>🚀 เข้าเล่น</h3>
+          <p id="gateText">กำลังตรวจสอบ Daily Gate…</p>
+
+          <div class="btnrow">
+            <button class="btn good" id="btnPlayAuto">▶️ Play (Auto Gate)</button>
+            <button class="btn cyan" id="btnWarmup">⚔️ Warmup Gate</button>
+            <button class="btn warn" id="btnRunOnly">🎯 Run (Skip Gate)</button>
+            <button class="btn ghost" id="btnHub">🏠 กลับ HUB</button>
+          </div>
+
+          <div class="note">
+            <div><b>Auto Gate rule:</b> ถ้า nutrition <b>NOT DONE</b> วันนี้ → ส่งไป <span class="mono">warmup-gate.html</span> (autonext=1)</div>
+            <div style="margin-top:6px;"><b>Skip Gate:</b> ใช้ตอนทดสอบ/ดีบักเท่านั้น (ไม่เหมาะ research)</div>
+          </div>
+
+          <div class="note" id="routeNote"></div>
+        </div>
+
+        <!-- RIGHT: zone status -->
+        <div class="card">
+          <h3>📌 สถานะ “วันนี้ยังไม่เคยมา”</h3>
+          <p>แสดงตาม localStorage รายโซน (DONE TODAY / NOT DONE)</p>
+
+          <div class="zoneGrid">
+            <div class="zoneLine" id="zNutrition">
+              <div class="zoneLeft"><span class="dot"></span><span class="zoneName">🥗 Nutrition</span></div>
+              <div class="zoneVal" id="vNutrition">—</div>
+            </div>
+            <div class="zoneLine" id="zHygiene">
+              <div class="zoneLeft"><span class="dot"></span><span class="zoneName">🧼 Hygiene</span></div>
+              <div class="zoneVal" id="vHygiene">—</div>
+            </div>
+            <div class="zoneLine" id="zFitness">
+              <div class="zoneLeft"><span class="dot"></span><span class="zoneName">🏃 Fitness</span></div>
+              <div class="zoneVal" id="vFitness">—</div>
+            </div>
+          </div>
+
+          <div class="btnrow" style="margin-top:12px;">
+            <button class="btn ghost" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</button>
+          </div>
+
+          <div class="note">
+            Key ที่ใช้: <span class="mono">HHA_ZONE_DONE::&lt;zone&gt;::YYYY-MM-DD</span><br/>
+            หมายเหตุ: การ “DONE” จะถูกเซ็ตโดย <b>ด่านจริง/คูลดาวน์</b> (ตามแพ็กที่เราจะใส่ใน run)
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
+
+  <div class="toast" id="toast"></div>
 
 <script>
 (function(){
   'use strict';
 
-  const RUN_PATH = './vr-goodjunk/goodjunk-vr.html'; // ✅ run จริง
+  // -----------------------------
+  // constants
+  // -----------------------------
+  const ZONE = 'nutrition';
+  const RUN_PATH = './vr-goodjunk/goodjunk-vr.html';
   const WARMUP_GATE = './warmup-gate.html';
+  const DEFAULT_WARMUP_SEC = 20;
+  const DEFAULT_COOLDOWN_SEC = 20;
 
-  function qs(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = qs();
-  const q = (k, d='') => (QS.get(k) ?? d);
+  // -----------------------------
+  // helpers: QS / URL
+  // -----------------------------
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
 
-  function getPid(){
-    return (q('pid','') || q('studyId','') || 'anon').trim() || 'anon';
+  function q(k, def=''){ const v = QS.get(k); return (v==null ? def : v); }
+
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
   }
 
-  function getView(){
-    // ✅ do not override if view exists
-    const v = (q('view','')||'').toLowerCase();
-    if(v) return v;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    return isMobile ? 'mobile' : 'pc';
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function clearZoneToday(zone){
+    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
   }
 
-  function passthrough(denySet){
-    const deny = denySet || new Set();
-    const out = {};
-    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-    return out;
-  }
-
+  // Build URL with passthrough: keep ALL params except a deny set (we don't want to forward "next/hub/phase/dur/..." from gate)
   function buildUrl(base, add){
     const u = new URL(base, location.href);
+    // add explicit extras
     Object.entries(add||{}).forEach(([k,v])=>{
       if(v===undefined || v===null || String(v).trim()==='') return;
       u.searchParams.set(k, String(v));
@@ -90,58 +334,177 @@ GoodJunkVR LAUNCHER — ROOT (Warmup Gate)
     return u.toString();
   }
 
-  const HUB = q('hub','') || './hub.html';
+  // passthrough all current params EXCEPT those that are gate-routing internals
+  function getPassthrough(){
+    const deny = new Set([
+      'next','hub','phase','dur','cdur','games','autonext','wmode'
+    ]);
+    const out = {};
+    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
 
-  function goHub(){ location.href = HUB; }
+  // always ensure hub param (for return)
+  function resolveHub(){
+    const hub = (q('hub','')||'').trim();
+    if(hub) return hub;
+    // fallback: if came from hub.html without hub param, set hub to /herohealth/hub.html
+    // (safe default; you can change to './hub.html' if your hub is in /herohealth)
+    return './hub.html';
+  }
+
+  // toast
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
+
+  // pills (ctx display)
+  function renderPills(){
+    const keys = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
+    const pills = keys
+      .map(k => [k, QS.get(k)])
+      .filter(x => x[1]!=null && String(x[1]).trim()!=='')
+      .slice(0, 12);
+
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
+
+  // zone status UI
+  function setZoneLine(lineId, valId, done){
+    const line = document.getElementById(lineId);
+    const val = document.getElementById(valId);
+    if(!line || !val) return;
+    line.classList.toggle('ok', !!done);
+    val.textContent = done ? 'DONE TODAY' : 'NOT DONE';
+  }
+
+  function syncZoneStatus(){
+    document.getElementById('todayText').textContent = ymdLocal();
+
+    const nut = isZoneDoneToday('nutrition');
+    const hyg = isZoneDoneToday('hygiene');
+    const fit = isZoneDoneToday('fitness');
+
+    setZoneLine('zNutrition','vNutrition', nut);
+    setZoneLine('zHygiene','vHygiene', hyg);
+    setZoneLine('zFitness','vFitness', fit);
+
+    return { nut, hyg, fit };
+  }
+
+  // route note
+  function renderRouteNote(nutDone){
+    const hub = resolveHub();
+    const warm = Math.max(5, Math.min(60, Number(q('dur', String(DEFAULT_WARMUP_SEC))) || DEFAULT_WARMUP_SEC));
+    const cdur = Math.max(5, Math.min(60, Number(q('cdur', String(DEFAULT_COOLDOWN_SEC))) || DEFAULT_COOLDOWN_SEC));
+
+    const note = document.getElementById('routeNote');
+    const gateText = document.getElementById('gateText');
+    const runPath = document.getElementById('runPath');
+    runPath.textContent = RUN_PATH;
+
+    gateText.innerHTML = nutDone
+      ? `✅ Nutrition <b>DONE TODAY</b> — เข้าเล่นได้เลย (หรือจะ Warmup ซ้ำก็ได้)`
+      : `⚠️ Nutrition <b>NOT DONE</b> วันนี้ — แนะนำให้ผ่าน <b>Warmup Gate</b> ก่อน`;
+
+    // preview where buttons go
+    const nextRun = buildUrl(RUN_PATH, { ...getPassthrough(), hub });
+    const toWarmup = buildUrl(WARMUP_GATE, {
+      ...getPassthrough(),
+      phase: 'warmup',
+      autonext: 1,
+      dur: warm,
+      cdur: cdur,
+      hub,
+      next: nextRun
+    });
+
+    note.innerHTML = `
+      <b>Route preview</b><br/>
+      hub: <span class="mono">${hub.replace(/</g,'&lt;')}</span><br/>
+      warmup: <span class="mono">${toWarmup.replace(/</g,'&lt;')}</span><br/>
+      run: <span class="mono">${nextRun.replace(/</g,'&lt;')}</span>
+    `;
+  }
+
+  // navigation actions
+  function goHub(){
+    const hub = resolveHub();
+    location.href = hub;
+  }
 
   function goRun(){
-    const deny = new Set(['next','phase','dur','cdur','games','autonext','wmode','skipWarmup']);
-    const add = passthrough(deny);
-    if(!add.hub) add.hub = HUB;
-    if(!add.pid) add.pid = getPid();
-    if(!add.view) add.view = getView();
-    location.href = buildUrl(RUN_PATH, add);
+    const hub = resolveHub();
+    const url = buildUrl(RUN_PATH, { ...getPassthrough(), hub });
+    location.href = url;
   }
 
-  function goWarmup(){
-    const deny = new Set(['next','phase','dur','cdur','games','autonext','wmode']);
-    const ctx = passthrough(deny);
+  function goWarmupGate(){
+    const hub = resolveHub();
+    const warm = Math.max(5, Math.min(60, Number(q('dur', String(DEFAULT_WARMUP_SEC))) || DEFAULT_WARMUP_SEC));
+    const cdur = Math.max(5, Math.min(60, Number(q('cdur', String(DEFAULT_COOLDOWN_SEC))) || DEFAULT_COOLDOWN_SEC));
 
-    if(!ctx.hub) ctx.hub = HUB;
-    if(!ctx.pid) ctx.pid = getPid();
-    if(!ctx.view) ctx.view = getView();
-
-    const dur = q('dur','20') || '20';
-    location.href = buildUrl(WARMUP_GATE, {
+    const nextRun = buildUrl(RUN_PATH, { ...getPassthrough(), hub });
+    const url = buildUrl(WARMUP_GATE, {
+      ...getPassthrough(),
       phase: 'warmup',
-      dur,
-      next: RUN_PATH,
-      hub: HUB,
-      autonext: '1',
-      wmode: 'random',
-      ...ctx
+      autonext: 1,
+      dur: warm,
+      cdur: cdur,
+      hub,
+      next: nextRun
     });
+    location.href = url;
   }
 
-  // prevent loop: warmup already done => has wType (or wPct)
-  const alreadyWarm = !!(q('wType','') || q('wPct',''));
-  const skipWarm = (q('skipWarmup','0') === '1');
+  function goAuto(){
+    // Auto Gate rule: if zone not done -> warmup, else run
+    const nutDone = isZoneDoneToday('nutrition');
+    if(nutDone) goRun();
+    else goWarmupGate();
+  }
 
-  document.getElementById('modeText').textContent = alreadyWarm ? 'RUN (warmed)' : 'WARMUP → RUN';
-  document.getElementById('dbg').textContent =
-    `pid=${getPid()}  view=${getView()}  warmed=${alreadyWarm?1:0}  skipWarmup=${skipWarm?1:0}`;
+  // -----------------------------
+  // init
+  // -----------------------------
+  renderPills();
+  const st = syncZoneStatus();
+  renderRouteNote(st.nut);
 
+  // buttons
   document.getElementById('btnHub').addEventListener('click', goHub);
-  document.getElementById('btnGo').addEventListener('click', ()=>{
-    if(skipWarm || alreadyWarm) goRun();
-    else goWarmup();
+  document.getElementById('btnRunOnly').addEventListener('click', ()=>{
+    toast('Skip Gate → Run (ทดสอบเท่านั้น)');
+    setTimeout(goRun, 220);
+  });
+  document.getElementById('btnWarmup').addEventListener('click', goWarmupGate);
+  document.getElementById('btnPlayAuto').addEventListener('click', goAuto);
+
+  document.getElementById('btnResetToday').addEventListener('click', ()=>{
+    clearZoneToday('nutrition');
+    clearZoneToday('hygiene');
+    clearZoneToday('fitness');
+    syncZoneStatus();
+    renderRouteNote(false);
+    toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
   });
 
-  // auto
-  if(skipWarm || alreadyWarm) goRun();
-  else goWarmup();
+  // Optional: if user passes ?autostart=1 -> apply auto immediately (good for kiosk)
+  const autostart = String(q('autostart','0')||'0') === '1';
+  if(autostart){
+    setTimeout(goAuto, 350);
+  }
 
 })();
 </script>
+
 </body>
 </html>
