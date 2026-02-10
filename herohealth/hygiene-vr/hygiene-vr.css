@@ -1,9 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260206h
-✅ FIX: .hw-tgt.is-dead vanish immediately (prevents lingering)
-✅ FIX: HUD does NOT block taps (pointer-events:none; enable only buttons)
-✅ FIX: safer spawn zones + mobile/cVR tuning
+PATCH v20260206k
+✅ Fix: target disappears instantly on hit via .is-dead (fade+shrink)
+✅ Fix: prevent HUD covering playfield by improving safe zones + layout tuning
+✅ Keep: vw/vh positioning + responsive views
 */
 
 :root{
@@ -30,8 +30,9 @@ PATCH v20260206h
   --sar: env(safe-area-inset-right, 0px);
 
   /* ✅ spawn safe zones (JS reads these) */
-  --hw-top-safe: 178px;
-  --hw-bottom-safe: 210px;
+  /* เพิ่ม top-safe เล็กน้อย กัน HUD บังเป้า */
+  --hw-top-safe: 190px;
+  --hw-bottom-safe: 200px;
 
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
@@ -59,7 +60,6 @@ button{ font: inherit; }
 .hw-stage{
   position: fixed;
   inset: 0;
-  z-index: 0;
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
@@ -71,7 +71,7 @@ button{ font: inherit; }
 .hw-hud{
   position: fixed;
   inset: 0;
-  pointer-events: none; /* ✅ crucial: HUD won't block taps */
+  pointer-events: none;
   z-index: 50;
 }
 
@@ -117,13 +117,10 @@ button{ font: inherit; }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
-/* ✅ allow only these to be clickable */
 .hw-pill.btn{
-  pointer-events: auto;
+  pointer-events: auto; /* ✅ allow click */
   cursor: pointer;
   background: rgba(15,23,42,.70);
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
@@ -133,7 +130,8 @@ button{ font: inherit; }
   pointer-events: none;
   position: absolute;
   left: 50%;
-  top: calc(118px + var(--sat));
+  /* ลดการบังสนาม: ดันขึ้นเล็กน้อย */
+  top: calc(106px + var(--sat));
   transform: translateX(-50%);
   padding: 10px 12px;
   border-radius: var(--pill);
@@ -226,7 +224,7 @@ button{ font: inherit; }
 
 /* ===== Targets ===== */
 .hw-tgt{
-  position: fixed; /* viewport aligned */
+  position: fixed; /* ✅ place in viewport so obj.x/y align */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -245,7 +243,8 @@ button{ font: inherit; }
   -webkit-tap-highlight-color: transparent;
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
-  touch-action: manipulation; /* ✅ improves mobile tap */
+  /* กัน “ตีแล้วค้าง” ด้วยการให้ transition ทำงานร่วมกับ is-dead */
+  transition: opacity 90ms ease-out, transform 90ms ease-out, filter 90ms ease-out;
 }
 
 .hw-tgt .emoji{
@@ -271,15 +270,15 @@ button{ font: inherit; }
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* ✅ PATCH: vanish immediately on hit */
+/* ✅ PATCH: “ตายแล้ว” ต้องหายทันทีแบบรู้สึกได้ */
 .hw-tgt.is-dead{
   pointer-events: none !important;
   opacity: 0 !important;
+  filter: blur(0.3px);
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .86)) !important;
-  transition: opacity 90ms ease-out, transform 90ms ease-out;
 }
 
-/* subtle pop-in */
+/* subtle float */
 @keyframes hwPopIn{
   from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
@@ -287,7 +286,7 @@ button{ font: inherit; }
 
 /* ===== Quiz box ===== */
 .hw-quiz{
-  pointer-events: auto; /* quiz needs click/tap */
+  pointer-events: auto;
   margin-top: 10px;
   border-radius: var(--r);
   border: 1px solid var(--stroke);
@@ -330,7 +329,6 @@ button{ font: inherit; }
   cursor: pointer;
   box-shadow: 0 16px 50px rgba(0,0,0,.35);
   min-height: 54px;
-  touch-action: manipulation;
 }
 
 .hw-quiz-opt .n{
@@ -365,26 +363,30 @@ button{ font: inherit; }
 
 /* ===== View tweaks ===== */
 body.view-mobile{
-  --hw-top-safe: 188px;
-  --hw-bottom-safe: 240px; /* ✅ more room for mobile browser bars */
+  /* mobile HUD จะกินพื้นที่มาก: ขยับ safe-zone เพิ่มอีก */
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 240px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
 
 body.view-cvr{
-  --hw-top-safe: 168px;
-  --hw-bottom-safe: 260px; /* ✅ keep bottom space for VR UI / browser */
+  /* cVR: HUD มักกินพื้นที่มาก ให้ปล่อยพื้นที่เล่นเพิ่ม */
+  --hw-top-safe: 185px;
+  --hw-bottom-safe: 270px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
 
+/* VR: ลด HUD และขยายปุ่ม */
 body.view-vr{
-  --hw-top-safe: 158px;
+  --hw-top-safe: 175px;
   --hw-bottom-safe: 230px;
 }
 
 /* Quiz on small screens => 1 column */
 @media (max-width: 520px){
   .hw-quiz-opts{ grid-template-columns: 1fr; }
-  .hw-banner{ top: calc(130px + var(--sat)); }
+  /* กัน quiz/banner บังกลางสนาม */
+  .hw-banner{ top: calc(114px + var(--sat)); }
 }
