@@ -1,89 +1,71 @@
 // === /fitness/js/ai-predictor.js ===
-// Shadow Breaker — AI Predictor (DL-lite stub + robust exports)
-// ✅ FIX: provide named exports used by engine.js
-// Exports: AIPredictor, RB_AI (optional compat), default
-
+// Shadow Breaker — AI Predictor (PATCH D)
+// ✅ Provides named export: AIPredictor  (fix import crash)
+// ✅ Also exposes window.RB_AI for legacy/optional consumers
 'use strict';
 
-// DL-lite แบบเบา ๆ (ไม่ใช้ lib) — ใช้ feature ง่าย ๆ เพื่อคาดการณ์ “ความเสี่ยงพลาด”
 export class AIPredictor {
-  constructor(opts = {}) {
-    this.enabled = opts.enabled ?? true;
-    this.last = {
-      risk: 0,
-      fatigue: 0,
-      pace: 0,
-      note: ''
-    };
+  constructor(){
+    this.enabled = true; // play only (engine will keep it harmless)
+    this._last = null;
   }
 
-  setEnabled(v){ this.enabled = !!v; }
-  isEnabled(){ return this.enabled; }
+  isEnabled(){ return !!this.enabled; }
 
-  // snapshot: { missRate, combo, avgRtMs, streakMiss, timeLeftMs, fever, phase, diff }
-  predict(snapshot = {}) {
-    if (!this.enabled) return { ...this.last, note:'disabled' };
+  // snapshot: { t, score, combo, miss, fever, youHp, bossHp, phase, diff, lastHitDtMs? ... }
+  predict(snapshot){
+    // "DL-lite" placeholder (deterministic-ish heuristic)
+    // You can replace internals later with real ML/DL.
+    const s = snapshot || {};
+    const fatigue = this._estimateFatigue(s);
+    const risk = this._estimateRisk(s);
+    const paceMul = this._paceMul(fatigue, risk);
 
-    const missRate = Number(snapshot.missRate ?? 0);        // 0..1
-    const avgRt    = Number(snapshot.avgRtMs ?? 0);         // ms
-    const streakM  = Number(snapshot.streakMiss ?? 0);      // int
-    const combo    = Number(snapshot.combo ?? 0);           // int
-    const phase    = Number(snapshot.phase ?? 1);           // 1..
-    const diff     = String(snapshot.diff ?? 'normal');
+    const tip = this._tip(s, fatigue, risk);
 
-    // normalize
-    const rtScore = clamp((avgRt - 350) / 550, 0, 1);       // 350..900ms
-    const missScore = clamp(missRate / 0.28, 0, 1);         // 0..28% missRate
-    const streakScore = clamp(streakM / 4, 0, 1);
-
-    // fatigue (0..1)
-    const fatigue = clamp(0.45*rtScore + 0.35*missScore + 0.20*streakScore, 0, 1);
-
-    // risk of next miss (0..1)
-    const diffBoost = diff === 'hard' ? 0.10 : diff === 'easy' ? -0.06 : 0;
-    const phaseBoost = clamp((phase-1) * 0.05, 0, 0.15);
-
-    let risk = clamp(0.55*missScore + 0.30*rtScore + 0.15*streakScore + diffBoost + phaseBoost, 0, 1);
-
-    // combo ลด risk นิดหน่อย (คนกำลังเข้าจังหวะ)
-    risk = clamp(risk - clamp(combo/40, 0, 0.18), 0, 1);
-
-    // pace suggestion (spawn interval multiplier)
-    // >1 = ช้าลง, <1 = เร็วขึ้น
-    const pace = clamp(1.0 + (fatigue - 0.5) * 0.35, 0.78, 1.28);
-
-    const note =
-      risk >= 0.72 ? 'high-risk' :
-      risk >= 0.48 ? 'mid-risk'  :
-      'low-risk';
-
-    this.last = { risk, fatigue, pace, note };
-    return this.last;
+    this._last = { fatigue, risk, paceMul, tip };
+    return this._last;
   }
 
-  // micro-tip แบบอธิบายได้ (ไม่ spam)
-  tip(snapshot = {}) {
-    const p = this.predict(snapshot);
-    if (p.note === 'high-risk') {
-      return { code:'reset', text:'จังหวะเริ่มหลุดแล้ว—พักครึ่งวิ แล้วกลับไปตี “Normal” ให้ตรงก่อน', why:'miss/RT สูงขึ้น' };
-    }
-    if (p.note === 'mid-risk') {
-      return { code:'focus', text:'โฟกัสเป้าใหญ่ก่อน แล้วค่อยเก็บเป้าอื่น', why:'เสถียรภาพยังแกว่ง' };
-    }
-    return { code:'keep', text:'ดีมาก! รักษาจังหวะไว้', why:'ความเสี่ยงพลาดต่ำ' };
+  _estimateFatigue(s){
+    // higher miss + low combo + low hp -> fatigue up
+    const m = Number(s.miss||0);
+    const c = Number(s.combo||0);
+    const hp = Number(s.youHp||100);
+    let f = 0;
+    f += Math.min(1, m/18) * 0.55;
+    f += (c<=2 ? 0.22 : 0.05);
+    f += (hp<55 ? 0.25 : 0.05);
+    return Math.max(0, Math.min(1, f));
+  }
+
+  _estimateRisk(s){
+    const boss = Number(s.bossHp||100);
+    const fever = Number(s.fever||0);
+    let r = 0.15;
+    if(boss<30) r += 0.25; // bossface soon -> risk/tempo
+    if(fever>=95) r += 0.10; // fever moment
+    return Math.max(0, Math.min(1, r));
+  }
+
+  _paceMul(fatigue, risk){
+    // lower fatigue => speed up a bit; higher fatigue => slow down
+    let mul = 1.0;
+    mul *= (1.08 - fatigue*0.22);
+    mul *= (0.96 + risk*0.10);
+    return Math.max(0.80, Math.min(1.18, mul));
+  }
+
+  _tip(s, fatigue, risk){
+    if(Number(s.shield||0) <= 0 && fatigue>0.55) return 'เก็บ Shield/Heal ก่อน แล้วค่อยไล่คอมโบ';
+    if(Number(s.combo||0) <= 2) return 'โฟกัสเป้า “ปกติ” ให้ติดคอมโบก่อน';
+    if(Number(s.bossHp||100) < 30) return 'บอสใกล้หมด! เตรียมตี Boss Face ให้ทัน';
+    if(risk>0.30) return 'ตอนนี้จังหวะเร็วขึ้น—เล็งให้ชัวร์ อย่าหลง Decoy';
+    return 'รักษาคอมโบไว้ แล้วค่อยเก็บ FEVER';
   }
 }
 
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-// ===== compat exports =====
-// บางไฟล์เคยเรียก RB_AI มาก่อน: ให้มีไว้ไม่พัง
-export const RB_AI = {
-  _inst: new AIPredictor(),
-  isAssistEnabled(){ return true; },
-  predict(s){ return this._inst.predict(s); },
-  tip(s){ return this._inst.tip(s); }
-};
-
-// default export เผื่อ import แบบ default
-export default AIPredictor;
+// optional legacy global
+try{
+  window.RB_AI = window.RB_AI || new AIPredictor();
+}catch(_){}
