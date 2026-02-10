@@ -1,62 +1,240 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GroupsVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GroupsVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
-    .c{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px;}
-    .p{max-width:820px;width:100%;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.72);border-radius:22px;padding:14px;box-shadow:0 20px 70px rgba(0,0,0,.45);}
-    .t{font-weight:1000;font-size:16px;}
-    .s{color:rgba(148,163,184,.95);margin-top:6px;font-size:12.5px;line-height:1.4;}
-    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:rgba(229,231,235,.9);margin-top:10px;white-space:pre-wrap;}
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
+    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+    .card{width:min(820px,100%);border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);border-radius:18px;padding:18px}
+    .muted{color:#94a3b8;font-size:13px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.62);
+      color:#e5e7eb;padding:10px 12px;border-radius:14px;cursor:pointer}
+    button:hover{background:rgba(2,6,23,.78)}
+    .primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.12)}
   </style>
 </head>
 <body>
-<div class="c">
-  <div class="p">
-    <div class="t">🥦 GroupsVR — กำลังเปิดผ่าน Warmup Gate…</div>
-    <div class="s">ระบบบังคับ: Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
-    <div class="mono" id="dbg"></div>
+<div class="wrap">
+  <div class="card">
+    <div style="font-weight:1000;font-size:16px">🧩 GroupsVR</div>
+    <div class="muted" id="status">กำลังเตรียมเข้าเกม…</div>
+    <div class="mono" id="dbg" style="margin-top:10px;opacity:.9"></div>
+    <div class="row">
+      <button class="primary" id="btn-go">ไปต่อ</button>
+      <button id="btn-hub">กลับ HUB</button>
+      <button id="btn-force-warmup">บังคับ Warmup (ทดสอบ)</button>
+    </div>
   </div>
 </div>
 
 <script>
 (() => {
   'use strict';
-  const QS = new URL(location.href).searchParams;
 
-  const hub  = QS.get('hub')  || './hub.html';
-  const dur  = Number(QS.get('dur')  || 20) || 20;  // warmup seconds
-  const cdur = Number(QS.get('cdur') || 20) || 20;  // cooldown seconds
+  // --------------------------
+  // helpers: QS + url
+  // --------------------------
+  function getQS(){
+    try{ return new URL(location.href).searchParams; }
+    catch{ return new URLSearchParams(); }
+  }
+  const QS = getQS();
+  const q = (k, def='') => (QS.get(k) ?? def);
 
-  // passthrough (ไม่ส่งต่อค่าที่เป็น internal ของ gate)
-  const deny = new Set(['next','phase','dur','cdur','autonext','gate']);
-  const pass = new URLSearchParams();
-  QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
+  function buildUrl(base, add){
+    if(!base) return '';
+    const add2 = add || {};
+    try{
+      const u = new URL(base, location.href);
+      Object.entries(add2).forEach(([k,v])=>{
+        if(v === undefined || v === null || v === '') return;
+        u.searchParams.set(k, String(v));
+      });
+      return u.toString();
+    }catch(_){
+      const join = String(base).includes('?') ? '&' : '?';
+      const qs2 = Object.entries(add2)
+        .filter(([,v])=>!(v===undefined||v===null||v===''))
+        .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
+      return qs2 ? (String(base) + join + qs2) : String(base);
+    }
+  }
 
-  // RUN url (อยู่ใน folder /vr-groups/)
-  const gameRun = new URL('./vr-groups/groups-vr.html', location.href);
-  pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
-  gameRun.searchParams.set('hub', hub);
-  gameRun.searchParams.set('gate','1');          // ✅ บังคับ flow
-  gameRun.searchParams.set('cdur', String(cdur)); // ✅ ส่งเวลาคูลดาวน์
+  // passthrough (ห้าม override view ถ้ามี)
+  function getPassthrough(){
+    const deny = new Set([
+      'hub','next','phase','dur','cdur','autonext','preset','wmode','games',
+      'gate','gateOnce','gateKey','gateUrl','run','warmup'
+    ]);
+    const out = {};
+    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
 
-  // WARMUP gate (อยู่ root /herohealth/)
-  const gate = new URL('./warmup-gate.html', location.href);
-  gate.searchParams.set('phase','warmup');
-  gate.searchParams.set('dur', String(dur));
-  gate.searchParams.set('hub', hub);
-  gate.searchParams.set('next', gameRun.toString());
-  gate.searchParams.set('autonext','1');
+  // --------------------------
+  // config
+  // --------------------------
+  const HUB = q('hub',''); // แนะนำให้ส่งมาเสมอ
+  const RUN = q('run','./vr-groups/groups-vr.html'); // ตัว run ของเกม
+  const WARMUP_URL = q('gateUrl','https://supparang.github.io/herohealth/warmup-gate.html');
 
-  document.getElementById('dbg').textContent =
-    'gate => ' + gate.toString() + '\n\nnext(game) => ' + gameRun.toString();
+  // warmup policy
+  const GATE_ONCE = String(q('gateOnce','1')||'1') === '1';  // default ON
+  const FORCE_WARMUP = String(q('warmup','0')||'0') === '1'; // manual test
+  const PRESET = (q('preset','hype')||'hype').toLowerCase(); // fast|hype
+  const DUR = Math.max(10, Math.min(60, Number(q('dur','20')||20)));
+  const CDUR = Math.max(10, Math.min(60, Number(q('cdur','20')||20)));
 
-  location.replace(gate.toString());
+  // --------------------------
+  // pid/device & once/day key (ต้องตรงกับ warmup-gate.html patched)
+  // --------------------------
+  function getOrMakeDeviceId(){
+    try{
+      let id = localStorage.getItem('HHA_DEVICE_ID') || '';
+      if(!id){
+        id = 'dev_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+        localStorage.setItem('HHA_DEVICE_ID', id);
+      }
+      return id;
+    }catch(_){ return 'dev_fallback'; }
+  }
+
+  function getPidLike(){
+    // 1) pid จาก query (ถ้ามี)
+    const qp = (q('pid','')||'').trim();
+    if(qp) return qp;
+
+    // 2) pid จาก badges (ถ้ามี)
+    try{
+      const B = window.HHA_Badges;
+      const pid = (B && B.getPid) ? String(B.getPid()||'').trim() : '';
+      if(pid) return pid;
+    }catch(_){}
+
+    // 3) device id
+    return getOrMakeDeviceId();
+  }
+
+  function dayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function warmupDoneTodayKey(){
+    const pid = getPidLike();
+    return `HHA_WARMUP_DONE_groups_${pid}_${dayKey()}`;
+  }
+
+  function isWarmupDoneToday(){
+    if(!GATE_ONCE) return false;
+    try{ return localStorage.getItem(warmupDoneTodayKey()) === '1'; }
+    catch(_){ return false; }
+  }
+
+  // --------------------------
+  // routing
+  // --------------------------
+  const $ = (s)=>document.querySelector(s);
+  const statusEl = $('#status');
+  const dbgEl = $('#dbg');
+
+  function goHub(){
+    if(HUB){ location.href = HUB; return; }
+    history.length ? history.back() : (location.href = './');
+  }
+
+  function goRun(){
+    const url = buildUrl(RUN, {
+      ...getPassthrough(),
+      hub: HUB || undefined,
+      gate: '0',
+      cdur: String(CDUR)
+    });
+    location.href = url;
+  }
+
+  function goWarmup(){
+    // next = run url (encode ผ่าน buildUrl อีกชั้น)
+    const nextRun = buildUrl(RUN, {
+      ...getPassthrough(),
+      hub: HUB || undefined,
+      gate: '0',
+      cdur: String(CDUR)
+    });
+
+    const gate = buildUrl(WARMUP_URL, {
+      phase: 'warmup',
+      dur: String(DUR),
+      hub: HUB || undefined,
+      next: nextRun,
+      autonext: '1',
+      preset: PRESET
+    });
+
+    // ใช้ replace กันย้อนกลับวน
+    location.replace(gate);
+  }
+
+  function decide(){
+    const done = isWarmupDoneToday();
+    const pid = getPidLike();
+    const k = warmupDoneTodayKey();
+
+    dbgEl.textContent =
+      `pid/device=${pid}\n` +
+      `once/day=${GATE_ONCE?1:0}  doneToday=${done?1:0}\n` +
+      `key=${k}\n` +
+      `preset=${PRESET} dur=${DUR} cdur=${CDUR}\n` +
+      `warmupUrl=${WARMUP_URL}\n` +
+      `run=${RUN}\n` +
+      `hub=${HUB||'(none)'}`;
+
+    // กดทดสอบบังคับ warmup
+    if(FORCE_WARMUP){
+      statusEl.textContent = 'โหมดทดสอบ: บังคับ Warmup…';
+      goWarmup();
+      return;
+    }
+
+    // ถ้าทำแล้ววันนี้ -> เข้าเกมเลย
+    if(done){
+      statusEl.textContent = 'วันนี้วอร์มอัปแล้ว ✅ ข้ามเข้าเกม Groups…';
+      goRun();
+      return;
+    }
+
+    // ยังไม่ทำ -> เข้าวอร์มอัป (ถ้าบังคับวันละครั้ง)
+    if(GATE_ONCE){
+      statusEl.textContent = 'ยังไม่ได้วอร์มอัปวันนี้ → เข้า Warmup Gate…';
+      goWarmup();
+      return;
+    }
+
+    // ไม่บังคับ -> เข้าเกม
+    statusEl.textContent = 'ไม่บังคับ Warmup → เข้าเกม Groups…';
+    goRun();
+  }
+
+  // UI buttons
+  $('#btn-go').addEventListener('click', decide);
+  $('#btn-hub').addEventListener('click', goHub);
+  $('#btn-force-warmup').addEventListener('click', ()=>{
+    const u = new URL(location.href);
+    u.searchParams.set('warmup','1');
+    location.href = u.toString();
+  });
+
+  // auto
+  decide();
+
 })();
 </script>
 </body>
