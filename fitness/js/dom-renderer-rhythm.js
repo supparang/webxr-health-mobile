@@ -1,139 +1,87 @@
-// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// === /fitness/js/dom-renderer-rhythm.js ===
+// DOM Renderer for Rhythm Boxer
+// ✅ Ensures hit line exists in every lane (.rb-hitline)
+// ✅ Lane pulse FX + feedback label
 'use strict';
 
 (function(){
-  class RbDomRenderer{
-    constructor(host, opts = {}){
-      this.host = host;
-      this.wrapEl = opts.wrapEl || document.body;
-      this.flashEl = opts.flashEl || null;
-      this.feedbackEl = opts.feedbackEl || null;
+  const WIN = window;
+  const DOC = document;
 
-      // try read hitline from CSS variable on field or :root
-      this._hitLineCache = null;
+  function qs(sel, root=DOC){ return root.querySelector(sel); }
+  function qsa(sel, root=DOC){ return Array.from(root.querySelectorAll(sel)); }
+
+  class DomRendererRhythm{
+    constructor(opts={}){
+      this.wrap = opts.wrap || DOC.body;
+      this.field = opts.field || qs('#rb-field');
+      this.lanesEl = opts.lanesEl || qs('#rb-lanes');
+      this.flashEl = opts.flashEl || qs('#rb-flash');
+      this.feedbackEl = opts.feedbackEl || qs('#rb-feedback');
+
+      this._pulseT = new Map();
+      this._ensureHitlines();
     }
 
-    _getHitLineY(laneEl){
-      // Hit line is defined in CSS as "--rb-hitline-y" (px from bottom of lane)
-      // We compute absolute screen Y for FX placement.
-      try{
-        const csLane = laneEl ? getComputedStyle(laneEl) : null;
-        const csHost = this.host ? getComputedStyle(this.host) : null;
-        const csRoot = getComputedStyle(document.documentElement);
-
-        const v =
-          (csLane && csLane.getPropertyValue('--rb-hitline-y')) ||
-          (csHost && csHost.getPropertyValue('--rb-hitline-y')) ||
-          csRoot.getPropertyValue('--rb-hitline-y') ||
-          '86px';
-
-        const px = parseFloat(String(v).trim()) || 86;
-
-        const rect = laneEl.getBoundingClientRect();
-        // y is (bottom - px)
-        return rect.top + rect.height - px;
-      }catch(_){
-        const rect = laneEl.getBoundingClientRect();
-        return rect.top + rect.height - 86;
+    _ensureHitlines(){
+      if(!this.lanesEl) return;
+      const lanes = qsa('.rb-lane', this.lanesEl);
+      for(const lane of lanes){
+        if(!lane.querySelector('.rb-hitline')){
+          const hl = DOC.createElement('div');
+          hl.className = 'rb-hitline';
+          lane.appendChild(hl);
+        }
       }
     }
 
-    _screenPosFromLane(lane){
-      // เอา center ของ lane + y ที่ hit line (bottom)
-      const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
-      if(!laneEl){
-        const r = this.wrapEl.getBoundingClientRect();
-        return { x: r.left + r.width/2, y: r.top + r.height/2 };
-      }
-      const rect = laneEl.getBoundingClientRect();
-      const x = rect.left + rect.width/2;
-
-      // IMPORTANT: y aligns to HIT LINE (yellow line at bottom)
-      const y = this._getHitLineY(laneEl);
-
-      return { x, y };
-    }
-
-    _flash(kind){
-      if(!this.flashEl) return;
-      this.flashEl.classList.add('active');
-      clearTimeout(this._flashT);
-      this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
-    }
-
-    _feedback(text, cls){
+    _setFeedback(txt){
       if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = text;
-      this.feedbackEl.classList.remove('perfect','great','good','miss');
-      if(cls) this.feedbackEl.classList.add(cls);
+      this.feedbackEl.textContent = txt || '';
     }
 
-    showHitFx({ lane, judgment, scoreDelta }){
-      const p = this._screenPosFromLane(lane);
-      this.spawnHitParticle(p.x, p.y, judgment);
-      this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback(String(judgment || '').toUpperCase(), judgment);
+    _flash(){
+      if(!this.flashEl) return;
+      this.flashEl.style.opacity = '1';
+      clearTimeout(this._flashTimer);
+      this._flashTimer = setTimeout(()=>{ this.flashEl.style.opacity = '0'; }, 140);
     }
 
-    showMissFx({ lane }){
-      const p = this._screenPosFromLane(lane);
-      this.spawnMissParticle(p.x, p.y);
-      this._flash('miss');
-      this._feedback('MISS', 'miss');
+    _pulseLane(lane, cls){
+      if(!this.lanesEl) return;
+      const el = this.lanesEl.querySelector(`.rb-lane[data-lane="${lane}"]`);
+      if(!el) return;
+
+      // clear previous pulses
+      el.classList.remove('rb-pulse-perfect','rb-pulse-great','rb-pulse-good','rb-pulse-miss');
+      el.classList.add(cls);
+
+      clearTimeout(this._pulseT.get(el));
+      const t = setTimeout(()=>{
+        el.classList.remove(cls);
+      }, 120);
+      this._pulseT.set(el, t);
     }
 
-    spawnScoreText(x, y, scoreDelta, judgment){
-      if(!Number.isFinite(scoreDelta)) return;
-      const el = document.createElement('div');
-      el.className = `rb-score-fx rb-score-${judgment||'good'}`;
-      el.textContent = `${scoreDelta>0?'+':''}${scoreDelta}`;
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
-      document.body.appendChild(el);
-      void el.offsetWidth;
-      el.classList.add('is-live');
-      setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 420);
-    }
-
-    spawnHitParticle(x, y, judgment){
-      const n = 10;
-      for(let i=0;i<n;i++){
-        const el = document.createElement('div');
-        el.className = `rb-frag rb-frag-${judgment||'good'}`;
-        const size = 6 + Math.random()*6;
-        const ang = (i/n) * Math.PI*2;
-        const dist = 26 + Math.random()*34;
-        const dx = Math.cos(ang)*dist;
-        const dy = Math.sin(ang)*dist;
-        const life = 420 + Math.random()*180;
-        el.style.width = size+'px';
-        el.style.height = size+'px';
-        el.style.left = x+'px';
-        el.style.top  = y+'px';
-        el.style.setProperty('--dx', dx+'px');
-        el.style.setProperty('--dy', dy+'px');
-        el.style.setProperty('--life', life+'ms');
-        document.body.appendChild(el);
-        setTimeout(()=>el.remove(), life);
+    showHitFx({lane, judgment, scoreDelta}){
+      if(judgment==='perfect'){
+        this._setFeedback('PERFECT!');
+        this._pulseLane(lane, 'rb-pulse-perfect');
+        this._flash();
+      }else if(judgment==='great'){
+        this._setFeedback('GREAT');
+        this._pulseLane(lane, 'rb-pulse-great');
+      }else{
+        this._setFeedback('GOOD');
+        this._pulseLane(lane, 'rb-pulse-good');
       }
     }
 
-    spawnMissParticle(x, y){
-      const el = document.createElement('div');
-      el.className = 'rb-frag rb-frag-miss';
-      const size = 14;
-      const life = 460;
-      el.style.width = size+'px';
-      el.style.height = size+'px';
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-      el.style.setProperty('--dx', '0px');
-      el.style.setProperty('--dy', '28px');
-      el.style.setProperty('--life', life+'ms');
-      document.body.appendChild(el);
-      setTimeout(()=>el.remove(), life);
+    showMissFx({lane}){
+      this._setFeedback('MISS');
+      this._pulseLane(lane, 'rb-pulse-miss');
     }
   }
 
-  window.RbDomRenderer = RbDomRenderer;
+  WIN.DomRendererRhythm = DomRendererRhythm;
 })();
