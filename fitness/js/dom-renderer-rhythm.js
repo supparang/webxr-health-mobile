@@ -1,9 +1,4 @@
-// === /fitness/js/dom-renderer-rhythm.js ===
-// Rhythm Boxer DOM Renderer (FX) — HITLINE BOTTOM SYNC
-// ✅ FX spawn at hitline (gold line) bottom (above lane labels)
-// ✅ Works with 5-lane or 3-lane layouts
-// ✅ Safe for classic <script src="...">
-
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
 'use strict';
 
 (function(){
@@ -15,44 +10,42 @@
       this.feedbackEl = opts.feedbackEl || null;
     }
 
-    _getCssVarPx(el, name, fallbackPx){
+    _getHitlineBottomPx(){
+      // read CSS var --rb-hitline-bottom (fallback 108)
       try{
-        const v = getComputedStyle(el).getPropertyValue(name).trim();
-        if(!v) return fallbackPx;
+        const v = getComputedStyle(document.documentElement)
+          .getPropertyValue('--rb-hitline-bottom')
+          .trim();
         const n = parseFloat(v);
-        return Number.isFinite(n) ? n : fallbackPx;
+        return Number.isFinite(n) ? n : 108;
       }catch(_){
-        return fallbackPx;
+        return 108;
       }
     }
 
     _screenPosFromLane(lane){
-      // FX position: center-x of lane, y at HITLINE (gold line)
+      // center-x of lane + y at hit line (bottom: --rb-hitline-bottom)
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
-      const wrap = this.wrapEl || document.body;
-
       if(!laneEl){
-        const r = wrap.getBoundingClientRect();
-        return { x: r.left + r.width/2, y: r.top + r.height*0.75 };
+        const r = this.wrapEl.getBoundingClientRect();
+        return { x: r.left + r.width/2, y: r.top + r.height/2 };
       }
 
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
 
-      // hitline is drawn at: bottom: var(--rb-hitline-y)
-      // so screen y = rect.bottom - hitlineY
-      const hitlineY = this._getCssVarPx(laneEl, '--rb-hitline-y', 72);
-      const y = rect.bottom - hitlineY;
+      const hitBottom = this._getHitlineBottomPx();
+      // hit line y = lane bottom - hitBottom
+      const y = rect.top + rect.height - hitBottom;
 
       return { x, y };
     }
 
     _flash(kind){
       if(!this.flashEl) return;
-      // optional class: rb-flash-on (simple)
-      this.flashEl.classList.add('rb-flash-on');
+      this.flashEl.classList.add('active');
       clearTimeout(this._flashT);
-      this._flashT = setTimeout(()=>this.flashEl.classList.remove('rb-flash-on'), 140);
+      this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
     }
 
     _feedback(text, cls){
@@ -66,7 +59,7 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback((judgment||'good').toUpperCase(), judgment||'good');
+      this._feedback(String(judgment||'good').toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
@@ -100,7 +93,6 @@
         const dx = Math.cos(ang)*dist;
         const dy = Math.sin(ang)*dist;
         const life = 420 + Math.random()*180;
-
         el.style.width = size+'px';
         el.style.height = size+'px';
         el.style.left = x+'px';
@@ -108,7 +100,6 @@
         el.style.setProperty('--dx', dx+'px');
         el.style.setProperty('--dy', dy+'px');
         el.style.setProperty('--life', life+'ms');
-
         document.body.appendChild(el);
         setTimeout(()=>el.remove(), life);
       }
@@ -119,7 +110,6 @@
       el.className = 'rb-frag rb-frag-miss';
       const size = 14;
       const life = 460;
-
       el.style.width = size+'px';
       el.style.height = size+'px';
       el.style.left = x+'px';
@@ -127,7 +117,6 @@
       el.style.setProperty('--dx', '0px');
       el.style.setProperty('--dy', '28px');
       el.style.setProperty('--life', life+'ms');
-
       document.body.appendChild(el);
       setTimeout(()=>el.remove(), life);
     }
