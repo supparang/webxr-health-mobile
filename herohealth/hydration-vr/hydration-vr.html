@@ -4,11 +4,8 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 ✅ Engine: hydration.safe.js (ESM)
 ✅ Layers: #playfield + #hydration-layer
 ✅ PATCH: tap-anywhere start actually starts (dispatch hha:start)
-
-✅ ADD: Warmup/Cooldown Gate (20s, boss theme via warmup-gate.html)
-   - gate=1 (default) => warmup -> back here with gate=0
-   - gate=0 => skip gates
-   - all "Back HUB" buttons => cooldown -> hub
+✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(cdur) => hub
+✅ PACK 9–10 UI: STORM meter + Shield + BOSS meter + Progress hooks
 -->
 <!doctype html>
 <html lang="th">
@@ -21,7 +18,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   <style>
     :root{
       --bg:#020617; --panel:rgba(2,6,23,.70); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --danger:#ef4444; --cyan:#22d3ee;
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -31,6 +28,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     *{ box-sizing:border-box; }
     html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     body{ overflow:hidden; }
+
     #playfield{
       position:fixed; inset:0;
       padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
@@ -41,6 +39,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       pointer-events:auto;
     }
 
+    /* HUD */
     .hud{
       position:absolute; left:0; right:0; top:0;
       display:flex; gap:10px; flex-wrap:wrap;
@@ -69,6 +68,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       border-radius:999px;
       padding:6px 10px;
       font-size:12px;
+      white-space:nowrap;
     }
     .bar{
       height:10px; border-radius:999px;
@@ -76,8 +76,15 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       overflow:hidden; flex:1 1 auto; min-width:120px;
       border:1px solid rgba(148,163,184,.12);
     }
-    .bar > i{ display:block; height:100%; width:50%; background:rgba(34,197,94,.55); }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: rgba(34,197,94,.55);
+      transition: width .12s linear;
+    }
+    .bar.storm > i{ background: rgba(34,211,238,.55); }
+    .bar.boss  > i{ background: rgba(245,158,11,.55); }
 
+    /* Quest box */
     .quest{
       position:absolute;
       left: 10px;
@@ -93,6 +100,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .q1{ font-weight:900; }
     .q2,.q3,.q4{ color:rgba(148,163,184,.95); font-size:12px; margin-top:4px; white-space:pre-line; }
 
+    /* Start overlay */
     #startOverlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -119,6 +127,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .btn.primary{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.16); }
     .btn.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.14); }
 
+    /* Result overlay */
     #resultBackdrop{
       position:fixed; inset:0;
       background: rgba(2,6,23,.72);
@@ -139,6 +148,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .k{ color:rgba(148,163,184,.95); font-size:12px; }
     .v{ font-weight:900; font-size:16px; margin-top:4px; }
 
+    /* FX classes */
     body.hha-bossfx::after{
       content:""; position:fixed; inset:-80px;
       background: radial-gradient(circle at 40% 30%, rgba(34,211,238,.12), transparent 58%),
@@ -156,6 +166,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       opacity: .9;
     }
 
+    /* Shock FX placeholder (engine injects .hha-shock) */
     .hha-shock{
       position:absolute;
       left: var(--x); top: var(--y);
@@ -163,6 +174,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       border-radius: 999px;
       background: rgba(34,211,238,.9);
       transform: translate(-50%,-50%);
+      filter: blur(.2px);
       animation: shock .65s ease-out forwards;
       pointer-events:none;
       z-index: 999;
@@ -171,6 +183,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       0%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
       100%{ opacity:0; transform:translate(-50%,-50%) scale(9); }
     }
+
     @media (max-width:520px){
       .grid{ grid-template-columns: 1fr; }
       .card{ min-width: unset; }
@@ -188,6 +201,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
           <div class="bar"><i id="water-bar" style="width:50%"></i></div>
         </div>
       </div>
+
       <div class="card">
         <div class="title">📊 Stats</div>
         <div class="row">
@@ -196,6 +210,28 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
           <span class="pill">Miss: <b id="stat-miss">0</b></span>
           <span class="pill">Time: <b id="stat-time">0</b></span>
           <span class="pill">Grade: <b id="stat-grade">D</b></span>
+        </div>
+      </div>
+
+      <!-- ✅ PACK 9–10 HUD -->
+      <div class="card">
+        <div class="title">🌀 STORM / 👑 BOSS</div>
+
+        <div class="row" style="margin-top:8px;">
+          <span class="pill">Storm Lv: <b id="stormLvUI">0</b></span>
+          <span class="pill">⚡ <b id="stormProg">0</b>/<b id="stormNeedUI">0</b></span>
+          <span class="pill">🛡 <b id="shieldUI">0</b></span>
+          <div class="bar storm"><i id="stormBar" style="width:0%"></i></div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <span class="pill">Boss: <b id="bossPhaseUI">—</b></span>
+          <span class="pill">Goal: <b id="bossProg">0</b>/<b id="bossNeedUI">0</b></span>
+          <div class="bar boss"><i id="bossBar" style="width:0%"></i></div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <span class="pill" id="stormWarn" style="opacity:.92;">—</span>
         </div>
       </div>
     </div>
@@ -209,11 +245,11 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       <div class="q4" id="quest-line4">ComboMax: 0</div>
       <div style="display:none">
         <span id="storm-left">0</span>
-        <span id="shield-count">0</span>
       </div>
     </div>
   </div>
 
+  <!-- START -->
   <div id="startOverlay">
     <div id="startCard">
       <div style="display:flex;gap:10px;align-items:center;">
@@ -232,6 +268,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
+  <!-- RESULT -->
   <div id="resultBackdrop" hidden>
     <div id="resultCard">
       <div style="font-weight:900;font-size:16px;">สรุปผล</div>
@@ -261,79 +298,14 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   </div>
 
   <script>
+    // view + layers default (engine reads HHA_VIEW.layers)
     window.HHA_VIEW = window.HHA_VIEW || { layers:['hydration-layer'] };
 
+    // start overlay -> emit hha:start (engine listens)
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-
-      // ------------------------------
-      // ✅ Warmup/Cooldown Gate Router (20s)
-      // ------------------------------
-      const warmupSec = 20;
-      const cooldownSec = 20;
-      const GATE_PATH = '/herohealth/warmup-gate.html';
-
-      const sp = (()=>{ try{return new URL(location.href).searchParams;}catch{return new URLSearchParams();} })();
-
-      function passthrough(){
-        const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
-        const out = {};
-        sp.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-        return out;
-      }
-      function buildUrl(base, add){
-        const u = new URL(base, location.href);
-        Object.entries(add||{}).forEach(([k,v])=>{
-          if(v===undefined || v===null || v==='') return;
-          u.searchParams.set(k, String(v));
-        });
-        return u.toString();
-      }
-      function currentUrlWith(add){
-        return buildUrl(location.href, add || {});
-      }
-      function goWarmupThenBack(hub){
-        const backHere = currentUrlWith({ gate: 0 });
-        const url = buildUrl(GATE_PATH, {
-          ...passthrough(),
-          phase: 'warmup',
-          dur: warmupSec,
-          hub: hub,
-          next: backHere,
-          autonext: 1
-        });
-        location.replace(url);
-      }
-      function goCooldownTo(dest, hub){
-        const url = buildUrl(GATE_PATH, {
-          ...passthrough(),
-          phase: 'cooldown',
-          cdur: cooldownSec,
-          hub: hub,
-          next: dest,
-          autonext: 0
-        });
-        location.href = url;
-      }
-
-      // hub destination
       const hub = String(qs('hub','../hub.html'));
 
-      // auto warmup on first enter (default gate=1)
-      const gateFlag = String(qs('gate','1'));
-      if(gateFlag !== '0'){
-        // prevent accidental recursion if gate page shares path fragments
-        try{
-          if(!String(location.pathname||'').includes('warmup-gate')){
-            goWarmupThenBack(hub);
-            return; // stop init; will come back with gate=0
-          }
-        }catch(_){}
-      }
-
-      // ------------------------------
-      // Start overlay logic (your original)
-      // ------------------------------
       const ov = document.getElementById('startOverlay');
       const btnStart = document.getElementById('btnStart');
 
@@ -351,76 +323,62 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
         }}));
       };
 
-      // ✅ all hub buttons => cooldown first
-      const goHub = ()=> goCooldownTo(hub, hub);
-
-      document.getElementById('btnBackHub')?.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); });
-      document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', (e)=>{ e.preventDefault(); goHub(); }));
+      document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
+      document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', ()=> location.href = hub));
 
       btnStart?.addEventListener('click', startNow);
 
-      // ✅ tap anywhere on overlay = start (ยกเว้นปุ่ม HUB)
       ov?.addEventListener('pointerdown', (e)=>{
         const id = e.target && e.target.id;
         if (id === 'btnBackHub') return;
         startNow();
       }, {passive:true});
-
-      // expose helper (optional)
-      window.HHA = window.HHA || {};
-      window.HHA.goCooldownTo = (dest)=>goCooldownTo(dest, hub);
     })();
   </script>
 
+  <!-- ✅ Gate Flow (Warmup/Cooldown Enforcer) -->
+  <script>
+  (function(){
+    'use strict';
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    const gateOn = String(qs('gate','0')||'0') === '1';
+    const hub = String(qs('hub','../hub.html')||'../hub.html');
+    const cdur = Math.max(5, Math.min(60, Number(qs('cdur', 20) || 20)));
+
+    let navigated = false;
+
+    function goCooldownThenHub(summary){
+      if (!gateOn) return;
+      if (navigated) return;
+      navigated = true;
+
+      try{
+        if(summary) localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      }catch(_){}
+
+      const gate = new URL('../warmup-gate.html', location.href);
+      gate.searchParams.set('phase','cooldown');
+      gate.searchParams.set('dur', String(cdur));
+      gate.searchParams.set('hub', hub);
+      gate.searchParams.set('next', hub);
+      gate.searchParams.set('autonext','1');
+
+      location.href = gate.toString();
+    }
+
+    window.addEventListener('hha:end', (e)=>{
+      goCooldownThenHub(e && e.detail ? e.detail : null);
+    }, {passive:true});
+  })();
+  </script>
+
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js"></script>
+
+  <!-- Engine -->
   <script type="module">
     import './hydration.safe.js';
   </script>
-   <script>
-(function(){
-  'use strict';
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
-  function buildUrl(base, add){
-    const u = new URL(base, location.href);
-    Object.entries(add||{}).forEach(([k,v])=>{
-      if (v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }
-
-  // enable gate flow only when gate=1
-  const gateOn = String(qs('gate','0')||'0');
-  if (!(gateOn==='1' || gateOn==='true')) return;
-
-  const hub  = String(qs('hub','../hub.html'));
-  const view = String(qs('view','mobile'));
-  const run  = String(qs('run','play'));
-  const diff = String(qs('diff','normal'));
-  const time = String(qs('time','80'));
-  const seed = String(qs('seed',''));
-  const cdur = String(qs('cdur','20'));
-
-  // cooldown gate is at root
-  const cooldownGate = '../warmup-gate.html';
-
-  window.addEventListener('hha:end', function(){
-    // cooldown -> autonext -> hub
-    const nextHub = hub;
-    const url = buildUrl(cooldownGate, {
-      view, run, diff, time, seed,
-      phase: 'cooldown',
-      cdur: cdur,
-      hub: hub,
-      next: nextHub,
-      autonext: 1
-    });
-    location.href = url;
-  }, { passive:true });
-})();
-</script>
 </body>
 </html>
