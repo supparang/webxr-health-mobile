@@ -1,8 +1,9 @@
 <!-- === /herohealth/vr-maskcough/maskcough-vr.html ===
-MaskCoughVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr via ?view=
-✅ Uses Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Boots: maskcough.boot.js  | Engine: maskcough.safe.js  | Styles: maskcough.css
+Mask&CoughVR RUN — PRODUCTION (HHA Standard)
+✅ Works with /herohealth/vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Loads: ./maskcough.safe.js (IIFE)
+✅ HUD safe-area + not blocking targets
+✅ End summary + badges container + back hub
 -->
 <!doctype html>
 <html lang="th">
@@ -13,92 +14,119 @@ MaskCoughVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="dark light"/>
   <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./maskcough.css"/>
+  <link rel="stylesheet" href="./css/maskcough.css"/>
 </head>
+
 <body>
-  <div id="mc-wrap" data-view="pc" data-diff="normal">
-    <!-- FX -->
-    <div id="mc-flash" aria-hidden="true"></div>
+<div id="mc-wrap" data-view="pc" data-diff="normal">
+  <div id="mc-flash" aria-hidden="true"></div>
 
-    <!-- ===== HUD ===== -->
-    <header id="mc-hud">
-      <div class="mc-hud-left">
-        <div class="mc-pill">😷 Mask & Cough</div>
-        <div class="mc-stats">
-          <div class="mc-stat"><span class="k">Score</span><span class="v" id="mc-score">0</span></div>
-          <div class="mc-stat"><span class="k">Combo</span><span class="v" id="mc-combo">0</span></div>
-          <div class="mc-stat"><span class="k">Miss</span><span class="v" id="mc-miss">0</span></div>
-        </div>
+  <!-- STAGE -->
+  <main id="mc-stage" class="mc-stage" aria-label="Mask & Cough stage">
+    <div id="mc-layer" class="mc-layer" aria-label="interactive layer"></div>
+  </main>
+
+  <!-- PROMPT -->
+  <div id="mc-prompt" class="mc-prompt" role="status" aria-live="polite"></div>
+
+  <!-- HUD -->
+  <section class="mc-hud" aria-label="HUD">
+    <div class="mc-hud-row">
+      <div class="mc-pill">⏱ <span id="mc-time">75</span>s</div>
+      <div class="mc-pill">🏆 <span id="mc-score">0</span></div>
+      <div class="mc-pill">🔥 <span id="mc-combo">0</span></div>
+      <div class="mc-pill">❌ <span id="mc-miss">0</span></div>
+    </div>
+
+    <div class="mc-bars">
+      <div class="mc-bar">
+        <div class="mc-bar-label">Mask Fit <span id="mc-maskfit">0%</span></div>
+        <div class="mc-bar-track"><div id="mc-maskfit-fill" class="mc-bar-fill" style="width:0%"></div></div>
       </div>
-
-      <div class="mc-hud-right">
-        <div class="mc-bars">
-          <div class="mc-bar">
-            <div class="lbl">MaskFit</div>
-            <div class="track"><div class="fill" id="mc-maskfit-fill" style="width:0%"></div></div>
-            <div class="val" id="mc-maskfit">0%</div>
-          </div>
-          <div class="mc-bar danger">
-            <div class="lbl">Exposure</div>
-            <div class="track"><div class="fill" id="mc-exposure-fill" style="width:0%"></div></div>
-            <div class="val" id="mc-exposure">0%</div>
-          </div>
-        </div>
-
-        <div class="mc-timer">
-          <div class="mc-round">⏱</div>
-          <div class="mc-time" id="mc-time">75</div>
-        </div>
+      <div class="mc-bar">
+        <div class="mc-bar-label">Exposure <span id="mc-exposure">0%</span></div>
+        <div class="mc-bar-track"><div id="mc-exposure-fill" class="mc-bar-fill mc-bad" style="width:0%"></div></div>
       </div>
-    </header>
+    </div>
 
-    <!-- ===== STAGE ===== -->
-    <main id="mc-stage" role="application" aria-label="Mask and Cough game">
-      <!-- Action hints / prompts -->
-      <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+    <div class="mc-controls">
+      <button id="mc-btn-start" class="mc-btn mc-primary" type="button">Start</button>
+      <button id="mc-btn-pause" class="mc-btn" type="button">Pause</button>
+      <button id="mc-btn-cover" class="mc-btn mc-accent" type="button">COVER</button>
+      <button id="mc-btn-retry" class="mc-btn" type="button">Retry</button>
+    </div>
+  </section>
 
-      <!-- Big action button (mobile/cVR) -->
-      <button id="mc-btn-cover" class="mc-bigbtn" type="button">COVER ✋</button>
-
-      <!-- Interaction Layer (targets/nodes/waves live here) -->
-      <div id="mc-layer" class="mc-layer" aria-hidden="false"></div>
-
-      <!-- Simple footer buttons -->
-      <div id="mc-footer" class="mc-footer">
-        <button class="mc-btn" id="mc-btn-start" type="button">เริ่ม</button>
-        <button class="mc-btn" id="mc-btn-pause" type="button">พัก</button>
-        <button class="mc-btn" id="mc-btn-retry" type="button">เล่นใหม่</button>
-      </div>
-    </main>
-
-    <!-- ===== END OVERLAY ===== -->
-    <section id="mc-end" class="mc-end" hidden>
-      <div class="mc-end-card">
+  <!-- END OVERLAY -->
+  <section id="mc-end" class="mc-end" hidden>
+    <div class="mc-end-card" role="dialog" aria-modal="true" aria-label="End summary">
+      <div class="mc-end-head">
         <div class="mc-end-title">สรุปผล</div>
-        <div class="mc-end-grid">
-          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="mc-end-score">0</div></div>
-          <div class="mc-end-item"><div class="k">ComboMax</div><div class="v" id="mc-end-combo">0</div></div>
-          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="mc-end-miss">0</div></div>
-          <div class="mc-end-item"><div class="k">MaskFit Avg</div><div class="v" id="mc-end-maskfit">0%</div></div>
-          <div class="mc-end-item"><div class="k">Exposure</div><div class="v" id="mc-end-exposure">0%</div></div>
-          <div class="mc-end-item"><div class="k">Choice Acc</div><div class="v" id="mc-end-choice">0%</div></div>
-        </div>
-
-        <div class="mc-end-actions">
-          <button class="mc-btn primary" id="mc-end-back" type="button">กลับ HUB</button>
-          <button class="mc-btn" id="mc-end-close" type="button">ปิด</button>
-        </div>
-
-        <div class="mc-end-note" id="mc-end-note"></div>
+        <button id="mc-end-close" class="mc-btn mc-ghost" type="button">✕</button>
       </div>
-    </section>
-  </div>
 
-  <!-- Universal VR UI -->
-  <script src="../vr/vr-ui.js"></script>
+      <div class="mc-end-grid">
+        <div class="mc-end-item"><div class="k">Score</div><div class="v" id="mc-end-score">0</div></div>
+        <div class="mc-end-item"><div class="k">Combo Max</div><div class="v" id="mc-end-combo">0</div></div>
+        <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="mc-end-miss">0</div></div>
+        <div class="mc-end-item"><div class="k">Mask Fit</div><div class="v" id="mc-end-maskfit">0%</div></div>
+        <div class="mc-end-item"><div class="k">Exposure</div><div class="v" id="mc-end-exposure">0%</div></div>
+        <div class="mc-end-item"><div class="k">Choice Acc</div><div class="v" id="mc-end-choice">0%</div></div>
+      </div>
 
-  <!-- Boot + Engine -->
-  <script src="./maskcough.boot.js"></script>
-  <script src="./maskcough.safe.js"></script>
+      <div class="mc-end-badges-wrap">
+        <div class="mc-end-sub">Badges ที่ได้รอบนี้</div>
+        <div id="mc-end-badges" class="mc-end-badges"></div>
+      </div>
+
+      <div id="mc-end-note" class="mc-end-note"></div>
+
+      <div class="mc-end-actions">
+        <button id="mc-end-back" class="mc-btn mc-primary" type="button">กลับ HUB</button>
+        <button class="mc-btn" type="button" onclick="location.reload()">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // HHA passthrough context for logger/seed/hub/etc.
+  (function(){
+    'use strict';
+    function getQS(){ try{ return new URL(location.href).searchParams; } catch{ return new URLSearchParams(); } }
+    const QS = getQS();
+    const ctx = window.HHA_CTX = window.HHA_CTX || {};
+
+    const get = (k, def='') => (QS.get(k) ?? def);
+    ctx.projectTag = 'HHA_MASKCOUGH';
+    ctx.hub = get('hub','');
+    ctx.run = location.href;
+    ctx.view = get('view','pc');
+    ctx.diff = get('diff','normal');
+    ctx.mode = get('mode','play');
+    ctx.timeSec = Number(get('time','75')||75);
+    ctx.seed = get('seed','');
+    ctx.log = get('log','');
+
+    ctx.studyId = get('studyId','');
+    ctx.phase = get('phase','');
+    ctx.conditionGroup = get('conditionGroup','');
+    ctx.pid = get('pid', get('studentKey',''));
+    ctx.reason = get('reason','');
+
+    // reflect view/diff on wrapper for css
+    const wrap = document.getElementById('mc-wrap');
+    if(wrap){
+      wrap.dataset.view = (ctx.view||'pc').toLowerCase();
+      wrap.dataset.diff = (ctx.diff||'normal').toLowerCase();
+    }
+  })();
+</script>
+
+<!-- Universal VR UI -->
+<script src="../vr/vr-ui.js"></script>
+
+<!-- Game engine -->
+<script src="./maskcough.safe.js"></script>
 </body>
 </html>
