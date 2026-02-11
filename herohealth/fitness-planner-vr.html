@@ -1,0 +1,107 @@
+<!-- === /herohealth/fitness-planner-vr.html ===
+Fitness Planner LAUNCHER — ROOT (HHA Standard)
+✅ Redirects to ./fitness-planner/planner.html
+✅ Auto-detect view ONLY if ?view= missing (pc/mobile/vr/cvr)
+✅ Pass-through hub/run/diff/time/seed/mode/log/studyId/phase/conditionGroup/pid
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Fitness Planner (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#020617"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <style>
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:22px}
+    .card{width:min(820px,100%);border:1px solid rgba(148,163,184,.18);border-radius:18px;background:rgba(2,6,23,.72);padding:18px}
+    .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(148,163,184,.18);border-radius:999px;padding:6px 10px;color:#cbd5e1;background:rgba(15,23,42,.45);font-size:12px}
+    h1{margin:12px 0 6px;font-size:22px}
+    p{margin:0;color:#94a3b8;line-height:1.45}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.55);color:#e5e7eb;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer}
+    .btn:active{transform:translateY(1px)}
+    .muted{opacity:.85;font-size:12px;margin-top:10px}
+    code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;color:#cbd5e1}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <span class="pill">HeroHealth · Fitness · Planner</span>
+      <h1>กำลังเข้าสู่ Fitness Planner…</h1>
+      <p>ตรวจอุปกรณ์และส่งพารามิเตอร์สำหรับการวิจัย/บันทึกข้อมูล (ถ้า URL มี <code>?view=</code> จะไม่ override)</p>
+      <div class="row">
+        <button class="btn" id="go">Tap to start</button>
+      </div>
+      <div class="muted" id="dbg"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  function getQS(){ try{ return new URL(location.href).searchParams; } catch{ return new URLSearchParams(); } }
+  const QS = getQS();
+  const dbg = document.getElementById('dbg');
+
+  const pass = ['hub','run','diff','time','seed','mode','log','studyId','phase','conditionGroup','pid','studentKey','reason'];
+
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    const coarse = (window.matchMedia && matchMedia('(pointer: coarse)').matches);
+    return /Android|iPhone|iPad|iPod/i.test(ua) || coarse;
+  }
+
+  async function detectView(){
+    const existing = (QS.get('view')||'').toLowerCase();
+    if(existing) return existing;
+
+    const cvrHint = (QS.get('cvr')==='1' || QS.get('cardboard')==='1' || (QS.get('viewer')||'').toLowerCase()==='cardboard');
+    if(isMobile() && cvrHint) return 'cvr';
+
+    try{
+      if(navigator.xr && navigator.xr.isSessionSupported){
+        const ok = await navigator.xr.isSessionSupported('immersive-vr');
+        if(ok) return 'vr';
+      }
+    }catch(_){}
+
+    return isMobile() ? 'mobile' : 'pc';
+  }
+
+  function build(view){
+    const base = './fitness-planner/planner.html';
+    const u = new URL(base, location.href);
+
+    for(const k of pass){
+      const v = QS.get(k);
+      if(v!=null && v!=='') u.searchParams.set(k, v);
+    }
+
+    if(!(QS.get('view')||'')) u.searchParams.set('view', view);
+
+    if(!u.searchParams.get('hub')){
+      u.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+    }
+    u.searchParams.set('run', location.href);
+
+    return u.toString();
+  }
+
+  async function go(){
+    const view = await detectView();
+    const url = build(view);
+    if(dbg) dbg.innerHTML = `view=<code>${view}</code> → <code>${url.replace(location.origin,'')}</code>`;
+    location.replace(url);
+  }
+
+  document.getElementById('go').addEventListener('click', go, {passive:true});
+  setTimeout(()=>{ go(); }, 30);
+})();
+</script>
+</body>
+</html>
