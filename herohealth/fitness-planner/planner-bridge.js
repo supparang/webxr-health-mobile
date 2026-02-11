@@ -1,9 +1,5 @@
 // === /herohealth/fitness-planner/planner-bridge.js ===
-// Planner Bridge — v20260210a
-// - Reads: ?from=planner&combo=a|b|c&mode=play|research&seed=...&pid=...&studyId=...
-// - Emits: window event 'planner_combo' + 'hha:event' (optional)
-// - Adds small HUD pill if possible (safe)
-
+// Planner Bridge — v20260211a
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -32,7 +28,6 @@
 
   const isFromPlanner = (from === 'planner' && combo.length > 0);
 
-  // expose globally
   WIN.HHA_PLANNER = {
     from: isFromPlanner,
     combo,
@@ -45,7 +40,6 @@
 
   if(!isFromPlanner) return;
 
-  // UI pill (safe)
   try{
     const pill = DOC.createElement('div');
     pill.style.position = 'fixed';
