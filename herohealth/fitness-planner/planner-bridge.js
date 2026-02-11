@@ -21,7 +21,7 @@
   const comboRaw = qs('combo','');
   const combo = comboRaw ? comboRaw.split('|').filter(Boolean) : [];
   const mode = (qs('mode','play') || 'play').toLowerCase();
-  const seed = Number(qs('seed','0')) >>> 0;
+  const seed = (Number(qs('seed','0')) >>> 0);
   const view = (qs('view','') || '').toLowerCase();
 
   const pid = qs('pid','');
@@ -32,7 +32,7 @@
 
   const isFromPlanner = (from === 'planner' && combo.length > 0);
 
-  // expose globally (engine can read if wants)
+  // expose globally
   WIN.HHA_PLANNER = {
     from: isFromPlanner,
     combo,
@@ -74,9 +74,6 @@
     log
   };
 
-  // Emit to game engine hooks
   emit('planner_combo', payload);
-
-  // Optional: HHA-style event stream
   emit('hha:event', Object.assign({ game:'fitness', type:'planner_combo' }, payload));
 })();
