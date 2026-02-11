@@ -1,117 +1,111 @@
 // === /fitness/js/ai-predictor.js ===
-// HHA AI Predictor — shared module for all fitness games (Shadow/Rhythm/Jump/Balance)
-// ✅ ES Module export (AIPredictor + HHA_AI)
-// ✅ Also exposes window.HHA_AI for legacy usage
-// ✅ Deterministic-friendly (no randomness inside predictor)
-// NOTE: This is "DL-lite" heuristic now; ML/DL model can replace predict() later.
-
+// Classic Script (NO export) — safe for <script src="...">
+// ✅ Predicts fatigue/skill + coach tip (heuristic placeholder for ML later)
+// ✅ Research lock: prediction shown but NO adaptive changes
+// ✅ Normal assist toggle: enable with ?ai=1
 'use strict';
 
-function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v) || 0)); }
-function clamp01(v){ return clamp(v, 0, 1); }
+(function () {
+  const WIN = window;
 
-function qsp(){
-  try { return new URL(location.href).searchParams; }
-  catch { return new URLSearchParams(); }
-}
-function qFlag(key){
-  try{
-    const v = (qsp().get(key) || '').toLowerCase();
-    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-  }catch{ return false; }
-}
-function qMode(){
-  try{
-    // support both ?mode=research and your older ?run=research
-    const sp = qsp();
-    const m = (sp.get('mode') || sp.get('run') || 'normal').toLowerCase();
-    return (m === 'research') ? 'research' : 'normal';
-  }catch{ return 'normal'; }
-}
+  // ---- small helpers ----
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
 
-// -------------------------
-// Core predictor (heuristic)
-// Snapshot can include:
-// { accPct, missRate, fatigueProxy, rtMeanMs, rtMedianMs, hp, fever, diff, phase, bossesCleared, ... }
-// -------------------------
-function predictFromSnapshot(s){
-  const acc = clamp01((Number(s.accPct)||0) / 100);
-  const missRate = clamp01(Number(s.missRate) ?? (Number(s.misses||0) / Math.max(1, Number(s.judged||0))));
-  const hp = clamp01((Number(s.hp) || 100) / 100);
+  function readQueryFlag(key) {
+    try {
+      const v = new URL(location.href).searchParams.get(key);
+      return v === '1' || v === 'true' || v === 'yes';
+    } catch (_) {
+      return false;
+    }
+  }
 
-  // RT proxy: lower = better
-  const rt = Number(s.rtMedianMs || s.rtMeanMs || 0);
-  const rtScore = rt > 0 ? clamp01(1 - ((rt - 320) / 900)) : 0.55; // 320ms baseline
+  function readQueryMode() {
+    try {
+      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
+      if (m === 'research') return 'research';
+      return 'normal';
+    } catch (_) {
+      return 'normal';
+    }
+  }
 
-  const fatigueProxy = clamp01(Number(s.fatigueProxy) || 0);
+  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
+  // Expected (best effort) snapshot from engine:
+  // { accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo, offsetAbsMean, hp, songTime, durationSec }
+  function predictFromSnapshot(s) {
+    const acc = clamp01((Number(s.accPct) || 0) / 100);
+    const hp = clamp01((Number(s.hp) || 100) / 100);
 
-  // skillScore: accuracy + RT + low miss
-  const skillScore = clamp01(
-    acc * 0.55 +
-    rtScore * 0.25 +
-    (1 - missRate) * 0.20
-  );
+    // offsetAbsMean in seconds; smaller => better
+    const off = Number(s.offsetAbsMean);
+    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ loose cap
 
-  // fatigueRisk: low hp + fatigueProxy + missRate
-  const fatigueRisk = clamp01(
-    (1 - hp) * 0.40 +
-    fatigueProxy * 0.35 +
-    missRate * 0.25
-  );
+    const miss = Number(s.hitMiss) || 0;
+    const judged =
+      (Number(s.hitPerfect) || 0) +
+      (Number(s.hitGreat) || 0) +
+      (Number(s.hitGood) || 0) +
+      miss;
 
-  // suggestion (string)
-  let suggestedDifficulty = 'normal';
-  if (skillScore >= 0.80 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
-  else if (skillScore <= 0.46 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+    const missRate = judged > 0 ? clamp01(miss / judged) : 0;
 
-  // pacing suggestion (0.85..1.15) -> can multiply spawn interval
-  // higher fatigue => slower ( >1 ), high skill & low fatigue => faster (<1)
-  let paceMult = 1.0;
-  if (fatigueRisk >= 0.70) paceMult = 1.12;
-  else if (fatigueRisk >= 0.55) paceMult = 1.06;
-  else if (skillScore >= 0.82 && fatigueRisk <= 0.35) paceMult = 0.92;
-  else if (skillScore >= 0.74 && fatigueRisk <= 0.42) paceMult = 0.96;
+    // fatigueRisk: rises if hp low, missRate high, offset large
+    const fatigueRisk = clamp01(
+      (1 - hp) * 0.45 +
+      missRate * 0.35 +
+      (1 - offScore) * 0.20
+    );
 
-  paceMult = clamp(paceMult, 0.85, 1.15);
+    // skillScore: high if accuracy high + offset good + miss low
+    const skillScore = clamp01(
+      acc * 0.55 +
+      offScore * 0.30 +
+      (1 - missRate) * 0.15
+    );
 
-  // micro tip (Thai)
-  let tip = '';
-  if (missRate >= 0.35) tip = 'MISS เยอะ—ช้าลงนิดนึง โฟกัสเป้าก่อนแตะ';
-  else if (rtScore < 0.45) tip = 'ลอง “รอให้เป้าอยู่ในตำแหน่งถนัด” แล้วค่อยแตะ จะเร็วขึ้น';
-  else if (hp < 0.45) tip = 'ระวัง HP—เลือกตีเป้าปลอดภัยก่อน (หลบ bomb/decoy)';
-  else if (skillScore > 0.82 && fatigueRisk < 0.35) tip = 'ฟอร์มดีมาก! เพิ่มความยาก/เพิ่มความเร็วได้เลย 🔥';
-  else tip = 'รักษาคอมโบ—ตีให้ต่อเนื่อง จะคุมเกมได้ง่ายขึ้น';
+    // suggested difficulty (string)
+    let suggestedDifficulty = 'normal';
+    if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+    else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
 
-  return {
-    skillScore,
-    fatigueRisk,
-    paceMult,
-    suggestedDifficulty,
-    tip
+    // micro tip
+    let tip = '';
+    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
+    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
+    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
+    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+
+    return {
+      fatigueRisk,
+      skillScore,
+      suggestedDifficulty,
+      tip
+    };
+  }
+
+  // ---- Public bridge used by engine/UI ----
+  // Research lock rule:
+  // - if mode=research => lock adjustments ALWAYS
+  // - if normal => allow adjustments only when ?ai=1
+  const API = {
+    getMode() {
+      return readQueryMode(); // 'research' | 'normal'
+    },
+    isAssistEnabled() {
+      const mode = readQueryMode();
+      if (mode === 'research') return false;   // locked
+      return readQueryFlag('ai');              // normal: require ?ai=1
+    },
+    isLocked() {
+      return readQueryMode() === 'research';
+    },
+    predict(snapshot) {
+      return predictFromSnapshot(snapshot || {});
+    }
   };
-}
 
-// -------------------------
-// Public API class
-// -------------------------
-export class AIPredictor {
-  getMode(){ return qMode(); }                 // 'normal' | 'research'
-  isLocked(){ return qMode() === 'research'; } // research lock
-  isAssistEnabled(){
-    // research locked always off
-    if (this.isLocked()) return false;
-    // normal: enable only when ?ai=1 (so it won't affect research/play by accident)
-    return qFlag('ai');
-  }
-  predict(snapshot){
-    return predictFromSnapshot(snapshot || {});
-  }
-}
-
-// Convenience singleton for simple usage
-export const HHA_AI = new AIPredictor();
-
-// Also expose global for legacy scripts
-try{
-  window.HHA_AI = HHA_AI;
-}catch{}
+  // expose globally
+  WIN.RB_AI = API;
+})();
