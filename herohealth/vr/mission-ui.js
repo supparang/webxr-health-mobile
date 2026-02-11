@@ -12,18 +12,16 @@
   function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
   function normSet(arr){ return new Set((arr||[]).map(String)); }
 
-  // mission spec from combo
   function missionFromCombo(combo){
     const s = normSet(combo);
-    if(s.has('balance')) return { id:'balance_focus', title:'⚖️ ทรงตัวให้ครบ 2 รอบ', need:2, metric:'hold_ok' };
-    if(s.has('jump') || s.has('duck')) return { id:'jumpduck_focus', title:'🦘 ทำ Jump/Duck ให้ครบ 6 ครั้ง', need:6, metric:'move_ok' };
-    if(s.has('punch_rhythm')) return { id:'rhythm_focus', title:'🎵 ตีตามจังหวะให้ได้ streak 5', need:5, metric:'streak' };
-    return { id:'shadow_focus', title:'🥊 ตีเป้าให้แม่น 10 ครั้ง', need:10, metric:'hit_ok' };
+    if(s.has('balance')) return { id:'balance_focus', title:'ทรงตัวให้ครบ 2 รอบ', need:2, metric:'hold_ok' };
+    if(s.has('jump') || s.has('duck')) return { id:'jumpduck_focus', title:'ทำ Jump/Duck ให้ครบ 6 ครั้ง', need:6, metric:'move_ok' };
+    if(s.has('punch_rhythm')) return { id:'rhythm_focus', title:'ตีตามจังหวะให้ได้ streak 5', need:5, metric:'streak' };
+    return { id:'shadow_focus', title:'ตีเป้าให้แม่น 10 ครั้ง', need:10, metric:'hit_ok' };
   }
 
   const M = missionFromCombo(combo);
 
-  // UI
   const wrap = DOC.createElement('div');
   wrap.style.position = 'fixed';
   wrap.style.left = '10px';
@@ -67,7 +65,6 @@
   wrap.appendChild(hint);
   DOC.body.appendChild(wrap);
 
-  // state
   let prog = 0;
   let done = false;
   let bestStreak = 0;
@@ -84,19 +81,11 @@
     done = true;
     setProg(M.need);
     try{
-      if(RP?.ev){
-        RP.ev('mission_done', { missionId: M.id, bonus: RP.IS_RESEARCH ? 0 : 15 });
-      }
+      RP?.ev?.('mission_done', { missionId: M.id, bonus: RP?.IS_RESEARCH ? 0 : 15 });
     }catch(e){}
-    // auto-hide after success
     setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 4500);
   }
 
-  // Public hooks that games can call:
-  // - HHA_MISSION.noteHitOk()
-  // - HHA_MISSION.noteMoveOk()
-  // - HHA_MISSION.noteHoldOk()
-  // - HHA_MISSION.noteStreak(n)
   const API = {
     id: M.id,
     need: M.need,
@@ -121,8 +110,7 @@
     },
     noteStreak(n){
       if(done || M.metric !== 'streak') return;
-      const nn = Math.max(bestStreak, Number(n)||0);
-      bestStreak = nn;
+      bestStreak = Math.max(bestStreak, Number(n)||0);
       setProg(bestStreak);
       RP?.ev?.('mission_progress', { missionId:M.id, prog:bestStreak, need:M.need });
       if(bestStreak >= M.need) fireDone();
@@ -131,7 +119,6 @@
 
   WIN.HHA_MISSION = API;
 
-  // log init
   try{
     RP?.ev?.('mission_init', { missionId:M.id, title:M.title, need:M.need, metric:M.metric, fromPlanner });
   }catch(e){}
