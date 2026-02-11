@@ -1,68 +1,46 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + harden)
-// PATCH v20260210e
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
+// PATCH v20260211a
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
-// ✅ Warn if particles.js or quiz bank missing
-// ✅ Global error traps (error + unhandledrejection)
-// ✅ Anti-stall watchdog (shows overlay from hygiene-vr.html window.HHA_STALL)
-// Notes:
-// - Quiz bank filename is: hygiene-quiz-bank.js (NOT hygiene.quiz-bank.js)
+// ✅ Wait for defer scripts (Particles / QuizBank / VRUI) to populate globals
+// ✅ Watchdog: detect stall/freeze-ish and warn user to reload
 //
-
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function banner(msg){
-  const b = $id('banner');
-  if(!b) return;
-  b.textContent = msg;
-  b.classList.add('show');
-  clearTimeout(banner._t);
-  banner._t = setTimeout(()=>b.classList.remove('show'), 1600);
-}
-
-function setHudSub(msg){
-  const sub = $id('hudSub');
-  if(sub) sub.textContent = String(msg||'');
-}
-
-function stall(){
-  return (window.HHA_STALL && typeof window.HHA_STALL.show === 'function') ? window.HHA_STALL : null;
+function showBanner(msg, ms=1600){
+  const banner = $id('banner');
+  if(!banner) return;
+  banner.textContent = msg;
+  banner.classList.add('show');
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(()=>banner.classList.remove('show'), ms);
 }
 
 function showFatal(msg, err){
   console.error('[HygieneBoot]', msg, err||'');
-  setHudSub(`BOOT ERROR: ${msg}`);
+  const sub = $id('hudSub');
+  const banner = $id('banner');
+  const startOverlay = $id('startOverlay');
 
-  const s = stall();
-  const details = [
-    `❌ ${msg}`,
-    err ? (err.stack || err.message || String(err)) : '',
-    `URL: ${location.href}`,
-    `UA: ${navigator.userAgent}`
-  ].filter(Boolean).join('\n\n');
-
-  if(s){
-    s.set(details);
-    s.show(details);
-  }else{
-    // fallback: banner only
-    banner(`❌ ${msg}`);
-    const startOverlay = $id('startOverlay');
-    if(startOverlay){
-      const card = startOverlay.querySelector('.hw-card-sub');
-      if(card){
-        card.innerHTML = `
-          <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
-          <span style="color:#94a3b8">${msg}</span><br>
-          <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
-        `;
-      }
-      startOverlay.style.display = 'grid';
+  if(sub) sub.textContent = `BOOT ERROR: ${msg}`;
+  if(banner){
+    banner.textContent = `❌ ${msg}`;
+    banner.classList.add('show');
+  }
+  if(startOverlay){
+    const card = startOverlay.querySelector('.hw-card-sub');
+    if(card){
+      card.innerHTML = `
+        <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
+        <span style="color:#94a3b8">${msg}</span><br>
+        <span style="color:#94a3b8">แนะนำเปิด Console/Network เช็ค 404 หรือ error</span>
+      `;
     }
+    startOverlay.style.display = 'grid';
   }
 }
 
@@ -88,114 +66,78 @@ function waitForGlobal(getter, ms){
   });
 }
 
-// -------------------- Global error traps --------------------
-function installGlobalTraps(){
+/* ---------------------------
+   Stall watchdog
+   - ถ้า frame ไม่ขยับ (tab freeze / device lag) หรือ
+   - ถ้าไม่มี “กิจกรรมเกม” นานเกินไป -> แจ้งเตือน
+   --------------------------- */
+function setupWatchdog(){
+  const STATE = {
+    lastFrameMs: performance.now(),
+    lastActivityMs: performance.now(),
+    warned: false
+  };
+
+  // engine จะเรียก window.__HHA_HYGIENE_ACTIVITY() ได้ (ถ้าคุณเพิ่มใน hygiene.safe.js)
+  // แต่แม้ไม่เพิ่ม เราก็ขยับ activity เมื่อมี input/visibility/RAF
+  window.__HHA_HYGIENE_ACTIVITY = function(){
+    STATE.lastActivityMs = performance.now();
+  };
+
+  // bump on user inputs
+  const bump = ()=>{ STATE.lastActivityMs = performance.now(); };
+  window.addEventListener('pointerdown', bump, { passive:true });
+  window.addEventListener('touchstart',  bump, { passive:true });
+  window.addEventListener('keydown',     bump, { passive:true });
+  document.addEventListener('visibilitychange', bump, { passive:true });
+
+  function raf(){
+    const now = performance.now();
+    const dtFrame = now - STATE.lastFrameMs;
+    STATE.lastFrameMs = now;
+
+    // ถ้า frame gap ใหญ่ผิดปกติ (มือถือหน่วง/สลับแอปกลับมา)
+    if(dtFrame > 2200){
+      showBanner('⚠️ เกมสะดุด/หน่วง (มือถือ/เมมโมรี่) — ถ้าค้างให้ Reload');
+      STATE.lastActivityMs = now;
+      STATE.warned = false;
+    }
+
+    const idle = now - STATE.lastActivityMs;
+
+    // ถ้า “เงียบ” นาน (ผู้ใช้กำลังเล่น แต่เกมไม่ตอบสนอง)
+    if(idle > 9000 && !STATE.warned){
+      STATE.warned = true;
+      showBanner('เกมค้าง/สะดุด • แนะนำกด Reload เกม (มักเกิดจาก memory/JS error/มือถือหน่วง) • เปิด Console ดู error ได้', 3600);
+    }
+
+    // reset warn หลังมี activity
+    if(idle < 2000) STATE.warned = false;
+
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+}
+
+async function main(){
+  setupWatchdog();
+
+  // show runtime errors on screen (ไม่ให้ “ค้างเงียบ”)
   window.addEventListener('error', (e)=>{
     try{
-      const msg = e?.message || 'unknown error';
-      const src = e?.filename ? `@ ${e.filename}:${e.lineno||0}:${e.colno||0}` : '';
-      const err = e?.error;
-      const detail = [
-        `JS ERROR: ${msg}`,
-        src,
-        err ? (err.stack || err.message || String(err)) : ''
-      ].filter(Boolean).join('\n');
-      showFatal(`เกิด JS error`, new Error(detail));
-    }catch(_){}
+      const m = (e && (e.message || e.error?.message)) || 'Unknown error';
+      showBanner('❌ JS error: ' + m, 3200);
+      console.error('[HygieneBoot] window.error', e);
+    }catch{}
   });
 
   window.addEventListener('unhandledrejection', (e)=>{
     try{
-      const r = e?.reason;
-      const detail = r ? (r.stack || r.message || String(r)) : 'unknown rejection';
-      showFatal('Promise rejection (unhandled)', new Error(detail));
-    }catch(_){}
+      const m = (e && (e.reason?.message || String(e.reason))) || 'Unhandled rejection';
+      showBanner('❌ Promise error: ' + m, 3200);
+      console.error('[HygieneBoot] unhandledrejection', e);
+    }catch{}
   });
-}
-
-// -------------------- Anti-stall watchdog --------------------
-// แนวคิด: engine ต้อง “ขยับเวลา/ปล่อย tick” อย่างน้อยทุก ๆ X ms
-// ให้ hygiene.safe.js เรียก: window.__HHA_HEARTBEAT__ = performance.now() เป็นระยะ
-// (ถ้ายังไม่ได้ใส่ เดี๋ยวใน C จะ patch ให้)
-const WATCHDOG = {
-  enable: true,
-  warnAfterMs: 3500,
-  hardAfterMs: 6500,
-  intervalMs: 700
-};
-
-function startWatchdog(){
-  if(!WATCHDOG.enable) return;
-
-  const s = stall();
-  let shown = false;
-
-  function note(msg){
-    if(s) s.set(msg);
-  }
-
-  const t0 = performance.now ? performance.now() : Date.now();
-
-  const timer = setInterval(()=>{
-    try{
-      const now = performance.now ? performance.now() : Date.now();
-      const hb = Number(window.__HHA_HEARTBEAT__ || 0);
-      const dt = hb ? (now - hb) : (now - t0);
-
-      // ถ้าเกมกำลังอยู่ overlay start/end ก็ไม่ต้องเตือนหนัก
-      const startOverlay = $id('startOverlay');
-      const endOverlay = $id('endOverlay');
-      const overlayVisible =
-        (startOverlay && getComputedStyle(startOverlay).display !== 'none') ||
-        (endOverlay && getComputedStyle(endOverlay).display !== 'none');
-
-      if(overlayVisible){
-        shown = false;
-        if(s) s.hide();
-        return;
-      }
-
-      if(dt > WATCHDOG.hardAfterMs){
-        const msg = [
-          'เกมค้าง/สะดุด (watchdog)',
-          `ไม่มี heartbeat นาน ${(dt/1000).toFixed(1)}s`,
-          'แนะนำกด Reload เกม',
-          '',
-          'เช็คสาเหตุที่พบบ่อย:',
-          '1) มือถือหน่วง/เมมเต็ม',
-          '2) JS error (ดู Console)',
-          '3) เป้า click ไม่ถึง (HUD/overlay บัง) หรือ pointer-events ผิด',
-          '',
-          `URL: ${location.href}`
-        ].join('\n');
-        if(s){
-          s.show(msg);
-          note(msg);
-          shown = true;
-        }else{
-          banner('เกมค้าง/สะดุด — แนะนำ Reload');
-        }
-      }else if(dt > WATCHDOG.warnAfterMs){
-        if(!shown){
-          banner('⚠️ เกมเริ่มหน่วง/สะดุด');
-          shown = true;
-        }
-      }else{
-        if(shown){
-          shown = false;
-          if(s) s.hide();
-        }
-      }
-    }catch(_){}
-  }, WATCHDOG.intervalMs);
-
-  // store in case you want to stop it later
-  window.__HHA_WATCHDOG_TIMER__ = timer;
-}
-
-// -------------------- Main boot --------------------
-async function main(){
-  installGlobalTraps();
 
   // DOM must exist
   const stage = $id('stage');
@@ -208,8 +150,9 @@ async function main(){
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
-    setHudSub('⚠️ CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)');
-    banner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
+    const sub = $id('hudSub');
+    if(sub) sub.textContent = '⚠️ CSS อาจหาย/ไม่ถูกโหลด (เช็ค Network: hygiene-vr.css)';
+    showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
   // Wait a bit for deferred scripts to populate globals
@@ -217,7 +160,7 @@ async function main(){
   const P = await waitForGlobal(()=>window.Particles, 1200);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
-    banner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
+    showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
   }else{
     try{ console.log('[HygieneBoot] Particles OK'); }catch{}
   }
@@ -226,13 +169,18 @@ async function main(){
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 1200);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
-    banner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
+    showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
   }else{
-    try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
+    try{ console.log('[HygieneBoot] Quiz bank OK:', bank.length); }catch{}
   }
 
-  // Start watchdog early (กันค้างระหว่าง import/init)
-  startWatchdog();
+  // vr-ui -> not required for non-VR, but warn if missing in VR view
+  const view = (new URL(location.href).searchParams.get('view') || 'pc').toLowerCase();
+  const vrui = await waitForGlobal(()=>window.__HHA_VRUI_LOADED__ || window.HHA_VRUI_CONFIG, 600);
+  if((view === 'vr' || view === 'cvr') && !vrui){
+    console.warn('[HygieneBoot] vr-ui.js may be missing');
+    showBanner('⚠️ VR UI อาจไม่พร้อม (vr-ui.js)');
+  }
 
   // Import engine safely
   let engine;
@@ -251,8 +199,12 @@ async function main(){
   // Run engine boot
   try{
     engine.boot();
+
+    // mark as activity
+    try{ window.__HHA_HYGIENE_ACTIVITY?.(); }catch{}
+
     console.log('[HygieneBoot] engine.boot OK');
-    banner('✅ โหลดเกมพร้อม');
+    showBanner('✅ โหลดเกมสำเร็จ', 900);
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
