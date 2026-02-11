@@ -11,17 +11,14 @@
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target คือเกมจริง
-  // จาก /herohealth/* -> /fitness/jump-duck.html (อยู่โฟลเดอร์ fitness)
+  // ✅ target = เกมจริง (อยู่ที่ /fitness/jump-duck.html)
+  // NOTE: อยู่ใน /herohealth/ -> ไป /fitness/ = ../fitness/...
   hhGo('../fitness/jump-duck.html', {
     defaults: {
       mode: 'training',
       diff: 'normal',
-      duration: '60',
-      boss: 'mixed'
-      // log: ''  // ไม่ใส่ default เพื่อไม่เผลอส่งผิด endpoint
-    },
-    // (launcher-core.js ปกติจะ pass-through QS ให้อยู่แล้ว)
+      duration: '60'
+    }
   });
 </script>
 </body>
