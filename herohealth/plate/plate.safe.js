@@ -1,9 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — HEAVY PLAY
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION) — FINAL
 // HHA Standard
 // ------------------------------------------------
 // ✅ Play / Research modes
-//   - play: adaptive ON (heuristic director) + NO early end (heavy mode)
+//   - play: adaptive ON (heuristic director)
 //   - research/study: deterministic seed + adaptive OFF
 // ✅ Fix: "ออกไม่ครบ 5 หมู่" => spawn bias toward missing groups early game
 // ✅ Uses decorateTarget(el,target) from mode-factory.js to set emoji/icon + group
@@ -12,17 +12,15 @@
 //   hha:coach, hha:judge, hha:end
 // ✅ Crosshair / tap-to-shoot via vr-ui.js (hha:shoot)
 // ✅ End: stop spawner so targets won't "blink" after finish
-// ✅ End summary schema matches Groups/Hydration + adds miss breakdown + grade
-// ✅ NEW: Heavy Play Rewards (no early end):
-//    - when goal & mini cleared: grant bonus time + silent badge + coach
-// ✅ NEW: Evaluate/Create hooks (Grade 5):
-//    - emits plate:reflect prompt data (optional UI layer can render)
+// ✅ PATCH: Standardize end summary schema to match Groups/Hydration
+// ✅ PATCH: End summary adds missJunk/missExpire + grade + timePlannedSec
+// ✅ PATCH: Prevent "finish too fast" in play mode (minPlaySec gate)
 // ------------------------------------------------
 
 'use strict';
 
 import { boot as spawnBoot } from '../vr/mode-factory.js';
-import { FOOD5, JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
+import { JUNK, pickEmoji, emojiForGroup, labelForGroup } from '../vr/food5-th.js';
 
 /* ------------------------------------------------
  * Utilities
@@ -46,55 +44,12 @@ function seededRng(seed){
 
 function gradeFromScore(score){
   score = Number(score)||0;
+  // tune ได้ตามจริงของเกม plate
   if (score >= 2200) return 'S';
   if (score >= 1700) return 'A';
   if (score >= 1200) return 'B';
   if (score >= 700)  return 'C';
   return 'D';
-}
-
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch{ return def; }
-}
-
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
-}
-
-function coach(msg, tag='Coach'){
-  emit('hha:coach', { msg, tag });
-}
-
-/* ------------------------------------------------
- * Silent badge (localStorage only, no popups)
- * ------------------------------------------------ */
-function lsGet(k){ try{ return localStorage.getItem(k); }catch{ return null; } }
-function lsSet(k,v){ try{ localStorage.setItem(k, v); }catch{} }
-
-function getPid(){
-  // prefer param pid; fallback studentKey; fallback anon
-  return (qs('pid','') || qs('studentKey','') || 'anon').toString();
-}
-function badgeKey(pid){ return `HHA_BADGES_V1:${pid}`; }
-
-function getBadges(pid){
-  const raw = lsGet(badgeKey(pid));
-  if(!raw) return {};
-  try{ return JSON.parse(raw) || {}; }catch{ return {}; }
-}
-function hasBadge(pid, id){
-  const b = getBadges(pid);
-  return !!b[id];
-}
-function awardSilentBadge(id, meta={}){
-  const pid = getPid();
-  const b = getBadges(pid);
-  if(b[id]) return false;
-  b[id] = { at: Date.now(), ...meta };
-  lsSet(badgeKey(pid), JSON.stringify(b));
-  emit('hha:badge', { id, silent:true, ...meta }); // optional listener
-  return true;
 }
 
 /* ------------------------------------------------
@@ -108,15 +63,15 @@ const STATE = {
   combo:0,
   comboMax:0,
 
+  // canonical miss
   miss:0,
-  hitGood:0,
-  hitJunk:0,       // miss by junk
-  expireGood:0,    // miss by timeout/expire
-  shotMiss:0,      // optional (from mode-factory hha:judge kind:'shot_miss')
 
   timeLeft:0,
   timePlannedSec:0,
   timer:null,
+
+  // timestamps
+  startedAtMs:0,
 
   // plate groups counts (index 0..4 => groupId 1..5)
   g:[0,0,0,0,0],
@@ -137,6 +92,11 @@ const STATE = {
     done:false
   },
 
+  // judged counters
+  hitGood:0,
+  hitJunk:0,       // = miss by junk
+  expireGood:0,    // = miss by expire
+
   // mode / cfg
   cfg:null,
   rng:Math.random,
@@ -146,12 +106,19 @@ const STATE = {
 
   // spawn director
   seen:[false,false,false,false,false],       // collected
-  spawnSeen:[false,false,false,false,false],  // spawned
-  spawnTick:0,
-
-  // heavy-play reward latch
-  heavyRewarded:false,
+  spawnSeen:[false,false,false,false,false],  // spawned at least once
 };
+
+/* ------------------------------------------------
+ * Event helpers
+ * ------------------------------------------------ */
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
+
+function coach(msg, tag='Coach'){
+  emit('hha:coach', { msg, tag });
+}
 
 /* ------------------------------------------------
  * Quest update
@@ -193,13 +160,16 @@ function addCombo(){
   STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
 }
 
-function resetCombo(){ STATE.combo = 0; }
+function resetCombo(){
+  STATE.combo = 0;
+}
 
 /* ------------------------------------------------
  * Accuracy
- * ------------------------------------------------ */
+ * ------------------------------------------------
+ * judged = hitGood + hitJunk + expireGood
+ */
 function accuracy(){
-  // judged: good hit + junk hit + good expired (+ optional shotMiss if you want)
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
   if(total <= 0) return 1;
   return STATE.hitGood / total;
@@ -212,60 +182,6 @@ function updateMiniFromAccuracy(){
     STATE.mini.done = true;
     coach('ความแม่นยำดีมาก! 👍');
   }
-}
-
-/* ------------------------------------------------
- * Heavy Play reward (no early end)
- * ------------------------------------------------ */
-function isPlay(){
-  return String(STATE.cfg?.runMode || 'play').toLowerCase() === 'play';
-}
-
-function grantHeavyRewardIfReady(){
-  if(!isPlay()) return;
-  if(STATE.heavyRewarded) return;
-  if(!(STATE.goal.done && STATE.mini.done)) return;
-
-  STATE.heavyRewarded = true;
-
-  // Bonus time: +12s (tuneได้)
-  const bonus = 12;
-  STATE.timeLeft += bonus;
-
-  emit('hha:time', { leftSec: STATE.timeLeft, bonusSec: bonus });
-
-  coach(`โหดมาก! +${bonus} วินาที 🔥 เล่นต่อให้สุด!`);
-
-  // Silent badge (one-time)
-  const did = awardSilentBadge('plate_heavy_clear_v1', {
-    game:'plate',
-    reason:'goal+mini cleared in play (heavy mode)'
-  });
-  if(did){
-    // no popup — just a subtle coach hint once
-    coach('ได้ตรา “จานโหด” (silent badge) 🏅', 'Badge');
-  }
-
-  // Optional reflect prompt hook (Evaluate/Create) — UI may render later
-  emit('plate:reflect', {
-    phase:'mid', // mid-run reflect unlocked
-    evaluate:{
-      title:'ประเมินจานของเรา',
-      options:[
-        { id:'too_much', label:'มากไป' },
-        { id:'too_little', label:'น้อยไป' },
-        { id:'need_more', label:'ควรเพิ่มอะไร' }
-      ]
-    },
-    create:{
-      title:'ปรับ 1 อย่าง',
-      options:[
-        { id:'add_veg', label:'เพิ่มผัก' },
-        { id:'less_rice', label:'ลดข้าว/แป้ง' },
-        { id:'swap_fruit', label:'เปลี่ยนขนมเป็นผลไม้' }
-      ]
-    }
-  });
 }
 
 /* ------------------------------------------------
@@ -302,12 +218,10 @@ function endGame(reason='timeup'){
     scoreFinal: STATE.score | 0,
     comboMax: STATE.comboMax | 0,
 
-    // canonical miss
-    miss: (STATE.miss | 0),
-
-    // breakdown (for UI)
-    missJunk: (STATE.hitJunk | 0),
-    missExpire: (STATE.expireGood | 0),
+    // canonical miss + breakdown
+    miss: STATE.miss | 0,
+    missJunk: STATE.hitJunk | 0,
+    missExpire: STATE.expireGood | 0,
 
     accuracyPct: accPct1Dec,
     grade,
@@ -324,40 +238,17 @@ function endGame(reason='timeup'){
     g5: STATE.g[4],
 
     // legacy aliases
-    misses: (STATE.miss | 0),
+    misses: STATE.miss | 0,
     accuracyGoodPct: accPct1Dec,
     durationPlannedSec: Number(STATE.timePlannedSec || 0) || 0,
 
-    // extras
-    hitGood: (STATE.hitGood | 0),
-    hitJunk: (STATE.hitJunk | 0),
-    expireGood: (STATE.expireGood | 0),
-    shotMiss: (STATE.shotMiss | 0),
+    // extra
+    hitGood: STATE.hitGood | 0,
+    hitJunk: STATE.hitJunk | 0,
+    expireGood: STATE.expireGood | 0,
   };
 
   emit('hha:end', summary);
-
-  // Optional: end reflect hook (Evaluate/Create final) — UI may render later
-  emit('plate:reflect', {
-    phase:'end',
-    evaluate:{
-      title:'หลังจบเกม: ทำไมจานถึงเป็นแบบนี้?',
-      options:[
-        { id:'too_much', label:'มากไป (บางหมู่เยอะเกิน)' },
-        { id:'too_little', label:'น้อยไป (บางหมู่ขาด)' },
-        { id:'need_more', label:'ควรเพิ่มอะไร (ผัก/ผลไม้/โปรตีน)' }
-      ]
-    },
-    create:{
-      title:'ปรับ 1 อย่างแล้วดูผลทันที',
-      options:[
-        { id:'add_veg', label:'เพิ่มผัก' },
-        { id:'less_rice', label:'ลดข้าว/แป้ง' },
-        { id:'swap_fruit', label:'เปลี่ยนขนมเป็นผลไม้' }
-      ],
-      rewardBadgeId:'plate_creator_v1'
-    }
-  });
 }
 
 /* ------------------------------------------------
@@ -368,6 +259,7 @@ function startTimer(){
 
   STATE.timer = setInterval(()=>{
     if(!STATE.running) return;
+
     STATE.timeLeft--;
     emit('hha:time', { leftSec: STATE.timeLeft });
 
@@ -390,8 +282,36 @@ function recomputeGoal(){
   }
 }
 
+function elapsedSec(){
+  const nowMs = (performance && performance.now) ? performance.now() : Date.now();
+  const base = Number(STATE.startedAtMs)||0;
+  return base ? (nowMs - base)/1000 : 0;
+}
+
+function maybeEndEarlyPlay(){
+  // กัน “จบไวเกิน” ใน play:
+  // - ต้องเล่นแล้วอย่างน้อย minPlaySec
+  // - หรือเหลือเวลาน้อยมากแล้ว (<=6s) ถึงจะยอมจบ
+  if(!STATE.cfg) return;
+  const runMode = String(STATE.cfg.runMode||'play').toLowerCase();
+  if(runMode !== 'play') return;
+  if(!(STATE.goal.done && STATE.mini.done)) return;
+
+  const minPlaySec = clamp(STATE.cfg?.minPlaySec ?? 12, 6, 30);
+  if(elapsedSec() < minPlaySec && STATE.timeLeft > 6){
+    // ให้โค้ชบอกครั้งเดียวพอ
+    if(!STATE.__toldKeepGoing){
+      STATE.__toldKeepGoing = true;
+      coach('เก่งมาก! ✅ ทำครบแล้ว ลองทำคะแนน/คอมโบเพิ่มอีกนิด! 🔥');
+    }
+    return;
+  }
+  setTimeout(()=>{ if(!STATE.ended) endGame('all_done'); }, 420);
+}
+
 function onHitGood(groupIndex){
   STATE.hitGood++;
+
   const gi = clamp(groupIndex, 0, 4);
   STATE.g[gi]++;
   STATE.seen[gi] = true;
@@ -410,8 +330,7 @@ function onHitGood(groupIndex){
     combo: STATE.combo
   });
 
-  // ✅ heavy play: do NOT end early; reward instead
-  grantHeavyRewardIfReady();
+  maybeEndEarlyPlay();
 }
 
 function onHitJunk(){
@@ -460,20 +379,22 @@ function pickGroupIndexForGood(t){
   const missingCollect = [];
   for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missingCollect.push(i);
 
+  // Phase A: ensure each group spawns at least once (strong bias)
   if(missingSpawn.length){
     if(rng() < 0.85){
       return missingSpawn[Math.floor(rng()*missingSpawn.length)];
     }
   }
 
+  // Phase B: until player collects all 5 (bias)
   if(missingCollect.length){
     if(rng() < 0.75){
       return missingCollect[Math.floor(rng()*missingCollect.length)];
     }
   }
 
-  // after collected all 5
-  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  // Phase C: after collected all 5
+  const runMode = (STATE.cfg?.runMode || 'play').toLowerCase();
   const adaptiveOn = (runMode === 'play');
 
   if(adaptiveOn){
@@ -493,7 +414,7 @@ function pickGroupIndexForGood(t){
  * ------------------------------------------------ */
 function decorateTarget(el, t){
   if(t.kind === 'good'){
-    const gi = pickGroupIndexForGood(t); // 0..4
+    const gi = pickGroupIndexForGood(t);
     t.groupIndex = gi;
     STATE.spawnSeen[gi] = true;
 
@@ -518,13 +439,13 @@ function decorateTarget(el, t){
  * Spawner boot
  * ------------------------------------------------ */
 function makeSpawner(mount){
-  const diff = String(STATE.cfg?.diff || 'normal').toLowerCase();
+  const diff = (STATE.cfg?.diff || 'normal').toLowerCase();
 
   let spawnRate = 900;
   if(diff === 'hard') spawnRate = 720;
   else if(diff === 'easy') spawnRate = 1020;
 
-  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const runMode = (STATE.cfg?.runMode || 'play').toLowerCase();
   const adaptiveOn = (runMode === 'play');
 
   if(adaptiveOn){
@@ -575,17 +496,15 @@ export function boot({ mount, cfg }){
   STATE.score = 0;
   STATE.combo = 0;
   STATE.comboMax = 0;
-
   STATE.miss = 0;
+
   STATE.hitGood = 0;
   STATE.hitJunk = 0;
   STATE.expireGood = 0;
-  STATE.shotMiss = 0;
 
   STATE.g = [0,0,0,0,0];
   STATE.seen = [false,false,false,false,false];
   STATE.spawnSeen = [false,false,false,false,false];
-  STATE.spawnTick = 0;
 
   STATE.goal.cur = 0;
   STATE.goal.done = false;
@@ -593,30 +512,24 @@ export function boot({ mount, cfg }){
   STATE.mini.cur = 0;
   STATE.mini.done = false;
 
-  STATE.heavyRewarded = false;
+  STATE.__toldKeepGoing = false;
 
   // RNG policy
-  const runMode = String(cfg?.runMode || 'play').toLowerCase();
+  const runMode = (cfg?.runMode || 'play').toLowerCase();
   if(runMode === 'research' || runMode === 'study'){
     STATE.rng = seededRng(cfg.seed || Date.now());
   }else{
     STATE.rng = Math.random;
   }
 
-  // duration (canonical)
-  STATE.timeLeft = Number(cfg?.durationPlannedSec) || 90;
+  // duration policy
+  const planned = Number(cfg?.durationPlannedSec) || 90;
+  STATE.timeLeft = clamp(planned, 10, 999);
   STATE.timePlannedSec = STATE.timeLeft;
 
-  // listen optional shot miss from mode-factory (does not count to accuracy by default)
-  const onJudge = (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind || '').toLowerCase();
-    if(kind === 'shot_miss') STATE.shotMiss++;
-  };
-  WIN.removeEventListener('hha:judge', onJudge);
-  WIN.addEventListener('hha:judge', onJudge);
+  // mark start time (for minPlaySec guard)
+  STATE.startedAtMs = (performance && performance.now) ? performance.now() : Date.now();
 
-  // start event (standard keys + legacy alias)
   emit('hha:start', {
     game:'plate',
     runMode: cfg.runMode,
@@ -631,7 +544,6 @@ export function boot({ mount, cfg }){
   emitQuest();
   startTimer();
 
-  // start spawner
   STATE.engine = makeSpawner(mount);
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️');
@@ -644,6 +556,3 @@ export function boot({ mount, cfg }){
   WIN.removeEventListener('pagehide', onHide);
   WIN.addEventListener('pagehide', onHide, { once:false });
 }
-
-// Optional helper if external manual end needed:
-// export function end(reason='manual'){ endGame(reason); }
