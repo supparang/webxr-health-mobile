@@ -1,11 +1,12 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260210d
-✅ Views: pc/mobile/vr/cvr (via body class)
-✅ Uses: ../vr/vr-ui.js (Enter VR / Exit / Recenter + crosshair + hha:shoot)
+PATCH v20260210f
+✅ Views: pc/mobile/vr/cvr (body class)
+✅ Uses: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
 ✅ FX: ../vr/particles.js
-✅ Quiz bank: ./hygiene-quiz-bank.js -> window.HHA_HYGIENE_QUIZ_BANK
-✅ Boot: hygiene-vr.boot.js (module) + anti-stall overlay
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Anti-stall: stall overlay + watchdog (reads window.__HHA_HEARTBEAT__)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,13 +17,12 @@ PATCH v20260210d
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260210c" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260210f" />
 
-  <!-- Universal VR UI (defer) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX (defer) -->
+  <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -30,61 +30,11 @@ PATCH v20260210d
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct filename) -->
+  <!-- Quiz bank (✅ correct name) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260210d"></script>
-
-  <style>
-    /* anti-stall overlay (เบา ๆ ไม่ทับเกม ถ้าเกมรันแล้วจะซ่อนเองจาก boot) */
-    .hw-stall{
-      position: fixed;
-      inset: 0;
-      display: none;
-      place-items: center;
-      padding: 16px;
-      background: rgba(2,6,23,.70);
-      z-index: 120;
-      backdrop-filter: blur(10px);
-    }
-    .hw-stall .card{
-      width: min(720px, 100%);
-      border-radius: 22px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.74);
-      box-shadow: 0 24px 90px rgba(0,0,0,.55);
-      padding: 14px;
-      color: rgba(229,231,235,.96);
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
-    .hw-stall .title{ font-weight: 950; font-size: 16px; }
-    .hw-stall .sub{ margin-top: 8px; color: rgba(148,163,184,.95); font-size: 13px; line-height: 1.35; }
-    .hw-stall .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
-    .hw-stall .btn{
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.70);
-      color: rgba(229,231,235,.95);
-      padding: 10px 12px;
-      font-weight: 950;
-      cursor: pointer;
-    }
-    .hw-stall .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
-    .hw-stall pre{
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.45);
-      max-height: min(40vh, 360px);
-      overflow: auto;
-      font-size: 12px;
-      color: rgba(229,231,235,.92);
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-  </style>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260210f"></script>
 </head>
 
 <body class="view-pc">
@@ -129,7 +79,7 @@ PATCH v20260210d
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -137,6 +87,10 @@ PATCH v20260210d
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+        </div>
+
+        <div class="hw-card-sub" style="margin-top:10px;color:rgba(148,163,184,.9)">
+          ถ้าเล่น ๆ อยู่แล้วค้าง: กด <b>Reload</b> (มือถือหน่วง/เมมเต็ม/JS error) และดู Console/Network
         </div>
       </div>
     </div>
@@ -154,74 +108,96 @@ PATCH v20260210d
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Anti-stall Overlay -->
-  <div class="hw-stall" id="stallOverlay" aria-live="polite">
-    <div class="card">
-      <div class="title">เริ่มภารกิจล้างมือ 🧼 (เกมค้าง/สะดุด)</div>
-      <div class="sub">
-        แนะนำกด <b>Reload เกม</b> (มักเกิดจาก memory/JS error/มือถือหน่วง)<br>
-        ถ้าเปิด Console ได้ ให้ดู error แล้วคัดลอกส่งมาได้เลย
+    <!-- Stall overlay (anti-freeze UX) -->
+    <div class="hw-overlay" id="stallOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title">เกมค้าง/สะดุด ⚠️</div>
+        <div class="hw-card-sub" id="stallSub">
+          แนะนำกด Reload เกม (มักเกิดจาก memory/JS error/มือถือหน่วง)
+        </div>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnReload" type="button">⟳ Reload</button>
+          <button class="hw-ghost" id="btnDismissStall" type="button">ปิด</button>
+        </div>
+        <div class="hw-card-sub" style="margin-top:10px">
+          เปิด Console ดู error ได้ • ตรวจ Network ว่ามีไฟล์ 404 ไหม
+        </div>
       </div>
-      <div class="row">
-        <button class="btn primary" id="btnReload" type="button">🔄 Reload เกม</button>
-        <button class="btn" id="btnCopyErr" type="button">📋 Copy error</button>
-        <button class="btn" id="btnCloseStall" type="button">✖ ปิด</button>
-      </div>
-      <pre id="stallErr">กำลังรอสถานะ…</pre>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
+
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
+      view==='mobile'?'view-mobile':
+      (view==='vr'?'view-vr':
+      (view==='cvr'?'view-cvr':'view-pc'))
     );
-    const lab = document.getElementById('labView');
-    if(lab) lab.textContent = view;
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
+
   setViewClass();
+  const lm = document.getElementById('labMode'); if(lm) lm.textContent = (qs('run','play')||'play');
+  const ld = document.getElementById('labDiff'); if(ld) ld.textContent = (qs('diff','normal')||'normal');
 
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+  // Anti-stall UX helper API for boot/engine (optional)
+  const stallOverlay = document.getElementById('stallOverlay');
+  const stallSub = document.getElementById('stallSub');
+  const btnReload = document.getElementById('btnReload');
+  const btnDismiss = document.getElementById('btnDismissStall');
 
-  // Anti-stall UI helpers (boot จะสั่งซ่อน/โชว์ได้ด้วย id นี้)
-  const stall = document.getElementById('stallOverlay');
-  const errBox = document.getElementById('stallErr');
+  function showStall(msg){
+    if(stallSub && msg) stallSub.textContent = String(msg);
+    if(stallOverlay) stallOverlay.style.display = 'grid';
+  }
+  function hideStall(){
+    if(stallOverlay) stallOverlay.style.display = 'none';
+  }
 
-  document.getElementById('btnReload')?.addEventListener('click', ()=>location.reload(), {passive:true});
-  document.getElementById('btnCloseStall')?.addEventListener('click', ()=>{ if(stall) stall.style.display='none'; }, {passive:true});
-  document.getElementById('btnCopyErr')?.addEventListener('click', ()=>{
-    const t = errBox?.textContent || '';
-    navigator.clipboard?.writeText(t).catch(()=>{});
-  }, {passive:true});
+  btnReload && btnReload.addEventListener('click', ()=> location.reload());
+  btnDismiss && btnDismiss.addEventListener('click', hideStall);
 
-  // global hooks for boot
-  window.HHA_STALL = {
-    show(msg){
-      try{
-        if(errBox) errBox.textContent = String(msg||'');
-        if(stall) stall.style.display = 'grid';
-      }catch(_){}
-    },
-    hide(){
-      try{ if(stall) stall.style.display='none'; }catch(_){}
-    },
-    set(msg){
-      try{ if(errBox) errBox.textContent = String(msg||''); }catch(_){}
+  // Expose to window for boot if needed
+  window.HHA_STALL = { show: showStall, hide: hideStall };
+
+  // Watchdog: if heartbeat stops => show stall overlay
+  // hygiene.safe.js updates window.__HHA_HEARTBEAT__
+  let lastOk = Date.now();
+  let shown = false;
+
+  function watchdog(){
+    const hb = Number(window.__HHA_HEARTBEAT__ || 0);
+    const now = Date.now();
+
+    if(hb > 0){
+      // convert perf-now-ish to monotonic "recent"
+      // we only care that it changes frequently; if it changes, mark ok
+      if(!watchdog._prevHb || hb !== watchdog._prevHb){
+        watchdog._prevHb = hb;
+        lastOk = now;
+        if(shown){
+          shown = false;
+          hideStall();
+        }
+      }
     }
-  };
+
+    // after start overlay hidden, expect heartbeat; but we keep it simple:
+    if((now - lastOk) > 4500 && !shown){
+      shown = true;
+      showStall('เกมค้าง/สะดุด — แนะนำกด Reload เกม (มือถือหน่วง/เมมเต็ม/JS error)');
+    }
+  }
+  setInterval(watchdog, 700);
 })();
 </script>
 </body>
