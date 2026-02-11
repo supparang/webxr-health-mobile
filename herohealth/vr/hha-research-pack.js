@@ -1,8 +1,5 @@
 // === /herohealth/vr/hha-research-pack.js ===
-// HHA Research Pack — v20260210a
-// ✅ Unified ctx + session id
-// ✅ ConditionGroup -> fixed difficulty preset (research stable)
-// ✅ Unified event buffer + Events CSV export
+// HHA Research Pack — v20260211a
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -43,7 +40,6 @@
 
   function getResearchPreset(gameId){
     const c = normCond(ctx.conditionGroup);
-
     const base = (c === 'A') ? { level:'easy',   targetScale: 1.12, lockPx: 44, ttlMul: 1.15, speedMul: 0.92 }
                : (c === 'B') ? { level:'normal', targetScale: 1.00, lockPx: 32, ttlMul: 1.00, speedMul: 1.00 }
                : (c === 'C') ? { level:'hard',   targetScale: 0.90, lockPx: 24, ttlMul: 0.90, speedMul: 1.08 }
@@ -55,7 +51,6 @@
       : (gameId === 'jumpduck')
       ? { ttlMul: base.ttlMul * 1.05 }
       : {};
-
     return Object.assign({}, base, tweak);
   }
 
