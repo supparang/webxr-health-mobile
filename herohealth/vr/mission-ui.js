@@ -1,5 +1,5 @@
 // === /herohealth/vr/mission-ui.js ===
-// Universal Mission UI (Planner-aware) — v20260210a
+// Universal Mission UI (Planner-aware) — v20260211a
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -80,9 +80,7 @@
     if(done) return;
     done = true;
     setProg(M.need);
-    try{
-      RP?.ev?.('mission_done', { missionId: M.id, bonus: RP?.IS_RESEARCH ? 0 : 15 });
-    }catch(e){}
+    try{ RP?.ev?.('mission_done', { missionId: M.id, bonus: RP?.IS_RESEARCH ? 0 : 15 }); }catch(e){}
     setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 4500);
   }
 
