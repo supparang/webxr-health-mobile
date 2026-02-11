@@ -1,0 +1,104 @@
+<!-- === /herohealth/vr-maskcough/maskcough-vr.html ===
+MaskCoughVR RUN — PRODUCTION (HHA Standard)
+✅ Views: pc/mobile/vr/cvr via ?view=
+✅ Uses Universal VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Boots: maskcough.boot.js  | Engine: maskcough.safe.js  | Styles: maskcough.css
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Mask & Cough</title>
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#020617"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <link rel="stylesheet" href="./maskcough.css"/>
+</head>
+<body>
+  <div id="mc-wrap" data-view="pc" data-diff="normal">
+    <!-- FX -->
+    <div id="mc-flash" aria-hidden="true"></div>
+
+    <!-- ===== HUD ===== -->
+    <header id="mc-hud">
+      <div class="mc-hud-left">
+        <div class="mc-pill">😷 Mask & Cough</div>
+        <div class="mc-stats">
+          <div class="mc-stat"><span class="k">Score</span><span class="v" id="mc-score">0</span></div>
+          <div class="mc-stat"><span class="k">Combo</span><span class="v" id="mc-combo">0</span></div>
+          <div class="mc-stat"><span class="k">Miss</span><span class="v" id="mc-miss">0</span></div>
+        </div>
+      </div>
+
+      <div class="mc-hud-right">
+        <div class="mc-bars">
+          <div class="mc-bar">
+            <div class="lbl">MaskFit</div>
+            <div class="track"><div class="fill" id="mc-maskfit-fill" style="width:0%"></div></div>
+            <div class="val" id="mc-maskfit">0%</div>
+          </div>
+          <div class="mc-bar danger">
+            <div class="lbl">Exposure</div>
+            <div class="track"><div class="fill" id="mc-exposure-fill" style="width:0%"></div></div>
+            <div class="val" id="mc-exposure">0%</div>
+          </div>
+        </div>
+
+        <div class="mc-timer">
+          <div class="mc-round">⏱</div>
+          <div class="mc-time" id="mc-time">75</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== STAGE ===== -->
+    <main id="mc-stage" role="application" aria-label="Mask and Cough game">
+      <!-- Action hints / prompts -->
+      <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+
+      <!-- Big action button (mobile/cVR) -->
+      <button id="mc-btn-cover" class="mc-bigbtn" type="button">COVER ✋</button>
+
+      <!-- Interaction Layer (targets/nodes/waves live here) -->
+      <div id="mc-layer" class="mc-layer" aria-hidden="false"></div>
+
+      <!-- Simple footer buttons -->
+      <div id="mc-footer" class="mc-footer">
+        <button class="mc-btn" id="mc-btn-start" type="button">เริ่ม</button>
+        <button class="mc-btn" id="mc-btn-pause" type="button">พัก</button>
+        <button class="mc-btn" id="mc-btn-retry" type="button">เล่นใหม่</button>
+      </div>
+    </main>
+
+    <!-- ===== END OVERLAY ===== -->
+    <section id="mc-end" class="mc-end" hidden>
+      <div class="mc-end-card">
+        <div class="mc-end-title">สรุปผล</div>
+        <div class="mc-end-grid">
+          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="mc-end-score">0</div></div>
+          <div class="mc-end-item"><div class="k">ComboMax</div><div class="v" id="mc-end-combo">0</div></div>
+          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="mc-end-miss">0</div></div>
+          <div class="mc-end-item"><div class="k">MaskFit Avg</div><div class="v" id="mc-end-maskfit">0%</div></div>
+          <div class="mc-end-item"><div class="k">Exposure</div><div class="v" id="mc-end-exposure">0%</div></div>
+          <div class="mc-end-item"><div class="k">Choice Acc</div><div class="v" id="mc-end-choice">0%</div></div>
+        </div>
+
+        <div class="mc-end-actions">
+          <button class="mc-btn primary" id="mc-end-back" type="button">กลับ HUB</button>
+          <button class="mc-btn" id="mc-end-close" type="button">ปิด</button>
+        </div>
+
+        <div class="mc-end-note" id="mc-end-note"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Boot + Engine -->
+  <script src="./maskcough.boot.js"></script>
+  <script src="./maskcough.safe.js"></script>
+</body>
+</html>
