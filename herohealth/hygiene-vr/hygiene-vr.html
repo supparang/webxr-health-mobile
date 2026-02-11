@@ -1,12 +1,12 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260210f
-✅ Views: pc/mobile/vr/cvr (body class)
-✅ Uses: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
-✅ FX: ../vr/particles.js
+PATCH v20260211a
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
-✅ Anti-stall: stall overlay + watchdog (reads window.__HHA_HEARTBEAT__)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ FX: ../vr/particles.js (window.Particles)
+✅ Boot: ./hygiene-vr.boot.js
 -->
 <!doctype html>
 <html lang="th">
@@ -17,24 +17,39 @@ PATCH v20260210f
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260210f" />
+  <!-- ✅ CSS -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260211a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- ✅ Universal VR UI (defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- ✅ FX (defer) -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- Optional AI packs (defer) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct name) -->
+  <!-- ✅ Quiz bank (name fixed) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260210f"></script>
+  <!-- ✅ Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260211a"></script>
+
+  <!-- Fast view-class patch (so layout is correct ASAP) -->
+  <script>
+  (function(){
+    'use strict';
+    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    const cls = (view==='mobile')?'view-mobile':(view==='vr')?'view-vr':(view==='cvr')?'view-cvr':'view-pc';
+    document.documentElement.classList.add('hha-ready');
+    // body class will be applied again after body exists (below)
+    window.__HHA_VIEW__ = view;
+    window.__HHA_VIEW_CLS__ = cls;
+  })();
+  </script>
 </head>
 
 <body class="view-pc">
@@ -66,6 +81,9 @@ PATCH v20260210f
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
+
+          <!-- (reserved) ถ้าภายหลังจะทำปุ่มตัวเลือกแบบกด -->
+          <div class="hw-quiz-opts" id="quizOpts" style="display:none"></div>
         </div>
       </div>
 
@@ -76,10 +94,10 @@ PATCH v20260210f
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
+        <div class="hw-card-sub" id="startSub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น (บน cVR ยิงด้วยเป้ากลางจอ)
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -87,10 +105,6 @@ PATCH v20260210f
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-
-        <div class="hw-card-sub" style="margin-top:10px;color:rgba(148,163,184,.9)">
-          ถ้าเล่น ๆ อยู่แล้วค้าง: กด <b>Reload</b> (มือถือหน่วง/เมมเต็ม/JS error) และดู Console/Network
         </div>
       </div>
     </div>
@@ -108,96 +122,28 @@ PATCH v20260210f
         </div>
       </div>
     </div>
-
-    <!-- Stall overlay (anti-freeze UX) -->
-    <div class="hw-overlay" id="stallOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title">เกมค้าง/สะดุด ⚠️</div>
-        <div class="hw-card-sub" id="stallSub">
-          แนะนำกด Reload เกม (มักเกิดจาก memory/JS error/มือถือหน่วง)
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnReload" type="button">⟳ Reload</button>
-          <button class="hw-ghost" id="btnDismissStall" type="button">ปิด</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          เปิด Console ดู error ได้ • ตรวจ Network ว่ามีไฟล์ 404 ไหม
-        </div>
-      </div>
-    </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
   function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
+    const view = (window.__HHA_VIEW__ || qs('view','pc') || 'pc').toLowerCase();
+    const cls  = (window.__HHA_VIEW_CLS__ || (view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))));
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':
-      (view==='vr'?'view-vr':
-      (view==='cvr'?'view-cvr':'view-pc'))
-    );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.body.classList.add(cls);
+    const lab = document.getElementById('labView');
+    if(lab) lab.textContent = view;
   }
 
   setViewClass();
-  const lm = document.getElementById('labMode'); if(lm) lm.textContent = (qs('run','play')||'play');
-  const ld = document.getElementById('labDiff'); if(ld) ld.textContent = (qs('diff','normal')||'normal');
 
-  // Anti-stall UX helper API for boot/engine (optional)
-  const stallOverlay = document.getElementById('stallOverlay');
-  const stallSub = document.getElementById('stallSub');
-  const btnReload = document.getElementById('btnReload');
-  const btnDismiss = document.getElementById('btnDismissStall');
-
-  function showStall(msg){
-    if(stallSub && msg) stallSub.textContent = String(msg);
-    if(stallOverlay) stallOverlay.style.display = 'grid';
-  }
-  function hideStall(){
-    if(stallOverlay) stallOverlay.style.display = 'none';
-  }
-
-  btnReload && btnReload.addEventListener('click', ()=> location.reload());
-  btnDismiss && btnDismiss.addEventListener('click', hideStall);
-
-  // Expose to window for boot if needed
-  window.HHA_STALL = { show: showStall, hide: hideStall };
-
-  // Watchdog: if heartbeat stops => show stall overlay
-  // hygiene.safe.js updates window.__HHA_HEARTBEAT__
-  let lastOk = Date.now();
-  let shown = false;
-
-  function watchdog(){
-    const hb = Number(window.__HHA_HEARTBEAT__ || 0);
-    const now = Date.now();
-
-    if(hb > 0){
-      // convert perf-now-ish to monotonic "recent"
-      // we only care that it changes frequently; if it changes, mark ok
-      if(!watchdog._prevHb || hb !== watchdog._prevHb){
-        watchdog._prevHb = hb;
-        lastOk = now;
-        if(shown){
-          shown = false;
-          hideStall();
-        }
-      }
-    }
-
-    // after start overlay hidden, expect heartbeat; but we keep it simple:
-    if((now - lastOk) > 4500 && !shown){
-      shown = true;
-      showStall('เกมค้าง/สะดุด — แนะนำกด Reload เกม (มือถือหน่วง/เมมเต็ม/JS error)');
-    }
-  }
-  setInterval(watchdog, 700);
+  const labMode = document.getElementById('labMode');
+  const labDiff = document.getElementById('labDiff');
+  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
