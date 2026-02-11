@@ -1,173 +1,213 @@
 <!-- === /herohealth/plate/plate-vr.html ===
 PlateVR RUN — PRODUCTION (HHA Standard)
-✅ CSS: ./plate-vr.css
-✅ VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Boot: ./plate.boot.js (ESM) -> engine: ./plate.safe.js (ESM)
-✅ HUD + Quests + Coach + End summary overlay
+✅ Views: pc/mobile/vr/cvr (body classes set by plate.boot.js)
+✅ Uses: ./plate-vr.css (HUD safe zones + target FX)
+✅ Engine boot: ./plate.boot.js (ESM)
+✅ VR UI: ../vr/vr-ui.js (ENTER VR / EXIT / RECENTER + crosshair + hha:shoot)
+✅ Layers: #plate-layer + HUD + coach + endOverlay
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — PlateVR</title>
+  <title>HeroHealth — PlateVR (RUN)</title>
   <meta name="color-scheme" content="dark light"/>
   <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
 
+  <!-- UI -->
   <link rel="stylesheet" href="./plate-vr.css"/>
 
-  <!-- (optional) preload emoji font fallback -->
+  <!-- Optional: prevent caching during dev (remove in prod if you want) -->
+  <!-- <meta http-equiv="Cache-Control" content="no-store" /> -->
+
+  <!-- VR UI (global) -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- Tiny fatal overlay style (boot can also show coach) -->
   <style>
-    /* กันหน้าเงียบเวลา error */
     #plate-fatal{
-      position:fixed; inset:0; z-index:9999;
-      margin:0; padding:16px;
-      background:#020617; color:#e5e7eb;
-      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      display:none; white-space:pre-wrap;
+      position:fixed; inset:0;
+      display:none;
+      padding: calc(16px + env(safe-area-inset-top,0px)) 16px 16px 16px;
+      background: rgba(2,6,23,.92);
+      color:#e5e7eb;
+      z-index: 9999;
+      overflow:auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
     }
     #plate-fatal.show{ display:block; }
   </style>
 </head>
 
 <body class="view-pc">
-  <!-- fatal overlay -->
   <pre id="plate-fatal" aria-hidden="true"></pre>
 
-  <div id="app" role="application" aria-label="HeroHealth PlateVR">
-    <!-- optional FX layers -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
+  <div id="app">
+    <!-- Optional FX layers -->
+    <div id="bossFx"></div>
+    <div id="stormFx"></div>
 
-    <!-- playfield (targets mount here; mode-factory uses viewport coords but appends here) -->
-    <div id="plate-layer" aria-label="playfield"></div>
+    <!-- Spawn mount (mode-factory appends targets here, but positions are viewport-fixed) -->
+    <div id="plate-layer" aria-label="Plate Playfield"></div>
 
     <!-- HUD -->
-    <header id="hud" aria-label="HUD">
+    <div id="hud" aria-hidden="false">
       <div class="hudRow">
         <div class="chip score">
           <div class="lbl">SCORE</div>
-          <div class="val" id="hudScore">0</div>
+          <div id="hudScore" class="val">0</div>
         </div>
         <div class="chip time">
           <div class="lbl">TIME</div>
-          <div class="val" id="hudTime">0</div>
+          <div id="hudTime" class="val">—</div>
         </div>
         <div class="chip combo">
           <div class="lbl">COMBO</div>
-          <div class="val" id="hudCombo">0</div>
+          <div id="hudCombo" class="val">0</div>
         </div>
       </div>
 
-      <section class="card" aria-label="Quests">
-        <div class="cardTitle">
-          <div class="t">ภารกิจ</div>
-          <div class="hint">เติมจานให้ครบ 5 หมู่</div>
-        </div>
-
-        <div class="qItem" aria-label="Goal quest">
-          <div class="qText">
-            <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub">—</div>
-          </div>
-          <div class="qProg">
-            <div class="qNums" id="goalNums">0/0</div>
-            <div class="bar"><i id="goalBar"></i></div>
-          </div>
-        </div>
-
-        <div class="qItem" aria-label="Mini quest">
-          <div class="qText">
-            <div class="name" id="miniName">Mini</div>
-            <div class="sub" id="miniSub">—</div>
-          </div>
-          <div class="qProg">
-            <div class="qNums" id="miniNums">0/0</div>
-            <div class="bar"><i id="miniBar"></i></div>
-          </div>
-        </div>
-      </section>
-    </header>
-
-    <!-- Coach bubble -->
-    <aside id="coachCard" aria-hidden="true">
-      <div class="inner">
-        <div id="coachMsg">—</div>
-        <div id="coachMeta">Coach</div>
-      </div>
-    </aside>
-
-    <!-- End overlay -->
-    <div id="endOverlay" aria-hidden="true" role="dialog" aria-label="สรุปผล">
-      <div class="endPanel">
-        <div class="endTitle">
-          <h2>สรุปผล</h2>
-          <div class="tag">
-            เกรด: <span id="kGrade">—</span>
-          </div>
-        </div>
-
-        <div class="endGrid" aria-label="KPI grid">
-          <div class="kpi">
-            <div class="k">คะแนน</div>
-            <div class="v"><span id="kScore">0</span></div>
-          </div>
-          <div class="kpi">
-            <div class="k">ความแม่น</div>
-            <div class="v"><span id="kAcc">—</span></div>
-          </div>
-          <div class="kpi">
-            <div class="k">คอมโบสูงสุด</div>
-            <div class="v"><span id="kCombo">0</span></div>
+      <div class="hudRow">
+        <div class="card" style="flex:1;">
+          <div class="cardTitle">
+            <div class="t">เป้าหมาย (Goal)</div>
+            <div class="hint">เติมให้ครบ 5 หมู่</div>
           </div>
 
-          <div class="kpi">
-            <div class="k">ภารกิจ</div>
-            <div class="v"><span id="kGoals">0/0</span></div>
+          <div class="qItem">
+            <div class="qText">
+              <div id="goalName" class="name">เติมจานให้ครบ 5 หมู่</div>
+              <div id="goalSub" class="sub">เก็บอาหารให้ครบทุกหมู่ (อย่างน้อยหมู่ละ 1)</div>
+            </div>
+            <div class="qProg">
+              <div id="goalNums" class="qNums">0/5</div>
+              <div class="bar"><i id="goalBar" style="width:0%"></i></div>
+            </div>
           </div>
-          <div class="kpi">
-            <div class="k">มินิเควส</div>
-            <div class="v"><span id="kMini">0/0</span></div>
-          </div>
-          <div class="kpi">
-            <div class="k">พลาดรวม</div>
-            <div class="v">
-              <span id="kMiss">0</span>
-              <div style="margin-top:6px;font-size:12px;color:var(--muted);">
-                junk: <span id="kMissJunk">0</span> · timeout: <span id="kMissTimeout">0</span>
-              </div>
+
+          <div class="qItem">
+            <div class="qText">
+              <div id="miniName" class="name">ความแม่นยำ</div>
+              <div id="miniSub" class="sub">คุมความแม่น ≥ 80%</div>
+            </div>
+            <div class="qProg">
+              <div id="miniNums" class="qNums">0/80</div>
+              <div class="bar"><i id="miniBar" style="width:0%"></i></div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- postGameArea จะถูก boot.js “สร้างเพิ่ม” ตรงนี้อัตโนมัติในโหมด play -->
+    <!-- Coach bubble -->
+    <div id="coachCard" aria-hidden="true">
+      <div class="inner">
+        <div id="coachMsg">…</div>
+        <div id="coachMeta">Coach</div>
+      </div>
+    </div>
+
+    <!-- End overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="endPanel" role="dialog" aria-modal="true" aria-label="สรุปผลการเล่น">
+        <div class="endTitle">
+          <h2>สรุปผล</h2>
+          <div class="tag"><span id="kGrade">—</span></div>
+        </div>
+
+        <div class="endGrid">
+          <div class="kpi">
+            <div class="k">คะแนน</div>
+            <div id="kScore" class="v">0</div>
+          </div>
+          <div class="kpi">
+            <div class="k">ความแม่นยำ</div>
+            <div id="kAcc" class="v">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">คอมโบสูงสุด</div>
+            <div id="kCombo" class="v">0</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Goal</div>
+            <div id="kGoals" class="v">0/1</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Mini</div>
+            <div id="kMini" class="v">0/1</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Miss (รวม)</div>
+            <div id="kMiss" class="v">0</div>
+          </div>
+
+          <!-- Miss breakdown (optional but requested) -->
+          <div class="kpi">
+            <div class="k">Miss: Junk</div>
+            <div id="kMissJunk" class="v">0</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Miss: Timeout</div>
+            <div id="kMissTimeout" class="v">0</div>
+          </div>
+          <div class="kpi">
+            <div class="k">เวลา (planned)</div>
+            <div id="kTimePlanned" class="v">—</div>
+          </div>
+        </div>
+
+        <!-- (Phase ต่อไป) Evaluate/Create UI zone — เว้นที่ไว้ -->
+        <div id="plate-post" style="padding: 0 6px 8px; display:none;">
+          <!-- future: evaluate choices + create tweak + silent badge -->
+        </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
+          <button id="btnBackHub" class="btn">กลับ HUB</button>
+          <button id="btnRestart" class="btn primary">เล่นอีกครั้ง</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Universal VR UI (adds EnterVR/Exit/Recenter + crosshair + tap-to-shoot) -->
-  <script src="../vr/vr-ui.js"></script>
-
   <!-- Boot (ESM) -->
   <script type="module">
-    // fatal overlay helper
-    const fatal = (msg)=>{
+    // Hard-fail overlay helper
+    const fatal = (msg, err) => {
       const el = document.getElementById('plate-fatal');
       if(!el) return;
-      el.textContent = String(msg || 'Fatal error');
       el.classList.add('show');
       el.setAttribute('aria-hidden','false');
+      el.textContent =
+        `[PlateVR] FATAL\n\n${String(msg||'Unknown error')}\n\n` +
+        (err ? (err.stack || err.message || String(err)) : '') +
+        `\n\nURL: ${location.href}`;
     };
-    window.addEventListener('error', (e)=>fatal(e?.error?.stack || e?.message || 'error'));
-    window.addEventListener('unhandledrejection', (e)=>fatal(e?.reason?.stack || e?.reason || 'unhandledrejection'));
 
-    import './plate.boot.js';
+    // Extra: show planned time in end overlay if present
+    window.addEventListener('hha:end', (e)=>{
+      try{
+        const d = e.detail || {};
+        const t = d.timePlannedSec ?? d.durationPlannedSec ?? null;
+        const el = document.getElementById('kTimePlanned');
+        if(el) el.textContent = (t==null) ? '—' : String(t);
+      }catch(_){}
+    });
+
+    // global error hooks
+    window.addEventListener('error', (ev)=>fatal('runtime error', ev.error || ev.message));
+    window.addEventListener('unhandledrejection', (ev)=>fatal('unhandled promise rejection', ev.reason));
+
+    // Load boot
+    import('./plate.boot.js').catch((err)=>{
+      console.error('[PlateVR] boot import error', err);
+      fatal('ไม่สามารถโหลด plate.boot.js ได้', err);
+    });
   </script>
 </body>
 </html>
