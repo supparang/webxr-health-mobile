@@ -1,45 +1,42 @@
 <!-- === /herohealth/maskcough-vr.html ===
-MaskCoughVR LAUNCHER — ROOT (HHA Standard)
+Mask&Cough VR LAUNCHER — ROOT (HHA Standard)
 ✅ Redirects to ./vr-maskcough/maskcough-vr.html
-✅ Auto-detect view ONLY if ?view= not provided (never override)
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/mode/...
+✅ Auto-detect view (pc/mobile/vr/cvr) ONLY if ?view= missing
+✅ Pass-through hub/run/diff/time/seed/mode/log/studyId/phase/conditionGroup/pid
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — Mask & Cough (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="theme-color" content="#020617" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="theme-color" content="#020617"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;background:#020617;color:#e5e7eb}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{max-width:860px;width:100%;border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:18px;background:rgba(2,6,23,.72)}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.35);color:#bbf7d0;font-weight:700}
-    .title{margin:10px 0 6px;font-size:26px;letter-spacing:.2px}
-    .muted{color:#94a3b8;line-height:1.55}
-    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.55);color:#e5e7eb;border-radius:14px;padding:12px 14px;font-weight:750;cursor:pointer}
-    .btn:hover{border-color:rgba(34,197,94,.55)}
-    .small{font-size:12px;color:#94a3b8;margin-top:12px}
-    code{background:rgba(148,163,184,.12);padding:2px 6px;border-radius:8px}
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:22px}
+    .card{width:min(820px,100%);border:1px solid rgba(148,163,184,.18);border-radius:18px;background:rgba(2,6,23,.72);padding:18px}
+    .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(148,163,184,.18);border-radius:999px;padding:6px 10px;color:#cbd5e1;background:rgba(15,23,42,.45);font-size:12px}
+    h1{margin:12px 0 6px;font-size:22px}
+    p{margin:0;color:#94a3b8;line-height:1.45}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.55);color:#e5e7eb;border-radius:12px;padding:10px 12px;font-weight:700;cursor:pointer}
+    .btn:active{transform:translateY(1px)}
+    .muted{opacity:.85;font-size:12px;margin-top:10px}
+    code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;color:#cbd5e1}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
+      <span class="pill">HeroHealth · Hygiene · Mask & Cough</span>
+      <h1>กำลังเข้าสู่เกม…</h1>
+      <p>ระบบกำลังตรวจอุปกรณ์และเลือกโหมด <b>pc/mobile/vr/cvr</b> อัตโนมัติ (ถ้า URL มี <code>?view=</code> จะไม่ยุ่ง)</p>
       <div class="row">
-        <span class="pill">😷 Mask & Cough · HeroHealth</span>
-        <button class="btn" id="go">เริ่มเกม</button>
+        <button class="btn" id="go">Tap to start</button>
       </div>
-
-      <h1 class="title">กำลังพาเข้าเกม…</h1>
-      <p class="muted">
-        ระบบจะเลือกโหมด <b>PC/Mobile</b> อัตโนมัติ (แต่ถ้า URL มี <code>?view=</code> อยู่แล้ว จะไม่เปลี่ยน)
-      </p>
-      <p class="small" id="dbg"></p>
+      <div class="muted" id="dbg"></div>
     </div>
   </div>
 
@@ -48,53 +45,75 @@ MaskCoughVR LAUNCHER — ROOT (HHA Standard)
   'use strict';
 
   function getQS(){
-    try { return new URL(location.href).searchParams; }
-    catch { return new URLSearchParams(); }
+    try{ return new URL(location.href).searchParams; }
+    catch{ return new URLSearchParams(); }
   }
-
   const QS = getQS();
-  const hasView = QS.has('view') && String(QS.get('view')||'').trim() !== '';
-
-  function detectView(){
-    // Minimal, safe, deterministic: pc vs mobile only.
-    const ua = navigator.userAgent || '';
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-    return (isTouch && isMobileUA) ? 'mobile' : 'pc';
-  }
-
-  // Build target URL
-  const base = './vr-maskcough/maskcough-vr.html';
-  const out = new URL(base, location.href);
-
-  // Pass-through everything
-  for(const [k,v] of QS.entries()){
-    out.searchParams.set(k, v);
-  }
-
-  // Default params (only if absent)
-  if(!out.searchParams.has('diff')) out.searchParams.set('diff','normal');
-  if(!out.searchParams.has('time')) out.searchParams.set('time','75');
-  if(!out.searchParams.has('mode')) out.searchParams.set('mode','play');
-
-  // Auto-detect view ONLY when not provided (never override)
-  if(!hasView){
-    out.searchParams.set('view', detectView());
-  }
-
-  // Ensure hub passthrough is preserved; if none, keep blank.
-  // (RUN will fallback to ../hub.html if still missing)
-
   const dbg = document.getElementById('dbg');
-  dbg.textContent = 'Redirect → ' + out.pathname + out.search;
 
-  function go(){
-    location.replace(out.toString());
+  const passthroughKeys = [
+    'hub','run','diff','time','seed','mode','log',
+    'studyId','phase','conditionGroup','pid','studentKey','reason'
+  ];
+
+  function isMobile(){
+    const ua = navigator.userAgent || '';
+    const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+    return /Android|iPhone|iPad|iPod/i.test(ua) || coarse;
   }
+
+  async function detectView(){
+    // IMPORTANT: do not override if view exists
+    const existing = (QS.get('view')||'').toLowerCase();
+    if(existing) return existing;
+
+    // cVR hint params (only if view missing)
+    const cvrHint = (QS.get('cvr')==='1' || QS.get('cardboard')==='1' || (QS.get('viewer')||'').toLowerCase()==='cardboard');
+    if(isMobile() && cvrHint) return 'cvr';
+
+    // WebXR check
+    try{
+      if(navigator.xr && navigator.xr.isSessionSupported){
+        const ok = await navigator.xr.isSessionSupported('immersive-vr');
+        if(ok) return 'vr';
+      }
+    }catch(_){}
+
+    return isMobile() ? 'mobile' : 'pc';
+  }
+
+  function buildTargetUrl(view){
+    const base = './vr-maskcough/maskcough-vr.html';
+    const u = new URL(base, location.href);
+
+    // pass-through
+    for(const k of passthroughKeys){
+      const v = QS.get(k);
+      if(v!=null && v!=='') u.searchParams.set(k, v);
+    }
+
+    // set detected view only if view missing
+    if(!(QS.get('view')||'')) u.searchParams.set('view', view);
+
+    // If caller didn't pass hub, set default hub fallback (root hub)
+    if(!u.searchParams.get('hub')){
+      u.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+    }
+
+    return u.toString();
+  }
+
+  async function go(){
+    const view = await detectView();
+    const url = buildTargetUrl(view);
+    if(dbg) dbg.innerHTML = `view=<code>${view}</code> → <code>${url.replace(location.origin,'')}</code>`;
+    location.replace(url);
+  }
+
   document.getElementById('go').addEventListener('click', go, {passive:true});
 
-  // Auto redirect
-  setTimeout(go, 60);
+  // Auto-go quickly (still keeps a tap button visible)
+  setTimeout(()=>{ go(); }, 30);
 })();
 </script>
 </body>
