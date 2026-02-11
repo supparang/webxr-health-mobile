@@ -1,0 +1,251 @@
+/* === /herohealth/vr-maskcough/maskcough.css ===
+MaskCoughVR UI — PRODUCTION
+✅ Safe-area insets
+✅ HUD won't block play area (top/bottom zones)
+✅ Layer is full-screen absolute for targets/waves
+✅ Works with cVR strict (shoot from crosshair)
+*/
+
+:root{
+  --bg:#020617;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.55);
+  --stroke: rgba(148,163,184,.18);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --good:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --cyan:#22d3ee;
+
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  --hudH: 92px;
+  --footerH: 74px;
+
+  --radius: 18px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+button{font-family:inherit}
+
+#mc-wrap{
+  height:100%;
+  position:relative;
+  overflow:hidden;
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  background: radial-gradient(1200px 700px at 30% 20%, rgba(34,197,94,.10), transparent 60%),
+              radial-gradient(1000px 600px at 70% 30%, rgba(34,211,238,.08), transparent 65%),
+              var(--bg);
+}
+
+/* FX flash */
+#mc-flash{
+  position:absolute;inset:0;
+  pointer-events:none;
+  background: rgba(239,68,68,.18);
+  opacity:0;
+  transition: opacity .18s ease;
+}
+
+/* HUD */
+#mc-hud{
+  position:absolute;
+  top:0;left:0;right:0;
+  padding: calc(10px + var(--sat)) 12px 10px;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  justify-content:space-between;
+  z-index:30;
+}
+
+.mc-hud-left,.mc-hud-right{
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding:10px 12px;
+  backdrop-filter: blur(8px);
+}
+
+.mc-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(34,197,94,.35);
+  background: rgba(34,197,94,.14);
+  color:#bbf7d0;
+  font-weight:800;
+  font-size:13px;
+}
+
+.mc-stats{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.mc-stat{display:flex;gap:8px;align-items:baseline}
+.mc-stat .k{font-size:12px;color:var(--muted);font-weight:700}
+.mc-stat .v{font-size:16px;font-weight:900}
+
+.mc-hud-right{min-width:320px}
+.mc-bars{display:flex;gap:10px;align-items:center}
+.mc-bar{display:grid;grid-template-columns:70px 1fr 52px;gap:8px;align-items:center;width:100%}
+.mc-bar .lbl{font-size:12px;color:var(--muted);font-weight:800}
+.mc-bar .val{font-size:12px;color:var(--text);font-weight:900;text-align:right}
+.mc-bar .track{
+  height:10px;border-radius:999px;
+  background: rgba(148,163,184,.16);
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.12);
+}
+.mc-bar .fill{
+  height:100%;
+  width:0%;
+  background: rgba(34,197,94,.85);
+  transition: width .12s linear;
+}
+.mc-bar.danger .fill{ background: rgba(239,68,68,.85); }
+
+.mc-timer{
+  margin-top:10px;
+  display:flex;gap:10px;align-items:center;justify-content:flex-end
+}
+.mc-round{
+  width:34px;height:34px;border-radius:12px;
+  display:grid;place-items:center;
+  background: rgba(34,211,238,.12);
+  border:1px solid rgba(34,211,238,.28);
+}
+.mc-time{font-size:20px;font-weight:1000;letter-spacing:.4px}
+
+/* STAGE */
+#mc-stage{
+  position:absolute;
+  inset:0;
+  padding-top: calc(var(--hudH) + var(--sat));
+  padding-bottom: calc(var(--footerH) + var(--sab));
+}
+
+.mc-layer{
+  position:absolute;
+  left:0; right:0;
+  top: calc(var(--hudH) + var(--sat));
+  bottom: calc(var(--footerH) + var(--sab));
+  overflow:hidden;
+  border-top: 1px solid rgba(148,163,184,.06);
+  border-bottom: 1px solid rgba(148,163,184,.06);
+}
+
+/* Prompt */
+.mc-prompt{
+  position:absolute;
+  left:12px; right:12px;
+  top: calc(var(--hudH) + var(--sat) + 10px);
+  z-index:25;
+  background: rgba(15,23,42,.50);
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 16px;
+  padding:10px 12px;
+  font-weight:900;
+  letter-spacing:.2px;
+  color: var(--text);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.mc-prompt.show{opacity:1; transform: translateY(0)}
+
+/* Big button */
+.mc-bigbtn{
+  position:absolute;
+  left:12px; right:12px;
+  bottom: calc(var(--footerH) + var(--sab) + 10px);
+  height:54px;
+  border-radius: 18px;
+  border:1px solid rgba(34,197,94,.28);
+  background: rgba(34,197,94,.14);
+  color:#bbf7d0;
+  font-weight:1000;
+  font-size:16px;
+  display:none;
+  z-index:26;
+}
+
+/* Footer */
+.mc-footer{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  padding: 10px 12px calc(10px + var(--sab));
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  z-index:30;
+}
+.mc-btn{
+  appearance:none;
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(15,23,42,.55);
+  color: var(--text);
+  padding: 12px 14px;
+  font-weight:900;
+  cursor:pointer;
+}
+.mc-btn.primary{
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.14);
+  color:#bbf7d0;
+}
+
+/* End overlay */
+.mc-end{
+  position:absolute; inset:0;
+  background: rgba(2,6,23,.72);
+  display:grid;
+  place-items:center;
+  z-index:60;
+  padding: 20px;
+}
+.mc-end-card{
+  width:min(920px, 100%);
+  border-radius: 24px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.78);
+  padding: 16px;
+}
+.mc-end-title{font-size:22px;font-weight:1000;margin:4px 0 10px}
+.mc-end-grid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+.mc-end-item{
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.40);
+  border-radius: 18px;
+  padding: 10px;
+}
+.mc-end-item .k{color:var(--muted);font-weight:800;font-size:12px}
+.mc-end-item .v{font-weight:1000;font-size:18px;margin-top:6px}
+.mc-end-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.mc-end-note{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.5}
+
+/* Responsive */
+@media (max-width: 860px){
+  :root{ --hudH: 118px; }
+  .mc-hud-right{min-width: 0}
+  .mc-bars{flex-direction:column;align-items:stretch}
+  .mc-end-grid{grid-template-columns: repeat(2, minmax(0,1fr));}
+}
+
+/* Mobile UX: show BIG cover button */
+#mc-wrap[data-view="mobile"] .mc-bigbtn{ display:block; }
+#mc-wrap[data-view="cvr"] .mc-bigbtn{ display:block; }
+
+/* cVR strict: targets should not capture touches (shoot from center) */
+#mc-wrap[data-view="cvr"] .mc-layer{ pointer-events:none; }
