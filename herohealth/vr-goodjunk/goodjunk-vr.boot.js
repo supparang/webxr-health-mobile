@@ -1,131 +1,278 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — V2.2 (safe UI-start + VR UI preload + FX wait (NEW API) + flush-hardened)
+// GoodJunkVR BOOT — PRODUCTION (HHA Standard)
+// ✅ Detect view: pc/mobile/vr/cvr (NO override)
+// ✅ Mount layers (#gj-layer + optional #gj-layer-r)
+// ✅ Pass-through ctx: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log
+// ✅ Starts by tap overlay -> dispatch hha:start (or auto-start if overlay missing)
+// ✅ NEW: Daily Warmup Gate (per PID) by CATEGORY (nutrition)
+//    - once/day: if not done -> redirect to warmup-gate.html (phase=warmup, next=RUN)
+//    - if wType/wPct already present => assume gate passed (no redirect)
+// ✅ Back-to-hub helper via ?hub=...
 
 'use strict';
 
-import { boot as engineBoot } from './goodjunk.safe.js';
+import { boot as bootGame } from './goodjunk.safe.js';
 
-const ROOT = window;
-const DOC  = document;
+const WIN = window;
+const DOC = document;
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
+function qs(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }
+  catch{ return d; }
 }
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v==='pc') return 'pc';
-  if(v==='vr') return 'vr';
-  if(v==='cvr') return 'cvr';
-  return 'mobile';
+function qn(k, d=0){
+  const v = Number(qs(k, d));
+  return Number.isFinite(v) ? v : Number(d)||0;
 }
-function setBodyView(view){
+
+function setBodyViewClass(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add('view-'+view);
+  if(view==='pc') b.classList.add('view-pc');
+  else if(view==='vr') b.classList.add('view-vr');
+  else if(view==='cvr') b.classList.add('view-cvr');
+  else b.classList.add('view-mobile');
 }
 
-let started = false;
+function detectView(){
+  // IMPORTANT: do NOT override if URL already provides view
+  const v = String(qs('view','')||'').toLowerCase();
+  if(v==='pc' || v==='mobile' || v==='vr' || v==='cvr') return v;
 
-function ensureVrUi(){
-  if(ROOT.__HHA_VRUI_LOADED) return;
-  ROOT.__HHA_VRUI_LOADED = true;
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  DOC.head.appendChild(s);
+  // heuristic detect
+  const isCoarse = WIN.matchMedia ? WIN.matchMedia('(pointer: coarse)').matches : false;
+  const isTouch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+
+  // WebXR presence => prefer vr (but keep mobile if user is on phone without entering XR)
+  const hasXR = !!(navigator.xr);
+  const small = Math.min(WIN.innerWidth||9999, WIN.innerHeight||9999) < 620;
+
+  if(hasXR && !small) return 'vr';
+  if(isCoarse || isTouch || small) return 'mobile';
+  return 'pc';
 }
 
-async function waitForFxReady(timeoutMs=800){
-  // NEW: accept both "old" (burstAt/scorePop) and "new" (burst/popText/shockwave)
-  const t0 = performance.now();
-  while(performance.now() - t0 < timeoutMs){
-    const P = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles;
-    if(P){
-      const ok =
-        (typeof P.burstAt === 'function') ||
-        (typeof P.scorePop === 'function') ||
-        (typeof P.burst === 'function') ||
-        (typeof P.popText === 'function') ||
-        (typeof P.shockwave === 'function');
-      if(ok) return true;
-    }
-    await new Promise(r=>setTimeout(r, 30));
+function applyCtxToUI(ctx){
+  try{
+    const el = DOC.getElementById('gj-pill-view');
+    if(el) el.textContent = ctx.view || '';
+  }catch(_){}
+}
+
+function dispatchStart(){
+  try{
+    WIN.dispatchEvent(new CustomEvent('hha:start', { detail:{ game:'goodjunk' } }));
+  }catch(_){}
+}
+
+function safeHideStartOverlay(){
+  const ov = DOC.getElementById('startOverlay');
+  if(ov) ov.hidden = true;
+}
+
+function isOverlayActuallyVisible(el){
+  try{
+    if(!el) return false;
+    if(el.hidden) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display === 'none') return false;
+    if(cs.visibility === 'hidden') return false;
+    if(Number(cs.opacity||'1') <= 0) return false;
+    const r = el.getBoundingClientRect();
+    if(r.width < 2 || r.height < 2) return false;
+    return true;
+  }catch(_){
+    return true;
   }
-  return false;
 }
 
-async function startEngine(opts={}){
-  if(started) return;
-  started = true;
+// -----------------------------
+// Daily Gate helpers (by PID + category)
+// -----------------------------
+function getLocalDayKey(){
+  // Asia/Bangkok implied by device locale, but we still compute "YYYY-MM-DD" local
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-  const view = normalizeView(opts.view || qs('view','mobile'));
-  setBodyView(view);
+function hasGateBuffInQS(){
+  // if already passed gate it sends wType/wPct/... (at least one)
+  const wType = qs('wType','');
+  const wPct  = qs('wPct','');
+  const rank  = qs('rank','');
+  const wCrit = qs('wCrit','');
+  const wDmg  = qs('wDmg','');
+  const wHeal = qs('wHeal','');
+  const calm  = qs('calm','');
+  return !!(wType || wPct || rank || wCrit || wDmg || wHeal || calm);
+}
 
-  if(view === 'vr' || view === 'cvr') ensureVrUi();
+function dailyKey(prefix, category, pid){
+  const day = getLocalDayKey();
+  const p = (pid || 'anon').trim() || 'anon';
+  return `${prefix}:${category}:${p}:${day}`;
+}
 
-  // wait for particles + director (best-effort)
-  await waitForFxReady(800);
+function markDailyDone(prefix, category, pid){
+  try{ localStorage.setItem(dailyKey(prefix, category, pid), '1'); }catch(_){}
+}
+function isDailyDone(prefix, category, pid){
+  try{ return localStorage.getItem(dailyKey(prefix, category, pid)) === '1'; }
+  catch(_){ return false; }
+}
 
-  const payload = {
-    view,
-    diff: (qs('diff','normal')||'normal'),
-    run:  (qs('run','play')||'play'),
-    time: Number(qs('time','80')||80),
-    seed: qs('seed', null),
-    hub:  qs('hub', null),
+function buildUrl(base, params){
+  const u = new URL(base, location.href);
+  Object.entries(params||{}).forEach(([k,v])=>{
+    if(v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, String(v));
+  });
+  return u.toString();
+}
 
-    studyId: qs('study', qs('studyId', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('cond', qs('conditionGroup', null)),
+// Warmup gate routing (daily)
+function maybeGoWarmupGate(ctx){
+  // Category for GoodJunk
+  const category = 'nutrition';
+
+  // Allow forcing on/off (optional)
+  //  - warmupDaily=1 => enforce daily warmup (default ON if absent)
+  //  - warmupDaily=0 => skip
+  const warmupDaily = String(qs('warmupDaily','1')).toLowerCase();
+  const enforce = !(warmupDaily === '0' || warmupDaily === 'false' || warmupDaily === 'no');
+
+  // If we already have gate buff => assume passed (no redirect)
+  if(hasGateBuffInQS()) return false;
+
+  if(!enforce) return false;
+
+  // Daily check by PID
+  const pid = ctx.pid || 'anon';
+  const done = isDailyDone('HHA_WARMUP_DONE', category, pid);
+  if(done) return false;
+
+  // Gate page + next=RUN (current page)
+  const gateUrl = String(qs('gateUrl','../warmup-gate.html') || '../warmup-gate.html');
+
+  // duration
+  const dur = Math.max(5, Math.min(60, qn('dur', 20) || 20));
+
+  // Build next = current URL without looping flags
+  const cur = new URL(location.href);
+  // strip flags that would keep redirecting
+  cur.searchParams.delete('preGate');
+  cur.searchParams.delete('gate');
+  cur.searchParams.delete('gateUrl');
+  cur.searchParams.delete('gate_page');
+  // Keep warmupDaily as-is
+  const next = cur.toString();
+
+  const gateParams = {
+    phase: 'warmup',
+    dur: String(dur),
+    next,
+    hub: ctx.hub || '',
+    // Let gate know category + pid for its own logs (optional)
+    category,
+    pid
   };
 
-  console.debug('[GoodJunkVR boot] start', payload);
-
-  try{
-    engineBoot(payload);
-  }catch(err){
-    console.error('GoodJunkVR engineBoot error:', err);
-  }
+  const urlGate = buildUrl(gateUrl, gateParams);
+  location.replace(urlGate);
+  return true;
 }
 
-// overlay might fire before module loaded
-function consumePendingStart(){
-  const d = ROOT.__HHA_PENDING_START__;
-  if(d && !started){
-    ROOT.__HHA_PENDING_START__ = null;
-    startEngine({ view: d.view });
+function boot(){
+  const view = detectView();
+  setBodyViewClass(view);
+
+  const ctx = {
+    view,
+    run: String(qs('run','play')).toLowerCase(),
+    diff: String(qs('diff','normal')).toLowerCase(),
+    time: qn('time', 80),
+    seed: String(qs('seed', Date.now())),
+    pid: String(qs('pid','')||''),
+    studyId: String(qs('studyId','')||''),
+    phase: String(qs('phase','')||''),
+    conditionGroup: String(qs('conditionGroup','')||''),
+    hub: String(qs('hub','../hub.html')||'../hub.html'),
+    log: String(qs('log','')||'')
+  };
+
+  applyCtxToUI(ctx);
+
+  // ✅ Daily warmup gate (nutrition) — redirect before starting engine
+  if(maybeGoWarmupGate(ctx)) return;
+
+  // ensure required layers exist
+  const layerL = DOC.getElementById('gj-layer');
+  const layerR = DOC.getElementById('gj-layer-r');
+
+  // expose for debugging
+  try{ WIN.GoodJunkVR_CTX = ctx; }catch(_){}
+
+  // bind Start overlay
+  const ov = DOC.getElementById('startOverlay');
+  const btn = DOC.getElementById('btnStart');
+
+  function startNow(){
+    safeHideStartOverlay();
+
+    // start engine
+    bootGame({
+      view: ctx.view,
+      run: ctx.run,
+      diff: ctx.diff,
+      time: ctx.time,
+      seed: ctx.seed,
+      layerL,
+      layerR,
+      // pass ctx for end-summary routing
+      pid: ctx.pid,
+      hub: ctx.hub
+    });
+
+    dispatchStart();
   }
+
+  if(btn){
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      startNow();
+    });
+  }
+
+  // tap anywhere start (if overlay uses full screen)
+  if(ov){
+    ov.addEventListener('pointerdown', (e)=>{
+      const t = e.target;
+      if(t && (t.id === 'btnStart')) return;
+      startNow();
+    }, { passive:true });
+  }
+
+  // Harden: overlay might exist but not visible -> auto-start
+  setTimeout(()=>{
+    const visible = isOverlayActuallyVisible(ov);
+    if(!visible){
+      startNow();
+    }
+  }, 240);
+
+  // back hub buttons (if any)
+  DOC.querySelectorAll('.btnBackHub').forEach((b)=>{
+    b.addEventListener('click', ()=>{
+      location.href = ctx.hub;
+    });
+  });
 }
 
-// ✅ listen: UI start (from overlay script)
-ROOT.addEventListener('hha:ui-start', (ev)=>{
-  const view = ev?.detail?.view || qs('view','mobile');
-  startEngine({ view });
-}, { passive:true });
-
-if(DOC.readyState === 'complete' || DOC.readyState === 'interactive'){
-  queueMicrotask(consumePendingStart);
+if(DOC.readyState === 'loading'){
+  DOC.addEventListener('DOMContentLoaded', boot);
 }else{
-  DOC.addEventListener('DOMContentLoaded', consumePendingStart, { once:true });
+  boot();
 }
-
-// preload VR UI when user clicks Enter VR
-ROOT.addEventListener('hha:enter-cvr', ()=>{
-  ensureVrUi();
-}, { passive:true });
-
-// safety fallback: autostart if overlay missing
-setTimeout(()=>{
-  if(started) return;
-  const overlay = DOC.getElementById('startOverlay');
-  if(!overlay){
-    console.warn('[GoodJunkVR boot] overlay missing -> autostart');
-    startEngine({ view: qs('view','mobile') });
-  }
-}, 900);
-
-// ✅ flush-hardened on pagehide (extra safety)
-ROOT.addEventListener('pagehide', ()=>{
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:flush-all', { detail:{ reason:'pagehide' } })); }catch(_){}
-}, { passive:true });
