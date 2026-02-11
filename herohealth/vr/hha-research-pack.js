@@ -1,5 +1,5 @@
 // === /herohealth/vr/hha-research-pack.js ===
-// HHA Research Pack — v20260211a
+// HHA Research Pack — v20260211b (LOCAL EVENTS LOG)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -9,13 +9,13 @@
     try{ return new URL(location.href).searchParams.get(k) ?? d; }
     catch{ return d; }
   }
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
+  }
   function csvEscape(v){
     const s = String(v ?? '');
     if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
     return s;
-  }
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
   }
 
   const P = WIN.HHA_PLANNER || null;
@@ -37,7 +37,6 @@
   const SID = `HHA_${Date.now()}_${Math.floor((ctx.seed>>>0)%1e6)}`;
 
   function normCond(s){ return String(s||'').trim().toUpperCase(); }
-
   function getResearchPreset(gameId){
     const c = normCond(ctx.conditionGroup);
     const base = (c === 'A') ? { level:'easy',   targetScale: 1.12, lockPx: 44, ttlMul: 1.15, speedMul: 0.92 }
@@ -54,7 +53,24 @@
     return Object.assign({}, base, tweak);
   }
 
+  // -------- local storage events log --------
+  const EVENTS_STORE = 'HHA_FITNESS_EVENTS_LOG_V1';
+  const EVENTS_CAP = 20000;
+
+  function appendLocalEvent(row){
+    try{
+      const arr = JSON.parse(localStorage.getItem(EVENTS_STORE) || '[]');
+      const next = Array.isArray(arr) ? arr : [];
+      next.push(row);
+      // keep last N
+      const trimmed = (next.length > EVENTS_CAP) ? next.slice(next.length - EVENTS_CAP) : next;
+      localStorage.setItem(EVENTS_STORE, JSON.stringify(trimmed));
+    }catch(_){}
+  }
+
+  // -------- in-memory events (for current page) --------
   const EVENTS = [];
+
   function ev(type, data){
     const row = {
       ts: Date.now(),
@@ -63,7 +79,7 @@
       studyId: ctx.studyId,
       phase: ctx.phase,
       conditionGroup: ctx.conditionGroup,
-      game: '',
+      game: '', // filled by caller (hooks) if possible
       mode: IS_RESEARCH ? 'research' : 'play',
       view: ctx.view,
       seed: ctx.seed>>>0,
@@ -71,16 +87,17 @@
       data: data || {}
     };
     EVENTS.push(row);
+    appendLocalEvent(row);
     emit('hha:event', { sid: SID, ...row });
   }
 
-  function eventsCSV(){
+  function eventsCSV(rows){
     const header = [
       'ts','sid','pid','studyId','phase','conditionGroup',
       'game','mode','view','seed','type','data_json'
     ];
     const lines = [header.join(',')];
-    for(const r of EVENTS){
+    for(const r of (rows || EVENTS)){
       const dataJson = JSON.stringify(r.data || {});
       const vals = [
         r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
@@ -91,7 +108,7 @@
     return lines.join('\n');
   }
 
-  WIN.HHA_RP = { SID, ctx, IS_RESEARCH, getResearchPreset, ev, EVENTS, eventsCSV };
+  WIN.HHA_RP = { SID, ctx, IS_RESEARCH, getResearchPreset, ev, EVENTS, eventsCSV, EVENTS_STORE };
 
   ev('rp_ready', { fromPlanner: ctx.fromPlanner, combo: ctx.combo });
 })();
