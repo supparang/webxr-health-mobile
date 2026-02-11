@@ -1,5 +1,5 @@
 // === /fitness/teacher-dashboard.js ===
-// Teacher Dashboard (local) — v20260211a
+// Teacher Dashboard (local) — v20260211c (SUMMARY + EVENTS EXPORT)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -12,6 +12,9 @@
 
   const btnRefresh = $('#td-refresh');
   const btnCopy = $('#td-copy-csv');
+  const btnDL = $('#td-dl-csv');
+  const btnCopyEvents = $('#td-copy-events');
+  const btnDLEvents = $('#td-dl-events');
   const btnClear = $('#td-clear');
 
   const fPid = $('#f-pid');
@@ -21,15 +24,25 @@
   const fSort = $('#f-sort');
   const fLimit = $('#f-limit');
 
-  const STORE = 'HHA_FITNESS_SUMMARY_LOG_V1';
+  const STORE_SUM = 'HHA_FITNESS_SUMMARY_LOG_V1';
+  const STORE_EVT = 'HHA_FITNESS_EVENTS_LOG_V1';
 
   function setMsg(t){ if(msg) msg.textContent = t || ''; }
 
-  function readLog(){
+  function readJSON(key, fallback){
     try{
-      const a = JSON.parse(localStorage.getItem(STORE) || '[]');
-      return Array.isArray(a) ? a : [];
-    }catch(_){ return []; }
+      const a = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+      return a;
+    }catch(_){ return fallback; }
+  }
+
+  function readSummary(){
+    const a = readJSON(STORE_SUM, []);
+    return Array.isArray(a) ? a : [];
+  }
+  function readEvents(){
+    const a = readJSON(STORE_EVT, []);
+    return Array.isArray(a) ? a : [];
   }
 
   function fmtTime(ts){
@@ -42,7 +55,6 @@
     const mo = String(d.getMonth()+1).padStart(2,'0');
     return `${dd}/${mo} ${hh}:${mm}:${ss}`;
   }
-
   function fmtMs(ms){
     if(!ms) return '-';
     const s = Math.round(ms/1000);
@@ -56,7 +68,7 @@
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
   }
 
-  function toCSV(rows){
+  function summaryCSV(rows){
     const header = ['ts','pid','studyId','phase','conditionGroup','game','score','pass','total','maxStreak','ms','seed'];
     const lines = [header.join(',')];
     for(const r of rows){
@@ -69,11 +81,26 @@
     return lines.join('\n');
   }
 
+  function eventsCSV(rows){
+    const header = ['ts','sid','pid','studyId','phase','conditionGroup','game','mode','view','seed','type','data_json'];
+    const lines = [header.join(',')];
+    for(const r of rows){
+      const dataJson = JSON.stringify(r.data || {});
+      const vals = [
+        r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
+        r.game, r.mode, r.view, r.seed, r.type, dataJson
+      ].map(esc);
+      lines.push(vals.join(','));
+    }
+    return lines.join('\n');
+  }
+
   function applyFilters(rows){
     const pid = (fPid?.value || '').trim().toUpperCase();
     const game = (fGame?.value || '').trim();
     const phase = (fPhase?.value || '').trim();
     const group = (fGroup?.value || '').trim().toUpperCase();
+
     let out = rows.slice();
 
     if(pid) out = out.filter(r => String(r.pid||'').toUpperCase().includes(pid));
@@ -100,7 +127,7 @@
   }
 
   function render(){
-    const rows = applyFilters(readLog());
+    const rows = applyFilters(readSummary());
     if(!body) return;
 
     body.innerHTML = rows.map(r=>{
@@ -124,32 +151,67 @@
       `;
     }).join('');
 
-    const total = readLog().length;
-    setMsg(`แสดง ${rows.length} แถว (ทั้งหมดในเครื่อง: ${total}) | แหล่งข้อมูล: ${STORE}`);
+    setMsg(`Summary: แสดง ${rows.length} แถว | Summary store: ${STORE_SUM} | Events store: ${STORE_EVT} (รวม events: ${readEvents().length})`);
   }
 
-  async function copyCSV(){
-    const rows = applyFilters(readLog());
-    const txt = toCSV(rows);
+  async function copyText(txt, okMsg){
     try{
       await navigator.clipboard.writeText(txt);
-      setMsg('📋 คัดลอก CSV รวมแล้ว');
+      setMsg(okMsg);
     }catch(e){
-      try{ WIN.prompt('CSV:', txt); }catch(_){}
+      try{ WIN.prompt('Copy:', txt); }catch(_){}
       setMsg('เปิดกล่องให้คัดลอกแล้ว');
     }
   }
 
-  function clearAll(){
-    if(!confirm('ล้างข้อมูล Summary Log ในเครื่องนี้ทั้งหมด?')) return;
-    localStorage.removeItem(STORE);
-    render();
-    setMsg('ล้างข้อมูลแล้ว');
+  function downloadText(fn, txt){
+    const blob = new Blob([txt], { type:'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = DOC.createElement('a');
+    a.href = url;
+    a.download = fn;
+    DOC.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function stamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
   btnRefresh?.addEventListener('click', render);
-  btnCopy?.addEventListener('click', copyCSV);
-  btnClear?.addEventListener('click', clearAll);
+
+  btnCopy?.addEventListener('click', ()=>{
+    const rows = applyFilters(readSummary());
+    copyText(summaryCSV(rows), '📋 คัดลอก Summary CSV แล้ว');
+  });
+
+  btnDL?.addEventListener('click', ()=>{
+    const rows = applyFilters(readSummary());
+    downloadText(`fitness_summary_${stamp()}.csv`, summaryCSV(rows));
+    setMsg('⬇️ ดาวน์โหลด Summary CSV แล้ว');
+  });
+
+  btnCopyEvents?.addEventListener('click', ()=>{
+    const rows = readEvents(); // events ไม่ filter ตาม summary UI เพื่อไม่ให้หาย
+    copyText(eventsCSV(rows), '📋 คัดลอก Events CSV แล้ว');
+  });
+
+  btnDLEvents?.addEventListener('click', ()=>{
+    const rows = readEvents();
+    downloadText(`fitness_events_${stamp()}.csv`, eventsCSV(rows));
+    setMsg('⬇️ ดาวน์โหลด Events CSV แล้ว');
+  });
+
+  btnClear?.addEventListener('click', ()=>{
+    if(!confirm('ล้างข้อมูล Summary+Events ในเครื่องนี้ทั้งหมด?')) return;
+    localStorage.removeItem(STORE_SUM);
+    localStorage.removeItem(STORE_EVT);
+    render();
+    setMsg('ล้างข้อมูลแล้ว');
+  });
 
   [fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
     el?.addEventListener('input', render);
