@@ -171,4 +171,613 @@ export function boot(){
 
     // Use target viewport px
     const x = Number.isFinite(obj.x) ? obj.x : (WIN.innerWidth*0.5);
-    const y = Number.isFinite(obj.y) ? obj.y : (WIN.innerHeight*0.
+    const y = Number.isFinite(obj.y) ? obj.y : (WIN.innerHeight*0.5);
+
+    if(kind === 'good'){
+      P.popText(x, y, '✅ +1', 'good');
+      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+    }else if(kind === 'wrong'){
+      P.popText(x, y, '⚠️ ผิด!', 'warn');
+      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+    }else if(kind === 'haz'){
+      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
+      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+    }
+  }
+
+  function setQuizVisible(on){
+    quizOpen = !!on;
+    if(!quizBox) return;
+    quizBox.style.display = on ? 'block' : 'none';
+  }
+
+  function pickQuiz(){
+    const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
+    if(!Array.isArray(bank) || !bank.length) return null;
+    const q = bank[Math.floor(rng()*bank.length)];
+    return q || null;
+  }
+
+  function openRandomQuiz(){
+    const q = pickQuiz();
+    if(!q || !quizQ || !quizSub) return;
+
+    setQuizVisible(true);
+    quizQ.textContent = `🧠 Quiz: ${q.q}`;
+
+    const options = [q.a].concat((q.wrong||[]).slice(0,3));
+    for(let i=options.length-1;i>0;i--){
+      const j = Math.floor(rng()*(i+1));
+      [options[i],options[j]] = [options[j],options[i]];
+    }
+
+    quizSub.textContent =
+      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+      + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
+
+    quizOpen._armed = true;
+    quizOpen._t0 = nowMs();
+    quizOpen._needStreak = 2;
+    quizOpen._streak = 0;
+  }
+
+  function closeQuiz(msg){
+    if(quizOpen){
+      setQuizVisible(false);
+      quizOpen = false;
+      quizOpen._armed = false;
+      if(msg) showBanner(msg);
+    }
+  }
+
+  function getSpawnRect(){
+    const w = WIN.innerWidth, h = WIN.innerHeight;
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 170;
+    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 190;
+    const pad = 14;
+
+    const x0 = pad, x1 = w - pad;
+    const y0 = (topSafe + pad);
+    const y1 = h - bottomSafe - pad;
+
+    return { x0, x1, y0, y1, w, h };
+  }
+
+  function getMissCount(){
+    return (wrongStepHits + hazHits);
+  }
+
+  function setHud(){
+    const s = STEPS[stepIdx];
+    pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
+    pillHits && (pillHits.textContent = `HITS ${hitsInStep}/${s.hitsNeed}`);
+    pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
+    pillMiss && (pillMiss.textContent = `MISS ${getMissCount()} / ${missLimit}`);
+
+    const stepAcc = totalStepHits ? (correctHits / totalStepHits) : 0;
+    const riskIncomplete = clamp(1 - stepAcc, 0, 1);
+    const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
+
+    pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
+    pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
+
+    pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
+    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • tgt=${targets.length}`);
+  }
+
+  function clearTargets(){
+    while(targets.length){
+      const t = targets.pop();
+      try{ t.dead = true; }catch{}
+      try{ t.el?.remove(); }catch{}
+    }
+  }
+
+  function removeTarget(obj){
+    if(!obj || obj.dead) return;
+    obj.dead = true;
+
+    const i = targets.findIndex(t=>t.id===obj.id);
+    if(i>=0) targets.splice(i,1);
+
+    try{ obj.el?.remove(); }catch{}
+  }
+
+  function createTarget(kind, emoji, stepRef){
+    if(targets.length >= LIMITS.MAX_TARGETS){
+      const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
+      const killN = Math.min(LIMITS.OVERLOAD_KILL, sorted.length);
+      for(let i=0;i<killN;i++) removeTarget(sorted[i]);
+    }
+
+    const el = DOC.createElement('button');
+    el.type='button';
+    el.className = `hw-tgt ${kind}`;
+    el.innerHTML = `<span class="emoji">${emoji}</span>`;
+    el.dataset.id = String(nextId);
+
+    stage.appendChild(el);
+
+    const rect = getSpawnRect();
+    const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
+    const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+
+    el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
+    el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
+    el.style.setProperty('--s', (0.92 + rng()*0.22).toFixed(3));
+
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
+    targets.push(obj);
+
+    if(view !== 'cvr'){
+      el.addEventListener('click', ()=>{
+        const t = nowMs();
+        if(t - lastPointerMs < LIMITS.CLICK_COOLDOWN_MS) return;
+        lastPointerMs = t;
+        onHitByPointer(obj, 'tap');
+      }, { passive:true });
+    }
+    return obj;
+  }
+
+  function spawnOne(){
+    const P = dd ? dd.getParams() : base;
+    const r = rng();
+
+    if(r < P.hazardRate){
+      return createTarget('haz', ICON_HAZ, -1);
+    }else if(r < P.hazardRate + P.decoyRate){
+      let j = stepIdx;
+      for(let k=0;k<7;k++){
+        const pick = Math.floor(rng()*STEPS.length);
+        if(pick !== stepIdx){ j = pick; break; }
+      }
+      return createTarget('wrong', STEPS[j].icon, j);
+    }else{
+      const s = STEPS[stepIdx];
+      return createTarget('good', s.icon, stepIdx);
+    }
+  }
+
+  function computeRt(obj){
+    const dt = nowMs() - obj.bornMs;
+    return clamp(dt, 0, 60000);
+  }
+
+  function onHitByPointer(obj, source){
+    if(!running || paused) return;
+    if(!obj || obj.dead) return;
+    judgeHit(obj, source, null);
+  }
+
+  function onShoot(e){
+    if(!running || paused) return;
+    if(view !== 'cvr') return;
+
+    const d = (e && e.detail) || {};
+    const lockPx = Number(d.lockPx||28);
+
+    const cx = WIN.innerWidth/2;
+    const cy = WIN.innerHeight/2;
+
+    let best=null, bestDist=1e9;
+    for(const t of targets){
+      if(!t || t.dead) continue;
+      const dx = (t.x - cx), dy = (t.y - cy);
+      const dist = Math.hypot(dx, dy);
+      if(dist < lockPx && dist < bestDist){
+        best = t; bestDist = dist;
+      }
+    }
+    if(best){
+      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
+    }
+  }
+
+  function getStepAcc(){
+    return totalStepHits ? (correctHits / totalStepHits) : 0;
+  }
+
+  function elapsedSec(){
+    return running ? ((nowMs() - tStartMs)/1000) : 0;
+  }
+
+  function bumpQuestOnGoodHit(){
+    const t = elapsedSec();
+    if(t < 2) return;
+
+    if(!bumpQuestOnGoodHit._nextAt){
+      bumpQuestOnGoodHit._nextAt = 10 + rng()*10;
+      return;
+    }
+    if(t < bumpQuestOnGoodHit._nextAt) return;
+
+    bumpQuestOnGoodHit._nextAt = t + (12 + rng()*10);
+
+    const roll = rng();
+    if(roll < 0.34){
+      questText = 'คอมโบถึง 8!';
+      questDone = (combo >= 8) ? 1 : 0;
+    }else if(roll < 0.67){
+      questText = 'อย่าโดน 🦠 10 วิ!';
+      questDone = 0;
+      bumpQuestOnGoodHit._noHazUntil = t + 10;
+    }else{
+      questText = 'ผ่าน STEP นี้ไว!';
+      questDone = 0;
+      bumpQuestOnGoodHit._fastStepT0 = nowMs();
+      bumpQuestOnGoodHit._fastStepIdx = stepIdx;
+    }
+
+    showBanner(`🎯 QUEST: ${questText}`);
+  }
+
+  function updateQuestTick(){
+    const t = elapsedSec();
+    if(bumpQuestOnGoodHit._noHazUntil){
+      if(t >= bumpQuestOnGoodHit._noHazUntil){
+        questDone = 1;
+        bumpQuestOnGoodHit._noHazUntil = 0;
+        showBanner('🏅 QUEST ผ่าน!');
+      }
+    }
+  }
+
+  function judgeHit(obj, source, extra){
+    if(!obj || obj.dead) return;
+
+    // remove immediately to avoid “ตีแล้วค้าง/ยิงซ้ำ”
+    removeTarget(obj);
+
+    const rt = computeRt(obj);
+
+    if(obj.kind === 'good'){
+      lastUserHitMs = nowMs();
+
+      correctHits++;
+      totalStepHits++;
+      hitsInStep++;
+      combo++;
+      comboMax = Math.max(comboMax, combo);
+      rtOk.push(rt);
+
+      if(quizOpen && quizOpen._armed){
+        const within = (nowMs() - quizOpen._t0) <= 4000;
+        if(within){
+          quizOpen._streak++;
+          if(quizOpen._streak >= (quizOpen._needStreak||2)){
+            quizRight++;
+            closeQuiz('✅ Quiz ผ่าน!');
+          }
+        }else{
+          closeQuiz(null);
+        }
+      }
+
+      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
+
+      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
+
+      bumpQuestOnGoodHit();
+      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
+      fxHit('good', obj);
+
+      if(hitsInStep >= STEPS[stepIdx].hitsNeed){
+        const prevStep = stepIdx;
+
+        stepIdx++;
+        hitsInStep=0;
+
+        if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
+          const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
+          if(dt <= 6500){
+            questDone = 1;
+            showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
+          }
+        }
+
+        if(stepIdx >= STEPS.length){
+          stepIdx=0;
+          loopsDone++;
+          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
+          if(!quizOpen) openRandomQuiz();
+        }else{
+          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+          if(!quizOpen && rng() < 0.25) openRandomQuiz();
+        }
+      }
+
+      setHud();
+      return;
+    }
+
+    if(obj.kind === 'wrong'){
+      wrongStepHits++;
+      totalStepHits++;
+      combo = 0;
+
+      if(quizOpen && quizOpen._armed){
+        quizWrong++;
+        closeQuiz('❌ Quiz พลาด!');
+      }
+
+      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
+
+      emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
+      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+      fxHit('wrong', obj);
+
+      if(getMissCount() >= missLimit) endGame('fail');
+      setHud();
+      return;
+    }
+
+    if(obj.kind === 'haz'){
+      hazHits++;
+      combo = 0;
+
+      if(quizOpen && quizOpen._armed){
+        quizWrong++;
+        closeQuiz('❌ Quiz พลาด!');
+      }
+
+      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
+      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
+
+      emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
+      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
+      fxHit('haz', obj);
+
+      if(getMissCount() >= missLimit) endGame('fail');
+      setHud();
+      return;
+    }
+  }
+
+  function sweepTargets(tNow){
+    if(tNow - lastSweepMs < LIMITS.SWEEP_EVERY_MS) return;
+    lastSweepMs = tNow;
+
+    const ttl = LIMITS.TARGET_TTL_MS;
+    for(let i=targets.length-1;i>=0;i--){
+      const t = targets[i];
+      if(!t || t.dead){
+        targets.splice(i,1);
+        continue;
+      }
+      if((tNow - t.bornMs) > ttl){
+        removeTarget(t);
+      }
+    }
+
+    if(targets.length > LIMITS.MAX_TARGETS){
+      const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
+      const extra = targets.length - LIMITS.MAX_TARGETS;
+      const killN = Math.min(sorted.length, Math.max(extra, LIMITS.OVERLOAD_KILL));
+      for(let k=0;k<killN;k++) removeTarget(sorted[k]);
+    }
+  }
+
+  function tick(){
+    if(!running) return;
+
+    try{
+      const t = nowMs();
+      if(!lastTickMs) lastTickMs = t;
+
+      const dt = Math.max(0, (t - tLastMs)/1000);
+      tLastMs = t;
+
+      // watchdog: if RAF stalls, reduce load
+      if((t - lastTickMs) > LIMITS.WATCHDOG_MS){
+        showBanner('⚠️ เกมสะดุด กำลังกู้คืน…');
+        const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
+        for(let i=0;i<Math.min(sorted.length, 10);i++) removeTarget(sorted[i]);
+      }
+      lastTickMs = t;
+
+      if(paused){ requestAnimationFrame(tick); return; }
+
+      timeLeft -= dt;
+      emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
+
+      if(timeLeft <= 0){
+        endGame('time');
+        return;
+      }
+
+      sweepTargets(t);
+
+      const P = dd ? dd.getParams() : base;
+
+      spawnAcc += (P.spawnPerSec * dt);
+
+      const capacity = Math.max(0, LIMITS.MAX_TARGETS - targets.length);
+      let spawnBudget = Math.min(capacity, 3); // no more than 3 per frame
+
+      while(spawnAcc >= 1 && spawnBudget > 0){
+        spawnAcc -= 1;
+        spawnOne();
+        spawnBudget--;
+      }
+
+      dd?.onEvent('tick', { elapsedSec: elapsedSec() });
+      updateQuestTick();
+      setHud();
+
+      requestAnimationFrame(tick);
+    }catch(err){
+      console.error('[Hygiene] tick crash', err);
+      showBanner('❌ เกิด error ในเกม (ลอง Reload)');
+      endGame('crash');
+    }
+  }
+
+  function resetGame(){
+    running=false; paused=false;
+    clearTargets();
+    timeLeft = timePlannedSec;
+
+    stepIdx=0; hitsInStep=0; loopsDone=0;
+    combo=0; comboMax=0;
+    wrongStepHits=0; hazHits=0;
+    correctHits=0; totalStepHits=0;
+    rtOk.length=0;
+    spawnAcc=0;
+
+    questText = 'ทำ STEP ให้ถูก!';
+    questDone = 0;
+    quizRight = 0;
+    quizWrong = 0;
+    setQuizVisible(false);
+
+    lastSweepMs = 0;
+    lastTickMs = 0;
+    lastUserHitMs = 0;
+    lastPointerMs = 0;
+
+    setHud();
+  }
+
+  function startGame(){
+    resetGame();
+    running=true;
+    tStartMs = nowMs();
+    tLastMs = tStartMs;
+
+    startOverlay && (startOverlay.style.display = 'none');
+    endOverlay && (endOverlay.style.display = 'none');
+
+    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
+    showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
+    setHud();
+    requestAnimationFrame(tick);
+  }
+
+  function endGame(reason){
+    if(!running && reason !== 'crash') return;
+
+    running=false;
+    paused=false;
+    clearTargets();
+    setQuizVisible(false);
+
+    const durationPlayedSec = Math.max(0, Math.round(elapsedSec()));
+    const stepAcc = getStepAcc();
+    const riskIncomplete = clamp(1 - stepAcc, 0, 1);
+    const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
+
+    const rtMed = (()=> {
+      const a = rtOk.slice().sort((a,b)=>a-b);
+      if(!a.length) return 0;
+      const m = (a.length-1)/2;
+      return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
+    })();
+
+    let grade='C';
+    if(stepAcc>=0.90 && hazHits<=1) grade='SSS';
+    else if(stepAcc>=0.82 && hazHits<=2) grade='SS';
+    else if(stepAcc>=0.75 && hazHits<=3) grade='S';
+    else if(stepAcc>=0.68) grade='A';
+    else if(stepAcc>=0.58) grade='B';
+
+    const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
+
+    const summary = {
+      version:'1.0.2-prod',
+      game:'hygiene',
+      gameMode:'hygiene',
+      runMode,
+      diff,
+      view,
+      seed,
+      sessionId,
+      timestampIso: nowIso(),
+
+      reason,
+      durationPlannedSec: timePlannedSec,
+      durationPlayedSec,
+
+      loopsDone,
+      stepIdxEnd: stepIdx,
+      hitsCorrect: correctHits,
+      hitsWrongStep: wrongStepHits,
+      hazHits,
+
+      stepAcc,
+      riskIncomplete,
+      riskUnsafe,
+      comboMax,
+      misses: getMissCount(),
+
+      quizRight,
+      quizWrong,
+      questText,
+      questDone,
+
+      medianStepMs: rtMed
+    };
+
+    if(coach) Object.assign(summary, coach.getSummaryExtras());
+    if(dd) Object.assign(summary, dd.getSummaryExtras());
+
+    if(WIN.HHA_Badges){
+      WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
+    }
+
+    saveJson(LS_LAST, summary);
+    const hist = loadJson(LS_HIST, []);
+    const arr = Array.isArray(hist) ? hist : [];
+    arr.unshift(summary);
+    saveJson(LS_HIST, arr.slice(0, 200));
+
+    emit('hha:end', summary);
+
+    if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : (reason==='crash' ? 'จบเกม ❌ (Crash)' : 'จบเกม ✅');
+    if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
+    if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
+    if(endOverlay) endOverlay.style.display = 'grid';
+  }
+
+  function goHub(){
+    if(hub) location.href = hub;
+    else location.href = '../hub.html';
+  }
+
+  // UI binds
+  btnStart?.addEventListener('click', startGame, { passive:true });
+  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
+  btnPlayAgain?.addEventListener('click', startGame, { passive:true });
+  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
+  btnBack?.addEventListener('click', goHub, { passive:true });
+  btnBack2?.addEventListener('click', goHub, { passive:true });
+
+  btnPause?.addEventListener('click', ()=>{
+    if(!running) return;
+    paused = !paused;
+    if(btnPause) btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
+  }, { passive:true });
+
+  // cVR shoot support
+  WIN.addEventListener('hha:shoot', onShoot);
+
+  // optional: badge/coach visuals
+  WIN.addEventListener('hha:badge', (e)=>{
+    const b = (e && e.detail) || {};
+    if(WIN.Particles && WIN.Particles.popText){
+      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
+      WIN.Particles.burst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
+    }
+  });
+
+  WIN.addEventListener('hha:coach', (e)=>{
+    const d = (e && e.detail) || {};
+    if(d && d.text) showBanner(`🤖 ${d.text}`);
+  });
+
+  // initial
+  setHud();
+}
