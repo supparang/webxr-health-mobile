@@ -37,28 +37,19 @@
   };
   const IS_RESEARCH = (ctx.mode === 'research' || ctx.mode === 'study');
 
-  // session id
   const SID = `HHA_${Date.now()}_${Math.floor((ctx.seed>>>0)%1e6)}`;
 
-  // ----------------------------
-  // Condition mapping (research stable)
-  // Define fixed presets for each conditionGroup:
-  // A=easy, B=normal, C=hard, D=hard+fast (example)
-  // ----------------------------
-  function normCond(s){
-    return String(s||'').trim().toUpperCase();
-  }
+  function normCond(s){ return String(s||'').trim().toUpperCase(); }
+
   function getResearchPreset(gameId){
     const c = normCond(ctx.conditionGroup);
 
-    // defaults by condition
     const base = (c === 'A') ? { level:'easy',   targetScale: 1.12, lockPx: 44, ttlMul: 1.15, speedMul: 0.92 }
                : (c === 'B') ? { level:'normal', targetScale: 1.00, lockPx: 32, ttlMul: 1.00, speedMul: 1.00 }
                : (c === 'C') ? { level:'hard',   targetScale: 0.90, lockPx: 24, ttlMul: 0.90, speedMul: 1.08 }
                : (c === 'D') ? { level:'hard+',  targetScale: 0.86, lockPx: 20, ttlMul: 0.85, speedMul: 1.15 }
                :              { level:'normal', targetScale: 1.00, lockPx: 32, ttlMul: 1.00, speedMul: 1.00 };
 
-    // optional per-game tweaks
     const tweak = (gameId === 'balance')
       ? { lockPx: Math.round(base.lockPx * 1.6), ttlMul: base.ttlMul * 1.10 }
       : (gameId === 'jumpduck')
@@ -68,9 +59,6 @@
     return Object.assign({}, base, tweak);
   }
 
-  // ----------------------------
-  // Unified events buffer + CSV
-  // ----------------------------
   const EVENTS = [];
   function ev(type, data){
     const row = {
@@ -80,7 +68,7 @@
       studyId: ctx.studyId,
       phase: ctx.phase,
       conditionGroup: ctx.conditionGroup,
-      game: '',      // game should set
+      game: '',
       mode: IS_RESEARCH ? 'research' : 'play',
       view: ctx.view,
       seed: ctx.seed>>>0,
@@ -88,11 +76,7 @@
       data: data || {}
     };
     EVENTS.push(row);
-
-    // optional broadcast
-    emit('hha:event', { sid: SID, type, ...row });
-
-    // optional server log (if you already have endpoint usage, game can forward)
+    emit('hha:event', { sid: SID, ...row });
   }
 
   function eventsCSV(){
@@ -112,17 +96,7 @@
     return lines.join('\n');
   }
 
-  // expose
-  WIN.HHA_RP = {
-    SID,
-    ctx,
-    IS_RESEARCH,
-    getResearchPreset,
-    ev,
-    EVENTS,
-    eventsCSV
-  };
+  WIN.HHA_RP = { SID, ctx, IS_RESEARCH, getResearchPreset, ev, EVENTS, eventsCSV };
 
-  // ready event
   ev('rp_ready', { fromPlanner: ctx.fromPlanner, combo: ctx.combo });
 })();
