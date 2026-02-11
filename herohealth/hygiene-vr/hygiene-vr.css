@@ -1,18 +1,19 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260210c
-✅ Fix HUD blocking targets: enlarge spawn safe zones to match real HUD height
-✅ Mobile HUD compact (2-row tighter) + banner position
-✅ Glass HUD (less opaque) but readable
-✅ Targets remain viewport-fixed and clickable
+PATCH v20260210f
+✅ HUD safe zones (top/bottom) for spawn logic (JS reads: --hw-top-safe/--hw-bottom-safe)
+✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
+✅ Targets: uses --x (vw%), --y (vh%), --s scale
+✅ FIX: prevent HUD blocking targets (banner/rows remain pointer-events:none except buttons)
+✅ Perf: reduce heavy blur/shadows on low-end (prefers-reduced-motion + coarse pointer)
 */
 
 :root{
   color-scheme: light dark;
 
   --bg0:#020617;
-  --panel: rgba(2,6,23,.64);
-  --panel2: rgba(15,23,42,.60);
+  --panel: rgba(2,6,23,.70);
+  --panel2: rgba(15,23,42,.66);
   --stroke: rgba(148,163,184,.18);
   --text: rgba(229,231,235,.96);
   --muted: rgba(148,163,184,.95);
@@ -30,20 +31,19 @@ PATCH v20260210c
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ IMPORTANT: spawn safe zones (JS reads these)
-     Set to a bit larger than HUD real height so targets won't spawn under HUD. */
-  --hw-top-safe: 210px;
-  --hw-bottom-safe: 210px;
+  /* ✅ spawn safe zones (JS reads these) */
+  --hw-top-safe: 176px;
+  --hw-bottom-safe: 200px;
 
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
 
-  /* HUD compact controls */
-  --hud-gap: 8px;
-  --hud-pill-pad-y: 8px;
-  --hud-pill-pad-x: 10px;
-  --hud-pill-font: 12px;
+  /* z-index plan */
+  --z-stage: 0;
+  --z-target: 10;
+  --z-hud: 50;
+  --z-overlay: 90;
 }
 
 *{ box-sizing:border-box; }
@@ -54,7 +54,6 @@ html,body{
   color:var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
-
 button{ font: inherit; }
 
 .hw-root{
@@ -67,6 +66,7 @@ button{ font: inherit; }
 .hw-stage{
   position: fixed;
   inset: 0;
+  z-index: var(--z-stage);
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
@@ -78,34 +78,16 @@ button{ font: inherit; }
 .hw-hud{
   position: fixed;
   inset: 0;
-  pointer-events: none;
-  z-index: 50;
+  pointer-events: none;     /* ✅ HUD ไม่บังเป้าโดยรวม */
+  z-index: var(--z-hud);
 }
 
+/* top cluster */
 .hw-top{
   position: absolute;
   top: 0; left: 0; right: 0;
-
-  padding: calc(12px + var(--sat))
-           calc(12px + var(--sar))
-           12px
-           calc(12px + var(--sal));
-}
-
-/* "Glass slab" behind HUD so it's readable but not too opaque */
-.hw-top::before{
-  content:'';
-  position:absolute;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(8px + var(--sat));
-  height: calc(var(--hw-top-safe) - 18px);
-  border-radius: 18px;
-  background: rgba(2,6,23,.22);
-  border: 1px solid rgba(148,163,184,.10);
-  backdrop-filter: blur(10px);
-  pointer-events:none;
-  z-index: -1;
+  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
+  pointer-events: none;     /* ✅ ป้องกัน container บัง */
 }
 
 .hw-title{
@@ -113,7 +95,6 @@ button{ font: inherit; }
   letter-spacing: .2px;
   font-size: 16px;
 }
-
 .hw-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -123,33 +104,33 @@ button{ font: inherit; }
 .hw-row{
   display: flex;
   flex-wrap: wrap;
-  gap: var(--hud-gap);
+  gap: 8px;
   margin-top: 10px;
+  pointer-events: none;     /* ✅ แถว HUD ไม่บังเป้า */
 }
 
 .hw-pill{
   pointer-events: none;
-  padding: var(--hud-pill-pad-y) var(--hud-pill-pad-x);
+  padding: 8px 10px;
   border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.42);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 50px rgba(0,0,0,.28);
+  box-shadow: 0 14px 50px rgba(0,0,0,.35);
   font-weight: 900;
-  font-size: var(--hud-pill-font);
+  font-size: 12px;
   color: rgba(229,231,235,.94);
 }
-
-.hw-pill.warn{ border-color: rgba(245,158,11,.22); background: rgba(245,158,11,.09); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.20); background: rgba(34,211,238,.08); }
-.hw-pill.bad { border-color: rgba(239,68,68,.22); background: rgba(239,68,68,.08); }
+.hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
+.hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
+.hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
 .hw-pill.btn{
-  pointer-events: auto; /* ✅ allow click */
+  pointer-events: auto;     /* ✅ ปุ่มกดได้ */
   cursor: pointer;
-  background: rgba(15,23,42,.55);
+  background: rgba(15,23,42,.70);
 }
-.hw-pill.btn:hover{ filter: brightness(1.06); }
+.hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
 /* ===== Banner ===== */
@@ -157,12 +138,12 @@ button{ font: inherit; }
   pointer-events: none;
   position: absolute;
   left: 50%;
-  top: calc(var(--hw-top-safe) - 54px + var(--sat));
+  top: calc(118px + var(--sat));
   transform: translateX(-50%);
   padding: 10px 12px;
   border-radius: var(--pill);
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.50);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.62);
   backdrop-filter: blur(10px);
   font-weight: 950;
   font-size: 13px;
@@ -183,15 +164,16 @@ button{ font: inherit; }
   display: grid;
   place-items: center;
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
-              rgba(2,6,23,.66);
-  z-index: 90;
+  background:
+    radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
+    rgba(2,6,23,.66);
+  z-index: var(--z-overlay);
 }
 
 .hw-card{
   width: min(760px, 100%);
   border-radius: var(--r);
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid var(--stroke);
   background: rgba(2,6,23,.74);
   box-shadow: 0 24px 90px rgba(0,0,0,.55);
   padding: 16px;
@@ -223,7 +205,7 @@ button{ font: inherit; }
   border-radius: 16px;
   padding: 10px 12px;
   font-weight: 950;
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid var(--stroke);
 }
 .hw-cta{
   background: rgba(34,197,94,.18);
@@ -240,7 +222,7 @@ button{ font: inherit; }
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid var(--stroke);
   background: rgba(2,6,23,.45);
   max-height: min(46vh, 420px);
   overflow: auto;
@@ -248,9 +230,15 @@ button{ font: inherit; }
   color: rgba(229,231,235,.92);
 }
 
-/* ===== Targets ===== */
+/* ===== Targets =====
+IMPORTANT:
+- Use viewport placement (fixed) to match obj.x/y in JS.
+- Use vmin-ish size variables.
+- Ensure targets stay ABOVE stage but BELOW overlays & HUD container doesn't block clicks.
+*/
 .hw-tgt{
-  position: fixed; /* viewport aligned */
+  position: fixed;
+  z-index: var(--z-target);
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -267,11 +255,8 @@ button{ font: inherit; }
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-
-  /* ✅ keep below overlays, but below HUD: visual overlap avoided by safe zones */
-  z-index: 10;
-
-  animation: hwPopIn 180ms ease-out both;
+  touch-action: manipulation; /* ✅ ลดดีเลย์แตะ */
+  animation: hwPopIn 160ms ease-out both;
 }
 
 .hw-tgt .emoji{
@@ -280,18 +265,9 @@ button{ font: inherit; }
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
 }
 
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.30);
-  background: rgba(239,68,68,.10);
-}
+.hw-tgt.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+.hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+.hw-tgt.haz { border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
@@ -304,21 +280,17 @@ button{ font: inherit; }
 
 /* ===== Quiz box ===== */
 .hw-quiz{
-  pointer-events: auto;
+  pointer-events: auto;     /* ✅ กดได้ */
   margin-top: 10px;
   border-radius: var(--r);
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.50);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.58);
   backdrop-filter: blur(10px);
   padding: 12px;
   max-width: min(760px, calc(100% - 2px));
 }
 
-.hw-quiz-q{
-  font-weight: 950;
-  font-size: 14px;
-}
-
+.hw-quiz-q{ font-weight: 950; font-size: 14px; }
 .hw-quiz-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -326,43 +298,97 @@ button{ font: inherit; }
   line-height: 1.35;
 }
 
-/* ===== View tweaks ===== */
-/* Mobile: HUD สูงขึ้นจริง → เพิ่ม top-safe / bottom-safe */
-body.view-mobile{
-  --hw-top-safe: 250px;      /* ✅ กัน HUD บังเป้า */
-  --hw-bottom-safe: 240px;   /* ✅ กันแถบล่าง/gesture */
-  --tgtSize: clamp(58px, 10vh, 98px);
-  --tgtFont: clamp(24px, 3.8vh, 36px);
-
-  --hud-gap: 6px;
-  --hud-pill-pad-y: 7px;
-  --hud-pill-pad-x: 9px;
-  --hud-pill-font: 12px;
+.hw-quiz-opts{
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-/* cVR: bottom มักโดนปุ่ม/คางจอ + HUD แน่น */
+.hw-quiz-opt{
+  pointer-events: auto;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.70);
+  color: rgba(229,231,235,.94);
+  padding: 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 16px 50px rgba(0,0,0,.35);
+  min-height: 54px;
+  touch-action: manipulation;
+}
+
+.hw-quiz-opt .n{
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.45);
+}
+
+.hw-quiz-opt .t{
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.hw-quiz-opt:hover{ filter: brightness(1.05); }
+.hw-quiz-opt:active{ transform: translateY(1px); }
+
+.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
+
+.hw-quiz-hint{
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(148,163,184,.92);
+}
+
+/* ===== View tweaks ===== */
+body.view-mobile{
+  --hw-top-safe: 184px;
+  --hw-bottom-safe: 228px;
+  --tgtSize: clamp(60px, 10vh, 100px);
+  --tgtFont: clamp(24px, 3.8vh, 36px);
+}
+
 body.view-cvr{
-  --hw-top-safe: 230px;
-  --hw-bottom-safe: 280px;   /* ✅ ให้พื้นที่ยิงกลางจอโล่งขึ้น */
-  --tgtSize: clamp(64px, 10.5vh, 104px);
+  --hw-top-safe: 168px;
+  --hw-bottom-safe: 252px;
+  --tgtSize: clamp(66px, 10.8vh, 108px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
 
-/* VR: ลด HUD นิด */
 body.view-vr{
-  --hw-top-safe: 220px;
-  --hw-bottom-safe: 240px;
+  --hw-top-safe: 156px;
+  --hw-bottom-safe: 214px;
 }
 
-/* ===== Compact HUD layout on small screens ===== */
+/* Quiz on small screens => 1 column */
 @media (max-width: 520px){
-  /* ทำให้แถวแน่นขึ้น + banner ลงมานิด */
-  .hw-row{ margin-top: 8px; }
-  .hw-sub{ margin-top: 5px; }
-  .hw-banner{ font-size: 12px; }
-  .hw-top::before{
-    left: calc(8px + var(--sal));
-    right: calc(8px + var(--sar));
-    border-radius: 16px;
+  .hw-quiz-opts{ grid-template-columns: 1fr; }
+  .hw-banner{ top: calc(130px + var(--sat)); }
+}
+
+/* ===== Performance / accessibility ===== */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt{ animation: none; }
+  .hw-banner{ transition: none; }
+}
+
+@media (pointer: coarse){
+  /* ลด blur/shadow หน่อยบนมือถือบางรุ่น (ลดโอกาสหน่วง/ค้าง) */
+  .hw-pill{ backdrop-filter: blur(8px); }
+  .hw-tgt{
+    backdrop-filter: blur(8px);
+    box-shadow: 0 14px 46px rgba(0,0,0,.42);
   }
 }
