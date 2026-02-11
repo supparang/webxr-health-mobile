@@ -1,1169 +1,551 @@
+<!-- === /herohealth/warmup-gate.html ===
+HeroHealth — Warmup/Cooldown Gate (FULL one-file) — PRODUCTION
+✅ phase=warmup|cooldown
+✅ dur/cdur (5..60)
+✅ autonext=1 uses location.replace() (no back-loop)
+✅ Warmup finish -> go next (NO mark done)
+✅ Cooldown finish -> mark DONE today (zone daily, + pid/device binding)
+✅ Writes BOTH keys:
+   - HHA_ZONE_DONE::<zone>::YYYY-MM-DD
+   - HHA_ZONE_DONE::<zone>::YYYY-MM-DD::<pidOrDevice>
+✅ Fallback: bad next/hub -> ./hub.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Warmup/Cooldown Boss Gate</title>
+  <title>HeroHealth — Warmup/Cooldown Gate</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
     :root{
-      --bg:#040610;
-      --panel: rgba(4,6,16,.72);
-      --panel2: rgba(10,16,36,.55);
+      --bg1:#020617; --bg2:#0b1226;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(15,23,42,.72);
       --stroke: rgba(148,163,184,.18);
-
       --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
+      --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa; --bad:#ef4444;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
 
       --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; color:var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       background:
-        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.16) 0%, transparent 55%),
-        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.18) 0%, transparent 55%),
-        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.10) 0%, transparent 60%),
-        linear-gradient(180deg, #0b1026, var(--bg));
-      overflow:hidden;
+        radial-gradient(1100px 640px at 15% 18%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(900px 520px at 86% 22%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(820px 480px at 60% 92%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
-
-    @keyframes neonPulse{
-      0%,100%{ filter: drop-shadow(0 0 12px rgba(34,211,238,.25)); }
-      50%{ filter: drop-shadow(0 0 26px rgba(255,79,216,.28)); }
-    }
-    @keyframes scan{
-      0%{ transform: translateY(-120%); opacity:.0; }
-      15%{ opacity:.25; }
-      70%{ opacity:.18; }
-      100%{ transform: translateY(120%); opacity:0; }
-    }
-    @keyframes shake{
-      0%,100%{ transform: translate(0,0); }
-      20%{ transform: translate(-2px,1px); }
-      40%{ transform: translate(2px,-1px); }
-      60%{ transform: translate(-1px,-2px); }
-      80%{ transform: translate(1px,2px); }
-    }
-    @keyframes pop{
-      0%{ transform: translateY(8px) scale(.96); opacity:0; }
-      100%{ transform: translateY(0) scale(1); opacity:1; }
-    }
-    @keyframes burst{
-      0%{ transform: scale(.7); opacity:0; }
-      30%{ opacity:1; }
-      100%{ transform: scale(1.7); opacity:0; }
-    }
-
-    .wrap{ height:100%; padding: calc(12px + var(--sat)) 12px calc(12px + var(--sab)); display:flex; justify-content:center; align-items:stretch; }
-    .card{
-      width:min(980px, 100%);
-      background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.55));
+    .wrap{ width:min(980px, 100%); display:flex; flex-direction:column; gap:12px; }
+    .panel{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
       border:1px solid var(--stroke);
       border-radius: var(--radius);
-      box-shadow: 0 24px 80px rgba(0,0,0,.55);
+      box-shadow: var(--shadow);
       overflow:hidden;
-      position:relative;
     }
-    .card::before{
-      content:"";
-      position:absolute; inset:-2px;
-      border-radius: var(--radius);
-      background: linear-gradient(90deg, rgba(34,211,238,.28), rgba(167,139,250,.22), rgba(255,79,216,.18));
-      filter: blur(18px);
-      opacity:.35;
-      pointer-events:none;
-    }
-    .scan{
-      position:absolute; inset:0;
-      pointer-events:none;
-      background: linear-gradient(180deg, transparent 0%, rgba(34,211,238,.12) 40%, transparent 70%);
-      mix-blend-mode: screen;
-      animation: scan 6.5s linear infinite;
-      opacity:.22;
-    }
-    header{
-      position:relative;
-      padding:16px 16px 12px;
+    .head{
+      padding: 12px 14px;
       border-bottom:1px solid var(--stroke);
-      display:flex; gap:12px; align-items:center; justify-content:space-between;
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(10px);
+      background: rgba(2,6,23,.35);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     }
-    .title{ display:flex; flex-direction:column; gap:4px; }
-    .title h1{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .title p{ margin:0; color:var(--muted); font-size:12.5px; }
+    .title{
+      margin:0;
+      font-size: clamp(20px, 2.0vw, 28px);
+      letter-spacing:.2px;
+      font-weight:1000;
+    }
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+    }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:7px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.55);
-      font-size:12px; color:var(--muted);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
     }
     .pill b{ color:var(--text); font-weight:900; }
-    .pill .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow: 0 0 14px rgba(34,211,238,.55); }
-
-    main{ padding:14px; display:grid; grid-template-columns: 1.22fr .78fr; gap:12px; }
-    @media (max-width: 860px){ main{ grid-template-columns: 1fr; } }
-
-    .panel{
-      background: var(--panel2);
-      border:1px solid rgba(148,163,184,.16);
+    .body{
+      padding: 14px;
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px){ .body{ grid-template-columns: 1fr; } }
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
       border-radius: 18px;
-      padding:14px;
-      position:relative;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
       overflow:hidden;
-    }
-    .panel::after{
-      content:"";
-      position:absolute; inset:0;
-      background: radial-gradient(520px 260px at 30% 20%, rgba(34,211,238,.10) 0%, transparent 60%),
-                  radial-gradient(520px 260px at 70% 60%, rgba(255,79,216,.08) 0%, transparent 60%);
-      pointer-events:none;
-    }
-
-    .grid3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; position:relative; z-index:1; }
-    @media (max-width: 560px){ .grid3{ grid-template-columns: 1fr; } }
-
-    button{
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.58);
-      color:var(--text);
-      padding:12px 12px;
-      border-radius: 16px;
-      cursor:pointer;
-      transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
-      user-select:none;
       position:relative;
-      z-index:1;
+      min-height: 180px;
     }
-    button:hover{
-      background: rgba(2,6,23,.75);
-      border-color: rgba(148,163,184,.36);
-      transform: translateY(-1px);
-      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+    .card h3{ margin:0 0 8px 0; font-size:16px; letter-spacing:.2px; font-weight:1000; }
+    .card p{ margin:0; color:var(--muted); font-size:13px; line-height:1.5; }
+    .badge{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius:999px;
+      font-weight:1000;
+      margin-top: 10px;
+      width: fit-content;
     }
-    button:active{ transform: translateY(0px) scale(.99); }
-    button[disabled]{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+    .dot{
+      width:12px; height:12px; border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .badge.cool .dot{ background: var(--cyan); box-shadow: 0 0 18px rgba(34,211,238,.35); }
+    .badge.warm .dot{ background: var(--violet); box-shadow: 0 0 18px rgba(167,139,250,.35); }
 
-    .modeBtn{ text-align:left; display:flex; gap:12px; align-items:center; }
-    .modeIcon{
-      width:46px; height:46px; border-radius: 14px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:22px;
-      animation: neonPulse 2.8s ease-in-out infinite;
+    .timer{
+      font-size: 46px;
+      font-weight: 1100;
+      letter-spacing: .5px;
+      margin-top: 12px;
+      line-height:1;
     }
-    .modeMeta{ display:flex; flex-direction:column; gap:2px; }
-    .modeMeta .name{ font-weight:1000; letter-spacing:.2px; }
-    .modeMeta .desc{ font-size:12px; color:var(--muted); }
-    .modeMeta .tag{ font-size:11px; color:rgba(229,231,235,.90); }
-
-    .actionRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top: 10px; position:relative; z-index:1; }
-    .primary{
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.32);
-      box-shadow: 0 0 0 rgba(34,197,94,0);
+    .bar{
+      height: 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+      margin-top: 12px;
     }
-    .primary:hover{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.50); box-shadow: 0 0 26px rgba(34,197,94,.10); }
-    .ghost{ background: rgba(148,163,184,.08); }
-    .danger{ background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); }
-    .danger:hover{ background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.35); }
-
-    .big{
-      display:flex; flex-direction:column; gap:10px;
-      align-items:center; justify-content:center;
-      min-height: 290px;
-      text-align:center;
-      padding: 10px;
-      position:relative;
-      z-index:1;
-      animation: pop .22s ease-out;
-    }
-    .emoji{ font-size:66px; line-height:1; filter: drop-shadow(0 14px 34px rgba(0,0,0,.55)); }
-    .h2{ font-size: 22px; margin: 0; letter-spacing:.2px; }
-    .hint{ margin:0; color:var(--muted); font-size: 13px; max-width: 58ch; }
-
-    .hudRow{ width:min(560px,100%); display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
-    .hud{
-      padding: 8px 12px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.62);
-      font-weight: 1000;
-      font-size: 12.5px;
-      letter-spacing:.2px;
-    }
-    .hud .small{ font-weight:800; color: var(--muted); }
-
-    .bar{ width:min(560px,100%); height:14px; border-radius:999px; border:1px solid rgba(148,163,184,.22); background: rgba(2,6,23,.62); overflow:hidden; }
-    .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
+    .fill{
+      height:100%;
+      width: 0%;
+      background: rgba(34,197,94,.85);
       transition: width .08s linear;
     }
+    .fill.warm{ background: rgba(167,139,250,.85); }
+    .fill.cool{ background: rgba(34,211,238,.85); }
 
-    .hitText{
-      height: 22px;
-      font-size: 13px;
-      font-weight: 1000;
-      letter-spacing:.3px;
-      color: rgba(229,231,235,.92);
-      text-shadow: 0 0 18px rgba(34,211,238,.20);
-    }
-
-    .arena{
-      position:relative; width:min(560px,100%); height:190px;
-      border-radius:18px;
-      border:1px dashed rgba(148,163,184,.26);
-      background: rgba(2,6,23,.40);
-      overflow:hidden;
-    }
-    .orb{
-      position:absolute; border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
-      font-weight:1000;
+    .btnrow{ display:flex; flex-wrap:wrap; gap:10px; margin-top: 12px; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.46);
+      padding: 12px 12px;
+      border-radius: 16px;
+      color: var(--text);
+      cursor:pointer;
       user-select:none;
-      transform: translateZ(0);
-      touch-action: manipulation;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; gap:10px;
+      white-space:nowrap;
+      font-weight:1000;
+      font-size: 13px;
     }
-    .orb.good{
-      width:78px; height:78px;
-      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.95), rgba(34,197,94,.28));
-      border:1px solid rgba(34,197,94,.55);
-      box-shadow: 0 0 26px rgba(34,197,94,.18);
-      color: #08140d;
-    }
-    .orb.decoy{
-      width:62px; height:62px;
-      background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.90), rgba(245,158,11,.22));
-      border:1px solid rgba(245,158,11,.45);
-      box-shadow: 0 0 22px rgba(245,158,11,.10);
-      color:#1b0f02;
-    }
-    .orb.bad{
-      width:58px; height:58px;
-      background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.95), rgba(239,68,68,.20));
-      border:1px solid rgba(239,68,68,.45);
-      box-shadow: 0 0 22px rgba(239,68,68,.10);
-      color:#1a0404;
-    }
+    .btn:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); transform: translateY(-1px); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+    .btn.ghost{ color: var(--muted); }
 
-    .wave{
-      position:absolute; inset:0;
-      pointer-events:none;
-      background: radial-gradient(520px 220px at 50% 50%, rgba(255,79,216,.18), transparent 60%);
-      opacity:0;
-    }
-    .wave.on{
-      opacity:1;
-      animation: burst .55s ease-out forwards;
-    }
-    .shake{ animation: shake .18s ease-in-out 2; }
-
-    #particles{ position:absolute; inset:0; pointer-events:none; z-index:999; }
-    .p{
-      position:absolute; opacity:0;
-      animation: burst 520ms ease-out forwards;
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
-      font-size: 18px;
-    }
-
-    footer{ padding: 10px 14px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; color: var(--muted); font-size: 12px; }
-    pre{ margin:10px 0 0; white-space:pre-wrap; font-size:12px; text-align:left; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-
     .note{
-      padding:10px 12px; border-radius: 14px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.42);
-      color: var(--muted); font-size: 12px;
-      position:relative; z-index:1;
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.30);
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
     }
-
-    .side h3{ margin:0 0 8px; font-size: 14px; position:relative; z-index:1; }
-    .side p{ margin:0 0 10px; color:var(--muted); font-size: 12.5px; line-height:1.45; position:relative; z-index:1; }
-    .kv{ display:grid; grid-template-columns: 1fr auto; gap:8px; margin-top:10px; position:relative; z-index:1; }
-    .kv div{ padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px; background: rgba(2,6,23,.42); font-size: 12.5px; }
-    .kv b{ font-weight: 1000; color: rgba(229,231,235,.95); }
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
 
 <body>
 <div class="wrap">
-  <div class="card" id="app">
-    <div class="scan"></div>
-    <div id="particles"></div>
-
-    <header>
-      <div class="title">
-        <h1 id="topTitle">⚔️ Warmup Boss Gate</h1>
-        <p id="topSub">ชาร์จพลัง 1 อย่าง → รับบัฟ → ไปลงสนามจริง!</p>
+  <section class="panel" aria-label="Warmup/Cooldown Gate">
+    <div class="head">
+      <div>
+        <h1 class="title" id="hTitle">—</h1>
+        <p class="sub" id="hSub">—</p>
       </div>
-      <div class="pill">
-        <span class="dot"></span>
-        โหมด: <b id="modeBadge">warmup</b>
+      <div class="pillrow" id="pillrow"></div>
+    </div>
+
+    <div class="body">
+      <div class="card">
+        <h3 id="cardTitle">⏱️ Gate</h3>
+        <p id="cardDesc">กำลังเริ่ม…</p>
+
+        <div class="badge warm" id="badgeMode"><span class="dot"></span><span id="badgeText">—</span></div>
+
+        <div class="timer"><span id="tLeft">—</span><span class="mono" style="font-size:18px; font-weight:900; color:var(--muted);">s</span></div>
+        <div class="bar"><div class="fill warm" id="fill"></div></div>
+
+        <div class="btnrow">
+          <button class="btn good" id="btnStart">▶️ Start</button>
+          <button class="btn warn" id="btnSkip">⏭️ Skip → Next</button>
+          <button class="btn ghost" id="btnHub">🏠 Hub</button>
+        </div>
+
+        <div class="note" id="routeNote"></div>
       </div>
-    </header>
 
-    <main>
-      <!-- LEFT -->
-      <section class="panel">
-        <div id="screen-select">
-          <div class="note" id="routeNote"></div>
-          <div style="height:10px;"></div>
+      <div class="card">
+        <h3>📌 DONE today (โซนนี้)</h3>
+        <p>Warmup ไม่ mark done • Cooldown จบแล้วค่อย mark DONE (วันละ 1 ครั้ง/โซน)</p>
 
-          <div class="grid3">
-            <button class="modeBtn" id="btn-breath">
-              <div class="modeIcon" style="background: rgba(34,211,238,.10); border:1px solid rgba(34,211,238,.28);">🌬️</div>
-              <div class="modeMeta">
-                <div class="name">Breathing: PERFECT</div>
-                <div class="desc">กดให้ “ตรงจังหวะ” ได้คอมโบ</div>
-                <div class="tag">บัฟ: ⭐ Critical + (มี Perfect/Miss)</div>
-              </div>
-            </button>
-
-            <button class="modeBtn" id="btn-meditate">
-              <div class="modeIcon" style="background: rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.28);">🧠</div>
-              <div class="modeMeta">
-                <div class="name">Meditation: GREEN ONLY</div>
-                <div class="desc">แตะ “สีเขียว” หลบหลอก</div>
-                <div class="tag">บัฟ: 🛡️ Damage ลด (มี Decoy)</div>
-              </div>
-            </button>
-
-            <button class="modeBtn" id="btn-stretch">
-              <div class="modeIcon" style="background: rgba(245,158,11,.10); border:1px solid rgba(245,158,11,.28);">🤸</div>
-              <div class="modeMeta">
-                <div class="name">Stretching: HOLD vs WAVE</div>
-                <div class="desc">กดค้างผ่าน “คลื่นบอส”</div>
-                <div class="tag">บัฟ: 💚 Heal + (มี Boss Wave)</div>
-              </div>
-            </button>
+        <div class="note">
+          <div><b>Zone:</b> <span class="mono" id="zName">—</span></div>
+          <div style="margin-top:6px;"><b>Today:</b> <span class="mono" id="todayText">—</span></div>
+          <div style="margin-top:6px;"><b>pid/device:</b> <span class="mono" id="idText">—</span></div>
+          <div style="margin-top:6px;"><b>DONE key (zone):</b><br/>
+            <span class="mono" id="doneKeyZoneText">—</span>
           </div>
-
-          <div class="actionRow" style="margin-top:14px;">
-            <button id="btn-cooldown" class="primary">😌 คูลดาวน์</button>
-            <button id="btn-backhub" class="ghost">🏠 กลับ HUB</button>
+          <div style="margin-top:6px;"><b>DONE key (zone+id):</b><br/>
+            <span class="mono" id="doneKeyIdText">—</span>
           </div>
+          <div style="margin-top:6px;"><b>DONE today?</b> <span class="mono" id="doneVal">—</span></div>
         </div>
 
-        <!-- RUN -->
-        <div id="screen-run" class="big" style="display:none;">
-          <div class="emoji" id="run-emoji">🌬️</div>
-          <h2 class="h2" id="run-title">Warmup</h2>
-          <p class="hint" id="run-hint">ทำตามคำแนะนำด้านล่าง</p>
-
-          <div class="hudRow">
-            <div class="hud" id="run-time"><span class="small">TIME</span> · 20s</div>
-            <div class="hud" id="run-score"><span class="small">CHARGE</span> · 0%</div>
-            <div class="hud" id="run-combo"><span class="small">COMBO</span> · x0</div>
-            <div class="hud" id="run-rank"><span class="small">RANK</span> · —</div>
-          </div>
-
-          <div class="bar"><i id="run-bar"></i></div>
-          <div class="hitText" id="hitText"></div>
-
-          <div id="run-actions" style="width:min(560px,100%);"></div>
-
-          <div class="actionRow" style="margin-top:10px;">
-            <button id="btn-stop" class="danger">หยุด</button>
-          </div>
+        <div class="note">
+          <b>Params</b><br/>
+          phase=<span class="mono">warmup|cooldown</span> • dur/cdur=<span class="mono">5..60</span> • autonext=<span class="mono">0|1</span><br/>
+          next=<span class="mono">URL</span> • hub=<span class="mono">URL</span> (fallback ./hub.html)
         </div>
-
-        <!-- DONE -->
-        <div id="screen-done" class="big" style="display:none;">
-          <div class="emoji">🏆</div>
-          <h2 class="h2">CLEAR!</h2>
-          <p class="hint" id="done-text">คุณได้บัฟ</p>
-
-          <div class="panel" style="width:min(560px,100%);">
-            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1;">BUFF (ส่งต่อไปเกมหลัก)</div>
-            <pre id="done-json" style="position:relative; z-index:1;"></pre>
-          </div>
-
-          <div class="actionRow">
-            <button id="btn-again">เล่นอีกรอบ</button>
-            <button id="btn-go" class="primary">▶️ ไปต่อ</button>
-            <button id="btn-go-hub" class="ghost">🏠 กลับ HUB</button>
-          </div>
-
-          <div class="note" style="width:min(560px,100%); text-align:left;">
-            ส่งต่อผ่าน Query: <span class="mono">wType,wPct,wCrit,wDmg,wHeal,calm,rank</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- RIGHT -->
-      <aside class="panel side">
-        <h3>⚙️ Route</h3>
-        <p class="mono" id="routeMini"></p>
-
-        <h3>🎯 Buff (บาลานซ์ 20 วิ)</h3>
-        <div class="kv">
-          <div>⭐ Critical Bonus</div><div><b>0.03 → 0.07</b></div>
-          <div>🛡️ Damage Reduce</div><div><b>0.06 → 0.16</b></div>
-          <div>💚 Heal Bonus</div><div><b>4 → 10</b></div>
-          <div>😌 Calm (Cooldown)</div><div><b>0 → 100</b></div>
-        </div>
-
-        <h3 style="margin-top:14px;">🎲 random next</h3>
-        <p>
-          ถ้าใช้ <span class="mono">next=random</span> จะสุ่มจาก
-          <span class="mono">games=goodjunk-vr.html,groups-vr.html,hydration-vr.html,plate-vr.html</span>
-        </p>
-
-        <h3 style="margin-top:14px;">💾 ผลล่าสุด</h3>
-        <p>localStorage["HHA_WARMUP_LAST"]</p>
-
-        <div class="actionRow" style="justify-content:flex-start;">
-          <button id="btn-clear-last">ล้างผลล่าสุด</button>
-        </div>
-      </aside>
-    </main>
-
-    <footer>
-      <div>HeroHealth · Warmup/Cooldown Gate</div>
-      <div>เด็ก ป.5: สั้น-มันส์-เห็น Perfect ชัด</div>
-    </footer>
-  </div>
+      </div>
+    </div>
+  </section>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-(() => {
+(function(){
   'use strict';
 
-  // ------------------------------
-  // URL params + helpers
-  // ------------------------------
-  function getQS(){
-    try{ return new URL(location.href).searchParams; }
-    catch{ return new URLSearchParams(); }
-  }
-  const QS = getQS();
-  const q = (k, def='') => (QS.get(k) ?? def);
+  // -----------------------------
+  // QS helpers
+  // -----------------------------
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
+  const q = (k, def='') => { const v = QS.get(k); return (v==null ? def : v); };
 
+  function clampInt(v, min, max, def){
+    const n = Number(v);
+    if(!Number.isFinite(n)) return def;
+    const x = Math.floor(n);
+    return Math.max(min, Math.min(max, x));
+  }
+
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  // -----------------------------
+  // config
+  // -----------------------------
+  const ZONE = (q('zone','nutrition') || 'nutrition').toLowerCase();
   const PHASE = (q('phase','warmup') || 'warmup').toLowerCase(); // warmup | cooldown
-  let NEXT  = q('next',''); // url OR "random"
-  const HUB   = q('hub','');
+  const DUR = clampInt(PHASE === 'cooldown' ? q('cdur','20') : q('dur','20'), 5, 60, 20);
   const AUTONEXT = String(q('autonext','0')||'0') === '1';
-  const WM0 = (q('wmode','') || '').toLowerCase(); // breath|meditate|stretch|random (optional)
-  const PRESET = (q('preset','') || '').toLowerCase(); // fast|hype|research|play
 
-  const WARMUP_SECONDS   = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
-  const COOLDOWN_SECONDS = Math.max(5, Math.min(60, Number(q('cdur','20')||20)));
+  // next/hub (safe fallback)
+  const HUB_FALLBACK = './hub.html';
+  const hubRaw = (q('hub','')||'').trim();
+  const nextRaw = (q('next','')||'').trim();
 
-  const KEY_LAST = 'HHA_WARMUP_LAST';
+  // deny passthrough keys from gate
+  const DENY = new Set(['next','hub','phase','dur','cdur','autonext','wmode','games']);
 
-  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+  // -----------------------------
+  // pid/device binding
+  // -----------------------------
+  function safeIdFromPidOrDevice(){
+    const pid = (q('pid','')||'').trim();
+    if(pid) return pid;
 
-  // allow random next from list
-  function parseGames(){
-    const raw = (q('games','') || '').trim();
-    const fallback = ['goodjunk-vr.html','groups-vr.html','hydration-vr.html','plate-vr.html'];
-    const arr = raw ? raw.split(',').map(s=>s.trim()).filter(Boolean) : fallback;
-    return Array.from(new Set(arr));
-  }
-  function pickRandom(arr){
-    if(!arr || !arr.length) return '';
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  // ✅ Robust buildUrl (never silently fail if URL parsing fails)
-  function buildUrl(base, add){
-    if(!base) return '';
-    const add2 = add || {};
+    const K = 'HHA_DEVICE_ID_V1';
     try{
-      const u = new URL(base, location.href);
-      Object.entries(add2).forEach(([k,v])=>{
-        if(v === undefined || v === null || v === '') return;
-        u.searchParams.set(k, String(v));
-      });
-      return u.toString();
+      let v = localStorage.getItem(K);
+      if(v && v.length >= 10) return v;
+      v = 'dev_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
+      localStorage.setItem(K, v);
+      return v;
     }catch(_){
-      try{
-        const parts = String(base).split('#');
-        const main = parts[0];
-        const hash = parts[1] ? ('#' + parts[1]) : '';
-        const join = main.includes('?') ? '&' : '?';
-        const qs2 = Object.entries(add2)
-          .filter(([,v])=>!(v===undefined||v===null||v===''))
-          .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
-        return qs2 ? (main + join + qs2 + hash) : (main + hash);
-      }catch(__){
-        return '';
-      }
+      return 'dev_' + Math.random().toString(16).slice(2);
+    }
+  }
+  const ID = safeIdFromPidOrDevice();
+
+  // Keys: both zone-only and zone+id (so hub/launcher can choose)
+  function doneKeyZone(zone){
+    return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`;
+  }
+  function doneKeyId(zone){
+    return `HHA_ZONE_DONE::${zone}::${ymdLocal()}::${ID}`;
+  }
+  function isDoneToday(zone){
+    try{
+      return localStorage.getItem(doneKeyZone(zone)) === '1'
+          || localStorage.getItem(doneKeyId(zone)) === '1';
+    }catch(_){ return false; }
+  }
+  function setDoneToday(zone){
+    try{
+      localStorage.setItem(doneKeyZone(zone), '1');
+      localStorage.setItem(doneKeyId(zone), '1');
+    }catch(_){}
+  }
+
+  // -----------------------------
+  // toast
+  // -----------------------------
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
+
+  // -----------------------------
+  // URL safety helpers
+  // -----------------------------
+  function isLikelyUrl(s){
+    if(!s) return false;
+    try{ new URL(s, location.href); return true; }catch(_){ return false; }
+  }
+  function resolveHubUrl(){
+    if(hubRaw && isLikelyUrl(hubRaw)) return new URL(hubRaw, location.href).toString();
+    return new URL(HUB_FALLBACK, location.href).toString();
+  }
+  function resolveNextUrl(){
+    if(nextRaw && isLikelyUrl(nextRaw)) return new URL(nextRaw, location.href).toString();
+    return resolveHubUrl();
+  }
+
+  // -----------------------------
+  // UI
+  // -----------------------------
+  function renderPills(){
+    const keys = ['pid','run','diff','time','seed','studyId','conditionGroup','log','view','zone','phase','autonext'];
+    const pills = keys
+      .map(k => [k, QS.get(k)])
+      .filter(x => x[1]!=null && String(x[1]).trim()!=='')
+      .slice(0, 12);
+
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .map(([k,v])=> `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
+
+  function renderHeader(){
+    const phaseName = (PHASE === 'cooldown') ? 'Cooldown' : 'Warmup';
+    document.getElementById('hTitle').textContent = `🏁 ${phaseName} Gate — ${ZONE}`;
+    document.getElementById('hSub').textContent = (PHASE === 'cooldown')
+      ? `คูลดาวน์ ${DUR} วิ • จบแล้วจะ mark DONE วันนี้ของโซนนี้ (วันละ 1 ครั้ง)`
+      : `วอร์มอัป ${DUR} วิ • เสร็จแล้วจะไป next (ยังไม่ mark DONE)`;
+  }
+
+  function renderModeUI(){
+    const badge = document.getElementById('badgeMode');
+    const fill = document.getElementById('fill');
+    const badgeText = document.getElementById('badgeText');
+
+    badge.classList.remove('warm','cool');
+    fill.classList.remove('warm','cool');
+
+    if(PHASE === 'cooldown'){
+      badge.classList.add('cool');
+      fill.classList.add('cool');
+      badgeText.textContent = `COOLDOWN • ${DUR}s`;
+      document.getElementById('cardTitle').textContent = '🧊 Cooldown';
+      document.getElementById('cardDesc').textContent = 'ผ่อนแรง หายใจลึก ๆ แล้วค่อยปิดจบเซสชัน';
+    }else{
+      badge.classList.add('warm');
+      fill.classList.add('warm');
+      badgeText.textContent = `WARMUP • ${DUR}s`;
+      document.getElementById('cardTitle').textContent = '🔥 Warmup';
+      document.getElementById('cardDesc').textContent = 'ขยับเบา ๆ เตรียมร่างกายก่อนเข้าด่านจริง';
     }
   }
 
+  function renderStatusBox(){
+    document.getElementById('zName').textContent = ZONE;
+    document.getElementById('todayText').textContent = ymdLocal();
+    document.getElementById('idText').textContent = ID;
+
+    document.getElementById('doneKeyZoneText').textContent = doneKeyZone(ZONE);
+    document.getElementById('doneKeyIdText').textContent = doneKeyId(ZONE);
+    document.getElementById('doneVal').textContent = isDoneToday(ZONE) ? 'YES' : 'NO';
+  }
+
+  function renderRoute(){
+    const hub = resolveHubUrl();
+    const next = resolveNextUrl();
+    document.getElementById('routeNote').innerHTML = `
+      <b>Route</b><br/>
+      hub: <span class="mono">${hub.replace(/</g,'&lt;')}</span><br/>
+      next: <span class="mono">${next.replace(/</g,'&lt;')}</span><br/>
+      autonext: <span class="mono">${AUTONEXT ? '1' : '0'}</span>
+    `;
+  }
+
+  // -----------------------------
+  // timer engine
+  // -----------------------------
+  let running = false;
+  let startAt = 0;
+  let raf = 0;
+
+  const tLeftEl = document.getElementById('tLeft');
+  const fillEl = document.getElementById('fill');
+
+  function setTimeLeft(sec){ tLeftEl.textContent = String(Math.max(0, Math.ceil(sec))); }
+  function setProgress(pct){ fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`; }
+
+  function stop(){
+    running = false;
+    if(raf) cancelAnimationFrame(raf);
+    raf = 0;
+  }
+
+  function goReplace(url){
+    try{ location.replace(url); }
+    catch(_){ location.href = url; }
+  }
+
+  function finish(){
+    stop();
+
+    // cooldown marks DONE
+    if(PHASE === 'cooldown'){
+      setDoneToday(ZONE);
+      renderStatusBox();
+      toast('✅ DONE วันนี้ (โซนนี้) แล้ว');
+    }
+
+    const next = resolveNextUrl();
+    const hub = resolveHubUrl();
+    const target = next || hub;
+
+    if(AUTONEXT){
+      // small delay for UX then replace (no back-loop)
+      setTimeout(()=> goReplace(target), 450);
+    }else{
+      toast('เสร็จแล้ว! กด Skip → Next ได้เลย');
+    }
+  }
+
+  function tick(){
+    if(!running) return;
+    const now = performance.now();
+    const elapsed = (now - startAt) / 1000;
+    const left = Math.max(0, DUR - elapsed);
+    setTimeLeft(left);
+    setProgress((elapsed / DUR) * 100);
+    if(left <= 0.001) return finish();
+    raf = requestAnimationFrame(tick);
+  }
+
+  function start(){
+    if(running) return;
+    running = true;
+    startAt = performance.now();
+    toast('เริ่มแล้ว!');
+    tick();
+  }
+
+  // -----------------------------
+  // actions
+  // -----------------------------
   function goHub(){
-    if(HUB){ location.href = HUB; return; }
-    history.length ? history.back() : (location.href = './');
+    goReplace(resolveHubUrl());
   }
 
-  // keep passthrough params for next (do not forward next/hub/phase/dur/cdur/games/autonext/wmode/preset)
-  function getPassthrough(){
-    const deny = new Set(['next','hub','phase','dur','cdur','games','autonext','wmode','preset']);
-    const out = {};
-    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-    return out;
-  }
-
-  // ------------------------------
-  // DOM
-  // ------------------------------
-  const $ = (s)=>document.querySelector(s);
-
-  const topTitle = $('#topTitle');
-  const topSub = $('#topSub');
-  const modeBadge = $('#modeBadge');
-
-  const routeNote = $('#routeNote');
-  const routeMini = $('#routeMini');
-
-  const screenSelect = $('#screen-select');
-  const screenRun = $('#screen-run');
-  const screenDone = $('#screen-done');
-
-  const runEmoji = $('#run-emoji');
-  const runTitle = $('#run-title');
-  const runHint  = $('#run-hint');
-  const runTime  = $('#run-time');
-  const runScore = $('#run-score');
-  const runCombo = $('#run-combo');
-  const runRank  = $('#run-rank');
-  const runBar   = $('#run-bar');
-  const runActions = $('#run-actions');
-  const hitText = $('#hitText');
-
-  const doneText = $('#done-text');
-  const doneJson = $('#done-json');
-
-  // particles
-  const particles = $('#particles');
-  function burstEmoji(x,y,emoji){
-    try{
-      const el = document.createElement('div');
-      el.className='p';
-      el.textContent = emoji || '✨';
-      el.style.left = (x||50) + '%';
-      el.style.top  = (y||50) + '%';
-      el.style.opacity = '1';
-      particles.appendChild(el);
-      setTimeout(()=>el.remove(), 650);
-    }catch(_){}
-  }
-  function say(txt, tone){
-    hitText.textContent = txt || '';
-    hitText.style.color = tone==='good' ? 'rgba(34,197,94,.95)'
-                      : tone==='bad'  ? 'rgba(239,68,68,.95)'
-                      : tone==='pink' ? 'rgba(255,79,216,.92)'
-                      : 'rgba(229,231,235,.92)';
-  }
-
-  // ------------------------------
-  // State
-  // ------------------------------
-  let timerId = null;
-  let tickId = null;
-
-  const state = {
-    mode: null,   // breathing | meditation | stretching | cooldown
-    tLeft: 0,
-    pct: 0,
-
-    combo: 0,
-    perfect: 0,
-    miss: 0,
-
-    // meditation
-    goodHits: 0,
-    streak: 0,
-
-    // stretching
-    holding: false,
-    holdMs: 0,
-    waveOn: false,
-    wavePassed: 0,
-
-    // cooldown
-    calm: 0
-  };
-
-  function show(which){
-    screenSelect.style.display = (which==='select') ? '' : 'none';
-    screenRun.style.display    = (which==='run') ? '' : 'none';
-    screenDone.style.display   = (which==='done') ? '' : 'none';
-  }
-  function stopTimers(){
-    if(timerId){ clearInterval(timerId); timerId=null; }
-    if(tickId){ clearInterval(tickId); tickId=null; }
-  }
-  function resetRunState(){
-    stopTimers();
-    state.tLeft = (PHASE==='cooldown') ? COOLDOWN_SECONDS : WARMUP_SECONDS;
-    state.pct = 0;
-    state.combo = 0;
-    state.perfect = 0;
-    state.miss = 0;
-    state.goodHits = 0;
-    state.streak = 0;
-    state.holding = false;
-    state.holdMs = 0;
-    state.waveOn = false;
-    state.wavePassed = 0;
-    state.calm = 0;
-
-    setCombo(0);
-    setRank('—');
-    say('');
-  }
-
-  function setProgress(pct){
-    state.pct = clamp(pct,0,100);
-    runScore.innerHTML = `<span class="small">CHARGE</span> · ${Math.round(state.pct)}%`;
-    runBar.style.width = `${state.pct}%`;
-  }
-  function setTimeLeft(sec){
-    state.tLeft = sec;
-    runTime.innerHTML = `<span class="small">TIME</span> · ${sec}s`;
-  }
-  function setCombo(c){
-    state.combo = Math.max(0, Math.floor(c||0));
-    runCombo.innerHTML = `<span class="small">COMBO</span> · x${state.combo}`;
-  }
-  function setRank(r){
-    runRank.innerHTML = `<span class="small">RANK</span> · ${r}`;
-  }
-  function calcRank(pct){
-    if(pct >= 92) return 'S';
-    if(pct >= 78) return 'A';
-    if(pct >= 62) return 'B';
-    if(pct >= 45) return 'C';
-    return 'D';
-  }
-
-  function makeBuff(){
-    const pct = clamp(state.pct,0,100);
-    const rank = calcRank(pct);
-    let buff = { type: state.mode, pct, rank };
-
-    if(state.mode === 'breathing'){
-      buff.critBonus = +(0.03 + (pct/100)*0.04).toFixed(3); // 0.03..0.07
-      buff.perfect = state.perfect;
-      buff.miss = state.miss;
-    } else if(state.mode === 'meditation'){
-      buff.dmgReduce = +(0.06 + (pct/100)*0.10).toFixed(3); // 0.06..0.16
-      buff.streak = state.streak;
-    } else if(state.mode === 'stretching'){
-      buff.healBonus = Math.round(4 + (pct/100)*6); // 4..10
-      buff.wavePassed = state.wavePassed;
-    } else if(state.mode === 'cooldown'){
-      buff.calm = Math.round(pct); // 0..100
+  function goNext(){
+    // if skip during cooldown => still mark DONE (ถือว่าจบคูลดาวน์แล้ว)
+    if(PHASE === 'cooldown'){
+      setDoneToday(ZONE);
+      renderStatusBox();
+      toast('✅ DONE วันนี้ (โซนนี้) แล้ว');
+    }else{
+      toast('ไป next…');
     }
-    return buff;
+    setTimeout(()=> goReplace(resolveNextUrl()), 200);
   }
 
-  function saveLast(buff){
-    try{
-      localStorage.setItem(KEY_LAST, JSON.stringify({ ...buff, at: new Date().toISOString() }));
-    }catch(_){}
-  }
-
-  function resolveNextMaybeRandom(){
-    const n = (NEXT||'').toLowerCase();
-    if(n === 'random'){
-      const g = pickRandom(parseGames());
-      return g || '';
-    }
-    return NEXT;
-  }
-
-  // ✅ mark "warmup done once/day" (per pid/device)
-  function markDoneOncePerDay(){
-    try{
-      // prefer pid from badges; fallback device id
-      let pid = '';
-      try{
-        const B = window.HHA_Badges;
-        pid = (B && B.getPid) ? String(B.getPid()||'').trim() : '';
-      }catch(_){}
-      if(!pid){
-        pid = localStorage.getItem('HHA_DEVICE_ID') || '';
-        if(!pid){
-          pid = 'dev_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-          localStorage.setItem('HHA_DEVICE_ID', pid);
-        }
-      }
-      const d = new Date();
-      const day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      localStorage.setItem(`HHA_WARMUP_DONE_groups_${pid}_${day}`, '1');
-    }catch(_){}
-  }
-
-  // ✅ robust goNext (never silent)
-  function goNextWithBuff(){
-    const buff = makeBuff();
-
-    let nextUrl = resolveNextMaybeRandom();
-
-    // fallback rules
-    if(!nextUrl && PHASE === 'cooldown' && HUB) nextUrl = HUB;
-    if(!nextUrl && PHASE === 'warmup' && HUB) nextUrl = HUB;
-
-    const add = {
-      ...getPassthrough(),
-      wType: buff.type,
-      wPct: buff.pct,
-      rank: buff.rank
-    };
-    if(buff.critBonus !== undefined) add.wCrit = buff.critBonus;
-    if(buff.dmgReduce !== undefined) add.wDmg = buff.dmgReduce;
-    if(buff.healBonus !== undefined) add.wHeal = buff.healBonus;
-    if(buff.calm !== undefined) add.calm = buff.calm;
-
-    const url = buildUrl(nextUrl, add);
-
-    if(url){
-      if(AUTONEXT) location.replace(url);
-      else location.href = url;
-      return;
-    }
-
-    // last resort
-    if(HUB){
-      if(AUTONEXT) location.replace(HUB);
-      else location.href = HUB;
-      return;
-    }
-    history.length ? history.back() : (location.href = './');
-  }
-
-  function finishRun(){
-    stopTimers();
-    const buff = makeBuff();
-    saveLast(buff);
-
-    // ✅ for Groups: mark done once/day
-    if(PHASE === 'warmup') markDoneOncePerDay();
-
-    doneText.textContent =
-      (state.mode === 'cooldown')
-        ? `คูลดาวน์เสร็จ ✅ Calm Rank: ${buff.rank}`
-        : `วอร์มอัปสำเร็จ ✅ Rank: ${buff.rank}`;
-
-    doneJson.textContent = JSON.stringify(buff, null, 2);
-    show('done');
-
-    const nextResolved = resolveNextMaybeRandom();
-    $('#btn-go').disabled = !(nextResolved || (PHASE==='cooldown' && HUB) || HUB);
-
-    try{ burstEmoji(50,50,'🏆'); }catch(_){}
-    try{ window.dispatchEvent(new CustomEvent('hha:warmup_done', { detail: buff })); }catch(_){}
-
-    // ✅ AUTO NEXT (replace) for enforced flow
-    if(AUTONEXT){
-      setTimeout(()=>goNextWithBuff(), 650);
-    }
-  }
-
-  // ------------------------------
-  // Modes
-  // ------------------------------
-
-  function startBreathing(){
-    resetRunState();
-    state.mode = 'breathing';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
-    runEmoji.textContent = '🌬️';
-    runTitle.textContent = `⚔️ Breathing — PERFECT WINDOW (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'กดตามจังหวะ (ใกล้บีท = PERFECT) | หลุดจังหวะ = MISS';
-
-    const beatMs = 900;
-    const windowMs = 140;
-    let nextBeatAt = performance.now() + beatMs;
-
-    runActions.innerHTML = `
-      <div class="note" style="margin-bottom:10px;">
-        <b>เป้าหมาย:</b> เก็บคอมโบให้สูง! · PERFECT จะชาร์จเร็วกว่า
-      </div>
-      <div class="actionRow" style="margin:0;">
-        <button class="primary" id="btn-breath-act" style="padding:14px 18px; font-size:15px; font-weight:1000;">TAP</button>
-      </div>
-    `;
-    const actBtn = $('#btn-breath-act');
-
-    function judgeTap(){
-      const now = performance.now();
-      while(nextBeatAt < now - windowMs) nextBeatAt += beatMs;
-      const diff = Math.abs(now - nextBeatAt);
-      const isPerfect = diff <= windowMs;
-
-      if(isPerfect){
-        state.perfect++;
-        setCombo(state.combo + 1);
-        const gain = 6 + Math.min(10, state.combo*0.6);
-        setProgress(state.pct + gain);
-        say('PERFECT ✨', 'good');
-        burstEmoji(50,48,'✨');
-      }else{
-        state.miss++;
-        setCombo(Math.max(0, Math.floor(state.combo * 0.4)));
-        setProgress(state.pct + 2);
-        say('MISS…', 'bad');
-        burstEmoji(50,48,'💥');
-      }
-      setRank(calcRank(state.pct));
-    }
-
-    actBtn.addEventListener('click', judgeTap);
-
-    setTimeLeft(WARMUP_SECONDS);
-    setProgress(0);
-    setCombo(0);
-    setRank('D');
-    show('run');
-
-    let t = WARMUP_SECONDS;
-    timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
-
-    tickId = setInterval(()=>{
-      const now = performance.now();
-      const remain = nextBeatAt - now;
-      if(remain < 60 && remain > -60) say('BEAT!', 'pink');
-      if(remain < -60) nextBeatAt += beatMs;
-    }, 60);
-  }
-
-  function startMeditation(){
-    resetRunState();
-    state.mode = 'meditation';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
-    runEmoji.textContent = '🧠';
-    runTitle.textContent = `⚔️ Meditation — GREEN ONLY (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'แตะ “เขียว” เท่านั้น! เหลือง=หลอกแรง / แดง=กับดัก';
-
-    runActions.innerHTML = `
-      <div class="arena" id="arena">
-        <div class="wave" id="arenaFX"></div>
-        <div class="orb good" id="orbGood">●</div>
-        <div class="orb decoy" id="orbDecoy">●</div>
-        <div class="orb bad" id="orbBad">●</div>
-      </div>
-      <div class="note" style="margin-top:10px;">
-        <b>สกิลบอส:</b> ถ้าเก็บ Streak 3 ครั้ง จะได้ “Focus Burst” ชาร์จเพิ่ม!
-      </div>
-    `;
-    const arena = $('#arena');
-    const good = $('#orbGood');
-    const decoy = $('#orbDecoy');
-    const bad = $('#orbBad');
-    const fx = $('#arenaFX');
-
-    function place(el){
-      const w = arena.clientWidth, h = arena.clientHeight;
-      const ew = el.offsetWidth, eh = el.offsetHeight;
-      const x = Math.random() * (w - ew);
-      const y = Math.random() * (h - eh);
-      el.style.left = `${x}px`;
-      el.style.top  = `${y}px`;
-    }
-    function flash(){
-      fx.classList.remove('on');
-      void fx.offsetWidth;
-      fx.classList.add('on');
-    }
-
-    function onGood(){
-      state.goodHits++;
-      state.streak++;
-      setCombo(state.combo + 1);
-
-      let gain = 8;
-      if(state.streak >= 3){
-        gain += 18;
-        state.streak = 0;
-        say('FOCUS BURST ✨', 'good');
-        flash();
-        burstEmoji(48,52,'✨');
-      }else{
-        say('GOOD ✅', 'good');
-        burstEmoji(48,52,'✅');
-      }
-
-      setProgress(state.pct + gain);
-      setRank(calcRank(state.pct));
-      place(good);
-
-      if(Math.random() < 0.55){
-        const gx = parseFloat(good.style.left||'0');
-        const gy = parseFloat(good.style.top||'0');
-        decoy.style.left = `${clamp(gx + (Math.random()*120-60), 0, arena.clientWidth - decoy.offsetWidth)}px`;
-        decoy.style.top  = `${clamp(gy + (Math.random()*90-45),  0, arena.clientHeight - decoy.offsetHeight)}px`;
-      }else{
-        place(decoy);
-      }
-      place(bad);
-    }
-
-    function onDecoy(){
-      setCombo(Math.max(0, Math.floor(state.combo * 0.5)));
-      state.streak = 0;
-      setProgress(state.pct + 1);
-      say('DECOY! ⚠️', 'pink');
-      burstEmoji(52,54,'⚠️');
-      place(decoy);
-    }
-
-    function onBad(){
-      setCombo(0);
-      state.streak = 0;
-      setProgress(Math.max(0, state.pct - 4));
-      say('TRAP 💥', 'bad');
-      arena.classList.add('shake');
-      setTimeout(()=>arena.classList.remove('shake'), 220);
-      burstEmoji(54,56,'💥');
-      place(bad);
-    }
-
-    good.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onGood(); });
-    decoy.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onDecoy(); });
-    bad.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onBad(); });
-
-    tickId = setInterval(()=>{ place(good); place(decoy); place(bad); }, 620);
-    place(good); place(decoy); place(bad);
-
-    setTimeLeft(WARMUP_SECONDS);
-    setProgress(0);
-    setCombo(0);
-    setRank('D');
-    show('run');
-
-    let t = WARMUP_SECONDS;
-    timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
-  }
-
-  function startStretching(){
-    resetRunState();
-    state.mode = 'stretching';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
-    runEmoji.textContent = '🤸';
-    runTitle.textContent = `⚔️ Stretching — HOLD vs WAVE (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'กดค้างให้ต่อเนื่อง! (คลื่นบอส 2 ครั้ง) ปล่อยตอนคลื่น = เสียคอมโบ';
-
-    runActions.innerHTML = `
-      <div style="position:relative;">
-        <div class="wave" id="waveFX"></div>
-        <div class="actionRow" style="margin:0;">
-          <button class="primary" id="btn-hold" style="padding:16px 22px; font-size:16px; font-weight:1000; width:min(380px,100%);">
-            HOLD ✋
-          </button>
-        </div>
-        <div class="note" style="margin-top:10px;">
-          <b>คำสั่งบอส:</b> “WAVE!” = ห้ามปล่อยจนกว่าคลื่นจบ
-        </div>
-      </div>
-    `;
-    const hold = $('#btn-hold');
-    const waveFX = $('#waveFX');
-    const app = document.getElementById('app');
-
-    const down = (e) => { if(e) e.preventDefault(); state.holding = true; hold.textContent='HOLDING… 🔥'; };
-    const up   = () => { state.holding = false; hold.textContent='HOLD ✋'; };
-
-    hold.addEventListener('pointerdown', down);
-    window.addEventListener('pointerup', up, {passive:true});
-    window.addEventListener('pointercancel', up, {passive:true});
-
-    function waveOn(){
-      state.waveOn = true;
-      waveFX.classList.remove('on');
-      void waveFX.offsetWidth;
-      waveFX.classList.add('on');
-      say('WAVE! (DON’T RELEASE)', 'pink');
-      burstEmoji(50,50,'🌊');
-      app.classList.add('shake');
-      setTimeout(()=>app.classList.remove('shake'), 220);
-
-      setTimeout(()=>{
-        state.waveOn = false;
-        if(state.holding){
-          state.wavePassed++;
-          setCombo(state.combo + 2);
-          setProgress(state.pct + 16);
-          say('WAVE CLEARED ✨', 'good');
-          burstEmoji(52,50,'✨');
-        }else{
-          setCombo(0);
-          setProgress(Math.max(0, state.pct - 6));
-          say('BROKEN… 💥', 'bad');
-          burstEmoji(48,52,'💥');
-        }
-        setRank(calcRank(state.pct));
-      }, 650);
-    }
-
-    const t1 = Math.floor(WARMUP_SECONDS * 0.35) * 1000;
-    const t2 = Math.floor(WARMUP_SECONDS * 0.70) * 1000;
-    setTimeout(waveOn, t1);
-    setTimeout(waveOn, t2);
-
-    tickId = setInterval(() => {
-      if(state.holding){
-        state.holdMs += 30;
-        const base = (state.holdMs / (WARMUP_SECONDS*1000)) * 100;
-        setProgress(clamp(base + state.combo*1.2, 0, 100));
-      }else{
-        if(!state.waveOn) setProgress(Math.max(0, state.pct - 0.25));
-      }
-      setRank(calcRank(state.pct));
-    }, 30);
-
-    setTimeLeft(WARMUP_SECONDS);
-    setProgress(0);
-    setCombo(0);
-    setRank('D');
-    show('run');
-
-    let t = WARMUP_SECONDS;
-    timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
-  }
-
-  function startCooldown(){
-    resetRunState();
-    state.mode = 'cooldown';
-    modeBadge.textContent = 'cooldown';
-    runEmoji.textContent = '😌';
-    runTitle.textContent = `😌 Cooldown — CALM RANK (${COOLDOWN_SECONDS}s)`;
-    runHint.textContent = 'หายใจช้า ๆ เข้า 4 วิ → ออก 4 วิ (แตะ “นิ่งแล้ว” เพื่อบูสต์)';
-
-    runActions.innerHTML = `
-      <div class="note" style="margin-bottom:10px;">
-        <b>เป้าหมาย:</b> เติม Calm ให้เต็ม 100% เพื่อได้ Rank สูง
-      </div>
-      <div class="actionRow" style="margin:0;">
-        <button class="primary" id="btn-calm" style="padding:14px 18px; font-size:15px; font-weight:1000;">นิ่งแล้ว ✅</button>
-        <button class="ghost" id="btn-breathe" style="padding:14px 18px; font-size:15px; font-weight:1000;">หายใจตามจังหวะ</button>
-      </div>
-      <div class="note" style="margin-top:10px;">
-        จังหวะ: <span class="mono" id="calm-step">เข้า… 4</span>
-      </div>
-    `;
-    const calmBtn = $('#btn-calm');
-    const calmStep = $('#calm-step');
-
-    calmBtn.addEventListener('click', () => {
-      state.calm = clamp(state.calm + 6, 0, 100);
-      setProgress(state.calm);
-      say('CALM +', 'good');
-      burstEmoji(50,50,'✨');
-      setRank(calcRank(state.pct));
-    });
-
-    setTimeLeft(COOLDOWN_SECONDS);
-    setProgress(0);
-    setCombo(0);
-    setRank('D');
-    show('run');
-
-    let phase = 'in', k = 4;
-    tickId = setInterval(() => {
-      k--;
-      if(k<=0){ phase = (phase==='in') ? 'out' : 'in'; k=4; }
-      calmStep.textContent = (phase==='in') ? `เข้า… ${k}` : `ออก… ${k}`;
-
-      state.calm = clamp(state.calm + 2.2, 0, 100);
-      setProgress(state.calm);
-      setRank(calcRank(state.pct));
-
-      if(state.calm >= 95) say('ZEN MODE ✨', 'pink');
-    }, 1000);
-
-    let t = COOLDOWN_SECONDS;
-    timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
-  }
-
-  // ------------------------------
-  // Wire buttons
-  // ------------------------------
-  $('#btn-breath').addEventListener('click', startBreathing);
-  $('#btn-meditate').addEventListener('click', startMeditation);
-  $('#btn-stretch').addEventListener('click', startStretching);
-
-  $('#btn-cooldown').addEventListener('click', ()=> startCooldown());
-
-  $('#btn-stop').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
-  $('#btn-again').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
-
-  $('#btn-go').addEventListener('click', goNextWithBuff);
-  $('#btn-backhub').addEventListener('click', goHub);
-  $('#btn-go-hub').addEventListener('click', goHub);
-
-  $('#btn-clear-last').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(KEY_LAST); }catch(_){}
-    alert('ล้างผลล่าสุดแล้ว');
-  });
-
-  // ------------------------------
-  // Init UI by phase + route note
-  // ------------------------------
-  const phaseText = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
-  modeBadge.textContent = phaseText;
-
-  const nextPreview = (String(NEXT||'').toLowerCase()==='random')
-    ? `random (from games=...)`
-    : (NEXT||'(none)');
-
-  if(PHASE === 'cooldown'){
-    topTitle.textContent = `😌 Cooldown Boss Gate (${COOLDOWN_SECONDS} วิ)`;
-    topSub.textContent = 'ค่อย ๆ หายใจ แล้วกลับ HUB แบบใจนิ่ง';
-    routeNote.innerHTML = `
-      โหมดคูลดาวน์ — <b>${COOLDOWN_SECONDS} วิ</b><br/>
-      ${HUB ? `กลับ HUB: <span class="mono">${HUB}</span>` : 'ยังไม่ส่ง hub มา (ใช้ปุ่ม Back ของเบราว์เซอร์แทนได้)'}
-      <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span>
-      <br/>preset=<span class="mono">${PRESET||'(none)'}</span>
-    `;
-    routeMini.textContent = `phase=cooldown cdur=${COOLDOWN_SECONDS} hub=${HUB||'(none)'} next=${nextPreview} autonext=${AUTONEXT?1:0} preset=${PRESET||'(none)'}`;
-    show('run');
-    startCooldown();
-  }else{
-    topTitle.textContent = `⚔️ Warmup Boss Gate (${WARMUP_SECONDS} วิ)`;
-    topSub.textContent = 'เลือกกิจกรรม 1 อย่าง → รับบัฟ → ไปลงสนามจริง';
-    routeNote.innerHTML = `
-      โหมดวอร์มอัป — <b>${WARMUP_SECONDS} วิ</b><br/>
-      ไปเกมต่อ: <span class="mono">${nextPreview}</span>
-      ${HUB ? `<br/>HUB: <span class="mono">${HUB}</span>` : ''}
-      <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span>
-      <br/>wmode=<span class="mono">${WM0||'(auto)'}</span>
-      <br/>preset=<span class="mono">${PRESET||'(none)'}</span>
-    `;
-    routeMini.textContent = `phase=warmup dur=${WARMUP_SECONDS} next=${nextPreview} hub=${HUB||'(none)'} autonext=${AUTONEXT?1:0} wmode=${WM0||'(auto)'} preset=${PRESET||'(none)'}`;
-    show('select');
-
-    // ✅ Enforced flow: auto start (no menu) when autonext=1
-    if(AUTONEXT){
-      const modes = ['breath','meditate','stretch'];
-      const wm = (WM0||'').toLowerCase();
-
-      let choose = '';
-      if(wm && modes.includes(wm)){
-        choose = wm;
-      }else if(PRESET === 'fast' || PRESET === 'research'){
-        choose = 'breath';
-      }else if(PRESET === 'hype' || PRESET === 'play'){
-        const r = Math.random();
-        choose = (r < 0.65) ? 'stretch' : (r < 0.85) ? 'meditate' : 'breath';
-      }else{
-        const r = Math.random();
-        choose = (r < 0.45) ? 'stretch' : (r < 0.75) ? 'meditate' : 'breath';
-      }
-
-      setTimeout(()=>{
-        if(choose === 'breath') startBreathing();
-        else if(choose === 'meditate') startMeditation();
-        else startStretching();
-      }, 350);
-    }
+  // -----------------------------
+  // init
+  // -----------------------------
+  renderPills();
+  renderHeader();
+  renderModeUI();
+  renderStatusBox();
+  renderRoute();
+
+  document.getElementById('btnStart').addEventListener('click', start);
+  document.getElementById('btnSkip').addEventListener('click', goNext);
+  document.getElementById('btnHub').addEventListener('click', goHub);
+
+  // autostart default = 1 (เหมาะกับ gate)
+  const autostart = String(q('autostart','1')||'1') === '1';
+  if(autostart){
+    setTimeout(start, 350);
   }
 
 })();
