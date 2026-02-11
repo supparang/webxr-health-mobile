@@ -2,9 +2,8 @@
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ TTL auto-expire -> calls onTargetExpire(id, {reason:'ttl'})
-// ✅ Safe spawn avoids HUD(top) + Bars(top) + Meta(right) more aggressively
 // ✅ FX via FxBurst
+// ✅ PATCH Q: smart safe-zone (avoid HUD/Bars/Meta/Controls) + better scattering + adaptive size
 
 'use strict';
 
@@ -13,21 +12,25 @@ import { FxBurst } from './fx-burst.js';
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
 
+function rectIntersect(a,b){
+  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+}
+
+function rectFrom(el){
+  if(!el) return null;
+  const r = el.getBoundingClientRect();
+  return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, w:r.width, h:r.height };
+}
+
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
     this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
-
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
-    this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map(); // id -> el
-
-    // id -> {timeoutId, expiresAtMs, ttlMs}
-    this._ttl = new Map();
-
+    this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
   }
 
@@ -39,57 +42,63 @@ export class DomRendererShadow {
       try { el.remove(); } catch {}
     }
     this.targets.clear();
-
-    for (const [id, t] of this._ttl.entries()) {
-      try { clearTimeout(t.timeoutId); } catch {}
-    }
-    this._ttl.clear();
   }
 
-  // --- SAFE SPAWN RECT ---
-  // Strategy:
-  // - use layer rect
-  // - reserve: top strip for HUD+top bars, right strip for meta panel
-  // - keep overall padding
-  _safeAreaRect(size){
-    const r = this.layer.getBoundingClientRect();
+  // ---------- PATCH Q helpers ----------
+  _getBlocks() {
+    // elements we must avoid (best-effort)
+    const DOC = document;
+    const blocks = [];
 
-    const pad = Math.min(42, Math.max(16, r.width * 0.03));
+    // HUD + bars + controls (in play view)
+    const hudTop    = DOC.querySelector('.sb-hud-top');
+    const barsTop   = DOC.querySelector('.sb-bars-top');
+    const barsBot   = DOC.querySelector('.sb-bars-bottom');
+    const controls  = DOC.querySelector('.sb-controls');
+    const meta      = DOC.querySelector('.sb-meta');
 
-    // reserve areas (tuned to feel "less crowded")
-    const reserveTop = Math.min(140, Math.max(92, r.height * 0.18));      // HUD + top bars
-    const reserveRight = Math.min(280, Math.max(190, r.width * 0.26));    // meta panel
-
-    const left = pad + 10;
-    const top = pad + reserveTop;
-    const right = r.width - pad - reserveRight;
-    const bottom = r.height - pad - 14;
-
-    // if screen is too tight, relax reserveRight a bit
-    const minW = 220;
-    let adjRight = right;
-    if ((adjRight - left) < minW) {
-      adjRight = r.width - pad - Math.max(110, reserveRight * 0.55);
-    }
-
-    // final clamp
-    const safe = {
-      r,
-      left: clamp(left, 0, r.width),
-      top: clamp(top, 0, r.height),
-      right: clamp(adjRight, 0, r.width),
-      bottom: clamp(bottom, 0, r.height),
+    const add = (el, pad=10) => {
+      const r = rectFrom(el);
+      if(!r) return;
+      blocks.push({
+        left: r.left - pad,
+        top: r.top - pad,
+        right: r.right + pad,
+        bottom: r.bottom + pad
+      });
     };
 
-    // ensure room for size
-    if ((safe.right - safe.left) < (size + 6)) {
-      safe.right = Math.min(r.width - pad, safe.left + size + 6);
-    }
-    if ((safe.bottom - safe.top) < (size + 6)) {
-      safe.bottom = Math.min(r.height - pad, safe.top + size + 6);
-    }
+    // padding per block (meta gets bigger pad)
+    add(hudTop, 12);
+    add(barsTop, 10);
+    add(barsBot, 10);
+    add(controls, 10);
+    add(meta, 14);
 
-    return safe;
+    return blocks;
+  }
+
+  _safeAreaRect(){
+    // base rect = layer rect
+    const r = this.layer.getBoundingClientRect();
+
+    // base padding from edges (smaller than before to reduce “tight feeling”)
+    const pad = Math.min(34, Math.max(14, r.width * 0.028));
+
+    const left = pad;
+    const top = pad;
+    const right = r.width - pad;
+    const bottom = r.height - pad;
+
+    // return in LOCAL coords (layer space), plus absolute rect for converting blocks
+    return { r, left, top, right, bottom };
+  }
+
+  _adaptiveSize(px){
+    // PATCH Q: size scales by viewport; mobile => smaller
+    const vw = Math.max(320, Math.min(1400, window.innerWidth || 900));
+    const scale = vw < 480 ? 0.88 : (vw < 820 ? 0.94 : 1.0);
+    return Math.round((Number(px) || 110) * scale);
   }
 
   _emojiForType(t, bossEmoji){
@@ -102,28 +111,82 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _pickPosition(size, blocksAbs){
+    const { r, left, top, right, bottom } = this._safeAreaRect();
+
+    // convert blocks from ABS viewport coords -> LOCAL layer coords
+    const blocks = (blocksAbs || []).map(b => ({
+      left: b.left - r.left,
+      top: b.top - r.top,
+      right: b.right - r.left,
+      bottom: b.bottom - r.top
+    }));
+
+    // candidate tries
+    const tries = 26;
+
+    // keep distance from existing targets (avoid clustering)
+    const minDist = Math.max(18, Math.min(56, size * 0.35));
+
+    const existing = [];
+    for (const el of this.targets.values()) {
+      try {
+        const er = el.getBoundingClientRect();
+        existing.push({
+          cx: (er.left - r.left) + er.width/2,
+          cy: (er.top - r.top) + er.height/2
+        });
+      } catch {}
+    }
+
+    const fits = (x,y)=>{
+      const rect = { left:x, top:y, right:x+size, bottom:y+size };
+      // stay inside safe area
+      if (rect.left < left || rect.top < top || rect.right > right || rect.bottom > bottom) return false;
+      // avoid blocks
+      for (const b of blocks) {
+        if (rectIntersect(rect, b)) return false;
+      }
+      // avoid clustering
+      const cx = x + size/2, cy = y + size/2;
+      for (const p of existing) {
+        const dx = cx - p.cx, dy = cy - p.cy;
+        if ((dx*dx + dy*dy) < (minDist*minDist)) return false;
+      }
+      return true;
+    };
+
+    for (let i=0;i<tries;i++){
+      const x = rand(left, Math.max(left, right - size));
+      const y = rand(top, Math.max(top, bottom - size));
+      if (fits(x,y)) return { x, y };
+    }
+
+    // fallback: just place within safe area (even if near blocks) but still within bounds
+    return {
+      x: rand(left, Math.max(left, right - size)),
+      y: rand(top, Math.max(top, bottom - size))
+    };
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const id = Number(data.id);
-    if (!Number.isFinite(id)) return;
-
-    // if exists, remove first (avoid duplicates)
-    if (this.targets.has(id)) this.removeTarget(id, 'replace');
-
-    const size = clamp(Number(data.sizePx) || 112, 68, 180);
-    const { r, left, top, right, bottom } = this._safeAreaRect(size);
-
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(id);
+    el.dataset.id = String(data.id);
+
+    // ✅ PATCH Q: adaptive size + tighter clamp
+    const raw = Number(data.sizePx) || 110;
+    const scaled = this._adaptiveSize(raw);
+    const size = clamp(scaled, 62, 240);
 
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position inside safe box
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
+    // ✅ PATCH Q: smart position (avoid HUD/meta/controls) + anti-cluster
+    const blocksAbs = this._getBlocks();
+    const { x, y } = this._pickPosition(size, blocksAbs);
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
@@ -134,22 +197,7 @@ export class DomRendererShadow {
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(id, el);
-
-    // ✅ TTL auto-expire
-    const ttlMs = clamp(Number(data.ttlMs) || 1200, 260, 6000);
-    const timeoutId = setTimeout(() => {
-      // already removed by hit?
-      if (!this.targets.has(id)) return;
-
-      // expire
-      this.removeTarget(id, 'ttl');
-      if (this.onTargetExpire) {
-        try { this.onTargetExpire(id, { reason:'ttl' }); } catch {}
-      }
-    }, ttlMs);
-
-    this._ttl.set(id, { timeoutId, expiresAtMs: performance.now() + ttlMs, ttlMs });
+    this.targets.set(data.id, el);
   }
 
   _onPointer(e){
@@ -166,14 +214,6 @@ export class DomRendererShadow {
   removeTarget(id, reason){
     const el = this.targets.get(id);
     if (!el) return;
-
-    // clear ttl timer
-    const t = this._ttl.get(id);
-    if (t) {
-      try { clearTimeout(t.timeoutId); } catch {}
-      this._ttl.delete(id);
-    }
-
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
     this.targets.delete(id);
