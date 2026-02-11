@@ -1,18 +1,18 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260210a
-✅ Targets anchored to viewport (position:fixed) using vw/vh
-✅ HUD non-blocking (pointer-events:none; only buttons clickable)
-✅ Clear safe zones for spawn logic (JS reads --hw-top-safe/--hw-bottom-safe)
-✅ Prevent HUD overlap: widen top/bottom safe in mobile/cVR
+PATCH v20260210c
+✅ Fix HUD blocking targets: enlarge spawn safe zones to match real HUD height
+✅ Mobile HUD compact (2-row tighter) + banner position
+✅ Glass HUD (less opaque) but readable
+✅ Targets remain viewport-fixed and clickable
 */
 
 :root{
   color-scheme: light dark;
 
   --bg0:#020617;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.66);
+  --panel: rgba(2,6,23,.64);
+  --panel2: rgba(15,23,42,.60);
   --stroke: rgba(148,163,184,.18);
   --text: rgba(229,231,235,.96);
   --muted: rgba(148,163,184,.95);
@@ -30,13 +30,20 @@ PATCH v20260210a
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
-  --hw-top-safe: 178px;
+  /* ✅ IMPORTANT: spawn safe zones (JS reads these)
+     Set to a bit larger than HUD real height so targets won't spawn under HUD. */
+  --hw-top-safe: 210px;
   --hw-bottom-safe: 210px;
 
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
+
+  /* HUD compact controls */
+  --hud-gap: 8px;
+  --hud-pill-pad-y: 8px;
+  --hud-pill-pad-x: 10px;
+  --hud-pill-font: 12px;
 }
 
 *{ box-sizing:border-box; }
@@ -71,14 +78,34 @@ button{ font: inherit; }
 .hw-hud{
   position: fixed;
   inset: 0;
-  pointer-events: none; /* ✅ HUD ไม่บังเป้า */
+  pointer-events: none;
   z-index: 50;
 }
 
 .hw-top{
   position: absolute;
   top: 0; left: 0; right: 0;
-  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
+
+  padding: calc(12px + var(--sat))
+           calc(12px + var(--sar))
+           12px
+           calc(12px + var(--sal));
+}
+
+/* "Glass slab" behind HUD so it's readable but not too opaque */
+.hw-top::before{
+  content:'';
+  position:absolute;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(8px + var(--sat));
+  height: calc(var(--hw-top-safe) - 18px);
+  border-radius: 18px;
+  background: rgba(2,6,23,.22);
+  border: 1px solid rgba(148,163,184,.10);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
+  z-index: -1;
 }
 
 .hw-title{
@@ -86,6 +113,7 @@ button{ font: inherit; }
   letter-spacing: .2px;
   font-size: 16px;
 }
+
 .hw-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -95,34 +123,33 @@ button{ font: inherit; }
 .hw-row{
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--hud-gap);
   margin-top: 10px;
 }
 
 .hw-pill{
   pointer-events: none;
-  padding: 8px 10px;
+  padding: var(--hud-pill-pad-y) var(--hud-pill-pad-x);
   border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.56);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.42);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 50px rgba(0,0,0,.35);
+  box-shadow: 0 14px 50px rgba(0,0,0,.28);
   font-weight: 900;
-  font-size: 12px;
+  font-size: var(--hud-pill-font);
   color: rgba(229,231,235,.94);
 }
 
-.hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
-.hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
+.hw-pill.warn{ border-color: rgba(245,158,11,.22); background: rgba(245,158,11,.09); }
+.hw-pill.cyan{ border-color: rgba(34,211,238,.20); background: rgba(34,211,238,.08); }
+.hw-pill.bad { border-color: rgba(239,68,68,.22); background: rgba(239,68,68,.08); }
 
-/* ✅ only buttons are clickable */
 .hw-pill.btn{
-  pointer-events: auto;
+  pointer-events: auto; /* ✅ allow click */
   cursor: pointer;
-  background: rgba(15,23,42,.70);
+  background: rgba(15,23,42,.55);
 }
-.hw-pill.btn:hover{ filter: brightness(1.05); }
+.hw-pill.btn:hover{ filter: brightness(1.06); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
 /* ===== Banner ===== */
@@ -130,12 +157,12 @@ button{ font: inherit; }
   pointer-events: none;
   position: absolute;
   left: 50%;
-  top: calc(118px + var(--sat));
+  top: calc(var(--hw-top-safe) - 54px + var(--sat));
   transform: translateX(-50%);
   padding: 10px 12px;
   border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.50);
   backdrop-filter: blur(10px);
   font-weight: 950;
   font-size: 13px;
@@ -164,7 +191,7 @@ button{ font: inherit; }
 .hw-card{
   width: min(760px, 100%);
   border-radius: var(--r);
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.74);
   box-shadow: 0 24px 90px rgba(0,0,0,.55);
   padding: 16px;
@@ -196,7 +223,7 @@ button{ font: inherit; }
   border-radius: 16px;
   padding: 10px 12px;
   font-weight: 950;
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(148,163,184,.18);
 }
 .hw-cta{
   background: rgba(34,197,94,.18);
@@ -213,7 +240,7 @@ button{ font: inherit; }
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid var(--stroke);
+  border: 1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.45);
   max-height: min(46vh, 420px);
   overflow: auto;
@@ -221,12 +248,9 @@ button{ font: inherit; }
   color: rgba(229,231,235,.92);
 }
 
-/* ===== Targets =====
-IMPORTANT: JS sets --x,--y as percentage of viewport (0..100)
-so CSS must interpret them as vw/vh directly.
-*/
+/* ===== Targets ===== */
 .hw-tgt{
-  position: fixed;
+  position: fixed; /* viewport aligned */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -243,8 +267,11 @@ so CSS must interpret them as vw/vh directly.
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+
+  /* ✅ keep below overlays, but below HUD: visual overlap avoided by safe zones */
   z-index: 10;
-  animation: hwPopIn 160ms ease-out both;
+
+  animation: hwPopIn 180ms ease-out both;
 }
 
 .hw-tgt .emoji{
@@ -253,9 +280,18 @@ so CSS must interpret them as vw/vh directly.
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
 }
 
-.hw-tgt.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
-.hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
-.hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
+.hw-tgt.good{
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.10);
+}
+.hw-tgt.wrong{
+  border-color: rgba(245,158,11,.28);
+  background: rgba(245,158,11,.10);
+}
+.hw-tgt.haz{
+  border-color: rgba(239,68,68,.30);
+  background: rgba(239,68,68,.10);
+}
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
@@ -271,14 +307,18 @@ so CSS must interpret them as vw/vh directly.
   pointer-events: auto;
   margin-top: 10px;
   border-radius: var(--r);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.58);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.50);
   backdrop-filter: blur(10px);
   padding: 12px;
   max-width: min(760px, calc(100% - 2px));
 }
 
-.hw-quiz-q{ font-weight: 950; font-size: 14px; }
+.hw-quiz-q{
+  font-weight: 950;
+  font-size: 14px;
+}
+
 .hw-quiz-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -287,25 +327,42 @@ so CSS must interpret them as vw/vh directly.
 }
 
 /* ===== View tweaks ===== */
+/* Mobile: HUD สูงขึ้นจริง → เพิ่ม top-safe / bottom-safe */
 body.view-mobile{
-  --hw-top-safe: 196px;
-  --hw-bottom-safe: 240px;
+  --hw-top-safe: 250px;      /* ✅ กัน HUD บังเป้า */
+  --hw-bottom-safe: 240px;   /* ✅ กันแถบล่าง/gesture */
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
+
+  --hud-gap: 6px;
+  --hud-pill-pad-y: 7px;
+  --hud-pill-pad-x: 9px;
+  --hud-pill-font: 12px;
 }
 
+/* cVR: bottom มักโดนปุ่ม/คางจอ + HUD แน่น */
 body.view-cvr{
-  --hw-top-safe: 172px;
-  --hw-bottom-safe: 270px;
+  --hw-top-safe: 230px;
+  --hw-bottom-safe: 280px;   /* ✅ ให้พื้นที่ยิงกลางจอโล่งขึ้น */
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
 
+/* VR: ลด HUD นิด */
 body.view-vr{
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 230px;
+  --hw-top-safe: 220px;
+  --hw-bottom-safe: 240px;
 }
 
+/* ===== Compact HUD layout on small screens ===== */
 @media (max-width: 520px){
-  .hw-banner{ top: calc(130px + var(--sat)); }
+  /* ทำให้แถวแน่นขึ้น + banner ลงมานิด */
+  .hw-row{ margin-top: 8px; }
+  .hw-sub{ margin-top: 5px; }
+  .hw-banner{ font-size: 12px; }
+  .hw-top::before{
+    left: calc(8px + var(--sal));
+    right: calc(8px + var(--sar));
+    border-radius: 16px;
+  }
 }
