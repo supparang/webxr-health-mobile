@@ -1,185 +1,147 @@
 <!-- === /herohealth/plate/plate-vr.html ===
 PlateVR RUN — PRODUCTION (HHA Standard)
-✅ CSS: ./plate-vr.css
-✅ Boot: ./plate.boot.js
-✅ Mount: #plate-layer (mode-factory targets append here)
-✅ HUD IDs match plate.boot.js
-✅ End Overlay IDs match plate.boot.js (+ optional shot miss)
+✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Engine: plate.safe.js (ESM)
+✅ Layers: #plate-layer + HUD + End overlay
+✅ End overlay: includes Miss breakdown (junk vs timeout) + grade
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — PlateVR</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Balanced Plate VR</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#020617"/>
-  <link rel="icon" href="../favicon.ico"/>
+  <!-- A-Frame: helps WebXR Enter VR reliability -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ RUN CSS -->
-  <link rel="stylesheet" href="./plate-vr.css"/>
+  <!-- CSS -->
+  <link rel="stylesheet" href="./plate-vr.css" />
 
-  <!-- ✅ Fatal overlay (กันหน้าเงียบเวลา error) -->
-  <style>
-    #plate-fatal{
-      position:fixed; inset:0; z-index:9999;
-      display:none; padding:14px;
-      background:#020617; color:#e5e7eb;
-      white-space:pre-wrap; overflow:auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      line-height:1.35;
-    }
-    #plate-fatal.show{ display:block; }
-  </style>
+  <!-- Global FX + Logger + Universal VR UI -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- Boot -->
+  <script type="module" src="./plate.boot.js"></script>
 </head>
 
 <body class="view-pc">
-  <pre id="plate-fatal" aria-hidden="true"></pre>
-
   <div id="app">
-    <!-- optional FX layers -->
-    <div id="bossFx"></div>
-    <div id="stormFx"></div>
+    <!-- Minimal A-Frame scene (hidden) for Enter VR -->
+    <a-scene
+      embedded
+      renderer="antialias:true; colorManagement:true"
+      xr-mode-ui="enabled:false"
+      style="position:fixed; inset:0; z-index:0; opacity:0; pointer-events:none;"
+    >
+      <a-entity camera position="0 1.6 0"></a-entity>
+    </a-scene>
 
-    <!-- ✅ playfield / mount -->
-    <div id="plate-layer" aria-label="PlateVR Playfield"></div>
+    <!-- FX layers (optional hooks) -->
+    <div id="bossFx" aria-hidden="true"></div>
+    <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- ✅ HUD (IDs must match plate.boot.js) -->
-    <section id="hud" aria-label="HUD">
+    <!-- Playfield (targets spawn inside this rect) -->
+    <div id="plate-layer" aria-label="playfield"></div>
+
+    <!-- HUD -->
+    <div id="hud" aria-label="hud">
       <div class="hudRow">
         <div class="chip score">
-          <div class="lbl">SCORE</div>
-          <div class="val" id="hudScore">0</div>
+          <span class="lbl">SCORE</span>
+          <span class="val" id="hudScore">0</span>
         </div>
         <div class="chip time">
-          <div class="lbl">TIME</div>
-          <div class="val" id="hudTime">0</div>
+          <span class="lbl">TIME</span>
+          <span class="val" id="hudTime">0</span>
         </div>
         <div class="chip combo">
-          <div class="lbl">COMBO</div>
-          <div class="val" id="hudCombo">0</div>
+          <span class="lbl">COMBO</span>
+          <span class="val" id="hudCombo">0</span>
         </div>
       </div>
 
-      <div class="card" aria-label="Missions">
+      <div class="card" id="questCard">
         <div class="cardTitle">
-          <div class="t">Missions</div>
-          <div class="hint">ครบ 5 หมู่ + ความแม่น</div>
+          <div class="t">🎯 ภารกิจ</div>
+          <div class="hint" id="hudHint">เก็บให้ครบ 5 หมู่ • เลี่ยงของหวาน/ทอด</div>
         </div>
 
-        <div class="qItem">
+        <!-- GOAL -->
+        <div class="qItem" id="goalItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
-            <div class="sub" id="goalSub"></div>
+            <div class="sub" id="goalSub">ทำให้สำเร็จเพื่อผ่านด่าน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/0</div>
+            <div class="qNums" id="goalNums">0/1</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
 
-        <div class="qItem">
+        <!-- MINI -->
+        <div class="qItem" id="miniItem">
           <div class="qText">
             <div class="name" id="miniName">Mini Quest</div>
-            <div class="sub" id="miniSub"></div>
+            <div class="sub" id="miniSub">โบนัสเวลา/คะแนน</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/0</div>
+            <div class="qNums" id="miniNums">0/1</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- ✅ Coach bubble -->
+    <!-- Coach bubble -->
     <div id="coachCard" aria-hidden="true">
       <div class="inner">
-        <div id="coachMsg">พร้อมแล้ว!</div>
-        <div id="coachMeta">Coach</div>
+        <div id="coachMsg">…</div>
+        <div class="meta" id="coachMeta">Coach</div>
       </div>
     </div>
 
-    <!-- ✅ End Overlay (IDs must match plate.boot.js) -->
-    <section id="endOverlay" aria-hidden="true">
-      <div class="endPanel" role="dialog" aria-label="ผลการเล่น">
-
+    <!-- End Overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="endPanel">
         <div class="endTitle">
-          <h2>สรุปผลการเล่น</h2>
-          <div class="tag">Grade: <b id="kGrade">—</b></div>
+          <h2 id="endTitle">สรุปผล</h2>
+          <div class="tag" id="endTag">PlateVR</div>
         </div>
 
         <div class="endGrid">
-          <div class="kpi"><div class="k">Score</div><div class="v" id="kScore">0</div></div>
-          <div class="kpi"><div class="k">Accuracy</div><div class="v" id="kAcc">—</div></div>
-          <div class="kpi"><div class="k">Max Combo</div><div class="v" id="kCombo">0</div></div>
+          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">0%</div></div>
+          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
 
-          <div class="kpi"><div class="k">Goals</div><div class="v" id="kGoals">0/0</div></div>
-          <div class="kpi"><div class="k">Mini</div><div class="v" id="kMini">0/0</div></div>
-          <div class="kpi"><div class="k">Miss (Total)</div><div class="v" id="kMiss">0</div></div>
+          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
+          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
 
           <!-- ✅ Miss breakdown -->
           <div class="kpi"><div class="k">Miss: Junk</div><div class="v" id="kMissJunk">0</div></div>
           <div class="kpi"><div class="k">Miss: Timeout</div><div class="v" id="kMissTimeout">0</div></div>
 
-          <!-- (optional) Shot miss ถ้าคุณจะนับจาก mode-factory hha:judge kind:'shot_miss' -->
-          <div class="kpi"><div class="k">Miss: Shot</div><div class="v" id="kMissShot">0</div></div>
+          <!-- ✅ Grade -->
+          <div class="kpi"><div class="k">Grade</div><div class="v" id="kGrade">—</div></div>
         </div>
 
         <div class="endBtns">
-          <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
-          <button class="btn primary" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
-  <!-- ✅ Boot -->
-  <script type="module" src="./plate.boot.js"></script>
-
-  <!-- ✅ Fatal guard -->
-  <script>
-    (function(){
-      'use strict';
-      const DOC = document, WIN = window;
-      const box = DOC.getElementById('plate-fatal');
-
-      function showFatal(msg){
-        try{
-          if(!box) return;
-          box.textContent = String(msg||'Fatal error');
-          box.classList.add('show');
-          box.setAttribute('aria-hidden','false');
-        }catch(_){}
-      }
-
-      WIN.addEventListener('error', (e)=>{
-        showFatal(e && e.message ? e.message : 'Unknown error');
-      });
-
-      WIN.addEventListener('unhandledrejection', (e)=>{
-        const r = e && e.reason ? e.reason : 'Unhandled rejection';
-        showFatal(r && r.stack ? r.stack : r);
-      });
-
-      // Optional: count shot_miss into #kMissShot if present (ไม่กระทบระบบเดิม)
-      let shotMiss = 0;
-      WIN.addEventListener('hha:judge', (e)=>{
-        const d = e.detail || {};
-        if(String(d.kind||'').toLowerCase() === 'shot_miss'){
-          shotMiss++;
-          const el = DOC.getElementById('kMissShot');
-          if(el) el.textContent = String(shotMiss|0);
-        }
-      });
-
-      // Reset shot miss each run
-      WIN.addEventListener('hha:start', ()=>{
-        shotMiss = 0;
-        const el = DOC.getElementById('kMissShot');
-        if(el) el.textContent = '0';
-      });
-    })();
-  </script>
+  <!-- NOTE:
+    vr-ui.js will inject ENTER VR/EXIT/RECENTER + crosshair overlay automatically.
+    plate.boot.js will set view class and boot the engine.
+  -->
 </body>
 </html>
