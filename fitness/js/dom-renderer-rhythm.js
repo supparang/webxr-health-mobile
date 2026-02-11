@@ -1,4 +1,7 @@
-// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// === /fitness/js/dom-renderer-rhythm.js ===
+// Rhythm Boxer DOM Renderer (FX) — hitline-bottom aware
+// ✅ FX position aligns to yellow hit line (bottom: --rb-hitline-y)
+// ✅ Works with 5-lane / 3-lane (cVR) layouts
 'use strict';
 
 (function(){
@@ -8,40 +11,38 @@
       this.wrapEl = opts.wrapEl || document.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
+      this._flashT = null;
     }
 
-    _getHitlineBottomPx(){
-      // read CSS var --rb-hitline-bottom (fallback 108)
+    _getHitlineYpx(){
+      // read CSS var --rb-hitline-y from :root or body
       try{
-        const v = getComputedStyle(document.documentElement)
-          .getPropertyValue('--rb-hitline-bottom')
-          .trim();
+        const cs = getComputedStyle(document.documentElement);
+        const v = cs.getPropertyValue('--rb-hitline-y');
         const n = parseFloat(v);
-        return Number.isFinite(n) ? n : 108;
+        return Number.isFinite(n) ? n : 64;
       }catch(_){
-        return 108;
+        return 64;
       }
     }
 
     _screenPosFromLane(lane){
-      // center-x of lane + y at hit line (bottom: --rb-hitline-bottom)
+      // Center X of lane + Y at HIT LINE (yellow line near bottom)
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
-        const r = this.wrapEl.getBoundingClientRect();
+        const r = (this.wrapEl || document.body).getBoundingClientRect();
         return { x: r.left + r.width/2, y: r.top + r.height/2 };
       }
-
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
 
-      const hitBottom = this._getHitlineBottomPx();
-      // hit line y = lane bottom - hitBottom
-      const y = rect.top + rect.height - hitBottom;
+      const hitlineY = this._getHitlineYpx(); // px from bottom
+      const y = rect.top + rect.height - hitlineY;
 
       return { x, y };
     }
 
-    _flash(kind){
+    _flash(){
       if(!this.flashEl) return;
       this.flashEl.classList.add('active');
       clearTimeout(this._flashT);
@@ -50,7 +51,7 @@
 
     _feedback(text, cls){
       if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = text;
+      this.feedbackEl.textContent = text || '';
       this.feedbackEl.classList.remove('perfect','great','good','miss');
       if(cls) this.feedbackEl.classList.add(cls);
     }
@@ -59,13 +60,13 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback(String(judgment||'good').toUpperCase(), judgment);
+      this._feedback((judgment||'').toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
       const p = this._screenPosFromLane(lane);
       this.spawnMissParticle(p.x, p.y);
-      this._flash('miss');
+      this._flash();
       this._feedback('MISS', 'miss');
     }
 
@@ -93,6 +94,7 @@
         const dx = Math.cos(ang)*dist;
         const dy = Math.sin(ang)*dist;
         const life = 420 + Math.random()*180;
+
         el.style.width = size+'px';
         el.style.height = size+'px';
         el.style.left = x+'px';
@@ -100,6 +102,7 @@
         el.style.setProperty('--dx', dx+'px');
         el.style.setProperty('--dy', dy+'px');
         el.style.setProperty('--life', life+'ms');
+
         document.body.appendChild(el);
         setTimeout(()=>el.remove(), life);
       }
@@ -110,6 +113,7 @@
       el.className = 'rb-frag rb-frag-miss';
       const size = 14;
       const life = 460;
+
       el.style.width = size+'px';
       el.style.height = size+'px';
       el.style.left = x+'px';
@@ -117,6 +121,7 @@
       el.style.setProperty('--dx', '0px');
       el.style.setProperty('--dy', '28px');
       el.style.setProperty('--life', life+'ms');
+
       document.body.appendChild(el);
       setTimeout(()=>el.remove(), life);
     }
