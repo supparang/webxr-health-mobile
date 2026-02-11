@@ -1,9 +1,9 @@
 // === /fitness/js/dom-renderer-shadow.js ===
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
-// ✅ pointer hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ TTL auto-expire (fix: targets not disappearing)
-// ✅ Telegraph ring (.sb-telegraph) before spawn (optional)
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ TTL auto-expire -> calls onTargetExpire(id, {reason:'ttl'})
+// ✅ Safe spawn avoids HUD(top) + Bars(top) + Meta(right) more aggressively
 // ✅ FX via FxBurst
 
 'use strict';
@@ -23,12 +23,10 @@ export class DomRendererShadow {
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
+    this.targets = new Map(); // id -> el
 
-    // keep existing public map used by engine
-    this.targets = new Map(); // id -> element
-
-    // internal meta
-    this._meta = new Map();   // id -> { type, bornAt, ttlMs, timer, teleEl }
+    // id -> {timeoutId, expiresAtMs, ttlMs}
+    this._ttl = new Map();
 
     this._onPointer = this._onPointer.bind(this);
   }
@@ -42,34 +40,56 @@ export class DomRendererShadow {
     }
     this.targets.clear();
 
-    for (const [id, m] of this._meta.entries()) {
-      try { if (m.timer) clearTimeout(m.timer); } catch {}
-      try { if (m.teleEl) m.teleEl.remove(); } catch {}
+    for (const [id, t] of this._ttl.entries()) {
+      try { clearTimeout(t.timeoutId); } catch {}
     }
-    this._meta.clear();
+    this._ttl.clear();
   }
 
-  getType(id){
-    const m = this._meta.get(id);
-    return (m && m.type) ? m.type : 'normal';
-  }
-
-  _safeAreaRect(){
+  // --- SAFE SPAWN RECT ---
+  // Strategy:
+  // - use layer rect
+  // - reserve: top strip for HUD+top bars, right strip for meta panel
+  // - keep overall padding
+  _safeAreaRect(size){
     const r = this.layer.getBoundingClientRect();
 
-    // keep margins away from HUD/meta (CSS also helps, but keep robust here)
-    const pad = Math.min(40, Math.max(18, r.width * 0.035));
-    const top = pad + 8;
-    const left = pad + 8;
+    const pad = Math.min(42, Math.max(16, r.width * 0.03));
 
-    // reserve area for boss meta panel (right top) a bit
-    const reserveRight = Math.min(260, Math.max(190, r.width * 0.26));
-    const reserveTopH  = Math.min(210, Math.max(140, r.height * 0.22));
+    // reserve areas (tuned to feel "less crowded")
+    const reserveTop = Math.min(140, Math.max(92, r.height * 0.18));      // HUD + top bars
+    const reserveRight = Math.min(280, Math.max(190, r.width * 0.26));    // meta panel
 
-    const right = r.width - pad - 8;
-    const bottom = r.height - pad - 8;
+    const left = pad + 10;
+    const top = pad + reserveTop;
+    const right = r.width - pad - reserveRight;
+    const bottom = r.height - pad - 14;
 
-    return { r, left, top, right, bottom, reserveRight, reserveTopH };
+    // if screen is too tight, relax reserveRight a bit
+    const minW = 220;
+    let adjRight = right;
+    if ((adjRight - left) < minW) {
+      adjRight = r.width - pad - Math.max(110, reserveRight * 0.55);
+    }
+
+    // final clamp
+    const safe = {
+      r,
+      left: clamp(left, 0, r.width),
+      top: clamp(top, 0, r.height),
+      right: clamp(adjRight, 0, r.width),
+      bottom: clamp(bottom, 0, r.height),
+    };
+
+    // ensure room for size
+    if ((safe.right - safe.left) < (size + 6)) {
+      safe.right = Math.min(r.width - pad, safe.left + size + 6);
+    }
+    if ((safe.bottom - safe.top) < (size + 6)) {
+      safe.bottom = Math.min(r.height - pad, safe.top + size + 6);
+    }
+
+    return safe;
   }
 
   _emojiForType(t, bossEmoji){
@@ -82,81 +102,33 @@ export class DomRendererShadow {
     return '🎯';
   }
 
-  _pickXY(size){
-    const { r, left, top, right, bottom, reserveRight, reserveTopH } = this._safeAreaRect();
-
-    // Try several times to avoid reserved top-right meta area
-    for (let i=0; i<14; i++){
-      const x = rand(left, Math.max(left, right - size));
-      const y = rand(top, Math.max(top, bottom - size));
-
-      const inReserved =
-        (x > (r.width - reserveRight)) &&
-        (y < (reserveTopH));
-
-      if (!inReserved) return { x, y };
-    }
-
-    // fallback (even if overlaps)
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    return { x, y };
-  }
-
-  _addTelegraph(x, y, size, isBoss=false, ms=120){
-    if (!this.layer) return null;
-
-    const tele = document.createElement('div');
-    tele.className = 'sb-telegraph' + (isBoss ? ' boss' : '');
-    tele.style.width = Math.round(size) + 'px';
-    tele.style.height = Math.round(size) + 'px';
-    tele.style.left = Math.round(x) + 'px';
-    tele.style.top = Math.round(y) + 'px';
-
-    // IMPORTANT: telegraph must be inside target layer so it matches coordinates
-    this.layer.appendChild(tele);
-
-    // auto-remove
-    setTimeout(()=>{ try{ tele.remove(); }catch{} }, clamp(ms, 60, 260));
-    return tele;
-  }
-
   spawnTarget(data){
     if (!this.layer || !data) return;
 
     const id = Number(data.id);
     if (!Number.isFinite(id)) return;
 
-    // ensure unique id (if reused, remove old)
-    if (this.targets.has(id)) this.removeTarget(id, 'respawn');
+    // if exists, remove first (avoid duplicates)
+    if (this.targets.has(id)) this.removeTarget(id, 'replace');
 
-    const type = String(data.type || 'normal');
-    const ttlMs = clamp(Number(data.ttlMs) || 1200, 350, 4000);
-
-    const size = clamp(Number(data.sizePx) || 110, 66, 260);
-    const { x, y } = this._pickXY(size);
-
-    // Optional telegraph (quick ring before real spawn)
-    const teleMs = clamp(Number(data.teleMs) || 110, 60, 260);
-    const doTele = (data.telegraph === 1 || data.telegraph === true);
-    let teleEl = null;
-    if (doTele) {
-      teleEl = this._addTelegraph(x, y, size, type === 'bossface', teleMs);
-    }
+    const size = clamp(Number(data.sizePx) || 112, 68, 180);
+    const { r, left, top, right, bottom } = this._safeAreaRect(size);
 
     const el = document.createElement('div');
-    el.className = 'sb-target sb-target--' + type;
+    el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(id);
 
-    el.style.width = Math.round(size) + 'px';
-    el.style.height = Math.round(size) + 'px';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
 
-    // NOTE: targets are positioned within layer rect
+    // random position inside safe box
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
     // content
-    const emoji = this._emojiForType(type, data.bossEmoji);
+    const emoji = this._emojiForType(data.type, data.bossEmoji);
     el.textContent = emoji;
 
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
@@ -164,28 +136,25 @@ export class DomRendererShadow {
     this.layer.appendChild(el);
     this.targets.set(id, el);
 
-    // TTL auto-expire
-    const bornAt = performance.now();
-    const timer = setTimeout(() => {
+    // ✅ TTL auto-expire
+    const ttlMs = clamp(Number(data.ttlMs) || 1200, 260, 6000);
+    const timeoutId = setTimeout(() => {
       // already removed by hit?
       if (!this.targets.has(id)) return;
 
-      const t = this.getType(id);
+      // expire
       this.removeTarget(id, 'ttl');
-
-      // notify engine
       if (this.onTargetExpire) {
-        try { this.onTargetExpire(id, { type: t }); } catch {}
+        try { this.onTargetExpire(id, { reason:'ttl' }); } catch {}
       }
     }, ttlMs);
 
-    this._meta.set(id, { type, bornAt, ttlMs, timer, teleEl });
+    this._ttl.set(id, { timeoutId, expiresAtMs: performance.now() + ttlMs, ttlMs });
   }
 
   _onPointer(e){
     const el = e.currentTarget;
     if (!el) return;
-
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
@@ -194,24 +163,20 @@ export class DomRendererShadow {
     }
   }
 
-  removeTarget(id, reason='remove'){
+  removeTarget(id, reason){
     const el = this.targets.get(id);
-    const m = this._meta.get(id);
+    if (!el) return;
 
-    if (m && m.timer) {
-      try { clearTimeout(m.timer); } catch {}
-    }
-    if (m && m.teleEl) {
-      try { m.teleEl.remove(); } catch {}
-    }
-
-    if (el) {
-      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-      try { el.remove(); } catch {}
+    // clear ttl timer
+    const t = this._ttl.get(id);
+    if (t) {
+      try { clearTimeout(t.timeoutId); } catch {}
+      this._ttl.delete(id);
     }
 
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+    try { el.remove(); } catch {}
     this.targets.delete(id);
-    this._meta.delete(id);
   }
 
   playHitFx(id, info = {}){
