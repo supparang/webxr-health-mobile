@@ -11,14 +11,22 @@
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target = เกมจริง (อยู่ที่ /fitness/jump-duck.html)
-  // NOTE: อยู่ใน /herohealth/ -> ไป /fitness/ = ../fitness/...
+  // ✅ target คือเกมจริง
   hhGo('../fitness/jump-duck.html', {
     defaults: {
       mode: 'training',
       diff: 'normal',
-      duration: '60'
-    }
+      duration: '60',
+      boss: 'auto'
+    },
+    // ✅ อนุญาตให้ส่งพารามิเตอร์พิเศษไปเกม
+    passthrough: [
+      'hub','view','mode','runMode','diff','duration','time','seed',
+      'studyId','phase','conditionGroup',
+      'pid','group','note',
+      'log',     // ✅ Apps Script Web App URL
+      'boss'     // ✅ rage|mirror|chaos|rhythm|auto|mixed
+    ]
   });
 </script>
 </body>
