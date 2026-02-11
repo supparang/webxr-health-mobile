@@ -1,71 +1,117 @@
 // === /fitness/js/ai-predictor.js ===
-// Shadow Breaker — AI Predictor (PATCH D)
-// ✅ Provides named export: AIPredictor  (fix import crash)
-// ✅ Also exposes window.RB_AI for legacy/optional consumers
+// HHA AI Predictor — shared module for all fitness games (Shadow/Rhythm/Jump/Balance)
+// ✅ ES Module export (AIPredictor + HHA_AI)
+// ✅ Also exposes window.HHA_AI for legacy usage
+// ✅ Deterministic-friendly (no randomness inside predictor)
+// NOTE: This is "DL-lite" heuristic now; ML/DL model can replace predict() later.
+
 'use strict';
 
+function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v) || 0)); }
+function clamp01(v){ return clamp(v, 0, 1); }
+
+function qsp(){
+  try { return new URL(location.href).searchParams; }
+  catch { return new URLSearchParams(); }
+}
+function qFlag(key){
+  try{
+    const v = (qsp().get(key) || '').toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  }catch{ return false; }
+}
+function qMode(){
+  try{
+    // support both ?mode=research and your older ?run=research
+    const sp = qsp();
+    const m = (sp.get('mode') || sp.get('run') || 'normal').toLowerCase();
+    return (m === 'research') ? 'research' : 'normal';
+  }catch{ return 'normal'; }
+}
+
+// -------------------------
+// Core predictor (heuristic)
+// Snapshot can include:
+// { accPct, missRate, fatigueProxy, rtMeanMs, rtMedianMs, hp, fever, diff, phase, bossesCleared, ... }
+// -------------------------
+function predictFromSnapshot(s){
+  const acc = clamp01((Number(s.accPct)||0) / 100);
+  const missRate = clamp01(Number(s.missRate) ?? (Number(s.misses||0) / Math.max(1, Number(s.judged||0))));
+  const hp = clamp01((Number(s.hp) || 100) / 100);
+
+  // RT proxy: lower = better
+  const rt = Number(s.rtMedianMs || s.rtMeanMs || 0);
+  const rtScore = rt > 0 ? clamp01(1 - ((rt - 320) / 900)) : 0.55; // 320ms baseline
+
+  const fatigueProxy = clamp01(Number(s.fatigueProxy) || 0);
+
+  // skillScore: accuracy + RT + low miss
+  const skillScore = clamp01(
+    acc * 0.55 +
+    rtScore * 0.25 +
+    (1 - missRate) * 0.20
+  );
+
+  // fatigueRisk: low hp + fatigueProxy + missRate
+  const fatigueRisk = clamp01(
+    (1 - hp) * 0.40 +
+    fatigueProxy * 0.35 +
+    missRate * 0.25
+  );
+
+  // suggestion (string)
+  let suggestedDifficulty = 'normal';
+  if (skillScore >= 0.80 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+  else if (skillScore <= 0.46 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+
+  // pacing suggestion (0.85..1.15) -> can multiply spawn interval
+  // higher fatigue => slower ( >1 ), high skill & low fatigue => faster (<1)
+  let paceMult = 1.0;
+  if (fatigueRisk >= 0.70) paceMult = 1.12;
+  else if (fatigueRisk >= 0.55) paceMult = 1.06;
+  else if (skillScore >= 0.82 && fatigueRisk <= 0.35) paceMult = 0.92;
+  else if (skillScore >= 0.74 && fatigueRisk <= 0.42) paceMult = 0.96;
+
+  paceMult = clamp(paceMult, 0.85, 1.15);
+
+  // micro tip (Thai)
+  let tip = '';
+  if (missRate >= 0.35) tip = 'MISS เยอะ—ช้าลงนิดนึง โฟกัสเป้าก่อนแตะ';
+  else if (rtScore < 0.45) tip = 'ลอง “รอให้เป้าอยู่ในตำแหน่งถนัด” แล้วค่อยแตะ จะเร็วขึ้น';
+  else if (hp < 0.45) tip = 'ระวัง HP—เลือกตีเป้าปลอดภัยก่อน (หลบ bomb/decoy)';
+  else if (skillScore > 0.82 && fatigueRisk < 0.35) tip = 'ฟอร์มดีมาก! เพิ่มความยาก/เพิ่มความเร็วได้เลย 🔥';
+  else tip = 'รักษาคอมโบ—ตีให้ต่อเนื่อง จะคุมเกมได้ง่ายขึ้น';
+
+  return {
+    skillScore,
+    fatigueRisk,
+    paceMult,
+    suggestedDifficulty,
+    tip
+  };
+}
+
+// -------------------------
+// Public API class
+// -------------------------
 export class AIPredictor {
-  constructor(){
-    this.enabled = true; // play only (engine will keep it harmless)
-    this._last = null;
+  getMode(){ return qMode(); }                 // 'normal' | 'research'
+  isLocked(){ return qMode() === 'research'; } // research lock
+  isAssistEnabled(){
+    // research locked always off
+    if (this.isLocked()) return false;
+    // normal: enable only when ?ai=1 (so it won't affect research/play by accident)
+    return qFlag('ai');
   }
-
-  isEnabled(){ return !!this.enabled; }
-
-  // snapshot: { t, score, combo, miss, fever, youHp, bossHp, phase, diff, lastHitDtMs? ... }
   predict(snapshot){
-    // "DL-lite" placeholder (deterministic-ish heuristic)
-    // You can replace internals later with real ML/DL.
-    const s = snapshot || {};
-    const fatigue = this._estimateFatigue(s);
-    const risk = this._estimateRisk(s);
-    const paceMul = this._paceMul(fatigue, risk);
-
-    const tip = this._tip(s, fatigue, risk);
-
-    this._last = { fatigue, risk, paceMul, tip };
-    return this._last;
-  }
-
-  _estimateFatigue(s){
-    // higher miss + low combo + low hp -> fatigue up
-    const m = Number(s.miss||0);
-    const c = Number(s.combo||0);
-    const hp = Number(s.youHp||100);
-    let f = 0;
-    f += Math.min(1, m/18) * 0.55;
-    f += (c<=2 ? 0.22 : 0.05);
-    f += (hp<55 ? 0.25 : 0.05);
-    return Math.max(0, Math.min(1, f));
-  }
-
-  _estimateRisk(s){
-    const boss = Number(s.bossHp||100);
-    const fever = Number(s.fever||0);
-    let r = 0.15;
-    if(boss<30) r += 0.25; // bossface soon -> risk/tempo
-    if(fever>=95) r += 0.10; // fever moment
-    return Math.max(0, Math.min(1, r));
-  }
-
-  _paceMul(fatigue, risk){
-    // lower fatigue => speed up a bit; higher fatigue => slow down
-    let mul = 1.0;
-    mul *= (1.08 - fatigue*0.22);
-    mul *= (0.96 + risk*0.10);
-    return Math.max(0.80, Math.min(1.18, mul));
-  }
-
-  _tip(s, fatigue, risk){
-    if(Number(s.shield||0) <= 0 && fatigue>0.55) return 'เก็บ Shield/Heal ก่อน แล้วค่อยไล่คอมโบ';
-    if(Number(s.combo||0) <= 2) return 'โฟกัสเป้า “ปกติ” ให้ติดคอมโบก่อน';
-    if(Number(s.bossHp||100) < 30) return 'บอสใกล้หมด! เตรียมตี Boss Face ให้ทัน';
-    if(risk>0.30) return 'ตอนนี้จังหวะเร็วขึ้น—เล็งให้ชัวร์ อย่าหลง Decoy';
-    return 'รักษาคอมโบไว้ แล้วค่อยเก็บ FEVER';
+    return predictFromSnapshot(snapshot || {});
   }
 }
 
-// optional legacy global
+// Convenience singleton for simple usage
+export const HHA_AI = new AIPredictor();
+
+// Also expose global for legacy scripts
 try{
-  window.RB_AI = window.RB_AI || new AIPredictor();
-}catch(_){}
+  window.HHA_AI = HHA_AI;
+}catch{}
