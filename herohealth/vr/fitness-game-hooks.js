@@ -1,11 +1,8 @@
 // === /herohealth/vr/fitness-game-hooks.js ===
 // Fitness Game Hooks — v20260211a
-// Requires: window.HHA_RP (hha-research-pack.js) + optional window.HHA_MISSION (mission-ui.js)
-
 (function(){
   'use strict';
   const WIN = window;
-
   const RP = WIN.HHA_RP || null;
 
   function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
@@ -18,30 +15,17 @@
     if(g==='balance') return 'HHA_LAST_SUMMARY_BALANCE';
     return 'HHA_LAST_SUMMARY';
   }
-
   function safeSetLS(k, obj){
     try{ localStorage.setItem(k, JSON.stringify(obj)); }catch(_){}
   }
-
-  function withGame(gameId){
-    return (row)=>{
-      if(!RP) return;
-      // เติม game ให้ครบทุก event
-      try{
-        const last = RP.EVENTS[RP.EVENTS.length-1];
-        if(last && !last.game) last.game = gameId;
-      }catch(_){}
-      return row;
-    };
-  }
-
   function ev(gameId, type, data){
     if(!RP?.ev) return;
     RP.ev(type, data || {});
-    withGame(gameId)();
+    try{
+      const last = RP.EVENTS[RP.EVENTS.length-1];
+      if(last && !last.game) last.game = gameId;
+    }catch(_){}
   }
-
-  // expose preset helper
   function preset(gameId){
     if(!RP?.IS_RESEARCH) return null;
     try{ return RP.getResearchPreset(gameId); }catch(_){ return null; }
@@ -64,15 +48,12 @@
         ...(extra||{})
       });
 
-      // ถ้ามาจาก planner เก็บ event เพิ่มให้ชัด
       if(RP?.ctx?.fromPlanner){
         ev(gameId, 'planner_combo', { combo: RP.ctx.combo || [] });
       }
-
       return t0;
     },
 
-    // Trial-level events (เรียกง่าย ๆ)
     hit(gameId, meta){
       WIN.HHA_MISSION?.noteHitOk?.();
       ev(gameId, 'trial_end', { ok:true, reason:'hit', ...(meta||{}) });
@@ -107,10 +88,8 @@
         ms: Number(summary?.ms ?? durMs) || durMs,
       }, summary || {});
 
-      // save last summary per game
       safeSetLS(keyFor(gameId), s);
 
-      // log session_end
       ev(gameId, 'session_end', {
         score: s.score,
         pass: s.pass,
