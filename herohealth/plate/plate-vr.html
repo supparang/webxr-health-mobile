@@ -1,11 +1,9 @@
 <!-- === /herohealth/plate/plate-vr.html ===
 PlateVR RUN — PRODUCTION (HHA Standard)
-✅ Uses: ./plate-vr.css
-✅ Boots: ./plate.boot.js (ESM)
-✅ Optional VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Mount: #plate-layer
-✅ HUD IDs match plate.boot.js
-✅ End overlay IDs match plate.boot.js (incl. miss breakdown + grade)
+✅ CSS: ./plate-vr.css
+✅ VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Boot: ./plate.boot.js (ESM) -> engine: ./plate.safe.js (ESM)
+✅ HUD + Quests + Coach + End summary overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -14,23 +12,40 @@ PlateVR RUN — PRODUCTION (HHA Standard)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — PlateVR</title>
   <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#050712"/>
+  <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
 
   <link rel="stylesheet" href="./plate-vr.css"/>
+
+  <!-- (optional) preload emoji font fallback -->
+  <style>
+    /* กันหน้าเงียบเวลา error */
+    #plate-fatal{
+      position:fixed; inset:0; z-index:9999;
+      margin:0; padding:16px;
+      background:#020617; color:#e5e7eb;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      display:none; white-space:pre-wrap;
+    }
+    #plate-fatal.show{ display:block; }
+  </style>
 </head>
+
 <body class="view-pc">
-  <div id="app" aria-label="PlateVR App">
+  <!-- fatal overlay -->
+  <pre id="plate-fatal" aria-hidden="true"></pre>
+
+  <div id="app" role="application" aria-label="HeroHealth PlateVR">
     <!-- optional FX layers -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- playfield mount (targets appended here; positions are viewport-fixed) -->
-    <div id="plate-layer" aria-label="Playfield"></div>
+    <!-- playfield (targets mount here; mode-factory uses viewport coords but appends here) -->
+    <div id="plate-layer" aria-label="playfield"></div>
 
     <!-- HUD -->
     <header id="hud" aria-label="HUD">
-      <div class="hudRow" aria-hidden="true">
+      <div class="hudRow">
         <div class="chip score">
           <div class="lbl">SCORE</div>
           <div class="val" id="hudScore">0</div>
@@ -45,121 +60,114 @@ PlateVR RUN — PRODUCTION (HHA Standard)
         </div>
       </div>
 
-      <!-- quests card -->
-      <section class="card" aria-hidden="true">
+      <section class="card" aria-label="Quests">
         <div class="cardTitle">
           <div class="t">ภารกิจ</div>
-          <div class="hint">เติมจานให้ครบ 5 หมู่ + คุมความแม่น</div>
+          <div class="hint">เติมจานให้ครบ 5 หมู่</div>
         </div>
 
-        <div class="qItem">
+        <div class="qItem" aria-label="Goal quest">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
             <div class="sub" id="goalSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/5</div>
-            <div class="bar"><i id="goalBar" style="width:0%"></i></div>
+            <div class="qNums" id="goalNums">0/0</div>
+            <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
 
-        <div class="qItem">
+        <div class="qItem" aria-label="Mini quest">
           <div class="qText">
-            <div class="name" id="miniName">Mini Quest</div>
+            <div class="name" id="miniName">Mini</div>
             <div class="sub" id="miniSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/80</div>
-            <div class="bar"><i id="miniBar" style="width:0%"></i></div>
+            <div class="qNums" id="miniNums">0/0</div>
+            <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
       </section>
     </header>
 
     <!-- Coach bubble -->
-    <div id="coachCard" aria-hidden="true">
+    <aside id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">—</div>
         <div id="coachMeta">Coach</div>
       </div>
-    </div>
+    </aside>
 
     <!-- End overlay -->
-    <div id="endOverlay" aria-hidden="true" role="dialog" aria-label="End Summary">
+    <div id="endOverlay" aria-hidden="true" role="dialog" aria-label="สรุปผล">
       <div class="endPanel">
         <div class="endTitle">
-          <h2>สรุปผล PlateVR</h2>
-          <div class="tag" id="endTag">—</div>
+          <h2>สรุปผล</h2>
+          <div class="tag">
+            เกรด: <span id="kGrade">—</span>
+          </div>
         </div>
 
-        <div class="endGrid">
+        <div class="endGrid" aria-label="KPI grid">
           <div class="kpi">
             <div class="k">คะแนน</div>
-            <div class="v" id="kScore">0</div>
+            <div class="v"><span id="kScore">0</span></div>
           </div>
           <div class="kpi">
             <div class="k">ความแม่น</div>
-            <div class="v" id="kAcc">—</div>
+            <div class="v"><span id="kAcc">—</span></div>
           </div>
           <div class="kpi">
             <div class="k">คอมโบสูงสุด</div>
-            <div class="v" id="kCombo">0</div>
+            <div class="v"><span id="kCombo">0</span></div>
           </div>
 
           <div class="kpi">
-            <div class="k">ภารกิจหลัก</div>
-            <div class="v" id="kGoals">0/1</div>
+            <div class="k">ภารกิจ</div>
+            <div class="v"><span id="kGoals">0/0</span></div>
           </div>
           <div class="kpi">
-            <div class="k">มินิเควสท์</div>
-            <div class="v" id="kMini">0/1</div>
+            <div class="k">มินิเควส</div>
+            <div class="v"><span id="kMini">0/0</span></div>
           </div>
           <div class="kpi">
             <div class="k">พลาดรวม</div>
-            <div class="v" id="kMiss">0</div>
-          </div>
-
-          <!-- optional breakdown -->
-          <div class="kpi">
-            <div class="k">พลาดเพราะ JUNK</div>
-            <div class="v" id="kMissJunk">0</div>
-          </div>
-          <div class="kpi">
-            <div class="k">พลาดเพราะหมดเวลา</div>
-            <div class="v" id="kMissTimeout">0</div>
-          </div>
-          <div class="kpi">
-            <div class="k">เกรด</div>
-            <div class="v" id="kGrade">—</div>
+            <div class="v">
+              <span id="kMiss">0</span>
+              <div style="margin-top:6px;font-size:12px;color:var(--muted);">
+                junk: <span id="kMissJunk">0</span> · timeout: <span id="kMissTimeout">0</span>
+              </div>
+            </div>
           </div>
         </div>
 
+        <!-- postGameArea จะถูก boot.js “สร้างเพิ่ม” ตรงนี้อัตโนมัติในโหมด play -->
+
         <div class="endBtns">
-          <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
-          <button class="btn primary" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub" type="button">กลับ HUB</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot) -->
+  <!-- Universal VR UI (adds EnterVR/Exit/Recenter + crosshair + tap-to-shoot) -->
   <script src="../vr/vr-ui.js"></script>
 
   <!-- Boot (ESM) -->
-  <script type="module" src="./plate.boot.js"></script>
+  <script type="module">
+    // fatal overlay helper
+    const fatal = (msg)=>{
+      const el = document.getElementById('plate-fatal');
+      if(!el) return;
+      el.textContent = String(msg || 'Fatal error');
+      el.classList.add('show');
+      el.setAttribute('aria-hidden','false');
+    };
+    window.addEventListener('error', (e)=>fatal(e?.error?.stack || e?.message || 'error'));
+    window.addEventListener('unhandledrejection', (e)=>fatal(e?.reason?.stack || e?.reason || 'unhandledrejection'));
 
-  <!-- tiny helper: show endTag (optional, non-critical) -->
-  <script>
-    (function(){
-      'use strict';
-      function q(k,d){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-      function clamp(n,a,b){ n=Number(n)||0; return n<a?a:(n>b?b:n); }
-      const run  = (q('run','play')||'play').toLowerCase();
-      const diff = (q('diff','normal')||'normal').toLowerCase();
-      const time = clamp(q('time','90'), 10, 999);
-      const tag = document.getElementById('endTag');
-      if(tag) tag.textContent = `${run.toUpperCase()} · ${diff.toUpperCase()} · ${time}s`;
-    })();
+    import './plate.boot.js';
   </script>
 </body>
 </html>
