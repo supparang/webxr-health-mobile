@@ -1,222 +1,210 @@
-// === /fitness/teacher-dashboard.js ===
-// Teacher Dashboard (local) — v20260211c (SUMMARY + EVENTS EXPORT)
-(function(){
-  'use strict';
-  const WIN = window, DOC = document;
-  if(!DOC) return;
-
-  const $ = (s)=>DOC.querySelector(s);
-
-  const body = $('#td-body');
-  const msg  = $('#td-msg');
-
-  const btnRefresh = $('#td-refresh');
-  const btnCopy = $('#td-copy-csv');
-  const btnDL = $('#td-dl-csv');
-  const btnCopyEvents = $('#td-copy-events');
-  const btnDLEvents = $('#td-dl-events');
-  const btnClear = $('#td-clear');
-
-  const fPid = $('#f-pid');
-  const fGame = $('#f-game');
-  const fPhase = $('#f-phase');
-  const fGroup = $('#f-group');
-  const fSort = $('#f-sort');
-  const fLimit = $('#f-limit');
-
-  const STORE_SUM = 'HHA_FITNESS_SUMMARY_LOG_V1';
-  const STORE_EVT = 'HHA_FITNESS_EVENTS_LOG_V1';
-
-  function setMsg(t){ if(msg) msg.textContent = t || ''; }
-
-  function readJSON(key, fallback){
-    try{
-      const a = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-      return a;
-    }catch(_){ return fallback; }
-  }
-
-  function readSummary(){
-    const a = readJSON(STORE_SUM, []);
-    return Array.isArray(a) ? a : [];
-  }
-  function readEvents(){
-    const a = readJSON(STORE_EVT, []);
-    return Array.isArray(a) ? a : [];
-  }
-
-  function fmtTime(ts){
-    if(!ts) return '-';
-    const d = new Date(ts);
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    const ss = String(d.getSeconds()).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    const mo = String(d.getMonth()+1).padStart(2,'0');
-    return `${dd}/${mo} ${hh}:${mm}:${ss}`;
-  }
-  function fmtMs(ms){
-    if(!ms) return '-';
-    const s = Math.round(ms/1000);
-    if(s<60) return `${s}s`;
-    const m = Math.floor(s/60), r = s%60;
-    return `${m}m ${r}s`;
-  }
-
-  function esc(v){
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-  }
-
-  function summaryCSV(rows){
-    const header = ['ts','pid','studyId','phase','conditionGroup','game','score','pass','total','maxStreak','ms','seed'];
-    const lines = [header.join(',')];
-    for(const r of rows){
-      const vals = [
-        r.ts, r.pid, r.studyId, r.phase, r.conditionGroup, r.game,
-        r.score, r.pass, r.total, r.maxStreak, r.ms, r.seed
-      ].map(esc);
-      lines.push(vals.join(','));
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Fitness — Teacher Dashboard</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="stylesheet" href="hub.css"/>
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.55);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:rgba(34,197,94,.25);
+      --bad:rgba(239,68,68,.18);
+      --r:18px;
     }
-    return lines.join('\n');
-  }
-
-  function eventsCSV(rows){
-    const header = ['ts','sid','pid','studyId','phase','conditionGroup','game','mode','view','seed','type','data_json'];
-    const lines = [header.join(',')];
-    for(const r of rows){
-      const dataJson = JSON.stringify(r.data || {});
-      const vals = [
-        r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
-        r.game, r.mode, r.view, r.seed, r.type, dataJson
-      ].map(esc);
-      lines.push(vals.join(','));
+    body{ background:var(--bg); color:var(--text); margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    .td-wrap{ max-width:1100px; margin:0 auto; padding:14px; }
+    .td-top{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      padding:12px; border:1px solid var(--stroke); background:var(--panel); border-radius:var(--r);
     }
-    return lines.join('\n');
-  }
-
-  function applyFilters(rows){
-    const pid = (fPid?.value || '').trim().toUpperCase();
-    const game = (fGame?.value || '').trim();
-    const phase = (fPhase?.value || '').trim();
-    const group = (fGroup?.value || '').trim().toUpperCase();
-
-    let out = rows.slice();
-
-    if(pid) out = out.filter(r => String(r.pid||'').toUpperCase().includes(pid));
-    if(game) out = out.filter(r => String(r.game||'') === game);
-    if(phase) out = out.filter(r => String(r.phase||'') === phase);
-    if(group) out = out.filter(r => String(r.conditionGroup||'') === group);
-
-    const sort = fSort?.value || 'ts_desc';
-    out.sort((a,b)=>{
-      if(sort==='pid_asc') return String(a.pid||'').localeCompare(String(b.pid||''));
-      if(sort==='score_desc') return (Number(b.score||0)-Number(a.score||0));
-      if(sort==='ms_desc') return (Number(b.ms||0)-Number(a.ms||0));
-      return (Number(b.ts||0)-Number(a.ts||0));
-    });
-
-    const lim = Number(fLimit?.value || 0);
-    if(Number.isFinite(lim) && lim>0) out = out.slice(0, lim);
-
-    return out;
-  }
-
-  function pill(text, cls=''){
-    return `<span class="pill ${cls}">${text}</span>`;
-  }
-
-  function render(){
-    const rows = applyFilters(readSummary());
-    if(!body) return;
-
-    body.innerHTML = rows.map(r=>{
-      const ratio = `${r.pass||0}/${r.total||0}`;
-      const ok = (r.total>0) ? ((r.pass/r.total)>=0.6) : true;
-      const cls = ok ? 'ok' : 'warn';
-      return `
-        <tr>
-          <td>${fmtTime(r.ts)}</td>
-          <td>${pill(r.pid || '-', cls)}</td>
-          <td>${r.studyId || '-'}</td>
-          <td>${r.phase || '-'}</td>
-          <td>${r.conditionGroup || '-'}</td>
-          <td>${r.game || '-'}</td>
-          <td>${r.score ?? 0}</td>
-          <td>${ratio}</td>
-          <td>${r.maxStreak ?? 0}</td>
-          <td>${fmtMs(r.ms)}</td>
-          <td>${r.seed ?? 0}</td>
-        </tr>
-      `;
-    }).join('');
-
-    setMsg(`Summary: แสดง ${rows.length} แถว | Summary store: ${STORE_SUM} | Events store: ${STORE_EVT} (รวม events: ${readEvents().length})`);
-  }
-
-  async function copyText(txt, okMsg){
-    try{
-      await navigator.clipboard.writeText(txt);
-      setMsg(okMsg);
-    }catch(e){
-      try{ WIN.prompt('Copy:', txt); }catch(_){}
-      setMsg('เปิดกล่องให้คัดลอกแล้ว');
+    .td-title{ font-weight:1000; font-size:16px; }
+    .td-sub{ color:var(--muted); font-weight:900; font-size:12px; }
+    .td-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+    .td-btn{
+      border:1px solid var(--stroke); background:rgba(2,6,23,.45); color:var(--text);
+      border-radius:14px; padding:9px 12px; font-weight:1000; font-size:12px;
     }
-  }
+    .td-btn-primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .td-btn-warn{ background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.26); }
 
-  function downloadText(fn, txt){
-    const blob = new Blob([txt], { type:'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = fn;
-    DOC.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
+    .td-filters{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(6, minmax(0,1fr));
+      gap:8px;
+    }
+    .td-inp{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.45);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px;
+      font-weight:1000;
+      font-size:12px;
+      width:100%;
+      outline:none;
+    }
+    .td-inp:focus{ border-color:rgba(34,197,94,.35); }
 
-  function stamp(){
-    const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
-  }
+    .td-filter-adv{
+      margin-top:10px;
+      padding:12px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--r);
+      display:grid;
+      grid-template-columns: repeat(6, minmax(0,1fr));
+      gap:8px;
+      align-items:center;
+    }
+    .td-chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.45);
+      border-radius:14px;
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .td-chip input{ width:16px; height:16px; }
+    .td-note{ grid-column: 1 / -1; color:var(--muted); font-weight:900; font-size:12px; }
 
-  btnRefresh?.addEventListener('click', render);
+    .td-table{
+      margin-top:12px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--r);
+      overflow:hidden;
+    }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:10px; border-bottom:1px solid var(--stroke); font-size:12px; }
+    th{ text-align:left; color:var(--muted); font-weight:1000; }
+    tr:hover td{ background:rgba(148,163,184,.06); }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      border:1px solid var(--stroke);
+      background:rgba(10,16,36,.55);
+      border-radius:999px;
+      padding:4px 8px;
+      font-weight:1000; font-size:12px;
+      white-space:nowrap;
+    }
+    .ok{ background:var(--good); }
+    .warn{ background:var(--bad); }
+    .td-msg{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; }
 
-  btnCopy?.addEventListener('click', ()=>{
-    const rows = applyFilters(readSummary());
-    copyText(summaryCSV(rows), '📋 คัดลอก Summary CSV แล้ว');
-  });
+    @media (max-width: 920px){
+      .td-filters{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .td-filter-adv{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      th:nth-child(7), td:nth-child(7),
+      th:nth-child(8), td:nth-child(8){ display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="td-wrap">
+    <div class="td-top">
+      <div>
+        <div class="td-title">👩‍🏫 Teacher Dashboard — Fitness (local)</div>
+        <div class="td-sub">Filter export + Archive & Clear (Summary + Events)</div>
+      </div>
+      <div class="td-actions">
+        <button class="td-btn" id="td-refresh">รีเฟรช</button>
 
-  btnDL?.addEventListener('click', ()=>{
-    const rows = applyFilters(readSummary());
-    downloadText(`fitness_summary_${stamp()}.csv`, summaryCSV(rows));
-    setMsg('⬇️ ดาวน์โหลด Summary CSV แล้ว');
-  });
+        <button class="td-btn td-btn-primary" id="td-copy-sum">คัดลอก Summary CSV</button>
+        <button class="td-btn td-btn-primary" id="td-dl-sum">ดาวน์โหลด Summary CSV</button>
 
-  btnCopyEvents?.addEventListener('click', ()=>{
-    const rows = readEvents(); // events ไม่ filter ตาม summary UI เพื่อไม่ให้หาย
-    copyText(eventsCSV(rows), '📋 คัดลอก Events CSV แล้ว');
-  });
+        <button class="td-btn" id="td-copy-evt">คัดลอก Events CSV</button>
+        <button class="td-btn td-btn-primary" id="td-dl-evt">ดาวน์โหลด Events CSV</button>
 
-  btnDLEvents?.addEventListener('click', ()=>{
-    const rows = readEvents();
-    downloadText(`fitness_events_${stamp()}.csv`, eventsCSV(rows));
-    setMsg('⬇️ ดาวน์โหลด Events CSV แล้ว');
-  });
+        <button class="td-btn td-btn-warn" id="td-archive-clear">Archive & Clear</button>
+        <a class="td-btn" href="hub.html">กลับ Hub</a>
+      </div>
+    </div>
 
-  btnClear?.addEventListener('click', ()=>{
-    if(!confirm('ล้างข้อมูล Summary+Events ในเครื่องนี้ทั้งหมด?')) return;
-    localStorage.removeItem(STORE_SUM);
-    localStorage.removeItem(STORE_EVT);
-    render();
-    setMsg('ล้างข้อมูลแล้ว');
-  });
+    <!-- Basic filters (summary table) -->
+    <div class="td-filters">
+      <input class="td-inp" id="f-pid" placeholder="ค้นหา PID (เช่น P001)" />
+      <select class="td-inp" id="f-game">
+        <option value="">เกม: ทั้งหมด</option>
+        <option value="shadow">Shadow</option>
+        <option value="rhythm">Rhythm</option>
+        <option value="jumpduck">JumpDuck</option>
+        <option value="balance">Balance</option>
+      </select>
+      <select class="td-inp" id="f-phase">
+        <option value="">Phase: ทั้งหมด</option>
+        <option value="pre">pre</option>
+        <option value="post">post</option>
+        <option value="mid">mid</option>
+      </select>
+      <select class="td-inp" id="f-group">
+        <option value="">Group: ทั้งหมด</option>
+        <option value="A">A</option><option value="B">B</option>
+        <option value="C">C</option><option value="D">D</option>
+      </select>
+      <select class="td-inp" id="f-sort">
+        <option value="ts_desc">เรียง: ล่าสุดก่อน</option>
+        <option value="pid_asc">PID A→Z</option>
+        <option value="score_desc">คะแนนมาก→น้อย</option>
+        <option value="ms_desc">เวลามาก→น้อย</option>
+      </select>
+      <input class="td-inp" id="f-limit" inputmode="numeric" placeholder="จำกัดแถว (เช่น 200)" />
+    </div>
 
-  [fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
-    el?.addEventListener('input', render);
-    el?.addEventListener('change', render);
-  });
+    <!-- Advanced export filters (applies to BOTH summary+events export) -->
+    <div class="td-filter-adv">
+      <input class="td-inp" id="x-study" placeholder="Export filter: studyId (เช่น FIT01)" />
+      <input class="td-inp" id="x-from" placeholder="ตั้งแต่ (YYYY-MM-DD)" />
+      <input class="td-inp" id="x-to" placeholder="ถึง (YYYY-MM-DD)" />
+      <label class="td-chip">
+        <input id="x-today" type="checkbox"/>
+        <span>เฉพาะวันนี้</span>
+      </label>
+      <label class="td-chip">
+        <input id="x-onlyfiltered" type="checkbox" checked/>
+        <span>Export เฉพาะที่กรอง</span>
+      </label>
+      <button class="td-btn" id="x-clear" type="button">ล้างตัวกรอง export</button>
 
-  render();
-})();
+      <div class="td-note">
+        • ตัวกรอง export จะใช้กับไฟล์ที่ export ทั้ง Summary และ Events (เวลา/Study)  
+        • ถ้าติ๊ก “Export เฉพาะที่กรอง” → จะใช้ PID/Game/Phase/Group จากด้านบนด้วย
+      </div>
+    </div>
+
+    <div class="td-table">
+      <table>
+        <thead>
+          <tr>
+            <th>เวลา</th>
+            <th>PID</th>
+            <th>Study</th>
+            <th>Phase</th>
+            <th>Group</th>
+            <th>Game</th>
+            <th>Score</th>
+            <th>Pass/Total</th>
+            <th>Streak</th>
+            <th>Duration</th>
+            <th>Seed</th>
+          </tr>
+        </thead>
+        <tbody id="td-body"></tbody>
+      </table>
+    </div>
+
+    <div class="td-msg" id="td-msg"></div>
+  </div>
+
+  <script src="../herohealth/vr/hha-research-pack.js"></script>
+  <script src="teacher-dashboard.js"></script>
+</body>
+</html>
