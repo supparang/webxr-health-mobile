@@ -17,7 +17,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // ปุ่มเมนู
+  // menu buttons / radios
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -26,19 +26,19 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // ฟอร์มวิจัย
+  // research fields
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // ปุ่มตอนเล่น / สรุปผล
+  // play / result buttons
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements
+  // HUD elements (safe refs)
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -62,7 +62,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // แสดงผลสรุป
+  // Result elements
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -107,11 +107,13 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      modeDescEl.textContent =
+      if (modeDescEl) modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      if (trackModeLbl) trackModeLbl.textContent =
+        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       if (researchBox) researchBox.classList.add('hidden');
 
+      // show normal tracks / hide research tracks
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.add('hidden');
@@ -121,11 +123,13 @@
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction ได้แต่ล็อกไม่ปรับเกม)';
-      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      if (modeDescEl) modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+      if (trackModeLbl) trackModeLbl.textContent =
+        'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
+      // show only research track
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.remove('hidden');
@@ -137,13 +141,13 @@
   }
 
   function switchView(name) {
-    viewMenu.classList.add('hidden');
-    viewPlay.classList.add('hidden');
-    viewResult.classList.add('hidden');
+    if (viewMenu) viewMenu.classList.add('hidden');
+    if (viewPlay) viewPlay.classList.add('hidden');
+    if (viewResult) viewResult.classList.add('hidden');
 
-    if (name === 'menu') viewMenu.classList.remove('hidden');
-    else if (name === 'play') viewPlay.classList.remove('hidden');
-    else if (name === 'result') viewResult.classList.remove('hidden');
+    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
+    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
+    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
   function createEngine() {
@@ -193,25 +197,31 @@
   function handleEngineEnd(summary) {
     if (!summary) summary = {};
 
-    if (res.mode)      res.mode.textContent      = summary.modeLabel || '-';
-    if (res.track)     res.track.textContent     = summary.trackName || '-';
+    if (res.mode) res.mode.textContent      = summary.modeLabel || '-';
+    if (res.track) res.track.textContent    = summary.trackName || '-';
     if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score)     res.score.textContent     = String(summary.finalScore ?? 0);
-    if (res.maxCombo)  res.maxCombo.textContent  = String(summary.maxCombo ?? 0);
+    if (res.score) res.score.textContent    = String(summary.finalScore ?? 0);
+    if (res.maxCombo) res.maxCombo.textContent = String(summary.maxCombo ?? 0);
 
     if (res.hits) {
       res.hits.textContent =
         `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
     }
 
-    if (res.acc)      res.acc.textContent      = (Number(summary.accuracyPct) || 0).toFixed(1) + ' %';
-    if (res.duration) res.duration.textContent = (Number(summary.durationSec) || 0).toFixed(1) + ' s';
-    if (res.rank)     res.rank.textContent     = summary.rank || '-';
+    if (res.acc) res.acc.textContent = (Number(summary.accuracyPct)||0).toFixed(1) + ' %';
+    if (res.duration) res.duration.textContent = (Number(summary.durationSec)||0).toFixed(1) + ' s';
+    if (res.rank) res.rank.textContent = summary.rank || '-';
 
-    if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    if (res.offsetAvg) {
+      res.offsetAvg.textContent =
+        (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+          ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    }
+    if (res.offsetStd) {
+      res.offsetStd.textContent =
+        (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+          ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    }
 
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
@@ -252,6 +262,7 @@
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
+
   if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
