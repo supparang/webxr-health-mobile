@@ -1,22 +1,26 @@
 // === /fitness/teacher-dashboard.js ===
-// Teacher Dashboard (local) — v20260211c (SUMMARY + EVENTS EXPORT)
+// Teacher Dashboard (local) — v20260211d
+// Features: filter export + archive & clear (summary+events) + safe download/copy
+
 (function(){
   'use strict';
   const WIN = window, DOC = document;
   if(!DOC) return;
-
   const $ = (s)=>DOC.querySelector(s);
 
+  // buttons
+  const btnRefresh = $('#td-refresh');
+  const btnCopySum = $('#td-copy-sum');
+  const btnDLSum   = $('#td-dl-sum');
+  const btnCopyEvt = $('#td-copy-evt');
+  const btnDLEvt   = $('#td-dl-evt');
+  const btnArchiveClear = $('#td-archive-clear');
+
+  // table
   const body = $('#td-body');
   const msg  = $('#td-msg');
 
-  const btnRefresh = $('#td-refresh');
-  const btnCopy = $('#td-copy-csv');
-  const btnDL = $('#td-dl-csv');
-  const btnCopyEvents = $('#td-copy-events');
-  const btnDLEvents = $('#td-dl-events');
-  const btnClear = $('#td-clear');
-
+  // basic filters (table)
   const fPid = $('#f-pid');
   const fGame = $('#f-game');
   const fPhase = $('#f-phase');
@@ -24,16 +28,25 @@
   const fSort = $('#f-sort');
   const fLimit = $('#f-limit');
 
+  // export filters (apply to BOTH)
+  const xStudy = $('#x-study');
+  const xFrom  = $('#x-from');
+  const xTo    = $('#x-to');
+  const xToday = $('#x-today');
+  const xOnlyFiltered = $('#x-onlyfiltered');
+  const xClear = $('#x-clear');
+
   const STORE_SUM = 'HHA_FITNESS_SUMMARY_LOG_V1';
   const STORE_EVT = 'HHA_FITNESS_EVENTS_LOG_V1';
+
+  const ARCHIVE_KEY = 'HHA_ARCHIVE_INDEX_V1'; // list of archive ids
+  const ARCHIVE_PREFIX = 'HHA_ARCHIVE_';      // each archive stored as JSON
 
   function setMsg(t){ if(msg) msg.textContent = t || ''; }
 
   function readJSON(key, fallback){
-    try{
-      const a = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-      return a;
-    }catch(_){ return fallback; }
+    try{ const v = JSON.parse(localStorage.getItem(key) || 'null'); return (v==null ? fallback : v); }
+    catch{ return fallback; }
   }
 
   function readSummary(){
@@ -68,6 +81,112 @@
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
   }
 
+  function stamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], { type:'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = DOC.createElement('a');
+    a.href = url;
+    a.download = filename;
+    DOC.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyText(text, okMsg){
+    try{
+      await navigator.clipboard.writeText(text);
+      setMsg(okMsg);
+    }catch(e){
+      try{ WIN.prompt('Copy:', text); }catch(_){}
+      setMsg('เปิดกล่องให้คัดลอกแล้ว');
+    }
+  }
+
+  // -------- filters --------
+  function applyBasicFilters(rows){
+    const pid = (fPid?.value || '').trim().toUpperCase();
+    const game = (fGame?.value || '').trim();
+    const phase = (fPhase?.value || '').trim();
+    const group = (fGroup?.value || '').trim().toUpperCase();
+
+    let out = rows.slice();
+    if(pid) out = out.filter(r => String(r.pid||'').toUpperCase().includes(pid));
+    if(game) out = out.filter(r => String(r.game||'') === game);
+    if(phase) out = out.filter(r => String(r.phase||'') === phase);
+    if(group) out = out.filter(r => String(r.conditionGroup||'') === group);
+
+    const sort = fSort?.value || 'ts_desc';
+    out.sort((a,b)=>{
+      if(sort==='pid_asc') return String(a.pid||'').localeCompare(String(b.pid||''));
+      if(sort==='score_desc') return (Number(b.score||0)-Number(a.score||0));
+      if(sort==='ms_desc') return (Number(b.ms||0)-Number(a.ms||0));
+      return (Number(b.ts||0)-Number(a.ts||0));
+    });
+
+    const lim = Number(fLimit?.value || 0);
+    if(Number.isFinite(lim) && lim>0) out = out.slice(0, lim);
+
+    return out;
+  }
+
+  function parseYMD(s){
+    // expects YYYY-MM-DD
+    const m = String(s||'').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return null;
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    if(!y || !mo || !d) return null;
+    const dt = new Date(y, mo-1, d, 0, 0, 0, 0);
+    return Number.isFinite(dt.getTime()) ? dt.getTime() : null;
+  }
+
+  function getExportWindowMs(){
+    if(xToday?.checked){
+      const d = new Date();
+      const t0 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0).getTime();
+      const t1 = t0 + 24*3600*1000;
+      return { t0, t1 };
+    }
+    const t0 = parseYMD(xFrom?.value);
+    const t1raw = parseYMD(xTo?.value);
+    const t1 = (t1raw != null) ? (t1raw + 24*3600*1000) : null;
+    return { t0, t1 };
+  }
+
+  function applyExportFilters(rows, alsoApplyBasic){
+    let out = rows.slice();
+
+    // time window
+    const { t0, t1 } = getExportWindowMs();
+    if(t0 != null) out = out.filter(r => Number(r.ts||0) >= t0);
+    if(t1 != null) out = out.filter(r => Number(r.ts||0) < t1);
+
+    // studyId filter
+    const study = (xStudy?.value || '').trim();
+    if(study) out = out.filter(r => String(r.studyId||'').trim() === study);
+
+    if(alsoApplyBasic){
+      // apply PID/Game/Phase/Group from top filters too
+      const pid = (fPid?.value || '').trim().toUpperCase();
+      const game = (fGame?.value || '').trim();
+      const phase = (fPhase?.value || '').trim();
+      const group = (fGroup?.value || '').trim().toUpperCase();
+
+      if(pid) out = out.filter(r => String(r.pid||'').toUpperCase().includes(pid));
+      if(game) out = out.filter(r => String(r.game||'') === game);
+      if(phase) out = out.filter(r => String(r.phase||'') === phase);
+      if(group) out = out.filter(r => String(r.conditionGroup||'') === group);
+    }
+
+    return out;
+  }
+
+  // -------- CSV builders --------
   function summaryCSV(rows){
     const header = ['ts','pid','studyId','phase','conditionGroup','game','score','pass','total','maxStreak','ms','seed'];
     const lines = [header.join(',')];
@@ -95,39 +214,13 @@
     return lines.join('\n');
   }
 
-  function applyFilters(rows){
-    const pid = (fPid?.value || '').trim().toUpperCase();
-    const game = (fGame?.value || '').trim();
-    const phase = (fPhase?.value || '').trim();
-    const group = (fGroup?.value || '').trim().toUpperCase();
-
-    let out = rows.slice();
-
-    if(pid) out = out.filter(r => String(r.pid||'').toUpperCase().includes(pid));
-    if(game) out = out.filter(r => String(r.game||'') === game);
-    if(phase) out = out.filter(r => String(r.phase||'') === phase);
-    if(group) out = out.filter(r => String(r.conditionGroup||'') === group);
-
-    const sort = fSort?.value || 'ts_desc';
-    out.sort((a,b)=>{
-      if(sort==='pid_asc') return String(a.pid||'').localeCompare(String(b.pid||''));
-      if(sort==='score_desc') return (Number(b.score||0)-Number(a.score||0));
-      if(sort==='ms_desc') return (Number(b.ms||0)-Number(a.ms||0));
-      return (Number(b.ts||0)-Number(a.ts||0));
-    });
-
-    const lim = Number(fLimit?.value || 0);
-    if(Number.isFinite(lim) && lim>0) out = out.slice(0, lim);
-
-    return out;
-  }
-
+  // -------- UI render --------
   function pill(text, cls=''){
     return `<span class="pill ${cls}">${text}</span>`;
   }
 
   function render(){
-    const rows = applyFilters(readSummary());
+    const rows = applyBasicFilters(readSummary());
     if(!body) return;
 
     body.innerHTML = rows.map(r=>{
@@ -151,72 +244,158 @@
       `;
     }).join('');
 
-    setMsg(`Summary: แสดง ${rows.length} แถว | Summary store: ${STORE_SUM} | Events store: ${STORE_EVT} (รวม events: ${readEvents().length})`);
+    const allSum = readSummary().length;
+    const allEvt = readEvents().length;
+    setMsg(`Table: ${rows.length} แถว | Summary store: ${STORE_SUM} (${allSum}) | Events store: ${STORE_EVT} (${allEvt})`);
   }
 
-  async function copyText(txt, okMsg){
-    try{
-      await navigator.clipboard.writeText(txt);
-      setMsg(okMsg);
-    }catch(e){
-      try{ WIN.prompt('Copy:', txt); }catch(_){}
-      setMsg('เปิดกล่องให้คัดลอกแล้ว');
+  // -------- export actions --------
+  function getExportRows(){
+    const alsoBasic = !!xOnlyFiltered?.checked;
+    const sum = applyExportFilters(readSummary(), alsoBasic);
+    const evt = applyExportFilters(readEvents(), alsoBasic);
+    return { sum, evt, alsoBasic };
+  }
+
+  function exportSummaryCopy(){
+    const { sum } = getExportRows();
+    copyText(summaryCSV(sum), `📋 คัดลอก Summary CSV (filtered: ${sum.length}) แล้ว`);
+  }
+  function exportSummaryDownload(){
+    const { sum } = getExportRows();
+    downloadText(`fitness_summary_${stamp()}.csv`, summaryCSV(sum));
+    setMsg(`⬇️ ดาวน์โหลด Summary CSV (filtered: ${sum.length}) แล้ว`);
+  }
+  function exportEventsCopy(){
+    const { evt } = getExportRows();
+    copyText(eventsCSV(evt), `📋 คัดลอก Events CSV (filtered: ${evt.length}) แล้ว`);
+  }
+  function exportEventsDownload(){
+    const { evt } = getExportRows();
+    downloadText(`fitness_events_${stamp()}.csv`, eventsCSV(evt));
+    setMsg(`⬇️ ดาวน์โหลด Events CSV (filtered: ${evt.length}) แล้ว`);
+  }
+
+  // -------- archive & clear --------
+  function archiveId(){
+    return `${stamp()}_${Math.floor(Math.random()*1e6)}`;
+  }
+
+  function pushArchiveIndex(id){
+    const idx = readJSON(ARCHIVE_KEY, []);
+    const arr = Array.isArray(idx) ? idx : [];
+    arr.unshift({ id, ts: Date.now() });
+    // keep last 30 archives
+    const keep = arr.slice(0, 30);
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(keep));
+  }
+
+  function archiveAndClear(){
+    const { sum, evt } = getExportRows();
+    if(sum.length===0 && evt.length===0){
+      setMsg('ไม่มีข้อมูลตามตัวกรองให้ archive');
+      return;
     }
+
+    const id = archiveId();
+    const archiveObj = {
+      id,
+      ts: Date.now(),
+      note: 'Archive & Clear from teacher dashboard',
+      filters: {
+        xStudy: (xStudy?.value||'').trim(),
+        xFrom: (xFrom?.value||'').trim(),
+        xTo: (xTo?.value||'').trim(),
+        xToday: !!xToday?.checked,
+        xOnlyFiltered: !!xOnlyFiltered?.checked,
+        pid: (fPid?.value||'').trim(),
+        game: (fGame?.value||'').trim(),
+        phase: (fPhase?.value||'').trim(),
+        group: (fGroup?.value||'').trim(),
+      },
+      summary: sum,
+      events: evt
+    };
+
+    // 1) download files first
+    downloadText(`ARCHIVE_${id}_summary.csv`, summaryCSV(sum));
+    downloadText(`ARCHIVE_${id}_events.csv`, eventsCSV(evt));
+
+    // 2) store archive snapshot (for recovery)
+    try{
+      localStorage.setItem(ARCHIVE_PREFIX + id, JSON.stringify(archiveObj));
+      pushArchiveIndex(id);
+    }catch(e){
+      // if storage full, still proceed with clear decision
+    }
+
+    // 3) clear — either filtered subset or all?
+    const clearAll = confirm(
+      `ดาวน์โหลดไฟล์แล้ว ✅\n\nกด OK เพื่อล้าง "ทั้งหมด" ในเครื่องนี้\nกด Cancel เพื่อล้าง "เฉพาะที่ match ตัวกรอง export"`
+    );
+
+    if(clearAll){
+      localStorage.removeItem(STORE_SUM);
+      localStorage.removeItem(STORE_EVT);
+      setMsg(`Archive ${id} แล้ว | ล้างข้อมูลทั้งหมดในเครื่อง`);
+      render();
+      return;
+    }
+
+    // clear only matching subset
+    const alsoBasic = !!xOnlyFiltered?.checked;
+    const sumAll = readSummary();
+    const evtAll = readEvents();
+
+    const sumKeep = sumAll.filter(r => !applyExportFilters([r], alsoBasic).length);
+    const evtKeep = evtAll.filter(r => !applyExportFilters([r], alsoBasic).length);
+
+    localStorage.setItem(STORE_SUM, JSON.stringify(sumKeep));
+    localStorage.setItem(STORE_EVT, JSON.stringify(evtKeep));
+
+    setMsg(`Archive ${id} แล้ว | ล้างเฉพาะชุดตามตัวกรอง (sum-${sum.length}, evt-${evt.length})`);
+    render();
   }
 
-  function downloadText(fn, txt){
-    const blob = new Blob([txt], { type:'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = fn;
-    DOC.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function stamp(){
-    const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
-  }
-
+  // -------- bind UI --------
   btnRefresh?.addEventListener('click', render);
 
-  btnCopy?.addEventListener('click', ()=>{
-    const rows = applyFilters(readSummary());
-    copyText(summaryCSV(rows), '📋 คัดลอก Summary CSV แล้ว');
+  btnCopySum?.addEventListener('click', exportSummaryCopy);
+  btnDLSum?.addEventListener('click', exportSummaryDownload);
+  btnCopyEvt?.addEventListener('click', exportEventsCopy);
+  btnDLEvt?.addEventListener('click', exportEventsDownload);
+
+  btnArchiveClear?.addEventListener('click', ()=>{
+    if(!confirm('Archive & Clear จะดาวน์โหลด 2 ไฟล์ (summary+events) แล้วล้างข้อมูลตามที่เลือก\n\nทำต่อไหม?')) return;
+    archiveAndClear();
   });
 
-  btnDL?.addEventListener('click', ()=>{
-    const rows = applyFilters(readSummary());
-    downloadText(`fitness_summary_${stamp()}.csv`, summaryCSV(rows));
-    setMsg('⬇️ ดาวน์โหลด Summary CSV แล้ว');
-  });
-
-  btnCopyEvents?.addEventListener('click', ()=>{
-    const rows = readEvents(); // events ไม่ filter ตาม summary UI เพื่อไม่ให้หาย
-    copyText(eventsCSV(rows), '📋 คัดลอก Events CSV แล้ว');
-  });
-
-  btnDLEvents?.addEventListener('click', ()=>{
-    const rows = readEvents();
-    downloadText(`fitness_events_${stamp()}.csv`, eventsCSV(rows));
-    setMsg('⬇️ ดาวน์โหลด Events CSV แล้ว');
-  });
-
-  btnClear?.addEventListener('click', ()=>{
-    if(!confirm('ล้างข้อมูล Summary+Events ในเครื่องนี้ทั้งหมด?')) return;
-    localStorage.removeItem(STORE_SUM);
-    localStorage.removeItem(STORE_EVT);
-    render();
-    setMsg('ล้างข้อมูลแล้ว');
-  });
-
-  [fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
+  // basic filters -> rerender table only
+  ;[fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
     el?.addEventListener('input', render);
     el?.addEventListener('change', render);
   });
 
+  // export filters -> just update message (no need rerender table)
+  function pingExport(){
+    const { sum, evt } = getExportRows();
+    setMsg(`Export ready | summary:${sum.length} events:${evt.length} | (Table remains filtered by top filters)`);
+  }
+  ;[xStudy,xFrom,xTo,xToday,xOnlyFiltered].forEach(el=>{
+    el?.addEventListener('input', pingExport);
+    el?.addEventListener('change', pingExport);
+  });
+
+  xClear?.addEventListener('click', ()=>{
+    if(xStudy) xStudy.value = '';
+    if(xFrom) xFrom.value = '';
+    if(xTo) xTo.value = '';
+    if(xToday) xToday.checked = false;
+    if(xOnlyFiltered) xOnlyFiltered.checked = true;
+    pingExport();
+  });
+
+  // initial
   render();
+  pingExport();
 })();
