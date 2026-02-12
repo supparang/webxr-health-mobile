@@ -11,22 +11,20 @@
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target คือเกมจริง
+  // ✅ ตั้งค่าเริ่มต้น (คุณปรับได้)
+  // - logDefault: ใส่ Web App URL ที่ deploy แล้ว (ถ้าผู้ใช้ไม่ส่งมาใน ?log=)
+  // - rememberLog: จำ log ล่าสุดไว้ใน localStorage
   hhGo('../fitness/jump-duck.html', {
     defaults: {
       mode: 'training',
       diff: 'normal',
       duration: '60',
-      boss: 'auto'
+
+      // ✅ ใส่ URL ของคุณที่ส่งมาแล้ว
+      log: 'https://script.google.com/macros/s/AKfycbzxSLAGlvcFBxDkWhWnKmAehnRGKzE4nt8CpX9AgTWuNo33KuF2T9XrEgsrLtycnL-BFA/exec'
     },
-    // ✅ อนุญาตให้ส่งพารามิเตอร์พิเศษไปเกม
-    passthrough: [
-      'hub','view','mode','runMode','diff','duration','time','seed',
-      'studyId','phase','conditionGroup',
-      'pid','group','note',
-      'log',     // ✅ Apps Script Web App URL
-      'boss'     // ✅ rage|mirror|chaos|rhythm|auto|mixed
-    ]
+    rememberLog: true,     // ✅ จำ log ล่าสุด
+    preferQueryLog: true   // ✅ ถ้ามี ?log= ในลิงก์ ให้ใช้ค่านั้นก่อน
   });
 </script>
 </body>
