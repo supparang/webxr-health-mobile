@@ -1,31 +1,25 @@
-<!-- === /herohealth/warmup-gate.html ===
-HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v2026-02-11c
-✅ FIX: “ธีมไม่มา” = ใส่ BUILD ID โชว์ชัด + กันเปิดไฟล์ผิด
-✅ Auto-pick mini-game by zone (manual=0): nutrition→meditation, hygiene→breathing, fitness→stretching
-✅ Warmup: NOT mark DONE (เป็นแค่ gate ก่อนเข้าเกม)
-✅ Cooldown: mark DONE วันละ 1 ครั้ง/โซน ด้วยคีย์ HHA_ZONE_DONE::<zone>::YYYY-MM-DD
-✅ Daily zone status panel + Reset zone today (เฉพาะโซนนี้)
-✅ Pass-through params + next/hub (ไม่ forward next/hub/phase/dur/cdur/games/zone/manual/autonext)
-✅ Supports next=random + games=...
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Warmup Gate (PATCH v2026-02-11c)</title>
+  <title>HeroHealth — Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#040610"/>
   <style>
     :root{
       --bg:#040610;
       --panel: rgba(4,6,16,.72);
       --panel2: rgba(10,16,36,.55);
       --stroke: rgba(148,163,184,.18);
-
       --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
 
+      /* theme accents (will be overridden by zone) */
+      --a1: rgba(34,211,238,.16);
+      --a2: rgba(167,139,250,.18);
+      --a3: rgba(255,79,216,.10);
+      --accent: #22d3ee;
+
+      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -34,14 +28,13 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     html,body{ height:100%; margin:0; color:var(--text);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
       background:
-        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.16) 0%, transparent 55%),
-        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.18) 0%, transparent 55%),
-        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.10) 0%, transparent 60%),
+        radial-gradient(1200px 800px at 20% 10%, var(--a1) 0%, transparent 55%),
+        radial-gradient(1100px 700px at 80% 30%, var(--a2) 0%, transparent 55%),
+        radial-gradient(900px 700px at 50% 95%, var(--a3) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
       overflow:hidden;
     }
 
-    /* --- boss vibe --- */
     @keyframes neonPulse{
       0%,100%{ filter: drop-shadow(0 0 12px rgba(34,211,238,.25)); }
       50%{ filter: drop-shadow(0 0 26px rgba(255,79,216,.28)); }
@@ -71,7 +64,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
 
     .wrap{ height:100%; padding: calc(12px + var(--sat)) 12px calc(12px + var(--sab)); display:flex; justify-content:center; align-items:stretch; }
     .card{
-      width:min(1100px, 100%);
+      width:min(1040px, 100%);
       background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.55));
       border:1px solid var(--stroke);
       border-radius: var(--radius);
@@ -96,43 +89,32 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       animation: scan 6.5s linear infinite;
       opacity:.22;
     }
-    #particles{ position:absolute; inset:0; pointer-events:none; z-index:999; }
-    .p{
-      position:absolute; opacity:0;
-      animation: burst 520ms ease-out forwards;
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
-      font-size: 18px;
-    }
 
     header{
       position:relative;
       padding:16px 16px 12px;
       border-bottom:1px solid var(--stroke);
-      display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
       background: rgba(0,0,0,.18);
       backdrop-filter: blur(10px);
     }
     .title{ display:flex; flex-direction:column; gap:4px; }
-    .title h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+    .title h1{ margin:0; font-size:18px; letter-spacing:.2px; display:flex; gap:10px; align-items:center; }
     .title p{ margin:0; color:var(--muted); font-size:12.5px; }
-    .topRight{ display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
-    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+    .pillRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
     .pill{
       display:inline-flex; gap:8px; align-items:center;
       padding:7px 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.55);
       font-size:12px; color:var(--muted);
-      max-width: 48vw;
     }
     .pill b{ color:var(--text); font-weight:900; }
-    .pill .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow: 0 0 14px rgba(34,211,238,.55); }
-    .pill .mini{ opacity:.85; }
-    .build{ font-size:11px; color: rgba(229,231,235,.85); opacity:.9; }
-    .build .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: rgba(34,211,238,.95); }
+    .pill .dot{ width:8px; height:8px; border-radius:999px; background: var(--accent); box-shadow: 0 0 14px rgba(34,211,238,.55); }
 
-    main{ padding:14px; display:grid; grid-template-columns: 1.15fr .85fr; gap:12px; }
-    @media (max-width: 920px){ main{ grid-template-columns: 1fr; } }
+    main{ padding:14px; display:grid; grid-template-columns: 1.22fr .78fr; gap:12px; }
+    @media (max-width: 860px){ main{ grid-template-columns: 1fr; } }
 
     .panel{
       background: var(--panel2);
@@ -141,18 +123,18 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       padding:14px;
       position:relative;
       overflow:hidden;
-      min-height: 300px;
     }
     .panel::after{
       content:"";
       position:absolute; inset:0;
-      background: radial-gradient(520px 260px at 30% 20%, rgba(34,211,238,.10) 0%, transparent 60%),
-                  radial-gradient(520px 260px at 70% 60%, rgba(255,79,216,.08) 0%, transparent 60%);
+      background:
+        radial-gradient(520px 260px at 30% 20%, rgba(34,211,238,.10) 0%, transparent 60%),
+        radial-gradient(520px 260px at 70% 60%, rgba(255,79,216,.08) 0%, transparent 60%);
       pointer-events:none;
     }
 
     .grid3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; position:relative; z-index:1; }
-    @media (max-width: 640px){ .grid3{ grid-template-columns: 1fr; } }
+    @media (max-width: 560px){ .grid3{ grid-template-columns: 1fr; } }
 
     button{
       border:1px solid rgba(148,163,184,.22);
@@ -165,7 +147,6 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       user-select:none;
       position:relative;
       z-index:1;
-      font-weight: 900;
     }
     button:hover{
       background: rgba(2,6,23,.75);
@@ -182,30 +163,30 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       display:flex; align-items:center; justify-content:center;
       font-size:22px;
       animation: neonPulse 2.8s ease-in-out infinite;
-      flex: 0 0 auto;
     }
     .modeMeta{ display:flex; flex-direction:column; gap:2px; }
     .modeMeta .name{ font-weight:1000; letter-spacing:.2px; }
-    .modeMeta .desc{ font-size:12px; color:var(--muted); font-weight: 700; }
-    .modeMeta .tag{ font-size:11px; color:rgba(229,231,235,.90); font-weight: 800; }
+    .modeMeta .desc{ font-size:12px; color:var(--muted); }
+    .modeMeta .tag{ font-size:11px; color:rgba(229,231,235,.90); }
 
     .actionRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top: 10px; position:relative; z-index:1; }
     .primary{
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.32);
-      box-shadow: 0 0 0 rgba(34,197,94,0);
+      background: color-mix(in srgb, var(--accent) 18%, rgba(2,6,23,.55));
+      border-color: color-mix(in srgb, var(--accent) 38%, rgba(148,163,184,.22));
     }
-    .primary:hover{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.50); box-shadow: 0 0 26px rgba(34,197,94,.10); }
+    .primary:hover{
+      background: color-mix(in srgb, var(--accent) 26%, rgba(2,6,23,.62));
+      border-color: color-mix(in srgb, var(--accent) 56%, rgba(148,163,184,.22));
+      box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
     .ghost{ background: rgba(148,163,184,.08); }
     .danger{ background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); }
     .danger:hover{ background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.35); }
-    .amber{ background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.22); }
-    .amber:hover{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.32); }
 
     .big{
       display:flex; flex-direction:column; gap:10px;
       align-items:center; justify-content:center;
-      min-height: 320px;
+      min-height: 290px;
       text-align:center;
       padding: 10px;
       position:relative;
@@ -213,10 +194,10 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       animation: pop .22s ease-out;
     }
     .emoji{ font-size:66px; line-height:1; filter: drop-shadow(0 14px 34px rgba(0,0,0,.55)); }
-    .h2{ font-size: 22px; margin: 0; letter-spacing:.2px; font-weight: 1000; }
-    .hint{ margin:0; color:var(--muted); font-size: 13px; max-width: 62ch; font-weight: 750; }
+    .h2{ font-size: 22px; margin: 0; letter-spacing:.2px; }
+    .hint{ margin:0; color:var(--muted); font-size: 13px; max-width: 58ch; }
 
-    .hudRow{ width:min(620px,100%); display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
+    .hudRow{ width:min(560px,100%); display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
     .hud{
       padding: 8px 12px;
       border-radius: 14px;
@@ -228,7 +209,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     }
     .hud .small{ font-weight:800; color: var(--muted); }
 
-    .bar{ width:min(620px,100%); height:14px; border-radius:999px; border:1px solid rgba(148,163,184,.22); background: rgba(2,6,23,.62); overflow:hidden; }
+    .bar{ width:min(560px,100%); height:14px; border-radius:999px; border:1px solid rgba(148,163,184,.22); background: rgba(2,6,23,.62); overflow:hidden; }
     .bar > i{
       display:block; height:100%; width:0%;
       background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
@@ -244,14 +225,12 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       text-shadow: 0 0 18px rgba(34,211,238,.20);
     }
 
-    /* meditation arena */
     .arena{
-      position:relative; width:min(620px,100%); height:190px;
+      position:relative; width:min(560px,100%); height:190px;
       border-radius:18px;
       border:1px dashed rgba(148,163,184,.26);
       background: rgba(2,6,23,.40);
       overflow:hidden;
-      touch-action: manipulation;
     }
     .orb{
       position:absolute; border-radius:999px;
@@ -283,19 +262,24 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       color:#1a0404;
     }
 
-    /* stretch boss wave */
     .wave{
       position:absolute; inset:0;
       pointer-events:none;
       background: radial-gradient(520px 220px at 50% 50%, rgba(255,79,216,.18), transparent 60%);
       opacity:0;
     }
-    .wave.on{
-      opacity:1;
-      animation: burst .55s ease-out forwards;
-    }
+    .wave.on{ opacity:1; animation: burst .55s ease-out forwards; }
     .shake{ animation: shake .18s ease-in-out 2; }
 
+    #particles{ position:absolute; inset:0; pointer-events:none; z-index:999; }
+    .p{
+      position:absolute; opacity:0;
+      animation: burst 520ms ease-out forwards;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+      font-size: 18px;
+    }
+
+    footer{ padding: 10px 14px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; color: var(--muted); font-size: 12px; }
     pre{ margin:10px 0 0; white-space:pre-wrap; font-size:12px; text-align:left; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
@@ -305,45 +289,22 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       background: rgba(2,6,23,.42);
       color: var(--muted); font-size: 12px;
       position:relative; z-index:1;
-      font-weight: 750;
     }
 
     .side h3{ margin:0 0 8px; font-size: 14px; position:relative; z-index:1; }
-    .side p{ margin:0 0 10px; color:var(--muted); font-size: 12.5px; line-height:1.45; position:relative; z-index:1; font-weight: 750; }
+    .side p{ margin:0 0 10px; color:var(--muted); font-size: 12.5px; line-height:1.45; position:relative; z-index:1; }
     .kv{ display:grid; grid-template-columns: 1fr auto; gap:8px; margin-top:10px; position:relative; z-index:1; }
-    .kv div{ padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px; background: rgba(2,6,23,.42); font-size: 12.5px; font-weight: 800; }
+    .kv div{ padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px; background: rgba(2,6,23,.42); font-size: 12.5px; }
     .kv b{ font-weight: 1000; color: rgba(229,231,235,.95); }
 
-    .statusRow{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px;
-      background: rgba(2,6,23,.42);
-      position:relative; z-index:1;
-      font-weight: 900;
-    }
-    .statusLeft{ display:flex; align-items:center; gap:10px; min-width: 0; }
-    .statusDot{ width:10px; height:10px; border-radius:999px; background: rgba(148,163,184,.5); box-shadow: 0 0 16px rgba(148,163,184,.25); }
-    .statusName{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .statusRight{ font-weight: 1000; opacity:.9; }
-
-    .miniBox{
-      padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px;
-      background: rgba(2,6,23,.42);
-      position:relative; z-index:1;
-      font-weight: 800;
-    }
-    .miniBox .mono{ font-weight: 900; }
-
-    footer{
-      padding: 10px 14px;
-      border-top:1px solid rgba(148,163,184,.14);
-      display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap;
-      color: var(--muted); font-size: 12px;
-      position:relative;
-      background: rgba(0,0,0,.10);
+    .warn{
+      border-color: rgba(245,158,11,.28) !important;
+      background: rgba(245,158,11,.08) !important;
+      color: rgba(229,231,235,.92) !important;
     }
   </style>
 </head>
+
 <body>
 <div class="wrap">
   <div class="card" id="app">
@@ -352,24 +313,22 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
 
     <header>
       <div class="title">
-        <h1 id="topTitle">⚔️ Warmup Boss Gate</h1>
-        <p id="topSub">เตรียมร่างกาย 20 วิ ก่อนเข้าเกมจริง · Warmup ไม่ mark DONE</p>
+        <h1 id="topTitle">⚔️ Warmup Gate</h1>
+        <p id="topSub">เลือกมินิเกมสั้น ๆ → ได้บัฟ → ไปเกมหลัก</p>
       </div>
 
-      <div class="topRight">
-        <div class="pillRow">
-          <div class="pill"><span class="dot"></span> pid: <b id="pillPid">anon</b></div>
-          <div class="pill"><span class="mini">phase:</span> <b id="pillPhase">warmup</b></div>
-          <div class="pill"><span class="mini">dur:</span> <b id="pillDur">20</b></div>
-        </div>
-        <div class="build">BUILD: <span class="mono" id="buildId">v2026-02-11c</span> · ถ้าไม่เห็น BUILD นี้ = เปิดไฟล์ผิด/แคชยังค้าง</div>
+      <div class="pillRow">
+        <div class="pill"><span class="dot"></span> zone: <b id="zoneBadge">—</b></div>
+        <div class="pill">pid: <b id="pidBadge">anon</b></div>
+        <div class="pill">phase: <b id="phaseBadge">warmup</b></div>
+        <div class="pill">dur: <b id="durBadge">20</b></div>
+        <div class="pill" id="doneTodayPill" style="display:none;">✅ <b>DONE TODAY</b></div>
       </div>
     </header>
 
     <main>
       <!-- LEFT -->
       <section class="panel">
-        <!-- SELECT -->
         <div id="screen-select">
           <div class="note" id="routeNote"></div>
           <div style="height:10px;"></div>
@@ -379,8 +338,8 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
               <div class="modeIcon" style="background: rgba(34,211,238,.10); border:1px solid rgba(34,211,238,.28);">🌬️</div>
               <div class="modeMeta">
                 <div class="name">Breathing: PERFECT</div>
-                <div class="desc">กดให้ “ตรงจังหวะ” ได้คอมโบ</div>
-                <div class="tag">เหมาะ: Hygiene · บัฟ: ⭐ Critical +</div>
+                <div class="desc">กดตามจังหวะ → PERFECT/ MISS</div>
+                <div class="tag">บัฟ: ⭐ Critical +</div>
               </div>
             </button>
 
@@ -388,8 +347,8 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
               <div class="modeIcon" style="background: rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.28);">🧠</div>
               <div class="modeMeta">
                 <div class="name">Meditation: GREEN ONLY</div>
-                <div class="desc">แตะ “สีเขียว” หลบหลอก</div>
-                <div class="tag">เหมาะ: Nutrition · บัฟ: 🛡️ Damage ลด</div>
+                <div class="desc">แตะ “เขียว” เท่านั้น (มีหลอก)</div>
+                <div class="tag">บัฟ: 🛡️ Damage ลด</div>
               </div>
             </button>
 
@@ -397,17 +356,18 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
               <div class="modeIcon" style="background: rgba(245,158,11,.10); border:1px solid rgba(245,158,11,.28);">🤸</div>
               <div class="modeMeta">
                 <div class="name">Stretching: HOLD vs WAVE</div>
-                <div class="desc">กดค้างผ่าน “คลื่นบอส”</div>
-                <div class="tag">เหมาะ: Fitness · บัฟ: 💚 Heal +</div>
+                <div class="desc">กดค้างผ่านคลื่นบอส 2 ครั้ง</div>
+                <div class="tag">บัฟ: 💚 Heal +</div>
               </div>
             </button>
           </div>
 
           <div class="actionRow" style="margin-top:14px;">
-            <button id="btn-start-auto" class="primary">▶️ Start (Auto by Zone)</button>
-            <button id="btn-cooldown" class="amber">😌 ไป Cooldown</button>
+            <button id="btn-cooldown" class="primary">😌 ไปคูลดาวน์</button>
             <button id="btn-backhub" class="ghost">🏠 กลับ HUB</button>
           </div>
+
+          <div class="note" id="dailyNote" style="margin-top:12px;"></div>
         </div>
 
         <!-- RUN -->
@@ -426,7 +386,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
           <div class="bar"><i id="run-bar"></i></div>
           <div class="hitText" id="hitText"></div>
 
-          <div id="run-actions" style="width:min(620px,100%);"></div>
+          <div id="run-actions" style="width:min(560px,100%);"></div>
 
           <div class="actionRow" style="margin-top:10px;">
             <button id="btn-stop" class="danger">หยุด</button>
@@ -437,22 +397,20 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
         <div id="screen-done" class="big" style="display:none;">
           <div class="emoji">🏆</div>
           <h2 class="h2">CLEAR!</h2>
-          <p class="hint" id="done-text">คุณได้บัฟ</p>
+          <p class="hint" id="done-text">สรุปผล</p>
 
-          <div class="panel" style="width:min(620px,100%);">
-            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1; font-weight:900;">BUFF (ส่งต่อไปเกมหลัก)</div>
+          <div class="panel" style="width:min(560px,100%);">
+            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1;" id="done-head">RESULT</div>
             <pre id="done-json" style="position:relative; z-index:1;"></pre>
           </div>
 
           <div class="actionRow">
-            <button id="btn-again">เล่นอีกรอบ</button>
+            <button id="btn-again">เล่นใหม่</button>
             <button id="btn-go" class="primary">▶️ ไปเล่นเกม</button>
             <button id="btn-go-hub" class="ghost">🏠 กลับ HUB</button>
           </div>
 
-          <div class="note" style="width:min(620px,100%); text-align:left;">
-            ส่งต่อผ่าน Query: <span class="mono">wType,wPct,wCrit,wDmg,wHeal,calm,rank</span>
-          </div>
+          <div class="note" style="width:min(560px,100%); text-align:left;" id="done-note"></div>
         </div>
       </section>
 
@@ -461,22 +419,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
         <h3>⚙️ Route</h3>
         <p class="mono" id="routeMini"></p>
 
-        <h3>📌 Daily Zone Status</h3>
-        <p>คีย์หลักของ Hub: <span class="mono" id="zoneKeyMini"></span></p>
-
-        <div class="statusRow" style="margin-top:8px;">
-          <div class="statusLeft">
-            <div class="statusDot" id="zoneDot"></div>
-            <div class="statusName" id="zoneName">Zone</div>
-          </div>
-          <div class="statusRight" id="zoneDoneText">—</div>
-        </div>
-
-        <div class="actionRow" style="justify-content:flex-start; margin-top:10px;">
-          <button id="btn-reset-zone" class="amber">♻️ Reset zone วันนี้ (เฉพาะโซนนี้)</button>
-        </div>
-
-        <h3 style="margin-top:14px;">🎯 Buff (บาลานซ์ 20 วิ)</h3>
+        <h3>🎯 Buff (20 วิ)</h3>
         <div class="kv">
           <div>⭐ Critical Bonus</div><div><b>0.03 → 0.07</b></div>
           <div>🛡️ Damage Reduce</div><div><b>0.06 → 0.16</b></div>
@@ -484,26 +427,26 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
           <div>😌 Calm (Cooldown)</div><div><b>0 → 100</b></div>
         </div>
 
-        <h3 style="margin-top:14px;">🎲 Next</h3>
-        <div class="miniBox">
-          next: <span class="mono" id="nextMini">(none)</span><br/>
-          hub: <span class="mono" id="hubMini">(none)</span>
-        </div>
+        <h3 style="margin-top:14px;">🎲 next=random</h3>
+        <p>สุ่มจาก <span class="mono">games=goodjunk-vr.html,groups-vr.html,hydration-vr.html,plate-vr.html</span></p>
 
         <h3 style="margin-top:14px;">💾 ผลล่าสุด</h3>
-        <p>localStorage["HHA_WARMUP_LAST"]</p>
+        <p class="mono" id="lastKeyText"></p>
+
         <div class="actionRow" style="justify-content:flex-start;">
           <button id="btn-clear-last">ล้างผลล่าสุด</button>
         </div>
 
-        <h3 style="margin-top:14px;">🧪 Debug</h3>
-        <p class="mono" id="dbgLine"></p>
+        <div class="note" style="margin-top:10px;">
+          <b>กฎรายวัน:</b> Warmup + Cooldown “แจกบัฟ/บันทึกผล” ได้วันละครั้งต่อ pid/zone เท่านั้น<br/>
+          แต่ยัง “เล่นซ้อม” ได้ (ไม่แจกซ้ำ)
+        </div>
       </aside>
     </main>
 
     <footer>
-      <div>HeroHealth · Boss Gate · Warmup/Cooldown</div>
-      <div id="footerHint">เด็ก ป.5: สั้น-มันส์-เห็นผลทันที</div>
+      <div id="footLeft">HeroHealth · Gate</div>
+      <div id="footRight">เด็ก ป.5: สั้น-มันส์-เห็น Rank ชัด</div>
     </footer>
   </div>
 </div>
@@ -511,12 +454,6 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
 <script>
 (() => {
   'use strict';
-
-  // ------------------------------
-  // BUILD (for “ธีมไม่มา” debug)
-  // ------------------------------
-  const BUILD = 'v2026-02-11c';
-  document.getElementById('buildId').textContent = BUILD;
 
   // ------------------------------
   // URL params + passthrough
@@ -529,31 +466,50 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   const q = (k, def='') => (QS.get(k) ?? def);
 
   const PHASE = (q('phase','warmup') || 'warmup').toLowerCase(); // warmup | cooldown
-  const ZONE  = (q('zone','nutrition') || 'nutrition').toLowerCase(); // nutrition|hygiene|fitness
-  const MANUAL = (q('manual','1') || '1') === '1';    // 1=เลือกเอง, 0=auto pick
-  const AUTONEXT = (q('autonext','0') || '0') === '1'; // 1=จบแล้วไป next อัตโนมัติ
-  let NEXT  = q('next',''); // url OR "random"
+  let NEXT  = q('next',''); // url OR "random" OR relative
   const HUB   = q('hub','');
+  const ZONE  = (q('zone', q('category','')) || 'nutrition').toLowerCase(); // nutrition/hygiene/fitness
+  const PID   = (q('pid','anon') || 'anon').toLowerCase();
+  const AUTONEXT = String(q('autonext','0')) === '1'; // optional
 
-  const WARMUP_SECONDS = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
+  const WARMUP_SECONDS   = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
   const COOLDOWN_SECONDS = Math.max(5, Math.min(60, Number(q('cdur','20')||20)));
 
-  const PID = (q('pid','') || localStorage.getItem('HHA_PID') || 'anon').trim() || 'anon';
-  try{ localStorage.setItem('HHA_PID', PID); }catch(_){}
+  // keys
+  const KEY_LAST = 'HHA_GATE_LAST'; // store last result (per pid+zone+phase)
+  const KEY_DONE_PREFIX = 'HHA_GATE_DONE'; // per day lock
 
-  const KEY_LAST = 'HHA_WARMUP_LAST';
-
-  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-  function todayKey(){
+  function todayStr(){
     const d = new Date();
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth()+1).padStart(2,'0');
     const dd = String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  const TODAY = todayKey();
-  const ZONE_DONE_KEY = `HHA_ZONE_DONE::${ZONE}::${TODAY}`;
+  const TODAY = todayStr();
+
+  function doneKey(phase){
+    return `${KEY_DONE_PREFIX}::${phase}::${PID}::${ZONE}::${TODAY}`;
+  }
+  function lastKey(phase){
+    return `${KEY_LAST}::${phase}::${PID}::${ZONE}`;
+  }
+
+  function hasDoneToday(phase){
+    try{ return localStorage.getItem(doneKey(phase)) === '1'; }
+    catch{ return false; }
+  }
+  function markDoneToday(phase){
+    try{ localStorage.setItem(doneKey(phase), '1'); }catch(_){}
+  }
+
+  // keep passthrough params for next (do not forward routing keys)
+  function getPassthrough(){
+    const deny = new Set(['next','hub','phase','dur','cdur','games','autonext','zone','category']);
+    const out = {};
+    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
+    return out;
+  }
 
   // allow random next from list
   function parseGames(){
@@ -565,6 +521,18 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   function pickRandom(arr){
     if(!arr || !arr.length) return '';
     return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  // robust next normalization
+  function normalizeNext(u){
+    if(!u) return '';
+    u = String(u).trim();
+    if(!u) return '';
+    if(u.toLowerCase() === 'random') return 'random';
+    if(/^https?:\/\//i.test(u)) return u;
+    if(u.startsWith('/')) return location.origin + u;
+    try{ return new URL(u, location.href).toString(); }
+    catch{ return u; }
   }
 
   function buildUrl(base, add){
@@ -590,15 +558,19 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     history.length ? history.back() : (location.href = './');
   }
 
-  // keep passthrough params for next (do not forward these)
-  function getPassthrough(){
-    const deny = new Set(['next','hub','phase','dur','cdur','games','zone','manual','autonext']);
-    const out = {};
-    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-    // always keep pid if present
-    if(!out.pid) out.pid = PID;
-    return out;
-  }
+  // ------------------------------
+  // THEME by zone
+  // ------------------------------
+  const ZTHEME = {
+    nutrition: { icon:'🥗', accent:'#22c55e', a1:'rgba(34,197,94,.16)', a2:'rgba(34,211,238,.16)', a3:'rgba(167,139,250,.10)', label:'nutrition' },
+    hygiene:   { icon:'🧼', accent:'#22d3ee', a1:'rgba(34,211,238,.18)', a2:'rgba(255,79,216,.12)', a3:'rgba(245,158,11,.10)', label:'hygiene' },
+    fitness:   { icon:'🏃', accent:'#a78bfa', a1:'rgba(167,139,250,.18)', a2:'rgba(34,211,238,.12)', a3:'rgba(255,79,216,.10)', label:'fitness' },
+  };
+  const theme = ZTHEME[ZONE] || ZTHEME.nutrition;
+  document.documentElement.style.setProperty('--accent', theme.accent);
+  document.documentElement.style.setProperty('--a1', theme.a1);
+  document.documentElement.style.setProperty('--a2', theme.a2);
+  document.documentElement.style.setProperty('--a3', theme.a3);
 
   // ------------------------------
   // DOM
@@ -608,12 +580,15 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   const topTitle = $('#topTitle');
   const topSub = $('#topSub');
 
-  $('#pillPid').textContent = PID;
-  $('#pillPhase').textContent = PHASE;
-  $('#pillDur').textContent = (PHASE==='cooldown') ? COOLDOWN_SECONDS : WARMUP_SECONDS;
+  const zoneBadge = $('#zoneBadge');
+  const pidBadge = $('#pidBadge');
+  const phaseBadge = $('#phaseBadge');
+  const durBadge = $('#durBadge');
+  const doneTodayPill = $('#doneTodayPill');
 
   const routeNote = $('#routeNote');
   const routeMini = $('#routeMini');
+  const dailyNote = $('#dailyNote');
 
   const screenSelect = $('#screen-select');
   const screenRun = $('#screen-run');
@@ -631,14 +606,11 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   const hitText = $('#hitText');
 
   const doneText = $('#done-text');
+  const doneHead = $('#done-head');
   const doneJson = $('#done-json');
+  const doneNote = $('#done-note');
 
-  // right panel
-  $('#zoneKeyMini').textContent = ZONE_DONE_KEY;
-  $('#zoneName').textContent = `🧭 ${ZONE}`;
-  $('#nextMini').textContent = (NEXT||'(none)').toLowerCase()==='random' ? 'random (from games=...)' : (NEXT||'(none)');
-  $('#hubMini').textContent = HUB || '(none)';
-  $('#dbgLine').textContent = `BUILD=${BUILD}  pid=${PID}  phase=${PHASE}  zone=${ZONE}  manual=${MANUAL?1:0}  autonext=${AUTONEXT?1:0}`;
+  const lastKeyText = $('#lastKeyText');
 
   // particles
   const particles = $('#particles');
@@ -663,38 +635,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   }
 
   // ------------------------------
-  // Daily zone status
-  // ------------------------------
-  function isZoneDoneToday(){
-    try{ return localStorage.getItem(ZONE_DONE_KEY) === '1'; }catch(_){ return false; }
-  }
-  function setZoneDoneToday(){
-    try{ localStorage.setItem(ZONE_DONE_KEY, '1'); }catch(_){}
-    renderZoneStatus();
-  }
-  function resetZoneToday(){
-    try{ localStorage.removeItem(ZONE_DONE_KEY); }catch(_){}
-    renderZoneStatus();
-  }
-  function renderZoneStatus(){
-    const done = isZoneDoneToday();
-    $('#zoneDoneText').textContent = done ? 'DONE' : 'NOT DONE';
-    $('#zoneDot').style.background = done ? 'rgba(34,197,94,.85)' : 'rgba(148,163,184,.45)';
-    $('#zoneDot').style.boxShadow = done ? '0 0 16px rgba(34,197,94,.25)' : '0 0 16px rgba(148,163,184,.18)';
-  }
-  renderZoneStatus();
-
-  // ------------------------------
-  // UI show/hide
-  // ------------------------------
-  function show(which){
-    screenSelect.style.display = (which==='select') ? '' : 'none';
-    screenRun.style.display    = (which==='run') ? '' : 'none';
-    screenDone.style.display   = (which==='done') ? '' : 'none';
-  }
-
-  // ------------------------------
-  // State + timers
+  // State
   // ------------------------------
   let timerId = null;
   let tickId = null;
@@ -706,7 +647,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     combo: 0,
     perfect: 0,
     miss: 0,
-    nextBeatAt: 0,
+    goodHits: 0,
     streak: 0,
     holding: false,
     holdMs: 0,
@@ -715,26 +656,34 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     calm: 0
   };
 
+  function show(which){
+    screenSelect.style.display = (which==='select') ? '' : 'none';
+    screenRun.style.display    = (which==='run') ? '' : 'none';
+    screenDone.style.display   = (which==='done') ? '' : 'none';
+  }
   function stopTimers(){
     if(timerId){ clearInterval(timerId); timerId=null; }
     if(tickId){ clearInterval(tickId); tickId=null; }
   }
   function resetRunState(){
-    stopTimers();
     state.tLeft = (PHASE==='cooldown') ? COOLDOWN_SECONDS : WARMUP_SECONDS;
     state.pct = 0;
     state.combo = 0;
     state.perfect = 0;
     state.miss = 0;
-    state.nextBeatAt = 0;
+    state.goodHits = 0;
     state.streak = 0;
     state.holding = false;
     state.holdMs = 0;
     state.waveOn = false;
     state.wavePassed = 0;
     state.calm = 0;
-    setCombo(0); setRank('—'); say('');
+    setCombo(0);
+    setRank('—');
+    say('');
   }
+
+  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
   function setProgress(pct){
     state.pct = clamp(pct,0,100);
@@ -752,6 +701,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   function setRank(r){
     runRank.innerHTML = `<span class="small">RANK</span> · ${r}`;
   }
+
   function calcRank(pct){
     if(pct >= 92) return 'S';
     if(pct >= 78) return 'A';
@@ -763,113 +713,145 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
   function makeBuff(){
     const pct = clamp(state.pct,0,100);
     const rank = calcRank(pct);
-    let buff = { type: state.mode, pct, rank, pid: PID, zone: ZONE, phase: PHASE };
+    let buff = {
+      type: state.mode,
+      pct, rank,
+      pid: PID,
+      zone: ZONE,
+      phase: PHASE
+    };
 
     if(state.mode === 'breathing'){
-      buff.critBonus = +(0.03 + (pct/100)*0.04).toFixed(3); // 0.03..0.07
+      buff.critBonus = +(0.03 + (pct/100)*0.04).toFixed(3);
       buff.perfect = state.perfect;
       buff.miss = state.miss;
     } else if(state.mode === 'meditation'){
-      buff.dmgReduce = +(0.06 + (pct/100)*0.10).toFixed(3); // 0.06..0.16
+      buff.dmgReduce = +(0.06 + (pct/100)*0.10).toFixed(3);
       buff.streak = state.streak;
     } else if(state.mode === 'stretching'){
-      buff.healBonus = Math.round(4 + (pct/100)*6); // 4..10
+      buff.healBonus = Math.round(4 + (pct/100)*6);
       buff.wavePassed = state.wavePassed;
     } else if(state.mode === 'cooldown'){
-      buff.calm = Math.round(pct); // 0..100
+      buff.calm = Math.round(pct);
     }
     return buff;
   }
 
+  // DAILY RULE: only first clear per day records + "gives buff"
+  function canRecordToday(){
+    return !hasDoneToday(PHASE);
+  }
+
   function saveLast(buff){
     try{
-      localStorage.setItem(KEY_LAST, JSON.stringify({ ...buff, at: new Date().toISOString(), build: BUILD }));
+      localStorage.setItem(lastKey(PHASE), JSON.stringify({ ...buff, at: new Date().toISOString() }));
     }catch(_){}
   }
 
-  function resolveRandomNextIfNeeded(){
-    if((NEXT||'').toLowerCase() === 'random'){
-      const g = pickRandom(parseGames());
-      NEXT = g || '';
-    }
+  function loadLast(){
+    try{
+      const raw = localStorage.getItem(lastKey(PHASE));
+      return raw ? JSON.parse(raw) : null;
+    }catch(_){ return null; }
   }
 
   function finishRun(){
     stopTimers();
-    const buff = makeBuff();
-    saveLast(buff);
 
-    // cooldown marks DONE
-    if(PHASE === 'cooldown'){
-      setZoneDoneToday();
+    const buff = makeBuff();
+    const record = canRecordToday();
+
+    // record only once/day
+    if(record){
+      markDoneToday(PHASE);
+      saveLast(buff);
     }
 
+    // DONE UI
+    const rank = buff.rank;
+    const onceText = record ? 'บันทึกผลวันนี้ ✅' : 'ซ้อม (วันนี้ทำแล้ว) — ไม่บันทึก/ไม่แจกซ้ำ';
     doneText.textContent =
       (PHASE === 'cooldown')
-        ? `คูลดาวน์เสร็จ ✅ Calm Rank: ${buff.rank} (DONE วันนี้: ${isZoneDoneToday() ? 'ใช่' : 'ไม่'})`
-        : `วอร์มอัปสำเร็จ ✅ Rank: ${buff.rank} (Warmup ไม่ mark DONE)`;
+        ? `คูลดาวน์เสร็จ ✅ Rank: ${rank} · ${onceText}`
+        : `วอร์มอัปสำเร็จ ✅ Rank: ${rank} · ${onceText}`;
 
+    doneHead.textContent = record ? 'RESULT (RECORDED TODAY)' : 'RESULT (PRACTICE)';
     doneJson.textContent = JSON.stringify(buff, null, 2);
+
+    doneNote.innerHTML =
+      `ส่งต่อผ่าน Query: <span class="mono">wType,wPct,wCrit,wDmg,wHeal,calm,rank</span><br/>` +
+      (record ? `✅ วันนี้ถูกนับแล้ว (phase=${PHASE})` : `⚠️ วันนี้ทำแล้ว → รอบนี้ “ไม่ถูกนับ”`);
+
     show('done');
 
-    resolveRandomNextIfNeeded();
-    $('#btn-go').disabled = !NEXT;
-
-    try{ burstEmoji(50,50,'🏆'); }catch(_){}
-    try{ window.dispatchEvent(new CustomEvent('hha:warmup_done', { detail: buff })); }catch(_){}
-
-    // autonext
-    if(AUTONEXT && NEXT){
-      setTimeout(()=>goNextWithBuff(), 450);
+    // resolve next if random (preview)
+    const n0 = normalizeNext(NEXT);
+    let resolved = n0;
+    if((n0||'').toLowerCase() === 'random'){
+      resolved = normalizeNext(pickRandom(parseGames()));
     }
+
+    // enable go if next exists
+    const goBtn = $('#btn-go');
+    if(goBtn) goBtn.disabled = !(resolved && String(resolved).trim());
+
+    // optional autonext (only for cooldown, if you still want)
+    if(PHASE === 'cooldown' && AUTONEXT && resolved){
+      // show done briefly then go (user can still click buttons immediately)
+      setTimeout(()=>{
+        // if user already navigated, ignore
+        if(document.visibilityState !== 'visible') return;
+        try{ goNextWithBuff(true); }catch(_){}
+      }, 900);
+    }
+
+    burstEmoji(50,50,'🏆');
+    try{ window.dispatchEvent(new CustomEvent('hha:gate_done', { detail: { ...buff, recorded: record } })); }catch(_){}
   }
 
-  function goNextWithBuff(){
+  function goNextWithBuff(silent=false){
     const buff = makeBuff();
 
-    let nextUrl = NEXT;
+    let nextUrl = normalizeNext(NEXT);
     if((nextUrl||'').toLowerCase() === 'random'){
-      nextUrl = pickRandom(parseGames());
+      nextUrl = normalizeNext(pickRandom(parseGames()));
+    }
+    if(!nextUrl){
+      if(!silent) alert('ยังไม่มี next=... จึงไปเกมต่อไม่ได้');
+      return;
     }
 
     const add = {
       ...getPassthrough(),
+      // keep hub as hub (NOT nested)
+      hub: HUB || undefined,
+      // pass buff
       wType: buff.type,
       wPct: buff.pct,
-      rank: buff.rank
+      rank: buff.rank,
     };
     if(buff.critBonus !== undefined) add.wCrit = buff.critBonus;
-    if(buff.dmgReduce !== undefined) add.wDmg = buff.dmgReduce;
+    if(buff.dmgReduce !== undefined) add.wDmg  = buff.dmgReduce;
     if(buff.healBonus !== undefined) add.wHeal = buff.healBonus;
     if(buff.calm !== undefined) add.calm = buff.calm;
 
     const url = buildUrl(nextUrl, add);
-    if(url) location.href = url;
-  }
-
-  // ------------------------------
-  // Auto pick by zone
-  // ------------------------------
-  function pickModeByZone(){
-    if(PHASE === 'cooldown') return 'cooldown';
-    // warmup
-    if(ZONE === 'nutrition') return 'meditation';
-    if(ZONE === 'hygiene')   return 'breathing';
-    if(ZONE === 'fitness')   return 'stretching';
-    return 'meditation';
+    console.log('[Gate] goNext =>', url);
+    try{ location.href = url; }
+    catch(e){
+      if(!silent) alert('ไปเกมต่อไม่สำเร็จ: ' + (e && e.message ? e.message : e));
+    }
   }
 
   // ------------------------------
   // Modes
   // ------------------------------
-
-  // 1) Breathing: Perfect window + combo
   function startBreathing(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'breathing';
 
     runEmoji.textContent = '🌬️';
-    runTitle.textContent = `🌬️ Breathing — PERFECT WINDOW (${WARMUP_SECONDS}s)`;
+    runTitle.textContent = `⚔️ Breathing — PERFECT WINDOW (${WARMUP_SECONDS}s)`;
     runHint.textContent = 'กดตามจังหวะ (ใกล้บีท = PERFECT) | หลุดจังหวะ = MISS';
 
     const beatMs = 900;
@@ -885,14 +867,14 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     `;
     const actBtn = $('#btn-breath-act');
 
-    state.nextBeatAt = performance.now() + beatMs;
+    let nextBeatAt = performance.now() + beatMs;
 
     function judgeTap(){
       const now = performance.now();
-      // move next beat forward if user late
-      while(state.nextBeatAt < now - windowMs) state.nextBeatAt += beatMs;
+      // advance beat if we're far behind
+      while(nextBeatAt < now - windowMs) nextBeatAt += beatMs;
 
-      const diff = Math.abs(now - state.nextBeatAt);
+      const diff = Math.abs(now - nextBeatAt);
       const isPerfect = diff <= windowMs;
 
       if(isPerfect){
@@ -900,18 +882,19 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
         setCombo(state.combo + 1);
         const gain = 6 + Math.min(10, state.combo*0.6);
         setProgress(state.pct + gain);
-        say('PERFECT ✨', 'good');
+        say('PERFECT ✨','good');
         burstEmoji(50,48,'✨');
       }else{
         state.miss++;
         setCombo(Math.max(0, Math.floor(state.combo * 0.4)));
         setProgress(state.pct + 2);
-        say('MISS…', 'bad');
+        say('MISS…','bad');
         burstEmoji(50,48,'💥');
       }
       setRank(calcRank(state.pct));
     }
-    actBtn.addEventListener('click', judgeTap);
+
+    actBtn.addEventListener('click', judgeTap, { passive:true });
 
     setTimeLeft(WARMUP_SECONDS);
     setProgress(0);
@@ -924,20 +907,19 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
 
     tickId = setInterval(()=>{
       const now = performance.now();
-      const remain = state.nextBeatAt - now;
-      if(remain < 60 && remain > -60) say('BEAT!', 'pink');
-      if(remain < -60) state.nextBeatAt += beatMs;
+      const remain = nextBeatAt - now;
+      if(remain < 60 && remain > -60) say('BEAT!','pink');
+      if(remain < -60) nextBeatAt += beatMs;
     }, 60);
   }
 
-  // 2) Meditation: Green only + decoy + streak reward
   function startMeditation(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'meditation';
 
     runEmoji.textContent = '🧠';
-    runTitle.textContent = `🧠 Meditation — GREEN ONLY (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'แตะ “เขียว” เท่านั้น! เหลือง=หลอกแรง / แดง=กับดัก';
+    runTitle.textContent = `⚔️ Meditation — GREEN ONLY (${WARMUP_SECONDS}s)`;
+    runHint.textContent = 'แตะ “เขียว” เท่านั้น! เหลือง=หลอก / แดง=กับดัก';
 
     runActions.innerHTML = `
       <div class="arena" id="arena">
@@ -947,24 +929,31 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
         <div class="orb bad" id="orbBad">●</div>
       </div>
       <div class="note" style="margin-top:10px;">
-        <b>สกิล:</b> เก็บ Streak 3 ครั้ง → “Focus Burst” ชาร์จพุ่ง!
+        <b>สกิล:</b> Streak 3 ครั้ง → “Focus Burst” ชาร์จเพิ่ม!
       </div>
     `;
     const arena = $('#arena');
     const good = $('#orbGood');
     const decoy = $('#orbDecoy');
     const bad = $('#orbBad');
+    const fx = $('#arenaFX');
 
     function place(el){
       const w = arena.clientWidth, h = arena.clientHeight;
       const ew = el.offsetWidth, eh = el.offsetHeight;
-      const x = Math.random() * Math.max(1, (w - ew));
-      const y = Math.random() * Math.max(1, (h - eh));
+      const x = Math.random() * Math.max(1,(w - ew));
+      const y = Math.random() * Math.max(1,(h - eh));
       el.style.left = `${x}px`;
       el.style.top  = `${y}px`;
     }
+    function flash(){
+      fx.classList.remove('on');
+      void fx.offsetWidth;
+      fx.classList.add('on');
+    }
 
     function onGood(){
+      state.goodHits++;
       state.streak++;
       setCombo(state.combo + 1);
 
@@ -972,25 +961,24 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       if(state.streak >= 3){
         gain += 18;
         state.streak = 0;
-        say('FOCUS BURST ✨', 'good');
+        say('FOCUS BURST ✨','good');
+        flash();
         burstEmoji(48,52,'✨');
       }else{
-        say('GOOD ✅', 'good');
+        say('GOOD ✅','good');
         burstEmoji(48,52,'✅');
       }
 
       setProgress(state.pct + gain);
       setRank(calcRank(state.pct));
-      place(good);
 
+      place(good);
       if(Math.random() < 0.55){
         const gx = parseFloat(good.style.left||'0');
         const gy = parseFloat(good.style.top||'0');
         decoy.style.left = `${clamp(gx + (Math.random()*120-60), 0, arena.clientWidth - decoy.offsetWidth)}px`;
         decoy.style.top  = `${clamp(gy + (Math.random()*90-45),  0, arena.clientHeight - decoy.offsetHeight)}px`;
-      }else{
-        place(decoy);
-      }
+      }else place(decoy);
       place(bad);
     }
 
@@ -998,7 +986,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       setCombo(Math.max(0, Math.floor(state.combo * 0.5)));
       state.streak = 0;
       setProgress(state.pct + 1);
-      say('DECOY! ⚠️', 'pink');
+      say('DECOY! ⚠️','pink');
       burstEmoji(52,54,'⚠️');
       place(decoy);
     }
@@ -1007,21 +995,25 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       setCombo(0);
       state.streak = 0;
       setProgress(Math.max(0, state.pct - 4));
-      say('TRAP 💥', 'bad');
+      say('TRAP 💥','bad');
       arena.classList.add('shake');
       setTimeout(()=>arena.classList.remove('shake'), 220);
       burstEmoji(54,56,'💥');
       place(bad);
     }
 
-    good.addEventListener('click', onGood);
-    decoy.addEventListener('click', onDecoy);
-    bad.addEventListener('click', onBad);
+    // make taps reliable on mobile
+    const tap = (fn) => (e)=>{ e.preventDefault(); e.stopPropagation(); fn(); };
 
-    tickId = setInterval(()=>{
-      place(good); place(decoy); place(bad);
-    }, 620);
+    good.addEventListener('click', tap(onGood), { passive:false });
+    decoy.addEventListener('click', tap(onDecoy), { passive:false });
+    bad.addEventListener('click', tap(onBad), { passive:false });
 
+    good.addEventListener('touchstart', tap(onGood), { passive:false });
+    decoy.addEventListener('touchstart', tap(onDecoy), { passive:false });
+    bad.addEventListener('touchstart', tap(onBad), { passive:false });
+
+    tickId = setInterval(()=>{ place(good); place(decoy); place(bad); }, 620);
     place(good); place(decoy); place(bad);
 
     setTimeLeft(WARMUP_SECONDS);
@@ -1034,14 +1026,13 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 3) Stretching: Hold + Boss wave
   function startStretching(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'stretching';
 
     runEmoji.textContent = '🤸';
-    runTitle.textContent = `🤸 Stretching — HOLD vs WAVE (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'กดค้างให้ต่อเนื่อง! คลื่นบอสจะมา 2 ครั้ง · ปล่อยตอนคลื่น = เสียคอมโบ';
+    runTitle.textContent = `⚔️ Stretching — HOLD vs WAVE (${WARMUP_SECONDS}s)`;
+    runHint.textContent = 'กดค้างให้ต่อเนื่อง! คลื่นบอสมา 2 ครั้ง (ปล่อยตอนคลื่น = แตก)';
 
     runActions.innerHTML = `
       <div style="position:relative;">
@@ -1052,29 +1043,29 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
           </button>
         </div>
         <div class="note" style="margin-top:10px;">
-          <b>คำสั่งบอส:</b> “WAVE!” = ห้ามปล่อยจนกว่าคลื่นจบ
+          <b>คำสั่งบอส:</b> “WAVE!” = ห้ามปล่อยจนคลื่นจบ
         </div>
       </div>
     `;
     const hold = $('#btn-hold');
     const waveFX = $('#waveFX');
 
-    const down = (e) => { if(e) e.preventDefault(); state.holding = true; hold.textContent='HOLDING… 🔥'; };
+    const down = (e) => { if(e){ e.preventDefault(); } state.holding = true; hold.textContent='HOLDING… 🔥'; };
     const up   = () => { state.holding = false; hold.textContent='HOLD ✋'; };
 
-    hold.addEventListener('pointerdown', down);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    hold.addEventListener('pointerdown', down, { passive:false });
+    window.addEventListener('pointerup', up, { passive:true });
+    window.addEventListener('pointercancel', up, { passive:true });
 
     function waveOn(){
       state.waveOn = true;
       waveFX.classList.remove('on');
       void waveFX.offsetWidth;
       waveFX.classList.add('on');
-      say('WAVE! (DON’T RELEASE)', 'pink');
+      say('WAVE! (DON’T RELEASE)','pink');
       burstEmoji(50,50,'🌊');
-      $('#app').classList.add('shake');
-      setTimeout(()=>$('#app').classList.remove('shake'), 220);
+      document.getElementById('app').classList.add('shake');
+      setTimeout(()=>document.getElementById('app').classList.remove('shake'), 220);
 
       setTimeout(()=>{
         state.waveOn = false;
@@ -1082,12 +1073,12 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
           state.wavePassed++;
           setCombo(state.combo + 2);
           setProgress(state.pct + 16);
-          say('WAVE CLEARED ✨', 'good');
+          say('WAVE CLEARED ✨','good');
           burstEmoji(52,50,'✨');
         }else{
           setCombo(0);
           setProgress(Math.max(0, state.pct - 6));
-          say('BROKEN… 💥', 'bad');
+          say('BROKEN… 💥','bad');
           burstEmoji(48,52,'💥');
         }
         setRank(calcRank(state.pct));
@@ -1120,9 +1111,8 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 4) Cooldown: calm rank + steady
   function startCooldown(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'cooldown';
 
     runEmoji.textContent = '😌';
@@ -1131,7 +1121,7 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
 
     runActions.innerHTML = `
       <div class="note" style="margin-bottom:10px;">
-        <b>เป้าหมาย:</b> เติม Calm ให้เต็ม 100% เพื่อได้ Rank สูง (Cooldown จะ mark DONE วันนี้)
+        <b>เป้าหมาย:</b> เติม Calm ให้เต็ม 100% เพื่อได้ Rank สูง
       </div>
       <div class="actionRow" style="margin:0;">
         <button class="primary" id="btn-calm" style="padding:14px 18px; font-size:15px; font-weight:1000;">นิ่งแล้ว ✅</button>
@@ -1146,10 +1136,10 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
     calmBtn.addEventListener('click', () => {
       state.calm = clamp(state.calm + 6, 0, 100);
       setProgress(state.calm);
-      say('CALM +', 'good');
+      say('CALM +','good');
       burstEmoji(50,50,'✨');
       setRank(calcRank(state.pct));
-    });
+    }, { passive:true });
 
     setTimeLeft(COOLDOWN_SECONDS);
     setProgress(0);
@@ -1167,102 +1157,121 @@ HeroHealth — Warmup/Cooldown Boss Gate (THEME + AUTO PICK BY ZONE) — PATCH v
       setProgress(state.calm);
       setRank(calcRank(state.pct));
 
-      if(state.calm >= 95) say('ZEN MODE ✨', 'pink');
+      if(state.calm >= 95) say('ZEN MODE ✨','pink');
     }, 1000);
 
     let t = COOLDOWN_SECONDS;
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  function startByMode(mode){
-    if(mode === 'breathing') return startBreathing();
-    if(mode === 'meditation') return startMeditation();
-    if(mode === 'stretching') return startStretching();
-    return startMeditation();
-  }
-
   // ------------------------------
-  // Wire buttons
+  // Buttons
   // ------------------------------
-  $('#btn-breath').addEventListener('click', ()=>startBreathing());
-  $('#btn-meditate').addEventListener('click', ()=>startMeditation());
-  $('#btn-stretch').addEventListener('click', ()=>startStretching());
-
-  $('#btn-start-auto').addEventListener('click', ()=>{
-    if(PHASE === 'cooldown'){ startCooldown(); return; }
-    startByMode(pickModeByZone());
-  });
+  $('#btn-breath').addEventListener('click', startBreathing);
+  $('#btn-meditate').addEventListener('click', startMeditation);
+  $('#btn-stretch').addEventListener('click', startStretching);
 
   $('#btn-cooldown').addEventListener('click', ()=>{
-    // go same file but cooldown
+    // jump to cooldown gate in same page (no reload)
+    if(PHASE === 'cooldown') return;
     const u = new URL(location.href);
     u.searchParams.set('phase','cooldown');
-    if(!u.searchParams.get('cdur')) u.searchParams.set('cdur', String(COOLDOWN_SECONDS));
+    u.searchParams.set('cdur', String(COOLDOWN_SECONDS));
+    // keep next/hub as is
     location.href = u.toString();
   });
 
   $('#btn-stop').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
-  $('#btn-again').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
 
-  $('#btn-go').addEventListener('click', goNextWithBuff);
+  $('#btn-again').addEventListener('click', ()=>{
+    stopTimers(); say('');
+    // go back to select screen, but keep done-today pill visible
+    show('select');
+  });
+
+  $('#btn-go').addEventListener('click', ()=>goNextWithBuff(false));
   $('#btn-backhub').addEventListener('click', goHub);
   $('#btn-go-hub').addEventListener('click', goHub);
 
   $('#btn-clear-last').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(KEY_LAST); }catch(_){}
+    try{
+      localStorage.removeItem(lastKey('warmup'));
+      localStorage.removeItem(lastKey('cooldown'));
+    }catch(_){}
     alert('ล้างผลล่าสุดแล้ว');
-  });
-
-  $('#btn-reset-zone').addEventListener('click', ()=>{
-    resetZoneToday();
-    alert(`Reset แล้ว: ${ZONE} (${TODAY})`);
   });
 
   // ------------------------------
   // Init UI
   // ------------------------------
-  const nextPreview = (NEXT||'').toLowerCase()==='random'
+  zoneBadge.textContent = `${theme.icon} ${theme.label}`;
+  pidBadge.textContent = PID || 'anon';
+  phaseBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
+  durBadge.textContent = (PHASE==='cooldown') ? String(COOLDOWN_SECONDS) : String(WARMUP_SECONDS);
+
+  const phaseText = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
+  const doneToday = hasDoneToday(phaseText);
+  if(doneToday){
+    doneTodayPill.style.display = '';
+  }
+
+  lastKeyText.textContent =
+    `lastKey: ${lastKey(phaseText)}\n` +
+    `doneKey: ${doneKey(phaseText)}`;
+
+  // next preview
+  const n0 = normalizeNext(NEXT);
+  const nextPreview = (n0||'').toLowerCase()==='random'
     ? `random (from games=...)`
-    : (NEXT||'(none)');
+    : (n0 || '(none)');
 
-  const zoneEmoji = (ZONE==='nutrition') ? '🥗' : (ZONE==='hygiene') ? '🧼' : (ZONE==='fitness') ? '💪' : '🧭';
-  const phaseEmoji = (PHASE==='cooldown') ? '😌' : '⚔️';
+  // headers
+  topTitle.textContent =
+    (PHASE==='cooldown')
+      ? `😌 Cooldown Gate · ${theme.icon} ${theme.label}`
+      : `⚔️ Warmup Gate · ${theme.icon} ${theme.label}`;
 
-  topTitle.textContent = `${phaseEmoji} ${PHASE.toUpperCase()} Gate · ${zoneEmoji} ${ZONE}`;
-  topSub.textContent = (PHASE==='cooldown')
-    ? `คูลดาวน์ ${COOLDOWN_SECONDS} วิ · Cooldown จะ mark DONE วันนี้`
-    : `วอร์มอัป ${WARMUP_SECONDS} วิ ก่อนเข้าเกมจริง · Warmup ไม่ mark DONE`;
+  topSub.textContent =
+    (PHASE==='cooldown')
+      ? 'คูลดาวน์สั้น ๆ แล้วเลือกไปเกมต่อได้'
+      : 'เลือกมินิเกมสั้น ๆ → ได้บัฟ → ไปเกมหลัก';
 
-  const modeAuto = pickModeByZone();
-  const autoHint = (PHASE==='cooldown') ? 'cooldown' : `${modeAuto} (auto by zone)`;
+  // daily note
+  const recText = doneToday
+    ? `✅ วันนี้ทำ ${phaseText} แล้ว — เล่นได้แบบ “ซ้อม” แต่ไม่แจก/ไม่บันทึกซ้ำ`
+    : `⭐ วันนี้ยังไม่ทำ ${phaseText} — รอบนี้จะ “บันทึกผล + แจกบัฟ”`;
 
-  routeNote.innerHTML = `
-    <b>today:</b> <span class="mono">${TODAY}</span> ·
-    <b>phase:</b> <span class="mono">${PHASE}</span> ·
-    <b>zone:</b> <span class="mono">${ZONE}</span> ·
-    <b>autonext:</b> <span class="mono">${AUTONEXT?1:0}</span><br/>
-    <b>next:</b> <span class="mono">${nextPreview}</span><br/>
-    <b>hub:</b> <span class="mono">${HUB || '(none)'}</span><br/>
-    <b>mode:</b> <span class="mono">${MANUAL ? 'manual' : 'auto'} · ${autoHint}</span>
-  `;
-  routeMini.textContent = `today=${TODAY}  pid=${PID}  phase=${PHASE}  zone=${ZONE}  next=${nextPreview}  hub=${HUB||'(none)'}  manual=${MANUAL?1:0}  autonext=${AUTONEXT?1:0}`;
+  dailyNote.className = 'note' + (doneToday ? ' warn' : '');
+  dailyNote.innerHTML =
+    `<b>Daily:</b> ${recText}<br/>` +
+    `<span class="mono">pid=${PID} · zone=${ZONE} · date=${TODAY}</span>`;
 
-  // If cooldown: auto start always
-  if(PHASE === 'cooldown'){
-    show('run');
-    startCooldown();
-    $('#footerHint').textContent = 'Cooldown เสร็จแล้วจะ DONE วันนี้ (โซนนี้เท่านั้น)';
+  routeMini.textContent = `phase=${phaseText}  zone=${ZONE}  pid=${PID}  next=${nextPreview}  hub=${HUB||'(none)'}`;
+
+  routeNote.innerHTML =
+    `<b>โหมด:</b> ${phaseText.toUpperCase()} · <b>${(PHASE==='cooldown')?COOLDOWN_SECONDS:WARMUP_SECONDS} วิ</b><br/>` +
+    `ไปเกมต่อ: <span class="mono">${nextPreview}</span><br/>` +
+    (HUB ? `HUB: <span class="mono">${HUB}</span>` : `<span style="color:rgba(245,158,11,.95)">ยังไม่มี hub=...</span>`);
+
+  // if already DONE today & phase=cooldown -> show last summary immediately (ตามที่คุณอยากให้ “แสดงผล แล้วเล่นใหม่/เลือกเกมต่อไป”)
+  if(PHASE==='cooldown' && doneToday){
+    const last = loadLast() || { note:'(ไม่มีผลล่าสุด)' };
+    show('done');
+    doneText.textContent = `วันนี้คูลดาวน์ไปแล้ว ✅ (แสดงผลล่าสุด)`;
+    doneHead.textContent = 'LAST RESULT (DONE TODAY)';
+    doneJson.textContent = JSON.stringify(last, null, 2);
+    doneNote.innerHTML = `คุณสามารถกด “เล่นใหม่” เพื่อซ้อม หรือกด “ไปเล่นเกม” เพื่อไปต่อได้`;
+    // enable go if next exists
+    $('#btn-go').disabled = !(n0 && String(n0).trim());
   }else{
-    // warmup: if manual=0 auto start selected mode, else show select
-    if(!MANUAL){
-      show('run');
-      startByMode(modeAuto);
-      $('#footerHint').textContent = `Auto Warmup ตามโซน: ${ZONE} → ${modeAuto}`;
-    }else{
-      show('select');
-      $('#footerHint').textContent = 'โหมด Manual: เลือกมินิเกมเอง หรือกด Start(Auto by Zone)';
+    // default screen
+    show('select');
+    // if phase=cooldown & not done today -> auto start cooldown (สะดวก)
+    if(PHASE==='cooldown' && !doneToday){
+      startCooldown();
     }
   }
+
 })();
 </script>
 </body>
