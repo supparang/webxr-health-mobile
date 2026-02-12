@@ -17,7 +17,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // menu buttons / radios
+  // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -26,19 +26,19 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // research fields
+  // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // play / result buttons
+  // ปุ่มตอนเล่น / สรุปผล
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements (safe refs)
+  // HUD elements
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -62,7 +62,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // Result elements
+  // แสดงผลสรุป
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -109,11 +109,9 @@
     if (mode === 'normal') {
       if (modeDescEl) modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       if (researchBox) researchBox.classList.add('hidden');
 
-      // show normal tracks / hide research tracks
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.add('hidden');
@@ -125,11 +123,9 @@
     } else {
       if (modeDescEl) modeDescEl.textContent =
         'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Research — เพลงวิจัย Research Track 120';
+      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
-      // show only research track
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
         if (m === 'research') lbl.classList.remove('hidden');
@@ -195,33 +191,22 @@
   }
 
   function handleEngineEnd(summary) {
-    if (!summary) summary = {};
+    if (!summary) return;
 
-    if (res.mode) res.mode.textContent      = summary.modeLabel || '-';
-    if (res.track) res.track.textContent    = summary.trackName || '-';
-    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score) res.score.textContent    = String(summary.finalScore ?? 0);
-    if (res.maxCombo) res.maxCombo.textContent = String(summary.maxCombo ?? 0);
+    if (res.mode) res.mode.textContent      = summary.modeLabel;
+    if (res.track) res.track.textContent     = summary.trackName;
+    if (res.endReason) res.endReason.textContent = summary.endReason;
+    if (res.score) res.score.textContent     = summary.finalScore;
+    if (res.maxCombo) res.maxCombo.textContent  = summary.maxCombo;
+    if (res.hits) res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    if (res.acc) res.acc.textContent        = summary.accuracyPct.toFixed(1) + ' %';
+    if (res.duration) res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    if (res.rank) res.rank.textContent      = summary.rank;
 
-    if (res.hits) {
-      res.hits.textContent =
-        `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
-    }
-
-    if (res.acc) res.acc.textContent = (Number(summary.accuracyPct)||0).toFixed(1) + ' %';
-    if (res.duration) res.duration.textContent = (Number(summary.durationSec)||0).toFixed(1) + ' s';
-    if (res.rank) res.rank.textContent = summary.rank || '-';
-
-    if (res.offsetAvg) {
-      res.offsetAvg.textContent =
-        (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-          ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    }
-    if (res.offsetStd) {
-      res.offsetStd.textContent =
-        (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-          ? summary.offsetStd.toFixed(3) + ' s' : '-';
-    }
+    if (res.offsetAvg) res.offsetAvg.textContent =
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    if (res.offsetStd) res.offsetStd.textContent =
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
 
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
@@ -262,13 +247,12 @@
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-
   if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play) ====
+  // ==== apply mode from URL (?mode=research|play|normal) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
