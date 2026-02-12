@@ -1,9 +1,11 @@
 // === /fitness/js/rhythm-engine.js ===
-// Rhythm Boxer Engine — PRODUCTION (PC/Mobile/cVR-friendly) + AI Prediction (locked in research) + CSV
-// ✅ Notes fall DOWN to the BOTTOM hit line (yellow) and can be hit at the line timing
-// ✅ 5-lane (or 3-lane if HTML has 3 lanes)
+// Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
+// ✅ Hit line is bottom gold line (CSS vars) and notes fall EXACTLY to it
+// ✅ Locks note bottom to hit line px per-lane (robust across devices)
+// ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
+// ✅ Calibration offset (Cal: ms) [display optional #rb-hud-cal]
 // ✅ Research lock: prediction shown but no adaptive changes
-// ✅ Normal assist: enable with ?ai=1 (reserved hook; currently no difficulty auto-change)
+// ✅ Normal assist: enable with ?ai=1 (prediction only for now)
 // ✅ Events CSV + Sessions CSV
 
 'use strict';
@@ -12,9 +14,8 @@
   const WIN = window;
   const DOC = document;
 
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b, v));
   const clamp01 = (v)=>clamp(v,0,1);
-
   function nowS(){ return performance.now()/1000; }
 
   function mean(arr){
@@ -56,13 +57,13 @@
 
   // ---- Track config ----
   const TRACKS = {
-    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio:'./audio/warmup-groove.mp3' },
-    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio:'./audio/focus-combo.mp3' },
-    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec: 60, audio:'./audio/speed-rush.mp3' },
-    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio:'./audio/research-120.mp3' }
+    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec:60, audio:'./audio/warmup-groove.mp3' },
+    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec:60, audio:'./audio/focus-combo.mp3' },
+    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec:60, audio:'./audio/speed-rush.mp3' },
+    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec:60, audio:'./audio/research-120.mp3' }
   };
 
-  // ---- Pattern (placeholder beat map; deterministic by track id) ----
+  // ---- Pattern generator (placeholder) ----
   function buildPattern(track, laneCount){
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
@@ -83,7 +84,7 @@
     const startT = 2.0;
     for(let t=startT; t<dur-1.0; t+=beat){
       if(rnd() > base) continue;
-      const lane = Math.floor(rnd() * laneCount);
+      let lane = Math.floor(rnd() * laneCount);
       const isDouble = (diff!=='easy') && (rnd()<0.10);
       notes.push({ t: +t.toFixed(3), lane, kind:'tap' });
       if(isDouble){
@@ -91,18 +92,18 @@
         notes.push({ t: +t.toFixed(3), lane: lane2, kind:'tap' });
       }
     }
-
     notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
   }
 
-  function readCssPx(el, varName, fallback){
+  // ---- CSS var reader (px) ----
+  function readPxVarFrom(el, varName, fallbackPx){
     try{
-      const v = getComputedStyle(el).getPropertyValue(varName);
+      const v = getComputedStyle(el).getPropertyValue(varName).trim();
       const n = parseFloat(v);
-      return Number.isFinite(n) ? n : fallback;
+      return Number.isFinite(n) ? n : fallbackPx;
     }catch(_){
-      return fallback;
+      return fallbackPx;
     }
   }
 
@@ -173,13 +174,14 @@
       this.noteIdx = 0;
       this.live = [];
 
-      // visual travel configuration
-      this.noteSpeedSec = 2.20; // lead time (seconds) for a note to travel to hit line
-      this.noteBaseLen = 180;   // px for tail baseline
+      // visual: how long it takes to fall (seconds)
+      this.noteSpeedSec = 2.20;
 
-      // cached lane geometry
-      this._laneGeomCache = new Map(); // lane -> { laneH, hitY, startY, travelPx, noteLenPx }
-      this._geomNext = 0;
+      // base tail length (px) (per-note override set in _spawnNote)
+      this.noteBaseLen = 180;
+
+      // cached hitline px (from CSS vars)
+      this.hitlineBottomPx = 96;
 
       // CSV tables
       this.sessionId = '';
@@ -207,7 +209,6 @@
         'trial_valid','rank','created_at_iso'
       ]);
 
-      // bind input
       this._bindLaneInput();
       this._detectDeviceType();
     }
@@ -248,6 +249,15 @@
       return `RB-${t}-${r}`;
     }
 
+    _refreshHitlinePx(){
+      // อ่านจาก :root (หรือ body) แล้วได้ค่า px จริง
+      const root = DOC.documentElement || DOC.body;
+      const hitY = readPxVarFrom(root, '--rb-hitline-y', 86);
+      const botP = readPxVarFrom(root, '--rb-bottom-pad', 10);
+      // bottom ของ hit line ภายใน lane
+      this.hitlineBottomPx = Math.max(28, hitY + botP);
+    }
+
     start(mode, trackId, meta = {}){
       this.mode = (mode === 'research') ? 'research' : 'normal';
       this.meta = meta || {};
@@ -255,6 +265,9 @@
 
       // lane count from DOM
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
+
+      // cache hitline px from css vars
+      this._refreshHitlinePx();
 
       // reset state
       this.running = true;
@@ -294,9 +307,6 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      this._laneGeomCache.clear();
-      this._geomNext = 0;
-
       // notes
       this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
@@ -309,7 +319,7 @@
       // CSV reset
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
-      this.sessionTable.clear(); // optional: keep each round separated
+      this.sessionTable.clear();
 
       // load audio
       if(this.audio){
@@ -320,10 +330,8 @@
         if(p && typeof p.catch==='function') p.catch(()=>{});
       }
 
-      // start loop
       this._rafId = requestAnimationFrame(()=>this._loop());
 
-      // initial HUD
       this._updateHud();
       this._updateBars();
       this._updateCalibrationHud();
@@ -353,10 +361,14 @@
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
 
-      // Tail length (visual) — longer so you see time window
+      // lock note bottom to the hit line (px) inside the lane
+      el.style.bottom = this.hitlineBottomPx + 'px';
+
+      // tail length
       const diff = this.track.diff || 'normal';
+      const base = this.noteBaseLen;
       const mul = (diff==='easy') ? 1.05 : (diff==='hard') ? 1.35 : 1.18;
-      const lenPx = Math.round(this.noteBaseLen * mul);
+      const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
       // icon (music note)
@@ -369,7 +381,6 @@
 
       note.el = el;
       note.spawned = true;
-      note.done = false;
     }
 
     _despawnNote(note){
@@ -388,38 +399,25 @@
       const dt = Math.max(0, t - this._lastTs);
       this._lastTs = t;
 
-      // song time from audio if available
+      // prefer audio clock
       if(this.audio && Number.isFinite(this.audio.currentTime)){
         this.songTime = this.audio.currentTime;
       }else{
         this.songTime = t - this._t0;
       }
 
-      // fever time accumulation
       if(this.feverActive) this.feverTotalTimeSec += dt;
-
-      // hp under 50 time
       if(this.hp < 50) this.hpUnder50Time += dt;
 
-      // spawn notes ahead of time
       this._spawnAhead();
-
-      // update geometry cache sometimes (avoid heavy layout each frame)
-      this._updateLaneGeomCache();
-
-      // update note positions (visual fall to bottom hitline)
       this._updateNotePositions();
-
-      // auto miss if passed too late
       this._resolveTimeoutMiss();
 
-      // update AI + HUD
       this._updateAI();
       this._updateHud();
       this._updateBars();
       this._updateCalibrationHud();
 
-      // end condition
       if(this.hp <= 0){
         this._finish('hp-zero');
         return;
@@ -444,68 +442,45 @@
       }
     }
 
-    _updateLaneGeomCache(){
-      const t = this.songTime;
-      if(t < this._geomNext) return;
-      this._geomNext = t + 0.25;
-
+    _updateNotePositions(){
+      const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
 
-      const hitY = readCssPx(DOC.documentElement, '--rb-hitline-y', 92);
+      // ถ้า orientation/viewport เปลี่ยน ให้ปรับ hitline px ตาม css vars อีกครั้ง
+      // (กันกรณีมือถือ safe-area เปลี่ยน)
+      this._refreshHitlinePx();
 
-      for(let lane=0; lane<this.laneCount; lane++){
-        const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${lane}"]`);
+      for(const n of this.live){
+        if(!n.spawned || !n.el) continue;
+
+        const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${n.lane}"]`);
         if(!laneEl) continue;
 
         const rect = laneEl.getBoundingClientRect();
         const laneH = rect.height || 420;
 
-        // The hit line is at bottom: hitY, so from top it's:
-        const hitFromTop = Math.max(0, laneH - hitY);
+        // travel: เริ่มจากเหนือ lane แล้วลงมาจบที่ hit line
+        // ใช้ hitlineBottomPx เป็น anchor => ยิ่ง hitline อยู่สูงจาก bottom มาก travel ยิ่งพอดี
+        const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
 
-        // Start point above top so note appears falling in:
-        // we start the NOTE HEAD slightly above the visible area
-        const startY = -80;
+        // ระยะเริ่มต้นเหนือ hitline (ทำให้เห็น “หล่นมา” ชัด ๆ)
+        // travel = ระยะจาก top ลงมาถึง hitline + เผื่ออีกนิดให้เริ่มนอกจอ
+        const hitFromTop = Math.max(80, laneH - this.hitlineBottomPx);
+        const travel = hitFromTop + Math.min(240, 0.45 * noteLen) + 120;
 
-        // Travel distance so head reaches the hit line at time t
-        const travelPx = (hitFromTop - startY);
-
-        this._laneGeomCache.set(lane, {
-          laneH,
-          hitFromTop,
-          startY,
-          travelPx
-        });
-      }
-    }
-
-    _updateNotePositions(){
-      const lead = this.noteSpeedSec;
-      if(!this.lanesEl) return;
-
-      for(const n of this.live){
-        if(!n.spawned || !n.el || n.done) continue;
-
-        const g = this._laneGeomCache.get(n.lane);
-        if(!g) continue;
-
-        // progress over lead window:
-        // p=0 at spawn moment (t = n.t - lead)
-        // p=1 at hit moment (t = n.t)
-        const p = (this.songTime - (n.t - lead)) / lead;
+        const p = (this.songTime - (n.t - lead)) / lead; // 0..1
         const pClamp = clamp01(p);
 
-        // y from startY -> hitFromTop
-        const y = g.startY + (g.travelPx * pClamp);
+        // y: -travel (เริ่มบน) -> 0 (ถึงเส้นตี)
+        const y = (pClamp - 1) * travel;
 
-        // note element is absolute within lane; move down
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
-        n.el.style.opacity = (pClamp < 0.03) ? '0' : '1';
+        n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
       }
     }
 
     _resolveTimeoutMiss(){
-      const missLate = 0.18; // seconds after hit time
+      const missLate = 0.18;
       const keep = [];
       for(const n of this.live){
         if(n.done) continue;
@@ -587,13 +562,7 @@
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      this._logEvent({
-        event: 'hit',
-        lane,
-        judgment,
-        offset_s: offsetSec,
-        score_delta: scoreDelta
-      });
+      this._logEvent({ event:'hit', lane, judgment, offset_s: offsetSec, score_delta: scoreDelta });
     }
 
     _applyMiss(lane, kind){
@@ -614,9 +583,9 @@
       this._logEvent({
         event: kind==='timeout' ? 'timeout_miss' : 'miss',
         lane,
-        judgment: 'miss',
-        offset_s: '',
-        score_delta: -dmg
+        judgment:'miss',
+        offset_s:'',
+        score_delta:-dmg
       });
     }
 
@@ -636,11 +605,11 @@
       }
 
       this._logEvent({
-        event: 'blank_tap',
+        event:'blank_tap',
         lane,
-        judgment: 'miss',
-        offset_s: '',
-        score_delta: -dmg
+        judgment:'miss',
+        offset_s:'',
+        score_delta:-dmg
       });
     }
 
@@ -695,7 +664,7 @@
       if(hud.acc){
         const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
         const hit = judged - this.hitMiss;
-        const acc = judged ? (hit / (this.totalNotes || 1)) * 100 : 0;
+        const acc = judged ? (hit / this.totalNotes) * 100 : 0;
         hud.acc.textContent = acc.toFixed(1) + '%';
       }
 
@@ -747,7 +716,7 @@
 
       const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
       const hit = judged - this.hitMiss;
-      const accPct = judged ? (hit / (this.totalNotes || 1)) * 100 : 0;
+      const accPct = judged ? (hit / this.totalNotes) * 100 : 0;
 
       const snap = {
         accPct,
@@ -775,19 +744,18 @@
           if(!this.aiState.tip) this.aiState.tip = '';
         }
       }
-
-      // IMPORTANT: no adaptive gameplay changes here (research lock principle)
+      // no adaptive changes here (research lock safe)
     }
 
-    _finish(endReason) {
+    _finish(endReason){
       this.running = false;
       this.ended = true;
 
-      if (this._rafId != null) {
+      if(this._rafId != null){
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
-      if (this.audio) this.audio.pause();
+      if(this.audio) this.audio.pause();
 
       const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
 
@@ -853,7 +821,7 @@
         fever_entry_count: this.feverEntryCount,
         fever_total_time_s: this.feverTotalTimeSec,
         fever_time_pct: feverTimePct,
-        time_to_first_fever_s: (this.timeToFirstFeverSec != null) ? this.timeToFirstFeverSec : '',
+        time_to_first_fever_s: (this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : ''),
 
         hp_start: 100,
         hp_end: this.hp,
@@ -896,12 +864,11 @@
         qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if (this.hooks && typeof this.hooks.onEnd === 'function') {
+      if(this.hooks && typeof this.hooks.onEnd === 'function'){
         this.hooks.onEnd(summary);
       }
     }
 
-    // ---- public CSV ----
     getEventsCsv(){ return this.eventsTable.toCsv(); }
     getSessionCsv(){ return this.sessionTable.toCsv(); }
   }
