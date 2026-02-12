@@ -1,8 +1,5 @@
 // === /fitness/js/ai-predictor.js ===
 // Classic Script (NO export) — safe for <script src="...">
-// ✅ Predicts fatigue/skill + coach tip (heuristic placeholder for ML later)
-// ✅ Research lock: prediction shown but NO adaptive changes
-// ✅ Normal assist toggle: enable with ?ai=1
 'use strict';
 
 (function () {
@@ -20,7 +17,6 @@
       return false;
     }
   }
-
   function readQueryMode() {
     try {
       const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
@@ -32,8 +28,8 @@
   }
 
   // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
-  // Expected (best effort) snapshot from engine:
-  // { accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo, offsetAbsMean, hp, songTime, durationSec }
+  // Inputs we "expect" (best effort) from engine snapshot:
+  // { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec, hitPerfect, hitGreat, hitGood }
   function predictFromSnapshot(s) {
     const acc = clamp01((Number(s.accPct) || 0) / 100);
     const hp = clamp01((Number(s.hp) || 100) / 100);
@@ -43,12 +39,7 @@
     const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ loose cap
 
     const miss = Number(s.hitMiss) || 0;
-    const judged =
-      (Number(s.hitPerfect) || 0) +
-      (Number(s.hitGreat) || 0) +
-      (Number(s.hitGood) || 0) +
-      miss;
-
+    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
     const missRate = judged > 0 ? clamp01(miss / judged) : 0;
 
     // fatigueRisk: rises if hp low, missRate high, offset large
@@ -65,7 +56,7 @@
       (1 - missRate) * 0.15
     );
 
-    // suggested difficulty (string)
+    // suggest difficulty (string)
     let suggestedDifficulty = 'normal';
     if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
     else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
