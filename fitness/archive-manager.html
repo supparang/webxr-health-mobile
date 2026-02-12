@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Fitness — Archive Manager</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="stylesheet" href="hub.css"/>
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.55);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --r:18px;
+      --good:rgba(34,197,94,.18);
+      --bad:rgba(239,68,68,.14);
+    }
+    body{ background:var(--bg); color:var(--text); margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    .am-wrap{ max-width:1100px; margin:0 auto; padding:14px; }
+    .am-top{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      padding:12px; border:1px solid var(--stroke); background:var(--panel); border-radius:var(--r);
+    }
+    .am-title{ font-weight:1000; font-size:16px; }
+    .am-sub{ color:var(--muted); font-weight:900; font-size:12px; }
+    .am-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+    .am-btn{
+      border:1px solid var(--stroke); background:rgba(2,6,23,.45); color:var(--text);
+      border-radius:14px; padding:9px 12px; font-weight:1000; font-size:12px;
+      text-decoration:none; display:inline-flex; align-items:center; justify-content:center;
+    }
+    .am-btn-primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .am-btn-warn{ background:rgba(239,68,68,.10); border-color:rgba(239,68,68,.22); }
+
+    .am-bar{
+      margin-top:10px;
+      padding:12px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--r);
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap:8px;
+      align-items:center;
+    }
+    .am-inp{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.45);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px;
+      font-weight:1000;
+      font-size:12px;
+      width:100%;
+      outline:none;
+    }
+    .am-inp:focus{ border-color:rgba(34,197,94,.35); }
+    .am-note{ grid-column: 1/-1; color:var(--muted); font-weight:900; font-size:12px; }
+
+    .am-list{
+      margin-top:12px;
+      display:grid;
+      gap:10px;
+    }
+    .am-card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--r);
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:start;
+    }
+    .am-meta{ display:grid; gap:6px; }
+    .am-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .chip{
+      display:inline-flex; gap:6px; align-items:center;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(10,16,36,.55);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .chip-ok{ background:var(--good); }
+    .chip-warn{ background:var(--bad); }
+    .am-id{ font-weight:1100; font-size:13px; }
+    .am-small{ color:var(--muted); font-weight:900; font-size:12px; }
+    .am-card-actions{
+      display:flex; flex-direction:column; gap:8px; min-width:220px;
+    }
+    .am-card-actions .am-btn{ width:100%; }
+    .am-msg{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; }
+
+    @media (max-width: 900px){
+      .am-bar{ grid-template-columns: 1fr 1fr; }
+      .am-card{ grid-template-columns: 1fr; }
+      .am-card-actions{ min-width:unset; flex-direction:row; flex-wrap:wrap; }
+      .am-card-actions .am-btn{ width:auto; flex:1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="am-wrap">
+    <div class="am-top">
+      <div>
+        <div class="am-title">🗂️ Archive Manager — Fitness</div>
+        <div class="am-sub">ดูรายการ archive / ดาวน์โหลดซ้ำ / Restore กลับ log / ลบ archive</div>
+      </div>
+      <div class="am-actions">
+        <button class="am-btn" id="am-refresh">รีเฟรช</button>
+        <button class="am-btn am-btn-primary" id="am-export-index">ดาวน์โหลด index.json</button>
+        <button class="am-btn am-btn-warn" id="am-wipe-all">ล้าง archive ทั้งหมด</button>
+        <a class="am-btn" href="teacher-dashboard.html">กลับ Dashboard</a>
+      </div>
+    </div>
+
+    <div class="am-bar">
+      <input class="am-inp" id="q" placeholder="ค้นหา id / studyId / pid / phase / group ..." />
+      <select class="am-inp" id="sort">
+        <option value="ts_desc">เรียง: ล่าสุดก่อน</option>
+        <option value="ts_asc">เรียง: เก่าก่อน</option>
+        <option value="sum_desc">Summary มาก→น้อย</option>
+        <option value="evt_desc">Events มาก→น้อย</option>
+      </select>
+      <select class="am-inp" id="mode">
+        <option value="all">แสดง: ทั้งหมด</option>
+        <option value="small">เฉพาะเล็ก (&lt; 2000 rows)</option>
+        <option value="big">เฉพาะใหญ่ (≥ 2000 rows)</option>
+      </select>
+      <input class="am-inp" id="limit" inputmode="numeric" placeholder="จำกัดจำนวนการ์ด (เช่น 20)" />
+      <div class="am-note" id="am-note"></div>
+    </div>
+
+    <div class="am-list" id="am-list"></div>
+    <div class="am-msg" id="am-msg"></div>
+  </div>
+
+  <script src="archive-manager.js"></script>
+</body>
+</html>
