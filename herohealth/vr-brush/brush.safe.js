@@ -1,15 +1,16 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE Engine — DOM90 v0.9 (FULL PATCH: Smart Spawn + Online ML + CSV Export)
-// ✅ Ultimate #1 Laser Sweep (Pack1)
-// ✅ Ultimate #2 Shockwave Pulse (Pack2)
-// ✅ Perfect Gate (Pack1)
+// BrushVR SAFE Engine — DOM90 v0.9.1 (A+B+C FULL)
+// ✅ A: AI HUD styling handled via brush.css (append)
+// ✅ B: Practice 15s before real run (deterministic, fair)
+// ✅ C: AI Difficulty Director (seeded, fair, deterministic) adjusts spawn/judge/life
+// ✅ Ultimate #1 Laser Sweep
+// ✅ Ultimate #2 Shockwave Pulse
+// ✅ Perfect Gate
 // ✅ Boss Personality: ANGER affects patterns/spawn
 // ✅ Badges + storage + end overlay
-// ✅ NEW (Pack10): Smart Spawn (anti-clump + anti-overlap)
-// ✅ NEW (Pack11): AI hooks + Online ML Predictor (play adaptive; research deterministic)
-// ✅ NEW (Pack12): Event logging + Export CSV from end screen
-// Emits: hha:start, hha:time, hha:judge, brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, brush:badge, hha:end
-
+// Emits: hha:start, hha:time, hha:judge,
+//        brush:coverage, brush:gentle, brush:uv, brush:boss, brush:pickup, brush:bank, brush:badge,
+//        brush:ai, hha:end
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -17,7 +18,7 @@
   // ---------- helpers ----------
   const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
   const nowMs = ()=>performance.now();
-  const emitRaw = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(_){ } };
+  const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(_){ } };
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
   function makeRNG(seed){
@@ -39,7 +40,7 @@
     if(all[gameKey][badgeId]) return false;
     all[gameKey][badgeId] = { ts: Date.now() };
     saveBadges(all);
-    emitRaw('brush:badge', { game: gameKey, badge: badgeId });
+    emit('brush:badge', { game: gameKey, badge: badgeId });
     return true;
   }
 
@@ -180,62 +181,22 @@
     return { safePlay, zones };
   }
 
-  // ---------- NEW: Smart Spawn (Pack10) ----------
-  // repel from last N spawn positions (avoid clumping), while still respecting no-spawn zones
-  function dist2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; }
-
-  function pickSpawnPointSmart(rng, ns, radius, recentPts, preferCenter=0.15){
+  function pickSpawnPoint(rng, ns, radius){
     const { safePlay, zones } = ns;
-    const tries = 110;
+    const tries = 90;
     const w = Math.max(10, safePlay.w - radius*2);
     const h = Math.max(10, safePlay.h - radius*2);
-
-    const center = { x: safePlay.x + safePlay.w*0.5, y: safePlay.y + safePlay.h*0.5 };
-    const repelN = Math.min(10, recentPts?.length||0);
-    const repelMinR = Math.max(90, radius*3.2);
-    const repelMinR2 = repelMinR*repelMinR;
-
-    let best = null, bestScore = -1e18;
-
     for(let i=0;i<tries;i++){
       const x = safePlay.x + radius + rng() * w;
       const y = safePlay.y + radius + rng() * h;
       const p = {x,y};
-
-      // zone block
       let ok = true;
       for(const z of zones){
         if(pointInRect(p, z)){ ok=false; break; }
       }
-      if(!ok) continue;
-
-      // score = repel from recent + small center preference
-      let score = 0;
-
-      // repel
-      if(repelN>0){
-        for(let k=0;k<repelN;k++){
-          const rp = recentPts[recentPts.length-1-k];
-          if(!rp) continue;
-          const d = dist2(p, rp);
-          if(d < repelMinR2){ score -= 9000; } // hard penalty if too close
-          score += Math.min(1800, d/120); // encourage farther spread
-        }
-      }
-
-      // tiny center preference for UX (optional)
-      if(preferCenter>0){
-        const dc = dist2(p, center);
-        score += (1.0 - Math.min(1, dc/(Math.max(1, safePlay.w*safePlay.w)))) * (250*preferCenter);
-      }
-
-      if(score > bestScore){
-        bestScore = score;
-        best = p;
-      }
+      if(ok) return p;
     }
-
-    return best || { x: safePlay.x + safePlay.w/2, y: safePlay.y + safePlay.h/2 };
+    return { x: safePlay.x + safePlay.w/2, y: safePlay.y + safePlay.h/2 };
   }
 
   // ---------- DOM notes ----------
@@ -352,7 +313,6 @@
     covPass: 80,
     minQuadSec: 12,
 
-    // base judge windows (will be adapted by OnlineML in play mode)
     judgeMs: { perfect: 120, good: 210 },
     pts: { perfect: 12, good: 7, stealth: 22 },
 
@@ -360,11 +320,15 @@
     noteLifeSec: 1.9,
     spawnEverySec: 0.72,
 
-    // SmartSpawn knobs
-    smartSpawn: {
+    // ===== B) Practice 15s =====
+    practice: {
       enabled: true,
-      keep: 12,
-      preferCenter: 0.12
+      sec: 15,
+      spawnEverySec: 0.95,
+      noteLifeSec: 2.3,
+      judgeMs: { perfect: 160, good: 260 },
+      noReclaim: true,
+      noBoss: true
     },
 
     gentle: {
@@ -483,6 +447,15 @@
       uvHunterStealthHit: 8,
       gentleMaxHeavy: 1,
       calmAvgAngerMax: 45
+    },
+
+    // ===== C) AI Difficulty Director =====
+    ai: {
+      enabled: true,
+      adapt: 0.65,
+      smooth: 0.12,
+      min: 0.80,
+      max: 1.25
     }
   };
 
@@ -491,89 +464,6 @@
     if(combo>=10) return 1.4;
     if(combo>=5)  return 1.2;
     return 1.0;
-  }
-
-  // ---------- NEW: Online ML Predictor (Pack11) ----------
-  // lightweight online learning: track timing error + tap rate, adapt spawn/judge in PLAY only
-  function createOnlineML(){
-    const M = {
-      n:0,
-      meanAbsDelta: 140,
-      meanTapRate: 4.2,
-      meanHeavy: 0,
-      // smoothed difficulty scalar 0..1 (higher = harder)
-      diff: 0.50
-    };
-    function ema(prev, x, a){ return prev + a*(x - prev); }
-
-    function updateOnJudge(deltaMs, tapRate, heavyHit){
-      // robust clamp
-      const d = clamp(Math.abs(deltaMs||0), 0, 480);
-      const tr = clamp(tapRate||0, 0, 16);
-      const hv = heavyHit ? 1 : 0;
-
-      M.n++;
-      const a = 0.06;
-      M.meanAbsDelta = ema(M.meanAbsDelta, d, a);
-      M.meanTapRate  = ema(M.meanTapRate,  tr, a);
-      M.meanHeavy    = ema(M.meanHeavy,    hv, a);
-
-      // build a “skill” score: lower delta + moderate tap rate + low heavy => higher skill
-      const sTiming = clamp(1 - (M.meanAbsDelta/260), 0, 1);
-      const sRate   = clamp(1 - (Math.abs(M.meanTapRate - 5.0)/6.0), 0, 1);
-      const sGentle = clamp(1 - M.meanHeavy, 0, 1);
-
-      const skill = (0.62*sTiming + 0.22*sRate + 0.16*sGentle);
-      // diff should be inverse of skill, but not too jumpy
-      const targetDiff = clamp(1 - skill, 0.08, 0.95);
-      M.diff = ema(M.diff, targetDiff, 0.08);
-    }
-
-    function getAdaptiveParams(baseJudgePerfect, baseJudgeGood, baseSpawnEvery){
-      // harder => tighter judge & faster spawns; easier => wider & slower
-      const d = M.diff; // 0..1
-      const judgeScale = clamp(1.18 - 0.36*d, 0.78, 1.22);
-      const spawnScale = clamp(1.25 - 0.50*d, 0.78, 1.25);
-
-      const perfect = Math.round(baseJudgePerfect * judgeScale);
-      const good    = Math.round(baseJudgeGood    * judgeScale);
-      const spawn   = baseSpawnEvery * spawnScale;
-
-      return {
-        judgeMs: { perfect: clamp(perfect, 80, 170), good: clamp(good, 150, 290) },
-        spawnEverySec: clamp(spawn, 0.52, 0.98),
-        diff: d,
-        stats: { meanAbsDelta: Math.round(M.meanAbsDelta), meanTapRate: M.meanTapRate.toFixed(1), meanHeavy: M.meanHeavy.toFixed(2) }
-      };
-    }
-
-    return { updateOnJudge, getAdaptiveParams };
-  }
-
-  // ---------- NEW: Event Log + CSV (Pack12) ----------
-  function csvEscape(v){
-    const s = String(v ?? '');
-    if(/[,"\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  }
-  function toCSV(rows){
-    if(!rows || !rows.length) return 'ts,type,judge\n';
-    const keys = Object.keys(rows[0]);
-    const head = keys.map(csvEscape).join(',');
-    const lines = rows.map(r => keys.map(k => csvEscape(r[k])).join(','));
-    return head + '\n' + lines.join('\n') + '\n';
-  }
-  function downloadText(filename, text){
-    try{
-      const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = DOC.createElement('a');
-      a.href = url;
-      a.download = filename;
-      DOC.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{ try{ a.remove(); URL.revokeObjectURL(url); }catch(_){} }, 250);
-    }catch(_){}
   }
 
   // ---------- engine ----------
@@ -585,48 +475,6 @@
     if(!layer){
       console.warn('[BrushVR] missing #playLayer');
       return;
-    }
-
-    // AI hooks (optional)
-    const AI = (function(){
-      const fallback = { getDifficulty(){return null;}, getTip(){return null;}, onEvent(){} };
-      try{
-        if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
-          const h = WIN.HHA.createAIHooks(ctx.seed, 'brush');
-          return Object.assign({}, fallback, h||{});
-        }
-      }catch(_){}
-      return fallback;
-    })();
-
-    // Online ML (play only)
-    const isResearch = String(ctx.mode||'').toLowerCase() === 'research';
-    const isPlay = !isResearch && String(ctx.mode||'').toLowerCase() !== 'practice';
-    const onlineML = createOnlineML();
-
-    // logging enabled? (research should log by default; play logs if ctx.log=="1")
-    const logOn = isResearch || String(ctx.log||'') === '1';
-    const evlog = [];
-    function emit(n, d){
-      // push minimal log rows for key events
-      if(logOn){
-        try{
-          evlog.push(Object.assign({
-            ts: Date.now(),
-            t: Number(S?.t||0).toFixed(3),
-            game:'brush',
-            mode: String(ctx.mode||''),
-            pid: String(ctx.pid||''),
-            studyId: String(ctx.studyId||''),
-            phase: String(ctx.phase||''),
-            conditionGroup: String(ctx.conditionGroup||''),
-            view: String(view||''),
-            type: n
-          }, d||{}));
-        }catch(_){}
-      }
-      emitRaw(n, d);
-      try{ AI.onEvent?.(n, d); }catch(_){}
     }
 
     function ensureOverlay(id, baseBg, title){
@@ -674,7 +522,6 @@
       'SHOCKWAVE — ตี “ตามจังหวะ”!'
     );
 
-    // shock ring canvas
     function ensureShockRing(){
       let c = DOC.getElementById('shockRing');
       if(c) return c;
@@ -795,8 +642,15 @@
 
       ns:null,
 
-      // NEW: store recent spawn points (SmartSpawn)
-      recentPts: []
+      // ===== B) practice =====
+      practiceOn:false,
+      practiceLeft:0,
+
+      // ===== C) ai director =====
+      aiDiff: 1.0,
+      aiDiffTarget: 1.0,
+      aiLastTipAt: 0,
+      aiLastEmitAt: 0
     };
 
     emit('hha:start', { game:'brush', ctx });
@@ -865,7 +719,7 @@
         HUD.toast('BANK: 🛡 Shield!', `ใช้คอมโบ ${CFG.bank.costCombo}`, 1200);
       }
       rebuildNoSpawn();
-      emit('brush:bank', { combo:S.combo, bankCd:S.bankCdLeft, uvEnergy:S.uvEnergy, shieldLeft:S.shieldLeft });
+      emit('brush:bank', { used:true, comboLeft:S.combo });
     }
     if(bankBtn){
       bankBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); applyBank(); }, {passive:false});
@@ -883,6 +737,7 @@
     function applyReclaim(dt){
       S.reclaiming.q1 = S.reclaiming.q2 = S.reclaiming.q3 = S.reclaiming.q4 = 0;
       if(!CFG.tug.enabled) return;
+      if(S.practiceOn && CFG.practice?.noReclaim) return;
 
       const rateScale = reclaimRateScale();
       if(rateScale <= 0) return;
@@ -910,6 +765,7 @@
       if(!CFG.boss.mood.enabled) return;
       S.anger = clamp(S.anger - n, 0, CFG.boss.mood.angerClamp);
     }
+    function angFactor(){ return clamp(S.anger/100, 0, 1); }
 
     // ---------- gentle ----------
     function recordHitAndDetectHeavy(hitMs){
@@ -934,25 +790,21 @@
         }
         emit('brush:gentle', { heavyCount:S.heavyCount, penaltyActive:S.penaltyLeft>0, tapRate });
       }
-
-      return { tapRate, heavy };
     }
 
     // ---------- notes registry ----------
     function addNote(note){
       S.notes.set(note.id, note);
 
-      // remember recent points for SmartSpawn
-      if(CFG.smartSpawn.enabled){
-        S.recentPts.push({x:note.x, y:note.y});
-        if(S.recentPts.length > CFG.smartSpawn.keep) S.recentPts.shift();
-      }
-
-      const life =
+      const lifeBase =
         (note.kind==='stealth') ? CFG.uv.stealthLifeSec :
         (note.kind==='boss' || note.kind==='weak') ? CFG.boss.noteLifeSec :
         (note.kind==='shield' || note.kind==='cleanser') ? CFG.pickups.lifeSec :
-        CFG.noteLifeSec;
+        (S.practiceOn ? (CFG.practice.noteLifeSec||CFG.noteLifeSec) : CFG.noteLifeSec);
+
+      // C) AI life scaling: better => shorter (harder), worse => longer (easier)
+      const aiLife = clamp(1.08 - (S.aiDiff-1.0)*0.55, 0.82, 1.18);
+      const life = lifeBase * aiLife;
 
       setTimeout(()=>{
         if(!note.used){
@@ -970,26 +822,6 @@
     }
 
     // ---------- spawners ----------
-    function smartPoint(radius){
-      if(!CFG.smartSpawn.enabled){
-        // fallback old
-        const sp = S.ns;
-        const tries = 90;
-        const w = Math.max(10, sp.safePlay.w - radius*2);
-        const h = Math.max(10, sp.safePlay.h - radius*2);
-        for(let i=0;i<tries;i++){
-          const x = sp.safePlay.x + radius + S.rng() * w;
-          const y = sp.safePlay.y + radius + S.rng() * h;
-          const p = {x,y};
-          let ok = true;
-          for(const z of sp.zones){ if(pointInRect(p, z)){ ok=false; break; } }
-          if(ok) return p;
-        }
-        return { x: sp.safePlay.x + sp.safePlay.w/2, y: sp.safePlay.y + sp.safePlay.h/2 };
-      }
-      return pickSpawnPointSmart(S.rng, S.ns, radius, S.recentPts, CFG.smartSpawn.preferCenter);
-    }
-
     function spawnNormalAt(p){
       const id = ++S.noteSeq;
       const el = mkNoteEl('normal');
@@ -1008,7 +840,7 @@
       addNote(note);
     }
     function spawnNormal(){
-      const p = smartPoint(CFG.noteRadius);
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
       spawnNormalAt(p);
     }
 
@@ -1033,7 +865,7 @@
       addNote(note);
     }
     function spawnStealth(){
-      const p = smartPoint(CFG.noteRadius);
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius);
       spawnStealthAt(p);
     }
 
@@ -1059,7 +891,7 @@
     }
 
     function spawnBossNote(){
-      const p = smartPoint(CFG.noteRadius+6);
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
       let weak = false;
       if(S.bossOn && S.bossPhase >= 3){
         const ch = (S.bossPhase===3) ? CFG.boss.weakChanceP3 : CFG.boss.weakChanceP4;
@@ -1071,7 +903,7 @@
     function spawnPickup(kind){
       const id = ++S.noteSeq;
       const el = mkNoteEl(kind);
-      const p = smartPoint(CFG.noteRadius+6);
+      const p = pickSpawnPoint(S.rng, S.ns, CFG.noteRadius+6);
 
       el.style.left = `${p.x}px`;
       el.style.top  = `${p.y}px`;
@@ -1105,6 +937,7 @@
         S.perfectStreak -= CFG.uv.refillStreak;
         addUVEnergy(1);
         HUD.toast('UV +1!', 'Perfect streak เติม UV', 1100);
+        emit('brush:ai', { type:'uv_refill' });
       }
     }
     function resetPerfectStreak(){ S.perfectStreak = 0; }
@@ -1148,6 +981,7 @@
         S.bossPhase = ph;
         HUD.toast('บอสเปลี่ยนเฟส!', `Phase ${ph}/4 • ${ph>=3?'Weak spot ON 🎯':'ตั้งหลักก่อน!'}`, 1200);
         emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase });
+        emit('brush:ai', { type:'boss_phase', phase: ph });
       }
 
       if(CFG.boss.gate.enabled && S.bossPhase >= CFG.boss.gate.phase && !S.gateOn){
@@ -1155,14 +989,13 @@
         S.gateNeed = CFG.boss.gate.needPerfectStreak;
         S.gateLeft = CFG.boss.gate.windowSec;
         HUD.toast('GATE!', `ทำ PERFECT ติดกัน ${S.gateNeed} ครั้งเพื่อเปิดเกราะ!`, 1600);
+        emit('brush:ai', { type:'gate_on' });
       }
     }
 
-    function angerFactor(){ return clamp(S.anger / 100, 0, 1); }
-
     function bossSpawnInterval(){
       const baseMult = 1.0 - 0.18*(S.bossPhase-1);
-      const angry = angerFactor();
+      const angry = angFactor();
       const moodMult = 1.0 - 0.22*angry;
       return clamp(CFG.boss.bossSpawnEverySecBase * baseMult * moodMult, CFG.boss.bossSpawnEverySecMin, 2.0);
     }
@@ -1170,7 +1003,7 @@
     function pickPattern(){
       const r = S.rng();
       const ph = S.bossPhase;
-      const angry = angerFactor();
+      const angry = angFactor();
 
       const wD = clamp((0.62 - 0.10*(ph-1)) + 0.18*angry, 0.25, 0.80);
       const wR = clamp((0.24 + 0.05*(ph-1)) - 0.14*angry, 0.10, 0.45);
@@ -1188,7 +1021,7 @@
       }else if(p==='RING'){
         S.patternLeft = 1.1 + S.rng()*0.5;
       }else{
-        const extra = Math.round(2 * angerFactor());
+        const extra = Math.round(2 * angFactor());
         S.patternLeft = 1.5 + S.rng()*0.7;
         S.stormQueue = CFG.boss.stormBurst + (S.bossPhase>=3 ? 2 : 0) + extra;
         S.stormNextAt = S.t;
@@ -1231,6 +1064,8 @@
 
     function maybeSpawnPickups(){
       if(!CFG.pickups.enabled) return;
+      if(S.practiceOn) return;
+
       const every = S.bossOn ? CFG.pickups.spawnEverySecBoss : CFG.pickups.spawnEverySecRun;
       if(S.t - S.lastPickupSpawn < every) return;
       S.lastPickupSpawn = S.t;
@@ -1240,14 +1075,13 @@
       if(S.shieldLeft > 0) kind = 'cleanser';
       else kind = (r < 0.55 ? 'shield' : 'cleanser');
       spawnPickup(kind);
-      emit('brush:pickup', { kind });
     }
 
     // ---------- Laser Sweep ----------
     function scheduleNextLaser(){
       const g = CFG.boss.laser;
       if(!g.enabled) return;
-      const angry = angerFactor();
+      const angry = angFactor();
       const minG = Math.max(4.8, g.minGapSec - 2.0*angry);
       const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
       const gap = minG + (S.rng()*(maxG - minG));
@@ -1258,6 +1092,7 @@
       S.laserWarnLeft = g.warnSec;
       laserOverlay.style.opacity = '0.55';
       HUD.toast('⚠️ LASER', 'หยุดตี! รอให้ผ่านไป', 900);
+      emit('brush:ai', { type:'laser_warn' });
     }
     function startLaser(){
       const g = CFG.boss.laser;
@@ -1265,11 +1100,13 @@
       S.laserLeft = g.durSec;
       laserOverlay.style.opacity = '1';
       HUD.toast('LASER SWEEP!', 'ห้ามตีช่วงนี้!', 900);
+      emit('brush:ai', { type:'laser_on' });
     }
     function stopLaser(){
       S.laserLeft = 0;
       laserOverlay.style.opacity = '0';
       scheduleNextLaser();
+      emit('brush:ai', { type:'laser_off' });
     }
     function laserPunish(x,y){
       const g = CFG.boss.laser;
@@ -1280,67 +1117,28 @@
       angerUp(CFG.boss.mood.angerUpUltimatePunish);
       popJudgeFx(layer, x, y, 'LASER');
       HUD.toast('โดนเลเซอร์!', 'ช่วงเลเซอร์ต้อง “หยุดตี”', 1200);
+      emit('brush:ai', { type:'laser_punish' });
     }
 
     // ---------- Shockwave Pulse ----------
     function scheduleNextShock(){
       const g = CFG.boss.shock;
       if(!g.enabled) return;
-      const angry = angerFactor();
+      const angry = angFactor();
       const minG = Math.max(5.2, g.minGapSec - 2.0*angry);
       const maxG = Math.max(minG+0.8, g.maxGapSec - 2.8*angry);
       const gap = minG + (S.rng()*(maxG - minG));
       S.shockNextAt = S.t + gap;
     }
-
     function openShockWindow(){
       const g = CFG.boss.shock;
       S.shockWindowOpen = true;
       S.shockWindowLeft = g.windowSec;
+      emit('brush:ai', { type:'shock_window' });
     }
     function closeShockWindow(){
       S.shockWindowOpen = false;
       S.shockWindowLeft = 0;
-    }
-
-    function startShock(){
-      const g = CFG.boss.shock;
-      S.shockOn = true;
-      S.shockPulsesLeft = g.pulses + Math.round(angerFactor()); // 3..4
-      S.shockPulseTimer = 0.02;
-      S.shockWindowLeft = 0;
-      S.shockWindowOpen = false;
-      S.shockPulseIdx = 0;
-
-      const c = safeCenter();
-      S.shockCenter = { x:c.x, y:c.y };
-      S.shockRingR = 0;
-
-      shockOverlay.style.opacity = '1';
-      shockCanvas.style.opacity = '1';
-
-      HUD.toast('SHOCKWAVE!', 'ตี “ตามจังหวะ” เท่านั้น!', 1200);
-    }
-    function stopShock(){
-      S.shockOn = false;
-      S.shockPulsesLeft = 0;
-      S.shockWindowLeft = 0;
-      S.shockWindowOpen = false;
-      shockOverlay.style.opacity = '0';
-      shockCanvas.style.opacity = '0';
-      clearShockDraw();
-      scheduleNextShock();
-    }
-
-    function shockPunish(x,y){
-      const g = CFG.boss.shock;
-      S.shockPunishCount++;
-      S.penaltyLeft = Math.max(S.penaltyLeft, g.penaltySec);
-      S.combo = Math.floor(S.combo * g.comboCut);
-      resetPerfectStreak();
-      angerUp(CFG.boss.mood.angerUpUltimatePunish);
-      popJudgeFx(layer, x, y, 'SHOCK');
-      HUD.toast('พลาดจังหวะ!', 'Shockwave ต้องตี “ตรงจังหวะ”', 1200);
     }
 
     function clearShockDraw(){
@@ -1368,6 +1166,52 @@
       shockCtx.restore();
     }
 
+    function startShock(){
+      const g = CFG.boss.shock;
+      S.shockOn = true;
+
+      // anger can add 0..1 pulses
+      const extra = (angFactor() > 0.55) ? 1 : 0;
+      S.shockPulsesLeft = g.pulses + extra;
+
+      S.shockPulseTimer = 0.02;
+      S.shockWindowLeft = 0;
+      S.shockWindowOpen = false;
+      S.shockPulseIdx = 0;
+
+      const c = safeCenter();
+      S.shockCenter = { x:c.x, y:c.y };
+      S.shockRingR = 0;
+
+      shockOverlay.style.opacity = '1';
+      shockCanvas.style.opacity = '1';
+
+      HUD.toast('SHOCKWAVE!', 'ตี “ตามจังหวะ” เท่านั้น!', 1200);
+      emit('brush:ai', { type:'shock_on', pulses: S.shockPulsesLeft });
+    }
+    function stopShock(){
+      S.shockOn = false;
+      S.shockPulsesLeft = 0;
+      S.shockWindowLeft = 0;
+      S.shockWindowOpen = false;
+      shockOverlay.style.opacity = '0';
+      shockCanvas.style.opacity = '0';
+      clearShockDraw();
+      scheduleNextShock();
+      emit('brush:ai', { type:'shock_off' });
+    }
+    function shockPunish(x,y){
+      const g = CFG.boss.shock;
+      S.shockPunishCount++;
+      S.penaltyLeft = Math.max(S.penaltyLeft, g.penaltySec);
+      S.combo = Math.floor(S.combo * g.comboCut);
+      resetPerfectStreak();
+      angerUp(CFG.boss.mood.angerUpUltimatePunish);
+      popJudgeFx(layer, x, y, 'SHOCK');
+      HUD.toast('พลาดจังหวะ!', 'Shockwave ต้องตี “ตรงจังหวะ”', 1200);
+      emit('brush:ai', { type:'shock_punish' });
+    }
+
     // ---------- Perfect Gate ----------
     function gateTick(dt){
       if(!S.gateOn) return;
@@ -1376,6 +1220,7 @@
         S.gateNeed = CFG.boss.gate.needPerfectStreak;
         S.gateLeft = CFG.boss.gate.windowSec;
         HUD.toast('GATE ต่อ!', `ทำ PERFECT ติดกัน ${S.gateNeed} ครั้ง!`, 1000);
+        emit('brush:ai', { type:'gate_refresh' });
       }
     }
     function gateOnPerfect(){
@@ -1384,33 +1229,14 @@
       if(S.gateNeed <= 0){
         S.gateOn = false;
         HUD.toast('เกราะแตก!', 'ตอนนี้ตีบอสได้เต็มแรง!', 1200);
+        emit('brush:ai', { type:'gate_break' });
       }
     }
     function gateOnMiss(){
       if(!S.gateOn) return;
       S.gateNeed = CFG.boss.gate.needPerfectStreak;
       HUD.toast('พลาด!', 'GATE รีเซ็ต—ต้อง Perfect ติดกันใหม่!', 900);
-    }
-
-    // ---------- phases ----------
-    function setPhase(p){
-      S.phase = p;
-      if(p==='RUN_Q'){
-        S.q = CFG.quads[S.quadIndex];
-        S.qTime = 0;
-      }
-      if(p==='BOSS'){
-        S.bossOn = true;
-        HUD.showBoss(true);
-        rebuildNoSpawn();
-        startPattern('DUEL');
-
-        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุย!', 1200);
-        emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase, pattern:S.bossPattern, anger:S.anger });
-
-        scheduleNextLaser();
-        scheduleNextShock();
-      }
+      emit('brush:ai', { type:'gate_reset' });
     }
 
     // ---------- Finisher ----------
@@ -1423,12 +1249,14 @@
         S.finisherLeft = CFG.boss.finisherWindowSec;
         S.finisherBestStreak = 0;
         HUD.toast('FINISHER!', `ทำ PERFECT ${S.finisherNeed} ครั้งใน ${CFG.boss.finisherWindowSec.toFixed(0)} วิ!`, 1600);
+        emit('brush:ai', { type:'finisher_on', need:S.finisherNeed });
       }
     }
 
     function bossWin(){
       S.bossHp = 0;
       HUD.toast('ชนะบอส!', 'ฟันสะอาดปิ๊ง ✨', 1400);
+      emit('brush:ai', { type:'boss_win' });
       endGame('boss_win');
     }
 
@@ -1446,6 +1274,30 @@
         HUD.toast('💧 Cleanser!', 'ล้างคราบ + หยุดยึดคืนชั่วคราว', 1400);
       }
       rebuildNoSpawn();
+      emit('brush:pickup', { kind });
+    }
+
+    // ---------- C) AI Difficulty Director ----------
+    function computeAIDiffTarget(){
+      if(!CFG.ai?.enabled) return 1.0;
+
+      const comboN = clamp(S.combo / 18, 0, 1);
+      const missN  = clamp(S.miss / 18, 0, 1);
+      const heavyN = clamp(S.heavyCount / 6, 0, 1);
+
+      let t = 1.0
+        + (0.22 * comboN)
+        - (0.26 * missN)
+        - (0.14 * heavyN);
+
+      if(S.bossOn) t += 0.06 + 0.03*(S.bossPhase-1);
+
+      t = clamp(t, CFG.ai.min, CFG.ai.max);
+
+      const a = clamp(CFG.ai.adapt, 0, 1);
+      t = 1.0*(1-a) + t*a;
+
+      return t;
     }
 
     // ---------- judgement ----------
@@ -1453,7 +1305,7 @@
       if(!note || note.used) return;
       note.used = true;
 
-      // Ultimate blocks: Laser and Shock
+      // Ultimate blocks
       if(S.bossOn && (source==='tap' || source==='shoot')){
         if(S.laserLeft > 0){
           laserPunish(note.x, note.y);
@@ -1474,31 +1326,27 @@
           closeShockWindow();
           HUD.toast('จังหวะดี!', 'Shockwave timing สำเร็จ', 900);
           angerDown(4.0);
+          emit('brush:ai', { type:'shock_ok' });
         }
       }
 
-      let tapMeta = { tapRate:0, heavy:false };
       if(source==='tap' || source==='shoot'){
-        tapMeta = recordHitAndDetectHeavy(hitMs);
+        recordHitAndDetectHeavy(hitMs);
       }
 
       const delta = Math.abs(hitMs - note.dueMs);
 
-      // --- OnlineML adaptation (play only) ---
-      let judgeCfg = CFG.judgeMs;
-      let spawnEvery = CFG.spawnEverySec;
-      let mlPack = null;
-      if(isPlay){
-        onlineML.updateOnJudge(delta, tapMeta.tapRate, tapMeta.heavy);
-        mlPack = onlineML.getAdaptiveParams(CFG.judgeMs.perfect, CFG.judgeMs.good, CFG.spawnEverySec);
-        judgeCfg = mlPack.judgeMs;
-        spawnEvery = mlPack.spawnEverySec;
-      }
+      // C) dynamic judge window (practice + ai)
+      const basePerfect = (S.practiceOn && CFG.practice?.judgeMs) ? CFG.practice.judgeMs.perfect : CFG.judgeMs.perfect;
+      const baseGood    = (S.practiceOn && CFG.practice?.judgeMs) ? CFG.practice.judgeMs.good    : CFG.judgeMs.good;
+      const w = clamp(1.06 - (S.aiDiff-1.0)*0.55, 0.86, 1.18);
+      const perfectWin = Math.round(basePerfect * w);
+      const goodWin    = Math.round(baseGood    * w);
 
       let judge = 'miss';
       if(source!=='expire'){
-        if(delta <= judgeCfg.perfect) judge = 'perfect';
-        else if(delta <= judgeCfg.good) judge = 'good';
+        if(delta <= perfectWin) judge = 'perfect';
+        else if(delta <= goodWin) judge = 'good';
       }
 
       const removeNote = ()=>{
@@ -1515,6 +1363,7 @@
         if(S.finisherOn){
           S.finisherNeed = CFG.boss.finisherNeed;
           HUD.toast('พลาด!', 'ต้องเริ่ม Perfect ใหม่!', 900);
+          emit('brush:ai', { type:'finisher_reset' });
         }
       };
 
@@ -1538,7 +1387,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+          emit('hha:judge', { type:'stealth', judge:'miss', q:S.q, uvOn:S.uvOn, source:'expire' });
           removeNote(); return;
         }else{
           if(S.uvOn){
@@ -1571,7 +1420,7 @@
             }
 
             popJudgeFx(layer, note.x, note.y, 'perfect');
-            emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+            emit('hha:judge', { type:'stealth', judge:'hit', q:S.q, deltaMs:Math.round(delta), combo:S.combo, uvOn:true, source });
             removeNote(); return;
           }else{
             S.stealthMiss++;
@@ -1582,7 +1431,7 @@
             if(S.gateOn) gateOnMiss();
             HUD.toast('ยังไม่เห็นคราบ!', 'กด UV ก่อนถึงจะปราบคราบล่องหนได้', 1400);
             popJudgeFx(layer, note.x, note.y, 'miss');
-            emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source, deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+            emit('hha:judge', { type:'stealth', judge:'blocked', q:S.q, uvOn:false, source });
             removeNote(); return;
           }
         }
@@ -1600,7 +1449,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source:'expire' });
           removeNote(); return;
         }
 
@@ -1612,7 +1461,7 @@
           if(S.finisherOn) finisherMissReset();
           if(S.gateOn) gateOnMiss();
           popJudgeFx(layer, note.x, note.y, 'miss');
-          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source, deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+          emit('hha:judge', { type:isWeak?'weak':'boss', judge:'miss', q:S.q, source });
           removeNote(); return;
         }
 
@@ -1634,6 +1483,7 @@
           const baseD = (judge==='perfect') ? CFG.boss.dmg.bossPerfect : CFG.boss.dmg.bossGood;
           dmg = (S.bossPhase >= 3) ? Math.round(baseD * CFG.boss.dmg.nonWeakScaleLate) : baseD;
         }
+
         if(S.gateOn) dmg = Math.max(1, Math.round(dmg * 0.28));
 
         S.bossHp = clamp(S.bossHp - dmg, 0, CFG.boss.hpMax);
@@ -1659,7 +1509,7 @@
         if(S.bossHp <= 0){ removeNote(); return bossWin(); }
 
         popJudgeFx(layer, note.x, note.y, isWeak ? 'WEAK' : judge);
-        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, gateOn:S.gateOn, anger:S.anger, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+        emit('hha:judge', { type:isWeak?'weak':'boss', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, bossHp:S.bossHp, dmg, gateOn:S.gateOn, anger:S.anger, source });
         removeNote(); return;
       }
 
@@ -1672,7 +1522,7 @@
         if(S.finisherOn) finisherMissReset();
         if(S.gateOn) gateOnMiss();
         popJudgeFx(layer, note.x, note.y, 'miss');
-        emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire', deltaMs:Math.round(delta), tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+        emit('hha:judge', { type:'note', judge:'miss', q:S.q, source:'expire' });
         removeNote(); return;
       }
 
@@ -1715,14 +1565,8 @@
       }
 
       popJudgeFx(layer, note.x, note.y, judge);
-      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, anger:S.anger, source, tapRate:tapMeta.tapRate, mlDiff: mlPack?.diff });
+      emit('hha:judge', { type:'note', judge, q:S.q, deltaMs:Math.round(delta), combo:S.combo, anger:S.anger, source });
       emit('brush:coverage', { q:S.q, coverage: Object.assign({}, S.coverage) });
-
-      // apply adaptive spawn every (play only)
-      if(isPlay){
-        // smooth update: only affects RUN_Q section below
-        S._spawnEverySec = spawnEvery;
-      }
 
       removeNote();
     }
@@ -1739,8 +1583,43 @@
         S.quadIndex++;
         setPhase('RUN_Q');
       }else{
-        if(CFG.boss.enabled) setPhase('BOSS');
+        if(CFG.boss.enabled && !(S.practiceOn && CFG.practice?.noBoss)) setPhase('BOSS');
         else endGame('quad_done');
+      }
+    }
+
+    // ---------- phases ----------
+    function setPhase(p){
+      S.phase = p;
+
+      if(p==='PRACTICE'){
+        S.practiceOn = true;
+        S.practiceLeft = CFG.practice.sec;
+        HUD.toast('PRACTICE', `ซ้อม ${CFG.practice.sec}s • จับจังหวะ PERFECT`, 1400);
+        emit('brush:ai', { type:'practice_on', sec: CFG.practice.sec });
+        rebuildNoSpawn();
+      }
+
+      if(p==='RUN_Q'){
+        S.practiceOn = false;
+        S.q = CFG.quads[S.quadIndex];
+        S.qTime = 0;
+        emit('brush:ai', { type:'run_start', q:S.q, quadIndex:S.quadIndex+1 });
+      }
+
+      if(p==='BOSS'){
+        S.practiceOn = false;
+        S.bossOn = true;
+        HUD.showBoss(true);
+        rebuildNoSpawn();
+        startPattern('DUEL');
+
+        HUD.toast('บอสโผล่!', 'Tartar Titan มาแล้ว—ลุย!', 1200);
+        emit('brush:boss', { on:true, hp:S.bossHp, phase:S.bossPhase, pattern:S.bossPattern, anger:S.anger });
+        emit('brush:ai', { type:'boss_start' });
+
+        scheduleNextLaser();
+        scheduleNextShock();
       }
     }
 
@@ -1768,7 +1647,6 @@
 
       const total = S.score + coverageScore + (S.stealthHit*25) + bossBonus + finBonus - laserPenalty - shockPenalty;
 
-      // badges evaluation
       const earned = [];
       const gameKey = 'brush';
 
@@ -1779,8 +1657,8 @@
           if(grantBadge(gameKey, 'TIMING_MASTER')) earned.push('TIMING_MASTER');
         }
 
-        const avgAnger0 = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
-        if(avgAnger0 <= CFG.badges.calmAvgAngerMax){
+        const avgAnger = (S.angerSamples>0) ? (S.angerSum / S.angerSamples) : S.anger;
+        if(avgAnger <= CFG.badges.calmAvgAngerMax){
           if(grantBadge(gameKey, 'CALM_BREAKER')) earned.push('CALM_BREAKER');
         }
       }
@@ -1814,6 +1692,7 @@
         },
         laser: { violations: S.laserViolations, penalty: laserPenalty },
         shock: { punish: S.shockPunishCount, penalty: shockPenalty },
+        ai: { diff: Number(S.aiDiff.toFixed(3)), diffTarget: Number(S.aiDiffTarget.toFixed(3)) },
         badgesEarned: earned,
         meta: ctx,
         durationSec: (clamp(ctx.time || CFG.timeSec, 30, 180) - S.left)
@@ -1840,7 +1719,6 @@
       shockCanvas.style.opacity = '0';
       clearShockDraw();
 
-      // end overlay (with Export CSV)
       const done = DOC.createElement('div');
       done.style.position='fixed';
       done.style.inset='0';
@@ -1851,39 +1729,28 @@
       done.style.backdropFilter='blur(10px)';
 
       const badgeLine = earned.length ? `🎖 Badges: ${earned.join(', ')}` : '🎖 Badges: -';
-      const logLine = logOn ? `📄 Log: ON (${evlog.length} rows)` : '📄 Log: OFF';
 
       done.innerHTML = `
-        <div style="width:min(720px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
+        <div style="width:min(640px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:18px 16px;background:rgba(2,6,23,.78);box-shadow:0 18px 60px rgba(0,0,0,.45);">
           <div style="font-weight:900;font-size:18px;">จบเกมแล้ว • Rank ${summary.rank}</div>
           <div style="margin-top:6px;color:rgba(148,163,184,1);font-size:13px;line-height:1.5;">
-            Score ${summary.scoreTotal} • BossHP ${summary.boss.hpLeft} • Avg Anger ${summary.boss.angerAvg}
+            Score ${summary.scoreTotal} • BossHP ${summary.boss.hpLeft} • Avg Anger ${summary.boss.angerAvg} • AI ${summary.ai.diff}
           </div>
           <div style="margin-top:8px;color:rgba(229,231,235,.85);font-size:13px;line-height:1.5;">
-            ${badgeLine}<br>${logLine}
+            ${badgeLine}
           </div>
-
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
             <button id="btnRestart" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,197,94,.22);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Restart</button>
             <button id="btnBack" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.40);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Back HUB</button>
-            <button id="btnExport" style="padding:10px 14px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(34,211,238,.18);color:rgba(229,231,235,.95);font-weight:900;cursor:pointer;">Export CSV</button>
           </div>
         </div>
       `;
       DOC.body.appendChild(done);
-
       done.querySelector('#btnRestart')?.addEventListener('click', ()=>location.reload());
       done.querySelector('#btnBack')?.addEventListener('click', ()=>{
         const hub = ctx.hub || '';
         if(hub) location.href = hub;
         else history.back();
-      });
-      done.querySelector('#btnExport')?.addEventListener('click', ()=>{
-        const base = (ctx.pid ? `brush_${ctx.pid}` : 'brush');
-        const ts = new Date().toISOString().replace(/[:.]/g,'-');
-        const filename = `${base}_${ts}.csv`;
-        const csv = toCSV(evlog);
-        downloadText(filename, csv);
       });
     }
 
@@ -1954,19 +1821,61 @@
         S.angerSamples += 1;
       }
 
-      if(S.phase==='INTRO' && S.t >= CFG.introSec){
-        S.phase = 'RUN_Q';
-        S.quadIndex = 0;
-        setPhase('RUN_Q');
+      // ===== C) AI Difficulty tick =====
+      if(CFG.ai?.enabled){
+        if((t - S.aiLastEmitAt) > 500){
+          S.aiLastEmitAt = t;
+          S.aiDiffTarget = computeAIDiffTarget();
+
+          // sparse tips
+          if(S.phase==='RUN_Q' && S.t - S.aiLastTipAt > 5.5){
+            if(S.heavyCount >= 3){
+              emit('brush:ai', { type:'gentle_warn' });
+              S.aiLastTipAt = S.t;
+            }else if(S.combo >= 10 && S.miss <= 2){
+              emit('brush:ai', { type:'combo_hot' });
+              S.aiLastTipAt = S.t;
+            }
+          }
+        }
+        const s = clamp(CFG.ai.smooth, 0.03, 0.25);
+        S.aiDiff = clamp(S.aiDiff + (S.aiDiffTarget - S.aiDiff)*s, CFG.ai.min, CFG.ai.max);
       }
 
+      // INTRO -> PRACTICE or RUN
+      if(S.phase==='INTRO' && S.t >= CFG.introSec){
+        S.quadIndex = 0;
+        if(CFG.practice?.enabled){
+          setPhase('PRACTICE');
+        }else{
+          setPhase('RUN_Q');
+        }
+      }
+
+      // ===== B) PRACTICE =====
+      if(S.phase==='PRACTICE'){
+        S.practiceLeft = Math.max(0, S.practiceLeft - dt);
+
+        const spawnEvery = (CFG.practice.spawnEverySec || 0.95) * (1.0 / S.aiDiff);
+        if(S.t - S.lastSpawn >= clamp(spawnEvery, 0.55, 1.35)){
+          S.lastSpawn = S.t;
+          spawnNormal();
+        }
+
+        if(S.practiceLeft <= 0){
+          HUD.toast('เริ่มจริง!', 'เข้าสู่โหมด Quadrant Run', 1200);
+          emit('brush:ai', { type:'practice_done' });
+          S.quadIndex = 0;
+          setPhase('RUN_Q');
+        }
+      }
+
+      // RUN_Q
       if(S.phase==='RUN_Q'){
         S.qTime += dt;
 
-        // adaptive spawn every (play only)
-        const spawnEvery = (isPlay && S._spawnEverySec) ? S._spawnEverySec : CFG.spawnEverySec;
-
-        if(S.t - S.lastSpawn >= spawnEvery){
+        const spawnEvery = CFG.spawnEverySec * (1.0 / S.aiDiff);
+        if(S.t - S.lastSpawn >= clamp(spawnEvery, 0.42, 1.20)){
           S.lastSpawn = S.t;
           spawnNormal();
         }
@@ -1983,8 +1892,9 @@
         maybeAdvanceQuadrantOrStartBoss();
       }
 
+      // BOSS
       if(S.phase==='BOSS'){
-        // Laser timing
+        // Laser
         if(CFG.boss.laser.enabled){
           if(S.laserWarnLeft > 0){
             S.laserWarnLeft = Math.max(0, S.laserWarnLeft - dt);
@@ -2001,7 +1911,7 @@
           }
         }
 
-        // Shock timing — never overlap with laser
+        // Shock (no overlap with laser)
         if(CFG.boss.shock.enabled && S.laserLeft <= 0 && S.laserWarnLeft <= 0){
           if(!S.shockOn){
             if(S.t >= S.shockNextAt && S.bossHp > 0){
@@ -2088,6 +1998,7 @@
       const moodTag = S.bossOn ? ` • ANGER ${Math.round(S.anger)}` : '';
       const phaseLabel =
         (S.phase==='INTRO') ? 'INTRO • Ready' :
+        (S.phase==='PRACTICE') ? `PRACTICE • ${Math.ceil(S.practiceLeft)}s` :
         (S.phase==='RUN_Q') ? `${S.q.toUpperCase()} • Quadrant Run` :
         (S.phase==='BOSS') ? `BOSS • ${S.bossPattern}${S.gateOn?' • GATE':''}${(S.laserLeft>0||S.laserWarnLeft>0)?' • LASER':''}${S.shockOn?' • SHOCK':''}${moodTag}` :
         'END';
@@ -2096,6 +2007,7 @@
       const pmul = (S.penaltyLeft > 0 ? CFG.gentle.penaltyMul : 1.0);
 
       let extra = '';
+      extra += ` • AI ${S.aiDiff.toFixed(2)}`;
       if(S.bankCdLeft > 0) extra += ` • BANK ${S.bankCdLeft.toFixed(0)}s`;
       if(S.shieldLeft > 0) extra += ` • 🛡${S.shieldLeft.toFixed(0)}s`;
       if(S.reclaimFreezeLeft > 0) extra += ` • 💧${S.reclaimFreezeLeft.toFixed(0)}s`;
@@ -2118,7 +2030,7 @@
         HUD.showBoss(false);
       }
 
-      // emit time (and log snapshot occasionally)
+      // emit time
       if((t - S.lastTimeEmit) > 250){
         S.lastTimeEmit = t;
         emit('hha:time', {
@@ -2148,7 +2060,10 @@
           shockPulsesLeft:S.shockPulsesLeft,
           shockWindowOpen:S.shockWindowOpen,
           shockPunish:S.shockPunishCount,
-          anger:S.anger
+          anger:S.anger,
+          aiDiff:S.aiDiff,
+          aiTarget:S.aiDiffTarget,
+          practiceOn:S.practiceOn
         });
       }
 
@@ -2160,10 +2075,6 @@
       if(S.phase !== 'END') requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
-
-    // initial schedules
-    scheduleNextLaser();
-    scheduleNextShock();
   }
 
   WIN.BrushVR = WIN.BrushVR || {};
