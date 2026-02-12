@@ -1,13 +1,15 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
 // PATCH v20260211a
-// ✅ Exports: boot()
-// ✅ FIX: instant remove on hit + prevent double-hit (obj.dead)
-// ✅ FIX: cap targets + anti-stuck sweep (TTL) + hard cleanup on overload
-// ✅ FIX: watchdog recover if RAF stalls
-// ✅ FX: pop at target coords (obj.x/obj.y)
+// ✅ FIX1: FX pops exactly at clicked target (uses getBoundingClientRect center)
+// ✅ FIX2: Mobile tap reliability (use pointerdown; no click delay)
+// ✅ FIX3: Target removal is immediate (disable + fade + remove next frame)
+// ✅ FIX4: Cap + TTL cleanup prevents "targets flood"
+// ✅ FIX5: Tick guarded (try/catch) => avoids silent freeze
+// Exports: boot()
 // Emits: hha:start, hha:time, hha:judge, hha:end
 // Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+
 'use strict';
 
 const WIN = window;
@@ -31,7 +33,7 @@ function saveJson(key, obj){
   try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{}
 }
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
-function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
 
 // ------------------ Steps (emoji mapping) ------------------
@@ -45,16 +47,6 @@ const STEPS = [
   { key:'wrist', icon:'⌚', label:'ข้อมือ', hitsNeed:6 },
 ];
 const ICON_HAZ = '🦠';
-
-// ---------- limits / anti-stuck ----------
-const LIMITS = {
-  MAX_TARGETS: 16,              // hard cap
-  SWEEP_EVERY_MS: 650,          // how often we sweep old targets
-  TARGET_TTL_MS: 4200,          // remove targets older than this
-  OVERLOAD_KILL: 6,             // when overload, remove this many oldest
-  WATCHDOG_MS: 2200,            // if RAF stalls > this, attempt recover
-  CLICK_COOLDOWN_MS: 25         // guard rapid double taps
-};
 
 export function boot(){
   const stage = DOC.getElementById('stage');
@@ -147,14 +139,12 @@ export function boot(){
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead}
+  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead, ttlMs}
   let nextId=1;
 
-  // anti-stuck timers
-  let lastSweepMs = 0;
-  let lastTickMs = 0;
-  let lastUserHitMs = 0;
-  let lastPointerMs = 0;
+  // anti-flood / ttl
+  const MAX_TARGETS = (view === 'cvr') ? 14 : 16; // ลดบนมือถือให้ลื่น
+  const TARGET_TTL_MS = (diff === 'hard') ? 3200 : (diff === 'easy' ? 3600 : 3400);
 
   function showBanner(msg){
     if(!banner) return;
@@ -164,14 +154,29 @@ export function boot(){
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
+  // ---------- Hit XY (exactly at target) ----------
+  function getHitXY(obj){
+    try{
+      const el = obj && obj.el;
+      if(el && el.getBoundingClientRect){
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width/2;
+        const y = r.top  + r.height/2;
+        if(Number.isFinite(x) && Number.isFinite(y)) return {x,y};
+      }
+    }catch{}
+    // fallback to stored px
+    return {
+      x: Number(obj?.x || WIN.innerWidth*0.5),
+      y: Number(obj?.y || WIN.innerHeight*0.5)
+    };
+  }
+
   // ✅ FX on hit (particles.js)
   function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P || !obj) return;
-
-    // Use target viewport px
-    const x = Number.isFinite(obj.x) ? obj.x : (WIN.innerWidth*0.5);
-    const y = Number.isFinite(obj.y) ? obj.y : (WIN.innerHeight*0.5);
+    const {x,y} = getHitXY(obj);
 
     if(kind === 'good'){
       P.popText(x, y, '✅ +1', 'good');
@@ -192,7 +197,7 @@ export function boot(){
   }
 
   function pickQuiz(){
-    const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
+    const bank = WIN.HHA_HYGIENE_QUIZ_BANK; // from hygiene-quiz-bank.js
     if(!Array.isArray(bank) || !bank.length) return null;
     const q = bank[Math.floor(rng()*bank.length)];
     return q || null;
@@ -240,7 +245,7 @@ export function boot(){
     const y0 = (topSafe + pad);
     const y1 = h - bottomSafe - pad;
 
-    return { x0, x1, y0, y1, w, h };
+    return { x0, x1, y0, y1, w, h, topSafe, bottomSafe };
   }
 
   function getMissCount(){
@@ -262,14 +267,14 @@ export function boot(){
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
     pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view} • tgt=${targets.length}`);
+    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
 
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
-      try{ t.dead = true; }catch{}
-      try{ t.el?.remove(); }catch{}
+      try{ t.el && (t.el.onpointerdown = null); }catch{}
+      t.el?.remove();
     }
   }
 
@@ -277,19 +282,24 @@ export function boot(){
     if(!obj || obj.dead) return;
     obj.dead = true;
 
+    // immediate disable (prevents double-tap causing weirdness)
+    try{
+      if(obj.el){
+        obj.el.style.pointerEvents = 'none';
+        obj.el.style.transition = 'opacity 90ms ease, transform 90ms ease';
+        obj.el.style.opacity = '0';
+        obj.el.style.transform = 'translate(-50%,-50%) scale(0.92)';
+      }
+    }catch{}
+
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
 
-    try{ obj.el?.remove(); }catch{}
+    // remove on next frame (feels instant)
+    requestAnimationFrame(()=>{ try{ obj.el?.remove(); }catch{} });
   }
 
   function createTarget(kind, emoji, stepRef){
-    if(targets.length >= LIMITS.MAX_TARGETS){
-      const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
-      const killN = Math.min(LIMITS.OVERLOAD_KILL, sorted.length);
-      for(let i=0;i<killN;i++) removeTarget(sorted[i]);
-    }
-
     const el = DOC.createElement('button');
     el.type='button';
     el.className = `hw-tgt ${kind}`;
@@ -302,28 +312,30 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
+    // vw/vh expects 0..100
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
-    el.style.setProperty('--s', (0.92 + rng()*0.22).toFixed(3));
+    el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false, ttlMs: TARGET_TTL_MS };
     targets.push(obj);
 
+    // ✅ Mobile reliable: pointerdown (no click delay)
+    // In cVR: do not tap targets; shoot from crosshair
     if(view !== 'cvr'){
-      el.addEventListener('click', ()=>{
-        const t = nowMs();
-        if(t - lastPointerMs < LIMITS.CLICK_COOLDOWN_MS) return;
-        lastPointerMs = t;
+      el.onpointerdown = (ev)=>{
+        try{ ev.preventDefault(); }catch{}
         onHitByPointer(obj, 'tap');
-      }, { passive:true });
+      };
     }
     return obj;
   }
 
   function spawnOne(){
+    const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
-    const r = rng();
 
+    const r = rng();
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
     }else if(r < P.hazardRate + P.decoyRate){
@@ -334,7 +346,6 @@ export function boot(){
       }
       return createTarget('wrong', STEPS[j].icon, j);
     }else{
-      const s = STEPS[stepIdx];
       return createTarget('good', s.icon, stepIdx);
     }
   }
@@ -350,12 +361,13 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
+  // cVR shoot: pick nearest target center within lockPx (uses element rect)
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
 
     const d = (e && e.detail) || {};
-    const lockPx = Number(d.lockPx||28);
+    const lockPx = Number(d.lockPx||30);
 
     const cx = WIN.innerWidth/2;
     const cy = WIN.innerHeight/2;
@@ -363,7 +375,8 @@ export function boot(){
     let best=null, bestDist=1e9;
     for(const t of targets){
       if(!t || t.dead) continue;
-      const dx = (t.x - cx), dy = (t.y - cy);
+      const xy = getHitXY(t);
+      const dx = (xy.x - cx), dy = (xy.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
         best = t; bestDist = dist;
@@ -423,17 +436,25 @@ export function boot(){
     }
   }
 
+  function cleanupExpiredTargets(){
+    if(!targets.length) return;
+    const t = nowMs();
+    // remove old ones without penalty (anti-flood)
+    for(let i=targets.length-1;i>=0;i--){
+      const obj = targets[i];
+      if(!obj || obj.dead) { targets.splice(i,1); continue; }
+      if((t - obj.bornMs) > (obj.ttlMs||TARGET_TTL_MS)){
+        removeTarget(obj);
+      }
+    }
+  }
+
   function judgeHit(obj, source, extra){
     if(!obj || obj.dead) return;
-
-    // remove immediately to avoid “ตีแล้วค้าง/ยิงซ้ำ”
-    removeTarget(obj);
 
     const rt = computeRt(obj);
 
     if(obj.kind === 'good'){
-      lastUserHitMs = nowMs();
-
       correctHits++;
       totalStepHits++;
       hitsInStep++;
@@ -461,7 +482,10 @@ export function boot(){
 
       bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
-      fxHit('good', obj);
+      fxHit('good', obj); // ✅ FX exact position
+
+      // ✅ remove immediately
+      removeTarget(obj);
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
@@ -509,6 +533,7 @@ export function boot(){
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
       fxHit('wrong', obj);
 
+      removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -530,33 +555,10 @@ export function boot(){
       showBanner(`🦠 โดนเชื้อ! ระวัง!`);
       fxHit('haz', obj);
 
+      removeTarget(obj);
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
-    }
-  }
-
-  function sweepTargets(tNow){
-    if(tNow - lastSweepMs < LIMITS.SWEEP_EVERY_MS) return;
-    lastSweepMs = tNow;
-
-    const ttl = LIMITS.TARGET_TTL_MS;
-    for(let i=targets.length-1;i>=0;i--){
-      const t = targets[i];
-      if(!t || t.dead){
-        targets.splice(i,1);
-        continue;
-      }
-      if((tNow - t.bornMs) > ttl){
-        removeTarget(t);
-      }
-    }
-
-    if(targets.length > LIMITS.MAX_TARGETS){
-      const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
-      const extra = targets.length - LIMITS.MAX_TARGETS;
-      const killN = Math.min(sorted.length, Math.max(extra, LIMITS.OVERLOAD_KILL));
-      for(let k=0;k<killN;k++) removeTarget(sorted[k]);
     }
   }
 
@@ -565,20 +567,13 @@ export function boot(){
 
     try{
       const t = nowMs();
-      if(!lastTickMs) lastTickMs = t;
-
       const dt = Math.max(0, (t - tLastMs)/1000);
       tLastMs = t;
 
-      // watchdog: if RAF stalls, reduce load
-      if((t - lastTickMs) > LIMITS.WATCHDOG_MS){
-        showBanner('⚠️ เกมสะดุด กำลังกู้คืน…');
-        const sorted = targets.slice().sort((a,b)=>a.bornMs-b.bornMs);
-        for(let i=0;i<Math.min(sorted.length, 10);i++) removeTarget(sorted[i]);
+      if(paused){
+        requestAnimationFrame(tick);
+        return;
       }
-      lastTickMs = t;
-
-      if(paused){ requestAnimationFrame(tick); return; }
 
       timeLeft -= dt;
       emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
@@ -588,30 +583,42 @@ export function boot(){
         return;
       }
 
-      sweepTargets(t);
+      // cleanup first (prevents flood)
+      cleanupExpiredTargets();
 
       const P = dd ? dd.getParams() : base;
-
       spawnAcc += (P.spawnPerSec * dt);
 
-      const capacity = Math.max(0, LIMITS.MAX_TARGETS - targets.length);
-      let spawnBudget = Math.min(capacity, 3); // no more than 3 per frame
-
-      while(spawnAcc >= 1 && spawnBudget > 0){
-        spawnAcc -= 1;
-        spawnOne();
-        spawnBudget--;
+      // ✅ cap targets (hard stop)
+      // If too many, don't spawn more; also trim oldest.
+      if(targets.length < MAX_TARGETS){
+        while(spawnAcc >= 1 && targets.length < MAX_TARGETS){
+          spawnAcc -= 1;
+          spawnOne();
+        }
+      }else{
+        spawnAcc = Math.min(spawnAcc, 1.2); // prevent huge backlog after lag
+        // trim oldest if overflow somehow
+        while(targets.length > MAX_TARGETS){
+          const oldest = targets.reduce((a,b)=> (a.bornMs < b.bornMs ? a : b));
+          if(oldest) removeTarget(oldest); else break;
+        }
       }
 
       dd?.onEvent('tick', { elapsedSec: elapsedSec() });
       updateQuestTick();
       setHud();
-
       requestAnimationFrame(tick);
     }catch(err){
       console.error('[Hygiene] tick crash', err);
-      showBanner('❌ เกิด error ในเกม (ลอง Reload)');
-      endGame('crash');
+      showBanner('⚠️ เกมสะดุด (JS error) — กด Reload หรือ Reset');
+      // fail-safe: stop spawning to avoid freezing UI
+      running = false;
+      try{ clearTargets(); }catch{}
+      // show start overlay again so it doesn't look "stuck"
+      try{
+        if(startOverlay) startOverlay.style.display = 'grid';
+      }catch{}
     }
   }
 
@@ -632,12 +639,6 @@ export function boot(){
     quizRight = 0;
     quizWrong = 0;
     setQuizVisible(false);
-
-    lastSweepMs = 0;
-    lastTickMs = 0;
-    lastUserHitMs = 0;
-    lastPointerMs = 0;
-
     setHud();
   }
 
@@ -657,10 +658,8 @@ export function boot(){
   }
 
   function endGame(reason){
-    if(!running && reason !== 'crash') return;
-
+    if(!running) return;
     running=false;
-    paused=false;
     clearTargets();
     setQuizVisible(false);
 
@@ -735,7 +734,7 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : (reason==='crash' ? 'จบเกม ❌ (Crash)' : 'จบเกม ✅');
+    if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
@@ -747,19 +746,19 @@ export function boot(){
   }
 
   // UI binds
-  btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
-  btnPlayAgain?.addEventListener('click', startGame, { passive:true });
-  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
-  btnBack?.addEventListener('click', goHub, { passive:true });
-  btnBack2?.addEventListener('click', goHub, { passive:true });
+  btnStart?.addEventListener('click', startGame);
+  btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); });
+  btnPlayAgain?.addEventListener('click', startGame);
+  btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''));
+  btnBack?.addEventListener('click', goHub);
+  btnBack2?.addEventListener('click', goHub);
 
   btnPause?.addEventListener('click', ()=>{
     if(!running) return;
     paused = !paused;
     if(btnPause) btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
-  }, { passive:true });
+  });
 
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
