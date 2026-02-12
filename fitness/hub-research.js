@@ -1,13 +1,5 @@
 // === /fitness/hub-research.js ===
-// Research Launcher Form (Hub) — v20260211d
-// PACK 1-6:
-// 1) Auto PID increment
-// 2) Seed tools
-// 3) One-click next phase
-// 4) PID validation + error UI
-// 5) Reset all
-// 6) Research Banner (live ctx display)
-
+// Research Launcher Form (Hub) — v20260211e (ADD site/class/teacher)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -25,6 +17,11 @@
   const elSeed  = $('#hr-seed');
   const cbLockSeed = $('#hr-lock-seed');
 
+  // NEW fields
+  const elSite = $('#hr-site');
+  const elClass = $('#hr-class');
+  const elTeacher = $('#hr-teacher');
+
   const btnGo   = $('#hr-go');
   const btnGoNext = $('#hr-go-next');
   const btnIncPid  = $('#hr-incpid');
@@ -37,10 +34,9 @@
 
   const banner  = $('#hr-banner');
 
-  const STORE_KEY = 'HHA_FITNESS_RESEARCH_CTX_V3';
+  const STORE_KEY = 'HHA_FITNESS_RESEARCH_CTX_V4';
 
   function setMsg(t){ if(msg) msg.textContent = t || ''; }
-
   function pad3(n){ return String(n).padStart(3,'0'); }
 
   function parsePid(pid){
@@ -49,15 +45,11 @@
     if(!m) return null;
     return { prefix:'P', num:Number(m[2]||0) };
   }
-
   function formatPid(prefix, num){
     if(num <= 999) return `${prefix}${pad3(num)}`;
     return `${prefix}${num}`;
   }
-
-  function randSeed(){
-    return Math.floor(Math.random()*90000 + 10000);
-  }
+  function randSeed(){ return Math.floor(Math.random()*90000 + 10000); }
 
   function validatePid(showMsg=true){
     const raw = (elPid?.value || '').trim();
@@ -81,6 +73,10 @@
         if(elCond) elCond.value = o.conditionGroup || 'A';
         if(elSeed) elSeed.value = String(o.seed ?? '');
         if(cbLockSeed) cbLockSeed.checked = !!o.lockSeed;
+
+        if(elSite) elSite.value = o.siteCode || '';
+        if(elClass) elClass.value = o.classRoom || '';
+        if(elTeacher) elTeacher.value = o.teacherId || '';
       }
     }catch(_){}
 
@@ -101,7 +97,12 @@
     let seed = Number(elSeed?.value || 0);
     if(!Number.isFinite(seed) || seed <= 0) seed = randSeed();
     const lockSeed = !!cbLockSeed?.checked;
-    return { pid, studyId, phase, conditionGroup, seed, lockSeed };
+
+    const siteCode = (elSite?.value || '').trim();
+    const classRoom = (elClass?.value || '').trim();
+    const teacherId = (elTeacher?.value || '').trim();
+
+    return { pid, studyId, phase, conditionGroup, seed, lockSeed, siteCode, classRoom, teacherId };
   }
 
   function save(ctx){
@@ -140,6 +141,12 @@
     params.set('studyId', ctx.studyId);
     params.set('phase', ctx.phase);
     params.set('conditionGroup', ctx.conditionGroup);
+
+    // NEW passthrough
+    if(ctx.siteCode) params.set('siteCode', ctx.siteCode);
+    if(ctx.classRoom) params.set('classRoom', ctx.classRoom);
+    if(ctx.teacherId) params.set('teacherId', ctx.teacherId);
+
     params.set('hub','../fitness/hub.html');
     params.set('stats','../fitness/stats.html');
     params.set('from','planner');
@@ -161,8 +168,7 @@
     }
 
     save(ctx);
-    const url = makePlannerURL(ctx);
-    location.href = url;
+    location.href = makePlannerURL(ctx);
   }
 
   function resetAll(){
@@ -173,6 +179,11 @@
     if(elCond) elCond.value = 'A';
     if(elSeed) elSeed.value = String(randSeed());
     if(cbLockSeed) cbLockSeed.checked = false;
+
+    if(elSite) elSite.value = '';
+    if(elClass) elClass.value = '';
+    if(elTeacher) elTeacher.value = '';
+
     elPid?.classList.remove('hr-err');
     setMsg('รีเซ็ตค่าแล้ว');
     updateBanner();
@@ -181,8 +192,15 @@
   function updateBanner(){
     if(!banner) return;
     const ctx = read();
+    const extra = [
+      ctx.siteCode ? `Site:${ctx.siteCode}` : null,
+      ctx.classRoom ? `Class:${ctx.classRoom}` : null,
+      ctx.teacherId ? `Teacher:${ctx.teacherId}` : null,
+    ].filter(Boolean).join(' | ');
+
     banner.textContent =
-      `RESEARCH MODE | PID: ${ctx.pid || '-'} | Study: ${ctx.studyId} | Phase: ${ctx.phase} | Group: ${ctx.conditionGroup} | Seed: ${ctx.seed}`;
+      `RESEARCH MODE | PID: ${ctx.pid || '-'} | Study: ${ctx.studyId} | Phase: ${ctx.phase} | Group: ${ctx.conditionGroup} | Seed: ${ctx.seed}` +
+      (extra ? ` | ${extra}` : '');
   }
 
   // listeners
@@ -210,15 +228,17 @@
     const ctx = read();
     save(ctx);
     const txt = JSON.stringify(ctx, null, 2);
-    try{
-      await navigator.clipboard.writeText(txt);
-      setMsg('คัดลอก ctx แล้ว');
-    }catch(e){
-      alert(txt);
-    }
+    try{ await navigator.clipboard.writeText(txt); setMsg('คัดลอก ctx แล้ว'); }
+    catch(e){ alert(txt); }
   });
   btnStats?.addEventListener('click', ()=>location.href='stats.html');
   btnReset?.addEventListener('click', resetAll);
+
+  // NEW: update banner on typing
+  ;[elSite, elClass, elTeacher, elStudy, elPhase, elCond].forEach(el=>{
+    el?.addEventListener('input', ()=>{ save(read()); });
+    el?.addEventListener('change', ()=>{ save(read()); });
+  });
 
   load();
 })();
