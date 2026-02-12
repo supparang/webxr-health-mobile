@@ -1,5 +1,5 @@
 // === /herohealth/vr/hha-research-pack.js ===
-// HHA Research Pack — v20260211b (LOCAL EVENTS LOG)
+// HHA Research Pack — v20260211d (ADD schoolName + deviceType)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -20,6 +20,15 @@
 
   const P = WIN.HHA_PLANNER || null;
 
+  function detectDeviceType(){
+    const view = String(P?.view ?? qs('view','')).toLowerCase();
+    if(view === 'cvr' || qs('view','').toLowerCase()==='cvr') return 'cvr';
+    if(view === 'vr'  || qs('view','').toLowerCase()==='vr')  return 'vr';
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    return isMobile ? 'mobile' : 'pc';
+  }
+
   const ctx = {
     pid: (P?.pid ?? qs('pid','')) || '',
     studyId: (P?.studyId ?? qs('studyId','')) || '',
@@ -30,7 +39,14 @@
     view: (P?.view ?? qs('view','')) || '',
     log: (P?.log ?? qs('log','')) || '',
     fromPlanner: !!(P?.from || (qs('from','').toLowerCase()==='planner')),
-    combo: Array.isArray(P?.combo) ? P.combo.slice() : (qs('combo','') ? qs('combo','').split('|').filter(Boolean) : [])
+    combo: Array.isArray(P?.combo) ? P.combo.slice() : (qs('combo','') ? qs('combo','').split('|').filter(Boolean) : []),
+
+    siteCode: (P?.siteCode ?? qs('siteCode','')) || '',
+    classRoom: (P?.classRoom ?? qs('classRoom','')) || '',
+    teacherId: (P?.teacherId ?? qs('teacherId','')) || '',
+    schoolName: (P?.schoolName ?? qs('schoolName','')) || '',
+
+    deviceType: detectDeviceType(), // NEW
   };
   const IS_RESEARCH = (ctx.mode === 'research' || ctx.mode === 'study');
 
@@ -53,7 +69,6 @@
     return Object.assign({}, base, tweak);
   }
 
-  // -------- local storage events log --------
   const EVENTS_STORE = 'HHA_FITNESS_EVENTS_LOG_V1';
   const EVENTS_CAP = 20000;
 
@@ -62,13 +77,11 @@
       const arr = JSON.parse(localStorage.getItem(EVENTS_STORE) || '[]');
       const next = Array.isArray(arr) ? arr : [];
       next.push(row);
-      // keep last N
       const trimmed = (next.length > EVENTS_CAP) ? next.slice(next.length - EVENTS_CAP) : next;
       localStorage.setItem(EVENTS_STORE, JSON.stringify(trimmed));
     }catch(_){}
   }
 
-  // -------- in-memory events (for current page) --------
   const EVENTS = [];
 
   function ev(type, data){
@@ -79,7 +92,14 @@
       studyId: ctx.studyId,
       phase: ctx.phase,
       conditionGroup: ctx.conditionGroup,
-      game: '', // filled by caller (hooks) if possible
+
+      schoolName: ctx.schoolName,
+      siteCode: ctx.siteCode,
+      classRoom: ctx.classRoom,
+      teacherId: ctx.teacherId,
+      deviceType: ctx.deviceType,
+
+      game: '',
       mode: IS_RESEARCH ? 'research' : 'play',
       view: ctx.view,
       seed: ctx.seed>>>0,
@@ -94,6 +114,7 @@
   function eventsCSV(rows){
     const header = [
       'ts','sid','pid','studyId','phase','conditionGroup',
+      'schoolName','siteCode','classRoom','teacherId','deviceType',
       'game','mode','view','seed','type','data_json'
     ];
     const lines = [header.join(',')];
@@ -101,6 +122,7 @@
       const dataJson = JSON.stringify(r.data || {});
       const vals = [
         r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'', r.deviceType||'',
         r.game, r.mode, r.view, r.seed, r.type, dataJson
       ].map(csvEscape);
       lines.push(vals.join(','));
