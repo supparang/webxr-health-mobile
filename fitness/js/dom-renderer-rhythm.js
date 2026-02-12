@@ -1,7 +1,4 @@
-// === /fitness/js/dom-renderer-rhythm.js ===
-// Rhythm Boxer DOM Renderer (FX) — hitline-bottom aware
-// ✅ FX position aligns to yellow hit line (bottom: --rb-hitline-y)
-// ✅ Works with 5-lane / 3-lane (cVR) layouts
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
 'use strict';
 
 (function(){
@@ -11,38 +8,38 @@
       this.wrapEl = opts.wrapEl || document.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
-      this._flashT = null;
     }
 
-    _getHitlineYpx(){
-      // read CSS var --rb-hitline-y from :root or body
+    _readHitlinePx(){
+      // อ่านค่า --rb-hitline-y จาก :root (หรือ fallback)
       try{
-        const cs = getComputedStyle(document.documentElement);
-        const v = cs.getPropertyValue('--rb-hitline-y');
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--rb-hitline-y').trim();
         const n = parseFloat(v);
-        return Number.isFinite(n) ? n : 64;
+        return Number.isFinite(n) ? n : 78;
       }catch(_){
-        return 64;
+        return 78;
       }
     }
 
     _screenPosFromLane(lane){
-      // Center X of lane + Y at HIT LINE (yellow line near bottom)
+      // เอาตำแหน่ง "เส้นตีด้านล่าง" ของ lane มาเป็นจุดกำเนิด FX
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
-        const r = (this.wrapEl || document.body).getBoundingClientRect();
+        const r = this.wrapEl.getBoundingClientRect();
         return { x: r.left + r.width/2, y: r.top + r.height/2 };
       }
+
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
 
-      const hitlineY = this._getHitlineYpx(); // px from bottom
-      const y = rect.top + rect.height - hitlineY;
+      // hitline = rect.bottom - hitlineOffset
+      const hitlineOffset = this._readHitlinePx();
+      const y = rect.bottom - hitlineOffset;
 
       return { x, y };
     }
 
-    _flash(){
+    _flash(kind){
       if(!this.flashEl) return;
       this.flashEl.classList.add('active');
       clearTimeout(this._flashT);
@@ -51,7 +48,7 @@
 
     _feedback(text, cls){
       if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = text || '';
+      this.feedbackEl.textContent = text;
       this.feedbackEl.classList.remove('perfect','great','good','miss');
       if(cls) this.feedbackEl.classList.add(cls);
     }
@@ -60,13 +57,13 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback((judgment||'').toUpperCase(), judgment);
+      this._feedback((judgment||'good').toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
       const p = this._screenPosFromLane(lane);
       this.spawnMissParticle(p.x, p.y);
-      this._flash();
+      this._flash('miss');
       this._feedback('MISS', 'miss');
     }
 
@@ -88,6 +85,7 @@
       for(let i=0;i<n;i++){
         const el = document.createElement('div');
         el.className = `rb-frag rb-frag-${judgment||'good'}`;
+
         const size = 6 + Math.random()*6;
         const ang = (i/n) * Math.PI*2;
         const dist = 26 + Math.random()*34;
