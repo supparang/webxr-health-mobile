@@ -1,273 +1,401 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === /fitness/js/rhythm-boxer.js ===
+// Rhythm Boxer UI Controller — PRODUCTION
+// ✅ Menu mode/track selects
+// ✅ Research fields show/hide + meta collection
+// ✅ Start/Stop/Again/Back menu
+// ✅ Result render
+// ✅ CSV download (events + sessions)
+// ✅ Mode in URL (?mode=research|normal) so RB_AI lock works
+
 'use strict';
 
-(function () {
+(function(){
+  const DOC = document;
+  const WIN = window;
 
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  // ---------- helpers ----------
+  const $ = (sel, root=DOC)=>root.querySelector(sel);
+  const $$ = (sel, root=DOC)=>Array.from(root.querySelectorAll(sel));
 
-  const wrap = $('#rb-wrap');
+  function setHidden(el, hidden){
+    if(!el) return;
+    el.classList.toggle('hidden', !!hidden);
+  }
+
+  function safeText(el, txt){
+    if(!el) return;
+    el.textContent = (txt==null? '' : String(txt));
+  }
+
+  function fmtPct(v, d=1){
+    const n = Number(v)||0;
+    return n.toFixed(d) + '%';
+  }
+
+  function fmtNum(v, d=1){
+    const n = Number(v)||0;
+    return n.toFixed(d);
+  }
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = DOC.createElement('a');
+    a.href = url;
+    a.download = filename;
+    DOC.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  function getSelectedRadio(name){
+    const el = DOC.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : null;
+  }
+
+  function setQueryParam(key, value){
+    try{
+      const u = new URL(location.href);
+      if(value==null || value==='') u.searchParams.delete(key);
+      else u.searchParams.set(key, value);
+      history.replaceState({}, '', u.toString());
+    }catch(_){}
+  }
+
+  function readQueryParam(key){
+    try{ return new URL(location.href).searchParams.get(key); }catch(_){ return null; }
+  }
+
+  // ---------- elements ----------
   const viewMenu   = $('#rb-view-menu');
   const viewPlay   = $('#rb-view-play');
   const viewResult = $('#rb-view-result');
 
-  const flashEl    = $('#rb-flash');
-  const fieldEl    = $('#rb-field');
-  const lanesEl    = $('#rb-lanes');
-  const feedbackEl = $('#rb-feedback');
-  const audioEl    = $('#rb-audio');
+  const modeDesc   = $('#rb-mode-desc');
+  const researchFields = $('#rb-research-fields');
 
-  // ปุ่มเมนู
-  const btnStart      = $('#rb-btn-start');
-  const modeRadios    = $$('input[name="rb-mode"]');
-  const trackRadios   = $$('input[name="rb-track"]');
-  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
-  const modeDescEl    = $('#rb-mode-desc');
-  const trackModeLbl  = $('#rb-track-mode-label');
-  const researchBox   = $('#rb-research-fields');
+  const trackModeLabel = $('#rb-track-mode-label');
 
-  // ฟอร์มวิจัย
-  const inputParticipant = $('#rb-participant');
-  const inputGroup       = $('#rb-group');
-  const inputNote        = $('#rb-note');
+  const btnStart = $('#rb-btn-start');
+  const btnStop  = $('#rb-btn-stop');
+  const btnAgain = $('#rb-btn-again');
+  const btnBackMenu = $('#rb-btn-back-menu');
 
-  // ปุ่มตอนเล่น / สรุปผล
-  const btnStop        = $('#rb-btn-stop');
-  const btnAgain       = $('#rb-btn-again');
-  const btnBackMenu    = $('#rb-btn-back-menu');
-  const btnDlEvents    = $('#rb-btn-dl-events');
-  const btnDlSessions  = $('#rb-btn-dl-sessions');
+  const btnDlEvents   = $('#rb-btn-dl-events');
+  const btnDlSessions = $('#rb-btn-dl-sessions');
 
-  // HUD elements
+  const audioEl = $('#rb-audio');
+  const fieldEl = $('#rb-field');
+  const lanesEl = $('#rb-lanes');
+
+  // HUD
   const hud = {
-    mode:   $('#rb-hud-mode'),
-    track:  $('#rb-hud-track'),
-    score:  $('#rb-hud-score'),
-    combo:  $('#rb-hud-combo'),
-    acc:    $('#rb-hud-acc'),
-    hp:     $('#rb-hud-hp'),
+    mode: $('#rb-hud-mode'),
+    track: $('#rb-hud-track'),
+    score: $('#rb-hud-score'),
+    combo: $('#rb-hud-combo'),
+    acc: $('#rb-hud-acc'),
+    hp: $('#rb-hud-hp'),
     shield: $('#rb-hud-shield'),
-    time:   $('#rb-hud-time'),
+    time: $('#rb-hud-time'),
     countPerfect: $('#rb-hud-perfect'),
-    countGreat:   $('#rb-hud-great'),
-    countGood:    $('#rb-hud-good'),
-    countMiss:    $('#rb-hud-miss'),
-    feverFill:    $('#rb-fever-fill'),
-    feverStatus:  $('#rb-fever-status'),
-    progFill:     $('#rb-progress-fill'),
-    progText:     $('#rb-progress-text'),
-    aiFatigue:    $('#rb-hud-ai-fatigue'),
-    aiSkill:      $('#rb-hud-ai-skill'),
-    aiSuggest:    $('#rb-hud-ai-suggest'),
-    aiTip:        $('#rb-hud-ai-tip')
+    countGreat: $('#rb-hud-great'),
+    countGood: $('#rb-hud-good'),
+    countMiss: $('#rb-hud-miss'),
+    feverFill: $('#rb-fever-fill'),
+    feverStatus: $('#rb-fever-status'),
+    progFill: $('#rb-progress-fill'),
+    progText: $('#rb-progress-text'),
+    aiFatigue: $('#rb-hud-ai-fatigue'),
+    aiSkill: $('#rb-hud-ai-skill'),
+    aiSuggest: $('#rb-hud-ai-suggest'),
+    aiTip: $('#rb-hud-ai-tip')
   };
 
-  // แสดงผลสรุป
+  // Result
   const res = {
-    mode:        $('#rb-res-mode'),
-    track:       $('#rb-res-track'),
-    endReason:   $('#rb-res-endreason'),
-    score:       $('#rb-res-score'),
-    maxCombo:    $('#rb-res-maxcombo'),
-    hits:        $('#rb-res-detail-hit'),
-    acc:         $('#rb-res-acc'),
-    duration:    $('#rb-res-duration'),
-    rank:        $('#rb-res-rank'),
-    offsetAvg:   $('#rb-res-offset-avg'),
-    offsetStd:   $('#rb-res-offset-std'),
+    mode: $('#rb-res-mode'),
+    track: $('#rb-res-track'),
+    endreason: $('#rb-res-endreason'),
+    score: $('#rb-res-score'),
+    maxcombo: $('#rb-res-maxcombo'),
+    detailHit: $('#rb-res-detail-hit'),
+    acc: $('#rb-res-acc'),
+    duration: $('#rb-res-duration'),
+    rank: $('#rb-res-rank'),
+    offsetAvg: $('#rb-res-offset-avg'),
+    offsetStd: $('#rb-res-offset-std'),
     participant: $('#rb-res-participant'),
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
-  const TRACK_CONFIG = {
-    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
-    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
-    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
-    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
-  };
+  // Research inputs
+  const inpPid  = $('#rb-participant');
+  const inpGroup= $('#rb-group');
+  const inpNote = $('#rb-note');
 
+  // ---------- state ----------
   let engine = null;
+  let lastMode = 'normal';
+  let lastTrackId = 'n1';
+  let lastMeta = {};
 
-  function getSelectedMode() {
-    const r = modeRadios.find(x => x.checked);
-    return r ? r.value : 'normal';
+  function showView(name){
+    setHidden(viewMenu,   name!=='menu');
+    setHidden(viewPlay,   name!=='play');
+    setHidden(viewResult, name!=='result');
   }
 
-  function getSelectedTrackKey() {
-    const r = trackRadios.find(x => x.checked);
-    return r ? r.value : 'n1';
-  }
+  function updateModeUI(mode){
+    const isResearch = mode === 'research';
+    setHidden(researchFields, !isResearch);
 
-  function setSelectedTrackKey(key) {
-    trackRadios.forEach(r => { r.checked = (r.value === key); });
-  }
+    safeText(modeDesc,
+      isResearch
+        ? 'Research: เก็บข้อมูลวิจัย (Event CSV + Session CSV) — แสดง AI prediction ได้ แต่ “ล็อกเกม” ไม่ให้ AI ปรับอะไร'
+        : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)'
+    );
 
-  function updateModeUI() {
-    const mode = getSelectedMode();
+    // Track options label
+    safeText(trackModeLabel,
+      isResearch
+        ? 'โหมด Research — ใช้แทร็กมาตรฐานเดียว (ควบคุมตัวแปรง่าย)'
+        : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก'
+    );
 
-    if (mode === 'normal') {
-      if (modeDescEl) modeDescEl.textContent =
-        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      if (researchBox) researchBox.classList.add('hidden');
+    // Filter track radio by data-mode
+    $$('#rb-track-options .rb-mode-btn').forEach(lbl=>{
+      const m = lbl.getAttribute('data-mode');
+      if(!m) return;
+      lbl.style.display = (m === mode) ? '' : 'none';
+    });
 
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        if (m === 'research') lbl.classList.add('hidden');
-        else lbl.classList.remove('hidden');
-      });
-
-      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
-
-    } else {
-      if (modeDescEl) modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
-      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      if (researchBox) researchBox.classList.remove('hidden');
-
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        if (m === 'research') lbl.classList.remove('hidden');
-        else lbl.classList.add('hidden');
-      });
-
-      setSelectedTrackKey('r1');
+    // Ensure a valid track for that mode is selected
+    const current = getSelectedRadio('rb-track');
+    if(mode==='research'){
+      if(current !== 'r1'){
+        const r1 = DOC.querySelector('input[name="rb-track"][value="r1"]');
+        if(r1) r1.checked = true;
+      }
+    }else{
+      if(current && current.startsWith('r')){
+        const n1 = DOC.querySelector('input[name="rb-track"][value="n1"]');
+        if(n1) n1.checked = true;
+      }
     }
   }
 
-  function switchView(name) {
-    if (viewMenu) viewMenu.classList.add('hidden');
-    if (viewPlay) viewPlay.classList.add('hidden');
-    if (viewResult) viewResult.classList.add('hidden');
-
-    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
+  function wireModeRadios(){
+    $$('input[name="rb-mode"]').forEach(r=>{
+      r.addEventListener('change', ()=>{
+        const mode = getSelectedRadio('rb-mode') || 'normal';
+        updateModeUI(mode);
+      });
+    });
   }
 
-  function createEngine() {
-    const renderer = new window.RbDomRenderer(fieldEl, {
-      flashEl,
-      feedbackEl,
-      wrapEl: document.body
-    });
+  function getTrackNameById(trackId){
+    const map = {
+      n1: 'Warm-up Groove',
+      n2: 'Focus Combo',
+      n3: 'Speed Rush',
+      r1: 'Research Track 120'
+    };
+    return map[trackId] || trackId;
+  }
 
-    engine = new window.RhythmBoxerEngine({
-      wrap: wrap,
+  function collectMeta(mode){
+    if(mode !== 'research'){
+      return { id:'', participant_id:'', group:'', note:'' };
+    }
+    return {
+      id: (inpPid && inpPid.value || '').trim(),
+      participant_id: (inpPid && inpPid.value || '').trim(),
+      group: (inpGroup && inpGroup.value || '').trim(),
+      note: (inpNote && inpNote.value || '').trim()
+    };
+  }
+
+  function startGame(){
+    const mode = getSelectedRadio('rb-mode') || 'normal';
+    const trackId = getSelectedRadio('rb-track') || (mode==='research' ? 'r1' : 'n1');
+    const meta = collectMeta(mode);
+
+    // Put mode in URL so RB_AI reads it
+    setQueryParam('mode', mode);
+
+    // Build engine if needed
+    if(!WIN.RhythmBoxerEngine){
+      alert('Engine ยังไม่โหลด (RhythmBoxerEngine missing)');
+      return;
+    }
+
+    engine = new WIN.RhythmBoxerEngine({
+      wrap: $('#rb-wrap'),
       field: fieldEl,
       lanesEl: lanesEl,
       audio: audioEl,
-      renderer: renderer,
-      hud: hud,
-      hooks: { onEnd: handleEngineEnd }
-    });
-  }
-
-  function startGame() {
-    if (!engine) createEngine();
-
-    const mode = getSelectedMode();
-    const trackKey = getSelectedTrackKey();
-    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
-
-    if (wrap) wrap.dataset.diff = cfg.diff;
-
-    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    if (hud.track) hud.track.textContent = cfg.labelShort;
-
-    const meta = {
-      id:   (inputParticipant && inputParticipant.value || '').trim(),
-      group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
-    };
-
-    engine.start(mode, cfg.engineId, meta);
-    switchView('play');
-  }
-
-  function stopGame(reason) {
-    if (engine) engine.stop(reason || 'manual-stop');
-  }
-
-  function handleEngineEnd(summary) {
-    if (!summary) return;
-
-    if (res.mode) res.mode.textContent      = summary.modeLabel;
-    if (res.track) res.track.textContent     = summary.trackName;
-    if (res.endReason) res.endReason.textContent = summary.endReason;
-    if (res.score) res.score.textContent     = summary.finalScore;
-    if (res.maxCombo) res.maxCombo.textContent  = summary.maxCombo;
-    if (res.hits) res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    if (res.acc) res.acc.textContent        = summary.accuracyPct.toFixed(1) + ' %';
-    if (res.duration) res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    if (res.rank) res.rank.textContent      = summary.rank;
-
-    if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
-
-    if (res.participant) res.participant.textContent = summary.participant || '-';
-
-    if (res.qualityNote) {
-      if (summary.qualityNote) {
-        res.qualityNote.textContent = summary.qualityNote;
-        res.qualityNote.classList.remove('hidden');
-      } else {
-        res.qualityNote.textContent = '';
-        res.qualityNote.classList.add('hidden');
+      renderer: WIN.RhythmDomRenderer ? new WIN.RhythmDomRenderer({ root: $('#rb-wrap') }) : null,
+      hud,
+      hooks: {
+        onStart(info){
+          // HUD mode/track header
+          safeText(hud.mode, info.mode === 'research' ? 'Research' : 'Normal');
+          safeText(hud.track, getTrackNameById(trackId));
+        },
+        onEnd(summary){
+          renderResult(summary);
+          showView('result');
+        }
       }
+    });
+
+    lastMode = mode;
+    lastTrackId = trackId;
+    lastMeta = meta;
+
+    // Switch view to play first (so mobile audio unlock continues)
+    showView('play');
+
+    // Fill HUD static
+    safeText(hud.mode, mode === 'research' ? 'Research' : 'Normal');
+    safeText(hud.track, getTrackNameById(trackId));
+
+    // Start engine
+    engine.start(mode, trackId, meta);
+  }
+
+  function stopGame(){
+    if(engine && typeof engine.stop === 'function'){
+      engine.stop('manual-stop');
+    }else{
+      showView('menu');
+    }
+  }
+
+  function playAgain(){
+    if(!engine){
+      showView('menu');
+      return;
+    }
+    // re-create engine cleanly to avoid leftover notes
+    showView('menu');
+    // slight defer to let UI paint
+    setTimeout(()=>{
+      // restore radios
+      const m = DOC.querySelector(`input[name="rb-mode"][value="${lastMode}"]`);
+      if(m) m.checked = true;
+      updateModeUI(lastMode);
+
+      const t = DOC.querySelector(`input[name="rb-track"][value="${lastTrackId}"]`);
+      if(t) t.checked = true;
+
+      if(inpPid) inpPid.value = lastMeta.id || lastMeta.participant_id || '';
+      if(inpGroup) inpGroup.value = lastMeta.group || '';
+      if(inpNote) inpNote.value = lastMeta.note || '';
+
+      startGame();
+    }, 50);
+  }
+
+  function renderResult(summary){
+    // summary from engine.hooks.onEnd
+    safeText(res.mode, summary.modeLabel || '-');
+    safeText(res.track, summary.trackName || '-');
+    safeText(res.endreason, summary.endReason || '-');
+
+    safeText(res.score, summary.finalScore ?? 0);
+    safeText(res.maxcombo, summary.maxCombo ?? 0);
+
+    safeText(res.detailHit,
+      `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`
+    );
+
+    safeText(res.acc, fmtNum(summary.accuracyPct ?? 0, 1) + ' %');
+    safeText(res.duration, fmtNum(summary.durationSec ?? 0, 1) + ' s');
+    safeText(res.rank, summary.rank || '-');
+
+    safeText(res.offsetAvg, fmtNum(summary.offsetMean ?? 0, 4) + ' s');
+    safeText(res.offsetStd, fmtNum(summary.offsetStd ?? 0, 4) + ' s');
+
+    safeText(res.participant, summary.participant || '-');
+
+    if(summary.qualityNote){
+      safeText(res.qualityNote, summary.qualityNote);
+      setHidden(res.qualityNote, false);
+    }else{
+      setHidden(res.qualityNote, true);
+    }
+  }
+
+  function downloadEvents(){
+    if(!engine || typeof engine.getEventsCsv !== 'function'){
+      alert('ยังไม่มีข้อมูล Event CSV');
+      return;
+    }
+    const csv = engine.getEventsCsv();
+    const name = `rb_events_${(lastMeta.id||lastMeta.participant_id||'anon')}_${Date.now()}.csv`;
+    downloadText(name, csv);
+  }
+
+  function downloadSessions(){
+    if(!engine || typeof engine.getSessionCsv !== 'function'){
+      alert('ยังไม่มีข้อมูล Session CSV');
+      return;
+    }
+    const csv = engine.getSessionCsv();
+    const name = `rb_sessions_${(lastMeta.id||lastMeta.participant_id||'anon')}_${Date.now()}.csv`;
+    downloadText(name, csv);
+  }
+
+  // ---------- init ----------
+  function init(){
+    // Show menu first
+    showView('menu');
+
+    // Wire mode UI
+    wireModeRadios();
+
+    // Initial mode UI
+    const mode0 = getSelectedRadio('rb-mode') || 'normal';
+    updateModeUI(mode0);
+
+    // Respect URL mode if provided (optional)
+    const qm = (readQueryParam('mode') || '').toLowerCase();
+    if(qm === 'research' || qm === 'normal'){
+      const r = DOC.querySelector(`input[name="rb-mode"][value="${qm}"]`);
+      if(r) r.checked = true;
+      updateModeUI(qm);
+      lastMode = qm;
     }
 
-    switchView('result');
+    // Start
+    if(btnStart) btnStart.addEventListener('click', startGame);
+
+    // Stop
+    if(btnStop) btnStop.addEventListener('click', stopGame);
+
+    // Result buttons
+    if(btnAgain) btnAgain.addEventListener('click', playAgain);
+    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=>{
+      // clear URL mode? keep it is fine; but return to menu
+      showView('menu');
+    });
+
+    // CSV
+    if(btnDlEvents) btnDlEvents.addEventListener('click', downloadEvents);
+    if(btnDlSessions) btnDlSessions.addEventListener('click', downloadSessions);
+
+    // Update play instruction text to match your intent (gold line at bottom)
+    // (ไม่แก้ HTML ตรง ๆ แต่คุณสามารถเปลี่ยนใน HTML ก็ได้)
+    // Note: ถ้าต้องการแก้ข้อความในหน้า play ให้ผมแก้ HTML ด้วย เดี๋ยวจัดไฟล์ rhythm-boxer.html ต่อ
   }
 
-  function downloadCsv(csvText, filename) {
-    if (!csvText) return;
-    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', init);
+  }else{
+    init();
   }
-
-  // wiring
-  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  if (btnStart) btnStart.addEventListener('click', startGame);
-  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
-  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
-
-  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
-  });
-  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
-  });
-
-  // ==== apply mode from URL (?mode=research|play|normal) ====
-  (function applyModeFromQuery(){
-    try{
-      const sp = new URL(location.href).searchParams;
-      const m = (sp.get('mode')||'').toLowerCase();
-      if (m === 'research'){
-        const r = modeRadios.find(x => x.value === 'research');
-        if (r) r.checked = true;
-      } else if (m === 'play' || m === 'normal'){
-        const r = modeRadios.find(x => x.value === 'normal');
-        if (r) r.checked = true;
-      }
-    }catch(_){}
-  })();
-
-  updateModeUI();
-  switchView('menu');
 
 })();
