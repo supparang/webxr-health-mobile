@@ -1,9 +1,9 @@
 // === /herohealth/launch/launcher-core.js ===
-// HeroHealth Launcher Core — v20260212a
+// HeroHealth Launcher Core — v20260212b
 // ✅ Auto pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/pid/group/note
 // ✅ Auto-append ?log= (Cloud Logger Web App URL)
 // ✅ Remember last log URL (optional)
-// ✅ Never override if URL already has that key
+// ✅ Never override if target already has that key
 
 export function hhGo(targetUrl, opt = {}){
   const defaults = opt.defaults || {};
@@ -16,7 +16,7 @@ export function hhGo(targetUrl, opt = {}){
 
   // 1) pick log URL
   let logUrl = '';
-  const qLog = (srcQS.get('log') || '').trim();
+  const qLog  = (srcQS.get('log') || '').trim();
   const lsLog = (rememberLog ? (localStorage.getItem(LS_LAST_LOG) || '').trim() : '');
   const defLog = (defaults.log || '').trim();
 
@@ -48,7 +48,6 @@ export function hhGo(targetUrl, opt = {}){
   });
 
   // 4) pass-through keys from current URL (if present)
-  // (ไม่ override ค่าใน targetUrl ถ้ามีอยู่แล้ว)
   const PASS_KEYS = [
     'hub','run',
     'mode','gameMode','runMode',
@@ -58,7 +57,8 @@ export function hhGo(targetUrl, opt = {}){
     'studyId','phase','conditionGroup',
     'pid','group','note',
     'siteCode','schoolCode','schoolName','classRoom','studentNo','nickName',
-    'sessionOrder','blockLabel'
+    'sessionOrder','blockLabel',
+    'projectTag','runId'
   ];
   PASS_KEYS.forEach(k=>{
     const v = (srcQS.get(k) || '').trim();
