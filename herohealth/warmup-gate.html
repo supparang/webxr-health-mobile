@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Warmup/Cooldown Boss Gate</title>
+  <title>HeroHealth — Warmup/Cooldown Boss Gate (20s)</title>
   <style>
     :root{
       --bg:#040610;
@@ -225,7 +225,7 @@
       font-weight:1000;
       user-select:none;
       transform: translateZ(0);
-      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .orb.good{
       width:78px; height:78px;
@@ -255,10 +255,7 @@
       background: radial-gradient(520px 220px at 50% 50%, rgba(255,79,216,.18), transparent 60%);
       opacity:0;
     }
-    .wave.on{
-      opacity:1;
-      animation: burst .55s ease-out forwards;
-    }
+    .wave.on{ opacity:1; animation: burst .55s ease-out forwards; }
     .shake{ animation: shake .18s ease-in-out 2; }
 
     #particles{ position:absolute; inset:0; pointer-events:none; z-index:999; }
@@ -286,6 +283,17 @@
     .kv{ display:grid; grid-template-columns: 1fr auto; gap:8px; margin-top:10px; position:relative; z-index:1; }
     .kv div{ padding:10px 10px; border:1px solid rgba(148,163,184,.18); border-radius: 14px; background: rgba(2,6,23,.42); font-size: 12.5px; }
     .kv b{ font-weight: 1000; color: rgba(229,231,235,.95); }
+
+    .pickRow{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-start;
+      margin-top:10px;
+    }
+    .pickRow button{ padding:10px 12px; border-radius: 14px; }
+    .locked{
+      border:1px solid rgba(245,158,11,.28);
+      background: rgba(245,158,11,.08);
+      color: rgba(245,158,11,.95);
+    }
   </style>
 </head>
 <body>
@@ -296,7 +304,7 @@
 
     <header>
       <div class="title">
-        <h1 id="topTitle">⚔️ Warmup Boss Gate</h1>
+        <h1 id="topTitle">⚔️ Warmup Boss Gate (20 วิ)</h1>
         <p id="topSub">ชาร์จพลัง 1 อย่าง → รับบัฟ → ไปลงสนามจริง!</p>
       </div>
       <div class="pill">
@@ -306,7 +314,9 @@
     </header>
 
     <main>
+      <!-- LEFT -->
       <section class="panel">
+        <!-- SELECT -->
         <div id="screen-select">
           <div class="note" id="routeNote"></div>
           <div style="height:10px;"></div>
@@ -341,11 +351,12 @@
           </div>
 
           <div class="actionRow" style="margin-top:14px;">
-            <button id="btn-cooldown" class="primary">😌 คูลดาวน์</button>
+            <button id="btn-cooldown" class="primary">😌 คูลดาวน์ 20 วิ</button>
             <button id="btn-backhub" class="ghost">🏠 กลับ HUB</button>
           </div>
         </div>
 
+        <!-- RUN -->
         <div id="screen-run" class="big" style="display:none;">
           <div class="emoji" id="run-emoji">🌬️</div>
           <h2 class="h2" id="run-title">Warmup</h2>
@@ -368,29 +379,36 @@
           </div>
         </div>
 
+        <!-- DONE -->
         <div id="screen-done" class="big" style="display:none;">
           <div class="emoji">🏆</div>
-          <h2 class="h2">CLEAR!</h2>
+          <h2 class="h2" id="done-title">CLEAR!</h2>
           <p class="hint" id="done-text">คุณได้บัฟ</p>
 
           <div class="panel" style="width:min(560px,100%);">
-            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1;">BUFF (ส่งต่อไปเกมหลัก)</div>
+            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1;">RESULT / BUFF</div>
             <pre id="done-json" style="position:relative; z-index:1;"></pre>
           </div>
 
           <div class="actionRow">
-            <button id="btn-again">เล่นอีกรอบ</button>
-            <button id="btn-go" class="primary">▶️ ไปต่อ</button>
+            <button id="btn-again">เล่นอีกครั้ง</button>
+            <button id="btn-go" class="primary">▶️ ไปเล่นเกมต่อ</button>
             <button id="btn-go-hub" class="ghost">🏠 กลับ HUB</button>
           </div>
 
+          <div class="panel" style="width:min(560px,100%); margin-top:8px;">
+            <div style="color:var(--muted); font-size:12px; position:relative; z-index:1;">เลือกเกมต่อไป</div>
+            <div class="pickRow" id="pickRow"></div>
+          </div>
+
           <div class="note" style="width:min(560px,100%); text-align:left;">
-            ส่งต่อผ่าน Query: <span class="mono">wType,wPct,wCrit,wDmg,wHeal,calm,rank</span>
-            <br/>✅ once/day: <span class="mono">warmup</span> / <span class="mono">cooldown</span> ถูก mark แยกกัน
+            ส่งต่อผ่าน Query: <span class="mono">wType,wPct,rank,wCrit,wDmg,wHeal,calm</span>
+            <br/>Daily: <span class="mono">warmup/cooldown วันละครั้ง</span>
           </div>
         </div>
       </section>
 
+      <!-- RIGHT -->
       <aside class="panel side">
         <h3>⚙️ Route</h3>
         <p class="mono" id="routeMini"></p>
@@ -403,18 +421,22 @@
           <div>😌 Calm (Cooldown)</div><div><b>0 → 100</b></div>
         </div>
 
-        <h3 style="margin-top:14px;">💾 ผลล่าสุด</h3>
-        <p>localStorage["HHA_WARMUP_LAST"]</p>
+        <h3 style="margin-top:14px;">💾 วันนี้ทำอะไรไปแล้ว</h3>
+        <div class="note" id="dailyNote"></div>
+
+        <h3 style="margin-top:14px;">🧾 Gate Log</h3>
+        <div class="note mono" id="logNote" style="max-height:160px; overflow:auto;"></div>
 
         <div class="actionRow" style="justify-content:flex-start;">
           <button id="btn-clear-last">ล้างผลล่าสุด</button>
+          <button id="btn-clear-today" class="ghost">ล้างสถานะ “วันนี้”</button>
         </div>
       </aside>
     </main>
 
     <footer>
-      <div>HeroHealth · Warmup/Cooldown Gate</div>
-      <div>mini-game: สั้น-มันส์-Perfect ชัด</div>
+      <div>HeroHealth · Boss Gate · 20s</div>
+      <div class="mono">BUILD: v2026-02-12b</div>
     </footer>
   </div>
 </div>
@@ -424,7 +446,7 @@
   'use strict';
 
   // ------------------------------
-  // URL params + helpers
+  // Helpers
   // ------------------------------
   function getQS(){
     try{ return new URL(location.href).searchParams; }
@@ -434,66 +456,77 @@
   const q = (k, def='') => (QS.get(k) ?? def);
 
   const PHASE = (q('phase','warmup') || 'warmup').toLowerCase(); // warmup | cooldown
-  let NEXT  = q('next','');  // url OR "random" OR empty
+  let NEXT  = q('next',''); // url OR "random"
   const HUB   = q('hub','');
-  const AUTONEXT = String(q('autonext','0')||'0') === '1';
-  const WM0 = (q('wmode','') || '').toLowerCase(); // breath|meditate|stretch|random (optional)
 
-  // ✅ PATCH: replace=1 => use location.replace
-  const USE_REPLACE = String(q('replace','0')||'0') === '1';
+  const WARMUP_SECONDS = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
+  const COOLDOWN_SECONDS = Math.max(5, Math.min(60, Number(q('cdur','20')||20)));
 
-  // ✅ PATCH: preset for fun speed/feel (optional)
-  const PRESET = (q('preset','') || '').toLowerCase(); // hype | fast | (empty)
-
-  const WARMUP_SECONDS   = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
-  const COOLDOWN_SECONDS = Math.max(5, Math.min(60, Number(q('cdur','20')||q('dur','20')||20)));
-
+  const AUTONEXT = String(q('autonext','0')) === '1'; // cooldown gate from games
   const KEY_LAST = 'HHA_WARMUP_LAST';
 
-  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-  // ------------------------------
-  // ✅ once/day keys (pid/device)
-  // ------------------------------
-  function getPid(){
-    try{
-      if(window.HHA_Badges && typeof window.HHA_Badges.getPid === 'function'){
-        const p = window.HHA_Badges.getPid();
-        if(p) return String(p);
-      }
-    }catch(_){}
-    const k = 'HHA_PID';
-    try{
-      let v = localStorage.getItem(k);
-      if(v) return v;
-      v = 'p_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-      localStorage.setItem(k, v);
-      return v;
-    }catch(_){ return 'p_anon'; }
-  }
-  function todayKey(){
+  // daily once
+  const todayKey = (() => {
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,'0');
-    const da = String(d.getDate()).padStart(2,'0');
-    return `${y}${m}${da}`;
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${y}${m}${dd}`;
+  })();
+  const KEY_DAY = 'HHA_GATE_DAY';                // { day, warmupDoneAt, cooldownDoneAt, ... }
+  const KEY_LOG = 'HHA_GATE_LOG';                // array of events
+
+  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+
+  function nowStamp(){
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const ss = String(d.getSeconds()).padStart(2,'0');
+    return `${hh}:${mm}:${ss}`;
   }
-  function doneKey(phase){
-    return `HHA_GATE_DONE_${String(phase||'').toLowerCase()}_${getPid()}_${todayKey()}`;
+
+  function readJSON(key, fallback){
+    try{
+      const s = localStorage.getItem(key);
+      return s ? JSON.parse(s) : fallback;
+    }catch(_){ return fallback; }
   }
-  function isDoneToday(phase){
-    try{ return localStorage.getItem(doneKey(phase)) === '1'; }
-    catch(_){ return false; }
+  function writeJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
   }
-  function markDone(phase){
-    try{ localStorage.setItem(doneKey(phase), '1'); }catch(_){}
+
+  function getDayState(){
+    const st = readJSON(KEY_DAY, null);
+    if(!st || st.day !== todayKey){
+      const fresh = { day: todayKey, warmupDoneAt:'', cooldownDoneAt:'', warmupBuff:null, cooldownBuff:null, lastNext:'', lastPhaseEndGame:'' };
+      writeJSON(KEY_DAY, fresh);
+      return fresh;
+    }
+    return st;
+  }
+  function setDayState(patch){
+    const st = getDayState();
+    const next = Object.assign({}, st, patch||{});
+    writeJSON(KEY_DAY, next);
+    return next;
+  }
+
+  function pushLog(ev){
+    const arr = readJSON(KEY_LOG, []);
+    const item = Object.assign({ atISO: new Date().toISOString(), at: nowStamp() }, ev||{});
+    arr.unshift(item);
+    writeJSON(KEY_LOG, arr.slice(0, 80));
   }
 
   // allow random next from list
   function parseGames(){
     const raw = (q('games','') || '').trim();
     const fallback = [
-      'goodjunk-vr.html','groups-vr.html','hydration-vr.html','plate-vr.html'
+      './vr-goodjunk/goodjunk-vr.html',
+      './groups-vr.html',
+      './hydration-vr.html',
+      './plate/plate-vr.html'
     ];
     const arr = raw ? raw.split(',').map(s=>s.trim()).filter(Boolean) : fallback;
     return Array.from(new Set(arr));
@@ -513,6 +546,7 @@
       });
       return u.toString();
     }catch(_){
+      // fallback: simple concat
       const join = base.includes('?') ? '&' : '?';
       const qs2 = Object.entries(add||{})
         .filter(([,v])=>!(v===undefined||v===null||v===''))
@@ -521,26 +555,14 @@
     }
   }
 
-  function safeNav(url){
-    if(!url) return false;
-    try{
-      if(USE_REPLACE) location.replace(url);
-      else location.href = url;
-      return true;
-    }catch(_){
-      try{ location.href = url; return true; }catch(__){ return false; }
-    }
-  }
-
   function goHub(){
-    if(HUB){ safeNav(HUB); return; }
-    try{ history.length ? history.back() : safeNav('../hub.html'); }
-    catch(_){ safeNav('../hub.html'); }
+    if(HUB){ location.href = HUB; return; }
+    history.length ? history.back() : (location.href = './');
   }
 
-  // keep passthrough params for next (do not forward next/hub/phase/dur/cdur/games/autonext/wmode/replace/preset)
+  // keep passthrough params for next (do not forward next/hub/phase/dur/cdur/games/autonext)
   function getPassthrough(){
-    const deny = new Set(['next','hub','phase','dur','cdur','games','autonext','wmode','replace','preset']);
+    const deny = new Set(['next','hub','phase','dur','cdur','games','autonext']);
     const out = {};
     QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
     return out;
@@ -573,8 +595,13 @@
   const runActions = $('#run-actions');
   const hitText = $('#hitText');
 
+  const doneTitle = $('#done-title');
   const doneText = $('#done-text');
   const doneJson = $('#done-json');
+  const pickRow = $('#pickRow');
+
+  const dailyNote = $('#dailyNote');
+  const logNote = $('#logNote');
 
   // particles
   const particles = $('#particles');
@@ -598,6 +625,31 @@
                       : 'rgba(229,231,235,.92)';
   }
 
+  function show(which){
+    screenSelect.style.display = (which==='select') ? '' : 'none';
+    screenRun.style.display    = (which==='run') ? '' : 'none';
+    screenDone.style.display   = (which==='done') ? '' : 'none';
+  }
+
+  function renderDaily(){
+    const st = getDayState();
+    const w = st.warmupDoneAt ? `✅ warmup ${st.warmupDoneAt}` : `— warmup ยังไม่ทำ`;
+    const c = st.cooldownDoneAt ? `✅ cooldown ${st.cooldownDoneAt}` : `— cooldown ยังไม่ทำ`;
+    dailyNote.innerHTML =
+      `<b>${todayKey}</b><br/>${w}<br/>${c}` +
+      (st.lastPhaseEndGame ? `<br/>ล่าสุดจบจาก: <span class="mono">${st.lastPhaseEndGame}</span>` : '');
+  }
+  function renderLog(){
+    const arr = readJSON(KEY_LOG, []);
+    if(!arr.length){ logNote.textContent = '(ยังไม่มี)'; return; }
+    logNote.textContent = arr.slice(0,12).map(it=>{
+      const p = it.phase || '-';
+      const t = it.at || '--:--:--';
+      const msg = it.msg || '';
+      return `${t} [${p}] ${msg}`;
+    }).join('\n');
+  }
+
   // ------------------------------
   // State
   // ------------------------------
@@ -608,41 +660,31 @@
     mode: null,   // breathing | meditation | stretching | cooldown
     tLeft: 0,
     pct: 0,
-
     combo: 0,
     perfect: 0,
     miss: 0,
-
-    // meditation
+    nextBeatAt: 0,
     goodHits: 0,
     streak: 0,
-
-    // stretching
     holding: false,
     holdMs: 0,
     waveOn: false,
     wavePassed: 0,
-
-    // cooldown
     calm: 0
   };
 
-  function show(which){
-    screenSelect.style.display = (which==='select') ? '' : 'none';
-    screenRun.style.display    = (which==='run') ? '' : 'none';
-    screenDone.style.display   = (which==='done') ? '' : 'none';
-  }
   function stopTimers(){
     if(timerId){ clearInterval(timerId); timerId=null; }
     if(tickId){ clearInterval(tickId); tickId=null; }
   }
+
   function resetRunState(){
-    stopTimers();
     state.tLeft = (PHASE==='cooldown') ? COOLDOWN_SECONDS : WARMUP_SECONDS;
     state.pct = 0;
     state.combo = 0;
     state.perfect = 0;
     state.miss = 0;
+    state.nextBeatAt = 0;
     state.goodHits = 0;
     state.streak = 0;
     state.holding = false;
@@ -672,6 +714,7 @@
   function setRank(r){
     runRank.innerHTML = `<span class="small">RANK</span> · ${r}`;
   }
+
   function calcRank(pct){
     if(pct >= 92) return 'S';
     if(pct >= 78) return 'A';
@@ -683,72 +726,73 @@
   function makeBuff(){
     const pct = clamp(state.pct,0,100);
     const rank = calcRank(pct);
-    let buff = { type: state.mode, pct, rank };
+    let buff = { phase: PHASE, type: state.mode, pct, rank };
 
     if(state.mode === 'breathing'){
-      buff.critBonus = +(0.03 + (pct/100)*0.04).toFixed(3); // 0.03..0.07
+      buff.wCrit = +(0.03 + (pct/100)*0.04).toFixed(3);
       buff.perfect = state.perfect;
       buff.miss = state.miss;
     } else if(state.mode === 'meditation'){
-      buff.dmgReduce = +(0.06 + (pct/100)*0.10).toFixed(3); // 0.06..0.16
+      buff.wDmg = +(0.06 + (pct/100)*0.10).toFixed(3);
       buff.streak = state.streak;
     } else if(state.mode === 'stretching'){
-      buff.healBonus = Math.round(4 + (pct/100)*6); // 4..10
+      buff.wHeal = Math.round(4 + (pct/100)*6);
       buff.wavePassed = state.wavePassed;
     } else if(state.mode === 'cooldown'){
-      buff.calm = Math.round(pct); // 0..100
+      buff.calm = Math.round(pct);
     }
     return buff;
   }
 
   function saveLast(buff){
-    try{
-      localStorage.setItem(KEY_LAST, JSON.stringify({ ...buff, at: new Date().toISOString() }));
-    }catch(_){}
+    try{ localStorage.setItem(KEY_LAST, JSON.stringify({ ...buff, atISO: new Date().toISOString(), at: nowStamp() })); }catch(_){}
   }
 
-  function resolveNextMaybeRandom(){
-    const n = (NEXT||'').toLowerCase();
-    if(n === 'random'){
-      const g = pickRandom(parseGames());
-      return g || '';
-    }
-    return NEXT;
+  function buildPickButtons(){
+    pickRow.innerHTML = '';
+    const games = parseGames();
+    const labels = [
+      { key:'goodjunk', name:'GoodJunk', url: games[0] || './vr-goodjunk/goodjunk-vr.html' },
+      { key:'groups',   name:'Groups',   url: games[1] || './groups-vr.html' },
+      { key:'hydr',     name:'Hydration',url: games[2] || './hydration-vr.html' },
+      { key:'plate',    name:'Plate',    url: games[3] || './plate/plate-vr.html' },
+    ];
+
+    labels.forEach(it=>{
+      const b = document.createElement('button');
+      b.textContent = it.name;
+      b.addEventListener('click', (e)=>{
+        e.preventDefault();
+        NEXT = it.url; // override next
+        goNextWithBuff();
+      });
+      pickRow.appendChild(b);
+    });
   }
 
-  // ✅ PATCH: robust goNext (fallback HUB)
-  function goNextWithBuff(){
-    const buff = makeBuff();
+  function markDoneToday(buff){
+    const st = getDayState();
+    const stamp = nowStamp();
 
-    // ✅ mark done once/day by phase
-    markDone(PHASE);
-
-    let nextUrl = resolveNextMaybeRandom();
-
-    // if cooldown and NEXT empty: go HUB
-    if(!nextUrl && PHASE === 'cooldown' && HUB) nextUrl = HUB;
-
-    const add = {
-      ...getPassthrough(),
-      wType: buff.type,
-      wPct: buff.pct,
-      rank: buff.rank
-    };
-    if(buff.critBonus !== undefined) add.wCrit = buff.critBonus;
-    if(buff.dmgReduce !== undefined) add.wDmg = buff.dmgReduce;
-    if(buff.healBonus !== undefined) add.wHeal = buff.healBonus;
-    if(buff.calm !== undefined) add.calm = buff.calm;
-
-    // ✅ ensure we don't loop back into gate
-    // (ถ้า nextUrl ชี้กลับมาที่ warmup-gate โดยพลาด)
-    const url = buildUrl(nextUrl, add);
-
-    // ✅ fallback: if url missing or navigate failed -> HUB
-    if(!url || url.includes('warmup-gate.html?phase='+PHASE)){
-      goHub(); return;
+    if(PHASE === 'warmup'){
+      if(st.warmupDoneAt){
+        // already done: do not overwrite (respect daily once)
+        pushLog({ phase:'warmup', msg:`Warmup attempt ignored (already done at ${st.warmupDoneAt})` });
+        return st;
+      }
+      const ns = setDayState({ warmupDoneAt: stamp, warmupBuff: buff, lastNext: (NEXT||'') });
+      pushLog({ phase:'warmup', msg:`Warmup DONE rank=${buff.rank} pct=${buff.pct}` });
+      return ns;
     }
-    const ok = safeNav(url);
-    if(!ok) goHub();
+
+    // cooldown
+    if(st.cooldownDoneAt){
+      pushLog({ phase:'cooldown', msg:`Cooldown attempt ignored (already done at ${st.cooldownDoneAt})` });
+      return st;
+    }
+    const ns = setDayState({ cooldownDoneAt: stamp, cooldownBuff: buff, lastNext: (NEXT||'') });
+    pushLog({ phase:'cooldown', msg:`Cooldown DONE rank=${buff.rank} calm=${buff.calm ?? '-'} pct=${buff.pct}` });
+    return ns;
   }
 
   function finishRun(){
@@ -756,50 +800,95 @@
     const buff = makeBuff();
     saveLast(buff);
 
-    // ✅ mark done now (even if user doesn't click go)
-    markDone(PHASE);
-
-    doneText.textContent =
-      (state.mode === 'cooldown')
-        ? `คูลดาวน์เสร็จ ✅ Calm Rank: ${buff.rank}`
-        : `วอร์มอัปสำเร็จ ✅ Rank: ${buff.rank}`;
-
-    doneJson.textContent = JSON.stringify(buff, null, 2);
-    show('done');
-
-    const nextResolved = resolveNextMaybeRandom();
-    $('#btn-go').disabled = !(nextResolved || (PHASE==='cooldown' && HUB));
-
-    try{ burstEmoji(50,50,'🏆'); }catch(_){}
-    try{ window.dispatchEvent(new CustomEvent('hha:warmup_done', { detail: buff })); }catch(_){}
-
-    // ✅ AUTO NEXT
-    if(AUTONEXT){
-      setTimeout(()=>goNextWithBuff(), 650);
+    // resolve next if random (only when needed)
+    if((NEXT||'').toLowerCase() === 'random'){
+      NEXT = pickRandom(parseGames()) || '';
     }
+
+    // daily lock logic
+    const st = getDayState();
+    const already = (PHASE==='warmup') ? !!st.warmupDoneAt : !!st.cooldownDoneAt;
+
+    if(!already){
+      markDoneToday(buff);
+    }
+
+    // UI text
+    const lockMsg = already
+      ? `วันนี้ทำ ${PHASE} ไปแล้ว (วันละครั้ง) — ดูผลด้านขวา แล้วไปเล่นเกมต่อได้เลย`
+      : `สำเร็จ ✅ วันนี้ทำ ${PHASE} แล้ว`;
+
+    doneTitle.textContent = (PHASE==='cooldown') ? 'COOLDOWN CLEAR!' : 'WARMUP CLEAR!';
+    doneText.textContent = `${lockMsg} · Rank: ${buff.rank}`;
+    doneJson.textContent = JSON.stringify(buff, null, 2);
+    buildPickButtons();
+
+    // go button enabled if next exists
+    $('#btn-go').disabled = !NEXT;
+
+    show('done');
+    burstEmoji(50,50,'🏆');
+
+    renderDaily();
+    renderLog();
+
+    // if cooldown gate called from game end and autonext=1:
+    // => show summary first (THIS screen) แล้วค่อยให้ผู้ใช้กดไปต่อเอง (ปลอดภัย/ไม่หลุด)
+    // ถ้าต้องการให้ “เด้งอัตโนมัติ” ค่อยเพิ่ม later ได้
+  }
+
+  function goNextWithBuff(){
+    // if next missing -> do nothing
+    const nextBase = (NEXT||'');
+    if(!nextBase){ return; }
+
+    // IMPORTANT: warmup/cooldown daily once
+    const st = getDayState();
+    if(PHASE==='warmup' && st.warmupDoneAt){
+      // allow proceed without rerun
+    }
+    if(PHASE==='cooldown' && st.cooldownDoneAt){
+      // allow proceed without rerun
+    }
+
+    const buff = makeBuff();
+
+    const add = {
+      ...getPassthrough(),
+      wType: buff.type,
+      wPct: buff.pct,
+      rank: buff.rank
+    };
+    if(buff.wCrit !== undefined) add.wCrit = buff.wCrit;
+    if(buff.wDmg !== undefined) add.wDmg = buff.wDmg;
+    if(buff.wHeal !== undefined) add.wHeal = buff.wHeal;
+    if(buff.calm !== undefined) add.calm = buff.calm;
+
+    const url = buildUrl(nextBase, add);
+    try{
+      setDayState({ lastNext: nextBase });
+      pushLog({ phase: PHASE, msg:`GO next => ${nextBase}` });
+      location.href = url;
+    }catch(_){}
   }
 
   // ------------------------------
-  // Preset tuning
+  // Modes (mini-games)
   // ------------------------------
-  const presetMul = (PRESET === 'hype') ? 1.22 : (PRESET === 'fast' ? 1.12 : 1.0);
-
-  // 1) Breathing: tap on beat
   function startBreathing(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'breathing';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
+    modeBadge.textContent = 'warmup';
     runEmoji.textContent = '🌬️';
     runTitle.textContent = `⚔️ Breathing — PERFECT WINDOW (${WARMUP_SECONDS}s)`;
     runHint.textContent = 'กดตามจังหวะ (ใกล้บีท = PERFECT) | หลุดจังหวะ = MISS';
 
-    const beatMs = Math.round(900 / presetMul);
-    const windowMs = Math.round(140 * (PRESET==='hype' ? 1.10 : 1.0));
-    let nextBeatAt = performance.now() + beatMs;
+    const beatMs = 900;
+    const windowMs = 140;
 
     runActions.innerHTML = `
       <div class="note" style="margin-bottom:10px;">
-        <b>เป้าหมาย:</b> เก็บคอมโบให้สูง! · PERFECT จะชาร์จเร็วกว่า
+        <b>เป้าหมาย:</b> เก็บคอมโบให้สูง! · PERFECT ชาร์จเร็วกว่า
       </div>
       <div class="actionRow" style="margin:0;">
         <button class="primary" id="btn-breath-act" style="padding:14px 18px; font-size:15px; font-weight:1000;">TAP</button>
@@ -807,31 +896,33 @@
     `;
     const actBtn = $('#btn-breath-act');
 
+    state.nextBeatAt = performance.now() + beatMs;
+
     function judgeTap(){
       const now = performance.now();
-      while(nextBeatAt < now - windowMs) nextBeatAt += beatMs;
+      while(state.nextBeatAt < now - windowMs) state.nextBeatAt += beatMs;
 
-      const diff = Math.abs(now - nextBeatAt);
+      const diff = Math.abs(now - state.nextBeatAt);
       const isPerfect = diff <= windowMs;
 
       if(isPerfect){
         state.perfect++;
         setCombo(state.combo + 1);
-        const gain = (6 + Math.min(12, state.combo*0.75)) * presetMul;
+        const gain = 6 + Math.min(10, state.combo*0.6);
         setProgress(state.pct + gain);
         say('PERFECT ✨', 'good');
         burstEmoji(50,48,'✨');
       }else{
         state.miss++;
         setCombo(Math.max(0, Math.floor(state.combo * 0.4)));
-        setProgress(state.pct + (2 * presetMul));
+        setProgress(state.pct + 2);
         say('MISS…', 'bad');
         burstEmoji(50,48,'💥');
       }
       setRank(calcRank(state.pct));
     }
 
-    actBtn.addEventListener('click', judgeTap);
+    actBtn.addEventListener('click', judgeTap, { passive:false });
 
     setTimeLeft(WARMUP_SECONDS);
     setProgress(0);
@@ -844,20 +935,19 @@
 
     tickId = setInterval(()=>{
       const now = performance.now();
-      const remain = nextBeatAt - now;
+      const remain = state.nextBeatAt - now;
       if(remain < 60 && remain > -60) say('BEAT!', 'pink');
-      if(remain < -60) nextBeatAt += beatMs;
+      if(remain < -60) state.nextBeatAt += beatMs;
     }, 60);
   }
 
-  // 2) Meditation: tap green only
   function startMeditation(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'meditation';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
+    modeBadge.textContent = 'warmup';
     runEmoji.textContent = '🧠';
     runTitle.textContent = `⚔️ Meditation — GREEN ONLY (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'แตะ “เขียว” เท่านั้น! เหลือง=หลอกแรง / แดง=กับดัก';
+    runHint.textContent = 'แตะ “เขียว” เท่านั้น! เหลือง=หลอก / แดง=กับดัก';
 
     runActions.innerHTML = `
       <div class="arena" id="arena">
@@ -867,7 +957,7 @@
         <div class="orb bad" id="orbBad">●</div>
       </div>
       <div class="note" style="margin-top:10px;">
-        <b>สกิลบอส:</b> ถ้าเก็บ Streak 3 ครั้ง จะได้ “Focus Burst” ชาร์จเพิ่ม!
+        <b>สกิล:</b> เก็บ Streak 3 ครั้ง → “Focus Burst” ชาร์จเพิ่ม!
       </div>
     `;
     const arena = $('#arena');
@@ -879,25 +969,22 @@
     function place(el){
       const w = arena.clientWidth, h = arena.clientHeight;
       const ew = el.offsetWidth, eh = el.offsetHeight;
-      const x = Math.random() * (w - ew);
-      const y = Math.random() * (h - eh);
-      el.style.left = `${x}px`;
-      el.style.top  = `${y}px`;
+      el.style.left = `${Math.random() * (w - ew)}px`;
+      el.style.top  = `${Math.random() * (h - eh)}px`;
     }
     function flash(){
-      fx.classList.remove('on');
-      void fx.offsetWidth;
-      fx.classList.add('on');
+      fx.classList.remove('on'); void fx.offsetWidth; fx.classList.add('on');
     }
 
-    function onGood(){
+    function onGood(e){
+      if(e) e.preventDefault();
       state.goodHits++;
       state.streak++;
       setCombo(state.combo + 1);
 
-      let gain = 8 * presetMul;
+      let gain = 8;
       if(state.streak >= 3){
-        gain += 18 * presetMul;
+        gain += 18;
         state.streak = 0;
         say('FOCUS BURST ✨', 'good');
         flash();
@@ -910,31 +997,25 @@
       setProgress(state.pct + gain);
       setRank(calcRank(state.pct));
       place(good);
-
-      if(Math.random() < 0.55){
-        const gx = parseFloat(good.style.left||'0');
-        const gy = parseFloat(good.style.top||'0');
-        decoy.style.left = `${clamp(gx + (Math.random()*120-60), 0, arena.clientWidth - decoy.offsetWidth)}px`;
-        decoy.style.top  = `${clamp(gy + (Math.random()*90-45),  0, arena.clientHeight - decoy.offsetHeight)}px`;
-      }else{
-        place(decoy);
-      }
+      place(decoy);
       place(bad);
     }
 
-    function onDecoy(){
+    function onDecoy(e){
+      if(e) e.preventDefault();
       setCombo(Math.max(0, Math.floor(state.combo * 0.5)));
       state.streak = 0;
-      setProgress(state.pct + (1 * presetMul));
+      setProgress(state.pct + 1);
       say('DECOY! ⚠️', 'pink');
       burstEmoji(52,54,'⚠️');
       place(decoy);
     }
 
-    function onBad(){
+    function onBad(e){
+      if(e) e.preventDefault();
       setCombo(0);
       state.streak = 0;
-      setProgress(Math.max(0, state.pct - (4 * presetMul)));
+      setProgress(Math.max(0, state.pct - 4));
       say('TRAP 💥', 'bad');
       arena.classList.add('shake');
       setTimeout(()=>arena.classList.remove('shake'), 220);
@@ -942,12 +1023,13 @@
       place(bad);
     }
 
-    good.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onGood(); });
-    decoy.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onDecoy(); });
-    bad.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onBad(); });
+    // mobile friendly: pointerup
+    good.addEventListener('pointerup', onGood, { passive:false });
+    decoy.addEventListener('pointerup', onDecoy, { passive:false });
+    bad.addEventListener('pointerup', onBad, { passive:false });
 
-    const moveMs = Math.max(420, Math.round(620 / presetMul));
-    tickId = setInterval(()=>{ place(good); place(decoy); place(bad); }, moveMs);
+    tickId = setInterval(()=>{ place(good); place(decoy); place(bad); }, 650);
+
     place(good); place(decoy); place(bad);
 
     setTimeLeft(WARMUP_SECONDS);
@@ -960,14 +1042,13 @@
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 3) Stretching: hold vs wave
   function startStretching(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'stretching';
-    modeBadge.textContent = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
+    modeBadge.textContent = 'warmup';
     runEmoji.textContent = '🤸';
     runTitle.textContent = `⚔️ Stretching — HOLD vs WAVE (${WARMUP_SECONDS}s)`;
-    runHint.textContent = 'กดค้างให้ต่อเนื่อง! (คลื่นบอส 2 ครั้ง) ปล่อยตอนคลื่น = เสียคอมโบ';
+    runHint.textContent = 'กดค้างให้ต่อเนื่อง! คลื่นบอสมา 2 ครั้ง · ปล่อยตอนคลื่น = เสียคอมโบ';
 
     runActions.innerHTML = `
       <div style="position:relative;">
@@ -978,42 +1059,39 @@
           </button>
         </div>
         <div class="note" style="margin-top:10px;">
-          <b>คำสั่งบอส:</b> “WAVE!” = ห้ามปล่อยจนกว่าคลื่นจบ
+          <b>คำสั่ง:</b> “WAVE!” = ห้ามปล่อยจนคลื่นจบ
         </div>
       </div>
     `;
     const hold = $('#btn-hold');
     const waveFX = $('#waveFX');
-    const app = document.getElementById('app');
 
-    const down = (e) => { if(e) e.preventDefault(); state.holding = true; hold.textContent='HOLDING… 🔥'; };
-    const up   = () => { state.holding = false; hold.textContent='HOLD ✋'; };
+    const down = (e)=>{ if(e) e.preventDefault(); state.holding = true; hold.textContent='HOLDING… 🔥'; };
+    const up = ()=>{ state.holding = false; hold.textContent='HOLD ✋'; };
 
-    hold.addEventListener('pointerdown', down);
-    window.addEventListener('pointerup', up, {passive:true});
-    window.addEventListener('pointercancel', up, {passive:true});
+    hold.addEventListener('pointerdown', down, { passive:false });
+    window.addEventListener('pointerup', up, { passive:true });
+    window.addEventListener('pointercancel', up, { passive:true });
 
     function waveOn(){
       state.waveOn = true;
-      waveFX.classList.remove('on');
-      void waveFX.offsetWidth;
-      waveFX.classList.add('on');
+      waveFX.classList.remove('on'); void waveFX.offsetWidth; waveFX.classList.add('on');
       say('WAVE! (DON’T RELEASE)', 'pink');
       burstEmoji(50,50,'🌊');
-      app.classList.add('shake');
-      setTimeout(()=>app.classList.remove('shake'), 220);
+      document.getElementById('app').classList.add('shake');
+      setTimeout(()=>document.getElementById('app').classList.remove('shake'), 220);
 
       setTimeout(()=>{
         state.waveOn = false;
         if(state.holding){
           state.wavePassed++;
           setCombo(state.combo + 2);
-          setProgress(state.pct + (16 * presetMul));
+          setProgress(state.pct + 16);
           say('WAVE CLEARED ✨', 'good');
           burstEmoji(52,50,'✨');
         }else{
           setCombo(0);
-          setProgress(Math.max(0, state.pct - (6 * presetMul)));
+          setProgress(Math.max(0, state.pct - 6));
           say('BROKEN… 💥', 'bad');
           burstEmoji(48,52,'💥');
         }
@@ -1021,12 +1099,10 @@
       }, 650);
     }
 
-    const t1 = Math.floor(WARMUP_SECONDS * 0.35) * 1000;
-    const t2 = Math.floor(WARMUP_SECONDS * 0.70) * 1000;
-    setTimeout(waveOn, t1);
-    setTimeout(waveOn, t2);
+    setTimeout(waveOn, Math.floor(WARMUP_SECONDS * 0.35) * 1000);
+    setTimeout(waveOn, Math.floor(WARMUP_SECONDS * 0.70) * 1000);
 
-    tickId = setInterval(() => {
+    tickId = setInterval(()=>{
       if(state.holding){
         state.holdMs += 30;
         const base = (state.holdMs / (WARMUP_SECONDS*1000)) * 100;
@@ -1047,9 +1123,8 @@
     timerId = setInterval(()=>{ t--; setTimeLeft(t); if(t<=0) finishRun(); }, 1000);
   }
 
-  // 4) Cooldown: calm rank
   function startCooldown(){
-    resetRunState();
+    stopTimers(); resetRunState();
     state.mode = 'cooldown';
     modeBadge.textContent = 'cooldown';
     runEmoji.textContent = '😌';
@@ -1062,7 +1137,6 @@
       </div>
       <div class="actionRow" style="margin:0;">
         <button class="primary" id="btn-calm" style="padding:14px 18px; font-size:15px; font-weight:1000;">นิ่งแล้ว ✅</button>
-        <button class="ghost" id="btn-breathe" style="padding:14px 18px; font-size:15px; font-weight:1000;">หายใจตามจังหวะ</button>
       </div>
       <div class="note" style="margin-top:10px;">
         จังหวะ: <span class="mono" id="calm-step">เข้า… 4</span>
@@ -1071,13 +1145,14 @@
     const calmBtn = $('#btn-calm');
     const calmStep = $('#calm-step');
 
-    calmBtn.addEventListener('click', () => {
-      state.calm = clamp(state.calm + (6 * presetMul), 0, 100);
+    calmBtn.addEventListener('click', (e)=>{
+      if(e) e.preventDefault();
+      state.calm = clamp(state.calm + 6, 0, 100);
       setProgress(state.calm);
       say('CALM +', 'good');
       burstEmoji(50,50,'✨');
       setRank(calcRank(state.pct));
-    });
+    }, { passive:false });
 
     setTimeLeft(COOLDOWN_SECONDS);
     setProgress(0);
@@ -1086,12 +1161,12 @@
     show('run');
 
     let phase = 'in', k = 4;
-    tickId = setInterval(() => {
+    tickId = setInterval(()=>{
       k--;
       if(k<=0){ phase = (phase==='in') ? 'out' : 'in'; k=4; }
       calmStep.textContent = (phase==='in') ? `เข้า… ${k}` : `ออก… ${k}`;
 
-      state.calm = clamp(state.calm + (2.2 * presetMul), 0, 100);
+      state.calm = clamp(state.calm + 2.2, 0, 100);
       setProgress(state.calm);
       setRank(calcRank(state.pct));
       if(state.calm >= 95) say('ZEN MODE ✨', 'pink');
@@ -1102,16 +1177,60 @@
   }
 
   // ------------------------------
-  // Wire buttons
+  // Wire
   // ------------------------------
-  $('#btn-breath').addEventListener('click', startBreathing);
-  $('#btn-meditate').addEventListener('click', startMeditation);
-  $('#btn-stretch').addEventListener('click', startStretching);
+  $('#btn-breath').addEventListener('click', ()=>{
+    const st = getDayState();
+    if(PHASE==='warmup' && st.warmupDoneAt){
+      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
+      show('done');
+      return;
+    }
+    startBreathing();
+  });
 
-  $('#btn-cooldown').addEventListener('click', startCooldown);
+  $('#btn-meditate').addEventListener('click', ()=>{
+    const st = getDayState();
+    if(PHASE==='warmup' && st.warmupDoneAt){
+      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
+      show('done');
+      return;
+    }
+    startMeditation();
+  });
+
+  $('#btn-stretch').addEventListener('click', ()=>{
+    const st = getDayState();
+    if(PHASE==='warmup' && st.warmupDoneAt){
+      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
+      show('done');
+      return;
+    }
+    startStretching();
+  });
+
+  $('#btn-cooldown').addEventListener('click', ()=>{
+    const st = getDayState();
+    if(st.cooldownDoneAt){
+      alert('วันนี้ทำ Cooldown ไปแล้ว (วันละครั้ง) — ดูสรุปแล้วไปเล่นเกมต่อได้เลย');
+      show('done');
+      return;
+    }
+    startCooldown();
+  });
 
   $('#btn-stop').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
-  $('#btn-again').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
+  $('#btn-again').addEventListener('click', ()=>{
+    stopTimers();
+    // warmup/cooldown daily once: again means "re-open results", not rerun if already done
+    const st = getDayState();
+    const done = (PHASE==='warmup') ? !!st.warmupDoneAt : !!st.cooldownDoneAt;
+    if(done){
+      show('done');
+      return;
+    }
+    show('select');
+  });
 
   $('#btn-go').addEventListener('click', goNextWithBuff);
   $('#btn-backhub').addEventListener('click', goHub);
@@ -1120,73 +1239,82 @@
   $('#btn-clear-last').addEventListener('click', ()=>{
     try{ localStorage.removeItem(KEY_LAST); }catch(_){}
     alert('ล้างผลล่าสุดแล้ว');
+    renderLog(); renderDaily();
+  });
+
+  $('#btn-clear-today').addEventListener('click', ()=>{
+    try{ localStorage.removeItem(KEY_DAY); }catch(_){}
+    alert('ล้างสถานะ “วันนี้” แล้ว');
+    renderDaily(); renderLog();
   });
 
   // ------------------------------
-  // Init UI by phase + route note
+  // Init
   // ------------------------------
   const phaseText = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
   modeBadge.textContent = phaseText;
 
-  const nextPreview = (String(NEXT||'').toLowerCase()==='random')
-    ? `random (from games=...)`
+  // if next=random we keep label, but actual resolve at finish/go
+  const nextPreview = (NEXT||'').toLowerCase()==='random'
+    ? `random`
     : (NEXT||'(none)');
 
-  // ✅ PATCH: once/day auto-skip
-  if(isDoneToday(PHASE)){
-    // ถ้าทำไปแล้ววันนี้: เด้งไปต่อทันที (ไม่ต้องเล่นซ้ำ)
-    // ใช้ replace เพื่อไม่ย้อนกลับมาค้าง
-    setTimeout(()=>{
-      // mark again not needed
-      // go next safely
-      // ถ้า warmup แล้ว NEXT ว่าง -> ไป HUB
-      if(!NEXT && HUB){ safeNav(HUB); return; }
-      // else go next with passthrough (no buffเพิ่ม)
-      const url = buildUrl(resolveNextMaybeRandom() || HUB, { ...getPassthrough() });
-      if(!safeNav(url)) goHub();
-    }, 220);
-  } else {
-
-    if(PHASE === 'cooldown'){
-      topTitle.textContent = `😌 Cooldown Boss Gate (${COOLDOWN_SECONDS} วิ)`;
-      topSub.textContent = 'ค่อย ๆ หายใจ แล้วกลับ HUB แบบใจนิ่ง';
-      routeNote.innerHTML = `
-        โหมดคูลดาวน์ — <b>${COOLDOWN_SECONDS} วิ</b><br/>
-        ${HUB ? `กลับ HUB: <span class="mono">${HUB}</span>` : 'ยังไม่ส่ง hub มา (ใช้ปุ่ม Back ของเบราว์เซอร์แทนได้)'}
-        <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span> · replace=<span class="mono">${USE_REPLACE?1:0}</span> · preset=<span class="mono">${PRESET||'(none)'}</span>
-      `;
-      routeMini.textContent = `phase=cooldown dur=${COOLDOWN_SECONDS} hub=${HUB||'(none)'} next=${nextPreview} autonext=${AUTONEXT?1:0} replace=${USE_REPLACE?1:0} preset=${PRESET||'(none)'}`;
-      show('run');
-      startCooldown(); // auto start cooldown
-    } else {
-      topTitle.textContent = `⚔️ Warmup Boss Gate (${WARMUP_SECONDS} วิ)`;
-      topSub.textContent = 'เลือกกิจกรรม 1 อย่าง → รับบัฟ → ไปลงสนามจริง';
-      routeNote.innerHTML = `
-        โหมดวอร์มอัป — <b>${WARMUP_SECONDS} วิ</b><br/>
-        ไปเกมต่อ: <span class="mono">${nextPreview}</span>
-        ${HUB ? `<br/>HUB: <span class="mono">${HUB}</span>` : ''}
-        <br/>autonext=<span class="mono">${AUTONEXT?1:0}</span> · replace=<span class="mono">${USE_REPLACE?1:0}</span> · preset=<span class="mono">${PRESET||'(none)'}</span>
-        <br/>wmode=<span class="mono">${WM0||'(auto)'}</span>
-      `;
-      routeMini.textContent = `phase=warmup dur=${WARMUP_SECONDS} next=${nextPreview} hub=${HUB||'(none)'} autonext=${AUTONEXT?1:0} replace=${USE_REPLACE?1:0} preset=${PRESET||'(none)'} wmode=${WM0||'(auto)'}`;
-      show('select');
-
-      // ✅ Enforced flow: auto start when autonext=1
-      if(AUTONEXT){
-        const modes = ['breath','meditate','stretch'];
-        let choose = (WM0 && modes.includes(WM0)) ? WM0 : 'random';
-        if(choose === 'random'){
-          choose = modes[Math.floor(Math.random()*modes.length)];
-        }
-        setTimeout(()=>{
-          if(choose === 'breath') startBreathing();
-          else if(choose === 'meditate') startMeditation();
-          else startStretching();
-        }, 380);
-      }
-    }
+  // show notes
+  const hasNext = !!NEXT;
+  if(PHASE === 'cooldown'){
+    topTitle.textContent = `😌 Cooldown Boss Gate (${COOLDOWN_SECONDS} วิ)`;
+    topSub.textContent = 'ค่อย ๆ หายใจ แล้วค่อยเลือกเกมต่อไป';
+    routeNote.innerHTML = `
+      โหมดคูลดาวน์ — <b>${COOLDOWN_SECONDS} วิ</b><br/>
+      Next: <span class="mono">${hasNext ? nextPreview : '(none)'}</span><br/>
+      HUB: <span class="mono">${HUB || '(none)'}</span>
+    `;
+    routeMini.textContent = `phase=cooldown cdur=${COOLDOWN_SECONDS} next=${nextPreview}`;
+  }else{
+    topTitle.textContent = `⚔️ Warmup Boss Gate (${WARMUP_SECONDS} วิ)`;
+    topSub.textContent = hasNext ? 'เลือกกิจกรรม 1 อย่าง → รับบัฟ → ไปลงสนามจริง' : 'ยังไม่ส่ง next มา (ปุ่มไปเกมจะปิด)';
+    routeNote.innerHTML = `
+      โหมดวอร์มอัป — <b>${WARMUP_SECONDS} วิ</b><br/>
+      Next: <span class="mono">${hasNext ? nextPreview : '(none)'}</span><br/>
+      HUB: <span class="mono">${HUB || '(none)'}</span>
+    `;
+    routeMini.textContent = `phase=warmup dur=${WARMUP_SECONDS} next=${nextPreview}`;
   }
 
+  // if already done today -> jump to DONE summary screen immediately
+  const st = getDayState();
+  const doneWarm = !!st.warmupDoneAt;
+  const doneCool = !!st.cooldownDoneAt;
+
+  renderDaily();
+  renderLog();
+
+  if(PHASE==='cooldown'){
+    if(doneCool){
+      // show summary + allow choose next game
+      show('done');
+      doneTitle.textContent = 'COOLDOWN DONE (TODAY)';
+      doneText.textContent = `วันนี้ทำ cooldown แล้ว (${st.cooldownDoneAt}) — เลือกเกมต่อไปได้เลย`;
+      doneJson.textContent = JSON.stringify(st.cooldownBuff || readJSON(KEY_LAST, {}), null, 2);
+      buildPickButtons();
+      $('#btn-go').disabled = !NEXT;
+    }else{
+      // if gate called from end-game: start cooldown automatically only if not done today
+      if(AUTONEXT) startCooldown();
+      else show('select');
+    }
+  }else{
+    if(doneWarm){
+      show('done');
+      doneTitle.textContent = 'WARMUP DONE (TODAY)';
+      doneText.textContent = `วันนี้ทำ warmup แล้ว (${st.warmupDoneAt}) — ไปเล่นเกมต่อได้เลย`;
+      doneJson.textContent = JSON.stringify(st.warmupBuff || readJSON(KEY_LAST, {}), null, 2);
+      buildPickButtons();
+      $('#btn-go').disabled = !NEXT;
+    }else{
+      show('select');
+    }
+  }
 })();
 </script>
 </body>
