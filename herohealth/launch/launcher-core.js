@@ -1,70 +1,78 @@
 // === /herohealth/launch/launcher-core.js ===
-// HeroHealth Launcher Core — PRODUCTION v20260211a
-// ✅ Auto-detect view (pc/mobile/cvr) BUT:
-//    - DO NOT override if ?view= exists
-// ✅ Pass-through params to target
-// ✅ Apply defaults only if missing
-// ✅ Keep hub/log seed research params intact
+// HeroHealth Launcher Core — v20260212a
+// ✅ Auto pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/pid/group/note
+// ✅ Auto-append ?log= (Cloud Logger Web App URL)
+// ✅ Remember last log URL (optional)
+// ✅ Never override if URL already has that key
 
-export function hhGo(targetUrl, opts = {}){
-  const defaults = (opts && opts.defaults) ? opts.defaults : {};
+export function hhGo(targetUrl, opt = {}){
+  const defaults = opt.defaults || {};
+  const rememberLog = !!opt.rememberLog;
+  const preferQueryLog = (opt.preferQueryLog !== false); // default true
 
-  const src = safeURL(location.href);
-  const sp = src.searchParams;
+  const LS_LAST_LOG = 'HHA_LAST_LOG_URL';
 
-  // 1) decide view (ONLY if not provided)
-  if (!sp.get('view')){
-    const v = detectView_();
-    sp.set('view', v);
+  const srcQS = safeQS(location.href);
+
+  // 1) pick log URL
+  let logUrl = '';
+  const qLog = (srcQS.get('log') || '').trim();
+  const lsLog = (rememberLog ? (localStorage.getItem(LS_LAST_LOG) || '').trim() : '');
+  const defLog = (defaults.log || '').trim();
+
+  if (preferQueryLog && qLog) logUrl = qLog;
+  else if (lsLog) logUrl = lsLog;
+  else if (defLog) logUrl = defLog;
+
+  // remember (only if present)
+  if (rememberLog && logUrl){
+    try{ localStorage.setItem(LS_LAST_LOG, logUrl); }catch(_){}
   }
 
-  // 2) apply defaults if missing
-  for (const [k,v] of Object.entries(defaults)){
-    if (!sp.get(k) || String(sp.get(k)).trim()===''){
-      sp.set(k, String(v));
-    }
-  }
+  // 2) build outgoing URL
+  const out = new URL(targetUrl, location.href);
+  const outQS = out.searchParams;
 
-  // 3) normalize alias: sometimes people pass runMode
-  if (!sp.get('mode') && sp.get('runMode')) sp.set('mode', sp.get('runMode'));
+  // helper: set if missing
+  const setIfMissing = (k, v)=>{
+    if (v==null) return;
+    const vv = String(v).trim();
+    if (!vv) return;
+    if (!outQS.has(k)) outQS.set(k, vv);
+  };
 
-  // 4) keep only relevant params (optional: but safer to pass all)
-  // We'll pass all current params as-is to allow future extensions.
-
-  // 5) build target URL relative to current
-  const out = safeURL(targetUrl, src);
-  // Copy params (do NOT wipe existing params in target, merge instead)
-  const outSP = out.searchParams;
-  sp.forEach((val,key)=>{
-    if (!outSP.get(key)) outSP.set(key, val);
+  // 3) apply defaults (only if missing)
+  Object.keys(defaults).forEach(k=>{
+    if (k === 'log') return; // handled separately
+    setIfMissing(k, defaults[k]);
   });
+
+  // 4) pass-through keys from current URL (if present)
+  // (ไม่ override ค่าใน targetUrl ถ้ามีอยู่แล้ว)
+  const PASS_KEYS = [
+    'hub','run',
+    'mode','gameMode','runMode',
+    'diff','difficulty',
+    'duration','time',
+    'seed',
+    'studyId','phase','conditionGroup',
+    'pid','group','note',
+    'siteCode','schoolCode','schoolName','classRoom','studentNo','nickName',
+    'sessionOrder','blockLabel'
+  ];
+  PASS_KEYS.forEach(k=>{
+    const v = (srcQS.get(k) || '').trim();
+    if (v) setIfMissing(k, v);
+  });
+
+  // 5) finally set log
+  if (logUrl) setIfMissing('log', logUrl);
 
   // 6) redirect
   location.replace(out.toString());
 }
 
-function safeURL(url, base){
-  try { return new URL(url, base); }
-  catch { return new URL(String(url), location.href); }
-}
-
-function detectView_(){
-  try{
-    const ua = navigator.userAgent || '';
-    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    const w = Math.min(window.innerWidth||0, document.documentElement.clientWidth||0, screen.width||9999);
-    const h = Math.min(window.innerHeight||0, document.documentElement.clientHeight||0, screen.height||9999);
-    const small = Math.min(w,h) <= 520;
-    const isMobileUA = /Android|iPhone|iPad|iPod/i.test(ua);
-
-    // heuristic:
-    // - small touch device -> cVR
-    // - touch/mobile -> mobile
-    // - else pc
-    if ((touch || isMobileUA) && small) return 'cvr';
-    if (touch || isMobileUA) return 'mobile';
-    return 'pc';
-  }catch(_){
-    return 'pc';
-  }
+function safeQS(href){
+  try { return new URL(href).searchParams; }
+  catch { return new URLSearchParams(); }
 }
