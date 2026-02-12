@@ -1,5 +1,5 @@
 // === /fitness/hub-research.js ===
-// Research Launcher Form (Hub) — v20260211e (ADD site/class/teacher)
+// Research Launcher Form (Hub) — v20260211f (ADD schoolName + passthrough)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -17,10 +17,10 @@
   const elSeed  = $('#hr-seed');
   const cbLockSeed = $('#hr-lock-seed');
 
-  // NEW fields
   const elSite = $('#hr-site');
   const elClass = $('#hr-class');
   const elTeacher = $('#hr-teacher');
+  const elSchool = $('#hr-school'); // NEW
 
   const btnGo   = $('#hr-go');
   const btnGoNext = $('#hr-go-next');
@@ -31,10 +31,9 @@
   const btnStats= $('#hr-stats');
   const btnReset= $('#hr-reset');
   const msg     = $('#hr-msg');
-
   const banner  = $('#hr-banner');
 
-  const STORE_KEY = 'HHA_FITNESS_RESEARCH_CTX_V4';
+  const STORE_KEY = 'HHA_FITNESS_RESEARCH_CTX_V5';
 
   function setMsg(t){ if(msg) msg.textContent = t || ''; }
   function pad3(n){ return String(n).padStart(3,'0'); }
@@ -77,6 +76,7 @@
         if(elSite) elSite.value = o.siteCode || '';
         if(elClass) elClass.value = o.classRoom || '';
         if(elTeacher) elTeacher.value = o.teacherId || '';
+        if(elSchool) elSchool.value = o.schoolName || '';
       }
     }catch(_){}
 
@@ -101,8 +101,9 @@
     const siteCode = (elSite?.value || '').trim();
     const classRoom = (elClass?.value || '').trim();
     const teacherId = (elTeacher?.value || '').trim();
+    const schoolName = (elSchool?.value || '').trim();
 
-    return { pid, studyId, phase, conditionGroup, seed, lockSeed, siteCode, classRoom, teacherId };
+    return { pid, studyId, phase, conditionGroup, seed, lockSeed, siteCode, classRoom, teacherId, schoolName };
   }
 
   function save(ctx){
@@ -142,10 +143,10 @@
     params.set('phase', ctx.phase);
     params.set('conditionGroup', ctx.conditionGroup);
 
-    // NEW passthrough
     if(ctx.siteCode) params.set('siteCode', ctx.siteCode);
     if(ctx.classRoom) params.set('classRoom', ctx.classRoom);
     if(ctx.teacherId) params.set('teacherId', ctx.teacherId);
+    if(ctx.schoolName) params.set('schoolName', ctx.schoolName); // NEW
 
     params.set('hub','../fitness/hub.html');
     params.set('stats','../fitness/stats.html');
@@ -183,6 +184,7 @@
     if(elSite) elSite.value = '';
     if(elClass) elClass.value = '';
     if(elTeacher) elTeacher.value = '';
+    if(elSchool) elSchool.value = '';
 
     elPid?.classList.remove('hr-err');
     setMsg('รีเซ็ตค่าแล้ว');
@@ -193,6 +195,7 @@
     if(!banner) return;
     const ctx = read();
     const extra = [
+      ctx.schoolName ? `School:${ctx.schoolName}` : null,
       ctx.siteCode ? `Site:${ctx.siteCode}` : null,
       ctx.classRoom ? `Class:${ctx.classRoom}` : null,
       ctx.teacherId ? `Teacher:${ctx.teacherId}` : null,
@@ -203,7 +206,6 @@
       (extra ? ` | ${extra}` : '');
   }
 
-  // listeners
   elPid?.addEventListener('blur', ()=>validatePid(false));
   btnGo?.addEventListener('click', ()=>go(false));
   btnGoNext?.addEventListener('click', ()=>go(true));
@@ -234,8 +236,7 @@
   btnStats?.addEventListener('click', ()=>location.href='stats.html');
   btnReset?.addEventListener('click', resetAll);
 
-  // NEW: update banner on typing
-  ;[elSite, elClass, elTeacher, elStudy, elPhase, elCond].forEach(el=>{
+  ;[elSite, elClass, elTeacher, elSchool, elStudy, elPhase, elCond].forEach(el=>{
     el?.addEventListener('input', ()=>{ save(read()); });
     el?.addEventListener('change', ()=>{ save(read()); });
   });
