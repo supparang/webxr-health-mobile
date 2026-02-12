@@ -1,23 +1,18 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
-// PATCH v20260211a
-//
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) v20260212a
 // ✅ Imports engine: hygiene.safe.js (must export boot)
-// ✅ If missing DOM or import fails -> show readable error on screen
-// ✅ Wait for defer scripts (Particles / QuizBank / VRUI) to populate globals
-// ✅ Watchdog: detect stall/freeze-ish and warn user to reload
-//
+// ✅ Warn if particles.js or quiz bank missing
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function showBanner(msg, ms=1600){
+function showBanner(msg){
   const banner = $id('banner');
   if(!banner) return;
   banner.textContent = msg;
   banner.classList.add('show');
   clearTimeout(showBanner._t);
-  showBanner._t = setTimeout(()=>banner.classList.remove('show'), ms);
+  showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1600);
 }
 
 function showFatal(msg, err){
@@ -37,7 +32,7 @@ function showFatal(msg, err){
       card.innerHTML = `
         <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
         <span style="color:#94a3b8">${msg}</span><br>
-        <span style="color:#94a3b8">แนะนำเปิด Console/Network เช็ค 404 หรือ error</span>
+        <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
       `;
     }
     startOverlay.style.display = 'grid';
@@ -66,87 +61,13 @@ function waitForGlobal(getter, ms){
   });
 }
 
-/* ---------------------------
-   Stall watchdog
-   - ถ้า frame ไม่ขยับ (tab freeze / device lag) หรือ
-   - ถ้าไม่มี “กิจกรรมเกม” นานเกินไป -> แจ้งเตือน
-   --------------------------- */
-function setupWatchdog(){
-  const STATE = {
-    lastFrameMs: performance.now(),
-    lastActivityMs: performance.now(),
-    warned: false
-  };
-
-  // engine จะเรียก window.__HHA_HYGIENE_ACTIVITY() ได้ (ถ้าคุณเพิ่มใน hygiene.safe.js)
-  // แต่แม้ไม่เพิ่ม เราก็ขยับ activity เมื่อมี input/visibility/RAF
-  window.__HHA_HYGIENE_ACTIVITY = function(){
-    STATE.lastActivityMs = performance.now();
-  };
-
-  // bump on user inputs
-  const bump = ()=>{ STATE.lastActivityMs = performance.now(); };
-  window.addEventListener('pointerdown', bump, { passive:true });
-  window.addEventListener('touchstart',  bump, { passive:true });
-  window.addEventListener('keydown',     bump, { passive:true });
-  document.addEventListener('visibilitychange', bump, { passive:true });
-
-  function raf(){
-    const now = performance.now();
-    const dtFrame = now - STATE.lastFrameMs;
-    STATE.lastFrameMs = now;
-
-    // ถ้า frame gap ใหญ่ผิดปกติ (มือถือหน่วง/สลับแอปกลับมา)
-    if(dtFrame > 2200){
-      showBanner('⚠️ เกมสะดุด/หน่วง (มือถือ/เมมโมรี่) — ถ้าค้างให้ Reload');
-      STATE.lastActivityMs = now;
-      STATE.warned = false;
-    }
-
-    const idle = now - STATE.lastActivityMs;
-
-    // ถ้า “เงียบ” นาน (ผู้ใช้กำลังเล่น แต่เกมไม่ตอบสนอง)
-    if(idle > 9000 && !STATE.warned){
-      STATE.warned = true;
-      showBanner('เกมค้าง/สะดุด • แนะนำกด Reload เกม (มักเกิดจาก memory/JS error/มือถือหน่วง) • เปิด Console ดู error ได้', 3600);
-    }
-
-    // reset warn หลังมี activity
-    if(idle < 2000) STATE.warned = false;
-
-    requestAnimationFrame(raf);
-  }
-  requestAnimationFrame(raf);
-}
-
 async function main(){
-  setupWatchdog();
-
-  // show runtime errors on screen (ไม่ให้ “ค้างเงียบ”)
-  window.addEventListener('error', (e)=>{
-    try{
-      const m = (e && (e.message || e.error?.message)) || 'Unknown error';
-      showBanner('❌ JS error: ' + m, 3200);
-      console.error('[HygieneBoot] window.error', e);
-    }catch{}
-  });
-
-  window.addEventListener('unhandledrejection', (e)=>{
-    try{
-      const m = (e && (e.reason?.message || String(e.reason))) || 'Unhandled rejection';
-      showBanner('❌ Promise error: ' + m, 3200);
-      console.error('[HygieneBoot] unhandledrejection', e);
-    }catch{}
-  });
-
-  // DOM must exist
   const stage = $id('stage');
   if(!stage){
     showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
-  // CSS hint
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
@@ -155,37 +76,25 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  // Wait a bit for deferred scripts to populate globals
-  // particles.js -> window.Particles
-  const P = await waitForGlobal(()=>window.Particles, 1200);
+  // wait for deferred scripts (fx + quiz)
+  const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
-    console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
+    console.warn('[HygieneBoot] window.Particles not found');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
-  }else{
-    try{ console.log('[HygieneBoot] Particles OK'); }catch{}
   }
 
-  // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
-  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 1200);
+  const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
-    console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
+    console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found');
     showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
   }else{
-    try{ console.log('[HygieneBoot] Quiz bank OK:', bank.length); }catch{}
+    try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
-  // vr-ui -> not required for non-VR, but warn if missing in VR view
-  const view = (new URL(location.href).searchParams.get('view') || 'pc').toLowerCase();
-  const vrui = await waitForGlobal(()=>window.__HHA_VRUI_LOADED__ || window.HHA_VRUI_CONFIG, 600);
-  if((view === 'vr' || view === 'cvr') && !vrui){
-    console.warn('[HygieneBoot] vr-ui.js may be missing');
-    showBanner('⚠️ VR UI อาจไม่พร้อม (vr-ui.js)');
-  }
-
-  // Import engine safely
+  // import engine
   let engine;
   try{
-    engine = await import('./hygiene.safe.js');
+    engine = await import('./hygiene.safe.js?v=20260212a');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
@@ -196,15 +105,10 @@ async function main(){
     return;
   }
 
-  // Run engine boot
   try{
     engine.boot();
-
-    // mark as activity
-    try{ window.__HHA_HYGIENE_ACTIVITY?.(); }catch{}
-
     console.log('[HygieneBoot] engine.boot OK');
-    showBanner('✅ โหลดเกมสำเร็จ', 900);
+    showBanner('✅ โหลดเกมสำเร็จ');
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
