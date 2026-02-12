@@ -1,5 +1,5 @@
 // === /fitness/archive-manager.js ===
-// Archive Manager — v20260211b (MERGE ARCHIVES)
+// Archive Manager — v20260211c (MERGE + META headers)
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -27,6 +27,8 @@
 
   const ARCHIVE_KEY = 'HHA_ARCHIVE_INDEX_V1';
   const ARCHIVE_PREFIX = 'HHA_ARCHIVE_';
+
+  const SELECTED_KEY = 'HHA_ARCHIVE_SELECTED_V1';
 
   function setMsg(t){ if(msgEl) msgEl.textContent = t || ''; }
   function setNote(t){ if(noteEl) noteEl.textContent = t || ''; }
@@ -57,6 +59,14 @@
     saveIndex(idx);
   }
 
+  function getSelected(){
+    const a = readJSON(SELECTED_KEY, []);
+    return new Set(Array.isArray(a) ? a : []);
+  }
+  function saveSelected(set){
+    try{ localStorage.setItem(SELECTED_KEY, JSON.stringify(Array.from(set))); }catch(_){}
+  }
+
   function fmtTime(ts){
     if(!ts) return '-';
     const d = new Date(ts);
@@ -71,31 +81,6 @@
   function esc(v){
     const s = String(v ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-  }
-
-  function summaryCSV(rows){
-    const header = ['ts','pid','studyId','phase','conditionGroup','game','score','pass','total','maxStreak','ms','seed'];
-    const lines = [header.join(',')];
-    for(const r of (rows||[])){
-      lines.push([
-        r.ts, r.pid, r.studyId, r.phase, r.conditionGroup, r.game,
-        r.score, r.pass, r.total, r.maxStreak, r.ms, r.seed
-      ].map(esc).join(','));
-    }
-    return lines.join('\n');
-  }
-
-  function eventsCSV(rows){
-    const header = ['ts','sid','pid','studyId','phase','conditionGroup','game','mode','view','seed','type','data_json'];
-    const lines = [header.join(',')];
-    for(const r of (rows||[])){
-      const dataJson = JSON.stringify(r.data || {});
-      lines.push([
-        r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
-        r.game, r.mode, r.view, r.seed, r.type, dataJson
-      ].map(esc).join(','));
-    }
-    return lines.join('\n');
   }
 
   function downloadText(filename, text, mime='text/csv;charset=utf-8'){
@@ -123,6 +108,8 @@
       f.xStudy, f.pid, f.phase, f.group, f.game,
       ...(arch.summary||[]).slice(0,5).map(r=>r.pid),
       ...(arch.summary||[]).slice(0,5).map(r=>r.studyId),
+      ...(arch.summary||[]).slice(0,5).map(r=>r.siteCode),
+      ...(arch.summary||[]).slice(0,5).map(r=>r.classRoom),
     ].filter(Boolean).join(' ').toLowerCase();
     return hay.includes(s);
   }
@@ -137,9 +124,8 @@
     const q = (qEl?.value || '').trim();
     const mode = modeEl?.value || 'all';
     const lim = Number(limitEl?.value || 0);
-    let out = list.slice();
 
-    out = out.map(x=>{
+    let out = list.slice().map(x=>{
       const arch = getArchive(x.id);
       return { idx:x, arch };
     }).filter(x => x.arch && matchesQuery(x.arch, q));
@@ -164,16 +150,48 @@
     return out;
   }
 
-  // -------- selection state --------
-  const SELECTED_KEY = 'HHA_ARCHIVE_SELECTED_V1';
-  function getSelected(){
-    const a = readJSON(SELECTED_KEY, []);
-    return new Set(Array.isArray(a) ? a : []);
-  }
-  function saveSelected(set){
-    try{ localStorage.setItem(SELECTED_KEY, JSON.stringify(Array.from(set))); }catch(_){}
+  // -------- CSV builders (META COMPLETE) --------
+  function summaryCSV(rows){
+    const header = [
+      'ts','pid','studyId','phase','conditionGroup',
+      'schoolName','siteCode','classRoom','teacherId','deviceType',
+      'game','score','pass','total','maxStreak','ms','seed'
+    ];
+    const lines = [header.join(',')];
+    for(const r of (rows||[])){
+      lines.push([
+        r.ts, r.pid, r.studyId, r.phase, r.conditionGroup,
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'', r.deviceType||'',
+        r.game, r.score, r.pass, r.total, r.maxStreak, r.ms, r.seed
+      ].map(esc).join(','));
+    }
+    return lines.join('\n');
   }
 
+  function eventsCSV(rows){
+    const header = [
+      'ts','sid','pid','studyId','phase','conditionGroup',
+      'schoolName','siteCode','classRoom','teacherId','deviceType',
+      'game','mode','view','seed','type','data_json'
+    ];
+    const lines = [header.join(',')];
+    for(const r of (rows||[])){
+      const dataJson = JSON.stringify(r.data || {});
+      lines.push([
+        r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'', r.deviceType||'',
+        r.game, r.mode, r.view, r.seed, r.type, dataJson
+      ].map(esc).join(','));
+    }
+    return lines.join('\n');
+  }
+
+  function stamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // -------- selection + render --------
   function render(){
     const idx = getIndex();
     const items = applyListFilters(idx);
@@ -226,7 +244,6 @@
           <div class="am-card-actions">
             <button class="am-btn am-btn-primary" data-act="dl_sum" data-id="${arch.id}">ดาวน์โหลด summary.csv</button>
             <button class="am-btn am-btn-primary" data-act="dl_evt" data-id="${arch.id}">ดาวน์โหลด events.csv</button>
-            <button class="am-btn" data-act="restore" data-id="${arch.id}">Restore → กลับ log</button>
             <button class="am-btn am-btn-warn" data-act="delete" data-id="${arch.id}">ลบ archive</button>
           </div>
         </div>
@@ -234,12 +251,11 @@
     }).join('');
 
     const selCount = getSelected().size;
-    setMsg(`พร้อมใช้งาน | ติ๊กเลือกได้ (${selCount} ชุดที่เลือก) | merge จะใช้ “เฉพาะที่ติ๊ก” ถ้าติ๊กตัวเลือกนั้น`);
+    setMsg(`ติ๊กเลือกได้ | เลือกแล้ว: ${selCount} ชุด | merge จะรวมตามตัวเลือกด้านบน`);
   }
 
-  // delegation for card actions & selection
+  // selection + actions
   DOC.addEventListener('click', (ev)=>{
-    // selection checkbox
     const sel = ev.target.closest?.('input[type="checkbox"][data-sel]');
     if(sel){
       const id = sel.getAttribute('data-sel');
@@ -273,12 +289,6 @@
     if(act==='dl_evt'){
       downloadText(`ARCHIVE_${id}_events.csv`, eventsCSV(arch.events || []));
       setMsg(`⬇️ ดาวน์โหลด events ของ ${id}`);
-      return;
-    }
-    if(act==='restore'){
-      if(!confirm('Restore จะ “ผสาน” ข้อมูลใน archive กลับเข้า log ปัจจุบัน (ไม่ลบของเดิม)\nทำต่อไหม?')) return;
-      // (restore logic omitted in merge patch to keep short) — but keep feature:
-      setMsg('ฟังก์ชัน Restore ใช้ได้จากเวอร์ชันก่อนหน้า (ถ้าต้องการ ผมใส่ restore-full กลับมาให้ทันที)');
       return;
     }
     if(act==='delete'){
@@ -319,18 +329,20 @@
     el?.addEventListener('change', onFilterChange);
   });
 
-  // -------- MERGE --------
-  function sumKey(r){ return `${r.ts}|${r.pid}|${r.game}|${r.seed}`; }
-  function evtKey(r){ return `${r.ts}|${r.sid}|${r.type}|${r.game}`; }
+  // -------- MERGE (META COMPLETE) --------
+  function sumKey(r){ return `${r.ts}|${r.pid}|${r.game}|${r.seed}|${r.studyId}|${r.phase}|${r.conditionGroup}`; }
+  function evtKey(r){ return `${r.ts}|${r.sid}|${r.type}|${r.game}|${r.pid}`; }
 
   function getCandidates(){
     const idx = getIndex();
-    const items = applyListFilters(idx); // what is currently shown
+    const items = applyListFilters(idx); // currently shown
     const useSel = !!cbUseSelected?.checked;
     const selected = getSelected();
 
-    const ids = useSel ? items.map(x=>x.arch.id).filter(id=>selected.has(id)) : items.map(x=>x.arch.id);
-    return ids;
+    const idsAllShown = items.map(x=>x.arch.id);
+    if(!useSel) return idsAllShown;
+
+    return idsAllShown.filter(id=>selected.has(id));
   }
 
   btnMerge?.addEventListener('click', ()=>{
@@ -346,13 +358,6 @@
     const evtOut = [];
     const sumSeen = new Set();
     const evtSeen = new Set();
-
-    const meta = {
-      mergedAt: Date.now(),
-      countArchives: ids.length,
-      ids: ids.slice(),
-      options: { useSelected: !!cbUseSelected?.checked, dedup, includeMeta: !!cbIncludeMeta?.checked }
-    };
 
     for(const id of ids){
       const arch = getArchive(id);
@@ -372,26 +377,23 @@
       }
     }
 
-    // sort by ts asc for readability
     sumOut.sort((a,b)=>Number(a.ts||0)-Number(b.ts||0));
     evtOut.sort((a,b)=>Number(a.ts||0)-Number(b.ts||0));
 
-    const stamp = (()=>{
-      const d = new Date();
-      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
-    })();
-
-    downloadText(`fitness_summary_merged_${stamp}.csv`, summaryCSV(sumOut));
-    downloadText(`fitness_events_merged_${stamp}.csv`, eventsCSV(evtOut));
+    const st = stamp();
+    downloadText(`fitness_summary_merged_${st}.csv`, summaryCSV(sumOut));
+    downloadText(`fitness_events_merged_${st}.csv`, eventsCSV(evtOut));
 
     if(cbIncludeMeta?.checked){
-      downloadText(`fitness_merge_meta_${stamp}.json`, JSON.stringify({
-        ...meta,
+      downloadText(`fitness_merge_meta_${st}.json`, JSON.stringify({
+        mergedAt: Date.now(),
+        ids,
+        options: { useSelected: !!cbUseSelected?.checked, dedup, includeMeta: true },
         rows: { summary: sumOut.length, events: evtOut.length }
       }, null, 2), 'application/json;charset=utf-8');
     }
 
-    setMsg(`⬇️ MERGED ดาวน์โหลดแล้ว | archives:${ids.length} | summary:${sumOut.length} | events:${evtOut.length} | dedup:${dedup?'on':'off'}`);
+    setMsg(`⬇️ MERGED OK | archives:${ids.length} | summary:${sumOut.length} | events:${evtOut.length} | dedup:${dedup?'on':'off'}`);
   });
 
   render();
