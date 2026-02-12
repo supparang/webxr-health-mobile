@@ -1,14 +1,15 @@
 // === /fitness/teacher-dashboard.js ===
-// Teacher Dashboard (local) — v20260211e (SUMMARY META columns)
+// Teacher Dashboard (local) — v20260211g
+// ✅ Summary CSV: includes schoolName/siteCode/classRoom/teacherId/deviceType
+// ✅ Events CSV: includes same meta columns
+// ✅ Archive & Clear downloads filtered CSVs with same headers
 (function(){
   'use strict';
   const WIN = window, DOC = document;
   if(!DOC) return;
   const $ = (s)=>DOC.querySelector(s);
 
-  const body = $('#td-body');
-  const msg  = $('#td-msg');
-
+  // buttons
   const btnRefresh = $('#td-refresh');
   const btnCopySum = $('#td-copy-sum');
   const btnDLSum   = $('#td-dl-sum');
@@ -16,6 +17,11 @@
   const btnDLEvt   = $('#td-dl-evt');
   const btnArchiveClear = $('#td-archive-clear');
 
+  // table
+  const body = $('#td-body');
+  const msg  = $('#td-msg');
+
+  // basic filters (table)
   const fPid = $('#f-pid');
   const fGame = $('#f-game');
   const fPhase = $('#f-phase');
@@ -23,6 +29,7 @@
   const fSort = $('#f-sort');
   const fLimit = $('#f-limit');
 
+  // export filters (apply to BOTH)
   const xStudy = $('#x-study');
   const xFrom  = $('#x-from');
   const xTo    = $('#x-to');
@@ -178,17 +185,16 @@
 
   // -------- CSV builders --------
   function summaryCSV(rows){
-    // ✅ NEW meta columns in summary CSV
     const header = [
       'ts','pid','studyId','phase','conditionGroup',
-      'siteCode','classRoom','teacherId',
+      'schoolName','siteCode','classRoom','teacherId','deviceType',
       'game','score','pass','total','maxStreak','ms','seed'
     ];
     const lines = [header.join(',')];
     for(const r of rows){
       const vals = [
         r.ts, r.pid, r.studyId, r.phase, r.conditionGroup,
-        r.siteCode||'', r.classRoom||'', r.teacherId||'',
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'', r.deviceType||'',
         r.game, r.score, r.pass, r.total, r.maxStreak, r.ms, r.seed
       ].map(esc);
       lines.push(vals.join(','));
@@ -197,10 +203,9 @@
   }
 
   function eventsCSV(rows){
-    // NOTE: events already includes meta columns (siteCode/classRoom/teacherId) if you patched RP
     const header = [
       'ts','sid','pid','studyId','phase','conditionGroup',
-      'siteCode','classRoom','teacherId',
+      'schoolName','siteCode','classRoom','teacherId','deviceType',
       'game','mode','view','seed','type','data_json'
     ];
     const lines = [header.join(',')];
@@ -208,7 +213,7 @@
       const dataJson = JSON.stringify(r.data || {});
       const vals = [
         r.ts, r.sid, r.pid, r.studyId, r.phase, r.conditionGroup,
-        r.siteCode||'', r.classRoom||'', r.teacherId||'',
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'', r.deviceType||'',
         r.game, r.mode, r.view, r.seed, r.type, dataJson
       ].map(esc);
       lines.push(vals.join(','));
@@ -248,7 +253,7 @@
 
     const allSum = readSummary().length;
     const allEvt = readEvents().length;
-    setMsg(`Table: ${rows.length} แถว | Summary store: ${STORE_SUM} (${allSum}) | Events store: ${STORE_EVT} (${allEvt})`);
+    setMsg(`Table: ${rows.length} แถว | Summary (${allSum}) | Events (${allEvt}) | CSV has school/site/class/teacher/deviceType`);
   }
 
   // -------- export actions --------
@@ -284,11 +289,10 @@
   }
 
   function pushArchiveIndex(id){
-    const idx = readJSON(ARCHIVE_KEY, []);
+    const idx = readJSON('HHA_ARCHIVE_INDEX_V1', []);
     const arr = Array.isArray(idx) ? idx : [];
     arr.unshift({ id, ts: Date.now() });
-    const keep = arr.slice(0, 30);
-    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(keep));
+    localStorage.setItem('HHA_ARCHIVE_INDEX_V1', JSON.stringify(arr.slice(0,30)));
   }
 
   function archiveAndClear(){
@@ -318,17 +322,16 @@
       events: evt
     };
 
-    // 1) download files first
+    // download first (safe)
     downloadText(`ARCHIVE_${id}_summary.csv`, summaryCSV(sum));
     downloadText(`ARCHIVE_${id}_events.csv`, eventsCSV(evt));
 
-    // 2) store archive snapshot
+    // store snapshot
     try{
       localStorage.setItem(ARCHIVE_PREFIX + id, JSON.stringify(archiveObj));
       pushArchiveIndex(id);
     }catch(e){}
 
-    // 3) clear decision
     const clearAll = confirm(
       `ดาวน์โหลดไฟล์แล้ว ✅\n\nกด OK เพื่อล้าง "ทั้งหมด" ในเครื่องนี้\nกด Cancel เพื่อล้าง "เฉพาะที่ match ตัวกรอง export"`
     );
@@ -368,14 +371,14 @@
     archiveAndClear();
   });
 
-  [fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
+  ;[fPid,fGame,fPhase,fGroup,fSort,fLimit].forEach(el=>{
     el?.addEventListener('input', render);
     el?.addEventListener('change', render);
   });
 
   function pingExport(){
     const { sum, evt } = getExportRows();
-    setMsg(`Export ready | summary:${sum.length} events:${evt.length} | (Summary CSV includes siteCode/classRoom/teacherId)`);
+    setMsg(`Export ready | summary:${sum.length} events:${evt.length} | CSV meta: school/site/class/teacher/deviceType`);
   }
   ;[xStudy,xFrom,xTo,xToday,xOnlyFiltered].forEach(el=>{
     el?.addEventListener('input', pingExport);
