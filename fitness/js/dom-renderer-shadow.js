@@ -2,8 +2,9 @@
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH X: TTL expire + smooth fade-out + onTargetExpire callback
+// ✅ TTL expire -> fadeout then remove (PATCH G)
+// ✅ onTargetExpire(id, meta) callback (PATCH G)
+// ✅ FX via FxBurst (hit side uses renderer.playHitFx)
 
 'use strict';
 
@@ -19,46 +20,40 @@ export class DomRendererShadow {
     this.feedbackEl = opts.feedbackEl || null;
 
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
+
+    // ✅ PATCH G: expire callback
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map();      // id -> el
-    this.timers = new Map();       // id -> timeoutId
+    this.targets = new Map();     // id -> el
+    this.timers = new Map();      // id -> { ttl, fade }
     this._onPointer = this._onPointer.bind(this);
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
 
   destroy(){
-    // clear timers
-    for (const [, tid] of this.timers.entries()) {
-      try { clearTimeout(tid); } catch {}
-    }
-    this.timers.clear();
-
-    // remove dom
-    for (const [, el] of this.targets.entries()) {
+    for (const [id, el] of this.targets.entries()) {
       try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el.remove(); } catch {}
     }
     this.targets.clear();
+
+    for (const [id, t] of this.timers.entries()){
+      try { clearTimeout(t.ttl); } catch {}
+      try { clearTimeout(t.fade); } catch {}
+    }
+    this.timers.clear();
   }
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-
-    // ✅ respect CSS padding on layer (from W patch)
-    const cs = getComputedStyle(this.layer);
-    const pt = parseFloat(cs.paddingTop) || 0;
-    const pr = parseFloat(cs.paddingRight) || 0;
-    const pb = parseFloat(cs.paddingBottom) || 0;
-    const pl = parseFloat(cs.paddingLeft) || 0;
-
-    const left = pl + 6;
-    const top = pt + 6;
-    const right = r.width - pr - 6;
-    const bottom = r.height - pb - 6;
-
+    // keep margins away from HUD/meta
+    const pad = Math.min(44, Math.max(18, r.width * 0.04));
+    const top = pad + 10;
+    const left = pad + 10;
+    const right = r.width - pad - 10;
+    const bottom = r.height - pad - 10;
     return { r, left, top, right, bottom };
   }
 
@@ -72,6 +67,54 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  // ✅ PATCH G: internal timer wiring
+  _armTTL(id, ttlMs, meta){
+    // clear old
+    const old = this.timers.get(id);
+    if (old){
+      try { clearTimeout(old.ttl); } catch {}
+      try { clearTimeout(old.fade); } catch {}
+      this.timers.delete(id);
+    }
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
+
+    // fade window: last 140ms
+    const fadeMs = 140;
+    const tFade = Math.max(0, ttlMs - fadeMs);
+
+    const fade = setTimeout(()=>{
+      const el = this.targets.get(id);
+      if (!el) return;
+      el.classList.add('sb-target--fadeout'); // CSS has this
+    }, tFade);
+
+    const ttl = setTimeout(()=>{
+      // if still alive => expire
+      const el = this.targets.get(id);
+      if (!el) return;
+
+      // compute center for soft miss fx (optional)
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+
+      // remove element
+      this.removeTarget(id, 'timeout');
+
+      // callback to engine (count miss / hp penalty / etc.)
+      if (this.onTargetExpire){
+        this.onTargetExpire(id, {
+          ...meta,
+          clientX: cx,
+          clientY: cy,
+          reason: 'timeout'
+        });
+      }
+    }, ttlMs);
+
+    this.timers.set(id, { ttl, fade });
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
 
@@ -80,12 +123,13 @@ export class DomRendererShadow {
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
+    el.dataset.type = String(data.type || 'normal');
 
-    const size = clamp(Number(data.sizePx) || 120, 64, 260);
+    const size = clamp(Number(data.sizePx) || 120, 64, 300);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position (within safe area)
+    // random position
     const x = rand(left, Math.max(left, right - size));
     const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
@@ -100,22 +144,12 @@ export class DomRendererShadow {
     this.layer.appendChild(el);
     this.targets.set(data.id, el);
 
-    // ✅ PATCH X: TTL expire
-    const ttl = Number(data.ttlMs);
-    if (Number.isFinite(ttl) && ttl > 0) {
-      const tid = setTimeout(() => {
-        // still exists?
-        const cur = this.targets.get(data.id);
-        if (!cur) return;
-
-        // expire callback (engine decides miss logic)
-        if (this.onTargetExpire) {
-          try { this.onTargetExpire(data.id); } catch {}
-        }
-      }, ttl);
-
-      this.timers.set(data.id, tid);
-    }
+    // ✅ PATCH G: TTL expire
+    const ttlMs = Number(data.ttlMs);
+    this._armTTL(data.id, ttlMs, {
+      targetType: (data.type || 'normal'),
+      sizePx: Math.round(size)
+    });
   }
 
   _onPointer(e){
@@ -131,26 +165,18 @@ export class DomRendererShadow {
   }
 
   removeTarget(id, reason){
-    const el = this.targets.get(id);
-    if (!el) return;
-
-    // clear timer
-    const tid = this.timers.get(id);
-    if (tid) {
-      try { clearTimeout(tid); } catch {}
+    // clear timers
+    const t = this.timers.get(id);
+    if (t){
+      try { clearTimeout(t.ttl); } catch {}
+      try { clearTimeout(t.fade); } catch {}
       this.timers.delete(id);
     }
 
+    const el = this.targets.get(id);
+    if (!el) return;
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-
-    // ✅ PATCH X: smooth expire fade-out
-    if (reason === 'expired') {
-      try { el.classList.add('is-expiring'); } catch {}
-      setTimeout(() => { try { el.remove(); } catch {} }, 130);
-    } else {
-      try { el.remove(); } catch {}
-    }
-
+    try { el.remove(); } catch {}
     this.targets.delete(id);
   }
 
@@ -181,11 +207,14 @@ export class DomRendererShadow {
     } else if (grade === 'shield') {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-    } else if (grade === 'miss') {
-      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
+  }
+
+  // ✅ optional: simple miss fx helper (engine may call its own)
+  playMissFx(x, y){
+    FxBurst.burst(x, y, { n: 8, spread: 42, ttlMs: 520, cls: 'sb-fx-miss' });
+    FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
   }
 }
