@@ -1,9 +1,12 @@
 // === /fitness/js/rhythm-engine.js ===
-// Rhythm Boxer Engine — PRODUCTION + Calibration UI API (B)
-// ✅ setCalibrationMs/getCalibrationMs
-// ✅ save/load handled by rhythm-boxer.js
-// ✅ judge uses calOffsetSec (already)
-// ✅ hitline bottom visual sync (from A)
+// Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
+// ✅ Notes fall to hit line (visual sync)
+// ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
+// ✅ Calibration offset (Cal: ms) + set/get
+// ✅ Research lock: prediction shown but no adaptive changes
+// ✅ Normal assist: enable with ?ai=1
+// ✅ Events CSV + Sessions CSV
+// ✅ DEBUG HOOK: hooks.onTick(payload) for overlay (?debug=1)
 
 'use strict';
 
@@ -28,6 +31,7 @@
     return Math.sqrt(s/(arr.length-1));
   }
 
+  // ---- CSV helpers ----
   function toCsvRow(obj, cols){
     return cols.map(k=>{
       let v = (obj && obj[k] != null) ? obj[k] : '';
@@ -52,13 +56,15 @@
     clear(){ this.rows.length = 0; }
   }
 
+  // ---- Track config ----
   const TRACKS = {
-    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
-    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
-    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec: 60, audio: './audio/speed-rush.mp3' },
-    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
+    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec:60, audio:'./audio/warmup-groove.mp3' },
+    n2: { id:'n2', name:'Focus Combo',   bpm:120, diff:'normal', durationSec:60, audio:'./audio/focus-combo.mp3' },
+    n3: { id:'n3', name:'Speed Rush',    bpm:140, diff:'hard',   durationSec:60, audio:'./audio/speed-rush.mp3' },
+    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec:60, audio:'./audio/research-120.mp3' }
   };
 
+  // ---- Note patterns ----
   function buildPattern(track, laneCount){
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
@@ -91,6 +97,17 @@
     return notes;
   }
 
+  function readCssPx(el, varName, fallbackPx){
+    try{
+      const v = getComputedStyle(el).getPropertyValue(varName).trim();
+      if(!v) return fallbackPx;
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : fallbackPx;
+    }catch(_){
+      return fallbackPx;
+    }
+  }
+
   class RhythmBoxerEngine{
     constructor(opts = {}){
       this.wrap = opts.wrap || DOC.body;
@@ -108,9 +125,10 @@
       this.track = TRACKS.n1;
       this.meta = {};
 
-      // calibration (seconds). + => judge later (you must press later)
+      // timing/calibration
       this.calOffsetSec = 0;
 
+      // gameplay state
       this.songTime = 0;
       this._t0 = 0;
       this._lastTs = 0;
@@ -131,6 +149,7 @@
 
       this.totalNotes = 0;
 
+      // offsets analytics (sec)
       this.offsets = [];
       this.offsetsAbs = [];
       this.earlyHits = 0;
@@ -138,24 +157,27 @@
       this.leftHits = 0;
       this.rightHits = 0;
 
+      // fever
       this.fever = 0;
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
       this.timeToFirstFeverSec = null;
 
+      // ai
       this.aiState = null;
       this._aiNext = 0;
       this._aiTipNext = 0;
 
+      // notes
       this.laneCount = 5;
       this.notes = [];
       this.noteIdx = 0;
       this.live = [];
-
       this.noteSpeedSec = 2.20;
       this.noteBaseLen = 160;
 
+      // CSV tables
       this.sessionId = '';
       this.eventsTable = new CsvTable([
         'session_id','mode','track_id','bpm','difficulty',
@@ -185,12 +207,10 @@
       this._detectDeviceType();
     }
 
-    // ===== Calibration API (B) =====
+    // ---- calibration API ----
     setCalibrationMs(ms){
-      const v = Number(ms);
-      const clamped = Number.isFinite(v) ? clamp(v, -250, 250) : 0;
-      this.calOffsetSec = clamped / 1000;
-      return this.getCalibrationMs();
+      const v = Math.max(-250, Math.min(250, Number(ms)||0));
+      this.calOffsetSec = v / 1000;
     }
     getCalibrationMs(){
       return Math.round(this.calOffsetSec * 1000);
@@ -221,9 +241,7 @@
         const map5 = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
         const map3 = { 'a':0, 's':1, 'd':2 };
         const map = (this.laneCount===3) ? map3 : map5;
-        if(map[k] != null){
-          this.hitLane(map[k], 'key');
-        }
+        if(map[k] != null) this.hitLane(map[k], 'key');
       });
     }
 
@@ -328,7 +346,7 @@
 
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
-      const mul = (diff==='easy') ? 1.05 : (diff==='hard') ? 1.35 : 1.18;
+      const mul = (diff==='easy') ? 0.95 : (diff==='hard') ? 1.25 : 1.10;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
@@ -377,6 +395,33 @@
       this._updateBars();
       this._updateCalibrationHud();
 
+      // ===== DEBUG TICK HOOK =====
+      if(this.hooks && typeof this.hooks.onTick === 'function'){
+        const hitlineY = readCssPx(this.wrap, '--rb-hitline-y', 74);
+        const liveDbg = [];
+        for(const n of this.live){
+          if(!n || n.done || !n.el) continue;
+          const dtJudge = (this.songTime - n.t) - this.calOffsetSec;
+          const rect = n.el.getBoundingClientRect();
+          liveDbg.push({
+            t: n.t,
+            lane: n.lane,
+            dt: dtJudge,
+            abs: Math.abs(dtJudge),
+            top: rect.top,
+            bottom: rect.bottom,
+            height: rect.height
+          });
+        }
+        this.hooks.onTick({
+          songTime: this.songTime,
+          calMs: this.getCalibrationMs(),
+          laneCount: this.laneCount,
+          hitlineY,
+          live: liveDbg
+        });
+      }
+
       if(this.hp <= 0){ this._finish('hp-zero'); return; }
       const dur = this.track.durationSec || 60;
       if(this.songTime >= dur){ this._finish('song-end'); return; }
@@ -395,17 +440,6 @@
       }
     }
 
-    _readHitlineYpx(laneEl){
-      try{
-        const cs = getComputedStyle(laneEl);
-        const v = cs.getPropertyValue('--rb-hitline-y').trim();
-        const px = parseFloat(v);
-        return Number.isFinite(px) ? px : 64;
-      }catch(_){
-        return 64;
-      }
-    }
-
     _updateNotePositions(){
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
@@ -419,17 +453,13 @@
         const rect = laneEl.getBoundingClientRect();
         const laneH = rect.height || 420;
 
-        const hitY = this._readHitlineYpx(laneEl);
-        const topToHit = Math.max(40, laneH - hitY);
-
         const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
-        const travel = topToHit + noteLen * 0.55 + 40;
+        const travel = laneH + noteLen * 0.35;
 
         const p = (this.songTime - (n.t - lead)) / lead;
         const pClamp = clamp01(p);
 
         const y = (pClamp - 1) * travel;
-
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
         n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
       }
@@ -483,7 +513,6 @@
         this._applyHit(lane, judgment, dt, scoreDelta);
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
-
       }else{
         this._applyBlankMiss(lane);
       }
@@ -519,13 +548,7 @@
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      this._logEvent({
-        event: 'hit',
-        lane,
-        judgment,
-        offset_s: offsetSec,
-        score_delta: scoreDelta
-      });
+      this._logEvent({ event:'hit', lane, judgment, offset_s:offsetSec, score_delta:scoreDelta });
     }
 
     _applyMiss(lane, kind){
@@ -543,13 +566,7 @@
         this.renderer.showMissFx({ lane });
       }
 
-      this._logEvent({
-        event: kind==='timeout' ? 'timeout_miss' : 'miss',
-        lane,
-        judgment: 'miss',
-        offset_s: '',
-        score_delta: -dmg
-      });
+      this._logEvent({ event: kind==='timeout' ? 'timeout_miss' : 'miss', lane, judgment:'miss', offset_s:'', score_delta:-dmg });
     }
 
     _applyBlankMiss(lane){
@@ -567,13 +584,7 @@
         this.renderer.showMissFx({ lane });
       }
 
-      this._logEvent({
-        event: 'blank_tap',
-        lane,
-        judgment: 'miss',
-        offset_s: '',
-        score_delta: -dmg
-      });
+      this._logEvent({ event:'blank_tap', lane, judgment:'miss', offset_s:'', score_delta:-dmg });
     }
 
     _logEvent(e){
@@ -711,10 +722,7 @@
       this.running = false;
       this.ended = true;
 
-      if (this._rafId != null) {
-        cancelAnimationFrame(this._rafId);
-        this._rafId = null;
-      }
+      if (this._rafId != null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
       if (this.audio) this.audio.pause();
 
       const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
@@ -781,7 +789,8 @@
         fever_entry_count: this.feverEntryCount,
         fever_total_time_s: this.feverTotalTimeSec,
         fever_time_pct: feverTimePct,
-        time_to_first_fever_s: (this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : ''),
+        time_to_first_fever_s:
+          this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
 
         hp_start: 100,
         hp_end: this.hp,
@@ -824,9 +833,7 @@
         qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if (this.hooks && typeof this.hooks.onEnd === 'function') {
-        this.hooks.onEnd(summary);
-      }
+      if (this.hooks && typeof this.hooks.onEnd === 'function') this.hooks.onEnd(summary);
     }
 
     getEventsCsv(){ return this.eventsTable.toCsv(); }
