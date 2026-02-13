@@ -1,12 +1,16 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine (PATCH: boot ไม่พังจาก AI import + เป้าหมดอายุหาย + target size/spacing)
-// ✅ ใช้ DLFeatures snapshot ไปให้ RB_AI ได้ (แต่ไม่ทำให้เกมพังถ้า AI ไม่พร้อม)
+// Shadow Breaker engine — FULL (TTL expire + soft miss + less clutter + stable spawn)
+// ✅ targets expire -> removed by renderer + callback here
+// ✅ miss counted only for (normal, bossface) expire
+// ✅ soft MISS FX on expire
+// ✅ smaller targets + MAX_ACTIVE cap
+// ✅ stable spawn schedule (nextSpawnAt)
+
+// NOTE: requires dom-renderer-shadow.js version that supports onTargetExpire()
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
-import { DLFeatures } from './dl-features.js';
-import { RB_AI } from './ai-predictor.js';
 
 // -------------------------
 // URL params
@@ -22,8 +26,7 @@ const qNum = (k, def=0) => {
   return Number.isFinite(v) ? v : def;
 };
 
-// รองรับทั้ง mode=research และ run=research
-const MODE = ((q('mode','') || q('run','normal')) || 'normal').toLowerCase(); // normal | research
+const MODE = (q('mode','normal') || 'normal').toLowerCase(); // normal | research
 const PID  = q('pid','');
 const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
@@ -87,6 +90,12 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
+// Hub link (optional)
+try{
+  const hubA = document.querySelector('a.sb-link');
+  if (hubA && HUB) hubA.href = HUB;
+}catch{}
+
 // -------------------------
 // Data (bosses)
 // -------------------------
@@ -100,11 +109,12 @@ const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
 // ----- Difficulty config -----
-// ✅ PATCH: ลดขนาดเป้า + ให้โล่งขึ้นบนมือถือ
+// ✅ ลดขนาดเป้า + ลดความแน่น (baseSize ต่ำลง)
+// เป้าจะดูไม่บัง HUD + เล่นบนมือถือสบายขึ้น
 const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:980, spawnIntervalMax:1380, targetLifetime:1350, baseSize:104, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:820, spawnIntervalMax:1260, targetLifetime:1250, baseSize:98,  bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:680, spawnIntervalMax:1040, targetLifetime:1150, baseSize:92,  bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:980, spawnIntervalMax:1450, targetLifetime:1350, baseSize:96,  bossDamageNormal:0.040, bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:820, spawnIntervalMax:1250, targetLifetime:1200, baseSize:92,  bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:680, spawnIntervalMax:1050, targetLifetime:1100, baseSize:88,  bossDamageNormal:0.030, bossDamageBossFace:0.35 }
 };
 
 // ----- FEVER / HP -----
@@ -112,9 +122,13 @@ const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
 
+// cap targets to reduce clutter
+const MAX_ACTIVE = 7;
+
 function setScaleX(el, pct){
   if(!el) return;
-  el.style.transform = `scaleX(${clamp(pct, 0, 1)})`;
+  const p = clamp(pct, 0, 1);
+  el.style.transform = `scaleX(${p})`;
 }
 
 function showView(which){
@@ -131,7 +145,6 @@ let ended = false;
 let paused = false;
 
 let tStart = 0;
-let tLastSpawn = 0;
 let timeLeft = TIME * 1000;
 
 let score = 0;
@@ -148,6 +161,8 @@ let bossHp = BOSS_HP_MAX;
 let bossIndex = 0;
 let phase = 1;
 let bossesCleared = 0;
+
+let nextSpawnAt = 0;
 
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
@@ -169,7 +184,9 @@ const session = {
   accPct: 0
 };
 
-const dl = new DLFeatures();
+// lightweight “shots/hits” counters (no external deps)
+let totalShots = 0;
+let hits = 0;
 
 // -------------------------
 // Renderer
@@ -177,15 +194,8 @@ const dl = new DLFeatures();
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
   feedbackEl: msgMainEl,
-  onTargetHit,
-  onTargetExpire: (id, info)=>{
-    if(!running || ended || paused) return;
-    miss++;
-    combo = 0;
-    dl.onMiss();
-    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, reason: info?.reason || 'expired' });
-    setHUD();
-  }
+  onTargetHit: onTargetHit,
+  onTargetExpire: onTargetExpire
 });
 renderer.setDifficulty(diff);
 
@@ -233,6 +243,14 @@ function say(text, cls){
   msgMainEl.className = 'sb-msg-main' + (cls ? ' ' + cls : '');
 }
 
+function scheduleNextSpawn(tNow){
+  const interval = clamp(
+    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
+    450, 2200
+  );
+  nextSpawnAt = tNow + interval;
+}
+
 function nextBossOrPhase(){
   if(phase < boss().phases){
     phase++;
@@ -249,6 +267,8 @@ function nextBossOrPhase(){
 }
 
 function spawnOne(){
+  if (renderer.targets.size >= MAX_ACTIVE) return;
+
   const id = Math.floor(Math.random()*1e9);
   const roll = Math.random();
 
@@ -258,13 +278,15 @@ function spawnOne(){
   else if(roll < 0.20) type = 'heal';
   else if(roll < 0.26) type = 'shield';
 
+  // Boss face appears when boss low
   if(bossHp <= 26 && Math.random() < 0.22){
     type = 'bossface';
   }
 
+  // size: based on CFG.baseSize (smaller)
   let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.14;
-  if(type === 'bomb') sizePx = CFG.baseSize * 1.04;
+  if(type === 'bossface') sizePx = CFG.baseSize * 1.16;
+  if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
 
   renderer.spawnTarget({
     id, type,
@@ -273,8 +295,41 @@ function spawnOne(){
     ttlMs: CFG.targetLifetime
   });
 
-  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx) });
-  dl.onShot();
+  totalShots++;
+
+  events.push({
+    t: (TIME*1000 - timeLeft),
+    type:'spawn',
+    id,
+    targetType:type,
+    sizePx: Math.round(sizePx),
+    ttlMs: CFG.targetLifetime
+  });
+}
+
+function onTargetExpire(id, info){
+  if(!running || ended) return;
+
+  const type = (info && info.type) ? info.type : 'normal';
+
+  // ✅ Miss counting policy:
+  // - count miss only for (normal, bossface)
+  // - do NOT count expire for decoy/bomb/heal/shield (avoid unfair miss inflation)
+  const shouldCountMiss = (type === 'normal' || type === 'bossface');
+
+  if (shouldCountMiss) {
+    miss++;
+    combo = 0;
+    // soft feedback + small fx
+    say('MISS', 'miss');
+    renderer.playMissFx?.(info.clientX ?? window.innerWidth/2, info.clientY ?? window.innerHeight/2, 'MISS');
+    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:type, miss:1 });
+  } else {
+    // still log expire but not miss
+    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:type, miss:0 });
+  }
+
+  setHUD();
 }
 
 function onTargetHit(id, pt){
@@ -283,8 +338,9 @@ function onTargetHit(id, pt){
   const el = renderer.targets.get(id);
   if(!el) return;
 
-  const m = el.className.match(/sb-target--(\w+)/);
-  const type = (m && m[1]) ? m[1] : 'normal';
+  hits++;
+
+  const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
   let grade = 'good';
   let scoreDelta = 0;
@@ -334,18 +390,22 @@ function onTargetHit(id, pt){
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
+  // fever gain
   fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
-  // ✅ DL features
-  dl.onHit({ grade });
-
+  // FX + remove
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
   events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
-  if(bossHp <= 0) nextBossOrPhase();
-  if(youHp <= 0) endGame('dead');
+  if(bossHp <= 0){
+    nextBossOrPhase();
+  }
+
+  if(youHp <= 0){
+    endGame('dead');
+  }
 
   setHUD();
 }
@@ -361,9 +421,9 @@ function endGame(reason='timeup'){
   session.miss = miss|0;
   session.phase = phase|0;
   session.bossesCleared = bossesCleared|0;
-  session.accPct = Number(dl.getAccPct().toFixed(2));
 
-  const accPct = dl.getAccPct();
+  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
+  session.accPct = Number(accPct.toFixed(2));
 
   if(resTime) resTime.textContent = `${(TIME - timeLeft/1000).toFixed(1)} s`;
   if(resScore) resScore.textContent = String(score|0);
@@ -381,15 +441,6 @@ function endGame(reason='timeup'){
   if(resGrade) resGrade.textContent = g;
 
   showView('result');
-
-  // (optional) AI tip at end (play only)
-  try{
-    if (RB_AI && RB_AI.isAssistEnabled && RB_AI.isAssistEnabled()){
-      const snap = dl.snapshot({ hp: youHp });
-      const pred = RB_AI.predict(snap);
-      if (pred?.tip) say(pred.tip, 'good');
-    }
-  }catch{}
 }
 
 function tick(){
@@ -401,17 +452,13 @@ function tick(){
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  const since = t - tLastSpawn;
-  const targetInterval = clamp(
-    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
-    450, 1800
-  );
-
-  if(since >= targetInterval){
-    tLastSpawn = t;
+  // spawn schedule (stable)
+  if (t >= nextSpawnAt) {
     spawnOne();
+    scheduleNextSpawn(t);
   }
 
+  // fever decay when ready
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
@@ -426,7 +473,7 @@ function tick(){
 // -------------------------
 // Boot
 // -------------------------
-function start(){
+function start(mode){
   ended = false;
   running = true;
   paused = false;
@@ -437,7 +484,11 @@ function start(){
   bossHp=BOSS_HP_MAX;
   bossIndex=0; phase=1; bossesCleared=0;
 
-  dl.reset();
+  // reset accuracy stats
+  totalShots = 0;
+  hits = 0;
+
+  // clear targets
   renderer.destroy();
 
   setBossUI();
@@ -447,30 +498,37 @@ function start(){
   showView('play');
 
   tStart = now();
-  tLastSpawn = tStart;
+  scheduleNextSpawn(tStart);
   requestAnimationFrame(tick);
 }
 
-btnPlay?.addEventListener('click', start);
-btnResearch?.addEventListener('click', start);
+btnPlay?.addEventListener('click', ()=> start('normal'));
+btnResearch?.addEventListener('click', ()=> start('research'));
 
-btnHowto?.addEventListener('click', ()=> howtoBox?.classList.toggle('is-on'));
+btnHowto?.addEventListener('click', ()=>{
+  howtoBox?.classList.toggle('is-on');
+});
 
 btnBackMenu?.addEventListener('click', ()=>{
-  running = false; ended = false; paused = false;
+  running = false;
+  ended = false;
+  paused = false;
   renderer.destroy();
   showView('menu');
 });
 
-btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
+btnPause?.addEventListener('change', ()=>{
+  paused = !!btnPause.checked;
+});
 
-btnRetry?.addEventListener('click', start);
+btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
   renderer.destroy();
   showView('menu');
 });
 
 function downloadCSV(filename, rows){
+  if(!rows || !rows.length) return;
   const esc = (v)=> String(v ?? '').replace(/"/g,'""');
   const keys = Object.keys(rows[0] || {});
   const lines = [
@@ -485,8 +543,14 @@ function downloadCSV(filename, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 800);
 }
 
-btnEvtCsv?.addEventListener('click', ()=>{ if(events.length) downloadCSV('shadowbreaker_events.csv', events); });
-btnSesCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_session.csv', [session]));
+btnEvtCsv?.addEventListener('click', ()=>{
+  if(!events.length) return;
+  downloadCSV('shadowbreaker_events.csv', events);
+});
+
+btnSesCsv?.addEventListener('click', ()=>{
+  downloadCSV('shadowbreaker_session.csv', [session]);
+});
 
 // init
 showView('menu');
