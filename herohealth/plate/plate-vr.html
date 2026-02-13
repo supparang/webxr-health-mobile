@@ -3,37 +3,40 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — PlateVR (RUN)</title>
+  <title>HeroHealth — PlateVR</title>
   <meta name="color-scheme" content="dark light"/>
   <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- UI / Safe zones / Targets FX -->
+  <!-- UI/CSS -->
   <link rel="stylesheet" href="./plate-vr.css"/>
+
+  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot) -->
+  <script src="../vr/vr-ui.js"></script>
 </head>
-
-<body class="view-pc">
+<body>
   <div id="app">
-    <!-- Optional FX layers -->
-    <div id="bossFx" aria-hidden="true"></div>
-    <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- Playfield (mount for mode-factory) -->
-    <div id="plate-layer" aria-label="PlateVR playfield"></div>
+    <!-- Optional FX layers -->
+    <div id="bossFx"></div>
+    <div id="stormFx"></div>
+
+    <!-- Playfield (targets spawn inside, but positioned fixed by CSS) -->
+    <div id="plate-layer" aria-label="Plate playfield"></div>
 
     <!-- HUD -->
     <section id="hud" aria-label="HUD">
       <div class="hudRow">
         <div class="chip score">
-          <div class="lbl">SCORE</div>
+          <div class="lbl">คะแนน</div>
           <div class="val" id="hudScore">0</div>
         </div>
         <div class="chip time">
-          <div class="lbl">TIME</div>
+          <div class="lbl">เวลา</div>
           <div class="val" id="hudTime">0</div>
         </div>
         <div class="chip combo">
-          <div class="lbl">COMBO</div>
+          <div class="lbl">คอมโบ</div>
           <div class="val" id="hudCombo">0</div>
         </div>
       </div>
@@ -41,7 +44,7 @@
       <div class="card" aria-label="Quests">
         <div class="cardTitle">
           <div class="t">ภารกิจ</div>
-          <div class="hint">เติมจานให้ครบ 5 หมู่ + คุมความแม่น</div>
+          <div class="hint">เก็บให้ครบ 5 หมู่ + คุมความแม่น</div>
         </div>
 
         <div class="qItem">
@@ -50,18 +53,18 @@
             <div class="sub" id="goalSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/5</div>
+            <div class="qNums" id="goalNums">0/0</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
 
         <div class="qItem">
           <div class="qText">
-            <div class="name" id="miniName">Mini Quest</div>
+            <div class="name" id="miniName">Mini</div>
             <div class="sub" id="miniSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/80</div>
+            <div class="qNums" id="miniNums">0/0</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
@@ -69,301 +72,149 @@
     </section>
 
     <!-- Coach bubble -->
-    <section id="coachCard" aria-hidden="true">
+    <div id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">—</div>
         <div id="coachMeta">Coach</div>
       </div>
-    </section>
+    </div>
 
-    <!-- END OVERLAY -->
+    <!-- End Overlay -->
     <section id="endOverlay" aria-hidden="true">
-      <div class="endPanel" role="dialog" aria-label="สรุปผลการเล่น">
+      <div class="endPanel" role="dialog" aria-label="สรุปผล">
         <div class="endTitle">
-          <h2>สรุปผล PlateVR</h2>
+          <h2>สรุปผล</h2>
           <div class="tag">
-            Grade: <b id="kGrade">—</b>
+            <span>PlateVR</span>
+            <span id="badgePill" style="margin-left:10px; display:none;"></span>
           </div>
         </div>
 
-        <!-- KPI grid (matches boot.js ids) -->
-        <div class="endGrid">
-          <div class="kpi">
-            <div class="k">Score</div>
-            <div class="v" id="kScore">0</div>
+        <!-- KPI grid -->
+        <div class="endGrid" aria-label="KPI">
+          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
+          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">—</div></div>
+          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
+
+          <div class="kpi"><div class="k">ภารกิจ</div><div class="v" id="kGoals">0/0</div></div>
+          <div class="kpi"><div class="k">มินิเควส</div><div class="v" id="kMini">0/0</div></div>
+          <div class="kpi"><div class="k">Miss (รวม)</div><div class="v" id="kMiss">0</div></div>
+
+          <!-- optional breakdown -->
+          <div class="kpi"><div class="k">Miss: โดนของหวาน/ทอด</div><div class="v" id="kMissJunk">0</div></div>
+          <div class="kpi"><div class="k">Miss: ปล่อยดีหมดเวลา</div><div class="v" id="kMissTimeout">0</div></div>
+          <div class="kpi"><div class="k">เกรด</div><div class="v" id="kGrade">—</div></div>
+        </div>
+
+        <!-- ✅ NEW: Plate breakdown (เด็กต้องเห็นก่อนถึงจะตอบ Evaluate ได้) -->
+        <div class="card" style="max-width:none; pointer-events:auto;">
+          <div class="cardTitle">
+            <div class="t">🍽️ จานของฉัน (มีอะไรแล้วเท่าไหร่)</div>
+            <div class="hint" id="plateVerdictHint">—</div>
           </div>
-          <div class="kpi">
-            <div class="k">Accuracy</div>
-            <div class="v" id="kAcc">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Combo Max</div>
-            <div class="v" id="kCombo">0</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Goal</div>
-            <div class="v" id="kGoals">0/1</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Mini</div>
-            <div class="v" id="kMini">0/1</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Miss (รวม)</div>
-            <div class="v" id="kMiss">0</div>
+
+          <div class="qItem" style="align-items:flex-start;">
+            <div class="qText" style="flex:1;">
+              <div class="name">สรุปตาม 5 หมู่ (นับจากที่เก็บได้)</div>
+              <div class="sub" id="plateList">—</div>
+              <div class="sub" id="plateMissing" style="margin-top:6px;">—</div>
+            </div>
+            <div class="qProg" style="min-width:220px; align-items:stretch;">
+              <div class="qNums" id="plateScoreExplain">—</div>
+              <div class="bar" style="width:100%;"><i id="plateBalanceBar"></i></div>
+              <div class="sub" id="plateTip" style="margin-top:8px;">—</div>
+            </div>
           </div>
         </div>
 
-        <!-- Miss breakdown (optional, supported by boot.js) -->
-        <div style="padding:0 6px 10px;display:flex;gap:10px;flex-wrap:wrap;">
-          <div class="kpi" style="flex:1;min-width:220px;">
-            <div class="k">Miss จาก Junk</div>
-            <div class="v" id="kMissJunk">0</div>
-          </div>
-          <div class="kpi" style="flex:1;min-width:220px;">
-            <div class="k">Miss จากหมดเวลา (Good expire)</div>
-            <div class="v" id="kMissTimeout">0</div>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             Evaluate + Create (ป.5) — End Learning Loop
-             “เห็นผลทันที + silent badge”
-        =========================================== -->
-        <div style="padding:6px 6px 14px;">
-          <div style="font-weight:950;margin:6px 0 10px;">🧠 Evaluate (เลือกเหตุผล)</div>
-
-          <div class="kpi" style="padding:12px;">
-            <div class="k">ทำไมจานนี้ถึง “ยังไม่พอดี” ?</div>
-            <div style="margin-top:10px;display:grid;gap:8px;">
-              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
-                <input type="radio" name="evalReason" value="too_much" />
-                <span><b>มากไป</b> (เช่น ข้าว/แป้งเยอะไป หรือของทอดเยอะไป)</span>
-              </label>
-              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
-                <input type="radio" name="evalReason" value="too_little" />
-                <span><b>น้อยไป</b> (เช่น ผัก/ผลไม้ยังน้อยไป)</span>
-              </label>
-              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
-                <input type="radio" name="evalReason" value="need_add" />
-                <span><b>ควรเพิ่มอะไร</b> (เช่น เพิ่มผัก/ผลไม้/โปรตีน)</span>
-              </label>
-            </div>
-
-            <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <button class="btn primary" id="btnSaveEvaluate" type="button">บันทึกเหตุผล</button>
-              <span style="color:var(--muted);font-size:12px;">(บันทึกแบบเงียบ ๆ ไม่เด้งแจ้งเตือน)</span>
-            </div>
-            <div id="evalSavedHint" style="margin-top:8px;color:var(--muted);font-size:12px;display:none;">
-              ✅ บันทึกแล้ว
-            </div>
+        <!-- ✅ Evaluate (ชัดๆ ว่าตอบอะไร) -->
+        <div class="card" style="max-width:none; pointer-events:auto; margin-top:10px;">
+          <div class="cardTitle">
+            <div class="t">🧠 Evaluate (เลือกเหตุผล)</div>
+            <div class="hint" id="evalPrompt">—</div>
           </div>
 
-          <div style="font-weight:950;margin:14px 0 10px;">✨ Create (ปรับ 1 อย่างแล้วเห็นผลทันที)</div>
+          <div class="qItem" style="flex-direction:column; align-items:stretch; gap:10px;">
+            <label style="display:flex; gap:10px; align-items:flex-start;">
+              <input type="radio" name="evalReason" value="too_much" id="evalTooMuch"/>
+              <div>
+                <div class="name">มากไป</div>
+                <div class="sub">บางอย่างเยอะเกิน → ควรลด</div>
+              </div>
+            </label>
 
-          <div class="kpi" style="padding:12px;">
-            <div class="k">เลือก “ปรับ 1 อย่าง” จากจานเดิม:</div>
-            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn" id="btnAddVeg" type="button">เพิ่มผัก 🥦</button>
-              <button class="btn" id="btnReduceRice" type="button">ลดข้าว/แป้ง 🍚</button>
-              <button class="btn" id="btnSwapSnack" type="button">เปลี่ยนขนมเป็นผลไม้ 🍭→🍎</button>
-            </div>
+            <label style="display:flex; gap:10px; align-items:flex-start;">
+              <input type="radio" name="evalReason" value="too_little" id="evalTooLittle"/>
+              <div>
+                <div class="name">น้อยไป</div>
+                <div class="sub">บางอย่างน้อยเกิน → ควรเพิ่ม</div>
+              </div>
+            </label>
 
-            <div style="margin-top:12px;border-top:1px solid rgba(148,163,184,.14);padding-top:12px;">
-              <div class="k">ผล “ก่อน-หลัง” (จำลองง่าย ๆ ให้เด็กเห็นทันที)</div>
-
-              <div style="margin-top:10px;display:grid;gap:8px;">
-                <div style="display:flex;justify-content:space-between;gap:10px;">
-                  <span style="color:var(--muted);">ก่อน</span>
-                  <span id="plateBeforeText" style="font-weight:900;">—</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;gap:10px;">
-                  <span style="color:var(--muted);">หลัง</span>
-                  <span id="plateAfterText" style="font-weight:900;">—</span>
+            <label style="display:flex; gap:10px; align-items:flex-start;">
+              <input type="radio" name="evalReason" value="add_what" id="evalAddWhat"/>
+              <div style="flex:1;">
+                <div class="name">ควรเพิ่มอะไร</div>
+                <div class="sub">เลือกว่าจะเพิ่ม “ผัก/ผลไม้/โปรตีน/คาร์บ”</div>
+                <div style="margin-top:8px;">
+                  <select id="evalAddSelect" class="btn" style="width:100%; padding:10px 12px;">
+                    <option value="">— เลือก —</option>
+                    <option value="veg">ผัก (หมู่ 3)</option>
+                    <option value="fruit">ผลไม้ (หมู่ 4)</option>
+                    <option value="protein">โปรตีน (หมู่ 1)</option>
+                    <option value="carb">ข้าว/แป้ง (หมู่ 2)</option>
+                    <option value="fat">ไขมัน (หมู่ 5)</option>
+                  </select>
                 </div>
               </div>
+            </label>
 
-              <div style="margin-top:10px;color:var(--muted);font-size:12px;">
-                🔒 Badge จะ “ได้แบบเงียบ ๆ” แล้วไปโผล่ในสรุปท้ายเกม (ไม่เด้งเตือน)
-              </div>
-
-              <div id="silentBadgesRow" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
-            </div>
+            <button class="btn" id="btnSaveEvaluate">บันทึกเหตุผล</button>
+            <div class="sub" id="evalStatus">ยังไม่ได้เลือก</div>
           </div>
         </div>
 
-        <!-- buttons -->
+        <!-- ✅ Create (ปรับ 1 อย่าง แล้วเห็นผลทันที + silent badge) -->
+        <div class="card" style="max-width:none; pointer-events:auto; margin-top:10px;">
+          <div class="cardTitle">
+            <div class="t">✨ Create (ปรับ 1 อย่าง แล้วเห็นผลทันที)</div>
+            <div class="hint" id="createPrompt">เลือก 1 ปุ่ม → ดู “ก่อน/หลัง” แล้วกดรับ badge</div>
+          </div>
+
+          <div class="hudRow" style="pointer-events:auto; margin-bottom:10px;">
+            <button class="btn" id="btnAdjVeg">เพิ่มผัก 🥦</button>
+            <button class="btn" id="btnAdjRice">ลดข้าว 🍚⬇️</button>
+            <button class="btn" id="btnAdjSnack">เปลี่ยนขนมเป็นผลไม้ 🍭➡️🍎</button>
+          </div>
+
+          <div class="qItem" style="align-items:flex-start;">
+            <div class="qText" style="flex:1;">
+              <div class="name">ก่อนปรับ</div>
+              <div class="sub" id="beforePlate">—</div>
+            </div>
+            <div class="qText" style="flex:1;">
+              <div class="name">หลังปรับ (จำลอง)</div>
+              <div class="sub" id="afterPlate">—</div>
+            </div>
+          </div>
+
+          <div class="qItem" style="margin-top:10px; flex-direction:column; align-items:stretch; gap:10px;">
+            <div class="sub" id="createEffect">เลือกการปรับก่อน แล้วจะเห็นผลที่คาดว่าจะดีขึ้นตรงไหน</div>
+            <button class="btn primary" id="btnClaimBadge" disabled>ใช้การปรับ + รับ Badge</button>
+            <div class="sub" id="badgeStatus">ยังไม่ได้รับ badge</div>
+          </div>
+        </div>
+
+        <!-- Buttons -->
         <div class="endBtns">
-          <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
-          <button class="btn primary" id="btnRestart" type="button">เล่นใหม่</button>
+          <button class="btn" id="btnRestart">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnBackHub">กลับ HUB</button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair emits hha:shoot) -->
-  <script type="module" src="../vr/vr-ui.js"></script>
-
-  <!-- Boot (wires HUD + end overlay) -->
+  <!-- Boot (module) -->
   <script type="module" src="./plate.boot.js"></script>
-
-  <!-- Evaluate + Create logic (silent) -->
-  <script type="module">
-    const LS_KEY = 'HHA_PLATE_SILENT_BADGES';
-    const LS_EVAL = 'HHA_PLATE_EVAL_LAST';
-
-    const el = (id)=>document.getElementById(id);
-
-    function loadBadges(){
-      try{
-        const raw = localStorage.getItem(LS_KEY);
-        const arr = raw ? JSON.parse(raw) : [];
-        return Array.isArray(arr) ? arr : [];
-      }catch{ return []; }
-    }
-    function saveBadges(arr){
-      try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }catch{}
-    }
-    function addBadge(id){
-      const arr = loadBadges();
-      if(!arr.includes(id)){
-        arr.push(id);
-        saveBadges(arr);
-      }
-      renderBadges();
-    }
-
-    function badgeChip(label){
-      const d = document.createElement('div');
-      d.className = 'kpi';
-      d.style.padding = '8px 10px';
-      d.style.borderRadius = '999px';
-      d.style.display = 'inline-flex';
-      d.style.alignItems = 'center';
-      d.style.gap = '8px';
-      d.innerHTML = `<span style="font-weight:950;">🏷️</span><span style="font-weight:900;">${label}</span>`;
-      return d;
-    }
-
-    function renderBadges(){
-      const row = el('silentBadgesRow');
-      if(!row) return;
-      row.innerHTML = '';
-      const badges = loadBadges();
-
-      // show only plate-related (simple filter)
-      const map = {
-        'plate_eval_saved': 'Evaluator',
-        'plate_create_veg': 'Veg+',
-        'plate_create_reduce_rice': 'Smart Carb',
-        'plate_create_swap_snack': 'Fruit Swap',
-      };
-
-      badges.filter(b=>map[b]).forEach(b=>{
-        row.appendChild(badgeChip(map[b]));
-      });
-
-      if(!row.children.length){
-        const tip = document.createElement('div');
-        tip.style.color = 'var(--muted)';
-        tip.style.fontSize = '12px';
-        tip.textContent = 'ยังไม่มี badge เงียบ ๆ';
-        row.appendChild(tip);
-      }
-    }
-
-    // --- End data snapshot (from hha:end) ---
-    let lastSummary = null;
-
-    function plateTextFromCounts(g1,g2,g3,g4,g5){
-      // Thai 5 food groups fixed mapping you defined
-      return `โปรตีน:${g1} | คาร์บ:${g2} | ผัก:${g3} | ผลไม้:${g4} | ไขมัน:${g5}`;
-    }
-
-    function setBeforeAfter(before, after){
-      if(el('plateBeforeText')) el('plateBeforeText').textContent = before || '—';
-      if(el('plateAfterText'))  el('plateAfterText').textContent  = after  || '—';
-    }
-
-    window.addEventListener('hha:end', (e)=>{
-      lastSummary = e.detail || {};
-      const g1 = Number(lastSummary.g1||0), g2 = Number(lastSummary.g2||0),
-            g3 = Number(lastSummary.g3||0), g4 = Number(lastSummary.g4||0),
-            g5 = Number(lastSummary.g5||0);
-
-      const before = plateTextFromCounts(g1,g2,g3,g4,g5);
-      setBeforeAfter(before, '—');
-      renderBadges();
-    });
-
-    // --- Evaluate ---
-    const btnSaveEvaluate = el('btnSaveEvaluate');
-    if(btnSaveEvaluate){
-      btnSaveEvaluate.addEventListener('click', ()=>{
-        const picked = document.querySelector('input[name="evalReason"]:checked');
-        const val = picked ? picked.value : '';
-        if(!val) return;
-
-        try{
-          localStorage.setItem(LS_EVAL, JSON.stringify({
-            at: Date.now(),
-            reason: val,
-            scoreFinal: lastSummary?.scoreFinal ?? lastSummary?.score ?? null,
-            miss: lastSummary?.miss ?? lastSummary?.misses ?? null,
-            grade: lastSummary?.grade ?? null
-          }));
-        }catch{}
-
-        addBadge('plate_eval_saved'); // silent badge
-        const hint = el('evalSavedHint');
-        if(hint){
-          hint.style.display = 'block';
-          setTimeout(()=>{ hint.style.display='none'; }, 1600);
-        }
-      });
-    }
-
-    // --- Create (simulate immediate impact) ---
-    function applyCreate(kind){
-      if(!lastSummary){
-        addBadge('plate_create_' + kind);
-        return;
-      }
-
-      // snapshot before
-      let g1 = Number(lastSummary.g1||0), g2 = Number(lastSummary.g2||0),
-          g3 = Number(lastSummary.g3||0), g4 = Number(lastSummary.g4||0),
-          g5 = Number(lastSummary.g5||0);
-
-      const before = plateTextFromCounts(g1,g2,g3,g4,g5);
-
-      // simple child-friendly simulation rules (instant feedback)
-      if(kind === 'veg'){
-        g3 = g3 + 1;
-      }else if(kind === 'reduce_rice'){
-        g2 = Math.max(0, g2 - 1);
-        g3 = g3 + 1; // nudge better balance
-      }else if(kind === 'swap_snack'){
-        // treat swap as reducing junk impact -> increase fruit
-        g4 = g4 + 1;
-      }
-
-      const after = plateTextFromCounts(g1,g2,g3,g4,g5);
-      setBeforeAfter(before, after);
-
-      addBadge('plate_create_' + kind);
-    }
-
-    const bVeg = el('btnAddVeg');
-    const bRice = el('btnReduceRice');
-    const bSwap = el('btnSwapSnack');
-
-    if(bVeg)  bVeg.addEventListener('click', ()=>applyCreate('veg'));
-    if(bRice) bRice.addEventListener('click', ()=>applyCreate('reduce_rice'));
-    if(bSwap) bSwap.addEventListener('click', ()=>applyCreate('swap_snack'));
-
-    // initial
-    renderBadges();
-  </script>
 </body>
 </html>
