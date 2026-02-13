@@ -1,102 +1,61 @@
 // === /fitness/js/ai-predictor.js ===
-// Classic Script (NO export) — safe for <script src="...">
+// AIPredictor — ESM (export) ✅ ใช้ร่วมกับเกมอื่นได้
+// - ถ้า mode=research => lock (ไม่ทำ adaptive ปรับเกมเอง)
+// - ถ้า normal => เปิด assist ต้องใส่ ?ai=1
+
 'use strict';
 
-(function () {
-  const WIN = window;
+const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
 
-  // ---- small helpers ----
-  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+function readQueryFlag(key) {
+  try {
+    const v = new URL(location.href).searchParams.get(key);
+    return v === '1' || v === 'true' || v === 'yes';
+  } catch (_) { return false; }
+}
 
-  function readQueryFlag(key) {
-    try {
-      const v = new URL(location.href).searchParams.get(key);
-      return v === '1' || v === 'true' || v === 'yes';
-    } catch (_) {
-      return false;
-    }
+function readMode() {
+  try {
+    const qs = new URL(location.href).searchParams;
+    // รองรับทั้ง mode=research และ run=research
+    const m = (qs.get('mode') || qs.get('run') || 'normal').toLowerCase();
+    return (m === 'research') ? 'research' : 'normal';
+  } catch (_) { return 'normal'; }
+}
+
+export class AIPredictor {
+  getMode(){ return readMode(); }
+  isLocked(){ return readMode() === 'research'; }
+  isAssistEnabled(){
+    if (readMode() === 'research') return false;
+    return readQueryFlag('ai');
   }
-  function readQueryMode() {
-    try {
-      const m = (new URL(location.href).searchParams.get('mode') || '').toLowerCase();
-      if (m === 'research') return 'research';
-      return 'normal';
-    } catch (_) {
-      return 'normal';
-    }
-  }
 
-  // ---- AI Predictor (lightweight heuristic; can be replaced by ML later) ----
-  // Inputs we "expect" (best effort) from engine snapshot:
-  // { accPct, hitMiss, combo, offsetAbsMean, hp, songTime, durationSec, hitPerfect, hitGreat, hitGood }
-  function predictFromSnapshot(s) {
-    const acc = clamp01((Number(s.accPct) || 0) / 100);
-    const hp = clamp01((Number(s.hp) || 100) / 100);
+  predict(snapshot = {}){
+    const acc = clamp01((Number(snapshot.accPct) || 0) / 100);
+    const hp = clamp01((Number(snapshot.hp) || 100) / 100);
 
-    // offsetAbsMean in seconds; smaller => better
-    const off = Number(s.offsetAbsMean);
-    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5; // 0.18s ~ loose cap
+    const off = Number(snapshot.offsetAbsMean);
+    const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.5;
 
-    const miss = Number(s.hitMiss) || 0;
-    const judged = (Number(s.hitPerfect)||0) + (Number(s.hitGreat)||0) + (Number(s.hitGood)||0) + miss;
+    const miss = Number(snapshot.hitMiss) || 0;
+    const judged = (Number(snapshot.hitPerfect)||0) + (Number(snapshot.hitGreat)||0) + (Number(snapshot.hitGood)||0) + miss;
     const missRate = judged > 0 ? clamp01(miss / judged) : 0;
 
-    // fatigueRisk: rises if hp low, missRate high, offset large
-    const fatigueRisk = clamp01(
-      (1 - hp) * 0.45 +
-      missRate * 0.35 +
-      (1 - offScore) * 0.20
-    );
+    const fatigueRisk = clamp01((1 - hp) * 0.45 + missRate * 0.35 + (1 - offScore) * 0.20);
+    const skillScore  = clamp01(acc * 0.55 + offScore * 0.30 + (1 - missRate) * 0.15);
 
-    // skillScore: high if accuracy high + offset good + miss low
-    const skillScore = clamp01(
-      acc * 0.55 +
-      offScore * 0.30 +
-      (1 - missRate) * 0.15
-    );
-
-    // suggest difficulty (string)
     let suggestedDifficulty = 'normal';
     if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
     else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
 
-    // micro tip
     let tip = '';
-    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเส้นตี แล้วค่อยกด';
-    else if (offScore < 0.45) tip = 'ลอง “รอให้โน้ตแตะเส้น” ก่อนกด จะตรงขึ้น';
-    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความเร็ว/เพลงยากขึ้นได้';
-    else if (hp < 0.45) tip = 'ระวัง HP—อย่ากดรัว ให้กดเฉพาะโน้ตที่ใกล้เส้น';
+    if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเป้าสำคัญก่อน';
+    else if (offScore < 0.45) tip = 'รอให้ “เข้าโซน” ก่อนค่อยตี จะตรงขึ้น';
+    else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเพิ่มความยากได้';
+    else if (hp < 0.45) tip = 'ระวัง HP—อย่าตีรัว เลือกตีเป้าชัวร์ ๆ';
 
-    return {
-      fatigueRisk,
-      skillScore,
-      suggestedDifficulty,
-      tip
-    };
+    return { fatigueRisk, skillScore, suggestedDifficulty, tip };
   }
-
-  // ---- Public bridge used by engine/UI ----
-  // Research lock rule:
-  // - if mode=research => lock adjustments ALWAYS
-  // - if normal => allow adjustments only when ?ai=1
-  const API = {
-    getMode() {
-      return readQueryMode(); // 'research' | 'normal'
-    },
-    isAssistEnabled() {
-      const mode = readQueryMode();
-      if (mode === 'research') return false;   // locked
-      return readQueryFlag('ai');              // normal: require ?ai=1
-    },
-    isLocked() {
-      return readQueryMode() === 'research';
-    },
-    predict(snapshot) {
-      return predictFromSnapshot(snapshot || {});
-    }
-  };
-
-  // expose globally
-  WIN.RB_AI = API;
-})();
+}
