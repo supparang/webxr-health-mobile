@@ -1,10 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard + Quest + Random Quiz + FX) v20260212a
+// HygieneVR SAFE — SURVIVAL (PATCH v20260211a)
+// FIX 1: Mobile tap latency -> use pointerdown (no 300ms click delay)
+// FIX 2: Double-hit / stuck target -> obj.dead guard + instant hide + remove
+// FIX 3: Target flood -> TTL auto-remove + tighter cap
+// FIX 4: FX spawn exactly at target center (getBoundingClientRect)
 // ✅ Exports: boot()
-// ✅ FIX: hit -> popOut + remove fast (no lingering)
-// ✅ FIX: target TTL + hard cap prevents pile-up / freeze
-// ✅ FIX: tick guarded + dt clamp (mobile smooth)
-// Emits: hha:start, hha:time, hha:judge, hha:end
 'use strict';
 
 const WIN = window;
@@ -28,9 +28,10 @@ function saveJson(key, obj){
   try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{}
 }
 function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
-function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
 
+// ------------------ Steps (emoji mapping) ------------------
 const STEPS = [
   { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
   { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
@@ -44,7 +45,10 @@ const ICON_HAZ = '🦠';
 
 export function boot(){
   const stage = DOC.getElementById('stage');
-  if(!stage){ console.error('[Hygiene] stage not found'); return; }
+  if(!stage){
+    console.error('[Hygiene] stage not found');
+    return;
+  }
 
   // UI handles
   const pillStep = DOC.getElementById('pillStep');
@@ -67,6 +71,7 @@ export function boot(){
   const endSub       = DOC.getElementById('endSub');
   const endJson      = DOC.getElementById('endJson');
 
+  // controls
   const btnStart   = DOC.getElementById('btnStart');
   const btnRestart = DOC.getElementById('btnRestart');
   const btnPlayAgain = DOC.getElementById('btnPlayAgain');
@@ -85,79 +90,155 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
+  // difficulty presets (base)
   const base = (()=> {
-    if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.08, decoyRate:0.16 };
-    if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26 };
-    return { spawnPerSec:2.2, hazardRate:0.11, decoyRate:0.22 };
+    if(diff==='easy') return { spawnPerSec:1.7, hazardRate:0.08, decoyRate:0.16 };
+    if(diff==='hard') return { spawnPerSec:2.4, hazardRate:0.14, decoyRate:0.26 };
+    return { spawnPerSec:2.05, hazardRate:0.11, decoyRate:0.22 };
   })();
 
-  // optional AI
+  // AI instances (optional)
   const coachOn = (qs('coach','1') !== '0');
   const ddOn    = (qs('dd','1') !== '0');
   const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
   const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({
     seed, runMode,
     base,
-    bounds:{ spawnPerSec:[1.2, 4.2], hazardRate:[0.05, 0.26], decoyRate:[0.10, 0.40] }
+    bounds:{ spawnPerSec:[1.2, 3.9], hazardRate:[0.05, 0.24], decoyRate:[0.10, 0.38] }
   }) : null;
 
   // state
   let running=false, paused=false;
-  let rafId = 0;
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
 
-  let stepIdx=0, hitsInStep=0, loopsDone=0;
+  let stepIdx=0;
+  let hitsInStep=0;
+  let loopsDone=0;
+
   let combo=0, comboMax=0;
-  let wrongStepHits=0, hazHits=0;
+  let wrongStepHits=0;
+  let hazHits=0;
   const missLimit = 3;
 
-  let correctHits=0, totalStepHits=0;
-  const rtOk = [];
+  let correctHits=0;
+  let totalStepHits=0;
+  const rtOk = []; // ms
   let spawnAcc=0;
 
   // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let questDone = 0;
   let quizOpen = false;
-  let quizRight = 0, quizWrong = 0;
+  let quizRight = 0;
+  let quizWrong = 0;
 
-  // targets
+  // active targets
   const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, dead}
   let nextId=1;
 
-  // performance guards
-  const MAX_TARGETS = 16;         // hard cap
-  const TARGET_TTL_MS = 2600;     // auto-clean prevents pile-up
-  const HIT_REMOVE_MS = 140;      // remove after popOut animation
+  // anti-flood
+  const LIMIT = {
+    maxTargets: 14,       // tighter cap (prevents “เต็มจอค้าง”)
+    ttlMs: 2600,          // auto-remove after 2.6s (no penalty)
+  };
 
   function showBanner(msg){
     if(!banner) return;
     banner.textContent = msg;
     banner.classList.add('show');
     clearTimeout(showBanner._t);
-    showBanner._t = setTimeout(()=>banner.classList.remove('show'), 900);
+    showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  // FX at target position
+  // ===== Punchy SFX / Haptic / Shake / HitRing =====
+  let _ac = null;
+  function sfx(type='tap'){
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!AC) return;
+      if(!_ac) _ac = new AC();
+      if(_ac.state === 'suspended') _ac.resume?.();
+
+      const t0 = _ac.currentTime;
+      const o = _ac.createOscillator();
+      const g = _ac.createGain();
+      o.type = 'triangle';
+
+      const freq = (type==='good') ? 720 : (type==='haz' ? 180 : 360);
+      o.frequency.setValueAtTime(freq, t0);
+      o.frequency.exponentialRampToValueAtTime(freq*0.75, t0 + 0.06);
+
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+
+      o.connect(g); g.connect(_ac.destination);
+      o.start(t0); o.stop(t0 + 0.09);
+    }catch{}
+  }
+  function haptic(ms=10){ try{ navigator.vibrate?.(ms); }catch{} }
+  function shake(intensity=6, ms=90){
+    try{
+      const root = DOC.getElementById('gameRoot') || DOC.body;
+      root.animate?.(
+        [
+          { transform:`translate(0,0)` },
+          { transform:`translate(${intensity}px,-${intensity}px)` },
+          { transform:`translate(-${intensity}px,${intensity}px)` },
+          { transform:`translate(${intensity}px,${intensity}px)` },
+          { transform:`translate(0,0)` },
+        ],
+        { duration: ms, iterations: 1, easing: 'ease-out' }
+      );
+    }catch{}
+  }
+  function hitRing(kind, x, y){
+    try{
+      const el = DOC.createElement('div');
+      el.className = `hw-hitfx ${kind}`;
+      const vw = Math.max(1, WIN.innerWidth||1);
+      const vh = Math.max(1, WIN.innerHeight||1);
+      el.style.setProperty('--x', ((x/vw)*100).toFixed(3));
+      el.style.setProperty('--y', ((y/vh)*100).toFixed(3));
+      stage.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch{} }, 220);
+    }catch{}
+  }
+  function centerOf(el, fallback){
+    try{
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    }catch{
+      return fallback || { x: WIN.innerWidth*0.5, y: WIN.innerHeight*0.5 };
+    }
+  }
+
+  // ✅ FX on hit (particles.js) — use target center now
   function fxHit(kind, obj){
     const P = WIN.Particles;
-    if(!P || !obj) return;
-    const x = Number(obj.x || WIN.innerWidth*0.5);
-    const y = Number(obj.y || WIN.innerHeight*0.5);
+    if(!P) return;
 
-    try{
-      if(kind === 'good'){
-        P.popText(x, y, '✅ +1', 'good');
-        P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
-      }else if(kind === 'wrong'){
-        P.popText(x, y, '⚠️ ผิด!', 'warn');
-        P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
-      }else if(kind === 'haz'){
-        P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
-        P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
-      }
-    }catch{}
+    const c = centerOf(obj?.el, obj ? {x:obj.x,y:obj.y} : null);
+    const x = Number(c.x || WIN.innerWidth*0.5);
+    const y = Number(c.y || WIN.innerHeight*0.5);
+
+    if(kind === 'good'){
+      hitRing('good', x, y);
+      P.popText?.(x, y, '✅ +1', 'good');
+      P.burst?.(x, y, { count: 12, spread: 46, upBias: 0.86 });
+      sfx('good'); haptic(10); shake(5, 80);
+    }else if(kind === 'wrong'){
+      hitRing('wrong', x, y);
+      P.popText?.(x, y, '⚠️ ผิด!', 'warn');
+      P.burst?.(x, y, { count: 10, spread: 40, upBias: 0.82 });
+      sfx('wrong'); haptic(16); shake(7, 90);
+    }else if(kind === 'haz'){
+      hitRing('haz', x, y);
+      P.popText?.(x, y, '🦠 โดนเชื้อ!', 'bad');
+      P.burst?.(x, y, { count: 14, spread: 54, upBias: 0.90 });
+      sfx('haz'); haptic(20); shake(9, 110);
+    }
   }
 
   function setQuizVisible(on){
@@ -169,7 +250,8 @@ export function boot(){
   function pickQuiz(){
     const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
-    return bank[Math.floor(rng()*bank.length)] || null;
+    const q = bank[Math.floor(rng()*bank.length)];
+    return q || null;
   }
 
   function openRandomQuiz(){
@@ -184,9 +266,10 @@ export function boot(){
       const j = Math.floor(rng()*(i+1));
       [options[i],options[j]] = [options[j],options[i]];
     }
+
     quizSub.textContent =
-      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ') +
-      '  (ยืนยันโดย “ถูกต่อเนื่อง 2 ครั้ง”)';
+      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+      + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
 
     quizOpen._armed = true;
     quizOpen._t0 = nowMs();
@@ -195,26 +278,23 @@ export function boot(){
   }
 
   function closeQuiz(msg){
-    if(!quizOpen) return;
-    setQuizVisible(false);
-    quizOpen = false;
-    quizOpen._armed = false;
-    if(msg) showBanner(msg);
+    if(quizOpen){
+      setQuizVisible(false);
+      quizOpen = false;
+      quizOpen._armed = false;
+      if(msg) showBanner(msg);
+    }
   }
 
   function getSpawnRect(){
-    const w = Math.max(1, WIN.innerWidth||1);
-    const h = Math.max(1, WIN.innerHeight||1);
-
-    // read safe zones from :root (CSS)
-    const cs = getComputedStyle(DOC.documentElement);
-    const topSafe = Number((cs.getPropertyValue('--hw-top-safe')||'').trim().replace('px','')) || 170;
-    const bottomSafe = Number((cs.getPropertyValue('--hw-bottom-safe')||'').trim().replace('px','')) || 190;
+    const w = WIN.innerWidth, h = WIN.innerHeight;
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 170;
+    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 190;
     const pad = 14;
 
     const x0 = pad, x1 = w - pad;
-    const y0 = Math.min(h-50, topSafe + pad);
-    const y1 = Math.max(y0+80, h - bottomSafe - pad);
+    const y0 = (topSafe + pad);
+    const y1 = h - bottomSafe - pad;
 
     return { x0, x1, y0, y1, w, h };
   }
@@ -234,8 +314,8 @@ export function boot(){
 
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
-    pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
 
+    pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
     hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
 
@@ -246,22 +326,11 @@ export function boot(){
     }
   }
 
-  // ✅ remove with popOut animation (fast)
   function removeTarget(obj){
-    if(!obj || obj.dead) return;
-    obj.dead = true;
-
+    if(!obj) return;
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
-
-    try{
-      if(obj.el){
-        obj.el.style.pointerEvents = 'none';
-        obj.el.classList.add('is-hit');
-      }
-    }catch{}
-
-    setTimeout(()=>{ try{ obj.el?.remove(); }catch{} }, HIT_REMOVE_MS);
+    try{ obj.el?.remove(); }catch{}
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -284,18 +353,21 @@ export function boot(){
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
     targets.push(obj);
 
-    // mobile tap/click
+    // ✅ Mobile/PC: use pointerdown (instant). (cVR strict still uses hha:shoot)
     if(view !== 'cvr'){
       el.addEventListener('pointerdown', (ev)=>{
-        ev.preventDefault?.();
+        if(ev && ev.cancelable) ev.preventDefault();
         onHitByPointer(obj, 'tap');
       }, { passive:false });
     }
+
     return obj;
   }
 
   function spawnOne(){
+    const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
+
     const r = rng();
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
@@ -307,7 +379,7 @@ export function boot(){
       }
       return createTarget('wrong', STEPS[j].icon, j);
     }else{
-      return createTarget('good', STEPS[stepIdx].icon, stepIdx);
+      return createTarget('good', s.icon, stepIdx);
     }
   }
 
@@ -318,7 +390,6 @@ export function boot(){
 
   function onHitByPointer(obj, source){
     if(!running || paused) return;
-    if(!obj || obj.dead) return;
     judgeHit(obj, source, null);
   }
 
@@ -335,7 +406,7 @@ export function boot(){
 
     let best=null, bestDist=1e9;
     for(const t of targets){
-      if(!t || t.dead) continue;
+      if(t.dead) continue;
       const dx = (t.x - cx), dy = (t.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
@@ -359,6 +430,7 @@ export function boot(){
       return;
     }
     if(t < bumpQuestOnGoodHit._nextAt) return;
+
     bumpQuestOnGoodHit._nextAt = t + (12 + rng()*10);
 
     const roll = rng();
@@ -375,6 +447,7 @@ export function boot(){
       bumpQuestOnGoodHit._fastStepT0 = nowMs();
       bumpQuestOnGoodHit._fastStepIdx = stepIdx;
     }
+
     showBanner(`🎯 QUEST: ${questText}`);
   }
 
@@ -389,8 +462,23 @@ export function boot(){
     }
   }
 
+  function instantRemoveVisual(obj){
+    try{
+      if(!obj?.el) return;
+      obj.el.disabled = true;
+      obj.el.style.pointerEvents = 'none';
+      obj.el.style.opacity = '0.01';
+      obj.el.style.transform = 'translate(-50%,-50%) scale(0.88)';
+    }catch{}
+  }
+
   function judgeHit(obj, source, extra){
-    if(!obj || obj.dead) return;
+    if(!obj || obj.dead) return;      // ✅ guard
+    obj.dead = true;
+
+    // ✅ make it feel “แตกทันที” even before DOM remove
+    instantRemoveVisual(obj);
+
     const rt = computeRt(obj);
 
     if(obj.kind === 'good'){
@@ -401,7 +489,6 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // quiz confirm by streak (good hits)
       if(quizOpen && quizOpen._armed){
         const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
@@ -415,20 +502,19 @@ export function boot(){
         }
       }
 
-      coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
       bumpQuestOnGoodHit();
       fxHit('good', obj);
-
-      // ✅ remove immediately (with popOut)
-      removeTarget(obj);
+      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
-        stepIdx++; hitsInStep=0;
+        stepIdx++;
+        hitsInStep=0;
 
         if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
           const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
@@ -447,10 +533,10 @@ export function boot(){
           showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
           if(!quizOpen && rng() < 0.25) openRandomQuiz();
         }
-      }else{
-        showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
       }
 
+      // ✅ remove fast (next frame)
+      requestAnimationFrame(()=>removeTarget(obj));
       setHud();
       return;
     }
@@ -465,14 +551,14 @@ export function boot(){
         closeQuiz('❌ Quiz พลาด!');
       }
 
-      coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
       fxHit('wrong', obj);
-      removeTarget(obj);
-
       showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+
+      requestAnimationFrame(()=>removeTarget(obj));
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
@@ -487,59 +573,47 @@ export function boot(){
         closeQuiz('❌ Quiz พลาด!');
       }
 
-      coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec() });
+      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
+      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
       fxHit('haz', obj);
-      removeTarget(obj);
+      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
 
-      showBanner('🦠 โดนเชื้อ! ระวัง!');
+      requestAnimationFrame(()=>removeTarget(obj));
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
     }
   }
 
-  // cleanup old targets (prevents pile-up / freeze)
-  function cleanupTargetsTTL(){
+  function cleanupTTL(){
     const t = nowMs();
     for(let i=targets.length-1;i>=0;i--){
-      const tg = targets[i];
-      if(!tg || tg.dead) { targets.splice(i,1); continue; }
-      if((t - tg.bornMs) > TARGET_TTL_MS){
-        // remove silently (no miss) just to keep performance stable
-        try{
-          tg.dead = true;
-          tg.el?.classList.add('is-hit'); // quick fade
-          setTimeout(()=>{ try{ tg.el?.remove(); }catch{} }, 120);
-        }catch{}
-        targets.splice(i,1);
+      const o = targets[i];
+      if(!o) continue;
+      if(o.dead) { removeTarget(o); continue; }
+      if((t - o.bornMs) > LIMIT.ttlMs){
+        // auto-remove (no penalty) to prevent “เต็มจอค้าง”
+        o.dead = true;
+        removeTarget(o);
       }
     }
-    // hard cap fallback
-    while(targets.length > MAX_TARGETS){
-      const tg = targets.shift();
-      try{
-        tg.dead = true;
-        tg.el?.classList.add('is-hit');
-        setTimeout(()=>{ try{ tg.el?.remove(); }catch{} }, 120);
-      }catch{}
+    // extra cap: remove oldest if still too many
+    while(targets.length > LIMIT.maxTargets){
+      const oldest = targets.reduce((a,b)=> (a.bornMs<b.bornMs?a:b));
+      oldest.dead = true;
+      removeTarget(oldest);
     }
   }
 
   function tick(){
-    if(!running) return;
-    let t;
-    try{ t = nowMs(); }catch{ t = Date.now(); }
-
-    // dt guard
-    let dt = (t - tLastMs)/1000;
-    if(!isFinite(dt) || dt < 0) dt = 0;
-    if(dt > 0.10) dt = 0.10; // clamp (mobile hiccup safe)
+    if(!running){ return; }
+    const t = nowMs();
+    const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
 
-    if(paused){ rafId = requestAnimationFrame(tick); return; }
+    if(paused){ requestAnimationFrame(tick); return; }
 
     timeLeft -= dt;
     emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
@@ -549,34 +623,24 @@ export function boot(){
       return;
     }
 
-    // spawn
     const P = dd ? dd.getParams() : base;
     spawnAcc += (P.spawnPerSec * dt);
 
-    // prevent runaway
-    cleanupTargetsTTL();
-
     while(spawnAcc >= 1){
       spawnAcc -= 1;
-
-      // if near cap, skip spawning to keep smooth
-      if(targets.length >= MAX_TARGETS) break;
-
       spawnOne();
     }
 
-    dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
+    cleanupTTL();
+
+    dd?.onEvent('tick', { elapsedSec: elapsedSec() });
     updateQuestTick();
     setHud();
-
-    rafId = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
 
   function resetGame(){
     running=false; paused=false;
-    if(rafId) cancelAnimationFrame(rafId);
-    rafId = 0;
-
     clearTargets();
     timeLeft = timePlannedSec;
 
@@ -607,16 +671,12 @@ export function boot(){
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
     showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
     setHud();
-
-    rafId = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
 
   function endGame(reason){
     if(!running) return;
     running=false;
-    if(rafId) cancelAnimationFrame(rafId);
-    rafId = 0;
-
     clearTargets();
     setQuizVisible(false);
 
@@ -645,30 +705,39 @@ export function boot(){
       version:'1.0.2-prod',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode, diff, view, seed, sessionId,
+      runMode,
+      diff,
+      view,
+      seed,
+      sessionId,
       timestampIso: nowIso(),
+
       reason,
       durationPlannedSec: timePlannedSec,
       durationPlayedSec,
+
       loopsDone,
       stepIdxEnd: stepIdx,
       hitsCorrect: correctHits,
       hitsWrongStep: wrongStepHits,
       hazHits,
+
       stepAcc,
       riskIncomplete,
       riskUnsafe,
       comboMax,
       misses: getMissCount(),
+
       quizRight,
       quizWrong,
       questText,
       questDone,
+
       medianStepMs: rtMed
     };
 
-    if(coach?.getSummaryExtras) Object.assign(summary, coach.getSummaryExtras());
-    if(dd?.getSummaryExtras) Object.assign(summary, dd.getSummaryExtras());
+    if(coach) Object.assign(summary, coach.getSummaryExtras());
+    if(dd) Object.assign(summary, dd.getSummaryExtras());
 
     if(WIN.HHA_Badges){
       WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
@@ -711,12 +780,12 @@ export function boot(){
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // optional: badge/coach visuals
+  // badges / coach visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
       WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
-      WIN.Particles.burst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
+      WIN.Particles.burst?.(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
     }
   });
   WIN.addEventListener('hha:coach', (e)=>{
