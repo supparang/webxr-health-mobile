@@ -1,9 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + watchdog)
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) — PATCH v20260211a
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
+// ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-// ✅ Watchdog: if no heartbeat for too long -> banner hint
+// ✅ Adds a simple "stall detector" banner (help user reload)
 //
 'use strict';
 
@@ -65,12 +66,14 @@ function waitForGlobal(getter, ms){
 }
 
 async function main(){
+  // DOM must exist
   const stage = $id('stage');
   if(!stage){
     showFatal('ไม่พบ #stage (hygiene-vr.html ไม่ครบหรือ id ไม่ตรง)');
     return;
   }
 
+  // CSS hint
   const cssOk = hasCssHref('/hygiene-vr.css');
   if(!cssOk){
     console.warn('[HygieneBoot] hygiene-vr.css may be missing or blocked');
@@ -79,6 +82,7 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
+  // Wait a bit for deferred scripts to populate globals
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
@@ -93,6 +97,7 @@ async function main(){
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
+  // Import engine safely
   let engine;
   try{
     engine = await import('./hygiene.safe.js');
@@ -106,23 +111,32 @@ async function main(){
     return;
   }
 
-  // watchdog heartbeat (engine should emit hha:time regularly)
-  let lastBeat = Date.now();
-  window.addEventListener('hha:time', ()=>{ lastBeat = Date.now(); });
+  // Track stall (if RAF stops, at least warn)
+  let last = performance.now();
+  let alive = true;
+
+  function rafPing(){
+    if(!alive) return;
+    last = performance.now();
+    requestAnimationFrame(rafPing);
+  }
+  requestAnimationFrame(rafPing);
 
   setInterval(()=>{
-    const dt = Date.now() - lastBeat;
-    if(dt > 3500){
-      showBanner('⏳ เกมค้าง/หน่วง — แนะนำกด Reload (อาจเกิดจากมือถือหน่วง/Memory)');
-      lastBeat = Date.now(); // rate-limit
+    if(!alive) return;
+    const dt = performance.now() - last;
+    if(dt > 1600){
+      showBanner('⚠️ เกมค้าง/สะดุด — แนะนำกด Reload (มือถือหน่วง/JS error)');
     }
-  }, 1200);
+  }, 900);
 
+  // Run engine boot
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
   }catch(err){
     showFatal('engine.boot() crash', err);
+    alive = false;
   }
 }
 
