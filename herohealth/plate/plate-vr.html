@@ -7,31 +7,32 @@
   <meta name="color-scheme" content="dark light"/>
   <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
+
+  <!-- UI / Safe zones / Targets FX -->
   <link rel="stylesheet" href="./plate-vr.css"/>
 </head>
 
 <body class="view-pc">
   <div id="app">
-
-    <!-- optional FX layers -->
+    <!-- Optional FX layers -->
     <div id="bossFx" aria-hidden="true"></div>
     <div id="stormFx" aria-hidden="true"></div>
 
-    <!-- playfield (mount for spawner) -->
-    <div id="plate-layer" aria-label="สนามเล่น PlateVR"></div>
+    <!-- Playfield (mount for mode-factory) -->
+    <div id="plate-layer" aria-label="PlateVR playfield"></div>
 
     <!-- HUD -->
     <section id="hud" aria-label="HUD">
       <div class="hudRow">
-        <div class="chip score" aria-label="Score">
+        <div class="chip score">
           <div class="lbl">SCORE</div>
           <div class="val" id="hudScore">0</div>
         </div>
-        <div class="chip time" aria-label="Time left">
+        <div class="chip time">
           <div class="lbl">TIME</div>
           <div class="val" id="hudTime">0</div>
         </div>
-        <div class="chip combo" aria-label="Combo">
+        <div class="chip combo">
           <div class="lbl">COMBO</div>
           <div class="val" id="hudCombo">0</div>
         </div>
@@ -40,27 +41,27 @@
       <div class="card" aria-label="Quests">
         <div class="cardTitle">
           <div class="t">ภารกิจ</div>
-          <div class="hint" id="hudHint">เติมจานให้ครบ 5 หมู่</div>
+          <div class="hint">เติมจานให้ครบ 5 หมู่ + คุมความแม่น</div>
         </div>
 
-        <div class="qItem" aria-label="Goal quest">
+        <div class="qItem">
           <div class="qText">
             <div class="name" id="goalName">Goal</div>
             <div class="sub" id="goalSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="goalNums">0/0</div>
+            <div class="qNums" id="goalNums">0/5</div>
             <div class="bar"><i id="goalBar"></i></div>
           </div>
         </div>
 
-        <div class="qItem" aria-label="Mini quest">
+        <div class="qItem">
           <div class="qText">
-            <div class="name" id="miniName">Mini</div>
+            <div class="name" id="miniName">Mini Quest</div>
             <div class="sub" id="miniSub">—</div>
           </div>
           <div class="qProg">
-            <div class="qNums" id="miniNums">0/0</div>
+            <div class="qNums" id="miniNums">0/80</div>
             <div class="bar"><i id="miniBar"></i></div>
           </div>
         </div>
@@ -68,301 +69,301 @@
     </section>
 
     <!-- Coach bubble -->
-    <section id="coachCard" aria-hidden="true" aria-label="Coach">
+    <section id="coachCard" aria-hidden="true">
       <div class="inner">
         <div id="coachMsg">—</div>
         <div id="coachMeta">Coach</div>
       </div>
     </section>
 
-    <!-- End overlay -->
-    <section id="endOverlay" aria-hidden="true" aria-label="สรุปผล">
-      <div class="endPanel" role="dialog" aria-modal="true" aria-label="ผลลัพธ์เกม">
+    <!-- END OVERLAY -->
+    <section id="endOverlay" aria-hidden="true">
+      <div class="endPanel" role="dialog" aria-label="สรุปผลการเล่น">
         <div class="endTitle">
           <h2>สรุปผล PlateVR</h2>
-          <div class="tag" id="endTag">จบเกม</div>
+          <div class="tag">
+            Grade: <b id="kGrade">—</b>
+          </div>
         </div>
 
-        <div class="endGrid" aria-label="KPI">
-          <div class="kpi"><div class="k">คะแนน</div><div class="v" id="kScore">0</div></div>
-          <div class="kpi"><div class="k">ความแม่น</div><div class="v" id="kAcc">—</div></div>
-          <div class="kpi"><div class="k">คอมโบสูงสุด</div><div class="v" id="kCombo">0</div></div>
-
-          <div class="kpi"><div class="k">Goal</div><div class="v" id="kGoals">0/0</div></div>
-          <div class="kpi"><div class="k">Mini</div><div class="v" id="kMini">0/0</div></div>
-          <div class="kpi"><div class="k">Miss รวม</div><div class="v" id="kMiss">0</div></div>
-
-          <!-- optional extras -->
-          <div class="kpi"><div class="k">Miss (Junk)</div><div class="v" id="kMissJunk">0</div></div>
-          <div class="kpi"><div class="k">Miss (Timeout)</div><div class="v" id="kMissTimeout">0</div></div>
-          <div class="kpi"><div class="k">Grade</div><div class="v" id="kGrade">—</div></div>
+        <!-- KPI grid (matches boot.js ids) -->
+        <div class="endGrid">
+          <div class="kpi">
+            <div class="k">Score</div>
+            <div class="v" id="kScore">0</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Accuracy</div>
+            <div class="v" id="kAcc">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Combo Max</div>
+            <div class="v" id="kCombo">0</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Goal</div>
+            <div class="v" id="kGoals">0/1</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Mini</div>
+            <div class="v" id="kMini">0/1</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Miss (รวม)</div>
+            <div class="v" id="kMiss">0</div>
+          </div>
         </div>
 
-        <!-- ========= Evaluate + Create (Grade 5) ========= -->
-        <div style="padding: 6px 6px 10px;">
-          <div style="font-weight:950;margin:6px 0 8px;">🧠 Evaluate (เลือกเหตุผล)</div>
-          <div id="evalBox" style="
-            border:1px solid rgba(148,163,184,.14);
-            background:rgba(10,16,40,.35);
-            border-radius:18px;
-            padding:10px 10px;
-          ">
-            <label style="display:flex;gap:10px;align-items:flex-start;padding:8px 8px;border-radius:14px;">
-              <input type="radio" name="evalReason" value="มากไป" />
-              <div><div style="font-weight:900;">มากไป</div><div style="color:var(--muted);font-size:12px;">บางอย่างเยอะเกิน → ควรลด</div></div>
-            </label>
-            <label style="display:flex;gap:10px;align-items:flex-start;padding:8px 8px;border-radius:14px;">
-              <input type="radio" name="evalReason" value="น้อยไป" />
-              <div><div style="font-weight:900;">น้อยไป</div><div style="color:var(--muted);font-size:12px;">บางอย่างน้อยเกิน → ควรเพิ่ม</div></div>
-            </label>
-            <label style="display:flex;gap:10px;align-items:flex-start;padding:8px 8px;border-radius:14px;">
-              <input type="radio" name="evalReason" value="ควรเพิ่มอะไร" />
-              <div><div style="font-weight:900;">ควรเพิ่มอะไร</div><div style="color:var(--muted);font-size:12px;">เลือกว่าจะเพิ่ม “ผัก/ผลไม้/โปรตีน”</div></div>
-            </label>
+        <!-- Miss breakdown (optional, supported by boot.js) -->
+        <div style="padding:0 6px 10px;display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="kpi" style="flex:1;min-width:220px;">
+            <div class="k">Miss จาก Junk</div>
+            <div class="v" id="kMissJunk">0</div>
+          </div>
+          <div class="kpi" style="flex:1;min-width:220px;">
+            <div class="k">Miss จากหมดเวลา (Good expire)</div>
+            <div class="v" id="kMissTimeout">0</div>
+          </div>
+        </div>
 
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
-              <button class="btn" id="btnEvalSave" type="button">บันทึกเหตุผล</button>
-              <div id="evalSaved" style="color:var(--muted);font-size:12px;align-self:center;">ยังไม่เลือก</div>
+        <!-- ==========================================
+             Evaluate + Create (ป.5) — End Learning Loop
+             “เห็นผลทันที + silent badge”
+        =========================================== -->
+        <div style="padding:6px 6px 14px;">
+          <div style="font-weight:950;margin:6px 0 10px;">🧠 Evaluate (เลือกเหตุผล)</div>
+
+          <div class="kpi" style="padding:12px;">
+            <div class="k">ทำไมจานนี้ถึง “ยังไม่พอดี” ?</div>
+            <div style="margin-top:10px;display:grid;gap:8px;">
+              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
+                <input type="radio" name="evalReason" value="too_much" />
+                <span><b>มากไป</b> (เช่น ข้าว/แป้งเยอะไป หรือของทอดเยอะไป)</span>
+              </label>
+              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
+                <input type="radio" name="evalReason" value="too_little" />
+                <span><b>น้อยไป</b> (เช่น ผัก/ผลไม้ยังน้อยไป)</span>
+              </label>
+              <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
+                <input type="radio" name="evalReason" value="need_add" />
+                <span><b>ควรเพิ่มอะไร</b> (เช่น เพิ่มผัก/ผลไม้/โปรตีน)</span>
+              </label>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <button class="btn primary" id="btnSaveEvaluate" type="button">บันทึกเหตุผล</button>
+              <span style="color:var(--muted);font-size:12px;">(บันทึกแบบเงียบ ๆ ไม่เด้งแจ้งเตือน)</span>
+            </div>
+            <div id="evalSavedHint" style="margin-top:8px;color:var(--muted);font-size:12px;display:none;">
+              ✅ บันทึกแล้ว
             </div>
           </div>
 
-          <div style="font-weight:950;margin:14px 0 8px;">✨ Create (ปรับ 1 อย่าง แล้วเห็นผลทันที)</div>
-          <div id="createBox" style="
-            border:1px solid rgba(148,163,184,.14);
-            background:rgba(10,16,40,.35);
-            border-radius:18px;
-            padding:10px 10px;
-          ">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="font-weight:950;margin:14px 0 10px;">✨ Create (ปรับ 1 อย่างแล้วเห็นผลทันที)</div>
+
+          <div class="kpi" style="padding:12px;">
+            <div class="k">เลือก “ปรับ 1 อย่าง” จากจานเดิม:</div>
+            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn" id="btnAddVeg" type="button">เพิ่มผัก 🥦</button>
-              <button class="btn" id="btnReduceRice" type="button">ลดข้าว 🍚⬇️</button>
-              <button class="btn" id="btnSwapSnack" type="button">เปลี่ยนขนมเป็นผลไม้ 🍭➡️🍎</button>
-              <button class="btn primary" id="btnApplyCreate" type="button">ใช้การปรับ + รับ Badge</button>
+              <button class="btn" id="btnReduceRice" type="button">ลดข้าว/แป้ง 🍚</button>
+              <button class="btn" id="btnSwapSnack" type="button">เปลี่ยนขนมเป็นผลไม้ 🍭→🍎</button>
             </div>
 
-            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div style="border:1px solid rgba(148,163,184,.14);border-radius:16px;padding:10px;background:rgba(2,6,23,.45);">
-                <div style="font-weight:900;margin-bottom:6px;">ก่อนปรับ</div>
-                <div id="plateBefore" style="color:var(--muted);font-size:12px;line-height:1.45;">—</div>
-              </div>
-              <div style="border:1px solid rgba(148,163,184,.14);border-radius:16px;padding:10px;background:rgba(2,6,23,.45);">
-                <div style="font-weight:900;margin-bottom:6px;">หลังปรับ (จำลอง)</div>
-                <div id="plateAfter" style="color:var(--muted);font-size:12px;line-height:1.45;">—</div>
-              </div>
-            </div>
+            <div style="margin-top:12px;border-top:1px solid rgba(148,163,184,.14);padding-top:12px;">
+              <div class="k">ผล “ก่อน-หลัง” (จำลองง่าย ๆ ให้เด็กเห็นทันที)</div>
 
-            <div style="margin-top:10px;border:1px solid rgba(148,163,184,.14);border-radius:16px;padding:10px;background:rgba(2,6,23,.45);">
-              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-                <div style="font-weight:900;">ผลลัพธ์ทันที</div>
-                <div id="instantScore" style="color:var(--cyan);font-weight:950;">—</div>
+              <div style="margin-top:10px;display:grid;gap:8px;">
+                <div style="display:flex;justify-content:space-between;gap:10px;">
+                  <span style="color:var(--muted);">ก่อน</span>
+                  <span id="plateBeforeText" style="font-weight:900;">—</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:10px;">
+                  <span style="color:var(--muted);">หลัง</span>
+                  <span id="plateAfterText" style="font-weight:900;">—</span>
+                </div>
               </div>
-              <div id="instantHint" style="margin-top:6px;color:var(--muted);font-size:12px;">เลือกการปรับ 1 อย่าง แล้วกด “ใช้การปรับ”</div>
-            </div>
 
-            <div id="createStatus" style="margin-top:8px;color:var(--muted);font-size:12px;">ยังไม่ได้เลือกการปรับ</div>
+              <div style="margin-top:10px;color:var(--muted);font-size:12px;">
+                🔒 Badge จะ “ได้แบบเงียบ ๆ” แล้วไปโผล่ในสรุปท้ายเกม (ไม่เด้งเตือน)
+              </div>
+
+              <div id="silentBadgesRow" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+            </div>
           </div>
         </div>
 
+        <!-- buttons -->
         <div class="endBtns">
           <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
-          <button class="btn primary" id="btnRestart" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnRestart" type="button">เล่นใหม่</button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot) -->
-  <script src="../vr/vr-ui.js"></script>
+  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair emits hha:shoot) -->
+  <script type="module" src="../vr/vr-ui.js"></script>
 
-  <!-- Boot -->
+  <!-- Boot (wires HUD + end overlay) -->
   <script type="module" src="./plate.boot.js"></script>
 
-  <!-- Evaluate + Create logic + Silent Badge -->
+  <!-- Evaluate + Create logic (silent) -->
   <script type="module">
-    const WIN = window;
-    const DOC = document;
+    const LS_KEY = 'HHA_PLATE_SILENT_BADGES';
+    const LS_EVAL = 'HHA_PLATE_EVAL_LAST';
 
-    // ---------------------------
-    // Silent badge storage
-    // ---------------------------
-    const BADGE_KEY = 'HHA_BADGES';
+    const el = (id)=>document.getElementById(id);
+
     function loadBadges(){
-      try{ return JSON.parse(localStorage.getItem(BADGE_KEY) || '{}') || {}; }catch{ return {}; }
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      }catch{ return []; }
     }
-    function saveBadges(obj){
-      try{ localStorage.setItem(BADGE_KEY, JSON.stringify(obj)); }catch{}
+    function saveBadges(arr){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }catch{}
     }
-    WIN.addEventListener('hha:badge', (e)=>{
-      const d = e.detail || {};
-      const id = String(d.id || '').trim();
-      if(!id) return;
-      const store = loadBadges();
-      if(!store[id]){
-        store[id] = { earnedAt: Date.now(), reason: String(d.reason || '') };
-        saveBadges(store);
+    function addBadge(id){
+      const arr = loadBadges();
+      if(!arr.includes(id)){
+        arr.push(id);
+        saveBadges(arr);
       }
-    });
-
-    function emit(name, detail){
-      try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+      renderBadges();
     }
 
-    // ---------------------------
-    // End overlay hooks
-    // ---------------------------
-    const elBefore = DOC.getElementById('plateBefore');
-    const elAfter  = DOC.getElementById('plateAfter');
-    const elInst   = DOC.getElementById('instantScore');
-    const elHint   = DOC.getElementById('instantHint');
-    const elCreateStatus = DOC.getElementById('createStatus');
-
-    const elEvalSaved = DOC.getElementById('evalSaved');
-    const btnEvalSave = DOC.getElementById('btnEvalSave');
-
-    const btnAddVeg = DOC.getElementById('btnAddVeg');
-    const btnReduceRice = DOC.getElementById('btnReduceRice');
-    const btnSwapSnack = DOC.getElementById('btnSwapSnack');
-    const btnApplyCreate = DOC.getElementById('btnApplyCreate');
-
-    // last summary snapshot
-    let last = null;
-
-    // create selection state
-    let createPick = null; // 'addVeg'|'reduceRice'|'swapSnack'
-    let sim = null;
-
-    function fmtPlate(g){
-      // mapping (ตามที่จำไว้): หมู่1 โปรตีน, หมู่2 คาร์บ, หมู่3 ผัก, หมู่4 ผลไม้, หมู่5 ไขมัน
-      const p = (g.g1|0), c=(g.g2|0), v=(g.g3|0), f=(g.g4|0), fat=(g.g5|0);
-      return [
-        `หมู่1 โปรตีน: ${p}`,
-        `หมู่2 ข้าว-แป้ง: ${c}`,
-        `หมู่3 ผัก: ${v}`,
-        `หมู่4 ผลไม้: ${f}`,
-        `หมู่5 ไขมัน: ${fat}`
-      ].join('<br/>');
+    function badgeChip(label){
+      const d = document.createElement('div');
+      d.className = 'kpi';
+      d.style.padding = '8px 10px';
+      d.style.borderRadius = '999px';
+      d.style.display = 'inline-flex';
+      d.style.alignItems = 'center';
+      d.style.gap = '8px';
+      d.innerHTML = `<span style="font-weight:950;">🏷️</span><span style="font-weight:900;">${label}</span>`;
+      return d;
     }
 
-    function cloneG(){
-      return {
-        g1: last?.g1|0, g2:last?.g2|0, g3:last?.g3|0, g4:last?.g4|0, g5:last?.g5|0
+    function renderBadges(){
+      const row = el('silentBadgesRow');
+      if(!row) return;
+      row.innerHTML = '';
+      const badges = loadBadges();
+
+      // show only plate-related (simple filter)
+      const map = {
+        'plate_eval_saved': 'Evaluator',
+        'plate_create_veg': 'Veg+',
+        'plate_create_reduce_rice': 'Smart Carb',
+        'plate_create_swap_snack': 'Fruit Swap',
       };
-    }
 
-    function calcInstant(g){
-      // simple “เห็นผลทันที” heuristic for kids:
-      // - reward veggies/fruit/protein
-      // - penalize carbs imbalance
-      const p=g.g1|0, c=g.g2|0, v=g.g3|0, f=g.g4|0, fat=g.g5|0;
-      let score = 50;
-      score += Math.min(20, v*4);
-      score += Math.min(15, f*3);
-      score += Math.min(15, p*3);
-      const balance = Math.abs(c - (v+p));
-      score += Math.max(0, 15 - balance*2);
-      score -= Math.max(0, (fat-3)*2);
-      score = Math.max(0, Math.min(100, Math.round(score)));
-      return score;
-    }
-
-    function updateSim(){
-      if(!last) return;
-      const g0 = cloneG();
-      const g1 = cloneG();
-
-      if(createPick === 'addVeg'){
-        g1.g3 += 1;
-      }else if(createPick === 'reduceRice'){
-        g1.g2 = Math.max(0, g1.g2 - 1);
-      }else if(createPick === 'swapSnack'){
-        g1.g4 += 1;
-      }
-
-      sim = { before:g0, after:g1 };
-      if(elBefore) elBefore.innerHTML = fmtPlate(sim.before);
-      if(elAfter)  elAfter.innerHTML  = fmtPlate(sim.after);
-
-      const s0 = calcInstant(sim.before);
-      const s1 = calcInstant(sim.after);
-
-      if(elInst) elInst.textContent = `${s0} → ${s1} คะแนนสุขภาพ`;
-      if(elHint){
-        if(!createPick) elHint.textContent = 'เลือกการปรับ 1 อย่าง แล้วกด “ใช้การปรับ”';
-        else{
-          const label = createPick==='addVeg' ? 'เพิ่มผัก' : (createPick==='reduceRice' ? 'ลดข้าว' : 'เปลี่ยนขนมเป็นผลไม้');
-          elHint.textContent = `คุณเลือก: ${label} ✅ เห็นผลสุขภาพดีขึ้นทันที!`;
-        }
-      }
-      if(elCreateStatus){
-        elCreateStatus.textContent = createPick
-          ? `เลือกแล้ว: ${createPick==='addVeg'?'เพิ่มผัก 🥦':createPick==='reduceRice'?'ลดข้าว 🍚⬇️':'เปลี่ยนขนมเป็นผลไม้ 🍭➡️🍎'}`
-          : 'ยังไม่ได้เลือกการปรับ';
-      }
-    }
-
-    function setCreatePick(p){
-      createPick = p;
-      [btnAddVeg, btnReduceRice, btnSwapSnack].forEach(b=>b && b.classList.remove('primary'));
-      if(p==='addVeg' && btnAddVeg) btnAddVeg.classList.add('primary');
-      if(p==='reduceRice' && btnReduceRice) btnReduceRice.classList.add('primary');
-      if(p==='swapSnack' && btnSwapSnack) btnSwapSnack.classList.add('primary');
-      updateSim();
-    }
-
-    btnAddVeg?.addEventListener('click', ()=>setCreatePick('addVeg'));
-    btnReduceRice?.addEventListener('click', ()=>setCreatePick('reduceRice'));
-    btnSwapSnack?.addEventListener('click', ()=>setCreatePick('swapSnack'));
-
-    btnApplyCreate?.addEventListener('click', ()=>{
-      if(!last){
-        elCreateStatus.textContent = 'ยังไม่มีข้อมูลสรุปเกม';
-        return;
-      }
-      if(!createPick){
-        elCreateStatus.textContent = 'เลือกการปรับ 1 อย่างก่อนนะ';
-        return;
-      }
-
-      emit('plate:create', {
-        pick: createPick,
-        before: sim?.before || null,
-        after: sim?.after || null,
-        time: Date.now()
+      badges.filter(b=>map[b]).forEach(b=>{
+        row.appendChild(badgeChip(map[b]));
       });
 
-      // silent badge — store only, no popup
-      const badgeId =
-        createPick==='addVeg' ? 'plate_create_addveg' :
-        createPick==='reduceRice' ? 'plate_create_reducerice' :
-        'plate_create_swapfruit';
+      if(!row.children.length){
+        const tip = document.createElement('div');
+        tip.style.color = 'var(--muted)';
+        tip.style.fontSize = '12px';
+        tip.textContent = 'ยังไม่มี badge เงียบ ๆ';
+        row.appendChild(tip);
+      }
+    }
 
-      emit('hha:badge', { id: badgeId, reason: 'ปรับจานอาหาร 1 อย่าง (Create)' });
+    // --- End data snapshot (from hha:end) ---
+    let lastSummary = null;
 
-      elCreateStatus.textContent = 'รับ Badge แล้ว ✅ (แบบเงียบ ๆ)';
+    function plateTextFromCounts(g1,g2,g3,g4,g5){
+      // Thai 5 food groups fixed mapping you defined
+      return `โปรตีน:${g1} | คาร์บ:${g2} | ผัก:${g3} | ผลไม้:${g4} | ไขมัน:${g5}`;
+    }
+
+    function setBeforeAfter(before, after){
+      if(el('plateBeforeText')) el('plateBeforeText').textContent = before || '—';
+      if(el('plateAfterText'))  el('plateAfterText').textContent  = after  || '—';
+    }
+
+    window.addEventListener('hha:end', (e)=>{
+      lastSummary = e.detail || {};
+      const g1 = Number(lastSummary.g1||0), g2 = Number(lastSummary.g2||0),
+            g3 = Number(lastSummary.g3||0), g4 = Number(lastSummary.g4||0),
+            g5 = Number(lastSummary.g5||0);
+
+      const before = plateTextFromCounts(g1,g2,g3,g4,g5);
+      setBeforeAfter(before, '—');
+      renderBadges();
     });
 
-    btnEvalSave?.addEventListener('click', ()=>{
-      const picked = DOC.querySelector('input[name="evalReason"]:checked')?.value || '';
-      if(!picked){
-        elEvalSaved.textContent = 'ยังไม่ได้เลือก';
+    // --- Evaluate ---
+    const btnSaveEvaluate = el('btnSaveEvaluate');
+    if(btnSaveEvaluate){
+      btnSaveEvaluate.addEventListener('click', ()=>{
+        const picked = document.querySelector('input[name="evalReason"]:checked');
+        const val = picked ? picked.value : '';
+        if(!val) return;
+
+        try{
+          localStorage.setItem(LS_EVAL, JSON.stringify({
+            at: Date.now(),
+            reason: val,
+            scoreFinal: lastSummary?.scoreFinal ?? lastSummary?.score ?? null,
+            miss: lastSummary?.miss ?? lastSummary?.misses ?? null,
+            grade: lastSummary?.grade ?? null
+          }));
+        }catch{}
+
+        addBadge('plate_eval_saved'); // silent badge
+        const hint = el('evalSavedHint');
+        if(hint){
+          hint.style.display = 'block';
+          setTimeout(()=>{ hint.style.display='none'; }, 1600);
+        }
+      });
+    }
+
+    // --- Create (simulate immediate impact) ---
+    function applyCreate(kind){
+      if(!lastSummary){
+        addBadge('plate_create_' + kind);
         return;
       }
-      elEvalSaved.textContent = `บันทึกแล้ว: ${picked}`;
 
-      emit('plate:evaluate', { reason: picked, time: Date.now() });
+      // snapshot before
+      let g1 = Number(lastSummary.g1||0), g2 = Number(lastSummary.g2||0),
+          g3 = Number(lastSummary.g3||0), g4 = Number(lastSummary.g4||0),
+          g5 = Number(lastSummary.g5||0);
 
-      // optional silent badge for evaluate
-      emit('hha:badge', { id:'plate_eval_done', reason:'ทำ Evaluate หลังจัดจาน' });
-    });
+      const before = plateTextFromCounts(g1,g2,g3,g4,g5);
 
-    WIN.addEventListener('hha:end', (e)=>{
-      last = e.detail || {};
-      createPick = null;
-      sim = null;
-      [btnAddVeg, btnReduceRice, btnSwapSnack].forEach(b=>b && b.classList.remove('primary'));
-      if(elEvalSaved) elEvalSaved.textContent = 'ยังไม่เลือก';
-      updateSim();
-    });
+      // simple child-friendly simulation rules (instant feedback)
+      if(kind === 'veg'){
+        g3 = g3 + 1;
+      }else if(kind === 'reduce_rice'){
+        g2 = Math.max(0, g2 - 1);
+        g3 = g3 + 1; // nudge better balance
+      }else if(kind === 'swap_snack'){
+        // treat swap as reducing junk impact -> increase fruit
+        g4 = g4 + 1;
+      }
+
+      const after = plateTextFromCounts(g1,g2,g3,g4,g5);
+      setBeforeAfter(before, after);
+
+      addBadge('plate_create_' + kind);
+    }
+
+    const bVeg = el('btnAddVeg');
+    const bRice = el('btnReduceRice');
+    const bSwap = el('btnSwapSnack');
+
+    if(bVeg)  bVeg.addEventListener('click', ()=>applyCreate('veg'));
+    if(bRice) bRice.addEventListener('click', ()=>applyCreate('reduce_rice'));
+    if(bSwap) bSwap.addEventListener('click', ()=>applyCreate('swap_snack'));
+
+    // initial
+    renderBadges();
   </script>
 </body>
 </html>
