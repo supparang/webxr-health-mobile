@@ -1,11 +1,11 @@
 // === /fitness/js/rhythm-engine.js ===
 // Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
-// ✅ Hit line is bottom gold line (CSS vars) and notes fall EXACTLY to it
-// ✅ Locks note bottom to hit line px per-lane (robust across devices)
-// ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
-// ✅ Calibration offset (Cal: ms) [display optional #rb-hud-cal]
+// ✅ Hitline bottom is the REAL hitting line (visual sync)
+// ✅ Notes anchored to hitline via CSS bottom: var(--rb-hitline-y)
+// ✅ 5-lane (or 3-lane preset supported by DOM)
+// ✅ Calibration offset (Cal: ms) core exists
 // ✅ Research lock: prediction shown but no adaptive changes
-// ✅ Normal assist: enable with ?ai=1 (prediction only for now)
+// ✅ Normal assist: enable with ?ai=1
 // ✅ Events CSV + Sessions CSV
 
 'use strict';
@@ -16,6 +16,7 @@
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b, v));
   const clamp01 = (v)=>clamp(v,0,1);
+
   function nowS(){ return performance.now()/1000; }
 
   function mean(arr){
@@ -57,13 +58,13 @@
 
   // ---- Track config ----
   const TRACKS = {
-    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec:60, audio:'./audio/warmup-groove.mp3' },
-    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec:60, audio:'./audio/focus-combo.mp3' },
-    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec:60, audio:'./audio/speed-rush.mp3' },
-    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec:60, audio:'./audio/research-120.mp3' }
+    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
+    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
+    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec: 60, audio: './audio/speed-rush.mp3' },
+    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
   };
 
-  // ---- Pattern generator (placeholder) ----
+  // ---- Note patterns (placeholder timeline; replace with authored beat map later) ----
   function buildPattern(track, laneCount){
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
@@ -94,17 +95,6 @@
     }
     notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
-  }
-
-  // ---- CSS var reader (px) ----
-  function readPxVarFrom(el, varName, fallbackPx){
-    try{
-      const v = getComputedStyle(el).getPropertyValue(varName).trim();
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : fallbackPx;
-    }catch(_){
-      return fallbackPx;
-    }
   }
 
   class RhythmBoxerEngine{
@@ -174,14 +164,11 @@
       this.noteIdx = 0;
       this.live = [];
 
-      // visual: how long it takes to fall (seconds)
+      // IMPORTANT: lead time (sec) = fall time to hitline
       this.noteSpeedSec = 2.20;
 
-      // base tail length (px) (per-note override set in _spawnNote)
-      this.noteBaseLen = 180;
-
-      // cached hitline px (from CSS vars)
-      this.hitlineBottomPx = 96;
+      // baseline tail length
+      this.noteBaseLen = 160;
 
       // CSV tables
       this.sessionId = '';
@@ -224,7 +211,6 @@
 
     _bindLaneInput(){
       if(!this.lanesEl) return;
-
       this.lanesEl.addEventListener('pointerdown', (ev)=>{
         const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
         if(!laneEl) return;
@@ -239,7 +225,9 @@
         const map5 = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
         const map3 = { 'a':0, 's':1, 'd':2 };
         const map = (this.laneCount===3) ? map3 : map5;
-        if(map[k] != null) this.hitLane(map[k], 'key');
+        if(map[k] != null){
+          this.hitLane(map[k], 'key');
+        }
       });
     }
 
@@ -247,15 +235,6 @@
       const t = Date.now().toString(36);
       const r = Math.random().toString(36).slice(2,7);
       return `RB-${t}-${r}`;
-    }
-
-    _refreshHitlinePx(){
-      // อ่านจาก :root (หรือ body) แล้วได้ค่า px จริง
-      const root = DOC.documentElement || DOC.body;
-      const hitY = readPxVarFrom(root, '--rb-hitline-y', 86);
-      const botP = readPxVarFrom(root, '--rb-bottom-pad', 10);
-      // bottom ของ hit line ภายใน lane
-      this.hitlineBottomPx = Math.max(28, hitY + botP);
     }
 
     start(mode, trackId, meta = {}){
@@ -266,10 +245,6 @@
       // lane count from DOM
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
 
-      // cache hitline px from css vars
-      this._refreshHitlinePx();
-
-      // reset state
       this.running = true;
       this.ended = false;
 
@@ -313,15 +288,11 @@
       this.noteIdx = 0;
       this.live.length = 0;
 
-      // DOM clear
       this._clearNotesDom();
 
-      // CSV reset
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
-      this.sessionTable.clear();
 
-      // load audio
       if(this.audio){
         this.audio.src = this.track.audio;
         this.audio.currentTime = 0;
@@ -361,17 +332,12 @@
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
 
-      // lock note bottom to the hit line (px) inside the lane
-      el.style.bottom = this.hitlineBottomPx + 'px';
-
-      // tail length
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
       const mul = (diff==='easy') ? 1.05 : (diff==='hard') ? 1.35 : 1.18;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
-      // icon (music note)
       const ico = DOC.createElement('div');
       ico.className = 'rb-note-ico';
       ico.textContent = '♪';
@@ -399,7 +365,6 @@
       const dt = Math.max(0, t - this._lastTs);
       this._lastTs = t;
 
-      // prefer audio clock
       if(this.audio && Number.isFinite(this.audio.currentTime)){
         this.songTime = this.audio.currentTime;
       }else{
@@ -410,7 +375,7 @@
       if(this.hp < 50) this.hpUnder50Time += dt;
 
       this._spawnAhead();
-      this._updateNotePositions();
+      this._updateNotePositions();   // ✅ FIXED visual sync to hitline bottom
       this._resolveTimeoutMiss();
 
       this._updateAI();
@@ -418,15 +383,9 @@
       this._updateBars();
       this._updateCalibrationHud();
 
-      if(this.hp <= 0){
-        this._finish('hp-zero');
-        return;
-      }
+      if(this.hp <= 0){ this._finish('hp-zero'); return; }
       const dur = this.track.durationSec || 60;
-      if(this.songTime >= dur){
-        this._finish('song-end');
-        return;
-      }
+      if(this.songTime >= dur){ this._finish('song-end'); return; }
 
       this._rafId = requestAnimationFrame(()=>this._loop());
     }
@@ -442,13 +401,24 @@
       }
     }
 
+    _readHitlineYpx(laneEl){
+      try{
+        const cs = getComputedStyle(laneEl);
+        const v = cs.getPropertyValue('--rb-hitline-y').trim();
+        const px = parseFloat(v);
+        return Number.isFinite(px) ? px : 64;
+      }catch(_){
+        return 64;
+      }
+    }
+
     _updateNotePositions(){
+      // ✅ Notes are anchored at hitline by CSS: bottom: var(--rb-hitline-y)
+      // So: y=0 means note head is ON the gold hitline.
+      // We must compute travel from above top down to hitline reliably.
+
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
-
-      // ถ้า orientation/viewport เปลี่ยน ให้ปรับ hitline px ตาม css vars อีกครั้ง
-      // (กันกรณีมือถือ safe-area เปลี่ยน)
-      this._refreshHitlinePx();
 
       for(const n of this.live){
         if(!n.spawned || !n.el) continue;
@@ -459,19 +429,23 @@
         const rect = laneEl.getBoundingClientRect();
         const laneH = rect.height || 420;
 
-        // travel: เริ่มจากเหนือ lane แล้วลงมาจบที่ hit line
-        // ใช้ hitlineBottomPx เป็น anchor => ยิ่ง hitline อยู่สูงจาก bottom มาก travel ยิ่งพอดี
+        // hitline distance from bottom (px)
+        const hitY = this._readHitlineYpx(laneEl);
+
+        // distance from top of lane down to hitline
+        const topToHit = Math.max(40, laneH - hitY);
+
+        // include tail a bit so it starts fully above
         const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
 
-        // ระยะเริ่มต้นเหนือ hitline (ทำให้เห็น “หล่นมา” ชัด ๆ)
-        // travel = ระยะจาก top ลงมาถึง hitline + เผื่ออีกนิดให้เริ่มนอกจอ
-        const hitFromTop = Math.max(80, laneH - this.hitlineBottomPx);
-        const travel = hitFromTop + Math.min(240, 0.45 * noteLen) + 120;
+        // travel distance so note starts above the visible lane and reaches y=0 at hit time
+        const travel = topToHit + noteLen * 0.55 + 40;
 
-        const p = (this.songTime - (n.t - lead)) / lead; // 0..1
+        // progress in [0..1] over lead seconds ending at hit time
+        const p = (this.songTime - (n.t - lead)) / lead;
         const pClamp = clamp01(p);
 
-        // y: -travel (เริ่มบน) -> 0 (ถึงเส้นตี)
+        // y negative -> above hitline, y=0 -> at hitline
         const y = (pClamp - 1) * travel;
 
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
@@ -525,8 +499,10 @@
         else if(Math.abs(dt) <= wGreat){ judgment='great'; scoreDelta=100; }
 
         this._applyHit(lane, judgment, dt, scoreDelta);
+
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
+
       }else{
         this._applyBlankMiss(lane);
       }
@@ -562,7 +538,13 @@
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      this._logEvent({ event:'hit', lane, judgment, offset_s: offsetSec, score_delta: scoreDelta });
+      this._logEvent({
+        event: 'hit',
+        lane,
+        judgment,
+        offset_s: offsetSec,
+        score_delta: scoreDelta
+      });
     }
 
     _applyMiss(lane, kind){
@@ -583,9 +565,9 @@
       this._logEvent({
         event: kind==='timeout' ? 'timeout_miss' : 'miss',
         lane,
-        judgment:'miss',
-        offset_s:'',
-        score_delta:-dmg
+        judgment: 'miss',
+        offset_s: '',
+        score_delta: -dmg
       });
     }
 
@@ -605,11 +587,11 @@
       }
 
       this._logEvent({
-        event:'blank_tap',
+        event: 'blank_tap',
         lane,
-        judgment:'miss',
-        offset_s:'',
-        score_delta:-dmg
+        judgment: 'miss',
+        offset_s: '',
+        score_delta: -dmg
       });
     }
 
@@ -660,14 +642,12 @@
       const hud = this.hud || {};
       if(hud.score) hud.score.textContent = String(this.score);
       if(hud.combo) hud.combo.textContent = String(this.combo);
-
       if(hud.acc){
         const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
         const hit = judged - this.hitMiss;
         const acc = judged ? (hit / this.totalNotes) * 100 : 0;
         hud.acc.textContent = acc.toFixed(1) + '%';
       }
-
       if(hud.hp) hud.hp.textContent = String(Math.round(this.hp));
       if(hud.shield) hud.shield.textContent = '0';
       if(hud.time) hud.time.textContent = this.songTime.toFixed(1);
@@ -706,7 +686,9 @@
 
     _updateCalibrationHud(){
       const el = DOC.querySelector('#rb-hud-cal');
-      if(el) el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
+      if(el){
+        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
+      }
     }
 
     _updateAI(){
@@ -744,18 +726,18 @@
           if(!this.aiState.tip) this.aiState.tip = '';
         }
       }
-      // no adaptive changes here (research lock safe)
+      // Research lock: NO adaptive changes here
     }
 
-    _finish(endReason){
+    _finish(endReason) {
       this.running = false;
       this.ended = true;
 
-      if(this._rafId != null){
+      if (this._rafId != null) {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
-      if(this.audio) this.audio.pause();
+      if (this.audio) this.audio.pause();
 
       const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
 
@@ -864,7 +846,7 @@
         qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if(this.hooks && typeof this.hooks.onEnd === 'function'){
+      if (this.hooks && typeof this.hooks.onEnd === 'function') {
         this.hooks.onEnd(summary);
       }
     }
