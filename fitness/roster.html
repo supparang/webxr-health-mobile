@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Fitness — Roster (Auto PID)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../herohealth/favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --panel: rgba(4,6,16,.78);
+      --panel2: rgba(10,16,36,.55);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 10% -10%, rgba(34,211,238,.10), transparent 55%),
+                  radial-gradient(900px 700px at 110% 20%, rgba(34,197,94,.10), transparent 55%),
+                  linear-gradient(180deg, #050716, #02030a);
+      color:var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: calc(16px + var(--sat)) 16px calc(18px + var(--sab));
+    }
+    .top{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; flex-wrap:wrap;
+      margin-bottom: 12px;
+    }
+    .title{
+      font-weight:800; letter-spacing:.2px;
+      font-size: 18px;
+    }
+    .sub{
+      color:var(--muted); font-size: 13px; margin-top: 4px;
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(4,6,16,.72));
+      border-radius: var(--radius);
+      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+      padding: 14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    label{ display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, textarea, select{
+      width:100%;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      outline:none;
+    }
+    textarea{ min-height: 180px; resize: vertical; }
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 560px){
+      .row, .row3{ grid-template-columns: 1fr; }
+    }
+    .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:700;
+    }
+    .btn.primary{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+    .btn.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+    .btn.danger{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.10); }
+    .msg{ margin-top: 10px; color: var(--muted); font-size: 13px; }
+    table{
+      width:100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;
+      font-size: 13px;
+    }
+    th{
+      text-align:left;
+      color: var(--muted);
+      font-weight:700;
+      font-size: 12px;
+      padding: 0 8px;
+    }
+    td{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding: 10px 8px;
+    }
+    tr td:first-child{ border-radius: 14px 0 0 14px; }
+    tr td:last-child{ border-radius: 0 14px 14px 0; }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      color: var(--muted);
+      font-size: 12px;
+      margin-right: 6px;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .small{ color: var(--muted); font-size: 12px; }
+    .rightCard{ padding: 14px; }
+    .split{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Roster (Auto PID) — สำหรับวิจัย ป.5</div>
+        <div class="sub">วางรายชื่อ → สร้าง PID → คัดลอก/ดาวน์โหลด CSV → เปิด Planner ด้วย PID ได้ทันที</div>
+      </div>
+      <div class="btns">
+        <button id="btn-back" class="btn">← กลับ Hub</button>
+        <button id="btn-open-planner" class="btn cyan">เปิด Planner</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left -->
+      <div class="card">
+        <div class="row3">
+          <div>
+            <label>School</label>
+            <input id="schoolName" placeholder="เช่น โรงเรียน..." />
+          </div>
+          <div>
+            <label>Site</label>
+            <input id="siteCode" placeholder="เช่น SCH01" />
+          </div>
+          <div>
+            <label>Teacher</label>
+            <input id="teacherId" placeholder="เช่น T001" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>Class</label>
+            <input id="classRoom" placeholder="เช่น P5/2" />
+          </div>
+          <div>
+            <label>StudyId</label>
+            <input id="studyId" placeholder="FIT01" value="FIT01"/>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>Phase</label>
+            <select id="phase">
+              <option value="pre">pre</option>
+              <option value="post">post</option>
+            </select>
+          </div>
+          <div>
+            <label>Condition Group</label>
+            <select id="conditionGroup">
+              <option value="A">A (easy)</option>
+              <option value="B" selected>B (normal)</option>
+              <option value="C">C (hard)</option>
+              <option value="D">D (hard+)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label>รายการรายชื่อ (วางได้หลายบรรทัด) — 1 บรรทัด = 1 คน</label>
+          <textarea id="names" placeholder="ด.ช. ก้อง\nด.ญ. ฟ้า\n..."></textarea>
+          <div class="small">ทิป: จะใส่เลขที่ก็ได้ เช่น “1 ก้อง” ระบบจะเก็บทั้งบรรทัดเป็นชื่อ</div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>PID Prefix</label>
+            <input id="pidPrefix" value="P" class="mono"/>
+          </div>
+          <div>
+            <label>Start Number</label>
+            <input id="pidStart" value="1" class="mono"/>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="btn-generate" class="btn primary">สร้าง PID</button>
+          <button id="btn-save" class="btn">บันทึก roster ในเครื่อง</button>
+          <button id="btn-load" class="btn">โหลด roster</button>
+          <button id="btn-clear" class="btn danger">ล้าง</button>
+        </div>
+
+        <div class="btns">
+          <button id="btn-copy-csv" class="btn cyan">คัดลอก CSV</button>
+          <button id="btn-dl-csv" class="btn cyan">ดาวน์โหลด CSV</button>
+          <button id="btn-copy-pids" class="btn">คัดลอก “PID list”</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+      </div>
+
+      <!-- Right -->
+      <div class="card rightCard">
+        <div class="split">
+          <div>
+            <div class="pill">จำนวน: <span id="count">0</span></div>
+            <div class="pill">Selected: <span id="sel">-</span></div>
+          </div>
+          <div class="btns">
+            <button id="btn-play-selected" class="btn primary">เล่นด้วย PID ที่เลือก</button>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>เลือก</th>
+                <th>PID</th>
+                <th>ชื่อ</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="small">หมายเหตุ: ปุ่ม “เล่นด้วย PID ที่เลือก” จะเปิดหน้า Planner พร้อมส่ง meta (school/site/class/teacher) ไปครบ</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  const $ = (s)=>document.querySelector(s);
+  const msg = $('#msg');
+  const tbody = $('#tbody');
+  const countEl = $('#count');
+  const selEl = $('#sel');
+
+  const KEY = 'HHA_FITNESS_ROSTER_V1';
+
+  function setMsg(t){ msg.textContent = t || ''; }
+  function pad3(n){ return String(n).padStart(3,'0'); }
+  function escCSV(v){
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+  function stamp(){
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function download(filename, text){
+    const blob = new Blob([text], { type:'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function readForm(){
+    return {
+      schoolName: $('#schoolName').value.trim(),
+      siteCode: $('#siteCode').value.trim(),
+      classRoom: $('#classRoom').value.trim(),
+      teacherId: $('#teacherId').value.trim(),
+      studyId: ($('#studyId').value.trim() || 'FIT01'),
+      phase: $('#phase').value,
+      conditionGroup: $('#conditionGroup').value,
+      pidPrefix: ($('#pidPrefix').value.trim() || 'P').toUpperCase(),
+      pidStart: Math.max(1, Number($('#pidStart').value || 1)),
+      names: $('#names').value
+    };
+  }
+
+  function parseNames(text){
+    return String(text||'')
+      .split('\n')
+      .map(s=>s.trim())
+      .filter(Boolean);
+  }
+
+  let roster = [];
+  let selectedPid = '';
+
+  function render(){
+    countEl.textContent = String(roster.length);
+    selEl.textContent = selectedPid || '-';
+
+    tbody.innerHTML = roster.map(r=>{
+      const checked = (r.pid === selectedPid) ? 'checked' : '';
+      return `
+        <tr>
+          <td style="width:70px;">
+            <input type="radio" name="pick" data-pid="${r.pid}" ${checked}/>
+          </td>
+          <td class="mono">${r.pid}</td>
+          <td>${r.name}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.querySelectorAll('input[type="radio"][data-pid]').forEach(el=>{
+      el.addEventListener('change', ()=>{
+        selectedPid = el.getAttribute('data-pid') || '';
+        render();
+      });
+    });
+  }
+
+  function generate(){
+    const f = readForm();
+    const names = parseNames(f.names);
+    if(!names.length){
+      setMsg('ยังไม่มีรายชื่อ');
+      return;
+    }
+    roster = names.map((name, i)=>{
+      const num = f.pidStart + i;
+      const pid = (num <= 999) ? `${f.pidPrefix}${pad3(num)}` : `${f.pidPrefix}${num}`;
+      return {
+        pid,
+        name,
+        schoolName: f.schoolName,
+        siteCode: f.siteCode,
+        classRoom: f.classRoom,
+        teacherId: f.teacherId
+      };
+    });
+    selectedPid = roster[0]?.pid || '';
+    setMsg(`สร้าง PID แล้ว ${roster.length} คน`);
+    render();
+  }
+
+  function rosterCSV(){
+    // roster export schema
+    const f = readForm();
+    const header = ['pid','name','schoolName','siteCode','classRoom','teacherId','studyId','phase','conditionGroup'];
+    const lines = [header.join(',')];
+    for(const r of roster){
+      lines.push([
+        r.pid, r.name,
+        r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'',
+        f.studyId, f.phase, f.conditionGroup
+      ].map(escCSV).join(','));
+    }
+    return lines.join('\n');
+  }
+
+  function copyText(text, okMsg){
+    navigator.clipboard.writeText(text).then(()=>{
+      setMsg(okMsg);
+    }).catch(()=>{
+      prompt('Copy:', text);
+      setMsg('เปิดกล่องให้คัดลอกแล้ว');
+    });
+  }
+
+  function save(){
+    const f = readForm();
+    const obj = { form: f, roster, selectedPid, savedAt: Date.now() };
+    localStorage.setItem(KEY, JSON.stringify(obj));
+    setMsg('บันทึก roster ในเครื่องแล้ว');
+  }
+
+  function load(){
+    try{
+      const obj = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if(!obj) { setMsg('ยังไม่มี roster ที่บันทึกไว้'); return; }
+
+      const f = obj.form || {};
+      $('#schoolName').value = f.schoolName || '';
+      $('#siteCode').value = f.siteCode || '';
+      $('#classRoom').value = f.classRoom || '';
+      $('#teacherId').value = f.teacherId || '';
+      $('#studyId').value = f.studyId || 'FIT01';
+      $('#phase').value = f.phase || 'pre';
+      $('#conditionGroup').value = f.conditionGroup || 'B';
+      $('#pidPrefix').value = f.pidPrefix || 'P';
+      $('#pidStart').value = String(f.pidStart || 1);
+      $('#names').value = f.names || '';
+
+      roster = Array.isArray(obj.roster) ? obj.roster : [];
+      selectedPid = obj.selectedPid || (roster[0]?.pid || '');
+      setMsg('โหลด roster แล้ว');
+      render();
+    }catch(e){
+      setMsg('โหลดไม่สำเร็จ');
+    }
+  }
+
+  function clearAll(){
+    if(!confirm('ล้างข้อมูลหน้า roster?')) return;
+    roster = [];
+    selectedPid = '';
+    $('#names').value = '';
+    setMsg('ล้างแล้ว');
+    render();
+  }
+
+  function buildPlannerURL(pid){
+    const f = readForm();
+    const seed = Math.floor(Math.random()*90000 + 10000);
+    const params = new URLSearchParams();
+    params.set('mode','research');
+    params.set('seed', String(seed));
+    params.set('pid', pid);
+    params.set('studyId', f.studyId);
+    params.set('phase', f.phase);
+    params.set('conditionGroup', f.conditionGroup);
+
+    if(f.schoolName) params.set('schoolName', f.schoolName);
+    if(f.siteCode) params.set('siteCode', f.siteCode);
+    if(f.classRoom) params.set('classRoom', f.classRoom);
+    if(f.teacherId) params.set('teacherId', f.teacherId);
+
+    params.set('hub','../fitness/hub.html');
+    params.set('stats','../fitness/stats.html');
+    params.set('from','roster');
+
+    return `../herohealth/fitness-planner/planner.html?${params.toString()}`;
+  }
+
+  // buttons
+  $('#btn-generate').addEventListener('click', generate);
+  $('#btn-copy-csv').addEventListener('click', ()=>{
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
+    copyText(rosterCSV(), '📋 คัดลอก CSV แล้ว');
+  });
+  $('#btn-dl-csv').addEventListener('click', ()=>{
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
+    download(`fitness_roster_${stamp()}.csv`, rosterCSV());
+    setMsg('⬇️ ดาวน์โหลด CSV แล้ว');
+  });
+  $('#btn-copy-pids').addEventListener('click', ()=>{
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
+    const txt = roster.map(r=>r.pid).join('\n');
+    copyText(txt, '📋 คัดลอก PID list แล้ว');
+  });
+
+  $('#btn-save').addEventListener('click', save);
+  $('#btn-load').addEventListener('click', load);
+  $('#btn-clear').addEventListener('click', clearAll);
+
+  $('#btn-back').addEventListener('click', ()=>{
+    location.href = '../fitness/hub.html';
+  });
+
+  $('#btn-open-planner').addEventListener('click', ()=>{
+    // open planner with selected or quick pid from input?
+    const pid = selectedPid || (roster[0]?.pid || 'P001');
+    location.href = buildPlannerURL(pid);
+  });
+
+  $('#btn-play-selected').addEventListener('click', ()=>{
+    if(!selectedPid){
+      setMsg('ยังไม่ได้เลือก PID');
+      return;
+    }
+    location.href = buildPlannerURL(selectedPid);
+  });
+
+  // init
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
