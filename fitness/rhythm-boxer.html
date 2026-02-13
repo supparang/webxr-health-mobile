@@ -1,4 +1,3 @@
-<!-- === /fitness/rhythm-boxer.html — PRODUCTION (5-lane + AI prediction + Research lock) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -40,9 +39,7 @@
           </label>
         </div>
 
-        <p id="rb-mode-desc" class="rb-mode-desc">
-          Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
-        </p>
+        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
 
         <div id="rb-research-fields" class="rb-section hidden">
           <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
@@ -93,7 +90,7 @@
         <div class="rb-hint-block">
           <p class="rb-hint-title">วิธีเล่น</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี “เส้นทองด้านล่าง”</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
             <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
           </ul>
@@ -116,11 +113,13 @@
       <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
 
-    <!-- ✅ FIX: section wrapper closed correctly -->
     <section class="rb-research-box rb-hud">
       <div class="rb-hud-row">
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
+
+        <!-- ✅ Calibration display -->
+        <span class="rb-chip">Cal: <b id="rb-hud-cal">0ms</b></span>
       </div>
 
       <div class="rb-hud-row">
@@ -134,12 +133,8 @@
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
         <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
       </div>
-
       <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai rb-chip-tip">
-          <span class="rb-chip-tip-label">Coach:</span>
-          <b id="rb-hud-ai-tip" class="hidden"></b>
-        </span>
+        <span class="rb-chip rb-chip-ai rb-chip-tip"><span class="rb-chip-tip-label">Coach:</span> <b id="rb-hud-ai-tip" class="hidden"></b></span>
       </div>
 
       <div class="rb-hud-row">
@@ -167,12 +162,22 @@
           <span id="rb-progress-text" class="rb-bar-status">0%</span>
         </div>
       </div>
+
+      <!-- ✅ Calibration buttons -->
+      <div class="rb-btn-row">
+        <button id="rb-cal-minus" class="rb-btn rb-btn-sm">Cal −10ms</button>
+        <button id="rb-cal-plus" class="rb-btn rb-btn-sm">Cal +10ms</button>
+        <button id="rb-cal-reset" class="rb-btn rb-btn-sm">Reset Cal</button>
+      </div>
+
+      <p class="rb-hint-inline">
+        ถ้า “โน้ตแตะเส้นทองแล้วกดยังไม่ติด” ให้ลอง Cal +10ms ทีละขั้นจนเริ่มติด (มือถือ/VR มักต้อง +20 ถึง +80ms)
+      </p>
     </section>
 
     <section class="rb-field-wrap">
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
-
         <div class="rb-lanes" id="rb-lanes">
           <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
           <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
@@ -181,10 +186,7 @@
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
       </div>
-
-      <p class="rb-howto-inline">
-        แตะเลนให้โน้ตตรงเส้นตี (เส้นสีทองด้านล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์
-      </p>
+      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นทองด้านล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
@@ -240,7 +242,6 @@
   </main>
 </div>
 
-<!-- classic scripts (NO module) -->
 <script src="js/ai-predictor.js"></script>
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
