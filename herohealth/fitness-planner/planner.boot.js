@@ -38,31 +38,53 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
+/**
+ * View conventions in HeroHealth:
+ * - pc
+ * - mobile
+ * - cvr / cardboard (optional, if user explicitly sets ?view=cvr)
+ */
 function getViewAuto(){
   // Respect existing ?view= (DO NOT override)
   const qs = getQS();
-  const v = (qs.get('view')||'').toLowerCase();
+  const v = (qs.get('view')||'').toLowerCase().trim();
   if(v) return v;
 
-  // auto-detect: mobile => cvr, desktop => pc
+  // Auto-detect: mobile => mobile, desktop => pc
   const ua = navigator.userAgent || '';
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-  return isMobile ? 'cvr' : 'pc';
+  const coarse = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) || false;
+  const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const small = Math.min(window.innerWidth||9999, window.innerHeight||9999) <= 820;
+
+  return (coarse || isMobileUA || small) ? 'mobile' : 'pc';
 }
 
 function ctxFromQS(qs){
-  // passthrough context for research/logging compatibility
+  // Real-use defaults (consistent with hub/game patterns)
   const ctx = {
     hub: qs.get('hub') || '../hub.html',
-    run: qs.get('run') || '',
+
+    // play / research / practice (up to your safe.js)
+    run: (qs.get('run') || 'play'),
+
+    // pc/mobile/cvr — auto if missing
     view: getViewAuto(),
+
+    // deterministic-ish by default if seed missing
     seed: safeNum(qs.get('seed'), Date.now()),
+
+    // participant context
     pid: qs.get('pid') || qs.get('participantId') || '',
     studyId: qs.get('studyId') || '',
     phase: qs.get('phase') || '',
     conditionGroup: qs.get('conditionGroup') || '',
-    log: qs.get('log') || '', // endpoint
-    time: qs.get('time') || ''
+
+    // logging endpoint if any
+    log: qs.get('log') || '',
+
+    // difficulty + time budget (planner/game can interpret)
+    diff: (qs.get('diff') || 'normal'),
+    time: safeNum(qs.get('time'), 90)
   };
   return ctx;
 }
@@ -72,11 +94,20 @@ function setBackHub(ctx){
   if(!a) return;
   try{
     const u = new URL(ctx.hub, location.href);
-    // passthrough some ctx back if needed
+
+    // passthrough back-context (keep continuity)
     if(ctx.pid) u.searchParams.set('pid', ctx.pid);
     if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
     if(ctx.phase) u.searchParams.set('phase', ctx.phase);
     if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
+
+    // also keep these if hub wants to show ctx pills
+    if(ctx.view) u.searchParams.set('view', ctx.view);
+    if(ctx.run)  u.searchParams.set('run', ctx.run);
+    if(ctx.diff) u.searchParams.set('diff', ctx.diff);
+    if(Number.isFinite(ctx.time)) u.searchParams.set('time', String(ctx.time));
+    if(ctx.seed) u.searchParams.set('seed', String(ctx.seed >>> 0));
+
     a.href = u.toString();
   }catch(e){
     a.href = ctx.hub;
@@ -87,12 +118,16 @@ async function boot(){
   const qs = getQS();
   const ctx = ctxFromQS(qs);
 
-  // show ctx
-  $('#fp-ctx-view').textContent = ctx.view;
-  $('#fp-ctx-seed').textContent = String(ctx.seed >>> 0);
+  // show ctx (safe if some elements not present)
+  const vView = $('#fp-ctx-view'); if(vView) vView.textContent = ctx.view;
+  const vSeed = $('#fp-ctx-seed'); if(vSeed) vSeed.textContent = String(ctx.seed >>> 0);
+  const vDiff = $('#fp-ctx-diff'); if(vDiff) vDiff.textContent = String(ctx.diff || '-');
+  const vTime = $('#fp-ctx-time'); if(vTime) vTime.textContent = String(ctx.time || '-');
+  const vRun  = $('#fp-ctx-run');  if(vRun)  vRun.textContent  = String(ctx.run || '-');
+
   setBackHub(ctx);
 
-  // apply body class for view if you want (optional)
+  // apply body dataset for CSS tweaks per view if needed
   document.body.dataset.view = ctx.view;
 
   // Start engine (standalone, no modules)
