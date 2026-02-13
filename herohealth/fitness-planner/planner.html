@@ -6,8 +6,70 @@
   <title>HeroHealth — Exercise Planner (VR)</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="./planner.css?v=20260209a" />
+  <link rel="stylesheet" href="./planner.css?v=20260213a" />
+
+  <!-- =========================================================
+    PRO PATCH v20260213a
+    ✅ Auto-detect view if missing (pc/mobile)
+    ✅ Default params for real use: time=90 diff=normal run=play
+    ✅ Ensure hub param exists (back to hub)
+  ========================================================== -->
+  <script>
+  (function(){
+    'use strict';
+    function safeURL(){
+      try{ return new URL(location.href); }catch(_){ return null; }
+    }
+    function hasParam(u,k){
+      const v = u.searchParams.get(k);
+      return v != null && String(v).trim() !== '';
+    }
+    function setIfMissing(u,k,v){
+      if(!hasParam(u,k)) u.searchParams.set(k, v);
+    }
+    function detectView(){
+      try{
+        const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+        const small = Math.min(innerWidth||9999, innerHeight||9999) <= 820;
+        const ua = navigator.userAgent || '';
+        const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+        return (coarse || small || isMobileUA) ? 'mobile' : 'pc';
+      }catch(_){
+        return 'mobile';
+      }
+    }
+    const u = safeURL();
+    if(!u) return;
+
+    // 1) view default
+    if(!hasParam(u,'view')){
+      u.searchParams.set('view', detectView());
+      location.replace(u.toString());
+      return;
+    }
+
+    // 2) real-use defaults
+    setIfMissing(u, 'run',  'play');
+    setIfMissing(u, 'diff', 'normal');
+    setIfMissing(u, 'time', '90');
+
+    // 3) ensure hub exists (so summary back works)
+    if(!hasParam(u,'hub')){
+      try{
+        const hub = new URL('../hub.html', location.href).toString();
+        u.searchParams.set('hub', hub);
+      }catch(_){}
+    }
+
+    // If we changed anything, replace once (avoid loops)
+    if(u.toString() !== location.href){
+      location.replace(u.toString());
+      return;
+    }
+  })();
+  </script>
 </head>
+
 <body>
   <div id="fp-fatal" class="fp-fatal fp-hidden"></div>
 
@@ -33,9 +95,13 @@
         <p class="fp-sub">ออกแบบคอมโบเอง แล้วลองเล่นใน VR</p>
       </div>
 
+      <!-- ctx -->
       <div class="fp-ctx">
         <div class="fp-ctxrow"><span class="k">view</span><span id="fp-ctx-view" class="v">-</span></div>
         <div class="fp-ctxrow"><span class="k">seed</span><span id="fp-ctx-seed" class="v">-</span></div>
+        <div class="fp-ctxrow"><span class="k">diff</span><span id="fp-ctx-diff" class="v">-</span></div>
+        <div class="fp-ctxrow"><span class="k">time</span><span id="fp-ctx-time" class="v">-</span></div>
+        <div class="fp-ctxrow"><span class="k">run</span><span id="fp-ctx-run" class="v">-</span></div>
       </div>
     </header>
 
@@ -155,8 +221,31 @@
   </div>
 
   <!-- ✅ IMPORTANT: safe.js MUST load before boot.js -->
-  <script src="../vr/vr-ui.js?v=20260209a"></script>
-  <script src="./planner.safe.js?v=20260209a"></script>
-  <script src="./planner.boot.js?v=20260209a"></script>
+  <script src="../vr/vr-ui.js?v=20260213a"></script>
+  <script src="./planner.safe.js?v=20260213a"></script>
+  <script src="./planner.boot.js?v=20260213a"></script>
+
+  <!-- Patch: set ctx + hub link (non-invasive, works even if boot forgets) -->
+  <script>
+  (function(){
+    'use strict';
+    function qs(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
+    const Q = qs();
+    const setText=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v==null||String(v).trim()==='')?'-':String(v); };
+
+    setText('fp-ctx-view', Q.get('view'));
+    setText('fp-ctx-seed', Q.get('seed'));
+    setText('fp-ctx-diff', Q.get('diff'));
+    setText('fp-ctx-time', Q.get('time'));
+    setText('fp-ctx-run',  Q.get('run'));
+
+    // hub back link: use ?hub= if provided
+    const hub = Q.get('hub');
+    const back = document.getElementById('fp-backhub');
+    if(back && hub && String(hub).trim()!==''){
+      back.setAttribute('href', hub);
+    }
+  })();
+  </script>
 </body>
 </html>
