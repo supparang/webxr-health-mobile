@@ -1,8 +1,9 @@
 // === /fitness/teacher-dashboard.js ===
-// Teacher Dashboard (local) — v20260211g
+// Teacher Dashboard (local) — v20260211h
 // ✅ Summary CSV: includes schoolName/siteCode/classRoom/teacherId/deviceType
 // ✅ Events CSV: includes same meta columns
 // ✅ Archive & Clear downloads filtered CSVs with same headers
+// ✅ NEW: Backfill Events meta (school/site/class/teacher/deviceType) from nearby summary
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -43,11 +44,18 @@
   const ARCHIVE_KEY = 'HHA_ARCHIVE_INDEX_V1';
   const ARCHIVE_PREFIX = 'HHA_ARCHIVE_';
 
+  // NEW: backfill marker
+  const BACKFILL_KEY = 'HHA_FITNESS_BACKFILL_EVT_META_V1';
+
   function setMsg(t){ if(msg) msg.textContent = t || ''; }
 
   function readJSON(key, fallback){
     try{ const v = JSON.parse(localStorage.getItem(key) || 'null'); return (v==null ? fallback : v); }
     catch{ return fallback; }
+  }
+
+  function writeJSON(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); }catch(_){}
   }
 
   function readSummary(){
@@ -107,6 +115,111 @@
       try{ WIN.prompt('Copy:', text); }catch(_){}
       setMsg('เปิดกล่องให้คัดลอกแล้ว');
     }
+  }
+
+  // -------- NEW: Backfill meta for events --------
+  function hasMeta(r){
+    return !!(r && (r.schoolName || r.siteCode || r.classRoom || r.teacherId || r.deviceType));
+  }
+  function pickMetaFromRow(r){
+    return {
+      schoolName: r?.schoolName || '',
+      siteCode: r?.siteCode || '',
+      classRoom: r?.classRoom || '',
+      teacherId: r?.teacherId || '',
+      deviceType: r?.deviceType || '',
+    };
+  }
+  function mergeMetaIntoRow(r, meta){
+    // do not overwrite if already present
+    if(!r.schoolName && meta.schoolName) r.schoolName = meta.schoolName;
+    if(!r.siteCode && meta.siteCode) r.siteCode = meta.siteCode;
+    if(!r.classRoom && meta.classRoom) r.classRoom = meta.classRoom;
+    if(!r.teacherId && meta.teacherId) r.teacherId = meta.teacherId;
+    if(!r.deviceType && meta.deviceType) r.deviceType = meta.deviceType;
+    return r;
+  }
+
+  function buildSummaryIndex(summary){
+    // index by pid -> array of rows sorted by ts
+    const byPid = new Map();
+    for(const r of summary){
+      const pid = String(r.pid||'').trim();
+      if(!pid) continue;
+      if(!byPid.has(pid)) byPid.set(pid, []);
+      byPid.get(pid).push(r);
+    }
+    for(const [pid, arr] of byPid.entries()){
+      arr.sort((a,b)=>Number(a.ts||0)-Number(b.ts||0));
+    }
+    // also get a global fallback (latest summary overall)
+    const sortedAll = summary.slice().sort((a,b)=>Number(b.ts||0)-Number(a.ts||0));
+    const globalLatest = sortedAll[0] || null;
+    return { byPid, globalLatest };
+  }
+
+  function findNearestSummaryMeta(pid, ts, idx){
+    // allow within 12 hours (43200000 ms)
+    const MAX_D = 12 * 3600 * 1000;
+
+    const arr = idx.byPid.get(pid);
+    if(arr && arr.length){
+      // binary-ish scan from end (usually want most recent near end)
+      let best = null;
+      let bestD = Infinity;
+      for(let i = arr.length-1; i>=0; i--){
+        const r = arr[i];
+        const d = Math.abs(Number(r.ts||0) - Number(ts||0));
+        if(d < bestD){
+          bestD = d; best = r;
+        }
+        // early exit if we already passed far
+        if(Number(r.ts||0) < Number(ts||0) && d > bestD && bestD < MAX_D) break;
+      }
+      if(best && bestD <= MAX_D){
+        return pickMetaFromRow(best);
+      }
+    }
+
+    if(idx.globalLatest){
+      return pickMetaFromRow(idx.globalLatest);
+    }
+    return { schoolName:'', siteCode:'', classRoom:'', teacherId:'', deviceType:'' };
+  }
+
+  function backfillEventsMetaOnce(){
+    // already done?
+    const done = localStorage.getItem(BACKFILL_KEY) === '1';
+    const summary = readSummary();
+    const events = readEvents();
+
+    if(!summary.length || !events.length){
+      // nothing to do; but mark as done if events empty
+      if(events.length===0) localStorage.setItem(BACKFILL_KEY, '1');
+      return;
+    }
+
+    // even if marked done, we can still run a "light check" if new events arrived:
+    // but to keep simple: run if not done.
+    if(done) return;
+
+    const idx = buildSummaryIndex(summary);
+
+    let changed = 0;
+    for(const e of events){
+      if(hasMeta(e)) continue;
+      const pid = String(e.pid||'').trim();
+      const ts = Number(e.ts||0);
+      const meta = findNearestSummaryMeta(pid, ts, idx);
+      mergeMetaIntoRow(e, meta);
+      if(hasMeta(e)) changed++;
+    }
+
+    if(changed > 0){
+      writeJSON(STORE_EVT, events);
+      setMsg(`ℹ️ Backfill events meta: เติม meta ให้ ${changed} แถวแล้ว (school/site/class/teacher/deviceType)`);
+    }
+    localStorage.setItem(BACKFILL_KEY, '1');
   }
 
   // -------- filters --------
@@ -253,7 +366,7 @@
 
     const allSum = readSummary().length;
     const allEvt = readEvents().length;
-    setMsg(`Table: ${rows.length} แถว | Summary (${allSum}) | Events (${allEvt}) | CSV has school/site/class/teacher/deviceType`);
+    setMsg(`Table: ${rows.length} แถว | Summary (${allSum}) | Events (${allEvt}) | CSV meta-ready`);
   }
 
   // -------- export actions --------
@@ -289,10 +402,10 @@
   }
 
   function pushArchiveIndex(id){
-    const idx = readJSON('HHA_ARCHIVE_INDEX_V1', []);
+    const idx = readJSON(ARCHIVE_KEY, []);
     const arr = Array.isArray(idx) ? idx : [];
     arr.unshift({ id, ts: Date.now() });
-    localStorage.setItem('HHA_ARCHIVE_INDEX_V1', JSON.stringify(arr.slice(0,30)));
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr.slice(0,30)));
   }
 
   function archiveAndClear(){
@@ -322,11 +435,9 @@
       events: evt
     };
 
-    // download first (safe)
     downloadText(`ARCHIVE_${id}_summary.csv`, summaryCSV(sum));
     downloadText(`ARCHIVE_${id}_events.csv`, eventsCSV(evt));
 
-    // store snapshot
     try{
       localStorage.setItem(ARCHIVE_PREFIX + id, JSON.stringify(archiveObj));
       pushArchiveIndex(id);
@@ -378,7 +489,7 @@
 
   function pingExport(){
     const { sum, evt } = getExportRows();
-    setMsg(`Export ready | summary:${sum.length} events:${evt.length} | CSV meta: school/site/class/teacher/deviceType`);
+    setMsg(`Export ready | summary:${sum.length} events:${evt.length} | meta-ready + backfill`);
   }
   ;[xStudy,xFrom,xTo,xToday,xOnlyFiltered].forEach(el=>{
     el?.addEventListener('input', pingExport);
@@ -393,6 +504,9 @@
     if(xOnlyFiltered) xOnlyFiltered.checked = true;
     pingExport();
   });
+
+  // ✅ run backfill once before first render
+  backfillEventsMetaOnce();
 
   render();
   pingExport();
