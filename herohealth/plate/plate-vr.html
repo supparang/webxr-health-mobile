@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- External CSS -->
-  <link rel="stylesheet" href="./plate/plate-vr.css" />
+  <link rel="stylesheet" href="./plate-vr.css" />
 
-  <!-- A-Frame (for ENTER VR / EXIT / RECENTER via vr-ui.js) -->
+  <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger + Universal VR UI -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/vr-ui.js" defer></script>
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <script src="../vr/vr-ui.js" defer></script>
 
   <style>
     :root{
@@ -47,7 +47,6 @@
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
-    /* Minimal scene behind DOM game (vr-ui.js uses a-scene for EnterVR/Exit/Recenter) */
     a-scene{ position:fixed; inset:0; z-index:0; }
 
     .bg{
@@ -72,12 +71,6 @@
       pointer-events:auto;
       touch-action:none;
       user-select:none;
-    }
-
-    /* ✅ view=cvr: เป้าไม่รับ tap/click (ยิงด้วย crosshair ผ่าน hha:shoot) */
-    body.view-cvr #plate-layer .plateTarget{
-      pointer-events:none !important;
-      touch-action:none !important;
     }
 
     #hitFx{
@@ -221,7 +214,7 @@
       display:none;
     }
 
-    /* Boss HUD (ids must match plate.safe.js) */
+    /* Boss HUD (ids must match JS) */
     #bossHud{
       position:fixed;
       left:10px;
@@ -242,7 +235,7 @@
     .bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
     .bossProg{ margin-top:8px; font-weight:1100; }
 
-    /* Storm HUD (ids must match plate.safe.js) */
+    /* Storm HUD (ids must match JS) */
     #stormHud{
       position:fixed;
       left:10px;
@@ -250,7 +243,7 @@
       z-index:43;
       display:none;
       pointer-events:none;
-      transform: translateY(54px);
+      transform: translateY(54px); /* ใต้ HUD top */
     }
     .stormCard{
       pointer-events:auto;
@@ -278,8 +271,8 @@
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene (vr-ui.js will provide Enter/Exit/Recenter UI) -->
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color:#000">
+  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
     </a-entity>
@@ -287,7 +280,7 @@
 
   <div class="bg"></div>
 
-  <!-- FX layers required by plate.safe.js -->
+  <!-- FX layers required by JS -->
   <div id="stormFx"></div>
   <div id="bossFx"></div>
 
@@ -386,7 +379,7 @@
     <div id="coachPanel">
       <div class="questCard" style="justify-content:space-between">
         <div style="display:flex; gap:10px; align-items:center; min-width:260px;">
-          <img id="coachImg" src="./img/coach-neutral.png" alt="coach"
+          <img id="coachImg" src="../img/coach-neutral.png" alt="coach"
                style="width:44px;height:44px;border-radius:14px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.50);object-fit:cover" />
           <div>
             <div class="k">🧑‍🏫 Coach</div>
@@ -410,7 +403,6 @@
 
     <!-- Buttons -->
     <div id="hudBtns">
-      <!-- IMPORTANT: plate.safe.js binds #btnStart -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
@@ -531,25 +523,17 @@
         }
       }, {passive:true});
 
+      // ไปหน้า Root Launcher (อยู่นอกโฟลเดอร์ plate)
       btnGoLauncher?.addEventListener('click', ()=>{
-        const u = new URL('./plate-launcher.html', location.href);
+        const u = new URL('../plate-vr.html', location.href);
         const hub = new URL(location.href).searchParams.get('hub');
         if(hub) u.searchParams.set('hub', hub);
         location.href = u.toString();
-      }, {passive:true});
-
-      /* fallback Enter VR (vr-ui.js has its own UI too) */
-      const btnEnterVR = document.getElementById('btnEnterVR');
-      btnEnterVR?.addEventListener('click', ()=>{
-        try{
-          const scene = document.querySelector('a-scene');
-          if(scene && scene.enterVR) scene.enterVR();
-        }catch(_){}
       }, {passive:true});
     })();
   </script>
 
   <!-- RUN GAME -->
-  <script type="module" src="./plate/plate.safe.js"></script>
+  <script type="module" src="./plate.safe.js"></script>
 </body>
 </html>
