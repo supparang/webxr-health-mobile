@@ -1,4 +1,4 @@
-<!-- === /fitness/rhythm-boxer.html === -->
+<!-- === /fitness/rhythm-boxer.html — PRODUCTION (5-lane + AI prediction + Research lock) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -93,11 +93,9 @@
         <div class="rb-hint-block">
           <p class="rb-hint-title">วิธีเล่น</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี “สีทองด้านล่าง”</li>
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
             <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
-            <li>โหมดวิจัย: แสดง AI prediction ได้ แต่ “ล็อกเกม” ไม่ให้ AI ปรับอะไร</li>
-            <li>โหมดเล่น: ถ้าจะเปิด AI assist ให้ใส่พารามิเตอร์ <b>?ai=1</b></li>
           </ul>
         </div>
 
@@ -113,16 +111,18 @@
     <header class="rb-play-header">
       <div>
         <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">แตะเลนให้โน้ตตกถึง “เส้นตีสีทองด้านล่าง” · ดู FEVER / ACC / HP</p>
+        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · ดู FEVER / ACC / HP</p>
       </div>
       <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
 
+    <!-- ✅ FIX: section wrapper closed correctly -->
     <section class="rb-research-box rb-hud">
       <div class="rb-hud-row">
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
       </div>
+
       <div class="rb-hud-row">
         <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
@@ -134,6 +134,7 @@
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
         <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai rb-chip-tip">
           <span class="rb-chip-tip-label">Coach:</span>
@@ -178,14 +179,11 @@
           <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
           <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
-
-          <!-- HIT LINE: เส้นตีสีทองด้านล่าง (วางทับทุก lane โดย CSS) -->
-          <div class="rb-hitline" aria-hidden="true"></div>
         </div>
       </div>
 
       <p class="rb-howto-inline">
-        แตะเลนให้โน้ตตกถึง “เส้นตีสีทองด้านล่าง” แล้วตี · ใช้ได้ทั้งจอสัมผัส/เมาส์ (PC) · VR cardboard แนะนำใช้ crosshair + tap
+        แตะเลนให้โน้ตตรงเส้นตี (เส้นสีทองด้านล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์
       </p>
     </section>
 
@@ -242,7 +240,7 @@
   </main>
 </div>
 
-<!-- IMPORTANT: ai-predictor.js must be classic script (NO export) -->
+<!-- classic scripts (NO module) -->
 <script src="js/ai-predictor.js"></script>
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
