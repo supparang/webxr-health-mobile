@@ -1,7 +1,5 @@
 /* === /fitness/css/shadow-breaker.css ===
-   Shadow Breaker UI (PC/Mobile)
-   ✅ Views switching + FX layer + targets
-   ✅ PATCH G: target fadeout on TTL + missflash
+   PATCH: layout โปร่งขึ้น + target เล็กลง + expire fade + FX layer
 */
 
 :root{
@@ -65,7 +63,6 @@ a:hover{ text-decoration:underline; }
 .sb-kicker{ font-size:.78rem; color:var(--muted); letter-spacing:.4px; opacity:.95; }
 .sb-title{ margin:4px 0 6px; font-size:1.65rem; letter-spacing:.2px; }
 .sb-sub{ font-size:.9rem; color:rgba(226,232,240,.86); }
-
 .sb-header-right{
   text-align:right;
   font-size:.82rem;
@@ -86,7 +83,6 @@ a:hover{ text-decoration:underline; }
   background: rgba(2,6,23,.45);
 }
 
-/* Views */
 .sb-main{ margin-top:14px; }
 .sb-view{ display:none; }
 .sb-view.is-active{ display:block; }
@@ -131,7 +127,11 @@ a:hover{ text-decoration:underline; }
   font-weight:700;
   box-shadow: 0 0 18px rgba(56,189,248,.45);
 }
-.sb-mode-desc{ margin:10px 2px 12px; font-size:.86rem; color: var(--muted); }
+.sb-mode-desc{
+  margin:10px 2px 12px;
+  font-size:.86rem;
+  color: var(--muted);
+}
 
 .sb-form{ display:flex; flex-direction:column; gap:12px; }
 .sb-field{ display:flex; flex-direction:column; gap:6px; }
@@ -149,15 +149,6 @@ a:hover{ text-decoration:underline; }
   border-color: rgba(56,189,248,.55);
   box-shadow: 0 0 0 3px rgba(56,189,248,.12);
 }
-
-.sb-research-box{
-  display:none;
-  padding:12px;
-  border-radius: 18px;
-  border:1px solid rgba(56,189,248,.25);
-  background: rgba(2,6,23,.35);
-}
-.sb-research-box.is-on{ display:block; }
 
 .sb-ai-box{
   padding:12px;
@@ -191,7 +182,11 @@ a:hover{ text-decoration:underline; }
   gap:8px;
   transition: transform .12s, filter .12s, box-shadow .12s, background .12s;
 }
-.sb-btn:hover{ transform: translateY(-1px); filter: brightness(1.04); box-shadow: 0 12px 28px rgba(0,0,0,.35); }
+.sb-btn:hover{
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 12px 28px rgba(0,0,0,.35);
+}
 .sb-btn-primary{
   background: linear-gradient(135deg, var(--accent), var(--violet));
   border-color: transparent;
@@ -229,12 +224,6 @@ a:hover{ text-decoration:underline; }
   position:relative;
 }
 
-/* ✅ PATCH G: miss flash (เบา ๆ) */
-.sb-play.is-missflash{
-  outline: 2px solid rgba(245,158,11,.28);
-  box-shadow: 0 0 0 6px rgba(245,158,11,.08), 0 18px 42px rgba(0,0,0,.55);
-}
-
 .sb-hud{
   display:flex;
   justify-content:space-between;
@@ -249,7 +238,6 @@ a:hover{ text-decoration:underline; }
 .sb-stat{ display:flex; gap:6px; align-items:baseline; font-size:.86rem; }
 .sb-stat .k{ color: var(--muted); }
 .sb-stat .v{ font-weight:800; color: var(--text); }
-
 .sb-hud-center{ flex:1; display:flex; justify-content:center; }
 .sb-boss-name{
   font-weight:900;
@@ -262,7 +250,6 @@ a:hover{ text-decoration:underline; }
 
 /* Bars */
 .sb-bars{ margin-top:10px; display:flex; gap:10px; align-items:center; }
-.sb-bars-top{ margin-top:10px; }
 .sb-bar{ flex:1; display:flex; gap:10px; align-items:center; }
 .sb-bar-label{ font-size:.76rem; color:var(--muted); width:44px; }
 .sb-bar-track{
@@ -290,16 +277,14 @@ a:hover{ text-decoration:underline; }
   border:1px solid rgba(148,163,184,.16);
   background: rgba(2,6,23,.18);
   overflow:hidden;
-  min-height: 44vh;
+  min-height: 46vh; /* ✅ โปร่งขึ้น */
 }
+
 .sb-target-layer{ position:absolute; inset:0; z-index: 2; }
 
 .sb-center-msg{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
   z-index: 1;
   pointer-events:none;
   padding: 12px;
@@ -314,23 +299,18 @@ a:hover{ text-decoration:underline; }
   text-align:center;
   max-width: 520px;
 }
-.sb-msg-main.good{ border-color: rgba(34,197,94,.26); }
-.sb-msg-main.bad{ border-color: rgba(251,113,133,.26); }
-.sb-msg-main.miss{ border-color: rgba(245,158,11,.26); }
-.sb-msg-main.perfect{ border-color: rgba(168,85,247,.30); }
 
 .sb-meta{
   position:absolute;
-  top:10px;
-  right:10px;
-  width:min(260px, 42vw);
+  top:10px; right:10px;
+  width:min(250px, 40vw);
   z-index: 3;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.28);
   padding: 10px 10px;
 }
-.sb-meta-emoji{ font-size:1.7rem; }
+.sb-meta-emoji{ font-size:1.6rem; }
 .sb-meta-name{ font-weight:900; margin-top:4px; }
 .sb-meta-desc{ color: var(--muted); font-size:.82rem; margin-top:4px; }
 .sb-meta-row{
@@ -352,8 +332,7 @@ a:hover{ text-decoration:underline; }
   padding: 10px;
 }
 .sb-fever-head{
-  display:flex;
-  justify-content:space-between;
+  display:flex; justify-content:space-between;
   font-size:.82rem;
   color: rgba(226,232,240,.86);
   margin-bottom:8px;
@@ -361,7 +340,6 @@ a:hover{ text-decoration:underline; }
 .sb-fever-head .k{ color: var(--muted); }
 .sb-fever-head .v{ font-weight:900; }
 .sb-fever-head .v.on{ color: #ddd6fe; text-shadow: 0 0 14px rgba(168,85,247,.45); }
-
 .sb-fever-track{
   height:12px;
   border-radius: var(--pill);
@@ -376,7 +354,6 @@ a:hover{ text-decoration:underline; }
   transform: scaleX(0);
   background: linear-gradient(90deg, #a855f7, #38bdf8);
 }
-
 .sb-bars-compact{
   flex:1;
   display:flex;
@@ -388,6 +365,7 @@ a:hover{ text-decoration:underline; }
   background: rgba(2,6,23,.18);
 }
 
+/* Controls */
 .sb-controls{
   margin-top:10px;
   display:flex;
@@ -395,13 +373,7 @@ a:hover{ text-decoration:underline; }
   align-items:center;
   gap:10px;
 }
-.sb-toggle{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:.88rem;
-  color: var(--muted);
-}
+.sb-toggle{ display:flex; align-items:center; gap:8px; font-size:.88rem; color: var(--muted); }
 .sb-toggle input{ width:18px; height:18px; }
 
 /* Result */
@@ -428,25 +400,24 @@ a:hover{ text-decoration:underline; }
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: 42px;
+  font-size: 38px;          /* ✅ เล็กลง */
   font-weight: 900;
   cursor: pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
   animation: sb-pop-in .14s ease-out;
-  box-shadow: 0 18px 44px rgba(0,0,0,.55);
-  transition: opacity .14s ease, transform .14s ease;
+  box-shadow: 0 18px 44px rgba(0,0,0,.52);
 }
 @keyframes sb-pop-in{
   from{ transform: scale(.86); opacity:.0; }
   to{ transform: scale(1); opacity:1; }
 }
-
-/* ✅ PATCH G: fadeout (TTL) */
-.sb-target--fadeout{
+/* ✅ expire smooth */
+.sb-target.is-expiring{
   opacity: 0;
   transform: scale(.92);
+  transition: opacity .14s ease, transform .14s ease;
 }
 
 .sb-target--normal{
@@ -472,7 +443,7 @@ a:hover{ text-decoration:underline; }
 .sb-target--bossface{
   background: radial-gradient(circle at 30% 25%, rgba(168,85,247,.32), rgba(2,6,23,.16));
   border:1px solid rgba(168,85,247,.30);
-  box-shadow: 0 24px 70px rgba(168,85,247,.18), 0 18px 44px rgba(0,0,0,.55);
+  box-shadow: 0 22px 64px rgba(168,85,247,.16), 0 18px 44px rgba(0,0,0,.52);
 }
 
 /* FX layer */
@@ -503,13 +474,15 @@ a:hover{ text-decoration:underline; }
   -webkit-backdrop-filter: blur(8px);
   will-change: transform, opacity;
 }
+
 .sb-fx-hit { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.35); }
-.sb-fx-miss { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.35); }
+.sb-fx-miss { background: rgba(239,68,68,.20); border-color: rgba(239,68,68,.35); }
 .sb-fx-bomb { background: rgba(245,158,11,.22); border-color: rgba(245,158,11,.40); }
 .sb-fx-heal { background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.35); }
 .sb-fx-shield{ background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.35); }
 .sb-fx-fever{ background: rgba(168,85,247,.20); border-color: rgba(168,85,247,.38); }
 
+/* Responsive */
 @media (max-width:900px){
   .sb-result-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .sb-meta{ width:min(240px, 52vw); }
