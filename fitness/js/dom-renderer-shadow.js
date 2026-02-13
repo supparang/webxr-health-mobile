@@ -1,212 +1,251 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DomRendererShadow — SAFE (spawn/remove/expire + FX anchor)
-// PATCH v20260213-shadowbreaker-expire
-// ✅ expire fade (sb-expire) then remove
-// ✅ supports onTargetExpire(id, info) callback
-// ✅ removeTarget safe (double-call tolerant)
-// ✅ targets Map for fast lookup
-// ✅ spawn respects wrap rect + safe margins
+// DOM renderer for Shadow Breaker targets (TTL + soft expire)
+// ✅ spawn/remove targets in #sb-target-layer
+// ✅ pointerdown hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ expires -> fades out then removes + calls onTargetExpire(id, info)
+// ✅ FX via FxBurst (engine calls renderer.playHitFx)
+// Export: DomRendererShadow
 
 'use strict';
 
-import { FXBurst } from './fx-burst.js'; // if you already have; else keep stub usage guarded
+import { FxBurst } from './fx-burst.js';
 
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
-const now = ()=>performance.now();
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
 
-export class DomRendererShadow{
-  constructor(layerEl, opt={}){
-    this.layerEl = layerEl;
-    this.wrapEl = opt.wrapEl || layerEl?.parentElement || document.body;
-    this.feedbackEl = opt.feedbackEl || null;
+export class DomRendererShadow {
+  constructor(layerEl, opts = {}) {
+    this.layer = layerEl;
+    this.wrapEl = opts.wrapEl || null;
+    this.feedbackEl = opts.feedbackEl || null;
 
-    this.onTargetHit = typeof opt.onTargetHit === 'function' ? opt.onTargetHit : null;
-    this.onTargetExpire = typeof opt.onTargetExpire === 'function' ? opt.onTargetExpire : null;
+    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
+    this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
-    this.targets = new Map(); // id -> {el, ttlAt, type, sizePx}
-    this._diff = 'normal';
+    this.diffKey = 'normal';
+    this.targets = new Map();     // id -> element
+    this.meta = new Map();        // id -> { type, bornAt, ttlMs, timer, sizePx, bossEmoji }
 
-    this._safe = { top: 10, bottom: 10, left: 10, right: 10 };
-    this._readSafeFromCSS();
-
-    this._boundPointerDown = (ev)=>this._onPointerDown(ev);
-    this.layerEl?.addEventListener('pointerdown', this._boundPointerDown, { passive:false });
-
-    // FX
-    this.fx = null;
-    try{
-      this.fx = new FXBurst({ root: this.wrapEl });
-    }catch(e){
-      // ok if fx module not present
-      this.fx = null;
-    }
+    this._onPointer = this._onPointer.bind(this);
   }
 
-  setDifficulty(d){
-    this._diff = d || 'normal';
-  }
+  setDifficulty(k){ this.diffKey = k || 'normal'; }
 
   destroy(){
-    // remove all
-    for(const [id, obj] of this.targets){
-      try{ obj?.el?.remove?.(); }catch{}
+    for (const [id, el] of this.targets.entries()) {
+      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el.remove(); } catch {}
+      const m = this.meta.get(id);
+      if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
     }
     this.targets.clear();
-
-    try{
-      this.layerEl?.removeEventListener('pointerdown', this._boundPointerDown);
-    }catch{}
+    this.meta.clear();
   }
 
-  // -------------------------
-  // safe margins (CSS vars)
-  // -------------------------
-  _readSafeFromCSS(){
+  // --- Compute a safe rect to spawn targets (avoid HUD + meta overlay) ---
+  _safeAreaRect(){
+    const r = this.layer.getBoundingClientRect();
+
+    // base padding scales with width
+    const pad = Math.min(46, Math.max(18, r.width * 0.04));
+
+    // reserve top/bottom for HUD/bars feel
+    const topHud = Math.min(110, Math.max(74, r.height * 0.10));
+    const bottomHud = Math.min(110, Math.max(74, r.height * 0.10));
+
+    // reserve right area for meta panel (if present)
+    // read CSS var if available, else default 250
+    let metaW = 250;
     try{
       const cs = getComputedStyle(document.documentElement);
-      const t = parseFloat(cs.getPropertyValue('--hw-top-safe')) || 0;
-      const b = parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 0;
-      // fallback: not hygiene vars? keep small
-      this._safe.top = clamp(t || 10, 0, 180);
-      this._safe.bottom = clamp(b || 10, 0, 220);
+      const v = parseFloat(cs.getPropertyValue('--sb-meta-w')) || 0;
+      if (v > 140) metaW = v;
     }catch{}
+
+    // if viewport is small, reserve less so it doesn't choke the field
+    if (r.width < 520) metaW = Math.min(metaW, Math.max(160, r.width * 0.38));
+
+    const left = pad + 8;
+    const top = pad + 6 + Math.max(0, topHud - 62);
+    const right = r.width - pad - 8 - Math.max(0, metaW - 140); // reserve part of meta width
+    const bottom = r.height - pad - 8 - Math.max(0, bottomHud - 62);
+
+    return { r, left, top, right, bottom };
   }
 
-  _rect(){
-    const r = (this.layerEl || this.wrapEl).getBoundingClientRect();
-    return { x:r.left, y:r.top, w:r.width, h:r.height };
+  _emojiForType(t, bossEmoji){
+    if (t === 'normal') return '🎯';
+    if (t === 'decoy') return '👀';
+    if (t === 'bomb') return '💣';
+    if (t === 'heal') return '🩹';
+    if (t === 'shield') return '🛡️';
+    if (t === 'bossface') return bossEmoji || '👊';
+    return '🎯';
   }
 
-  // -------------------------
-  // spawn
-  // -------------------------
-  spawnTarget({ id, type='normal', sizePx=110, bossEmoji='🎯', ttlMs=1200 }){
-    if(!this.layerEl) return;
+  spawnTarget(data){
+    if (!this.layer || !data) return;
 
-    // if exists, remove first
-    if(this.targets.has(id)) this.removeTarget(id, 'respawn');
+    const id = Number(data.id);
+    if (!Number.isFinite(id)) return;
+
+    // prevent duplicates
+    if (this.targets.has(id)) return;
+
+    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
-    el.className = `sb-target sb-target--${type}`;
+    el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(id);
-    el.dataset.type = type;
 
-    // visual content
-    // (keep simple: emoji for all; you already style with bg)
-    if(type === 'bomb') el.textContent = '💣';
-    else if(type === 'decoy') el.textContent = '🌀';
-    else if(type === 'heal') el.textContent = '💚';
-    else if(type === 'shield') el.textContent = '🛡️';
-    else if(type === 'bossface') el.textContent = bossEmoji || '😈';
-    else el.textContent = '🎯';
+    const size = clamp(Number(data.sizePx) || 110, 64, 260);
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
 
-    // size
-    const s = Math.max(72, Math.min(220, Number(sizePx)||110));
-    el.style.width = `${s}px`;
-    el.style.height = `${s}px`;
+    // random position
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
 
-    // position inside layer rect w/ safe margins
-    const rc = this._rect();
+    // content
+    const emoji = this._emojiForType(data.type, data.bossEmoji);
+    el.textContent = emoji;
 
-    // hard safe margins:
-    const padL = 10, padR = 10;
-    const padT = 10 + (this._safe.top||0);
-    const padB = 10 + (this._safe.bottom||0);
+    // input
+    el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
-    const minX = padL;
-    const maxX = Math.max(padL, rc.w - padR - s);
-    const minY = padT;
-    const maxY = Math.max(padT, rc.h - padB - s);
+    // mount
+    this.layer.appendChild(el);
+    this.targets.set(id, el);
 
-    // if stage too small, clamp
-    const x = Math.floor(clamp(Math.random()*(maxX-minX) + minX, 0, Math.max(0, rc.w - s)));
-    const y = Math.floor(clamp(Math.random()*(maxY-minY) + minY, 0, Math.max(0, rc.h - s)));
+    // TTL / expire
+    const ttlMs = clamp(Number(data.ttlMs) || 1200, 450, 5000);
+    const bornAt = performance.now();
 
-    el.style.position = 'absolute';
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
+    const timer = setTimeout(() => {
+      this._expireTarget(id, 'ttl');
+    }, ttlMs);
 
-    // append
-    this.layerEl.appendChild(el);
-
-    // ttl
-    const ttlAt = now() + Math.max(250, Number(ttlMs)||1200);
-
-    const obj = { el, ttlAt, type, sizePx:s };
-    this.targets.set(id, obj);
-
-    // schedule expire
-    obj._ttlTimer = setTimeout(()=>{
-      // might already removed
-      if(!this.targets.has(id)) return;
-
-      // ✅ expire animation then remove
-      try{
-        el.classList.add('sb-expire');
-      }catch{}
-
-      // callback BEFORE remove (engine decides miss)
-      try{
-        this.onTargetExpire && this.onTargetExpire(id, { type, sizePx:s });
-      }catch{}
-
-      // remove after a tiny delay (match css animation .14s)
-      setTimeout(()=>{
-        this.removeTarget(id, 'expire');
-      }, 150);
-
-    }, Math.max(0, ttlAt - now()));
+    this.meta.set(id, {
+      type: data.type || 'normal',
+      bossEmoji: data.bossEmoji || '',
+      sizePx: size,
+      bornAt,
+      ttlMs,
+      timer
+    });
   }
 
-  // -------------------------
-  // hit / remove
-  // -------------------------
-  _onPointerDown(ev){
-    // find target by closest
-    const t = ev.target?.closest?.('.sb-target');
-    if(!t) return;
+  _onPointer(e){
+    const el = e.currentTarget;
+    if (!el) return;
 
-    ev.preventDefault();
+    const id = Number(el.dataset.id);
+    if (!Number.isFinite(id)) return;
 
-    const id = Number(t.dataset.id);
-    if(!Number.isFinite(id)) return;
-
-    // point coords for FX anchor
-    const pt = {
-      clientX: ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0),
-      clientY: ev.clientY ?? (ev.touches?.[0]?.clientY ?? 0),
-    };
-
-    // let engine handle scoring/removal
-    try{
-      this.onTargetHit && this.onTargetHit(id, pt);
-    }catch(e){
-      console.error(e);
+    // forward hit
+    if (this.onTargetHit) {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
   }
 
-  removeTarget(id, reason='unknown'){
-    const obj = this.targets.get(id);
-    if(!obj) return;
+  _expireTarget(id, reason='ttl'){
+    const el = this.targets.get(id);
+    const m = this.meta.get(id);
 
-    this.targets.delete(id);
+    // already removed
+    if (!el) return;
 
-    try{ clearTimeout(obj._ttlTimer); }catch{}
+    // stop future timer
+    if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
 
+    // soft fade-out
+    try{ el.classList.add('is-expiring'); }catch{}
+
+    // capture center point for potential miss fx
+    let cx = window.innerWidth/2, cy = window.innerHeight/2;
     try{
-      obj.el?.remove?.();
+      const r = el.getBoundingClientRect();
+      cx = r.left + r.width/2;
+      cy = r.top + r.height/2;
     }catch{}
+
+    // remove after short fade (match CSS transition ~120ms)
+    setTimeout(() => {
+      // may have been removed by hit
+      const el2 = this.targets.get(id);
+      if (!el2) return;
+
+      try { el2.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el2.remove(); } catch {}
+
+      this.targets.delete(id);
+      this.meta.delete(id);
+
+      // notify engine for miss logic
+      if (this.onTargetExpire) {
+        this.onTargetExpire(id, {
+          reason,
+          type: m?.type || 'normal',
+          ttlMs: m?.ttlMs || 0,
+          bornAt: m?.bornAt || 0,
+          clientX: cx,
+          clientY: cy
+        });
+      }
+    }, 140);
   }
 
-  // -------------------------
-  // FX
-  // -------------------------
-  playHitFx(id, { clientX=0, clientY=0, grade='good', scoreDelta=0 } = {}){
-    // Guard: FX module optional
-    if(!this.fx || typeof this.fx.pop !== 'function') return;
+  removeTarget(id, reason='remove'){
+    const el = this.targets.get(id);
+    if (!el) return;
 
-    try{
-      this.fx.pop({ x: clientX, y: clientY, grade, scoreDelta });
-    }catch{}
+    const m = this.meta.get(id);
+    if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
+
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+    try { el.remove(); } catch {}
+
+    this.targets.delete(id);
+    this.meta.delete(id);
+  }
+
+  playHitFx(id, info = {}){
+    const el = this.targets.get(id);
+    const rect = el ? el.getBoundingClientRect() : null;
+    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
+    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
+
+    const grade = info.grade || 'good';
+    const scoreDelta = Number(info.scoreDelta) || 0;
+
+    if (grade === 'perfect') {
+      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
+    } else if (grade === 'good') {
+      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
+    } else if (grade === 'bad') {
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+    } else if (grade === 'bomb') {
+      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
+      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
+    } else if (grade === 'heal') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
+      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
+    } else if (grade === 'shield') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
+      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
+    } else {
+      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
+    }
+  }
+
+  // optional helper: engine may call this to show a soft miss fx
+  playMissFx(x, y, text='MISS'){
+    FxBurst.burst(x, y, { n: 7, spread: 42, ttlMs: 520, cls: 'sb-fx-miss' });
+    FxBurst.popText(x, y, text, 'sb-fx-miss');
   }
 }
