@@ -1,40 +1,25 @@
 // === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer UI Controller — PRODUCTION
-// ✅ Menu mode/track selects
-// ✅ Research fields show/hide + meta collection
-// ✅ Start/Stop/Again/Back menu
-// ✅ Result render
-// ✅ CSV download (events + sessions)
-// ✅ Mode in URL (?mode=research|normal) so RB_AI lock works
+// Rhythm Boxer UI Controller — PRODUCTION (Calibration B)
+// ✅ Add Cal HUD: +10ms / -10ms / Reset
+// ✅ Persist to localStorage (per device)
+// ✅ Applies to engine via setCalibrationMs()
 
 'use strict';
 
 (function(){
   const DOC = document;
-  const WIN = window;
 
-  // ---------- helpers ----------
-  const $ = (sel, root=DOC)=>root.querySelector(sel);
-  const $$ = (sel, root=DOC)=>Array.from(root.querySelectorAll(sel));
+  const LS_KEY = 'RB_CAL_MS_V1';
 
-  function setHidden(el, hidden){
-    if(!el) return;
-    el.classList.toggle('hidden', !!hidden);
-  }
+  function qs(sel){ return DOC.querySelector(sel); }
+  function qsa(sel){ return Array.from(DOC.querySelectorAll(sel)); }
 
-  function safeText(el, txt){
-    if(!el) return;
-    el.textContent = (txt==null? '' : String(txt));
-  }
+  function show(el){ if(el) el.classList.remove('hidden'); }
+  function hide(el){ if(el) el.classList.add('hidden'); }
 
-  function fmtPct(v, d=1){
-    const n = Number(v)||0;
-    return n.toFixed(d) + '%';
-  }
-
-  function fmtNum(v, d=1){
-    const n = Number(v)||0;
-    return n.toFixed(d);
+  function getSelectedRadio(name){
+    const el = DOC.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : '';
   }
 
   function downloadText(filename, text){
@@ -46,356 +31,284 @@
     DOC.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
   }
 
-  function getSelectedRadio(name){
-    const el = DOC.querySelector(`input[name="${name}"]:checked`);
-    return el ? el.value : null;
-  }
+  // Views
+  const viewMenu   = qs('#rb-view-menu');
+  const viewPlay   = qs('#rb-view-play');
+  const viewResult = qs('#rb-view-result');
 
-  function setQueryParam(key, value){
-    try{
-      const u = new URL(location.href);
-      if(value==null || value==='') u.searchParams.delete(key);
-      else u.searchParams.set(key, value);
-      history.replaceState({}, '', u.toString());
-    }catch(_){}
-  }
+  const btnStart = qs('#rb-btn-start');
+  const btnStop  = qs('#rb-btn-stop');
 
-  function readQueryParam(key){
-    try{ return new URL(location.href).searchParams.get(key); }catch(_){ return null; }
-  }
+  const btnAgain = qs('#rb-btn-again');
+  const btnBackMenu = qs('#rb-btn-back-menu');
 
-  // ---------- elements ----------
-  const viewMenu   = $('#rb-view-menu');
-  const viewPlay   = $('#rb-view-play');
-  const viewResult = $('#rb-view-result');
+  const btnDlEvents   = qs('#rb-btn-dl-events');
+  const btnDlSessions = qs('#rb-btn-dl-sessions');
 
-  const modeDesc   = $('#rb-mode-desc');
-  const researchFields = $('#rb-research-fields');
-
-  const trackModeLabel = $('#rb-track-mode-label');
-
-  const btnStart = $('#rb-btn-start');
-  const btnStop  = $('#rb-btn-stop');
-  const btnAgain = $('#rb-btn-again');
-  const btnBackMenu = $('#rb-btn-back-menu');
-
-  const btnDlEvents   = $('#rb-btn-dl-events');
-  const btnDlSessions = $('#rb-btn-dl-sessions');
-
-  const audioEl = $('#rb-audio');
-  const fieldEl = $('#rb-field');
-  const lanesEl = $('#rb-lanes');
-
-  // HUD
-  const hud = {
-    mode: $('#rb-hud-mode'),
-    track: $('#rb-hud-track'),
-    score: $('#rb-hud-score'),
-    combo: $('#rb-hud-combo'),
-    acc: $('#rb-hud-acc'),
-    hp: $('#rb-hud-hp'),
-    shield: $('#rb-hud-shield'),
-    time: $('#rb-hud-time'),
-    countPerfect: $('#rb-hud-perfect'),
-    countGreat: $('#rb-hud-great'),
-    countGood: $('#rb-hud-good'),
-    countMiss: $('#rb-hud-miss'),
-    feverFill: $('#rb-fever-fill'),
-    feverStatus: $('#rb-fever-status'),
-    progFill: $('#rb-progress-fill'),
-    progText: $('#rb-progress-text'),
-    aiFatigue: $('#rb-hud-ai-fatigue'),
-    aiSkill: $('#rb-hud-ai-skill'),
-    aiSuggest: $('#rb-hud-ai-suggest'),
-    aiTip: $('#rb-hud-ai-tip')
-  };
-
-  // Result
-  const res = {
-    mode: $('#rb-res-mode'),
-    track: $('#rb-res-track'),
-    endreason: $('#rb-res-endreason'),
-    score: $('#rb-res-score'),
-    maxcombo: $('#rb-res-maxcombo'),
-    detailHit: $('#rb-res-detail-hit'),
-    acc: $('#rb-res-acc'),
-    duration: $('#rb-res-duration'),
-    rank: $('#rb-res-rank'),
-    offsetAvg: $('#rb-res-offset-avg'),
-    offsetStd: $('#rb-res-offset-std'),
-    participant: $('#rb-res-participant'),
-    qualityNote: $('#rb-res-quality-note')
-  };
+  // Mode toggles
+  const modeDesc = qs('#rb-mode-desc');
+  const researchFields = qs('#rb-research-fields');
+  const trackModeLabel = qs('#rb-track-mode-label');
+  const trackOptions = qs('#rb-track-options');
 
   // Research inputs
-  const inpPid  = $('#rb-participant');
-  const inpGroup= $('#rb-group');
-  const inpNote = $('#rb-note');
+  const inpPid = qs('#rb-participant');
+  const inpGroup = qs('#rb-group');
+  const inpNote = qs('#rb-note');
 
-  // ---------- state ----------
+  // Audio + DOM
+  const lanesEl = qs('#rb-lanes');
+  const fieldEl = qs('#rb-field');
+  const audioEl = qs('#rb-audio');
+
+  // HUD wires
+  const hud = {
+    score: qs('#rb-hud-score'),
+    combo: qs('#rb-hud-combo'),
+    acc: qs('#rb-hud-acc'),
+    hp: qs('#rb-hud-hp'),
+    shield: qs('#rb-hud-shield'),
+    time: qs('#rb-hud-time'),
+
+    countPerfect: qs('#rb-hud-perfect'),
+    countGreat: qs('#rb-hud-great'),
+    countGood: qs('#rb-hud-good'),
+    countMiss: qs('#rb-hud-miss'),
+
+    feverFill: qs('#rb-fever-fill'),
+    feverStatus: qs('#rb-fever-status'),
+    progFill: qs('#rb-progress-fill'),
+    progText: qs('#rb-progress-text'),
+
+    aiFatigue: qs('#rb-hud-ai-fatigue'),
+    aiSkill: qs('#rb-hud-ai-skill'),
+    aiSuggest: qs('#rb-hud-ai-suggest'),
+    aiTip: qs('#rb-hud-ai-tip')
+  };
+
+  // Header HUD
+  const hudMode = qs('#rb-hud-mode');
+  const hudTrack = qs('#rb-hud-track');
+
+  // Result UI
+  const resMode = qs('#rb-res-mode');
+  const resTrack = qs('#rb-res-track');
+  const resEnd = qs('#rb-res-endreason');
+  const resScore = qs('#rb-res-score');
+  const resMaxCombo = qs('#rb-res-maxcombo');
+  const resDetailHit = qs('#rb-res-detail-hit');
+  const resAcc = qs('#rb-res-acc');
+  const resDur = qs('#rb-res-duration');
+  const resRank = qs('#rb-res-rank');
+  const resOffsetAvg = qs('#rb-res-offset-avg');
+  const resOffsetStd = qs('#rb-res-offset-std');
+  const resParticipant = qs('#rb-res-participant');
+  const resQualityNote = qs('#rb-res-quality-note');
+
+  // Calibration UI (must exist in HTML for B)
+  const calVal = qs('#rb-hud-cal');
+  const btnCalMinus = qs('#rb-cal-minus');
+  const btnCalPlus  = qs('#rb-cal-plus');
+  const btnCalReset = qs('#rb-cal-reset');
+
+  // Renderer bridge (optional)
+  const renderer = (window.DomRendererRhythm && typeof window.DomRendererRhythm.create === 'function')
+    ? window.DomRendererRhythm.create({ field: fieldEl })
+    : null;
+
   let engine = null;
   let lastMode = 'normal';
   let lastTrackId = 'n1';
-  let lastMeta = {};
 
-  function showView(name){
-    setHidden(viewMenu,   name!=='menu');
-    setHidden(viewPlay,   name!=='play');
-    setHidden(viewResult, name!=='result');
+  function loadCalMs(){
+    try{
+      const v = Number(localStorage.getItem(LS_KEY));
+      return Number.isFinite(v) ? Math.max(-250, Math.min(250, Math.round(v))) : 0;
+    }catch(_){
+      return 0;
+    }
+  }
+  function saveCalMs(ms){
+    try{ localStorage.setItem(LS_KEY, String(Math.round(ms))); }catch(_){}
   }
 
-  function updateModeUI(mode){
-    const isResearch = mode === 'research';
-    setHidden(researchFields, !isResearch);
+  function applyCalToEngine(){
+    if(!engine) return;
+    const ms = loadCalMs();
+    if(typeof engine.setCalibrationMs === 'function'){
+      engine.setCalibrationMs(ms);
+    }
+    if(calVal) calVal.textContent = `${loadCalMs()}ms`;
+  }
 
-    safeText(modeDesc,
-      isResearch
-        ? 'Research: เก็บข้อมูลวิจัย (Event CSV + Session CSV) — แสดง AI prediction ได้ แต่ “ล็อกเกม” ไม่ให้ AI ปรับอะไร'
-        : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)'
-    );
+  function setView(which){
+    hide(viewMenu); hide(viewPlay); hide(viewResult);
+    if(which==='menu') show(viewMenu);
+    if(which==='play') show(viewPlay);
+    if(which==='result') show(viewResult);
+  }
 
-    // Track options label
-    safeText(trackModeLabel,
-      isResearch
-        ? 'โหมด Research — ใช้แทร็กมาตรฐานเดียว (ควบคุมตัวแปรง่าย)'
-        : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก'
-    );
+  function updateModeUI(){
+    const mode = getSelectedRadio('rb-mode') || 'normal';
+    if(mode === 'research'){
+      modeDesc.textContent = 'Research: ล็อกเกม 100% สำหรับงานวิจัย (AI แสดง prediction ได้ แต่ไม่ปรับความยาก)';
+      show(researchFields);
+      trackModeLabel.textContent = 'โหมด Research — เพลงมาตรฐานเพื่อเก็บข้อมูล (120 BPM)';
+    }else{
+      modeDesc.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      hide(researchFields);
+      trackModeLabel.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+    }
 
-    // Filter track radio by data-mode
-    $$('#rb-track-options .rb-mode-btn').forEach(lbl=>{
+    // filter track options by data-mode
+    qsa('#rb-track-options .rb-mode-btn').forEach(lbl=>{
       const m = lbl.getAttribute('data-mode');
       if(!m) return;
-      lbl.style.display = (m === mode) ? '' : 'none';
+      if(m === mode) lbl.classList.remove('hidden');
+      else lbl.classList.add('hidden');
     });
 
-    // Ensure a valid track for that mode is selected
-    const current = getSelectedRadio('rb-track');
-    if(mode==='research'){
-      if(current !== 'r1'){
-        const r1 = DOC.querySelector('input[name="rb-track"][value="r1"]');
-        if(r1) r1.checked = true;
-      }
-    }else{
-      if(current && current.startsWith('r')){
-        const n1 = DOC.querySelector('input[name="rb-track"][value="n1"]');
-        if(n1) n1.checked = true;
-      }
+    // ensure selected track is valid in that mode
+    const currentTrack = getSelectedRadio('rb-track') || 'n1';
+    const ok = !!DOC.querySelector(`#rb-track-options .rb-mode-btn[data-mode="${mode}"] input[value="${currentTrack}"]`);
+    if(!ok){
+      // switch to first available
+      const first = DOC.querySelector(`#rb-track-options .rb-mode-btn[data-mode="${mode}"] input[name="rb-track"]`);
+      if(first) first.checked = true;
     }
   }
 
-  function wireModeRadios(){
-    $$('input[name="rb-mode"]').forEach(r=>{
-      r.addEventListener('change', ()=>{
-        const mode = getSelectedRadio('rb-mode') || 'normal';
-        updateModeUI(mode);
-      });
+  function bindModeRadios(){
+    qsa('input[name="rb-mode"]').forEach(r=>{
+      r.addEventListener('change', updateModeUI);
     });
   }
 
-  function getTrackNameById(trackId){
-    const map = {
-      n1: 'Warm-up Groove',
-      n2: 'Focus Combo',
-      n3: 'Speed Rush',
-      r1: 'Research Track 120'
-    };
-    return map[trackId] || trackId;
-  }
-
-  function collectMeta(mode){
-    if(mode !== 'research'){
-      return { id:'', participant_id:'', group:'', note:'' };
-    }
-    return {
-      id: (inpPid && inpPid.value || '').trim(),
-      participant_id: (inpPid && inpPid.value || '').trim(),
-      group: (inpGroup && inpGroup.value || '').trim(),
-      note: (inpNote && inpNote.value || '').trim()
-    };
-  }
-
-  function startGame(){
-    const mode = getSelectedRadio('rb-mode') || 'normal';
-    const trackId = getSelectedRadio('rb-track') || (mode==='research' ? 'r1' : 'n1');
-    const meta = collectMeta(mode);
-
-    // Put mode in URL so RB_AI reads it
-    setQueryParam('mode', mode);
-
-    // Build engine if needed
-    if(!WIN.RhythmBoxerEngine){
-      alert('Engine ยังไม่โหลด (RhythmBoxerEngine missing)');
-      return;
-    }
-
-    engine = new WIN.RhythmBoxerEngine({
-      wrap: $('#rb-wrap'),
+  function initEngine(){
+    engine = new window.RhythmBoxerEngine({
+      wrap: qs('#rb-wrap'),
       field: fieldEl,
-      lanesEl: lanesEl,
+      lanesEl,
       audio: audioEl,
-      renderer: WIN.RhythmDomRenderer ? new WIN.RhythmDomRenderer({ root: $('#rb-wrap') }) : null,
+      renderer,
       hud,
       hooks: {
         onStart(info){
-          // HUD mode/track header
-          safeText(hud.mode, info.mode === 'research' ? 'Research' : 'Normal');
-          safeText(hud.track, getTrackNameById(trackId));
+          if(hudMode) hudMode.textContent = (info.mode === 'research') ? 'Research' : 'Normal';
+          if(hudTrack) hudTrack.textContent = info.track ? info.track.name : '-';
         },
         onEnd(summary){
-          renderResult(summary);
-          showView('result');
+          // fill result
+          resMode.textContent = summary.modeLabel || '-';
+          resTrack.textContent = summary.trackName || '-';
+          resEnd.textContent = summary.endReason || '-';
+          resScore.textContent = String(summary.finalScore ?? 0);
+          resMaxCombo.textContent = String(summary.maxCombo ?? 0);
+          resDetailHit.textContent = `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
+          resAcc.textContent = (summary.accuracyPct!=null) ? `${summary.accuracyPct.toFixed(1)} %` : '0.0 %';
+          resDur.textContent = (summary.durationSec!=null) ? `${summary.durationSec.toFixed(1)} s` : '0.0 s';
+          resRank.textContent = summary.rank || '-';
+          resOffsetAvg.textContent = (summary.offsetMean!=null) ? `${(summary.offsetMean*1000).toFixed(0)} ms` : '-';
+          resOffsetStd.textContent = (summary.offsetStd!=null) ? `${(summary.offsetStd*1000).toFixed(0)} ms` : '-';
+          resParticipant.textContent = summary.participant || '-';
+
+          if(summary.qualityNote){
+            resQualityNote.textContent = summary.qualityNote;
+            resQualityNote.classList.remove('hidden');
+          }else{
+            resQualityNote.classList.add('hidden');
+          }
+
+          setView('result');
         }
       }
     });
 
+    // apply stored calibration on init
+    applyCalToEngine();
+  }
+
+  function startGame(){
+    const mode = getSelectedRadio('rb-mode') || 'normal';
+    const trackId = getSelectedRadio('rb-track') || 'n1';
+
     lastMode = mode;
     lastTrackId = trackId;
-    lastMeta = meta;
 
-    // Switch view to play first (so mobile audio unlock continues)
-    showView('play');
+    const meta = {
+      participant_id: inpPid ? inpPid.value.trim() : '',
+      group: inpGroup ? inpGroup.value.trim() : '',
+      note: inpNote ? inpNote.value.trim() : ''
+    };
 
-    // Fill HUD static
-    safeText(hud.mode, mode === 'research' ? 'Research' : 'Normal');
-    safeText(hud.track, getTrackNameById(trackId));
+    setView('play');
 
-    // Start engine
+    // ensure calibration is applied before start
+    applyCalToEngine();
+
     engine.start(mode, trackId, meta);
   }
 
   function stopGame(){
-    if(engine && typeof engine.stop === 'function'){
-      engine.stop('manual-stop');
-    }else{
-      showView('menu');
-    }
+    if(engine) engine.stop('manual-stop');
   }
 
-  function playAgain(){
-    if(!engine){
-      showView('menu');
-      return;
-    }
-    // re-create engine cleanly to avoid leftover notes
-    showView('menu');
-    // slight defer to let UI paint
-    setTimeout(()=>{
-      // restore radios
-      const m = DOC.querySelector(`input[name="rb-mode"][value="${lastMode}"]`);
-      if(m) m.checked = true;
-      updateModeUI(lastMode);
-
-      const t = DOC.querySelector(`input[name="rb-track"][value="${lastTrackId}"]`);
-      if(t) t.checked = true;
-
-      if(inpPid) inpPid.value = lastMeta.id || lastMeta.participant_id || '';
-      if(inpGroup) inpGroup.value = lastMeta.group || '';
-      if(inpNote) inpNote.value = lastMeta.note || '';
-
-      startGame();
-    }, 50);
-  }
-
-  function renderResult(summary){
-    // summary from engine.hooks.onEnd
-    safeText(res.mode, summary.modeLabel || '-');
-    safeText(res.track, summary.trackName || '-');
-    safeText(res.endreason, summary.endReason || '-');
-
-    safeText(res.score, summary.finalScore ?? 0);
-    safeText(res.maxcombo, summary.maxCombo ?? 0);
-
-    safeText(res.detailHit,
-      `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`
-    );
-
-    safeText(res.acc, fmtNum(summary.accuracyPct ?? 0, 1) + ' %');
-    safeText(res.duration, fmtNum(summary.durationSec ?? 0, 1) + ' s');
-    safeText(res.rank, summary.rank || '-');
-
-    safeText(res.offsetAvg, fmtNum(summary.offsetMean ?? 0, 4) + ' s');
-    safeText(res.offsetStd, fmtNum(summary.offsetStd ?? 0, 4) + ' s');
-
-    safeText(res.participant, summary.participant || '-');
-
-    if(summary.qualityNote){
-      safeText(res.qualityNote, summary.qualityNote);
-      setHidden(res.qualityNote, false);
-    }else{
-      setHidden(res.qualityNote, true);
-    }
-  }
-
-  function downloadEvents(){
-    if(!engine || typeof engine.getEventsCsv !== 'function'){
-      alert('ยังไม่มีข้อมูล Event CSV');
-      return;
-    }
-    const csv = engine.getEventsCsv();
-    const name = `rb_events_${(lastMeta.id||lastMeta.participant_id||'anon')}_${Date.now()}.csv`;
-    downloadText(name, csv);
-  }
-
-  function downloadSessions(){
-    if(!engine || typeof engine.getSessionCsv !== 'function'){
-      alert('ยังไม่มีข้อมูล Session CSV');
-      return;
-    }
-    const csv = engine.getSessionCsv();
-    const name = `rb_sessions_${(lastMeta.id||lastMeta.participant_id||'anon')}_${Date.now()}.csv`;
-    downloadText(name, csv);
-  }
-
-  // ---------- init ----------
-  function init(){
-    // Show menu first
-    showView('menu');
-
-    // Wire mode UI
-    wireModeRadios();
-
-    // Initial mode UI
-    const mode0 = getSelectedRadio('rb-mode') || 'normal';
-    updateModeUI(mode0);
-
-    // Respect URL mode if provided (optional)
-    const qm = (readQueryParam('mode') || '').toLowerCase();
-    if(qm === 'research' || qm === 'normal'){
-      const r = DOC.querySelector(`input[name="rb-mode"][value="${qm}"]`);
-      if(r) r.checked = true;
-      updateModeUI(qm);
-      lastMode = qm;
-    }
-
-    // Start
+  function bindButtons(){
     if(btnStart) btnStart.addEventListener('click', startGame);
-
-    // Stop
     if(btnStop) btnStop.addEventListener('click', stopGame);
 
-    // Result buttons
-    if(btnAgain) btnAgain.addEventListener('click', playAgain);
-    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=>{
-      // clear URL mode? keep it is fine; but return to menu
-      showView('menu');
+    if(btnAgain) btnAgain.addEventListener('click', ()=>{
+      setView('play');
+      applyCalToEngine();
+      engine.start(lastMode, lastTrackId, {
+        participant_id: inpPid ? inpPid.value.trim() : '',
+        group: inpGroup ? inpGroup.value.trim() : '',
+        note: inpNote ? inpNote.value.trim() : ''
+      });
     });
 
-    // CSV
-    if(btnDlEvents) btnDlEvents.addEventListener('click', downloadEvents);
-    if(btnDlSessions) btnDlSessions.addEventListener('click', downloadSessions);
+    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=>{
+      setView('menu');
+    });
 
-    // Update play instruction text to match your intent (gold line at bottom)
-    // (ไม่แก้ HTML ตรง ๆ แต่คุณสามารถเปลี่ยนใน HTML ก็ได้)
-    // Note: ถ้าต้องการแก้ข้อความในหน้า play ให้ผมแก้ HTML ด้วย เดี๋ยวจัดไฟล์ rhythm-boxer.html ต่อ
+    if(btnDlEvents) btnDlEvents.addEventListener('click', ()=>{
+      const csv = engine ? engine.getEventsCsv() : '';
+      downloadText(`rhythm_events_${Date.now()}.csv`, csv);
+    });
+    if(btnDlSessions) btnDlSessions.addEventListener('click', ()=>{
+      const csv = engine ? engine.getSessionCsv() : '';
+      downloadText(`rhythm_sessions_${Date.now()}.csv`, csv);
+    });
+
+    // Calibration buttons
+    if(btnCalMinus) btnCalMinus.addEventListener('click', ()=>{
+      const v = loadCalMs() - 10;
+      saveCalMs(v);
+      applyCalToEngine();
+    });
+    if(btnCalPlus) btnCalPlus.addEventListener('click', ()=>{
+      const v = loadCalMs() + 10;
+      saveCalMs(v);
+      applyCalToEngine();
+    });
+    if(btnCalReset) btnCalReset.addEventListener('click', ()=>{
+      saveCalMs(0);
+      applyCalToEngine();
+    });
   }
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', init);
-  }else{
-    init();
+  function boot(){
+    bindModeRadios();
+    updateModeUI();
+
+    initEngine();
+    bindButtons();
+    setView('menu');
   }
 
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
