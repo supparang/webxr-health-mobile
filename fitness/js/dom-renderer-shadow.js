@@ -4,7 +4,7 @@
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ TTL expire -> fadeout then remove (PATCH G)
 // ✅ onTargetExpire(id, meta) callback (PATCH G)
-// ✅ FX via FxBurst (hit side uses renderer.playHitFx)
+// ✅ FX via FxBurst
 
 'use strict';
 
@@ -20,13 +20,11 @@ export class DomRendererShadow {
     this.feedbackEl = opts.feedbackEl || null;
 
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
-
-    // ✅ PATCH G: expire callback
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map();     // id -> el
-    this.timers = new Map();      // id -> { ttl, fade }
+    this.targets = new Map(); // id -> el
+    this.timers = new Map();  // id -> {ttl, fade}
     this._onPointer = this._onPointer.bind(this);
   }
 
@@ -48,7 +46,6 @@ export class DomRendererShadow {
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-    // keep margins away from HUD/meta
     const pad = Math.min(44, Math.max(18, r.width * 0.04));
     const top = pad + 10;
     const left = pad + 10;
@@ -67,9 +64,7 @@ export class DomRendererShadow {
     return '🎯';
   }
 
-  // ✅ PATCH G: internal timer wiring
   _armTTL(id, ttlMs, meta){
-    // clear old
     const old = this.timers.get(id);
     if (old){
       try { clearTimeout(old.ttl); } catch {}
@@ -78,30 +73,25 @@ export class DomRendererShadow {
     }
     if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
 
-    // fade window: last 140ms
     const fadeMs = 140;
     const tFade = Math.max(0, ttlMs - fadeMs);
 
     const fade = setTimeout(()=>{
       const el = this.targets.get(id);
       if (!el) return;
-      el.classList.add('sb-target--fadeout'); // CSS has this
+      el.classList.add('sb-target--fadeout');
     }, tFade);
 
     const ttl = setTimeout(()=>{
-      // if still alive => expire
       const el = this.targets.get(id);
       if (!el) return;
 
-      // compute center for soft miss fx (optional)
       const rect = el.getBoundingClientRect();
       const cx = rect.left + rect.width/2;
       const cy = rect.top + rect.height/2;
 
-      // remove element
       this.removeTarget(id, 'timeout');
 
-      // callback to engine (count miss / hp penalty / etc.)
       if (this.onTargetExpire){
         this.onTargetExpire(id, {
           ...meta,
@@ -129,13 +119,11 @@ export class DomRendererShadow {
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position
     const x = rand(left, Math.max(left, right - size));
     const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
-    // content
     const emoji = this._emojiForType(data.type, data.bossEmoji);
     el.textContent = emoji;
 
@@ -144,7 +132,6 @@ export class DomRendererShadow {
     this.layer.appendChild(el);
     this.targets.set(data.id, el);
 
-    // ✅ PATCH G: TTL expire
     const ttlMs = Number(data.ttlMs);
     this._armTTL(data.id, ttlMs, {
       targetType: (data.type || 'normal'),
@@ -158,14 +145,12 @@ export class DomRendererShadow {
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
-    // forward hit
     if (this.onTargetHit) {
       this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
   }
 
   removeTarget(id, reason){
-    // clear timers
     const t = this.timers.get(id);
     if (t){
       try { clearTimeout(t.ttl); } catch {}
@@ -212,7 +197,6 @@ export class DomRendererShadow {
     }
   }
 
-  // ✅ optional: simple miss fx helper (engine may call its own)
   playMissFx(x, y){
     FxBurst.burst(x, y, { n: 8, spread: 42, ttlMs: 520, cls: 'sb-fx-miss' });
     FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
