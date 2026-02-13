@@ -1,222 +1,221 @@
-<!-- === /fitness/shadow-breaker.html ===
-Shadow Breaker — PATCH D
-✅ Force load shadow-breaker.css (no min.css) + cache-bust
-✅ Engine cache-bust
-✅ Research UI uses same theme (CSS handles it) + tidy layout
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Shadow Breaker — VR Fitness</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
-
-  <!-- ✅ PATCH D: use ONLY this (do NOT load shadow-breaker.min.css) -->
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260210d"/>
+  <title>VR Fitness — Shadow Breaker</title>
+  <meta name="color-scheme" content="dark"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 </head>
 <body>
-<div id="sb-wrap">
+  <div id="sb-wrap" class="sb-wrap" data-phase="1" data-boss="0" data-diff="normal">
 
-  <!-- HERO -->
-  <section class="sb-hero">
-    <div class="sb-pill">VR Fitness • Boss Targets</div>
-    <h1>Shadow Breaker</h1>
-    <p>เกมตีเป้า Boss หลายเฟส • RT/Combo/FEVER/Shield • รองรับ Normal/Research</p>
-    <p style="margin-top:8px;">รองรับ: <b>PC</b> • <b>Mobile</b></p>
-    <a class="sb-btn ghost" id="sb-btn-hub" href="./hub.html" style="margin-top:10px; display:inline-flex; text-decoration:none;">
-      ← กลับ Hub
-    </a>
-  </section>
-
-  <!-- MENU VIEW -->
-  <section id="sb-view-menu" class="sb-view is-active">
-    <section class="sb-menu">
-      <div class="sb-tabs">
-        <button class="sb-tab is-on" id="sb-tab-normal" type="button">🎮 Normal</button>
-        <button class="sb-tab" id="sb-tab-research" type="button">📊 Research</button>
-      </div>
-
-      <div id="sb-mode-desc" style="color:var(--muted); font-size:var(--fs-sm);">
-        Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
-      </div>
-
-      <div class="sb-row">
-        <label>Difficulty</label>
-        <select id="sb-sel-diff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-
-        <label>Time (sec)</label>
-        <select id="sb-sel-time">
-          <option value="60">60</option>
-          <option value="70" selected>70</option>
-          <option value="80">80</option>
-          <option value="90">90</option>
-        </select>
-      </div>
-
-      <!-- Research fields -->
-      <div id="sb-research-fields" style="display:none; margin-top:10px;">
-        <div class="sb-row">
-          <label>Participant ID</label>
-          <input id="sb-inp-pid" placeholder="เช่น S05-001"/>
-
-          <label>Group</label>
-          <input id="sb-inp-group" placeholder="เช่น Control/Exp-A"/>
-
-          <label>Note</label>
-          <input id="sb-inp-note" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
+    <header class="sb-header">
+      <div class="sb-header-left">
+        <div class="sb-kicker">VR Fitness • Boss Targets</div>
+        <h1 class="sb-title">Shadow Breaker</h1>
+        <div class="sb-sub">
+          เกมตีเป้า Boss หลายเฟส • RT/Combo/FEVER/Shield • รองรับ Normal/Research
         </div>
       </div>
 
-      <div style="margin-top:10px; color:var(--muted); font-size:var(--fs-sm);">
-        AI (Play only): DL-lite Predictor • Explainable micro-tips • Pattern Generator • Fair adaptive pacing
-      </div>
-
-      <div class="sb-actions">
-        <button class="sb-btn primary" id="sb-btn-play" type="button">▶ Start Game</button>
-        <button class="sb-btn" id="sb-btn-research" type="button">📊 Start Research</button>
-        <button class="sb-btn ghost" id="sb-btn-howto" type="button">❓ How to play</button>
-      </div>
-
-      <div id="sb-howto" style="display:none; margin-top:12px; color:var(--text);">
-        <ul style="margin:0; padding-left:18px; line-height:1.5;">
-          <li>ชก/แตะเป้า “Normal” เพื่อทำคอมโบ + เพิ่มคะแนน</li>
-          <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ (ถ้ามี Shield จะกันได้)</li>
-          <li>เป้า “Heal/Shield” ช่วยเอาตัวรอด + รักษาคอมโบ</li>
-          <li>FEVER เต็ม → คะแนน/ดาเมจบอสเพิ่มช่วงสั้น ๆ</li>
-          <li>HP บอสใกล้หมด → จะเรียกหน้า Boss (Boss Face) โผล่ 1 ครั้ง</li>
-        </ul>
-      </div>
-    </section>
-  </section>
-
-  <!-- PLAY VIEW -->
-  <section id="sb-view-play" class="sb-view">
-    <section class="sb-play-shell">
-
-      <div class="sb-hud-top">
-        <div class="sb-hud-left">
-          <div class="sb-kv">Time <b id="sb-text-time">0.0 s</b></div>
-          <div class="sb-kv">Score <b id="sb-text-score">0</b></div>
-          <div class="sb-kv">Combo <b id="sb-text-combo">0</b></div>
-        </div>
-
-        <div class="sb-hud-right">
-          <div class="sb-kv"><b id="sb-current-boss-name">Boss</b></div>
-          <div class="sb-kv">Phase <b id="sb-text-phase">1</b></div>
-          <div class="sb-kv">Miss <b id="sb-text-miss">0</b></div>
-          <div class="sb-kv">Shield <b id="sb-text-shield">0</b></div>
+      <div class="sb-header-right">
+        <div class="sb-support">รองรับ: <strong>PC</strong> • <strong>Mobile</strong></div>
+        <div class="sb-tip">ทิป: เปิดเสียง + ลองโหมด Hard จะ “เดือด” มาก</div>
+        <div class="sb-links">
+          <a class="sb-link" href="./hub.html">← กลับ Hub</a>
         </div>
       </div>
+    </header>
 
-      <div class="sb-bars">
-        <div class="sb-kv" style="min-width:46px;">YOU</div>
-        <div class="sb-bar"><i id="sb-hp-you-top"></i></div>
-        <div class="sb-kv" style="min-width:52px; justify-content:flex-end;">BOSS</div>
-        <div class="sb-bar"><i id="sb-hp-boss-top"></i></div>
-      </div>
-
-      <div class="sb-grid">
-        <div id="sb-target-layer">
-          <div id="sb-msg-main" class="sb-msg-main">พร้อม!</div>
-        </div>
-
-        <aside class="sb-boss-card">
-          <h3><span id="sb-meta-emoji">🐣</span> <span id="sb-meta-name">Boss</span></h3>
-          <p id="sb-meta-desc">คำใบ้บอส…</p>
-          <div class="sb-boss-meta">
-            <span>Phase: <b id="sb-boss-phase-label">1</b></span>
-            <span>Shield: <b id="sb-boss-shield-label">0</b></span>
+    <main class="sb-main">
+      <!-- MENU -->
+      <section id="sb-view-menu" class="sb-view is-active">
+        <div class="sb-panel">
+          <div class="sb-mode-row">
+            <button id="sb-mode-normal" class="sb-mode-btn is-active" type="button">
+              <span class="icon">🎮</span><span>Normal</span>
+            </button>
+            <button id="sb-mode-research" class="sb-mode-btn" type="button">
+              <span class="icon">📊</span><span>Research</span>
+            </button>
           </div>
-          <div style="margin-top:10px;">
-            <button class="sb-btn ghost" id="sb-btn-back-menu" type="button">← กลับเมนู</button>
-          </div>
-        </aside>
-      </div>
 
-      <div class="sb-hud-bottom">
-        <div class="sb-fever">
-          <div class="row">
-            <div id="sb-label-fever">FEVER</div>
-            <label style="display:flex; gap:8px; align-items:center; color:var(--muted); font-size:var(--fs-sm);">
-              <input id="sb-btn-pause" type="checkbox" style="transform:scale(1.05);"/>
-              Pause
+          <div id="sb-mode-desc" class="sb-mode-desc">
+            Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
+          </div>
+
+          <div class="sb-form">
+            <div class="sb-field">
+              <label class="sb-label" for="sb-diff">Difficulty</label>
+              <select id="sb-diff" class="sb-input">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div class="sb-field">
+              <label class="sb-label" for="sb-time">Time (sec)</label>
+              <select id="sb-time" class="sb-input">
+                <option value="45">45</option>
+                <option value="60">60</option>
+                <option value="70" selected>70</option>
+                <option value="90">90</option>
+              </select>
+            </div>
+
+            <div id="sb-research-box" class="sb-research-box">
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-id">Participant ID</label>
+                <input id="sb-part-id" class="sb-input" placeholder="เช่น S05-001"/>
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-group">Group</label>
+                <input id="sb-part-group" class="sb-input" placeholder="เช่น Control/Exp-A"/>
+              </div>
+
+              <div class="sb-field">
+                <label class="sb-label" for="sb-part-note">Note</label>
+                <input id="sb-part-note" class="sb-input" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
+              </div>
+            </div>
+
+            <div class="sb-ai-box">
+              <div class="sb-ai-title">AI (Play only)</div>
+              <div class="sb-ai-chips">
+                <span class="sb-chip">DL-lite Predictor</span>
+                <span class="sb-chip">Explainable micro-tips</span>
+                <span class="sb-chip">Pattern Generator</span>
+                <span class="sb-chip">Fair adaptive pacing</span>
+              </div>
+            </div>
+
+            <div class="sb-actions">
+              <button id="sb-btn-play" class="sb-btn sb-btn-primary" type="button">▶ Start Game</button>
+              <button id="sb-btn-research" class="sb-btn" type="button">📊 Start Research</button>
+              <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">❓ How to play</button>
+            </div>
+
+            <div id="sb-howto" class="sb-howto">
+              <ul>
+                <li>ชก/แตะเป้า “Normal” เพื่อทำดาเมจบอส + เพิ่มคะแนน</li>
+                <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ (ถ้ามี Shield จะกันได้)</li>
+                <li>เป้า “Heal/Shield” ช่วยเอาตัวรอด + ทำคอมโบ</li>
+                <li>FEVER เต็ม → คะแนน/ดาเมจบอสเพิ่มช่วงสั้น ๆ</li>
+                <li>HP บอสใกล้หมด → จะมี “Boss Face” โผล่ให้ CRIT</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLAY -->
+      <section id="sb-view-play" class="sb-view">
+        <div class="sb-play">
+          <div class="sb-hud sb-hud-top">
+            <div class="sb-hud-left">
+              <div class="sb-stat"><span class="k">Time</span><span id="sb-text-time" class="v">0.0 s</span></div>
+              <div class="sb-stat"><span class="k">Score</span><span id="sb-text-score" class="v">0</span></div>
+              <div class="sb-stat"><span class="k">Combo</span><span id="sb-text-combo" class="v">0</span></div>
+            </div>
+            <div class="sb-hud-center">
+              <div id="sb-current-boss-name" class="sb-boss-name">Bubble Glove 🐣</div>
+            </div>
+            <div class="sb-hud-right">
+              <div class="sb-stat"><span class="k">Phase</span><span id="sb-text-phase" class="v">1</span></div>
+              <div class="sb-stat"><span class="k">Miss</span><span id="sb-text-miss" class="v">0</span></div>
+              <div class="sb-stat"><span class="k">Shield</span><span id="sb-text-shield" class="v">0</span></div>
+            </div>
+          </div>
+
+          <div class="sb-bars sb-bars-top">
+            <div class="sb-bar">
+              <div class="sb-bar-label">YOU</div>
+              <div class="sb-bar-track"><div id="sb-hp-you-top" class="sb-bar-fill"></div></div>
+            </div>
+            <div class="sb-bar">
+              <div class="sb-bar-label">BOSS</div>
+              <div class="sb-bar-track"><div id="sb-hp-boss-top" class="sb-bar-fill boss"></div></div>
+            </div>
+          </div>
+
+          <div class="sb-stage">
+            <div id="sb-target-layer" class="sb-target-layer"></div>
+            <div class="sb-center-msg">
+              <div id="sb-msg-main" class="sb-msg-main">แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!</div>
+            </div>
+
+            <aside class="sb-meta">
+              <div class="sb-meta-emoji" id="sb-meta-emoji">🐣</div>
+              <div class="sb-meta-name" id="sb-meta-name">Bubble Glove</div>
+              <div class="sb-meta-desc" id="sb-meta-desc">โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน</div>
+
+              <div class="sb-meta-row"><span>Phase</span><strong id="sb-boss-phase-label">1</strong></div>
+              <div class="sb-meta-row"><span>Shield</span><strong id="sb-boss-shield-label">0</strong></div>
+            </aside>
+          </div>
+
+          <div class="sb-bars sb-bars-bottom">
+            <div class="sb-fever">
+              <div class="sb-fever-head">
+                <span class="k">FEVER</span>
+                <span id="sb-label-fever" class="v">READY</span>
+              </div>
+              <div class="sb-fever-track"><div id="sb-fever-bar" class="sb-fever-fill"></div></div>
+            </div>
+
+            <div class="sb-bars-compact">
+              <div class="sb-bar">
+                <div class="sb-bar-label">YOU</div>
+                <div class="sb-bar-track"><div id="sb-hp-you-bottom" class="sb-bar-fill"></div></div>
+              </div>
+              <div class="sb-bar">
+                <div class="sb-bar-label">BOSS</div>
+                <div class="sb-bar-track"><div id="sb-hp-boss-bottom" class="sb-bar-fill boss"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sb-controls">
+            <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost" type="button">← Menu</button>
+            <label class="sb-toggle">
+              <input id="sb-btn-pause" type="checkbox"/>
+              <span>Stop</span>
             </label>
           </div>
-          <div class="track"><div id="sb-fever-bar"></div></div>
         </div>
+      </section>
 
-        <div class="sb-pausebox">
-          <div>YOU</div>
-          <div class="sb-bar" style="flex:1;"><i id="sb-hp-you-bottom"></i></div>
-          <div>BOSS</div>
-          <div class="sb-bar" style="flex:1;"><i id="sb-hp-boss-bottom"></i></div>
+      <!-- RESULT -->
+      <section id="sb-view-result" class="sb-view">
+        <div class="sb-panel sb-result">
+          <h2 class="sb-result-title">Result</h2>
+
+          <div class="sb-result-grid">
+            <div class="sb-result-card"><div class="k">Time</div><div id="sb-res-time" class="v">0.0 s</div></div>
+            <div class="sb-result-card"><div class="k">Score</div><div id="sb-res-score" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">Max Combo</div><div id="sb-res-max-combo" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">Miss</div><div id="sb-res-miss" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">Phase</div><div id="sb-res-phase" class="v">1</div></div>
+            <div class="sb-result-card"><div class="k">Bosses Cleared</div><div id="sb-res-boss-cleared" class="v">0</div></div>
+            <div class="sb-result-card"><div class="k">Accuracy</div><div id="sb-res-acc" class="v">0.0 %</div></div>
+            <div class="sb-result-card"><div class="k">Grade</div><div id="sb-res-grade" class="v">C</div></div>
+          </div>
+
+          <div class="sb-result-actions">
+            <button id="sb-btn-result-retry" class="sb-btn sb-btn-primary" type="button">▶ Retry</button>
+            <button id="sb-btn-download-events" class="sb-btn" type="button">⬇ Events CSV</button>
+            <button id="sb-btn-download-session" class="sb-btn" type="button">⬇ Session CSV</button>
+            <button id="sb-btn-result-menu" class="sb-btn sb-btn-ghost" type="button">← Menu</button>
+          </div>
         </div>
-      </div>
+      </section>
+    </main>
+  </div>
 
-    </section>
-  </section>
-
-  <!-- RESULT VIEW -->
-  <section id="sb-view-result" class="sb-view">
-    <section class="sb-result">
-      <h2>สรุปผล</h2>
-      <div class="grid">
-        <div class="sb-chip">Time <b id="sb-res-time">0.0 s</b></div>
-        <div class="sb-chip">Score <b id="sb-res-score">0</b></div>
-        <div class="sb-chip">Max Combo <b id="sb-res-max-combo">0</b></div>
-        <div class="sb-chip">Miss <b id="sb-res-miss">0</b></div>
-        <div class="sb-chip">Phase <b id="sb-res-phase">1</b></div>
-        <div class="sb-chip">Boss Cleared <b id="sb-res-boss-cleared">0</b></div>
-        <div class="sb-chip">Accuracy <b id="sb-res-acc">0%</b></div>
-        <div class="sb-chip">Grade <b id="sb-res-grade">C</b></div>
-      </div>
-
-      <div class="actions">
-        <button class="sb-btn primary" id="sb-btn-result-retry" type="button">เล่นอีกครั้ง</button>
-        <button class="sb-btn" id="sb-btn-result-menu" type="button">กลับเมนู</button>
-        <button class="sb-btn ghost" id="sb-btn-download-events" type="button">ดาวน์โหลด events.csv</button>
-        <button class="sb-btn ghost" id="sb-btn-download-session" type="button">ดาวน์โหลด session.csv</button>
-      </div>
-    </section>
-  </section>
-
-</div>
-
-<!-- ✅ PATCH D: engine cache-bust -->
-<script type="module" src="./js/engine.js?v=20260210d"></script>
-
-<script>
-/* small menu behavior (no dependency) */
-(function(){
-  const $ = (s)=>document.querySelector(s);
-  const tabN = $('#sb-tab-normal');
-  const tabR = $('#sb-tab-research');
-  const rf = $('#sb-research-fields');
-  const desc = $('#sb-mode-desc');
-  const howtoBtn = $('#sb-btn-howto');
-  const howto = $('#sb-howto');
-
-  function setMode(m){
-    const isR = (m==='research');
-    tabN?.classList.toggle('is-on', !isR);
-    tabR?.classList.toggle('is-on', isR);
-    if(rf) rf.style.display = isR ? '' : 'none';
-    if(desc) desc.textContent = isR
-      ? 'Research: ใช้เก็บข้อมูลการทดลอง (กรอก Participant/Group ได้)'
-      : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
-  }
-  tabN?.addEventListener('click', ()=>setMode('normal'));
-  tabR?.addEventListener('click', ()=>setMode('research'));
-  howtoBtn?.addEventListener('click', ()=>{ if(howto) howto.style.display = (howto.style.display==='none'||!howto.style.display) ? '' : 'none'; });
-
-  setMode('normal');
-})();
-</script>
+  <script type="module" src="./js/engine.js"></script>
 </body>
 </html>
