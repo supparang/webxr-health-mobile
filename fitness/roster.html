@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Fitness — Roster (Auto PID + QR)</title>
+  <title>Fitness — Roster (Auto PID + QR + Seed Lock)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../herohealth/favicon.ico"/>
+
   <style>
     :root{
       --bg:#040610;
@@ -33,7 +34,7 @@
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
     .wrap{
-      max-width: 1200px;
+      max-width: 1240px;
       margin: 0 auto;
       padding: calc(16px + var(--sat)) 16px calc(18px + var(--sab));
     }
@@ -42,13 +43,9 @@
       gap:12px; flex-wrap:wrap;
       margin-bottom: 12px;
     }
-    .title{
-      font-weight:800; letter-spacing:.2px;
-      font-size: 18px;
-    }
-    .sub{
-      color:var(--muted); font-size: 13px; margin-top: 4px;
-    }
+    .title{ font-weight:800; letter-spacing:.2px; font-size: 18px; }
+    .sub{ color:var(--muted); font-size: 13px; margin-top: 4px; }
+
     .card{
       border:1px solid var(--stroke);
       background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(4,6,16,.72));
@@ -56,15 +53,15 @@
       box-shadow: 0 12px 28px rgba(0,0,0,.35);
       padding: 14px;
     }
+
     .grid{
       display:grid;
-      grid-template-columns: 1.1fr .9fr;
+      grid-template-columns: 1.08fr .92fr;
       gap: 12px;
       align-items:start;
     }
-    @media (max-width: 980px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+
     label{ display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
     input, textarea, select{
       width:100%;
@@ -76,11 +73,15 @@
       outline:none;
     }
     textarea{ min-height: 170px; resize: vertical; }
+
     .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .row3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .row4{ display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
     @media (max-width: 560px){
-      .row, .row3{ grid-template-columns: 1fr; }
+      .row, .row3, .row4{ grid-template-columns: 1fr; }
     }
+
     .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
     .btn{
       border:1px solid var(--stroke);
@@ -96,7 +97,9 @@
     .btn.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
     .btn.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
     .btn.danger{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.10); }
+
     .msg{ margin-top: 10px; color: var(--muted); font-size: 13px; }
+
     table{
       width:100%;
       border-collapse: separate;
@@ -131,7 +134,7 @@
     .small{ color: var(--muted); font-size: 12px; }
     .split{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
 
-    /* QR grid */
+    /* QR list (screen) */
     .qrWrap{ margin-top:12px; }
     .qrControls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .qrGrid{
@@ -160,65 +163,74 @@
       background: rgba(255,255,255,.06);
       flex: 0 0 auto;
     }
-    .qrMeta{
-      min-width:0;
-    }
+    .qrMeta{ min-width:0; }
     .qrMeta .name{ font-weight:800; font-size: 13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .qrMeta .pid{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; color: var(--cyan); font-weight:800; }
     .qrMeta .hint{ color: var(--muted); font-size: 12px; margin-top: 4px; }
 
-    /* Print: make QR cards clean */
+    /* PRINT: 10 cards per page (2 columns x 5 rows) */
+    .printOnly{ display:none; }
     @media print{
       body{ background:white; color:black; }
       .wrap{ padding: 0; max-width: none; }
-      .top, .btns, .msg, .small, textarea, input, select, .card:first-child { display:none !important; }
-      .card{ border:none; box-shadow:none; background:transparent; }
-      .qrCard{ break-inside: avoid; background: white; border:1px solid #ccc; }
-      .qrMeta .pid{ color: black; }
+      .noPrint{ display:none !important; }
+      .printOnly{ display:block !important; }
+      .card{ border:none; box-shadow:none; background:transparent; padding:0; }
+
+      .printGrid{
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10mm;
+        padding: 10mm;
+      }
+      .pCard{
+        border:1px solid #333;
+        border-radius: 8px;
+        padding: 6mm;
+        display:flex;
+        gap: 6mm;
+        align-items:center;
+        break-inside: avoid;
+      }
+      .pQR{
+        width: 32mm; height: 32mm;
+        border:1px solid #333;
+        border-radius: 6px;
+      }
+      .pMeta .pPid{ font-weight:900; font-size: 14pt; }
+      .pMeta .pName{ font-weight:700; font-size: 11pt; margin-top: 2mm; }
+      .pMeta .pSmall{ font-size: 9pt; margin-top: 2mm; color:#333; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="top">
+
+    <!-- TOP -->
+    <div class="top noPrint">
       <div>
-        <div class="title">Roster (Auto PID + QR) — สำหรับวิจัย ป.5</div>
-        <div class="sub">สร้าง PID + สร้าง QR ต่อคน (สแกนเข้า Planner ได้ทันที)</div>
+        <div class="title">Roster (Auto PID + QR + Seed Lock) — วิจัย ป.5</div>
+        <div class="sub">ล็อก seed ต่อคน (pre/post ใช้ seed เดิม) + พิมพ์การ์ดตัดง่าย 10 ใบ/หน้า</div>
       </div>
       <div class="btns">
         <button id="btn-back" class="btn">← กลับ Hub</button>
         <button id="btn-open-planner" class="btn cyan">เปิด Planner</button>
-        <button id="btn-print-qr" class="btn warn">พิมพ์ QR</button>
+        <button id="btn-print-cards" class="btn warn">พิมพ์ “การ์ดตัดง่าย”</button>
       </div>
     </div>
 
-    <div class="grid">
+    <div class="grid noPrint">
       <!-- Left -->
       <div class="card">
         <div class="row3">
-          <div>
-            <label>School</label>
-            <input id="schoolName" placeholder="เช่น โรงเรียน..." />
-          </div>
-          <div>
-            <label>Site</label>
-            <input id="siteCode" placeholder="เช่น SCH01" />
-          </div>
-          <div>
-            <label>Teacher</label>
-            <input id="teacherId" placeholder="เช่น T001" />
-          </div>
+          <div><label>School</label><input id="schoolName" placeholder="เช่น โรงเรียน..." /></div>
+          <div><label>Site</label><input id="siteCode" placeholder="เช่น SCH01" /></div>
+          <div><label>Teacher</label><input id="teacherId" placeholder="เช่น T001" /></div>
         </div>
 
         <div class="row" style="margin-top:10px;">
-          <div>
-            <label>Class</label>
-            <input id="classRoom" placeholder="เช่น P5/2" />
-          </div>
-          <div>
-            <label>StudyId</label>
-            <input id="studyId" placeholder="FIT01" value="FIT01"/>
-          </div>
+          <div><label>Class</label><input id="classRoom" placeholder="เช่น P5/2" /></div>
+          <div><label>StudyId</label><input id="studyId" placeholder="FIT01" value="FIT01"/></div>
         </div>
 
         <div class="row" style="margin-top:10px;">
@@ -246,20 +258,26 @@
           <div class="small">ทิป: ใส่เลขที่ได้ เช่น “1 ก้อง” ระบบจะเก็บทั้งบรรทัดเป็นชื่อ</div>
         </div>
 
-        <div class="row" style="margin-top:10px;">
+        <div class="row4" style="margin-top:10px;">
+          <div><label>PID Prefix</label><input id="pidPrefix" value="P" class="mono"/></div>
+          <div><label>Start Number</label><input id="pidStart" value="1" class="mono"/></div>
           <div>
-            <label>PID Prefix</label>
-            <input id="pidPrefix" value="P" class="mono"/>
+            <label>Lock seed per PID</label>
+            <select id="lockSeed">
+              <option value="1" selected>ON (วิจัย)</option>
+              <option value="0">OFF (เล่นทั่วไป)</option>
+            </select>
           </div>
           <div>
-            <label>Start Number</label>
-            <input id="pidStart" value="1" class="mono"/>
+            <label>Seed Base</label>
+            <input id="seedBase" value="42000" class="mono" />
           </div>
         </div>
 
         <div class="btns">
           <button id="btn-generate" class="btn primary">สร้าง PID</button>
-          <button id="btn-save" class="btn">บันทึก roster ในเครื่อง</button>
+          <button id="btn-assign-seed" class="btn primary">Assign Seeds</button>
+          <button id="btn-save" class="btn">บันทึก roster</button>
           <button id="btn-load" class="btn">โหลด roster</button>
           <button id="btn-clear" class="btn danger">ล้าง</button>
         </div>
@@ -267,7 +285,8 @@
         <div class="btns">
           <button id="btn-copy-csv" class="btn cyan">คัดลอก CSV</button>
           <button id="btn-dl-csv" class="btn cyan">ดาวน์โหลด CSV</button>
-          <button id="btn-copy-pids" class="btn">คัดลอก “PID list”</button>
+          <button id="btn-copy-pids" class="btn">คัดลอก PID list</button>
+          <button id="btn-copy-links" class="btn">คัดลอกลิงก์ (ต่อคน)</button>
         </div>
 
         <div id="msg" class="msg"></div>
@@ -293,6 +312,7 @@
                 <th>เลือก</th>
                 <th>PID</th>
                 <th>ชื่อ</th>
+                <th>Seed</th>
               </tr>
             </thead>
             <tbody id="tbody"></tbody>
@@ -311,14 +331,19 @@
             <span class="pill">Only Selected:
               <input id="qrOnlySelected" type="checkbox" style="width:auto;"/>
             </span>
-            <button id="btn-copy-links" class="btn">คัดลอกลิงก์ (ต่อคน)</button>
           </div>
 
           <div id="qrGrid" class="qrGrid"></div>
-          <div class="small">QR ใช้รูปจาก api.qrserver.com (ต้องมีเน็ตตอนโหลดรูป/พิมพ์)</div>
+          <div class="small">QR โหลดรูปจาก api.qrserver.com (ต้องมีเน็ตตอนโหลดรูป/พิมพ์)</div>
         </div>
       </div>
     </div>
+
+    <!-- PRINT ONLY CARDS -->
+    <div class="printOnly">
+      <div class="printGrid" id="printGrid"></div>
+    </div>
+
   </div>
 
 <script>
@@ -330,10 +355,11 @@
   const countEl = $('#count');
   const selEl = $('#sel');
   const qrGrid = $('#qrGrid');
+  const printGrid = $('#printGrid');
 
-  const KEY = 'HHA_FITNESS_ROSTER_V1';
+  const KEY = 'HHA_FITNESS_ROSTER_V2';
 
-  function setMsg(t){ msg.textContent = t || ''; }
+  function setMsg(t){ if(msg) msg.textContent = t || ''; }
   function pad3(n){ return String(n).padStart(3,'0'); }
   function escCSV(v){
     const s = String(v ?? '');
@@ -374,7 +400,9 @@
       conditionGroup: $('#conditionGroup').value,
       pidPrefix: ($('#pidPrefix').value.trim() || 'P').toUpperCase(),
       pidStart: Math.max(1, Number($('#pidStart').value || 1)),
-      names: $('#names').value
+      names: $('#names').value,
+      lockSeed: ($('#lockSeed').value === '1'),
+      seedBase: Math.max(1, Number($('#seedBase').value || 42000))
     };
   }
 
@@ -383,6 +411,17 @@
       .split('\n')
       .map(s=>s.trim())
       .filter(Boolean);
+  }
+
+  function hash32(str){
+    // simple deterministic hash for stable per-PID seed
+    let h = 2166136261 >>> 0;
+    const s = String(str||'');
+    for(let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
   }
 
   let roster = [];
@@ -401,6 +440,7 @@
           </td>
           <td class="mono">${r.pid}</td>
           <td>${r.name}</td>
+          <td class="mono">${r.seed ?? ''}</td>
         </tr>
       `;
     }).join('');
@@ -416,52 +456,72 @@
   function generate(){
     const f = readForm();
     const names = parseNames(f.names);
-    if(!names.length){
-      setMsg('ยังไม่มีรายชื่อ');
-      return;
-    }
+    if(!names.length){ setMsg('ยังไม่มีรายชื่อ'); return; }
+
     roster = names.map((name, i)=>{
       const num = f.pidStart + i;
       const pid = (num <= 999) ? `${f.pidPrefix}${pad3(num)}` : `${f.pidPrefix}${num}`;
       return {
         pid,
         name,
+        seed: null,
         schoolName: f.schoolName,
         siteCode: f.siteCode,
         classRoom: f.classRoom,
         teacherId: f.teacherId
       };
     });
+
     selectedPid = roster[0]?.pid || '';
     setMsg(`สร้าง PID แล้ว ${roster.length} คน`);
     render();
   }
 
+  function assignSeeds(){
+    const f = readForm();
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
+
+    if(!f.lockSeed){
+      roster.forEach(r=>r.seed = null);
+      setMsg('ปิด lock seed แล้ว (seed จะสุ่มทุกครั้ง)');
+      render();
+      return;
+    }
+
+    // stable per PID seed: seedBase + (hash(pid) % 50000)
+    roster.forEach(r=>{
+      const v = (hash32(r.pid) % 50000);
+      r.seed = (f.seedBase + v) >>> 0;
+    });
+    setMsg(`Assign Seeds แล้ว (ล็อก seed ต่อคน)`);
+    render();
+  }
+
   function rosterCSV(){
     const f = readForm();
-    const header = ['pid','name','schoolName','siteCode','classRoom','teacherId','studyId','phase','conditionGroup'];
+    const header = ['pid','name','seed','schoolName','siteCode','classRoom','teacherId','studyId','phase','conditionGroup','lockSeed'];
     const lines = [header.join(',')];
     for(const r of roster){
       lines.push([
-        r.pid, r.name,
+        r.pid, r.name, (r.seed ?? ''),
         r.schoolName||'', r.siteCode||'', r.classRoom||'', r.teacherId||'',
-        f.studyId, f.phase, f.conditionGroup
+        f.studyId, f.phase, f.conditionGroup, f.lockSeed ? '1':'0'
       ].map(escCSV).join(','));
     }
-    return lines.join('\\n');
+    return lines.join('\n');
   }
 
   function save(){
     const f = readForm();
     const obj = { form: f, roster, selectedPid, savedAt: Date.now() };
     localStorage.setItem(KEY, JSON.stringify(obj));
-    setMsg('บันทึก roster ในเครื่องแล้ว');
+    setMsg('บันทึก roster แล้ว');
   }
 
   function load(){
     try{
       const obj = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if(!obj) { setMsg('ยังไม่มี roster ที่บันทึกไว้'); return; }
+      if(!obj){ setMsg('ยังไม่มี roster ที่บันทึกไว้'); return; }
 
       const f = obj.form || {};
       $('#schoolName').value = f.schoolName || '';
@@ -474,6 +534,8 @@
       $('#pidPrefix').value = f.pidPrefix || 'P';
       $('#pidStart').value = String(f.pidStart || 1);
       $('#names').value = f.names || '';
+      $('#lockSeed').value = (f.lockSeed === false) ? '0' : '1';
+      $('#seedBase').value = String(f.seedBase || 42000);
 
       roster = Array.isArray(obj.roster) ? obj.roster : [];
       selectedPid = obj.selectedPid || (roster[0]?.pid || '');
@@ -490,13 +552,18 @@
     selectedPid = '';
     $('#names').value = '';
     qrGrid.innerHTML = '';
+    printGrid.innerHTML = '';
     setMsg('ล้างแล้ว');
     render();
   }
 
   function buildPlannerURL(pid){
     const f = readForm();
-    const seed = Math.floor(Math.random()*90000 + 10000);
+    const r = roster.find(x=>x.pid===pid) || {};
+    const seed = (f.lockSeed && r.seed != null)
+      ? (r.seed >>> 0)
+      : (Math.floor(Math.random()*90000 + 10000));
+
     const params = new URLSearchParams();
     params.set('mode','research');
     params.set('seed', String(seed));
@@ -523,37 +590,29 @@
   }
 
   function qrImgURL(data, size){
-    // QR image from qrserver (GET)
     const s = Number(size||200);
     const u = encodeURIComponent(data);
     return `https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&data=${u}`;
   }
 
   function buildQR(){
-    if(!roster.length){
-      setMsg('ยังไม่มี roster');
-      return;
-    }
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
     const onlySel = $('#qrOnlySelected').checked;
     const size = $('#qrSize').value;
 
     const list = onlySel ? roster.filter(r=>r.pid===selectedPid) : roster.slice();
-    if(onlySel && !list.length){
-      setMsg('ยังไม่ได้เลือก PID');
-      return;
-    }
+    if(onlySel && !list.length){ setMsg('ยังไม่ได้เลือก PID'); return; }
 
     qrGrid.innerHTML = list.map(r=>{
       const url = absoluteURL(buildPlannerURL(r.pid));
       const img = qrImgURL(url, size);
-      const name = r.name || '';
       return `
         <div class="qrCard">
           <img class="qrImg" src="${img}" alt="QR ${r.pid}" loading="lazy"/>
           <div class="qrMeta">
             <div class="pid">${r.pid}</div>
-            <div class="name">${name}</div>
-            <div class="hint">สแกนเพื่อเริ่มเล่น (Planner)</div>
+            <div class="name">${r.name || ''}</div>
+            <div class="hint">Seed: <span class="mono">${r.seed ?? 'random'}</span></div>
           </div>
         </div>
       `;
@@ -562,21 +621,48 @@
     setMsg(`สร้าง QR แล้ว: ${list.length} คน`);
   }
 
+  function buildPrintCards(){
+    if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
+    // Always print ALL
+    const size = 220; // stable for print
+    printGrid.innerHTML = roster.map(r=>{
+      const url = absoluteURL(buildPlannerURL(r.pid));
+      const img = qrImgURL(url, size);
+      const f = readForm();
+      const metaLine = [
+        f.schoolName ? f.schoolName : null,
+        f.siteCode ? `Site:${f.siteCode}` : null,
+        f.classRoom ? `Class:${f.classRoom}` : null
+      ].filter(Boolean).join(' | ');
+
+      return `
+        <div class="pCard">
+          <img class="pQR" src="${img}" alt="QR ${r.pid}"/>
+          <div class="pMeta">
+            <div class="pPid">${r.pid}</div>
+            <div class="pName">${(r.name||'').replace(/</g,'&lt;')}</div>
+            <div class="pSmall">${metaLine}</div>
+            <div class="pSmall">Seed: ${r.seed ?? 'random'} | Phase: ${f.phase} | Group: ${f.conditionGroup}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   function copyLinks(){
     if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
-    const onlySel = $('#qrOnlySelected').checked;
-    const list = onlySel ? roster.filter(r=>r.pid===selectedPid) : roster.slice();
-    if(onlySel && !list.length){ setMsg('ยังไม่ได้เลือก PID'); return; }
-
-    const lines = list.map(r=>{
+    const f = readForm();
+    const lines = roster.map(r=>{
       const url = absoluteURL(buildPlannerURL(r.pid));
-      return `${r.pid}\t${r.name}\t${url}`;
-    }).join('\\n');
-    copyText(lines, '📋 คัดลอกลิงก์ต่อคนแล้ว (pid \\t name \\t url)');
+      return `${r.pid}\t${r.name}\tseed=${r.seed ?? 'random'}\t${url}`;
+    }).join('\n');
+    copyText(lines, '📋 คัดลอกลิงก์ต่อคนแล้ว');
   }
 
   // buttons
   $('#btn-generate').addEventListener('click', generate);
+  $('#btn-assign-seed').addEventListener('click', assignSeeds);
+
   $('#btn-copy-csv').addEventListener('click', ()=>{
     if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
     copyText(rosterCSV(), '📋 คัดลอก CSV แล้ว');
@@ -588,17 +674,15 @@
   });
   $('#btn-copy-pids').addEventListener('click', ()=>{
     if(!roster.length){ setMsg('ยังไม่มี roster'); return; }
-    const txt = roster.map(r=>r.pid).join('\\n');
-    copyText(txt, '📋 คัดลอก PID list แล้ว');
+    copyText(roster.map(r=>r.pid).join('\n'), '📋 คัดลอก PID list แล้ว');
   });
+  $('#btn-copy-links').addEventListener('click', copyLinks);
 
   $('#btn-save').addEventListener('click', save);
   $('#btn-load').addEventListener('click', load);
   $('#btn-clear').addEventListener('click', clearAll);
 
-  $('#btn-back').addEventListener('click', ()=>{
-    location.href = '../fitness/hub.html';
-  });
+  $('#btn-back').addEventListener('click', ()=>location.href = '../fitness/hub.html');
 
   $('#btn-open-planner').addEventListener('click', ()=>{
     const pid = selectedPid || (roster[0]?.pid || 'P001');
@@ -606,32 +690,25 @@
   });
 
   $('#btn-play-selected').addEventListener('click', ()=>{
-    if(!selectedPid){
-      setMsg('ยังไม่ได้เลือก PID');
-      return;
-    }
+    if(!selectedPid){ setMsg('ยังไม่ได้เลือก PID'); return; }
     location.href = buildPlannerURL(selectedPid);
   });
 
   $('#btn-build-qr').addEventListener('click', buildQR);
-  $('#btn-copy-links').addEventListener('click', copyLinks);
 
-  $('#btn-print-qr').addEventListener('click', ()=>{
-    if(!qrGrid.innerHTML.trim()){
-      // build all first if empty
-      $('#qrOnlySelected').checked = false;
-      buildQR();
+  $('#btn-print-cards').addEventListener('click', ()=>{
+    // ensure seeds if lock is ON but seeds missing
+    const f = readForm();
+    if(f.lockSeed && roster.length && roster.some(r=>r.seed==null)){
+      assignSeeds();
     }
-    setTimeout(()=>window.print(), 150);
+    buildPrintCards();
+    setTimeout(()=>window.print(), 200);
   });
 
-  // rebuild QR when size changes (if already built)
-  $('#qrSize').addEventListener('change', ()=>{
-    if(qrGrid.innerHTML.trim()) buildQR();
-  });
-  $('#qrOnlySelected').addEventListener('change', ()=>{
-    if(qrGrid.innerHTML.trim()) buildQR();
-  });
+  // rebuild QR if size changes and grid already exists
+  $('#qrSize').addEventListener('change', ()=>{ if(qrGrid.innerHTML.trim()) buildQR(); });
+  $('#qrOnlySelected').addEventListener('change', ()=>{ if(qrGrid.innerHTML.trim()) buildQR(); });
 
   // init
   load();
