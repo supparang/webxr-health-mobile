@@ -1,12 +1,9 @@
 // === /fitness/js/rhythm-engine.js ===
-// Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
-// ✅ Hitline bottom is the REAL hitting line (visual sync)
-// ✅ Notes anchored to hitline via CSS bottom: var(--rb-hitline-y)
-// ✅ 5-lane (or 3-lane preset supported by DOM)
-// ✅ Calibration offset (Cal: ms) core exists
-// ✅ Research lock: prediction shown but no adaptive changes
-// ✅ Normal assist: enable with ?ai=1
-// ✅ Events CSV + Sessions CSV
+// Rhythm Boxer Engine — PRODUCTION + Calibration UI API (B)
+// ✅ setCalibrationMs/getCalibrationMs
+// ✅ save/load handled by rhythm-boxer.js
+// ✅ judge uses calOffsetSec (already)
+// ✅ hitline bottom visual sync (from A)
 
 'use strict';
 
@@ -31,7 +28,6 @@
     return Math.sqrt(s/(arr.length-1));
   }
 
-  // ---- CSV helpers ----
   function toCsvRow(obj, cols){
     return cols.map(k=>{
       let v = (obj && obj[k] != null) ? obj[k] : '';
@@ -56,7 +52,6 @@
     clear(){ this.rows.length = 0; }
   }
 
-  // ---- Track config ----
   const TRACKS = {
     n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
     n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
@@ -64,7 +59,6 @@
     r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
   };
 
-  // ---- Note patterns (placeholder timeline; replace with authored beat map later) ----
   function buildPattern(track, laneCount){
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
@@ -114,10 +108,9 @@
       this.track = TRACKS.n1;
       this.meta = {};
 
-      // timing/calibration
+      // calibration (seconds). + => judge later (you must press later)
       this.calOffsetSec = 0;
 
-      // gameplay state
       this.songTime = 0;
       this._t0 = 0;
       this._lastTs = 0;
@@ -138,7 +131,6 @@
 
       this.totalNotes = 0;
 
-      // offsets analytics (sec)
       this.offsets = [];
       this.offsetsAbs = [];
       this.earlyHits = 0;
@@ -146,31 +138,24 @@
       this.leftHits = 0;
       this.rightHits = 0;
 
-      // fever
       this.fever = 0;
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
       this.timeToFirstFeverSec = null;
 
-      // ai
       this.aiState = null;
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // notes
       this.laneCount = 5;
       this.notes = [];
       this.noteIdx = 0;
       this.live = [];
 
-      // IMPORTANT: lead time (sec) = fall time to hitline
       this.noteSpeedSec = 2.20;
-
-      // baseline tail length
       this.noteBaseLen = 160;
 
-      // CSV tables
       this.sessionId = '';
       this.eventsTable = new CsvTable([
         'session_id','mode','track_id','bpm','difficulty',
@@ -198,6 +183,17 @@
 
       this._bindLaneInput();
       this._detectDeviceType();
+    }
+
+    // ===== Calibration API (B) =====
+    setCalibrationMs(ms){
+      const v = Number(ms);
+      const clamped = Number.isFinite(v) ? clamp(v, -250, 250) : 0;
+      this.calOffsetSec = clamped / 1000;
+      return this.getCalibrationMs();
+    }
+    getCalibrationMs(){
+      return Math.round(this.calOffsetSec * 1000);
     }
 
     _detectDeviceType(){
@@ -242,7 +238,6 @@
       this.meta = meta || {};
       this.track = TRACKS[trackId] || TRACKS.n1;
 
-      // lane count from DOM
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
 
       this.running = true;
@@ -282,7 +277,6 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // notes
       this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
       this.noteIdx = 0;
@@ -375,7 +369,7 @@
       if(this.hp < 50) this.hpUnder50Time += dt;
 
       this._spawnAhead();
-      this._updateNotePositions();   // ✅ FIXED visual sync to hitline bottom
+      this._updateNotePositions();
       this._resolveTimeoutMiss();
 
       this._updateAI();
@@ -413,10 +407,6 @@
     }
 
     _updateNotePositions(){
-      // ✅ Notes are anchored at hitline by CSS: bottom: var(--rb-hitline-y)
-      // So: y=0 means note head is ON the gold hitline.
-      // We must compute travel from above top down to hitline reliably.
-
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
 
@@ -429,23 +419,15 @@
         const rect = laneEl.getBoundingClientRect();
         const laneH = rect.height || 420;
 
-        // hitline distance from bottom (px)
         const hitY = this._readHitlineYpx(laneEl);
-
-        // distance from top of lane down to hitline
         const topToHit = Math.max(40, laneH - hitY);
 
-        // include tail a bit so it starts fully above
         const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
-
-        // travel distance so note starts above the visible lane and reaches y=0 at hit time
         const travel = topToHit + noteLen * 0.55 + 40;
 
-        // progress in [0..1] over lead seconds ending at hit time
         const p = (this.songTime - (n.t - lead)) / lead;
         const pClamp = clamp01(p);
 
-        // y negative -> above hitline, y=0 -> at hitline
         const y = (pClamp - 1) * travel;
 
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
@@ -499,7 +481,6 @@
         else if(Math.abs(dt) <= wGreat){ judgment='great'; scoreDelta=100; }
 
         this._applyHit(lane, judgment, dt, scoreDelta);
-
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
 
@@ -624,7 +605,7 @@
         combo: this.combo,
         hp: this.hp,
         fever: this.fever.toFixed(3),
-        cal_offset_ms: Math.round(this.calOffsetSec*1000),
+        cal_offset_ms: this.getCalibrationMs(),
 
         ai_fatigue_risk: this.aiState ? (this.aiState.fatigueRisk ?? '') : '',
         ai_skill_score:  this.aiState ? (this.aiState.skillScore  ?? '') : '',
@@ -686,9 +667,7 @@
 
     _updateCalibrationHud(){
       const el = DOC.querySelector('#rb-hud-cal');
-      if(el){
-        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
-      }
+      if(el) el.textContent = `${this.getCalibrationMs()}ms`;
     }
 
     _updateAI(){
@@ -726,7 +705,6 @@
           if(!this.aiState.tip) this.aiState.tip = '';
         }
       }
-      // Research lock: NO adaptive changes here
     }
 
     _finish(endReason) {
