@@ -1,31 +1,37 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine (PATCH: smaller targets + robust boot + TTL expire miss)
-// ✅ PATCH G: renderer onTargetExpire -> miss + miss fx + fadeout handled in renderer
+// Shadow Breaker engine (PATCH: boot ไม่พังจาก AI import + เป้าหมดอายุหาย + target size/spacing)
+// ✅ ใช้ DLFeatures snapshot ไปให้ RB_AI ได้ (แต่ไม่ทำให้เกมพังถ้า AI ไม่พร้อม)
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
-import { AIPredictor } from './ai-predictor.js';
+import { RB_AI } from './ai-predictor.js';
 
+// -------------------------
+// URL params
+// -------------------------
 function getQS(){
   try { return new URL(location.href).searchParams; }
   catch { return new URLSearchParams(); }
 }
 const QS = getQS();
-const q = (k, def='') => rememberNull(QS.get(k), def);
-function rememberNull(v, def){ return (v === null || v === undefined || v === '') ? def : v; }
+const q = (k, def='') => (QS.get(k) ?? def);
 const qNum = (k, def=0) => {
   const v = Number(q(k, def));
   return Number.isFinite(v) ? v : def;
 };
 
-const MODE = (q('mode', q('run','normal')) || 'normal').toLowerCase(); // normal | research
+// รองรับทั้ง mode=research และ run=research
+const MODE = ((q('mode','') || q('run','normal')) || 'normal').toLowerCase(); // normal | research
 const PID  = q('pid','');
 const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
 const HUB  = q('hub','./hub.html');
 
+// -------------------------
+// DOM
+// -------------------------
 const $ = (s)=>document.querySelector(s);
 const wrapEl = $('#sb-wrap');
 
@@ -81,30 +87,34 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
+// -------------------------
+// Data (bosses)
+// -------------------------
 const BOSSES = [
-  { name:'Bubble Glove',  emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
-  { name:'Meteor Punch',  emoji:'☄️', desc:'เร็วขึ้น — อย่าหลงเป้าล่อ', phases: 3 },
-  { name:'Neon Hydra',    emoji:'🐉', desc:'คอมโบสำคัญมาก — รักษาจังหวะ', phases: 3 },
+  { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
+  { name:'Meteor Punch', emoji:'☄️', desc:'เร็วขึ้น — อย่าหลงเป้าล่อ', phases: 3 },
+  { name:'Neon Hydra', emoji:'🐉', desc:'คอมโบสำคัญมาก — รักษาจังหวะ', phases: 3 },
 ];
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
-// ✅ ปรับขนาดเป้า + TTL ตามความยาก (ลดความแน่น)
+// ----- Difficulty config -----
+// ✅ PATCH: ลดขนาดเป้า + ให้โล่งขึ้นบนมือถือ
 const DIFF_CONFIG = {
-  easy:   { label:'Easy',   spawnIntervalMin:980, spawnIntervalMax:1400, targetLifetime:1500, baseSize:108, bossDamageNormal:0.040, bossDamageBossFace:0.45 },
-  normal: { label:'Normal', spawnIntervalMin:840, spawnIntervalMax:1250, targetLifetime:1350, baseSize:102, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard',   spawnIntervalMin:690, spawnIntervalMax:1050, targetLifetime:1200, baseSize:96,  bossDamageNormal:0.030, bossDamageBossFace:0.35 }
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:980, spawnIntervalMax:1380, targetLifetime:1350, baseSize:104, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:820, spawnIntervalMax:1260, targetLifetime:1250, baseSize:98,  bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:680, spawnIntervalMax:1040, targetLifetime:1150, baseSize:92,  bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
 };
 
+// ----- FEVER / HP -----
 const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
 
 function setScaleX(el, pct){
   if(!el) return;
-  const p = clamp(pct, 0, 1);
-  el.style.transform = `scaleX(${p})`;
+  el.style.transform = `scaleX(${clamp(pct, 0, 1)})`;
 }
 
 function showView(which){
@@ -113,6 +123,9 @@ function showView(which){
   viewResult?.classList.toggle('is-active', which === 'result');
 }
 
+// -------------------------
+// State
+// -------------------------
 let running = false;
 let ended = false;
 let paused = false;
@@ -139,6 +152,7 @@ let bossesCleared = 0;
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
 
+// Events log (simple)
 const events = [];
 const session = {
   pid: PID || '',
@@ -156,16 +170,28 @@ const session = {
 };
 
 const dl = new DLFeatures();
-const ai = new AIPredictor();
 
+// -------------------------
+// Renderer
+// -------------------------
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
   feedbackEl: msgMainEl,
   onTargetHit,
-  onTargetExpire // ✅ PATCH G
+  onTargetExpire: (id, info)=>{
+    if(!running || ended || paused) return;
+    miss++;
+    combo = 0;
+    dl.onMiss();
+    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, reason: info?.reason || 'expired' });
+    setHUD();
+  }
 });
 renderer.setDifficulty(diff);
 
+// -------------------------
+// Helpers
+// -------------------------
 function boss(){
   return BOSSES[clamp(bossIndex,0,BOSSES.length-1)];
 }
@@ -237,20 +263,17 @@ function spawnOne(){
   }
 
   let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.15;
-  if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
+  if(type === 'bossface') sizePx = CFG.baseSize * 1.14;
+  if(type === 'bomb') sizePx = CFG.baseSize * 1.04;
 
   renderer.spawnTarget({
-    id,
-    type,
+    id, type,
     sizePx,
     bossEmoji: boss().emoji,
     ttlMs: CFG.targetLifetime
   });
 
   events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx) });
-
-  // ✅ นับ “โอกาสยิง” เป็น attempt
   dl.onShot();
 }
 
@@ -260,9 +283,8 @@ function onTargetHit(id, pt){
   const el = renderer.targets.get(id);
   if(!el) return;
 
-  const type = el.dataset.type || (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
-
-  dl.onHit();
+  const m = el.className.match(/sb-target--(\w+)/);
+  const type = (m && m[1]) ? m[1] : 'normal';
 
   let grade = 'good';
   let scoreDelta = 0;
@@ -273,6 +295,7 @@ function onTargetHit(id, pt){
     combo = 0;
     say('หลงเป้าล่อ!', 'bad');
   }else if(type === 'bomb'){
+    grade = 'bomb';
     scoreDelta = -14;
     combo = 0;
     if(shield>0){
@@ -283,7 +306,6 @@ function onTargetHit(id, pt){
     }else{
       youHp = Math.max(0, youHp - 18);
       say('โดนระเบิด!', 'bad');
-      grade = 'bomb';
     }
   }else if(type === 'heal'){
     grade = 'heal';
@@ -314,6 +336,9 @@ function onTargetHit(id, pt){
 
   fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
+  // ✅ DL features
+  dl.onHit({ grade });
+
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
@@ -322,35 +347,6 @@ function onTargetHit(id, pt){
   if(bossHp <= 0) nextBossOrPhase();
   if(youHp <= 0) endGame('dead');
 
-  setHUD();
-}
-
-// ✅ PATCH G: หมดอายุแล้วนับ miss + เอฟเฟกต์เบา ๆ
-function onTargetExpire(id, meta){
-  if(!running || ended || paused) return;
-
-  miss++;
-  combo = 0;
-
-  const x = meta?.clientX ?? (window.innerWidth/2);
-  const y = meta?.clientY ?? (window.innerHeight/2);
-  try{ renderer.playMissFx?.(x, y); }catch{}
-
-  const playBox = document.querySelector('.sb-play');
-  if(playBox){
-    playBox.classList.add('is-missflash');
-    setTimeout(()=>playBox.classList.remove('is-missflash'), 120);
-  }
-
-  events.push({
-    t: (TIME*1000 - timeLeft),
-    type:'timeout_miss',
-    id,
-    targetType: meta?.targetType || '',
-    sizePx: meta?.sizePx || 0
-  });
-
-  say('MISS!', 'miss');
   setHUD();
 }
 
@@ -365,11 +361,9 @@ function endGame(reason='timeup'){
   session.miss = miss|0;
   session.phase = phase|0;
   session.bossesCleared = bossesCleared|0;
+  session.accPct = Number(dl.getAccPct().toFixed(2));
 
-  const totalShots = dl.getTotalShots();
-  const hits = dl.getHits();
-  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
-  session.accPct = Number(accPct.toFixed(2));
+  const accPct = dl.getAccPct();
 
   if(resTime) resTime.textContent = `${(TIME - timeLeft/1000).toFixed(1)} s`;
   if(resScore) resScore.textContent = String(score|0);
@@ -387,6 +381,15 @@ function endGame(reason='timeup'){
   if(resGrade) resGrade.textContent = g;
 
   showView('result');
+
+  // (optional) AI tip at end (play only)
+  try{
+    if (RB_AI && RB_AI.isAssistEnabled && RB_AI.isAssistEnabled()){
+      const snap = dl.snapshot({ hp: youHp });
+      const pred = RB_AI.predict(snap);
+      if (pred?.tip) say(pred.tip, 'good');
+    }
+  }catch{}
 }
 
 function tick(){
@@ -401,7 +404,7 @@ function tick(){
   const since = t - tLastSpawn;
   const targetInterval = clamp(
     CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
-    450, 2000
+    450, 1800
   );
 
   if(since >= targetInterval){
@@ -413,11 +416,17 @@ function tick(){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
-  if(timeLeft <= 0) endGame('timeup');
+  if(timeLeft <= 0){
+    endGame('timeup');
+  }
+
   setHUD();
 }
 
-function start(mode){
+// -------------------------
+// Boot
+// -------------------------
+function start(){
   ended = false;
   running = true;
   paused = false;
@@ -442,8 +451,8 @@ function start(mode){
   requestAnimationFrame(tick);
 }
 
-btnPlay?.addEventListener('click', ()=> start('normal'));
-btnResearch?.addEventListener('click', ()=> start('research'));
+btnPlay?.addEventListener('click', start);
+btnResearch?.addEventListener('click', start);
 
 btnHowto?.addEventListener('click', ()=> howtoBox?.classList.toggle('is-on'));
 
@@ -455,11 +464,13 @@ btnBackMenu?.addEventListener('click', ()=>{
 
 btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
 
-btnRetry?.addEventListener('click', ()=> start(MODE));
-btnMenu?.addEventListener('click', ()=>{ renderer.destroy(); showView('menu'); });
+btnRetry?.addEventListener('click', start);
+btnMenu?.addEventListener('click', ()=>{
+  renderer.destroy();
+  showView('menu');
+});
 
 function downloadCSV(filename, rows){
-  if(!rows || !rows.length) return;
   const esc = (v)=> String(v ?? '').replace(/"/g,'""');
   const keys = Object.keys(rows[0] || {});
   const lines = [
@@ -474,9 +485,10 @@ function downloadCSV(filename, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 800);
 }
 
-btnEvtCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_events.csv', events));
+btnEvtCsv?.addEventListener('click', ()=>{ if(events.length) downloadCSV('shadowbreaker_events.csv', events); });
 btnSesCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_session.csv', [session]));
 
+// init
 showView('menu');
 setBossUI();
 setHUD();
