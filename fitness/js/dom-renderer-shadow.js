@@ -1,171 +1,212 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH: auto-expire (ttlMs) + smooth fade + onTargetExpire callback
+// DomRendererShadow — SAFE (spawn/remove/expire + FX anchor)
+// PATCH v20260213-shadowbreaker-expire
+// ✅ expire fade (sb-expire) then remove
+// ✅ supports onTargetExpire(id, info) callback
+// ✅ removeTarget safe (double-call tolerant)
+// ✅ targets Map for fast lookup
+// ✅ spawn respects wrap rect + safe margins
 
 'use strict';
 
-import { FxBurst } from './fx-burst.js';
+import { FXBurst } from './fx-burst.js'; // if you already have; else keep stub usage guarded
 
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-function rand(min,max){ return min + Math.random()*(max-min); }
+const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
+const now = ()=>performance.now();
 
-export class DomRendererShadow {
-  constructor(layerEl, opts = {}) {
-    this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
-    this.feedbackEl = opts.feedbackEl || null;
+export class DomRendererShadow{
+  constructor(layerEl, opt={}){
+    this.layerEl = layerEl;
+    this.wrapEl = opt.wrapEl || layerEl?.parentElement || document.body;
+    this.feedbackEl = opt.feedbackEl || null;
 
-    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
-    this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
+    this.onTargetHit = typeof opt.onTargetHit === 'function' ? opt.onTargetHit : null;
+    this.onTargetExpire = typeof opt.onTargetExpire === 'function' ? opt.onTargetExpire : null;
 
-    this.diffKey = 'normal';
-    this.targets = new Map();   // id -> element
-    this.timers  = new Map();   // id -> timeoutId
-    this._onPointer = this._onPointer.bind(this);
+    this.targets = new Map(); // id -> {el, ttlAt, type, sizePx}
+    this._diff = 'normal';
+
+    this._safe = { top: 10, bottom: 10, left: 10, right: 10 };
+    this._readSafeFromCSS();
+
+    this._boundPointerDown = (ev)=>this._onPointerDown(ev);
+    this.layerEl?.addEventListener('pointerdown', this._boundPointerDown, { passive:false });
+
+    // FX
+    this.fx = null;
+    try{
+      this.fx = new FXBurst({ root: this.wrapEl });
+    }catch(e){
+      // ok if fx module not present
+      this.fx = null;
+    }
   }
 
-  setDifficulty(k){ this.diffKey = k || 'normal'; }
+  setDifficulty(d){
+    this._diff = d || 'normal';
+  }
 
   destroy(){
-    for (const [id, el] of this.targets.entries()) {
-      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-      try { el.remove(); } catch {}
-      const tid = this.timers.get(id);
-      if (tid) { try { clearTimeout(tid); } catch {} }
+    // remove all
+    for(const [id, obj] of this.targets){
+      try{ obj?.el?.remove?.(); }catch{}
     }
     this.targets.clear();
-    this.timers.clear();
+
+    try{
+      this.layerEl?.removeEventListener('pointerdown', this._boundPointerDown);
+    }catch{}
   }
 
-  _safeAreaRect(){
-    const r = this.layer.getBoundingClientRect();
-    // keep margins away from HUD/meta
-    const pad = Math.min(46, Math.max(18, r.width * 0.05));
-    const top = pad + 14;
-    const left = pad + 12;
-    const right = r.width - pad - 12;
-    const bottom = r.height - pad - 14;
-    return { r, left, top, right, bottom };
+  // -------------------------
+  // safe margins (CSS vars)
+  // -------------------------
+  _readSafeFromCSS(){
+    try{
+      const cs = getComputedStyle(document.documentElement);
+      const t = parseFloat(cs.getPropertyValue('--hw-top-safe')) || 0;
+      const b = parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 0;
+      // fallback: not hygiene vars? keep small
+      this._safe.top = clamp(t || 10, 0, 180);
+      this._safe.bottom = clamp(b || 10, 0, 220);
+    }catch{}
   }
 
-  _emojiForType(t, bossEmoji){
-    if (t === 'normal') return '🎯';
-    if (t === 'decoy') return '👀';
-    if (t === 'bomb') return '💣';
-    if (t === 'heal') return '🩹';
-    if (t === 'shield') return '🛡️';
-    if (t === 'bossface') return bossEmoji || '👊';
-    return '🎯';
+  _rect(){
+    const r = (this.layerEl || this.wrapEl).getBoundingClientRect();
+    return { x:r.left, y:r.top, w:r.width, h:r.height };
   }
 
-  spawnTarget(data){
-    if (!this.layer || !data) return;
+  // -------------------------
+  // spawn
+  // -------------------------
+  spawnTarget({ id, type='normal', sizePx=110, bossEmoji='🎯', ttlMs=1200 }){
+    if(!this.layerEl) return;
 
-    const { left, top, right, bottom } = this._safeAreaRect();
+    // if exists, remove first
+    if(this.targets.has(id)) this.removeTarget(id, 'respawn');
 
     const el = document.createElement('div');
-    el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(data.id);
+    el.className = `sb-target sb-target--${type}`;
+    el.dataset.id = String(id);
+    el.dataset.type = type;
 
-    const size = clamp(Number(data.sizePx) || 112, 64, 260);
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
+    // visual content
+    // (keep simple: emoji for all; you already style with bg)
+    if(type === 'bomb') el.textContent = '💣';
+    else if(type === 'decoy') el.textContent = '🌀';
+    else if(type === 'heal') el.textContent = '💚';
+    else if(type === 'shield') el.textContent = '🛡️';
+    else if(type === 'bossface') el.textContent = bossEmoji || '😈';
+    else el.textContent = '🎯';
 
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    // size
+    const s = Math.max(72, Math.min(220, Number(sizePx)||110));
+    el.style.width = `${s}px`;
+    el.style.height = `${s}px`;
 
-    el.textContent = this._emojiForType(data.type, data.bossEmoji);
-    el.addEventListener('pointerdown', this._onPointer, { passive: true });
+    // position inside layer rect w/ safe margins
+    const rc = this._rect();
 
-    this.layer.appendChild(el);
-    this.targets.set(data.id, el);
+    // hard safe margins:
+    const padL = 10, padR = 10;
+    const padT = 10 + (this._safe.top||0);
+    const padB = 10 + (this._safe.bottom||0);
 
-    // ✅ auto-expire
-    const ttlMs = Number(data.ttlMs);
-    if (Number.isFinite(ttlMs) && ttlMs > 50) {
-      const tid = setTimeout(() => {
-        // already removed?
-        if (!this.targets.has(data.id)) return;
+    const minX = padL;
+    const maxX = Math.max(padL, rc.w - padR - s);
+    const minY = padT;
+    const maxY = Math.max(padT, rc.h - padB - s);
 
-        // smooth fade
-        try { el.classList.add('is-expiring'); } catch {}
+    // if stage too small, clamp
+    const x = Math.floor(clamp(Math.random()*(maxX-minX) + minX, 0, Math.max(0, rc.w - s)));
+    const y = Math.floor(clamp(Math.random()*(maxY-minY) + minY, 0, Math.max(0, rc.h - s)));
 
-        // remove a bit later so it looks natural
-        const removeDelay = 140;
-        setTimeout(() => {
-          if (!this.targets.has(data.id)) return;
-          const rect = el.getBoundingClientRect();
-          // miss FX เบา ๆ
-          FxBurst.burst(rect.left + rect.width/2, rect.top + rect.height/2, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
-          FxBurst.popText(rect.left + rect.width/2, rect.top + rect.height/2, 'MISS', 'sb-fx-miss');
+    el.style.position = 'absolute';
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
 
-          this.removeTarget(data.id, 'expired');
-          if (this.onTargetExpire) this.onTargetExpire(data.id, { reason:'expired' });
-        }, removeDelay);
-      }, ttlMs);
+    // append
+    this.layerEl.appendChild(el);
 
-      this.timers.set(data.id, tid);
+    // ttl
+    const ttlAt = now() + Math.max(250, Number(ttlMs)||1200);
+
+    const obj = { el, ttlAt, type, sizePx:s };
+    this.targets.set(id, obj);
+
+    // schedule expire
+    obj._ttlTimer = setTimeout(()=>{
+      // might already removed
+      if(!this.targets.has(id)) return;
+
+      // ✅ expire animation then remove
+      try{
+        el.classList.add('sb-expire');
+      }catch{}
+
+      // callback BEFORE remove (engine decides miss)
+      try{
+        this.onTargetExpire && this.onTargetExpire(id, { type, sizePx:s });
+      }catch{}
+
+      // remove after a tiny delay (match css animation .14s)
+      setTimeout(()=>{
+        this.removeTarget(id, 'expire');
+      }, 150);
+
+    }, Math.max(0, ttlAt - now()));
+  }
+
+  // -------------------------
+  // hit / remove
+  // -------------------------
+  _onPointerDown(ev){
+    // find target by closest
+    const t = ev.target?.closest?.('.sb-target');
+    if(!t) return;
+
+    ev.preventDefault();
+
+    const id = Number(t.dataset.id);
+    if(!Number.isFinite(id)) return;
+
+    // point coords for FX anchor
+    const pt = {
+      clientX: ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0),
+      clientY: ev.clientY ?? (ev.touches?.[0]?.clientY ?? 0),
+    };
+
+    // let engine handle scoring/removal
+    try{
+      this.onTargetHit && this.onTargetHit(id, pt);
+    }catch(e){
+      console.error(e);
     }
   }
 
-  _onPointer(e){
-    const el = e.currentTarget;
-    if (!el) return;
-    const id = Number(el.dataset.id);
-    if (!Number.isFinite(id)) return;
+  removeTarget(id, reason='unknown'){
+    const obj = this.targets.get(id);
+    if(!obj) return;
 
-    if (this.onTargetHit) {
-      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
-    }
-  }
-
-  removeTarget(id, reason){
-    const el = this.targets.get(id);
-    if (!el) return;
-
-    const tid = this.timers.get(id);
-    if (tid) { try { clearTimeout(tid); } catch {} }
-    this.timers.delete(id);
-
-    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-    try { el.remove(); } catch {}
     this.targets.delete(id);
+
+    try{ clearTimeout(obj._ttlTimer); }catch{}
+
+    try{
+      obj.el?.remove?.();
+    }catch{}
   }
 
-  playHitFx(id, info = {}){
-    const el = this.targets.get(id);
-    const rect = el ? el.getBoundingClientRect() : null;
-    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
-    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
+  // -------------------------
+  // FX
+  // -------------------------
+  playHitFx(id, { clientX=0, clientY=0, grade='good', scoreDelta=0 } = {}){
+    // Guard: FX module optional
+    if(!this.fx || typeof this.fx.pop !== 'function') return;
 
-    const grade = info.grade || 'good';
-    const scoreDelta = Number(info.scoreDelta) || 0;
-
-    if (grade === 'perfect') {
-      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
-    } else if (grade === 'good') {
-      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
-    } else if (grade === 'bad') {
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-miss');
-    } else if (grade === 'bomb') {
-      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
-      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
-    } else if (grade === 'heal') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
-      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
-    } else if (grade === 'shield') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
-      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-    } else {
-      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
-    }
+    try{
+      this.fx.pop({ x: clientX, y: clientY, grade, scoreDelta });
+    }catch{}
   }
 }
