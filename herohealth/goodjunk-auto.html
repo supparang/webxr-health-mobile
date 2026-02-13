@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GoodJunk Auto (Warmup Gate)</title>
+  <title>HeroHealth — GoodJunk Auto</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
   <style>
@@ -12,14 +12,14 @@
     .card{ width:min(560px,92vw); padding:18px; border:1px solid rgba(148,163,184,.18);
       border-radius:18px; background:rgba(2,6,23,.75);}
     .muted{ color:#94a3b8; font-size:12.5px; }
-    .mono{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:#94a3b8; }
+    .mono{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:#94a3b8; white-space:pre-wrap; }
   </style>
 </head>
 <body>
   <div class="card">
     <div style="font-weight:900;">กำลังเตรียมเข้า GoodJunk…</div>
-    <div class="muted" style="margin-top:6px;">ระบบจะพาไป Warmup (วันละครั้ง) แล้วเข้าเกมอัตโนมัติ</div>
-    <div class="mono" id="dbg" style="margin-top:10px; white-space:pre-wrap;"></div>
+    <div class="muted" style="margin-top:6px;">Warmup วันละครั้ง → เข้าเกม → จบเกมไป Cooldown วันละครั้ง</div>
+    <div class="mono" id="dbg" style="margin-top:10px;"></div>
   </div>
 
 <script>
@@ -29,52 +29,8 @@
   function qs(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
   const Q = qs();
   const q = (k,d='') => (Q.get(k) ?? d);
-
   const dbg = (s)=>{ try{ document.getElementById('dbg').textContent = s; }catch(_){ } };
 
-  // ===== config =====
-  const CATEGORY = 'nutrition';
-  const GAME = 'goodjunk';
-  const WARMUP_URL = './warmup-gate.html';
-
-  // dur default
-  const dur = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
-
-  // build target GoodJunk URL (next)
-  // NOTE: ให้ allow override view/run/diff/time จาก query ได้
-  const view = q('view','');     // e.g. mobile
-  const run  = q('run','play');  // play/research
-  const diff = q('diff','normal');
-  const time = q('time','80');
-
-  const hub = q('hub','./hub.html');     // passthrough
-  const pid = q('pid','anon');           // passthrough
-
-  function buildGoodJunkUrl(){
-    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-
-    // พารามิเตอร์หลักของเกม
-    if(view) u.searchParams.set('view', view);
-    u.searchParams.set('run', run);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('time', String(time));
-    u.searchParams.set('hub', hub);
-    u.searchParams.set('pid', pid);
-
-    // ✅ เปิด gate flow ตอนจบเกม: ให้เกมส่งไป cooldown gate วันละครั้ง
-    // goodjunk.safe.js ของคุณใช้ cdGateUrl/cdur + daily cooldown อยู่แล้ว
-    u.searchParams.set('cdGateUrl', './warmup-gate.html');
-    u.searchParams.set('cdur', String(Math.max(5, Math.min(60, Number(q('cdur','20')||20)))));
-    // (ไม่จำเป็นต้องใส่ gate=1 เพราะคุณ route จาก end overlay -> goCooldownThenHub อยู่แล้ว)
-
-    // passthrough อื่น ๆ (ยกเว้นตัวที่เรา set แล้ว)
-    const deny = new Set(['next','phase','dur','cdur','category','game','autoTheme','hub','pid','view','run','diff','time','cdGateUrl']);
-    Q.forEach((v,k)=>{ if(!deny.has(k)) u.searchParams.set(k, v); });
-
-    return u.toString();
-  }
-
-  // ===== daily state same as warmup-gate =====
   const todayKey = (() => {
     const d = new Date();
     const y = d.getFullYear();
@@ -82,8 +38,8 @@
     const dd = String(d.getDate()).padStart(2,'0');
     return `${y}${m}${dd}`;
   })();
-  const KEY_DAY = 'HHA_GATE_DAY';
 
+  const KEY_DAY = 'HHA_GATE_DAY';
   function readJSON(key, fallback){
     try{ const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }catch(_){ return fallback; }
   }
@@ -101,9 +57,39 @@
     try{ location.replace(url); }catch(_){ location.href = url; }
   }
 
-  // ===== route =====
-  const st = getDayState();
+  const hub = q('hub','./hub.html');
+  const pid = q('pid','anon');
+
+  const view = q('view','');          // mobile/pc/vr/cvr (ถ้าไม่ใส่ boot จะ detect)
+  const run  = q('run','play');
+  const diff = q('diff','normal');
+  const time = q('time','80');
+
+  const dur  = Math.max(5, Math.min(60, Number(q('dur','20')||20)));
+  const cdur = Math.max(5, Math.min(60, Number(q('cdur','20')||20)));
+
+  function buildGoodJunkUrl(){
+    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+    if(view) u.searchParams.set('view', view);
+    u.searchParams.set('run', run);
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', String(time));
+    u.searchParams.set('hub', hub);
+    u.searchParams.set('pid', pid);
+
+    // ให้ goodjunk.safe.js ส่งไป cooldown gate แบบรายวัน (คุณทำไว้แล้ว)
+    u.searchParams.set('cdGateUrl', './warmup-gate.html');
+    u.searchParams.set('cdur', String(cdur));
+
+    // passthrough อื่น ๆ
+    const deny = new Set(['next','phase','dur','cdur','category','game','autoTheme','hub','pid','view','run','diff','time','cdGateUrl']);
+    Q.forEach((v,k)=>{ if(!deny.has(k)) u.searchParams.set(k, v); });
+
+    return u.toString();
+  }
+
   const next = buildGoodJunkUrl();
+  const st = getDayState();
 
   if(st.warmupDoneAt){
     dbg(`WARMUP DONE TODAY @${st.warmupDoneAt}\n=> เข้าเกมตรง\nnext=${next}`);
@@ -111,20 +97,15 @@
     return;
   }
 
-  const gate = new URL(WARMUP_URL, location.href);
-  gate.searchParams.set('phase', 'warmup');
+  const gate = new URL('./warmup-gate.html', location.href);
+  gate.searchParams.set('phase','warmup');
   gate.searchParams.set('dur', String(dur));
   gate.searchParams.set('autoTheme','1');
-  gate.searchParams.set('category', CATEGORY);
-  gate.searchParams.set('game', GAME);
+  gate.searchParams.set('category','nutrition');
+  gate.searchParams.set('game','goodjunk');
   gate.searchParams.set('hub', hub);
   gate.searchParams.set('pid', pid);
-  // ✅ สำคัญ: next ต้อง encode (แต่ gate ของคุณ PATCH 7 unwrap แล้วก็โอเคแม้ซ้อน)
   gate.searchParams.set('next', next);
-
-  // passthrough เพิ่ม (ไม่ส่ง next ซ้อน)
-  const deny2 = new Set(['next','phase','dur','cdur','category','game','autoTheme']);
-  Q.forEach((v,k)=>{ if(!deny2.has(k)) gate.searchParams.set(k, v); });
 
   dbg(`WARMUP NOT DONE TODAY\n=> ไป Gate\n${gate.toString()}`);
   go(gate.toString());
