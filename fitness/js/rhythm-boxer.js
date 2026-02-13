@@ -1,7 +1,8 @@
 // === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer UI Controller — PRODUCTION (Calibration B + AutoCal C)
+// Rhythm Boxer UI Controller — PRODUCTION (Calibration B + AutoCal C + Debug D)
 // ✅ Cal +/-/Reset + persist localStorage
-// ✅ Auto-Cal 10s: metronome + capture taps -> suggest ms -> apply+save
+// ✅ Auto-Cal 10s
+// ✅ DEBUG overlay (?debug=1) shows dt + closest notes
 
 'use strict';
 
@@ -15,6 +16,13 @@
 
   function show(el){ if(el) el.classList.remove('hidden'); }
   function hide(el){ if(el) el.classList.add('hidden'); }
+
+  function readFlag(key){
+    try{
+      const v = new URL(location.href).searchParams.get(key);
+      return v==='1' || v==='true' || v==='yes';
+    }catch(_){ return false; }
+  }
 
   function getSelectedRadio(name){
     const el = DOC.querySelector(`input[name="${name}"]:checked`);
@@ -87,7 +95,6 @@
     aiTip: qs('#rb-hud-ai-tip')
   };
 
-  // Header HUD
   const hudMode = qs('#rb-hud-mode');
   const hudTrack = qs('#rb-hud-track');
 
@@ -112,12 +119,15 @@
   const btnCalPlus  = qs('#rb-cal-plus');
   const btnCalReset = qs('#rb-cal-reset');
 
-  // Auto-Cal UI (C)
+  // Auto-Cal UI
   const btnCalAuto = qs('#rb-cal-auto');
   const calSuggest = qs('#rb-cal-suggest');
   const calAutoStatus = qs('#rb-cal-status');
 
-  // Renderer bridge (optional)
+  // Debug
+  const DEBUG = readFlag('debug');
+  let dbgEl = null;
+
   const renderer = (window.DomRendererRhythm && typeof window.DomRendererRhythm.create === 'function')
     ? window.DomRendererRhythm.create({ field: fieldEl })
     : null;
@@ -126,7 +136,6 @@
   let lastMode = 'normal';
   let lastTrackId = 'n1';
 
-  // ========= LocalStorage Cal =========
   function loadCalMs(){
     try{
       const v = Number(localStorage.getItem(LS_KEY));
@@ -142,14 +151,11 @@
   function applyCalToEngine(){
     if(!engine) return;
     const ms = loadCalMs();
-    if(typeof engine.setCalibrationMs === 'function'){
-      engine.setCalibrationMs(ms);
-    }
+    if(typeof engine.setCalibrationMs === 'function') engine.setCalibrationMs(ms);
     if(calVal) calVal.textContent = `${loadCalMs()}ms`;
     if(calSuggest) calSuggest.textContent = '';
   }
 
-  // ========= Views =========
   function setView(which){
     hide(viewMenu); hide(viewPlay); hide(viewResult);
     if(which==='menu') show(viewMenu);
@@ -157,7 +163,6 @@
     if(which==='result') show(viewResult);
   }
 
-  // ========= Mode UI =========
   function updateModeUI(){
     const mode = getSelectedRadio('rb-mode') || 'normal';
     if(mode === 'research'){
@@ -186,13 +191,25 @@
   }
 
   function bindModeRadios(){
-    qsa('input[name="rb-mode"]').forEach(r=>{
-      r.addEventListener('change', updateModeUI);
-    });
+    qsa('input[name="rb-mode"]').forEach(r=> r.addEventListener('change', updateModeUI));
   }
 
-  // ========= Engine =========
+  function ensureDebugOverlay(){
+    if(!DEBUG) return;
+    if(dbgEl) return;
+    dbgEl = DOC.createElement('div');
+    dbgEl.id = 'rb-debug';
+    dbgEl.innerHTML = `
+      <div class="rb-debug-title">DEBUG</div>
+      <div class="rb-debug-body" id="rb-debug-body">waiting…</div>
+      <div class="rb-debug-tip">เปิดด้วย ?debug=1 · ดู dt ใกล้ 0 แล้วต้องตีติด</div>
+    `;
+    DOC.body.appendChild(dbgEl);
+  }
+
   function initEngine(){
+    ensureDebugOverlay();
+
     engine = new window.RhythmBoxerEngine({
       wrap: qs('#rb-wrap'),
       field: fieldEl,
@@ -204,6 +221,28 @@
         onStart(info){
           if(hudMode) hudMode.textContent = (info.mode === 'research') ? 'Research' : 'Normal';
           if(hudTrack) hudTrack.textContent = info.track ? info.track.name : '-';
+        },
+        onTick(payload){
+          if(!DEBUG || !dbgEl) return;
+          const body = qs('#rb-debug-body');
+          if(!body) return;
+
+          const live = (payload.live || []).slice().sort((a,b)=>a.abs-b.abs).slice(0,3);
+          const lines = [];
+
+          lines.push(`t=${payload.songTime.toFixed(3)}s · Cal=${payload.calMs}ms · lanes=${payload.laneCount}`);
+          lines.push(`hitlineY(var)=${payload.hitlineY}px · live=${(payload.live||[]).length}`);
+
+          if(live.length){
+            lines.push('closest notes:');
+            for(const n of live){
+              lines.push(`- lane ${n.lane} dt=${(n.dt*1000).toFixed(0)}ms abs=${(n.abs*1000).toFixed(0)}ms rectTop=${n.top.toFixed(0)} rectBot=${n.bottom.toFixed(0)}`);
+            }
+          }else{
+            lines.push('(no live notes yet)');
+          }
+
+          body.textContent = lines.join('\n');
         },
         onEnd(summary){
           resMode.textContent = summary.modeLabel || '-';
@@ -234,7 +273,6 @@
     applyCalToEngine();
   }
 
-  // ========= Start/Stop =========
   function startGame(){
     const mode = getSelectedRadio('rb-mode') || 'normal';
     const trackId = getSelectedRadio('rb-track') || 'n1';
@@ -259,7 +297,7 @@
     if(engine) engine.stop('manual-stop');
   }
 
-  // ========= Auto-Cal (C) =========
+  // ===== Auto-Cal (same asก่อนหน้า) =====
   let _autoCalRunning = false;
   let _autoCalCancel = null;
 
@@ -269,9 +307,7 @@
     o.type = 'sine';
     o.frequency.value = freq;
     g.gain.value = gainVal;
-
     o.connect(g); g.connect(audioCtx.destination);
-
     o.start(whenSec);
     o.stop(whenSec + durSec);
   }
@@ -295,65 +331,48 @@
     if(calAutoStatus) calAutoStatus.textContent = 'Auto-Cal: ฟัง “ติ๊ก” แล้วแตะตาม 10 วินาที…';
     if(calSuggest) calSuggest.textContent = '';
 
-    // lock manual buttons during autocall
     if(btnCalMinus) btnCalMinus.disabled = true;
     if(btnCalPlus) btnCalPlus.disabled = true;
     if(btnCalReset) btnCalReset.disabled = true;
 
-    // Use current track bpm; make ticks every beat
     const bpm = (engine.track && engine.track.bpm) ? engine.track.bpm : 120;
     const beatSec = 60 / bpm;
 
-    // We'll run for ~10 seconds, ignore first 2 beats for warm-up
     const totalSec = 10.0;
     const warmBeats = 2;
 
-    // We schedule beeps using WebAudio clock; capture taps times using performance.now
     const AC = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AC();
 
     const startPerf = performance.now()/1000;
-    const startAudio = audioCtx.currentTime + 0.15; // small lead to schedule
+    const startAudio = audioCtx.currentTime + 0.15;
 
     const offsetsMs = [];
-    let beatIndex = 0;
-    let nextBeatAtPerf = startPerf + 0.15; // align to audio start
 
-    // tap capture (any lane tap counts as "response")
     const onTap = ()=>{
       if(!_autoCalRunning) return;
       const tPerf = performance.now()/1000;
 
-      // estimate nearest beat time (perf)
-      // snap to beatIndex timeline
       const k = Math.round((tPerf - (startPerf + 0.15)) / beatSec);
       const beatAt = (startPerf + 0.15) + k * beatSec;
 
-      // ignore warm-up beats
       if(k < warmBeats) return;
 
-      const offSec = tPerf - beatAt;        // + => late tap
+      const offSec = tPerf - beatAt;
       const offMs = offSec * 1000;
 
-      // keep only reasonable samples
-      if(Math.abs(offMs) <= 250){
-        offsetsMs.push(offMs);
-      }
+      if(Math.abs(offMs) <= 250) offsetsMs.push(offMs);
     };
 
-    // attach handler to lanes area
     lanesEl.addEventListener('pointerdown', onTap, {passive:true});
 
-    // schedule beeps
     const tickCount = Math.ceil(totalSec / beatSec) + 1;
     for(let i=0;i<tickCount;i++){
       const when = startAudio + i * beatSec;
-      // accent first tick
       const freq = (i===0) ? 880 : 660;
       _beepOnce(audioCtx, when, freq, 0.04, 0.08);
     }
 
-    // progress loop / finish
     const finishAtPerf = (startPerf + 0.15) + totalSec;
 
     const raf = ()=>{
@@ -374,12 +393,6 @@
     requestAnimationFrame(raf);
 
     _autoCalCancel = ()=>stopAutoCal(false, audioCtx, offsetsMs);
-    // allow long press on status to cancel (optional)
-    if(calAutoStatus){
-      calAutoStatus.addEventListener('click', ()=>{
-        if(_autoCalRunning) _autoCalCancel && _autoCalCancel();
-      }, {once:true});
-    }
 
     function cleanup(){
       lanesEl.removeEventListener('pointerdown', onTap);
@@ -402,8 +415,6 @@
         return;
       }
 
-      // If user taps late (positive offsets), we should set Cal positive to “judge later”.
-      // Recommended Cal = median(offsets) * 0.85 (slightly conservative)
       let rec = 0;
       if(arr.length >= 6){
         const med = _median(arr);
@@ -412,7 +423,6 @@
         rec = 0;
       }
 
-      // clamp and apply
       rec = Math.max(-200, Math.min(200, rec));
       saveCalMs(rec);
       applyCalToEngine();
@@ -426,7 +436,6 @@
     }
   }
 
-  // ========= Buttons =========
   function bindButtons(){
     if(btnStart) btnStart.addEventListener('click', startGame);
     if(btnStop) btnStop.addEventListener('click', stopGame);
@@ -442,9 +451,7 @@
       if(calAutoStatus) calAutoStatus.textContent = '';
     });
 
-    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=>{
-      setView('menu');
-    });
+    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=> setView('menu'));
 
     if(btnDlEvents) btnDlEvents.addEventListener('click', ()=>{
       const csv = engine ? engine.getEventsCsv() : '';
@@ -455,15 +462,12 @@
       downloadText(`rhythm_sessions_${Date.now()}.csv`, csv);
     });
 
-    // Calibration buttons
     if(btnCalMinus) btnCalMinus.addEventListener('click', ()=>{
-      const v = loadCalMs() - 10;
-      saveCalMs(v);
+      saveCalMs(loadCalMs() - 10);
       applyCalToEngine();
     });
     if(btnCalPlus) btnCalPlus.addEventListener('click', ()=>{
-      const v = loadCalMs() + 10;
-      saveCalMs(v);
+      saveCalMs(loadCalMs() + 10);
       applyCalToEngine();
     });
     if(btnCalReset) btnCalReset.addEventListener('click', ()=>{
@@ -471,7 +475,6 @@
       applyCalToEngine();
     });
 
-    // Auto-Cal
     if(btnCalAuto) btnCalAuto.addEventListener('click', startAutoCal);
   }
 
