@@ -1,14 +1,11 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
+HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today + Auto-detect platform)
 ✅ No forced ordering: play any game anytime
 ✅ Shows BIG zone status bars/icons
 ✅ Reset today clears all 3 zone daily gates
-✅ Links to ROOT launchers in /herohealth (root):
-   - ./goodjunk-vr-launcher.html
-   - ./groups-vr.html
-   - ./hydration-vr.html
-   - ./plate-vr.html
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view
+✅ Adds MaskCough into Hygiene
+✅ Auto-detect platform (auto/vr/cvr) + remembers preference
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view (+pid)
 -->
 <!doctype html>
 <html lang="th">
@@ -27,7 +24,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       --text:#e5e7eb; --muted:#94a3b8;
 
       --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa;
+      --cyan:#22d3ee; --violet:#a78bfa; --pink:#ff4fd8;
 
       --radius:22px;
       --shadow: 0 18px 60px rgba(0,0,0,.45);
@@ -144,7 +141,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
     .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
     .btn.ghost{ color:var(--muted); }
-    .btn.disabled{ opacity:.5; cursor:not-allowed; }
+    .btn.disabled{ opacity:.55; cursor:not-allowed; }
 
     .zonebarBody{
       padding: 12px 12px 14px;
@@ -226,12 +223,18 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     .fill.violet{ background: rgba(167,139,250,.85); }
     .fill.warn{ background: rgba(245,158,11,.88); }
 
+    /* Section title pill */
+    .sectionPill{
+      width:fit-content;
+      margin: 10px 0 0;
+    }
+
     /* Game grid */
     .grid{
       display:grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
       gap: 12px;
-      margin-top: 2px;
+      margin-top: 8px;
     }
     @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
     @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
@@ -264,7 +267,45 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       font-weight:900;
       white-space:nowrap;
     }
+    .tag.run{ border-color: rgba(255,255,255,.18); }
+    .tag.launch{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .tag.new{ border-color: rgba(255,79,216,.28); background: rgba(255,79,216,.10); }
 
+    /* Platform selector */
+    .platformBar{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .seg{
+      display:inline-flex;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      border-radius: 999px;
+      overflow:hidden;
+    }
+    .seg button{
+      appearance:none;
+      border:0;
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 12px;
+      font-weight: 900;
+      font-size: 12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .seg button.active{
+      color: var(--text);
+      background: rgba(255,255,255,.08);
+    }
+    .seg small{
+      opacity:.9;
+      font-weight:900;
+    }
+
+    /* Toast */
     .toast{
       position: fixed;
       left: 50%;
@@ -297,10 +338,11 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
           เลือกเล่นเกมไหนก่อนก็ได้ (ไม่มีลำดับบังคับ) • ระบบ Daily Gate แยกตาม “โซน” วันละ 1 ครั้ง/โซน
         </p>
       </div>
+
       <div class="pillrow" id="pillrow"></div>
     </div>
 
-    <!-- BIG ZONE STATUS + RESET -->
+    <!-- BIG ZONE STATUS + RESET + PLATFORM -->
     <section class="zonebar" aria-label="Zone status">
       <div class="zonebarHead">
         <div class="left">
@@ -309,7 +351,16 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
           <div class="bigPill" id="pillFitness"><span class="dot"></span><span id="tFitness">🏃 Fitness: —</span></div>
           <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
         </div>
+
         <div class="actions">
+          <div class="platformBar" title="Auto-detect platform (override ได้)">
+            <span class="pill"><b>platform</b>: <span id="platText">—</span></span>
+            <div class="seg" role="tablist" aria-label="Platform mode">
+              <button id="modeAuto" type="button"><small>Auto</small></button>
+              <button id="modeVR" type="button"><small>VR</small></button>
+              <button id="modeCVR" type="button"><small>Cardboard</small></button>
+            </div>
+          </div>
           <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
           <div class="btn warn" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</div>
         </div>
@@ -330,7 +381,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
         <div class="zoneCard">
           <div class="glow cyan"></div>
           <h3>🧼 Hygiene</h3>
-          <p>อนามัยส่วนบุคคล: Hand Wash / Brush (และเพิ่มต่อได้)</p>
+          <p>อนามัยส่วนบุคคล: Hygiene VR (Handwash/Brush) + MaskCough</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
@@ -341,7 +392,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
         <div class="zoneCard">
           <div class="glow violet"></div>
           <h3>🏃 Fitness</h3>
-          <p>ออกกำลังกาย: Shadow Breaker / Rhythm / Jump-Duck / Balance Hold</p>
+          <p>ออกกำลังกาย: Shadow Breaker / Rhythm Boxer / Jump-Duck / Balance Hold</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
@@ -351,88 +402,116 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       </div>
     </section>
 
-    <!-- GAMES (Nutrition shown first, can play any) -->
-    <section aria-label="Game list">
-      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (ไป Root launcher ใน /herohealth)</div>
+    <!-- ===================== NUTRITION ===================== -->
+    <section aria-label="Nutrition games">
+      <div class="pill sectionPill"><b>Nutrition games</b> (Root launchers ใน /herohealth)</div>
 
       <div class="grid">
-        <!-- GoodJunk -->
         <div class="game" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
           <div class="gameTop">
             <h3 class="gameTitle">🍭 GoodJunk VR</h3>
-            <span class="tag">Launcher</span>
+            <span class="tag launch">Launcher</span>
           </div>
-          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • มี missions/summary • Daily Gate ตามโซน</p>
+          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • missions/summary • Daily Gate ตามโซน</p>
         </div>
 
-        <!-- Groups -->
         <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
           <div class="gameTop">
             <h3 class="gameTitle">🧩 Food Groups VR</h3>
-            <span class="tag">Launcher</span>
+            <span class="tag launch">Launcher</span>
           </div>
-          <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5 • Daily Gate ตามโซน</p>
+          <p class="gameSub">แยกหมวดอาหาร (ป.5) • Director/Badges พร้อมใช้</p>
         </div>
 
-        <!-- Hydration -->
         <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
           <div class="gameTop">
             <h3 class="gameTitle">💧 Hydration VR</h3>
-            <span class="tag">Launcher</span>
+            <span class="tag launch">Launcher</span>
           </div>
-          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ • Daily Gate ตามโซน</p>
+          <p class="gameSub">ดื่มน้ำให้พอดี • สถิติ/มินิบอส • Daily Gate ตามโซน</p>
         </div>
 
-        <!-- Plate -->
         <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
           <div class="gameTop">
             <h3 class="gameTitle">🍽️ Plate VR</h3>
-            <span class="tag">Launcher</span>
+            <span class="tag launch">Launcher</span>
           </div>
-          <p class="gameSub">จัดจาน 5 หมู่ • bias เติมหมู่ที่ขาด • Daily Gate ตามโซน</p>
+          <p class="gameSub">จัดจาน 5 หมู่ • เติมหมู่ที่ขาด • Daily Gate ตามโซน</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HYGIENE ===================== -->
+    <section aria-label="Hygiene games">
+      <div class="pill sectionPill"><b>Hygiene games</b> (Run/VR pages)</div>
+
+      <div class="grid">
+        <div class="game" data-href="./hygiene-vr.html" data-zone="hygiene">
+          <div class="gameTop">
+            <h3 class="gameTitle">🧼 Hygiene VR</h3>
+            <span class="tag run">Run</span>
+          </div>
+          <p class="gameSub">โหมด Handwash/Brush ในหน้าเดียว • เหมาะภาคสนาม</p>
+        </div>
+
+        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop">
+            <h3 class="gameTitle">😷 Mask & Cough VR</h3>
+            <span class="tag new">NEW</span>
+          </div>
+          <p class="gameSub">ใส่หน้ากาก + มารยาทไอจาม • เป้าหมาย/มิชชัน • พร้อมเก็บ log</p>
         </div>
       </div>
 
-      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene / Fitness</b> (ลิงก์ไว้ก่อน ปรับเป็น path จริงภายหลังได้)</div>
+      <p class="subtitle" style="margin:10px 6px 0;">
+        Tip: ถ้าจะทำ Hygiene ให้มี “Root launcher + Gate” เหมือน Nutrition เดี๋ยวจัดแพ็กให้เป็นมาตรฐานเดียวกันได้
+      </p>
+    </section>
+
+    <!-- ===================== FITNESS ===================== -->
+    <section aria-label="Fitness games">
+      <div class="pill sectionPill"><b>Fitness games</b> (จากโฟลเดอร์ /fitness)</div>
 
       <div class="grid">
-        <div class="game" data-href="./hygiene-vr/hygiene-vr.html" data-zone="hygiene">
-          <div class="gameTop">
-            <h3 class="gameTitle">🧼 Hygiene VR</h3>
-            <span class="tag">Run</span>
-          </div>
-          <p class="gameSub">Hand wash / Brush • (ยังไม่ได้ทำ root launcher ก็เข้า run ได้)</p>
-        </div>
-
+        <!-- NOTE: ตั้ง data-href เป็น path เริ่มต้น (จอ) แล้วระบบจะเลือก -vr/-cvr ตาม platform -->
         <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
           <div class="gameTop">
             <h3 class="gameTitle">🕶️ Shadow Breaker</h3>
-            <span class="tag">Run</span>
+            <span class="tag run">Run</span>
           </div>
-          <p class="gameSub">เกมออกกำลังกายสาย reflex • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
+          <p class="gameSub">reflex + เกมเงา • Auto ไป VR ถ้ามีไฟล์ -vr และเครื่องรองรับ</p>
         </div>
 
         <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
           <div class="gameTop">
             <h3 class="gameTitle">🥊 Rhythm Boxer</h3>
-            <span class="tag">Run</span>
+            <span class="tag run">Run</span>
           </div>
-          <p class="gameSub">ต่อยตามจังหวะ • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
+          <p class="gameSub">ต่อยตามจังหวะ • Auto ไป -cvr ถ้าเลือก Cardboard</p>
         </div>
 
         <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
           <div class="gameTop">
             <h3 class="gameTitle">🦘 Jump-Duck</h3>
-            <span class="tag">Run</span>
+            <span class="tag run">Run</span>
           </div>
-          <p class="gameSub">กระโดด/ก้มหลบ • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
+          <p class="gameSub">กระโดด/ก้มหลบ • เหมาะเล่นบนมือถือ/จอ</p>
+        </div>
+
+        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
+          <div class="gameTop">
+            <h3 class="gameTitle">🧘 Balance Hold</h3>
+            <span class="tag run">Run</span>
+          </div>
+          <p class="gameSub">ทรงตัวค้าง • เก็บเวลา/ความนิ่ง • ใช้กับป.5 ได้</p>
         </div>
       </div>
 
       <p class="subtitle" style="margin:10px 6px 0;">
-        Tip: ถ้าคุณอยากให้ Hygiene/Fitness ก็มี “Root launcher + Gate” เหมือน Nutrition เดี๋ยวผมจัดแพ็กให้เหมือนกันได้เลย
+        หมายเหตุ: ถ้าชื่อไฟล์จริงของ Fitness ไม่ตรง (เช่นมี -vr/-cvr คนละชื่อ) บอกชื่อไฟล์มา เดี๋ยวผมปรับ routing ให้เป๊ะ 100%
       </p>
     </section>
+
   </div>
 
   <div class="toast" id="toast"></div>
@@ -441,7 +520,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
 (function(){
   'use strict';
 
-  // --- params ---
+  // ----------------- params/pass-through -----------------
   function pageUrl(){ return location.href.split('#')[0]; }
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   const QS = parseQS();
@@ -455,6 +534,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     return `${y}-${m}-${day}`;
   }
 
+  // ----------------- zone daily gate -----------------
   function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
   function isZoneDoneToday(zone){
     try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
@@ -463,7 +543,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
   }
 
-  // toast
+  // ----------------- toast -----------------
   const toastEl = document.getElementById('toast');
   let toastTimer=null;
   function toast(msg){
@@ -473,11 +553,12 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
   }
 
+  // ----------------- UI helpers -----------------
   function setPill(el, done){
+    if(!el) return;
     el.classList.remove('ok','bad');
     el.classList.add(done ? 'ok' : 'bad');
   }
-
   function setText(id, v){
     const el = document.getElementById(id);
     if(el) el.textContent = v;
@@ -491,13 +572,9 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     const hyg = isZoneDoneToday('hygiene');
     const fit = isZoneDoneToday('fitness');
 
-    const pillNut = document.getElementById('pillNutrition');
-    const pillHyg = document.getElementById('pillHygiene');
-    const pillFit = document.getElementById('pillFitness');
-
-    setPill(pillNut, nut);
-    setPill(pillHyg, hyg);
-    setPill(pillFit, fit);
+    setPill(document.getElementById('pillNutrition'), nut);
+    setPill(document.getElementById('pillHygiene'), hyg);
+    setPill(document.getElementById('pillFitness'), fit);
 
     setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
     setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
@@ -507,7 +584,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
     setText('cFitGate', fit ? 'DONE TODAY' : 'NEED GATE');
 
-    // meters: show 100% when done else 35% (just a big visual cue)
     const mNut = document.getElementById('mNut');
     const mHyg = document.getElementById('mHyg');
     const mFit = document.getElementById('mFit');
@@ -516,13 +592,81 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     mHyg.style.width = (hyg ? 100 : 35) + '%';
     mFit.style.width = (fit ? 100 : 35) + '%';
 
-    // add warn color when not done
     mNut.classList.toggle('warn', !nut);
     mHyg.classList.toggle('warn', !hyg);
     mFit.classList.toggle('warn', !fit);
   }
 
-  // pass-through helper: attach params to any href
+  // ----------------- platform detect + preference -----------------
+  // HHA_VIEW_PREF: 'auto' | 'vr' | 'cvr'
+  function getViewPref(){
+    try{
+      const v = (localStorage.getItem('HHA_VIEW_PREF') || '').toLowerCase();
+      if(v === 'vr' || v === 'cvr' || v === 'auto') return v;
+    }catch(_){}
+    return 'auto';
+  }
+  function setViewPref(v){
+    try{ localStorage.setItem('HHA_VIEW_PREF', v); }catch(_){}
+  }
+
+  function detectPlatform(){
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1);
+    const hasXR = !!navigator.xr; // presence only (we don't force requestSession here)
+    const qsView = (QS.get('view') || '').toLowerCase();
+    const pref = getViewPref();
+    const mode = (qsView === 'cvr' || qsView === 'vr') ? qsView : pref; // explicit query wins
+    const isCVR = (mode === 'cvr');
+
+    return { isMobile, hasXR, mode, isCVR };
+  }
+
+  function renderPlatformBar(){
+    const { isMobile, hasXR, mode, isCVR } = detectPlatform();
+    const plat = [
+      isMobile ? 'mobile' : 'pc',
+      hasXR ? 'webxr' : 'no-xr',
+      isCVR ? 'cardboard' : (mode === 'vr' ? 'vr' : 'auto')
+    ].join(' • ');
+    setText('platText', plat);
+
+    const bAuto = document.getElementById('modeAuto');
+    const bVR   = document.getElementById('modeVR');
+    const bCVR  = document.getElementById('modeCVR');
+
+    [bAuto,bVR,bCVR].forEach(b=> b.classList.remove('active'));
+    if(mode === 'vr') bVR.classList.add('active');
+    else if(mode === 'cvr') bCVR.classList.add('active');
+    else bAuto.classList.add('active');
+
+    // disable VR button if no XR (still allow, but mark disabled feel)
+    if(!hasXR){
+      bVR.style.opacity = .5;
+      bVR.title = 'เครื่องนี้ไม่พบ WebXR (ยังเล่นโหมดจอได้)';
+    }else{
+      bVR.style.opacity = 1;
+      bVR.title = '';
+    }
+
+    bAuto.onclick = ()=>{
+      setViewPref('auto');
+      toast('ตั้งค่า Platform: Auto');
+      renderPlatformBar();
+    };
+    bVR.onclick = ()=>{
+      setViewPref('vr');
+      toast('ตั้งค่า Platform: VR');
+      renderPlatformBar();
+    };
+    bCVR.onclick = ()=>{
+      setViewPref('cvr');
+      toast('ตั้งค่า Platform: Cardboard');
+      renderPlatformBar();
+    };
+  }
+
+  // ----------------- pass-through helper -----------------
   function applyPassThrough(href){
     const u = new URL(href, location.href);
     for (const k of PASS_KEYS){
@@ -531,13 +675,52 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
         if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
       }
     }
-    // always give hub param (so games can go back)
     if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
       u.searchParams.set('hub', location.href);
     }
     return u.toString();
   }
 
+  // ----------------- smart routing (auto-detect) -----------------
+  // Rule: do NOT override if user already forced ?view= in target href
+  function smartHref(base){
+    const u = new URL(base, location.href);
+
+    // if target already has view=, keep it
+    const forced = (u.searchParams.get('view')||'').trim();
+    if(forced) return u.toString();
+
+    const { hasXR, mode } = detectPlatform();
+
+    // If mode is 'vr' but device has no XR, we still allow; it will just open normal page.
+    // Fitness routing based on your screenshot filenames:
+    // - Rhythm Boxer has rhythm-boxer.html and rhythm-boxer-cvr.html
+    // - Shadow Breaker has shadow-breaker.html and shadow-breaker-vr.html (exists in /fitness)
+    // - Jump-Duck has jump-duck.html (single)
+    // - Balance Hold has balance-hold.html (single)
+
+    // Rhythm Boxer -> cVR file when mode=cvr
+    if (u.pathname.endsWith('/fitness/rhythm-boxer.html') && mode === 'cvr'){
+      u.pathname = u.pathname.replace('rhythm-boxer.html','rhythm-boxer-cvr.html');
+      // add view=cvr so downstream knows (optional)
+      u.searchParams.set('view','cvr');
+    }
+
+    // Shadow Breaker -> VR file when mode=vr OR (auto + hasXR)
+    if (u.pathname.endsWith('/fitness/shadow-breaker.html')){
+      const wantVR = (mode === 'vr') || (mode === 'auto' && hasXR);
+      if(wantVR){
+        // file exists in your /fitness list: shadow-breaker-vr.html
+        u.pathname = u.pathname.replace('shadow-breaker.html','shadow-breaker-vr.html');
+        u.searchParams.set('view','vr');
+      }
+    }
+
+    // Hygiene / MaskCough are already VR pages (single) => no change
+    return u.toString();
+  }
+
+  // ----------------- render pills (ctx) -----------------
   function renderPills(){
     const pills = [
       ['pid', QS.get('pid')],
@@ -559,20 +742,26 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       .join('');
   }
 
-  // click game cards
+  // ----------------- click game cards -----------------
   function bindGames(){
     const cards = document.querySelectorAll('.game[data-href]');
     cards.forEach(card=>{
       card.addEventListener('click', ()=>{
         const href = card.getAttribute('data-href');
         if(!href) return;
-        const url = applyPassThrough(href);
+
+        // 1) choose best file for device first
+        const picked = smartHref(href);
+
+        // 2) then apply pass-through context + hub param
+        const url = applyPassThrough(picked);
+
         location.href = url;
       }, { passive:true });
     });
   }
 
-  // reset today button
+  // ----------------- reset today + how -----------------
   function bindReset(){
     const btn = document.getElementById('btnResetToday');
     btn.addEventListener('click', ()=>{
@@ -589,9 +778,10 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
     });
   }
 
-  // init
+  // ----------------- init -----------------
   renderPills();
   syncBars();
+  renderPlatformBar();
   bindGames();
   bindReset();
 
