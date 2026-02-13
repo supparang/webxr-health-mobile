@@ -1,7 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) v20260212a
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + watchdog)
+//
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ Warn if particles.js or quiz bank missing
+// ✅ Watchdog: if no heartbeat for too long -> banner hint
+//
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -76,25 +79,23 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
-  // wait for deferred scripts (fx + quiz)
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
-    console.warn('[HygieneBoot] window.Particles not found');
+    console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
   }
 
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
-    console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found');
+    console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
     showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
   }else{
     try{ console.log('[HygieneBoot] quiz bank:', bank.length); }catch{}
   }
 
-  // import engine
   let engine;
   try{
-    engine = await import('./hygiene.safe.js?v=20260212a');
+    engine = await import('./hygiene.safe.js');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
@@ -105,10 +106,21 @@ async function main(){
     return;
   }
 
+  // watchdog heartbeat (engine should emit hha:time regularly)
+  let lastBeat = Date.now();
+  window.addEventListener('hha:time', ()=>{ lastBeat = Date.now(); });
+
+  setInterval(()=>{
+    const dt = Date.now() - lastBeat;
+    if(dt > 3500){
+      showBanner('⏳ เกมค้าง/หน่วง — แนะนำกด Reload (อาจเกิดจากมือถือหน่วง/Memory)');
+      lastBeat = Date.now(); // rate-limit
+    }
+  }, 1200);
+
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
-    showBanner('✅ โหลดเกมสำเร็จ');
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
