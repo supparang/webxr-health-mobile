@@ -1,11 +1,12 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics) — PATCH v20260211a
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
+// PATCH v20260211a
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
-// ✅ Warn if particles.js or quiz bank missing
-// ✅ Adds a simple "stall detector" banner (help user reload)
-//
+// ✅ Warn if particles.js or quiz bank missing (but still run)
+// ✅ Wait a bit for defer scripts to populate globals (Particles / Quiz bank)
+
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -31,6 +32,7 @@ function showFatal(msg, err){
     banner.classList.add('show');
   }
   if(startOverlay){
+    // ให้ผู้ใช้เห็นว่าไม่ใช่ “ค้าง” แต่เป็น error
     const card = startOverlay.querySelector('.hw-card-sub');
     if(card){
       card.innerHTML = `
@@ -83,12 +85,16 @@ async function main(){
   }
 
   // Wait a bit for deferred scripts to populate globals
+  // particles.js -> window.Particles
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
+  }else{
+    try{ console.log('[HygieneBoot] Particles OK'); }catch{}
   }
 
+  // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
@@ -111,32 +117,12 @@ async function main(){
     return;
   }
 
-  // Track stall (if RAF stops, at least warn)
-  let last = performance.now();
-  let alive = true;
-
-  function rafPing(){
-    if(!alive) return;
-    last = performance.now();
-    requestAnimationFrame(rafPing);
-  }
-  requestAnimationFrame(rafPing);
-
-  setInterval(()=>{
-    if(!alive) return;
-    const dt = performance.now() - last;
-    if(dt > 1600){
-      showBanner('⚠️ เกมค้าง/สะดุด — แนะนำกด Reload (มือถือหน่วง/JS error)');
-    }
-  }, 900);
-
   // Run engine boot
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
   }catch(err){
     showFatal('engine.boot() crash', err);
-    alive = false;
   }
 }
 
