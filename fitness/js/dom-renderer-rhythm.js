@@ -1,4 +1,5 @@
 // === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// PRODUCTION: FX anchored to GOLD hit line (bottom: --rb-hitline-y)
 'use strict';
 
 (function(){
@@ -8,21 +9,34 @@
       this.wrapEl = opts.wrapEl || document.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
+
+      this._flashT = null;
+      this._hitlinePxCache = null;
+      this._hitlineCacheAt = 0;
     }
 
-    _readHitlinePx(){
-      // อ่านค่า --rb-hitline-y จาก :root (หรือ fallback)
+    _readHitlinePx(laneEl){
+      // read CSS variable --rb-hitline-y (e.g., "44px" or "calc(...)")
+      // if calc() exists, computedStyle will return px.
+      const now = performance.now();
+      if(this._hitlinePxCache != null && (now - this._hitlineCacheAt) < 800) return this._hitlinePxCache;
+
       try{
-        const v = getComputedStyle(document.documentElement).getPropertyValue('--rb-hitline-y').trim();
-        const n = parseFloat(v);
-        return Number.isFinite(n) ? n : 78;
-      }catch(_){
-        return 78;
-      }
+        const cs = getComputedStyle(laneEl || document.documentElement);
+        const v = cs.getPropertyValue('--rb-hitline-y').trim();
+        const px = parseFloat(v);
+        if(Number.isFinite(px)){
+          this._hitlinePxCache = px;
+          this._hitlineCacheAt = now;
+          return px;
+        }
+      }catch(_){}
+      // fallback (should match CSS default roughly)
+      return 44;
     }
 
     _screenPosFromLane(lane){
-      // เอาตำแหน่ง "เส้นตีด้านล่าง" ของ lane มาเป็นจุดกำเนิด FX
+      // center X of lane, Y at GOLD hit line position
       const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
       if(!laneEl){
         const r = this.wrapEl.getBoundingClientRect();
@@ -32,9 +46,8 @@
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
 
-      // hitline = rect.bottom - hitlineOffset
-      const hitlineOffset = this._readHitlinePx();
-      const y = rect.bottom - hitlineOffset;
+      const hitlineY = this._readHitlinePx(laneEl); // px from lane bottom
+      const y = rect.bottom - hitlineY;
 
       return { x, y };
     }
@@ -75,6 +88,7 @@
       el.style.left = x + 'px';
       el.style.top  = y + 'px';
       document.body.appendChild(el);
+      // force reflow
       void el.offsetWidth;
       el.classList.add('is-live');
       setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 420);
@@ -85,7 +99,6 @@
       for(let i=0;i<n;i++){
         const el = document.createElement('div');
         el.className = `rb-frag rb-frag-${judgment||'good'}`;
-
         const size = 6 + Math.random()*6;
         const ang = (i/n) * Math.PI*2;
         const dist = 26 + Math.random()*34;
