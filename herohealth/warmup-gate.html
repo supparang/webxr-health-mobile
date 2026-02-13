@@ -289,11 +289,6 @@
       margin-top:10px;
     }
     .pickRow button{ padding:10px 12px; border-radius: 14px; }
-    .locked{
-      border:1px solid rgba(245,158,11,.28);
-      background: rgba(245,158,11,.08);
-      color: rgba(245,158,11,.95);
-    }
   </style>
 </head>
 <body>
@@ -436,7 +431,7 @@
 
     <footer>
       <div>HeroHealth · Boss Gate · 20s</div>
-      <div class="mono">BUILD: v2026-02-12b</div>
+      <div class="mono">BUILD: v2026-02-13-gate6</div>
     </footer>
   </div>
 </div>
@@ -455,6 +450,33 @@
   const QS = getQS();
   const q = (k, def='') => (QS.get(k) ?? def);
 
+  // ------------------------------
+  // ✅ PATCH A: PID (per player) so daily-once won't collide on shared devices
+  // ------------------------------
+  function getPid(){
+    const qp = (q('gatePid','') || q('pid','') || '').trim();
+    if(qp) return qp;
+
+    try{
+      const B = window.HHA_Badges;
+      const pid = B && typeof B.getPid === 'function' ? (B.getPid()||'') : '';
+      if(pid) return pid;
+    }catch(_){}
+
+    const K = 'HHA_PID_FALLBACK';
+    try{
+      let v = localStorage.getItem(K);
+      if(!v){
+        v = 'pid_' + Math.random().toString(16).slice(2) + '_' + Date.now();
+        localStorage.setItem(K, v);
+      }
+      return v;
+    }catch(_){
+      return 'pid_anon';
+    }
+  }
+  const PID = getPid();
+
   const PHASE = (q('phase','warmup') || 'warmup').toLowerCase(); // warmup | cooldown
   let NEXT  = q('next',''); // url OR "random"
   const HUB   = q('hub','');
@@ -463,7 +485,9 @@
   const COOLDOWN_SECONDS = Math.max(5, Math.min(60, Number(q('cdur','20')||20)));
 
   const AUTONEXT = String(q('autonext','0')) === '1'; // cooldown gate from games
-  const KEY_LAST = 'HHA_WARMUP_LAST';
+
+  // ✅ PATCH B: keys are per PID
+  const KEY_LAST = `HHA_WARMUP_LAST__${PID}`;
 
   // daily once
   const todayKey = (() => {
@@ -473,8 +497,9 @@
     const dd = String(d.getDate()).padStart(2,'0');
     return `${y}${m}${dd}`;
   })();
-  const KEY_DAY = 'HHA_GATE_DAY';                // { day, warmupDoneAt, cooldownDoneAt, ... }
-  const KEY_LOG = 'HHA_GATE_LOG';                // array of events
+
+  const KEY_DAY = `HHA_GATE_DAY__${PID}`; // { day, warmupDoneAt, cooldownDoneAt, ... }
+  const KEY_LOG = `HHA_GATE_LOG__${PID}`; // array of events
 
   function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
@@ -499,7 +524,13 @@
   function getDayState(){
     const st = readJSON(KEY_DAY, null);
     if(!st || st.day !== todayKey){
-      const fresh = { day: todayKey, warmupDoneAt:'', cooldownDoneAt:'', warmupBuff:null, cooldownBuff:null, lastNext:'', lastPhaseEndGame:'' };
+      const fresh = {
+        day: todayKey,
+        pid: PID,
+        warmupDoneAt:'', cooldownDoneAt:'',
+        warmupBuff:null, cooldownBuff:null,
+        lastNext:'', lastPhaseEndGame:''
+      };
       writeJSON(KEY_DAY, fresh);
       return fresh;
     }
@@ -514,7 +545,7 @@
 
   function pushLog(ev){
     const arr = readJSON(KEY_LOG, []);
-    const item = Object.assign({ atISO: new Date().toISOString(), at: nowStamp() }, ev||{});
+    const item = Object.assign({ atISO: new Date().toISOString(), at: nowStamp(), pid: PID }, ev||{});
     arr.unshift(item);
     writeJSON(KEY_LOG, arr.slice(0, 80));
   }
@@ -546,7 +577,6 @@
       });
       return u.toString();
     }catch(_){
-      // fallback: simple concat
       const join = base.includes('?') ? '&' : '?';
       const qs2 = Object.entries(add||{})
         .filter(([,v])=>!(v===undefined||v===null||v===''))
@@ -560,9 +590,13 @@
     history.length ? history.back() : (location.href = './');
   }
 
-  // keep passthrough params for next (do not forward next/hub/phase/dur/cdur/games/autonext)
+  // keep passthrough params for next (do not forward gate system params)
   function getPassthrough(){
-    const deny = new Set(['next','hub','phase','dur','cdur','games','autonext']);
+    // ✅ PATCH C: don't leak gate system params to next game
+    const deny = new Set([
+      'next','hub','phase','dur','cdur','games','autonext',
+      'gate','skipGate','gateOnce','gatePid','pid'
+    ]);
     const out = {};
     QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
     return out;
@@ -636,7 +670,7 @@
     const w = st.warmupDoneAt ? `✅ warmup ${st.warmupDoneAt}` : `— warmup ยังไม่ทำ`;
     const c = st.cooldownDoneAt ? `✅ cooldown ${st.cooldownDoneAt}` : `— cooldown ยังไม่ทำ`;
     dailyNote.innerHTML =
-      `<b>${todayKey}</b><br/>${w}<br/>${c}` +
+      `<b>${todayKey}</b> <span class="mono">(pid:${PID})</span><br/>${w}<br/>${c}` +
       (st.lastPhaseEndGame ? `<br/>ล่าสุดจบจาก: <span class="mono">${st.lastPhaseEndGame}</span>` : '');
   }
   function renderLog(){
@@ -726,7 +760,7 @@
   function makeBuff(){
     const pct = clamp(state.pct,0,100);
     const rank = calcRank(pct);
-    let buff = { phase: PHASE, type: state.mode, pct, rank };
+    let buff = { phase: PHASE, type: state.mode, pct, rank, pid: PID };
 
     if(state.mode === 'breathing'){
       buff.wCrit = +(0.03 + (pct/100)*0.04).toFixed(3);
@@ -752,10 +786,10 @@
     pickRow.innerHTML = '';
     const games = parseGames();
     const labels = [
-      { key:'goodjunk', name:'GoodJunk', url: games[0] || './vr-goodjunk/goodjunk-vr.html' },
-      { key:'groups',   name:'Groups',   url: games[1] || './groups-vr.html' },
-      { key:'hydr',     name:'Hydration',url: games[2] || './hydration-vr.html' },
-      { key:'plate',    name:'Plate',    url: games[3] || './plate/plate-vr.html' },
+      { name:'GoodJunk', url: games[0] || './vr-goodjunk/goodjunk-vr.html' },
+      { name:'Groups',   url: games[1] || './groups-vr.html' },
+      { name:'Hydration',url: games[2] || './hydration-vr.html' },
+      { name:'Plate',    url: games[3] || './plate/plate-vr.html' },
     ];
 
     labels.forEach(it=>{
@@ -770,13 +804,29 @@
     });
   }
 
+  function openDoneFromState(msg){
+    const st = getDayState();
+    const isWarm = (PHASE === 'warmup');
+    const doneAt = isWarm ? st.warmupDoneAt : st.cooldownDoneAt;
+    const buff = isWarm ? (st.warmupBuff || readJSON(KEY_LAST, {})) : (st.cooldownBuff || readJSON(KEY_LAST, {}));
+
+    doneTitle.textContent = isWarm ? 'WARMUP DONE (TODAY)' : 'COOLDOWN DONE (TODAY)';
+    doneText.textContent = msg || (doneAt ? `วันนี้ทำ ${PHASE} แล้ว (${doneAt}) — ไปต่อได้เลย` : `สรุปผล ${PHASE}`);
+    doneJson.textContent = JSON.stringify(buff || {}, null, 2);
+    buildPickButtons();
+    $('#btn-go').disabled = !NEXT;
+    show('done');
+
+    renderDaily();
+    renderLog();
+  }
+
   function markDoneToday(buff){
     const st = getDayState();
     const stamp = nowStamp();
 
     if(PHASE === 'warmup'){
       if(st.warmupDoneAt){
-        // already done: do not overwrite (respect daily once)
         pushLog({ phase:'warmup', msg:`Warmup attempt ignored (already done at ${st.warmupDoneAt})` });
         return st;
       }
@@ -800,7 +850,7 @@
     const buff = makeBuff();
     saveLast(buff);
 
-    // resolve next if random (only when needed)
+    // resolve next if random
     if((NEXT||'').toLowerCase() === 'random'){
       NEXT = pickRandom(parseGames()) || '';
     }
@@ -813,9 +863,8 @@
       markDoneToday(buff);
     }
 
-    // UI text
     const lockMsg = already
-      ? `วันนี้ทำ ${PHASE} ไปแล้ว (วันละครั้ง) — ดูผลด้านขวา แล้วไปเล่นเกมต่อได้เลย`
+      ? `วันนี้ทำ ${PHASE} ไปแล้ว (วันละครั้ง) — ดูผลแล้วไปต่อได้เลย`
       : `สำเร็จ ✅ วันนี้ทำ ${PHASE} แล้ว`;
 
     doneTitle.textContent = (PHASE==='cooldown') ? 'COOLDOWN CLEAR!' : 'WARMUP CLEAR!';
@@ -823,7 +872,6 @@
     doneJson.textContent = JSON.stringify(buff, null, 2);
     buildPickButtons();
 
-    // go button enabled if next exists
     $('#btn-go').disabled = !NEXT;
 
     show('done');
@@ -832,32 +880,30 @@
     renderDaily();
     renderLog();
 
-    // if cooldown gate called from game end and autonext=1:
-    // => show summary first (THIS screen) แล้วค่อยให้ผู้ใช้กดไปต่อเอง (ปลอดภัย/ไม่หลุด)
-    // ถ้าต้องการให้ “เด้งอัตโนมัติ” ค่อยเพิ่ม later ได้
+    // ✅ OPTIONAL (disabled): auto proceed when cooldown gate invoked by game end
+    // if(PHASE === 'cooldown' && AUTONEXT && NEXT){
+    //   setTimeout(()=>{ goNextWithBuff(); }, 650);
+    // }
   }
 
   function goNextWithBuff(){
-    // if next missing -> do nothing
     const nextBase = (NEXT||'');
     if(!nextBase){ return; }
 
-    // IMPORTANT: warmup/cooldown daily once
     const st = getDayState();
-    if(PHASE==='warmup' && st.warmupDoneAt){
-      // allow proceed without rerun
-    }
-    if(PHASE==='cooldown' && st.cooldownDoneAt){
-      // allow proceed without rerun
-    }
 
-    const buff = makeBuff();
+    // ✅ PATCH D: if already done today, use stored buff (avoid 0% bug)
+    let buff = null;
+    if(PHASE === 'warmup' && st.warmupDoneAt) buff = st.warmupBuff;
+    if(PHASE === 'cooldown' && st.cooldownDoneAt) buff = st.cooldownBuff;
+    if(!buff) buff = makeBuff();
 
     const add = {
       ...getPassthrough(),
       wType: buff.type,
       wPct: buff.pct,
-      rank: buff.rank
+      rank: buff.rank,
+      pid: PID
     };
     if(buff.wCrit !== undefined) add.wCrit = buff.wCrit;
     if(buff.wDmg !== undefined) add.wDmg = buff.wDmg;
@@ -996,9 +1042,7 @@
 
       setProgress(state.pct + gain);
       setRank(calcRank(state.pct));
-      place(good);
-      place(decoy);
-      place(bad);
+      place(good); place(decoy); place(bad);
     }
 
     function onDecoy(e){
@@ -1023,7 +1067,6 @@
       place(bad);
     }
 
-    // mobile friendly: pointerup
     good.addEventListener('pointerup', onGood, { passive:false });
     decoy.addEventListener('pointerup', onDecoy, { passive:false });
     bad.addEventListener('pointerup', onBad, { passive:false });
@@ -1182,8 +1225,7 @@
   $('#btn-breath').addEventListener('click', ()=>{
     const st = getDayState();
     if(PHASE==='warmup' && st.warmupDoneAt){
-      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
-      show('done');
+      openDoneFromState('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
       return;
     }
     startBreathing();
@@ -1192,8 +1234,7 @@
   $('#btn-meditate').addEventListener('click', ()=>{
     const st = getDayState();
     if(PHASE==='warmup' && st.warmupDoneAt){
-      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
-      show('done');
+      openDoneFromState('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
       return;
     }
     startMeditation();
@@ -1202,8 +1243,7 @@
   $('#btn-stretch').addEventListener('click', ()=>{
     const st = getDayState();
     if(PHASE==='warmup' && st.warmupDoneAt){
-      alert('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
-      show('done');
+      openDoneFromState('วันนี้ทำ Warmup ไปแล้ว (วันละครั้ง) — ไปเล่นเกมต่อได้เลย');
       return;
     }
     startStretching();
@@ -1212,21 +1252,20 @@
   $('#btn-cooldown').addEventListener('click', ()=>{
     const st = getDayState();
     if(st.cooldownDoneAt){
-      alert('วันนี้ทำ Cooldown ไปแล้ว (วันละครั้ง) — ดูสรุปแล้วไปเล่นเกมต่อได้เลย');
-      show('done');
+      openDoneFromState('วันนี้ทำ Cooldown ไปแล้ว (วันละครั้ง) — เลือกเกมต่อไปได้เลย');
       return;
     }
     startCooldown();
   });
 
   $('#btn-stop').addEventListener('click', ()=>{ stopTimers(); show('select'); say(''); });
+
   $('#btn-again').addEventListener('click', ()=>{
     stopTimers();
-    // warmup/cooldown daily once: again means "re-open results", not rerun if already done
     const st = getDayState();
     const done = (PHASE==='warmup') ? !!st.warmupDoneAt : !!st.cooldownDoneAt;
     if(done){
-      show('done');
+      openDoneFromState();
       return;
     }
     show('select');
@@ -1254,12 +1293,8 @@
   const phaseText = (PHASE==='cooldown') ? 'cooldown' : 'warmup';
   modeBadge.textContent = phaseText;
 
-  // if next=random we keep label, but actual resolve at finish/go
-  const nextPreview = (NEXT||'').toLowerCase()==='random'
-    ? `random`
-    : (NEXT||'(none)');
+  const nextPreview = (NEXT||'').toLowerCase()==='random' ? `random` : (NEXT||'(none)');
 
-  // show notes
   const hasNext = !!NEXT;
   if(PHASE === 'cooldown'){
     topTitle.textContent = `😌 Cooldown Boss Gate (${COOLDOWN_SECONDS} วิ)`;
@@ -1281,36 +1316,23 @@
     routeMini.textContent = `phase=warmup dur=${WARMUP_SECONDS} next=${nextPreview}`;
   }
 
-  // if already done today -> jump to DONE summary screen immediately
+  renderDaily();
+  renderLog();
+
   const st = getDayState();
   const doneWarm = !!st.warmupDoneAt;
   const doneCool = !!st.cooldownDoneAt;
 
-  renderDaily();
-  renderLog();
-
   if(PHASE==='cooldown'){
     if(doneCool){
-      // show summary + allow choose next game
-      show('done');
-      doneTitle.textContent = 'COOLDOWN DONE (TODAY)';
-      doneText.textContent = `วันนี้ทำ cooldown แล้ว (${st.cooldownDoneAt}) — เลือกเกมต่อไปได้เลย`;
-      doneJson.textContent = JSON.stringify(st.cooldownBuff || readJSON(KEY_LAST, {}), null, 2);
-      buildPickButtons();
-      $('#btn-go').disabled = !NEXT;
+      openDoneFromState();
     }else{
-      // if gate called from end-game: start cooldown automatically only if not done today
       if(AUTONEXT) startCooldown();
       else show('select');
     }
   }else{
     if(doneWarm){
-      show('done');
-      doneTitle.textContent = 'WARMUP DONE (TODAY)';
-      doneText.textContent = `วันนี้ทำ warmup แล้ว (${st.warmupDoneAt}) — ไปเล่นเกมต่อได้เลย`;
-      doneJson.textContent = JSON.stringify(st.warmupBuff || readJSON(KEY_LAST, {}), null, 2);
-      buildPickButtons();
-      $('#btn-go').disabled = !NEXT;
+      openDoneFromState();
     }else{
       show('select');
     }
