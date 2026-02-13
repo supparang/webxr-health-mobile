@@ -2,9 +2,8 @@
 // DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ TTL expire -> fadeout then remove (PATCH G)
-// ✅ onTargetExpire(id, meta) callback (PATCH G)
 // ✅ FX via FxBurst
+// ✅ PATCH: auto-expire (ttlMs) + smooth fade + onTargetExpire callback
 
 'use strict';
 
@@ -23,8 +22,8 @@ export class DomRendererShadow {
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map(); // id -> el
-    this.timers = new Map();  // id -> {ttl, fade}
+    this.targets = new Map();   // id -> element
+    this.timers  = new Map();   // id -> timeoutId
     this._onPointer = this._onPointer.bind(this);
   }
 
@@ -34,23 +33,21 @@ export class DomRendererShadow {
     for (const [id, el] of this.targets.entries()) {
       try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el.remove(); } catch {}
+      const tid = this.timers.get(id);
+      if (tid) { try { clearTimeout(tid); } catch {} }
     }
     this.targets.clear();
-
-    for (const [id, t] of this.timers.entries()){
-      try { clearTimeout(t.ttl); } catch {}
-      try { clearTimeout(t.fade); } catch {}
-    }
     this.timers.clear();
   }
 
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-    const pad = Math.min(44, Math.max(18, r.width * 0.04));
-    const top = pad + 10;
-    const left = pad + 10;
-    const right = r.width - pad - 10;
-    const bottom = r.height - pad - 10;
+    // keep margins away from HUD/meta
+    const pad = Math.min(46, Math.max(18, r.width * 0.05));
+    const top = pad + 14;
+    const left = pad + 12;
+    const right = r.width - pad - 12;
+    const bottom = r.height - pad - 14;
     return { r, left, top, right, bottom };
   }
 
@@ -64,47 +61,6 @@ export class DomRendererShadow {
     return '🎯';
   }
 
-  _armTTL(id, ttlMs, meta){
-    const old = this.timers.get(id);
-    if (old){
-      try { clearTimeout(old.ttl); } catch {}
-      try { clearTimeout(old.fade); } catch {}
-      this.timers.delete(id);
-    }
-    if (!Number.isFinite(ttlMs) || ttlMs <= 0) return;
-
-    const fadeMs = 140;
-    const tFade = Math.max(0, ttlMs - fadeMs);
-
-    const fade = setTimeout(()=>{
-      const el = this.targets.get(id);
-      if (!el) return;
-      el.classList.add('sb-target--fadeout');
-    }, tFade);
-
-    const ttl = setTimeout(()=>{
-      const el = this.targets.get(id);
-      if (!el) return;
-
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width/2;
-      const cy = rect.top + rect.height/2;
-
-      this.removeTarget(id, 'timeout');
-
-      if (this.onTargetExpire){
-        this.onTargetExpire(id, {
-          ...meta,
-          clientX: cx,
-          clientY: cy,
-          reason: 'timeout'
-        });
-      }
-    }, ttlMs);
-
-    this.timers.set(id, { ttl, fade });
-  }
-
   spawnTarget(data){
     if (!this.layer || !data) return;
 
@@ -113,9 +69,8 @@ export class DomRendererShadow {
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
     el.dataset.id = String(data.id);
-    el.dataset.type = String(data.type || 'normal');
 
-    const size = clamp(Number(data.sizePx) || 120, 64, 300);
+    const size = clamp(Number(data.sizePx) || 112, 64, 260);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
@@ -124,19 +79,38 @@ export class DomRendererShadow {
     el.style.left = Math.round(x) + 'px';
     el.style.top = Math.round(y) + 'px';
 
-    const emoji = this._emojiForType(data.type, data.bossEmoji);
-    el.textContent = emoji;
-
+    el.textContent = this._emojiForType(data.type, data.bossEmoji);
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
     this.targets.set(data.id, el);
 
+    // ✅ auto-expire
     const ttlMs = Number(data.ttlMs);
-    this._armTTL(data.id, ttlMs, {
-      targetType: (data.type || 'normal'),
-      sizePx: Math.round(size)
-    });
+    if (Number.isFinite(ttlMs) && ttlMs > 50) {
+      const tid = setTimeout(() => {
+        // already removed?
+        if (!this.targets.has(data.id)) return;
+
+        // smooth fade
+        try { el.classList.add('is-expiring'); } catch {}
+
+        // remove a bit later so it looks natural
+        const removeDelay = 140;
+        setTimeout(() => {
+          if (!this.targets.has(data.id)) return;
+          const rect = el.getBoundingClientRect();
+          // miss FX เบา ๆ
+          FxBurst.burst(rect.left + rect.width/2, rect.top + rect.height/2, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
+          FxBurst.popText(rect.left + rect.width/2, rect.top + rect.height/2, 'MISS', 'sb-fx-miss');
+
+          this.removeTarget(data.id, 'expired');
+          if (this.onTargetExpire) this.onTargetExpire(data.id, { reason:'expired' });
+        }, removeDelay);
+      }, ttlMs);
+
+      this.timers.set(data.id, tid);
+    }
   }
 
   _onPointer(e){
@@ -151,15 +125,13 @@ export class DomRendererShadow {
   }
 
   removeTarget(id, reason){
-    const t = this.timers.get(id);
-    if (t){
-      try { clearTimeout(t.ttl); } catch {}
-      try { clearTimeout(t.fade); } catch {}
-      this.timers.delete(id);
-    }
-
     const el = this.targets.get(id);
     if (!el) return;
+
+    const tid = this.timers.get(id);
+    if (tid) { try { clearTimeout(tid); } catch {} }
+    this.timers.delete(id);
+
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
     this.targets.delete(id);
@@ -182,7 +154,7 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+      FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
@@ -195,10 +167,5 @@ export class DomRendererShadow {
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
-  }
-
-  playMissFx(x, y){
-    FxBurst.burst(x, y, { n: 8, spread: 42, ttlMs: 520, cls: 'sb-fx-miss' });
-    FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
   }
 }
