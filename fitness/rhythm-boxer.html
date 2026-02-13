@@ -117,8 +117,6 @@
       <div class="rb-hud-row">
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
-
-        <!-- ✅ Calibration display -->
         <span class="rb-chip">Cal: <b id="rb-hud-cal">0ms</b></span>
       </div>
 
@@ -163,15 +161,19 @@
         </div>
       </div>
 
-      <!-- ✅ Calibration buttons -->
+      <!-- Calibration controls -->
       <div class="rb-btn-row">
         <button id="rb-cal-minus" class="rb-btn rb-btn-sm">Cal −10ms</button>
         <button id="rb-cal-plus" class="rb-btn rb-btn-sm">Cal +10ms</button>
         <button id="rb-cal-reset" class="rb-btn rb-btn-sm">Reset Cal</button>
+        <button id="rb-cal-auto" class="rb-btn rb-btn-sm">Auto-Cal 10s</button>
       </div>
 
+      <p id="rb-cal-status" class="rb-hint-inline"></p>
+      <p id="rb-cal-suggest" class="rb-hint-inline"></p>
+
       <p class="rb-hint-inline">
-        ถ้า “โน้ตแตะเส้นทองแล้วกดยังไม่ติด” ให้ลอง Cal +10ms ทีละขั้นจนเริ่มติด (มือถือ/VR มักต้อง +20 ถึง +80ms)
+        ถ้า “โน้ตแตะเส้นทองแล้วกดยังไม่ติด” ใช้ Auto-Cal ก่อน แล้วค่อย fine-tune ±10ms
       </p>
     </section>
 
