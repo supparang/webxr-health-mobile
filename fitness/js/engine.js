@@ -1,8 +1,6 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — FULL (PATCH X + S ✅: target expiry smooth + miss FX)
-// - Smaller targets (DIFF_CONFIG.baseSize)
-// - Robust target expiry: targets auto-expire & disappear smoothly
-// - Soft MISS feedback + light FX (no hard vanish)
+// Shadow Breaker engine (PATCH: smaller targets + robust boot + TTL expire miss)
+// ✅ PATCH G: renderer onTargetExpire -> miss + miss fx + fadeout handled in renderer
 
 'use strict';
 
@@ -10,29 +8,24 @@ import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
 import { AIPredictor } from './ai-predictor.js';
 
-// -------------------------
-// URL params
-// -------------------------
 function getQS(){
   try { return new URL(location.href).searchParams; }
   catch { return new URLSearchParams(); }
 }
 const QS = getQS();
-const q = (k, def='') => (QS.get(k) ?? def);
+const q = (k, def='') => rememberNull(QS.get(k), def);
+function rememberNull(v, def){ return (v === null || v === undefined || v === '') ? def : v; }
 const qNum = (k, def=0) => {
   const v = Number(q(k, def));
   return Number.isFinite(v) ? v : def;
 };
 
-const MODE = (q('mode','normal') || 'normal').toLowerCase(); // normal | research
+const MODE = (q('mode', q('run','normal')) || 'normal').toLowerCase(); // normal | research
 const PID  = q('pid','');
 const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
 const HUB  = q('hub','./hub.html');
 
-// -------------------------
-// DOM
-// -------------------------
 const $ = (s)=>document.querySelector(s);
 const wrapEl = $('#sb-wrap');
 
@@ -88,29 +81,22 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
-// -------------------------
-// Data (bosses)
-// -------------------------
 const BOSSES = [
-  { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
-  { name:'Meteor Punch', emoji:'☄️', desc:'เร็วขึ้น — อย่าหลงเป้าล่อ', phases: 3 },
-  { name:'Neon Hydra', emoji:'🐉', desc:'คอมโบสำคัญมาก — รักษาจังหวะ', phases: 3 },
+  { name:'Bubble Glove',  emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
+  { name:'Meteor Punch',  emoji:'☄️', desc:'เร็วขึ้น — อย่าหลงเป้าล่อ', phases: 3 },
+  { name:'Neon Hydra',    emoji:'🐉', desc:'คอมโบสำคัญมาก — รักษาจังหวะ', phases: 3 },
 ];
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
-// -------------------------
-// Difficulty config
-// -------------------------
-// ✅ PATCH: ลดขนาดเป้าให้ “ไม่อึดอัด” บน mobile
+// ✅ ปรับขนาดเป้า + TTL ตามความยาก (ลดความแน่น)
 const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:118, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:110, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:102, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+  easy:   { label:'Easy',   spawnIntervalMin:980, spawnIntervalMax:1400, targetLifetime:1500, baseSize:108, bossDamageNormal:0.040, bossDamageBossFace:0.45 },
+  normal: { label:'Normal', spawnIntervalMin:840, spawnIntervalMax:1250, targetLifetime:1350, baseSize:102, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard',   spawnIntervalMin:690, spawnIntervalMax:1050, targetLifetime:1200, baseSize:96,  bossDamageNormal:0.030, bossDamageBossFace:0.35 }
 };
 
-// ----- FEVER / HP -----
 const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
@@ -127,9 +113,6 @@ function showView(which){
   viewResult?.classList.toggle('is-active', which === 'result');
 }
 
-// -------------------------
-// State
-// -------------------------
 let running = false;
 let ended = false;
 let paused = false;
@@ -156,7 +139,6 @@ let bossesCleared = 0;
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
 
-// Events log (simple, can expand)
 const events = [];
 const session = {
   pid: PID || '',
@@ -173,33 +155,17 @@ const session = {
   accPct: 0
 };
 
-// AI / DL (safe — not mandatory)
 const dl = new DLFeatures();
 const ai = new AIPredictor();
 
-// -------------------------
-// Renderer
-// -------------------------
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
   feedbackEl: msgMainEl,
-  onTargetHit: onTargetHit
+  onTargetHit,
+  onTargetExpire // ✅ PATCH G
 });
 renderer.setDifficulty(diff);
 
-// -------------------------
-// ✅ PATCH X: Target lifetime tracking
-// -------------------------
-// activeTargets: id -> { type, expireAtMs, sizePx }
-const activeTargets = new Map();
-
-function clearActiveTargets(){
-  activeTargets.clear();
-}
-
-// -------------------------
-// Helpers
-// -------------------------
 function boss(){
   return BOSSES[clamp(bossIndex,0,BOSSES.length-1)];
 }
@@ -256,15 +222,6 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-// ✅ PATCH X: soft miss flash (CSS optional)
-function missFlash(){
-  try{
-    const play = document.querySelector('.sb-play');
-    play?.classList.add('is-missflash');
-    setTimeout(()=>play?.classList.remove('is-missflash'), 160);
-  }catch{}
-}
-
 function spawnOne(){
   const id = Math.floor(Math.random()*1e9);
   const roll = Math.random();
@@ -275,85 +232,26 @@ function spawnOne(){
   else if(roll < 0.20) type = 'heal';
   else if(roll < 0.26) type = 'shield';
 
-  // Boss face appears when boss low
   if(bossHp <= 26 && Math.random() < 0.22){
     type = 'bossface';
   }
 
-  // size: based on CFG.baseSize
   let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.18;
+  if(type === 'bossface') sizePx = CFG.baseSize * 1.15;
   if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
 
-  const ttlMs = Number(CFG.targetLifetime) || 1200;
-
   renderer.spawnTarget({
-    id, type,
+    id,
+    type,
     sizePx,
     bossEmoji: boss().emoji,
-    ttlMs
+    ttlMs: CFG.targetLifetime
   });
 
-  // ✅ PATCH X: register expiry
-  activeTargets.set(id, {
-    type,
-    sizePx: Math.round(sizePx),
-    expireAtMs: now() + ttlMs
-  });
+  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx) });
 
-  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
-
-  // optional: count opportunity
+  // ✅ นับ “โอกาสยิง” เป็น attempt
   dl.onShot();
-}
-
-// ✅ PATCH X + S ✅: Expire handler
-function expireTarget(id){
-  if(!running || ended) return;
-
-  const meta = activeTargets.get(id);
-  const el = renderer.targets.get(id);
-
-  // if already removed by hit or cleanup
-  if(!meta || !el){
-    activeTargets.delete(id);
-    return;
-  }
-
-  const type = meta.type || 'normal';
-
-  // MISS logic (soft)
-  miss++;
-  combo = 0;
-
-  // Penalize lightly only for main targets
-  if(type === 'normal' || type === 'bossface'){
-    youHp = Math.max(0, youHp - 6);
-  }
-
-  // Small FX + message (do not spam too hard)
-  say('MISS!', 'miss');
-  renderer.playHitFx(id, { grade:'miss', scoreDelta:0 });
-  missFlash();
-
-  // smooth disappear (renderer.removeTarget can be instant; we add fade class first)
-  try{
-    el.classList.add('sb-target--fadeout');
-  }catch{}
-
-  // remove after a tiny delay to look smooth
-  setTimeout(()=>{
-    renderer.removeTarget(id, 'expired');
-  }, 120);
-
-  activeTargets.delete(id);
-  events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:type });
-
-  if(youHp <= 0){
-    endGame('dead');
-  }
-
-  setHUD();
 }
 
 function onTargetHit(id, pt){
@@ -362,12 +260,8 @@ function onTargetHit(id, pt){
   const el = renderer.targets.get(id);
   if(!el) return;
 
-  // remove from lifetime map immediately
-  activeTargets.delete(id);
+  const type = el.dataset.type || (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
-  const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
-
-  // hit timing feature
   dl.onHit();
 
   let grade = 'good';
@@ -379,7 +273,6 @@ function onTargetHit(id, pt){
     combo = 0;
     say('หลงเป้าล่อ!', 'bad');
   }else if(type === 'bomb'){
-    grade = 'bomb';
     scoreDelta = -14;
     combo = 0;
     if(shield>0){
@@ -390,6 +283,7 @@ function onTargetHit(id, pt){
     }else{
       youHp = Math.max(0, youHp - 18);
       say('โดนระเบิด!', 'bad');
+      grade = 'bomb';
     }
   }else if(type === 'heal'){
     grade = 'heal';
@@ -418,25 +312,45 @@ function onTargetHit(id, pt){
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever gain
   fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
-  // FX + remove
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
   events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
-  // boss clear?
-  if(bossHp <= 0){
-    nextBossOrPhase();
+  if(bossHp <= 0) nextBossOrPhase();
+  if(youHp <= 0) endGame('dead');
+
+  setHUD();
+}
+
+// ✅ PATCH G: หมดอายุแล้วนับ miss + เอฟเฟกต์เบา ๆ
+function onTargetExpire(id, meta){
+  if(!running || ended || paused) return;
+
+  miss++;
+  combo = 0;
+
+  const x = meta?.clientX ?? (window.innerWidth/2);
+  const y = meta?.clientY ?? (window.innerHeight/2);
+  try{ renderer.playMissFx?.(x, y); }catch{}
+
+  const playBox = document.querySelector('.sb-play');
+  if(playBox){
+    playBox.classList.add('is-missflash');
+    setTimeout(()=>playBox.classList.remove('is-missflash'), 120);
   }
 
-  // player dead?
-  if(youHp <= 0){
-    endGame('dead');
-  }
+  events.push({
+    t: (TIME*1000 - timeLeft),
+    type:'timeout_miss',
+    id,
+    targetType: meta?.targetType || '',
+    sizePx: meta?.sizePx || 0
+  });
 
+  say('MISS!', 'miss');
   setHUD();
 }
 
@@ -444,10 +358,6 @@ function endGame(reason='timeup'){
   if(ended) return;
   ended = true;
   running = false;
-
-  // cleanup targets
-  clearActiveTargets();
-  renderer.destroy();
 
   session.endedAt = new Date().toISOString();
   session.score = score|0;
@@ -482,18 +392,16 @@ function endGame(reason='timeup'){
 function tick(){
   if(!running || ended) return;
   requestAnimationFrame(tick);
-
   if(paused) return;
 
   const t = now();
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // spawn pacing
   const since = t - tLastSpawn;
   const targetInterval = clamp(
     CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
-    450, 1800
+    450, 2000
   );
 
   if(since >= targetInterval){
@@ -501,30 +409,14 @@ function tick(){
     spawnOne();
   }
 
-  // ✅ PATCH X: expire pass (targets that reached expireAtMs)
-  // (iterate small list; safe for typical counts)
-  for(const [id, meta] of activeTargets.entries()){
-    if(t >= meta.expireAtMs){
-      expireTarget(id);
-    }
-  }
-
-  // decay FEVER slowly if active
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
-  // time up
-  if(timeLeft <= 0){
-    endGame('timeup');
-  }
-
+  if(timeLeft <= 0) endGame('timeup');
   setHUD();
 }
 
-// -------------------------
-// Boot
-// -------------------------
 function start(mode){
   ended = false;
   running = true;
@@ -537,9 +429,6 @@ function start(mode){
   bossIndex=0; phase=1; bossesCleared=0;
 
   dl.reset();
-
-  // ✅ clean leftovers
-  clearActiveTargets();
   renderer.destroy();
 
   setBossUI();
@@ -556,29 +445,18 @@ function start(mode){
 btnPlay?.addEventListener('click', ()=> start('normal'));
 btnResearch?.addEventListener('click', ()=> start('research'));
 
-btnHowto?.addEventListener('click', ()=>{
-  howtoBox?.classList.toggle('is-on');
-});
+btnHowto?.addEventListener('click', ()=> howtoBox?.classList.toggle('is-on'));
 
 btnBackMenu?.addEventListener('click', ()=>{
-  running = false;
-  ended = false;
-  paused = false;
-  clearActiveTargets();
+  running = false; ended = false; paused = false;
   renderer.destroy();
   showView('menu');
 });
 
-btnPause?.addEventListener('change', ()=>{
-  paused = !!btnPause.checked;
-});
+btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
 
 btnRetry?.addEventListener('click', ()=> start(MODE));
-btnMenu?.addEventListener('click', ()=>{
-  clearActiveTargets();
-  renderer.destroy();
-  showView('menu');
-});
+btnMenu?.addEventListener('click', ()=>{ renderer.destroy(); showView('menu'); });
 
 function downloadCSV(filename, rows){
   if(!rows || !rows.length) return;
@@ -596,22 +474,9 @@ function downloadCSV(filename, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 800);
 }
 
-btnEvtCsv?.addEventListener('click', ()=>{
-  if(!events.length) return;
-  downloadCSV('shadowbreaker_events.csv', events);
-});
+btnEvtCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_events.csv', events));
+btnSesCsv?.addEventListener('click', ()=> downloadCSV('shadowbreaker_session.csv', [session]));
 
-btnSesCsv?.addEventListener('click', ()=>{
-  downloadCSV('shadowbreaker_session.csv', [session]);
-});
-
-// init
 showView('menu');
 setBossUI();
 setHUD();
-
-// hub link (optional)
-try{
-  const hubA = document.querySelector('.sb-link');
-  if(hubA && HUB) hubA.setAttribute('href', HUB);
-}catch{}
