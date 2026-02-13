@@ -4,8 +4,8 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 ✅ Engine: hydration.safe.js (ESM)
 ✅ Layers: #playfield + #hydration-layer
 ✅ PATCH: tap-anywhere start actually starts (dispatch hha:start)
-✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(cdur) => hub
-✅ PACK 9–10 UI: STORM meter + Shield + BOSS meter + Progress hooks
+✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(dur=cdur) => hub
+✅ PACK 1–3 (RUN): ULT+FOCUS buttons, AI mini panel, silent badge hooks + toast
 -->
 <!doctype html>
 <html lang="th">
@@ -18,7 +18,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   <style>
     :root{
       --bg:#020617; --panel:rgba(2,6,23,.70); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --danger:#ef4444; --cyan:#22d3ee;
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --danger:#ef4444;
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -68,7 +68,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       border-radius:999px;
       padding:6px 10px;
       font-size:12px;
-      white-space:nowrap;
     }
     .bar{
       height:10px; border-radius:999px;
@@ -76,15 +75,9 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       overflow:hidden; flex:1 1 auto; min-width:120px;
       border:1px solid rgba(148,163,184,.12);
     }
-    .bar > i{
-      display:block; height:100%; width:0%;
-      background: rgba(34,197,94,.55);
-      transition: width .12s linear;
-    }
-    .bar.storm > i{ background: rgba(34,211,238,.55); }
-    .bar.boss  > i{ background: rgba(245,158,11,.55); }
+    .bar > i{ display:block; height:100%; width:50%; background:rgba(34,197,94,.55); }
 
-    /* Quest box */
+    /* Quest */
     .quest{
       position:absolute;
       left: 10px;
@@ -148,7 +141,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .k{ color:rgba(148,163,184,.95); font-size:12px; }
     .v{ font-weight:900; font-size:16px; margin-top:4px; }
 
-    /* FX classes */
+    /* FX */
     body.hha-bossfx::after{
       content:""; position:fixed; inset:-80px;
       background: radial-gradient(circle at 40% 30%, rgba(34,211,238,.12), transparent 58%),
@@ -166,7 +159,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       opacity: .9;
     }
 
-    /* Shock FX placeholder (engine injects .hha-shock) */
+    /* Shock FX */
     .hha-shock{
       position:absolute;
       left: var(--x); top: var(--y);
@@ -174,7 +167,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       border-radius: 999px;
       background: rgba(34,211,238,.9);
       transform: translate(-50%,-50%);
-      filter: blur(.2px);
       animation: shock .65s ease-out forwards;
       pointer-events:none;
       z-index: 999;
@@ -187,6 +179,89 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     @media (max-width:520px){
       .grid{ grid-template-columns: 1fr; }
       .card{ min-width: unset; }
+    }
+
+    /* ==========================
+       PACK 1-3 (RUN): ULT + AI panel + badge toast
+    ========================== */
+    .hud-actions{
+      position:absolute;
+      right: 10px;
+      top: calc(10px + var(--sat));
+      z-index: 1200;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+    .hud-actions .btn{
+      pointer-events:auto;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .hud-actions .btn.primary{
+      border-color: rgba(34,197,94,.26);
+      background: rgba(34,197,94,.16);
+    }
+    .hud-actions .btn.ult{
+      border-color: rgba(34,211,238,.28);
+      background: rgba(34,211,238,.12);
+    }
+    .hud-actions .btn:active{ transform: translateY(1px); }
+
+    #aiPanel{
+      position:absolute;
+      right: 10px;
+      top: calc(58px + var(--sat));
+      width: min(320px, calc(100% - 20px));
+      background: rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:10px 12px;
+      z-index: 1200;
+      pointer-events:none;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+    #aiPanel .ttl{ font-weight:1000; font-size:12.5px; opacity:.95; }
+    #aiPanel .mini{ margin-top:6px; font-size:12px; color:rgba(148,163,184,.95); white-space:pre-line; }
+    #aiPanel .bar{ margin-top:8px; height:10px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; border:1px solid rgba(148,163,184,.12); }
+    #aiPanel .bar > i{ display:block; height:100%; width:0%; background:rgba(34,211,238,.55); }
+
+    #badgeToast{
+      position:fixed;
+      left:50%;
+      top: calc(14px + var(--sat));
+      transform: translateX(-50%);
+      z-index: 6500;
+      background: rgba(15,23,42,.78);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 900;
+      font-size: 13px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    #badgeToast.on{
+      opacity:1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* optional focus vignette */
+    body.hha-focus::before{
+      content:"";
+      position:fixed; inset:0;
+      background: radial-gradient(circle at 50% 45%, transparent 0 140px, rgba(0,0,0,.32) 200px);
+      pointer-events:none;
+      z-index: 5;
     }
   </style>
 </head>
@@ -201,7 +276,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
           <div class="bar"><i id="water-bar" style="width:50%"></i></div>
         </div>
       </div>
-
       <div class="card">
         <div class="title">📊 Stats</div>
         <div class="row">
@@ -212,28 +286,19 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
           <span class="pill">Grade: <b id="stat-grade">D</b></span>
         </div>
       </div>
+    </div>
 
-      <!-- ✅ PACK 9–10 HUD -->
-      <div class="card">
-        <div class="title">🌀 STORM / 👑 BOSS</div>
+    <!-- PACK 1: HUD actions -->
+    <div class="hud-actions" aria-label="actions">
+      <button class="btn ult" id="btnUlt">⚡ ULT</button>
+      <button class="btn primary" id="btnFocus">🎯 FOCUS</button>
+    </div>
 
-        <div class="row" style="margin-top:8px;">
-          <span class="pill">Storm Lv: <b id="stormLvUI">0</b></span>
-          <span class="pill">⚡ <b id="stormProg">0</b>/<b id="stormNeedUI">0</b></span>
-          <span class="pill">🛡 <b id="shieldUI">0</b></span>
-          <div class="bar storm"><i id="stormBar" style="width:0%"></i></div>
-        </div>
-
-        <div class="row" style="margin-top:8px;">
-          <span class="pill">Boss: <b id="bossPhaseUI">—</b></span>
-          <span class="pill">Goal: <b id="bossProg">0</b>/<b id="bossNeedUI">0</b></span>
-          <div class="bar boss"><i id="bossBar" style="width:0%"></i></div>
-        </div>
-
-        <div class="row" style="margin-top:8px;">
-          <span class="pill" id="stormWarn" style="opacity:.92;">—</span>
-        </div>
-      </div>
+    <!-- PACK 2: AI mini panel -->
+    <div id="aiPanel" hidden>
+      <div class="ttl">🤖 AI Prediction</div>
+      <div class="mini" id="aiText">กำลังอ่านสัญญาณ…</div>
+      <div class="bar"><i id="aiBar"></i></div>
     </div>
 
     <div id="hydration-layer" aria-label="layer"></div>
@@ -245,6 +310,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       <div class="q4" id="quest-line4">ComboMax: 0</div>
       <div style="display:none">
         <span id="storm-left">0</span>
+        <span id="shield-count">0</span>
       </div>
     </div>
   </div>
@@ -297,11 +363,14 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
+  <!-- PACK 3: silent badge toast -->
+  <div id="badgeToast">🏅 Badge</div>
+
   <script>
     // view + layers default (engine reads HHA_VIEW.layers)
     window.HHA_VIEW = window.HHA_VIEW || { layers:['hydration-layer'] };
 
-    // start overlay -> emit hha:start (engine listens)
+    // Start overlay -> dispatch hha:start with canonical keys
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
       const hub = String(qs('hub','../hub.html'));
@@ -328,6 +397,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 
       btnStart?.addEventListener('click', startNow);
 
+      // tap anywhere to start
       ov?.addEventListener('pointerdown', (e)=>{
         const id = e.target && e.target.id;
         if (id === 'btnBackHub') return;
@@ -369,6 +439,147 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 
     window.addEventListener('hha:end', (e)=>{
       goCooldownThenHub(e && e.detail ? e.detail : null);
+    }, {passive:true});
+  })();
+  </script>
+
+  <!-- ==========================
+       PACK 1–3 (RUN JS)
+  =========================== -->
+  <script>
+  (function(){
+    'use strict';
+    const WIN = window, DOC = document;
+
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const runMode = String(qs('run','play')).toLowerCase()==='research' ? 'research' : 'play';
+
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
+    const now=()=> (performance?.now?performance.now():Date.now());
+
+    function emit(name, detail){
+      try{ WIN.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+    }
+
+    /* ---------- PACK 1: ULT + Focus ---------- */
+    const btnUlt = DOC.getElementById('btnUlt');
+    const btnFocus = DOC.getElementById('btnFocus');
+
+    let focusOn = false;
+    function setFocus(on){
+      focusOn = !!on;
+      if(btnFocus) btnFocus.textContent = on ? '🎯 FOCUS: ON' : '🎯 FOCUS';
+      DOC.body.classList.toggle('hha-focus', on);
+      emit('hydration:focus', { on, t: Date.now() });
+    }
+
+    btnUlt?.addEventListener('click', ()=>{
+      emit('hydration:ult', { source:'hud', t: Date.now() });
+      btnUlt.blur?.();
+    });
+
+    btnFocus?.addEventListener('click', ()=>{
+      setFocus(!focusOn);
+      btnFocus.blur?.();
+    });
+
+    WIN.addEventListener('keydown', (e)=>{
+      if(e.key==='u' || e.key==='U') emit('hydration:ult',{source:'key',t:Date.now()});
+    }, {passive:true});
+
+    /* ---------- PACK 2: AI mini panel ---------- */
+    const aiPanel = DOC.getElementById('aiPanel');
+    const aiText  = DOC.getElementById('aiText');
+    const aiBar   = DOC.getElementById('aiBar');
+
+    if(aiPanel) aiPanel.hidden = (runMode !== 'play');
+
+    let lastProb = 0, lastMsg = 'กำลังอ่านสัญญาณ…', lastUpd = 0;
+
+    function setAI(prob01, msg){
+      lastProb = clamp(prob01, 0, 1);
+      lastMsg = String(msg || lastMsg);
+      lastUpd = now();
+      if(aiText) aiText.textContent = lastMsg;
+      if(aiBar)  aiBar.style.width = `${Math.round(lastProb*100)}%`;
+    }
+
+    WIN.addEventListener('hydration:predict', (e)=>{
+      const d = e?.detail || {};
+      const p = clamp(d.stormProb, 0, 1);
+      const m = d.msg || `stormProb=${Math.round(p*100)}%  riskLow=${Math.round(clamp(d.riskLow,0,1)*100)}%  riskHigh=${Math.round(clamp(d.riskHigh,0,1)*100)}%`;
+      setAI(p, m);
+    }, {passive:true});
+
+    WIN.addEventListener('hha:rank', (e)=>{
+      const d = e?.detail || {};
+      const p = clamp(d.progress, 0, 1);
+      const zone = d.zone || '';
+      const phase = d.phase || '';
+      const sLvl = d.stormLevel ?? '';
+      const msg =
+        (phase==='STORM')
+          ? `STORM L${sLvl}  ⚡ ${d.stormHit}/${d.stormNeed}  zone=${zone}`
+          : (String(phase||'').startsWith('BOSS'))
+            ? `BOSS ${d.bossPhase || ''}  progress=${Math.round(p*100)}%`
+            : `progress=${Math.round(p*100)}%  zone=${zone || '-'}`;
+      setAI(0.25 + p*0.55, msg);
+    }, {passive:true});
+
+    setInterval(()=>{
+      if(runMode!=='play' || !aiPanel || aiPanel.hidden) return;
+      if(now()-lastUpd < 900) return;
+      try{
+        const st = WIN.HydrationVR?.getState?.();
+        if(!st) return;
+        const zone = st.zone || '-';
+        const ph = st.phase || 'MAIN';
+        const p = (zone==='GREEN') ? 0.25 : 0.75;
+        setAI(p, `phase=${ph}  zone=${zone}  (fallback)`);
+      }catch(_){}
+    }, 1000);
+
+    /* ---------- PACK 3: Silent badges ---------- */
+    const LS_BADGES = 'HHA_BADGES';
+    const toast = DOC.getElementById('badgeToast');
+    let toastT = 0;
+
+    function loadBadges(){
+      try{ return JSON.parse(localStorage.getItem(LS_BADGES)||'{}') || {}; }catch(_){ return {}; }
+    }
+    function saveBadges(map){
+      try{ localStorage.setItem(LS_BADGES, JSON.stringify(map)); }catch(_){}
+    }
+    function awardBadge(id, label){
+      if(runMode==='research') return; // keep research clean
+      const m = loadBadges();
+      if(m[id]) return;
+      m[id] = { ts: Date.now(), label: String(label||id) };
+      saveBadges(m);
+      emit('hha:badge', { id, label: String(label||id), game:'hydration' });
+      showToast(`🏅 ${label||id}`);
+    }
+    function showToast(msg){
+      if(!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('on');
+      toastT = now();
+      setTimeout(()=>{
+        if(now()-toastT >= 1100) toast.classList.remove('on');
+      }, 1200);
+    }
+
+    WIN.addEventListener('hha:end', (e)=>{
+      const s = e?.detail || {};
+      if((s.stormCycles||0) > 0 && (s.stormPass||0) === (s.stormCycles||0) && (s.missLightning||0) === 0){
+        awardBadge('hydration_perfect_storm', 'Perfect Storm');
+      }
+      if((s.bossPhasesCleared||0) >= 3){
+        awardBadge('hydration_boss3_clear', 'Boss 3-Phase Clear');
+      }
+      if(String(s.grade||'')==='S' || (s.scoreFinal||0) >= 2200){
+        awardBadge('hydration_elite', 'Elite Hydrator');
+      }
     }, {passive:true});
   })();
   </script>
