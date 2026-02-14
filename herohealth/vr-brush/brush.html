@@ -1,127 +1,173 @@
-<!-- === /herohealth/vr-brush/brush.html ===
-BrushVR RUN — PRODUCTION (HHA Standard-ish) — v20260210a
-✅ Views: pc/mobile/vr/cvr (auto detect, NO override if ?view exists)
-✅ Tap-to-start gate (mobile/cvr)
-✅ Uses: ../vr/vr-ui.js => Enter VR/Exit/Recenter + crosshair + hha:shoot
-✅ Engine: ./brush.safe.js (window.BrushVR.boot)
-✅ Boot:   ./brush.boot.js  (starts engine + end overlay)
--->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — BrushVR</title>
+  <title>HeroHealth — Brush (Plaque Breaker)</title>
   <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#020617"/>
   <link rel="icon" href="../favicon.ico"/>
-
-  <link rel="stylesheet" href="./brush.css"/>
+  <link rel="stylesheet" href="./brush.css?v=20260214a"/>
 </head>
 
-<body data-view="pc" class="view-pc">
-  <!-- ===== Tap-to-start overlay (mobile/cvr) ===== -->
-  <div id="tapStart" class="tapStart" aria-hidden="false">
-    <div class="tapCard">
-      <div class="tapTitle">Tap to Start</div>
-      <div class="tapSub">แตะเพื่อเริ่มเกม (มือถือ/คาร์ดบอร์ด)</div>
-      <button class="tapBtn" id="tapBtn" type="button">START</button>
-      <div class="tapHint">Tip: โหมด cVR ยิงจากเป้ากลางจอ (crosshair)</div>
-    </div>
-  </div>
-
-  <!-- ===== Minimal A-Frame scene (helps Enter VR reliability) =====
-       NOTE: kept behind + invisible; we rely on vr-ui.js buttons -->
+<body>
+  <!-- Minimal A-Frame scene for Enter VR reliability (optional but recommended) -->
   <a-scene
     embedded
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: false"
-    style="position:fixed;inset:0;z-index:0;opacity:0.001;pointer-events:none;">
-    <a-entity position="0 1.6 -1"></a-entity>
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement:true"
+    background="color: #060a12">
+    <a-entity position="0 1.6 -2">
+      <a-sphere radius="0.16" color="#1f2937" opacity="0.35"></a-sphere>
+      <a-ring radius-inner="0.22" radius-outer="0.24" color="#334155" opacity="0.30"></a-ring>
+    </a-entity>
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- ===== HUD (top) ===== -->
-  <header class="hud">
-    <section id="hud-timer" class="hudCard hudTimer">
-      <div class="row">
-        <div class="label">TIME</div>
-        <div id="tLeft" class="value">00:00</div>
+  <div id="br-wrap" data-state="menu" data-view="pc">
+    <!-- TOP HUD -->
+    <header class="br-hudTop">
+      <div class="br-brand">
+        <span class="br-pill">HeroHealth · Hygiene</span>
+        <div class="br-titleRow">
+          <h1 class="br-title">🪥 Brush — Plaque Breaker</h1>
+          <span class="br-tag" id="br-diffTag">normal</span>
+        </div>
+        <p class="br-sub">แตะ/ยิงเพื่อ “แปรงคราบพลัค” ให้ทันเวลา • Perfect → FEVER • เจอบอสคราบหนา!</p>
       </div>
-      <div class="bar"><div id="tFill" class="fill"></div></div>
-      <div id="tPhase" class="sub">INTRO</div>
-    </section>
 
-    <section id="hud-combo" class="hudCard hudCombo">
-      <div class="row">
-        <div class="label">COMBO</div>
-        <div class="value"><span id="cCombo">0</span></div>
+      <div class="br-ctx">
+        <div class="br-ctxrow"><span class="k">view</span><span id="br-ctx-view" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">seed</span><span id="br-ctx-seed" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">time</span><span id="br-ctx-time" class="v">-</span></div>
       </div>
-      <div class="sub">Multiplier <span id="cMul">x1.0</span></div>
-      <div class="miniHint">BANK ใช้คอมโบแลก UV/Shield</div>
-    </section>
+    </header>
 
-    <section id="hud-coverage" class="hudCard hudCoverage">
-      <div class="row">
-        <div class="label">COVERAGE</div>
-        <div class="value">4 Zones</div>
-      </div>
-      <div class="grid">
-        <div id="cov-q1" class="cell"><div class="k">Q1</div><div class="p">0%</div></div>
-        <div id="cov-q2" class="cell"><div class="k">Q2</div><div class="p">0%</div></div>
-        <div id="cov-q3" class="cell"><div class="k">Q3</div><div class="p">0%</div></div>
-        <div id="cov-q4" class="cell"><div class="k">Q4</div><div class="p">0%</div></div>
-      </div>
-      <div class="sub">ผ่านเมื่อครบ ≥ 80% + อยู่โซนขั้นต่ำ</div>
-    </section>
-  </header>
+    <!-- PLAY FIELD -->
+    <main class="br-stage">
+      <div id="br-layer" class="br-layer" aria-label="play layer"></div>
 
-  <!-- ===== HUD (floating) ===== -->
-  <aside class="hudFloat">
-    <section id="hud-boss" class="hudCard hudBoss" data-on="0">
-      <div class="row">
-        <div class="label">BOSS</div>
-        <div id="bPhase" class="value">Phase 1/4</div>
-      </div>
-      <div class="bar"><div id="bFill" class="fill"></div></div>
-      <div class="sub">Phase 3–4 มี Weak Spot 🎯</div>
-    </section>
+      <!-- center dot for balance-like aim feedback (optional) -->
+      <div class="br-center" aria-hidden="true"></div>
 
-    <section id="hud-uv" class="hudCard hudUV" data-on="0">
-      <div class="row">
-        <div class="label">UV</div>
-        <button id="uvBtn" class="uvBtn" type="button">UV</button>
-      </div>
-      <div id="uvEnergy" class="dots">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      </div>
-      <div id="uvSub" class="sub">Reveal stealth plaque</div>
-    </section>
+      <!-- bottom HUD -->
+      <footer class="br-hudBottom">
+        <div class="br-stats">
+          <div class="br-stat">
+            <div class="k">Score</div><div class="v" id="tScore">0</div>
+          </div>
+          <div class="br-stat">
+            <div class="k">Combo</div><div class="v" id="tCombo">0</div>
+          </div>
+          <div class="br-stat">
+            <div class="k">Miss</div><div class="v" id="tMiss">0</div>
+          </div>
+          <div class="br-stat">
+            <div class="k">Time</div><div class="v"><span id="tTime">0</span>s</div>
+          </div>
+        </div>
 
-    <section id="hud-toast" class="toast" data-on="0">
-      <div id="toastT" class="toastT">แจ้งเตือน</div>
-      <div id="toastS" class="toastS">…</div>
-    </section>
-  </aside>
+        <div class="br-bars">
+          <div class="br-barBox">
+            <div class="br-barHead"><span class="k">Clean Meter</span><span class="v" id="tClean">0%</span></div>
+            <div class="br-barTrack"><div class="br-barFill" id="bClean"></div></div>
+          </div>
+          <div class="br-barBox">
+            <div class="br-barHead"><span class="k">Fever</span><span class="v" id="tFever">OFF</span></div>
+            <div class="br-barTrack"><div class="br-barFill br-fever" id="bFever"></div></div>
+          </div>
+        </div>
 
-  <!-- ===== DOM90 play layer ===== -->
-  <main id="playLayer" class="playLayer" aria-label="play"></main>
+        <div class="br-actions">
+          <button class="br-btn br-ghost" id="btnHow" type="button">วิธีเล่น</button>
+          <button class="br-btn br-warn" id="btnRecenter" type="button">Recenter</button>
+          <button class="br-btn br-primary" id="btnPause" type="button">Pause</button>
+        </div>
+      </footer>
 
-  <!-- ===== VR UI aim tuning ===== -->
-  <script>
-    // Important: must be set BEFORE vr-ui.js loads
-    // lockPx = ระยะล็อกเป้าจากจุดยิง (crosshair / tap)
-    window.HHA_VRUI_CONFIG = { lockPx: 30, cooldownMs: 90 };
-  </script>
+      <!-- MENU OVERLAY -->
+      <section id="br-menu" class="br-overlay" aria-label="menu">
+        <div class="br-card">
+          <h2 class="br-h2">🪥 Brush — Plaque Breaker</h2>
+          <p class="br-help">
+            เป้าหมาย: “แปรงคราบ” ให้ทันก่อนหายไป<br/>
+            • 🦠 พลัค = แตะ/ยิงเพื่อทำความสะอาด<br/>
+            • 💎 คราบหนา = ต้องกดหลายครั้ง (คอมโบช่วย!)<br/>
+            • 🧼 Perfect (กดใกล้หมดเวลา) → ได้แต้มพิเศษ + ชาร์จ FEVER
+          </p>
 
-  <!-- ===== Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot) ===== -->
-  <script src="../vr/vr-ui.js"></script>
+          <div class="br-menuGrid">
+            <div class="br-miniBox">
+              <div class="k">Difficulty</div>
+              <div class="v" id="mDiff">normal</div>
+              <div class="br-mini">ใช้ ?diff=easy|normal|hard</div>
+            </div>
+            <div class="br-miniBox">
+              <div class="k">Time limit</div>
+              <div class="v" id="mTime">60s</div>
+              <div class="br-mini">ใช้ ?time=60|80|90</div>
+            </div>
+            <div class="br-miniBox">
+              <div class="k">Controls</div>
+              <div class="v">Tap / Crosshair</div>
+              <div class="br-mini">มือถือ cVR ยิงด้วยกากบาท</div>
+            </div>
+          </div>
 
-  <!-- ===== A-Frame (optional): load after vr-ui (to avoid blocking) ===== -->
-  <script defer src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+          <div class="br-row">
+            <button class="br-btn br-primary" id="btnStart" type="button">▶ เริ่มเกม</button>
+            <a class="br-btn br-ghost br-link" id="btnBack" href="../hub.html">🏰 กลับ HUB</a>
+          </div>
+        </div>
+      </section>
 
-  <!-- ===== Engine then Boot (ORDER MUST BE THIS) ===== -->
-  <script src="./brush.safe.js"></script>
-  <script src="./brush.boot.js"></script>
+      <!-- SUMMARY OVERLAY -->
+      <section id="br-end" class="br-overlay" hidden aria-label="summary">
+        <div class="br-card br-cardWide">
+          <div class="br-endHead">
+            <h2 class="br-h2">สรุปผล</h2>
+            <span class="br-tag" id="endGrade">—</span>
+          </div>
+
+          <div class="br-sumGrid">
+            <div class="br-sumBox"><div class="k">คะแนน</div><div class="v" id="sScore">0</div></div>
+            <div class="br-sumBox"><div class="k">ความแม่นยำ</div><div class="v" id="sAcc">0%</div></div>
+            <div class="br-sumBox"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+            <div class="br-sumBox"><div class="k">Combo สูงสุด</div><div class="v" id="sCombo">0</div></div>
+            <div class="br-sumBox"><div class="k">Clean</div><div class="v" id="sClean">0%</div></div>
+            <div class="br-sumBox"><div class="k">เวลา</div><div class="v" id="sTime">0s</div></div>
+          </div>
+
+          <div class="br-reflect">
+            <div class="br-help"><b>สะท้อนคิด</b>: ระดับความยาก “รู้สึก” เป็นยังไง?</div>
+            <div class="br-choices">
+              <label class="br-choice"><input type="radio" name="feel" value="easy"> ง่าย</label>
+              <label class="br-choice"><input type="radio" name="feel" value="ok" checked> พอดี</label>
+              <label class="br-choice"><input type="radio" name="feel" value="hard"> ยาก</label>
+            </div>
+          </div>
+
+          <div class="br-row br-rowRight">
+            <button class="br-btn br-ghost" id="btnRetry" type="button">เล่นอีกครั้ง</button>
+            <a class="br-btn br-primary br-link" id="btnBackHub2" href="../hub.html">กลับ HUB</a>
+          </div>
+
+          <div class="br-note" id="endNote"></div>
+        </div>
+      </section>
+
+      <div class="br-toast" id="toast"></div>
+      <div class="br-fatal br-hidden" id="fatal"></div>
+    </main>
+  </div>
+
+  <!-- Required: Universal VR UI (crosshair + enter/exit + recenter + hha:shoot) -->
+  <script src="../vr/vr-ui.js?v=20260214a"></script>
+
+  <!-- Optional: Fun Boost wave/fever feel (if you already have these in /herohealth/vr/) -->
+  <script src="../vr/fun-boost.js?v=20260214a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260214a"></script>
+
+  <!-- Engine -->
+  <script src="./brush.safe.js?v=20260214a"></script>
 </body>
 </html>
