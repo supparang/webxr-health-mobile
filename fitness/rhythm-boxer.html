@@ -117,7 +117,10 @@
       <div class="rb-hud-row">
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
+        <!-- optional calibration readout if you want -->
+        <!-- <span class="rb-chip">Cal: <b id="rb-hud-cal">0ms</b></span> -->
       </div>
+
       <div class="rb-hud-row">
         <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
@@ -166,6 +169,7 @@
     <section class="rb-field-wrap">
       <div id="rb-field">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+
         <div class="rb-lanes" id="rb-lanes">
           <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
           <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
@@ -174,7 +178,10 @@
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
       </div>
-      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
+
+      <p class="rb-howto-inline">
+        แตะเลนให้โน้ตตรงเส้นตี (เส้นเหลืองด้านล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์
+      </p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
@@ -188,6 +195,7 @@
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
         <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
       </div>
+      <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
     <section class="rb-result-grid">
@@ -220,7 +228,7 @@
     </section>
 
     <section class="rb-research-box rb-section">
-      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
+      <h2 class="rb-section-title">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
       <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
       <div class="rb-btn-row">
         <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
@@ -228,6 +236,7 @@
       </div>
     </section>
   </main>
+
 </div>
 
 <script src="js/ai-predictor.js"></script>
