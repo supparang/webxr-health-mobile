@@ -1,7 +1,16 @@
-// === js/rhythm-boxer.js — UI glue (menu / play / result + cVR helpers) ===
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// PRODUCTION: PC/Mobile/cVR friendly
+// ✅ Menu -> Play -> Result
+// ✅ Normal/Research mode (research shows CSV download)
+// ✅ Track select (Normal: n1/n2/n3, Research: r1 forced)
+// ✅ HUD bindings
+// ✅ CSV download buttons
+// ✅ URL mode apply (?mode=research|play) and AI assist (?ai=1) handled by RB_AI in ai-predictor.js
+
 'use strict';
 
 (function () {
+
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -16,7 +25,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // menu
+  // menu controls
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -37,7 +46,7 @@
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD
+  // HUD elements
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -61,7 +70,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // Result view
+  // result elements
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -78,7 +87,7 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping menu -> engine
+  // mapping menu -> engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -88,19 +97,16 @@
 
   let engine = null;
 
-  function qs(k, d=null){
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch { return d; }
-  }
-
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
+
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
+
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
@@ -121,9 +127,10 @@
       });
 
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction แต่ล็อกไม่ปรับเกม)';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แค่ทำนาย ไม่ปรับเกม)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       researchBox.classList.remove('hidden');
 
@@ -147,55 +154,8 @@
     else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
-  // ===== cVR helpers =====
-  function applyViewMode() {
-    const view = String(qs('view', '') || '').toLowerCase();
-    if (view === 'cvr' || view === 'cardboard') {
-      document.body.classList.add('view-cvr');
-      ensureCvrUI();
-    } else {
-      document.body.classList.remove('view-cvr');
-      removeCvrUI();
-    }
-  }
-
-  function ensureCvrUI(){
-    if (document.querySelector('.rb-crosshair')) return;
-
-    const ch = document.createElement('div');
-    ch.className = 'rb-crosshair';
-    document.body.appendChild(ch);
-
-    // 3 buttons: L / C / R => map to lanes 1,2,3 (keep hitline/spacing similar)
-    const pad = document.createElement('div');
-    pad.className = 'rb-cvr-pad';
-    pad.innerHTML = `
-      <button class="rb-cvr-btn" data-cvr="L">LEFT</button>
-      <button class="rb-cvr-btn" data-cvr="C">CENTER</button>
-      <button class="rb-cvr-btn" data-cvr="R">RIGHT</button>
-    `;
-    document.body.appendChild(pad);
-
-    pad.addEventListener('pointerdown', (ev)=>{
-      const b = ev.target && ev.target.closest ? ev.target.closest('.rb-cvr-btn') : null;
-      if(!b) return;
-      if(!engine) return;
-      const key = b.getAttribute('data-cvr');
-      // map L/C/R to middle 3 lanes of 5-lane UI: 1/2/3
-      const lane = (key==='L') ? 1 : (key==='R') ? 3 : 2;
-      engine.hitLane(lane, 'cvr');
-      ev.preventDefault();
-    }, {passive:false});
-  }
-
-  function removeCvrUI(){
-    const ch = document.querySelector('.rb-crosshair');
-    if (ch) ch.remove();
-    const pad = document.querySelector('.rb-cvr-pad');
-    if (pad) pad.remove();
-  }
-
   function createEngine() {
+    // DOM renderer for FX + feedback
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
       feedbackEl,
@@ -220,11 +180,14 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
+    // sync diff to wrapper (CSS can use this)
     wrap.dataset.diff = cfg.diff;
 
+    // HUD: mode & track label
     hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     hud.track.textContent = cfg.labelShort;
 
+    // meta for research
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
@@ -233,7 +196,6 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
-    applyViewMode();
   }
 
   function stopGame(reason) {
@@ -251,10 +213,13 @@
     res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
     res.rank.textContent      = summary.rank;
 
-    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-      ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-      ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    res.offsetAvg.textContent =
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+        ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent =
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+        ? summary.offsetStd.toFixed(3) + ' s' : '-';
+
     res.participant.textContent = summary.participant || '-';
 
     if (summary.qualityNote) {
@@ -283,25 +248,24 @@
 
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  btnStart.addEventListener('click', startGame);
-  btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  btnAgain.addEventListener('click', () => startGame());
-  btnBackMenu.addEventListener('click', () => switchView('menu'));
+  if (btnStart) btnStart.addEventListener('click', startGame);
+  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
+  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-  btnDlEvents.addEventListener('click', () => {
+  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-  btnDlSessions.addEventListener('click', () => {
+  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode/view from URL (?mode=research|play , ?view=cvr) ====
-  (function applyFromQuery(){
+  // apply mode from URL (?mode=research|play)
+  (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
-
       const m = (sp.get('mode')||'').toLowerCase();
       if (m === 'research'){
         const r = modeRadios.find(x => x.value === 'research');
@@ -310,9 +274,15 @@
         const r = modeRadios.find(x => x.value === 'normal');
         if (r) r.checked = true;
       }
+    }catch(_){}
+  })();
 
-      // view=cvr only affects play view; still set body class so layout is ready
-      applyViewMode();
+  // optional: mark view=cvr if URL has ?view=cvr (for CSS tweaks)
+  (function applyViewTag(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      const v = (sp.get('view')||'').toLowerCase();
+      if (v) document.documentElement.setAttribute('data-view', v);
     }catch(_){}
   })();
 
