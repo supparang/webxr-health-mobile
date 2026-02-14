@@ -1,68 +1,61 @@
-// === /herohealth/maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — DOM layer — FUN BOOST v1 integrated + cVR shoot + HUD-safe toast
+// === /herohealth/vr-maskcough/maskcough.safe.js ===
+// MaskCough SAFE Engine — PRODUCTION v1.1 (cVR shoot + seeded RNG + end overlay)
+// Mechanics:
+// - 💦 droplet: hit to clear (good)
+// - 🤧 cough: hit to block (perfect window near expiry gives bonus)
+// - 😷 mask: hit to gain shield
+// - Fever (from fun-boost): fantasy burst clears extra droplets
+//
+// Inputs:
+// - PC/Mobile: pointerdown on targets
+// - cVR: hha:shoot event (from /herohealth/vr/vr-ui.js), aims at x/y viewport coords
+//
+// URL params: ?time=60&diff=easy|normal|hard&seed=...&view=pc|mobile|cvr&hub=...
+// Exposes: window.MASKCOUGH.start(), window.MASKCOUGH.stop()
+
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
 
-  // ----- URL params -----
-  const U = new URL(location.href);
-  const QS = U.searchParams;
+  const $ = (s)=>DOC.querySelector(s);
 
-  const pid = (QS.get('pid')||'').trim();
-  const hub = (QS.get('hub')||'').trim();
-  const diff = (QS.get('diff')||'normal').trim();
-  const seed = (QS.get('seed')||'').trim();
-  const mode = (QS.get('mode')||QS.get('run')||'play').trim();
-  const timeLimit = Math.max(20, parseInt(QS.get('time')||'60',10)); // seconds
+  // ---------- utils ----------
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  // ----- view auto-detect (respect ?view=) -----
-  function getViewAuto(){
-    const v = (QS.get('view')||'').toLowerCase().trim();
-    if(v) return v; // respect explicit
+  function getQS(){
+    try { return new URL(location.href).searchParams; }
+    catch(_){ return new URLSearchParams(); }
+  }
+
+  function safeInt(x, d){
+    const n = parseInt(x, 10);
+    return Number.isFinite(n) ? n : d;
+  }
+
+  // mulberry32-ish
+  function seededRng(seed){
+    let t = (Number(seed)||Date.now()) >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function getViewAuto(qs){
+    const v = String(qs.get('view')||'').toLowerCase().trim();
+    if(v) return v;
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
     return isMobile ? 'cvr' : 'pc';
   }
-  const view = getViewAuto();
 
-  // ----- DOM -----
-  const layer = DOC.getElementById('layer');
-  const menu = DOC.getElementById('menu');
-  const btnStart = DOC.getElementById('btnStart');
-  const btnBack = DOC.getElementById('btnBack');
-
-  const tScore = DOC.getElementById('tScore');
-  const tStreak = DOC.getElementById('tStreak');
-  const tMiss = DOC.getElementById('tMiss');
-  const tMask = DOC.getElementById('tMask');
-  const bMask = DOC.getElementById('bMask');
-
-  const tWave = DOC.getElementById('tWave');
-  const tInt = DOC.getElementById('tInt');
-  const tFever = DOC.getElementById('tFever');
-  const bFever = DOC.getElementById('bFever');
-
-  const toastEl = DOC.getElementById('toast');
-  let toastTimer = null;
-
-  // attach view to body/wrap for CSS hooks if needed
-  try{ DOC.body.dataset.view = view; }catch(_){}
-
-  // ---- HUD height sync to CSS var --hudH (so toast never overlaps HUD) ----
-  function syncHudH(){
-    try{
-      const hud = DOC.getElementById('hud');
-      if(!hud) return;
-      const r = hud.getBoundingClientRect();
-      DOC.documentElement.style.setProperty('--hudH', Math.ceil(r.height) + 'px');
-    }catch(_){}
-  }
-  syncHudH();
-  WIN.addEventListener('resize', syncHudH, {passive:true});
-  WIN.addEventListener('orientationchange', syncHudH, {passive:true});
-
+  // toast (in maskcough.html)
+  const toastEl = $('#toast');
+  let toastTimer=null;
   function toast(msg){
     if(!toastEl) return;
     clearTimeout(toastTimer);
@@ -71,9 +64,86 @@
     toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1200);
   }
 
-  // ----- FUN BOOST -----
+  // prompt (optional)
+  const promptEl = $('#mc-prompt');
+  let promptTimer=null;
+  function prompt(msg, ms=1200){
+    if(!promptEl) return;
+    clearTimeout(promptTimer);
+    promptEl.textContent = msg;
+    promptEl.classList.add('show');
+    promptTimer = setTimeout(()=> promptEl.classList.remove('show'), ms);
+  }
+
+  // flash
+  const flashEl = $('#mc-flash');
+  function flash(on){
+    if(!flashEl) return;
+    flashEl.style.opacity = on ? '1' : '0';
+  }
+
+  // ---------- URL params / ctx ----------
+  const QS = getQS();
+  const pid  = (QS.get('pid')||'').trim();
+  const hub  = (QS.get('hub')||'../hub.html').trim();
+  const diff = (QS.get('diff')||'normal').trim();
+  const seed = (QS.get('seed')||pid||'maskcough').trim();
+  const mode = (QS.get('mode')||QS.get('run')||'play').trim();
+  const timeLimitSec = Math.max(20, safeInt(QS.get('time')||'60', 60));
+
+  const view = getViewAuto(QS); // pc | cvr | mobile (treated like pc tap)
+  const wrap = $('#mc-wrap');
+  if(wrap) wrap.dataset.view = view;
+
+  const rng = seededRng(seed);
+
+  // ---------- DOM ----------
+  const layer = DOC.getElementById('layer');
+  const menu  = DOC.getElementById('menu');
+  const endOv = DOC.getElementById('end');
+
+  const btnStart  = DOC.getElementById('btnStart');
+  const btnStart2 = DOC.getElementById('btnStart2');
+  const btnBack   = DOC.getElementById('btnBack');
+  const btnBack2  = DOC.getElementById('btnBack2');
+  const btnRetry  = DOC.getElementById('btnRetry');
+
+  const tScore  = DOC.getElementById('tScore');
+  const tStreak = DOC.getElementById('tStreak');
+  const tMiss   = DOC.getElementById('tMiss');
+  const tMask   = DOC.getElementById('tMask');
+  const bMask   = DOC.getElementById('bMask');
+
+  const tWave  = DOC.getElementById('tWave');
+  const tInt   = DOC.getElementById('tInt');
+  const tFever = DOC.getElementById('tFever');
+  const tFever2= DOC.getElementById('tFever2');
+  const bFever = DOC.getElementById('bFever');
+
+  // end summary ids (maskcough.html)
+  const endReason = DOC.getElementById('endReason');
+  const endScore  = DOC.getElementById('endScore');
+  const endStreak = DOC.getElementById('endStreak');
+  const endMiss   = DOC.getElementById('endMiss');
+  const endShield = DOC.getElementById('endShield');
+  const endTime   = DOC.getElementById('endTime');
+  const endView   = DOC.getElementById('endView');
+  const endNote   = DOC.getElementById('endNote');
+
+  const aBackHub  = DOC.getElementById('aBackHub');
+  if(aBackHub){
+    try{
+      const u = new URL(hub, location.href);
+      if(pid) u.searchParams.set('pid', pid);
+      aBackHub.href = u.toString();
+    }catch(_){
+      aBackHub.href = hub || '../hub.html';
+    }
+  }
+
+  // ---------- FUN BOOST ----------
   const fun = WIN.HHA?.createFunBoost?.({
-    seed: seed || pid || 'maskcough',
+    seed: seed || 'maskcough',
     baseSpawnMul: 1.0,
     waveCycleMs: 18000,
     feverThreshold: 16,
@@ -84,53 +154,51 @@
 
   let director = fun ? fun.tick() : {spawnMul:1,timeScale:1,wave:'calm',intensity:0,feverOn:false};
 
-  // ----- Game state -----
+  // ---------- game state ----------
   const st = {
-    running: false,
-    over: false,
-    t0: 0,
+    running:false,
+    over:false,
+    t0:0,
+    maxStreak:0,
 
-    score: 0,
-    streak: 0,
-    miss: 0,
+    score:0,
+    streak:0,
+    miss:0,
 
-    // mask shield 0..100
-    shield: 40,
+    shield:40, // 0..100
 
-    // spawn base (ms)
     baseSpawnMs: (diff==='hard' ? 650 : diff==='easy' ? 880 : 760),
     ttlMs: (diff==='hard' ? 1450 : diff==='easy' ? 1850 : 1650),
 
-    // perfect window for cough taps (ms before expiry)
     perfectWindowMs: 220,
 
-    // active targets
-    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y}
-    uid: 0
+    targets: new Map(), // id -> {el, kind, bornMs, dieMs}
+    uid: 0,
+
+    spawnTimer: null,
+    tickTimer: null
   };
 
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-
   function hud(){
-    if(tScore) tScore.textContent = String(st.score);
+    if(tScore)  tScore.textContent  = String(st.score);
     if(tStreak) tStreak.textContent = String(st.streak);
-    if(tMiss) tMiss.textContent = String(st.miss);
+    if(tMiss)   tMiss.textContent   = String(st.miss);
 
     const sh = clamp(st.shield, 0, 100);
     if(tMask) tMask.textContent = `${Math.round(sh)}%`;
     if(bMask) bMask.style.width = `${sh}%`;
 
-    if(tWave) tWave.textContent = director.wave || '—';
-    if(tInt)  tInt.textContent = (director.intensity||0).toFixed(2);
+    if(tWave)  tWave.textContent  = director.wave || '—';
+    if(tInt)   tInt.textContent   = (director.intensity||0).toFixed(2);
     if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
 
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
     const pct = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
-    if(bFever) bFever.style.width = `${pct}%`;
+    if(bFever)  bFever.style.width = `${pct}%`;
+    if(tFever2) tFever2.textContent = director.feverOn ? 'ON' : `${Math.round(pct)}%`;
   }
 
-  // ----- Target kinds -----
   function pickKind(){
     const feverOn = !!director.feverOn;
     const inten = director.intensity || 0;
@@ -151,7 +219,7 @@
     const sum = wDroplet + wCough + wMask;
     wDroplet/=sum; wCough/=sum; wMask/=sum;
 
-    const r = Math.random();
+    const r = rng();
     if(r < wDroplet) return 'droplet';
     if(r < wDroplet + wCough) return 'cough';
     return 'mask';
@@ -166,12 +234,11 @@
 
   function cssClass(kind){
     if(kind==='droplet') return 't good';
-    if(kind==='cough') return 't cough bad';
-    if(kind==='mask') return 't mask';
+    if(kind==='cough')   return 't cough bad';
+    if(kind==='mask')    return 't mask';
     return 't';
   }
 
-  // ----- Spawn -----
   function layerRect(){ return layer.getBoundingClientRect(); }
 
   function spawn(){
@@ -180,9 +247,8 @@
     const r = layerRect();
     const pad = 52;
 
-    // IMPORTANT: positions are relative to layer; we store x/y for cVR shoot hit-test
-    const x = pad + Math.random() * Math.max(10, (r.width - pad*2));
-    const y = pad + Math.random() * Math.max(10, (r.height - pad*2));
+    const x = pad + rng() * Math.max(10, (r.width - pad*2));
+    const y = pad + rng() * Math.max(10, (r.height - pad*2));
 
     const kind = pickKind();
     const id = String(++st.uid);
@@ -199,11 +265,10 @@
     const ttl = st.ttlMs * (director.timeScale || 1);
     const die = born + ttl;
 
-    st.targets.set(id, { el, kind, bornMs: born, dieMs: die, x, y });
+    st.targets.set(id, { el, kind, bornMs: born, dieMs: die });
 
-    // pointer tap (only for non-cVR; cVR uses hha:shoot)
+    // PC/mobile tap (cVR CSS disables pointer events on layer anyway)
     el.addEventListener('pointerdown', (ev)=>{
-      if(view === 'cvr') return;
       ev.preventDefault();
       handleHit(id, 'tap');
     }, { passive:false });
@@ -211,44 +276,33 @@
     layer.appendChild(el);
   }
 
-  // ----- cVR shoot: hit-test nearest target around crosshair coord -----
-  function findNearestTargetAt(x, y, radiusPx){
-    let bestId = null;
-    let bestD2 = Infinity;
-    for(const [id, it] of st.targets){
-      const dx = (it.x - x);
-      const dy = (it.y - y);
-      const d2 = dx*dx + dy*dy;
-      if(d2 < bestD2){
-        bestD2 = d2;
-        bestId = id;
-      }
+  function removeTarget(id, popped){
+    const it = st.targets.get(id);
+    if(!it) return;
+    st.targets.delete(id);
+
+    const el = it.el;
+    if(!el) return;
+
+    if(popped){
+      el.classList.add('pop');
+      el.classList.add('fade');
+      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
+    }else{
+      el.classList.add('fade');
+      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
     }
-    if(bestId == null) return null;
-    return (bestD2 <= radiusPx*radiusPx) ? bestId : null;
   }
 
-  function onShoot(ev){
-    if(!st.running || st.over) return;
-
-    // vr-ui.js emits: hha:shoot {x,y, lockPx?}
-    const d = ev?.detail || {};
-    const r = layerRect();
-
-    // if no coords provided, assume center of layer
-    const x = Number.isFinite(d.x) ? d.x : (r.width/2);
-    const y = Number.isFinite(d.y) ? d.y : (r.height/2);
-
-    const lock = Number.isFinite(d.lockPx) ? d.lockPx : 44;
-    const id = findNearestTargetAt(x, y, lock);
-    if(id) handleHit(id, 'shoot');
+  function burstClear(n){
+    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='droplet');
+    for(let i=0;i<Math.min(n, arr.length);i++){
+      const pick = arr[Math.floor(rng()*arr.length)];
+      if(pick) handleHit(pick[0], 'burst');
+    }
   }
 
-  // listen always (safe); only active effect when cvr or if you want crosshair mode
-  DOC.addEventListener('hha:shoot', onShoot);
-
-  // ----- Hit / Miss rules -----
-  function handleHit(id){
+  function handleHit(id, why){
     const it = st.targets.get(id);
     if(!it || st.over) return;
 
@@ -268,7 +322,7 @@
         fun?.onAction?.({ type:'hit' });
       }
 
-      if(director.feverOn && Math.random() < 0.22){
+      if(director.feverOn && rng() < 0.22){
         burstClear(1);
       }
 
@@ -292,6 +346,7 @@
       }
     }
 
+    st.maxStreak = Math.max(st.maxStreak, st.streak);
     hud();
   }
 
@@ -321,6 +376,7 @@
       st.score = Math.max(0, st.score - 2);
       fun?.onAction?.({ type:'timeout' });
       toast('😷 โดนละอองไอ!');
+      flash(true); setTimeout(()=>flash(false), 120);
     }
 
     hud();
@@ -330,40 +386,14 @@
     }
   }
 
-  function removeTarget(id, popped){
-    const it = st.targets.get(id);
-    if(!it) return;
-    st.targets.delete(id);
-
-    const el = it.el;
-    if(!el) return;
-
-    el.classList.add('fade');
-    if(popped) el.classList.add('pop');
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
-  }
-
-  function burstClear(n){
-    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='droplet');
-    for(let i=0;i<Math.min(n, arr.length);i++){
-      const [id] = arr[Math.floor(Math.random()*arr.length)];
-      handleHit(id);
-    }
-  }
-
-  // ----- Main loop -----
-  let spawnTimer = null;
-  let tickTimer = null;
-
   function scheduleSpawn(){
-    if(spawnTimer) clearTimeout(spawnTimer);
+    if(st.spawnTimer) clearTimeout(st.spawnTimer);
     if(!st.running || st.over) return;
 
     const base = st.baseSpawnMs;
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
 
-    spawnTimer = setTimeout(()=>{
+    st.spawnTimer = setTimeout(()=>{
       spawn();
       scheduleSpawn();
     }, every);
@@ -376,40 +406,28 @@
 
     const t = performance.now();
 
-    // timeouts
     for(const [id, it] of st.targets){
-      if(t >= it.dieMs) timeoutTarget(id);
+      if(t >= it.dieMs){
+        timeoutTarget(id);
+      }
     }
 
     hud();
 
     const elapsed = (t - st.t0) / 1000;
-    if(elapsed >= timeLimit){
+    if(elapsed >= timeLimitSec){
       endGame('time');
     }
   }
 
-  function startGame(){
-    st.running = true;
-    st.over = false;
-    st.t0 = performance.now();
-    st.score = 0;
-    st.streak = 0;
-    st.miss = 0;
-    st.shield = 40;
+  function showMenu(show){
+    if(!menu) return;
+    menu.style.display = show ? 'flex' : 'none';
+  }
 
-    for(const [id] of st.targets) removeTarget(id, false);
-    st.targets.clear();
-
-    if(menu) menu.style.display = 'none';
-    toast(view==='cvr' ? 'ยิงจากกากบาทกลางจอได้เลย!' : 'เริ่ม! กันละอองให้ได้มากที่สุด');
-
-    director = fun ? fun.tick() : director;
-    hud();
-
-    scheduleSpawn();
-    if(tickTimer) clearInterval(tickTimer);
-    tickTimer = setInterval(tick, 80);
+  function showEnd(show){
+    if(!endOv) return;
+    endOv.hidden = !show;
   }
 
   function endGame(reason){
@@ -417,26 +435,142 @@
     st.over = true;
     st.running = false;
 
-    if(spawnTimer) clearTimeout(spawnTimer);
-    if(tickTimer) clearInterval(tickTimer);
+    if(st.spawnTimer) clearTimeout(st.spawnTimer);
+    if(st.tickTimer) clearInterval(st.tickTimer);
 
     for(const [id] of st.targets) removeTarget(id, false);
     st.targets.clear();
 
-    const msg = (reason==='time') ? 'ครบเวลา!' : 'Shield หมด!';
-    toast(`จบเกม: ${msg}`);
+    const elapsed = (performance.now() - st.t0)/1000;
 
-    setTimeout(()=>{ if(menu) menu.style.display = 'flex'; }, 650);
+    // fill end overlay
+    if(endReason) endReason.textContent = (reason==='time') ? 'ครบเวลา' : 'Shield หมด';
+    if(endScore)  endScore.textContent = String(st.score);
+    if(endStreak) endStreak.textContent = String(st.maxStreak);
+    if(endMiss)   endMiss.textContent = String(st.miss);
+    if(endShield) endShield.textContent = `${Math.round(clamp(st.shield,0,100))}%`;
+    if(endTime)   endTime.textContent = `${elapsed.toFixed(1)}s`;
+    if(endView)   endView.textContent = view;
+
+    if(endNote){
+      const s = new URL(location.href);
+      endNote.textContent =
+        'ctx: ' +
+        ['pid','diff','time','seed','view','mode']
+          .map(k=> `${k}=${(s.searchParams.get(k)||'')}`)
+          .filter(x=> !x.endsWith('='))
+          .join(' • ');
+    }
+
+    showEnd(true);
+    toast(reason==='time' ? 'ครบเวลา!' : 'Shield หมด!');
   }
 
-  // ----- Buttons -----
-  if(btnStart) btnStart.addEventListener('click', startGame, { passive:true });
+  function resetState(){
+    st.over = false;
+    st.running = false;
 
-  if(btnBack) btnBack.addEventListener('click', ()=>{
-    if(hub) location.href = hub;
-    else history.back();
+    st.score = 0;
+    st.streak = 0;
+    st.miss = 0;
+    st.maxStreak = 0;
+    st.shield = 40;
+
+    for(const [id] of st.targets) removeTarget(id, false);
+    st.targets.clear();
+    hud();
+  }
+
+  function startGame(){
+    resetState();
+
+    st.running = true;
+    st.over = false;
+    st.t0 = performance.now();
+
+    showEnd(false);
+    showMenu(false);
+
+    director = fun ? fun.tick() : director;
+    hud();
+
+    prompt(view==='cvr'
+      ? 'โหมด cVR: เล็งกากบาทแล้วยิง!'
+      : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • แตะ 🤧 บล็อกไอ/จาม');
+
+    scheduleSpawn();
+    st.tickTimer = setInterval(tick, 80);
+    toast('เริ่ม! กันละอองให้ได้มากที่สุด');
+  }
+
+  function stopGame(){
+    if(st.spawnTimer) clearTimeout(st.spawnTimer);
+    if(st.tickTimer) clearInterval(st.tickTimer);
+    st.running = false;
+  }
+
+  // ---------- cVR shooting ----------
+  // vr-ui.js emits: document.dispatchEvent(new CustomEvent('hha:shoot', {detail:{x,y}}))
+  // We pick the nearest target center to the shoot point.
+  function nearestTargetAt(x, y){
+    let bestId = null;
+    let bestD2 = 1e18;
+
+    for(const [id, it] of st.targets){
+      const el = it.el;
+      if(!el) continue;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+
+      const dx = cx - x;
+      const dy = cy - y;
+      const d2 = dx*dx + dy*dy;
+
+      if(d2 < bestD2){
+        bestD2 = d2;
+        bestId = id;
+      }
+    }
+
+    // lock radius (px) : allow assist
+    const lockPx = 70;
+    if(bestId != null && bestD2 <= lockPx*lockPx) return bestId;
+    return null;
+  }
+
+  DOC.addEventListener('hha:shoot', (ev)=>{
+    if(!st.running || st.over) return;
+    const x = ev?.detail?.x;
+    const y = ev?.detail?.y;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    const id = nearestTargetAt(x, y);
+    if(id) handleHit(id, 'shoot');
   }, { passive:true });
 
-  // init
+  // ---------- buttons ----------
+  function back(){
+    if(hub) location.href = hub;
+    else history.back();
+  }
+
+  if(btnStart)  btnStart.addEventListener('click', startGame, { passive:true });
+  if(btnStart2) btnStart2.addEventListener('click', startGame, { passive:true });
+  if(btnRetry)  btnRetry.addEventListener('click', startGame, { passive:true });
+
+  if(btnBack)   btnBack.addEventListener('click', back, { passive:true });
+  if(btnBack2)  btnBack2.addEventListener('click', back, { passive:true });
+
+  // ---------- expose ----------
+  WIN.MASKCOUGH = {
+    start: startGame,
+    stop: stopGame
+  };
+
+  // init UI
   hud();
+  showEnd(false);
+  showMenu(true);
+
 })();
