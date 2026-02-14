@@ -3,93 +3,95 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>GoodJunkVR</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="../favicon.ico"/>
+
+  <!-- ✅ FIX: MUST exist in same folder -->
   <link rel="stylesheet" href="./goodjunk.css"/>
+
+  <!-- ✅ vr-ui exists already (200 in your screenshot) -->
+  <script src="../vr/vr-ui.js" defer></script>
 </head>
-
 <body class="view-mobile">
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot) -->
-  <script src="../vr/vr-ui.js"></script>
 
-  <div id="gj-app">
-    <!-- ===== HUD TOP ===== -->
-    <header id="gj-hud-top">
-      <div class="hud-row">
-        <div class="hud-pill"><span class="lbl">SCORE</span><span id="hud-score" class="val">0</span></div>
-        <div class="hud-pill"><span class="lbl">TIME</span><span id="hud-time" class="val">0</span></div>
-        <div class="hud-pill"><span class="lbl">MISS</span><span id="hud-miss" class="val">0</span></div>
-        <div class="hud-pill grade"><span class="lbl">GRADE</span><span id="hud-grade" class="val">—</span></div>
+  <!-- ===== HUD (sample IDs used by goodjunk.safe.js) ===== -->
+  <div id="hud">
+    <div class="hud-row">
+      <div class="pill">SCORE <span id="hud-score">0</span></div>
+      <div class="pill">TIME <span id="hud-time">0</span></div>
+      <div class="pill">MISS <span id="hud-miss">0</span></div>
+      <div class="pill">GRADE <span id="hud-grade">—</span></div>
+    </div>
+
+    <div class="hud-row">
+      <div class="pill grow">
+        <div id="hud-goal">—</div>
+        <div id="goalDesc" class="muted">—</div>
+      </div>
+      <div class="pill">
+        <div class="muted">GOAL</div>
+        <div><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
+      </div>
+    </div>
+
+    <div class="hud-row">
+      <div class="pill grow">
+        <div id="hud-mini">—</div>
+        <div class="muted">เหลือ <span id="miniTimer">0s</span></div>
       </div>
 
-      <div id="gjProgressBar" class="bar">
-        <div id="gjProgressFill" class="bar-fill"></div>
+      <div class="pill">
+        <div class="muted">FEVER</div>
+        <div class="bar"><div id="feverFill" class="fill"></div></div>
+        <div id="feverText" class="muted">18%</div>
       </div>
 
-      <div id="bossBar" class="boss" aria-hidden="true">
-        <div class="boss-top">
-          <div class="boss-title">BOSS</div>
-          <div id="bossHint" class="boss-hint">—</div>
-        </div>
-        <div class="boss-line">
-          <div id="bossFill" class="boss-fill"></div>
-        </div>
+      <div class="pill">
+        <div class="muted">SHIELD</div>
+        <div id="shieldPills">—</div>
       </div>
-    </header>
+    </div>
 
-    <!-- ===== PLAY LAYERS ===== -->
-    <main id="gj-stage">
-      <section id="gj-left-wrap" class="layer-wrap">
-        <div id="gj-layer" class="gj-layer" aria-label="GoodJunk layer left"></div>
-      </section>
-
-      <section id="gj-right-wrap" class="layer-wrap" style="display:none;">
-        <div id="gj-layer-r" class="gj-layer" aria-label="GoodJunk layer right"></div>
-      </section>
-    </main>
-
-    <!-- ===== HUD BOTTOM ===== -->
-    <footer id="gj-hud-bottom">
-      <div class="hud-row2">
-        <div class="hud-quest">
-          <div class="q-title"><span id="hud-goal">—</span></div>
-          <div id="goalDesc" class="q-desc">—</div>
-          <div class="q-metrics">
-            <span class="q-pill">CUR <b id="hud-goal-cur">0</b></span>
-            <span class="q-pill">TAR <b id="hud-goal-target">0</b></span>
-          </div>
-        </div>
-
-        <div class="hud-side">
-          <div class="hud-pill big">
-            <span class="lbl">FEVER</span>
-            <span id="feverText" class="val">18%</span>
-            <div class="mini-bar"><div id="feverFill" class="mini-fill"></div></div>
-          </div>
-
-          <div class="hud-pill big">
-            <span class="lbl">SHIELD</span>
-            <span id="shieldPills" class="val">—</span>
-          </div>
-
-          <div class="hud-mini">
-            <div id="hud-mini" class="mini-text">—</div>
-            <div id="miniTimer" class="mini-timer">—</div>
-          </div>
-        </div>
-      </div>
-    </footer>
-
-    <!-- LOW TIME OVERLAY -->
-    <div id="lowTimeOverlay" aria-hidden="true">
-      <div class="low-card">
-        <div class="low-title">เหลือเวลา</div>
-        <div id="gj-lowtime-num" class="low-num">5</div>
+    <div class="hud-row">
+      <div class="pill grow">
+        <div class="muted">PROGRESS</div>
+        <div class="bar"><div id="gjProgressFill" class="fill"></div></div>
       </div>
     </div>
   </div>
 
+  <!-- BOSS UI -->
+  <div id="bossBar" aria-hidden="true">
+    <div class="boss-title">BOSS</div>
+    <div class="bar"><div id="bossFill" class="fill"></div></div>
+    <div id="bossHint" class="muted">—</div>
+  </div>
+
+  <!-- Low time overlay -->
+  <div id="lowTimeOverlay" aria-hidden="true">
+    <div class="low-card">
+      <div class="muted">เหลือเวลา</div>
+      <div id="gj-lowtime-num" class="low-num">3</div>
+    </div>
+  </div>
+
+  <!-- ✅ LAYERS (IDs used by JS) -->
+  <div id="gj-stage">
+    <div id="gj-layer" class="layer"></div>
+    <div id="gj-layer-r" class="layer layer-r"></div>
+  </div>
+
+  <!-- ✅ FIX: add boot script (must exist in same folder) -->
   <script type="module" src="./goodjunk.boot.js"></script>
+
+  <script>
+    // optional: auto set view class from query
+    (function(){
+      const q = new URL(location.href).searchParams;
+      const view = (q.get('view')||'mobile').toLowerCase();
+      document.body.classList.remove('view-mobile','view-pc','view-cvr');
+      document.body.classList.add(view==='cvr'?'view-cvr':(view==='pc'?'view-pc':'view-mobile'));
+    })();
+  </script>
 </body>
 </html>
