@@ -1,10 +1,12 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-✅ Views: pc/mobile/vr/cvr
-✅ Uses: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
-✅ Boot: hygiene-vr.boot.js (module)
-✅ Engine: hygiene.safe.js (module export boot)
-✅ Quiz bank: hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+PATCH v20260211b
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Cache-bust boot import (mobile cache fix)
+✅ HUD anti-block: collapsible HUD on small screens
 -->
 <!doctype html>
 <html lang="th">
@@ -15,24 +17,47 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260211a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260211b" />
 
-  <!-- Universal VR UI (defer) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI (optional) -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
   <!-- Quiz bank -->
-  <script src="./hygiene-quiz-bank.js?v=20260211a" defer></script>
+  <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260211a"></script>
+  <!-- Boot (module) ✅ cache-bust -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260211b"></script>
+
+  <style>
+    /* tiny helpers: HUD collapse button */
+    .hw-hud-toggle{
+      pointer-events:auto;
+      cursor:pointer;
+      user-select:none;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.65);
+      color:rgba(229,231,235,.94);
+      padding:8px 10px;
+      font-weight:950;
+      font-size:12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 50px rgba(0,0,0,.35);
+    }
+    body.hud-collapsed .hw-row,
+    body.hud-collapsed #quizBox{ display:none !important; }
+    body.hud-collapsed .hw-sub{ display:none !important; }
+    body.hud-collapsed .hw-top{ padding-bottom: 6px; }
+    body.hud-collapsed .hw-banner{ top: calc(78px + var(--sat)); }
+  </style>
 </head>
 
 <body class="view-pc">
@@ -42,7 +67,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
     <!-- HUD -->
     <div class="hw-hud">
       <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="hw-title" id="hwTitle">🧼 Handwash Survival</div>
+          <button class="hw-hud-toggle" id="btnHudToggle" type="button" aria-label="toggle hud">▾ HUD</button>
+        </div>
+
         <div class="hw-sub" id="hudSub">ready…</div>
 
         <div class="hw-row">
@@ -60,6 +89,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -76,7 +106,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น<br><br>
+          <span style="color:#94a3b8">
+            ถ้าจอเล็ก/ HUD บังเป้า: กดปุ่ม <b>HUD</b> เพื่อย่อได้ทันที
+          </span>
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -107,15 +140,51 @@ HygieneVR RUN — PRODUCTION (HHA Standard)
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
     document.getElementById('labView').textContent = view;
+
+    // Auto-collapse HUD for mobile/cvr by default (can toggle back)
+    const shouldCollapse = (view==='mobile' || view==='cvr');
+    if(shouldCollapse) document.body.classList.add('hud-collapsed');
   }
+
   setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+
+  // HUD toggle
+  const btn = document.getElementById('btnHudToggle');
+  function syncBtn(){
+    const c = document.body.classList.contains('hud-collapsed');
+    btn.textContent = c ? '▸ HUD' : '▾ HUD';
+  }
+  btn.addEventListener('click', ()=>{
+    document.body.classList.toggle('hud-collapsed');
+    syncBtn();
+  }, { passive:true });
+  syncBtn();
+
+  // Anti-stall quick reload: long-press title 1.2s
+  const title = document.getElementById('hwTitle');
+  let t0=0, tt=null;
+  function arm(){
+    t0 = Date.now();
+    clearTimeout(tt);
+    tt = setTimeout(()=>{
+      // add cache-bust param
+      const u = new URL(location.href);
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
+    }, 1200);
+  }
+  function disarm(){ clearTimeout(tt); tt=null; }
+  title.addEventListener('pointerdown', arm, { passive:true });
+  title.addEventListener('pointerup', disarm, { passive:true });
+  title.addEventListener('pointercancel', disarm, { passive:true });
 })();
 </script>
 </body>
