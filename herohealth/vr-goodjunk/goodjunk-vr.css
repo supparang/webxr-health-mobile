@@ -1,140 +1,319 @@
-/* === /herohealth/vr-goodjunk/goodjunk.css === */
+/* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
+   GoodJunkVR UI + Layers — SAFE (mobile/pc/cVR) v20260214a
+   ✅ Safe-area + HUD safe spawn vars
+   ✅ view-mobile / view-pc / view-cvr
+   ✅ L/R layers for cVR
+   ✅ Target animation + tap-friendly
+*/
+
 :root{
-  --bg:#040610;
-  --panel: rgba(4,6,16,.72);
+  --bg:#020617;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.55);
   --stroke: rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  /* SAFE ZONES for JS */
-  --gj-top-safe: 90px;
-  --gj-bottom-safe: 95px;
+  --good:#22c55e;
+  --bad:#ef4444;
+  --accent:#38bdf8;
+  --amber:#f59e0b;
+  --violet:#a78bfa;
 
+  /* iOS safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* ===== IMPORTANT: goodjunk.safe.js reads these =====
+     spawn safe zones (px) relative to each layer
+  */
+  --gj-top-safe: 92px;     /* safe above targets (HUD/top controls) */
+  --gj-bottom-safe: 104px; /* safe below targets (progress/bottom UI) */
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body{
+  height:100%;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
   overflow:hidden;
 }
 
-#gj-stage{
+/* ---------- body view modes ---------- */
+body.view-pc{ }
+body.view-mobile{ }
+body.view-cvr{
+  /* cVR = cardboard/dual view, prevent scroll & keep center aim */
+}
+
+/* ---------- layers container ---------- */
+#gj-layer, #gj-layer-r{
   position:fixed;
   inset:0;
   overflow:hidden;
-}
-
-/* layers for L/R (cVR uses both) */
-.layer{
-  position:absolute;
-  inset:0;
   pointer-events:auto;
+  transform: translateZ(0);
 }
-.layer-r{ display:none; }
-body.view-cvr .layer-r{ display:block; }
 
-/* targets */
+/* Right eye layer hidden by default */
+#gj-layer-r[aria-hidden="true"]{ display:none; }
+
+/* cVR: split to two halves */
+body.view-cvr #gj-layer{
+  width:50vw;
+  height:100vh;
+  left:0; top:0;
+}
+body.view-cvr #gj-layer-r{
+  display:block;
+  width:50vw;
+  height:100vh;
+  left:50vw; top:0;
+  border-left:1px solid rgba(148,163,184,.12);
+}
+
+/* In cVR, we generally don't want tapping individual targets on layers
+   if you use vr-ui crosshair shooting mode. But safe.js still supports pointerdown.
+   If you want strict crosshair-only, uncomment:
+*/
+/*
+body.view-cvr #gj-layer,
+body.view-cvr #gj-layer-r{
+  pointer-events:none;
+}
+*/
+
+/* ---------- targets ---------- */
 .gj-target{
   position:absolute;
-  transform: translate(-50%, -50%);
   user-select:none;
-  -webkit-user-select:none;
   touch-action: manipulation;
   cursor:pointer;
 
-  /* hit area / look */
-  padding:10px 12px;
-  border-radius:999px;
-  background: rgba(2,6,23,.35);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  /* readability */
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+  transform: translate(-50%,-50%) scale(1);
+  will-change: transform, opacity, left, top;
 }
 
 .gj-target.spawn{
-  animation: pop .12s ease-out both;
+  animation: gjPop .12s ease-out both;
 }
-@keyframes pop{
-  from{ transform: translate(-50%,-50%) scale(.85); opacity:.2; }
+
+@keyframes gjPop{
+  from{ transform: translate(-50%,-50%) scale(.70); opacity:.3; }
   to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
 }
 
-/* HUD */
+/* subtle wobble for life */
+.gj-target{
+  animation: gjFloat 1.9s ease-in-out infinite;
+}
+@keyframes gjFloat{
+  0%,100%{ transform: translate(-50%,-50%) scale(1) rotate(0deg); }
+  50%{ transform: translate(-50%,-50%) scale(1.03) rotate(.5deg); }
+}
+
+/* ---------- HUD ---------- */
 #hud{
   position:fixed;
+  top: calc(10px + var(--sat));
   left: calc(10px + var(--sal));
   right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index: 50;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none; /* HUD won't block targets */
-}
+  z-index:50;
 
-.hud-row{
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
-}
-.pill{
-  pointer-events:none;
-  border: 1px solid var(--stroke);
-  background: var(--panel);
-  border-radius: 16px;
-  padding: 10px 12px;
-  backdrop-filter: blur(6px);
-  min-width: 120px;
-}
-.pill.grow{ flex:1; min-width: 220px; }
-.muted{ color: var(--muted); font-weight:700; font-size:12px; }
+  gap:10px;
+  align-items:flex-start;
 
-.bar{
+  padding:10px 12px;
+  border-radius:18px;
+  border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.58));
+  backdrop-filter: blur(8px);
+
+  /* make it compact on mobile */
+  max-width:min(720px, 96vw);
+}
+
+#hud > div{
+  font-size:12px;
+  font-weight:800;
+  color:rgba(229,231,235,.92);
+  letter-spacing:.1px;
+}
+
+#hud span{
+  font-weight:1000;
+}
+
+#hud-goal{
+  flex-basis:100%;
+  font-size:12px;
+  font-weight:1000;
+  color:#fff;
+}
+#goalDesc{
+  flex-basis:100%;
+  font-size:11px;
+  font-weight:850;
+  color:rgba(229,231,235,.78);
+  line-height:1.25;
+}
+
+#hud-mini{
+  flex-basis:100%;
+  font-size:11px;
+  font-weight:900;
+  color:rgba(229,231,235,.80);
+}
+
+#miniTimer{
+  font-weight:1000;
+  color:rgba(34,197,94,.95);
+}
+
+/* Fever box */
+#feverBox{
+  position:relative;
+  width:140px;
+  height:18px;
+  border-radius:999px;
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
+}
+#feverFill{
+  position:absolute;
+  inset:0;
+  width:0%;
+  background: linear-gradient(90deg, rgba(34,197,94,.45), rgba(56,189,248,.45));
+}
+#feverText{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  font-weight:1000;
+  color:#e5e7eb;
+  text-shadow: 0 1px 0 rgba(0,0,0,.4);
+}
+
+/* Shield pills */
+#shieldPills{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
+  font-weight:1000;
+}
+
+/* Progress */
+#gjProgress{
+  flex-basis:100%;
   height:10px;
   border-radius:999px;
-  background: rgba(148,163,184,.14);
   overflow:hidden;
-  margin-top:6px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
-.fill{ height:100%; width:0%; background: rgba(34,197,94,.55); }
+#gjProgressFill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(56,189,248,.55), rgba(167,139,250,.55));
+}
 
-/* Boss */
+/* Boss bar */
 #bossBar{
-  position:fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  z-index: 60;
-  border: 1px solid var(--stroke);
-  background: var(--panel);
-  border-radius: 18px;
-  padding: 12px;
-  backdrop-filter: blur(6px);
-  pointer-events:none;
+  flex-basis:100%;
+  padding:10px 12px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
 }
 #bossBar[aria-hidden="true"]{ display:none; }
-.boss-title{ font-weight:1000; letter-spacing:.2px; }
+#bossFill{
+  height:10px;
+  width:100%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(239,68,68,.55), rgba(245,158,11,.45));
+}
+#bossHint{
+  margin-top:6px;
+  font-size:11px;
+  font-weight:900;
+  color:rgba(229,231,235,.8);
+}
 
-/* Low time */
+/* ---------- low time overlay ---------- */
 #lowTimeOverlay{
   position:fixed;
   inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index: 80;
+  z-index:60;
   pointer-events:none;
+
+  background: radial-gradient(closest-side, rgba(239,68,68,.14), rgba(2,6,23,0));
+  opacity:0;
+  transition: opacity .12s ease;
 }
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
-.low-card{
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.82);
-  border-radius: 22px;
-  padding: 18px 22px;
-  text-align:center;
-  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+#lowTimeOverlay[aria-hidden="false"]{ opacity:1; }
+
+#gj-lowtime-num{
+  font-size:72px;
+  font-weight:1000;
+  color:#fff;
+  text-shadow: 0 16px 60px rgba(0,0,0,.55);
+  padding:18px 22px;
+  border-radius:26px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.50);
+  backdrop-filter: blur(8px);
 }
-.low-num{ font-size:56px; font-weight:1000; margin-top:6px; }
+
+/* ---------- mobile tuning ---------- */
+@media (max-width: 520px){
+  :root{
+    /* increase safe zones slightly so HUD never blocks taps */
+    --gj-top-safe: 108px;
+    --gj-bottom-safe: 116px;
+  }
+
+  #hud{
+    top: calc(8px + var(--sat));
+    left: calc(8px + var(--sal));
+    right: calc(8px + var(--sar));
+    padding:10px 10px;
+    border-radius:18px;
+  }
+
+  #feverBox{ width:120px; }
+  #gj-lowtime-num{ font-size:64px; }
+}
+
+/* ---------- cVR tuning ---------- */
+body.view-cvr :root{
+  /* keep HUD smaller in cVR */
+}
+
+body.view-cvr #hud{
+  max-width: 46vw;
+}
+
+/* hide HUD duplication feeling; keep it on left eye only by default */
+body.view-cvr #hud{
+  right: auto;
+}
+
+/* optional: if you want HUD on both eyes, duplicate HUD in HTML.
+   current template has single HUD; this is fine. */
