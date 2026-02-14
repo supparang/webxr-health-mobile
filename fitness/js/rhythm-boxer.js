@@ -1,492 +1,265 @@
-// === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer UI Controller — PRODUCTION (Calibration B + AutoCal C + Debug D)
-// ✅ Cal +/-/Reset + persist localStorage
-// ✅ Auto-Cal 10s
-// ✅ DEBUG overlay (?debug=1) shows dt + closest notes
-
 'use strict';
 
-(function(){
-  const DOC = document;
+(function () {
 
-  const LS_KEY = 'RB_CAL_MS_V1';
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  function qs(sel){ return DOC.querySelector(sel); }
-  function qsa(sel){ return Array.from(DOC.querySelectorAll(sel)); }
+  const wrap = $('#rb-wrap');
+  const viewMenu   = $('#rb-view-menu');
+  const viewPlay   = $('#rb-view-play');
+  const viewResult = $('#rb-view-result');
 
-  function show(el){ if(el) el.classList.remove('hidden'); }
-  function hide(el){ if(el) el.classList.add('hidden'); }
+  const flashEl    = $('#rb-flash');
+  const fieldEl    = $('#rb-field');
+  const lanesEl    = $('#rb-lanes');
+  const feedbackEl = $('#rb-feedback');
+  const audioEl    = $('#rb-audio');
 
-  function readFlag(key){
-    try{
-      const v = new URL(location.href).searchParams.get(key);
-      return v==='1' || v==='true' || v==='yes';
-    }catch(_){ return false; }
-  }
+  // ปุ่มเมนู
+  const btnStart      = $('#rb-btn-start');
+  const modeRadios    = $$('input[name="rb-mode"]');
+  const trackRadios   = $$('input[name="rb-track"]');
+  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
+  const modeDescEl    = $('#rb-mode-desc');
+  const trackModeLbl  = $('#rb-track-mode-label');
+  const researchBox   = $('#rb-research-fields');
 
-  function getSelectedRadio(name){
-    const el = DOC.querySelector(`input[name="${name}"]:checked`);
-    return el ? el.value : '';
-  }
+  // ฟอร์มวิจัย
+  const inputParticipant = $('#rb-participant');
+  const inputGroup       = $('#rb-group');
+  const inputNote        = $('#rb-note');
 
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = filename;
-    DOC.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 500);
-  }
+  // ปุ่มตอนเล่น / สรุปผล
+  const btnStop        = $('#rb-btn-stop');
+  const btnAgain       = $('#rb-btn-again');
+  const btnBackMenu    = $('#rb-btn-back-menu');
+  const btnDlEvents    = $('#rb-btn-dl-events');
+  const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // Views
-  const viewMenu   = qs('#rb-view-menu');
-  const viewPlay   = qs('#rb-view-play');
-  const viewResult = qs('#rb-view-result');
-
-  const btnStart = qs('#rb-btn-start');
-  const btnStop  = qs('#rb-btn-stop');
-
-  const btnAgain = qs('#rb-btn-again');
-  const btnBackMenu = qs('#rb-btn-back-menu');
-
-  const btnDlEvents   = qs('#rb-btn-dl-events');
-  const btnDlSessions = qs('#rb-btn-dl-sessions');
-
-  // Mode toggles
-  const modeDesc = qs('#rb-mode-desc');
-  const researchFields = qs('#rb-research-fields');
-  const trackModeLabel = qs('#rb-track-mode-label');
-
-  // Research inputs
-  const inpPid = qs('#rb-participant');
-  const inpGroup = qs('#rb-group');
-  const inpNote = qs('#rb-note');
-
-  // Audio + DOM
-  const lanesEl = qs('#rb-lanes');
-  const fieldEl = qs('#rb-field');
-  const audioEl = qs('#rb-audio');
-
-  // HUD wires
+  // HUD elements
   const hud = {
-    score: qs('#rb-hud-score'),
-    combo: qs('#rb-hud-combo'),
-    acc: qs('#rb-hud-acc'),
-    hp: qs('#rb-hud-hp'),
-    shield: qs('#rb-hud-shield'),
-    time: qs('#rb-hud-time'),
-
-    countPerfect: qs('#rb-hud-perfect'),
-    countGreat: qs('#rb-hud-great'),
-    countGood: qs('#rb-hud-good'),
-    countMiss: qs('#rb-hud-miss'),
-
-    feverFill: qs('#rb-fever-fill'),
-    feverStatus: qs('#rb-fever-status'),
-    progFill: qs('#rb-progress-fill'),
-    progText: qs('#rb-progress-text'),
-
-    aiFatigue: qs('#rb-hud-ai-fatigue'),
-    aiSkill: qs('#rb-hud-ai-skill'),
-    aiSuggest: qs('#rb-hud-ai-suggest'),
-    aiTip: qs('#rb-hud-ai-tip')
+    mode:   $('#rb-hud-mode'),
+    track:  $('#rb-hud-track'),
+    score:  $('#rb-hud-score'),
+    combo:  $('#rb-hud-combo'),
+    acc:    $('#rb-hud-acc'),
+    hp:     $('#rb-hud-hp'),
+    shield: $('#rb-hud-shield'),
+    time:   $('#rb-hud-time'),
+    countPerfect: $('#rb-hud-perfect'),
+    countGreat:   $('#rb-hud-great'),
+    countGood:    $('#rb-hud-good'),
+    countMiss:    $('#rb-hud-miss'),
+    feverFill:    $('#rb-fever-fill'),
+    feverStatus:  $('#rb-fever-status'),
+    progFill:     $('#rb-progress-fill'),
+    progText:     $('#rb-progress-text'),
+    aiFatigue:    $('#rb-hud-ai-fatigue'),
+    aiSkill:      $('#rb-hud-ai-skill'),
+    aiSuggest:    $('#rb-hud-ai-suggest'),
+    aiTip:        $('#rb-hud-ai-tip')
   };
 
-  const hudMode = qs('#rb-hud-mode');
-  const hudTrack = qs('#rb-hud-track');
+  // แสดงผลสรุป
+  const res = {
+    mode:        $('#rb-res-mode'),
+    track:       $('#rb-res-track'),
+    endReason:   $('#rb-res-endreason'),
+    score:       $('#rb-res-score'),
+    maxCombo:    $('#rb-res-maxcombo'),
+    hits:        $('#rb-res-detail-hit'),
+    acc:         $('#rb-res-acc'),
+    duration:    $('#rb-res-duration'),
+    rank:        $('#rb-res-rank'),
+    offsetAvg:   $('#rb-res-offset-avg'),
+    offsetStd:   $('#rb-res-offset-std'),
+    participant: $('#rb-res-participant'),
+    qualityNote: $('#rb-res-quality-note')
+  };
 
-  // Result UI
-  const resMode = qs('#rb-res-mode');
-  const resTrack = qs('#rb-res-track');
-  const resEnd = qs('#rb-res-endreason');
-  const resScore = qs('#rb-res-score');
-  const resMaxCombo = qs('#rb-res-maxcombo');
-  const resDetailHit = qs('#rb-res-detail-hit');
-  const resAcc = qs('#rb-res-acc');
-  const resDur = qs('#rb-res-duration');
-  const resRank = qs('#rb-res-rank');
-  const resOffsetAvg = qs('#rb-res-offset-avg');
-  const resOffsetStd = qs('#rb-res-offset-std');
-  const resParticipant = qs('#rb-res-participant');
-  const resQualityNote = qs('#rb-res-quality-note');
-
-  // Calibration UI
-  const calVal = qs('#rb-hud-cal');
-  const btnCalMinus = qs('#rb-cal-minus');
-  const btnCalPlus  = qs('#rb-cal-plus');
-  const btnCalReset = qs('#rb-cal-reset');
-
-  // Auto-Cal UI
-  const btnCalAuto = qs('#rb-cal-auto');
-  const calSuggest = qs('#rb-cal-suggest');
-  const calAutoStatus = qs('#rb-cal-status');
-
-  // Debug
-  const DEBUG = readFlag('debug');
-  let dbgEl = null;
-
-  const renderer = (window.DomRendererRhythm && typeof window.DomRendererRhythm.create === 'function')
-    ? window.DomRendererRhythm.create({ field: fieldEl })
-    : null;
+  // mapping เพลงในเมนู → engine trackId + diff + label
+  const TRACK_CONFIG = {
+    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
+    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
+    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
+    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
+  };
 
   let engine = null;
-  let lastMode = 'normal';
-  let lastTrackId = 'n1';
 
-  function loadCalMs(){
-    try{
-      const v = Number(localStorage.getItem(LS_KEY));
-      return Number.isFinite(v) ? Math.max(-250, Math.min(250, Math.round(v))) : 0;
-    }catch(_){
-      return 0;
+  function getSelectedMode() {
+    const r = modeRadios.find(x => x.checked);
+    return r ? r.value : 'normal';
+  }
+
+  function getSelectedTrackKey() {
+    const r = trackRadios.find(x => x.checked);
+    return r ? r.value : 'n1';
+  }
+
+  function setSelectedTrackKey(key) {
+    trackRadios.forEach(r => { r.checked = (r.value === key); });
+  }
+
+  function updateModeUI() {
+    const mode = getSelectedMode();
+
+    if (mode === 'normal') {
+      modeDescEl.textContent =
+        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      researchBox.classList.add('hidden');
+
+      trackLabels.forEach(lbl => {
+        const m = lbl.getAttribute('data-mode') || 'normal';
+        if (m === 'research') lbl.classList.add('hidden');
+        else lbl.classList.remove('hidden');
+      });
+
+      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+
+    } else {
+      modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      researchBox.classList.remove('hidden');
+
+      trackLabels.forEach(lbl => {
+        const m = lbl.getAttribute('data-mode') || 'normal';
+        if (m === 'research') lbl.classList.remove('hidden');
+        else lbl.classList.add('hidden');
+      });
+
+      setSelectedTrackKey('r1');
     }
   }
-  function saveCalMs(ms){
-    try{ localStorage.setItem(LS_KEY, String(Math.round(ms))); }catch(_){}
+
+  function switchView(name) {
+    viewMenu.classList.add('hidden');
+    viewPlay.classList.add('hidden');
+    viewResult.classList.add('hidden');
+
+    if (name === 'menu') viewMenu.classList.remove('hidden');
+    else if (name === 'play') viewPlay.classList.remove('hidden');
+    else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
-  function applyCalToEngine(){
-    if(!engine) return;
-    const ms = loadCalMs();
-    if(typeof engine.setCalibrationMs === 'function') engine.setCalibrationMs(ms);
-    if(calVal) calVal.textContent = `${loadCalMs()}ms`;
-    if(calSuggest) calSuggest.textContent = '';
-  }
-
-  function setView(which){
-    hide(viewMenu); hide(viewPlay); hide(viewResult);
-    if(which==='menu') show(viewMenu);
-    if(which==='play') show(viewPlay);
-    if(which==='result') show(viewResult);
-  }
-
-  function updateModeUI(){
-    const mode = getSelectedRadio('rb-mode') || 'normal';
-    if(mode === 'research'){
-      modeDesc.textContent = 'Research: ล็อกเกม 100% สำหรับงานวิจัย (AI แสดง prediction ได้ แต่ไม่ปรับความยาก)';
-      show(researchFields);
-      trackModeLabel.textContent = 'โหมด Research — เพลงมาตรฐานเพื่อเก็บข้อมูล (120 BPM)';
-    }else{
-      modeDesc.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      hide(researchFields);
-      trackModeLabel.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-    }
-
-    qsa('#rb-track-options .rb-mode-btn').forEach(lbl=>{
-      const m = lbl.getAttribute('data-mode');
-      if(!m) return;
-      if(m === mode) lbl.classList.remove('hidden');
-      else lbl.classList.add('hidden');
+  function createEngine() {
+    const renderer = new window.RbDomRenderer(fieldEl, {
+      flashEl,
+      feedbackEl,
+      wrapEl: document.body
     });
-
-    const currentTrack = getSelectedRadio('rb-track') || 'n1';
-    const ok = !!DOC.querySelector(`#rb-track-options .rb-mode-btn[data-mode="${mode}"] input[value="${currentTrack}"]`);
-    if(!ok){
-      const first = DOC.querySelector(`#rb-track-options .rb-mode-btn[data-mode="${mode}"] input[name="rb-track"]`);
-      if(first) first.checked = true;
-    }
-  }
-
-  function bindModeRadios(){
-    qsa('input[name="rb-mode"]').forEach(r=> r.addEventListener('change', updateModeUI));
-  }
-
-  function ensureDebugOverlay(){
-    if(!DEBUG) return;
-    if(dbgEl) return;
-    dbgEl = DOC.createElement('div');
-    dbgEl.id = 'rb-debug';
-    dbgEl.innerHTML = `
-      <div class="rb-debug-title">DEBUG</div>
-      <div class="rb-debug-body" id="rb-debug-body">waiting…</div>
-      <div class="rb-debug-tip">เปิดด้วย ?debug=1 · ดู dt ใกล้ 0 แล้วต้องตีติด</div>
-    `;
-    DOC.body.appendChild(dbgEl);
-  }
-
-  function initEngine(){
-    ensureDebugOverlay();
 
     engine = new window.RhythmBoxerEngine({
-      wrap: qs('#rb-wrap'),
+      wrap: wrap,
       field: fieldEl,
-      lanesEl,
+      lanesEl: lanesEl,
       audio: audioEl,
-      renderer,
-      hud,
-      hooks: {
-        onStart(info){
-          if(hudMode) hudMode.textContent = (info.mode === 'research') ? 'Research' : 'Normal';
-          if(hudTrack) hudTrack.textContent = info.track ? info.track.name : '-';
-        },
-        onTick(payload){
-          if(!DEBUG || !dbgEl) return;
-          const body = qs('#rb-debug-body');
-          if(!body) return;
-
-          const live = (payload.live || []).slice().sort((a,b)=>a.abs-b.abs).slice(0,3);
-          const lines = [];
-
-          lines.push(`t=${payload.songTime.toFixed(3)}s · Cal=${payload.calMs}ms · lanes=${payload.laneCount}`);
-          lines.push(`hitlineY(var)=${payload.hitlineY}px · live=${(payload.live||[]).length}`);
-
-          if(live.length){
-            lines.push('closest notes:');
-            for(const n of live){
-              lines.push(`- lane ${n.lane} dt=${(n.dt*1000).toFixed(0)}ms abs=${(n.abs*1000).toFixed(0)}ms rectTop=${n.top.toFixed(0)} rectBot=${n.bottom.toFixed(0)}`);
-            }
-          }else{
-            lines.push('(no live notes yet)');
-          }
-
-          body.textContent = lines.join('\n');
-        },
-        onEnd(summary){
-          resMode.textContent = summary.modeLabel || '-';
-          resTrack.textContent = summary.trackName || '-';
-          resEnd.textContent = summary.endReason || '-';
-          resScore.textContent = String(summary.finalScore ?? 0);
-          resMaxCombo.textContent = String(summary.maxCombo ?? 0);
-          resDetailHit.textContent = `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-          resAcc.textContent = (summary.accuracyPct!=null) ? `${summary.accuracyPct.toFixed(1)} %` : '0.0 %';
-          resDur.textContent = (summary.durationSec!=null) ? `${summary.durationSec.toFixed(1)} s` : '0.0 s';
-          resRank.textContent = summary.rank || '-';
-          resOffsetAvg.textContent = (summary.offsetMean!=null) ? `${(summary.offsetMean*1000).toFixed(0)} ms` : '-';
-          resOffsetStd.textContent = (summary.offsetStd!=null) ? `${(summary.offsetStd*1000).toFixed(0)} ms` : '-';
-          resParticipant.textContent = summary.participant || '-';
-
-          if(summary.qualityNote){
-            resQualityNote.textContent = summary.qualityNote;
-            resQualityNote.classList.remove('hidden');
-          }else{
-            resQualityNote.classList.add('hidden');
-          }
-
-          setView('result');
-        }
-      }
+      renderer: renderer,
+      hud: hud,
+      hooks: { onEnd: handleEngineEnd }
     });
-
-    applyCalToEngine();
   }
 
-  function startGame(){
-    const mode = getSelectedRadio('rb-mode') || 'normal';
-    const trackId = getSelectedRadio('rb-track') || 'n1';
+  function startGame() {
+    if (!engine) createEngine();
 
-    lastMode = mode;
-    lastTrackId = trackId;
+    const mode = getSelectedMode();
+    const trackKey = getSelectedTrackKey();
+    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
+
+    wrap.dataset.diff = cfg.diff;
+
+    hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    hud.track.textContent = cfg.labelShort;
 
     const meta = {
-      participant_id: inpPid ? inpPid.value.trim() : '',
-      group: inpGroup ? inpGroup.value.trim() : '',
-      note: inpNote ? inpNote.value.trim() : ''
+      id:   (inputParticipant && inputParticipant.value || '').trim(),
+      group:(inputGroup && inputGroup.value || '').trim(),
+      note: (inputNote && inputNote.value || '').trim()
     };
 
-    setView('play');
-    applyCalToEngine();
-    engine.start(mode, trackId, meta);
-
-    if(calAutoStatus) calAutoStatus.textContent = '';
+    engine.start(mode, cfg.engineId, meta);
+    switchView('play');
   }
 
-  function stopGame(){
-    if(engine) engine.stop('manual-stop');
+  function stopGame(reason) {
+    if (engine) engine.stop(reason || 'manual-stop');
   }
 
-  // ===== Auto-Cal (same asก่อนหน้า) =====
-  let _autoCalRunning = false;
-  let _autoCalCancel = null;
+  function handleEngineEnd(summary) {
+    res.mode.textContent      = summary.modeLabel;
+    res.track.textContent     = summary.trackName;
+    res.endReason.textContent = summary.endReason;
+    res.score.textContent     = summary.finalScore;
+    res.maxCombo.textContent  = summary.maxCombo;
+    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
+    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    res.rank.textContent      = summary.rank;
 
-  function _beepOnce(audioCtx, whenSec, freq, durSec, gainVal){
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = 'sine';
-    o.frequency.value = freq;
-    g.gain.value = gainVal;
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(whenSec);
-    o.stop(whenSec + durSec);
-  }
+    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    res.participant.textContent = summary.participant || '-';
 
-  function _median(arr){
-    if(!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const m = Math.floor(a.length/2);
-    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
-  }
-
-  function startAutoCal(){
-    if(_autoCalRunning) return;
-    if(!engine || !engine.running){
-      if(calAutoStatus) calAutoStatus.textContent = 'ต้องเริ่มเกมก่อน ถึงจะ Auto-Cal ได้';
-      return;
+    if (summary.qualityNote) {
+      res.qualityNote.textContent = summary.qualityNote;
+      res.qualityNote.classList.remove('hidden');
+    } else {
+      res.qualityNote.textContent = '';
+      res.qualityNote.classList.add('hidden');
     }
 
-    _autoCalRunning = true;
-    if(btnCalAuto) btnCalAuto.disabled = true;
-    if(calAutoStatus) calAutoStatus.textContent = 'Auto-Cal: ฟัง “ติ๊ก” แล้วแตะตาม 10 วินาที…';
-    if(calSuggest) calSuggest.textContent = '';
-
-    if(btnCalMinus) btnCalMinus.disabled = true;
-    if(btnCalPlus) btnCalPlus.disabled = true;
-    if(btnCalReset) btnCalReset.disabled = true;
-
-    const bpm = (engine.track && engine.track.bpm) ? engine.track.bpm : 120;
-    const beatSec = 60 / bpm;
-
-    const totalSec = 10.0;
-    const warmBeats = 2;
-
-    const AC = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AC();
-
-    const startPerf = performance.now()/1000;
-    const startAudio = audioCtx.currentTime + 0.15;
-
-    const offsetsMs = [];
-
-    const onTap = ()=>{
-      if(!_autoCalRunning) return;
-      const tPerf = performance.now()/1000;
-
-      const k = Math.round((tPerf - (startPerf + 0.15)) / beatSec);
-      const beatAt = (startPerf + 0.15) + k * beatSec;
-
-      if(k < warmBeats) return;
-
-      const offSec = tPerf - beatAt;
-      const offMs = offSec * 1000;
-
-      if(Math.abs(offMs) <= 250) offsetsMs.push(offMs);
-    };
-
-    lanesEl.addEventListener('pointerdown', onTap, {passive:true});
-
-    const tickCount = Math.ceil(totalSec / beatSec) + 1;
-    for(let i=0;i<tickCount;i++){
-      const when = startAudio + i * beatSec;
-      const freq = (i===0) ? 880 : 660;
-      _beepOnce(audioCtx, when, freq, 0.04, 0.08);
-    }
-
-    const finishAtPerf = (startPerf + 0.15) + totalSec;
-
-    const raf = ()=>{
-      if(!_autoCalRunning) return;
-      const t = performance.now()/1000;
-      const left = Math.max(0, finishAtPerf - t);
-      if(calAutoStatus){
-        calAutoStatus.textContent = left>0.1
-          ? `Auto-Cal: แตะตาม “ติ๊ก” … เหลือ ${left.toFixed(1)}s`
-          : 'Auto-Cal: กำลังคำนวณ…';
-      }
-      if(t >= finishAtPerf){
-        stopAutoCal(true, audioCtx, offsetsMs);
-        return;
-      }
-      requestAnimationFrame(raf);
-    };
-    requestAnimationFrame(raf);
-
-    _autoCalCancel = ()=>stopAutoCal(false, audioCtx, offsetsMs);
-
-    function cleanup(){
-      lanesEl.removeEventListener('pointerdown', onTap);
-      try{ audioCtx.close(); }catch(_){}
-    }
-
-    function stopAutoCal(isDone, ctx, arr){
-      if(!_autoCalRunning) return;
-      _autoCalRunning = false;
-
-      cleanup();
-
-      if(btnCalAuto) btnCalAuto.disabled = false;
-      if(btnCalMinus) btnCalMinus.disabled = false;
-      if(btnCalPlus) btnCalPlus.disabled = false;
-      if(btnCalReset) btnCalReset.disabled = false;
-
-      if(!isDone){
-        if(calAutoStatus) calAutoStatus.textContent = 'Auto-Cal: ยกเลิกแล้ว';
-        return;
-      }
-
-      let rec = 0;
-      if(arr.length >= 6){
-        const med = _median(arr);
-        rec = Math.round(med * 0.85);
-      }else{
-        rec = 0;
-      }
-
-      rec = Math.max(-200, Math.min(200, rec));
-      saveCalMs(rec);
-      applyCalToEngine();
-
-      if(calSuggest) calSuggest.textContent = `แนะนำ: ${rec}ms (sample ${arr.length})`;
-      if(calAutoStatus){
-        calAutoStatus.textContent = (arr.length >= 6)
-          ? 'Auto-Cal: เสร็จแล้ว ✅ กดเล่นต่อได้เลย'
-          : 'Auto-Cal: sample น้อยไป (ลองใหม่แล้วแตะให้ทันทุก “ติ๊ก”)';
-      }
-    }
+    switchView('result');
   }
 
-  function bindButtons(){
-    if(btnStart) btnStart.addEventListener('click', startGame);
-    if(btnStop) btnStop.addEventListener('click', stopGame);
-
-    if(btnAgain) btnAgain.addEventListener('click', ()=>{
-      setView('play');
-      applyCalToEngine();
-      engine.start(lastMode, lastTrackId, {
-        participant_id: inpPid ? inpPid.value.trim() : '',
-        group: inpGroup ? inpGroup.value.trim() : '',
-        note: inpNote ? inpNote.value.trim() : ''
-      });
-      if(calAutoStatus) calAutoStatus.textContent = '';
-    });
-
-    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=> setView('menu'));
-
-    if(btnDlEvents) btnDlEvents.addEventListener('click', ()=>{
-      const csv = engine ? engine.getEventsCsv() : '';
-      downloadText(`rhythm_events_${Date.now()}.csv`, csv);
-    });
-    if(btnDlSessions) btnDlSessions.addEventListener('click', ()=>{
-      const csv = engine ? engine.getSessionCsv() : '';
-      downloadText(`rhythm_sessions_${Date.now()}.csv`, csv);
-    });
-
-    if(btnCalMinus) btnCalMinus.addEventListener('click', ()=>{
-      saveCalMs(loadCalMs() - 10);
-      applyCalToEngine();
-    });
-    if(btnCalPlus) btnCalPlus.addEventListener('click', ()=>{
-      saveCalMs(loadCalMs() + 10);
-      applyCalToEngine();
-    });
-    if(btnCalReset) btnCalReset.addEventListener('click', ()=>{
-      saveCalMs(0);
-      applyCalToEngine();
-    });
-
-    if(btnCalAuto) btnCalAuto.addEventListener('click', startAutoCal);
+  function downloadCsv(csvText, filename) {
+    if (!csvText) return;
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
-  function boot(){
-    bindModeRadios();
-    updateModeUI();
+  // wiring
+  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+  btnStart.addEventListener('click', startGame);
+  btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  btnAgain.addEventListener('click', () => startGame());
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-    initEngine();
-    bindButtons();
-    setView('menu');
-  }
+  btnDlEvents.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+  });
+  btnDlSessions.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+  });
 
-  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  // ==== apply mode from URL (?mode=research|play) ====
+  (function applyModeFromQuery(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      const m = (sp.get('mode')||'').toLowerCase();
+      if (m === 'research'){
+        const r = modeRadios.find(x => x.value === 'research');
+        if (r) r.checked = true;
+      } else if (m === 'play' || m === 'normal'){
+        const r = modeRadios.find(x => x.value === 'normal');
+        if (r) r.checked = true;
+      }
+    }catch(_){}
+  })();
+
+  updateModeUI();
+  switchView('menu');
+
 })();
