@@ -7,17 +7,17 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ must match repo -->
+  <!-- ✅ CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 </head>
 
 <body class="view-pc">
-  <!-- ===== LAYERS ===== -->
+  <!-- ===== LAYERS (ต้องมี id ให้ goodjunk.safe.js หาเจอ) ===== -->
   <div id="gj-layer" class="gj-layer"></div>
   <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
 
-  <!-- ===== HUD ===== -->
-  <div id="hud">
+  <!-- ===== HUD (id ต้องตรง) ===== -->
+  <div id="hud" role="status" aria-live="polite">
     <div>Score: <span id="hud-score">0</span></div>
     <div>Time: <span id="hud-time">0</span></div>
     <div>Miss: <span id="hud-miss">0</span></div>
@@ -25,19 +25,23 @@
 
     <div id="hud-goal">—</div>
     <div id="goalDesc">—</div>
-    <div><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
+    <div>
+      <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
+    </div>
 
     <div id="hud-mini">—</div>
     <div id="miniTimer">—</div>
 
-    <div id="feverBox">
+    <div id="feverBox" aria-label="Fever">
       <div id="feverFill"></div>
       <div id="feverText">0%</div>
     </div>
 
-    <div id="shieldPills">—</div>
+    <div id="shieldPills" aria-label="Shield">—</div>
 
-    <div id="gjProgress"><div id="gjProgressFill"></div></div>
+    <div id="gjProgress" aria-label="Progress">
+      <div id="gjProgressFill"></div>
+    </div>
 
     <div id="bossBar" aria-hidden="true">
       <div id="bossFill"></div>
@@ -45,14 +49,43 @@
     </div>
   </div>
 
+  <!-- low time overlay -->
   <div id="lowTimeOverlay" aria-hidden="true">
     <div id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- ✅ Universal VR UI -->
+  <!-- ✅ Universal VR UI (ถ้าใช้ของกลาง: ENTER VR/EXIT/RECENTER + crosshair ยิงด้วย hha:shoot) -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ must match repo -->
+  <!-- ✅ Apply view mode early (so CSS + cVR layout is correct before boot) -->
+  <script>
+    (function(){
+      function qs(k,d){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; }
+      }
+      var v = String(qs('view','pc')).toLowerCase();
+      if(v === 'cardboard') v = 'cvr';
+
+      // set body class
+      var cls = 'view-' + (v || 'pc');
+      document.body.className = cls;
+
+      // toggle right layer for cVR
+      var r = document.getElementById('gj-layer-r');
+      if(r){
+        if(v === 'cvr'){
+          r.setAttribute('aria-hidden','false');
+        }else{
+          r.setAttribute('aria-hidden','true');
+        }
+      }
+
+      // Optional: help mobile tap responsiveness
+      document.body.style.touchAction = 'manipulation';
+    })();
+  </script>
+
+  <!-- ✅ Boot module -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
