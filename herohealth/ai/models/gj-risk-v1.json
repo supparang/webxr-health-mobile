@@ -1,0 +1,21 @@
+{
+  "name": "gj-risk-v1",
+  "type": "logistic",
+  "features": [
+    "emaAcc",
+    "emaCombo",
+    "emaJunkRate",
+    "emaExpireRate",
+    "emaMissStreak",
+    "bossActive"
+  ],
+  "b": -0.25,
+  "w": [
+    -1.40,
+    -0.75,
+     1.10,
+     0.95,
+     1.25,
+     0.40
+  ]
+}
