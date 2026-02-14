@@ -1,28 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.2 + GatePatch v20260210 (FULL FIXED / RUNS)
-// ✅ End Summary overlay (see before leaving)
-// ✅ Daily Warmup mark (if wType/wPct present)
-// ✅ Daily Cooldown (per PID) by CATEGORY (nutrition): first time/day -> cooldown gate
-// ✅ Cooldown routing uses cdGateUrl/cdur but keys are per-category (nutrition)
-//
-// FIXED:
-// - dxdx/dydy -> dx*dx + dy*dy
-// - all template strings + ${} are valid
-// - aria-label uses backticks
-// - coach/mini msg uses backticks
-// - adaptive formulas fixed
-// - robust onShoot default center
-//
-// Requires DOM ids in goodjunk-vr.html:
-//   gj-layer, gj-layer-r, hud-score, hud-time, hud-miss, hud-grade
-//   hud-goal, goalDesc, hud-goal-cur, hud-goal-target
-//   hud-mini, miniTimer, feverFill, feverText, shieldPills
-//   lowTimeOverlay, gj-lowtime-num, gjProgressFill
-//   bossBar, bossFill, bossHint
-//
-// Imports:
-//   ../vr/food5-th.js  (JUNK, emojiForGroup, labelForGroup, pickEmoji)
-//   ../badges.safe.js  (awardBadge, getPid)
+// GoodJunkVR SAFE — v4.2 + GatePatch + DEBUG v20260214
+// ✅ RUNS: no dxdx/dydy bug, no broken `${}` strings, no bad interpolation, no prob drift
+// ✅ DEBUG overlay: add ?debug=1
+// ✅ AI prediction hook: heuristic risk + optional HHA AIHooks (never crashes if missing)
 
 'use strict';
 
@@ -46,7 +26,6 @@ function makeRNG(seed){
 function badgeMeta(extra){
   let pid = '';
   try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch(_){}
-
   let q;
   try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
 
@@ -60,19 +39,14 @@ function badgeMeta(extra){
     style: String(q.get('style')||'').toLowerCase() || '',
     game: 'goodjunk'
   };
-
   if(extra && typeof extra === 'object'){
     for(const k of Object.keys(extra)) base[k] = extra[k];
   }
   return base;
 }
-
 function awardOnce(gameKey, badgeId, meta){
-  try{
-    return !!awardBadge(gameKey, badgeId, badgeMeta(meta));
-  }catch(_){
-    return false;
-  }
+  try{ return !!awardBadge(gameKey, badgeId, badgeMeta(meta)); }
+  catch(_){ return false; }
 }
 
 /** อ่าน safe vars แล้วคืนค่าเป็น number px */
@@ -86,12 +60,11 @@ function cssPx(varName, fallback){
   }
 }
 
-/** ✅ Safe rect relative to a specific layer element */
+/** Safe rect relative to layer */
 function getSafeRectForLayer(layerEl){
   const r = layerEl.getBoundingClientRect();
   const topSafe = cssPx('--gj-top-safe', 90);
   const botSafe = cssPx('--gj-bottom-safe', 95);
-
   const padX = 14;
 
   const x = padX;
@@ -121,11 +94,10 @@ function pickByShootAt(x, y, lockPx=28){
     const ey = (b.top  + b.bottom) / 2;
     const dx = (ex - x);
     const dy = (ey - y);
-    const d2 = dx*dx + dy*dy;
+    const d2 = dx*dx + dy*dy; // ✅ FIX: no dxdx/dydy
 
     if(!best || d2 < best.d2) best = { el, d2 };
   }
-
   return best ? best.el : null;
 }
 
@@ -141,12 +113,12 @@ function decorateTarget(el, t){
     const emo = emojiForGroup(t.rng, gid);
     el.textContent = emo;
     el.dataset.group = String(gid);
-    el.setAttribute('aria-label', `${labelForGroup(gid)} ${emo}`);
+    el.setAttribute('aria-label', `${labelForGroup(gid)} ${emo}`); // ✅ FIX: template
   }else if(t.kind === 'junk'){
     const emo = pickEmoji(t.rng, JUNK.emojis);
     el.textContent = emo;
     el.dataset.group = 'junk';
-    el.setAttribute('aria-label', `${JUNK.labelTH} ${emo}`);
+    el.setAttribute('aria-label', `${JUNK.labelTH} ${emo}`); // ✅ FIX
   }
 }
 
@@ -154,8 +126,8 @@ function decorateTarget(el, t){
 function makeGoals(){
   return [
     { key:'clean',  name:'แยกของดี/ของเสีย', desc:'เก็บของดีให้เยอะ และอย่าโดนของเสีย', targetGood:18, maxMiss:6 },
-    { key:'combo',  name:'คอมโบของดี',       desc:'ทำคอมโบของดีให้ถึง 8', targetCombo:8 },
-    { key:'survive',name:'ช่วงบอส',          desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
+    { key:'combo',  name:'คอมโบของดี',       desc:'ทำคอมโบของดีให้ถึง 8',             targetCombo:8 },
+    { key:'survive',name:'ช่วงบอส',           desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
   ];
 }
 
@@ -202,14 +174,11 @@ function isDaily(prefix, category, pid){
 }
 
 function hasWarmupBuffInQS(){
-  return !!(
-    qs('wType','') || qs('wPct','') || qs('rank','') ||
-    qs('wCrit','') || qs('wDmg','') || qs('wHeal','') || qs('calm','')
-  );
+  return !!(qs('wType','') || qs('wPct','') || qs('rank','') || qs('wCrit','') || qs('wDmg','') || qs('wHeal','') || qs('calm',''));
 }
 
 // -----------------------------
-// Summary Overlay + routing
+// Summary Overlay
 // -----------------------------
 function ensureSummaryOverlay(){
   let ov = DOC.getElementById('gjEndOverlay');
@@ -240,6 +209,7 @@ function ensureSummaryOverlay(){
       <div style="font-weight:1000; letter-spacing:.2px;">สรุปผล GoodJunkVR</div>
       <div id="gjEndGrade" style="margin-left:auto; font-weight:1000; padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.45);">—</div>
     </div>
+
     <div id="gjEndMsg" style="margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;">—</div>
 
     <div style="margin-top:12px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
@@ -266,7 +236,6 @@ function ensureSummaryOverlay(){
       <button id="gjEndNext" style="font-weight:1000; padding:10px 14px; border-radius:14px; border:1px solid rgba(34,197,94,.35); background:rgba(34,197,94,.18); color:#e5e7eb;">ต่อไป</button>
     </div>
   `;
-
   ov.appendChild(card);
   DOC.body.appendChild(ov);
   return ov;
@@ -293,7 +262,6 @@ function showSummaryOverlay(summary, ctx, onNext){
     const btnHub  = $('gjEndToHub');
     const btnNext = $('gjEndNext');
 
-    // clear old listeners safely by cloning
     if(btnHub){
       const n = btnHub.cloneNode(true);
       btnHub.parentNode.replaceChild(n, btnHub);
@@ -309,10 +277,46 @@ function showSummaryOverlay(summary, ctx, onNext){
         if(typeof onNext === 'function') onNext();
       });
     }
-
   }catch(_){}
 
   ov.style.display = 'flex';
+}
+
+// -----------------------------
+// Debug overlay (?debug=1)
+// -----------------------------
+function makeDebugUI(){
+  const on = String(qs('debug','0')).toLowerCase();
+  if(!(on === '1' || on === 'true' || on === 'yes')) return null;
+
+  let el = DOC.getElementById('gjDebug');
+  if(el) return el;
+
+  el = DOC.createElement('div');
+  el.id = 'gjDebug';
+  el.style.position = 'fixed';
+  el.style.left = '10px';
+  el.style.top  = '10px';
+  el.style.zIndex = '9998';
+  el.style.maxWidth = 'min(420px, 92vw)';
+  el.style.border = '1px solid rgba(148,163,184,.25)';
+  el.style.borderRadius = '14px';
+  el.style.background = 'rgba(2,6,23,.78)';
+  el.style.backdropFilter = 'blur(6px)';
+  el.style.padding = '10px 12px';
+  el.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  el.style.fontSize = '11px';
+  el.style.color = '#e5e7eb';
+  el.style.fontWeight = '800';
+  el.style.pointerEvents = 'none';
+  el.innerHTML = `<div style="font-weight:1000;margin-bottom:6px;">DEBUG: GoodJunkVR</div>
+  <div id="gjDbgLines" style="white-space:pre;line-height:1.35;">…</div>`;
+  DOC.body.appendChild(el);
+  return el;
+}
+function formatPct(x){
+  if(!Number.isFinite(x)) return '—';
+  return `${Math.round(x*100)}%`;
 }
 
 // -----------------------------
@@ -325,22 +329,19 @@ export function boot(opts={}){
   const timePlan = clamp(Number(opts.time || qs('time','80'))||80, 20, 300);
   const seed = String(opts.seed || qs('seed', Date.now()));
 
-  // category for this game
   const category = 'nutrition';
 
-  // pid priority: opts.pid -> qs pid -> badge pid -> anon
   let pid = String(opts.pid || qs('pid','') || '').trim();
   if(!pid){
     try{ pid = String(getPid?.() || '').trim(); }catch(_){}
   }
   if(!pid) pid = 'anon';
 
-  // mark warmup done if we came with buff params
+  const hub = String(opts.hub || qs('hub','../hub.html') || '../hub.html');
+
   if(hasWarmupBuffInQS()){
     markDaily('HHA_WARMUP_DONE', category, pid);
   }
-
-  const hub = String(opts.hub || qs('hub','../hub.html') || '../hub.html');
 
   const elScore = DOC.getElementById('hud-score');
   const elTime  = DOC.getElementById('hud-time');
@@ -413,8 +414,10 @@ export function boot(opts={}){
 
   const adaptiveOn = (run === 'play');
   const aiOn = (run === 'play');
-
   const AI = makeAI({ game:'GoodJunkVR', mode: run, rng, enabled: true });
+
+  const dbg = makeDebugUI();
+  const dbgLines = dbg ? DOC.getElementById('gjDbgLines') : null;
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -457,7 +460,6 @@ export function boot(opts={}){
   function updateQuestUI(){
     const g = currentGoal();
     if(elGoalName) elGoalName.textContent = g?.name || '—';
-    if(elGoalDesc) elGoalDesc.textContent = g?.desc || '—';
 
     let cur = 0, target = 1;
 
@@ -492,7 +494,7 @@ export function boot(opts={}){
 
     emit('quest:update', {
       goal:{ title:g?.name||'—', desc:g?.desc||'—', cur, target, done:false },
-      mini:{ title:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, cur:miniCur, target:miniTar, done:S.mini.done },
+      mini:{ title:`ครบ 3 หมู่ใน ${S.mini.windowSec} วิ`, cur:miniCur, target:miniTar, done:S.mini.done },
       allDone:false
     });
   }
@@ -500,6 +502,7 @@ export function boot(opts={}){
   function advanceGoalIfDone(){
     const g = currentGoal();
     let done = false;
+
     if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
 
@@ -520,7 +523,6 @@ export function boot(opts={}){
     if(!S.mini.done){
       S.mini.groups.add(Number(groupId)||1);
       const tar = 3;
-
       if(S.mini.groups.size >= tar){
         S.mini.done = true;
 
@@ -546,7 +548,6 @@ export function boot(opts={}){
           addScore(18);
           emit('hha:judge', { type:'perfect', label:(before!==S.miss)?'BONUS MISS-1':'BONUS ⭐' });
         }
-
         emit('hha:coach', { msg:`สุดยอด! ครบ 3 หมู่ใน ${S.mini.windowSec} วิ 🎁 โบนัสแล้ว!`, tag:'Coach' });
       }
     }
@@ -586,7 +587,6 @@ export function boot(opts={}){
 
     const played = S.timePlan - S.timeLeft;
     const triggerAt = Math.max(18, S.timePlan * 0.70);
-
     if(played >= triggerAt){
       S.boss.active = true;
       S.boss.startedAtSec = played;
@@ -822,14 +822,13 @@ export function boot(opts={}){
 
     let x = Number(ev?.detail?.x);
     let y = Number(ev?.detail?.y);
-
     if(!Number.isFinite(x) || !Number.isFinite(y)){
       const r = DOC.documentElement.getBoundingClientRect();
       x = r.left + r.width/2;
       y = r.top  + r.height/2;
     }
 
-    if(aiOn) AI.onEvent('shoot', { t:performance.now() });
+    if(aiOn) AI.onEvent('shoot', { t:performance.now(), x, y, lockPx });
 
     const picked = pickByShootAt(x, y, lockPx);
     if(!picked) return;
@@ -882,7 +881,7 @@ export function boot(opts={}){
 
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
 
-    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
+    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0));
     const acc = (S.hitGood|0) / denom;
 
     if(acc >= 0.80){
@@ -913,7 +912,7 @@ export function boot(opts={}){
     const summary = {
       game:'GoodJunkVR',
       category,
-      pack:'fair-v4.2-boss-layout+gatepatch',
+      pack:'fair-v4.2-boss-layout+gatepatch+debug',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -930,7 +929,8 @@ export function boot(opts={}){
       shieldRemaining:S.shield,
       bossCleared:S.boss.cleared,
       grade,
-      reason
+      reason,
+      accuracy: Number(acc.toFixed(4))
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
@@ -943,6 +943,26 @@ export function boot(opts={}){
     showSummaryOverlay(summary, { hub }, ()=>{
       goCooldownThenHub(summary);
     });
+  }
+
+  // --------- Heuristic "prediction" (not ML/DL): risk estimate ----------
+  function predictRisk(D){
+    const boss = S.boss.active ? 1 : 0;
+    const junkP = clamp(D?.pJunk ?? 0.25, 0, 0.95);
+    const missFactor = clamp(S.miss / 10, 0, 1);
+    const comboFactor = 1 - clamp(S.combo / 12, 0, 1);
+    const feverFactor = clamp(S.fever / 100, 0, 1);
+    const shieldFactor = 1 - clamp(S.shield / 3, 0, 1);
+
+    let r = 0.20
+      + 0.35*junkP
+      + 0.20*missFactor
+      + 0.15*comboFactor
+      + 0.10*shieldFactor
+      + 0.10*boss
+      + 0.05*feverFactor;
+
+    return clamp(r, 0, 1);
   }
 
   function tick(ts){
@@ -962,6 +982,7 @@ export function boot(opts={}){
 
     const played = (S.timePlan - S.timeLeft);
 
+    // base difficulty
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
 
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
@@ -975,21 +996,43 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    const D = (adaptiveOn && aiOn) ? AI.getDifficulty(played, base)
+    // adaptive: AI > heuristic > fixed
+    const D = (adaptiveOn && aiOn)
+      ? AI.getDifficulty(played, base)
       : (adaptiveOn ? {
-          spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+          spawnMs: Math.max(560, base.spawnMs - Math.max(0, played-8)*5),
           pGood: base.pGood - Math.min(0.10, played*0.002),
           pJunk: base.pJunk + Math.min(0.10, played*0.002),
           pStar: base.pStar,
           pShield: base.pShield
         } : { ...base });
 
+    // normalize probs (✅ FIX: no drift / NaN)
     {
-      let s = D.pGood + D.pJunk + D.pStar + D.pShield;
+      let s = (Number(D.pGood)||0) + (Number(D.pJunk)||0) + (Number(D.pStar)||0) + (Number(D.pShield)||0);
       if(s <= 0) s = 1;
-      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
+      D.pGood = (Number(D.pGood)||0) / s;
+      D.pJunk = (Number(D.pJunk)||0) / s;
+      D.pStar = (Number(D.pStar)||0) / s;
+      D.pShield = (Number(D.pShield)||0) / s;
+      D.spawnMs = Math.max(300, Number(D.spawnMs)||900);
     }
 
+    // debug overlay
+    if(dbgLines){
+      const risk = predictRisk(D);
+      dbgLines.textContent =
+`run=${S.run} diff=${S.diff} view=${S.view} seed=${S.seed}
+t=${played.toFixed(1)}s left=${S.timeLeft.toFixed(1)}s
+score=${S.score} miss=${S.miss} combo=${S.combo} max=${S.comboMax}
+good=${S.hitGood} junk=${S.hitJunk} expGood=${S.expireGood}
+fever=${S.fever}% shield=${S.shield}
+boss=${S.boss.active ? 'ON' : 'off'} hp=${S.boss.active ? `${S.boss.hp}/${S.boss.hpMax}` : '-'}
+spawnMs=${Math.round(D.spawnMs)}  pGood=${formatPct(D.pGood)} pJunk=${formatPct(D.pJunk)} pStar=${formatPct(D.pStar)} pShield=${formatPct(D.pShield)}
+risk(heuristic)=${formatPct(risk)}`;
+    }
+
+    // spawn
     if(ts - S.lastSpawn >= D.spawnMs){
       S.lastSpawn = ts;
       const r = S.rng();
@@ -999,6 +1042,7 @@ export function boot(opts={}){
       else spawn('shield');
     }
 
+    // boss timer
     if(S.boss.active && S.boss.startedAtSec != null){
       if(played - S.boss.startedAtSec >= S.boss.durationSec){
         endBoss(false);
@@ -1030,7 +1074,7 @@ export function boot(opts={}){
   emit('hha:start', {
     game:'GoodJunkVR',
     category,
-    pack:'fair-v4.2-boss-layout+gatepatch',
+    pack:'fair-v4.2-boss-layout+gatepatch+debug',
     view,
     runMode:run,
     diff,
