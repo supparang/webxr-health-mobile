@@ -6,100 +6,96 @@
   <title>HeroHealth — Mask & Cough</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
+
+  <!-- ✅ use external css -->
   <link rel="stylesheet" href="./css/maskcough.css?v=20260214a"/>
 </head>
 
 <body>
-  <div id="mc-wrap" data-view="pc">
-    <div id="mc-flash"></div>
+  <div id="mc-wrap" data-view="pc" data-run="play">
+    <div id="mc-flash" aria-hidden="true"></div>
 
+    <!-- Prompt (coach) -->
+    <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+
+    <!-- Stage -->
     <div class="mc-stage">
       <div id="layer" class="mc-layer" aria-label="play layer"></div>
     </div>
 
-    <div id="menu" class="mc-end">
-      <div class="mc-end-card">
-        <div class="mc-end-head">
-          <div class="mc-end-title">😷 Mask & Cough — Defense Rush</div>
-          <div class="mc-pill" id="mc-ctx">view: - · diff: - · time: -</div>
-        </div>
-
-        <div class="mc-end-note">
-          เป้าหมาย: กันละอองไอ/จามให้ได้มากที่สุด • 💦 ปัดออก • 😷 เพิ่มโล่ • 🤧 อันตราย (ทำ Perfect ได้โบนัส)
-        </div>
-
-        <div class="mc-end-actions">
-          <button class="mc-btn mc-ghost" id="btnBack">🏰 กลับ HUB</button>
-          <button class="mc-btn mc-primary" id="btnStart">▶ เริ่มเกม</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="mc-prompt" id="prompt">—</div>
-
-    <div class="mc-hud">
+    <!-- HUD -->
+    <div class="mc-hud" id="hud" aria-label="HUD">
       <div class="mc-hud-row">
-        <span class="mc-pill">Score <b id="tScore">0</b></span>
-        <span class="mc-pill">Streak <b id="tStreak">0</b></span>
-        <span class="mc-pill">Miss <b id="tMiss">0</b></span>
-        <span class="mc-pill">Wave <b id="tWave">calm</b></span>
-        <span class="mc-pill">Int <b id="tInt">0.00</b></span>
-        <span class="mc-pill">Fever <b id="tFever">OFF</b></span>
+        <span class="mc-pill">Score: <b id="tScore">0</b></span>
+        <span class="mc-pill">Streak: <b id="tStreak">0</b></span>
+        <span class="mc-pill">Miss: <b id="tMiss">0</b></span>
+        <span class="mc-pill">Wave: <b id="tWave">calm</b></span>
+        <span class="mc-pill">Intensity: <b id="tInt">0.00</b></span>
+        <span class="mc-pill">Fever: <b id="tFever">OFF</b></span>
+        <span class="mc-pill">Risk: <b id="tRisk">0.00</b></span>
       </div>
 
       <div class="mc-bars">
         <div>
-          <div class="mc-bar-label"><span>Mask Shield</span><span id="tMask">0%</span></div>
-          <div class="mc-bar-track"><div class="mc-bar-fill" id="bMask" style="width:0%"></div></div>
+          <div class="mc-bar-label"><span>Mask Shield</span><span id="tMask">40%</span></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill" id="bMask" style="width:40%"></div></div>
         </div>
         <div>
-          <div class="mc-bar-label"><span>Fever</span><span id="tFeverPct">0%</span></div>
+          <div class="mc-bar-label"><span>Fever Charge</span><span id="tFeverPct">0%</span></div>
           <div class="mc-bar-track"><div class="mc-bar-fill mc-bad" id="bFever" style="width:0%"></div></div>
         </div>
       </div>
 
       <div class="mc-controls">
-        <span class="mc-pill">Tip: แตะ 😷 เพิ่มโล่ • แตะ 💦 ปัดละออง • 🤧 ต้องรีบกัน!</span>
+        <button class="mc-btn mc-primary" id="btnStart">▶ Start</button>
+        <button class="mc-btn mc-accent" id="btnRetry">🔁 Retry</button>
+        <button class="mc-btn mc-ghost" id="btnPause">⏸ Pause</button>
+        <button class="mc-btn" id="btnBack">🏰 Back HUB</button>
       </div>
     </div>
+
+    <!-- End Overlay -->
+    <section class="mc-end" id="end" hidden>
+      <div class="mc-end-card">
+        <div class="mc-end-head">
+          <div class="mc-end-title">สรุปผล 😷</div>
+          <div class="mc-pill">Reason: <b id="tEndReason">—</b></div>
+        </div>
+
+        <div class="mc-end-grid">
+          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="sScore">0</div></div>
+          <div class="mc-end-item"><div class="k">Streak (max)</div><div class="v" id="sMaxStreak">0</div></div>
+          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+          <div class="mc-end-item"><div class="k">Perfect</div><div class="v" id="sPerfect">0</div></div>
+          <div class="mc-end-item"><div class="k">Shield end</div><div class="v" id="sShield">0%</div></div>
+          <div class="mc-end-item"><div class="k">Risk avg</div><div class="v" id="sRisk">0.00</div></div>
+        </div>
+
+        <div class="mc-end-badges-wrap">
+          <div class="mc-end-sub">Badge (demo):</div>
+          <div class="mc-end-badges" id="badgeRow"></div>
+        </div>
+
+        <div class="mc-end-note" id="endNote">—</div>
+
+        <div class="mc-end-actions">
+          <button class="mc-btn mc-ghost" id="btnEndRetry">🔁 เล่นอีกครั้ง</button>
+          <a class="mc-btn mc-primary" id="btnEndBack" href="../hub.html">🏰 กลับ HUB</a>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" aria-hidden="true"></div>
   </div>
 
-  <!-- FUN BOOST -->
+  <!-- VR UI (crosshair / hha:shoot) -->
+  <script src="../vr/vr-ui.js?v=20260214a"></script>
+
+  <!-- FUN BOOST feel -->
   <script src="../vr/fun-boost.js?v=20260214a"></script>
   <script src="../vr/fun-boost.fx.js?v=20260214a"></script>
 
   <!-- ENGINE -->
   <script src="./maskcough.safe.js?v=20260214a"></script>
-
-  <!-- Boot / view auto -->
-  <script>
-  (function(){
-    'use strict';
-    const qs = new URL(location.href).searchParams;
-    const wrap = document.getElementById('mc-wrap');
-
-    function getViewAuto(){
-      const v = (qs.get('view')||'').toLowerCase().trim();
-      if(v) return v;
-      const ua = navigator.userAgent || '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-      return isMobile ? 'cvr' : 'pc';
-    }
-    const view = getViewAuto();
-    wrap.dataset.view = view;
-
-    // small ctx pill on menu
-    const diff = (qs.get('diff')||'normal');
-    const time = (qs.get('time')||'90');
-    const el = document.getElementById('mc-ctx');
-    if(el) el.textContent = `view: ${view} · diff: ${diff} · time: ${time}`;
-
-    // back hub
-    const hub = (qs.get('hub')||'../hub.html').trim();
-    document.getElementById('btnBack').addEventListener('click', ()=>{
-      location.href = hub || '../hub.html';
-    }, {passive:true});
-  })();
-  </script>
 </body>
 </html>
