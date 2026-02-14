@@ -1,235 +1,147 @@
 // === /herohealth/api/apolloClient.safe.js ===
-// Apollo Client SAFE — 403-safe + offline fallback
-// ✅ GraphQL request ที่โดน 403/Network จะไม่ทำให้ทั้งเว็บพัง
-// ✅ ส่งสถานะไปที่ window.HHA_API_STATUS (api-status.js) ถ้ามี
-// ✅ Retry แบบนิ่ม ๆ (เฉพาะ network error ที่ควรลองใหม่)
-// Usage:
-//   import { getApolloClient } from './apolloClient.safe.js';
-//   const client = getApolloClient({ endpoint: 'https://.../graphql' });
-//   client.query(...)
+// Safe Apollo wrapper (403-safe + degrade gracefully)
+// ✅ If Apollo not available -> returns stub client that never throws hard
+// ✅ If network 403 -> surfaces status via HHA_API_STATUS and resolves to {data:null, errors:[...]}
 
 'use strict';
 
-import {
-  ApolloClient,
-  InMemoryCache,
-  HttpLink,
-  from,
-} from 'https://cdn.skypack.dev/@apollo/client/core@3.10.8';
-
-import { onError } from 'https://cdn.skypack.dev/@apollo/client/link/error@3.10.8';
-
-const WIN = window;
-
-function safeCall(fn, ...args){
-  try { return fn?.(...args); } catch { return undefined; }
+function getGlobalApollo(){
+  // You might have Apollo on window (bundled) e.g. window.apolloClient or window.Apollo
+  // Keep it loose.
+  const W = window;
+  return {
+    ApolloClient: W?.ApolloClient || W?.apolloClient || W?.Apollo?.ApolloClient,
+    InMemoryCache: W?.InMemoryCache || W?.Apollo?.InMemoryCache,
+    HttpLink: W?.HttpLink || W?.Apollo?.HttpLink,
+    ApolloLink: W?.ApolloLink || W?.Apollo?.ApolloLink,
+    from: W?.from || W?.Apollo?.from,
+    gql: W?.gql || W?.Apollo?.gql
+  };
 }
 
-// ---- Status bridge (optional) ----
-function setApiStatus(state){
-  // state: { level:'ok'|'warn'|'bad', title, msg, detail?, endpoint?, ts? }
-  try{
-    if(WIN.HHA_API_STATUS && typeof WIN.HHA_API_STATUS.set === 'function'){
-      WIN.HHA_API_STATUS.set(state);
-    }else{
-      // fallback event for anyone listening
-      WIN.dispatchEvent(new CustomEvent('hha:api-status', { detail: state }));
-    }
-  }catch(_){}
+function makeStubClient(reason='offline'){
+  const errObj = { message:`API disabled (${reason})`, code:reason };
+
+  const stub = {
+    __stub: true,
+    reason,
+    query: async ()=>({ data:null, errors:[errObj] }),
+    mutate: async ()=>({ data:null, errors:[errObj] }),
+    subscribe: ()=>({ unsubscribe(){}, closed:true }),
+    clearStore: async ()=>true,
+    resetStore: async ()=>true
+  };
+  return stub;
 }
 
-function normUrl(url){
-  try { return String(url || '').trim(); } catch { return ''; }
+// Basic fetch wrapper that returns JSON or throws with status
+async function safePostJSON(url, body, headers={}){
+  const res = await fetch(url, {
+    method:'POST',
+    mode:'cors',
+    headers: Object.assign({ 'content-type':'application/json' }, headers||{}),
+    body: JSON.stringify(body||{})
+  });
+  const txt = await res.text().catch(()=> '');
+  let json = null;
+  try{ json = txt ? JSON.parse(txt) : null; }catch{ json = null; }
+
+  if(!res.ok){
+    const e = new Error(`HTTP ${res.status}`);
+    e.status = res.status;
+    e.bodyText = txt;
+    e.bodyJson = json;
+    throw e;
+  }
+  return json;
 }
 
-function isProbablyGraphQLEndpoint(url){
-  const u = normUrl(url);
-  if(!u) return false;
-  // allow root too (some setups put graphql at root)
-  return true;
-}
+/**
+ * createSafeClient({ endpoint, onStatus })
+ * - endpoint: GraphQL endpoint
+ * - onStatus: function({state, title, msg}) optional
+ */
+export function createSafeClient(opts={}){
+  const endpoint = String(opts.endpoint || '').trim();
+  const onStatus = (typeof opts.onStatus === 'function') ? opts.onStatus : null;
 
-// ---- Gentle retry link (network errors only) ----
-function makeRetryLink({ maxRetries=1, baseDelayMs=250 } = {}){
-  // Very small retry to smooth transient issues.
-  return new (class RetryLink {
-    request(operation, forward){
-      let count = 0;
-
-      return new Observable((observer)=>{
-        const sub = { current:null };
-        const attempt = ()=>{
-          count++;
-          sub.current = forward(operation).subscribe({
-            next: (v)=> observer.next(v),
-            error: (err)=>{
-              const isNetwork = !!err?.networkError;
-              const status = err?.networkError?.statusCode || err?.networkError?.status || 0;
-
-              // Retry only when it makes sense:
-              // - fetch failed / network down (no status)
-              // - 502/503/504 transient
-              const retryable =
-                isNetwork && (
-                  !status ||
-                  status === 502 || status === 503 || status === 504
-                );
-
-              if(retryable && count <= maxRetries){
-                const delay = baseDelayMs * count;
-                setTimeout(attempt, delay);
-                return;
-              }
-              observer.error(err);
-            },
-            complete: ()=> observer.complete()
-          });
-        };
-
-        attempt();
-        return ()=> { try { sub.current?.unsubscribe?.(); } catch(_){} };
-      });
-    }
-  })();
-}
-
-// Apollo Observable polyfill (skypack sometimes requires it)
-class Observable {
-  constructor(subscribe){ this._subscribe = subscribe; }
-  subscribe(observer){ return this._subscribe(observer); }
-}
-
-// ---- Main factory ----
-let _client = null;
-let _lastEndpoint = '';
-
-export function getApolloClient(opts = {}){
-  const endpoint = normUrl(opts.endpoint || WIN.HHA_API_ENDPOINT || '');
-  const headers = opts.headers || {};
-
-  if(!endpoint || !isProbablyGraphQLEndpoint(endpoint)){
-    // no endpoint => return a tiny stub that never crashes
-    setApiStatus({
-      level:'warn',
-      title:'ยังไม่ได้ตั้งค่า API',
-      msg:'ไม่ได้กำหนด endpoint (Hub/เกมยังเล่นได้ปกติ)',
-      detail:'ตั้งค่า WIN.HHA_API_ENDPOINT หรือส่ง opts.endpoint ตอนเรียก getApolloClient()',
-      endpoint,
-      ts: Date.now()
-    });
-    return makeStubClient('NO_ENDPOINT');
+  if(!endpoint){
+    onStatus?.({ state:'bad', title:'API ไม่ได้ตั้งค่า', msg:'ไม่มี endpoint • ใช้โหมดออฟไลน์' });
+    return makeStubClient('no-endpoint');
   }
 
-  if(_client && _lastEndpoint === endpoint) return _client;
-  _lastEndpoint = endpoint;
+  // If Apollo libs exist, you can build real client; if not, fallback to lightweight client.
+  const A = getGlobalApollo();
 
-  // ---- HttpLink ----
-  const httpLink = new HttpLink({
-    uri: endpoint,
-    fetch: (url, init)=>{
-      // add default headers
-      const h = new Headers(init?.headers || {});
-      try{
-        for(const k of Object.keys(headers)) h.set(k, String(headers[k]));
-      }catch(_){}
-      // Force JSON
-      if(!h.get('content-type')) h.set('content-type', 'application/json');
-      // Optional: attach origin hint (some gateways check)
-      // h.set('x-client', 'herohealth');
-
-      return fetch(url, { ...init, headers: h });
-    }
-  });
-
-  // ---- Error link: convert errors to status; avoid breaking app ----
-  const errorLink = onError(({ graphQLErrors, networkError, operation })=>{
-    const opName = operation?.operationName || 'anonymous';
-    const ne = networkError || null;
-    const status = ne?.statusCode || ne?.status || 0;
-    const msg = ne?.message || '';
-
-    if(status === 403){
-      setApiStatus({
-        level:'bad',
-        title:'403 Forbidden ⚠️',
-        msg:'API ปฏิเสธสิทธิ์/Origin (แต่หน้าเว็บไม่พังแล้ว)',
-        detail:`endpoint: ${endpoint}\noperation: ${opName}\nstatus: 403\nhint: ตรวจ CORS/Authorizer/IAM + allow Origin: https://supparang.github.io`,
-        endpoint,
-        ts: Date.now()
-      });
-      return;
-    }
-
-    if(ne){
-      // network error (offline, CORS blocked, dns, etc.)
-      setApiStatus({
-        level:'bad',
-        title:'เชื่อมต่อ API ไม่ได้',
-        msg:'เข้าโหมดออฟไลน์ชั่วคราว (Hub/เกมยังเล่นได้)',
-        detail:`endpoint: ${endpoint}\noperation: ${opName}\nstatus: ${status || 'n/a'}\n${msg || ''}`.trim(),
-        endpoint,
-        ts: Date.now()
-      });
-      return;
-    }
-
-    if(Array.isArray(graphQLErrors) && graphQLErrors.length){
-      // GraphQL-level errors (still got 200)
-      const lines = graphQLErrors.slice(0,3).map(e=>`- ${e?.message || 'GraphQL error'}`).join('\n');
-      setApiStatus({
-        level:'warn',
-        title:'GraphQL error',
-        msg:'API ตอบกลับแต่มี error บางอย่าง (UI จะพยายามทำงานต่อ)',
-        detail:`endpoint: ${endpoint}\noperation: ${opName}\n${lines}`,
-        endpoint,
-        ts: Date.now()
-      });
-    }
-  });
-
-  // ---- Gentle retry link (only for transient) ----
-  const retryLink = makeRetryLink({ maxRetries: 1, baseDelayMs: 220 });
-
-  // ---- Client ----
-  _client = new ApolloClient({
-    link: from([ errorLink, retryLink, httpLink ]),
-    cache: new InMemoryCache(),
-    connectToDevTools: false,
-    defaultOptions: {
-      watchQuery: { fetchPolicy: 'cache-and-network', errorPolicy: 'all' },
-      query:      { fetchPolicy: 'network-only',     errorPolicy: 'all' },
-      mutate:     { errorPolicy: 'all' }
-    }
-  });
-
-  // optimistic "online" (we'll update if request fails)
-  setApiStatus({
-    level:'warn',
-    title:'API พร้อมใช้งาน (ยังไม่ตรวจ)',
-    msg:'ถ้า 403/ล่ม จะสลับไปโหมดออฟไลน์อัตโนมัติ',
-    detail:`endpoint: ${endpoint}`,
+  // Lightweight "client" compatible subset (query/mutate) without Apollo dependency.
+  // This is safest for GitHub Pages + 403 scenarios.
+  const lightClient = {
+    __light: true,
     endpoint,
-    ts: Date.now()
-  });
-
-  return _client;
-}
-
-// ---- Stub client ----
-function makeStubClient(reason){
-  const fail = async ()=> {
-    const err = new Error(`Apollo stub: ${reason}`);
-    // mimic apollo error shape
-    err.networkError = { statusCode: 0, message: reason };
-    throw err;
+    query: async ({ query, variables })=>{
+      try{
+        const payload = {
+          query: String(query?.loc?.source?.body || query || ''),
+          variables: variables || {}
+        };
+        const out = await safePostJSON(endpoint, payload);
+        onStatus?.({ state:'ok', title:'ออนไลน์ ✅', msg:'API ตอบกลับปกติ' });
+        return out || { data:null };
+      }catch(e){
+        const st = Number(e?.status || 0);
+        if(st === 403){
+          onStatus?.({ state:'bad', title:'403 Forbidden ⚠️', msg:'API ปฏิเสธสิทธิ์/Origin • หน้าไม่พัง' });
+          return { data:null, errors:[{ message:'403 Forbidden', code:'403' }] };
+        }
+        onStatus?.({ state:'warn', title:'API มีปัญหา', msg:`ยิง API ไม่สำเร็จ (${st||'network'}) • หน้าไม่พัง` });
+        return { data:null, errors:[{ message:String(e?.message||'network error'), code:String(st||'network') }] };
+      }
+    },
+    mutate: async ({ mutation, variables })=>{
+      // same as query
+      return lightClient.query({ query: mutation, variables });
+    }
   };
-  return {
-    query: fail,
-    mutate: fail,
-    subscribe: fail,
-    resetStore: async ()=>{},
-    clearStore: async ()=>{},
-    readQuery: ()=>null,
-    writeQuery: ()=>{}
-  };
+
+  // Prefer lightClient always (less fragile) unless user explicitly wants Apollo.
+  if(opts.preferApollo !== true){
+    return lightClient;
+  }
+
+  // Try real Apollo (best-effort); if anything fails, return light client.
+  try{
+    if(!A.ApolloClient || !A.InMemoryCache || !A.HttpLink){
+      return lightClient;
+    }
+
+    const link = new A.HttpLink({
+      uri: endpoint,
+      fetch: async (uri, options)=>{
+        try{
+          const res = await fetch(uri, options);
+          if(res.status === 403){
+            onStatus?.({ state:'bad', title:'403 Forbidden ⚠️', msg:'API ปฏิเสธสิทธิ์/Origin • หน้าไม่พัง' });
+          }
+          return res;
+        }catch(e){
+          onStatus?.({ state:'bad', title:'ออฟไลน์/เชื่อมต่อไม่ได้', msg:'เครือข่าย/ CORS • หน้าไม่พัง' });
+          throw e;
+        }
+      }
+    });
+
+    const client = new A.ApolloClient({
+      link,
+      cache: new A.InMemoryCache(),
+      defaultOptions: {
+        watchQuery: { fetchPolicy:'network-only', errorPolicy:'all' },
+        query: { fetchPolicy:'network-only', errorPolicy:'all' },
+        mutate: { errorPolicy:'all' }
+      }
+    });
+
+    return client;
+  }catch(_){
+    return lightClient;
+  }
 }
