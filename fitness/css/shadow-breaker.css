@@ -1,8 +1,9 @@
 /* === /fitness/css/shadow-breaker.css ===
    Shadow Breaker UI (PC/Mobile)
-   ✅ PATCH: layout loosen + stage bigger + HUD not blocking + meta not crowding
-   ✅ PATCH: safer spawn space via stage padding + side meta "no-block" feel
-   ✅ PATCH: FX layer preserved
+   ✅ View switching (.sb-view)
+   ✅ FX layer (#sb-fx-layer)
+   ✅ Targets smaller + expire animation (.is-expiring)
+   ✅ Layout loosen: more stage space, meta panel less intrusive
 */
 
 :root{
@@ -26,14 +27,12 @@
   --sat: env(safe-area-inset-top,0px);
   --sab: env(safe-area-inset-bottom,0px);
 
-  /* ✅ PATCH: stage safe padding controls (affects "feel" of crowded layout) */
-  --sb-stage-pad-top: 16px;
-  --sb-stage-pad-right: 16px;
-  --sb-stage-pad-bottom: 16px;
-  --sb-stage-pad-left: 16px;
+  /* ✅ Layout breathing */
+  --wrap-max: 1120px;
 
-  /* ✅ PATCH: meta reserve width (keeps targets away when meta exists) */
-  --sb-meta-w: 250px;
+  /* ✅ Target visual tuning */
+  --target-font: 40px;     /* was 44px */
+  --target-shadow: 0 16px 36px rgba(0,0,0,.50);
 }
 
 *{ box-sizing:border-box; }
@@ -53,9 +52,9 @@ a:hover{ text-decoration:underline; }
 
 .sb-wrap{
   width:100%;
-  max-width:1100px;
+  max-width: var(--wrap-max);
   margin:0 auto;
-  padding: calc(12px + var(--sat)) 14px calc(18px + var(--sab));
+  padding: calc(14px + var(--sat)) 14px calc(18px + var(--sab));
   min-height:100vh;
 }
 
@@ -64,52 +63,51 @@ a:hover{ text-decoration:underline; }
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  gap:12px;
-  padding:12px 14px;
+  gap:14px;
+  padding:14px 14px;
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(15,23,42,.76), rgba(2,6,23,.52));
+  background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.55));
   border:1px solid var(--stroke);
   box-shadow: 0 18px 42px rgba(0,0,0,.55);
 }
-.sb-header-left{ max-width:680px; }
+.sb-header-left{ max-width:650px; }
 .sb-kicker{
-  font-size:.76rem;
+  font-size:.78rem;
   color:var(--muted);
   letter-spacing:.4px;
   opacity:.95;
 }
 .sb-title{
-  margin:4px 0 4px;
-  font-size:1.55rem;
+  margin:4px 0 6px;
+  font-size:1.65rem;
   letter-spacing:.2px;
 }
 .sb-sub{
-  font-size:.88rem;
+  font-size:.9rem;
   color:rgba(226,232,240,.86);
-  line-height:1.3;
 }
 .sb-header-right{
   text-align:right;
-  font-size:.8rem;
+  font-size:.82rem;
   color:var(--muted);
   display:flex;
   flex-direction:column;
   gap:6px;
 }
 .sb-tip{ color:#cbd5e1; opacity:.9; }
-.sb-links{ margin-top:4px; }
+.sb-links{ margin-top:6px; }
 .sb-link{
   display:inline-flex;
   gap:8px;
   align-items:center;
-  padding:7px 10px;
+  padding:8px 12px;
   border-radius: var(--pill);
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.42);
+  background: rgba(2,6,23,.45);
 }
 
 /* ===== Main / Views ===== */
-.sb-main{ margin-top:12px; }
+.sb-main{ margin-top:14px; }
 
 /* ✅ View switching */
 .sb-view{ display:none; }
@@ -152,7 +150,7 @@ a:hover{ text-decoration:underline; }
 .sb-mode-btn.is-active{
   background: linear-gradient(135deg, var(--accent), var(--violet));
   color: #020617;
-  font-weight:800;
+  font-weight:700;
   box-shadow: 0 0 18px rgba(56,189,248,.45);
 }
 .sb-mode-desc{
@@ -253,7 +251,7 @@ a:hover{ text-decoration:underline; }
   background: linear-gradient(135deg, var(--accent), var(--violet));
   border-color: transparent;
   color: #020617;
-  font-weight:900;
+  font-weight:800;
 }
 .sb-btn-ghost{
   background: rgba(2,6,23,.20);
@@ -285,34 +283,33 @@ a:hover{ text-decoration:underline; }
     rgba(15,23,42,.72);
   border:1px solid var(--stroke);
   box-shadow: 0 18px 42px rgba(0,0,0,.55);
-  min-height: 74vh;
+  min-height: 72vh;
   position:relative;
 }
 
-/* ✅ PATCH: HUD is thinner + has breathing room */
 .sb-hud{
   display:flex;
   justify-content:space-between;
   align-items:center;
   gap:10px;
-  padding:9px 10px;
+  padding:10px 10px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.26);
+  background: rgba(2,6,23,.28);
 }
 .sb-hud-left,.sb-hud-right{
   display:flex;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
 }
 .sb-stat{
   display:flex;
   gap:6px;
   align-items:baseline;
-  font-size:.84rem;
+  font-size:.86rem;
 }
 .sb-stat .k{ color: var(--muted); }
-.sb-stat .v{ font-weight:900; color: var(--text); }
+.sb-stat .v{ font-weight:800; color: var(--text); }
 
 .sb-hud-center{
   flex:1;
@@ -325,18 +322,17 @@ a:hover{ text-decoration:underline; }
   padding:6px 10px;
   border-radius: var(--pill);
   border:1px solid rgba(56,189,248,.22);
-  background: rgba(2,6,23,.24);
+  background: rgba(2,6,23,.25);
 }
 
 /* HP bars */
 .sb-bars{
   margin-top:10px;
   display:flex;
-  gap:10px;
+  gap:12px;
   align-items:center;
 }
 .sb-bars-top{ margin-top:10px; }
-
 .sb-bar{
   flex:1;
   display:flex;
@@ -344,14 +340,14 @@ a:hover{ text-decoration:underline; }
   align-items:center;
 }
 .sb-bar-label{
-  font-size:.74rem;
+  font-size:.76rem;
   color:var(--muted);
   width:44px;
 }
 .sb-bar-track{
   position:relative;
   flex:1;
-  height:11px;
+  height:12px;
   border-radius: var(--pill);
   overflow:hidden;
   border:1px solid rgba(148,163,184,.18);
@@ -368,30 +364,23 @@ a:hover{ text-decoration:underline; }
   background: linear-gradient(90deg, #fb7185, #f43f5e);
 }
 
-/* ===== Stage ===== */
+/* Stage */
 .sb-stage{
   position:relative;
   margin-top:12px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.16);
+  background: rgba(2,6,23,.18);
   overflow:hidden;
-
-  /* ✅ PATCH: bigger play space */
-  min-height: 50vh;
-
-  /* ✅ PATCH: give space so layout feels less cramped */
-  padding: var(--sb-stage-pad-top) var(--sb-stage-pad-right) var(--sb-stage-pad-bottom) var(--sb-stage-pad-left);
+  min-height: 48vh; /* ✅ more room */
 }
 
-/* targets layer covers the "inner stage" padding area */
 .sb-target-layer{
   position:absolute;
   inset:0;
   z-index: 2;
 }
 
-/* center message */
 .sb-center-msg{
   position:absolute;
   inset:0;
@@ -406,9 +395,9 @@ a:hover{ text-decoration:underline; }
   padding:10px 12px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.32);
+  background: rgba(2,6,23,.35);
   color: rgba(226,232,240,.92);
-  font-weight:800;
+  font-weight:700;
   text-align:center;
   max-width: 520px;
 }
@@ -417,26 +406,23 @@ a:hover{ text-decoration:underline; }
 .sb-msg-main.miss{ border-color: rgba(245,158,11,.26); }
 .sb-msg-main.perfect{ border-color: rgba(168,85,247,.30); }
 
-/* ✅ PATCH: meta panel less intrusive */
+/* ✅ Meta panel: less intrusive + allow stage space */
 .sb-meta{
   position:absolute;
-  top:12px;
-  right:12px;
-  width: var(--sb-meta-w);
-  max-width: 44vw;
+  top:10px;
+  right:10px;
+  width:min(240px, 40vw);      /* narrower */
   z-index: 3;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.16);
   background: rgba(2,6,23,.22);
   padding: 10px 10px;
-
-  /* feels lighter */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 .sb-meta-emoji{ font-size:1.55rem; }
 .sb-meta-name{ font-weight:900; margin-top:4px; }
-.sb-meta-desc{ color: var(--muted); font-size:.8rem; margin-top:4px; line-height:1.25; }
+.sb-meta-desc{ color: var(--muted); font-size:.82rem; margin-top:4px; }
 .sb-meta-row{
   display:flex;
   justify-content:space-between;
@@ -456,7 +442,7 @@ a:hover{ text-decoration:underline; }
   flex:1;
   border-radius: 18px;
   border:1px solid rgba(168,85,247,.18);
-  background: rgba(2,6,23,.22);
+  background: rgba(2,6,23,.25);
   padding: 10px;
 }
 .sb-fever-head{
@@ -471,7 +457,7 @@ a:hover{ text-decoration:underline; }
 .sb-fever-head .v.on{ color: #ddd6fe; text-shadow: 0 0 14px rgba(168,85,247,.45); }
 
 .sb-fever-track{
-  height:11px;
+  height:12px;
   border-radius: var(--pill);
   border:1px solid rgba(168,85,247,.18);
   background: rgba(2,6,23,.35);
@@ -492,8 +478,8 @@ a:hover{ text-decoration:underline; }
   gap:10px;
   padding: 8px 8px;
   border-radius: 18px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.14);
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.18);
 }
 
 /* Controls */
@@ -523,7 +509,7 @@ a:hover{ text-decoration:underline; }
 .sb-result-card{
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.24);
+  background: rgba(2,6,23,.25);
   padding: 10px;
 }
 .sb-result-card .k{ color: var(--muted); font-size:.8rem; }
@@ -543,27 +529,30 @@ a:hover{ text-decoration:underline; }
   display:flex;
   align-items:center;
   justify-content:center;
+  font-size: var(--target-font);
   font-weight: 900;
   cursor: pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
   animation: sb-pop-in .14s ease-out;
-  box-shadow: 0 16px 38px rgba(0,0,0,.50);
-
-  /* ✅ PATCH: make emoji scale better on mobile (less overwhelming) */
-  font-size: 40px;
+  box-shadow: var(--target-shadow);
+  transition:
+    transform .14s ease,
+    opacity .14s ease,
+    filter .14s ease;
+  will-change: transform, opacity;
 }
 @keyframes sb-pop-in{
-  from{ transform: scale(.86); opacity:.0; }
+  from{ transform: scale(.84); opacity:.0; }
   to{ transform: scale(1); opacity:1; }
 }
 
-/* ✅ PATCH: gentle fade-out for expired targets (engine/renderer will add class) */
+/* ✅ expire soft */
 .sb-target.is-expiring{
-  opacity: 0.0;
+  opacity: 0;
   transform: scale(.92);
-  transition: opacity .12s ease-out, transform .12s ease-out;
+  filter: blur(0.3px);
 }
 
 .sb-target--normal{
@@ -576,20 +565,20 @@ a:hover{ text-decoration:underline; }
 }
 .sb-target--bomb{
   background: radial-gradient(circle at 30% 25%, rgba(245,158,11,.30), rgba(2,6,23,.16));
-  border:1px solid rgba(245,158,11,.28);
+  border:1px solid rgba(245,158,11,.30);
 }
 .sb-target--heal{
-  background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.28), rgba(2,6,23,.16));
+  background: radial-gradient(circle at 30% 25%, rgba(34,197,94,.26), rgba(2,6,23,.16));
   border:1px solid rgba(34,197,94,.28);
 }
 .sb-target--shield{
-  background: radial-gradient(circle at 30% 25%, rgba(59,130,246,.28), rgba(2,6,23,.16));
+  background: radial-gradient(circle at 30% 25%, rgba(59,130,246,.26), rgba(2,6,23,.16));
   border:1px solid rgba(59,130,246,.26);
 }
 .sb-target--bossface{
-  background: radial-gradient(circle at 30% 25%, rgba(168,85,247,.32), rgba(2,6,23,.16));
+  background: radial-gradient(circle at 30% 25%, rgba(168,85,247,.30), rgba(2,6,23,.16));
   border:1px solid rgba(168,85,247,.30);
-  box-shadow: 0 22px 62px rgba(168,85,247,.16), 0 16px 38px rgba(0,0,0,.50);
+  box-shadow: 0 22px 62px rgba(168,85,247,.16), var(--target-shadow);
 }
 
 /* ===== FX layer ===== */
@@ -635,40 +624,28 @@ a:hover{ text-decoration:underline; }
 
 /* ===== Responsive ===== */
 @media (max-width:900px){
-  :root{ --sb-meta-w: 230px; }
   .sb-result-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .sb-meta{ width:min(220px, 52vw); }
 }
 
-@media (max-width:720px){
-  /* ✅ PATCH: make stage feel less cramped on mobile */
-  :root{
-    --sb-stage-pad-top: 14px;
-    --sb-stage-pad-right: 14px;
-    --sb-stage-pad-bottom: 14px;
-    --sb-stage-pad-left: 14px;
-    --sb-meta-w: 210px;
-  }
+@media (max-width:640px){
+  .sb-wrap{ padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab)); }
   .sb-header{ flex-direction:column; align-items:flex-start; }
   .sb-header-right{ text-align:left; }
+
   .sb-hud{ flex-direction:column; align-items:stretch; gap:10px; }
   .sb-hud-center{ justify-content:flex-start; }
+
   .sb-bars{ flex-direction:column; }
+  .sb-stage{ min-height: 50vh; }
 
-  /* ✅ PATCH: meta becomes smaller + slightly lower opacity */
+  /* meta panel a bit smaller on mobile */
   .sb-meta{
-    right:10px; top:10px;
-    width: min(var(--sb-meta-w), 64vw);
-    background: rgba(2,6,23,.18);
+    right: 8px; top: 8px;
+    width: min(210px, 62vw);
+    padding: 9px 9px;
   }
-}
 
-@media (max-width:420px){
-  /* extra breathing room */
-  :root{
-    --sb-stage-pad-top: 12px;
-    --sb-stage-pad-right: 12px;
-    --sb-stage-pad-bottom: 12px;
-    --sb-stage-pad-left: 12px;
-  }
-  .sb-target{ font-size: 38px; }
+  /* targets slightly smaller font on small screens */
+  :root{ --target-font: 36px; }
 }
