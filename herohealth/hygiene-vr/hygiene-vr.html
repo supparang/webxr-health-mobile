@@ -1,6 +1,6 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260211a
+PATCH v20260214a
 ✅ Views: pc/mobile/vr/cvr  (via body classes)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
@@ -16,25 +16,25 @@ PATCH v20260211a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS (v bump to avoid cache) -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260211a" />
+  <!-- CSS -->
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260214a" />
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js?v=20260211a" defer></script>
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260214a" defer></script>
 
   <!-- FX -->
-  <script src="../vr/particles.js?v=20260211a" defer></script>
+  <script src="../vr/particles.js?v=20260214a" defer></script>
 
   <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js?v=20260211a" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260211a" defer></script>
-  <script src="../vr/hha-badges.js?v=20260211a" defer></script>
+  <script src="../vr/hha-ai-coach.js?v=20260214a" defer></script>
+  <script src="../vr/hha-difficulty-director.js?v=20260214a" defer></script>
+  <script src="../vr/hha-badges.js?v=20260214a" defer></script>
 
-  <!-- Quiz bank (✅ name fixed) -->
-  <script src="./hygiene-quiz-bank.js?v=20260211a" defer></script>
+  <!-- Quiz bank -->
+  <script src="./hygiene-quiz-bank.js?v=20260214a" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260211a"></script>
+  <!-- Engine boot -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260214a"></script>
 </head>
 
 <body class="view-pc">
@@ -100,6 +100,7 @@ PATCH v20260211a
         <div class="hw-card-row">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
           <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+          <button class="hw-ghost" id="btnToCooldown" type="button">😌 Cooldown 20 วิ</button>
           <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
         </div>
       </div>
