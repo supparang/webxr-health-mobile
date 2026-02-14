@@ -1,126 +1,307 @@
-/* === /herohealth/vr-goodjunk/goodjunk-vr.css === */
+/* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
+   GoodJunkVR UI + Spawn Layer (SAFE) — v4.3
+   ✅ Mobile tap reliable (touch-action, no 300ms delay)
+   ✅ Safe-area + HUD-safe spawn via CSS vars
+   ✅ cVR dual layers (#gj-layer + #gj-layer-r)
+   ✅ Target FX: pop / pulse / shake (no heavy filters)
+*/
+
 :root{
-  --bg:#040610;
-  --panel: rgba(4,6,16,.78);
+  --bg:#020617;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(15,23,42,.55);
   --stroke: rgba(148,163,184,.18);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  /* SAFE for spawn area (used by goodjunk.safe.js) */
-  --gj-top-safe: 92px;
-  --gj-bottom-safe: 120px;
+  --good:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
 
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* ===== HUD-safe spawn zones (js reads these) =====
+     ✅ ปรับตาม HUD จริงของคุณได้ แต่ค่านี้กันไว้ให้เล่นง่าย */
+  --gj-top-safe: calc(86px + var(--sat));
+  --gj-bottom-safe: calc(96px + var(--sab));
 }
 
-*{box-sizing:border-box}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-body{overflow:hidden}
+*{ box-sizing:border-box; }
+html,body{
+  height:100%;
+  margin:0;
+  background: radial-gradient(1200px 700px at 50% 10%, rgba(34,211,238,.10), transparent 55%),
+              radial-gradient(900px 600px at 70% 60%, rgba(167,139,250,.08), transparent 60%),
+              var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  overflow:hidden;
+}
 
+/* ✅ Mobile tap reliability */
+body{
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ===== View modes ===== */
+body.view-pc{ }
+body.view-mobile{ }
+body.view-cvr{ } /* cardboard/cVR style */
+
+/* ===== Spawn layers ===== */
 .gj-layer{
   position:fixed;
   inset:0;
+  z-index:1;
   overflow:hidden;
-  touch-action:manipulation;
-  padding-top: var(--sat);
-  padding-bottom: var(--sab);
-  padding-left: var(--sal);
-  padding-right: var(--sar);
+  pointer-events:auto;
 }
 
-.gj-layer-r{ display:none; }
-body.view-cvr .gj-layer-r{ display:block; }
-
-/* target */
-.gj-target{
-  position:absolute;
-  user-select:none;
-  -webkit-user-select:none;
-  cursor:pointer;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
-  transform: translate(-50%,-50%);
+/* right-eye layer for cVR */
+.gj-layer-r{
+  display:none;
+}
+body.view-cvr .gj-layer-r{
+  display:block;
 }
 
-.gj-target.spawn{
-  animation: pop .12s ease-out;
+/* In cVR, we typically want "shoot from crosshair" instead of tapping targets
+   but we still keep them tappable in mobile if needed.
+   If you want strict cVR crosshair mode, you can add:
+   body.view-cvr .gj-target{ pointer-events:none; }
+*/
+body.view-cvr .gj-layer,
+body.view-cvr .gj-layer-r{
+  pointer-events:auto;
 }
 
-@keyframes pop{
-  from{ transform: translate(-50%,-50%) scale(.85); opacity:.55; }
-  to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
-}
-
-/* HUD */
+/* ===== HUD ===== */
 #hud{
   position:fixed;
-  left: max(10px, var(--sal));
-  top:  max(10px, var(--sat));
-  z-index: 20;
-  padding:10px 12px;
-  border:1px solid var(--stroke);
-  border-radius:14px;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(8px);
-  min-width: 220px;
-  font-weight: 800;
-  line-height: 1.25;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(10px + var(--sat));
+  z-index: 5;
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap:8px;
+  align-items:stretch;
 }
 
-#goalDesc{ color: rgba(229,231,235,.82); font-weight:700; font-size:12px; margin-top:4px; }
-#hud-goal{ margin-top:8px; font-weight:1000; }
+#hud > div{
+  border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.52));
+  border-radius:14px;
+  padding:8px 10px;
+  box-shadow: 0 12px 44px rgba(0,0,0,.35);
+  font-weight:900;
+  font-size:12px;
+  color: rgba(229,231,235,.92);
+}
+
+#hud span{
+  font-weight:1000;
+  color:#fff;
+}
+
+#hud-goal, #goalDesc, #hud-mini, #miniTimer{
+  grid-column: 1 / -1;
+}
+#goalDesc{
+  color: rgba(229,231,235,.78);
+  font-weight:800;
+  font-size:12px;
+  line-height:1.35;
+}
 
 #feverBox{
+  grid-column: 1 / -1;
   position:relative;
-  height:10px;
+  height:18px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.35);
   overflow:hidden;
-  margin-top:8px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.45);
 }
-#feverFill{ height:100%; width:0%; background: rgba(34,197,94,.45); }
-#feverText{ position:absolute; right:8px; top:-18px; font-size:11px; color:rgba(229,231,235,.9); }
+#feverFill{
+  position:absolute;
+  inset:0;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.55), rgba(34,211,238,.55), rgba(167,139,250,.55));
+  transition: width .12s ease;
+}
+#feverText{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  font-size:11px;
+  font-weight:1000;
+  color: rgba(229,231,235,.95);
+  text-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
 
+#shieldPills{
+  grid-column: 1 / 3;
+}
 #gjProgress{
-  height:8px;
+  grid-column: 3 / -1;
+  height:18px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.35);
   overflow:hidden;
-  margin-top:10px;
-}
-#gjProgressFill{ height:100%; width:0%; background: rgba(34,211,238,.35); }
-
-#bossBar{
-  margin-top:10px;
-  padding:8px;
   border:1px solid rgba(148,163,184,.18);
-  border-radius:12px;
-  background: rgba(2,6,23,.35);
+  background: rgba(2,6,23,.45);
 }
-#bossBar[aria-hidden="true"]{ display:none; }
-#bossFill{ height:8px; width:100%; border-radius:999px; background: rgba(239,68,68,.35); }
-#bossHint{ margin-top:6px; font-size:12px; color:rgba(229,231,235,.82); font-weight:750; }
+#gjProgressFill{
+  width:0%;
+  height:100%;
+  background: linear-gradient(90deg, rgba(34,211,238,.55), rgba(167,139,250,.55));
+  transition: width .12s ease;
+}
 
-/* low time overlay */
+/* ===== Boss bar ===== */
+#bossBar{
+  grid-column: 1 / -1;
+  position:relative;
+  height:22px;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid rgba(239,68,68,.25);
+  background: rgba(2,6,23,.55);
+}
+#bossFill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(239,68,68,.55), rgba(245,158,11,.45));
+  transition: width .12s ease;
+}
+#bossHint{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  font-size:11px;
+  font-weight:1000;
+  color: rgba(229,231,235,.92);
+  text-shadow: 0 2px 12px rgba(0,0,0,.35);
+}
+
+/* ===== Low time overlay ===== */
 #lowTimeOverlay{
   position:fixed;
   inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index: 15;
+  z-index: 6;
+  display:grid;
+  place-items:center;
   pointer-events:none;
+  opacity:0;
+  transition: opacity .12s ease;
 }
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
+#lowTimeOverlay[aria-hidden="false"]{
+  opacity:1;
+}
 #gj-lowtime-num{
-  font-size:64px;
-  font-weight:1000;
-  padding:16px 22px;
-  border-radius:22px;
-  border:1px solid rgba(148,163,184,.18);
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  border: 1px solid rgba(239,68,68,.35);
   background: rgba(2,6,23,.55);
+  display:grid;
+  place-items:center;
+  font-weight:1000;
+  font-size:56px;
+  color: rgba(239,68,68,.92);
+  box-shadow: 0 20px 80px rgba(0,0,0,.55);
+}
+
+/* ===== Targets ===== */
+.gj-target{
+  position:absolute;
+  width: 64px;
+  height: 64px;
+  display:grid;
+  place-items:center;
+
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: radial-gradient(60px 60px at 35% 25%, rgba(229,231,235,.10), transparent 60%),
+              rgba(2,6,23,.35);
+
+  box-shadow: 0 16px 44px rgba(0,0,0,.35);
+  transform: translate(-50%, -50%) scale(1);
+  will-change: transform, opacity;
+  cursor: pointer;
+
+  /* ✅ tap reliable */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gj-target.spawn{
+  animation: gjPop .18s ease-out;
+}
+@keyframes gjPop{
+  from{ transform: translate(-50%,-50%) scale(.72); opacity:.0; }
+  to  { transform: translate(-50%,-50%) scale(1);   opacity:1; }
+}
+
+.gj-target:active{
+  transform: translate(-50%,-50%) scale(.96);
+}
+
+/* Optional: kind colors */
+.gj-target[data-kind="good"]{
+  border-color: rgba(34,197,94,.25);
+}
+.gj-target[data-kind="junk"]{
+  border-color: rgba(239,68,68,.28);
+}
+.gj-target[data-kind="star"]{
+  border-color: rgba(245,158,11,.28);
+}
+.gj-target[data-kind="shield"]{
+  border-color: rgba(34,211,238,.25);
+}
+
+/* ===== Responsive HUD (small screens) ===== */
+@media (max-width: 560px){
+  #hud{
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+  #shieldPills{ grid-column:1 / -1; }
+  #gjProgress{ grid-column:1 / -1; }
+}
+
+/* ===== cVR tweaks ===== */
+body.view-cvr #hud{
+  /* ลดการบังกลางจอของ crosshair */
+  top: calc(8px + var(--sat));
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+}
+body.view-cvr .gj-target{
+  /* เพิ่มขนาดนิดให้เล็งง่าย */
+  width: 70px;
+  height: 70px;
+  border-radius: 20px;
+}
+
+/* ===== Debug overlay (JS creates #gjDebug) ===== */
+#gjDebug{
+  max-width: 50vw;
+}
+
+/* ===== End overlay (JS creates #gjEndOverlay) ===== */
+#gjEndOverlay button{
+  cursor:pointer;
+  touch-action: manipulation;
 }
