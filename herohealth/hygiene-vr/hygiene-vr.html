@@ -1,148 +1,208 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260214a
-✅ Phone safety: if view=cvr on phone (not XR) -> force view=mobile
-✅ Uses: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz bank: hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+Handwash RUN page — PRODUCTION (HUD + Layer + FX-friendly)
+✅ Works PC/Mobile/VR/cVR (crosshair/tap-to-shoot via vr-ui.js if present)
+✅ Loads hygiene.safe.js (engine)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Handwash</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --panel: rgba(4,6,16,.78);
+      --panel2: rgba(10,16,36,.55);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa; --pink:#ff4fd8;
 
-  <!-- ✅ bump cache -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260214a" />
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
 
-  <!-- Universal VR UI (MUST defer) -->
-  <script src="../vr/vr-ui.js" defer></script>
+      /* HUD safe spawn zones (engine uses these) */
+      --hw-top-safe: calc(120px + var(--sat));
+      --hw-bottom-safe: calc(120px + var(--sab));
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif}
+    #wrap{min-height:100%; padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));}
 
-  <!-- Optional shared helpers -->
-  <script src="../vr/particles.js" defer></script>
+    /* HUD */
+    #hud{
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      pointer-events:none;
+      z-index: 30;
+    }
+    .hudLeft,.hudRight{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .pill{
+      pointer-events:none;
+      background: rgba(2,6,23,.60);
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:8px 10px;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+      font-weight:900;
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+    }
+    .pill b{color:#fff}
+    .meter{
+      pointer-events:none;
+      height:10px; width:160px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .fill{height:100%; width:0%; background: rgba(34,211,238,.85); transition: width .12s ease;}
+    .fill.warn{background: rgba(245,158,11,.88);}
+    .fill.good{background: rgba(34,197,94,.85);}
+    .fill.bad{background: rgba(239,68,68,.85);}
 
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js" defer></script>
-  <script src="../vr/hha-difficulty-director.js" defer></script>
-  <script src="../vr/hha-badges.js" defer></script>
+    /* bottom HUD (coach/quiz) */
+    #bottomHud{
+      position:fixed; left:0; right:0; bottom:0;
+      padding: 10px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
+      z-index: 30;
+      pointer-events:none;
+      display:flex; justify-content:center;
+    }
+    #coach{
+      pointer-events:none;
+      max-width:min(720px, 94vw);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.62);
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      font-size: 13px;
+      color: rgba(229,231,235,.92);
+      font-weight:850;
+      opacity:0;
+      transform: translateY(8px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    #coach.show{ opacity:1; transform: translateY(0px); }
 
-  <!-- Quiz bank -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+    /* game layer */
+    #layer{
+      position:fixed; left:0; top:0; right:0; bottom:0;
+      z-index: 10;
+      overflow:hidden;
+      touch-action: manipulation;
+    }
+    .tgt{
+      position:absolute;
+      width: 64px; height:64px;
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      display:grid; place-items:center;
+      font-size: 34px;
+      user-select:none;
+      box-shadow: 0 10px 26px rgba(0,0,0,.35);
+      will-change: transform, opacity;
+    }
+    .tgt.germ{ background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); }
+    .tgt.step{ background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.25); }
+    .tgt.boss{
+      width: 92px; height:92px;
+      border-radius: 22px;
+      background: rgba(255,79,216,.10);
+      border-color: rgba(255,79,216,.28);
+      box-shadow: 0 18px 60px rgba(255,79,216,.12), 0 12px 44px rgba(0,0,0,.45);
+    }
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260214a"></script>
+    /* splash/menu */
+    #menu{
+      position:fixed; inset:0;
+      z-index: 40;
+      display:grid; place-items:center;
+      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+      background: radial-gradient(1200px 700px at 20% 20%, rgba(34,211,238,.12), transparent 55%),
+                  radial-gradient(900px 560px at 85% 20%, rgba(34,197,94,.10), transparent 55%),
+                  linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
+    }
+    .card{
+      width:min(820px, 96vw);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.62);
+      border-radius: 22px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      padding: 14px;
+    }
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:20px;font-weight:1000}
+    .sub{margin:6px 0 0 0;color:var(--muted);font-size:13px;font-weight:850;line-height:1.35}
+    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{
+      pointer-events:auto;
+      cursor:pointer;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:1000;
+      color:var(--text);
+      display:inline-flex;align-items:center;gap:8px;
+      user-select:none;
+    }
+    .btn.good{border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.14);}
+    .btn.ghost{color:var(--muted)}
+  </style>
 </head>
-
-<body class="view-pc">
-  <div id="gameRoot" class="hw-root">
-    <div class="hw-stage" id="stage" aria-label="HygieneVR stage"></div>
-
-    <!-- HUD -->
-    <div class="hw-hud">
-      <div class="hw-top">
-        <div class="hw-title">🧼 Handwash Survival</div>
-        <div class="hw-sub" id="hudSub">ready…</div>
-
-        <div class="hw-row">
-          <div class="hw-pill" id="pillStep">STEP 1/7 🫧 ฝ่ามือ</div>
-          <div class="hw-pill" id="pillHits">HITS 0/6</div>
-          <div class="hw-pill" id="pillCombo">COMBO 0</div>
-          <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
-        </div>
-
-        <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-          <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
-          <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
-        </div>
-
-        <!-- Quiz box -->
-        <div class="hw-quiz" id="quizBox" style="display:none">
-          <div class="hw-quiz-q" id="quizQ">QUIZ</div>
-          <div class="hw-quiz-sub" id="quizSub">—</div>
-        </div>
+<body>
+  <div id="wrap">
+    <div id="hud" aria-hidden="true">
+      <div class="hudLeft">
+        <div class="pill"><b>Score</b>: <span id="tScore">0</span></div>
+        <div class="pill"><b>Combo</b>: <span id="tCombo">0</span></div>
+        <div class="pill"><b>Step</b>: <span id="tStep">0</span>/7</div>
+        <div class="pill"><b>Time</b>: <span id="tTime">—</span>s</div>
       </div>
-
-      <div class="hw-banner" id="banner" aria-live="polite"></div>
-    </div>
-
-    <!-- Start Overlay -->
-    <div class="hw-overlay" id="startOverlay">
-      <div class="hw-card">
-        <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
-        <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
+      <div class="hudRight">
+        <div class="pill"><b>Boss</b></div>
+        <div class="meter"><div class="fill" id="bossFill"></div></div>
       </div>
     </div>
 
-    <!-- End Overlay -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
-        <div class="hw-card-sub" id="endSub">—</div>
-        <pre class="hw-pre" id="endJson"></pre>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+    <div id="layer" aria-label="Game layer"></div>
+
+    <div id="bottomHud" aria-hidden="true">
+      <div id="coach"></div>
+    </div>
+
+    <div id="menu" aria-label="Start menu">
+      <div class="card">
+        <div class="row">
+          <div>
+            <h1>🧼 Handwash — Boss Germ Challenge</h1>
+            <p class="sub">
+              เก็บ “7 ขั้นตอนล้างมือ” ให้ครบ + ยิงเชื้อให้ไว • คอมโบสูงจะเรียกบอส!<br/>
+              รองรับ PC/Mobile/VR/cVR (crosshair/tap-to-shoot)
+            </p>
+          </div>
+          <div class="pill"><b>hint</b>: view=cvr ยิงจากกลางจอ</div>
+        </div>
+        <div class="btnrow">
+          <div class="btn good" id="btnPlay">▶ เริ่มเล่น</div>
+          <div class="btn" id="btnPractice">🧪 ฝึก 15s</div>
+          <a class="btn ghost" id="btnBack" href="../hub.html">🏰 กลับ HUB</a>
         </div>
       </div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-  function isTouchPhone(){
-    return (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) && innerWidth < 900;
-  }
-
-  function setViewClass(){
-    let view = (qs('view','pc')||'pc').toLowerCase();
-
-    // ✅ กันเคสหลุด view=cvr บนมือถือ (โดยยังไม่เข้า XR จริง)
-    if(isTouchPhone() && view === 'cvr'){
-      view = 'mobile';
-      try{
-        const u = new URL(location.href);
-        u.searchParams.set('view','mobile');
-        history.replaceState(null,'',u.toString());
-      }catch{}
-    }
-
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc'))
-    );
-
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
-  }
-
-  setViewClass();
-
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
-})();
-</script>
+  <script type="module" src="./hygiene-vr.boot.js"></script>
 </body>
 </html>
