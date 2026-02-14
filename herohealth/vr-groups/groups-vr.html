@@ -1,16 +1,18 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR Run (PC/Mobile/Cardboard)
+GroupsVR Run (PC/Mobile/Cardboard) — PATCH D1–D3 FULL FILE
+✅ D1: Read gate buff from QS (wType,wPct,rank,wCrit,wDmg,wHeal,calm) -> pass into E.start({gateBuff,useGateBuff})
+✅ D2: Add HUD pill 🧿 BUFF + listen groups:buff to show applied buff
+✅ D3: Remove duplicated/stacked gate-router scripts (single router only)
+
 ✅ Uses vr-ui.js + Particles + Effects pack
 ✅ PACK 13: Calibration helper (cVR) 2-step
 ✅ PACK 14: Practice 15s (cVR) then auto start real run
 ✅ PACK 15: AI hooks attach point (disabled by default; play only with ?ai=1)
 ✅ PATCH 6N: Highlight current group (listen groups:group) + hint goalSub
 ✅ PATCH 6O: Show director status (listen groups:director) [optional]
-✅ Uses groups.safe.js (standalone)
-
-✅ ADD: Warmup/Cooldown Gate (20s, boss theme via warmup-gate.html)
-   - gate=1 (default) => warmup -> back here with gate=0 -> start packs normally
-   - gate=0 => skip gates
+✅ Warmup/Cooldown Gate (20s) uses /herohealth/warmup-gate.html
+   - gate=1 (default) => warmup -> back here with gate=0 -> start normally
+   - gate=0 => skip gate
 -->
 <!doctype html>
 <html lang="th">
@@ -64,6 +66,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
       <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
+      <!-- ✅ D2 -->
+      <div class="pill"><span class="lbl">🧿 BUFF</span><span id="vBuff" class="val">—</span></div>
     </div>
   </div>
 
@@ -191,7 +195,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   // ------------------------------
-  // ✅ Warmup/Cooldown Gate Router (20s) — Boss Theme uses your warmup-gate.html
+  // ✅ Gate Router (single) — D3
   // ------------------------------
   const GATE_PATH = '/herohealth/warmup-gate.html';
 
@@ -202,8 +206,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   const SP = getSP();
 
   function passthrough(){
-    // do not forward these keys into gate
-    const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate']);
+    const deny = new Set(['next','hub','phase','dur','cdur','autonext','gate','skipGate','games']);
     const out = {};
     SP.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
     return out;
@@ -231,9 +234,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   function goWarmupThenBack(){
-    // mark to prevent loop when coming back
     const backHere = currentUrlWith({ gate: 0 });
-
     const url = buildUrl(GATE_PATH, {
       ...passthrough(),
       phase: 'warmup',
@@ -246,10 +247,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
   }
 
   function goCooldownTo(dest){
-    if(!dest){
-      // fallback: just go hub if present
-      dest = qs('hub','/herohealth/hub.html');
-    }
+    if(!dest){ dest = qs('hub','/herohealth/hub.html'); }
     const url = buildUrl(GATE_PATH, {
       ...passthrough(),
       phase: 'cooldown',
@@ -261,19 +259,46 @@ GroupsVR Run (PC/Mobile/Cardboard)
     location.href = url;
   }
 
-  // expose (optional)
   window.HHA = window.HHA || {};
   window.HHA.goCooldownTo = goCooldownTo;
 
-  // auto warmup on first enter (default gate=1)
   const gateFlag = String(qs('gate','1'));
   if(gateFlag !== '0'){
     try{
       if(!String(location.pathname||'').includes('warmup-gate')){
         goWarmupThenBack();
-        return; // stop init; will come back with gate=0
+        return;
       }
     }catch(_){}
+  }
+
+  // ------------------------------
+  // ✅ D1: Read gate buff from QS and pass to engine
+  // ------------------------------
+  function readGateBuffFromQS(){
+    const wType = String(qs('wType','')||'').trim();
+    const wPctS = qs('wPct','');
+    const rank  = String(qs('rank','')||'').trim();
+
+    const pct = (wPctS!=='' && wPctS!=null) ? Number(wPctS) : Number(qs('pct','0')||0);
+
+    const wCritS = qs('wCrit','');
+    const wDmgS  = qs('wDmg','');
+    const wHealS = qs('wHeal','');
+    const calmS  = qs('calm','');
+
+    const hasAny = !!(wType || rank || (wPctS!=='' && wPctS!=null) || wCritS!=='' || wDmgS!=='' || wHealS!=='' || calmS!=='');
+    if(!hasAny) return null;
+
+    return {
+      wType,
+      wPct: isFinite(pct) ? pct : 0,
+      rank: rank || 'C',
+      wCrit: (wCritS!=='' ? Number(wCritS) : undefined),
+      wDmg:  (wDmgS!==''  ? Number(wDmgS)  : undefined),
+      wHeal: (wHealS!=='' ? Number(wHealS) : undefined),
+      calm:  (calmS!==''  ? Number(calmS)  : undefined),
+    };
   }
 
   // ------------------------------
@@ -373,11 +398,18 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    const urgent = (mLeft>0 && mLeft<=3);
-    DOC.body.classList.toggle('mini-urgent', urgent);
+    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
   }, {passive:true});
 
-  // ✅ 6N: Highlight current group (body class + goalSub)
+  // ✅ D2: BUFF indicator
+  window.addEventListener('groups:buff', (ev)=>{
+    const d = ev.detail||{};
+    const el = DOC.getElementById('vBuff');
+    if(!el) return;
+    if(!d.applied){ el.textContent = '—'; return; }
+    el.textContent = `${String(d.rank||'C')} ${Math.round(Number(d.pct||0))}%`;
+  }, {passive:true});
+
   window.addEventListener('groups:group', (ev)=>{
     const d = ev.detail||{};
     const key = String(d.key||'').toLowerCase();
@@ -389,7 +421,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     if (el && name) el.textContent = `ตอนนี้: ${name} (ยิงให้ถูกหมู่)`;
   }, {passive:true});
 
-  // ✅ 6O: show director status on MODE pill (optional)
   window.addEventListener('groups:director', (ev)=>{
     const d = ev.detail||{};
     const el = DOC.getElementById('vMode');
@@ -432,7 +463,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, ctx, d||{});
   }
 
-  // flush-hardened hook (optional)
   try{
     const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
     B && B(()=>lastSummary);
@@ -445,7 +475,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice chain → auto start real run
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -478,7 +507,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  // ✅ PATCH: Back Launcher => COOLDOWN first
   $('btnBackLauncher').addEventListener('click', (e)=>{
     e.preventDefault();
     const hub = String(qs('hub','')||'');
@@ -488,7 +516,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const sp = new URL(location.href).searchParams;
     sp.forEach((v,k)=>{
       if (k==='hub') return;
-      // avoid infinite loop: when go to launcher, let it decide its own warmup (if any)
       if (k==='gate') return;
       u.searchParams.set(k,v);
     });
@@ -496,7 +523,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     goCooldownTo(u.toString());
   });
 
-  // ✅ PATCH: Hub => COOLDOWN first
   $('btnHub').addEventListener('click', (e)=>{
     e.preventDefault();
     const hub = String(qs('hub','')||'');
@@ -536,7 +562,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- PACK 13: Calibration ----------
+  // ---------- PACK 13 ----------
   const cal = { on:false, step:0, shots:0, done:false };
 
   function showCal(on){
@@ -639,7 +665,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     startReal(E);
   }
 
-  // ---------- PACK 14: Practice ----------
+  // ---------- PACK 14 ----------
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
@@ -650,7 +676,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
-    E.start(cfg.diff, { runMode:'practice', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
+    E.start(cfg.diff, {
+      runMode:'practice',
+      diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP,
+      gateBuff: null,
+      useGateBuff: false
+    });
 
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
@@ -666,14 +697,20 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
+    const gateBuff = readGateBuffFromQS();
+
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
     startIso = new Date().toISOString();
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
-    E.start(diff, { runMode: run, diff, style, time, seed });
+    E.start(diff, {
+      runMode: run,
+      diff, style, time, seed,
+      gateBuff,
+      useGateBuff: !!gateBuff
+    });
 
-    // PACK 15: AI hooks attach (safe)
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -682,7 +719,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // ---------- Start ----------
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
 
@@ -708,51 +744,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
   startFromParams();
 })();
 </script>
-   <script>
-(function(){
-  'use strict';
-  function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
-  function buildUrl(base, add){
-    const u = new URL(base, location.href);
-    Object.entries(add||{}).forEach(([k,v])=>{
-      if (v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }
 
-  // enable gate flow only when gate=1
-  const gateOn = String(qs('gate','0')||'0');
-  if (!(gateOn==='1' || gateOn==='true')) return;
-
-  const hub  = String(qs('hub','../hub.html'));
-  const view = String(qs('view','mobile'));
-  const run  = String(qs('run','play'));
-  const diff = String(qs('diff','normal'));
-  const time = String(qs('time','80'));
-  const seed = String(qs('seed',''));
-  const cdur = String(qs('cdur','20'));
-
-  // cooldown gate is at root
-  const cooldownGate = '../warmup-gate.html';
-
-  window.addEventListener('hha:end', function(){
-    // cooldown -> autonext -> hub
-    const nextHub = hub;
-    const url = buildUrl(cooldownGate, {
-      view, run, diff, time, seed,
-      phase: 'cooldown',
-      cdur: cdur,
-      hub: hub,
-      next: nextHub,
-      autonext: 1
-    });
-    location.href = url;
-  }, { passive:true });
-})();
-</script>
 </body>
 </html>
