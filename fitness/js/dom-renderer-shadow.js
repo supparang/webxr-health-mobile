@@ -1,10 +1,10 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets (TTL + soft expire)
+// DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
-// ✅ pointerdown hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ expires -> fades out then removes + calls onTargetExpire(id, info)
-// ✅ FX via FxBurst (engine calls renderer.playHitFx)
-// Export: DomRendererShadow
+// ✅ pointer hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ auto-expire by ttlMs: fade out with .is-expiring then remove
+// ✅ optional onTargetExpire(id, info) so engine can count miss / do miss FX
+// ✅ tries to avoid overlapping the right meta panel (.sb-meta)
 
 'use strict';
 
@@ -23,8 +23,8 @@ export class DomRendererShadow {
     this.onTargetExpire = typeof opts.onTargetExpire === 'function' ? opts.onTargetExpire : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map();     // id -> element
-    this.meta = new Map();        // id -> { type, bornAt, ttlMs, timer, sizePx, bossEmoji }
+    this.targets = new Map(); // id -> el
+    this._timers = new Map(); // id -> timeoutId
 
     this._onPointer = this._onPointer.bind(this);
   }
@@ -35,41 +35,22 @@ export class DomRendererShadow {
     for (const [id, el] of this.targets.entries()) {
       try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el.remove(); } catch {}
-      const m = this.meta.get(id);
-      if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
+    }
+    for (const [, t] of this._timers.entries()) {
+      try { clearTimeout(t); } catch {}
     }
     this.targets.clear();
-    this.meta.clear();
+    this._timers.clear();
   }
 
-  // --- Compute a safe rect to spawn targets (avoid HUD + meta overlay) ---
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
-
-    // base padding scales with width
-    const pad = Math.min(46, Math.max(18, r.width * 0.04));
-
-    // reserve top/bottom for HUD/bars feel
-    const topHud = Math.min(110, Math.max(74, r.height * 0.10));
-    const bottomHud = Math.min(110, Math.max(74, r.height * 0.10));
-
-    // reserve right area for meta panel (if present)
-    // read CSS var if available, else default 250
-    let metaW = 250;
-    try{
-      const cs = getComputedStyle(document.documentElement);
-      const v = parseFloat(cs.getPropertyValue('--sb-meta-w')) || 0;
-      if (v > 140) metaW = v;
-    }catch{}
-
-    // if viewport is small, reserve less so it doesn't choke the field
-    if (r.width < 520) metaW = Math.min(metaW, Math.max(160, r.width * 0.38));
-
-    const left = pad + 8;
-    const top = pad + 6 + Math.max(0, topHud - 62);
-    const right = r.width - pad - 8 - Math.max(0, metaW - 140); // reserve part of meta width
-    const bottom = r.height - pad - 8 - Math.max(0, bottomHud - 62);
-
+    // keep margins away from edges (engine already has HUD outside stage)
+    const pad = Math.min(44, Math.max(16, r.width * 0.035));
+    const top = pad + 10;
+    const left = pad + 10;
+    const right = r.width - pad - 10;
+    const bottom = r.height - pad - 10;
     return { r, left, top, right, bottom };
   }
 
@@ -83,58 +64,127 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _getMetaRect(){
+    try{
+      const meta = this.wrapEl ? this.wrapEl.querySelector('.sb-meta') : document.querySelector('.sb-meta');
+      if (!meta) return null;
+      const mr = meta.getBoundingClientRect();
+      const lr = this.layer.getBoundingClientRect();
+      // convert to layer-local coordinates
+      return {
+        left: mr.left - lr.left,
+        top: mr.top - lr.top,
+        right: mr.right - lr.left,
+        bottom: mr.bottom - lr.top
+      };
+    }catch{
+      return null;
+    }
+  }
+
+  _pickPosAvoidMeta(left, top, right, bottom, size){
+    // Try multiple candidates; choose the one with max distance from meta center if overlapping
+    const meta = this._getMetaRect();
+    const tries = 12;
+
+    let best = null;
+    let bestScore = -1;
+
+    const metaCx = meta ? (meta.left + meta.right) / 2 : 0;
+    const metaCy = meta ? (meta.top + meta.bottom) / 2 : 0;
+
+    for (let i=0; i<tries; i++){
+      const x = rand(left, Math.max(left, right - size));
+      const y = rand(top, Math.max(top, bottom - size));
+
+      if (!meta){
+        return { x, y };
+      }
+
+      const a = { left:x, top:y, right:x+size, bottom:y+size };
+      const overlap = !(a.right < meta.left || a.left > meta.right || a.bottom < meta.top || a.top > meta.bottom);
+
+      if (!overlap){
+        return { x, y };
+      }
+
+      // if overlap, score by distance from meta center (try to push away)
+      const cx = x + size/2;
+      const cy = y + size/2;
+      const dx = cx - metaCx;
+      const dy = cy - metaCy;
+      const score = dx*dx + dy*dy;
+
+      if (score > bestScore){
+        bestScore = score;
+        best = { x, y };
+      }
+    }
+
+    return best || { x:left, y:top };
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
 
-    const id = Number(data.id);
-    if (!Number.isFinite(id)) return;
-
-    // prevent duplicates
-    if (this.targets.has(id)) return;
-
-    const { left, top, right, bottom } = this._safeAreaRect();
+    const { r, left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     el.className = 'sb-target sb-target--' + (data.type || 'normal');
-    el.dataset.id = String(id);
+    el.dataset.id = String(data.id);
+    el.dataset.type = String(data.type || 'normal');
 
-    const size = clamp(Number(data.sizePx) || 110, 64, 260);
+    const size = clamp(Number(data.sizePx) || 120, 64, 280);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // random position
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    // random position (avoid meta if possible)
+    const pos = this._pickPosAvoidMeta(left, top, right, bottom, size);
+    el.style.left = Math.round(pos.x) + 'px';
+    el.style.top = Math.round(pos.y) + 'px';
 
     // content
     const emoji = this._emojiForType(data.type, data.bossEmoji);
     el.textContent = emoji;
 
-    // input
+    // attach
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
-
-    // mount
     this.layer.appendChild(el);
-    this.targets.set(id, el);
+    this.targets.set(data.id, el);
 
-    // TTL / expire
-    const ttlMs = clamp(Number(data.ttlMs) || 1200, 450, 5000);
-    const bornAt = performance.now();
+    // ttl -> expire
+    const ttlMs = clamp(Number(data.ttlMs) || 0, 0, 60000);
+    if (ttlMs > 0){
+      const t = setTimeout(() => {
+        // if already removed/hit, ignore
+        const cur = this.targets.get(data.id);
+        if (!cur) return;
 
-    const timer = setTimeout(() => {
-      this._expireTarget(id, 'ttl');
-    }, ttlMs);
+        // fade out (soft)
+        try { cur.classList.add('is-expiring'); } catch {}
 
-    this.meta.set(id, {
-      type: data.type || 'normal',
-      bossEmoji: data.bossEmoji || '',
-      sizePx: size,
-      bornAt,
-      ttlMs,
-      timer
-    });
+        // let engine know (for miss counting / miss fx) BEFORE removal
+        try{
+          if (this.onTargetExpire){
+            const rect = cur.getBoundingClientRect();
+            const cx = rect.left + rect.width/2;
+            const cy = rect.top + rect.height/2;
+            this.onTargetExpire(data.id, {
+              clientX: cx,
+              clientY: cy,
+              type: cur.dataset.type || (data.type || 'normal')
+            });
+          }
+        }catch{}
+
+        // remove after short delay (match CSS transition)
+        setTimeout(() => {
+          this.removeTarget(data.id, 'expire');
+        }, 140);
+      }, ttlMs);
+
+      this._timers.set(data.id, t);
+    }
   }
 
   _onPointer(e){
@@ -144,71 +194,29 @@ export class DomRendererShadow {
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
+    // prevent double-fire after expiring animation starts
+    if (el.classList.contains('is-expiring')) return;
+
     // forward hit
     if (this.onTargetHit) {
       this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
   }
 
-  _expireTarget(id, reason='ttl'){
-    const el = this.targets.get(id);
-    const m = this.meta.get(id);
-
-    // already removed
-    if (!el) return;
-
-    // stop future timer
-    if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
-
-    // soft fade-out
-    try{ el.classList.add('is-expiring'); }catch{}
-
-    // capture center point for potential miss fx
-    let cx = window.innerWidth/2, cy = window.innerHeight/2;
-    try{
-      const r = el.getBoundingClientRect();
-      cx = r.left + r.width/2;
-      cy = r.top + r.height/2;
-    }catch{}
-
-    // remove after short fade (match CSS transition ~120ms)
-    setTimeout(() => {
-      // may have been removed by hit
-      const el2 = this.targets.get(id);
-      if (!el2) return;
-
-      try { el2.removeEventListener('pointerdown', this._onPointer); } catch {}
-      try { el2.remove(); } catch {}
-
-      this.targets.delete(id);
-      this.meta.delete(id);
-
-      // notify engine for miss logic
-      if (this.onTargetExpire) {
-        this.onTargetExpire(id, {
-          reason,
-          type: m?.type || 'normal',
-          ttlMs: m?.ttlMs || 0,
-          bornAt: m?.bornAt || 0,
-          clientX: cx,
-          clientY: cy
-        });
-      }
-    }, 140);
-  }
-
-  removeTarget(id, reason='remove'){
+  removeTarget(id, reason){
     const el = this.targets.get(id);
     if (!el) return;
 
-    const m = this.meta.get(id);
-    if (m?.timer) { try { clearTimeout(m.timer); } catch {} }
+    // clear timer
+    const t = this._timers.get(id);
+    if (t){
+      try { clearTimeout(t); } catch {}
+      this._timers.delete(id);
+    }
 
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
-
     this.targets.delete(id);
-    this.meta.delete(id);
   }
 
   playHitFx(id, info = {}){
@@ -238,14 +246,12 @@ export class DomRendererShadow {
     } else if (grade === 'shield') {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
+    } else if (grade === 'miss') {
+      // lightweight miss (for expiry)
+      FxBurst.burst(x, y, { n: 6, spread: 32, ttlMs: 420, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
-  }
-
-  // optional helper: engine may call this to show a soft miss fx
-  playMissFx(x, y, text='MISS'){
-    FxBurst.burst(x, y, { n: 7, spread: 42, ttlMs: 520, cls: 'sb-fx-miss' });
-    FxBurst.popText(x, y, text, 'sb-fx-miss');
   }
 }
