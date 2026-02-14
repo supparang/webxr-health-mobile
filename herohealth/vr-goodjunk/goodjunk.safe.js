@@ -1,9 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — v4.2 + GatePatch + DEBUG v20260214
-// ✅ RUNS: no dxdx/dydy bug, no broken `${}` strings, no bad interpolation, no prob drift
-// ✅ DEBUG overlay: add ?debug=1
-// ✅ AI prediction hook: heuristic risk + optional HHA AIHooks (never crashes if missing)
-
+// GoodJunkVR SAFE — v4.3 (Boss+Missions+Summary+Cooldown + Debug + AI Hooks)
+// ✅ Fix: pickByShootAt dxdx/dydy -> dx*dx, dy*dy
+// ✅ Fix: template strings / interpolation / strings
+// ✅ Fix: adaptive formula mistakes
+// ✅ Adds: Debug overlay (?debug=1) shows risk/pattern/rates
+// ✅ Adds: AI prediction hook (safe; won't crash if missing)
+// ✅ Gate: cooldown daily by PID+category, warmup mark if wType/wPct present
 'use strict';
 
 import { JUNK, emojiForGroup, labelForGroup, pickEmoji } from '../vr/food5-th.js';
@@ -22,16 +24,15 @@ function makeRNG(seed){
   return ()=> (x = x * 16807 % 2147483647) / 2147483647;
 }
 
-/** BADGES helper */
+// ---------- Badge helpers ----------
 function badgeMeta(extra){
   let pid = '';
-  try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch(_){}
+  try{ pid = (typeof getPid === 'function') ? (getPid()||'') : ''; }catch{}
   let q;
-  try{ q = new URL(location.href).searchParams; }catch(_){ q = new URLSearchParams(); }
-
+  try{ q = new URL(location.href).searchParams; }catch{ q = new URLSearchParams(); }
   const base = {
     pid,
-    run: String(q.get('run')||'').toLowerCase() || 'play',
+    run:  String(q.get('run')||'').toLowerCase() || 'play',
     diff: String(q.get('diff')||'').toLowerCase() || 'normal',
     time: Number(q.get('time')||0) || 0,
     seed: Number(q.get('seed')||0) || 0,
@@ -46,21 +47,19 @@ function badgeMeta(extra){
 }
 function awardOnce(gameKey, badgeId, meta){
   try{ return !!awardBadge(gameKey, badgeId, badgeMeta(meta)); }
-  catch(_){ return false; }
+  catch{ return false; }
 }
 
-/** อ่าน safe vars แล้วคืนค่าเป็น number px */
+// ---------- CSS helpers ----------
 function cssPx(varName, fallback){
   try{
     const v = getComputedStyle(DOC.documentElement).getPropertyValue(varName);
-    const n = parseFloat(String(v || '').trim());
+    const n = parseFloat(String(v||'').trim());
     return Number.isFinite(n) ? n : fallback;
-  }catch(_){
+  }catch{
     return fallback;
   }
 }
-
-/** Safe rect relative to layer */
 function getSafeRectForLayer(layerEl){
   const r = layerEl.getBoundingClientRect();
   const topSafe = cssPx('--gj-top-safe', 90);
@@ -75,7 +74,7 @@ function getSafeRectForLayer(layerEl){
   return { x,y,w,h, rect:r };
 }
 
-/** ยิงจากจุด (x,y) viewport แล้ว pick target ที่ใกล้สุดใน lockPx */
+// ---------- Shoot picking ----------
 function pickByShootAt(x, y, lockPx=28){
   const els = Array.from(DOC.querySelectorAll('.gj-target'));
   let best = null;
@@ -94,14 +93,14 @@ function pickByShootAt(x, y, lockPx=28){
     const ey = (b.top  + b.bottom) / 2;
     const dx = (ex - x);
     const dy = (ey - y);
-    const d2 = dx*dx + dy*dy; // ✅ FIX: no dxdx/dydy
+    const d2 = dx*dx + dy*dy;
 
     if(!best || d2 < best.d2) best = { el, d2 };
   }
   return best ? best.el : null;
 }
 
-// --- Target decoration ---
+// ---------- Target decoration ----------
 function chooseGroupId(rng){
   return 1 + Math.floor((typeof rng === 'function' ? rng() : Math.random()) * 5);
 }
@@ -113,25 +112,25 @@ function decorateTarget(el, t){
     const emo = emojiForGroup(t.rng, gid);
     el.textContent = emo;
     el.dataset.group = String(gid);
-    el.setAttribute('aria-label', `${labelForGroup(gid)} ${emo}`); // ✅ FIX: template
+    el.setAttribute('aria-label', `${labelForGroup(gid)} ${emo}`);
   }else if(t.kind === 'junk'){
     const emo = pickEmoji(t.rng, JUNK.emojis);
     el.textContent = emo;
     el.dataset.group = 'junk';
-    el.setAttribute('aria-label', `${JUNK.labelTH} ${emo}`); // ✅ FIX
+    el.setAttribute('aria-label', `${JUNK.labelTH} ${emo}`);
   }
 }
 
-// --- Quests ---
+// ---------- Quests ----------
 function makeGoals(){
   return [
     { key:'clean',  name:'แยกของดี/ของเสีย', desc:'เก็บของดีให้เยอะ และอย่าโดนของเสีย', targetGood:18, maxMiss:6 },
     { key:'combo',  name:'คอมโบของดี',       desc:'ทำคอมโบของดีให้ถึง 8',             targetCombo:8 },
-    { key:'survive',name:'ช่วงบอส',           desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
+    { key:'survive',name:'ช่วงบอส',          desc:'ช่วงท้ายอย่าให้พลาด (MISS ไม่เกิน 3)', maxMiss:3 }
   ];
 }
 
-// ✅ AI safe wrapper
+// ---------- AI wrapper (safe) ----------
 function makeAI(opts){
   let ai = null;
   try{
@@ -140,20 +139,19 @@ function makeAI(opts){
     }else if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
       ai = WIN.HHA.createAIHooks(opts || {});
     }
-  }catch(_){ ai = null; }
+  }catch{ ai = null; }
 
   ai = ai || {};
   if(typeof ai.onEvent !== 'function') ai.onEvent = ()=>{};
   if(typeof ai.getTip !== 'function') ai.getTip = ()=>null;
   if(typeof ai.getDifficulty !== 'function') ai.getDifficulty = (_sec, base)=>Object.assign({}, base||{});
+  if(typeof ai.getRisk !== 'function') ai.getRisk = (_sec)=>({ risk:0, missRate:0, junkRate:0, expireRate:0, pace:0, storm:false });
   if(typeof ai.enabled !== 'boolean') ai.enabled = false;
 
   return ai;
 }
 
-// -----------------------------
-// Daily helpers (PID + category)
-// -----------------------------
+// ---------- Daily helpers ----------
 function getLocalDayKey(){
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -167,19 +165,16 @@ function dailyKey(prefix, category, pid){
   return `${prefix}:${category}:${p}:${day}`;
 }
 function markDaily(prefix, category, pid){
-  try{ localStorage.setItem(dailyKey(prefix, category, pid), '1'); }catch(_){}
+  try{ localStorage.setItem(dailyKey(prefix, category, pid), '1'); }catch{}
 }
 function isDaily(prefix, category, pid){
-  try{ return localStorage.getItem(dailyKey(prefix, category, pid)) === '1'; }catch(_){ return false; }
+  try{ return localStorage.getItem(dailyKey(prefix, category, pid)) === '1'; }catch{ return false; }
 }
-
 function hasWarmupBuffInQS(){
   return !!(qs('wType','') || qs('wPct','') || qs('rank','') || qs('wCrit','') || qs('wDmg','') || qs('wHeal','') || qs('calm',''));
 }
 
-// -----------------------------
-// Summary Overlay
-// -----------------------------
+// ---------- Summary Overlay ----------
 function ensureSummaryOverlay(){
   let ov = DOC.getElementById('gjEndOverlay');
   if(ov) return ov;
@@ -209,7 +204,6 @@ function ensureSummaryOverlay(){
       <div style="font-weight:1000; letter-spacing:.2px;">สรุปผล GoodJunkVR</div>
       <div id="gjEndGrade" style="margin-left:auto; font-weight:1000; padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.45);">—</div>
     </div>
-
     <div id="gjEndMsg" style="margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;">—</div>
 
     <div style="margin-top:12px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
@@ -265,63 +259,51 @@ function showSummaryOverlay(summary, ctx, onNext){
     if(btnHub){
       const n = btnHub.cloneNode(true);
       btnHub.parentNode.replaceChild(n, btnHub);
-      n.addEventListener('click', ()=>{
-        location.href = ctx.hub || '../hub.html';
-      });
+      n.addEventListener('click', ()=>{ location.href = ctx.hub || '../hub.html'; });
     }
     if(btnNext){
       const n = btnNext.cloneNode(true);
       btnNext.parentNode.replaceChild(n, btnNext);
       n.addEventListener('click', ()=>{
-        try{ ov.style.display = 'none'; }catch(_){}
+        try{ ov.style.display = 'none'; }catch{}
         if(typeof onNext === 'function') onNext();
       });
     }
-  }catch(_){}
+  }catch{}
 
   ov.style.display = 'flex';
 }
 
-// -----------------------------
-// Debug overlay (?debug=1)
-// -----------------------------
-function makeDebugUI(){
-  const on = String(qs('debug','0')).toLowerCase();
-  if(!(on === '1' || on === 'true' || on === 'yes')) return null;
+// ---------- Debug Overlay (?debug=1) ----------
+function makeDebugOverlay(){
+  let box = DOC.getElementById('gjDebug');
+  if(box) return box;
 
-  let el = DOC.getElementById('gjDebug');
-  if(el) return el;
+  box = DOC.createElement('div');
+  box.id = 'gjDebug';
+  box.style.position = 'fixed';
+  box.style.right = '12px';
+  box.style.top = 'calc(12px + env(safe-area-inset-top, 0px))';
+  box.style.zIndex = '9998';
+  box.style.padding = '10px 10px';
+  box.style.border = '1px solid rgba(148,163,184,.18)';
+  box.style.borderRadius = '14px';
+  box.style.background = 'rgba(2,6,23,.78)';
+  box.style.color = '#e5e7eb';
+  box.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  box.style.fontSize = '11px';
+  box.style.fontWeight = '800';
+  box.style.lineHeight = '1.35';
+  box.style.minWidth = '210px';
+  box.style.pointerEvents = 'none';
+  box.style.whiteSpace = 'pre';
 
-  el = DOC.createElement('div');
-  el.id = 'gjDebug';
-  el.style.position = 'fixed';
-  el.style.left = '10px';
-  el.style.top  = '10px';
-  el.style.zIndex = '9998';
-  el.style.maxWidth = 'min(420px, 92vw)';
-  el.style.border = '1px solid rgba(148,163,184,.25)';
-  el.style.borderRadius = '14px';
-  el.style.background = 'rgba(2,6,23,.78)';
-  el.style.backdropFilter = 'blur(6px)';
-  el.style.padding = '10px 12px';
-  el.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-  el.style.fontSize = '11px';
-  el.style.color = '#e5e7eb';
-  el.style.fontWeight = '800';
-  el.style.pointerEvents = 'none';
-  el.innerHTML = `<div style="font-weight:1000;margin-bottom:6px;">DEBUG: GoodJunkVR</div>
-  <div id="gjDbgLines" style="white-space:pre;line-height:1.35;">…</div>`;
-  DOC.body.appendChild(el);
-  return el;
-}
-function formatPct(x){
-  if(!Number.isFinite(x)) return '—';
-  return `${Math.round(x*100)}%`;
+  box.textContent = 'debug…';
+  DOC.body.appendChild(box);
+  return box;
 }
 
-// -----------------------------
-// MAIN GAME
-// -----------------------------
+// ---------- MAIN ----------
 export function boot(opts={}){
   const view = String(opts.view || qs('view','mobile')).toLowerCase();
   const run  = String(opts.run  || qs('run','play')).toLowerCase();
@@ -331,18 +313,21 @@ export function boot(opts={}){
 
   const category = 'nutrition';
 
+  // pid priority: opts.pid -> qs pid -> badge pid -> anon
   let pid = String(opts.pid || qs('pid','') || '').trim();
   if(!pid){
-    try{ pid = String(getPid?.() || '').trim(); }catch(_){}
+    try{ pid = String(getPid?.() || '').trim(); }catch{}
   }
   if(!pid) pid = 'anon';
 
-  const hub = String(opts.hub || qs('hub','../hub.html') || '../hub.html');
-
+  // mark warmup done if we came with buff params
   if(hasWarmupBuffInQS()){
     markDaily('HHA_WARMUP_DONE', category, pid);
   }
 
+  const hub = String(opts.hub || qs('hub','../hub.html') || '../hub.html');
+
+  // HUD elements
   const elScore = DOC.getElementById('hud-score');
   const elTime  = DOC.getElementById('hud-time');
   const elMiss  = DOC.getElementById('hud-miss');
@@ -372,8 +357,18 @@ export function boot(opts={}){
   const layerL = opts.layerL || DOC.getElementById('gj-layer');
   const layerR = opts.layerR || DOC.getElementById('gj-layer-r');
 
+  if(!layerL){
+    console.error('[GoodJunkVR] missing #gj-layer');
+    return;
+  }
+
+  // RNG
   const rng = makeRNG(seed);
 
+  // CVR support: body has class view-cvr + layerR exists
+  const isCVR = DOC.body.classList.contains('view-cvr') && !!layerR;
+
+  // Pair map for cVR (left+right)
   const Pair = new Map();
   let uidSeq = 1;
 
@@ -412,12 +407,14 @@ export function boot(opts={}){
     badge_boss:false
   };
 
+  // ✅ A vs B
   const adaptiveOn = (run === 'play');
-  const aiOn = (run === 'play');
-  const AI = makeAI({ game:'GoodJunkVR', mode: run, rng, enabled: true });
+  const aiEnabled  = (run === 'play'); // Research/Study => OFF
+  const AI = makeAI({ game:'GoodJunkVR', mode: run, rng, enabled: aiEnabled });
 
-  const dbg = makeDebugUI();
-  const dbgLines = dbg ? DOC.getElementById('gjDbgLines') : null;
+  // debug
+  const debugOn = String(qs('debug','0')) === '1';
+  const dbg = debugOn ? makeDebugOverlay() : null;
 
   function setFever(p){
     S.fever = clamp(p,0,100);
@@ -494,7 +491,7 @@ export function boot(opts={}){
 
     emit('quest:update', {
       goal:{ title:g?.name||'—', desc:g?.desc||'—', cur, target, done:false },
-      mini:{ title:`ครบ 3 หมู่ใน ${S.mini.windowSec} วิ`, cur:miniCur, target:miniTar, done:S.mini.done },
+      mini:{ title:`ครบ ${miniTar} หมู่ใน ${S.mini.windowSec} วิ`, cur:miniCur, target:miniTar, done:S.mini.done },
       allDone:false
     });
   }
@@ -502,7 +499,6 @@ export function boot(opts={}){
   function advanceGoalIfDone(){
     const g = currentGoal();
     let done = false;
-
     if(g?.targetGood) done = (S.hitGood >= g.targetGood) && (S.miss <= g.maxMiss);
     else if(g?.targetCombo) done = (S.comboMax >= g.targetCombo);
 
@@ -587,6 +583,7 @@ export function boot(opts={}){
 
     const played = S.timePlan - S.timeLeft;
     const triggerAt = Math.max(18, S.timePlan * 0.70);
+
     if(played >= triggerAt){
       S.boss.active = true;
       S.boss.startedAtSec = played;
@@ -627,6 +624,7 @@ export function boot(opts={}){
     }else{
       emit('hha:coach', { msg:'จบช่วงบอส! รอบหน้าลองเน้นของดีให้มากขึ้นนะ', tag:'Coach' });
     }
+
     setHUD();
   }
 
@@ -653,7 +651,8 @@ export function boot(opts={}){
       setFever(S.fever + 2);
       if(extra.groupId) onHitGoodMeta(extra.groupId);
       emit('hha:judge', { type:'good', label:'GOOD' });
-      if(aiOn) AI.onEvent('hitGood', { t:tNow });
+
+      if(aiEnabled) AI.onEvent('hitGood', { t:tNow });
 
       if(S.boss.active){
         S.boss.hp = Math.max(0, S.boss.hp - 6);
@@ -673,7 +672,7 @@ export function boot(opts={}){
         addScore(-6);
         setFever(S.fever + 6);
         emit('hha:judge', { type:'bad', label:'OOPS' });
-        if(aiOn) AI.onEvent('hitJunk', { t:tNow });
+        if(aiEnabled) AI.onEvent('hitJunk', { t:tNow });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 10);
@@ -695,10 +694,11 @@ export function boot(opts={}){
       emit('hha:judge', { type:'perfect', label:'SHIELD!' });
     }
 
-    if(aiOn){
+    // AI coach tip (rate-limited inside ai-hooks)
+    if(aiEnabled){
       const played = S.timePlan - S.timeLeft;
       const tip = AI.getTip(played);
-      if(tip) emit('hha:coach', tip);
+      if(tip && tip.msg) emit('hha:coach', tip);
     }
 
     setHUD();
@@ -711,7 +711,7 @@ export function boot(opts={}){
     if(!p || !p.alive) return;
     p.alive = false;
     for(const el of p.els){
-      try{ el.remove(); }catch(_){}
+      try{ el.remove(); }catch{}
     }
     Pair.delete(uid);
   }
@@ -738,10 +738,7 @@ export function boot(opts={}){
     if(S.ended) return;
     if(!layerL) return;
 
-    const isCVR = DOC.body.classList.contains('view-cvr') && !!layerR;
-
     const size = (kind==='good') ? 56 : (kind==='junk') ? 58 : 52;
-
     const obj = { kind, rng: S.rng, groupId:null };
     if(kind === 'good') obj.groupId = chooseGroupId(S.rng);
 
@@ -758,7 +755,7 @@ export function boot(opts={}){
 
     let els = [elL];
 
-    if(isCVR){
+    if(isCVR && layerR){
       const safeR = getSafeRectForLayer(layerR);
       const xRatio = safeR.w / Math.max(1, safeL.w);
       const xR = safeR.x + (xL - safeL.x) * xRatio;
@@ -802,7 +799,8 @@ export function boot(opts={}){
         S.combo=0;
         setFever(S.fever + 5);
         emit('hha:judge', { type:'miss', label:'MISS' });
-        if(aiOn) AI.onEvent('miss', { t:performance.now() });
+
+        if(aiEnabled) AI.onEvent('expireGood', { t:performance.now(), miss:S.miss, expireGood:S.expireGood });
 
         if(S.boss.active){
           S.boss.hp = Math.min(S.boss.hpMax, S.boss.hp + 12);
@@ -828,7 +826,7 @@ export function boot(opts={}){
       y = r.top  + r.height/2;
     }
 
-    if(aiOn) AI.onEvent('shoot', { t:performance.now(), x, y, lockPx });
+    if(aiEnabled) AI.onEvent('shoot', { t:performance.now() });
 
     const picked = pickByShootAt(x, y, lockPx);
     if(!picked) return;
@@ -838,7 +836,7 @@ export function boot(opts={}){
     const groupId = picked.dataset.group ? Number(picked.dataset.group) : null;
 
     if(uid) killUid(uid);
-    else { try{ picked.remove(); }catch(_){ } }
+    else { try{ picked.remove(); }catch{} }
 
     if(kind === 'good') onHit('good', { groupId });
     else onHit(kind);
@@ -854,6 +852,7 @@ export function boot(opts={}){
       return;
     }
 
+    // mark done immediately
     markDaily('HHA_COOLDOWN_DONE', category, pid);
 
     const u = new URL(cdGateUrl, location.href);
@@ -868,7 +867,7 @@ export function boot(opts={}){
     try{
       u.searchParams.set('score', String(summary.scoreFinal ?? 0));
       u.searchParams.set('grade', String(summary.grade ?? ''));
-    }catch(_){}
+    }catch{}
 
     location.replace(u.toString());
   }
@@ -881,7 +880,7 @@ export function boot(opts={}){
 
     const grade = (elGrade && elGrade.textContent) ? elGrade.textContent : '—';
 
-    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0));
+    const denom = Math.max(1, (S.hitGood|0) + (S.hitJunk|0) + (S.expireGood|0) + (S.miss|0));
     const acc = (S.hitGood|0) / denom;
 
     if(acc >= 0.80){
@@ -912,7 +911,7 @@ export function boot(opts={}){
     const summary = {
       game:'GoodJunkVR',
       category,
-      pack:'fair-v4.2-boss-layout+gatepatch+debug',
+      pack:'fair-v4.3-boss+debug+aihooks',
       view:S.view,
       runMode:S.run,
       diff:S.diff,
@@ -929,40 +928,19 @@ export function boot(opts={}){
       shieldRemaining:S.shield,
       bossCleared:S.boss.cleared,
       grade,
-      reason,
-      accuracy: Number(acc.toFixed(4))
+      reason
     };
 
-    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch{}
     try{
       WIN.removeEventListener('hha:shoot', onShoot);
       WIN.removeEventListener('gj:shoot', onShoot);
-    }catch(_){}
+    }catch{}
     emit('hha:end', summary);
 
     showSummaryOverlay(summary, { hub }, ()=>{
       goCooldownThenHub(summary);
     });
-  }
-
-  // --------- Heuristic "prediction" (not ML/DL): risk estimate ----------
-  function predictRisk(D){
-    const boss = S.boss.active ? 1 : 0;
-    const junkP = clamp(D?.pJunk ?? 0.25, 0, 0.95);
-    const missFactor = clamp(S.miss / 10, 0, 1);
-    const comboFactor = 1 - clamp(S.combo / 12, 0, 1);
-    const feverFactor = clamp(S.fever / 100, 0, 1);
-    const shieldFactor = 1 - clamp(S.shield / 3, 0, 1);
-
-    let r = 0.20
-      + 0.35*junkP
-      + 0.20*missFactor
-      + 0.15*comboFactor
-      + 0.10*shieldFactor
-      + 0.10*boss
-      + 0.05*feverFactor;
-
-    return clamp(r, 0, 1);
   }
 
   function tick(ts){
@@ -982,7 +960,7 @@ export function boot(opts={}){
 
     const played = (S.timePlan - S.timeLeft);
 
-    // base difficulty
+    // base difficulty by diff + boss
     let base = { spawnMs: 900, pGood: 0.70, pJunk: 0.26, pStar: 0.02, pShield: 0.02 };
 
     if(diff === 'easy'){ base.spawnMs=980; base.pJunk=0.22; base.pGood=0.74; }
@@ -996,43 +974,27 @@ export function boot(opts={}){
       base.pShield = base.pShield + 0.02;
     }
 
-    // adaptive: AI > heuristic > fixed
-    const D = (adaptiveOn && aiOn)
+    // ✅ A: AI adaptive, B: static
+    const D = (adaptiveOn && aiEnabled)
       ? AI.getDifficulty(played, base)
-      : (adaptiveOn ? {
-          spawnMs: Math.max(560, base.spawnMs - Math.max(0, played-8)*5),
-          pGood: base.pGood - Math.min(0.10, played*0.002),
-          pJunk: base.pJunk + Math.min(0.10, played*0.002),
-          pStar: base.pStar,
-          pShield: base.pShield
-        } : { ...base });
+      : (adaptiveOn
+        ? {
+            // mild progressive scaling (no AI)
+            spawnMs: Math.max(560, base.spawnMs - (played>8 ? (played-8)*5 : 0)),
+            pGood: base.pGood - Math.min(0.10, played*0.002),
+            pJunk: base.pJunk + Math.min(0.10, played*0.002),
+            pStar: base.pStar,
+            pShield: base.pShield
+          }
+        : { ...base });
 
-    // normalize probs (✅ FIX: no drift / NaN)
+    // normalize
     {
-      let s = (Number(D.pGood)||0) + (Number(D.pJunk)||0) + (Number(D.pStar)||0) + (Number(D.pShield)||0);
+      let s = (D.pGood + D.pJunk + D.pStar + D.pShield);
       if(s <= 0) s = 1;
-      D.pGood = (Number(D.pGood)||0) / s;
-      D.pJunk = (Number(D.pJunk)||0) / s;
-      D.pStar = (Number(D.pStar)||0) / s;
-      D.pShield = (Number(D.pShield)||0) / s;
-      D.spawnMs = Math.max(300, Number(D.spawnMs)||900);
+      D.pGood/=s; D.pJunk/=s; D.pStar/=s; D.pShield/=s;
     }
 
-    // debug overlay
-    if(dbgLines){
-      const risk = predictRisk(D);
-      dbgLines.textContent =
-`run=${S.run} diff=${S.diff} view=${S.view} seed=${S.seed}
-t=${played.toFixed(1)}s left=${S.timeLeft.toFixed(1)}s
-score=${S.score} miss=${S.miss} combo=${S.combo} max=${S.comboMax}
-good=${S.hitGood} junk=${S.hitJunk} expGood=${S.expireGood}
-fever=${S.fever}% shield=${S.shield}
-boss=${S.boss.active ? 'ON' : 'off'} hp=${S.boss.active ? `${S.boss.hp}/${S.boss.hpMax}` : '-'}
-spawnMs=${Math.round(D.spawnMs)}  pGood=${formatPct(D.pGood)} pJunk=${formatPct(D.pJunk)} pStar=${formatPct(D.pStar)} pShield=${formatPct(D.pShield)}
-risk(heuristic)=${formatPct(risk)}`;
-    }
-
-    // spawn
     if(ts - S.lastSpawn >= D.spawnMs){
       S.lastSpawn = ts;
       const r = S.rng();
@@ -1042,11 +1004,24 @@ risk(heuristic)=${formatPct(risk)}`;
       else spawn('shield');
     }
 
-    // boss timer
     if(S.boss.active && S.boss.startedAtSec != null){
       if(played - S.boss.startedAtSec >= S.boss.durationSec){
         endBoss(false);
       }
+    }
+
+    // debug overlay text
+    if(dbg){
+      const pr = AI.getRisk(played, base);
+      dbg.textContent =
+`GoodJunkVR debug
+run=${run} diff=${diff} view=${view}
+t=${played.toFixed(1)}s left=${S.timeLeft.toFixed(1)}s
+score=${S.score} miss=${S.miss} combo=${S.comboMax}
+hitGood=${S.hitGood} hitJunk=${S.hitJunk} expGood=${S.expireGood}
+spawnMs=${Math.round(D.spawnMs)} pG=${D.pGood.toFixed(2)} pJ=${D.pJunk.toFixed(2)}
+risk=${(pr.risk??0).toFixed(2)} pace=${(pr.pace??0).toFixed(1)}/s storm=${pr.storm?'Y':'N'}
+mr=${(pr.missRate??0).toFixed(2)} jr=${(pr.junkRate??0).toFixed(2)} er=${(pr.expireRate??0).toFixed(2)}`;
     }
 
     if(S.timeLeft<=0){
@@ -1056,7 +1031,7 @@ risk(heuristic)=${formatPct(risk)}`;
     requestAnimationFrame(tick);
   }
 
-  // start
+  // ---- start ----
   S.started = true;
   resetMiniWindow();
   setFever(S.fever);
@@ -1074,7 +1049,7 @@ risk(heuristic)=${formatPct(risk)}`;
   emit('hha:start', {
     game:'GoodJunkVR',
     category,
-    pack:'fair-v4.2-boss-layout+gatepatch+debug',
+    pack:'fair-v4.3-boss+debug+aihooks',
     view,
     runMode:run,
     diff,
