@@ -1,10 +1,3 @@
-<!-- === /herohealth/vr-maskcough/maskcough.html ===
-Mask & Cough — PRODUCTION (HUD-safe + Toast under HUD + Auto detect view + cVR shoot support)
-✅ Uses external CSS: ./css/maskcough.css
-✅ Loads vr-ui.js (for ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Loads fun-boost.js + fun-boost.fx.js
-✅ Loads engine: ./maskcough.safe.js
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,33 +6,45 @@ Mask & Cough — PRODUCTION (HUD-safe + Toast under HUD + Auto detect view + cVR
   <title>HeroHealth — Mask & Cough</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-
-  <!-- ✅ use your dedicated css -->
   <link rel="stylesheet" href="./css/maskcough.css?v=20260214a"/>
 </head>
 
 <body>
-  <!-- flash for damage / fever -->
-  <div id="mc-flash" aria-hidden="true"></div>
-
   <div id="mc-wrap" data-view="pc">
-    <!-- prompt (optional helper text) -->
-    <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+    <div id="mc-flash"></div>
 
-    <!-- stage -->
     <div class="mc-stage">
       <div id="layer" class="mc-layer" aria-label="play layer"></div>
     </div>
 
-    <!-- HUD -->
-    <div class="mc-hud" id="hud">
+    <div id="menu" class="mc-end">
+      <div class="mc-end-card">
+        <div class="mc-end-head">
+          <div class="mc-end-title">😷 Mask & Cough — Defense Rush</div>
+          <div class="mc-pill" id="mc-ctx">view: - · diff: - · time: -</div>
+        </div>
+
+        <div class="mc-end-note">
+          เป้าหมาย: กันละอองไอ/จามให้ได้มากที่สุด • 💦 ปัดออก • 😷 เพิ่มโล่ • 🤧 อันตราย (ทำ Perfect ได้โบนัส)
+        </div>
+
+        <div class="mc-end-actions">
+          <button class="mc-btn mc-ghost" id="btnBack">🏰 กลับ HUB</button>
+          <button class="mc-btn mc-primary" id="btnStart">▶ เริ่มเกม</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mc-prompt" id="prompt">—</div>
+
+    <div class="mc-hud">
       <div class="mc-hud-row">
-        <span class="mc-pill">Score: <b id="tScore">0</b></span>
-        <span class="mc-pill">Streak: <b id="tStreak">0</b></span>
-        <span class="mc-pill">Miss: <b id="tMiss">0</b></span>
-        <span class="mc-pill">Wave: <b id="tWave">calm</b></span>
-        <span class="mc-pill">Int: <b id="tInt">0.00</b></span>
-        <span class="mc-pill">Fever: <b id="tFever">OFF</b></span>
+        <span class="mc-pill">Score <b id="tScore">0</b></span>
+        <span class="mc-pill">Streak <b id="tStreak">0</b></span>
+        <span class="mc-pill">Miss <b id="tMiss">0</b></span>
+        <span class="mc-pill">Wave <b id="tWave">calm</b></span>
+        <span class="mc-pill">Int <b id="tInt">0.00</b></span>
+        <span class="mc-pill">Fever <b id="tFever">OFF</b></span>
       </div>
 
       <div class="mc-bars">
@@ -48,179 +53,52 @@ Mask & Cough — PRODUCTION (HUD-safe + Toast under HUD + Auto detect view + cVR
           <div class="mc-bar-track"><div class="mc-bar-fill" id="bMask" style="width:0%"></div></div>
         </div>
         <div>
-          <div class="mc-bar-label"><span>Fever</span><span id="tFever2">—</span></div>
+          <div class="mc-bar-label"><span>Fever</span><span id="tFeverPct">0%</span></div>
           <div class="mc-bar-track"><div class="mc-bar-fill mc-bad" id="bFever" style="width:0%"></div></div>
         </div>
       </div>
 
       <div class="mc-controls">
-        <button class="mc-btn mc-primary" id="btnStart" type="button">▶ เริ่มเกม</button>
-        <button class="mc-btn mc-accent" id="btnHow" type="button">❓ วิธีเล่น</button>
-        <button class="mc-btn mc-ghost" id="btnBack" type="button">🏰 กลับ HUB</button>
+        <span class="mc-pill">Tip: แตะ 😷 เพิ่มโล่ • แตะ 💦 ปัดละออง • 🤧 ต้องรีบกัน!</span>
       </div>
     </div>
-
-    <!-- End overlay -->
-    <div class="mc-end" id="end" hidden>
-      <div class="mc-end-card">
-        <div class="mc-end-head">
-          <div class="mc-end-title">สรุปผล</div>
-          <div class="mc-pill">เหตุผลจบ: <b id="endReason">—</b></div>
-        </div>
-
-        <div class="mc-end-grid">
-          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-          <div class="mc-end-item"><div class="k">Streak max</div><div class="v" id="endStreak">0</div></div>
-          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-          <div class="mc-end-item"><div class="k">Shield</div><div class="v" id="endShield">0%</div></div>
-          <div class="mc-end-item"><div class="k">Duration</div><div class="v" id="endTime">0s</div></div>
-          <div class="mc-end-item"><div class="k">View</div><div class="v" id="endView">pc</div></div>
-        </div>
-
-        <div class="mc-end-note" id="endNote"></div>
-
-        <div class="mc-end-actions">
-          <button class="mc-btn mc-ghost" id="btnRetry" type="button">เล่นอีกครั้ง</button>
-          <a class="mc-btn mc-primary" id="aBackHub" href="../hub.html">กลับ HUB</a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toast -->
-    <div id="toast" class="toast" aria-live="polite"></div>
-
-    <!-- Menu (simple overlay) -->
-    <div id="menu" class="mc-end" style="z-index:70;">
-      <div class="mc-end-card">
-        <div class="mc-end-head">
-          <div class="mc-end-title">😷 Mask & Cough — Defense Rush</div>
-          <div class="mc-pill">time: <b id="tTimeCfg">—</b>s</div>
-        </div>
-        <div class="mc-end-note">
-          เป้าหมาย: กันละอองไอ/จามให้ได้มากที่สุด<br/>
-          • 💦 = ปัดละออง (ดี) • 🤧 = ไอ/จาม (อันตราย) • 😷 = เพิ่มโล่<br/>
-          • เล่นดี → wave เร็วขึ้น • Perfect → มีโอกาสเข้า FEVER
-        </div>
-        <div class="mc-end-actions">
-          <button class="mc-btn mc-primary" id="btnStart2" type="button">▶ เริ่มเกม</button>
-          <button class="mc-btn mc-ghost" id="btnBack2" type="button">🏰 กลับ HUB</button>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- ✅ Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
-  <script src="../vr/vr-ui.js?v=20260214a"></script>
-
-  <!-- FUN BOOST (global feel) -->
+  <!-- FUN BOOST -->
   <script src="../vr/fun-boost.js?v=20260214a"></script>
   <script src="../vr/fun-boost.fx.js?v=20260214a"></script>
 
   <!-- ENGINE -->
   <script src="./maskcough.safe.js?v=20260214a"></script>
 
-  <!-- Boot: auto view + hub passthrough + basic wiring -->
+  <!-- Boot / view auto -->
   <script>
   (function(){
     'use strict';
-
-    const $ = (s)=>document.querySelector(s);
-
-    const U = new URL(location.href);
-    const QS = U.searchParams;
+    const qs = new URL(location.href).searchParams;
+    const wrap = document.getElementById('mc-wrap');
 
     function getViewAuto(){
-      const v = (QS.get('view')||'').toLowerCase().trim();
+      const v = (qs.get('view')||'').toLowerCase().trim();
       if(v) return v;
       const ua = navigator.userAgent || '';
       const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
       return isMobile ? 'cvr' : 'pc';
     }
-
     const view = getViewAuto();
-    const wrap = $('#mc-wrap');
-    if(wrap) wrap.dataset.view = view;
+    wrap.dataset.view = view;
 
-    // show time config on menu
-    const t = Math.max(20, parseInt(QS.get('time')||'60',10));
-    const tTimeCfg = $('#tTimeCfg');
-    if(tTimeCfg) tTimeCfg.textContent = String(t);
+    // small ctx pill on menu
+    const diff = (qs.get('diff')||'normal');
+    const time = (qs.get('time')||'90');
+    const el = document.getElementById('mc-ctx');
+    if(el) el.textContent = `view: ${view} · diff: ${diff} · time: ${time}`;
 
-    // back hub link passthrough
-    function setBackHub(){
-      const hub = (QS.get('hub')||'../hub.html').trim();
-      const a = $('#aBackHub');
-      if(!a) return;
-      try{
-        const u = new URL(hub, location.href);
-        // pass through minimal ids
-        const pid = (QS.get('pid')||'').trim();
-        const studyId = (QS.get('studyId')||'').trim();
-        const phase = (QS.get('phase')||'').trim();
-        const conditionGroup = (QS.get('conditionGroup')||'').trim();
-        if(pid) u.searchParams.set('pid', pid);
-        if(studyId) u.searchParams.set('studyId', studyId);
-        if(phase) u.searchParams.set('phase', phase);
-        if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
-        a.href = u.toString();
-      }catch(_){
-        a.href = hub || '../hub.html';
-      }
-    }
-    setBackHub();
-
-    // wire menu buttons to engine start/back (engine also binds, but we keep UX consistent)
-    function back(){
-      const hub = (QS.get('hub')||'').trim();
-      if(hub) location.href = hub;
-      else history.back();
-    }
-
-    const btnBack = $('#btnBack'), btnBack2 = $('#btnBack2');
-    if(btnBack) btnBack.addEventListener('click', back, {passive:true});
-    if(btnBack2) btnBack2.addEventListener('click', back, {passive:true});
-
-    // help toast
-    const btnHow = $('#btnHow');
-    if(btnHow){
-      btnHow.addEventListener('click', ()=>{
-        const toast = $('#toast');
-        if(!toast) return;
-        toast.textContent = (view==='cvr')
-          ? 'โหมด cVR: เล็งกากบาทกลางจอ แล้ว “ยิง” ใส่ 💦 / 😷 / 🤧'
-          : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • แตะ 🤧 บล็อกไอ/จาม (ใกล้หมดเวลา = Perfect)';
-        toast.classList.add('show');
-        setTimeout(()=> toast.classList.remove('show'), 1500);
-      }, {passive:true});
-    }
-
-    // start buttons call engine start if exposed (optional), otherwise click original
-    function start(){
-      // engine has its own handlers; just hide menu if needed
-      const menu = $('#menu');
-      if(menu) menu.style.display = 'none';
-      // If engine exposes start(), call it
-      if(window.MASKCOUGH && typeof window.MASKCOUGH.start==='function'){
-        window.MASKCOUGH.start();
-      }else{
-        // fallback: click internal start button (engine binds to #btnStart)
-        const b = $('#btnStart');
-        if(b) b.click();
-      }
-    }
-    const btnStart = $('#btnStart'), btnStart2 = $('#btnStart2');
-    if(btnStart) btnStart.addEventListener('click', ()=> { const m=$('#menu'); if(m) m.style.display='none'; }, {passive:true});
-    if(btnStart2) btnStart2.addEventListener('click', start, {passive:true});
-
-    // retry from end overlay
-    const btnRetry = $('#btnRetry');
-    if(btnRetry) btnRetry.addEventListener('click', ()=>{
-      const end = $('#end'); if(end) end.hidden = true;
-      const menu = $('#menu'); if(menu) menu.style.display = 'none';
-      start();
+    // back hub
+    const hub = (qs.get('hub')||'../hub.html').trim();
+    document.getElementById('btnBack').addEventListener('click', ()=>{
+      location.href = hub || '../hub.html';
     }, {passive:true});
-
   })();
   </script>
 </body>
