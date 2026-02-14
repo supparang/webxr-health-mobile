@@ -2,7 +2,16 @@
 HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 403 won't break hub
+✅ Uses /herohealth/api/index.js + hub.boot.js
 ✅ Shows offline banner + retry
+✅ Links to ROOT launchers in /herohealth (root):
+   - ./goodjunk-vr-launcher.html
+   - ./groups-vr.html
+   - ./hydration-vr.html
+   - ./plate-vr.html
+   - ./hygiene-vr.html (now labeled "Handwash")
+   - ./maskcough-vr.html (root launcher)
+   - ./fitness-planner/planner.html (optional)
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid
 -->
 <!doctype html>
@@ -13,6 +22,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
   <title>HeroHealth — Hub</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       --bg:#020617;
@@ -32,39 +42,75 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
       --sal: env(safe-area-inset-left, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
     a{color:inherit;text-decoration:none}
-    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
+    .wrap{
+      min-height:100%;
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      max-width:980px;margin:0 auto
+    }
     header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
     .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000}
+    .logo{
+      width:44px;height:44px;border-radius:14px;
+      background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));
+      border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000
+    }
     .title{font-weight:1000;letter-spacing:.2px}
     .sub{color:var(--muted);font-size:12px;font-weight:800;margin-top:2px}
     .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .chip{
+      border:1px solid var(--stroke);background:rgba(2,6,23,.35);
+      border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)
+    }
     .chip b{color:#fff}
+
     .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
     @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
 
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+    .card{
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:20px;padding:14px;
+      box-shadow:0 14px 50px rgba(0,0,0,.35)
+    }
     .card h3{margin:0;font-size:14px;font-weight:1000}
     .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
     .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);font-weight:1000;font-size:13px
+    }
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
+    .btn.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
     .small{font-size:12px;color:var(--muted);font-weight:850;margin-top:10px}
 
-    .banner{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
+    .banner{
+      margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;
+      background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start
+    }
     .dot{width:10px;height:10px;border-radius:999px;margin-top:5px}
     .dot.ok{background:var(--good)}
     .dot.warn{background:var(--warn)}
     .dot.bad{background:var(--bad)}
     .banner h4{margin:0;font-size:13px;font-weight:1000}
     .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
-    .detail{margin-top:6px;white-space:pre-wrap;font-size:11px;color:rgba(229,231,235,.65);font-weight:650;display:none}
     .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+    /* fallback small note */
+    .fallback{
+      margin-top:10px;color:rgba(229,231,235,.65);
+      font-size:12px;font-weight:800
+    }
+    .fallback code{
+      font-weight:900;color:rgba(229,231,235,.88);
+      background:rgba(2,6,23,.35);border:1px solid rgba(148,163,184,.18);
+      padding:2px 6px;border-radius:10px
+    }
   </style>
 </head>
 
@@ -93,7 +139,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
       <div>
         <h4 id="apiTitle">กำลังตรวจสอบระบบ…</h4>
         <p id="apiMsg">ถ้า API ล่ม/403 หน้า HUB จะยังใช้งานได้ปกติ (เข้าเกมได้ทุกเกม)</p>
-        <div class="detail" id="apiDetail"></div>
       </div>
       <div class="actions">
         <a class="btn warn" href="#" id="btnRetry">Retry</a>
@@ -135,9 +180,171 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
         <div class="small">* ลิงก์ fitness โฟลเดอร์เดิมของคุณ (../fitness/…)</div>
       </div>
     </div>
+
+    <div class="fallback" id="fallbackNote" style="display:none;">
+      โหมดสำรองทำงานอยู่ (โหลด module ไม่ได้) — Hub ยังเข้าเกมได้ปกติ • ตรวจว่าไฟล์
+      <code>/herohealth/hub.boot.js</code> และ <code>/herohealth/api/index.js</code> อยู่ครบ
+    </div>
   </div>
 
-  <!-- ✅ split boot -->
-  <script type="module" src="./api/hub-api-boot.js"></script>
+  <!-- ======================================================
+       ✅ Primary boot (module)
+       hub.boot.js จะ:
+       - อ่าน query params + patch links
+       - bind reset today + toast
+       - เรียก HHA_API.initHub({endpoint,...})
+       ====================================================== -->
+  <script type="module" src="./hub.boot.js"></script>
+
+  <!-- ======================================================
+       ✅ Fallback if module fails (older browsers / blocked)
+       - Patch links minimally
+       - Probe API (simple)
+       ====================================================== -->
+  <script>
+  (function fallbackBoot(){
+    // If module worked, it will likely set window.HHA_HUB_BOOTED = true
+    // We'll wait a tick then decide.
+    function qs(k, d=''){
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch { return d; }
+    }
+    function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
+    function nowSeed(){ return String(Date.now()); }
+
+    setTimeout(()=>{
+      if(window.HHA_HUB_BOOTED) return;
+
+      // show fallback note
+      try{ document.getElementById('fallbackNote').style.display='block'; }catch(_){}
+
+      // ===== pass-through (minimal) =====
+      const P = {
+        run:  String(qs('run','play')).toLowerCase() || 'play',
+        diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+        time: clamp(qs('time','80'), 20, 300),
+        seed: String(qs('seed','') || nowSeed()),
+        pid:  String(qs('pid','')).trim() || 'anon',
+        view: String(qs('view','')).toLowerCase(),
+        log:  String(qs('log','')),
+        studyId: String(qs('studyId','')),
+        phase: String(qs('phase','')),
+        conditionGroup: String(qs('conditionGroup',''))
+      };
+
+      try{
+        document.getElementById('cRun').textContent = P.run;
+        document.getElementById('cDiff').textContent = P.diff;
+        document.getElementById('cTime').textContent = String(P.time);
+        document.getElementById('cPid').textContent = P.pid;
+      }catch(_){}
+
+      function buildHubUrl(){
+        const u = new URL(location.href);
+        u.search = '';
+        const sp = u.searchParams;
+        sp.set('run', P.run);
+        sp.set('diff', P.diff);
+        sp.set('time', String(P.time));
+        sp.set('seed', P.seed);
+        sp.set('pid', P.pid);
+        if(P.view) sp.set('view', P.view);
+        if(P.log) sp.set('log', P.log);
+        if(P.studyId) sp.set('studyId', P.studyId);
+        if(P.phase) sp.set('phase', P.phase);
+        if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
+        return u.toString();
+      }
+
+      function withCommonParams(url){
+        const u = new URL(url, location.href);
+        const sp = u.searchParams;
+        sp.set('hub', buildHubUrl());
+        sp.set('run', P.run);
+        sp.set('diff', P.diff);
+        sp.set('time', String(P.time));
+        sp.set('seed', P.seed);
+        sp.set('pid', P.pid);
+        if(P.view) sp.set('view', P.view);
+        if(P.log) sp.set('log', P.log);
+        if(P.studyId) sp.set('studyId', P.studyId);
+        if(P.phase) sp.set('phase', P.phase);
+        if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
+        return u.toString();
+      }
+
+      const linkIds = [
+        'goGoodJunk','goGroups','goHydration','goPlate',
+        'goHandwash','goMaskCough','goPlanner','goShadow','goRhythm'
+      ];
+      for(const id of linkIds){
+        const a = document.getElementById(id);
+        if(!a) continue;
+        try{ a.href = withCommonParams(a.getAttribute('href')); }catch(_){}
+      }
+
+      // reset today (minimal)
+      function getLocalDayKey(){
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${getLocalDayKey()}`; }
+      function resetToday(){
+        try{
+          localStorage.removeItem(zoneDoneKey('nutrition'));
+          localStorage.removeItem(zoneDoneKey('hygiene'));
+          localStorage.removeItem(zoneDoneKey('fitness'));
+        }catch(_){}
+      }
+      try{
+        document.getElementById('btnResetToday').addEventListener('click', (e)=>{
+          e.preventDefault();
+          resetToday();
+        });
+      }catch(_){}
+
+      // ===== simple API probe =====
+      const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/';
+      const apiDot = document.getElementById('apiDot');
+      const apiTitle = document.getElementById('apiTitle');
+      const apiMsg = document.getElementById('apiMsg');
+      const btnRetry = document.getElementById('btnRetry');
+
+      function setBanner(state, title, msg){
+        try{
+          apiDot.className = 'dot ' + (state==='ok' ? 'ok' : state==='bad' ? 'bad' : 'warn');
+          apiTitle.textContent = title;
+          apiMsg.textContent = msg;
+        }catch(_){}
+      }
+
+      async function probe(){
+        setBanner('warn','กำลังตรวจสอบระบบ…','กำลัง ping API แบบสั้น ๆ (fallback)');
+        try{
+          const res = await fetch(API_ENDPOINT, {
+            method:'POST',
+            mode:'cors',
+            headers:{'content-type':'application/json'},
+            body: JSON.stringify({ ping:true })
+          });
+          if(res.status===200) setBanner('ok','ออนไลน์ ✅','API ตอบกลับปกติ');
+          else if(res.status===403) setBanner('bad','403 Forbidden ⚠️','API ปฏิเสธสิทธิ์/Origin แต่ Hub ยังเข้าเกมได้');
+          else setBanner('warn',`API ตอบ ${res.status}`,'Hub เข้าเกมได้ • ตรวจ route/headers');
+        }catch(_){
+          setBanner('bad','ออฟไลน์/เชื่อมต่อไม่ได้','Hub เข้าเกมได้ • ตรวจเครือข่าย/CORS');
+        }
+      }
+
+      try{
+        btnRetry.addEventListener('click',(e)=>{ e.preventDefault(); probe(); });
+      }catch(_){}
+      probe();
+
+    }, 120);
+  })();
+  </script>
 </body>
 </html>
