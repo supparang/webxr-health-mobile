@@ -1,3 +1,10 @@
+<!-- === /herohealth/vr-maskcough/maskcough.html ===
+Mask & Cough — PRODUCTION (HUD-safe + Toast under HUD + Auto detect view + cVR shoot support)
+✅ Uses external CSS: ./css/maskcough.css
+✅ Loads vr-ui.js (for ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Loads fun-boost.js + fun-boost.fx.js
+✅ Loads engine: ./maskcough.safe.js
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -6,236 +13,215 @@
   <title>HeroHealth — Mask & Cough</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <style>
-    :root{
-      --bg:#040610;
-      --panel: rgba(4,6,16,.78);
-      --panel2: rgba(10,16,36,.55);
-      --stroke: rgba(148,163,184,.18);
 
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
-
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      color: var(--text);
-      background:
-        radial-gradient(1200px 700px at 18% 18%, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(255,79,216,.10), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(167,139,250,.10), transparent 55%),
-        linear-gradient(180deg, #020617, #0b1226);
-      overflow:hidden;
-    }
-
-    /* HUD */
-    #hud{
-      position: fixed;
-      left: calc(12px + var(--sal)); right: calc(12px + var(--sar));
-      top: calc(12px + var(--sat));
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-      z-index: 9990;
-      pointer-events:none;
-    }
-    .hudL, .hudR{ display:flex; flex-direction:column; gap:8px; }
-    .panel{
-      pointer-events:none;
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      padding: 10px 12px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      min-width: 180px;
-    }
-    .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
-    .k{ color: var(--muted); font-size: 12px; font-weight: 900; }
-    .v{ font-weight: 950; font-size: 13px; }
-    .bar{
-      height: 10px; border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(0,0,0,.35);
-      overflow:hidden;
-      margin-top:8px;
-    }
-    .fill{ height:100%; width:0%; background: rgba(34,211,238,.88); transition: width .12s ease; }
-    .fill.pink{ background: rgba(255,79,216,.88); }
-    .fill.good{ background: rgba(34,197,94,.88); }
-    .badge{
-      display:inline-flex; gap:8px; align-items:center;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size: 12px;
-      font-weight: 950;
-      white-space:nowrap;
-    }
-
-    /* Stage */
-    #stage{
-      position: fixed;
-      inset: 0;
-      padding: calc(84px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-      z-index: 1;
-      overflow:hidden;
-    }
-    #layer{
-      position: relative;
-      width: 100%;
-      height: 100%;
-      border:1px solid rgba(148,163,184,.12);
-      background: rgba(2,6,23,.20);
-      border-radius: 24px;
-      overflow:hidden;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
-      touch-action: manipulation;
-    }
-
-    /* Target */
-    .t{
-      position:absolute;
-      width: 64px; height: 64px;
-      border-radius: 999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size: 26px;
-      user-select:none;
-      transform: translate(-50%,-50%) scale(1);
-      border:1px solid rgba(255,255,255,.16);
-      background: rgba(255,255,255,.06);
-      box-shadow: 0 12px 30px rgba(0,0,0,.22);
-      will-change: transform, opacity;
-    }
-    .t.good{ outline: 2px solid rgba(34,197,94,.18); }
-    .t.bad{ outline: 2px solid rgba(239,68,68,.18); }
-    .t.mask{ outline: 2px solid rgba(34,211,238,.22); }
-    .t.cough{ outline: 2px solid rgba(255,79,216,.22); }
-
-    .pop{ animation: pop .16s ease; }
-    @keyframes pop{ 0%{ transform: translate(-50%,-50%) scale(.9);} 100%{ transform: translate(-50%,-50%) scale(1.08);} }
-
-    .fade{ animation: fade .20s ease forwards; }
-    @keyframes fade{ to{ opacity:0; transform: translate(-50%,-50%) scale(.8);} }
-
-    /* Menu overlay */
-    #menu{
-      position: fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index: 9992;
-      padding: 20px;
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-    }
-    .card{
-      width: min(520px, 92vw);
-      border-radius: 24px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.78);
-      box-shadow: 0 20px 70px rgba(0,0,0,.45);
-      padding: 16px;
-    }
-    .card h1{ margin:0; font-size: 20px; letter-spacing:.2px; }
-    .card p{ margin:8px 0 0; color: var(--muted); font-size: 13px; line-height:1.5; }
-    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
-    .btn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 950;
-      cursor:pointer;
-      user-select:none;
-    }
-    .btn.good{ border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.12); }
-    .btn.ghost{ color: var(--muted); }
-    .btn:active{ transform: translateY(1px); }
-
-    /* Toast */
-    #toast{
-      position: fixed;
-      left:50%;
-      bottom: calc(14px + var(--sab));
-      transform: translateX(-50%);
-      background: rgba(2,6,23,.85);
-      border:1px solid rgba(148,163,184,.22);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      max-width: 92vw;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity .18s ease;
-      pointer-events:none;
-    }
-    #toast.show{ opacity: 1; }
-  </style>
+  <!-- ✅ use your dedicated css -->
+  <link rel="stylesheet" href="./css/maskcough.css?v=20260214a"/>
 </head>
 
 <body>
-  <div id="hud">
-    <div class="hudL">
-      <div class="panel">
-        <div class="row"><span class="k">Score</span><span class="v" id="tScore">0</span></div>
-        <div class="row"><span class="k">Streak</span><span class="v" id="tStreak">0</span></div>
-        <div class="row"><span class="k">Miss</span><span class="v" id="tMiss">0</span></div>
+  <!-- flash for damage / fever -->
+  <div id="mc-flash" aria-hidden="true"></div>
+
+  <div id="mc-wrap" data-view="pc">
+    <!-- prompt (optional helper text) -->
+    <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+
+    <!-- stage -->
+    <div class="mc-stage">
+      <div id="layer" class="mc-layer" aria-label="play layer"></div>
+    </div>
+
+    <!-- HUD -->
+    <div class="mc-hud" id="hud">
+      <div class="mc-hud-row">
+        <span class="mc-pill">Score: <b id="tScore">0</b></span>
+        <span class="mc-pill">Streak: <b id="tStreak">0</b></span>
+        <span class="mc-pill">Miss: <b id="tMiss">0</b></span>
+        <span class="mc-pill">Wave: <b id="tWave">calm</b></span>
+        <span class="mc-pill">Int: <b id="tInt">0.00</b></span>
+        <span class="mc-pill">Fever: <b id="tFever">OFF</b></span>
       </div>
 
-      <div class="panel">
-        <div class="row"><span class="k">Mask Shield</span><span class="v" id="tMask">0%</span></div>
-        <div class="bar"><div class="fill" id="bMask"></div></div>
+      <div class="mc-bars">
+        <div>
+          <div class="mc-bar-label"><span>Mask Shield</span><span id="tMask">0%</span></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill" id="bMask" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div class="mc-bar-label"><span>Fever</span><span id="tFever2">—</span></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill mc-bad" id="bFever" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="mc-controls">
+        <button class="mc-btn mc-primary" id="btnStart" type="button">▶ เริ่มเกม</button>
+        <button class="mc-btn mc-accent" id="btnHow" type="button">❓ วิธีเล่น</button>
+        <button class="mc-btn mc-ghost" id="btnBack" type="button">🏰 กลับ HUB</button>
       </div>
     </div>
 
-    <div class="hudR">
-      <div class="panel">
-        <div class="row"><span class="k">Wave</span><span class="v" id="tWave">calm</span></div>
-        <div class="row"><span class="k">Intensity</span><span class="v" id="tInt">0.00</span></div>
-        <div class="row"><span class="k">Fever</span><span class="v" id="tFever">OFF</span></div>
-        <div class="bar"><div class="fill pink" id="bFever"></div></div>
-      </div>
+    <!-- End overlay -->
+    <div class="mc-end" id="end" hidden>
+      <div class="mc-end-card">
+        <div class="mc-end-head">
+          <div class="mc-end-title">สรุปผล</div>
+          <div class="mc-pill">เหตุผลจบ: <b id="endReason">—</b></div>
+        </div>
 
-      <div class="badge" id="tHint">🧼 แตะ “😷” เพิ่มโล่ • แตะ “💦” ปัดละออง</div>
-    </div>
-  </div>
+        <div class="mc-end-grid">
+          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+          <div class="mc-end-item"><div class="k">Streak max</div><div class="v" id="endStreak">0</div></div>
+          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+          <div class="mc-end-item"><div class="k">Shield</div><div class="v" id="endShield">0%</div></div>
+          <div class="mc-end-item"><div class="k">Duration</div><div class="v" id="endTime">0s</div></div>
+          <div class="mc-end-item"><div class="k">View</div><div class="v" id="endView">pc</div></div>
+        </div>
 
-  <div id="stage">
-    <div id="layer" aria-label="play layer"></div>
-  </div>
+        <div class="mc-end-note" id="endNote"></div>
 
-  <div id="menu">
-    <div class="card">
-      <h1>😷 Mask & Cough — Defense Rush</h1>
-      <p>
-        เป้าหมาย: “กันละอองไอ/จาม” ให้ได้มากที่สุด<br/>
-        • 💦 = ละออง (แตะเพื่อปัดออก) • 🤧 = ไอ/จาม (อันตราย) • 😷 = เก็บหน้ากากเพิ่มโล่<br/>
-        • เล่นดี → wave เร็วขึ้น • ทำ Perfect → มีโอกาสเข้า FEVER!
-      </p>
-      <div class="btnrow">
-        <button class="btn good" id="btnStart">▶ เริ่มเกม</button>
-        <button class="btn ghost" id="btnBack">🏰 กลับ HUB</button>
+        <div class="mc-end-actions">
+          <button class="mc-btn mc-ghost" id="btnRetry" type="button">เล่นอีกครั้ง</button>
+          <a class="mc-btn mc-primary" id="aBackHub" href="../hub.html">กลับ HUB</a>
+        </div>
       </div>
     </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <!-- Menu (simple overlay) -->
+    <div id="menu" class="mc-end" style="z-index:70;">
+      <div class="mc-end-card">
+        <div class="mc-end-head">
+          <div class="mc-end-title">😷 Mask & Cough — Defense Rush</div>
+          <div class="mc-pill">time: <b id="tTimeCfg">—</b>s</div>
+        </div>
+        <div class="mc-end-note">
+          เป้าหมาย: กันละอองไอ/จามให้ได้มากที่สุด<br/>
+          • 💦 = ปัดละออง (ดี) • 🤧 = ไอ/จาม (อันตราย) • 😷 = เพิ่มโล่<br/>
+          • เล่นดี → wave เร็วขึ้น • Perfect → มีโอกาสเข้า FEVER
+        </div>
+        <div class="mc-end-actions">
+          <button class="mc-btn mc-primary" id="btnStart2" type="button">▶ เริ่มเกม</button>
+          <button class="mc-btn mc-ghost" id="btnBack2" type="button">🏰 กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <div id="toast"></div>
+  <!-- ✅ Universal VR UI: ENTER VR/EXIT/RECENTER + crosshair + hha:shoot -->
+  <script src="../vr/vr-ui.js?v=20260214a"></script>
 
   <!-- FUN BOOST (global feel) -->
-  <script src="../vr/fun-boost.js"></script>
-  <script src="../vr/fun-boost.fx.js"></script>
+  <script src="../vr/fun-boost.js?v=20260214a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260214a"></script>
 
   <!-- ENGINE -->
-  <script src="./maskcough.safe.js"></script>
+  <script src="./maskcough.safe.js?v=20260214a"></script>
+
+  <!-- Boot: auto view + hub passthrough + basic wiring -->
+  <script>
+  (function(){
+    'use strict';
+
+    const $ = (s)=>document.querySelector(s);
+
+    const U = new URL(location.href);
+    const QS = U.searchParams;
+
+    function getViewAuto(){
+      const v = (QS.get('view')||'').toLowerCase().trim();
+      if(v) return v;
+      const ua = navigator.userAgent || '';
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      return isMobile ? 'cvr' : 'pc';
+    }
+
+    const view = getViewAuto();
+    const wrap = $('#mc-wrap');
+    if(wrap) wrap.dataset.view = view;
+
+    // show time config on menu
+    const t = Math.max(20, parseInt(QS.get('time')||'60',10));
+    const tTimeCfg = $('#tTimeCfg');
+    if(tTimeCfg) tTimeCfg.textContent = String(t);
+
+    // back hub link passthrough
+    function setBackHub(){
+      const hub = (QS.get('hub')||'../hub.html').trim();
+      const a = $('#aBackHub');
+      if(!a) return;
+      try{
+        const u = new URL(hub, location.href);
+        // pass through minimal ids
+        const pid = (QS.get('pid')||'').trim();
+        const studyId = (QS.get('studyId')||'').trim();
+        const phase = (QS.get('phase')||'').trim();
+        const conditionGroup = (QS.get('conditionGroup')||'').trim();
+        if(pid) u.searchParams.set('pid', pid);
+        if(studyId) u.searchParams.set('studyId', studyId);
+        if(phase) u.searchParams.set('phase', phase);
+        if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
+        a.href = u.toString();
+      }catch(_){
+        a.href = hub || '../hub.html';
+      }
+    }
+    setBackHub();
+
+    // wire menu buttons to engine start/back (engine also binds, but we keep UX consistent)
+    function back(){
+      const hub = (QS.get('hub')||'').trim();
+      if(hub) location.href = hub;
+      else history.back();
+    }
+
+    const btnBack = $('#btnBack'), btnBack2 = $('#btnBack2');
+    if(btnBack) btnBack.addEventListener('click', back, {passive:true});
+    if(btnBack2) btnBack2.addEventListener('click', back, {passive:true});
+
+    // help toast
+    const btnHow = $('#btnHow');
+    if(btnHow){
+      btnHow.addEventListener('click', ()=>{
+        const toast = $('#toast');
+        if(!toast) return;
+        toast.textContent = (view==='cvr')
+          ? 'โหมด cVR: เล็งกากบาทกลางจอ แล้ว “ยิง” ใส่ 💦 / 😷 / 🤧'
+          : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • แตะ 🤧 บล็อกไอ/จาม (ใกล้หมดเวลา = Perfect)';
+        toast.classList.add('show');
+        setTimeout(()=> toast.classList.remove('show'), 1500);
+      }, {passive:true});
+    }
+
+    // start buttons call engine start if exposed (optional), otherwise click original
+    function start(){
+      // engine has its own handlers; just hide menu if needed
+      const menu = $('#menu');
+      if(menu) menu.style.display = 'none';
+      // If engine exposes start(), call it
+      if(window.MASKCOUGH && typeof window.MASKCOUGH.start==='function'){
+        window.MASKCOUGH.start();
+      }else{
+        // fallback: click internal start button (engine binds to #btnStart)
+        const b = $('#btnStart');
+        if(b) b.click();
+      }
+    }
+    const btnStart = $('#btnStart'), btnStart2 = $('#btnStart2');
+    if(btnStart) btnStart.addEventListener('click', ()=> { const m=$('#menu'); if(m) m.style.display='none'; }, {passive:true});
+    if(btnStart2) btnStart2.addEventListener('click', start, {passive:true});
+
+    // retry from end overlay
+    const btnRetry = $('#btnRetry');
+    if(btnRetry) btnRetry.addEventListener('click', ()=>{
+      const end = $('#end'); if(end) end.hidden = true;
+      const menu = $('#menu'); if(menu) menu.style.display = 'none';
+      start();
+    }, {passive:true});
+
+  })();
+  </script>
 </body>
 </html>
