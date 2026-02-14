@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — MaskCough Launcher</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <style>
+    :root{
+      --bg:#020617; --panel: rgba(2,6,23,.72); --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --cyan:#22d3ee;
+      --sat: env(safe-area-inset-top,0px); --sab: env(safe-area-inset-bottom,0px);
+      --sal: env(safe-area-inset-left,0px); --sar: env(safe-area-inset-right,0px);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; color:var(--text); background:linear-gradient(180deg,#020617,#0b1226);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      padding:calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
+    }
+    .card{
+      max-width:860px; margin:0 auto;
+      border:1px solid var(--stroke); border-radius:22px;
+      background:rgba(2,6,23,.72); backdrop-filter: blur(10px);
+      padding:14px;
+    }
+    h1{margin:0;font-size:20px;font-weight:1000}
+    p{margin:8px 0 0;color:var(--muted);line-height:1.6}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    @media (max-width:820px){ .grid{grid-template-columns:1fr} }
+    .btn{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.45);
+      color:var(--text);
+      border-radius:18px;
+      padding:12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+      text-align:left;
+    }
+    .btn b{display:block;font-size:14px}
+    .btn small{display:block;color:var(--muted);margin-top:4px}
+    .btn.good{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.16)}
+    .btn.cyan{border-color:rgba(34,211,238,.35); background:rgba(34,211,238,.14)}
+    .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.35);font-size:12px;font-weight:900}
+    .pill span{color:var(--muted);font-weight:900}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}
+    a.link{color:inherit;text-decoration:none}
+    .ghost{background:transparent;color:rgba(148,163,184,.95)}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>😷 Mask & Cough — Launcher</h1>
+    <p>เลือกโหมดเล่นให้เหมาะกับอุปกรณ์ (มี auto-detect ให้) — ใช้ในหมวด <b>Hygiene</b></p>
+
+    <div class="row">
+      <div class="pill"><span>Auto view</span><b id="autoView">-</b></div>
+      <div class="pill"><span>seed</span><b id="seedV">-</b></div>
+      <div class="pill"><span>mode</span><b id="modeV">-</b></div>
+      <div class="pill"><span>diff</span><b id="diffV">-</b></div>
+      <div class="pill"><span>time</span><b id="timeV">-</b></div>
+    </div>
+
+    <div class="grid">
+      <button class="btn good" id="goPC">
+        <b>🖥️ เล่นแบบ PC</b>
+        <small>คลิก/แตะที่เป้าโดยตรง (แม่น+เร็ว)</small>
+      </button>
+
+      <button class="btn cyan" id="goMobile">
+        <b>📱 เล่นแบบ Mobile</b>
+        <small>แตะที่เป้าโดยตรง (เหมาะทดสอบบนมือถือ)</small>
+      </button>
+
+      <button class="btn" id="goCVR">
+        <b>🕶️ เล่นแบบ cVR</b>
+        <small>ยิงด้วย crosshair (hha:shoot) — เป้าใน layer จะไม่รับ tap ตรง ๆ</small>
+      </button>
+    </div>
+
+    <div class="actions">
+      <a class="btn ghost link" id="backHub" href="../hub.html">🏰 กลับ HUB</a>
+      <button class="btn good" id="goAuto">⚡ เข้าเล่นแบบ Auto</button>
+    </div>
+  </div>
+
+  <script>
+    function getQS(){ try{return new URL(location.href).searchParams;}catch(e){return new URLSearchParams();} }
+    function safeNum(x,d){ const n=Number(x); return Number.isFinite(n)?n:d; }
+    function getAutoView(){
+      const qs=getQS(); const v=(qs.get('view')||'').toLowerCase(); if(v) return v;
+      const ua=navigator.userAgent||'';
+      const isMobile=/Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      return isMobile ? 'cvr' : 'pc';
+    }
+    function buildUrl(view){
+      const qs=getQS();
+      const u=new URL('./maskcough.html', location.href);
+      const keys=['hub','pid','seed','diff','time','mode','run','log','studyId','phase','conditionGroup'];
+      keys.forEach(k=>{ const v=qs.get(k); if(v) u.searchParams.set(k,v); });
+      u.searchParams.set('view', view);
+      // normalize: prefer mode param
+      if(!u.searchParams.get('mode') && u.searchParams.get('run')) u.searchParams.set('mode', u.searchParams.get('run'));
+      return u.toString();
+    }
+    (function init(){
+      const qs=getQS();
+      const auto=getAutoView();
+      const seed = safeNum(qs.get('seed'), Date.now()) >>> 0;
+      const mode = (qs.get('mode')||qs.get('run')||'play');
+      const diff = (qs.get('diff')||'normal');
+      const time = (qs.get('time')||'60');
+
+      document.getElementById('autoView').textContent = auto;
+      document.getElementById('seedV').textContent = String(seed);
+      document.getElementById('modeV').textContent = mode;
+      document.getElementById('diffV').textContent = diff;
+      document.getElementById('timeV').textContent = time + 's';
+
+      const back = document.getElementById('backHub');
+      const hub = qs.get('hub') || '../hub.html';
+      try{
+        const u = new URL(hub, location.href);
+        if(qs.get('pid')) u.searchParams.set('pid', qs.get('pid'));
+        back.href = u.toString();
+      }catch(e){
+        back.href = hub;
+      }
+
+      document.getElementById('goPC').onclick = ()=> location.href = buildUrl('pc');
+      document.getElementById('goMobile').onclick = ()=> location.href = buildUrl('mobile');
+      document.getElementById('goCVR').onclick = ()=> location.href = buildUrl('cvr');
+      document.getElementById('goAuto').onclick = ()=> location.href = buildUrl(auto);
+    })();
+  </script>
+</body>
+</html>
