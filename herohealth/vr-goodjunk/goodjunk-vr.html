@@ -7,16 +7,16 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ FIX: filename must match repo -->
+  <!-- ✅ repo filename -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 </head>
-<body class="view-pc">
 
-  <!-- ===== LAYERS (ต้องมี id ให้ goodjunk.safe.js หาเจอ) ===== -->
+<body class="view-pc">
+  <!-- ===== LAYERS (goodjunk.safe.js ต้องหาเจอ) ===== -->
   <div id="gj-layer" class="gj-layer"></div>
   <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
 
-  <!-- ===== HUD (ย่อ/ขยายได้ตามของเดิม แต่ id ต้องตรง) ===== -->
+  <!-- ===== HUD (id ต้องตรงกับ goodjunk.safe.js) ===== -->
   <div id="hud">
     <div>Score: <span id="hud-score">0</span></div>
     <div>Time: <span id="hud-time">0</span></div>
@@ -51,10 +51,44 @@
     <div id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- ✅ Universal VR UI (ถ้าใช้ของกลาง) -->
+  <!-- ✅ set view class + sanitize hub BEFORE scripts -->
+  <script>
+  (function(){
+    function qs(k,d){
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; }
+    }
+
+    // view switch (pc/mobile/cvr)
+    var view = String(qs('view','pc')).toLowerCase();
+    if(view === 'cardboard') view = 'cvr';
+    if(view !== 'pc' && view !== 'mobile' && view !== 'cvr') view = 'pc';
+
+    document.body.classList.remove('view-pc','view-mobile','view-cvr');
+    document.body.classList.add('view-' + view);
+
+    // toggle right layer for cVR
+    var layerR = document.getElementById('gj-layer-r');
+    if(layerR){
+      var isCVR = (view === 'cvr');
+      layerR.setAttribute('aria-hidden', isCVR ? 'false' : 'true');
+    }
+
+    // hub sanitize (กัน hub ซ้อน/ว่าง)
+    try{
+      var u = new URL(location.href);
+      var hub = u.searchParams.get('hub');
+      if(!hub || hub === 'null' || hub === 'undefined'){
+        u.searchParams.set('hub','../hub.html');
+        history.replaceState(null,'',u.toString());
+      }
+    }catch(_){}
+  })();
+  </script>
+
+  <!-- ✅ Universal VR UI -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ FIX: filename must match repo -->
+  <!-- ✅ repo filename -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
