@@ -1,49 +1,27 @@
 // === /herohealth/vr-goodjunk/goodjunk.boot.js ===
-// GoodJunkVR BOOT — v20260210
-// - sets view class (mobile / cvr)
-// - passes layer refs into safe engine
-
 'use strict';
 
-import { boot as bootSafe } from './goodjunk.safe.js';
+import { boot } from './goodjunk.safe.js';
 
-const DOC = document;
-const qs = (k, d = null) => { try { return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
-
-function applyViewClass(view) {
-  DOC.body.classList.remove('view-mobile', 'view-cvr');
-  DOC.body.classList.add(view === 'cvr' ? 'view-cvr' : 'view-mobile');
+function getQS() {
+  try { return new URL(location.href).searchParams; }
+  catch { return new URLSearchParams(); }
 }
 
-function ensureRightLayerIfCVR(view) {
-  const rWrap = DOC.getElementById('gj-right-wrap');
-  if (!rWrap) return;
-  rWrap.style.display = (view === 'cvr') ? 'block' : 'none';
-}
+const q = getQS();
 
-function main() {
-  const view = String(qs('view', 'mobile')).toLowerCase(); // mobile | cvr
-  applyViewClass(view);
-  ensureRightLayerIfCVR(view);
+const opts = {
+  view: (q.get('view') || 'mobile').toLowerCase(),
+  run:  (q.get('run')  || 'play').toLowerCase(),
+  diff: (q.get('diff') || 'normal').toLowerCase(),
+  time: Number(q.get('time') || 80) || 80,
+  seed: q.get('seed') || String(Date.now()),
+  hub:  q.get('hub')  || '../hub.html',
+  pid:  q.get('pid')  || ''
+};
 
-  const layerL = DOC.getElementById('gj-layer');
-  const layerR = DOC.getElementById('gj-layer-r');
+// bind layers (optional but nice)
+opts.layerL = document.getElementById('gj-layer');
+opts.layerR = document.getElementById('gj-layer-r');
 
-  bootSafe({
-    view,
-    run: String(qs('run', 'play')).toLowerCase(),
-    diff: String(qs('diff', 'normal')).toLowerCase(),
-    time: Number(qs('time', '80')) || 80,
-    seed: qs('seed', Date.now()),
-    hub: qs('hub', '../hub.html') || '../hub.html',
-    pid: qs('pid', '') || '',
-    layerL,
-    layerR
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', main, { once: true });
-} else {
-  main();
-}
+boot(opts);
