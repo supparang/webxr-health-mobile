@@ -1,37 +1,282 @@
+<!-- === /herohealth/groups-vr.html ===
+GroupsVR — LAUNCHER (PC/Mobile/Cardboard) — PATCH D4–D6 (PRODUCTION)
+✅ D4: Launcher เลือกเข้า PC/Mobile/cVR ชัดเจน + จำค่าล่าสุด (localStorage)
+✅ D5: view-cvr strict: crosshair shooting + tuned lockPx + no accidental tap bias
+✅ D6: Fullscreen / Orientation helpers (mobile) + กัน HUD ทับ ENTER VR/RECENTER (vr-ui)
+✅ Pass-through all query params + adds view/run/diff/time/seed/autostart=1
+Routes to: /herohealth/vr-groups/groups-vr.html
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — GroupsVR Launcher</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
-    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
-    .card{width:min(820px,100%);border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);border-radius:18px;padding:18px}
-    .muted{color:#94a3b8;font-size:13px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    button{border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.62);
-      color:#e5e7eb;padding:10px 12px;border-radius:14px;cursor:pointer}
-    button:hover{background:rgba(2,6,23,.78)}
-    .primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.12)}
+    :root{
+      --bg:#040610;
+      --panel: rgba(4,6,16,.78);
+      --panel2: rgba(10,16,36,.55);
+      --stroke: rgba(148,163,184,.18);
+
+      --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
+
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; overflow:hidden; color:var(--text);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0b1026, var(--bg));
+    }
+    #app{ position:relative; width:100%; height:100%; overflow:auto; padding: calc(14px + var(--sat)) 14px calc(16px + var(--sab)); }
+
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .title h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .title p{ margin:4px 0 0; color:var(--muted); font-size:12.5px; line-height:1.35; }
+
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+    }
+    .pill b{ color:var(--text); font-weight:1000; }
+    .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+      align-items:start;
+    }
+    @media (max-width: 920px){ .grid{ grid-template-columns: 1fr; } }
+
+    .card{
+      border-radius: var(--radius);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(2,6,23,.76), rgba(2,6,23,.55));
+      box-shadow: 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .cardHd{
+      padding: 12px 12px 10px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .cardHd b{ font-weight:1000; }
+    .cardBd{ padding:12px; }
+
+    .btnRow{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    @media (max-width: 560px){ .btnRow{ grid-template-columns: 1fr; } }
+
+    button{
+      cursor:pointer;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding: 12px 12px;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+      text-align:left;
+      line-height:1.25;
+    }
+    button:hover{ transform: translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
+    button:active{ transform: translateY(0px) scale(.99); }
+    button.primary{
+      background: rgba(34,197,94,.14);
+      border-color: rgba(34,197,94,.32);
+      font-weight:1000;
+    }
+    .k{ display:block; color:var(--muted); font-size:12px; margin-top:4px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+
+    .field{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 10px;
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      background: rgba(2,6,23,.45);
+      margin-bottom:10px;
+    }
+    .field label{ color:var(--muted); font-size:12.5px; }
+    select,input{
+      width: 180px;
+      border-radius: 12px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding: 8px 10px;
+      outline:none;
+      font-weight:900;
+    }
+    input.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .note{ color:var(--muted); font-size:12.5px; line-height:1.45; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .tinyBtns{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:10px; }
+    @media (max-width: 560px){ .tinyBtns{ grid-template-columns: 1fr; } }
+    .ghost{ background: rgba(148,163,184,.08); }
+
+    /* ✅ D6: Mobile helpers area */
+    .helperRow{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
+    @media (max-width: 560px){ .helperRow{ grid-template-columns: 1fr; } }
+
+    /* badge for chosen view */
+    .chosen{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(34,197,94,.26);
+      background: rgba(34,197,94,.12);
+      font-size:12px;
+      color: rgba(229,231,235,.92);
+    }
   </style>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="card">
-    <div style="font-weight:1000;font-size:16px">🧩 GroupsVR</div>
-    <div class="muted" id="status">กำลังเตรียมเข้าเกม…</div>
-    <div class="mono" id="dbg" style="margin-top:10px;opacity:.9"></div>
-    <div class="row">
-      <button class="primary" id="btn-go">ไปต่อ</button>
-      <button id="btn-hub">กลับ HUB</button>
-      <button id="btn-force-warmup">บังคับ Warmup (ทดสอบ)</button>
+<div id="app">
+  <div class="top">
+    <div class="title">
+      <h1>🥗 GroupsVR — Launcher</h1>
+      <p>เลือกเข้าเล่นให้เหมาะกับอุปกรณ์: <b>PC</b> / <b>Mobile</b> / <b>Cardboard (cVR)</b><br/>
+      ระบบจะจำค่าล่าสุด และส่งพารามิเตอร์ไปหน้า run อัตโนมัติ</p>
     </div>
+    <div class="pill"><span class="dot"></span> <b id="deviceHint">detecting…</b></div>
+  </div>
+
+  <div class="grid">
+
+    <!-- LEFT: choose mode -->
+    <div class="card">
+      <div class="cardHd">
+        <div><b>เลือกทางเข้าเล่น</b> <span class="k">ชัด ๆ 3 ปุ่ม</span></div>
+        <div class="chosen">ล่าสุด: <b id="lastChoice">—</b></div>
+      </div>
+      <div class="cardBd">
+        <div class="btnRow">
+          <button id="btnPC">
+            💻 เข้าแบบ PC
+            <span class="k">คลิกเมาส์ / จอใหญ่ / เหมาะทดสอบ</span>
+          </button>
+          <button id="btnMobile">
+            📱 เข้าแบบ Mobile
+            <span class="k">แตะเป้า / ปรับ HUD-safe แล้ว</span>
+          </button>
+          <button id="btnCVR">
+            🥽 เข้าแบบ Cardboard (cVR)
+            <span class="k">ยิงจาก crosshair + tap-to-shoot (strict)</span>
+          </button>
+        </div>
+
+        <div style="height:12px;"></div>
+        <div class="note">
+          <b>คีย์สำคัญของ cVR</b>: view=cvr จะใช้ “ยิงจาก crosshair” เป็นหลักและตั้งค่า lockPx ให้อภัยมากขึ้น
+        </div>
+
+        <div style="height:12px;"></div>
+        <div class="tinyBtns">
+          <button class="ghost" id="btnBackHub">🏠 กลับ HUB</button>
+          <button class="ghost" id="btnCopyLink">🔗 คัดลอกลิงก์ Launcher</button>
+          <button class="ghost" id="btnReset">🧹 ล้างค่าที่จำไว้</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: settings -->
+    <div class="card">
+      <div class="cardHd">
+        <div><b>ตั้งค่า (จำค่าไว้)</b> <span class="k">ปรับก่อนเข้าเล่น</span></div>
+        <div class="pill"><b id="routePreview">—</b></div>
+      </div>
+      <div class="cardBd">
+
+        <div class="field">
+          <label>Run mode</label>
+          <select id="runMode">
+            <option value="play">play</option>
+            <option value="practice">practice</option>
+            <option value="research">research</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Difficulty</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Time (sec)</label>
+          <select id="time">
+            <option value="60">60</option>
+            <option value="80">80</option>
+            <option value="90">90</option>
+            <option value="120">120</option>
+            <option value="150">150</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Seed</label>
+          <input id="seed" class="mono" placeholder="auto" />
+        </div>
+
+        <div class="field">
+          <label>AI (play only)</label>
+          <select id="ai">
+            <option value="0">off</option>
+            <option value="1">on (?ai=1)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Log endpoint</label>
+          <input id="log" class="mono" placeholder="(optional) ?log=..." />
+        </div>
+
+        <div class="note">
+          ✅ <b>Research</b> จะปิด AI และ (ถ้าคุณผูก D7) buff จะไม่โชว์/ไม่ส่งผล<br/>
+          ✅ ค่า seed ว่าง = ใช้เวลาปัจจุบัน (ยัง deterministic ได้ถ้าใส่เอง)
+        </div>
+
+        <div style="height:10px;"></div>
+
+        <!-- D6 helpers -->
+        <div class="helperRow">
+          <button id="btnFullscreen" class="primary">⛶ Fullscreen</button>
+          <button id="btnOrientation">🔄 ขอหมุนจอ</button>
+        </div>
+
+        <div style="height:10px;"></div>
+        <div class="note">
+          * มือถือบางรุ่นต้องกดปุ่มขอ permission ก่อนหมุนจอ / fullscreen
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -39,203 +284,228 @@
 (() => {
   'use strict';
 
-  // --------------------------
-  // helpers: QS + url
-  // --------------------------
-  function getQS(){
+  const LS_KEY = 'HHA_GROUPS_LAUNCHER_PREFS';
+
+  // -------------- utilities --------------
+  function qsAll(){
     try{ return new URL(location.href).searchParams; }
     catch{ return new URLSearchParams(); }
   }
-  const QS = getQS();
+  const QS = qsAll();
   const q = (k, def='') => (QS.get(k) ?? def);
 
-  function buildUrl(base, add){
-    if(!base) return '';
-    const add2 = add || {};
+  function isTouch(){
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  }
+  function isMobileUA(){
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+  }
+  function clamp(n,a,b){ n=Number(n)||0; return Math.max(a, Math.min(b,n)); }
+
+  function loadPrefs(){
     try{
-      const u = new URL(base, location.href);
-      Object.entries(add2).forEach(([k,v])=>{
-        if(v === undefined || v === null || v === '') return;
-        u.searchParams.set(k, String(v));
-      });
-      return u.toString();
-    }catch(_){
-      const join = String(base).includes('?') ? '&' : '?';
-      const qs2 = Object.entries(add2)
-        .filter(([,v])=>!(v===undefined||v===null||v===''))
-        .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(String(v))).join('&');
-      return qs2 ? (String(base) + join + qs2) : String(base);
-    }
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(_){ return null; }
+  }
+  function savePrefs(obj){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(obj||{})); }catch(_){}
+  }
+  function clearPrefs(){
+    try{ localStorage.removeItem(LS_KEY); }catch(_){}
   }
 
-  // passthrough (ห้าม override view ถ้ามี)
-  function getPassthrough(){
-    const deny = new Set([
-      'hub','next','phase','dur','cdur','autonext','preset','wmode','games',
-      'gate','gateOnce','gateKey','gateUrl','run','warmup'
-    ]);
-    const out = {};
-    QS.forEach((v,k)=>{ if(!deny.has(k)) out[k]=v; });
-    return out;
-  }
-
-  // --------------------------
-  // config
-  // --------------------------
-  const HUB = q('hub',''); // แนะนำให้ส่งมาเสมอ
-  const RUN = q('run','./vr-groups/groups-vr.html'); // ตัว run ของเกม
-  const WARMUP_URL = q('gateUrl','https://supparang.github.io/herohealth/warmup-gate.html');
-
-  // warmup policy
-  const GATE_ONCE = String(q('gateOnce','1')||'1') === '1';  // default ON
-  const FORCE_WARMUP = String(q('warmup','0')||'0') === '1'; // manual test
-  const PRESET = (q('preset','hype')||'hype').toLowerCase(); // fast|hype
-  const DUR = Math.max(10, Math.min(60, Number(q('dur','20')||20)));
-  const CDUR = Math.max(10, Math.min(60, Number(q('cdur','20')||20)));
-
-  // --------------------------
-  // pid/device & once/day key (ต้องตรงกับ warmup-gate.html patched)
-  // --------------------------
-  function getOrMakeDeviceId(){
-    try{
-      let id = localStorage.getItem('HHA_DEVICE_ID') || '';
-      if(!id){
-        id = 'dev_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-        localStorage.setItem('HHA_DEVICE_ID', id);
-      }
-      return id;
-    }catch(_){ return 'dev_fallback'; }
-  }
-
-  function getPidLike(){
-    // 1) pid จาก query (ถ้ามี)
-    const qp = (q('pid','')||'').trim();
-    if(qp) return qp;
-
-    // 2) pid จาก badges (ถ้ามี)
-    try{
-      const B = window.HHA_Badges;
-      const pid = (B && B.getPid) ? String(B.getPid()||'').trim() : '';
-      if(pid) return pid;
-    }catch(_){}
-
-    // 3) device id
-    return getOrMakeDeviceId();
-  }
-
-  function dayKey(){
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  function warmupDoneTodayKey(){
-    const pid = getPidLike();
-    return `HHA_WARMUP_DONE_groups_${pid}_${dayKey()}`;
-  }
-
-  function isWarmupDoneToday(){
-    if(!GATE_ONCE) return false;
-    try{ return localStorage.getItem(warmupDoneTodayKey()) === '1'; }
-    catch(_){ return false; }
-  }
-
-  // --------------------------
-  // routing
-  // --------------------------
+  // -------------- DOM --------------
   const $ = (s)=>document.querySelector(s);
-  const statusEl = $('#status');
-  const dbgEl = $('#dbg');
+  const deviceHint = $('#deviceHint');
+  const lastChoice = $('#lastChoice');
+  const routePreview = $('#routePreview');
 
-  function goHub(){
-    if(HUB){ location.href = HUB; return; }
-    history.length ? history.back() : (location.href = './');
-  }
+  const runMode = $('#runMode');
+  const diff = $('#diff');
+  const time = $('#time');
+  const seed = $('#seed');
+  const ai = $('#ai');
+  const log = $('#log');
 
-  function goRun(){
-    const url = buildUrl(RUN, {
-      ...getPassthrough(),
-      hub: HUB || undefined,
-      gate: '0',
-      cdur: String(CDUR)
-    });
-    location.href = url;
-  }
+  const btnPC = $('#btnPC');
+  const btnMobile = $('#btnMobile');
+  const btnCVR = $('#btnCVR');
 
-  function goWarmup(){
-    // next = run url (encode ผ่าน buildUrl อีกชั้น)
-    const nextRun = buildUrl(RUN, {
-      ...getPassthrough(),
-      hub: HUB || undefined,
-      gate: '0',
-      cdur: String(CDUR)
-    });
-
-    const gate = buildUrl(WARMUP_URL, {
-      phase: 'warmup',
-      dur: String(DUR),
-      hub: HUB || undefined,
-      next: nextRun,
-      autonext: '1',
-      preset: PRESET
-    });
-
-    // ใช้ replace กันย้อนกลับวน
-    location.replace(gate);
-  }
-
-  function decide(){
-    const done = isWarmupDoneToday();
-    const pid = getPidLike();
-    const k = warmupDoneTodayKey();
-
-    dbgEl.textContent =
-      `pid/device=${pid}\n` +
-      `once/day=${GATE_ONCE?1:0}  doneToday=${done?1:0}\n` +
-      `key=${k}\n` +
-      `preset=${PRESET} dur=${DUR} cdur=${CDUR}\n` +
-      `warmupUrl=${WARMUP_URL}\n` +
-      `run=${RUN}\n` +
-      `hub=${HUB||'(none)'}`;
-
-    // กดทดสอบบังคับ warmup
-    if(FORCE_WARMUP){
-      statusEl.textContent = 'โหมดทดสอบ: บังคับ Warmup…';
-      goWarmup();
-      return;
+  // -------------- base params / pass-through --------------
+  const HUB = q('hub','') || '';
+  const basePath = './vr-groups/groups-vr.html'; // ✅ run page
+  // keep all existing qs (studyId, phase, conditionGroup, etc.) then override
+  function buildBaseUrl(){
+    const u = new URL(basePath, location.href);
+    // pass-through everything from current launcher URL
+    for (const [k,v] of QS.entries()){
+      u.searchParams.set(k, v);
     }
-
-    // ถ้าทำแล้ววันนี้ -> เข้าเกมเลย
-    if(done){
-      statusEl.textContent = 'วันนี้วอร์มอัปแล้ว ✅ ข้ามเข้าเกม Groups…';
-      goRun();
-      return;
-    }
-
-    // ยังไม่ทำ -> เข้าวอร์มอัป (ถ้าบังคับวันละครั้ง)
-    if(GATE_ONCE){
-      statusEl.textContent = 'ยังไม่ได้วอร์มอัปวันนี้ → เข้า Warmup Gate…';
-      goWarmup();
-      return;
-    }
-
-    // ไม่บังคับ -> เข้าเกม
-    statusEl.textContent = 'ไม่บังคับ Warmup → เข้าเกม Groups…';
-    goRun();
+    // ensure hub passthrough if exists
+    if(HUB) u.searchParams.set('hub', HUB);
+    return u;
   }
 
-  // UI buttons
-  $('#btn-go').addEventListener('click', decide);
-  $('#btn-hub').addEventListener('click', goHub);
-  $('#btn-force-warmup').addEventListener('click', ()=>{
-    const u = new URL(location.href);
-    u.searchParams.set('warmup','1');
-    location.href = u.toString();
+  // -------------- device hint --------------
+  const hint = (isMobileUA() || isTouch()) ? 'MOBILE detected' : 'PC detected';
+  deviceHint.textContent = hint;
+
+  // -------------- init prefs from QS or LS --------------
+  const saved = loadPrefs() || {};
+  const init = {
+    view: String(q('view', saved.view || ((isMobileUA()||isTouch()) ? 'mobile' : 'pc'))).toLowerCase(),
+    run:  String(q('run',  saved.run  || 'play')).toLowerCase(),
+    diff: String(q('diff', saved.diff || 'normal')).toLowerCase(),
+    time: String(q('time', saved.time || '90')),
+    seed: String(q('seed', saved.seed || '')),
+    ai:   String(q('ai',   saved.ai   || '0')),
+    log:  String(q('log',  saved.log  || ''))
+  };
+
+  // sanitize
+  if(!['pc','mobile','cvr'].includes(init.view)) init.view = 'mobile';
+  if(!['play','practice','research'].includes(init.run)) init.run = 'play';
+  if(!['easy','normal','hard'].includes(init.diff)) init.diff = 'normal';
+  const t = clamp(init.time, 15, 180);
+  init.time = String(t);
+
+  // apply
+  runMode.value = init.run;
+  diff.value = init.diff;
+  time.value = init.time;
+  seed.value = init.seed;
+  ai.value = init.ai;
+  log.value = init.log;
+
+  lastChoice.textContent = init.view;
+
+  function currentPrefs(){
+    return {
+      view: init.view,
+      run: runMode.value,
+      diff: diff.value,
+      time: time.value,
+      seed: seed.value.trim(),
+      ai: ai.value,
+      log: log.value.trim()
+    };
+  }
+
+  function updatePreview(){
+    const p = currentPrefs();
+    routePreview.textContent = `view=${p.view} · run=${p.run} · diff=${p.diff} · time=${p.time}`;
+  }
+  updatePreview();
+
+  [runMode,diff,time,seed,ai,log].forEach(el=>{
+    el.addEventListener('change', ()=>{
+      updatePreview();
+      // persist on change
+      const p = currentPrefs();
+      savePrefs(p);
+    });
+    el.addEventListener('input', ()=>{
+      updatePreview();
+      const p = currentPrefs();
+      savePrefs(p);
+    });
   });
 
-  // auto
-  decide();
+  function go(view){
+    const p = currentPrefs();
+    p.view = view;
+
+    // ✅ D5: strict view-cvr policy
+    // - autostart=1 to start immediately on run page
+    // - lockPx tuned on run page by view (already in D1 file)
+    // - For research: force ai=0
+    if(p.run === 'research'){
+      p.ai = '0';
+    }
+
+    // seed default if empty
+    if(!p.seed) p.seed = String(Date.now());
+
+    // save last choice
+    savePrefs(p);
+    lastChoice.textContent = p.view;
+
+    const u = buildBaseUrl();
+    u.searchParams.set('view', p.view);
+    u.searchParams.set('run', p.run);
+    u.searchParams.set('diff', p.diff);
+    u.searchParams.set('time', p.time);
+    u.searchParams.set('seed', p.seed);
+    u.searchParams.set('ai', p.ai);
+
+    if(p.log) u.searchParams.set('log', p.log);
+    else u.searchParams.delete('log');
+
+    u.searchParams.set('autostart','1');
+
+    // IMPORTANT: remove launcher-only params if any
+    // (none currently)
+
+    location.href = u.toString();
+  }
+
+  btnPC.addEventListener('click', ()=>go('pc'));
+  btnMobile.addEventListener('click', ()=>go('mobile'));
+  btnCVR.addEventListener('click', ()=>go('cvr'));
+
+  // -------------- hub/back/copy/reset --------------
+  $('#btnBackHub').addEventListener('click', ()=>{
+    if(HUB) location.href = HUB;
+    else location.href = './hub.html';
+  });
+
+  $('#btnCopyLink').addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(location.href);
+      alert('คัดลอกลิงก์ Launcher แล้ว ✅');
+    }catch(_){
+      prompt('คัดลอกลิงก์:', location.href);
+    }
+  });
+
+  $('#btnReset').addEventListener('click', ()=>{
+    clearPrefs();
+    alert('ล้างค่าที่จำไว้แล้ว ✅');
+    location.reload();
+  });
+
+  // -------------- D6: Fullscreen + Orientation helpers --------------
+  async function requestFullscreen(){
+    try{
+      const el = document.documentElement;
+      if(el.requestFullscreen) await el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }catch(_){
+      alert('Fullscreen ไม่สำเร็จ (บางเครื่องบล็อก)');
+    }
+  }
+
+  async function requestOrientation(){
+    try{
+      // iOS: must be a user gesture (this handler is), but may not support lock
+      if(screen.orientation && screen.orientation.lock){
+        await screen.orientation.lock('landscape');
+        alert('ล็อกแนวนอนแล้ว ✅');
+        return;
+      }
+      alert('เครื่องนี้ไม่รองรับ orientation.lock (แต่คุณหมุนจอเองได้)');
+    }catch(_){
+      alert('ขอหมุนจอไม่สำเร็จ (ต้องให้ permission หรือไม่รองรับ)');
+    }
+  }
+
+  $('#btnFullscreen').addEventListener('click', requestFullscreen);
+  $('#btnOrientation').addEventListener('click', requestOrientation);
 
 })();
 </script>
+
 </body>
 </html>
