@@ -3,14 +3,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 403 won't break hub
 ✅ Shows offline banner + retry
-✅ Links to ROOT launchers in /herohealth (root):
-   - ./goodjunk-vr-launcher.html
-   - ./groups-vr.html
-   - ./hydration-vr.html
-   - ./plate-vr.html
-   - ./hygiene-vr.html (now labeled "Handwash")
-   - ./maskcough-vr.html (root launcher)
-   - ./fitness-planner/planner.html (optional)
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid
 -->
 <!doctype html>
@@ -102,6 +94,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
       <div>
         <h4 id="apiTitle">กำลังตรวจสอบระบบ…</h4>
         <p id="apiMsg">ถ้า API ล่ม/403 หน้า HUB จะยังใช้งานได้ปกติ (เข้าเกมได้ทุกเกม)</p>
+        <p id="apiDetail" style="display:none;margin:6px 0 0 0;font-size:11px;color:rgba(229,231,235,.58);font-weight:700;white-space:pre-wrap;"></p>
       </div>
       <div class="actions">
         <a class="btn warn" href="#" id="btnRetry">Retry</a>
@@ -110,7 +103,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
     </div>
 
     <div class="grid">
-
       <div class="card">
         <h3>🥗 Nutrition Zone</h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
@@ -127,9 +119,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
         <h3>🧼 Hygiene Zone</h3>
         <p><b>Handwash</b> • Brush • Mask & Cough</p>
         <div class="btnrow">
-          <!-- rename label HygieneVR -> Handwash -->
           <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
-          <!-- use root launcher so params pass-through + hub back -->
           <a class="btn" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
         </div>
         <div class="small">* Handwash (เดิม hygiene-vr.html) + MaskCough ผ่าน root launcher</div>
@@ -145,7 +135,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
         </div>
         <div class="small">* ลิงก์ fitness โฟลเดอร์เดิมของคุณ (../fitness/…)</div>
       </div>
-
     </div>
   </div>
 
@@ -153,7 +142,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
   'use strict';
 
   // ====== CONFIG ======
-  // ✅ HUB ต้อง "ไม่พัง" แม้ endpoint ผิด/403 — ใช้ probe แบบอ่อน ๆ
+  // ✅ HUB ต้องไม่พัง แม้ endpoint ผิด/403/CORS
   const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/'; // เปลี่ยนได้
 
   // ====== helpers ======
@@ -231,7 +220,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
     a.href = withCommonParams(a.getAttribute('href'));
   }
 
-  // ====== Reset today (Zone gates; compatible with your newer hub style) ======
+  // ====== Reset today ======
   function getLocalDayKey(){
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -243,18 +232,11 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
 
   function resetToday(){
     try{
-      // clear zone done keys (the ones your big hub uses)
       localStorage.removeItem(zoneDoneKey('nutrition'));
       localStorage.removeItem(zoneDoneKey('hygiene'));
       localStorage.removeItem(zoneDoneKey('fitness'));
     }catch(_){}
   }
-
-  document.getElementById('btnResetToday').addEventListener('click', (e)=>{
-    e.preventDefault();
-    resetToday();
-    toast('Reset today ✅ (ล้าง 3 โซน)');
-  });
 
   // tiny toast
   let toastT = 0;
@@ -286,43 +268,81 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
     toastT = setTimeout(()=>{ el.style.opacity='0'; }, 1200);
   }
 
-  // ====== 403-safe API probe (no Apollo needed) ======
+  document.getElementById('btnResetToday').addEventListener('click', (e)=>{
+    e.preventDefault();
+    resetToday();
+    toast('Reset today ✅ (ล้าง 3 โซน)');
+  });
+
+  // ====== 403-safe API probe (NO Apollo, NO crash) ======
   const apiDot = document.getElementById('apiDot');
   const apiTitle = document.getElementById('apiTitle');
   const apiMsg = document.getElementById('apiMsg');
+  const apiDetail = document.getElementById('apiDetail');
   const btnRetry = document.getElementById('btnRetry');
 
   let probeLock = false;
 
-  function setBanner(state, title, msg){
+  function setBanner(state, title, msg, detail=''){
     apiDot.className = 'dot ' + (state==='ok' ? 'ok' : state==='bad' ? 'bad' : 'warn');
     apiTitle.textContent = title;
     apiMsg.textContent = msg;
+
+    if(apiDetail){
+      if(detail){
+        apiDetail.style.display = 'block';
+        apiDetail.textContent = detail;
+      }else{
+        apiDetail.style.display = 'none';
+        apiDetail.textContent = '';
+      }
+    }
   }
 
   async function probeAPI(){
     if(probeLock) return;
     probeLock = true;
 
-    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
+    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403/CORS จะเข้าโหมด offline แต่ Hub ยังเล่นได้)', 'ปลายทาง: ' + API_ENDPOINT);
+
     try{
-      // NOTE: endpoint จริงอาจเป็น /graphql หรือ /prod/graphql — ตอนนี้ probe แบบ best-effort
-      const res = await fetch(API_ENDPOINT, {
+      // 1) TRY GET FIRST (gentler: avoids many 403 on POST/authorizer + reduces preflight pain)
+      let res = null;
+      try{
+        res = await fetch(API_ENDPOINT, { method:'GET', mode:'cors' });
+      }catch(_){
+        res = null;
+      }
+
+      if(res){
+        if(res.status === 200){
+          setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับได้ (Hub ใช้งานเต็มรูปแบบ)', '');
+        }else if(res.status === 403){
+          setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin แต่ Hub ยังเข้าเกมได้ปกติ — แนะนำแก้ CORS/Authorizer/IAM', 'ปลายทาง: ' + API_ENDPOINT);
+        }else{
+          setBanner('warn', `API ตอบ ${res.status}`, 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจ route/headers', 'ปลายทาง: ' + API_ENDPOINT);
+        }
+        return;
+      }
+
+      // 2) FALLBACK POST (best-effort)
+      const res2 = await fetch(API_ENDPOINT, {
         method: 'POST',
         mode: 'cors',
         headers: { 'content-type':'application/json' },
         body: JSON.stringify({ ping: true })
       });
 
-      if(res.status === 200){
-        setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ (Hub ใช้งานเต็มรูปแบบ)');
-      }else if(res.status === 403){
-        setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin แต่ Hub ยังเข้าเกมได้ปกติ — แนะนำแก้ CORS/Authorizer');
+      if(res2.status === 200){
+        setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับได้ (Hub ใช้งานเต็มรูปแบบ)', '');
+      }else if(res2.status === 403){
+        setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin แต่ Hub ยังเข้าเกมได้ปกติ — แนะนำแก้ CORS/Authorizer/IAM', 'ปลายทาง: ' + API_ENDPOINT);
       }else{
-        setBanner('warn', `API ตอบ ${res.status}`, 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจ route/headers');
+        setBanner('warn', `API ตอบ ${res2.status}`, 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจ route/headers', 'ปลายทาง: ' + API_ENDPOINT);
       }
-    }catch(_){
-      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจเครือข่าย/CORS');
+
+    }catch(err){
+      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจเครือข่าย/CORS', String(err?.message || err || ''));
     }finally{
       probeLock = false;
     }
