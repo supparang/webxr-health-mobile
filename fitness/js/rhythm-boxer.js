@@ -1,7 +1,7 @@
+// === js/rhythm-boxer.js — UI glue (menu / play / result + cVR helpers) ===
 'use strict';
 
 (function () {
-
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -16,7 +16,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // ปุ่มเมนู
+  // menu
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -25,19 +25,19 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // ฟอร์มวิจัย
+  // research form
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // ปุ่มตอนเล่น / สรุปผล
+  // play/result buttons
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements
+  // HUD
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -61,7 +61,7 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // แสดงผลสรุป
+  // Result view
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -78,7 +78,7 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
+  // mapping menu -> engine
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -88,16 +88,19 @@
 
   let engine = null;
 
+  function qs(k, d=null){
+    try { return new URL(location.href).searchParams.get(k) ?? d; }
+    catch { return d; }
+  }
+
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
-
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
-
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
@@ -118,10 +121,9 @@
       });
 
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
-
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction แต่ล็อกไม่ปรับเกม)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       researchBox.classList.remove('hidden');
 
@@ -143,6 +145,54 @@
     if (name === 'menu') viewMenu.classList.remove('hidden');
     else if (name === 'play') viewPlay.classList.remove('hidden');
     else if (name === 'result') viewResult.classList.remove('hidden');
+  }
+
+  // ===== cVR helpers =====
+  function applyViewMode() {
+    const view = String(qs('view', '') || '').toLowerCase();
+    if (view === 'cvr' || view === 'cardboard') {
+      document.body.classList.add('view-cvr');
+      ensureCvrUI();
+    } else {
+      document.body.classList.remove('view-cvr');
+      removeCvrUI();
+    }
+  }
+
+  function ensureCvrUI(){
+    if (document.querySelector('.rb-crosshair')) return;
+
+    const ch = document.createElement('div');
+    ch.className = 'rb-crosshair';
+    document.body.appendChild(ch);
+
+    // 3 buttons: L / C / R => map to lanes 1,2,3 (keep hitline/spacing similar)
+    const pad = document.createElement('div');
+    pad.className = 'rb-cvr-pad';
+    pad.innerHTML = `
+      <button class="rb-cvr-btn" data-cvr="L">LEFT</button>
+      <button class="rb-cvr-btn" data-cvr="C">CENTER</button>
+      <button class="rb-cvr-btn" data-cvr="R">RIGHT</button>
+    `;
+    document.body.appendChild(pad);
+
+    pad.addEventListener('pointerdown', (ev)=>{
+      const b = ev.target && ev.target.closest ? ev.target.closest('.rb-cvr-btn') : null;
+      if(!b) return;
+      if(!engine) return;
+      const key = b.getAttribute('data-cvr');
+      // map L/C/R to middle 3 lanes of 5-lane UI: 1/2/3
+      const lane = (key==='L') ? 1 : (key==='R') ? 3 : 2;
+      engine.hitLane(lane, 'cvr');
+      ev.preventDefault();
+    }, {passive:false});
+  }
+
+  function removeCvrUI(){
+    const ch = document.querySelector('.rb-crosshair');
+    if (ch) ch.remove();
+    const pad = document.querySelector('.rb-cvr-pad');
+    if (pad) pad.remove();
   }
 
   function createEngine() {
@@ -183,6 +233,7 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
+    applyViewMode();
   }
 
   function stopGame(reason) {
@@ -200,8 +251,10 @@
     res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
     res.rank.textContent      = summary.rank;
 
-    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+      ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+      ? summary.offsetStd.toFixed(3) + ' s' : '-';
     res.participant.textContent = summary.participant || '-';
 
     if (summary.qualityNote) {
@@ -244,10 +297,11 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // ==== apply mode from URL (?mode=research|play) ====
-  (function applyModeFromQuery(){
+  // ==== apply mode/view from URL (?mode=research|play , ?view=cvr) ====
+  (function applyFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
+
       const m = (sp.get('mode')||'').toLowerCase();
       if (m === 'research'){
         const r = modeRadios.find(x => x.value === 'research');
@@ -256,6 +310,9 @@
         const r = modeRadios.find(x => x.value === 'normal');
         if (r) r.checked = true;
       }
+
+      // view=cvr only affects play view; still set body class so layout is ready
+      applyViewMode();
     }catch(_){}
   })();
 
