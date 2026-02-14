@@ -1,11 +1,8 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (HHA Standard)
 PATCH v20260211a
-✅ HUD safe zones (top/bottom) for spawn logic
-✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
-✅ Targets: uses --x (vw%), --y (vh%), --s scale
-✅ Mobile tap reliability: touch-action + no zoom interference
-✅ Layering: stage < targets < HUD < overlays < particles
+✅ HUD ไม่บังเป้า: เพิ่ม safe zone + เพิ่ม z-index targets
+✅ แตะลื่น: touch-action + pointer-events ถูกชั้น
+✅ ลดโอกาสค้าง: targets ใช้ will-change และไม่หนัก
 */
 
 :root{
@@ -31,46 +28,26 @@ PATCH v20260211a
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
-  /* NOTE: top-safe ต้องครอบ title/sub/pills/banner/quiz เพื่อกันเป้าไปซ้อน HUD */
-  --hw-top-safe: 176px;
-  --hw-bottom-safe: 200px;
+  /* spawn safe zones (JS reads these) */
+  --hw-top-safe: 180px;
+  --hw-bottom-safe: 210px;
 
-  /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
 }
 
 *{ box-sizing:border-box; }
-
-html,body{
-  height:100%;
-  margin:0;
-  background:var(--bg0);
-  color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overscroll-behavior: none;
-  -webkit-text-size-adjust: 100%;
-}
+html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 
 button{ font: inherit; }
 
-/* ✅ ลดปัญหาแตะแล้วไม่ติด/ดับเบิลแท็ปซูม */
-.hw-root, .hw-stage{
-  touch-action: manipulation;
-}
+.hw-root{ position: relative; min-height: 100%; overflow: hidden; }
 
-.hw-root{
-  position: relative;
-  min-height: 100%;
-  overflow: hidden;
-}
-
-/* ===== Stage (playfield) ===== */
+/* Stage */
 .hw-stage{
   position: fixed;
   inset: 0;
-  z-index: 0;                 /* ✅ base layer */
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
@@ -78,12 +55,12 @@ button{ font: inherit; }
     linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
 }
 
-/* ===== HUD ===== */
+/* HUD */
 .hw-hud{
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 60;                /* ✅ above targets */
+  z-index: 60;
 }
 
 .hw-top{
@@ -92,24 +69,10 @@ button{ font: inherit; }
   padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
 }
 
-.hw-title{
-  font-weight: 950;
-  letter-spacing: .2px;
-  font-size: 16px;
-}
+.hw-title{ font-weight: 950; letter-spacing: .2px; font-size: 16px; }
+.hw-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); }
 
-.hw-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.hw-row{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
+.hw-row{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 .hw-pill{
   pointer-events: none;
@@ -128,16 +91,10 @@ button{ font: inherit; }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
-.hw-pill.btn{
-  pointer-events: auto;  /* ✅ allow click */
-  cursor: pointer;
-  background: rgba(15,23,42,.70);
-  touch-action: manipulation; /* ✅ */
-}
-.hw-pill.btn:hover{ filter: brightness(1.05); }
+.hw-pill.btn{ pointer-events:auto; cursor:pointer; background: rgba(15,23,42,.70); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* ===== Banner ===== */
+/* Banner */
 .hw-banner{
   pointer-events: none;
   position: absolute;
@@ -156,12 +113,9 @@ button{ font: inherit; }
   max-width: min(680px, calc(100% - 24px));
   text-align: center;
 }
-.hw-banner.show{
-  opacity: 1;
-  transform: translateX(-50%) translateY(0px);
-}
+.hw-banner.show{ opacity: 1; transform: translateX(-50%) translateY(0px); }
 
-/* ===== Overlays ===== */
+/* Overlays */
 .hw-overlay{
   position: fixed;
   inset: 0;
@@ -170,9 +124,8 @@ button{ font: inherit; }
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
   background: radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
               rgba(2,6,23,.66);
-  z-index: 120;              /* ✅ above HUD/targets */
+  z-index: 90;
 }
-
 .hw-card{
   width: min(760px, 100%);
   border-radius: var(--r);
@@ -182,61 +135,18 @@ button{ font: inherit; }
   padding: 16px;
   backdrop-filter: blur(12px);
 }
+.hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
+.hw-card-sub{ margin-top: 10px; color: var(--muted); line-height: 1.4; font-size: 13px; }
+.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.hw-cta,.hw-ghost{ cursor:pointer; border-radius: 16px; padding: 10px 12px; font-weight: 950; border: 1px solid var(--stroke); }
+.hw-cta{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); color: rgba(229,231,235,.96); }
+.hw-ghost{ background: rgba(15,23,42,.70); color: rgba(229,231,235,.94); }
+.hw-pre{ margin-top:10px; padding:10px 12px; border-radius:16px; border:1px solid var(--stroke); background: rgba(2,6,23,.45);
+  max-height: min(46vh, 420px); overflow:auto; font-size:12px; color: rgba(229,231,235,.92); }
 
-.hw-card-title{
-  font-weight: 950;
-  font-size: 18px;
-  letter-spacing: .2px;
-}
-
-.hw-card-sub{
-  margin-top: 10px;
-  color: var(--muted);
-  line-height: 1.4;
-  font-size: 13px;
-}
-
-.hw-card-row{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.hw-cta, .hw-ghost{
-  cursor: pointer;
-  border-radius: 16px;
-  padding: 10px 12px;
-  font-weight: 950;
-  border: 1px solid var(--stroke);
-  touch-action: manipulation; /* ✅ */
-}
-.hw-cta{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.28);
-  color: rgba(229,231,235,.96);
-}
-.hw-ghost{
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-}
-.hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
-
-.hw-pre{
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.45);
-  max-height: min(46vh, 420px);
-  overflow: auto;
-  font-size: 12px;
-  color: rgba(229,231,235,.92);
-}
-
-/* ===== Targets ===== */
+/* Targets */
 .hw-tgt{
-  position: fixed;           /* ✅ viewport-based; matches obj.x/y px */
+  position: fixed;
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -249,13 +159,19 @@ button{ font: inherit; }
   box-shadow: 0 18px 65px rgba(0,0,0,.45);
   display: grid;
   place-items: center;
+
   cursor: pointer;
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  z-index: 20;               /* ✅ above stage, below HUD */
+
+  /* ✅ สำคัญ: targets ต้องอยู่เหนือ stage แต่ไม่ทับ HUD */
+  z-index: 40;
+
+  /* ✅ มือถือแตะลื่น */
+  touch-action: manipulation;
+
   animation: hwPopIn 180ms ease-out both;
-  touch-action: manipulation; /* ✅ mobile tap */
   will-change: transform, opacity;
 }
 
@@ -265,37 +181,20 @@ button{ font: inherit; }
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
 }
 
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.30);
-  background: rgba(239,68,68,.10);
-}
+.hw-tgt.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+.hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+.hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
 
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* (optional) if ever used — JS currently removes instantly */
-.hw-tgt.is-dead{
-  opacity: 0;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78));
-  transition: opacity .08s linear, transform .08s ease-out;
-}
-
-/* subtle pop-in */
 @keyframes hwPopIn{
-  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
-  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+  from{ opacity:0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
+  to  { opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* ===== Quiz box ===== */
+/* Quiz */
 .hw-quiz{
   pointer-events: auto;
   margin-top: 10px;
@@ -306,105 +205,27 @@ button{ font: inherit; }
   padding: 12px;
   max-width: min(760px, calc(100% - 2px));
 }
+.hw-quiz-q{ font-weight: 950; font-size: 14px; }
+.hw-quiz-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-.hw-quiz-q{
-  font-weight: 950;
-  font-size: 14px;
-}
-
-.hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-.hw-quiz-opts{
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.hw-quiz-opt{
-  pointer-events: auto;
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-  padding: 12px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 16px 50px rgba(0,0,0,.35);
-  min-height: 54px;
-  touch-action: manipulation; /* ✅ */
-}
-
-.hw-quiz-opt .n{
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.45);
-}
-
-.hw-quiz-opt .t{
-  font-weight: 900;
-  font-size: 13px;
-  line-height: 1.25;
-  text-align: left;
-}
-
-.hw-quiz-opt:hover{ filter: brightness(1.05); }
-.hw-quiz-opt:active{ transform: translateY(1px); }
-
-/* optional states */
-.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
-.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
-
-.hw-quiz-hint{
-  margin-top: 10px;
-  font-size: 11px;
-  color: rgba(148,163,184,.92);
-}
-
-/* ===== View tweaks ===== */
+/* View tweaks */
 body.view-mobile{
-  /* ✅ mobile HUD มักกินพื้นที่มากขึ้น: ขยับ safe zones ให้กันเป้าซ้อน HUD */
-  --hw-top-safe: 196px;
-  --hw-bottom-safe: 236px;
+  --hw-top-safe: 200px;
+  --hw-bottom-safe: 230px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
-
 body.view-cvr{
-  /* cVR: HUD+ปุ่ม VR UI กินพื้นที่ — กันเป้าซ้อนเพิ่ม */
-  --hw-top-safe: 178px;
-  --hw-bottom-safe: 262px;
+  --hw-top-safe: 170px;
+  --hw-bottom-safe: 260px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
-
-/* VR: ลด HUD และขยายพื้นที่เล่น */
 body.view-vr{
-  --hw-top-safe: 166px;
-  --hw-bottom-safe: 226px;
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 220px;
 }
 
-/* Quiz on small screens => 1 column */
 @media (max-width: 520px){
-  .hw-quiz-opts{ grid-template-columns: 1fr; }
-  .hw-banner{ top: calc(132px + var(--sat)); }
-}
-
-/* (optional) reduce motion */
-@media (prefers-reduced-motion: reduce){
-  .hw-tgt{ animation: none; }
-  .hw-banner{ transition: none; }
+  .hw-banner{ top: calc(130px + var(--sat)); }
 }
