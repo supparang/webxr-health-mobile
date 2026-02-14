@@ -5,344 +5,71 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Plate VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --radius:22px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; height:100%; width:100%;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-    }
-
-    .wrap{
-      height:100%;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
-    }
-    .panel{
-      width:min(980px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      padding:16px;
-      backdrop-filter: blur(10px);
-    }
-    .top{
-      display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;
-    }
-    .title{
-      font-weight:1200; font-size:18px;
-    }
-    .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.35;
-      font-size:13px;
-    }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:12px;
-    }
-    .card{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-    }
-    .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
-    .row{ margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 10px;
-      border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.52);
-      font-weight:1000;
-      font-size:12px;
-      white-space:nowrap;
-    }
-    select,input{
-      appearance:none;
-      background:rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      outline:none;
-      min-width: 150px;
-    }
-    input{ min-width: 120px; }
-    .btnRow{ margin-top:14px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:12px 14px;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color:rgba(229,231,235,.95);
-      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
-    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
-    .muted{ color:var(--muted); font-weight:900; }
-    .hint{
-      margin-top:10px;
-      font-weight:900;
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      line-height:1.35;
-    }
-    .mono{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-      overflow:auto;
-    }
-    @media (max-width: 920px){
-      .grid{ grid-template-columns: 1fr; }
-      select,input{ min-width: 140px; }
-    }
+    :root{ --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px); --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));}
+    .card{width:min(880px,100%);background:var(--panel);border:1px solid var(--stroke);border-radius:22px;padding:16px;box-shadow:0 26px 90px rgba(0,0,0,.42);backdrop-filter:blur(10px);}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+    .btn{appearance:none;border:none;border-radius:999px;padding:10px 12px;background:rgba(2,6,23,.70);border:1px solid rgba(148,163,184,.20);color:rgba(229,231,235,.95);font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.32);backdrop-filter:blur(10px);cursor:pointer}
+    .btn.primary{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.30)}
+    .muted{color:var(--muted);font-weight:900}
+    code{color:#a7f3d0}
   </style>
 </head>
-
 <body>
   <div class="wrap">
-    <div class="panel">
-      <div class="top">
-        <div>
-          <div class="title">🍽️ HeroHealth — Balanced Plate VR</div>
-          <div class="sub">
-            เลือกโหมด/อุปกรณ์ แล้วกดเริ่มเล่น • Play = Adaptive ON • Study = Seeded & Adaptive OFF
-          </div>
-        </div>
-        <div class="sub" style="text-align:right">
-          Root: <b>/plate-vr.html</b><br/>
-          Run: <b>/plate/plate-vr.html</b>
-        </div>
+    <div class="card">
+      <div style="font-weight:1200;font-size:18px">🍽️ Balanced Plate VR</div>
+      <div class="muted" style="margin-top:6px;line-height:1.4">
+        Root launcher → จะส่งต่อไปที่ <code>/herohealth/plate/plate-vr.html</code><br/>
+        รองรับ <b>pc / mobile / vr / cvr</b> และ pass-through พารามิเตอร์ตาม HHA Standard
       </div>
 
-      <div class="grid">
-        <div class="card">
-          <div class="k">⚙️ ตั้งค่าเล่น</div>
-
-          <div class="row">
-            <span class="pill">🧩 Run
-              <select id="fRun">
-                <option value="play">play</option>
-                <option value="study">study</option>
-              </select>
-            </span>
-
-            <span class="pill">🎚️ diff
-              <select id="fDiff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </span>
-
-            <span class="pill">⏱️ time
-              <input id="fTime" type="number" min="20" max="9999" step="1" value="90" />
-              <span class="muted">s</span>
-            </span>
-          </div>
-
-          <div class="row">
-            <span class="pill">🖥️ view
-              <select id="fView">
-                <option value="pc">pc</option>
-                <option value="mobile" selected>mobile</option>
-                <option value="vr">vr</option>
-                <option value="cvr">cvr</option>
-              </select>
-            </span>
-
-            <span class="pill">🌱 seed
-              <input id="fSeed" type="number" step="1" value="13579" />
-            </span>
-
-            <span class="pill">🏷️ v (optional)
-              <input id="fVer" type="text" placeholder="เช่น 1.2.0" />
-            </span>
-          </div>
-
-          <div class="hint">
-            • Cardboard แนะนำ <b>view=cvr</b> (ยิงจาก crosshair ผ่าน vr-ui.js)<br/>
-            • Study แนะนำ seed คงที่ เช่น 13579 เพื่อ deterministic
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="k">🔗 ลิงก์ / HUB</div>
-
-          <div class="row">
-            <span class="pill">🏠 hub
-              <input id="fHub" type="text" placeholder="(รับจาก ?hub=... อัตโนมัติ)" style="min-width: 320px" />
-            </span>
-          </div>
-
-          <div class="mono" id="outUrl">—</div>
-
-          <div class="btnRow">
-            <button class="btn primary" id="btnStart" type="button">เริ่มเกม ▶</button>
-            <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ 🔗</button>
-            <button class="btn warn" id="btnHub" type="button">กลับ HUB 🏠</button>
-          </div>
-
-          <div class="hint" id="msg">—</div>
-        </div>
+      <div class="row">
+        <button class="btn primary" id="btnGo" type="button">เข้าเกม ▶</button>
+        <button class="btn" id="btnGoCVR" type="button">เข้าแบบ Cardboard (cVR) 🕶</button>
       </div>
+
+      <div class="muted" id="dbg" style="margin-top:10px;font-size:12px"></div>
     </div>
   </div>
 
   <script>
     (function(){
-      const $ = (id)=>document.getElementById(id);
-      const URLX = new URL(location.href);
-      const hubFromQS = URLX.searchParams.get('hub') || '';
+      const dbg = document.getElementById('dbg');
+      const u = new URL(location.href);
 
-      const fRun = $('fRun');
-      const fDiff = $('fDiff');
-      const fTime = $('fTime');
-      const fView = $('fView');
-      const fSeed = $('fSeed');
-      const fVer = $('fVer');
-      const fHub = $('fHub');
+      function go(viewOverride){
+        const dest = new URL('./plate/plate-vr.html', location.href);
 
-      const outUrl = $('outUrl');
-      const msg = $('msg');
+        // pass-through (HHA Standard)
+        const keys = ['hub','run','runMode','diff','time','seed','studyId','phase','conditionGroup','log','view','v','ver'];
+        keys.forEach(k=>{
+          const val = u.searchParams.get(k);
+          if(val != null && val !== '') dest.searchParams.set(k, val);
+        });
 
-      const btnStart = $('btnStart');
-      const btnCopy = $('btnCopy');
-      const btnHub = $('btnHub');
-
-      // restore last settings
-      const LS = 'HHA_PLATE_LAUNCHER_CFG';
-      function loadCfg(){
-        try{
-          const s = localStorage.getItem(LS);
-          return s ? JSON.parse(s) : null;
-        }catch(e){ return null; }
-      }
-      function saveCfg(cfg){
-        try{ localStorage.setItem(LS, JSON.stringify(cfg)); }catch(e){}
-      }
-
-      // init hub
-      fHub.value = hubFromQS || '';
-
-      const saved = loadCfg();
-      if(saved){
-        if(saved.run) fRun.value = saved.run;
-        if(saved.diff) fDiff.value = saved.diff;
-        if(saved.time) fTime.value = saved.time;
-        if(saved.view) fView.value = saved.view;
-        if(saved.seed != null) fSeed.value = saved.seed;
-        if(saved.ver != null) fVer.value = saved.ver;
-        if(!hubFromQS && saved.hub) fHub.value = saved.hub;
-      }
-
-      function buildRunUrl(){
-        // Run อยู่ในโฟลเดอร์ /plate/plate-vr.html
-        const u = new URL('./plate/plate-vr.html', location.href);
-        u.searchParams.set('view', (fView.value || 'mobile'));
-        u.searchParams.set('run', (fRun.value || 'play'));
-        u.searchParams.set('diff', (fDiff.value || 'normal'));
-        u.searchParams.set('time', String(Math.max(20, Number(fTime.value||90)||90)));
-        u.searchParams.set('seed', String(Number(fSeed.value||13579)||13579));
-
-        const hub = (fHub.value || '').trim();
-        if(hub) u.searchParams.set('hub', hub);
-
-        const ver = (fVer.value || '').trim();
-        if(ver) u.searchParams.set('v', ver);
-
-        return u.toString();
-      }
-
-      function refresh(){
-        const cfg = {
-          run: fRun.value, diff: fDiff.value, time: fTime.value,
-          view: fView.value, seed: fSeed.value, ver: fVer.value,
-          hub: fHub.value
-        };
-        saveCfg(cfg);
-        const url = buildRunUrl();
-        outUrl.textContent = url;
-        msg.textContent = 'พร้อม! กด “เริ่มเกม” เพื่อไปหน้า Run';
-      }
-
-      [fRun,fDiff,fTime,fView,fSeed,fVer,fHub].forEach(el=>{
-        el.addEventListener('input', refresh, {passive:true});
-        el.addEventListener('change', refresh, {passive:true});
-      });
-
-      btnStart.addEventListener('click', ()=>{
-        location.href = buildRunUrl();
-      }, {passive:true});
-
-      btnCopy.addEventListener('click', async ()=>{
-        try{
-          await navigator.clipboard.writeText(buildRunUrl());
-          msg.textContent = '✅ คัดลอกลิงก์แล้ว';
-        }catch(e){
-          msg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากกล่องลิงก์ได้';
+        // normalize run
+        if(!dest.searchParams.get('run') && dest.searchParams.get('runMode')){
+          dest.searchParams.set('run', dest.searchParams.get('runMode'));
         }
-      }, {passive:true});
 
-      btnHub.addEventListener('click', ()=>{
-        const hub = (fHub.value || '').trim();
-        if(hub) location.href = hub;
-        else location.href = './hub.html';
-      }, {passive:true});
+        // set view
+        if(viewOverride){
+          dest.searchParams.set('view', viewOverride);
+        }else if(!dest.searchParams.get('view')){
+          dest.searchParams.set('view', 'mobile');
+        }
 
-      refresh();
+        location.href = dest.toString();
+      }
+
+      if(dbg) dbg.textContent = 'URL: ' + location.href;
+
+      document.getElementById('btnGo')?.addEventListener('click', ()=> go(null), {passive:true});
+      document.getElementById('btnGoCVR')?.addEventListener('click', ()=> go('cvr'), {passive:true});
     })();
   </script>
 </body>
