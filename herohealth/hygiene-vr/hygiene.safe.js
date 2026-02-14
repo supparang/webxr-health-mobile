@@ -1,11 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
+// HygieneVR SAFE — SURVIVAL (HHA Standard + 7 Steps + Quest + Random Quiz + FX)
 // PATCH v20260211a
-// ✅ FIX 1: target must disappear immediately on hit (no lingering) => remove first, fx later
-// ✅ FIX 2: FX must pop at the hit target position
-// ✅ FIX 3: prevent target pile-up: cap + TTL + cheap cleanup (no sort in loop)
-// ✅ FIX 4: mobile tap reliability: pointerdown + click fallback + double-fire guard
-// ✅ FIX 5: anti-stall watchdog: if RAF stalls, show banner + auto soft-resume
+// ✅ FIX 1: target must disappear immediately on hit (hard-hide + fast remove)
+// ✅ FIX 2: mobile tap reliability: pointerdown + double-fire guard
+// ✅ FIX 3: prevent target overflow/freeze: TTL + O(n) cleanup + cap (no sort in tick)
+// ✅ FIX 4: FX pops exactly at hit target position (px coords from spawn)
 // Exports: boot()
 // Emits: hha:start, hha:time, hha:judge, hha:end
 // Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
@@ -112,7 +111,7 @@ export function boot(){
     bounds:{ spawnPerSec:[1.2, 4.2], hazardRate:[0.05, 0.26], decoyRate:[0.10, 0.40] }
   }) : null;
 
-  // ---------------- state ----------------
+  // state
   let running=false, paused=false;
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
@@ -139,25 +138,19 @@ export function boot(){
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, _dead}
+  // {id, el, kind, stepIdx, bornMs, x,y, dead?}
+  const targets = [];
   let nextId=1;
 
-  // ---- perf limits ----
-  const LIMITS = {
-    maxTargets: 16,
-    ttlMs: 1800,
-    cleanupEveryMs: 250
+  // perf/limits
+  const LIMIT = {
+    maxTargets: 16,          // hard cap to prevent flooding
+    hardCap: 22,             // emergency cap
+    ttlMs: 2400,             // auto-expire targets
+    hitRemoveDelayMs: 0,     // remove immediately (0) (keep for tuning)
+    tapGuardMs: 120          // prevent double fire
   };
-  let _lastCleanupMs = 0;
-
-  // ---- anti double-fire on mobile ----
-  let _lastHitMs = 0;
-  let _lastHitId = 0;
-  const HIT_GUARD_MS = 120;
-
-  // ---- anti-stall watchdog ----
-  let _lastRafBeatMs = 0;
-  let _stallWarned = false;
+  const _tapGuard = new Map(); // id -> lastMs
 
   function showBanner(msg){
     if(!banner) return;
@@ -168,23 +161,21 @@ export function boot(){
   }
 
   // ✅ FX on hit (particles.js)
-  function fxHit(kind, obj){
+  function fxAt(kind, x, y){
     const P = WIN.Particles;
-    if(!P || !obj) return;
-
-    // use stored obj.x/y (viewport px)
-    const x = Number(obj.x || WIN.innerWidth*0.5);
-    const y = Number(obj.y || WIN.innerHeight*0.5);
+    if(!P) return;
+    const vx = Number.isFinite(x) ? x : WIN.innerWidth*0.5;
+    const vy = Number.isFinite(y) ? y : WIN.innerHeight*0.5;
 
     if(kind === 'good'){
-      P.popText?.(x, y, '✅ +1', 'good');
-      P.burst?.(x, y, { count: 12, spread: 46, upBias: 0.86 });
+      P.popText?.(vx, vy, '✅ +1', 'good');
+      P.burst?.(vx, vy, { count: 12, spread: 46, upBias: 0.86 });
     }else if(kind === 'wrong'){
-      P.popText?.(x, y, '⚠️ ผิด!', 'warn');
-      P.burst?.(x, y, { count: 10, spread: 40, upBias: 0.82 });
+      P.popText?.(vx, vy, '⚠️ ผิด!', 'warn');
+      P.burst?.(vx, vy, { count: 10, spread: 40, upBias: 0.82 });
     }else if(kind === 'haz'){
-      P.popText?.(x, y, '🦠 โดนเชื้อ!', 'bad');
-      P.burst?.(x, y, { count: 14, spread: 54, upBias: 0.90 });
+      P.popText?.(vx, vy, '🦠 โดนเชื้อ!', 'bad');
+      P.burst?.(vx, vy, { count: 14, spread: 54, upBias: 0.90 });
     }
   }
 
@@ -197,8 +188,7 @@ export function boot(){
   function pickQuiz(){
     const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
-    const q = bank[Math.floor(rng()*bank.length)];
-    return q || null;
+    return bank[(Math.floor(rng()*bank.length))] || null;
   }
 
   function openRandomQuiz(){
@@ -234,18 +224,13 @@ export function boot(){
 
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-
-    // ✅ read safe zones from CSS vars
-    const cs = getComputedStyle(DOC.documentElement);
-    const topSafe = Number(cs.getPropertyValue('--hw-top-safe')) || 180;
-    const bottomSafe = Number(cs.getPropertyValue('--hw-bottom-safe')) || 210;
-
+    const topSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 170;
+    const bottomSafe = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 190;
     const pad = 14;
-    const x0 = pad, x1 = w - pad;
 
-    // ✅ keep a bit more distance from HUD
-    const y0 = Math.max(pad, topSafe + pad);
-    const y1 = Math.max(y0 + 40, h - bottomSafe - pad);
+    const x0 = pad, x1 = w - pad;
+    const y0 = (topSafe + pad);
+    const y1 = h - bottomSafe - pad;
 
     return { x0, x1, y0, y1, w, h };
   }
@@ -279,21 +264,40 @@ export function boot(){
     }
   }
 
-  function removeTarget(obj){
-    if(!obj) return;
-    if(obj._dead) return;
-    obj._dead = true;
-
-    const i = targets.findIndex(t=>t.id===obj.id);
-    if(i>=0) targets.splice(i,1);
-
+  function hardHide(el){
+    if(!el) return;
     try{
-      if(obj.el){
-        obj.el.disabled = true;
-        obj.el.style.pointerEvents = 'none';
-        obj.el.remove();
-      }
-    }catch(_){}
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%,-50%) scale(0.86)';
+      el.style.transition = 'opacity 90ms ease-out, transform 90ms ease-out';
+    }catch{}
+  }
+
+  function removeTargetById(id){
+    const idx = targets.findIndex(t=>t.id===id);
+    if(idx>=0){
+      const t = targets[idx];
+      targets.splice(idx,1);
+      try{ t.el?.remove(); }catch{}
+      return t;
+    }
+    return null;
+  }
+
+  function removeTarget(obj){
+    if(!obj || obj.dead) return;
+    obj.dead = true;
+
+    // ✅ hide immediately for user perception
+    hardHide(obj.el);
+
+    // remove from list now (so it can't be selected again)
+    removeTargetById(obj.id);
+
+    // physical remove asap (0-120ms)
+    const delay = LIMIT.hitRemoveDelayMs|0;
+    setTimeout(()=>{ try{ obj.el?.remove(); }catch{} }, Math.max(0, delay));
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -309,27 +313,27 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
-    // store px for FX + cVR lock
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, _dead:false };
-    targets.push(obj);
-
-    // set CSS position in vw/vh (based on viewport)
+    // CSS uses vw/vh — store as vw/vh number (0..100)
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    // tap/click only when not cVR strict
-    if(view !== 'cvr'){
-      // ✅ mobile reliable: pointerdown first
-      el.addEventListener('pointerdown', (ev)=>{
-        ev.preventDefault?.();
-        onHitByPointer(obj, 'tap');
-      }, { passive:false });
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, dead:false };
+    targets.push(obj);
 
-      // fallback click (desktop)
-      el.addEventListener('click', (ev)=>{
-        ev.preventDefault?.();
-        onHitByPointer(obj, 'click');
+    // ✅ Mobile-friendly tap: pointerdown (NOT click)
+    if(view !== 'cvr'){
+      el.addEventListener('pointerdown', (ev)=>{
+        if(!running || paused) return;
+        // double-fire guard (บางรุ่นยิงซ้ำ)
+        const t = nowMs();
+        const last = _tapGuard.get(obj.id) || 0;
+        if(t - last < LIMIT.tapGuardMs) return;
+        _tapGuard.set(obj.id, t);
+
+        // prevent focus/scroll selection on long press
+        try{ ev.preventDefault(); }catch{}
+        judgeHit(obj, 'tap', null);
       }, { passive:false });
     }
 
@@ -337,6 +341,9 @@ export function boot(){
   }
 
   function spawnOne(){
+    // hard cap guard
+    if(targets.length >= LIMIT.hardCap) return null;
+
     const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
 
@@ -360,19 +367,6 @@ export function boot(){
     return clamp(dt, 0, 60000);
   }
 
-  function onHitByPointer(obj, source){
-    if(!running || paused) return;
-    if(!obj || obj._dead) return;
-
-    // ✅ guard double fire (pointerdown + click)
-    const t = nowMs();
-    if(obj.id === _lastHitId && (t - _lastHitMs) < HIT_GUARD_MS) return;
-    _lastHitId = obj.id;
-    _lastHitMs = t;
-
-    judgeHit(obj, source, null);
-  }
-
   // cVR shoot: pick nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
@@ -386,7 +380,7 @@ export function boot(){
 
     let best=null, bestDist=1e9;
     for(const t of targets){
-      if(!t || t._dead) continue;
+      if(t.dead) continue;
       const dx = (t.x - cx), dy = (t.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
@@ -447,10 +441,48 @@ export function boot(){
     }
   }
 
-  function judgeHit(obj, source, extra){
-    if(!obj || obj._dead) return;
+  // ✅ O(n) cleanup (no sort)
+  function cleanupTargets(){
+    const t = nowMs();
+    // TTL expire
+    for(let i=targets.length-1;i>=0;i--){
+      const a = targets[i];
+      if(a.dead) { targets.splice(i,1); continue; }
+      if((t - a.bornMs) >= LIMIT.ttlMs){
+        // expire silently (ลด flood)
+        try{ a.el?.remove(); }catch{}
+        targets.splice(i,1);
+      }
+    }
+    // cap (drop oldest)
+    if(targets.length > LIMIT.maxTargets){
+      let drop = targets.length - LIMIT.maxTargets;
+      while(drop-- > 0){
+        // find oldest in O(n)
+        let oi = -1, ob = 1e18;
+        for(let i=0;i<targets.length;i++){
+          const a = targets[i];
+          if(a.dead) continue;
+          if(a.bornMs < ob){ ob = a.bornMs; oi = i; }
+        }
+        if(oi>=0){
+          const a = targets[oi];
+          try{ a.el?.remove(); }catch{}
+          targets.splice(oi,1);
+        }else break;
+      }
+    }
+  }
 
+  function judgeHit(obj, source, extra){
+    if(!obj || obj.dead) return;
     const rt = computeRt(obj);
+
+    // ✅ capture hit coords NOW (for FX)
+    const hx = obj.x, hy = obj.y;
+
+    // ✅ remove immediately so user feels "แตกทันที"
+    removeTarget(obj);
 
     if(obj.kind === 'good'){
       correctHits++;
@@ -478,12 +510,10 @@ export function boot(){
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
-      bumpQuestOnGoodHit();
       showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
+      fxAt('good', hx, hy);
 
-      // ✅ remove first => visual disappears immediately
-      removeTarget(obj);
-      fxHit('good', obj);
+      bumpQuestOnGoodHit();
 
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
@@ -528,10 +558,9 @@ export function boot(){
       dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
-      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
 
-      removeTarget(obj);
-      fxHit('wrong', obj);
+      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+      fxAt('wrong', hx, hy);
 
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
@@ -551,10 +580,9 @@ export function boot(){
       dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
-      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
 
-      removeTarget(obj);
-      fxHit('haz', obj);
+      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
+      fxAt('haz', hx, hy);
 
       if(getMissCount() >= missLimit) endGame('fail');
       setHud();
@@ -564,12 +592,9 @@ export function boot(){
 
   function tick(){
     if(!running){ return; }
-
     const t = nowMs();
     const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
-
-    _lastRafBeatMs = t;
 
     if(paused){ requestAnimationFrame(tick); return; }
 
@@ -581,36 +606,17 @@ export function boot(){
       return;
     }
 
+    // ✅ cleanup before spawning (prevents overflow)
+    cleanupTargets();
+
     const P = dd ? dd.getParams() : base;
     spawnAcc += (P.spawnPerSec * dt);
 
+    // spawn loop
     while(spawnAcc >= 1){
       spawnAcc -= 1;
-      spawnOne();
-    }
-
-    // ✅ cap (no sort)
-    while(targets.length > LIMITS.maxTargets){
-      let oldest = null;
-      for(const tg of targets){
-        if(!tg || tg._dead) continue;
-        if(!oldest || tg.bornMs < oldest.bornMs) oldest = tg;
-      }
-      if(!oldest) break;
-      removeTarget(oldest);
-    }
-
-    // ✅ periodic TTL cleanup
-    if(t - _lastCleanupMs >= LIMITS.cleanupEveryMs){
-      _lastCleanupMs = t;
-      for(let i=targets.length-1;i>=0;i--){
-        const tg = targets[i];
-        if(!tg){ targets.splice(i,1); continue; }
-        if(tg._dead){ targets.splice(i,1); continue; }
-        if(t - tg.bornMs >= LIMITS.ttlMs){
-          removeTarget(tg);
-        }
-      }
+      if(targets.length < LIMIT.maxTargets) spawnOne();
+      else break;
     }
 
     dd?.onEvent('tick', { elapsedSec: elapsedSec() });
@@ -622,6 +628,8 @@ export function boot(){
   function resetGame(){
     running=false; paused=false;
     clearTargets();
+    _tapGuard.clear();
+
     timeLeft = timePlannedSec;
 
     stepIdx=0; hitsInStep=0; loopsDone=0;
@@ -636,10 +644,6 @@ export function boot(){
     quizRight = 0;
     quizWrong = 0;
     setQuizVisible(false);
-
-    _lastHitMs = 0;
-    _lastHitId = 0;
-
     setHud();
   }
 
@@ -648,9 +652,6 @@ export function boot(){
     running=true;
     tStartMs = nowMs();
     tLastMs = tStartMs;
-
-    _lastRafBeatMs = tStartMs;
-    _stallWarned = false;
 
     startOverlay && (startOverlay.style.display = 'none');
     endOverlay && (endOverlay.style.display = 'none');
@@ -723,11 +724,11 @@ export function boot(){
       medianStepMs: rtMed
     };
 
-    if(coach) Object.assign(summary, coach.getSummaryExtras?.() || {});
-    if(dd) Object.assign(summary, dd.getSummaryExtras?.() || {});
+    if(coach) Object.assign(summary, coach.getSummaryExtras());
+    if(dd) Object.assign(summary, dd.getSummaryExtras());
 
     if(WIN.HHA_Badges){
-      WIN.HHA_Badges.evaluateBadges?.(summary, { allowUnlockInResearch:false });
+      WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
     }
 
     saveJson(LS_LAST, summary);
@@ -749,7 +750,7 @@ export function boot(){
     else location.href = '../hub.html';
   }
 
-  // -------- UI binds --------
+  // UI binds
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
@@ -772,7 +773,7 @@ export function boot(){
     const b = (e && e.detail) || {};
     if(WIN.Particles && WIN.Particles.popText){
       WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
-      WIN.Particles.burst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
+      WIN.Particles.burst?.(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
     }
   });
 
@@ -780,20 +781,6 @@ export function boot(){
     const d = (e && e.detail) || {};
     if(d && d.text) showBanner(`🤖 ${d.text}`);
   });
-
-  // ✅ anti-stall watchdog (RAF stalls on mobile/tab)
-  setInterval(()=>{
-    if(!running || paused) return;
-    const t = nowMs();
-    if(_lastRafBeatMs && (t - _lastRafBeatMs) > 1800){
-      if(!_stallWarned){
-        _stallWarned = true;
-        showBanner('⏳ เกมสะดุด… กำลังพยายามไปต่อ');
-      }
-      // soft nudge
-      try{ requestAnimationFrame(tick); }catch{}
-    }
-  }, 600);
 
   // initial
   setHud();
