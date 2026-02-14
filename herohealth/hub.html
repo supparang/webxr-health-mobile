@@ -3,8 +3,8 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 403 won't break hub
 ✅ Shows offline banner + retry
+✅ Links to ROOT launchers in /herohealth (root)
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid
-✅ Uses /herohealth/hub.boot.js to patch links + probe API
 -->
 <!doctype html>
 <html lang="th">
@@ -14,7 +14,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
   <title>HeroHealth — Hub</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
       --bg:#020617;
@@ -23,140 +22,49 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
       --stroke: rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-
       --good:#22c55e;
       --warn:#f59e0b;
       --bad:#ef4444;
-
       --cyan:#22d3ee;
       --violet:#a78bfa;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{box-sizing:border-box}
-    html,body{
-      height:100%;
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
-    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
     a{color:inherit;text-decoration:none}
-
-    .wrap{
-      min-height:100%;
-      padding:calc(16px + var(--sat)) calc(14px + var(--sar))
-               calc(18px + var(--sab)) calc(14px + var(--sal));
-      max-width:980px;
-      margin:0 auto;
-    }
-
-    header{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-
+    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
     .brand{display:flex;gap:10px;align-items:center}
-    .logo{
-      width:44px;height:44px;border-radius:14px;
-      background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));
-      border:1px solid var(--stroke);
-      display:grid;place-items:center;
-      font-weight:1000;
-    }
+    .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000}
     .title{font-weight:1000;letter-spacing:.2px}
     .sub{color:var(--muted);font-size:12px;font-weight:800;margin-top:2px}
-
     .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      border-radius:999px;
-      padding:7px 10px;
-      font-size:12px;
-      font-weight:900;
-      color:rgba(229,231,235,.92)
-    }
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
     .chip b{color:#fff}
-
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-    }
+    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
     @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
 
-    .card{
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
-      border-radius:20px;
-      padding:14px;
-      box-shadow:0 14px 50px rgba(0,0,0,.35);
-    }
+    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
     .card h3{margin:0;font-size:14px;font-weight:1000}
-    .card p{
-      margin:6px 0 0 0;
-      color:rgba(229,231,235,.78);
-      font-weight:750;
-      font-size:12px;
-      line-height:1.35;
-    }
-
+    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
     .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      font-weight:1000;
-      font-size:13px;
-    }
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
-
     .small{font-size:12px;color:var(--muted);font-weight:850;margin-top:10px}
 
-    .banner{
-      margin-top:14px;
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px 12px;
-      background:rgba(2,6,23,.35);
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-    }
+    .banner{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
     .dot{width:10px;height:10px;border-radius:999px;margin-top:5px}
     .dot.ok{background:var(--good)}
     .dot.warn{background:var(--warn)}
     .dot.bad{background:var(--bad)}
     .banner h4{margin:0;font-size:13px;font-weight:1000}
-    .banner p{
-      margin:4px 0 0 0;
-      font-size:12px;
-      color:rgba(229,231,235,.78);
-      font-weight:750;
-      line-height:1.35;
-    }
+    .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
     .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
-
-    @media (max-width: 420px){
-      .banner{flex-direction:column}
-      .banner .actions{margin-left:0}
-    }
   </style>
 </head>
 
@@ -193,7 +101,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
     </div>
 
     <div class="grid">
-
       <div class="card">
         <h3>🥗 Nutrition Zone</h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
@@ -226,19 +133,10 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
         </div>
         <div class="small">* ลิงก์ fitness โฟลเดอร์เดิมของคุณ (../fitness/…)</div>
       </div>
-
     </div>
   </div>
 
-  <!-- ✅ Boot script -->
+  <!-- ✅ split logic -->
   <script type="module" src="./hub.boot.js"></script>
-
-  <!-- ✅ Minimal fallback (module fail won't crash page) -->
-  <script>
-    (function(){
-      try{ if(window.HHA_HUB_BOOTED) return; }catch(_){}
-      console.warn('[HUB] hub.boot.js not loaded; running minimal fallback');
-    })();
-  </script>
 </body>
 </html>
