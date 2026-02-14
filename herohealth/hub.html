@@ -3,8 +3,9 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
 ✅ No forced ordering: play any game anytime
 ✅ Shows BIG zone status bars/icons
 ✅ Reset today clears all 3 zone daily gates
-✅ Links to ROOT launchers in /herohealth (root) where available
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view (+ auto view detect if missing)
+✅ Links to ROOT launchers in /herohealth (root)
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view (+pid)
+✅ Auto-detect view if missing: mobile=>cvr, desktop=>pc
 -->
 <!doctype html>
 <html lang="th">
@@ -20,8 +21,8 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       --panel:rgba(2,6,23,.70);
       --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
 
+      --text:#e5e7eb; --muted:#94a3b8;
       --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
       --cyan:#22d3ee; --violet:#a78bfa;
 
@@ -137,6 +138,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       font-size:13px;
     }
     .btn:active{ transform: translateY(1px); }
+    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
     .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
     .btn.ghost{ color:var(--muted); }
     .btn.disabled{ opacity:.5; cursor:not-allowed; }
@@ -226,7 +228,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       display:grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
       gap: 12px;
-      margin-top: 10px;
+      margin-top: 2px;
     }
     @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
     @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
@@ -325,7 +327,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
         <div class="zoneCard">
           <div class="glow cyan"></div>
           <h3>🧼 Hygiene</h3>
-          <p>อนามัย: Hygiene VR / MaskCough</p>
+          <p>อนามัยส่วนบุคคล: Hand Wash / Brush / Mask &amp; Cough</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
@@ -336,7 +338,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
         <div class="zoneCard">
           <div class="glow violet"></div>
           <h3>🏃 Fitness</h3>
-          <p>ออกกำลังกาย: Shadow / Rhythm / Jump-Duck / Balance Hold / Planner</p>
+          <p>ออกกำลังกาย: Shadow / Rhythm / Jump-Duck / Balance Hold / Fitness Planner</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
@@ -346,16 +348,17 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       </div>
     </section>
 
-    <!-- ===== NUTRITION ===== -->
-    <section aria-label="Nutrition">
-      <div class="pill" style="width:fit-content;"><b>🥗 Nutrition games</b> (Root launcher ใน /herohealth)</div>
+    <!-- GAMES -->
+    <section aria-label="Game list">
+      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (ไป Root launcher ใน /herohealth)</div>
+
       <div class="grid">
         <div class="game" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
           <div class="gameTop">
             <h3 class="gameTitle">🍭 GoodJunk VR</h3>
             <span class="tag">Launcher</span>
           </div>
-          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • missions/summary • Daily Gate ตามโซน</p>
+          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • มี missions/summary • Daily Gate ตามโซน</p>
         </div>
 
         <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
@@ -379,43 +382,35 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
             <h3 class="gameTitle">🍽️ Plate VR</h3>
             <span class="tag">Launcher</span>
           </div>
-          <p class="gameSub">จัดจาน 5 หมู่ • เติมหมู่ที่ขาด • Daily Gate ตามโซน</p>
+          <p class="gameSub">จัดจาน 5 หมู่ • bias เติมหมู่ที่ขาด • Daily Gate ตามโซน</p>
         </div>
       </div>
-    </section>
 
-    <!-- ===== HYGIENE ===== -->
-    <section aria-label="Hygiene">
-      <div class="pill" style="width:fit-content; margin-top:2px;"><b>🧼 Hygiene games</b> (อยู่ใน /herohealth)</div>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene / Fitness</b> (ลิงก์ไว้ก่อน ปรับ path จริงภายหลังได้)</div>
+
       <div class="grid">
-        <div class="game" data-href="./hygiene-vr.html" data-zone="hygiene">
+        <div class="game" data-href="./hygiene-vr/hygiene-vr.html" data-zone="hygiene">
           <div class="gameTop">
             <h3 class="gameTitle">🧼 Hygiene VR</h3>
-            <span class="tag">Root</span>
+            <span class="tag">Run</span>
           </div>
-          <p class="gameSub">Handwash / Brush • เข้าแบบ launcher ได้ (เหมาะกับ auto view)</p>
+          <p class="gameSub">Hand wash / Brush • (ยังไม่ได้ทำ root launcher ก็เข้า run ได้)</p>
         </div>
 
         <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
           <div class="gameTop">
-            <h3 class="gameTitle">😷 Mask &amp; Cough VR</h3>
-            <span class="tag">Root</span>
+            <h3 class="gameTitle">😷 Mask &amp; Cough</h3>
+            <span class="tag">Launcher</span>
           </div>
-          <p class="gameSub">ฝึกใส่หน้ากาก + มารยาทการไอ • เพิ่มเข้า Hub แล้ว</p>
+          <p class="gameSub">กันละอองไอ/จาม • เก็บโล่ • Perfect block • Fever</p>
         </div>
-      </div>
-    </section>
 
-    <!-- ===== FITNESS ===== -->
-    <section aria-label="Fitness">
-      <div class="pill" style="width:fit-content; margin-top:2px;"><b>🏃 Fitness games</b> (ส่วนใหญ่ใน /fitness)</div>
-      <div class="grid">
         <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
           <div class="gameTop">
             <h3 class="gameTitle">🕶️ Shadow Breaker</h3>
             <span class="tag">Run</span>
           </div>
-          <p class="gameSub">สาย reflex + combo • ปรับความยากได้</p>
+          <p class="gameSub">เกมออกกำลังกายสาย reflex • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
         </div>
 
         <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
@@ -423,7 +418,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
             <h3 class="gameTitle">🥊 Rhythm Boxer</h3>
             <span class="tag">Run</span>
           </div>
-          <p class="gameSub">ต่อยตามจังหวะ • มีโหมด VR/cVR แยกไฟล์ได้</p>
+          <p class="gameSub">ต่อยตามจังหวะ • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
         </div>
 
         <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
@@ -431,28 +426,20 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
             <h3 class="gameTitle">🦘 Jump-Duck</h3>
             <span class="tag">Run</span>
           </div>
-          <p class="gameSub">กระโดด/ก้มหลบ • จังหวะเร็ว สนุกโหดได้</p>
-        </div>
-
-        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
-          <div class="gameTop">
-            <h3 class="gameTitle">🧘 Balance Hold</h3>
-            <span class="tag">Run</span>
-          </div>
-          <p class="gameSub">คุมการทรงตัว • วัดความนิ่ง/เวลา</p>
+          <p class="gameSub">กระโดด/ก้มหลบ • (ปรับ path จริงตามโปรเจกต์คุณ)</p>
         </div>
 
         <div class="game" data-href="./fitness-planner/planner.html" data-zone="fitness">
           <div class="gameTop">
-            <h3 class="gameTitle">🗺️ Fitness Planner</h3>
-            <span class="tag">Tool</span>
+            <h3 class="gameTitle">🗓️ Fitness Planner</h3>
+            <span class="tag">Run</span>
           </div>
-          <p class="gameSub">วางแผน/ภารกิจออกกำลังกาย • ใช้ก่อนเข้าเกมได้</p>
+          <p class="gameSub">จัดคอมโบเอง 3–5 ท่า แล้วเล่นตามคอมโบ (เหมาะ ป.5)</p>
         </div>
       </div>
 
       <p class="subtitle" style="margin:10px 6px 0;">
-        Tip: ถ้าต้องการให้ Hygiene/Fitness “มี Root launcher + Gate” แบบ Nutrition (มาตรฐานเดียวกัน) ผมจัดแพ็กให้ได้เลย
+        Tip: ถ้าคุณอยากให้ Hygiene/Fitness ก็มี “Root launcher + Gate” เหมือน Nutrition เดี๋ยวผมจัดแพ็กให้เหมือนกันได้เลย
       </p>
     </section>
   </div>
@@ -468,24 +455,17 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   const QS = parseQS();
 
-  // pass-through keys
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','category','wType','wPct','rank','calm'];
+  function getViewAuto(){
+    const v = (QS.get('view')||'').toLowerCase().trim();
+    if(v) return v;
 
-  // --- simple auto view detect (only used if target doesn't already have view and current QS doesn't have view) ---
-  function detectAutoView(){
-    try{
-      if (QS.has('view') && String(QS.get('view')||'').trim() !== '') return String(QS.get('view'));
-      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      const small = Math.min(window.innerWidth||9999, window.innerHeight||9999) <= 820;
-      const ua = navigator.userAgent || '';
-      const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-      if (coarse || small || isMobileUA) return 'mobile';
-      return 'pc';
-    }catch(_){
-      return 'mobile';
-    }
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+    return isMobile ? 'cvr' : 'pc';
   }
-  const AUTO_VIEW = detectAutoView();
+
+  // IMPORTANT: include pid too
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
 
   function ymdLocal(){
     const d = new Date();
@@ -564,18 +544,15 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
   function applyPassThrough(href){
     const u = new URL(href, location.href);
 
-    // pass params from current hub url
+    // auto fill view if missing
+    if(!u.searchParams.has('view') || String(u.searchParams.get('view')||'').trim()===''){
+      u.searchParams.set('view', getViewAuto());
+    }
+
     for (const k of PASS_KEYS){
       if (!u.searchParams.has(k) && QS.has(k)){
         const v = QS.get(k);
         if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-      }
-    }
-
-    // auto add view if missing (and hub doesn't already have view)
-    if (!u.searchParams.has('view') || String(u.searchParams.get('view')||'').trim()===''){
-      if (!(QS.has('view') && String(QS.get('view')||'').trim() !== '')){
-        u.searchParams.set('view', AUTO_VIEW);
       }
     }
 
@@ -587,6 +564,9 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
   }
 
   function renderPills(){
+    // show ctx (and show auto view if missing)
+    const view = QS.get('view') || `(auto:${getViewAuto()})`;
+
     const pills = [
       ['pid', QS.get('pid')],
       ['run', QS.get('run')],
@@ -597,7 +577,7 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
       ['phase', QS.get('phase')],
       ['conditionGroup', QS.get('conditionGroup')],
       ['log', QS.get('log')],
-      ['view', QS.get('view') || AUTO_VIEW],
+      ['view', view],
     ].filter(x => x[1] != null && String(x[1]).trim() !== '');
 
     const el = document.getElementById('pillrow');
@@ -642,7 +622,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
   syncBars();
   bindGames();
   bindReset();
-
 })();
 </script>
 
