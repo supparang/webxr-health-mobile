@@ -1,95 +1,90 @@
 // === /herohealth/api/api-status.js ===
-// API Status Center — tiny global state + banner binder
-// ✅ window.HHA_API_STATUS.set({level,title,msg,detail,endpoint})
-// ✅ bindBanner({ dotEl, titleEl, msgEl, detailEl, retryEl, onRetry })
-// ✅ Emits: window event 'hha:api-status' for listeners
+// API Status UI helper (Hub-safe)
+// ✅ never throws
+// ✅ updates banner dot/title/msg + optional toast
 
 'use strict';
 
-const WIN = window;
-
-function safe(el){ return el || null; }
-
-function normalize(s){
-  const level = (s?.level === 'ok' || s?.level === 'warn' || s?.level === 'bad') ? s.level : 'warn';
-  return {
-    level,
-    title: String(s?.title || ''),
-    msg: String(s?.msg || ''),
-    detail: String(s?.detail || ''),
-    endpoint: String(s?.endpoint || ''),
-    ts: Number(s?.ts || Date.now())
-  };
+function safeGet(id){
+  try{ return document.getElementById(id); }catch{ return null; }
 }
 
-const State = {
-  cur: normalize({ level:'warn', title:'กำลังเริ่มต้น…', msg:'', detail:'', endpoint:'' }),
-  listeners: new Set()
-};
+function clsDot(dotEl, state){
+  if(!dotEl) return;
+  dotEl.className = 'dot ' + (state==='ok' ? 'ok' : state==='bad' ? 'bad' : 'warn');
+}
 
-function notify(){
-  const s = State.cur;
+function text(el, s){
+  if(!el) return;
+  try{ el.textContent = String(s ?? ''); }catch{}
+}
+
+function makeToast(){
+  let el = safeGet('hha-api-toast');
+  if(el) return el;
+
+  el = document.createElement('div');
+  el.id = 'hha-api-toast';
+  el.style.position = 'fixed';
+  el.style.left = '50%';
+  el.style.bottom = 'calc(14px + env(safe-area-inset-bottom, 0px))';
+  el.style.transform = 'translateX(-50%)';
+  el.style.zIndex = '9999';
+  el.style.padding = '10px 12px';
+  el.style.border = '1px solid rgba(148,163,184,.18)';
+  el.style.borderRadius = '14px';
+  el.style.background = 'rgba(2,6,23,.78)';
+  el.style.color = '#e5e7eb';
+  el.style.fontWeight = '950';
+  el.style.fontSize = '13px';
+  el.style.boxShadow = '0 14px 44px rgba(0,0,0,.35)';
+  el.style.opacity = '0';
+  el.style.transition = 'opacity .18s ease';
+  document.body.appendChild(el);
+  return el;
+}
+
+let toastTimer = 0;
+function toast(msg, ms=1200){
   try{
-    WIN.dispatchEvent(new CustomEvent('hha:api-status', { detail: s }));
-  }catch(_){}
-  for(const fn of State.listeners){
-    try{ fn(s); }catch(_){}
+    const el = makeToast();
+    el.textContent = String(msg ?? '');
+    el.style.opacity = '1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ el.style.opacity='0'; }, ms);
+  }catch{}
+}
+
+/**
+ * Create a status controller for a banner.
+ * dom: { dotId, titleId, msgId, retryId? }
+ */
+export function createStatus(dom){
+  const dotEl   = safeGet(dom?.dotId   || 'apiDot');
+  const titleEl = safeGet(dom?.titleId || 'apiTitle');
+  const msgEl   = safeGet(dom?.msgId   || 'apiMsg');
+  const retryEl = safeGet(dom?.retryId || 'btnRetry');
+
+  function set(state, title, msg){
+    try{
+      clsDot(dotEl, state);
+      text(titleEl, title);
+      text(msgEl, msg);
+    }catch{}
   }
-}
 
-function set(state){
-  State.cur = normalize(state);
-  notify();
-}
-
-function get(){
-  return State.cur;
-}
-
-function subscribe(fn){
-  if(typeof fn !== 'function') return ()=>{};
-  State.listeners.add(fn);
-  try{ fn(State.cur); }catch(_){}
-  return ()=> State.listeners.delete(fn);
-}
-
-// ---- Banner binder ----
-function bindBanner(opts = {}){
-  const dotEl = safe(opts.dotEl);
-  const titleEl = safe(opts.titleEl);
-  const msgEl = safe(opts.msgEl);
-  const detailEl = safe(opts.detailEl);
-  const retryEl = safe(opts.retryEl);
-  const onRetry = (typeof opts.onRetry === 'function') ? opts.onRetry : null;
-
-  const apply = (s)=>{
-    if(dotEl){
-      dotEl.className = 'dot ' + (s.level === 'ok' ? 'ok' : s.level === 'bad' ? 'bad' : 'warn');
-    }
-    if(titleEl) titleEl.textContent = s.title || (s.level==='ok'?'ออนไลน์ ✅':'สถานะ API');
-    if(msgEl) msgEl.textContent = s.msg || '';
-    if(detailEl){
-      if(s.detail){
-        detailEl.style.display = 'block';
-        detailEl.textContent = s.detail;
-      }else{
-        detailEl.style.display = 'none';
-        detailEl.textContent = '';
-      }
-    }
+  return {
+    el: { dotEl, titleEl, msgEl, retryEl },
+    set,
+    ok(title='ออนไลน์ ✅', msg='API ตอบกลับปกติ'){
+      set('ok', title, msg);
+    },
+    warn(title='กำลังตรวจสอบ…', msg='กำลังตรวจสอบระบบ'){
+      set('warn', title, msg);
+    },
+    bad(title='มีปัญหา ⚠️', msg='API ใช้งานไม่ได้ แต่หน้าไม่พัง'){
+      set('bad', title, msg);
+    },
+    toast
   };
-
-  const unsub = subscribe(apply);
-
-  if(retryEl && onRetry){
-    retryEl.addEventListener('click', (e)=>{
-      e.preventDefault();
-      try{ onRetry(); }catch(_){}
-    });
-  }
-
-  return unsub;
 }
-
-// expose global
-WIN.HHA_API_STATUS = { set, get, subscribe, bindBanner };
