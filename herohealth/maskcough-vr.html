@@ -1,331 +1,52 @@
+<!-- === /herohealth/maskcough-vr.html ===
+MaskCough LAUNCHER — ROOT
+✅ Redirects to ./maskcough/maskcough.html
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/mode/research/sessionId
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Mask & Cough (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
-  <style>
-    :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.55);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      background:
-        radial-gradient(1100px 650px at 18% 18%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(167,139,250,.10), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(34,197,94,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      overflow:auto;
-    }
-    a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width: 980px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
-
-    .top{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
-      flex-wrap:wrap;
-      padding: 6px 6px 0 6px;
-    }
-    .title{ margin:0; font-size: clamp(22px, 2.2vw, 30px); letter-spacing:.2px; }
-    .sub{ margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.45; max-width:80ch; }
-
-    .pillrow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
-    .pill{
-      background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;
-      user-select:none;
-    }
-    .pill b{ color:var(--text); font-weight:900; }
-
-    .card{
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.42);
-      overflow:hidden;
-    }
-    .head{
-      padding: 12px 14px;
-      border-bottom:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    }
-    .badge{
-      display:inline-flex; align-items:center; gap:10px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size:13px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-    .badge .dot{
-      width:12px; height:12px; border-radius:999px;
-      background: var(--cyan);
-      box-shadow: 0 0 18px rgba(34,211,238,.35);
-    }
-
-    .body{
-      padding: 12px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    @media (max-width: 860px){
-      .body{ grid-template-columns: 1fr; }
-      .pillrow{ justify-content:flex-start; }
-    }
-
-    .panel{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.40);
-      border-radius: 18px;
-      padding: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.22);
-    }
-    .h2{ margin:0 0 8px; font-size: 15px; font-weight: 950; }
-    .p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
-
-    .opts{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
-    .opt{
-      flex: 1 1 160px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.35);
-      border-radius: 16px;
-      padding: 10px;
-    }
-    .opt label{ display:block; font-size: 12px; color:var(--muted); font-weight:900; margin-bottom:6px; }
-    select, input{
-      width:100%;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.35);
-      color:var(--text);
-      border-radius: 12px;
-      padding:10px 10px;
-      font-weight:900;
-      outline:none;
-    }
-
-    .actions{
-      padding: 12px;
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
-      border-top:1px solid var(--stroke);
-      background: rgba(2,6,23,.28);
-    }
-    .btn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 950;
-      cursor:pointer;
-      user-select:none;
-      display:inline-flex; align-items:center; gap:8px;
-      white-space:nowrap;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.good{ border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.12); }
-    .btn.ghost{ color:var(--muted); background: transparent; }
-
-    .note{
-      padding: 0 6px 6px;
-      color: rgba(148,163,184,.92);
-      font-size: 12px;
-      line-height:1.45;
-    }
-  </style>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
 </head>
-
-<body>
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <h1 class="title">😷 Mask & Cough — Launcher</h1>
-        <p class="sub">
-          เลือกโหมดเล่นให้เหมาะกับอุปกรณ์ (PC/Mobile/Cardboard) • แนะนำห้องเรียน: <b>diff=normal</b> และ <b>time=90</b>
-        </p>
-      </div>
-      <div class="pillrow" id="pillrow"></div>
-    </div>
-
-    <section class="card">
-      <div class="head">
-        <div class="badge"><span class="dot"></span><span>Hygiene Zone</span></div>
-        <span class="pill"><b>auto</b>: view จะเดาให้ก่อน (แก้ได้)</span>
-      </div>
-
-      <div class="body">
-        <div class="panel">
-          <div class="h2">1) ตั้งค่าเล่น</div>
-          <p class="p">เลือก View / Difficulty / Time แล้วกดเริ่ม</p>
-
-          <div class="opts">
-            <div class="opt">
-              <label>View</label>
-              <select id="vView">
-                <option value="pc">pc (desktop)</option>
-                <option value="mobile">mobile (touch)</option>
-                <option value="cvr">cvr (cardboard)</option>
-              </select>
-            </div>
-
-            <div class="opt">
-              <label>Difficulty</label>
-              <select id="vDiff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-
-            <div class="opt">
-              <label>Time (seconds)</label>
-              <select id="vTime">
-                <option value="60">60</option>
-                <option value="90" selected>90</option>
-                <option value="120">120</option>
-              </select>
-            </div>
-
-            <div class="opt">
-              <label>Seed (optional)</label>
-              <input id="vSeed" placeholder="เว้นว่าง = สุ่ม" />
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="h2">2) วิธีเล่นเร็ว ๆ</div>
-          <p class="p">
-            • 💦 แตะเพื่อปัดละออง (ได้แต้ม)<br/>
-            • 😷 แตะเพื่อเพิ่ม Shield (กันพลาดได้)<br/>
-            • 🤧 อันตราย: ปล่อยหลุดจะลด Shield มาก<br/>
-            • “Perfect Block” = แตะ 🤧 ช่วงท้าย ๆ (Near-miss dopamine)
-          </p>
-          <p class="p" style="margin-top:10px;">
-            ค่าแนะนำ: <b>normal + 90s</b> (พอดี/สนุก/ไม่ท้อ) • ถ้าเด็กเก่งค่อยขยับเป็น hard หรือ 120s
-          </p>
-        </div>
-      </div>
-
-      <div class="actions">
-        <a class="btn ghost" id="btnBack" href="./hub.html">🏰 กลับ HUB</a>
-        <button class="btn good" id="btnGo" type="button">▶ เริ่มเกม</button>
-      </div>
-    </section>
-
-    <div class="note">
-      Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view และใส่ <b>hub</b> กลับให้เสมอ
-    </div>
-  </div>
-
+<body style="margin:0; background:#020617; color:#e5e7eb; font-family:system-ui, -apple-system, Segoe UI, Roboto, Noto Sans Thai, Arial;">
 <script>
 (function(){
   'use strict';
+  const PASS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','mode','research','sessionId'];
 
   function pageUrl(){ return location.href.split('#')[0]; }
-  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = parseQS();
+  function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const Q = qs();
 
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
-
-  function autoView(){
-    const v = (QS.get('view')||'').toLowerCase().trim();
+  // auto-detect view only if not provided
+  function detectView(){
+    const v = (Q.get('view')||'').trim();
     if(v) return v;
+    // basic heuristic
     const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'cvr' : 'pc';
+    const mobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    return mobile ? 'mobile' : 'pc';
   }
 
-  function renderPills(){
-    const items = [
-      ['pid', QS.get('pid')],
-      ['studyId', QS.get('studyId')],
-      ['phase', QS.get('phase')],
-      ['conditionGroup', QS.get('conditionGroup')],
-      ['log', QS.get('log')],
-      ['view', QS.get('view') || '(auto)'],
-      ['seed', QS.get('seed')],
-    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
-
-    const el = document.getElementById('pillrow');
-    el.innerHTML = (items.length ? items : [['ctx','none']]).slice(0, 12)
-      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
-      .join('');
-  }
-
-  function applyPassThrough(u){
-    for (const k of PASS_KEYS){
-      if (!u.searchParams.has(k) && QS.has(k)){
-        const v = QS.get(k);
-        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-      }
+  const target = new URL('./maskcough/maskcough.html', location.href);
+  for(const k of PASS){
+    if(Q.has(k)){
+      const v = Q.get(k);
+      if(v != null && String(v).trim() !== '') target.searchParams.set(k, v);
     }
-    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
-      u.searchParams.set('hub', location.href.split('#')[0]);
-    }
-    return u;
+  }
+  if(!target.searchParams.has('view')) target.searchParams.set('view', detectView());
+
+  // always attach hub back link
+  if(!target.searchParams.has('hub') || String(target.searchParams.get('hub')||'').trim()===''){
+    target.searchParams.set('hub', location.href.replace(/maskcough-vr\.html.*$/,'hub.html'));
   }
 
-  // init defaults
-  const vView = document.getElementById('vView');
-  const vDiff = document.getElementById('vDiff');
-  const vTime = document.getElementById('vTime');
-  const vSeed = document.getElementById('vSeed');
-
-  const av = autoView();
-  if(av==='cvr') vView.value = 'cvr';
-  else if(av==='mobile') vView.value = 'mobile';
-  else vView.value = 'pc';
-
-  if(QS.get('diff')) vDiff.value = QS.get('diff');
-  if(QS.get('time')) vTime.value = QS.get('time');
-  if(QS.get('seed')) vSeed.value = QS.get('seed');
-
-  // back hub respects hub param if provided
-  const btnBack = document.getElementById('btnBack');
-  const hub = (QS.get('hub')||'').trim();
-  if(hub) btnBack.href = hub;
-
-  document.getElementById('btnGo').addEventListener('click', ()=>{
-    const run = new URL('./vr-maskcough/maskcough.html', location.href);
-
-    run.searchParams.set('view', vView.value);
-    run.searchParams.set('diff', vDiff.value);
-    run.searchParams.set('time', vTime.value);
-
-    const seed = String(vSeed.value||'').trim();
-    if(seed) run.searchParams.set('seed', seed);
-
-    const out = applyPassThrough(run);
-    location.href = out.toString();
-  }, {passive:true});
-
-  renderPills();
+  location.replace(target.toString());
 })();
 </script>
 </body>
