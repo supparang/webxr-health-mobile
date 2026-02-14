@@ -1,7 +1,8 @@
 <!-- === /herohealth/maskcough-vr.html ===
-MaskCough LAUNCHER — ROOT
-✅ Redirects to ./maskcough/maskcough.html
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/mode/research/sessionId
+MaskCough LAUNCHER — ROOT (for hub)
+✅ Redirects to ./vr-maskcough/maskcough.html
+✅ Pass-through pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/mode/research/sessionId
+✅ Always inject hub back link
 -->
 <!doctype html>
 <html lang="th">
@@ -22,17 +23,15 @@ MaskCough LAUNCHER — ROOT
   function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   const Q = qs();
 
-  // auto-detect view only if not provided
   function detectView(){
     const v = (Q.get('view')||'').trim();
     if(v) return v;
-    // basic heuristic
     const ua = navigator.userAgent || '';
     const mobile = /Android|iPhone|iPad|iPod/i.test(ua);
     return mobile ? 'mobile' : 'pc';
   }
 
-  const target = new URL('./maskcough/maskcough.html', location.href);
+  const target = new URL('./vr-maskcough/maskcough.html', location.href);
   for(const k of PASS){
     if(Q.has(k)){
       const v = Q.get(k);
@@ -41,7 +40,6 @@ MaskCough LAUNCHER — ROOT
   }
   if(!target.searchParams.has('view')) target.searchParams.set('view', detectView());
 
-  // always attach hub back link
   if(!target.searchParams.has('hub') || String(target.searchParams.get('hub')||'').trim()===''){
     target.searchParams.set('hub', location.href.replace(/maskcough-vr\.html.*$/,'hub.html'));
   }
