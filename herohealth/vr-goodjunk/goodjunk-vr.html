@@ -3,121 +3,58 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>GoodJunkVR — HeroHealth</title>
+  <title>GoodJunkVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ FIX: ชื่อไฟล์ CSS ต้องตรง -->
+  <!-- ✅ FIX: filename must match repo -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 </head>
-<body class="view-mobile">
-  <!-- ===== TOP BAR / HUD ===== -->
-  <header id="hud" style="position:fixed; inset:0 auto auto 0; right:0; z-index:50; pointer-events:none;">
-    <div style="padding:10px 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <div style="pointer-events:none; font-weight:900;">GoodJunkVR</div>
+<body class="view-pc">
 
-      <div style="margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div style="pointer-events:none;">SCORE: <b id="hud-score">0</b></div>
-        <div style="pointer-events:none;">TIME: <b id="hud-time">0</b></div>
-        <div style="pointer-events:none;">MISS: <b id="hud-miss">0</b></div>
-        <div style="pointer-events:none;">GRADE: <b id="hud-grade">—</b></div>
-      </div>
+  <!-- ===== LAYERS (ต้องมี id ให้ goodjunk.safe.js หาเจอ) ===== -->
+  <div id="gj-layer" class="gj-layer"></div>
+  <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true"></div>
+
+  <!-- ===== HUD (ย่อ/ขยายได้ตามของเดิม แต่ id ต้องตรง) ===== -->
+  <div id="hud">
+    <div>Score: <span id="hud-score">0</span></div>
+    <div>Time: <span id="hud-time">0</span></div>
+    <div>Miss: <span id="hud-miss">0</span></div>
+    <div>Grade: <span id="hud-grade">—</span></div>
+
+    <div id="hud-goal">—</div>
+    <div id="goalDesc">—</div>
+    <div>
+      <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
     </div>
 
-    <div style="padding:0 12px 10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; opacity:.95;">
-      <div style="pointer-events:none;">
-        GOAL: <b id="hud-goal">—</b>
-        <span style="opacity:.8" id="goalDesc">—</span>
-        <span style="opacity:.9">(<b id="hud-goal-cur">0</b>/<b id="hud-goal-target">0</b>)</span>
-      </div>
-      <div style="margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div style="pointer-events:none;">MINI: <b id="hud-mini">—</b> <span id="miniTimer" style="opacity:.85">—</span></div>
-        <div style="pointer-events:none;">FEVER: <b id="feverText">0%</b></div>
-        <div style="pointer-events:none;">SHIELD: <b id="shieldPills">—</b></div>
-      </div>
+    <div id="hud-mini">—</div>
+    <div id="miniTimer">—</div>
+
+    <div id="feverBox">
+      <div id="feverFill"></div>
+      <div id="feverText">0%</div>
     </div>
 
-    <!-- progress -->
-    <div style="padding:0 12px 10px;">
-      <div style="height:8px; border-radius:999px; overflow:hidden; background:rgba(148,163,184,.18);">
-        <div id="gjProgressFill" style="height:100%; width:0%; background:rgba(34,197,94,.65);"></div>
-      </div>
-    </div>
+    <div id="shieldPills">—</div>
 
-    <!-- boss bar -->
-    <div id="bossBar" aria-hidden="true" style="padding:0 12px 10px;">
-      <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px;">
-        <div style="font-weight:900;">BOSS</div>
-        <div id="bossHint" style="opacity:.85; font-size:12px;">—</div>
-      </div>
-      <div style="height:10px; border-radius:999px; overflow:hidden; background:rgba(239,68,68,.18);">
-        <div id="bossFill" style="height:100%; width:0%; background:rgba(239,68,68,.75);"></div>
-      </div>
-    </div>
+    <div id="gjProgress"><div id="gjProgressFill"></div></div>
 
-    <!-- fever bar (optional visual fill) -->
-    <div style="padding:0 12px 10px;">
-      <div style="height:8px; border-radius:999px; overflow:hidden; background:rgba(56,189,248,.15);">
-        <div id="feverFill" style="height:100%; width:0%; background:rgba(56,189,248,.65);"></div>
-      </div>
-    </div>
-  </header>
-
-  <!-- ===== LAYERS ===== -->
-  <main style="position:fixed; inset:0; z-index:10;">
-    <!-- left (main) -->
-    <div id="gj-layer"
-         style="position:absolute; inset:0; overflow:hidden; touch-action:manipulation;">
-    </div>
-
-    <!-- right layer for cVR (only used when view-cvr) -->
-    <div id="gj-layer-r"
-         style="position:absolute; inset:0; overflow:hidden; display:none; touch-action:manipulation;">
-    </div>
-  </main>
-
-  <!-- ===== LOW TIME OVERLAY ===== -->
-  <div id="lowTimeOverlay" aria-hidden="true"
-       style="position:fixed; inset:0; z-index:80; display:grid; place-items:center; pointer-events:none;
-              background:rgba(2,6,23,.0);">
-    <div style="font-size:64px; font-weight:1000; opacity:.92;">
-      <span id="gj-lowtime-num">5</span>
+    <div id="bossBar" aria-hidden="true">
+      <div id="bossFill"></div>
+      <div id="bossHint"></div>
     </div>
   </div>
 
-  <!-- ===== START PANEL ===== -->
-  <div id="startPanel"
-       style="position:fixed; inset:0; z-index:90; display:grid; place-items:center; padding:18px;
-              background:rgba(2,6,23,.72); backdrop-filter:blur(8px);">
-    <div style="width:min(720px, 92vw); border-radius:22px; border:1px solid rgba(148,163,184,.18);
-                background:rgba(2,6,23,.78); padding:16px; box-shadow:0 18px 60px rgba(0,0,0,.45);">
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div style="font-size:18px; font-weight:1000;">GoodJunkVR</div>
-        <div id="modeHint" style="margin-left:auto; opacity:.85; font-weight:900; font-size:12px;">—</div>
-      </div>
-      <div style="margin-top:8px; opacity:.9; line-height:1.4;">
-        แตะ “ของดี” ✅ เลี่ยง “ของเสีย” ❌ <br/>
-        โหมด VR ให้ใช้ crosshair ยิง (ถ้ามี) หรือแตะเป้าได้เลย
-      </div>
-      <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
-        <button id="btnBackHub"
-                style="padding:10px 14px; border-radius:14px; font-weight:1000;
-                       border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.35); color:#e5e7eb;">
-          กลับ HUB
-        </button>
-        <button id="btnStart"
-                style="padding:10px 14px; border-radius:14px; font-weight:1000;
-                       border:1px solid rgba(34,197,94,.35); background:rgba(34,197,94,.18); color:#e5e7eb;">
-          เริ่มเล่น
-        </button>
-      </div>
-    </div>
+  <div id="lowTimeOverlay" aria-hidden="true">
+    <div id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- ✅ (optional) Universal VR UI if you use it -->
+  <!-- ✅ Universal VR UI (ถ้าใช้ของกลาง) -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ FIX: ชื่อไฟล์ boot ต้องตรง -->
+  <!-- ✅ FIX: filename must match repo -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </body>
 </html>
