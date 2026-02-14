@@ -1,32 +1,33 @@
-<!-- === /herohealth/groups-vr.html ===
-GroupsVR — LAUNCHER (PC/Mobile/Cardboard) — PATCH D4–D6 (PRODUCTION)
-✅ D4: Launcher เลือกเข้า PC/Mobile/cVR ชัดเจน + จำค่าล่าสุด (localStorage)
-✅ D5: view-cvr strict: crosshair shooting + tuned lockPx + no accidental tap bias
-✅ D6: Fullscreen / Orientation helpers (mobile) + กัน HUD ทับ ENTER VR/RECENTER (vr-ui)
-✅ Pass-through all query params + adds view/run/diff/time/seed/autostart=1
-Routes to: /herohealth/vr-groups/groups-vr.html
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION (PATCH D7–D9 v20260214a)
+✅ D7: Warmup/Cooldown Buff intake (query wType,wPct,rank,wCrit,wDmg,wHeal,calm) + HUD pill (no-effect in research)
+✅ D8: End Summary + Save last summary/history + Back HUB button + store schema
+✅ D9: Flush-hardened (pagehide/visibility/beforeunload/back) -> Telemetry.flush + engine bindFlushOnLeave
+Requires:
+- /herohealth/vr/vr-ui.js
+- /herohealth/vr-groups/groups.safe.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GroupsVR Launcher</title>
+  <title>HeroHealth — GroupsVR</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <link rel="icon" href="../favicon.ico"/>
   <style>
     :root{
       --bg:#040610;
       --panel: rgba(4,6,16,.78);
       --panel2: rgba(10,16,36,.55);
       --stroke: rgba(148,163,184,.18);
-
       --text:#e5e7eb; --muted:#94a3b8;
       --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
-
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --hw-top-safe: calc(70px + var(--sat));
+      --hw-bottom-safe: calc(96px + var(--sab));
     }
     *{ box-sizing:border-box; }
     html,body{ height:100%; margin:0; overflow:hidden; color:var(--text);
@@ -37,14 +38,27 @@ Routes to: /herohealth/vr-groups/groups-vr.html
         radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
     }
-    #app{ position:relative; width:100%; height:100%; overflow:auto; padding: calc(14px + var(--sat)) 14px calc(16px + var(--sab)); }
-
-    .top{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;
-      margin-bottom:12px;
+    #app{
+      position:relative;
+      width:100%; height:100%;
+      padding: calc(10px + var(--sat)) 10px calc(10px + var(--sab));
+      display:flex; flex-direction:column; gap:10px;
     }
-    .title h1{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .title p{ margin:4px 0 0; color:var(--muted); font-size:12.5px; line-height:1.35; }
+    .topbar{
+      position:relative;
+      border-radius: var(--radius);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.55));
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      padding: 10px 10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      z-index: 50;
+    }
+    .title{ display:flex; flex-direction:column; gap:2px; }
+    .title b{ font-weight:1000; letter-spacing:.2px; }
+    .title span{ color:var(--muted); font-size:12.5px; }
+
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
     .pill{
       display:inline-flex; gap:8px; align-items:center;
@@ -55,457 +69,656 @@ Routes to: /herohealth/vr-groups/groups-vr.html
       font-size:12px;
       color:var(--muted);
       user-select:none;
+      white-space:nowrap;
     }
     .pill b{ color:var(--text); font-weight:1000; }
     .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:12px;
-      align-items:start;
-    }
-    @media (max-width: 920px){ .grid{ grid-template-columns: 1fr; } }
-
-    .card{
-      border-radius: var(--radius);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(2,6,23,.76), rgba(2,6,23,.55));
-      box-shadow: 0 24px 80px rgba(0,0,0,.55);
-      overflow:hidden;
-    }
-    .cardHd{
-      padding: 12px 12px 10px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    }
-    .cardHd b{ font-weight:1000; }
-    .cardBd{ padding:12px; }
-
-    .btnRow{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
-    @media (max-width: 560px){ .btnRow{ grid-template-columns: 1fr; } }
+    .dot.good{ background: var(--good); box-shadow:0 0 14px rgba(34,197,94,.55); }
+    .dot.amber{ background: var(--amber); box-shadow:0 0 14px rgba(245,158,11,.55); }
+    .dot.pink{ background: var(--pink); box-shadow:0 0 14px rgba(255,79,216,.55); }
 
     button{
       cursor:pointer;
-      border-radius: 18px;
+      border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       color:var(--text);
-      padding: 12px 12px;
+      padding: 9px 10px;
       transition: transform .08s ease, background .15s ease, border-color .15s ease;
       user-select:none;
-      text-align:left;
-      line-height:1.25;
+      font-weight:900;
     }
     button:hover{ transform: translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
     button:active{ transform: translateY(0px) scale(.99); }
-    button.primary{
-      background: rgba(34,197,94,.14);
-      border-color: rgba(34,197,94,.32);
-      font-weight:1000;
-    }
-    .k{ display:block; color:var(--muted); font-size:12px; margin-top:4px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    button.ghost{ background: rgba(148,163,184,.08); }
+    button.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
 
-    .field{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding:10px 10px;
+    .stage{
+      position:relative;
+      flex: 1 1 auto;
+      border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.14);
-      border-radius: 16px;
-      background: rgba(2,6,23,.45);
-      margin-bottom:10px;
+      background: rgba(2,6,23,.26);
+      overflow:hidden;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
-    .field label{ color:var(--muted); font-size:12.5px; }
-    select,input{
-      width: 180px;
-      border-radius: 12px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      color:var(--text);
+    #playLayer{ position:absolute; inset:0; overflow:hidden; pointer-events:auto; }
+
+    .hud{
+      position:absolute; left:10px; right:10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      pointer-events:none;
+      z-index: 30;
+    }
+    .hudTop{ top: calc(10px + var(--sat)); }
+    .hudBottom{ bottom: calc(10px + var(--sab)); }
+
+    .hudBox{
+      pointer-events:none;
+      display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap;
       padding: 8px 10px;
-      outline:none;
-      font-weight:900;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 46px rgba(0,0,0,.25);
     }
-    input.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .hudBox .k{ color:var(--muted); font-size:12px; font-weight:900; }
+    .hudBox .v{ font-weight:1000; letter-spacing:.2px; }
 
-    .note{ color:var(--muted); font-size:12.5px; line-height:1.45; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .questTop{
+      margin-top:6px;
+      pointer-events:none;
+      display:flex; flex-direction:column; gap:6px;
+      padding: 8px 10px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      max-width: min(560px, 100%);
+    }
+    .questTop b{ font-weight:1000; }
 
-    .tinyBtns{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:10px; }
-    @media (max-width: 560px){ .tinyBtns{ grid-template-columns: 1fr; } }
-    .ghost{ background: rgba(148,163,184,.08); }
+    .bar{
+      height:12px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
+      transition: width .10s linear;
+    }
 
-    /* ✅ D6: Mobile helpers area */
-    .helperRow{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
-    @media (max-width: 560px){ .helperRow{ grid-template-columns: 1fr; } }
+    .powerWrap{
+      pointer-events:none;
+      display:flex; flex-direction:column; gap:6px;
+      padding: 8px 10px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      max-width: 320px;
+    }
 
-    /* badge for chosen view */
-    .chosen{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(34,197,94,.26);
-      background: rgba(34,197,94,.12);
+    .coachWrap{
+      pointer-events:none;
+      display:flex; align-items:center; gap:10px;
+      padding: 8px 10px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      max-width: min(560px, 100%);
+    }
+    .coachWrap .face{
+      width:36px; height:36px; border-radius: 14px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(148,163,184,.10);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:18px;
+    }
+    .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; }
+    .coachWrap .sub{ color:var(--muted); font-size:12px; font-weight:900; }
+
+    /* D8 End screen */
+    #endOverlay{
+      position:absolute; inset:0;
+      background: rgba(0,0,0,.60);
+      backdrop-filter: blur(10px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 14px;
+      z-index: 9999;
+    }
+    #endCard{
+      width: min(860px, 100%);
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.64));
+      box-shadow: 0 30px 120px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    #endCard header{
+      padding: 12px 12px;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    #endCard header b{ font-weight:1000; }
+    #endCard main{ padding: 12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 860px){ #endCard main{ grid-template-columns: 1fr; } }
+    .panel{
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.50);
+      padding: 10px 10px;
+    }
+    pre{
+      margin:0;
+      white-space: pre-wrap;
       font-size:12px;
       color: rgba(229,231,235,.92);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .endBtns{ padding: 12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+
+    /* leave space for vr-ui buttons in cVR */
+    body[data-view="cvr"] .hudBottom{
+      bottom: calc(64px + var(--sab));
+    }
+
+    .tgt{
+      width: 78px; height: 78px;
+      border-radius: 18px;
+      display:flex; align-items:center; justify-content:center;
+      font-size: 36px;
+      font-weight: 1000;
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
     }
   </style>
 </head>
 
 <body>
 <div id="app">
-  <div class="top">
+  <div class="topbar">
     <div class="title">
-      <h1>🥗 GroupsVR — Launcher</h1>
-      <p>เลือกเข้าเล่นให้เหมาะกับอุปกรณ์: <b>PC</b> / <b>Mobile</b> / <b>Cardboard (cVR)</b><br/>
-      ระบบจะจำค่าล่าสุด และส่งพารามิเตอร์ไปหน้า run อัตโนมัติ</p>
+      <b>🥗 GroupsVR</b>
+      <span id="subline">ยิงให้ถูก “หมู่” เก็บคอมโบ แล้วสลับหมู่!</span>
     </div>
-    <div class="pill"><span class="dot"></span> <b id="deviceHint">detecting…</b></div>
+
+    <div class="row">
+      <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
+      <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
+
+      <!-- D7 buff pill -->
+      <div class="pill" id="buffPill" style="display:none;">
+        <span class="dot pink"></span> <span>BUFF:</span> <b id="buffText">—</b>
+      </div>
+
+      <!-- director pill -->
+      <div class="pill" id="dirPill" style="display:none;">
+        <span class="dot"></span> <span>DIR:</span> <b id="dirText">PLAY</b>
+      </div>
+
+      <button class="ghost" id="btnRestart">⟲ Restart</button>
+      <button class="ghost" id="btnBack">🏠 HUB</button>
+    </div>
   </div>
 
-  <div class="grid">
+  <div class="stage" id="stage">
+    <div id="playLayer"></div>
 
-    <!-- LEFT: choose mode -->
-    <div class="card">
-      <div class="cardHd">
-        <div><b>เลือกทางเข้าเล่น</b> <span class="k">ชัด ๆ 3 ปุ่ม</span></div>
-        <div class="chosen">ล่าสุด: <b id="lastChoice">—</b></div>
+    <!-- HUD TOP -->
+    <div class="hud hudTop">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="hudBox">
+          <span class="k">TIME</span> <span class="v" id="hudTime">—</span>
+          <span class="k">SCORE</span> <span class="v" id="hudScore">0</span>
+          <span class="k">COMBO</span> <span class="v" id="hudCombo">x0</span>
+          <span class="k">MISS</span> <span class="v" id="hudMiss">0</span>
+          <span class="k">RANK</span> <span class="v" id="hudRank">—</span>
+        </div>
+
+        <div class="questTop">
+          <div><b id="qTitle">ภารกิจ</b> <span style="color:var(--muted); font-weight:900;" id="qSub"></span></div>
+          <div class="bar"><i id="qBar"></i></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:12px; font-weight:900;">
+            <span id="qMini">MINI: —</span>
+            <span id="qMiniTime"></span>
+          </div>
+        </div>
       </div>
-      <div class="cardBd">
-        <div class="btnRow">
-          <button id="btnPC">
-            💻 เข้าแบบ PC
-            <span class="k">คลิกเมาส์ / จอใหญ่ / เหมาะทดสอบ</span>
-          </button>
-          <button id="btnMobile">
-            📱 เข้าแบบ Mobile
-            <span class="k">แตะเป้า / ปรับ HUD-safe แล้ว</span>
-          </button>
-          <button id="btnCVR">
-            🥽 เข้าแบบ Cardboard (cVR)
-            <span class="k">ยิงจาก crosshair + tap-to-shoot (strict)</span>
-          </button>
-        </div>
 
-        <div style="height:12px;"></div>
-        <div class="note">
-          <b>คีย์สำคัญของ cVR</b>: view=cvr จะใช้ “ยิงจาก crosshair” เป็นหลักและตั้งค่า lockPx ให้อภัยมากขึ้น
+      <div class="powerWrap">
+        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+          <b id="groupName">หมู่ 1 โปรตีน</b>
+          <span style="color:var(--muted); font-weight:1000;">POWER</span>
         </div>
-
-        <div style="height:12px;"></div>
-        <div class="tinyBtns">
-          <button class="ghost" id="btnBackHub">🏠 กลับ HUB</button>
-          <button class="ghost" id="btnCopyLink">🔗 คัดลอกลิงก์ Launcher</button>
-          <button class="ghost" id="btnReset">🧹 ล้างค่าที่จำไว้</button>
+        <div class="bar"><i id="pBar"></i></div>
+        <div style="color:var(--muted); font-size:12px; font-weight:900;">
+          <span id="pText">0 / 8</span>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: settings -->
-    <div class="card">
-      <div class="cardHd">
-        <div><b>ตั้งค่า (จำค่าไว้)</b> <span class="k">ปรับก่อนเข้าเล่น</span></div>
-        <div class="pill"><b id="routePreview">—</b></div>
+    <!-- HUD BOTTOM -->
+    <div class="hud hudBottom">
+      <div class="coachWrap">
+        <div class="face" id="coachFace">🙂</div>
+        <div>
+          <div class="txt" id="coachTxt">เริ่มได้เลย!</div>
+          <div class="sub" id="coachSub">แตะ/ยิงเป้าให้ถูกหมู่</div>
+        </div>
       </div>
-      <div class="cardBd">
+      <div class="hudBox">
+        <span class="k">VIEW</span> <span class="v" id="hudView">—</span>
+        <span class="k">SEED</span> <span class="v" id="hudSeed">—</span>
+      </div>
+    </div>
 
-        <div class="field">
-          <label>Run mode</label>
-          <select id="runMode">
-            <option value="play">play</option>
-            <option value="practice">practice</option>
-            <option value="research">research</option>
-          </select>
+    <!-- D8 End overlay -->
+    <div id="endOverlay">
+      <div id="endCard">
+        <header>
+          <div><b id="endTitle">END</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
+          <div class="pill"><span class="dot good"></span> <span>Saved:</span> <b id="savedTag">yes</b></div>
+        </header>
+        <main>
+          <div class="panel">
+            <b>Summary</b>
+            <pre id="endSummary"></pre>
+          </div>
+          <div class="panel">
+            <b>Buff (if any)</b>
+            <pre id="endBuff"></pre>
+          </div>
+        </main>
+        <div class="endBtns">
+          <button id="btnEndAgain">เล่นอีกครั้ง</button>
+          <button class="primary" id="btnEndGoHub">🏠 กลับ HUB</button>
+          <button class="ghost" id="btnEndClose">ปิด</button>
         </div>
-
-        <div class="field">
-          <label>Difficulty</label>
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal">normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Time (sec)</label>
-          <select id="time">
-            <option value="60">60</option>
-            <option value="80">80</option>
-            <option value="90">90</option>
-            <option value="120">120</option>
-            <option value="150">150</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Seed</label>
-          <input id="seed" class="mono" placeholder="auto" />
-        </div>
-
-        <div class="field">
-          <label>AI (play only)</label>
-          <select id="ai">
-            <option value="0">off</option>
-            <option value="1">on (?ai=1)</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Log endpoint</label>
-          <input id="log" class="mono" placeholder="(optional) ?log=..." />
-        </div>
-
-        <div class="note">
-          ✅ <b>Research</b> จะปิด AI และ (ถ้าคุณผูก D7) buff จะไม่โชว์/ไม่ส่งผล<br/>
-          ✅ ค่า seed ว่าง = ใช้เวลาปัจจุบัน (ยัง deterministic ได้ถ้าใส่เอง)
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <!-- D6 helpers -->
-        <div class="helperRow">
-          <button id="btnFullscreen" class="primary">⛶ Fullscreen</button>
-          <button id="btnOrientation">🔄 ขอหมุนจอ</button>
-        </div>
-
-        <div style="height:10px;"></div>
-        <div class="note">
-          * มือถือบางรุ่นต้องกดปุ่มขอ permission ก่อนหมุนจอ / fullscreen
-        </div>
-
       </div>
     </div>
 
   </div>
 </div>
 
+<!-- Universal VR UI -->
+<script src="../vr/vr-ui.js"></script>
+
+<!-- Groups engine -->
+<script src="./groups.safe.js"></script>
+
 <script>
 (() => {
   'use strict';
 
-  const LS_KEY = 'HHA_GROUPS_LAUNCHER_PREFS';
-
-  // -------------- utilities --------------
-  function qsAll(){
+  function getQS(){
     try{ return new URL(location.href).searchParams; }
     catch{ return new URLSearchParams(); }
   }
-  const QS = qsAll();
+  const QS = getQS();
   const q = (k, def='') => (QS.get(k) ?? def);
 
-  function isTouch(){
-    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-  }
-  function isMobileUA(){
-    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-  }
-  function clamp(n,a,b){ n=Number(n)||0; return Math.max(a, Math.min(b,n)); }
+  const HUB = q('hub','') || '../hub.html';
 
-  function loadPrefs(){
-    try{
-      const raw = localStorage.getItem(LS_KEY);
-      if(!raw) return null;
-      return JSON.parse(raw);
-    }catch(_){ return null; }
-  }
-  function savePrefs(obj){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(obj||{})); }catch(_){}
-  }
-  function clearPrefs(){
-    try{ localStorage.removeItem(LS_KEY); }catch(_){}
-  }
+  const RUN  = String(q('run','play')).toLowerCase();
+  const DIFF = String(q('diff','normal')).toLowerCase();
+  const VIEW = String(q('view','mobile')).toLowerCase();
+  const TIME = Number(q('time','90')||90);
+  const SEED = String(q('seed','') || Date.now());
 
-  // -------------- DOM --------------
-  const $ = (s)=>document.querySelector(s);
-  const deviceHint = $('#deviceHint');
-  const lastChoice = $('#lastChoice');
-  const routePreview = $('#routePreview');
-
-  const runMode = $('#runMode');
-  const diff = $('#diff');
-  const time = $('#time');
-  const seed = $('#seed');
-  const ai = $('#ai');
-  const log = $('#log');
-
-  const btnPC = $('#btnPC');
-  const btnMobile = $('#btnMobile');
-  const btnCVR = $('#btnCVR');
-
-  // -------------- base params / pass-through --------------
-  const HUB = q('hub','') || '';
-  const basePath = './vr-groups/groups-vr.html'; // ✅ run page
-  // keep all existing qs (studyId, phase, conditionGroup, etc.) then override
-  function buildBaseUrl(){
-    const u = new URL(basePath, location.href);
-    // pass-through everything from current launcher URL
-    for (const [k,v] of QS.entries()){
-      u.searchParams.set(k, v);
-    }
-    // ensure hub passthrough if exists
-    if(HUB) u.searchParams.set('hub', HUB);
-    return u;
-  }
-
-  // -------------- device hint --------------
-  const hint = (isMobileUA() || isTouch()) ? 'MOBILE detected' : 'PC detected';
-  deviceHint.textContent = hint;
-
-  // -------------- init prefs from QS or LS --------------
-  const saved = loadPrefs() || {};
-  const init = {
-    view: String(q('view', saved.view || ((isMobileUA()||isTouch()) ? 'mobile' : 'pc'))).toLowerCase(),
-    run:  String(q('run',  saved.run  || 'play')).toLowerCase(),
-    diff: String(q('diff', saved.diff || 'normal')).toLowerCase(),
-    time: String(q('time', saved.time || '90')),
-    seed: String(q('seed', saved.seed || '')),
-    ai:   String(q('ai',   saved.ai   || '0')),
-    log:  String(q('log',  saved.log  || ''))
+  // D7 buff keys
+  const BUFF_QS = {
+    wType: q('wType',''),
+    wPct:  q('wPct',''),
+    rank:  q('rank',''),
+    wCrit: q('wCrit',''),
+    wDmg:  q('wDmg',''),
+    wHeal: q('wHeal',''),
+    calm:  q('calm','')
   };
 
-  // sanitize
-  if(!['pc','mobile','cvr'].includes(init.view)) init.view = 'mobile';
-  if(!['play','practice','research'].includes(init.run)) init.run = 'play';
-  if(!['easy','normal','hard'].includes(init.diff)) init.diff = 'normal';
-  const t = clamp(init.time, 15, 180);
-  init.time = String(t);
+  const $ = (s)=>document.querySelector(s);
 
-  // apply
-  runMode.value = init.run;
-  diff.value = init.diff;
-  time.value = init.time;
-  seed.value = init.seed;
-  ai.value = init.ai;
-  log.value = init.log;
+  const modePill = $('#modePill');
+  const diffPill = $('#diffPill');
+  const hudView  = $('#hudView');
+  const hudSeed  = $('#hudSeed');
 
-  lastChoice.textContent = init.view;
+  const hudTime  = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudMiss  = $('#hudMiss');
+  const hudRank  = $('#hudRank');
 
-  function currentPrefs(){
-    return {
-      view: init.view,
-      run: runMode.value,
-      diff: diff.value,
-      time: time.value,
-      seed: seed.value.trim(),
-      ai: ai.value,
-      log: log.value.trim()
+  const groupName = $('#groupName');
+  const pBar = $('#pBar');
+  const pText = $('#pText');
+
+  const qTitle = $('#qTitle');
+  const qSub   = $('#qSub');
+  const qBar   = $('#qBar');
+  const qMini  = $('#qMini');
+  const qMiniTime = $('#qMiniTime');
+
+  const coachFace = $('#coachFace');
+  const coachTxt  = $('#coachTxt');
+  const coachSub  = $('#coachSub');
+
+  const buffPill = $('#buffPill');
+  const buffText = $('#buffText');
+
+  const dirPill = $('#dirPill');
+  const dirText = $('#dirText');
+
+  const endOverlay = $('#endOverlay');
+  const endTitle = $('#endTitle');
+  const endSub = $('#endSub');
+  const savedTag = $('#savedTag');
+  const endSummary = $('#endSummary');
+  const endBuff = $('#endBuff');
+
+  $('#btnBack').addEventListener('click', ()=>goHub(true));
+  $('#btnRestart').addEventListener('click', ()=>restart());
+
+  $('#btnEndAgain').addEventListener('click', ()=>{ hideEnd(); restart(); });
+  $('#btnEndGoHub').addEventListener('click', ()=>goHub(true));
+  $('#btnEndClose').addEventListener('click', ()=>hideEnd());
+
+  document.body.setAttribute('data-view', VIEW);
+
+  // ---- D7 parse buff ----
+  const BUFF = parseBuffFromQS(BUFF_QS);
+
+  function num(v){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  function calcRankFromPct(pct){
+    pct = Number(pct)||0;
+    if(pct >= 92) return 'S';
+    if(pct >= 78) return 'A';
+    if(pct >= 62) return 'B';
+    if(pct >= 45) return 'C';
+    return 'D';
+  }
+  function parseBuffFromQS(o){
+    const hasAny = Object.keys(o).some(k => String(o[k]||'').trim() !== '');
+    if(!hasAny) return null;
+
+    const b = {
+      wType: String(o.wType||'').toLowerCase(),
+      wPct:  num(o.wPct),
+      rank:  String(o.rank||'').toUpperCase(),
+      wCrit: num(o.wCrit),
+      wDmg:  num(o.wDmg),
+      wHeal: num(o.wHeal),
+      calm:  num(o.calm),
+      raw: {...o}
     };
+    if(!b.rank && b.wPct != null) b.rank = calcRankFromPct(b.wPct);
+    return b;
   }
 
-  function updatePreview(){
-    const p = currentPrefs();
-    routePreview.textContent = `view=${p.view} · run=${p.run} · diff=${p.diff} · time=${p.time}`;
-  }
-  updatePreview();
+  function renderBuffPill(){
+    if(!BUFF){ buffPill.style.display = 'none'; return; }
+    const isResearch = (RUN === 'research');
+    const label = isResearch
+      ? `LOCKED (research) · ${BUFF.wType||'buff'} ${BUFF.rank||''}`.trim()
+      : `${BUFF.wType||'buff'} · Rank ${BUFF.rank||'-'} · ${BUFF.wPct!=null ? Math.round(BUFF.wPct)+'%' : ''}`.trim();
 
-  [runMode,diff,time,seed,ai,log].forEach(el=>{
-    el.addEventListener('change', ()=>{
-      updatePreview();
-      // persist on change
-      const p = currentPrefs();
-      savePrefs(p);
-    });
-    el.addEventListener('input', ()=>{
-      updatePreview();
-      const p = currentPrefs();
-      savePrefs(p);
-    });
+    buffText.textContent = label;
+    buffPill.style.display = '';
+  }
+  renderBuffPill();
+
+  // ---- HUD init ----
+  modePill.textContent = (RUN||'play').toUpperCase();
+  diffPill.textContent = DIFF;
+  hudView.textContent = VIEW;
+  hudSeed.textContent = String(SEED).slice(0,16);
+  hudTime.textContent = TIME + 's';
+
+  function lockPxForView(){
+    if(VIEW === 'pc') return 10;
+    if(VIEW === 'cvr') return 22;
+    return 16;
+  }
+
+  let lastSummary = null;
+
+  function setCoach(text, mood){
+    coachTxt.textContent = text || '';
+    coachSub.textContent = mood ? String(mood) : 'coach';
+    const face =
+      mood === 'happy' ? '😄' :
+      mood === 'fever' ? '🔥' :
+      mood === 'sad'   ? '😵' :
+      mood === 'neutral' ? '🙂' : '🙂';
+    coachFace.textContent = face;
+  }
+
+  window.addEventListener('hha:time', (ev)=>{
+    const left = ev?.detail?.left;
+    if(typeof left === 'number') hudTime.textContent = left + 's';
   });
 
-  function go(view){
-    const p = currentPrefs();
-    p.view = view;
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.score != null) hudScore.textContent = String(d.score|0);
+    if(d.combo != null) hudCombo.textContent = 'x' + String(d.combo|0);
+    const m = (d.misses != null) ? d.misses : d.miss;
+    if(m != null) hudMiss.textContent = String(m|0);
+  });
 
-    // ✅ D5: strict view-cvr policy
-    // - autostart=1 to start immediately on run page
-    // - lockPx tuned on run page by view (already in D1 file)
-    // - For research: force ai=0
-    if(p.run === 'research'){
-      p.ai = '0';
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.grade) hudRank.textContent = String(d.grade);
+  });
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.goalTitle) qTitle.textContent = d.goalTitle;
+    const gNow = (d.goalNow!=null) ? d.goalNow : 0;
+    const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
+    qSub.textContent = `${gNow}/${gTot}`;
+    const pct = Math.round((gNow/Math.max(1,gTot))*100);
+    qBar.style.width = pct + '%';
+
+    if(d.miniTitle){
+      qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
     }
-
-    // seed default if empty
-    if(!p.seed) p.seed = String(Date.now());
-
-    // save last choice
-    savePrefs(p);
-    lastChoice.textContent = p.view;
-
-    const u = buildBaseUrl();
-    u.searchParams.set('view', p.view);
-    u.searchParams.set('run', p.run);
-    u.searchParams.set('diff', p.diff);
-    u.searchParams.set('time', p.time);
-    u.searchParams.set('seed', p.seed);
-    u.searchParams.set('ai', p.ai);
-
-    if(p.log) u.searchParams.set('log', p.log);
-    else u.searchParams.delete('log');
-
-    u.searchParams.set('autostart','1');
-
-    // IMPORTANT: remove launcher-only params if any
-    // (none currently)
-
-    location.href = u.toString();
-  }
-
-  btnPC.addEventListener('click', ()=>go('pc'));
-  btnMobile.addEventListener('click', ()=>go('mobile'));
-  btnCVR.addEventListener('click', ()=>go('cvr'));
-
-  // -------------- hub/back/copy/reset --------------
-  $('#btnBackHub').addEventListener('click', ()=>{
-    if(HUB) location.href = HUB;
-    else location.href = './hub.html';
+    if(d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0){
+      qMiniTime.textContent = `⏳ ${d.miniTimeLeftSec}s`;
+    }else{
+      qMiniTime.textContent = '';
+    }
+    if(d.groupName) groupName.textContent = d.groupName;
   });
 
-  $('#btnCopyLink').addEventListener('click', async ()=>{
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev?.detail || {};
+    const c = (d.charge!=null) ? d.charge : 0;
+    const t = (d.threshold!=null) ? d.threshold : 1;
+    const pct = Math.round((c/Math.max(1,t))*100);
+    pBar.style.width = pct + '%';
+    pText.textContent = `${c}/${t}`;
+  });
+
+  window.addEventListener('groups:group', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.name) groupName.textContent = d.name;
+  });
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.text) setCoach(d.text, d.mood || 'neutral');
+  });
+
+  window.addEventListener('groups:director', (ev)=>{
+    const d = ev?.detail || {};
+    if(!d.text){ dirPill.style.display='none'; return; }
+    dirText.textContent = String(d.text);
+    dirPill.style.display = '';
+  });
+
+  // ---- D8 Save summary ----
+  const LS_LAST = 'HHA_LAST_SUMMARY';
+  const LS_HIST = 'HHA_SUMMARY_HISTORY';
+
+  function readJSON(key, fallback){
     try{
-      await navigator.clipboard.writeText(location.href);
-      alert('คัดลอกลิงก์ Launcher แล้ว ✅');
+      const s = localStorage.getItem(key);
+      return s ? JSON.parse(s) : fallback;
+    }catch(_){ return fallback; }
+  }
+  function writeJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch(_){ return false; }
+  }
+  function saveLastSummary(summary, buff, meta){
+    try{
+      const payload = {
+        atISO: new Date().toISOString(),
+        game: 'groups',
+        meta: meta || {},
+        buff: buff || null,
+        summary: summary || null
+      };
+      const ok1 = writeJSON(LS_LAST, payload);
+      const hist = readJSON(LS_HIST, []);
+      hist.unshift(payload);
+      const ok2 = writeJSON(LS_HIST, hist.slice(0, 40));
+      return !!(ok1 && ok2);
     }catch(_){
-      prompt('คัดลอกลิงก์:', location.href);
-    }
-  });
-
-  $('#btnReset').addEventListener('click', ()=>{
-    clearPrefs();
-    alert('ล้างค่าที่จำไว้แล้ว ✅');
-    location.reload();
-  });
-
-  // -------------- D6: Fullscreen + Orientation helpers --------------
-  async function requestFullscreen(){
-    try{
-      const el = document.documentElement;
-      if(el.requestFullscreen) await el.requestFullscreen();
-      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    }catch(_){
-      alert('Fullscreen ไม่สำเร็จ (บางเครื่องบล็อก)');
+      return false;
     }
   }
 
-  async function requestOrientation(){
+  function showEnd(summary, buff, saved){
+    endTitle.textContent = 'RESULT';
+    endSub.textContent = `grade=${summary?.grade || '-'} · acc=${summary?.accuracyPct ?? '-'}% · miss=${summary?.miss ?? '-'}`;
+    endSummary.textContent = JSON.stringify(summary || {}, null, 2);
+
+    const showBuff = buff ? {
+      ...buff,
+      note: (RUN === 'research') ? 'LOCKED (research — no effect)' : 'ACTIVE (play/practice)'
+    } : { note: 'no buff' };
+
+    endBuff.textContent = JSON.stringify(showBuff, null, 2);
+    savedTag.textContent = saved ? 'yes' : 'no';
+    endOverlay.style.display = 'flex';
+  }
+  function hideEnd(){ endOverlay.style.display = 'none'; }
+
+  window.addEventListener('hha:end', (ev)=>{
+    const s = ev?.detail || {};
+    lastSummary = s;
+    const saved = saveLastSummary(s, BUFF, { view: VIEW, run: RUN, diff: DIFF, time: TIME, seed: SEED });
+    showEnd(s, BUFF, saved);
+  });
+
+  // ---- D9 Flush hardened ----
+  function flushAll(summary){
     try{
-      // iOS: must be a user gesture (this handler is), but may not support lock
-      if(screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock('landscape');
-        alert('ล็อกแนวนอนแล้ว ✅');
-        return;
+      const T = window.GroupsVR && window.GroupsVR.Telemetry;
+      if(T && typeof T.flush === 'function'){
+        T.flush(summary || lastSummary || null);
       }
-      alert('เครื่องนี้ไม่รองรับ orientation.lock (แต่คุณหมุนจอเองได้)');
-    }catch(_){
-      alert('ขอหมุนจอไม่สำเร็จ (ต้องให้ permission หรือไม่รองรับ)');
+    }catch(_){}
+  }
+  function bindFlush(){
+    try{
+      if(window.GroupsVR && typeof window.GroupsVR.bindFlushOnLeave === 'function'){
+        window.GroupsVR.bindFlushOnLeave(()=>lastSummary || null);
+      }
+    }catch(_){}
+    window.addEventListener('pagehide', ()=>flushAll(), { passive:true });
+    window.addEventListener('beforeunload', ()=>flushAll(), { passive:true });
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden') flushAll();
+    });
+  }
+
+  // ---- ctx for engine ----
+  function buildCtx(){
+    const ctx = { runMode: RUN, time: TIME, seed: SEED };
+    if(BUFF){
+      ctx.buff = { ...BUFF };
+      ctx.buffLocked = (RUN === 'research');
+      if(RUN !== 'research') ctx.buffActive = true;
+    }
+    return ctx;
+  }
+
+  function stop(){
+    try{ window.GroupsVR.GameEngine.stop(); }catch(_){}
+    flushAll(lastSummary || null);
+  }
+
+  function restart(){
+    hideEnd();
+    stop();
+    setTimeout(()=>start(), 40);
+  }
+
+  function goHub(flushFirst){
+    if(flushFirst) flushAll(lastSummary || null);
+    stop();
+    try{ location.href = HUB; }
+    catch(_){ location.href = '../hub.html'; }
+  }
+
+  // ---- start game ----
+  function start(){
+    // set layer
+    try{ window.GroupsVR.GameEngine.setLayerEl(document.getElementById('playLayer')); }catch(_){}
+
+    // lockPx shim: only if lockPx missing, prevent duplicate shots
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
+
+    renderBuffPill();
+
+    try{
+      const ctx = buildCtx();
+      window.GroupsVR.GameEngine.start(DIFF, ctx);
+      bindFlush();
+
+      if(BUFF && RUN !== 'research'){
+        setCoach(`BUFF ACTIVE: ${BUFF.wType||'warmup'} · Rank ${BUFF.rank||'-'}`, 'happy');
+      } else if(BUFF && RUN === 'research'){
+        setCoach(`BUFF LOCKED (research) · แสดงเพื่อบันทึกเท่านั้น`, 'neutral');
+      }
+    }catch(e){
+      console.error(e);
+      setCoach('เริ่มเกมไม่สำเร็จ — เปิด console ดู error', 'sad');
     }
   }
 
-  $('#btnFullscreen').addEventListener('click', requestFullscreen);
-  $('#btnOrientation').addEventListener('click', requestOrientation);
+  if(VIEW === 'cvr'){
+    setCoach('โหมด Cardboard (cVR) พร้อมยิงจาก crosshair 🎯', 'neutral');
+    coachSub.textContent = 'แตะจอเพื่อยิง (tap-to-shoot) แล้วเก็บคอมโบ';
+  }
+
+  start();
 
 })();
 </script>
-
 </body>
 </html>
