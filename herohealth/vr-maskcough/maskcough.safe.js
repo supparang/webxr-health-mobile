@@ -1,340 +1,151 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — FUN + AI Prediction (ML/DL hooks) — v20260214a
-// Mechanics:
-// - 💦 droplet: tap/shoot to clear (good)
-// - 🤧 cough: must block near expiry for "Perfect" (risk/reward)
-// - 😷 mask: tap to gain shield
-// - Fever: power fantasy (burst clear + bonus)
-// - Boss wave: Mega Cough chain, pass by perfect block
-//
-// Controls:
-// - Mobile/PC: tap/click targets
-// - cVR strict: crosshair shoot via ../vr/vr-ui.js (event: hha:shoot {x,y})
-//
-// URL params:
-// ?hub=...&pid=...&seed=...&diff=easy|normal|hard&time=60&mode=play|study&view=pc|cvr|mobile
-//
-// Stores:
-// - HHA_LAST_SUMMARY (latest result)
-// - HHA_SUMMARY_HISTORY (append)
-
+// MaskCough SAFE Engine — PRODUCTION (Boss + Swipe + VR shoot + Presets + Summary + Gate)
+// ✅ A: Boss Super Spreader (storm + shockwave + HP)
+// ✅ B: Swipe mechanic (droplet/mask by swipe, cough risky)
+// ✅ C: VR/cVR shoot via hha:shoot + lockPx aim assist
+// ✅ Presets: grade5 / competitive / research (deterministic seed)
+// ✅ End overlay + save HHA_LAST_SUMMARY + back hub
+// ✅ Daily Gate: set HHA_ZONE_DONE::hygiene::YYYY-MM-DD when pass
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
 
-  const $ = (s)=>DOC.querySelector(s);
+  // ----- URL params -----
+  const U = new URL(location.href);
+  const QS = U.searchParams;
+  const pid = (QS.get('pid')||'').trim();
+  const hub = (QS.get('hub')||'').trim();
+  const diff = (QS.get('diff')||'normal').trim();
+  const seed = (QS.get('seed')||'').trim();
+  const mode = (QS.get('mode')||'play').trim();
+  const timeLimit = Math.max(20, parseInt(QS.get('time')||'60',10)); // seconds
+  const research = (QS.get('research') === '1') || (mode === 'research');
 
-  // ---------- helpers ----------
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-  function clamp01(x){ return clamp(x,0,1); }
+  // ----- DOM -----
+  const layer = DOC.getElementById('layer');
+  const menu = DOC.getElementById('menu');
+  const btnStart = DOC.getElementById('btnStart');
+  const btnBack = DOC.getElementById('btnBack');
 
+  const tScore = DOC.getElementById('tScore');
+  const tStreak = DOC.getElementById('tStreak');
+  const tBest = DOC.getElementById('tBest');
+  const tMiss = DOC.getElementById('tMiss');
+  const tMask = DOC.getElementById('tMask');
+  const bMask = DOC.getElementById('bMask');
+
+  const tWave = DOC.getElementById('tWave');
+  const tInt = DOC.getElementById('tInt');
+  const tFever = DOC.getElementById('tFever');
+  const bFever = DOC.getElementById('bFever');
+
+  const tBoss = DOC.getElementById('tBoss');
+  const bBoss = DOC.getElementById('bBoss');
+
+  const toastEl = DOC.getElementById('toast');
+  let toastTimer = null;
   function toast(msg){
-    const el = $('#toast');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=> el.classList.remove('show'), 1100);
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1200);
   }
 
-  function showPrompt(msg){
-    const el = $('#mc-prompt');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(showPrompt._t);
-    showPrompt._t = setTimeout(()=> el.classList.remove('show'), 900);
+  // end overlay
+  const endEl = DOC.getElementById('end');
+  const endReasonEl = DOC.getElementById('endReason');
+  const endBadgeEl = DOC.getElementById('endBadge');
+  const endScoreEl = DOC.getElementById('endScore');
+  const endShieldEl = DOC.getElementById('endShield');
+  const endBestStreakEl = DOC.getElementById('endBestStreak');
+  const endMissEl = DOC.getElementById('endMiss');
+  const endCtxEl = DOC.getElementById('endCtx');
+
+  const btnEndRetry = DOC.getElementById('btnEndRetry');
+  const btnEndMenu = DOC.getElementById('btnEndMenu');
+  const btnEndHub = DOC.getElementById('btnEndHub');
+
+  // ----- date key (HUB compatible) -----
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function setZoneDoneToday(zone){
+    try{ localStorage.setItem(zoneDoneKey(zone), '1'); }catch(_){}
   }
 
-  function flash(){
-    const el = $('#mc-flash');
-    if(!el) return;
-    el.style.opacity = '1';
-    clearTimeout(flash._t);
-    flash._t = setTimeout(()=> el.style.opacity = '0', 110);
-  }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  function safeNum(x, d=0){
-    const n = Number(x);
-    return Number.isFinite(n) ? n : d;
-  }
-
-  function getQS(){
-    try { return new URL(location.href).searchParams; }
-    catch(_){ return new URLSearchParams(); }
-  }
-
-  function pageUrl(){ return location.href.split('#')[0]; }
-
-  function getViewAuto(){
-    const qs = getQS();
-    const v = (qs.get('view')||'').toLowerCase();
-    if(v) return v;
-
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) ||
-      (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'cvr' : 'pc';
-  }
-
-  function seededRng(seed){
-    let t = (Number(seed)||Date.now()) >>> 0;
-    return function(){
-      t += 0x6D2B79F5;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  // ---------- AI / ML-DL (lightweight) ----------
-  function sigmoid(x){
-    if(x >= 0){ const z = Math.exp(-x); return 1/(1+z); }
-    const z = Math.exp(x); return z/(1+z);
-  }
-  function nz(v, lo, hi){
-    const x = (v - lo) / (hi - lo);
-    return clamp01(x);
-  }
-  function createRiskModel(){
-    const w = [ 2.2, 1.6, 2.0, 1.3, 1.4, 1.0, 0.8 ];
-    const b = -1.4;
-    return {
-      predict(feat){
-        let s = b;
-        for(let i=0;i<w.length;i++) s += w[i] * (feat[i] || 0);
-        return sigmoid(s);
-      }
-    };
-  }
-  function createTinyMLP(){
-    const W1 = Array.from({length:8}, ()=>Array(7).fill(0));
-    const B1 = Array(8).fill(0);
-    const W2 = Array(8).fill(0);
-    const B2 = 0;
-
-    for(let i=0;i<8;i++){
-      B1[i] = (i%2? -0.15: 0.12);
-      for(let j=0;j<7;j++){
-        W1[i][j] = ((i+1)*(j+2) % 7) * 0.03 - 0.09;
-      }
-      W2[i] = (i%2? 0.22 : -0.18);
-    }
-    function relu(x){ return x>0?x:0; }
-    return {
-      predict(feat){
-        const h = new Array(8).fill(0);
-        for(let i=0;i<8;i++){
-          let s = B1[i];
-          for(let j=0;j<7;j++) s += W1[i][j]*(feat[j]||0);
-          h[i] = relu(s);
-        }
-        let o = B2;
-        for(let i=0;i<8;i++) o += W2[i]*h[i];
-        return sigmoid(o);
-      }
-    };
-  }
-
-  function createAIDirector(opts){
-    const model = createRiskModel();
-    const mlp = createTinyMLP();
-
-    const cfg = {
-      windowMs: 5000,
-      enableDL: !!opts?.enableDL,
-      alpha: 0.65,
-      maxAssist: 0.45,
-      coachCooldownMs: 8500,
-    };
-
-    const st = {
-      lastT: 0,
-      risk: 0.12,
-      taps: 0, hits: 0, timeouts: 0,
-      coughTimeouts: 0,
-      perfects: 0,
-      latencySum: 0, latencyN: 0,
-      shieldNow: 40,
-      shieldPrev: 40,
-      shieldSlope: 0,
-      coachT: 0,
-      riskSum: 0,
-      riskN: 0,
-    };
-
-    function reset(){
-      st.lastT = performance.now();
-      st.risk = 0.12;
-      st.taps = st.hits = st.timeouts = 0;
-      st.coughTimeouts = 0;
-      st.perfects = 0;
-      st.latencySum = 0; st.latencyN = 0;
-      st.shieldPrev = st.shieldNow = 40;
-      st.shieldSlope = 0;
-      st.coachT = 0;
-      st.riskSum = 0;
-      st.riskN = 0;
-    }
-
-    function onTick(nowMs, shield){
-      st.shieldNow = shield;
-
-      // record risk average
-      st.riskSum += st.risk;
-      st.riskN += 1;
-
-      if(nowMs - st.lastT >= cfg.windowMs){
-        const total = Math.max(1, st.taps + st.timeouts);
-        const hitRate = st.hits / total;
-        const missRate = st.timeouts / total;
-
-        const avgLat = st.latencyN ? (st.latencySum / st.latencyN) : 0;
-        const coughFail = st.coughTimeouts / Math.max(1, st.timeouts);
-        const perfectRate = st.perfects / Math.max(1, st.hits);
-
-        st.shieldSlope = (st.shieldNow - st.shieldPrev) / 100;
-        st.shieldPrev = st.shieldNow;
-
-        const feat = [
-          nz(missRate, 0.05, 0.55),
-          nz(1-hitRate, 0.10, 0.70),
-          nz(1-(st.shieldNow/100), 0.30, 0.95),
-          nz(Math.max(0, -st.shieldSlope), 0.00, 0.30),
-          nz(coughFail, 0.05, 0.60),
-          nz(avgLat, 180, 650),
-          nz(1-perfectRate, 0.20, 0.95),
-        ];
-
-        const r1 = model.predict(feat);
-        const r2 = cfg.enableDL ? mlp.predict(feat) : r1;
-        const r = cfg.enableDL ? (0.55*r1 + 0.45*r2) : r1;
-
-        st.risk = cfg.alpha*st.risk + (1-cfg.alpha)*r;
-
-        st.taps = st.hits = st.timeouts = 0;
-        st.coughTimeouts = 0;
-        st.perfects = 0;
-        st.latencySum = 0; st.latencyN = 0;
-        st.lastT = nowMs;
-      }
-
-      return st.risk;
-    }
-
-    function assistParams(){
-      const a = Math.min(cfg.maxAssist, Math.max(0, (st.risk - 0.25) * 0.85));
+  // ----- Presets -----
+  function preset(){
+    if(research){
       return {
-        assist: a,
-        maskBonus: 0.10 * a,
-        coughPenalty: 0.14 * a,
-        spawnSlow: 0.18 * a,
-        ttlBoost: 0.14 * a,
-        perfectBoost: 0.20 * a,
+        name: 'research',
+        baseSpawnMs: 820,
+        ttlMs: 1750,
+        perfectWindowMs: 240,
+        shieldStart: 55,
+        shieldRegenEveryStreak: 8,
+        shieldRegenAmt: 5,
+        dmgCough: 14,
+        dmgDroplet: 5,
+        boss: { on:true, nextAt: 22, maxHP: 12, durMs: 9500, stormEvery: 520, shockEvery: 2400, cap: 12 }
       };
     }
+    if(diff === 'hard'){
+      return {
+        name: 'competitive',
+        baseSpawnMs: 560,
+        ttlMs: 1350,
+        perfectWindowMs: 200,
+        shieldStart: 40,
+        shieldRegenEveryStreak: 10,
+        shieldRegenAmt: 6,
+        dmgCough: 18,
+        dmgDroplet: 7,
+        boss: { on:true, nextAt: 16, maxHP: 16, durMs: 12000, stormEvery: 360, shockEvery: 1900, cap: 16 }
+      };
+    }
+    return {
+      name: 'grade5',
+      baseSpawnMs: (diff === 'easy') ? 860 : 760,
+      ttlMs: (diff === 'easy') ? 1950 : 1700,
+      perfectWindowMs: 230,
+      shieldStart: 58,
+      shieldRegenEveryStreak: 7,
+      shieldRegenAmt: 7,
+      dmgCough: 14,
+      dmgDroplet: 5,
+      boss: { on:true, nextAt: 20, maxHP: 10, durMs: 9000, stormEvery: 520, shockEvery: 2400, cap: 13 }
+    };
+  }
+  const P = preset();
 
-    function onEvent(ev){
-      st.taps += 1;
-      if(ev.type === 'hit'){
-        st.hits += 1;
-      } else if(ev.type === 'perfect'){
-        st.hits += 1;
-        st.perfects += 1;
-      } else if(ev.type === 'timeout'){
-        st.timeouts += 1;
-        if(ev.kind === 'cough') st.coughTimeouts += 1;
+  // ----- deterministic RNG (research) -----
+  const rng = (function(){
+    if(!research) return { next: ()=> Math.random() };
+    let a = 0;
+    const s = (seed || '1234') + '::maskcough';
+    for(let i=0;i<s.length;i++){ a = (a + s.charCodeAt(i) * 2654435761) >>> 0; }
+    return {
+      next: ()=> {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
       }
-      if(Number.isFinite(ev.latencyMs)){
-        st.latencySum += ev.latencyMs;
-        st.latencyN += 1;
-      }
-    }
+    };
+  })();
 
-    function coachHint(nowMs, state){
-      if(nowMs - st.coachT < cfg.coachCooldownMs) return null;
-
-      // show hint only when risk notable or shield low
-      if(st.risk < 0.42 && state.shield > 34) return null;
-
-      st.coachT = nowMs;
-
-      if(state.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
-      if(st.risk > 0.70) return '🎯 โฟกัส 🤧 ตอนท้าย ๆ เพื่อ Perfect Block (คะแนนพุ่ง!)';
-      if(state.miss >= 6) return '💦 อย่าให้ละอองหลุดเยอะ—ตี 💦 ให้ทันก่อน!';
-      return '✨ สะสม streak แล้วจะเข้า FEVER ได้เร็วขึ้น!';
-    }
-
-    function riskAvg(){
-      return st.riskN ? (st.riskSum / st.riskN) : st.risk;
-    }
-
-    return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){ return st.risk; } };
-  }
-
-  // ---------- Fun Boost integration (optional) ----------
-  const qs = getQS();
-  const hub = (qs.get('hub')||'../hub.html').trim();
-  const pid = (qs.get('pid') || qs.get('participantId') || '').trim();
-  const diff = (qs.get('diff')||'normal').trim();
-  const seed = (qs.get('seed') || pid || 'maskcough').trim();
-  const mode = (qs.get('mode')||qs.get('run')||'play').trim(); // play/study
-  const timeLimit = Math.max(20, parseInt(qs.get('time')||'60',10)); // sec
-  const view = getViewAuto();
-
-  // DOM
-  const wrap = $('#mc-wrap');
-  const layer = $('#layer');
-
-  const tScore = $('#tScore');
-  const tStreak = $('#tStreak');
-  const tMiss = $('#tMiss');
-  const tMask = $('#tMask');
-  const bMask = $('#bMask');
-
-  const tWave = $('#tWave');
-  const tInt = $('#tInt');
-  const tFever = $('#tFever');
-  const tRisk = $('#tRisk');
-
-  const tFeverPct = $('#tFeverPct');
-  const bFever = $('#bFever');
-
-  const btnStart = $('#btnStart');
-  const btnRetry = $('#btnRetry');
-  const btnPause = $('#btnPause');
-  const btnBack = $('#btnBack');
-
-  const endEl = $('#end');
-  const btnEndRetry = $('#btnEndRetry');
-  const btnEndBack = $('#btnEndBack');
-
-  if(wrap){
-    wrap.dataset.view = view;
-    wrap.dataset.run = mode;
-  }
-
-  // Back links with ctx passthrough
-  function applyHubLink(a){
-    if(!a) return;
-    try{
-      const u = new URL(hub, location.href);
-      if(pid) u.searchParams.set('pid', pid);
-      if(seed) u.searchParams.set('seed', seed);
-      if(diff) u.searchParams.set('diff', diff);
-      u.searchParams.set('view', view);
-      a.href = u.toString();
-    }catch(_){
-      a.href = hub || '../hub.html';
-    }
-  }
-  applyHubLink(btnEndBack);
-
-  // Fun boost (global feel)
+  // ----- FUN BOOST -----
   const fun = WIN.HHA?.createFunBoost?.({
-    seed: seed,
+    seed: seed || pid || 'maskcough',
     baseSpawnMul: 1.0,
     waveCycleMs: 18000,
     feverThreshold: 16,
@@ -342,136 +153,136 @@
     feverSpawnBoost: 1.18,
     feverTimeScale: 0.92
   });
-
   let director = fun ? fun.tick() : {spawnMul:1,timeScale:1,wave:'calm',intensity:0,feverOn:false};
 
-  // AI Director (DL only in play)
-  const ai = createAIDirector({ enableDL: (mode === 'play') });
+  // ----- Input + pointer tracking -----
+  const PTR = { x: 0, y: 0, has:false };
+  WIN.addEventListener('pointermove', (ev)=>{ PTR.x = ev.clientX; PTR.y = ev.clientY; PTR.has = true; }, { passive:true });
+  WIN.addEventListener('pointerdown', (ev)=>{ PTR.x = ev.clientX; PTR.y = ev.clientY; PTR.has = true; }, { passive:true });
 
-  // ---------- Game state ----------
+  // ----- Game state -----
   const st = {
-    running:false,
-    paused:false,
-    over:false,
+    running: false,
+    over: false,
+    t0: 0,
 
-    t0:0,
-    elapsedSec:0,
+    score: 0,
+    streak: 0,
+    bestStreak: 0,
+    miss: 0,
 
-    score:0,
-    streak:0,
-    maxStreak:0,
-    miss:0,
-    perfect:0,
+    shield: P.shieldStart,
 
-    shield:40, // 0..100
+    baseSpawnMs: P.baseSpawnMs,
+    ttlMs: P.ttlMs,
+    perfectWindowMs: P.perfectWindowMs,
 
-    // base spawn/ttl (we compute effective using director+ai)
-    baseSpawnMs: (diff==='hard' ? 650 : diff==='easy' ? 880 : 760),
-    ttlBaseMs:   (diff==='hard' ? 1450 : diff==='easy' ? 1850 : 1650),
-    perfectBaseMs: 220,
+    targets: new Map(),
+    uid: 0,
 
-    // boss pacing
-    bossEveryMs: (diff==='hard' ? 20000 : diff==='easy' ? 26000 : 23000),
-    nextBossAt: 0,
-    bossActive:false,
-    bossNeedPerfect:false,
+    // boss
+    bossOn: false,
+    bossHP: 0,
+    bossMax: P.boss.maxHP,
+    bossNextAt: P.boss.nextAt,
+    bossActiveUntil: 0,
+    bossStormEveryMs: P.boss.stormEvery,
+    bossShockEveryMs: P.boss.shockEvery,
+    _bossStormT: 0,
+    _bossShockT: 0,
+    bossClears: 0,
 
-    // targets
-    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y}
-    uid:0,
-
-    // rng
-    rng: seededRng(seed),
-
-    // risk
-    risk: 0.12
+    // input guard
+    lastShotMs: 0,
+    shotCooldownMs: 85
   };
 
-  function setHud(){
-    if(tScore) tScore.textContent = String(st.score);
-    if(tStreak) tStreak.textContent = String(st.streak);
-    if(tMiss) tMiss.textContent = String(st.miss);
+  function canShoot(){
+    const t = performance.now();
+    if(t - st.lastShotMs < st.shotCooldownMs) return false;
+    st.lastShotMs = t;
+    return true;
+  }
 
-    const sh = clamp(st.shield,0,100);
-    if(tMask) tMask.textContent = `${Math.round(sh)}%`;
-    if(bMask) bMask.style.width = `${sh}%`;
+  function layerRect(){
+    return layer.getBoundingClientRect();
+  }
 
-    if(tWave) tWave.textContent = director.wave || '—';
-    if(tInt) tInt.textContent = (director.intensity||0).toFixed(2);
-    if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
+  function hud(){
+    tScore.textContent = String(st.score);
+    tStreak.textContent = String(st.streak);
+    tBest.textContent = String(st.bestStreak);
+    tMiss.textContent = String(st.miss);
 
-    if(tRisk) tRisk.textContent = (st.risk||0).toFixed(2);
+    const sh = clamp(st.shield, 0, 100);
+    tMask.textContent = `${Math.round(sh)}%`;
+    bMask.style.width = `${sh}%`;
 
-    // fever bar via fun state if available
+    tWave.textContent = director.wave || '—';
+    tInt.textContent = (director.intensity||0).toFixed(2);
+    tFever.textContent = director.feverOn ? 'ON' : 'OFF';
+
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
     const pct = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
-    if(bFever) bFever.style.width = `${pct}%`;
-    if(tFeverPct) tFeverPct.textContent = `${Math.round(pct)}%`;
+    bFever.style.width = `${pct}%`;
+
+    if(st.bossOn){
+      tBoss.textContent = `HP ${st.bossHP}/${st.bossMax}`;
+      bBoss.style.width = `${clamp((st.bossHP/st.bossMax)*100, 0, 100)}%`;
+    } else {
+      tBoss.textContent = '—';
+      bBoss.style.width = '0%';
+    }
+  }
+
+  // ----- kinds -----
+  function pickKind(){
+    const feverOn = !!director.feverOn;
+    const inten = director.intensity || 0;
+
+    let wDroplet = 0.62;
+    let wCough   = 0.24;
+    let wMask    = 0.14;
+
+    wCough += inten * 0.16;
+    wDroplet -= inten * 0.10;
+    wMask += (st.shield < 35 ? 0.10 : 0.00);
+
+    if(feverOn){
+      wDroplet += 0.10;
+      wMask -= 0.08;
+    }
+
+    const sum = wDroplet + wCough + wMask;
+    wDroplet/=sum; wCough/=sum; wMask/=sum;
+
+    const r = rng.next();
+    if(r < wDroplet) return 'droplet';
+    if(r < wDroplet + wCough) return 'cough';
+    return 'mask';
   }
 
   function emoji(kind){
     if(kind==='droplet') return '💦';
     if(kind==='cough') return '🤧';
     if(kind==='mask') return '😷';
-    if(kind==='infected') return '🦠';
-    if(kind==='boss') return '🤧';
     return '🎯';
   }
   function cssClass(kind){
     if(kind==='droplet') return 't good';
-    if(kind==='infected') return 't bad';
     if(kind==='cough') return 't cough bad';
     if(kind==='mask') return 't mask';
-    if(kind==='boss') return 't cough bad';
     return 't';
   }
 
-  function layerRect(){ return layer.getBoundingClientRect(); }
+  // ----- spawn -----
+  function spawnCore(kind){
+    const r = layerRect();
+    const pad = 52;
 
-  // pick kind (with AI assist)
-  function pickKind(){
-    const feverOn = !!director.feverOn;
-    const inten = director.intensity || 0;
-    const ap = ai?.assistParams?.() || {maskBonus:0,coughPenalty:0};
-
-    let wDroplet = 0.60;
-    let wCough   = 0.24;
-    let wMask    = 0.16;
-
-    // intensity
-    wCough += inten * 0.16;
-    wDroplet -= inten * 0.10;
-
-    // AI assist
-    wMask += ap.maskBonus;
-    wCough -= ap.coughPenalty;
-
-    // shield low => more mask
-    wMask += (st.shield < 35 ? 0.10 : 0.00);
-
-    // fever fantasy
-    if(feverOn){
-      wDroplet += 0.10;
-      wMask -= 0.06;
-    }
-
-    // clamp sane
-    wDroplet = Math.max(0.34, wDroplet);
-    wCough   = Math.max(0.10, wCough);
-    wMask    = Math.max(0.08, wMask);
-
-    const sum = wDroplet + wCough + wMask;
-    wDroplet/=sum; wCough/=sum; wMask/=sum;
-
-    const r = st.rng();
-    if(r < wDroplet) return 'droplet';
-    if(r < wDroplet + wCough) return 'cough';
-    return 'mask';
-  }
-
-  function spawnAt(kind, x, y, ttlMs){
-    if(!st.running || st.over || st.paused) return;
+    const x = pad + rng.next() * Math.max(10, (r.width - pad*2));
+    const y = pad + rng.next() * Math.max(10, (r.height - pad*2));
 
     const id = String(++st.uid);
     const el = DOC.createElement('div');
@@ -483,13 +294,12 @@
     el.dataset.kind = kind;
 
     const born = performance.now();
-    const die = born + ttlMs;
+    const ttl = (st.ttlMs * (director.timeScale || 1)) * (kind==='cough' ? 0.92 : 1.0);
+    const die = born + ttl;
 
-    st.targets.set(id, { el, kind, bornMs: born, dieMs: die, x, y });
+    st.targets.set(id, { el, kind, bornMs: born, dieMs: die });
 
-    // tap/click (pc/mobile)
     el.addEventListener('pointerdown', (ev)=>{
-      if(view === 'cvr') return; // strict: shoot only
       ev.preventDefault();
       handleHit(id, 'tap');
     }, { passive:false });
@@ -498,38 +308,16 @@
   }
 
   function spawn(){
-    if(!st.running || st.over || st.paused) return;
-
-    const r = layerRect();
-    const pad = 52;
-
-    const x = pad + st.rng() * Math.max(10, (r.width - pad*2));
-    const y = pad + st.rng() * Math.max(10, (r.height - pad*2));
-
-    // effective params from director + AI
-    const ap = ai.assistParams();
-    const baseSpawn = st.baseSpawnMs;
-    const effSpawnMul = (director.spawnMul || 1) * (1 - ap.spawnSlow);
-    const effTimeScale = (director.timeScale || 1);
-
-    const ttlMs = Math.round(st.ttlBaseMs * effTimeScale * (1 + ap.ttlBoost));
-
-    // boss check
-    if(st.bossActive){
-      // spawn boss cough chain (fixed)
-      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)));
-      return;
-    }
-
-    // maybe infected droplet when intensity high (adds danger)
-    let kind = pickKind();
-    if(kind==='droplet' && !director.feverOn && (director.intensity||0) > 0.62 && st.rng() < 0.18){
-      kind = 'infected';
-    }
-
-    spawnAt(kind, x, y, ttlMs);
+    if(!st.running || st.over) return;
+    spawnCore(pickKind());
   }
 
+  function spawnForced(kind){
+    if(!st.running || st.over) return;
+    spawnCore(kind);
+  }
+
+  // ----- remove -----
   function removeTarget(id, popped){
     const it = st.targets.get(id);
     if(!it) return;
@@ -538,139 +326,176 @@
     const el = it.el;
     if(!el) return;
 
-    if(popped){
-      el.classList.add('pop');
-      el.classList.add('fade');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
-    } else {
-      el.classList.add('fade');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
+    el.classList.add('fade');
+    if(popped) el.classList.add('pop');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
+  }
+
+  // ----- boss -----
+  function startBoss(){
+    if(!P.boss.on) return;
+    st.bossOn = true;
+    st.bossMax = P.boss.maxHP;
+    st.bossHP = st.bossMax;
+    st.bossActiveUntil = performance.now() + P.boss.durMs;
+    st._bossStormT = performance.now();
+    st._bossShockT = performance.now();
+    toast('😈 BOSS: Super Spreader!');
+    try{ WIN.dispatchEvent(new CustomEvent('hha:fx', {detail:{kind:'boss', amp:.9, text:'BOSS!', ms:520}})); }catch(_){}
+    hud();
+  }
+
+  function endBoss(win){
+    st.bossOn = false;
+    st.bossActiveUntil = 0;
+    st._bossStormT = 0;
+    st._bossShockT = 0;
+
+    if(win){
+      st.bossClears += 1;
+      st.score += 8;
+      toast('🏆 Boss Down!');
+      try{ WIN.dispatchEvent(new CustomEvent('hha:fx', {detail:{kind:'boss_down', amp:.95, text:'CLEAR!', ms:520}})); }catch(_){}
+      st.bossNextAt += (diff==='hard' ? 22 : 18);
+    }else{
+      toast('😵 Boss Escaped!');
+      st.bossNextAt += (diff==='hard' ? 16 : 14);
+    }
+    hud();
+  }
+
+  function bossStorm(count){
+    const cap = P.boss.cap;
+    if(st.targets.size >= cap) return;
+
+    const c = Math.max(2, count|0);
+    for(let i=0;i<c;i++){
+      if(st.targets.size >= cap) break;
+      spawnForced('cough');
     }
   }
 
+  function bossShockwave(){
+    const dmg = (st.shield < 20) ? 3 : 6;
+    st.shield = clamp(st.shield - dmg, 0, 100);
+    try{ WIN.dispatchEvent(new CustomEvent('hha:fx', {detail:{kind:'shock', amp:.7, text:'SHOCK!', ms:220}})); }catch(_){}
+    if(st.shield <= 0) endGame('shield');
+    hud();
+  }
+
+  // ----- hit test for swipe / shoot (aim assist lockPx) -----
+  function hitTest(clientX, clientY, lockPx){
+    const r = layerRect();
+    const lx = clientX - r.left;
+    const ly = clientY - r.top;
+
+    const rad = Math.max(40, Number(lockPx)||0);
+    const rad2 = rad*rad;
+
+    for(const [id, it] of st.targets){
+      const el = it.el;
+      if(!el) continue;
+      const ex = parseFloat(el.style.left||'0');
+      const ey = parseFloat(el.style.top||'0');
+      const dx = ex - lx, dy = ey - ly;
+      const d2 = dx*dx + dy*dy;
+      if(d2 <= rad2){
+        return { id, kind: it.kind, d2 };
+      }
+    }
+    return null;
+  }
+
+  // ----- fever burst clear -----
   function burstClear(n){
-    // clear n random droplets/ infected for fever fun (prefer droplet)
-    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='droplet' || v.kind==='infected');
+    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='droplet');
     for(let i=0;i<Math.min(n, arr.length);i++){
-      const [id] = arr[Math.floor(st.rng()*arr.length)];
+      const [id] = arr[Math.floor(rng.next()*arr.length)];
       handleHit(id, 'burst');
     }
   }
 
-  function coughShockwave(x, y){
-    // transform nearby droplets into infected (panic moment)
-    const radius = 130;
-    for(const [id, it] of st.targets){
-      if(it.kind !== 'droplet') continue;
-      const dx = it.x - x;
-      const dy = it.y - y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if(d <= radius){
-        // mutate: remove old + spawn infected at same spot
-        removeTarget(id, false);
-        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
-      }
-    }
-    flash();
-    toast('🤧 Shockwave!');
-  }
-
+  // ----- scoring / rules -----
   function handleHit(id, why){
     const it = st.targets.get(id);
-    if(!it || st.over || st.paused) return;
+    if(!it || st.over || !st.running) return;
+    if(!canShoot()) return;
 
     const t = performance.now();
     const remain = it.dieMs - t;
 
-    // remove now
     removeTarget(id, true);
-
-    // effective perfect window (with AI)
-    const ap = ai.assistParams();
-    const perfectWindow = Math.round(st.perfectBaseMs * (1 + ap.perfectBoost));
 
     if(it.kind === 'droplet'){
       st.score += director.feverOn ? 2 : 1;
       st.streak += 1;
+      st.bestStreak = Math.max(st.bestStreak, st.streak);
 
-      // early hit bonus
-      const ttlApprox = st.ttlBaseMs;
-      if(remain > ttlApprox * 0.55){
+      if(remain > st.ttlMs * 0.55){
+        fun?.onAction({ type:'perfect' });
         st.score += 1;
-        ai.onEvent({ type:'perfect', kind:'droplet', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-        fun?.onAction?.({ type:'perfect' });
       } else {
-        ai.onEvent({ type:'hit', kind:'droplet', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-        fun?.onAction?.({ type:'hit' });
+        fun?.onAction({ type:'hit' });
       }
 
-      // fever fantasy: small auto-clear chance
-      if(director.feverOn && st.rng() < 0.24){
+      if(director.feverOn && rng.next() < 0.22){
         burstClear(1);
       }
-
-    } else if(it.kind === 'infected'){
-      // bad hit: penalty (teach discrimination)
-      st.miss += 1;
-      st.streak = 0;
-      st.score = Math.max(0, st.score - 2);
-      st.shield = clamp(st.shield - 10, 0, 100);
-      flash();
-      toast('🦠 โดนเชื้อ!');
-
-      ai.onEvent({ type:'hit', kind:'infected', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-      fun?.onAction?.({ type:'timeout' });
 
     } else if(it.kind === 'mask'){
       st.shield = clamp(st.shield + (director.feverOn ? 16 : 14), 0, 100);
       st.score += 1;
       st.streak += 1;
+      st.bestStreak = Math.max(st.bestStreak, st.streak);
+      fun?.onAction({ type:'hit' });
       toast('🛡️ Shield +');
 
-      ai.onEvent({ type:'hit', kind:'mask', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-      fun?.onAction?.({ type:'hit' });
-
-    } else if(it.kind === 'cough' || it.kind === 'boss'){
-      // perfect block very late
-      if(remain <= perfectWindow){
-        st.score += (it.kind === 'boss' ? 6 : 4);
+    } else if(it.kind === 'cough'){
+      if(remain <= st.perfectWindowMs){
+        st.score += 4;
         st.streak += 1;
-        st.perfect += 1;
+        st.bestStreak = Math.max(st.bestStreak, st.streak);
+        fun?.onAction({ type:'perfect' });
         toast('✨ Perfect Block!');
-        ai.onEvent({ type:'perfect', kind:'cough', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-        fun?.onAction?.({ type:'perfect' });
-
-        // boss pass condition
-        if(st.bossActive) st.bossNeedPerfect = false;
-
-        // small fever charge help
-        if(fun?.onAction) fun.onAction({ type:'perfect' });
-
       } else {
         st.score += 2;
         st.streak += 1;
-        ai.onEvent({ type:'hit', kind:'cough', remainMs: remain, latencyMs: t - it.bornMs, atMs: t });
-        fun?.onAction?.({ type:'hit' });
+        st.bestStreak = Math.max(st.bestStreak, st.streak);
+        fun?.onAction({ type:'hit' });
+      }
+
+      if(st.bossOn){
+        st.bossHP = Math.max(0, st.bossHP - (remain <= st.perfectWindowMs ? 2 : 1));
+        if(st.bossHP <= 0) endBoss(true);
       }
     }
 
-    st.maxStreak = Math.max(st.maxStreak, st.streak);
-
-    // fever periodic burst
-    if(director.feverOn && st.rng() < 0.10){
-      burstClear(1);
+    // regen (flow)
+    if(st.streak > 0 && st.streak % P.shieldRegenEveryStreak === 0){
+      st.shield = clamp(st.shield + P.shieldRegenAmt, 0, 100);
+      toast('🛡️ Regen!');
     }
 
-    setHud();
-
-    if(st.shield <= 0){
-      endGame('shield');
-    }
+    hud();
   }
 
   function timeoutTarget(id){
     const it = st.targets.get(id);
-    if(!it || st.over || st.paused) return;
+    if(!it || st.over) return;
+
+    // near-miss: pointer close at expiry
+    if(PTR.has){
+      const r = layerRect();
+      const cx = parseFloat(it.el?.style.left||'0');
+      const cy = parseFloat(it.el?.style.top||'0');
+      const px = PTR.x - r.left;
+      const py = PTR.y - r.top;
+      const dx = cx - px, dy = cy - py;
+      const d2 = dx*dx + dy*dy;
+      if(d2 <= 46*46){
+        fun?.onNearMiss?.({ reason:'pointer_close_timeout', kind: it.kind });
+      }
+    }
 
     removeTarget(id, false);
 
@@ -678,346 +503,322 @@
       st.miss += 1;
       st.streak = 0;
       st.score = Math.max(0, st.score - 1);
-      st.shield = clamp(st.shield - 6, 0, 100);
-      fun?.onAction?.({ type:'timeout' });
-
-      ai.onEvent({ type:'timeout', kind:'droplet', latencyMs: performance.now() - it.bornMs, atMs: performance.now() });
-
-    } else if(it.kind === 'infected'){
-      // infected expiring is GOOD (you avoided it)
-      st.score += 1;
-      fun?.onAction?.({ type:'hit' });
-      ai.onEvent({ type:'timeout', kind:'infected', latencyMs: performance.now() - it.bornMs, atMs: performance.now() });
+      st.shield = clamp(st.shield - P.dmgDroplet, 0, 100);
+      fun?.onAction({ type:'timeout' });
 
     } else if(it.kind === 'mask'){
       st.miss += 1;
       st.streak = 0;
-      fun?.onAction?.({ type:'timeout' });
-      ai.onEvent({ type:'timeout', kind:'mask', latencyMs: performance.now() - it.bornMs, atMs: performance.now() });
+      fun?.onAction({ type:'timeout' });
 
-    } else if(it.kind === 'cough' || it.kind === 'boss'){
+    } else if(it.kind === 'cough'){
       st.miss += 1;
       st.streak = 0;
-      st.shield = clamp(st.shield - (it.kind === 'boss' ? 22 : 16), 0, 100);
+      const dmg = (st.shield < 25) ? Math.round(P.dmgCough * 0.7) : P.dmgCough;
+      st.shield = clamp(st.shield - dmg, 0, 100);
       st.score = Math.max(0, st.score - 2);
+      fun?.onAction({ type:'timeout' });
       toast('😷 โดนละอองไอ!');
-      flash();
-
-      // shockwave makes it intense
-      coughShockwave(it.x, it.y);
-
-      fun?.onAction?.({ type:'timeout' });
-      ai.onEvent({ type:'timeout', kind:'cough', latencyMs: performance.now() - it.bornMs, atMs: performance.now() });
     }
 
-    setHud();
-
-    if(st.shield <= 0){
-      endGame('shield');
-    }
+    hud();
+    if(st.shield <= 0) endGame('shield');
   }
 
-  // ---------- timers ----------
+  // ----- Swipe mechanic -----
+  const SW = { on:true, minDistPx: 28, lastX:0, lastY:0, down:false };
+
+  layer.addEventListener('pointerdown', (ev)=>{
+    if(!SW.on || !st.running || st.over) return;
+    SW.down = true;
+    SW.lastX = ev.clientX;
+    SW.lastY = ev.clientY;
+  }, { passive:true });
+
+  layer.addEventListener('pointermove', (ev)=>{
+    if(!SW.on || !SW.down || !st.running || st.over) return;
+    const dx = ev.clientX - SW.lastX;
+    const dy = ev.clientY - SW.lastY;
+    const dist = Math.hypot(dx,dy);
+    SW.lastX = ev.clientX;
+    SW.lastY = ev.clientY;
+
+    if(dist >= SW.minDistPx){
+      if(!canShoot()) return;
+      const ht = hitTest(ev.clientX, ev.clientY, 0);
+      if(!ht) return;
+
+      if(ht.kind === 'droplet' || ht.kind === 'mask'){
+        handleHit(ht.id, 'swipe');
+      } else if(ht.kind === 'cough'){
+        // swipe can't block cough: risky mistake
+        st.miss += 1;
+        st.streak = 0;
+        fun?.onAction({ type:'shot_miss' });
+        hud();
+        try{ WIN.dispatchEvent(new CustomEvent('hha:fx', {detail:{kind:'swipe_bad', amp:.55, text:'NO!', ms:160}})); }catch(_){}
+      }
+    }
+  }, { passive:true });
+
+  layer.addEventListener('pointerup', ()=>{ SW.down = false; }, { passive:true });
+  layer.addEventListener('pointercancel', ()=>{ SW.down = false; }, { passive:true });
+
+  // ----- VR/cVR shoot: hha:shoot -----
+  function shootAtClientXY(cx, cy, lockPx){
+    const ht = hitTest(cx, cy, lockPx);
+    if(!ht){
+      st.miss += 1;
+      st.streak = 0;
+      fun?.onAction({ type:'shot_miss' });
+      hud();
+      return;
+    }
+    handleHit(ht.id, 'shoot');
+  }
+
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    if(!st.running || st.over) return;
+    if(!canShoot()) return;
+
+    const d = ev?.detail || {};
+    const lockPx = d.lockPx;
+
+    if(Number.isFinite(d.x) && Number.isFinite(d.y)){
+      shootAtClientXY(d.x, d.y, lockPx);
+      return;
+    }
+    const r = layerRect();
+    shootAtClientXY(r.left + r.width/2, r.top + r.height/2, lockPx);
+  });
+
+  // ----- spawn schedule / tick -----
   let spawnTimer = null;
   let tickTimer = null;
 
   function scheduleSpawn(){
     if(spawnTimer) clearTimeout(spawnTimer);
-    if(!st.running || st.over || st.paused) return;
+    if(!st.running || st.over) return;
 
-    const ap = ai.assistParams();
     const base = st.baseSpawnMs;
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
-    const eff = Math.max(220, Math.round(every * (1 + ap.spawnSlow))); // slow down when assisting
+
     spawnTimer = setTimeout(()=>{
       spawn();
       scheduleSpawn();
-    }, eff);
-  }
-
-  function maybeBoss(nowMs){
-    if(!st.running || st.over || st.paused) return;
-    if(st.bossActive) return;
-
-    if(nowMs >= st.nextBossAt){
-      st.bossActive = true;
-      st.bossNeedPerfect = true;
-      showPrompt('👿 BOSS WAVE! ทำ Perfect Block อย่างน้อย 1 ครั้ง!');
-      toast('BOSS INCOMING');
-
-      // boss lasts short, spawns chain
-      const bossDur = (diff==='hard' ? 3200 : 3800);
-      const endAt = nowMs + bossDur;
-
-      const bossTick = ()=>{
-        const t = performance.now();
-        if(t >= endAt || st.over || st.paused){
-          st.bossActive = false;
-
-          if(st.bossNeedPerfect){
-            // fail boss => big penalty
-            st.shield = clamp(st.shield - 18, 0, 100);
-            st.score = Math.max(0, st.score - 4);
-            flash();
-            toast('❌ บอสไม่ผ่าน!');
-          } else {
-            // pass => reward
-            st.shield = clamp(st.shield + 12, 0, 100);
-            st.score += 6;
-            toast('✅ ผ่านบอส! +Shield');
-            // small fever burst
-            burstClear(2);
-          }
-          setHud();
-          st.nextBossAt = performance.now() + st.bossEveryMs;
-          return;
-        }
-        // keep spawning via normal schedule
-        setTimeout(bossTick, 160);
-      };
-      bossTick();
-    }
+    }, every);
   }
 
   function tick(){
-    if(!st.running || st.over || st.paused) return;
+    if(!st.running || st.over) return;
 
     director = fun ? fun.tick() : director;
 
-    const nowMs = performance.now();
+    // boss spawn
+    if(!st.bossOn && P.boss.on && st.score >= st.bossNextAt){
+      startBoss();
+    }
 
-    // AI risk
-    st.risk = ai.onTick(nowMs, st.shield);
-
-    // coach
-    const hint = ai.coachHint(nowMs, { shield: st.shield, miss: st.miss });
-    if(hint) showPrompt(hint);
+    // boss loop
+    if(st.bossOn){
+      const tt = performance.now();
+      if(tt >= st.bossActiveUntil){
+        endBoss(false);
+      } else {
+        if(tt - st._bossStormT >= st.bossStormEveryMs){
+          st._bossStormT = tt;
+          const inten = director.intensity || 0;
+          bossStorm((diff==='hard' ? 3 : 2) + (inten>0.55 ? 1 : 0));
+        }
+        if(tt - st._bossShockT >= st.bossShockEveryMs){
+          st._bossShockT = tt;
+          bossShockwave();
+        }
+      }
+    }
 
     // timeouts
+    const t = performance.now();
     for(const [id, it] of st.targets){
-      if(nowMs >= it.dieMs){
+      if(t >= it.dieMs){
         timeoutTarget(id);
       }
     }
 
-    // fever fantasy: periodic burst
-    if(director.feverOn && st.rng() < 0.10){
-      burstClear(1);
-    }
-
-    // boss scheduling
-    maybeBoss(nowMs);
-
     // time limit
-    st.elapsedSec = (nowMs - st.t0) / 1000;
-    if(st.elapsedSec >= timeLimit){
+    const elapsed = (t - st.t0) / 1000;
+    if(elapsed >= timeLimit){
       endGame('time');
-      return;
     }
 
-    // emergency save (rare, fair)
-    if(st.risk > 0.78 && st.shield < 18){
-      st.shield = Math.min(100, st.shield + 10);
-    }
-
-    setHud();
+    hud();
   }
 
-  // ---------- cVR shoot integration ----------
-  function pickTargetAt(x, y){
-    // choose nearest target center within radius
-    let bestId = null;
-    let bestD = 1e9;
-    const rad = 54; // px
-    for(const [id, it] of st.targets){
-      const dx = it.x - x;
-      const dy = it.y - y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if(d <= rad && d < bestD){
-        bestD = d; bestId = id;
+  // ----- Summary + Gate -----
+  function nowIso(){
+    const d = new Date();
+    return d.toISOString();
+  }
+
+  function summaryBadge(sum){
+    const score = sum.metrics?.score || 0;
+    if(score >= 55) return '🏅 HERO';
+    if(score >= 35) return '🥈 PRO';
+    if(score >= 20) return '🥉 ROOKIE';
+    return '🎯 TRY AGAIN';
+  }
+
+  function buildSummary(reason){
+    const elapsedSec = Math.max(0, Math.round((performance.now() - st.t0)/1000));
+    const ctx = {
+      pid, diff, mode,
+      seed,
+      timeLimit,
+      preset: P.name,
+      view: (QS.get('view')||'').trim(),
+      research: research ? 1 : 0
+    };
+
+    return {
+      schema: 'HHA_LAST_SUMMARY_V1',
+      game: 'maskcough',
+      atIso: nowIso(),
+      reason: reason || '',
+      ctx,
+      metrics: {
+        score: st.score,
+        miss: st.miss,
+        streakBest: st.bestStreak,
+        shieldLeft: Math.round(clamp(st.shield,0,100)),
+        bossClears: st.bossClears,
+        durationSec: elapsedSec
       }
-    }
-    return bestId;
+    };
   }
 
-  function onShoot(ev){
-    if(!st.running || st.over || st.paused) return;
-    if(view !== 'cvr') return;
-
-    const r = layerRect();
-    const x = clamp((ev?.detail?.x ?? (r.left + r.width/2)) - r.left, 0, r.width);
-    const y = clamp((ev?.detail?.y ?? (r.top + r.height/2)) - r.top, 0, r.height);
-
-    const id = pickTargetAt(x, y);
-    if(id) handleHit(id, 'shoot');
-  }
-
-  WIN.addEventListener('hha:shoot', onShoot);
-
-  // ---------- summary store ----------
-  const LS_LAST = 'HHA_LAST_SUMMARY';
-  const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
-  function saveSummary(sum){
+  function saveLastSummary(sum){
     try{
-      localStorage.setItem(LS_LAST, JSON.stringify(sum));
-      const arr = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-      arr.push(sum);
-      while(arr.length > 60) arr.shift();
-      localStorage.setItem(LS_HIST, JSON.stringify(arr));
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(sum));
+      localStorage.setItem('HHA_LAST_SUMMARY_GAME', 'maskcough');
+      localStorage.setItem('HHA_LAST_SUMMARY_AT', sum.atIso || '');
     }catch(_){}
   }
 
-  function makeBadges(){
-    const b = [];
-    if(st.perfect >= 3) b.push({ id:'PERFECT_3', label:'✨ Perfect x3' });
-    if(st.maxStreak >= 12) b.push({ id:'STREAK_12', label:'🔥 Streak 12' });
-    if(st.miss <= 3 && st.elapsedSec >= timeLimit-0.2) b.push({ id:'CLEAN_RUN', label:'🧼 Clean Run' });
-    if(st.shield >= 60) b.push({ id:'SHIELD_MASTER', label:'🛡️ Shield Master' });
-    return b;
+  function isGatePass(sum){
+    const m = sum.metrics || {};
+    const score = m.score || 0;
+    const boss = m.bossClears || 0;
+    const shield = m.shieldLeft || 0;
+    if(score >= 20) return true;
+    if(boss >= 1) return true;
+    if(score >= 14 && shield >= 25) return true;
+    return false;
   }
 
-  function renderEnd(reason){
-    const set = (id, v)=>{ const el = DOC.getElementById(id); if(el) el.textContent = String(v); };
+  function showEnd(sum){
+    if(!endEl) return;
+    const m = sum.metrics || {};
+    const ctx = sum.ctx || {};
 
-    set('tEndReason', reason);
-    set('sScore', st.score);
-    set('sMaxStreak', st.maxStreak);
-    set('sMiss', st.miss);
-    set('sPerfect', st.perfect);
-    set('sShield', Math.round(st.shield) + '%');
-    set('sRisk', ai.riskAvg().toFixed(2));
+    endReasonEl.textContent = `Reason: ${sum.reason || '-'}`;
+    endScoreEl.textContent = String(m.score ?? 0);
+    endShieldEl.textContent = `${m.shieldLeft ?? 0}%`;
+    endBestStreakEl.textContent = String(m.streakBest ?? 0);
+    endMissEl.textContent = String(m.miss ?? 0);
 
-    const badgeRow = DOC.getElementById('badgeRow');
-    const badges = makeBadges();
-    if(badgeRow){
-      badgeRow.innerHTML = badges.length
-        ? badges.map(x=> `<span class="mc-badge-chip">${x.label}</span>`).join('')
-        : `<span class="mc-badge-chip">🙂 Keep going</span>`;
+    endBadgeEl.textContent = summaryBadge(sum);
+    endCtxEl.textContent =
+      `mode=${ctx.preset || ctx.mode || '-'} • diff=${ctx.diff || '-'} • seed=${ctx.seed || '-'} • t=${ctx.timeLimit || '-'}s`;
+
+    endEl.style.display = 'flex';
+  }
+  function hideEnd(){ if(endEl) endEl.style.display = 'none'; }
+
+  function safeFlushAndGoHub(){
+    try{
+      if(hub) location.href = hub;
+      else location.href = new URL('../hub.html', location.href).toString();
+    }catch(_){
+      if(hub) location.href = hub;
+      else history.back();
     }
-
-    const note = DOC.getElementById('endNote');
-    if(note){
-      note.textContent = `pid=${pid||'—'} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed}`;
-    }
-
-    if(endEl) endEl.hidden = false;
   }
 
-  // ---------- start/pause/end ----------
-  function clearAllTargets(){
-    for(const [id] of st.targets){
-      removeTarget(id, false);
-    }
-    st.targets.clear();
-  }
-
+  // ----- Start / End -----
   function startGame(){
-    if(endEl) endEl.hidden = true;
-
     st.running = true;
-    st.paused = false;
     st.over = false;
-
     st.t0 = performance.now();
-    st.elapsedSec = 0;
 
     st.score = 0;
     st.streak = 0;
-    st.maxStreak = 0;
+    st.bestStreak = 0;
     st.miss = 0;
-    st.perfect = 0;
+    st.shield = P.shieldStart;
 
-    st.shield = 40;
+    st.bossOn = false;
+    st.bossHP = 0;
+    st.bossMax = P.boss.maxHP;
+    st.bossNextAt = P.boss.nextAt;
+    st.bossActiveUntil = 0;
+    st._bossStormT = 0;
+    st._bossShockT = 0;
+    st.bossClears = 0;
 
-    clearAllTargets();
+    st.lastShotMs = 0;
+
+    // clear layer
+    for(const [id] of st.targets) removeTarget(id, false);
+    st.targets.clear();
+
+    hideEnd();
+    menu.style.display = 'none';
+    toast('เริ่ม! กันละอองให้ได้มากที่สุด');
 
     director = fun ? fun.tick() : director;
-    ai.reset();
-
-    st.nextBossAt = performance.now() + st.bossEveryMs;
-    st.bossActive = false;
-    st.bossNeedPerfect = false;
-
-    toast('เริ่ม! กันละอองให้ได้มากที่สุด');
-    setHud();
+    hud();
 
     scheduleSpawn();
-    if(tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(tick, 80);
-  }
-
-  function togglePause(){
-    if(!st.running || st.over) return;
-    st.paused = !st.paused;
-    if(st.paused){
-      toast('⏸ Pause');
-    }else{
-      toast('▶ Resume');
-      // reset boss timer a bit so it doesn't surprise instantly
-      st.nextBossAt = performance.now() + 9000;
-      scheduleSpawn();
-    }
   }
 
   function endGame(reason){
     if(st.over) return;
     st.over = true;
     st.running = false;
-    st.paused = false;
 
     if(spawnTimer) clearTimeout(spawnTimer);
     if(tickTimer) clearInterval(tickTimer);
 
-    clearAllTargets();
+    for(const [id] of st.targets) removeTarget(id, false);
+    st.targets.clear();
 
-    const summary = {
-      game: 'maskcough',
-      ts: Date.now(),
-      pid: pid || '',
-      hub: hub || '',
-      diff,
-      mode,
-      view,
-      seed,
-      timePlannedSec: timeLimit,
-      timePlayedSec: Math.round(st.elapsedSec*10)/10,
-      score: st.score,
-      streakMax: st.maxStreak,
-      miss: st.miss,
-      perfect: st.perfect,
-      shieldEnd: Math.round(st.shield),
-      riskAvg: Math.round(ai.riskAvg()*100)/100,
-      reason
-    };
-    saveSummary(summary);
+    const msg = (reason==='time') ? 'ครบเวลา' : (reason==='shield' ? 'Shield หมด' : 'จบ');
+    toast(`จบเกม: ${msg}`);
 
-    toast(reason==='time' ? 'ครบเวลา!' : 'Shield หมด!');
-    renderEnd(reason);
+    const sum = buildSummary(String(reason||'end'));
+    saveLastSummary(sum);
+
+    // daily gate
+    if(isGatePass(sum)){
+      setZoneDoneToday('hygiene');
+      try{ WIN.dispatchEvent(new CustomEvent('hha:fx', {detail:{kind:'gate', amp:.85, text:'Hygiene Gate DONE!', ms:520}})); }catch(_){}
+    }
+
+    setTimeout(()=> showEnd(sum), 250);
   }
 
-  // ---------- bind UI ----------
-  if(btnStart) btnStart.addEventListener('click', startGame, { passive:true });
-  if(btnRetry) btnRetry.addEventListener('click', startGame, { passive:true });
-  if(btnPause) btnPause.addEventListener('click', togglePause, { passive:true });
+  // ----- Buttons -----
+  btnStart.addEventListener('click', startGame, { passive:true });
+  btnBack.addEventListener('click', ()=> safeFlushAndGoHub(), { passive:true });
 
-  if(btnBack) btnBack.addEventListener('click', ()=>{
-    try{
-      const u = new URL(hub || '../hub.html', location.href);
-      if(pid) u.searchParams.set('pid', pid);
-      if(seed) u.searchParams.set('seed', seed);
-      u.searchParams.set('view', view);
-      location.href = u.toString();
-    }catch(_){
-      location.href = hub || '../hub.html';
-    }
+  btnEndRetry?.addEventListener('click', ()=>{ hideEnd(); startGame(); }, { passive:true });
+  btnEndMenu?.addEventListener('click', ()=>{
+    hideEnd();
+    menu.style.display = 'flex';
   }, { passive:true });
+  btnEndHub?.addEventListener('click', ()=> safeFlushAndGoHub(), { passive:true });
 
-  if(btnEndRetry) btnEndRetry.addEventListener('click', startGame, { passive:true });
-
-  // ---------- init ----------
-  setHud();
-  showPrompt(view==='cvr'
-    ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) เป้าในชั้นเล่นจะไม่รับ tap ตรง ๆ'
-    : 'แตะ 💦 เพื่อปัด • แตะ 😷 เพิ่มโล่ • 🤧 ช่วงท้าย = Perfect!');
+  // init HUD
+  hud();
 })();
