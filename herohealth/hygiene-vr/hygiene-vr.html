@@ -1,11 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260214a
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ FX: ../vr/particles.js
+✅ Views: pc/mobile/vr/cvr
+✅ Uses: ../vr/vr-ui.js (Enter VR/Exit/Recenter + crosshair + hha:shoot)
+✅ Boot: hygiene-vr.boot.js (module)
+✅ Engine: hygiene.safe.js (module export boot)
+✅ Quiz bank: hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,25 +15,24 @@ PATCH v20260214a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260214a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260211a" />
 
-  <!-- Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260214a" defer></script>
+  <!-- Universal VR UI (defer) -->
+  <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
-  <script src="../vr/particles.js?v=20260214a" defer></script>
+  <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
-  <script src="../vr/hha-ai-coach.js?v=20260214a" defer></script>
-  <script src="../vr/hha-difficulty-director.js?v=20260214a" defer></script>
-  <script src="../vr/hha-badges.js?v=20260214a" defer></script>
+  <!-- AI (optional) -->
+  <script src="../vr/hha-ai-coach.js" defer></script>
+  <script src="../vr/hha-difficulty-director.js" defer></script>
+  <script src="../vr/hha-badges.js" defer></script>
 
   <!-- Quiz bank -->
-  <script src="./hygiene-quiz-bank.js?v=20260214a" defer></script>
+  <script src="./hygiene-quiz-bank.js?v=20260211a" defer></script>
 
-  <!-- Engine boot -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260214a"></script>
+  <!-- Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260211a"></script>
 </head>
 
 <body class="view-pc">
@@ -62,7 +60,6 @@ PATCH v20260214a
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -100,7 +97,6 @@ PATCH v20260214a
         <div class="hw-card-row">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
           <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnToCooldown" type="button">😌 Cooldown 20 วิ</button>
           <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
         </div>
       </div>
@@ -111,25 +107,15 @@ PATCH v20260214a
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(
-      view==='mobile' ? 'view-mobile' :
-      (view==='vr' ? 'view-vr' :
-      (view==='cvr' ? 'view-cvr' : 'view-pc'))
-    );
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
   }
-
   setViewClass();
-
-  const m = document.getElementById('labMode');
-  const d = document.getElementById('labDiff');
-  if(m) m.textContent = (qs('run','play')||'play');
-  if(d) d.textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
