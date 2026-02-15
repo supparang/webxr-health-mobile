@@ -1,10 +1,11 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260215b
-✅ Stronger HUD safe zones (reduce HUD blocking)
+PATCH v20260215c
+✅ HUD safe zones (top/bottom) for spawn logic
+✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
+✅ Targets: uses --x (vw%), --y (vh%), --s scale
 ✅ Practice overlay counter style
-✅ Mobile tap reliability (touch-action)
-✅ Better spacing for banner/quiz
+✅ Reduce “HUD blocks targets”: calibrated vars + safer defaults
 */
 
 :root{
@@ -30,9 +31,12 @@ PATCH v20260215b
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
-  --hw-top-safe: 180px;      /* PATCH: เพิ่มขึ้นนิดให้กัน HUD */
-  --hw-bottom-safe: 200px;
+  /* ✅ spawn safe zones (JS reads these) — defaults, boot will calibrate */
+  --hw-top-safe: 190px;
+  --hw-bottom-safe: 210px;
+
+  /* extra padding around safe zones (boot may add) */
+  --hw-safe-pad: 14px;
 
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
@@ -40,13 +44,8 @@ PATCH v20260215b
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  height:100%;
-  margin:0;
-  background:var(--bg0);
-  color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 
 button{ font: inherit; }
 
@@ -118,7 +117,7 @@ button{ font: inherit; }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
 .hw-pill.btn{
-  pointer-events: auto;
+  pointer-events: auto; /* ✅ allow click */
   cursor: pointer;
   background: rgba(15,23,42,.70);
 }
@@ -130,7 +129,7 @@ button{ font: inherit; }
   pointer-events: none;
   position: absolute;
   left: 50%;
-  top: calc(126px + var(--sat)); /* PATCH: ลงนิด ไม่ชน title/row */
+  top: calc(118px + var(--sat));
   transform: translateX(-50%);
   padding: 10px 12px;
   border-radius: var(--pill);
@@ -209,6 +208,21 @@ button{ font: inherit; }
 }
 .hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
+/* Practice counter (15s) */
+#practiceCounter{
+  margin-top: 12px;
+  font-weight: 1000;
+  font-size: clamp(44px, 8vh, 72px);
+  letter-spacing: .5px;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(34,211,238,.22);
+  background: rgba(34,211,238,.06);
+  box-shadow: 0 24px 70px rgba(0,0,0,.45);
+}
+
+/* End summary pre */
 .hw-pre{
   margin-top: 10px;
   padding: 10px 12px;
@@ -221,21 +235,9 @@ button{ font: inherit; }
   color: rgba(229,231,235,.92);
 }
 
-/* ✅ practice counter: make it look like “countdown chip” */
-#practiceCounter{
-  font-size: 44px;
-  font-weight: 1000;
-  text-align: center;
-  letter-spacing: 1px;
-  margin-top: 12px;
-  border-radius: 20px;
-  border: 1px solid rgba(34,211,238,.22);
-  background: rgba(34,211,238,.08);
-}
-
 /* ===== Targets ===== */
 .hw-tgt{
-  position: fixed;
+  position: fixed; /* ✅ viewport-based */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -252,9 +254,9 @@ button{ font: inherit; }
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation; /* ✅ mobile tap */
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
+  touch-action: manipulation; /* ✅ mobile tap */
 }
 
 .hw-tgt .emoji{
@@ -280,6 +282,7 @@ button{ font: inherit; }
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
+/* subtle float */
 @keyframes hwPopIn{
   from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
@@ -288,7 +291,7 @@ button{ font: inherit; }
 /* ===== Quiz box ===== */
 .hw-quiz{
   pointer-events: auto;
-  margin-top: 12px;
+  margin-top: 10px;
   border-radius: var(--r);
   border: 1px solid var(--stroke);
   background: rgba(2,6,23,.58);
@@ -311,25 +314,27 @@ button{ font: inherit; }
 
 /* ===== View tweaks ===== */
 body.view-mobile{
-  --hw-top-safe: 200px;   /* PATCH: กัน HUD บนมือถือ */
-  --hw-bottom-safe: 240px;
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 250px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
 
 body.view-cvr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 260px;
+  /* cVR HUD eats space -> more bottom safe */
+  --hw-top-safe: 190px;
+  --hw-bottom-safe: 290px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
 }
 
+/* VR: slightly reduce HUD */
 body.view-vr{
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 220px;
+  --hw-top-safe: 180px;
+  --hw-bottom-safe: 240px;
 }
 
-/* Quiz on small screens => 1 column */
+/* Small screens tweaks */
 @media (max-width: 520px){
-  .hw-banner{ top: calc(140px + var(--sat)); }
+  .hw-banner{ top: calc(130px + var(--sat)); }
 }
