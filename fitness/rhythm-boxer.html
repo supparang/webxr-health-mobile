@@ -1,3 +1,4 @@
+<!-- === /fitness/rhythm-boxer.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -39,7 +40,9 @@
           </label>
         </div>
 
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
+        <p id="rb-mode-desc" class="rb-mode-desc">
+          Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+        </p>
 
         <div id="rb-research-fields" class="rb-section hidden">
           <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
@@ -65,7 +68,9 @@
 
       <div class="rb-research-box">
         <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">
+          โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
+        </p>
 
         <div id="rb-track-options" class="rb-section">
           <label class="rb-mode-btn" data-mode="normal">
@@ -117,8 +122,6 @@
       <div class="rb-hud-row">
         <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
         <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
-        <!-- optional calibration readout if you want -->
-        <!-- <span class="rb-chip">Cal: <b id="rb-hud-cal">0ms</b></span> -->
       </div>
 
       <div class="rb-hud-row">
@@ -132,6 +135,7 @@
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
         <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
       </div>
+
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai rb-chip-tip">
           <span class="rb-chip-tip-label">Coach:</span>
@@ -180,7 +184,7 @@
       </div>
 
       <p class="rb-howto-inline">
-        แตะเลนให้โน้ตตรงเส้นตี (เส้นเหลืองด้านล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์
+        แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่ด้านล่างสีเหลือง) · ใช้ได้ทั้งจอสัมผัสและเมาส์
       </p>
     </section>
 
@@ -195,7 +199,6 @@
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
         <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
       </div>
-      <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
     <section class="rb-result-grid">
@@ -228,7 +231,7 @@
     </section>
 
     <section class="rb-research-box rb-section">
-      <h2 class="rb-section-title">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
+      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
       <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
       <div class="rb-btn-row">
         <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
@@ -236,7 +239,6 @@
       </div>
     </section>
   </main>
-
 </div>
 
 <script src="js/ai-predictor.js"></script>
