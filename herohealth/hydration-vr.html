@@ -1,10 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR ROOT Launcher — PRODUCTION (HHA Standard)
+HydrationVR ROOT Launcher — PRODUCTION
 ✅ Enforce flow: Warmup(20s) → RUN → Cooldown(20s) → HUB
 ✅ RUN file: ./hydration-vr/hydration-vr.html
 ✅ Auto view: pc/mobile (UA-based) IF no ?view=
-✅ Pass-through all query params (except next/phase/dur/cdur/autonext)
+✅ Pass-through all query params (except deny list)
 ✅ Adds: gate=1, cdur=20
+✅ FIX: block warmup-gate params (wType/wPct/...) from leaking into RUN
 -->
 <!doctype html>
 <html lang="th">
@@ -55,7 +56,12 @@ HydrationVR ROOT Launcher — PRODUCTION (HHA Standard)
   const cdur    = Math.max(5, Math.min(60, Number(QS.get('cdur') || 20) || 20)); // cooldown
 
   // passthrough (deny these)
-  const deny = new Set(['next','phase','dur','cdur','autonext']);
+  // ✅ FIX: warmup-gate may append wType/wPct/etc into next= URL; MUST NOT leak into RUN
+  const deny = new Set([
+    'next','phase','dur','cdur','autonext',
+    'wType','wPct','wDur','wLeft','wSeed'
+  ]);
+
   const pass = new URLSearchParams();
   QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
