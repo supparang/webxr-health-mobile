@@ -1,152 +1,207 @@
+<!-- === /herohealth/brush-vr.html ===
+PATCH v20260216a
+✅ EARLY error catcher (เห็นไฟล์/บรรทัดจริง ไม่ใช่ Script error.)
+✅ A-Frame crossorigin="anonymous"
+✅ Add /herohealth/vr/ai-hooks.js (AI prediction + dataset buffer -> emits brush:ai)
+✅ Keep order: fun-boost + ai-hooks + vr-ui + engine + boot
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Brush (Launcher)</title>
+  <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
-  <style>
-    /* ใช้สไตล์เดียวกับ handwash-vr.html เพื่อคุมธีม */
-    :root{--bg:#020617;--panel:rgba(2,6,23,.72);--panel2:rgba(15,23,42,.55);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--good:#22c55e;--cyan:#22d3ee;--violet:#a78bfa;--warn:#f59e0b;--sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--r:20px}
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    a{color:inherit;text-decoration:none}
-    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
-    header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
-    .title{font-weight:1000;letter-spacing:.2px;font-size:22px;margin:0}
-    .sub{color:var(--muted);font-size:12px;font-weight:800;margin:6px 0 0 0;max-width:72ch;line-height:1.35}
-    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}
-    .chip b{color:#fff}
-    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:var(--r);padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .card h3{margin:0;font-size:14px;font-weight:1000}
-    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
-    .btn{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);padding:12px 12px;border-radius:16px;margin-top:10px;font-weight:1000}
-    .btn .k{display:flex;flex-direction:column;gap:3px}
-    .btn .k span{font-size:13px}
-    .btn .k small{font-size:11px;color:rgba(229,231,235,.70);font-weight:800}
-    .pill{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:1000;white-space:nowrap}
-    .pill.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
-    .pill.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.10)}
-    .pill.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12)}
-  </style>
+
+  <!-- ✅ CSS -->
+  <link rel="stylesheet" href="./vr-brush/brush.css?v=20260216a"/>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1 class="title">🪥 Brush — Launcher</h1>
-      <p class="sub">เลือกโหมดเข้าเล่น • ส่งพารามิเตอร์ต่อให้เกมอัตโนมัติ</p>
-    </div>
-    <div class="chiprow">
-      <div class="chip">run: <b id="cRun">play</b></div>
-      <div class="chip">diff: <b id="cDiff">normal</b></div>
-      <div class="chip">time: <b id="cTime">80</b>s</div>
-      <div class="chip">pid: <b id="cPid">anon</b></div>
-    </div>
-  </header>
+<body data-view="pc">
 
-  <div class="grid">
-    <div class="card">
-      <h3>🖥️ PC</h3>
-      <p>เมาส์/คลิก</p>
-      <a class="btn" id="goPC" href="./vr-brush/brush.html">
-        <div class="k"><span>เข้าเล่น (PC)</span><small>view=pc</small></div>
-        <span class="pill good">Recommended</span>
-      </a>
-    </div>
+  <!-- ✅ EARLY error catcher (ต้องมาก่อนโหลด lib ใด ๆ) -->
+  <script>
+  (function(){
+    const pre = document.createElement('pre');
+    pre.id='earlyErr';
+    pre.style.cssText=[
+      "position:fixed","left:12px","right:12px","top:12px","z-index:99999",
+      "padding:10px 12px","border-radius:14px",
+      "border:1px solid rgba(255,80,80,.35)",
+      "background:rgba(20,0,0,.55)","color:#ffe",
+      "white-space:pre-wrap","display:none"
+    ].join(';');
+    const mount=()=>{ try{ document.body.appendChild(pre); }catch(_){} };
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount);
+    else mount();
 
-    <div class="card">
-      <h3>📱 Mobile</h3>
-      <p>แตะจอ</p>
-      <a class="btn" id="goMobile" href="./vr-brush/brush.html">
-        <div class="k"><span>เข้าเล่น (Mobile)</span><small>view=mobile</small></div>
-        <span class="pill cyan">Touch</span>
-      </a>
-    </div>
+    const show = (s)=>{ pre.textContent=s; pre.style.display='block'; };
 
-    <div class="card">
-      <h3>🕶️ Cardboard / cVR</h3>
-      <p>crosshair + tap-to-shoot</p>
-      <a class="btn" id="goCVR" href="./vr-brush/brush.html">
-        <div class="k"><span>เข้าเล่น (cVR)</span><small>view=cvr</small></div>
-        <span class="pill violet">VR</span>
-      </a>
+    window.addEventListener('error', (e)=>{
+      show(
+        "EARLY JS ERROR:\n"+(e.message||e)+"\n\n"+
+        (e.filename||"")+" :"+(e.lineno||"")+" :"+(e.colno||"")+"\n\n"+
+        (e.error && e.error.stack ? e.error.stack : "")
+      );
+    });
+
+    window.addEventListener('unhandledrejection', (e)=>{
+      const r = e && e.reason;
+      show("EARLY PROMISE REJECTION:\n"+(r && (r.stack||r.message) ? (r.stack||r.message) : String(r)));
+    });
+  })();
+  </script>
+
+  <!-- fatal -->
+  <div id="fatal" class="br-fatal br-hidden"></div>
+
+  <!-- Tap-to-start overlay (mobile/vr unlock) -->
+  <div id="tapStart" class="br-tap" style="display:none">
+    <div class="br-tapCard">
+      <div class="br-tapTitle">🦷 BrushVR</div>
+      <div class="br-tapSub">แตะเพื่อเริ่มเกม (ปลดล็อกเสียง/ทัชบนมือถือ)</div>
+      <button id="tapBtn" class="br-btn br-primary" type="button">แตะเพื่อเริ่ม</button>
     </div>
   </div>
-</div>
 
-<script>
-(function(){
-  'use strict';
-  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-  function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
-  function nowSeed(){ return String(Date.now()); }
+  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement:true"
+    background="color: #060a12">
+    <a-entity position="0 1.6 -2">
+      <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
+      <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
+    </a-entity>
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+  </a-scene>
 
-  const P = {
-    run:  String(qs('run','play')).toLowerCase() || 'play',
-    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-    time: clamp(qs('time','80'), 20, 300),
-    seed: String(qs('seed','') || nowSeed()),
-    pid:  String(qs('pid','')).trim() || 'anon',
-    view: String(qs('view','')).toLowerCase(),
-    log:  String(qs('log','')),
-    studyId: String(qs('studyId','')),
-    phase: String(qs('phase','')),
-    conditionGroup: String(qs('conditionGroup','')),
-    hub: String(qs('hub','./hub.html')) || './hub.html'
-  };
+  <div id="br-wrap" data-view="pc" data-state="menu">
+    <!-- TOP HUD -->
+    <header class="br-top">
+      <div class="br-brand">
+        <span class="br-pill">HeroHealth · Hygiene</span>
+        <h1 class="br-title">BrushVR — Plaque Breaker</h1>
+        <p class="br-sub">แปรงคราบให้ทัน · ใกล้หมดเวลา = PERFECT · มีบอสคราบหนา 💎</p>
+      </div>
 
-  document.getElementById('cRun').textContent = P.run;
-  document.getElementById('cDiff').textContent = P.diff;
-  document.getElementById('cTime').textContent = String(P.time);
-  document.getElementById('cPid').textContent = P.pid;
+      <div class="br-ctx">
+        <div class="br-ctxrow"><span class="k">view</span><span id="br-ctx-view" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">seed</span><span id="br-ctx-seed" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">time</span><span id="br-ctx-time" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">diff</span><span id="br-diffTag" class="v">-</span></div>
+      </div>
+    </header>
 
-  const LS = 'HHA_LAST_VIEW::brush';
-  function remember(v){ try{ localStorage.setItem(LS, v); }catch(_){} }
-  function recall(){ try{ return localStorage.getItem(LS)||''; }catch(_){ return ''; } }
+    <!-- STAGE -->
+    <main class="br-stage" role="application" aria-label="BrushVR game">
+      <div id="br-layer" class="br-layer" aria-label="play layer"></div>
 
-  function withCommon(url, view){
-    const u = new URL(url, location.href);
-    const sp = u.searchParams;
-    sp.set('hub', P.hub || './hub.html');
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-    sp.set('view', view);
-    if(P.log) sp.set('log', P.log);
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-    return u.toString();
-  }
+      <!-- ACTIONS -->
+      <div class="br-actions">
+        <button id="btnPause" class="br-btn br-ghost" type="button">Pause</button>
+        <button id="btnHow" class="br-btn br-ghost" type="button">วิธีเล่น</button>
+        <button id="btnRecenter" class="br-btn br-ghost" type="button">Recenter</button>
+      </div>
 
-  const runHref = './vr-brush/brush.html';
-  const aPC = document.getElementById('goPC');
-  const aM  = document.getElementById('goMobile');
-  const aV  = document.getElementById('goCVR');
+      <!-- HUD meters -->
+      <section class="br-hud">
+        <div class="br-hudGrid">
+          <div class="br-box">
+            <div class="row"><span class="k">Score</span><span class="v" id="tScore">0</span></div>
+            <div class="row"><span class="k">Combo</span><span class="v" id="tCombo">0</span></div>
+            <div class="row"><span class="k">Miss</span><span class="v" id="tMiss">0</span></div>
+            <div class="row"><span class="k">Time</span><span class="v"><span id="tTime">0</span>s</span></div>
+          </div>
 
-  aPC.href = withCommon(runHref, 'pc');
-  aM.href  = withCommon(runHref, 'mobile');
-  aV.href  = withCommon(runHref, 'cvr');
+          <div class="br-box">
+            <div class="br-barLabel">
+              <span class="k">Clean</span><span class="v" id="tClean">0%</span>
+            </div>
+            <div class="br-bar"><i id="bClean" class="fill good"></i></div>
 
-  aPC.addEventListener('click', ()=>remember('pc'), {passive:true});
-  aM.addEventListener('click',  ()=>remember('mobile'), {passive:true});
-  aV.addEventListener('click',  ()=>remember('cvr'), {passive:true});
+            <div class="br-barLabel" style="margin-top:10px">
+              <span class="k">Fever</span><span class="v" id="tFever">OFF</span>
+            </div>
+            <div class="br-bar"><i id="bFever" class="fill pink"></i></div>
+          </div>
 
-  const auto = (qs('autostart','0')==='1');
-  if(auto){
-    const last = P.view || recall() || 'pc';
-    location.href = withCommon(runHref, last);
-  }
-})();
-</script>
+          <div class="br-mini">
+            <div class="k">ตั้งค่า</div>
+            <div class="v">diff=<span id="mDiff">-</span> · time=<span id="mTime">-</span></div>
+            <div class="k" style="margin-top:6px">cVR</div>
+            <div class="v">โหมด view=cvr ยิงจากกากบาท (vr-ui)</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MENU -->
+    <div id="br-menu" class="br-menu" aria-hidden="false">
+      <div class="br-card">
+        <div class="br-cardHead">
+          <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
+          <div class="br-cardSub">แตะ/ยิง “🦠” ให้ทัน · บอส “💎” ต้องหลายครั้ง</div>
+        </div>
+
+        <div class="br-cardList">
+          <div class="item"><b>Perfect</b> = แตะตอน “ใกล้หมดเวลา” จะได้โบนัส</div>
+          <div class="item"><b>Boss</b> = 💎 ต้องยิง/แตะหลายทีให้แตก</div>
+          <div class="item"><b>ชนะ</b> = Clean ถึง 100%</div>
+        </div>
+
+        <div class="br-cardActions">
+          <button id="btnStart" class="br-btn br-primary" type="button">▶ เริ่มเกม</button>
+          <a id="btnBack" class="br-btn br-ghost br-link" href="./hub.html">🏰 กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- END SUMMARY -->
+    <div id="br-end" class="br-end" hidden>
+      <div class="br-endCard">
+        <div class="br-endHead">
+          <div class="br-endTitle">สรุปผล</div>
+          <div class="br-endGrade">Grade: <b id="endGrade">C</b></div>
+        </div>
+
+        <div class="br-endGrid">
+          <div class="box"><div class="k">Score</div><div class="v" id="sScore">0</div></div>
+          <div class="box"><div class="k">Accuracy</div><div class="v" id="sAcc">0%</div></div>
+          <div class="box"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+          <div class="box"><div class="k">Max Combo</div><div class="v" id="sCombo">0</div></div>
+          <div class="box"><div class="k">Clean</div><div class="v" id="sClean">0%</div></div>
+          <div class="box"><div class="k">Time</div><div class="v" id="sTime">0s</div></div>
+        </div>
+
+        <div class="br-endNote" id="endNote">-</div>
+
+        <div class="br-endActions">
+          <button id="btnRetry" class="br-btn br-ghost" type="button">เล่นอีกครั้ง</button>
+          <a id="btnBackHub2" class="br-btn br-primary br-link" href="./hub.html">กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="br-toast"></div>
+  </div>
+
+  <!-- ✅ Required libs -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
+
+  <!-- ✅ Optional fun boost -->
+  <script src="./vr/fun-boost.js"></script>
+  <script src="./vr/fun-boost.fx.js"></script>
+
+  <!-- ✅ AI hooks (Prediction/ML/DL data buffer -> emits brush:ai) -->
+  <script src="./vr/ai-hooks.js?v=20260216a"></script>
+
+  <!-- ✅ Universal VR UI -->
+  <script src="./vr/vr-ui.js?v=20260215a"></script>
+
+  <!-- ✅ Engine & Boot -->
+  <script src="./vr-brush/brush.safe.js?v=20260216a"></script>
+  <script src="./vr-brush/brush.boot.js?v=20260215a"></script>
 </body>
 </html>
