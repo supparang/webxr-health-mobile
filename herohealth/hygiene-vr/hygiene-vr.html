@@ -1,8 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260215b
-✅ Practice 15s overlay + countdown + tips
-✅ Quiz bank: ./hygiene-quiz-bank.js
+PATCH v20260215c
+✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
+✅ Practice overlay (15s) like other games: ?run=practice OR ?practice=1
 -->
 <!doctype html>
 <html lang="th">
@@ -13,7 +16,7 @@ PATCH v20260215b
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215b" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215c" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -30,7 +33,7 @@ PATCH v20260215b
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260215b"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260215c"></script>
 </head>
 
 <body class="view-pc">
@@ -48,7 +51,6 @@ PATCH v20260215b
           <div class="hw-pill" id="pillHits">HITS 0/6</div>
           <div class="hw-pill" id="pillCombo">COMBO 0</div>
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
-          <div class="hw-pill cyan" id="pillPractice" style="display:none">PRACTICE</div>
         </div>
 
         <div class="hw-row">
@@ -78,35 +80,27 @@ PATCH v20260215b
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
           ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
-
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnPractice" type="button">🧪 Practice 15s</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
-
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
         </div>
       </div>
     </div>
 
-    <!-- Practice Overlay -->
+    <!-- Practice Overlay (15s) -->
     <div class="hw-overlay" id="practiceOverlay" style="display:none">
       <div class="hw-card">
-        <div class="hw-card-title">🧪 Practice Mode (15s)</div>
-        <div class="hw-card-sub" id="practiceSub">
-          ฝึก “แตะให้แตกทันที” + โฟกัส STEP ปัจจุบัน<br>
-          ❌ โหมดนี้ <b>ไม่มี 🦠</b> และ <b>ไม่คิด MISS</b>
+        <div class="hw-card-title">🧪 Practice Mode</div>
+        <div class="hw-card-sub">
+          ซ้อมก่อนเริ่มจริง <b>15 วินาที</b> • ลองแตะ/ยิงเป้าให้ถนัด • ไม่บันทึกผล
         </div>
-        <pre class="hw-pre" id="practiceCounter" style="margin-top:12px">15</pre>
+        <div id="practiceCounter" class="hw-card-sub">15</div>
         <div class="hw-card-row">
-          <button class="hw-cta" id="btnPracticeGo" type="button">▶ เริ่มฝึก</button>
-          <button class="hw-ghost" id="btnPracticeSkip" type="button">⏭ ข้ามไปเกมจริง</button>
-          <button class="hw-ghost" id="btnPracticeCancel" type="button">↩ กลับหน้าเริ่ม</button>
-        </div>
-        <div class="hw-card-sub" style="margin-top:10px">
-          TIP: แตะ/ยิง “ไอคอน STEP ที่ถูก” เท่านั้น • อย่าพลาดจังหวะ
+          <button class="hw-cta" id="btnPracticeGo" type="button">▶ เริ่มเล่นจริง</button>
+          <button class="hw-ghost" id="btnPracticeSkip" type="button">⏭ ข้าม Practice</button>
         </div>
       </div>
     </div>
@@ -130,15 +124,20 @@ PATCH v20260215b
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+    const labView = document.getElementById('labView');
+    if(labView) labView.textContent = view;
   }
   setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+
+  const labMode = document.getElementById('labMode');
+  const labDiff = document.getElementById('labDiff');
+  if(labMode) labMode.textContent = (qs('run','play')||'play');
+  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
