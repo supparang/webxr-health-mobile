@@ -1,341 +1,340 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (Classic script)
-// ✅ Single global FX layer: .hha-fx-layer (fixed/inset, pointer-events:none)
-// ✅ Safe: never crash if Particles missing
-// ✅ Listens: hha:judge / hha:coach / hha:shoot (optional)
-// ✅ Provides: window.HHA_FX.* helpers (burst/popText/ring etc.)
-// Notes:
-// - If particles.js provides window.Particles.burst(x,y), we call it.
-// - If not, we use DOM-only FX fallback.
+// HHA FX Director — PRODUCTION (SAFE)
+// ✅ One place to map game events -> HHA_FX / Particles effects
+// ✅ Works even if particles.js not loaded (no-ops safely)
+// ✅ Listens: hha:judge, hha:celebrate, quest:update (optional), hha:score (optional)
+// ✅ Rate-limited to avoid spam / performance drop
+//
+// Suggested conventions (any game can emit):
+// - hha:judge { label, kind, x, y, clientX, clientY, intensity }
+//    kind: good | bad | miss | block | star | shield | diamond | goal | mini | boss | storm
+// - hha:celebrate { kind:'mini'|'goal'|'end'|'boss'|'storm', grade, x, y }
+// - quest:update { goal, mini }  (FX director will not spam; only optional)
+// - hha:score { score } (optional tiny feedback)
+//
+// Config: window.HHA_FX_DIRECTOR_CONFIG = {
+//   enabled: true,
+//   maxFps: 30,
+//   popCooldownMs: 70,
+//   burstCooldownMs: 90,
+//   confettiCooldownMs: 900,
+//   reducedMotionRespect: true
+// };
 
-(function(){
+(function (root) {
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
+  const DOC = root.document;
+  if (!DOC || root.__HHA_FX_DIRECTOR__) return;
+  root.__HHA_FX_DIRECTOR__ = true;
 
-  if (!DOC || WIN.__HHA_FX_DIRECTOR__) return;
-  WIN.__HHA_FX_DIRECTOR__ = true;
+  const CFG = Object.assign({
+    enabled: true,
+    maxFps: 30,
+    popCooldownMs: 70,
+    burstCooldownMs: 90,
+    confettiCooldownMs: 900,
+    reducedMotionRespect: true
+  }, root.HHA_FX_DIRECTOR_CONFIG || {});
 
-  // ---------------- utils ----------------
-  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
-  const nowMs = ()=>{ try{ return performance.now(); }catch(_){ return Date.now(); } };
+  // ---------- helpers ----------
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
+  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
 
-  function vpRect(){
-    try{ return DOC.documentElement.getBoundingClientRect(); }
-    catch{ return { left:0, top:0, width: (WIN.innerWidth||360), height:(WIN.innerHeight||640) }; }
-  }
-
-  function getXYFromEvent(ev){
-    // Try explicit coords first
-    const d = ev && ev.detail ? ev.detail : null;
-    if (d && typeof d.x === 'number' && typeof d.y === 'number') return { x:d.x, y:d.y };
-
-    // Pointer / Mouse events
-    if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
-      return { x: ev.clientX, y: ev.clientY };
-    }
-    // Touch
-    const t = ev && ev.touches && ev.touches[0] ? ev.touches[0] : null;
-    if (t && typeof t.clientX === 'number' && typeof t.clientY === 'number') {
-      return { x: t.clientX, y: t.clientY };
-    }
-    return null;
-  }
-
-  // ---------------- layer + style ----------------
-  function ensureStyle(){
-    if (DOC.getElementById('hha-fx-style')) return;
-
-    const css = `
-.hha-fx-layer{
-  position:fixed;
-  inset:0;
-  z-index:260;
-  pointer-events:none;
-  overflow:hidden;
-  contain: layout paint style;
-}
-.hha-fx{
-  position:absolute;
-  left:0; top:0;
-  transform: translate(-50%, -50%);
-  will-change: transform, opacity;
-  pointer-events:none;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-}
-@keyframes hhaPop{
-  0%{ transform:translate(-50%,-50%) scale(.65); opacity:.0; filter: blur(1px); }
-  18%{ transform:translate(-50%,-50%) scale(1.02); opacity:1; filter: blur(0px); }
-  100%{ transform:translate(-50%,-64%) scale(1.08); opacity:0; }
-}
-@keyframes hhaRing{
-  0%{ transform:translate(-50%,-50%) scale(.82); opacity:.0; }
-  12%{ opacity:.9; }
-  100%{ transform:translate(-50%,-50%) scale(1.45); opacity:0; }
-}
-@keyframes hhaShard{
-  0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
-  100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.85); opacity:0; }
-}
-.hha-fx-text{
-  font-weight:1000;
-  letter-spacing:.2px;
-  text-shadow: 0 14px 36px rgba(0,0,0,.45);
-  animation: hhaPop 520ms ease-out forwards;
-  white-space:nowrap;
-}
-.hha-fx-ring{
-  width: 140px;
-  height: 140px;
-  border-radius:999px;
-  border: 3px solid rgba(229,231,235,.30);
-  box-shadow: 0 0 0 1px rgba(2,6,23,.30) inset;
-  animation: hhaRing 520ms ease-out forwards;
-}
-.hha-fx-shard{
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(229,231,235,.92);
-  box-shadow: 0 8px 18px rgba(0,0,0,.35);
-  animation: hhaShard 420ms ease-out forwards;
-}
-    `.trim();
-
-    const style = DOC.createElement('style');
-    style.id = 'hha-fx-style';
-    style.textContent = css;
-    DOC.head.appendChild(style);
-  }
-
-  function ensureLayer(){
-    ensureStyle();
-    let layer = DOC.querySelector('.hha-fx-layer');
-    if (!layer) {
-      layer = DOC.createElement('div');
-      layer.className = 'hha-fx-layer';
-      DOC.body.appendChild(layer);
-    }
-    return layer;
-  }
-
-  function el(tag, cls){
-    const n = DOC.createElement(tag);
-    if (cls) n.className = cls;
-    return n;
-  }
-
-  function removeLater(node, ms){
-    setTimeout(()=>{ try{ node.remove(); }catch(_){ } }, Math.max(0, ms|0));
-  }
-
-  // ---------------- Particles bridge (optional) ----------------
-  function particlesBurst(x,y, opts){
+  function prefersReducedMotion(){
     try{
-      // common variants
-      if (WIN.HHA_FX && WIN.HHA_FX.__particles_only__) return;
-      const P = WIN.Particles || (WIN.GAME_MODULES && WIN.GAME_MODULES.Particles) || null;
-      if (P && typeof P.burst === 'function') {
-        P.burst(x,y, opts||{});
-        return true;
+      if(!CFG.reducedMotionRespect) return false;
+      return !!root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }catch(_){ return false; }
+  }
+
+  function FX(){
+    // Preferred: HHA_FX (from particles.js)
+    // Back-compat: Particles
+    return root.HHA_FX || root.Particles || null;
+  }
+
+  function safeXY(detail){
+    try{
+      if(detail){
+        if(Number.isFinite(detail.x) && Number.isFinite(detail.y)) return { x: detail.x, y: detail.y };
+        if(Number.isFinite(detail.clientX) && Number.isFinite(detail.clientY)) return { x: detail.clientX, y: detail.clientY };
       }
     }catch(_){}
-    return false;
-  }
-
-  // ---------------- DOM FX primitives ----------------
-  function ring(x,y, tone){
-    const layer = ensureLayer();
-    const n = el('div', 'hha-fx hha-fx-ring');
-    n.style.left = Math.round(x)+'px';
-    n.style.top  = Math.round(y)+'px';
-
-    // tone
-    const c = toneColor(tone);
-    n.style.borderColor = c.ring;
-    layer.appendChild(n);
-    removeLater(n, 560);
-  }
-
-  function shards(x,y, tone){
-    const layer = ensureLayer();
-    const c = toneColor(tone);
-
-    const count = 10;
-    for(let i=0;i<count;i++){
-      const s = el('div', 'hha-fx hha-fx-shard');
-      s.style.left = Math.round(x)+'px';
-      s.style.top  = Math.round(y)+'px';
-
-      // random spread
-      const ang = (Math.PI*2) * (i / count) + (Math.random()*0.55);
-      const dist = 26 + Math.random()*34;
-      const dx = Math.cos(ang)*dist;
-      const dy = Math.sin(ang)*dist;
-
-      s.style.setProperty('--dx', Math.round(dx)+'px');
-      s.style.setProperty('--dy', Math.round(dy)+'px');
-      s.style.background = c.dot;
-
-      layer.appendChild(s);
-      removeLater(s, 460);
-    }
-  }
-
-  function popText(x,y, text, tone){
-    const layer = ensureLayer();
-    const n = el('div', 'hha-fx hha-fx-text');
-    n.textContent = String(text || '');
-    n.style.left = Math.round(x)+'px';
-    n.style.top  = Math.round(y)+'px';
-
-    const c = toneColor(tone);
-    n.style.color = c.text;
-
-    layer.appendChild(n);
-    removeLater(n, 620);
-  }
-
-  function burst(x,y, tone, label){
-    // try particles first; still do ring/text for readability
-    particlesBurst(x,y, { tone:String(tone||'good') });
-
-    ring(x,y,tone);
-    shards(x,y,tone);
-
-    if (label) popText(x, y-10, label, tone);
-  }
-
-  function toneColor(tone){
-    const t = String(tone||'good');
-    if (t === 'bad' || t === 'junk') {
-      return { text:'#fecaca', ring:'rgba(239,68,68,.38)', dot:'rgba(239,68,68,.92)' };
-    }
-    if (t === 'miss') {
-      return { text:'#fde68a', ring:'rgba(251,191,36,.34)', dot:'rgba(251,191,36,.92)' };
-    }
-    if (t === 'bonus' || t === 'perfect') {
-      return { text:'#bae6fd', ring:'rgba(56,189,248,.34)', dot:'rgba(56,189,248,.92)' };
-    }
-    if (t === 'boss') {
-      return { text:'#fef3c7', ring:'rgba(245,158,11,.34)', dot:'rgba(245,158,11,.92)' };
-    }
-    // good/default
-    return { text:'#bbf7d0', ring:'rgba(34,197,94,.32)', dot:'rgba(34,197,94,.92)' };
-  }
-
-  // ---------------- last aim point tracking ----------------
-  let LAST = { x:null, y:null, t:0 };
-
-  function setLastXY(x,y){
-    LAST.x = x; LAST.y = y; LAST.t = nowMs();
-  }
-
-  function getLastXY(){
-    const r = vpRect();
-    const age = nowMs() - (LAST.t||0);
-    if (typeof LAST.x === 'number' && typeof LAST.y === 'number' && age < 2500) {
-      return { x:LAST.x, y:LAST.y };
-    }
-    // fallback = center screen
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }
-
-  // capture pointer anywhere (helps when judge event has no coords)
-  DOC.addEventListener('pointerdown', (ev)=>{
-    const p = getXYFromEvent(ev);
-    if (p) setLastXY(p.x,p.y);
-  }, { passive:true, capture:true });
-
-  // capture shoot (center / lockPx aim assist)
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    const p = getXYFromEvent(ev);
-    if (p) setLastXY(p.x,p.y);
-    else {
-      const r = vpRect();
-      setLastXY(r.left + r.width/2, r.top + r.height/2);
-    }
-  }, { passive:true });
-
-  // ---------------- event bindings ----------------
-  function onJudge(ev){
-    const d = ev && ev.detail ? ev.detail : {};
-    const type = String(d.type || '').toLowerCase();
-    const label = d.label || d.text || null;
-
-    // locate
-    const xy = getXYFromEvent(ev) || getLastXY();
-    if (xy) setLastXY(xy.x, xy.y);
-
-    // map types
-    // common: good/bad/miss/perfect + custom labels
-    if (type === 'good' || type === 'hit' || type === 'ok') burst(xy.x, xy.y, 'good', label || 'GOOD');
-    else if (type === 'bad' || type === 'junk' || type === 'hurt') burst(xy.x, xy.y, 'bad', label || 'OOPS');
-    else if (type === 'miss' || type === 'timeout' ) burst(xy.x, xy.y, 'miss', label || 'MISS');
-    else if (type === 'perfect' || type === 'bonus') burst(xy.x, xy.y, 'perfect', label || 'BONUS');
-    else {
-      // unknown -> subtle pop only
-      if (label) popText(xy.x, xy.y-10, label, 'bonus');
-      else ring(xy.x, xy.y, 'bonus');
-    }
-  }
-
-  function onCoach(ev){
-    const d = ev && ev.detail ? ev.detail : {};
-    const msg = d.msg || d.text || '';
-    if (!msg) return;
-
-    const xy = getLastXY();
-    // coach tip pops slightly above center so it doesn't look like a hit marker
-    popText(xy.x, xy.y-70, msg, 'bonus');
-  }
-
-  WIN.addEventListener('hha:judge', onJudge, { passive:true });
-  WIN.addEventListener('hha:coach', onCoach, { passive:true });
-
-  // Optional compatibility: some games might emit these
-  WIN.addEventListener('groups:hit', (ev)=>{
+    // fallback = screen center
     try{
-      const t = String(ev?.detail?.type||'').toLowerCase();
-      const xy = getXYFromEvent(ev) || getLastXY();
-      if (t.includes('good')) burst(xy.x, xy.y, 'good', 'GOOD');
-      else if (t.includes('bad')) burst(xy.x, xy.y, 'bad', 'BAD');
-      else if (t.includes('miss')) burst(xy.x, xy.y, 'miss', 'MISS');
-    }catch(_){}
-  }, { passive:true });
+      const x = Math.floor(DOC.documentElement.clientWidth / 2);
+      const y = Math.floor(DOC.documentElement.clientHeight * 0.42);
+      return { x, y };
+    }catch(_){
+      return { x: 180, y: 220 };
+    }
+  }
 
-  // ---------------- public API ----------------
-  WIN.HHA_FX = WIN.HHA_FX || {};
-  WIN.HHA_FX.layer = ensureLayer;
-
-  WIN.HHA_FX.burst = (x,y, opts)=>{
-    const tone = (opts && opts.tone) ? opts.tone : 'good';
-    const label = (opts && opts.label) ? opts.label : null;
-    burst(Number(x)||0, Number(y)||0, tone, label);
+  // ---------- simple rate limiter ----------
+  const limiter = {
+    lastPop: 0,
+    lastBurst: 0,
+    lastConfetti: 0,
+    lastRing: 0,
+    lastFlash: 0,
+    lastScore: 0,
   };
 
-  WIN.HHA_FX.popText = (x,y,text, tone)=> popText(Number(x)||0, Number(y)||0, text, tone||'bonus');
-  WIN.HHA_FX.ring    = (x,y, tone)=> ring(Number(x)||0, Number(y)||0, tone||'bonus');
-
-  // semantic helpers
-  WIN.HHA_FX.hitGood   = (x,y)=> burst(x,y,'good','GOOD');
-  WIN.HHA_FX.hitBad    = (x,y)=> burst(x,y,'bad','OOPS');
-  WIN.HHA_FX.miss      = (x,y)=> burst(x,y,'miss','MISS');
-  WIN.HHA_FX.bonus     = (x,y,label)=> burst(x,y,'perfect', label||'BONUS');
-  WIN.HHA_FX.bossHit   = (x,y)=> burst(x,y,'boss','BOSS');
-  WIN.HHA_FX.bossClear = (x,y)=> burst(x,y,'perfect','BOSS CLEAR!');
-
-  // allow games to tell director where the last meaningful interaction happened
-  WIN.HHA_FX.setLastXY = (x,y)=> setLastXY(Number(x)||0, Number(y)||0);
-  WIN.HHA_FX.getLastXY = ()=> getLastXY();
-
-  // Eager-create layer once body exists (helps CSS/z-index expectations)
-  function init(){
-    try{ ensureLayer(); }catch(_){}
+  function ok(key, cooldownMs){
+    const t = now();
+    const last = limiter[key] || 0;
+    if(t - last < cooldownMs) return false;
+    limiter[key] = t;
+    return true;
   }
-  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init);
-  else init();
 
-})();
+  // ---------- style mapping ----------
+  // Use HUE to tint (works with particles.js hue-rotate)
+  const HUE = {
+    good: 120,     // green
+    bad: 10,       // red/orange
+    miss: 0,       // red
+    block: 200,    // blue
+    star: 55,      // yellow
+    shield: 190,   // cyan
+    diamond: 280,  // violet
+    goal: 95,      // lime
+    mini: 40,      // warm
+    boss: 320,     // magenta
+    storm: 210,    // deep blue
+    end: 160,      // green/cyan
+  };
+
+  function pop(text, x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.popText !== 'function') return;
+      P.popText(x, y, text, opt || {});
+    }catch(_){}
+  }
+  function emoji(e, x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.popEmoji !== 'function') return;
+      P.popEmoji(x, y, e, opt || {});
+    }catch(_){}
+  }
+  function burst(x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.burst !== 'function') return;
+      P.burst(x, y, opt || {});
+    }catch(_){}
+  }
+  function confetti(x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.confetti !== 'function') return;
+      P.confetti(x, y, opt || {});
+    }catch(_){}
+  }
+  function ring(x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.ring !== 'function') return;
+      P.ring(x, y, opt || {});
+    }catch(_){}
+  }
+  function flash(x, y, opt){
+    try{
+      const P = FX();
+      if(!P || typeof P.flash !== 'function') return;
+      P.flash(x, y, opt || {});
+    }catch(_){}
+  }
+
+  // ---------- public play API ----------
+  function play(kind, detail){
+    if(!CFG.enabled) return;
+    const reduced = prefersReducedMotion();
+
+    const k = String(kind || '').toLowerCase() || 'good';
+    const { x, y } = safeXY(detail);
+    const intensity = clamp(detail?.intensity ?? 1, 0.6, 2.0);
+
+    // Pop text label (lightweight)
+    if(ok('lastPop', CFG.popCooldownMs)){
+      const label = String(detail?.label || '').trim();
+      if(label){
+        pop(label, x, y, { size: Math.round(16 + 6*intensity), alpha: 0.98, hue: HUE[k] ?? 0 });
+      }
+    }
+
+    if(reduced) return;
+
+    // Core burst
+    if(ok('lastBurst', CFG.burstCooldownMs)){
+      const hue = HUE[k] ?? 0;
+
+      if(k === 'good'){
+        burst(x, y, { count: 10, size: 10, speed: 560, lifeMs: 520, hue });
+        ring(x, y, { size: 22, hue });
+        flash(x, y, { size: 24 });
+        emoji('✨', x, y, { size: 28 });
+
+      } else if(k === 'bad' || k === 'miss'){
+        burst(x, y, { count: 12, size: 10, speed: 620, lifeMs: 520, hue });
+        ring(x, y, { size: 24, hue });
+        emoji('💥', x, y, { size: 30 });
+
+      } else if(k === 'block'){
+        burst(x, y, { count: 10, size: 10, speed: 520, lifeMs: 520, hue });
+        ring(x, y, { size: 26, hue });
+        emoji('🛡️', x, y, { size: 30 });
+
+      } else if(k === 'star'){
+        burst(x, y, { count: 14, size: 10, speed: 580, lifeMs: 560, hue });
+        ring(x, y, { size: 28, hue });
+        emoji('⭐', x, y, { size: 32 });
+
+      } else if(k === 'shield'){
+        burst(x, y, { count: 12, size: 10, speed: 560, lifeMs: 560, hue });
+        ring(x, y, { size: 28, hue });
+        emoji('🛡️', x, y, { size: 32 });
+
+      } else if(k === 'diamond'){
+        burst(x, y, { count: 18, size: 10, speed: 720, lifeMs: 620, hue });
+        ring(x, y, { size: 30, hue });
+        emoji('💎', x, y, { size: 34 });
+
+      } else if(k === 'goal'){
+        burst(x, y, { count: 18, size: 10, speed: 680, lifeMs: 620, hue });
+        ring(x, y, { size: 34, hue });
+        if(ok('lastConfetti', CFG.confettiCooldownMs)){
+          confetti(x, y, { count: 18, spread: 260, lifeMs: 1000, hue });
+        }
+
+      } else if(k === 'mini'){
+        burst(x, y, { count: 16, size: 10, speed: 650, lifeMs: 620, hue });
+        ring(x, y, { size: 32, hue });
+        emoji('🎉', x, y, { size: 34 });
+
+      } else if(k === 'boss'){
+        burst(x, y, { count: 22, size: 10, speed: 860, lifeMs: 700, hue });
+        ring(x, y, { size: 40, hue });
+        emoji('😈', x, y, { size: 34 });
+
+      } else if(k === 'storm'){
+        burst(x, y, { count: 22, size: 10, speed: 820, lifeMs: 720, hue });
+        ring(x, y, { size: 38, hue });
+        emoji('🌪️', x, y, { size: 34 });
+
+      } else if(k === 'end'){
+        burst(x, y, { count: 20, size: 10, speed: 740, lifeMs: 700, hue });
+        ring(x, y, { size: 38, hue });
+        if(ok('lastConfetti', CFG.confettiCooldownMs)){
+          confetti(x, y, { count: 22, spread: 320, lifeMs: 1200, hue });
+        }
+      } else {
+        burst(x, y, { count: 10, size: 10, speed: 560, lifeMs: 520, hue });
+        ring(x, y, { size: 22, hue });
+      }
+    }
+  }
+
+  // ---------- event listeners ----------
+  function onJudge(ev){
+    try{
+      const d = ev?.detail || null;
+      const kind = (d && d.kind) ? d.kind : inferKindFromLabel(d?.label);
+      play(kind, d || {});
+    }catch(_){}
+  }
+
+  function inferKindFromLabel(label){
+    const s = String(label || '').toUpperCase();
+    if(s.includes('GOOD')) return 'good';
+    if(s.includes('MISS')) return 'miss';
+    if(s.includes('BLOCK')) return 'block';
+    if(s.includes('STAR')) return 'star';
+    if(s.includes('SHIELD')) return 'shield';
+    if(s.includes('DIAMOND')) return 'diamond';
+    if(s.includes('GOAL')) return 'goal';
+    if(s.includes('MINI')) return 'mini';
+    if(s.includes('BOSS')) return 'boss';
+    if(s.includes('STORM')) return 'storm';
+    if(s.includes('OOPS')) return 'bad';
+    return 'good';
+  }
+
+  function onCelebrate(ev){
+    try{
+      const d = ev?.detail || {};
+      const k = String(d.kind || 'end').toLowerCase();
+      // Grade -> extra confetti (not spamming)
+      if(k === 'end'){
+        play('end', d);
+        const grade = String(d.grade || '').toUpperCase();
+        if(grade && ok('lastConfetti', CFG.confettiCooldownMs)){
+          const {x,y} = safeXY(d);
+          confetti(x, y, { count: grade==='S' ? 26 : 18, spread: grade==='S' ? 360 : 300, lifeMs: 1200, hue: 150 });
+          pop(`GRADE ${grade}!`, x, y-42, { size: 22, alpha: 0.98, hue: 140 });
+        }
+        return;
+      }
+      play(k, d);
+    }catch(_){}
+  }
+
+  function onQuestUpdate(ev){
+    // Optional: DO NOT spam. Only show when goal/mini changes (best-effort)
+    try{
+      // Intentionally minimal; games already show HUD text
+      // You can enable extra callouts by setting window.HHA_FX_DIRECTOR_CONFIG.questCallouts=true
+      if(!root.HHA_FX_DIRECTOR_CONFIG?.questCallouts) return;
+
+      const d = ev?.detail || {};
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+
+      const t = now();
+      if(t - (limiter.__lastQuest || 0) < 1200) return;
+      limiter.__lastQuest = t;
+
+      const x = Math.floor(DOC.documentElement.clientWidth/2);
+      const y = Math.floor(DOC.documentElement.clientHeight*0.28);
+
+      if(goal?.title){
+        pop(`GOAL: ${goal.title}`, x, y, { size: 16, alpha: 0.95, hue: HUE.goal });
+      }
+      if(mini?.title){
+        pop(`MINI: ${mini.title}`, x, y+24, { size: 16, alpha: 0.92, hue: HUE.mini });
+      }
+    }catch(_){}
+  }
+
+  function onScore(ev){
+    // Optional micro-feedback every ~1.1s
+    try{
+      if(!root.HHA_FX_DIRECTOR_CONFIG?.scoreTicks) return;
+      const t = now();
+      if(t - (limiter.lastScore||0) < 1100) return;
+      limiter.lastScore = t;
+
+      const score = ev?.detail?.score;
+      if(score == null) return;
+
+      const x = Math.floor(DOC.documentElement.clientWidth*0.12);
+      const y = Math.floor(DOC.documentElement.clientHeight*0.18);
+      pop(`+${score}`, x, y, { size: 14, alpha: 0.55, hue: 120 });
+    }catch(_){}
+  }
+
+  root.addEventListener('hha:judge', onJudge, { passive:true });
+  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
+  root.addEventListener('quest:update', onQuestUpdate, { passive:true });
+  root.addEventListener('hha:score', onScore, { passive:true });
+
+  // ---------- export ----------
+  root.HHA_FX_DIRECTOR = {
+    play,
+    config: CFG
+  };
+
+})(window);
