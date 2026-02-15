@@ -1,11 +1,6 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — SAFE STUB (PRODUCTION) — v1.0
-// ✅ Never crashes if game calls it
-// ✅ Play mode: allow heuristic "prediction" + explainable tips
-// ✅ Study/Research: deterministic-friendly (no adaptive by default)
-// Exposes:
-//   window.HHA.createAIHooks({ game, runMode, diff, seed, deterministic })
-//   -> { onEvent(type,payload), getDifficultySignal(ctx), getPrediction(ctx), getTip(ctx), reset() }
+// HHA AI Hooks (SAFE STUB) — Director + Coach + Pattern (seed-friendly)
+// Exposes: window.HHA.createAIHooks({game, runMode, diff, seed})
 
 'use strict';
 
@@ -14,9 +9,9 @@
 
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  // small deterministic rng (optional, for research mode if needed)
+  // tiny seeded rng for pattern IDs (deterministic only when asked)
   function seededRng(seed){
-    let t = (Number(seed)||Date.now()) >>> 0;
+    let t = (Number(seed)||1) >>> 0;
     return function(){
       t += 0x6D2B79F5;
       let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -25,141 +20,120 @@
     };
   }
 
-  function createAIHooks(opts){
-    opts = opts || {};
-    const runMode = String(opts.runMode || 'play').toLowerCase();
-    const deterministic = !!opts.deterministic || (runMode === 'study' || runMode === 'research');
+  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-    const rng = deterministic ? seededRng(opts.seed || 13579) : Math.random;
+  function createAIHooks({ game='unknown', runMode='play', diff='normal', seed=0 }={}){
+    const mode = String(runMode||'play').toLowerCase();
+    const adaptiveAllowed = (mode === 'play');          // research/study => OFF
+    const rng = (mode === 'research' || mode === 'study') ? seededRng(seed||1) : Math.random;
 
-    const MEM = {
+    // state for prediction/coach
+    const S = {
+      t0: now(),
       lastTipAt: 0,
-      tipCooldownMs: 6500,
-      lastEventAt: 0,
-
-      // rolling buffers for prediction
-      miss1s: 0,
-      expire1s: 0,
-      junk1s: 0,
-      hitGood1s: 0,
-
-      // simple smoothed signals
-      emaAcc: 0.85,
-      emaRate: 0.0,
-      emaMiss: 0.0,
-
-      // last known ctx
-      ctx: null,
+      tipCooldownMs: 3500, // rate-limit
+      skill: 0.5,          // 0..1 (heuristic)
+      pressure: 0.5,       // 0..1
+      lastAcc: 1,
+      lastComboMax: 0,
+      lastMiss: 0,
+      patternId: 1,
+      // feature log buffer (for future ML/DL)
+      feats: []
     };
 
-    function onEvent(type, payload){
-      MEM.lastEventAt = Date.now();
-      // capture only what we need (do not store huge objects)
-      if(type === 'features_1s' && payload){
-        MEM.ctx = payload;
-
-        // update EMAs (explainable)
-        const acc = clamp(payload.accNowPct, 0, 100) / 100;
-        const rate = clamp(payload.spawnRatePerSec, 0, 20);
-        const miss = clamp(payload.missDelta1s, 0, 999);
-
-        MEM.emaAcc = MEM.emaAcc * 0.88 + acc * 0.12;
-        MEM.emaRate = MEM.emaRate * 0.85 + rate * 0.15;
-        MEM.emaMiss = MEM.emaMiss * 0.85 + (miss>0?1:0) * 0.15;
-      }
-
-      // judge streams (optional)
-      if(type === 'judge' && payload){
-        const k = String(payload.kind||'');
-        if(k === 'junk') MEM.junk1s++;
-        else if(k === 'expire_good') MEM.expire1s++;
-        else if(k === 'good') MEM.hitGood1s++;
-      }
+    function logFeature(type, payload){
+      // keep small ring buffer
+      try{
+        S.feats.push({ t: Math.round(now()-S.t0), type, ...payload });
+        if(S.feats.length > 1200) S.feats.splice(0, 300);
+      }catch{}
     }
 
-    function getDifficultySignal(ctx){
-      // For future ML: return clean numeric vector-like object
-      ctx = ctx || MEM.ctx || {};
+    function predictDifficultySignal({ accuracy=1, comboMax=0, miss=0, timeLeft=0 }={}){
+      // heuristic: skill rises with accuracy & combo; falls with miss spikes
+      const acc = clamp(accuracy, 0, 1);
+      const combo = clamp(comboMax/18, 0, 1);
+      const missRate = clamp(miss/20, 0, 1);
+
+      S.skill = clamp(0.60*acc + 0.40*combo - 0.35*missRate, 0.05, 0.98);
+
+      // pressure: late time + higher skill -> can increase pacing
+      const late = clamp(1 - (timeLeft/90), 0, 1);
+      S.pressure = clamp(0.35 + 0.55*late + 0.25*S.skill, 0, 1);
+
+      S.lastAcc = acc;
+      S.lastComboMax = comboMax|0;
+      S.lastMiss = miss|0;
+
+      logFeature('predict', { acc, comboMax, miss, timeLeft, skill:S.skill, pressure:S.pressure });
+
+      return { skill:S.skill, pressure:S.pressure };
+    }
+
+    function getDifficulty({ accuracy=1, comboMax=0, miss=0, timeLeft=0 }={}){
+      // returns spawnRate adjust hint (ms delta)
+      if(!adaptiveAllowed) return { enabled:false };
+
+      const p = predictDifficultySignal({ accuracy, comboMax, miss, timeLeft });
+
+      // translate into pacing delta
+      // higher pressure+skill => faster (negative delta)
+      const delta = Math.round(clamp((0.5 - (0.55*p.skill + 0.45*p.pressure)) * 260, -180, 180));
+
       return {
-        // normalized
-        acc: clamp(ctx.accNowPct,0,100)/100,
-        miss: clamp(ctx.missDelta1s,0,50)/50,
-        combo: clamp(ctx.comboNow,0,30)/30,
-        density: clamp(ctx.targetDensity,0,1),
-        imbalance: clamp(ctx.groupImbalance01,0,1),
-        storm: ctx.stormActive ? 1 : 0,
-        boss: ctx.bossActive ? 1 : 0
+        enabled:true,
+        spawnRateDeltaMs: delta, // game can apply to spawnRate
+        skill: p.skill,
+        pressure: p.pressure
       };
     }
 
-    function getPrediction(ctx){
-      // SAFE "prediction" placeholder:
-      // predicts near-future mistake risk from smoothed signals
-      ctx = ctx || MEM.ctx || {};
-      const acc = clamp(ctx.accNowPct,0,100);
-      const miss = clamp(ctx.missDelta3s,0,99);
-      const density = clamp(ctx.targetDensity,0,1);
+    function getTip({ kind='generic', accuracy=1, combo=0, miss=0 }={}){
+      const t = now();
+      if(t - S.lastTipAt < S.tipCooldownMs) return null;
+      S.lastTipAt = t;
 
-      let risk = 0.0;
-      risk += (acc < 78) ? 0.35 : 0.0;
-      risk += (miss >= 2) ? 0.35 : 0.0;
-      risk += (density > 0.55) ? 0.20 : 0.0;
-      if(ctx.stormActive) risk += 0.12;
-      if(ctx.bossActive)  risk += 0.10;
+      const acc = clamp(accuracy,0,1);
 
-      risk = clamp(risk, 0, 1);
+      let msg = 'คุมจังหวะดี ๆ แล้วจะได้คอมโบยาวขึ้น!';
+      let explain = 'general';
 
-      // explainable reasons
-      const reasons = [];
-      if(acc < 78) reasons.push('acc_low');
-      if(miss >= 2) reasons.push('miss_spike');
-      if(density > 0.55) reasons.push('density_high');
-      if(ctx.stormActive) reasons.push('storm');
-      if(ctx.bossActive) reasons.push('boss');
+      if(kind === 'junk'){
+        msg = 'ของหวาน/ทอดหลอกเยอะขึ้นแล้วนะ—เล็งก่อนยิง!';
+        explain = 'avoid_junk';
+      }else if(acc < 0.72){
+        msg = 'ลอง “หยุด 0.3 วิ” ก่อนยิง จะคุมความแม่นได้มากขึ้น';
+        explain = 'low_accuracy';
+      }else if(combo >= 10){
+        msg = 'สุดยอด! รักษาคอมโบไว้—พลาดนิดเดียวคอมโบแตกนะ';
+        explain = 'high_combo';
+      }else if(miss >= 6){
+        msg = 'พลาดติด ๆ กัน—โหมดนี้ให้โฟกัสเป้าดีเท่านั้นก่อน';
+        explain = 'miss_spike';
+      }
 
-      return { risk, reasons };
+      logFeature('tip', { kind, acc, combo, miss, explain });
+
+      return { msg, explain };
     }
 
-    function getTip(ctx){
-      // Rate-limited, explainable coach tips (Play only by default)
-      if(deterministic) return null; // keep research clean by default
-      ctx = ctx || MEM.ctx || {};
-      const t = Date.now();
-      if(t - MEM.lastTipAt < MEM.tipCooldownMs) return null;
-
-      const p = getPrediction(ctx);
-      if(p.risk < 0.55) return null;
-
-      MEM.lastTipAt = t;
-
-      // convert reasons to a friendly tip
-      if(p.reasons.includes('acc_low')){
-        return { key:'acc_low', mood:'neutral', msg:'ลองช้าลงนิดนึง “จิ้มให้ชัวร์” ก่อน แล้วค่อยเร่งคอมโบ 💪' };
-      }
-      if(p.reasons.includes('density_high')){
-        return { key:'density_high', mood:'neutral', msg:'ตอนนี้เป้าแน่น—โฟกัส “ของดีที่ใกล้หมดเวลา” ก่อนนะ 👀' };
-      }
-      if(p.reasons.includes('storm')){
-        return { key:'storm', mood:'fever', msg:'STORM มาแล้ว! รักษาจังหวะ ยิงให้แม่น และเลี่ยงขยะ ⚡' };
-      }
-      if(p.reasons.includes('boss')){
-        return { key:'boss', mood:'neutral', msg:'บอสห้ามโดนขยะ! เล็งก่อนยิงทุกครั้ง 🎯' };
-      }
-      return { key:'risk', mood:'neutral', msg:'เริ่มเสี่ยงพลาด—พักจังหวะครึ่งวิ แล้วกลับมาลุยต่อ!' };
+    function nextPattern({ phase='spawn' }={}){
+      // deterministic patterns only for research/study if you want
+      // here: always returns an id, but your game can ignore when research
+      S.patternId = 1 + Math.floor(rng()*7);
+      logFeature('pattern', { phase, id:S.patternId });
+      return { id:S.patternId };
     }
 
-    function reset(){
-      MEM.lastTipAt = 0;
-      MEM.miss1s = MEM.expire1s = MEM.junk1s = MEM.hitGood1s = 0;
-      MEM.emaAcc = 0.85;
-      MEM.emaRate = 0.0;
-      MEM.emaMiss = 0.0;
-      MEM.ctx = null;
+    function onEvent(name, detail){
+      // unify event sink for future ML/DL
+      logFeature('event', { name:String(name||''), d: detail ? 1 : 0 });
     }
 
-    return { onEvent, getDifficultySignal, getPrediction, getTip, reset, deterministic };
+    return { getDifficulty, getTip, nextPattern, onEvent, _debug:()=>({ ...S }) };
   }
 
   WIN.HHA = WIN.HHA || {};
-  WIN.HHA.createAIHooks = createAIHooks;
+  WIN.HHA.createAIHooks = WIN.HHA.createAIHooks || createAIHooks;
 })();
