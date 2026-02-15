@@ -1,356 +1,151 @@
-<!-- === /herohealth/brush-vr.html ===
-HeroHealth — Brush (ROOT Launcher)
-✅ Choose view: pc / mobile / vr / cvr
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/ai
-✅ Remembers last view
-✅ Launches (default): ./hygiene-vr/hygiene-vr.html?mode=brush
-   - Change RUN_PATH if you have a dedicated brush run page.
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — Brush (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b;
-      --radius:22px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
+    /* ใช้สไตล์เดียวกับ handwash-vr.html เพื่อคุมธีม */
+    :root{--bg:#020617;--panel:rgba(2,6,23,.72);--panel2:rgba(15,23,42,.55);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--good:#22c55e;--cyan:#22d3ee;--violet:#a78bfa;--warn:#f59e0b;--sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--r:20px}
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      background:
-        radial-gradient(1200px 700px at 18% 18%, rgba(245,158,11,.10), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(167,139,250,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      overflow:auto;
-    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
     a{color:inherit;text-decoration:none}
-    .wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-    header{
-      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
-      flex-wrap:wrap;padding:6px 6px 0 6px
-    }
-    .title{margin:0;font-size:clamp(22px,2.2vw,30px);font-weight:1000}
-    .subtitle{margin:0;color:var(--muted);font-size:13px;line-height:1.4;font-weight:800;max-width:78ch}
-    .pillrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
-    .pill{
-      background:rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;border-radius:999px;
-      font-size:12px;color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;user-select:none;font-weight:900
-    }
-    .pill b{color:var(--text);font-weight:1000}
-
-    .panel{
-      background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
-      overflow:hidden;
-    }
-    .head{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:12px 14px;border-bottom:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      flex-wrap:wrap
-    }
-    .big{
-      display:inline-flex;align-items:center;gap:10px;
-      padding:10px 12px;border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      font-size:13px;font-weight:1000;white-space:nowrap
-    }
-    .dot{
-      width:12px;height:12px;border-radius:999px;
-      background:var(--amber);
-      box-shadow:0 0 18px rgba(245,158,11,.28)
-    }
-    .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
-    .btn{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.42);
-      padding:10px 12px;border-radius:14px;
-      cursor:pointer;user-select:none;
-      display:flex;align-items:center;gap:8px;
-      white-space:nowrap;font-weight:1000;font-size:13px;
-      transition:transform .12s ease,opacity .12s ease
-    }
-    .btn:active{transform:translateY(1px)}
-    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.10)}
-    .btn.ghost{color:var(--muted)}
-
-    .body{padding:12px;display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
-    @media (max-width: 900px){.body{grid-template-columns:1fr}.pillrow{justify-content:flex-start}.actions{justify-content:flex-start}}
-    .card{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.40);
-      border-radius:18px;
-      padding:14px;
-      box-shadow:0 12px 40px rgba(0,0,0,.25)
-    }
-    .card h3{margin:0 0 6px 0;font-size:16px;font-weight:1000}
-    .card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45;font-weight:800}
-    .grid{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    @media (max-width: 560px){.grid{grid-template-columns:1fr}}
-    .opt{
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.28);
-      border-radius:16px;
-      padding:12px;
-      cursor:pointer;
-      user-select:none;
-      transition:transform .12s ease,border-color .12s ease,background .12s ease
-    }
-    .opt:hover{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.06)}
-    .opt:active{transform:translateY(1px)}
-    .opt.on{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10)}
-    .opt .t{font-weight:1000}
-    .opt .d{margin-top:6px;color:rgba(229,231,235,.74);font-weight:800;font-size:12px;line-height:1.35}
-    .row2{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
-    code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:rgba(229,231,235,.92);background:rgba(0,0,0,.25);border:1px solid rgba(148,163,184,.18);padding:2px 6px;border-radius:10px;word-break:break-all}
-    .toast{
-      position:fixed;left:50%;
-      bottom:calc(18px + var(--sab));
-      transform:translateX(-50%);
-      background:rgba(2,6,23,.85);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      padding:10px 12px;border-radius:14px;
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index:9999;max-width:92vw;
-      font-size:13px;opacity:0;
-      transition:opacity .18s ease;
-      pointer-events:none;font-weight:900
-    }
-    .toast.show{opacity:1}
+    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
+    header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+    .title{font-weight:1000;letter-spacing:.2px;font-size:22px;margin:0}
+    .sub{color:var(--muted);font-size:12px;font-weight:800;margin:6px 0 0 0;max-width:72ch;line-height:1.35}
+    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}
+    .chip b{color:#fff}
+    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
+    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:var(--r);padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+    .card h3{margin:0;font-size:14px;font-weight:1000}
+    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
+    .btn{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);padding:12px 12px;border-radius:16px;margin-top:10px;font-weight:1000}
+    .btn .k{display:flex;flex-direction:column;gap:3px}
+    .btn .k span{font-size:13px}
+    .btn .k small{font-size:11px;color:rgba(229,231,235,.70);font-weight:800}
+    .pill{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:1000;white-space:nowrap}
+    .pill.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .pill.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.10)}
+    .pill.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12)}
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1 class="title">🪥 Brush — Launcher</h1>
-        <p class="subtitle">
-          เลือกอุปกรณ์ก่อนเข้าเล่น • ส่งพารามิเตอร์ต่อให้เกมอัตโนมัติ • กลับ HUB ได้เสมอ
-        </p>
-      </div>
-      <div class="pillrow" id="pillrow"></div>
-    </header>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 class="title">🪥 Brush — Launcher</h1>
+      <p class="sub">เลือกโหมดเข้าเล่น • ส่งพารามิเตอร์ต่อให้เกมอัตโนมัติ</p>
+    </div>
+    <div class="chiprow">
+      <div class="chip">run: <b id="cRun">play</b></div>
+      <div class="chip">diff: <b id="cDiff">normal</b></div>
+      <div class="chip">time: <b id="cTime">80</b>s</div>
+      <div class="chip">pid: <b id="cPid">anon</b></div>
+    </div>
+  </header>
 
-    <section class="panel">
-      <div class="head">
-        <div class="big"><span class="dot"></span><span>Brush (Run)</span></div>
-        <div class="actions">
-          <div class="btn ghost" id="btnHow">❓ วิธีเล่น</div>
-          <div class="btn" id="btnToHub">🏰 กลับ HUB</div>
-          <div class="btn good" id="btnStart">▶ Start</div>
-        </div>
-      </div>
+  <div class="grid">
+    <div class="card">
+      <h3>🖥️ PC</h3>
+      <p>เมาส์/คลิก</p>
+      <a class="btn" id="goPC" href="./vr-brush/brush.html">
+        <div class="k"><span>เข้าเล่น (PC)</span><small>view=pc</small></div>
+        <span class="pill good">Recommended</span>
+      </a>
+    </div>
 
-      <div class="body">
-        <div class="card">
-          <h3>เลือก View</h3>
-          <p>มือถือ = <b>mobile</b> • Cardboard = <b>cvr</b> • Headset = <b>vr</b></p>
+    <div class="card">
+      <h3>📱 Mobile</h3>
+      <p>แตะจอ</p>
+      <a class="btn" id="goMobile" href="./vr-brush/brush.html">
+        <div class="k"><span>เข้าเล่น (Mobile)</span><small>view=mobile</small></div>
+        <span class="pill cyan">Touch</span>
+      </a>
+    </div>
 
-          <div class="grid" id="viewGrid">
-            <div class="opt" data-view="pc"><div class="t">🖥️ PC</div><div class="d">ทดสอบ/ดีบัก</div></div>
-            <div class="opt" data-view="mobile"><div class="t">📱 Mobile</div><div class="d">แตะเป้า • ห้องเรียน</div></div>
-            <div class="opt" data-view="vr"><div class="t">🕶️ VR</div><div class="d">WebXR • ENTER VR</div></div>
-            <div class="opt" data-view="cvr"><div class="t">📦 cVR</div><div class="d">ยิงจาก crosshair</div></div>
-          </div>
-
-          <div class="row2">
-            <span class="pill"><b>view</b>: <span id="tView">—</span></span>
-            <span class="pill"><b>diff</b>: <span id="tDiff">—</span></span>
-            <span class="pill"><b>time</b>: <span id="tTime">—</span>s</span>
-            <span class="pill"><b>pid</b>: <span id="tPid">—</span></span>
-          </div>
-
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>tip</b>: เปิด AI (เฉพาะ play) ด้วย <code>?ai=1</code></span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>ลิงก์เกม (Run)</h3>
-          <p>ค่าเริ่มต้นจะใช้หน้า run เดียวกับ Hygiene แล้วสั่งโหมด brush ด้วย <code>mode=brush</code></p>
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>run</b>: <code id="runPath">—</code></span>
-          </div>
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>goal</b>: แปรงให้ครบจุด + ถูกจังหวะ + เลี่ยงพลาด (combo)</span>
-          </div>
-        </div>
-      </div>
-    </section>
+    <div class="card">
+      <h3>🕶️ Cardboard / cVR</h3>
+      <p>crosshair + tap-to-shoot</p>
+      <a class="btn" id="goCVR" href="./vr-brush/brush.html">
+        <div class="k"><span>เข้าเล่น (cVR)</span><small>view=cvr</small></div>
+        <span class="pill violet">VR</span>
+      </a>
+    </div>
   </div>
-
-  <div class="toast" id="toast"></div>
+</div>
 
 <script>
 (function(){
   'use strict';
-
-  // ✅ DEFAULT: reuse hygiene run page with mode=brush
-  // 🔧 If you have a dedicated brush page, change RUN_PATH only.
-  const RUN_PATH = './hygiene-vr/hygiene-vr.html?mode=brush';
-
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','ai'];
-  const LS_VIEW = 'HHA_LAUNCHER_VIEW::brush';
-
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = qs();
-
+  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
+  function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
   function nowSeed(){ return String(Date.now()); }
-  function detectMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||''); }
-  function pickDefaultView(){
-    const qv = (QS.get('view')||'').trim();
-    if(qv) return qv;
-    try{ const last = localStorage.getItem(LS_VIEW); if(last) return last; }catch(_){}
-    return detectMobile() ? 'mobile' : 'pc';
-  }
 
-  // defaults for pills
-  const ctx = {
-    pid: (QS.get('pid')||'').trim() || 'anon',
-    run: (QS.get('run')||'play').trim() || 'play',
-    diff: (QS.get('diff')||'normal').trim() || 'normal',
-    time: (QS.get('time')||'80').trim() || '80',
-    seed: (QS.get('seed')||'').trim() || nowSeed()
+  const P = {
+    run:  String(qs('run','play')).toLowerCase() || 'play',
+    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+    time: clamp(qs('time','80'), 20, 300),
+    seed: String(qs('seed','') || nowSeed()),
+    pid:  String(qs('pid','')).trim() || 'anon',
+    view: String(qs('view','')).toLowerCase(),
+    log:  String(qs('log','')),
+    studyId: String(qs('studyId','')),
+    phase: String(qs('phase','')),
+    conditionGroup: String(qs('conditionGroup','')),
+    hub: String(qs('hub','./hub.html')) || './hub.html'
   };
 
-  // render pills
-  function esc(s){ return String(s).replace(/</g,'&lt;'); }
-  function renderPills(){
-    const pills = [
-      ['pid', QS.get('pid') ?? ctx.pid],
-      ['run', QS.get('run') ?? ctx.run],
-      ['diff', QS.get('diff') ?? ctx.diff],
-      ['time', QS.get('time') ?? ctx.time],
-      ['seed', QS.get('seed') ?? ctx.seed],
-      ['ai', QS.get('ai')],
-      ['studyId', QS.get('studyId')],
-      ['phase', QS.get('phase')],
-      ['conditionGroup', QS.get('conditionGroup')],
-      ['log', QS.get('log')]
-    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
+  document.getElementById('cRun').textContent = P.run;
+  document.getElementById('cDiff').textContent = P.diff;
+  document.getElementById('cTime').textContent = String(P.time);
+  document.getElementById('cPid').textContent = P.pid;
 
-    document.getElementById('pillrow').innerHTML = (pills.length ? pills : [['ctx','none']])
-      .slice(0, 12)
-      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${esc(v)}</span>`)
-      .join('');
-  }
+  const LS = 'HHA_LAST_VIEW::brush';
+  function remember(v){ try{ localStorage.setItem(LS, v); }catch(_){} }
+  function recall(){ try{ return localStorage.getItem(LS)||''; }catch(_){ return ''; } }
 
-  // toast
-  const toastEl = document.getElementById('toast');
-  let toastTimer=null;
-  function toast(msg){
-    clearTimeout(toastTimer);
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1300);
-  }
-
-  // attach pass-through
-  function applyPassThrough(href, view){
-    const u = new URL(href, location.href);
-
-    // copy incoming params first
-    for (const k of PASS_KEYS){
-      if (!u.searchParams.has(k) && QS.has(k)){
-        const v = QS.get(k);
-        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-      }
-    }
-
-    // ensure defaults
-    if(!u.searchParams.has('pid'))  u.searchParams.set('pid', ctx.pid);
-    if(!u.searchParams.has('run'))  u.searchParams.set('run', ctx.run);
-    if(!u.searchParams.has('diff')) u.searchParams.set('diff', ctx.diff);
-    if(!u.searchParams.has('time')) u.searchParams.set('time', String(ctx.time));
-    if(!u.searchParams.has('seed')) u.searchParams.set('seed', ctx.seed);
-    if(view) u.searchParams.set('view', view);
-
-    // ensure hub
-    if(!u.searchParams.has('hub') || !String(u.searchParams.get('hub')||'').trim()){
-      u.searchParams.set('hub', new URL('./hub.html', location.href).toString());
-    }
+  function withCommon(url, view){
+    const u = new URL(url, location.href);
+    const sp = u.searchParams;
+    sp.set('hub', P.hub || './hub.html');
+    sp.set('run', P.run);
+    sp.set('diff', P.diff);
+    sp.set('time', String(P.time));
+    sp.set('seed', P.seed);
+    sp.set('pid', P.pid);
+    sp.set('view', view);
+    if(P.log) sp.set('log', P.log);
+    if(P.studyId) sp.set('studyId', P.studyId);
+    if(P.phase) sp.set('phase', P.phase);
+    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
     return u.toString();
   }
 
-  // view selection
-  const viewGrid = document.getElementById('viewGrid');
-  const tView = document.getElementById('tView');
-  const tDiff = document.getElementById('tDiff');
-  const tTime = document.getElementById('tTime');
-  const tPid  = document.getElementById('tPid');
+  const runHref = './vr-brush/brush.html';
+  const aPC = document.getElementById('goPC');
+  const aM  = document.getElementById('goMobile');
+  const aV  = document.getElementById('goCVR');
 
-  let selectedView = pickDefaultView();
+  aPC.href = withCommon(runHref, 'pc');
+  aM.href  = withCommon(runHref, 'mobile');
+  aV.href  = withCommon(runHref, 'cvr');
 
-  function setView(v){
-    selectedView = v;
-    try{ localStorage.setItem(LS_VIEW, v); }catch(_){}
-    viewGrid.querySelectorAll('.opt[data-view]').forEach(o=>{
-      o.classList.toggle('on', o.getAttribute('data-view') === v);
-    });
-    tView.textContent = v;
-    tDiff.textContent = ctx.diff;
-    tTime.textContent = ctx.time;
-    tPid.textContent  = ctx.pid;
+  aPC.addEventListener('click', ()=>remember('pc'), {passive:true});
+  aM.addEventListener('click',  ()=>remember('mobile'), {passive:true});
+  aV.addEventListener('click',  ()=>remember('cvr'), {passive:true});
+
+  const auto = (qs('autostart','0')==='1');
+  if(auto){
+    const last = P.view || recall() || 'pc';
+    location.href = withCommon(runHref, last);
   }
-
-  viewGrid.addEventListener('click', (ev)=>{
-    const el = ev.target.closest('.opt[data-view]');
-    if(!el) return;
-    setView(el.getAttribute('data-view'));
-    toast(`เลือก view = ${selectedView}`);
-  });
-
-  // buttons
-  document.getElementById('btnStart').addEventListener('click', ()=>{
-    location.href = applyPassThrough(RUN_PATH, selectedView);
-  });
-
-  document.getElementById('btnHow').addEventListener('click', ()=>{
-    toast('วิธีเล่น: แปรงให้ครบทุกจุด (บน/ล่าง/ด้านใน) + ทำตามจังหวะ • คอมโบสูงจะเรียกบอสคราบ!');
-  });
-
-  document.getElementById('btnToHub').addEventListener('click', ()=>{
-    const h = (QS.get('hub')||'').trim();
-    location.href = h || new URL('./hub.html', location.href).toString();
-  });
-
-  // init
-  document.getElementById('runPath').textContent = RUN_PATH;
-  renderPills();
-  setView(selectedView);
 })();
 </script>
 </body>
