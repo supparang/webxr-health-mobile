@@ -1,20 +1,16 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — FULL (TTL expire + soft miss + less clutter + stable spawn)
-// ✅ targets expire -> removed by renderer + callback here
-// ✅ miss counted only for (normal, bossface) expire
-// ✅ soft MISS FX on expire
-// ✅ smaller targets + MAX_ACTIVE cap
-// ✅ stable spawn schedule (nextSpawnAt)
-
-// NOTE: requires dom-renderer-shadow.js version that supports onTargetExpire()
+// Shadow Breaker engine (PATCH: expire removal + miss rules + adaptive size + less cramped)
+// ✅ FIX: targets expire & disappear smoothly (no "stuck targets")
+// ✅ FIX: miss counting rule (expire counts only for normal/bossface)
+// ✅ FIX: adaptive baseSize by screen/layer
+// ✅ FIX: safe zone margins driven by CSS vars used by renderer
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
+import { DLFeatures } from './dl-features.js';
+import { AIPredictor } from './ai-predictor.js';
 
-// -------------------------
-// URL params
-// -------------------------
 function getQS(){
   try { return new URL(location.href).searchParams; }
   catch { return new URLSearchParams(); }
@@ -32,9 +28,6 @@ const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
 const HUB  = q('hub','./hub.html');
 
-// -------------------------
-// DOM
-// -------------------------
 const $ = (s)=>document.querySelector(s);
 const wrapEl = $('#sb-wrap');
 
@@ -75,7 +68,6 @@ const bossShieldLabel= $('#sb-boss-shield-label');
 const feverBar   = $('#sb-fever-bar');
 const feverLabel = $('#sb-label-fever');
 
-// Result
 const resTime   = $('#sb-res-time');
 const resScore  = $('#sb-res-score');
 const resMaxCombo = $('#sb-res-max-combo');
@@ -90,12 +82,6 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
-// Hub link (optional)
-try{
-  const hubA = document.querySelector('a.sb-link');
-  if (hubA && HUB) hubA.href = HUB;
-}catch{}
-
 // -------------------------
 // Data (bosses)
 // -------------------------
@@ -108,22 +94,9 @@ const BOSSES = [
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
-// ----- Difficulty config -----
-// ✅ ลดขนาดเป้า + ลดความแน่น (baseSize ต่ำลง)
-// เป้าจะดูไม่บัง HUD + เล่นบนมือถือสบายขึ้น
-const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:980, spawnIntervalMax:1450, targetLifetime:1350, baseSize:96,  bossDamageNormal:0.040, bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:820, spawnIntervalMax:1250, targetLifetime:1200, baseSize:92,  bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:680, spawnIntervalMax:1050, targetLifetime:1100, baseSize:88,  bossDamageNormal:0.030, bossDamageBossFace:0.35 }
-};
-
-// ----- FEVER / HP -----
 const FEVER_MAX = 100;
 const YOU_HP_MAX = 100;
 const BOSS_HP_MAX = 100;
-
-// cap targets to reduce clutter
-const MAX_ACTIVE = 7;
 
 function setScaleX(el, pct){
   if(!el) return;
@@ -137,14 +110,40 @@ function showView(which){
   viewResult?.classList.toggle('is-active', which === 'result');
 }
 
-// -------------------------
-// State
-// -------------------------
+function boss(){
+  const i = clamp(bossIndex,0,BOSSES.length-1);
+  return BOSSES[i];
+}
+
+// ✅ PATCH: adaptive base size by layer width (prevents too-big on small screens)
+function adaptiveBaseSize(raw){
+  const r = layerEl?.getBoundingClientRect?.();
+  const w = r?.width || window.innerWidth || 360;
+  const h = r?.height || window.innerHeight || 640;
+
+  // base scales with min dimension
+  const m = Math.max(280, Math.min(860, Math.min(w,h)));
+  const scale = m / 520; // 520 ≈ "comfortable" baseline
+  const s = raw * scale;
+
+  // clamp for sanity
+  return clamp(s, 84, 130);
+}
+
+// ----- Difficulty config -----
+// NOTE: baseSize below is "raw" then adaptiveBaseSize() applies at spawn time
+const DIFF_CONFIG = {
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:100, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+};
+
 let running = false;
 let ended = false;
 let paused = false;
 
 let tStart = 0;
+let tLastSpawn = 0;
 let timeLeft = TIME * 1000;
 
 let score = 0;
@@ -162,12 +161,9 @@ let bossIndex = 0;
 let phase = 1;
 let bossesCleared = 0;
 
-let nextSpawnAt = 0;
-
 const diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
 const CFG = DIFF_CONFIG[diff];
 
-// Events log (simple)
 const events = [];
 const session = {
   pid: PID || '',
@@ -184,27 +180,18 @@ const session = {
   accPct: 0
 };
 
-// lightweight “shots/hits” counters (no external deps)
-let totalShots = 0;
-let hits = 0;
+const dl = new DLFeatures();
+const ai = new AIPredictor();
 
-// -------------------------
-// Renderer
-// -------------------------
+// ✅ PATCH: track active target expiry in engine (source of truth)
+const active = new Map(); // id -> { type, expireAtMs, sizePx }
+
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
   feedbackEl: msgMainEl,
-  onTargetHit: onTargetHit,
-  onTargetExpire: onTargetExpire
+  onTargetHit
 });
 renderer.setDifficulty(diff);
-
-// -------------------------
-// Helpers
-// -------------------------
-function boss(){
-  return BOSSES[clamp(bossIndex,0,BOSSES.length-1)];
-}
 
 function setBossUI(){
   const b = boss();
@@ -243,14 +230,6 @@ function say(text, cls){
   msgMainEl.className = 'sb-msg-main' + (cls ? ' ' + cls : '');
 }
 
-function scheduleNextSpawn(tNow){
-  const interval = clamp(
-    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
-    450, 2200
-  );
-  nextSpawnAt = tNow + interval;
-}
-
 function nextBossOrPhase(){
   if(phase < boss().phases){
     phase++;
@@ -266,9 +245,13 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-function spawnOne(){
-  if (renderer.targets.size >= MAX_ACTIVE) return;
+// ✅ PATCH: miss rule (expire counts only normal/bossface)
+// - decoy/bomb/heal/shield expired: do NOT count miss (your point is correct)
+function expireCountsMiss(type){
+  return (type === 'normal' || type === 'bossface');
+}
 
+function spawnOne(){
   const id = Math.floor(Math.random()*1e9);
   const roll = Math.random();
 
@@ -278,69 +261,45 @@ function spawnOne(){
   else if(roll < 0.20) type = 'heal';
   else if(roll < 0.26) type = 'shield';
 
-  // Boss face appears when boss low
   if(bossHp <= 26 && Math.random() < 0.22){
     type = 'bossface';
   }
 
-  // size: based on CFG.baseSize (smaller)
-  let sizePx = CFG.baseSize;
-  if(type === 'bossface') sizePx = CFG.baseSize * 1.16;
-  if(type === 'bomb') sizePx = CFG.baseSize * 1.05;
+  // ✅ PATCH: baseSize adaptive
+  let sizePx = adaptiveBaseSize(CFG.baseSize);
+  if(type === 'bossface') sizePx = sizePx * 1.14;
+  if(type === 'bomb') sizePx = sizePx * 1.06;
+
+  sizePx = clamp(sizePx, 78, 150);
+
+  const ttlMs = CFG.targetLifetime;
 
   renderer.spawnTarget({
     id, type,
     sizePx,
     bossEmoji: boss().emoji,
-    ttlMs: CFG.targetLifetime
+    ttlMs
   });
 
-  totalShots++;
+  const tNow = now();
+  active.set(id, { type, expireAtMs: tNow + ttlMs, sizePx: Math.round(sizePx) });
 
-  events.push({
-    t: (TIME*1000 - timeLeft),
-    type:'spawn',
-    id,
-    targetType:type,
-    sizePx: Math.round(sizePx),
-    ttlMs: CFG.targetLifetime
-  });
-}
-
-function onTargetExpire(id, info){
-  if(!running || ended) return;
-
-  const type = (info && info.type) ? info.type : 'normal';
-
-  // ✅ Miss counting policy:
-  // - count miss only for (normal, bossface)
-  // - do NOT count expire for decoy/bomb/heal/shield (avoid unfair miss inflation)
-  const shouldCountMiss = (type === 'normal' || type === 'bossface');
-
-  if (shouldCountMiss) {
-    miss++;
-    combo = 0;
-    // soft feedback + small fx
-    say('MISS', 'miss');
-    renderer.playMissFx?.(info.clientX ?? window.innerWidth/2, info.clientY ?? window.innerHeight/2, 'MISS');
-    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:type, miss:1 });
-  } else {
-    // still log expire but not miss
-    events.push({ t: (TIME*1000 - timeLeft), type:'expire', id, targetType:type, miss:0 });
-  }
-
-  setHUD();
+  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
 }
 
 function onTargetHit(id, pt){
   if(!running || ended || paused) return;
 
-  const el = renderer.targets.get(id);
+  const obj = renderer.targets.get(id);
+  const el = obj?.el;
   if(!el) return;
 
-  hits++;
+  const type = obj?.type || (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
-  const type = (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
+  // ✅ remove from active immediately to prevent expire race
+  active.delete(id);
+
+  dl.onHit();
 
   let grade = 'good';
   let scoreDelta = 0;
@@ -390,22 +349,15 @@ function onTargetHit(id, pt){
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever gain
   fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
-  // FX + remove
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id, 'hit');
 
   events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
-  if(bossHp <= 0){
-    nextBossOrPhase();
-  }
-
-  if(youHp <= 0){
-    endGame('dead');
-  }
+  if(bossHp <= 0) nextBossOrPhase();
+  if(youHp <= 0) endGame('dead');
 
   setHUD();
 }
@@ -415,6 +367,10 @@ function endGame(reason='timeup'){
   ended = true;
   running = false;
 
+  // cleanup targets
+  active.clear();
+  renderer.destroy();
+
   session.endedAt = new Date().toISOString();
   session.score = score|0;
   session.maxCombo = maxCombo|0;
@@ -422,6 +378,8 @@ function endGame(reason='timeup'){
   session.phase = phase|0;
   session.bossesCleared = bossesCleared|0;
 
+  const totalShots = dl.getTotalShots();
+  const hits = dl.getHits();
   const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
@@ -443,6 +401,48 @@ function endGame(reason='timeup'){
   showView('result');
 }
 
+// ✅ PATCH: handle expiry each tick (smooth fade + soft miss FX)
+function handleExpiry(){
+  const tNow = now();
+  for(const [id, info] of active.entries()){
+    if(tNow < info.expireAtMs) continue;
+
+    // if renderer already removed, drop it
+    const obj = renderer.targets.get(id);
+    if(!obj?.el){
+      active.delete(id);
+      continue;
+    }
+
+    // animate expire then remove
+    renderer.playHitFx(id, { grade:'expire' });
+    renderer.expireTarget(id);
+
+    // miss rule
+    if(expireCountsMiss(info.type)){
+      miss++;
+      combo = 0;
+      say('พลาด! (Miss)', 'miss');
+    }
+
+    events.push({
+      t: (TIME*1000 - timeLeft),
+      type:'expire',
+      id,
+      targetType: info.type,
+      missCounted: expireCountsMiss(info.type) ? 1 : 0
+    });
+
+    active.delete(id);
+
+    // tiny HP penalty only for normal expire (optional, keeps pressure but fair)
+    if(info.type === 'normal' && youHp > 0){
+      youHp = Math.max(0, youHp - 2);
+      if(youHp <= 0) endGame('dead');
+    }
+  }
+}
+
 function tick(){
   if(!running || ended) return;
   requestAnimationFrame(tick);
@@ -452,16 +452,26 @@ function tick(){
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // spawn schedule (stable)
-  if (t >= nextSpawnAt) {
+  // spawn
+  const since = t - tLastSpawn;
+  const targetInterval = clamp(
+    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
+    450, 1800
+  );
+
+  if(since >= targetInterval){
+    tLastSpawn = t;
     spawnOne();
-    scheduleNextSpawn(t);
+    dl.onShot();
   }
 
-  // fever decay when ready
+  // FEVER decay
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
+
+  // ✅ expiry
+  handleExpiry();
 
   if(timeLeft <= 0){
     endGame('timeup');
@@ -484,12 +494,11 @@ function start(mode){
   bossHp=BOSS_HP_MAX;
   bossIndex=0; phase=1; bossesCleared=0;
 
-  // reset accuracy stats
-  totalShots = 0;
-  hits = 0;
+  events.length = 0;
+  active.clear();
 
-  // clear targets
-  renderer.destroy();
+  dl.reset();
+  renderer.destroy(); // clear old targets
 
   setBossUI();
   setHUD();
@@ -498,7 +507,7 @@ function start(mode){
   showView('play');
 
   tStart = now();
-  scheduleNextSpawn(tStart);
+  tLastSpawn = tStart;
   requestAnimationFrame(tick);
 }
 
@@ -513,6 +522,7 @@ btnBackMenu?.addEventListener('click', ()=>{
   running = false;
   ended = false;
   paused = false;
+  active.clear();
   renderer.destroy();
   showView('menu');
 });
@@ -523,6 +533,7 @@ btnPause?.addEventListener('change', ()=>{
 
 btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
+  active.clear();
   renderer.destroy();
   showView('menu');
 });
@@ -549,6 +560,18 @@ btnEvtCsv?.addEventListener('click', ()=>{
 });
 
 btnSesCsv?.addEventListener('click', ()=>{
+  // refresh session snapshot before download
+  session.score = score|0;
+  session.maxCombo = maxCombo|0;
+  session.miss = miss|0;
+  session.phase = phase|0;
+  session.bossesCleared = bossesCleared|0;
+
+  const totalShots = dl.getTotalShots();
+  const hits = dl.getHits();
+  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
+  session.accPct = Number(accPct.toFixed(2));
+
   downloadCSV('shadowbreaker_session.csv', [session]);
 });
 
