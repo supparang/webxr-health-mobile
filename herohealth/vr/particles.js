@@ -1,277 +1,277 @@
 // === /herohealth/vr/particles.js ===
-// HHA Particles / FX — PRODUCTION V2 (SAFE)
-// ✅ One global layer: .hha-fx-layer (pointer-events:none)
-// ✅ Methods: popText, scorePop, burstAt, ringAt, shock, confetti
-// ✅ Auto inject keyframes once
-// ✅ Never throws (best-effort)
+// HeroHealth FX Core — PRODUCTION (LOCKED + SAFE)
+// ✅ Shared FX layer for ALL games (GoodJunk/Groups/Hydration/Plate/Exercise)
+// ✅ Never blocks input (pointer-events:none)
+// ✅ Idempotent (safe to include multiple times)
+// ✅ Exposes: Particles.popText / scorePop / burstAt / ringAt / shake / vignette
+// ✅ Uses minimal CSS animations; no external deps
 
-(function (root) {
+(function(root){
   'use strict';
   const doc = root.document;
-  if (!doc || root.__HHA_PARTICLES_V2__) return;
-  root.__HHA_PARTICLES_V2__ = true;
+  if(!doc) return;
 
+  // If already loaded, do NOT re-register styles again
+  if(root.__HHA_PARTICLES_CORE__){
+    root.Particles = root.Particles || {};
+    return;
+  }
+  root.__HHA_PARTICLES_CORE__ = true;
+
+  // ----------------------------
+  // Layer
+  // ----------------------------
   function ensureLayer(){
-    try{
-      let layer = doc.querySelector('.hha-fx-layer');
-      if (layer) return layer;
-      layer = doc.createElement('div');
-      layer.className = 'hha-fx-layer';
-      // NOTE: z-index is finalized by CSS (goodjunk-vr.css sets 200)
-      layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:90;overflow:hidden;';
-      doc.body.appendChild(layer);
-      return layer;
-    }catch(_){
-      return null;
-    }
+    let layer = doc.querySelector('.hha-fx-layer');
+    if(layer) return layer;
+
+    layer = doc.createElement('div');
+    layer.className = 'hha-fx-layer';
+    // IMPORTANT: match CSS hard-lock (but also safe if CSS missing)
+    layer.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'pointer-events:none',
+      'z-index:140',
+      'overflow:hidden',
+      'contain:layout paint style',
+      'transform:translateZ(0)'
+    ].join(';');
+    (doc.body || doc.documentElement).appendChild(layer);
+    return layer;
   }
 
-  function clamp(n,a,b){ n = Number(n)||0; return n<a?a:(n>b?b:n); }
-  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(n,min,max){ n = Number(n)||0; return Math.max(min, Math.min(max,n)); }
   function now(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
 
-  function injectCSSOnce(){
-    if (doc.getElementById('hhaParticlesStyles')) return;
-    const st = doc.createElement('style');
-    st.id = 'hhaParticlesStyles';
-    st.textContent = `
-      @keyframes hhaPop {
-        0%   { transform:translate(-50%,-50%) scale(.92); opacity:.95; filter: blur(0); }
-        70%  { transform:translate(-50%,-78%) scale(1.20); opacity:1; }
-        100% { transform:translate(-50%,-96%) scale(1.06); opacity:0; filter: blur(.2px); }
-      }
-      @keyframes hhaScorePop {
-        0%   { transform:translate(-50%,-50%) scale(.92); opacity:.98; }
-        65%  { transform:translate(-50%,-84%) scale(1.22); opacity:1; }
-        100% { transform:translate(-50%,-110%) scale(1.06); opacity:0; }
-      }
-      @keyframes hhaBurst {
-        0%   { transform:translate(-50%,-50%) scale(.80); opacity:0; }
-        25%  { transform:translate(-50%,-50%) scale(1.05); opacity:.95; }
-        100% { transform:translate(-50%,-50%) scale(1.30); opacity:0; }
-      }
-      @keyframes hhaRing {
-        0%   { transform:translate(-50%,-50%) scale(.70); opacity:.90; }
-        100% { transform:translate(-50%,-50%) scale(1.55); opacity:0; }
-      }
-      @keyframes hhaShard {
-        0%   { transform:translate3d(0,0,0) rotate(0deg); opacity:1; }
-        100% { transform:translate3d(var(--dx),var(--dy),0) rotate(var(--rot)); opacity:0; }
-      }
-      @keyframes hhaShock {
-        0%   { opacity:0; transform:scale(.98); }
-        18%  { opacity:.92; transform:scale(1); }
-        100% { opacity:0; transform:scale(1.02); }
-      }
-    `;
-    doc.head.appendChild(st);
+  // Convert client coords => safe within viewport
+  function normXY(x,y){
+    const W = doc.documentElement.clientWidth  || 1;
+    const H = doc.documentElement.clientHeight || 1;
+    const nx = clamp(x, 0, W);
+    const ny = clamp(y, 0, H);
+    return { x:nx, y:ny, W, H };
   }
 
-  // ----- FX primitives -----
+  // ----------------------------
+  // Styles (once)
+  // ----------------------------
+  const st = doc.createElement('style');
+  st.textContent = `
+  /* ===== HHA FX Core ===== */
+  .hha-fx-layer{ position:fixed; inset:0; pointer-events:none; z-index:140; overflow:hidden; contain:layout paint style; transform:translateZ(0); }
+  .hha-fx{
+    position:absolute;
+    left:0; top:0;
+    transform: translate(-50%,-50%);
+    will-change: transform, opacity, filter;
+    pointer-events:none;
+  }
+
+  .hha-pop{
+    font: 1000 18px/1 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    color:#fff;
+    text-shadow: 0 10px 26px rgba(0,0,0,.55);
+    opacity:.98;
+    animation: hhaPop 560ms ease-out forwards;
+  }
+  @keyframes hhaPop{
+    0%{ transform:translate(-50%,-50%) scale(.88); opacity:.92; }
+    55%{ transform:translate(-50%,-72%) scale(1.14); opacity:1; }
+    100%{ transform:translate(-50%,-96%) scale(1.04); opacity:0; }
+  }
+
+  .hha-score{
+    font: 1200 20px/1 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    letter-spacing:.2px;
+    color:#fff;
+    text-shadow: 0 12px 28px rgba(0,0,0,.60);
+    opacity:.98;
+    animation: hhaScore 620ms cubic-bezier(.2,.9,.2,1) forwards;
+  }
+  @keyframes hhaScore{
+    0%{ transform:translate(-50%,-50%) scale(.92); opacity:.0; }
+    15%{ opacity:1; }
+    60%{ transform:translate(-50%,-82%) scale(1.18); opacity:1; }
+    100%{ transform:translate(-50%,-112%) scale(1.02); opacity:0; }
+  }
+
+  .hha-burst{
+    width: 16px; height: 16px;
+    border-radius: 999px;
+    opacity:.98;
+    animation: hhaBurst 520ms ease-out forwards;
+  }
+  @keyframes hhaBurst{
+    0%{ transform:translate(-50%,-50%) scale(.75); opacity:.0; filter: blur(0px); }
+    12%{ opacity:1; }
+    70%{ transform:translate(-50%,-50%) scale(3.9); opacity:.85; filter: blur(.2px); }
+    100%{ transform:translate(-50%,-50%) scale(5.0); opacity:0; filter: blur(.7px); }
+  }
+
+  .hha-ring{
+    width: 22px; height: 22px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.78);
+    opacity:.98;
+    animation: hhaRing 520ms ease-out forwards;
+  }
+  @keyframes hhaRing{
+    0%{ transform:translate(-50%,-50%) scale(.55); opacity:.0; }
+    15%{ opacity:1; }
+    100%{ transform:translate(-50%,-50%) scale(6.2); opacity:0; }
+  }
+
+  .hha-vignette{
+    position:fixed;
+    inset:-40px;
+    pointer-events:none;
+    z-index:139;
+    opacity:0;
+    background: radial-gradient(circle at 50% 45%,
+      rgba(0,0,0,0) 45%,
+      rgba(0,0,0,.24) 75%,
+      rgba(0,0,0,.55) 100%);
+    transition: opacity 120ms ease;
+  }
+  .hha-vignette.on{ opacity:1; }
+
+  .hha-shake{
+    animation: hhaShake 140ms ease-in-out;
+  }
+  @keyframes hhaShake{
+    0%{ transform:translate3d(0,0,0); }
+    25%{ transform:translate3d(1.2px,-1px,0); }
+    55%{ transform:translate3d(-1px,1.2px,0); }
+    85%{ transform:translate3d(1px,.7px,0); }
+    100%{ transform:translate3d(0,0,0); }
+  }
+  `;
+  (doc.head || doc.documentElement).appendChild(st);
+
+  // ----------------------------
+  // Vignette (single instance)
+  // ----------------------------
+  let vignetteEl = null;
+  function ensureVignette(){
+    if(vignetteEl && vignetteEl.isConnected) return vignetteEl;
+    vignetteEl = doc.querySelector('.hha-vignette');
+    if(vignetteEl) return vignetteEl;
+    vignetteEl = doc.createElement('div');
+    vignetteEl.className = 'hha-vignette';
+    (doc.body || doc.documentElement).appendChild(vignetteEl);
+    return vignetteEl;
+  }
+
+  // ----------------------------
+  // Internal helpers to add FX nodes
+  // ----------------------------
+  function addFxNode(className, x, y, cssText){
+    const layer = ensureLayer();
+    const { x:nx, y:ny } = normXY(x,y);
+    const el = doc.createElement('div');
+    el.className = `hha-fx ${className}`;
+    el.style.left = nx + 'px';
+    el.style.top  = ny + 'px';
+    if(cssText) el.style.cssText += ';' + cssText;
+    layer.appendChild(el);
+    return el;
+  }
+
+  function autoRemove(el, ms){
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, ms);
+  }
+
+  // ----------------------------
+  // Public FX API
+  // ----------------------------
   function popText(x,y,text){
-    try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-      const el = doc.createElement('div');
-      el.textContent = String(text ?? '');
-      el.style.cssText = `
-        position:absolute; left:${x}px; top:${y}px;
-        transform: translate(-50%,-50%);
-        font: 900 18px/1 system-ui, -apple-system, "Segoe UI";
-        color:#fff;
-        text-shadow: 0 10px 24px rgba(0,0,0,.55);
-        opacity:.98;
-        will-change: transform, opacity;
-        animation: hhaPop 540ms ease-out forwards;
-      `;
-      layer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 650);
-    }catch(_){}
+    const el = addFxNode('hha-pop', x,y);
+    el.textContent = String(text ?? '');
+    autoRemove(el, 700);
+    return el;
   }
 
   function scorePop(x,y,text){
+    const el = addFxNode('hha-score', x,y);
+    el.textContent = String(text ?? '');
+    autoRemove(el, 760);
+    return el;
+  }
+
+  function burstAt(x,y, kind){
+    // kinds: good/bad/star/shield/diamond/block
+    const k = String(kind||'good');
+    let bg = 'rgba(34,197,94,.38)';           // good
+    let ring = 'rgba(34,197,94,.65)';
+
+    if(k==='bad'){ bg='rgba(239,68,68,.35)'; ring='rgba(239,68,68,.62)'; }
+    if(k==='star'){ bg='rgba(245,158,11,.30)'; ring='rgba(245,158,11,.60)'; }
+    if(k==='shield'){ bg='rgba(96,165,250,.30)'; ring='rgba(96,165,250,.62)'; }
+    if(k==='diamond'){ bg='rgba(167,139,250,.30)'; ring='rgba(167,139,250,.62)'; }
+    if(k==='block'){ bg='rgba(148,163,184,.22)'; ring='rgba(226,232,240,.62)'; }
+
+    const a = addFxNode('hha-burst', x,y, `background:${bg};`);
+    const b = addFxNode('hha-ring', x,y, `border-color:${ring};`);
+    autoRemove(a, 680);
+    autoRemove(b, 680);
+    return { burst:a, ring:b };
+  }
+
+  function ringAt(x,y, color){
+    const c = color ? String(color) : 'rgba(255,255,255,.75)';
+    const el = addFxNode('hha-ring', x,y, `border-color:${c};`);
+    autoRemove(el, 680);
+    return el;
+  }
+
+  function shake(ms){
+    ms = clamp(ms ?? 140, 80, 420);
+    const b = doc.body;
     try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-      const el = doc.createElement('div');
-      el.textContent = String(text ?? '');
-      el.style.cssText = `
-        position:absolute; left:${x}px; top:${y}px;
-        transform: translate(-50%,-50%);
-        font: 1200 20px/1 system-ui, -apple-system, "Segoe UI";
-        color:#eafff3;
-        text-shadow: 0 12px 26px rgba(0,0,0,.60);
-        opacity:.99;
-        letter-spacing:.3px;
-        will-change: transform, opacity;
-        animation: hhaScorePop 560ms cubic-bezier(.2,.9,.2,1) forwards;
-      `;
-      layer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 720);
+      b.classList.add('hha-shake');
+      setTimeout(()=> b.classList.remove('hha-shake'), ms);
     }catch(_){}
   }
 
-  function ringAt(x,y,kind){
+  function vignette(on, ttlMs){
+    const v = ensureVignette();
     try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-      const el = doc.createElement('div');
-      const color =
-        kind==='bad' ? 'rgba(239,68,68,.75)' :
-        kind==='star'? 'rgba(245,158,11,.75)' :
-        kind==='shield'? 'rgba(34,211,238,.75)' :
-        kind==='diamond'? 'rgba(167,139,250,.75)' :
-        'rgba(34,197,94,.75)';
-
-      el.style.cssText = `
-        position:absolute; left:${x}px; top:${y}px;
-        width: 42px; height: 42px;
-        border-radius: 999px;
-        border: 3px solid ${color};
-        box-shadow: 0 0 0 10px rgba(255,255,255,.04), 0 18px 40px rgba(0,0,0,.28);
-        transform: translate(-50%,-50%);
-        opacity: .9;
-        will-change: transform, opacity;
-        animation: hhaRing 420ms ease-out forwards;
-      `;
-      layer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
-    }catch(_){}
-  }
-
-  function burstAt(x,y,kind){
-    try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-
-      // core flash
-      const flash = doc.createElement('div');
-      const glow =
-        kind==='bad' ? 'rgba(239,68,68,.30)' :
-        kind==='block'? 'rgba(34,211,238,.25)' :
-        kind==='star'? 'rgba(245,158,11,.28)' :
-        kind==='diamond'? 'rgba(167,139,250,.28)' :
-        'rgba(34,197,94,.22)';
-
-      flash.style.cssText = `
-        position:absolute; left:${x}px; top:${y}px;
-        width: 58px; height: 58px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(255,255,255,.75), ${glow} 55%, rgba(0,0,0,0) 72%);
-        transform: translate(-50%,-50%);
-        opacity: .92;
-        will-change: transform, opacity;
-        animation: hhaBurst 320ms ease-out forwards;
-      `;
-      layer.appendChild(flash);
-      setTimeout(()=>{ try{ flash.remove(); }catch(_){ } }, 420);
-
-      // ring + shards
-      ringAt(x,y, kind==='block' ? 'shield' : kind);
-
-      const shardCount = (kind==='diamond') ? 14 : (kind==='bad') ? 12 : 10;
-      for(let i=0;i<shardCount;i++){
-        const shard = doc.createElement('div');
-        const s = rand(6, 12);
-        const dx = rand(-120, 120);
-        const dy = rand(-140, 70);
-        const rot = rand(-220, 220) + 'deg';
-        const col =
-          kind==='bad' ? 'rgba(239,68,68,.92)' :
-          kind==='block'? 'rgba(34,211,238,.92)' :
-          kind==='star'? 'rgba(245,158,11,.92)' :
-          kind==='diamond'? 'rgba(167,139,250,.92)' :
-          'rgba(34,197,94,.92)';
-
-        shard.style.cssText = `
-          position:absolute; left:${x}px; top:${y}px;
-          width:${s}px; height:${s}px;
-          border-radius:${rand(3, 999)}px;
-          background:${col};
-          box-shadow: 0 10px 20px rgba(0,0,0,.22);
-          transform: translate3d(0,0,0);
-          opacity: 1;
-          will-change: transform, opacity;
-          --dx:${dx}px;
-          --dy:${dy}px;
-          --rot:${rot};
-          animation: hhaShard ${rand(360, 520)}ms cubic-bezier(.2,.8,.2,1) forwards;
-        `;
-        layer.appendChild(shard);
-        setTimeout(()=>{ try{ shard.remove(); }catch(_){ } }, 650);
+      if(on){
+        v.classList.add('on');
+        if(ttlMs != null){
+          const t = clamp(ttlMs, 80, 1200);
+          setTimeout(()=>{ try{ v.classList.remove('on'); }catch(_){ } }, t);
+        }
+      }else{
+        v.classList.remove('on');
       }
     }catch(_){}
   }
 
-  function shock(kind){
-    try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-      const el = doc.createElement('div');
-
-      const tint =
-        kind==='bad' ? 'rgba(239,68,68,.14)' :
-        kind==='block'? 'rgba(34,211,238,.10)' :
-        kind==='star'? 'rgba(245,158,11,.12)' :
-        kind==='diamond'? 'rgba(167,139,250,.12)' :
-        'rgba(34,197,94,.10)';
-
-      el.style.cssText = `
-        position:absolute; inset:0;
-        background: radial-gradient(900px 520px at 50% 45%, ${tint}, rgba(0,0,0,0) 62%),
-                    linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,0) 55%);
-        opacity: 0;
-        animation: hhaShock 260ms ease-out forwards;
-      `;
-      layer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 340);
-    }catch(_){}
+  // quick presets (optional)
+  function hitGood(x,y){
+    burstAt(x,y,'good');
+  }
+  function hitBad(x,y){
+    burstAt(x,y,'bad');
+    vignette(true, 180);
+    shake(140);
   }
 
-  function confetti(x,y,amount){
-    try{
-      const layer = ensureLayer(); if(!layer) return;
-      injectCSSOnce();
-      const n = clamp(amount ?? 18, 6, 36);
-      for(let i=0;i<n;i++){
-        const piece = doc.createElement('div');
-        const w = rand(6, 12), h = rand(8, 14);
-        const dx = rand(-180, 180);
-        const dy = rand(-240, -60);
-        const rot = rand(-420, 420) + 'deg';
-        const colors = [
-          'rgba(34,197,94,.95)','rgba(34,211,238,.95)',
-          'rgba(245,158,11,.95)','rgba(167,139,250,.95)',
-          'rgba(239,68,68,.95)','rgba(255,255,255,.95)'
-        ];
-        const col = colors[(Math.random()*colors.length)|0];
-
-        piece.style.cssText = `
-          position:absolute; left:${x}px; top:${y}px;
-          width:${w}px; height:${h}px;
-          border-radius: ${rand(2, 7)}px;
-          background:${col};
-          transform: translate3d(0,0,0);
-          opacity: 1;
-          will-change: transform, opacity;
-          --dx:${dx}px;
-          --dy:${dy}px;
-          --rot:${rot};
-          animation: hhaShard ${rand(520, 760)}ms cubic-bezier(.1,.8,.2,1) forwards;
-        `;
-        layer.appendChild(piece);
-        setTimeout(()=>{ try{ piece.remove(); }catch(_){ } }, 900);
-      }
-    }catch(_){}
-  }
-
-  // expose
+  // ----------------------------
+  // Export
+  // ----------------------------
   root.Particles = root.Particles || {};
   root.Particles.popText  = popText;
   root.Particles.scorePop = scorePop;
   root.Particles.burstAt  = burstAt;
   root.Particles.ringAt   = ringAt;
-  root.Particles.shock    = shock;
-  root.Particles.confetti = confetti;
+  root.Particles.shake    = shake;
+  root.Particles.vignette = vignette;
+
+  // handy presets
+  root.Particles.hitGood = hitGood;
+  root.Particles.hitBad  = hitBad;
 
 })(window);
