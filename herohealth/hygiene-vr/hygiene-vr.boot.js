@@ -1,23 +1,24 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
-// PATCH v20260215b
+// Boot HygieneVR — PRODUCTION (anti-stall + diagnostics + HUD-safe auto-calibration)
+// PATCH v20260215c
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-// ✅ Stall watchdog: detect frozen frame / long stall on mobile
+// ✅ Auto-calibrate HUD safe zones: sets --hw-top-safe/--hw-bottom-safe based on actual HUD height
+// ✅ Watchdog: if RAF stalls (mobile hiccup), show hint banner
 //
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
 
-function showBanner(msg){
+function showBanner(msg, ms=1600){
   const banner = $id('banner');
   if(!banner) return;
   banner.textContent = msg;
   banner.classList.add('show');
   clearTimeout(showBanner._t);
-  showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1800);
+  showBanner._t = setTimeout(()=>banner.classList.remove('show'), ms);
 }
 
 function showFatal(msg, err){
@@ -66,43 +67,59 @@ function waitForGlobal(getter, ms){
   });
 }
 
-/* ✅ Stall watchdog
-   - If page is visible and we observe huge gap between rAF timestamps repeatedly
-   - show banner suggesting reload (common mobile memory/GC stall)
-*/
-function startStallWatchdog(){
-  let last = 0;
-  let strikes = 0;
+// ----- HUD safe zone auto-calibration -----
+// measure top HUD height & bottom overlay presence, then set CSS vars used by hygiene.safe.js spawn rect
+function calibrateHudSafe(){
+  try{
+    const root = document.documentElement;
+    const top = document.querySelector('.hw-top');
+    const sat = parseFloat(getComputedStyle(root).getPropertyValue('--sat')) || 0;
 
-  function raf(t){
-    if(!last) last = t;
-    const gap = t - last;
-    last = t;
+    // Base fallback (must match css default-ish)
+    let topSafe = 180;
+    let bottomSafe = 210;
 
-    // ignore when tab hidden
-    if(document.visibilityState === 'visible'){
-      if(gap > 1200){ // >1.2s stall
-        strikes++;
-        if(strikes === 1){
-          console.warn('[HygieneBoot] stall detected gap=', gap);
-          showBanner('⚠️ เกมสะดุด/ค้าง • แนะนำกด Reload (มือถือหน่วง/หน่วยความจำ)');
-        }else if(strikes === 2){
-          showBanner('⚠️ ยังสะดุดอยู่ • ปิดแท็บอื่น/ลดแอปเบื้องหลัง แล้ว Reload');
-        }
-      }else{
-        // decay
-        strikes = Math.max(0, strikes - 0.25);
-      }
+    if(top){
+      const r = top.getBoundingClientRect();
+      // top content height + some breathing room (banner sits below)
+      topSafe = Math.max(150, Math.round(r.bottom + 22));
+      // include safe-area top inset already accounted via padding; but keep stable on mobile
+      topSafe = Math.max(topSafe, Math.round(140 + sat));
     }
 
-    requestAnimationFrame(raf);
+    // Bottom safe: consider overlays buttons area / browser bars; keep a decent margin
+    // On cVR, bottom HUD often bigger
+    const body = document.body;
+    const isCVR = body && body.classList.contains('view-cvr');
+    bottomSafe = isCVR ? 260 : 220;
+
+    root.style.setProperty('--hw-top-safe', topSafe + 'px');
+    root.style.setProperty('--hw-bottom-safe', bottomSafe + 'px');
+
+    // Small debug line in console
+    console.log('[HygieneBoot] HUD safe set:', { topSafe, bottomSafe });
+  }catch(e){
+    console.warn('[HygieneBoot] calibrateHudSafe failed', e);
   }
-  requestAnimationFrame(raf);
+}
+
+function installWatchdog(){
+  let last = performance.now();
+  function ping(){
+    const now = performance.now();
+    const dt = now - last;
+    last = now;
+
+    // if main thread stalls badly (tab background / mobile pause) show a hint
+    if(dt > 2600){
+      showBanner('⚠️ เกมสะดุด (มือถือหน่วง/แท็บพัก) — ลอง Reload หรือปิดแอปอื่น', 2200);
+    }
+    requestAnimationFrame(ping);
+  }
+  requestAnimationFrame(ping);
 }
 
 async function main(){
-  startStallWatchdog();
-
   // DOM must exist
   const stage = $id('stage');
   if(!stage){
@@ -119,13 +136,27 @@ async function main(){
     showBanner('⚠️ CSS อาจไม่ถูกโหลด (ตรวจ Network)');
   }
 
+  // Let layout settle then calibrate HUD safe zones
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>{
+      calibrateHudSafe();
+      setTimeout(calibrateHudSafe, 200);
+      setTimeout(calibrateHudSafe, 700);
+    }, { once:true });
+  }else{
+    calibrateHudSafe();
+    setTimeout(calibrateHudSafe, 200);
+    setTimeout(calibrateHudSafe, 700);
+  }
+  window.addEventListener('resize', ()=>{ calibrateHudSafe(); }, { passive:true });
+
+  installWatchdog();
+
   // Wait a bit for deferred scripts to populate globals
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
-  }else{
-    try{ console.log('[HygieneBoot] Particles OK'); }catch{}
   }
 
   // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
@@ -140,7 +171,7 @@ async function main(){
   // Import engine safely
   let engine;
   try{
-    engine = await import('./hygiene.safe.js');
+    engine = await import('./hygiene.safe.js?v=20260215c');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
@@ -155,7 +186,7 @@ async function main(){
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
-    showBanner('✅ โหลดเกมพร้อมแล้ว');
+    showBanner('พร้อมเล่น ✅');
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
