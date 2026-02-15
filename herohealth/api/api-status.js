@@ -1,6 +1,3 @@
-// === /herohealth/api/api-status.js ===
-// Remote disable latch (per-tab) for 401/403 to prevent retry spam
-
 'use strict';
 
 // Remote disable latch (per-tab) for 401/403 to prevent retry spam
