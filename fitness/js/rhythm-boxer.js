@@ -1,12 +1,4 @@
 // === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
-// PRODUCTION: PC/Mobile/cVR friendly
-// ✅ Menu -> Play -> Result
-// ✅ Normal/Research mode (research shows CSV download)
-// ✅ Track select (Normal: n1/n2/n3, Research: r1 forced)
-// ✅ HUD bindings
-// ✅ CSV download buttons
-// ✅ URL mode apply (?mode=research|play) and AI assist (?ai=1) handled by RB_AI in ai-predictor.js
-
 'use strict';
 
 (function () {
@@ -25,7 +17,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // menu controls
+  // ปุ่มเมนู
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -34,12 +26,12 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // research form
+  // ฟอร์มวิจัย
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // play/result buttons
+  // ปุ่มตอนเล่น / สรุปผล
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
@@ -64,13 +56,15 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
+
+    // AI
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // result elements
+  // แสดงผลสรุป
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -87,7 +81,7 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping menu -> engine trackId + diff + label
+  // mapping เพลงในเมนู → engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -96,6 +90,7 @@
   };
 
   let engine = null;
+  let _aiHudTimer = null;
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -118,7 +113,7 @@
       modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      researchBox.classList.add('hidden');
+      if (researchBox) researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -130,9 +125,9 @@
 
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แค่ทำนาย ไม่ปรับเกม)';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
-      researchBox.classList.remove('hidden');
+      if (researchBox) researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -155,7 +150,6 @@
   }
 
   function createEngine() {
-    // DOM renderer for FX + feedback
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
       feedbackEl,
@@ -180,14 +174,11 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    // sync diff to wrapper (CSS can use this)
     wrap.dataset.diff = cfg.diff;
 
-    // HUD: mode & track label
-    hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    hud.track.textContent = cfg.labelShort;
+    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    if (hud.track) hud.track.textContent = cfg.labelShort;
 
-    // meta for research
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
@@ -196,6 +187,13 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
+
+    // start AI HUD polling (engine updates aiState internally)
+    if (_aiHudTimer) clearInterval(_aiHudTimer);
+    _aiHudTimer = setInterval(() => {
+      if (!engine || !engine.aiState) return;
+      handleAIUpdate(engine.aiState);
+    }, 250);
   }
 
   function stopGame(reason) {
@@ -203,34 +201,48 @@
   }
 
   function handleEngineEnd(summary) {
-    res.mode.textContent      = summary.modeLabel;
-    res.track.textContent     = summary.trackName;
-    res.endReason.textContent = summary.endReason;
-    res.score.textContent     = summary.finalScore;
-    res.maxCombo.textContent  = summary.maxCombo;
-    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
-    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    res.rank.textContent      = summary.rank;
+    if (_aiHudTimer) { clearInterval(_aiHudTimer); _aiHudTimer = null; }
 
-    res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-        ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-        ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    if (res.mode) res.mode.textContent      = summary.modeLabel;
+    if (res.track) res.track.textContent     = summary.trackName;
+    if (res.endReason) res.endReason.textContent = summary.endReason;
+    if (res.score) res.score.textContent     = summary.finalScore;
+    if (res.maxCombo) res.maxCombo.textContent  = summary.maxCombo;
+    if (res.hits) res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    if (res.acc) res.acc.textContent        = summary.accuracyPct.toFixed(1) + ' %';
+    if (res.duration) res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    if (res.rank) res.rank.textContent      = summary.rank;
 
-    res.participant.textContent = summary.participant || '-';
+    if (res.offsetAvg) res.offsetAvg.textContent =
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    if (res.offsetStd) res.offsetStd.textContent =
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
 
-    if (summary.qualityNote) {
-      res.qualityNote.textContent = summary.qualityNote;
-      res.qualityNote.classList.remove('hidden');
-    } else {
-      res.qualityNote.textContent = '';
-      res.qualityNote.classList.add('hidden');
+    if (res.participant) res.participant.textContent = summary.participant || '-';
+
+    if (res.qualityNote) {
+      if (summary.qualityNote) {
+        res.qualityNote.textContent = summary.qualityNote;
+        res.qualityNote.classList.remove('hidden');
+      } else {
+        res.qualityNote.textContent = '';
+        res.qualityNote.classList.add('hidden');
+      }
     }
 
     switchView('result');
+  }
+
+  function handleAIUpdate(ai){
+    if (!ai) return;
+    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+
+    if (hud.aiTip){
+      hud.aiTip.textContent = ai.tip || '';
+      hud.aiTip.classList.toggle('hidden', !ai.tip);
+    }
   }
 
   function downloadCsv(csvText, filename) {
@@ -262,7 +274,7 @@
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
 
-  // apply mode from URL (?mode=research|play)
+  // ==== apply mode from URL (?mode=research|play) ====
   (function applyModeFromQuery(){
     try{
       const sp = new URL(location.href).searchParams;
@@ -274,15 +286,6 @@
         const r = modeRadios.find(x => x.value === 'normal');
         if (r) r.checked = true;
       }
-    }catch(_){}
-  })();
-
-  // optional: mark view=cvr if URL has ?view=cvr (for CSS tweaks)
-  (function applyViewTag(){
-    try{
-      const sp = new URL(location.href).searchParams;
-      const v = (sp.get('view')||'').toLowerCase();
-      if (v) document.documentElement.setAttribute('data-view', v);
     }catch(_){}
   })();
 
