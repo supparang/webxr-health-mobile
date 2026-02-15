@@ -1,60 +1,40 @@
 // === /herohealth/api/api-status.js ===
-// HHA API Status — 403-safe + session disable
-// Stores: sessionStorage (per-tab) + localStorage (optional hint)
+// Remote disable latch (per-tab) for 401/403 to prevent retry spam
 
 'use strict';
 
-const KEY_DISABLED = 'HHA_REMOTE_DISABLED';
-const KEY_DISABLED_CODE = 'HHA_REMOTE_DISABLED_CODE';
-const KEY_DISABLED_REASON = 'HHA_REMOTE_DISABLED_REASON';
-const KEY_DISABLED_UNTIL = 'HHA_REMOTE_DISABLED_UNTIL';
+const KEY = 'HHA_API_DISABLED';
+const TTL_MS = 15 * 60 * 1000; // 15 min
 
-const now = () => Date.now();
-
-function ssGet(k){
-  try{ return sessionStorage.getItem(k); }catch{ return null; }
-}
-function ssSet(k,v){
-  try{ sessionStorage.setItem(k, String(v)); }catch{}
-}
-function ssDel(k){
-  try{ sessionStorage.removeItem(k); }catch{}
-}
-
-export function disableRemote(code=0, reason=''){
-  // Disable for this tab session (no background retry flood)
-  ssSet(KEY_DISABLED, '1');
-  ssSet(KEY_DISABLED_CODE, String(code||0));
-  ssSet(KEY_DISABLED_REASON, String(reason||''));
-  // optional: disable for 10 minutes (so reloads don't instantly spam)
-  ssSet(KEY_DISABLED_UNTIL, String(now() + 10*60*1000));
+export function disableRemote(code=403, reason='forbidden'){
+  try{
+    const payload = { code:Number(code)||403, reason:String(reason||''), ts:Date.now() };
+    sessionStorage.setItem(KEY, JSON.stringify(payload));
+  }catch{}
 }
 
 export function clearDisable(){
-  ssDel(KEY_DISABLED);
-  ssDel(KEY_DISABLED_CODE);
-  ssDel(KEY_DISABLED_REASON);
-  ssDel(KEY_DISABLED_UNTIL);
+  try{ sessionStorage.removeItem(KEY); }catch{}
+}
+
+export function disabledInfo(){
+  try{
+    const raw = sessionStorage.getItem(KEY);
+    if(!raw) return { disabled:false };
+    const d = JSON.parse(raw);
+    return { disabled:true, code:d.code||403, reason:d.reason||'', ts:d.ts||0 };
+  }catch{
+    return { disabled:false };
+  }
 }
 
 export function isRemoteDisabled(){
-  const flag = ssGet(KEY_DISABLED) === '1';
-  if(!flag) return false;
-
-  const until = Number(ssGet(KEY_DISABLED_UNTIL) || 0) || 0;
-  if(until && now() > until){
-    // expire disable window => allow probe again
+  const info = disabledInfo();
+  if(!info.disabled) return false;
+  const age = Date.now() - (info.ts||0);
+  if(age > TTL_MS){
     clearDisable();
     return false;
   }
   return true;
-}
-
-export function disabledInfo(){
-  return {
-    disabled: isRemoteDisabled(),
-    code: Number(ssGet(KEY_DISABLED_CODE) || 0) || 0,
-    reason: String(ssGet(KEY_DISABLED_REASON) || ''),
-    until: Number(ssGet(KEY_DISABLED_UNTIL) || 0) || 0
-  };
 }
