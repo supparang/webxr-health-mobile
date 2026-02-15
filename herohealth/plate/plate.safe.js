@@ -6,8 +6,10 @@
 // ✅ emits hha:labels on end (and key milestones)
 // ✅ integrates /vr/ai-hooks.js if present (never crashes if missing)
 // ✅ study/research: deterministic seed + AI/adaptive OFF by default
-// ✅ accepts boot({ mount, cfg }) for run page
-// ✅ integrates mode-factory onShotMiss -> emits hha:judge {kind:'shot_miss'} and increments STATE.shotMiss
+// ✅ EXPORT boot({ mount, cfg }) for run page
+// ✅ FIX: hha:time includes leftSec for UI bridge
+// ✅ FIX: quest:update includes name fields for UI bridge
+// ✅ FIX: onShotMiss -> hha:judge kind:'shot_miss' (non-canonical miss)
 
 'use strict';
 
@@ -70,6 +72,52 @@ async function flushHardened(reason){
   }catch{}
 }
 
+// ---------------- AI Hooks (ML-1) ----------------
+function createAI(){
+  const H = ROOT.HHA && typeof ROOT.HHA.createAIHooks === 'function'
+    ? ROOT.HHA.createAIHooks
+    : null;
+
+  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const deterministic = (runMode === 'study' || runMode === 'research');
+
+  if(!H){
+    return {
+      enabled: !deterministic,
+      deterministic,
+      onEvent(){},
+      getTip(){ return null; },
+      getPrediction(){ return null; },
+      getDifficultySignal(){ return null; },
+      reset(){},
+    };
+  }
+
+  try{
+    const ai = H({
+      game:'plate',
+      runMode: STATE.cfg?.runMode || 'play',
+      diff: STATE.cfg?.diff || 'normal',
+      seed: STATE.cfg?.seed || 0,
+      deterministic
+    });
+    return ai || {
+      enabled: !deterministic, deterministic,
+      onEvent(){}, getTip(){return null;}, getPrediction(){return null;}, getDifficultySignal(){return null;}, reset(){}
+    };
+  }catch{
+    return {
+      enabled: !deterministic,
+      deterministic,
+      onEvent(){},
+      getTip(){ return null; },
+      getPrediction(){ return null; },
+      getDifficultySignal(){ return null; },
+      reset(){},
+    };
+  }
+}
+
 // ---------------- State ----------------
 const STATE = {
   running:false,
@@ -104,7 +152,7 @@ const STATE = {
 
   goal:{ title:'เติมจานให้ครบ 5 หมู่', cur:0, target:5, done:false },
 
-  // accuracy mini (ใช้เพื่อ UI/learning; miniTotal นับ storm+boss ตามเดิม)
+  // accuracy mini (ยังคงใช้เพื่อ UI/learning, แต่ “miniTotal” จะนับ storm+boss ตามเดิม)
   accMini:{ title:'ความแม่นยำ', cur:0, target:80, done:false },
 
   miniTotal: 1,
@@ -120,7 +168,7 @@ const STATE = {
     forbidJunk:true, done:false, lastRebootAt:0, triggered:false
   },
 
-  // ML-1 rolling stats
+  // ML-1 rolling stats window
   ML:{
     tickN:0,
     lastHitGood:0,
@@ -130,6 +178,7 @@ const STATE = {
     lastScore:0,
     lastCombo:0,
     lastTLeft:0,
+    // deltas over 3s
     bufMiss: [],
     bufAcc: [],
     bufDensity: [],
@@ -139,80 +188,15 @@ const STATE = {
   },
 
   AI:null,
-  __listenersWired:false
+
+  __shotMissWired:false
 };
-
-// ---------------- AI Hooks (ML-1) ----------------
-function createAI(){
-  const H = ROOT.HHA && typeof ROOT.HHA.createAIHooks === 'function'
-    ? ROOT.HHA.createAIHooks
-    : null;
-
-  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
-  const deterministic = (runMode === 'study' || runMode === 'research');
-
-  if(!H){
-    return {
-      enabled: !deterministic,
-      deterministic,
-      onEvent(){},
-      getTip(){ return null; },
-      getPrediction(){ return null; },
-      getDifficultySignal(){ return null; },
-      reset(){},
-    };
-  }
-
-  try{
-    const ai = H({
-      game:'plate',
-      runMode: STATE.cfg?.runMode || 'play',
-      diff: STATE.cfg?.diff || 'normal',
-      seed: STATE.cfg?.seed || 0,
-      deterministic
-    });
-
-    return ai || {
-      enabled: !deterministic, deterministic,
-      onEvent(){}, getTip(){return null;}, getPrediction(){return null;}, getDifficultySignal(){return null;}, reset(){}
-    };
-  }catch{
-    return {
-      enabled: !deterministic,
-      deterministic,
-      onEvent(){},
-      getTip(){ return null; },
-      getPrediction(){ return null; },
-      getDifficultySignal(){ return null; },
-      reset(){},
-    };
-  }
-}
 
 // ---------------- Accuracy / Quests ----------------
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
   if(total <= 0) return 1;
   return STATE.hitGood / total;
-}
-
-function playedSec(){
-  return Math.max(0, (STATE.timePlannedSec - STATE.timeLeft)|0);
-}
-
-function emitLabels(type, data){
-  emit('hha:labels', {
-    game:'plate',
-    runMode: STATE.cfg?.runMode || 'play',
-    diff: STATE.cfg?.diff || 'normal',
-    seed: STATE.cfg?.seed || 0,
-    type,
-    ...data
-  });
-}
-
-function coach(msg, mood='neutral'){
-  emit('hha:coach', { game:'plate', msg, mood });
 }
 
 function recomputeGoal(){
@@ -235,16 +219,148 @@ function updateAccMini(){
   }
 }
 
-function computeMinisPlanned(){
-  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
-  const isStudy = (runMode === 'study' || runMode === 'research');
-
-  STATE.storm.cyclesPlanned = isStudy ? 2 : 3;
-  const bossCount = isStudy ? 0 : 1;
-
-  STATE.miniTotal = STATE.storm.cyclesPlanned + bossCount;
+function playedSec(){
+  return Math.max(0, (STATE.timePlannedSec - STATE.timeLeft)|0);
 }
 
+function emitQuest(){
+  // IMPORTANT: UI bridge in plate-vr.html expects goal.name + mini.name
+  emit('quest:update', {
+    game:'plate',
+    goal:{ name: STATE.goal.title, title: STATE.goal.title, cur: STATE.goal.cur, target: STATE.goal.target, done: STATE.goal.done },
+    mini:{
+      name: currentMiniTitle(),
+      title: currentMiniTitle(),
+      cur: currentMiniCur(),
+      target: currentMiniTarget(),
+      done: currentMiniDone(),
+      timeText: currentMiniTimeText()
+    },
+    allDone: STATE.goal.done && STATE.accMini.done
+  });
+
+  // (optional) internal UI binding if used elsewhere
+  setText('uiGoalTitle', STATE.goal.title);
+  setText('uiGoalCount', `${STATE.goal.cur}/${STATE.goal.target}`);
+  const gf = qs('uiGoalFill'); if(gf) gf.style.width = `${STATE.goal.target ? (STATE.goal.cur/STATE.goal.target*100) : 0}%`;
+
+  setText('uiMiniTitle', currentMiniTitle());
+  setText('uiMiniTime', currentMiniTimeText());
+  setText('uiMiniCount', `${STATE.miniCleared}/${STATE.miniTotal}`);
+  const mf = qs('uiMiniFill'); if(mf) mf.style.width = `${currentMiniFillPct()}%`;
+}
+
+// ---------------- Coach ----------------
+function coach(msg, mood='neutral'){
+  emit('hha:coach', { game:'plate', msg, mood });
+}
+
+// ---------------- Spawn director (fix “ไม่ออกครบ 5 หมู่”) ----------------
+function pickGroupIndexForGood(t){
+  const rng = (t && typeof t.rng === 'function') ? t.rng : STATE.rng;
+
+  const missingSpawn = [];
+  for(let i=0;i<5;i++) if(!STATE.spawnSeen[i]) missingSpawn.push(i);
+  if(missingSpawn.length && rng() < 0.88){
+    return missingSpawn[Math.floor(rng()*missingSpawn.length)];
+  }
+
+  const missingCollect = [];
+  for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missingCollect.push(i);
+  if(missingCollect.length && rng() < 0.78){
+    return missingCollect[Math.floor(rng()*missingCollect.length)];
+  }
+
+  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const adaptiveOn = (runMode === 'play' && !STATE.AI?.deterministic);
+
+  if(adaptiveOn){
+    const counts = STATE.g.map((c,i)=>({i,c})).sort((a,b)=>a.c-b.c);
+    const pool = counts.slice(0,2).map(x=>x.i);
+    if(rng() < 0.70) return pool[Math.floor(rng()*pool.length)];
+  }
+
+  return Math.floor(rng()*5);
+}
+
+function decorateTarget(el, t){
+  // ensure class
+  el.classList.add('plateTarget');
+
+  // track spawn density estimator
+  STATE.ML.spawnCount++;
+
+  if(t.kind === 'good'){
+    const gi = pickGroupIndexForGood(t);
+    t.groupIndex = gi;
+    STATE.spawnSeen[gi] = true;
+
+    const groupId = gi + 1;
+    const emoji = emojiForGroup(t.rng, groupId);
+
+    el.dataset.kind = 'good';
+    el.dataset.group = String(groupId);
+    el.textContent = emoji;
+
+    try{ el.setAttribute('aria-label', labelForGroup(groupId)); }catch{}
+  }else{
+    const emoji = pickEmoji(t.rng, JUNK.emojis);
+    el.dataset.kind = 'junk';
+    el.dataset.group = 'junk';
+    el.textContent = emoji;
+    try{ el.setAttribute('aria-label', JUNK.labelTH); }catch{}
+  }
+}
+
+// ---------------- HUD ----------------
+function updateHUD(){
+  const accPct = accuracy()*100;
+  const grade = gradeFrom(STATE.score, accPct);
+
+  emit('hha:score', {
+    game:'plate',
+    runMode: STATE.cfg?.runMode || 'play',
+    diff: STATE.cfg?.diff || 'normal',
+    timeLeftSec: STATE.timeLeft,
+    score: STATE.score|0,
+    combo: STATE.combo|0,
+    comboMax: STATE.comboMax|0,
+    miss: STATE.miss|0,
+    accuracyPct: Math.round(accPct*10)/10,
+    grade,
+    gCount: [...STATE.g]
+  });
+
+  setText('uiScore', STATE.score|0);
+  setText('uiCombo', STATE.combo|0);
+  setText('uiComboMax', STATE.comboMax|0);
+  setText('uiMiss', STATE.miss|0);
+  setText('uiPlateHave', STATE.g.filter(v=>v>0).length);
+  setText('uiAcc', `${Math.round(accPct)}%`);
+  setText('uiGrade', grade);
+  setText('uiTime', STATE.timeLeft|0);
+
+  setText('uiG1', STATE.g[0]);
+  setText('uiG2', STATE.g[1]);
+  setText('uiG3', STATE.g[2]);
+  setText('uiG4', STATE.g[3]);
+  setText('uiG5', STATE.g[4]);
+}
+
+// ---------------- optional miss-shot stream ----------------
+function wireShotMiss(){
+  if(STATE.__shotMissWired) return;
+  STATE.__shotMissWired = true;
+
+  ROOT.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    if(String(d.kind||'').toLowerCase() === 'shot_miss'){
+      STATE.shotMiss++;
+    }
+  }, { passive:true });
+}
+
+// ---------------- Storm/Boss helpers ----------------
 function stormTimeLeft(){
   if(!STATE.storm.active) return 0;
   const el = (now() - STATE.storm.startedAt)/1000;
@@ -254,6 +370,72 @@ function bossTimeLeft(){
   if(!STATE.boss.active) return 0;
   const el = (now() - STATE.boss.startedAt)/1000;
   return Math.max(0, STATE.boss.durationSec - el);
+}
+
+function updateStormHud(){
+  // UI is handled in run page; keep minimal no-crash
+  const hud = qs('stormHud');
+  const title = qs('stormTitle');
+  const hint  = qs('stormHint');
+  const prog  = qs('stormProg');
+  const fx    = qs('stormFx');
+  if(!hud) return;
+
+  if(STATE.storm.active){
+    hud.style.display='block';
+    if(fx){ fx.classList.add('storm-on'); fx.style.display='block'; }
+    if(title) title.textContent = `🌪️ STORM ${STATE.storm.cycleIndex+1}/${STATE.storm.cyclesPlanned}`;
+    const tl = stormTimeLeft();
+    if(hint){
+      const a = STATE.storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
+      hint.textContent = `เก็บ GOOD ${STATE.storm.needGood} ชิ้นใน ${STATE.storm.durationSec}s${a}`;
+    }
+    if(prog) prog.textContent = `${Math.ceil(tl)}s • GOOD ${STATE.storm.hitGood}/${STATE.storm.needGood}`;
+    if(fx){
+      if(tl <= 2.5) fx.classList.add('storm-panic'); else fx.classList.remove('storm-panic');
+    }
+  }else{
+    hud.style.display='none';
+    if(fx){ fx.classList.remove('storm-on','storm-panic'); fx.style.display='none'; }
+  }
+}
+
+function updateBossHud(){
+  const hud = qs('bossHud');
+  const title = qs('bossTitle');
+  const hint  = qs('bossHint');
+  const prog  = qs('bossProg');
+  const fx    = qs('bossFx');
+  if(!hud) return;
+
+  if(STATE.boss.active){
+    hud.style.display='block';
+    if(fx){ fx.classList.add('boss-on'); fx.style.display='block'; }
+    if(title) title.textContent='👹 BOSS';
+    const tl = bossTimeLeft();
+    if(hint){
+      hint.textContent = STATE.boss.forbidJunk
+        ? `เก็บ GOOD ${STATE.boss.needGood} ชิ้นใน ${STATE.boss.durationSec}s (ห้ามโดนขยะ!)`
+        : `เก็บ GOOD ${STATE.boss.needGood} ชิ้นใน ${STATE.boss.durationSec}s`;
+    }
+    if(prog) prog.textContent = `${Math.ceil(tl)}s • GOOD ${STATE.boss.hitGood}/${STATE.boss.needGood}`;
+    if(fx){
+      if(tl <= 3) fx.classList.add('boss-panic'); else fx.classList.remove('boss-panic');
+    }
+  }else{
+    hud.style.display='none';
+    if(fx){ fx.classList.remove('boss-on','boss-panic'); fx.style.display='none'; }
+  }
+}
+
+function computeMinisPlanned(){
+  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const isStudy = (runMode === 'study' || runMode === 'research');
+
+  STATE.storm.cyclesPlanned = isStudy ? 2 : 3;
+  const bossCount = isStudy ? 0 : 1;
+
+  STATE.miniTotal = STATE.storm.cyclesPlanned + bossCount;
 }
 
 function currentMiniTitle(){
@@ -287,132 +469,6 @@ function currentMiniFillPct(){
   return clamp(STATE.accMini.target ? (STATE.accMini.cur/STATE.accMini.target*100) : 0, 0, 100);
 }
 
-function emitQuest(){
-  // IMPORTANT: emit BOTH {title} and {name} to be compatible with your run page bindings
-  emit('quest:update', {
-    game:'plate',
-    goal:{
-      title: STATE.goal.title,
-      name: STATE.goal.title,
-      cur: STATE.goal.cur,
-      target: STATE.goal.target,
-      done: STATE.goal.done
-    },
-    mini:{
-      title: currentMiniTitle(),
-      name: currentMiniTitle(),
-      cur: currentMiniCur(),
-      target: currentMiniTarget(),
-      done: currentMiniDone(),
-      timeText: currentMiniTimeText(),
-      fillPct: currentMiniFillPct()
-    },
-    allDone: STATE.goal.done && STATE.accMini.done
-  });
-
-  // Optional: update DOM if present (safe)
-  setText('uiGoalTitle', STATE.goal.title);
-  setText('uiGoalCount', `${STATE.goal.cur}/${STATE.goal.target}`);
-  const gf = qs('uiGoalFill'); if(gf) gf.style.width = `${STATE.goal.target ? (STATE.goal.cur/STATE.goal.target*100) : 0}%`;
-
-  setText('uiMiniTitle', currentMiniTitle());
-  setText('uiMiniTime', currentMiniTimeText());
-  setText('uiMiniCount', `${STATE.miniCleared}/${STATE.miniTotal}`);
-  const mf = qs('uiMiniFill'); if(mf) mf.style.width = `${currentMiniFillPct()}%`;
-}
-
-// ---------------- Spawn director (fix “ไม่ออกครบ 5 หมู่”) ----------------
-function pickGroupIndexForGood(t){
-  const rng = (t && typeof t.rng === 'function') ? t.rng : STATE.rng;
-
-  const missingSpawn = [];
-  for(let i=0;i<5;i++) if(!STATE.spawnSeen[i]) missingSpawn.push(i);
-  if(missingSpawn.length && rng() < 0.88){
-    return missingSpawn[Math.floor(rng()*missingSpawn.length)];
-  }
-
-  const missingCollect = [];
-  for(let i=0;i<5;i++) if(STATE.g[i] <= 0) missingCollect.push(i);
-  if(missingCollect.length && rng() < 0.78){
-    return missingCollect[Math.floor(rng()*missingCollect.length)];
-  }
-
-  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
-  const adaptiveOn = (runMode === 'play' && !STATE.AI?.deterministic);
-
-  if(adaptiveOn){
-    const counts = STATE.g.map((c,i)=>({i,c})).sort((a,b)=>a.c-b.c);
-    const pool = counts.slice(0,2).map(x=>x.i);
-    if(rng() < 0.70) return pool[Math.floor(rng()*pool.length)];
-  }
-
-  return Math.floor(rng()*5);
-}
-
-function decorateTarget(el, t){
-  el.classList.add('plateTarget');
-
-  // spawn density estimator
-  STATE.ML.spawnCount++;
-
-  if(t.kind === 'good'){
-    const gi = pickGroupIndexForGood(t);
-    t.groupIndex = gi;
-    STATE.spawnSeen[gi] = true;
-
-    const groupId = gi + 1;
-    const emoji = emojiForGroup(t.rng, groupId);
-
-    el.dataset.kind = 'good';
-    el.dataset.group = String(groupId);
-    el.textContent = emoji;
-
-    try{ el.setAttribute('aria-label', labelForGroup(groupId)); }catch{}
-  }else{
-    const emoji = pickEmoji(t.rng, JUNK.emojis);
-    el.dataset.kind = 'junk';
-    el.dataset.group = 'junk';
-    el.textContent = emoji;
-    try{ el.setAttribute('aria-label', JUNK.labelTH); }catch{}
-  }
-}
-
-// ---------------- HUD score stream ----------------
-function updateHUD(){
-  const accPct = accuracy()*100;
-  const grade = gradeFrom(STATE.score, accPct);
-
-  emit('hha:score', {
-    game:'plate',
-    runMode: STATE.cfg?.runMode || 'play',
-    diff: STATE.cfg?.diff || 'normal',
-    timeLeftSec: STATE.timeLeft,
-    score: STATE.score|0,
-    combo: STATE.combo|0,
-    comboMax: STATE.comboMax|0,
-    miss: STATE.miss|0,
-    accuracyPct: Math.round(accPct*10)/10,
-    grade,
-    gCount: [...STATE.g]
-  });
-
-  // best-effort DOM update if present
-  setText('uiScore', STATE.score|0);
-  setText('uiCombo', STATE.combo|0);
-  setText('uiComboMax', STATE.comboMax|0);
-  setText('uiMiss', STATE.miss|0);
-  setText('uiPlateHave', STATE.g.filter(v=>v>0).length);
-  setText('uiAcc', `${Math.round(accPct)}%`);
-  setText('uiGrade', grade);
-  setText('uiTime', STATE.timeLeft|0);
-
-  setText('uiG1', STATE.g[0]);
-  setText('uiG2', STATE.g[1]);
-  setText('uiG3', STATE.g[2]);
-  setText('uiG4', STATE.g[3]);
-  setText('uiG5', STATE.g[4]);
-}
-
 // ---------------- Spawner ----------------
 function stopSpawner(){
   if(STATE.engine && typeof STATE.engine.stop === 'function'){
@@ -437,6 +493,7 @@ function restartSpawner(){
 function makeSpawner(mount){
   const diff = String(STATE.cfg?.diff || 'normal').toLowerCase();
   const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const isStudy = (runMode === 'study' || runMode === 'research');
   const adaptiveOn = (runMode === 'play' && !STATE.AI?.deterministic);
 
   let spawnRate = 900;
@@ -488,13 +545,11 @@ function makeSpawner(mount){
       if(t.kind === 'good') onExpireGood(t.groupIndex ?? 0);
     },
 
-    // ✅ NEW: shot miss stream from mode-factory
-    onShotMiss:(m)=>{
+    onShotMiss:({x,y,lockPx,source})=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
-      STATE.shotMiss++;
-      emit('hha:judge', { kind:'shot_miss', x:m?.x, y:m?.y, lockPx:m?.lockPx, score: STATE.score|0, combo: STATE.combo|0 });
-      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss' }); }catch{}
-      // ไม่เพิ่ม STATE.miss (ตาม canonical miss)
+      // NOT a canonical miss; just telemetry/aiming skill
+      emit('hha:judge', { kind:'shot_miss', x, y, lockPx, source:'shoot' });
+      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss', x, y, lockPx }); }catch{}
     }
   });
 }
@@ -531,6 +586,7 @@ function emitFeatures1s(){
   STATE.ML.lastExpireGood = STATE.expireGood;
   STATE.ML.lastMiss = STATE.miss;
 
+  // 3s buffers
   STATE.ML.bufMiss.push(missD);
   STATE.ML.bufAcc.push(accNowPct);
   STATE.ML.bufDensity.push(targetDensity01());
@@ -593,7 +649,6 @@ function emitFeatures1s(){
 
   try{ STATE.AI?.onEvent?.('features_1s', feat); }catch{}
 
-  // AI tip in play only
   const run = String(STATE.cfg?.runMode||'play').toLowerCase();
   const deterministic = (run === 'study' || run === 'research');
   if(!deterministic){
@@ -605,6 +660,17 @@ function emitFeatures1s(){
       }
     }catch{}
   }
+}
+
+function emitLabels(type, data){
+  emit('hha:labels', {
+    game:'plate',
+    runMode: STATE.cfg?.runMode || 'play',
+    diff: STATE.cfg?.diff || 'normal',
+    seed: STATE.cfg?.seed || 0,
+    type,
+    ...data
+  });
 }
 
 // ---------------- Hits ----------------
@@ -624,6 +690,7 @@ function onHitGood(groupIndex){
 
   if(STATE.boss.active && !STATE.boss.done){
     STATE.boss.hitGood++;
+    updateBossHud();
     if(STATE.boss.hitGood >= STATE.boss.needGood){
       finishBoss(true, 'need_met');
       return;
@@ -632,6 +699,7 @@ function onHitGood(groupIndex){
 
   if(STATE.storm.active){
     STATE.storm.hitGood++;
+    updateStormHud();
     if(STATE.storm.hitGood >= STATE.storm.needGood){
       finishStorm(true, 'need_met');
       return;
@@ -705,6 +773,7 @@ function startStorm(){
   coach('🌪️ พายุมาแล้ว! เก็บ GOOD ให้ทัน!', (STATE.storm.forbidJunk?'fever':'neutral'));
   emitLabels('mini_start', { name:'storm', cycle:STATE.storm.cycleIndex+1, needGood:STATE.storm.needGood, durationSec:STATE.storm.durationSec, forbidJunk:STATE.storm.forbidJunk });
 
+  updateStormHud();
   restartSpawner();
   emitQuest();
 }
@@ -725,6 +794,7 @@ function finishStorm(ok, reason){
     emitLabels('mini_end', { name:'storm', cycle:STATE.storm.cycleIndex+1, ok:false, reason });
   }
 
+  updateStormHud();
   STATE.storm.cycleIndex++;
   restartSpawner();
   updateHUD();
@@ -750,6 +820,7 @@ function startBoss(){
   coach('👹 บอสมาแล้ว! โฟกัสเก็บ GOOD ให้ครบก่อนหมดเวลา!', 'neutral');
   emitLabels('mini_start', { name:'boss', needGood:STATE.boss.needGood, durationSec:STATE.boss.durationSec, forbidJunk:true });
 
+  updateBossHud();
   restartSpawner();
   emitQuest();
 }
@@ -771,6 +842,7 @@ function finishBoss(ok, reason){
     emitLabels('mini_end', { name:'boss', ok:false, reason });
   }
 
+  updateBossHud();
   restartSpawner();
   updateHUD();
   emitQuest();
@@ -781,7 +853,8 @@ let _tickTimer = null;
 
 function setPaused(p){
   STATE.paused = !!p;
-  // (run page อาจ pause ด้วย pointer-events เองอยู่แล้ว)
+  const hudPaused = qs('hudPaused');
+  if(hudPaused) hudPaused.style.display = STATE.paused ? 'grid' : 'none';
 }
 
 function startLoop(){
@@ -791,17 +864,13 @@ function startLoop(){
     if(!STATE.running || STATE.ended) return;
     if(STATE.paused) return;
 
+    // ML-1 features
     emitFeatures1s();
 
     // time
     STATE.timeLeft--;
-
-    // Emit BOTH keys for compatibility with your run page listeners
-    emit('hha:time', {
-      game:'plate',
-      timeLeftSec: STATE.timeLeft,
-      leftSec: STATE.timeLeft
-    });
+    // IMPORTANT: send both leftSec and timeLeftSec
+    emit('hha:time', { game:'plate', leftSec: STATE.timeLeft, timeLeftSec: STATE.timeLeft });
 
     // scheduler storm
     const played = playedSec();
@@ -813,8 +882,11 @@ function startLoop(){
       startStorm();
     }
 
-    if(STATE.storm.active && stormTimeLeft() <= 0){
-      finishStorm(false, 'timeout');
+    if(STATE.storm.active){
+      updateStormHud();
+      if(stormTimeLeft() <= 0){
+        finishStorm(false, 'timeout');
+      }
     }
 
     // boss near end
@@ -826,8 +898,11 @@ function startLoop(){
       }
     }
 
-    if(STATE.boss.active && bossTimeLeft() <= 0){
-      finishBoss(false, 'timeout');
+    if(STATE.boss.active){
+      updateBossHud();
+      if(bossTimeLeft() <= 0){
+        finishBoss(false, 'timeout');
+      }
     }
 
     updateHUD();
@@ -922,34 +997,26 @@ function endGame(reason='end'){
   flushHardened(reason);
 }
 
-// ---------------- Boot API (for run page) ----------------
-function normalizeCfg(cfg){
-  const c = cfg && typeof cfg === 'object' ? cfg : {};
-  const runRaw = String(c.runMode || c.run || 'play').toLowerCase();
-  const diff   = String(c.diff || 'normal').toLowerCase();
-  const time   = clamp(c.durationPlannedSec || c.time || 90, 20, 9999);
+// ---------------- Config + UI wiring ----------------
+function parseCfgFromUrl(){
+  const U = new URL(location.href);
+  const runRaw = (U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
+  const diff   = (U.searchParams.get('diff') || 'normal').toLowerCase();
+  const time   = clamp(U.searchParams.get('time') || 90, 20, 9999);
+  const seedP  = U.searchParams.get('seed');
 
   const isStudy = (runRaw === 'study' || runRaw === 'research');
-  const seedIn = Number(c.seed || 0) || 0;
-  const seed = isStudy ? (seedIn || 13579) : (seedIn || ((Date.now() ^ (Math.random()*1e9))|0));
+  const seed = isStudy ? (Number(seedP)||13579) : (seedP!=null ? (Number(seedP)||13579) : ((Date.now() ^ (Math.random()*1e9))|0));
 
   return {
     runMode: isStudy ? runRaw : 'play',
     diff: ['easy','normal','hard'].includes(diff)?diff:'normal',
     seed,
-    durationPlannedSec: time,
-
-    // pass-through (logger / meta)
-    pid: c.pid || 'anon',
-    studyId: c.studyId || '',
-    phase: c.phase || '',
-    conditionGroup: c.conditionGroup || '',
-    log: c.log || '',
-    view: (c.view || '').toLowerCase()
+    durationPlannedSec: time
   };
 }
 
-function startGameInternal(){
+function startGame(){
   // reset
   STATE.running=true; STATE.ended=false; STATE.paused=false;
 
@@ -998,94 +1065,42 @@ function startGameInternal(){
     timePlannedSec: STATE.timePlannedSec,
     durationPlannedSec: STATE.timePlannedSec,
     startTimeIso: STATE.tStartIso,
-    aiDeterministic: !!STATE.AI?.deterministic,
-
-    // pass-through
-    pid: STATE.cfg.pid,
-    studyId: STATE.cfg.studyId,
-    phase: STATE.cfg.phase,
-    conditionGroup: STATE.cfg.conditionGroup,
-    log: STATE.cfg.log,
-    view: STATE.cfg.view
+    aiDeterministic: !!STATE.AI?.deterministic
   });
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'neutral');
-  setText('uiHint', 'เติมครบ 5 หมู่ แล้วรักษาความแม่นยำ!');
 
   stopSpawner();
   STATE.engine = makeSpawner(STATE.mountEl);
 
-  emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft, leftSec: STATE.timeLeft });
-
+  emit('hha:time', { game:'plate', leftSec: STATE.timeLeft, timeLeftSec: STATE.timeLeft });
+  updateStormHud();
+  updateBossHud();
   emitQuest();
   updateHUD();
   startLoop();
 }
 
-// Optional: allow run page to pause via events (safe)
-function wirePauseEventOnce(){
-  if(STATE.__pauseWired) return;
-  STATE.__pauseWired = true;
-
-  ROOT.addEventListener('hha:pause', (e)=>{
-    const d = e.detail || {};
-    setPaused(!!d.paused);
-  }, { passive:true });
-}
-
-function wireEndEventOnce(){
-  if(STATE.__endWired) return;
-  STATE.__endWired = true;
-
-  // If something external wants to end early:
-  ROOT.addEventListener('hha:end_now', (e)=>{
-    const d = e.detail || {};
-    endGame(String(d.reason||'external_end'));
-  }, { passive:true });
-}
-
-// Public boot() for run page
-export function boot({ mount, cfg }){
-  if(!mount) throw new Error('plate.safe.js boot(): mount missing');
-
-  // Stop previous engine if any (hot reload safe)
-  try{ stopSpawner(); }catch{}
-  try{ if(_tickTimer) clearInterval(_tickTimer); }catch{}
-  _tickTimer = null;
-
+// ---------------- EXPORT: boot({mount,cfg}) ----------------
+export function boot({ mount, cfg } = {}){
+  if(!mount) throw new Error('[PlateVR] boot(): mount missing');
   STATE.mountEl = mount;
-  STATE.cfg = normalizeCfg(cfg);
 
-  wirePauseEventOnce();
-  wireEndEventOnce();
+  // cfg priority: param > url
+  STATE.cfg = cfg && typeof cfg === 'object' ? cfg : parseCfgFromUrl();
 
-  // start immediately (run page controls overlays)
-  startGameInternal();
+  // wire once
+  wireShotMiss();
 
-  // return controller (optional)
+  // start immediately (run page controls overlay; engine starts here)
+  startGame();
+
   return {
-    stop(reason='stop'){
-      try{ endGame(String(reason||'stop')); }catch{}
-    },
-    pause(on=true){
-      setPaused(!!on);
-      emit('hha:pause', { paused: STATE.paused });
-    },
-    resume(){
-      setPaused(false);
-      emit('hha:pause', { paused: false });
-    },
-    getState(){
-      return {
-        running: STATE.running,
-        ended: STATE.ended,
-        paused: STATE.paused,
-        score: STATE.score|0,
-        miss: STATE.miss|0,
-        shotMiss: STATE.shotMiss|0,
-        timeLeft: STATE.timeLeft|0,
-        g: [...STATE.g]
-      };
-    }
+    stop(){ try{ endGame('stop'); }catch{} },
+    pause(){ setPaused(true); },
+    resume(){ setPaused(false); }
   };
 }
+
+// (optional) auto-init if someone imports but doesn't call boot (keep OFF by default)
+// (function(){ /* no-op */ })();
