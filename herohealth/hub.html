@@ -2,10 +2,9 @@
 HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 401/403 won't break hub
-✅ Shows offline banner + retry + reset today
-✅ Links to ROOT launchers in /herohealth (root)
+✅ Shows offline banner + retry
+✅ Links to ROOT launchers/run pages in /herohealth (root)
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
-PATCH v20260215c
 -->
 <!doctype html>
 <html lang="th">
@@ -15,7 +14,6 @@ PATCH v20260215c
   <title>HeroHealth — Hub</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
       --bg:#020617;
@@ -46,7 +44,6 @@ PATCH v20260215c
     .chiprow{display:flex;gap:8px;flex-wrap:wrap}
     .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
     .chip b{color:#fff}
-
     .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
     @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
@@ -108,7 +105,8 @@ PATCH v20260215c
         <h3>🥗 Nutrition Zone</h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
         <div class="btnrow">
-          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr-launcher.html">GoodJunkVR</a>
+          <!-- ✅ user wants run pages: goodjunk-vr.html + hydration-vr.html -->
+          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
           <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
           <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
           <a class="btn" id="goPlate" href="./plate-vr.html">PlateVR</a>
@@ -118,186 +116,32 @@ PATCH v20260215c
 
       <div class="card">
         <h3>🧼 Hygiene Zone</h3>
-        <p><b>Handwash</b> • Brush • Mask & Cough</p>
+        <p><b>Handwash</b> • Brush • Mask &amp; Cough • Germ Detective</p>
         <div class="btnrow">
           <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
+          <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
           <a class="btn" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
+          <a class="btn" id="goGermDetective" href="#" aria-disabled="true">Germ Detective</a>
         </div>
-        <div class="small">* ผ่าน root launcher • HUB/เกมยังเล่นได้แม้ API ถูกบล็อก</div>
+        <div class="small">* Germ Detective: coming soon (ไม่ทำให้ 404)</div>
       </div>
 
       <div class="card">
         <h3>🏃 Fitness Zone</h3>
         <p>Planner • Shadow Breaker • Rhythm Boxer • Jump-Duck • Balance Hold</p>
         <div class="btnrow">
-          <a class="btn primary" id="goPlanner" href="./fitness-planner/planner.html">Fitness Planner</a>
+          <a class="btn primary" id="goPlanner" href="./fitness-planner-vr.html">Fitness Planner</a>
           <a class="btn" id="goShadow" href="../fitness/shadow-breaker.html">Shadow Breaker</a>
           <a class="btn" id="goRhythm" href="../fitness/rhythm-boxer.html">Rhythm Boxer</a>
+          <a class="btn" id="goJumpDuck" href="./jump-duck-vr.html">Jump-Duck</a>
+          <a class="btn" id="goBalanceHold" href="./balance-hold-vr.html">Balance Hold</a>
         </div>
-        <div class="small">* ลิงก์ fitness โฟลเดอร์เดิม (../fitness/…)</div>
+        <div class="small">* Jump-Duck/Balance Hold ใช้ launcher ที่ root</div>
       </div>
     </div>
   </div>
 
-  <!-- ===== Defaults (tune here only) ===== -->
-  <script>
-  // Central defaults for API modules
-  // ✅ IMPORTANT: make healthPath a PUBLIC GET endpoint (no auth) if you want banner "Online" for anonymous users.
-  window.__HHA_API_DEFAULTS__ = {
-    // Probe
-    healthPath: '/prod/health',
-    probeTimeoutMs: 3500,
-    authIsExpected: true,
-
-    // Safe GraphQL client
-    graphqlPath: '/prod/graphql',
-    timeoutMs: 6000,
-    disableOnAuth: false,
-
-    // Optional headers (ONLY if safe to expose publicly)
-    // extraHeaders: { 'x-api-key': '...' }
-  };
-  </script>
-
-  <!-- ===== Hub boot (inline module) ===== -->
-  <script type="module">
-    'use strict';
-
-    import { bootHubApi } from './api/hub-api-boot.js';
-    import { retryGuard } from './api/hub-api-guard.js';
-
-    const WIN = window;
-    const DOC = document;
-
-    function $(id){ return DOC.getElementById(id); }
-
-    function parseQS(){
-      const u = new URL(WIN.location.href);
-      const p = u.searchParams;
-
-      // defaults
-      const nowSeed = Date.now();
-      const run  = p.get('run')  || 'play';
-      const diff = p.get('diff') || 'normal';
-      const time = p.get('time') || '80';
-      const seed = p.get('seed') || String(nowSeed);
-      const pid  = p.get('pid')  || 'anon';
-
-      // optional research params passthrough
-      const studyId = p.get('studyId') || '';
-      const phase = p.get('phase') || '';
-      const conditionGroup = p.get('conditionGroup') || '';
-      const log = p.get('log') || '';
-      const view = p.get('view') || '';
-      const api = p.get('api') || '';
-
-      return { run, diff, time, seed, pid, studyId, phase, conditionGroup, log, view, api };
-    }
-
-    function setChips(q){
-      if($('cRun')) $('cRun').textContent = q.run;
-      if($('cDiff')) $('cDiff').textContent = q.diff;
-      if($('cTime')) $('cTime').textContent = q.time;
-      if($('cPid')) $('cPid').textContent = q.pid;
-    }
-
-    function buildPassParams(q){
-      // Always include hub=... so games can offer Back to HUB reliably
-      const hubUrl = WIN.location.origin + WIN.location.pathname + WIN.location.search;
-
-      const sp = new URLSearchParams();
-      sp.set('hub', hubUrl);
-      sp.set('run', q.run);
-      sp.set('diff', q.diff);
-      sp.set('time', q.time);
-      sp.set('seed', q.seed);
-      sp.set('pid', q.pid);
-
-      if(q.studyId) sp.set('studyId', q.studyId);
-      if(q.phase) sp.set('phase', q.phase);
-      if(q.conditionGroup) sp.set('conditionGroup', q.conditionGroup);
-      if(q.log) sp.set('log', q.log);
-      if(q.view) sp.set('view', q.view);
-      if(q.api) sp.set('api', q.api);
-
-      return sp;
-    }
-
-    function applyPassThrough(q){
-      const sp = buildPassParams(q);
-      const ids = [
-        'goGoodJunk','goGroups','goHydration','goPlate',
-        'goHandwash','goMaskCough',
-        'goPlanner','goShadow','goRhythm'
-      ];
-
-      for(const id of ids){
-        const a = $(id);
-        if(!a) continue;
-        try{
-          const href = a.getAttribute('href') || '';
-          // Keep relative links but append query
-          const url = new URL(href, WIN.location.href);
-          // merge (do not overwrite existing fixed params unless we want)
-          for(const [k,v] of sp.entries()){
-            url.searchParams.set(k,v);
-          }
-          a.setAttribute('href', url.toString());
-        }catch{}
-      }
-    }
-
-    function todayKey(){
-      const d = new Date();
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const da = String(d.getDate()).padStart(2,'0');
-      return `HHA_DAY_${y}-${m}-${da}`;
-    }
-
-    function wireButtons(q){
-      const btnRetry = $('btnRetry');
-      const btnReset = $('btnResetToday');
-
-      if(btnRetry){
-        btnRetry.addEventListener('click', async (e)=>{
-          e.preventDefault();
-          try{
-            await retryGuard({ uri: q.api });
-            // also re-expose client/status
-            await bootHubApi({ uri: q.api });
-          }catch{}
-        });
-      }
-
-      if(btnReset){
-        btnReset.addEventListener('click', (e)=>{
-          e.preventDefault();
-          try{
-            localStorage.removeItem(todayKey());
-            localStorage.removeItem('HHA_LAST_SUMMARY');
-            // optional: clear history
-            // localStorage.removeItem('HHA_SUMMARY_HISTORY');
-            // little feedback without extra UI:
-            btnReset.textContent = 'Reset ✓';
-            setTimeout(()=>{ btnReset.textContent = 'Reset today'; }, 900);
-          }catch{}
-        });
-      }
-    }
-
-    async function main(){
-      const q = parseQS();
-      setChips(q);
-      applyPassThrough(q);
-      wireButtons(q);
-
-      // Boot API banner + safe client exposure
-      // (If q.api missing => offline banner via guard)
-      await bootHubApi({ uri: q.api });
-    }
-
-    main().catch(()=>{ /* never break hub */ });
-  </script>
+  <!-- ✅ split logic -->
+  <script type="module" src="./hub.boot.js"></script>
 </body>
 </html>
