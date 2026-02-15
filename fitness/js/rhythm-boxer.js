@@ -1,4 +1,4 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) — PATCH LATEST ===
 'use strict';
 
 (function () {
@@ -59,8 +59,7 @@
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
-    aiTip:        $('#rb-hud-ai-tip'),
-    cal:          $('#rb-hud-cal')
+    aiTip:        $('#rb-hud-ai-tip')
   };
 
   // แสดงผลสรุป
@@ -124,7 +123,7 @@
 
     } else {
       if (modeDescEl) modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ปรับเกม)';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction ได้ แต่ล็อกไม่ให้ปรับเกม)';
       if (trackModeLbl) trackModeLbl.textContent =
         'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
@@ -140,8 +139,8 @@
   }
 
   function switchView(name) {
-    if (viewMenu) viewMenu.classList.add('hidden');
-    if (viewPlay) viewPlay.classList.add('hidden');
+    if (viewMenu)   viewMenu.classList.add('hidden');
+    if (viewPlay)   viewPlay.classList.add('hidden');
     if (viewResult) viewResult.classList.add('hidden');
 
     if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
@@ -194,39 +193,20 @@
   }
 
   function handleEngineEnd(summary) {
-    if (!summary) summary = {};
-
-    if (res.mode) res.mode.textContent = summary.modeLabel || '-';
-    if (res.track) res.track.textContent = summary.trackName || '-';
-    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
-    if (res.score) res.score.textContent = summary.finalScore != null ? summary.finalScore : '0';
-    if (res.maxCombo) res.maxCombo.textContent = summary.maxCombo != null ? summary.maxCombo : '0';
-
-    if (res.hits) res.hits.textContent =
-      `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-
-    if (res.acc) res.acc.textContent =
-      (summary.accuracyPct != null && Number.isFinite(summary.accuracyPct))
-        ? summary.accuracyPct.toFixed(1) + ' %'
-        : '0.0 %';
-
-    if (res.duration) res.duration.textContent =
-      (summary.durationSec != null && Number.isFinite(summary.durationSec))
-        ? summary.durationSec.toFixed(1) + ' s'
-        : '0.0 s';
-
-    if (res.rank) res.rank.textContent = summary.rank || '-';
+    if (res.mode)      res.mode.textContent      = summary.modeLabel;
+    if (res.track)     res.track.textContent     = summary.trackName;
+    if (res.endReason) res.endReason.textContent = summary.endReason;
+    if (res.score)     res.score.textContent     = summary.finalScore;
+    if (res.maxCombo)  res.maxCombo.textContent  = summary.maxCombo;
+    if (res.hits)      res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    if (res.acc)       res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
+    if (res.duration)  res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    if (res.rank)      res.rank.textContent      = summary.rank;
 
     if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-        ? summary.offsetMean.toFixed(3) + ' s'
-        : '-';
-
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
     if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-        ? summary.offsetStd.toFixed(3) + ' s'
-        : '-';
-
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
     if (res.qualityNote) {
@@ -258,7 +238,7 @@
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
   if (btnStart) btnStart.addEventListener('click', startGame);
-  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  if (btnStop)  btnStop.addEventListener('click', () => stopGame('manual-stop'));
   if (btnAgain) btnAgain.addEventListener('click', () => startGame());
   if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
 
@@ -266,7 +246,6 @@
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-
   if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
