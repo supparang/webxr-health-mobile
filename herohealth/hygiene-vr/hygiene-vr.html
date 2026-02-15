@@ -1,9 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260215e
-✅ Quiz 4 buttons
-✅ Practice overlay + summary
-✅ cVR quiz can be answered by crosshair shoot (handled in hygiene.safe.js)
+PATCH v20260215a
+✅ name fixed: hygiene-quiz-bank.js
+✅ particles.js for FX
+✅ boot diagnostics
 -->
 <!doctype html>
 <html lang="th">
@@ -14,12 +14,12 @@ PATCH v20260215e
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215e" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215a" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- Optional shared helpers -->
+  <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -27,11 +27,11 @@ PATCH v20260215e
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank -->
+  <!-- Quiz bank (✅ correct file name) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260215e"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260215a"></script>
 </head>
 
 <body class="view-pc">
@@ -40,7 +40,7 @@ PATCH v20260215e
 
     <!-- HUD -->
     <div class="hw-hud">
-      <div class="hw-top">
+      <div class="hw-top" id="hudTop">
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
@@ -63,25 +63,6 @@ PATCH v20260215e
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
-
-          <div class="hw-quiz-opts" id="quizOpts">
-            <button class="hw-quiz-opt" id="quizOpt1" type="button">
-              <span class="n">1</span><span class="t" id="quizOpt1t">—</span>
-            </button>
-            <button class="hw-quiz-opt" id="quizOpt2" type="button">
-              <span class="n">2</span><span class="t" id="quizOpt2t">—</span>
-            </button>
-            <button class="hw-quiz-opt" id="quizOpt3" type="button">
-              <span class="n">3</span><span class="t" id="quizOpt3t">—</span>
-            </button>
-            <button class="hw-quiz-opt" id="quizOpt4" type="button">
-              <span class="n">4</span><span class="t" id="quizOpt4t">—</span>
-            </button>
-          </div>
-
-          <div class="hw-quiz-hint" id="quizHint">
-            💡 แตะคำตอบ หรือกด 1–4 (PC) • โหมด cVR: “เล็ง crosshair แล้วยิง” เพื่อเลือกคำตอบได้
-          </div>
         </div>
       </div>
 
@@ -97,32 +78,12 @@ PATCH v20260215e
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
           ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
-        <div class="hw-card-sub" id="practiceNote" style="margin-top:10px; display:none">
-          ✅ เปิดโหมด <b>Practice 15 วินาที</b> (ไม่นับ miss / ไม่บันทึกผล) แล้วจะเข้าเกมจริงให้อัตโนมัติ
-        </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Practice Overlay -->
-    <div class="hw-overlay" id="practiceOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title">🧪 Practice (ไม่นับคะแนน)</div>
-        <div class="hw-card-sub">
-          ซ้อมแตะ/ยิงให้แม่น 15 วินาที • ไม่จบแพ้ • ไม่บันทึกผล
-        </div>
-
-        <div id="practiceCounter">15</div>
-        <div id="practiceSummary" style="display:none"></div>
-
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnSkipPractice" type="button">ข้าม Practice</button>
         </div>
       </div>
     </div>
@@ -146,22 +107,15 @@ PATCH v20260215e
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+    const lv = document.getElementById('labView'); if(lv) lv.textContent = view;
   }
   setViewClass();
-
-  const run = (qs('run','play')||'play').toLowerCase();
-  const practice = (qs('practice','0') === '1') || (run === 'practice');
-  document.getElementById('labMode').textContent = run;
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-
-  const note = document.getElementById('practiceNote');
-  if(note) note.style.display = practice ? 'block' : 'none';
+  const lm = document.getElementById('labMode'); if(lm) lm.textContent = (qs('run','play')||'play');
+  const ld = document.getElementById('labDiff'); if(ld) ld.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
