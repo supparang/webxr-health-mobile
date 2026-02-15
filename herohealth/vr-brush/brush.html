@@ -3,171 +3,136 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Brush (Plaque Breaker)</title>
+  <title>HeroHealth — Brush VR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260214a"/>
+  <link rel="stylesheet" href="./brush.css?v=20260215a"/>
 </head>
-
 <body>
-  <!-- Minimal A-Frame scene for Enter VR reliability (optional but recommended) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement:true"
-    background="color: #060a12">
-    <a-entity position="0 1.6 -2">
-      <a-sphere radius="0.16" color="#1f2937" opacity="0.35"></a-sphere>
-      <a-ring radius-inner="0.22" radius-outer="0.24" color="#334155" opacity="0.30"></a-ring>
-    </a-entity>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-  </a-scene>
+
+  <!-- Tap-to-start overlay (mobile/vr unlock) -->
+  <div id="tapStart" class="tapStart" style="display:none">
+    <div class="tapCard">
+      <div class="tapTitle">🦷 Brush VR</div>
+      <div class="tapSub">แตะเพื่อเริ่ม (ปลดล็อกการแตะ/เสียง/VR)</div>
+      <button id="tapBtn" class="tapBtn" type="button">เริ่ม</button>
+    </div>
+  </div>
+
+  <!-- Flash FX -->
+  <div id="br-flash"></div>
+
+  <div id="fatal" class="fatal br-hidden"></div>
 
   <div id="br-wrap" data-state="menu" data-view="pc">
-    <!-- TOP HUD -->
-    <header class="br-hudTop">
-      <div class="br-brand">
-        <span class="br-pill">HeroHealth · Hygiene</span>
-        <div class="br-titleRow">
-          <h1 class="br-title">🪥 Brush — Plaque Breaker</h1>
-          <span class="br-tag" id="br-diffTag">normal</span>
-        </div>
-        <p class="br-sub">แตะ/ยิงเพื่อ “แปรงคราบพลัค” ให้ทันเวลา • Perfect → FEVER • เจอบอสคราบหนา!</p>
+    <header class="top">
+      <div class="brand">
+        <div class="pill">HeroHealth · Hygiene</div>
+        <div class="title">Brush VR — Plaque Breaker</div>
+        <div class="sub">ยิง/แตะคราบให้ทัน · บอสมีจุดอ่อน 🎯</div>
       </div>
 
-      <div class="br-ctx">
-        <div class="br-ctxrow"><span class="k">view</span><span id="br-ctx-view" class="v">-</span></div>
-        <div class="br-ctxrow"><span class="k">seed</span><span id="br-ctx-seed" class="v">-</span></div>
-        <div class="br-ctxrow"><span class="k">time</span><span id="br-ctx-time" class="v">-</span></div>
+      <div class="ctx">
+        <div class="ctxRow"><span class="k">view</span><span id="br-ctx-view" class="v">-</span></div>
+        <div class="ctxRow"><span class="k">seed</span><span id="br-ctx-seed" class="v">-</span></div>
+        <div class="ctxRow"><span class="k">time</span><span id="br-ctx-time" class="v">-</span></div>
+        <div class="ctxRow"><span class="k">diff</span><span id="br-diffTag" class="v">-</span></div>
       </div>
     </header>
 
-    <!-- PLAY FIELD -->
-    <main class="br-stage">
-      <div id="br-layer" class="br-layer" aria-label="play layer"></div>
-
-      <!-- center dot for balance-like aim feedback (optional) -->
-      <div class="br-center" aria-hidden="true"></div>
-
-      <!-- bottom HUD -->
-      <footer class="br-hudBottom">
-        <div class="br-stats">
-          <div class="br-stat">
-            <div class="k">Score</div><div class="v" id="tScore">0</div>
-          </div>
-          <div class="br-stat">
-            <div class="k">Combo</div><div class="v" id="tCombo">0</div>
-          </div>
-          <div class="br-stat">
-            <div class="k">Miss</div><div class="v" id="tMiss">0</div>
-          </div>
-          <div class="br-stat">
-            <div class="k">Time</div><div class="v"><span id="tTime">0</span>s</div>
-          </div>
+    <!-- HUD -->
+    <section class="hud">
+      <div class="hudLeft">
+        <div class="card">
+          <div class="row"><span class="k">Score</span><span class="v" id="tScore">0</span></div>
+          <div class="row"><span class="k">Combo</span><span class="v" id="tCombo">0</span></div>
+          <div class="row"><span class="k">Miss</span><span class="v" id="tMiss">0</span></div>
+          <div class="row"><span class="k">Time</span><span class="v"><span id="tTime">0</span>s</span></div>
         </div>
 
-        <div class="br-bars">
-          <div class="br-barBox">
-            <div class="br-barHead"><span class="k">Clean Meter</span><span class="v" id="tClean">0%</span></div>
-            <div class="br-barTrack"><div class="br-barFill" id="bClean"></div></div>
-          </div>
-          <div class="br-barBox">
-            <div class="br-barHead"><span class="k">Fever</span><span class="v" id="tFever">OFF</span></div>
-            <div class="br-barTrack"><div class="br-barFill br-fever" id="bFever"></div></div>
-          </div>
+        <div class="card">
+          <div class="barLabel"><span>Clean</span><span id="tClean">0%</span></div>
+          <div class="bar"><div class="fill good" id="bClean"></div></div>
+
+          <div class="barLabel" style="margin-top:10px"><span>Fever</span><span id="tFever">OFF</span></div>
+          <div class="bar"><div class="fill pink" id="bFever"></div></div>
+        </div>
+      </div>
+
+      <div class="hudRight">
+        <div class="card">
+          <div class="row"><span class="k">Mode</span><span class="v" id="mDiff">-</span></div>
+          <div class="row"><span class="k">Limit</span><span class="v" id="mTime">-</span></div>
+          <div class="hint">💡 ใกล้หมดเวลา = Perfect! · บอสต้องยิงจุด 🎯</div>
         </div>
 
-        <div class="br-actions">
-          <button class="br-btn br-ghost" id="btnHow" type="button">วิธีเล่น</button>
-          <button class="br-btn br-warn" id="btnRecenter" type="button">Recenter</button>
-          <button class="br-btn br-primary" id="btnPause" type="button">Pause</button>
+        <div class="controls">
+          <button id="btnHow" class="btn ghost" type="button">How</button>
+          <button id="btnPause" class="btn ghost" type="button">Pause</button>
+          <button id="btnRecenter" class="btn accent" type="button">Recenter</button>
         </div>
-      </footer>
+      </div>
+    </section>
 
-      <!-- MENU OVERLAY -->
-      <section id="br-menu" class="br-overlay" aria-label="menu">
-        <div class="br-card">
-          <h2 class="br-h2">🪥 Brush — Plaque Breaker</h2>
-          <p class="br-help">
-            เป้าหมาย: “แปรงคราบ” ให้ทันก่อนหายไป<br/>
-            • 🦠 พลัค = แตะ/ยิงเพื่อทำความสะอาด<br/>
-            • 💎 คราบหนา = ต้องกดหลายครั้ง (คอมโบช่วย!)<br/>
-            • 🧼 Perfect (กดใกล้หมดเวลา) → ได้แต้มพิเศษ + ชาร์จ FEVER
-          </p>
-
-          <div class="br-menuGrid">
-            <div class="br-miniBox">
-              <div class="k">Difficulty</div>
-              <div class="v" id="mDiff">normal</div>
-              <div class="br-mini">ใช้ ?diff=easy|normal|hard</div>
-            </div>
-            <div class="br-miniBox">
-              <div class="k">Time limit</div>
-              <div class="v" id="mTime">60s</div>
-              <div class="br-mini">ใช้ ?time=60|80|90</div>
-            </div>
-            <div class="br-miniBox">
-              <div class="k">Controls</div>
-              <div class="v">Tap / Crosshair</div>
-              <div class="br-mini">มือถือ cVR ยิงด้วยกากบาท</div>
-            </div>
-          </div>
-
-          <div class="br-row">
-            <button class="br-btn br-primary" id="btnStart" type="button">▶ เริ่มเกม</button>
-            <a class="br-btn br-ghost br-link" id="btnBack" href="../hub.html">🏰 กลับ HUB</a>
-          </div>
-        </div>
-      </section>
-
-      <!-- SUMMARY OVERLAY -->
-      <section id="br-end" class="br-overlay" hidden aria-label="summary">
-        <div class="br-card br-cardWide">
-          <div class="br-endHead">
-            <h2 class="br-h2">สรุปผล</h2>
-            <span class="br-tag" id="endGrade">—</span>
-          </div>
-
-          <div class="br-sumGrid">
-            <div class="br-sumBox"><div class="k">คะแนน</div><div class="v" id="sScore">0</div></div>
-            <div class="br-sumBox"><div class="k">ความแม่นยำ</div><div class="v" id="sAcc">0%</div></div>
-            <div class="br-sumBox"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
-            <div class="br-sumBox"><div class="k">Combo สูงสุด</div><div class="v" id="sCombo">0</div></div>
-            <div class="br-sumBox"><div class="k">Clean</div><div class="v" id="sClean">0%</div></div>
-            <div class="br-sumBox"><div class="k">เวลา</div><div class="v" id="sTime">0s</div></div>
-          </div>
-
-          <div class="br-reflect">
-            <div class="br-help"><b>สะท้อนคิด</b>: ระดับความยาก “รู้สึก” เป็นยังไง?</div>
-            <div class="br-choices">
-              <label class="br-choice"><input type="radio" name="feel" value="easy"> ง่าย</label>
-              <label class="br-choice"><input type="radio" name="feel" value="ok" checked> พอดี</label>
-              <label class="br-choice"><input type="radio" name="feel" value="hard"> ยาก</label>
-            </div>
-          </div>
-
-          <div class="br-row br-rowRight">
-            <button class="br-btn br-ghost" id="btnRetry" type="button">เล่นอีกครั้ง</button>
-            <a class="br-btn br-primary br-link" id="btnBackHub2" href="../hub.html">กลับ HUB</a>
-          </div>
-
-          <div class="br-note" id="endNote"></div>
-        </div>
-      </section>
-
-      <div class="br-toast" id="toast"></div>
-      <div class="br-fatal br-hidden" id="fatal"></div>
+    <!-- Stage -->
+    <main class="stage">
+      <div id="br-layer" class="layer" aria-label="play layer"></div>
     </main>
+
+    <!-- MENU overlay -->
+    <div id="br-menu" class="menu">
+      <div class="menuCard">
+        <div class="menuTitle">🦠 Plaque Breaker</div>
+        <div class="menuSub">
+          • ยิง/แตะ “🦠” ให้ทัน<br/>
+          • คราบหนา “💎” = บอส ต้องยิงหลายครั้ง + เล็งจุดอ่อน 🎯<br/>
+          • ทำ PERFECT ติดกัน 3 ครั้ง = โบนัส + ดัน FEVER
+        </div>
+        <div class="menuBtns">
+          <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
+          <a id="btnBack" class="btn ghost" href="../hub.html">🏰 กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- END overlay -->
+    <div id="br-end" class="end" hidden>
+      <div class="endCard">
+        <div class="endHead">
+          <div class="endTitle">สรุปผล</div>
+          <div class="endGrade" id="endGrade">C</div>
+        </div>
+
+        <div class="endGrid">
+          <div class="endItem"><div class="k">Score</div><div class="v" id="sScore">0</div></div>
+          <div class="endItem"><div class="k">Accuracy</div><div class="v" id="sAcc">0%</div></div>
+          <div class="endItem"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+          <div class="endItem"><div class="k">Max Combo</div><div class="v" id="sCombo">0</div></div>
+          <div class="endItem"><div class="k">Clean</div><div class="v" id="sClean">0%</div></div>
+          <div class="endItem"><div class="k">Time</div><div class="v" id="sTime">0s</div></div>
+        </div>
+
+        <div class="endNote" id="endNote">-</div>
+
+        <div class="endBtns">
+          <button id="btnRetry" class="btn ghost" type="button">เล่นอีกครั้ง</button>
+          <a id="btnBackHub2" class="btn primary" href="../hub.html">กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
   </div>
 
-  <!-- Required: Universal VR UI (crosshair + enter/exit + recenter + hha:shoot) -->
-  <script src="../vr/vr-ui.js?v=20260214a"></script>
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260215a"></script>
 
-  <!-- Optional: Fun Boost wave/fever feel (if you already have these in /herohealth/vr/) -->
-  <script src="../vr/fun-boost.js?v=20260214a"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260214a"></script>
+  <!-- Fun boost (optional global) -->
+  <script src="../vr/fun-boost.js?v=20260215a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260215a"></script>
 
   <!-- Engine -->
-  <script src="./brush.safe.js?v=20260214a"></script>
+  <script src="./brush.safe.js?v=20260215a"></script>
+  <script src="./brush.boot.js?v=20260215a"></script>
 </body>
 </html>
