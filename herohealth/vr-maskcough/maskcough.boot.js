@@ -1,126 +1,156 @@
 // === /herohealth/vr-maskcough/maskcough.boot.js ===
-// MaskCoughVR BOOT — PRODUCTION (HHA Standard)
-// ✅ Passthrough ctx (hub/run/diff/time/seed/studyId/phase/conditionGroup/log/mode/...)
-// ✅ Deterministic seed fallback (stable) + expose to engine
-// ✅ Mount VR UI config (crosshair + hha:shoot)
-// ✅ Flush-hardened (visibilitychange/pagehide/backbutton safe)
+// MaskCough BOOT — AI HUD + Big Pop (rate-limited)
+// Listens: mc:ai {type, ...}
+// Safe: no crash if missing DOM
 
 (function(){
   'use strict';
   const WIN = window, DOC = document;
 
-  function getQS(){
-    try { return new URL(location.href).searchParams; }
-    catch { return new URLSearchParams(); }
-  }
-  const QS = getQS();
-  const q = (k, def='') => (QS.get(k) ?? def);
-  const qNum = (k, def=0) => {
-    const v = Number(q(k,''));
-    return Number.isFinite(v) ? v : def;
-  };
+  function ensureAIHud(){
+    let wrap = DOC.getElementById('hud-ai');
+    if(wrap) return wrap;
 
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+    wrap = DOC.createElement('section');
+    wrap.id = 'hud-ai';
+    wrap.style.position = 'fixed';
+    wrap.style.left = '12px';
+    wrap.style.bottom = '12px';
+    wrap.style.zIndex = '9999';
+    wrap.style.width = 'min(460px, 92vw)';
+    wrap.style.border = '1px solid rgba(148,163,184,.18)';
+    wrap.style.borderRadius = '20px';
+    wrap.style.padding = '10px 12px';
+    wrap.style.background = 'rgba(2,6,23,.72)';
+    wrap.style.backdropFilter = 'blur(10px)';
+    wrap.style.webkitBackdropFilter = 'blur(10px)';
+    wrap.style.boxShadow = '0 18px 60px rgba(0,0,0,.35)';
+    wrap.style.pointerEvents = 'none';
+    wrap.style.opacity = '0';
+    wrap.style.transition = 'opacity .18s ease, transform .18s ease';
+    wrap.style.transform = 'translateY(6px)';
 
-  function getView(){
-    const v = (q('view','pc')||'pc').toLowerCase();
-    if(v==='vr' || v==='cvr' || v==='mobile' || v==='pc') return v;
-    return 'pc';
-  }
-  function getDiff(){
-    const d = (q('diff','normal')||'normal').toLowerCase();
-    return (d==='easy'||d==='hard'||d==='normal') ? d : 'normal';
-  }
-  function getMode(){
-    const m = (q('mode','play')||'play').toLowerCase();
-    return (m==='research'||m==='practice'||m==='play') ? m : 'play';
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="ai-emo" style="font-size:18px;line-height:1;">🧠</div>
+        <div style="flex:1;min-width:0">
+          <div id="ai-title" style="font-weight:950;letter-spacing:.2px;">AI Coach</div>
+          <div id="ai-sub" style="margin-top:2px;color:rgba(229,231,235,.82);font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">พร้อมช่วย!</div>
+        </div>
+        <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
+      </div>
+      <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">
+        แตะ “😷” เพิ่มโล่ · โฟกัส “🤧” ตอนใกล้หมดเวลา = Perfect
+      </div>
+    `;
+    DOC.body.appendChild(wrap);
+    return wrap;
   }
 
-  function stableSeedFallback(){
-    // Stable-ish: prefer explicit pid/studyId, otherwise use day bucket.
-    const pid = q('pid','') || q('studentKey','') || q('device','');
-    const studyId = q('studyId','');
-    const phase = q('phase','');
-    const cg = q('conditionGroup','');
-    const day = new Date().toISOString().slice(0,10); // YYYY-MM-DD
-    const base = [studyId, phase, cg, pid, day].filter(Boolean).join('|') || ('day|' + day);
-    // hash32
-    let h = 2166136261 >>> 0;
-    for(let i=0;i<base.length;i++){
-      h ^= base.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
+  function setAI(msg){
+    const wrap = ensureAIHud();
+    const emo = DOC.getElementById('ai-emo');
+    const title = DOC.getElementById('ai-title');
+    const sub = DOC.getElementById('ai-sub');
+    const tag = DOC.getElementById('ai-tag');
+    const mini = DOC.getElementById('ai-mini');
+
+    if(emo) emo.textContent = msg.emo || '🧠';
+    if(title) title.textContent = msg.title || 'AI Coach';
+    if(sub) sub.textContent = msg.sub || '';
+    if(tag) tag.textContent = msg.tag || 'TIP';
+    if(mini) mini.textContent = msg.mini || '';
+
+    wrap.style.opacity = '1';
+    wrap.style.transform = 'translateY(0)';
+    clearTimeout(setAI._t);
+    setAI._t = setTimeout(()=>{
+      wrap.style.opacity = '0';
+      wrap.style.transform = 'translateY(6px)';
+    }, msg.ms || 1600);
+  }
+
+  function bigPop(msg){
+    let el = DOC.getElementById('ai-bigpop');
+    if(!el){
+      el = DOC.createElement('div');
+      el.id = 'ai-bigpop';
+      el.style.position='fixed';
+      el.style.left='50%';
+      el.style.top='50%';
+      el.style.transform='translate(-50%,-50%) scale(0.96)';
+      el.style.zIndex='9999';
+      el.style.padding='12px 16px';
+      el.style.borderRadius='999px';
+      el.style.border='1px solid rgba(148,163,184,.22)';
+      el.style.background='rgba(2,6,23,.78)';
+      el.style.color='rgba(229,231,235,.95)';
+      el.style.fontWeight='950';
+      el.style.letterSpacing='.6px';
+      el.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
+      el.style.backdropFilter='blur(10px)';
+      el.style.webkitBackdropFilter='blur(10px)';
+      el.style.pointerEvents='none';
+      el.style.opacity='0';
+      el.style.transition='opacity .14s ease, transform .14s ease';
+      DOC.body.appendChild(el);
     }
-    return String(h >>> 0);
+    el.textContent = msg.big || msg.title || 'READY!';
+    el.style.opacity='1';
+    el.style.transform='translate(-50%,-50%) scale(1)';
+    clearTimeout(bigPop._t);
+    bigPop._t = setTimeout(()=>{
+      el.style.opacity='0';
+      el.style.transform='translate(-50%,-50%) scale(0.96)';
+    }, msg.bigMs || 900);
   }
 
-  const view = getView();
-  const diff = getDiff();
-  const mode = getMode();
-  const timeSec = clamp(qNum('time', 75), 30, 180);
-
-  const seed = (q('seed','')||'').trim() || stableSeedFallback();
-
-  // hub fallback (if not provided)
-  const hub = (q('hub','')||'').trim() || new URL('../hub.html', location.href).toString();
-
-  // Expose context (HHA passthrough)
-  const ctx = {
-    projectTag: 'HHA_MASKCOUGH',
-    hub,
-    run: q('run',''),
-    view,
-    diff,
-    mode,
-    timeSec,
-    seed,
-
-    // research meta (passthrough)
-    studyId: q('studyId',''),
-    phase: q('phase',''),
-    conditionGroup: q('conditionGroup',''),
-    sessionOrder: q('sessionOrder',''),
-    blockLabel: q('blockLabel',''),
-    siteCode: q('siteCode',''),
-    schoolCode: q('schoolCode',''),
-    schoolName: q('schoolName',''),
-    gradeLevel: q('gradeLevel',''),
-    pid: q('pid','') || q('studentKey',''),
-
-    // logging
-    log: q('log',''),   // endpoint
-    reason: q('reason',''),
-  };
-
-  WIN.HHA_CTX = ctx;
-
-  // Mark view on DOM for CSS and engine
-  const wrap = DOC.getElementById('mc-wrap');
-  if(wrap){
-    wrap.dataset.view = view;
-    wrap.dataset.diff = diff;
+  function msgFromType(t, d){
+    const mk = (emo,title,sub,mini,tag='TIP',ms=1600,big=null,bigMs=900)=>({emo,title,sub,mini,tag,ms,big,bigMs});
+    switch(String(t||'').toLowerCase()){
+      case 'boss_start':
+        return mk('🦠','BOSS WAVE!','โหมดบอสเริ่มแล้ว','หา “🎯 Weak Spot” แล้วตีให้แตก','BOSS',1800,'BOSS!',900);
+      case 'weakspot_on':
+        return mk('🎯','WEAK SPOT!','แตะ “🎯” ได้โบนัสแรง','อย่าไปแตะ “🎭” (Decoy)','BOSS',1700,'WEAK!',850);
+      case 'laser_warn':
+        return mk('⚠️','LASER กำลังมา','อีกแป๊บ “ห้ามแตะ”','นิ่งไว้ รอให้ผ่าน','LASER',1500,'STOP!',850);
+      case 'laser_on':
+        return mk('🚫','LASER SWEEP!','ห้ามแตะช่วงนี้','รอให้หมด แล้วค่อยลุยต่อ','LASER',1600,'NO HIT!',900);
+      case 'shock_on':
+        return mk('🎵','SHOCKWAVE!','แตะเฉพาะตอน “วงเขียว”','ตี 1 ครั้งพอ อย่ารัว','SHOCK',1700,'TIMING!',900);
+      case 'phase':
+        return mk('🔥',`PHASE ${d?.phase||'?'}!`, d?.sub||'','ทำ PERFECT เพื่อเร่ง FEVER','PHASE',1500);
+      case 'predict_easy':
+        return mk('🫶','ปรับให้ง่ายขึ้น','ระบบช่วยให้ทันมือ','โฟกัส “😷” เก็บโล่ก่อน','AI',1500);
+      case 'predict_hard':
+        return mk('😈','ปรับให้ท้าทายขึ้น','คุณเริ่มเก่งแล้ว!','ล่าคอมโบ + PERFECT','AI',1500);
+      default:
+        return null;
+    }
   }
 
-  // VR UI config (used by ../vr/vr-ui.js)
-  WIN.HHA_VRUI_CONFIG = Object.assign({ lockPx: 28, cooldownMs: 90 }, WIN.HHA_VRUI_CONFIG || {});
-
-  // Flush-hardened hooks — engine must implement HHA_MASKCOUGH.flush()
-  function safeFlush(reason){
-    try{
-      if(WIN.HHA_MASKCOUGH && typeof WIN.HHA_MASKCOUGH.flush === 'function'){
-        WIN.HHA_MASKCOUGH.flush(reason || 'flush');
-      }
-    }catch(_){}
+  const RL = { lastAny:0, lastBig:0, minAnyMs:260, minBigMs:900 };
+  function shouldBig(t){
+    t = String(t||'').toLowerCase();
+    return (t==='boss_start'||t==='weakspot_on'||t==='laser_on'||t==='shock_on');
   }
 
-  WIN.addEventListener('pagehide', ()=>safeFlush('pagehide'), {capture:true});
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') safeFlush('hidden');
-  }, {capture:true});
-  WIN.addEventListener('beforeunload', ()=>safeFlush('beforeunload'), {capture:true});
+  WIN.addEventListener('mc:ai', (ev)=>{
+    const d = ev?.detail || {};
+    const t = d.type;
+    const now = Date.now();
+    if(now - RL.lastAny < RL.minAnyMs) return;
+    RL.lastAny = now;
 
-  // Back button on mobile (best effort)
-  WIN.addEventListener('popstate', ()=>safeFlush('popstate'), {capture:true});
+    const msg = msgFromType(t, d);
+    if(!msg) return;
 
-  // If engine already loaded, start now; otherwise it will auto-start on load in safe.js
-  WIN.__HHA_MASKCOUGH_BOOTED__ = true;
+    setAI(msg);
+
+    if(shouldBig(t)){
+      if(now - RL.lastBig < RL.minBigMs) return;
+      RL.lastBig = now;
+      bigPop(msg);
+    }
+  });
 })();
