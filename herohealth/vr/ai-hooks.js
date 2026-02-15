@@ -1,185 +1,138 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — Prediction (A) + ML Logging (B) + DL-ready buffers (C)
-// Safe: never crashes game. Deterministic friendly when seed provided.
+// HHA AI Hooks (lightweight) — Prediction + Micro-tips + Event buffer
+// - deterministic-friendly (no random required)
+// - default OFF for "research" if you want (gate by qs run/mode)
+// - emits: brush:ai events (consumed by brush.boot.js)
 
 (function(){
   'use strict';
   const WIN = window;
 
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-  function num(v,d=0){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
+  const run = String(qs('run', qs('mode','play'))||'play').toLowerCase(); // play|research
+  const aiOn = (String(qs('ai','1')) !== '0'); // allow ?ai=0 to disable instantly
+  const researchLike = (run === 'research');
 
-  // rolling window helper
-  function rollPush(arr, item, max){
-    arr.push(item);
-    if(arr.length>max) arr.splice(0, arr.length-max);
+  // simple ring buffer for ML/DL dataset (export later)
+  const BUF_MAX = 600;
+  const buf = [];
+  function push(ev){
+    buf.push(ev);
+    if(buf.length > BUF_MAX) buf.splice(0, buf.length - BUF_MAX);
   }
 
-  function createAIHooks(cfg){
-    cfg = cfg || {};
-    const seed = String(cfg.seed || '');
-    const enabled = cfg.enabled !== false;
+  // rolling stats (tiny “predictor” baseline)
+  const S = {
+    lastTs: 0,
+    shots: 0,
+    hits: 0,
+    miss: 0,
+    combo: 0,
+    comboMax: 0,
+    clean: 0,
+    risk: 0,          // 0..1
+    fatigue: 0,       // 0..1
+    lastTipTs: 0,
+    tipCoolMs: 1200
+  };
 
-    // ---- rolling stats ----
-    const S = {
-      t0: 0,
-      lastTipAt: 0,
-      lastSlowAt: 0,
-      events: [],        // last N events (DL-ready)
-      shots: [],         // {t,hit,rt}
-      timeouts: [],      // {t}
-      whiffs: [],        // {t}
-      comboDrops: [],    // {t}
-      risk: 0,
-      riskSm: 0
-    };
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function now(){ return Date.now(); }
 
-    const POLICY = {
-      tipMinGapMs: cfg.tipMinGapMs ?? 1400,
-      slowMinGapMs: cfg.slowMinGapMs ?? 4200,
-      slowDurationMs: cfg.slowDurationMs ?? 450,
-      slowFactor: cfg.slowFactor ?? 1.10, // ttl scale up (more time) / spawn interval scale down? เราใช้ ttl scale เท่านั้น
-      riskThresholdTip: cfg.riskThresholdTip ?? 0.68,
-      riskThresholdSlow: cfg.riskThresholdSlow ?? 0.82,
-      windowMs: cfg.windowMs ?? 5000,
-      dlWindowN: cfg.dlWindowN ?? 60
-    };
+  // convert game events -> features -> risk score
+  function updateRisk(ev){
+    // ev: {type, ts, score, combo, miss, clean, hit, whiff, remainMs, ttlMs}
+    const dt = (S.lastTs ? (ev.ts - S.lastTs) : 0);
+    S.lastTs = ev.ts;
 
-    // --- feature extraction ---
-    function windowCount(arr, nowMs){
-      const w = POLICY.windowMs;
-      let c=0;
-      for(let i=arr.length-1;i>=0;i--){
-        if(nowMs - arr[i].t > w) break;
-        c++;
-      }
-      return c;
-    }
-    function windowRate(arr, nowMs){
-      return windowCount(arr, nowMs) / (POLICY.windowMs/1000);
-    }
-    function avgRT(nowMs){
-      const w=POLICY.windowMs;
-      let sum=0, n=0;
-      for(let i=S.shots.length-1;i>=0;i--){
-        const it=S.shots[i];
-        if(nowMs - it.t > w) break;
-        if(it.hit && it.rt!=null){
-          sum+=it.rt; n++;
-        }
-      }
-      return n? (sum/n) : null;
+    if(ev.type === 'shot'){
+      S.shots++;
+      if(ev.hit) S.hits++; else S.miss++;
+      S.combo = ev.combo ?? S.combo;
+      S.comboMax = Math.max(S.comboMax, S.combo);
+      S.clean = ev.clean ?? S.clean;
+    } else if(ev.type === 'timeout'){
+      S.miss++;
+      S.combo = 0;
+      S.clean = ev.clean ?? S.clean;
+    } else if(ev.type === 'state'){
+      S.combo = ev.combo ?? S.combo;
+      S.clean = ev.clean ?? S.clean;
+      S.miss = ev.miss ?? S.miss;
     }
 
-    // risk score heuristic (upgrade to ML later)
-    function computeRisk(nowMs, ctx){
-      const whiffR = windowRate(S.whiffs, nowMs);
-      const toutR  = windowRate(S.timeouts, nowMs);
-      const dropR  = windowRate(S.comboDrops, nowMs);
-      const rt = avgRT(nowMs); // ms
-      const inten = num(ctx?.intensity, 0);
+    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
+    const missRate = (S.shots>0) ? (S.miss/S.shots) : 0;
 
-      // normalize
-      const a = clamp(whiffR/3.0, 0, 1);   // 3 whiffs/sec is extreme
-      const b = clamp(toutR /2.0, 0, 1);
-      const c = clamp(dropR /1.0, 0, 1);
-      const d = rt==null ? 0.3 : clamp((rt-320)/520, 0, 1); // slow RT increases risk
-      const e = clamp(inten, 0, 1);
+    // fatigue grows with density & misses; decays slowly
+    const dense = dt>0 ? clamp(260/dt, 0, 1) : 0;
+    S.fatigue = clamp(S.fatigue*0.92 + dense*0.06 + missRate*0.05, 0, 1);
 
-      // weighted sum
-      const r = 0.26*a + 0.26*b + 0.14*c + 0.18*d + 0.16*e;
-      return clamp(r, 0, 1);
-    }
+    // risk: more misses + low clean progress + fatigue
+    const behind = clamp((40 - (S.clean||0))/40, 0, 1); // behind early/mid
+    S.risk = clamp(missRate*0.55 + behind*0.25 + S.fatigue*0.20, 0, 1);
 
-    // emit tip to game (brush.boot listens brush:ai)
-    function emitTip(detail){
-      try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail })); }catch(_){}
-    }
-
-    // called by game on every event
-    function onEvent(ev){
-      if(!enabled) return;
-
-      const t = num(ev.t, Date.now());
-      if(!S.t0) S.t0 = t;
-
-      // DL-ready buffer (sequence)
-      rollPush(S.events, {
-        t: t,
-        type: String(ev.type||''),
-        remainMs: num(ev.remainMs, 0),
-        intensity: num(ev.intensity, 0),
-        combo: num(ev.combo, 0),
-        hit: ev.hit?1:0,
-        whiff: ev.whiff?1:0,
-        timeout: ev.timeout?1:0,
-        boss: ev.boss?1:0,
-        phase: num(ev.phase, 0)
-      }, POLICY.dlWindowN);
-
-      // update rolling buckets
-      if(ev.type==='shot'){
-        rollPush(S.shots, { t, hit: !!ev.hit, rt: (ev.rt!=null? num(ev.rt,null):null) }, 200);
-        if(ev.whiff) rollPush(S.whiffs, { t }, 200);
-      }
-      if(ev.type==='timeout') rollPush(S.timeouts, { t }, 200);
-      if(ev.type==='combo_drop') rollPush(S.comboDrops, { t }, 200);
-
-      // compute smoothed risk
-      const r = computeRisk(t, ev.ctx || {});
-      S.risk = r;
-      S.riskSm = S.riskSm ? (S.riskSm*0.78 + r*0.22) : r;
-
-      // suggest tip / slow assistance (play mode only ideally)
-      const nowMs = Date.now();
-      const canTip = (nowMs - S.lastTipAt) > POLICY.tipMinGapMs;
-      const canSlow= (nowMs - S.lastSlowAt) > POLICY.slowMinGapMs;
-
-      if(canTip && S.riskSm >= POLICY.riskThresholdTip){
-        S.lastTipAt = nowMs;
-
-        // choose tip by dominant issue
-        const wh = windowRate(S.whiffs, t);
-        const to = windowRate(S.timeouts, t);
-        const rt = avgRT(t);
-
-        let tip;
-        if(to > wh && to > 0.6){
-          tip = { type:'coach', title:'อย่าปล่อยให้หลุด!', sub:'เป้ากำลังหมดเวลา', mini:'เล็งให้แม่นก่อน 1 ทีพอ', tag:'SAVE' };
-        }else if(wh > 0.8){
-          tip = { type:'coach', title:'เล็งก่อนยิง', sub:'พลาดบ่อยไปนิด', mini:'ช้าแต่ชัวร์ = คอมโบยาว', tag:'AIM' };
-        }else if(rt!=null && rt>650){
-          tip = { type:'coach', title:'จับจังหวะให้ทัน', sub:'ช้าไปนิด', mini:'เป้าใกล้หมดเวลา = PERFECT', tag:'TIMING' };
-        }else{
-          tip = { type:'coach', title:'โฟกัสคอมโบ', sub:'กำลังแกว่ง', mini:'ยิงทีละเป้า อย่ารัว', tag:'FOCUS' };
-        }
-
-        emitTip({ ...tip, emo:'🧠', shouldBigPop: false });
-      }
-
-      // micro-slow suggestion (we do not force change; game can read desired scale)
-      if(canSlow && S.riskSm >= POLICY.riskThresholdSlow){
-        S.lastSlowAt = nowMs;
-        emitTip({ type:'slow', emo:'🧊', title:'FOCUS MODE', sub:'ช้าลงนิดเพื่อไม่พลาด', mini:'อีกแป๊บเดียว!', tag:'SLOW', shouldBigPop:true });
-        // expose to game
-        S.slowUntil = nowMs + POLICY.slowDurationMs;
-      }
-    }
-
-    function getAssist(){
-      const nowMs = Date.now();
-      const slowOn = !!S.slowUntil && nowMs < S.slowUntil;
-      return {
-        risk: S.riskSm || 0,
-        slowOn,
-        ttlScale: slowOn ? POLICY.slowFactor : 1
-      };
-    }
-
-    return { onEvent, getAssist, getState: ()=>S };
+    return { acc, missRate, risk:S.risk, fatigue:S.fatigue };
   }
 
-  // export
+  // tip policy -> emits brush:ai
+  function emitAI(type, detail){
+    try{
+      WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: { type, ...detail } }));
+    }catch(_){}
+  }
+
+  function maybeTip(kind, z){
+    if(!aiOn) return;
+    if(researchLike) return; // default OFF in research (safe)
+    const t = now();
+    if(t - S.lastTipTs < S.tipCoolMs) return;
+    S.lastTipTs = t;
+
+    if(kind === 'risk_high'){
+      emitAI('gate_on', { // reuse your boot mapper messages
+        why:'risk_high',
+        risk: z.risk,
+        acc: z.acc
+      });
+      return;
+    }
+    if(kind === 'timing'){
+      emitAI('shock_on', { why:'timing' });
+      return;
+    }
+    if(kind === 'boss'){
+      emitAI('boss_start', {});
+      return;
+    }
+  }
+
+  // public API used by games
+  const API = {
+    onEvent(ev){
+      // store for dataset
+      push(ev);
+
+      const z = updateRisk(ev);
+
+      // triggers
+      if(z.risk > 0.62) maybeTip('risk_high', z);
+
+      // timing coaching: many whiffs in a row
+      if(ev.type==='shot' && ev.hit===false && (z.missRate > 0.38)) {
+        maybeTip('timing', z);
+      }
+    },
+    // export buffer for later ML/DL (download/POST)
+    getBuffer(){ return buf.slice(); },
+    reset(){
+      buf.length = 0;
+      S.lastTs=0; S.shots=0; S.hits=0; S.miss=0; S.combo=0; S.comboMax=0; S.clean=0;
+      S.risk=0; S.fatigue=0; S.lastTipTs=0;
+    }
+  };
+
   WIN.HHA = WIN.HHA || {};
-  WIN.HHA.createAIHooks = createAIHooks;
+  WIN.HHA.ai = API;
+
 })();
