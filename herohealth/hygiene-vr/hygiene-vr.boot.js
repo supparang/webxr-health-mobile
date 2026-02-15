@@ -1,11 +1,11 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
 // Boot HygieneVR — PRODUCTION (anti-stall + diagnostics)
-// PATCH v20260215a
+// PATCH v20260215b
 //
 // ✅ Imports engine: hygiene.safe.js (must export boot)
 // ✅ If missing DOM or import fails -> show readable error on screen
 // ✅ Warn if particles.js or quiz bank missing
-// ✅ Stall watchdog: detects long frame gaps / frozen feeling and offers Reload
+// ✅ Stall watchdog: detect frozen frame / long stall on mobile
 //
 'use strict';
 
@@ -33,22 +33,12 @@ function showFatal(msg, err){
   }
   if(startOverlay){
     const card = startOverlay.querySelector('.hw-card-sub');
-    const row  = startOverlay.querySelector('.hw-card-row');
     if(card){
       card.innerHTML = `
         <b style="color:#fca5a5">เกิดปัญหาโหลดเกม</b><br>
         <span style="color:#94a3b8">${msg}</span><br>
         <span style="color:#94a3b8">เปิด Console/Network ดูว่าไฟล์ 404 หรือ import ผิด</span>
       `;
-    }
-    if(row){
-      // add reload button (safe)
-      const btn = document.createElement('button');
-      btn.className = 'hw-cta';
-      btn.type = 'button';
-      btn.textContent = '⟳ Reload';
-      btn.addEventListener('click', ()=>location.reload(), { passive:true });
-      row.appendChild(btn);
     }
     startOverlay.style.display = 'grid';
   }
@@ -76,37 +66,42 @@ function waitForGlobal(getter, ms){
   });
 }
 
-// ✅ Stall watchdog: listens to rAF heartbeat
-function installStallWatchdog(){
-  let last = performance.now ? performance.now() : Date.now();
-  let stalled = false;
+/* ✅ Stall watchdog
+   - If page is visible and we observe huge gap between rAF timestamps repeatedly
+   - show banner suggesting reload (common mobile memory/GC stall)
+*/
+function startStallWatchdog(){
+  let last = 0;
+  let strikes = 0;
 
-  function tick(){
-    const now = performance.now ? performance.now() : Date.now();
-    const gap = now - last;
-    last = now;
+  function raf(t){
+    if(!last) last = t;
+    const gap = t - last;
+    last = t;
 
-    // gap > 1800ms = เหมือนค้าง/โดน background/มือถือหน่วงหนัก
-    if(gap > 1800 && !stalled){
-      stalled = true;
-      console.warn('[HygieneBoot] possible stall gap(ms)=', Math.round(gap));
-      showBanner('เกมค้าง/สะดุด ⚠️ แนะนำกด Reload (มือถือหน่วง/หน่วยความจำต่ำ)');
-      // auto reset stalled flag later (so it can warn again after a while)
-      setTimeout(()=>{ stalled = false; }, 6000);
+    // ignore when tab hidden
+    if(document.visibilityState === 'visible'){
+      if(gap > 1200){ // >1.2s stall
+        strikes++;
+        if(strikes === 1){
+          console.warn('[HygieneBoot] stall detected gap=', gap);
+          showBanner('⚠️ เกมสะดุด/ค้าง • แนะนำกด Reload (มือถือหน่วง/หน่วยความจำ)');
+        }else if(strikes === 2){
+          showBanner('⚠️ ยังสะดุดอยู่ • ปิดแท็บอื่น/ลดแอปเบื้องหลัง แล้ว Reload');
+        }
+      }else{
+        // decay
+        strikes = Math.max(0, strikes - 0.25);
+      }
     }
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
 
-  // also warn if page goes hidden (common on mobile)
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden) return;
-    showBanner('กลับมาแล้ว ✅ ถ้าหน่วงให้กด Reload');
-  }, { passive:true });
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
 }
 
 async function main(){
-  installStallWatchdog();
+  startStallWatchdog();
 
   // DOM must exist
   const stage = $id('stage');
@@ -129,8 +124,11 @@ async function main(){
   if(!P){
     console.warn('[HygieneBoot] window.Particles not found (particles.js missing?)');
     showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
+  }else{
+    try{ console.log('[HygieneBoot] Particles OK'); }catch{}
   }
 
+  // quiz bank -> window.HHA_HYGIENE_QUIZ_BANK (from hygiene-quiz-bank.js)
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank){
     console.warn('[HygieneBoot] HHA_HYGIENE_QUIZ_BANK not found (hygiene-quiz-bank.js missing?)');
@@ -157,7 +155,7 @@ async function main(){
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
-    showBanner('พร้อมเล่น ✅');
+    showBanner('✅ โหลดเกมพร้อมแล้ว');
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
