@@ -1,150 +1,1267 @@
+<!-- === /herohealth/warmup-gate.html ===
+HeroHealth — Warmup/Cooldown Gate (PRODUCTION) v20260215b
+✅ phase=warmup|cooldown
+✅ category check: nutrition|hygiene|exercise (infer from next URL/path or ?cat=)
+✅ once-per-day PER pid + category + phase (localStorage)
+✅ warmup: run a mini-game => returns buffs via query: wType,wPct,rank,wCrit,wDmg,wHeal,calm
+✅ cooldown: short breathing/reflect => no buffs, but marks daily cooldown done
+✅ redirects:
+   - next=<RUN url> (required for warmup; optional for cooldown)
+   - hub=<HUB url> (optional)
+   - dur=5..60 (warmup seconds, default 20)
+   - cdur=5..60 (cooldown seconds, default 20)
+   - pid=... (optional, else use localStorage HHA_PID or 'anon')
+   - cat=nutrition|hygiene|exercise (optional; else infer)
+   - games=... (optional list; not required)
+NOTE: This file is standalone (no modules). Safe on GitHub pages.
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Gate</title>
+  <title>HeroHealth — Warmup Gate</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
+
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --red:#ef4444;
-      --sat: env(safe-area-inset-top,0px); --sab: env(safe-area-inset-bottom,0px);
-      --r:22px;
+      --bg:#020617;
+      --panel: rgba(2,6,23,.78);
+      --panel2: rgba(15,23,42,.62);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+
+      --good:#22c55e;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --amber:#f59e0b;
+
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; overflow:hidden; }
     body{
-      margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
-      background: radial-gradient(1200px 700px at 50% -10%, rgba(34,197,94,.10), transparent 55%), var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab)) 16px;
+      background:
+        radial-gradient(1200px 900px at 20% 10%, rgba(34,197,94,.16), transparent 55%),
+        radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.10), transparent 60%),
+        var(--bg);
+      overscroll-behavior:none;
+    }
+    .wrap{
+      min-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
     }
     .card{
-      width:min(720px, 92vw);
+      width:min(900px, 96vw);
       border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.70));
-      border-radius: var(--r);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 16px;
+      background: linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.55));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
     }
-    .top{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-    .title{font-weight:1000; letter-spacing:.2px;}
-    .pill{
-      margin-left:auto;
+    .top{
+      padding:16px 16px 12px 16px;
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.25);
+    }
+    .title{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
       font-weight:1000;
-      padding:6px 10px;
+      letter-spacing:.2px;
+    }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px;
       border-radius:999px;
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.45);
+      font-weight:900;
+      user-select:none;
+      white-space:nowrap;
     }
-    .desc{margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;}
-    .timer{
-      margin-top:12px;
+    .pill.good{ border-color: rgba(34,197,94,.35); }
+    .pill.cyan{ border-color: rgba(34,211,238,.35); }
+    .pill.amber{ border-color: rgba(245,158,11,.35); }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      line-height:1.35;
+      max-width:720px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:0;
+    }
+    @media (max-width:860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    .stage{
+      padding:14px;
+      min-height:420px;
+      position:relative;
+    }
+    .side{
+      border-left:1px solid rgba(148,163,184,.14);
+      padding:14px;
+      background: rgba(2,6,23,.18);
+    }
+    @media (max-width:860px){
+      .side{ border-left:none; border-top:1px solid rgba(148,163,184,.14); }
+    }
+    .panel{
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding: 12px;
-      display:flex; align-items:center; justify-content:space-between;
+      border-radius:18px;
+      padding:12px;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
       gap:10px;
+      margin-top:10px;
     }
-    .big{font-size:34px; font-weight:1100;}
-    .bar{height:10px; border-radius:999px; background: rgba(148,163,184,.16); border:1px solid rgba(148,163,184,.14); overflow:hidden;}
-    .fill{height:100%; width:0%; background: rgba(34,197,94,.55);}
-    .btns{margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;}
-    button{
-      font-weight:1000; padding:10px 14px; border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.35);
-      color: var(--text);
+    .k{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.28);
+      border-radius:16px;
+      padding:10px 12px;
     }
-    button.primary{
+    .k .h{ color:rgba(148,163,184,.9); font-size:11px; font-weight:900; }
+    .k .v{ font-size:13px; font-weight:950; margin-top:3px; word-break:break-word; }
+    .btnrow{
+      margin-top:12px;
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      border-radius:16px;
+      padding:10px 12px;
+      font-weight:950;
+      color:var(--text);
+      background: rgba(148,163,184,.12);
+      border:1px solid rgba(148,163,184,.16);
+    }
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(34,197,94,.72));
       border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.18);
+      color:#04100a;
     }
+    .btn.cyan{
+      background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(34,211,238,.72));
+      border-color: rgba(34,211,238,.35);
+      color:#031015;
+    }
+    .btn.ghost{
+      background: rgba(2,6,23,.25);
+      border:1px solid rgba(148,163,184,.18);
+      color: rgba(229,231,235,.92);
+    }
+
+    /* ====== Mini game canvas area ====== */
+    .gamebox{
+      position:relative;
+      border:1px solid rgba(148,163,184,.14);
+      background: radial-gradient(900px 420px at 50% 0%, rgba(59,130,246,.10), transparent 60%),
+                  rgba(2,6,23,.22);
+      border-radius:18px;
+      overflow:hidden;
+      min-height:360px;
+    }
+    .hud{
+      position:absolute; left:10px; right:10px; top:10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      pointer-events:none;
+    }
+    .hud .p{
+      pointer-events:none;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.55);
+      font-weight:950;
+      font-size:12px;
+    }
+    .hud .p strong{ color:var(--cyan); }
+    .center{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding:18px;
+      text-align:center;
+    }
+    .big{
+      font-size:34px;
+      font-weight:1000;
+      letter-spacing:.2px;
+      line-height:1.05;
+    }
+    .hint2{
+      margin-top:10px;
+      color: rgba(229,231,235,.85);
+      font-weight:850;
+      font-size:13px;
+      line-height:1.35;
+    }
+    .meter{
+      width:min(520px, 86vw);
+      margin:14px auto 0 auto;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background: rgba(148,163,184,.16);
+      border:1px solid rgba(148,163,184,.16);
+    }
+    .meter > i{
+      display:block; height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.85));
+      border-radius:999px;
+      transition: width .16s ease;
+    }
+
+    /* reaction dots */
+    .dot{
+      position:absolute;
+      width:84px; height:84px;
+      border-radius:999px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:30px;
+      font-weight:1000;
+      user-select:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.45);
+      box-shadow: 0 12px 32px rgba(0,0,0,.35);
+      transform: translate(-50%,-50%) scale(1);
+      transition: transform .12s ease, opacity .12s ease;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .dot.good{ outline: 3px solid rgba(34,197,94,.45); }
+    .dot.bad{ outline: 3px solid rgba(239,68,68,.45); }
+
+    /* aim target */
+    .aim{
+      position:absolute;
+      width:78px; height:78px;
+      border-radius:999px;
+      border:2px solid rgba(34,211,238,.85);
+      box-shadow: 0 0 0 8px rgba(34,211,238,.08);
+      transform: translate(-50%,-50%);
+      pointer-events:auto;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .aim:after{
+      content:"";
+      position:absolute; left:50%; top:50%;
+      width:10px; height:10px;
+      border-radius:999px;
+      background: rgba(34,211,238,.95);
+      transform: translate(-50%,-50%);
+    }
+
+    /* overlay */
+    .overlay{
+      position:absolute; inset:0;
+      background: rgba(2,6,23,.62);
+      display:flex; align-items:center; justify-content:center;
+      padding:18px;
+    }
+    .ovcard{
+      width:min(560px, 92vw);
+      border:1px solid rgba(148,163,184,.16);
+      background: linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.55));
+      border-radius:22px;
+      box-shadow: var(--shadow);
+      padding:14px;
+    }
+    .ovtitle{ font-weight:1000; font-size:18px; }
+    .ovsub{ margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:13px; line-height:1.35; }
+    .ovsub b{ color:var(--cyan); }
+    .ovactions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
   </style>
 </head>
+
 <body>
-  <div class="card">
+<div class="wrap">
+  <div class="card" role="application" aria-label="HeroHealth Warmup Gate">
     <div class="top">
-      <div class="title" id="gateTitle">Gate</div>
-      <div class="pill" id="gatePhase">—</div>
-    </div>
-    <div class="desc" id="gateDesc">—</div>
-
-    <div class="timer">
       <div>
-        <div style="font-size:11px;color:rgba(148,163,184,.9);font-weight:900;">เหลือเวลา</div>
-        <div class="big"><span id="sec">20</span>s</div>
+        <div class="title">
+          <span class="pill good" id="pillPhase">PHASE: …</span>
+          <span class="pill cyan" id="pillCat">CAT: …</span>
+          <span class="pill" id="pillPid">PID: …</span>
+          <span class="pill amber" id="pillDaily">DAILY: …</span>
+        </div>
+        <div class="sub" id="subLine">—</div>
       </div>
-      <div style="flex:1">
-        <div class="bar"><div class="fill" id="fill"></div></div>
-        <div style="margin-top:8px;color:rgba(148,163,184,.9);font-weight:900;font-size:11px" id="hint">—</div>
-      </div>
+      <div class="pill good" id="pillState">READY</div>
     </div>
 
-    <div class="btns">
-      <button id="btnHub">กลับ HUB</button>
-      <button class="primary" id="btnSkip">ข้าม</button>
+    <div class="grid">
+      <!-- STAGE -->
+      <div class="stage">
+        <div class="gamebox" id="gamebox" aria-label="mini game area">
+          <div class="hud" aria-hidden="true">
+            <div class="p" id="hudLeft">—</div>
+            <div class="p" id="hudRight">—</div>
+          </div>
+
+          <div class="center" id="center">
+            <div>
+              <div class="big" id="bigTitle">Warmup</div>
+              <div class="hint2" id="bigHint">แตะเริ่ม เพื่อทำมินิเกมสั้น ๆ ก่อนเข้าเกมจริง</div>
+              <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
+            </div>
+          </div>
+
+          <!-- result overlay (shown on finish) -->
+          <div class="overlay" id="resultOverlay" hidden>
+            <div class="ovcard">
+              <div class="ovtitle" id="resTitle">สรุป</div>
+              <div class="ovsub" id="resBody">—</div>
+              <div class="ovactions">
+                <button class="btn primary" id="btnContinue">ไปต่อ</button>
+                <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- bypass overlay -->
+          <div class="overlay" id="bypassOverlay" hidden>
+            <div class="ovcard">
+              <div class="ovtitle">วันนี้ทำแล้ว ✅</div>
+              <div class="ovsub" id="bypassBody">ระบบจะพาไปต่ออัตโนมัติ</div>
+              <div class="ovactions">
+                <button class="btn cyan" id="btnGoNow">ไปต่อทันที</button>
+                <button class="btn ghost" id="btnBackHub2">กลับ HUB</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIDE -->
+      <div class="side">
+        <div class="panel">
+          <div style="font-weight:1000; font-size:14px;">เลือกมินิเกม</div>
+          <div style="margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;">
+            Warmup จะสุ่มให้ 1 เกม (หรือเลือกเอง) แล้วส่ง “บัฟ” เข้าเกมจริง<br/>
+            Cooldown จะเป็นหายใจ/ผ่อนคลาย (ไม่ส่งบัฟ)
+          </div>
+          <div class="btnrow">
+            <button class="btn" data-pick="breath">🫁 Breath Pulse</button>
+            <button class="btn" data-pick="tempo">🎵 Tap Tempo</button>
+            <button class="btn" data-pick="reaction">⚡ Reaction Light</button>
+            <button class="btn" data-pick="aim">🎯 Aim Lock</button>
+            <button class="btn ghost" id="btnRandom">สุ่ม</button>
+          </div>
+        </div>
+
+        <div class="kv" aria-label="debug params">
+          <div class="k"><div class="h">phase</div><div class="v" id="vPhase">—</div></div>
+          <div class="k"><div class="h">category</div><div class="v" id="vCat">—</div></div>
+          <div class="k"><div class="h">next</div><div class="v" id="vNext">—</div></div>
+          <div class="k"><div class="h">hub</div><div class="v" id="vHub">—</div></div>
+          <div class="k"><div class="h">dur</div><div class="v" id="vDur">—</div></div>
+          <div class="k"><div class="h">cdur</div><div class="v" id="vCDur">—</div></div>
+        </div>
+
+        <div class="panel" style="margin-top:10px;">
+          <div style="font-weight:1000; font-size:14px;">กติกา “วันละครั้ง”</div>
+          <div style="margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;">
+            เช็คตาม <b>PID + หมวดเกม + phase</b><br/>
+            เช่น: PID=stu01, nutrition, warmup → วันละครั้ง
+          </div>
+        </div>
+
+        <div class="btnrow">
+          <button class="btn ghost" id="btnSkip">ข้าม (debug)</button>
+        </div>
+      </div>
     </div>
   </div>
+</div>
 
-  <script>
-    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+<script>
+(function(){
+  'use strict';
 
-    const phase = String(qs('phase','warmup')).toLowerCase(); // warmup | cooldown
-    const dur = Math.max(5, Math.min(120, Number(qs('dur', qs('cdur','20'))) || 20));
+  // ===== QS utils =====
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
+  const QS = getQS();
+  const q = (k, def='') => (QS.get(k) ?? def);
+  const clampInt = (v,a,b,def)=>{
+    const n = Number(v);
+    if(!Number.isFinite(n)) return def;
+    return Math.max(a, Math.min(b, Math.floor(n)));
+  };
 
-    const hub = qs('hub','./hub.html') || './hub.html';
-    const next = qs('next', hub) || hub;
+  function absUrlMaybe(url){
+    if(!url) return '';
+    try{ return new URL(url, location.href).toString(); }catch(_){ return url; }
+  }
 
-    const $t = document.getElementById('gateTitle');
-    const $p = document.getElementById('gatePhase');
-    const $d = document.getElementById('gateDesc');
-    const $sec = document.getElementById('sec');
-    const $fill = document.getElementById('fill');
-    const $hint = document.getElementById('hint');
+  function buildUrl(base, params){
+    const u = new URL(base, location.href);
+    Object.entries(params||{}).forEach(([k,v])=>{
+      if(v === undefined || v === null || v === '') return;
+      u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+  }
 
-    $p.textContent = phase.toUpperCase();
+  function safeGo(url){
+    try{
+      if(window.HHA_LAUNCH && typeof window.HHA_LAUNCH.go === 'function'){ window.HHA_LAUNCH.go(url); return; }
+    }catch(_){}
+    location.replace(url);
+  }
 
-    if(phase === 'cooldown'){
-      $t.textContent = 'Cooldown';
-      $d.textContent = 'พักหายใจสั้น ๆ ก่อนกลับไปที่ HUB ✨';
-      $hint.textContent = 'ครบเวลาแล้วจะกลับไป HUB อัตโนมัติ';
+  // ===== date key (Asia/Bangkok) =====
+  function dayKeyBKK(){
+    try{
+      const s = new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit'
+      }).format(new Date());
+      // en-CA => YYYY-MM-DD
+      return String(s||'').trim() || '1970-01-01';
+    }catch(_){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const dd= String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${dd}`;
+    }
+  }
+
+  // ===== infer category =====
+  function inferCategory(catHint, nextUrl){
+    const c = String(catHint||'').toLowerCase().trim();
+    if(c==='nutrition' || c==='hygiene' || c==='exercise') return c;
+
+    const s = String(nextUrl||'').toLowerCase();
+    // nutrition games
+    if(s.includes('goodjunk') || s.includes('groups') || s.includes('hydration') || s.includes('plate')) return 'nutrition';
+    // hygiene games
+    if(s.includes('handwash') || s.includes('wash') || s.includes('brush') || s.includes('hygiene') || s.includes('mask') || s.includes('germ')) return 'hygiene';
+    // exercise games
+    if(s.includes('shadow') || s.includes('rhythm') || s.includes('jump') || s.includes('balance') || s.includes('fitness-planner') || s.includes('/fitness')) return 'exercise';
+
+    return 'nutrition'; // default
+  }
+
+  // ===== pid resolve =====
+  function resolvePid(){
+    const pidQ = String(q('pid','')||'').trim();
+    if(pidQ) return pidQ;
+
+    try{
+      const s = String(localStorage.getItem('HHA_PID')||'').trim();
+      if(s) return s;
+    }catch(_){}
+    return 'anon';
+  }
+
+  // ===== UI refs =====
+  const el = (id)=>document.getElementById(id);
+  const pillPhase = el('pillPhase');
+  const pillCat   = el('pillCat');
+  const pillPid   = el('pillPid');
+  const pillDaily = el('pillDaily');
+  const pillState = el('pillState');
+
+  const subLine = el('subLine');
+
+  const vPhase = el('vPhase');
+  const vCat   = el('vCat');
+  const vNext  = el('vNext');
+  const vHub   = el('vHub');
+  const vDur   = el('vDur');
+  const vCDur  = el('vCDur');
+
+  const gamebox = el('gamebox');
+  const center  = el('center');
+  const bigTitle= el('bigTitle');
+  const bigHint = el('bigHint');
+  const meterFill = el('meterFill');
+  const hudLeft = el('hudLeft');
+  const hudRight= el('hudRight');
+
+  const resultOverlay = el('resultOverlay');
+  const resTitle = el('resTitle');
+  const resBody  = el('resBody');
+  const btnContinue = el('btnContinue');
+  const btnBackHub = el('btnBackHub');
+
+  const bypassOverlay = el('bypassOverlay');
+  const bypassBody = el('bypassBody');
+  const btnGoNow = el('btnGoNow');
+  const btnBackHub2 = el('btnBackHub2');
+
+  // ===== params =====
+  const PHASE = String(q('phase','warmup')||'warmup').toLowerCase();
+  const NEXT  = absUrlMaybe(q('next',''));
+  const HUB   = absUrlMaybe(q('hub',''));
+  const DUR   = clampInt(q('dur','20'), 5, 60, 20);
+  const CDUR  = clampInt(q('cdur','20'), 5, 60, 20);
+  const PID   = resolvePid();
+  const CAT   = inferCategory(q('cat',''), NEXT);
+
+  const DAY   = dayKeyBKK();
+
+  // daily keys: per pid + category + phase
+  const DAILY_WARMUP_KEY   = `HHA_DAILY_WARMUP_DONE|${PID}|${CAT}|${DAY}`;
+  const DAILY_COOLDOWN_KEY = `HHA_DAILY_COOLDOWN_DONE|${PID}|${CAT}|${DAY}`;
+
+  function isDoneToday(){
+    try{
+      const key = (PHASE==='cooldown') ? DAILY_COOLDOWN_KEY : DAILY_WARMUP_KEY;
+      return localStorage.getItem(key) === '1';
+    }catch(_){
+      return false;
+    }
+  }
+  function markDoneToday(){
+    try{
+      const key = (PHASE==='cooldown') ? DAILY_COOLDOWN_KEY : DAILY_WARMUP_KEY;
+      localStorage.setItem(key, '1');
+    }catch(_){}
+  }
+
+  // ===== debug fill =====
+  pillPhase.textContent = 'PHASE: ' + PHASE.toUpperCase();
+  pillCat.textContent   = 'CAT: ' + CAT.toUpperCase();
+  pillPid.textContent   = 'PID: ' + PID;
+  pillDaily.textContent = 'DAY: ' + DAY;
+
+  vPhase.textContent = PHASE;
+  vCat.textContent   = CAT;
+  vNext.textContent  = NEXT || '(none)';
+  vHub.textContent   = HUB || '(none)';
+  vDur.textContent   = String(DUR);
+  vCDur.textContent  = String(CDUR);
+
+  // ===== passthrough params for NEXT =====
+  // keep all existing query params EXCEPT gate internals + we add buffs
+  function collectPassThrough(){
+    const deny = new Set(['phase','next','dur','cdur']);
+    const out = {};
+    QS.forEach((v,k)=>{
+      if(deny.has(k)) return;
+      out[k] = v;
+    });
+    // ensure pid/cat persist
+    if(!out.pid) out.pid = PID;
+    if(!out.cat) out.cat = CAT;
+    return out;
+  }
+
+  // ===== common finish =====
+  function showResult(title, html, continueLabel){
+    resTitle.textContent = title || 'สรุป';
+    resBody.innerHTML = html || '—';
+    if(continueLabel) btnContinue.textContent = continueLabel;
+    resultOverlay.hidden = false;
+  }
+
+  function clearGameObjects(){
+    // remove dynamic objects
+    Array.from(gamebox.querySelectorAll('.dot, .aim')).forEach(n=>{ try{ n.remove(); }catch(_){} });
+  }
+
+  function setMeter(p01){
+    const p = Math.max(0, Math.min(1, Number(p01)||0));
+    meterFill.style.width = Math.round(p*100) + '%';
+  }
+
+  function setHud(l, r){
+    hudLeft.textContent = l || '—';
+    hudRight.textContent = r || '—';
+  }
+
+  // ===== bypass logic (once/day) =====
+  function showBypass(){
+    bypassOverlay.hidden = false;
+    pillState.textContent = 'BYPASS';
+    if(PHASE==='warmup'){
+      bypassBody.innerHTML = `Warmup หมวด <b>${CAT}</b> วันนี้ทำแล้ว ✅<br/>กำลังพาไปเกมจริง…`;
     }else{
-      $t.textContent = 'Warmup';
-      $d.textContent = 'วอร์มอัพสั้น ๆ เพื่อเตรียมความพร้อมก่อนเริ่มเกม 🔥';
-      $hint.textContent = 'ครบเวลาแล้วจะไปต่ออัตโนมัติ';
+      bypassBody.innerHTML = `Cooldown หมวด <b>${CAT}</b> วันนี้ทำแล้ว ✅<br/>กำลังพากลับ HUB…`;
     }
+  }
 
-    let left = dur;
-    $sec.textContent = String(left);
+  function goHubOrNextFallback(){
+    if(HUB) { safeGo(HUB); return; }
+    if(NEXT) { safeGo(NEXT); return; }
+    history.back();
+  }
 
-    function go(){
-      const u = new URL(next, location.href);
-      if(phase === 'warmup'){
-        u.searchParams.set('wType', u.searchParams.get('wType') || 'warmup');
-        u.searchParams.set('wPct',  u.searchParams.get('wPct')  || '10');
+  function bypassAndGo(){
+    // warmup: go NEXT (no buffs)
+    // cooldown: go HUB (preferred), else NEXT
+    if(PHASE==='warmup'){
+      if(!NEXT){
+        // no next -> just go hub
+        goHubOrNextFallback();
+        return;
       }
-      u.searchParams.set('hub', hub);
-      location.replace(u.toString());
+      safeGo(buildUrl(NEXT, collectPassThrough()));
+      return;
+    }
+    goHubOrNextFallback();
+  }
+
+  btnGoNow.addEventListener('click', ()=> bypassAndGo());
+  btnBackHub2.addEventListener('click', ()=> goHubOrNextFallback());
+
+  // ===== COOL DOWN mode (guided breathing + reflect) =====
+  function runCooldown(){
+    pillState.textContent = 'COOLDOWN';
+    bigTitle.textContent = 'Cooldown';
+    bigHint.textContent = 'หายใจช้า ๆ เพื่อผ่อนคลาย (จบแล้วกลับ HUB)';
+    setHud('COOLDOWN', `⏳ ${CDUR}s`);
+    setMeter(0);
+
+    const total = CDUR;
+    let t0 = performance.now();
+    let ended = false;
+
+    // simple box breathing animation in text
+    const phases = [
+      { label:'หายใจเข้า', sec:4 },
+      { label:'กลั้น', sec:4 },
+      { label:'หายใจออก', sec:4 },
+      { label:'กลั้น', sec:4 }
+    ];
+    // If cooldown shorter, scale
+    const baseCycle = phases.reduce((a,p)=>a+p.sec,0);
+    const scale = Math.max(0.5, Math.min(1.5, total / baseCycle));
+    phases.forEach(p=>p.sec = Math.max(2, Math.round(p.sec * scale)));
+
+    let cycleSec = phases.reduce((a,p)=>a+p.sec,0);
+    let cycleStart = 0;
+
+    function phaseAt(sec){
+      let s = sec % cycleSec;
+      for(const p of phases){
+        if(s <= p.sec) return { label:p.label, left:p.sec - s, span:p.sec };
+        s -= p.sec;
+      }
+      return { label:'หายใจ', left:1, span:1 };
     }
 
-    document.getElementById('btnHub').onclick = ()=> location.href = hub;
-    document.getElementById('btnSkip').onclick = ()=> go();
+    function tick(){
+      if(ended) return;
+      const now = performance.now();
+      const dt = (now - t0)/1000;
+      const left = Math.max(0, total - dt);
+      setMeter((total-left)/total);
 
-    const total = dur;
-    const timer = setInterval(()=>{
-      left = Math.max(0, left - 1);
-      $sec.textContent = String(left);
-      const p = (total>0) ? (1 - left/total) : 1;
-      $fill.style.width = Math.round(p*100) + '%';
+      const ph = phaseAt(dt);
+      setHud('COOLDOWN', `⏳ ${left.toFixed(0)}s`);
+      bigTitle.textContent = ph.label;
+      bigHint.textContent = `คงจังหวะ… อีก ${ph.left.toFixed(0)}s`;
+
+      if(left <= 0){
+        ended = true;
+        markDoneToday();
+        showResult(
+          'Cooldown เสร็จแล้ว ✅',
+          `หมวด <b>${CAT}</b> สำหรับวันนี้เรียบร้อย<br/>กด <b>กลับ HUB</b> เพื่อไปต่อ`,
+          'กลับ HUB'
+        );
+        btnContinue.onclick = ()=> goHubOrNextFallback();
+        btnBackHub.onclick = ()=> goHubOrNextFallback();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ===== WARM UP mini games =====
+  const MINI = {
+    breath: { name:'Breath Pulse', icon:'🫁', desc:'แตะค้างตามจังหวะ “เข้า/ออก” เพื่อเพิ่มความนิ่ง' },
+    tempo: { name:'Tap Tempo', icon:'🎵', desc:'แตะตามบีทให้ตรง เพิ่มความพร้อมก่อนเกม' },
+    reaction:{ name:'Reaction Light', icon:'⚡', desc:'แตะเฉพาะ “เขียว” ห้ามแตะ “แดง” ฝึกคุมตัวเอง' },
+    aim:    { name:'Aim Lock', icon:'🎯', desc:'แตะให้โดนเป้าเร็ว ๆ ฝึกเล็งสำหรับ VR/cVR' }
+  };
+
+  function randPick(){
+    const keys = Object.keys(MINI);
+    return keys[Math.floor(Math.random()*keys.length)];
+  }
+
+  // compute buffs from score
+  function rankFromPct(p){
+    if(p >= 90) return 'S';
+    if(p >= 80) return 'A';
+    if(p >= 65) return 'B';
+    if(p >= 50) return 'C';
+    return 'D';
+  }
+
+  function finishWarmup(type, out){
+    // out: { pct, calm, crit, dmg, heal, rank, detailsHtml }
+    markDoneToday();
+    pillState.textContent = 'DONE';
+    clearGameObjects();
+
+    const pct = Math.max(0, Math.min(100, Math.round(Number(out.pct)||0)));
+    const calm = Math.max(0, Math.min(1, Number(out.calm)||0));
+    const wCrit = Math.max(0, Math.min(100, Math.round(Number(out.crit)||0)));
+    const wDmg  = Math.max(0, Math.min(100, Math.round(Number(out.dmg)||0)));
+    const wHeal = Math.max(0, Math.min(100, Math.round(Number(out.heal)||0)));
+    const rank  = String(out.rank || rankFromPct(pct));
+
+    // show summary first, then go NEXT
+    const detail =
+      (out.detailsHtml ? out.detailsHtml : '') +
+      `<div style="margin-top:10px; line-height:1.45;">
+        <b>ผลวอร์มอัป</b><br/>
+        wType=<b>${type}</b> · wPct=<b>${pct}</b> · rank=<b>${rank}</b><br/>
+        wCrit=<b>${wCrit}</b> · wDmg=<b>${wDmg}</b> · wHeal=<b>${wHeal}</b> · calm=<b>${calm.toFixed(2)}</b>
+      </div>`;
+
+    showResult(
+      `Warmup: ${MINI[type].name} ✅`,
+      `หมวด <b>${CAT}</b> วันนี้ทำแล้ว<br/>${detail}`,
+      'เข้าเกมจริง'
+    );
+
+    btnBackHub.onclick = ()=> goHubOrNextFallback();
+
+    btnContinue.onclick = ()=>{
+      if(!NEXT){
+        goHubOrNextFallback();
+        return;
+      }
+      const pass = collectPassThrough();
+      // add buff params
+      pass.wType = type;
+      pass.wPct  = String(pct);
+      pass.rank  = rank;
+      pass.wCrit = String(wCrit);
+      pass.wDmg  = String(wDmg);
+      pass.wHeal = String(wHeal);
+      pass.calm  = String(Number(calm.toFixed(3)));
+      pass.gateDone = '1';
+      pass.gateDay  = DAY;
+
+      safeGo(buildUrl(NEXT, pass));
+    };
+  }
+
+  // ---- Breath Pulse mini game ----
+  function playBreath(){
+    pillState.textContent = 'WARMUP';
+    const total = DUR;
+    const cycle = 6; // seconds (3 in + 3 out)
+    let t0 = performance.now();
+    let ended = false;
+
+    let good = 0, bad = 0, holds = 0;
+    let holding = false;
+    let lastDown = 0;
+
+    bigTitle.textContent = 'Breath Pulse';
+    bigHint.textContent = 'แตะค้าง “หายใจเข้า” · ปล่อย “หายใจออก”';
+    setHud('🫁 HOLD/RELEASE', `⏳ ${total}s`);
+    setMeter(0);
+
+    // judge timing: during first half = inhale => hold good; second half => release good
+    function phaseAt(sec){
+      const s = sec % cycle;
+      return (s < cycle/2) ? 'inhale' : 'exhale';
+    }
+
+    function onDown(e){
+      e.preventDefault();
+      holding = true;
+      lastDown = performance.now();
+      holds++;
+    }
+    function onUp(e){
+      e.preventDefault();
+      holding = false;
+      // nothing else
+    }
+
+    gamebox.addEventListener('pointerdown', onDown, { passive:false });
+    window.addEventListener('pointerup', onUp, { passive:true });
+
+    function tick(){
+      if(ended) return;
+      const now = performance.now();
+      const dt = (now - t0)/1000;
+      const left = Math.max(0, total - dt);
+      setMeter((total-left)/total);
+      const ph = phaseAt(dt);
+
+      bigTitle.textContent = (ph==='inhale') ? 'หายใจเข้า' : 'หายใจออก';
+      bigHint.textContent  = (ph==='inhale') ? 'แตะค้างไว้…' : 'ปล่อยให้โล่ง…';
+
+      // scoring
+      // every 200ms sample: if doing correct action => good else bad
+      // (cheap & robust)
+      const sampleEvery = 0.20;
+      const samples = Math.floor(dt / sampleEvery);
+      // track samples by storing lastSample
+      if(!tick.lastSample) tick.lastSample = 0;
+      if(samples > tick.lastSample){
+        tick.lastSample = samples;
+        const ok = (ph==='inhale') ? holding : !holding;
+        if(ok) good++; else bad++;
+      }
+
+      setHud(`🫁 ${holding?'HOLD':'RELEASE'}`, `⏳ ${left.toFixed(0)}s`);
+
       if(left<=0){
-        clearInterval(timer);
-        go();
+        ended = true;
+        gamebox.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointerup', onUp);
+
+        const denom = Math.max(1, good+bad);
+        const pct = Math.round((good/denom)*100);
+        const calm = Math.max(0.1, Math.min(1, good/denom)); // 0.1..1
+        const heal = Math.round(30 + calm*60);               // 30..90
+        const crit = Math.round(10 + (pct/100)*35);          // 10..45
+        const dmg  = Math.round(10 + (pct/100)*25);          // 10..35
+
+        finishWarmup('breath', {
+          pct, calm, heal, crit, dmg,
+          rank: rankFromPct(pct),
+          detailsHtml: `สถิติ: good=<b>${good}</b> bad=<b>${bad}</b> holds=<b>${holds}</b>`
+        });
+        return;
       }
-    }, 1000);
-  </script>
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- Tap Tempo mini game ----
+  function playTempo(){
+    pillState.textContent = 'WARMUP';
+    const total = DUR;
+
+    // BPM depends on category: exercise faster
+    const bpm = (CAT==='exercise') ? 92 : (CAT==='hygiene') ? 78 : 84;
+    const beatMs = 60000 / bpm;
+    const targetBeats = Math.max(10, Math.min(18, Math.round(total * 0.65)));
+
+    let t0 = performance.now();
+    let taps = 0;
+    let errSum = 0;
+    let lastBeatT = t0;
+    let ended = false;
+
+    bigTitle.textContent = 'Tap Tempo';
+    bigHint.textContent = `แตะตามบีท ~${bpm} BPM ให้ตรงที่สุด (${targetBeats} ครั้ง)`;
+    setHud('🎵 TAP ON BEAT', `0/${targetBeats}`);
+    setMeter(0);
+
+    function nearestBeatTime(now){
+      // beat 0 at t0
+      const k = Math.round((now - t0)/beatMs);
+      return t0 + k*beatMs;
+    }
+
+    function onTap(e){
+      if(ended) return;
+      e.preventDefault();
+      const now = performance.now();
+      const bt = nearestBeatTime(now);
+      const err = Math.abs(now - bt);
+      taps++;
+      errSum += err;
+
+      // quick feedback flash
+      const ok = err <= 120;
+      bigTitle.textContent = ok ? 'GOOD' : 'MISS';
+      bigHint.textContent  = ok ? 'ตรงบีท!' : 'ช้า/เร็วไปนิด';
+      setTimeout(()=>{
+        if(ended) return;
+        bigTitle.textContent = 'Tap Tempo';
+        bigHint.textContent = `แตะตามบีท ~${bpm} BPM ให้ตรงที่สุด (${targetBeats} ครั้ง)`;
+      }, 220);
+
+      setHud(`🎵 ${Math.max(0, (beatMs-err)).toFixed(0)} score`, `${taps}/${targetBeats}`);
+
+      if(taps >= targetBeats){
+        endNow();
+      }
+    }
+
+    gamebox.addEventListener('pointerdown', onTap, { passive:false });
+
+    function endNow(){
+      if(ended) return;
+      ended = true;
+      gamebox.removeEventListener('pointerdown', onTap);
+
+      const avgErr = errSum / Math.max(1, taps);
+      // convert avgErr to pct (0..100)
+      const pct = Math.round(Math.max(0, Math.min(100, 100 - (avgErr/beatMs)*140)));
+      const calm = Math.max(0.15, Math.min(0.9, 0.55 + (pct-60)/100)); // 0.15..0.9
+
+      // action buff: damage + a bit crit
+      const dmg  = Math.round(35 + (pct/100)*55); // 35..90
+      const crit = Math.round(20 + (pct/100)*50); // 20..70
+      const heal = Math.round(10 + (pct/100)*20); // 10..30
+
+      finishWarmup('tempo', {
+        pct, calm, dmg, crit, heal,
+        rank: rankFromPct(pct),
+        detailsHtml:`สถิติ: taps=<b>${taps}</b> avgErr=<b>${avgErr.toFixed(0)}ms</b> (beat=${beatMs.toFixed(0)}ms)`
+      });
+    }
+
+    function tick(){
+      if(ended) return;
+      const now = performance.now();
+      const dt = (now - t0)/1000;
+      const left = Math.max(0, total - dt);
+      setMeter((total-left)/total);
+
+      // show remaining time in hudLeft
+      setHud('🎵 TAP ON BEAT', `${taps}/${targetBeats} · ⏳ ${left.toFixed(0)}s`);
+
+      if(left <= 0){
+        endNow();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- Reaction Light mini game ----
+  function playReaction(){
+    pillState.textContent = 'WARMUP';
+    const total = DUR;
+    let t0 = performance.now();
+    let ended = false;
+
+    let rounds = 0;
+    let hits = 0;
+    let falseHits = 0;
+    let rtSum = 0;
+    let awaiting = false;
+    let shownAt = 0;
+    let currentIsGood = true;
+    let dot = null;
+
+    bigTitle.textContent = 'Reaction Light';
+    bigHint.textContent = 'แตะเฉพาะ “เขียว” · ห้ามแตะ “แดง”';
+    setHud('⚡ WAIT', `⏳ ${total}s`);
+    setMeter(0);
+
+    function spawnDot(){
+      clearDot();
+      const r = gamebox.getBoundingClientRect();
+      const x = 12 + Math.random()*(r.width-24);
+      const y = 88 + Math.random()*(r.height-120);
+
+      dot = document.createElement('div');
+      dot.className = 'dot';
+      currentIsGood = Math.random() > 0.28; // 72% green, 28% red
+      dot.classList.add(currentIsGood ? 'good' : 'bad');
+      dot.textContent = currentIsGood ? '🟢' : '🔴';
+      dot.style.left = x + 'px';
+      dot.style.top  = y + 'px';
+      gamebox.appendChild(dot);
+
+      awaiting = true;
+      shownAt = performance.now();
+
+      dot.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        if(!awaiting || ended) return;
+
+        const rt = performance.now() - shownAt;
+        awaiting = false;
+        rounds++;
+
+        if(currentIsGood){
+          hits++;
+          rtSum += rt;
+          dot.style.transform = 'translate(-50%,-50%) scale(1.15)';
+          dot.style.opacity = '.2';
+        }else{
+          falseHits++;
+          dot.style.transform = 'translate(-50%,-50%) scale(0.85)';
+          dot.style.opacity = '.2';
+        }
+
+        setTimeout(()=> spawnDot(), 260);
+      }, { passive:false });
+
+      // auto expire
+      setTimeout(()=>{
+        if(ended) return;
+        if(awaiting){
+          awaiting = false;
+          rounds++;
+          // missed a green? penalize lightly
+          if(currentIsGood) falseHits++;
+          spawnDot();
+        }
+      }, 1100);
+    }
+
+    function clearDot(){
+      if(dot){ try{ dot.remove(); }catch(_){} dot = null; }
+    }
+
+    spawnDot();
+
+    function endNow(){
+      if(ended) return;
+      ended = true;
+      clearDot();
+
+      const acc = hits / Math.max(1, rounds);
+      const avgRt = rtSum / Math.max(1, hits); // ms
+      const rtScore = Number.isFinite(avgRt) ? Math.max(0, Math.min(1, 1 - (avgRt/900))) : 0;
+
+      const pct = Math.round( (acc*0.62 + rtScore*0.38) * 100 );
+      const calm = Math.max(0.12, Math.min(0.9, 0.45 + (acc-0.6)));
+
+      // reaction buff: crit heavy
+      const crit = Math.round(35 + (pct/100)*60); // 35..95
+      const dmg  = Math.round(20 + (pct/100)*45); // 20..65
+      const heal = Math.round(10 + (pct/100)*15); // 10..25
+
+      finishWarmup('reaction', {
+        pct, calm, crit, dmg, heal,
+        rank: rankFromPct(pct),
+        detailsHtml:`สถิติ: rounds=<b>${rounds}</b> hits=<b>${hits}</b> false=<b>${falseHits}</b> avgRT=<b>${Number.isFinite(avgRt)?avgRt.toFixed(0):'—'}ms</b>`
+      });
+    }
+
+    function tick(){
+      if(ended) return;
+      const now = performance.now();
+      const dt = (now - t0)/1000;
+      const left = Math.max(0, total - dt);
+      setMeter((total-left)/total);
+      setHud('⚡ TAP GREEN', `hits ${hits}/${rounds} · ⏳ ${left.toFixed(0)}s`);
+      if(left<=0){
+        endNow();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- Aim Lock mini game ----
+  function playAim(){
+    pillState.textContent = 'WARMUP';
+    const total = DUR;
+    const shotsNeed = Math.max(8, Math.min(14, Math.round(total * 0.55)));
+
+    let t0 = performance.now();
+    let ended = false;
+
+    let shots = 0;
+    let hits = 0;
+    let rtSum = 0;
+    let shownAt = 0;
+    let aim = null;
+
+    bigTitle.textContent = 'Aim Lock';
+    bigHint.textContent = 'แตะให้โดนเป้าให้เร็ว (เหมาะกับ VR/cVR)';
+    setHud('🎯 HIT TARGET', `0/${shotsNeed}`);
+    setMeter(0);
+
+    function spawnAim(){
+      if(ended) return;
+      if(aim){ try{ aim.remove(); }catch(_){} aim=null; }
+
+      const r = gamebox.getBoundingClientRect();
+      const x = 12 + Math.random()*(r.width-24);
+      const y = 92 + Math.random()*(r.height-130);
+
+      aim = document.createElement('div');
+      aim.className = 'aim';
+      aim.style.left = x + 'px';
+      aim.style.top  = y + 'px';
+      gamebox.appendChild(aim);
+      shownAt = performance.now();
+
+      aim.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        if(ended) return;
+
+        const rt = performance.now() - shownAt;
+        rtSum += rt;
+        hits++;
+        shots++;
+        aim.style.opacity = '.2';
+        aim.style.transform = 'translate(-50%,-50%) scale(1.08)';
+        setTimeout(()=> spawnAim(), 190);
+
+        setHud('🎯 HIT TARGET', `${hits}/${shotsNeed}`);
+        if(shots >= shotsNeed) endNow();
+      }, { passive:false });
+
+      // expire counts as miss shot (but not severe)
+      setTimeout(()=>{
+        if(ended) return;
+        if(aim){
+          shots++;
+          try{ aim.remove(); }catch(_){}
+          aim=null;
+          if(shots >= shotsNeed) endNow();
+          else spawnAim();
+        }
+      }, 950);
+    }
+
+    spawnAim();
+
+    function endNow(){
+      if(ended) return;
+      ended = true;
+      if(aim){ try{ aim.remove(); }catch(_){ } aim=null; }
+
+      const acc = hits / Math.max(1, shots);
+      const avgRt = rtSum / Math.max(1, hits);
+      const rtScore = Number.isFinite(avgRt) ? Math.max(0, Math.min(1, 1 - (avgRt/900))) : 0;
+
+      const pct = Math.round((acc*0.70 + rtScore*0.30)*100);
+      const rank = rankFromPct(pct);
+      const calm = Math.max(0.10, Math.min(0.85, 0.35 + (pct/120)));
+
+      const dmg  = Math.round(30 + (pct/100)*55); // 30..85
+      const crit = Math.round(25 + (pct/100)*55); // 25..80
+      const heal = Math.round(10 + (pct/100)*20); // 10..30
+
+      finishWarmup('aim', {
+        pct, calm, dmg, crit, heal, rank,
+        detailsHtml:`สถิติ: shots=<b>${shots}</b> hits=<b>${hits}</b> acc=<b>${(acc*100).toFixed(0)}%</b> avgRT=<b>${Number.isFinite(avgRt)?avgRt.toFixed(0):'—'}ms</b>`
+      });
+    }
+
+    function tick(){
+      if(ended) return;
+      const now = performance.now();
+      const dt = (now - t0)/1000;
+      const left = Math.max(0, total - dt);
+      setMeter((total-left)/total);
+      setHud('🎯 HIT TARGET', `${hits}/${shotsNeed} · ⏳ ${left.toFixed(0)}s`);
+      if(left<=0){
+        endNow();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function runWarmup(type){
+    // If type not set, random
+    const t = (type && MINI[type]) ? type : randPick();
+    pillState.textContent = 'WARMUP';
+    bypassOverlay.hidden = true;
+    resultOverlay.hidden = true;
+    clearGameObjects();
+    setMeter(0);
+    setHud('—','—');
+
+    // little intro
+    bigTitle.textContent = MINI[t].icon + ' ' + MINI[t].name;
+    bigHint.textContent  = MINI[t].desc + ' — แตะที่พื้นที่เพื่อเริ่ม';
+    center.style.pointerEvents = 'auto';
+
+    function start(){
+      center.style.pointerEvents = 'none';
+      // remove the big center click guard (we keep it visible as text)
+      if(t==='breath') playBreath();
+      else if(t==='tempo') playTempo();
+      else if(t==='reaction') playReaction();
+      else playAim();
+      gamebox.removeEventListener('pointerdown', startCapture);
+    }
+
+    function startCapture(e){
+      // start only when user taps in center area (avoid menu button taps)
+      const target = e.target;
+      if(target && (target.closest('.overlay') || target.closest('.btn') || target.closest('.side'))) return;
+      e.preventDefault();
+      start();
+    }
+
+    gamebox.addEventListener('pointerdown', startCapture, { passive:false, once:false });
+  }
+
+  // ===== Bind buttons =====
+  document.querySelectorAll('[data-pick]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const type = btn.getAttribute('data-pick');
+      if(PHASE==='cooldown') return; // ignore
+      runWarmup(type);
+    });
+  });
+  document.getElementById('btnRandom').addEventListener('click', ()=>{
+    if(PHASE==='cooldown') return;
+    runWarmup(randPick());
+  });
+
+  document.getElementById('btnSkip').addEventListener('click', ()=>{
+    // debug skip: mark done and go
+    markDoneToday();
+    showBypass();
+  });
+
+  btnBackHub.addEventListener('click', ()=> goHubOrNextFallback());
+
+  // ===== MAIN start =====
+  if(PHASE === 'cooldown'){
+    subLine.textContent = `Cooldown หลังจบเกม (หมวด ${CAT}) — วันละครั้งต่อ PID`;
+    if(isDoneToday()){
+      showBypass();
+      // auto go in 600ms
+      setTimeout(()=> bypassAndGo(), 600);
+      return;
+    }
+    // run cooldown directly
+    runCooldown();
+    return;
+  }
+
+  // warmup
+  subLine.textContent = `Warmup ก่อนเข้าเกมจริง (หมวด ${CAT}) — วันละครั้งต่อ PID`;
+  if(isDoneToday()){
+    showBypass();
+    setTimeout(()=> bypassAndGo(), 600);
+    return;
+  }
+
+  // if missing next, still allow warmup but then go hub
+  if(!NEXT){
+    subLine.textContent += ` · (ไม่มี next → จะกลับ HUB)`;
+  }
+
+  // default warmup: random
+  runWarmup(randPick());
+})();
+</script>
 </body>
 </html>
