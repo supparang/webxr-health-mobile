@@ -1,11 +1,11 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
 PATCH v20260215c
-✅ Views: pc/mobile/vr/cvr (via body classes)
+✅ Views: pc/mobile/vr/cvr  (via body classes)
 ✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
 ✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Practice overlay (15s) like other games: ?run=practice OR ?practice=1
+✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Practice mode: ?practice=1  (15s warmup overlay like other games)
 -->
 <!doctype html>
 <html lang="th">
@@ -21,7 +21,7 @@ PATCH v20260215c
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- Optional shared helpers -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -86,21 +86,22 @@ PATCH v20260215c
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+          • Practice: <span id="labPractice">off</span>
         </div>
       </div>
     </div>
 
-    <!-- Practice Overlay (15s) -->
+    <!-- Practice Overlay (15s like other games) -->
     <div class="hw-overlay" id="practiceOverlay" style="display:none">
       <div class="hw-card">
-        <div class="hw-card-title">🧪 Practice Mode</div>
+        <div class="hw-card-title">🏋️ Practice (Warm-up)</div>
         <div class="hw-card-sub">
-          ซ้อมก่อนเริ่มจริง <b>15 วินาที</b> • ลองแตะ/ยิงเป้าให้ถนัด • ไม่บันทึกผล
+          ฝึก 15 วินาทีก่อนเข้าเกมจริง • แตะให้แม่น • รักษาคอมโบ • อย่าโดน 🦠
         </div>
-        <div id="practiceCounter" class="hw-card-sub">15</div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPracticeGo" type="button">▶ เริ่มเล่นจริง</button>
-          <button class="hw-ghost" id="btnPracticeSkip" type="button">⏭ ข้าม Practice</button>
+        <div id="practiceCounter" aria-label="practice countdown">15</div>
+        <div class="hw-card-row" style="margin-top:14px">
+          <button class="hw-cta" id="btnPracticeSkip" type="button">⏭ ข้าม Practice</button>
+          <button class="hw-ghost" id="btnPracticeCancel" type="button">↩ กลับหน้าเริ่ม</button>
         </div>
       </div>
     </div>
@@ -129,16 +130,78 @@ PATCH v20260215c
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
+    document.getElementById('labView').textContent = view;
   }
-  setViewClass();
 
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+  const run = (qs('run','play')||'play');
+  const diff = (qs('diff','normal')||'normal');
+  const practiceOn = (qs('practice','0') === '1');
+
+  setViewClass();
+  document.getElementById('labMode').textContent = run;
+  document.getElementById('labDiff').textContent = diff;
+  document.getElementById('labPractice').textContent = practiceOn ? 'on' : 'off';
+
+  // UI-only practice overlay orchestration:
+  // Engine will actually start when user presses Start; if practice=1 we show warmup overlay first
+  const startOverlay = document.getElementById('startOverlay');
+  const practiceOverlay = document.getElementById('practiceOverlay');
+  const counter = document.getElementById('practiceCounter');
+  const btnStart = document.getElementById('btnStart');
+  const btnSkip = document.getElementById('btnPracticeSkip');
+  const btnCancel = document.getElementById('btnPracticeCancel');
+
+  let t = 15, timer = null;
+
+  function stopTimer(){
+    if(timer){ clearInterval(timer); timer = null; }
+  }
+  function showStart(){
+    stopTimer();
+    if(practiceOverlay) practiceOverlay.style.display = 'none';
+    if(startOverlay) startOverlay.style.display = 'grid';
+  }
+  function showPractice(){
+    stopTimer();
+    t = 15;
+    if(counter) counter.textContent = String(t);
+    if(startOverlay) startOverlay.style.display = 'none';
+    if(practiceOverlay) practiceOverlay.style.display = 'grid';
+
+    timer = setInterval(()=>{
+      t--;
+      if(counter) counter.textContent = String(Math.max(0,t));
+      if(t <= 0){
+        stopTimer();
+        // fire a hint; engine will start on Start button click (we auto-click it)
+        try{ btnStart?.click(); }catch{}
+      }
+    }, 1000);
+  }
+
+  // If practice=1, intercept Start -> practice first (then auto Start)
+  if(btnStart){
+    const orig = btnStart.onclick;
+    btnStart.addEventListener('click', (ev)=>{
+      // if overlay not visible, ignore
+      if(!startOverlay || startOverlay.style.display === 'none') return;
+      if(!practiceOn) return; // normal start
+      ev.preventDefault();
+      ev.stopPropagation();
+      showPractice();
+    }, true);
+    if(orig) btnStart.onclick = orig;
+  }
+
+  btnSkip?.addEventListener('click', ()=>{
+    stopTimer();
+    try{ btnStart?.click(); }catch{}
+  }, { passive:true });
+
+  btnCancel?.addEventListener('click', showStart, { passive:true });
+
 })();
 </script>
+
 </body>
 </html>
