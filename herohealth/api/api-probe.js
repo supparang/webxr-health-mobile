@@ -1,32 +1,48 @@
 // === /herohealth/api/api-probe.js ===
-// Safe endpoint probe (no Apollo)
+// Probe API reachability without crashing UI
+// Strategy: attempt a lightweight POST (GraphQL-ish) and interpret status.
+// - 200/2xx => OK
+// - 401/403 => forbidden => disable remote
+// - other => treat as down (temporary)
 
 'use strict';
 
-export async function probeEndpoint(endpoint){
-  const url = String(endpoint || '').trim();
-  if(!url){
-    return { ok:false, status:0, error:'NO_ENDPOINT' };
-  }
+import { disableRemote } from './api-status.js';
 
+function timeoutFetch(url, options={}, timeoutMs=4500){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: ctrl.signal })
+    .finally(()=> clearTimeout(t));
+}
+
+export async function probeApi({ uri, timeoutMs=4500 }){
+  if(!uri) return { ok:false, status:0, reason:'missing_uri' };
+
+  let res;
   try{
-    const res = await fetch(url, {
+    // Many API gateways reject GET; POST is closer to actual traffic.
+    res = await timeoutFetch(uri, {
       method: 'POST',
-      mode: 'cors',
       headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ ping:true })
-    });
-
-    return {
-      ok: res.status === 200,
-      status: res.status,
-      statusText: res.statusText || '',
-    };
+      body: JSON.stringify({ query: 'query Ping{__typename}' })
+    }, timeoutMs);
   }catch(err){
-    return {
-      ok:false,
-      status:0,
-      error: String(err?.message || err || 'FETCH_FAILED')
-    };
+    return { ok:false, status:0, reason: String(err?.name || err || 'network_error') };
   }
+
+  const status = res.status || 0;
+
+  if(status >= 200 && status < 300){
+    return { ok:true, status, reason:'ok' };
+  }
+
+  // 401/403 = not allowed (key/authorizer/policy/WAF)
+  if(status === 401 || status === 403){
+    disableRemote(status, 'forbidden');
+    return { ok:false, status, reason:'forbidden' };
+  }
+
+  // Other errors: treat as down (don’t hard-disable forever)
+  return { ok:false, status, reason:'down' };
 }
