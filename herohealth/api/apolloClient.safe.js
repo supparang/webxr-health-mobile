@@ -1,131 +1,74 @@
 // === /herohealth/api/apolloClient.safe.js ===
-// Apollo Client SAFE wrapper (403-safe, no retry flood, offline-friendly)
-// Exposes: window.HHA_API (client/query/mutate/enabled/disableInfo)
+// Safe Apollo-like wrapper (NO hard dependency).
+// If you already have real ApolloClient, you can adapt this pattern.
 
 'use strict';
 
-import { isRemoteDisabled, disableRemote, disabledInfo } from './api-status.js';
+import { isRemoteDisabled, disableRemote } from './api-status.js';
 
-// Optional: prevent red error floods from unhandled Apollo promises
-(function installUnhandledGuard(){
-  if(window.__HHA_APOLLO_GUARD__) return;
-  window.__HHA_APOLLO_GUARD__ = 1;
+export function createSafeClient({ uri }){
+  const endpoint = String(uri||'').trim();
 
-  window.addEventListener('unhandledrejection', (ev)=>{
-    const msg = String(ev?.reason?.message || ev?.reason || '');
-    // swallow known Apollo 403 noise
-    if(msg.includes('Received status code 403') || msg.includes('status code 401') || msg.includes('ApolloError')){
-      ev.preventDefault?.();
-    }
-  });
-})();
+  async function safePost(body){
+    if(!endpoint) return { ok:false, status:0, json:null, reason:'missing_uri' };
+    if(isRemoteDisabled()) return { ok:false, status:403, json:null, reason:'disabled' };
 
-function hasApollo(){
-  return !!(window.ApolloClient && window.ApolloClient.ApolloClient);
-}
+    try{
+      const res = await fetch(endpoint, {
+        method:'POST',
+        mode:'cors',
+        headers:{ 'content-type':'application/json' },
+        body: JSON.stringify(body||{})
+      });
 
-function safeErrCode(err){
-  const ne = err?.networkError || err?.cause || err;
-  const sc = ne?.statusCode || ne?.status || ne?.response?.status || 0;
-  return Number(sc||0)||0;
-}
+      const status = res.status || 0;
 
-function createClient({ uri }){
-  // If Apollo is not available (or blocked), just return null
-  if(!hasApollo()) return null;
-
-  const { ApolloClient, InMemoryCache, HttpLink, from } = window.ApolloClient;
-
-  // Some builds also expose onError in ApolloLinkError
-  const onErrorFn =
-    window.ApolloClient?.onError ||
-    window.ApolloLinkError?.onError ||
-    null;
-
-  const httpLink = new HttpLink({
-    uri,
-    fetch: (u, opt)=> fetch(u, opt),
-  });
-
-  const links = [];
-
-  if(typeof onErrorFn === 'function'){
-    links.push(onErrorFn(({ networkError })=>{
-      const status = Number(networkError?.statusCode || networkError?.status || 0) || 0;
       if(status === 401 || status === 403){
-        // Hard-disable remote for this session to stop retries
-        disableRemote(status, 'forbidden');
+        disableRemote(status, 'auth');
+        return { ok:false, status, json:null, reason:'forbidden' };
       }
-    }));
+
+      let json = null;
+      try{ json = await res.json(); }catch{ /* ignore */ }
+
+      if(status >= 200 && status < 300){
+        return { ok:true, status, json, reason:'ok' };
+      }
+      return { ok:false, status, json, reason:'http_error' };
+    }catch(e){
+      return { ok:false, status:0, json:null, reason:'fetch_error', error:String(e?.message||e) };
+    }
   }
 
-  links.push(httpLink);
+  // Apollo-compatible-ish: client.query / client.mutate returning Promise without throw
+  return {
+    async query({ query, variables }){
+      const body = { query, variables };
+      const r = await safePost(body);
 
-  const link = (typeof from === 'function') ? from(links) : httpLink;
+      if(!r.ok){
+        return {
+          data: null,
+          errors: [{ message:`API ${r.status||0} ${r.reason||'error'}` }],
+          extensions: { status:r.status||0, reason:r.reason||'error' }
+        };
+      }
+      // GraphQL servers usually return {data, errors}
+      return r.json || { data:null };
+    },
 
-  return new ApolloClient({
-    link,
-    cache: new InMemoryCache(),
-    defaultOptions: {
-      query: { fetchPolicy: 'no-cache', errorPolicy:'all' },
-      watchQuery: { fetchPolicy: 'no-cache', errorPolicy:'all' },
-      mutate: { errorPolicy:'all' }
+    async mutate({ mutation, variables }){
+      const body = { query: mutation, variables };
+      const r = await safePost(body);
+
+      if(!r.ok){
+        return {
+          data: null,
+          errors: [{ message:`API ${r.status||0} ${r.reason||'error'}` }],
+          extensions: { status:r.status||0, reason:r.reason||'error' }
+        };
+      }
+      return r.json || { data:null };
     }
-  });
-}
-
-async function safeQuery(client, args){
-  if(isRemoteDisabled()) return { data:null, error:{ code:403, message:'remote_disabled' } };
-  if(!client) return { data:null, error:{ code:0, message:'apollo_missing' } };
-
-  try{
-    const r = await client.query(args);
-    return { data: r?.data ?? null, error: null };
-  }catch(err){
-    const code = safeErrCode(err);
-
-    if(code === 401 || code === 403){
-      disableRemote(code, 'forbidden');
-      // swallow: return controlled error
-      return { data:null, error:{ code, message:'forbidden' } };
-    }
-    return { data:null, error:{ code, message: String(err?.message || err || 'query_failed') } };
-  }
-}
-
-async function safeMutate(client, args){
-  if(isRemoteDisabled()) return { data:null, error:{ code:403, message:'remote_disabled' } };
-  if(!client) return { data:null, error:{ code:0, message:'apollo_missing' } };
-
-  try{
-    const r = await client.mutate(args);
-    return { data: r?.data ?? null, error: null };
-  }catch(err){
-    const code = safeErrCode(err);
-
-    if(code === 401 || code === 403){
-      disableRemote(code, 'forbidden');
-      return { data:null, error:{ code, message:'forbidden' } };
-    }
-    return { data:null, error:{ code, message: String(err?.message || err || 'mutate_failed') } };
-  }
-}
-
-export function initApolloSafe({ uri }){
-  // create once
-  if(window.HHA_API && window.HHA_API.__inited) return window.HHA_API;
-
-  const client = createClient({ uri });
-
-  window.HHA_API = {
-    __inited: true,
-    uri: String(uri||''),
-    client,
-    enabled: ()=> !isRemoteDisabled() && !!client,
-    disableInfo: ()=> disabledInfo(),
-    query: (args)=> safeQuery(client, args),
-    mutate: (args)=> safeMutate(client, args),
   };
-
-  return window.HHA_API;
 }
