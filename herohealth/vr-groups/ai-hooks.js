@@ -1,33 +1,36 @@
-<!-- === /herohealth/vr-groups/ai-hooks.js ===
-GroupsVR — AI Hooks (Attach point) — v20260215a
-✅ D15: window.HHA.createAIHooks() for GroupsVR
-- Default OFF unless runMode=play AND ?ai=1
-- Research mode should be OFF (engine already blocks)
-- Provides:
-  - getDifficulty(): returns multiplier ~ 0.85..1.18
-  - getTip(): explainable micro-tips (rate-limited)
-  - onEvent(): receive events from engine/run page
--->
-<script>
+// === /herohealth/vr-groups/ai-hooks.js ===
+// AI Hooks — SAFE STUB (deterministic-friendly) — v20260215a
+// Purpose: provide window.HHA.createAIHooks() so groups.safe.js can attach AI optionally.
+// ✅ Default OFF (unless ?ai=1 AND run=play AND not research/practice)
+// ✅ Deterministic-safe: uses seed (string) -> u32 -> mulberry32 for any randomness
+// ✅ Rate-limited tips, fairness clamps, no external deps
+// API:
+//   window.HHA.createAIHooks({game, runMode, diff, seed, enabled}) -> { getDifficulty(), getTip(), onEvent() }
+
 (function(){
   'use strict';
 
   const WIN = window;
-
   WIN.HHA = WIN.HHA || {};
 
-  // If user already has a global createAIHooks elsewhere, do not override.
+  // If already exists, do not override (let your upstream HHA provide real AI).
   if (typeof WIN.HHA.createAIHooks === 'function') return;
 
-  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-  function now(){ try{return performance.now();}catch(_){return Date.now();} }
-
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
 
-  // Deterministic helper (optional): seed -> pseudo RNG (not used heavily yet)
+  function clamp(v, a, b){
+    v = Number(v);
+    if (!Number.isFinite(v)) v = 0;
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function nowMs(){
+    try { return performance.now(); } catch { return Date.now(); }
+  }
+
   function strSeedToU32(s){
     s = String(s ?? '');
     if (!s) s = String(Date.now());
@@ -38,6 +41,8 @@ GroupsVR — AI Hooks (Attach point) — v20260215a
     }
     return h >>> 0;
   }
+
+  // mulberry32
   function makeRng(seedU32){
     let t = seedU32 >>> 0;
     return function(){
@@ -49,142 +54,227 @@ GroupsVR — AI Hooks (Attach point) — v20260215a
     };
   }
 
-  WIN.HHA.createAIHooks = function createAIHooks(cfg){
-    cfg = cfg || {};
-    const enabledFlag = !!cfg.enabled;
-    const runMode = String(cfg.runMode||'play').toLowerCase();
-    const diff = String(cfg.diff||'normal').toLowerCase();
-    const seed = String(cfg.seed||'');
+  function pick(rng, arr){
+    return arr[(rng()*arr.length)|0];
+  }
 
-    // Hard safety: if not enabled or not play => return null (engine will fall back)
-    if (!enabledFlag || runMode !== 'play') return null;
+  function isAiEnabledByParams(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    if (run === 'research' || run === 'practice') return false;
+    const on = String(qs('ai','0')||'0').toLowerCase();
+    return (on === '1' || on === 'true');
+  }
 
-    // Require URL flag ?ai=1
-    const aiQS = String(qs('ai','0')||'0').toLowerCase();
-    if (!(aiQS === '1' || aiQS === 'true')) return null;
+  // Very small "director" state: we output difficulty multiplier 0.85..1.18
+  function createHooks(opts){
+    const game = String(opts && opts.game ? opts.game : '').toLowerCase() || 'unknown';
+    const runMode = String(opts && opts.runMode ? opts.runMode : '').toLowerCase() || 'play';
+    const diff = String(opts && opts.diff ? opts.diff : '').toLowerCase() || 'normal';
+    const seed = String(opts && opts.seed ? opts.seed : (qs('seed','')||Date.now()));
+    const enabledFlag = !!(opts && opts.enabled);
 
-    const rng = makeRng(strSeedToU32(seed || 'ai'));
+    const enabled = enabledFlag && (runMode === 'play') && isAiEnabledByParams();
+    const rng = makeRng(strSeedToU32(seed + '::ai::' + game));
 
-    // Rolling stats
-    let shots = 0, good = 0, miss = 0, comboMax = 0, comboCur = 0;
-    let lastTipAt = 0;
-    let lastDiffAt = 0;
-    let diffMul = 1.00;
+    // session stats (updated via onEvent)
+    const S = {
+      enabled,
+      game, runMode, diff, seed,
+      shots: 0,
+      hitGood: 0,
+      hitBad: 0,
+      missShot: 0,
+      missTimeout: 0,
+      combo: 0,
+      maxCombo: 0,
+      score: 0,
+      miss: 0,
 
-    function accPct(){
-      return shots > 0 ? (good / shots) * 100 : 0;
+      // director output
+      diffMul: 1.0,
+
+      // tip controls
+      lastTipAt: 0,
+      tipCooldownMs: 5500,
+      lastTipKey: '',
+    };
+
+    // Guidance library (super safe)
+    const TIPS = {
+      core: [
+        {k:'look_name', t:'ดู “ชื่อหมู่” ก่อนยิงทุกครั้ง ✅'},
+        {k:'combo', t:'คอมโบสำคัญ! ยิงถูกติดกันจะได้แต้มพุ่ง 🔥'},
+        {k:'slow', t:'ไม่ต้องรีบ—ยิงให้ชัวร์แล้วค่อยเร่ง 🎯'},
+      ],
+      recover: [
+        {k:'reset', t:'หลุดคอมโบไม่เป็นไร ตั้งหลักใหม่ แล้วเก็บต่อ 💪'},
+        {k:'aim', t:'เล็งกลางเป้า แล้วแตะ/ยิงทีละช็อต จะนิ่งกว่า'},
+      ],
+      cvr: [
+        {k:'cvr_center', t:'โหมด cVR: ให้ crosshair อยู่กลางเป้าก่อนค่อยยิง'},
+        {k:'cvr_tap', t:'แตะจอ “ครั้งเดียว” ต่อช็อต อย่ารัว (กันพลาด)'},
+      ],
+      boss: [
+        {k:'boss', t:'บอสมาแล้ว! โฟกัสยิง “หมู่ที่ถูก” เท่านั้น 👊'},
+      ],
+      mini: [
+        {k:'mini', t:'MINI มาแล้ว! เก็บให้ครบตามเป้าเร็ว ๆ ⚡'},
+      ],
+    };
+
+    function accuracy(){
+      const total = S.shots || 0;
+      if (total <= 0) return 0;
+      return Math.round((S.hitGood / total) * 100);
     }
 
-    function chooseTip(){
-      // explainable micro-tips (very short)
-      const acc = accPct();
+    function updateDirector(){
+      // super simple & fair:
+      // - if accuracy low or many misses => slow spawn a bit (mul < 1)
+      // - if accuracy high + combo stable => speed up slightly (mul > 1)
+      const acc = accuracy();
+      const total = S.shots || 0;
+
+      let mul = 1.0;
+
+      if (total >= 12){
+        if (acc <= 55) mul *= 0.90;
+        else if (acc >= 85) mul *= 1.08;
+
+        if ((S.miss || 0) >= 6) mul *= 0.92;
+        if ((S.maxCombo || 0) >= 12) mul *= 1.05;
+      }
+
+      // clamp to stay fair
+      S.diffMul = clamp(mul, 0.85, 1.18);
+    }
+
+    function canTip(){
+      const t = nowMs();
+      return (t - (S.lastTipAt || 0)) >= S.tipCooldownMs;
+    }
+
+    function chooseTip(eventName){
+      const view = String(qs('view','')||'').toLowerCase();
       const pool = [];
 
-      // Basic:
-      pool.push({ t:'ดูชื่อ “หมู่” ก่อนยิงทุกครั้ง ✅', mood:'neutral' });
+      // base tips
+      pool.push.apply(pool, TIPS.core);
 
-      // If missing a lot:
-      if (miss >= 3) pool.push({ t:'ช้าลงนิดนึง แล้วค่อยยิงให้ชัวร์ 🎯', mood:'neutral' });
+      // contextual
+      if (eventName === 'shot:hit_bad' || eventName === 'shot:miss' || eventName === 'target:timeout_miss'){
+        pool.push.apply(pool, TIPS.recover);
+      }
+      if (view === 'cvr'){
+        pool.push.apply(pool, TIPS.cvr);
+      }
+      if (eventName && String(eventName).indexOf('boss') >= 0){
+        pool.push.apply(pool, TIPS.boss);
+      }
+      if (eventName && String(eventName).indexOf('mini') >= 0){
+        pool.push.apply(pool, TIPS.mini);
+      }
 
-      // If accuracy low:
-      if (acc > 0 && acc < 55) pool.push({ t:'เล็งให้ใกล้เป้า แล้วค่อยยิง (อย่ารัว) ✨', mood:'neutral' });
-
-      // If combo collapsing:
-      if (comboMax >= 6 && comboCur === 0) pool.push({ t:'คอมโบหลุดไม่เป็นไร เริ่มใหม่ได้! 🔥', mood:'happy' });
-
-      // If doing great:
-      if (acc >= 80 && comboMax >= 8) pool.push({ t:'โคตรดี! รักษาคอมโบต่อเลย 💥', mood:'happy' });
-
-      // Pick deterministic-ish
-      const pick = pool[(rng()*pool.length)|0];
-      return pick;
+      // pick tip but avoid repeating immediately
+      let tip = pick(rng, pool);
+      if (tip && tip.k === S.lastTipKey && pool.length > 1){
+        tip = pick(rng, pool);
+      }
+      return tip || null;
     }
 
-    function maybeEmitTip(force){
-      const t = now();
-      if (!force && (t - lastTipAt) < 2200) return null; // rate-limit
-      lastTipAt = t;
-      return chooseTip();
+    function getDifficulty(){
+      if (!S.enabled) return 1.0;
+      updateDirector();
+      return S.diffMul;
     }
 
-    function updateDifficulty(){
-      // Don’t change too often
-      const t = now();
-      if ((t - lastDiffAt) < 900) return diffMul;
-      lastDiffAt = t;
+    function getTip(reason){
+      if (!S.enabled) return null;
+      if (!canTip()) return null;
 
-      // Goal: fair + smooth
-      // - If accuracy high and combo stable => slightly harder (spawn faster)
-      // - If accuracy low or many misses => easier
-      const acc = accPct();
-      let target = 1.00;
+      const tip = chooseTip(reason || '');
+      if (!tip) return null;
 
-      if (acc >= 82 && comboMax >= 10) target = 0.90;         // harder (interval * 0.90)
-      else if (acc >= 72 && comboMax >= 7) target = 0.95;
-      else if (acc > 0 && acc <= 55) target = 1.10;           // easier (interval * 1.10)
-      else if (miss >= 5 && acc < 65) target = 1.12;
-
-      // Adjust by diff baseline a little
-      if (diff === 'easy') target *= 1.04;
-      if (diff === 'hard') target *= 0.96;
-
-      // Smooth step
-      diffMul = clamp(diffMul + (target - diffMul) * 0.35, 0.85, 1.18);
-      return diffMul;
+      S.lastTipAt = nowMs();
+      S.lastTipKey = tip.k;
+      return { text: tip.t, key: tip.k, reason: String(reason||'') };
     }
 
     function onEvent(name, payload){
-      payload = payload || {};
-      switch(String(name||'')){
-        case 'run:start':
-          shots = 0; good = 0; miss = 0; comboMax = 0; comboCur = 0;
-          diffMul = 1.00;
-          lastTipAt = 0;
-          lastDiffAt = 0;
-          break;
+      if (!S.enabled) return;
 
-        case 'shot:miss':
-        case 'target:timeout_miss':
-          shots++;
-          miss++;
-          comboCur = 0;
-          break;
+      const n = String(name||'');
+      const p = payload || {};
 
-        case 'shot:hit_good':
-          shots++;
-          good++;
-          comboCur = Math.min(99, (comboCur|0) + 1);
-          comboMax = Math.max(comboMax|0, comboCur|0);
-          break;
+      // update stats from engine events
+      if (n === 'run:start'){
+        // reset minimal
+        S.shots = 0; S.hitGood = 0; S.hitBad = 0; S.missShot = 0; S.missTimeout = 0;
+        S.combo = 0; S.maxCombo = 0; S.score = 0; S.miss = 0;
+        return;
+      }
 
-        case 'shot:hit_bad':
-          shots++;
-          miss++;
-          comboCur = 0;
-          break;
+      if (n === 'shot:hit_good'){
+        S.shots++;
+        S.hitGood++;
+        S.combo = clamp(p.combo ?? (S.combo+1), 0, 99);
+        S.maxCombo = Math.max(S.maxCombo, S.combo);
+        S.score = Number(p.score ?? S.score) || S.score;
+        return;
+      }
 
-        case 'mini:start':
-        case 'boss:spawn':
-          // force a short tip when intensity rises (still rate-limited)
-          maybeEmitTip(true);
-          break;
+      if (n === 'shot:hit_bad'){
+        S.shots++;
+        S.hitBad++;
+        S.combo = 0;
+        S.miss++;
+        return;
+      }
 
-        default:
-          // ignore
-          break;
+      if (n === 'shot:miss'){
+        S.shots++;
+        S.missShot++;
+        S.combo = 0;
+        S.miss++;
+        return;
+      }
+
+      if (n === 'target:timeout_miss'){
+        S.missTimeout++;
+        S.combo = 0;
+        S.miss++;
+        return;
+      }
+
+      if (n === 'run:end'){
+        // nothing special
+        return;
       }
     }
 
+    // expose safe object
     return {
-      enabled: true,
-      getDifficulty: updateDifficulty,
-      getTip: function(){
-        const tip = maybeEmitTip(false);
-        return tip ? { text: tip.t, mood: tip.mood } : null;
-      },
+      enabled: S.enabled,
+      seed: S.seed,
+      getDifficulty,
+      getTip,
       onEvent
     };
+  }
+
+  WIN.HHA.createAIHooks = function(opts){
+    try{
+      return createHooks(opts || {});
+    }catch(_){
+      // ultra-safe fallback: disabled hooks
+      return {
+        enabled:false,
+        getDifficulty: ()=>1.0,
+        getTip: ()=>null,
+        onEvent: ()=>{}
+      };
+    }
   };
 
 })();
-</script>
