@@ -1,274 +1,185 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HeroHealth AI Hooks — SAFE (No-crash) — v20260215a
-// Provides: window.HHA.createAIHooks(opts)
-// Goals:
-// - Never crash games if AI is missing or errors
-// - Deterministic OFF by default in study/research
-// - Play mode can give simple, explainable tips (heuristic) with rate-limit
-//
-// Supported calls from games:
-//   ai.reset()
-//   ai.onEvent(type, payload)
-//   ai.getTip(features) -> {msg, mood, code, confidence} | null
-//   ai.getPrediction(features) -> {y_miss_next3s?, y_grade?, ...} | null
-//   ai.getDifficultySignal(features) -> {spawnRateDeltaMs?, wGood?, ...} | null
+// HHA AI Hooks — Prediction (A) + ML Logging (B) + DL-ready buffers (C)
+// Safe: never crashes game. Deterministic friendly when seed provided.
 
 (function(){
   'use strict';
+  const WIN = window;
 
-  const ROOT = window;
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function num(v,d=0){ v=Number(v); return Number.isFinite(v)?v:d; }
 
-  // Ensure namespace
-  if(!ROOT.HHA) ROOT.HHA = {};
-
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
-  const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
-
-  // Lightweight rolling buffer
-  function ring(n){
-    const a = [];
-    return {
-      push(x){ a.push(x); while(a.length>n) a.shift(); },
-      get(){ return a.slice(); },
-      last(){ return a.length ? a[a.length-1] : null; },
-      clear(){ a.length=0; },
-      len(){ return a.length; }
-    };
+  // rolling window helper
+  function rollPush(arr, item, max){
+    arr.push(item);
+    if(arr.length>max) arr.splice(0, arr.length-max);
   }
 
-  // Tip throttler
-  function makeTipLimiter(minMs){
-    let lastAt = 0;
-    return {
-      ok(){
-        const t = now();
-        if(t - lastAt >= minMs){ lastAt = t; return true; }
-        return false;
-      },
-      reset(){ lastAt = 0; }
+  function createAIHooks(cfg){
+    cfg = cfg || {};
+    const seed = String(cfg.seed || '');
+    const enabled = cfg.enabled !== false;
+
+    // ---- rolling stats ----
+    const S = {
+      t0: 0,
+      lastTipAt: 0,
+      lastSlowAt: 0,
+      events: [],        // last N events (DL-ready)
+      shots: [],         // {t,hit,rt}
+      timeouts: [],      // {t}
+      whiffs: [],        // {t}
+      comboDrops: [],    // {t}
+      risk: 0,
+      riskSm: 0
     };
-  }
 
-  function safeReturnAI(deterministic){
-    return {
-      enabled: !deterministic,
-      deterministic: !!deterministic,
-      onEvent(){},
-      getTip(){ return null; },
-      getPrediction(){ return null; },
-      getDifficultySignal(){ return null; },
-      reset(){}
+    const POLICY = {
+      tipMinGapMs: cfg.tipMinGapMs ?? 1400,
+      slowMinGapMs: cfg.slowMinGapMs ?? 4200,
+      slowDurationMs: cfg.slowDurationMs ?? 450,
+      slowFactor: cfg.slowFactor ?? 1.10, // ttl scale up (more time) / spawn interval scale down? เราใช้ ttl scale เท่านั้น
+      riskThresholdTip: cfg.riskThresholdTip ?? 0.68,
+      riskThresholdSlow: cfg.riskThresholdSlow ?? 0.82,
+      windowMs: cfg.windowMs ?? 5000,
+      dlWindowN: cfg.dlWindowN ?? 60
     };
-  }
 
-  // ---- Heuristic engine (Explainable & safe) ----
-  function createHeuristicAI(opts){
-    const game = String(opts?.game || 'unknown');
-    const runMode = String(opts?.runMode || 'play').toLowerCase();
-    const diff = String(opts?.diff || 'normal').toLowerCase();
-    const deterministic = !!opts?.deterministic || (runMode === 'study' || runMode === 'research');
-
-    // In research/study: keep AI "present" but quiet by default
-    const tipsEnabled = (!deterministic) && (opts?.tipsEnabled !== false);
-
-    const tipLimiter = makeTipLimiter(2200); // ~1 tip per 2.2s max
-    const featBuf = ring(6);                 // last ~6 seconds
-    const judgeBuf = ring(16);               // last actions
-
-    // simple state
-    let lastGrade = null;
-    let lastAcc = null;
-    let lastMiss = 0;
-    let lastBoss = false;
-    let lastStorm = false;
-
-    function reset(){
-      featBuf.clear();
-      judgeBuf.clear();
-      tipLimiter.reset();
-      lastGrade = null;
-      lastAcc = null;
-      lastMiss = 0;
-      lastBoss = false;
-      lastStorm = false;
+    // --- feature extraction ---
+    function windowCount(arr, nowMs){
+      const w = POLICY.windowMs;
+      let c=0;
+      for(let i=arr.length-1;i>=0;i--){
+        if(nowMs - arr[i].t > w) break;
+        c++;
+      }
+      return c;
+    }
+    function windowRate(arr, nowMs){
+      return windowCount(arr, nowMs) / (POLICY.windowMs/1000);
+    }
+    function avgRT(nowMs){
+      const w=POLICY.windowMs;
+      let sum=0, n=0;
+      for(let i=S.shots.length-1;i>=0;i--){
+        const it=S.shots[i];
+        if(nowMs - it.t > w) break;
+        if(it.hit && it.rt!=null){
+          sum+=it.rt; n++;
+        }
+      }
+      return n? (sum/n) : null;
     }
 
-    function onEvent(type, payload){
-      try{
-        const t = String(type||'');
-        if(t === 'features_1s'){
-          featBuf.push(payload || {});
-          lastAcc = Number(payload?.accNowPct ?? payload?.accPct ?? lastAcc);
-          lastMiss = Number(payload?.missNow ?? lastMiss);
-          lastBoss = !!payload?.bossActive;
-          lastStorm = !!payload?.stormActive;
-          lastGrade = String(payload?.grade || lastGrade || '');
-        }else if(t === 'judge'){
-          judgeBuf.push(payload || {});
-        }else if(t === 'start'){
-          reset();
-        }else if(t === 'end'){
-          // keep buffers; optional
+    // risk score heuristic (upgrade to ML later)
+    function computeRisk(nowMs, ctx){
+      const whiffR = windowRate(S.whiffs, nowMs);
+      const toutR  = windowRate(S.timeouts, nowMs);
+      const dropR  = windowRate(S.comboDrops, nowMs);
+      const rt = avgRT(nowMs); // ms
+      const inten = num(ctx?.intensity, 0);
+
+      // normalize
+      const a = clamp(whiffR/3.0, 0, 1);   // 3 whiffs/sec is extreme
+      const b = clamp(toutR /2.0, 0, 1);
+      const c = clamp(dropR /1.0, 0, 1);
+      const d = rt==null ? 0.3 : clamp((rt-320)/520, 0, 1); // slow RT increases risk
+      const e = clamp(inten, 0, 1);
+
+      // weighted sum
+      const r = 0.26*a + 0.26*b + 0.14*c + 0.18*d + 0.16*e;
+      return clamp(r, 0, 1);
+    }
+
+    // emit tip to game (brush.boot listens brush:ai)
+    function emitTip(detail){
+      try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail })); }catch(_){}
+    }
+
+    // called by game on every event
+    function onEvent(ev){
+      if(!enabled) return;
+
+      const t = num(ev.t, Date.now());
+      if(!S.t0) S.t0 = t;
+
+      // DL-ready buffer (sequence)
+      rollPush(S.events, {
+        t: t,
+        type: String(ev.type||''),
+        remainMs: num(ev.remainMs, 0),
+        intensity: num(ev.intensity, 0),
+        combo: num(ev.combo, 0),
+        hit: ev.hit?1:0,
+        whiff: ev.whiff?1:0,
+        timeout: ev.timeout?1:0,
+        boss: ev.boss?1:0,
+        phase: num(ev.phase, 0)
+      }, POLICY.dlWindowN);
+
+      // update rolling buckets
+      if(ev.type==='shot'){
+        rollPush(S.shots, { t, hit: !!ev.hit, rt: (ev.rt!=null? num(ev.rt,null):null) }, 200);
+        if(ev.whiff) rollPush(S.whiffs, { t }, 200);
+      }
+      if(ev.type==='timeout') rollPush(S.timeouts, { t }, 200);
+      if(ev.type==='combo_drop') rollPush(S.comboDrops, { t }, 200);
+
+      // compute smoothed risk
+      const r = computeRisk(t, ev.ctx || {});
+      S.risk = r;
+      S.riskSm = S.riskSm ? (S.riskSm*0.78 + r*0.22) : r;
+
+      // suggest tip / slow assistance (play mode only ideally)
+      const nowMs = Date.now();
+      const canTip = (nowMs - S.lastTipAt) > POLICY.tipMinGapMs;
+      const canSlow= (nowMs - S.lastSlowAt) > POLICY.slowMinGapMs;
+
+      if(canTip && S.riskSm >= POLICY.riskThresholdTip){
+        S.lastTipAt = nowMs;
+
+        // choose tip by dominant issue
+        const wh = windowRate(S.whiffs, t);
+        const to = windowRate(S.timeouts, t);
+        const rt = avgRT(t);
+
+        let tip;
+        if(to > wh && to > 0.6){
+          tip = { type:'coach', title:'อย่าปล่อยให้หลุด!', sub:'เป้ากำลังหมดเวลา', mini:'เล็งให้แม่นก่อน 1 ทีพอ', tag:'SAVE' };
+        }else if(wh > 0.8){
+          tip = { type:'coach', title:'เล็งก่อนยิง', sub:'พลาดบ่อยไปนิด', mini:'ช้าแต่ชัวร์ = คอมโบยาว', tag:'AIM' };
+        }else if(rt!=null && rt>650){
+          tip = { type:'coach', title:'จับจังหวะให้ทัน', sub:'ช้าไปนิด', mini:'เป้าใกล้หมดเวลา = PERFECT', tag:'TIMING' };
+        }else{
+          tip = { type:'coach', title:'โฟกัสคอมโบ', sub:'กำลังแกว่ง', mini:'ยิงทีละเป้า อย่ารัว', tag:'FOCUS' };
         }
-      }catch{
-        // never crash
+
+        emitTip({ ...tip, emo:'🧠', shouldBigPop: false });
+      }
+
+      // micro-slow suggestion (we do not force change; game can read desired scale)
+      if(canSlow && S.riskSm >= POLICY.riskThresholdSlow){
+        S.lastSlowAt = nowMs;
+        emitTip({ type:'slow', emo:'🧊', title:'FOCUS MODE', sub:'ช้าลงนิดเพื่อไม่พลาด', mini:'อีกแป๊บเดียว!', tag:'SLOW', shouldBigPop:true });
+        // expose to game
+        S.slowUntil = nowMs + POLICY.slowDurationMs;
       }
     }
 
-    // Predict next ~3s miss spike (very rough)
-    function getPrediction(features){
-      try{
-        const f = features || featBuf.last() || {};
-        const miss3 = Number(f.missDelta3s ?? 0);
-        const dens = Number(f.targetDensityAvg3s ?? f.targetDensity ?? 0);
-        const acc = Number(f.accAvg3s ?? f.accNowPct ?? 100);
-        const storm = !!f.stormActive;
-        const boss = !!f.bossActive;
-
-        // heuristic score 0..1
-        let risk = 0;
-        risk += clamp(miss3/3, 0, 1) * 0.55;
-        risk += clamp(dens, 0, 1) * 0.25;
-        risk += clamp((80-acc)/30, 0, 1) * 0.20;
-        if(storm || boss) risk = clamp(risk + 0.10, 0, 1);
-
-        // Map to likely miss count next 3s (0..3)
-        const y_miss_next3s = Math.round(clamp(risk*3, 0, 3));
-
-        return {
-          game,
-          y_miss_next3s,
-          risk01: Math.round(risk*1000)/1000,
-          basis: { miss3, dens: Math.round(dens*1000)/1000, acc, storm, boss }
-        };
-      }catch{
-        return null;
-      }
-    }
-
-    // Provide gentle difficulty signals (OPTIONAL, game may ignore)
-    function getDifficultySignal(features){
-      try{
-        const f = features || featBuf.last() || {};
-        const acc = Number(f.accAvg3s ?? f.accNowPct ?? 100);
-        const miss3 = Number(f.missDelta3s ?? 0);
-        const storm = !!f.stormActive;
-        const boss  = !!f.bossActive;
-
-        // Default: no change
-        let spawnRateDeltaMs = 0;
-
-        // If player is crushing it (acc high, no misses) -> slightly harder (faster spawn)
-        if(!storm && !boss && acc >= 88 && miss3 === 0) spawnRateDeltaMs = -60;
-
-        // If struggling -> ease a bit
-        if(acc <= 70 || miss3 >= 2) spawnRateDeltaMs = +80;
-
-        // Keep within safe bounds; game decides
-        spawnRateDeltaMs = clamp(spawnRateDeltaMs, -120, +140);
-
-        return { game, spawnRateDeltaMs, note:'heuristic' };
-      }catch{
-        return null;
-      }
-    }
-
-    // Explainable coaching tip
-    function getTip(features){
-      try{
-        if(!tipsEnabled) return null;
-        if(!tipLimiter.ok()) return null;
-
-        const f = features || featBuf.last() || {};
-        const acc = Number(f.accAvg3s ?? f.accNowPct ?? lastAcc ?? 100);
-        const miss3 = Number(f.missDelta3s ?? 0);
-        const dens = Number(f.targetDensityAvg3s ?? f.targetDensity ?? 0);
-        const storm = !!f.stormActive;
-        const boss  = !!f.bossActive;
-        const t = Number(f.tPlayedSec ?? 0);
-
-        // very early: only once-ish
-        if(t <= 6){
-          return { msg:'โฟกัส “GOOD” ก่อน แล้วค่อยเร่งคอมโบ 🔥', mood:'neutral', code:'start_focus', confidence:.65 };
-        }
-
-        if(boss){
-          // boss: forbid junk often
-          if(acc < 82) return { msg:'โหมดบอส: ช้าลงนิด เล็งกลางเป้า แล้วค่อยยิง ✅', mood:'neutral', code:'boss_aim', confidence:.75 };
-          return { msg:'บอสมาแล้ว! เล็ง GOOD เท่านั้น ห้ามพลาดขยะ! 👹', mood:'fever', code:'boss_rule', confidence:.82 };
-        }
-
-        if(storm){
-          if(miss3 >= 1) return { msg:'STORM: ลดการยิงรัว—เลือกยิงเฉพาะที่ “ชัวร์” จะผ่านง่ายขึ้น 🌪️', mood:'neutral', code:'storm_control', confidence:.78 };
-          return { msg:'STORM: เร่งสปีดได้ แต่ต้องแม่น! 🔥', mood:'fever', code:'storm_push', confidence:.70 };
-        }
-
-        if(acc < 72){
-          return { msg:'ความแม่นยำตก! ลอง “หยุดครึ่งวิ” ก่อนยิง จะดีขึ้น 🎯', mood:'sad', code:'acc_low', confidence:.72 };
-        }
-
-        if(miss3 >= 2){
-          return { msg:'พลาดติด ๆ กัน—แนะนำเล็งเป้าที่ใกล้ crosshair ที่สุดก่อน 👍', mood:'neutral', code:'miss_spike', confidence:.70 };
-        }
-
-        if(dens >= 0.72){
-          return { msg:'เป้าแน่น! เลือกยิงเป้ากลาง ๆ ก่อน จะคุมจอได้ง่าย 💡', mood:'neutral', code:'dense_field', confidence:.66 };
-        }
-
-        if(acc >= 90 && miss3 === 0){
-          return { msg:'โหดมาก! ตอนนี้เร่งคอมโบได้เลย 🔥', mood:'happy', code:'great_run', confidence:.72 };
-        }
-
-        return null;
-      }catch{
-        return null;
-      }
-    }
-
-    return {
-      enabled: !deterministic,
-      deterministic,
-      onEvent,
-      getTip,
-      getPrediction,
-      getDifficultySignal,
-      reset
-    };
-  }
-
-  // ---- Public factory ----
-  ROOT.HHA.createAIHooks = function createAIHooks(opts){
-    try{
-      const runMode = String(opts?.runMode || 'play').toLowerCase();
-      const deterministic = !!opts?.deterministic || (runMode === 'study' || runMode === 'research');
-
-      // If deterministic: keep silent by default (still safe to call)
-      const ai = createHeuristicAI({ ...(opts||{}), deterministic });
-
-      // Safety wrappers (never throw)
-      const wrap = (fn, fallback)=> function(){
-        try{ return fn.apply(ai, arguments); }catch{ return fallback; }
-      };
-
+    function getAssist(){
+      const nowMs = Date.now();
+      const slowOn = !!S.slowUntil && nowMs < S.slowUntil;
       return {
-        enabled: ai.enabled,
-        deterministic: ai.deterministic,
-
-        onEvent: wrap(ai.onEvent, undefined),
-        getTip: wrap(ai.getTip, null),
-        getPrediction: wrap(ai.getPrediction, null),
-        getDifficultySignal: wrap(ai.getDifficultySignal, null),
-        reset: wrap(ai.reset, undefined)
+        risk: S.riskSm || 0,
+        slowOn,
+        ttlScale: slowOn ? POLICY.slowFactor : 1
       };
-    }catch{
-      // absolutely never crash
-      const runMode = String(opts?.runMode || 'play').toLowerCase();
-      const deterministic = (runMode === 'study' || runMode === 'research');
-      return safeReturnAI(deterministic);
     }
-  };
 
-  // Optional: expose version
-  ROOT.HHA.AI_HOOKS_VERSION = 'v20260215a';
+    return { onEvent, getAssist, getState: ()=>S };
+  }
 
+  // export
+  WIN.HHA = WIN.HHA || {};
+  WIN.HHA.createAIHooks = createAIHooks;
 })();
