@@ -1,10 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260215b
-✅ view classes
-✅ vr-ui.js + particles.js
-✅ quiz bank
-✅ boot module with anti-stall
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Adds: Practice overlay + Pause overlay + Logging module + AI module (optional)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,24 +15,28 @@ PATCH v20260215b
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215b" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260216a" />
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional; safe if missing) -->
+  <!-- Optional shared AI packs (existing) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank -->
+  <!-- Quiz bank (✅ name fixed) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260215b"></script>
+  <!-- New: local logger + AI predictor (safe) -->
+  <script src="./hygiene.logger.js" defer></script>
+  <script src="./hygiene.ai.js" defer></script>
+
+  <!-- Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260216a"></script>
 </head>
 
 <body class="view-pc">
@@ -77,15 +81,41 @@ PATCH v20260215b
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
+          <button class="hw-ghost" id="btnPractice" type="button">🧪 Practice 15s</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-          <button class="hw-ghost" id="btnReload" type="button">⟳ Reload</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Practice Overlay -->
+    <div class="hw-overlay" id="practiceOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title">🧪 Practice (15 วินาที)</div>
+        <div class="hw-card-sub" id="practiceSub">
+          ฝึกแตะให้ถูกขั้นตอน • ไม่มีแพ้ • ไม่บันทึกเป็นผลวิจัย
+        </div>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnPracticeGo" type="button">▶ เริ่ม Practice</button>
+          <button class="hw-ghost" id="btnPracticeBack" type="button">↩ กลับหน้าเริ่ม</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div class="hw-overlay" id="pauseOverlay" style="display:none">
+      <div class="hw-card">
+        <div class="hw-card-title">⏸ Pause</div>
+        <div class="hw-card-sub">เกมถูกพักไว้ (หยุดเวลา/หยุดสปอว์น/ล็อกอินพุต)</div>
+        <div class="hw-card-row">
+          <button class="hw-cta" id="btnResume" type="button">▶ Resume</button>
+          <button class="hw-ghost" id="btnQuit" type="button">↩ ออกไป HUB</button>
         </div>
       </div>
     </div>
@@ -109,7 +139,6 @@ PATCH v20260215b
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
@@ -117,11 +146,8 @@ PATCH v20260215b
     document.getElementById('labView').textContent = view;
   }
   setViewClass();
-
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-
-  document.getElementById('btnReload')?.addEventListener('click', ()=>location.reload(), {passive:true});
 })();
 </script>
 </body>
