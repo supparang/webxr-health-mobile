@@ -1,4 +1,4 @@
-// === js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
 'use strict';
 
 (function(){
@@ -19,8 +19,12 @@
       }
       const rect = laneEl.getBoundingClientRect();
       const x = rect.left + rect.width/2;
+
       // เส้นตีอยู่เหนือ label นิดหน่อย (~42px จาก bottom)
+      // (ถ้าคุณใช้เส้นตีล่างสุด “เส้นเหลือง” แล้วไปปรับ CSS ให้ hit line ต่ำมาก
+      //  ค่านี้ยังโอเคเพราะ FX โผล่แถวช่วงล่างของ lane)
       const y = rect.top + rect.height - 42;
+
       return { x, y };
     }
 
@@ -42,7 +46,7 @@
       const p = this._screenPosFromLane(lane);
       this.spawnHitParticle(p.x, p.y, judgment);
       this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback(judgment.toUpperCase(), judgment);
+      this._feedback(String(judgment||'good').toUpperCase(), judgment);
     }
 
     showMissFx({ lane }){
