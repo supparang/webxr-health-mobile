@@ -1,5 +1,11 @@
 // === /herohealth/vr/mode-factory.js ===
-// PATCH v20260215b: onShotMiss callback + safe vars alias (--plate-* OR --hw-*) + keep decorateTarget + hha:shoot
+// HeroHealth Mode Factory — SAFE (Module) — PATCH v20260215a
+// ✅ seeded RNG
+// ✅ safe spawn rect (reads CSS safe vars)
+// ✅ decorateTarget hook (kept)
+// ✅ listens to hha:shoot (from vr-ui.js crosshair) => nearest target within lockPx
+// ✅ NEW: onShotMiss callback when shot hits nothing
+
 'use strict';
 
 const WIN = window;
@@ -20,20 +26,22 @@ function now(){ return performance.now ? performance.now() : Date.now(); }
 function readSafeVars(){
   const cs = getComputedStyle(DOC.documentElement);
 
-  // Support both naming conventions:
-  // - new: --plate-top-safe / --plate-bottom-safe / ...
-  // - legacy/HHA: --hw-top-safe / --hw-bottom-safe / ...
-  const read = (a,b)=>{
-    const v1 = parseFloat(cs.getPropertyValue(a));
-    if(Number.isFinite(v1) && v1>0) return v1;
-    const v2 = parseFloat(cs.getPropertyValue(b));
-    return (Number.isFinite(v2) && v2>0) ? v2 : 0;
-  };
+  // Prefer plate safe vars if present (PlateVR)
+  const top =
+    parseFloat(cs.getPropertyValue('--plate-top-safe')) ||
+    parseFloat(cs.getPropertyValue('--hw-top-safe')) || 0;
 
-  const top    = read('--plate-top-safe',    '--hw-top-safe');
-  const bottom = read('--plate-bottom-safe', '--hw-bottom-safe');
-  const left   = read('--plate-left-safe',   '--hw-left-safe');
-  const right  = read('--plate-right-safe',  '--hw-right-safe');
+  const bottom =
+    parseFloat(cs.getPropertyValue('--plate-bottom-safe')) ||
+    parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 0;
+
+  const left =
+    parseFloat(cs.getPropertyValue('--plate-left-safe')) ||
+    parseFloat(cs.getPropertyValue('--hw-left-safe')) || 0;
+
+  const right =
+    parseFloat(cs.getPropertyValue('--plate-right-safe')) ||
+    parseFloat(cs.getPropertyValue('--hw-right-safe')) || 0;
 
   return { top, bottom, left, right };
 }
@@ -63,7 +71,13 @@ export function boot({
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
-  const state = { alive:true, lastSpawnAt:0, spawnTimer:null, targets:new Set(), cooldownUntil:0 };
+  const state = {
+    alive:true,
+    lastSpawnAt:0,
+    spawnTimer:null,
+    targets:new Set(),
+    cooldownUntil:0
+  };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
@@ -80,15 +94,22 @@ export function boot({
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
+
     state.targets.delete(target);
     try{ target.el.remove(); }catch{}
-    onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+
+    try{
+      onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+    }catch{}
   }
 
   function onShoot(e){
     if(!state.alive) return;
+
     const d = e.detail || {};
     const t = now();
+
+    // small anti-double-fire guard
     if(t < state.cooldownUntil) return;
     state.cooldownUntil = t + 90;
 
@@ -102,7 +123,10 @@ export function boot({
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const dist = Math.hypot(cx-x, cy-y);
-      if(dist <= lockPx && dist < bestDist){ bestDist = dist; best = target; }
+      if(dist <= lockPx && dist < bestDist){
+        bestDist = dist;
+        best = target;
+      }
     }
 
     if(best){
@@ -150,7 +174,9 @@ export function boot({
     };
     el.__hhaTarget = target;
 
-    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
+    try{
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -163,9 +189,11 @@ export function boot({
     setTimeout(()=>{
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
+
       state.targets.delete(target);
       try{ el.remove(); }catch{}
-      onExpire({ ...target });
+
+      try{ onExpire({ ...target }); }catch{}
     }, target.ttlMs);
   }
 
@@ -182,9 +210,13 @@ export function boot({
     stop(){
       if(!state.alive) return;
       state.alive = false;
+
       clearInterval(state.spawnTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
-      for(const target of state.targets){ try{ target.el.remove(); }catch{} }
+
+      for(const target of state.targets){
+        try{ target.el.remove(); }catch{}
+      }
       state.targets.clear();
     }
   };
