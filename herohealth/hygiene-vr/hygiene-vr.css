@@ -1,9 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260215a
-✅ target hit: instant disappear (is-hit) to prevent lingering
-✅ mobile tap reliability: touch-action + disable ghost click issues
-✅ keep HUD-safe vars for JS spawn
+PATCH v20260215b
+✅ HUD safe zones variables (JS may overwrite measured)
+✅ Targets fixed viewport; supports hit-pop then remove
+✅ Mobile tap reliability
 */
 
 :root{
@@ -29,26 +29,27 @@ PATCH v20260215a
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
+  /* spawn safe zones (JS reads; JS may override measured) */
   --hw-top-safe: 170px;
   --hw-bottom-safe: 190px;
 
-  /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  height:100%; margin:0;
-  background:var(--bg0); color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
 button{ font: inherit; }
 
-.hw-root{ position: relative; min-height: 100%; overflow: hidden; }
+.hw-root{
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+}
 
-/* ===== Stage ===== */
+/* Stage */
 .hw-stage{
   position: fixed;
   inset: 0;
@@ -59,21 +60,29 @@ button{ font: inherit; }
     linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
 }
 
-/* ===== HUD ===== */
+/* HUD */
 .hw-hud{
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 50;
 }
+
 .hw-top{
   position: absolute;
   top: 0; left: 0; right: 0;
   padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
 }
+
 .hw-title{ font-weight: 950; letter-spacing: .2px; font-size: 16px; }
 .hw-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); }
-.hw-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+
+.hw-row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
 
 .hw-pill{
   pointer-events: none;
@@ -87,6 +96,7 @@ button{ font: inherit; }
   font-size: 12px;
   color: rgba(229,231,235,.94);
 }
+
 .hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
@@ -99,7 +109,7 @@ button{ font: inherit; }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* ===== Banner ===== */
+/* Banner */
 .hw-banner{
   pointer-events: none;
   position: absolute;
@@ -118,9 +128,12 @@ button{ font: inherit; }
   max-width: min(680px, calc(100% - 24px));
   text-align: center;
 }
-.hw-banner.show{ opacity: 1; transform: translateX(-50%) translateY(0px); }
+.hw-banner.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0px);
+}
 
-/* ===== Overlays ===== */
+/* Overlays */
 .hw-overlay{
   position: fixed;
   inset: 0;
@@ -141,9 +154,16 @@ button{ font: inherit; }
   padding: 16px;
   backdrop-filter: blur(12px);
 }
+
 .hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
 .hw-card-sub{ margin-top: 10px; color: var(--muted); line-height: 1.4; font-size: 13px; }
-.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+.hw-card-row{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
 
 .hw-cta, .hw-ghost{
   cursor: pointer;
@@ -168,7 +188,7 @@ button{ font: inherit; }
   color: rgba(229,231,235,.92);
 }
 
-/* ===== Targets ===== */
+/* Targets */
 .hw-tgt{
   position: fixed;
   left: calc(var(--x, 50) * 1vw);
@@ -187,10 +207,9 @@ button{ font: inherit; }
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  z-index: 10;
+  z-index: 20; /* ✅ above stage */
   animation: hwPopIn 180ms ease-out both;
-  touch-action: manipulation; /* ✅ mobile tap */
-  contain: layout style paint;
+  touch-action: manipulation;
 }
 
 .hw-tgt .emoji{
@@ -205,14 +224,14 @@ button{ font: inherit; }
 
 .hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
 
-/* ✅ instant disappear state (fix lingering targets) */
+/* ✅ hit pop then remove (JS removes immediately; this makes it feel crisp) */
 .hw-tgt.is-hit{
-  pointer-events: none !important;
-  animation: none !important;
-  transition: opacity 80ms ease, transform 80ms ease, filter 80ms ease;
-  opacity: 0 !important;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78)) !important;
-  filter: blur(1px);
+  pointer-events: none;
+  animation: hwHitPop 140ms ease-out both;
+}
+@keyframes hwHitPop{
+  from{ opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+  to  { opacity: 0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.18)); }
 }
 
 @keyframes hwPopIn{
@@ -220,7 +239,7 @@ button{ font: inherit; }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* ===== Quiz box ===== */
+/* Quiz */
 .hw-quiz{
   pointer-events: auto;
   margin-top: 10px;
@@ -234,7 +253,7 @@ button{ font: inherit; }
 .hw-quiz-q{ font-weight: 950; font-size: 14px; }
 .hw-quiz-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-/* ===== View tweaks ===== */
+/* View tweaks */
 body.view-mobile{
   --hw-top-safe: 180px;
   --hw-bottom-safe: 220px;
