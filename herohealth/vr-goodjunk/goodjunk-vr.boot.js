@@ -1,218 +1,149 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION SAFE (v20260215)
 // เป้าหมาย:
-// ✅ รันได้จริงทุกโหมด (pc/mobile/cvr/cardboard)
-// ✅ ตั้ง class ให้ body: view-pc / view-mobile / view-cvr
-// ✅ รองรับ ?debug=1 (โชว์ badge เล็ก + ส่ง opts.debug ให้เกม)
-// ✅ กันพังถ้า import fail (ขึ้น error panel + ปุ่ม reload/back hub)
-// ✅ ยิง crosshair จาก vr-ui.js ได้ทันที (vr-ui.js emits hha:shoot)
-
-// NOTE: ให้ใส่ <script src="../vr/vr-ui.js"></script> ใน goodjunk-vr.html ก่อน boot นี้
+// ✅ รันได้จริงทุกโหมด (pc/mobile/cvr)
+// ✅ ตั้ง class ให้ body: view-pc / view-mobile / view-cvr + cvr-on
+// ✅ รองรับ ?debug=1 (ส่ง opts.debug ให้ safe.js)
+// ✅ กันพังถ้า import fail (ขึ้น error panel + ยังกลับ HUB ได้)
+// ✅ ยิง crosshair จาก vr-ui.js ได้ทันที (listen hha:shoot อยู่ใน safe.js)
 
 'use strict';
 
-function qs(k, d = null) {
+function qs(k, d = null){
   try { return new URL(location.href).searchParams.get(k) ?? d; }
   catch { return d; }
 }
-function clamp(v, min, max) {
+function clamp(v, min, max){
   v = Number(v);
-  if (!Number.isFinite(v)) v = min;
+  if(!Number.isFinite(v)) v = min;
   return Math.max(min, Math.min(max, v));
 }
-function asLower(v, d = '') {
-  v = (v == null) ? d : String(v);
-  v = v.trim().toLowerCase();
-  return v || d;
+function norm(str, d){
+  str = String(str ?? '').trim();
+  return str ? str.toLowerCase() : (d || '');
 }
-function nowSeed() { return String(Date.now()); }
+function buildHubFallback(){
+  // ถ้าไม่มี hub ส่งมา ให้เด้งกลับ hub ใน root herohealth
+  try{
+    const u = new URL('../hub.html', location.href);
+    return u.toString();
+  }catch{
+    return '../hub.html';
+  }
+}
 
-function applyViewClass(view) {
+function applyViewClass(view){
   const b = document.body;
+  b.classList.remove('view-pc','view-mobile','view-cvr','cvr-on');
 
-  // wipe old
-  b.classList.remove('view-pc', 'view-mobile', 'view-cvr');
-
-  // normalize
-  const v = (view === 'cardboard') ? 'cvr' : view;
-
-  if (v === 'cvr') b.classList.add('view-cvr');
-  else if (v === 'mobile') b.classList.add('view-mobile');
-  else b.classList.add('view-pc');
+  if(view === 'cvr'){
+    b.classList.add('view-cvr','cvr-on');
+    // เปิด layer ขวา
+    const r = document.getElementById('gj-layer-r');
+    if(r) r.setAttribute('aria-hidden','false');
+    return;
+  }
+  if(view === 'mobile'){
+    b.classList.add('view-mobile');
+    const r = document.getElementById('gj-layer-r');
+    if(r) r.setAttribute('aria-hidden','true');
+    return;
+  }
+  b.classList.add('view-pc');
+  const r = document.getElementById('gj-layer-r');
+  if(r) r.setAttribute('aria-hidden','true');
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
+function showBootError(err, ctx){
+  const hub = (ctx && ctx.hub) ? ctx.hub : buildHubFallback();
+  const msg = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err || 'Unknown error');
 
-function showBootError(err, hubUrl) {
-  const msg = (err && (err.stack || err.message))
-    ? String(err.stack || err.message)
-    : String(err);
+  let panel = document.getElementById('gjBootError');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'gjBootError';
+    panel.style.position = 'fixed';
+    panel.style.inset = '0';
+    panel.style.zIndex = '99999';
+    panel.style.display = 'grid';
+    panel.style.placeItems = 'center';
+    panel.style.padding = '24px';
+    panel.style.background = 'rgba(2,6,23,.84)';
+    panel.style.backdropFilter = 'blur(8px)';
+    document.body.appendChild(panel);
+  }
 
-  console.error('[GoodJunkVR boot error]', err);
-
-  const ov = document.createElement('div');
-  ov.id = 'gjBootError';
-  ov.style.position = 'fixed';
-  ov.style.inset = '0';
-  ov.style.zIndex = '99999';
-  ov.style.display = 'grid';
-  ov.style.placeItems = 'center';
-  ov.style.padding = '18px';
-  ov.style.background = 'rgba(2,6,23,.72)';
-  ov.style.backdropFilter = 'blur(6px)';
-
-  const card = document.createElement('div');
-  card.style.width = 'min(860px, 94vw)';
-  card.style.border = '1px solid rgba(148,163,184,.18)';
-  card.style.borderRadius = '22px';
-  card.style.background = 'linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.70))';
-  card.style.boxShadow = '0 18px 60px rgba(0,0,0,.45)';
-  card.style.padding = '14px';
-
-  card.innerHTML = `
+  panel.innerHTML = `
+  <div style="width:min(760px, 94vw); border:1px solid rgba(148,163,184,.18); border-radius:22px;
+              background:linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.65));
+              box-shadow:0 18px 70px rgba(0,0,0,.55); padding:16px;">
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <div style="font-weight:1000; letter-spacing:.2px;">GoodJunkVR — Boot Error</div>
-      <div style="margin-left:auto; font-weight:1000; font-size:12px; padding:6px 10px; border-radius:999px;
-                  border:1px solid rgba(239,68,68,.30); background:rgba(239,68,68,.12); color:#e5e7eb;">
+      <div style="margin-left:auto; font-weight:1000; padding:6px 10px; border-radius:999px;
+                  border:1px solid rgba(239,68,68,.35); background:rgba(239,68,68,.12);">
         IMPORT FAIL
       </div>
     </div>
     <div style="margin-top:8px; color:rgba(229,231,235,.82); font-weight:850; font-size:12px; line-height:1.35;">
-      โหลดไฟล์ JS แบบ module ไม่สำเร็จ (path/ชื่อไฟล์ไม่ตรง หรือมี syntax error)
+      มักเกิดจาก path/filename ไม่ตรงใน GitHub Pages หรือ build ยังไม่ deploy
     </div>
-
-    <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
-      <div style="border:1px solid rgba(148,163,184,.14); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-        <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">CHECKLIST</div>
-        <div style="margin-top:6px; font-size:12px; color:rgba(229,231,235,.82); font-weight:800; line-height:1.35;">
-          • เปิด DevTools → Console ดู error บรรทัดแรก<br/>
-          • ตรวจ path: <code style="font-weight:900">./goodjunk.safe.js</code><br/>
-          • ตรวจว่าไฟล์เป็น ES module (มี export boot)<br/>
-          • ถ้ามี import จาก ../vr/food5-th.js ให้ path ถูก<br/>
-        </div>
-      </div>
-
-      <div style="border:1px solid rgba(148,163,184,.14); border-radius:16px; padding:10px 12px; background:rgba(2,6,23,.35);">
-        <div style="color:rgba(148,163,184,.9); font-size:11px; font-weight:900;">ERROR</div>
-        <pre style="margin:6px 0 0 0; white-space:pre-wrap; word-break:break-word;
-                    color:rgba(229,231,235,.90); font-size:11px; font-weight:800; line-height:1.35;">${escapeHtml(msg)}</pre>
-      </div>
-    </div>
-
+    <pre style="margin-top:10px; white-space:pre-wrap; word-break:break-word;
+                border:1px solid rgba(148,163,184,.14); border-radius:16px; padding:10px 12px;
+                background:rgba(2,6,23,.35); color:rgba(229,231,235,.88); font-size:12px; font-weight:700; max-height:44vh; overflow:auto;">${escapeHtml(msg)}</pre>
     <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
       <button id="gjBootReload"
-        style="font-weight:1000; padding:10px 14px; border-radius:14px;
-               border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.35); color:#e5e7eb;">
-        Reload
-      </button>
-
-      <button id="gjBootBack"
-        style="font-weight:1000; padding:10px 14px; border-radius:14px;
-               border:1px solid rgba(34,197,94,.35); background:rgba(34,197,94,.18); color:#e5e7eb;">
-        กลับ HUB
-      </button>
+        style="font-weight:1000; padding:10px 14px; border-radius:14px; border:1px solid rgba(245,158,11,.35);
+               background:rgba(245,158,11,.14); color:#e5e7eb;">Reload</button>
+      <button id="gjBootHub"
+        style="font-weight:1000; padding:10px 14px; border-radius:14px; border:1px solid rgba(34,197,94,.35);
+               background:rgba(34,197,94,.18); color:#e5e7eb;">กลับ HUB</button>
     </div>
-  `;
+  </div>`;
 
-  ov.appendChild(card);
-  document.body.appendChild(ov);
-
-  document.getElementById('gjBootReload')?.addEventListener('click', () => location.reload());
-  document.getElementById('gjBootBack')?.addEventListener('click', () => { location.href = hubUrl; });
+  const btnR = document.getElementById('gjBootReload');
+  const btnH = document.getElementById('gjBootHub');
+  if(btnR) btnR.onclick = ()=> location.reload();
+  if(btnH) btnH.onclick = ()=> location.href = hub;
 }
 
-function ensureDebugBadge(debug) {
-  if (!debug) return;
-  try {
-    if (document.getElementById('gjDebugBadge')) return;
-    const b = document.createElement('div');
-    b.id = 'gjDebugBadge';
-    b.style.position = 'fixed';
-    b.style.right = 'calc(10px + env(safe-area-inset-right, 0px))';
-    b.style.bottom = 'calc(10px + env(safe-area-inset-bottom, 0px))';
-    b.style.zIndex = '9999';
-    b.style.padding = '8px 10px';
-    b.style.borderRadius = '999px';
-    b.style.border = '1px solid rgba(148,163,184,.18)';
-    b.style.background = 'rgba(2,6,23,.55)';
-    b.style.color = '#e5e7eb';
-    b.style.fontWeight = '950';
-    b.style.fontSize = '12px';
-    b.textContent = 'debug=1';
-    document.body.appendChild(b);
-  } catch (_) {}
+function escapeHtml(s){
+  return String(s)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;');
 }
 
-// ===== Read params =====
-const view = asLower(qs('view', 'pc'), 'pc');           // pc|mobile|cvr|cardboard
-const run  = asLower(qs('run', 'play'), 'play');        // play|research|study
-const diff = asLower(qs('diff', 'normal'), 'normal');   // easy|normal|hard
-const time = clamp(qs('time', '80'), 20, 300);
-const seed = String(qs('seed', '') || nowSeed());
-const hub  = String(qs('hub', '../hub.html') || '../hub.html');
-const pid  = String(qs('pid', '') || '').trim();
+// --------------------
+// Boot sequence
+// --------------------
+(async function main(){
+  const view = norm(qs('view', 'pc'), 'pc'); // pc | mobile | cvr
+  const run  = norm(qs('run', 'play'), 'play');
+  const diff = norm(qs('diff','normal'), 'normal');
+  const time = clamp(qs('time','80'), 20, 300);
+  const seed = String(qs('seed', String(Date.now())));
+  const hub  = String(qs('hub', buildHubFallback()) || buildHubFallback());
+  const pid  = String(qs('pid','') || '').trim();
+  const debug = String(qs('debug','0')) === '1';
 
-const debug = (String(qs('debug', '0')) === '1');
+  applyViewClass(view);
 
-// extras pass-through (เผื่อใช้ใน ecosystem / research later)
-const log = String(qs('log', '') || '');
-const studyId = String(qs('studyId', '') || '');
-const phase = String(qs('phase', '') || '');
-const conditionGroup = String(qs('conditionGroup', '') || '');
+  // เผื่อ vr-ui.js ยิงเร็ว: เรา "ไม่ต้อง" handle ที่นี่ เพราะ safe.js listen เอง
+  // แต่เรา ensure ว่า DOM layer/hud อยู่แล้ว
 
-// ===== Apply view & debug =====
-applyViewClass(view);
-ensureDebugBadge(debug);
+  const opts = {
+    view, run, diff, time,
+    seed, hub, pid,
+    debug
+  };
 
-// ===== Ensure vr-ui exists (non-fatal) =====
-try {
-  // vr-ui.js typically sets window dispatchers; if missing, game still works via pointerdown targets
-  if (!window || !document) throw new Error('no window');
-} catch (_) {}
-
-// ===== Boot module with hard guard =====
-(async () => {
-  try {
+  try{
     const mod = await import('./goodjunk.safe.js');
-
-    if (!mod || typeof mod.boot !== 'function') {
-      throw new Error('goodjunk.safe.js loaded but export boot() not found');
+    if(!mod || typeof mod.boot !== 'function'){
+      throw new Error('goodjunk.safe.js loaded but export boot() is missing');
     }
-
-    // IMPORTANT:
-    // vr-ui.js emits event: hha:shoot {x,y,lockPx}
-    // goodjunk.safe.js ต้อง listen: window.addEventListener('hha:shoot', onShoot)
-    // (คุณทำไว้แล้ว)
-
-    const opts = {
-      view,
-      run,
-      diff,
-      time,
-      seed,
-      hub,
-      pid,
-
-      // debug flag (ให้ goodjunk.safe.js ใช้เปิด overlay)
-      debug,
-
-      // keep for future (safe if ignored)
-      log,
-      studyId,
-      phase,
-      conditionGroup
-    };
-
     mod.boot(opts);
-
-  } catch (err) {
-    showBootError(err, hub);
+  }catch(err){
+    showBootError(err, { hub });
   }
 })();
