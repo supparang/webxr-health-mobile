@@ -286,3 +286,54 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       btnStart?.addEventListener('click', startNow);
 
       ov?.addEventListener('pointerdown', (e)=>{
+        const id = e.target && e.target.id;
+        if (id === 'btnBackHub') return;
+        startNow();
+      }, {passive:true});
+    })();
+  </script>
+
+  <!-- ✅ Gate Flow (Warmup/Cooldown Enforcer) -->
+  <script>
+  (function(){
+    'use strict';
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    const gateOn = String(qs('gate','0')||'0') === '1';
+    const hub = String(qs('hub','../hub.html')||'../hub.html');
+    const cdur = Math.max(5, Math.min(60, Number(qs('cdur', 20) || 20)));
+
+    let navigated = false;
+
+    function goCooldownThenHub(summary){
+      if (!gateOn) return;
+      if (navigated) return;
+      navigated = true;
+
+      try{
+        if(summary) localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      }catch(_){}
+
+      const gate = new URL('../warmup-gate.html', location.href);
+      gate.searchParams.set('phase','cooldown');
+      gate.searchParams.set('dur', String(cdur));
+      gate.searchParams.set('hub', hub);
+
+      gate.searchParams.set('next', hub);
+      gate.searchParams.set('autonext','1');
+
+      location.href = gate.toString();
+    }
+
+    window.addEventListener('hha:end', (e)=>{
+      goCooldownThenHub(e && e.detail ? e.detail : null);
+    }, {passive:true});
+  })();
+  </script>
+
+  <script src="../vr/vr-ui.js"></script>
+  <script type="module">
+    import './hydration.safe.js';
+  </script>
+</body>
+</html>
