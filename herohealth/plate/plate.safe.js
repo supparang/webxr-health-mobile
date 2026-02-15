@@ -1,11 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1a
 // HHA Standard + Storm + Boss + AI hooks + features_1s + labels + flush-hardened
 //
+// ✅ exports boot() for plate-vr.html
 // ✅ emits hha:features_1s (time-series) every 1s
 // ✅ emits hha:labels on end (and key milestones)
 // ✅ integrates /vr/ai-hooks.js if present (never crashes if missing)
 // ✅ study/research: deterministic seed + AI/adaptive OFF by default
+// ✅ mode-factory: onShotMiss wired (counts shotMiss without affecting canonical miss)
 
 'use strict';
 
@@ -377,7 +379,7 @@ function wireShotMiss(){
   ROOT.addEventListener('hha:judge', (e)=>{
     const d = e.detail || {};
     if(String(d.kind||'').toLowerCase() === 'shot_miss'){
-      STATE.shotMiss++;
+      // counted by mode-factory onShotMiss callback (avoid double count)
     }
   }, { passive:true });
 }
@@ -564,6 +566,20 @@ function makeSpawner(mount){
     onExpire:(t)=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
       if(t.kind === 'good') onExpireGood(t.groupIndex ?? 0);
+    },
+
+    // ✅ NEW: count shot-miss (separate from canonical miss)
+    onShotMiss:(m)=>{
+      if(!STATE.running || STATE.paused || STATE.ended) return;
+      STATE.shotMiss++;
+
+      emit('hha:judge', { kind:'shot_miss', ...m, score: STATE.score|0, combo: STATE.combo|0 });
+      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss', ...m }); }catch{}
+
+      // optional difficulty: uncomment to punish spam
+      // resetCombo();
+
+      updateHUD();
     }
   });
 }
@@ -959,7 +975,7 @@ function endGame(reason='end'){
 
     timePlannedSec: Number(STATE.timePlannedSec || 0) || 0,
     durationPlannedSec: Number(STATE.timePlannedSec || 0) || 0,
-    durationPlayedSec: Number(STATE.timePlannedSec || 0) || 0,
+    durationPlayedSec: playedSec(), // ✅ FIX: played actual
 
     scoreFinal: STATE.score|0,
     comboMax: STATE.comboMax|0,
@@ -1002,7 +1018,7 @@ function endGame(reason='end'){
     accPct,
     miss: summary.miss,
     scoreFinal: summary.scoreFinal,
-    bossWin: (summary.reason !== 'boss_lose') ? null : 0 // (safe placeholder)
+    bossWin: (STATE.boss.done && !STATE.boss.active && reason !== 'boss_lose' ? 1 : 0)
   });
 
   // clear signal
@@ -1107,8 +1123,7 @@ function startGame(){
   STATE.ML.lastHitGood=0; STATE.ML.lastHitJunk=0; STATE.ML.lastExpireGood=0;
   STATE.ML.lastMiss=0; STATE.ML.lastScore=0;
   STATE.ML.bufMiss=[]; STATE.ML.bufAcc=[]; STATE.ML.bufDensity=[];
-  STATE.ML.lastSpawnCount=0; STATE.ML.lastSpawnTs=0; // spawnCount continues
-  // (spawnCount resets only if you want)
+  STATE.ML.lastSpawnCount=0; STATE.ML.lastSpawnTs=0;
   STATE.ML.spawnCount = 0;
 
   computeMinisPlanned();
@@ -1177,3 +1192,14 @@ function startGame(){
   emitQuest();
   updateHUD();
 })();
+
+// ---------------- Public API ----------------
+// plate-vr.html expects: import { boot } from './plate.safe.js'
+export function boot(){
+  return {
+    start(){ try{ qs('btnStart')?.click(); }catch{} },
+    startGame,
+    end(reason){ try{ endGame(reason||'api'); }catch{} },
+    state: STATE
+  };
+}
