@@ -1,204 +1,210 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH: per-target TTL tracking + expire animation helpers + adaptive safe zone
+// Dom renderer for Shadow Breaker (PATCH: safe-zone + true expiry + reliable pointer)
+// Exposes: spawnTarget(), removeTarget(), expireTarget(), playHitFx(), destroy(), setDifficulty()
+// Stores targets map: id -> { el, type, sizePx }
 
 'use strict';
 
-import { FxBurst } from './fx-burst.js';
-
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-function rand(min,max){ return min + Math.random()*(max-min); }
-
-function readCssPx(el, name, fallbackPx){
-  try{
-    const v = getComputedStyle(el).getPropertyValue(name).trim();
-    if(!v) return fallbackPx;
-    const n = Number(String(v).replace('px','').trim());
-    return Number.isFinite(n) ? n : fallbackPx;
-  }catch{
-    return fallbackPx;
-  }
-}
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
 export class DomRendererShadow {
-  constructor(layerEl, opts = {}) {
-    this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
+  constructor(layerEl, opts={}){
+    this.layerEl = layerEl;
+    this.wrapEl = opts.wrapEl || document.body;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
-    this.diffKey = 'normal';
+    this.targets = new Map();   // id -> { el, type, sizePx }
+    this.diff = 'normal';
 
-    // targets map: id -> { el, bornMs, ttlMs, type, sizePx }
-    this.targets = new Map();
+    // bind
+    this._onPointerDown = this._onPointerDown.bind(this);
 
-    this._onPointer = this._onPointer.bind(this);
-  }
-
-  setDifficulty(k){ this.diffKey = k || 'normal'; }
-
-  destroy(){
-    for (const [id, obj] of this.targets.entries()) {
-      const el = obj?.el;
-      try { el?.removeEventListener('pointerdown', this._onPointer); } catch {}
-      try { el?.remove(); } catch {}
+    // ensure layer is clickable
+    if(this.layerEl){
+      this.layerEl.style.position = this.layerEl.style.position || 'relative';
+      this.layerEl.style.pointerEvents = 'auto';
+      this.layerEl.addEventListener('pointerdown', this._onPointerDown, { passive:false });
     }
-    this.targets.clear();
   }
 
-  _safeAreaRect(){
-    const r = this.layer.getBoundingClientRect();
-
-    // base pad from viewport size
-    const pad = Math.min(44, Math.max(18, r.width * 0.035));
-
-    // ✅ PATCH: allow CSS to reserve HUD zones precisely
-    // You can tweak these in CSS per breakpoint:
-    // --sb-safe-top, --sb-safe-bottom, --sb-safe-left, --sb-safe-right
-    const host = this.wrapEl || this.layer;
-    const safeTop    = readCssPx(host, '--sb-safe-top',    120);
-    const safeBottom = readCssPx(host, '--sb-safe-bottom', 140);
-    const safeLeft   = readCssPx(host, '--sb-safe-left',   12);
-    const safeRight  = readCssPx(host, '--sb-safe-right',  12);
-
-    const top = pad + safeTop;
-    const left = pad + safeLeft;
-    const right = r.width - pad - safeRight;
-    const bottom = r.height - pad - safeBottom;
-
-    return { r, left, top, right, bottom };
+  setDifficulty(diff){
+    this.diff = diff || 'normal';
+    try{
+      if(this.wrapEl) this.wrapEl.setAttribute('data-diff', this.diff);
+    }catch{}
   }
 
-  _emojiForType(t, bossEmoji){
-    if (t === 'normal') return '🎯';
-    if (t === 'decoy') return '👀';
-    if (t === 'bomb') return '💣';
-    if (t === 'heal') return '🩹';
-    if (t === 'shield') return '🛡️';
-    if (t === 'bossface') return bossEmoji || '👊';
-    return '🎯';
+  // --- safe zone helpers (driven by CSS vars) ---
+  _readSafeVars(){
+    const st = getComputedStyle(this.wrapEl || document.documentElement);
+    const px = (name, def=0)=>{
+      const v = st.getPropertyValue(name).trim();
+      const n = Number(String(v).replace('px','').trim());
+      return Number.isFinite(n) ? n : def;
+    };
+    // allow both: --sb-safe-* and fallback to safe-area insets
+    const top    = px('--sb-safe-top',    px('--safe-top', 0));
+    const bottom = px('--sb-safe-bottom', px('--safe-bottom', 0));
+    const left   = px('--sb-safe-left',   px('--safe-left', 0));
+    const right  = px('--sb-safe-right',  px('--safe-right', 0));
+    return { top, bottom, left, right };
   }
 
-  spawnTarget(data){
-    if (!this.layer || !data) return;
+  _layerRect(){
+    return this.layerEl?.getBoundingClientRect?.() || { left:0, top:0, width:360, height:640 };
+  }
 
-    const { left, top, right, bottom } = this._safeAreaRect();
+  _pickXY(sizePx){
+    const r = this._layerRect();
+    const safe = this._readSafeVars();
+
+    // keep a little inner padding too
+    const pad = Math.max(10, Math.round(sizePx*0.08));
+    const minX = r.left + safe.left + pad;
+    const maxX = r.left + r.width - safe.right - pad - sizePx;
+    const minY = r.top  + safe.top  + pad;
+    const maxY = r.top  + r.height  - safe.bottom - pad - sizePx;
+
+    // if too cramped, relax but still prevent NaN
+    const x1 = (maxX > minX) ? minX : r.left + pad;
+    const x2 = (maxX > minX) ? maxX : r.left + Math.max(pad, r.width - sizePx - pad);
+    const y1 = (maxY > minY) ? minY : r.top + pad;
+    const y2 = (maxY > minY) ? maxY : r.top + Math.max(pad, r.height - sizePx - pad);
+
+    const x = x1 + Math.random()*(x2 - x1);
+    const y = y1 + Math.random()*(y2 - y1);
+    return { x, y };
+  }
+
+  // create target element
+  spawnTarget(t){
+    if(!this.layerEl) return;
+
+    const id = t.id;
+    const type = t.type || 'normal';
+    const sizePx = clamp(Number(t.sizePx)||100, 50, 220);
 
     const el = document.createElement('div');
-    const type = (data.type || 'normal');
-    el.className = 'sb-target sb-target--' + type;
-    el.dataset.id = String(data.id);
+    el.className = `sb-target sb-target--${type}`;
+    el.dataset.id = String(id);
+    el.dataset.type = type;
 
-    const size = clamp(Number(data.sizePx) || 120, 66, 260);
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
+    el.style.width = `${sizePx}px`;
+    el.style.height = `${sizePx}px`;
+    el.style.position = 'absolute';
+    el.style.touchAction = 'none';
+    el.style.pointerEvents = 'auto';
 
-    // ✅ PATCH: font-size follows size (prevents emoji looking huge)
-    el.style.fontSize = Math.round(clamp(size * 0.36, 22, 46)) + 'px';
+    // emoji / face
+    const face = document.createElement('div');
+    face.className = 'sb-target__face';
+    face.textContent = (type === 'bossface') ? (t.bossEmoji || '👾') : this._emojiFor(type, t.bossEmoji);
+    el.appendChild(face);
 
-    // random position within safe area
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    // place
+    const pos = this._pickXY(sizePx);
+    const r = this._layerRect();
+    el.style.left = `${pos.x - r.left}px`;
+    el.style.top  = `${pos.y - r.top}px`;
 
-    // content
-    const emoji = this._emojiForType(type, data.bossEmoji);
-    el.textContent = emoji;
+    this.layerEl.appendChild(el);
+    this.targets.set(id, { el, type, sizePx });
 
-    el.addEventListener('pointerdown', this._onPointer, { passive: true });
-
-    this.layer.appendChild(el);
-
-    // ✅ PATCH: store ttl
-    const ttlMs = clamp(Number(data.ttlMs) || 1200, 350, 5000);
-    this.targets.set(data.id, {
-      el,
-      bornMs: performance.now(),
-      ttlMs,
-      type,
-      sizePx: size
-    });
+    // small pop in
+    requestAnimationFrame(()=> el.classList.add('is-on'));
   }
 
-  _onPointer(e){
-    const el = e.currentTarget;
-    if (!el) return;
-    const id = Number(el.dataset.id);
-    if (!Number.isFinite(id)) return;
+  _emojiFor(type, bossEmoji){
+    if(type === 'bomb') return '💣';
+    if(type === 'decoy') return '😵‍💫';
+    if(type === 'heal') return '❤️';
+    if(type === 'shield') return '🛡️';
+    if(type === 'bossface') return bossEmoji || '👾';
+    return '🥊';
+  }
 
-    if (this.onTargetHit) {
-      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
+  _onPointerDown(ev){
+    // IMPORTANT: allow menu buttons to work (they’re outside layer)
+    // This handler is only on layerEl, so safe.
+    ev.preventDefault();
+
+    const targetEl = ev.target?.closest?.('.sb-target');
+    if(!targetEl) return;
+
+    const id = Number(targetEl.dataset.id);
+    if(!Number.isFinite(id)) return;
+
+    const pt = { clientX: ev.clientX, clientY: ev.clientY };
+    if(this.onTargetHit) this.onTargetHit(id, pt);
+  }
+
+  playHitFx(id, opt={}){
+    // create lightweight fx at target center (or at pointer if given)
+    const o = this.targets.get(id);
+    const el = o?.el;
+    const layer = this.layerEl;
+    if(!layer) return;
+
+    const fx = document.createElement('div');
+    fx.className = 'sb-fx';
+
+    const grade = opt.grade || 'good';
+    fx.dataset.grade = grade;
+
+    let x = opt.clientX, y = opt.clientY;
+    if(!(Number.isFinite(x) && Number.isFinite(y)) && el){
+      const r = el.getBoundingClientRect();
+      x = r.left + r.width/2;
+      y = r.top + r.height/2;
     }
+    if(!(Number.isFinite(x) && Number.isFinite(y))) return;
+
+    const lr = layer.getBoundingClientRect();
+    fx.style.left = `${x - lr.left}px`;
+    fx.style.top  = `${y - lr.top}px`;
+
+    layer.appendChild(fx);
+    requestAnimationFrame(()=> fx.classList.add('is-on'));
+    setTimeout(()=> fx.remove(), 420);
   }
 
-  removeTarget(id, reason){
-    const obj = this.targets.get(id);
-    const el = obj?.el;
-    if (!el) return;
-    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-    try { el.remove(); } catch {}
+  removeTarget(id, reason='hit'){
+    const o = this.targets.get(id);
+    if(!o?.el) { this.targets.delete(id); return; }
+    const el = o.el;
     this.targets.delete(id);
+
+    el.classList.add(reason === 'hit' ? 'is-hit' : 'is-off');
+    // remove after animation
+    setTimeout(()=> {
+      try{ el.remove(); }catch{}
+    }, 180);
   }
 
-  // ✅ PATCH: expire animation helper (fade+shrink)
+  // ✅ key function: smooth expiry then remove (engine calls this)
   expireTarget(id){
-    const obj = this.targets.get(id);
-    const el = obj?.el;
-    if (!el) return false;
+    const o = this.targets.get(id);
+    if(!o?.el) { this.targets.delete(id); return; }
+    const el = o.el;
+    this.targets.delete(id);
 
-    // already expiring?
-    if (el.classList.contains('is-expiring')) return true;
-
-    el.classList.add('is-expiring');
-
-    // after animation, remove
-    const done = () => {
-      try { this.removeTarget(id, 'expire'); } catch {}
-    };
-    el.addEventListener('animationend', done, { once: true });
-    // safety timeout
-    setTimeout(done, 420);
-
-    return true;
+    el.classList.add('is-expire');
+    setTimeout(()=> {
+      try{ el.remove(); }catch{}
+    }, 260);
   }
 
-  playHitFx(id, info = {}){
-    const obj = this.targets.get(id);
-    const el = obj?.el;
-    const rect = el ? el.getBoundingClientRect() : null;
-    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
-    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
-
-    const grade = info.grade || 'good';
-    const scoreDelta = Number(info.scoreDelta) || 0;
-
-    if (grade === 'perfect') {
-      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
-    } else if (grade === 'good') {
-      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
-    } else if (grade === 'bad') {
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
-    } else if (grade === 'bomb') {
-      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
-      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
-    } else if (grade === 'heal') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
-      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
-    } else if (grade === 'shield') {
-      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
-      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-    } else if (grade === 'expire') {
-      FxBurst.burst(x, y, { n: 7, spread: 38, ttlMs: 420, cls: 'sb-fx-decoy' });
-      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
-    } else {
-      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
+  destroy(){
+    // remove all targets
+    for(const [id,o] of this.targets.entries()){
+      try{ o.el?.remove(); }catch{}
     }
+    this.targets.clear();
+
+    // remove fx leftovers
+    try{
+      this.layerEl?.querySelectorAll?.('.sb-fx')?.forEach(n=>n.remove());
+    }catch{}
   }
 }
