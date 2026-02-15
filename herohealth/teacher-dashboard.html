@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Teacher Dashboard</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --panel: rgba(2,6,23,.82);
+      --panel2: rgba(2,6,23,.55);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+    }
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    .wrap{max-width:980px;margin:0 auto;padding:16px;}
+    .card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:22px;
+      padding:14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+    }
+    h1{font-size:18px;margin:0 0 8px 0;}
+    .muted{color:var(--muted);font-size:12px;line-height:1.35}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+    @media (max-width:760px){ .grid{grid-template-columns:1fr;} }
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+    input,select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      font-weight:800;
+      outline:none;
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+    button{
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:900;
+      cursor:pointer;
+      flex:1 1 200px;
+    }
+    button.primary{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.12);
+    }
+    button.danger{
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.12);
+    }
+    table{width:100%;border-collapse:collapse;margin-top:12px;}
+    th,td{border-bottom:1px solid rgba(148,163,184,.14);padding:10px 8px;text-align:left;font-size:12px;}
+    th{color:var(--muted);font-weight:900;}
+    .tag{display:inline-block;border:1px solid var(--stroke);border-radius:999px;padding:4px 8px;background:rgba(2,6,23,.45);font-size:11px;font-weight:900}
+    .small{font-size:11px;color:var(--muted);margin-top:10px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🧑‍🏫 HeroHealth — Teacher Dashboard</h1>
+      <div class="muted">
+        หน้าเดียวสำหรับครู: เริ่ม session + บันทึก Reflection (teacher mode) + Export ข้อมูลวิจัย (CSV/JSON)
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>Planner URL (เป้าหมาย)</label>
+          <input id="plannerUrl" value="./fitness-planner/planner.html"/>
+          <div class="small">ถ้า planner อยู่ path อื่น ให้แก้ตรงนี้</div>
+        </div>
+        <div>
+          <label>Hub URL (กลับหน้า HUB)</label>
+          <input id="hubUrl" value="./hub.html"/>
+        </div>
+
+        <div>
+          <label>Classroom (เช่น ป.5/1)</label>
+          <input id="classRoom" placeholder="ป.5/1"/>
+        </div>
+        <div>
+          <label>Site Code (โรงเรียน/พื้นที่)</label>
+          <input id="siteCode" placeholder="SCH01"/>
+        </div>
+
+        <div>
+          <label>Phase</label>
+          <select id="phase">
+            <option value="pre">pre</option>
+            <option value="post">post</option>
+          </select>
+        </div>
+        <div>
+          <label>Condition Group</label>
+          <select id="conditionGroup">
+            <option value="A">A</option>
+            <option value="B" selected>B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
+
+        <div>
+          <label>PID (รหัสนักเรียน)</label>
+          <input id="pid" placeholder="เช่น 001"/>
+        </div>
+        <div>
+          <label>Name (optional)</label>
+          <input id="name" placeholder="ชื่อเล่น/ชื่อย่อ"/>
+        </div>
+
+        <div>
+          <label>Seed (ถ้าเว้นว่างจะสุ่ม)</label>
+          <input id="seed" placeholder="เช่น 20260215"/>
+        </div>
+        <div>
+          <label>Teacher Mode</label>
+          <select id="teacherMode">
+            <option value="1" selected>ON (ครูควบคุม reflection + teacher tags)</option>
+            <option value="0">OFF (เด้ง reflection อัตโนมัติ)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="btnStart">เริ่ม Planner (Teacher)</button>
+        <button id="btnOpenChild">เปิดแบบเด็ก (ไม่มี teacher tags)</button>
+        <button class="danger" id="btnClearLocal">ล้างข้อมูลในเครื่อง (ระวัง)</button>
+      </div>
+
+      <div class="row">
+        <button id="btnExportMine">Export ของ PID นี้ (CSV)</button>
+        <button id="btnExportAll">Export ทั้งห้อง (CSV)</button>
+        <button id="btnExportJoin">Join PRE/POST (CSV)</button>
+        <button id="btnExportStats">Summary Stats (CSV)</button>
+        <button id="btnExportJSON">Export ทั้งห้อง (JSON)</button>
+      </div>
+
+      <div class="small">
+        💡 Export ใช้ข้อมูลที่เก็บในเครื่อง (localStorage) ของอุปกรณ์นี้เท่านั้น — เหมาะกับเครื่องครู/แท็บเล็ตครู
+      </div>
+
+      <div style="margin-top:14px; font-weight:900;">📋 ผลล่าสุดในเครื่อง (Top 12)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>PID</th><th>Phase</th><th>Score</th><th>Acc</th><th>Time(s)</th><th>Reflect</th><th>Teacher Tags</th><th>At</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- dependencies (same as planner exports) -->
+  <script src="../fitness/js/hh-export.js"></script>
+
+  <script>
+    function qs(){
+      return {
+        plannerUrl: document.getElementById('plannerUrl').value.trim(),
+        hubUrl: document.getElementById('hubUrl').value.trim(),
+        classRoom: document.getElementById('classRoom').value.trim(),
+        siteCode: document.getElementById('siteCode').value.trim(),
+        phase: document.getElementById('phase').value,
+        conditionGroup: document.getElementById('conditionGroup').value,
+        pid: document.getElementById('pid').value.trim(),
+        name: document.getElementById('name').value.trim(),
+        seed: document.getElementById('seed').value.trim(),
+        teacher: document.getElementById('teacherMode').value
+      };
+    }
+
+    function buildUrl(isTeacher){
+      const v = qs();
+      const url = new URL(v.plannerUrl, location.href);
+
+      const seed = v.seed ? String(v.seed) : String(Date.now());
+      url.searchParams.set('pid', v.pid || 'anon');
+      if(v.name) url.searchParams.set('name', v.name);
+      url.searchParams.set('phase', v.phase);
+      url.searchParams.set('conditionGroup', v.conditionGroup);
+      url.searchParams.set('seed', seed);
+      url.searchParams.set('hub', new URL(v.hubUrl, location.href).toString());
+      if(v.classRoom) url.searchParams.set('classRoom', v.classRoom);
+      if(v.siteCode) url.searchParams.set('siteCode', v.siteCode);
+      url.searchParams.set('teacher', isTeacher ? '1' : '0');
+      return url.toString();
+    }
+
+    function renderTable(){
+      const tb = document.getElementById('tbody');
+      if(!tb) return;
+
+      const all = window.HHExport?.getAllLastPlanner?.() || [];
+      const top = all.slice(0, 12);
+
+      tb.innerHTML = top.map(o=>{
+        const rf = o.reflect || null;
+        const tags = Array.isArray(rf?.teacherTags) ? rf.teacherTags.join('|') : '';
+        const refl = (rf ? '✅' : '—');
+        const t = o.timeMs ? Math.round(o.timeMs/1000) : '';
+        const at = o.at ? new Date(o.at).toISOString().slice(0,19).replace('T',' ') : '';
+        return `
+          <tr>
+            <td><span class="tag">${(o.pid||'')}</span></td>
+            <td>${(o.phase||'')}</td>
+            <td>${(o.score??'')}</td>
+            <td>${(o.acc??'')}</td>
+            <td>${t}</td>
+            <td>${refl}</td>
+            <td>${tags}</td>
+            <td>${at}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('btnStart').addEventListener('click', ()=>{
+      const v = qs();
+      if(!v.pid){ alert('กรอก PID ก่อน'); return; }
+      location.href = buildUrl(true);
+    });
+
+    document.getElementById('btnOpenChild').addEventListener('click', ()=>{
+      const v = qs();
+      if(!v.pid){ alert('กรอก PID ก่อน'); return; }
+      window.open(buildUrl(false), '_blank');
+    });
+
+    document.getElementById('btnClearLocal').addEventListener('click', ()=>{
+      if(!confirm('ล้างข้อมูลในเครื่องทั้งหมด? (localStorage)')) return;
+      localStorage.clear();
+      renderTable();
+      alert('ล้างแล้ว');
+    });
+
+    document.getElementById('btnExportMine').addEventListener('click', ()=>{
+      window.HHExport?.downloadLastPlannerCSV?.();
+    });
+    document.getElementById('btnExportAll').addEventListener('click', ()=>{
+      window.HHExport?.downloadAllPlannerCSV?.();
+    });
+    document.getElementById('btnExportJoin').addEventListener('click', ()=>{
+      window.HHExport?.downloadPrePostJoinCSV?.({ includeIncomplete:true });
+    });
+    document.getElementById('btnExportStats').addEventListener('click', ()=>{
+      window.HHExport?.downloadSummaryStatsCSV?.({ includeIncomplete:false });
+    });
+    document.getElementById('btnExportJSON').addEventListener('click', ()=>{
+      window.HHExport?.downloadAllPlannerJSON?.();
+    });
+
+    // auto refresh table
+    renderTable();
+    setInterval(renderTable, 2000);
+  </script>
+</body>
+</html>
