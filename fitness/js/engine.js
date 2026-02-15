@@ -4,12 +4,14 @@
 // ✅ FIX: miss counting rule (expire counts only for normal/bossface)
 // ✅ FIX: adaptive baseSize by screen/layer
 // ✅ FIX: safe zone margins driven by CSS vars used by renderer
+// ✅ FIX: AI import crash removed (classic script RB_AI compatible)
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
-import { AIPredictor } from './ai-predictor.js';
+// ❌ REMOVE: ai-predictor.js is classic script (window.RB_AI), not an ES module export
+// import { AIPredictor } from './ai-predictor.js';
 
 function getQS(){
   try { return new URL(location.href).searchParams; }
@@ -181,7 +183,15 @@ const session = {
 };
 
 const dl = new DLFeatures();
-const ai = new AIPredictor();
+
+// ✅ PATCH: AI optional (classic script sets window.RB_AI)
+// - never crash if missing
+const ai = (window.RB_AI ?? {
+  getMode(){ return 'normal'; },
+  isAssistEnabled(){ return false; },
+  isLocked(){ return false; },
+  predict(){ return null; }
+});
 
 // ✅ PATCH: track active target expiry in engine (source of truth)
 const active = new Map(); // id -> { type, expireAtMs, sizePx }
@@ -407,7 +417,6 @@ function handleExpiry(){
   for(const [id, info] of active.entries()){
     if(tNow < info.expireAtMs) continue;
 
-    // if renderer already removed, drop it
     const obj = renderer.targets.get(id);
     if(!obj?.el){
       active.delete(id);
@@ -418,7 +427,6 @@ function handleExpiry(){
     renderer.playHitFx(id, { grade:'expire' });
     renderer.expireTarget(id);
 
-    // miss rule
     if(expireCountsMiss(info.type)){
       miss++;
       combo = 0;
@@ -435,7 +443,6 @@ function handleExpiry(){
 
     active.delete(id);
 
-    // tiny HP penalty only for normal expire (optional, keeps pressure but fair)
     if(info.type === 'normal' && youHp > 0){
       youHp = Math.max(0, youHp - 2);
       if(youHp <= 0) endGame('dead');
@@ -452,7 +459,6 @@ function tick(){
   const dt = t - tStart;
   timeLeft = Math.max(0, (TIME*1000) - dt);
 
-  // spawn
   const since = t - tLastSpawn;
   const targetInterval = clamp(
     CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
@@ -465,12 +471,10 @@ function tick(){
     dl.onShot();
   }
 
-  // FEVER decay
   if(fever >= FEVER_MAX){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
-  // ✅ expiry
   handleExpiry();
 
   if(timeLeft <= 0){
@@ -498,7 +502,7 @@ function start(mode){
   active.clear();
 
   dl.reset();
-  renderer.destroy(); // clear old targets
+  renderer.destroy();
 
   setBossUI();
   setHUD();
@@ -560,7 +564,6 @@ btnEvtCsv?.addEventListener('click', ()=>{
 });
 
 btnSesCsv?.addEventListener('click', ()=>{
-  // refresh session snapshot before download
   session.score = score|0;
   session.maxCombo = maxCombo|0;
   session.miss = miss|0;
