@@ -1,8 +1,8 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
-✅ HHA Standard + Start overlay + Result overlay + Back HUB
+HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260215a
+✅ HHA Standard + Start overlay + Pause overlay + Result overlay + Back HUB
 ✅ PC/Mobile/cVR supported (view=cvr ยิงจาก crosshair ผ่าน vr-ui.js => hha:shoot)
-✅ Uses /herohealth/plate/plate.safe.js (module)
+✅ Uses /herohealth/plate/plate.safe.js (module) and calls boot()
 ✅ Coach images: /herohealth/img/plate-*.png
 -->
 <!doctype html>
@@ -14,13 +14,13 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- External CSS -->
+  <!-- External CSS (optional; keep if you have it) -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
   <!-- A-Frame (ENTER VR / EXIT / RECENTER via vr-ui.js) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger + Universal VR UI + AI Hooks (classic scripts) -->
+  <!-- FX + Logger + Universal VR UI + AI Hooks -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
@@ -45,11 +45,10 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      /* HUD safe spawn zones (mode-factory reads these if you wired it that way) */
+      /* HUD safe spawn zones (ถ้า mode-factory อ่านค่านี้) */
       --hw-top-safe: calc(150px + var(--sat));
       --hw-bottom-safe: calc(150px + var(--sab));
     }
-
     *{ box-sizing:border-box; }
     html,body{
       margin:0; height:100%; width:100%;
@@ -58,7 +57,6 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
       color:var(--text);
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
-
     a-scene{ position:fixed; inset:0; z-index:0; }
 
     .bg{
@@ -76,6 +74,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
       padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
     }
 
+    /* spawn layer (mount) */
     #plate-layer{
       position:fixed; inset:0;
       z-index:10;
@@ -194,6 +193,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
     .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
     .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
 
+    /* overlays */
     #startOverlay, #hudPaused, #resultBackdrop{
       position:fixed; inset:0;
       z-index:70;
@@ -373,8 +373,8 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
         <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
         <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
         <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-          <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
-          <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
+          <button class="btn primary" id="btnResume2" type="button">▶ เล่นต่อ</button>
+          <button class="btn warn" id="btnRestart2" type="button">♻ เริ่มใหม่</button>
         </div>
       </div>
     </div>
@@ -431,55 +431,258 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION
     </div>
   </div>
 
-  <!-- Bridge + UI wiring -->
-  <script>
-    (function(){
-      const sp = new URL(location.href).searchParams;
-      const run = sp.get('run') || 'play';
-      const diff = sp.get('diff') || 'normal';
-      const time = sp.get('time') || '90';
+  <!-- Bootstrap (calls boot() + wires UI) -->
+  <script type="module">
+    import { boot as plateBoot } from './plate.safe.js';
 
-      const dbg = document.getElementById('startDbg');
-      if(dbg) dbg.textContent = 'URL: ' + location.href;
+    const $ = (id)=>document.getElementById(id);
+    const sp = new URL(location.href).searchParams;
 
-      const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent = String(v); };
-      setText('uiRunPreview', run);
-      setText('uiDiffPreview', diff);
-      setText('uiTimePreview', time);
+    // ---- params ----
+    const run = (sp.get('run') || 'play').toLowerCase();     // play | study | research
+    const diff = (sp.get('diff') || 'normal').toLowerCase(); // easy | normal | hard
+    const time = Number(sp.get('time') || 90) || 90;
+    const seed = Number(sp.get('seed') || 0) || 0;
+    const view = (sp.get('view') || '').toLowerCase();       // cvr | mobile | pc ...
+    const pid  = sp.get('pid') || 'anon';
+    const studyId = sp.get('studyId') || '';
+    const phase = sp.get('phase') || '';
+    const conditionGroup = sp.get('conditionGroup') || '';
+    const log = sp.get('log') || ''; // optional
 
-      document.getElementById('btnStartMain')?.addEventListener('click', ()=>{
-        document.getElementById('btnStart')?.click();
-      }, {passive:true});
+    // show preview
+    const dbg = $('startDbg');
+    if(dbg) dbg.textContent = 'URL: ' + location.href;
+    const setText = (id,v)=>{ const e=$(id); if(e) e.textContent = String(v); };
+    setText('uiRunPreview', run);
+    setText('uiDiffPreview', diff);
+    setText('uiTimePreview', time);
 
-      document.getElementById('btnCopyLink')?.addEventListener('click', async ()=>{
-        try{
-          await navigator.clipboard.writeText(location.href);
-          if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
-        }catch(e){
-          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
-        }
-      }, {passive:true});
-
-      function hubUrl(){
-        const h = sp.get('hub');
-        return h ? decodeURIComponent(h) : '../hub.html';
+    // resolve hub safely (fix hub=.%252Fhub.html etc.)
+    function resolveHubUrl(){
+      const raw = sp.get('hub');
+      if(!raw) return new URL('../hub.html', location.href).toString();
+      try{
+        // decode once; if still contains %2F, decode again safely
+        let s = raw;
+        try{ s = decodeURIComponent(s); }catch{}
+        try{ if(/%2f|%3a/i.test(s)) s = decodeURIComponent(s); }catch{}
+        return new URL(s, location.href).toString();
+      }catch{
+        return new URL('../hub.html', location.href).toString();
       }
+    }
+    const HUB_URL = resolveHubUrl();
 
-      document.getElementById('btnBackHub')?.addEventListener('click', ()=>{
-        location.href = hubUrl();
-      }, {passive:true});
+    // apply view hint
+    if(view === 'cvr') document.documentElement.dataset.view = 'cvr';
 
-      document.getElementById('btnBackHubFromStart')?.addEventListener('click', ()=>{
-        location.href = hubUrl();
-      }, {passive:true});
+    // overlays
+    const startOverlay = $('startOverlay');
+    const pausedOverlay = $('hudPaused');
+    const resultOverlay = $('resultBackdrop');
 
-      document.getElementById('btnPlayAgain')?.addEventListener('click', ()=>{
-        location.reload();
-      }, {passive:true});
-    })();
+    const show = (el, on)=>{ if(!el) return; el.style.display = on ? 'grid' : 'none'; };
+
+    // buttons
+    $('btnStartMain')?.addEventListener('click', ()=> $('btnStart')?.click(), {passive:true});
+    $('btnCopyLink')?.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(location.href); if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว'; }
+      catch{ if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้'; }
+    }, {passive:true});
+
+    $('btnBackHub')?.addEventListener('click', ()=> location.href = HUB_URL, {passive:true});
+    $('btnBackHubFromStart')?.addEventListener('click', ()=> location.href = HUB_URL, {passive:true});
+    $('btnPlayAgain')?.addEventListener('click', ()=> location.reload(), {passive:true});
+
+    $('btnResume2')?.addEventListener('click', ()=> $('btnPause')?.click(), {passive:true});
+    $('btnRestart2')?.addEventListener('click', ()=> $('btnRestart')?.click(), {passive:true});
+
+    // ---- game start/stop ----
+    const mount = $('plate-layer');
+    let started = false;
+    let paused = false;
+
+    function cfgFromUrl(){
+      // HHA Standard cfg (plate.safe.js expects durationPlannedSec + seed + runMode/diff)
+      // research/study: deterministic seed + adaptive off (ตาม logic ใน plate.safe.js)
+      return {
+        runMode: run,
+        diff,
+        seed: seed || Date.now(),
+        durationPlannedSec: time,
+
+        // pass-through for loggers (optional; safe even if not used)
+        pid, studyId, phase, conditionGroup, log,
+        view
+      };
+    }
+
+    function hardResetUI(){
+      setText('uiScore', 0);
+      setText('uiCombo', 0);
+      setText('uiComboMax', 0);
+      setText('uiMiss', 0);
+      setText('uiPlateHave', 0);
+      setText('uiAcc', '0%');
+      setText('uiGrade', 'C');
+      setText('uiTime', time);
+
+      setText('uiG1', 0); setText('uiG2', 0); setText('uiG3', 0); setText('uiG4', 0); setText('uiG5', 0);
+
+      setText('uiGoalTitle', 'เติมจานให้ครบ 5 หมู่');
+      setText('uiGoalCount', '0/5');
+      const gf = $('uiGoalFill'); if(gf) gf.style.width = '0%';
+
+      setText('uiMiniTitle', 'ความแม่นยำ');
+      setText('uiMiniTime', '--');
+      setText('uiMiniCount', '0/80');
+      const mf = $('uiMiniFill'); if(mf) mf.style.width = '0%';
+
+      const coachImg = $('coachImg'); if(coachImg) coachImg.src = '../img/plate-neutral.png';
+      setText('coachMsg', 'พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪');
+
+      const fever = $('uiFeverFill'); if(fever) fever.style.width = '0%';
+      setText('uiShieldN', 0);
+
+      show(resultOverlay, false);
+    }
+
+    function startGame(){
+      if(!mount) { alert('plate-layer not found'); return; }
+      hardResetUI();
+      show(startOverlay, false);
+      show(pausedOverlay, false);
+      paused = false;
+
+      // IMPORTANT: actually start spawner by calling boot()
+      plateBoot({ mount, cfg: cfgFromUrl() });
+
+      started = true;
+    }
+
+    // Start hidden bridge button
+    $('btnStart')?.addEventListener('click', ()=>{
+      if(started) return;
+      startGame();
+    }, {passive:true});
+
+    // Pause = UI-level pause (freeze clicks by pointer-events + show overlay)
+    $('btnPause')?.addEventListener('click', ()=>{
+      if(!started) return;
+      paused = !paused;
+      show(pausedOverlay, paused);
+      // soft pause: block mount interactions
+      mount.style.pointerEvents = paused ? 'none' : 'auto';
+    }, {passive:true});
+
+    // Restart
+    $('btnRestart')?.addEventListener('click', ()=>{
+      location.reload();
+    }, {passive:true});
+
+    // keep Start overlay open initially
+    show(startOverlay, true);
+
+    // ---- UI events from plate.safe.js ----
+    window.addEventListener('hha:start', (e)=>{
+      const d = e.detail || {};
+      setText('uiTime', d.timePlannedSec ?? time);
+    });
+
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      setText('uiScore', d.score ?? 0);
+      setText('uiCombo', d.combo ?? 0);
+      setText('uiComboMax', d.comboMax ?? 0);
+
+      // grade heuristic from score (UI only; canonical grade in hha:end)
+      const s = Number(d.score||0);
+      const g = s>=2200?'S':s>=1700?'A':s>=1200?'B':s>=700?'C':'D';
+      setText('uiGrade', g);
+    });
+
+    window.addEventListener('hha:time', (e)=>{
+      const d = e.detail || {};
+      setText('uiTime', d.leftSec ?? 0);
+    });
+
+    window.addEventListener('quest:update', (e)=>{
+      const d = e.detail || {};
+      if(d.goal){
+        setText('uiGoalTitle', d.goal.name ?? '—');
+        setText('uiGoalCount', `${d.goal.cur ?? 0}/${d.goal.target ?? 0}`);
+        const p = (d.goal.target>0) ? Math.round((d.goal.cur/d.goal.target)*100) : 0;
+        const gf = $('uiGoalFill'); if(gf) gf.style.width = `${Math.max(0,Math.min(100,p))}%`;
+        setText('uiPlateHave', d.goal.cur ?? 0);
+      }
+      if(d.mini){
+        setText('uiMiniTitle', d.mini.name ?? '—');
+        setText('uiMiniCount', `${d.mini.cur ?? 0}/${d.mini.target ?? 0}`);
+        const p2 = (d.mini.target>0) ? Math.round((d.mini.cur/d.mini.target)*100) : 0;
+        const mf = $('uiMiniFill'); if(mf) mf.style.width = `${Math.max(0,Math.min(100,p2))}%`;
+        setText('uiAcc', `${d.mini.cur ?? 0}%`);
+      }
+    });
+
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail || {};
+      if(typeof d.msg === 'string' && d.msg) setText('coachMsg', d.msg);
+
+      // swap coach image by sentiment keywords (simple, safe)
+      const msg = String(d.msg||'').toLowerCase();
+      const img = $('coachImg');
+      if(!img) return;
+
+      let mood = 'neutral';
+      if(/เยี่ยม|ดีมาก|สุดยอด|สำเร็จ|🎉|👍|perfect|great/.test(msg)) mood='happy';
+      else if(/ระวัง|พลาด|ผิด|ช้า|⚠️|miss|oops/.test(msg)) mood='sad';
+      else if(/fever|สปีด|ลุย/.test(msg)) mood='fever';
+
+      img.src = `../img/plate-${mood}.png`;
+    });
+
+    window.addEventListener('hha:judge', (e)=>{
+      const d = e.detail || {};
+      if(String(d.kind||'') === 'junk' || String(d.kind||'') === 'expire_good'){
+        // plate.safe.js canonical miss emits only in hha:end; แต่ UI อยากเห็น realtime
+        const cur = Number(($('uiMiss')?.textContent)||0) || 0;
+        setText('uiMiss', cur + 1);
+      }
+      if(d.kind === 'good'){
+        // update group counters best-effort (plate.safe.js already keeps in summary; this is UI realtime)
+        const gid = Number(d.groupId||0);
+        const map = {1:'uiG1',2:'uiG2',3:'uiG3',4:'uiG4',5:'uiG5'};
+        const id = map[gid];
+        if(id){
+          const cur = Number(($(id)?.textContent)||0) || 0;
+          setText(id, cur + 1);
+        }
+      }
+    });
+
+    window.addEventListener('hha:end', (e)=>{
+      const s = e.detail || {};
+      // fill result UI
+      setText('rMode', s.runMode ?? run);
+      setText('rGrade', s.grade ?? '—');
+      setText('rScore', s.scoreFinal ?? 0);
+      setText('rMaxCombo', s.comboMax ?? 0);
+      setText('rMiss', s.miss ?? 0);
+      setText('rAcc', (s.accuracyPct!=null) ? `${s.accuracyPct}%` : '—');
+      setText('rGoals', `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`);
+      setText('rMinis', `${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`);
+
+      setText('rG1', s.g1 ?? 0); setText('rG2', s.g2 ?? 0); setText('rG3', s.g3 ?? 0); setText('rG4', s.g4 ?? 0); setText('rG5', s.g5 ?? 0);
+      const total = (Number(s.g1||0)+Number(s.g2||0)+Number(s.g3||0)+Number(s.g4||0)+Number(s.g5||0));
+      setText('rGTotal', total);
+
+      // show result
+      show(pausedOverlay, false);
+      show(resultOverlay, true);
+      mount.style.pointerEvents = 'none';
+    });
+
   </script>
-
-  <!-- RUN GAME MODULE -->
-  <script type="module" src="./plate.safe.js"></script>
 </body>
 </html>
