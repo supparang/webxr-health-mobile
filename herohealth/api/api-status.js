@@ -4,32 +4,32 @@
 const KEY = 'HHA_API_DISABLED';
 const TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export function disableRemote(code = 403, reason = 'forbidden') {
+export function disableRemote(code, reason) {
   try {
     const payload = { code: Number(code) || 403, reason: String(reason || ''), ts: Date.now() };
     sessionStorage.setItem(KEY, JSON.stringify(payload));
-  } catch {}
+  } catch (e) {}
 }
 
 export function clearDisable() {
-  try { sessionStorage.removeItem(KEY); } catch {}
+  try { sessionStorage.removeItem(KEY); } catch (e) {}
 }
 
 export function disabledInfo() {
   try {
-    const raw = sessionStorage.getItem(KEY);
+    var raw = sessionStorage.getItem(KEY);
     if (!raw) return { disabled: false };
-    const d = JSON.parse(raw);
+    var d = JSON.parse(raw);
     return { disabled: true, code: d.code || 403, reason: d.reason || '', ts: d.ts || 0 };
-  } catch {
+  } catch (e) {
     return { disabled: false };
   }
 }
 
 export function isRemoteDisabled() {
-  const info = disabledInfo();
+  var info = disabledInfo();
   if (!info.disabled) return false;
-  const age = Date.now() - (info.ts || 0);
+  var age = Date.now() - (info.ts || 0);
   if (age > TTL_MS) {
     clearDisable();
     return false;
@@ -37,26 +37,30 @@ export function isRemoteDisabled() {
   return true;
 }
 
-// UI helpers expected by hub.boot.js
+// UI helpers
 
-export function setBanner(_, status = 'warn', title = '', msg = '') {
-  const dot = document.getElementById('apiDot');
-  const titleEl = document.getElementById('apiTitle');
-  const msgEl = document.getElementById('apiMsg');
+export function setBanner(_, status, title, msg) {
+  status = status || 'warn';
+  title = title || '';
+  msg = msg || '';
+  var dot = document.getElementById('apiDot');
+  var titleEl = document.getElementById('apiTitle');
+  var msgEl = document.getElementById('apiMsg');
   if (dot) {
     dot.classList.remove('ok', 'warn', 'bad');
     if (status === 'ok') dot.classList.add('ok');
     else if (status === 'bad') dot.classList.add('bad');
     else dot.classList.add('warn');
   }
-  if (titleEl) titleEl.textContent = title || '';
-  if (msgEl) msgEl.textContent = msg || '';
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = msg;
 }
 
-export function toast(text, ms = 2200) {
+export function toast(text, ms) {
+  ms = typeof ms === 'number' ? ms : 2200;
   try {
-    const id = 'hh-toast';
-    let el = document.getElementById(id);
+    var id = 'hh-toast';
+    var el = document.getElementById(id);
     if (!el) {
       el = document.createElement('div');
       el.id = id;
@@ -77,35 +81,40 @@ export function toast(text, ms = 2200) {
     el.textContent = String(text || '');
     el.style.opacity = '1';
     clearTimeout(el._t);
-    el._t = setTimeout(() => { el.style.opacity = '0'; }, ms);
+    el._t = setTimeout(function() { el.style.opacity = '0'; }, ms);
   } catch (e) { console.warn('toast', e); }
 }
 
-export function qs(name, fallback = '') {
+export function qs(name, fallback) {
+  fallback = typeof fallback === 'undefined' ? '' : fallback;
   try {
-    const u = new URL(location.href);
-    return u.searchParams.get(name) ?? fallback;
-  } catch { return fallback; }
+    var u = new URL(location.href);
+    return u.searchParams.get(name) || fallback;
+  } catch (e) {
+    return fallback;
+  }
 }
 
-export async function probeAPI(endpoint, opts = {}, timeoutMs = 3000) {
+export async function probeAPI(endpoint, opts, timeoutMs) {
+  opts = opts || {};
+  timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 3000;
   if (!endpoint) return { status: 0 };
   if (isRemoteDisabled()) return { status: 403 };
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
+  var controller = new AbortController();
+  var t = setTimeout(function() { controller.abort(); }, timeoutMs);
   try {
-    const method = opts && opts.ping ? 'POST' : 'GET';
-    const body = opts && opts.ping ? JSON.stringify({ ping: true }) : undefined;
-    const res = await fetch(endpoint, {
-      method,
+    var method = opts.ping ? 'POST' : 'GET';
+    var body = opts.ping ? JSON.stringify({ ping: true }) : undefined;
+    var res = await fetch(endpoint, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
-      body,
+      body: body,
       signal: controller.signal,
       mode: 'cors'
     });
     clearTimeout(t);
     if (res.status === 401 || res.status === 403) {
-      try { disableRemote(res.status, status:${res.status}); } catch {}
+      try { disableRemote(res.status, 'status:' + String(res.status)); } catch (e) {}
     }
     return { status: res.status };
   } catch (err) {
@@ -115,19 +124,19 @@ export async function probeAPI(endpoint, opts = {}, timeoutMs = 3000) {
 }
 
 export function attachRetry(btnId, fn) {
-  const btn = document.getElementById(btnId);
+  var btn = document.getElementById(btnId);
   if (!btn) return;
-  const update = () => {
-    const disabled = isRemoteDisabled();
-    btn.classList.toggle('btn--disabled', disabled);
-    btn.disabled = disabled;
+  var update = function() {
+    var disabled = isRemoteDisabled();
+    if (disabled) btn.classList.add('btn--disabled'); else btn.classList.remove('btn--disabled');
+    try { btn.disabled = disabled; } catch (e) {}
   };
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', function(e) {
     e.preventDefault();
     if (isRemoteDisabled()) return;
     try { fn(); } catch (err) { console.warn('probe fn', err); }
   });
   update();
-  const iv = setInterval(update, 1000);
+  var iv = setInterval(update, 1000);
   btn._hh_interval = iv;
 }
