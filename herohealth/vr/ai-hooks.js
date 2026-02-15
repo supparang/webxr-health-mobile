@@ -1,37 +1,25 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HeroHealth AI Hooks — SAFE/PRODUCTION — v20260215a
-//
-// Goal: Provide a single, consistent AI interface for all HeroHealth games.
-// - Never crashes if unused
-// - Deterministic OFF in study/research by default
-// - Explainable micro-tips (rate-limited)
-// - Lightweight prediction + difficulty signal (heuristics) for future ML/DL
-//
-// Usage:
-//   const ai = window.HHA.createAIHooks({ game:'plate', runMode:'play', diff:'normal', seed:123, deterministic:false });
-//
-// The engine can call:
-//   ai.onEvent(type, payload)
-//   ai.getTip(features) -> {msg,mood,ttlMs,tag,explain}
-//   ai.getPrediction(features) -> {risk01, label, explain}
-//   ai.getDifficultySignal(features) -> {spawnMult, junkBias, speedBias, explain}
-//   ai.reset()
+// HHA AI Hooks — SAFE (no-crash) — PRODUCTION v20260215a
+// ✅ window.HHA.createAIHooks({game, runMode, diff, seed, deterministic})
+// ✅ Never crashes if consumer calls missing methods
+// ✅ Study/Research => deterministic=true => tips/adaptive OFF by default
+// ✅ Supports Plate ML-1: consumes events 'features_1s' and 'judge'
+// ✅ Explainable micro-tips (rate-limited) + simple prediction (heuristic)
+// NOTE: This is a "hook layer" — keeps logic safe + small; can be swapped with real ML later.
 
 'use strict';
 
 (function(){
-  const ROOT = window;
+  const WIN = window;
 
-  // Namespace
-  ROOT.HHA = ROOT.HHA || {};
-  if(typeof ROOT.HHA.createAIHooks === 'function') return; // don't override
+  // If already present, keep the existing (avoid double define)
+  if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function') return;
 
   const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
   const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
-  // Very small seeded RNG (only used if you explicitly enable deterministic play AI later)
   function seededRng(seed){
-    let t = (Number(seed)||12345) >>> 0;
+    let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
       t += 0x6D2B79F5;
       let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -40,289 +28,233 @@
     };
   }
 
-  function pick(rng, arr){
-    return arr[Math.floor(rng()*arr.length)];
+  function mkTip(msg, mood='neutral', meta){
+    const o = { msg, mood };
+    if(meta && typeof meta === 'object') Object.assign(o, meta);
+    return o;
   }
 
-  // Tip packs (Thai-first)
-  const TIP_PACK = {
-    generic: [
-      { tag:'focus',  mood:'neutral', msg:'โฟกัส “จังหวะ” มากกว่าความเร็ว—คอมโบจะขึ้นเอง 🎯', explain:'ลดการพลาดจากความรีบ' },
-      { tag:'steady', mood:'neutral', msg:'เล็งให้ชัวร์ก่อนยิง/แตะ 1 ครั้ง—กัน missShot พุ่ง', explain:'ลดการยิงซ้ำ/แตะรัว' },
-      { tag:'reset',  mood:'neutral', msg:'พลาดแล้วอย่าแถ! รีเซ็ตโฟกัสทันที แล้วกลับมาคุมจังหวะ', explain:'จัดการ after-error slump' },
-      { tag:'combo',  mood:'happy',   msg:'คอมโบกำลังมา! รักษาความนิ่งไว้ 🔥', explain:'เสริมแรงเมื่อเล่นดี' }
-    ],
-    plate: [
-      { tag:'all5',   mood:'neutral', msg:'ยังไม่ครบ 5 หมู่? เล็งหมู่ที่ยัง “ไม่ขึ้นเลข” ก่อน 🥦🍎🐟🍚🥑', explain:'เพิ่มความสมดุลของจาน' },
-      { tag:'junk',   mood:'sad',     msg:'ระวังของทอด/หวาน! โดนทีเดียวคอมโบหาย 💥', explain:'ลด junk hit' },
-      { tag:'storm',  mood:'fever',   msg:'STORM มาแล้ว! เล็งเฉพาะ GOOD ที่ใกล้ crosshair ก่อน ⏱️', explain:'เพิ่ม hitGood ในเวลาจำกัด' },
-      { tag:'boss',   mood:'neutral', msg:'BOSS: ห้ามโดนขยะ! เอาความชัวร์เป็นหลัก 😤', explain:'ลดความเสี่ยง hitJunk' },
-      { tag:'acc',    mood:'neutral', msg:'ถ้าอยากได้ A/S: คุมความแม่นยำ > 80% ไว้ก่อน 🎯', explain:'ชี้เป้าเป้าหมาย acc' }
-    ],
-    groups: [
-      { tag:'switch', mood:'neutral', msg:'จำหมู่ให้แม่น: สี/ไอคอนเปลี่ยน = เป้าหมายใหม่', explain:'ลดสับสนระหว่างกลุ่ม' }
-    ],
-    hygiene: [
-      { tag:'step',   mood:'neutral', msg:'ทำทีละขั้น—ไม่ต้องรีบ แต่ต้องครบ ✅', explain:'เน้นความครบถ้วน' }
-    ],
-    fitness: [
-      { tag:'breath', mood:'neutral', msg:'หายใจเข้าลึก ๆ แล้วคุมจังหวะ—คะแนนจะนิ่งขึ้น', explain:'ลดผิดจังหวะ/พลาด' }
-    ]
-  };
-
-  function makeRateLimiter(minGapMs){
-    let lastAt = 0;
-    return function allow(){
-      const t = now();
-      if(t - lastAt < minGapMs) return false;
-      lastAt = t;
-      return true;
-    };
-  }
-
-  // Simple rolling store
-  function makeRolling(maxN){
-    const a = [];
+  function safeObj(){
     return {
-      push(x){ a.push(x); while(a.length>maxN) a.shift(); },
-      avg(){
-        if(!a.length) return 0;
-        let s=0; for(const v of a) s += (Number(v)||0);
-        return s/a.length;
-      },
-      sum(){
-        let s=0; for(const v of a) s += (Number(v)||0);
-        return s;
-      },
-      last(){ return a.length ? a[a.length-1] : 0; },
-      arr(){ return a.slice(); }
+      enabled:false,
+      deterministic:true,
+      onEvent(){},
+      getTip(){ return null; },
+      getPrediction(){ return null; },
+      getDifficultySignal(){ return null; },
+      reset(){}
     };
   }
 
-  // Core factory
-  ROOT.HHA.createAIHooks = function createAIHooks(opts){
-    opts = opts || {};
-    const game = String(opts.game || 'generic').toLowerCase();
-    const runMode = String(opts.runMode || 'play').toLowerCase();
-    const diff = String(opts.diff || 'normal').toLowerCase();
+  function createAIHooks(cfg){
+    cfg = cfg || {};
+    const game = String(cfg.game || '').toLowerCase();
+    const runMode = String(cfg.runMode || 'play').toLowerCase();
+    const diff = String(cfg.diff || 'normal').toLowerCase();
+    const seed = Number(cfg.seed || 0) || 0;
+    const deterministic = !!cfg.deterministic || (runMode === 'study' || runMode === 'research');
 
-    const deterministic = !!opts.deterministic || (runMode === 'study' || runMode === 'research');
+    // In deterministic modes, keep everything OFF (research-safe)
+    const enabled = !deterministic;
 
-    // In deterministic modes: AI disabled by default (for research fairness)
-    // You can override by setting opts.forceEnable = true if you ever need it.
-    const enabled = !!opts.forceEnable ? true : !deterministic;
+    const rng = seededRng(seed || 13579);
 
-    const seed = Number(opts.seed || 0) || 0;
-    const rng = deterministic ? seededRng(seed || 12345) : Math.random;
+    // --- internal state ---
+    const S = {
+      lastTipAt: 0,
+      tipCooldownMs: 3800,
+      lastEventAt: 0,
 
-    // Rate-limited tips
-    const allowTip = makeRateLimiter(1800);
+      // rolling signals from features_1s
+      lastFeat: null,
 
-    // Rolling measures for heuristic predictions
-    const rMiss3 = makeRolling(3);
-    const rAcc3  = makeRolling(3);
-    const rDens3 = makeRolling(3);
-    const rShotM3= makeRolling(3);
+      // simple counters
+      nGood: 0,
+      nJunk: 0,
+      nExpire: 0,
+      nMiss: 0,
 
-    // event counters
-    const cnt = {
-      tStart: now(),
-      judgeGood:0, judgeJunk:0, judgeExpire:0, judgeShotMiss:0,
-      miniStart:0, miniEnd:0,
-      tips:0
+      // "prediction" cache
+      pred: null
     };
 
-    // last feature snapshot
-    let lastFeat = null;
-    let lastTipTag = '';
-    let lastTipAt = 0;
-
-    function onEvent(type, payload){
-      if(!enabled) return;
-      type = String(type||'').toLowerCase();
-      payload = payload || {};
-
-      if(type === 'judge'){
-        const k = String(payload.kind||'').toLowerCase();
-        if(k === 'good') cnt.judgeGood++;
-        else if(k === 'junk') cnt.judgeJunk++;
-        else if(k === 'expire_good') cnt.judgeExpire++;
-        else if(k === 'shot_miss') cnt.judgeShotMiss++;
-      }else if(type === 'features_1s'){
-        lastFeat = payload;
-
-        // Feed rolling windows if present
-        if(payload.missDelta3s != null) rMiss3.push(payload.missDelta3s);
-        if(payload.accAvg3s != null)  rAcc3.push(payload.accAvg3s);
-        if(payload.targetDensityAvg3s != null) rDens3.push(payload.targetDensityAvg3s);
-        if(payload.shotMissNow != null){
-          // approximate delta using last 1s miss signals if available
-          const sm = Number(payload.shotMissNow)||0;
-          const prev = Number(rShotM3.last())||0;
-          rShotM3.push(Math.max(0, sm - prev));
-        }
-      }else if(type === 'labels'){
-        const t = String(payload.type||'').toLowerCase();
-        if(t === 'mini_start') cnt.miniStart++;
-        if(t === 'mini_end') cnt.miniEnd++;
-      }
+    function reset(){
+      S.lastTipAt = 0;
+      S.lastEventAt = 0;
+      S.lastFeat = null;
+      S.nGood = 0;
+      S.nJunk = 0;
+      S.nExpire = 0;
+      S.nMiss = 0;
+      S.pred = null;
     }
 
-    // heuristic prediction: "risk of miss spike soon"
-    function getPrediction(feat){
-      feat = feat || lastFeat;
-      if(!enabled || !feat) return null;
-
-      const acc = Number(feat.accAvg3s ?? feat.accNowPct ?? 0) || 0;
-      const miss3 = Number(feat.missDelta3s ?? 0) || 0;
-      const dens = Number(feat.targetDensityAvg3s ?? feat.targetDensity ?? 0) || 0;
-      const imb  = Number(feat.groupImbalance01 ?? 0) || 0;
-      const shotM = Number(feat.shotMissNow ?? 0) || 0;
-
-      // risk factors (0..1)
-      const fAcc = clamp((80 - acc)/25, 0, 1);
-      const fMiss= clamp(miss3/3, 0, 1);
-      const fDen = clamp(dens, 0, 1);
-      const fImb = clamp(imb, 0, 1);
-      const fShot= clamp(shotM/12, 0, 1);
-
-      // weights differ by game
-      let risk01 = 0.35*fAcc + 0.30*fMiss + 0.20*fDen + 0.10*fShot + 0.05*fImb;
-
-      if(game === 'plate'){
-        // plate: density + junk sensitivity higher
-        risk01 = 0.32*fAcc + 0.28*fMiss + 0.26*fDen + 0.10*fShot + 0.04*fImb;
-      }
-
-      risk01 = clamp(risk01, 0, 1);
-
-      const label = risk01 >= 0.70 ? 'high' : (risk01 >= 0.40 ? 'mid' : 'low');
-      const explain = (label==='high')
-        ? 'ความแม่นยำตก/พลาดถี่ + หน้าจอแน่น → เสี่ยง miss spike'
-        : (label==='mid')
-          ? 'เริ่มมีความหนาแน่น/พลาดเพิ่ม → คุมจังหวะ'
-          : 'ทรงดี คุมได้';
-
-      return { risk01: Math.round(risk01*1000)/1000, label, explain };
+    function shouldTip(){
+      if(!enabled) return false;
+      const t = now();
+      if(t - S.lastTipAt < S.tipCooldownMs) return false;
+      return true;
     }
 
-    // difficulty signal: small nudges (engine decides whether to use)
-    function getDifficultySignal(feat){
-      feat = feat || lastFeat;
-      if(!enabled || !feat) return null;
+    function commitTip(){
+      S.lastTipAt = now();
+    }
 
-      const acc = Number(feat.accAvg3s ?? feat.accNowPct ?? 0) || 0;
-      const miss3 = Number(feat.missDelta3s ?? 0) || 0;
+    // --- heuristics by game ---
+    function tipForPlate(feat){
+      // feat: emitted from plate.safe.js (hha:features_1s)
+      // common fields:
+      //  accNowPct, missDelta3s, targetDensityAvg3s, groupImbalance01, spawnRatePerSec, stormActive, bossActive
+      if(!feat) return null;
 
-      let spawnMult = 1.0;
-      let junkBias = 0.0;   // + => more junk, - => less junk
-      let speedBias = 0.0;  // + => faster movement/spawn, - => slower
+      const acc = Number(feat.accNowPct||0);
+      const miss3 = Number(feat.missDelta3s||0);
+      const dens = Number(feat.targetDensityAvg3s!=null ? feat.targetDensityAvg3s : feat.targetDensity);
+      const imb  = Number(feat.groupImbalance01||0);
+      const storm = !!feat.stormActive;
+      const boss  = !!feat.bossActive;
 
-      // For play mode only: gentle nudges
-      if(acc >= 88 && miss3 <= 1){
-        spawnMult = 1.08;
-        speedBias = 0.08;
-        junkBias = (game === 'plate') ? 0.02 : 0.04;
-      }else if(acc <= 72 || miss3 >= 3){
-        spawnMult = 0.92;
-        speedBias = -0.08;
-        junkBias = (game === 'plate') ? -0.06 : -0.04;
+      // Boss/Storm tips (high priority)
+      if(boss){
+        if(acc < 78) return mkTip('👹 ช่วงบอส: เล็งช้าๆ แต่ชัวร์ — อย่าโดนขยะเด็ดขาด!', 'neutral', { tag:'boss_focus' });
+        return mkTip('👹 บอสมาแล้ว: โฟกัส GOOD ให้ครบก่อนหมดเวลา!', 'neutral', { tag:'boss_goal' });
+      }
+      if(storm){
+        if(miss3 > 0) return mkTip('🌪️ พายุ: อย่าฝืนยิงไกล — ขยับเล็งให้เข้า lock ก่อนยิง!', 'fever', { tag:'storm_lock' });
+        return mkTip('🌪️ พายุ: เก็บ GOOD รัว ๆ แต่ห้ามหลุดโซนปลอดภัย!', 'fever', { tag:'storm_speed' });
       }
 
-      // adjust by diff
-      if(diff === 'hard'){ spawnMult *= 1.04; speedBias += 0.03; }
-      if(diff === 'easy'){ spawnMult *= 0.96; speedBias -= 0.03; }
+      // General tips
+      if(miss3 >= 2) return mkTip('🎯 พลาดติดกัน! ลดสปีดนิดนึง แล้วเล็งให้เข้า “วงล็อก” ก่อนยิง', 'sad', { tag:'miss_streak' });
+      if(acc < 70) return mkTip('🎯 ลองโฟกัสที่เป้าชิ้นใหญ่ใกล้ ๆ ก่อน จะดันความแม่นยำขึ้นไว', 'neutral', { tag:'acc_low' });
 
-      spawnMult = clamp(spawnMult, 0.80, 1.20);
-      junkBias  = clamp(junkBias, -0.15, 0.15);
-      speedBias = clamp(speedBias, -0.20, 0.20);
+      // too dense => prioritize nearest
+      if(dens >= 0.72) return mkTip('🧠 เป้าแน่น! เก็บใกล้สุดก่อน จะคอมโบต่อเนื่องง่ายขึ้น', 'neutral', { tag:'density_high' });
 
-      const explain =
-        spawnMult>1 ? 'เล่นดี → เพิ่มความท้าทายนิดหน่อย'
-        : spawnMult<1 ? 'พลาดเยอะ/แม่นยำตก → ลดความเร็ว/ลดขยะ'
-        : 'คงระดับ';
+      // imbalance => chase missing groups
+      if(imb >= 0.55) return mkTip('🍽️ หมู่ยังไม่บาลานซ์ — เก็บหมู่ที่ยังน้อย เพื่อให้ครบ 5 หมู่เร็วขึ้น', 'neutral', { tag:'imbalance' });
+
+      // good performance occasional praise
+      if(acc >= 86 && miss3 === 0 && rng() < 0.25) return mkTip('สุดยอด! ความแม่นยำดีมาก 🔥 รักษาจังหวะนี้ไว้', 'happy', { tag:'praise' });
+
+      return null;
+    }
+
+    // simple prediction: "risk of miss soon" + "likely grade band"
+    function predictPlate(feat){
+      if(!feat) return null;
+
+      const acc = Number(feat.accNowPct||0);
+      const miss3 = Number(feat.missDelta3s||0);
+      const dens = Number(feat.targetDensityAvg3s!=null ? feat.targetDensityAvg3s : feat.targetDensity);
+      const rate = Number(feat.spawnRatePerSec||0);
+      const boss = !!feat.bossActive;
+      const storm = !!feat.stormActive;
+
+      // risk: 0..1
+      let risk = 0.15;
+      if(acc < 72) risk += 0.25;
+      if(miss3 >= 2) risk += 0.30;
+      if(dens > 0.70) risk += 0.10;
+      if(rate > 1.2) risk += 0.10;
+      if(storm) risk += 0.18;
+      if(boss)  risk += 0.22;
+
+      risk = clamp(risk, 0, 1);
+
+      // grade band guess purely from scoreNow + acc
+      const score = Number(feat.scoreNow||0);
+      let band = 'C';
+      if(score >= 2200 && acc >= 88) band='S';
+      else if(score >= 1700 && acc >= 82) band='A';
+      else if(score >= 1200 && acc >= 75) band='B';
+      else if(score >= 700 && acc >= 68) band='C';
+      else band='D';
 
       return {
-        spawnMult: Math.round(spawnMult*1000)/1000,
-        junkBias: Math.round(junkBias*1000)/1000,
-        speedBias: Math.round(speedBias*1000)/1000,
-        explain
+        game:'plate',
+        tPlayedSec: feat.tPlayedSec|0,
+        riskMissSoon01: Math.round(risk*1000)/1000,
+        gradeBand: band,
+        why: {
+          accNowPct: acc,
+          missDelta3s: miss3,
+          density: Math.round(dens*1000)/1000,
+          spawnRatePerSec: Math.round(rate*100)/100,
+          bossActive: boss,
+          stormActive: storm
+        }
       };
     }
 
-    function pickTip(feat){
-      // Decide a tip tag based on state
-      const pred = getPrediction(feat);
-      const acc = Number(feat.accAvg3s ?? feat.accNowPct ?? 0) || 0;
-      const miss3 = Number(feat.missDelta3s ?? 0) || 0;
+    // difficulty signal: return suggestion only (engine decides)
+    function difficultySignalPlate(feat){
+      if(!feat) return null;
+      if(!enabled) return null;
 
-      if(game === 'plate'){
-        if(feat.bossActive) return 'boss';
-        if(feat.stormActive) return 'storm';
-        if(feat.groupImbalance01 != null && Number(feat.groupImbalance01) > 0.55) return 'all5';
-        if(pred && pred.label === 'high') return 'steady';
-        if(acc < 78) return 'acc';
-        if(miss3 >= 2) return 'junk';
-        if(Number(feat.comboMax||0) >= 10) return 'combo';
-      }
+      const acc = Number(feat.accNowPct||0);
+      const miss3 = Number(feat.missDelta3s||0);
 
-      if(pred && pred.label === 'high') return 'steady';
-      if(Number(feat.comboMax||0) >= 10) return 'combo';
-      if(acc < 78) return 'focus';
-      return 'steady';
+      // Suggest: -1 easier, 0 keep, +1 harder
+      let s = 0;
+      if(acc >= 88 && miss3 === 0) s = +1;
+      else if(acc < 70 && miss3 >= 1) s = -1;
+
+      return { game:'plate', signal:s, accNowPct:acc, missDelta3s:miss3, tPlayedSec: feat.tPlayedSec|0 };
+    }
+
+    function onEvent(type, payload){
+      try{
+        S.lastEventAt = now();
+
+        if(type === 'judge' && payload){
+          const k = String(payload.kind||'').toLowerCase();
+          if(k === 'good') S.nGood++;
+          else if(k === 'junk') { S.nJunk++; S.nMiss++; }
+          else if(k === 'expire_good') { S.nExpire++; S.nMiss++; }
+        }
+
+        if(type === 'features_1s' && payload){
+          S.lastFeat = payload;
+
+          // update prediction cache
+          if(game === 'plate'){
+            S.pred = predictPlate(payload);
+          }
+        }
+      }catch{}
     }
 
     function getTip(feat){
-      feat = feat || lastFeat;
-      if(!enabled || !feat) return null;
+      if(!enabled) return null;
+      if(!shouldTip()) return null;
 
-      const t = now();
-      if(!allowTip()) return null;
+      let tip = null;
+      if(game === 'plate') tip = tipForPlate(feat || S.lastFeat);
 
-      const tag = pickTip(feat);
-      // avoid repeating same tag too often
-      if(tag === lastTipTag && (t - lastTipAt) < 4500) return null;
-
-      let pool = TIP_PACK[game] || TIP_PACK.generic;
-      // add generic fallback
-      const gen = TIP_PACK.generic;
-
-      // find exact-tag first
-      let tip = pool.find(x=>x.tag===tag) || gen.find(x=>x.tag===tag);
-
-      // if none, random in pack
-      if(!tip){
-        const merged = pool.concat(gen);
-        tip = pick(rng, merged);
+      if(tip && tip.msg){
+        commitTip();
+        return tip;
       }
-
-      // final guard
-      if(!tip || !tip.msg) return null;
-
-      lastTipTag = tip.tag || '';
-      lastTipAt = t;
-      cnt.tips++;
-
-      return {
-        msg: tip.msg,
-        mood: tip.mood || 'neutral',
-        ttlMs: 2200,
-        tag: tip.tag || 'tip',
-        explain: tip.explain || ''
-      };
+      return null;
     }
 
-    function reset(){
-      rMiss3.arr().length = 0; // (no-op; we keep it simple)
-      rAcc3.arr().length = 0;
-      rDens3.arr().length = 0;
-      rShotM3.arr().length = 0;
-      lastFeat = null;
-      lastTipTag = '';
-      lastTipAt = 0;
-      cnt.judgeGood=0; cnt.judgeJunk=0; cnt.judgeExpire=0; cnt.judgeShotMiss=0;
-      cnt.miniStart=0; cnt.miniEnd=0; cnt.tips=0;
-      cnt.tStart = now();
+    function getPrediction(feat){
+      // allow in deterministic too (read-only), but keep it safe
+      const f = feat || S.lastFeat;
+      if(game === 'plate'){
+        return predictPlate(f);
+      }
+      return null;
+    }
+
+    function getDifficultySignal(feat){
+      if(!enabled) return null;
+      const f = feat || S.lastFeat;
+      if(game === 'plate'){
+        return difficultySignalPlate(f);
+      }
+      return null;
     }
 
     return {
@@ -334,6 +266,10 @@
       getDifficultySignal,
       reset
     };
-  };
+  }
+
+  // attach namespace
+  WIN.HHA = WIN.HHA || {};
+  WIN.HHA.createAIHooks = createAIHooks;
 
 })();
