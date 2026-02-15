@@ -1,9 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard)
-PATCH v20260215e
-✅ Practice counter/summary
-✅ cVR quiz buttons bigger hitbox
-✅ Spawn safe pad var
+PATCH v20260215a
+✅ target hit: instant disappear (is-hit) to prevent lingering
+✅ mobile tap reliability: touch-action + disable ghost click issues
+✅ keep HUD-safe vars for JS spawn
 */
 
 :root{
@@ -32,7 +32,6 @@ PATCH v20260215e
   /* ✅ spawn safe zones (JS reads these) */
   --hw-top-safe: 170px;
   --hw-bottom-safe: 190px;
-  --hw-safe-pad: 14px;
 
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
@@ -40,18 +39,16 @@ PATCH v20260215e
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-
+html,body{
+  height:100%; margin:0;
+  background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
 button{ font: inherit; }
 
-.hw-root{
-  position: relative;
-  min-height: 100%;
-  overflow: hidden;
-}
+.hw-root{ position: relative; min-height: 100%; overflow: hidden; }
 
-/* ===== Stage (playfield) ===== */
+/* ===== Stage ===== */
 .hw-stage{
   position: fixed;
   inset: 0;
@@ -69,31 +66,14 @@ button{ font: inherit; }
   pointer-events: none;
   z-index: 50;
 }
-
 .hw-top{
   position: absolute;
   top: 0; left: 0; right: 0;
   padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
 }
-
-.hw-title{
-  font-weight: 950;
-  letter-spacing: .2px;
-  font-size: 16px;
-}
-
-.hw-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.hw-row{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
+.hw-title{ font-weight: 950; letter-spacing: .2px; font-size: 16px; }
+.hw-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); }
+.hw-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 
 .hw-pill{
   pointer-events: none;
@@ -107,7 +87,6 @@ button{ font: inherit; }
   font-size: 12px;
   color: rgba(229,231,235,.94);
 }
-
 .hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
@@ -139,10 +118,7 @@ button{ font: inherit; }
   max-width: min(680px, calc(100% - 24px));
   text-align: center;
 }
-.hw-banner.show{
-  opacity: 1;
-  transform: translateX(-50%) translateY(0px);
-}
+.hw-banner.show{ opacity: 1; transform: translateX(-50%) translateY(0px); }
 
 /* ===== Overlays ===== */
 .hw-overlay{
@@ -165,26 +141,9 @@ button{ font: inherit; }
   padding: 16px;
   backdrop-filter: blur(12px);
 }
-
-.hw-card-title{
-  font-weight: 950;
-  font-size: 18px;
-  letter-spacing: .2px;
-}
-
-.hw-card-sub{
-  margin-top: 10px;
-  color: var(--muted);
-  line-height: 1.4;
-  font-size: 13px;
-}
-
-.hw-card-row{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
+.hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
+.hw-card-sub{ margin-top: 10px; color: var(--muted); line-height: 1.4; font-size: 13px; }
+.hw-card-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
 
 .hw-cta, .hw-ghost{
   cursor: pointer;
@@ -193,15 +152,8 @@ button{ font: inherit; }
   font-weight: 950;
   border: 1px solid var(--stroke);
 }
-.hw-cta{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.28);
-  color: rgba(229,231,235,.96);
-}
-.hw-ghost{
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-}
+.hw-cta{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); color: rgba(229,231,235,.96); }
+.hw-ghost{ background: rgba(15,23,42,.70); color: rgba(229,231,235,.94); }
 .hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
@@ -214,30 +166,6 @@ button{ font: inherit; }
   overflow: auto;
   font-size: 12px;
   color: rgba(229,231,235,.92);
-}
-
-/* ===== Practice counter ===== */
-#practiceCounter{
-  margin-top: 12px;
-  font-weight: 950;
-  font-size: clamp(44px, 7vh, 64px);
-  letter-spacing: .5px;
-  text-align: center;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,211,238,.22);
-  background: rgba(34,211,238,.08);
-  color: rgba(229,231,235,.96);
-}
-#practiceSummary{
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.45);
-  color: rgba(229,231,235,.92);
-  font-size: 13px;
-  line-height: 1.35;
 }
 
 /* ===== Targets ===== */
@@ -261,6 +189,8 @@ button{ font: inherit; }
   -webkit-tap-highlight-color: transparent;
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
+  touch-action: manipulation; /* ✅ mobile tap */
+  contain: layout style paint;
 }
 
 .hw-tgt .emoji{
@@ -273,8 +203,16 @@ button{ font: inherit; }
 .hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
 .hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
 
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
+.hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
+
+/* ✅ instant disappear state (fix lingering targets) */
+.hw-tgt.is-hit{
+  pointer-events: none !important;
+  animation: none !important;
+  transition: opacity 80ms ease, transform 80ms ease, filter 80ms ease;
+  opacity: 0 !important;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78)) !important;
+  filter: blur(1px);
 }
 
 @keyframes hwPopIn{
@@ -282,7 +220,7 @@ button{ font: inherit; }
   to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* ===== Quiz ===== */
+/* ===== Quiz box ===== */
 .hw-quiz{
   pointer-events: auto;
   margin-top: 10px;
@@ -293,68 +231,8 @@ button{ font: inherit; }
   padding: 12px;
   max-width: min(760px, calc(100% - 2px));
 }
-
 .hw-quiz-q{ font-weight: 950; font-size: 14px; }
-
-.hw-quiz-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-.hw-quiz-opts{
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.hw-quiz-opt{
-  pointer-events: auto;
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.70);
-  color: rgba(229,231,235,.94);
-  padding: 12px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 16px 50px rgba(0,0,0,.35);
-  min-height: 54px;
-}
-
-.hw-quiz-opt .n{
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-weight: 950;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.45);
-}
-
-.hw-quiz-opt .t{
-  font-weight: 900;
-  font-size: 13px;
-  line-height: 1.25;
-  text-align: left;
-}
-
-.hw-quiz-opt:hover{ filter: brightness(1.05); }
-.hw-quiz-opt:active{ transform: translateY(1px); }
-
-.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
-.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
-
-.hw-quiz-hint{
-  margin-top: 10px;
-  font-size: 11px;
-  color: rgba(148,163,184,.92);
-}
+.hw-quiz-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
 /* ===== View tweaks ===== */
 body.view-mobile{
@@ -363,28 +241,17 @@ body.view-mobile{
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
 }
-
 body.view-cvr{
   --hw-top-safe: 160px;
   --hw-bottom-safe: 240px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
-  --hw-safe-pad: 18px;
 }
-
-/* ✅ cVR: ทำปุ่ม Quiz ให้เล็งง่ายขึ้น */
-body.view-cvr .hw-quiz-opt{
-  min-height: 62px;
-  padding: 14px 14px;
-  border-color: rgba(34,211,238,.22);
-}
-
 body.view-vr{
   --hw-top-safe: 150px;
   --hw-bottom-safe: 210px;
 }
 
 @media (max-width: 520px){
-  .hw-quiz-opts{ grid-template-columns: 1fr; }
   .hw-banner{ top: calc(130px + var(--sat)); }
 }
