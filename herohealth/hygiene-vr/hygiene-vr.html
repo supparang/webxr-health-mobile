@@ -1,11 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
-PATCH v20260215d
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
-✅ Practice: run=practice OR ?practice=1 => 15s warmup (no miss, no summary)
+PATCH v20260215e
+✅ Quiz 4 buttons
+✅ Practice overlay + summary
+✅ cVR quiz can be answered by crosshair shoot (handled in hygiene.safe.js)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,7 +14,7 @@ PATCH v20260215d
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215d" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260215e" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -33,7 +31,7 @@ PATCH v20260215d
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260215d"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260215e"></script>
 </head>
 
 <body class="view-pc">
@@ -61,7 +59,7 @@ PATCH v20260215d
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box (4 buttons) -->
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -82,7 +80,7 @@ PATCH v20260215d
           </div>
 
           <div class="hw-quiz-hint" id="quizHint">
-            💡 แตะคำตอบ หรือกดแป้น 1–4 (บน PC) • โหมด cVR ยังตอบได้ด้วย “ตีถูกต่อเนื่อง 2 ครั้ง” เป็นทางสำรอง
+            💡 แตะคำตอบ หรือกด 1–4 (PC) • โหมด cVR: “เล็ง crosshair แล้วยิง” เพื่อเลือกคำตอบได้
           </div>
         </div>
       </div>
@@ -99,12 +97,9 @@ PATCH v20260215d
           <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
           ยิง/แตะ “ไอคอนขั้นตอนที่ถูก” เท่านั้น
         </div>
-
-        <!-- Practice note -->
         <div class="hw-card-sub" id="practiceNote" style="margin-top:10px; display:none">
           ✅ เปิดโหมด <b>Practice 15 วินาที</b> (ไม่นับ miss / ไม่บันทึกผล) แล้วจะเข้าเกมจริงให้อัตโนมัติ
         </div>
-
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
@@ -122,7 +117,10 @@ PATCH v20260215d
         <div class="hw-card-sub">
           ซ้อมแตะ/ยิงให้แม่น 15 วินาที • ไม่จบแพ้ • ไม่บันทึกผล
         </div>
+
         <div id="practiceCounter">15</div>
+        <div id="practiceSummary" style="display:none"></div>
+
         <div class="hw-card-row">
           <button class="hw-cta" id="btnSkipPractice" type="button">ข้าม Practice</button>
         </div>
