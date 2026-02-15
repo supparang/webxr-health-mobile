@@ -1,13 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1 (FULL)
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1
 // HHA Standard + Storm + Boss + AI hooks + features_1s + labels + flush-hardened
 //
+// ✅ export boot({ mount, cfg }) for plate-vr.html
 // ✅ emits hha:features_1s every 1s
-// ✅ emits hha:labels on end + milestones + mini start/end
+// ✅ emits hha:labels on end + milestones
 // ✅ integrates /vr/ai-hooks.js if present (never crashes if missing)
 // ✅ study/research: deterministic seed + AI/adaptive OFF by default
-// ✅ supports miss-shot stream via mode-factory onShotMiss -> hha:judge shot_miss
-// ✅ fixes UI event keys: hha:time emits both timeLeftSec and leftSec; quest uses title fields
+// ✅ canonical miss = good expired + junk hit (shotMiss tracked separately)
 
 'use strict';
 
@@ -33,7 +33,6 @@ function seededRng(seed){
 function gradeFrom(score, accPct){
   score = Number(score)||0;
   accPct = Number(accPct)||0;
-
   if(score >= 2200 && accPct >= 88) return 'S';
   if(score >= 1700 && accPct >= 82) return 'A';
   if(score >= 1200 && accPct >= 75) return 'B';
@@ -63,18 +62,79 @@ async function flushHardened(reason){
   try{
     const L = ROOT.HHA_LOGGER || ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || null;
     if(L && typeof L.flush === 'function'){
-      await Promise.race([
-        Promise.resolve(L.flush(reason||'manual')),
-        new Promise(res=>setTimeout(res, 650))
-      ]);
+      await Promise.race([ Promise.resolve(L.flush(reason||'manual')), new Promise(res=>setTimeout(res, 650)) ]);
     }else if(L && typeof L.flushNow === 'function'){
-      await Promise.race([
-        Promise.resolve(L.flushNow({reason})),
-        new Promise(res=>setTimeout(res, 650))
-      ]);
+      await Promise.race([ Promise.resolve(L.flushNow({reason})), new Promise(res=>setTimeout(res, 650)) ]);
     }
   }catch{}
 }
+
+// ---------------- State ----------------
+const STATE = {
+  running:false,
+  ended:false,
+  paused:false,
+
+  score:0,
+  combo:0,
+  comboMax:0,
+
+  // HHA canonical miss = good expired + junk hit
+  miss:0,
+
+  hitGood:0,
+  hitJunk:0,
+  expireGood:0,
+  shotMiss:0,
+
+  g:[0,0,0,0,0],
+  spawnSeen:[false,false,false,false,false],
+  collectedSeen:[false,false,false,false,false],
+
+  cfg:null,
+  rng:Math.random,
+
+  engine:null,
+  mountEl:null,
+
+  timeLeft:0,
+  timePlannedSec:0,
+  tStartIso:'',
+
+  goal:{ title:'เติมจานให้ครบ 5 หมู่', cur:0, target:5, done:false },
+  accMini:{ title:'ความแม่นยำ', cur:0, target:80, done:false },
+
+  miniTotal: 1,
+  miniCleared: 0,
+
+  storm:{
+    active:false, startedAt:0, durationSec:7, needGood:9, hitGood:0,
+    forbidJunk:false, cycleIndex:0, cyclesPlanned:0, lastRebootAt:0
+  },
+
+  boss:{
+    active:false, startedAt:0, durationSec:10, needGood:8, hitGood:0,
+    forbidJunk:true, done:false, lastRebootAt:0, triggered:false
+  },
+
+  // ML-1 rolling stats window
+  ML:{
+    lastHitGood:0,
+    lastHitJunk:0,
+    lastExpireGood:0,
+    lastMiss:0,
+    lastScore:0,
+    bufMiss: [],
+    bufAcc: [],
+    bufDensity: [],
+    lastSpawnCount: 0,
+    lastSpawnTs: 0,
+    spawnCount: 0
+  },
+
+  AI:null,
+  __shotMissWired:false,
+};
 
 // ---------------- AI Hooks (ML-1) ----------------
 function createAI(){
@@ -122,128 +182,6 @@ function createAI(){
   }
 }
 
-// ---------------- State ----------------
-const STATE = {
-  running:false,
-  ended:false,
-  paused:false,
-
-  score:0,
-  combo:0,
-  comboMax:0,
-
-  // HHA canonical miss = good expired + junk hit
-  miss:0,
-
-  hitGood:0,
-  hitJunk:0,
-  expireGood:0,
-  shotMiss:0,
-
-  g:[0,0,0,0,0],
-  spawnSeen:[false,false,false,false,false],
-  collectedSeen:[false,false,false,false,false],
-
-  cfg:null,
-  rng:Math.random,
-
-  engine:null,
-  mountEl:null,
-
-  timeLeft:0,
-  timePlannedSec:0,
-  tStartIso:'',
-
-  goal:{ title:'เติมจานให้ครบ 5 หมู่', cur:0, target:5, done:false },
-
-  // accuracy mini (ยังคงใช้เพื่อ UI/learning, แต่ “miniTotal” จะนับ storm+boss ตามเดิม)
-  accMini:{ title:'ความแม่นยำ', cur:0, target:80, done:false },
-
-  miniTotal: 1,
-  miniCleared: 0,
-
-  storm:{
-    active:false, startedAt:0, durationSec:7, needGood:9, hitGood:0,
-    forbidJunk:false, cycleIndex:0, cyclesPlanned:0, lastRebootAt:0
-  },
-
-  boss:{
-    active:false, startedAt:0, durationSec:10, needGood:8, hitGood:0,
-    forbidJunk:true, done:false, lastRebootAt:0, triggered:false
-  },
-
-  // ML-1 rolling stats window
-  ML:{
-    tickN:0,
-    lastHitGood:0,
-    lastHitJunk:0,
-    lastExpireGood:0,
-    lastMiss:0,
-    lastScore:0,
-    lastCombo:0,
-    lastTLeft:0,
-    // deltas over 3s
-    bufMiss: [],
-    bufAcc: [],
-    bufDensity: [],
-    lastSpawnCount: 0,
-    lastSpawnTs: 0,
-    spawnCount: 0
-  },
-
-  AI:null,
-
-  __shotMissWired:false,
-};
-
-// ---------------- Public boot() ----------------
-// plate-vr.html calls: plateBoot({ mount, cfg })
-export function boot({ mount, cfg } = {}){
-  if(!mount) throw new Error('plate.safe: mount missing');
-  STATE.mountEl = mount;
-
-  // cfg can be passed from runner; else fallback URL parse
-  STATE.cfg = cfg && typeof cfg === 'object' ? normalizeCfg(cfg) : parseCfgFromUrl();
-
-  // init UI baseline
-  computeMinisPlanned();
-  wireShotMiss();
-  bindShootOnce();
-
-  // show start overlay already handled by runner;
-  // we only prep state and listen to controls if used in standalone mode.
-
-  // If runner wants auto-start, they can call start() on returned api.
-  // But to keep compatibility, we do not auto-start.
-  return {
-    start: startGame,
-    pause: (p)=> setPaused(!!p),
-    stop: ()=> endGame('stop'),
-    getState: ()=> ({ ...STATE })
-  };
-}
-
-function normalizeCfg(cfg){
-  const runRaw = String(cfg.runMode || cfg.run || 'play').toLowerCase();
-  const diff   = String(cfg.diff || 'normal').toLowerCase();
-  const isStudy = (runRaw === 'study' || runRaw === 'research');
-
-  const time = clamp(cfg.durationPlannedSec ?? cfg.time ?? 90, 20, 9999);
-  const seedIn = cfg.seed;
-
-  const seed = isStudy
-    ? (Number(seedIn)||13579)
-    : (seedIn!=null ? (Number(seedIn)||13579) : ((Date.now() ^ (Math.random()*1e9))|0));
-
-  return {
-    ...cfg,
-    runMode: isStudy ? runRaw : 'play',
-    diff: ['easy','normal','hard'].includes(diff)?diff:'normal',
-    seed,
-    durationPlannedSec: time
-  };
-}
-
 // ---------------- Accuracy / Quests ----------------
 function accuracy(){
   const total = STATE.hitGood + STATE.hitJunk + STATE.expireGood;
@@ -264,6 +202,10 @@ function emitLabels(type, data){
     type,
     ...data
   });
+}
+
+function coach(msg, mood='neutral'){
+  emit('hha:coach', { game:'plate', msg, mood });
 }
 
 function recomputeGoal(){
@@ -318,7 +260,8 @@ function currentMiniFillPct(){
 }
 
 function emitQuest(){
-  const payload = {
+  // IMPORTANT: align with plate-vr.html listener (expects title/cur/target)
+  emit('quest:update', {
     game:'plate',
     goal:{ title: STATE.goal.title, cur: STATE.goal.cur, target: STATE.goal.target, done: STATE.goal.done },
     mini:{
@@ -329,25 +272,19 @@ function emitQuest(){
       timeText: currentMiniTimeText(),
       fillPct: currentMiniFillPct()
     },
+    miniProgress: { cleared: STATE.miniCleared, total: STATE.miniTotal },
     allDone: STATE.goal.done && STATE.accMini.done
-  };
+  });
 
-  emit('quest:update', payload);
-
-  // optional: bind to ids if present (runner already does it, but safe)
+  // (optional) keep internal bind if ids exist
   setText('uiGoalTitle', STATE.goal.title);
   setText('uiGoalCount', `${STATE.goal.cur}/${STATE.goal.target}`);
   const gf = qs('uiGoalFill'); if(gf) gf.style.width = `${STATE.goal.target ? (STATE.goal.cur/STATE.goal.target*100) : 0}%`;
 
-  setText('uiMiniTitle', payload.mini.title);
-  setText('uiMiniTime', payload.mini.timeText);
+  setText('uiMiniTitle', currentMiniTitle());
+  setText('uiMiniTime', currentMiniTimeText());
   setText('uiMiniCount', `${STATE.miniCleared}/${STATE.miniTotal}`);
-  const mf = qs('uiMiniFill'); if(mf) mf.style.width = `${payload.mini.fillPct}%`;
-}
-
-// ---------------- Coach ----------------
-function coach(msg, mood='neutral'){
-  emit('hha:coach', { game:'plate', msg, mood });
+  const mf = qs('uiMiniFill'); if(mf) mf.style.width = `${currentMiniFillPct()}%`;
 }
 
 // ---------------- Spawn director (fix “ไม่ออกครบ 5 หมู่”) ----------------
@@ -381,7 +318,7 @@ function pickGroupIndexForGood(t){
 function decorateTarget(el, t){
   el.classList.add('plateTarget');
 
-  // track spawn density estimator
+  // spawn density estimator
   STATE.ML.spawnCount++;
 
   if(t.kind === 'good'){
@@ -406,7 +343,7 @@ function decorateTarget(el, t){
   }
 }
 
-// ---------------- HUD ----------------
+// ---------------- HUD score stream ----------------
 function updateHUD(){
   const accPct = accuracy()*100;
   const grade = gradeFrom(STATE.score, accPct);
@@ -416,7 +353,6 @@ function updateHUD(){
     runMode: STATE.cfg?.runMode || 'play',
     diff: STATE.cfg?.diff || 'normal',
     timeLeftSec: STATE.timeLeft,
-    leftSec: STATE.timeLeft, // ✅ compat with runner
     score: STATE.score|0,
     combo: STATE.combo|0,
     comboMax: STATE.comboMax|0,
@@ -442,39 +378,7 @@ function updateHUD(){
   setText('uiG5', STATE.g[4]);
 }
 
-// ---------------- Crosshair shoot -> nearest target (extra safety) ----------------
-function bindShootOnce(){
-  if(ROOT.__PLATE_SHOOT_BOUND__) return;
-  ROOT.__PLATE_SHOOT_BOUND__ = true;
-
-  ROOT.addEventListener('hha:shoot', (ev)=>{
-    if(!STATE.running || STATE.paused || STATE.ended) return;
-
-    const d = ev?.detail || {};
-    const x = Number(d.x) || (innerWidth/2);
-    const y = Number(d.y) || (innerHeight/2);
-    const lockPx = Math.max(8, Number(d.lockPx||28)||28);
-
-    const els = document.querySelectorAll('#plate-layer .plateTarget');
-    let best = null, bestD2 = Infinity;
-
-    for(const el of els){
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const dx = x - cx, dy = y - cy;
-      const d2 = dx*dx + dy*dy;
-      if(d2 < bestD2){ bestD2 = d2; best = el; }
-    }
-
-    if(best && bestD2 <= lockPx*lockPx){
-      try{ best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true })); }catch{}
-      try{ best.click(); }catch{}
-    }
-  }, { passive:true });
-}
-
-// ---------------- miss-shot stream ----------------
+// ---------------- optional miss-shot stream ----------------
 function wireShotMiss(){
   if(STATE.__shotMissWired) return;
   STATE.__shotMissWired = true;
@@ -499,17 +403,16 @@ function bossTimeLeft(){
   return Math.max(0, STATE.boss.durationSec - el);
 }
 
-// (HUD functions kept even if elements not present; safe)
 function updateStormHud(){
   const hud = qs('stormHud');
   const title = qs('stormTitle');
   const hint  = qs('stormHint');
   const prog  = qs('stormProg');
   const fx    = qs('stormFx');
-  if(!hud && !fx && !title && !hint && !prog) return;
+  if(!hud) return;
 
   if(STATE.storm.active){
-    if(hud) hud.style.display='block';
+    hud.style.display='block';
     if(fx){ fx.classList.add('storm-on'); fx.style.display='block'; }
     if(title) title.textContent = `🌪️ STORM ${STATE.storm.cycleIndex+1}/${STATE.storm.cyclesPlanned}`;
     const tl = stormTimeLeft();
@@ -522,7 +425,7 @@ function updateStormHud(){
       if(tl <= 2.5) fx.classList.add('storm-panic'); else fx.classList.remove('storm-panic');
     }
   }else{
-    if(hud) hud.style.display='none';
+    hud.style.display='none';
     if(fx){ fx.classList.remove('storm-on','storm-panic'); fx.style.display='none'; }
   }
 }
@@ -533,10 +436,10 @@ function updateBossHud(){
   const hint  = qs('bossHint');
   const prog  = qs('bossProg');
   const fx    = qs('bossFx');
-  if(!hud && !fx && !title && !hint && !prog) return;
+  if(!hud) return;
 
   if(STATE.boss.active){
-    if(hud) hud.style.display='block';
+    hud.style.display='block';
     if(fx){ fx.classList.add('boss-on'); fx.style.display='block'; }
     if(title) title.textContent='👹 BOSS';
     const tl = bossTimeLeft();
@@ -550,7 +453,7 @@ function updateBossHud(){
       if(tl <= 3) fx.classList.add('boss-panic'); else fx.classList.remove('boss-panic');
     }
   }else{
-    if(hud) hud.style.display='none';
+    hud.style.display='none';
     if(fx){ fx.classList.remove('boss-on','boss-panic'); fx.style.display='none'; }
   }
 }
@@ -558,10 +461,8 @@ function updateBossHud(){
 function computeMinisPlanned(){
   const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
   const isStudy = (runMode === 'study' || runMode === 'research');
-
   STATE.storm.cyclesPlanned = isStudy ? 2 : 3;
   const bossCount = isStudy ? 0 : 1;
-
   STATE.miniTotal = STATE.storm.cyclesPlanned + bossCount;
 }
 
@@ -640,16 +541,17 @@ function makeSpawner(mount){
       if(t.kind === 'good') onExpireGood(t.groupIndex ?? 0);
     },
 
-    // ✅ NEW: miss-shot
-    onShotMiss: (m)=>{
+    // NEW: count "shot miss" (not part of canonical miss)
+    onShotMiss: ({x,y,lockPx,source})=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
-      emit('hha:judge', { kind:'shot_miss', x:m.x, y:m.y, lockPx:m.lockPx, score: STATE.score|0, combo: STATE.combo|0 });
-      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss' }); }catch{}
+      STATE.shotMiss++;
+      emit('hha:judge', { kind:'shot_miss', x, y, lockPx, source });
+      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss', x, y, lockPx, source }); }catch{}
     }
   });
 }
 
-// ---------------- ML-1: features_1s + labels ----------------
+// ---------------- ML-1: features_1s ----------------
 function groupImbalance01(){
   const a = STATE.g.map(x=>Number(x)||0);
   const sum = a.reduce((s,v)=>s+v,0);
@@ -670,6 +572,7 @@ function emitFeatures1s(){
   const tPlayed = playedSec();
   const accNowPct = Math.round(accuracy()*1000)/10;
 
+  // deltas 1s
   const hitGoodD = STATE.hitGood - STATE.ML.lastHitGood;
   const hitJunkD = STATE.hitJunk - STATE.ML.lastHitJunk;
   const expGoodD = STATE.expireGood - STATE.ML.lastExpireGood;
@@ -680,6 +583,7 @@ function emitFeatures1s(){
   STATE.ML.lastExpireGood = STATE.expireGood;
   STATE.ML.lastMiss = STATE.miss;
 
+  // 3s buffers
   STATE.ML.bufMiss.push(missD);
   STATE.ML.bufAcc.push(accNowPct);
   STATE.ML.bufDensity.push(targetDensity01());
@@ -691,6 +595,7 @@ function emitFeatures1s(){
   const accAvg3s = STATE.ML.bufAcc.length ? (STATE.ML.bufAcc.reduce((s,v)=>s+v,0) / STATE.ML.bufAcc.length) : accNowPct;
   const densAvg3s = STATE.ML.bufDensity.length ? (STATE.ML.bufDensity.reduce((s,v)=>s+v,0) / STATE.ML.bufDensity.length) : targetDensity01();
 
+  // estimate spawns/sec from decorateTarget counter
   const ts = now();
   if(!STATE.ML.lastSpawnTs) STATE.ML.lastSpawnTs = ts;
   const dt = Math.max(0.001, (ts - STATE.ML.lastSpawnTs)/1000);
@@ -743,6 +648,7 @@ function emitFeatures1s(){
 
   try{ STATE.AI?.onEvent?.('features_1s', feat); }catch{}
 
+  // AI tip in play only
   const run = String(STATE.cfg?.runMode||'play').toLowerCase();
   const deterministic = (run === 'study' || run === 'research');
   if(!deterministic){
@@ -949,13 +855,11 @@ function startLoop(){
 
     emitFeatures1s();
 
+    // time
     STATE.timeLeft--;
-    emit('hha:time', {
-      game:'plate',
-      timeLeftSec: STATE.timeLeft,
-      leftSec: STATE.timeLeft // ✅ compat
-    });
+    emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft });
 
+    // scheduler storm
     const played = playedSec();
     const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
     const isStudy = (runMode === 'study' || runMode === 'research');
@@ -972,6 +876,7 @@ function startLoop(){
       }
     }
 
+    // boss near end
     if(!STATE.boss.triggered && !STATE.boss.done && !STATE.boss.active){
       const startAt = Math.max(20, Math.floor(STATE.timePlannedSec * 0.55));
       const mustHaveTimeLeft = Math.min(35, Math.floor(STATE.timePlannedSec * 0.45));
@@ -1063,10 +968,10 @@ function endGame(reason='end'){
     grade,
     accPct,
     miss: summary.miss,
-    scoreFinal: summary.scoreFinal,
-    bossWin: null
+    scoreFinal: summary.scoreFinal
   });
 
+  // supervised targets for ML
   emitLabels('targets', {
     y_grade: grade,
     y_score: summary.scoreFinal,
@@ -1080,31 +985,35 @@ function endGame(reason='end'){
   flushHardened(reason);
 }
 
-// ---------------- Config + Controls ----------------
-function parseCfgFromUrl(){
-  const U = new URL(location.href);
-  const runRaw = (U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
-  const diff   = (U.searchParams.get('diff') || 'normal').toLowerCase();
-  const time   = clamp(U.searchParams.get('time') || 90, 20, 9999);
-  const seedP  = U.searchParams.get('seed');
+// ---------------- Public boot({mount,cfg}) ----------------
+export function boot({ mount, cfg }){
+  if(!mount) throw new Error('plate.safe.js: mount missing');
+  STATE.mountEl = mount;
 
-  const isStudy = (runRaw === 'study' || runRaw === 'research');
-  const seed = isStudy ? (Number(seedP)||13579) : (seedP!=null ? (Number(seedP)||13579) : ((Date.now() ^ (Math.random()*1e9))|0));
+  // cfg is required from plate-vr.html (pass-through)
+  STATE.cfg = cfg || STATE.cfg || { runMode:'play', diff:'normal', seed:Date.now(), durationPlannedSec:90 };
+
+  // reset run flags
+  STATE.running=false;
+  STATE.ended=false;
+  STATE.paused=false;
+
+  // show start overlay is handled by plate-vr.html
+  wireShotMiss();
+
+  // auto-start when boot called (plate-vr.html expects this)
+  startGame();
 
   return {
-    runMode: isStudy ? runRaw : 'play',
-    diff: ['easy','normal','hard'].includes(diff)?diff:'normal',
-    seed,
-    durationPlannedSec: time
+    stop(){ try{ endGame('stop'); }catch{} },
+    pause(p=true){ try{ setPaused(!!p); }catch{} },
+    end(reason='end'){ try{ endGame(reason); }catch{} }
   };
 }
 
+// ---------------- Start game ----------------
 function startGame(){
-  if(!STATE.mountEl){
-    console.error('[PlateVR] missing mount');
-    return;
-  }
-
+  // reset counters
   STATE.running=true; STATE.ended=false; STATE.paused=false;
 
   STATE.score=0; STATE.combo=0; STATE.comboMax=0;
@@ -1121,7 +1030,7 @@ function startGame(){
   STATE.storm.active=false; STATE.storm.hitGood=0; STATE.storm.cycleIndex=0;
   STATE.boss.active=false; STATE.boss.done=false; STATE.boss.triggered=false; STATE.boss.hitGood=0;
 
-  STATE.ML.tickN=0;
+  // ML rolling reset
   STATE.ML.lastHitGood=0; STATE.ML.lastHitJunk=0; STATE.ML.lastExpireGood=0;
   STATE.ML.lastMiss=0; STATE.ML.lastScore=0;
   STATE.ML.bufMiss=[]; STATE.ML.bufAcc=[]; STATE.ML.bufDensity=[];
@@ -1137,6 +1046,7 @@ function startGame(){
   STATE.timeLeft = STATE.timePlannedSec;
   STATE.tStartIso = new Date().toISOString();
 
+  // AI hooks init
   STATE.AI = createAI();
   try{ STATE.AI.reset?.(); }catch{}
 
@@ -1150,7 +1060,15 @@ function startGame(){
     timePlannedSec: STATE.timePlannedSec,
     durationPlannedSec: STATE.timePlannedSec,
     startTimeIso: STATE.tStartIso,
-    aiDeterministic: !!STATE.AI?.deterministic
+    aiDeterministic: !!STATE.AI?.deterministic,
+
+    // pass-through if present
+    pid: STATE.cfg?.pid || 'anon',
+    studyId: STATE.cfg?.studyId || '',
+    phase: STATE.cfg?.phase || '',
+    conditionGroup: STATE.cfg?.conditionGroup || '',
+    log: STATE.cfg?.log || '',
+    view: STATE.cfg?.view || ''
   });
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'neutral');
@@ -1159,30 +1077,10 @@ function startGame(){
   stopSpawner();
   STATE.engine = makeSpawner(STATE.mountEl);
 
-  emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft, leftSec: STATE.timeLeft });
-
+  emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft });
   updateStormHud();
   updateBossHud();
   emitQuest();
   updateHUD();
   startLoop();
 }
-
-// ---------------- Init (standalone safety) ----------------
-(function init(){
-  // If boot() is used by runner, cfg will be set there; still safe for standalone.
-  if(!STATE.cfg) STATE.cfg = parseCfgFromUrl();
-
-  if(!STATE.mountEl){
-    // try infer
-    const mount = qs('plate-layer');
-    if(mount) STATE.mountEl = mount;
-  }
-
-  computeMinisPlanned();
-  wireShotMiss();
-  bindShootOnce();
-
-  // do NOT auto start (runner controls). Standalone page can call window.PlateStart()
-  ROOT.PlateStart = ()=> startGame();
-})();
