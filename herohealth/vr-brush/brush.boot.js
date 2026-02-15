@@ -1,7 +1,7 @@
 // === /herohealth/vr-brush/brush.boot.js ===
 // BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C)
-// ✅ Tap-to-start unlock (mobile/vr)
-// ✅ Boot ctx parse + passthrough hub/seed/time/view
+// ✅ Boot ctx parse + passthrough hub/seed/time/view/run/diff/pid/log
+// ✅ Auto view detect if no ?view=
 // ✅ Listen brush:ai -> HUD AI panel + Big pop C (rate-limited)
 // ✅ Safe: no crash if HUD missing
 
@@ -10,23 +10,36 @@
   const WIN = window, DOC = document;
 
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const num = (v,d)=>{ const n = Number(v); return isFinite(n)? n : d; };
+  const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n)? n : d; };
+
+  function getViewAuto(){
+    const v = String(qs('view','')||'').toLowerCase();
+    if(v) return v;
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+    return isMobile ? 'cvr' : 'pc';
+  }
 
   // -------------------------
   // Context builder (HHA style)
   // -------------------------
   function buildCtx(){
-    const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
-    const hub  = qs('hub','') || '';
+    const view = getViewAuto();
+    const hub  = qs('hub','../hub.html') || '../hub.html';
     const seed = num(qs('seed', Date.now()), Date.now());
     const time = num(qs('time', 90), 90);
 
-    // passthrough research params if you use them later
+    const run  = (qs('run', qs('mode','play')) || 'play');
+    const diff = (qs('diff','normal') || 'normal').toLowerCase();
+
+    const pid = (qs('pid', qs('participantId','')) || '').trim();
+    const log = (qs('log','') || '').trim();
+
     const studyId = qs('studyId','') || '';
     const phase = qs('phase','') || '';
     const conditionGroup = qs('conditionGroup','') || '';
 
-    return { view, hub, seed, time, studyId, phase, conditionGroup };
+    return { view, hub, seed, time, run, diff, pid, log, studyId, phase, conditionGroup };
   }
 
   // -------------------------
@@ -66,7 +79,7 @@
         <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
       </div>
       <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">
-        ทำ PERFECT เพื่อคอมโบ + เติม UV
+        ทำ PERFECT เพื่อคอมโบ + เติม FEVER
       </div>
     `;
     DOC.body.appendChild(wrap);
@@ -94,9 +107,6 @@
     }, msg.ms || 1600);
   }
 
-  // -------------------------
-  // Big pop C (center toast) — controlled by shouldBigPop
-  // -------------------------
   function bigPop(msg){
     let el = DOC.getElementById('ai-bigpop');
     if(!el){
@@ -132,77 +142,33 @@
     }, msg.bigMs || 900);
   }
 
-  // -------------------------
-  // AI Mapper: brush:ai event -> message for HUD
-  // -------------------------
   function aiMsgFromEvent(ev){
     const d = ev?.detail || {};
     const t = String(d.type||'').toLowerCase();
-
-    // helper
     const mk = (emo,title,sub,mini,tag='TIP',ms=1600,big=null,bigMs=900)=>({emo,title,sub,mini,tag,ms,big,bigMs});
 
     switch(t){
       case 'boss_start':
-        return mk('🦠','บอสมาแล้ว!','โหมด BOSS เริ่ม','โฟกัส PERFECT + คุมคอมโบ','BOSS',1800,'BOSS!',900);
-
+        return mk('💎','บอสคราบหนา!','ต้องตีหลายครั้ง','เน้นยิงให้แม่น + รักษาคอมโบ','BOSS',1800,'BOSS!',900);
       case 'boss_phase':
-        return mk('🔥',`บอส Phase ${d.phase||'?'}!`,`HP เหลือ ${Math.round(d.hp||0)}`,'Phase 3–4 จะมี Weak Spot 🎯','BOSS',1700);
-
-      case 'gate_on':
-        return mk('🛡️','GATE เปิด!','ต้องทำ PERFECT ติดกัน','อย่าพลาด—ช้าแต่แม่น','GATE',1900,'GATE!',900);
-
-      case 'gate_reset':
-        return mk('😵','GATE รีเซ็ต','พลาดแล้วต้องเริ่มใหม่','กลับไปจับจังหวะ PERFECT','GATE',1600);
-
-      case 'gate_break':
-        return mk('💥','เกราะแตก!','ตีบอสได้เต็มแรงแล้ว','รีบกวาด Weak Spot 🎯','GATE',1600,'BREAK!',900);
-
-      case 'laser_warn':
-        return mk('⚠️','เลเซอร์กำลังมา','อีกแป๊บห้ามตี','ปล่อยมือ รอให้ผ่าน','LASER',1500,'STOP!',900);
-
-      case 'laser_on':
-        return mk('🚫','LASER SWEEP!','ห้ามตีช่วงนี้','นิ่งไว้ก่อน แล้วค่อยลุยต่อ','LASER',1500,'NO HIT!',900);
-
-      case 'shock_on':
-        return mk('🎵','SHOCKWAVE!','ตีเฉพาะตอน “วงเขียว”','พลาดจังหวะคอมโบจะหาย','SHOCK',1700,'TIMING!',900);
-
-      case 'shock_pulse':
-        return mk('🟢',`PULSE ${d.idx||''}`,'ตอนนี้ “วงเขียว” เปิด','ตี 1 ทีพอ! อย่ารัว','SHOCK',900);
-
-      case 'finisher_on':
-        return mk('🏁','FINISHER!','โอกาสปิดเกม','ทำ PERFECT ให้ครบตามจำนวน','FIN',1900,'FINISH!',900);
-
+        return mk('🔥',`บอส HP ${Math.round(d.hp||0)}%`,'อย่ายิงมั่ว','รอจังหวะแล้วค่อยยิง 1 ที','BOSS',1200);
+      case 'boss_break':
+        return mk('💥','บอสแตกแล้ว!','เก่งมาก','รีบกวาดคราบต่อ!','BOSS',1500,'BREAK!',900);
       case 'time_10s':
         return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
-
-      // Default: return null = ignore
+      case 'fever_on':
+        return mk('⚡','FEVER!','คะแนน x1.3','ยิงต่อเนื่องได้เลย!','FEVER',1500,'FEVER!',900);
       default:
         return null;
     }
   }
 
-  // Big pop policy: เด้งเฉพาะ “เหตุการณ์ใหญ่”
   function shouldBigPop(type){
     const t = String(type||'').toLowerCase();
-    return (
-      t==='boss_start' ||
-      t==='gate_on' ||
-      t==='gate_break' ||
-      t==='laser_on' ||
-      t==='shock_on' ||
-      t==='finisher_on' ||
-      t==='time_10s'
-    );
+    return (t==='boss_start' || t==='boss_break' || t==='time_10s' || t==='fever_on');
   }
 
-  // Rate-limit: กันเด้งรัว
-  const RL = {
-    lastAny: 0,
-    lastBig: 0,
-    minAnyMs: 260,   // กัน spam
-    minBigMs: 900    // กัน bigpop ติด ๆ
-  };
+  const RL = { lastAny:0, lastBig:0, minAnyMs:260, minBigMs:900 };
 
   function onBrushAI(ev){
     const d = ev?.detail || {};
@@ -225,22 +191,18 @@
   }
 
   // -------------------------
-  // Tap-to-start unlock then boot
+  // Boot
   // -------------------------
   function boot(){
     const ctx = buildCtx();
-
-    // store view in body for CSS
     DOC.body.setAttribute('data-view', ctx.view);
 
-    // hook AI events
     WIN.addEventListener('brush:ai', onBrushAI);
 
-    // boot engine
     if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
       WIN.BrushVR.boot(ctx);
     }else{
-      console.warn('[BrushVR] missing BrushVR.boot(ctx)');
+      console.warn('[BrushVR] missing BrushVR.boot(ctx) — check brush.safe.js export');
     }
   }
 
@@ -254,7 +216,6 @@
     tap.style.display = 'grid';
     const go = ()=>{
       try{ tap.style.display='none'; }catch(_){}
-      // resume audio contexts if needed later
       boot();
     };
     btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
