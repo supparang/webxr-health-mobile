@@ -1,144 +1,131 @@
 // === /herohealth/api/apolloClient.safe.js ===
-// Apollo client wrapper that will NEVER hard-crash UI on 403/CORS/offline.
-// - On 403: marks offline-like state and resolves with graceful error
-// - Optional banner integration via api-status.js
+// Apollo Client SAFE wrapper (403-safe, no retry flood, offline-friendly)
+// Exposes: window.HHA_API (client/query/mutate/enabled/disableInfo)
 
 'use strict';
 
-import { ApolloClient, InMemoryCache, HttpLink, from } from '@apollo/client/core';
-import { onError } from '@apollo/client/link/error';
+import { isRemoteDisabled, disableRemote, disabledInfo } from './api-status.js';
 
-import { setBanner, probeAPI } from './api-status.js';
+// Optional: prevent red error floods from unhandled Apollo promises
+(function installUnhandledGuard(){
+  if(window.__HHA_APOLLO_GUARD__) return;
+  window.__HHA_APOLLO_GUARD__ = 1;
 
-function safeStr(x){ try{ return String(x ?? ''); }catch{ return ''; } }
+  window.addEventListener('unhandledrejection', (ev)=>{
+    const msg = String(ev?.reason?.message || ev?.reason || '');
+    // swallow known Apollo 403 noise
+    if(msg.includes('Received status code 403') || msg.includes('status code 401') || msg.includes('ApolloError')){
+      ev.preventDefault?.();
+    }
+  });
+})();
 
-export function buildEndpointFromQS(defaultUrl){
-  try{
-    const u = new URL(location.href);
-    const e = u.searchParams.get('api') || '';
-    if(e) return e;
-  }catch(_){}
-  return defaultUrl;
+function hasApollo(){
+  return !!(window.ApolloClient && window.ApolloClient.ApolloClient);
 }
 
-export function makeApolloClientSafe({
-  endpoint,
-  banner = { enabled:true },
-  probe = { enabled:true, payload:{ ping:true }, timeoutMs:3200 },
-  headers = {}
-}){
-  const ep = endpoint;
+function safeErrCode(err){
+  const ne = err?.networkError || err?.cause || err;
+  const sc = ne?.statusCode || ne?.status || ne?.response?.status || 0;
+  return Number(sc||0)||0;
+}
 
-  // --------- banner helpers (safe even if DOM missing) ----------
-  const B = {
-    enabled: !!banner?.enabled,
-    set(state, title, msg){
-      if(!B.enabled) return;
-      try{ setBanner({}, state, title, msg); }catch(_){}
-    }
-  };
+function createClient({ uri }){
+  // If Apollo is not available (or blocked), just return null
+  if(!hasApollo()) return null;
 
-  let netState = {
-    ok: null,
-    lastStatus: 0,
-    lastAt: 0
-  };
+  const { ApolloClient, InMemoryCache, HttpLink, from } = window.ApolloClient;
 
-  async function doProbe(){
-    if(!probe?.enabled) return;
-    B.set('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
-    const r = await probeAPI(ep, probe?.payload || { ping:true }, probe?.timeoutMs || 3200);
-    netState.ok = !!(r.ok && r.status === 200);
-    netState.lastStatus = r.status|0;
-    netState.lastAt = Date.now();
+  // Some builds also expose onError in ApolloLinkError
+  const onErrorFn =
+    window.ApolloClient?.onError ||
+    window.ApolloLinkError?.onError ||
+    null;
 
-    if(r.status === 200){
-      B.set('ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ');
-    }else if(r.status === 403){
-      B.set('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin — UI ยังใช้งานได้ (แนะนำแก้ CORS/Authorizer)');
-    }else if(r.status){
-      B.set('warn', `API ตอบ ${r.status}`, 'UI ยังใช้งานได้ • ถ้าต้องใช้ API ให้ตรวจ route/headers');
-    }else{
-      B.set('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'UI ยังใช้งานได้ • ถ้าต้องใช้ API ให้ตรวจเครือข่าย/CORS');
-    }
-  }
-
-  // --------- Apollo links ----------
   const httpLink = new HttpLink({
-    uri: ep,
-    fetch,
-    headers
+    uri,
+    fetch: (u, opt)=> fetch(u, opt),
   });
 
-  const errorLink = onError(({ networkError, graphQLErrors }) => {
-    // Network errors: CORS, offline, 403, etc.
-    const ne = networkError || null;
-    const msg = safeStr(ne?.message || '');
-    const status = Number(ne?.statusCode || ne?.status || 0) || 0;
+  const links = [];
 
-    if(status === 403 || /403/.test(msg)){
-      netState.ok = false;
-      netState.lastStatus = 403;
-      netState.lastAt = Date.now();
-      B.set('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin — ระบบจะทำงานแบบออฟไลน์ (เข้าเกมได้ปกติ)');
-      return;
-    }
+  if(typeof onErrorFn === 'function'){
+    links.push(onErrorFn(({ networkError })=>{
+      const status = Number(networkError?.statusCode || networkError?.status || 0) || 0;
+      if(status === 401 || status === 403){
+        // Hard-disable remote for this session to stop retries
+        disableRemote(status, 'forbidden');
+      }
+    }));
+  }
 
-    if(status === 0 || /Failed to fetch|NetworkError|CORS/i.test(msg)){
-      netState.ok = false;
-      netState.lastStatus = 0;
-      netState.lastAt = Date.now();
-      B.set('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'ไม่สามารถเรียก API ได้ — UI ยังใช้งานได้');
-      return;
-    }
+  links.push(httpLink);
 
-    if(status){
-      netState.ok = false;
-      netState.lastStatus = status;
-      netState.lastAt = Date.now();
-      B.set('warn', `API ตอบ ${status}`, 'UI ยังใช้งานได้ • ตรวจสอบ endpoint/headers');
-      return;
-    }
+  const link = (typeof from === 'function') ? from(links) : httpLink;
 
-    // GraphQL errors (still online)
-    if(graphQLErrors && graphQLErrors.length){
-      B.set('warn', 'GraphQL error', 'มีข้อผิดพลาดจาก GraphQL แต่ UI ไม่พัง');
-    }
-  });
-
-  const client = new ApolloClient({
+  return new ApolloClient({
+    link,
     cache: new InMemoryCache(),
-    link: from([errorLink, httpLink]),
     defaultOptions: {
-      watchQuery: { fetchPolicy: 'cache-first', errorPolicy: 'all' },
-      query:      { fetchPolicy: 'network-only', errorPolicy: 'all' },
-      mutate:     { errorPolicy: 'all' }
+      query: { fetchPolicy: 'no-cache', errorPolicy:'all' },
+      watchQuery: { fetchPolicy: 'no-cache', errorPolicy:'all' },
+      mutate: { errorPolicy:'all' }
     }
   });
+}
 
-  // --------- safe wrappers ----------
-  async function safeQuery(q){
-    try{
-      return await client.query(q);
-    }catch(e){
-      // never throw to UI
-      return { data:null, errors:[{ message: safeStr(e?.message || e || 'query failed') }] };
+async function safeQuery(client, args){
+  if(isRemoteDisabled()) return { data:null, error:{ code:403, message:'remote_disabled' } };
+  if(!client) return { data:null, error:{ code:0, message:'apollo_missing' } };
+
+  try{
+    const r = await client.query(args);
+    return { data: r?.data ?? null, error: null };
+  }catch(err){
+    const code = safeErrCode(err);
+
+    if(code === 401 || code === 403){
+      disableRemote(code, 'forbidden');
+      // swallow: return controlled error
+      return { data:null, error:{ code, message:'forbidden' } };
     }
+    return { data:null, error:{ code, message: String(err?.message || err || 'query_failed') } };
   }
+}
 
-  async function safeMutate(m){
-    try{
-      return await client.mutate(m);
-    }catch(e){
-      return { data:null, errors:[{ message: safeStr(e?.message || e || 'mutate failed') }] };
+async function safeMutate(client, args){
+  if(isRemoteDisabled()) return { data:null, error:{ code:403, message:'remote_disabled' } };
+  if(!client) return { data:null, error:{ code:0, message:'apollo_missing' } };
+
+  try{
+    const r = await client.mutate(args);
+    return { data: r?.data ?? null, error: null };
+  }catch(err){
+    const code = safeErrCode(err);
+
+    if(code === 401 || code === 403){
+      disableRemote(code, 'forbidden');
+      return { data:null, error:{ code, message:'forbidden' } };
     }
+    return { data:null, error:{ code, message: String(err?.message || err || 'mutate_failed') } };
   }
+}
 
-  return {
+export function initApolloSafe({ uri }){
+  // create once
+  if(window.HHA_API && window.HHA_API.__inited) return window.HHA_API;
+
+  const client = createClient({ uri });
+
+  window.HHA_API = {
+    __inited: true,
+    uri: String(uri||''),
     client,
-    safeQuery,
-    safeMutate,
-    probe: doProbe,
-    getNetState: ()=>({ ...netState })
+    enabled: ()=> !isRemoteDisabled() && !!client,
+    disableInfo: ()=> disabledInfo(),
+    query: (args)=> safeQuery(client, args),
+    mutate: (args)=> safeMutate(client, args),
   };
+
+  return window.HHA_API;
 }
