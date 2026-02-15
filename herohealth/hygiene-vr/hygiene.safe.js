@@ -1,14 +1,11 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
-// PATCH v20260214a
-// ✅ FIX 1: Tap works in ALL views (pc/mobile/vr/cvr)
-// ✅ FIX 2: Target removed immediately on hit (no lingering)
-// ✅ FIX 3: FX pops at target position (obj.x/y)
-// ✅ FIX 4: No heavy sort in loop; cheap oldest cleanup
-// ✅ FIX 5: Double-fire guard per target (prevents "hit but not removed" race)
-// Exports: boot()
-// Emits: hha:start, hha:time, hha:judge, hha:end
-// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// PATCH v20260215a
+// ✅ PRACTICE 15s (เหมือนเกมอื่น): ไม่คิดคะแนน/ไม่คิด Miss/ไม่มี 🦠, จบแล้วกด Start เกมจริงได้ทันที
+// ✅ Exports: boot()
+// Emits: hha:start, hha:time, hha:judge, hha:end  (practice emits hha:practice_start / hha:practice_end)
+// Stores: HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY (เฉพาะเกมจริง)
+
 'use strict';
 
 const WIN = window;
@@ -47,11 +44,6 @@ const STEPS = [
 ];
 const ICON_HAZ = '🦠';
 
-const LIMIT = {
-  maxTargets: 18,
-  tapGuardMs: 140
-};
-
 export function boot(){
   const stage = DOC.getElementById('stage');
   if(!stage){
@@ -82,6 +74,7 @@ export function boot(){
 
   // controls
   const btnStart   = DOC.getElementById('btnStart');
+  const btnPractice= DOC.getElementById('btnPractice'); // ✅ NEW
   const btnRestart = DOC.getElementById('btnRestart');
   const btnPlayAgain = DOC.getElementById('btnPlayAgain');
   const btnCopyJson  = DOC.getElementById('btnCopyJson');
@@ -90,7 +83,9 @@ export function boot(){
   const btnBack2     = DOC.getElementById('btnBack2');
 
   // params
-  const runMode = (qs('run','play')||'play').toLowerCase();
+  const runRaw = (qs('run','play')||'play').toLowerCase();
+  const practiceViaParam = (qs('practice','0') === '1') || (runRaw === 'practice');
+  const runMode = (practiceViaParam ? 'practice' : runRaw);
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const view = (qs('view','pc')||'pc').toLowerCase();
   const hub = qs('hub', '');
@@ -99,6 +94,10 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
+  // ✅ practice settings
+  const PRACTICE_SEC = clamp(qs('practiceTime', 15), 8, 30);
+  let isPractice = (runMode === 'practice');
+
   // difficulty presets (base)
   const base = (()=> {
     if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.08, decoyRate:0.16 };
@@ -106,9 +105,9 @@ export function boot(){
     return { spawnPerSec:2.2, hazardRate:0.11, decoyRate:0.22 };
   })();
 
-  // AI instances (optional)
-  const coachOn = (qs('coach','1') !== '0');
-  const ddOn    = (qs('dd','1') !== '0');
+  // AI instances (optional) — ✅ ปิดใน practice ให้เหมือนแพ็คอื่น
+  const coachOn = !isPractice && (qs('coach','1') !== '0');
+  const ddOn    = !isPractice && (qs('dd','1') !== '0');
   const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
   const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({
     seed, runMode,
@@ -119,7 +118,7 @@ export function boot(){
   // state
   let running=false, paused=false;
   let tStartMs=0, tLastMs=0;
-  let timeLeft = timePlannedSec;
+  let timeLeft = isPractice ? PRACTICE_SEC : timePlannedSec;
 
   let stepIdx=0;
   let hitsInStep=0;
@@ -143,11 +142,8 @@ export function boot(){
   let quizWrong = 0;
 
   // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y, removed}
+  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
   let nextId=1;
-
-  // guards
-  const _tapGuard = new Map(); // id -> lastMs
 
   function showBanner(msg){
     if(!banner) return;
@@ -161,23 +157,19 @@ export function boot(){
   function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P || !obj) return;
-
-    // obj.x/y are viewport px
     const x = Number(obj.x || WIN.innerWidth*0.5);
     const y = Number(obj.y || WIN.innerHeight*0.5);
 
-    try{
-      if(kind === 'good'){
-        P.popText?.(x, y, '✅ +1', 'good');
-        P.burst?.(x, y, { count: 12, spread: 46, upBias: 0.86 });
-      }else if(kind === 'wrong'){
-        P.popText?.(x, y, '⚠️ ผิด!', 'warn');
-        P.burst?.(x, y, { count: 10, spread: 40, upBias: 0.82 });
-      }else if(kind === 'haz'){
-        P.popText?.(x, y, '🦠 โดนเชื้อ!', 'bad');
-        P.burst?.(x, y, { count: 14, spread: 54, upBias: 0.90 });
-      }
-    }catch{}
+    if(kind === 'good'){
+      P.popText(x, y, isPractice ? '🧪 OK' : '✅ +1', 'good');
+      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+    }else if(kind === 'wrong'){
+      P.popText(x, y, isPractice ? '🧪 ลองใหม่' : '⚠️ ผิด!', 'warn');
+      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+    }else if(kind === 'haz'){
+      P.popText(x, y, '🦠 โดนเชื้อ!', 'bad');
+      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+    }
   }
 
   function setQuizVisible(on){
@@ -194,6 +186,7 @@ export function boot(){
   }
 
   function openRandomQuiz(){
+    if(isPractice) return; // ✅ no quiz in practice
     const q = pickQuiz();
     if(!q || !quizQ || !quizSub) return;
 
@@ -238,6 +231,8 @@ export function boot(){
   }
 
   function getMissCount(){
+    // ✅ practice ไม่สะสม miss
+    if(isPractice) return 0;
     return (wrongStepHits + hazHits);
   }
 
@@ -246,34 +241,38 @@ export function boot(){
     pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
     pillHits && (pillHits.textContent = `HITS ${hitsInStep}/${s.hitsNeed}`);
     pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
-    pillMiss && (pillMiss.textContent = `MISS ${getMissCount()} / ${missLimit}`);
+    pillMiss && (pillMiss.textContent = isPractice ? `PRACTICE` : `MISS ${getMissCount()} / ${missLimit}`);
 
     const stepAcc = totalStepHits ? (correctHits / totalStepHits) : 0;
     const riskIncomplete = clamp(1 - stepAcc, 0, 1);
     const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
 
-    pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
+    pillRisk && (pillRisk.textContent = isPractice
+      ? `PRACTICE • ฝึกแตะ/ยิงให้โดนเป้าถูก`
+      : `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`
+    );
+
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
-    pillQuest && (pillQuest.textContent = `QUEST ${questText}`);
-    hudSub && (hudSub.textContent = `${runMode.toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
+    pillQuest && (pillQuest.textContent = isPractice
+      ? `QUEST ฝึก STEP ปัจจุบัน`
+      : `QUEST ${questText}`
+    );
+
+    hudSub && (hudSub.textContent = `${(isPractice?'PRACTICE':'PLAY').toUpperCase()} • diff=${diff} • seed=${seed} • view=${view}`);
   }
 
   function clearTargets(){
     while(targets.length){
       const t = targets.pop();
-      try{ t.el?.remove(); }catch{}
+      t.el?.remove();
     }
   }
 
   function removeTarget(obj){
-    if(!obj || obj.removed) return;
-    obj.removed = true;
-
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
-
-    try{ obj.el?.remove(); }catch{}
+    obj.el?.remove();
   }
 
   function createTarget(kind, emoji, stepRef){
@@ -289,33 +288,40 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
+    // ✅ IMPORTANT: ใช้ vw/vh เหมือน CSS (target fixed)
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y, removed:false };
+    const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
 
-    // ✅ Tap works in ALL views (pc/mobile/vr/cvr)
-    el.addEventListener('pointerdown', (ev)=>{
-      if(!running || paused) return;
-      if(obj.removed) return;
-
-      const t = nowMs();
-      const last = _tapGuard.get(obj.id) || 0;
-      if(t - last < LIMIT.tapGuardMs) return;
-      _tapGuard.set(obj.id, t);
-
-      try{ ev.preventDefault(); }catch{}
-      judgeHit(obj, 'tap', null);
-    }, { passive:false });
-
+    if(view !== 'cvr'){
+      el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
+    }
     return obj;
   }
 
   function spawnOne(){
-    const P = dd ? dd.getParams() : base;
+    const s = STEPS[stepIdx];
 
+    // ✅ PRACTICE spawn profile (เหมือนเกมอื่น: good-heavy, no haz)
+    if(isPractice){
+      const r = rng();
+      if(r < 0.12){
+        // decoy นิดหน่อย
+        let j = stepIdx;
+        for(let k=0;k<7;k++){
+          const pick = Math.floor(rng()*STEPS.length);
+          if(pick !== stepIdx){ j = pick; break; }
+        }
+        return createTarget('wrong', STEPS[j].icon, j);
+      }
+      // good เป็นหลัก
+      return createTarget('good', s.icon, stepIdx);
+    }
+
+    const P = dd ? dd.getParams() : base;
     const r = rng();
     if(r < P.hazardRate){
       return createTarget('haz', ICON_HAZ, -1);
@@ -327,7 +333,7 @@ export function boot(){
       }
       return createTarget('wrong', STEPS[j].icon, j);
     }else{
-      return createTarget('good', STEPS[stepIdx].icon, stepIdx);
+      return createTarget('good', s.icon, stepIdx);
     }
   }
 
@@ -336,12 +342,15 @@ export function boot(){
     return clamp(dt, 0, 60000);
   }
 
+  function onHitByPointer(obj, source){
+    if(!running || paused) return;
+    judgeHit(obj, source, null);
+  }
+
   // cVR shoot: pick nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
-
-    const v = (qs('view','pc')||'pc').toLowerCase();
-    if(v !== 'cvr') return;
+    if(view !== 'cvr') return;
 
     const d = (e && e.detail) || {};
     const lockPx = Number(d.lockPx||28);
@@ -351,7 +360,6 @@ export function boot(){
 
     let best=null, bestDist=1e9;
     for(const t of targets){
-      if(t.removed) continue;
       const dx = (t.x - cx), dy = (t.y - cy);
       const dist = Math.hypot(dx, dy);
       if(dist < lockPx && dist < bestDist){
@@ -372,6 +380,7 @@ export function boot(){
   }
 
   function bumpQuestOnGoodHit(){
+    if(isPractice) return; // ✅ no quest in practice
     const t = elapsedSec();
     if(t < 2) return;
 
@@ -402,6 +411,7 @@ export function boot(){
   }
 
   function updateQuestTick(){
+    if(isPractice) return;
     const t = elapsedSec();
     if(bumpQuestOnGoodHit._noHazUntil){
       if(t >= bumpQuestOnGoodHit._noHazUntil){
@@ -413,8 +423,6 @@ export function boot(){
   }
 
   function judgeHit(obj, source, extra){
-    if(!obj || obj.removed) return;
-
     const rt = computeRt(obj);
 
     if(obj.kind === 'good'){
@@ -425,7 +433,7 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      if(quizOpen && quizOpen._armed){
+      if(!isPractice && quizOpen && quizOpen._armed){
         const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
           quizOpen._streak++;
@@ -438,28 +446,25 @@ export function boot(){
         }
       }
 
-      coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
-
-      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
+      if(!isPractice){
+        coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+        dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
+        emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
+      }
 
       bumpQuestOnGoodHit();
       fxHit('good', obj);
 
-      // ✅ remove immediately before any UI changes
-      removeTarget(obj);
-
-      showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
-
+      // ✅ step progression (practice ก็ฝึกได้จริง)
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
 
         stepIdx++;
         hitsInStep=0;
 
-        if(bumpQuestOnGoodHit._fastStepIdx === prevStep){
-          const dt = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
-          if(dt <= 6500){
+        if(!isPractice && bumpQuestOnGoodHit._fastStepIdx === prevStep){
+          const dt2 = nowMs() - (bumpQuestOnGoodHit._fastStepT0||nowMs());
+          if(dt2 <= 6500){
             questDone = 1;
             showBanner('🏅 QUEST ผ่าน! (ไวมาก)');
           }
@@ -468,61 +473,84 @@ export function boot(){
         if(stepIdx >= STEPS.length){
           stepIdx=0;
           loopsDone++;
-          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
-          if(!quizOpen) openRandomQuiz();
+          if(!isPractice){
+            showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
+            if(!quizOpen) openRandomQuiz();
+          }else{
+            showBanner(`🧪 Practice: ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
+          }
         }else{
-          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-          if(!quizOpen && rng() < 0.25) openRandomQuiz();
+          showBanner(`${isPractice?'🧪':'➡️'} ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+          if(!isPractice && !quizOpen && rng() < 0.25) openRandomQuiz();
         }
+      }else{
+        // feedback เบา ๆ
+        if(isPractice) showBanner(`🧪 OK: ${STEPS[stepIdx].icon} ${hitsInStep}/${STEPS[stepIdx].hitsNeed}`);
+        else showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
       }
 
+      removeTarget(obj);
       setHud();
       return;
     }
 
     if(obj.kind === 'wrong'){
-      wrongStepHits++;
       totalStepHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
-        quizWrong++;
-        closeQuiz('❌ Quiz พลาด!');
+      // ✅ practice ไม่สะสม miss/ไม่จบ fail
+      if(!isPractice){
+        wrongStepHits++;
+
+        if(quizOpen && quizOpen._armed){
+          quizWrong++;
+          closeQuiz('❌ Quiz พลาด!');
+        }
+
+        coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+        dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
+
+        emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
+        showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+      }else{
+        showBanner(`🧪 ลองใหม่: ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
       }
-
-      coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
-
-      emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
 
       fxHit('wrong', obj);
       removeTarget(obj);
 
-      showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-      if(getMissCount() >= missLimit) endGame('fail');
+      if(!isPractice && getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
     }
 
     if(obj.kind === 'haz'){
-      hazHits++;
       combo = 0;
 
-      if(quizOpen && quizOpen._armed){
-        quizWrong++;
-        closeQuiz('❌ Quiz พลาด!');
+      if(!isPractice){
+        hazHits++;
+
+        if(quizOpen && quizOpen._armed){
+          quizWrong++;
+          closeQuiz('❌ Quiz พลาด!');
+        }
+
+        coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo });
+        dd?.onEvent('haz_hit', { elapsedSec: elapsedSec() });
+
+        emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
+        showBanner(`🦠 โดนเชื้อ! ระวัง!`);
+        fxHit('haz', obj);
+
+        removeTarget(obj);
+        if(getMissCount() >= missLimit) endGame('fail');
+      }else{
+        // practice: ปกติจะไม่มี haz แต่กันพลาดไว้
+        showBanner('🧪 (practice) หลีกเลี่ยง 🦠');
+        fxHit('haz', obj);
+        removeTarget(obj);
       }
 
-      coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo });
-      dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec() });
-
-      emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra });
-
-      fxHit('haz', obj);
-      removeTarget(obj);
-
-      showBanner(`🦠 โดนเชื้อ! ระวัง!`);
-      if(getMissCount() >= missLimit) endGame('fail');
       setHud();
       return;
     }
@@ -537,33 +565,47 @@ export function boot(){
     if(paused){ requestAnimationFrame(tick); return; }
 
     timeLeft -= dt;
-    emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
+
+    if(!isPractice){
+      emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
+    }
 
     if(timeLeft <= 0){
-      endGame('time');
+      if(isPractice){
+        endPractice();
+      }else{
+        endGame('time');
+      }
       return;
     }
 
-    const P = dd ? dd.getParams() : base;
+    // spawn rate
+    const P = isPractice
+      ? { spawnPerSec: 2.2, hazardRate: 0.0, decoyRate: 0.12 }
+      : (dd ? dd.getParams() : base);
+
     spawnAcc += (P.spawnPerSec * dt);
 
     while(spawnAcc >= 1){
       spawnAcc -= 1;
       spawnOne();
 
-      // ✅ cheap cleanup (no sort)
-      if(targets.length > LIMIT.maxTargets){
+      // cap targets (กันค้าง/หน่วง)
+      const cap = isPractice ? 10 : 18;
+      if(targets.length > cap){
+        // remove oldest without sort heavy
         let oldest = null;
-        for(const x of targets){
-          if(x.removed) continue;
-          if(!oldest || x.bornMs < oldest.bornMs) oldest = x;
+        for(const tt of targets){
+          if(!oldest || tt.bornMs < oldest.bornMs) oldest = tt;
         }
         if(oldest) removeTarget(oldest);
       }
     }
 
-    dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
-    updateQuestTick();
+    if(!isPractice){
+      dd?.onEvent('tick', { elapsedSec: elapsedSec() });
+      updateQuestTick();
+    }
     setHud();
     requestAnimationFrame(tick);
   }
@@ -571,9 +613,7 @@ export function boot(){
   function resetGame(){
     running=false; paused=false;
     clearTargets();
-    _tapGuard.clear();
-
-    timeLeft = timePlannedSec;
+    timeLeft = isPractice ? PRACTICE_SEC : timePlannedSec;
 
     stepIdx=0; hitsInStep=0; loopsDone=0;
     combo=0; comboMax=0;
@@ -590,7 +630,7 @@ export function boot(){
     setHud();
   }
 
-  function startGame(){
+  function startCore(){
     resetGame();
     running=true;
     tStartMs = nowMs();
@@ -599,10 +639,52 @@ export function boot(){
     startOverlay && (startOverlay.style.display = 'none');
     endOverlay && (endOverlay.style.display = 'none');
 
-    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
-    showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
+    if(isPractice){
+      emit('hha:practice_start', { game:'hygiene', diff, seed, view, practiceSec: PRACTICE_SEC });
+      showBanner(`🧪 Practice เริ่ม! (${PRACTICE_SEC}s)`);
+    }else{
+      emit('hha:start', { game:'hygiene', runMode:'play', diff, seed, view, timePlannedSec });
+      showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
+    }
+
     setHud();
     requestAnimationFrame(tick);
+  }
+
+  function startPractice(){
+    isPractice = true;
+    // ✅ ปิด AI (เหมือนเกมอื่น)
+    // (เราไม่ re-create coach/dd ใน runtime เพื่อความง่าย/เสถียร)
+    // practice ใช้โปรไฟล์ spawn ของตัวเองอยู่แล้ว
+    startCore();
+  }
+
+  function startGame(){
+    isPractice = false;
+    startCore();
+  }
+
+  function endPractice(){
+    if(!running) return;
+    running=false;
+    clearTargets();
+    setQuizVisible(false);
+
+    emit('hha:practice_end', {
+      game:'hygiene',
+      seed, diff, view,
+      practiceSec: PRACTICE_SEC,
+      loopsDone,
+      stepIdxEnd: stepIdx
+    });
+
+    // กลับไป overlay เริ่มเกมจริง
+    if(startOverlay) startOverlay.style.display = 'grid';
+    showBanner('✅ Practice จบแล้ว! กด Start เพื่อเข้าเกมจริง');
+
+    // เปลี่ยนปุ่ม Start ให้ชัดเจน
+    if(btnStart) btnStart.textContent = '▶ Start (Real)';
+    setHud();
   }
 
   function endGame(reason){
@@ -633,10 +715,10 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.2-prod',
+      version:'20260215a',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
+      runMode:'play',
       diff,
       view,
       seed,
@@ -657,7 +739,7 @@ export function boot(){
       riskIncomplete,
       riskUnsafe,
       comboMax,
-      misses: getMissCount(),
+      misses: (wrongStepHits + hazHits),
 
       quizRight,
       quizWrong,
@@ -667,10 +749,10 @@ export function boot(){
       medianStepMs: rtMed
     };
 
-    if(coach?.getSummaryExtras) Object.assign(summary, coach.getSummaryExtras());
-    if(dd?.getSummaryExtras) Object.assign(summary, dd.getSummaryExtras());
+    if(coach) Object.assign(summary, coach.getSummaryExtras());
+    if(dd) Object.assign(summary, dd.getSummaryExtras());
 
-    if(WIN.HHA_Badges?.evaluateBadges){
+    if(WIN.HHA_Badges){
       WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
     }
 
@@ -683,9 +765,12 @@ export function boot(){
     emit('hha:end', summary);
 
     if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
-    if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
+    if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${(wrongStepHits+hazHits)} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(Object.assign({grade}, summary), null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
+
+    // reset start button label for next time
+    if(btnStart) btnStart.textContent = '▶ Start';
   }
 
   function goHub(){
@@ -695,6 +780,7 @@ export function boot(){
 
   // UI binds
   btnStart?.addEventListener('click', startGame, { passive:true });
+  btnPractice?.addEventListener('click', startPractice, { passive:true }); // ✅ NEW
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
@@ -711,13 +797,12 @@ export function boot(){
   // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge/coach visuals
+  // optional: badge/coach visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
-    if(WIN.Particles?.popText){
-      const x = WIN.innerWidth*0.5, y = WIN.innerHeight*0.22;
-      WIN.Particles.popText(x, y, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
-      WIN.Particles.burst?.(x, y, { count: 14, spread: 58, upBias: 0.9 });
+    if(WIN.Particles && WIN.Particles.popText){
+      WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
+      WIN.Particles.burst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
     }
   });
 
@@ -728,4 +813,10 @@ export function boot(){
 
   // initial
   setHud();
+
+  // ✅ auto-start practice if URL says so (เหมือนเกมอื่น: practice ก่อน)
+  if(isPractice){
+    // แสดง overlay ก่อนสักนิด แล้วเริ่ม practice (กันมือถือยังโหลด CSS/VR-UI ไม่ทัน)
+    setTimeout(()=>startPractice(), 120);
+  }
 }
