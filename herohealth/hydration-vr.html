@@ -1,465 +1,93 @@
-<!-- === /herohealth/hygiene-vr.html ===
-HeroHealth — Handwash (ROOT Launcher)
-✅ Renamed: Hygiene -> Handwash
-✅ Choose view: pc / mobile / vr / cvr
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid
-✅ Remembers last selection (localStorage)
-✅ Starts the actual run page:
-   - ./hygiene-vr/hygiene-vr.html   (recommended)
-   Fallback:
-   - ./hygiene-vr/hygiene.html      (if you named it that way)
+<!-- === /herohealth/hydration-vr.html ===
+HydrationVR ROOT Launcher — PRODUCTION (HHA Standard)
+✅ Enforce flow: Warmup(20s) → RUN → Cooldown(20s) → HUB
+✅ RUN file: ./hydration-vr/hydration-vr.html
+✅ Auto view: pc/mobile (UA-based) IF no ?view=
+✅ Pass-through all query params (except next/phase/dur/cdur/autonext)
+✅ Adds: gate=1, cdur=20
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Handwash (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — HydrationVR (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa;
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      background:
-        radial-gradient(1200px 700px at 18% 18%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(34,197,94,.10), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(167,139,250,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      overflow:auto;
-    }
-    a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
-
-    header{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
-      flex-wrap:wrap;
-      padding: 6px 6px 0 6px;
-    }
-    .brand{ display:flex; flex-direction:column; gap:6px; }
-    .title{
-      margin:0;
-      font-size: clamp(22px, 2.2vw, 30px);
-      letter-spacing:.2px;
-      font-weight:1000;
-    }
-    .subtitle{
-      margin:0;
-      color:var(--muted);
-      font-size: 13px;
-      line-height:1.4;
-      max-width: 78ch;
-      font-weight:800;
-    }
-    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
-    .pill{
-      background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;
-      user-select:none;
-      font-weight:900;
-    }
-    .pill b{ color:var(--text); font-weight:1000; }
-
-    .panel{
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      overflow:hidden;
-    }
-    .panelHead{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding: 12px 14px;
-      border-bottom:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      flex-wrap:wrap;
-    }
-    .panelHead .left{
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    }
-    .bigPill{
-      display:inline-flex; align-items:center; gap:10px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size:13px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-    .bigPill .dot{
-      width:12px; height:12px; border-radius:999px;
-      background: var(--cyan);
-      box-shadow: 0 0 18px rgba(34,211,238,.35);
-    }
-
-    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
-    .btn{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.42);
-      padding:10px 12px;
-      border-radius: 14px;
-      color: var(--text);
-      cursor:pointer;
-      user-select:none;
-      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
-      display:flex; align-items:center; gap:8px;
-      white-space:nowrap;
-      font-weight:1000;
-      font-size:13px;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
-    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
-    .btn.ghost{ color:var(--muted); }
-
-    .body{ padding: 12px; display:grid; grid-template-columns: 1.1fr .9fr; gap: 12px; }
-    @media (max-width: 900px){ .body{ grid-template-columns:1fr; } .pillrow{ justify-content:flex-start; } .actions{ justify-content:flex-start; } }
-
-    .card{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.40);
-      border-radius: 18px;
-      padding: 14px;
-      position:relative;
-      overflow:hidden;
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-    }
-    .card h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; font-weight:1000; }
-    .card p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; font-weight:800; }
-    .grid{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 10px;
-    }
-    @media (max-width: 560px){ .grid{ grid-template-columns:1fr; } }
-    .opt{
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.28);
-      border-radius: 16px;
-      padding: 12px;
-      cursor:pointer;
-      user-select:none;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
-    }
-    .opt:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
-    .opt:active{ transform: translateY(1px); }
-    .opt.on{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
-    .opt .t{ font-weight:1000; }
-    .opt .d{ margin-top:6px; color:rgba(229,231,235,.74); font-weight:800; font-size:12px; line-height:1.35; }
-    .row2{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; align-items:center; }
-
-    .toast{
-      position: fixed;
-      left: 50%;
-      bottom: calc(18px + var(--sab));
-      transform: translateX(-50%);
-      background: rgba(2,6,23,.85);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      max-width: 92vw;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity .18s ease;
-      pointer-events:none;
-      font-weight:900;
-    }
-    .toast.show{ opacity: 1; }
-    code{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-      color: rgba(229,231,235,.9);
-      background: rgba(0,0,0,.25);
-      border: 1px solid rgba(148,163,184,.18);
-      padding: 2px 6px;
-      border-radius: 10px;
-      word-break: break-all;
-    }
+    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
+    .c{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px;}
+    .p{max-width:780px;width:100%;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.72);border-radius:22px;padding:14px;box-shadow:0 20px 70px rgba(0,0,0,.45);}
+    .t{font-weight:1000;font-size:16px;}
+    .s{color:rgba(148,163,184,.95);margin-top:6px;font-size:12.5px;line-height:1.4;}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:rgba(229,231,235,.9);margin-top:10px;white-space:pre-wrap;}
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand">
-        <h1 class="title">🧼 Handwash — Launcher</h1>
-        <p class="subtitle">
-          เลือกอุปกรณ์ก่อนเข้าเล่น • ส่งพารามิเตอร์ต่ออัตโนมัติ (hub/run/diff/time/seed/pid) • กลับ HUB ได้เสมอ
-        </p>
-      </div>
-      <div class="pillrow" id="pillrow"></div>
-    </header>
-
-    <section class="panel" aria-label="Handwash launcher">
-      <div class="panelHead">
-        <div class="left">
-          <div class="bigPill"><span class="dot"></span><span>🧼 Handwash (Run)</span></div>
-          <span class="pill"><b>target</b>: <span id="tTarget">./hygiene-vr/hygiene-vr.html</span></span>
-        </div>
-        <div class="actions">
-          <div class="btn ghost" id="btnHow">❓ วิธีเล่น</div>
-          <div class="btn" id="btnToHub">🏰 กลับ HUB</div>
-          <div class="btn good" id="btnStart">▶ Start</div>
-        </div>
-      </div>
-
-      <div class="body">
-        <div class="card">
-          <h3>เลือกโหมดการแสดงผล (View)</h3>
-          <p>แนะนำ: มือถือ = <b>mobile</b> • VR Cardboard = <b>cvr</b> • VR Headset = <b>vr</b></p>
-
-          <div class="grid" id="viewGrid">
-            <div class="opt" data-view="pc">
-              <div class="t">🖥️ PC</div>
-              <div class="d">เมาส์/คีย์บอร์ด • เหมาะทดสอบ</div>
-            </div>
-            <div class="opt" data-view="mobile">
-              <div class="t">📱 Mobile</div>
-              <div class="d">แตะเป้า • ใช้ในห้องเรียน</div>
-            </div>
-            <div class="opt" data-view="vr">
-              <div class="t">🕶️ VR</div>
-              <div class="d">WebXR • ENTER VR</div>
-            </div>
-            <div class="opt" data-view="cvr">
-              <div class="t">📦 cVR</div>
-              <div class="d">Cardboard • ยิงจาก crosshair</div>
-            </div>
-          </div>
-
-          <div class="row2">
-            <span class="pill"><b>view</b>: <span id="tView">—</span></span>
-            <span class="pill"><b>diff</b>: <span id="tDiff">—</span></span>
-            <span class="pill"><b>time</b>: <span id="tTime">—</span>s</span>
-            <span class="pill"><b>pid</b>: <span id="tPid">—</span></span>
-          </div>
-
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>hint</b>: ถ้าเป็น Cardboard ให้เข้า <b>cvr</b> เพื่อยิงผ่าน crosshair</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>ลิงก์จริงของเกม (Run)</h3>
-          <p>launcher จะพยายามเข้าไฟล์นี้ก่อน ถ้าไม่พบจะ fallback อัตโนมัติ</p>
-          <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
-            <div class="pill"><b>primary</b>: <code id="primaryPath">./hygiene-vr/hygiene-vr.html</code></div>
-            <div class="pill"><b>fallback</b>: <code id="fallbackPath">./hygiene-vr/hygiene.html</code></div>
-          </div>
-          <div style="margin-top:10px;" class="pill"><b>note</b>: ถ้าคุณใช้ path อื่น บอกได้ เดี๋ยวผมปรับให้ตรงแบบล็อกถาวร</div>
-        </div>
-      </div>
-    </section>
+<div class="c">
+  <div class="p">
+    <div class="t">💧 HydrationVR — กำลังเปิดผ่าน Warmup Gate…</div>
+    <div class="s">ระบบจะบังคับ: Warmup (20s) → เกม → Cooldown (20s) → กลับ HUB</div>
+    <div class="mono" id="dbg"></div>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<script>
+(() => {
+  'use strict';
 
-  <script>
-  (function(){
-    'use strict';
+  const QS = new URL(location.href).searchParams;
 
-    // ---------- params ----------
-    function pageUrl(){ return location.href.split('#')[0]; }
-    function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-    const QS = parseQS();
+  const isMobileUA = ()=>{
+    const ua = String(navigator.userAgent||'').toLowerCase();
+    return /android|iphone|ipad|ipod/.test(ua);
+  };
 
-    const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
-    const LS_VIEW = 'HHA_LAUNCHER_VIEW::handwash';
+  // If user already set ?view= -> keep it. Otherwise auto pc/mobile
+  const view = (QS.get('view') || '').trim()
+    ? String(QS.get('view')).toLowerCase()
+    : (isMobileUA() ? 'mobile' : 'pc');
 
-    function nowSeed(){ return String(Date.now()); }
-    function detectMobile(){
-      const ua = navigator.userAgent || '';
-      return /Android|iPhone|iPad|iPod/i.test(ua);
-    }
-    function pickDefaultView(){
-      const qv = (QS.get('view')||'').trim();
-      if(qv) return qv;
-      try{
-        const last = localStorage.getItem(LS_VIEW);
-        if(last) return last;
-      }catch(_){}
-      return detectMobile() ? 'mobile' : 'pc';
-    }
+  const hub  = QS.get('hub') || './hub.html';
 
-    // normalize context defaults (so pills show something)
-    const ctx = {
-      pid: (QS.get('pid')||'').trim() || 'anon',
-      run: (QS.get('run')||'play').trim() || 'play',
-      diff: (QS.get('diff')||'normal').trim() || 'normal',
-      time: (QS.get('time')||'80').trim() || '80',
-      seed: (QS.get('seed')||'').trim() || nowSeed()
-    };
+  // durations
+  const gateDur = Math.max(5, Math.min(60, Number(QS.get('dur')  || 20) || 20)); // warmup
+  const cdur    = Math.max(5, Math.min(60, Number(QS.get('cdur') || 20) || 20)); // cooldown
 
-    // ---------- UI pills ----------
-    function esc(s){ return String(s).replace(/</g,'&lt;'); }
-    function renderPills(){
-      const pills = [
-        ['pid', QS.get('pid') ?? ctx.pid],
-        ['run', QS.get('run') ?? ctx.run],
-        ['diff', QS.get('diff') ?? ctx.diff],
-        ['time', QS.get('time') ?? ctx.time],
-        ['seed', QS.get('seed') ?? ctx.seed],
-        ['studyId', QS.get('studyId')],
-        ['phase', QS.get('phase')],
-        ['conditionGroup', QS.get('conditionGroup')],
-        ['log', QS.get('log')]
-      ].filter(x => x[1] != null && String(x[1]).trim() !== '');
+  // passthrough (deny these)
+  const deny = new Set(['next','phase','dur','cdur','autonext']);
+  const pass = new URLSearchParams();
+  QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
-      const el = document.getElementById('pillrow');
-      el.innerHTML = (pills.length ? pills : [['ctx','none']])
-        .slice(0, 12)
-        .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${esc(v)}</span>`)
-        .join('');
-    }
+  if(!QS.get('view')) pass.set('view', view);
 
-    // ---------- toast ----------
-    const toastEl = document.getElementById('toast');
-    let toastTimer=null;
-    function toast(msg){
-      clearTimeout(toastTimer);
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
-    }
+  // target RUN
+  const gameRun = new URL('./hydration-vr/hydration-vr.html', location.href);
+  pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
+  gameRun.searchParams.set('hub', hub);
+  gameRun.searchParams.set('gate', '1');          // ✅ enforce gate
+  gameRun.searchParams.set('cdur', String(cdur)); // tell RUN cooldown duration
 
-    // ---------- pass-through helper ----------
-    function applyPassThrough(href, view){
-      const u = new URL(href, location.href);
-      for (const k of PASS_KEYS){
-        if (!u.searchParams.has(k) && QS.has(k)){
-          const v = QS.get(k);
-          if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-        }
-      }
-      // inject defaults if missing
-      if(!u.searchParams.has('pid')) u.searchParams.set('pid', ctx.pid);
-      if(!u.searchParams.has('run')) u.searchParams.set('run', ctx.run);
-      if(!u.searchParams.has('diff')) u.searchParams.set('diff', ctx.diff);
-      if(!u.searchParams.has('time')) u.searchParams.set('time', String(ctx.time));
-      if(!u.searchParams.has('seed')) u.searchParams.set('seed', ctx.seed);
+  // warmup gate
+  const gate = new URL('./warmup-gate.html', location.href);
+  gate.searchParams.set('phase','warmup');
+  gate.searchParams.set('dur', String(gateDur));
+  gate.searchParams.set('hub', hub);
+  gate.searchParams.set('next', gameRun.toString());
+  gate.searchParams.set('autonext','1');
 
-      if(view) u.searchParams.set('view', view);
+  const dbg = document.getElementById('dbg');
+  if(dbg){
+    dbg.textContent =
+      'view(auto) = ' + view + '\n' +
+      'warmup dur = ' + gateDur + 's\n' +
+      'cooldown dur = ' + cdur + 's\n\n' +
+      'gate => ' + gate.toString() + '\n\n' +
+      'next(game) => ' + gameRun.toString();
+  }
 
-      // always give hub param (so games can go back)
-      if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
-        // best-effort: go to ../hub.html if user didn't pass hub
-        const hubGuess = new URL('./hub.html', location.href);
-        u.searchParams.set('hub', hubGuess.toString());
-      }
-      return u.toString();
-    }
-
-    // ---------- view select ----------
-    const viewGrid = document.getElementById('viewGrid');
-    const tView = document.getElementById('tView');
-    const tDiff = document.getElementById('tDiff');
-    const tTime = document.getElementById('tTime');
-    const tPid  = document.getElementById('tPid');
-
-    let selectedView = pickDefaultView();
-
-    function setView(v){
-      selectedView = v;
-      try{ localStorage.setItem(LS_VIEW, v); }catch(_){}
-      const opts = viewGrid.querySelectorAll('.opt[data-view]');
-      opts.forEach(o => o.classList.toggle('on', o.getAttribute('data-view') === v));
-      tView.textContent = v;
-      tDiff.textContent = ctx.diff;
-      tTime.textContent = ctx.time;
-      tPid.textContent  = ctx.pid;
-    }
-
-    viewGrid.addEventListener('click', (ev)=>{
-      const el = ev.target.closest('.opt[data-view]');
-      if(!el) return;
-      const v = el.getAttribute('data-view');
-      setView(v);
-      toast(`เลือก view = ${v}`);
-    });
-
-    // ---------- start logic with fallback ----------
-    const PRIMARY = './hygiene-vr/hygiene-vr.html';
-    const FALLBACK = './hygiene-vr/hygiene.html';
-
-    async function exists(url){
-      try{
-        const res = await fetch(url, { method:'HEAD', cache:'no-store' });
-        return res.ok;
-      }catch(_){
-        return false;
-      }
-    }
-
-    async function start(){
-      const primaryUrl = applyPassThrough(PRIMARY, selectedView);
-      const fallbackUrl = applyPassThrough(FALLBACK, selectedView);
-
-      // prefer primary if it exists; if HEAD blocked by GitHub pages, just try primary first.
-      const primaryOk = await exists(primaryUrl);
-      if(primaryOk){
-        location.href = primaryUrl;
-        return;
-      }
-
-      // If HEAD failed due to CORS/blocked, we still might be fine; attempt navigate to primary anyway.
-      // But if primary definitely doesn't exist, go fallback.
-      const primaryMaybe = true;
-      if(primaryMaybe){
-        location.href = primaryUrl;
-        return;
-      }
-
-      location.href = fallbackUrl;
-    }
-
-    // ---------- buttons ----------
-    document.getElementById('btnStart').addEventListener('click', ()=> start());
-    document.getElementById('btnHow').addEventListener('click', ()=>{
-      toast('วิธีเล่น: แตะ/ยิงเป้า “เชื้อโรค” ให้ไว • ทำ 7 ขั้นตอน • ผ่านเกณฑ์แล้วติ๊ก Hygiene Gate');
-    });
-    document.getElementById('btnToHub').addEventListener('click', ()=>{
-      const h = (QS.get('hub')||'').trim();
-      if(h) location.href = h;
-      else location.href = new URL('./hub.html', location.href).toString();
-    });
-
-    // init
-    renderPills();
-    setView(selectedView);
-
-    // show target paths (nice)
-    document.getElementById('tTarget').textContent = PRIMARY;
-  })();
-  </script>
+  location.replace(gate.toString());
+})();
+</script>
 </body>
 </html>
