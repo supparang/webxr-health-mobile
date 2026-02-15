@@ -1,11 +1,9 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
 // HygieneVR SAFE — SURVIVAL (HHA Standard + Emoji 7 Steps + Quest + Random Quiz + FX)
-// PATCH v20260215d
-// ✅ Exports: boot()
-// ✅ Practice 15s: run=practice OR ?practice=1 (no miss, no summary, then auto real start)
-// ✅ Quiz 4 buttons (tap / keys 1-4). cVR fallback: streak hit 2 times.
-// Emits: hha:start, hha:time, hha:judge, hha:end
-// Stores (REAL only): HHA_LAST_SUMMARY, HHA_SUMMARY_HISTORY
+// PATCH v20260215e
+// ✅ Practice 15s summary (no save)
+// ✅ Quiz 4 buttons (tap / keys 1-4)
+// ✅ cVR: shoot crosshair over quiz button => answer
 'use strict';
 
 const WIN = window;
@@ -32,7 +30,6 @@ function nowIso(){ try{return new Date().toISOString();}catch{ return ''; } }
 function nowMs(){ return performance.now ? performance.now() : Date.now(); }
 function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
 
-// ------------------ Steps (emoji mapping) ------------------
 const STEPS = [
   { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
   { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
@@ -51,7 +48,7 @@ export function boot(){
     return;
   }
 
-  // UI handles
+  // HUD
   const pillStep = DOC.getElementById('pillStep');
   const pillHits = DOC.getElementById('pillHits');
   const pillCombo= DOC.getElementById('pillCombo');
@@ -66,7 +63,6 @@ export function boot(){
   const quizBox  = DOC.getElementById('quizBox');
   const quizQ    = DOC.getElementById('quizQ');
   const quizSub  = DOC.getElementById('quizSub');
-
   const quizOpt1 = DOC.getElementById('quizOpt1');
   const quizOpt2 = DOC.getElementById('quizOpt2');
   const quizOpt3 = DOC.getElementById('quizOpt3');
@@ -76,9 +72,11 @@ export function boot(){
   const quizOpt3t= DOC.getElementById('quizOpt3t');
   const quizOpt4t= DOC.getElementById('quizOpt4t');
 
+  // overlays
   const startOverlay = DOC.getElementById('startOverlay');
   const practiceOverlay = DOC.getElementById('practiceOverlay');
   const practiceCounter = DOC.getElementById('practiceCounter');
+  const practiceSummary = DOC.getElementById('practiceSummary');
   const btnSkipPractice = DOC.getElementById('btnSkipPractice');
 
   const endOverlay   = DOC.getElementById('endOverlay');
@@ -98,8 +96,6 @@ export function boot(){
   // params
   const runModeRaw = (qs('run','play')||'play').toLowerCase();
   const practiceEnabled = (qs('practice','0') === '1') || (runModeRaw === 'practice');
-  const runMode = practiceEnabled ? 'practice' : runModeRaw;
-
   const diff = (qs('diff','normal')||'normal').toLowerCase();
   const view = (qs('view','pc')||'pc').toLowerCase();
   const hub = qs('hub', '');
@@ -108,25 +104,20 @@ export function boot(){
   const seed = Number(qs('seed', Date.now()));
   const rng = makeRNG(seed);
 
-  // difficulty presets (base)
   const base = (()=> {
     if(diff==='easy') return { spawnPerSec:1.8, hazardRate:0.08, decoyRate:0.16 };
     if(diff==='hard') return { spawnPerSec:2.6, hazardRate:0.14, decoyRate:0.26 };
     return { spawnPerSec:2.2, hazardRate:0.11, decoyRate:0.22 };
   })();
 
-  // practice params (slower & safer)
-  const PRACTICE = {
-    sec: 15,
-    params: { spawnPerSec: 1.35, hazardRate: 0.06, decoyRate: 0.14 }
-  };
+  const PRACTICE = { sec: 15, params: { spawnPerSec: 1.35, hazardRate: 0.06, decoyRate: 0.14 } };
 
-  // AI instances (optional)
+  // optional AI
   const coachOn = (qs('coach','1') !== '0');
   const ddOn    = (qs('dd','1') !== '0');
-  const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
+  const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode: practiceEnabled?'practice':runModeRaw, lang:'th' }) : null;
   const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({
-    seed, runMode,
+    seed, runMode: practiceEnabled?'practice':runModeRaw,
     base,
     bounds:{ spawnPerSec:[1.2, 4.2], hazardRate:[0.05, 0.26], decoyRate:[0.10, 0.40] }
   }) : null;
@@ -136,9 +127,11 @@ export function boot(){
   let tStartMs=0, tLastMs=0;
   let timeLeft = timePlannedSec;
 
-  // practice state
   let inPractice = false;
   let practiceLeft = PRACTICE.sec;
+
+  // practice stats (no save)
+  let pracGood=0, pracWrong=0, pracHaz=0, pracShots=0, pracCombo=0, pracComboMax=0;
 
   let stepIdx=0;
   let hitsInStep=0;
@@ -151,25 +144,22 @@ export function boot(){
 
   let correctHits=0;
   let totalStepHits=0;
-  const rtOk = []; // ms
+  const rtOk = [];
   let spawnAcc=0;
 
-  // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let questDone = 0;
 
+  // quiz
   let quizOpen = false;
   let quizRight = 0;
   let quizWrong = 0;
+  let quizCur = null;
+  let quizOptions = [];
+  let quizAnswerIndex = -1;
 
-  // quiz current
-  let quizCur = null; // {q,a,wrong[]}
-  let quizOptions = []; // [text...]
-  let quizAnswerIndex = -1; // 0..3
-  let quizArmedStreak = false; // cVR fallback
-
-  // active targets
-  const targets = []; // {id, el, kind, stepIdx, bornMs, x,y}
+  // targets
+  const targets = [];
   let nextId=1;
 
   function showBanner(msg){
@@ -180,7 +170,6 @@ export function boot(){
     showBanner._t = setTimeout(()=>banner.classList.remove('show'), 1200);
   }
 
-  // ✅ FX on hit (particles.js)
   function fxHit(kind, obj){
     const P = WIN.Particles;
     if(!P || !obj) return;
@@ -222,25 +211,18 @@ export function boot(){
   function pickQuiz(){
     const bank = WIN.HHA_HYGIENE_QUIZ_BANK;
     if(!Array.isArray(bank) || !bank.length) return null;
-    const q = bank[Math.floor(rng()*bank.length)];
-    return q || null;
+    return bank[Math.floor(rng()*bank.length)] || null;
   }
 
   function renderQuizButtons(){
-    if(!quizOpt1 || !quizOpt2 || !quizOpt3 || !quizOpt4) return;
-    if(!quizOpt1t || !quizOpt2t || !quizOpt3t || !quizOpt4t) return;
+    if(!quizOpt1||!quizOpt2||!quizOpt3||!quizOpt4) return;
+    if(!quizOpt1t||!quizOpt2t||!quizOpt3t||!quizOpt4t) return;
 
-    const t1 = quizOptions[0] ?? '—';
-    const t2 = quizOptions[1] ?? '—';
-    const t3 = quizOptions[2] ?? '—';
-    const t4 = quizOptions[3] ?? '—';
+    quizOpt1t.textContent = quizOptions[0] ?? '—';
+    quizOpt2t.textContent = quizOptions[1] ?? '—';
+    quizOpt3t.textContent = quizOptions[2] ?? '—';
+    quizOpt4t.textContent = quizOptions[3] ?? '—';
 
-    quizOpt1t.textContent = t1;
-    quizOpt2t.textContent = t2;
-    quizOpt3t.textContent = t3;
-    quizOpt4t.textContent = t4;
-
-    // reset state classes
     quizOpt1.classList.remove('is-right','is-wrong');
     quizOpt2.classList.remove('is-right','is-wrong');
     quizOpt3.classList.remove('is-right','is-wrong');
@@ -256,11 +238,9 @@ export function boot(){
 
     quizQ.textContent = `🧠 Quiz: ${q.q}`;
 
-    // build 4 options: correct + up to 3 wrong
     const options = [q.a].concat((q.wrong||[]).slice(0,3));
-    while(options.length < 4) options.push('ไม่แน่ใจ/ข้าม'); // pad safety
+    while(options.length < 4) options.push('ไม่แน่ใจ/ข้าม');
 
-    // shuffle
     for(let i=options.length-1;i>0;i--){
       const j = Math.floor(rng()*(i+1));
       [options[i],options[j]] = [options[j],options[i]];
@@ -268,16 +248,11 @@ export function boot(){
 
     quizOptions = options.slice(0,4);
     quizAnswerIndex = quizOptions.indexOf(q.a);
-
-    quizSub.textContent = 'เลือกคำตอบให้ถูก (แตะปุ่ม 1–4)';
+    quizSub.textContent = (view==='cvr')
+      ? 'เล็ง crosshair ที่คำตอบ แล้ว “ยิง” เพื่อเลือก (หรือแตะได้บนจอ)'
+      : 'เลือกคำตอบให้ถูก (แตะปุ่ม 1–4)';
 
     renderQuizButtons();
-
-    // cVR fallback: streak method
-    quizArmedStreak = true;
-    quizOpen._t0 = nowMs();
-    quizOpen._needStreak = 2;
-    quizOpen._streak = 0;
   }
 
   function closeQuiz(msg){
@@ -287,7 +262,6 @@ export function boot(){
       quizCur = null;
       quizOptions = [];
       quizAnswerIndex = -1;
-      quizArmedStreak = false;
       if(msg) showBanner(msg);
     }
   }
@@ -297,7 +271,6 @@ export function boot(){
     const idx = Number(index);
     const ok = (idx === quizAnswerIndex);
 
-    // mark UI
     const btns = [quizOpt1,quizOpt2,quizOpt3,quizOpt4];
     for(let i=0;i<btns.length;i++){
       const b = btns[i];
@@ -309,30 +282,47 @@ export function boot(){
     if(ok){
       quizRight++;
       fxQuiz(true);
-      setTimeout(()=>closeQuiz('✅ Quiz ผ่าน!'), 320);
+      setTimeout(()=>closeQuiz('✅ Quiz ผ่าน!'), 260);
     }else{
       quizWrong++;
       fxQuiz(false);
-      setTimeout(()=>closeQuiz('❌ Quiz พลาด!'), 380);
+      setTimeout(()=>closeQuiz('❌ Quiz พลาด!'), 320);
     }
   }
 
-  // bind quiz buttons (tap)
+  // button answers
   quizOpt1?.addEventListener('click', ()=>answerQuiz(0), { passive:true });
   quizOpt2?.addEventListener('click', ()=>answerQuiz(1), { passive:true });
   quizOpt3?.addEventListener('click', ()=>answerQuiz(2), { passive:true });
   quizOpt4?.addEventListener('click', ()=>answerQuiz(3), { passive:true });
 
-  // keyboard 1-4 (PC)
-  function onKeydown(e){
+  // keys 1-4
+  WIN.addEventListener('keydown', (e)=>{
     if(!quizOpen) return;
     const k = String(e.key||'');
     if(k==='1') answerQuiz(0);
     else if(k==='2') answerQuiz(1);
     else if(k==='3') answerQuiz(2);
     else if(k==='4') answerQuiz(3);
+  });
+
+  function showPracticeUI(on){
+    if(!practiceOverlay) return;
+    practiceOverlay.style.display = on ? 'grid' : 'none';
   }
-  WIN.addEventListener('keydown', onKeydown);
+  function setPracticeCounter(){
+    if(practiceCounter) practiceCounter.textContent = String(Math.max(0, Math.ceil(practiceLeft)));
+  }
+  function showPracticeSummary(html){
+    if(!practiceSummary) return;
+    practiceSummary.innerHTML = html;
+    practiceSummary.style.display = 'block';
+  }
+  function hidePracticeSummary(){
+    if(!practiceSummary) return;
+    practiceSummary.style.display = 'none';
+    practiceSummary.innerHTML = '';
+  }
 
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
@@ -348,25 +338,14 @@ export function boot(){
   }
 
   function getMissCount(){
-    // ✅ practice: never count miss
     if(inPractice) return 0;
     return (wrongStepHits + hazHits);
   }
-
   function getStepAcc(){
     return totalStepHits ? (correctHits / totalStepHits) : 0;
   }
-
   function elapsedSec(){
     return running ? ((nowMs() - tStartMs)/1000) : 0;
-  }
-
-  function showPracticeUI(on){
-    if(!practiceOverlay) return;
-    practiceOverlay.style.display = on ? 'grid' : 'none';
-  }
-  function setPracticeCounter(){
-    if(practiceCounter) practiceCounter.textContent = String(Math.max(0, Math.ceil(practiceLeft)));
   }
 
   function setHud(){
@@ -376,7 +355,6 @@ export function boot(){
     pillHits && (pillHits.textContent = `HITS ${hitsInStep}/${s.hitsNeed}`);
     pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
 
-    // Miss pill: show PRACTICE label
     if(pillMiss){
       pillMiss.textContent = inPractice ? `PRACTICE (no miss)` : `MISS ${getMissCount()} / ${missLimit}`;
     }
@@ -400,7 +378,6 @@ export function boot(){
       try{ t.el?.remove(); }catch{}
     }
   }
-
   function removeTarget(obj){
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
@@ -420,7 +397,6 @@ export function boot(){
     const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
     const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
-    // IMPORTANT: CSS expects vw/vh, so pass normalized to viewport %
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
@@ -428,10 +404,8 @@ export function boot(){
     const obj = { id: nextId++, el, kind, stepIdx: stepRef, bornMs: nowMs(), x, y };
     targets.push(obj);
 
-    // tap/click only when not cVR strict
     if(view !== 'cvr'){
       el.addEventListener('click', ()=> onHitByPointer(obj, 'tap'), { passive:true });
-      // mobile extra reliability: pointerdown triggers earlier
       el.addEventListener('pointerdown', ()=> onHitByPointer(obj, 'tap'), { passive:true });
     }
     return obj;
@@ -466,10 +440,37 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shoot: pick nearest target within lockPx
+  // ✅ cVR shoot: PRIORITY 1 = quiz buttons (if quizOpen)
+  function tryShootQuiz(){
+    if(!quizOpen) return false;
+    const cx = WIN.innerWidth/2;
+    const cy = WIN.innerHeight/2;
+
+    const btns = [quizOpt1,quizOpt2,quizOpt3,quizOpt4];
+    // expand hit box a bit for easier aim
+    const PAD = 10;
+
+    for(let i=0;i<btns.length;i++){
+      const b = btns[i];
+      if(!b) continue;
+      const r = b.getBoundingClientRect();
+      const x0 = r.left - PAD, x1 = r.right + PAD;
+      const y0 = r.top  - PAD, y1 = r.bottom+ PAD;
+      if(cx>=x0 && cx<=x1 && cy>=y0 && cy<=y1){
+        answerQuiz(i);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // cVR shoot: PRIORITY 2 = nearest target within lockPx
   function onShoot(e){
     if(!running || paused) return;
     if(view !== 'cvr') return;
+
+    // if quiz visible, let quiz consume shoot first
+    if(tryShootQuiz()) return;
 
     const d = (e && e.detail) || {};
     const lockPx = Number(d.lockPx||28);
@@ -499,7 +500,6 @@ export function boot(){
       return;
     }
     if(t < bumpQuestOnGoodHit._nextAt) return;
-
     bumpQuestOnGoodHit._nextAt = t + (12 + rng()*10);
 
     const roll = rng();
@@ -534,6 +534,9 @@ export function boot(){
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
+    // practice stat: count every judge event as a shot attempt
+    if(inPractice) pracShots++;
+
     if(obj.kind === 'good'){
       correctHits++;
       totalStepHits++;
@@ -542,19 +545,10 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // cVR fallback quiz streak: hit good twice quickly to auto-pass (optional)
-      if(quizOpen && quizArmedStreak){
-        const within = (nowMs() - (quizOpen._t0||nowMs())) <= 4000;
-        if(within){
-          quizOpen._streak = (quizOpen._streak||0) + 1;
-          if(quizOpen._streak >= (quizOpen._needStreak||2)){
-            quizRight++;
-            fxQuiz(true);
-            closeQuiz('✅ Quiz ผ่าน! (streak)');
-          }
-        }else{
-          closeQuiz(null);
-        }
+      if(inPractice){
+        pracGood++;
+        pracCombo++;
+        pracComboMax = Math.max(pracComboMax, pracCombo);
       }
 
       coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo, inPractice });
@@ -566,10 +560,8 @@ export function boot(){
       if(!inPractice) showBanner(`✅ ถูกต้อง! ${STEPS[stepIdx].icon} +1`);
       fxHit('good', obj);
 
-      // step progress
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
         const prevStep = stepIdx;
-
         stepIdx++;
         hitsInStep=0;
 
@@ -601,16 +593,11 @@ export function boot(){
       totalStepHits++;
       combo = 0;
 
-      // ✅ practice: do NOT count miss / do NOT end game
-      if(!inPractice) wrongStepHits++;
-
-      if(quizOpen && quizArmedStreak){
-        // streak mode treat wrong as fail if practicing streak
-        if(!inPractice){
-          quizWrong++;
-          fxQuiz(false);
-          closeQuiz('❌ Quiz พลาด!');
-        }
+      if(inPractice){
+        pracWrong++;
+        pracCombo = 0;
+      }else{
+        wrongStepHits++;
       }
 
       coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo, inPractice });
@@ -618,9 +605,7 @@ export function boot(){
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra, inPractice });
 
-      if(!inPractice){
-        showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-      }
+      if(!inPractice) showBanner(`⚠️ ผิดขั้นตอน! ตอนนี้ต้อง ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
       fxHit('wrong', obj);
 
       removeTarget(obj);
@@ -632,15 +617,11 @@ export function boot(){
     if(obj.kind === 'haz'){
       combo = 0;
 
-      // ✅ practice: do NOT count miss / do NOT end game
-      if(!inPractice) hazHits++;
-
-      if(quizOpen && quizArmedStreak){
-        if(!inPractice){
-          quizWrong++;
-          fxQuiz(false);
-          closeQuiz('❌ Quiz พลาด!');
-        }
+      if(inPractice){
+        pracHaz++;
+        pracCombo = 0;
+      }else{
+        hazHits++;
       }
 
       coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo, inPractice });
@@ -659,26 +640,24 @@ export function boot(){
   }
 
   function tick(){
-    if(!running){ return; }
+    if(!running) return;
+
     const t = nowMs();
     const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
 
     if(paused){ requestAnimationFrame(tick); return; }
 
-    // practice countdown
     if(inPractice){
       practiceLeft -= dt;
       setPracticeCounter();
       if(practiceLeft <= 0){
-        // finish practice -> start real
         finishPracticeToReal();
         return;
       }
     }else{
       timeLeft -= dt;
       emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec() });
-
       if(timeLeft <= 0){
         endGame('time');
         return;
@@ -692,12 +671,12 @@ export function boot(){
       spawnAcc -= 1;
       spawnOne();
 
-      // hard cap: prevent “เต็มจอ”
-      if(targets.length > (inPractice ? 14 : 18)){
-        // remove oldest without expensive sort
-        let oldest = null;
-        for(const t2 of targets){
-          if(!oldest || t2.bornMs < oldest.bornMs) oldest = t2;
+      const cap = inPractice ? 14 : 18;
+      if(targets.length > cap){
+        // cheap oldest removal (no sort)
+        let oldest=null;
+        for(const x of targets){
+          if(!oldest || x.bornMs < oldest.bornMs) oldest = x;
         }
         if(oldest) removeTarget(oldest);
       }
@@ -727,14 +706,16 @@ export function boot(){
     questText = 'ทำ STEP ให้ถูก!';
     questDone = 0;
 
-    // quiz state
     quizRight = 0;
     quizWrong = 0;
     setQuizVisible(false);
     quizCur = null;
     quizOptions = [];
     quizAnswerIndex = -1;
-    quizArmedStreak = false;
+
+    // practice stats reset
+    pracGood=0; pracWrong=0; pracHaz=0; pracShots=0; pracCombo=0; pracComboMax=0;
+    hidePracticeSummary();
 
     setHud();
   }
@@ -778,32 +759,36 @@ export function boot(){
   }
 
   function finishPracticeToReal(){
-    // stop practice
     running = false;
     clearTargets();
     setQuizVisible(false);
-    showPracticeUI(false);
 
-    // tiny delay then real game
+    // summary
+    const acc = (pracShots>0) ? (pracGood / pracShots) : 0;
+    const html = `
+      <b style="color:rgba(229,231,235,.96)">สรุป Practice</b><br>
+      ✅ ถูก ${pracGood} • ⚠️ ผิด ${pracWrong} • 🦠 เชื้อ ${pracHaz}<br>
+      🎯 Accuracy ${(acc*100).toFixed(0)}% • 🔥 Best Combo ${pracComboMax}
+    `;
+    showPracticeSummary(html);
     showBanner('✅ จบ Practice! เข้าด่านจริง…');
-    setTimeout(()=>startRealGame(), 350);
+
+    // show summary briefly then start real
+    setTimeout(()=>{
+      showPracticeUI(false);
+      hidePracticeSummary();
+      startRealGame();
+    }, 900);
   }
 
   function startGame(){
-    // if practice enabled => practice first, then auto real
-    if(practiceEnabled){
-      startPracticeThenReal();
-    }else{
-      startRealGame();
-    }
+    if(practiceEnabled) startPracticeThenReal();
+    else startRealGame();
   }
 
   function endGame(reason){
     if(!running) return;
-
-    // ✅ practice: never end/never save
     if(inPractice){
-      // just restart practice (shouldn't happen, but safe)
       showBanner('🧪 Practice ไม่จบแพ้ — ไปต่อ!');
       return;
     }
@@ -835,7 +820,7 @@ export function boot(){
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
     const summary = {
-      version:'1.0.2-prod',
+      version:'1.0.3-prod',
       game:'hygiene',
       gameMode:'hygiene',
       runMode: 'play',
@@ -876,7 +861,6 @@ export function boot(){
       WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
     }
 
-    // ✅ SAVE only real
     saveJson(LS_LAST, summary);
     const hist = loadJson(LS_HIST, []);
     const arr = Array.isArray(hist) ? hist : [];
@@ -896,7 +880,7 @@ export function boot(){
     else location.href = '../hub.html';
   }
 
-  // UI binds
+  // binds
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
   btnPlayAgain?.addEventListener('click', startGame, { passive:true });
@@ -917,13 +901,11 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge/coach visuals
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
-    if(WIN.Particles && WIN.Particles.popText){
+    if(WIN.Particles?.popText){
       WIN.Particles.popText(WIN.innerWidth*0.5, WIN.innerHeight*0.22, `${b.icon||'🏅'} ${b.title||'Badge!'}`, 'good');
       WIN.Particles.burst(WIN.innerWidth*0.5, WIN.innerHeight*0.22, { count: 14, spread: 58, upBias: 0.9 });
     }
@@ -931,12 +913,9 @@ export function boot(){
 
   WIN.addEventListener('hha:coach', (e)=>{
     const d = (e && e.detail) || {};
-    if(d && d.text) showBanner(`🤖 ${d.text}`);
+    if(d?.text) showBanner(`🤖 ${d.text}`);
   });
 
-  // initial hud
+  // init
   setHud();
-
-  // optional: auto-open a quiz sometimes (real only)
-  // (kept off at boot)
 }
