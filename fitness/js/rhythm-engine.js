@@ -1,11 +1,10 @@
 // === /fitness/js/rhythm-engine.js ===
 // Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
-// ✅ Notes fall to BOTTOM HIT LINE (visual sync)
-// ✅ Anchor note at hit line via bottom: var(--rb-hitline-y)
-// ✅ 5-lane (or 3-lane preset supported by HTML/CSS)
-// ✅ Calibration offset (optional)
+// ✅ Notes fall to hit line (visual sync)
+// ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
+// ✅ Calibration offset (Cal: ms)
 // ✅ Research lock: prediction shown but no adaptive changes
-// ✅ Normal assist: enable with ?ai=1 (future hook)
+// ✅ Normal assist: enable with ?ai=1
 // ✅ Events CSV + Sessions CSV
 
 'use strict';
@@ -37,6 +36,7 @@
       let v = (obj && obj[k] != null) ? obj[k] : '';
       if (typeof v === 'number' && Number.isFinite(v)) v = String(v);
       v = String(v);
+      // quote if needed
       if(/[",\n\r]/.test(v)) v = '"' + v.replace(/"/g,'""') + '"';
       return v;
     }).join(',');
@@ -47,7 +47,9 @@
       this.columns = columns.slice(0);
       this.rows = [];
     }
-    add(row){ this.rows.push(Object.assign({}, row)); }
+    add(row){
+      this.rows.push(Object.assign({}, row));
+    }
     toCsv(){
       const head = this.columns.join(',');
       const body = this.rows.map(r=>toCsvRow(r, this.columns)).join('\n');
@@ -58,14 +60,32 @@
 
   // ---- Track config ----
   const TRACKS = {
-    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
-    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
-    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec: 60, audio: './audio/speed-rush.mp3' },
-    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
+    n1: {
+      id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',
+      durationSec: 60,
+      audio: './audio/warmup-groove.mp3'
+    },
+    n2: {
+      id:'n2', name:'Focus Combo', bpm:120, diff:'normal',
+      durationSec: 60,
+      audio: './audio/focus-combo.mp3'
+    },
+    n3: {
+      id:'n3', name:'Speed Rush', bpm:140, diff:'hard',
+      durationSec: 60,
+      audio: './audio/speed-rush.mp3'
+    },
+    r1: {
+      id:'r1', name:'Research Track 120', bpm:120, diff:'normal',
+      durationSec: 60,
+      audio: './audio/research-120.mp3'
+    }
   };
 
-  // ---- Simple beat-map generator (placeholder) ----
+  // ---- Note patterns (placeholder timeline; replace with authored beat map later) ----
+  // lane: 0..4 (L2 L1 C R1 R2) or 0..2 (L C R)
   function buildPattern(track, laneCount){
+    // deterministic-ish per track id for repeatability (research friendly)
     const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
     for(let i=0;i<seedStr.length;i++) seed = (seed*31 + seedStr.charCodeAt(i)) >>> 0;
@@ -79,13 +99,17 @@
     const dur = track.durationSec || 60;
 
     const notes = [];
+    // density by diff
     const diff = track.diff || 'normal';
     const base = (diff==='easy') ? 0.55 : (diff==='hard') ? 0.95 : 0.75;
 
+    // lead in
     const startT = 2.0;
     for(let t=startT; t<dur-1.0; t+=beat){
+      // random skip
       if(rnd() > base) continue;
       let lane = Math.floor(rnd() * laneCount);
+      // occasionally add doubles for challenge
       const isDouble = (diff!=='easy') && (rnd()<0.10);
       notes.push({ t: +t.toFixed(3), lane, kind:'tap' });
       if(isDouble){
@@ -93,13 +117,10 @@
         notes.push({ t: +t.toFixed(3), lane: lane2, kind:'tap' });
       }
     }
+
+    // sort by time then lane
     notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
-  }
-
-  function parsePx(v, fallback){
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : fallback;
   }
 
   class RhythmBoxerEngine{
@@ -120,7 +141,8 @@
       this.meta = {};
 
       // timing/calibration
-      this.calOffsetSec = 0;
+      this.calOffsetSec = 0; // + => hits judged later; user can tune
+      this._calHold = 0;
 
       // gameplay state
       this.songTime = 0;
@@ -152,7 +174,7 @@
       this.rightHits = 0;
 
       // fever
-      this.fever = 0;
+      this.fever = 0; // 0..1
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
@@ -168,15 +190,8 @@
       this.notes = [];
       this.noteIdx = 0;
       this.live = [];
-
-      // lead time in seconds (visual fall time)
-      this.noteSpeedSec = 2.20;
-
-      // px baseline for tail length
-      this.noteBaseLen = 180;
-
-      // cached hitline px (distance from lane bottom)
-      this._hitlinePx = 96;
+      this.noteSpeedSec = 2.20; // lead time in seconds (visual fall time)
+      this.noteBaseLen = 160;   // px (tail length baseline)
 
       // CSV tables
       this.sessionId = '';
@@ -204,11 +219,13 @@
         'trial_valid','rank','created_at_iso'
       ]);
 
+      // bind input
       this._bindLaneInput();
       this._detectDeviceType();
     }
 
     _detectDeviceType(){
+      // simple: pc vs mobile; cVR would be same page but view param could exist
       try{
         const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0);
         this.deviceType = touch ? 'mobile' : 'pc';
@@ -219,7 +236,6 @@
 
     _bindLaneInput(){
       if(!this.lanesEl) return;
-
       this.lanesEl.addEventListener('pointerdown', (ev)=>{
         const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
         if(!laneEl) return;
@@ -228,13 +244,16 @@
         this.hitLane(lane, 'tap');
       }, {passive:true});
 
+      // allow keyboard (A S D J K) for 5-lane
       DOC.addEventListener('keydown', (ev)=>{
         if(!this.running) return;
         const k = (ev.key||'').toLowerCase();
         const map5 = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
         const map3 = { 'a':0, 's':1, 'd':2 };
         const map = (this.laneCount===3) ? map3 : map5;
-        if(map[k] != null) this.hitLane(map[k], 'key');
+        if(map[k] != null){
+          this.hitLane(map[k], 'key');
+        }
       });
     }
 
@@ -244,25 +263,15 @@
       return `RB-${t}-${r}`;
     }
 
-    _readHitlinePx(){
-      // Read from lane computed style: --rb-hitline-y (px from bottom)
-      try{
-        const lane = this.lanesEl && this.lanesEl.querySelector('.rb-lane');
-        if(!lane) return;
-        const cs = getComputedStyle(lane);
-        const v = cs.getPropertyValue('--rb-hitline-y');
-        this._hitlinePx = parsePx(v, this._hitlinePx);
-      }catch(_){}
-    }
-
     start(mode, trackId, meta = {}){
       this.mode = (mode === 'research') ? 'research' : 'normal';
       this.meta = meta || {};
       this.track = TRACKS[trackId] || TRACKS.n1;
 
-      // lane count from DOM
+      // lane count from DOM (supports 3-lane layout)
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
 
+      // reset state
       this.running = true;
       this.ended = false;
 
@@ -300,22 +309,18 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // read hitline from CSS
-      this._readHitlinePx();
-
       // notes
       this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
       this.noteIdx = 0;
       this.live.length = 0;
 
-      // clear DOM
+      // DOM clear
       this._clearNotesDom();
 
       // CSV reset
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
-      this.sessionTable.clear();
 
       // load audio
       if(this.audio){
@@ -326,8 +331,10 @@
         if(p && typeof p.catch==='function') p.catch(()=>{});
       }
 
+      // start loop
       this._rafId = requestAnimationFrame(()=>this._loop());
 
+      // initial HUD
       this._updateHud();
       this._updateBars();
       this._updateCalibrationHud();
@@ -357,17 +364,14 @@
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
 
-      // Anchor at hitline (bottom)
-      el.style.bottom = 'var(--rb-hitline-y)';
-
-      // tail length
+      // NOTE LENGTH: make it long enough to visually reach hit line
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
-      const mul = (diff==='easy') ? 1.05 : (diff==='hard') ? 1.35 : 1.18;
+      const mul = (diff==='easy') ? 0.95 : (diff==='hard') ? 1.25 : 1.10;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
-      // icon (music note)
+      // icon (note symbol)
       const ico = DOC.createElement('div');
       ico.className = 'rb-note-ico';
       ico.textContent = '♪';
@@ -438,6 +442,7 @@
     }
 
     _updateNotePositions(){
+      // Visual: head reaches the hit line at time n.t
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
 
@@ -450,23 +455,14 @@
         const rect = laneEl.getBoundingClientRect();
         const laneH = rect.height || 420;
 
-        // Use hitline distance from bottom (px)
-        const hitline = this._hitlinePx || 96;
-
-        // Note length
-        const cs = getComputedStyle(n.el);
-        const noteLen = parsePx(cs.getPropertyValue('--rb-note-len'), this.noteBaseLen);
-
-        // Travel distance so that:
-        // p=1 -> y=0 (head at hitline)
-        // p=0 -> y= -travel (starts above)
-        // Need enough distance: from hitline up to top + extra for tail
-        const travel = (laneH - hitline) + noteLen + 24;
+        const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
+        const travel = laneH + noteLen * 0.35;
 
         const p = (this.songTime - (n.t - lead)) / lead; // 0..1
         const pClamp = clamp01(p);
 
-        const y = (pClamp - 1) * travel; // negative -> 0
+        // y goes from -travel (spawn above) to 0 (exactly at hit line)
+        const y = (pClamp - 1) * travel;
 
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
         n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
@@ -519,8 +515,10 @@
         else if(Math.abs(dt) <= wGreat){ judgment='great'; scoreDelta=100; }
 
         this._applyHit(lane, judgment, dt, scoreDelta);
+
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
+
       }else{
         this._applyBlankMiss(lane);
       }
@@ -556,7 +554,13 @@
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      this._logEvent({ event:'hit', lane, judgment, offset_s: offsetSec, score_delta: scoreDelta });
+      this._logEvent({
+        event: 'hit',
+        lane,
+        judgment,
+        offset_s: offsetSec,
+        score_delta: scoreDelta
+      });
     }
 
     _applyMiss(lane, kind){
@@ -654,14 +658,12 @@
       const hud = this.hud || {};
       if(hud.score) hud.score.textContent = String(this.score);
       if(hud.combo) hud.combo.textContent = String(this.combo);
-
       if(hud.acc){
         const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
         const hit = judged - this.hitMiss;
-        const acc = judged ? (hit / (this.totalNotes || 1)) * 100 : 0;
+        const acc = judged ? (hit / this.totalNotes) * 100 : 0;
         hud.acc.textContent = acc.toFixed(1) + '%';
       }
-
       if(hud.hp) hud.hp.textContent = String(Math.round(this.hp));
       if(hud.shield) hud.shield.textContent = '0';
       if(hud.time) hud.time.textContent = this.songTime.toFixed(1);
@@ -690,16 +692,19 @@
         else if(this.fever >= 0.85) hud.feverStatus.textContent = 'BUILD';
         else hud.feverStatus.textContent = 'READY';
       }
-
-      const dur = this.track.durationSec || 60;
-      const p = dur>0 ? clamp01(this.songTime / dur) : 0;
-      if(hud.progFill) hud.progFill.style.width = Math.round(p*100) + '%';
-      if(hud.progText) hud.progText.textContent = Math.round(p*100) + '%';
+      if(hud.progFill || hud.progText){
+        const dur = this.track.durationSec || 60;
+        const p = dur>0 ? clamp01(this.songTime / dur) : 0;
+        if(hud.progFill) hud.progFill.style.width = Math.round(p*100) + '%';
+        if(hud.progText) hud.progText.textContent = Math.round(p*100) + '%';
+      }
     }
 
     _updateCalibrationHud(){
       const el = DOC.querySelector('#rb-hud-cal');
-      if(el) el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
+      if(el){
+        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
+      }
     }
 
     _updateAI(){
@@ -709,7 +714,7 @@
 
       const judged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
       const hit = judged - this.hitMiss;
-      const accPct = judged ? (hit / (this.totalNotes || 1)) * 100 : 0;
+      const accPct = judged ? (hit / this.totalNotes) * 100 : 0;
 
       const snap = {
         accPct,
@@ -730,13 +735,15 @@
         this.aiState = { fatigueRisk:0, skillScore:0.5, suggestedDifficulty:'normal', tip:'' };
       }
 
-      if(t >= this._aiTipNext){
-        this._aiTipNext = t + 2.5;
-      }else{
-        if(!this.aiState.tip) this.aiState.tip = '';
+      if(this.aiState){
+        if(t >= this._aiTipNext){
+          this._aiTipNext = t + 2.5;
+        }else{
+          if(!this.aiState.tip) this.aiState.tip = '';
+        }
       }
 
-      // NOTE: No adaptive changes here (research locked by design)
+      // IMPORTANT: no adaptive changes here (research lock safe)
     }
 
     _finish(endReason) {
@@ -747,15 +754,23 @@
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
-      if (this.audio) this.audio.pause();
 
-      const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
+      if (this.audio) {
+        this.audio.pause();
+      }
+
+      const dur = Math.min(
+        this.songTime,
+        this.track.durationSec || this.songTime
+      );
 
       const totalNotes = this.totalNotes || 1;
       const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
       const totalJudged = totalHits + this.hitMiss;
 
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes) * 100 : 0;
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
 
       const mOffset = this.offsets.length ? mean(this.offsets) : 0;
       const sOffset = this.offsets.length ? std(this.offsets) : 0;
@@ -854,7 +869,9 @@
         durationSec: dur,
         participant: this.meta.id || this.meta.participant_id || '',
         rank,
-        qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
+        qualityNote: trialValid
+          ? ''
+          : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
       if (this.hooks && typeof this.hooks.onEnd === 'function') {
@@ -862,9 +879,11 @@
       }
     }
 
+    // ---- public CSV ----
     getEventsCsv(){ return this.eventsTable.toCsv(); }
     getSessionCsv(){ return this.sessionTable.toCsv(); }
   }
 
+  // ===== expose =====
   WIN.RhythmBoxerEngine = RhythmBoxerEngine;
 })();
