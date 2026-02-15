@@ -1,7 +1,4 @@
 // === /herohealth/api/hub-api-guard.js ===
-// HUB API Guard: probe endpoint + update HUB banner (apiBanner)
-// Works with: #apiBanner #apiDot #apiTitle #apiMsg
-
 'use strict';
 
 import { isRemoteDisabled, disabledInfo, clearDisable } from './api-status.js';
@@ -15,7 +12,6 @@ function setDot(kind){
   d.classList.remove('ok','warn','bad');
   d.classList.add(kind);
 }
-
 function setBanner({ title, msg, kind='warn' }){
   if(el('apiTitle')) el('apiTitle').textContent = title || '';
   if(el('apiMsg')) el('apiMsg').textContent = msg || '';
@@ -24,23 +20,18 @@ function setBanner({ title, msg, kind='warn' }){
 
 export async function guardApi({ uri }){
   if(!uri){
-    setBanner({
-      kind:'warn',
-      title:'ไม่มี API URI',
-      msg:'ไม่ได้ตั้งค่า endpoint — จะทำงานแบบ Offline'
-    });
+    setBanner({ kind:'warn', title:'ไม่มี API URI', msg:'ทำงานแบบ Offline' });
     return { ok:false, status:0, reason:'missing_uri' };
   }
 
-  // If this tab already disabled remote (403/401)
   if(isRemoteDisabled()){
     const info = disabledInfo();
     setBanner({
       kind:'bad',
       title:`Offline mode (API ${info.code || 403})`,
-      msg:'ระบบบล็อก endpoint ชั่วคราวในแท็บนี้ — เข้าเกมได้ปกติ, จะไม่ยิงซ้ำให้แดง'
+      msg:'ถูกบล็อกชั่วคราวในแท็บนี้ — HUB/เกมยังใช้ได้ปกติ'
     });
-    return { ok:false, status: info.code || 403, reason:'disabled' };
+    return { ok:false, status:info.code||403, reason:'disabled' };
   }
 
   setBanner({
@@ -52,35 +43,24 @@ export async function guardApi({ uri }){
   const r = await probeApi({ uri });
 
   if(r.ok){
-    setBanner({
-      kind:'ok',
-      title:'Online',
-      msg:'เชื่อมต่อ API สำเร็จ • ถ้าเป็น research/logging จะส่งข้อมูลได้'
-    });
+    setBanner({ kind:'ok', title:'Online', msg:'เชื่อมต่อ API สำเร็จ • logging/research ใช้งานได้' });
     return r;
   }
 
   if(r.status === 401 || r.status === 403){
-    // probeApi already called disableRemote for 401/403
     setBanner({
       kind:'bad',
       title:`Offline mode (API ${r.status})`,
-      msg:'ถูกปฏิเสธสิทธิ์ (Forbidden) • HUB/เกมยังเล่นได้ปกติ • logging จะถูกปิด'
+      msg:'Forbidden/Unauthorized • HUB/เกมยังเล่นได้ปกติ • logging ถูกปิด'
     });
     return r;
   }
 
-  setBanner({
-    kind:'warn',
-    title:'Offline fallback',
-    msg:'API ไม่พร้อมใช้งานชั่วคราว • HUB/เกมยังเล่นได้ปกติ'
-  });
+  setBanner({ kind:'warn', title:'Offline fallback', msg:'API ไม่พร้อมใช้งานชั่วคราว • เล่นได้ปกติ' });
   return r;
 }
 
-// helper for Retry button
 export async function retryGuard({ uri }){
-  // allow probe again (only clears the disable window if it had expired/was set)
   clearDisable();
   return guardApi({ uri });
 }
