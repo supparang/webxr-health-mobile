@@ -56,12 +56,11 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
-
-    // AI
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
-    aiTip:        $('#rb-hud-ai-tip')
+    aiTip:        $('#rb-hud-ai-tip'),
+    cal:          $('#rb-hud-cal')
   };
 
   // แสดงผลสรุป
@@ -90,7 +89,6 @@
   };
 
   let engine = null;
-  let _aiHudTimer = null;
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -110,9 +108,10 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      modeDescEl.textContent =
+      if (modeDescEl) modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      if (trackModeLbl) trackModeLbl.textContent =
+        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       if (researchBox) researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
@@ -124,9 +123,10 @@
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
-      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      if (modeDescEl) modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ปรับเกม)';
+      if (trackModeLbl) trackModeLbl.textContent =
+        'โหมด Research — เพลงวิจัย Research Track 120';
       if (researchBox) researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
@@ -140,13 +140,13 @@
   }
 
   function switchView(name) {
-    viewMenu.classList.add('hidden');
-    viewPlay.classList.add('hidden');
-    viewResult.classList.add('hidden');
+    if (viewMenu) viewMenu.classList.add('hidden');
+    if (viewPlay) viewPlay.classList.add('hidden');
+    if (viewResult) viewResult.classList.add('hidden');
 
-    if (name === 'menu') viewMenu.classList.remove('hidden');
-    else if (name === 'play') viewPlay.classList.remove('hidden');
-    else if (name === 'result') viewResult.classList.remove('hidden');
+    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
+    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
+    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
   function createEngine() {
@@ -174,7 +174,7 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    wrap.dataset.diff = cfg.diff;
+    if (wrap) wrap.dataset.diff = cfg.diff;
 
     if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
@@ -187,13 +187,6 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
-
-    // start AI HUD polling (engine updates aiState internally)
-    if (_aiHudTimer) clearInterval(_aiHudTimer);
-    _aiHudTimer = setInterval(() => {
-      if (!engine || !engine.aiState) return;
-      handleAIUpdate(engine.aiState);
-    }, 250);
   }
 
   function stopGame(reason) {
@@ -201,22 +194,38 @@
   }
 
   function handleEngineEnd(summary) {
-    if (_aiHudTimer) { clearInterval(_aiHudTimer); _aiHudTimer = null; }
+    if (!summary) summary = {};
 
-    if (res.mode) res.mode.textContent      = summary.modeLabel;
-    if (res.track) res.track.textContent     = summary.trackName;
-    if (res.endReason) res.endReason.textContent = summary.endReason;
-    if (res.score) res.score.textContent     = summary.finalScore;
-    if (res.maxCombo) res.maxCombo.textContent  = summary.maxCombo;
-    if (res.hits) res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    if (res.acc) res.acc.textContent        = summary.accuracyPct.toFixed(1) + ' %';
-    if (res.duration) res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    if (res.rank) res.rank.textContent      = summary.rank;
+    if (res.mode) res.mode.textContent = summary.modeLabel || '-';
+    if (res.track) res.track.textContent = summary.trackName || '-';
+    if (res.endReason) res.endReason.textContent = summary.endReason || '-';
+    if (res.score) res.score.textContent = summary.finalScore != null ? summary.finalScore : '0';
+    if (res.maxCombo) res.maxCombo.textContent = summary.maxCombo != null ? summary.maxCombo : '0';
+
+    if (res.hits) res.hits.textContent =
+      `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
+
+    if (res.acc) res.acc.textContent =
+      (summary.accuracyPct != null && Number.isFinite(summary.accuracyPct))
+        ? summary.accuracyPct.toFixed(1) + ' %'
+        : '0.0 %';
+
+    if (res.duration) res.duration.textContent =
+      (summary.durationSec != null && Number.isFinite(summary.durationSec))
+        ? summary.durationSec.toFixed(1) + ' s'
+        : '0.0 s';
+
+    if (res.rank) res.rank.textContent = summary.rank || '-';
 
     if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+        ? summary.offsetMean.toFixed(3) + ' s'
+        : '-';
+
     if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+        ? summary.offsetStd.toFixed(3) + ' s'
+        : '-';
 
     if (res.participant) res.participant.textContent = summary.participant || '-';
 
@@ -231,18 +240,6 @@
     }
 
     switchView('result');
-  }
-
-  function handleAIUpdate(ai){
-    if (!ai) return;
-    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
-    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
-    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
-
-    if (hud.aiTip){
-      hud.aiTip.textContent = ai.tip || '';
-      hud.aiTip.classList.toggle('hidden', !ai.tip);
-    }
   }
 
   function downloadCsv(csvText, filename) {
@@ -269,6 +266,7 @@
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
+
   if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
