@@ -1,6 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
-// PATCH: onShotMiss callback + keep existing decorateTarget + hha:shoot
-
+// PATCH v20260215b: onShotMiss callback + safe vars alias (--plate-* OR --hw-*) + keep decorateTarget + hha:shoot
 'use strict';
 
 const WIN = window;
@@ -20,10 +19,22 @@ function now(){ return performance.now ? performance.now() : Date.now(); }
 
 function readSafeVars(){
   const cs = getComputedStyle(DOC.documentElement);
-  const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottom = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const left = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const right = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+
+  // Support both naming conventions:
+  // - new: --plate-top-safe / --plate-bottom-safe / ...
+  // - legacy/HHA: --hw-top-safe / --hw-bottom-safe / ...
+  const read = (a,b)=>{
+    const v1 = parseFloat(cs.getPropertyValue(a));
+    if(Number.isFinite(v1) && v1>0) return v1;
+    const v2 = parseFloat(cs.getPropertyValue(b));
+    return (Number.isFinite(v2) && v2>0) ? v2 : 0;
+  };
+
+  const top    = read('--plate-top-safe',    '--hw-top-safe');
+  const bottom = read('--plate-bottom-safe', '--hw-bottom-safe');
+  const left   = read('--plate-left-safe',   '--hw-left-safe');
+  const right  = read('--plate-right-safe',  '--hw-right-safe');
+
   return { top, bottom, left, right };
 }
 
