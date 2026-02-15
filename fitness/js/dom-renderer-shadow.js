@@ -1,270 +1,229 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// Dom renderer for Shadow Breaker (HUD-safe spawn + anti-clump + smooth expire)
-// ES Module
+// DOM renderer for Shadow Breaker targets
+// ✅ spawn/remove targets in #sb-target-layer
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ SAFE ZONE from CSS vars (HUD-safe 100%)
+// ✅ targets Map stores { el, type, expireAt }
+// ✅ expireTarget(id) smooth fade-out
 
 'use strict';
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const now = () => performance.now();
+import { FxBurst } from './fx-burst.js';
 
-function readCssPx(name, fallback){
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
+
+function readCssPx(el, name, fallback=0){
   try{
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const v = getComputedStyle(el).getPropertyValue(name).trim();
+    if(!v) return fallback;
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : fallback;
-  }catch(_){ return fallback; }
-}
-
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx, dy = ay - by;
-  return dx*dx + dy*dy;
+  }catch{
+    return fallback;
+  }
 }
 
 export class DomRendererShadow {
-  constructor(layerEl, opts = {}){
-    this.layerEl = layerEl;
+  constructor(layerEl, opts = {}) {
+    this.layer = layerEl;
     this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
-    this.targets = new Map(); // id -> { el, type, bornAt, sizePx }
-    this.diff = 'normal';
+    this.diffKey = 'normal';
 
-    // soft tuning
-    this.EXPIRE_ANIM_MS = 180;
-    this.HIT_ANIM_MS = 220;
+    // Map: id -> { el, type, expireAt, removing }
+    this.targets = new Map();
 
-    // bind
     this._onPointer = this._onPointer.bind(this);
   }
 
-  setDifficulty(diff){
-    this.diff = diff || 'normal';
-  }
+  setDifficulty(k){ this.diffKey = k || 'normal'; }
 
-  // -------------------------
-  // Spawn placement helpers
-  // -------------------------
-  _layerRect(){
-    const r = this.layerEl?.getBoundingClientRect?.();
-    const w = r?.width  || window.innerWidth  || 360;
-    const h = r?.height || window.innerHeight || 640;
-    const left = r?.left || 0;
-    const top  = r?.top  || 0;
-    return { left, top, w, h };
-  }
-
-  _resolveMargins(payload){
-    // priority: payload margins > CSS vars
-    const topCss = readCssPx('--sb-safe-top', 80);
-    const botCss = readCssPx('--sb-safe-bottom', 70);
-    const leftCss = readCssPx('--safe-left', 0) + 10;
-    const rightCss= readCssPx('--safe-right', 0) + 10;
-
-    return {
-      top:    Number.isFinite(payload?.marginTop)    ? payload.marginTop    : topCss,
-      bottom: Number.isFinite(payload?.marginBottom) ? payload.marginBottom : botCss,
-      left:   Number.isFinite(payload?.marginLeft)   ? payload.marginLeft   : leftCss,
-      right:  Number.isFinite(payload?.marginRight)  ? payload.marginRight  : rightCss,
-    };
-  }
-
-  _existingCenters(){
-    const pts = [];
-    for(const [, obj] of this.targets.entries()){
+  destroy(){
+    for (const [id, obj] of this.targets.entries()) {
       const el = obj?.el;
       if(!el) continue;
-      const r = el.getBoundingClientRect();
-      pts.push({ x: r.left + r.width/2, y: r.top + r.height/2 });
+      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el.remove(); } catch {}
     }
-    return pts;
+    this.targets.clear();
   }
 
-  _pickSpawnPoint(sizePx, payload){
-    const { left, top, w, h } = this._layerRect();
-    const m = this._resolveMargins(payload);
+  _safeAreaRect(){
+    const layer = this.layer;
+    const r = layer.getBoundingClientRect();
 
-    // playable box inside layer
-    const minX = left + m.left  + sizePx*0.55;
-    const maxX = left + w - m.right - sizePx*0.55;
-    const minY = top  + m.top   + sizePx*0.55;
-    const maxY = top  + h - m.bottom- sizePx*0.55;
+    // ✅ Base padding (small so playfield feels open)
+    const basePad = Math.min(28, Math.max(12, r.width * 0.025));
 
-    // if too tight, fallback to center-ish
-    if(!(maxX > minX) || !(maxY > minY)){
-      return { x: left + w*0.5, y: top + h*0.62 };
-    }
+    // ✅ Read safe-zone margins injected by engine via CSS vars
+    const host = this.wrapEl || document.documentElement;
 
-    const minDistPx = Number(payload?.minDistPx) || 0;
-    const minD2 = minDistPx > 0 ? (minDistPx * minDistPx) : 0;
+    const safeTop    = readCssPx(host, '--sb-safe-top', 0);
+    const safeBottom = readCssPx(host, '--sb-safe-bottom', 0);
+    const safeLeft   = readCssPx(host, '--sb-safe-left', 0);
+    const safeRight  = readCssPx(host, '--sb-safe-right', 0);
 
-    const avoid = Array.isArray(payload?.avoidPoints) ? payload.avoidPoints : [];
-    const existing = this._existingCenters();
-    const pool = existing.concat(
-      avoid.map(p => ({ x: Number(p?.x)||0, y: Number(p?.y)||0 })).filter(p => p.x && p.y)
-    );
+    const left   = basePad + safeLeft;
+    const top    = basePad + safeTop;
+    const right  = r.width  - basePad - safeRight;
+    const bottom = r.height - basePad - safeBottom;
 
-    // try multiple times to avoid clump
-    const tries = 22;
-    for(let i=0;i<tries;i++){
-      const x = minX + Math.random()*(maxX - minX);
-      const y = minY + Math.random()*(maxY - minY);
-
-      if(minD2 <= 0 || pool.length === 0){
-        return { x, y };
-      }
-
-      let ok = true;
-      for(const p of pool){
-        if(dist2(x,y,p.x,p.y) < minD2){ ok = false; break; }
-      }
-      if(ok) return { x, y };
-    }
-
-    // last resort: random
-    return {
-      x: minX + Math.random()*(maxX - minX),
-      y: minY + Math.random()*(maxY - minY)
-    };
+    return { r, left, top, right, bottom };
   }
 
-  // -------------------------
-  // Targets
-  // -------------------------
-  spawnTarget(payload){
-    const id = payload?.id;
-    if(id == null) return;
-
-    const type = String(payload?.type || 'normal');
-    const sizePx = clamp(Number(payload?.sizePx) || 100, 60, 180);
-
-    // create element
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `sb-target sb-target--${type}`;
-    el.setAttribute('data-id', String(id));
-    el.setAttribute('aria-label', type);
-
-    // size
-    el.style.width  = `${sizePx}px`;
-    el.style.height = `${sizePx}px`;
-
-    // place (absolute to layer viewport)
-    // NOTE: we position in viewport coords then translate to layer coords via rect offset
-    const pt = this._pickSpawnPoint(sizePx, payload);
-    const layerR = this._layerRect();
-    const lx = pt.x - layerR.left;
-    const ly = pt.y - layerR.top;
-
-    el.style.position = 'absolute';
-    el.style.left = `${lx}px`;
-    el.style.top  = `${ly}px`;
-    el.style.transform = 'translate(-50%, -50%)';
-
-    // content (emoji / icon)
-    // you can swap to images later; keep light for now
-    if(type === 'bossface'){
-      el.textContent = payload?.bossEmoji || '👊';
-    }else if(type === 'bomb'){
-      el.textContent = '💣';
-    }else if(type === 'decoy'){
-      el.textContent = '🎯';
-      el.classList.add('is-decoy');
-    }else if(type === 'heal'){
-      el.textContent = '➕';
-      el.classList.add('is-heal');
-    }else if(type === 'shield'){
-      el.textContent = '🛡️';
-      el.classList.add('is-shield');
-    }else{
-      el.textContent = '🎯';
-    }
-
-    // events
-    el.addEventListener('pointerdown', this._onPointer, { passive: true });
-    el.addEventListener('click', (ev)=>{ ev.preventDefault(); }, { passive: false });
-
-    // mount
-    this.layerEl?.appendChild(el);
-
-    // record
-    this.targets.set(id, {
-      el,
-      type,
-      bornAt: now(),
-      sizePx
-    });
-
-    // optional: ttl progress / style hook
-    if(Number.isFinite(payload?.ttlMs)){
-      el.style.setProperty('--ttl', `${payload.ttlMs}ms`);
-    }
+  _emojiForType(t, bossEmoji){
+    if (t === 'normal') return '🎯';
+    if (t === 'decoy') return '👀';
+    if (t === 'bomb') return '💣';
+    if (t === 'heal') return '🩹';
+    if (t === 'shield') return '🛡️';
+    if (t === 'bossface') return bossEmoji || '👊';
+    return '🎯';
   }
 
-  _onPointer(ev){
-    const el = ev.currentTarget;
-    if(!el) return;
+  spawnTarget(data){
+    if (!this.layer || !data) return;
 
-    const id = Number(el.getAttribute('data-id'));
+    const { left, top, right, bottom } = this._safeAreaRect();
+
+    const id = Number(data.id);
     if(!Number.isFinite(id)) return;
 
-    if(this.onTargetHit){
-      this.onTargetHit(id, { clientX: ev.clientX, clientY: ev.clientY });
+    // avoid duplicates
+    if(this.targets.has(id)){
+      this.removeTarget(id, 'dup');
+    }
+
+    const el = document.createElement('div');
+    const type = String(data.type || 'normal');
+    el.className = 'sb-target sb-target--' + type;
+    el.dataset.id = String(id);
+    el.dataset.type = type;
+
+    const size = clamp(Number(data.sizePx) || 110, 60, 220);
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+
+    // random position (ensure inside safe-zone)
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top,  Math.max(top,  bottom - size));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top  = Math.round(y) + 'px';
+
+    // content
+    el.textContent = this._emojiForType(type, data.bossEmoji);
+
+    // lifecycle hint
+    const ttl = Number(data.ttlMs) || 0;
+    const expireAt = ttl > 0 ? (performance.now() + ttl) : 0;
+
+    el.addEventListener('pointerdown', this._onPointer, { passive: true });
+
+    // pop-in
+    el.style.opacity = '0';
+    el.style.transform = 'scale(.86)';
+    this.layer.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 140ms ease-out, opacity 140ms ease-out';
+      el.style.opacity = '1';
+      el.style.transform = 'scale(1)';
+    });
+
+    this.targets.set(id, { el, type, expireAt, removing:false });
+  }
+
+  _onPointer(e){
+    const el = e.currentTarget;
+    if (!el) return;
+
+    const id = Number(el.dataset.id);
+    if (!Number.isFinite(id)) return;
+
+    // forward hit
+    if (this.onTargetHit) {
+      this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
     }
   }
 
-  // grade: good/perfect/bad/bomb/shield/heal/expire
-  playHitFx(id, info = {}){
+  removeTarget(id, reason){
     const obj = this.targets.get(id);
     const el = obj?.el;
-    if(!el) return;
+    if (!el) return;
 
-    const grade = String(info.grade || 'good');
-    el.classList.add('is-hit', `hit-${grade}`);
-
-    // small popup (optional)
-    if(this.feedbackEl && (grade === 'perfect' || grade === 'bad' || grade === 'bomb' || grade === 'expire')){
-      this.feedbackEl.classList.add('pulse');
-      setTimeout(()=>this.feedbackEl?.classList?.remove('pulse'), 140);
-    }
-
-    setTimeout(()=>{
-      el.classList.remove('is-hit', `hit-${grade}`);
-    }, this.HIT_ANIM_MS);
-  }
-
-  removeTarget(id, reason='hit'){
-    const obj = this.targets.get(id);
-    const el = obj?.el;
-    if(!el) return;
-
-    // quick pop-out
-    el.classList.add(reason === 'hit' ? 'rm-hit' : 'rm');
-    setTimeout(()=>{
-      try{ el.remove(); }catch(_){}
-    }, 120);
-
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+    try { el.remove(); } catch {}
     this.targets.delete(id);
   }
 
-  // smooth expire: fade + shrink then remove
+  // ✅ smooth expire (fade + shrink) then remove
   expireTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if(!el) return;
 
-    el.classList.add('is-expiring');
-    setTimeout(()=>{
-      try{ el.remove(); }catch(_){}
-      this.targets.delete(id);
-    }, this.EXPIRE_ANIM_MS);
+    if(obj.removing) return;
+    obj.removing = true;
+
+    try{ el.style.pointerEvents = 'none'; }catch{}
+
+    // smooth vanish
+    const done = () => {
+      try { el.removeEventListener('transitionend', done); } catch {}
+      this.removeTarget(id, 'expire');
+    };
+
+    try{
+      el.addEventListener('transitionend', done);
+      el.style.transition = 'transform 180ms ease-in, opacity 180ms ease-in, filter 180ms ease-in';
+      el.style.opacity = '0';
+      el.style.transform = 'scale(.72)';
+      el.style.filter = 'blur(1px)';
+      // fallback remove
+      setTimeout(done, 240);
+    }catch{
+      done();
+    }
   }
 
-  destroy(){
-    // remove all targets
-    for(const [id, obj] of this.targets.entries()){
-      try{ obj?.el?.remove(); }catch(_){}
-      this.targets.delete(id);
+  playHitFx(id, info = {}){
+    // if target exists use its center, else use given pointer
+    const obj = this.targets.get(id);
+    const el = obj?.el;
+    const rect = el ? el.getBoundingClientRect() : null;
+
+    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
+    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
+
+    const grade = info.grade || 'good';
+    const scoreDelta = Number(info.scoreDelta) || 0;
+
+    if (grade === 'perfect') {
+      FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
+    } else if (grade === 'good') {
+      FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
+    } else if (grade === 'bad') {
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, 'sb-fx-miss');
+    } else if (grade === 'bomb') {
+      FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
+      FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
+    } else if (grade === 'heal') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
+      FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
+    } else if (grade === 'shield') {
+      FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
+      FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
+    } else if (grade === 'expire') {
+      // ✅ soft miss FX (no harsh red)
+      FxBurst.burst(x, y, { n: 7, spread: 42, ttlMs: 520, cls: 'sb-fx-decoy' });
+      FxBurst.popText(x, y, 'MISS', 'sb-fx-tip');
+    } else {
+      FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
   }
 }
