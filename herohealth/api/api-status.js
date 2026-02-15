@@ -38,7 +38,6 @@ export function isRemoteDisabled() {
 }
 
 // UI helpers
-
 export function setBanner(_, status, title, msg) {
   status = status || 'warn';
   title = title || '';
@@ -95,47 +94,71 @@ export function qs(name, fallback) {
   }
 }
 
+/**
+ * probeAPI(endpoint, opts, timeoutMs)
+ * - Default: GET (health/ping endpoint)
+ * - Optional POST ping ONLY if you truly need it (opts.ping=true)
+ * - Optional disableOnAuth (default false): avoid latching offline when auth is expected
+ */
 export async function probeAPI(endpoint, opts, timeoutMs) {
   opts = opts || {};
   timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 3000;
   if (!endpoint) return { status: 0 };
   if (isRemoteDisabled()) return { status: 403 };
+
+  var disableOnAuth = (typeof opts.disableOnAuth === 'boolean') ? opts.disableOnAuth : false;
+
   var controller = new AbortController();
   var t = setTimeout(function() { controller.abort(); }, timeoutMs);
+
   try {
+    // Prefer GET for probes (no auth, no side effects)
     var method = opts.ping ? 'POST' : 'GET';
-    var body = opts.ping ? JSON.stringify({ ping: true }) : undefined;
+    var body = opts.ping ? JSON.stringify({ ping: true, ts: Date.now() }) : undefined;
+
+    var headers = {};
+    if (opts.ping) headers['Content-Type'] = 'application/json';
+    headers['Accept'] = 'application/json';
+
     var res = await fetch(endpoint, {
       method: method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: body,
       signal: controller.signal,
-      mode: 'cors'
+      mode: 'cors',
+      cache: 'no-store',
+      credentials: 'omit'
     });
+
     clearTimeout(t);
-    if (res.status === 401 || res.status === 403) {
+
+    if ((res.status === 401 || res.status === 403) && disableOnAuth) {
       try { disableRemote(res.status, 'status:' + String(res.status)); } catch (e) {}
     }
+
     return { status: res.status };
   } catch (err) {
     clearTimeout(t);
-    return { status: 0 };
+    return { status: 0, error: String(err && err.message ? err.message : err) };
   }
 }
 
 export function attachRetry(btnId, fn) {
   var btn = document.getElementById(btnId);
   if (!btn) return;
+
   var update = function() {
     var disabled = isRemoteDisabled();
     if (disabled) btn.classList.add('btn--disabled'); else btn.classList.remove('btn--disabled');
     try { btn.disabled = disabled; } catch (e) {}
   };
+
   btn.addEventListener('click', function(e) {
     e.preventDefault();
     if (isRemoteDisabled()) return;
     try { fn(); } catch (err) { console.warn('probe fn', err); }
   });
+
   update();
   var iv = setInterval(update, 1000);
   btn._hh_interval = iv;
