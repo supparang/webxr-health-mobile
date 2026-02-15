@@ -1,17 +1,21 @@
 // === /herohealth/api/hub-api-boot.js ===
-// Boot API safely for HUB (403-safe)
+// Hub API boot: updates banner safely + exposes safe client on window
 
 'use strict';
 
 import { guardApi } from './hub-api-guard.js';
-import { initApolloSafe } from './apolloClient.safe.js';
+import { createSafeClient } from './apolloClient.safe.js';
 
 export async function bootHubApi({ uri }){
-  // 1) probe first (don’t spam apollo if forbidden)
-  await guardApi({ uri });
+  const r = await guardApi({ uri });
 
-  // 2) init Apollo safe wrapper (will self-disable on 403 anyway)
-  const api = initApolloSafe({ uri });
+  // expose safe client even if offline (it won't throw)
+  try{
+    window.HHA = window.HHA || {};
+    window.HHA.apiUri = uri;
+    window.HHA.client = createSafeClient({ uri });
+    window.HHA.apiStatus = r;
+  }catch{}
 
-  return api;
+  return r;
 }
