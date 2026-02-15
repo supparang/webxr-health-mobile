@@ -1,9 +1,10 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard)
 PATCH v20260215a
-✅ name fixed: hygiene-quiz-bank.js
-✅ particles.js for FX
-✅ boot diagnostics
+✅ Views: pc/mobile/vr/cvr  (via body classes)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Engine: hygiene.safe.js (export boot)
+✅ Quiz: ./hygiene-quiz-bank.js (defines window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -27,7 +28,7 @@ PATCH v20260215a
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct file name) -->
+  <!-- Quiz bank (✅ correct filename) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
@@ -40,7 +41,7 @@ PATCH v20260215a
 
     <!-- HUD -->
     <div class="hw-hud">
-      <div class="hw-top" id="hudTop">
+      <div class="hw-top">
         <div class="hw-title">🧼 Handwash Survival</div>
         <div class="hw-sub" id="hudSub">ready…</div>
 
@@ -111,11 +112,11 @@ PATCH v20260215a
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const lv = document.getElementById('labView'); if(lv) lv.textContent = view;
+    document.getElementById('labView').textContent = view;
   }
   setViewClass();
-  const lm = document.getElementById('labMode'); if(lm) lm.textContent = (qs('run','play')||'play');
-  const ld = document.getElementById('labDiff'); if(ld) ld.textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
