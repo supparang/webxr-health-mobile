@@ -1,263 +1,149 @@
+/* === /herohealth/plate/plate-vr.css ===
+HeroHealth — Balanced Plate VR (RUN UI) — PRODUCTION v20260215b
+✅ Safe-area ready
+✅ HUD-safe spawn vars (mode-factory reads --plate-*-safe from :root in HTML)
+✅ cVR: keep targets tappable, but allow crosshair shooting (vr-ui.js -> hha:shoot)
+✅ Nice motion + readability on mobile
+*/
+
+/* ---------- global helpers ---------- */
 :root{
+  /* fallback if HTML inline style missing */
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --radius:18px;
-  --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* if someone loads CSS without the HTML inline */
+  --plate-top-safe: calc(150px + var(--sat));
+  --plate-bottom-safe: calc(160px + var(--sab));
+  --plate-left-safe: 12px;
+  --plate-right-safe: 12px;
 }
 
-*{ box-sizing:border-box; }
 html,body{
-  margin:0; height:100%; width:100%;
-  overflow:hidden;
-  background:var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
-a-scene{ position:fixed; inset:0; z-index:0; }
-
-.bg{
-  position:fixed; inset:0; z-index:1;
-  background:
-    radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-    radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-    radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-    linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-  pointer-events:none;
+body{
+  overscroll-behavior: none;
 }
 
-.stage{
-  position:fixed; inset:0; z-index:2;
-  padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+/* reduce accidental selection */
+*{
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* spawn layer */
+/* ---------- targets ---------- */
 #plate-layer{
-  position:fixed; inset:0;
-  z-index:10;
-  pointer-events:auto;
-  touch-action:none;
-  user-select:none;
+  /* ensure mount is above A-Frame but under overlays */
+  z-index: 10;
 }
 
-#hitFx{
-  position:fixed; inset:0;
-  z-index:12;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease;
-}
-
-/* hud */
-.hudTop{
-  position:fixed;
-  left:10px; right:10px;
-  top: calc(10px + var(--sat));
-  z-index:30;
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  align-items:flex-start;
-  pointer-events:none;
-}
-
-.card{
-  pointer-events:auto;
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  padding:10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  min-width: 220px;
-}
-.card.small{ min-width: 180px; }
-.t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
-.v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-
-.pill{
-  display:inline-flex; gap:8px; align-items:center;
-  padding:6px 10px;
-  border-radius:var(--pill);
-  border:1px solid var(--stroke);
-  background:rgba(15,23,42,.56);
-  font-weight:1000;
-  font-size:12px;
-  white-space:nowrap;
-}
-.muted{ color:var(--muted); font-weight:900; }
-
-.bar{
-  width:160px;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.10);
-  border:1px solid rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.bar > i{
-  display:block; height:100%;
-  width:0%;
-  background:rgba(34,197,94,.85);
-}
-
-#miniPanel, #coachPanel{
-  position:fixed;
-  left:10px; right:10px;
-  z-index:28;
-  pointer-events:none;
-}
-#miniPanel{ top: calc(84px + var(--sat)); }
-#coachPanel{ bottom: calc(72px + var(--sab)); }
-
-.questCard{
-  pointer-events:auto;
-  background:var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius);
-  padding:10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-}
-.questCol{ display:flex; flex-direction:column; gap:6px; min-width:220px; }
-.questRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
-.hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
-
-#hudBtns{
-  position:fixed;
-  right:10px;
-  bottom: calc(10px + var(--sab));
-  z-index:40;
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  pointer-events:none;
-}
-
-.btn{
-  pointer-events:auto;
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:10px 12px;
-  background:rgba(2,6,23,.70);
-  border:1px solid rgba(148,163,184,.20);
-  color:rgba(229,231,235,.95);
-  font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-  box-shadow: 0 16px 40px rgba(0,0,0,.32);
-  backdrop-filter: blur(10px);
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  user-select:none;
-}
-.btn:active{ transform: translateY(1px); }
-.btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
-.btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
-
-/* overlays */
-#startOverlay, #hudPaused, #resultBackdrop{
-  position:fixed; inset:0;
-  z-index:70;
-  display:none;
+.plateTarget{
+  /* base is set in HTML inline too; keep here for override safety */
+  position:absolute;
+  display:grid;
   place-items:center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: rgba(2,6,23,.55);
+  border-radius:999px;
+  font-weight:1200;
+  line-height:1;
+  background:rgba(15,23,42,.70);
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow: 0 22px 70px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
-}
-.panelCard{
-  width:min(980px, 100%);
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:22px;
-  padding:16px;
-  box-shadow: 0 26px 90px rgba(0,0,0,.42);
+  transform: translate(-50%,-50%);
+  user-select:none;
+
+  /* motion */
+  will-change: transform, opacity;
+  animation: plate-pop .12s ease-out;
 }
 
-/* Boss/Storm FX layers */
-#bossFx, #stormFx{
-  position:fixed; inset:0;
-  pointer-events:none;
-  z-index:55;
-  display:none;
-}
-#bossFx.boss-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.12), transparent 55%),
-    radial-gradient(circle at 25% 20%, rgba(245,158,11,.10), transparent 55%);
-}
-#bossFx.boss-panic{ filter:brightness(1.25); }
-
-#stormFx.storm-on{
-  display:block;
-  background:
-    radial-gradient(circle at 50% 15%, rgba(34,211,238,.12), transparent 55%),
-    radial-gradient(circle at 60% 60%, rgba(34,197,94,.08), transparent 55%);
-}
-#stormFx.storm-panic{ filter:brightness(1.2); }
-
-/* Boss HUD */
-#bossHud{
-  position:fixed;
-  left:10px;
-  bottom: calc(10px + var(--sab));
-  z-index:42;
-  display:none;
-  pointer-events:none;
-}
-.bossCard{
-  pointer-events:auto;
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(167,139,250,.28);
-  border-radius:18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  min-width: 280px;
-}
-.bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
-.bossProg{ margin-top:8px; font-weight:1100; }
-
-/* Storm HUD */
-#stormHud{
-  position:fixed;
-  left:10px;
-  top: calc(10px + var(--sat));
-  z-index:43;
-  display:none;
-  pointer-events:none;
-  transform: translateY(54px);
-}
-.stormCard{
-  pointer-events:auto;
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(34,211,238,.28);
-  border-radius:18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.26);
-  min-width: 320px;
-}
-.stormLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
-.stormProg{ margin-top:8px; font-weight:1100; }
-
-@media (max-width: 920px){
-  .card{ min-width: 170px; }
-  .bar{ width:140px; }
-  #stormHud{ transform: translateY(62px); }
+.plateTarget[data-kind="junk"]{
+  background:rgba(239,68,68,.12);
+  border-color:rgba(239,68,68,.26);
 }
 
-/* view tweaks */
-body.view-cvr #plate-layer .plateTarget{ pointer-events:none; } /* ยิงจาก crosshair */
+@keyframes plate-pop{
+  from{ transform: translate(-50%,-50%) scale(.92); opacity:.65; }
+  to  { transform: translate(-50%,-50%) scale(1);   opacity:1; }
+}
+
+/* subtle hover for PC */
+@media (hover:hover){
+  .plateTarget:hover{
+    filter: brightness(1.05);
+    transform: translate(-50%,-50%) scale(1.03);
+    transition: transform .08s ease, filter .08s ease;
+  }
+}
+
+/* ---------- HUD safe on very small screens ---------- */
+@media (max-width: 520px){
+  .hudTop{
+    gap: 8px !important;
+  }
+  .card{
+    min-width: 150px !important;
+    padding: 9px 10px !important;
+  }
+  .bar{ width: 120px !important; }
+  #miniPanel{ top: calc(92px + var(--sat)) !important; }
+}
+
+/* ---------- cVR mode tweaks ---------- */
+/* if HTML sets: documentElement.dataset.view = 'cvr' */
+:root[data-view="cvr"] #plate-layer{
+  /* keep targets clickable/tappable, but discourage double taps */
+  touch-action: none;
+}
+
+:root[data-view="cvr"] .plateTarget{
+  /* make it a bit bigger for cardboard aiming */
+  font-size: 30px;
+  box-shadow: 0 26px 85px rgba(0,0,0,.40);
+}
+
+/* If you want "strict cVR" (disable pointer interaction entirely and rely on crosshair),
+   uncomment this block. I’m leaving it OFF by default because mobile users also tap targets.
+*/
+/*
+:root[data-view="cvr"] #plate-layer{ pointer-events:none !important; }
+:root[data-view="cvr"] .plateTarget{ pointer-events:none !important; }
+*/
+
+/* ---------- overlays quality ---------- */
+#startOverlay, #hudPaused, #resultBackdrop{
+  animation: overlay-fade .14s ease-out;
+}
+@keyframes overlay-fade{
+  from{ opacity:0; transform: translateY(6px); }
+  to  { opacity:1; transform: translateY(0); }
+}
+
+/* ---------- accessibility ---------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation: none !important; }
+  #startOverlay, #hudPaused, #resultBackdrop{ animation:none !important; }
+}
+
+/* ---------- debug helpers (optional) ----------
+   เปิดใช้งานง่าย ๆ โดยใส่ ?debug=1 แล้วใน JS ไปเติม class ให้ html เช่น document.documentElement.classList.add('debug');
+*/
+:root.debug #plate-layer{
+  outline: 2px dashed rgba(34,211,238,.35);
+  outline-offset: -6px;
+}
+:root.debug .hudTop{
+  outline: 2px dashed rgba(167,139,250,.28);
+  outline-offset: -6px;
+}
