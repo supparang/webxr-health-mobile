@@ -1,11 +1,12 @@
 // === /fitness/js/rhythm-engine.js ===
 // Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction (locked in research) + CSV
-// ✅ Notes fall to hit line (visual sync bottom)
+// ✅ Notes fall to hit line (visual sync)
 // ✅ 5-lane (or 3-lane preset supported by CSS/HTML)
-// ✅ cVR shoot -> lane hit (hha:shoot / rb:shoot)
+// ✅ Calibration offset (Cal: ms)
 // ✅ Research lock: prediction shown but no adaptive changes
-// ✅ Normal assist: enable with ?ai=1 (prediction only now)
+// ✅ Normal assist: enable with ?ai=1
 // ✅ Events CSV + Sessions CSV
+// ✅ NEW: VR/cVR support via window event "hha:shoot" (crosshair/tap-to-shoot)
 
 'use strict';
 
@@ -46,9 +47,7 @@
       this.columns = columns.slice(0);
       this.rows = [];
     }
-    add(row){
-      this.rows.push(Object.assign({}, row));
-    }
+    add(row){ this.rows.push(Object.assign({}, row)); }
     toCsv(){
       const head = this.columns.join(',');
       const body = this.rows.map(r=>toCsvRow(r, this.columns)).join('\n');
@@ -59,14 +58,15 @@
 
   // ---- Track config ----
   const TRACKS = {
-    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec: 60, audio: './audio/warmup-groove.mp3' },
-    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec: 60, audio: './audio/focus-combo.mp3' },
-    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec: 60, audio: './audio/speed-rush.mp3' },
-    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec: 60, audio: './audio/research-120.mp3' }
+    n1: { id:'n1', name:'Warm-up Groove', bpm:100, diff:'easy',   durationSec:60, audio:'./audio/warmup-groove.mp3' },
+    n2: { id:'n2', name:'Focus Combo',    bpm:120, diff:'normal', durationSec:60, audio:'./audio/focus-combo.mp3' },
+    n3: { id:'n3', name:'Speed Rush',     bpm:140, diff:'hard',   durationSec:60, audio:'./audio/speed-rush.mp3' },
+    r1: { id:'r1', name:'Research Track 120', bpm:120, diff:'normal', durationSec:60, audio:'./audio/research-120.mp3' }
   };
 
-  // ---- Beatmap helper (repeatable, balanced) ----
-  function buildAutoMap({ bpm=120, durationSec=60, laneCount=5, start=2.0, endPad=1.0, density=0.80, seedStr='r1' }){
+  // ---- Note patterns (placeholder timeline; replace with authored beat map later) ----
+  function buildPattern(track, laneCount){
+    const seedStr = (track && track.id) ? track.id : 'n1';
     let seed = 0;
     for(let i=0;i<seedStr.length;i++) seed = (seed*31 + seedStr.charCodeAt(i)) >>> 0;
     function rnd(){
@@ -74,55 +74,29 @@
       return seed / 4294967296;
     }
 
+    const bpm = track.bpm || 120;
     const beat = 60 / bpm;
-    const end = Math.max(start, durationSec - endPad);
-
-    const mid = (laneCount===3) ? 1 : 2;
-    const leftLanes  = Array.from({length:mid}, (_,i)=>i);
-    const rightLanes = Array.from({length:laneCount-mid-1}, (_,i)=>mid+1+i);
-    const centerLane = mid;
-
-    let side = 0;
-    let lastLane = centerLane;
+    const dur = track.durationSec || 60;
 
     const notes = [];
-    for(let t=start; t<end; t+=beat){
-      if(rnd() > density) continue;
+    const diff = track.diff || 'normal';
+    const base = (diff==='easy') ? 0.55 : (diff==='hard') ? 0.95 : 0.75;
 
-      const useCenter = rnd() < 0.22;
-      let lane;
-
-      if(useCenter){
-        lane = centerLane;
-      }else{
-        const pool = side===0 ? leftLanes : rightLanes;
-        lane = pool.length ? pool[Math.floor(rnd()*pool.length)] : centerLane;
-        side = 1 - side;
-      }
-
-      if(lane === lastLane && laneCount>1){
-        lane = (lane + 1) % laneCount;
-      }
-      lastLane = lane;
-
-      notes.push({ t:+t.toFixed(3), lane, kind:'tap' });
-
-      if(rnd() < 0.10 && laneCount>=3){
+    const startT = 2.0;
+    for(let t=startT; t<dur-1.0; t+=beat){
+      if(rnd() > base) continue;
+      let lane = Math.floor(rnd() * laneCount);
+      const isDouble = (diff!=='easy') && (rnd()<0.10);
+      notes.push({ t: +t.toFixed(3), lane, kind:'tap' });
+      if(isDouble){
         const lane2 = (lane + 1 + Math.floor(rnd()*(laneCount-1))) % laneCount;
-        notes.push({ t:+t.toFixed(3), lane: lane2, kind:'tap' });
+        notes.push({ t: +t.toFixed(3), lane: lane2, kind:'tap' });
       }
     }
 
-    notes.sort((a,b)=>(a.t-b.t)||(a.lane-b.lane));
+    notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
   }
-
-  const BEATMAPS = {
-    n1: buildAutoMap({ bpm:100, durationSec:60, laneCount:5, density:0.70, seedStr:'n1' }),
-    n2: buildAutoMap({ bpm:120, durationSec:60, laneCount:5, density:0.80, seedStr:'n2' }),
-    n3: buildAutoMap({ bpm:140, durationSec:60, laneCount:5, density:0.90, seedStr:'n3' }),
-    r1: buildAutoMap({ bpm:120, durationSec:60, laneCount:5, density:0.80, seedStr:'r1-research' })
-  };
 
   class RhythmBoxerEngine{
     constructor(opts = {}){
@@ -174,7 +148,7 @@
       this.rightHits = 0;
 
       // fever
-      this.fever = 0;
+      this.fever = 0; // 0..1
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
@@ -191,7 +165,7 @@
       this.noteIdx = 0;
       this.live = [];
       this.noteSpeedSec = 2.20;
-      this.noteBaseLen = 180;
+      this.noteBaseLen = 160;
 
       // CSV tables
       this.sessionId = '';
@@ -219,7 +193,9 @@
         'trial_valid','rank','created_at_iso'
       ]);
 
+      // bind input
       this._bindLaneInput();
+      this._bindShootInput();   // ✅ NEW
       this._detectDeviceType();
     }
 
@@ -233,67 +209,49 @@
     }
 
     _bindLaneInput(){
-      if(this.lanesEl){
-        this.lanesEl.addEventListener('pointerdown', (ev)=>{
-          const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
-          if(!laneEl) return;
-          const lane = Number(laneEl.getAttribute('data-lane'));
-          if(!Number.isFinite(lane)) return;
-          this.hitLane(lane, 'tap');
-        }, {passive:true});
-      }
+      if(!this.lanesEl) return;
 
-      // keyboard (A S D J K) for 5-lane
+      this.lanesEl.addEventListener('pointerdown', (ev)=>{
+        const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
+        if(!laneEl) return;
+        const lane = Number(laneEl.getAttribute('data-lane'));
+        if(!Number.isFinite(lane)) return;
+        this.hitLane(lane, 'tap');
+      }, {passive:true});
+
+      // keyboard: A S D J K (5-lane), A S D (3-lane)
       DOC.addEventListener('keydown', (ev)=>{
         if(!this.running) return;
         const k = (ev.key||'').toLowerCase();
         const map5 = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
         const map3 = { 'a':0, 's':1, 'd':2 };
         const map = (this.laneCount===3) ? map3 : map5;
-        if(map[k] != null){
-          this.hitLane(map[k], 'key');
-        }
-      });
-
-      // cVR/Cardboard: receive center-shoot event (x,y)
-      WIN.addEventListener('hha:shoot', (ev)=>{
-        if(!this.running) return;
-        const d = ev && ev.detail ? ev.detail : {};
-        const x = Number(d.x), y = Number(d.y);
-        if(!Number.isFinite(x) || !Number.isFinite(y)) return;
-        const lane = this._laneFromPoint(x, y);
-        if(lane != null) this.hitLane(lane, 'cvr');
-      });
-
-      WIN.addEventListener('rb:shoot', (ev)=>{
-        if(!this.running) return;
-        const d = ev && ev.detail ? ev.detail : {};
-        const x = Number(d.x), y = Number(d.y);
-        if(!Number.isFinite(x) || !Number.isFinite(y)) return;
-        const lane = this._laneFromPoint(x, y);
-        if(lane != null) this.hitLane(lane, 'cvr');
+        if(map[k] != null) this.hitLane(map[k], 'key');
       });
     }
 
-    _laneFromPoint(x, y){
-      if(!this.lanesEl) return null;
-      const lanes = Array.from(this.lanesEl.querySelectorAll('.rb-lane'));
-      if(!lanes.length) return null;
+    // ✅ NEW: VR/cVR crosshair shoot via vr-ui.js -> event "hha:shoot"
+    _bindShootInput(){
+      WIN.addEventListener('hha:shoot', (ev)=>{
+        if(!this.running || this.ended) return;
 
-      let best = null, bestDist = 1e18;
-      for(let i=0;i<lanes.length;i++){
-        const r = lanes[i].getBoundingClientRect();
-        const cx = r.left + r.width/2;
-        const cy = r.top  + r.height/2;
+        const d = (ev && ev.detail) ? ev.detail : {};
+        // if some caller passes lane directly
+        if(Number.isFinite(Number(d.lane))){
+          this.hitLane(Number(d.lane), 'shoot');
+          return;
+        }
 
-        const inside = (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom);
-        if(inside) return i;
+        // map x -> lane based on lanes rect (center crosshair works too)
+        const x = Number.isFinite(Number(d.x)) ? Number(d.x) : null;
+        const rect = this.lanesEl ? this.lanesEl.getBoundingClientRect() : null;
+        if(!rect) return;
 
-        const dx = x - cx, dy = y - cy;
-        const dist = dx*dx + dy*dy;
-        if(dist < bestDist){ bestDist = dist; best = i; }
-      }
-      return best;
+        const px = (x == null) ? (rect.left + rect.width/2) : x;
+        const rel = clamp01((px - rect.left) / Math.max(1, rect.width));
+        const lane = Math.min(this.laneCount-1, Math.max(0, Math.floor(rel * this.laneCount)));
+        this.hitLane(lane, 'shoot');
+      });
     }
 
     _makeSessionId(){
@@ -307,8 +265,10 @@
       this.meta = meta || {};
       this.track = TRACKS[trackId] || TRACKS.n1;
 
+      // lane count from DOM (supports 3-lane layout)
       this.laneCount = (this.lanesEl && this.lanesEl.querySelectorAll('.rb-lane').length) || 5;
 
+      // reset state
       this.running = true;
       this.ended = false;
 
@@ -346,28 +306,20 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // beatmap
-      const map = BEATMAPS[this.track.id] || [];
-      // ถ้าเปลี่ยนเป็น 3-lane: re-map lane -> 0..2 แบบง่าย (ย้ายซ้าย/กลาง/ขวา)
-      if(this.laneCount === 3){
-        this.notes = map.map(n=>{
-          const l = n.lane;
-          const lane3 = (l<=1) ? 0 : (l===2 ? 1 : 2);
-          return { t:n.t, lane:lane3, kind:n.kind||'tap' };
-        });
-      }else{
-        this.notes = map.slice(0);
-      }
-
+      // notes
+      this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
       this.noteIdx = 0;
       this.live.length = 0;
 
+      // DOM clear
       this._clearNotesDom();
 
+      // CSV reset
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
 
+      // load audio
       if(this.audio){
         this.audio.src = this.track.audio;
         this.audio.currentTime = 0;
@@ -407,15 +359,17 @@
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
 
+      // NOTE LENGTH: long enough so tail visually reaches hit line
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
-      const mul = (diff==='easy') ? 1.00 : (diff==='hard') ? 1.35 : 1.15;
+      const mul = (diff==='easy') ? 0.95 : (diff==='hard') ? 1.25 : 1.10;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
       const ico = DOC.createElement('div');
       ico.className = 'rb-note-ico';
-      ico.textContent = '♪';
+      // music note icon (ตามที่อยากให้เป็น note ดนตรี)
+      ico.textContent = '🎵';
       el.appendChild(ico);
 
       laneEl.appendChild(el);
@@ -458,15 +412,9 @@
       this._updateBars();
       this._updateCalibrationHud();
 
-      if(this.hp <= 0){
-        this._finish('hp-zero');
-        return;
-      }
+      if(this.hp <= 0){ this._finish('hp-zero'); return; }
       const dur = this.track.durationSec || 60;
-      if(this.songTime >= dur){
-        this._finish('song-end');
-        return;
-      }
+      if(this.songTime >= dur){ this._finish('song-end'); return; }
 
       this._rafId = requestAnimationFrame(()=>this._loop());
     }
@@ -483,11 +431,9 @@
     }
 
     _updateNotePositions(){
+      // NOTE: hit line is bottom (gold line). Head reaches it at n.t
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
-
-      const rootStyles = getComputedStyle(DOC.documentElement);
-      const hitlineY = parseFloat(rootStyles.getPropertyValue('--rb-hitline-y')) || 72;
 
       for(const n of this.live){
         if(!n.spawned || !n.el) continue;
@@ -495,24 +441,20 @@
         const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${n.lane}"]`);
         if(!laneEl) continue;
 
-        const r = laneEl.getBoundingClientRect();
-        const laneH = r.height || 420;
+        const rect = laneEl.getBoundingClientRect();
+        const laneH = rect.height || 420;
 
         const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
 
-        // end at hitline: laneH - hitlineY (from bottom)
-        const yEnd = laneH - hitlineY;
-        const yStart = -(noteLen * 0.85);
+        // travel so that y=0 aligns with hit line area at bottom
+        const travel = laneH + noteLen * 0.40;
 
-        const p = (this.songTime - (n.t - lead)) / lead;
-        const pc = clamp01(p);
+        const p = (this.songTime - (n.t - lead)) / lead; // 0..1
+        const pClamp = clamp01(p);
+        const y = (pClamp - 1) * travel;
 
-        const y = yStart + (yEnd - yStart) * pc;
-
-        n.el.style.top = '0px';
-        n.el.style.left = '50%';
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
-        n.el.style.opacity = (pc < 0.02) ? '0' : '1';
+        n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
       }
     }
 
@@ -562,7 +504,6 @@
         else if(Math.abs(dt) <= wGreat){ judgment='great'; scoreDelta=100; }
 
         this._applyHit(lane, judgment, dt, scoreDelta);
-
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
 
@@ -749,9 +690,7 @@
 
     _updateCalibrationHud(){
       const el = DOC.querySelector('#rb-hud-cal');
-      if(el){
-        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
-      }
+      if(el) el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
     }
 
     _updateAI(){
@@ -789,8 +728,7 @@
           if(!this.aiState.tip) this.aiState.tip = '';
         }
       }
-
-      // IMPORTANT: no adaptive changes here (research lock concept)
+      // IMPORTANT: no adaptive changes here for research lock
     }
 
     _finish(endReason) {
@@ -802,9 +740,7 @@
         this._rafId = null;
       }
 
-      if (this.audio) {
-        this.audio.pause();
-      }
+      if (this.audio) this.audio.pause();
 
       const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
 
@@ -816,7 +752,6 @@
 
       const mOffset = this.offsets.length ? mean(this.offsets) : 0;
       const sOffset = this.offsets.length ? std(this.offsets) : 0;
-      const mAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
 
       const earlyPct = totalHits ? (this.earlyHits / totalHits) * 100 : 0;
       const latePct  = totalHits ? (this.lateHits  / totalHits) * 100 : 0;
@@ -860,7 +795,7 @@
 
         offset_mean_s: mOffset,
         offset_std_s: sOffset,
-        offset_abs_mean_s: mAbs,
+        offset_abs_mean_s: this.offsetsAbs.length ? mean(this.offsetsAbs) : 0,
         offset_early_pct: earlyPct,
         offset_late_pct: latePct,
 
@@ -870,8 +805,7 @@
         fever_entry_count: this.feverEntryCount,
         fever_total_time_s: this.feverTotalTimeSec,
         fever_time_pct: feverTimePct,
-        time_to_first_fever_s:
-          this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
+        time_to_first_fever_s: this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
 
         hp_start: 100,
         hp_end: this.hp,
