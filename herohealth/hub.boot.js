@@ -120,7 +120,7 @@ if(btnResetToday){
   });
 }
 
-// 403-safe probe (keep your current behavior)
+// 403-safe probe (keep current behavior)
 let probeLock = false;
 async function probe(){
   if(probeLock) return;
