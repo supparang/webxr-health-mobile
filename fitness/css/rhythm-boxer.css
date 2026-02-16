@@ -1,669 +1,610 @@
 /* === /fitness/css/rhythm-boxer.css ===
-Rhythm Boxer UI — PRODUCTION (PC/Mobile/cVR) + Bottom Hitline FIX
-✅ Gold hit line at bottom (true hit zone)
-✅ Notes fall to hit line (head aligns on time)
-✅ 5-lane default; works with 3-lane too
-✅ Safe-area + cVR spacing so hitline never hidden
+Rhythm Boxer — PRODUCTION UI
+PATCH: Center-on-hitline (note center aligns to golden hit line)
+- 5 lanes default (L2 L1 C R1 R2); works with 3 lanes if DOM has 3 .rb-lane
+- Mobile + cVR safe
 */
 
 :root{
-  --bg: #050813;
-  --panel: rgba(6,10,22,.78);
-  --panel2: rgba(10,16,36,.55);
+  --bg0:#050812;
+  --bg1:#070b18;
+  --panel: rgba(10,16,30,.72);
+  --panel2: rgba(10,16,30,.55);
   --stroke: rgba(148,163,184,.18);
+  --stroke2: rgba(148,163,184,.28);
 
-  --text: #e5e7eb;
-  --muted: #94a3b8;
+  --text:#e5e7eb;
+  --muted:#94a3b8;
 
-  --good: #22c55e;
-  --warn: #fbbf24;
-  --bad:  #ef4444;
+  --accent:#60a5fa;
+  --accent2:#a78bfa;
 
-  --accent: #60a5fa;
-  --gold: #fbbf24;
+  --good:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
 
-  /* Layout */
-  --wrap-max: 1100px;
-  --radius: 18px;
+  --radius: 22px;
 
-  /* Field sizing */
-  --field-h: 62vh;
-  --field-min: 420px;
-  --field-max: 720px;
+  --wrap-max: 1180px;
+  --gap: 14px;
+
+  /* Hit line position */
+  --hitline-bottom: 74px;        /* desktop/mobile baseline */
+  --cvr-hitline-bottom: 88px;    /* cVR a bit higher for comfort */
+
+  /* Note size */
+  --note-w: 72px;
+  --note-r: 36px; /* PATCH: radius = note-w/2 */
+
+  /* Note tail length (fallback, engine can override --rb-note-len per note) */
+  --note-len: 180px;
 
   /* Lanes */
-  --lane-gap: 10px;
-  --lane-radius: 16px;
+  --lane-h: 520px;
+  --lane-pad: 14px;
 
-  /* Hitline (BOTTOM) */
-  --hitline-thick: 6px;
-  --hitline-glow: 12px;
+  /* Lane labels */
+  --label-h: 44px;
 
-  /* The true hitline Y from bottom of lane (keep small, but visible) */
-  --hitline-bottom: 56px; /* <<< สำคัญ: เส้นตีล่างจริง */
-
-  /* Note visuals */
-  --note-w: 72px;          /* head width */
-  --note-ico: 30px;        /* icon size */
-  --note-tail: 180px;      /* default tail (engine overrides via --rb-note-len) */
-  --note-tail-alpha: .92;
-
-  /* HUD spacing */
-  --hud-gap: 10px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bot: env(safe-area-inset-bottom, 0px);
-
-  /* cVR tweaks */
-  --cvr-hitline-bottom: 72px;
-  --cvr-field-h: 70vh;
+  /* Hit FX */
+  --flash: rgba(255,255,255,.08);
+  --shadow: 0 18px 48px rgba(0,0,0,.45);
 }
 
-*{ box-sizing: border-box; }
+*{ box-sizing:border-box; }
 html,body{ height:100%; }
 body{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
-  background: radial-gradient(1200px 700px at 50% -10%, rgba(96,165,250,.18), transparent 70%),
-              radial-gradient(900px 600px at 10% 10%, rgba(251,191,36,.10), transparent 60%),
-              var(--bg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
   color: var(--text);
-  overflow-x: hidden;
+  background:
+    radial-gradient(1200px 900px at 30% -10%, rgba(167,139,250,.20), transparent 50%),
+    radial-gradient(900px 700px at 90% 10%, rgba(96,165,250,.16), transparent 55%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  overflow-x:hidden;
 }
-
-a{ color: inherit; text-decoration: none; }
-b{ font-weight: 700; }
-
-.hidden{ display:none !important; }
 
 /* ===== Wrapper ===== */
 #rb-wrap{
-  max-width: var(--wrap-max);
+  width: min(var(--wrap-max), calc(100vw - 24px));
   margin: 0 auto;
-  padding: calc(14px + var(--safe-top)) 14px calc(14px + var(--safe-bot));
+  padding: 18px 0 28px;
 }
 
-/* Flash overlay (FX) */
+/* ===== Flash overlay ===== */
 #rb-flash{
   position: fixed;
   inset: 0;
-  background: rgba(255,255,255,.08);
-  opacity: 0;
+  background: transparent;
   pointer-events: none;
-  z-index: 99;
-  transition: opacity .18s ease;
+  z-index: 50;
 }
-#rb-flash.on{ opacity: 1; }
+#rb-flash.rb-on{
+  background: var(--flash);
+  animation: rbFlash .14s ease-out 1;
+}
+@keyframes rbFlash{
+  from{ opacity: 0; }
+  50%{ opacity: 1; }
+  to{ opacity: 0; }
+}
 
 /* ===== Views ===== */
-.rb-view{ width:100%; }
+.rb-view{ width: 100%; }
+.hidden{ display:none !important; }
 
-/* ===== Header ===== */
+/* ===== Header (menu/result) ===== */
 .rb-header{
   display:flex;
   align-items:flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 14px;
+  justify-content:space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
 }
-.rb-head-main{ flex:1; }
+.rb-head-main{ flex: 1; min-width: 0; }
 .rb-pill{
   display:inline-flex;
-  align-items:center;
   gap:8px;
+  align-items:center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(96,165,250,.14);
-  border: 1px solid rgba(96,165,250,.18);
-  color: var(--text);
+  background: rgba(148,163,184,.10);
+  border: 1px solid var(--stroke);
+  color: var(--muted);
   font-size: 12px;
-  letter-spacing: .2px;
 }
 .rb-title{
-  margin: 10px 0 6px;
-  font-size: 34px;
+  margin: 10px 0 4px;
+  font-size: 38px;
   line-height: 1.05;
+  letter-spacing: .2px;
 }
 .rb-sub{
   margin: 0 0 6px;
   color: var(--muted);
+  max-width: 62ch;
 }
 .rb-sub-small{
-  display:inline-block;
-  margin-top: 6px;
-  color: rgba(251,191,36,.95);
-  font-size: 12px;
+  color: rgba(148,163,184,.85);
+  font-size: 13px;
 }
-
 .rb-back{
-  flex:0 0 auto;
-  margin-top: 6px;
+  text-decoration:none;
+  color: var(--text);
+  background: rgba(148,163,184,.10);
+  border: 1px solid var(--stroke);
   padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(148,163,184,.08);
-  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .rb-back:active{ transform: translateY(1px); }
 
-/* ===== Cards / Sections ===== */
-.rb-section{ margin-top: 10px; }
-.rb-section-title{
-  margin: 0 0 10px;
-  font-size: 16px;
-  color: var(--text);
-}
-.rb-section-title-sm{
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: var(--text);
-}
-.rb-section-subtitle{
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.rb-research-box{
-  background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(6,10,22,.72));
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.25);
-}
-
+/* ===== Sections ===== */
+.rb-section{ margin: 0; }
 .rb-grid-2{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
 
-@media (max-width: 900px){
-  .rb-grid-2{ grid-template-columns: 1fr; }
-  .rb-title{ font-size: 30px; }
+.rb-research-box{
+  background: linear-gradient(180deg, rgba(10,16,30,.75), rgba(10,16,30,.55));
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
 }
 
-/* ===== Mode toggle ===== */
+.rb-section-title{
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.rb-section-subtitle{
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.rb-section-subtitle-sm{
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ===== Mode toggle / options ===== */
 .rb-mode-toggle{
   display:flex;
-  gap: 10px;
-  margin: 10px 0 10px;
+  gap:10px;
+  margin: 8px 0 10px;
 }
 .rb-mode-btn{
   display:flex;
-  align-items:center;
   gap:10px;
-  width: 100%;
+  align-items:center;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(148,163,184,.06);
-  cursor: pointer;
-  user-select: none;
+  background: rgba(148,163,184,.08);
+  border: 1px solid var(--stroke);
+  cursor:pointer;
+  user-select:none;
 }
 .rb-mode-btn input{ accent-color: var(--accent); }
-.rb-mode-btn span{ color: var(--text); font-size: 14px; }
-.rb-mode-btn:active{ transform: translateY(1px); }
-
+.rb-mode-btn:hover{ border-color: rgba(96,165,250,.35); }
 .rb-mode-desc{
-  margin: 10px 0 0;
+  margin: 0 0 10px;
   color: var(--muted);
   font-size: 13px;
 }
 
-/* ===== Fields ===== */
-.rb-field{
-  margin: 10px 0;
-}
-.rb-field label{
-  display:block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: rgba(229,231,235,.9);
-}
+.rb-field{ display:flex; flex-direction:column; gap:6px; margin: 10px 0; }
+.rb-field label{ color: rgba(229,231,235,.9); font-size: 12px; }
 .rb-field input{
-  width:100%;
-  padding: 11px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(4,8,20,.72);
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,18,.35);
   color: var(--text);
+  padding: 0 12px;
   outline: none;
 }
-.rb-field input::placeholder{ color: rgba(148,163,184,.7); }
-.rb-field input:focus{
-  border-color: rgba(96,165,250,.4);
-  box-shadow: 0 0 0 3px rgba(96,165,250,.12);
-}
+.rb-field input:focus{ border-color: rgba(96,165,250,.55); }
 
 .rb-hint-inline{
-  margin: 10px 0 0;
-  color: rgba(148,163,184,.92);
+  margin: 8px 0 0;
+  color: rgba(148,163,184,.95);
   font-size: 12px;
-  line-height: 1.45;
 }
 .rb-hint-block{
-  margin-top: 10px;
+  margin: 12px 0;
   padding: 12px;
-  border-radius: 14px;
-  border: 1px dashed rgba(148,163,184,.18);
-  background: rgba(148,163,184,.05);
+  border-radius: 16px;
+  border: 1px dashed rgba(148,163,184,.30);
+  background: rgba(2,6,18,.18);
 }
-.rb-hint-title{
-  margin:0 0 8px;
-  font-size: 12px;
-  color: rgba(229,231,235,.95);
-}
-.rb-hint-list{
-  margin:0;
-  padding-left: 18px;
-  color: rgba(148,163,184,.92);
-  font-size: 12px;
-  line-height: 1.5;
-}
+.rb-hint-title{ margin: 0 0 6px; font-size: 13px; color: rgba(229,231,235,.92); }
+.rb-hint-list{ margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+.rb-hint-list li{ margin: 4px 0; }
 
 /* ===== Buttons ===== */
+.rb-btn{
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(148,163,184,.10);
+  color: var(--text);
+  cursor:pointer;
+  user-select:none;
+}
+.rb-btn:active{ transform: translateY(1px); }
+.rb-btn-primary{
+  background: linear-gradient(90deg, rgba(96,165,250,.22), rgba(167,139,250,.20));
+  border-color: rgba(96,165,250,.35);
+}
+.rb-btn-ghost{
+  background: rgba(148,163,184,.08);
+}
+.rb-btn-sm{
+  height: 38px;
+  border-radius: 12px;
+  font-size: 13px;
+}
 .rb-btn-row{
   display:flex;
   gap: 10px;
   flex-wrap: wrap;
 }
-.rb-btn{
-  appearance:none;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(148,163,184,.08);
-  color: var(--text);
-  padding: 12px 14px;
-  border-radius: 14px;
-  cursor: pointer;
-  font-weight: 700;
-  letter-spacing: .2px;
-}
-.rb-btn:active{ transform: translateY(1px); }
-.rb-btn-primary{
-  background: linear-gradient(180deg, rgba(96,165,250,.9), rgba(59,130,246,.65));
-  border-color: rgba(96,165,250,.35);
-}
-.rb-btn-ghost{
-  background: rgba(148,163,184,.06);
-}
-.rb-btn-sm{
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-}
 
 /* ===== Play header ===== */
 .rb-play-header{
   display:flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin: 6px 0 14px;
 }
-.rb-title-sm{
-  margin: 0;
-  font-size: 18px;
-}
-.rb-sub-sm{
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-}
+.rb-title-sm{ margin:0; font-size: 28px; line-height:1.1; }
+.rb-sub-sm{ margin: 2px 0 0; color: var(--muted); font-size: 13px; }
 
 /* ===== HUD ===== */
-.rb-hud{
-  margin-bottom: 12px;
-}
+.rb-hud{ padding: 14px; }
 .rb-hud-row{
   display:flex;
+  gap: 10px;
   flex-wrap: wrap;
-  gap: var(--hud-gap);
-  margin-bottom: 10px;
+  margin: 8px 0;
 }
 .rb-chip{
   display:inline-flex;
+  gap:6px;
   align-items:center;
-  gap: 6px;
   padding: 8px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(148,163,184,.06);
-  font-size: 12px;
-  color: rgba(229,231,235,.95);
+  background: rgba(2,6,18,.28);
+  border: 1px solid var(--stroke);
+  color: rgba(229,231,235,.92);
+  font-size: 13px;
 }
+.rb-chip b{ font-weight: 700; }
 .rb-chip-ai{
-  border-color: rgba(96,165,250,.20);
+  border-color: rgba(96,165,250,.25);
   background: rgba(96,165,250,.10);
 }
 .rb-chip-tip{
-  width: 100%;
-  border-style: dashed;
+  flex: 1;
+  min-width: 240px;
+  justify-content: flex-start;
 }
-.rb-chip-tip-label{
-  color: rgba(251,191,36,.95);
-  font-weight: 800;
-}
+.rb-chip-tip-label{ color: rgba(229,231,235,.85); margin-right: 6px; }
+.rb-hud-judge-row .rb-chip{ min-width: 120px; }
 
 .rb-bars{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
 }
-@media (max-width: 720px){
-  .rb-bars{ grid-template-columns: 1fr; }
-}
-.rb-bar-block{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-}
-.rb-bar-label{
-  width: 52px;
-  font-size: 12px;
-  color: rgba(229,231,235,.9);
-  font-weight: 800;
-  letter-spacing: .3px;
-}
+.rb-bar-block{ display:flex; align-items:center; gap: 10px; }
+.rb-bar-label{ width: 54px; color: rgba(229,231,235,.9); font-size: 13px; }
 .rb-bar{
-  flex: 1;
-  height: 12px;
+  flex:1;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(148,163,184,.08);
-  border: 1px solid rgba(148,163,184,.14);
+  background: rgba(148,163,184,.10);
+  border: 1px solid var(--stroke);
   overflow:hidden;
 }
-.rb-bar-fill{
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-}
-.rb-bar-fever{
-  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(245,158,11,.85));
-  box-shadow: 0 0 18px rgba(251,191,36,.25);
-}
-.rb-bar-progress{
-  background: linear-gradient(90deg, rgba(96,165,250,.90), rgba(59,130,246,.70));
-  box-shadow: 0 0 18px rgba(96,165,250,.20);
-}
-.rb-bar-status{
-  width: 54px;
-  text-align: right;
-  font-size: 12px;
-  color: rgba(148,163,184,.95);
-  font-weight: 800;
-}
+.rb-bar-fill{ height:100%; width:0%; border-radius: 999px; }
+.rb-bar-fever{ background: linear-gradient(90deg, rgba(245,158,11,.0), rgba(245,158,11,.85)); }
+.rb-bar-progress{ background: linear-gradient(90deg, rgba(96,165,250,.70), rgba(167,139,250,.70)); }
+.rb-bar-status{ width: 64px; text-align:right; color: rgba(148,163,184,.95); font-size: 13px; }
 
-/* ===== Field area ===== */
-.rb-field-wrap{
-  background: linear-gradient(180deg, rgba(6,10,22,.55), rgba(4,8,18,.82));
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  padding: 12px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.25);
-}
-
+/* ===== Field / Lanes ===== */
+.rb-field-wrap{ margin-top: 14px; }
 #rb-field{
   position: relative;
-  height: min(max(var(--field-min), var(--field-h)), var(--field-max));
   border-radius: var(--radius);
-  overflow: hidden;
-  background:
-    radial-gradient(800px 360px at 50% 0%, rgba(96,165,250,.10), transparent 65%),
-    radial-gradient(700px 420px at 50% 100%, rgba(251,191,36,.06), transparent 65%),
-    rgba(2,4,10,.72);
-  border: 1px solid rgba(148,163,184,.12);
+  border: 1px solid var(--stroke);
+  background: radial-gradient(900px 520px at 50% 0%, rgba(167,139,250,.12), transparent 55%),
+              linear-gradient(180deg, rgba(2,6,18,.35), rgba(2,6,18,.18));
+  box-shadow: var(--shadow);
+  overflow:hidden;
+  padding: 14px;
 }
 
-/* feedback banner */
 .rb-feedback{
   position:absolute;
-  left: 12px;
   top: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(6,10,22,.72);
-  color: rgba(229,231,235,.95);
-  font-weight: 800;
+  left: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(2,6,18,.55);
+  border: 1px solid rgba(148,163,184,.22);
+  color: rgba(229,231,235,.92);
   font-size: 13px;
   z-index: 5;
-  backdrop-filter: blur(8px);
+}
+.rb-feedback.rb-miss{
+  border-color: rgba(239,68,68,.45);
+  background: rgba(239,68,68,.18);
+  color: #ffd6d6;
+}
+.rb-feedback.rb-hit{
+  border-color: rgba(34,197,94,.45);
+  background: rgba(34,197,94,.14);
+  color: #d9ffe8;
 }
 
-/* lanes container */
 .rb-lanes{
-  position: absolute;
-  inset: 0;
-  display: grid;
+  position: relative;
+  display:grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: var(--lane-gap);
+  gap: 10px;
+  height: var(--lane-h);
   padding: 12px;
+  margin-top: 44px; /* keep space under feedback */
 }
 
-/* If you use 3 lanes (HTML has only 3 .rb-lane), grid will auto fit visually */
+/* If you run 3-lane layout, just have 3 .rb-lane in DOM; grid will still be ok */
 .rb-lane{
   position: relative;
-  border-radius: var(--lane-radius);
-  border: 1px solid rgba(148,163,184,.14);
-  background: linear-gradient(180deg, rgba(148,163,184,.05), rgba(148,163,184,.02));
-  overflow: hidden;
-
-  /* IMPORTANT: leave space at bottom for hitline + label */
-  padding-bottom: calc(var(--hitline-bottom) + 14px);
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.16);
+  background:
+    linear-gradient(180deg, rgba(2,6,18,.18), rgba(2,6,18,.05));
+  overflow:hidden;
+  touch-action: manipulation;
 }
 
-/* lane label at bottom */
-.rb-lane-label{
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  font-weight: 900;
-  font-size: 12px;
-  color: rgba(229,231,235,.88);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(6,10,22,.55);
-  border: 1px solid rgba(148,163,184,.14);
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* ===== HIT LINE (Gold) =====
-We render it at bottom, above the lane label, and the note head should align here.
-*/
+/* subtle vertical separators */
 .rb-lane::after{
   content:"";
   position:absolute;
-  left: 10px;
-  right: 10px;
-
-  /* <<< สำคัญ: bottom = hitline-bottom */
-  bottom: var(--hitline-bottom);
-
-  height: var(--hitline-thick);
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(245,158,11,.85));
-  box-shadow:
-    0 0 var(--hitline-glow) rgba(251,191,36,.35),
-    0 0 calc(var(--hitline-glow) * 1.8) rgba(245,158,11,.15);
-  z-index: 2;
-  pointer-events: none;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 22%),
+    linear-gradient(180deg, transparent 55%, rgba(96,165,250,.06));
+  pointer-events:none;
+  opacity: .45;
 }
 
-/* subtle guide glow area above hitline */
+/* hit-zone glow */
 .rb-lane::before{
   content:"";
   position:absolute;
   left: 0;
   right: 0;
-  bottom: calc(var(--hitline-bottom) + 2px);
-  height: 120px;
-  background: linear-gradient(180deg, transparent, rgba(251,191,36,.06));
-  z-index: 1;
-  pointer-events: none;
+  bottom: 0;
+  height: 45%;
+  background: linear-gradient(180deg, transparent, rgba(251,191,36,.10));
+  pointer-events:none;
 }
 
-/* ===== Notes =====
-Engine positions each note by translate(-50%, y) where y=0 is at hitline.
-We anchor note at bottom: hitline-bottom so y=0 means head sits on hitline.
-*/
+/* lane label */
+.rb-lane-label{
+  position:absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: var(--label-h);
+  min-width: 62px;
+  padding: 0 14px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,18,.35);
+  color: rgba(229,231,235,.92);
+  font-weight: 700;
+  z-index: 4;
+}
+
+/* ===== Hit Line (golden) ===== */
+.rb-lane .rb-hitline{
+  position:absolute;
+  left: 10%;
+  width: 80%;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(251,191,36,.55));
+  box-shadow: 0 0 18px rgba(251,191,36,.28);
+  bottom: var(--hitline-bottom);
+  z-index: 3;
+  pointer-events:none;
+}
+
+/* If you do not render .rb-hitline in HTML, we still draw via pseudo element */
+.rb-lane:not(:has(.rb-hitline)) .rb-lane-label{ /* noop for older browsers */ }
+.rb-lane:not(:has(.rb-hitline))::marker{ /* noop */ }
+
+/* fallback: draw hit line using an inner pseudo element */
+.rb-lane .rb-hitline-fallback{
+  position:absolute;
+  left: 10%;
+  width: 80%;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(251,191,36,.55));
+  box-shadow: 0 0 18px rgba(251,191,36,.28);
+  bottom: var(--hitline-bottom);
+  z-index: 3;
+  pointer-events:none;
+}
+
+/* If you don't have an element, renderer can add it. Otherwise you can enable by CSS only: */
+.rb-lane::part(hitline){ /* noop */ }
+
+/* ===== Notes ===== */
 .rb-note{
   position: absolute;
   left: 50%;
-
-  /* <<< anchor at hitline */
-  bottom: var(--hitline-bottom);
-
-  transform: translate(-50%, -9999px);
   width: var(--note-w);
   height: var(--note-w);
   border-radius: 999px;
-  border: 1px solid rgba(251,191,36,.35);
-  background:
-    radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.18), transparent 60%),
-    linear-gradient(180deg, rgba(251,191,36,.92), rgba(245,158,11,.70));
-  box-shadow:
-    0 10px 24px rgba(0,0,0,.28),
-    0 0 18px rgba(251,191,36,.18);
-  z-index: 4;
-  pointer-events: none; /* important: taps hit lane, not note element */
-  opacity: 1;
+
+  /* PATCH: Align NOTE CENTER with hit line at y=0 */
+  bottom: calc(var(--hitline-bottom) - var(--note-r));
+
+  transform: translate(-50%, -9999px);
+  z-index: 6;
+
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 45%),
+              radial-gradient(circle at 65% 70%, rgba(251,191,36,.20), transparent 55%),
+              linear-gradient(180deg, rgba(251,191,36,.95), rgba(245,158,11,.75));
+  border: 1px solid rgba(251,191,36,.55);
+  box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 26px rgba(251,191,36,.18);
+  user-select:none;
+  pointer-events:none; /* important: lane receives taps */
 }
 
-/* tail / trail (extends upward) */
-.rb-note::before{
+/* tail */
+.rb-note::after{
   content:"";
   position:absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(100% - 10px);
+  top: calc(var(--note-w) - 6px);
+  width: 10px;
 
-  width: 12px;
-  height: var(--rb-note-len, var(--note-tail));
+  /* engine may set --rb-note-len per note */
+  height: var(--rb-note-len, var(--note-len));
+
   border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(251,191,36,.00),
-    rgba(251,191,36,var(--note-tail-alpha))
-  );
+  background: linear-gradient(180deg, rgba(251,191,36,.55), rgba(251,191,36,.0));
   filter: blur(.2px);
   opacity: .95;
 }
 
-/* icon */
 .rb-note-ico{
   position:absolute;
   inset: 0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: var(--note-ico);
-  line-height: 1;
-  text-shadow: 0 6px 16px rgba(0,0,0,.35);
+  font-size: 30px;
+  transform: translateY(-1px);
+  opacity: .95;
+}
+
+/* judgments */
+.rb-note.rb-perfect{
+  background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(34,197,94,.65));
+  border-color: rgba(34,197,94,.55);
+}
+.rb-note.rb-great{
+  background: linear-gradient(180deg, rgba(96,165,250,.95), rgba(96,165,250,.62));
+  border-color: rgba(96,165,250,.55);
+}
+.rb-note.rb-good{
+  background: linear-gradient(180deg, rgba(251,191,36,.95), rgba(245,158,11,.70));
+  border-color: rgba(251,191,36,.55);
 }
 
 /* ===== Inline howto ===== */
 .rb-howto-inline{
-  margin: 10px 2px 0;
+  margin: 10px 4px 0;
   color: rgba(148,163,184,.95);
-  font-size: 12px;
-  text-align: center;
-}
-
-/* ===== Result view ===== */
-.rb-result-grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 12px;
-}
-@media (max-width: 900px){
-  .rb-result-grid{ grid-template-columns: 1fr; }
-}
-.rb-result-card{
-  background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(6,10,22,.72));
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.25);
-}
-.rb-result-title{
-  margin: 0 0 10px;
-  font-size: 14px;
-}
-.rb-result-row{
-  display:flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(148,163,184,.12);
-  color: rgba(229,231,235,.92);
   font-size: 13px;
 }
+
+/* ===== Result ===== */
+.rb-result-grid{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+.rb-result-card{
+  background: linear-gradient(180deg, rgba(10,16,30,.75), rgba(10,16,30,.55));
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.rb-result-title{ margin:0 0 12px; font-size: 16px; }
+.rb-result-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(148,163,184,.12);
+  color: rgba(229,231,235,.92);
+}
 .rb-result-row:last-child{ border-bottom: none; }
+.rb-result-row span{ color: rgba(148,163,184,.95); }
 .rb-quality-note{
   margin: 12px 0 0;
   padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(251,191,36,.22);
-  background: rgba(251,191,36,.10);
-  color: rgba(251,191,36,.95);
-  font-weight: 800;
+  border-radius: 16px;
+  border: 1px solid rgba(239,68,68,.28);
+  background: rgba(239,68,68,.10);
+  color: rgba(255,220,220,.95);
 }
 
-/* ===== Responsive / Mobile ===== */
+/* ===== Responsive ===== */
+@media (max-width: 980px){
+  .rb-grid-2{ grid-template-columns: 1fr; }
+  .rb-result-grid{ grid-template-columns: 1fr; }
+  .rb-title{ font-size: 34px; }
+}
+
 @media (max-width: 560px){
   :root{
-    --lane-gap: 8px;
+    --lane-h: 520px;
+    --hitline-bottom: 66px;
     --note-w: 64px;
-    --note-ico: 28px;
-    --hitline-bottom: 54px;
+    --note-r: 32px; /* PATCH: keep radius synced */
+    --note-len: 160px;
   }
-  .rb-title{ font-size: 28px; }
-  .rb-research-box{ padding: 12px; }
-  #rb-field{ border-radius: 16px; }
-  .rb-lanes{ padding: 10px; }
+  #rb-wrap{ width: calc(100vw - 18px); }
+  .rb-title{ font-size: 32px; }
+  .rb-hud-judge-row .rb-chip{ min-width: 0; }
+  .rb-lanes{ gap: 8px; padding: 10px; }
+  .rb-lane-label{ min-width: 54px; }
 }
 
-/* ===== cVR (Cardboard / crosshair) =====
-We give more bottom space and slightly higher hitline for comfort and visibility.
-*/
-body[data-view="cvr"]{
-  /* ensure HUD/buttons do not block hitline */
-  padding-bottom: calc(var(--safe-bot) + 6px);
-}
+/* ===== cVR tweaks (if you set data-view="cvr" on body or wrapper) ===== */
 body[data-view="cvr"] #rb-wrap{
-  max-width: 980px;
+  width: min(980px, calc(100vw - 18px));
 }
-body[data-view="cvr"] #rb-field{
-  height: min(max(var(--field-min), var(--cvr-field-h)), var(--field-max));
+body[data-view="cvr"] .rb-lanes{
+  height: 560px;
 }
-body[data-view="cvr"] .rb-lane{
-  padding-bottom: calc(var(--cvr-hitline-bottom) + 18px);
-}
-body[data-view="cvr"] .rb-lane::after{
-  bottom: var(--cvr-hitline-bottom);
-  height: 7px;
-  box-shadow:
-    0 0 14px rgba(251,191,36,.40),
-    0 0 24px rgba(245,158,11,.18);
-}
-body[data-view="cvr"] .rb-lane::before{
-  bottom: calc(var(--cvr-hitline-bottom) + 2px);
-  height: 140px;
-}
-body[data-view="cvr"] .rb-note{
-  bottom: var(--cvr-hitline-bottom);
+body[data-view="cvr"] .rb-lane-label{
+  bottom: 12px;
 }
 
-/* Optional: make lanes larger touch area (still pointerdown hits lane) */
-body[data-view="cvr"] .rb-lane{
-  border-color: rgba(96,165,250,.14);
-  background: linear-gradient(180deg, rgba(96,165,250,.06), rgba(148,163,184,.02));
+/* PATCH: center-on-hitline for cVR */
+body[data-view="cvr"] .rb-note{
+  bottom: calc(var(--cvr-hitline-bottom) - var(--note-r));
+}
+body[data-view="cvr"] .rb-lane .rb-hitline,
+body[data-view="cvr"] .rb-lane .rb-hitline-fallback{
+  bottom: var(--cvr-hitline-bottom);
 }
 
 /* ===== Accessibility ===== */
 @media (prefers-reduced-motion: reduce){
-  *{ transition: none !important; animation: none !important; }
+  *{ animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
