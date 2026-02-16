@@ -1,6 +1,6 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
 // Boot HygieneVR — PRODUCTION — PATCH v20260216a
-// ✅ Wait deferred globals (Particles + Quiz bank) then boot engine safely
+// ✅ Wait for deferred globals (Particles + Quiz bank) then boot engine safely
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -64,11 +64,10 @@ async function main(){
   if(!P) showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
 
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
-  if(!bank) showBanner('⚠️ Quiz bank ไม่พร้อม (quiz bank อาจหาย/404/ชื่อไม่ตรง)');
+  if(!bank) showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
 
   let engine;
   try{
-    // ✅ กัน cache มือถือ + ชี้ไฟล์ที่เป็น module แน่ ๆ
     engine = await import('./hygiene.safe.js?v=20260216a');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
