@@ -6,44 +6,75 @@
   <title>HeroHealth — BrushVR (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
-  <meta http-equiv="refresh" content="0; url=./vr-brush/brush.html">
   <style>
-    html,body{height:100%;margin:0;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto}
-    .c{height:100%;display:grid;place-items:center;padding:16px}
-    .card{max-width:720px;width:100%;border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:14px;background:rgba(2,6,23,.78)}
-    .t{font-weight:900;margin:0 0 6px}
-    .s{opacity:.85;margin:0}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial;background:#020617;color:#e5e7eb}
+    .wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card{width:min(720px,96vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;background:rgba(2,6,23,.78);padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+    .h{font-weight:1000;font-size:18px}
+    .p{color:#94a3b8;margin:8px 0 0;font-size:13px;line-height:1.5}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06);color:#e5e7eb;padding:12px 14px;border-radius:16px;font-weight:950;text-decoration:none}
+    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.14)}
+    .mini{margin-top:10px;color:#94a3b8;font-size:12px;word-break:break-word}
   </style>
 </head>
 <body>
-  <div class="c">
+  <div class="wrap">
     <div class="card">
-      <p class="t">🪥 กำลังเปิด BrushVR…</p>
-      <p class="s">หากไม่เด้งอัตโนมัติ โปรดเปิด JavaScript</p>
+      <div class="h">🪥 HeroHealth — BrushVR</div>
+      <div class="p">Launcher → ส่งพารามิเตอร์ไปหน้า RUN ใน <code>/herohealth/vr-brush/brush.html</code></div>
+
+      <div class="row">
+        <a id="go" class="btn good" href="#">▶ เข้าเล่น</a>
+        <a class="btn" href="./hub.html">🏰 กลับ HUB</a>
+      </div>
+
+      <div class="mini" id="dbg"></div>
     </div>
   </div>
 
-  <script>
-  (function(){
-    const RUN = './vr-brush/brush.html';
-    const src = new URL(location.href);
-    const qs  = src.searchParams;
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const clamp=(v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
 
-    const dst = new URL(RUN, location.href);
-    qs.forEach((v,k)=> dst.searchParams.set(k,v));
+  const hubDefault = new URL('./hub.html', location.href).toString();
 
-    // ✅ ensure hub
-    if(!dst.searchParams.get('hub')){
-      dst.searchParams.set('hub', new URL('./hub.html', location.href).toString());
-    }
+  const run = (qs('run','play')||'play').toLowerCase();
+  const diff = (qs('diff','normal')||'normal').toLowerCase();
+  const time = clamp(qs('time','80'), 30, 120);
+  const seed = (qs('seed','') || String(Date.now()));
+  const pid  = (qs('pid','anon')||'anon').trim();
 
-    // ✅ optional: force run=play default
-    if(!dst.searchParams.get('run') && !dst.searchParams.get('mode')){
-      dst.searchParams.set('run','play');
-    }
+  const api = qs('api','');
+  const health = qs('health','');
 
-    location.replace(dst.toString());
-  })();
-  </script>
+  const hub = qs('hub', hubDefault) || hubDefault;
+
+  const u = new URL('./vr-brush/brush.html', location.href);
+  u.searchParams.set('hub', hub);
+  u.searchParams.set('run', run);
+  u.searchParams.set('diff', diff);
+  u.searchParams.set('time', String(time));
+  u.searchParams.set('seed', String(seed));
+  u.searchParams.set('pid', pid);
+
+  if(api) u.searchParams.set('api', api);
+  if(health) u.searchParams.set('health', health);
+
+  // passthrough research params (optional)
+  const pass = ['studyId','phase','conditionGroup','log','view'];
+  pass.forEach(k=>{
+    const v = qs(k,'');
+    if(v) u.searchParams.set(k, v);
+  });
+
+  const go = document.getElementById('go');
+  const dbg = document.getElementById('dbg');
+  if(go) go.href = u.toString();
+  if(dbg) dbg.textContent = 'RUN → ' + u.toString();
+})();
+</script>
 </body>
 </html>
