@@ -1,295 +1,355 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION — PATCH v20260216a (ABC)
-✅ A: target fade-out + expire anim + HUD safe vars
-✅ B: progress bars + power pill
+HygieneVR UI+Stage — FULL (C) — FIX:
+- “ตีแล้วไม่หาย” (is-dying transition + pointer lock)
+- “effect ไม่ออก/มองไม่เห็น” (layering + no HUD-capture)
+- “HUD บังเป้า” (HUD pass-through + safe spawn vars)
+PATCH v20260216a
 */
 
 :root{
-  color-scheme: light dark;
-
-  --bg0:#020617;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.66);
+  --bg:#050816;
+  --panel: rgba(6,10,24,.72);
+  --panel2: rgba(10,16,38,.56);
   --stroke: rgba(148,163,184,.18);
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.95);
 
-  --good: rgba(34,197,94,.95);
-  --cyan: rgba(34,211,238,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad:  rgba(239,68,68,.95);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
 
-  --r: 22px;
-  --pill: 999px;
+  --good:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --cyan:#22d3ee;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these) */
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 190px;
+  /* ✅ Engine reads these to avoid HUD area */
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 160px;
 
-  /* target sizing */
-  --tgtSize: clamp(54px, 8.5vh, 92px);
-  --tgtFont: clamp(22px, 3.3vh, 34px);
+  /* ✅ Engine reads this for radius calc */
+  --tgtSize: 86px;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-
+*{ box-sizing: border-box; }
+html,body{
+  height:100%;
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
 button{ font: inherit; }
+a{ color: inherit; }
 
-.hw-root{ position: relative; min-height: 100%; overflow: hidden; }
+/* Root */
+.hw-root{
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
 
-/* ===== Stage ===== */
+/* =========================
+   STAGE (play layer)
+   ========================= */
 .hw-stage{
-  position: fixed;
-  inset: 0;
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+
+  /* keep stage behind targets & HUD */
+  z-index: 0;
+
   background:
-    radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
-    radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
-    radial-gradient(900px 600px at 50% 90%, rgba(245,158,11,.05), transparent 65%),
-    linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
+    radial-gradient(900px 650px at 50% 20%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(900px 650px at 25% 70%, rgba(34,197,94,.10), transparent 55%),
+    radial-gradient(900px 650px at 75% 70%, rgba(245,158,11,.10), transparent 55%),
+    linear-gradient(#060818, #040610 55%, #03040d);
 }
 
-/* ===== HUD ===== */
+/* =========================
+   HUD (must NOT block taps on stage)
+   ========================= */
 .hw-hud{
-  position: fixed;
-  inset: 0;
+  position:absolute;
+  inset:0;
+  z-index: 20;
+
+  /* ✅ critical: HUD itself doesn't eat taps */
   pointer-events: none;
-  z-index: 50;
 }
 
+/* Top HUD block */
 .hw-top{
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 12px calc(12px + var(--sal));
+  pointer-events: none;
+  padding: calc(10px + var(--sat)) 12px 10px;
 }
 
-.hw-title{ font-weight: 950; letter-spacing: .2px; font-size: 16px; }
-.hw-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); }
+.hw-title{
+  font-weight: 900;
+  letter-spacing: .2px;
+  font-size: 20px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+.hw-sub{
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: .95;
+}
 
 .hw-row{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   margin-top: 10px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
+/* Pills (buttons must still be clickable) */
 .hw-pill{
-  pointer-events: none;
-  padding: 8px 10px;
-  border-radius: var(--pill);
+  pointer-events: auto; /* ✅ enable only the pill */
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.55);
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.56);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 50px rgba(0,0,0,.35);
-  font-weight: 900;
-  font-size: 12px;
-  color: rgba(229,231,235,.94);
+  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  font-weight: 800;
+  font-size: 14px;
+  user-select: none;
 }
 
-.hw-pill.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.10); }
-.hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
-.hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
-.hw-pill.power{ border-color: rgba(34,197,94,.18); background: rgba(34,197,94,.08); }
+.hw-pill.bad{ border-color: rgba(239,68,68,.35); color:#fecaca; }
+.hw-pill.warn{ border-color: rgba(245,158,11,.35); color:#fde68a; }
+.hw-pill.cyan{ border-color: rgba(34,211,238,.35); color:#cffafe; }
+.hw-pill.power{ border-color: rgba(34,197,94,.30); color:#dcfce7; }
 
-.hw-pill.btn{
-  pointer-events: auto;
-  cursor: pointer;
-  background: rgba(15,23,42,.70);
-}
-.hw-pill.btn:hover{ filter: brightness(1.05); }
+.hw-pill.btn{ cursor:pointer; }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* ===== Progress bars ===== */
+/* Progress bars */
 .hw-bars{
   margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display:grid;
   gap: 10px;
-  max-width: min(760px, 100%);
 }
-.hw-bar{ border: 1px solid var(--stroke); background: rgba(2,6,23,.42); border-radius: 16px; padding: 8px 10px; }
-.hw-bar-lab{ font-size: 11px; color: rgba(148,163,184,.92); font-weight: 900; letter-spacing:.2px; }
+.hw-bar{
+  pointer-events: none; /* info only */
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(2,6,23,.45);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(10px);
+}
+.hw-bar-lab{
+  font-size: 11px;
+  letter-spacing: .7px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: 900;
+}
 .hw-bar-rail{
-  margin-top: 6px;
   height: 10px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.55);
-  overflow: hidden;
+  background: rgba(148,163,184,.14);
+  overflow:hidden;
 }
 .hw-bar-fill{
   height: 100%;
   width: 0%;
   border-radius: 999px;
-  background: rgba(34,197,94,.82);
-  transition: width .16s ease;
+  background: rgba(34,197,94,.85);
+  transition: width .18s linear;
 }
-.hw-bar-fill.cyan{ background: rgba(34,211,238,.82); }
+.hw-bar-fill.cyan{
+  background: rgba(34,211,238,.85);
+}
 
-/* ===== Banner ===== */
+/* Banner */
 .hw-banner{
-  pointer-events: none;
-  position: absolute;
-  left: 50%;
-  top: calc(118px + var(--sat));
-  transform: translateX(-50%);
-  padding: 10px 12px;
-  border-radius: var(--pill);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
+  position:absolute;
+  left: 12px;
+  right: 12px;
+
+  /* under top HUD; still within safe area */
+  top: calc(126px + var(--sat));
+
+  display:none;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(34,211,238,.24);
   backdrop-filter: blur(10px);
-  font-weight: 950;
-  font-size: 13px;
-  opacity: 0;
-  transition: opacity .18s ease, transform .18s ease;
-  max-width: min(680px, calc(100% - 24px));
-  text-align: center;
+  font-weight: 900;
 }
-.hw-banner.show{ opacity: 1; transform: translateX(-50%) translateY(0px); }
+.hw-banner.show{ display:block; }
 
-/* ===== Overlays ===== */
+/* Quiz */
+.hw-quiz{
+  pointer-events: none; /* info only */
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.62);
+  border: 1px solid rgba(245,158,11,.22);
+  backdrop-filter: blur(10px);
+}
+.hw-quiz-q{ font-weight: 900; margin-bottom: 6px; }
+.hw-quiz-sub{ color: var(--muted); font-weight: 750; font-size: 12px; line-height:1.35; }
+
+/* =========================
+   Overlays
+   ========================= */
 .hw-overlay{
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
-              rgba(2,6,23,.66);
-  z-index: 90;
-}
-
-.hw-card{
-  width: min(760px, 100%);
-  border-radius: var(--r);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.74);
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  position:absolute;
+  inset:0;
+  z-index: 40;
+  display:grid;
+  place-items:center;
   padding: 16px;
-  backdrop-filter: blur(12px);
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(6px);
 }
-.hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
-.hw-card-sub{ margin-top: 10px; color: var(--muted); line-height: 1.4; font-size: 13px; }
-.hw-card-row{ display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-
-.hw-cta, .hw-ghost{
-  cursor: pointer;
-  border-radius: 16px;
-  padding: 10px 12px;
-  font-weight: 950;
+.hw-card{
+  width: min(560px, 100%);
+  border-radius: 22px;
+  padding: 18px 18px 14px;
+  background: rgba(2,6,23,.78);
   border: 1px solid var(--stroke);
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
-.hw-cta{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); color: rgba(229,231,235,.96); }
-.hw-ghost{ background: rgba(15,23,42,.70); color: rgba(229,231,235,.94); }
+.hw-card-title{ font-weight: 950; font-size: 18px; margin-bottom: 8px; }
+.hw-card-sub{ color: var(--muted); font-weight: 700; line-height: 1.35; }
+.hw-card-row{ margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; }
+
+.hw-cta,.hw-ghost{
+  cursor:pointer;
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid var(--stroke);
+  font-weight: 900;
+}
+.hw-cta{
+  background: rgba(34,197,94,.20);
+  color: #dcfce7;
+}
+.hw-ghost{
+  background: rgba(148,163,184,.10);
+  color: var(--text);
+}
 .hw-cta:active,.hw-ghost:active{ transform: translateY(1px); }
 
 .hw-pre{
   margin-top: 10px;
-  padding: 10px 12px;
+  max-height: 240px;
+  overflow:auto;
+  padding: 12px;
   border-radius: 16px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.45);
-  max-height: min(46vh, 420px);
-  overflow: auto;
+  background: rgba(0,0,0,.28);
+  border: 1px solid rgba(148,163,184,.18);
+  color: #cbd5e1;
   font-size: 12px;
-  color: rgba(229,231,235,.92);
 }
 
-/* ===== Targets ===== */
+/* =========================
+   TARGETS (must be clickable)
+   ========================= */
 .hw-tgt{
-  position: fixed;
-  left: calc(var(--x, 50) * 1vw);
-  top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
+  position:absolute;
+  z-index: 10; /* ✅ above stage, below overlays */
+
   width: var(--tgtSize);
   height: var(--tgtSize);
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.74);
+
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.45);
   backdrop-filter: blur(10px);
-  box-shadow: 0 18px 65px rgba(0,0,0,.45);
-  display: grid;
-  place-items: center;
+
+  box-shadow: 0 16px 60px rgba(0,0,0,.35);
   cursor: pointer;
-  pointer-events: auto;
-  user-select: none;
+
+  /* Engine sets --x/--y as percent-of-viewport (0..100) */
+  left: 0;
+  top: 0;
+  transform:
+    translate(-50%,-50%)
+    translate(calc(var(--x,50) * 1vw), calc(var(--y,50) * 1vh))
+    scale(var(--s,1));
+
+  display:grid;
+  place-items:center;
+
+  user-select:none;
   -webkit-tap-highlight-color: transparent;
-  z-index: 10;
-  animation: hwPopIn 170ms ease-out both;
+  touch-action: manipulation;
+
+  will-change: transform, opacity;
 }
 
 .hw-tgt .emoji{
-  font-size: var(--tgtFont);
-  line-height: 1;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
+  font-size: 34px;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
 }
 
-.hw-tgt.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
-.hw-tgt.wrong{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
-.hw-tgt.haz{ border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); }
+/* kinds */
+.hw-tgt.good{ outline: 2px solid rgba(34,197,94,.28); }
+.hw-tgt.wrong{ outline: 2px solid rgba(245,158,11,.22); }
+.hw-tgt.haz{ outline: 2px solid rgba(239,68,68,.22); }
 
 .hw-tgt.is-focus{
-  box-shadow: 0 22px 90px rgba(34,211,238,.18), 0 18px 65px rgba(0,0,0,.45);
-  border-color: rgba(34,211,238,.34);
+  outline-color: rgba(34,211,238,.45);
+  box-shadow: 0 18px 70px rgba(34,211,238,.16);
 }
 
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
-}
-
-@keyframes hwPopIn{
-  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
-  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
-/* ✅ expire / remove animation (fix “ตีแล้วค้าง”) */
+/* ✅ FIX “ตีแล้วไม่หาย”: dying state */
 .hw-tgt.is-dying{
-  pointer-events: none;
-  animation: hwDie 120ms ease-out forwards !important;
-}
-@keyframes hwDie{
-  to{ opacity: 0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); filter: blur(.5px); }
+  pointer-events:none;
+  opacity: 0;
+  transform:
+    translate(-50%,-50%)
+    translate(calc(var(--x,50) * 1vw), calc(var(--y,50) * 1vh))
+    scale(0.62);
+  transition: opacity .14s linear, transform .14s ease;
 }
 
-/* ===== Quiz ===== */
-.hw-quiz{
-  pointer-events: auto;
-  margin-top: 10px;
-  border-radius: var(--r);
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.58);
-  backdrop-filter: blur(10px);
-  padding: 12px;
-  max-width: min(760px, calc(100% - 2px));
+/* optional: subtle hover (desktop only) */
+@media (hover:hover){
+  .hw-tgt:hover{
+    transform:
+      translate(-50%,-50%)
+      translate(calc(var(--x,50) * 1vw), calc(var(--y,50) * 1vh))
+      scale(calc(var(--s,1) * 1.03));
+  }
 }
-.hw-quiz-q{ font-weight: 950; font-size: 14px; }
-.hw-quiz-sub{ margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
-/* ===== View tweaks ===== */
+/* =========================
+   View tuning
+   ========================= */
 body.view-mobile{
-  --hw-top-safe: 180px;
-  --hw-bottom-safe: 220px;
-  --tgtSize: clamp(58px, 10vh, 98px);
-  --tgtFont: clamp(24px, 3.8vh, 36px);
-}
-body.view-cvr{
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 240px;
-  --tgtSize: clamp(64px, 10.5vh, 104px);
-  --tgtFont: clamp(26px, 4.0vh, 38px);
+  --tgtSize: 94px;
+  --hw-top-safe: 196px;   /* more room for HUD rows */
+  --hw-bottom-safe: 120px;/* less bottom UI here */
 }
 body.view-vr{
-  --hw-top-safe: 150px;
-  --hw-bottom-safe: 210px;
+  --tgtSize: 92px;
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 120px;
+}
+body.view-cvr{
+  --tgtSize: 98px;
+  --hw-top-safe: 220px;
+  --hw-bottom-safe: 110px;
 }
 
-@media (max-width: 520px){
-  .hw-bars{ grid-template-columns: 1fr; }
-  .hw-banner{ top: calc(130px + var(--sat)); }
+/* small screens */
+@media (max-width: 380px){
+  :root{ --tgtSize: 90px; }
+  .hw-title{ font-size: 18px; }
+  .hw-pill{ padding: 9px 12px; font-size: 13px; }
 }
