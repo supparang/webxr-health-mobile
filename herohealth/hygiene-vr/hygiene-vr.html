@@ -1,9 +1,5 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a (ABC)
-✅ A: TTL + anti-overlap + watchdog + mobile throttle
-✅ B: Progress bars + Missions + Power-ups (Shield/Focus/Freeze)
-✅ C: AI hooks (DD/Coach) safe + rate-limit
-✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
 -->
 <!doctype html>
 <html lang="th">
@@ -27,8 +23,8 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a (ABC)
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct name) -->
-  <script src="./hygiene-quiz-bank.js" defer></script>
+  <!-- ✅ Quiz bank (ต้องตรงชื่อไฟล์จริง) -->
+  <script src="./hygiene-quiz-bank.js?v=20260216a" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260216a"></script>
@@ -51,7 +47,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a (ABC)
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- ✅ Progress bars -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP PROGRESS</div>
@@ -67,15 +62,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a (ABC)
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-
-          <!-- ✅ Power-ups -->
           <div class="hw-pill power" id="pillPower">POWER —</div>
-
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
