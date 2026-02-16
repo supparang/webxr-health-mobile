@@ -1,8 +1,8 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C)
-// ✅ Boot ctx parse + passthrough hub/seed/time/view/run/diff/pid/log
-// ✅ Auto view detect if no ?view=
-// ✅ Listen brush:ai -> HUD AI panel + Big pop C (rate-limited)
+// BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C) v20260216a
+// ✅ Tap-to-start unlock (mobile/vr)
+// ✅ Boot ctx parse + passthrough hub/seed/time/view
+// ✅ Listen brush:ai -> HUD AI panel + Big pop (rate-limited)
 // ✅ Safe: no crash if HUD missing
 
 (function(){
@@ -11,47 +11,35 @@
 
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n)? n : d; };
+  const clamp=(v,min,max)=>Math.max(min, Math.min(max, v));
 
-  function getViewAuto(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if(v) return v;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'cvr' : 'pc';
-  }
-
-  // -------------------------
-  // Context builder (HHA style)
-  // -------------------------
   function buildCtx(){
-    const view = getViewAuto();
-    const hub  = qs('hub','../hub.html') || '../hub.html';
+    const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
+    const hub  = qs('hub','') || '';
     const seed = num(qs('seed', Date.now()), Date.now());
-    const time = num(qs('time', 90), 90);
-
-    const run  = (qs('run', qs('mode','play')) || 'play');
-    const diff = (qs('diff','normal') || 'normal').toLowerCase();
-
-    const pid = (qs('pid', qs('participantId','')) || '').trim();
-    const log = (qs('log','') || '').trim();
+    const time = clamp(num(qs('time', 90), 90), 30, 120);
 
     const studyId = qs('studyId','') || '';
     const phase = qs('phase','') || '';
     const conditionGroup = qs('conditionGroup','') || '';
+    const pid = (qs('pid','')||'').trim();
 
-    return { view, hub, seed, time, run, diff, pid, log, studyId, phase, conditionGroup };
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const run  = String(qs('run','play')||'play').toLowerCase();
+
+    const api = qs('api','') || '';
+    const health = qs('health','') || '';
+    const log = qs('log','') || '';
+
+    return { view, hub, seed, time, studyId, phase, conditionGroup, pid, diff, run, api, health, log };
   }
 
-  // -------------------------
-  // Minimal HUD AI (creates DOM if not present)
-  // -------------------------
   function ensureAIHud(){
     let wrap = DOC.getElementById('hud-ai');
     if(wrap) return wrap;
 
     wrap = DOC.createElement('section');
     wrap.id = 'hud-ai';
-    wrap.className = 'hudCard hudAI';
     wrap.style.position = 'fixed';
     wrap.style.left = '12px';
     wrap.style.bottom = '12px';
@@ -148,33 +136,25 @@
     const mk = (emo,title,sub,mini,tag='TIP',ms=1600,big=null,bigMs=900)=>({emo,title,sub,mini,tag,ms,big,bigMs});
 
     switch(t){
-      case 'boss_start':
-        return mk('💎','บอสคราบหนา!','ต้องตีหลายครั้ง','เน้นยิงให้แม่น + รักษาคอมโบ','BOSS',1800,'BOSS!',900);
-      case 'boss_phase':
-        return mk('🔥',`บอส HP ${Math.round(d.hp||0)}%`,'อย่ายิงมั่ว','รอจังหวะแล้วค่อยยิง 1 ที','BOSS',1200);
-      case 'boss_break':
-        return mk('💥','บอสแตกแล้ว!','เก่งมาก','รีบกวาดคราบต่อ!','BOSS',1500,'BREAK!',900);
-      case 'time_10s':
-        return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
-      case 'fever_on':
-        return mk('⚡','FEVER!','คะแนน x1.3','ยิงต่อเนื่องได้เลย!','FEVER',1500,'FEVER!',900);
-      default:
-        return null;
+      case 'boss_start': return mk('💎','บอสคราบหนามาแล้ว!','โหมดบอสเริ่ม','ห้ามพลาด—คุมคอมโบไว้','BOSS',1800,'BOSS!',900);
+      case 'boss_phase': return mk('🔥',`บอส Phase ${d.phase||'?'}!`,`HP เหลือ ${Math.round(d.hp||0)}`,'หา “จังหวะปลอดภัย” แล้วค่อยยิงรัว','BOSS',1700);
+      case 'fever_on':  return mk('💗','FEVER ON!','คะแนนคูณ + เป้าเพิ่ม','ยิงให้แม่นแล้วกวาดให้หมด','FEVER',1500,'FEVER!',850);
+      case 'time_10s':  return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
+      case 'streak':    return mk('⚡','คอมโบกำลังมา!','ต่ออีกนิดจะเข้า FEVER','เล่นช้าแต่ชัวร์ = คะแนนพุ่ง','STREAK',1200);
+      default: return null;
     }
   }
 
   function shouldBigPop(type){
     const t = String(type||'').toLowerCase();
-    return (t==='boss_start' || t==='boss_break' || t==='time_10s' || t==='fever_on');
+    return t==='boss_start' || t==='fever_on' || t==='time_10s';
   }
 
   const RL = { lastAny:0, lastBig:0, minAnyMs:260, minBigMs:900 };
 
   function onBrushAI(ev){
     const d = ev?.detail || {};
-    const type = d.type;
     const now = Date.now();
-
     if(now - RL.lastAny < RL.minAnyMs) return;
     RL.lastAny = now;
 
@@ -183,16 +163,13 @@
 
     setAI(msg);
 
-    if(shouldBigPop(type)){
+    if(shouldBigPop(d.type)){
       if(now - RL.lastBig < RL.minBigMs) return;
       RL.lastBig = now;
       bigPop(msg);
     }
   }
 
-  // -------------------------
-  // Boot
-  // -------------------------
   function boot(){
     const ctx = buildCtx();
     DOC.body.setAttribute('data-view', ctx.view);
@@ -202,17 +179,14 @@
     if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
       WIN.BrushVR.boot(ctx);
     }else{
-      console.warn('[BrushVR] missing BrushVR.boot(ctx) — check brush.safe.js export');
+      console.warn('[BrushVR] missing BrushVR.boot(ctx)');
     }
   }
 
   function setupTapStart(){
     const tap = DOC.getElementById('tapStart');
     const btn = DOC.getElementById('tapBtn');
-    if(!tap || !btn){
-      boot();
-      return;
-    }
+    if(!tap || !btn){ boot(); return; }
     tap.style.display = 'grid';
     const go = ()=>{
       try{ tap.style.display='none'; }catch(_){}
