@@ -1,7 +1,9 @@
 // === /herohealth/hub.boot.js ===
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
-// PATCH v20260216a (add brush/jumpduck/balancehold + germ detective coming soon)
-
+// PACK v20260216b
+// ✅ badges + checkin pass-through
+// ✅ zone done today pills
+// ✅ last summary (HHA_LAST_SUMMARY) panel + clear
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -24,8 +26,9 @@ const P = {
   conditionGroup: String(qs('conditionGroup',''))
 };
 
-// chips
 const $ = (id)=>document.getElementById(id);
+
+// chips
 if($('cRun')) $('cRun').textContent = P.run;
 if($('cDiff')) $('cDiff').textContent = P.diff;
 if($('cTime')) $('cTime').textContent = String(P.time);
@@ -67,11 +70,14 @@ function withCommonParams(url){
   return u.toString();
 }
 
-// patch links (✅ updated ids)
+// patch links (updated ids)
 const linkIds = [
+  // zones
   'goGoodJunk','goGroups','goHydration','goPlate',
   'goHandwash','goBrush','goMaskCough',
-  'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
+  'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold',
+  // hub utilities
+  'goBadges','goCheckin'
 ];
 
 for(const id of linkIds){
@@ -93,7 +99,7 @@ function wireComingSoon(id, msg){
 }
 wireComingSoon('goGermDetective', 'Germ Detective: กำลังพัฒนา 🦠🔎');
 
-// reset today
+// ===== Done today pills =====
 function getLocalDayKey(){
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -103,6 +109,89 @@ function getLocalDayKey(){
 }
 function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${getLocalDayKey()}`; }
 
+function readZoneDone(zone){
+  try{
+    const raw = localStorage.getItem(zoneDoneKey(zone));
+    if(!raw) return null;
+    // allow boolean/string/json
+    if(raw === '1' || raw === 'true' || raw === 'done') return { ok:true, raw };
+    try{
+      const j = JSON.parse(raw);
+      return { ok:true, raw, json:j };
+    }catch{
+      return { ok:true, raw };
+    }
+  }catch(_){
+    return null;
+  }
+}
+
+function setPill(id, done){
+  const el = $(id);
+  if(!el) return;
+  el.classList.remove('ok','warn','bad');
+  if(done){
+    el.classList.add('ok');
+    el.textContent = 'Today: Done ✅';
+  }else{
+    el.classList.add('warn');
+    el.textContent = 'Today: Not yet';
+  }
+}
+
+function refreshZonePills(){
+  setPill('zNutrition', !!readZoneDone('nutrition'));
+  setPill('zHygiene',  !!readZoneDone('hygiene'));
+  setPill('zFitness',  !!readZoneDone('fitness'));
+}
+
+// ===== Last summary (HHA_LAST_SUMMARY) =====
+function safeJson(raw){
+  try{ return JSON.parse(raw); }catch{ return null; }
+}
+function prettyTime(ts){
+  try{
+    const d = new Date(Number(ts)||Date.now());
+    if(!Number.isFinite(d.getTime())) return '';
+    return d.toLocaleString();
+  }catch{ return ''; }
+}
+function showLastSummary(){
+  const box = $('lastSummary');
+  const t = $('lsTitle');
+  const b = $('lsBody');
+  if(!box || !t || !b) return;
+
+  let raw = null;
+  try{ raw = localStorage.getItem('HHA_LAST_SUMMARY'); }catch(_){}
+  if(!raw){ box.style.display = 'none'; return; }
+
+  const j = safeJson(raw) || {};
+  const game = String(j.game || j.mode || j.name || 'เกมล่าสุด');
+  const score = (j.score!=null) ? `score ${j.score}` : '';
+  const acc = (j.acc!=null) ? `acc ${j.acc}` : (j.accuracy!=null ? `acc ${j.accuracy}` : '');
+  const miss = (j.miss!=null) ? `miss ${j.miss}` : '';
+  const dur = (j.time!=null) ? `${j.time}s` : (j.duration!=null ? `${j.duration}s` : '');
+  const when = prettyTime(j.ts || j.endedAt || j.timeEnd || j.date || 0);
+
+  t.textContent = `สรุปล่าสุด: ${game}`;
+  const parts = [score, acc, miss, dur].filter(Boolean).join(' • ');
+  b.textContent = (parts ? `${parts}${when ? ' • ' : ''}` : '') + (when || '');
+
+  box.style.display = 'block';
+}
+
+const btnClearSummary = $('btnClearSummary');
+if(btnClearSummary){
+  btnClearSummary.addEventListener('click', (e)=>{
+    e.preventDefault();
+    try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+    toast('Clear summary ✅');
+    showLastSummary();
+  });
+}
+
+// reset today
 function resetToday(){
   try{
     localStorage.removeItem(zoneDoneKey('nutrition'));
@@ -116,6 +205,7 @@ if(btnResetToday){
   btnResetToday.addEventListener('click', (e)=>{
     e.preventDefault();
     resetToday();
+    refreshZonePills();
     toast('Reset today ✅ (ล้าง 3 โซน)');
   });
 }
@@ -141,3 +231,7 @@ async function probe(){
 
 attachRetry('btnRetry', probe);
 probe();
+
+// init UI
+refreshZonePills();
+showLastSummary();
