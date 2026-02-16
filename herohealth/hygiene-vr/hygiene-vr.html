@@ -1,5 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
 HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
+✅ Works with: hygiene-vr.css v20260216a + hygiene.safe.js v20260216a + hygiene-vr.boot.js v20260216a
+✅ Views: pc/mobile/vr/cvr (body class set by qs view)
+✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
+✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -10,12 +14,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- ✅ CSS -->
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260216a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- ✅ Universal VR UI (defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- FX -->
+  <!-- ✅ FX -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -23,10 +28,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank (ต้องตรงชื่อไฟล์จริง) -->
-  <script src="./hygiene-quiz-bank.js?v=20260216a" defer></script>
+  <!-- ✅ Quiz bank -->
+  <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260216a"></script>
 </head>
 
@@ -47,6 +52,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
+        <!-- Progress bars -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP PROGRESS</div>
@@ -62,11 +68,15 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
+
+          <!-- Power-ups -->
           <div class="hw-pill power" id="pillPower">POWER —</div>
+
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -111,20 +121,29 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
+  <script>
+  (function(){
+    'use strict';
+    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
+    function setViewClass(){
+      const view = (qs('view','pc')||'pc').toLowerCase();
+      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      document.body.classList.add(
+        view==='mobile'?'view-mobile':
+        (view==='vr'?'view-vr':
+        (view==='cvr'?'view-cvr':'view-pc'))
+      );
+      const v = document.getElementById('labView');
+      if(v) v.textContent = view;
+    }
+
+    setViewClass();
+    const m = document.getElementById('labMode');
+    const d = document.getElementById('labDiff');
+    if(m) m.textContent = (qs('run','play')||'play');
+    if(d) d.textContent = (qs('diff','normal')||'normal');
+  })();
+  </script>
 </body>
 </html>
