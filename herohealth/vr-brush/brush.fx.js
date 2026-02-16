@@ -1,8 +1,5 @@
 // === /herohealth/vr-brush/brush.fx.js ===
 // BrushVR FX Overlay v20260216c
-// Listens: brush:ai + hha:event + hha:start/end
-// Shows: Laser sweep, Shock timing ring, Weak spot highlight, STOP banner
-
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -38,14 +35,11 @@
     el.hidden = false;
     el.classList.add('show');
     clearTimeout(el._t);
-    if(ms){
-      el._t = setTimeout(()=>hide(el), ms);
-    }
+    if(ms) el._t = setTimeout(()=>hide(el), ms);
   }
   function hide(el){
     if(!el) return;
     el.classList.remove('show');
-    // allow transition
     clearTimeout(el._t2);
     el._t2 = setTimeout(()=>{ el.hidden = true; }, 180);
   }
@@ -88,39 +82,21 @@
     else hide(el);
   }
 
-  // brush:ai messages
   WIN.addEventListener('brush:ai', (ev)=>{
     const t = String(ev?.detail?.type||'').toLowerCase();
-
     if(t==='boss_start') banner('💎 BOSS INCOMING', 900);
     if(t==='boss_phase') banner(`🔥 PHASE ${ev.detail.phase||''}`, 800);
-
-    if(t==='laser_warn'){ banner('⚠️ LASER WARNING', 700); stop(520); }
-    if(t==='laser_on'){ laser(1400); stop(900); }
-
-    if(t==='shock_on'){ banner('🎵 TIMING MODE', 900); }
-    if(t==='shock_pulse'){ shockGate(true); }
-
-    if(t==='finisher_on'){ banner('🏁 FINISHER!', 900); }
-    if(t==='time_10s'){ banner('⏳ 10s!', 650); }
+    if(t==='time_10s') banner('⏳ 10s!', 650);
   });
 
-  // hha:event signals (from engine)
   WIN.addEventListener('hha:event', (ev)=>{
     const type = String(ev?.detail?.type||'').toLowerCase();
-    if(type==='boss_nohit_laser'){ stop(650); }
-    if(type==='boss_nohit_shock'){ banner('🎵 WAIT GREEN', 650); }
-    if(type==='nohit_telegraph'){ banner('⏱️ WAIT', 450); }
-
-    // weak spot on/off hint via feature snapshots
+    if(type==='whiff') stop(300);
     if(type==='feat'){
-      const f = ev.detail?.f;
-      // if you later include f.weak=1 you can auto-control here
+      // optional: control weak spot later via features
     }
   });
 
-  // optional: start/end cleanup
   WIN.addEventListener('hha:start', ()=>{ ensureFX(); weak(false); });
   WIN.addEventListener('hha:end', ()=>{ weak(false); });
-
 })();
