@@ -1,7 +1,5 @@
 // === /herohealth/vr-brush/brush.missions.js ===
 // Daily Missions v20260216c
-// Stores: HHA_DAILY_MISSIONS::YYYY-MM-DD + emits hha:mission
-
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -14,17 +12,13 @@
     const day=String(d.getDate()).padStart(2,'0');
     return `${y}-${m}-${day}`;
   }
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-  function emit(detail){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:mission', { detail })); }catch(_){}
-  }
 
   const KEY = `HHA_DAILY_MISSIONS::${ymd()}`;
   const DEF = [
-    { id:'brush_play',     title:'เล่นให้จบ 1 รอบ', done:false, type:'play' },
-    { id:'brush_acc_70',   title:'Accuracy ≥ 70%', done:false, type:'acc', v:70 },
-    { id:'brush_combo_12', title:'Max Combo ≥ 12', done:false, type:'combo', v:12 },
-    { id:'brush_clean_85', title:'Clean ≥ 85%', done:false, type:'clean', v:85 }
+    { id:'brush_play',     title:'เล่นให้จบ 1 รอบ', done:false },
+    { id:'brush_acc_70',   title:'Accuracy ≥ 70%', done:false },
+    { id:'brush_combo_12', title:'Max Combo ≥ 12', done:false },
+    { id:'brush_clean_85', title:'Clean ≥ 85%', done:false }
   ];
 
   const M = {
@@ -97,20 +91,17 @@
       it.done = true;
       this.save();
       this.render();
-      emit({ game:'brush', date:this.data.date, missionId:id, title:it.title, ts:Date.now() });
+      try{ WIN.dispatchEvent(new CustomEvent('hha:mission', { detail:{ game:'brush', date:this.data.date, missionId:id, title:it.title, ts:Date.now() } })); }catch(_){}
     },
     onEnd(summary){
       this.mark('brush_play');
-
       const acc = Number(summary?.accuracyPct||0);
       const clean = Number(summary?.cleanPct||0);
       const combo = Number(summary?.comboMax||0);
-
       if(acc >= 70) this.mark('brush_acc_70');
       if(combo >= 12) this.mark('brush_combo_12');
       if(clean >= 85) this.mark('brush_clean_85');
 
-      // if all done => store flag for HUB
       const items = this.data.items || [];
       if(items.length && items.every(x=>x.done)){
         try{ localStorage.setItem(`HHA_MISSIONS_DONE::hygiene::${this.data.date}`, '1'); }catch(_){}
@@ -126,5 +117,4 @@
     if(String(sum.game)!=='brush') return;
     M.onEnd(sum);
   });
-
 })();
