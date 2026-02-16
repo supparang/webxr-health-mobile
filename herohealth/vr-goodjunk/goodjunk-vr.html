@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR — PRODUCTION SAFE (v20260215)
+GoodJunkVR — RUN (folder=/herohealth/vr-goodjunk/) v20260216a
 ✅ ids ครบให้ goodjunk.safe.js หาเจอ
-✅ รองรับ pc/mobile/cvr ผ่าน ?view=...
+✅ รองรับ pc/mobile/vr/cvr ผ่าน ?view=...
 ✅ รองรับ vr-ui.js (ENTER VR/RECENTER + crosshair -> hha:shoot)
-✅ รองรับ ?debug=1 (ส่งต่อใน boot.js)
+✅ ใช้ goodjunk.safe.js (BOSS++ + STORM + RAGE) โดยเรียก boot() ตรง
 -->
 <!doctype html>
 <html lang="th">
@@ -14,8 +14,8 @@ GoodJunkVR — PRODUCTION SAFE (v20260215)
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ filename must match repo -->
-  <link rel="stylesheet" href="./goodjunk-vr.css"/>
+  <!-- ✅ CSS ในโฟลเดอร์เดียวกัน -->
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260216a"/>
 </head>
 
 <body class="view-pc">
@@ -96,7 +96,45 @@ GoodJunkVR — PRODUCTION SAFE (v20260215)
   <!-- ✅ Universal VR UI (ของกลาง) -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ Boot -->
-  <script type="module" src="./goodjunk-vr.boot.js"></script>
+  <!-- ✅ RUN (เรียก safe.js ตรง) -->
+  <script type="module">
+    import { boot } from './goodjunk.safe.js';
+
+    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+    const clamp = (v,min,max)=>{ v=Number(v); return Number.isFinite(v) ? Math.max(min, Math.min(max,v)) : min; };
+
+    const view = String(qs('view','pc')||'pc').toLowerCase();
+    const run  = String(qs('run','play')||'play').toLowerCase();
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const time = clamp(qs('time','80'), 20, 300);
+    const seed = String(qs('seed', (run==='research') ? 'RESEARCH-SEED' : Date.now()));
+
+    // set body class for view
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(
+      view==='pc' ? 'view-pc' :
+      view==='vr' ? 'view-vr' :
+      view==='cvr'? 'view-cvr' : 'view-mobile'
+    );
+
+    // cVR: show right layer
+    const layerR = document.getElementById('gj-layer-r');
+    if(layerR){
+      layerR.setAttribute('aria-hidden', (view==='cvr') ? 'false' : 'true');
+    }
+
+    boot({
+      view, run, diff, time, seed,
+      hub: qs('hub','../hub.html'),
+      studyId: qs('studyId', qs('study', null)),
+      phase: qs('phase', null),
+      conditionGroup: qs('conditionGroup', qs('cond', null)),
+    });
+
+    // optional debug toast
+    if(String(qs('debug','0'))==='1'){
+      console.log('[GoodJunkVR] debug=1', { view, run, diff, time, seed });
+    }
+  </script>
 </body>
 </html>
