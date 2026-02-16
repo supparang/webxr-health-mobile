@@ -4,36 +4,29 @@
 // ✅ Back HUB uses ?hub=... if provided
 // ✅ Save last summary + history in localStorage (HHA-ish)
 // ✅ CSV filename includes pid/studyId/track/seed
+// ✅ NEW: Auto-load Universal VR UI (/herohealth/vr/vr-ui.js) for Cardboard/cVR (hha:shoot)
+
 'use strict';
 
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  // --------- ctx helpers (HHA style) ----------
   function qs(k, d = '') {
     try { return new URL(location.href).searchParams.get(k) ?? d; } catch (_) { return d; }
   }
-  function num(v, d) {
-    const n = Number(v); return Number.isFinite(n) ? n : d;
-  }
-  function str(v, d = '') {
-    v = (v == null) ? '' : String(v);
-    v = v.trim();
-    return v ? v : d;
-  }
-  function encodeUrl(u) { try { return encodeURIComponent(u); } catch (_) { return u; } }
+  function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+  function str(v, d = '') { v = (v == null) ? '' : String(v); v = v.trim(); return v ? v : d; }
 
   function buildCtx() {
     const hub  = str(qs('hub', ''), '');
     const pid  = str(qs('pid', ''), '');
     const seed = str(qs('seed', ''), str(Date.now()));
-    const view = str(qs('view', ''), '');
+    const view = str(qs('view', ''), '');          // pc | mobile | cvr
     const run  = str(qs('run', ''), '');
     const diff = str(qs('diff', ''), '');
     const time = num(qs('time', ''), null);
 
-    // research meta (optional)
     const studyId = str(qs('studyId', ''), '');
     const phase   = str(qs('phase', ''), '');
     const conditionGroup = str(qs('conditionGroup', ''), '');
@@ -45,7 +38,6 @@
 
   function passThroughQuery(extra = {}) {
     const sp = new URLSearchParams();
-    // keep core
     if (CTX.hub)  sp.set('hub', CTX.hub);
     if (CTX.pid)  sp.set('pid', CTX.pid);
     if (CTX.seed) sp.set('seed', CTX.seed);
@@ -53,13 +45,10 @@
     if (CTX.run)  sp.set('run', CTX.run);
     if (CTX.diff) sp.set('diff', CTX.diff);
     if (CTX.time != null) sp.set('time', String(CTX.time));
-
-    // research meta
     if (CTX.studyId) sp.set('studyId', CTX.studyId);
     if (CTX.phase) sp.set('phase', CTX.phase);
     if (CTX.conditionGroup) sp.set('conditionGroup', CTX.conditionGroup);
 
-    // add/override
     Object.keys(extra || {}).forEach(k => {
       const v = extra[k];
       if (v == null || v === '') sp.delete(k);
@@ -68,6 +57,30 @@
 
     const q = sp.toString();
     return q ? ('?' + q) : '';
+  }
+
+  // ✅ NEW: Safe script loader
+  function loadScriptOnce(src){
+    return new Promise((resolve)=>{
+      const exist = document.querySelector(`script[data-src="${src}"]`);
+      if(exist) return resolve(true);
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.defer = true;
+      s.dataset.src = src;
+      s.onload = ()=>resolve(true);
+      s.onerror = ()=>resolve(false);
+      document.head.appendChild(s);
+    });
+  }
+
+  // ✅ NEW: Boot VR UI if view=cvr OR if user enters VR
+  async function ensureVRUI(){
+    // path from /fitness to /herohealth
+    const ok = await loadScriptOnce('../herohealth/vr/vr-ui.js');
+    // vr-ui.js is universal; it self-creates buttons + emits hha:shoot on tap/crosshair
+    return ok;
   }
 
   // --------- DOM ----------
@@ -82,7 +95,6 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // menu controls
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -91,22 +103,18 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // research form
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // play / result buttons
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // back hub link in header (menu)
   const backHubLink = document.querySelector('a.rb-back');
 
-  // HUD
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -124,14 +132,12 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
-
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // Result UI
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -171,10 +177,8 @@
 
   function updateModeUI() {
     const mode = getSelectedMode();
-
     if (mode === 'normal') {
-      modeDescEl.textContent =
-        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      modeDescEl.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
       trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
       researchBox.classList.add('hidden');
 
@@ -185,10 +189,8 @@
       });
 
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
-
     } else {
-      modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ให้ปรับเกม)';
+      modeDescEl.textContent = 'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ให้ปรับเกม)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       researchBox.classList.remove('hidden');
 
@@ -230,7 +232,13 @@
     });
   }
 
-  function startGame() {
+  async function startGame() {
+    // ✅ ensure VR UI if view=cvr (Cardboard style)
+    if ((CTX.view || '').toLowerCase() === 'cvr') {
+      await ensureVRUI();
+      document.body.setAttribute('data-view', 'cvr');
+    }
+
     if (!engine) createEngine();
 
     const mode = getSelectedMode();
@@ -242,7 +250,6 @@
     if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
 
-    // meta (include ctx research fields too)
     const meta = {
       id:   str((inputParticipant && inputParticipant.value) || '', CTX.pid || ''),
       group: str((inputGroup && inputGroup.value) || '', CTX.conditionGroup || ''),
@@ -257,11 +264,8 @@
     switchView('play');
   }
 
-  function stopGame(reason) {
-    if (engine) engine.stop(reason || 'manual-stop');
-  }
+  function stopGame(reason) { if (engine) engine.stop(reason || 'manual-stop'); }
 
-  // ---- HHA save last summary / history ----
   function pushHistory(entry){
     try{
       const KEY = 'HHA_FITNESS_HISTORY';
@@ -275,19 +279,15 @@
   }
 
   function saveLastSummary(entry){
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(entry));
-    }catch(_){}
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(entry)); }catch(_){}
   }
 
   function buildSummaryPayload(summary){
-    // summary from engine + ctx enrich
-    const payload = {
+    return {
       game: 'Fitness-RhythmBoxer',
       ts: Date.now(),
       iso: new Date().toISOString(),
 
-      // ctx
       pid: CTX.pid || '',
       seed: CTX.seed || '',
       view: CTX.view || '',
@@ -296,7 +296,6 @@
       phase: CTX.phase || '',
       conditionGroup: CTX.conditionGroup || '',
 
-      // engine summary
       mode: summary.modeLabel || '',
       track: summary.trackName || '',
       endReason: summary.endReason || '',
@@ -317,11 +316,9 @@
       aiLocked: (window.RB_AI && window.RB_AI.isLocked && window.RB_AI.isLocked()) ? 1 : 0,
       aiAssistOn: (window.RB_AI && window.RB_AI.isAssistEnabled && window.RB_AI.isAssistEnabled()) ? 1 : 0
     };
-    return payload;
   }
 
   function handleEngineEnd(summary) {
-    // populate result UI
     if (res.mode) res.mode.textContent      = summary.modeLabel;
     if (res.track) res.track.textContent     = summary.trackName;
     if (res.endReason) res.endReason.textContent = summary.endReason;
@@ -348,7 +345,6 @@
       }
     }
 
-    // save last summary/history
     const payload = buildSummaryPayload(summary);
     saveLastSummary(payload);
     pushHistory(payload);
@@ -378,20 +374,12 @@
     const study = str(CTX.studyId,'').replace(/\s+/g,'_');
     const seed = str(CTX.seed,'').replace(/\s+/g,'_');
 
-    const parts = [
-      'rb',
-      kind,
-      mode,
-      cfg.engineId,
-      pid
-    ];
+    const parts = ['rb', kind, mode, cfg.engineId, pid];
     if(study) parts.push(study);
     if(seed) parts.push('seed'+seed);
-
     return parts.join('-') + '.csv';
   }
 
-  // --------- apply mode from URL (?mode=research|play) ----------
   (function applyModeFromQuery(){
     try{
       const m = (qs('mode','')||'').toLowerCase();
@@ -405,18 +393,15 @@
     }catch(_){}
   })();
 
-  // --------- back hub link wiring ----------
   (function setupBackHub(){
     if(!backHubLink) return;
     if(CTX.hub){
       backHubLink.href = CTX.hub + passThroughQuery({});
     }else{
-      // fallback to local hub.html but keep ctx (if any)
       backHubLink.href = 'hub.html' + passThroughQuery({});
     }
   })();
 
-  // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
   if(btnStart) btnStart.addEventListener('click', startGame);
   if(btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
@@ -432,7 +417,13 @@
     downloadCsv(engine.getSessionCsv(), makeCsvName('sessions'));
   });
 
-  // init
+  // ✅ if open directly in cVR, preload VR UI early
+  (function preloadIfCVR(){
+    if((CTX.view||'').toLowerCase()==='cvr'){
+      ensureVRUI().then(()=>{ document.body.setAttribute('data-view','cvr'); });
+    }
+  })();
+
   updateModeUI();
   switchView('menu');
 
