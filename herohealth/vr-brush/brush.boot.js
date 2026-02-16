@@ -1,8 +1,8 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C) v20260216a
+// BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C) v20260216c
 // ✅ Tap-to-start unlock (mobile/vr)
 // ✅ Boot ctx parse + passthrough hub/seed/time/view
-// ✅ Listen brush:ai -> HUD AI panel + Big pop (rate-limited)
+// ✅ Listen brush:ai -> HUD AI panel + Big pop C (rate-limited)
 // ✅ Safe: no crash if HUD missing
 
 (function(){
@@ -10,28 +10,17 @@
   const WIN = window, DOC = document;
 
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n)? n : d; };
-  const clamp=(v,min,max)=>Math.max(min, Math.min(max, v));
+  const num = (v,d)=>{ const n = Number(v); return isFinite(n)? n : d; };
 
   function buildCtx(){
     const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
     const hub  = qs('hub','') || '';
     const seed = num(qs('seed', Date.now()), Date.now());
-    const time = clamp(num(qs('time', 90), 90), 30, 120);
-
+    const time = num(qs('time', 90), 90);
     const studyId = qs('studyId','') || '';
     const phase = qs('phase','') || '';
     const conditionGroup = qs('conditionGroup','') || '';
-    const pid = (qs('pid','')||'').trim();
-
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const run  = String(qs('run','play')||'play').toLowerCase();
-
-    const api = qs('api','') || '';
-    const health = qs('health','') || '';
-    const log = qs('log','') || '';
-
-    return { view, hub, seed, time, studyId, phase, conditionGroup, pid, diff, run, api, health, log };
+    return { view, hub, seed, time, studyId, phase, conditionGroup };
   }
 
   function ensureAIHud(){
@@ -40,6 +29,7 @@
 
     wrap = DOC.createElement('section');
     wrap.id = 'hud-ai';
+    wrap.className = 'hudCard hudAI';
     wrap.style.position = 'fixed';
     wrap.style.left = '12px';
     wrap.style.bottom = '12px';
@@ -67,7 +57,7 @@
         <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
       </div>
       <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">
-        ทำ PERFECT เพื่อคอมโบ + เติม FEVER
+        ทำ PERFECT เพื่อคอมโบ + เติม Fever
       </div>
     `;
     DOC.body.appendChild(wrap);
@@ -81,11 +71,13 @@
     const sub = DOC.getElementById('ai-sub');
     const tag = DOC.getElementById('ai-tag');
     const mini = DOC.getElementById('ai-mini');
+
     if(emo) emo.textContent = msg.emo || '🧠';
     if(title) title.textContent = msg.title || 'AI Coach';
     if(sub) sub.textContent = msg.sub || '';
     if(tag) tag.textContent = msg.tag || 'TIP';
     if(mini) mini.textContent = msg.mini || '';
+
     wrap.style.opacity = '1';
     wrap.style.transform = 'translateY(0)';
     clearTimeout(setAI._t);
@@ -136,25 +128,29 @@
     const mk = (emo,title,sub,mini,tag='TIP',ms=1600,big=null,bigMs=900)=>({emo,title,sub,mini,tag,ms,big,bigMs});
 
     switch(t){
-      case 'boss_start': return mk('💎','บอสคราบหนามาแล้ว!','โหมดบอสเริ่ม','ห้ามพลาด—คุมคอมโบไว้','BOSS',1800,'BOSS!',900);
-      case 'boss_phase': return mk('🔥',`บอส Phase ${d.phase||'?'}!`,`HP เหลือ ${Math.round(d.hp||0)}`,'หา “จังหวะปลอดภัย” แล้วค่อยยิงรัว','BOSS',1700);
-      case 'fever_on':  return mk('💗','FEVER ON!','คะแนนคูณ + เป้าเพิ่ม','ยิงให้แม่นแล้วกวาดให้หมด','FEVER',1500,'FEVER!',850);
-      case 'time_10s':  return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
-      case 'streak':    return mk('⚡','คอมโบกำลังมา!','ต่ออีกนิดจะเข้า FEVER','เล่นช้าแต่ชัวร์ = คะแนนพุ่ง','STREAK',1200);
-      default: return null;
+      case 'boss_start':
+        return mk('💎','บอสมาแล้ว!','โหมด BOSS เริ่ม',`HP = ${d.hp||'?'} / ${d.hpMax||'?'}`,'BOSS',1800,'BOSS!',900);
+      case 'boss_phase':
+        return mk('🔥',`บอส Phase ${d.phase||'?'}!`,`HP เหลือ ${d.hp||0}/${d.hpMax||0}`,'ตีให้แม่น รักษาคอมโบ','BOSS',1700);
+      case 'time_10s':
+        return mk('⏳','อีก 10 วิ!','เร่งแบบ “แม่น ๆ”','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
+      default:
+        return null;
     }
   }
 
   function shouldBigPop(type){
     const t = String(type||'').toLowerCase();
-    return t==='boss_start' || t==='fever_on' || t==='time_10s';
+    return (t==='boss_start' || t==='time_10s');
   }
 
   const RL = { lastAny:0, lastBig:0, minAnyMs:260, minBigMs:900 };
 
   function onBrushAI(ev){
     const d = ev?.detail || {};
+    const type = d.type;
     const now = Date.now();
+
     if(now - RL.lastAny < RL.minAnyMs) return;
     RL.lastAny = now;
 
@@ -163,7 +159,7 @@
 
     setAI(msg);
 
-    if(shouldBigPop(d.type)){
+    if(shouldBigPop(type)){
       if(now - RL.lastBig < RL.minBigMs) return;
       RL.lastBig = now;
       bigPop(msg);
@@ -173,14 +169,9 @@
   function boot(){
     const ctx = buildCtx();
     DOC.body.setAttribute('data-view', ctx.view);
-
     WIN.addEventListener('brush:ai', onBrushAI);
 
-    if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
-      WIN.BrushVR.boot(ctx);
-    }else{
-      console.warn('[BrushVR] missing BrushVR.boot(ctx)');
-    }
+    // engine is standalone; safe.js runs itself
   }
 
   function setupTapStart(){
