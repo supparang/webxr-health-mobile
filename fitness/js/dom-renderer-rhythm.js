@@ -1,113 +1,196 @@
-// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) ===
+// === /fitness/js/dom-renderer-rhythm.js ===
+// Dom renderer for Rhythm Boxer — FX/Feedback/Flash (PROD)
+// ✅ showHitFx(): score pop + fragments
+// ✅ showMissFx(): red flash + miss pop
+// ✅ Safe even if elements missing
+
 'use strict';
 
 (function(){
+  const WIN = window;
+  const DOC = document;
+
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function now(){ return performance.now(); }
+
+  function makeEl(tag, cls){
+    const el = DOC.createElement(tag);
+    if(cls) el.className = cls;
+    return el;
+  }
+
+  function rand(min,max){ return min + Math.random()*(max-min); }
+
   class RbDomRenderer{
-    constructor(host, opts = {}){
-      this.host = host;
-      this.wrapEl = opts.wrapEl || document.body;
+    constructor(fieldEl, opts = {}){
+      this.fieldEl = fieldEl || null;
+      this.wrapEl = opts.wrapEl || DOC.body;
       this.flashEl = opts.flashEl || null;
       this.feedbackEl = opts.feedbackEl || null;
+
+      this._fx = new Set();
+      this._frag = new Set();
+
+      // bind
+      this._cleanup = this._cleanup.bind(this);
+      this._alive = true;
+
+      // periodic cleanup (safety)
+      this._tCleanup = WIN.setInterval(this._cleanup, 2000);
     }
 
-    _screenPosFromLane(lane){
-      // เอา center ของ lane มาเป็นตำแหน่ง FX
-      const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
-      if(!laneEl){
-        const r = this.wrapEl.getBoundingClientRect();
-        return { x: r.left + r.width/2, y: r.top + r.height/2 };
-      }
-      const rect = laneEl.getBoundingClientRect();
-      const x = rect.left + rect.width/2;
-
-      // เส้นตีอยู่เหนือ label นิดหน่อย (~42px จาก bottom)
-      // (ถ้าคุณใช้เส้นตีล่างสุด “เส้นเหลือง” แล้วไปปรับ CSS ให้ hit line ต่ำมาก
-      //  ค่านี้ยังโอเคเพราะ FX โผล่แถวช่วงล่างของ lane)
-      const y = rect.top + rect.height - 42;
-
-      return { x, y };
+    destroy(){
+      this._alive = false;
+      try{ WIN.clearInterval(this._tCleanup); }catch(_){}
+      this._cleanup(true);
+      this._fx.clear();
+      this._frag.clear();
     }
 
-    _flash(kind){
-      if(!this.flashEl) return;
-      this.flashEl.classList.add('active');
-      clearTimeout(this._flashT);
-      this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
-    }
-
-    _feedback(text, cls){
+    setFeedback(text){
       if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = text;
-      this.feedbackEl.classList.remove('perfect','great','good','miss');
-      if(cls) this.feedbackEl.classList.add(cls);
+      this.feedbackEl.textContent = text || '';
+    }
+
+    flash(kind){
+      // kind: 'miss' | 'danger' | 'ok'
+      if(!this.flashEl) return;
+
+      this.flashEl.classList.remove('active');
+      // small delay to re-trigger transition
+      requestAnimationFrame(()=>{
+        if(!this._alive) return;
+        this.flashEl.classList.add('active');
+        WIN.setTimeout(()=>{
+          if(!this._alive) return;
+          this.flashEl.classList.remove('active');
+        }, 120);
+      });
     }
 
     showHitFx({ lane, judgment, scoreDelta }){
-      const p = this._screenPosFromLane(lane);
-      this.spawnHitParticle(p.x, p.y, judgment);
-      this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this._feedback(String(judgment||'good').toUpperCase(), judgment);
+      // feedback text
+      const j = (judgment||'good').toLowerCase();
+      if(j==='perfect') this.setFeedback('PERFECT!');
+      else if(j==='great') this.setFeedback('GREAT!');
+      else this.setFeedback('GOOD');
+
+      // pop score at hitline position (approx)
+      this._spawnScorePop(j, scoreDelta);
+
+      // fragments burst
+      this._spawnFragments(j, 10 + (j==='perfect'? 6 : j==='great'? 4 : 2));
     }
 
     showMissFx({ lane }){
-      const p = this._screenPosFromLane(lane);
-      this.spawnMissParticle(p.x, p.y);
-      this._flash('miss');
-      this._feedback('MISS', 'miss');
+      this.setFeedback('MISS');
+      this.flash('miss');
+      this._spawnScorePop('miss', -5);
+      this._spawnFragments('miss', 12);
     }
 
-    spawnScoreText(x, y, scoreDelta, judgment){
-      if(!Number.isFinite(scoreDelta)) return;
-      const el = document.createElement('div');
-      el.className = `rb-score-fx rb-score-${judgment||'good'}`;
-      el.textContent = `${scoreDelta>0?'+':''}${scoreDelta}`;
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
-      document.body.appendChild(el);
-      void el.offsetWidth;
-      el.classList.add('is-live');
-      setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 420);
+    _spawnScorePop(judgment, scoreDelta){
+      const fx = makeEl('div', 'rb-score-fx');
+      fx.classList.add('rb-score-' + judgment);
+
+      const sign = (scoreDelta>=0) ? '+' : '';
+      fx.textContent = `${judgment.toUpperCase()} ${sign}${scoreDelta}`;
+
+      // position: center of field near bottom hitline
+      const pos = this._getHitlineAnchor();
+      fx.style.left = pos.x + 'px';
+      fx.style.top  = pos.y + 'px';
+
+      DOC.body.appendChild(fx);
+      this._fx.add(fx);
+
+      // animate
+      requestAnimationFrame(()=>{
+        fx.classList.add('is-live');
+      });
+
+      WIN.setTimeout(()=>{
+        fx.remove();
+        this._fx.delete(fx);
+      }, 520);
     }
 
-    spawnHitParticle(x, y, judgment){
-      const n = 10;
+    _spawnFragments(judgment, n){
+      const pos = this._getHitlineAnchor();
       for(let i=0;i<n;i++){
-        const el = document.createElement('div');
-        el.className = `rb-frag rb-frag-${judgment||'good'}`;
-        const size = 6 + Math.random()*6;
-        const ang = (i/n) * Math.PI*2;
-        const dist = 26 + Math.random()*34;
-        const dx = Math.cos(ang)*dist;
-        const dy = Math.sin(ang)*dist;
-        const life = 420 + Math.random()*180;
-        el.style.width = size+'px';
-        el.style.height = size+'px';
-        el.style.left = x+'px';
-        el.style.top  = y+'px';
-        el.style.setProperty('--dx', dx+'px');
-        el.style.setProperty('--dy', dy+'px');
-        el.style.setProperty('--life', life+'ms');
-        document.body.appendChild(el);
-        setTimeout(()=>el.remove(), life);
+        const f = makeEl('div', 'rb-frag');
+        f.classList.add('rb-frag-' + judgment);
+
+        const size = rand(5, 10);
+        f.style.width = size + 'px';
+        f.style.height = size + 'px';
+
+        const dx = rand(-120, 120);
+        const dy = rand(-120, 60);
+        const life = rand(420, 720);
+
+        f.style.setProperty('--dx', dx.toFixed(0) + 'px');
+        f.style.setProperty('--dy', dy.toFixed(0) + 'px');
+        f.style.setProperty('--life', life.toFixed(0) + 'ms');
+
+        f.style.left = pos.x + 'px';
+        f.style.top  = pos.y + 'px';
+
+        DOC.body.appendChild(f);
+        this._frag.add(f);
+
+        WIN.setTimeout(()=>{
+          f.remove();
+          this._frag.delete(f);
+        }, life + 40);
       }
     }
 
-    spawnMissParticle(x, y){
-      const el = document.createElement('div');
-      el.className = 'rb-frag rb-frag-miss';
-      const size = 14;
-      const life = 460;
-      el.style.width = size+'px';
-      el.style.height = size+'px';
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-      el.style.setProperty('--dx', '0px');
-      el.style.setProperty('--dy', '28px');
-      el.style.setProperty('--life', life+'ms');
-      document.body.appendChild(el);
-      setTimeout(()=>el.remove(), life);
+    _getHitlineAnchor(){
+      // anchor at the “gold hitline” in center lane if possible
+      // fallback: bottom-center of field
+      try{
+        if(this.fieldEl){
+          const lanes = this.fieldEl.querySelectorAll('.rb-lane');
+          if(lanes && lanes.length){
+            const mid = Math.floor(lanes.length/2);
+            const r = lanes[mid].getBoundingClientRect();
+
+            const root = getComputedStyle(document.documentElement);
+            const hitY = parseFloat(root.getPropertyValue('--rb-hitline-y')) || 72;
+
+            return {
+              x: r.left + r.width/2,
+              y: r.bottom - hitY
+            };
+          }
+          const fr = this.fieldEl.getBoundingClientRect();
+          return { x: fr.left + fr.width/2, y: fr.bottom - 90 };
+        }
+      }catch(_){}
+      return { x: window.innerWidth/2, y: window.innerHeight*0.75 };
+    }
+
+    _cleanup(force){
+      if(force){
+        for(const el of this._fx){ try{ el.remove(); }catch(_){} }
+        for(const el of this._frag){ try{ el.remove(); }catch(_){} }
+        this._fx.clear();
+        this._frag.clear();
+        return;
+      }
+
+      // remove detached
+      for(const el of Array.from(this._fx)){
+        if(!el || !el.isConnected){ this._fx.delete(el); }
+      }
+      for(const el of Array.from(this._frag)){
+        if(!el || !el.isConnected){ this._frag.delete(el); }
+      }
     }
   }
 
-  window.RbDomRenderer = RbDomRenderer;
+  WIN.RbDomRenderer = RbDomRenderer;
+
 })();
