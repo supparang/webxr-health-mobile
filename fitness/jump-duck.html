@@ -1,9 +1,3 @@
-<!-- === /fitness/jump-duck.html ===
-Jump-Duck — VR Fitness Academy (HHA Standard)
-✅ Works with: /fitness/css/jump-duck.css (v20260215a)
-✅ Engine: /fitness/js/jump-duck.js (v20260215a)
-✅ Boss in ALL modes (training/test/research)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -12,6 +6,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
   <title>Jump-Duck — VR Fitness Academy</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
+
   <link rel="stylesheet" href="css/jump-duck.css"/>
 </head>
 <body>
@@ -29,7 +24,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
           </header>
 
           <div class="jd-menu-grid">
-            <!-- ซ้าย -->
             <div class="jd-menu-block">
               <div class="jd-field-row">
                 <label for="jd-mode">โหมดการเล่น</label>
@@ -38,7 +32,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
                   <option value="test">ทดสอบ (Test) — ใช้วัดสมรรถภาพ</option>
                   <option value="research">วิจัย (Research) — เก็บข้อมูลผู้เข้าร่วม</option>
                 </select>
-                <p class="jd-hint">Training: เร่งท้ายเกม · Test/Research: คงที่ แต่ “มีบอส” เหมือนกัน</p>
+                <p class="jd-hint">✅ ตอนนี้ทุกโหมดมี “Boss + Mixed Burst + Callout” เหมือนกัน (แต่ Test/Research จะคุม jitter/ความยาวให้เทียบได้)</p>
               </div>
 
               <div class="jd-field-row">
@@ -72,7 +66,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
                   <label for="jd-note">หมายเหตุ</label>
                   <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
                 </div>
-                <p class="jd-research-hint">CSV/Log รองรับผ่าน ?log= (ตอนนี้พักได้)</p>
+                <p class="jd-research-hint">✅ ส่งขึ้น Google Sheet ผ่าน ?log= (Web App URL) ได้</p>
               </div>
 
               <div class="jd-btn-row">
@@ -81,12 +75,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
 
               <div class="jd-btn-row">
                 <button class="jd-btn jd-btn-sub" data-action="tutorial">❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที</button>
-              </div>
-
-              <!-- ✅ PACK 3: Daily Challenge -->
-              <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-sub" data-action="daily">📅 Daily Challenge</button>
-                <button class="jd-btn jd-btn-sub" data-action="share-daily">🔗 แชร์ลิงก์ Daily</button>
               </div>
 
               <div class="jd-btn-row jd-btn-row-secondary">
@@ -99,26 +87,21 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
               </div>
             </div>
 
-            <!-- ขวา -->
             <div class="jd-menu-block">
               <div class="jd-howto-block">
                 <h3 class="jd-section-title">วิธีการเล่น</h3>
                 <ul class="jd-howto-list">
                   <li>แบ่งหน้าจอเป็น 2 ส่วน: ด้านบน = Jump, ด้านล่าง = Duck</li>
-                  <li>สิ่งกีดขวางเตี้ย (Low) → <strong>Jump</strong> ข้าม 🦘</li>
-                  <li>สิ่งกีดขวางสูง (High) → <strong>Duck</strong> ก้มหลบ 🛡️</li>
-                  <li>เล่นบนคีย์บอร์ด: ⬆/⬇ หรือ W/S</li>
+                  <li>สิ่งกีดขวางเตี้ย (Low) → <strong>Jump</strong> 🦘</li>
+                  <li>สิ่งกีดขวางสูง (High) → <strong>Duck</strong> 🛡️</li>
                   <li>มือถือ: แตะครึ่งบน = Jump · ครึ่งล่าง = Duck</li>
+                  <li>VR/Cardboard: “ยิง/แตะกลางจอ” เพื่อสั่ง Jump/Duck</li>
                 </ul>
               </div>
 
-              <p class="jd-howto-inline">
-                โหมด VR / Cardboard: “แตะ/ยิงกลางจอ” เพื่อสั่ง Jump/Duck (ผ่าน vr-ui.js ถ้ามี WebXR)
-              </p>
-
               <div class="jd-callout">
-                <b>🔥 Boss 3 เฟส + Mixed Boss</b>
-                <div class="jd-callout-text">Phase 1 จับจังหวะ · Phase 2 เร่ง/สลับ · Phase 3 บอส (MIRROR/TRAP/CHAOS) + Shield + Burst</div>
+                <b>🔥 Boss 3 เฟส</b>
+                <div class="jd-callout-text">Phase 1 จับจังหวะ · Phase 2 เร่ง/สลับ · Phase 3 Mixed Boss + Callout 3-2-1</div>
               </div>
             </div>
           </div>
@@ -142,7 +125,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
               <div class="jd-bar-track"><div id="hud-prog-fill" class="jd-bar-fill"></div></div>
               <div id="hud-prog-text" class="jd-bar-text">0%</div>
             </div>
-
             <div class="jd-bar jd-bar-fever">
               <div class="jd-bar-label">Fever</div>
               <div class="jd-bar-track"><div id="hud-fever-fill" class="jd-bar-fill"></div></div>
@@ -164,12 +146,10 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
               <div class="jd-hud-row"><span class="jd-tag">Diff</span><span class="jd-hud-chip"><strong id="hud-diff">normal</strong></span></div>
               <div class="jd-hud-row"><span class="jd-tag">Duration</span><span class="jd-hud-chip"><strong id="hud-duration">60s</strong></span></div>
             </div>
-
             <div class="jd-hud-col jd-hud-center">
               <div class="jd-hud-row"><span class="jd-tag">Stability</span><span class="jd-hud-chip"><strong id="hud-stability">100%</strong></span></div>
               <div class="jd-hud-row"><span class="jd-tag">Time left</span><span class="jd-hud-chip"><strong id="hud-time">60.0</strong>s</span></div>
             </div>
-
             <div class="jd-hud-col jd-hud-right">
               <div class="jd-hud-row"><span class="jd-tag">Obstacles</span><span class="jd-hud-chip"><strong id="hud-obstacles">0 / 0</strong></span></div>
               <div class="jd-hud-row"><span class="jd-tag">Score</span><span class="jd-hud-chip"><strong id="hud-score">0</strong></span></div>
@@ -190,9 +170,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             <div id="jd-judge" class="jd-judge">READY</div>
           </div>
 
-          <div class="jd-howto-inline jd-howto-play">
-            แตะครึ่งบน = Jump · แตะครึ่งล่าง = Duck · ⬆/⬇ หรือ W/S ก็ได้
-          </div>
+          <div class="jd-howto-inline jd-howto-play">แตะครึ่งบน = Jump · แตะครึ่งล่าง = Duck · ⬆/⬇ หรือ W/S</div>
 
           <div class="jd-actionbar">
             <button class="jd-btn jd-btn-action jd-jump" data-action="jump">⬆ JUMP</button>
@@ -210,15 +188,14 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
       <section id="view-result" class="jd-view jd-hidden">
         <div class="jd-card">
           <h2 class="jd-section-title">📊 สรุปผล Jump-Duck</h2>
-
           <div class="jd-result-grid">
             <div class="jd-result-row"><span>Mode</span><b id="res-mode">Training</b></div>
             <div class="jd-result-row"><span>Difficulty</span><b id="res-diff">normal</b></div>
             <div class="jd-result-row"><span>Duration</span><b id="res-duration">60s</b></div>
 
-            <div class="jd-result-row"><span>Obstacles ทั้งหมด</span><b id="res-total-obs">0</b></div>
-            <div class="jd-result-row"><span>Hits รวม</span><b id="res-hits">0</b></div>
-            <div class="jd-result-row"><span>Miss รวม</span><b id="res-miss">0</b></div>
+            <div class="jd-result-row"><span>Obstacles</span><b id="res-total-obs">0</b></div>
+            <div class="jd-result-row"><span>Hits</span><b id="res-hits">0</b></div>
+            <div class="jd-result-row"><span>Miss</span><b id="res-miss">0</b></div>
 
             <div class="jd-result-row"><span>Jump ถูก</span><b id="res-jump-hit">0</b></div>
             <div class="jd-result-row"><span>Duck ถูก</span><b id="res-duck-hit">0</b></div>
@@ -232,7 +209,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             <div class="jd-result-row"><span>Rank</span><b id="res-rank">C</b></div>
           </div>
 
-          <p class="jd-note">Rank S/A ผูกเงื่อนไข “บอส” ด้วย (ต้องลด HP ให้ถึงเกณฑ์)</p>
+          <p class="jd-note">✅ ตอนจบจะส่ง sessions + events ขึ้นชีตได้ทันที ถ้าใส่ ?log= Web App URL</p>
 
           <div class="jd-btn-row">
             <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
@@ -254,6 +231,10 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
   <audio id="jd-sfx-beep"  src="audio/jd-beep.mp3"  preload="auto"></audio>
   <audio id="jd-sfx-boss"  src="audio/jd-boss.mp3"  preload="auto"></audio>
   <audio id="jd-sfx-fever" src="audio/jd-fever.mp3" preload="auto"></audio>
+
+  <!-- optional callout -->
+  <audio id="jd-sfx-tick"  src="audio/jd-tick.mp3"  preload="auto"></audio>
+  <audio id="jd-sfx-call"  src="audio/jd-call.mp3"  preload="auto"></audio>
 
   <script src="js/jump-duck.js"></script>
 </body>
