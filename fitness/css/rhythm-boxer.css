@@ -1,533 +1,669 @@
-/* === /fitness/css/rhythm-boxer.css — Rhythm Boxer UI (FULL) v-hitline-bottom === */
+/* === /fitness/css/rhythm-boxer.css ===
+Rhythm Boxer UI — PRODUCTION (PC/Mobile/cVR) + Bottom Hitline FIX
+✅ Gold hit line at bottom (true hit zone)
+✅ Notes fall to hit line (head aligns on time)
+✅ 5-lane default; works with 3-lane too
+✅ Safe-area + cVR spacing so hitline never hidden
+*/
 
 :root{
-  --bg: #070a13;
-  --panel: rgba(10,14,26,.78);
-  --panel2: rgba(14,22,44,.55);
+  --bg: #050813;
+  --panel: rgba(6,10,22,.78);
+  --panel2: rgba(10,16,36,.55);
   --stroke: rgba(148,163,184,.18);
 
   --text: #e5e7eb;
   --muted: #94a3b8;
 
   --good: #22c55e;
-  --warn: #f59e0b;
+  --warn: #fbbf24;
   --bad:  #ef4444;
 
-  --chip: rgba(2,6,23,.55);
+  --accent: #60a5fa;
+  --gold: #fbbf24;
 
-  /* 🔥 สำคัญ: ระยะจาก “ขอบล่างของ lane” ขึ้นมาเป็นเส้นตี */
-  --rb-hitline-y: 72px;
+  /* Layout */
+  --wrap-max: 1100px;
+  --radius: 18px;
 
-  /* note sizes */
-  --rb-note-w: 48px;
-  --rb-note-ico: 18px;
+  /* Field sizing */
+  --field-h: 62vh;
+  --field-min: 420px;
+  --field-max: 720px;
+
+  /* Lanes */
+  --lane-gap: 10px;
+  --lane-radius: 16px;
+
+  /* Hitline (BOTTOM) */
+  --hitline-thick: 6px;
+  --hitline-glow: 12px;
+
+  /* The true hitline Y from bottom of lane (keep small, but visible) */
+  --hitline-bottom: 56px; /* <<< สำคัญ: เส้นตีล่างจริง */
+
+  /* Note visuals */
+  --note-w: 72px;          /* head width */
+  --note-ico: 30px;        /* icon size */
+  --note-tail: 180px;      /* default tail (engine overrides via --rb-note-len) */
+  --note-tail-alpha: .92;
+
+  /* HUD spacing */
+  --hud-gap: 10px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+
+  /* cVR tweaks */
+  --cvr-hitline-bottom: 72px;
+  --cvr-field-h: 70vh;
 }
 
-/* base */
-*{ box-sizing:border-box; }
+*{ box-sizing: border-box; }
 html,body{ height:100%; }
 body{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans Thai", sans-serif;
-  background: radial-gradient(1000px 600px at 50% 10%, rgba(56,189,248,.10), transparent 60%),
-              radial-gradient(900px 500px at 15% 30%, rgba(168,85,247,.10), transparent 60%),
-              radial-gradient(900px 500px at 85% 35%, rgba(34,197,94,.08), transparent 60%),
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
+  background: radial-gradient(1200px 700px at 50% -10%, rgba(96,165,250,.18), transparent 70%),
+              radial-gradient(900px 600px at 10% 10%, rgba(251,191,36,.10), transparent 60%),
               var(--bg);
   color: var(--text);
-  overflow-x:hidden;
+  overflow-x: hidden;
 }
+
+a{ color: inherit; text-decoration: none; }
+b{ font-weight: 700; }
 
 .hidden{ display:none !important; }
 
+/* ===== Wrapper ===== */
 #rb-wrap{
-  min-height:100%;
-  padding: 16px 16px 24px;
-  max-width: 1100px;
+  max-width: var(--wrap-max);
   margin: 0 auto;
+  padding: calc(14px + var(--safe-top)) 14px calc(14px + var(--safe-bot));
 }
 
-/* flash overlay */
+/* Flash overlay (FX) */
 #rb-flash{
   position: fixed;
   inset: 0;
-  pointer-events:none;
-  background: rgba(239,68,68,.18);
+  background: rgba(255,255,255,.08);
   opacity: 0;
-  transition: opacity .12s ease;
-  z-index: 999;
+  pointer-events: none;
+  z-index: 99;
+  transition: opacity .18s ease;
 }
-#rb-flash.active{ opacity:1; }
+#rb-flash.on{ opacity: 1; }
 
-/* views */
+/* ===== Views ===== */
 .rb-view{ width:100%; }
 
-/* header */
+/* ===== Header ===== */
 .rb-header{
   display:flex;
   align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-  padding: 8px 4px 14px;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
 }
-.rb-head-main{ max-width: 780px; }
+.rb-head-main{ flex:1; }
 .rb-pill{
   display:inline-flex;
   align-items:center;
   gap:8px;
   padding: 6px 10px;
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.35);
   border-radius: 999px;
+  background: rgba(96,165,250,.14);
+  border: 1px solid rgba(96,165,250,.18);
+  color: var(--text);
   font-size: 12px;
-  color: var(--muted);
+  letter-spacing: .2px;
 }
 .rb-title{
   margin: 10px 0 6px;
   font-size: 34px;
-  letter-spacing: .2px;
+  line-height: 1.05;
 }
 .rb-sub{
   margin: 0 0 6px;
   color: var(--muted);
-  line-height: 1.5;
 }
 .rb-sub-small{
   display:inline-block;
-  margin-top: 4px;
-  color: rgba(226,232,240,.70);
+  margin-top: 6px;
+  color: rgba(251,191,36,.95);
   font-size: 12px;
 }
+
 .rb-back{
-  color: var(--text);
-  text-decoration:none;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.35);
-  padding: 8px 10px;
+  flex:0 0 auto;
+  margin-top: 6px;
+  padding: 10px 12px;
   border-radius: 12px;
+  background: rgba(148,163,184,.08);
+  border: 1px solid rgba(148,163,184,.16);
 }
 .rb-back:active{ transform: translateY(1px); }
 
-/* section + cards */
-.rb-section{ margin-top: 14px; }
+/* ===== Cards / Sections ===== */
+.rb-section{ margin-top: 10px; }
+.rb-section-title{
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--text);
+}
+.rb-section-title-sm{
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.rb-section-subtitle{
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rb-research-box{
+  background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(6,10,22,.72));
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.25);
+}
+
 .rb-grid-2{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
-@media (max-width: 880px){
+
+@media (max-width: 900px){
   .rb-grid-2{ grid-template-columns: 1fr; }
-  #rb-wrap{ padding: 14px 12px 20px; }
+  .rb-title{ font-size: 30px; }
 }
 
-.rb-research-box{
-  border: 1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.30));
-  border-radius: 18px;
-  padding: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
-}
-
-.rb-section-title{
-  margin: 0 0 10px;
-  font-size: 16px;
-}
-.rb-section-subtitle{
-  margin: 0 0 10px;
-  color: rgba(226,232,240,.70);
-  font-size: 13px;
-}
-.rb-section-title-sm{
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: rgba(226,232,240,.85);
-}
-
+/* ===== Mode toggle ===== */
 .rb-mode-toggle{
   display:flex;
-  gap:10px;
-  margin: 10px 0 6px;
+  gap: 10px;
+  margin: 10px 0 10px;
 }
 .rb-mode-btn{
   display:flex;
   align-items:center;
   gap:10px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.35);
-  border-radius: 14px;
+  width: 100%;
   padding: 10px 12px;
-  user-select:none;
-  cursor:pointer;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(148,163,184,.06);
+  cursor: pointer;
+  user-select: none;
 }
-.rb-mode-btn input{ accent-color: #60a5fa; }
-.rb-mode-btn span{ color: rgba(226,232,240,.92); font-size: 13px; }
+.rb-mode-btn input{ accent-color: var(--accent); }
+.rb-mode-btn span{ color: var(--text); font-size: 14px; }
+.rb-mode-btn:active{ transform: translateY(1px); }
+
 .rb-mode-desc{
-  margin: 8px 0 0;
-  color: rgba(226,232,240,.74);
+  margin: 10px 0 0;
+  color: var(--muted);
   font-size: 13px;
-  line-height: 1.45;
 }
 
-.rb-field{ margin-top: 10px; }
+/* ===== Fields ===== */
+.rb-field{
+  margin: 10px 0;
+}
 .rb-field label{
   display:block;
-  font-size: 12px;
-  color: rgba(226,232,240,.75);
   margin-bottom: 6px;
+  font-size: 12px;
+  color: rgba(229,231,235,.9);
 }
 .rb-field input{
   width:100%;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.42);
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(4,8,20,.72);
   color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
   outline: none;
 }
+.rb-field input::placeholder{ color: rgba(148,163,184,.7); }
 .rb-field input:focus{
-  border-color: rgba(96,165,250,.6);
-  box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+  border-color: rgba(96,165,250,.4);
+  box-shadow: 0 0 0 3px rgba(96,165,250,.12);
 }
 
 .rb-hint-inline{
   margin: 10px 0 0;
-  color: rgba(226,232,240,.65);
+  color: rgba(148,163,184,.92);
   font-size: 12px;
   line-height: 1.45;
 }
 .rb-hint-block{
   margin-top: 10px;
-  padding: 10px 12px;
-  border: 1px dashed rgba(148,163,184,.22);
+  padding: 12px;
   border-radius: 14px;
-  background: rgba(2,6,23,.22);
+  border: 1px dashed rgba(148,163,184,.18);
+  background: rgba(148,163,184,.05);
 }
 .rb-hint-title{
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: rgba(226,232,240,.82);
+  margin:0 0 8px;
+  font-size: 12px;
+  color: rgba(229,231,235,.95);
 }
 .rb-hint-list{
-  margin: 0;
+  margin:0;
   padding-left: 18px;
-  color: rgba(226,232,240,.70);
+  color: rgba(148,163,184,.92);
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-/* buttons */
+/* ===== Buttons ===== */
+.rb-btn-row{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .rb-btn{
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.40);
+  appearance:none;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.08);
   color: var(--text);
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 14px;
-  cursor:pointer;
-  user-select:none;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: .2px;
 }
 .rb-btn:active{ transform: translateY(1px); }
 .rb-btn-primary{
-  border-color: rgba(96,165,250,.55);
-  background: linear-gradient(180deg, rgba(96,165,250,.20), rgba(2,6,23,.40));
+  background: linear-gradient(180deg, rgba(96,165,250,.9), rgba(59,130,246,.65));
+  border-color: rgba(96,165,250,.35);
 }
 .rb-btn-ghost{
-  background: rgba(2,6,23,.18);
-}
-.rb-btn-row{
-  display:flex;
-  gap:10px;
-  flex-wrap: wrap;
+  background: rgba(148,163,184,.06);
 }
 .rb-btn-sm{
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 12px;
+  font-size: 13px;
+}
+
+/* ===== Play header ===== */
+.rb-play-header{
+  display:flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.rb-title-sm{
+  margin: 0;
+  font-size: 18px;
+}
+.rb-sub-sm{
+  margin: 4px 0 0;
+  color: var(--muted);
   font-size: 12px;
 }
 
-/* ===== PLAY HEADER ===== */
-.rb-play-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 10px;
-  padding: 8px 4px 12px;
+/* ===== HUD ===== */
+.rb-hud{
+  margin-bottom: 12px;
 }
-.rb-title-sm{ margin:0; font-size: 18px; }
-.rb-sub-sm{ margin: 3px 0 0; color: rgba(226,232,240,.65); font-size: 12px; }
-
-/* HUD */
-.rb-hud{ margin-top: 10px; }
 .rb-hud-row{
   display:flex;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: var(--hud-gap);
   margin-bottom: 10px;
 }
 .rb-chip{
   display:inline-flex;
   align-items:center;
-  gap:6px;
+  gap: 6px;
   padding: 8px 10px;
-  border: 1px solid var(--stroke);
-  background: var(--chip);
   border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(148,163,184,.06);
   font-size: 12px;
-  color: rgba(226,232,240,.80);
+  color: rgba(229,231,235,.95);
 }
-.rb-chip b{ color: rgba(226,232,240,.98); font-weight: 700; }
-
 .rb-chip-ai{
-  border-color: rgba(168,85,247,.35);
-  background: rgba(168,85,247,.10);
+  border-color: rgba(96,165,250,.20);
+  background: rgba(96,165,250,.10);
 }
 .rb-chip-tip{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.10);
+  width: 100%;
+  border-style: dashed;
 }
 .rb-chip-tip-label{
-  color: rgba(226,232,240,.70);
-  margin-right: 6px;
+  color: rgba(251,191,36,.95);
+  font-weight: 800;
 }
 
 .rb-bars{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 10px;
 }
-@media (max-width: 700px){
+@media (max-width: 720px){
   .rb-bars{ grid-template-columns: 1fr; }
 }
-
-.rb-bar-block{ display:flex; flex-direction:column; gap:6px; }
+.rb-bar-block{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
 .rb-bar-label{
+  width: 52px;
   font-size: 12px;
-  color: rgba(226,232,240,.70);
+  color: rgba(229,231,235,.9);
+  font-weight: 800;
+  letter-spacing: .3px;
 }
 .rb-bar{
+  flex: 1;
   height: 12px;
   border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.08);
+  border: 1px solid rgba(148,163,184,.14);
   overflow:hidden;
 }
 .rb-bar-fill{
   height: 100%;
   width: 0%;
   border-radius: 999px;
-  transition: width .12s linear;
 }
 .rb-bar-fever{
-  background: linear-gradient(90deg, rgba(245,158,11,.85), rgba(239,68,68,.85));
+  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(245,158,11,.85));
+  box-shadow: 0 0 18px rgba(251,191,36,.25);
 }
 .rb-bar-progress{
-  background: linear-gradient(90deg, rgba(96,165,250,.85), rgba(34,197,94,.75));
+  background: linear-gradient(90deg, rgba(96,165,250,.90), rgba(59,130,246,.70));
+  box-shadow: 0 0 18px rgba(96,165,250,.20);
 }
 .rb-bar-status{
+  width: 54px;
+  text-align: right;
   font-size: 12px;
-  color: rgba(226,232,240,.75);
+  color: rgba(148,163,184,.95);
+  font-weight: 800;
 }
 
-/* ===== FIELD + LANES ===== */
-.rb-field-wrap{ margin-top: 14px; }
+/* ===== Field area ===== */
+.rb-field-wrap{
+  background: linear-gradient(180deg, rgba(6,10,22,.55), rgba(4,8,18,.82));
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.25);
+}
+
 #rb-field{
   position: relative;
-  border: 1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.55));
-  border-radius: 18px;
-  overflow:hidden;
-  min-height: 420px;
+  height: min(max(var(--field-min), var(--field-h)), var(--field-max));
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    radial-gradient(800px 360px at 50% 0%, rgba(96,165,250,.10), transparent 65%),
+    radial-gradient(700px 420px at 50% 100%, rgba(251,191,36,.06), transparent 65%),
+    rgba(2,4,10,.72);
+  border: 1px solid rgba(148,163,184,.12);
 }
 
+/* feedback banner */
 .rb-feedback{
   position:absolute;
-  top: 12px;
   left: 12px;
-  z-index: 50;
-  padding: 8px 12px;
+  top: 12px;
+  padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.55);
-  color: rgba(226,232,240,.88);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(6,10,22,.72);
+  color: rgba(229,231,235,.95);
+  font-weight: 800;
   font-size: 13px;
-  backdrop-filter: blur(6px);
+  z-index: 5;
+  backdrop-filter: blur(8px);
 }
 
+/* lanes container */
 .rb-lanes{
-  display:grid;
+  position: absolute;
+  inset: 0;
+  display: grid;
   grid-template-columns: repeat(5, 1fr);
-  height: 420px;
+  gap: var(--lane-gap);
+  padding: 12px;
 }
 
+/* If you use 3 lanes (HTML has only 3 .rb-lane), grid will auto fit visually */
 .rb-lane{
   position: relative;
+  border-radius: var(--lane-radius);
+  border: 1px solid rgba(148,163,184,.14);
+  background: linear-gradient(180deg, rgba(148,163,184,.05), rgba(148,163,184,.02));
   overflow: hidden;
-  border-left: 1px solid rgba(148,163,184,.12);
-}
-.rb-lane:first-child{ border-left: none; }
 
-.rb-lane::before{
-  /* เส้นตี “ทอง” ด้านล่างของ lane */
-  content:'';
-  position:absolute;
-  left: 10%;
-  right: 10%;
-  height: 3px;
-  bottom: var(--rb-hitline-y);
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(245,158,11,.85), rgba(250,204,21,.85));
-  box-shadow: 0 0 14px rgba(250,204,21,.18);
-  z-index: 5;
+  /* IMPORTANT: leave space at bottom for hitline + label */
+  padding-bottom: calc(var(--hitline-bottom) + 14px);
 }
 
+/* lane label at bottom */
 .rb-lane-label{
-  position:absolute;
+  position: absolute;
   left: 50%;
+  bottom: 10px;
   transform: translateX(-50%);
-  bottom: 14px;
-  z-index: 6;
+  font-weight: 900;
   font-size: 12px;
+  color: rgba(229,231,235,.88);
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.45);
-  color: rgba(226,232,240,.82);
+  background: rgba(6,10,22,.55);
+  border: 1px solid rgba(148,163,184,.14);
+  z-index: 3;
+  pointer-events: none;
 }
 
-.rb-howto-inline{
-  margin: 10px 2px 0;
-  color: rgba(226,232,240,.65);
-  font-size: 12px;
-}
-
-/* ===== NOTE ===== */
-.rb-note{
+/* ===== HIT LINE (Gold) =====
+We render it at bottom, above the lane label, and the note head should align here.
+*/
+.rb-lane::after{
+  content:"";
   position:absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -120px);
-  width: var(--rb-note-w);
-  height: var(--rb-note-w);
-  border-radius: 16px;
-  border: 1px solid rgba(96,165,250,.40);
-  background: linear-gradient(180deg, rgba(96,165,250,.20), rgba(2,6,23,.55));
-  box-shadow: 0 12px 26px rgba(0,0,0,.22);
-  z-index: 10;
-  pointer-events:none;
+  left: 10px;
+  right: 10px;
+
+  /* <<< สำคัญ: bottom = hitline-bottom */
+  bottom: var(--hitline-bottom);
+
+  height: var(--hitline-thick);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(245,158,11,.85));
+  box-shadow:
+    0 0 var(--hitline-glow) rgba(251,191,36,.35),
+    0 0 calc(var(--hitline-glow) * 1.8) rgba(245,158,11,.15);
+  z-index: 2;
+  pointer-events: none;
 }
 
-.rb-note::after{
-  /* tail ยาวลงด้านล่าง */
-  content:'';
+/* subtle guide glow area above hitline */
+.rb-lane::before{
+  content:"";
+  position:absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--hitline-bottom) + 2px);
+  height: 120px;
+  background: linear-gradient(180deg, transparent, rgba(251,191,36,.06));
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ===== Notes =====
+Engine positions each note by translate(-50%, y) where y=0 is at hitline.
+We anchor note at bottom: hitline-bottom so y=0 means head sits on hitline.
+*/
+.rb-note{
+  position: absolute;
+  left: 50%;
+
+  /* <<< anchor at hitline */
+  bottom: var(--hitline-bottom);
+
+  transform: translate(-50%, -9999px);
+  width: var(--note-w);
+  height: var(--note-w);
+  border-radius: 999px;
+  border: 1px solid rgba(251,191,36,.35);
+  background:
+    radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.18), transparent 60%),
+    linear-gradient(180deg, rgba(251,191,36,.92), rgba(245,158,11,.70));
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.28),
+    0 0 18px rgba(251,191,36,.18);
+  z-index: 4;
+  pointer-events: none; /* important: taps hit lane, not note element */
+  opacity: 1;
+}
+
+/* tail / trail (extends upward) */
+.rb-note::before{
+  content:"";
   position:absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: 100%;
-  width: 10px;
-  height: var(--rb-note-len, 180px);
+  bottom: calc(100% - 10px);
+
+  width: 12px;
+  height: var(--rb-note-len, var(--note-tail));
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(96,165,250,.55), rgba(96,165,250,0));
-  filter: drop-shadow(0 8px 12px rgba(96,165,250,.12));
+  background: linear-gradient(
+    180deg,
+    rgba(251,191,36,.00),
+    rgba(251,191,36,var(--note-tail-alpha))
+  );
+  filter: blur(.2px);
+  opacity: .95;
 }
 
+/* icon */
 .rb-note-ico{
-  width: 100%;
-  height: 100%;
+  position:absolute;
+  inset: 0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: var(--rb-note-ico);
-  color: rgba(226,232,240,.90);
-  text-shadow: 0 8px 20px rgba(0,0,0,.35);
+  font-size: var(--note-ico);
+  line-height: 1;
+  text-shadow: 0 6px 16px rgba(0,0,0,.35);
 }
 
-/* ===== RESULT ===== */
+/* ===== Inline howto ===== */
+.rb-howto-inline{
+  margin: 10px 2px 0;
+  color: rgba(148,163,184,.95);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ===== Result view ===== */
 .rb-result-grid{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
-@media (max-width: 880px){
+@media (max-width: 900px){
   .rb-result-grid{ grid-template-columns: 1fr; }
 }
-
 .rb-result-card{
+  background: linear-gradient(180deg, rgba(10,16,36,.55), rgba(6,10,22,.72));
   border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.35);
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 14px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
 .rb-result-title{
   margin: 0 0 10px;
   font-size: 14px;
-  color: rgba(226,232,240,.88);
 }
 .rb-result-row{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
+  justify-content: space-between;
+  gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px dashed rgba(148,163,184,.14);
-  gap: 12px;
+  border-bottom: 1px dashed rgba(148,163,184,.12);
+  color: rgba(229,231,235,.92);
+  font-size: 13px;
 }
-.rb-result-row:last-child{ border-bottom:none; }
-.rb-result-row span{ color: rgba(226,232,240,.70); font-size: 12px; }
-.rb-result-row b{ color: rgba(226,232,240,.96); font-size: 12px; }
-
+.rb-result-row:last-child{ border-bottom: none; }
 .rb-quality-note{
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(245,158,11,.30);
-  background: rgba(245,158,11,.10);
-  color: rgba(226,232,240,.82);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* ===== FX (dom-renderer-rhythm.js) ===== */
-.rb-score-fx{
-  position: fixed;
-  transform: translate(-50%, -50%);
+  border: 1px solid rgba(251,191,36,.22);
+  background: rgba(251,191,36,.10);
+  color: rgba(251,191,36,.95);
   font-weight: 800;
-  font-size: 14px;
-  opacity: 0;
-  pointer-events:none;
-  z-index: 1000;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
-}
-.rb-score-fx.is-live{
-  animation: rbScoreUp .42s ease forwards;
 }
 
-.rb-score-perfect{ color: rgba(250,204,21,.98); }
-.rb-score-great{   color: rgba(96,165,250,.98); }
-.rb-score-good{    color: rgba(34,197,94,.95); }
-.rb-score-miss{    color: rgba(239,68,68,.95); }
-
-@keyframes rbScoreUp{
-  0%{ opacity:0; transform: translate(-50%, -20%) scale(.95); }
-  15%{ opacity:1; }
-  100%{ opacity:0; transform: translate(-50%, -110%) scale(1.05); }
-}
-
-.rb-frag{
-  position: fixed;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  opacity: .95;
-  pointer-events:none;
-  z-index: 999;
-  animation: rbFrag var(--life, 520ms) ease-out forwards;
-}
-.rb-frag-perfect{ background: rgba(250,204,21,.95); }
-.rb-frag-great{   background: rgba(96,165,250,.95); }
-.rb-frag-good{    background: rgba(34,197,94,.95); }
-.rb-frag-miss{    background: rgba(239,68,68,.95); }
-
-@keyframes rbFrag{
-  0%{ transform: translate(-50%, -50%) scale(1); opacity: .95; }
-  100%{
-    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(.2);
-    opacity: 0;
+/* ===== Responsive / Mobile ===== */
+@media (max-width: 560px){
+  :root{
+    --lane-gap: 8px;
+    --note-w: 64px;
+    --note-ico: 28px;
+    --hitline-bottom: 54px;
   }
+  .rb-title{ font-size: 28px; }
+  .rb-research-box{ padding: 12px; }
+  #rb-field{ border-radius: 16px; }
+  .rb-lanes{ padding: 10px; }
+}
+
+/* ===== cVR (Cardboard / crosshair) =====
+We give more bottom space and slightly higher hitline for comfort and visibility.
+*/
+body[data-view="cvr"]{
+  /* ensure HUD/buttons do not block hitline */
+  padding-bottom: calc(var(--safe-bot) + 6px);
+}
+body[data-view="cvr"] #rb-wrap{
+  max-width: 980px;
+}
+body[data-view="cvr"] #rb-field{
+  height: min(max(var(--field-min), var(--cvr-field-h)), var(--field-max));
+}
+body[data-view="cvr"] .rb-lane{
+  padding-bottom: calc(var(--cvr-hitline-bottom) + 18px);
+}
+body[data-view="cvr"] .rb-lane::after{
+  bottom: var(--cvr-hitline-bottom);
+  height: 7px;
+  box-shadow:
+    0 0 14px rgba(251,191,36,.40),
+    0 0 24px rgba(245,158,11,.18);
+}
+body[data-view="cvr"] .rb-lane::before{
+  bottom: calc(var(--cvr-hitline-bottom) + 2px);
+  height: 140px;
+}
+body[data-view="cvr"] .rb-note{
+  bottom: var(--cvr-hitline-bottom);
+}
+
+/* Optional: make lanes larger touch area (still pointerdown hits lane) */
+body[data-view="cvr"] .rb-lane{
+  border-color: rgba(96,165,250,.14);
+  background: linear-gradient(180deg, rgba(96,165,250,.06), rgba(148,163,184,.02));
+}
+
+/* ===== Accessibility ===== */
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; animation: none !important; }
 }
