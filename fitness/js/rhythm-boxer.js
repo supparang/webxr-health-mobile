@@ -1,4 +1,4 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) — PATCH LATEST ===
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
 'use strict';
 
 (function () {
@@ -107,11 +107,10 @@
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      if (modeDescEl) modeDescEl.textContent =
+      modeDescEl.textContent =
         'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-      if (researchBox) researchBox.classList.add('hidden');
+      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -122,11 +121,10 @@
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
 
     } else {
-      if (modeDescEl) modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI แสดง prediction ได้ แต่ล็อกไม่ให้ปรับเกม)';
-      if (trackModeLbl) trackModeLbl.textContent =
-        'โหมด Research — เพลงวิจัย Research Track 120';
-      if (researchBox) researchBox.classList.remove('hidden');
+      modeDescEl.textContent =
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
         const m = lbl.getAttribute('data-mode') || 'normal';
@@ -139,13 +137,13 @@
   }
 
   function switchView(name) {
-    if (viewMenu)   viewMenu.classList.add('hidden');
-    if (viewPlay)   viewPlay.classList.add('hidden');
-    if (viewResult) viewResult.classList.add('hidden');
+    viewMenu.classList.add('hidden');
+    viewPlay.classList.add('hidden');
+    viewResult.classList.add('hidden');
 
-    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    else if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
+    if (name === 'menu') viewMenu.classList.remove('hidden');
+    else if (name === 'play') viewPlay.classList.remove('hidden');
+    else if (name === 'result') viewResult.classList.remove('hidden');
   }
 
   function createEngine() {
@@ -173,7 +171,7 @@
     const trackKey = getSelectedTrackKey();
     const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    if (wrap) wrap.dataset.diff = cfg.diff;
+    wrap.dataset.diff = cfg.diff;
 
     if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
@@ -193,30 +191,28 @@
   }
 
   function handleEngineEnd(summary) {
-    if (res.mode)      res.mode.textContent      = summary.modeLabel;
-    if (res.track)     res.track.textContent     = summary.trackName;
-    if (res.endReason) res.endReason.textContent = summary.endReason;
-    if (res.score)     res.score.textContent     = summary.finalScore;
-    if (res.maxCombo)  res.maxCombo.textContent  = summary.maxCombo;
-    if (res.hits)      res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    if (res.acc)       res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
-    if (res.duration)  res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    if (res.rank)      res.rank.textContent      = summary.rank;
+    res.mode.textContent      = summary.modeLabel;
+    res.track.textContent     = summary.trackName;
+    res.endReason.textContent = summary.endReason;
+    res.score.textContent     = summary.finalScore;
+    res.maxCombo.textContent  = summary.maxCombo;
+    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
+    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    res.rank.textContent      = summary.rank;
 
-    if (res.offsetAvg) res.offsetAvg.textContent =
-      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    if (res.offsetStd) res.offsetStd.textContent =
-      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
-    if (res.participant) res.participant.textContent = summary.participant || '-';
+    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+      ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+      ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    res.participant.textContent = summary.participant || '-';
 
-    if (res.qualityNote) {
-      if (summary.qualityNote) {
-        res.qualityNote.textContent = summary.qualityNote;
-        res.qualityNote.classList.remove('hidden');
-      } else {
-        res.qualityNote.textContent = '';
-        res.qualityNote.classList.add('hidden');
-      }
+    if (summary.qualityNote) {
+      res.qualityNote.textContent = summary.qualityNote;
+      res.qualityNote.classList.remove('hidden');
+    } else {
+      res.qualityNote.textContent = '';
+      res.qualityNote.classList.add('hidden');
     }
 
     switchView('result');
@@ -237,16 +233,16 @@
 
   // wiring
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  if (btnStart) btnStart.addEventListener('click', startGame);
-  if (btnStop)  btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  if (btnAgain) btnAgain.addEventListener('click', () => startGame());
-  if (btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
+  btnStart.addEventListener('click', startGame);
+  btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  btnAgain.addEventListener('click', () => startGame());
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
 
-  if (btnDlEvents) btnDlEvents.addEventListener('click', () => {
+  btnDlEvents.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
   });
-  if (btnDlSessions) btnDlSessions.addEventListener('click', () => {
+  btnDlSessions.addEventListener('click', () => {
     if (!engine) return;
     downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
   });
