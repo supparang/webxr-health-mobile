@@ -1,9 +1,6 @@
 // === /herohealth/hub.boot.js ===
-// Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
-// PACK v20260216b
-// ✅ badges + checkin pass-through
-// ✅ zone done today pills
-// ✅ last summary (HHA_LAST_SUMMARY) panel + clear
+// Hub controller: pass-through params, patch links, reset today, probe banner (401/403-safe)
+// PACK v20260216c (ALL-IN)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -70,7 +67,7 @@ function withCommonParams(url){
   return u.toString();
 }
 
-// patch links (updated ids)
+// patch links (ALL)
 const linkIds = [
   // zones
   'goGoodJunk','goGroups','goHydration','goPlate',
@@ -113,14 +110,8 @@ function readZoneDone(zone){
   try{
     const raw = localStorage.getItem(zoneDoneKey(zone));
     if(!raw) return null;
-    // allow boolean/string/json
     if(raw === '1' || raw === 'true' || raw === 'done') return { ok:true, raw };
-    try{
-      const j = JSON.parse(raw);
-      return { ok:true, raw, json:j };
-    }catch{
-      return { ok:true, raw };
-    }
+    try{ return { ok:true, raw, json: JSON.parse(raw) }; }catch{ return { ok:true, raw }; }
   }catch(_){
     return null;
   }
@@ -146,9 +137,7 @@ function refreshZonePills(){
 }
 
 // ===== Last summary (HHA_LAST_SUMMARY) =====
-function safeJson(raw){
-  try{ return JSON.parse(raw); }catch{ return null; }
-}
+function safeJson(raw){ try{ return JSON.parse(raw); }catch{ return null; } }
 function prettyTime(ts){
   try{
     const d = new Date(Number(ts)||Date.now());
@@ -210,22 +199,27 @@ if(btnResetToday){
   });
 }
 
-// 403-safe probe (keep current behavior)
+// ===== 401/403-safe API probe =====
 let probeLock = false;
 async function probe(){
   if(probeLock) return;
   probeLock = true;
-  setBanner({}, 'warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
+
+  setBanner({}, 'warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 401/403 จะใช้โหมดออฟไลน์)');
   const r = await probeAPI(API_ENDPOINT, { ping:true }, 3200);
+
   if(r.status === 200){
     setBanner({}, 'ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ (Hub ใช้งานเต็มรูปแบบ)');
+  }else if(r.status === 401){
+    setBanner({}, 'bad', '401 Unauthorized ⚠️', 'API ต้องมีสิทธิ์/Token • Hub ยังเข้าเกมได้ปกติ — logging ถูกปิด');
   }else if(r.status === 403){
-    setBanner({}, 'bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin แต่ Hub ยังเข้าเกมได้ปกติ — แนะนำแก้ CORS/Authorizer');
+    setBanner({}, 'bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin • Hub ยังเข้าเกมได้ปกติ — แนะนำแก้ CORS/Authorizer');
   }else if(r.status){
     setBanner({}, 'warn', `API ตอบ ${r.status}`, 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจ route/headers');
   }else{
     setBanner({}, 'bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub เข้าเกมได้ปกติ • ถ้าต้องใช้ API ให้ตรวจเครือข่าย/CORS');
   }
+
   probeLock = false;
 }
 
