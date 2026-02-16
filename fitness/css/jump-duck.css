@@ -262,12 +262,6 @@ button{ font:inherit; }
   background: rgba(2,6,23,.55);
 }
 
-.jd-feint{
-  outline: 2px solid rgba(255,79,216,.35);
-  box-shadow: 0 18px 32px rgba(0,0,0,.25), 0 0 0 8px rgba(255,79,216,.08);
-}
-.jd-reveal .jd-obs-tag{ border-color: rgba(255,79,216,.45); }
-
 .jd-judge{
   position:absolute;
   left: 50%;
@@ -292,7 +286,7 @@ button{ font:inherit; }
 .jd-tele{
   position:absolute; inset: 0;
   display:flex; align-items:center; justify-content:center;
-  pointer-events:none;   /* ✅ สำคัญ: กันบังปุ่ม/แตะ */
+  pointer-events:none;
   opacity: 0;
   transition: opacity .18s ease;
 }
@@ -324,8 +318,8 @@ button{ font:inherit; }
 .jd-btn-action.jd-jump{ border-color: rgba(34,211,238,.35); }
 .jd-btn-action.jd-duck{ border-color: rgba(245,158,11,.35); }
 
-.view-pc .jd-actionbar{ display:none; } /* PC ใช้คีย์ได้ */
-.view-vr .jd-actionbar{ display:none; } /* VR ใช้ยิง/แตะกลางจอ */
+.view-pc .jd-actionbar{ display:none; }
+.view-vr .jd-actionbar{ display:none; }
 .view-cvr .jd-actionbar{ display:flex; }
 .view-mobile .jd-actionbar{ display:flex; }
 
