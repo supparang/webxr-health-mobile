@@ -1,10 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Engine: hygiene.safe.js (export boot)
-✅ Quiz: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
-✅ Adds: Practice overlay + Pause overlay + Logging module + AI module (optional)
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a (ABC)
+✅ A: TTL + anti-overlap + watchdog + mobile throttle
+✅ B: Progress bars + Missions + Power-ups (Shield/Focus/Freeze)
+✅ C: AI hooks (DD/Coach) safe + rate-limit
+✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
 -->
 <!doctype html>
 <html lang="th">
@@ -23,17 +22,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
   <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- Optional shared AI packs (existing) -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ name fixed) -->
+  <!-- Quiz bank (✅ correct name) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
-
-  <!-- New: local logger + AI predictor (safe) -->
-  <script src="./hygiene.logger.js" defer></script>
-  <script src="./hygiene.ai.js" defer></script>
 
   <!-- Boot (module) -->
   <script type="module" src="./hygiene-vr.boot.js?v=20260216a"></script>
@@ -56,10 +51,26 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
+        <!-- ✅ Progress bars -->
+        <div class="hw-bars">
+          <div class="hw-bar">
+            <div class="hw-bar-lab">STEP PROGRESS</div>
+            <div class="hw-bar-rail"><div class="hw-bar-fill" id="barStep"></div></div>
+          </div>
+          <div class="hw-bar">
+            <div class="hw-bar-lab">LOOP / MISSION</div>
+            <div class="hw-bar-rail"><div class="hw-bar-fill cyan" id="barLoop"></div></div>
+          </div>
+        </div>
+
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
+
+          <!-- ✅ Power-ups -->
+          <div class="hw-pill power" id="pillPower">POWER —</div>
+
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
@@ -90,32 +101,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Practice Overlay -->
-    <div class="hw-overlay" id="practiceOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title">🧪 Practice (15 วินาที)</div>
-        <div class="hw-card-sub" id="practiceSub">
-          ฝึกแตะให้ถูกขั้นตอน • ไม่มีแพ้ • ไม่บันทึกเป็นผลวิจัย
-        </div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPracticeGo" type="button">▶ เริ่ม Practice</button>
-          <button class="hw-ghost" id="btnPracticeBack" type="button">↩ กลับหน้าเริ่ม</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pause Overlay -->
-    <div class="hw-overlay" id="pauseOverlay" style="display:none">
-      <div class="hw-card">
-        <div class="hw-card-title">⏸ Pause</div>
-        <div class="hw-card-sub">เกมถูกพักไว้ (หยุดเวลา/หยุดสปอว์น/ล็อกอินพุต)</div>
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnResume" type="button">▶ Resume</button>
-          <button class="hw-ghost" id="btnQuit" type="button">↩ ออกไป HUB</button>
         </div>
       </div>
     </div>
