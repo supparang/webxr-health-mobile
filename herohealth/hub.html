@@ -1,9 +1,9 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
+HeroHealth — Hub (3 Zones) — PRODUCTION (401/403-safe + Offline fallback)
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 401/403 won't break hub
 ✅ Shows offline banner + retry
-✅ Links to ROOT launchers/run pages in /herohealth (root)
+✅ Links to ROOT run pages/launchers in /herohealth (root)
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
 -->
 <!doctype html>
@@ -105,7 +105,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
         <h3>🥗 Nutrition Zone</h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
         <div class="btnrow">
-          <!-- ✅ user wants run pages: goodjunk-vr.html + hydration-vr.html -->
           <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
           <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
           <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
@@ -141,7 +140,6 @@ HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
     </div>
   </div>
 
-  <!-- ✅ split logic -->
   <script type="module" src="./hub.boot.js"></script>
 </body>
 </html>
