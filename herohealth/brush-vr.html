@@ -1,10 +1,3 @@
-<!-- === /herohealth/brush-vr.html ===
-PATCH v20260216a
-✅ EARLY error catcher (เห็นไฟล์/บรรทัดจริง ไม่ใช่ Script error.)
-✅ A-Frame crossorigin="anonymous"
-✅ Add /herohealth/vr/ai-hooks.js (AI prediction + dataset buffer -> emits brush:ai)
-✅ Keep order: fun-boost + ai-hooks + vr-ui + engine + boot
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -12,46 +5,16 @@ PATCH v20260216a
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <link rel="icon" href="../favicon.ico"/>
 
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./vr-brush/brush.css?v=20260216a"/>
+  <link rel="stylesheet" href="./brush.css?v=20260215a"/>
+
+  <!-- ✅ Required libs (FIX: load A-Frame BEFORE <a-scene>) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous" defer></script>
 </head>
+
 <body data-view="pc">
-
-  <!-- ✅ EARLY error catcher (ต้องมาก่อนโหลด lib ใด ๆ) -->
-  <script>
-  (function(){
-    const pre = document.createElement('pre');
-    pre.id='earlyErr';
-    pre.style.cssText=[
-      "position:fixed","left:12px","right:12px","top:12px","z-index:99999",
-      "padding:10px 12px","border-radius:14px",
-      "border:1px solid rgba(255,80,80,.35)",
-      "background:rgba(20,0,0,.55)","color:#ffe",
-      "white-space:pre-wrap","display:none"
-    ].join(';');
-    const mount=()=>{ try{ document.body.appendChild(pre); }catch(_){} };
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount);
-    else mount();
-
-    const show = (s)=>{ pre.textContent=s; pre.style.display='block'; };
-
-    window.addEventListener('error', (e)=>{
-      show(
-        "EARLY JS ERROR:\n"+(e.message||e)+"\n\n"+
-        (e.filename||"")+" :"+(e.lineno||"")+" :"+(e.colno||"")+"\n\n"+
-        (e.error && e.error.stack ? e.error.stack : "")
-      );
-    });
-
-    window.addEventListener('unhandledrejection', (e)=>{
-      const r = e && e.reason;
-      show("EARLY PROMISE REJECTION:\n"+(r && (r.stack||r.message) ? (r.stack||r.message) : String(r)));
-    });
-  })();
-  </script>
-
   <!-- fatal -->
   <div id="fatal" class="br-fatal br-hidden"></div>
 
@@ -153,7 +116,7 @@ PATCH v20260216a
 
         <div class="br-cardActions">
           <button id="btnStart" class="br-btn br-primary" type="button">▶ เริ่มเกม</button>
-          <a id="btnBack" class="br-btn br-ghost br-link" href="./hub.html">🏰 กลับ HUB</a>
+          <a id="btnBack" class="br-btn br-ghost br-link" href="../hub.html">🏰 กลับ HUB</a>
         </div>
       </div>
     </div>
@@ -179,7 +142,7 @@ PATCH v20260216a
 
         <div class="br-endActions">
           <button id="btnRetry" class="br-btn br-ghost" type="button">เล่นอีกครั้ง</button>
-          <a id="btnBackHub2" class="br-btn br-primary br-link" href="./hub.html">กลับ HUB</a>
+          <a id="btnBackHub2" class="br-btn br-primary br-link" href="../hub.html">กลับ HUB</a>
         </div>
       </div>
     </div>
@@ -187,21 +150,15 @@ PATCH v20260216a
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <!-- ✅ Required libs -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
-
   <!-- ✅ Optional fun boost -->
-  <script src="./vr/fun-boost.js"></script>
-  <script src="./vr/fun-boost.fx.js"></script>
-
-  <!-- ✅ AI hooks (Prediction/ML/DL data buffer -> emits brush:ai) -->
-  <script src="./vr/ai-hooks.js?v=20260216a"></script>
+  <script src="../vr/fun-boost.js"></script>
+  <script src="../vr/fun-boost.fx.js"></script>
 
   <!-- ✅ Universal VR UI -->
-  <script src="./vr/vr-ui.js?v=20260215a"></script>
+  <script src="../vr/vr-ui.js?v=20260215a"></script>
 
   <!-- ✅ Engine & Boot -->
-  <script src="./vr-brush/brush.safe.js?v=20260216a"></script>
-  <script src="./vr-brush/brush.boot.js?v=20260215a"></script>
+  <script src="./brush.safe.js?v=20260215a"></script>
+  <script src="./brush.boot.js?v=20260215a"></script>
 </body>
 </html>
