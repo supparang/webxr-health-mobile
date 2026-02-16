@@ -7,11 +7,11 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ A-Frame MUST be before any <a-scene> -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./brush.css?v=20260215a"/>
+  <link rel="stylesheet" href="./brush.css?v=20260216a"/>
+
+  <!-- ✅ IMPORTANT: A-Frame MUST load BEFORE <a-scene> appears -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
 
 <body data-view="pc">
@@ -154,11 +154,14 @@
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
 
-  <!-- ✅ Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260215a"></script>
+  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair shoot -> hha:shoot) -->
+  <script src="../vr/vr-ui.js?v=20260216a"></script>
 
-  <!-- ✅ Engine & Boot (order matters: engine first, boot last) -->
-  <script src="./brush.safe.js?v=20260215a"></script>
-  <script src="./brush.boot.js?v=20260215a"></script>
+  <!-- ✅ AI (optional but recommended) -->
+  <script src="./ai-brush.js?v=20260216a"></script>
+
+  <!-- ✅ Engine & Boot -->
+  <script src="./brush.safe.js?v=20260216a"></script>
+  <script src="./brush.boot.js?v=20260216a"></script>
 </body>
 </html>
