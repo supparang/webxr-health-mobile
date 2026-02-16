@@ -1,5 +1,5 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260216a
+// Universal VR UI — SAFE UNIVERSAL — v20260216a (PATCH: now() defined)
 // Purpose:
 //  - Provide consistent ENTER VR / EXIT / RECENTER UI for all HeroHealth games
 //  - Provide crosshair + tap-to-shoot -> dispatches window event: hha:shoot {x,y,lockPx,cooldownMs,source}
@@ -9,13 +9,6 @@
 // ✅ No deps. Never crashes if A-Frame not loaded.
 // ✅ Respects window.HHA_VRUI_CONFIG (optional):
 //    { lockPx:28, cooldownMs:90, showCrosshair:true, showButtons:true, cvrStrict:true }
-//
-// Events emitted:
-//  - hha:shoot { x,y, lockPx, cooldownMs, source:'tap'|'pointer'|'space'|'auto' }
-//
-// Tips:
-//  - In your game, listen to 'hha:shoot' OR rely on mode-factory which already listens.
-//  - For cVR: use ?view=cvr and let this module shoot from crosshair center by default.
 
 (function(){
   'use strict';
@@ -25,6 +18,13 @@
 
   if(WIN.__HHA_VRUI_READY__) return;
   WIN.__HHA_VRUI_READY__ = true;
+
+  // ✅ PATCH: define now() locally (fix: now is not defined)
+  function now(){
+    return (WIN.performance && typeof WIN.performance.now === 'function')
+      ? WIN.performance.now()
+      : Date.now();
+  }
 
   function qs(k, def=''){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
@@ -151,7 +151,6 @@
         DOC.body.appendChild(ui);
       }
 
-      // create buttons if empty
       if(!ui.__built){
         ui.__built = true;
         ui.innerHTML = '';
@@ -177,7 +176,6 @@
         btnExit.addEventListener('click',  ()=> exitVR(),  {passive:true});
         btnRe.addEventListener('click',    ()=> recenter(),{passive:true});
 
-        // Hide Exit by default, show when in VR
         btnExit.style.display = 'none';
       }
     }
@@ -189,12 +187,10 @@
         crosshair.id = 'hha-crosshair';
         DOC.body.appendChild(crosshair);
       }
-      // show crosshair always in cVR; in normal view show only if asked
-      crosshair.style.display = IS_CVR ? 'grid' : 'grid';
+      crosshair.style.display = 'grid';
       crosshair.style.opacity = IS_CVR ? '0.98' : '0.88';
     }
 
-    // hint badge for cVR
     let hint = DOC.getElementById('hha-vrui-hint');
     if(!hint){
       hint = DOC.createElement('div');
@@ -215,22 +211,16 @@
 
   function enterVR(){
     const s = getScene();
-    try{
-      if(s && typeof s.enterVR === 'function') s.enterVR();
-    }catch{}
+    try{ if(s && typeof s.enterVR === 'function') s.enterVR(); }catch{}
   }
 
   function exitVR(){
     const s = getScene();
-    try{
-      if(s && typeof s.exitVR === 'function') s.exitVR();
-    }catch{}
+    try{ if(s && typeof s.exitVR === 'function') s.exitVR(); }catch{}
   }
 
   function recenter(){
-    // Generic recenter event. Games can listen; A-Frame can be handled by app too.
     try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch{}
-    // If A-Frame has look-controls, try calling reset if available
     try{
       const cam = DOC.querySelector('a-camera');
       const lc = cam && cam.components && cam.components['look-controls'];
@@ -246,7 +236,6 @@
     if(exit)  exit.style.display  = inVr ? 'inline-flex' : 'none';
   }
 
-  // A-Frame emits enter-vr/exit-vr on scene
   function wireVrState(){
     const s = getScene();
     if(!s || s.__hhaVrStateWired) return;
@@ -279,18 +268,13 @@
     emitShoot(innerWidth/2, innerHeight/2, source || 'tap');
   }
 
-  // Tap anywhere => shoot (best for cVR)
   function wireTapShoot(){
     if(WIN.__HHA_VRUI_TAP_WIRED__) return;
     WIN.__HHA_VRUI_TAP_WIRED__ = true;
 
-    // pointerdown (touch/mouse)
     DOC.addEventListener('pointerdown', (ev)=>{
-      // If user is clicking a button/UI, still allow; but avoid if default prevented
       if(ev.defaultPrevented) return;
 
-      // In cVR strict mode: always shoot from center (crosshair),
-      // else shoot at pointer position.
       if(IS_CVR && CFG.cvrStrict){
         centerShoot('tap');
       }else{
@@ -298,7 +282,6 @@
       }
     }, {passive:true});
 
-    // Space key shoot (PC debug)
     DOC.addEventListener('keydown', (ev)=>{
       if(ev.code === 'Space'){
         centerShoot('space');
@@ -306,25 +289,19 @@
     }, {passive:true});
   }
 
-  // Optional strict: disable pointer-events on targets so tap doesn't "accidentally" click them
   function applyCvrStrict(){
     if(!(IS_CVR && CFG.cvrStrict)) return;
-    // Lightweight: set a global attribute so game CSS can react if it wants
     try{ DOC.documentElement.dataset.view = 'cvr'; }catch{}
   }
 
-  // ---- init ----
   function init(){
     ensureUI();
     wireVrState();
     wireTapShoot();
     applyCvrStrict();
-
-    // Update if DOM changes late
     setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch{} }, 600);
   }
 
-  // Defer until DOM ready
   if(DOC.readyState === 'loading'){
     DOC.addEventListener('DOMContentLoaded', init, {once:true});
   }else{
