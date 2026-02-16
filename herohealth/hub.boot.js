@@ -1,5 +1,5 @@
 // === /herohealth/hub.boot.js ===
-// PACK v20260216f (ALL + Heatmap7 + QuestDirector Advanced: Analyze/Evaluate)
+// PACK v20260216g (ALL + Heatmap7 + QuestDirector Per-Game: Analyze/Evaluate + Deep Link)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -73,7 +73,6 @@ const linkIds = [
   'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold',
   'goBadges','goCheckin'
 ];
-
 for(const id of linkIds){
   const a = $(id);
   if(!a) continue;
@@ -119,6 +118,36 @@ function zoneDoneKey(zone, dayKey){ return `HHA_ZONE_DONE::${zone}::${dayKey}`; 
 
 // ===== Safe JSON =====
 function safeJson(raw){ try{ return JSON.parse(raw); }catch{ return null; } }
+
+// ===== Catalog (per-game link + zone) =====
+function linkHref(id, fallback){
+  const el = $(id);
+  const h = el ? el.getAttribute('href') : '';
+  return (h && h !== '#') ? h : (fallback || './');
+}
+
+const GAME_CATALOG = [
+  // Nutrition
+  { key:'goodjunk',   zone:'nutrition', title:'GoodJunkVR',    linkId:'goGoodJunk',   href:()=>linkHref('goGoodJunk','./goodjunk-vr.html') },
+  { key:'groups',     zone:'nutrition', title:'GroupsVR',      linkId:'goGroups',     href:()=>linkHref('goGroups','./groups-vr.html') },
+  { key:'hydration',  zone:'nutrition', title:'HydrationVR',   linkId:'goHydration',  href:()=>linkHref('goHydration','./hydration-vr.html') },
+  { key:'plate',      zone:'nutrition', title:'PlateVR',       linkId:'goPlate',      href:()=>linkHref('goPlate','./plate-vr.html') },
+  // Hygiene
+  { key:'handwash',   zone:'hygiene',   title:'Handwash',      linkId:'goHandwash',   href:()=>linkHref('goHandwash','./hygiene-vr.html') },
+  { key:'brush',      zone:'hygiene',   title:'Brush',         linkId:'goBrush',      href:()=>linkHref('goBrush','./brush-vr.html') },
+  { key:'maskcough',  zone:'hygiene',   title:'MaskCough',     linkId:'goMaskCough',  href:()=>linkHref('goMaskCough','./maskcough-vr.html') },
+  // Fitness
+  { key:'planner',    zone:'fitness',   title:'Fitness Planner', linkId:'goPlanner',  href:()=>linkHref('goPlanner','./fitness-planner-vr.html') },
+  { key:'shadow',     zone:'fitness',   title:'Shadow Breaker', linkId:'goShadow',    href:()=>linkHref('goShadow','../fitness/shadow-breaker.html') },
+  { key:'rhythm',     zone:'fitness',   title:'Rhythm Boxer',   linkId:'goRhythm',    href:()=>linkHref('goRhythm','../fitness/rhythm-boxer.html') },
+  { key:'jumpduck',   zone:'fitness',   title:'Jump-Duck',      linkId:'goJumpDuck',  href:()=>linkHref('goJumpDuck','./jump-duck-vr.html') },
+  { key:'balance',    zone:'fitness',   title:'Balance Hold',   linkId:'goBalanceHold', href:()=>linkHref('goBalanceHold','./balance-hold-vr.html') },
+];
+
+function catalogByKey(key){
+  key = String(key||'').toLowerCase();
+  return GAME_CATALOG.find(g=>g.key===key) || null;
+}
 
 // ===== Zone Done pills =====
 function readZoneDone(zone, dayKey){
@@ -169,12 +198,37 @@ function normalizeGameName(s){
   s = String(s||'').toLowerCase();
   return s.replace(/\s+/g,'').replace(/[-_]/g,'');
 }
-function zoneFromGame(game){
-  const g = normalizeGameName(game);
-  if(g.includes('goodjunk') || g.includes('groups') || g.includes('hydration') || g.includes('plate')) return 'nutrition';
-  if(g.includes('handwash') || g.includes('hygiene') || g.includes('brush') || g.includes('maskcough') || g.includes('germ')) return 'hygiene';
-  if(g.includes('planner') || g.includes('shadow') || g.includes('rhythm') || g.includes('jumpduck') || g.includes('balance')) return 'fitness';
+
+// map many names -> our catalog key
+function gameKeyFromName(name){
+  const g = normalizeGameName(name);
+
+  if(g.includes('goodjunk')) return 'goodjunk';
+  if(g.includes('groups')) return 'groups';
+  if(g.includes('hydration')) return 'hydration';
+  if(g.includes('plate')) return 'plate';
+
+  if(g.includes('handwash') || g.includes('hygiene')) return 'handwash';
+  if(g.includes('brush')) return 'brush';
+  if(g.includes('maskcough') || g.includes('mask') || g.includes('cough')) return 'maskcough';
+  if(g.includes('germ') || g.includes('detective')) return 'germ'; // reserved
+
+  if(g.includes('planner')) return 'planner';
+  if(g.includes('shadow')) return 'shadow';
+  if(g.includes('rhythm')) return 'rhythm';
+  if(g.includes('jumpduck') || (g.includes('jump') && g.includes('duck'))) return 'jumpduck';
+  if(g.includes('balance')) return 'balance';
+
   return '';
+}
+
+function zoneFromGameKey(k){
+  const c = catalogByKey(k);
+  return c ? c.zone : '';
+}
+function zoneFromGameName(name){
+  const k = gameKeyFromName(name);
+  return zoneFromGameKey(k);
 }
 
 function playsByZoneForDay(dayKey){
@@ -184,7 +238,7 @@ function playsByZoneForDay(dayKey){
     const ts = it?.ts || it?.endedAt || it?.timeEnd || it?.t || 0;
     if(!isSameDay(ts, dayKey)) continue;
     const game = it?.game || it?.mode || it?.name || '';
-    const zone = it?.zone || zoneFromGame(game);
+    const zone = it?.zone || zoneFromGameName(game);
     if(zone && counts[zone]!=null){ counts[zone]++; counts.total++; }
   }
 
@@ -196,7 +250,7 @@ function playsByZoneForDay(dayKey){
       const ts = j.ts || j.endedAt || j.timeEnd || 0;
       if(isSameDay(ts, dayKey)){
         const game = j.game || j.mode || j.name || '';
-        const zone = j.zone || zoneFromGame(game);
+        const zone = j.zone || zoneFromGameName(game);
         if(zone && counts[zone]!=null){
           counts[zone] = Math.max(counts[zone], 1);
           counts.total = 1;
@@ -322,15 +376,15 @@ function num(v, def=null){
 }
 function getPerfFromSummary(s){
   if(!s) return null;
-  // accept common field names
   const acc = num(s.acc ?? s.accuracy ?? s.hitRate ?? s.accPct, null);
   const score = num(s.score ?? s.points ?? s.totalScore, null);
   const miss = num(s.miss ?? s.misses ?? s.missCount, null);
   const time = num(s.time ?? s.duration ?? s.dur, null);
-  const game = String(s.game ?? s.mode ?? s.name ?? '').trim();
-  const zone = String(s.zone ?? zoneFromGame(game) ?? '').trim();
+  const name = String(s.game ?? s.mode ?? s.name ?? '').trim();
+  const gameKey = String(s.gameKey || gameKeyFromName(name) || '').trim();
+  const zone = String(s.zone ?? zoneFromGameKey(gameKey) ?? zoneFromGameName(name) ?? '').trim();
   const ts = num(s.ts ?? s.endedAt ?? s.timeEnd ?? s.t, null);
-  return { acc, score, miss, time, game, zone, ts };
+  return { acc, score, miss, time, name, gameKey, zone, ts };
 }
 
 function readLastPerf(){
@@ -342,91 +396,78 @@ function readLastPerf(){
   }catch{ return null; }
 }
 
-function dayPerfAggregate(dayKey){
-  // aggregate from history (best-effort)
+function bestPerfByGameToday(dayKey){
   const hist = readHistory();
-  let n = 0;
-  let accSum = 0;
-  let missSum = 0;
-  let scoreSum = 0;
-  let bestAcc = null, bestScore = null, bestMiss = null;
-  const byZone = { nutrition:{n:0, accSum:0, missSum:0, scoreSum:0},
-                   hygiene:{n:0, accSum:0, missSum:0, scoreSum:0},
-                   fitness:{n:0, accSum:0, missSum:0, scoreSum:0} };
+  const map = {}; // gameKey -> {bestAcc,bestScore,bestMiss,plays,last}
+  function ensure(k){
+    if(!map[k]) map[k] = { plays:0, bestAcc:null, bestScore:null, bestMiss:null, last:null };
+    return map[k];
+  }
 
   for(const it of hist){
     const ts = it?.ts || it?.endedAt || it?.timeEnd || it?.t || 0;
     if(!isSameDay(ts, dayKey)) continue;
     const p = getPerfFromSummary(it);
     if(!p) continue;
-
-    const z = p.zone || zoneFromGame(p.game);
-    const acc = p.acc; const miss = p.miss; const score = p.score;
-
-    n++;
-    if(acc!=null){ accSum += acc; bestAcc = (bestAcc==null)?acc:Math.max(bestAcc, acc); }
-    if(miss!=null){ missSum += miss; bestMiss = (bestMiss==null)?miss:Math.min(bestMiss, miss); }
-    if(score!=null){ scoreSum += score; bestScore = (bestScore==null)?score:Math.max(bestScore, score); }
-
-    if(z && byZone[z]){
-      byZone[z].n++;
-      if(acc!=null) byZone[z].accSum += acc;
-      if(miss!=null) byZone[z].missSum += miss;
-      if(score!=null) byZone[z].scoreSum += score;
-    }
+    const k = p.gameKey || gameKeyFromName(p.name) || '';
+    if(!k) continue;
+    const o = ensure(k);
+    o.plays++;
+    if(p.acc!=null) o.bestAcc = (o.bestAcc==null)?p.acc:Math.max(o.bestAcc, p.acc);
+    if(p.score!=null) o.bestScore = (o.bestScore==null)?p.score:Math.max(o.bestScore, p.score);
+    if(p.miss!=null) o.bestMiss = (o.bestMiss==null)?p.miss:Math.min(o.bestMiss, p.miss);
+    if(!o.last || (p.ts!=null && p.ts > (o.last.ts||0))) o.last = p;
   }
 
-  // fallback to last summary if it's today and we have no history entries
-  if(n === 0){
+  // fallback to last summary if today
+  if(Object.keys(map).length === 0){
     const lp = readLastPerf();
     if(lp && lp.ts!=null && isSameDay(lp.ts, dayKey)){
-      const z = lp.zone || zoneFromGame(lp.game);
-      n = 1;
-      if(lp.acc!=null){ accSum = lp.acc; bestAcc = lp.acc; }
-      if(lp.miss!=null){ missSum = lp.miss; bestMiss = lp.miss; }
-      if(lp.score!=null){ scoreSum = lp.score; bestScore = lp.score; }
-      if(z && byZone[z]){
-        byZone[z].n = 1;
-        if(lp.acc!=null) byZone[z].accSum = lp.acc;
-        if(lp.miss!=null) byZone[z].missSum = lp.miss;
-        if(lp.score!=null) byZone[z].scoreSum = lp.score;
+      const k = lp.gameKey || gameKeyFromName(lp.name) || '';
+      if(k){
+        const o = ensure(k);
+        o.plays = 1;
+        if(lp.acc!=null) o.bestAcc = lp.acc;
+        if(lp.score!=null) o.bestScore = lp.score;
+        if(lp.miss!=null) o.bestMiss = lp.miss;
+        o.last = lp;
       }
     }
   }
+  return map;
+}
 
-  const avgAcc = (n && accSum) ? (accSum / n) : null;
-  const avgMiss = (n && missSum) ? (missSum / n) : null;
-  const avgScore = (n && scoreSum) ? (scoreSum / n) : null;
+function pickWeakGame(dayKey){
+  // choose the game with lowest bestAcc (if available), else highest bestMiss, else least plays (variety)
+  const map = bestPerfByGameToday(dayKey);
+  const keys = Object.keys(map);
 
-  function avgZone(z, key){
-    const o = byZone[z];
-    if(!o || !o.n) return null;
-    if(key==='acc') return o.accSum / o.n;
-    if(key==='miss') return o.missSum / o.n;
-    if(key==='score') return o.scoreSum / o.n;
+  if(!keys.length){
+    // no data: pick deterministic default by zone rotation
     return null;
   }
 
-  // find weakest zone by avgAcc (if available), else by plays
-  const plays = playsByZoneForDay(dayKey);
-  const zones = ['nutrition','hygiene','fitness'];
-  let weakest = null;
-  let bestMetric = null;
+  const accCandidates = keys
+    .map(k=>({ k, v: map[k].bestAcc }))
+    .filter(x=>x.v!=null && Number.isFinite(x.v));
 
-  // prefer avgAcc if present
-  const accs = zones.map(z=>({ z, v: avgZone(z,'acc') })).filter(x=>x.v!=null);
-  if(accs.length){
-    accs.sort((a,b)=>a.v-b.v);
-    weakest = accs[0].z;
-    bestMetric = { type:'acc', value: accs[0].v };
-  }else{
-    // else choose least-played zone (encourage variety)
-    zones.sort((a,b)=>(plays[a]||0)-(plays[b]||0));
-    weakest = zones[0];
-    bestMetric = { type:'plays', value: plays[weakest]||0 };
+  if(accCandidates.length){
+    accCandidates.sort((a,b)=>a.v-b.v);
+    return { key: accCandidates[0].k, reason:'acc', value: accCandidates[0].v };
   }
 
-  return { n, avgAcc, avgMiss, avgScore, bestAcc, bestMiss, bestScore, weakestZone: weakest, weakestMetric: bestMetric, plays };
+  const missCandidates = keys
+    .map(k=>({ k, v: map[k].bestMiss }))
+    .filter(x=>x.v!=null && Number.isFinite(x.v));
+
+  if(missCandidates.length){
+    missCandidates.sort((a,b)=>b.v-a.v); // higher miss is worse
+    return { key: missCandidates[0].k, reason:'miss', value: missCandidates[0].v };
+  }
+
+  // fallback: least played
+  keys.sort((a,b)=>(map[a].plays||0)-(map[b].plays||0));
+  return { key: keys[0], reason:'plays', value: map[keys[0]].plays||0 };
 }
 
 // ===== Quest Director (deterministic) =====
@@ -449,14 +490,6 @@ function mulberry32(a){
 }
 function pick(rng, arr){ return arr[(rng() * arr.length) | 0]; }
 
-function zonePlayLink(zone){
-  if(zone === 'nutrition') return $('goGoodJunk')?.getAttribute('href') || './goodjunk-vr.html';
-  if(zone === 'hygiene')  return $('goHandwash')?.getAttribute('href') || './hygiene-vr.html';
-  if(zone === 'fitness')  return $('goPlanner')?.getAttribute('href') || './fitness-planner-vr.html';
-  return './';
-}
-
-// dynamic targets by diff/time
 function questTargets(){
   const d = String(P.diff||'normal');
   const t = Number(P.time)||80;
@@ -464,24 +497,16 @@ function questTargets(){
   const basePlays = (d==='easy')?1:(d==='hard'?2:1);
   const bonus = (t>=120)?1:0;
 
-  // performance thresholds
   const accTarget = (d==='easy')?70:(d==='hard'?85:80);
   const missTarget = (d==='easy')?6:(d==='hard'?3:4);
-  // score is game-dependent; we set a relative target based on recent best/avg later
 
-  return {
-    minPlaysPerZone: basePlays,
-    bonusPlaysTotal: 3 + bonus,
-    accTarget,
-    missTarget
-  };
+  return { minPlaysPerZone: basePlays, bonusPlaysTotal: 3 + bonus, accTarget, missTarget };
 }
 
 function buildTodayQuests(){
   const today = getLocalDayKey();
-  const rng = mulberry32(hash32(`HHA_QD_ADV|${today}|${P.pid}|${P.diff}|${P.time}`));
+  const rng = mulberry32(hash32(`HHA_QD_GAME|${today}|${P.pid}|${P.diff}|${P.time}`));
   const T = questTargets();
-  const agg = dayPerfAggregate(today);
 
   // Base zone quests (always safe)
   const qZone = (zone, title, desc)=>({
@@ -493,22 +518,18 @@ function buildTodayQuests(){
     target:T.minPlaysPerZone
   });
 
-  const nutritionTitles = [
-    ['🥗 Nutrition Sprint', `เล่นโซน Nutrition อย่างน้อย ${T.minPlaysPerZone} รอบวันนี้`],
+  const n = pick(rng, [
+    ['🥗 Nutrition Sprint', `เล่นโซน Nutrition ≥ ${T.minPlaysPerZone} รอบวันนี้`],
     ['🍎 Healthy Combo', `เล่น Nutrition ≥ ${T.minPlaysPerZone} รอบ (GoodJunk/Groups/Hydration/Plate)`]
-  ];
-  const hygieneTitles = [
-    ['🧼 Hygiene Hero', `เล่นโซน Hygiene อย่างน้อย ${T.minPlaysPerZone} รอบวันนี้`],
+  ]);
+  const h = pick(rng, [
+    ['🧼 Hygiene Hero', `เล่นโซน Hygiene ≥ ${T.minPlaysPerZone} รอบวันนี้`],
     ['🦠 Clean Defender', `เล่น Hygiene ≥ ${T.minPlaysPerZone} รอบ (Handwash/Brush/MaskCough)`]
-  ];
-  const fitnessTitles = [
-    ['🏃 Fitness Burst', `เล่นโซน Fitness อย่างน้อย ${T.minPlaysPerZone} รอบวันนี้`],
+  ]);
+  const f = pick(rng, [
+    ['🏃 Fitness Burst', `เล่นโซน Fitness ≥ ${T.minPlaysPerZone} รอบวันนี้`],
     ['🥊 Move Master', `เล่น Fitness ≥ ${T.minPlaysPerZone} รอบ (Planner/Shadow/Rhythm/JumpDuck/Balance)`]
-  ];
-
-  const n = pick(rng, nutritionTitles);
-  const h = pick(rng, hygieneTitles);
-  const f = pick(rng, fitnessTitles);
+  ]);
 
   const base = [
     qZone('nutrition', n[0], n[1]),
@@ -516,59 +537,67 @@ function buildTodayQuests(){
     qZone('fitness',  f[0], f[1]),
   ];
 
-  // Advanced performance quests (2 quests picked deterministically)
-  // Candidates:
-  const adv = [];
+  // Per-game quests (2 picked deterministically)
+  const map = bestPerfByGameToday(today);
+  const weak = pickWeakGame(today);
 
-  // A) Accuracy quest
-  adv.push({
-    id:'adv-acc',
-    type:'perf',
-    metric:'acc',
-    title:'🎯 Evaluate: Accuracy Challenge',
-    desc:`ทำ Accuracy ≥ ${T.accTarget}% ในเกมใดก็ได้วันนี้`,
-    targetAcc: T.accTarget
-  });
+  const perGameCandidates = [];
 
-  // B) Miss quest
-  adv.push({
-    id:'adv-miss',
-    type:'perf',
-    metric:'miss',
-    title:'🛡️ Evaluate: Clean Run',
-    desc:`ทำ Miss ≤ ${T.missTarget} ในรอบใดก็ได้วันนี้`,
-    targetMiss: T.missTarget
-  });
+  // Candidate: accuracy quest on weak game (or random game)
+  {
+    const k = weak?.key || pick(rng, GAME_CATALOG.map(x=>x.key));
+    const c = catalogByKey(k);
+    const name = c ? c.title : k;
+    perGameCandidates.push({
+      id:`g-acc-${k}`,
+      type:'game',
+      gameKey:k,
+      metric:'acc',
+      title:`🎯 Evaluate: ${name} Accuracy`,
+      desc:`ใน ${name}: ทำ Accuracy ≥ ${T.accTarget}% อย่างน้อย 1 รอบวันนี้`,
+      targetAcc:T.accTarget
+    });
+  }
 
-  // C) Score quest (relative)
-  const baseScore = (agg.bestScore!=null) ? Math.max(10, Math.round(agg.bestScore * ( (P.diff==='hard')?1.05:(P.diff==='easy'?0.9:1.0) )))
-                   : (P.diff==='hard'?120:(P.diff==='easy'?60:90));
-  adv.push({
-    id:'adv-score',
-    type:'perf',
-    metric:'score',
-    title:'🏁 Analyze: Score Push',
-    desc:`ทำ Score ≥ ${baseScore} (อิงจากสถิติวันนี้/ค่าเริ่มต้น)`,
-    targetScore: baseScore
-  });
+  // Candidate: miss quest on weak game (or random)
+  {
+    const k = weak?.key || pick(rng, GAME_CATALOG.map(x=>x.key));
+    const c = catalogByKey(k);
+    const name = c ? c.title : k;
+    perGameCandidates.push({
+      id:`g-miss-${k}`,
+      type:'game',
+      gameKey:k,
+      metric:'miss',
+      title:`🛡️ Evaluate: ${name} Clean Run`,
+      desc:`ใน ${name}: ทำ Miss ≤ ${T.missTarget} อย่างน้อย 1 รอบวันนี้`,
+      targetMiss:T.missTarget
+    });
+  }
 
-  // D) Weakest zone quest (adaptive but deterministic since derived from stored data)
-  const wz = agg.weakestZone || pick(rng, ['nutrition','hygiene','fitness']);
-  const wzTitle = (wz==='nutrition')?'🥗 Fix Weak Spot: Nutrition'
-                : (wz==='hygiene')?'🧼 Fix Weak Spot: Hygiene'
-                : '🏃 Fix Weak Spot: Fitness';
-  adv.push({
-    id:'adv-weak',
-    type:'adaptive',
-    zone:wz,
-    title:wzTitle,
-    desc:`วันนี้โซนนี้ “ยังอ่อน” — เล่นเพิ่มอีก 1 รอบเพื่อบาลานซ์`,
-    targetExtra: 1
-  });
+  // Candidate: score push on a game you already played today (else pick random)
+  {
+    const playedKeys = Object.keys(map);
+    const k = playedKeys.length ? pick(rng, playedKeys) : pick(rng, GAME_CATALOG.map(x=>x.key));
+    const c = catalogByKey(k);
+    const name = c ? c.title : k;
+    const best = map[k]?.bestScore;
+    const targetScore = (best!=null && Number.isFinite(best))
+      ? Math.max(10, Math.round(best * (P.diff==='hard'?1.06:(P.diff==='easy'?0.92:1.02))))
+      : (P.diff==='hard'?140:(P.diff==='easy'?70:100));
+    perGameCandidates.push({
+      id:`g-score-${k}`,
+      type:'game',
+      gameKey:k,
+      metric:'score',
+      title:`🏁 Analyze: ${name} Score Push`,
+      desc:`ใน ${name}: ทำ Score ≥ ${targetScore} (อิง best วันนี้/ค่าเริ่มต้น)`,
+      targetScore
+    });
+  }
 
-  // Pick 2 advanced quests (deterministic)
-  // ensure variety by shuffling via rng
-  const pool = adv.slice();
+  // Shuffle and pick 2 deterministic
+  const pool = perGameCandidates.slice();
   for(let i=pool.length-1;i>0;i--){
     const j = (rng() * (i+1)) | 0;
     const tmp = pool[i]; pool[i]=pool[j]; pool[j]=tmp;
@@ -586,7 +615,6 @@ function buildTodayQuests(){
 
   const quests = [...base, ...picked, bonus];
 
-  // persist for the day (stable)
   try{
     localStorage.setItem(`HHA_DAILY_QUESTS::${today}::${P.pid}`, JSON.stringify(quests));
   }catch{}
@@ -604,40 +632,14 @@ function loadTodayQuests(){
   return buildTodayQuests();
 }
 
-function bestPerfToday(dayKey){
-  // scan history for the best (max acc/score, min miss) and last run
-  const hist = readHistory();
-  let bestAcc = null, bestScore = null, bestMiss = null;
-  let last = null;
-
-  for(const it of hist){
-    const ts = it?.ts || it?.endedAt || it?.timeEnd || it?.t || 0;
-    if(!isSameDay(ts, dayKey)) continue;
-    const p = getPerfFromSummary(it);
-    if(!p) continue;
-    if(p.acc!=null) bestAcc = (bestAcc==null)?p.acc:Math.max(bestAcc, p.acc);
-    if(p.score!=null) bestScore = (bestScore==null)?p.score:Math.max(bestScore, p.score);
-    if(p.miss!=null) bestMiss = (bestMiss==null)?p.miss:Math.min(bestMiss, p.miss);
-    if(!last || (p.ts!=null && p.ts > (last.ts||0))) last = p;
-  }
-
-  // fallback last summary if today
-  if(!last){
-    const lp = readLastPerf();
-    if(lp && lp.ts!=null && isSameDay(lp.ts, dayKey)){
-      last = lp;
-      if(lp.acc!=null) bestAcc = lp.acc;
-      if(lp.score!=null) bestScore = lp.score;
-      if(lp.miss!=null) bestMiss = lp.miss;
-    }
-  }
-
-  return { bestAcc, bestScore, bestMiss, last };
+// ===== Quest progress =====
+function bestTodayForGame(dayKey, gameKey){
+  const map = bestPerfByGameToday(dayKey);
+  return map[gameKey] || { plays:0, bestAcc:null, bestMiss:null, bestScore:null, last:null };
 }
 
 function questProgress(quest, counts, done){
   const today = getLocalDayKey();
-  const perf = bestPerfToday(today);
 
   if(quest.type === 'zone'){
     const z = quest.zone;
@@ -646,34 +648,29 @@ function questProgress(quest, counts, done){
     return { cur, target, ok: cur >= target, hint:`${cur}/${target} plays` };
   }
 
-  if(quest.type === 'adaptive'){
-    const z = quest.zone;
-    const cur = Number(counts?.[z]||0);
-    // require: play at least (current targetPlaysPerZone + extra?) — but keep it simple: +1 from current baseline
-    const base = targetPlaysPerZone();
-    const target = Math.max(base, 1) + Number(quest.targetExtra||1) - 1;
-    return { cur, target, ok: cur >= target, hint:`${cur}/${target} plays` };
-  }
+  if(quest.type === 'game'){
+    const k = String(quest.gameKey||'');
+    const s = bestTodayForGame(today, k);
 
-  if(quest.type === 'perf'){
     if(quest.metric === 'acc'){
-      const cur = (perf.bestAcc==null) ? 0 : Math.round(perf.bestAcc);
+      const cur = (s.bestAcc==null) ? 0 : Math.round(s.bestAcc);
       const target = Number(quest.targetAcc||80);
-      const ok = (perf.bestAcc!=null) && (perf.bestAcc >= target);
-      return { cur, target, ok, hint: perf.bestAcc==null ? 'no data' : `best ${cur}%` };
+      const ok = (s.bestAcc!=null) && (s.bestAcc >= target);
+      return { cur, target, ok, hint: s.bestAcc==null ? 'no data' : `bestAcc ${cur}% • plays ${s.plays||0}` };
     }
     if(quest.metric === 'miss'){
-      const cur = (perf.bestMiss==null) ? 999 : Math.round(perf.bestMiss);
+      const cur = (s.bestMiss==null) ? 0 : Math.round(s.bestMiss);
       const target = Number(quest.targetMiss||4);
-      const ok = (perf.bestMiss!=null) && (perf.bestMiss <= target);
-      return { cur: (cur===999?0:cur), target, ok, hint: perf.bestMiss==null ? 'no data' : `best ${cur}` };
+      const ok = (s.bestMiss!=null) && (s.bestMiss <= target);
+      return { cur: (s.bestMiss==null?0:cur), target, ok, hint: s.bestMiss==null ? 'no data' : `bestMiss ${cur} • plays ${s.plays||0}` };
     }
     if(quest.metric === 'score'){
-      const cur = (perf.bestScore==null) ? 0 : Math.round(perf.bestScore);
-      const target = Number(quest.targetScore||90);
-      const ok = (perf.bestScore!=null) && (perf.bestScore >= target);
-      return { cur, target, ok, hint: perf.bestScore==null ? 'no data' : `best ${cur}` };
+      const cur = (s.bestScore==null) ? 0 : Math.round(s.bestScore);
+      const target = Number(quest.targetScore||100);
+      const ok = (s.bestScore!=null) && (s.bestScore >= target);
+      return { cur, target, ok, hint: s.bestScore==null ? 'no data' : `bestScore ${cur} • plays ${s.plays||0}` };
     }
+    return { cur:0, target:1, ok:false, hint:'no metric' };
   }
 
   if(quest.type === 'bonus'){
@@ -707,6 +704,19 @@ function renderQuests(){
     const statusCls = pr.ok ? 'qstatus ok' : 'qstatus warn';
     const statusTxt = pr.ok ? 'DONE ✅' : `${pr.cur}/${pr.target}`;
 
+    let playLabel = 'ไปทำเลย';
+    let playData = 'any';
+    if(q.type === 'zone'){
+      playData = q.zone || 'any';
+      playLabel = pr.ok ? 'ดูโซน' : 'ไปทำเลย';
+    }else if(q.type === 'game'){
+      playData = `game:${q.gameKey || ''}`;
+      playLabel = pr.ok ? 'ไปเกมนี้' : 'ไปเกมนี้';
+    }else if(q.type === 'bonus'){
+      playData = 'any';
+      playLabel = pr.ok ? 'สุ่มเล่น' : 'สุ่มเล่น';
+    }
+
     const card = document.createElement('div');
     card.className = 'qcard';
 
@@ -720,24 +730,38 @@ function renderQuests(){
         <div class="${statusCls}">${statusTxt}</div>
       </div>
       <div class="qactions">
-        <a class="btn ${pr.ok ? 'ghost' : 'primary'}" href="#" data-qplay="${q.zone || (q.type==='bonus'?'any':'any')}">${pr.ok ? 'ดูโซน' : 'ไปทำเลย'}</a>
+        <a class="btn ${pr.ok ? 'ghost' : 'primary'}" href="#" data-qgo="${playData}">${playLabel}</a>
         <a class="btn ghost" href="#" data-qreshow="1">รีเฟรช</a>
       </div>
     `;
 
-    card.querySelectorAll('[data-qplay]').forEach(btn=>{
+    // wire GO
+    card.querySelectorAll('[data-qgo]').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
-        const zone = btn.getAttribute('data-qplay') || 'any';
-        if(zone === 'any'){
+        const token = btn.getAttribute('data-qgo') || 'any';
+
+        if(token.startsWith('game:')){
+          const k = token.slice(5);
+          const c = catalogByKey(k);
+          if(!c){ toast('ไม่พบลิงก์เกมนี้ 😅'); return; }
+          location.href = withCommonParams(c.href());
+          return;
+        }
+
+        if(token === 'any'){
           toast('Quick Play 🎲');
           quickPlayNow();
           return;
         }
+
+        // zone
+        const zone = token;
         location.href = withCommonParams(zonePlayLink(zone));
       });
     });
 
+    // wire refresh
     card.querySelectorAll('[data-qreshow]').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
@@ -749,17 +773,22 @@ function renderQuests(){
     grid.appendChild(card);
   }
 
-  // meta: show some perf info
-  const perf = bestPerfToday(today);
-  const perfTxt = [
-    (perf.bestAcc!=null ? `bestAcc ${Math.round(perf.bestAcc)}%` : 'bestAcc —'),
-    (perf.bestMiss!=null ? `bestMiss ${Math.round(perf.bestMiss)}` : 'bestMiss —'),
-    (perf.bestScore!=null ? `bestScore ${Math.round(perf.bestScore)}` : 'bestScore —'),
-  ].join(' • ');
+  // meta
+  const map = bestPerfByGameToday(today);
+  const weak = pickWeakGame(today);
+  const weakName = weak ? (catalogByKey(weak.key)?.title || weak.key) : '—';
+  const weakWhy  = weak ? `${weak.reason}:${Math.round(weak.value||0)}` : 'no data';
 
   if(meta){
-    meta.textContent = `วันนี้ (${today}) • เควสสำเร็จ ${okCount}/${quests.length} • ${perfTxt}`;
+    meta.textContent = `วันนี้ (${today}) • เควสสำเร็จ ${okCount}/${quests.length} • weak=${weakName} (${weakWhy}) • playedGames=${Object.keys(map).length}`;
   }
+}
+
+function zonePlayLink(zone){
+  if(zone === 'nutrition') return linkHref('goGoodJunk','./goodjunk-vr.html');
+  if(zone === 'hygiene')  return linkHref('goHandwash','./hygiene-vr.html');
+  if(zone === 'fitness')  return linkHref('goPlanner','./fitness-planner-vr.html');
+  return './';
 }
 
 // ===== Quick Play =====
@@ -781,6 +810,7 @@ function quickPlayNow(){
   const target = links[(Math.random() * links.length) | 0];
   location.href = withCommonParams(target);
 }
+
 function wireQuickPlay(){
   const a = $('goQuickPlay');
   if(!a) return;
