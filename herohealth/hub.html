@@ -1,11 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (401/403-safe + Offline fallback)
-PACK v20260216d (ALL + QuickPlay + Progress + Streak + Daily Missions)
-✅ Badges + Check-in
-✅ Zone done today pills
-✅ Zone progress (plays today)
-✅ Daily streak + daily missions panel
+PACK v20260216e (ALL + Heatmap7 + QuestDirector)
 ✅ Quick Play (random game)
+✅ Zone done pills + Zone progress (plays today)
+✅ Daily streak + daily missions panel
+✅ Weekly heatmap 7 days (calendar-like)
+✅ Quest Director (daily quests + bonus) deterministic by day+pid
 ✅ Last summary panel (HHA_LAST_SUMMARY) + clear
 ✅ API banner probe (401/403 latch per-tab) + retry + reset today
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
@@ -111,8 +111,47 @@ PACK v20260216d (ALL + QuickPlay + Progress + Streak + Daily Missions)
     .kpi{border:1px solid var(--stroke);border-radius:14px;padding:8px 10px;background:rgba(2,6,23,.28);min-width:160px}
     .kpi .k{font-size:11px;color:rgba(229,231,235,.72);font-weight:900}
     .kpi .v{margin-top:4px;font-size:14px;font-weight:1100}
-    .list{margin-top:10px;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.45}
-    .list b{color:#fff}
+
+    /* heatmap */
+    .heatwrap{margin-top:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(2,6,23,.28);padding:10px}
+    .heathead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .heathead .t{font-size:12px;font-weight:1000;color:rgba(229,231,235,.92)}
+    .heathead .m{font-size:11px;font-weight:900;color:rgba(229,231,235,.75)}
+    .heat{margin-top:10px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+    .cell{
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      padding:10px 8px;
+      background:rgba(2,6,23,.22);
+      text-align:center;
+      user-select:none;
+    }
+    .cell .d{font-size:11px;font-weight:1000;color:rgba(229,231,235,.88)}
+    .cell .s{margin-top:6px;font-size:12px;font-weight:1100}
+    .cell.off{opacity:.55}
+    .cell.none{background:rgba(148,163,184,.08)}
+    .cell.part{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.25)}
+    .cell.full{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.28)}
+    .cell.today{box-shadow:0 0 0 2px rgba(34,211,238,.18) inset}
+
+    /* quests */
+    .qwrap{margin-top:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(2,6,23,.28);padding:10px}
+    .qgrid{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media (max-width: 560px){ .qgrid{grid-template-columns:1fr;} }
+    .qcard{
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      background:rgba(2,6,23,.22);
+      padding:10px;
+    }
+    .qtop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .qtitle{font-size:12px;font-weight:1100}
+    .qdesc{margin-top:6px;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
+    .qstatus{font-size:11px;font-weight:1000;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.25);white-space:nowrap}
+    .qstatus.ok{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .qstatus.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
+    .qstatus.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
+    .qactions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
   </style>
 </head>
 
@@ -152,7 +191,7 @@ PACK v20260216d (ALL + QuickPlay + Progress + Streak + Daily Missions)
       </div>
     </div>
 
-    <!-- Daily missions + streak -->
+    <!-- Daily missions + streak + heatmap -->
     <div class="panel" id="dailyPanel">
       <div class="panelhead">
         <div>
@@ -179,10 +218,24 @@ PACK v20260216d (ALL + QuickPlay + Progress + Streak + Daily Missions)
         </div>
       </div>
 
-      <div class="list" id="dailyList">
-        • <b>Nutrition</b>: เล่นอย่างน้อย 1 เกม<br/>
-        • <b>Hygiene</b>: เล่นอย่างน้อย 1 เกม<br/>
-        • <b>Fitness</b>: เล่นอย่างน้อย 1 เกม
+      <div class="heatwrap">
+        <div class="heathead">
+          <div class="t">Weekly Heatmap (7 days)</div>
+          <div class="m" id="heatMeta">—</div>
+        </div>
+        <div class="heat" id="heatGrid">
+          <!-- JS render 7 cells -->
+        </div>
+      </div>
+
+      <div class="qwrap">
+        <div class="heathead">
+          <div class="t">Quest Director (Today)</div>
+          <div class="m" id="qMeta">—</div>
+        </div>
+        <div class="qgrid" id="qGrid">
+          <!-- JS render quests -->
+        </div>
       </div>
     </div>
 
