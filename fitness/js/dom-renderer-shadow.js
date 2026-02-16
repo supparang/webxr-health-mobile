@@ -1,6 +1,10 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// PATCH: use CSS safe-zone vars + better HUD-safe spawn
-// (only change/insert parts below)
+// DOM renderer for Shadow Breaker targets — PATCH ABCD
+// ✅ spawn/remove targets in #sb-target-layer
+// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
+// ✅ HUD-safe spawn using CSS vars (--sb-safe-*) from wrap/root
+// ✅ targets map stores { el, type, sizePx, spawnedAt }
+// ✅ expireTarget(id) smooth fade then remove
 
 'use strict';
 
@@ -9,67 +13,57 @@ import { FxBurst } from './fx-burst.js';
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
 
-/* ✅ ADD: read CSS variable (px) safely */
-function cssPx(el, name, fallbackPx){
+function readCssPx(el, varName, fallback){
   try{
-    const v = getComputedStyle(el || document.documentElement).getPropertyValue(name).trim();
-    if(!v) return fallbackPx;
-    // supports "12px" or "12"
+    const cs = getComputedStyle(el || document.documentElement);
+    const v = (cs.getPropertyValue(varName) || '').trim();
+    if(!v) return fallback;
     const n = Number(String(v).replace('px','').trim());
-    return Number.isFinite(n) ? n : fallbackPx;
-  }catch(_){
-    return fallbackPx;
+    return Number.isFinite(n) ? n : fallback;
+  }catch{
+    return fallback;
   }
 }
 
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || null;
+    this.wrapEl = opts.wrapEl || document.documentElement;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map();
+    this.targets = new Map(); // id -> { el, type, sizePx, spawnedAt }
+
     this._onPointer = this._onPointer.bind(this);
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
 
   destroy(){
-    for (const [id, el] of this.targets.entries()) {
-      try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-      try { el.remove(); } catch {}
+    for (const [id, obj] of this.targets.entries()) {
+      const el = obj?.el;
+      try { el?.removeEventListener('pointerdown', this._onPointer); } catch {}
+      try { el?.remove(); } catch {}
     }
     this.targets.clear();
   }
 
-  /* ✅ REPLACE: _safeAreaRect() */
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // Base padding (keeps away from stage border)
-    const base = Math.min(42, Math.max(12, r.width * 0.03));
+    // ✅ read CSS vars (tuned by responsive CSS)
+    const padTop = readCssPx(this.wrapEl, '--sb-safe-top', 84);
+    const padRight = readCssPx(this.wrapEl, '--sb-safe-right', 10);
+    const padBottom = readCssPx(this.wrapEl, '--sb-safe-bottom', 140);
+    const padLeft = readCssPx(this.wrapEl, '--sb-safe-left', 10);
 
-    // Read CSS safe-zone vars (engine/css control these)
-    const topPad    = cssPx(document.documentElement, '--sb-safe-top',    18);
-    const bottomPad = cssPx(document.documentElement, '--sb-safe-bottom', 18);
-    const leftPad   = cssPx(document.documentElement, '--sb-safe-left',   12);
-    const rightPad  = cssPx(document.documentElement, '--sb-safe-right',  12);
+    const left = padLeft;
+    const top = padTop;
+    const right = r.width - padRight;
+    const bottom = r.height - padBottom;
 
-    // Combine (base + safe pads)
-    const left   = base + leftPad;
-    const top    = base + topPad;
-    const right  = r.width  - base - rightPad;
-    const bottom = r.height - base - bottomPad;
-
-    // Safety clamp (prevent negative/invalid)
-    const L = clamp(left, 0, r.width  - 40);
-    const T = clamp(top,  0, r.height - 40);
-    const R = clamp(right,  40, r.width);
-    const B = clamp(bottom, 40, r.height);
-
-    return { r, left:L, top:T, right:R, bottom:B };
+    return { r, left, top, right, bottom };
   }
 
   _emojiForType(t, bossEmoji){
@@ -88,30 +82,36 @@ export class DomRendererShadow {
     const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
-    el.className = 'sb-target sb-target--' + (data.type || 'normal');
+    const type = (data.type || 'normal');
+    el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
+    el.dataset.type = type;
 
-    const size = clamp(Number(data.sizePx) || 120, 64, 260); // ✅ slightly wider clamp
+    const size = clamp(Number(data.sizePx) || 110, 70, 220);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // ✅ random position inside HUD-safe rect
-    const maxX = Math.max(left, right - size);
-    const maxY = Math.max(top, bottom - size);
+    // emoji scales with size
+    const emojiSize = clamp(Math.round(size * 0.36), 28, 56);
+    el.style.setProperty('--sb-emoji', emojiSize + 'px');
 
-    const x = rand(left, maxX);
-    const y = rand(top,  maxY);
-
+    // random position within safe rect
+    const x = rand(left, Math.max(left, right - size));
+    const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
-    el.style.top  = Math.round(y) + 'px';
+    el.style.top = Math.round(y) + 'px';
 
-    const emoji = this._emojiForType(data.type, data.bossEmoji);
-    el.textContent = emoji;
+    // content
+    const emoji = this._emojiForType(type, data.bossEmoji);
+    const span = document.createElement('span');
+    span.className = 'sb-emoji';
+    span.textContent = emoji;
+    el.appendChild(span);
 
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(data.id, el);
+    this.targets.set(data.id, { el, type, sizePx: size, spawnedAt: performance.now() });
   }
 
   _onPointer(e){
@@ -125,32 +125,36 @@ export class DomRendererShadow {
     }
   }
 
-  removeTarget(id, reason){
-    const el = this.targets.get(id);
+  removeTarget(id){
+    const obj = this.targets.get(id);
+    const el = obj?.el;
     if (!el) return;
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
     this.targets.delete(id);
   }
 
-  /* ✅ ADD: expire animation helper (engine calls renderer.expireTarget) */
   expireTarget(id){
-    const el = this.targets.get(id);
-    if(!el) return;
-    try{
-      el.style.transition = 'transform 140ms ease, opacity 140ms ease, filter 140ms ease';
-      el.style.opacity = '0';
-      el.style.transform = 'scale(.86)';
-      el.style.filter = 'blur(0.6px)';
-      setTimeout(()=> this.removeTarget(id,'expire'), 150);
-    }catch(_){
-      this.removeTarget(id,'expire');
-    }
+    const obj = this.targets.get(id);
+    const el = obj?.el;
+    if (!el) return;
+
+    // smooth fade
+    el.classList.add('is-expiring');
+    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
+
+    // remove after animation
+    setTimeout(() => {
+      try { el.remove(); } catch {}
+      this.targets.delete(id);
+    }, 240);
   }
 
   playHitFx(id, info = {}){
-    const el = this.targets.get(id);
+    const obj = this.targets.get(id);
+    const el = obj?.el;
     const rect = el ? el.getBoundingClientRect() : null;
+
     const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
     const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
 
@@ -165,7 +169,7 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+      FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
@@ -176,9 +180,8 @@ export class DomRendererShadow {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
     } else if (grade === 'expire') {
-      // ✅ soft miss FX (no harsh red)
-      FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 460, cls: 'sb-fx-decoy' });
-      FxBurst.popText(x, y, 'MISS', 'sb-fx-tip');
+      FxBurst.burst(x, y, { n: 7, spread: 34, ttlMs: 420, cls: 'sb-fx-expire' });
+      FxBurst.popText(x, y, 'MISS', 'sb-fx-expire');
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
