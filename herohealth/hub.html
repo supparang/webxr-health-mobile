@@ -1,8 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (401/403-safe + Offline fallback)
-PACK v20260216c (ALL-IN)
+PACK v20260216d (ALL + QuickPlay + Progress + Streak + Daily Missions)
 ✅ Badges + Check-in
 ✅ Zone done today pills
+✅ Zone progress (plays today)
+✅ Daily streak + daily missions panel
+✅ Quick Play (random game)
 ✅ Last summary panel (HHA_LAST_SUMMARY) + clear
 ✅ API banner probe (401/403 latch per-tab) + retry + reset today
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
@@ -69,6 +72,19 @@ PACK v20260216c (ALL-IN)
     .pill.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
     .pill.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
 
+    .progress{
+      margin-top:10px;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:10px;
+      background:rgba(2,6,23,.28);
+    }
+    .prow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .pname{font-size:12px;font-weight:1000;color:rgba(229,231,235,.92)}
+    .pmeta{font-size:11px;font-weight:900;color:rgba(229,231,235,.75)}
+    .bar{margin-top:8px;height:10px;border-radius:999px;background:rgba(148,163,184,.14);overflow:hidden}
+    .fill{height:100%;width:0%;background:linear-gradient(90deg, rgba(34,211,238,.45), rgba(34,197,94,.45));}
+
     .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
@@ -91,6 +107,12 @@ PACK v20260216c (ALL-IN)
     .panel h4{margin:0;font-size:13px;font-weight:1000}
     .panel .meta{margin-top:4px;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
     .panel .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .kpirow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kpi{border:1px solid var(--stroke);border-radius:14px;padding:8px 10px;background:rgba(2,6,23,.28);min-width:160px}
+    .kpi .k{font-size:11px;color:rgba(229,231,235,.72);font-weight:900}
+    .kpi .v{margin-top:4px;font-size:14px;font-weight:1100}
+    .list{margin-top:10px;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.45}
+    .list b{color:#fff}
   </style>
 </head>
 
@@ -110,6 +132,8 @@ PACK v20260216c (ALL-IN)
         <div class="chip">diff: <b id="cDiff">normal</b></div>
         <div class="chip">time: <b id="cTime">80</b>s</div>
         <div class="chip">pid: <b id="cPid">anon</b></div>
+
+        <a class="btn ghost" id="goQuickPlay" href="#">🎲 Quick Play</a>
         <a class="btn ghost" id="goBadges" href="./badges.html">🏅 Badges</a>
         <a class="btn ghost" id="goCheckin" href="./checkin.html">✅ Check-in</a>
       </div>
@@ -125,6 +149,40 @@ PACK v20260216c (ALL-IN)
       <div class="actions">
         <a class="btn warn" href="#" id="btnRetry">Retry</a>
         <a class="btn" href="#" id="btnResetToday">Reset today</a>
+      </div>
+    </div>
+
+    <!-- Daily missions + streak -->
+    <div class="panel" id="dailyPanel">
+      <div class="panelhead">
+        <div>
+          <h4>Daily Mission</h4>
+          <div class="meta" id="dailyMeta">ทำครบ 3 โซนในวันเดียว เพื่อรักษา streak 🔥</div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="#" id="btnRefreshDaily">Refresh</a>
+        </div>
+      </div>
+
+      <div class="kpirow">
+        <div class="kpi">
+          <div class="k">Streak</div>
+          <div class="v" id="kStreak">0 🔥</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Today Completed</div>
+          <div class="v" id="kTodayDone">0 / 3</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Plays Today</div>
+          <div class="v" id="kPlaysToday">0</div>
+        </div>
+      </div>
+
+      <div class="list" id="dailyList">
+        • <b>Nutrition</b>: เล่นอย่างน้อย 1 เกม<br/>
+        • <b>Hygiene</b>: เล่นอย่างน้อย 1 เกม<br/>
+        • <b>Fitness</b>: เล่นอย่างน้อย 1 เกม
       </div>
     </div>
 
@@ -148,6 +206,15 @@ PACK v20260216c (ALL-IN)
           <span class="pill warn" id="zNutrition">Today: —</span>
         </h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
+
+        <div class="progress">
+          <div class="prow">
+            <div class="pname">Progress วันนี้</div>
+            <div class="pmeta" id="pNutritionMeta">0 play • 0%</div>
+          </div>
+          <div class="bar"><div class="fill" id="pNutritionFill"></div></div>
+        </div>
+
         <div class="btnrow">
           <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
           <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
@@ -163,6 +230,15 @@ PACK v20260216c (ALL-IN)
           <span class="pill warn" id="zHygiene">Today: —</span>
         </h3>
         <p><b>Handwash</b> • Brush • Mask &amp; Cough • Germ Detective</p>
+
+        <div class="progress">
+          <div class="prow">
+            <div class="pname">Progress วันนี้</div>
+            <div class="pmeta" id="pHygieneMeta">0 play • 0%</div>
+          </div>
+          <div class="bar"><div class="fill" id="pHygieneFill"></div></div>
+        </div>
+
         <div class="btnrow">
           <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
           <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
@@ -178,6 +254,15 @@ PACK v20260216c (ALL-IN)
           <span class="pill warn" id="zFitness">Today: —</span>
         </h3>
         <p>Planner • Shadow Breaker • Rhythm Boxer • Jump-Duck • Balance Hold</p>
+
+        <div class="progress">
+          <div class="prow">
+            <div class="pname">Progress วันนี้</div>
+            <div class="pmeta" id="pFitnessMeta">0 play • 0%</div>
+          </div>
+          <div class="bar"><div class="fill" id="pFitnessFill"></div></div>
+        </div>
+
         <div class="btnrow">
           <a class="btn primary" id="goPlanner" href="./fitness-planner-vr.html">Fitness Planner</a>
           <a class="btn" id="goShadow" href="../fitness/shadow-breaker.html">Shadow Breaker</a>
