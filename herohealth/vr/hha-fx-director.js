@@ -1,340 +1,290 @@
 // === /herohealth/vr/hha-fx-director.js ===
-// HHA FX Director — PRODUCTION (SAFE)
-// ✅ One place to map game events -> HHA_FX / Particles effects
-// ✅ Works even if particles.js not loaded (no-ops safely)
-// ✅ Listens: hha:judge, hha:celebrate, quest:update (optional), hha:score (optional)
-// ✅ Rate-limited to avoid spam / performance drop
-//
-// Suggested conventions (any game can emit):
-// - hha:judge { label, kind, x, y, clientX, clientY, intensity }
-//    kind: good | bad | miss | block | star | shield | diamond | goal | mini | boss | storm
-// - hha:celebrate { kind:'mini'|'goal'|'end'|'boss'|'storm', grade, x, y }
-// - quest:update { goal, mini }  (FX director will not spam; only optional)
-// - hha:score { score } (optional tiny feedback)
-//
-// Config: window.HHA_FX_DIRECTOR_CONFIG = {
-//   enabled: true,
-//   maxFps: 30,
-//   popCooldownMs: 70,
-//   burstCooldownMs: 90,
-//   confettiCooldownMs: 900,
-//   reducedMotionRespect: true
-// };
+// HHA Global FX Director — PRODUCTION (ULTRA + SAFE)
+// ✅ Consistent feedback across ALL games
+// ✅ Listens: hha:judge, hha:score, hha:miss, hha:celebrate, hha:end
+// ✅ Aliases: groups:hit, gj:judge (optional)
+// ✅ Uses Particles.* when available; graceful fallback if missing
+// ✅ Adds micro hit-stop / kick / vignette / shake / rage tint
 
-(function (root) {
+(function(){
   'use strict';
+  const ROOT = window;
+  const DOC  = document;
+  if(!DOC || ROOT.__HHA_FX_DIRECTOR__) return;
+  ROOT.__HHA_FX_DIRECTOR__ = true;
 
-  const DOC = root.document;
-  if (!DOC || root.__HHA_FX_DIRECTOR__) return;
-  root.__HHA_FX_DIRECTOR__ = true;
+  // -----------------------------
+  // Inject minimal CSS (once)
+  // -----------------------------
+  (function injectCss(){
+    const id = 'hha-fx-director-style';
+    if(DOC.getElementById(id)) return;
 
-  const CFG = Object.assign({
-    enabled: true,
-    maxFps: 30,
-    popCooldownMs: 70,
-    burstCooldownMs: 90,
-    confettiCooldownMs: 900,
-    reducedMotionRespect: true
-  }, root.HHA_FX_DIRECTOR_CONFIG || {});
+    const st = DOC.createElement('style');
+    st.id = id;
+    st.textContent = `
+      /* ===== HHA FX Director (minimal) ===== */
+      body{ transform: translateZ(0); }
 
-  // ---------- helpers ----------
-  const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
-  const now = ()=> (root.performance && performance.now) ? performance.now() : Date.now();
-
-  function prefersReducedMotion(){
-    try{
-      if(!CFG.reducedMotionRespect) return false;
-      return !!root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }catch(_){ return false; }
-  }
-
-  function FX(){
-    // Preferred: HHA_FX (from particles.js)
-    // Back-compat: Particles
-    return root.HHA_FX || root.Particles || null;
-  }
-
-  function safeXY(detail){
-    try{
-      if(detail){
-        if(Number.isFinite(detail.x) && Number.isFinite(detail.y)) return { x: detail.x, y: detail.y };
-        if(Number.isFinite(detail.clientX) && Number.isFinite(detail.clientY)) return { x: detail.clientX, y: detail.clientY };
+      /* screen kick */
+      body.fx-kick{ animation: hhaKick 120ms ease; }
+      @keyframes hhaKick{
+        0%{ transform: translate3d(0,0,0); }
+        40%{ transform: translate3d(0.9px,-0.9px,0); }
+        100%{ transform: translate3d(0,0,0); }
       }
-    }catch(_){}
-    // fallback = screen center
+
+      /* hit-stop (micro freeze feel) */
+      body.fx-hitstop *{
+        animation-play-state: paused !important;
+        transition-duration: 0ms !important;
+      }
+
+      /* mild flash tint (no seizure-y) */
+      body.fx-flash-good{ filter: brightness(1.05) contrast(1.03); }
+      body.fx-flash-bad { filter: brightness(0.98) contrast(1.08) saturate(1.08); }
+
+      /* miss blink */
+      body.fx-missblink{ animation: hhaMissBlink 260ms ease; }
+      @keyframes hhaMissBlink{
+        0%{ filter:none; }
+        35%{ filter: brightness(1.08) contrast(1.08); }
+        100%{ filter:none; }
+      }
+
+      /* end blink */
+      body.fx-endblink{ animation: hhaEndBlink 760ms ease; }
+      @keyframes hhaEndBlink{
+        0%{ filter:none; }
+        30%{ filter: brightness(1.12) contrast(1.05); }
+        100%{ filter:none; }
+      }
+
+      /* rage tint (opt-in by game: body.classList.add('fx-rage')) */
+      body.fx-rage{
+        filter: saturate(1.15) contrast(1.08);
+      }
+
+      /* lowtime panic tint (opt-in by game: body.classList.add('fx-lowtime')) */
+      body.fx-lowtime{
+        filter: saturate(1.06) contrast(1.04);
+      }
+    `;
+    DOC.head.appendChild(st);
+  })();
+
+  // -----------------------------
+  // Helpers
+  // -----------------------------
+  const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+  const num = (v)=>{ v = Number(v); return Number.isFinite(v) ? v : null; };
+
+  function addBodyCls(c, ms){
     try{
-      const x = Math.floor(DOC.documentElement.clientWidth / 2);
-      const y = Math.floor(DOC.documentElement.clientHeight * 0.42);
-      return { x, y };
-    }catch(_){
-      return { x: 180, y: 220 };
+      DOC.body.classList.add(c);
+      setTimeout(()=>DOC.body.classList.remove(c), ms || 180);
+    }catch(_){}
+  }
+
+  function hitStop(ms){
+    const t = clamp(ms ?? 40, 18, 90);
+    try{
+      DOC.body.classList.add('fx-hitstop');
+      setTimeout(()=>DOC.body.classList.remove('fx-hitstop'), t);
+    }catch(_){}
+  }
+
+  function particles(){
+    return ROOT.Particles || ROOT.GAME_MODULES?.Particles || null;
+  }
+
+  function pickXY(detail){
+    // accept x/y, px/py, clientX/clientY, cx/cy
+    const d = detail || {};
+    const x = num(d.x) ?? num(d.px) ?? num(d.clientX) ?? num(d.cx);
+    const y = num(d.y) ?? num(d.py) ?? num(d.clientY) ?? num(d.cy);
+    if(x != null && y != null) return { x, y };
+    return { x: innerWidth/2, y: innerHeight/2 };
+  }
+
+  function pickType(detail){
+    const d = detail || {};
+    const t = String(d.type || d.kind || d.result || d.judge || d.hitType || d.label || '').toLowerCase();
+
+    // allow label-based mapping
+    if(t.includes('perfect')) return 'perfect';
+    if(t.includes('goal')) return 'good';
+    if(t.includes('mini')) return 'good';
+    if(t.includes('block') || t.includes('guard') || t.includes('shield')) return 'block';
+
+    if(t.includes('good') || t.includes('correct') || t.includes('hit_good') || t.includes('hitgood')) return 'good';
+    if(t.includes('bad')  || t.includes('junk')    || t.includes('wrong')   || t.includes('hit_junk') || t.includes('hitjunk')) return 'bad';
+    if(t.includes('miss') || t.includes('expire')  || t.includes('timeout')) return 'miss';
+
+    return t || 'good';
+  }
+
+  function fxPop(x,y,text,cls){
+    const P = particles();
+    try{
+      if(P?.popText) P.popText(x,y,text,cls);
+      else if(P?.popText === undefined && P?.scorePop) P.scorePop(x,y,text);
+      else if(P?.scorePop) P.scorePop(x,y,text);
+    }catch(_){}
+  }
+
+  function fxScore(x,y,delta){
+    const P = particles();
+    try{
+      if(P?.scorePop) P.scorePop(x,y, delta);
+      else if(P?.popText) P.popText(x,y, delta);
+    }catch(_){}
+  }
+
+  function fxBurst(x,y,kind){
+    const P = particles();
+    try{
+      if(P?.burstAt) P.burstAt(x,y,kind);
+      else if(P?.hitGood && kind==='good') P.hitGood(x,y);
+      else if(P?.hitBad && kind==='bad') P.hitBad(x,y);
+      else if(P?.ringAt) P.ringAt(x,y);
+    }catch(_){}
+  }
+
+  function fxShake(ms){
+    const P = particles();
+    try{
+      if(P?.shake) P.shake(ms);
+      else addBodyCls('fx-kick', 120);
+    }catch(_){}
+  }
+
+  function fxCelebrate(){
+    const P = particles();
+    if(P?.celebrate){
+      try{ P.celebrate(); return; }catch(_){}
+    }
+    // fallback: multiple bursts
+    for(let i=0;i<9;i++){
+      setTimeout(()=>{
+        const x = innerWidth/2 + (Math.random()*2-1)*180;
+        const y = innerHeight*0.38 + (Math.random()*2-1)*110;
+        fxBurst(x,y,'star');
+      }, i*45);
     }
   }
 
-  // ---------- simple rate limiter ----------
-  const limiter = {
-    lastPop: 0,
-    lastBurst: 0,
-    lastConfetti: 0,
-    lastRing: 0,
-    lastFlash: 0,
-    lastScore: 0,
-  };
-
-  function ok(key, cooldownMs){
-    const t = now();
-    const last = limiter[key] || 0;
-    if(t - last < cooldownMs) return false;
-    limiter[key] = t;
-    return true;
+  // combo amplifier (kid-friendly, but “โหดขึ้น”)
+  function comboAmp(combo){
+    combo = Number(combo||0);
+    if(combo >= 12) return { stop: 60, kick: 160, extra:true };
+    if(combo >= 6)  return { stop: 44, kick: 140, extra:false };
+    return { stop: 28, kick: 120, extra:false };
   }
 
-  // ---------- style mapping ----------
-  // Use HUE to tint (works with particles.js hue-rotate)
-  const HUE = {
-    good: 120,     // green
-    bad: 10,       // red/orange
-    miss: 0,       // red
-    block: 200,    // blue
-    star: 55,      // yellow
-    shield: 190,   // cyan
-    diamond: 280,  // violet
-    goal: 95,      // lime
-    mini: 40,      // warm
-    boss: 320,     // magenta
-    storm: 210,    // deep blue
-    end: 160,      // green/cyan
-  };
+  // -----------------------------
+  // Canon events
+  // -----------------------------
+  DOC.addEventListener('hha:judge', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    const t = pickType(d);
 
-  function pop(text, x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.popText !== 'function') return;
-      P.popText(x, y, text, opt || {});
-    }catch(_){}
-  }
-  function emoji(e, x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.popEmoji !== 'function') return;
-      P.popEmoji(x, y, e, opt || {});
-    }catch(_){}
-  }
-  function burst(x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.burst !== 'function') return;
-      P.burst(x, y, opt || {});
-    }catch(_){}
-  }
-  function confetti(x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.confetti !== 'function') return;
-      P.confetti(x, y, opt || {});
-    }catch(_){}
-  }
-  function ring(x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.ring !== 'function') return;
-      P.ring(x, y, opt || {});
-    }catch(_){}
-  }
-  function flash(x, y, opt){
-    try{
-      const P = FX();
-      if(!P || typeof P.flash !== 'function') return;
-      P.flash(x, y, opt || {});
-    }catch(_){}
-  }
+    const combo = Number(d.combo || d.comboNow || d.comboCount || 0);
+    const amp = comboAmp(combo);
 
-  // ---------- public play API ----------
-  function play(kind, detail){
-    if(!CFG.enabled) return;
-    const reduced = prefersReducedMotion();
+    if(t === 'good'){
+      hitStop(amp.stop);
+      addBodyCls('fx-kick', amp.kick);
+      addBodyCls('fx-flash-good', 120);
+      fxBurst(x,y,'good');
+      if(amp.extra) fxBurst(x,y,'star');
 
-    const k = String(kind || '').toLowerCase() || 'good';
-    const { x, y } = safeXY(detail);
-    const intensity = clamp(detail?.intensity ?? 1, 0.6, 2.0);
+    } else if(t === 'perfect'){
+      hitStop(72);
+      addBodyCls('fx-kick', 170);
+      addBodyCls('fx-flash-good', 150);
+      fxBurst(x,y,'diamond');
+      fxPop(x,y,'PERFECT!','perfect');
 
-    // Pop text label (lightweight)
-    if(ok('lastPop', CFG.popCooldownMs)){
-      const label = String(detail?.label || '').trim();
-      if(label){
-        pop(label, x, y, { size: Math.round(16 + 6*intensity), alpha: 0.98, hue: HUE[k] ?? 0 });
-      }
+    } else if(t === 'bad'){
+      hitStop(54);
+      addBodyCls('fx-kick', 140);
+      addBodyCls('fx-flash-bad', 150);
+      addBodyCls('fx-missblink', 240);
+      fxBurst(x,y,'bad');
+      fxShake(160);
+
+    } else if(t === 'miss'){
+      addBodyCls('fx-missblink', 260);
+      fxBurst(x,y,'bad');
+      fxShake(140);
+
+    } else if(t === 'block'){
+      hitStop(36);
+      addBodyCls('fx-kick', 120);
+      addBodyCls('fx-flash-good', 90);
+      fxBurst(x,y,'block');
+      fxPop(x,y,'BLOCK','block');
+
+    } else {
+      // unknown => treat as mild good
+      hitStop(22);
+      addBodyCls('fx-kick', 120);
+      fxBurst(x,y,'good');
     }
+  }, { passive:true });
 
-    if(reduced) return;
-
-    // Core burst
-    if(ok('lastBurst', CFG.burstCooldownMs)){
-      const hue = HUE[k] ?? 0;
-
-      if(k === 'good'){
-        burst(x, y, { count: 10, size: 10, speed: 560, lifeMs: 520, hue });
-        ring(x, y, { size: 22, hue });
-        flash(x, y, { size: 24 });
-        emoji('✨', x, y, { size: 28 });
-
-      } else if(k === 'bad' || k === 'miss'){
-        burst(x, y, { count: 12, size: 10, speed: 620, lifeMs: 520, hue });
-        ring(x, y, { size: 24, hue });
-        emoji('💥', x, y, { size: 30 });
-
-      } else if(k === 'block'){
-        burst(x, y, { count: 10, size: 10, speed: 520, lifeMs: 520, hue });
-        ring(x, y, { size: 26, hue });
-        emoji('🛡️', x, y, { size: 30 });
-
-      } else if(k === 'star'){
-        burst(x, y, { count: 14, size: 10, speed: 580, lifeMs: 560, hue });
-        ring(x, y, { size: 28, hue });
-        emoji('⭐', x, y, { size: 32 });
-
-      } else if(k === 'shield'){
-        burst(x, y, { count: 12, size: 10, speed: 560, lifeMs: 560, hue });
-        ring(x, y, { size: 28, hue });
-        emoji('🛡️', x, y, { size: 32 });
-
-      } else if(k === 'diamond'){
-        burst(x, y, { count: 18, size: 10, speed: 720, lifeMs: 620, hue });
-        ring(x, y, { size: 30, hue });
-        emoji('💎', x, y, { size: 34 });
-
-      } else if(k === 'goal'){
-        burst(x, y, { count: 18, size: 10, speed: 680, lifeMs: 620, hue });
-        ring(x, y, { size: 34, hue });
-        if(ok('lastConfetti', CFG.confettiCooldownMs)){
-          confetti(x, y, { count: 18, spread: 260, lifeMs: 1000, hue });
-        }
-
-      } else if(k === 'mini'){
-        burst(x, y, { count: 16, size: 10, speed: 650, lifeMs: 620, hue });
-        ring(x, y, { size: 32, hue });
-        emoji('🎉', x, y, { size: 34 });
-
-      } else if(k === 'boss'){
-        burst(x, y, { count: 22, size: 10, speed: 860, lifeMs: 700, hue });
-        ring(x, y, { size: 40, hue });
-        emoji('😈', x, y, { size: 34 });
-
-      } else if(k === 'storm'){
-        burst(x, y, { count: 22, size: 10, speed: 820, lifeMs: 720, hue });
-        ring(x, y, { size: 38, hue });
-        emoji('🌪️', x, y, { size: 34 });
-
-      } else if(k === 'end'){
-        burst(x, y, { count: 20, size: 10, speed: 740, lifeMs: 700, hue });
-        ring(x, y, { size: 38, hue });
-        if(ok('lastConfetti', CFG.confettiCooldownMs)){
-          confetti(x, y, { count: 22, spread: 320, lifeMs: 1200, hue });
-        }
-      } else {
-        burst(x, y, { count: 10, size: 10, speed: 560, lifeMs: 520, hue });
-        ring(x, y, { size: 22, hue });
-      }
+  DOC.addEventListener('hha:score', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    const sc = Number(d.score ?? d.delta ?? d.add ?? d.value ?? 0);
+    if(Number.isFinite(sc) && sc !== 0){
+      const txt = (sc>0 ? `+${sc}` : `${sc}`);
+      fxScore(x,y, txt);
     }
-  }
+  }, { passive:true });
 
-  // ---------- event listeners ----------
-  function onJudge(ev){
-    try{
-      const d = ev?.detail || null;
-      const kind = (d && d.kind) ? d.kind : inferKindFromLabel(d?.label);
-      play(kind, d || {});
-    }catch(_){}
-  }
+  DOC.addEventListener('hha:miss', (e)=>{
+    const d = e?.detail || {};
+    const { x, y } = pickXY(d);
+    addBodyCls('fx-missblink', 260);
+    fxBurst(x,y,'bad');
+    fxShake(140);
+  }, { passive:true });
 
-  function inferKindFromLabel(label){
-    const s = String(label || '').toUpperCase();
-    if(s.includes('GOOD')) return 'good';
-    if(s.includes('MISS')) return 'miss';
-    if(s.includes('BLOCK')) return 'block';
-    if(s.includes('STAR')) return 'star';
-    if(s.includes('SHIELD')) return 'shield';
-    if(s.includes('DIAMOND')) return 'diamond';
-    if(s.includes('GOAL')) return 'goal';
-    if(s.includes('MINI')) return 'mini';
-    if(s.includes('BOSS')) return 'boss';
-    if(s.includes('STORM')) return 'storm';
-    if(s.includes('OOPS')) return 'bad';
-    return 'good';
-  }
+  DOC.addEventListener('hha:celebrate', ()=>{
+    fxCelebrate();
+  }, { passive:true });
 
-  function onCelebrate(ev){
-    try{
-      const d = ev?.detail || {};
-      const k = String(d.kind || 'end').toLowerCase();
-      // Grade -> extra confetti (not spamming)
-      if(k === 'end'){
-        play('end', d);
-        const grade = String(d.grade || '').toUpperCase();
-        if(grade && ok('lastConfetti', CFG.confettiCooldownMs)){
-          const {x,y} = safeXY(d);
-          confetti(x, y, { count: grade==='S' ? 26 : 18, spread: grade==='S' ? 360 : 300, lifeMs: 1200, hue: 150 });
-          pop(`GRADE ${grade}!`, x, y-42, { size: 22, alpha: 0.98, hue: 140 });
-        }
-        return;
-      }
-      play(k, d);
-    }catch(_){}
-  }
+  DOC.addEventListener('hha:end', ()=>{
+    addBodyCls('fx-endblink', 760);
+    setTimeout(()=>fxCelebrate(), 180);
+  }, { passive:true });
 
-  function onQuestUpdate(ev){
-    // Optional: DO NOT spam. Only show when goal/mini changes (best-effort)
-    try{
-      // Intentionally minimal; games already show HUD text
-      // You can enable extra callouts by setting window.HHA_FX_DIRECTOR_CONFIG.questCallouts=true
-      if(!root.HHA_FX_DIRECTOR_CONFIG?.questCallouts) return;
+  // -----------------------------
+  // Optional aliases (for older games)
+  // -----------------------------
+  DOC.addEventListener('groups:hit', (e)=>{
+    const d = e?.detail || {};
+    // expected: {type:'hit_good'|'hit_bad'|'shot_miss'|'timeout_miss', x,y, combo}
+    const tRaw = String(d.type || '').toLowerCase();
+    let type = 'good';
+    if(tRaw.includes('bad')) type = 'bad';
+    else if(tRaw.includes('miss') || tRaw.includes('timeout')) type = 'miss';
+    DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{
+      type, x:d.x, y:d.y, combo:d.combo
+    }}));
+  }, { passive:true });
 
-      const d = ev?.detail || {};
-      const goal = d.goal || null;
-      const mini = d.mini || null;
-
-      const t = now();
-      if(t - (limiter.__lastQuest || 0) < 1200) return;
-      limiter.__lastQuest = t;
-
-      const x = Math.floor(DOC.documentElement.clientWidth/2);
-      const y = Math.floor(DOC.documentElement.clientHeight*0.28);
-
-      if(goal?.title){
-        pop(`GOAL: ${goal.title}`, x, y, { size: 16, alpha: 0.95, hue: HUE.goal });
-      }
-      if(mini?.title){
-        pop(`MINI: ${mini.title}`, x, y+24, { size: 16, alpha: 0.92, hue: HUE.mini });
-      }
-    }catch(_){}
-  }
-
-  function onScore(ev){
-    // Optional micro-feedback every ~1.1s
-    try{
-      if(!root.HHA_FX_DIRECTOR_CONFIG?.scoreTicks) return;
-      const t = now();
-      if(t - (limiter.lastScore||0) < 1100) return;
-      limiter.lastScore = t;
-
-      const score = ev?.detail?.score;
-      if(score == null) return;
-
-      const x = Math.floor(DOC.documentElement.clientWidth*0.12);
-      const y = Math.floor(DOC.documentElement.clientHeight*0.18);
-      pop(`+${score}`, x, y, { size: 14, alpha: 0.55, hue: 120 });
-    }catch(_){}
-  }
-
-  root.addEventListener('hha:judge', onJudge, { passive:true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive:true });
-  root.addEventListener('quest:update', onQuestUpdate, { passive:true });
-  root.addEventListener('hha:score', onScore, { passive:true });
-
-  // ---------- export ----------
-  root.HHA_FX_DIRECTOR = {
-    play,
-    config: CFG
+  // Debug probe
+  ROOT.HHA_FX_TEST = function(){
+    const x = innerWidth/2, y = innerHeight/2;
+    DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'good', x, y, combo:7 } }));
+    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:score',{ detail:{ delta:25, x:x+90, y:y-20 } })), 140);
+    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'bad', x:x-90, y:y+25, combo:0 } })), 280);
+    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ type:'perfect', x:x, y:y-40, combo:12 } })), 420);
+    setTimeout(()=>DOC.dispatchEvent(new CustomEvent('hha:end')), 640);
   };
 
-})(window);
+})();
