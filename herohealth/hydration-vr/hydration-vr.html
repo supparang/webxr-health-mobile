@@ -1,11 +1,14 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-HydrationVR RUN — PRODUCTION (HHA Standard)
+HydrationVR RUN — PRODUCTION (HHA Standard) PATCH v20260216b
 ✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
 ✅ Engine: hydration.safe.js (ESM)
 ✅ Layers: #playfield + #hydration-layer
-✅ PATCH: tap-anywhere start actually starts (dispatch hha:start)
-✅ GATE FLOW: if ?gate=1 -> on hha:end => cooldown(20s) => hub
-✅ FIX: sanitize warmup-gate params (wType/wPct/...) if they ever leak in
+✅ Tap-anywhere start actually starts (dispatch hha:start)
+✅ GATE FLOW:
+   - if ?gate=1 AND no gateDone=1  => redirect to warmup-gate (warmup) automatically
+   - on hha:end => cooldown(cdur) => hub
+✅ FIX: cooldown uses cdur param (NOT dur)
+✅ FIX: sanitize only when NOT gateDone (don’t delete real buff params from warmup)
 -->
 <!doctype html>
 <html lang="th">
@@ -33,10 +36,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
       touch-action: manipulation;
     }
-    #hydration-layer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
+    #hydration-layer{ position:absolute; inset:0; pointer-events:auto; }
 
     .hud{
       position:absolute; left:0; right:0; top:0;
@@ -136,21 +136,6 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     .k{ color:rgba(148,163,184,.95); font-size:12px; }
     .v{ font-weight:900; font-size:16px; margin-top:4px; }
 
-    .hha-shock{
-      position:absolute;
-      left: var(--x); top: var(--y);
-      width: 14px; height: 14px;
-      border-radius: 999px;
-      background: rgba(34,211,238,.9);
-      transform: translate(-50%,-50%);
-      animation: shock .65s ease-out forwards;
-      pointer-events:none;
-      z-index: 999;
-    }
-    @keyframes shock{
-      0%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%,-50%) scale(9); }
-    }
     @media (max-width:520px){
       .grid{ grid-template-columns: 1fr; }
       .card{ min-width: unset; }
@@ -158,6 +143,40 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
   </style>
 </head>
 <body>
+
+  <!-- ✅ 0) WARMUP REDIRECT GUARD (critical) -->
+  <script>
+  (function(){
+    'use strict';
+    const u = new URL(location.href);
+    const gateOn = (u.searchParams.get('gate') === '1');
+    const gateDone = (u.searchParams.get('gateDone') === '1');
+
+    if(gateOn && !gateDone){
+      // redirect to warmup gate (warmup) then come back with buffs + gateDone=1
+      const hub  = u.searchParams.get('hub') || '../hub.html';
+      const cdur = Math.max(5, Math.min(60, Number(u.searchParams.get('cdur') || 20) || 20));
+
+      // ensure category for daily rule
+      if(!u.searchParams.get('cat')) u.searchParams.set('cat', 'nutrition');
+
+      const gate = new URL('../warmup-gate.html', location.href);
+      gate.searchParams.set('phase', 'warmup');
+      gate.searchParams.set('dur',  String(Math.max(5, Math.min(60, Number(u.searchParams.get('dur') || 20) || 20))));
+      gate.searchParams.set('cdur', String(cdur));
+      gate.searchParams.set('hub',  hub);
+      gate.searchParams.set('cat',  u.searchParams.get('cat') || 'nutrition');
+      gate.searchParams.set('pid',  u.searchParams.get('pid') || 'anon');
+
+      // next = THIS url (gate will append buffs + gateDone=1 itself)
+      gate.searchParams.set('next', u.toString());
+      gate.searchParams.set('autonext','1');
+
+      location.replace(gate.toString());
+    }
+  })();
+  </script>
+
   <div id="playfield">
     <div class="hud">
       <div class="card">
@@ -240,28 +259,44 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
     </div>
   </div>
 
-  <!-- ✅ FIX: sanitize warmup-gate params if ever leaked in -->
+  <!-- ✅ 1) Sanitize ONLY when not gateDone (don’t delete real warmup buffs) -->
   <script>
   (function(){
     'use strict';
     const u = new URL(location.href);
-    const kill = ['wType','wPct','wDur','wLeft','wSeed'];
-    let changed = false;
-    for(const k of kill){
-      if(u.searchParams.has(k)){ u.searchParams.delete(k); changed = true; }
+    const gateDone = (u.searchParams.get('gateDone') === '1');
+
+    // If gateDone=1 => KEEP buffs: wType,wPct,rank,wCrit,wDmg,wHeal,calm,gateDay
+    // Otherwise remove any leaked gate params to avoid weird states.
+    if(!gateDone){
+      const kill = [
+        'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+        'wDur','wLeft','wSeed',
+        'gateDone','gateDay'
+      ];
+      let changed = false;
+      for(const k of kill){
+        if(u.searchParams.has(k)){ u.searchParams.delete(k); changed = true; }
+      }
+      if(changed) history.replaceState({}, '', u.toString());
     }
-    if(changed){
+
+    // always ensure cat exists (daily rule stability)
+    if(!u.searchParams.get('cat')){
+      u.searchParams.set('cat','nutrition');
       history.replaceState({}, '', u.toString());
     }
   })();
   </script>
 
+  <!-- ✅ 2) Start overlay -> emit hha:start reliably -->
   <script>
     window.HHA_VIEW = window.HHA_VIEW || { layers:['hydration-layer'] };
 
     (function(){
+      'use strict';
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = String(qs('hub','../hub.html'));
+      const hub = String(qs('hub','../hub.html')||'../hub.html');
 
       const ov = document.getElementById('startOverlay');
       const btnStart = document.getElementById('btnStart');
@@ -273,7 +308,7 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
         const runMode = String(u.searchParams.get('run') || 'play').toLowerCase()==='research' ? 'research' : 'play';
         const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
         const timePlannedSec = Number(u.searchParams.get('time') || 70) || 70;
-        const seed = Number(u.searchParams.get('seed') || 0) || 0;
+        const seed = Number(u.searchParams.get('seed') || Date.now()) || Date.now();
 
         window.dispatchEvent(new CustomEvent('hha:start', { detail:{
           game:'hydration', runMode, diff, timePlannedSec, seed
@@ -283,17 +318,18 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
       document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
       document.querySelectorAll('.btnBackHub')?.forEach(b=> b.addEventListener('click', ()=> location.href = hub));
 
-      btnStart?.addEventListener('click', startNow);
+      btnStart?.addEventListener('click', (e)=>{ e.preventDefault(); startNow(); }, { passive:false });
 
+      // tap anywhere on overlay (except buttons)
       ov?.addEventListener('pointerdown', (e)=>{
-        const id = e.target && e.target.id;
-        if (id === 'btnBackHub') return;
+        const t = e.target;
+        if(t && (t.closest('button') || t.id==='btnBackHub')) return;
         startNow();
       }, {passive:true});
     })();
   </script>
 
-  <!-- ✅ Gate Flow (Warmup/Cooldown Enforcer) -->
+  <!-- ✅ 3) Gate Flow (Cooldown Enforcer) — FIX: use cdur, not dur -->
   <script>
   (function(){
     'use strict';
@@ -316,9 +352,10 @@ HydrationVR RUN — PRODUCTION (HHA Standard)
 
       const gate = new URL('../warmup-gate.html', location.href);
       gate.searchParams.set('phase','cooldown');
-      gate.searchParams.set('dur', String(cdur));
+      gate.searchParams.set('cdur', String(cdur));   // ✅ FIX (was dur)
       gate.searchParams.set('hub', hub);
-
+      gate.searchParams.set('cat', String(qs('cat','nutrition')||'nutrition'));
+      gate.searchParams.set('pid', String(qs('pid','anon')||'anon'));
       gate.searchParams.set('next', hub);
       gate.searchParams.set('autonext','1');
 
