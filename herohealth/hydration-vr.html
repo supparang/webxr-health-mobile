@@ -1,11 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR ROOT Launcher — PRODUCTION
+HydrationVR ROOT Launcher — PRODUCTION (PATCH v20260216a)
 ✅ Enforce flow: Warmup(20s) → RUN → Cooldown(20s) → HUB
 ✅ RUN file: ./hydration-vr/hydration-vr.html
 ✅ Auto view: pc/mobile (UA-based) IF no ?view=
 ✅ Pass-through all query params (except deny list)
-✅ Adds: gate=1, cdur=20
-✅ FIX: block warmup-gate params (wType/wPct/...) from leaking into RUN
+✅ Adds: gate=1, cdur=20, cat=nutrition
+✅ FIX: block warmup-gate params (wType/wPct/...) + gate flags from leaking into RUN/launcher loops
 -->
 <!doctype html>
 <html lang="th">
@@ -37,7 +37,8 @@ HydrationVR ROOT Launcher — PRODUCTION
 (() => {
   'use strict';
 
-  const QS = new URL(location.href).searchParams;
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
+  const QS = getQS();
 
   const isMobileUA = ()=>{
     const ua = String(navigator.userAgent||'').toLowerCase();
@@ -49,6 +50,7 @@ HydrationVR ROOT Launcher — PRODUCTION
     ? String(QS.get('view')).toLowerCase()
     : (isMobileUA() ? 'mobile' : 'pc');
 
+  // HUB (default: /herohealth/hub.html because this file is /herohealth/hydration-vr.html)
   const hub  = QS.get('hub') || './hub.html';
 
   // durations
@@ -56,30 +58,44 @@ HydrationVR ROOT Launcher — PRODUCTION
   const cdur    = Math.max(5, Math.min(60, Number(QS.get('cdur') || 20) || 20)); // cooldown
 
   // passthrough (deny these)
-  // ✅ FIX: warmup-gate may append wType/wPct/etc into next= URL; MUST NOT leak into RUN
+  // ✅ IMPORTANT: block ANY warmup-gate & gate-control params from recursing into launcher/RUN
   const deny = new Set([
-    'next','phase','dur','cdur','autonext',
-    'wType','wPct','wDur','wLeft','wSeed'
+    // warmup-gate control
+    'next','phase','dur','cdur','autonext','games',
+
+    // warmup buffs (full set used by gate)
+    'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+    'wDur','wLeft','wSeed',
+
+    // gate flags
+    'gate','gateDone','gateDay'
   ]);
 
   const pass = new URLSearchParams();
   QS.forEach((v,k)=>{ if(!deny.has(k)) pass.set(k,v); });
 
+  // ensure view/cat persist
   if(!QS.get('view')) pass.set('view', view);
+  if(!pass.get('cat')) pass.set('cat', 'nutrition');
 
   // target RUN
   const gameRun = new URL('./hydration-vr/hydration-vr.html', location.href);
   pass.forEach((v,k)=> gameRun.searchParams.set(k,v));
   gameRun.searchParams.set('hub', hub);
-  gameRun.searchParams.set('gate', '1');          // ✅ enforce gate
-  gameRun.searchParams.set('cdur', String(cdur)); // tell RUN cooldown duration
+
+  // enforce gate on RUN (RUN will redirect to warmup-gate if gate=1 && gateDone!=1)
+  gameRun.searchParams.set('gate', '1');
+  gameRun.searchParams.set('cdur', String(cdur));
 
   // warmup gate
   const gate = new URL('./warmup-gate.html', location.href);
   gate.searchParams.set('phase','warmup');
   gate.searchParams.set('dur', String(gateDur));
+  gate.searchParams.set('cdur', String(cdur));
   gate.searchParams.set('hub', hub);
-  gate.searchParams.set('next', gameRun.toString());
+  gate.searchParams.set('cat', 'nutrition');        // explicit (avoid infer mismatch)
+  gate.searchParams.set('pid', pass.get('pid') || QS.get('pid') || 'anon');
+  gate.searchParams.set('next', gameRun.toString()); // ✅ REQUIRED
   gate.searchParams.set('autonext','1');
 
   const dbg = document.getElementById('dbg');
