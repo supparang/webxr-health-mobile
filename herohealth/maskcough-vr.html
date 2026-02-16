@@ -1,30 +1,21 @@
-<!-- === /herohealth/maskcough-vr.html ===
-HeroHealth — Mask & Cough (ROOT Launcher)
-✅ Choose view: pc / mobile / vr / cvr
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/ai
-✅ Remembers last view
-✅ Launches: ./vr-maskcough/maskcough.html
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Mask & Cough (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — MaskCough (Launcher)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.55);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
       --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa; --pink:#ff4fd8;
-      --radius:22px;
-
+      --cyan:#22d3ee; --violet:#a78bfa;
+      --r:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -33,316 +24,292 @@ HeroHealth — Mask & Cough (ROOT Launcher)
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
-      margin:0;
-      color:var(--text);
+      margin:0; color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
       background:
-        radial-gradient(1200px 700px at 18% 18%, rgba(255,79,216,.10), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(1100px 680px at 12% 12%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 560px at 86% 18%, rgba(167,139,250,.10), transparent 55%),
+        radial-gradient(860px 520px at 54% 92%, rgba(34,197,94,.10), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
       overflow:auto;
     }
     a{color:inherit;text-decoration:none}
     .wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-    header{
-      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
-      flex-wrap:wrap;padding:6px 6px 0 6px
-    }
-    .title{margin:0;font-size:clamp(22px,2.2vw,30px);font-weight:1000}
-    .subtitle{margin:0;color:var(--muted);font-size:13px;line-height:1.4;font-weight:800;max-width:78ch}
-    .pillrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
-    .pill{
-      background:rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;border-radius:999px;
-      font-size:12px;color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;user-select:none;font-weight:900
-    }
-    .pill b{color:var(--text);font-weight:1000}
-
-    .panel{
-      background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
-      overflow:hidden;
-    }
-    .head{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:12px 14px;border-bottom:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      flex-wrap:wrap
-    }
-    .big{
-      display:inline-flex;align-items:center;gap:10px;
-      padding:10px 12px;border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      font-size:13px;font-weight:1000;white-space:nowrap
-    }
-    .dot{
-      width:12px;height:12px;border-radius:999px;
-      background:var(--pink);
-      box-shadow:0 0 18px rgba(255,79,216,.30)
-    }
-    .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
-    .btn{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.42);
-      padding:10px 12px;border-radius:14px;
-      cursor:pointer;user-select:none;
-      display:flex;align-items:center;gap:8px;
-      white-space:nowrap;font-weight:1000;font-size:13px;
-      transition:transform .12s ease,opacity .12s ease
-    }
-    .btn:active{transform:translateY(1px)}
-    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.10)}
-    .btn.ghost{color:var(--muted)}
-
-    .body{padding:12px;display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
-    @media (max-width: 900px){.body{grid-template-columns:1fr}.pillrow{justify-content:flex-start}.actions{justify-content:flex-start}}
+    .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+    .title{margin:0;font-weight:1000;letter-spacing:.2px;font-size: clamp(22px, 2.3vw, 30px)}
+    .sub{margin:6px 0 0 0;color:var(--muted);font-weight:800;font-size:13px;line-height:1.4;max-width:75ch}
+    .pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .pill{border:1px solid var(--stroke);background:rgba(2,6,23,.45);padding:8px 10px;border-radius:999px;font-size:12px;color:var(--muted);font-weight:900}
+    .pill b{color:var(--text)}
     .card{
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.40);
-      border-radius:18px;
+      background:linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.46));
+      border-radius:var(--r);
+      box-shadow:0 18px 60px rgba(0,0,0,.40);
       padding:14px;
-      box-shadow:0 12px 40px rgba(0,0,0,.25)
     }
-    .card h3{margin:0 0 6px 0;font-size:16px;font-weight:1000}
-    .card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45;font-weight:800}
-    .grid{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    @media (max-width: 560px){.grid{grid-template-columns:1fr}}
-    .opt{
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.28);
-      border-radius:16px;
-      padding:12px;
-      cursor:pointer;
-      user-select:none;
-      transition:transform .12s ease,border-color .12s ease,background .12s ease
-    }
-    .opt:hover{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.06)}
-    .opt:active{transform:translateY(1px)}
-    .opt.on{border-color:rgba(255,79,216,.30);background:rgba(255,79,216,.10)}
-    .opt .t{font-weight:1000}
-    .opt .d{margin-top:6px;color:rgba(229,231,235,.74);font-weight:800;font-size:12px;line-height:1.35}
-    .row2{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
-    code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:rgba(229,231,235,.92);background:rgba(0,0,0,.25);border:1px solid rgba(148,163,184,.18);padding:2px 6px;border-radius:10px;word-break:break-all}
-    .toast{
-      position:fixed;left:50%;
-      bottom:calc(18px + var(--sab));
-      transform:translateX(-50%);
-      background:rgba(2,6,23,.85);
+    .grid{display:grid;grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px}
+    @media (max-width: 820px){ .grid{grid-template-columns:1fr} }
+    label{display:block;font-size:12px;color:rgba(229,231,235,.78);font-weight:900;margin:0 0 6px 2px}
+    input,select{
+      width:100%;
+      border-radius:14px;
       border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.45);
       color:var(--text);
+      padding:11px 12px;
+      font-weight:900;
+      outline:none;
+    }
+    .row{display:grid;grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px}
+    @media (max-width: 820px){ .row{grid-template-columns:1fr} }
+
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;justify-content:center;
+      padding:11px 12px;border-radius:16px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.42);color:var(--text);
+      font-weight:1000;font-size:13px;cursor:pointer;user-select:none
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14)}
+    .btn.cyan{border-color: rgba(34,211,238,.25); background: rgba(34,211,238,.12)}
+    .btn.ghost{color:var(--muted)}
+    .hint{margin-top:8px;color:rgba(229,231,235,.76);font-size:12px;font-weight:800;line-height:1.35}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+    .toast{
+      position:fixed;left:50%;bottom:calc(16px + var(--sab));
+      transform:translateX(-50%);
       padding:10px 12px;border-radius:14px;
-      box-shadow:0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index:9999;max-width:92vw;
-      font-size:13px;opacity:0;
-      transition:opacity .18s ease;
-      pointer-events:none;font-weight:900
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.84);color:var(--text);
+      font-weight:950;font-size:13px;box-shadow:0 14px 44px rgba(0,0,0,.35);
+      opacity:0;transition:opacity .18s ease;pointer-events:none;z-index:9999;
+      max-width:92vw;
     }
     .toast.show{opacity:1}
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1 class="title">😷 Mask & Cough — Launcher</h1>
-        <p class="subtitle">
-          เลือกอุปกรณ์ก่อนเข้าเล่น • ส่งพารามิเตอร์ต่อให้เกมอัตโนมัติ • กลับ HUB ได้เสมอ
-        </p>
-      </div>
-      <div class="pillrow" id="pillrow"></div>
-    </header>
-
-    <section class="panel">
-      <div class="head">
-        <div class="big"><span class="dot"></span><span>MaskCough (Run)</span></div>
-        <div class="actions">
-          <div class="btn ghost" id="btnHow">❓ วิธีเล่น</div>
-          <div class="btn" id="btnToHub">🏰 กลับ HUB</div>
-          <div class="btn good" id="btnStart">▶ Start</div>
-        </div>
-      </div>
-
-      <div class="body">
-        <div class="card">
-          <h3>เลือก View</h3>
-          <p>มือถือ = <b>mobile</b> • Cardboard = <b>cvr</b> • Headset = <b>vr</b></p>
-
-          <div class="grid" id="viewGrid">
-            <div class="opt" data-view="pc"><div class="t">🖥️ PC</div><div class="d">ทดสอบ/ดีบัก</div></div>
-            <div class="opt" data-view="mobile"><div class="t">📱 Mobile</div><div class="d">แตะเป้า • ในห้องเรียน</div></div>
-            <div class="opt" data-view="vr"><div class="t">🕶️ VR</div><div class="d">WebXR • ENTER VR</div></div>
-            <div class="opt" data-view="cvr"><div class="t">📦 cVR</div><div class="d">ยิงจาก crosshair</div></div>
-          </div>
-
-          <div class="row2">
-            <span class="pill"><b>view</b>: <span id="tView">—</span></span>
-            <span class="pill"><b>diff</b>: <span id="tDiff">—</span></span>
-            <span class="pill"><b>time</b>: <span id="tTime">—</span>s</span>
-            <span class="pill"><b>pid</b>: <span id="tPid">—</span></span>
-          </div>
-
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>tip</b>: เปิด AI (เฉพาะ play) ด้วย <code>?ai=1</code></span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>ลิงก์เกม (Run)</h3>
-          <p>launcher จะยิงไปไฟล์นี้เสมอ</p>
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>run</b>: <code id="runPath">./vr-maskcough/maskcough.html</code></span>
-          </div>
-          <div class="row2" style="margin-top:10px;">
-            <span class="pill"><b>goal</b>: ใส่หน้ากากถูกวิธี + ไอ/จามให้ถูกมารยาท + เลี่ยงการแพร่เชื้อ</span>
-          </div>
-        </div>
-      </div>
-    </section>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1 class="title">😷🤧 MaskCough — Launcher</h1>
+      <p class="sub">เลือกโหมด/ความยาก/เวลา/มุมมอง แล้วกดเข้าเล่น • ส่งพารามิเตอร์ไป run page แบบ HHA Standard</p>
+    </div>
+    <div class="pillrow" id="pillrow"></div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <section class="card">
+    <div class="grid">
+      <div>
+        <label>Participant ID (pid)</label>
+        <input id="pid" placeholder="anon"/>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Mode (run)</label>
+          <select id="run">
+            <option value="play">play (AI ON)</option>
+            <option value="study">study (deterministic / AI OFF)</option>
+          </select>
+        </div>
+        <div>
+          <label>Difficulty (diff)</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+        <div>
+          <label>Time (sec)</label>
+          <input id="time" type="number" min="20" max="300" step="5" value="60"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>View</label>
+          <select id="view">
+            <option value="pc">pc</option>
+            <option value="mobile">mobile</option>
+            <option value="cvr">cvr (Cardboard)</option>
+          </select>
+        </div>
+        <div>
+          <label>Seed</label>
+          <input id="seed" placeholder="(auto)"/>
+        </div>
+        <div>
+          <label>Log endpoint</label>
+          <input id="log" placeholder="https://... (optional)"/>
+        </div>
+      </div>
+
+      <div>
+        <label>Research context (optional)</label>
+        <div class="row">
+          <input id="studyId" placeholder="studyId"/>
+          <input id="phase" placeholder="phase (pre/post/followup)"/>
+          <input id="conditionGroup" placeholder="conditionGroup"/>
+        </div>
+        <div class="hint">
+          * โหมด <b>study</b> แนะนำให้กำหนด <span class="mono">seed</span> คงที่เพื่อ fair/controlled
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="btnPlay" type="button">▶ เข้าเล่น (Run)</button>
+      <button class="btn cyan" id="btnCvr" type="button">🎯 เข้าเล่นแบบ cVR</button>
+      <a class="btn ghost" id="btnBackHub" href="./hub.html">🏰 กลับ HUB</a>
+    </div>
+
+    <div class="hint">
+      Run page: <span class="mono">/herohealth/vr-maskcough/maskcough.html</span><br/>
+      Gate: set <span class="mono">HHA_ZONE_DONE::hygiene::YYYY-MM-DD</span> เมื่อจบเกม
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
   'use strict';
 
-  const RUN_PATH = './vr-maskcough/maskcough.html';
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','ai'];
-  const LS_VIEW = 'HHA_LAUNCHER_VIEW::maskcough';
+  const LS = 'HHA_LAST_LAUNCH::maskcough';
 
   function pageUrl(){ return location.href.split('#')[0]; }
-  function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = qs();
-
+  function qs(k,d=''){ try{ return new URL(pageUrl()).searchParams.get(k) ?? d; }catch(_){ return d; } }
+  function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
   function nowSeed(){ return String(Date.now()); }
-  function detectMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||''); }
-  function pickDefaultView(){
-    const qv = (QS.get('view')||'').trim();
-    if(qv) return qv;
-    try{ const last = localStorage.getItem(LS_VIEW); if(last) return last; }catch(_){}
-    return detectMobile() ? 'mobile' : 'pc';
+
+  function toast(msg){
+    const el=document.getElementById('toast');
+    el.textContent=msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t=setTimeout(()=>el.classList.remove('show'), 1100);
   }
 
-  // defaults for chips
-  const ctx = {
-    pid: (QS.get('pid')||'').trim() || 'anon',
-    run: (QS.get('run')||'play').trim() || 'play',
-    diff: (QS.get('diff')||'normal').trim() || 'normal',
-    time: (QS.get('time')||'80').trim() || '80',
-    seed: (QS.get('seed')||'').trim() || nowSeed()
+  // ---- load defaults from URL or last launch
+  let last=null;
+  try{ last = JSON.parse(localStorage.getItem(LS)||'null'); }catch(_){}
+
+  const P = {
+    pid:  (qs('pid','') || last?.pid || 'anon').trim(),
+    run:  String(qs('run', qs('mode','') ) || last?.run || 'play').toLowerCase(),
+    diff: String(qs('diff','') || last?.diff || 'normal').toLowerCase(),
+    time: clamp(qs('time', last?.time ?? '60'), 20, 300),
+    seed: String(qs('seed','') || last?.seed || ''),
+    view: String(qs('view','') || last?.view || ''),
+    log:  String(qs('log','') || last?.log || ''),
+    studyId: String(qs('studyId','') || last?.studyId || ''),
+    phase: String(qs('phase','') || last?.phase || ''),
+    conditionGroup: String(qs('conditionGroup','') || last?.conditionGroup || ''),
+    hub: String(qs('hub','') || './hub.html')
   };
 
-  // pills
-  function esc(s){ return String(s).replace(/</g,'&lt;'); }
-  function renderPills(){
-    const pills = [
-      ['pid', QS.get('pid') ?? ctx.pid],
-      ['run', QS.get('run') ?? ctx.run],
-      ['diff', QS.get('diff') ?? ctx.diff],
-      ['time', QS.get('time') ?? ctx.time],
-      ['seed', QS.get('seed') ?? ctx.seed],
-      ['ai', QS.get('ai')],
-      ['studyId', QS.get('studyId')],
-      ['phase', QS.get('phase')],
-      ['conditionGroup', QS.get('conditionGroup')],
-      ['log', QS.get('log')]
-    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
+  // set UI
+  const $ = (id)=>document.getElementById(id);
+  $('pid').value = P.pid;
+  $('run').value = (P.run==='study'?'study':'play');
+  $('diff').value = (['easy','normal','hard'].includes(P.diff)?P.diff:'normal');
+  $('time').value = String(P.time);
+  $('seed').value = P.seed;
+  $('view').value = (P.view==='mobile'||P.view==='cvr'||P.view==='pc') ? P.view : 'pc';
+  $('log').value = P.log;
+  $('studyId').value = P.studyId;
+  $('phase').value = P.phase;
+  $('conditionGroup').value = P.conditionGroup;
 
-    document.getElementById('pillrow').innerHTML = (pills.length ? pills : [['ctx','none']])
-      .slice(0, 12)
-      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${esc(v)}</span>`)
-      .join('');
+  // pill row
+  const pillrow=$('pillrow');
+  pillrow.innerHTML = [
+    ['pid', P.pid],
+    ['run', $('run').value],
+    ['diff', $('diff').value],
+    ['time', $('time').value+'s'],
+    ['view', $('view').value],
+    ['seed', (P.seed||'(auto)')]
+  ].map(([k,v])=>`<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`).join('');
+
+  // build hub url (keep ctx)
+  function buildHubUrl(){
+    try{
+      const u = new URL(P.hub || './hub.html', location.href);
+      const sp = u.searchParams;
+      sp.set('pid', $('pid').value.trim()||'anon');
+      sp.set('run', $('run').value);
+      sp.set('diff', $('diff').value);
+      sp.set('time', String(clamp($('time').value,20,300)));
+      sp.set('seed', $('seed').value.trim()||nowSeed());
+      sp.set('view', $('view').value);
+      const lg = $('log').value.trim();
+      if(lg) sp.set('log', lg); else sp.delete('log');
+      const sid=$('studyId').value.trim(); if(sid) sp.set('studyId', sid); else sp.delete('studyId');
+      const ph=$('phase').value.trim(); if(ph) sp.set('phase', ph); else sp.delete('phase');
+      const cg=$('conditionGroup').value.trim(); if(cg) sp.set('conditionGroup', cg); else sp.delete('conditionGroup');
+      return u.toString();
+    }catch(_){
+      return './hub.html';
+    }
+  }
+  $('btnBackHub').href = buildHubUrl();
+
+  function saveLast(x){
+    try{ localStorage.setItem(LS, JSON.stringify(x)); }catch(_){}
   }
 
-  // toast
-  const toastEl = document.getElementById('toast');
-  let toastTimer=null;
-  function toast(msg){
-    clearTimeout(toastTimer);
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1300);
-  }
+  function buildRunUrl(forceView){
+    const pid = $('pid').value.trim()||'anon';
+    const run = $('run').value;
+    const diff= $('diff').value;
+    const time= String(clamp($('time').value,20,300));
+    const seed= $('seed').value.trim()||nowSeed();
+    const view= forceView || $('view').value;
+    const log = $('log').value.trim();
 
-  // pass-through builder
-  function applyPassThrough(href, view){
-    const u = new URL(href, location.href);
-    for (const k of PASS_KEYS){
-      if (!u.searchParams.has(k) && QS.has(k)){
-        const v = QS.get(k);
-        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
-      }
-    }
-    // ensure defaults
-    if(!u.searchParams.has('pid')) u.searchParams.set('pid', ctx.pid);
-    if(!u.searchParams.has('run')) u.searchParams.set('run', ctx.run);
-    if(!u.searchParams.has('diff')) u.searchParams.set('diff', ctx.diff);
-    if(!u.searchParams.has('time')) u.searchParams.set('time', String(ctx.time));
-    if(!u.searchParams.has('seed')) u.searchParams.set('seed', ctx.seed);
-    if(view) u.searchParams.set('view', view);
+    const sid=$('studyId').value.trim();
+    const ph=$('phase').value.trim();
+    const cg=$('conditionGroup').value.trim();
 
-    // ensure hub
-    if(!u.searchParams.has('hub') || !String(u.searchParams.get('hub')||'').trim()){
-      const hubGuess = new URL('./hub.html', location.href);
-      u.searchParams.set('hub', hubGuess.toString());
-    }
+    const u = new URL('./vr-maskcough/maskcough.html', location.href);
+    const sp = u.searchParams;
+
+    sp.set('hub', buildHubUrl());
+    sp.set('pid', pid);
+    sp.set('run', run);
+    sp.set('diff', diff);
+    sp.set('time', time);
+    sp.set('seed', seed);
+    sp.set('view', view);
+
+    if(log) sp.set('log', log); else sp.delete('log');
+    if(sid) sp.set('studyId', sid); else sp.delete('studyId');
+    if(ph) sp.set('phase', ph); else sp.delete('phase');
+    if(cg) sp.set('conditionGroup', cg); else sp.delete('conditionGroup');
+
+    saveLast({pid, run, diff, time:Number(time), seed, view, log, studyId:sid, phase:ph, conditionGroup:cg, hub:P.hub});
     return u.toString();
   }
 
-  // view selection
-  const viewGrid = document.getElementById('viewGrid');
-  const tView = document.getElementById('tView');
-  const tDiff = document.getElementById('tDiff');
-  const tTime = document.getElementById('tTime');
-  const tPid  = document.getElementById('tPid');
-  let selectedView = pickDefaultView();
+  $('btnPlay').addEventListener('click', ()=>{
+    const url = buildRunUrl();
+    toast('กำลังเข้าเกม…');
+    location.href = url;
+  }, {passive:true});
 
-  function setView(v){
-    selectedView = v;
-    try{ localStorage.setItem(LS_VIEW, v); }catch(_){}
-    viewGrid.querySelectorAll('.opt[data-view]').forEach(o=>{
-      o.classList.toggle('on', o.getAttribute('data-view') === v);
-    });
-    tView.textContent = v;
-    tDiff.textContent = ctx.diff;
-    tTime.textContent = ctx.time;
-    tPid.textContent  = ctx.pid;
-  }
+  $('btnCvr').addEventListener('click', ()=>{
+    const url = buildRunUrl('cvr');
+    toast('เข้าโหมด cVR…');
+    location.href = url;
+  }, {passive:true});
 
-  viewGrid.addEventListener('click', (ev)=>{
-    const el = ev.target.closest('.opt[data-view]');
-    if(!el) return;
-    setView(el.getAttribute('data-view'));
-    toast(`เลือก view = ${selectedView}`);
-  });
-
-  document.getElementById('btnStart').addEventListener('click', ()=>{
-    location.href = applyPassThrough(RUN_PATH, selectedView);
-  });
-
-  document.getElementById('btnHow').addEventListener('click', ()=>{
-    toast('วิธีเล่น: ใส่หน้ากากให้ถูก + เลือก “ไอ/จาม” ให้ถูกมารยาท • เก็บคอมโบให้ได้!');
-  });
-
-  document.getElementById('btnToHub').addEventListener('click', ()=>{
-    const h = (QS.get('hub')||'').trim();
-    location.href = h || new URL('./hub.html', location.href).toString();
-  });
-
-  document.getElementById('runPath').textContent = RUN_PATH;
-
-  renderPills();
-  setView(selectedView);
 })();
 </script>
 </body>
