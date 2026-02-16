@@ -11,18 +11,22 @@
 <script type="module">
   import { hhGo } from './launch/launcher-core.js';
 
-  // ✅ target คือเกมจริง
-  // ✅ ใส่ log default (ของคุณ) และให้จำ log ล่าสุดไว้
-  hhGo('../fitness/jump-duck.html', {
+  // ✅ RUN target
+  const RUN = '../fitness/jump-duck.html';
+
+  // ✅ Web App Logger URL (ของคุณ)
+  const LOG = 'https://script.google.com/macros/s/AKfycbzxSLAGlvcFBxDkWhWnKmAehnRGKzE4nt8CpX9AgTWuNo33KuF2T9XrEgsrLtycnL-BFA/exec';
+
+  hhGo(RUN, {
     defaults: {
       mode: 'training',
       diff: 'normal',
       duration: '60',
-      // ✅ Web App URL ที่คุณ deploy แล้ว
-      log: 'https://script.google.com/macros/s/AKfycbzxSLAGlvcFBxDkWhWnKmAehnRGKzE4nt8CpX9AgTWuNo33KuF2T9XrEgsrLtycnL-BFA/exec'
-    },
-    rememberLog: true,
-    preferQueryLog: true
+      // ✅ ใส่ log เป็นค่าเริ่มต้น (ถ้าจะให้ปิดได้: ลบออก หรือ override ด้วย ?log=)
+      log: LOG,
+      // (optional) ให้ Mixed boss deterministic จาก group
+      conditionGroup: 'MIX'
+    }
   });
 </script>
 </body>
