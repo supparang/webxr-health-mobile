@@ -1,9 +1,10 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (401/403-safe + Offline fallback)
-PACK v20260216b
-✅ Badges + Check-in buttons
+PACK v20260216c (ALL-IN)
+✅ Badges + Check-in
 ✅ Zone done today pills
 ✅ Last summary panel (HHA_LAST_SUMMARY) + clear
+✅ API banner probe (401/403 latch per-tab) + retry + reset today
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
 -->
 <!doctype html>
@@ -73,6 +74,7 @@ PACK v20260216b
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
     .btn.ghost{background:rgba(2,6,23,.18)}
+    .btn--disabled{opacity:.55;filter:saturate(.7);pointer-events:none}
     .small{font-size:12px;color:var(--muted);font-weight:850;margin-top:10px}
 
     .banner{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
