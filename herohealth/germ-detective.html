@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Germ Detective</title>
+  <meta name="color-scheme" content="dark"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <link rel="stylesheet" href="./germ-detective/germ-detective.css?v=20260216c"/>
+</head>
+<body>
+  <main class="gd-launch">
+    <header class="gd-hero">
+      <div class="gd-badge">🕵️ Germ Detective</div>
+      <h1>ตามล่าเชื้อโรค</h1>
+      <p class="gd-sub">เลือกโหมด (PC / Mobile / Cardboard VR) แล้วเริ่มภารกิจ</p>
+    </header>
+
+    <section class="gd-card">
+      <h2>ตั้งค่า</h2>
+      <div class="gd-grid">
+        <label class="gd-field">
+          <span>Player ID (pid)</span>
+          <input id="pid" placeholder="p001 หรือ anon"/>
+        </label>
+
+        <label class="gd-field">
+          <span>เวลาเล่น (วินาที)</span>
+          <input id="time" type="number" min="30" max="600" value="240"/>
+        </label>
+
+        <label class="gd-field">
+          <span>ความยาก (diff)</span>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </label>
+
+        <label class="gd-field">
+          <span>Seed</span>
+          <input id="seed" placeholder="ว่าง = auto"/>
+        </label>
+      </div>
+
+      <div class="gd-row">
+        <label class="gd-check"><input id="gate" type="checkbox" checked/><span>Warmup 15s</span></label>
+        <label class="gd-check"><input id="ai" type="checkbox" checked/><span>AI Prediction / Director</span></label>
+      </div>
+    </section>
+
+    <section class="gd-card">
+      <h2>เลือกโหมดเล่น</h2>
+      <div class="gd-modes">
+        <button class="gd-btn" data-view="pc">🖥️ PC</button>
+        <button class="gd-btn" data-view="mobile">📱 Mobile</button>
+        <button class="gd-btn" data-view="cvr">🥽 Cardboard VR</button>
+      </div>
+
+      <div class="gd-links">
+        <a id="backHub" href="./hub.html">← กลับ HUB</a>
+        <a id="openRun" href="./germ-detective/germ-detective.html">เปิดหน้าเล่น (Run) ↗</a>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    const qs = (k,d='') => { try { return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } };
+    const nowSeed = () => String(Date.now());
+    const $ = (id)=>document.getElementById(id);
+
+    const hub = qs('hub','./hub.html');
+    $('backHub').href = hub;
+
+    $('pid').value  = qs('pid','anon');
+    $('time').value = qs('time','240');
+    $('diff').value = qs('diff','normal');
+    $('seed').value = qs('seed','');
+    $('gate').checked = (qs('gate','1') !== '0');
+    $('ai').checked   = (qs('ai','1') !== '0');
+
+    function buildRunURL(view){
+      const pid  = ($('pid').value || 'anon').trim();
+      const time = String(Math.max(30, Math.min(600, Number($('time').value||240))));
+      const diff = $('diff').value || 'normal';
+      const seed = ($('seed').value || nowSeed()).trim();
+      const gate = $('gate').checked ? '1' : '0';
+      const ai   = $('ai').checked ? '1' : '0';
+
+      // ✅ RUN อยู่ในโฟลเดอร์ /herohealth/germ-detective/
+      const u = new URL('./germ-detective/germ-detective.html', location.href);
+      u.searchParams.set('hub', hub);
+      u.searchParams.set('run','play');
+      u.searchParams.set('view', view);
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('time', time);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('seed', seed);
+      u.searchParams.set('gate', gate);
+      u.searchParams.set('ai', ai);
+      return u.toString();
+    }
+
+    document.querySelectorAll('.gd-btn[data-view]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        location.href = buildRunURL(btn.getAttribute('data-view'));
+      });
+    });
+
+    function syncOpenRun(){ $('openRun').href = buildRunURL('pc'); }
+    ['pid','time','diff','seed','gate','ai'].forEach(id=>{
+      $(id).addEventListener('input', syncOpenRun);
+      $(id).addEventListener('change', syncOpenRun);
+    });
+    syncOpenRun();
+  </script>
+</body>
+</html>
