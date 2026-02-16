@@ -1,9 +1,14 @@
 /* === /herohealth/vr-brush/brush.safe.js ===
-BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
-✅ Hook AI: WIN.HHA.ai.onEvent(...) -> emits brush:ai via ai-hooks.js
-✅ Fix Script error visibility via brush-vr.html early catcher (not inside this file)
-✅ Everything else stays as your full version
+BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216a
+✅ Expose window.BrushVR.boot(ctx)
+✅ Tap/Click (pc/mobile) + Crosshair Shoot (cVR via vr-ui.js -> hha:shoot)
+✅ Perfect window near expiry for dopamine
+✅ Fever bar + Fever mode (via fun-boost)
+✅ Boss plaque (multi-hit) appears by progress
+✅ Summary + Back Hub + Save last summary
+✅ AI hooks (BrushAI baseline) -> emits brush:ai events
 */
+
 (function(){
   'use strict';
 
@@ -55,7 +60,7 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     if(v) return v;
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'cvr' : 'pc';
+    return isMobile ? 'mobile' : 'pc';
   }
 
   function passHubUrl(ctx){
@@ -75,14 +80,7 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
   }
 
   function emit(type, detail){
-    try{
-      WIN.dispatchEvent(new CustomEvent(type, { detail }));
-    }catch(_){}
-  }
-
-  // ✅ PATCH: AI event bridge (Prediction/ML/DL buffer)
-  function aiEvent(ev){
-    try{ WIN.HHA?.ai?.onEvent?.(ev); }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent(type, { detail })); }catch(_){}
   }
 
   // ---------- DOM refs ----------
@@ -127,64 +125,8 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
   const endGrade = $('#endGrade');
   const endNote = $('#endNote');
 
-  // ---------- context ----------
-  const qs = getQS();
-  const ctx = {
-    hub: qs.get('hub') || '../hub.html',
-    run: qs.get('run') || qs.get('mode') || 'play',
-    view: getViewAuto(),
-    diff: (qs.get('diff') || 'normal').toLowerCase(),
-    time: safeNum(qs.get('time'), 60),
-    seed: safeNum(qs.get('seed'), Date.now()),
-    pid: (qs.get('pid') || qs.get('participantId') || '').trim(),
-    studyId: (qs.get('studyId') || '').trim(),
-    phase: (qs.get('phase') || '').trim(),
-    conditionGroup: (qs.get('conditionGroup') || '').trim(),
-    log: (qs.get('log') || '').trim()
-  };
-
-  ctx.time = clamp(ctx.time, 30, 120);
-
-  wrap.dataset.view = ctx.view;
-  ctxView.textContent = ctx.view;
-  ctxSeed.textContent = String((ctx.seed >>> 0));
-  ctxTime.textContent = `${ctx.time}s`;
-  diffTag.textContent = ctx.diff;
-
-  mDiff.textContent = ctx.diff;
-  mTime.textContent = `${ctx.time}s`;
-
-  function setBackLinks(){
-    const hubUrl = passHubUrl(ctx);
-    for (const a of [btnBack, btnBackHub2]){
-      try{
-        const u = new URL(hubUrl, location.href);
-        if(ctx.pid) u.searchParams.set('pid', ctx.pid);
-        if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-        if(ctx.phase) u.searchParams.set('phase', ctx.phase);
-        if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
-        a.href = u.toString();
-      }catch(_){
-        a.href = hubUrl;
-      }
-    }
-  }
-  setBackLinks();
-
-  const rng = seededRng(ctx.seed);
-
-  // ---------- fun boost (optional) ----------
-  const fun = WIN.HHA?.createFunBoost?.({
-    seed: (qs.get('seed') || ctx.pid || 'brush'),
-    baseSpawnMul: 1.0,
-    waveCycleMs: 20000,
-    feverThreshold: 18,
-    feverDurationMs: 6800,
-    feverSpawnBoost: 1.18,
-    feverTimeScale: 0.92
-  });
-
-  let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
+  // ---------- internal ----------
+  let BOOTED = false;
 
   // ---------- game state ----------
   const st = {
@@ -200,7 +142,7 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     shots:0,
     hits:0,
 
-    clean:0,
+    clean:0, // 0..100
     cleanGainPerHit: 1.2,
     cleanLosePerMiss: 0.6,
 
@@ -216,51 +158,45 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     targets: new Map(),
   };
 
-  (function tune(){
-    if(ctx.diff==='easy'){
-      st.baseSpawnMs = 900;
-      st.ttlMs = 1950;
-      st.perfectWindowMs = 260;
-      st.cleanGainPerHit = 1.35;
-      st.cleanLosePerMiss = 0.45;
-    }else if(ctx.diff==='hard'){
-      st.baseSpawnMs = 650;
-      st.ttlMs = 1450;
-      st.perfectWindowMs = 200;
-      st.cleanGainPerHit = 1.05;
-      st.cleanLosePerMiss = 0.75;
-    }
-  })();
+  let ctx = null;
+  let rng = seededRng(Date.now());
+
+  // fun boost
+  let fun = null;
+  let director = { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
+
+  // timers
+  let spawnTimer = null;
+  let tickTimer = null;
+
+  function layerRect(){ return layer.getBoundingClientRect(); }
 
   function hud(force){
     const t = now();
     if(!force && t - st.lastHud < 60) return;
     st.lastHud = t;
 
-    tScore.textContent = String(st.score);
-    tCombo.textContent = String(st.combo);
-    tMiss.textContent  = String(st.miss);
+    if(tScore) tScore.textContent = String(st.score);
+    if(tCombo) tCombo.textContent = String(st.combo);
+    if(tMiss)  tMiss.textContent  = String(st.miss);
 
     const elapsed = st.running ? ((t - st.t0)/1000) : 0;
     const left = st.running ? Math.max(0, ctx.time - elapsed) : ctx.time;
-    tTime.textContent = left.toFixed(0);
+    if(tTime) tTime.textContent = left.toFixed(0);
 
     const clean = clamp(st.clean, 0, 100);
-    tClean.textContent = `${Math.round(clean)}%`;
-    bClean.style.width = `${clean}%`;
+    if(tClean) tClean.textContent = `${Math.round(clean)}%`;
+    if(bClean) bClean.style.width = `${clean}%`;
 
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
     const pct = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
-    tFever.textContent = director.feverOn ? 'ON' : 'OFF';
-    bFever.style.width = `${pct}%`;
+    if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
+    if(bFever) bFever.style.width = `${pct}%`;
   }
-
-  function layerRect(){ return layer.getBoundingClientRect(); }
 
   function mkTarget({x,y,kind,hpMax}){
     const id = String(++st.uid);
-
     const el = DOC.createElement('div');
     el.className = 'br-t' + (kind==='boss' ? ' thick' : '');
     el.dataset.id = id;
@@ -285,38 +221,13 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
 
     st.targets.set(id, { el, kind, bornMs: born, dieMs: die, hpMax, hp: hpMax, fillEl: fill });
 
+    // pc/mobile tap only (cvr strict = pointer disabled by CSS)
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       onHitAt(x, y, { source:'tap', targetId:id });
     }, { passive:false });
 
     layer.appendChild(el);
-  }
-
-  function spawnOne(){
-    if(!st.running || st.paused || st.over) return;
-
-    director = fun ? fun.tick() : director;
-
-    const r = layerRect();
-    const pad = 56;
-
-    const x = pad + rng() * Math.max(10, (r.width - pad*2));
-    const y = pad + rng() * Math.max(10, (r.height - pad*2));
-
-    if(!st.bossActive && st.clean >= st.nextBossAt && st.clean < 100){
-      st.bossActive = true;
-      mkTarget({ x, y, kind:'boss', hpMax: (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4) });
-      toast('💎 BOSS PLAQUE!');
-      emit('hha:coach', { msg:'เจอบอสคราบหนา! ยิง/แตะหลายครั้งให้แตก!', ts: Date.now() });
-
-      // ✅ AI event (boss start)
-      aiEvent({ game:'brush', ts: Date.now(), type:'boss', on:true, clean: st.clean, diff: ctx.diff, view: ctx.view });
-
-      return;
-    }
-
-    mkTarget({ x, y, kind:'plaque', hpMax: 1 });
   }
 
   function updateHpVis(it){
@@ -352,6 +263,20 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     toast('✨ Perfect!');
   }
 
+  function burstPop(n){
+    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='plaque');
+    for(let i=0;i<Math.min(n, arr.length);i++){
+      const pick = arr[Math.floor(rng()*arr.length)];
+      if(!pick) break;
+      const [id] = pick;
+      const it = st.targets.get(id);
+      if(it){
+        onHitTarget(it, 0);
+        removeTarget(id, true);
+      }
+    }
+  }
+
   function onHitTarget(it, remainMs){
     st.hits += 1;
 
@@ -381,20 +306,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     fun?.onAction?.({ type:'timeout' });
   }
 
-  function burstPop(n){
-    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='plaque');
-    for(let i=0;i<Math.min(n, arr.length);i++){
-      const pick = arr[Math.floor(rng()*arr.length)];
-      if(!pick) break;
-      const [id] = pick;
-      const it = st.targets.get(id);
-      if(it){
-        onHitTarget(it, 0);
-        removeTarget(id, true);
-      }
-    }
-  }
-
   function hitTest(x,y){
     const rad = 44;
     let best = null;
@@ -415,49 +326,30 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     return best;
   }
 
-  function onHitAt(x,y, meta){
+  function onHitAt(x,y){
     if(!st.running || st.paused || st.over) return;
     st.shots += 1;
 
+    WIN.BrushAI?.onAction?.({ shots: st.shots, hits: st.hits, miss: st.miss, combo: st.combo, comboMax: st.comboMax, clean: st.clean });
+
     const t = now();
     const hit = hitTest(x,y);
-
     if(!hit){
       st.combo = 0;
       st.miss += 1;
       st.score = Math.max(0, st.score - 1);
       fun?.onNearMiss?.({ reason:'whiff' });
-
-      // ✅ AI event: shot whiff
-      aiEvent({
-        game:'brush', ts: Date.now(),
-        type:'shot', hit:false,
-        combo: st.combo, miss: st.miss, clean: st.clean,
-        x, y, view: ctx.view, diff: ctx.diff
-      });
-
       hud(true);
       return;
     }
 
     const { id, it } = hit;
-
     const remain = it.dieMs - t;
+
     it.hp = Math.max(0, it.hp - 1);
     updateHpVis(it);
 
     onHitTarget(it, remain);
-
-    // ✅ AI event: shot hit
-    aiEvent({
-      game:'brush', ts: Date.now(),
-      type:'shot', hit:true,
-      kind: it.kind,
-      remainMs: Math.round(remain),
-      ttlMs: Math.round(st.ttlMs),
-      combo: st.combo, miss: st.miss, clean: st.clean,
-      view: ctx.view, diff: ctx.diff
-    });
 
     if(it.hp <= 0){
       removeTarget(id, true);
@@ -467,9 +359,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
         st.nextBossAt = Math.min(100, st.nextBossAt + st.bossEveryPct);
         toast('💥 Boss แตก!');
         emit('hha:coach', { msg:'เยี่ยม! คราบหนาแตกแล้ว ไปต่อ!', ts: Date.now() });
-
-        // ✅ AI boss cleared
-        aiEvent({ game:'brush', ts: Date.now(), type:'boss', on:false, clean: st.clean, diff: ctx.diff, view: ctx.view });
       }
     }
 
@@ -481,18 +370,38 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     }
   }
 
+  // cVR shoot hook
   WIN.addEventListener('hha:shoot', (ev)=>{
     const d = ev?.detail || {};
     const x = safeNum(d.x, NaN);
     const y = safeNum(d.y, NaN);
     if(Number.isFinite(x) && Number.isFinite(y)){
-      onHitAt(x, y, { source:'shoot' });
+      onHitAt(x, y);
     }
   });
 
-  // ---------- timing ----------
-  let spawnTimer = null;
-  let tickTimer = null;
+  function spawnOne(){
+    if(!st.running || st.paused || st.over) return;
+
+    director = fun ? fun.tick() : director;
+
+    const r = layerRect();
+    const pad = 56;
+
+    const x = pad + rng() * Math.max(10, (r.width - pad*2));
+    const y = pad + rng() * Math.max(10, (r.height - pad*2));
+
+    if(!st.bossActive && st.clean >= st.nextBossAt && st.clean < 100){
+      st.bossActive = true;
+      WIN.BrushAI?.onBossStart?.();
+      mkTarget({ x, y, kind:'boss', hpMax: (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4) });
+      toast('💎 BOSS PLAQUE!');
+      emit('hha:coach', { msg:'เจอบอสคราบหนา! ยิง/แตะหลายครั้งให้แตก!', ts: Date.now() });
+      return;
+    }
+
+    mkTarget({ x, y, kind:'plaque', hpMax: 1 });
+  }
 
   function scheduleSpawn(){
     clearTimeout(spawnTimer);
@@ -514,6 +423,7 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
 
     const t = now();
 
+    // timeout targets
     for(const [id,it] of st.targets){
       if(t >= it.dieMs){
         removeTarget(id, false);
@@ -522,24 +432,29 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
           toast('💎 Boss หลุด!');
         }
         onMiss(it.kind);
-
-        // ✅ AI event: timeout
-        aiEvent({
-          game:'brush', ts: Date.now(),
-          type:'timeout',
-          kind: it.kind,
-          combo: st.combo,
-          miss: st.miss,
-          clean: st.clean,
-          view: ctx.view,
-          diff: ctx.diff
-        });
       }
     }
 
     const elapsed = (t - st.t0)/1000;
     const left = ctx.time - elapsed;
     emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
+
+    WIN.BrushAI?.onTick?.({
+      t,
+      left: Math.max(0,left),
+      clean: st.clean,
+      combo: st.combo,
+      miss: st.miss,
+      feverOn: !!director.feverOn,
+      feverCharge: fun?.getState?.().feverCharge || 0,
+      bossActive: st.bossActive
+    });
+
+    // fire fever event when entering fever
+    if(director.feverOn && !tick._feverPrev){
+      WIN.BrushAI?.onFeverOn?.();
+    }
+    tick._feverPrev = !!director.feverOn;
 
     hud();
 
@@ -548,7 +463,23 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     }
   }
 
-  // ---------- start/end ----------
+  function setBackLinks(){
+    const hubUrl = passHubUrl(ctx);
+    for (const a of [btnBack, btnBackHub2]){
+      if(!a) continue;
+      try{
+        const u = new URL(hubUrl, location.href);
+        if(ctx.pid) u.searchParams.set('pid', ctx.pid);
+        if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+        if(ctx.phase) u.searchParams.set('phase', ctx.phase);
+        if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
+        a.href = u.toString();
+      }catch(_){
+        a.href = hubUrl;
+      }
+    }
+  }
+
   function startGame(){
     st.running = true;
     st.paused = false;
@@ -569,10 +500,12 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     for(const [id] of st.targets) removeTarget(id, false);
     st.targets.clear();
 
-    menu.style.display = 'none';
-    end.hidden = true;
-    wrap.dataset.state = 'play';
-    btnPause.textContent = 'Pause';
+    if(menu) menu.style.display = 'none';
+    if(end) end.hidden = true;
+    if(wrap) wrap.dataset.state = 'play';
+    if(btnPause) btnPause.textContent = 'Pause';
+
+    WIN.BrushAI?.onStart?.({});
 
     toast('เริ่ม! แปรงคราบให้ทัน!');
     hud(true);
@@ -590,9 +523,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
       timePlannedSec: ctx.time,
       ts: Date.now()
     });
-
-    // ✅ AI reset per run (optional)
-    try{ WIN.HHA?.ai?.reset?.(); }catch(_){}
 
     scheduleSpawn();
     clearInterval(tickTimer);
@@ -657,57 +587,126 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260216a
     emit('hha:judge', { ...summary });
     emit('hha:end', { ...summary });
 
-    sScore.textContent = String(summary.score);
-    sAcc.textContent   = `${summary.accuracyPct}%`;
-    sMiss.textContent  = String(summary.miss);
-    sCombo.textContent = String(summary.comboMax);
-    sClean.textContent = `${summary.cleanPct}%`;
-    sTime.textContent  = `${summary.timePlayedSec}s`;
-    endGrade.textContent = summary.grade;
+    if(sScore) sScore.textContent = String(summary.score);
+    if(sAcc)   sAcc.textContent   = `${summary.accuracyPct}%`;
+    if(sMiss)  sMiss.textContent  = String(summary.miss);
+    if(sCombo) sCombo.textContent = String(summary.comboMax);
+    if(sClean) sClean.textContent = `${summary.cleanPct}%`;
+    if(sTime)  sTime.textContent  = `${summary.timePlayedSec}s`;
+    if(endGrade) endGrade.textContent = summary.grade;
 
-    endNote.textContent =
-      `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
+    if(endNote){
+      endNote.textContent = `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
+    }
 
-    end.hidden = false;
-    menu.style.display = 'none';
-
+    if(end) end.hidden = false;
+    if(menu) menu.style.display = 'none';
     toast(reason==='clean' ? '🦷 สะอาดแล้ว! เยี่ยม!' : 'หมดเวลา!');
-
-    // ✅ AI final state snapshot (optional)
-    aiEvent({ game:'brush', ts: Date.now(), type:'end', reason, ...summary });
   }
 
   function togglePause(){
     if(!st.running || st.over) return;
     st.paused = !st.paused;
-    btnPause.textContent = st.paused ? 'Resume' : 'Pause';
+    if(btnPause) btnPause.textContent = st.paused ? 'Resume' : 'Pause';
     toast(st.paused ? '⏸ Pause' : '▶ Resume');
   }
 
-  // ---------- controls ----------
-  btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRetry?.addEventListener('click', startGame, { passive:true });
+  function tune(){
+    if(ctx.diff==='easy'){
+      st.baseSpawnMs = 900;
+      st.ttlMs = 1950;
+      st.perfectWindowMs = 260;
+      st.cleanGainPerHit = 1.35;
+      st.cleanLosePerMiss = 0.45;
+    }else if(ctx.diff==='hard'){
+      st.baseSpawnMs = 650;
+      st.ttlMs = 1450;
+      st.perfectWindowMs = 200;
+      st.cleanGainPerHit = 1.05;
+      st.cleanLosePerMiss = 0.75;
+    }else{
+      st.baseSpawnMs = 760;
+      st.ttlMs = 1650;
+      st.perfectWindowMs = 220;
+      st.cleanGainPerHit = 1.2;
+      st.cleanLosePerMiss = 0.6;
+    }
+  }
 
-  btnPause?.addEventListener('click', togglePause, { passive:true });
+  function boot(inCtx){
+    if(BOOTED) return;
+    BOOTED = true;
 
-  btnHow?.addEventListener('click', ()=>{
-    toast('แตะ/ยิง “🦠” ให้ทัน • คราบหนา “💎” ต้องหลายครั้ง • ใกล้หมดเวลา = Perfect!');
-  }, { passive:true });
+    const qs = getQS();
+    ctx = {
+      hub: inCtx?.hub || qs.get('hub') || '../hub.html',
+      run: inCtx?.run || qs.get('run') || qs.get('mode') || 'play',
+      view: (inCtx?.view || qs.get('view') || getViewAuto() || 'pc').toLowerCase(),
+      diff: (inCtx?.diff || qs.get('diff') || 'normal').toLowerCase(),
+      time: clamp(safeNum(inCtx?.time ?? qs.get('time'), 80), 30, 120),
+      seed: safeNum(inCtx?.seed ?? qs.get('seed'), Date.now()),
+      pid: (inCtx?.pid ?? qs.get('pid') ?? qs.get('participantId') ?? '').trim(),
+      studyId: (inCtx?.studyId ?? qs.get('studyId') ?? '').trim(),
+      phase: (inCtx?.phase ?? qs.get('phase') ?? '').trim(),
+      conditionGroup: (inCtx?.conditionGroup ?? qs.get('conditionGroup') ?? '').trim(),
+      log: (inCtx?.log ?? qs.get('log') ?? '').trim(),
+      api: (inCtx?.api ?? qs.get('api') ?? '').trim(),
+      health: (inCtx?.health ?? qs.get('health') ?? '').trim()
+    };
 
-  btnRecenter?.addEventListener('click', ()=>{
-    WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ ts:Date.now() } }));
-    toast('Recenter');
-  }, { passive:true });
+    if(wrap) wrap.dataset.view = ctx.view;
+    DOC.body.setAttribute('data-view', ctx.view);
 
-  layer?.addEventListener('pointerdown', (ev)=>{
-    if(ctx.view==='cvr') return;
-    if(!st.running || st.paused || st.over) return;
-    const x = ev.clientX;
-    const y = ev.clientY;
-    onHitAt(x,y,{ source:'layer' });
-  }, { passive:true });
+    if(ctxView) ctxView.textContent = ctx.view;
+    if(ctxSeed) ctxSeed.textContent = String((ctx.seed >>> 0));
+    if(ctxTime) ctxTime.textContent = `${ctx.time}s`;
+    if(diffTag) diffTag.textContent = ctx.diff;
+    if(mDiff) mDiff.textContent = ctx.diff;
+    if(mTime) mTime.textContent = `${ctx.time}s`;
 
-  // init
-  hud(true);
-  toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
+    rng = seededRng(ctx.seed);
+
+    WIN.BrushAI?.configure?.({ seed: ctx.seed });
+
+    fun = WIN.HHA?.createFunBoost?.({
+      seed: (String(ctx.seed || ctx.pid || 'brush')),
+      baseSpawnMul: 1.0,
+      waveCycleMs: 20000,
+      feverThreshold: 18,
+      feverDurationMs: 6800,
+      feverSpawnBoost: 1.18,
+      feverTimeScale: 0.92
+    }) || null;
+
+    director = fun ? fun.tick() : director;
+
+    tune();
+    setBackLinks();
+
+    // controls
+    btnStart?.addEventListener('click', startGame, { passive:true });
+    btnRetry?.addEventListener('click', startGame, { passive:true });
+    btnPause?.addEventListener('click', togglePause, { passive:true });
+    btnHow?.addEventListener('click', ()=>{
+      toast('แตะ/ยิง “🦠” ให้ทัน • คราบหนา “💎” ต้องหลายครั้ง • ใกล้หมดเวลา = Perfect!');
+    }, { passive:true });
+    btnRecenter?.addEventListener('click', ()=>{
+      WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ ts:Date.now() } }));
+      toast('Recenter');
+    }, { passive:true });
+
+    // click anywhere -> shoot (pc/mobile only)
+    layer?.addEventListener('pointerdown', (ev)=>{
+      if(ctx.view==='cvr') return;
+      if(!st.running || st.paused || st.over) return;
+      onHitAt(ev.clientX, ev.clientY);
+    }, { passive:true });
+
+    hud(true);
+    toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
+  }
+
+  // Expose API
+  WIN.BrushVR = { boot };
+
 })();
