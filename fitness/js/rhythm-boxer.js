@@ -1,11 +1,76 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === /fitness/js/rhythm-boxer.js ===
+// Rhythm Boxer UI glue — PRODUCTION + HHA passthrough + Save Last Summary
+// ✅ hub/pid/seed/view/run/diff/time/studyId/phase/conditionGroup passthrough
+// ✅ Back HUB uses ?hub=... if provided
+// ✅ Save last summary + history in localStorage (HHA-ish)
+// ✅ CSV filename includes pid/studyId/track/seed
 'use strict';
 
 (function () {
-
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+  // --------- ctx helpers (HHA style) ----------
+  function qs(k, d = '') {
+    try { return new URL(location.href).searchParams.get(k) ?? d; } catch (_) { return d; }
+  }
+  function num(v, d) {
+    const n = Number(v); return Number.isFinite(n) ? n : d;
+  }
+  function str(v, d = '') {
+    v = (v == null) ? '' : String(v);
+    v = v.trim();
+    return v ? v : d;
+  }
+  function encodeUrl(u) { try { return encodeURIComponent(u); } catch (_) { return u; } }
+
+  function buildCtx() {
+    const hub  = str(qs('hub', ''), '');
+    const pid  = str(qs('pid', ''), '');
+    const seed = str(qs('seed', ''), str(Date.now()));
+    const view = str(qs('view', ''), '');
+    const run  = str(qs('run', ''), '');
+    const diff = str(qs('diff', ''), '');
+    const time = num(qs('time', ''), null);
+
+    // research meta (optional)
+    const studyId = str(qs('studyId', ''), '');
+    const phase   = str(qs('phase', ''), '');
+    const conditionGroup = str(qs('conditionGroup', ''), '');
+
+    return { hub, pid, seed, view, run, diff, time, studyId, phase, conditionGroup };
+  }
+
+  const CTX = buildCtx();
+
+  function passThroughQuery(extra = {}) {
+    const sp = new URLSearchParams();
+    // keep core
+    if (CTX.hub)  sp.set('hub', CTX.hub);
+    if (CTX.pid)  sp.set('pid', CTX.pid);
+    if (CTX.seed) sp.set('seed', CTX.seed);
+    if (CTX.view) sp.set('view', CTX.view);
+    if (CTX.run)  sp.set('run', CTX.run);
+    if (CTX.diff) sp.set('diff', CTX.diff);
+    if (CTX.time != null) sp.set('time', String(CTX.time));
+
+    // research meta
+    if (CTX.studyId) sp.set('studyId', CTX.studyId);
+    if (CTX.phase) sp.set('phase', CTX.phase);
+    if (CTX.conditionGroup) sp.set('conditionGroup', CTX.conditionGroup);
+
+    // add/override
+    Object.keys(extra || {}).forEach(k => {
+      const v = extra[k];
+      if (v == null || v === '') sp.delete(k);
+      else sp.set(k, String(v));
+    });
+
+    const q = sp.toString();
+    return q ? ('?' + q) : '';
+  }
+
+  // --------- DOM ----------
   const wrap = $('#rb-wrap');
   const viewMenu   = $('#rb-view-menu');
   const viewPlay   = $('#rb-view-play');
@@ -17,7 +82,7 @@
   const feedbackEl = $('#rb-feedback');
   const audioEl    = $('#rb-audio');
 
-  // ปุ่มเมนู
+  // menu controls
   const btnStart      = $('#rb-btn-start');
   const modeRadios    = $$('input[name="rb-mode"]');
   const trackRadios   = $$('input[name="rb-track"]');
@@ -26,19 +91,22 @@
   const trackModeLbl  = $('#rb-track-mode-label');
   const researchBox   = $('#rb-research-fields');
 
-  // ฟอร์มวิจัย
+  // research form
   const inputParticipant = $('#rb-participant');
   const inputGroup       = $('#rb-group');
   const inputNote        = $('#rb-note');
 
-  // ปุ่มตอนเล่น / สรุปผล
+  // play / result buttons
   const btnStop        = $('#rb-btn-stop');
   const btnAgain       = $('#rb-btn-again');
   const btnBackMenu    = $('#rb-btn-back-menu');
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // HUD elements
+  // back hub link in header (menu)
+  const backHubLink = document.querySelector('a.rb-back');
+
+  // HUD
   const hud = {
     mode:   $('#rb-hud-mode'),
     track:  $('#rb-hud-track'),
@@ -56,13 +124,14 @@
     feverStatus:  $('#rb-fever-status'),
     progFill:     $('#rb-progress-fill'),
     progText:     $('#rb-progress-text'),
+
     aiFatigue:    $('#rb-hud-ai-fatigue'),
     aiSkill:      $('#rb-hud-ai-skill'),
     aiSuggest:    $('#rb-hud-ai-suggest'),
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // แสดงผลสรุป
+  // Result UI
   const res = {
     mode:        $('#rb-res-mode'),
     track:       $('#rb-res-track'),
@@ -79,7 +148,6 @@
     qualityNote: $('#rb-res-quality-note')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -93,12 +161,10 @@
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
-
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
-
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
@@ -122,7 +188,7 @@
 
     } else {
       modeDescEl.textContent =
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ล็อกไม่ให้ปรับเกม)';
       trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
       researchBox.classList.remove('hidden');
 
@@ -176,10 +242,15 @@
     if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     if (hud.track) hud.track.textContent = cfg.labelShort;
 
+    // meta (include ctx research fields too)
     const meta = {
-      id:   (inputParticipant && inputParticipant.value || '').trim(),
-      group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
+      id:   str((inputParticipant && inputParticipant.value) || '', CTX.pid || ''),
+      group: str((inputGroup && inputGroup.value) || '', CTX.conditionGroup || ''),
+      note: str((inputNote && inputNote.value) || '', ''),
+      studyId: CTX.studyId || '',
+      phase: CTX.phase || '',
+      conditionGroup: CTX.conditionGroup || '',
+      seed: CTX.seed || ''
     };
 
     engine.start(mode, cfg.engineId, meta);
@@ -190,30 +261,97 @@
     if (engine) engine.stop(reason || 'manual-stop');
   }
 
+  // ---- HHA save last summary / history ----
+  function pushHistory(entry){
+    try{
+      const KEY = 'HHA_FITNESS_HISTORY';
+      const raw = localStorage.getItem(KEY);
+      let arr = [];
+      if(raw){ try{ arr = JSON.parse(raw)||[]; }catch(_){ arr=[]; } }
+      arr.unshift(entry);
+      if(arr.length > 50) arr.length = 50;
+      localStorage.setItem(KEY, JSON.stringify(arr));
+    }catch(_){}
+  }
+
+  function saveLastSummary(entry){
+    try{
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(entry));
+    }catch(_){}
+  }
+
+  function buildSummaryPayload(summary){
+    // summary from engine + ctx enrich
+    const payload = {
+      game: 'Fitness-RhythmBoxer',
+      ts: Date.now(),
+      iso: new Date().toISOString(),
+
+      // ctx
+      pid: CTX.pid || '',
+      seed: CTX.seed || '',
+      view: CTX.view || '',
+      hub: CTX.hub || '',
+      studyId: CTX.studyId || '',
+      phase: CTX.phase || '',
+      conditionGroup: CTX.conditionGroup || '',
+
+      // engine summary
+      mode: summary.modeLabel || '',
+      track: summary.trackName || '',
+      endReason: summary.endReason || '',
+      score: summary.finalScore || 0,
+      maxCombo: summary.maxCombo || 0,
+      hitPerfect: summary.hitPerfect || 0,
+      hitGreat: summary.hitGreat || 0,
+      hitGood: summary.hitGood || 0,
+      hitMiss: summary.hitMiss || 0,
+      accuracyPct: summary.accuracyPct || 0,
+      offsetMean: summary.offsetMean,
+      offsetStd: summary.offsetStd,
+      durationSec: summary.durationSec || 0,
+      rank: summary.rank || '',
+      participant: summary.participant || '',
+      qualityNote: summary.qualityNote || '',
+
+      aiLocked: (window.RB_AI && window.RB_AI.isLocked && window.RB_AI.isLocked()) ? 1 : 0,
+      aiAssistOn: (window.RB_AI && window.RB_AI.isAssistEnabled && window.RB_AI.isAssistEnabled()) ? 1 : 0
+    };
+    return payload;
+  }
+
   function handleEngineEnd(summary) {
-    res.mode.textContent      = summary.modeLabel;
-    res.track.textContent     = summary.trackName;
-    res.endReason.textContent = summary.endReason;
-    res.score.textContent     = summary.finalScore;
-    res.maxCombo.textContent  = summary.maxCombo;
-    res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
-    res.acc.textContent       = summary.accuracyPct.toFixed(1) + ' %';
-    res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
-    res.rank.textContent      = summary.rank;
+    // populate result UI
+    if (res.mode) res.mode.textContent      = summary.modeLabel;
+    if (res.track) res.track.textContent     = summary.trackName;
+    if (res.endReason) res.endReason.textContent = summary.endReason;
+    if (res.score) res.score.textContent     = summary.finalScore;
+    if (res.maxCombo) res.maxCombo.textContent  = summary.maxCombo;
+    if (res.hits) res.hits.textContent      = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    if (res.acc) res.acc.textContent        = summary.accuracyPct.toFixed(1) + ' %';
+    if (res.duration) res.duration.textContent  = summary.durationSec.toFixed(1) + ' s';
+    if (res.rank) res.rank.textContent      = summary.rank;
 
-    res.offsetAvg.textContent = (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
-      ? summary.offsetMean.toFixed(3) + ' s' : '-';
-    res.offsetStd.textContent = (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
-      ? summary.offsetStd.toFixed(3) + ' s' : '-';
-    res.participant.textContent = summary.participant || '-';
+    if (res.offsetAvg) res.offsetAvg.textContent =
+      (summary.offsetMean != null && Number.isFinite(summary.offsetMean)) ? summary.offsetMean.toFixed(3) + ' s' : '-';
+    if (res.offsetStd) res.offsetStd.textContent =
+      (summary.offsetStd != null && Number.isFinite(summary.offsetStd)) ? summary.offsetStd.toFixed(3) + ' s' : '-';
+    if (res.participant) res.participant.textContent = summary.participant || '-';
 
-    if (summary.qualityNote) {
-      res.qualityNote.textContent = summary.qualityNote;
-      res.qualityNote.classList.remove('hidden');
-    } else {
-      res.qualityNote.textContent = '';
-      res.qualityNote.classList.add('hidden');
+    if (res.qualityNote) {
+      if (summary.qualityNote) {
+        res.qualityNote.textContent = summary.qualityNote;
+        res.qualityNote.classList.remove('hidden');
+      } else {
+        res.qualityNote.textContent = '';
+        res.qualityNote.classList.add('hidden');
+      }
     }
+
+    // save last summary/history
+    const payload = buildSummaryPayload(summary);
+    saveLastSummary(payload);
+    pushHistory(payload);
 
     switchView('result');
   }
@@ -231,27 +369,32 @@
     URL.revokeObjectURL(url);
   }
 
-  // wiring
-  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  btnStart.addEventListener('click', startGame);
-  btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  btnAgain.addEventListener('click', () => startGame());
-  btnBackMenu.addEventListener('click', () => switchView('menu'));
+  function makeCsvName(kind){
+    const mode = getSelectedMode();
+    const trackKey = getSelectedTrackKey();
+    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-  btnDlEvents.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
-  });
-  btnDlSessions.addEventListener('click', () => {
-    if (!engine) return;
-    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
-  });
+    const pid = str((inputParticipant && inputParticipant.value) || '', CTX.pid || 'anon').replace(/\s+/g,'_');
+    const study = str(CTX.studyId,'').replace(/\s+/g,'_');
+    const seed = str(CTX.seed,'').replace(/\s+/g,'_');
 
-  // ==== apply mode from URL (?mode=research|play) ====
+    const parts = [
+      'rb',
+      kind,
+      mode,
+      cfg.engineId,
+      pid
+    ];
+    if(study) parts.push(study);
+    if(seed) parts.push('seed'+seed);
+
+    return parts.join('-') + '.csv';
+  }
+
+  // --------- apply mode from URL (?mode=research|play) ----------
   (function applyModeFromQuery(){
     try{
-      const sp = new URL(location.href).searchParams;
-      const m = (sp.get('mode')||'').toLowerCase();
+      const m = (qs('mode','')||'').toLowerCase();
       if (m === 'research'){
         const r = modeRadios.find(x => x.value === 'research');
         if (r) r.checked = true;
@@ -262,6 +405,34 @@
     }catch(_){}
   })();
 
+  // --------- back hub link wiring ----------
+  (function setupBackHub(){
+    if(!backHubLink) return;
+    if(CTX.hub){
+      backHubLink.href = CTX.hub + passThroughQuery({});
+    }else{
+      // fallback to local hub.html but keep ctx (if any)
+      backHubLink.href = 'hub.html' + passThroughQuery({});
+    }
+  })();
+
+  // wiring
+  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+  if(btnStart) btnStart.addEventListener('click', startGame);
+  if(btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  if(btnAgain) btnAgain.addEventListener('click', () => startGame());
+  if(btnBackMenu) btnBackMenu.addEventListener('click', () => switchView('menu'));
+
+  if(btnDlEvents) btnDlEvents.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getEventsCsv(), makeCsvName('events'));
+  });
+  if(btnDlSessions) btnDlSessions.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getSessionCsv(), makeCsvName('sessions'));
+  });
+
+  // init
   updateModeUI();
   switchView('menu');
 
