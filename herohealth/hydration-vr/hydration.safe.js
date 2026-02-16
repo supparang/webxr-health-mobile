@@ -1,5 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HydrationVR SAFE — PRODUCTION (HHA Standard) — FULL (PACK 1–10)
+// PATCH v20260216c
 // --------------------------------------------------------------
 // ✅ PACK 1  Core loop + seeded RNG (research deterministic) + adaptive (play)
 // ✅ PACK 2  WaterPct + Zones (LOW/GREEN/HIGH) + drift + safe return (fix stuck out of green)
@@ -12,12 +13,12 @@
 // ✅ PACK 9  AI prediction/ML hooks scaffold (features/event attach point; NO ML by default)
 // ✅ PACK 10 CSV/JSON export + flush-hardened summary + badge hooks (optional)
 //
-// Notes:
-// - This is a SAFE standalone engine for your hydration RUN page.
-// - It DOES NOT assume a specific UI framework; it looks up DOM ids commonly used in your HeroHealth style.
-// - It listens for 'hha:start' and starts when RUN dispatches it.
-//
-// Requires (recommended) ids in RUN HTML:
+// PATCH highlights:
+// ✅ FIX: prevent hha:start recursion loop (engine NO LONGER emits hha:start)
+// ✅ ADD: HUD-safe spawn using layer rect + occlusion guard (HUD/Quest/Overlays/VRUI)
+// ✅ ADD: timeout miss counted only if target center NOT under occluders (Groups-like)
+
+// Requires ids in RUN HTML:
 // layer: hydration-layer
 // HUD: water-pct, water-zone, water-bar
 // stats: stat-score, stat-combo, stat-miss, stat-time, stat-grade
@@ -25,7 +26,7 @@
 // result: resultBackdrop, rScore rGrade rAcc rComboMax rMiss rTier rGoals rMinis rTips rNext
 // buttons: btnRetry btnCopyJSON btnDownloadCSV btnCloseSummary (optional)
 //
-// Emits: hha:start, hha:score, hha:time, hha:judge, hha:end
+// Emits: hha:score, hha:time, hha:judge, hha:end
 // Extra emits: hydration:state, hydration:progress, hydration:storm
 
 'use strict';
@@ -47,8 +48,6 @@ function makeRNG(seed){
 }
 
 // ---- Minimal AI hook attach point (optional) ----
-// If later you add: window.HHA.createAIHooks({gameId,seed,runMode,diff})
-// It may return { predict(), onEvent(), getSummaryExtras() }
 function getAIHooks({gameId, seed, runMode, diff}){
   try{
     if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
@@ -87,7 +86,9 @@ const LIMIT = {
   maxTargets: 16,
   ttlMs: 5200,
   tapGuardMs: 120,
-  spawnMaxPerFrame: 5
+  spawnMaxPerFrame: 5,
+  spawnTry: 18,          // attempts to find safe spot
+  occludePad: 6
 };
 
 // difficulty base (per sec)
@@ -97,8 +98,8 @@ function baseParams(diff){
     spawnPerSec: 2.0,
     dropValue: 5.5,
     shieldRate: 0.12,
-    stormGateSec: 3.2,          // must be out of GREEN this long
-    stormBaseLightning: 4,      // + level scaling
+    stormGateSec: 3.2,
+    stormBaseLightning: 4,
     stormTimeLimitSec: 7.5,
     bossAfterStorms: 2,
   };
@@ -145,7 +146,6 @@ function setPctBar(id, pct){
 }
 
 function ensureBossUI(){
-  // inject boss progress under Stats card if not present
   if($('bossWrap')) return;
   const cards = DOC.querySelectorAll('.hud .card');
   const statsCard = cards && cards[1] ? cards[1] : null;
@@ -171,25 +171,101 @@ function ensureBossUI(){
 }
 
 // -----------------------------
+// Occlusion / HUD-safe spawn (Groups-like)
+// -----------------------------
+function rectOf(el){
+  try{
+    if(!el) return null;
+    const r = el.getBoundingClientRect();
+    if(!r || !Number.isFinite(r.left)) return null;
+    if(r.width<=0 || r.height<=0) return null;
+    return r;
+  }catch(_){ return null; }
+}
+function isShown(el){
+  if(!el) return false;
+  if(el.hidden) return false;
+  const st = WIN.getComputedStyle ? WIN.getComputedStyle(el) : null;
+  if(st && (st.display==='none' || st.visibility==='hidden' || st.opacity==='0')) return false;
+  return true;
+}
+function pointInRect(x,y,r,pad=0){
+  if(!r) return false;
+  return (x >= r.left+pad && x <= r.right-pad && y >= r.top+pad && y <= r.bottom-pad);
+}
+function occluderRects(){
+  const list = [];
+  // HUD + Quest (your RUN uses .hud, .quest)
+  const hud = DOC.querySelector('.hud');
+  const quest = DOC.querySelector('.quest');
+  const startOv = $('startOverlay');
+  const result = $('resultBackdrop');
+
+  if(isShown(hud)) list.push(rectOf(hud));
+  if(isShown(quest)) list.push(rectOf(quest));
+  if(isShown(startOv)) list.push(rectOf(startOv));
+  if(isShown(result)) list.push(rectOf(result));
+
+  // Try common VR-UI containers (best-effort)
+  const vrCandidates = DOC.querySelectorAll('[id*="vrui"], [class*="vrui"], [id*="vr-ui"], [class*="vr-ui"]');
+  vrCandidates.forEach(el=>{
+    if(isShown(el)) list.push(rectOf(el));
+  });
+
+  return list.filter(Boolean);
+}
+function isOccludedPoint(x,y,pad=LIMIT.occludePad){
+  const rects = occluderRects();
+  for(const r of rects){
+    if(pointInRect(x,y,r,pad)) return true;
+  }
+  return false;
+}
+
+// -----------------------------
 // Target system
 // -----------------------------
-function getSpawnRect(){
+function getSpawnRect(layer){
+  const lr = rectOf(layer);
   const w = Math.max(1, WIN.innerWidth||1);
   const h = Math.max(1, WIN.innerHeight||1);
 
-  // safe-ish HUD margins
-  const topSafe = 170;
-  const bottomSafe = 190;
+  // Prefer layer rect. Fall back to viewport.
+  const L = lr ? { left: lr.left, top: lr.top, right: lr.right, bottom: lr.bottom } : { left:0, top:0, right:w, bottom:h };
+
+  // dynamic safe boundaries based on HUD & Quest
+  const hud = DOC.querySelector('.hud');
+  const quest = DOC.querySelector('.quest');
+
+  const hudR = isShown(hud) ? rectOf(hud) : null;
+  const questR = isShown(quest) ? rectOf(quest) : null;
 
   const pad = 14;
-  const x0 = pad, x1 = w - pad;
-  const y0 = topSafe + pad;
-  const y1 = h - bottomSafe - pad;
 
-  const yy0 = clamp(y0, 0, h-90);
-  const yy1 = clamp(y1, yy0+70, h);
+  let x0 = L.left + pad;
+  let x1 = L.right - pad;
 
-  return { x0, x1, y0:yy0, y1:yy1, w, h };
+  let y0 = L.top + pad;
+  let y1 = L.bottom - pad;
+
+  if(hudR) y0 = Math.max(y0, hudR.bottom + 10);
+  if(questR) y1 = Math.min(y1, questR.top - 10);
+
+  // Keep a minimum vertical play space
+  const minH = 140;
+  if(y1 - y0 < minH){
+    // fallback to something usable inside layer
+    y0 = Math.min(L.bottom - minH - pad, y0);
+    y1 = y0 + minH;
+  }
+
+  // clamp
+  x0 = clamp(x0, 0, w-60);
+  x1 = clamp(x1, x0+60, w);
+  y0 = clamp(y0, 0, h-90);
+  y1 = clamp(y1, y0+70, h);
+
+  return { x0, x1, y0, y1, w, h };
 }
 
 function makeTargetEl(kind, emoji){
@@ -217,7 +293,6 @@ function makeTargetEl(kind, emoji){
 }
 
 function fxShock(x,y){
-  // uses .hha-shock in RUN css if present
   const layer = $('hydration-layer');
   if(!layer) return;
   const d = DOC.createElement('div');
@@ -288,7 +363,7 @@ function fxShock(x,y){
 
   // boss
   let bossActive = false;
-  let bossPhase = 0;     // 1..3
+  let bossPhase = 0;
   let bossHp = 0;
   let bossHpMax = 0;
 
@@ -348,7 +423,6 @@ function fxShock(x,y){
     if($('bossHpTxt')) $('bossHpTxt').textContent = bossActive ? String(bossHp) : '0';
     if($('bossBar')) $('bossBar').style.width = bossActive ? (100*(bossHp/Math.max(1,bossHpMax))).toFixed(0)+'%' : '0%';
 
-    // progress hooks
     emit('hydration:progress', {
       waterPct, zoneName, score, combo, comboMax, miss,
       stormActive, stormLevel, stormCycles, stormOK,
@@ -380,12 +454,36 @@ function fxShock(x,y){
     try{ obj.el.remove(); }catch{}
   }
 
+  function shouldTimeoutCountMiss(obj){
+    // Count timeout miss only for "player-relevant" targets (not shield)
+    // and only if the target was NOT under occluders when it expired.
+    if(!obj || obj.dead) return false;
+    if(obj.kind === 'shield') return false;
+
+    const occluded = isOccludedPoint(obj.x, obj.y, LIMIT.occludePad);
+    if(occluded) return false;
+
+    // Don’t punish lightning timeouts too harshly (storm already pressured)
+    if(obj.kind === 'light') return false;
+
+    // Drops/fixes/boss tokens count
+    return (obj.kind === 'drop' || obj.kind === 'fixLow' || obj.kind === 'fixHigh' || obj.kind === 'boss');
+  }
+
   function cleanupTargets(){
     const t = nowMs();
     for(let i=targets.length-1;i>=0;i--){
       const obj = targets[i];
       if(obj.dead){ targets.splice(i,1); continue; }
       if((t - obj.born) > LIMIT.ttlMs){
+        // timeout miss (Groups-like occlusion guard)
+        if(running && !paused && shouldTimeoutCountMiss(obj)){
+          miss++;
+          combo = 0;
+          logEv('timeout_miss', obj.kind, zoneName, stormActive?'storm':(bossActive?'boss':''));
+        }else{
+          logEv('timeout_drop', obj.kind, '', '');
+        }
         killTarget(obj);
       }
     }
@@ -401,10 +499,19 @@ function fxShock(x,y){
     }
   }
 
+  function pickSafeXY(){
+    const rect = getSpawnRect(layer);
+    for(let i=0;i<LIMIT.spawnTry;i++){
+      const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
+      const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+      if(!isOccludedPoint(x,y, LIMIT.occludePad)) return {x,y};
+    }
+    // fallback: center-ish inside rect
+    return { x: (rect.x0+rect.x1)/2, y: (rect.y0+rect.y1)/2 };
+  }
+
   function spawn(kind){
-    const rect = getSpawnRect();
-    const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
-    const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
+    const {x,y} = pickSafeXY();
 
     let emoji = ICON.DROP;
     let value = 0;
@@ -435,6 +542,7 @@ function fxShock(x,y){
         judgeHit(obj, 'tap', null);
       }, {passive:false});
     }
+
     return obj;
   }
 
@@ -832,7 +940,7 @@ function fxShock(x,y){
     const tier = computeTier();
 
     const summary = {
-      version: 'hydration.safe.full-20260215',
+      version: 'hydration.safe.full-20260216c',
       game: 'hydration',
       runMode,
       diff,
@@ -947,7 +1055,9 @@ function fxShock(x,y){
     if(runMode==='play') shield = 1;
 
     logEv('start', runMode, diff, seed);
-    emit('hha:start', { game:'hydration', runMode, diff, seed, view, timePlannedSec });
+
+    // ✅ FIX: DO NOT emit hha:start here (RUN is the one that emits it)
+    // emit('hha:start', ...)  <-- removed to prevent recursion loop
 
     if(resultBackdrop) resultBackdrop.hidden = true;
 
