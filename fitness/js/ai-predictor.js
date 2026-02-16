@@ -1,86 +1,87 @@
 // === /fitness/js/ai-predictor.js ===
-// AI Predictor (lightweight) for Rhythm Boxer
-// ✅ Predict fatigueRisk / skillScore / suggestedDifficulty / tip
-// ✅ Research-lock: never changes engine behavior (prediction only)
-// ✅ Assist toggle: ?ai=1 (still prediction-only in this patch)
+// AI Predictor — ES Module + Global bridge (PATCH ABCD)
+// ✅ Provides: export class AIPredictor
+// ✅ Also sets window.RB_AI for legacy access
+// ✅ Research lock: mode=research => assist disabled always
+// ✅ Play enable: only when ?ai=1
 
 'use strict';
 
-(function(){
-  const WIN = window;
+// ---- small helpers ----
+const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
 
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function clamp01(v){ return clamp(v,0,1); }
+function readQS(){
+  try { return new URL(location.href).searchParams; }
+  catch { return new URLSearchParams(); }
+}
+function readQueryFlag(key) {
+  const QS = readQS();
+  const v = (QS.get(key) || '').toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+function readMode() {
+  const QS = readQS();
+  const m = (QS.get('mode') || '').toLowerCase();
+  return (m === 'research') ? 'research' : 'normal';
+}
 
-  function qs(key, def=''){
-    try{ return new URL(location.href).searchParams.get(key) ?? def; }catch(_){ return def; }
+// ---- predictor core (heuristic now; ML later) ----
+// snapshot example (best effort):
+// { accPct, missRate, combo, offsetAbsMean, hp, phase, bossesCleared }
+function predictFromSnapshot(s) {
+  const acc = clamp01((Number(s.accPct) || 0) / 100);
+  const hp = clamp01((Number(s.hp) || 100) / 100);
+
+  // offsetAbsMean in seconds; smaller => better
+  const off = Number(s.offsetAbsMean);
+  const offScore = Number.isFinite(off) ? clamp01(1 - (off / 0.18)) : 0.55;
+
+  const missRate = clamp01(Number(s.missRate) || 0);
+
+  const fatigueRisk = clamp01(
+    (1 - hp) * 0.45 +
+    missRate * 0.35 +
+    (1 - offScore) * 0.20
+  );
+
+  const skillScore = clamp01(
+    acc * 0.58 +
+    offScore * 0.27 +
+    (1 - missRate) * 0.15
+  );
+
+  let suggestedDifficulty = 'normal';
+  if (skillScore >= 0.78 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
+  else if (skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
+
+  let tip = '';
+  if (missRate >= 0.35) tip = 'ช้าลงนิดนึง—โฟกัสเป้าใหญ่ก่อน แล้วค่อยเก็บเป้าเล็ก';
+  else if (offScore < 0.45) tip = 'อย่ากดรัว—เล็งให้ศูนย์กลางก่อนค่อยแตะ';
+  else if (skillScore > 0.8 && fatigueRisk < 0.3) tip = 'ดีมาก! ลองเร่งคอมโบ + เก็บ Shield ให้ทัน';
+  else if (hp < 0.45) tip = 'HP ใกล้หมด—เลี่ยง Bomb แล้วเก็บ Heal/Shield';
+
+  return { fatigueRisk, skillScore, suggestedDifficulty, tip };
+}
+
+// ---- export class ----
+export class AIPredictor {
+  getMode(){ return readMode(); }
+  isLocked(){ return readMode() === 'research'; }
+
+  // allow assist only in play + ?ai=1
+  isAssistEnabled(){
+    if (this.isLocked()) return false;
+    return readQueryFlag('ai');
   }
 
-  // ---- Flags ----
-  const AI_ON = String(qs('ai','0')).toLowerCase() === '1';
-  let _locked = false; // set by engine via mode
-  let _assist = AI_ON; // currently only affects HUD label / future hook
+  predict(snapshot){
+    return predictFromSnapshot(snapshot || {});
+  }
+}
 
-  // exported API (engine reads this)
-  const RB_AI = {
-    isLocked(){ return _locked; },
-    isAssistEnabled(){ return _assist; },
-    setLocked(v){ _locked = !!v; },
-    setAssistEnabled(v){ _assist = !!v; },
-
-    predict(snapshot){
-      // snapshot fields:
-      // accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo,
-      // offsetAbsMean, hp, songTime, durationSec
-
-      const acc = Number(snapshot.accPct||0);
-      const miss = Number(snapshot.hitMiss||0);
-      const combo = Number(snapshot.combo||0);
-      const hp = Number(snapshot.hp||100);
-
-      const offAbs = (snapshot.offsetAbsMean==null) ? 0.09 : Number(snapshot.offsetAbsMean||0.09);
-
-      // skillScore: based on acc, stability (low offset), and combo
-      const accScore = clamp01(acc/100);
-      const stableScore = clamp01(1 - (offAbs / 0.14));   // 0.14s -> low
-      const comboScore = clamp01(combo / 30);
-
-      const skillScore = clamp01(0.55*accScore + 0.30*stableScore + 0.15*comboScore);
-
-      // fatigueRisk: rising if hp low, miss high, and time late
-      const t = Number(snapshot.songTime||0);
-      const dur = Math.max(1, Number(snapshot.durationSec||60));
-      const prog = clamp01(t/dur);
-
-      const missPressure = clamp01(miss / 18);          // 18 miss ~ high
-      const hpPressure = clamp01((100 - hp) / 80);      // hp 20 -> 1
-      const latePressure = clamp01((prog - 0.55) / 0.45); // after 55% song
-
-      const fatigueRisk = clamp01(0.45*hpPressure + 0.35*missPressure + 0.20*latePressure);
-
-      // suggestion (only label; engine does not adapt in this patch)
-      let suggestedDifficulty = 'normal';
-      if(skillScore >= 0.82 && fatigueRisk <= 0.35) suggestedDifficulty = 'hard';
-      else if(skillScore <= 0.45 || fatigueRisk >= 0.70) suggestedDifficulty = 'easy';
-
-      // coach tips (short, rotate-like)
-      let tip = '';
-      if(acc < 70) tip = 'โฟกัส “เส้นทองล่าง” แล้วกดเมื่อหัวโน้ตแตะเส้น';
-      else if(offAbs > 0.10) tip = 'จังหวะยังแกว่ง: ลดกดรัว แล้วฟัง beat ให้ชัด';
-      else if(miss >= 10) tip = 'ถ้าพลาดติดกัน ให้หยุดครึ่งจังหวะแล้วค่อยกลับมา';
-      else if(combo >= 20) tip = 'ดีมาก! รักษาคอมโบด้วยการกด “พอดี” ไม่ต้องรีบ';
-      else if(hp < 50) tip = 'HP ต่ำ: เน้น Good ให้ได้ก่อน แล้วค่อยไล่ Great/Perfect';
-
-      // if AI disabled -> still return baseline to avoid HUD crash
-      if(!AI_ON){
-        return { fatigueRisk: 0, skillScore: 0.5, suggestedDifficulty: 'normal', tip: '' };
-      }
-
-      return { fatigueRisk, skillScore, suggestedDifficulty, tip };
-    }
-  };
-
-  // expose
-  WIN.RB_AI = RB_AI;
-
-})();
+// ---- legacy/global bridge ----
+try{
+  const api = new AIPredictor();
+  if (typeof window !== 'undefined') window.RB_AI = api;
+}catch(_){}
