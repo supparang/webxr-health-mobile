@@ -21,6 +21,7 @@
         <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
         <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
       </div>
+      <!-- NOTE: JS will rewrite this link using ?hub=... if provided -->
       <a href="hub.html" class="rb-back">← กลับ HUB</a>
     </header>
 
@@ -90,7 +91,7 @@
         <div class="rb-hint-block">
           <p class="rb-hint-title">วิธีเล่น</p>
           <ul class="rb-hint-list">
-            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี “เส้นทองล่าง”</li>
+            <li>แตะเลน (L2,L1,C,R1,R2) ให้โน้ตตรงเส้นตี</li>
             <li>Perfect/Great/Good เพิ่ม FEVER; Miss ลด HP</li>
             <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
           </ul>
@@ -108,7 +109,7 @@
     <header class="rb-play-header">
       <div>
         <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">แตะเลนให้โน้ตตรงเส้นตี · ดู FEVER / ACC / HP</p>
+        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · ดู FEVER / ACC / HP</p>
       </div>
       <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
@@ -123,7 +124,6 @@
         <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
         <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
       </div>
-
       <div class="rb-hud-row rb-hud-row-ai">
         <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
         <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
@@ -138,7 +138,6 @@
         <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
         <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
       </div>
-
       <div class="rb-hud-row rb-hud-judge-row">
         <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
         <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
@@ -171,7 +170,7 @@
           <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
         </div>
       </div>
-      <p class="rb-howto-inline">แตะเลนให้โน้ตตรง “เส้นทองล่าง” · ใช้ได้ทั้งจอสัมผัสและเมาส์ · cVR ยิงกลางจอได้</p>
+      <p class="rb-howto-inline">แตะเลนให้โน้ตตรงเส้นตี (เส้นทองล่าง) · ใช้ได้ทั้งจอสัมผัสและเมาส์</p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
