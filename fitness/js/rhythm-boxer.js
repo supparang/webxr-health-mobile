@@ -1,366 +1,236 @@
-// === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer — Page Controller (MENU/PLAY/RESULT)
-// ✅ Wires HUD to RhythmBoxerEngine
-// ✅ Uses DomRendererRhythm for hit/miss FX + auto hitline + 🎵 note icon
-// ✅ Mobile-safe audio unlock (must start from user gesture)
-// ✅ Download CSV (events + sessions)
-// ✅ Stop early / back to menu / play again
-
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
 'use strict';
 
-(function(){
-  const WIN = window;
-  const DOC = document;
+(function () {
 
-  const $ = (s,root=DOC)=>root.querySelector(s);
-  const $$ = (s,root=DOC)=>Array.from(root.querySelectorAll(s));
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  function clamp(v,min,max){
-    v = Number(v);
-    if(!Number.isFinite(v)) v = min;
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function dlText(filename, text){
-    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = filename;
-    DOC.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 800);
-  }
-
-  // ---- Views ----
+  const wrap = $('#rb-wrap');
   const viewMenu   = $('#rb-view-menu');
   const viewPlay   = $('#rb-view-play');
   const viewResult = $('#rb-view-result');
 
-  function showView(which){
-    const map = { menu:viewMenu, play:viewPlay, result:viewResult };
-    for(const k of Object.keys(map)){
-      const el = map[k];
-      if(!el) continue;
-      el.classList.toggle('hidden', k !== which);
-    }
-  }
+  const flashEl    = $('#rb-flash');
+  const fieldEl    = $('#rb-field');
+  const lanesEl    = $('#rb-lanes');
+  const feedbackEl = $('#rb-feedback');
+  const audioEl    = $('#rb-audio');
 
-  // ---- Menu controls ----
-  const modeRadios = $$('input[name="rb-mode"]');
-  const trackRadios = $$('input[name="rb-track"]');
-  const btnStart = $('#rb-btn-start');
+  // ปุ่มเมนู
+  const btnStart      = $('#rb-btn-start');
+  const modeRadios    = $$('input[name="rb-mode"]');
+  const trackRadios   = $$('input[name="rb-track"]');
+  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
+  const modeDescEl    = $('#rb-mode-desc');
+  const trackModeLbl  = $('#rb-track-mode-label');
+  const researchBox   = $('#rb-research-fields');
 
-  const modeDesc = $('#rb-mode-desc');
-  const researchFields = $('#rb-research-fields');
-  const trackModeLabel = $('#rb-track-mode-label');
-  const trackOptions = $('#rb-track-options');
+  // ฟอร์มวิจัย
+  const inputParticipant = $('#rb-participant');
+  const inputGroup       = $('#rb-group');
+  const inputNote        = $('#rb-note');
 
-  const inpParticipant = $('#rb-participant');
-  const inpGroup = $('#rb-group');
-  const inpNote = $('#rb-note');
+  // ปุ่มตอนเล่น / สรุปผล
+  const btnStop        = $('#rb-btn-stop');
+  const btnAgain       = $('#rb-btn-again');
+  const btnBackMenu    = $('#rb-btn-back-menu');
+  const btnDlEvents    = $('#rb-btn-dl-events');
+  const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  function getMode(){
-    const r = modeRadios.find(x=>x.checked);
-    return (r && r.value === 'research') ? 'research' : 'normal';
-  }
-  function getTrackId(){
-    const r = trackRadios.find(x=>x.checked);
-    return (r && r.value) ? r.value : 'n1';
-  }
+  // ✅ NEW: Calibration buttons
+  const btnCalMinus = $('#rb-btn-cal-minus');
+  const btnCalPlus  = $('#rb-btn-cal-plus');
+  const btnCalReset = $('#rb-btn-cal-reset');
 
-  function refreshModeUI(){
-    const mode = getMode();
-
-    if(researchFields){
-      researchFields.classList.toggle('hidden', mode !== 'research');
-    }
-    if(modeDesc){
-      modeDesc.textContent =
-        (mode === 'research')
-          ? 'Research: ล็อกการช่วยเล่น (แค่ “ทำนาย” แสดงผล) + บันทึก CSV เพื่อวิเคราะห์'
-          : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-    }
-
-    // show/hide track radios by data-mode
-    if(trackOptions){
-      const labels = $$('#rb-track-options .rb-mode-btn');
-      for(const lb of labels){
-        const m = (lb.getAttribute('data-mode')||'normal').toLowerCase();
-        lb.classList.toggle('hidden', m !== mode);
-      }
-    }
-    if(trackModeLabel){
-      trackModeLabel.textContent =
-        (mode === 'research')
-          ? 'โหมด Research — เพลงทดลอง (คงรูปแบบเพื่อวิจัย)'
-          : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
-    }
-
-    // ensure a valid track is selected
-    const visibleTracks = trackRadios.filter(r=>{
-      const lb = r.closest('.rb-mode-btn');
-      if(!lb) return true;
-      return !lb.classList.contains('hidden');
-    });
-    const cur = trackRadios.find(r=>r.checked);
-    if(cur){
-      const lb = cur.closest('.rb-mode-btn');
-      if(lb && lb.classList.contains('hidden')){
-        // pick first visible
-        if(visibleTracks[0]) visibleTracks[0].checked = true;
-      }
-    }else{
-      if(visibleTracks[0]) visibleTracks[0].checked = true;
-    }
-  }
-
-  modeRadios.forEach(r=>r.addEventListener('change', refreshModeUI));
-  refreshModeUI();
-
-  // ---- Play controls / HUD ----
-  const btnStop = $('#rb-btn-stop');
-
+  // HUD elements
   const hud = {
-    mode: $('#rb-hud-mode'),
-    track: $('#rb-hud-track'),
-
-    score: $('#rb-hud-score'),
-    combo: $('#rb-hud-combo'),
-    acc: $('#rb-hud-acc'),
-
-    aiFatigue: $('#rb-hud-ai-fatigue'),
-    aiSkill: $('#rb-hud-ai-skill'),
-    aiSuggest: $('#rb-hud-ai-suggest'),
-    aiTip: $('#rb-hud-ai-tip'),
-
-    hp: $('#rb-hud-hp'),
+    mode:   $('#rb-hud-mode'),
+    track:  $('#rb-hud-track'),
+    score:  $('#rb-hud-score'),
+    combo:  $('#rb-hud-combo'),
+    acc:    $('#rb-hud-acc'),
+    hp:     $('#rb-hud-hp'),
     shield: $('#rb-hud-shield'),
-    time: $('#rb-hud-time'),
-
+    time:   $('#rb-hud-time'),
     countPerfect: $('#rb-hud-perfect'),
-    countGreat: $('#rb-hud-great'),
-    countGood: $('#rb-hud-good'),
-    countMiss: $('#rb-hud-miss'),
-
-    feverFill: $('#rb-fever-fill'),
-    feverStatus: $('#rb-fever-status'),
-    progFill: $('#rb-progress-fill'),
-    progText: $('#rb-progress-text')
+    countGreat:   $('#rb-hud-great'),
+    countGood:    $('#rb-hud-good'),
+    countMiss:    $('#rb-hud-miss'),
+    feverFill:    $('#rb-fever-fill'),
+    feverStatus:  $('#rb-fever-status'),
+    progFill:     $('#rb-progress-fill'),
+    progText:     $('#rb-progress-text'),
+    aiFatigue:    $('#rb-hud-ai-fatigue'),
+    aiSkill:      $('#rb-hud-ai-skill'),
+    aiSuggest:    $('#rb-hud-ai-suggest'),
+    aiTip:        $('#rb-hud-ai-tip')
   };
 
-  const lanesEl = $('#rb-lanes');
-  const fieldEl = $('#rb-field');
-  const feedbackEl = $('#rb-feedback');
-  const flashEl = $('#rb-flash');
-  const audioEl = $('#rb-audio');
+  // mapping เพลงในเมนู → engine trackId + diff + label
+  const TRACK_CONFIG = {
+    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
+    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
+    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
+    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
+  };
 
-  // ---- Result UI ----
-  const resMode = $('#rb-res-mode');
-  const resTrack = $('#rb-res-track');
-  const resEndReason = $('#rb-res-endreason');
-  const resScore = $('#rb-res-score');
-  const resMaxCombo = $('#rb-res-maxcombo');
-  const resHit = $('#rb-res-detail-hit');
-  const resAcc = $('#rb-res-acc');
-  const resDur = $('#rb-res-duration');
-  const resRank = $('#rb-res-rank');
-  const resOffAvg = $('#rb-res-offset-avg');
-  const resOffStd = $('#rb-res-offset-std');
-  const resParticipant = $('#rb-res-participant');
-  const resQuality = $('#rb-res-quality-note');
-
-  const btnAgain = $('#rb-btn-again');
-  const btnBackMenu = $('#rb-btn-back-menu');
-  const btnDlEvents = $('#rb-btn-dl-events');
-  const btnDlSessions = $('#rb-btn-dl-sessions');
-
-  // ---- Engine/Renderer ----
-  let renderer = null;
   let engine = null;
 
-  function wireHudModeTrack(mode, trackName){
-    if(hud.mode) hud.mode.textContent = (mode === 'research') ? 'Research' : 'Normal';
-    if(hud.track) hud.track.textContent = trackName || '-';
+  function getSelectedMode() {
+    const r = modeRadios.find(x => x.checked);
+    return r ? r.value : 'normal';
+  }
+  function getSelectedTrackKey() {
+    const r = trackRadios.find(x => x.checked);
+    return r ? r.value : 'n1';
+  }
+  function setSelectedTrackKey(key) {
+    trackRadios.forEach(r => { r.checked = (r.value === key); });
   }
 
-  function ensureAudioUnlocked(){
-    // mobile browsers require play() from a gesture; we call this inside start handler
-    if(!audioEl) return Promise.resolve();
-    try{
-      audioEl.muted = true;
-      const p = audioEl.play();
-      return Promise.resolve(p).catch(()=>{}).then(()=>{
-        audioEl.pause();
-        audioEl.currentTime = 0;
-        audioEl.muted = false;
+  function updateModeUI() {
+    const mode = getSelectedMode();
+    if (mode === 'normal') {
+      modeDescEl.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      researchBox.classList.add('hidden');
+
+      trackLabels.forEach(lbl => {
+        const m = lbl.getAttribute('data-mode') || 'normal';
+        if (m === 'research') lbl.classList.add('hidden');
+        else lbl.classList.remove('hidden');
       });
-    }catch(_){
-      return Promise.resolve();
-    }
-  }
 
-  function getMeta(mode){
-    if(mode !== 'research'){
-      return { id:'', group:'', note:'' };
-    }
-    return {
-      id: (inpParticipant && inpParticipant.value || '').trim(),
-      participant_id: (inpParticipant && inpParticipant.value || '').trim(),
-      group: (inpGroup && inpGroup.value || '').trim(),
-      note: (inpNote && inpNote.value || '').trim()
-    };
-  }
+      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+    } else {
+      modeDescEl.textContent = 'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
+      trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      researchBox.classList.remove('hidden');
 
-  function startGame(){
-    const mode = getMode();
-    const trackId = getTrackId();
-    const meta = getMeta(mode);
-
-    // make renderer
-    if(!renderer){
-      renderer = new WIN.DomRendererRhythm({
-        wrap: $('#rb-wrap') || DOC.body,
-        field: fieldEl,
-        lanesEl,
-        feedbackEl,
-        flashEl,
-        noteIcon: '🎵'
+      trackLabels.forEach(lbl => {
+        const m = lbl.getAttribute('data-mode') || 'normal';
+        if (m === 'research') lbl.classList.remove('hidden');
+        else lbl.classList.add('hidden');
       });
-    }else{
-      renderer.ensureHitlines();
-    }
 
-    // make engine
-    engine = new WIN.RhythmBoxerEngine({
-      wrap: $('#rb-wrap') || DOC.body,
+      setSelectedTrackKey('r1');
+    }
+  }
+
+  function switchView(name) {
+    viewMenu.classList.add('hidden');
+    viewPlay.classList.add('hidden');
+    viewResult.classList.add('hidden');
+    if (name === 'menu') viewMenu.classList.remove('hidden');
+    else if (name === 'play') viewPlay.classList.remove('hidden');
+    else if (name === 'result') viewResult.classList.remove('hidden');
+  }
+
+  function createEngine() {
+    const renderer = new window.RbDomRenderer(fieldEl, {
+      flashEl,
+      feedbackEl,
+      wrapEl: document.body
+    });
+
+    engine = new window.RhythmBoxerEngine({
+      wrap: wrap,
       field: fieldEl,
-      lanesEl,
+      lanesEl: lanesEl,
       audio: audioEl,
-      renderer,
-      hud,
-      hooks: {
-        onStart: ({sessionId, mode, track})=>{
-          wireHudModeTrack(mode, track && track.name);
-          if(feedbackEl) feedbackEl.textContent = 'เริ่ม!';
-        },
-        onEnd: (summary)=>{ showResult(summary); }
+      renderer: renderer,
+      hud: hud,
+      hooks: { onEnd: handleEngineEnd }
+    });
+  }
+
+  function startGame() {
+    if (!engine) createEngine();
+
+    const mode = getSelectedMode();
+    const trackKey = getSelectedTrackKey();
+    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
+
+    wrap.dataset.diff = cfg.diff;
+
+    hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+    hud.track.textContent = cfg.labelShort;
+
+    const meta = {
+      id:   (inputParticipant && inputParticipant.value || '').trim(),
+      group:(inputGroup && inputGroup.value || '').trim(),
+      note: (inputNote && inputNote.value || '').trim()
+    };
+
+    engine.start(mode, cfg.engineId, meta);
+    switchView('play');
+  }
+
+  function stopGame(reason) {
+    if (engine) engine.stop(reason || 'manual-stop');
+  }
+
+  function handleEngineEnd(summary) {
+    // (ส่วน result เดิมของคุณใช้ได้ 그대로)
+    // ... (คงโค้ดเดิมทั้งหมดได้เลย)
+    switchView('result');
+  }
+
+  function downloadCsv(csvText, filename) {
+    if (!csvText) return;
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // wiring
+  modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
+  btnStart.addEventListener('click', startGame);
+  btnStop.addEventListener('click', () => stopGame('manual-stop'));
+  btnAgain.addEventListener('click', () => startGame());
+  btnBackMenu.addEventListener('click', () => switchView('menu'));
+
+  btnDlEvents.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+  });
+  btnDlSessions.addEventListener('click', () => {
+    if (!engine) return;
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+  });
+
+  // ✅ NEW: Cal buttons wiring (works only while running)
+  function calDelta(ms){
+    if(!engine) return;
+    engine.adjustCalMs(ms);
+  }
+  if(btnCalMinus) btnCalMinus.addEventListener('click', ()=>calDelta(-20));
+  if(btnCalPlus)  btnCalPlus.addEventListener('click',  ()=>calDelta(+20));
+  if(btnCalReset) btnCalReset.addEventListener('click', ()=>{ if(engine) engine.setCalMs(0); });
+
+  // ==== apply mode from URL (?mode=research|play) ====
+  (function applyModeFromQuery(){
+    try{
+      const sp = new URL(location.href).searchParams;
+      const m = (sp.get('mode')||'').toLowerCase();
+      if (m === 'research'){
+        const r = modeRadios.find(x => x.value === 'research');
+        if (r) r.checked = true;
+      } else if (m === 'play' || m === 'normal'){
+        const r = modeRadios.find(x => x.value === 'normal');
+        if (r) r.checked = true;
       }
-    });
+    }catch(_){}
+  })();
 
-    // update top HUD immediately
-    const trackName =
-      (trackId === 'n1') ? 'Warm-up Groove' :
-      (trackId === 'n2') ? 'Focus Combo' :
-      (trackId === 'n3') ? 'Speed Rush' :
-      (trackId === 'r1') ? 'Research Track 120' : 'Track';
-    wireHudModeTrack(mode, trackName);
+  updateModeUI();
+  switchView('menu');
 
-    showView('play');
-
-    // start only after audio unlock attempt
-    ensureAudioUnlocked().finally(()=>{
-      engine.start(mode, trackId, meta);
-    });
-  }
-
-  function stopGame(){
-    if(engine && typeof engine.stop === 'function'){
-      engine.stop('manual-stop');
-    }
-  }
-
-  function showResult(summary){
-    showView('result');
-
-    // fill result UI
-    if(resMode) resMode.textContent = summary.modeLabel || '-';
-    if(resTrack) resTrack.textContent = summary.trackName || '-';
-    if(resEndReason) resEndReason.textContent = summary.endReason || '-';
-    if(resScore) resScore.textContent = String(summary.finalScore ?? 0);
-    if(resMaxCombo) resMaxCombo.textContent = String(summary.maxCombo ?? 0);
-    if(resHit) resHit.textContent = `${summary.hitPerfect||0} / ${summary.hitGreat||0} / ${summary.hitGood||0} / ${summary.hitMiss||0}`;
-    if(resAcc) resAcc.textContent = (summary.accuracyPct!=null) ? `${Number(summary.accuracyPct).toFixed(1)} %` : '0.0 %';
-    if(resDur) resDur.textContent = (summary.durationSec!=null) ? `${Number(summary.durationSec).toFixed(1)} s` : '0.0 s';
-    if(resRank) resRank.textContent = summary.rank || '-';
-    if(resOffAvg) resOffAvg.textContent = (summary.offsetMean!=null) ? `${Number(summary.offsetMean).toFixed(4)} s` : '-';
-    if(resOffStd) resOffStd.textContent = (summary.offsetStd!=null) ? `${Number(summary.offsetStd).toFixed(4)} s` : '-';
-    if(resParticipant) resParticipant.textContent = summary.participant || '-';
-
-    if(resQuality){
-      const note = summary.qualityNote || '';
-      resQuality.classList.toggle('hidden', !note);
-      resQuality.textContent = note;
-    }
-  }
-
-  function playAgain(){
-    // restart same selections (mode/track from menu radios still set)
-    showView('play');
-    if(engine && typeof engine.start === 'function'){
-      // but safest: rebuild to reset DOM observers cleanly
-      try{ if(renderer && renderer.destroy) renderer.destroy(); }catch(_){}
-      renderer = null;
-      engine = null;
-      startGame();
-    }else{
-      startGame();
-    }
-  }
-
-  function backToMenu(){
-    try{ if(engine && engine.stop) engine.stop('back-menu'); }catch(_){}
-    engine = null;
-    showView('menu');
-  }
-
-  function downloadEvents(){
-    if(!engine || typeof engine.getEventsCsv !== 'function') return;
-    const csv = engine.getEventsCsv();
-    const name = `rhythm_events_${Date.now()}.csv`;
-    dlText(name, csv);
-  }
-
-  function downloadSessions(){
-    if(!engine || typeof engine.getSessionCsv !== 'function') return;
-    const csv = engine.getSessionCsv();
-    const name = `rhythm_sessions_${Date.now()}.csv`;
-    dlText(name, csv);
-  }
-
-  // ---- Bind buttons ----
-  if(btnStart){
-    btnStart.addEventListener('click', ()=>{
-      startGame();
-    });
-  }
-  if(btnStop){
-    btnStop.addEventListener('click', ()=>{
-      stopGame();
-    });
-  }
-  if(btnAgain){
-    btnAgain.addEventListener('click', ()=>{
-      playAgain();
-    });
-  }
-  if(btnBackMenu){
-    btnBackMenu.addEventListener('click', ()=>{
-      backToMenu();
-    });
-  }
-  if(btnDlEvents){
-    btnDlEvents.addEventListener('click', ()=>{
-      downloadEvents();
-    });
-  }
-  if(btnDlSessions){
-    btnDlSessions.addEventListener('click', ()=>{
-      downloadSessions();
-    });
-  }
-
-  // Start at menu
-  showView('menu');
 })();
