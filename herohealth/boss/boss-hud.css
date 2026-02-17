@@ -1,0 +1,73 @@
+/* === /herohealth/boss/boss-hud.css — Universal Boss HUD v20260217a === */
+.hh-boss-hud{
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  z-index: 9998;
+
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+}
+.hh-boss-hud .wrap{
+  width: min(980px, 100%);
+  background: rgba(2,6,23,.58);
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+}
+
+.hh-boss-hud .row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.hh-boss-hud .chips{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.hh-boss-hud .chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.62);
+  color: rgba(229,231,235,.94);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .2px;
+}
+.hh-boss-hud .chip b{ font-weight: 1000; }
+.hh-boss-hud .chip.hot{ border-color: rgba(245,158,11,.35); box-shadow: 0 0 0 6px rgba(245,158,11,.06); }
+.hh-boss-hud .chip.bad{ border-color: rgba(239,68,68,.35); box-shadow: 0 0 0 6px rgba(239,68,68,.06); }
+.hh-boss-hud .chip.cool{ border-color: rgba(34,211,238,.35); box-shadow: 0 0 0 6px rgba(34,211,238,.06); }
+
+.hh-boss-hud .bar{
+  margin-top: 10px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.12);
+  overflow: hidden;
+  border: 1px solid rgba(148,163,184,.14);
+}
+.hh-boss-hud .fill{
+  height: 100%;
+  width: 100%;
+  transform: scaleX(1);
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(245,158,11,.95));
+  border-radius: 999px;
+}
+.hh-boss-hud .hint{
+  margin-top: 8px;
+  color: rgba(148,163,184,.96);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .15px;
+}
+
+/* hidden helper */
+.hh-boss-hud.hh-hidden{ display:none !important; }
