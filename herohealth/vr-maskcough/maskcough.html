@@ -1,3 +1,12 @@
+<!-- === /herohealth/vr-maskcough/maskcough.html ===
+MaskCough RUN — PRODUCTION (A+B+C) v20260217a
+✅ Telegraph cough/boss (windup→tele→release) + Perfect only on tele
+✅ Risk Zones (safe/risk/danger) affect ttl/score/penalty (visible overlay)
+✅ Combo/Quest (Perfect chain => sweep, timed quest)
+✅ AI risk + explainable coach (play only), deterministic in study
+✅ HHA logging + flush-hardened + last summary
+✅ PC/Mobile + cVR (hha:shoot via vr-ui.js)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,11 +17,11 @@
   <link rel="icon" href="../favicon.ico"/>
 
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./css/maskcough.css?v=20260214b"/>
+  <link rel="stylesheet" href="./css/maskcough.css?v=20260217a"/>
 </head>
 <body>
   <!-- Global FX flash -->
-  <div id="mc-flash"></div>
+  <div id="mc-flash" aria-hidden="true"></div>
 
   <!-- Coach prompt -->
   <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
@@ -91,13 +100,13 @@
   </div>
 
   <!-- ✅ FUN BOOST (optional) -->
-  <script src="../vr/fun-boost.js?v=20260214b"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260214b"></script>
+  <script src="../vr/fun-boost.js?v=20260217a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260217a"></script>
 
   <!-- ✅ VR UI (for cVR shoot: hha:shoot) -->
-  <script src="../vr/vr-ui.js?v=20260214b"></script>
+  <script src="../vr/vr-ui.js?v=20260217a"></script>
 
   <!-- ✅ ENGINE -->
-  <script src="./maskcough.safe.js?v=20260214b"></script>
+  <script src="./maskcough.safe.js?v=20260217a"></script>
 </body>
 </html>
