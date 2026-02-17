@@ -1,24 +1,25 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — FUN+FX + AI Prediction (ML/DL hooks) + HHA Research Logging
-// v20260214b
+// MaskCough SAFE Engine — PRODUCTION (A+B+C) v20260217a
 //
-// ✅ Play / Study modes
+// ✅ A) Telegraph cough/boss: windup→tele→release
+//    - Perfect ONLY during tele phase (อ่านแล้วสวนได้)
+// ✅ B) Risk Zones: safe/risk/danger visible overlay
+//    - danger => ttl shorter, score higher, penalty heavier
+// ✅ C) Combo/Quest:
+//    - Perfect chain => Clean Air Sweep
+//    - Timed quest: Perfect 2 in 6s => bonus+shield
+//
+// ✅ Play/Study modes
 // - play: adaptive AI + DL allowed
-// - study/research: deterministic seed + AI assist OFF (fair/controlled)
+// - study/research: deterministic seed + AI assist OFF
 //
 // ✅ Controls
-// - PC/Mobile: pointerdown on targets
+// - PC/Mobile: pointerdown
 // - cVR: crosshair shoot via ../vr/vr-ui.js => window event: hha:shoot {x,y}
 //
-// ✅ Logging (optional)
-// - ?log=https://...  (POST JSON lines)
-// - emits: hha:start, hha:time, hha:judge, hha:end + custom events
-// - flush-hardened on end + visibilitychange + beforeunload
-//
-// ✅ FX
-// - hit spark + pop
-// - cough shockwave ring
-// - fever confetti burst + fever glow
+// ✅ Logging (optional) ?log=...
+// - JSONL POST + flush-hardened
+// - emits: hha:start, hha:time, hha:judge, hha:end + ai/boss/quest
 //
 // URL params:
 // ?hub=...&pid=...&seed=...&diff=easy|normal|hard&time=60
@@ -45,6 +46,7 @@
     const v=(qs.get('view')||'').toLowerCase(); if(v) return v;
     const ua=navigator.userAgent||'';
     const isMobile=/Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+    // NOTE: เดิมคุณ auto เป็น cvr บนมือถือ — คงไว้ตามเดิม
     return isMobile ? 'cvr' : 'pc';
   }
 
@@ -73,7 +75,7 @@
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(showPrompt._t);
-    showPrompt._t = setTimeout(()=> el.classList.remove('show'), 950);
+    showPrompt._t = setTimeout(()=> el.classList.remove('show'), 1050);
   }
 
   function flashBad(){
@@ -81,7 +83,7 @@
     if(!el) return;
     el.style.opacity='1';
     clearTimeout(flashBad._t);
-    flashBad._t=setTimeout(()=> el.style.opacity='0', 110);
+    flashBad._t=setTimeout(()=> el.style.opacity='0', 120);
   }
 
   // ---------------- context ----------------
@@ -109,7 +111,6 @@
     wrap.dataset.run = mode;
   }
 
-  // hub links
   function applyHubLink(a){
     if(!a) return;
     try{
@@ -129,7 +130,7 @@
   function createLogger(ctx){
     const q = [];
     let seq = 0;
-    let sessionId = 'mc_' + (Date.now().toString(36)) + '_' + Math.random().toString(36).slice(2,8);
+    const sessionId = 'mc_' + (Date.now().toString(36)) + '_' + Math.random().toString(36).slice(2,8);
 
     function base(ev){
       return {
@@ -154,18 +155,14 @@
 
     function push(ev){
       q.push({ ...base(ev), ...ev });
-      // keep RAM sane
       if(q.length > 1200) q.splice(0, q.length - 900);
     }
 
     async function flush(reason){
       if(!ctx.log || !q.length) return;
       const payload = q.splice(0, q.length);
-      // newline-delimited JSON (server-friendly)
       const body = payload.map(x=>JSON.stringify(x)).join('\n');
-
       try{
-        // prefer sendBeacon for unload
         if(reason === 'unload' && navigator.sendBeacon){
           navigator.sendBeacon(ctx.log, new Blob([body], {type:'text/plain'}));
           return;
@@ -190,11 +187,8 @@
   };
   const logger = createLogger(ctx);
 
-  // robust flushing
   WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden'){
-      logger.flush('unload');
-    }
+    if(DOC.visibilityState === 'hidden'){ logger.flush('unload'); }
   });
   WIN.addEventListener('beforeunload', ()=> logger.flush('unload'));
 
@@ -318,7 +312,6 @@
         st.latencySum=0; st.latencyN=0;
         st.lastT=nowMs;
 
-        // log risk snapshot
         logger.push({ type:'ai:risk', risk: +st.risk.toFixed(4) });
       }
       return st.risk;
@@ -356,7 +349,7 @@
       st.coachT = nowMs;
 
       if(state.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
-      if(st.risk > 0.70) return '🎯 โฟกัส 🤧 ตอนท้าย ๆ เพื่อ Perfect Block (คะแนนพุ่ง!)';
+      if(st.risk > 0.70) return '🎯 โฟกัส 🤧 ตอน “ไฟเตือนแดง” เพื่อ Perfect Block (คะแนนพุ่ง!)';
       if(state.miss >= 6) return '💦 อย่าให้ละอองหลุดเยอะ—ตี 💦 ให้ทันก่อน!';
       return '✨ สะสม streak แล้วจะเข้า FEVER ได้เร็วขึ้น!';
     }
@@ -366,8 +359,7 @@
     return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){return st.risk;} };
   }
 
-  // ✅ key: study => deterministic & AI OFF
-  const aiEnabled = (mode === 'play'); // play ON, study OFF
+  const aiEnabled = (mode === 'play');
   const ai = createAIDirector({ enabled: aiEnabled, enableDL: aiEnabled });
 
   // ---------------- FX heavy (DOM) ----------------
@@ -399,8 +391,8 @@
   function fxShockwave(x,y){
     const el=DOC.createElement('div');
     el.style.position='absolute';
-    el.style.left=(x-6)+'px';
-    el.style.top=(y-6)+'px';
+    el.style.left=(x)+'px';
+    el.style.top=(y)+'px';
     el.style.width='12px';
     el.style.height='12px';
     el.style.borderRadius='999px';
@@ -415,7 +407,6 @@
   }
 
   function fxConfettiBurst(x,y){
-    // small confetti pack
     for(let i=0;i<14;i++){
       const c=DOC.createElement('div');
       c.style.position='absolute';
@@ -444,13 +435,8 @@
   }
 
   function fxFeverGlow(on){
-    // subtle global glow when fever ON
     if(!wrap) return;
-    if(on){
-      wrap.style.filter = 'saturate(1.12) brightness(1.05)';
-    }else{
-      wrap.style.filter = '';
-    }
+    wrap.style.filter = on ? 'saturate(1.12) brightness(1.05)' : '';
   }
 
   // ---------------- state ----------------
@@ -474,7 +460,11 @@
 
     risk: 0.12,
 
-    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y}
+    // C) combo/quest
+    perfectChain: 0,
+    quest: { on:false, tEnd:0, need:0, got:0 },
+
+    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y, zone}
     uid:0
   };
 
@@ -518,9 +508,9 @@
   function cssClass(kind){
     if(kind==='droplet') return 't good';
     if(kind==='infected') return 't bad';
-    if(kind==='cough') return 't cough bad';
+    if(kind==='cough') return 't cough bad telegraph';
     if(kind==='mask') return 't mask';
-    if(kind==='boss') return 't cough bad';
+    if(kind==='boss') return 't cough bad telegraph';
     return 't';
   }
 
@@ -559,7 +549,11 @@
     return 'mask';
   }
 
-  function spawnAt(kind, x, y, ttlMs){
+  function zoneFromY(y, h){
+    return (y < h*0.33) ? 'danger' : (y < h*0.66) ? 'risk' : 'safe';
+  }
+
+  function spawnAt(kind, x, y, ttlMs, zone){
     if(!st.running || st.over || st.paused) return;
 
     const id=String(++st.uid);
@@ -571,10 +565,25 @@
     el.dataset.id=id;
     el.dataset.kind=kind;
 
+    // B) zone tagging (visual + scoring/penalty)
+    el.dataset.zone = zone || 'safe';
+    el.classList.add('zone-' + (zone || 'safe'));
+
     const born=performance.now();
     const die=born+ttlMs;
 
-    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y});
+    // A) telegraph phases for cough/boss
+    if(kind==='cough' || kind==='boss'){
+      el.dataset.phase = 'windup';
+      // phase timing based on ttl
+      const ttl = ttlMs;
+      const t1 = born + Math.max(180, ttl*0.45); // tele start
+      const t2 = born + Math.max(360, ttl*0.78); // release
+      el.dataset.t1 = String(t1);
+      el.dataset.t2 = String(t2);
+    }
+
+    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y, zone:zone||'safe'});
 
     el.addEventListener('pointerdown', (ev)=>{
       if(view==='cvr') return;
@@ -594,11 +603,15 @@
     const x = pad + rng() * Math.max(10,(r.width - pad*2));
     const y = pad + rng() * Math.max(10,(r.height - pad*2));
 
+    const zone = zoneFromY(y, r.height);
+
     const ap=ai.assistParams();
-    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
+    const baseTtl=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
+    const zoneMul = (zone==='danger') ? 0.78 : (zone==='risk') ? 0.92 : 1.0;
+    const ttlMs=Math.max(520, Math.round(baseTtl*zoneMul));
 
     if(st.bossActive){
-      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)));
+      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)), zone);
       return;
     }
 
@@ -607,7 +620,7 @@
       kind='infected';
     }
 
-    spawnAt(kind, x, y, ttlMs);
+    spawnAt(kind, x, y, ttlMs, zone);
   }
 
   function removeTarget(id, popped){
@@ -636,7 +649,6 @@
   }
 
   function coughShockwave(x,y){
-    // mutate nearby droplets -> infected (panic)
     const radius=130;
     for(const [id, it] of st.targets){
       if(it.kind!=='droplet') continue;
@@ -644,12 +656,16 @@
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d<=radius){
         removeTarget(id,false);
-        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
+        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)), it.zone||'safe');
       }
     }
     fxShockwave(x,y);
     flashBad();
     toast('🤧 Shockwave!');
+  }
+
+  function markPerfectFX(el){
+    try{ el && el.classList.add('perfect'); }catch(_){}
   }
 
   function handleHit(id, why){
@@ -662,34 +678,68 @@
     removeTarget(id,true);
 
     const ap=ai.assistParams();
-    const perfectWindow=Math.round(st.perfectBaseMs*(1+ap.perfectBoost));
 
-    // FX location in viewport coordinates
     const r=layerRect();
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
 
     if(it.kind==='droplet'){
+      const z = it.el?.dataset?.zone || it.zone || 'safe';
+
       st.score += director.feverOn ? 2 : 1;
       st.streak += 1;
+
+      // B) zone bonus
+      if(z==='danger') st.score += 2;
+      else if(z==='risk') st.score += 1;
 
       const ttlApprox=st.ttlBaseMs;
       if(remain > ttlApprox*0.55){
         st.score += 1;
         st.perfect += 1;
+
+        // C) chain & sweep
+        st.perfectChain += 1;
+        if(st.perfectChain >= 2){
+          toast('🌪️ Clean Air Sweep!');
+          burstClear(2 + Math.min(2, st.perfectChain-2));
+          logger.push({type:'combo:sweep', chain:st.perfectChain});
+        }
+
+        // C) quest progress (Perfect counts)
+        if(st.quest?.on){
+          st.quest.got += 1;
+          if(st.quest.got >= st.quest.need){
+            st.quest.on=false;
+            st.score += 8;
+            st.shield = clamp(st.shield + 12, 0, 100);
+            toast('✅ Quest Clear! +Shield');
+            showPrompt('✅ Quest สำเร็จ! เก่งมาก');
+            logger.push({type:'quest:end', pass:true});
+          }
+        }
+
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain), zone:z});
+
+        markPerfectFX(it.el);
+        fxConfettiBurst(fxX, fxY);
       }else{
+        st.perfectChain = 0;
+
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain), zone:z});
+
+        fxSpark(fxX, fxY);
       }
 
-      fxSpark(fxX, fxY);
       if(director.feverOn && rng()<0.24) burstClear(1);
 
     } else if(it.kind==='infected'){
+      st.perfectChain = 0;
+
       st.miss += 1;
       st.streak = 0;
       st.score = Math.max(0, st.score - 2);
@@ -697,40 +747,72 @@
       flashBad();
       toast('🦠 โดนเชื้อ!');
       ai.onEvent({type:'hit', kind:'infected', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why});
+      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why, zone:it.zone||'safe'});
 
       fxShockwave(fxX, fxY);
 
     } else if(it.kind==='mask'){
+      st.perfectChain = 0;
+
       st.shield = clamp(st.shield + (director.feverOn?16:14), 0, 100);
       st.score += 1;
       st.streak += 1;
       toast('🛡️ Shield +');
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'hit', kind:'mask', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why});
+      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why, zone:it.zone||'safe'});
 
       fxSpark(fxX, fxY);
 
     } else if(it.kind==='cough' || it.kind==='boss'){
-      if(remain <= perfectWindow){
-        st.score += (it.kind==='boss' ? 6 : 4);
+      const z = it.el?.dataset?.zone || it.zone || 'safe';
+      const ph = it.el?.dataset?.phase || 'windup';
+      const isTele = (ph === 'tele'); // A) perfect only during tele
+
+      if(isTele){
+        st.score += (it.kind==='boss' ? 7 : 5);
         st.streak += 1;
         st.perfect += 1;
+
+        // C) chain & sweep
+        st.perfectChain += 1;
+        if(st.perfectChain >= 2){
+          toast('🌪️ Clean Air Sweep!');
+          burstClear(2 + Math.min(2, st.perfectChain-2));
+          logger.push({type:'combo:sweep', chain:st.perfectChain});
+        }
+
+        // C) quest progress
+        if(st.quest?.on){
+          st.quest.got += 1;
+          if(st.quest.got >= st.quest.need){
+            st.quest.on=false;
+            st.score += 8;
+            st.shield = clamp(st.shield + 12, 0, 100);
+            toast('✅ Quest Clear! +Shield');
+            showPrompt('✅ Quest สำเร็จ! เก่งมาก');
+            logger.push({type:'quest:end', pass:true});
+          }
+        }
+
         toast('✨ Perfect Block!');
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, phase_tel:ph, zone:z});
 
+        markPerfectFX(it.el);
         fxConfettiBurst(fxX, fxY);
 
         if(st.bossActive) st.bossNeedPerfect=false;
       }else{
+        st.perfectChain = 0;
+
         st.score += 2;
         st.streak += 1;
+        toast(ph==='windup' ? '⏳ เร็วไป!' : '⚡ ช้าไป!');
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, phase_tel:ph, zone:z});
 
         fxSpark(fxX, fxY);
       }
@@ -742,9 +824,7 @@
 
     setHud();
 
-    if(st.shield <= 0){
-      endGame('shield');
-    }
+    if(st.shield <= 0){ endGame('shield'); }
   }
 
   function timeoutTarget(id){
@@ -754,50 +834,56 @@
     removeTarget(id,false);
 
     if(it.kind==='droplet'){
+      st.perfectChain = 0;
+
       st.miss += 1;
       st.streak = 0;
       st.score = Math.max(0, st.score - 1);
       st.shield = clamp(st.shield - 6, 0, 100);
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'droplet', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet'});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet', zone:it.zone||'safe'});
 
     } else if(it.kind==='infected'){
       // good avoid
       st.score += 1;
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'timeout', kind:'infected', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'avoid', kind:'infected'});
+      logger.push({type:'hha:judge', judge:'avoid', kind:'infected', zone:it.zone||'safe'});
 
     } else if(it.kind==='mask'){
+      st.perfectChain = 0;
+
       st.miss += 1;
       st.streak = 0;
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'mask', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'mask'});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'mask', zone:it.zone||'safe'});
 
     } else if(it.kind==='cough' || it.kind==='boss'){
+      st.perfectChain = 0;
+
+      const z = it.el?.dataset?.zone || it.zone || 'safe';
+      const extra = (z==='danger') ? 10 : (z==='risk') ? 5 : 0;
+
       st.miss += 1;
       st.streak = 0;
-      st.shield = clamp(st.shield - (it.kind==='boss'?22:16), 0, 100);
+      st.shield = clamp(st.shield - ((it.kind==='boss'?22:16) + extra), 0, 100);
       st.score = Math.max(0, st.score - 2);
       toast('😷 โดนละอองไอ!');
       flashBad();
 
-      // shockwave
       const r=layerRect();
       coughShockwave(r.left + it.x, r.top + it.y);
 
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'cough', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind});
+      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind, zone:z, extraPenalty:extra});
     }
 
     setHud();
 
-    if(st.shield <= 0){
-      endGame('shield');
-    }
+    if(st.shield <= 0){ endGame('shield'); }
   }
 
   // cVR shoot
@@ -849,7 +935,7 @@
     if(nowMs >= st.nextBossAt){
       st.bossActive=true;
       st.bossNeedPerfect=true;
-      showPrompt('👿 BOSS WAVE! ทำ Perfect Block อย่างน้อย 1 ครั้ง!');
+      showPrompt('👿 BOSS WAVE! จับ “ไฟเตือนแดง” แล้ว Perfect Block อย่างน้อย 1 ครั้ง!');
       toast('BOSS INCOMING');
       logger.push({type:'boss:start'});
 
@@ -890,13 +976,50 @@
     director = fun ? fun.tick() : director;
 
     const nowMs=performance.now();
+
+    // A) update telegraph phases (cough/boss)
+    for(const [, it] of st.targets){
+      if(it.kind==='cough' || it.kind==='boss'){
+        const el = it.el;
+        if(!el) continue;
+        const t1 = Number(el.dataset.t1||0);
+        const t2 = Number(el.dataset.t2||0);
+        if(nowMs >= t2 && el.dataset.phase !== 'release'){
+          el.dataset.phase='release';
+          el.classList.add('release');
+        }else if(nowMs >= t1 && el.dataset.phase !== 'tele'){
+          el.dataset.phase='tele';
+          el.classList.add('tele');
+        }
+      }
+    }
+
     st.risk = ai.onTick(nowMs, st.shield);
 
     const hint = ai.coachHint(nowMs, {shield:st.shield, miss:st.miss});
     if(hint) { showPrompt(hint); logger.push({type:'hha:coach', msg:hint}); }
 
+    // timeouts
     for(const [id, it] of st.targets){
       if(nowMs >= it.dieMs) timeoutTarget(id);
+    }
+
+    // C) quest spawner / deadline
+    if(!st.quest.on && !st.bossActive && (director.intensity||0) > 0.35 && rng() < 0.012){
+      st.quest.on=true;
+      st.quest.need = 2;
+      st.quest.got = 0;
+      st.quest.tEnd = nowMs + 6000;
+      showPrompt('🎯 Quest: ทำ Perfect 2 ครั้งใน 6 วิ!');
+      toast('Quest!');
+      logger.push({type:'quest:start', need:st.quest.need, ms:6000});
+    }
+    if(st.quest.on && nowMs >= st.quest.tEnd){
+      st.quest.on=false;
+      toast('❌ Quest fail');
+      st.score = Math.max(0, st.score-3);
+      st.perfectChain = 0;
+      logger.push({type:'quest:end', pass:false});
     }
 
     maybeBoss(nowMs);
@@ -906,7 +1029,7 @@
       endGame('time'); return;
     }
 
-    // per-second heartbeat
+    // heartbeat ~1s
     if(((nowMs - st.t0) % 1000) < 90){
       logger.push({type:'hha:time', t: +st.elapsedSec.toFixed(2), score:st.score, miss:st.miss, shield:+st.shield.toFixed(1), risk:+st.risk.toFixed(3)});
     }
@@ -934,6 +1057,7 @@
     if(st.maxStreak>=12) b.push({id:'STREAK_12', label:'🔥 Streak 12'});
     if(st.miss<=3 && st.elapsedSec>=timeLimit-0.2) b.push({id:'CLEAN_RUN', label:'🧼 Clean Run'});
     if(st.shield>=60) b.push({id:'SHIELD_MASTER', label:'🛡️ Shield Master'});
+    if(st.perfectChain>=3) b.push({id:'SWEEP_MASTER', label:'🌪️ Sweep Master'});
     return b;
   }
 
@@ -981,6 +1105,9 @@
     st.score=0; st.streak=0; st.maxStreak=0; st.miss=0; st.perfect=0;
     st.shield=40;
 
+    st.perfectChain=0;
+    st.quest = { on:false, tEnd:0, need:0, got:0 };
+
     clearAllTargets();
 
     director = fun ? fun.tick() : director;
@@ -990,8 +1117,7 @@
     st.bossActive=false;
     st.bossNeedPerfect=false;
 
-    // research deterministic => ensure rng already seeded (done)
-    toast('เริ่ม! กันละอองให้ได้มากที่สุด');
+    toast('เริ่ม! อ่านโซนเสี่ยง + จับไฟเตือน 🤧 เพื่อ Perfect!');
     setHud();
 
     logger.push({type:'hha:start', seed, diff, mode, view, timePlannedSec:timeLimit});
@@ -1077,6 +1203,6 @@
   // init
   setHud();
   showPrompt(view==='cvr'
-    ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) เป้าในชั้นเล่นจะไม่รับ tap ตรง ๆ'
-    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 ตอนท้าย = Perfect!');
+    ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) • โซนบน=อันตราย คะแนนแรงแต่พลาดเจ็บ!'
+    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 “ไฟเตือนแดง” = Perfect!');
 })();
