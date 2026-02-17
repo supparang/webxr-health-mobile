@@ -1,155 +1,274 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (AUTO + HUD-SAFE + NO-DUP)
-// ✅ Prevent double-boot (hard guard)
-// ✅ Auto base view: pc/mobile; can switch to vr/cvr on Enter VR via vr-ui.js events
-// ✅ HUD-safe measure -> sets CSS vars --gj-top-safe / --gj-bottom-safe
-// ✅ Boots engine: goodjunk.safe.js
+// GoodJunkVR Boot — PRODUCTION (CLEAN / NO DUP LISTENERS) — v20260217c
+// Purpose:
+//  - Load VR UI (vr-ui.js) once
+//  - Boot GoodJunk SAFE engine once
+//  - Wire end overlay + basic buttons safely
+//  - Keep it non-crashing even if optional modules missing
 
-import { boot as engineBoot } from './goodjunk.safe.js';
+'use strict';
 
-const DOC = document;
-const WIN = window;
+import { boot as bootSafe } from './goodjunk.safe.js';
 
-if (WIN.__HHA_GJ_BOOTED__) {
-  console.warn('[GoodJunkVR] boot skipped (already booted).');
-} else {
-  WIN.__HHA_GJ_BOOTED__ = true;
-  start();
-}
+(function(){
+  const WIN = window;
+  const DOC = document;
 
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
+  if (WIN.__GJ_BOOTED__) return;
+  WIN.__GJ_BOOTED__ = true;
 
-function isMobileUA(){
-  const ua = String(navigator.userAgent || '').toLowerCase();
-  return /android|iphone|ipad|ipod/.test(ua);
-}
+  // ---------------- helpers ----------------
+  const qs = (k, def=null)=>{
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  };
 
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.add('gj');
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  if(view === 'pc') b.classList.add('view-pc');
-  else if(view === 'vr') b.classList.add('view-vr');
-  else if(view === 'cvr') b.classList.add('view-cvr');
-  else b.classList.add('view-mobile');
-
-  const r = DOC.getElementById('gj-layer-r');
-  if(r) r.setAttribute('aria-hidden', (view === 'cvr') ? 'false' : 'true');
-
-  DOC.body.dataset.view = view;
-}
-
-function baseAutoView(){
-  return isMobileUA() ? 'mobile' : 'pc';
-}
-
-function ensureVrUiLoaded(){
-  if(!navigator.xr) return;
-  if(WIN.__HHA_VR_UI_LOADED__) return;
-  WIN.__HHA_VR_UI_LOADED__ = true;
-
-  const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes('/vr/vr-ui.js'));
-  if(exists) return;
-
-  const s = DOC.createElement('script');
-  s.src = '../vr/vr-ui.js';
-  s.defer = true;
-  s.onerror = ()=> console.warn('[GoodJunkVR] vr-ui.js failed to load');
-  DOC.head.appendChild(s);
-}
-
-function bindVrAutoSwitch(){
-  const base = baseAutoView();
-
-  function onEnter(){
-    setBodyView(isMobileUA() ? 'cvr' : 'vr');
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
-  }
-  function onExit(){
-    setBodyView(base);
-    try{ WIN.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view }})); }catch(_){}
+  function clamp(v,min,max){
+    v = Number(v);
+    if(!Number.isFinite(v)) v = min;
+    return Math.max(min, Math.min(max, v));
   }
 
-  WIN.addEventListener('hha:enter-vr', onEnter, { passive:true });
-  WIN.addEventListener('hha:exit-vr',  onExit,  { passive:true });
+  function pickView(){
+    const v = String(qs('view','') || '').toLowerCase();
+    if(v==='pc' || v==='mobile' || v==='vr' || v==='cvr') return v;
 
-  WIN.HHA_GJ_resetView = onExit;
-}
-
-function hudSafeMeasure(){
-  const root = DOC.documentElement;
-  const px = (n)=> Math.max(0, Math.round(Number(n)||0)) + 'px';
-  const h  = (el)=> { try{ return el ? el.getBoundingClientRect().height : 0; }catch{return 0;} };
-
-  function update(){
-    try{
-      const cs = getComputedStyle(root);
-      const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
-      const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
-
-      const topbar  = DOC.querySelector('.gj-topbar');
-      const hud     = DOC.getElementById('hud');
-      const miniHud = DOC.getElementById('vrMiniHud');
-      const fever   = DOC.getElementById('feverBox');
-      const controls= DOC.querySelector('.hha-controls');
-
-      let topSafe = 0;
-      topSafe = Math.max(topSafe, h(topbar));
-      topSafe = Math.max(topSafe, h(miniHud));
-      topSafe = Math.max(topSafe, h(hud) * 0.55);
-      topSafe += (14 + sat);
-
-      let bottomSafe = 0;
-      bottomSafe = Math.max(bottomSafe, h(fever));
-      bottomSafe = Math.max(bottomSafe, h(controls));
-      bottomSafe += (16 + sab);
-
-      const hudHidden = DOC.body.classList.contains('hud-hidden');
-      if(hudHidden){
-        topSafe = Math.max(72 + sat, h(topbar) + 10 + sat);
-        bottomSafe = Math.max(76 + sab, h(fever) + 10 + sab);
-      }
-
-      root.style.setProperty('--gj-top-safe', px(topSafe));
-      root.style.setProperty('--gj-bottom-safe', px(bottomSafe));
-    }catch(_){}
+    // heuristic: wide => pc, otherwise mobile
+    const W = DOC.documentElement.clientWidth || 360;
+    if(W >= 900) return 'pc';
+    return 'mobile';
   }
 
-  WIN.addEventListener('resize', update, { passive:true });
-  WIN.addEventListener('orientationchange', update, { passive:true });
+  function ensureQueryDefaults(){
+    const u = new URL(location.href);
+    let changed = false;
 
-  WIN.addEventListener('hha:view', ()=>{
-    setTimeout(update, 0);
-    setTimeout(update, 120);
-    setTimeout(update, 350);
-  }, { passive:true });
+    if(!u.searchParams.get('run')){
+      u.searchParams.set('run', 'play');
+      changed = true;
+    }
+    if(!u.searchParams.get('diff')){
+      u.searchParams.set('diff', 'normal');
+      changed = true;
+    }
+    if(!u.searchParams.get('time')){
+      u.searchParams.set('time', '80');
+      changed = true;
+    }
 
-  setTimeout(update, 0);
-  setTimeout(update, 120);
-  setTimeout(update, 350);
-  setInterval(update, 1200);
-}
+    // view default
+    if(!u.searchParams.get('view')){
+      u.searchParams.set('view', pickView());
+      changed = true;
+    }
 
-function start(){
-  const view = baseAutoView();
-  setBodyView(view);
+    // seed default (play => now, research => keep)
+    const run = String(u.searchParams.get('run')||'play').toLowerCase();
+    if(!u.searchParams.get('seed') && run !== 'research'){
+      u.searchParams.set('seed', String(Date.now()));
+      changed = true;
+    }
 
-  ensureVrUiLoaded();
-  bindVrAutoSwitch();
-  hudSafeMeasure();
+    if(changed){
+      // replace to avoid history spam
+      location.replace(u.toString());
+      return true;
+    }
+    return false;
+  }
 
-  engineBoot({
-    view,
-    diff: qs('diff','normal'),
-    run: qs('run','play'),
-    time: qs('time','80'),
-    seed: qs('seed', null),
-    hub: qs('hub', null),
+  // If we injected defaults and reloaded, stop here.
+  if(ensureQueryDefaults()) return;
+
+  // ---------------- params ----------------
+  const P = {
+    run:  String(qs('run','play')||'play').toLowerCase(),
+    diff: String(qs('diff','normal')||'normal').toLowerCase(),
+    time: clamp(qs('time','80'), 20, 300),
+    view: String(qs('view', pickView())||pickView()).toLowerCase(),
+    seed: String(qs('seed','') || ''),
+    hub:  qs('hub', '../hub.html'),
+    api:  qs('api', null),
+
+    // research passthrough
     studyId: qs('studyId', qs('study', null)),
     phase: qs('phase', null),
     conditionGroup: qs('conditionGroup', qs('cond', null)),
-  });
-}
+  };
+
+  // ---------------- DOM refs ----------------
+  const LAYER_R = DOC.getElementById('gj-layer-r');
+  const chipMode = DOC.getElementById('chipMode');
+  const chipDiff = DOC.getElementById('chipDiff');
+  const chipTime = DOC.getElementById('chipTime');
+
+  function setChip(el, txt){ if(el) el.textContent = txt; }
+
+  setChip(chipMode, `mode: ${P.run}`);
+  setChip(chipDiff, `diff: ${P.diff}`);
+  setChip(chipTime, `time: ${P.time}s`);
+
+  // cVR: show right-eye layer
+  if(LAYER_R){
+    const isCVR = (P.view === 'cvr');
+    LAYER_R.setAttribute('aria-hidden', isCVR ? 'false' : 'true');
+  }
+
+  // ---------------- VR UI loader (once) ----------------
+  function ensureVRUI(){
+    // already loaded by something else
+    if(WIN.__HHA_VRUI__ || WIN.__HHA_VRUI_LOADED__) return Promise.resolve(true);
+    WIN.__HHA_VRUI_LOADED__ = true;
+
+    // optional per-game tuning
+    WIN.HHA_VRUI_CONFIG = WIN.HHA_VRUI_CONFIG || {
+      lockPx: 28,
+      cooldownMs: 90,
+      showCrosshair: true,
+      showButtons: true,
+      cvrStrict: true
+    };
+
+    return new Promise((resolve)=>{
+      const s = DOC.createElement('script');
+      s.src = '../vr/vr-ui.js?v=20260217c';
+      s.async = true;
+      s.onload = ()=> resolve(true);
+      s.onerror = ()=> resolve(false);
+      DOC.head.appendChild(s);
+    });
+  }
+
+  // ---------------- End overlay wiring (CLEAN) ----------------
+  const endOverlay = DOC.getElementById('endOverlay');
+  const endTitle   = DOC.getElementById('endTitle');
+  const endSub     = DOC.getElementById('endSub');
+  const endGrade   = DOC.getElementById('endGrade');
+  const endScore   = DOC.getElementById('endScore');
+  const endMiss    = DOC.getElementById('endMiss');
+  const endTime    = DOC.getElementById('endTime');
+
+  const btnRestartEnd = DOC.getElementById('btnRestartEnd');
+  const btnBackHub    = DOC.getElementById('btnBackHub');
+
+  function showEnd(summary){
+    if(!endOverlay) return;
+
+    const grade = summary?.grade ?? '—';
+    const score = summary?.scoreFinal ?? summary?.score ?? 0;
+    const miss  = summary?.misses ?? summary?.miss ?? 0;
+    const dur   = summary?.durationPlayedSec ?? 0;
+    const reason= summary?.reason ?? 'completed';
+
+    if(endTitle) endTitle.textContent = 'Completed';
+    if(endSub)   endSub.textContent = `เหตุผล: ${reason}`;
+    if(endGrade) endGrade.textContent = String(grade);
+    if(endScore) endScore.textContent = String(score);
+    if(endMiss)  endMiss.textContent  = String(miss);
+    if(endTime)  endTime.textContent  = String(dur);
+
+    endOverlay.setAttribute('aria-hidden', 'false');
+    DOC.body.classList.add('end-open');
+  }
+
+  function hideEnd(){
+    if(!endOverlay) return;
+    endOverlay.setAttribute('aria-hidden', 'true');
+    DOC.body.classList.remove('end-open');
+  }
+
+  // Restart (force new seed in play mode)
+  function restart(){
+    const u = new URL(location.href);
+    if(P.run !== 'research'){
+      u.searchParams.set('seed', String(Date.now()));
+    }
+    // keep other params
+    location.href = u.toString();
+  }
+
+  function goHub(){
+    location.href = String(P.hub || '../hub.html');
+  }
+
+  // attach end buttons safely (avoid duplicate)
+  function wireBtnOnce(id, fn){
+    const el = DOC.getElementById(id);
+    if(!el) return;
+    const key = `__wired_${id}`;
+    if(el[key]) return;
+    el[key] = true;
+    el.addEventListener('click', fn);
+  }
+
+  wireBtnOnce('btnRestartTop', restart);
+  wireBtnOnce('btnHubTop', goHub);
+  wireBtnOnce('btnRestartEnd', restart);
+  wireBtnOnce('btnBackHub', goHub);
+
+  // if user taps outside end card (optional close)
+  if(endOverlay){
+    endOverlay.addEventListener('click', (e)=>{
+      if(e.target === endOverlay) hideEnd();
+    });
+  }
+
+  // listen hha:end once
+  WIN.addEventListener('hha:end', (ev)=>{
+    try{
+      const d = ev?.detail || null;
+      showEnd(d);
+
+      // optional: cloud logger flush if available
+      if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.flush === 'function'){
+        WIN.HHACloudLogger.flush();
+      }
+    }catch(_){}
+  }, { passive:true });
+
+  // ---------------- Optional cloud logger init ----------------
+  function tryStartCloudLogger(){
+    try{
+      // if the logger script is present, it may expose one of these
+      const L = WIN.HHACloudLogger || WIN.HeroHealthCloudLogger || null;
+      if(!L) return;
+
+      if(typeof L.setEndpoint === 'function' && P.api){
+        L.setEndpoint(P.api);
+      }
+      if(typeof L.start === 'function'){
+        L.start({ projectTag:'GoodJunkVR' });
+      }
+    }catch(_){}
+  }
+
+  // ---------------- Boot SAFE engine ----------------
+  function bootGame(){
+    // prevent duplicate
+    if(WIN.__GJ_GAME_BOOTED__) return;
+    WIN.__GJ_GAME_BOOTED__ = true;
+
+    // start optional logger (won't crash if absent)
+    tryStartCloudLogger();
+
+    // call safe boot
+    bootSafe({
+      view: P.view,
+      diff: P.diff,
+      run:  P.run,
+      time: P.time,
+      seed: P.seed,
+      hub:  P.hub,
+
+      // research passthrough
+      studyId: P.studyId,
+      phase: P.phase,
+      conditionGroup: P.conditionGroup
+    });
+  }
+
+  // Ensure VRUI (for VR/cVR) then boot game.
+  // For pc/mobile, VRUI can still exist (ENTER VR + recenter), harmless.
+  ensureVRUI().finally(bootGame);
+
+})();
