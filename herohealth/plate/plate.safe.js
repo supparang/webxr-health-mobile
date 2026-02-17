@@ -1,13 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.4-ML1
-// HHA Standard + Storm + Boss + AI hooks + features_1s + labels + flush-hardened
-//
-// ✅ export boot({mount,cfg})
-// ✅ deterministic seed in study/research (adaptive/AI OFF by default)
-// ✅ emits hha:features_1s every 1s + hha:labels milestones/end/targets
-// ✅ integrates /vr/ai-hooks.js if present (never crashes if missing)
-// ✅ mode-factory can callback onShotMiss -> hha:judge(kind=shot_miss) + STATE.shotMiss++
-// ✅ pause bridge via window event: hha:pause {paused:true|false}
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1 (BOOT EXPORT)
+// ✅ export boot({mount,cfg}) starts game immediately (no auto init)
+// ✅ integrates mode-factory shot_miss => STATE.shotMiss + mild penalty (no miss++)
+// ✅ emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:features_1s, hha:labels, hha:end
+// ✅ deterministic seed in study/research; adaptive OFF by default in study/research
 
 'use strict';
 
@@ -44,9 +40,6 @@ function gradeFrom(score, accPct){
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
 }
-
-function qs(id){ return document.getElementById(id); }
-function setText(id, v){ const el=qs(id); if(el) el.textContent = String(v); }
 
 const LS_LAST = 'HHA_LAST_SUMMARY';
 const LS_HIST = 'HHA_SUMMARY_HISTORY';
@@ -118,7 +111,7 @@ function createAI(){
 
 // ---------------- State ----------------
 const STATE = {
-  started:false,
+  booted:false,
   running:false,
   ended:false,
   paused:false,
@@ -151,7 +144,7 @@ const STATE = {
 
   goal:{ title:'เติมจานให้ครบ 5 หมู่', cur:0, target:5, done:false },
 
-  // accuracy mini
+  // accuracy mini (ยังคงใช้เพื่อ UI/learning, แต่ “miniTotal” นับ storm+boss ตามเดิม)
   accMini:{ title:'ความแม่นยำ', cur:0, target:80, done:false },
 
   miniTotal: 1,
@@ -169,7 +162,6 @@ const STATE = {
 
   // ML-1 rolling stats window
   ML:{
-    tickN:0,
     lastHitGood:0,
     lastHitJunk:0,
     lastExpireGood:0,
@@ -183,9 +175,7 @@ const STATE = {
     spawnCount: 0
   },
 
-  AI:null,
-
-  __pauseWired:false,
+  AI:null
 };
 
 // ---------------- Accuracy / Quests ----------------
@@ -197,6 +187,10 @@ function accuracy(){
 
 function playedSec(){
   return Math.max(0, (STATE.timePlannedSec - STATE.timeLeft)|0);
+}
+
+function coach(msg, mood='neutral'){
+  emit('hha:coach', { game:'plate', msg, mood });
 }
 
 function emitLabels(type, data){
@@ -230,17 +224,6 @@ function updateAccMini(){
   }
 }
 
-function stormTimeLeft(){
-  if(!STATE.storm.active) return 0;
-  const el = (now() - STATE.storm.startedAt)/1000;
-  return Math.max(0, STATE.storm.durationSec - el);
-}
-function bossTimeLeft(){
-  if(!STATE.boss.active) return 0;
-  const el = (now() - STATE.boss.startedAt)/1000;
-  return Math.max(0, STATE.boss.durationSec - el);
-}
-
 function currentMiniTitle(){
   if(STATE.boss.active) return `BOSS (GOOD ${STATE.boss.hitGood}/${STATE.boss.needGood})`;
   if(STATE.storm.active) return `STORM ${STATE.storm.cycleIndex+1}/${STATE.storm.cyclesPlanned}`;
@@ -256,48 +239,22 @@ function currentMiniTarget(){
   if(STATE.storm.active) return STATE.storm.needGood;
   return STATE.accMini.target;
 }
-function currentMiniTimeText(){
-  if(STATE.boss.active) return `${Math.ceil(bossTimeLeft())}s`;
-  if(STATE.storm.active) return `${Math.ceil(stormTimeLeft())}s`;
-  return '--';
-}
-function currentMiniFillPct(){
-  if(STATE.boss.active) return clamp(STATE.boss.needGood ? (STATE.boss.hitGood/STATE.boss.needGood*100) : 0, 0, 100);
-  if(STATE.storm.active) return clamp(STATE.storm.needGood ? (STATE.storm.hitGood/STATE.storm.needGood*100) : 0, 0, 100);
-  return clamp(STATE.accMini.target ? (STATE.accMini.cur/STATE.accMini.target*100) : 0, 0, 100);
+function currentMiniDone(){
+  if(STATE.boss.active) return false;
+  if(STATE.storm.active) return false;
+  return STATE.accMini.done;
 }
 
 function emitQuest(){
   emit('quest:update', {
     game:'plate',
     goal:{ title: STATE.goal.title, cur: STATE.goal.cur, target: STATE.goal.target, done: STATE.goal.done },
-    mini:{
-      title: currentMiniTitle(),
-      cur: currentMiniCur(),
-      target: currentMiniTarget(),
-      timeText: currentMiniTimeText(),
-      fillPct: currentMiniFillPct()
-    },
+    mini:{ title: currentMiniTitle(), cur: currentMiniCur(), target: currentMiniTarget(), done: currentMiniDone() },
     allDone: STATE.goal.done && STATE.accMini.done
   });
-
-  // UI bind (best-effort)
-  setText('uiGoalTitle', STATE.goal.title);
-  setText('uiGoalCount', `${STATE.goal.cur}/${STATE.goal.target}`);
-  const gf = qs('uiGoalFill'); if(gf) gf.style.width = `${STATE.goal.target ? (STATE.goal.cur/STATE.goal.target*100) : 0}%`;
-
-  setText('uiMiniTitle', currentMiniTitle());
-  setText('uiMiniTime', currentMiniTimeText());
-  setText('uiMiniCount', `${STATE.miniCleared}/${STATE.miniTotal}`);
-  const mf = qs('uiMiniFill'); if(mf) mf.style.width = `${currentMiniFillPct()}%`;
 }
 
-// ---------------- Coach ----------------
-function coach(msg, mood='neutral'){
-  emit('hha:coach', { game:'plate', msg, mood });
-}
-
-// ---------------- Spawn director ----------------
+// ---------------- Spawn director (fix “ไม่ออกครบ 5 หมู่”) ----------------
 function pickGroupIndexForGood(t){
   const rng = (t && typeof t.rng === 'function') ? t.rng : STATE.rng;
 
@@ -328,7 +285,7 @@ function pickGroupIndexForGood(t){
 function decorateTarget(el, t){
   el.classList.add('plateTarget');
 
-  // spawn density estimator
+  // track spawn density estimator
   STATE.ML.spawnCount++;
 
   if(t.kind === 'good'){
@@ -353,7 +310,7 @@ function decorateTarget(el, t){
   }
 }
 
-// ---------------- HUD ----------------
+// ---------------- HUD emit ----------------
 function updateHUD(){
   const accPct = accuracy()*100;
   const grade = gradeFrom(STATE.score, accPct);
@@ -372,95 +329,18 @@ function updateHUD(){
     grade,
     gCount: [...STATE.g]
   });
-
-  // best-effort UI ids
-  setText('uiScore', STATE.score|0);
-  setText('uiCombo', STATE.combo|0);
-  setText('uiComboMax', STATE.comboMax|0);
-  setText('uiMiss', STATE.miss|0);
-  setText('uiPlateHave', STATE.g.filter(v=>v>0).length);
-  setText('uiAcc', `${Math.round(accPct)}%`);
-  setText('uiGrade', grade);
-  setText('uiTime', STATE.timeLeft|0);
-
-  setText('uiG1', STATE.g[0]);
-  setText('uiG2', STATE.g[1]);
-  setText('uiG3', STATE.g[2]);
-  setText('uiG4', STATE.g[3]);
-  setText('uiG5', STATE.g[4]);
 }
 
-// ---------------- Pause bridge ----------------
-function wirePauseBridge(){
-  if(STATE.__pauseWired) return;
-  STATE.__pauseWired = true;
-
-  ROOT.addEventListener('hha:pause', (e)=>{
-    const d = e.detail || {};
-    setPaused(!!d.paused);
-  }, {passive:true});
+// ---------------- Storm/Boss helpers ----------------
+function stormTimeLeft(){
+  if(!STATE.storm.active) return 0;
+  const el = (now() - STATE.storm.startedAt)/1000;
+  return Math.max(0, STATE.storm.durationSec - el);
 }
-
-function setPaused(p){
-  STATE.paused = !!p;
-  const hudPaused = qs('hudPaused');
-  if(hudPaused) hudPaused.style.display = STATE.paused ? 'grid' : 'none';
-}
-
-// ---------------- Storm/Boss HUD (optional ids) ----------------
-function updateStormHud(){
-  const hud = qs('stormHud');
-  const title = qs('stormTitle');
-  const hint  = qs('stormHint');
-  const prog  = qs('stormProg');
-  const fx    = qs('stormFx');
-  if(!hud && !fx && !title && !hint && !prog) return;
-
-  if(STATE.storm.active){
-    if(hud) hud.style.display='block';
-    if(fx){ fx.classList.add('storm-on'); fx.style.display='block'; }
-    if(title) title.textContent = `🌪️ STORM ${STATE.storm.cycleIndex+1}/${STATE.storm.cyclesPlanned}`;
-    const tl = stormTimeLeft();
-    if(hint){
-      const a = STATE.storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
-      hint.textContent = `เก็บ GOOD ${STATE.storm.needGood} ชิ้นใน ${STATE.storm.durationSec}s${a}`;
-    }
-    if(prog) prog.textContent = `${Math.ceil(tl)}s • GOOD ${STATE.storm.hitGood}/${STATE.storm.needGood}`;
-    if(fx){
-      if(tl <= 2.5) fx.classList.add('storm-panic'); else fx.classList.remove('storm-panic');
-    }
-  }else{
-    if(hud) hud.style.display='none';
-    if(fx){ fx.classList.remove('storm-on','storm-panic'); fx.style.display='none'; }
-  }
-}
-
-function updateBossHud(){
-  const hud = qs('bossHud');
-  const title = qs('bossTitle');
-  const hint  = qs('bossHint');
-  const prog  = qs('bossProg');
-  const fx    = qs('bossFx');
-  if(!hud && !fx && !title && !hint && !prog) return;
-
-  if(STATE.boss.active){
-    if(hud) hud.style.display='block';
-    if(fx){ fx.classList.add('boss-on'); fx.style.display='block'; }
-    if(title) title.textContent='👹 BOSS';
-    const tl = bossTimeLeft();
-    if(hint){
-      hint.textContent = STATE.boss.forbidJunk
-        ? `เก็บ GOOD ${STATE.boss.needGood} ชิ้นใน ${STATE.boss.durationSec}s (ห้ามโดนขยะ!)`
-        : `เก็บ GOOD ${STATE.boss.needGood} ชิ้นใน ${STATE.boss.durationSec}s`;
-    }
-    if(prog) prog.textContent = `${Math.ceil(tl)}s • GOOD ${STATE.boss.hitGood}/${STATE.boss.needGood}`;
-    if(fx){
-      if(tl <= 3) fx.classList.add('boss-panic'); else fx.classList.remove('boss-panic');
-    }
-  }else{
-    if(hud) hud.style.display='none';
-    if(fx){ fx.classList.remove('boss-on','boss-panic'); fx.style.display='none'; }
-  }
+function bossTimeLeft(){
+  if(!STATE.boss.active) return 0;
+  const el = (now() - STATE.boss.startedAt)/1000;
+  return Math.max(0, STATE.boss.durationSec - el);
 }
 
 function computeMinisPlanned(){
@@ -469,6 +349,7 @@ function computeMinisPlanned(){
 
   STATE.storm.cyclesPlanned = isStudy ? 2 : 3;
   const bossCount = isStudy ? 0 : 1;
+
   STATE.miniTotal = STATE.storm.cyclesPlanned + bossCount;
 }
 
@@ -496,7 +377,6 @@ function restartSpawner(){
 function makeSpawner(mount){
   const diff = String(STATE.cfg?.diff || 'normal').toLowerCase();
   const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
-  const isStudy = (runMode === 'study' || runMode === 'research');
   const adaptiveOn = (runMode === 'play' && !STATE.AI?.deterministic);
 
   let spawnRate = 900;
@@ -531,10 +411,7 @@ function makeSpawner(mount){
     seed: STATE.cfg.seed,
     spawnRate,
     sizeRange,
-    kinds:[
-      { kind:'good', weight:wGood },
-      { kind:'junk', weight:wJunk }
-    ],
+    kinds:[ { kind:'good', weight:wGood }, { kind:'junk', weight:wJunk } ],
     decorateTarget,
 
     onHit:(hit)=>{
@@ -548,18 +425,23 @@ function makeSpawner(mount){
       if(t.kind === 'good') onExpireGood(t.groupIndex ?? 0);
     },
 
-    onShotMiss:({x,y,lockPx,source}={})=>{
+    // ✅ shot miss stream (and mode-factory already emits hha:judge kind:'shot_miss')
+    onShotMiss:()=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
       STATE.shotMiss++;
-      emit('hha:judge', { kind:'shot_miss', x, y, lockPx, source: source||'shoot', score: STATE.score|0, combo: STATE.combo|0 });
-      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss' }); }catch{}
-      // shot_miss is NOT part of canonical miss
+      // mild anti-spam penalty (NOT counted as canonical miss)
+      resetCombo();
+      addScore(-10);
+      updateAccMini();
       updateHUD();
-    }
+      emitQuest();
+    },
+
+    emitShotMissEvent: true
   });
 }
 
-// ---------------- ML-1 features_1s ----------------
+// ---------------- ML-1: features_1s ----------------
 function groupImbalance01(){
   const a = STATE.g.map(x=>Number(x)||0);
   const sum = a.reduce((s,v)=>s+v,0);
@@ -648,6 +530,7 @@ function emitFeatures1s(){
   STATE.ML.lastScore = STATE.score;
 
   emit('hha:features_1s', feat);
+
   try{ STATE.AI?.onEvent?.('features_1s', feat); }catch{}
 
   const run = String(STATE.cfg?.runMode||'play').toLowerCase();
@@ -678,24 +561,6 @@ function onHitGood(groupIndex){
   addCombo();
   addScore(100 + STATE.combo*5);
 
-  if(STATE.boss.active && !STATE.boss.done){
-    STATE.boss.hitGood++;
-    updateBossHud();
-    if(STATE.boss.hitGood >= STATE.boss.needGood){
-      finishBoss(true, 'need_met');
-      return;
-    }
-  }
-
-  if(STATE.storm.active){
-    STATE.storm.hitGood++;
-    updateStormHud();
-    if(STATE.storm.hitGood >= STATE.storm.needGood){
-      finishStorm(true, 'need_met');
-      return;
-    }
-  }
-
   recomputeGoal();
   updateAccMini();
 
@@ -707,24 +572,6 @@ function onHitGood(groupIndex){
 }
 
 function onHitJunk(){
-  if(STATE.boss.active && STATE.boss.forbidJunk){
-    STATE.hitJunk++; STATE.miss++; resetCombo(); addScore(-80);
-    emit('hha:judge', { kind:'junk', score: STATE.score|0, combo: STATE.combo|0 });
-    try{ STATE.AI?.onEvent?.('judge', { kind:'junk' }); }catch{}
-    coach('❌ โดนขยะตอนบอส! แพ้บอสทันที!', 'sad');
-    finishBoss(false, 'hit_junk');
-    return;
-  }
-
-  if(STATE.storm.active && STATE.storm.forbidJunk){
-    STATE.hitJunk++; STATE.miss++; resetCombo(); addScore(-70);
-    emit('hha:judge', { kind:'junk', score: STATE.score|0, combo: STATE.combo|0 });
-    try{ STATE.AI?.onEvent?.('judge', { kind:'junk' }); }catch{}
-    coach('❌ STORM ห้ามโดนขยะ! พลาดแล้ว!', 'sad');
-    finishStorm(false, 'hit_junk');
-    return;
-  }
-
   STATE.hitJunk++; STATE.miss++; resetCombo(); addScore(-50);
   emit('hha:judge', { kind:'junk', score: STATE.score|0, combo: STATE.combo|0 });
   try{ STATE.AI?.onEvent?.('judge', { kind:'junk' }); }catch{}
@@ -745,101 +592,13 @@ function onExpireGood(groupIndex){
   emitQuest();
 }
 
-// ---------------- Storm/Boss start/finish ----------------
-function startStorm(){
-  if(STATE.storm.active) return;
-  STATE.storm.active = true;
-  STATE.storm.startedAt = now();
-  STATE.storm.hitGood = 0;
-
-  const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
-  const isStudy = (runMode === 'study' || runMode === 'research');
-
-  const accPct = accuracy()*100;
-  STATE.storm.durationSec = isStudy ? 6 : 7;
-  STATE.storm.needGood = clamp(Math.round(8 + accPct/25), 8, 12);
-  STATE.storm.forbidJunk = !isStudy && (accPct >= 82);
-
-  coach('🌪️ พายุมาแล้ว! เก็บ GOOD ให้ทัน!', (STATE.storm.forbidJunk?'fever':'neutral'));
-  emitLabels('mini_start', { name:'storm', cycle:STATE.storm.cycleIndex+1, needGood:STATE.storm.needGood, durationSec:STATE.storm.durationSec, forbidJunk:STATE.storm.forbidJunk });
-
-  updateStormHud();
-  restartSpawner();
-  emitQuest();
-}
-
-function finishStorm(ok, reason){
-  if(!STATE.storm.active) return;
-  STATE.storm.active = false;
-
-  if(ok){
-    STATE.miniCleared++;
-    addScore(160);
-    coach('ผ่านพายุแล้ว! +160 คะแนน 🔥', 'happy');
-    emit('hha:judge', { kind:'storm_clear', reason });
-    emitLabels('mini_end', { name:'storm', cycle:STATE.storm.cycleIndex+1, ok:true, reason });
-  }else{
-    coach('พายุแรงไปนิด! เดี๋ยวเอาใหม่ 💪', 'sad');
-    emit('hha:judge', { kind:'storm_fail', reason });
-    emitLabels('mini_end', { name:'storm', cycle:STATE.storm.cycleIndex+1, ok:false, reason });
-  }
-
-  updateStormHud();
-  STATE.storm.cycleIndex++;
-  restartSpawner();
-  updateHUD();
-  emitQuest();
-}
-
-function startBoss(){
-  const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
-  const isStudy = (runMode === 'study' || runMode === 'research');
-  if(isStudy) return;
-  if(STATE.boss.active || STATE.boss.done) return;
-
-  STATE.boss.active = true;
-  STATE.boss.startedAt = now();
-  STATE.boss.hitGood = 0;
-  STATE.boss.triggered = true;
-
-  const accPct = accuracy()*100;
-  STATE.boss.needGood = clamp(Math.round(7 + accPct/25), 7, 11);
-  STATE.boss.durationSec = 10;
-  STATE.boss.forbidJunk = true;
-
-  coach('👹 บอสมาแล้ว! โฟกัสเก็บ GOOD ให้ครบก่อนหมดเวลา!', 'neutral');
-  emitLabels('mini_start', { name:'boss', needGood:STATE.boss.needGood, durationSec:STATE.boss.durationSec, forbidJunk:true });
-
-  updateBossHud();
-  restartSpawner();
-  emitQuest();
-}
-
-function finishBoss(ok, reason){
-  if(!STATE.boss.active) return;
-  STATE.boss.active = false;
-  STATE.boss.done = true;
-
-  if(ok){
-    STATE.miniCleared++;
-    addScore(220);
-    coach('ชนะบอส! +220 คะแนน 🔥', 'happy');
-    emit('hha:judge', { kind:'boss_win', reason });
-    emitLabels('mini_end', { name:'boss', ok:true, reason });
-  }else{
-    coach('บอสโหด! รอบหน้าเอาใหม่ 💪', 'sad');
-    emit('hha:judge', { kind:'boss_lose', reason });
-    emitLabels('mini_end', { name:'boss', ok:false, reason });
-  }
-
-  updateBossHud();
-  restartSpawner();
-  updateHUD();
-  emitQuest();
-}
-
 // ---------------- Timer loop ----------------
 let _tickTimer = null;
+
+function setPaused(p){
+  STATE.paused = !!p;
+  emit('hha:pause', { game:'plate', paused: STATE.paused });
+}
 
 function startLoop(){
   if(_tickTimer) clearInterval(_tickTimer);
@@ -852,37 +611,6 @@ function startLoop(){
 
     STATE.timeLeft--;
     emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft });
-
-    const played = playedSec();
-    const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
-    const isStudy = (runMode === 'study' || runMode === 'research');
-    const marks = isStudy ? [18, 42] : [20, 45, 70];
-
-    if(!STATE.storm.active && STATE.storm.cycleIndex < marks.length && played >= marks[STATE.storm.cycleIndex]){
-      startStorm();
-    }
-
-    if(STATE.storm.active){
-      updateStormHud();
-      if(stormTimeLeft() <= 0){
-        finishStorm(false, 'timeout');
-      }
-    }
-
-    if(!STATE.boss.triggered && !STATE.boss.done && !STATE.boss.active){
-      const startAt = Math.max(20, Math.floor(STATE.timePlannedSec * 0.55));
-      const mustHaveTimeLeft = Math.min(35, Math.floor(STATE.timePlannedSec * 0.45));
-      if(played >= startAt && STATE.timeLeft <= mustHaveTimeLeft){
-        startBoss();
-      }
-    }
-
-    if(STATE.boss.active){
-      updateBossHud();
-      if(bossTimeLeft() <= 0){
-        finishBoss(false, 'timeout');
-      }
-    }
 
     updateHUD();
     emitQuest();
@@ -955,13 +683,7 @@ function endGame(reason='end'){
 
   emit('hha:end', summary);
 
-  emitLabels('end', {
-    reason,
-    grade,
-    accPct,
-    miss: summary.miss,
-    scoreFinal: summary.scoreFinal
-  });
+  emitLabels('end', { reason, grade, accPct, miss: summary.miss, scoreFinal: summary.scoreFinal });
 
   emitLabels('targets', {
     y_grade: grade,
@@ -976,8 +698,20 @@ function endGame(reason='end'){
   flushHardened(reason);
 }
 
-// ---------------- Game start/reset ----------------
-function startGame(){
+// ---------------- BOOT EXPORT ----------------
+export function boot({ mount, cfg } = {}){
+  if(!mount) throw new Error('[PlateVR] boot: mount missing');
+  if(!cfg) throw new Error('[PlateVR] boot: cfg missing');
+
+  STATE.mountEl = mount;
+  STATE.cfg = {
+    runMode: (cfg.runMode || 'play'),
+    diff: (cfg.diff || 'normal'),
+    seed: Number(cfg.seed || 0) || 0,
+    durationPlannedSec: Number(cfg.durationPlannedSec || 90) || 90
+  };
+
+  // reset
   STATE.running=true; STATE.ended=false; STATE.paused=false;
 
   STATE.score=0; STATE.combo=0; STATE.comboMax=0;
@@ -994,7 +728,7 @@ function startGame(){
   STATE.storm.active=false; STATE.storm.hitGood=0; STATE.storm.cycleIndex=0;
   STATE.boss.active=false; STATE.boss.done=false; STATE.boss.triggered=false; STATE.boss.hitGood=0;
 
-  STATE.ML.tickN=0;
+  // ML rolling reset
   STATE.ML.lastHitGood=0; STATE.ML.lastHitJunk=0; STATE.ML.lastExpireGood=0;
   STATE.ML.lastMiss=0; STATE.ML.lastScore=0;
   STATE.ML.bufMiss=[]; STATE.ML.bufAcc=[]; STATE.ML.bufDensity=[];
@@ -1010,6 +744,7 @@ function startGame(){
   STATE.timeLeft = STATE.timePlannedSec;
   STATE.tStartIso = new Date().toISOString();
 
+  // AI hooks init
   STATE.AI = createAI();
   try{ STATE.AI.reset?.(); }catch{}
 
@@ -1027,65 +762,30 @@ function startGame(){
   });
 
   coach('เริ่มเลย! เติมจานให้ครบ 5 หมู่ 🍽️', 'neutral');
-  setText('uiHint', 'เติมครบ 5 หมู่ แล้วรักษาความแม่นยำ!');
 
   stopSpawner();
   STATE.engine = makeSpawner(STATE.mountEl);
 
   emit('hha:time', { game:'plate', timeLeftSec: STATE.timeLeft });
-  updateStormHud();
-  updateBossHud();
   emitQuest();
   updateHUD();
   startLoop();
 
-  window.addEventListener('beforeunload', ()=>{ try{ flushHardened('beforeunload'); }catch{} });
-  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) try{ flushHardened('hidden'); }catch{} }, {passive:true});
-}
+  // pause bridge: whoever sends window.dispatchEvent(new CustomEvent('hha:pauseRequest',{detail:{paused:true}}))
+  if(!STATE.booted){
+    STATE.booted = true;
+    ROOT.addEventListener('hha:pauseRequest', (e)=>{
+      const p = !!(e && e.detail && e.detail.paused);
+      if(STATE.running && !STATE.ended) setPaused(p);
+    }, { passive:true });
 
-// ---------------- Public API ----------------
-function normalizeCfg(cfg){
-  const runRaw = String(cfg?.runMode ?? cfg?.run ?? 'play').toLowerCase();
-  const diff   = String(cfg?.diff ?? 'normal').toLowerCase();
-  const time   = clamp(cfg?.durationPlannedSec ?? cfg?.time ?? 90, 20, 9999);
-  const seedP  = cfg?.seed;
-
-  const isStudy = (runRaw === 'study' || runRaw === 'research');
-  const seed = isStudy
-    ? (Number(seedP)||13579)
-    : (seedP!=null ? (Number(seedP)||13579) : ((Date.now() ^ (Math.random()*1e9))|0));
+    ROOT.addEventListener('beforeunload', ()=>{ try{ flushHardened('beforeunload'); }catch{} });
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden) try{ flushHardened('hidden'); }catch{} }, {passive:true});
+  }
 
   return {
-    runMode: isStudy ? runRaw : 'play',
-    diff: ['easy','normal','hard'].includes(diff)?diff:'normal',
-    seed,
-    durationPlannedSec: time,
-
-    // pass-through (optional)
-    pid: cfg?.pid || 'anon',
-    studyId: cfg?.studyId || '',
-    phase: cfg?.phase || '',
-    conditionGroup: cfg?.conditionGroup || '',
-    log: cfg?.log || '',
-    view: cfg?.view || ''
-  };
-}
-
-export function boot({ mount, cfg } = {}){
-  if(!mount) throw new Error('plate.safe.js boot(): mount missing');
-
-  STATE.mountEl = mount;
-  STATE.cfg = normalizeCfg(cfg || {});
-  STATE.started = true;
-
-  wirePauseBridge();
-
-  // run page handles overlay; engine starts here
-  startGame();
-
-  return {
-    stop: ()=>{ try{ stopSpawner(); }catch{} },
-    pause: (p)=> setPaused(!!p),
-    end: (reason)=> endGame(reason||'manual')
+    stop(){ endGame('stop'); },
+    pause(){ setPaused(true); },
+    resume(){ setPaused(false); }
   };
 }
