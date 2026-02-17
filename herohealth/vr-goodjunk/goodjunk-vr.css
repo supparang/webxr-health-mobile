@@ -1,355 +1,404 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-   GoodJunkVR UI — PRODUCTION (compact + overlay lock + z-index FX) — v20260217c
-   Goals:
-   ✅ Layout ไม่แน่น (mobile first)
-   ✅ Overlay lock (quest/end/lowtime) ไม่บีบ HUD
-   ✅ FX layer / targets ไม่โดน HUD ทับ + z-index ชัด
-   ✅ HUD-safe spawn vars: --gj-top-safe / --gj-bottom-safe ใช้งานได้จริง
+   GoodJunkVR UI — PRODUCTION
+   ✅ compact + overlay lock + z-index FX
+   ✅ HUD-safe spawn vars: --gj-top-safe / --gj-bottom-safe (safe.js reads)
+   ✅ Field never crushed on short screens (grid + min-heights)
+   ✅ Quest panel is modal (doesn't squeeze layout)
+   v20260217c
 */
 
+/* ---------- Root / Safe-area ---------- */
 :root{
-  --bg0:#040610;
-  --bg1:#0a0f22;
-  --panel: rgba(8,12,26,.72);
-  --panel2: rgba(8,12,26,.52);
-  --line: rgba(255,255,255,.10);
-  --txt: rgba(255,255,255,.92);
-  --muted: rgba(255,255,255,.68);
+  --bg0:#050814;
+  --bg1:#070b1a;
+  --panel: rgba(9, 14, 32, .68);
+  --panel2: rgba(9, 14, 32, .82);
+  --stroke: rgba(255,255,255,.10);
+  --stroke2: rgba(255,255,255,.14);
+  --text:#eaf0ff;
+  --muted: rgba(234,240,255,.72);
 
-  /* safe-area */
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-
-  /* spacing scale */
   --r: 18px;
-  --pad: 12px;
-  --gap: 10px;
+  --r2: 22px;
 
-  /* fixed heights (used to compute HUD-safe spawn) */
-  --topbar-h: 56px;
-  --hudtop-h: 128px;   /* compact default (will expand a bit if needed) */
-  --hudbot-h: 172px;   /* fever/howto compact */
-  --vrui-h: 58px;      /* vr-ui buttons zone approx */
+  /* safe-area insets */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 
-  /* SAFE spawn vars (safe.js reads these!) */
-  --gj-top-safe: calc(var(--sat) + var(--topbar-h) + var(--hudtop-h) + 12px);
-  --gj-bottom-safe: calc(var(--sab) + var(--hudbot-h) + var(--vrui-h) + 12px);
-
-  /* z-index layers */
-  --z-field: 10;
-  --z-target: 20;
-  --z-fx: 30;          /* Particles popText etc. */
-  --z-hud: 60;
-  --z-topbar: 70;
-  --z-vrui: 75;
-  --z-overlay: 90;
-  --z-end: 95;
+  /* IMPORTANT: px vars for HUD-safe spawn (safe.js reads numeric px) */
+  --gj-top-safe: 176px;      /* fallback: topbar + hud-top */
+  --gj-bottom-safe: 230px;   /* fallback: hud-bot */
 }
 
+/* When HUD hidden -> open more spawn area */
+body.hud-hidden{
+  --gj-top-safe: 118px;
+  --gj-bottom-safe: 126px;
+}
+
+/* ---------- Base reset ---------- */
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 body.gj{
   margin:0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-  color: var(--txt);
+  color:var(--text);
   background:
-    radial-gradient(1200px 700px at 30% -10%, rgba(100,140,255,.18), transparent 50%),
-    radial-gradient(900px 600px at 70% 10%, rgba(50,220,180,.10), transparent 55%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
+    radial-gradient(1200px 700px at 20% 10%, rgba(70,120,255,.12), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(0,255,210,.10), transparent 55%),
+    radial-gradient(700px 600px at 55% 95%, rgba(255,120,50,.08), transparent 55%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans Thai", sans-serif;
   overflow:hidden;
+  -webkit-tap-highlight-color: transparent;
+
+  /* 4-row grid: topbar / hud-top / field / hud-bot */
+  min-height: 100svh;
+  display:grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: 1fr;
 }
 
-/* ===== TOPBAR ===== */
-.gj-topbar{
-  position:fixed;
-  left:0; right:0;
-  top:0;
-  height: calc(var(--topbar-h) + var(--sat));
-  padding: calc(8px + var(--sat)) var(--pad) 8px;
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap: var(--gap);
-  z-index: var(--z-topbar);
-  pointer-events:auto;
+/* Prevent scroll bounce */
+body.gj, .gj-field{ overscroll-behavior: none; }
+
+/* ---------- Buttons / Chips ---------- */
+.gj-btn, .btn{
+  border:1px solid var(--stroke2);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  cursor:pointer;
+  backdrop-filter: blur(10px);
 }
-.gj-topbar .left,
-.gj-topbar .right{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-  flex-wrap: wrap;
+.gj-btn:active, .btn:active{ transform: translateY(1px); }
+.gj-btn.primary{
+  background: rgba(32, 205, 120, .22);
+  border-color: rgba(32,205,120,.35);
 }
+.btn.alt{
+  background: rgba(255,255,255,.05);
+}
+
 .gj-chip{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--line);
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.05);
   backdrop-filter: blur(10px);
+  font-weight: 800;
   font-size: 14px;
-  line-height: 1;
+  color: var(--text);
   white-space: nowrap;
 }
 .gj-chip-brand{
-  background: rgba(60,220,170,.10);
-  border-color: rgba(60,220,170,.22);
+  background: rgba(32,205,120,.18);
+  border-color: rgba(32,205,120,.25);
 }
 .gj-chip-mini{
-  margin-left: 8px;
   opacity:.9;
+  font-weight: 800;
 }
 
-/* buttons */
-.gj-btn{
-  appearance:none;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,.06);
-  color: var(--txt);
-  padding: 10px 14px;
-  border-radius: 999px;
-  font-weight: 650;
-  font-size: 14px;
-  line-height:1;
-  backdrop-filter: blur(10px);
-}
-.gj-btn.primary{
-  background: rgba(40,220,160,.14);
-  border-color: rgba(40,220,160,.22);
-}
-.gj-btn:active{ transform: translateY(1px); }
-
-/* ===== HUD TOP ===== */
-.gj-hud-top{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat));
-  padding: 8px var(--pad) 10px;
-  z-index: var(--z-hud);
-  pointer-events:none; /* allow tapping targets; buttons are in topbar */
-}
-.hud-row{
+/* ---------- TOPBAR (row1) ---------- */
+.gj-topbar{
+  grid-row:1;
+  padding: calc(12px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
   display:flex;
-  align-items:stretch;
-  gap: var(--gap);
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 10px;
+  z-index: 90;
+}
+.gj-topbar .left, .gj-topbar .right{
+  display:flex;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items:center;
 }
+.gj-topbar .right{ justify-content:flex-end; }
+
+/* ---------- HUD TOP (row2) ---------- */
+.gj-hud-top{
+  grid-row:2;
+  padding: 0 calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  z-index: 80;
+}
+
+.hud-row{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+  align-items:stretch;
+}
+@media (max-width: 520px){
+  .hud-row{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
 .hud-pill{
-  min-width: 108px;
-  flex: 1 1 120px;
-  padding: 10px 12px;
-  border-radius: var(--r);
   background: var(--panel);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(10px);
+  border:1px solid var(--stroke);
+  border-radius: var(--r2);
+  padding: 10px 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+  min-height: 62px;
 }
-.hud-pill.grade{ flex: 0 0 92px; }
-.hud-pill.warn{ border-color: rgba(255,210,90,.22); }
+.hud-pill.warn{ border-color: rgba(255,190,120,.26); }
+.hud-pill.grade{ border-color: rgba(180,200,255,.22); }
+
 .hud-label{
   font-size: 12px;
-  color: var(--muted);
-  letter-spacing: .02em;
+  font-weight: 900;
+  color: rgba(234,240,255,.75);
+  letter-spacing: .8px;
 }
 .hud-value{
   font-size: 22px;
-  font-weight: 850;
+  font-weight: 1000;
   margin-top: 2px;
 }
 
-/* progress bar */
-.gj-progress{
-  margin-top: 10px;
-  pointer-events:none;
+/* VR hint chip inside hud-row */
+#vrMiniHud{
+  grid-column: 1 / -1;
+  justify-content:center;
 }
+
+/* progress */
+.gj-progress{ margin-top: 10px; }
 .gj-progress-track{
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--line);
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
   overflow:hidden;
 }
 .gj-progress-fill{
-  height:100%;
+  height: 100%;
+  width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(80,220,170,.75), rgba(120,160,255,.70));
+  background: linear-gradient(90deg, rgba(50,220,160,.75), rgba(120,160,255,.65), rgba(255,120,80,.60));
 }
 
 /* boss bar */
 .gj-bossbar{
   margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: var(--r);
-  background: rgba(140,60,255,.12);
-  border: 1px solid rgba(140,60,255,.22);
-  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: var(--r2);
+  border:1px solid rgba(255,120,120,.24);
+  background: rgba(40, 10, 18, .35);
+  backdrop-filter: blur(12px);
 }
+.gj-bossbar[aria-hidden="true"]{ display:none; }
 .gj-bossbar-head{
   display:flex;
-  align-items:center;
   justify-content:space-between;
+  align-items:center;
   gap:10px;
 }
-.gj-bossbar-title{ font-weight: 850; }
-.gj-bossbar-hint{ color: var(--muted); font-size: 12px; }
+.gj-bossbar-title{ font-weight: 1000; }
+.gj-bossbar-hint{
+  font-weight: 900;
+  color: rgba(255,220,220,.82);
+  font-size: 13px;
+}
 .gj-bossbar-track{
-  margin-top: 8px;
-  height: 10px;
+  margin-top: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
+  border:1px solid rgba(255,120,120,.24);
+  background: rgba(255,255,255,.04);
   overflow:hidden;
 }
 .gj-bossbar-fill{
-  height:100%;
+  height: 100%;
+  width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255,80,120,.75), rgba(255,210,90,.70));
+  background: linear-gradient(90deg, rgba(255,120,120,.70), rgba(255,80,120,.55));
 }
 
-/* ===== FIELD ===== */
+/* ---------- FIELD (row3) ---------- */
 .gj-field{
-  position:fixed;
-  left:0; right:0;
-  top: calc(var(--topbar-h) + var(--sat));
-  bottom: calc(var(--hudbot-h) + var(--sab) + var(--vrui-h));
-  z-index: var(--z-field);
+  grid-row:3;
+  position:relative;
+  margin: 0 calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+  border-radius: 26px;
+  border:1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(1200px 600px at 50% 20%, rgba(255,255,255,.06), transparent 60%),
+    rgba(255,255,255,.02);
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
   overflow:hidden;
-  pointer-events:auto;
+
+  /* key: prevent field from collapsing on small screens */
+  min-height: 220px;
 }
+
 .gj-layer{
   position:absolute;
   inset:0;
-  z-index: var(--z-target);
+  pointer-events:auto;
+  z-index: 20;
 }
 .gj-layer-r{
-  opacity: 1;
+  pointer-events:none;
+  opacity: .98;
+  filter: saturate(1.08);
 }
 
-/* targets */
+/* Crosshair (vr-ui.js) above targets, below modals */
+#hha-crosshair, .hha-crosshair, .vrui-crosshair{
+  z-index: 70 !important;
+}
+
+/* ---------- Targets ---------- */
 .gj-target{
-  position:absolute !important;
-  transform: translate(-50%, -50%);
+  position:absolute;
+  transform: translate(-50%, -50%) scale(1);
   user-select:none;
-  touch-action: none;
-  cursor: pointer;
+  -webkit-user-select:none;
+  touch-action:none;
+  cursor:pointer;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.35));
   will-change: transform, opacity;
-  filter: drop-shadow(0 8px 22px rgba(0,0,0,.35));
 }
-.gj-target.spawn{
-  animation: gjPop .14s ease-out both;
-}
+.gj-target.spawn{ animation: gjPop .18s ease-out both; }
 .gj-target.gone{
-  animation: gjGone .16s ease-in both;
+  animation: gjGone .14s ease-in both;
+  pointer-events:none;
 }
 @keyframes gjPop{
-  from{ transform: translate(-50%,-50%) scale(.82); opacity:.0; }
+  from{ transform: translate(-50%,-50%) scale(.75); opacity:.0; }
   to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
 }
 @keyframes gjGone{
   from{ transform: translate(-50%,-50%) scale(1); opacity:1; }
-  to{ transform: translate(-50%,-50%) scale(.82); opacity:0; }
+  to{ transform: translate(-50%,-50%) scale(.75); opacity:0; }
 }
 
-/* ===== HUD BOTTOM ===== */
+/* ---------- HUD BOTTOM (row4) ---------- */
 .gj-hud-bot{
-  position:fixed;
-  left:0; right:0;
-  bottom: calc(var(--sab) + var(--vrui-h));
-  padding: 10px var(--pad) 10px;
+  grid-row:4;
+  padding: 0 calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
   display:grid;
-  grid-template-columns: 1fr;
-  gap: var(--gap);
-  z-index: var(--z-hud);
-  pointer-events:none;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 10px;
+  z-index: 80;
 }
+@media (max-width: 760px){
+  .gj-hud-bot{ grid-template-columns: 1fr; }
+}
+
 .meter{
-  padding: 12px;
-  border-radius: calc(var(--r) + 4px);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(10px);
+  border-radius: var(--r2);
+  border:1px solid var(--stroke);
+  background: var(--panel2);
+  backdrop-filter: blur(12px);
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
 }
 .meter-title{
-  font-weight: 900;
-  letter-spacing: .02em;
+  font-weight: 1000;
+  letter-spacing: .5px;
   margin-bottom: 10px;
 }
 .meter-bar{
-  height: 12px;
+  height: 14px;
   border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
+  border:1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
   overflow:hidden;
 }
 .meter-fill{
-  height:100%;
+  height: 100%;
+  width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(80,220,170,.78), rgba(255,210,90,.72), rgba(255,90,120,.68));
+  background: linear-gradient(90deg, rgba(50,220,160,.75), rgba(255,180,70,.65), rgba(255,90,90,.60));
 }
-.meter-num, .meter-shield{
+.meter-num, .meter-shield, .meter-tip{
   margin-top: 8px;
-  color: var(--muted);
-  font-weight: 650;
+  font-weight: 850;
+  color: rgba(234,240,255,.86);
 }
 .meter-tip{
-  margin-top: 8px;
-  color: rgba(255,255,255,.78);
+  color: rgba(234,240,255,.72);
   line-height: 1.35;
 }
-.meter code{
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .95em;
-  background: rgba(0,0,0,.18);
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.10);
-}
 
-/* ===== QUEST PANEL (overlay lock) ===== */
+/* HUD hidden -> collapse bottom meters */
+body.hud-hidden .gj-hud-bot{ display:none; }
+body.hud-hidden .gj-hud-top .gj-progress{ display:none; }
+body.hud-hidden #vrMiniHud{ display:none; }
+
+/* ---------- Quest modal (overlay lock) ---------- */
 .gj-quest-panel{
   position:fixed;
   inset:0;
-  z-index: var(--z-overlay);
-  background: rgba(0,0,0,.38);
-  backdrop-filter: blur(6px);
+  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 10px) var(--pad) calc(var(--sab) + 10px);
-  pointer-events:auto;
+  z-index: 140;
 }
 .gj-quest-panel[aria-hidden="true"]{ display:none; }
+
 .gj-quest-card{
-  width: min(560px, 100%);
-  max-height: min(78vh, 720px);
+  width: min(720px, 94vw);
+  max-height: min(78svh, 760px);
   overflow:auto;
-  -webkit-overflow-scrolling: touch;
+  border-radius: 26px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(10, 14, 30, .82);
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
   padding: 14px;
-  border-radius: calc(var(--r) + 8px);
-  background: rgba(10,14,30,.90);
-  border: 1px solid rgba(255,255,255,.14);
-  box-shadow: 0 20px 60px rgba(0,0,0,.45);
 }
+
 .gj-quest-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding-bottom: 10px;
+  padding: 8px 8px 12px;
+  position: sticky;
+  top: 0;
+  background: rgba(10,14,30,.92);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255,255,255,.10);
+  border-radius: 18px;
 }
+
 .gj-quest-title{
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 1100;
 }
+
 .gj-quest-section{
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
 }
-.gj-quest-section:last-child{ border-bottom:none; }
-.q-title{ font-weight: 900; }
-.q-desc{ margin-top: 6px; color: rgba(255,255,255,.78); line-height:1.35; }
+
+.q-title{
+  font-weight: 1000;
+  margin-bottom: 6px;
+}
+.q-desc{
+  color: rgba(234,240,255,.76);
+  line-height: 1.35;
+}
 .q-bar{
   margin-top: 10px;
   display:flex;
@@ -357,176 +406,172 @@ body.gj{
   justify-content:space-between;
   gap:10px;
 }
-.q-num{
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
-  font-weight: 850;
+.q-num{ font-weight: 1100; }
+.q-hint{
+  color: rgba(234,240,255,.62);
+  font-weight: 900;
+  font-size: 13px;
 }
-.q-hint{ color: var(--muted); font-size: 12px; }
+
 .gj-ul{
   margin: 8px 0 0 18px;
-  color: rgba(255,255,255,.80);
+  color: rgba(234,240,255,.76);
+  line-height: 1.4;
 }
-.gj-ul li{ margin: 6px 0; }
 
-/* ===== LOW TIME OVERLAY ===== */
+code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em;
+  padding: 2px 6px;
+  border-radius: 10px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+}
+
+/* Lock background interaction when quest open */
+body.quest-open{ overflow:hidden; }
+body.quest-open .gj-field{ filter: blur(0.2px) saturate(1.02); }
+
+/* ---------- Low-time overlay ---------- */
 .gj-lowtime-overlay{
   position:fixed;
   inset:0;
-  z-index: var(--z-overlay);
   display:flex;
   align-items:center;
   justify-content:center;
   pointer-events:none;
+  z-index: 130;
 }
 .gj-lowtime-overlay[aria-hidden="true"]{ display:none; }
+
 .gj-lowtime-ring{
-  width: 220px;
-  height: 220px;
+  width: 180px;
+  height: 180px;
   border-radius: 999px;
-  border: 4px solid rgba(255,255,255,.20);
-  box-shadow: 0 0 0 8px rgba(255,80,120,.12);
-  animation: gjPulse 0.9s ease-in-out infinite;
+  border: 2px solid rgba(255,120,80,.35);
+  box-shadow: 0 0 0 18px rgba(255,120,80,.10);
 }
 .gj-lowtime-num{
   position:absolute;
-  font-size: 84px;
-  font-weight: 950;
-  text-shadow: 0 18px 50px rgba(0,0,0,.45);
+  font-size: 64px;
+  font-weight: 1100;
+  text-shadow: 0 18px 40px rgba(0,0,0,.55);
 }
-@keyframes gjPulse{
-  0%{ transform: scale(.96); opacity:.80; }
-  50%{ transform: scale(1.02); opacity:1; }
-  100%{ transform: scale(.96); opacity:.80; }
+body.gj-tick .gj-lowtime-ring{
+  box-shadow: 0 0 0 26px rgba(255,120,80,.14);
 }
 
-/* ===== END OVERLAY ===== */
+/* ---------- End overlay ---------- */
 .gj-end{
   position:fixed;
   inset:0;
-  z-index: var(--z-end);
-  background: rgba(0,0,0,.50);
-  backdrop-filter: blur(8px);
+  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: calc(var(--sat) + 10px) var(--pad) calc(var(--sab) + 10px);
-  pointer-events:auto;
+  z-index: 150;
 }
 .gj-end[aria-hidden="true"]{ display:none; }
+
 .gj-end .card{
-  width:min(520px, 100%);
+  width: min(560px, 92vw);
+  border-radius: 26px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(10, 14, 30, .86);
+  box-shadow: 0 30px 90px rgba(0,0,0,.60);
   padding: 16px;
-  border-radius: calc(var(--r) + 10px);
-  background: rgba(10,14,30,.92);
-  border: 1px solid rgba(255,255,255,.14);
-  box-shadow: 0 25px 80px rgba(0,0,0,.55);
 }
-.gj-end .title{ font-size: 22px; font-weight: 950; }
-.gj-end .sub{ margin-top: 6px; color: var(--muted); }
+.gj-end .title{
+  font-size: 20px;
+  font-weight: 1100;
+}
+.gj-end .sub{
+  margin-top: 4px;
+  color: rgba(234,240,255,.70);
+  font-weight: 850;
+}
 .gj-end .grid{
   margin-top: 14px;
   display:grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 10px;
 }
 .gj-end .stat{
+  border-radius: 18px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
   padding: 10px 12px;
-  border-radius: var(--r);
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
 }
-.gj-end .stat span{ color: var(--muted); font-size: 12px; }
-.gj-end .stat b{ display:block; font-size: 20px; margin-top: 2px; }
+.gj-end .stat span{
+  display:block;
+  color: rgba(234,240,255,.70);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .6px;
+}
+.gj-end .stat b{
+  display:block;
+  margin-top: 2px;
+  font-size: 22px;
+  font-weight: 1100;
+}
 .gj-end .actions{
   margin-top: 14px;
   display:flex;
   gap: 10px;
 }
-.gj-end .btn{
-  flex:1;
-  padding: 12px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.08);
-  color: var(--txt);
-  font-weight: 900;
-}
-.gj-end .btn.alt{
-  background: rgba(40,220,160,.14);
-  border-color: rgba(40,220,160,.22);
-}
+.gj-end .actions .btn{ flex:1; }
 
-/* ===== HUD HIDE MODE ===== */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  opacity: 0;
-  pointer-events:none;
-  transform: translateY(-6px);
-}
-body.hud-hidden{
-  /* when HUD hidden, expand spawn rect */
-  --gj-top-safe: calc(var(--sat) + var(--topbar-h) + 12px);
-  --gj-bottom-safe: calc(var(--sab) + var(--vrui-h) + 12px);
-}
-
-/* ===== FX LAYER PROTECTION =====
-   Particles/hha-fx-director often injects nodes into body.
-   Ensure FX stays above field but below HUD/overlays.
+/* ---------- FX layering (Particles / FX Director) ----------
+   FX above field, under HUD/modals
 */
-#hha-fx-layer, .hha-fx-layer, .particles-layer{
+#fx, #fx-layer, #hha-fx, .hha-fx, canvas.hha-fx, canvas#hhaFxCanvas{
   position: fixed !important;
-  inset:0 !important;
-  z-index: var(--z-fx) !important;
-  pointer-events:none !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 60 !important;
+}
+.fx-pop, .hha-pop, .particles-pop{
+  position: fixed;
+  pointer-events: none;
+  z-index: 65;
 }
 
-/* ===== responsive tweaks ===== */
-@media (min-width: 720px){
-  :root{
-    --hudtop-h: 116px;
-    --hudbot-h: 156px;
-  }
-  .gj-hud-bot{
-    grid-template-columns: 1.1fr .9fr;
-  }
+/* ---------- Mode classes (storm/boss/rage feedback) ---------- */
+body.storm .gj-field{
+  border-color: rgba(255,200,90,.18);
+  box-shadow: 0 18px 44px rgba(255,200,90,.06), 0 18px 40px rgba(0,0,0,.35);
 }
-@media (max-height: 720px){
-  :root{
-    --hudtop-h: 112px;
-    --hudbot-h: 148px;
-  }
+body.boss .gj-field{
+  border-color: rgba(255,120,120,.20);
+  box-shadow: 0 18px 44px rgba(255,120,120,.07), 0 18px 40px rgba(0,0,0,.35);
+}
+body.rage .gj-field{
+  border-color: rgba(255,90,160,.22);
+  box-shadow: 0 18px 52px rgba(255,90,160,.08), 0 18px 40px rgba(0,0,0,.35);
+}
+
+/* Pulses from safe.js */
+body.gj-junk-hit .gj-field{ filter: saturate(1.12) brightness(1.03); }
+body.gj-bomb .gj-field{ filter: saturate(1.20) brightness(1.06); }
+body.gj-storm .gj-field{ filter: saturate(1.10); }
+body.gj-rage .gj-field{ filter: saturate(1.15); }
+body.gj-boss-down .gj-field{ filter: saturate(1.05) brightness(1.02); }
+
+/* ---------- Small height devices (layout not tight) ---------- */
+@media (max-height: 740px){
+  .hud-pill{ padding: 8px 10px; min-height: 56px; }
   .hud-value{ font-size: 20px; }
-  .gj-btn{ padding: 9px 12px; }
+  .meter{ padding: 10px 12px; }
+  .gj-field{ min-height: 200px; }
+}
+@media (max-height: 640px){
+  /* auto-hide bottom meters on very short screens */
+  body.gj:not(.quest-open) .gj-hud-bot{ display:none; }
+  body.gj:not(.quest-open){ --gj-bottom-safe: 120px; }
 }
 
-/* ===== mode classes (from safe.js) ===== */
-body.storm .gj-progress-fill{ filter: saturate(1.25) contrast(1.05); }
-body.boss  .gj-bossbar{ box-shadow: 0 0 0 8px rgba(140,60,255,.10); }
-body.rage  .gj-bossbar-fill{ filter: saturate(1.4) contrast(1.15); }
-
-/* ===== micro flashes used by safe.js bodyPulse ===== */
-body.gj-junk-hit{ animation: gjFlashRed .22s ease-out; }
-body.gj-bomb{ animation: gjFlashRed .32s ease-out; }
-body.gj-storm{ animation: gjFlashBlue .24s ease-out; }
-body.gj-boss{ animation: gjFlashPurple .28s ease-out; }
-body.gj-rage{ animation: gjFlashOrange .32s ease-out; }
-
-@keyframes gjFlashRed{
-  from{ filter: brightness(1.05); }
-  to{ filter: brightness(1); }
-}
-@keyframes gjFlashBlue{
-  from{ filter: hue-rotate(12deg) brightness(1.05); }
-  to{ filter: none; }
-}
-@keyframes gjFlashPurple{
-  from{ filter: hue-rotate(28deg) brightness(1.06); }
-  to{ filter: none; }
-}
-@keyframes gjFlashOrange{
-  from{ filter: hue-rotate(-10deg) brightness(1.06); }
-  to{ filter: none; }
-}
+/* ---------- Accessibility ---------- */
+[aria-hidden="true"]{ pointer-events:none; }
