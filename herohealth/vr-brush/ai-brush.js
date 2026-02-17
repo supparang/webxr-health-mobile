@@ -1,12 +1,18 @@
 // === /herohealth/vr-brush/ai-brush.js ===
-// AI Hooks (Prediction/ML/DL-ready) v20260216b (PACK 1–3)
-// ✅ Deterministic by seed
-// ✅ Reads basic performance signals + recommends micro-tips
-// ✅ Emits brush:ai types compatible with brush.boot.js HUD + BigPop
+// BrushVR AI — Prediction + Coach (Seeded/Fair/Explainable) v20260217a
+// Provides: window.HHA.createAIHooks({seed, diff, mode})
+// Hooks:
+//  - tick({score, miss, combo, accuracy, clean, tLeft})
+//  - onEvent({type, ...})
+//  - getDifficulty() -> { spawnMul, ttlMul, perfectMul, bossMul, intensity }
+//  - getTip() -> { type, sub, mini }
+// Emits to UI: window.dispatchEvent('brush:ai', {detail:{type,...}}) (optional by caller)
 
 (function(){
   'use strict';
   const WIN = window;
+
+  if(!WIN.HHA) WIN.HHA = {};
 
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
@@ -18,87 +24,123 @@
     };
   }
 
-  function emit(type, detail){
-    try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail:{ type, ...detail } })); }catch(_){}
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+  function emitAI(type, detail){
+    try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: Object.assign({type}, detail||{}) })); }catch{}
   }
 
-  const AI = {
-    rng: seededRng(Date.now()),
-    seed: Date.now(),
-    feat: {
-      shots:0, hits:0, miss:0, combo:0, comboMax:0,
-      clean:0, feverOn:false, bossActive:false, left:0
-    },
-    lastTipAt: 0,
-    minTipMs: 2200,
+  WIN.HHA.createAIHooks = function createAIHooks(cfg){
+    const seed = cfg?.seed ?? Date.now();
+    const mode = String(cfg?.mode || 'play'); // play/research
+    const baseDiff = String(cfg?.diff || 'normal');
 
-    configure({seed}){
-      this.seed = seed || Date.now();
-      this.rng = seededRng(this.seed);
-    },
+    const rng = seededRng(seed);
 
-    onStart(){
-      this.feat = { shots:0,hits:0,miss:0,combo:0,comboMax:0,clean:0,feverOn:false,bossActive:false,left:0 };
-      this.lastTipAt = 0;
-      emit('tip', { emo:'🧠', title:'AI Coach', sub:'เริ่มแล้ว!', mini:'เล็งแม่นก่อน เร็วทีหลัง' });
-    },
+    const st = {
+      lastTipAt: 0,
+      tipCooldownMs: 2600,
+      emaAcc: 0.78,
+      emaMissRate: 0.10,
+      emaPace: 0.55,
+      intensity: 0.20,
+      fairnessCap: 0.45, // ไม่โหดเกิน
+      last: { miss:0, score:0, clean:0, tLeft:999, combo:0, shots:0, hits:0 }
+    };
 
-    onAction(a){
-      if(!a) return;
-      this.feat.shots = a.shots ?? this.feat.shots;
-      this.feat.hits  = a.hits  ?? this.feat.hits;
-      this.feat.miss  = a.miss  ?? this.feat.miss;
-      this.feat.combo = a.combo ?? this.feat.combo;
-      this.feat.comboMax = Math.max(this.feat.comboMax, this.feat.combo||0);
-      this.feat.clean = a.clean ?? this.feat.clean;
-    },
+    function updateEMA(prev, x, a){ return prev*(1-a) + x*a; }
 
-    onTick(meta){
-      if(!meta) return;
-      this.feat.left = meta.left ?? this.feat.left;
-      this.feat.feverOn = !!meta.feverOn;
-      this.feat.bossActive = !!meta.bossActive;
+    function diffBase(){
+      if(baseDiff==='easy') return {spawnMul:0.92, ttlMul:1.10, perfectMul:1.15, bossMul:0.90};
+      if(baseDiff==='hard') return {spawnMul:1.10, ttlMul:0.92, perfectMul:0.92, bossMul:1.12};
+      return {spawnMul:1.00, ttlMul:1.00, perfectMul:1.00, bossMul:1.00};
+    }
 
-      // 10s warning handled in engine too, but safe here:
-      if(meta.left <= 10 && meta.left > 9.6) emit('time_10s', {});
+    const BASE = diffBase();
 
-      const now = Date.now();
-      if(now - this.lastTipAt < this.minTipMs) return;
+    function tick(snap){
+      // snap: {accuracy, miss, score, combo, clean, tLeft, shots, hits}
+      const acc = clamp(Number(snap?.accuracy ?? 0.78), 0, 1);
+      const miss = Number(snap?.miss ?? 0);
+      const pace = clamp(Number(snap?.pace ?? 0.55), 0, 1); // (optional)
+      const clean = clamp(Number(snap?.clean ?? 0), 0, 100);
+      const tLeft = Number(snap?.tLeft ?? 999);
 
-      const shots = this.feat.shots || 0;
-      const hits = this.feat.hits || 0;
-      const acc = shots>0 ? hits/shots : 0.7;
+      const dMiss = Math.max(0, miss - st.last.miss);
+      const missRateNow = clamp(dMiss / 6, 0, 1); // normalized per few seconds
 
-      // Tip rules (baseline)
-      if(this.feat.bossActive && this.rng() < 0.25){
-        this.lastTipAt = now;
-        emit('tip', { emo:'💎', title:'โหมดบอส', sub:'มี Hazard', mini:'ถ้าเห็น STOP/Timing ให้รอแล้วค่อยยิง' , tag:'BOSS' });
-        return;
+      st.emaAcc = updateEMA(st.emaAcc, acc, 0.10);
+      st.emaMissRate = updateEMA(st.emaMissRate, missRateNow, 0.14);
+      st.emaPace = updateEMA(st.emaPace, pace, 0.08);
+
+      // intensity aims: higher when player stable, lower when miss spikes
+      const stability = clamp(st.emaAcc * (1 - st.emaMissRate), 0, 1);
+      const want = 0.18 + stability*0.55 + (clean/100)*0.15;
+
+      // fairness: if miss spikes, reduce
+      const penalty = st.emaMissRate*0.55;
+      st.intensity = clamp(updateEMA(st.intensity, want - penalty, 0.10), 0.05, st.fairnessCap);
+
+      // timing tips (rare)
+      if(mode==='play'){
+        if(tLeft <= 10 && st.last.tLeft > 10){
+          emitAI('time_10s', { sub:'อีก 10 วิ!', mini:'เร่งแบบแม่น ๆ รักษาคอมโบ' });
+        }
       }
 
-      if(acc < 0.55 && shots >= 10){
-        this.lastTipAt = now;
-        emit('tip', { emo:'🎯', title:'ความแม่นตก', sub:`acc=${Math.round(acc*100)}%`, mini:'ช้าลงนิด แต่ยิงให้ชัวร์ (คอมโบจะกลับมา)' , tag:'TIP' });
-        return;
-      }
+      st.last.miss = miss;
+      st.last.clean = clean;
+      st.last.tLeft = tLeft;
+    }
 
-      if(this.feat.comboMax >= 12 && !this.feat.feverOn && this.rng() < 0.35){
-        this.lastTipAt = now;
-        emit('streak', { emo:'⚡', title:'ใกล้เข้า FEVER', sub:'คอมโบกำลังมา', mini:'อย่าพลาด! เล็งให้แม่น แล้วค่อยเร่ง' , tag:'STREAK' });
-        return;
-      }
+    function getDifficulty(){
+      // convert intensity -> multipliers
+      const I = st.intensity; // 0..0.45
+      const spawnMul = clamp(BASE.spawnMul * (1 + I*0.55), 0.85, 1.28);
+      const ttlMul   = clamp(BASE.ttlMul   * (1 - I*0.22), 0.78, 1.15);
+      const bossMul  = clamp(BASE.bossMul  * (1 + I*0.30), 0.88, 1.25);
+      const perfectMul = clamp(BASE.perfectMul * (1 - I*0.10), 0.85, 1.25);
 
-      if(this.feat.feverOn && this.rng() < 0.30){
-        this.lastTipAt = now;
-        emit('fever_on', { emo:'💗', title:'FEVER!', sub:'คะแนนคูณ', mini:'ยิงต่อเนื่องแบบแม่น ๆ กวาดคะแนน!', tag:'FEVER' });
-        return;
-      }
-    },
+      return { spawnMul, ttlMul, bossMul, perfectMul, intensity: I };
+    }
 
-    onBossStart(){ emit('boss_start', {}); },
-    onBossPhase(phase, hp){ emit('boss_phase', { phase, hp }); },
-    onFeverOn(){ emit('fever_on', {}); }
+    function maybeTip(){
+      const t = Date.now();
+      if(t - st.lastTipAt < st.tipCooldownMs) return null;
+      st.lastTipAt = t;
+
+      const roll = rng();
+      if(st.emaMissRate > 0.25) return { type:'coach', sub:'ช้าแต่แม่น', mini:'เล็งให้ชัดก่อนแตะ/ยิง' };
+      if(st.emaAcc < 0.60) return { type:'coach', sub:'อย่ารัว', mini:'กดทีละจังหวะ จะได้คอมโบ' };
+      if(roll < 0.30) return { type:'coach', sub:'Perfect ล่าโบนัส', mini:'ใกล้หมดเวลาแล้วค่อยแตะ = Perfect!' };
+      if(roll < 0.58) return { type:'coach', sub:'คุมคอมโบ', mini:'พลาดทีเดียวคอมโบหาย—โฟกัส!' };
+      return null;
+    }
+
+    function onEvent(ev){
+      const type = String(ev?.type || '').toLowerCase();
+
+      // hazard/boss events -> forward to HUD
+      if(type==='boss_start') emitAI('boss_start', {});
+      if(type==='boss_phase') emitAI('boss_phase', { phase: ev.phase, hp: ev.hp, hpMax: ev.hpMax });
+      if(type==='laser_warn') emitAI('laser_warn', {});
+      if(type==='laser_on') emitAI('laser_on', {});
+      if(type==='shock_on') emitAI('shock_on', {});
+      if(type==='shock_pulse') emitAI('shock_pulse', { idx: ev.idx });
+      if(type==='finisher_on') emitAI('finisher_on', { need: ev.need });
+
+      // occasional coach tip
+      if(type==='miss' || type==='whiff' || type==='timeout'){
+        const tip = maybeTip();
+        if(tip) emitAI('coach', tip);
+      }
+    }
+
+    function getTip(){
+      return maybeTip();
+    }
+
+    return { tick, onEvent, getDifficulty, getTip };
   };
 
-  WIN.BrushAI = AI;
 })();
