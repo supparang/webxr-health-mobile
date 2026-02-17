@@ -1,10 +1,10 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets — PATCH ABCD
+// DOM renderer for Shadow Breaker targets
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ HUD-safe spawn using CSS vars (--sb-safe-*) from wrap/root
-// ✅ targets map stores { el, type, sizePx, spawnedAt }
-// ✅ expireTarget(id) smooth fade then remove
+// ✅ FX via FxBurst
+// ✅ PATCH: store targets as { el, type } (engine needs type)
+// ✅ PATCH: expireTarget(id) with soft fade/shrink
 
 'use strict';
 
@@ -13,28 +13,15 @@ import { FxBurst } from './fx-burst.js';
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rand(min,max){ return min + Math.random()*(max-min); }
 
-function readCssPx(el, varName, fallback){
-  try{
-    const cs = getComputedStyle(el || document.documentElement);
-    const v = (cs.getPropertyValue(varName) || '').trim();
-    if(!v) return fallback;
-    const n = Number(String(v).replace('px','').trim());
-    return Number.isFinite(n) ? n : fallback;
-  }catch{
-    return fallback;
-  }
-}
-
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
     this.layer = layerEl;
-    this.wrapEl = opts.wrapEl || document.documentElement;
+    this.wrapEl = opts.wrapEl || null;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map(); // id -> { el, type, sizePx, spawnedAt }
-
+    this.targets = new Map(); // id -> { el, type }
     this._onPointer = this._onPointer.bind(this);
   }
 
@@ -52,16 +39,18 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // ✅ read CSS vars (tuned by responsive CSS)
-    const padTop = readCssPx(this.wrapEl, '--sb-safe-top', 84);
-    const padRight = readCssPx(this.wrapEl, '--sb-safe-right', 10);
-    const padBottom = readCssPx(this.wrapEl, '--sb-safe-bottom', 140);
-    const padLeft = readCssPx(this.wrapEl, '--sb-safe-left', 10);
+    // ✅ PATCH: margins driven by CSS vars (solve HUD/meta cramped)
+    const cs = getComputedStyle(document.documentElement);
+    const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
+    const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
+    const padSide = Number.parseFloat(cs.getPropertyValue('--sb-safe-side')) || 14;
+    const padBot  = Number.parseFloat(cs.getPropertyValue('--sb-safe-bot')) || 14;
 
-    const left = padLeft;
-    const top = padTop;
-    const right = r.width - padRight;
-    const bottom = r.height - padBottom;
+    const pad = Math.min(42, Math.max(padBase, r.width * 0.035));
+    const top = pad + padTop;
+    const left = pad + padSide;
+    const right = r.width - pad - padSide;
+    const bottom = r.height - pad - padBot;
 
     return { r, left, top, right, bottom };
   }
@@ -85,33 +74,21 @@ export class DomRendererShadow {
     const type = (data.type || 'normal');
     el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
-    el.dataset.type = type;
 
-    const size = clamp(Number(data.sizePx) || 110, 70, 220);
+    const size = clamp(Number(data.sizePx) || 110, 64, 240);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // emoji scales with size
-    const emojiSize = clamp(Math.round(size * 0.36), 28, 56);
-    el.style.setProperty('--sb-emoji', emojiSize + 'px');
-
-    // random position within safe rect
     const x = rand(left, Math.max(left, right - size));
     const y = rand(top, Math.max(top, bottom - size));
     el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    el.style.top  = Math.round(y) + 'px';
 
-    // content
-    const emoji = this._emojiForType(type, data.bossEmoji);
-    const span = document.createElement('span');
-    span.className = 'sb-emoji';
-    span.textContent = emoji;
-    el.appendChild(span);
-
+    el.textContent = this._emojiForType(type, data.bossEmoji);
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(data.id, { el, type, sizePx: size, spawnedAt: performance.now() });
+    this.targets.set(Number(data.id), { el, type });
   }
 
   _onPointer(e){
@@ -134,27 +111,27 @@ export class DomRendererShadow {
     this.targets.delete(id);
   }
 
+  // ✅ PATCH: expire softly then remove
   expireTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
 
-    // smooth fade
-    el.classList.add('is-expiring');
-    try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
-
-    // remove after animation
-    setTimeout(() => {
-      try { el.remove(); } catch {}
-      this.targets.delete(id);
-    }, 240);
+    try {
+      el.classList.add('is-expiring');
+      // prevent click during fade
+      el.style.pointerEvents = 'none';
+      setTimeout(()=> this.removeTarget(id), 180);
+    } catch {
+      this.removeTarget(id);
+    }
   }
 
   playHitFx(id, info = {}){
     const obj = this.targets.get(id);
     const el = obj?.el;
-    const rect = el ? el.getBoundingClientRect() : null;
 
+    const rect = el ? el.getBoundingClientRect() : null;
     const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
     const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
 
@@ -169,7 +146,7 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-miss');
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
@@ -180,8 +157,9 @@ export class DomRendererShadow {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
     } else if (grade === 'expire') {
-      FxBurst.burst(x, y, { n: 7, spread: 34, ttlMs: 420, cls: 'sb-fx-expire' });
-      FxBurst.popText(x, y, 'MISS', 'sb-fx-expire');
+      // ✅ soft miss FX (เบา ๆ)
+      FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
