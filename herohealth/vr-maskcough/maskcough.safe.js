@@ -1,33 +1,6 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — PRODUCTION (A+B+C) v20260217a
-//
-// ✅ A) Telegraph cough/boss: windup→tele→release
-//    - Perfect ONLY during tele phase (อ่านแล้วสวนได้)
-// ✅ B) Risk Zones: safe/risk/danger visible overlay
-//    - danger => ttl shorter, score higher, penalty heavier
-// ✅ C) Combo/Quest:
-//    - Perfect chain => Clean Air Sweep
-//    - Timed quest: Perfect 2 in 6s => bonus+shield
-//
-// ✅ Play/Study modes
-// - play: adaptive AI + DL allowed
-// - study/research: deterministic seed + AI assist OFF
-//
-// ✅ Controls
-// - PC/Mobile: pointerdown
-// - cVR: crosshair shoot via ../vr/vr-ui.js => window event: hha:shoot {x,y}
-//
-// ✅ Logging (optional) ?log=...
-// - JSONL POST + flush-hardened
-// - emits: hha:start, hha:time, hha:judge, hha:end + ai/boss/quest
-//
-// URL params:
-// ?hub=...&pid=...&seed=...&diff=easy|normal|hard&time=60
-// &mode=play|study (or run=...)
-// &view=pc|mobile|cvr
-// &log=https://endpoint
-// &studyId&phase&conditionGroup
-
+// MaskCough SAFE — Telegraph + TTL bar + Quality Metrics + AI hooks
+// v20260216b
 (function(){
   'use strict';
 
@@ -35,22 +8,20 @@
   const DOC = document;
   const $ = (s)=>DOC.querySelector(s);
 
-  // ---------------- utils ----------------
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const clamp01=(x)=>clamp(x,0,1);
-
   function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
   function getQS(){ try{return new URL(location.href).searchParams;}catch(_){return new URLSearchParams();} }
+
   function getViewAuto(){
     const qs=getQS();
     const v=(qs.get('view')||'').toLowerCase(); if(v) return v;
     const ua=navigator.userAgent||'';
     const isMobile=/Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    // NOTE: เดิมคุณ auto เป็น cvr บนมือถือ — คงไว้ตามเดิม
     return isMobile ? 'cvr' : 'pc';
   }
 
-  // deterministic RNG (mulberry32-like)
+  // deterministic RNG
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
@@ -77,13 +48,12 @@
     clearTimeout(showPrompt._t);
     showPrompt._t = setTimeout(()=> el.classList.remove('show'), 1050);
   }
-
   function flashBad(){
     const el = $('#mc-flash');
     if(!el) return;
     el.style.opacity='1';
     clearTimeout(flashBad._t);
-    flashBad._t=setTimeout(()=> el.style.opacity='0', 120);
+    flashBad._t=setTimeout(()=> el.style.opacity='0', 110);
   }
 
   // ---------------- context ----------------
@@ -105,7 +75,6 @@
 
   const wrap = $('#mc-wrap');
   const layer = $('#layer');
-
   if(wrap){
     wrap.dataset.view = view;
     wrap.dataset.run = mode;
@@ -126,7 +95,7 @@
   }
   applyHubLink($('#btnEndBack'));
 
-  // ---------------- HHA logger (flush-hardened) ----------------
+  // ---------------- logger ----------------
   function createLogger(ctx){
     const q = [];
     let seq = 0;
@@ -152,12 +121,10 @@
         type: ev.type
       };
     }
-
     function push(ev){
       q.push({ ...base(ev), ...ev });
-      if(q.length > 1200) q.splice(0, q.length - 900);
+      if(q.length > 1400) q.splice(0, q.length - 1000);
     }
-
     async function flush(reason){
       if(!ctx.log || !q.length) return;
       const payload = q.splice(0, q.length);
@@ -175,24 +142,18 @@
         });
       }catch(_){}
     }
-
     return { sessionId, push, flush };
   }
 
-  const ctx = {
-    pid, hub, diff, mode, view, seed,
-    timePlannedSec: timeLimit,
-    log: logEndpoint,
-    studyId, phase, conditionGroup
-  };
+  const ctx = { pid, hub, diff, mode, view, seed, timePlannedSec: timeLimit, log: logEndpoint, studyId, phase, conditionGroup };
   const logger = createLogger(ctx);
 
   WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden'){ logger.flush('unload'); }
+    if(DOC.visibilityState === 'hidden') logger.flush('unload');
   });
   WIN.addEventListener('beforeunload', ()=> logger.flush('unload'));
 
-  // ---------------- Fun Boost (optional) ----------------
+  // ---------------- Fun Boost ----------------
   const fun = WIN.HHA?.createFunBoost?.({
     seed: String(seed),
     baseSpawnMul: 1.0,
@@ -204,7 +165,7 @@
   });
   let director = fun ? fun.tick() : {spawnMul:1,timeScale:1,wave:'calm',intensity:0,feverOn:false};
 
-  // ---------------- AI Prediction (ML/DL hooks) ----------------
+  // ---------------- AI director (ใช้ metrics จริง) ----------------
   function sigmoid(x){
     if(x >= 0){ const z=Math.exp(-x); return 1/(1+z); }
     const z=Math.exp(x); return z/(1+z);
@@ -251,9 +212,9 @@
       enabled: !!opts?.enabled,
       alpha: 0.65,
       maxAssist: 0.45,
-      coachCooldownMs: 8500,
+      coachCooldownMs: 8200,
     };
-    const st={
+    const stAI={
       lastT: performance.now(),
       risk: 0.12,
       taps:0,hits:0,timeouts:0,coughTimeouts:0,perfects:0,
@@ -264,39 +225,39 @@
     };
 
     function reset(){
-      st.lastT=performance.now();
-      st.risk=0.12;
-      st.taps=st.hits=st.timeouts=0;
-      st.coughTimeouts=0; st.perfects=0;
-      st.latencySum=0; st.latencyN=0;
-      st.shieldPrev=st.shieldNow=40;
-      st.shieldSlope=0;
-      st.coachT=0;
-      st.riskSum=0; st.riskN=0;
+      stAI.lastT=performance.now();
+      stAI.risk=0.12;
+      stAI.taps=stAI.hits=stAI.timeouts=0;
+      stAI.coughTimeouts=0; stAI.perfects=0;
+      stAI.latencySum=0; stAI.latencyN=0;
+      stAI.shieldPrev=stAI.shieldNow=40;
+      stAI.shieldSlope=0;
+      stAI.coachT=0;
+      stAI.riskSum=0; stAI.riskN=0;
     }
 
     function onTick(nowMs, shield){
-      st.shieldNow=shield;
-      st.riskSum += st.risk; st.riskN++;
+      stAI.shieldNow=shield;
+      stAI.riskSum += stAI.risk; stAI.riskN++;
 
-      if(!cfg.enabled) return st.risk;
+      if(!cfg.enabled) return stAI.risk;
 
-      if(nowMs - st.lastT >= cfg.windowMs){
-        const total=Math.max(1, st.taps + st.timeouts);
-        const hitRate=st.hits/total;
-        const missRate=st.timeouts/total;
-        const avgLat=st.latencyN ? (st.latencySum/st.latencyN) : 0;
-        const coughFail=st.coughTimeouts/Math.max(1, st.timeouts);
-        const perfectRate=st.perfects/Math.max(1, st.hits);
+      if(nowMs - stAI.lastT >= cfg.windowMs){
+        const total=Math.max(1, stAI.taps + stAI.timeouts);
+        const hitRate=stAI.hits/total;
+        const missRate=stAI.timeouts/total;
+        const avgLat=stAI.latencyN ? (stAI.latencySum/stAI.latencyN) : 0;
+        const coughFail=stAI.coughTimeouts/Math.max(1, stAI.timeouts);
+        const perfectRate=stAI.perfects/Math.max(1, stAI.hits);
 
-        st.shieldSlope=(st.shieldNow - st.shieldPrev)/100;
-        st.shieldPrev=st.shieldNow;
+        stAI.shieldSlope=(stAI.shieldNow - stAI.shieldPrev)/100;
+        stAI.shieldPrev=stAI.shieldNow;
 
         const feat=[
           nz(missRate,0.05,0.55),
           nz(1-hitRate,0.10,0.70),
-          nz(1-(st.shieldNow/100),0.30,0.95),
-          nz(Math.max(0,-st.shieldSlope),0.00,0.30),
+          nz(1-(stAI.shieldNow/100),0.30,0.95),
+          nz(Math.max(0,-stAI.shieldSlope),0.00,0.30),
           nz(coughFail,0.05,0.60),
           nz(avgLat,180,650),
           nz(1-perfectRate,0.20,0.95),
@@ -305,64 +266,66 @@
         const r2=cfg.enableDL ? mlp.predict(feat) : r1;
         const r=cfg.enableDL ? (0.55*r1 + 0.45*r2) : r1;
 
-        st.risk = cfg.alpha*st.risk + (1-cfg.alpha)*r;
+        stAI.risk = cfg.alpha*stAI.risk + (1-cfg.alpha)*r;
 
-        st.taps=st.hits=st.timeouts=0;
-        st.coughTimeouts=0; st.perfects=0;
-        st.latencySum=0; st.latencyN=0;
-        st.lastT=nowMs;
+        stAI.taps=stAI.hits=stAI.timeouts=0;
+        stAI.coughTimeouts=0; stAI.perfects=0;
+        stAI.latencySum=0; stAI.latencyN=0;
+        stAI.lastT=nowMs;
 
-        logger.push({ type:'ai:risk', risk: +st.risk.toFixed(4) });
+        logger.push({ type:'ai:risk', risk: +stAI.risk.toFixed(4) });
       }
-      return st.risk;
+      return stAI.risk;
     }
 
     function assistParams(){
       if(!cfg.enabled) return {assist:0,maskBonus:0,coughPenalty:0,spawnSlow:0,ttlBoost:0,perfectBoost:0};
-      const a=Math.min(cfg.maxAssist, Math.max(0,(st.risk-0.25)*0.85));
+      const a=Math.min(cfg.maxAssist, Math.max(0,(stAI.risk-0.25)*0.85));
       return {
         assist:a,
         maskBonus:0.10*a,
         coughPenalty:0.14*a,
         spawnSlow:0.18*a,
         ttlBoost:0.14*a,
-        perfectBoost:0.20*a,
+        perfectBoost:0.22*a,
       };
     }
 
     function onEvent(ev){
-      st.taps += 1;
-      if(ev.type==='hit'){ st.hits += 1; }
-      else if(ev.type==='perfect'){ st.hits += 1; st.perfects += 1; }
+      stAI.taps += 1;
+      if(ev.type==='hit'){ stAI.hits += 1; }
+      else if(ev.type==='perfect'){ stAI.hits += 1; stAI.perfects += 1; }
       else if(ev.type==='timeout'){
-        st.timeouts += 1;
-        if(ev.kind==='cough' || ev.kind==='boss') st.coughTimeouts += 1;
+        stAI.timeouts += 1;
+        if(ev.kind==='cough' || ev.kind==='boss') stAI.coughTimeouts += 1;
       }
-      if(Number.isFinite(ev.latencyMs)){ st.latencySum += ev.latencyMs; st.latencyN += 1; }
+      if(Number.isFinite(ev.latencyMs)){ stAI.latencySum += ev.latencyMs; stAI.latencyN += 1; }
     }
 
-    function coachHint(nowMs, state){
+    function coachHint(nowMs, s){
       if(!cfg.enabled) return null;
-      if(nowMs - st.coachT < cfg.coachCooldownMs) return null;
-      if(st.risk < 0.42 && state.shield > 34) return null;
+      if(nowMs - stAI.coachT < cfg.coachCooldownMs) return null;
 
-      st.coachT = nowMs;
+      // ใช้ “คุณภาพ” จริง: ถ้าคอปเปอร์เฟคต่ำ/โดนดาเมจเยอะ → เน้น telegraph/last-chance
+      if(stAI.risk < 0.40 && s.shield > 34) return null;
 
-      if(state.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
-      if(st.risk > 0.70) return '🎯 โฟกัส 🤧 ตอน “ไฟเตือนแดง” เพื่อ Perfect Block (คะแนนพุ่ง!)';
-      if(state.miss >= 6) return '💦 อย่าให้ละอองหลุดเยอะ—ตี 💦 ให้ทันก่อน!';
-      return '✨ สะสม streak แล้วจะเข้า FEVER ได้เร็วขึ้น!';
+      stAI.coachT = nowMs;
+
+      if(s.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
+      if(s.coughPerfectRate != null && s.coughPerfectRate < 0.35) return '👀 ดูวงเตือน 🤧 แล้ว “รอท้าย ๆ” ค่อยตี = Perfect!';
+      if(s.damage >= 40) return '🛑 โดนแรงไป! เลี่ยง 🦠 แล้วโฟกัส 💦 ช่วงต้นเพื่อคุมจังหวะ';
+      if(stAI.risk > 0.70) return '🎯 ตอนท้าย ๆ ของ 🤧 จะเรืองแสง—นั่นคือ Perfect window!';
+      return '✨ สะสม streak ให้สูง—จะเข้า FEVER ได้ไวขึ้น!';
     }
 
-    function riskAvg(){ return st.riskN ? (st.riskSum/st.riskN) : st.risk; }
-
-    return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){return st.risk;} };
+    function riskAvg(){ return stAI.riskN ? (stAI.riskSum/stAI.riskN) : stAI.risk; }
+    return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){return stAI.risk;} };
   }
 
   const aiEnabled = (mode === 'play');
   const ai = createAIDirector({ enabled: aiEnabled, enableDL: aiEnabled });
 
-  // ---------------- FX heavy (DOM) ----------------
+  // ---------------- FX layer ----------------
   const fxLayer = DOC.createElement('div');
   fxLayer.style.position='fixed';
   fxLayer.style.inset='0';
@@ -387,7 +350,6 @@
     requestAnimationFrame(()=>{ el.style.transform='scale(1.8)'; el.style.opacity='0'; });
     setTimeout(()=>{ try{el.remove();}catch(_){} }, 220);
   }
-
   function fxShockwave(x,y){
     const el=DOC.createElement('div');
     el.style.position='absolute';
@@ -405,7 +367,6 @@
     requestAnimationFrame(()=>{ el.style.transform='translate(-50%,-50%) scale(14)'; el.style.opacity='0'; });
     setTimeout(()=>{ try{el.remove();}catch(_){} }, 420);
   }
-
   function fxConfettiBurst(x,y){
     for(let i=0;i<14;i++){
       const c=DOC.createElement('div');
@@ -433,7 +394,6 @@
       setTimeout(()=>{ try{c.remove();}catch(_){} }, 700);
     }
   }
-
   function fxFeverGlow(on){
     if(!wrap) return;
     wrap.style.filter = on ? 'saturate(1.12) brightness(1.05)' : '';
@@ -460,12 +420,21 @@
 
     risk: 0.12,
 
-    // C) combo/quest
-    perfectChain: 0,
-    quest: { on:false, tEnd:0, need:0, got:0 },
+    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y, ttl, teleAt, lastAt, barI}
+    uid:0,
 
-    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y, zone}
-    uid:0
+    // ✅ Quality metrics
+    taps:0,
+    hitsGood:0,     // droplet/mask/cough hit (incl perfect)
+    hitsBad:0,      // infected hit
+    timeoutsBad:0,  // droplet/mask/cough timeout
+    avoidInfected:0,
+    savedDroplet:0, // droplet hit before timeout
+    damage:0,
+    rtSum:0,
+    rtN:0,
+    coughHits:0,
+    coughPerfect:0,
   };
 
   // HUD elements
@@ -508,9 +477,9 @@
   function cssClass(kind){
     if(kind==='droplet') return 't good';
     if(kind==='infected') return 't bad';
-    if(kind==='cough') return 't cough bad telegraph';
+    if(kind==='cough') return 't cough bad';
     if(kind==='mask') return 't mask';
-    if(kind==='boss') return 't cough bad telegraph';
+    if(kind==='boss') return 't cough bad';
     return 't';
   }
 
@@ -549,41 +518,40 @@
     return 'mask';
   }
 
-  function zoneFromY(y, h){
-    return (y < h*0.33) ? 'danger' : (y < h*0.66) ? 'risk' : 'safe';
-  }
-
-  function spawnAt(kind, x, y, ttlMs, zone){
-    if(!st.running || st.over || st.paused) return;
-
-    const id=String(++st.uid);
+  // ✅ make target element with TTL bar
+  function buildTargetEl(kind, x, y){
     const el=DOC.createElement('div');
     el.className=cssClass(kind);
     el.textContent=emoji(kind);
     el.style.left=x+'px';
     el.style.top=y+'px';
-    el.dataset.id=id;
-    el.dataset.kind=kind;
 
-    // B) zone tagging (visual + scoring/penalty)
-    el.dataset.zone = zone || 'safe';
-    el.classList.add('zone-' + (zone || 'safe'));
+    // TTL bar
+    const ttl = DOC.createElement('div');
+    ttl.className = 'ttl';
+    const i = DOC.createElement('i');
+    ttl.appendChild(i);
+    el.appendChild(ttl);
 
+    return { el, barI:i };
+  }
+
+  function spawnAt(kind, x, y, ttlMs){
+    if(!st.running || st.over || st.paused) return;
+
+    const id=String(++st.uid);
     const born=performance.now();
     const die=born+ttlMs;
 
-    // A) telegraph phases for cough/boss
-    if(kind==='cough' || kind==='boss'){
-      el.dataset.phase = 'windup';
-      // phase timing based on ttl
-      const ttl = ttlMs;
-      const t1 = born + Math.max(180, ttl*0.45); // tele start
-      const t2 = born + Math.max(360, ttl*0.78); // release
-      el.dataset.t1 = String(t1);
-      el.dataset.t2 = String(t2);
-    }
+    const { el, barI } = buildTargetEl(kind, x, y);
+    el.dataset.id=id;
+    el.dataset.kind=kind;
 
-    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y, zone:zone||'safe'});
+    // Telegraph thresholds
+    const teleAt = born + ttlMs*0.55;
+    const lastAt = die - Math.max(90, Math.min(420, st.perfectBaseMs + 40)); // last-chance baseline
+
+    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y, ttlMs, teleAt, lastAt, barI});
 
     el.addEventListener('pointerdown', (ev)=>{
       if(view==='cvr') return;
@@ -603,15 +571,11 @@
     const x = pad + rng() * Math.max(10,(r.width - pad*2));
     const y = pad + rng() * Math.max(10,(r.height - pad*2));
 
-    const zone = zoneFromY(y, r.height);
-
     const ap=ai.assistParams();
-    const baseTtl=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
-    const zoneMul = (zone==='danger') ? 0.78 : (zone==='risk') ? 0.92 : 1.0;
-    const ttlMs=Math.max(520, Math.round(baseTtl*zoneMul));
+    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
 
     if(st.bossActive){
-      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)), zone);
+      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)));
       return;
     }
 
@@ -620,7 +584,7 @@
       kind='infected';
     }
 
-    spawnAt(kind, x, y, ttlMs, zone);
+    spawnAt(kind, x, y, ttlMs);
   }
 
   function removeTarget(id, popped){
@@ -656,164 +620,123 @@
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d<=radius){
         removeTarget(id,false);
-        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)), it.zone||'safe');
+        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
       }
     }
     fxShockwave(x,y);
     flashBad();
     toast('🤧 Shockwave!');
+    logger.push({type:'fx:shockwave'});
   }
 
-  function markPerfectFX(el){
-    try{ el && el.classList.add('perfect'); }catch(_){}
+  function applyDamage(amount, reason){
+    st.damage += Math.max(0, amount);
+    st.shield = clamp(st.shield - amount, 0, 100);
+    logger.push({type:'damage', amount, reason, shield:+st.shield.toFixed(1)});
   }
 
   function handleHit(id, why){
     const it=st.targets.get(id);
     if(!it || st.over || st.paused) return;
 
+    st.taps += 1;
+
     const t=performance.now();
     const remain=it.dieMs - t;
+    const rt = t - it.bornMs;
 
     removeTarget(id,true);
 
     const ap=ai.assistParams();
+    const perfectWindow=Math.round(st.perfectBaseMs*(1+ap.perfectBoost));
 
     const r=layerRect();
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
 
-    if(it.kind==='droplet'){
-      const z = it.el?.dataset?.zone || it.zone || 'safe';
+    const recordRT=()=>{
+      if(Number.isFinite(rt)){
+        st.rtSum += rt; st.rtN += 1;
+      }
+    };
 
+    if(it.kind==='droplet'){
       st.score += director.feverOn ? 2 : 1;
       st.streak += 1;
-
-      // B) zone bonus
-      if(z==='danger') st.score += 2;
-      else if(z==='risk') st.score += 1;
+      st.hitsGood += 1;
+      st.savedDroplet += 1;
+      recordRT();
 
       const ttlApprox=st.ttlBaseMs;
       if(remain > ttlApprox*0.55){
         st.score += 1;
         st.perfect += 1;
-
-        // C) chain & sweep
-        st.perfectChain += 1;
-        if(st.perfectChain >= 2){
-          toast('🌪️ Clean Air Sweep!');
-          burstClear(2 + Math.min(2, st.perfectChain-2));
-          logger.push({type:'combo:sweep', chain:st.perfectChain});
-        }
-
-        // C) quest progress (Perfect counts)
-        if(st.quest?.on){
-          st.quest.got += 1;
-          if(st.quest.got >= st.quest.need){
-            st.quest.on=false;
-            st.score += 8;
-            st.shield = clamp(st.shield + 12, 0, 100);
-            toast('✅ Quest Clear! +Shield');
-            showPrompt('✅ Quest สำเร็จ! เก่งมาก');
-            logger.push({type:'quest:end', pass:true});
-          }
-        }
-
         fun?.onAction?.({type:'perfect'});
-        ai.onEvent({type:'perfect', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain), zone:z});
-
-        markPerfectFX(it.el);
-        fxConfettiBurst(fxX, fxY);
+        ai.onEvent({type:'perfect', kind:'droplet', latencyMs:rt});
+        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain), rtMs:Math.round(rt)});
       }else{
-        st.perfectChain = 0;
-
         fun?.onAction?.({type:'hit'});
-        ai.onEvent({type:'hit', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain), zone:z});
-
-        fxSpark(fxX, fxY);
+        ai.onEvent({type:'hit', kind:'droplet', latencyMs:rt});
+        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain), rtMs:Math.round(rt)});
       }
 
+      fxSpark(fxX, fxY);
       if(director.feverOn && rng()<0.24) burstClear(1);
 
     } else if(it.kind==='infected'){
-      st.perfectChain = 0;
-
       st.miss += 1;
       st.streak = 0;
       st.score = Math.max(0, st.score - 2);
-      st.shield = clamp(st.shield - 10, 0, 100);
+      st.hitsBad += 1;
+      recordRT();
+
       flashBad();
       toast('🦠 โดนเชื้อ!');
-      ai.onEvent({type:'hit', kind:'infected', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why, zone:it.zone||'safe'});
+      ai.onEvent({type:'hit', kind:'infected', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why, rtMs:Math.round(rt)});
 
+      applyDamage(10, 'infected_hit');
       fxShockwave(fxX, fxY);
 
     } else if(it.kind==='mask'){
-      st.perfectChain = 0;
-
       st.shield = clamp(st.shield + (director.feverOn?16:14), 0, 100);
       st.score += 1;
       st.streak += 1;
+      st.hitsGood += 1;
+      recordRT();
+
       toast('🛡️ Shield +');
       fun?.onAction?.({type:'hit'});
-      ai.onEvent({type:'hit', kind:'mask', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why, zone:it.zone||'safe'});
-
+      ai.onEvent({type:'hit', kind:'mask', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why, rtMs:Math.round(rt)});
       fxSpark(fxX, fxY);
 
     } else if(it.kind==='cough' || it.kind==='boss'){
-      const z = it.el?.dataset?.zone || it.zone || 'safe';
-      const ph = it.el?.dataset?.phase || 'windup';
-      const isTele = (ph === 'tele'); // A) perfect only during tele
+      st.hitsGood += 1;
+      st.coughHits += 1;
+      recordRT();
 
-      if(isTele){
-        st.score += (it.kind==='boss' ? 7 : 5);
+      if(remain <= perfectWindow){
+        st.score += (it.kind==='boss' ? 6 : 4);
         st.streak += 1;
         st.perfect += 1;
-
-        // C) chain & sweep
-        st.perfectChain += 1;
-        if(st.perfectChain >= 2){
-          toast('🌪️ Clean Air Sweep!');
-          burstClear(2 + Math.min(2, st.perfectChain-2));
-          logger.push({type:'combo:sweep', chain:st.perfectChain});
-        }
-
-        // C) quest progress
-        if(st.quest?.on){
-          st.quest.got += 1;
-          if(st.quest.got >= st.quest.need){
-            st.quest.on=false;
-            st.score += 8;
-            st.shield = clamp(st.shield + 12, 0, 100);
-            toast('✅ Quest Clear! +Shield');
-            showPrompt('✅ Quest สำเร็จ! เก่งมาก');
-            logger.push({type:'quest:end', pass:true});
-          }
-        }
+        st.coughPerfect += 1;
 
         toast('✨ Perfect Block!');
         fun?.onAction?.({type:'perfect'});
-        ai.onEvent({type:'perfect', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, phase_tel:ph, zone:z});
+        ai.onEvent({type:'perfect', kind:'cough', latencyMs:rt});
+        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, remainMs:Math.round(remain), rtMs:Math.round(rt)});
 
-        markPerfectFX(it.el);
         fxConfettiBurst(fxX, fxY);
-
         if(st.bossActive) st.bossNeedPerfect=false;
-      }else{
-        st.perfectChain = 0;
 
+      }else{
         st.score += 2;
         st.streak += 1;
-        toast(ph==='windup' ? '⏳ เร็วไป!' : '⚡ ช้าไป!');
-        fun?.onAction?.({type:'hit'});
-        ai.onEvent({type:'hit', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, phase_tel:ph, zone:z});
 
+        fun?.onAction?.({type:'hit'});
+        ai.onEvent({type:'hit', kind:'cough', latencyMs:rt});
+        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, remainMs:Math.round(remain), rtMs:Math.round(rt)});
         fxSpark(fxX, fxY);
       }
     }
@@ -823,8 +746,7 @@
     if(director.feverOn && rng()<0.10) burstClear(1);
 
     setHud();
-
-    if(st.shield <= 0){ endGame('shield'); }
+    if(st.shield <= 0) endGame('shield');
   }
 
   function timeoutTarget(id){
@@ -833,43 +755,43 @@
 
     removeTarget(id,false);
 
-    if(it.kind==='droplet'){
-      st.perfectChain = 0;
+    const rt = performance.now() - it.bornMs;
 
+    if(it.kind==='droplet'){
       st.miss += 1;
       st.streak = 0;
       st.score = Math.max(0, st.score - 1);
-      st.shield = clamp(st.shield - 6, 0, 100);
+      st.timeoutsBad += 1;
+
       fun?.onAction?.({type:'timeout'});
-      ai.onEvent({type:'timeout', kind:'droplet', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet', zone:it.zone||'safe'});
+      ai.onEvent({type:'timeout', kind:'droplet', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet', rtMs:Math.round(rt)});
+
+      applyDamage(6, 'droplet_timeout');
 
     } else if(it.kind==='infected'){
       // good avoid
       st.score += 1;
+      st.avoidInfected += 1;
+
       fun?.onAction?.({type:'hit'});
-      ai.onEvent({type:'timeout', kind:'infected', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'avoid', kind:'infected', zone:it.zone||'safe'});
+      ai.onEvent({type:'timeout', kind:'infected', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'avoid', kind:'infected', rtMs:Math.round(rt)});
 
     } else if(it.kind==='mask'){
-      st.perfectChain = 0;
-
       st.miss += 1;
       st.streak = 0;
+      st.timeoutsBad += 1;
+
       fun?.onAction?.({type:'timeout'});
-      ai.onEvent({type:'timeout', kind:'mask', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'mask', zone:it.zone||'safe'});
+      ai.onEvent({type:'timeout', kind:'mask', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'mask', rtMs:Math.round(rt)});
 
     } else if(it.kind==='cough' || it.kind==='boss'){
-      st.perfectChain = 0;
-
-      const z = it.el?.dataset?.zone || it.zone || 'safe';
-      const extra = (z==='danger') ? 10 : (z==='risk') ? 5 : 0;
-
       st.miss += 1;
       st.streak = 0;
-      st.shield = clamp(st.shield - ((it.kind==='boss'?22:16) + extra), 0, 100);
-      st.score = Math.max(0, st.score - 2);
+      st.timeoutsBad += 1;
+
       toast('😷 โดนละอองไอ!');
       flashBad();
 
@@ -877,13 +799,15 @@
       coughShockwave(r.left + it.x, r.top + it.y);
 
       fun?.onAction?.({type:'timeout'});
-      ai.onEvent({type:'timeout', kind:'cough', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind, zone:z, extraPenalty:extra});
+      ai.onEvent({type:'timeout', kind:'cough', latencyMs:rt});
+      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind, rtMs:Math.round(rt)});
+
+      applyDamage((it.kind==='boss'?22:16), it.kind==='boss'?'boss_timeout':'cough_timeout');
+      st.score = Math.max(0, st.score - 2);
     }
 
     setHud();
-
-    if(st.shield <= 0){ endGame('shield'); }
+    if(st.shield <= 0) endGame('shield');
   }
 
   // cVR shoot
@@ -935,7 +859,7 @@
     if(nowMs >= st.nextBossAt){
       st.bossActive=true;
       st.bossNeedPerfect=true;
-      showPrompt('👿 BOSS WAVE! จับ “ไฟเตือนแดง” แล้ว Perfect Block อย่างน้อย 1 ครั้ง!');
+      showPrompt('👿 BOSS WAVE! รอ “ท้าย ๆ” แล้วตีให้ได้ Perfect อย่างน้อย 1 ครั้ง!');
       toast('BOSS INCOMING');
       logger.push({type:'boss:start'});
 
@@ -948,7 +872,7 @@
           st.bossActive=false;
 
           if(st.bossNeedPerfect){
-            st.shield=clamp(st.shield-18,0,100);
+            applyDamage(18, 'boss_fail');
             st.score=Math.max(0, st.score-4);
             flashBad();
             toast('❌ บอสไม่ผ่าน!');
@@ -970,33 +894,44 @@
     }
   }
 
+  // ✅ Telegraph + TTL update per target
+  function updateTargetUI(nowMs){
+    const ap=ai.assistParams();
+    const perfectWindow = Math.round(st.perfectBaseMs*(1+ap.perfectBoost));
+
+    for(const [, it] of st.targets){
+      const remain = it.dieMs - nowMs;
+      const life = Math.max(1, it.ttlMs);
+      const pct = clamp01(remain / life);
+
+      if(it.barI) it.barI.style.width = (pct*100).toFixed(1)+'%';
+
+      // Telegraph only for cough/boss: mid-life show ring; last window glow
+      const isCough = (it.kind==='cough' || it.kind==='boss');
+      if(isCough){
+        if(nowMs >= it.teleAt) it.el.dataset.tele = '1';
+        else it.el.dataset.tele = '';
+
+        if(remain <= perfectWindow) it.el.dataset.last = '1';
+        else it.el.dataset.last = '';
+      }else{
+        it.el.dataset.tele = '';
+        it.el.dataset.last = '';
+      }
+    }
+  }
+
   function tick(){
     if(!st.running || st.over || st.paused) return;
 
     director = fun ? fun.tick() : director;
 
     const nowMs=performance.now();
-
-    // A) update telegraph phases (cough/boss)
-    for(const [, it] of st.targets){
-      if(it.kind==='cough' || it.kind==='boss'){
-        const el = it.el;
-        if(!el) continue;
-        const t1 = Number(el.dataset.t1||0);
-        const t2 = Number(el.dataset.t2||0);
-        if(nowMs >= t2 && el.dataset.phase !== 'release'){
-          el.dataset.phase='release';
-          el.classList.add('release');
-        }else if(nowMs >= t1 && el.dataset.phase !== 'tele'){
-          el.dataset.phase='tele';
-          el.classList.add('tele');
-        }
-      }
-    }
-
     st.risk = ai.onTick(nowMs, st.shield);
 
-    const hint = ai.coachHint(nowMs, {shield:st.shield, miss:st.miss});
+    // AI Coach ใช้ quality metrics
+    const coughPerfectRate = st.coughHits ? (st.coughPerfect / st.coughHits) : null;
+    const hint = ai.coachHint(nowMs, { shield:st.shield, miss:st.miss, damage:st.damage, coughPerfectRate });
     if(hint) { showPrompt(hint); logger.push({type:'hha:coach', msg:hint}); }
 
     // timeouts
@@ -1004,23 +939,8 @@
       if(nowMs >= it.dieMs) timeoutTarget(id);
     }
 
-    // C) quest spawner / deadline
-    if(!st.quest.on && !st.bossActive && (director.intensity||0) > 0.35 && rng() < 0.012){
-      st.quest.on=true;
-      st.quest.need = 2;
-      st.quest.got = 0;
-      st.quest.tEnd = nowMs + 6000;
-      showPrompt('🎯 Quest: ทำ Perfect 2 ครั้งใน 6 วิ!');
-      toast('Quest!');
-      logger.push({type:'quest:start', need:st.quest.need, ms:6000});
-    }
-    if(st.quest.on && nowMs >= st.quest.tEnd){
-      st.quest.on=false;
-      toast('❌ Quest fail');
-      st.score = Math.max(0, st.score-3);
-      st.perfectChain = 0;
-      logger.push({type:'quest:end', pass:false});
-    }
+    // update telegraph + ttl bars
+    updateTargetUI(nowMs);
 
     maybeBoss(nowMs);
 
@@ -1029,9 +949,9 @@
       endGame('time'); return;
     }
 
-    // heartbeat ~1s
+    // heartbeat (~1s)
     if(((nowMs - st.t0) % 1000) < 90){
-      logger.push({type:'hha:time', t: +st.elapsedSec.toFixed(2), score:st.score, miss:st.miss, shield:+st.shield.toFixed(1), risk:+st.risk.toFixed(3)});
+      logger.push({type:'hha:time', t:+st.elapsedSec.toFixed(2), score:st.score, miss:st.miss, shield:+st.shield.toFixed(1), risk:+st.risk.toFixed(3)});
     }
 
     setHud();
@@ -1051,41 +971,53 @@
     }catch(_){}
   }
 
-  function makeBadges(){
+  function makeBadges(sum){
     const b=[];
     if(st.perfect>=3) b.push({id:'PERFECT_3', label:'✨ Perfect x3'});
     if(st.maxStreak>=12) b.push({id:'STREAK_12', label:'🔥 Streak 12'});
     if(st.miss<=3 && st.elapsedSec>=timeLimit-0.2) b.push({id:'CLEAN_RUN', label:'🧼 Clean Run'});
     if(st.shield>=60) b.push({id:'SHIELD_MASTER', label:'🛡️ Shield Master'});
-    if(st.perfectChain>=3) b.push({id:'SWEEP_MASTER', label:'🌪️ Sweep Master'});
+    if(sum.coughPerfectPct>=60) b.push({id:'COUGH_MASTER', label:'👑 Cough Master'});
+    if(sum.accuracyPct>=80) b.push({id:'ACCURATE', label:'🎯 Accurate'});
     return b;
   }
 
-  function renderEnd(reason){
+  function renderEnd(reason, sum){
     const set=(id,v)=>{ const el=DOC.getElementById(id); if(el) el.textContent=String(v); };
+
     set('tEndReason', reason);
     set('sScore', st.score);
     set('sMaxStreak', st.maxStreak);
     set('sMiss', st.miss);
     set('sPerfect', st.perfect);
     set('sShield', Math.round(st.shield)+'%');
-    set('sRisk', (ai.riskAvg()?ai.riskAvg():st.risk).toFixed(2));
+    set('sRisk', (sum.riskAvg).toFixed(2));
+
+    // quality
+    set('sAcc', Math.round(sum.accuracyPct)+'%');
+    set('sRT', sum.avgRTms ? (Math.round(sum.avgRTms)+' ms') : '—');
+    set('sCoughP', Math.round(sum.coughPerfectPct)+'%');
+    set('sAvoid', sum.avoidInfected);
+    set('sSaved', sum.savedDroplet);
+    set('sDmg', sum.damage);
 
     const badgeRow=DOC.getElementById('badgeRow');
-    const badges=makeBadges();
+    const badges=makeBadges(sum);
     if(badgeRow){
       badgeRow.innerHTML = badges.length
         ? badges.map(x=>`<span class="mc-badge-chip">${x.label}</span>`).join('')
         : `<span class="mc-badge-chip">🙂 Keep going</span>`;
     }
+
     const note=DOC.getElementById('endNote');
     if(note){
-      note.textContent = `pid=${pid||'—'} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed} | log=${logEndpoint||'—'}`;
+      note.textContent =
+        `pid=${pid||'—'} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed} | log=${logEndpoint||'—'}`
+        + ` | acc=${Math.round(sum.accuracyPct)}% | rt=${sum.avgRTms?Math.round(sum.avgRTms):'—'}ms`;
     }
 
     const endEl=$('#end');
     if(endEl) endEl.hidden=false;
-
     applyHubLink($('#btnEndBack'));
   }
 
@@ -1104,12 +1036,14 @@
 
     st.score=0; st.streak=0; st.maxStreak=0; st.miss=0; st.perfect=0;
     st.shield=40;
+    st.risk=0.12;
 
-    st.perfectChain=0;
-    st.quest = { on:false, tEnd:0, need:0, got:0 };
+    // reset quality
+    st.taps=0; st.hitsGood=0; st.hitsBad=0; st.timeoutsBad=0;
+    st.avoidInfected=0; st.savedDroplet=0; st.damage=0;
+    st.rtSum=0; st.rtN=0; st.coughHits=0; st.coughPerfect=0;
 
     clearAllTargets();
-
     director = fun ? fun.tick() : director;
 
     ai.reset();
@@ -1117,12 +1051,12 @@
     st.bossActive=false;
     st.bossNeedPerfect=false;
 
-    toast('เริ่ม! อ่านโซนเสี่ยง + จับไฟเตือน 🤧 เพื่อ Perfect!');
+    toast('เริ่ม! ดู “วงเตือน” 🤧 แล้วรอท้าย ๆ ค่อยตี = Perfect!');
     setHud();
 
     logger.push({type:'hha:start', seed, diff, mode, view, timePlannedSec:timeLimit});
-
     scheduleSpawn();
+
     if(tickTimer) clearInterval(tickTimer);
     tickTimer=setInterval(tick, 80);
   }
@@ -1150,6 +1084,13 @@
 
     clearAllTargets();
 
+    // quality summary
+    const totalJudged = Math.max(1, (st.hitsGood + st.hitsBad + st.timeoutsBad));
+    const accuracyPct = (st.hitsGood / totalJudged) * 100;
+    const avgRTms = st.rtN ? (st.rtSum / st.rtN) : null;
+    const coughPerfectPct = st.coughHits ? (st.coughPerfect / st.coughHits) * 100 : 0;
+    const riskAvg = ai.riskAvg ? ai.riskAvg() : st.risk;
+
     const sum = {
       game:'maskcough',
       ts:Date.now(),
@@ -1157,13 +1098,30 @@
       hub, diff, mode, view, seed,
       timePlannedSec: timeLimit,
       timePlayedSec: Math.round(st.elapsedSec*10)/10,
+
       score: st.score,
       streakMax: st.maxStreak,
       miss: st.miss,
       perfect: st.perfect,
       shieldEnd: Math.round(st.shield),
-      riskAvg: Math.round((ai.riskAvg?ai.riskAvg():st.risk)*100)/100,
-      reason
+      riskAvg: Math.round(riskAvg*100)/100,
+      reason,
+
+      // quality
+      accuracyPct: Math.round(accuracyPct*10)/10,
+      avgRTms: avgRTms ? Math.round(avgRTms*10)/10 : null,
+      coughPerfectPct: Math.round(coughPerfectPct*10)/10,
+      avoidInfected: st.avoidInfected,
+      savedDroplet: st.savedDroplet,
+      damage: st.damage,
+
+      // raw for ML later
+      taps: st.taps,
+      hitsGood: st.hitsGood,
+      hitsBad: st.hitsBad,
+      timeoutsBad: st.timeoutsBad,
+      coughHits: st.coughHits,
+      coughPerfect: st.coughPerfect,
     };
 
     saveSummary(sum);
@@ -1172,7 +1130,7 @@
     await logger.flush('end');
 
     toast(reason==='time' ? 'ครบเวลา!' : 'Shield หมด!');
-    renderEnd(reason);
+    renderEnd(reason, sum);
   }
 
   // bind buttons
@@ -1203,6 +1161,7 @@
   // init
   setHud();
   showPrompt(view==='cvr'
-    ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) • โซนบน=อันตราย คะแนนแรงแต่พลาดเจ็บ!'
-    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 “ไฟเตือนแดง” = Perfect!');
+    ? '🎯 cVR: ยิงด้วยกากบาท • ดูวงเตือน 🤧 แล้วรอท้าย ๆ ค่อยยิง = Perfect!'
+    : 'แตะ 💦 เก็บแต้ม • แตะ 😷 เติมโล่ • 🤧 มี “วงเตือน” — ช่วงท้ายเรืองแสง = Perfect!'
+  );
 })();
