@@ -1,139 +1,121 @@
-// === /fitness/js/dom-renderer-rhythm.js ===
-// Rhythm Boxer — DOM Renderer (PRODUCTION)
-// ✅ Auto add HIT LINE (gold) into every lane
-// ✅ FX: hit / miss -> feedback chip + flash
-// ✅ Auto swap note icon to 🎵 (even if engine spawns 🥊)
-// ✅ Safe on mobile (no heavy DOM work)
-
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX) FULL ===
 'use strict';
 
 (function(){
-  const WIN = window;
-  const DOC = document;
-
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-
-  class DomRendererRhythm{
-    constructor(opts = {}){
-      this.wrap = opts.wrap || DOC.body;
-      this.field = opts.field || DOC.querySelector('#rb-field');
-      this.lanesEl = opts.lanesEl || DOC.querySelector('#rb-lanes');
-      this.feedbackEl = opts.feedbackEl || DOC.querySelector('#rb-feedback');
-      this.flashEl = opts.flashEl || DOC.querySelector('#rb-flash');
-
-      this.noteIcon = (opts.noteIcon != null) ? String(opts.noteIcon) : '🎵';
-
-      this._hitlineClass = 'rb-hitline';
-      this._mo = null;
-
-      this.ensureHitlines();
-      this._observeNotes();
+  class RbDomRenderer{
+    constructor(host, opts = {}){
+      this.host = host;
+      this.wrapEl = opts.wrapEl || document.body;
+      this.flashEl = opts.flashEl || null;
+      this.feedbackEl = opts.feedbackEl || null;
     }
 
-    // ---------- Hit line ----------
-    ensureHitlines(){
-      if(!this.lanesEl) return;
-      const lanes = Array.from(this.lanesEl.querySelectorAll('.rb-lane'));
-      for(const lane of lanes){
-        // if already exists, skip
-        if(lane.querySelector('.' + this._hitlineClass)) continue;
-        const el = DOC.createElement('div');
-        el.className = this._hitlineClass;
-        lane.appendChild(el);
+    _hitlineYFromLane(laneEl){
+      try{
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--rb-hitline-y').trim();
+        const px = parseFloat(v);
+        return Number.isFinite(px) ? px : 86;
+      }catch(_){
+        return 86;
       }
     }
 
-    // ---------- Observe notes added by engine (swap icon to 🎵) ----------
-    _observeNotes(){
-      if(!this.lanesEl || typeof MutationObserver === 'undefined') return;
+    _screenPosFromLane(lane){
+      const laneEl = document.querySelector(`.rb-lane[data-lane="${lane}"]`);
+      if(!laneEl){
+        const r = this.wrapEl.getBoundingClientRect();
+        return { x: r.left + r.width/2, y: r.top + r.height/2 };
+      }
+      const rect = laneEl.getBoundingClientRect();
+      const x = rect.left + rect.width/2;
 
-      // clean old
-      try{ if(this._mo) this._mo.disconnect(); }catch(_){}
+      // ✅ FX at HITLINE (yellow line)
+      const hitlineY = this._hitlineYFromLane(laneEl);
+      const y = rect.bottom - hitlineY;
 
-      this._mo = new MutationObserver((muts)=>{
-        for(const m of muts){
-          if(!m.addedNodes || !m.addedNodes.length) continue;
-          for(const node of m.addedNodes){
-            if(!node || node.nodeType !== 1) continue;
-            // engine adds <div class="rb-note"><div class="rb-note-ico">...</div></div>
-            if(node.classList && node.classList.contains('rb-note')){
-              this._applyNoteIcon(node);
-            }else{
-              // in case a batch was added
-              const notes = node.querySelectorAll ? node.querySelectorAll('.rb-note') : [];
-              notes.forEach(n=>this._applyNoteIcon(n));
-            }
-          }
-        }
-      });
-
-      this._mo.observe(this.lanesEl, { childList:true, subtree:true });
+      return { x, y };
     }
 
-    _applyNoteIcon(noteEl){
-      try{
-        const ico = noteEl.querySelector('.rb-note-ico');
-        if(ico) ico.textContent = this.noteIcon;
-      }catch(_){}
-    }
-
-    // ---------- FX ----------
-    flash(){
+    _flash(){
       if(!this.flashEl) return;
-      this.flashEl.classList.remove('rb-on');
-      // force reflow
-      void this.flashEl.offsetWidth;
-      this.flashEl.classList.add('rb-on');
-      // auto off
-      WIN.setTimeout(()=>{ try{ this.flashEl.classList.remove('rb-on'); }catch(_){} }, 180);
+      this.flashEl.classList.add('active');
+      clearTimeout(this._flashT);
+      this._flashT = setTimeout(()=>this.flashEl.classList.remove('active'), 140);
     }
 
-    setFeedback(text, type){
+    _feedback(text, cls){
       if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = text || '';
-      this.feedbackEl.classList.toggle('rb-hit', type === 'hit');
-      this.feedbackEl.classList.toggle('rb-miss', type === 'miss');
+      this.feedbackEl.textContent = text;
+      this.feedbackEl.classList.remove('perfect','great','good','miss');
+      if(cls) this.feedbackEl.classList.add(cls);
     }
 
-    showHitFx({ lane, judgment, scoreDelta } = {}){
-      // feedback
-      const j = String(judgment||'good').toUpperCase();
-      const txt = (scoreDelta!=null) ? `${j} +${scoreDelta}` : j;
-      this.setFeedback(txt, 'hit');
-
-      // tiny flash on perfect/great
-      if(judgment === 'perfect' || judgment === 'great') this.flash();
-
-      // lane pulse (lightweight)
-      this._pulseLane(lane, judgment);
+    showHitFx({ lane, judgment, scoreDelta }){
+      const p = this._screenPosFromLane(lane);
+      this.spawnHitParticle(p.x, p.y, judgment);
+      this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
+      this._feedback(judgment.toUpperCase(), judgment);
     }
 
-    showMissFx({ lane } = {}){
-      this.setFeedback('MISS', 'miss');
-      this._pulseLane(lane, 'miss');
+    showMissFx({ lane }){
+      const p = this._screenPosFromLane(lane);
+      this.spawnMissParticle(p.x, p.y);
+      this._flash();
+      this._feedback('MISS', 'miss');
     }
 
-    _pulseLane(lane, kind){
-      if(!this.lanesEl) return;
-      const el = this.lanesEl.querySelector(`.rb-lane[data-lane="${Number(lane)}"]`);
-      if(!el) return;
-
-      const cls =
-        kind === 'perfect' ? 'rb-pulse-perfect' :
-        kind === 'great'   ? 'rb-pulse-great' :
-        kind === 'miss'    ? 'rb-pulse-miss' : 'rb-pulse-good';
-
-      el.classList.remove('rb-pulse-perfect','rb-pulse-great','rb-pulse-good','rb-pulse-miss');
-      el.classList.add(cls);
-      WIN.setTimeout(()=>{ try{ el.classList.remove(cls); }catch(_){} }, 160);
+    spawnScoreText(x, y, scoreDelta, judgment){
+      if(!Number.isFinite(scoreDelta)) return;
+      const el = document.createElement('div');
+      el.className = `rb-score-fx rb-score-${judgment||'good'}`;
+      el.textContent = `${scoreDelta>0?'+':''}${scoreDelta}`;
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+      document.body.appendChild(el);
+      void el.offsetWidth;
+      el.classList.add('is-live');
+      setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 420);
     }
 
-    destroy(){
-      try{ if(this._mo) this._mo.disconnect(); }catch(_){}
-      this._mo = null;
+    spawnHitParticle(x, y, judgment){
+      const n = 10;
+      for(let i=0;i<n;i++){
+        const el = document.createElement('div');
+        el.className = `rb-frag rb-frag-${judgment||'good'}`;
+        const size = 6 + Math.random()*6;
+        const ang = (i/n) * Math.PI*2;
+        const dist = 26 + Math.random()*34;
+        const dx = Math.cos(ang)*dist;
+        const dy = Math.sin(ang)*dist;
+        const life = 420 + Math.random()*180;
+        el.style.width = size+'px';
+        el.style.height = size+'px';
+        el.style.left = x+'px';
+        el.style.top  = y+'px';
+        el.style.setProperty('--dx', dx+'px');
+        el.style.setProperty('--dy', dy+'px');
+        el.style.setProperty('--life', life+'ms');
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(), life);
+      }
+    }
+
+    spawnMissParticle(x, y){
+      const el = document.createElement('div');
+      el.className = 'rb-frag rb-frag-miss';
+      const size = 14;
+      const life = 460;
+      el.style.width = size+'px';
+      el.style.height = size+'px';
+      el.style.left = x+'px';
+      el.style.top  = y+'px';
+      el.style.setProperty('--dx', '0px');
+      el.style.setProperty('--dy', '28px');
+      el.style.setProperty('--life', life+'ms');
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), life);
     }
   }
 
-  // expose
-  WIN.DomRendererRhythm = DomRendererRhythm;
+  window.RbDomRenderer = RbDomRenderer;
 })();
