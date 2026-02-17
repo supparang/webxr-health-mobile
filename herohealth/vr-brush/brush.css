@@ -8,6 +8,7 @@
   --good: rgba(16,185,129,.95);
   --pink: rgba(244,114,182,.95);
   --warn: rgba(251,191,36,.95);
+  --bad: rgba(239,68,68,.95);
 }
 
 html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
@@ -69,7 +70,7 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
 .br-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 
 .br-hud{width:min(980px,100%);margin:10px auto 0}
-.br-hudGrid{display:grid;grid-template-columns: 1fr 1fr .85fr;gap:10px}
+.br-hudGrid{display:grid;grid-template-columns: 1fr 1fr .95fr;gap:10px}
 @media (max-width:860px){.br-hudGrid{grid-template-columns:1fr}}
 .br-box,.br-mini{
   border:1px solid var(--line);
@@ -83,6 +84,7 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
 .br-box .v{font-weight:1000}
 .br-mini .k{color:rgba(148,163,184,.95);font-weight:1000;font-size:12px}
 .br-mini .v{font-weight:900;font-size:12px;color:rgba(229,231,235,.78);margin-top:2px}
+.br-mini .v b{color:rgba(229,231,235,.95)}
 
 .br-barLabel{display:flex;justify-content:space-between;gap:12px;margin-top:2px}
 .br-barLabel .k{color:rgba(148,163,184,.95);font-weight:1000;font-size:12px}
@@ -150,12 +152,13 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
   color:rgba(255,255,255,.92);
   padding:12px;
   font-weight:900;
-  z-index:9999;
   white-space:pre-wrap;
   overflow:auto;
+  z-index:9999;
 }
 .br-hidden{display:none}
 
+/* ===== Targets ===== */
 .br-t{
   position:absolute;
   width:78px;height:78px;
@@ -168,7 +171,7 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
   transform: translate(-50%, -50%);
   overflow:hidden;
 }
-.br-t.thick{width:88px;height:88px;border-color:rgba(167,243,208,.28)}
+.br-t.thick{width:92px;height:92px;border-color:rgba(167,243,208,.28)}
 .br-t .emo{font-size:28px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
 .br-t .hp{
   position:absolute;left:10px;right:10px;bottom:10px;height:8px;
@@ -179,7 +182,30 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
 .br-t.pop{animation:pop .22s ease}
 @keyframes pop{0%{transform:translate(-50%,-50%) scale(.95)}100%{transform:translate(-50%,-50%) scale(1.04)}}
 
-/* ===== PACK C: FX ===== */
+/* ✅ Boss Weakspot */
+.br-ws{
+  position:absolute;
+  left:50%; top:50%;
+  width:22px; height:22px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border: 2px solid rgba(251,191,36,.75);
+  box-shadow: 0 0 0 2px rgba(2,6,23,.65), 0 0 18px rgba(251,191,36,.24);
+  opacity:.95;
+  pointer-events:none;
+}
+.br-ws:after{
+  content:'';
+  position:absolute;
+  inset:6px;
+  border-radius:999px;
+  background: rgba(251,191,36,.62);
+  box-shadow: 0 0 18px rgba(251,191,36,.22);
+}
+.br-t.ws-hit .br-ws{animation:wsHit .18s ease}
+@keyframes wsHit{0%{transform:translate(-50%,-50%) scale(.9)}100%{transform:translate(-50%,-50%) scale(1.15)}}
+
+/* ===== FX ===== */
 #br-fx{position:fixed;inset:0;z-index:8;pointer-events:none}
 .fx-flash{position:absolute;inset:0;opacity:0;background:rgba(255,255,255,.12);transition:opacity .12s ease}
 .fx-flash.on{opacity:1}
@@ -194,37 +220,19 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
     transparent 100%);
   transform: translateX(-120%) skewX(-10deg);
 }
-.fx-laser.on{
-  opacity:1;
-  animation: laserSweep 1.25s linear both;
-}
-@keyframes laserSweep{
-  0%{transform: translateX(-120%) skewX(-10deg)}
-  100%{transform: translateX(120%) skewX(-10deg)}
-}
+.fx-laser.on{opacity:1;animation: laserSweep 1.25s linear both;}
+@keyframes laserSweep{0%{transform: translateX(-120%) skewX(-10deg)}100%{transform: translateX(120%) skewX(-10deg)}}
 
 .fx-shock{
   position:absolute;left:50%;top:50%;
-  width:18px;height:18px;
-  border-radius:999px;
+  width:18px;height:18px;border-radius:999px;
   border:2px solid rgba(34,211,238,.65);
   box-shadow:0 0 0 2px rgba(2,6,23,.55);
   transform: translate(-50%,-50%) scale(.2);
   opacity:0;
 }
-.fx-shock.on{
-  opacity:1;
-  animation: shockRing .36s ease-out both;
-}
-@keyframes shockRing{
-  0%{transform:translate(-50%,-50%) scale(.2);opacity:.25}
-  100%{transform:translate(-50%,-50%) scale(20);opacity:0}
-}
+.fx-shock.on{opacity:1;animation: shockRing .36s ease-out both;}
+@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(.2);opacity:.25}100%{transform:translate(-50%,-50%) scale(20);opacity:0}}
 
-.fx-fin{
-  position:absolute;inset:0;
-  opacity:0;
-  background: radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);
-  transition: opacity .18s ease;
-}
+.fx-fin{position:absolute;inset:0;opacity:0;background: radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);transition: opacity .18s ease}
 .fx-fin.on{opacity:1}
