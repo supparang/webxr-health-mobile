@@ -1,12 +1,13 @@
 /* === /herohealth/vr-brush/brush.safe.js ===
-BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
+BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260217a
 ✅ Tap/Click + Crosshair Shoot (cVR via vr-ui.js -> hha:shoot)
-✅ Perfect window near expiry
-✅ Fever bar + Fever mode
-✅ Boss plaque (multi-hit) appears by progress
+✅ Boss plaque (multi-hit)
+✅ Laser + Shockwave + Finisher (PACK B)
+✅ FX overlay (PACK C)
+✅ AI prediction hooks (PACK D) via ai-brush.js (?ai=1 play only)
 ✅ Summary + Back Hub + Save last summary
-✅ NEW (ABC): brush:ai + hha:event stream + ML snapshot in end summary
 */
+
 (function(){
   'use strict';
 
@@ -60,13 +61,14 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
     return isMobile ? 'cvr' : 'pc';
   }
+
   function passHubUrl(ctx){
     const qs = getQS();
     const hub = qs.get('hub') || ctx.hub || '../hub.html';
     return hub;
   }
 
-  // deterministic rng
+  // deterministic rng (mulberry-like)
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
@@ -77,18 +79,33 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     };
   }
 
-  // emit helpers
   function emit(type, detail){
     try{ WIN.dispatchEvent(new CustomEvent(type, { detail })); }catch(_){}
   }
-  function emitAI(type, extra){
-    try{
-      WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: Object.assign({ type, ts: Date.now() }, extra||{}) }));
-    }catch(_){}
+
+  // ---------- FX (PACK C) ----------
+  const fxFlash = DOC.getElementById('fx-flash');
+  const fxLaser = DOC.getElementById('fx-laser');
+  const fxShock = DOC.getElementById('fx-shock');
+  const fxFin   = DOC.getElementById('fx-fin');
+
+  function fxOn(el, ms){
+    if(!el) return;
+    el.classList.add('on');
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{ try{ el.classList.remove('on'); }catch{} }, ms||220);
   }
-  function emitEvent(type, payload){
-    // stream event for FX/ML
-    emit('hha:event', Object.assign({ type, ts: Date.now() }, payload||{}));
+  function fxSet(el, on){
+    if(!el) return;
+    if(on) el.classList.add('on');
+    else el.classList.remove('on');
+  }
+
+  // ---------- AI helper: send to HUD via brush.boot.js ----------
+  function emitBrushAI(type, payload){
+    try{
+      WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: Object.assign({type}, payload||{}) }));
+    }catch{}
   }
 
   // ---------- DOM refs ----------
@@ -140,30 +157,34 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     run: qs.get('run') || qs.get('mode') || 'play',
     view: getViewAuto(),
     diff: (qs.get('diff') || 'normal').toLowerCase(),
-    time: safeNum(qs.get('time'), 60),
+    time: safeNum(qs.get('time'), 80),
     seed: safeNum(qs.get('seed'), Date.now()),
     pid: (qs.get('pid') || qs.get('participantId') || '').trim(),
     studyId: (qs.get('studyId') || '').trim(),
     phase: (qs.get('phase') || '').trim(),
     conditionGroup: (qs.get('conditionGroup') || '').trim(),
-    log: (qs.get('log') || '').trim()
+    log: (qs.get('log') || '').trim(),
+    ai: (qs.get('ai') || '0').trim(),
+    debug: (qs.get('debug') || '0').trim()
   };
 
   ctx.time = clamp(ctx.time, 30, 120);
 
+  // update view & back hub
   wrap.dataset.view = ctx.view;
-  if(ctxView) ctxView.textContent = ctx.view;
-  if(ctxSeed) ctxSeed.textContent = String((ctx.seed >>> 0));
-  if(ctxTime) ctxTime.textContent = `${ctx.time}s`;
-  if(diffTag) diffTag.textContent = ctx.diff;
+  DOC.body.setAttribute('data-view', ctx.view);
 
-  if(mDiff) mDiff.textContent = ctx.diff;
-  if(mTime) mTime.textContent = `${ctx.time}s`;
+  ctxView.textContent = ctx.view;
+  ctxSeed.textContent = String((ctx.seed >>> 0));
+  ctxTime.textContent = `${ctx.time}s`;
+  diffTag.textContent = ctx.diff;
+
+  mDiff.textContent = ctx.diff;
+  mTime.textContent = `${ctx.time}s`;
 
   function setBackLinks(){
     const hubUrl = passHubUrl(ctx);
     for (const a of [btnBack, btnBackHub2]){
-      if(!a) continue;
       try{
         const u = new URL(hubUrl, location.href);
         if(ctx.pid) u.searchParams.set('pid', ctx.pid);
@@ -178,7 +199,10 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
   }
   setBackLinks();
 
+  // rng
   const rng = seededRng(ctx.seed);
+  const r01 = ()=>rng();
+  const rInt = (a,b)=>Math.floor(a + r01()*(b-a+1));
 
   // ---------- fun boost (optional) ----------
   const fun = WIN.HHA?.createFunBoost?.({
@@ -193,6 +217,10 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
 
   let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
 
+  // ---------- AI hooks (PACK D) ----------
+  const AI_ENABLED = (ctx.run === 'play' && String(ctx.ai)==='1' && WIN.HHA && typeof WIN.HHA.createAIHooks === 'function');
+  const ai = AI_ENABLED ? WIN.HHA.createAIHooks({ seed: ctx.seed, diff: ctx.diff, mode: ctx.run }) : null;
+
   // ---------- game state ----------
   const st = {
     running:false,
@@ -200,7 +228,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     over:false,
     t0:0,
     lastHud:0,
-
     score:0,
     combo:0,
     comboMax:0,
@@ -208,30 +235,41 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     shots:0,
     hits:0,
 
-    clean:0,
+    clean:0, // 0..100
     cleanGainPerHit: 1.2,
     cleanLosePerMiss: 0.6,
 
+    // spawn config
     baseSpawnMs: 760,
     ttlMs: 1650,
     perfectWindowMs: 220,
 
+    // boss
     bossEveryPct: 28,
     nextBossAt: 28,
     bossActive:false,
 
-    // NEW: boss phase hint
-    bossPhase: 0,
-
     uid:0,
     targets: new Map(),
 
-    // NEW: ML/stream stats
-    eventsCount: 0,
-    lastFeat: null,
-    time10sFired: false
+    // hazards
+    laserOn:false,
+    laserUntil:0,
+    laserCooldownUntil:0,
+
+    shockOn:false,
+    shockPulses:0,
+    shockPulseIdx:0,
+    shockNextAt:0,
+    shockOpenUntil:0,
+
+    // finisher
+    finisherOn:false,
+    finisherNeed:0,
+    finisherHit:0,
   };
 
+  // diff tuning
   (function tune(){
     if(ctx.diff==='easy'){
       st.baseSpawnMs = 900;
@@ -253,23 +291,23 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     if(!force && t - st.lastHud < 60) return;
     st.lastHud = t;
 
-    if(tScore) tScore.textContent = String(st.score);
-    if(tCombo) tCombo.textContent = String(st.combo);
-    if(tMiss)  tMiss.textContent  = String(st.miss);
+    tScore.textContent = String(st.score);
+    tCombo.textContent = String(st.combo);
+    tMiss.textContent  = String(st.miss);
 
     const elapsed = st.running ? ((t - st.t0)/1000) : 0;
     const left = st.running ? Math.max(0, ctx.time - elapsed) : ctx.time;
-    if(tTime) tTime.textContent = left.toFixed(0);
+    tTime.textContent = left.toFixed(0);
 
     const clean = clamp(st.clean, 0, 100);
-    if(tClean) tClean.textContent = `${Math.round(clean)}%`;
-    if(bClean) bClean.style.width = `${clean}%`;
+    tClean.textContent = `${Math.round(clean)}%`;
+    bClean.style.width = `${clean}%`;
 
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
     const pct = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
-    if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
-    if(bFever) bFever.style.width = `${pct}%`;
+    tFever.textContent = director.feverOn ? 'ON' : 'OFF';
+    bFever.style.width = `${pct}%`;
   }
 
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -299,7 +337,7 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     const ttl = st.ttlMs * (director.timeScale || 1);
     const die  = born + ttl;
 
-    st.targets.set(id, { el, kind, bornMs: born, dieMs: die, hpMax, hp: hpMax, fillEl: fill });
+    st.targets.set(id, { el, kind, bornMs: born, dieMs: die, hpMax, hp: hpMax, fillEl: fill, x, y });
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -307,32 +345,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     }, { passive:false });
 
     layer.appendChild(el);
-  }
-
-  function spawnOne(){
-    if(!st.running || st.paused || st.over) return;
-
-    director = fun ? fun.tick() : director;
-
-    const r = layerRect();
-    const pad = 56;
-
-    const x = pad + rng() * Math.max(10, (r.width - pad*2));
-    const y = pad + rng() * Math.max(10, (r.height - pad*2));
-
-    // boss rule
-    if(!st.bossActive && st.clean >= st.nextBossAt && st.clean < 100){
-      st.bossActive = true;
-      st.bossPhase = 1;
-      const hpMax = (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4);
-      mkTarget({ x, y, kind:'boss', hpMax });
-      toast('💎 BOSS PLAQUE!');
-      emitAI('boss_start', { hp: hpMax, hpMax });
-      emit('hha:coach', { msg:'เจอบอสคราบหนา! ยิง/แตะหลายครั้งให้แตก!', ts: Date.now() });
-      return;
-    }
-
-    mkTarget({ x, y, kind:'plaque', hpMax: 1 });
   }
 
   function updateHpVis(it){
@@ -362,22 +374,106 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     return 'D';
   }
 
+  // ===== PACK B: hazards/finisher =====
+  function startLaser(){
+    const t = now();
+    if(st.laserCooldownUntil && t < st.laserCooldownUntil) return;
+
+    st.laserOn = true;
+    st.laserUntil = t + (ctx.diff==='hard' ? 1500 : 1300);
+    st.laserCooldownUntil = t + (ctx.diff==='hard' ? 5200 : 6200);
+
+    emitBrushAI('laser_warn', { sub:'เลเซอร์จะกวาด!', mini:'ห้ามตีช่วงนี้' });
+    setTimeout(()=> emitBrushAI('laser_on', { sub:'LASER SWEEP!', mini:'หยุดตี รอผ่าน' }), 260);
+
+    fxOn(fxLaser, 1250);
+  }
+  function endLaser(){ st.laserOn = false; }
+
+  function startShock(){
+    const t = now();
+    st.shockOn = true;
+    st.shockPulses = (ctx.diff==='hard'? 4 : 3);
+    st.shockPulseIdx = 0;
+    st.shockNextAt = t + 420;
+    st.shockOpenUntil = 0;
+
+    emitBrushAI('shock_on', { sub:'SHOCKWAVE!', mini:'ตีเฉพาะตอน “วงเขียว”' });
+  }
+  function stopShock(){
+    st.shockOn = false;
+    st.shockPulses = 0;
+    st.shockPulseIdx = 0;
+    st.shockNextAt = 0;
+    st.shockOpenUntil = 0;
+  }
+
+  function startFinisher(){
+    st.finisherOn = true;
+    st.finisherNeed = (ctx.diff==='hard'? 8 : ctx.diff==='easy'? 6 : 7);
+    st.finisherHit = 0;
+    emitBrushAI('finisher_on', { sub:'FINISHER!', mini:`ทำ PERFECT ให้ครบ ${st.finisherNeed} ครั้ง` });
+    fxSet(fxFin, true);
+  }
+
+  function spawnOne(){
+    if(!st.running || st.paused || st.over) return;
+
+    director = fun ? fun.tick() : director;
+
+    // AI difficulty blend
+    let aiD = null;
+    if(ai){
+      aiD = ai.getDifficulty?.();
+    }
+
+    const intensity = clamp((director?.intensity ?? 0) + (aiD?.intensity ?? 0), 0, 0.75);
+
+    // hazard chance (no overlap)
+    const laserChance = (ctx.diff==='hard'? 0.09 : 0.06) + intensity*0.05;
+    const shockChance = (ctx.diff==='hard'? 0.08 : 0.05) + intensity*0.04;
+
+    if(!st.laserOn && !st.shockOn){
+      const roll = rng();
+      if(roll < laserChance) startLaser();
+      else if(roll < laserChance + shockChance) startShock();
+    }
+
+    const r = layerRect();
+    const pad = 56;
+
+    const x = pad + rng() * Math.max(10, (r.width - pad*2));
+    const y = pad + rng() * Math.max(10, (r.height - pad*2));
+
+    // boss rule
+    if(!st.bossActive && st.clean >= st.nextBossAt && st.clean < 100){
+      st.bossActive = true;
+
+      const baseHp = (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4);
+      const hpMax = Math.max(2, Math.round(baseHp * (aiD?.bossMul ?? 1)));
+
+      mkTarget({ x, y, kind:'boss', hpMax });
+      toast('💎 BOSS PLAQUE!');
+      emitBrushAI('boss_start', {});
+      return;
+    }
+
+    mkTarget({ x, y, kind:'plaque', hpMax: 1 });
+  }
+
   function onPerfect(){
     fun?.onAction?.({ type:'perfect' });
     st.score += 2;
     toast('✨ Perfect!');
-  }
+    fxOn(fxFlash, 140);
 
-  function burstPop(n){
-    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='plaque');
-    for(let i=0;i<Math.min(n, arr.length);i++){
-      const pick = arr[Math.floor(rng()*arr.length)];
-      if(!pick) break;
-      const [id] = pick;
-      const it = st.targets.get(id);
-      if(it){
-        onHitTarget(it, 0);
-        removeTarget(id, true);
+    if(st.finisherOn){
+      st.finisherHit += 1;
+      if(st.finisherHit >= st.finisherNeed){
+        st.clean = clamp(st.clean + 18, 0, 100);
+        st.finisherOn = false;
+        fxSet(fxFin, false);
+        toast('🏁 FINISH สำเร็จ!');
       }
     }
   }
@@ -398,29 +494,46 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     const gain = st.cleanGainPerHit * (it.kind==='boss' ? 1.4 : 1.0) * (director.feverOn ? 1.25 : 1.0);
     st.clean = clamp(st.clean + gain, 0, 100);
 
+    if(!st.finisherOn && st.clean >= 85 && st.clean < 100){
+      startFinisher();
+    }
+
     if(director.feverOn && rng() < 0.18){
       burstPop(1);
     }
   }
 
-  function onMiss(kind){
+  function onMiss(kind, reason){
     st.miss += 1;
     st.combo = 0;
     st.score = Math.max(0, st.score - (kind==='boss'? 2 : 1));
     st.clean = clamp(st.clean - st.cleanLosePerMiss, 0, 100);
     fun?.onAction?.({ type:'timeout' });
+
+    if(ai) ai.onEvent?.({ type: reason || 'miss' });
   }
 
-  // -------- shooting / hit test ----------
+  function burstPop(n){
+    const arr = Array.from(st.targets.entries()).filter(([,v])=> v.kind==='plaque');
+    for(let i=0;i<Math.min(n, arr.length);i++){
+      const pick = arr[Math.floor(rng()*arr.length)];
+      if(!pick) break;
+      const [id] = pick;
+      const it = st.targets.get(id);
+      if(it){
+        onHitTarget(it, 0);
+        removeTarget(id, true);
+      }
+    }
+  }
+
   function hitTest(x,y){
     const rad = 44;
     let best = null;
     let bestD = 1e9;
     for(const [id,it] of st.targets){
-      const el = it.el;
-      if(!el) continue;
-      const ex = parseFloat(el.style.left || '0');
-      const ey = parseFloat(el.style.top  || '0');
+      const ex = it.x;
+      const ey = it.y;
       const dx = ex - x;
       const dy = ey - y;
       const d2 = dx*dx + dy*dy;
@@ -432,222 +545,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
     return best;
   }
 
-  function onHitAt(x,y, meta){
-    if(!st.running || st.paused || st.over) return;
-    st.shots += 1;
-
-    const t = now();
-    const hit = hitTest(x,y);
-
-    if(!hit){
-      // whiff
-      st.combo = 0;
-      st.miss += 1;
-      st.score = Math.max(0, st.score - 1);
-      fun?.onNearMiss?.({ reason:'whiff' });
-
-      st.eventsCount += 1;
-      emitEvent('whiff', { x, y, source: meta?.source || '' });
-
-      hud(true);
-      return;
-    }
-
-    const { id, it } = hit;
-
-    const remain = it.dieMs - t;
-    it.hp = Math.max(0, it.hp - 1);
-    updateHpVis(it);
-
-    onHitTarget(it, remain);
-
-    if(it.kind==='boss'){
-      // phase signals (simple thresholds)
-      const pct = (it.hpMax>0) ? (it.hp/it.hpMax) : 0;
-      const phase = (pct <= 0.25) ? 4 : (pct <= 0.50) ? 3 : (pct <= 0.75) ? 2 : 1;
-      if(phase !== st.bossPhase){
-        st.bossPhase = phase;
-        emitAI('boss_phase', { phase, hp: it.hp, hpMax: it.hpMax });
-      }
-    }
-
-    if(it.hp <= 0){
-      removeTarget(id, true);
-
-      if(it.kind==='boss'){
-        st.bossActive = false;
-        st.bossPhase = 0;
-        st.nextBossAt = Math.min(100, st.nextBossAt + st.bossEveryPct);
-        toast('💥 Boss แตก!');
-        emit('hha:coach', { msg:'เยี่ยม! คราบหนาแตกแล้ว ไปต่อ!', ts: Date.now() });
-      }
-    }
-
-    hud(true);
-    emit('hha:score', { score: st.score, combo: st.combo, miss: st.miss, clean: st.clean, ts: Date.now() });
-
-    if(st.clean >= 100){
-      endGame('clean');
-    }
-  }
-
-  // cVR shoot hook (page coords)
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    const d = ev?.detail || {};
-    const x = safeNum(d.x, NaN);
-    const y = safeNum(d.y, NaN);
-    if(Number.isFinite(x) && Number.isFinite(y)){
-      onHitAt(x, y, { source:'shoot' });
-    }
-  });
-
-  // ---------- timing ----------
-  let spawnTimer = null;
-  let tickTimer = null;
-  let featTimer = null;
-
-  function scheduleSpawn(){
-    clearTimeout(spawnTimer);
-    if(!st.running || st.paused || st.over) return;
-
-    const base = st.baseSpawnMs;
-    const every = fun ? fun.scaleIntervalMs(base, director) : base;
-
-    spawnTimer = setTimeout(()=>{
-      spawnOne();
-      scheduleSpawn();
-    }, every);
-  }
-
-  function makeFeatSnapshot(leftSec){
-    const acc = (st.shots > 0) ? (st.hits / st.shots) * 100 : 0;
-    const f = {
-      shots: st.shots,
-      hits: st.hits,
-      miss: st.miss,
-      acc: Math.round(acc*10)/10,
-      combo: st.combo,
-      comboMax: st.comboMax,
-      clean: Math.round(clamp(st.clean,0,100)),
-      boss: st.bossActive ? 1 : 0,
-      laser: 0,
-      shock: 0,
-      fever: director.feverOn ? 1 : 0,
-      intensity: Math.round((director.intensity||0)*100)/100,
-      wave: String(director.wave||''),
-      left: Math.round(leftSec*10)/10
-    };
-    st.lastFeat = f;
-    return f;
-  }
-
-  function tick(){
-    if(!st.running || st.paused || st.over) return;
-
-    director = fun ? fun.tick() : director;
-
-    const t = now();
-
-    // timeout targets
-    for(const [id,it] of st.targets){
-      if(t >= it.dieMs){
-        removeTarget(id, false);
-        if(it.kind==='boss'){
-          st.bossActive = false;
-          st.bossPhase = 0;
-          toast('💎 Boss หลุด!');
-        }
-        onMiss(it.kind);
-      }
-    }
-
-    const elapsed = (t - st.t0)/1000;
-    const left = ctx.time - elapsed;
-
-    // AI: 10s warning (one-shot)
-    if(!st.time10sFired && left <= 10 && left > 0){
-      st.time10sFired = true;
-      emitAI('time_10s', { left: Math.round(left) });
-    }
-
-    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
-
-    hud();
-
-    if(left <= 0){
-      endGame('time');
-    }
-  }
-
-  function startFeatStream(){
-    clearInterval(featTimer);
-    featTimer = setInterval(()=>{
-      if(!st.running || st.paused || st.over) return;
-      const t = now();
-      const elapsed = (t - st.t0)/1000;
-      const left = Math.max(0, ctx.time - elapsed);
-
-      const f = makeFeatSnapshot(left);
-
-      st.eventsCount += 1;
-      emitEvent('feat', { f });
-    }, 500);
-  }
-
-  // ---------- start/end ----------
-  function startGame(){
-    st.running = true;
-    st.paused = false;
-    st.over = false;
-
-    st.t0 = now();
-    st.score = 0;
-    st.combo = 0;
-    st.comboMax = 0;
-    st.miss = 0;
-    st.shots = 0;
-    st.hits = 0;
-    st.clean = 0;
-
-    st.nextBossAt = st.bossEveryPct;
-    st.bossActive = false;
-    st.bossPhase = 0;
-
-    st.eventsCount = 0;
-    st.lastFeat = null;
-    st.time10sFired = false;
-
-    for(const [id] of st.targets) removeTarget(id, false);
-    st.targets.clear();
-
-    if(menu) menu.style.display = 'none';
-    if(end) end.hidden = true;
-    wrap.dataset.state = 'play';
-    if(btnPause) btnPause.textContent = 'Pause';
-
-    toast('เริ่ม! แปรงคราบให้ทัน!');
-    hud(true);
-
-    emit('hha:start', {
-      game:'brush',
-      category:'hygiene',
-      pid: ctx.pid,
-      studyId: ctx.studyId,
-      phase: ctx.phase,
-      conditionGroup: ctx.conditionGroup,
-      seed: ctx.seed,
-      diff: ctx.diff,
-      view: ctx.view,
-      timePlannedSec: ctx.time,
-      ts: Date.now()
-    });
-
-    scheduleSpawn();
-    clearInterval(tickTimer);
-    tickTimer = setInterval(tick, 80);
-    startFeatStream();
-  }
-
   function endGame(reason){
     if(st.over) return;
     st.over = true;
@@ -655,19 +552,15 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
 
     clearTimeout(spawnTimer);
     clearInterval(tickTimer);
-    clearInterval(featTimer);
 
     for(const [id] of st.targets) removeTarget(id, false);
     st.targets.clear();
 
+    fxSet(fxFin, false);
+
     const acc = (st.shots > 0) ? (st.hits / st.shots) * 100 : 0;
     const grade = gradeFromAcc(acc);
     const elapsed = Math.min(ctx.time, (now() - st.t0)/1000);
-
-    // ensure last feat exists
-    if(!st.lastFeat){
-      st.lastFeat = makeFeatSnapshot(Math.max(0, ctx.time - elapsed));
-    }
 
     const summary = {
       game:'brush',
@@ -693,10 +586,6 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
       timePlannedSec: ctx.time,
       timePlayedSec: Math.round(elapsed*10)/10,
 
-      // NEW for ML/DL
-      ml_lastFeat: st.lastFeat,
-      ml_events: st.eventsCount,
-
       date: ymdLocal(),
       ts: Date.now()
     };
@@ -709,36 +598,267 @@ BrushVR SAFE — Plaque Breaker (HHA Standard-ish) v20260216c
       localStorage.setItem(k, JSON.stringify(arr.slice(-30)));
     }catch(_){}
 
-    try{
-      localStorage.setItem(`HHA_ZONE_DONE::hygiene::${ymdLocal()}`, '1');
-    }catch(_){}
+    try{ localStorage.setItem(`HHA_ZONE_DONE::hygiene::${ymdLocal()}`, '1'); }catch(_){}
 
     emit('hha:judge', { ...summary });
     emit('hha:end', { ...summary });
 
-    if(sScore) sScore.textContent = String(summary.score);
-    if(sAcc)   sAcc.textContent   = `${summary.accuracyPct}%`;
-    if(sMiss)  sMiss.textContent  = String(summary.miss);
-    if(sCombo) sCombo.textContent = String(summary.comboMax);
-    if(sClean) sClean.textContent = `${summary.cleanPct}%`;
-    if(sTime)  sTime.textContent  = `${summary.timePlayedSec}s`;
-    if(endGrade) endGrade.textContent = summary.grade;
+    sScore.textContent = String(summary.score);
+    sAcc.textContent   = `${summary.accuracyPct}%`;
+    sMiss.textContent  = String(summary.miss);
+    sCombo.textContent = String(summary.comboMax);
+    sClean.textContent = `${summary.cleanPct}%`;
+    sTime.textContent  = `${summary.timePlayedSec}s`;
+    endGrade.textContent = summary.grade;
 
-    if(endNote){
-      endNote.textContent =
-        `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
-    }
+    endNote.textContent = `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
 
-    if(end) end.hidden = false;
-    if(menu) menu.style.display = 'none';
+    end.hidden = false;
+    menu.style.display = 'none';
 
     toast(reason==='clean' ? '🦷 สะอาดแล้ว! เยี่ยม!' : 'หมดเวลา!');
+  }
+
+  function onHitAt(x,y, meta){
+    if(!st.running || st.paused || st.over) return;
+    st.shots += 1;
+
+    // 🚫 LASER: ห้ามตี
+    if(st.laserOn){
+      st.combo = 0;
+      st.miss += 1;
+      st.score = Math.max(0, st.score - 1);
+      hud(true);
+      if(ai) ai.onEvent?.({ type:'laser_block' });
+      return;
+    }
+
+    // 🎵 SHOCK: ต้องตีตอน window เปิด
+    if(st.shockOn){
+      const tNow = now();
+      const ok = (tNow <= st.shockOpenUntil);
+      if(!ok){
+        st.combo = 0;
+        st.miss += 1;
+        st.score = Math.max(0, st.score - 1);
+        hud(true);
+        if(ai) ai.onEvent?.({ type:'shock_wrong_time' });
+        return;
+      }
+    }
+
+    const t = now();
+    const hit = hitTest(x,y);
+    if(!hit){
+      st.combo = 0;
+      st.miss += 1;
+      st.score = Math.max(0, st.score - 1);
+      fun?.onNearMiss?.({ reason:'whiff' });
+      hud(true);
+      if(ai) ai.onEvent?.({ type:'whiff' });
+      return;
+    }
+
+    const { id, it } = hit;
+    const remain = it.dieMs - t;
+
+    it.hp = Math.max(0, it.hp - 1);
+    updateHpVis(it);
+
+    // boss phase -> AI HUD
+    if(it.kind === 'boss'){
+      const phase = (it.hp <= 1) ? 3 : (it.hp <= Math.ceil(it.hpMax/2) ? 2 : 1);
+      emitBrushAI('boss_phase', { phase, hp: it.hp, hpMax: it.hpMax });
+    }
+
+    onHitTarget(it, remain);
+
+    if(it.hp <= 0){
+      removeTarget(id, true);
+
+      if(it.kind==='boss'){
+        st.bossActive = false;
+        st.nextBossAt = Math.min(100, st.nextBossAt + st.bossEveryPct);
+        toast('💥 Boss แตก!');
+      }
+    }
+
+    hud(true);
+    emit('hha:score', { score: st.score, combo: st.combo, miss: st.miss, clean: st.clean, ts: Date.now() });
+
+    // win condition
+    if(st.clean >= 100){
+      endGame('clean');
+    }
+  }
+
+  // cVR shoot hook
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    const d = ev?.detail || {};
+    const x = safeNum(d.x, NaN);
+    const y = safeNum(d.y, NaN);
+    if(Number.isFinite(x) && Number.isFinite(y)){
+      onHitAt(x, y, { source:'shoot' });
+    }
+  });
+
+  // ---------- timing ----------
+  let spawnTimer = null;
+  let tickTimer = null;
+
+  function scheduleSpawn(){
+    clearTimeout(spawnTimer);
+    if(!st.running || st.paused || st.over) return;
+
+    director = fun ? fun.tick() : director;
+
+    // AI difficulty affects spawn interval
+    let spawnMul = 1.0;
+    let ttlMul = 1.0;
+    if(ai){
+      const d = ai.getDifficulty?.();
+      spawnMul = d?.spawnMul ?? 1.0;
+      ttlMul = d?.ttlMul ?? 1.0;
+    }
+
+    const base = st.baseSpawnMs;
+    const every0 = fun ? fun.scaleIntervalMs(base, director) : base;
+    const every = clamp(every0 / spawnMul, 420, 1400);
+
+    // ttl scale
+    st.ttlMs = clamp(st.ttlMs * 0 + (ctx.diff==='hard'?1450:ctx.diff==='easy'?1950:1650) * ttlMul, 900, 2400);
+
+    spawnTimer = setTimeout(()=>{
+      spawnOne();
+      scheduleSpawn();
+    }, every);
+  }
+
+  function tick(){
+    if(!st.running || st.paused || st.over) return;
+
+    director = fun ? fun.tick() : director;
+
+    const t = now();
+
+    // --- LASER lifecycle ---
+    if(st.laserOn && t >= st.laserUntil) endLaser();
+
+    // --- SHOCK pulses ---
+    if(st.shockOn){
+      if(t >= st.shockNextAt && st.shockPulseIdx < st.shockPulses){
+        st.shockPulseIdx += 1;
+
+        const openMs = (ctx.diff==='hard'? 260 : 340);
+        st.shockOpenUntil = t + openMs;
+
+        emitBrushAI('shock_pulse', { idx: st.shockPulseIdx, sub:'วงเขียวเปิด!', mini:'ตี 1 ทีพอ อย่ารัว' });
+        fxOn(fxShock, 360);
+
+        st.shockNextAt = t + (ctx.diff==='hard'? 880 : 1050);
+      }
+
+      if(st.shockPulseIdx >= st.shockPulses && t > st.shockOpenUntil){
+        stopShock();
+      }
+    }
+
+    // timeout targets
+    for(const [id,it] of st.targets){
+      if(t >= it.dieMs){
+        removeTarget(id, false);
+        if(it.kind==='boss'){
+          st.bossActive = false;
+          toast('💎 Boss หลุด!');
+        }
+        onMiss(it.kind, 'timeout');
+      }
+    }
+
+    // time limit
+    const elapsed = (t - st.t0)/1000;
+    const left = ctx.time - elapsed;
+
+    // AI tick snapshot
+    if(ai){
+      const acc = (st.shots>0)? (st.hits/st.shots) : 0;
+      ai.tick?.({
+        accuracy: acc,
+        miss: st.miss,
+        score: st.score,
+        combo: st.combo,
+        clean: st.clean,
+        tLeft: left,
+        shots: st.shots,
+        hits: st.hits
+      });
+    }
+
+    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
+    hud();
+
+    if(left <= 0){
+      endGame('time');
+    }
+  }
+
+  // ---------- start/end ----------
+  function startGame(){
+    st.running = true;
+    st.paused = false;
+    st.over = false;
+
+    st.t0 = now();
+    st.score = 0;
+    st.combo = 0;
+    st.comboMax = 0;
+    st.miss = 0;
+    st.shots = 0;
+    st.hits = 0;
+    st.clean = 0;
+
+    st.nextBossAt = st.bossEveryPct;
+    st.bossActive = false;
+
+    st.laserOn=false; st.laserUntil=0; st.laserCooldownUntil=0;
+    stopShock();
+    st.finisherOn=false; st.finisherNeed=0; st.finisherHit=0;
+    fxSet(fxFin, false);
+
+    for(const [id] of st.targets) removeTarget(id, false);
+    st.targets.clear();
+
+    menu.style.display = 'none';
+    end.hidden = true;
+    wrap.dataset.state = 'play';
+    btnPause.textContent = 'Pause';
+
+    toast('เริ่ม! แปรงคราบให้ทัน!');
+    hud(true);
+
+    emit('hha:start', {
+      game:'brush',
+      category:'hygiene',
+      pid: ctx.pid,
+      studyId: ctx.studyId,
+      phase: ctx.phase,
+      conditionGroup: ctx.conditionGroup,
+      seed: ctx.seed,
+      diff: ctx.diff,
+      view: ctx.view,
+      timePlannedSec: ctx.time,
+      ts: Date.now()
+    });
+
+    scheduleSpawn();
+    clearInterval(tickTimer);
+    tickTimer = setInterval(tick, 80);
   }
 
   function togglePause(){
     if(!st.running || st.over) return;
     st.paused = !st.paused;
-    if(btnPause) btnPause.textContent = st.paused ? 'Resume' : 'Pause';
+    btnPause.textContent = st.paused ? 'Resume' : 'Pause';
     toast(st.paused ? '⏸ Pause' : '▶ Resume');
   }
 
