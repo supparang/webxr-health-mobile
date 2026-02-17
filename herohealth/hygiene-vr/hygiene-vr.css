@@ -1,9 +1,10 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260216a
-✅ HUD safe zones + dynamic HUD blocks (JS reads DOM rects too)
-✅ Targets: --x/--y vw/vh positioning + dying animation (fix “ตีแล้วไม่หาย”)
-✅ FX layer friendly (particles.js works) + focus highlight + power pill + progress bars
+✅ FIX: ตีแล้วไม่หาย -> .is-dying + transition
+✅ FIX: HUD บัง -> safe vars + layout + banner/quiz spacing
+✅ Support: Progress bars (#barStep/#barLoop), Power pill, Practice button
 ✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
+✅ Targets: use --x (vw%), --y (vh%), --s scale
 */
 
 :root{
@@ -29,7 +30,7 @@ HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260216a
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ✅ spawn safe zones (JS reads these as baseline) */
+  /* ✅ spawn safe zones (JS reads these) */
   --hw-top-safe: 170px;
   --hw-bottom-safe: 190px;
 
@@ -37,19 +38,14 @@ HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260216a
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
 
-  /* bar sizing */
+  /* bars */
   --barH: 10px;
-  --barR: 999px;
 }
 
 *{ box-sizing:border-box; }
-html,body{
-  height:100%;
-  margin:0;
-  background:var(--bg0);
-  color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
 button{ font: inherit; }
 
 .hw-root{
@@ -77,7 +73,6 @@ button{ font: inherit; }
   z-index: 50;
 }
 
-/* Important: keep hudTop as a single block so JS can read its rect accurately */
 .hw-top{
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -89,6 +84,7 @@ button{ font: inherit; }
   letter-spacing: .2px;
   font-size: 16px;
 }
+
 .hw-sub{
   margin-top: 6px;
   font-size: 12px;
@@ -113,7 +109,6 @@ button{ font: inherit; }
   font-weight: 900;
   font-size: 12px;
   color: rgba(229,231,235,.94);
-  line-height: 1;
   white-space: nowrap;
 }
 
@@ -121,20 +116,64 @@ button{ font: inherit; }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
-/* Power pill: a bit wider, readable */
+/* power pill */
 .hw-pill.power{
-  border-color: rgba(34,197,94,.16);
-  background: rgba(34,197,94,.06);
+  border-color: rgba(34,211,238,.18);
+  background: rgba(34,211,238,.06);
 }
 
-/* Buttons inside HUD */
 .hw-pill.btn{
-  pointer-events: auto;
+  pointer-events: auto; /* ✅ allow click */
   cursor: pointer;
   background: rgba(15,23,42,.70);
 }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
+
+/* ===== Progress bars ===== */
+.hw-bars{
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  max-width: min(720px, 100%);
+}
+
+.hw-bar{
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  background: rgba(2,6,23,.42);
+  padding: 8px 10px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 44px rgba(0,0,0,.30);
+}
+
+.hw-bar-lab{
+  font-weight: 950;
+  font-size: 11px;
+  color: rgba(229,231,235,.88);
+  letter-spacing: .2px;
+}
+
+.hw-bar-rail{
+  margin-top: 7px;
+  height: var(--barH);
+  border-radius: 999px;
+  background: rgba(148,163,184,.12);
+  overflow: hidden;
+  border: 1px solid rgba(148,163,184,.10);
+}
+
+.hw-bar-fill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: rgba(34,197,94,.85);
+  transition: width .14s linear;
+}
+
+.hw-bar-fill.cyan{
+  background: rgba(34,211,238,.85);
+}
 
 /* ===== Banner ===== */
 .hw-banner{
@@ -154,50 +193,10 @@ button{ font: inherit; }
   transition: opacity .18s ease, transform .18s ease;
   max-width: min(680px, calc(100% - 24px));
   text-align: center;
-  z-index: 60;
 }
 .hw-banner.show{
   opacity: 1;
   transform: translateX(-50%) translateY(0px);
-}
-
-/* ===== Progress Bars ===== */
-.hw-bars{
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-  max-width: min(760px, 100%);
-}
-.hw-bar{
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 10px;
-  align-items: center;
-}
-.hw-bar-lab{
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .2px;
-  color: rgba(148,163,184,.95);
-}
-.hw-bar-rail{
-  height: var(--barH);
-  border-radius: var(--barR);
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.55);
-  overflow: hidden;
-}
-.hw-bar-fill{
-  height: 100%;
-  width: 0%;
-  border-radius: var(--barR);
-  background: rgba(34,197,94,.65);
-  box-shadow: 0 10px 26px rgba(34,197,94,.15);
-  transition: width .18s ease;
-}
-.hw-bar-fill.cyan{
-  background: rgba(34,211,238,.55);
-  box-shadow: 0 10px 26px rgba(34,211,238,.12);
 }
 
 /* ===== Overlays ===== */
@@ -272,6 +271,78 @@ button{ font: inherit; }
   color: rgba(229,231,235,.92);
 }
 
+/* ===== Targets ===== */
+.hw-tgt{
+  position: fixed; /* ✅ place in viewport so obj.x/y align */
+  left: calc(var(--x, 50) * 1vw);
+  top:  calc(var(--y, 50) * 1vh);
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  width: var(--tgtSize);
+  height: var(--tgtSize);
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(15,23,42,.74);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 65px rgba(0,0,0,.45);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 10;
+
+  /* pop-in */
+  animation: hwPopIn 180ms ease-out both;
+}
+
+.hw-tgt .emoji{
+  font-size: var(--tgtFont);
+  line-height: 1;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
+}
+
+.hw-tgt.good{
+  border-color: rgba(34,197,94,.28);
+  background: rgba(34,197,94,.10);
+}
+.hw-tgt.wrong{
+  border-color: rgba(245,158,11,.28);
+  background: rgba(245,158,11,.10);
+}
+.hw-tgt.haz{
+  border-color: rgba(239,68,68,.30);
+  background: rgba(239,68,68,.10);
+}
+
+/* press feedback */
+.hw-tgt:active{
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
+}
+
+/* subtle pop */
+@keyframes hwPopIn{
+  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
+  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+
+/* ✅ FIX: “ตีแล้วไม่หาย” -> die state */
+.hw-tgt.is-dying{
+  pointer-events:none !important;
+  opacity: 0 !important;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .72)) !important;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+/* ✅ Focus power: ทำเป้าถูกเด่น */
+.hw-tgt.is-focus{
+  box-shadow:
+    0 18px 65px rgba(0,0,0,.45),
+    0 0 0 3px rgba(34,211,238,.18),
+    0 0 24px rgba(34,211,238,.22);
+  border-color: rgba(34,211,238,.30);
+}
+
 /* ===== Quiz box ===== */
 .hw-quiz{
   pointer-events: auto;
@@ -296,109 +367,32 @@ button{ font: inherit; }
   line-height: 1.35;
 }
 
-/* ===== Targets =====
-Key fix:
-- .hw-tgt is fixed-position aligned to viewport
-- .is-dying forces immediate visual removal (scale+fade) then JS removes
-*/
-.hw-tgt{
-  position: fixed;
-  left: calc(var(--x, 50) * 1vw);
-  top:  calc(var(--y, 50) * 1vh);
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  width: var(--tgtSize);
-  height: var(--tgtSize);
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(15,23,42,.74);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 65px rgba(0,0,0,.45);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  pointer-events: auto;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  z-index: 10;
-  animation: hwPopIn 180ms ease-out both;
-  will-change: transform, opacity, filter;
-  touch-action: manipulation;
-}
-
-.hw-tgt .emoji{
-  font-size: var(--tgtFont);
-  line-height: 1;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.38));
-}
-
-.hw-tgt.good{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-.hw-tgt.wrong{
-  border-color: rgba(245,158,11,.28);
-  background: rgba(245,158,11,.10);
-}
-.hw-tgt.haz{
-  border-color: rgba(239,68,68,.30);
-  background: rgba(239,68,68,.10);
-}
-
-/* Focus highlight (from JS when power.focus active) */
-.hw-tgt.is-focus{
-  outline: 2px solid rgba(34,211,238,.55);
-  box-shadow:
-    0 18px 65px rgba(0,0,0,.45),
-    0 0 0 6px rgba(34,211,238,.10),
-    0 0 32px rgba(34,211,238,.18);
-}
-
-/* Dying state: FIX “ตีแล้วไม่หาย” */
-.hw-tgt.is-dying{
-  pointer-events: none !important;
-  opacity: 0 !important;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .55)) !important;
-  filter: blur(.6px) saturate(1.05);
-  transition: opacity .12s ease, transform .12s ease, filter .12s ease;
-}
-
-/* Active press feels snappy but must not fight dying */
-.hw-tgt:not(.is-dying):active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
-}
-
-/* Subtle pop-in */
-@keyframes hwPopIn{
-  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
-  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
 /* ===== View tweaks ===== */
 body.view-mobile{
   --hw-top-safe: 190px;
   --hw-bottom-safe: 230px;
-  --tgtSize: clamp(60px, 10vh, 102px);
+  --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
   --barH: 11px;
 }
 
 body.view-cvr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 255px;
-  --tgtSize: clamp(66px, 10.5vh, 108px);
+  /* cVR: HUD กินพื้นที่มาก ให้กันด้านล่างเพิ่ม */
+  --hw-top-safe: 175px;
+  --hw-bottom-safe: 260px;
+  --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
   --barH: 12px;
 }
 
-/* VR: ลด HUD และขยายความชัด */
+/* VR: ลด safe zones นิด */
 body.view-vr{
   --hw-top-safe: 160px;
   --hw-bottom-safe: 220px;
 }
 
-/* Quiz on small screens => tighter spacing */
+/* Small screens: tighten banner placement */
 @media (max-width: 520px){
   .hw-banner{ top: calc(130px + var(--sat)); }
-  .hw-bar{ grid-template-columns: 96px 1fr; }
-  .hw-bar-lab{ font-size: 10px; }
+  .hw-bars{ max-width: 100%; }
 }
