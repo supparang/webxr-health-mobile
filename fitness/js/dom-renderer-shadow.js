@@ -1,11 +1,5 @@
 // === /fitness/js/dom-renderer-shadow.js ===
 // DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ PATCH: store targets as { el, type } (engine needs type)
-// ✅ PATCH: expireTarget(id) with soft fade/shrink
-
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
@@ -39,7 +33,6 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // ✅ PATCH: margins driven by CSS vars (solve HUD/meta cramped)
     const cs = getComputedStyle(document.documentElement);
     const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
     const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
@@ -75,6 +68,10 @@ export class DomRendererShadow {
     el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
 
+    // latches to prevent double FX (hit vs expire)
+    el.dataset.sbHit = '0';
+    el.dataset.sbRemoving = '0';
+
     const size = clamp(Number(data.sizePx) || 110, 64, 240);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
@@ -94,6 +91,10 @@ export class DomRendererShadow {
   _onPointer(e){
     const el = e.currentTarget;
     if (!el) return;
+
+    // ✅ latch hit immediately (prevents expire FX in same frame)
+    el.dataset.sbHit = '1';
+
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
@@ -106,22 +107,32 @@ export class DomRendererShadow {
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
+
+    el.dataset.sbRemoving = '1';
+
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
     this.targets.delete(id);
   }
 
-  // ✅ PATCH: expire softly then remove
-  expireTarget(id){
+  // ✅ expire softly then remove
+  // opts.silent: true => fade out only, no extra visuals implied by caller
+  expireTarget(id, opts = {}){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
 
+    // if already hit/removing, just remove quietly soon
+    if (el.dataset.sbHit === '1' || el.dataset.sbRemoving === '1') {
+      try { el.style.pointerEvents = 'none'; } catch {}
+      setTimeout(()=> this.removeTarget(id), 60);
+      return;
+    }
+
     try {
       el.classList.add('is-expiring');
-      // prevent click during fade
       el.style.pointerEvents = 'none';
-      setTimeout(()=> this.removeTarget(id), 180);
+      setTimeout(()=> this.removeTarget(id), (opts.silent ? 140 : 180));
     } catch {
       this.removeTarget(id);
     }
@@ -130,6 +141,9 @@ export class DomRendererShadow {
   playHitFx(id, info = {}){
     const obj = this.targets.get(id);
     const el = obj?.el;
+
+    // ✅ if already hit/removing, do not show expire/miss FX
+    if (el && (el.dataset.sbHit === '1' || el.dataset.sbRemoving === '1')) return;
 
     const rect = el ? el.getBoundingClientRect() : null;
     const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
@@ -146,7 +160,7 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+      FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
@@ -157,7 +171,7 @@ export class DomRendererShadow {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
     } else if (grade === 'expire') {
-      // ✅ soft miss FX (เบา ๆ)
+      // soft miss FX (เบา ๆ)
       FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
       FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
     } else {
