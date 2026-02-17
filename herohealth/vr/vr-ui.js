@@ -1,14 +1,8 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260216a (PATCH: now() defined)
-// Purpose:
-//  - Provide consistent ENTER VR / EXIT / RECENTER UI for all HeroHealth games
-//  - Provide crosshair + tap-to-shoot -> dispatches window event: hha:shoot {x,y,lockPx,cooldownMs,source}
-//  - Support view=cvr (Cardboard) strict: disables pointer-events on targets if desired; aim from screen center
-//
-// ✅ Works with A-Frame scenes if present (a-scene.enterVR / exitVR)
-// ✅ No deps. Never crashes if A-Frame not loaded.
-// ✅ Respects window.HHA_VRUI_CONFIG (optional):
-//    { lockPx:28, cooldownMs:90, showCrosshair:true, showButtons:true, cvrStrict:true }
+// Universal VR UI — SAFE UNIVERSAL — v20260217a
+// FIX: now() defined (no ReferenceError)
+// FIX: view detection reads body[data-view] + html[data-view]
+// ✅ ENTER VR/EXIT/RECENTER + crosshair shoot -> hha:shoot
 
 (function(){
   'use strict';
@@ -19,12 +13,7 @@
   if(WIN.__HHA_VRUI_READY__) return;
   WIN.__HHA_VRUI_READY__ = true;
 
-  // ✅ PATCH: define now() locally (fix: now is not defined)
-  function now(){
-    return (WIN.performance && typeof WIN.performance.now === 'function')
-      ? WIN.performance.now()
-      : Date.now();
-  }
+  const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
   function qs(k, def=''){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
@@ -39,15 +28,18 @@
 
   // ---- config ----
   const CFG0 = WIN.HHA_VRUI_CONFIG || {};
-  const VIEW = String(qs('view','') || DOC.documentElement?.dataset?.view || '').toLowerCase();
-  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || DOC.documentElement?.dataset?.view === 'cvr');
+  const bodyView = (DOC.body && DOC.body.getAttribute('data-view')) || '';
+  const htmlView = (DOC.documentElement && DOC.documentElement.dataset && DOC.documentElement.dataset.view) || '';
+  const VIEW = String(qs('view','') || bodyView || htmlView || '').toLowerCase();
+
+  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || bodyView==='cvr' || htmlView==='cvr');
 
   const CFG = {
     lockPx: clamp(CFG0.lockPx ?? 28, 6, 80),
     cooldownMs: clamp(CFG0.cooldownMs ?? 90, 20, 400),
     showCrosshair: (CFG0.showCrosshair !== false),
     showButtons: (CFG0.showButtons !== false),
-    cvrStrict: (CFG0.cvrStrict !== false), // default true
+    cvrStrict: (CFG0.cvrStrict !== false),
   };
 
   // ---- DOM layer + style ----
@@ -90,7 +82,6 @@
       }
       #hha-vrui .hha-btn:active{ transform: translateY(1px); }
 
-      /* Crosshair */
       #hha-crosshair{
         position:fixed;
         left:50%;
@@ -120,7 +111,6 @@
         box-shadow: 0 0 0 2px rgba(2,6,23,.55);
       }
 
-      /* hint badge */
       #hha-vrui-hint{
         position:fixed;
         left: max(10px, env(safe-area-inset-left, 0px));
@@ -187,7 +177,7 @@
         crosshair.id = 'hha-crosshair';
         DOC.body.appendChild(crosshair);
       }
-      crosshair.style.display = 'grid';
+      crosshair.style.display = IS_CVR ? 'grid' : 'grid';
       crosshair.style.opacity = IS_CVR ? '0.98' : '0.88';
     }
 
@@ -204,7 +194,6 @@
     }
   }
 
-  // ---- A-Frame hooks (safe) ----
   function getScene(){
     try{ return DOC.querySelector('a-scene'); }catch{ return null; }
   }
@@ -244,7 +233,6 @@
     s.addEventListener('exit-vr',  ()=> setVrButtons(false), {passive:true});
   }
 
-  // ---- SHOOT dispatcher ----
   function emitShoot(x,y, source){
     const t = now();
     if(t - lastShotAt < CFG.cooldownMs) return;
@@ -274,24 +262,19 @@
 
     DOC.addEventListener('pointerdown', (ev)=>{
       if(ev.defaultPrevented) return;
-
-      if(IS_CVR && CFG.cvrStrict){
-        centerShoot('tap');
-      }else{
-        emitShoot(ev.clientX, ev.clientY, 'pointer');
-      }
+      if(IS_CVR && CFG.cvrStrict) centerShoot('tap');
+      else emitShoot(ev.clientX, ev.clientY, 'pointer');
     }, {passive:true});
 
     DOC.addEventListener('keydown', (ev)=>{
-      if(ev.code === 'Space'){
-        centerShoot('space');
-      }
+      if(ev.code === 'Space') centerShoot('space');
     }, {passive:true});
   }
 
   function applyCvrStrict(){
     if(!(IS_CVR && CFG.cvrStrict)) return;
     try{ DOC.documentElement.dataset.view = 'cvr'; }catch{}
+    try{ if(DOC.body) DOC.body.setAttribute('data-view','cvr'); }catch{}
   }
 
   function init(){
@@ -302,10 +285,7 @@
     setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch{} }, 600);
   }
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', init, {once:true});
-  }else{
-    init();
-  }
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
 
 })();
