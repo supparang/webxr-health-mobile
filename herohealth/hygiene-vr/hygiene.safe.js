@@ -165,7 +165,6 @@ export function boot(){
 
   // quest/quiz
   let questText = 'ทำ STEP ให้ถูก!';
-  let questDone = 0;
   let quizOpen = false;
   let quizRight = 0;
   let quizWrong = 0;
@@ -192,23 +191,26 @@ export function boot(){
     }
   }
 
-  // ✅ FX on hit
+  // ✅ FX on hit (Particles.js)
   function fxHit(kind, obj){
     if(!fxOn) return;
     const P = WIN.Particles;
     if(!P || !obj) return;
+
     const x = Number(obj.x || WIN.innerWidth*0.5);
     const y = Number(obj.y || WIN.innerHeight*0.5);
 
     if(kind === 'good'){
-      P.popText(x, y, '✅ +1', 'good');
-      P.burst(x, y, { count: 12, spread: 46, upBias: 0.86 });
+      P.popText?.(x, y, '✅ +1', 'good');
+      P.burst?.(x, y, { count: 12, spread: 46, upBias: 0.86 });
     }else if(kind === 'wrong'){
-      P.popText(x, y, '⚠️ ผิด!', 'warn');
-      P.burst(x, y, { count: 10, spread: 40, upBias: 0.82 });
+      P.popText?.(x, y, '⚠️ ผิด!', 'warn');
+      P.burst?.(x, y, { count: 10, spread: 40, upBias: 0.82 });
     }else if(kind === 'haz'){
-      P.popText(x, y, power.shield>0 ? '🛡️ กันได้!' : '🦠 โดนเชื้อ!', power.shield>0 ? 'cyan' : 'bad');
-      P.burst(x, y, { count: 14, spread: 54, upBias: 0.90 });
+      const txt = (power.shield>0) ? '🛡️ กันได้!' : '🦠 โดนเชื้อ!';
+      const cls = (power.shield>0) ? 'cyan' : 'bad';
+      P.popText?.(x, y, txt, cls);
+      P.burst?.(x, y, { count: 14, spread: 54, upBias: 0.90 });
     }
   }
 
@@ -238,7 +240,8 @@ export function boot(){
       [options[i],options[j]] = [options[j],options[i]];
     }
 
-    quizSub.textContent = 'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
+    quizSub.textContent =
+      'ตัวเลือก: ' + options.map((x,i)=>`${i+1}) ${x}`).join('  •  ')
       + '  (ตอบโดย “ถูกต่อเนื่อง 2 ครั้ง” เพื่อยืนยัน)';
 
     quizOpen._armed = true;
@@ -259,11 +262,9 @@ export function boot(){
   function getMissCount(){
     return (wrongStepHits + hazHits);
   }
-
   function getStepAcc(){
     return totalStepHits ? (correctHits / totalStepHits) : 0;
   }
-
   function elapsedSec(){
     return running ? ((nowMs() - tStartMs)/1000) : 0;
   }
@@ -272,9 +273,10 @@ export function boot(){
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
 
-    // baseline safe vars
-    const topSafeVar = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 160;
-    const bottomSafeVar = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 160;
+    // baseline safe vars (css)
+    const rootStyle = getComputedStyle(DOC.documentElement);
+    const topSafeVar = Number(rootStyle.getPropertyValue('--hw-top-safe')) || 160;
+    const bottomSafeVar = Number(rootStyle.getPropertyValue('--hw-bottom-safe')) || 160;
 
     // dynamic: compute top hud area from DOM if present
     const hudTop = rectOf('hudTop');
@@ -284,7 +286,6 @@ export function boot(){
     let topSafe = topSafeVar;
     if(hudTop) topSafe = Math.max(topSafe, hudTop.y + hudTop.h + 12);
     if(bannerR) topSafe = Math.max(topSafe, bannerR.y + bannerR.h + 8);
-    // quiz is inside hud top, already covered, but if it expands, keep safe a bit more
     if(quizR && quizR.w>10 && quizR.h>10) topSafe = Math.max(topSafe, quizR.y + quizR.h + 10);
 
     const bottomSafe = bottomSafeVar;
@@ -320,7 +321,7 @@ export function boot(){
       }
       if(ok) return {x,y,rect};
     }
-    // fallback (still safe-ish)
+    // fallback center
     const x = clamp((rect.x0+rect.x1)/2, rect.x0, rect.x1);
     const y = clamp((rect.y0+rect.y1)/2, rect.y0, rect.y1);
     return {x,y,rect};
@@ -352,7 +353,6 @@ export function boot(){
       barStep.style.width = (pct*100).toFixed(1) + '%';
     }
     if(barLoop){
-      // loop bar = combine (step progress across 7) + mission progress if any
       const stepAcross = (stepIdx + (hitsInStep / Math.max(1, s.hitsNeed))) / 7;
       let m = 0;
       if(mission && mission.meta && mission.meta.pct != null) m = clamp(mission.meta.pct, 0, 1);
@@ -374,11 +374,9 @@ export function boot(){
     try{
       obj.el.classList.add('is-dying');
       const el = obj.el;
-      // remove soon (even if animation fails)
       setTimeout(()=>{ try{ el.remove(); }catch{} }, 160);
     }catch{}
   }
-
   function removeTarget(obj){
     const i = targets.findIndex(t=>t.id===obj.id);
     if(i>=0) targets.splice(i,1);
@@ -399,7 +397,6 @@ export function boot(){
 
     stage.appendChild(el);
 
-    // radius ~ half size
     const tgtSize = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--tgtSize').replace('px','')) || 76;
     const radius = Math.max(26, (tgtSize*0.5));
 
@@ -409,19 +406,19 @@ export function boot(){
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
 
-    // TTL
     const P = dd ? dd.getParams() : base;
     const lifeMin = (P.lifeMs && P.lifeMs[0]) ? Number(P.lifeMs[0]) : 1300;
     const lifeMax = (P.lifeMs && P.lifeMs[1]) ? Number(P.lifeMs[1]) : 2100;
     const lifeMs = clamp(lifeMin + rng()*(lifeMax-lifeMin), 900, 4000);
 
+    const born = nowMs();
     const obj = {
       id: nextId++,
       el,
       kind,
       stepIdx: stepRef,
-      bornMs: nowMs(),
-      dieAtMs: nowMs() + lifeMs,
+      bornMs: born,
+      dieAtMs: born + lifeMs,
       x, y,
       radius
     };
@@ -496,21 +493,17 @@ export function boot(){
     mission.t0 = nowMs();
     mission.meta = { pct: 0 };
 
-    // three mission types rotate
     if(roll < 0.34){
-      // combo mission
       mission.id = 'combo10';
       mission.text = 'ทำคอมโบถึง 10!';
       mission.meta.need = 10;
       mission.meta.pct = clamp(combo / 10, 0, 1);
     }else if(roll < 0.67){
-      // no haz
       mission.id = 'noHaz10';
       mission.text = 'อย่าโดน 🦠 10 วิ!';
       mission.meta.until = t + 10;
       mission.meta.pct = 0;
     }else{
-      // fast step
       mission.id = 'fastStep';
       mission.text = 'ผ่าน STEP นี้ไว (≤ 6.5 วิ)!';
       mission.meta.step = stepIdx;
@@ -523,7 +516,6 @@ export function boot(){
   function rewardMission(){
     mission.done = 1;
 
-    // power-ups: rotate based on rng
     const roll = rng();
     if(roll < 0.34){
       power.shield = clamp(power.shield + 1, 0, 2);
@@ -536,7 +528,6 @@ export function boot(){
       showBanner('🏅 ได้พลัง: ❄️ Freeze 4.5s (สปอว์นช้าลง)');
     }
 
-    // small time bonus (feel good)
     timeLeft = clamp(timeLeft + 3, 0, 9999);
   }
 
@@ -545,7 +536,6 @@ export function boot(){
 
     const t = elapsedSec();
     if(!mission.id){
-      // start after a short warmup
       if(t > 6) startMission();
       return;
     }
@@ -571,7 +561,6 @@ export function boot(){
       }
     }
 
-    // if mission ended (done or failed), start next later
     if(mission.done){
       mission._nextAt = t + (10 + rng()*8);
     }
@@ -584,7 +573,6 @@ export function boot(){
   }
 
   function onHazHit(){
-    // shield blocks one haz
     if(power.shield > 0){
       power.shield--;
       coachTip('ดีมาก! โล่สบู่ช่วยกันเชื้อได้ 1 ครั้ง', 1200);
@@ -605,7 +593,6 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // quiz confirm logic
       if(quizOpen && quizOpen._armed){
         const within = (nowMs() - quizOpen._t0) <= 4000;
         if(within){
@@ -619,25 +606,22 @@ export function boot(){
         }
       }
 
-      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent?.('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra });
 
-      // rewards feel
       if(combo===6){
         coachTip('คอมโบสวย! อีกนิดได้ภารกิจ+พลัง', 1400);
       }
+
       fxHit('good', obj);
       removeTarget(obj);
 
-      // step progress
       if(hitsInStep >= STEPS[stepIdx].hitsNeed){
-        const prevStep = stepIdx;
         stepIdx++;
         hitsInStep=0;
 
-        // loop completion
         if(stepIdx >= STEPS.length){
           stepIdx=0;
           loopsDone++;
@@ -647,11 +631,7 @@ export function boot(){
           showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
           if(!quizOpen && rng() < 0.22) openRandomQuiz();
         }
-
-        // fast-step mission checks happen in updateMissionTick via stepIdx change
-        // reset focus highlight each step if active
       }else{
-        // sometimes spark quest text
         if(combo % 7 === 0 && combo>0){
           showBanner(`🔥 COMBO ${combo}!`);
           if(combo===7 && power.shield<2) power.shield = clamp(power.shield+1,0,2);
@@ -672,8 +652,8 @@ export function boot(){
         closeQuiz('❌ Quiz พลาด!');
       }
 
-      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
-      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
+      coach?.onEvent?.('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo });
+      dd?.onEvent?.('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec() });
 
       emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra });
 
@@ -689,7 +669,6 @@ export function boot(){
     }
 
     if(obj.kind === 'haz'){
-      // shield logic
       const blocked = onHazHit();
       if(!blocked){
         hazHits++;
@@ -701,8 +680,8 @@ export function boot(){
         closeQuiz('❌ Quiz พลาด!');
       }
 
-      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo, blocked });
-      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec(), blocked });
+      coach?.onEvent?.('haz_hit', { stepAcc: getStepAcc(), combo, blocked });
+      dd?.onEvent?.('haz_hit', { elapsedSec: elapsedSec(), blocked });
 
       emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra, blocked });
 
@@ -725,7 +704,6 @@ export function boot(){
   // ------------------ Tick loop (A: TTL + watchdog + throttle) ------------------
   function cleanupExpiredTargets(){
     const t = nowMs();
-    // remove expired (oldest first)
     for(let i=targets.length-1;i>=0;i--){
       const obj = targets[i];
       if(t >= obj.dieAtMs){
@@ -736,7 +714,6 @@ export function boot(){
   }
 
   function mobileThrottleFactor(){
-    // auto throttle if touch device and too many targets
     const touch = isTouchDevice();
     const n = targets.length|0;
     if(!touch) return 1.0;
@@ -752,7 +729,6 @@ export function boot(){
     const dt = Math.max(0, (t - tLastMs)/1000);
     tLastMs = t;
 
-    // watchdog heartbeat
     tick._lastBeat = t;
 
     if(paused){
@@ -768,25 +744,19 @@ export function boot(){
       return;
     }
 
-    // A: expire cleanup
     cleanupExpiredTargets();
 
-    // difficulty params
     const P = dd ? dd.getParams() : base;
 
-    // powerups effect
     const frozen = power.freezeUntil > t;
     const freezeMul = frozen ? 0.45 : 1.0;
 
-    // fairness: keep success window ~70% by slight cap on spawn if miss rising (safe)
     const miss = getMissCount();
     const fairnessMul = (miss>=2) ? 0.78 : 1.0;
 
-    // spawn accumulation (with throttle)
     const mul = mobileThrottleFactor() * freezeMul * fairnessMul;
     spawnAcc += (P.spawnPerSec * mul * dt);
 
-    // spawn loop
     const cap = (view==='cvr') ? 16 : 18;
     while(spawnAcc >= 1){
       spawnAcc -= 1;
@@ -794,13 +764,11 @@ export function boot(){
       if(targets.length >= cap) break;
       const obj = spawnOne();
 
-      // focus highlight refresh
       if(obj && obj.kind==='good' && power.focusUntil > nowMs()){
         try{ obj.el.classList.add('is-focus'); }catch{}
       }
     }
 
-    // hard cap cleanup (remove oldest)
     if(targets.length > cap){
       const over = targets.length - cap;
       for(let k=0;k<over;k++){
@@ -809,14 +777,14 @@ export function boot(){
       }
     }
 
-    dd?.onEvent('tick', { elapsedSec: elapsedSec() });
+    dd?.onEvent?.('tick', { elapsedSec: elapsedSec() });
     updateMissionTick();
 
     setHud();
     requestAnimationFrame(tick);
   }
 
-  // watchdog: if RAF stalls, nudge (fix “เล่นๆอยู่ค้างเฉยเลย”)
+  // watchdog: if RAF stalls, nudge
   function startWatchdog(){
     clearInterval(startWatchdog._t);
     startWatchdog._t = setInterval(()=>{
@@ -826,7 +794,6 @@ export function boot(){
       if(last && (now - last) > 1800){
         console.warn('[Hygiene] watchdog nudge', now-last);
         showBanner('⚠️ เกมสะดุด… กำลังดึงกลับมา');
-        // kick loop
         try{ requestAnimationFrame(tick); }catch{}
       }
     }, 700);
@@ -848,14 +815,12 @@ export function boot(){
     rtOk.length=0;
     spawnAcc=0;
 
-    // missions + powers
     mission = { id:'', text:'', done:0, t0:0, meta:{} };
     power.shield = 0;
     power.focusUntil = 0;
     power.freezeUntil = 0;
 
     questText = 'ทำ STEP ให้ถูก!';
-    questDone = 0;
     quizRight = 0;
     quizWrong = 0;
     setQuizVisible(false);
@@ -918,10 +883,7 @@ export function boot(){
       version:'20260216a',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
-      diff,
-      view,
-      seed,
+      runMode, diff, view, seed,
       sessionId,
       timestampIso: nowIso(),
 
@@ -949,12 +911,14 @@ export function boot(){
       medianStepMs: rtMed
     };
 
-    if(coach) Object.assign(summary, coach.getSummaryExtras?.() || {});
-    if(dd) Object.assign(summary, dd.getSummaryExtras?.() || {});
+    try{ if(coach?.getSummaryExtras) Object.assign(summary, coach.getSummaryExtras() || {}); }catch{}
+    try{ if(dd?.getSummaryExtras) Object.assign(summary, dd.getSummaryExtras() || {}); }catch{}
 
-    if(WIN.HHA_Badges){
-      WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
-    }
+    try{
+      if(WIN.HHA_Badges){
+        WIN.HHA_Badges.evaluateBadges(summary, { allowUnlockInResearch:false });
+      }
+    }catch{}
 
     saveJson(LS_LAST, summary);
     const hist = loadJson(LS_HIST, []);
