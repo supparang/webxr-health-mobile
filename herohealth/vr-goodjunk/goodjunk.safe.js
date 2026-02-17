@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE)
+// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE) — PATCH v20260217-freezeGuard
 // ✅ STORM when timeLeft<=30s
 // ✅ BOSS when miss>=4
 // ✅ RAGE when miss>=5
@@ -10,6 +10,7 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
 // ✅ cVR/VR shoot from center via hha:shoot
 // ✅ FIX: GOAL/MINI HUD now updates (no more "ภารกิจไม่แสดง")
+// ✅ FIX(FREEZE): no R-eye clone unless VR/cVR + hard limits + budgets + HUD throttle
 
 'use strict';
 
@@ -31,18 +32,27 @@ export function boot(payload = {}) {
   function fx(){
     return ROOT.Particles || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || null;
   }
-  function fxText(x,y,txt){
-    try{
-      const P = fx();
-      if(P && typeof P.popText==='function') P.popText(x,y,txt);
-    }catch(_){}
-  }
-  function bodyPulse(cls, ms=160){
-    try{
-      DOC.body.classList.add(cls);
-      setTimeout(()=>DOC.body.classList.remove(cls), ms);
-    }catch(_){}
-  }
+
+  // ---------------- config ----------------
+  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
+  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
+  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
+  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
+  const hub = payload.hub ?? qs('hub', null);
+  const seedParam = (payload.seed ?? qs('seed', null));
+  const seed = (runMode === 'research')
+    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
+    : (seedParam ?? String(Date.now()));
+
+  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
+  const phase = payload.phase ?? qs('phase', null);
+  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
+
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-17_freezeGuard';
+  const PROJECT_TAG = 'GoodJunkVR';
+
+  const isVR  = (view === 'vr');
+  const isCVR = (view === 'cvr');
 
   // seeded RNG
   function xmur3(str){
@@ -71,8 +81,8 @@ export function boot(payload = {}) {
     };
   }
   function makeSeededRng(seedStr){
-    const seed = String(seedStr ?? '');
-    const gen = xmur3(seed || String(Date.now()));
+    const seedS = String(seedStr ?? '');
+    const gen = xmur3(seedS || String(Date.now()));
     return sfc32(gen(), gen(), gen(), gen());
   }
   function randIn(rng, a, b){ return a + (b-a) * rng(); }
@@ -88,34 +98,14 @@ export function boot(payload = {}) {
     return items[items.length-1]?.k;
   }
 
-  function deviceLabel(view){
-    if(view==='pc') return 'pc';
-    if(view==='vr') return 'vr';
-    if(view==='cvr') return 'cvr';
+  function deviceLabel(viewS){
+    if(viewS==='pc') return 'pc';
+    if(viewS==='vr') return 'vr';
+    if(viewS==='cvr') return 'cvr';
     return 'mobile';
   }
 
-  // ---------------- config ----------------
-  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
-  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
-  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
-  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
-  const hub = payload.hub ?? qs('hub', null);
-  const seedParam = (payload.seed ?? qs('seed', null));
-  const seed = (runMode === 'research')
-    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
-    : (seedParam ?? String(Date.now()));
-
-  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
-  const phase = payload.phase ?? qs('phase', null);
-  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
-
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-16_BOSSpp';
-  const PROJECT_TAG = 'GoodJunkVR';
-
   const rng = makeSeededRng(String(seed));
-  const isVR  = (view === 'vr');
-  const isCVR = (view === 'cvr');
 
   const LAYER_L = byId('gj-layer');
   const LAYER_R = byId('gj-layer-r');
@@ -257,6 +247,70 @@ export function boot(payload = {}) {
     endTimeIso: null,
   };
 
+  // === FREEZE GUARD LIMITS ===
+  const LIMITS = {
+    MAX_TARGETS_MOBILE: 16,
+    MAX_TARGETS_PC: 18,
+    MAX_TARGETS_VR: 22,
+    SPAWN_BUDGET_PER_SEC: 10, // spawnOne per sec (all sources)
+    FX_BUDGET_PER_SEC: 16,    // fxText per sec
+    HUD_FPS: 8,               // DOM writes per sec (progress/boss/quest loop)
+  };
+
+  let _spawnBudget = LIMITS.SPAWN_BUDGET_PER_SEC;
+  let _fxBudget = LIMITS.FX_BUDGET_PER_SEC;
+  let _budgetTs = now();
+
+  function refillBudgets(){
+    const t = now();
+    if(t - _budgetTs >= 1000){
+      _spawnBudget = LIMITS.SPAWN_BUDGET_PER_SEC;
+      _fxBudget = LIMITS.FX_BUDGET_PER_SEC;
+      _budgetTs = t;
+    }
+  }
+  function canSpawn(){
+    refillBudgets();
+    if(_spawnBudget <= 0) return false;
+    _spawnBudget--;
+    return true;
+  }
+  function canFx(){
+    refillBudgets();
+    if(_fxBudget <= 0) return false;
+    _fxBudget--;
+    return true;
+  }
+  function maxTargetsNow(){
+    if(isVR || isCVR) return LIMITS.MAX_TARGETS_VR;
+    return (view === 'pc') ? LIMITS.MAX_TARGETS_PC : LIMITS.MAX_TARGETS_MOBILE;
+  }
+  function trimTargetsIfNeeded(){
+    const maxT = maxTargetsNow();
+    if(state.targets.size <= maxT) return;
+    const arr = Array.from(state.targets.values());
+    arr.sort((a,b)=> (a.bornAt||0) - (b.bornAt||0));
+    const over = state.targets.size - maxT;
+    for(let i=0;i<over;i++){
+      removeTarget(arr[i]);
+    }
+  }
+
+  // fx helpers
+  function fxText(x,y,txt){
+    try{
+      if(!canFx()) return; // ✅ budget guard
+      const P = fx();
+      if(P && typeof P.popText==='function') P.popText(x,y,txt);
+    }catch(_){}
+  }
+  function bodyPulse(cls, ms=160){
+    try{
+      DOC.body.classList.add(cls);
+      setTimeout(()=>DOC.body.classList.remove(cls), ms);
+    }catch(_){}
+  }
+
   // ---------------- class hooks ----------------
   function setModeClass(){
     const b = DOC.body;
@@ -320,7 +374,7 @@ export function boot(payload = {}) {
     }
   }
 
-  // ---------------- QUEST UI (FIX ภารกิจไม่แสดง) ----------------
+  // ---------------- QUEST UI ----------------
   function setQuestUI(goalObj, miniObj, forceEmit=false){
     state.goalObj = goalObj || state.goalObj;
     state.miniObj = miniObj || state.miniObj;
@@ -328,19 +382,14 @@ export function boot(payload = {}) {
     const g = state.goalObj;
     const m = state.miniObj;
 
-    // write GOAL
     if(HUD.goal) HUD.goal.textContent = g?.title ?? '—';
     if(HUD.goalCur) HUD.goalCur.textContent = String(g?.cur ?? 0);
     if(HUD.goalTarget) HUD.goalTarget.textContent = String(g?.target ?? 0);
     if(HUD.goalDesc) HUD.goalDesc.textContent = g?.desc ?? '—';
 
-    // write MINI
     if(HUD.mini) HUD.mini.textContent = m?.title ?? '—';
-    if(HUD.miniTimer){
-      HUD.miniTimer.textContent = (m?.timerText ?? '—');
-    }
+    if(HUD.miniTimer) HUD.miniTimer.textContent = (m?.timerText ?? '—');
 
-    // throttle quest:update (avoid spam) but still update UI every call
     const t = now();
     const canEmit = forceEmit || (t - (state.lastQuestEmitAt||0) >= 220);
     if(canEmit){
@@ -350,7 +399,6 @@ export function boot(payload = {}) {
   }
 
   function recomputeQuest(){
-    // GOAL: Survive = keep miss under limit (cur=miss)
     const goal = {
       title: 'Survive',
       cur: state.miss,
@@ -358,7 +406,6 @@ export function boot(payload = {}) {
       desc: `ห้าม MISS ถึง ${DIFF.missLimit} (MISS ≥4 จะมี BOSS / ≥5 จะ RAGE)`,
     };
 
-    // MINI: show mode progress (time-driven) + what is active
     const tLeft = Math.ceil(state.timeLeftSec);
     const tPassed = Math.max(0, Math.floor(durationPlannedSec - state.timeLeftSec));
     const stormIn = Math.max(0, tLeft - 30);
@@ -367,11 +414,9 @@ export function boot(payload = {}) {
     let timerText = `⏱ ${tPassed}/${durationPlannedSec}s`;
 
     if(!state.stormOn){
-      // before storm: countdown until storm
       title = 'STORM incoming';
       timerText = `⚡อีก ${stormIn}s`;
     }else{
-      // in storm: show remaining
       title = state.boss.active ? (state.rageOn ? 'RAGE Boss' : 'Boss Battle') : 'STORM';
       timerText = `⏱ เหลือ ${tLeft}s`;
     }
@@ -474,6 +519,11 @@ export function boot(payload = {}) {
   function spawnOne(){
     if(state.ended) return;
 
+    // ✅ FREEZE GUARD: budgets + hard cap
+    if(!canSpawn()) return;
+    trimTargetsIfNeeded();
+    if(state.targets.size >= maxTargetsNow()) return;
+
     const kind = makeTargetKind();
 
     if(kind==='good') state.nTargetGoodSpawned++;
@@ -517,7 +567,8 @@ export function boot(payload = {}) {
     elL.style.fontSize = `${size}px`;
 
     let elR = null;
-    if(LAYER_R){
+    // ✅ clone ตาขวา เฉพาะ VR/cVR (กันมือถือ/pc หนัก)
+    if((isVR || isCVR) && LAYER_R){
       elR = elL.cloneNode(true);
       elR.dataset.eye = 'r';
     }
@@ -967,6 +1018,7 @@ export function boot(payload = {}) {
 
   // ---------------- loop ----------------
   let lastTick = 0;
+  let _hudAcc = 0; // ✅ HUD throttle accumulator
 
   function tick(){
     if(state.ended) return;
@@ -992,7 +1044,10 @@ export function boot(payload = {}) {
 
     // spawn
     state.spawnAcc += dt * spawnRate();
-    while(state.spawnAcc >= 1){
+
+    // ✅ cap spawn per-frame (กัน spike)
+    let frameSpawnCap = 6;
+    while(state.spawnAcc >= 1 && frameSpawnCap-- > 0){
       state.spawnAcc -= 1;
       spawnOne();
       if(state.rageOn && rng() < 0.18) spawnOne();
@@ -1002,10 +1057,14 @@ export function boot(payload = {}) {
     // expiry
     expireTargets();
 
-    // UI (progress + quests)
-    updateProgressUI();
-    updateBossUI();
-    recomputeQuest();
+    // UI (throttled) ✅ กันมือถือค้างจาก DOM writes
+    _hudAcc += dt;
+    if(_hudAcc >= (1 / LIMITS.HUD_FPS)){
+      _hudAcc = 0;
+      updateProgressUI();
+      updateBossUI();
+      recomputeQuest();
+    }
 
     // end by time
     if(state.timeLeftSec <= 0){
