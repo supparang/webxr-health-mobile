@@ -1,4 +1,4 @@
-// === /fitness/js/jump-duck.js — Jump-Duck (FULL SCHEMA LOG + MIXED BOSS) v20260217a ===
+// === /fitness/js/jump-duck.js — Jump-Duck (PROFILE + LOG PASS + BOSS SKILLS + MINI GOALS) v20260217c ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -33,7 +33,7 @@ function qsGet(k, d=''){
   return (v==null || String(v).trim()==='') ? d : String(v);
 }
 
-const GAME_VERSION = 'JD-v20260217a';
+const GAME_VERSION = 'JD-v20260217c';
 
 const HHA_CTX = {
   hub: qsGet('hub',''),
@@ -52,6 +52,30 @@ const HHA_CTX = {
   siteCode: qsGet('siteCode',''),
   schoolYear: qsGet('schoolYear',''),
   semester: qsGet('semester',''),
+
+  // profile meta passthrough (optional)
+  schoolCode: qsGet('schoolCode',''),
+  schoolName: qsGet('schoolName',''),
+  classRoom: qsGet('classRoom',''),
+  studentNo: qsGet('studentNo',''),
+  nickName: qsGet('nickName',''),
+  gender: qsGet('gender',''),
+  age: qsGet('age',''),
+  gradeLevel: qsGet('gradeLevel',''),
+  heightCm: qsGet('heightCm',''),
+  weightKg: qsGet('weightKg',''),
+  bmi: qsGet('bmi',''),
+  bmiGroup: qsGet('bmiGroup',''),
+  vrExperience: qsGet('vrExperience',''),
+  gameFrequency: qsGet('gameFrequency',''),
+  handedness: qsGet('handedness',''),
+  visionIssue: qsGet('visionIssue',''),
+  healthDetail: qsGet('healthDetail',''),
+  consentParent: qsGet('consentParent',''),
+  consentTeacher: qsGet('consentTeacher',''),
+  profileSource: qsGet('profileSource',''),
+  surveyKey: qsGet('surveyKey',''),
+  excludeFlag: qsGet('excludeFlag',''),
 
   pid: qsGet('pid',''),
   group: qsGet('group',''),
@@ -104,7 +128,7 @@ async function ensureVrUi(){
     await new Promise((resolve,reject)=>{
       const s = document.createElement('script');
       s.src = src;
-      s.onload = resolve;
+      s.onload = ()=>{ window.__HHA_VRUI_LOADED__ = true; resolve(); };
       s.onerror = ()=>reject(new Error('Failed to load '+src));
       document.head.appendChild(s);
     });
@@ -160,6 +184,14 @@ const elPid     = $('#jd-participant-id');
 const elGroup   = $('#jd-group');
 const elNote    = $('#jd-note');
 
+const elNick    = $('#jd-nick');
+const elGender  = $('#jd-gender');
+const elAge     = $('#jd-age');
+const elGrade   = $('#jd-grade');
+const elHeight  = $('#jd-height');
+const elWeight  = $('#jd-weight');
+const elProfileStatus = $('#jd-profile-status');
+
 const elHudMode   = $('#hud-mode');
 const elHudDiff   = $('#hud-diff');
 const elHudDur    = $('#hud-duration');
@@ -171,6 +203,8 @@ const elHudTime   = $('#hud-time');
 
 const elHudPhase  = $('#hud-phase');
 const elHudBoss   = $('#hud-boss');
+const elHudSkill  = $('#hud-skill');
+const elHudMini   = $('#hud-mini');
 
 const elProgFill  = $('#hud-prog-fill');
 const elProgText  = $('#hud-prog-text');
@@ -224,15 +258,12 @@ const JD_DIFFS = {
   normal: { speed: 48, spawnMs: 1000, hitWinMs: 220, stabDmg: 13, stabGain: 3, score: 14 },
   hard:   { speed: 62, spawnMs:  800, hitWinMs: 200, stabDmg: 16, stabGain: 4, score: 16 }
 };
-
-const PHASE_THRESH = [0.33, 0.70];
-
 const SPAWN_X  = 100;
 const CENTER_X = 24;
 const MISS_X   = 4;
 
 /* -------------------------
-   Fever system
+   Fever
 ------------------------- */
 const FEVER = {
   threshold: 100,
@@ -242,11 +273,10 @@ const FEVER = {
 };
 
 /* -------------------------
-   AI Predictor (explainable + fair)
+   AI Predictor (fair/explainable)
 ------------------------- */
 function createAIPredictor(){
   const mem = { streakMiss:0, missJump:0, missDuck:0, lastRT:220, bias:0, switchCostMs:0, lastNeed:null };
-
   function onOutcome(needType, ok, rt){
     if (ok){
       mem.streakMiss = 0;
@@ -267,12 +297,10 @@ function createAIPredictor(){
     }
     mem.lastNeed = needType;
   }
-
   function pickType(baseRand){
     const t = baseRand + mem.bias;
     return (t >= 0.5) ? 'high' : 'low';
   }
-
   function adjustSpawnInterval(ms, phase, mode){
     let out = ms;
     if (mode === 'training'){
@@ -282,14 +310,12 @@ function createAIPredictor(){
     out = Math.max(520, Math.min(1800, out));
     return out;
   }
-
   function getHint(){
     if (mem.streakMiss >= 2) return 'ทิป: อ่านป้าย JUMP/DUCK แล้วกด “ก่อนถึงเส้น” นิดเดียว ✨';
     if (mem.lastRT > 260) return 'ทิป: ลองกดให้เร็วขึ้นอีกนิด จะได้ PERFECT ง่ายขึ้น 🔥';
     if (mem.switchCostMs > 90) return 'ทิป: ช่วงสลับ JUMP↔DUCK ให้เตรียมท่าล่วงหน้า 🧠';
     return '';
   }
-
   function snapshot(){
     return {
       ai_streak_miss: mem.streakMiss,
@@ -300,7 +326,6 @@ function createAIPredictor(){
       ai_miss_duck: mem.missDuck
     };
   }
-
   return { onOutcome, pickType, adjustSpawnInterval, getHint, snapshot };
 }
 const AI = createAIPredictor();
@@ -343,7 +368,7 @@ function setHubLinks(){
 }
 
 /* -------------------------
-   Research meta
+   Research meta + profile
 ------------------------- */
 function updateResearchVisibility(){
   const mode = (elMode?.value) || 'training';
@@ -358,6 +383,59 @@ function collectParticipant(metaMode){
     id: (elPid?.value || HHA_CTX.pid || '').trim(),
     group: (elGroup?.value || HHA_CTX.group || '').trim(),
     note: (elNote?.value || HHA_CTX.note || '').trim()
+  };
+}
+
+function calcBMI(heightCm, weightKg){
+  const h = Number(heightCm), w = Number(weightKg);
+  if (!Number.isFinite(h) || !Number.isFinite(w) || h <= 0 || w <= 0) return '';
+  const m = h / 100;
+  const bmi = w / (m*m);
+  return bmi.toFixed(2);
+}
+
+function setStatus(el, txt, cls){
+  if (!el) return;
+  el.textContent = txt || '';
+  el.classList.remove('ok','bad');
+  if (cls) el.classList.add(cls);
+}
+
+function buildProfileRow(){
+  const studentKey = (elPid?.value || HHA_CTX.pid || '').trim();
+  return {
+    timestampIso: nowIso(),
+    projectTag: HHA_CTX.projectTag || 'HeroHealth-JumpDuck',
+    runMode: 'research',
+    studentKey,
+
+    schoolCode: HHA_CTX.schoolCode || '',
+    schoolName: HHA_CTX.schoolName || '',
+    classRoom: HHA_CTX.classRoom || '',
+    studentNo: HHA_CTX.studentNo || '',
+
+    nickName: (elNick?.value || HHA_CTX.nickName || '').trim(),
+    gender: (elGender?.value || HHA_CTX.gender || '').trim(),
+    age: (elAge?.value || HHA_CTX.age || '').toString().trim(),
+    gradeLevel: (elGrade?.value || HHA_CTX.gradeLevel || '').trim(),
+
+    heightCm: (elHeight?.value || HHA_CTX.heightCm || '').toString().trim(),
+    weightKg: (elWeight?.value || HHA_CTX.weightKg || '').toString().trim(),
+
+    bmi: calcBMI(elHeight?.value, elWeight?.value) || (HHA_CTX.bmi || ''),
+    bmiGroup: HHA_CTX.bmiGroup || '',
+
+    vrExperience: HHA_CTX.vrExperience || '',
+    gameFrequency: HHA_CTX.gameFrequency || '',
+    handedness: HHA_CTX.handedness || '',
+    visionIssue: HHA_CTX.visionIssue || '',
+    healthDetail: HHA_CTX.healthDetail || '',
+    consentParent: HHA_CTX.consentParent || '',
+    consentTeacher: HHA_CTX.consentTeacher || '',
+
+    createdAtIso: nowIso(),
+    updatedAtIso: nowIso(),
+    source: 'jump-duck-menu'
   };
 }
 
@@ -385,9 +463,10 @@ async function postLogTable(table, rows){
 }
 
 /* -------------------------
-   Boss presets (Mixed)
+   Boss presets + Skills (deterministic)
 ------------------------- */
 const BOSS_PRESETS = ['classic','memory','twin','trickster'];
+const BOSS_SKILLS  = ['reverse','combo_lock','stamina_drain','fake_callout']; // ✅ สนุกขึ้น
 
 function bossPresetFromCtx(){
   const cg = String(HHA_CTX.conditionGroup||'').toLowerCase();
@@ -398,13 +477,18 @@ function bossPresetFromCtx(){
     const h = strToSeed(base);
     return BOSS_PRESETS[h % BOSS_PRESETS.length];
   }
-
   const h2 = strToSeed(String(HHA_CTX.seed||getSeed()));
   return BOSS_PRESETS[h2 % BOSS_PRESETS.length];
 }
 
+function bossSkillFromSeed(){
+  const base = `${HHA_CTX.pid||''}|${HHA_CTX.studyId||''}|${HHA_CTX.phase||''}|${HHA_CTX.seed||''}|skill`;
+  const h = strToSeed(base);
+  return BOSS_SKILLS[h % BOSS_SKILLS.length];
+}
+
 /* -------------------------
-   Boss system
+   Boss system / Rhythm Burst
 ------------------------- */
 const BOSS = {
   hpMax: 100,
@@ -415,9 +499,6 @@ const BOSS = {
   tempoShiftEveryMs: 4200
 };
 
-/* -------------------------
-   Rhythm Callout (Boss)
-------------------------- */
 const RHY = {
   beatMsBase: 520,
   beatJitter: 70,
@@ -427,14 +508,12 @@ const RHY = {
 };
 
 function beatMsNow(){
-  const base = RHY.beatMsBase;
   const j = (RNG()*2 - 1) * RHY.beatJitter;
   const mode = state?.mode || '';
   const cap = (mode==='test'||mode==='research') ? 35 : RHY.beatJitter;
   const jj = Math.max(-cap, Math.min(cap, j));
-  return Math.max(380, Math.min(700, base + jj));
+  return Math.max(380, Math.min(700, RHY.beatMsBase + jj));
 }
-
 function showCallout(text){ showJudge(text, 'combo'); }
 function needEmoji(need){ return need==='jump' ? '⬆' : '⬇'; }
 
@@ -454,8 +533,6 @@ function buildRhythmSeq(len){
     for (let i=0;i<len;i++) seq.push(i%2===0 ? a : b);
   } else if (p === 'aab'){
     for (let i=0;i<len;i++) seq.push((i%3===2) ? b : a);
-  } else if (p === 'mirror'){
-    for (let i=0;i<len;i++) seq.push(i%2===0 ? a : b);
   } else if (p === 'stair'){
     for (let i=0;i<len;i++){
       const block = Math.floor(i/2);
@@ -484,7 +561,7 @@ function scheduleCalloutAndChain(seqNeed, tag){
     const n = lead - i;
     setTimeout(()=>{
       if (!running || !state) return;
-      playSfx('jd-sfx-tick');
+      playSfx('jd-sfx-beep');
       showCallout(`🎵 ${n}`);
       pushEvent('boss_call_tick', { extra: JSON.stringify({ n, tag }) });
     }, i*beat);
@@ -492,7 +569,7 @@ function scheduleCalloutAndChain(seqNeed, tag){
 
   setTimeout(()=>{
     if (!running || !state) return;
-    playSfx('jd-sfx-call');
+    playSfx('jd-sfx-combo');
     const preview = seqNeed.slice(0,4).map(needEmoji).join(' ');
     showCallout(`GO! ${preview} …`);
     pushEvent('boss_call_go', { extra: JSON.stringify({ len: seqNeed.length, tag }) });
@@ -506,6 +583,32 @@ function scheduleCalloutAndChain(seqNeed, tag){
     }, startAt + i*beat);
   }
 }
+
+/* -------------------------
+   Mini-goals (Phase 3 fun)
+------------------------- */
+const MINI_GOALS = [
+  { key:'perfect3', label:'Perfect x3', desc:'ทำ PERFECT ติดกัน 3 ครั้ง' },
+  { key:'switch5',  label:'Switch x5',  desc:'สลับท่า Jump↔Duck 5 ครั้ง' },
+  { key:'combo10',  label:'Combo 10',   desc:'ทำคอมโบให้ถึง 10' },
+  { key:'noMiss8',  label:'No miss 8',  desc:'ถูก 8 ครั้งติด (ไม่พลาด)' }
+];
+function pickMiniGoal(seedStr){
+  const h = strToSeed(seedStr);
+  return MINI_GOALS[h % MINI_GOALS.length];
+}
+
+/* -------------------------
+   Boss Skills runtime
+------------------------- */
+function skillLabel(k){
+  if (k==='reverse') return 'Reverse';
+  if (k==='combo_lock') return 'ComboLock';
+  if (k==='stamina_drain') return 'Drain';
+  if (k==='fake_callout') return 'Fake';
+  return '—';
+}
+function miniLabel(g){ return g ? g.label : '—'; }
 
 /* -------------------------
    State
@@ -525,7 +628,7 @@ function getPhase(progress){
 }
 
 /* -------------------------
-   Sessions IDs + stats helpers
+   Helpers
 ------------------------- */
 function makeSessionId(){
   const t = new Date();
@@ -538,10 +641,6 @@ function median(arr){
   const m = Math.floor(a.length/2);
   return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
 }
-
-/* -------------------------
-   Window features (for ML/DL later)
-------------------------- */
 function winFeatures(){
   const w = state.win;
   const n = w.rts.length || 0;
@@ -582,7 +681,7 @@ function pushWinSample(sample){
 }
 
 /* -------------------------
-   Events + sessions row builders (schema)
+   Events + sessions rows (schema)
 ------------------------- */
 function pushEvent(event_type, extra){
   if (!state) return;
@@ -600,7 +699,6 @@ function pushEvent(event_type, extra){
     diff: state.diffKey,
     timeFromStartMs: Math.round(state.elapsedMs||0),
 
-    // minimal student identity
     studentKey: state.participant?.id || '',
     schoolCode: state.ctx.schoolCode || '',
     classRoom: state.ctx.classRoom || '',
@@ -663,11 +761,10 @@ function buildSessionRow(end_reason){
     comboMax: state.maxCombo||0,
     misses: state.miss||0,
 
-    // (Jump-Duck ไม่มี goals/minis จริง -> ให้เป็น 0 ไว้ก่อน)
     goalsCleared: 0, goalsTotal: 0,
-    miniCleared: 0,  miniTotal: 0,
+    miniCleared: state.miniDone ? 1 : 0,
+    miniTotal: 1,
 
-    // spawn/hit แบบ minimal mapping
     nTargetGoodSpawned: total,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -722,6 +819,9 @@ function buildSessionRow(end_reason){
 
     __extraJson: JSON.stringify({
       bossPreset: state.bossPresetKey,
+      bossSkill: state.bossSkillKey,
+      miniGoal: state.miniGoal?.key || '',
+      miniDone: !!state.miniDone,
       bossHpEnd: +state.bossHp.toFixed(1),
       stabilityMin: +state.minStability.toFixed(1),
       win: winFeatures(),
@@ -731,7 +831,7 @@ function buildSessionRow(end_reason){
 }
 
 /* -------------------------
-   Boss logic helpers
+   Boss UI helpers
 ------------------------- */
 function telegraphOn(){
   if (!elTele) return;
@@ -744,6 +844,9 @@ function telegraphOff(){
   setTimeout(()=> elTele && elTele.classList.add('jd-hidden'), 120);
 }
 
+/* -------------------------
+   Boss enter / update / burst
+------------------------- */
 function bossEnter(ts){
   state.bossAlive = true;
   state.bossHp = BOSS.hpMax;
@@ -752,14 +855,57 @@ function bossEnter(ts){
   state.bossShieldNeedStreak = 0;
   state.bossShieldStreak = 0;
 
+  // Skill windows
+  state.skillNextAt = ts + 1800;
+  state.skillUntil = 0;
+  state.reverseOn = false;
+
   bossBarWrap && bossBarWrap.classList.remove('jd-hidden');
   bossStatus && (bossStatus.textContent = 'BOSS!');
   bossStatus && bossStatus.classList.add('on');
 
   playSfx('jd-sfx-boss');
-  pushEvent('boss_enter', { extra: JSON.stringify({ bossHp: state.bossHp, preset: state.bossPresetKey }) });
-  showJudge(`⚡ BOSS PHASE! (${state.bossPresetKey})`, 'combo');
+  pushEvent('boss_enter', { extra: JSON.stringify({ bossHp: state.bossHp, preset: state.bossPresetKey, skill: state.bossSkillKey }) });
+
+  showJudge(`⚡ BOSS! preset=${state.bossPresetKey} skill=${state.bossSkillKey}`, 'combo');
   telegraphOn();
+}
+
+function applyBossSkill(ts){
+  // only phase3 & boss alive
+  if (!state.bossAlive) return;
+
+  // activate new skill window periodically
+  if (ts >= state.skillNextAt){
+    state.skillNextAt = ts + 5200 + (RNG()*900 - 300);
+    state.skillUntil  = ts + 1800 + (RNG()*600);
+
+    if (state.bossSkillKey === 'reverse'){
+      state.reverseOn = true;
+      showJudge('🌀 REVERSE! (สั่งกลับด้าน)', 'combo');
+      pushEvent('skill_on', { extra: JSON.stringify({ skill:'reverse' }) });
+    } else if (state.bossSkillKey === 'combo_lock'){
+      showJudge('🔒 COMBO LOCK! (ต้อง PERFECT ถึงจะต่อคอมโบ)', 'combo');
+      pushEvent('skill_on', { extra: JSON.stringify({ skill:'combo_lock' }) });
+    } else if (state.bossSkillKey === 'stamina_drain'){
+      showJudge('🧪 DRAIN! (พลาดแล้ว STABILITY ลดแรงขึ้น)', 'combo');
+      pushEvent('skill_on', { extra: JSON.stringify({ skill:'stamina_drain' }) });
+    } else if (state.bossSkillKey === 'fake_callout'){
+      showJudge('🎭 FAKE! (มีหลอก 1 ครั้ง)', 'combo');
+      state.fakeArmed = true; // one-time fake
+      pushEvent('skill_on', { extra: JSON.stringify({ skill:'fake_callout' }) });
+    }
+    telegraphOn(); setTimeout(telegraphOff, 550);
+  }
+
+  // end window
+  if (state.skillUntil && ts >= state.skillUntil){
+    if (state.reverseOn){
+      state.reverseOn = false;
+      pushEvent('skill_off', { extra: JSON.stringify({ skill:'reverse' }) });
+    }
+    state.skillUntil = 0;
+  }
 }
 
 function updateBoss(ts, phase){
@@ -768,6 +914,8 @@ function updateBoss(ts, phase){
     return;
   }
   if (!state.bossAlive) bossEnter(ts);
+
+  applyBossSkill(ts);
 
   if (elHudBoss) elHudBoss.textContent = `${Math.max(0, Math.round(state.bossHp))}%`;
   if (bossFill) bossFill.style.transform = `scaleX(${Math.max(0, state.bossHp/BOSS.hpMax).toFixed(3)})`;
@@ -789,15 +937,14 @@ function updateBoss(ts, phase){
     state.bossShieldStreak = 0;
     pushEvent('boss_shield_start', { extra: JSON.stringify({ need: 6, preset: state.bossPresetKey }) });
     showJudge('🛡️ SHIELD! ต้องถูกติดกัน 6 ครั้ง!', 'combo');
-    telegraphOn();
-    setTimeout(telegraphOff, 700);
+    telegraphOn(); setTimeout(telegraphOff, 700);
   }
 
   if (state.bossHp <= 0){
     state.bossHp = 0;
     state.bossAlive = false;
     pushEvent('boss_down', { extra: JSON.stringify({ preset: state.bossPresetKey }) });
-    showJudge('🏆 BOSS DOWN! เก่งมาก!', 'combo');
+    showJudge('🏆 BOSS DOWN!', 'combo');
     endGame('boss-down');
   }
 }
@@ -805,8 +952,7 @@ function updateBoss(ts, phase){
 function bossBurst(){
   telegraphOn();
   setTimeout(telegraphOff, 650);
-
-  pushEvent('boss_burst', { extra: JSON.stringify({ preset: state.bossPresetKey }) });
+  pushEvent('boss_burst', { extra: JSON.stringify({ preset: state.bossPresetKey, skill: state.bossSkillKey }) });
 
   const preset = String(state?.bossPresetKey||'classic').toLowerCase();
   const diff = String(state?.diffKey||'normal').toLowerCase();
@@ -820,13 +966,10 @@ function bossBurst(){
   if (diff === 'easy') len -= 1;
 
   len = Math.max(5, Math.min(9, len));
-  if (state.mode === 'test' || state.mode === 'research'){
-    len = Math.min(len, 7);
-  }
+  if (state.mode === 'test' || state.mode === 'research') len = Math.min(len, 7);
 
   const built = buildRhythmSeq(len);
-  const seqNeed = built.seq;
-
+  const seqNeed = built.seq.slice();
   let tag = `p:${built.pattern}`;
 
   if (preset === 'trickster'){
@@ -856,7 +999,7 @@ function updateFever(dtSec){
     if (state.feverRemain <= 0){
       state.feverActive = false;
       state.feverRemain = 0;
-      showJudge('FEVER จบแล้ว ลองสะสมใหม่!', 'ok');
+      showJudge('FEVER จบแล้ว!', 'ok');
       pushEvent('fever_end', {});
     }
   }else{
@@ -887,6 +1030,52 @@ function feverGainOnHit(){
     showJudge('🔥 FEVER! คะแนนคูณ!', 'combo');
     pushEvent('fever_start', {});
   }
+}
+
+/* -------------------------
+   Mini-goals runtime
+------------------------- */
+function initMiniGoal(){
+  const seedStr = `${HHA_CTX.pid||''}|${HHA_CTX.studyId||''}|${HHA_CTX.phase||''}|${HHA_CTX.seed||''}|mini`;
+  state.miniGoal = pickMiniGoal(seedStr);
+  state.miniDone = false;
+  state.perfectStreak = 0;
+  state.noMissStreak = 0;
+  state.switchCount = 0;
+  state.lastNeedForSwitch = null;
+  if (elHudMini) elHudMini.textContent = miniLabel(state.miniGoal);
+  pushEvent('mini_start', { extra: JSON.stringify({ mini: state.miniGoal.key }) });
+  showJudge(`🎯 MINI: ${state.miniGoal.desc}`, 'ok');
+}
+
+function updateMiniOnHit(need, perfect){
+  if (!state.miniGoal || state.miniDone) return;
+
+  // track switch
+  if (state.lastNeedForSwitch && state.lastNeedForSwitch !== need) state.switchCount++;
+  state.lastNeedForSwitch = need;
+
+  // track streaks
+  state.noMissStreak++;
+  state.perfectStreak = perfect ? (state.perfectStreak + 1) : 0;
+
+  if (state.miniGoal.key === 'perfect3' && state.perfectStreak >= 3) state.miniDone = true;
+  if (state.miniGoal.key === 'switch5' && state.switchCount >= 5) state.miniDone = true;
+  if (state.miniGoal.key === 'combo10' && state.maxCombo >= 10) state.miniDone = true;
+  if (state.miniGoal.key === 'noMiss8' && state.noMissStreak >= 8) state.miniDone = true;
+
+  if (state.miniDone){
+    showJudge('✅ MINI GOAL CLEARED! +BONUS', 'combo');
+    state.score += 120;
+    pushEvent('mini_clear', { extra: JSON.stringify({ mini: state.miniGoal.key }) });
+    if (elHudMini) elHudMini.textContent = state.miniGoal.label + ' ✅';
+  }
+}
+
+function updateMiniOnMiss(){
+  if (!state.miniGoal || state.miniDone) return;
+  state.noMissStreak = 0;
+  state.perfectStreak = 0;
 }
 
 /* -------------------------
@@ -944,6 +1133,11 @@ function startGameBase(opts){
     bossShieldStreak: 0,
 
     bossPresetKey: bossPresetFromCtx(),
+    bossSkillKey: bossSkillFromSeed(),
+    skillNextAt: 0,
+    skillUntil: 0,
+    reverseOn: false,
+    fakeArmed: false,
 
     participant: collectParticipant(mode),
     ctx: { ...HHA_CTX },
@@ -951,8 +1145,17 @@ function startGameBase(opts){
     events: [],
     sessions: [],
 
-    win: { size: 10, rts: [], ok: [], need: [], action: [], timeMs: [] }
+    win: { size: 10, rts: [], ok: [], need: [], action: [], timeMs: [] },
+
+    miniGoal: null,
+    miniDone: false,
+    perfectStreak: 0,
+    noMissStreak: 0,
+    switchCount: 0,
+    lastNeedForSwitch: null,
   };
+
+  initMiniGoal();
 
   running = true;
   lastFrame = now;
@@ -972,6 +1175,8 @@ function startGameBase(opts){
   elHudTime && (elHudTime.textContent = (durationMs/1000).toFixed(1));
   elHudPhase && (elHudPhase.textContent = '1');
   elHudBoss && (elHudBoss.textContent = '—');
+  elHudSkill && (elHudSkill.textContent = skillLabel(state.bossSkillKey));
+  elHudMini && (elHudMini.textContent = miniLabel(state.miniGoal));
 
   if (elProgFill) elProgFill.style.transform = 'scaleX(0)';
   if (elProgText) elProgText.textContent = '0%';
@@ -986,13 +1191,13 @@ function startGameBase(opts){
     bossStatus.classList.remove('on');
   }
 
-  pushEvent('start', { extra: JSON.stringify({ bossPreset: state.bossPresetKey, device: detectDevice(), gameVersion: GAME_VERSION }) });
+  pushEvent('start', { extra: JSON.stringify({ bossPreset: state.bossPresetKey, bossSkill: state.bossSkillKey, mini: state.miniGoal.key, device: detectDevice(), gameVersion: GAME_VERSION }) });
 
   showView('play');
   if (rafId!=null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 
-  showJudge(isTutorial ? 'Tutorial: Low=JUMP 🦘 · High=DUCK 🛡️' : `READY ✨ (boss: ${state.bossPresetKey})`, 'ok');
+  showJudge(isTutorial ? 'Tutorial: Low=JUMP 🦘 · High=DUCK 🛡️' : `READY ✨`, 'ok');
 }
 
 function startGameFromMenu(){
@@ -1106,6 +1311,10 @@ function loop(ts){
   elHudScore&& (elHudScore.textContent= String(Math.round(state.score)));
   elHudCombo&& (elHudCombo.textContent= String(state.combo));
 
+  // show skill/mini in topbar
+  elHudSkill && (elHudSkill.textContent = skillLabel(state.bossSkillKey) + (state.reverseOn ? '🌀' : ''));
+  elHudMini && (elHudMini.textContent = state.miniGoal ? (state.miniDone ? (state.miniGoal.label+' ✅') : state.miniGoal.label) : '—');
+
   const tip = AI.getHint();
   if (tip && phase === 2 && (state.elapsedMs % 7000 < 25)) showJudge(tip, 'combo');
 
@@ -1130,7 +1339,6 @@ function spawnObstacle(ts, phase){
   }
 }
 
-let nextObstacleId = 1;
 function makeOne(type, ts, isBoss){
   const isHigh = (type === 'high');
   const need = isHigh ? 'duck' : 'jump';
@@ -1196,12 +1404,29 @@ function updateObstacles(dt, now, phase, progress){
         const rt = Math.abs(a.time - now);
         const perfect = rt <= (cfg.hitWinMs * 0.55);
 
+        // apply Reverse skill (flip needed)
+        let need = obs.need;
+        if (phase === 3 && state.reverseOn) need = (need==='jump')?'duck':'jump';
+
+        // fake callout: one time misleading feedback (does not change rule)
+        if (phase === 3 && state.bossSkillKey==='fake_callout' && state.fakeArmed && rt <= cfg.hitWinMs){
+          state.fakeArmed = false;
+          showJudge('🎭 หลอก! อย่าเชื่อป้ายครั้งเดียว!', 'combo');
+          pushEvent('skill_fake_used', { extra: JSON.stringify({ at: Math.round(state.elapsedMs) }) });
+        }
+
         // correct
-        if (a.type === obs.need && rt <= cfg.hitWinMs){
+        if (a.type === need && rt <= cfg.hitWinMs){
           obs.resolved = true;
 
           state.hits++;
-          state.combo++;
+
+          // combo lock: only perfect can increase combo
+          if (phase === 3 && state.bossSkillKey==='combo_lock' && !perfect){
+            // keep combo (no increase)
+          }else{
+            state.combo++;
+          }
           state.maxCombo = Math.max(state.maxCombo, state.combo);
 
           const comboM = 1 + Math.min(state.combo-1, 6)*0.15;
@@ -1235,7 +1460,7 @@ function updateObstacles(dt, now, phase, progress){
           state.hitRTs.push(rt);
           feverGainOnHit();
 
-          AI.onOutcome(obs.need, true, rt);
+          AI.onOutcome(need, true, rt);
 
           obs.element && obs.element.remove();
           obs.element = null;
@@ -1243,20 +1468,17 @@ function updateObstacles(dt, now, phase, progress){
           playSfx('jd-sfx-hit');
           if (state.combo >= 8) playSfx('jd-sfx-combo');
 
-          const msg = perfect
-            ? (obs.need === 'jump' ? 'PERFECT JUMP! ⚡' : 'PERFECT DUCK! ⚡')
-            : (obs.need === 'jump' ? 'JUMP ดีมาก 🦘' : 'DUCK ทันเวลา 🛡️');
-
+          const msg = perfect ? 'PERFECT! ⚡' : 'OK! ✨';
           showJudge(msg, (state.combo>=8 || perfect) ? 'combo' : 'ok');
 
-          pushWinSample({ time_ms: Math.round(state.elapsedMs), need: obs.need, action: a.type, ok: 1, rt_ms: Math.round(rt) });
+          pushWinSample({ time_ms: Math.round(state.elapsedMs), need, action: a.type, ok: 1, rt_ms: Math.round(rt) });
+          updateMiniOnHit(need, perfect);
 
-          // ✅ events row (schema columns)
           pushEvent('hit', Object.assign({
             targetId: String(obs.id),
-            emoji: (obs.need === 'jump') ? '⬆' : '⬇',
+            emoji: (need === 'jump') ? '⬆' : '⬇',
             itemType: obs.type,
-            lane: (obs.need === 'jump') ? 'top' : 'bottom',
+            lane: (need === 'jump') ? 'top' : 'bottom',
             rtMs: Math.round(rt),
             judgment: perfect ? 'perfect' : 'ok',
             totalScore: Math.round(state.score),
@@ -1265,26 +1487,26 @@ function updateObstacles(dt, now, phase, progress){
             feverState: state.feverActive ? 'on' : 'off',
             feverValue: +state.fever.toFixed(1),
             goalProgress: '',
-            miniProgress: '',
-            extra: JSON.stringify({ bossHp: +state.bossHp.toFixed(1), bossPreset: state.bossPresetKey }),
+            miniProgress: state.miniGoal ? `${state.miniGoal.key}:${state.miniDone?1:0}` : '',
+            extra: JSON.stringify({ bossHp: +state.bossHp.toFixed(1), bossPreset: state.bossPresetKey, bossSkill: state.bossSkillKey, reverseOn: !!state.reverseOn }),
           }, winFeatures(), AI.snapshot()));
 
           continue;
         }
 
         // wrong action
-        if (rt <= cfg.hitWinMs && a.type !== obs.need){
+        if (rt <= cfg.hitWinMs && a.type !== need){
           obs.resolved = true;
 
           state.miss++;
           state.combo = 0;
           if (obs.need === 'jump') state.jumpMiss++; else state.duckMiss++;
 
-          state.stability = Math.max(0, state.stability - cfg.stabDmg);
+          const dmg = (phase === 3 && state.bossSkillKey==='stamina_drain') ? (cfg.stabDmg * 1.4) : cfg.stabDmg;
+          state.stability = Math.max(0, state.stability - dmg);
           state.minStability = Math.min(state.minStability, state.stability);
 
-          AI.onOutcome(obs.need, false, rt);
-
+          AI.onOutcome(need, false, rt);
           if (phase === 3 && state.bossShieldNeedStreak > 0) state.bossShieldStreak = 0;
 
           obs.element && obs.element.remove();
@@ -1295,13 +1517,14 @@ function updateObstacles(dt, now, phase, progress){
           elPlayArea?.classList.add('shake');
           setTimeout(()=> elPlayArea?.classList.remove('shake'), 180);
 
-          pushWinSample({ time_ms: Math.round(state.elapsedMs), need: obs.need, action: a.type, ok: 0, rt_ms: Math.round(rt) });
+          pushWinSample({ time_ms: Math.round(state.elapsedMs), need, action: a.type, ok: 0, rt_ms: Math.round(rt) });
+          updateMiniOnMiss();
 
           pushEvent('miss', Object.assign({
             targetId: String(obs.id),
-            emoji: (obs.need === 'jump') ? '⬆' : '⬇',
+            emoji: (need === 'jump') ? '⬆' : '⬇',
             itemType: obs.type,
-            lane: (obs.need === 'jump') ? 'top' : 'bottom',
+            lane: (need === 'jump') ? 'top' : 'bottom',
             rtMs: Math.round(rt),
             judgment: 'wrong',
             totalScore: Math.round(state.score),
@@ -1309,7 +1532,7 @@ function updateObstacles(dt, now, phase, progress){
             isGood: 0,
             feverState: state.feverActive ? 'on' : 'off',
             feverValue: +state.fever.toFixed(1),
-            extra: JSON.stringify({ reason:'wrong-action', bossPreset: state.bossPresetKey })
+            extra: JSON.stringify({ reason:'wrong-action', bossSkill: state.bossSkillKey, reverseOn: !!state.reverseOn })
           }, winFeatures(), AI.snapshot()));
 
           continue;
@@ -1325,7 +1548,8 @@ function updateObstacles(dt, now, phase, progress){
       state.combo = 0;
       if (obs.need === 'jump') state.jumpMiss++; else state.duckMiss++;
 
-      state.stability = Math.max(0, state.stability - cfg.stabDmg);
+      const dmg = (phase === 3 && state.bossSkillKey==='stamina_drain') ? (cfg.stabDmg * 1.4) : cfg.stabDmg;
+      state.stability = Math.max(0, state.stability - dmg);
       state.minStability = Math.min(state.minStability, state.stability);
 
       AI.onOutcome(obs.need, false, NaN);
@@ -1335,11 +1559,12 @@ function updateObstacles(dt, now, phase, progress){
       obs.element = null;
 
       playSfx('jd-sfx-miss');
-      showJudge('MISS ลองใหม่อีกที ✨', 'miss');
+      showJudge('MISS ลองใหม่ ✨', 'miss');
       elPlayArea?.classList.add('shake');
       setTimeout(()=> elPlayArea?.classList.remove('shake'), 180);
 
       pushWinSample({ time_ms: Math.round(state.elapsedMs), need: obs.need, action: lastAction ? lastAction.type : '', ok: 0, rt_ms: '' });
+      updateMiniOnMiss();
 
       pushEvent('miss', Object.assign({
         targetId: String(obs.id),
@@ -1353,7 +1578,7 @@ function updateObstacles(dt, now, phase, progress){
         isGood: 0,
         feverState: state.feverActive ? 'on' : 'off',
         feverValue: +state.fever.toFixed(1),
-        extra: JSON.stringify({ reason:'late-no-action', bossPreset: state.bossPresetKey })
+        extra: JSON.stringify({ reason:'late-no-action', bossSkill: state.bossSkillKey })
       }, winFeatures(), AI.snapshot()));
 
       if (state.stability <= 0){
@@ -1361,7 +1586,6 @@ function updateObstacles(dt, now, phase, progress){
         endGame('stability-zero');
         return;
       }
-
       continue;
     }
 
@@ -1390,13 +1614,11 @@ function triggerAction(type){
     setTimeout(()=> elAvatar?.classList.remove(type), 180);
   }
 }
-
 function handleKeyDown(ev){
   if (!running) return;
   if (ev.code === 'ArrowUp' || ev.code === 'KeyW'){ ev.preventDefault(); triggerAction('jump'); }
   else if (ev.code === 'ArrowDown' || ev.code === 'KeyS'){ ev.preventDefault(); triggerAction('duck'); }
 }
-
 function handlePointerDown(ev){
   if (!running || !elPlayArea) return;
   const rect = elPlayArea.getBoundingClientRect();
@@ -1404,7 +1626,6 @@ function handlePointerDown(ev){
   if (ev.clientY < mid) triggerAction('jump');
   else triggerAction('duck');
 }
-
 function onHhaShoot(ev){
   if (!running || !elPlayArea) return;
   const d = ev?.detail || {};
@@ -1413,6 +1634,24 @@ function onHhaShoot(ev){
   const mid = rect.top + rect.height/2;
   if (y < mid) triggerAction('jump');
   else triggerAction('duck');
+}
+
+/* -------------------------
+   Save profile
+------------------------- */
+async function saveProfile(){
+  if (!HHA_CTX.log){
+    setStatus(elProfileStatus, '⚠ ไม่มี ?log= (ยังไม่ใส่ Web App URL)', 'bad');
+    return;
+  }
+  const row = buildProfileRow();
+  if (!row.studentKey){
+    setStatus(elProfileStatus, '⚠ กรุณาใส่ Participant ID (studentKey)', 'bad');
+    return;
+  }
+  setStatus(elProfileStatus, '⏳ กำลังบันทึก...', '');
+  const ok = await postLogTable('students-profile', [row]);
+  setStatus(elProfileStatus, ok ? '✅ บันทึกแล้ว' : '❌ บันทึกไม่สำเร็จ', ok ? 'ok' : 'bad');
 }
 
 /* -------------------------
@@ -1429,6 +1668,14 @@ async function initJD(){
   if (elGroup && HHA_CTX.group) elGroup.value = HHA_CTX.group;
   if (elNote && HHA_CTX.note) elNote.value = HHA_CTX.note;
 
+  // populate profile (optional)
+  if (elNick && HHA_CTX.nickName) elNick.value = HHA_CTX.nickName;
+  if (elGender && HHA_CTX.gender) elGender.value = HHA_CTX.gender;
+  if (elAge && HHA_CTX.age) elAge.value = HHA_CTX.age;
+  if (elGrade && HHA_CTX.gradeLevel) elGrade.value = HHA_CTX.gradeLevel;
+  if (elHeight && HHA_CTX.heightCm) elHeight.value = HHA_CTX.heightCm;
+  if (elWeight && HHA_CTX.weightKg) elWeight.value = HHA_CTX.weightKg;
+
   elMode?.addEventListener('change', updateResearchVisibility);
   updateResearchVisibility();
 
@@ -1441,6 +1688,8 @@ async function initJD(){
   $('[data-action="jump"]')?.addEventListener('click', ()=> triggerAction('jump'));
   $('[data-action="duck"]')?.addEventListener('click', ()=> triggerAction('duck'));
 
+  $('[data-action="save-profile"]')?.addEventListener('click', saveProfile);
+
   window.addEventListener('keydown', handleKeyDown, {passive:false});
   elPlayArea?.addEventListener('pointerdown', handlePointerDown, {passive:false});
 
@@ -1449,11 +1698,5 @@ async function initJD(){
 
   showView('menu');
 }
-
-window.JD_EXPORT = {
-  getState(){ return state ? JSON.parse(JSON.stringify(state)) : null; },
-  getEvents(){ return state ? JSON.parse(JSON.stringify(state.events)) : []; },
-  getSessions(){ return state ? JSON.parse(JSON.stringify(state.sessions)) : []; }
-};
 
 window.addEventListener('DOMContentLoaded', initJD);
