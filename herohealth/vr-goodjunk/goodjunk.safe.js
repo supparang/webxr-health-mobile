@@ -1,16 +1,16 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE) — PATCH v20260217-freezeGuard
+// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
 // ✅ STORM when timeLeft<=30s
 // ✅ BOSS when miss>=4
 // ✅ RAGE when miss>=5
 // ✅ Boss HP by diff: easy/normal/hard = 10/12/14
-// ✅ Phase2 cadence every 6s
+// ✅ Phase cadence every 6s (Phase 1 <-> Phase 2)
+// ✅ Telegraph: "incoming" cue ก่อน stomp/burst
 // ✅ Miss = good expired + junk hit ; Shield-blocked junk NOT count miss
-// ✅ HUD-safe spawn via --gj-top-safe / --gj-bottom-safe
+// ✅ HUD-safe spawn via --gj-top-safe / --gj-bottom-safe (CSS variables)
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
-// ✅ cVR/VR shoot from center via hha:shoot
-// ✅ FIX: GOAL/MINI HUD now updates (no more "ภารกิจไม่แสดง")
-// ✅ FIX(FREEZE): no R-eye clone unless VR/cVR + hard limits + budgets + HUD throttle
+// ✅ VR/cVR shoot from center via hha:shoot
+// ✅ FIX: Quest panel/HUD IDs match + quest:update always emitted
 
 'use strict';
 
@@ -28,31 +28,20 @@ export function boot(payload = {}) {
     try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // fx bridge (Particles.js)
-  function fx(){
-    return ROOT.Particles || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || null;
+  // fx bridge
+  function fx(){ return ROOT.Particles || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || null; }
+  function fxText(x,y,txt){
+    try{
+      const P = fx();
+      if(P && typeof P.popText==='function') P.popText(x,y,txt);
+    }catch(_){}
   }
-
-  // ---------------- config ----------------
-  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
-  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
-  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
-  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
-  const hub = payload.hub ?? qs('hub', null);
-  const seedParam = (payload.seed ?? qs('seed', null));
-  const seed = (runMode === 'research')
-    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
-    : (seedParam ?? String(Date.now()));
-
-  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
-  const phase = payload.phase ?? qs('phase', null);
-  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
-
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-17_freezeGuard';
-  const PROJECT_TAG = 'GoodJunkVR';
-
-  const isVR  = (view === 'vr');
-  const isCVR = (view === 'cvr');
+  function bodyPulse(cls, ms=160){
+    try{
+      DOC.body.classList.add(cls);
+      setTimeout(()=>DOC.body.classList.remove(cls), ms);
+    }catch(_){}
+  }
 
   // seeded RNG
   function xmur3(str){
@@ -81,8 +70,8 @@ export function boot(payload = {}) {
     };
   }
   function makeSeededRng(seedStr){
-    const seedS = String(seedStr ?? '');
-    const gen = xmur3(seedS || String(Date.now()));
+    const seed = String(seedStr ?? '');
+    const gen = xmur3(seed || String(Date.now()));
     return sfc32(gen(), gen(), gen(), gen());
   }
   function randIn(rng, a, b){ return a + (b-a) * rng(); }
@@ -98,14 +87,34 @@ export function boot(payload = {}) {
     return items[items.length-1]?.k;
   }
 
-  function deviceLabel(viewS){
-    if(viewS==='pc') return 'pc';
-    if(viewS==='vr') return 'vr';
-    if(viewS==='cvr') return 'cvr';
+  function deviceLabel(view){
+    if(view==='pc') return 'pc';
+    if(view==='vr') return 'vr';
+    if(view==='cvr') return 'cvr';
     return 'mobile';
   }
 
+  // ---------------- config ----------------
+  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
+  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
+  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
+  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
+
+  const seedParam = (payload.seed ?? qs('seed', null));
+  const seed = (runMode === 'research')
+    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
+    : (seedParam ?? String(Date.now()));
+
+  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
+  const phase = payload.phase ?? qs('phase', null);
+  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
+
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-17_BOSSpp';
+  const PROJECT_TAG = 'GoodJunkVR';
+
   const rng = makeSeededRng(String(seed));
+  const isVR  = (view === 'vr');
+  const isCVR = (view === 'cvr');
 
   const LAYER_L = byId('gj-layer');
   const LAYER_R = byId('gj-layer-r');
@@ -114,6 +123,14 @@ export function boot(payload = {}) {
     console.error('[GoodJunkVR] missing #gj-layer');
     return;
   }
+
+  // show right eye only when cvr (so you can wire later)
+  try{
+    if(LAYER_R){
+      LAYER_R.setAttribute('aria-hidden', (isCVR ? 'false' : 'true'));
+      LAYER_R.style.display = isCVR ? 'block' : 'none';
+    }
+  }catch(_){}
 
   const DIFF = (() => {
     if(diff==='easy') return {
@@ -140,7 +157,7 @@ export function boot(payload = {}) {
       missLimit: 9,
       bossHP: 14,
     };
-    return { // normal
+    return {
       spawnPerSec: 1.35,
       junkRate: 0.27,
       starRate: 0.07,
@@ -156,7 +173,7 @@ export function boot(payload = {}) {
 
   const adaptiveOn = (runMode !== 'research');
 
-  // ---------------- UI refs ----------------
+  // ---------------- UI refs (IDs ต้องตรงกับ HTML/CSS) ----------------
   const HUD = {
     score: byId('hud-score'),
     time: byId('hud-time'),
@@ -178,11 +195,19 @@ export function boot(payload = {}) {
     lowTimeOverlay: byId('lowTimeOverlay'),
     lowTimeNum: byId('gj-lowtime-num'),
 
-    // optional widgets (safe if missing)
     bossBar: byId('bossBar'),
     bossFill: byId('bossFill'),
     bossHint: byId('bossHint'),
+
     progressFill: byId('gjProgressFill'),
+
+    endOverlay: byId('endOverlay'),
+    endTitle: byId('endTitle'),
+    endSub: byId('endSub'),
+    endGrade: byId('endGrade'),
+    endScore: byId('endScore'),
+    endMiss: byId('endMiss'),
+    endTime: byId('endTime'),
   };
 
   // ---------------- state ----------------
@@ -190,8 +215,6 @@ export function boot(payload = {}) {
     started: false,
     ended: false,
 
-    tStart: 0,
-    tNow: 0,
     timeLeftSec: durationPlannedSec,
 
     score: 0,
@@ -211,14 +234,12 @@ export function boot(payload = {}) {
     nHitJunkGuard: 0,
     nExpireGood: 0,
 
-    // RT
     rtGood: [],
 
-    // fever / shield
     fever: 0,
     shield: 0,
 
-    // quests (simple but always visible)
+    // quests
     goalObj: null,
     miniObj: null,
     lastQuestEmitAt: 0,
@@ -227,7 +248,7 @@ export function boot(payload = {}) {
     spawnAcc: 0,
     targets: new Map(),
 
-    // BOSS / STORM / RAGE
+    // modes
     stormOn: false,
     bossOn: false,
     rageOn: false,
@@ -237,8 +258,12 @@ export function boot(payload = {}) {
       hp: DIFF.bossHP,
       hpMax: DIFF.bossHP,
       phase: 1,
-      phaseEverySec: 6,
+      phaseEverySec: 6,      // ✅ spec
       phaseTimer: 0,
+      // telegraph timers
+      teleOn: false,
+      teleTimer: 0,
+      teleDur: 0.75,         // 750ms warning before action
       stompCooldown: 0,
       rageBoost: 0,
     },
@@ -247,71 +272,6 @@ export function boot(payload = {}) {
     endTimeIso: null,
   };
 
-  // === FREEZE GUARD LIMITS ===
-  const LIMITS = {
-    MAX_TARGETS_MOBILE: 16,
-    MAX_TARGETS_PC: 18,
-    MAX_TARGETS_VR: 22,
-    SPAWN_BUDGET_PER_SEC: 10, // spawnOne per sec (all sources)
-    FX_BUDGET_PER_SEC: 16,    // fxText per sec
-    HUD_FPS: 8,               // DOM writes per sec (progress/boss/quest loop)
-  };
-
-  let _spawnBudget = LIMITS.SPAWN_BUDGET_PER_SEC;
-  let _fxBudget = LIMITS.FX_BUDGET_PER_SEC;
-  let _budgetTs = now();
-
-  function refillBudgets(){
-    const t = now();
-    if(t - _budgetTs >= 1000){
-      _spawnBudget = LIMITS.SPAWN_BUDGET_PER_SEC;
-      _fxBudget = LIMITS.FX_BUDGET_PER_SEC;
-      _budgetTs = t;
-    }
-  }
-  function canSpawn(){
-    refillBudgets();
-    if(_spawnBudget <= 0) return false;
-    _spawnBudget--;
-    return true;
-  }
-  function canFx(){
-    refillBudgets();
-    if(_fxBudget <= 0) return false;
-    _fxBudget--;
-    return true;
-  }
-  function maxTargetsNow(){
-    if(isVR || isCVR) return LIMITS.MAX_TARGETS_VR;
-    return (view === 'pc') ? LIMITS.MAX_TARGETS_PC : LIMITS.MAX_TARGETS_MOBILE;
-  }
-  function trimTargetsIfNeeded(){
-    const maxT = maxTargetsNow();
-    if(state.targets.size <= maxT) return;
-    const arr = Array.from(state.targets.values());
-    arr.sort((a,b)=> (a.bornAt||0) - (b.bornAt||0));
-    const over = state.targets.size - maxT;
-    for(let i=0;i<over;i++){
-      removeTarget(arr[i]);
-    }
-  }
-
-  // fx helpers
-  function fxText(x,y,txt){
-    try{
-      if(!canFx()) return; // ✅ budget guard
-      const P = fx();
-      if(P && typeof P.popText==='function') P.popText(x,y,txt);
-    }catch(_){}
-  }
-  function bodyPulse(cls, ms=160){
-    try{
-      DOC.body.classList.add(cls);
-      setTimeout(()=>DOC.body.classList.remove(cls), ms);
-    }catch(_){}
-  }
-
-  // ---------------- class hooks ----------------
   function setModeClass(){
     const b = DOC.body;
     b.classList.toggle('storm', !!state.stormOn);
@@ -337,10 +297,17 @@ export function boot(payload = {}) {
   function setGradeText(txt){
     if(HUD.grade) HUD.grade.textContent = txt;
   }
+
   function addFever(delta){
     state.fever = clamp(state.fever + (Number(delta)||0), 0, 100);
     if(HUD.feverFill) HUD.feverFill.style.width = `${state.fever}%`;
     if(HUD.feverText) HUD.feverText.textContent = `${Math.round(state.fever)}%`;
+  }
+  function renderShield(){
+    if(!HUD.shieldPills) return;
+    const pills = [];
+    for(let i=0;i<state.shield;i++) pills.push('🛡️');
+    HUD.shieldPills.textContent = pills.length ? pills.join(' ') : '—';
   }
   function addShield(n){
     state.shield = clamp(state.shield + (Number(n)||0), 0, 5);
@@ -353,12 +320,6 @@ export function boot(payload = {}) {
       return true;
     }
     return false;
-  }
-  function renderShield(){
-    if(!HUD.shieldPills) return;
-    const pills = [];
-    for(let i=0;i<state.shield;i++) pills.push('🛡️');
-    HUD.shieldPills.textContent = pills.length ? pills.join(' ') : '—';
   }
 
   function updateLowTimeFx(){
@@ -374,7 +335,7 @@ export function boot(payload = {}) {
     }
   }
 
-  // ---------------- QUEST UI ----------------
+  // ---------------- QUEST UI (ภารกิจขึ้นแน่) ----------------
   function setQuestUI(goalObj, miniObj, forceEmit=false){
     state.goalObj = goalObj || state.goalObj;
     state.miniObj = miniObj || state.miniObj;
@@ -408,14 +369,14 @@ export function boot(payload = {}) {
 
     const tLeft = Math.ceil(state.timeLeftSec);
     const tPassed = Math.max(0, Math.floor(durationPlannedSec - state.timeLeftSec));
-    const stormIn = Math.max(0, tLeft - 30);
+    const toStorm = Math.max(0, Math.ceil(state.timeLeftSec - 30));
 
     let title = 'BOSS / STORM';
     let timerText = `⏱ ${tPassed}/${durationPlannedSec}s`;
 
     if(!state.stormOn){
       title = 'STORM incoming';
-      timerText = `⚡อีก ${stormIn}s`;
+      timerText = `⚡อีก ${toStorm}s`;
     }else{
       title = state.boss.active ? (state.rageOn ? 'RAGE Boss' : 'Boss Battle') : 'STORM';
       timerText = `⏱ เหลือ ${tLeft}s`;
@@ -432,11 +393,13 @@ export function boot(payload = {}) {
       HUD.bossBar.setAttribute('aria-hidden','false');
       const pct = state.boss.hpMax ? clamp(state.boss.hp / state.boss.hpMax, 0, 1) : 0;
       HUD.bossFill.style.width = `${Math.round(pct * 100)}%`;
+
       if(HUD.bossHint){
         HUD.bossHint.textContent =
           `HP ${state.boss.hp}/${state.boss.hpMax} • Phase ${state.boss.phase}` +
           (state.rageOn ? ' • RAGE' : '') +
-          (state.stormOn ? ' • STORM' : '');
+          (state.stormOn ? ' • STORM' : '') +
+          (state.boss.teleOn ? ' • ⚠️ INCOMING' : '');
       }
     }else{
       HUD.bossBar.setAttribute('aria-hidden','true');
@@ -465,8 +428,8 @@ export function boot(payload = {}) {
     const H = DOC.documentElement.clientHeight;
 
     const sat = readRootPxVar('--sat', 0);
-    const topSafe = readRootPxVar('--gj-top-safe', 130 + sat);
-    const botSafe = readRootPxVar('--gj-bottom-safe', 120);
+    const topSafe = readRootPxVar('--gj-top-safe', 140 + sat);
+    const botSafe = readRootPxVar('--gj-bottom-safe', 140);
 
     const xMin = Math.floor(W * 0.12);
     const xMax = Math.floor(W * 0.88);
@@ -519,11 +482,6 @@ export function boot(payload = {}) {
   function spawnOne(){
     if(state.ended) return;
 
-    // ✅ FREEZE GUARD: budgets + hard cap
-    if(!canSpawn()) return;
-    trimTargetsIfNeeded();
-    if(state.targets.size >= maxTargetsNow()) return;
-
     const kind = makeTargetKind();
 
     if(kind==='good') state.nTargetGoodSpawned++;
@@ -533,6 +491,7 @@ export function boot(payload = {}) {
     else if(kind==='diamond') state.nTargetDiamondSpawned++;
 
     const id = `t${++targetSeq}`;
+
     const baseLife =
       (kind==='good') ? DIFF.goodLifeMs :
       (kind==='junk') ? Math.round(DIFF.goodLifeMs * 1.05) :
@@ -567,8 +526,7 @@ export function boot(payload = {}) {
     elL.style.fontSize = `${size}px`;
 
     let elR = null;
-    // ✅ clone ตาขวา เฉพาะ VR/cVR (กันมือถือ/pc หนัก)
-    if((isVR || isCVR) && LAYER_R){
+    if(LAYER_R && isCVR){
       elR = elL.cloneNode(true);
       elR.dataset.eye = 'r';
     }
@@ -623,6 +581,9 @@ export function boot(payload = {}) {
       b.phaseTimer = 0;
       b.stompCooldown = 0;
       b.rageBoost = 0;
+      b.teleOn = false;
+      b.teleTimer = 0;
+
       setModeClass();
 
       const bonus = 120;
@@ -721,6 +682,7 @@ export function boot(payload = {}) {
       emit('hha:judge', { label:'SKULL!' });
       bodyPulse('gj-skull-hit', 240);
 
+      // in Phase2 skull primes stomp sooner
       if(state.boss.active && state.boss.phase===2){
         state.boss.stompCooldown = Math.max(state.boss.stompCooldown, 0.9);
       }
@@ -835,12 +797,18 @@ export function boot(payload = {}) {
     if(wantBoss && !state.bossOn){
       state.bossOn = true;
       state.boss.active = true;
+
       state.boss.hpMax = DIFF.bossHP;
       state.boss.hp = DIFF.bossHP;
+
       state.boss.phase = 1;
       state.boss.phaseTimer = 0;
+
       state.boss.stompCooldown = 0;
       state.boss.rageBoost = 0;
+
+      state.boss.teleOn = true;      // start with a warning burst
+      state.boss.teleTimer = 0;
 
       emit('hha:judge', { label:`BOSS! HP ${state.boss.hp}/${state.boss.hpMax}` });
       fxText(DOC.documentElement.clientWidth/2, 110, '👹 BOSS');
@@ -860,44 +828,90 @@ export function boot(payload = {}) {
     setModeClass();
   }
 
-  // ---------------- boss tick ----------------
+  // ---------------- boss tick (Telegraph + Phase + Actions) ----------------
+  function bossTelegraphStart(label){
+    state.boss.teleOn = true;
+    state.boss.teleTimer = 0;
+    emit('hha:judge', { label: `⚠️ ${label}` });
+    fxText(DOC.documentElement.clientWidth/2, 168, '⚠️ INCOMING');
+    bodyPulse('gj-tele', 180);
+    updateBossUI();
+  }
+
+  function bossDoStomp(){
+    // stomp pops 2 goods (punish) — but still fair: only if goods exist
+    let popped = 0;
+    for(const tObj of state.targets.values()){
+      if(popped >= 2) break;
+      if(!tObj.hit && tObj.kind === 'good'){
+        tObj.hit = true;
+        state.nExpireGood++;
+        setMiss(state.miss + 1);
+        fxText(tObj.x,tObj.y,'STOMP');
+        removeTarget(tObj);
+        popped++;
+      }
+    }
+    emit('hha:judge', { label:'STOMP!' });
+    bodyPulse('gj-stomp', 240);
+    updateModeThresholds();
+    updateBossUI();
+    recomputeQuest();
+  }
+
+  function bossDoBurst(){
+    // burst: spawn hazards quickly (skull/bomb bias via makeTargetKind weights)
+    const n = state.rageOn ? 4 : 3;
+    for(let i=0;i<n;i++) spawnOne();
+    emit('hha:judge', { label:'BURST!' });
+    fxText(DOC.documentElement.clientWidth/2, 190, '💥 BURST');
+    bodyPulse('gj-burst', 240);
+  }
+
   function tickBoss(dt){
     if(!state.boss.active) return;
     const b = state.boss;
 
+    // Phase flip cadence
     b.phaseTimer += dt;
     if(b.phaseTimer >= b.phaseEverySec){
       b.phaseTimer = 0;
       b.phase = (b.phase === 1) ? 2 : 1;
       emit('hha:judge', { label: (b.phase===2 ? 'PHASE 2!' : 'PHASE 1') });
       fxText(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1');
-
       if(b.phase===2){
+        // Phase2: more pressure
         for(let i=0;i<2;i++) spawnOne();
       }
       updateBossUI();
+
+      // telegraph next action at phase switch
+      bossTelegraphStart(b.phase===2 ? 'Burst' : 'Stomp');
     }
 
+    // Telegraph countdown -> action
+    if(b.teleOn){
+      b.teleTimer += dt;
+      if(b.teleTimer >= b.teleDur){
+        b.teleOn = false;
+        b.teleTimer = 0;
+
+        // Action selection (deterministic): phase2 = burst, phase1 = stomp
+        if(b.phase===2) bossDoBurst();
+        else bossDoStomp();
+
+        updateBossUI();
+      }
+    }
+
+    // extra punish trigger: stompCooldown (skull prime)
     if(b.stompCooldown > 0){
       b.stompCooldown = Math.max(0, b.stompCooldown - dt);
       if(b.stompCooldown <= 0){
-        let popped = 0;
-        for(const tObj of state.targets.values()){
-          if(popped >= 2) break;
-          if(!tObj.hit && tObj.kind === 'good'){
-            tObj.hit = true;
-            state.nExpireGood++;
-            setMiss(state.miss + 1);
-            fxText(tObj.x,tObj.y,'STOMP');
-            removeTarget(tObj);
-            popped++;
-          }
-        }
-        emit('hha:judge', { label:'STOMP!' });
-        bodyPulse('gj-stomp', 240);
-        updateModeThresholds();
-        updateBossUI();
-        recomputeQuest();
+        bossTelegraphStart('Stomp');
+        // schedule stomp after teleDur by setting teleOn, and ensure phase is 1-ish behavior
+        b.phase = 1;
+        b.phaseTimer = Math.min(b.phaseTimer, b.phaseEverySec - 0.2);
       }
     }
   }
@@ -920,7 +934,6 @@ export function boot(payload = {}) {
     }
 
     if(state.timeLeftSec <= 10) r *= 1.12;
-
     return clamp(r, 0.85, 2.25);
   }
 
@@ -945,6 +958,20 @@ export function boot(payload = {}) {
     return 'D';
   }
 
+  function showEndOverlay(detail){
+    // ทำแบบ “ไม่ซ้ำ listener”: safe.js เป็นตัวเดียวที่โชว์ overlay
+    try{
+      if(!HUD.endOverlay) return;
+      HUD.endTitle && (HUD.endTitle.textContent = (detail?.reason==='miss-limit') ? 'Game Over' : 'Completed');
+      HUD.endSub && (HUD.endSub.textContent = `reason=${detail?.reason||'-'} | mode=${detail?.runMode||runMode} | view=${detail?.device||deviceLabel(view)}`);
+      HUD.endGrade && (HUD.endGrade.textContent = detail?.grade || '—');
+      HUD.endScore && (HUD.endScore.textContent = String(detail?.scoreFinal ?? 0));
+      HUD.endMiss && (HUD.endMiss.textContent  = String(detail?.misses ?? 0));
+      HUD.endTime && (HUD.endTime.textContent  = String(Math.round(Number(detail?.durationPlayedSec||0))));
+      HUD.endOverlay.setAttribute('aria-hidden','false');
+    }catch(_){}
+  }
+
   function endGame(reason='timeup'){
     if(state.ended) return;
     state.ended = true;
@@ -964,30 +991,30 @@ export function boot(payload = {}) {
 
     const durationPlayedSec = Math.round(durationPlannedSec - state.timeLeftSec);
 
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-        projectTag: PROJECT_TAG,
-        gameVersion: GAME_VERSION,
-        device: deviceLabel(view),
-        runMode,
-        diff,
-        seed,
-        reason,
-        durationPlannedSec,
-        durationPlayedSec,
-        scoreFinal,
-        comboMax,
-        misses,
-        avgRtGoodMs,
-        medianRtGoodMs,
-        bossDefeated: !state.boss.active && state.bossOn,
-        stormOn: state.stormOn,
-        rageOn: state.rageOn,
-        startTimeIso: state.startTimeIso,
-        endTimeIso: state.endTimeIso,
-        grade,
-      }));
-    }catch(_){}
+    const summary = {
+      projectTag: PROJECT_TAG,
+      gameVersion: GAME_VERSION,
+      device: deviceLabel(view),
+      runMode,
+      diff,
+      seed,
+      reason,
+      durationPlannedSec,
+      durationPlayedSec,
+      scoreFinal,
+      comboMax,
+      misses,
+      avgRtGoodMs,
+      medianRtGoodMs,
+      bossDefeated: !state.boss.active && state.bossOn,
+      stormOn: state.stormOn,
+      rageOn: state.rageOn,
+      startTimeIso: state.startTimeIso,
+      endTimeIso: state.endTimeIso,
+      grade,
+    };
+
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
     emit('hha:end', {
       projectTag: PROJECT_TAG,
@@ -1013,12 +1040,14 @@ export function boot(payload = {}) {
       grade,
     });
 
+    // ✅ โชว์ end overlay (ถ้ามีใน HTML)
+    showEndOverlay({ ...summary });
+
     emit('hha:celebrate', { kind:'end', grade });
   }
 
   // ---------------- loop ----------------
   let lastTick = 0;
-  let _hudAcc = 0; // ✅ HUD throttle accumulator
 
   function tick(){
     if(state.ended) return;
@@ -1028,45 +1057,31 @@ export function boot(payload = {}) {
     const dt = Math.min(0.05, (t - lastTick) / 1000);
     lastTick = t;
 
-    state.tNow = t;
-
     // time
     state.timeLeftSec -= dt;
     if(state.timeLeftSec < 0) state.timeLeftSec = 0;
     setTimeLeft(state.timeLeftSec);
 
-    // thresholds (storm at 30s)
     updateModeThresholds();
     updateLowTimeFx();
 
-    // boss mechanics
     tickBoss(dt);
 
     // spawn
     state.spawnAcc += dt * spawnRate();
-
-    // ✅ cap spawn per-frame (กัน spike)
-    let frameSpawnCap = 6;
-    while(state.spawnAcc >= 1 && frameSpawnCap-- > 0){
+    while(state.spawnAcc >= 1){
       state.spawnAcc -= 1;
       spawnOne();
       if(state.rageOn && rng() < 0.18) spawnOne();
       if(state.stormOn && state.timeLeftSec <= 8 && rng() < 0.14) spawnOne();
     }
 
-    // expiry
     expireTargets();
 
-    // UI (throttled) ✅ กันมือถือค้างจาก DOM writes
-    _hudAcc += dt;
-    if(_hudAcc >= (1 / LIMITS.HUD_FPS)){
-      _hudAcc = 0;
-      updateProgressUI();
-      updateBossUI();
-      recomputeQuest();
-    }
+    updateProgressUI();
+    updateBossUI();
+    recomputeQuest();
 
-    // end by time
     if(state.timeLeftSec <= 0){
       endGame('timeup');
       return;
@@ -1081,17 +1096,19 @@ export function boot(payload = {}) {
     setMiss(0);
     setTimeLeft(durationPlannedSec);
     setGradeText('—');
+
     addFever(0);
     renderShield();
+
     updateProgressUI();
     updateBossUI();
 
     emit('hha:coach', {
-      msg: 'โหดขึ้นแล้ว! ⚡เหลือ 30s = STORM | MISS ≥4 = BOSS | MISS ≥5 = RAGE (ระวัง 💣/💀)',
+      msg: 'โหดขึ้นแล้ว! ⚡เหลือ 30s = STORM | MISS ≥4 = BOSS | MISS ≥5 = RAGE (ระวัง 💣/💀) — มี ⚠️ telegraph ให้หลบ/สวน',
       kind: 'tip'
     });
 
-    // ✅ ensure quest visible immediately
+    // ✅ quest visible immediately
     recomputeQuest();
     setQuestUI(state.goalObj, state.miniObj, true);
   }
@@ -1100,9 +1117,7 @@ export function boot(payload = {}) {
     if(state.started) return;
     state.started = true;
 
-    state.tStart = now();
     state.startTimeIso = new Date().toISOString();
-
     initHud();
 
     emit('hha:start', {
@@ -1125,22 +1140,6 @@ export function boot(payload = {}) {
 
   start();
 
-  // flush helpers
-  DOC.addEventListener('visibilitychange', ()=>{
-    try{
-      if(DOC.visibilityState === 'hidden' && !state.ended){
-        emit('hha:log', { type:'visibility', v:'hidden', t: new Date().toISOString() });
-      }
-    }catch(_){}
-  }, { passive:true });
-
-  ROOT.addEventListener('pagehide', ()=>{
-    try{
-      if(!state.ended){
-        emit('hha:log', { type:'pagehide', t: new Date().toISOString() });
-      }
-    }catch(_){}
-  }, { passive:true });
-
+  // debug hook
   ROOT.__GJ_STATE__ = state;
 }
