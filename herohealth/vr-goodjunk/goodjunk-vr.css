@@ -1,483 +1,429 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION v20260217c
-✅ compact (ไม่แน่น) + Quest panel overlay lock
-✅ z-index lock: FX layer ไม่โดนทับ / HUD กดได้
-✅ HUD-safe spawn vars: --gj-top-safe / --gj-bottom-safe
-✅ low-time overlay ชัด (aria-hidden drives)
-✅ รองรับ pc/mobile/vr/cvr ด้วย class ที่ boot ใส่ให้ (view-*)
+   GoodJunkVR UI — compact + overlay-lock + z-index FX — v20260217c
+   Goals:
+   - ลดความแน่นบนมือถือ: 2-col HUD, card compact, collapsible sections
+   - เว้นพื้นที่ให้ vr-ui (ENTER VR/RECENTER) ไม่ทับ HUD
+   - ล็อก overlay ให้คลิกได้/ไม่ทะลุ
+   - z-index ชัด: FX < targets < HUD < overlays < vr-ui
 */
 
 :root{
-  --bg:#060812;
-  --panel: rgba(10,14,30,.74);
-  --panel2: rgba(10,14,30,.56);
-  --stroke: rgba(255,255,255,.12);
-  --stroke2: rgba(255,255,255,.18);
+  --bg0:#060b1a;
+  --bg1:#081024;
+
+  --panel: rgba(10, 16, 40, .58);
+  --panel2: rgba(10, 16, 40, .72);
+  --stroke: rgba(255,255,255,.10);
+  --stroke2: rgba(255,255,255,.14);
+
   --txt: rgba(255,255,255,.92);
-  --muted: rgba(255,255,255,.68);
+  --muted: rgba(255,255,255,.72);
 
-  --r: 22px;
-  --shadow: 0 18px 52px rgba(0,0,0,.55);
-
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  /* JS boot จะอัปเดตค่านี้ต่อเนื่อง (สำคัญกับ spawn safe) */
-  --gj-top-safe: calc(140px + var(--sat));
-  --gj-bottom-safe: calc(140px + var(--sab));
+  /* reserve bottom for vr-ui buttons */
+  --vrui-reserve: 84px; /* เพิ่ม/ลดได้ตามความสูงปุ่ม */
+  --hud-gap: 10px;
+
+  /* spawn safe zones (used by safe.js) */
+  --gj-top-safe: 140px;   /* กันหัว HUD */
+  --gj-bottom-safe: 160px;/* กันแถบล่าง + vr-ui */
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body.gj{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", Arial, sans-serif;
-  background:
-    radial-gradient(1200px 700px at 50% 10%, rgba(70,120,255,.18), transparent 62%),
-    radial-gradient(900px 700px at 70% 120%, rgba(80,220,170,.14), transparent 64%),
-    linear-gradient(180deg, #040610, #060a18);
+/* ---------- base ---------- */
+html,body{
+  margin:0; padding:0;
+  height:100%;
+  background: radial-gradient(1200px 700px at 50% 0%, rgba(90,120,255,.20), transparent 60%),
+              linear-gradient(180deg, var(--bg1), var(--bg0));
   color: var(--txt);
-  overflow:hidden;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/* ========== Z-INDEX LOCK (กัน effect หาย) ========== */
-/* playfield อยู่ฐาน */
-.gj-field{ position:fixed; inset:0; z-index:10; overflow:hidden; }
-/* targets layer */
-.gj-layer{ position:absolute; inset:0; pointer-events:auto; transform:none !important; }
-.gj-layer-r{ display:none; }
-
-/* FX layer from particles.js -> .hha-fx-layer uses z-index:90 (ในไฟล์คุณ) */
-/* เรา “กันทับ” ด้วยการทำ HUD สูงกว่า และ overlay panel สูงสุด */
-.gj-topbar{ z-index: 200; }
-.gj-hud-top{ z-index: 180; }
-.gj-hud-bot{ z-index: 170; }
-.gj-lowtime-overlay{ z-index: 210; }
-.gj-quest-panel{ z-index: 260; }
-.gj-end{ z-index: 300; }
-
-/* ให้ปุ่มบน HUD คลิกได้เสมอ */
-.gj-topbar, .gj-topbar * , .gj-hud-top, .gj-hud-top * , .gj-hud-bot, .gj-hud-bot *{
-  pointer-events:auto;
-}
-
-/* ========== TOPBAR ========== */
-.gj-topbar{
-  position:fixed;
-  left:0; right:0; top:0;
-  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap:10px;
-  backdrop-filter: blur(10px);
-  background: rgba(0,0,0,.18);
-  border-bottom: 1px solid rgba(255,255,255,.08);
-}
-
-.gj-topbar .left, .gj-topbar .right{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap: wrap;
-}
-
-.gj-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--stroke);
-  color: rgba(255,255,255,.86);
-  font-weight: 800;
-  letter-spacing: .1px;
-}
-.gj-chip-brand{
-  background: rgba(70,240,180,.10);
-  border-color: rgba(70,240,180,.22);
-}
-.gj-chip-mini{
-  background: rgba(255,255,255,.04);
-  border-color: rgba(255,255,255,.10);
-  font-weight: 750;
-  opacity:.95;
-}
-
-/* buttons */
-.gj-btn{
-  border: 1px solid var(--stroke);
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.92);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 850;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-}
-.gj-btn:active{ transform: translateY(1px); }
-.gj-btn.primary{
-  background: rgba(40,180,120,.20);
-  border-color: rgba(40,180,120,.36);
-}
-
-/* ========== HUD TOP ========== */
-.gj-hud-top{
-  position:fixed;
-  left:0; right:0;
-  top: calc(58px + var(--sat)); /* ใต้ topbar */
-  padding: 10px calc(12px + var(--sar)) 10px calc(12px + var(--sal));
-  pointer-events:none; /* children re-enable */
-}
-.gj-hud-top *{ pointer-events:auto; }
-
-.hud-row{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.hud-pill{
-  min-width: 120px;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: var(--r);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-}
-.hud-pill.warn{ border-color: rgba(255,200,70,.28); }
-.hud-pill.grade{ border-color: rgba(70,240,180,.22); }
-
-.hud-label{
-  color: var(--muted);
-  font-weight: 900;
-  letter-spacing:.2px;
-  font-size: .78rem;
-}
-.hud-value{
-  margin-top: 6px;
-  font-size: 1.45rem;
-  font-weight: 950;
-}
-
-/* progress */
-.gj-progress{
-  margin-top: 10px;
-  max-width: 820px;
-}
-.gj-progress-track{
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.10);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
   overflow:hidden;
 }
-.gj-progress-fill{
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+a{ color:inherit; }
+button{ font: inherit; }
+
+/* ---------- layers/z-index ---------- */
+#gj-stage{
+  position:relative;
+  width:100%;
   height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(70,240,180,.85), rgba(255,200,90,.86), rgba(255,90,120,.88));
-}
-
-/* boss bar */
-.gj-bossbar{
-  margin-top: 10px;
-  max-width: 820px;
-  background: rgba(255,80,110,.10);
-  border: 1px solid rgba(255,80,110,.26);
-  border-radius: var(--r);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-}
-.gj-bossbar[aria-hidden="true"]{ display:none; }
-
-.gj-bossbar-head{
-  display:flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items:center;
-  margin-bottom: 8px;
-}
-.gj-bossbar-title{ font-weight: 950; }
-.gj-bossbar-hint{ color: rgba(255,255,255,.78); font-weight: 850; }
-
-.gj-bossbar-track{
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.12);
   overflow:hidden;
 }
-.gj-bossbar-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255,80,110,.88), rgba(255,160,120,.86));
-}
 
-/* HUD hidden (ลดความแน่น + ขยายสนาม) */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  display:none !important;
-}
-body.hud-hidden{
-  --gj-top-safe: calc(88px + var(--sat)); /* spawn safe ลดลงเมื่อซ่อน HUD */
-  --gj-bottom-safe: calc(78px + var(--sab));
-}
-
-/* ========== FIELD / TARGETS ========== */
-.gj-target{
-  position:absolute;
-  transform: translate(-50%,-50%) scale(1);
-  will-change: transform, opacity;
-  opacity: .98;
-  filter: drop-shadow(0 14px 22px rgba(0,0,0,.55));
-  user-select:none;
-  cursor:pointer;
-  touch-action: manipulation;
-}
-.gj-target.spawn{ animation: gjPop .14s ease-out; }
-.gj-target.gone{ animation: gjGone .14s ease-in forwards; }
-
-@keyframes gjPop{
-  from{ transform: translate(-50%,-50%) scale(.78); opacity:.05; }
-  to  { transform: translate(-50%,-50%) scale(1);   opacity:.98; }
-}
-@keyframes gjGone{
-  to{ transform: translate(-50%,-50%) scale(.84); opacity:0; }
-}
-
-/* ========== HUD BOTTOM ========== */
-.gj-hud-bot{
-  position:fixed;
-  left:0; right:0;
-  bottom:0;
-  padding: 10px calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-  display:grid;
-  grid-template-columns: 1.25fr 1fr;
-  gap: 10px;
-}
-@media (max-width: 720px){
-  .gj-hud-bot{ grid-template-columns: 1fr; }
-}
-
-.meter{
-  background: var(--panel2);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: var(--r);
-  padding: 12px;
-  box-shadow: var(--shadow);
-}
-.meter-title{
-  font-weight: 950;
-  letter-spacing:.2px;
-  margin-bottom: 8px;
-}
-.meter-bar{
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.10);
-  overflow:hidden;
-}
-.meter-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(70,240,180,.85), rgba(255,200,90,.86), rgba(255,90,120,.88));
-}
-.meter-num, .meter-shield, .meter-tip{
-  margin-top: 8px;
-  color: rgba(255,255,255,.86);
-  font-weight: 800;
-  line-height: 1.35;
-}
-.meter-tip{
-  color: rgba(255,255,255,.78);
-  font-weight: 750;
-}
-
-/* ========== QUEST PANEL (overlay lock) ========== */
-.gj-quest-panel{
-  position:fixed;
-  inset:0;
-  background: rgba(0,0,0,.36);
-  backdrop-filter: blur(8px);
-  display:flex;
-  justify-content:center;
-  align-items: flex-start;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-}
-.gj-quest-panel[aria-hidden="true"]{ display:none; }
-
-.gj-quest-card{
-  width: min(920px, 100%);
-  background: rgba(10,14,30,.88);
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 26px;
-  box-shadow: 0 26px 80px rgba(0,0,0,.65);
-  padding: 14px;
-  max-height: calc(100vh - 36px - var(--sat) - var(--sab));
-  overflow:auto;
-}
-
-.gj-quest-head{
-  display:flex;
-  justify-content: space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom: 10px;
-}
-.gj-quest-title{
-  font-size: 1.15rem;
-  font-weight: 950;
-  letter-spacing:.2px;
-}
-
-.gj-quest-section{
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 20px;
-  padding: 12px;
-  margin-top: 10px;
-}
-
-.q-title{ font-weight: 950; }
-.q-desc{
-  margin-top: 6px;
-  color: rgba(255,255,255,.82);
-  font-weight: 800;
-  line-height: 1.35;
-}
-.q-bar{
-  margin-top: 10px;
-  display:flex;
-  justify-content: space-between;
-  align-items:center;
-  gap: 10px;
-}
-.q-num{
-  font-weight: 950;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 999px;
-  padding: 6px 10px;
-}
-.q-hint{
-  color: rgba(255,255,255,.76);
-  font-weight: 800;
-}
-
-.gj-ul{
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: rgba(255,255,255,.84);
-  font-weight: 780;
-  line-height: 1.45;
-}
-
-/* ========== LOW TIME OVERLAY ========== */
-.gj-lowtime-overlay{
+/* FX flash / particles (behind) */
+#gj-fx, #gj-flash, #mc-flash{
   position:fixed;
   inset:0;
   pointer-events:none;
-  display:flex;
-  justify-content:center;
-  align-items:flex-start;
-  padding-top: calc(18px + var(--sat));
-}
-.gj-lowtime-overlay[aria-hidden="true"]{ display:none; }
-
-.gj-lowtime-ring{
-  width: 96px; height: 96px;
-  border-radius: 999px;
-  border: 2px solid rgba(255,80,110,.34);
-  box-shadow: 0 22px 70px rgba(0,0,0,.6);
-  background: rgba(255,80,110,.08);
-  transform: scale(.96);
-  opacity: .0;
-  transition: .14s ease;
-}
-.gj-lowtime-num{
-  position:absolute;
-  margin-top: 24px;
-  font-size: 1.8rem;
-  font-weight: 950;
-  opacity: .0;
-  transform: scale(.98);
-  transition: .14s ease;
+  z-index: 5;
 }
 
-/* show via aria-hidden=false */
-#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-ring,
-#lowTimeOverlay[aria-hidden="false"] .gj-lowtime-num{
-  opacity:1 !important;
-  transform: scale(1) !important;
-}
-
-/* tick pulse */
-body.gj-tick .gj-lowtime-ring{ transform: scale(1.03); }
-
-/* ========== END OVERLAY ========== */
-.gj-end{
+/* target layers */
+#gj-layer, #gj-layer-r{
   position:fixed;
   inset:0;
-  display:none;
-  justify-content:center;
-  align-items:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(0,0,0,.45);
-  backdrop-filter: blur(10px);
+  z-index: 10;
+  pointer-events:none; /* targets will override */
 }
-.gj-end[aria-hidden="false"]{ display:flex; }
 
-.gj-end .card{
-  width: min(560px, 100%);
-  background: rgba(10,14,30,.90);
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 26px;
-  box-shadow: 0 26px 90px rgba(0,0,0,.7);
-  padding: 16px;
+/* HUD wrapper */
+#gj-hud{
+  position:fixed;
+  left: 10px;
+  right: 10px;
+  top: calc(10px + var(--sat));
+  bottom: calc(10px + var(--sab) + var(--vrui-reserve));
+  z-index: 30;
+  display:flex;
+  flex-direction:column;
+  gap: var(--hud-gap);
+  pointer-events:none; /* เปิดเฉพาะปุ่ม/การ์ดที่ต้องกด */
 }
-.gj-end .title{ font-size:1.25rem; font-weight: 950; }
-.gj-end .sub{ color: rgba(255,255,255,.76); font-weight: 800; margin-top: 6px; }
-.gj-end .grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 14px;
+
+/* overlay/result */
+.gj-overlay{
+  position:fixed;
+  inset:0;
+  z-index: 60;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events:auto; /* lock */
 }
-.gj-end .stat{
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.10);
+
+/* vr-ui sits highest */
+.hha-vrui, #hha-vrui, .vrui{
+  z-index: 80 !important;
+}
+
+/* ---------- cards ---------- */
+.gj-card{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
   border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.25);
+  overflow:hidden;
+  pointer-events:auto;
+}
+
+.gj-card .hd{
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.gj-card .bd{
   padding: 10px 12px;
 }
-.gj-end .stat span{ color: rgba(255,255,255,.72); font-weight: 850; }
-.gj-end .stat b{ display:block; margin-top: 6px; font-size:1.25rem; font-weight: 950; }
-.gj-end .actions{
-  display:flex;
-  gap: 10px;
-  margin-top: 14px;
+
+.gj-title{
+  font-size: 14px;
+  letter-spacing:.2px;
+  font-weight: 750;
+  color: rgba(255,255,255,.94);
 }
-.gj-end .btn{
-  flex:1;
-  border-radius: 18px;
-  padding: 12px 14px;
+
+.gj-sub{
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- TOP HUD: 2 columns ---------- */
+#gj-topRow{
+  display:grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 10px;
+  pointer-events:none;
+}
+#gj-topRow > *{ pointer-events:auto; }
+
+/* left status stack */
+#gj-statusCard .bd{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  padding-top: 8px;
+}
+.gj-pill{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+.gj-pill .k{
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.gj-pill .v{
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing:.2px;
+}
+
+/* right action buttons */
+#gj-actionsCard .bd{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.gj-btn{
+  border-radius: 14px;
+  padding: 10px 10px;
   border: 1px solid rgba(255,255,255,.14);
   background: rgba(255,255,255,.06);
   color: rgba(255,255,255,.92);
-  font-weight: 900;
+  font-weight: 750;
+}
+.gj-btn:active{ transform: scale(.99); }
+.gj-btn.primary{
+  background: rgba(0,190,120,.18);
+  border-color: rgba(0,190,120,.35);
+}
+.gj-btn.ghost{
+  background: rgba(255,255,255,.04);
+}
+
+/* ---------- progress bar (thin) ---------- */
+#gjProgress{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+  pointer-events:none;
+}
+#gjProgressFill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(120,200,255,.85), rgba(255,150,80,.9), rgba(255,70,120,.85));
+}
+
+/* ---------- QUEST row (compact + readable) ---------- */
+#gj-questRow{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+#gj-questRow .bd{
+  padding-top: 8px;
+}
+.gj-questLine{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.gj-questLine .left{
+  min-width: 0;
+}
+.gj-questLine .right{
+  font-weight:800;
+  opacity:.95;
+  white-space:nowrap;
+}
+.gj-questDesc{
+  margin-top:6px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+/* ---------- FEVER/SHIELD + HOWTO: collapsible ---------- */
+.gj-collapser{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
   cursor:pointer;
+  user-select:none;
 }
-.gj-end .btn.alt{
-  background: rgba(40,180,120,.20);
-  border-color: rgba(40,180,120,.34);
+.gj-collapser .chev{
+  opacity:.75;
+  font-weight:900;
+  transform: translateY(-1px);
 }
+.gj-collapsed .bd{ display:none; }
+
+.gj-bar{
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+}
+.gj-bar > i{
+  display:block;
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(80,220,160,.95), rgba(255,210,90,.95), rgba(255,80,120,.95));
+}
+.gj-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.gj-row .k{ color: var(--muted); }
+.gj-row .v{ font-weight: 850; }
+
+.gj-howto{
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.gj-howto b{ color: rgba(255,255,255,.92); }
+
+/* ---------- BOSS bar (compact) ---------- */
+#bossBar[aria-hidden="true"]{ display:none !important; }
+#bossBar .bd{ padding-top: 8px; }
+
+#bossFill{
+  height:100%;
+  width:0%;
+  display:block;
+  background: linear-gradient(90deg, rgba(255,90,120,.92), rgba(255,190,90,.92));
+}
+#bossHint{
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- targets ---------- */
+.gj-target{
+  position:absolute;
+  transform: translate(-50%,-50%);
+  user-select:none;
+  pointer-events:auto;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+  will-change: transform, opacity;
+}
+.gj-target.spawn{ animation: gjPop .18s ease-out; }
+.gj-target.gone{ animation: gjGone .14s ease-in forwards; }
+
+@keyframes gjPop{
+  from{ transform: translate(-50%,-50%) scale(.86); opacity:.0; }
+  to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+}
+@keyframes gjGone{
+  from{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+  to{ transform: translate(-50%,-50%) scale(.86); opacity:0; }
+}
+
+/* ---------- low time overlay (z above HUD) ---------- */
+#lowTimeOverlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 55;
+  pointer-events:none;
+  background: radial-gradient(400px 240px at 50% 40%, rgba(255,80,120,.20), transparent 70%);
+}
+#lowTimeOverlay[aria-hidden="true"]{ display:none; }
+#gj-lowtime-num{
+  font-size: 72px;
+  font-weight: 950;
+  letter-spacing: .5px;
+  color: rgba(255,255,255,.92);
+  text-shadow: 0 16px 40px rgba(0,0,0,.45);
+}
+
+/* ---------- end overlay ---------- */
+#endOverlay[aria-hidden="true"]{ display:none; }
+#endOverlay .panel{
+  width: min(420px, calc(100vw - 28px));
+  border-radius: 18px;
+  background: rgba(10,16,40,.78);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 18px 45px rgba(0,0,0,.45);
+  padding: 14px;
+}
+#endOverlay .panel h2{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+}
+#endOverlay .panel p{
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+#endOverlay .grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+#endOverlay .grid .gj-pill .v{ font-size: 15px; }
+
+/* ---------- mode classes ---------- */
+body.storm #gjProgressFill{
+  filter: saturate(1.25) brightness(1.05);
+}
+body.boss #bossBar{
+  border-color: rgba(255,140,90,.32);
+}
+body.rage{
+  animation: gjRageGlow 1.2s ease-in-out infinite;
+}
+@keyframes gjRageGlow{
+  0%,100%{ filter: none; }
+  50%{ filter: saturate(1.15) contrast(1.03); }
+}
+
+/* ---------- tick / pulses ---------- */
+body.gj-tick #gjProgress{
+  box-shadow: 0 0 0 2px rgba(255,80,120,.22);
+}
+body.gj-junk-hit #gj-hud{ filter: none; }
+body.gj-bomb #gj-hud{ filter: none; }
+
+/* ---------- responsive tweaks ---------- */
+@media (max-height: 740px){
+  :root{
+    --hud-gap: 8px;
+    --vrui-reserve: 78px;
+    --gj-top-safe: 132px;
+    --gj-bottom-safe: 150px;
+  }
+  .gj-card .hd{ padding: 9px 11px; }
+  .gj-card .bd{ padding: 9px 11px; }
+  .gj-pill .v{ font-size: 15px; }
+}
+
+@media (max-height: 670px){
+  /* จอเตี้ย: ให้ยุบการ์ดล่างอัตโนมัติ */
+  #gj-feverCard .bd,
+  #gj-howtoCard .bd{ display:none; }
+  #gj-feverCard .hd .chev,
+  #gj-howtoCard .hd .chev{ opacity:.6; }
+  :root{
+    --vrui-reserve: 72px;
+    --gj-bottom-safe: 145px;
+  }
+}
+
+/* ---------- scroll inside HUD (if needed) ---------- */
+#gj-hudScroll{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow:auto;
+  padding-bottom: 6px;
+  pointer-events:auto;
+  scrollbar-width: none;
+}
+#gj-hudScroll::-webkit-scrollbar{ width:0; height:0; }
