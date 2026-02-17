@@ -1,3 +1,12 @@
+<!-- === /herohealth/vr-maskcough/maskcough.html ===
+MaskCough RUN — PRODUCTION (A+B+C) v20260217a
+✅ Telegraph cough/boss (windup→tele→release) + Perfect only on tele
+✅ Risk Zones (safe/risk/danger) affect ttl/score/penalty (visible overlay)
+✅ Combo/Quest (Perfect chain => sweep, timed quest)
+✅ AI risk + explainable coach (play only), deterministic in study
+✅ HHA logging + flush-hardened + last summary
+✅ PC/Mobile + cVR (hha:shoot via vr-ui.js)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -6,236 +15,98 @@
   <title>HeroHealth — Mask & Cough</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <style>
-    :root{
-      --bg:#040610;
-      --panel: rgba(4,6,16,.78);
-      --panel2: rgba(10,16,36,.55);
-      --stroke: rgba(148,163,184,.18);
 
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
-
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      color: var(--text);
-      background:
-        radial-gradient(1200px 700px at 18% 18%, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(900px 560px at 85% 20%, rgba(255,79,216,.10), transparent 55%),
-        radial-gradient(900px 520px at 45% 92%, rgba(167,139,250,.10), transparent 55%),
-        linear-gradient(180deg, #020617, #0b1226);
-      overflow:hidden;
-    }
-
-    /* HUD */
-    #hud{
-      position: fixed;
-      left: calc(12px + var(--sal)); right: calc(12px + var(--sar));
-      top: calc(12px + var(--sat));
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-      z-index: 9990;
-      pointer-events:none;
-    }
-    .hudL, .hudR{ display:flex; flex-direction:column; gap:8px; }
-    .panel{
-      pointer-events:none;
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      padding: 10px 12px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      min-width: 180px;
-    }
-    .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
-    .k{ color: var(--muted); font-size: 12px; font-weight: 900; }
-    .v{ font-weight: 950; font-size: 13px; }
-    .bar{
-      height: 10px; border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(0,0,0,.35);
-      overflow:hidden;
-      margin-top:8px;
-    }
-    .fill{ height:100%; width:0%; background: rgba(34,211,238,.88); transition: width .12s ease; }
-    .fill.pink{ background: rgba(255,79,216,.88); }
-    .fill.good{ background: rgba(34,197,94,.88); }
-    .badge{
-      display:inline-flex; gap:8px; align-items:center;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size: 12px;
-      font-weight: 950;
-      white-space:nowrap;
-    }
-
-    /* Stage */
-    #stage{
-      position: fixed;
-      inset: 0;
-      padding: calc(84px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-      z-index: 1;
-      overflow:hidden;
-    }
-    #layer{
-      position: relative;
-      width: 100%;
-      height: 100%;
-      border:1px solid rgba(148,163,184,.12);
-      background: rgba(2,6,23,.20);
-      border-radius: 24px;
-      overflow:hidden;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
-      touch-action: manipulation;
-    }
-
-    /* Target */
-    .t{
-      position:absolute;
-      width: 64px; height: 64px;
-      border-radius: 999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size: 26px;
-      user-select:none;
-      transform: translate(-50%,-50%) scale(1);
-      border:1px solid rgba(255,255,255,.16);
-      background: rgba(255,255,255,.06);
-      box-shadow: 0 12px 30px rgba(0,0,0,.22);
-      will-change: transform, opacity;
-    }
-    .t.good{ outline: 2px solid rgba(34,197,94,.18); }
-    .t.bad{ outline: 2px solid rgba(239,68,68,.18); }
-    .t.mask{ outline: 2px solid rgba(34,211,238,.22); }
-    .t.cough{ outline: 2px solid rgba(255,79,216,.22); }
-
-    .pop{ animation: pop .16s ease; }
-    @keyframes pop{ 0%{ transform: translate(-50%,-50%) scale(.9);} 100%{ transform: translate(-50%,-50%) scale(1.08);} }
-
-    .fade{ animation: fade .20s ease forwards; }
-    @keyframes fade{ to{ opacity:0; transform: translate(-50%,-50%) scale(.8);} }
-
-    /* Menu overlay */
-    #menu{
-      position: fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index: 9992;
-      padding: 20px;
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-    }
-    .card{
-      width: min(520px, 92vw);
-      border-radius: 24px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.78);
-      box-shadow: 0 20px 70px rgba(0,0,0,.45);
-      padding: 16px;
-    }
-    .card h1{ margin:0; font-size: 20px; letter-spacing:.2px; }
-    .card p{ margin:8px 0 0; color: var(--muted); font-size: 13px; line-height:1.5; }
-    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
-    .btn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 950;
-      cursor:pointer;
-      user-select:none;
-    }
-    .btn.good{ border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.12); }
-    .btn.ghost{ color: var(--muted); }
-    .btn:active{ transform: translateY(1px); }
-
-    /* Toast */
-    #toast{
-      position: fixed;
-      left:50%;
-      bottom: calc(14px + var(--sab));
-      transform: translateX(-50%);
-      background: rgba(2,6,23,.85);
-      border:1px solid rgba(148,163,184,.22);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      max-width: 92vw;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity .18s ease;
-      pointer-events:none;
-    }
-    #toast.show{ opacity: 1; }
-  </style>
+  <!-- ✅ CSS -->
+  <link rel="stylesheet" href="./css/maskcough.css?v=20260217a"/>
 </head>
-
 <body>
-  <div id="hud">
-    <div class="hudL">
-      <div class="panel">
-        <div class="row"><span class="k">Score</span><span class="v" id="tScore">0</span></div>
-        <div class="row"><span class="k">Streak</span><span class="v" id="tStreak">0</span></div>
-        <div class="row"><span class="k">Miss</span><span class="v" id="tMiss">0</span></div>
+  <!-- Global FX flash -->
+  <div id="mc-flash" aria-hidden="true"></div>
+
+  <!-- Coach prompt -->
+  <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
+
+  <div id="mc-wrap" data-view="pc" data-run="play">
+    <!-- Stage -->
+    <main class="mc-stage" role="application" aria-label="MaskCough game">
+      <div id="layer" class="mc-layer" aria-label="play layer"></div>
+    </main>
+
+    <!-- HUD -->
+    <section class="mc-hud" aria-label="HUD">
+      <div class="mc-hud-row">
+        <span class="mc-pill">Score <b id="tScore">0</b></span>
+        <span class="mc-pill">Streak <b id="tStreak">0</b></span>
+        <span class="mc-pill">Miss <b id="tMiss">0</b></span>
+        <span class="mc-pill">Risk <b id="tRisk">0.00</b></span>
+        <span class="mc-pill">Wave <b id="tWave">calm</b></span>
+        <span class="mc-pill">Int <b id="tInt">0.00</b></span>
+        <span class="mc-pill">Fever <b id="tFever">OFF</b> <span style="opacity:.8">(<span id="tFeverPct">0%</span>)</span></span>
       </div>
 
-      <div class="panel">
-        <div class="row"><span class="k">Mask Shield</span><span class="v" id="tMask">0%</span></div>
-        <div class="bar"><div class="fill" id="bMask"></div></div>
-      </div>
-    </div>
+      <div class="mc-bars">
+        <div>
+          <div class="mc-bar-label"><span>Mask Shield</span><b id="tMask">40%</b></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill" id="bMask" style="width:40%"></div></div>
+        </div>
 
-    <div class="hudR">
-      <div class="panel">
-        <div class="row"><span class="k">Wave</span><span class="v" id="tWave">calm</span></div>
-        <div class="row"><span class="k">Intensity</span><span class="v" id="tInt">0.00</span></div>
-        <div class="row"><span class="k">Fever</span><span class="v" id="tFever">OFF</span></div>
-        <div class="bar"><div class="fill pink" id="bFever"></div></div>
+        <div>
+          <div class="mc-bar-label"><span>Fever</span><b id="tFever2">Charge</b></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill mc-bad" id="bFever" style="width:0%"></div></div>
+        </div>
       </div>
 
-      <div class="badge" id="tHint">🧼 แตะ “😷” เพิ่มโล่ • แตะ “💦” ปัดละออง</div>
-    </div>
+      <div class="mc-controls">
+        <button class="mc-btn mc-primary" id="btnStart" type="button">▶ เริ่มเกม</button>
+        <button class="mc-btn mc-accent" id="btnRetry" type="button">↻ เล่นใหม่</button>
+        <button class="mc-btn" id="btnPause" type="button">⏸ Pause/Resume</button>
+        <button class="mc-btn mc-ghost" id="btnBack" type="button">🏰 กลับ HUB</button>
+      </div>
+    </section>
+
+    <!-- End overlay -->
+    <section id="end" class="mc-end" hidden>
+      <div class="mc-end-card">
+        <div class="mc-end-head">
+          <div class="mc-end-title">สรุปผล — Mask & Cough</div>
+          <div class="mc-pill">Reason <b id="tEndReason">time</b></div>
+        </div>
+
+        <div class="mc-end-grid">
+          <div class="mc-end-item"><div class="k">Score</div><div class="v" id="sScore">0</div></div>
+          <div class="mc-end-item"><div class="k">Max Streak</div><div class="v" id="sMaxStreak">0</div></div>
+          <div class="mc-end-item"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+          <div class="mc-end-item"><div class="k">Perfect</div><div class="v" id="sPerfect">0</div></div>
+          <div class="mc-end-item"><div class="k">Shield End</div><div class="v" id="sShield">0%</div></div>
+          <div class="mc-end-item"><div class="k">Risk Avg</div><div class="v" id="sRisk">0.00</div></div>
+        </div>
+
+        <div class="mc-end-badges-wrap">
+          <div class="mc-end-sub">Badges</div>
+          <div class="mc-end-badges" id="badgeRow"></div>
+        </div>
+
+        <div class="mc-end-note" id="endNote"></div>
+
+        <div class="mc-end-actions">
+          <button class="mc-btn mc-accent" id="btnEndRetry" type="button">↻ เล่นอีกครั้ง</button>
+          <a class="mc-btn mc-primary" id="btnEndBack" href="../hub.html">🏰 กลับ HUB</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast -->
+    <div id="toast"></div>
   </div>
 
-  <div id="stage">
-    <div id="layer" aria-label="play layer"></div>
-  </div>
+  <!-- ✅ FUN BOOST (optional) -->
+  <script src="../vr/fun-boost.js?v=20260217a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260217a"></script>
 
-  <div id="menu">
-    <div class="card">
-      <h1>😷 Mask & Cough — Defense Rush</h1>
-      <p>
-        เป้าหมาย: “กันละอองไอ/จาม” ให้ได้มากที่สุด<br/>
-        • 💦 = ละออง (แตะเพื่อปัดออก) • 🤧 = ไอ/จาม (อันตราย) • 😷 = เก็บหน้ากากเพิ่มโล่<br/>
-        • เล่นดี → wave เร็วขึ้น • ทำ Perfect → มีโอกาสเข้า FEVER!
-      </p>
-      <div class="btnrow">
-        <button class="btn good" id="btnStart">▶ เริ่มเกม</button>
-        <button class="btn ghost" id="btnBack">🏰 กลับ HUB</button>
-      </div>
-    </div>
-  </div>
+  <!-- ✅ VR UI (for cVR shoot: hha:shoot) -->
+  <script src="../vr/vr-ui.js?v=20260217a"></script>
 
-  <div id="toast"></div>
-
-  <!-- FUN BOOST (global feel) -->
-  <script src="../vr/fun-boost.js"></script>
-  <script src="../vr/fun-boost.fx.js"></script>
-
-  <!-- ENGINE -->
-  <script src="./maskcough.safe.js"></script>
+  <!-- ✅ ENGINE -->
+  <script src="./maskcough.safe.js?v=20260217a"></script>
 </body>
 </html>
