@@ -7,18 +7,18 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ A-Frame MUST load before <a-scene> for reliability on some Android -->
+  <!-- ✅ A-Frame MUST load before <a-scene> -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./brush.css?v=20260217a"/>
+  <link rel="stylesheet" href="./brush.css?v=20260217b"/>
 </head>
 
 <body data-view="pc">
   <!-- fatal -->
   <div id="fatal" class="br-fatal br-hidden"></div>
 
-  <!-- ✅ FX LAYERS (PACK C) -->
+  <!-- ✅ FX LAYERS -->
   <div id="br-fx">
     <div id="fx-flash" class="fx-flash"></div>
     <div id="fx-laser" class="fx-laser"></div>
@@ -26,7 +26,7 @@
     <div id="fx-fin" class="fx-fin"></div>
   </div>
 
-  <!-- Tap-to-start overlay (mobile/vr unlock) -->
+  <!-- Tap-to-start overlay -->
   <div id="tapStart" class="br-tap" style="display:none">
     <div class="br-tapCard">
       <div class="br-tapTitle">🦷 BrushVR</div>
@@ -35,7 +35,7 @@
     </div>
   </div>
 
-  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
+  <!-- Minimal A-Frame scene -->
   <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement:true" background="color: #060a12">
     <a-entity position="0 1.6 -2">
       <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
@@ -50,7 +50,7 @@
       <div class="br-brand">
         <span class="br-pill">HeroHealth · Hygiene</span>
         <h1 class="br-title">BrushVR — Plaque Breaker</h1>
-        <p class="br-sub">แปรงคราบให้ทัน · ใกล้หมดเวลา = PERFECT · มีบอสคราบหนา 💎</p>
+        <p class="br-sub">แปรงคราบให้ทัน · ใกล้หมดเวลา = PERFECT · บอสมี “จุดอ่อน” 🎯</p>
       </div>
 
       <div class="br-ctx">
@@ -94,11 +94,19 @@
             <div class="br-bar"><i id="bFever" class="fill pink"></i></div>
           </div>
 
+          <!-- ✅ NEW: Daily Missions + Shield -->
           <div class="br-mini">
             <div class="k">ตั้งค่า</div>
             <div class="v">diff=<span id="mDiff">-</span> · time=<span id="mTime">-</span></div>
-            <div class="k" style="margin-top:6px">cVR</div>
-            <div class="v">โหมด view=cvr ยิงจากกากบาท (vr-ui)</div>
+
+            <div class="k" style="margin-top:8px">Daily Mission</div>
+            <div class="v"><span id="mMission">-</span></div>
+
+            <div class="k" style="margin-top:8px">Combo Shield</div>
+            <div class="v"><span id="mShield">0</span> 🛡️ (คอมโบ 12 ได้ 1 โล่)</div>
+
+            <div class="k" style="margin-top:8px">cVR</div>
+            <div class="v">view=cvr ยิงจากกากบาท (vr-ui)</div>
           </div>
         </div>
       </section>
@@ -109,12 +117,13 @@
       <div class="br-card">
         <div class="br-cardHead">
           <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
-          <div class="br-cardSub">แตะ/ยิง “🦠” ให้ทัน · บอส “💎” ต้องหลายครั้ง</div>
+          <div class="br-cardSub">บอสมี “จุดอ่อน” 🎯 · โล่ช่วยกันพลาด 🛡️ · ภารกิจรายวัน ✨</div>
         </div>
 
         <div class="br-cardList">
-          <div class="item"><b>Perfect</b> = แตะตอน “ใกล้หมดเวลา” จะได้โบนัส</div>
-          <div class="item"><b>Boss</b> = 💎 ต้องยิง/แตะหลายทีให้แตก</div>
+          <div class="item"><b>Perfect</b> = แตะตอน “ใกล้หมดเวลา” ได้โบนัส</div>
+          <div class="item"><b>Boss</b> = 💎 ต้องยิงที่ <b>จุดอ่อน 🎯</b> ถึงจะลด HP</div>
+          <div class="item"><b>Shield</b> = คอมโบ 12 ได้ 1 โล่ (กันพลาด 1 ครั้ง)</div>
           <div class="item"><b>ชนะ</b> = Clean ถึง 100%</div>
         </div>
 
@@ -154,18 +163,18 @@
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <!-- ✅ Optional fun boost -->
+  <!-- Optional fun boost -->
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
 
-  <!-- ✅ AI Prediction (PACK D) -->
-  <script src="./ai-brush.js?v=20260217a"></script>
+  <!-- AI Prediction -->
+  <script src="./ai-brush.js?v=20260217b"></script>
 
-  <!-- ✅ Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260217a"></script>
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260217b"></script>
 
-  <!-- ✅ Engine & Boot -->
-  <script src="./brush.safe.js?v=20260217a"></script>
-  <script src="./brush.boot.js?v=20260217a"></script>
+  <!-- Engine & Boot -->
+  <script src="./brush.safe.js?v=20260217b"></script>
+  <script src="./brush.boot.js?v=20260217b"></script>
 </body>
 </html>
