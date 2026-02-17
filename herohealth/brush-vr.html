@@ -3,78 +3,187 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — BrushVR (Launcher)</title>
+  <title>HeroHealth — BrushVR Launcher</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial;background:#020617;color:#e5e7eb}
-    .wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
-    .card{width:min(720px,96vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;background:rgba(2,6,23,.78);padding:16px;box-shadow:0 20px 70px rgba(0,0,0,.45)}
-    .h{font-weight:1000;font-size:18px}
-    .p{color:#94a3b8;margin:8px 0 0;font-size:13px;line-height:1.5}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .btn{border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06);color:#e5e7eb;padding:12px 14px;border-radius:16px;font-weight:950;text-decoration:none}
-    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.14)}
-    .mini{margin-top:10px;color:#94a3b8;font-size:12px;word-break:break-word}
+    :root{ --bg:#050814; --panel:rgba(2,6,23,.72); --line:rgba(148,163,184,.18); --txt:rgba(229,231,235,.94); --mut:rgba(148,163,184,.95); }
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.20), transparent 55%),
+                               radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.16), transparent 55%),
+                               var(--bg);
+      color:var(--txt); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:18px 14px 28px}
+    .head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(2,6,23,.55);color:var(--mut);font-weight:900}
+    h1{margin:10px 0 6px;font-size:28px;letter-spacing:.2px}
+    .sub{margin:0 0 12px;color:rgba(229,231,235,.78);line-height:1.4}
+    .card{border:1px solid var(--line);border-radius:22px;background:var(--panel);backdrop-filter:blur(10px);box-shadow:0 18px 60px rgba(0,0,0,.35);padding:14px}
+    .grid{display:grid;grid-template-columns:1.3fr .9fr;gap:12px}
+    @media (max-width:860px){.grid{grid-template-columns:1fr}}
+    .btns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    @media (max-width:520px){.btns{grid-template-columns:1fr}}
+    .btn{appearance:none;border:none;border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.75);border:1px solid rgba(148,163,184,.22);
+      color:rgba(229,231,235,.95);font-weight:1000;cursor:pointer;box-shadow:0 16px 40px rgba(0,0,0,.28)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{background:rgba(16,185,129,.20);border-color:rgba(16,185,129,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .field{flex:1;min-width:160px}
+    label{display:block;font-size:12px;color:rgba(148,163,184,.95);font-weight:900;margin:0 0 6px}
+    input,select{width:100%;border-radius:14px;border:1px solid rgba(148,163,184,.20);background:rgba(2,6,23,.65);
+      color:rgba(229,231,235,.95);padding:10px 10px;font-weight:900;outline:none}
+    .mini{font-size:12px;color:rgba(229,231,235,.70);line-height:1.45}
+    a.link{color:rgba(167,243,208,.95);text-decoration:none;font-weight:1000}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="h">🪥 HeroHealth — BrushVR</div>
-      <div class="p">Launcher → ส่งพารามิเตอร์ไปหน้า RUN ใน <code>/herohealth/vr-brush/brush.html</code></div>
-
-      <div class="row">
-        <a id="go" class="btn good" href="#">▶ เข้าเล่น</a>
-        <a class="btn" href="./hub.html">🏰 กลับ HUB</a>
+    <div class="head">
+      <div>
+        <div class="pill">🦷 HeroHealth · Hygiene</div>
+        <h1>BrushVR — Plaque Breaker</h1>
+        <p class="sub">เลือกโหมดเล่น + ตั้งค่า แล้วกดเข้าเกม (จำค่าล่าสุดให้เอง)</p>
       </div>
+      <div class="pill">Root: /herohealth/brush-vr.html</div>
+    </div>
 
-      <div class="mini" id="dbg"></div>
+    <div class="grid">
+      <section class="card">
+        <div class="btns">
+          <button class="btn primary" id="goPC">🖥️ PC (Tap)</button>
+          <button class="btn" id="goMB">📱 Mobile (Tap)</button>
+          <button class="btn" id="goCVR">🕶️ Cardboard (Crosshair)</button>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>diff</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>time (sec)</label>
+            <input id="time" type="number" min="30" max="120" step="5" value="80"/>
+          </div>
+          <div class="field">
+            <label>seed</label>
+            <input id="seed" type="number" step="1"/>
+          </div>
+          <div class="field">
+            <label>pid</label>
+            <input id="pid" type="text" placeholder="anon"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>run</label>
+            <select id="run">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>api (optional)</label>
+            <input id="api" type="text" placeholder="https://...execute-api.../"/>
+          </div>
+          <div class="field">
+            <label>ai</label>
+            <select id="ai">
+              <option value="0" selected>0 (OFF)</option>
+              <option value="1">1 (ON)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>debug</label>
+            <select id="debug">
+              <option value="0" selected>0</option>
+              <option value="1">1</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="mini" style="margin-top:10px">
+          Run file: <code>/herohealth/vr-brush/brush-vr.html</code><br/>
+          cVR = ยิงจากกากบาท (vr-ui.js ส่ง <code>hha:shoot</code>)
+        </p>
+      </section>
+
+      <aside class="card">
+        <div class="pill">🏰 HUB</div>
+        <p class="mini" style="margin:10px 0 12px">
+          ถ้าคุณเข้าเกมจาก HUB อยู่แล้ว ระบบจะส่ง <code>hub=...</code> มาให้เอง  
+          แต่จาก Launcher นี้ เราจะตั้ง hub เป็นค่าเริ่มต้นไปที่ <code>/herohealth/hub.html</code>
+        </p>
+        <p class="mini">
+          <a class="link" href="./hub.html">เปิด HUB</a>
+        </p>
+      </aside>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const clamp=(v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
+  <script>
+    (function(){
+      const $ = (id)=>document.getElementById(id);
+      const KEY='HHA_BRUSH_LAUNCHER';
+      const nowSeed=()=>String(Date.now());
 
-  const hubDefault = new URL('./hub.html', location.href).toString();
+      function load(){
+        try{
+          const s=JSON.parse(localStorage.getItem(KEY)||'{}');
+          if(s.diff) $('diff').value=s.diff;
+          if(s.time) $('time').value=s.time;
+          if(s.seed) $('seed').value=s.seed;
+          if(s.pid!=null) $('pid').value=s.pid;
+          if(s.run) $('run').value=s.run;
+          if(s.api!=null) $('api').value=s.api;
+          if(s.ai!=null) $('ai').value=s.ai;
+          if(s.debug!=null) $('debug').value=s.debug;
+        }catch{}
+        if(!$('seed').value) $('seed').value = nowSeed();
+        if(!$('pid').value) $('pid').value = 'anon';
+      }
+      function save(){
+        const s={
+          diff:$('diff').value,
+          time:Number($('time').value||80),
+          seed:Number($('seed').value||Date.now()),
+          pid:$('pid').value.trim()||'anon',
+          run:$('run').value,
+          api:$('api').value.trim(),
+          ai:$('ai').value,
+          debug:$('debug').value
+        };
+        try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch{}
+        return s;
+      }
 
-  const run = (qs('run','play')||'play').toLowerCase();
-  const diff = (qs('diff','normal')||'normal').toLowerCase();
-  const time = clamp(qs('time','80'), 30, 120);
-  const seed = (qs('seed','') || String(Date.now()));
-  const pid  = (qs('pid','anon')||'anon').trim();
+      function go(view){
+        const s=save();
+        const runUrl = new URL('./vr-brush/brush-vr.html', location.href);
+        runUrl.searchParams.set('view', view);
+        runUrl.searchParams.set('diff', s.diff);
+        runUrl.searchParams.set('time', String(s.time));
+        runUrl.searchParams.set('seed', String(s.seed));
+        runUrl.searchParams.set('pid', s.pid);
+        runUrl.searchParams.set('run', s.run);
+        runUrl.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+        if(s.api) runUrl.searchParams.set('api', s.api);
+        runUrl.searchParams.set('ai', s.ai);
+        runUrl.searchParams.set('debug', s.debug);
+        location.href = runUrl.toString();
+      }
 
-  const api = qs('api','');
-  const health = qs('health','');
+      $('goPC').addEventListener('click', ()=>go('pc'));
+      $('goMB').addEventListener('click', ()=>go('mobile'));
+      $('goCVR').addEventListener('click', ()=>go('cvr'));
 
-  const hub = qs('hub', hubDefault) || hubDefault;
-
-  const u = new URL('./vr-brush/brush.html', location.href);
-  u.searchParams.set('hub', hub);
-  u.searchParams.set('run', run);
-  u.searchParams.set('diff', diff);
-  u.searchParams.set('time', String(time));
-  u.searchParams.set('seed', String(seed));
-  u.searchParams.set('pid', pid);
-
-  if(api) u.searchParams.set('api', api);
-  if(health) u.searchParams.set('health', health);
-
-  // passthrough research params (optional)
-  const pass = ['studyId','phase','conditionGroup','log','view'];
-  pass.forEach(k=>{
-    const v = qs(k,'');
-    if(v) u.searchParams.set(k, v);
-  });
-
-  const go = document.getElementById('go');
-  const dbg = document.getElementById('dbg');
-  if(go) go.href = u.toString();
-  if(dbg) dbg.textContent = 'RUN → ' + u.toString();
-})();
-</script>
+      load();
+    })();
+  </script>
 </body>
 </html>
