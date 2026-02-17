@@ -1,4 +1,4 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) — PATCH D+E v20260217a ===
 'use strict';
 
 (function () {
@@ -67,15 +67,208 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
-  // mapping เพลงในเมนู → engine trackId + diff + label
+  // =========================
+  // D+E: Boss HUD + Scheduler
+  // =========================
+
+  // lazy module loaders (ไม่พังถ้าไฟล์ยังไม่วาง)
+  async function loadBossModules(){
+    try{
+      const [{ mountBossHUD }, { createBossScheduler }] = await Promise.all([
+        import('../../herohealth/boss/boss-hud.js'),
+        import('../../herohealth/boss/boss-scheduler.js')
+      ]);
+      return { mountBossHUD, createBossScheduler };
+    }catch(err){
+      console.warn('[RB] boss modules missing?', err);
+      return null;
+    }
+  }
+
+  let boss = {
+    ready: false,
+    hudApi: null,
+    sched: null,
+    cfg: { enabled: true, mixed: true, countInBeats: 1 },
+    bpm: 120,
+    lastToken: null
+  };
+
+  // telegraph UI: reuse feedbackEl / flashEl แบบไม่รบกวน engine
+  function bossTele(on, text){
+    try{
+      if (!feedbackEl) return;
+      if (on){
+        feedbackEl.textContent = text || 'RHYTHM!';
+        feedbackEl.classList.add('show');
+        if (flashEl) flashEl.classList.add('on');
+        setTimeout(()=>{ if (flashEl) flashEl.classList.remove('on'); }, 120);
+      } else {
+        feedbackEl.classList.remove('show');
+      }
+    }catch(_){}
+  }
+
+  function bossSkillLabel(skill){
+    if (skill === 'reverse') return 'REVERSE';
+    if (skill === 'combo_lock') return 'LOCK';
+    if (skill === 'stamina_drain') return 'DRAIN';
+    if (skill === 'fake_callout') return 'FAKE';
+    return 'BURST';
+  }
+
+  // simple mixed boss planner (เบา ๆ แต่สนุก)
+  function pickBossMeta(mode, diff, trackKey){
+    const presetPool = (diff === 'hard')
+      ? ['burst', 'syncop', 'stutter', 'shield']
+      : (diff === 'easy')
+        ? ['burst', 'shield']
+        : ['burst', 'syncop', 'shield'];
+
+    const skillPool = (mode === 'research')
+      ? ['burst', 'shield', 'reverse'] // research ก็มีบอส แต่ไม่โหดเกิน
+      : ['burst', 'shield', 'reverse', 'combo_lock', 'fake_callout'];
+
+    const preset = presetPool[Math.floor(Math.random()*presetPool.length)];
+    const skill  = skillPool[Math.floor(Math.random()*skillPool.length)];
+    return { preset, skill, trackKey };
+  }
+
+  // build A/B sequence by preset
+  function buildBossSeq(preset, len){
+    const n = Math.max(4, Math.min(18, len|0));
+    const seq = [];
+    if (preset === 'syncop'){
+      // A _ B _ A B (syncop)
+      for (let i=0;i<n;i++){
+        seq.push((i%3===1) ? 'B' : 'A');
+      }
+      return seq;
+    }
+    if (preset === 'stutter'){
+      // A A B B A A...
+      for (let i=0;i<n;i++){
+        seq.push((Math.floor(i/2)%2===0) ? 'A' : 'B');
+      }
+      return seq;
+    }
+    if (preset === 'shield'){
+      // A B A B แต่ยาวขึ้น
+      for (let i=0;i<n;i++){
+        seq.push((i%2===0) ? 'A' : 'B');
+      }
+      return seq;
+    }
+    // default burst: random แต่ไม่สุ่มติดยาวเกิน
+    let last = '';
+    for (let i=0;i<n;i++){
+      let s = (Math.random() < 0.5) ? 'A' : 'B';
+      if (s === last && Math.random() < 0.65) s = (s==='A')?'B':'A';
+      seq.push(s); last = s;
+    }
+    return seq;
+  }
+
+  // boss beat => ส่งให้ engine ถ้ามี API, ไม่งั้นยิง event ให้ engine ไปฟังได้ภายหลัง
+  function emitBossBeat(payload){
+    // payload: {symbol, i, total, meta}
+    try{
+      if (engine && typeof engine.onBossBeat === 'function'){
+        engine.onBossBeat(payload);
+        return;
+      }
+    }catch(_){}
+
+    try{
+      window.dispatchEvent(new CustomEvent('rb:bossbeat', { detail: payload }));
+    }catch(_){}
+  }
+
+  async function ensureBossReady(){
+    if (boss.ready) return true;
+    const mods = await loadBossModules();
+    if (!mods) return false;
+
+    try{
+      boss.hudApi = mods.mountBossHUD();
+      boss.sched = mods.createBossScheduler({
+        getBpm: ()=> boss.bpm,
+        countInBeats: boss.cfg.countInBeats,
+        onTele: (on, text)=> bossTele(on, text),
+        onBeat: ({symbol, i, total, meta})=>{
+          emitBossBeat({ symbol, i, total, meta });
+          // update HUD minimal per beat (engine จะอัปเดตของตัวเองต่อได้)
+          if (boss.hudApi){
+            boss.hudApi.show(true);
+            boss.hudApi.setHUD({
+              hp: meta.hp ?? 100,
+              preset: meta.preset || '—',
+              skill: meta.skill || 'burst',
+              skillLabel: bossSkillLabel(meta.skill),
+              reverseOn: !!meta.reverseOn,
+              shieldNeed: meta.shieldNeed || 0,
+              shieldStreak: meta.shieldStreak || 0
+            });
+          }
+        }
+      });
+      boss.ready = true;
+      return true;
+    }catch(err){
+      console.warn('[RB] boss init failed', err);
+      return false;
+    }
+  }
+
+  function bossStop(){
+    try{ boss.sched && boss.sched.stop && boss.sched.stop(); }catch(_){}
+    try{ boss.hudApi && boss.hudApi.show(false); }catch(_){}
+  }
+
+  // เริ่มบอสแบบ “mixed”
+  async function bossStartBurst(mode, diff, trackKey){
+    if (!boss.cfg.enabled) return;
+    const ok = await ensureBossReady();
+    if (!ok) return;
+
+    const meta0 = pickBossMeta(mode, diff, trackKey);
+
+    // skill effects (simple flags to show HUD; engine จะเลือกใช้จริงภายหลัง)
+    const meta = {
+      preset: meta0.preset,
+      skill: meta0.skill,
+      reverseOn: (meta0.skill === 'reverse'),
+      shieldNeed: (meta0.preset === 'shield' || meta0.skill === 'shield') ? 3 : 0,
+      shieldStreak: 0,
+      hp: 100,
+      trackKey
+    };
+
+    // length by diff
+    const len = (diff === 'hard') ? 14 : (diff === 'easy' ? 8 : 11);
+    const seq = buildBossSeq(meta.preset, len);
+
+    // tele text
+    const teleText = (meta.reverseOn) ? 'REVERSE!' : (meta.preset === 'shield' ? 'SHIELD!' : 'BOSS BURST!');
+    boss.lastToken = boss.sched.startSequence(seq, Object.assign({ teleText }, meta));
+  }
+
+  function bossTick(){
+    try{
+      if (boss.sched && boss.sched.tick) boss.sched.tick();
+    }catch(_){}
+  }
+
+  // mapping เพลงในเมนู → engine trackId + diff + label + bpm
   const TRACK_CONFIG = {
-    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
-    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
-    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
-    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
+    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy',   bpm: 110 },
+    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal', bpm: 126 },
+    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard',   bpm: 142 },
+    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal', bpm: 120 }
   };
 
   let engine = null;
+  let bossLoopRAF = 0;
 
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
@@ -143,9 +336,29 @@
       hud: hud,
       hooks: { onEnd: handleEngineEnd }
     });
+
+    // ✅ Optional: ให้ engine รู้ว่าเราจะมี boss (ถ้ามี API)
+    try{
+      if (engine && typeof engine.setBossEnabled === 'function') engine.setBossEnabled(true);
+    }catch(_){}
   }
 
-  function startGame() {
+  function startBossLoop(){
+    cancelAnimationFrame(bossLoopRAF);
+    const loop = ()=>{
+      bossTick();
+      bossLoopRAF = requestAnimationFrame(loop);
+    };
+    bossLoopRAF = requestAnimationFrame(loop);
+  }
+
+  function stopBossLoop(){
+    cancelAnimationFrame(bossLoopRAF);
+    bossLoopRAF = 0;
+    bossStop();
+  }
+
+  async function startGame() {
     if (!engine) createEngine();
 
     const mode = getSelectedMode();
@@ -157,6 +370,9 @@
     hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
     hud.track.textContent = cfg.labelShort;
 
+    // D+E: set bpm per track
+    boss.bpm = Number(cfg.bpm || 120);
+
     const meta = {
       id:   (inputParticipant && inputParticipant.value || '').trim(),
       group:(inputGroup && inputGroup.value || '').trim(),
@@ -165,6 +381,19 @@
 
     engine.start(mode, cfg.engineId, meta);
     switchView('play');
+
+    // ✅ D+E: boss is ON for both Normal & Research
+    // เริ่ม loop ของ scheduler และปล่อย burst แรกหลังเริ่ม 2 วิ (ให้ warm-up)
+    startBossLoop();
+    setTimeout(()=> bossStartBurst(mode, cfg.diff, trackKey), 2000);
+
+    // ปล่อย burst ซ้ำเป็นระยะ (ยุติธรรม: research ช้ากว่า)
+    // ถ้า engine มี event hook ภายหลัง เราค่อยย้ายไป sync กับ progress ได้
+    const intervalMs = (mode === 'research') ? 18000 : 14000;
+    try{
+      startGame._bossT && clearInterval(startGame._bossT);
+      startGame._bossT = setInterval(()=> bossStartBurst(mode, cfg.diff, trackKey), intervalMs);
+    }catch(_){}
   }
 
   function stopGame(reason) {
@@ -172,6 +401,10 @@
   }
 
   function handleEngineEnd(summary) {
+    // stop boss
+    try{ startGame._bossT && clearInterval(startGame._bossT); }catch(_){}
+    stopBossLoop();
+
     // (ส่วน result เดิมของคุณใช้ได้ 그대로)
     // ... (คงโค้ดเดิมทั้งหมดได้เลย)
     switchView('result');
