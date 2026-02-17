@@ -8,8 +8,12 @@
   <link rel="icon" href="../favicon.ico"/>
 
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./brush.css?v=20260216c"/>
+  <link rel="stylesheet" href="./brush.css?v=20260216b"/>
+
+  <!-- ✅ REQUIRED: A-Frame MUST load BEFORE <a-scene> markup -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
+
 <body data-view="pc">
   <!-- fatal -->
   <div id="fatal" class="br-fatal br-hidden"></div>
@@ -146,23 +150,15 @@
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <!-- ✅ Required libs -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <!-- ✅ Optional fun boost -->
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
 
   <!-- ✅ Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260216c"></script>
-
-  <!-- ✅ NEW: FX + Missions + ML/DL (ABC) -->
-  <script src="./brush.fx.js?v=20260216c"></script>
-  <script src="./brush.missions.js?v=20260216c"></script>
-  <script src="./brush.ml.js?v=20260216c"></script>
+  <script src="../vr/vr-ui.js?v=20260216b"></script>
 
   <!-- ✅ Engine & Boot -->
-  <script src="./brush.safe.js?v=20260216c"></script>
-  <script src="./brush.boot.js?v=20260216c"></script>
+  <script src="./brush.safe.js?v=20260216b"></script>
+  <script src="./brush.boot.js?v=20260216b"></script>
 </body>
 </html>
