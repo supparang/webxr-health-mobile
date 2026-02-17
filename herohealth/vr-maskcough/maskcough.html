@@ -7,23 +7,18 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ CSS (FIX: อยู่ระดับเดียวกับไฟล์นี้) -->
-  <link rel="stylesheet" href="./maskcough.css?v=20260216a"/>
+  <!-- ✅ CSS (อยู่ระดับเดียวกับไฟล์นี้) -->
+  <link rel="stylesheet" href="./maskcough.css?v=20260216b"/>
 </head>
 <body>
-  <!-- Global FX flash -->
   <div id="mc-flash"></div>
-
-  <!-- Coach prompt -->
   <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
 
   <div id="mc-wrap" data-view="pc" data-run="play">
-    <!-- Stage -->
     <main class="mc-stage" role="application" aria-label="MaskCough game">
       <div id="layer" class="mc-layer" aria-label="play layer"></div>
     </main>
 
-    <!-- HUD -->
     <section class="mc-hud" aria-label="HUD">
       <div class="mc-hud-row">
         <span class="mc-pill">Score <b id="tScore">0</b></span>
@@ -70,6 +65,14 @@
           <div class="mc-end-item"><div class="k">Perfect</div><div class="v" id="sPerfect">0</div></div>
           <div class="mc-end-item"><div class="k">Shield End</div><div class="v" id="sShield">0%</div></div>
           <div class="mc-end-item"><div class="k">Risk Avg</div><div class="v" id="sRisk">0.00</div></div>
+
+          <!-- ✅ Quality metrics -->
+          <div class="mc-end-item"><div class="k">Accuracy</div><div class="v" id="sAcc">0%</div></div>
+          <div class="mc-end-item"><div class="k">Avg RT</div><div class="v" id="sRT">—</div></div>
+          <div class="mc-end-item"><div class="k">Cough Perfect%</div><div class="v" id="sCoughP">0%</div></div>
+          <div class="mc-end-item"><div class="k">Avoid 🦠</div><div class="v" id="sAvoid">0</div></div>
+          <div class="mc-end-item"><div class="k">Saved 💦</div><div class="v" id="sSaved">0</div></div>
+          <div class="mc-end-item"><div class="k">Damage</div><div class="v" id="sDmg">0</div></div>
         </div>
 
         <div class="mc-end-badges-wrap">
@@ -86,18 +89,14 @@
       </div>
     </section>
 
-    <!-- Toast -->
     <div id="toast"></div>
   </div>
 
-  <!-- ✅ FUN BOOST (optional) -->
-  <script src="../vr/fun-boost.js?v=20260216a"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260216a"></script>
+  <script src="../vr/fun-boost.js?v=20260216b"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260216b"></script>
+  <script src="../vr/vr-ui.js?v=20260216b"></script>
 
-  <!-- ✅ VR UI (for cVR shoot: hha:shoot) -->
-  <script src="../vr/vr-ui.js?v=20260216a"></script>
-
-  <!-- ✅ BOOT (boot จะเป็นคนโหลด safe engine) -->
-  <script src="./maskcough.boot.js?v=20260216a"></script>
+  <!-- ENGINE -->
+  <script src="./maskcough.safe.js?v=20260216b"></script>
 </body>
 </html>
