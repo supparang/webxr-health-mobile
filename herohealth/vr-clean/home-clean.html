@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Clean Objects (Home)</title>
+  <style>
+    :root{
+      --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455;
+      --safeT: env(safe-area-inset-top, 0px);
+      --safeB: env(safe-area-inset-bottom, 0px);
+    }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    #app{ position:fixed; inset:0; padding-top:var(--safeT); padding-bottom:var(--safeB); overflow:hidden; }
+
+    /* shared HUD */
+    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT)); display:flex; gap:10px; z-index:20; }
+    .hud .box{ flex:1; background:rgba(18,27,47,.86); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; }
+    .hud .t{ font-size:12px; color:var(--mut); }
+    .hud .v{ font-size:16px; font-weight:800; margin-top:2px; }
+
+    /* A renderer container */
+    #mapRoot{ position:absolute; inset:0; display:none; }
+    .mapWrap{ position:absolute; inset:64px 12px 12px; border:1px solid var(--bd); border-radius:18px; background:rgba(18,27,47,.55); overflow:hidden; }
+    .mapTop{ position:absolute; left:12px; right:12px; top:calc(64px + 12px); display:flex; gap:8px; z-index:10; }
+    .btn{ border:1px solid var(--bd); background:#1a2a4a; color:var(--fg); padding:10px 12px; border-radius:12px; font-weight:800; cursor:pointer; }
+    .btn:active{ transform: translateY(1px); }
+    .hint{ position:absolute; left:0; right:0; bottom:0; padding:10px 12px; color:var(--mut); font-size:12px; background:rgba(11,18,32,.75); }
+
+    /* B renderer container */
+    #vrRoot{ position:absolute; inset:0; display:none; }
+    .overlayNote{ position:fixed; left:12px; right:12px; bottom:calc(12px + var(--safeB)); z-index:30;
+      background:rgba(11,18,32,.75); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; color:var(--mut); font-size:12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Shared HUD (placeholder values) -->
+  <div class="hud" id="hud">
+    <div class="box"><div class="t">TIME</div><div class="v" id="hudTime">--</div></div>
+    <div class="box"><div class="t">SPRAY</div><div class="v" id="hudSpray">--</div></div>
+    <div class="box"><div class="t">CLOTH</div><div class="v" id="hudCloth">--</div></div>
+  </div>
+
+  <!-- A) Map renderer -->
+  <div id="mapRoot">
+    <div class="mapTop">
+      <button class="btn" id="btnSort">Sort by Value</button>
+      <button class="btn" id="btnPlan">Plan Builder</button>
+      <button class="btn" id="btnBack">Back HUB</button>
+    </div>
+    <div class="mapWrap" id="mapWrap">
+      <!-- placeholder map -->
+      <div class="hint">
+        A Mode (PC/Mobile): แผนที่บ้าน + กดเลือกวัตถุเพื่อทำความสะอาด (เดี๋ยวเราจะใส่ hotspot cards + budget loop ที่นี่)
+      </div>
+    </div>
+  </div>
+
+  <!-- B) WebXR renderer -->
+  <div id="vrRoot">
+    <!-- A-Frame is optional; if you include it later, this skeleton still works -->
+    <div class="overlayNote">
+      B Mode (Cardboard): ใช้ crosshair + tap-to-shoot ผ่าน <b>/herohealth/vr/vr-ui.js</b> (event: <code>hha:shoot</code>)<br/>
+      ตอนนี้เป็น skeleton — ต่อไปเราจะใส่ hotspot glow + clean progress ใน 3D
+    </div>
+    <!-- If/when you add A-Frame, keep an <a-scene> here -->
+    <div id="vrStage" style="position:absolute; inset:0;"></div>
+  </div>
+</div>
+
+<script type="module">
+'use strict';
+
+const qs = (k, d='') => {
+  try{
+    const u = new URL(location.href);
+    return u.searchParams.get(k) ?? d;
+  }catch(e){ return d; }
+};
+const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+const isCVR = String(qs('view','')).toLowerCase() === 'cvr';
+
+const P = {
+  view: String(qs('view','')).toLowerCase(),
+  run:  String(qs('run','play')).toLowerCase(),
+  diff: String(qs('diff','normal')).toLowerCase(),
+  time: clamp(Number(qs('time','90')), 20, 300),
+  seed: String(qs('seed', String(Date.now()))),
+  pid:  String(qs('pid','anon')),
+  hub:  String(qs('hub','/herohealth/hub.html')),
+  ai:   Number(qs('ai','0'))||0,
+  debug:Number(qs('debug','0'))||0,
+  api:  String(qs('api',''))
+};
+
+// show initial HUD
+document.getElementById('hudTime').textContent  = P.time + 's';
+document.getElementById('hudSpray').textContent = '100';
+document.getElementById('hudCloth').textContent = '3';
+
+// mount correct renderer
+const mapRoot = document.getElementById('mapRoot');
+const vrRoot  = document.getElementById('vrRoot');
+
+if (isCVR){
+  vrRoot.style.display = 'block';
+  mapRoot.style.display = 'none';
+  await bootVR();
+} else {
+  mapRoot.style.display = 'block';
+  vrRoot.style.display = 'none';
+  bootMap();
+}
+
+function bootMap(){
+  // skeleton actions
+  document.getElementById('btnSort').onclick = ()=> toast('TODO: sort hotspots by (Touch×Spread)/Cost');
+  document.getElementById('btnPlan').onclick = ()=> toast('TODO: open Plan Builder (Checklist/Routine/Route)');
+  document.getElementById('btnBack').onclick = ()=> goHub();
+
+  // TODO next: render zones + hotspots + tap-to-clean mini action
+}
+
+async function bootVR(){
+  // 1) Try load A-Frame if you want (optional) — you can include it later via script tag in this file
+  // 2) Always load vr-ui.js for consistent ENTER VR/EXIT/RECENTER + crosshair + hha:shoot
+  try{
+    await import('../vr/vr-ui.js'); // path: /herohealth/vr/vr-ui.js
+  }catch(e){
+    console.warn('vr-ui.js missing or failed to load:', e);
+    toast('vr-ui.js โหลดไม่สำเร็จ (แต่ skeleton ยังทำงานได้)');
+  }
+
+  // Listen shoot event (from crosshair/tap)
+  window.addEventListener('hha:shoot', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    // In cVR strict, treat shoot as "clean/activate" at center aim
+    // TODO next: raycast/select nearest hotspot & progress clean
+    if(P.debug) console.log('hha:shoot', d);
+  });
+
+  // Back hub for VR too (use browser back or add a floating button later)
+  // TODO next: create 3D scene + hotspots
+}
+
+function goHub(){
+  // preserve key params when returning
+  const u = new URL(P.hub, location.href);
+  // optional: pass last game id to hub
+  u.searchParams.set('from', 'clean-home');
+  u.searchParams.set('pid', P.pid);
+  u.searchParams.set('seed', P.seed);
+  location.href = u.toString();
+}
+
+function toast(msg){
+  // ultra-light toast
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.position='fixed';
+  d.style.left='12px'; d.style.right='12px';
+  d.style.bottom='12px';
+  d.style.zIndex='9999';
+  d.style.padding='10px 12px';
+  d.style.border='1px solid var(--bd)';
+  d.style.borderRadius='14px';
+  d.style.background='rgba(18,27,47,.9)';
+  d.style.color='var(--fg)';
+  document.body.appendChild(d);
+  setTimeout(()=>{ d.remove(); }, 1500);
+}
+</script>
+</body>
+</html>
