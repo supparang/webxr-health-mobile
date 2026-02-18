@@ -3,60 +3,53 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Germ Detective</title>
-  <meta name="color-scheme" content="dark"/>
+  <title>HeroHealth — Germ Detective (Run)</title>
+  <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <style>
-    body{ margin:0; background:#040610; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto; }
-  </style>
+
+  <link rel="stylesheet" href="./germ-detective.css?v=20260218a"/>
 </head>
-<body data-view="pc" data-run="play">
-  <div id="app"></div>
+<body>
+  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair shoot) -->
+  <script src="../vr/vr-ui.js?v=20260216a"></script>
 
-  <!-- OPTIONAL: if you already use HHA universal VR UI in run pages -->
-  <!-- <script type="module" src="../vr/vr-ui.js"></script> -->
+  <!-- Mount -->
+  <div id="gdApp"></div>
 
+  <!-- Core -->
   <script type="module">
-    import GameApp from './germ-detective.js';
+    import Game from './germ-detective.js?v=20260218a';
 
-    // --- HHA-style qs helpers ---
-    const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-    const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n)? n : d; };
-    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
-    const nowSeed = ()=> String(Date.now());
+    function qs(k, def=''){
+      try{ return new URL(location.href).searchParams.get(k) ?? def; }
+      catch{ return def; }
+    }
+    function clamp(v,a,b){
+      v = Number(v); if(!Number.isFinite(v)) v=a;
+      return Math.max(a, Math.min(b,v));
+    }
 
-    // --- Build ctx (HHA passthrough standard-ish) ---
     const ctx = {
       game: 'germ-detective',
-      hub: String(qs('hub','')||'').trim() || '../hub.html',
-      run: String(qs('run', document.body.getAttribute('data-run') || 'play')||'play').toLowerCase(),
-      diff: String(qs('diff','normal')||'normal').toLowerCase(),
-      time: clamp(num(qs('time','240'), 240), 30, 600),
-      seed: String(qs('seed','') || nowSeed()),
-      pid: String(qs('pid','anon')||'anon').trim() || 'anon',
-      view: String(qs('view', document.body.getAttribute('data-view')||'pc')||'pc').toLowerCase(),
-      gate: num(qs('gate','1'), 1),
-      log: String(qs('log','')||'').trim(),
-      studyId: String(qs('studyId','')||'').trim(),
-      phase: String(qs('phase','')||'').trim(),
-      conditionGroup: String(qs('conditionGroup','')||'').trim(),
-      ai: num(qs('ai','0'), 0)
+      hub: qs('hub','../hub.html'),
+      run: String(qs('run','play')).toLowerCase(),
+      caseId: String(qs('case','classroom')).toLowerCase(),
+      view: String(qs('view','pc')).toLowerCase(),
+      diff: String(qs('diff','normal')).toLowerCase(),
+      timeSec: clamp(qs('time','240'), 90, 480),
+      pid: String(qs('pid','anon')),
+      seed: String(qs('seed', String(Date.now()))),
+      ai: clamp(qs('ai','1'), 0, 1),
+      gate: clamp(qs('gate','1'), 1, 2)
     };
 
-    // Expose ctx like other games
-    window.HHA = window.HHA || {};
-    window.HHA.ctx = ctx;
+    // optional: tune VR UI for cVR
+    window.HHA_VRUI_CONFIG = window.HHA_VRUI_CONFIG || {};
+    window.HHA_VRUI_CONFIG.cvrStrict = true;
+    window.HHA_VRUI_CONFIG.lockPx = 28;
+    window.HHA_VRUI_CONFIG.cooldownMs = 90;
 
-    // Let hub/UI listen
-    window.dispatchEvent(new CustomEvent('hha:ctx', { detail: ctx }));
-
-    // Apply view/run to body for CSS hooks
-    document.body.setAttribute('data-view', ctx.view);
-    document.body.setAttribute('data-run', ctx.run);
-
-    // Init game (pass ctx)
-    const app = GameApp({ mountId:'app', timeSec: ctx.time, seed: ctx.seed, gate: ctx.gate, enableAI: ctx.ai===1 });
-    window.GermDetective = app; // debug
+    const app = Game({ mountId:'gdApp', ctx });
     app.init();
   </script>
 </body>
