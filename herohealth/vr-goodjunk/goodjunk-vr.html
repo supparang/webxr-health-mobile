@@ -1,11 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
-✅ Uses ./goodjunk-vr.css
-✅ Uses ./goodjunk-vr.boot.js (auto view + auto VR UI load)
-✅ FX (Particles + FX Director) loaded once, before boot
-✅ Quest Panel (GOAL/MINI) แสดงชัวร์ + layout ไม่แน่น
-✅ Overlay lock: quest panel ไม่ทับมั่ว / ไม่บีบ HUD
-✅ End overlay: safe.js คุมด้วย aria-hidden (HTML ไม่ผูกซ้ำ)
+GoodJunkVR RUN — PRODUCTION (CLEAN / POST-GAME PANEL)
+✅ FX loaded once (Particles + FX Director) before boot
+✅ Boot via goodjunk-vr.boot.js
+✅ End overlay: HTML binds ONCE to hha:end -> show end + show post panel
+✅ Post panel: reason (radio) + confidence + 1-line plan + trigger report
 -->
 <!doctype html>
 <html lang="th">
@@ -17,23 +15,21 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260217c" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260218a" />
 
   <!-- ✅ FX core (ต้องมาก่อน boot) -->
-  <script src="../vr/particles.js?v=20260217c" defer></script>
-  <script src="../vr/hha-fx-director.js?v=20260217c" defer></script>
+  <script src="../vr/particles.js?v=20260218a" defer></script>
+  <script src="../vr/hha-fx-director.js?v=20260218a" defer></script>
 
   <!-- ✅ Logger (optional) -->
-  <script src="../vr/hha-cloud-logger.js?v=20260217c" defer></script>
+  <script src="../vr/hha-cloud-logger.js?v=20260218a" defer></script>
 
   <!-- ✅ Boot -->
-  <script type="module" src="./goodjunk-vr.boot.js?v=20260217c"></script>
+  <script type="module" src="./goodjunk-vr.boot.js?v=20260218a"></script>
 </head>
 
 <body class="gj">
-  <!-- =========================================================
-       TOPBAR (always clickable)
-       ========================================================= -->
+  <!-- TOPBAR -->
   <div class="gj-topbar">
     <div class="left">
       <span class="gj-chip gj-chip-brand">🍀 GoodJunkVR</span>
@@ -42,52 +38,43 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
       <span class="gj-chip" id="chipTime">time: —</span>
     </div>
     <div class="right">
-      <button class="gj-btn" id="btnQuestOpen" type="button" aria-label="ภารกิจ">ภารกิจ</button>
-      <button class="gj-btn" id="btnHideHud" type="button" aria-label="ซ่อน HUD">ซ่อน HUD</button>
-      <button class="gj-btn" id="btnRestartTop" type="button" aria-label="เริ่มใหม่">เริ่มใหม่</button>
-      <button class="gj-btn primary" id="btnHubTop" type="button" aria-label="กลับ HUB">กลับ HUB</button>
+      <button class="gj-btn" id="btnQuestOpen" type="button">ภารกิจ</button>
+      <button class="gj-btn" id="btnHideHud" type="button">ซ่อน HUD</button>
+      <button class="gj-btn" id="btnRestartTop" type="button">เริ่มใหม่</button>
+      <button class="gj-btn primary" id="btnHubTop" type="button">กลับ HUB</button>
     </div>
   </div>
 
-  <!-- =========================================================
-       HUD TOP (score/time/miss/grade + hint + progress + boss bar)
-       ========================================================= -->
+  <!-- HUD TOP -->
   <div class="gj-hud-top" id="hud" aria-label="HUD">
     <div class="hud-row">
       <div class="hud-pill grade">
         <div class="hud-label">GRADE</div>
         <div class="hud-value" id="hud-grade">—</div>
       </div>
-
       <div class="hud-pill">
         <div class="hud-label">SCORE</div>
         <div class="hud-value" id="hud-score">0</div>
       </div>
-
       <div class="hud-pill warn">
         <div class="hud-label">TIME</div>
         <div class="hud-value"><span id="hud-time">0</span>s</div>
       </div>
-
       <div class="hud-pill">
         <div class="hud-label">MISS</div>
         <div class="hud-value" id="hud-miss">0</div>
       </div>
-
-      <!-- used by boot safe measure -->
       <div id="vrMiniHud" class="gj-chip gj-chip-mini">
         🎯 VR/cVR: ยิงจากกลางจอ (tap-to-shoot)
       </div>
     </div>
 
-    <!-- progress (optional, safe.js will update if exists) -->
     <div class="gj-progress" aria-hidden="false">
       <div class="gj-progress-track">
         <div id="gjProgressFill" class="gj-progress-fill" style="width:0%"></div>
       </div>
     </div>
 
-    <!-- boss bar (optional, safe.js will update if exists) -->
     <div id="bossBar" class="gj-bossbar" aria-hidden="true">
       <div class="gj-bossbar-head">
         <div class="gj-bossbar-title">👹 BOSS</div>
@@ -99,28 +86,21 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
     </div>
   </div>
 
-  <!-- =========================================================
-       FIELD (targets mount here)
-       ========================================================= -->
+  <!-- FIELD -->
   <div class="gj-field" id="playfield" aria-label="Playfield">
     <div class="gj-layer" id="gj-layer" aria-hidden="false"></div>
     <div class="gj-layer gj-layer-r" id="gj-layer-r" aria-hidden="true"></div>
   </div>
 
-  <!-- =========================================================
-       HUD BOTTOM (fever + shield) — safe.js updates these IDs
-       ========================================================= -->
+  <!-- HUD BOTTOM -->
   <div class="gj-hud-bot" aria-label="Meters">
     <div class="meter" id="feverBox">
       <div class="meter-title">FEVER / SHIELD</div>
-
-      <div class="meter-bar" aria-label="Fever bar">
+      <div class="meter-bar">
         <div class="meter-fill" id="feverFill" style="width:0%"></div>
       </div>
-
       <div class="meter-num">Fever: <span id="feverText">0%</span></div>
       <div class="meter-shield">Shield: <span id="shieldPills">—</span></div>
-
       <div class="meter-tip">⭐ ลด MISS / 🛡️ กันขยะ (กันแล้วไม่เป็น MISS)</div>
     </div>
 
@@ -134,15 +114,12 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
     </div>
   </div>
 
-  <!-- =========================================================
-       QUEST PANEL (FIX: ภารกิจไม่แน่น + โชว์แน่)
-       * safe.js อัปเดต #hud-goal/#hud-mini/#miniTimer/#goalDesc
-       ========================================================= -->
+  <!-- QUEST PANEL -->
   <div class="gj-quest-panel" id="questPanel" aria-hidden="true">
     <div class="gj-quest-card" role="dialog" aria-label="ภารกิจ">
       <div class="gj-quest-head">
         <div class="gj-quest-title">🎯 ภารกิจ</div>
-        <button class="gj-btn" id="btnQuestClose" type="button" aria-label="ปิด">ปิด</button>
+        <button class="gj-btn" id="btnQuestClose" type="button">ปิด</button>
       </div>
 
       <div class="gj-quest-section">
@@ -161,35 +138,19 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
       </div>
 
       <div class="gj-quest-section">
-        <div class="q-title">Fever/Shield</div>
-        <div class="q-desc">Fever: <b id="qpFeverText">ดูที่แถบล่าง</b> | Shield: <b id="qpShieldText">ดูที่แถบล่าง</b></div>
-        <div class="q-hint">Tip: ถ้า HUD แน่น ให้กด “ซ่อน HUD” แล้วเล่นลื่นขึ้น</div>
-      </div>
-
-      <div class="gj-quest-section">
-        <div class="q-title">วิธีเล่น</div>
-        <ul class="gj-ul">
-          <li>แตะ 🥦/ผลไม้ = ได้คะแนน</li>
-          <li>แตะ 🍟/ขยะ = MISS + ตัดคะแนน (ถ้ามี 🛡️ จะ BLOCK)</li>
-          <li>STORM เมื่อเหลือ ≤30s</li>
-          <li>BOSS เมื่อ MISS ≥4 | RAGE เมื่อ MISS ≥5</li>
-        </ul>
+        <div class="q-title">Tip</div>
+        <div class="q-desc">ถ้า HUD แน่น ให้กด “ซ่อน HUD” แล้วเล่นลื่นขึ้น</div>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       LOW TIME OVERLAY (safe.js toggles aria-hidden=false)
-       ========================================================= -->
+  <!-- LOW TIME -->
   <div class="gj-lowtime-overlay" id="lowTimeOverlay" aria-hidden="true">
     <div class="gj-lowtime-ring"></div>
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
-  <!-- =========================================================
-       END SUMMARY (safe.js emits hha:end; UI จะขึ้นจาก listener ฝั่ง safe.js หรือระบบมาตรฐาน)
-       * HTML นี้ไม่ bind end ซ้ำ
-       ========================================================= -->
+  <!-- END SUMMARY + POST PANEL -->
   <div class="gj-end" id="endOverlay" aria-hidden="true">
     <div class="card">
       <div class="title" id="endTitle">Completed</div>
@@ -202,6 +163,45 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
         <div class="stat"><span>TIME (sec)</span><b id="endTime">0</b></div>
       </div>
 
+      <!-- ✅ POST-GAME PANEL (Evaluate + Create-lite) -->
+      <div class="gj-post" id="postPanel" aria-hidden="true">
+        <div class="gj-post-title">🧠 สรุปเหตุผล + แผนแก้ 1 ข้อ</div>
+
+        <div class="gj-post-box">
+          <div class="gj-post-h">1) เลือกเหตุผลว่า “ทำไม junk ถึงไม่ดี” (1 ข้อ)</div>
+          <div class="gj-radio">
+            <label><input type="radio" name="gjReason" value="น้ำตาลสูง"> น้ำตาลสูง</label>
+            <label><input type="radio" name="gjReason" value="ทอด/ไขมันสูง"> ทอด/ไขมันสูง</label>
+            <label><input type="radio" name="gjReason" value="แปรรูป/โซเดียมสูง"> แปรรูป/โซเดียมสูง</label>
+            <label><input type="radio" name="gjReason" value="เครื่องดื่มหวาน"> เครื่องดื่มหวาน</label>
+            <label><input type="radio" name="gjReason" value="สิ่งล่อใจ/โฆษณา"> สิ่งล่อใจ/โฆษณา</label>
+            <label><input type="radio" name="gjReason" value="หิวมาก/รีบ"> หิวมาก/รีบ</label>
+          </div>
+
+          <div class="gj-post-h" style="margin-top:10px;">2) ความมั่นใจ (1–5)</div>
+          <input id="gjConf" type="range" min="1" max="5" step="1" value="3" />
+          <div class="gj-post-mini">ระดับ: <b id="gjConfVal">3</b>/5</div>
+
+          <div class="gj-post-h" style="margin-top:10px;">3) Junk-Trigger report (ระบบสรุปให้)</div>
+          <div class="gj-trigger" id="gjTriggerText">—</div>
+
+          <div class="gj-post-h" style="margin-top:10px;">4) เลือก “แผนแก้ 1 ข้อ” (Create-lite)</div>
+          <div class="gj-radio">
+            <label><input type="radio" name="gjPlan" value="ก่อน STORM จะเก็บ 🛡️ ให้ได้ 1 อัน"> ก่อน STORM จะเก็บ 🛡️ ให้ได้ 1 อัน</label>
+            <label><input type="radio" name="gjPlan" value="MISS เริ่มขึ้นจะชะลอ 1 วินาทีแล้วค่อยยิง"> MISS เริ่มขึ้นจะชะลอ 1 วินาทีแล้วค่อยยิง</label>
+            <label><input type="radio" name="gjPlan" value="เลี่ยงของทอด/น้ำหวาน เลือกผลไม้/ผักก่อน"> เลี่ยงของทอด/น้ำหวาน เลือกผลไม้/ผักก่อน</label>
+            <label><input type="radio" name="gjPlan" value="เจอ 💣 จะไม่ยิงรัว รอจังหวะ"> เจอ 💣 จะไม่ยิงรัว รอจังหวะ</label>
+          </div>
+
+          <div class="gj-post-actions">
+            <button class="btn" id="btnPostSave" type="button">บันทึก</button>
+            <button class="btn alt" id="btnPostSkip" type="button">ข้าม</button>
+          </div>
+
+          <div class="gj-post-mini" id="gjPostNote">* ใช้เวลาไม่เกิน 10 วิ</div>
+        </div>
+      </div>
+
       <div class="actions">
         <button class="btn" id="btnRestartEnd" type="button">เล่นอีกครั้ง</button>
         <button class="btn alt" id="btnBackHub" type="button">กลับ HUB</button>
@@ -209,40 +209,30 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
     </div>
   </div>
 
-  <!-- =========================================================
-       UI WIRING (CLEAN) — เฉพาะปุ่ม/แผงภารกิจ/ซ่อน HUD/รีสตาร์ท/กลับ HUB
-       ========================================================= -->
+  <!-- UI WIRING (CLEAN) -->
   <script>
     (function(){
       const DOC = document;
 
-      function qs(k, def=null){
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
-      }
+      const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
 
+      // chips
       const run  = String(qs('run','play')||'play');
       const diff = String(qs('diff','normal')||'normal');
       const time = String(qs('time','80')||'80');
-
       const chipMode = DOC.getElementById('chipMode');
       const chipDiff = DOC.getElementById('chipDiff');
       const chipTime = DOC.getElementById('chipTime');
-
       if(chipMode) chipMode.textContent = `mode: ${run}`;
       if(chipDiff) chipDiff.textContent = `diff: ${diff}`;
       if(chipTime) chipTime.textContent = `time: ${time}s`;
 
-      // HUB url passthrough
-      function hubUrl(){
-        return qs('hub', '../hub.html') || '../hub.html';
-      }
+      function hubUrl(){ return qs('hub', '../hub.html') || '../hub.html'; }
 
-      // Quest panel
+      // quest panel
       const questPanel = DOC.getElementById('questPanel');
       const btnQuestOpen = DOC.getElementById('btnQuestOpen');
       const btnQuestClose= DOC.getElementById('btnQuestClose');
-
       function setQuest(open){
         if(!questPanel) return;
         questPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -250,51 +240,143 @@ GoodJunkVR RUN — PRODUCTION (CLEAN / NO DUP LISTENERS)
       }
       btnQuestOpen && btnQuestOpen.addEventListener('click', ()=> setQuest(true));
       btnQuestClose&& btnQuestClose.addEventListener('click', ()=> setQuest(false));
-      questPanel && questPanel.addEventListener('click', (e)=>{
-        if(e.target === questPanel) setQuest(false);
-      });
+      questPanel && questPanel.addEventListener('click', (e)=>{ if(e.target === questPanel) setQuest(false); });
 
-      // Hide HUD (only toggles class; boot recalculates safe vars)
+      // hide hud
       const btnHideHud = DOC.getElementById('btnHideHud');
       function syncHudBtn(){
         const hidden = DOC.body.classList.contains('hud-hidden');
-        btnHideHud && (btnHideHud.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD');
+        if(btnHideHud) btnHideHud.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
       }
-      btnHideHud && btnHideHud.addEventListener('click', ()=>{
-        DOC.body.classList.toggle('hud-hidden');
-        syncHudBtn();
-      });
+      btnHideHud && btnHideHud.addEventListener('click', ()=>{ DOC.body.classList.toggle('hud-hidden'); syncHudBtn(); });
       syncHudBtn();
 
-      // Restart
+      // restart (seed bump)
       const btnRestartTop = DOC.getElementById('btnRestartTop');
       const btnRestartEnd = DOC.getElementById('btnRestartEnd');
       function restart(){
         const u = new URL(location.href);
-        // ให้ seed เปลี่ยนกัน cache/freeze (play mode)
         u.searchParams.set('seed', String(Date.now()));
         location.href = u.toString();
       }
       btnRestartTop && btnRestartTop.addEventListener('click', restart);
       btnRestartEnd && btnRestartEnd.addEventListener('click', restart);
 
-      // Back hub
+      // back hub
       const btnHubTop = DOC.getElementById('btnHubTop');
       const btnBackHub= DOC.getElementById('btnBackHub');
       btnHubTop && btnHubTop.addEventListener('click', ()=> location.href = hubUrl());
       btnBackHub&& btnBackHub.addEventListener('click', ()=> location.href = hubUrl());
 
-      // (optional) reflect fever/shield in quest panel via DOM observer
-      const feverText = DOC.getElementById('feverText');
-      const shieldPills = DOC.getElementById('shieldPills');
-      const qpF = DOC.getElementById('qpFeverText');
-      const qpS = DOC.getElementById('qpShieldText');
-      function syncMeters(){
-        if(qpF && feverText) qpF.textContent = feverText.textContent || '0%';
-        if(qpS && shieldPills) qpS.textContent = shieldPills.textContent || '—';
+      // ---------- POST PANEL ----------
+      const endOverlay = DOC.getElementById('endOverlay');
+      const postPanel  = DOC.getElementById('postPanel');
+      const triggerEl  = DOC.getElementById('gjTriggerText');
+      const conf = DOC.getElementById('gjConf');
+      const confVal = DOC.getElementById('gjConfVal');
+      const btnSave = DOC.getElementById('btnPostSave');
+      const btnSkip = DOC.getElementById('btnPostSkip');
+      const note = DOC.getElementById('gjPostNote');
+
+      function getRadio(name){
+        const el = DOC.querySelector('input[name="'+name+'"]:checked');
+        return el ? el.value : null;
       }
-      setInterval(syncMeters, 400);
-      syncMeters();
+
+      function buildTriggerReport(d){
+        // ถ้า safe.js เพิ่ม counters ในอนาคต จะอ่านจาก d ได้ทันที
+        // ตอนนี้ทำ heuristic จาก flags ที่มีแน่ๆ: stormOn/rageOn/reason/misses
+        const misses = Number(d?.misses ?? d?.miss ?? 0) || 0;
+        const storm = !!d?.stormOn;
+        const rage  = !!d?.rageOn;
+
+        let lines = [];
+        if(storm) lines.push('แพ้ทางช่วงท้ายเกม (STORM)');
+        if(rage)  lines.push('MISS สูงจนเข้า RAGE');
+        if(!lines.length){
+          if(misses >= 6) lines.push('MISS ค่อนข้างสูง (ต้องชะลอ/เลือกเป้าดีขึ้น)');
+          else if(misses >= 3) lines.push('เริ่มพลาดตอนมีสิ่งล่อใจ (อย่ายิงรัว)');
+          else lines.push('คุมได้ดีแล้ว (ลองเพิ่มความยาก/โฟกัส combo)');
+        }
+        return 'Trigger: ' + lines.join(' • ');
+      }
+
+      function showPostPanel(d){
+        if(!endOverlay || !postPanel) return;
+        postPanel.setAttribute('aria-hidden','false');
+        if(triggerEl) triggerEl.textContent = buildTriggerReport(d);
+        if(conf && confVal){
+          confVal.textContent = String(conf.value || 3);
+          conf.addEventListener('input', ()=>{ confVal.textContent = String(conf.value||3); }, { passive:true });
+        }
+      }
+
+      function savePost(d){
+        const reason = getRadio('gjReason');
+        const plan   = getRadio('gjPlan');
+        const confidence = Number(conf?.value || 3);
+
+        // save into last summary
+        try{
+          const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+          const obj = raw ? JSON.parse(raw) : {};
+          obj.post_reason_pick = reason;
+          obj.post_confidence  = confidence;
+          obj.post_plan_pick   = plan;
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(obj));
+        }catch(_){}
+
+        // emit a tiny event (logger can listen later)
+        try{
+          window.dispatchEvent(new CustomEvent('gj:post', { detail:{
+            reason, confidence, plan,
+            seed: d?.seed, diff: d?.diff, runMode: d?.runMode,
+            scoreFinal: d?.scoreFinal, misses: d?.misses
+          }}));
+        }catch(_){}
+
+        if(note){
+          note.textContent = '✅ บันทึกแล้ว';
+          setTimeout(()=>{ note.textContent = '* ใช้เวลาไม่เกิน 10 วิ'; }, 1600);
+        }
+      }
+
+      btnSave && btnSave.addEventListener('click', ()=>{
+        const d = window.__GJ_END_DETAIL__ || null;
+        savePost(d);
+      });
+
+      btnSkip && btnSkip.addEventListener('click', ()=>{
+        // simply hide panel (still allow hub/restart)
+        postPanel && postPanel.setAttribute('aria-hidden','true');
+      });
+
+      // ✅ bind end ONCE
+      function onEnd(ev){
+        const d = ev?.detail || {};
+        window.__GJ_END_DETAIL__ = d;
+
+        // show end overlay
+        if(endOverlay){
+          endOverlay.setAttribute('aria-hidden','false');
+          endOverlay.style.display = 'flex';
+        }
+        const set = (id, val)=>{
+          const el = DOC.getElementById(id);
+          if(el) el.textContent = String(val ?? '—');
+        };
+        set('endTitle', (d?.reason === 'missLimit' || d?.reason === 'miss-limit') ? 'Game Over' : 'Completed');
+        set('endSub',   `reason=${d?.reason||'-'} | mode=${d?.runMode||'-'} | diff=${d?.diff||'-'} | view=${d?.device||d?.view||'-'}`);
+        set('endGrade', d?.grade || '—');
+        set('endScore', d?.scoreFinal ?? 0);
+        set('endMiss',  d?.misses ?? 0);
+        set('endTime',  Math.round(Number(d?.durationPlayedSec||0)));
+
+        // show post panel immediately
+        showPostPanel(d);
+      }
+
+      window.addEventListener('hha:end', onEnd, { passive:true, once:false });
     })();
   </script>
 </body>
