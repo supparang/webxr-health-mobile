@@ -1,6 +1,8 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR BOOT — SAFE THIN BOOT — v20260217b
-// Goal: DO NOT control game state. Only handles mobile tap-to-start unlock + overlay sanity.
+// BrushVR BOOT — SAFE THIN BOOT — v20260217c
+// ✅ ไม่ยุ่ง state เกม (ไม่เปิด END เอง)
+// ✅ ทำแค่ Tap-to-start unlock + set start overlay = MENU เสมอ
+// ✅ รองรับ view=mobile / cvr / pc
 
 (function(){
   'use strict';
@@ -24,12 +26,13 @@
 
   function isMobile(){
     const ua = navigator.userAgent || '';
-    return /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+    return /Android|iPhone|iPad|iPod/i.test(ua) ||
+      (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
   }
 
   function normalizeView(v){
     v = String(v||'').toLowerCase();
-    // รองรับ view=mobile (จากลิงก์ของคุณ) โดยไม่ให้พัง
+    // รองรับลิงก์เดิมของคุณ
     if(v === 'mobile') return 'mobile';
     if(v === 'cvr' || v === 'cardboard') return 'cvr';
     if(v === 'vr') return 'vr';
@@ -37,38 +40,32 @@
   }
 
   function ensureStartState(){
-    // เริ่มต้นต้องเป็น menu เสมอ
+    // เริ่มที่ MENU เสมอ
     try{
       if(wrap) wrap.dataset.state = 'menu';
       if(menu) menu.style.display = 'grid';
-      if(end) end.hidden = true;
-    }catch{}
+      if(end)  end.hidden = true;
+    }catch(_){}
   }
 
-  // ปลดล็อก gesture (เสียง/ทัช) — ไม่ยุ่งเกม
   function unlockGesture(){
+    // ปลดล็อก gesture (mobile) แบบไม่พัง
     try{
-      // trick: play/pause silent audio
       const a = new Audio();
       a.muted = true;
-      a.play().then(()=>{ a.pause(); }).catch(()=>{});
-    }catch{}
+      a.play().then(()=>{ try{ a.pause(); }catch(_){} }).catch(()=>{});
+    }catch(_){}
   }
 
   function showTapStartIfNeeded(){
     const v = normalizeView(qs('view',''));
-    DOC.body.setAttribute('data-view', v);
-    if(wrap) wrap.dataset.view = v;
+    try{ DOC.body.setAttribute('data-view', v); }catch(_){}
+    try{ if(wrap) wrap.dataset.view = v; }catch(_){}
 
-    // ถ้าเป็นมือถือ หรือ view=mobile/cvr ให้โชว์ tapStart
+    // มือถือ/ cvr ให้โชว์ tapStart เพื่อ unlock ก่อน
     const need = (isMobile() || v==='mobile' || v==='cvr');
     if(!tapStart) return;
-
-    if(need){
-      tapStart.style.display = 'grid';
-    }else{
-      tapStart.style.display = 'none';
-    }
+    tapStart.style.display = need ? 'grid' : 'none';
   }
 
   function wire(){
@@ -79,12 +76,12 @@
       tapBtn.addEventListener('click', ()=>{
         unlockGesture();
         if(tapStart) tapStart.style.display = 'none';
-        // ยังอยู่ที่ MENU ให้ผู้ใช้กด "เริ่มเกม" เอง
-        try{ const btnStart = $id('btnStart'); btnStart && btnStart.focus(); }catch{}
+        // ไม่ auto-start เกม ให้ผู้ใช้กด "เริ่มเกม" เอง
+        try{ const btnStart = $id('btnStart'); btnStart && btnStart.focus(); }catch(_){}
       }, {passive:true});
     }
 
-    // กันเคสกลับมาจาก bfcache แล้วค้าง end overlay
+    // กัน bfcache / กลับมาหน้าเดิมแล้วค้าง END
     WIN.addEventListener('pageshow', ensureStartState, {passive:true});
   }
 
