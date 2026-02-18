@@ -1,0 +1,176 @@
+<!-- === /herohealth/food-compare/compare.html ===
+HeroHealth — Food Compare (Evaluate) — PRODUCTION v20260218a
+✅ Deterministic pair generator (seeded)
+✅ Evaluate: pick A/B/Equal + reason
+✅ Coach tips via hha:coach (rate-limit, deterministic)
+✅ End summary + Save last summary/history + Back HUB button
+✅ Local-only (no app script)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Compare 2 Plates</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <link rel="stylesheet" href="./compare.css"/>
+</head>
+<body>
+  <div id="app">
+    <div class="topbar">
+      <div class="title">
+        <b>🍱 Compare 2 Plates</b>
+        <span id="subline">เลือกมื้อที่ “สมดุลกว่า” แล้วบอกเหตุผล</span>
+      </div>
+
+      <div class="row">
+        <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
+        <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
+        <div class="pill"><span class="dot pink"></span> <span>ROUND:</span> <b id="roundPill">1/10</b></div>
+
+        <button class="ghost" id="btnRestart">⟲ Restart</button>
+        <button class="ghost" id="btnBack">🏠 HUB</button>
+      </div>
+    </div>
+
+    <div class="stage">
+
+      <div class="hud hudTop">
+        <div class="hudBox">
+          <span class="k">TIME</span> <span class="v" id="hudTime">—</span>
+          <span class="k">SCORE</span> <span class="v" id="hudScore">0</span>
+          <span class="k">COMBO</span> <span class="v" id="hudCombo">x0</span>
+          <span class="k">MISS</span> <span class="v" id="hudMiss">0</span>
+          <span class="k">GRADE</span> <span class="v" id="hudGrade">—</span>
+        </div>
+
+        <div class="hudBox">
+          <span class="k">SEED</span> <span class="v" id="hudSeed">—</span>
+          <span class="k">AI</span> <span class="v" id="hudAI">—</span>
+        </div>
+      </div>
+
+      <div class="center">
+        <div class="prompt">
+          <div class="promptHd">
+            <b id="promptTitle">รอบที่ 1</b>
+            <span id="promptSub">เลือกมื้อที่สมดุลกว่า</span>
+          </div>
+          <div class="promptBar"><i id="promptBar"></i></div>
+          <div class="promptMeta">
+            <span id="stepTag">STEP: เลือก A/B/พอ ๆ กัน</span>
+            <span id="roundTimer">⏳ 12s</span>
+          </div>
+        </div>
+
+        <div class="plates">
+          <div class="plate" id="plateA" data-plate="A">
+            <header>
+              <b>Plate A</b>
+              <span class="mini" id="miniA">—</span>
+            </header>
+
+            <div class="foods" id="foodsA"></div>
+
+            <div class="bars">
+              <div class="barRow"><span>หมู่1</span><i id="barA1"></i></div>
+              <div class="barRow"><span>หมู่2</span><i id="barA2"></i></div>
+              <div class="barRow"><span>หมู่3</span><i id="barA3"></i></div>
+              <div class="barRow"><span>หมู่4</span><i id="barA4"></i></div>
+              <div class="barRow"><span>หมู่5</span><i id="barA5"></i></div>
+            </div>
+
+            <button class="primary pickBtn" id="pickA">เลือก A</button>
+          </div>
+
+          <div class="plate" id="plateB" data-plate="B">
+            <header>
+              <b>Plate B</b>
+              <span class="mini" id="miniB">—</span>
+            </header>
+
+            <div class="foods" id="foodsB"></div>
+
+            <div class="bars">
+              <div class="barRow"><span>หมู่1</span><i id="barB1"></i></div>
+              <div class="barRow"><span>หมู่2</span><i id="barB2"></i></div>
+              <div class="barRow"><span>หมู่3</span><i id="barB3"></i></div>
+              <div class="barRow"><span>หมู่4</span><i id="barB4"></i></div>
+              <div class="barRow"><span>หมู่5</span><i id="barB5"></i></div>
+            </div>
+
+            <button class="primary pickBtn" id="pickB">เลือก B</button>
+          </div>
+        </div>
+
+        <div class="row actions">
+          <button class="ghost" id="pickE">พอ ๆ กัน</button>
+        </div>
+      </div>
+
+      <div class="hud hudBottom">
+        <div class="coachWrap">
+          <div class="face" id="coachFace">🙂</div>
+          <div>
+            <div class="txt" id="coachTxt">เริ่มได้เลย!</div>
+            <div class="sub" id="coachSub">ดู “ครบหมู่ + สัดส่วน” แล้วเลือก</div>
+          </div>
+        </div>
+
+        <div class="hudBox">
+          <span class="k">PICK</span> <span class="v" id="hudPick">—</span>
+          <span class="k">REASON</span> <span class="v" id="hudReason">—</span>
+        </div>
+      </div>
+
+      <!-- Reason overlay -->
+      <div class="overlay" id="reasonOverlay">
+        <div class="card">
+          <header>
+            <b>🧠 เลือกเหตุผล (1 ข้อ)</b>
+            <span class="pill"><span class="dot pink"></span> <span>Auto:</span> <b id="reasonAuto">ON</b></span>
+          </header>
+          <main>
+            <div class="hint">เลือกเหตุผลที่ “ตรงที่สุด” เพื่อได้คะแนนเต็ม</div>
+            <div class="reasons" id="reasons"></div>
+
+            <div class="row" style="justify-content:space-between;">
+              <div class="pill"><span class="dot amber"></span> <span>เหลือ:</span> <b id="reasonTimer">6s</b></div>
+              <button class="ghost" id="btnCancelReason">ยกเลิก</button>
+            </div>
+          </main>
+        </div>
+      </div>
+
+      <!-- End overlay -->
+      <div class="overlay" id="endOverlay">
+        <div class="card endCard">
+          <header>
+            <b id="endTitle">RESULT</b>
+            <span class="pill"><span class="dot good"></span> <span>Saved:</span> <b id="savedTag">yes</b></span>
+          </header>
+          <main>
+            <div class="panel">
+              <b>Summary</b>
+              <pre id="endSummary"></pre>
+            </div>
+            <div class="panel">
+              <b>Details</b>
+              <pre id="endDetails"></pre>
+            </div>
+          </main>
+          <footer class="row" style="justify-content:center;">
+            <button id="btnEndAgain">เล่นอีกครั้ง</button>
+            <button class="primary" id="btnEndGoHub">🏠 กลับ HUB</button>
+            <button class="ghost" id="btnEndClose">ปิด</button>
+          </footer>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="./compare.safe.js"></script>
+</body>
+</html>
