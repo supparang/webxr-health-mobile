@@ -1,12 +1,13 @@
 // === /fitness/js/rhythm-engine.js ===
-// Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + AI Prediction + CSV
-// ✅ Notes fall to hit line (visual sync; hit line anchored at bottom via CSS var)
-// ✅ 5-lane default (works with 3-lane too if HTML reduce lanes)
-// ✅ Calibration offset (Cal: ms) + UI can call adjustCalMs()
-// ✅ Research lock: prediction shown but NO adaptive changes (100% locked)
-// ✅ Normal AI assist: enable with ?ai=1 (adaptive but gentle + rate-limited)
+// Rhythm Boxer Engine — PRODUCTION (cVR/PC/Mobile) + Boss (A+B+C) + AI Prediction (locked in research) + CSV
+// ✅ Notes fall to hit line (visual sync, hit line anchored at bottom via CSS var)
+// ✅ 5-lane default (works with 3-lane too if HTML/CSS reduce lanes)
+// ✅ Calibration offset (Cal: ms) + UI buttons call adjustCalMs()
+// ✅ Research lock: prediction shown but no adaptive changes
+// ✅ Normal assist: enable with ?ai=1 (prediction only for now)
 // ✅ Events CSV + Sessions CSV
-// ✅ Authored beatmaps for n2/n3/r1 (5-lane) — research-friendly & repeatable
+// ✅ r1: authored beatmap (not random) for research repeatability
+// ✅ NEW: Boss system: onBossBeat() + rb:bossbeat listener + HP/Shield/Reverse/Fake/ComboLock
 'use strict';
 
 (function(){
@@ -46,7 +47,9 @@
       this.columns = columns.slice(0);
       this.rows = [];
     }
-    add(row){ this.rows.push(Object.assign({}, row)); }
+    add(row){
+      this.rows.push(Object.assign({}, row));
+    }
     toCsv(){
       const head = this.columns.join(',');
       const body = this.rows.map(r=>toCsvRow(r, this.columns)).join('\n');
@@ -64,18 +67,16 @@
   };
 
   // ---- Note patterns ----
-  // ✅ Beatmap จริง: n2 / n3 / r1 สำหรับ 5-lane
-  // lane: 0..4 = L2 L1 C R1 R2
+  // ✅ BEATMAP จริง: r1 (120 BPM) แบบกำหนดแพทเทิร์น (ไม่สุ่ม)
   function buildPattern(track, laneCount){
     const id = (track && track.id) ? track.id : 'n1';
 
-    if(laneCount === 5){
-      if(id === 'r1') return buildBeatmapR1_120(track.durationSec || 60);
-      if(id === 'n2') return buildBeatmapN2_120(track.durationSec || 60);
-      if(id === 'n3') return buildBeatmapN3_140(track.durationSec || 60);
+    // authored for 5-lane for research
+    if(id === 'r1' && laneCount === 5){
+      return buildBeatmapR1_120(track.durationSec || 60);
     }
 
-    // fallback deterministic-ish random (for n1 or 3-lane layouts)
+    // fallback: deterministic-ish random for other tracks / 3-lane
     return buildPatternFallback(track, laneCount);
   }
 
@@ -107,166 +108,98 @@
         notes.push({ t: +t.toFixed(3), lane: lane2, kind:'tap' });
       }
     }
+
     notes.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return notes;
   }
 
+  // ✅ Beatmap จริงสำหรับ Research Track 120 (r1)
+  // lane: 0..4 = L2 L1 C R1 R2
   function buildBeatmapR1_120(dur){
     const bpm = 120;
     const beat = 60 / bpm;    // 0.5s
-    const e = beat/2;         // 0.25s
+    const e = beat/2;         // 0.25s (8th)
     const notes = [];
-    const push = (t, lane) => notes.push({ t:+t.toFixed(3), lane, kind:'tap' });
 
-    let t = 2.0;
+    const push = (t, lane) => notes.push({ t: +t.toFixed(3), lane, kind:'tap' });
+
+    let t = 2.0; // lead-in
+
     function barPattern(pattern){
       for(const it of pattern){
-        const off = it[0], lanes = it[1];
+        const off = it[0];
+        const lanes = it[1];
         for(const ln of lanes) push(t + off, ln);
       }
       t += 4*beat;
     }
 
-    const A1 = [[0*beat,[2]],[1*beat,[1]],[2*beat,[3]],[3*beat,[2]]];
-    const A2 = [[0*beat,[0]],[1*beat,[2]],[2*beat,[4]],[3*beat,[2]]];
+    // SECTION A (8 bars) — warm focus
+    const A1 = [
+      [0*beat, [2]],
+      [1*beat, [1]],
+      [2*beat, [3]],
+      [3*beat, [2]],
+    ];
+    const A2 = [
+      [0*beat, [0]],
+      [1*beat, [2]],
+      [2*beat, [4]],
+      [3*beat, [2]],
+    ];
     for(let i=0;i<4;i++) barPattern(A1);
     for(let i=0;i<4;i++) barPattern(A2);
 
-    const B1 = [[0*beat,[1]],[0*beat+e,[3]],[1*beat,[2]],[2*beat,[0]],[2*beat+e,[4]],[3*beat,[2]]];
-    const B2 = [[0*beat,[2]],[1*beat,[1,3]],[2*beat,[0,4]],[3*beat,[2]]];
+    // SECTION B (8 bars) — syncopation + doubles
+    const B1 = [
+      [0*beat, [1]],
+      [0*beat+e, [3]],
+      [1*beat, [2]],
+      [2*beat, [0]],
+      [2*beat+e, [4]],
+      [3*beat, [2]],
+    ];
+    const B2 = [
+      [0*beat, [2]],
+      [1*beat, [1,3]],
+      [2*beat, [0,4]],
+      [3*beat, [2]],
+    ];
     for(let i=0;i<4;i++) barPattern(B1);
     for(let i=0;i<4;i++) barPattern(B2);
 
-    const C1 = [[0*beat,[0]],[0*beat+e,[1]],[1*beat,[2]],[1*beat+e,[3]],[2*beat,[4]],[3*beat,[2]]];
+    // SECTION C (6 bars) — combo builder
+    const C1 = [
+      [0*beat, [0]],
+      [0*beat+e, [1]],
+      [1*beat, [2]],
+      [1*beat+e, [3]],
+      [2*beat, [4]],
+      [3*beat, [2]],
+    ];
     for(let i=0;i<6;i++) barPattern(C1);
 
-    const D1 = [[0*beat,[1]],[0*beat+e,[3]],[1*beat,[0]],[1*beat+e,[4]],[2*beat,[2]],[3*beat,[1,3]]];
+    // SECTION D (4 bars) — burst
+    const D1 = [
+      [0*beat, [1]],
+      [0*beat+e, [3]],
+      [1*beat, [0]],
+      [1*beat+e, [4]],
+      [2*beat, [2]],
+      [3*beat, [1,3]],
+    ];
     for(let i=0;i<4;i++) barPattern(D1);
 
-    while(t < dur-1.0){
-      push(t+0*beat,2); push(t+1*beat,1); push(t+2*beat,2); push(t+3*beat,3);
+    // Fill until end
+    while(t < dur - 1.0){
+      push(t + 0*beat, 2);
+      push(t + 1*beat, 1);
+      push(t + 2*beat, 2);
+      push(t + 3*beat, 3);
       t += 4*beat;
     }
 
-    const out = notes.filter(n=>n.t>=0 && n.t<=dur-0.05);
-    out.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
-    return out;
-  }
-
-  // ✅ n2 (120 BPM) — Focus Combo: เน้นกลาง + สลับซ้ายขวา + doubles บางช่วง
-  function buildBeatmapN2_120(dur){
-    const bpm = 120;
-    const beat = 60/bpm;   // 0.5
-    const e = beat/2;      // 0.25
-    const notes = [];
-    const push=(t,l)=>notes.push({t:+t.toFixed(3), lane:l, kind:'tap'});
-
-    let t=2.0;
-
-    function bar(pattern){
-      for(const [off, lanes] of pattern){
-        for(const ln of lanes) push(t+off, ln);
-      }
-      t += 4*beat;
-    }
-
-    // A: center anchor
-    const A = [
-      [0*beat,[2]],
-      [1*beat,[1]],
-      [2*beat,[2]],
-      [3*beat,[3]],
-    ];
-
-    // B: swing + light double
-    const B = [
-      [0*beat,[2]],
-      [0*beat+e,[1]],
-      [1*beat,[3]],
-      [2*beat,[2]],
-      [3*beat,[1,3]],
-    ];
-
-    // C: diagonal run
-    const C = [
-      [0*beat,[0]],
-      [0*beat+e,[1]],
-      [1*beat,[2]],
-      [1*beat+e,[3]],
-      [2*beat,[4]],
-      [3*beat,[2]],
-    ];
-
-    for(let i=0;i<6;i++) bar(A);
-    for(let i=0;i<6;i++) bar(B);
-    for(let i=0;i<4;i++) bar(C);
-
-    // outro keep stable
-    while(t < dur-1.0){
-      bar(A);
-    }
-
-    const out = notes.filter(n=>n.t>=0 && n.t<=dur-0.05);
-    out.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
-    return out;
-  }
-
-  // ✅ n3 (140 BPM) — Speed Rush: 8th bursts + doubles บ่อยขึ้น (แต่ยัง fair)
-  function buildBeatmapN3_140(dur){
-    const bpm = 140;
-    const beat = 60/bpm;     // ~0.4286
-    const e = beat/2;        // ~0.2143
-    const notes=[];
-    const push=(t,l)=>notes.push({t:+t.toFixed(3), lane:l, kind:'tap'});
-
-    let t=2.0;
-
-    function bar(pattern){
-      for(const [off, lanes] of pattern){
-        for(const ln of lanes) push(t+off, ln);
-      }
-      t += 4*beat;
-    }
-
-    // A: fast alternating center
-    const A = [
-      [0*beat,[2]],
-      [0*beat+e,[1]],
-      [1*beat,[2]],
-      [1*beat+e,[3]],
-      [2*beat,[2]],
-      [3*beat,[1,3]],
-    ];
-
-    // B: wide hits + doubles
-    const B = [
-      [0*beat,[0,4]],
-      [1*beat,[1,3]],
-      [2*beat,[2]],
-      [2*beat+e,[1]],
-      [3*beat,[3]],
-    ];
-
-    // C: diagonal ladder (hard)
-    const C = [
-      [0*beat,[0]],
-      [0*beat+e,[1]],
-      [1*beat,[2]],
-      [1*beat+e,[3]],
-      [2*beat,[4]],
-      [2*beat+e,[3]],
-      [3*beat,[2]],
-    ];
-
-    for(let i=0;i<6;i++) bar(A);
-    for(let i=0;i<6;i++) bar(B);
-    for(let i=0;i<4;i++) bar(C);
-
-    while(t < dur-1.0){
-      bar(A);
-    }
-
-    const out = notes.filter(n=>n.t>=0 && n.t<=dur-0.05);
+    const out = notes.filter(n => n.t >= 0 && n.t <= dur - 0.05);
     out.sort((a,b)=>(a.t-b.t) || (a.lane-b.lane));
     return out;
   }
@@ -289,7 +222,8 @@
       this.meta = {};
 
       // timing/calibration
-      this.calOffsetSec = 0;
+      this.calOffsetSec = 0; // + => hits judged later
+      this._calHold = 0;
 
       // gameplay state
       this.songTime = 0;
@@ -297,6 +231,7 @@
       this._lastTs = 0;
       this._rafId = null;
 
+      // player hp
       this.hp = 100;
       this.hpMin = 100;
       this.hpUnder50Time = 0;
@@ -321,7 +256,7 @@
       this.rightHits = 0;
 
       // fever
-      this.fever = 0;
+      this.fever = 0; // 0..1
       this.feverEntryCount = 0;
       this.feverActive = false;
       this.feverTotalTimeSec = 0;
@@ -337,28 +272,41 @@
       this.notes = [];
       this.noteIdx = 0;
       this.live = [];
+      this.noteSpeedSec = 2.20; // lead time (visual fall time)
+      this.noteBaseLen = 160;   // px
 
-      // base feel
-      this.noteSpeedSecBase = 2.20;
-      this.noteSpeedSec = this.noteSpeedSecBase;
-      this.noteBaseLen = 160;
+      // ==========================
+      // ✅ BOSS STATE (A+B+C)
+      // ==========================
+      this.bossEnabled = true;
+      this.boss = {
+        active: false,
+        startedAtS: 0,
+        preset: '',
+        skill: '',
+        hp: 100,
+        hpMax: 100,
+        // shield
+        shieldNeed: 0,
+        shieldStreak: 0,
+        // effects
+        reverseOn: false,
+        comboLockOn: false,
+        fakeOn: false,
+        // fairness
+        fakeUsed: false,
+        // stats
+        beatsTotal: 0,
+        beatsDone: 0,
+        hitsOnBoss: 0,
+        missesOnBoss: 0,
+        dmgDone: 0,
+        // pacing
+        burstAggro: 0, // 0..1 affects extra spawns
+        lastBeatAtS: 0
+      };
 
-      // ✅ judgment windows base
-      this.winPerfectBase = 0.045;
-      this.winGreatBase   = 0.080;
-      this.winGoodBase    = 0.120;
-
-      // ✅ runtime windows (may be adjusted in Normal + ?ai=1 only)
-      this.winPerfect = this.winPerfectBase;
-      this.winGreat   = this.winGreatBase;
-      this.winGood    = this.winGoodBase;
-
-      // ✅ runtime dmg (may be adjusted in Normal + ?ai=1 only)
-      this.dmgTimeout = 10;
-      this.dmgMiss    = 8;
-      this.dmgBlank   = 5;
-
-      // CSV
+      // CSV tables
       this.sessionId = '';
       this.eventsTable = new CsvTable([
         'session_id','mode','track_id','bpm','difficulty',
@@ -367,6 +315,8 @@
         'event','judgment','offset_s','score_delta',
         'combo','hp','fever','cal_offset_ms',
         'ai_fatigue_risk','ai_skill_score','ai_suggest','ai_locked','ai_assist_on',
+        // boss extras
+        'boss_active','boss_preset','boss_skill','boss_hp','boss_shield_streak','boss_shield_need','boss_reverse','boss_combo_lock','boss_fake',
         'created_at_iso'
       ]);
       this.sessionTable = new CsvTable([
@@ -379,6 +329,8 @@
         'left_hit_pct','right_hit_pct',
         'fever_entry_count','fever_total_time_s','fever_time_pct','time_to_first_fever_s',
         'hp_start','hp_end','hp_min','hp_under50_time_s',
+        // boss summary
+        'boss_beats_total','boss_hits','boss_misses','boss_dmg_done','boss_end_state',
         'end_reason','duration_sec','device_type',
         'ai_fatigue_risk','ai_skill_score','ai_suggest','ai_locked','ai_assist_on',
         'trial_valid','rank','created_at_iso'
@@ -386,9 +338,20 @@
 
       this._bindLaneInput();
       this._detectDeviceType();
+
+      // ✅ fallback listener: if UI glue doesn’t call onBossBeat directly
+      WIN.addEventListener('rb:bossbeat', (ev)=>{
+        if(!ev || !ev.detail) return;
+        this.onBossBeat(ev.detail);
+      });
     }
 
-    // calibration API
+    // ✅ optional API for UI glue
+    setBossEnabled(on){
+      this.bossEnabled = !!on;
+    }
+
+    // ✅ NEW: calibration APIs
     adjustCalMs(deltaMs){
       const v = (Number(deltaMs)||0) / 1000;
       this.calOffsetSec = Math.max(-0.250, Math.min(0.250, this.calOffsetSec + v));
@@ -402,12 +365,15 @@
       try{
         const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints>0);
         this.deviceType = touch ? 'mobile' : 'pc';
-      }catch(_){ this.deviceType = 'unknown'; }
+      }catch(_){
+        this.deviceType = 'unknown';
+      }
     }
 
     _bindLaneInput(){
       if(!this.lanesEl) return;
 
+      // ✅ IMPORTANT: pointerdown on .rb-lane itself
       this.lanesEl.addEventListener('pointerdown', (ev)=>{
         const laneEl = ev.target && ev.target.closest ? ev.target.closest('.rb-lane') : null;
         if(!laneEl) return;
@@ -416,6 +382,7 @@
         this.hitLane(lane, 'tap');
       }, {passive:true});
 
+      // keyboard support
       DOC.addEventListener('keydown', (ev)=>{
         if(!this.running) return;
         const k = (ev.key||'').toLowerCase();
@@ -430,23 +397,6 @@
       const t = Date.now().toString(36);
       const r = Math.random().toString(36).slice(2,7);
       return `RB-${t}-${r}`;
-    }
-
-    _resetTuning(){
-      this.noteSpeedSecBase = 2.20;
-      this.noteSpeedSec = this.noteSpeedSecBase;
-
-      this.winPerfectBase = 0.045;
-      this.winGreatBase   = 0.080;
-      this.winGoodBase    = 0.120;
-
-      this.winPerfect = this.winPerfectBase;
-      this.winGreat   = this.winGreatBase;
-      this.winGood    = this.winGoodBase;
-
-      this.dmgTimeout = 10;
-      this.dmgMiss    = 8;
-      this.dmgBlank   = 5;
     }
 
     start(mode, trackId, meta = {}){
@@ -493,19 +443,20 @@
       this._aiNext = 0;
       this._aiTipNext = 0;
 
-      // reset tuning each run
-      this._resetTuning();
-
       // notes
       this.notes = buildPattern(this.track, this.laneCount);
       this.totalNotes = this.notes.length;
       this.noteIdx = 0;
       this.live.length = 0;
 
+      // boss reset
+      this._bossReset();
+
       this._clearNotesDom();
 
       this.sessionId = this._makeSessionId();
       this.eventsTable.clear();
+      this.sessionTable.clear();
 
       if(this.audio){
         this.audio.src = this.track.audio;
@@ -531,6 +482,220 @@
       this._finish(reason || 'manual-stop');
     }
 
+    _bossReset(){
+      this.boss.active = false;
+      this.boss.startedAtS = 0;
+      this.boss.preset = '';
+      this.boss.skill = '';
+      this.boss.hpMax = 100;
+      this.boss.hp = 100;
+      this.boss.shieldNeed = 0;
+      this.boss.shieldStreak = 0;
+      this.boss.reverseOn = false;
+      this.boss.comboLockOn = false;
+      this.boss.fakeOn = false;
+      this.boss.fakeUsed = false;
+      this.boss.beatsTotal = 0;
+      this.boss.beatsDone = 0;
+      this.boss.hitsOnBoss = 0;
+      this.boss.missesOnBoss = 0;
+      this.boss.dmgDone = 0;
+      this.boss.burstAggro = 0;
+      this.boss.lastBeatAtS = 0;
+    }
+
+    // ==================================================
+    // ✅ Boss entrypoint (called by UI glue / event)
+    // payload: {symbol:'A'|'B', i, total, meta:{preset,skill,reverseOn,shieldNeed,hp,...}}
+    // ==================================================
+    onBossBeat(payload){
+      if(!this.running || this.ended) return;
+      if(!this.bossEnabled) return;
+      if(!payload) return;
+
+      const meta = payload.meta || {};
+      const symbol = payload.symbol || 'A';
+
+      // begin boss if not active (first beat)
+      if(!this.boss.active){
+        this.boss.active = true;
+        this.boss.startedAtS = this.songTime;
+        this.boss.preset = String(meta.preset || meta.presetName || 'burst');
+        this.boss.skill  = String(meta.skill  || 'burst');
+        // HP scaling: research/test มีบอสแต่ "นิ่มกว่า"
+        const baseHp = Number(meta.hp ?? 100);
+        const diff = this.track.diff || 'normal';
+        let hpMax = baseHp;
+
+        if(this.mode === 'research'){
+          hpMax = Math.round(baseHp * 0.85);     // research นิ่มลง
+        } else if(diff === 'hard'){
+          hpMax = Math.round(baseHp * 1.10);
+        } else if(diff === 'easy'){
+          hpMax = Math.round(baseHp * 0.92);
+        }
+        hpMax = clamp(hpMax, 60, 150);
+
+        this.boss.hpMax = hpMax;
+        this.boss.hp = Math.min(hpMax, hpMax);
+
+        this.boss.shieldNeed = clamp(Number(meta.shieldNeed || 0), 0, 6);
+        this.boss.shieldStreak = clamp(Number(meta.shieldStreak || 0), 0, 99);
+
+        this.boss.reverseOn = !!meta.reverseOn || (this.boss.skill === 'reverse');
+        this.boss.comboLockOn = (this.boss.skill === 'combo_lock');
+        this.boss.fakeOn = (this.boss.skill === 'fake_callout');
+
+        this.boss.beatsTotal = Number(payload.total || 0) || 0;
+        this.boss.beatsDone = 0;
+        this.boss.burstAggro = (this.boss.preset === 'burst') ? 1 : (this.boss.preset === 'syncop' ? 0.7 : 0.6);
+
+        this._logBossState('boss_start');
+      }
+
+      // update counters
+      this.boss.beatsDone = Math.max(this.boss.beatsDone, Number(payload.i || 0) + 1);
+      this.boss.lastBeatAtS = this.songTime;
+
+      // schedule boss note spawn
+      const lane = this._bossSymbolToLane(symbol, payload.i || 0);
+
+      // fairness: fake_callout -> หลอกแค่ 1 ครั้งต่อ burst และไม่ทำให้ impossible
+      let finalLane = lane;
+      if(this.boss.fakeOn && !this.boss.fakeUsed){
+        // chance gate: hard สูงขึ้น, research ต่ำลง
+        const diff = this.track.diff || 'normal';
+        const p = (this.mode === 'research') ? 0.10 : (diff === 'hard' ? 0.28 : diff === 'easy' ? 0.14 : 0.20);
+        if(Math.random() < p){
+          this.boss.fakeUsed = true;
+          finalLane = this._neighborLane(lane);
+        }
+      }
+
+      // spawn note close to "beat time" (we use songTime + small lead so it can still fall visually)
+      this._spawnBossNote(finalLane);
+
+      // optional: shield indicator could be reflected in HUD via hud.shield (you already set shield text "0")
+      if(this.hud && this.hud.shield){
+        const need = this.boss.shieldNeed || 0;
+        const got = this.boss.shieldStreak || 0;
+        this.hud.shield.textContent = need ? `${got}/${need}` : '0';
+      }
+
+      // end boss if hp depleted
+      if(this.boss.hp <= 0){
+        this._bossEnd('boss_hp_zero');
+      }
+    }
+
+    _bossSymbolToLane(symbol, i){
+      // A/B map -> left/right lanes (center kept for fairness)
+      const lc = this.laneCount || 5;
+      const mid = (lc===3) ? 1 : 2;
+
+      // base mapping
+      let lane = mid;
+
+      if(lc === 3){
+        lane = (symbol === 'A') ? 0 : 2;
+      }else{
+        // 5-lane: A -> L1 (1) / B -> R1 (3) with slight variation by beat index
+        const aLanes = [1,0]; // L1 then L2
+        const bLanes = [3,4]; // R1 then R2
+        if(symbol === 'A') lane = aLanes[(i||0)%aLanes.length];
+        else lane = bLanes[(i||0)%bLanes.length];
+      }
+
+      // reverse effect
+      if(this.boss.reverseOn){
+        lane = (lc - 1) - lane;
+      }
+
+      return clamp(lane, 0, lc-1);
+    }
+
+    _neighborLane(lane){
+      const lc = this.laneCount || 5;
+      if(lc <= 1) return 0;
+      const dir = (Math.random() < 0.5) ? -1 : 1;
+      let ln = lane + dir;
+      if(ln < 0) ln = lane + 1;
+      if(ln >= lc) ln = lane - 1;
+      return clamp(ln, 0, lc-1);
+    }
+
+    _spawnBossNote(lane){
+      // spawn a note that is guaranteed to be seen soon: t = songTime + small lead so it "starts falling" now
+      const lead = this.noteSpeedSec;
+      const t = this.songTime + Math.min(0.18, lead*0.08);
+
+      const note = { t: +t.toFixed(3), lane, kind:'tap', _boss: 1 };
+      // add into notes stream + live immediately
+      // keep notes sorted loosely: just push and spawn now
+      this._spawnNote(note);
+      this.live.push(note);
+
+      // also log
+      this._logEvent({ event:'boss_spawn', lane, judgment:'', offset_s:'', score_delta: 0 });
+    }
+
+    _bossDealDamageFromHit(judgment){
+      if(!this.boss.active) return 0;
+
+      // shield rule: ต้อง hit ต่อเนื่องให้ครบ before damage
+      if(this.boss.shieldNeed > 0){
+        if(judgment === 'perfect' || judgment === 'great' || judgment === 'good'){
+          this.boss.shieldStreak++;
+          if(this.boss.shieldStreak < this.boss.shieldNeed){
+            return 0; // ยังไม่ผ่านโล่
+          }
+          // ผ่านโล่: consume streak and allow damage
+          this.boss.shieldStreak = 0;
+        }else{
+          this.boss.shieldStreak = 0;
+          return 0;
+        }
+      }
+
+      // damage by judgment + diff
+      const diff = this.track.diff || 'normal';
+      let dmg = (judgment==='perfect') ? 10 : (judgment==='great') ? 7 : 5;
+      if(diff === 'hard') dmg = Math.round(dmg * 1.1);
+      if(diff === 'easy') dmg = Math.round(dmg * 0.9);
+      if(this.mode === 'research') dmg = Math.round(dmg * 0.9);
+
+      // combo_lock reduces damage slightly (fair)
+      if(this.boss.comboLockOn) dmg = Math.max(1, Math.round(dmg * 0.85));
+
+      this.boss.hp = Math.max(0, this.boss.hp - dmg);
+      this.boss.dmgDone += dmg;
+      return dmg;
+    }
+
+    _bossEnd(reason){
+      if(!this.boss.active) return;
+      this._logBossState('boss_end', reason || 'boss_end');
+      this.boss.active = false;
+      // clear effects after burst
+      this.boss.reverseOn = false;
+      this.boss.comboLockOn = false;
+      this.boss.fakeOn = false;
+      this.boss.fakeUsed = false;
+      this.boss.shieldNeed = 0;
+      this.boss.shieldStreak = 0;
+      // keep hp (0) for summary; UI HUD can hide on its own
+    }
+
+    _logBossState(eventName, reason){
+      this._logEvent({
+        event: eventName || 'boss_state',
+        lane: '',
+        judgment: reason || '',
+        offset_s: '',
+        score_delta: 0
+      });
+    }
+
     _clearNotesDom(){
       if(!this.lanesEl) return;
       this.lanesEl.querySelectorAll('.rb-note').forEach(el=>el.remove());
@@ -545,16 +710,19 @@
       el.className = 'rb-note';
       el.dataset.t = String(note.t);
       el.dataset.lane = String(note.lane);
+      if(note._boss) el.dataset.boss = '1';
 
+      // NOTE LENGTH
       const diff = this.track.diff || 'normal';
       const base = this.noteBaseLen;
       const mul = (diff==='easy') ? 0.95 : (diff==='hard') ? 1.25 : 1.10;
       const lenPx = Math.round(base * mul);
       el.style.setProperty('--rb-note-len', lenPx + 'px');
 
+      // icon: music note (boss note uses ⚔️)
       const ico = DOC.createElement('div');
       ico.className = 'rb-note-ico';
-      ico.textContent = '🎵';
+      ico.textContent = note._boss ? '⚔️' : '🎵';
       el.appendChild(ico);
 
       laneEl.appendChild(el);
@@ -619,9 +787,20 @@
         this.live.push(n);
         this.noteIdx++;
       }
+
+      // ✅ boss burst aggro: occasionally inject extra notes (only normal; research conservative)
+      if(this.bossEnabled && this.boss.active){
+        const baseP = (this.mode === 'research') ? 0.02 : 0.04;
+        const p = baseP + (this.boss.burstAggro||0)*0.03;
+        if(Math.random() < p){
+          const lane = Math.floor(Math.random() * (this.laneCount||5));
+          this._spawnBossNote(lane);
+        }
+      }
     }
 
     _updateNotePositions(){
+      // Notes anchored at hit line (CSS bottom var); transform Y moves above/below that anchor.
       const lead = this.noteSpeedSec;
       if(!this.lanesEl) return;
 
@@ -635,12 +814,16 @@
         const laneH = rect.height || 420;
 
         const noteLen = parseFloat(getComputedStyle(n.el).getPropertyValue('--rb-note-len')) || this.noteBaseLen;
+
+        // travel so it starts above view and reaches hit line at t
         const travel = laneH + noteLen * 0.45;
 
         const p = (this.songTime - (n.t - lead)) / lead;
         const pClamp = clamp01(p);
 
+        // y: negative => above hit line; 0 => on hit line at time n.t
         const y = (pClamp - 1) * travel;
+
         n.el.style.transform = `translate(-50%, ${y.toFixed(1)}px)`;
         n.el.style.opacity = (pClamp < 0.02) ? '0' : '1';
       }
@@ -679,9 +862,9 @@
         }
       }
 
-      const wPerfect = this.winPerfect;
-      const wGreat   = this.winGreat;
-      const wGood    = this.winGood;
+      const wPerfect = 0.045;
+      const wGreat   = 0.080;
+      const wGood    = 0.120;
 
       if(best && bestAbs <= wGood){
         const dt = best.dt;
@@ -691,7 +874,7 @@
         if(Math.abs(dt) <= wPerfect){ judgment='perfect'; scoreDelta=150; }
         else if(Math.abs(dt) <= wGreat){ judgment='great'; scoreDelta=100; }
 
-        this._applyHit(lane, judgment, dt, scoreDelta);
+        this._applyHit(lane, judgment, dt, scoreDelta, best.note && best.note._boss);
         this._despawnNote(best.note);
         this.live = this.live.filter(x=>x && !x.done);
       }else{
@@ -699,7 +882,7 @@
       }
     }
 
-    _applyHit(lane, judgment, offsetSec, scoreDelta){
+    _applyHit(lane, judgment, offsetSec, scoreDelta, isBossNote){
       if(judgment==='perfect') this.hitPerfect++;
       else if(judgment==='great') this.hitGreat++;
       else this.hitGood++;
@@ -712,7 +895,12 @@
       if(lane < mid) this.leftHits++;
       else if(lane > mid) this.rightHits++;
 
-      this.combo++;
+      // combo lock effect (boss)
+      if(this.boss.active && this.boss.comboLockOn){
+        this.combo = Math.min(this.combo + 1, 12);
+      }else{
+        this.combo++;
+      }
       this.maxCombo = Math.max(this.maxCombo, this.combo);
       this.score += scoreDelta;
 
@@ -725,23 +913,45 @@
         if(this.timeToFirstFeverSec == null) this.timeToFirstFeverSec = this.songTime;
       }
 
+      // ✅ boss damage on boss note hit (or allow damage while boss active to feel rewarding)
+      if(this.bossEnabled && this.boss.active){
+        const dmg = this._bossDealDamageFromHit(judgment);
+        this.boss.hitsOnBoss++;
+        if(dmg > 0){
+          // small score bonus for boss damage
+          const bonus = Math.round(dmg * 4);
+          this.score += bonus;
+          if(this.renderer && typeof this.renderer.showHitFx==='function'){
+            this.renderer.showHitFx({ lane, judgment:'boss', scoreDelta: bonus });
+          }
+          this._logEvent({ event:'boss_damage', lane, judgment, offset_s: offsetSec, score_delta: bonus });
+        }
+        if(this.boss.hp <= 0) this._bossEnd('boss_hp_zero');
+      }
+
       if(this.renderer && typeof this.renderer.showHitFx==='function'){
         this.renderer.showHitFx({ lane, judgment, scoreDelta });
       }
 
-      this._logEvent({ event:'hit', lane, judgment, offset_s: offsetSec, score_delta: scoreDelta });
+      this._logEvent({ event: isBossNote ? 'boss_hit' : 'hit', lane, judgment, offset_s: offsetSec, score_delta: scoreDelta });
     }
 
     _applyMiss(lane, kind){
       this.hitMiss++;
       this.combo = 0;
 
-      const dmg = (kind==='timeout') ? this.dmgTimeout : this.dmgMiss;
+      const dmg = (kind==='timeout') ? 10 : 8;
       this.hp = Math.max(0, this.hp - dmg);
       this.hpMin = Math.min(this.hpMin, this.hp);
 
       this.fever = clamp01(this.fever - 0.10);
       if(this.feverActive && this.fever < 0.60) this.feverActive = false;
+
+      // boss miss stats (only when boss active)
+      if(this.bossEnabled && this.boss.active){
+        this.boss.missesOnBoss++;
+        this.boss.shieldStreak = 0; // shield reset on miss
+      }
 
       if(this.renderer && typeof this.renderer.showMissFx==='function'){
         this.renderer.showMissFx({ lane });
@@ -760,12 +970,17 @@
       this.hitMiss++;
       this.combo = 0;
 
-      const dmg = this.dmgBlank;
+      const dmg = 5;
       this.hp = Math.max(0, this.hp - dmg);
       this.hpMin = Math.min(this.hpMin, this.hp);
 
       this.fever = clamp01(this.fever - 0.06);
       if(this.feverActive && this.fever < 0.60) this.feverActive = false;
+
+      if(this.bossEnabled && this.boss.active){
+        this.boss.missesOnBoss++;
+        this.boss.shieldStreak = 0;
+      }
 
       if(this.renderer && typeof this.renderer.showMissFx==='function'){
         this.renderer.showMissFx({ lane });
@@ -795,7 +1010,7 @@
         group: this.meta.group || '',
         note: this.meta.note || '',
 
-        t_s: this.songTime.toFixed(3),
+        t_s: (typeof this.songTime==='number') ? this.songTime.toFixed(3) : '',
         lane: e.lane,
         side: (this.laneCount===3)
           ? (e.lane===1 ? 'C' : (e.lane===0?'L':'R'))
@@ -817,6 +1032,17 @@
         ai_locked: aiLocked,
         ai_assist_on: aiAssist,
 
+        // boss extras
+        boss_active: this.boss && this.boss.active ? 1 : 0,
+        boss_preset: this.boss ? (this.boss.preset || '') : '',
+        boss_skill:  this.boss ? (this.boss.skill || '') : '',
+        boss_hp:     this.boss ? (this.boss.hp ?? '') : '',
+        boss_shield_streak: this.boss ? (this.boss.shieldStreak ?? '') : '',
+        boss_shield_need:   this.boss ? (this.boss.shieldNeed ?? '') : '',
+        boss_reverse: this.boss ? (this.boss.reverseOn ? 1 : 0) : 0,
+        boss_combo_lock: this.boss ? (this.boss.comboLockOn ? 1 : 0) : 0,
+        boss_fake: this.boss ? (this.boss.fakeOn ? 1 : 0) : 0,
+
         created_at_iso: new Date().toISOString()
       };
 
@@ -836,13 +1062,22 @@
       }
 
       if(hud.hp) hud.hp.textContent = String(Math.round(this.hp));
-      if(hud.shield) hud.shield.textContent = '0';
       if(hud.time) hud.time.textContent = this.songTime.toFixed(1);
 
       if(hud.countPerfect) hud.countPerfect.textContent = String(this.hitPerfect);
       if(hud.countGreat)   hud.countGreat.textContent   = String(this.hitGreat);
       if(hud.countGood)    hud.countGood.textContent    = String(this.hitGood);
       if(hud.countMiss)    hud.countMiss.textContent    = String(this.hitMiss);
+
+      // boss shield text
+      if(hud.shield){
+        const need = this.boss && this.boss.active ? (this.boss.shieldNeed||0) : 0;
+        if(need){
+          hud.shield.textContent = `${this.boss.shieldStreak||0}/${need}`;
+        }else{
+          hud.shield.textContent = '0';
+        }
+      }
 
       if(this.aiState){
         if(hud.aiFatigue) hud.aiFatigue.textContent = Math.round((this.aiState.fatigueRisk||0)*100) + '%';
@@ -873,72 +1108,9 @@
 
     _updateCalibrationHud(){
       const el = DOC.querySelector('#rb-hud-cal');
-      if(el) el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
-    }
-
-    // ✅ B) AI Assist (Normal + ?ai=1 only) — ปรับแบบนุ่ม ๆ ไม่แกว่ง
-    _applyAIAssist(){
-      // Research lock: NEVER modify gameplay
-      if(this.mode === 'research') return;
-
-      const aiOk = (WIN.RB_AI && WIN.RB_AI.isAssistEnabled && WIN.RB_AI.isAssistEnabled());
-      if(!aiOk) return;
-      if(!this.aiState) return;
-
-      // target level from AI suggestion
-      const s = String(this.aiState.suggestedDifficulty || 'normal');
-
-      // gentle bias by fatigue risk too
-      const fat = clamp01(this.aiState.fatigueRisk || 0);
-      const tired = fat >= 0.68;
-
-      // compute target multipliers
-      let winMul = 1.0;      // >1 => easier (wider)
-      let speedMul = 1.0;    // >1 => slower fall (easier)
-      let dmgMul = 1.0;      // <1 => less dmg (easier)
-
-      if(s === 'easy' || tired){
-        winMul = 1.12;
-        speedMul = 1.06;
-        dmgMul = 0.90;
-      }else if(s === 'hard' && !tired){
-        winMul = 0.92;
-        speedMul = 0.97;
-        dmgMul = 1.05;
+      if(el){
+        el.textContent = `${Math.round(this.calOffsetSec*1000)}ms`;
       }
-
-      // smooth interpolation (avoid sudden feel changes)
-      const lerp = (a,b,t)=>a+(b-a)*t;
-      const k = 0.10; // per AI tick (0.4s)
-
-      // windows
-      const tgtPerfect = this.winPerfectBase * winMul;
-      const tgtGreat   = this.winGreatBase   * winMul;
-      const tgtGood    = this.winGoodBase    * winMul;
-
-      this.winPerfect = lerp(this.winPerfect, tgtPerfect, k);
-      this.winGreat   = lerp(this.winGreat,   tgtGreat,   k);
-      this.winGood    = lerp(this.winGood,    tgtGood,    k);
-
-      // speed (note fall lead time)
-      const tgtSpeed = this.noteSpeedSecBase * speedMul;
-      this.noteSpeedSec = lerp(this.noteSpeedSec, tgtSpeed, k);
-
-      // damage
-      this.dmgTimeout = Math.round(lerp(this.dmgTimeout, 10 * dmgMul, k));
-      this.dmgMiss    = Math.round(lerp(this.dmgMiss,     8 * dmgMul, k));
-      this.dmgBlank   = Math.round(lerp(this.dmgBlank,    5 * dmgMul, k));
-
-      // clamp safe bounds
-      this.winPerfect = clamp(this.winPerfect, 0.032, 0.065);
-      this.winGreat   = clamp(this.winGreat,   0.060, 0.110);
-      this.winGood    = clamp(this.winGood,    0.090, 0.160);
-
-      this.noteSpeedSec = clamp(this.noteSpeedSec, 1.85, 2.60);
-
-      this.dmgTimeout = clamp(this.dmgTimeout, 6, 14);
-      this.dmgMiss    = clamp(this.dmgMiss,    5, 12);
-      this.dmgBlank   = clamp(this.dmgBlank,   3,  8);
     }
 
     _updateAI(){
@@ -960,7 +1132,8 @@
         offsetAbsMean: this.offsetsAbs.length ? mean(this.offsetsAbs) : null,
         hp: this.hp,
         songTime: this.songTime,
-        durationSec: this.track.durationSec || 60
+        durationSec: this.track.durationSec || 60,
+        bossActive: this.boss && this.boss.active ? 1 : 0
       };
 
       if(WIN.RB_AI && typeof WIN.RB_AI.predict === 'function'){
@@ -977,19 +1150,19 @@
         }
       }
 
-      // ✅ Apply assist (Normal + ?ai=1) only
-      this._applyAIAssist();
+      // IMPORTANT: no adaptive changes here (research lock)
     }
 
-    _finish(endReason){
+    _finish(endReason) {
       this.running = false;
       this.ended = true;
 
-      if(this._rafId != null){
+      if (this._rafId != null) {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
-      if(this.audio) this.audio.pause();
+
+      if (this.audio) this.audio.pause();
 
       const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
 
@@ -1019,6 +1192,10 @@
         acc >= 65 ? 'B'   : 'C';
 
       const trialValid = totalJudged >= 10 && acc >= 40 ? 1 : 0;
+
+      const bossEndState = (this.boss && this.boss.active)
+        ? (this.boss.hp <= 0 ? 'cleared' : 'active_end')
+        : (this.boss && this.boss.hp <= 0 ? 'cleared' : 'none');
 
       const sessionRow = {
         session_id: this.sessionId,
@@ -1062,6 +1239,13 @@
         hp_min: this.hpMin,
         hp_under50_time_s: this.hpUnder50Time,
 
+        // boss summary
+        boss_beats_total: this.boss ? (this.boss.beatsTotal || '') : '',
+        boss_hits: this.boss ? (this.boss.hitsOnBoss || 0) : 0,
+        boss_misses: this.boss ? (this.boss.missesOnBoss || 0) : 0,
+        boss_dmg_done: this.boss ? (this.boss.dmgDone || 0) : 0,
+        boss_end_state: bossEndState,
+
         end_reason: endReason,
         duration_sec: dur,
         device_type: this.deviceType,
@@ -1095,10 +1279,20 @@
         durationSec: dur,
         participant: this.meta.id || this.meta.participant_id || '',
         rank,
+        boss: {
+          active: this.boss && this.boss.active ? 1 : 0,
+          hp: this.boss ? this.boss.hp : 0,
+          hpMax: this.boss ? this.boss.hpMax : 0,
+          hits: this.boss ? this.boss.hitsOnBoss : 0,
+          misses: this.boss ? this.boss.missesOnBoss : 0,
+          dmg: this.boss ? this.boss.dmgDone : 0,
+          preset: this.boss ? this.boss.preset : '',
+          skill: this.boss ? this.boss.skill : ''
+        },
         qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if(this.hooks && typeof this.hooks.onEnd === 'function'){
+      if (this.hooks && typeof this.hooks.onEnd === 'function') {
         this.hooks.onEnd(summary);
       }
     }
