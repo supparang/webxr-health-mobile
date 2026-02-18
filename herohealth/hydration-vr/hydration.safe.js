@@ -1,1156 +1,1121 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR SAFE — PRODUCTION (HHA Standard) — FULL (PACK 1–10)
-// PATCH v20260216c
-// --------------------------------------------------------------
-// ✅ PACK 1  Core loop + seeded RNG (research deterministic) + adaptive (play)
-// ✅ PACK 2  WaterPct + Zones (LOW/GREEN/HIGH) + drift + safe return (fix stuck out of green)
-// ✅ PACK 3  STORM Gate: must leave GREEN to LOW/HIGH before storm can start
-// ✅ PACK 4  Shield system: collect 🛡, STORM ⚡ can be hit ONLY if shield>0 (consumes shield)
-// ✅ PACK 5  Storm cycles + Storm level increases lightning count/density
-// ✅ PACK 6  Boss 3 phases (action boss) + progress hooks + tuning
-// ✅ PACK 7  HUD wiring + overlay/result wiring + gate flow compatible (emit hha:end)
-// ✅ PACK 8  cVR shoot support (hha:shoot lockPx) + tap reliability guard
-// ✅ PACK 9  AI prediction/ML hooks scaffold (features/event attach point; NO ML by default)
-// ✅ PACK 10 CSV/JSON export + flush-hardened summary + badge hooks (optional)
-//
-// PATCH highlights:
-// ✅ FIX: prevent hha:start recursion loop (engine NO LONGER emits hha:start)
-// ✅ ADD: HUD-safe spawn using layer rect + occlusion guard (HUD/Quest/Overlays/VRUI)
-// ✅ ADD: timeout miss counted only if target center NOT under occluders (Groups-like)
-
-// Requires ids in RUN HTML:
-// layer: hydration-layer
-// HUD: water-pct, water-zone, water-bar
-// stats: stat-score, stat-combo, stat-miss, stat-time, stat-grade
-// quest: quest-line1..4, storm-left, shield-count
-// result: resultBackdrop, rScore rGrade rAcc rComboMax rMiss rTier rGoals rMinis rTips rNext
-// buttons: btnRetry btnCopyJSON btnDownloadCSV btnCloseSummary (optional)
-//
-// Emits: hha:score, hha:time, hha:judge, hha:end
-// Extra emits: hydration:state, hydration:progress, hydration:storm
+// Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
+// ✅ FIX: targets not showing -> ensures layers exist + debug overlay (?debug=1)
+// ✅ Smart Aim Assist lockPx (cVR) adaptive + fair
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
+// ✅ Cardboard layers via window.HHA_VIEW.layers from loader
 
 'use strict';
 
-const WIN = window;
-const DOC = document;
+import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { createAICoach } from '../vr/ai-coach.js';
 
-const clamp = (v,min,max)=>Math.max(min, Math.min(max, Number(v)||0));
-const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-const emit = (n,d)=>{ try{ WIN.dispatchEvent(new CustomEvent(n,{detail:d})); }catch{} };
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-function nowIso(){ try{ return new Date().toISOString(); }catch{ return ''; } }
-function copyText(text){ return navigator.clipboard?.writeText(String(text)).catch(()=>{}); }
-
-function makeRNG(seed){
-  let x = (Number(seed)||Date.now()) >>> 0;
-  return ()=> (x = (1664525*x + 1013904223) >>> 0) / 4294967296;
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function qs(k, def=null){
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+}
+function emit(name, detail){
+  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+function setText(id, v){
+  const el = DOC.getElementById(id);
+  if (el) el.textContent = String(v);
 }
 
-// ---- Minimal AI hook attach point (optional) ----
-function getAIHooks({gameId, seed, runMode, diff}){
+/* -------------------- DEBUG (fix target not showing) -------------------- */
+const DEBUG = String(qs('debug','0')) === '1';
+let DBG_EL = null;
+function ensureDebug(){
+  if (!DEBUG || !DOC) return;
+  if (DBG_EL) return;
+  const el = DOC.createElement('div');
+  el.id = 'hvr-debug';
+  el.style.cssText = [
+    'position:fixed',
+    'left:10px','top:10px',
+    'z-index:9999',
+    'background:rgba(2,6,23,.72)',
+    'border:1px solid rgba(148,163,184,.18)',
+    'border-radius:12px',
+    'padding:10px 12px',
+    'font:12px/1.35 system-ui',
+    'color:#e5e7eb',
+    'max-width:420px',
+    'pointer-events:none',
+    'white-space:pre'
+  ].join(';');
+  el.textContent = 'debug...';
+  DOC.body.appendChild(el);
+  DBG_EL = el;
+}
+function dbgSet(text){
+  if (!DEBUG) return;
+  ensureDebug();
+  if (DBG_EL) DBG_EL.textContent = text;
+}
+
+/* ---------- CSV / copy ---------- */
+function toCSVRow(obj){
+  const keys = Object.keys(obj);
+  const esc = (v)=>{
+    const s = String(v ?? '');
+    if (/[,"\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  return keys.join(',') + '\n' + keys.map(k=>esc(obj[k])).join(',') + '\n';
+}
+function downloadText(filename, text, type='text/plain'){
   try{
-    if(WIN.HHA && typeof WIN.HHA.createAIHooks === 'function'){
-      const h = WIN.HHA.createAIHooks({ gameId, seed, runMode, diff });
-      if(h) return {
-        predict: typeof h.predict === 'function' ? h.predict : null,
-        onEvent: typeof h.onEvent === 'function' ? h.onEvent : null,
-        getSummaryExtras: typeof h.getSummaryExtras === 'function' ? h.getSummaryExtras : null
-      };
-    }
+    const blob = new Blob([text], {type});
+    const a = DOC.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    DOC.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      try{ URL.revokeObjectURL(a.href); }catch(_){}
+      try{ a.remove(); }catch(_){}
+    }, 50);
   }catch(_){}
-  return { predict:null, onEvent:null, getSummaryExtras:null };
 }
-
-// -----------------------------
-// CONFIG
-// -----------------------------
-const ZONE = {
-  LOW_MAX: 35,
-  GREEN_MIN: 40,
-  GREEN_MAX: 70,
-  HIGH_MIN: 75,
-};
-
-const ICON = {
-  DROP: '💧',
-  SHIELD: '🛡',
-  LIGHT: '⚡',
-  HEAL: '🟢',
-  OVER: '🟠',
-  ALERT: '🚨',
-  BOSS: '👾'
-};
-
-const LIMIT = {
-  maxTargets: 16,
-  ttlMs: 5200,
-  tapGuardMs: 120,
-  spawnMaxPerFrame: 5,
-  spawnTry: 18,          // attempts to find safe spot
-  occludePad: 6
-};
-
-// difficulty base (per sec)
-function baseParams(diff){
-  if(diff==='easy') return {
-    driftPerSec: 2.4,
-    spawnPerSec: 2.0,
-    dropValue: 5.5,
-    shieldRate: 0.12,
-    stormGateSec: 3.2,
-    stormBaseLightning: 4,
-    stormTimeLimitSec: 7.5,
-    bossAfterStorms: 2,
-  };
-  if(diff==='hard') return {
-    driftPerSec: 3.4,
-    spawnPerSec: 2.8,
-    dropValue: 4.8,
-    shieldRate: 0.09,
-    stormGateSec: 2.4,
-    stormBaseLightning: 6,
-    stormTimeLimitSec: 7.0,
-    bossAfterStorms: 2,
-  };
-  return {
-    driftPerSec: 3.0,
-    spawnPerSec: 2.4,
-    dropValue: 5.1,
-    shieldRate: 0.10,
-    stormGateSec: 2.8,
-    stormBaseLightning: 5,
-    stormTimeLimitSec: 7.2,
-    bossAfterStorms: 2,
-  };
-}
-
-function gradeFrom(accuracy, stormPass, comboMax){
-  const a = accuracy;
-  if(a>=0.92 && stormPass>=2 && comboMax>=12) return 'SSS';
-  if(a>=0.86 && stormPass>=1 && comboMax>=10) return 'SS';
-  if(a>=0.78) return 'S';
-  if(a>=0.68) return 'A';
-  if(a>=0.56) return 'B';
-  return 'C';
-}
-
-// -----------------------------
-// DOM helpers
-// -----------------------------
-function $(id){ return DOC.getElementById(id); }
-function setText(id, v){ const el=$(id); if(el) el.textContent = String(v); }
-function setPctBar(id, pct){
-  const el=$(id);
-  if(el) el.style.width = clamp(pct,0,100).toFixed(0)+'%';
-}
-
-function ensureBossUI(){
-  if($('bossWrap')) return;
-  const cards = DOC.querySelectorAll('.hud .card');
-  const statsCard = cards && cards[1] ? cards[1] : null;
-  if(!statsCard) return;
-
-  const wrap = DOC.createElement('div');
-  wrap.id = 'bossWrap';
-  wrap.style.marginTop = '10px';
-  wrap.style.pointerEvents = 'none';
-
-  wrap.innerHTML = `
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <span class="pill" style="border-color:rgba(168,85,247,.22);background:rgba(168,85,247,.10);">
-        ${ICON.BOSS} Boss: <b id="bossPhase">—</b>
-      </span>
-      <div class="bar" style="min-width:160px;">
-        <i id="bossBar" style="width:0%;background:rgba(168,85,247,.55)"></i>
-      </div>
-      <span class="pill" style="opacity:.9;">HP: <b id="bossHpTxt">0</b></span>
-    </div>
-  `;
-  statsCard.appendChild(wrap);
-}
-
-// -----------------------------
-// Occlusion / HUD-safe spawn (Groups-like)
-// -----------------------------
-function rectOf(el){
-  try{
-    if(!el) return null;
-    const r = el.getBoundingClientRect();
-    if(!r || !Number.isFinite(r.left)) return null;
-    if(r.width<=0 || r.height<=0) return null;
-    return r;
-  }catch(_){ return null; }
-}
-function isShown(el){
-  if(!el) return false;
-  if(el.hidden) return false;
-  const st = WIN.getComputedStyle ? WIN.getComputedStyle(el) : null;
-  if(st && (st.display==='none' || st.visibility==='hidden' || st.opacity==='0')) return false;
-  return true;
-}
-function pointInRect(x,y,r,pad=0){
-  if(!r) return false;
-  return (x >= r.left+pad && x <= r.right-pad && y >= r.top+pad && y <= r.bottom-pad);
-}
-function occluderRects(){
-  const list = [];
-  // HUD + Quest (your RUN uses .hud, .quest)
-  const hud = DOC.querySelector('.hud');
-  const quest = DOC.querySelector('.quest');
-  const startOv = $('startOverlay');
-  const result = $('resultBackdrop');
-
-  if(isShown(hud)) list.push(rectOf(hud));
-  if(isShown(quest)) list.push(rectOf(quest));
-  if(isShown(startOv)) list.push(rectOf(startOv));
-  if(isShown(result)) list.push(rectOf(result));
-
-  // Try common VR-UI containers (best-effort)
-  const vrCandidates = DOC.querySelectorAll('[id*="vrui"], [class*="vrui"], [id*="vr-ui"], [class*="vr-ui"]');
-  vrCandidates.forEach(el=>{
-    if(isShown(el)) list.push(rectOf(el));
-  });
-
-  return list.filter(Boolean);
-}
-function isOccludedPoint(x,y,pad=LIMIT.occludePad){
-  const rects = occluderRects();
-  for(const r of rects){
-    if(pointInRect(x,y,r,pad)) return true;
+async function copyToClipboard(text){
+  try{ await navigator.clipboard.writeText(text); return true; }
+  catch(_){
+    try{
+      const ta = DOC.createElement('textarea');
+      ta.value = text;
+      DOC.body.appendChild(ta);
+      ta.select();
+      DOC.execCommand('copy');
+      ta.remove();
+      return true;
+    }catch(_){}
   }
   return false;
 }
 
-// -----------------------------
-// Target system
-// -----------------------------
-function getSpawnRect(layer){
-  const lr = rectOf(layer);
-  const w = Math.max(1, WIN.innerWidth||1);
-  const h = Math.max(1, WIN.innerHeight||1);
+/* -------------------- View / layers -------------------- */
+function isCardboard(){
+  try{ return DOC.body.classList.contains('cardboard'); }catch(_){ return false; }
+}
+function isCVR(){
+  try{ return DOC.body.classList.contains('view-cvr'); }catch(_){ return false; }
+}
+function getLayers(){
+  const cfg = ROOT.HHA_VIEW;
+  if (cfg && Array.isArray(cfg.layers) && cfg.layers.length){
+    const arr = cfg.layers.map(id=>DOC.getElementById(id)).filter(Boolean);
+    if (arr.length) return arr;
+  }
+  const main = DOC.getElementById('hydration-layer');
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
+  if (isCardboard() && L && R) return [L,R];
+  return [main].filter(Boolean);
+}
+function getPlayfieldEl(){
+  return isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
+}
+function getPlayfieldRect(){
+  const pf = getPlayfieldEl();
+  const r = pf?.getBoundingClientRect?.();
+  return r || { left:0, top:0, width:1, height:1 };
+}
+function centerPoint(){
+  const r = getPlayfieldRect();
+  return { cx: r.left + r.width/2, cy: r.top + r.height/2 };
+}
 
-  // Prefer layer rect. Fall back to viewport.
-  const L = lr ? { left: lr.left, top: lr.top, right: lr.right, bottom: lr.bottom } : { left:0, top:0, right:w, bottom:h };
+/* -------------------- FX Helpers -------------------- */
+function pulseBody(cls, ms=140){
+  try{
+    DOC.body.classList.add(cls);
+    setTimeout(()=>DOC.body.classList.remove(cls), ms);
+  }catch(_){}
+}
+function shockAt(x, y){
+  const pf = getPlayfieldEl();
+  if (!pf) return;
 
-  // dynamic safe boundaries based on HUD & Quest
-  const hud = DOC.querySelector('.hud');
-  const quest = DOC.querySelector('.quest');
+  const r = pf.getBoundingClientRect();
+  const xPct = ((x - r.left)/Math.max(1,r.width))*100;
+  const yPct = ((y - r.top)/Math.max(1,r.height))*100;
 
-  const hudR = isShown(hud) ? rectOf(hud) : null;
-  const questR = isShown(quest) ? rectOf(quest) : null;
+  const el = DOC.createElement('div');
+  el.className='hha-shock';
+  el.style.setProperty('--x', xPct.toFixed(2)+'%');
+  el.style.setProperty('--y', yPct.toFixed(2)+'%');
+  pf.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
+}
+function popScore(text='+10'){
+  try{
+    const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
+    if (P){
+      const { cx, cy } = centerPoint();
+      if (typeof P.popText === 'function'){ P.popText(cx, cy, text, ''); return; }
+      if (typeof P.pop === 'function'){ P.pop(cx, cy, text); return; }
+    }
+  }catch(_){}
+  pulseBody('hha-hitfx', 140);
+}
 
-  const pad = 14;
+/* -------------------- Audio tick -------------------- */
+let AC=null;
+function ensureAC(){
+  try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
+}
+function tickBeep(freq=900, dur=0.045, vol=0.06){
+  try{
+    ensureAC(); if(!AC) return;
+    const t0 = AC.currentTime;
+    const o = AC.createOscillator();
+    const g = AC.createGain();
+    o.type='square';
+    o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0+0.005);
+    g.gain.linearRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t0); o.stop(t0+dur+0.01);
+  }catch(_){}
+}
 
-  let x0 = L.left + pad;
-  let x1 = L.right - pad;
+/* -------------------- Config -------------------- */
+const diff = String(qs('diff','normal')).toLowerCase();
+const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+const timeLimit = clamp(parseInt(qs('time', qs('durationPlannedSec', 70)),10) || 70, 20, 600);
+const hub = String(qs('hub','../hub.html'));
 
-  let y0 = L.top + pad;
-  let y1 = L.bottom - pad;
+const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
+const ts = String(qs('ts', Date.now()));
+const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
+const logEndpoint = String(qs('log','') || '');
 
-  if(hudR) y0 = Math.max(y0, hudR.bottom + 10);
-  if(questR) y1 = Math.min(y1, questR.top - 10);
+/* -------------------- RNG -------------------- */
+function hashStr(s){
+  s=String(s||''); let h=2166136261;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  return (h>>>0);
+}
+function makeRng(seedStr){
+  let x = hashStr(seedStr) || 123456789;
+  return function(){
+    x ^= x << 13; x >>>= 0;
+    x ^= x >> 17; x >>>= 0;
+    x ^= x << 5;  x >>>= 0;
+    return (x>>>0) / 4294967296;
+  };
+}
+const rng = makeRng(seed);
 
-  // Keep a minimum vertical play space
-  const minH = 140;
-  if(y1 - y0 < minH){
-    // fallback to something usable inside layer
-    y0 = Math.min(L.bottom - minH - pad, y0);
-    y1 = y0 + minH;
+/* -------------------- State -------------------- */
+const S = {
+  started:false,
+  ended:false,
+  t0:0,
+  lastTick:0,
+  leftSec: timeLimit,
+
+  score:0,
+  combo:0,
+  comboMax:0,
+  misses:0,
+
+  nGoodSpawn:0,
+  nBadSpawn:0,
+  nShieldSpawn:0,
+  nHitGood:0,
+  nHitBad:0,
+  nHitBadGuard:0,
+  nExpireGood:0,
+
+  streakGood:0,
+  streakMax:0,
+
+  waterPct:50,
+  waterZone:'GREEN',
+
+  shield:0,
+  shieldMax:3,
+
+  greenHold:0,
+
+  stormActive:false,
+  stormLeftSec:0,
+  stormCycle:0,
+  stormSuccess:0,
+
+  endWindowSec:1.2,
+  inEndWindow:false,
+
+  miniState:{
+    zoneOK:false,
+    pressure:0,
+    pressureOK:false,
+    endWindow:false,
+    blockedInEnd:false,
+    doneThisStorm:false,
+    gotHitByBad:false
+  },
+
+  bossEnabled:true,
+  bossActive:false,
+  bossNeed:2,
+  bossBlocked:0,
+  bossDoneThisStorm:false,
+  bossWindowSec:2.2,
+  bossClearCount:0,
+
+  endFxOn:false,
+  endFxTickAt:0,
+
+  adaptiveOn: (run !== 'research'),
+  adaptK:0,
+
+  stage:1,
+  stage1Done:false,
+  stage2Done:false,
+  stage3Done:false
+};
+
+const TUNE = (() => {
+  const sizeBase = diff==='easy' ? 78 : diff==='hard' ? 56 : 66;
+  const spawnBaseMs = diff==='easy' ? 680 : diff==='hard' ? 480 : 580;
+  const stormEverySec = diff==='easy' ? 18 : diff==='hard' ? 14 : 16;
+  const stormDurSec = diff==='easy' ? 5.2 : diff==='hard' ? 6.2 : 5.8;
+
+  const greenTarget = clamp(
+    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
+    18,
+    Math.max(18, timeLimit-8)
+  );
+
+  return {
+    sizeBase,
+    spawnBaseMs,
+    spawnJitter:170,
+    goodLifeMs: diff==='hard'? 930 : 1080,
+    badLifeMs:  diff==='hard'? 980 : 1120,
+    shieldLifeMs:1350,
+    stormEverySec,
+    stormDurSec,
+    stormSpawnMul: diff==='hard'? 0.56 : 0.64,
+    endWindowSec:1.2,
+    bossWindowSec: diff==='hard'? 2.4 : 2.2,
+    nudgeToMid:5.0,
+    badPush:8.0,
+    missPenalty:1,
+    greenTargetSec: greenTarget,
+    pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
+  };
+})();
+S.endWindowSec = TUNE.endWindowSec;
+S.bossWindowSec = TUNE.bossWindowSec;
+
+/* -------------------- Water helpers -------------------- */
+function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+function nudgeWaterGood(){
+  const mid=55, d=mid - S.waterPct;
+  const step=Math.sign(d)*Math.min(Math.abs(d), TUNE.nudgeToMid);
+  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  updateZone();
+}
+function pushWaterBad(){
+  const mid=55, d=S.waterPct - mid;
+  const step=(d>=0?+1:-1)*TUNE.badPush;
+  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  updateZone();
+}
+
+/* -------------------- Accuracy/Grade -------------------- */
+function computeAccuracy(){
+  return clamp((S.nHitGood / Math.max(1,S.nGoodSpawn))*100, 0, 100);
+}
+function computeGrade(){
+  const acc = computeAccuracy();
+  const miss = S.misses|0;
+  const mini = S.stormSuccess|0;
+  if (acc >= 95 && miss <= 2 && mini >= 1) return 'SSS';
+  if (acc >= 90 && miss <= 4) return 'SS';
+  if (acc >= 82) return 'S';
+  if (acc >= 70) return 'A';
+  if (acc >= 55) return 'B';
+  return 'C';
+}
+
+/* -------------------- UI sync -------------------- */
+function syncWaterPanelDOM(){
+  const bar = DOC.getElementById('water-bar');
+  const pct = DOC.getElementById('water-pct');
+  const zone = DOC.getElementById('water-zone');
+  if (bar) bar.style.width = clamp(S.waterPct,0,100).toFixed(0)+'%';
+  if (pct) pct.textContent = String(S.waterPct|0);
+  if (zone) zone.textContent = String(S.waterZone||'');
+}
+
+function setStage(n){
+  const nn = clamp(n,1,3)|0;
+  if (S.stage === nn) return;
+  S.stage = nn;
+  emit('hha:coach', { type:'stage', stage: S.stage });
+  tickBeep(1200, 0.06, 0.07);
+  pulseBody('hha-hitfx', 180);
+}
+
+function syncHUD(){
+  const grade = computeGrade();
+  setText('stat-score', S.score|0);
+  setText('stat-combo', S.combo|0);
+  setText('stat-miss', S.misses|0);
+  setText('stat-time', S.leftSec|0);
+  setText('stat-grade', grade);
+  setText('storm-left', S.stormActive ? (S.stormLeftSec|0) : 0);
+  setText('shield-count', S.shield|0);
+
+  S.stage1Done = (S.greenHold >= TUNE.greenTargetSec);
+  S.stage2Done = (S.stormSuccess >= 1);
+  S.stage3Done = (S.bossClearCount >= 1);
+
+  if (!S.stage1Done) setStage(1);
+  else if (!S.stage2Done) setStage(2);
+  else if (!S.stage3Done) setStage(3);
+
+  if (S.stage === 1){
+    setText('quest-line1', `Stage 1/3: คุม GREEN ให้ครบ ${TUNE.greenTargetSec|0}s (สะสม)`);
+    setText('quest-line2', `GREEN: ${S.greenHold.toFixed(1)} / ${TUNE.greenTargetSec.toFixed(0)}s`);
+    setText('quest-line3', `ทิป: ยิง 💧 ให้คุมสมดุลน้ำให้อยู่ GREEN นาน ๆ`);
+    setText('quest-line4', `เตรียม: เก็บ 🛡️ ไว้ทำ Storm Mini`);
+  } else if (S.stage === 2){
+    setText('quest-line1', `Stage 2/3: ผ่าน Storm Mini อย่างน้อย 1 พายุ`);
+    setText('quest-line2', `Mini ผ่านแล้ว: ${S.stormSuccess|0} / 1`);
+    if (S.stormActive){
+      const m = S.miniState;
+      const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
+      setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
+      setText('quest-line4', `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+        + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
+      );
+    } else {
+      setText('quest-line3', `รอ Storm… เก็บ 🛡️ แล้วเตรียม BLOCK ช่วงท้าย`);
+      setText('quest-line4', `Progress: ${S.stormSuccess|0}/${S.stormCycle|0} (ผ่าน/เจอพายุ)`);
+    }
+  } else {
+    setText('quest-line1', `Stage 3/3: เคลียร์ BOSS (BLOCK 🌩️ ให้ครบ ${S.bossNeed|0})`);
+    setText('quest-line2', `Boss Clear: ${S.bossClearCount|0} / 1`);
+    if (S.bossEnabled && S.bossActive){
+      setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ`);
+      setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)`);
+    } else {
+      setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
+      setText('quest-line4', `Tip: เก็บ 🛡️ ไว้ 1–2 อันก่อนพายุ`);
+    }
   }
 
-  // clamp
-  x0 = clamp(x0, 0, w-60);
-  x1 = clamp(x1, x0+60, w);
-  y0 = clamp(y0, 0, h-90);
-  y1 = clamp(y1, y0+70, h);
+  setWaterGauge(S.waterPct);
+  syncWaterPanelDOM();
 
-  return { x0, x1, y0, y1, w, h };
+  emit('quest:update', {
+    goalsCleared: (S.greenHold >= TUNE.greenTargetSec) ? 1 : 0,
+    goalsTotal: 1,
+    miniCleared: S.stormSuccess|0,
+    miniTotal: S.stormCycle|0,
+    miniUrgent: S.stormActive && S.inEndWindow
+  });
 }
 
-function makeTargetEl(kind, emoji){
-  const el = DOC.createElement('button');
-  el.type='button';
-  el.className = 'h2o-tgt '+kind;
-  el.style.position='absolute';
-  el.style.left='0'; el.style.top='0';
-  el.style.transform='translate(-50%,-50%)';
-  el.style.border='1px solid rgba(148,163,184,.16)';
-  el.style.background='rgba(15,23,42,.62)';
-  el.style.color='#e5e7eb';
-  el.style.borderRadius='999px';
-  el.style.width='54px';
-  el.style.height='54px';
-  el.style.display='flex';
-  el.style.alignItems='center';
-  el.style.justifyContent='center';
-  el.style.fontSize='22px';
-  el.style.cursor='pointer';
-  el.style.userSelect='none';
-  el.style.touchAction='manipulation';
-  el.innerHTML = `<span>${emoji}</span>`;
-  return el;
+/* -------------------- Target style (inject once) -------------------- */
+(function injectTargetStyle(){
+  if (DOC.getElementById('hvr-target-style')) return;
+  const st = DOC.createElement('style');
+  st.id='hvr-target-style';
+  st.textContent = `
+  .hvr-target{
+    position:absolute;
+    left: var(--x, 50%);
+    top: var(--y, 50%);
+    transform: translate(-50%,-50%);
+    width: var(--s, 64px);
+    height: var(--s, 64px);
+    display:flex; align-items:center; justify-content:center;
+    font-size: calc(var(--s,64px) * 0.55);
+    border-radius: 999px;
+    border:1px solid rgba(148,163,184,.18);
+    background: rgba(2,6,23,.50);
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    backdrop-filter: blur(10px);
+    user-select:none;
+    pointer-events:auto;
+    cursor:pointer;
+    will-change: transform, filter, opacity;
+    z-index:5; /* ✅ กันโดนกลืน */
+  }
+  .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
+  .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
+  .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
+  .hvr-target.bossbad{
+    outline: 2px dashed rgba(239,68,68,.35);
+    box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
+  }`;
+  DOC.head.appendChild(st);
+})();
+
+/* -------------------- Spawn helpers -------------------- */
+function pickXY(){
+  const r = getPlayfieldRect();
+  const pad=22;
+  const w=Math.max(1, r.width - pad*2);
+  const h=Math.max(1, r.height - pad*2);
+  const rx=(rng()+rng())/2;
+  const ry=(rng()+rng())/2;
+  const x = pad + rx*w;
+  const y = pad + ry*h;
+  const xPct = (x/Math.max(1,r.width))*100;
+  const yPct = (y/Math.max(1,r.height))*100;
+  return { xPct, yPct };
+}
+function targetSize(){
+  let s = TUNE.sizeBase;
+  if (S.adaptiveOn){
+    const acc = computeAccuracy()/100;
+    const c = clamp(S.combo/20, 0, 1);
+    const k = clamp(acc*0.7 + c*0.3, 0, 1);
+    S.adaptK = k;
+    s = s * (1.02 - 0.22*k);
+  }
+  if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
+  return clamp(s,44,86);
 }
 
-function fxShock(x,y){
-  const layer = $('hydration-layer');
-  if(!layer) return;
-  const d = DOC.createElement('div');
-  d.className = 'hha-shock';
-  d.style.setProperty('--x', x+'px');
-  d.style.setProperty('--y', y+'px');
-  layer.appendChild(d);
-  setTimeout(()=>{ try{ d.remove(); }catch{} }, 800);
-}
+let lastHitAt=0;
+const HIT_COOLDOWN_MS=55;
 
-// -----------------------------
-// Engine
-// -----------------------------
-(function hydrationEngine(){
-  const layer = $('hydration-layer');
-  if(!layer){
-    console.warn('[Hydration] hydration-layer not found');
+function spawn(kind){
+  if (S.ended) return;
+  const layers = getLayers();
+
+  // ✅ FIX: ถ้า layers = 0 จะเห็นใน debug และไม่ spawn (เพราะไม่มีที่วาง)
+  if (!layers.length){
+    dbgSet(`NO LAYERS FOUND\nExpected IDs:\n- hydration-layer\n- hydration-layerL/R (cardboard)\n\nHINT: ตรวจว่า hydration-vr.html มี div id เหล่านี้จริงไหม`);
     return;
   }
-  ensureBossUI();
 
-  // result UI
-  const resultBackdrop = $('resultBackdrop');
-  const rTips = $('rTips');
+  const { xPct, yPct } = pickXY();
+  const s = targetSize();
+  const isBossBad = (kind==='bad' && S.bossEnabled && S.bossActive);
 
-  // buttons
-  const btnRetry = $('btnRetry');
-  const btnCopyJSON = $('btnCopyJSON');
-  const btnDownloadCSV = $('btnDownloadCSV');
-  const btnCloseSummary = $('btnCloseSummary');
+  if (kind==='good') S.nGoodSpawn++;
+  if (kind==='bad') S.nBadSpawn++;
+  if (kind==='shield') S.nShieldSpawn++;
 
-  // Params
-  let runMode = 'play';
-  let diff = 'normal';
-  let view = 'pc';
-  let seed = 0;
-  let timePlannedSec = 70;
+  const life =
+    kind==='good' ? TUNE.goodLifeMs :
+    kind==='shield' ? TUNE.shieldLifeMs :
+    TUNE.badLifeMs;
 
-  // RNG + AI
-  let rng = makeRNG(Date.now());
-  let ai = getAIHooks({gameId:'hydration', seed:0, runMode:'play', diff:'normal'});
+  let killed=false;
+  const nodes=[];
 
-  // state
-  let running=false, paused=false;
-  let tStart=0, tLast=0;
-  let timeLeft=0;
+  function buildNode(){
+    const el = DOC.createElement('div');
+    el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
+    el.dataset.kind = kind;
+    if (isBossBad) el.dataset.boss='1';
 
-  let score=0;
-  let combo=0, comboMax=0;
-  let miss=0;
-  let shots=0, hits=0;
+    el.style.setProperty('--x', xPct.toFixed(2)+'%');
+    el.style.setProperty('--y', yPct.toFixed(2)+'%');
+    el.style.setProperty('--s', s.toFixed(0)+'px');
 
-  let waterPct = 50;
-  let zoneName = 'GREEN';
+    el.textContent =
+      kind==='good' ? '💧' :
+      kind==='shield' ? '🛡️' :
+      (isBossBad ? '🌩️' : '🥤');
 
-  // storm
-  let outGreenSec = 0;
-  let stormActive = false;
-  let stormLevel = 0;
-  let stormCycles = 0;
-  let stormNeed = 0;
-  let stormHit = 0;
-  let stormTimer = 0;
-  let stormOK = 0;
+    el.addEventListener('pointerdown',(ev)=>{
+      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
+      onHit(el);
+    }, {passive:false});
 
-  // shield
-  let shield = 0;
-
-  // boss
-  let bossActive = false;
-  let bossPhase = 0;
-  let bossHp = 0;
-  let bossHpMax = 0;
-
-  // spawner
-  let spawnAcc = 0;
-
-  // targets
-  const targets = []; // {id, el, kind, born, x,y, dead, value}
-  let nextId=1;
-
-  // log for CSV
-  const events = []; // {t,type,a,b,c}
-  function logEv(type, a='', b='', c=''){
-    events.push({ t: Math.max(0, (nowMs()-tStart)/1000).toFixed(3), type, a, b, c });
+    return el;
   }
 
-  // dynamic params (adaptive in play)
-  let _base = baseParams('normal');
-  let _adaptive = { spawnPerSecMul:1, driftMul:1, shieldRateMul:1 };
-  function params(){
-    const p = _base;
-    return {
-      driftPerSec: p.driftPerSec * _adaptive.driftMul,
-      spawnPerSec: p.spawnPerSec * _adaptive.spawnPerSecMul,
-      dropValue: p.dropValue,
-      shieldRate: p.shieldRate * _adaptive.shieldRateMul,
-      stormGateSec: p.stormGateSec,
-      stormBaseLightning: p.stormBaseLightning,
-      stormTimeLimitSec: p.stormTimeLimitSec,
-      bossAfterStorms: p.bossAfterStorms
-    };
-  }
+  function kill(reason){
+    if (killed) return;
+    killed=true;
+    for (const n of nodes){ try{ n.remove(); }catch(_){ } }
 
-  function setHUD(){
-    setText('water-pct', clamp(waterPct,0,100).toFixed(0));
-    setText('water-zone', zoneName);
-    setPctBar('water-bar', waterPct);
-
-    setText('stat-score', score|0);
-    setText('stat-combo', combo|0);
-    setText('stat-miss', miss|0);
-    setText('stat-time', Math.max(0, Math.ceil(timeLeft))|0);
-
-    const acc = shots ? (hits/shots) : 0;
-    const g = gradeFrom(acc, stormOK, comboMax);
-    setText('stat-grade', g);
-
-    setText('quest-line1', `คุมให้อยู่โซน GREEN ให้นานที่สุด`);
-    setText('quest-line2', `ตอนนี้: โซน ${zoneName} • Shield ${shield}`);
-    setText('quest-line3', `Storm cycles: ${stormCycles} | Storm OK: ${stormOK} | Level: ${stormLevel}`);
-    setText('quest-line4', `ComboMax: ${comboMax} • Acc ${(acc*100).toFixed(0)}%`);
-
-    setText('storm-left', stormActive ? String(Math.max(0, stormNeed - stormHit)) : '0');
-    setText('shield-count', String(shield));
-
-    if($('bossPhase')) $('bossPhase').textContent = bossActive ? String(bossPhase) : '—';
-    if($('bossHpTxt')) $('bossHpTxt').textContent = bossActive ? String(bossHp) : '0';
-    if($('bossBar')) $('bossBar').style.width = bossActive ? (100*(bossHp/Math.max(1,bossHpMax))).toFixed(0)+'%' : '0%';
-
-    emit('hydration:progress', {
-      waterPct, zoneName, score, combo, comboMax, miss,
-      stormActive, stormLevel, stormCycles, stormOK,
-      bossActive, bossPhase, bossHp, bossHpMax,
-      timeLeft
-    });
-  }
-
-  function zoneFromPct(p){
-    if(p < ZONE.LOW_MAX) return 'LOW';
-    if(p >= ZONE.GREEN_MIN && p <= ZONE.GREEN_MAX) return 'GREEN';
-    if(p >= ZONE.HIGH_MIN) return 'HIGH';
-    return (p < ZONE.GREEN_MIN) ? 'LOW' : 'HIGH';
-  }
-
-  function clearTargets(){
-    while(targets.length){
-      const t = targets.pop();
-      try{ t.el.remove(); }catch{}
+    if (reason==='expire' && kind==='good'){
+      S.misses += TUNE.missPenalty;
+      S.nExpireGood++;
+      S.combo=0;
+      S.streakGood=0;
+      syncHUD();
     }
   }
 
-  function killTarget(obj){
-    if(!obj || obj.dead) return;
-    obj.dead = true;
-    try{ obj.el.style.pointerEvents='none'; }catch{}
-    const i = targets.findIndex(t=>t.id===obj.id);
-    if(i>=0) targets.splice(i,1);
-    try{ obj.el.remove(); }catch{}
-  }
+  function onHit(srcEl){
+    if (killed || S.ended) return;
+    const t=performance.now();
+    if (t - lastHitAt < HIT_COOLDOWN_MS) return;
+    lastHitAt=t;
 
-  function shouldTimeoutCountMiss(obj){
-    // Count timeout miss only for "player-relevant" targets (not shield)
-    // and only if the target was NOT under occluders when it expired.
-    if(!obj || obj.dead) return false;
-    if(obj.kind === 'shield') return false;
+    kill('hit');
 
-    const occluded = isOccludedPoint(obj.x, obj.y, LIMIT.occludePad);
-    if(occluded) return false;
+    const r = srcEl?.getBoundingClientRect?.();
+    const hx = r ? (r.left + r.width/2) : centerPoint().cx;
+    const hy = r ? (r.top + r.height/2) : centerPoint().cy;
 
-    // Don’t punish lightning timeouts too harshly (storm already pressured)
-    if(obj.kind === 'light') return false;
+    if (kind==='good'){
+      S.nHitGood++;
+      const add = 10 + Math.min(15, (S.combo|0));
+      S.score += add;
+      S.combo++;
+      S.comboMax = Math.max(S.comboMax, S.combo);
+      nudgeWaterGood();
 
-    // Drops/fixes/boss tokens count
-    return (obj.kind === 'drop' || obj.kind === 'fixLow' || obj.kind === 'fixHigh' || obj.kind === 'boss');
-  }
+      S.streakGood++;
+      S.streakMax = Math.max(S.streakMax, S.streakGood);
 
-  function cleanupTargets(){
-    const t = nowMs();
-    for(let i=targets.length-1;i>=0;i--){
-      const obj = targets[i];
-      if(obj.dead){ targets.splice(i,1); continue; }
-      if((t - obj.born) > LIMIT.ttlMs){
-        // timeout miss (Groups-like occlusion guard)
-        if(running && !paused && shouldTimeoutCountMiss(obj)){
-          miss++;
-          combo = 0;
-          logEv('timeout_miss', obj.kind, zoneName, stormActive?'storm':(bossActive?'boss':''));
-        }else{
-          logEv('timeout_drop', obj.kind, '', '');
+      emit('hha:judge', { kind:'good' });
+      pulseBody('hha-hitfx', 140);
+      popScore('+'+add);
+    } else if (kind==='shield'){
+      S.score += 6;
+      S.combo++;
+      S.comboMax = Math.max(S.comboMax, S.combo);
+      S.shield = clamp(S.shield+1, 0, S.shieldMax);
+      emit('hha:judge', { kind:'shield' });
+      pulseBody('hha-hitfx', 120);
+      popScore('+6');
+    } else {
+      S.streakGood=0;
+
+      if (S.shield>0){
+        S.shield--;
+        S.nHitBadGuard++;
+        S.score += 4;
+
+        if (S.stormActive && S.inEndWindow){
+          S.miniState.blockedInEnd = true;
+          if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
-        killTarget(obj);
+        if (isBossBad) S.bossBlocked++;
+
+        emit('hha:judge', { kind:'block' });
+        pulseBody('hha-hitfx', 120);
+        popScore('+4');
+      } else {
+        S.nHitBad++;
+        S.misses++;
+        S.combo=0;
+        S.score = Math.max(0, S.score-6);
+        pushWaterBad();
+
+        if (S.stormActive) S.miniState.gotHitByBad = true;
+
+        emit('hha:judge', { kind:'bad' });
+        shockAt(hx, hy);
+        pulseBody('hha-hitfx', 160);
       }
     }
-    if(targets.length > LIMIT.maxTargets){
-      let extra = targets.length - LIMIT.maxTargets;
-      while(extra-- > 0 && targets.length){
-        let oldest = targets[0];
-        for(let k=1;k<targets.length;k++){
-          if(targets[k].born < oldest.born) oldest = targets[k];
-        }
-        killTarget(oldest);
-      }
-    }
+
+    syncHUD();
   }
 
-  function pickSafeXY(){
-    const rect = getSpawnRect(layer);
-    for(let i=0;i<LIMIT.spawnTry;i++){
-      const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
-      const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
-      if(!isOccludedPoint(x,y, LIMIT.occludePad)) return {x,y};
-    }
-    // fallback: center-ish inside rect
-    return { x: (rect.x0+rect.x1)/2, y: (rect.y0+rect.y1)/2 };
+  for (const L of layers){
+    const el = buildNode();
+    nodes.push(el);
+    L.appendChild(el);
   }
 
-  function spawn(kind){
-    const {x,y} = pickSafeXY();
+  setTimeout(()=>kill('expire'), life);
+}
 
-    let emoji = ICON.DROP;
-    let value = 0;
+/* -------------------- Storm + spawn loop -------------------- */
+function nextSpawnDelay(){
+  let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
+  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
+  if (S.stormActive) base *= TUNE.stormSpawnMul;
+  return clamp(base, 210, 1200);
+}
+function pickKind(){
+  let pGood=0.66, pBad=0.28, pSh=0.06;
 
-    if(kind==='drop'){ emoji = ICON.DROP; value = +params().dropValue; }
-    else if(kind==='shield'){ emoji = ICON.SHIELD; value = 1; }
-    else if(kind==='light'){ emoji = ICON.LIGHT; value = 1; }
-    else if(kind==='fixLow'){ emoji = ICON.HEAL; value = +params().dropValue*1.15; }
-    else if(kind==='fixHigh'){ emoji = ICON.OVER; value = -params().dropValue*1.15; }
-    else if(kind==='boss'){ emoji = ICON.BOSS; value = 1; }
-
-    const el = makeTargetEl(kind, emoji);
-    el.dataset.id = String(nextId);
-    el.style.left = x+'px';
-    el.style.top = y+'px';
-    layer.appendChild(el);
-
-    const obj = { id: nextId++, el, kind, born: nowMs(), x, y, dead:false, value, _lastTap:0 };
-    targets.push(obj);
-
-    if(view !== 'cvr'){
-      el.addEventListener('pointerdown', (ev)=>{
-        if(!running || paused || obj.dead) return;
-        const t = nowMs();
-        if(obj._lastTap && (t - obj._lastTap) < LIMIT.tapGuardMs) return;
-        obj._lastTap = t;
-        try{ ev.preventDefault(); }catch{}
-        judgeHit(obj, 'tap', null);
-      }, {passive:false});
-    }
-
-    return obj;
-  }
-
-  function applyAdaptive(){
-    if(runMode !== 'play') return;
-    const acc = shots ? (hits/shots) : 1;
-
-    if(acc > 0.85 && comboMax >= 8){
-      _adaptive.spawnPerSecMul = clamp(_adaptive.spawnPerSecMul + 0.04, 1.0, 1.35);
-      _adaptive.driftMul = clamp(_adaptive.driftMul + 0.03, 1.0, 1.30);
-    }else if(acc < 0.55 || miss >= 6){
-      _adaptive.spawnPerSecMul = clamp(_adaptive.spawnPerSecMul - 0.05, 0.85, 1.25);
-      _adaptive.driftMul = clamp(_adaptive.driftMul - 0.04, 0.85, 1.20);
+  if (S.stormActive){
+    pGood=0.52; pBad=0.38; pSh=0.10;
+    if (S.bossEnabled && S.bossActive){
+      pBad += 0.10;
+      pGood -= 0.10;
     }
   }
+  if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
 
-  function startStorm(){
-    if(stormActive || bossActive) return;
-    stormActive = true;
-    stormLevel = Math.min(9, stormLevel + 1);
-    stormCycles++;
-    stormHit = 0;
+  const r=rng();
+  if (r<pSh) return 'shield';
+  if (r<pSh+pBad) return 'bad';
+  return 'good';
+}
 
-    stormNeed = params().stormBaseLightning + Math.floor(stormLevel*1.2);
-    stormTimer = params().stormTimeLimitSec + Math.max(0, 1.0 - stormLevel*0.05);
+function setEndFx(on){
+  if (S.endFxOn === on) return;
+  S.endFxOn = on;
+  DOC.body.classList.toggle('hha-endfx', on);
+}
 
-    logEv('storm_start', stormLevel, stormNeed, zoneName);
-    emit('hydration:storm', { action:'start', stormLevel, stormNeed });
+function enterStorm(){
+  S.stormActive=true;
+  S.stormLeftSec=TUNE.stormDurSec;
+  S.stormCycle++;
 
-    DOC.body.classList.add('hha-bossfx');
-    setTimeout(()=>DOC.body.classList.remove('hha-bossfx'), 650);
+  S.miniState = {
+    zoneOK:false,
+    pressure:0,
+    pressureOK:false,
+    endWindow:false,
+    blockedInEnd:false,
+    doneThisStorm:false,
+    gotHitByBad:false
+  };
 
-    for(let i=0;i<Math.min(6, stormNeed);i++){
-      spawn('light');
-    }
+  S.bossActive=false;
+  S.bossBlocked=0;
+  S.bossDoneThisStorm=false;
+
+  if (S.waterZone==='GREEN'){
+    S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -7 : +7), 0, 100);
+    updateZone();
   }
 
-  function endStorm(passed){
-    if(!stormActive) return;
-    stormActive = false;
-    outGreenSec = 0;
-    stormTimer = 0;
+  setEndFx(false);
+  S.endFxTickAt = 0;
 
-    if(passed){
-      stormOK++;
-      score += 30 + stormLevel*8;
-      combo += 2;
-      comboMax = Math.max(comboMax, combo);
-      logEv('storm_pass', stormLevel, stormNeed, '');
-      emit('hydration:storm', { action:'pass', stormLevel, stormNeed });
-    }else{
-      miss += 2;
-      combo = 0;
-      logEv('storm_fail', stormLevel, stormNeed, '');
-      emit('hydration:storm', { action:'fail', stormLevel, stormNeed });
-    }
+  emit('hha:judge', { kind:'storm' });
+  syncHUD();
+}
 
-    const target = 55;
-    const pull = (target - waterPct) * 0.35;
-    waterPct = clamp(waterPct + pull, 0, 100);
+function passMiniThisStorm(){
+  const m = S.miniState;
+  if (m.gotHitByBad) return false;
+  return !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
+}
 
-    if(stormOK >= params().bossAfterStorms && !bossActive){
-      startBoss();
-    }
+function exitStorm(){
+  S.stormActive=false;
+  S.stormLeftSec=0;
+  S.inEndWindow=false;
+  setEndFx(false);
+  DOC.body.classList.remove('hha-bossfx');
 
-    setHUD();
+  const ok = passMiniThisStorm();
+  if (ok && !S.miniState.doneThisStorm){
+    S.miniState.doneThisStorm=true;
+    S.stormSuccess++;
+    S.score += 40;
+    emit('hha:judge', { kind:'streak' });
+    pulseBody('hha-hitfx', 180);
+    popScore('+40');
   }
 
-  function startBoss(){
-    bossActive = true;
-    bossPhase = 1;
-    bossHpMax = 14 + stormLevel*3;
-    bossHp = bossHpMax;
-
-    logEv('boss_start', stormLevel, bossHpMax, '');
-    emit('hydration:state', { bossActive:true, bossPhase });
-
-    DOC.body.classList.add('hha-bossfx');
-    setTimeout(()=>DOC.body.classList.remove('hha-bossfx'), 900);
-
-    for(let i=0;i<3;i++) spawn('boss');
+  if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
+    S.bossDoneThisStorm=true;
+    S.bossClearCount++;
+    S.stormSuccess++;
+    S.score += 50;
+    emit('hha:judge', { kind:'perfect' });
+    pulseBody('hha-hitfx', 200);
+    popScore('+50');
   }
 
-  function stepBossPhaseIfNeeded(){
-    if(!bossActive) return;
-    const hpPct = bossHp / Math.max(1, bossHpMax);
+  S.bossActive=false;
+  syncHUD();
+}
 
-    if(bossPhase===1 && hpPct <= 0.66){
-      bossPhase = 2;
-      logEv('boss_phase', 2, '', '');
-      for(let i=0;i<2;i++) spawn('light');
-      if(rng() < 0.7) spawn('shield');
-    }else if(bossPhase===2 && hpPct <= 0.33){
-      bossPhase = 3;
-      logEv('boss_phase', 3, '', '');
-      for(let i=0;i<3;i++) spawn('light');
-      spawn('shield');
+function tickStorm(dt){
+  if (!S.stormActive) return;
+
+  S.stormLeftSec = Math.max(0, S.stormLeftSec - dt);
+
+  const inEnd = (S.stormLeftSec <= (TUNE.endWindowSec + 0.02));
+  S.inEndWindow = inEnd;
+  S.miniState.endWindow = inEnd;
+
+  if (inEnd){
+    setEndFx(true);
+    const now = performance.now();
+    const rate = clamp(S.stormLeftSec / TUNE.endWindowSec, 0, 1);
+    const interval = 320 - 190*(1-rate);
+    if (now - S.endFxTickAt > interval){
+      S.endFxTickAt = now;
+      tickBeep(900 + (1-rate)*500, 0.04, 0.05);
     }
-
-    if(bossHp <= 0){
-      bossActive = false;
-      logEv('boss_defeat', stormLevel, '', '');
-
-      score += 120 + stormLevel*20;
-      combo += 4;
-      comboMax = Math.max(comboMax, combo);
-
-      DOC.body.classList.add('hha-endfx');
-      setTimeout(()=>DOC.body.classList.remove('hha-endfx'), 900);
-
-      emit('hydration:state', { bossActive:false, bossPhase:0 });
-    }
+  } else {
+    setEndFx(false);
   }
 
-  function judgeHit(obj, source, extra){
-    if(!obj || obj.dead) return;
+  const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
+  S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
+  DOC.body.classList.toggle('hha-bossfx', !!S.bossActive);
 
-    shots++;
-    const hitX = obj.x, hitY = obj.y;
+  const zoneOK = (S.waterZone !== 'GREEN');
+  if (zoneOK) S.miniState.zoneOK = true;
 
-    ai.onEvent && ai.onEvent('hit_attempt', {
-      kind: obj.kind, waterPct, zoneName, stormActive, shield, combo, stormLevel, bossActive, bossPhase
+  const gain = zoneOK ? 1.05 : 0.25;
+  S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1.5);
+  if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
+
+  if (S.stormLeftSec <= 0.001) exitStorm();
+}
+
+/* -------------------- Summary / logging -------------------- */
+async function sendLog(payload){
+  if (!logEndpoint) return;
+  try{
+    await fetch(logEndpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+      keepalive:true
     });
-
-    // ⚡ STORM/BOSS lightning: must have shield
-    if(obj.kind === 'light'){
-      if(!stormActive && !bossActive){
-        miss++; combo = 0;
-        killTarget(obj); fxShock(hitX, hitY);
-        logEv('hit_light_outside', '', '', '');
-        emit('hha:judge', { kind:'light', ok:false, reason:'outside', source, extra });
-        setHUD();
-        return;
-      }
-
-      if(shield <= 0){
-        miss++; combo = 0;
-        killTarget(obj); fxShock(hitX, hitY);
-        logEv('hit_light_no_shield', stormActive?'storm':'boss', '', '');
-        emit('hha:judge', { kind:'light', ok:false, reason:'no_shield', source, extra });
-        setHUD();
-        return;
-      }
-
-      shield = Math.max(0, shield-1);
-      hits++;
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-      score += 12 + stormLevel*2;
-
-      if(stormActive){
-        stormHit++;
-        logEv('storm_light_hit', stormHit, stormNeed, '');
-        emit('hha:judge', { kind:'storm_light', ok:true, stormHit, stormNeed, source, extra });
-      }else{
-        bossHp = Math.max(0, bossHp - 1);
-        logEv('boss_light_hit', bossHp, bossHpMax, bossPhase);
-        emit('hha:judge', { kind:'boss_light', ok:true, bossHp, bossPhase, source, extra });
-        stepBossPhaseIfNeeded();
-      }
-
-      killTarget(obj);
-      fxShock(hitX, hitY);
-      setHUD();
-      return;
-    }
-
-    // 🛡 pickup
-    if(obj.kind === 'shield'){
-      hits++;
-      shield = clamp(shield + 1, 0, 9);
-      score += 8;
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-      logEv('pickup_shield', shield, '', '');
-      emit('hha:judge', { kind:'shield', ok:true, shield, source, extra });
-      killTarget(obj);
-      fxShock(hitX, hitY);
-      setHUD();
-      return;
-    }
-
-    // 💧 / 🟢 / 🟠 changes waterPct
-    if(obj.kind === 'drop' || obj.kind === 'fixLow' || obj.kind === 'fixHigh'){
-      hits++;
-      const before = waterPct;
-      waterPct = clamp(waterPct + obj.value, 0, 100);
-      score += 6;
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-
-      logEv('hit_drop', obj.kind, before.toFixed(0), waterPct.toFixed(0));
-      emit('hha:judge', { kind:obj.kind, ok:true, before, after:waterPct, source, extra });
-
-      killTarget(obj);
-      fxShock(hitX, hitY);
-      setHUD();
-      return;
-    }
-
-    // 👾 boss core
-    if(obj.kind === 'boss'){
-      hits++;
-      if(bossActive){
-        const dmg = (bossPhase===3 ? 2 : 1);
-        bossHp = Math.max(0, bossHp - dmg);
-        score += 18 + bossPhase*4;
-        combo += 1;
-        logEv('boss_core_hit', dmg, bossHp, bossPhase);
-        emit('hha:judge', { kind:'boss', ok:true, dmg, bossHp, bossPhase, source, extra });
-        stepBossPhaseIfNeeded();
-      }else{
-        score += 10;
-        combo += 1;
-        logEv('boss_token_hit', '', '', '');
-        emit('hha:judge', { kind:'boss_token', ok:true, source, extra });
-      }
-      comboMax = Math.max(comboMax, combo);
-      killTarget(obj);
-      fxShock(hitX, hitY);
-      setHUD();
-      return;
-    }
-
-    // fallback
-    miss++; combo=0;
-    killTarget(obj);
-    fxShock(hitX, hitY);
-    logEv('miss_unknown', obj.kind, '', '');
-    emit('hha:judge', { kind:obj.kind, ok:false, source, extra });
-    setHUD();
-  }
-
-  // cVR shoot picks nearest target within lockPx
-  function onShoot(e){
-    if(!running || paused) return;
-    if(view !== 'cvr') return;
-
-    const d = (e && e.detail) || {};
-    const lockPx = Number(d.lockPx||28);
-
-    const cx = WIN.innerWidth/2;
-    const cy = WIN.innerHeight/2;
-
-    let best=null, bestDist=1e9;
-    for(const t of targets){
-      if(t.dead) continue;
-      const dx = (t.x - cx), dy = (t.y - cy);
-      const dist = Math.hypot(dx, dy);
-      if(dist < lockPx && dist < bestDist){
-        best = t; bestDist = dist;
-      }
-    }
-    if(best){
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }
-  }
-
-  function spawnLogic(dt){
-    const p = params();
-
-    // storm: prioritize lightning, allow rare shield
-    if(stormActive){
-      if(targets.filter(t=>t.kind==='light' && !t.dead).length < 4){
-        spawn('light');
-      }
-      if(rng() < 0.10 && shield < 2) spawn('shield');
-      return;
-    }
-
-    // boss: mix boss + lightning + rare shield
-    if(bossActive){
-      if(targets.filter(t=>t.kind==='boss' && !t.dead).length < 2) spawn('boss');
-      if(rng() < (0.12 + bossPhase*0.05)) spawn('light');
-      if(rng() < 0.10 && shield < 2) spawn('shield');
-      return;
-    }
-
-    // normal
-    spawnAcc += (p.spawnPerSec * dt);
-    let spawned = 0;
-
-    while(spawnAcc >= 1 && spawned < LIMIT.spawnMaxPerFrame){
-      spawnAcc -= 1;
-
-      const z = zoneName;
-      if(z==='LOW'){
-        if(rng() < 0.55) spawn('fixLow'); else spawn('drop');
-      }else if(z==='HIGH'){
-        if(rng() < 0.55) spawn('fixHigh'); else spawn('drop');
-      }else{
-        spawn('drop');
-      }
-
-      if(rng() < p.shieldRate){
-        spawn('shield');
-      }
-      spawned++;
-    }
-  }
-
-  function driftLogic(dt){
-    const p = params();
-
-    if(!driftLogic._dir){
-      driftLogic._dir = (rng() < 0.5) ? -1 : 1;
-      driftLogic._t = 0;
-    }
-    driftLogic._t += dt;
-    if(driftLogic._t > 3.2){
-      driftLogic._t = 0;
-      if(rng() < 0.45) driftLogic._dir *= -1;
-    }
-
-    let drift = p.driftPerSec * driftLogic._dir;
-    if(waterPct < 30) drift -= 0.6;
-    if(waterPct > 80) drift += 0.6;
-
-    waterPct = clamp(waterPct + drift*dt, 0, 100);
-  }
-
-  function stormGateLogic(dt){
-    const p = params();
-
-    const z = zoneFromPct(waterPct);
-    zoneName = z;
-
-    if(z === 'GREEN'){
-      outGreenSec = 0;
-
-      // ✅ safe return: stabilize around center when in GREEN
-      const center = 55;
-      const pull = (center - waterPct) * 0.04;
-      waterPct = clamp(waterPct + pull, 0, 100);
-      return;
-    }
-
-    // outside green
-    outGreenSec += dt;
-
-    const inLowOrHigh = (z==='LOW' || z==='HIGH');
-    if(inLowOrHigh && outGreenSec >= p.stormGateSec && !stormActive && !bossActive){
-      startStorm();
-      outGreenSec = 0;
-    }
-  }
-
-  function stormTick(dt){
-    if(!stormActive) return;
-
-    stormTimer -= dt;
-
-    const aliveLightning = targets.filter(t=>t.kind==='light' && !t.dead).length;
-    if(aliveLightning < 4 && (stormHit < stormNeed)){
-      if(rng() < 0.75) spawn('light');
-    }
-
-    if(stormHit >= stormNeed){
-      endStorm(true);
-      return;
-    }
-    if(stormTimer <= 0){
-      endStorm(false);
-      return;
-    }
-  }
-
-  function bossTick(dt){
-    if(!bossActive) return;
-
-    const push = (bossPhase===3 ? 2.2 : 1.4);
-    const dir = (rng() < 0.5) ? -1 : 1;
-    waterPct = clamp(waterPct + dir*push*dt, 0, 100);
-
-    stepBossPhaseIfNeeded();
-  }
-
-  function computeTier(){
-    if(stormOK >= 3 && !bossActive) return 'ULTIMATE';
-    if(stormOK >= 2) return 'HARDCORE';
-    if(stormOK >= 1) return 'BRAVE';
-    return 'ROOKIE';
-  }
-
-  function endGame(reason){
-    if(!running) return;
-    running=false;
-    paused=false;
-
-    clearTargets();
-
-    const played = Math.max(0, Math.round((nowMs()-tStart)/1000));
-    const acc = shots ? (hits/shots) : 0;
-    const grade = gradeFrom(acc, stormOK, comboMax);
-    const tier = computeTier();
-
-    const summary = {
-      version: 'hydration.safe.full-20260216c',
-      game: 'hydration',
-      runMode,
-      diff,
-      view,
-      seed,
-      timestampIso: nowIso(),
-      reason,
-      durationPlannedSec: timePlannedSec,
-      durationPlayedSec: played,
-
-      score, miss, shots, hits,
-      accuracy: acc,
-      grade,
-      comboMax,
-
-      waterPctEnd: waterPct,
-      zoneEnd: zoneName,
-
-      shieldEnd: shield,
-      stormOK,
-      stormCycles,
-      stormLevelMax: stormLevel,
-
-      bossDefeated: (!bossActive && stormOK >= params().bossAfterStorms) ? 1 : 0,
-    };
-
-    try{
-      if(ai.getSummaryExtras){
-        Object.assign(summary, ai.getSummaryExtras());
-      }
-    }catch(_){}
-
-    emit('hha:end', summary);
-
-    setText('rScore', String(score));
-    setText('rGrade', grade);
-    setText('rAcc', (acc*100).toFixed(1)+'%');
-    setText('rComboMax', String(comboMax));
-    setText('rMiss', String(miss));
-    setText('rTier', tier);
-
-    setText('rGoals', `Storm OK: ${stormOK} / Cycles: ${stormCycles} / Tier: ${tier}`);
-    setText('rMinis', `ShieldEnd: ${shield} • WaterEnd: ${waterPct.toFixed(0)}% • Zone: ${zoneName}`);
-
-    const tips = [
-      (stormOK===0 ? `${ICON.ALERT} อยากเข้า STORM ต้อง “หลุด GREEN ไป LOW/HIGH” ค้างสักพัก` : `${ICON.LIGHT} คุณผ่าน STORM ได้ ${stormOK} ครั้ง!`),
-      `${ICON.SHIELD} ใน STORM ถ้าไม่มี 🛡 จะ “ตี ⚡ ไม่ได้” — เก็บโล่ก่อนเข้าพายุ`,
-      `ลองคุม GREEN (40–70) แต่ยอมหลุดเพื่อเปิด STORM แล้วกลับมาให้ไว`,
-      `Grade ขึ้นกับ Accuracy + StormOK + ComboMax`,
-    ].join('\n');
-
-    if(rTips) rTips.textContent = tips;
-    setText('rNext', `seed=${seed} • mode=${runMode} • diff=${diff}`);
-
-    if(resultBackdrop) resultBackdrop.hidden = false;
-
-    logEv('end', reason, grade, (acc*100).toFixed(1));
-  }
-
-  function downloadCSV(){
-    const header = 't,type,a,b,c\n';
-    const rows = events.map(e=>{
-      const esc = (s)=> String(s).replace(/"/g,'""');
-      return `"${esc(e.t)}","${esc(e.type)}","${esc(e.a)}","${esc(e.b)}","${esc(e.c)}"`;
-    }).join('\n');
-    const csv = header + rows + '\n';
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = `hydration_${seed}_${Date.now()}.csv`;
-    DOC.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ try{ URL.revokeObjectURL(url); a.remove(); }catch{} }, 0);
-  }
-
-  function resetToIdle(){
-    running=false; paused=false;
-    clearTargets();
-    score=0; combo=0; comboMax=0; miss=0; shots=0; hits=0;
-    waterPct=50; zoneName='GREEN';
-    outGreenSec=0;
-    stormActive=false; stormLevel=0; stormCycles=0; stormNeed=0; stormHit=0; stormTimer=0; stormOK=0;
-    shield=0;
-    bossActive=false; bossPhase=0; bossHp=0; bossHpMax=0;
-    spawnAcc=0;
-    events.length=0;
-    setHUD();
-  }
-
-  function startGame(detail){
-    const u = new URL(location.href);
-    runMode = String(detail?.runMode || u.searchParams.get('run') || 'play').toLowerCase()==='research' ? 'research' : 'play';
-    diff = String(detail?.diff || u.searchParams.get('diff') || 'normal').toLowerCase();
-    view = String(u.searchParams.get('view') || 'pc').toLowerCase();
-    timePlannedSec = clamp(Number(detail?.timePlannedSec || u.searchParams.get('time') || 70), 20, 9999);
-    seed = Number(detail?.seed || u.searchParams.get('seed') || 0) || 0;
-
-    rng = makeRNG(seed || 1);
-    ai = getAIHooks({gameId:'hydration', seed, runMode, diff});
-
-    _base = baseParams(diff);
-    _adaptive = { spawnPerSecMul:1, driftMul:1, shieldRateMul:1 };
-
-    resetToIdle();
-
-    running=true; paused=false;
-    tStart = nowMs();
-    tLast = tStart;
-    timeLeft = timePlannedSec;
-
-    if(runMode==='play') shield = 1;
-
-    logEv('start', runMode, diff, seed);
-
-    // ✅ FIX: DO NOT emit hha:start here (RUN is the one that emits it)
-    // emit('hha:start', ...)  <-- removed to prevent recursion loop
-
-    if(resultBackdrop) resultBackdrop.hidden = true;
-
-    setHUD();
-    requestAnimationFrame(tick);
-  }
-
-  function tick(){
-    if(!running) return;
-    const t = nowMs();
-    const dt = Math.max(0, (t - tLast)/1000);
-    tLast = t;
-
-    if(paused){
-      requestAnimationFrame(tick);
-      return;
-    }
-
-    timeLeft -= dt;
-    emit('hha:time', { leftSec: timeLeft, elapsedSec: (t - tStart)/1000 });
-
-    if(timeLeft <= 0){
-      endGame('time');
-      return;
-    }
-
-    cleanupTargets();
-
-    driftLogic(dt);
-    stormGateLogic(dt);
-    stormTick(dt);
-    bossTick(dt);
-
-    spawnLogic(dt);
-
-    if(runMode==='play'){
-      if(!tick._accT) tick._accT = 0;
-      tick._accT += dt;
-      if(tick._accT >= 2.2){
-        tick._accT = 0;
-        applyAdaptive();
-      }
-    }
-
-    if(miss >= 12 && runMode==='play'){
-      endGame('fail');
-      return;
-    }
-
-    if(stormActive){
-      if(rng() < 0.05) score = Math.max(0, score-1);
-    }
-
-    setHUD();
-    emit('hha:score', { score, combo, miss, waterPct, zoneName, stormOK, bossActive, bossPhase });
-
-    requestAnimationFrame(tick);
-  }
-
-  // -----------------------------
-  // UI binds
-  // -----------------------------
-  btnRetry?.addEventListener('click', ()=>{
-    startGame({ runMode, diff, timePlannedSec, seed });
-  }, {passive:true});
-
-  btnCopyJSON?.addEventListener('click', ()=>{
-    try{
-      const acc = shots ? (hits/shots) : 0;
-      const grade = gradeFrom(acc, stormOK, comboMax);
-      const json = JSON.stringify({
-        score, miss, shots, hits, acc, grade, comboMax,
-        stormOK, stormCycles, stormLevel,
-        shieldEnd: shield, waterPctEnd: waterPct, zoneEnd: zoneName,
-        seed, runMode, diff, timePlannedSec
-      }, null, 2);
-      copyText(json);
-    }catch(_){}
-  }, {passive:true});
-
-  btnDownloadCSV?.addEventListener('click', downloadCSV, {passive:true});
-
-  btnCloseSummary?.addEventListener('click', ()=>{
-    if(resultBackdrop) resultBackdrop.hidden = true;
-  }, {passive:true});
-
-  WIN.addEventListener('hha:shoot', onShoot);
-
-  WIN.addEventListener('hha:start', (e)=>{
-    const d = (e && e.detail) || {};
-    if(d.game && String(d.game).toLowerCase() !== 'hydration') return;
-    startGame(d);
+  }catch(_){}
+}
+
+function computeTier(sum){
+  const g=String(sum.grade||'C');
+  const acc=Number(sum.accuracyGoodPct||0);
+  const miss=Number(sum.misses||0);
+  const sOk=Number(sum.stormSuccess||0);
+
+  if ((g==='SSS'||g==='SS') && acc>=90 && miss<=6 && sOk>=2) return 'Legend';
+  if (g==='S' && acc>=82 && miss<=12) return 'Master';
+  if (g==='A' && acc>=70) return 'Expert';
+  if (g==='B' || (acc>=55 && miss<=30)) return 'Skilled';
+  return 'Beginner';
+}
+
+function buildTips(sum){
+  const tips=[];
+  const acc=Number(sum.accuracyGoodPct||0);
+  const miss=Number(sum.misses||0);
+  const goalsOk = (sum.goalsCleared|0) >= 1;
+  const cycles = (sum.stormCycles|0);
+  const ok = (sum.stormSuccess|0);
+  const boss = (sum.bossClearCount|0);
+
+  tips.push(goalsOk ? '✅ Stage1 ผ่านแล้ว (คุม GREEN ได้ดี)' : '🎯 Stage1: โฟกัสคุม GREEN ให้ผ่านก่อน');
+  if (cycles<=0) tips.push('🌀 ยังไม่เจอพายุ: เล่นต่ออีกนิด จะมี STORM ให้ทำ Mini');
+  else if (ok<=0) tips.push('🌀 Stage2: STORM ต้องทำ “LOW/HIGH” + BLOCK ช่วงท้าย (End Window) และห้ามโดน BAD');
+  else tips.push(`🔥 Stage2 ผ่านแล้ว: ผ่าน Mini ${ok}/${cycles} พายุ`);
+
+  tips.push(boss>0 ? '🌩️ Stage3 ผ่านแล้ว: เคลียร์ BOSS สำเร็จ!' : '🌩️ Stage3: รอ Boss Window แล้ว BLOCK 🌩️ ให้ครบ');
+
+  if (acc<60) tips.push('🎯 Accuracy ต่ำ: เล็งค้างนิดนึงแล้วค่อยยิง');
+  else if (acc>=80) tips.push('⚡ Accuracy ดีมาก! ลากคอมโบยาว ๆ เกรดพุ่ง');
+  if (miss>=25) tips.push('💥 MISS เยอะ: ลดการรัว + เลือกยิงเป้าที่ชัวร์');
+
+  let next='เพิ่ม Accuracy + ลด MISS';
+  if (!goalsOk) next='ผ่าน Stage1 ก่อน (คุม GREEN)';
+  else if (cycles>0 && ok<=0) next='ผ่าน Stage2 ให้ได้ (Mini 1 พายุ)';
+  else if (boss<=0) next='เคลียร์ Stage3 (Boss Clear 1 ครั้ง)';
+  else if (acc<70) next='ดัน Accuracy > 70%';
+  else if (miss>15) next='ลด MISS < 10';
+  else next='ลากคอมโบ + ผ่านทุกพายุ';
+
+  return { tips, next };
+}
+
+function fillSummary(sum){
+  const set=(id,v)=>{ const el=DOC.getElementById(id); if(el) el.textContent=String(v); };
+
+  set('rScore', sum.scoreFinal|0);
+  set('rGrade', sum.grade||'C');
+  set('rAcc', `${Number(sum.accuracyGoodPct||0).toFixed(1)}%`);
+  set('rComboMax', sum.comboMax|0);
+  set('rMiss', sum.misses|0);
+  set('rGoals', `${sum.goalsCleared|0}/${sum.goalsTotal|0}`);
+  set('rMinis', `${sum.stormSuccess|0}/${sum.stormCycles|0}`);
+
+  set('rGreen', `${Number(sum.greenHoldSec||0).toFixed(1)}s`);
+  set('rStreak', sum.streakMax|0);
+  set('rStormCycles', sum.stormCycles|0);
+  set('rStormOk', sum.stormSuccess|0);
+  set('rStormRate', `${Number(sum.stormRatePct||0).toFixed(0)}%`);
+
+  const tier=computeTier(sum);
+  const {tips,next}=buildTips(sum);
+  const rTips=DOC.getElementById('rTips');
+  const rNext=DOC.getElementById('rNext');
+  const rTier=DOC.getElementById('rTier');
+  if (rTips) rTips.textContent = tips.map(t=>`• ${t}`).join('\n');
+  if (rNext) rNext.textContent = next;
+  if (rTier) rTier.textContent = `Tier: ${tier}`;
+
+  const backdrop=DOC.getElementById('resultBackdrop');
+  if (backdrop) backdrop.hidden=false;
+}
+
+function bindSummaryButtons(){
+  const backdrop = DOC.getElementById('resultBackdrop');
+  const btnRetry = DOC.getElementById('btnRetry');
+  const btnClose = DOC.getElementById('btnCloseSummary');
+  const btnCopy = DOC.getElementById('btnCopyJSON');
+  const btnCSV = DOC.getElementById('btnDownloadCSV');
+
+  DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
+    btn.addEventListener('click', ()=> location.href = hub);
   });
 
-  resetToIdle();
-})();
+  btnRetry?.addEventListener('click', ()=>{
+    const u = new URL(location.href);
+    u.searchParams.set('ts', String(Date.now()));
+    location.href = u.toString();
+  });
+
+  btnClose?.addEventListener('click', ()=>{ if(backdrop) backdrop.hidden=true; });
+
+  btnCopy?.addEventListener('click', async ()=>{
+    const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+    if (raw) await copyToClipboard(raw);
+  });
+
+  btnCSV?.addEventListener('click', ()=>{
+    const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+    if (!raw) return;
+    let obj=null;
+    try{ obj=JSON.parse(raw); }catch(_){ return; }
+    downloadText(`hha_hydration_${(obj.sessionId||'session')}_${Date.now()}.csv`, toCSVRow(obj), 'text/csv');
+  });
+}
+
+/* -------------------- AI Coach -------------------- */
+const AICOACH = createAICoach({ emit, game:'hydration', cooldownMs: 3000 });
+
+/* -------------------- Storm schedule -------------------- */
+function nextStormSchedule(){
+  const base = TUNE.stormEverySec;
+  return base + (rng()*2-1)*1.2;
+}
+
+let spawnTimer=0;
+let nextStormIn=0;
+
+/* -------------------- Aim Assist (cVR) -------------------- */
+function hitTestAtCenter(lockPx){
+  const { cx, cy } = centerPoint();
+  const targets = Array.from(DOC.querySelectorAll('.hvr-target'));
+  let best=null;
+  let bestD=1e9;
+
+  for (const el of targets){
+    if (!el || !el.isConnected) continue;
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width/2;
+    const y = r.top + r.height/2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d <= lockPx && d < bestD){ bestD = d; best = el; }
+  }
+  return best;
+}
+
+const AIM = { base:56, min:32, max:86, streakHit:0, streakMiss:0, emaSkill:0.45, lastShotAt:0 };
+
+function aimLockPx(){
+  const accK = clamp(computeAccuracy()/100, 0, 1);
+  const comboK = clamp(S.combo/22, 0, 1);
+  let skill = clamp(accK*0.72 + comboK*0.28, 0, 1);
+
+  if (S.stormActive) skill = clamp(skill - 0.10, 0, 1);
+  if (S.bossEnabled && S.bossActive) skill = clamp(skill - 0.08, 0, 1);
+
+  AIM.emaSkill = AIM.emaSkill*0.88 + skill*0.12;
+
+  let px = AIM.base * (1.18 - 0.55*AIM.emaSkill);
+  px += Math.min(18, AIM.streakMiss*4);
+  px -= Math.min(10, AIM.streakHit*1.6);
+
+  return clamp(px, AIM.min, AIM.max);
+}
+function registerShot(hit){
+  if (hit){ AIM.streakHit++; AIM.streakMiss=0; }
+  else { AIM.streakMiss++; AIM.streakHit=0; }
+}
+
+window.addEventListener('hha:shoot', ()=>{
+  if (!isCVR() || S.ended) return;
+
+  const now = performance.now();
+  if (now - AIM.lastShotAt < 70) return;
+  AIM.lastShotAt = now;
+
+  const lockPx = aimLockPx();
+  const el = hitTestAtCenter(lockPx);
+
+  if (!el){
+    registerShot(false);
+    emit('hha:judge', { kind:'miss' });
+    pulseBody('hha-hitfx', 90);
+    return;
+  }
+
+  registerShot(true);
+  try{ el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true })); }catch(_){}
+}, { passive:true });
+
+/* -------------------- Update loop -------------------- */
+function update(dt){
+  if (!S.started || S.ended) return;
+
+  S.leftSec = Math.max(0, S.leftSec - dt);
+
+  if (S.waterZone==='GREEN') S.greenHold += dt;
+
+  if (!S.stormActive){
+    nextStormIn -= dt;
+    if (nextStormIn <= 0 && S.leftSec > (TUNE.stormDurSec + 2)){
+      enterStorm();
+      nextStormIn = nextStormSchedule();
+    }
+  } else {
+    tickStorm(dt);
+  }
+
+  spawnTimer -= dt*1000;
+  while (spawnTimer <= 0){
+    spawn(pickKind());
+    spawnTimer += nextSpawnDelay();
+  }
+
+  syncHUD();
+
+  AICOACH.onUpdate({
+    skill: clamp((computeAccuracy()/100)*0.7 + clamp(S.combo/20,0,1)*0.3, 0, 1),
+    fatigue: clamp((timeLimit - S.leftSec)/Math.max(1,timeLimit), 0, 1),
+    frustration: clamp((S.misses/Math.max(1,(timeLimit - S.leftSec)+5))*0.7 + (1-(computeAccuracy()/100))*0.3, 0, 1),
+    inStorm: !!S.stormActive,
+    inEndWindow: !!S.inEndWindow,
+    waterZone: S.waterZone,
+    shield: S.shield|0,
+    misses: S.misses|0,
+    combo: S.combo|0
+  });
+
+  // DEBUG live metrics
+  if (DEBUG){
+    const r = getPlayfieldRect();
+    const layers = getLayers();
+    const tcount = DOC.querySelectorAll('.hvr-target').length;
+    dbgSet(
+      `DEBUG Hydration\n` +
+      `view=${isCardboard()?'cardboard':isCVR()?'cvr':'pc/mobile'}\n` +
+      `playfieldRect=${Math.round(r.width)}x${Math.round(r.height)}\n` +
+      `layers=${layers.length} [${layers.map(x=>x.id).join(', ')}]\n` +
+      `targets=${tcount}\n` +
+      `spawned good/bad/sh=${S.nGoodSpawn}/${S.nBadSpawn}/${S.nShieldSpawn}\n` +
+      `NOTE: ถ้า rect=1x1 หรือ layers=0 -> HTML/ID ไม่ตรง`
+    );
+  }
+
+  if (S.leftSec <= 0.0001) endGame('timeup');
+}
+
+async function endGame(reason){
+  if (S.ended) return;
+  S.ended = true;
+  setEndFx(false);
+  DOC.body.classList.remove('hha-bossfx');
+
+  const grade = computeGrade();
+  const acc = computeAccuracy();
+
+  const cycles = S.stormCycle|0;
+  const success = S.stormSuccess|0;
+
+  const summary = {
+    timestampIso: qs('timestampIso', new Date().toISOString()),
+    projectTag: qs('projectTag','HeroHealth'),
+    runMode: run,
+    sessionId: sessionId || '',
+    gameMode:'hydration',
+    diff,
+    seed,
+    durationPlannedSec: timeLimit,
+    durationPlayedSec: timeLimit,
+    scoreFinal: S.score|0,
+    comboMax: S.comboMax|0,
+    misses: S.misses|0,
+    goalsCleared: (S.greenHold >= TUNE.greenTargetSec) ? 1 : 0,
+    goalsTotal: 1,
+
+    miniCleared: success,
+    miniTotal: cycles,
+    stormCycles: cycles,
+    stormSuccess: success,
+    stormRatePct: clamp((success/Math.max(1,cycles))*100, 0, 100),
+
+    bossClearCount: S.bossClearCount|0,
+    stageCleared: (S.stage3Done ? 3 : S.stage2Done ? 2 : S.stage1Done ? 1 : 0),
+
+    accuracyGoodPct: acc,
+    grade,
+    streakMax: S.streakMax|0,
+    greenHoldSec: Number(S.greenHold||0),
+    reason: reason || 'end'
+  };
+
+  try{
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+    localStorage.setItem('hha_last_summary', JSON.stringify(summary));
+  }catch(_){}
+
+  emit('hha:end', summary);
+  AICOACH.onEnd(summary);
+
+  await sendLog(summary);
+  fillSummary(summary);
+}
+
+function boot(){
+  ensureWaterGauge();
+  setWaterGauge(S.waterPct);
+  updateZone();
+  syncWaterPanelDOM();
+  bindSummaryButtons();
+
+  spawnTimer = 320;
+  nextStormIn = nextStormSchedule();
+
+  window.addEventListener('hha:start', ()=>{
+    if (S.started) return;
+    S.started=true;
+    S.t0=performance.now();
+    S.lastTick=S.t0;
+    syncHUD();
+    AICOACH.onStart();
+
+    function raf(t){
+      if (S.ended) return;
+      const dt = Math.min(0.05, Math.max(0.001, (t - S.lastTick)/1000));
+      S.lastTick=t;
+      update(dt);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+  }, {once:true});
+
+  window.addEventListener('hha:force_end', (ev)=>{
+    const d = ev.detail || {};
+    endGame(d.reason || 'force');
+  });
+
+  const ov = DOC.getElementById('startOverlay');
+  setTimeout(()=>{
+    const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
+    if (hidden && !S.started) window.dispatchEvent(new CustomEvent('hha:start'));
+  }, 600);
+}
+
+boot();
