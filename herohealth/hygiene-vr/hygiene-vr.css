@@ -1,10 +1,10 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
 HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260216a
-✅ FIX: ตีแล้วไม่หาย -> .is-dying + transition
-✅ FIX: HUD บัง -> safe vars + layout + banner/quiz spacing
-✅ Support: Progress bars (#barStep/#barLoop), Power pill, Practice button
-✅ Responsive: view-pc / view-mobile / view-vr / view-cvr
-✅ Targets: use --x (vw%), --y (vh%), --s scale
+FIX:
+✅ “ตีแล้วไม่หาย”: add .hw-tgt.is-dying (fast shrink+fade) + robust
+✅ “effect ไม่ออก”: ensure stage is real playfield + targets visible above stage
+✅ “HUD บังเป้า”: stage z-index + hud pointer-events + safe zones tuned
+✅ Add progress bars (.hw-bars/.hw-bar) to match hygiene-vr.html v20260216a
 */
 
 :root{
@@ -37,14 +37,16 @@ HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260216a
   /* target sizing */
   --tgtSize: clamp(54px, 8.5vh, 92px);
   --tgtFont: clamp(22px, 3.3vh, 34px);
-
-  /* bars */
-  --barH: 10px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background:var(--bg0); color:var(--text);
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+html,body{
+  height:100%;
+  margin:0;
+  background:var(--bg0);
+  color:var(--text);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
 
 button{ font: inherit; }
 
@@ -55,9 +57,11 @@ button{ font: inherit; }
 }
 
 /* ===== Stage (playfield) ===== */
+/* สำคัญ: stage ต้องเป็น layer สำหรับวางเป้า/รับคลิกได้ โดยไม่โดน HUD บัง */
 .hw-stage{
   position: fixed;
   inset: 0;
+  z-index: 1;
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.06), transparent 60%),
     radial-gradient(1200px 800px at 80% 10%, rgba(34,197,94,.06), transparent 60%),
@@ -66,6 +70,7 @@ button{ font: inherit; }
 }
 
 /* ===== HUD ===== */
+/* HUD ไม่ควรกินคลิกทั้งจอ: ให้ pointer-events:none ที่ wrapper และเปิดเฉพาะปุ่ม */
 .hw-hud{
   position: fixed;
   inset: 0;
@@ -116,64 +121,64 @@ button{ font: inherit; }
 .hw-pill.cyan{ border-color: rgba(34,211,238,.22); background: rgba(34,211,238,.09); }
 .hw-pill.bad { border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.10); }
 
-/* power pill */
-.hw-pill.power{
-  border-color: rgba(34,211,238,.18);
-  background: rgba(34,211,238,.06);
-}
-
+/* allow click only for real buttons */
 .hw-pill.btn{
-  pointer-events: auto; /* ✅ allow click */
+  pointer-events: auto;
   cursor: pointer;
   background: rgba(15,23,42,.70);
 }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
 
-/* ===== Progress bars ===== */
+/* power pill */
+.hw-pill.power{
+  border-color: rgba(148,163,184,.22);
+  background: rgba(2,6,23,.52);
+}
+
+/* ===== Progress bars (NEW) ===== */
 .hw-bars{
   margin-top: 10px;
   display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
-  max-width: min(720px, 100%);
+  max-width: min(760px, calc(100% - 2px));
 }
 
 .hw-bar{
-  border: 1px solid var(--stroke);
+  pointer-events: none;
   border-radius: 16px;
-  background: rgba(2,6,23,.42);
-  padding: 8px 10px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.46);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 44px rgba(0,0,0,.30);
+  padding: 8px 10px;
+  box-shadow: 0 14px 50px rgba(0,0,0,.30);
 }
 
 .hw-bar-lab{
   font-weight: 950;
   font-size: 11px;
-  color: rgba(229,231,235,.88);
+  color: rgba(229,231,235,.90);
   letter-spacing: .2px;
 }
 
 .hw-bar-rail{
-  margin-top: 7px;
-  height: var(--barH);
+  margin-top: 6px;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(148,163,184,.12);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.55);
   overflow: hidden;
-  border: 1px solid rgba(148,163,184,.10);
 }
 
 .hw-bar-fill{
   height: 100%;
   width: 0%;
   border-radius: 999px;
-  background: rgba(34,197,94,.85);
-  transition: width .14s linear;
+  background: rgba(34,197,94,.55);
+  transition: width .16s ease;
 }
-
-.hw-bar-fill.cyan{
-  background: rgba(34,211,238,.85);
-}
+.hw-bar-fill.cyan{ background: rgba(34,211,238,.55); }
 
 /* ===== Banner ===== */
 .hw-banner{
@@ -272,8 +277,9 @@ button{ font: inherit; }
 }
 
 /* ===== Targets ===== */
+/* สำคัญ: เป้าอยู่เหนือ stage และรับคลิก */
 .hw-tgt{
-  position: fixed; /* ✅ place in viewport so obj.x/y align */
+  position: fixed; /* JS set --x/--y in vw/vh */
   left: calc(var(--x, 50) * 1vw);
   top:  calc(var(--y, 50) * 1vh);
   transform: translate(-50%,-50%) scale(var(--s,1));
@@ -290,10 +296,9 @@ button{ font: inherit; }
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  z-index: 10;
-
-  /* pop-in */
+  z-index: 20; /* ✅ above stage, below overlays */
   animation: hwPopIn 180ms ease-out both;
+  will-change: transform, opacity;
 }
 
 .hw-tgt .emoji{
@@ -315,32 +320,34 @@ button{ font: inherit; }
   background: rgba(239,68,68,.10);
 }
 
-/* press feedback */
 .hw-tgt:active{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
 }
 
-/* subtle pop */
-@keyframes hwPopIn{
-  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
-  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
-/* ✅ FIX: “ตีแล้วไม่หาย” -> die state */
+/* ✅ FIX: “ตีแล้วไม่หาย” — dying animation */
 .hw-tgt.is-dying{
-  pointer-events:none !important;
-  opacity: 0 !important;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .72)) !important;
-  transition: opacity .14s ease, transform .14s ease;
+  pointer-events: none !important;
+  animation: hwDie 150ms ease-in both !important;
+  filter: saturate(1.05);
+}
+@keyframes hwDie{
+  from{ opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+  to  { opacity: 0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .70)); }
 }
 
-/* ✅ Focus power: ทำเป้าถูกเด่น */
+/* focus power-up highlight */
 .hw-tgt.is-focus{
   box-shadow:
     0 18px 65px rgba(0,0,0,.45),
-    0 0 0 3px rgba(34,211,238,.18),
-    0 0 24px rgba(34,211,238,.22);
-  border-color: rgba(34,211,238,.30);
+    0 0 0 2px rgba(34,211,238,.35),
+    0 0 22px rgba(34,211,238,.25);
+  border-color: rgba(34,211,238,.40);
+}
+
+/* subtle pop-in */
+@keyframes hwPopIn{
+  from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
+  to  { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
 /* ===== Quiz box ===== */
@@ -367,32 +374,93 @@ button{ font: inherit; }
   line-height: 1.35;
 }
 
+/* optional states if later add buttons */
+.hw-quiz-opts{
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hw-quiz-opt{
+  pointer-events: auto;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(15,23,42,.70);
+  color: rgba(229,231,235,.94);
+  padding: 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 16px 50px rgba(0,0,0,.35);
+  min-height: 54px;
+}
+
+.hw-quiz-opt .n{
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.45);
+}
+
+.hw-quiz-opt .t{
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.hw-quiz-opt:hover{ filter: brightness(1.05); }
+.hw-quiz-opt:active{ transform: translateY(1px); }
+
+.hw-quiz-opt.is-right{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+.hw-quiz-opt.is-wrong{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
+
+.hw-quiz-hint{
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(148,163,184,.92);
+}
+
 /* ===== View tweaks ===== */
 body.view-mobile{
-  --hw-top-safe: 190px;
-  --hw-bottom-safe: 230px;
+  --hw-top-safe: 180px;
+  --hw-bottom-safe: 220px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
-  --barH: 11px;
 }
 
 body.view-cvr{
-  /* cVR: HUD กินพื้นที่มาก ให้กันด้านล่างเพิ่ม */
-  --hw-top-safe: 175px;
-  --hw-bottom-safe: 260px;
+  /* cVR: HUD มักกินพื้นที่มาก ให้ปล่อยพื้นที่เล่นเพิ่ม */
+  --hw-top-safe: 160px;
+  --hw-bottom-safe: 240px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
-  --barH: 12px;
 }
 
-/* VR: ลด safe zones นิด */
+/* VR: ลด HUD และขยายพื้นที่เล่น */
 body.view-vr{
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 220px;
+  --hw-top-safe: 150px;
+  --hw-bottom-safe: 210px;
 }
 
-/* Small screens: tighten banner placement */
+/* Quiz on small screens => 1 column */
 @media (max-width: 520px){
+  .hw-quiz-opts{ grid-template-columns: 1fr; }
   .hw-banner{ top: calc(130px + var(--sat)); }
-  .hw-bars{ max-width: 100%; }
+  .hw-bars{ gap: 7px; }
+}
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hw-tgt{ animation: none; }
+  .hw-tgt.is-dying{ animation: none; opacity: 0; }
+  .hw-bar-fill{ transition: none; }
+  .hw-banner{ transition: none; }
 }
