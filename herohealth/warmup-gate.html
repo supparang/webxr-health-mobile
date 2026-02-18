@@ -1,13 +1,12 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
-✅ cat = zone (nutrition|hygiene|exercise)
-✅ theme = game (goodjunk|groups|hydration|plate|handwash|brush|maskcough|germ|shadow|rhythm|jumpduck|balance|planner)
-✅ 5 variants per (cat,theme)
-✅ Play: pick=rand / Research: pick=day (override by ?pick=rand|day)
-✅ Override: ?variant=1..5 (forces the mini-game variant)
-✅ Daily once-per-day per PID+cat for warmup and cooldown (prefix differs)
-✅ Warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
+HeroHealth Warmup/Cooldown Gate — FULL (v20260218-nutri4x5-real)
+✅ Theme-based mini games by THEME (game) + CAT (zone)
+✅ Play: pick=rand / Research: pick=day (override by ?pick=)
+✅ Nutrition 4 themes have REAL v1–v5 (pool/speed/rules/decoy/bonus feel different)
+✅ Daily once-per-day per PID+category for warmup and cooldown
+✅ Warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank) into next URL
 ✅ Cooldown end -> go next (usually hub)
+✅ No-repeat per THEME (variant won't repeat last for same theme)
 ✅ Works PC/Mobile (tap/click). Safe, no external deps.
 -->
 <!doctype html>
@@ -50,7 +49,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center;
       padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal)); }
     .card{
-      width:min(920px, 96vw);
+      width:min(880px, 96vw);
       border:1px solid var(--stroke);
       background: linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.58));
       border-radius: var(--radius);
@@ -65,7 +64,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.45);
       font-weight:900; user-select:none;
-      font-size:12px;
     }
     .pill.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
     .pill.bad{ border-color: rgba(251,113,133,.35); background: rgba(251,113,133,.10); }
@@ -101,7 +99,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
 
     .stage{
       position: relative;
-      height: min(480px, 60vh);
+      height: min(460px, 58vh);
       border-radius: 18px;
       border:1px dashed rgba(148,163,184,.18);
       background:
@@ -207,7 +205,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
           <span class="pill" id="pillCat">CAT: …</span>
           <span class="pill" id="pillTheme">THEME: …</span>
           <span class="pill" id="pillPick">PICK: …</span>
-          <span class="pill" id="pillVar">VAR: …</span>
           <span class="pill" id="pillDaily">DAILY: …</span>
         </div>
         <div class="row">
@@ -245,16 +242,15 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
           </div>
 
           <div style="height:10px"></div>
-          <div class="muted" style="font-size:11px; line-height:1.35;">
-            Tip: ล็อกโซน/ธีมเองใส่ <b>?cat=nutrition</b> / <b>hygiene</b> / <b>exercise</b> และ <b>?theme=goodjunk</b> ฯลฯ<br/>
-            Tip: บังคับการเลือกใส่ <b>?pick=rand</b> หรือ <b>?pick=day</b> และบังคับ variant ใส่ <b>?variant=1..5</b>
+          <div class="muted" style="font-size:11px;">
+            Tip: ล็อกธีมเองใส่ <b>?theme=goodjunk</b> / <b>groups</b> / <b>hydration</b> / <b>plate</b> / <b>handwash</b> / <b>brush</b> / <b>maskcough</b> / <b>germ</b> / <b>shadow</b> / <b>rhythm</b> / <b>jumpduck</b> / <b>balance</b> / <b>planner</b><br/>
+            Tip: บังคับแบบใส่ <b>?variant=1..5</b> หรือ <b>?pick=rand|day</b>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Result overlay -->
   <div class="overlay" id="endOverlay" aria-hidden="true">
     <div class="box">
       <h2 id="endTitle">เสร็จแล้ว!</h2>
@@ -279,7 +275,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
   const $= (id)=>DOC.getElementById(id);
 
   // ---------- QS utils ----------
-  function getQS(){ try{ return new URL(location.href).searchParams; }catch(e){ return new URLSearchParams(); } }
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
   const QS=getQS();
   const q=(k,d='')=> (QS.get(k) ?? d);
   const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
@@ -287,18 +283,10 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
 
   function absUrlMaybe(url){
     if(!url) return '';
-    try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
-  }
-  function buildUrl(base, params){
-    const u = new URL(base, location.href);
-    Object.entries(params||{}).forEach(([k,v])=>{
-      if(v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
+    try{ return new URL(url, location.href).toString(); }catch{ return url; }
   }
 
-  // ---------- Deterministic helpers ----------
+  // ---------- Daily keys (pid+category+day) ----------
   function getLocalDayKey(){
     const d=new Date();
     const yyyy=d.getFullYear();
@@ -306,112 +294,75 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     const dd=String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  function hash32(str){
-    // FNV-1a 32-bit
-    str = String(str||'');
-    let h = 2166136261 >>> 0;
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-  function pickVariant(mode, pid, cat, theme, forced){
-    // forced: 1..5
-    const f = Number(forced);
-    if(Number.isFinite(f) && f>=1 && f<=5) return (f|0);
-
-    mode = String(mode||'rand').toLowerCase();
-    if(mode==='day'){
-      const day=getLocalDayKey();
-      const key = `${pid||'anon'}|${cat||''}|${theme||''}|${day}`;
-      const h = hash32(key);
-      return (h % 5) + 1; // 1..5 deterministic
-    }
-    // rand
-    return ((Math.random()*5)|0) + 1;
-  }
-
-  // ---------- Daily keys (pid+category+day) ----------
   function dailyKey(prefix, category, pid){
     const day=getLocalDayKey();
     const p=(pid||'anon').trim()||'anon';
     return `${prefix}:${category}:${p}:${day}`;
   }
   function isDaily(prefix, category, pid){
-    try{ return localStorage.getItem(dailyKey(prefix,category,pid))==='1'; }catch(e){ return false; }
+    try{ return localStorage.getItem(dailyKey(prefix,category,pid))==='1'; }catch{ return false; }
   }
   function markDaily(prefix, category, pid){
-    try{ localStorage.setItem(dailyKey(prefix,category,pid),'1'); }catch(e){}
+    try{ localStorage.setItem(dailyKey(prefix,category,pid),'1'); }catch{}
   }
 
-  // ---------- Core params ----------
-  const phase = String(q('phase','warmup')).toLowerCase();  // warmup|cooldown
-  const cat   = String(q('cat','nutrition')).toLowerCase(); // nutrition|hygiene|exercise
+  // ---------- Gate params ----------
+  const phaseRaw = String(q('phase','')).toLowerCase().trim();
+  const gate = String(q('gate', (phaseRaw==='warmup'||phaseRaw==='cooldown') ? phaseRaw : 'warmup')).toLowerCase();
+
+  const cat0 = String(q('cat', q('category','nutrition'))).toLowerCase();
+  const cat  = (cat0==='hygiene'||cat0==='nutrition'||cat0==='exercise') ? cat0 : 'nutrition';
+
+  const studyPhase = String(q('studyPhase', (phaseRaw && phaseRaw!=='warmup' && phaseRaw!=='cooldown') ? phaseRaw : '')).trim();
+
   const hub   = absUrlMaybe(q('hub','../hub.html')) || '../hub.html';
   const next0 = absUrlMaybe(q('next','')) || hub;
 
-  const runMode = String(q('run','play')).toLowerCase(); // play|research
-  const pickMode = String(q('pick', (runMode==='research') ? 'day' : 'rand')).toLowerCase(); // rand|day
-  const forcedVar = qNum('variant', 0);
-
-  // duration: warmup uses ?dur, cooldown uses ?cdur (fallback dur)
   const durWarm = clamp(qNum('dur', 20), 5, 60);
   const durCool = clamp(qNum('cdur', qNum('dur',20)), 5, 60);
-  const dur = (phase==='cooldown') ? durCool : durWarm;
+  const dur = (gate==='cooldown') ? durCool : durWarm;
 
-  // pid: query first
   let pid = String(q('pid','')).trim() || 'anon';
 
-  // ---------- Detect theme from ?theme or ?game or next path ----------
+  // ---------- THEME detect ----------
   function detectThemeKey(){
-    const t = String(q('theme','')).toLowerCase().trim();
+    const t = String(q('theme', q('game',''))).toLowerCase().trim();
     if(t) return t;
 
-    const g = String(q('game','')).toLowerCase().trim();
-    if(g) return g;
-
     const n = String(next0||'').toLowerCase();
-
-    // nutrition
     if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
     if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
     if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
     if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
 
-    // hygiene
     if(n.includes('handwash')) return 'handwash';
     if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
     if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
     if(n.includes('germ') || n.includes('detective')) return 'germ';
 
-    // exercise
     if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
     if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
     if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
     if(n.includes('balance-hold') || n.includes('balance')) return 'balance';
     if(n.includes('fitness-planner') || n.includes('planner')) return 'planner';
 
-    // fallback by cat
     return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'jumpduck' : 'goodjunk';
   }
   const themeKey = detectThemeKey();
 
-  // Choose variant once per load (or per start) - to keep consistent during a run:
-  const variant = pickVariant(pickMode, pid, cat, themeKey, forcedVar);
-
-  // daily policy: warmup once/day, cooldown once/day (per pid+cat)
-  const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
+  // daily policy
+  const dailyPrefix = (gate==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
   const dailyDone = isDaily(dailyPrefix, cat, pid);
 
   // ---------- UI refs ----------
-  const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillPick=$('pillPick'), pillVar=$('pillVar'), pillDaily=$('pillDaily');
+  const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillPick=$('pillPick'), pillDaily=$('pillDaily');
   const subLine=$('subLine'), statusText=$('statusText');
   const gameTitle=$('gameTitle'), desc=$('desc');
   const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
   const toast=$('toast'), flash=$('flash');
 
   const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
+
   const btnStart=$('btnStart'), btnSkip=$('btnSkip');
 
   const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
@@ -431,14 +382,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
   let started=false;
   let tLeft=dur;
   let score=0, miss=0, total=0;
-  let rafTick=0, lastTs=0;
-
-  // Some mini-games may use their own RAF. We'll keep a list to cancel.
-  let rafLocal=0;
-  function cancelLocalRAF(){
-    try{ if(rafLocal) cancelAnimationFrame(rafLocal); }catch(e){}
-    rafLocal=0;
-  }
+  let raf=0, lastTs=0;
 
   function setHUD(){
     hudTime.textContent = `${Math.ceil(tLeft)}s`;
@@ -448,109 +392,16 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
   }
 
   function clearStage(){
-    cancelLocalRAF();
-    // keep toast+flash+center
     Array.from(stage.children).forEach(el=>{
       if(el===toast || el===flash || el===center) return;
-      try{ el.remove(); }catch(e){}
+      try{ el.remove(); }catch{}
     });
     center.style.display='block';
     big.textContent='🎯';
     hint.textContent='กด “เริ่ม” แล้วเล่นสั้น ๆ ก่อนเข้าเกมจริง';
   }
 
-  function endNow(buffObj){
-    if(!started) return;
-    started=false;
-    try{ cancelAnimationFrame(rafTick); }catch(e){}
-    cancelLocalRAF();
-
-    // mark daily immediately (so refresh won't replay)
-    markDaily(dailyPrefix, cat, pid);
-
-    // build NEXT url
-    const buff = buffObj || {};
-    const nextUrl = buildNextUrl(buff);
-
-    // show overlay
-    endOverlay.style.display='flex';
-    endOverlay.setAttribute('aria-hidden','false');
-    endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
-    endScore.textContent = String(score);
-    endMiss.textContent  = String(miss);
-    endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
-    endNext.textContent  = nextUrl ? 'YES' : 'HUB';
-    endMsg.textContent =
-      (phase==='cooldown')
-        ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
-        : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง';
-
-    btnToHub.onclick = ()=> location.href = hub;
-    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
-  }
-
-  function buildNextUrl(buff){
-    let target = next0 || hub;
-
-    // cooldown: always go next/hub without warmup buffs
-    if(phase==='cooldown'){
-      return target || hub;
-    }
-
-    const u = new URL(target, location.href);
-
-    // pass-through: keep existing params from gate (research context)
-    const passthroughKeys = [
-      'hub','run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','cat','theme','pick','variant'
-    ];
-    passthroughKeys.forEach(k=>{
-      const v = q(k,'');
-      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-    });
-
-    // ensure pid present
-    if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
-
-    // add warmup buffs
-    Object.entries(buff||{}).forEach(([k,v])=>{
-      if(v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-
-    // recommended minimal marker
-    if(!u.searchParams.has('wType')) u.searchParams.set('wType', String(buff.wType || 'warmup'));
-    if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String(buff.wPct  || 10));
-
-    return u.toString();
-  }
-
-  function tick(ts){
-    if(!started) return;
-    if(!lastTs) lastTs = ts;
-    const dt = Math.min(0.25, (ts-lastTs)/1000);
-    lastTs = ts;
-    tLeft = Math.max(0, tLeft - dt);
-    setHUD();
-    if(tLeft<=0){
-      // default buff if game didn't provide
-      if(phase==='cooldown') endNow({ calm: 1 });
-      else endNow(makeWarmupBuff());
-      return;
-    }
-    rafTick = requestAnimationFrame(tick);
-  }
-
-  // ---------- Daily auto-skip ----------
-  function autoSkipIfDaily(){
-    if(!dailyDone) return false;
-    const target = (next0 || hub);
-    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
-    statusText.textContent = 'Daily gate: DONE';
-    setTimeout(()=> location.replace(target), 220);
-    return true;
-  }
-
-  // ---------- Helpers for mini games ----------
+  // ---------- Helpers ----------
   function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
   function mkBtn(label){
     const b=DOC.createElement('button');
@@ -569,23 +420,64 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     return pad;
   }
 
-  // =====================================================================
-  //  MINI GAME VARIANTS (5 per theme)
-  //  Convention: each function should:
-  //   - set gameTitle/desc
-  //   - hide center
-  //   - wire events; update score/miss/total
-  // =====================================================================
+  // ============================================================
+  // ✅ NUTRITION 4 THEMES x 5 VARIANTS (REAL DIFFERENT FEEL)
+  // ============================================================
 
-  // ---------------- NUTRITION: goodjunk ----------------
-  // V1: Food Sort Sprint (tap good vs junk)
-  function gj_v1_sort(){
-    gameTitle.textContent='Nutrition Warmup — GoodJunk V1: Food Sort Sprint';
-    desc.textContent='แตะ “ของดี” เก็บแต้ม / แตะ “ของเสีย” จะพลาด (ฝึกแยกเร็ว ๆ)';
+  const NUTRI_V = {
+    goodjunk: {
+      1:{ pGood:.75, trapPct:0.00, streakN:0, streakBonus:0, pool:'default', speed:1.00, bonus:'none' },
+      2:{ pGood:.70, trapPct:0.00, streakN:3, streakBonus:1, pool:'default', speed:1.05, bonus:'streak' },
+      3:{ pGood:.62, trapPct:0.00, streakN:0, streakBonus:0, pool:'moreJunk', speed:1.08, bonus:'pressure' },
+      4:{ pGood:.68, trapPct:0.12, streakN:0, streakBonus:0, pool:'default', speed:1.10, bonus:'trap' },
+      5:{ pGood:.70, trapPct:0.00, streakN:0, streakBonus:0, pool:'kids',    speed:1.12, bonus:'kids' },
+    },
+    groups: {
+      1:{ pool:'full', shortLabels:false, streakN:0, streakBonus:0, twoStepPct:0.00, speed:1.00, bonus:'none' },
+      2:{ pool:'full', shortLabels:true,  streakN:0, streakBonus:0, twoStepPct:0.00, speed:1.05, bonus:'short' },
+      3:{ pool:'full', shortLabels:true,  streakN:4, streakBonus:1, twoStepPct:0.00, speed:1.08, bonus:'streak' },
+      4:{ pool:'lean', shortLabels:true,  streakN:0, streakBonus:0, twoStepPct:0.00, speed:1.12, bonus:'lean' },
+      5:{ pool:'full', shortLabels:false, streakN:0, streakBonus:0, twoStepPct:0.35, speed:1.10, bonus:'2step' },
+    },
+    hydration: {
+      1:{ zone:0.34, baseSp:0.085, addSp:0.060, speedUp:0.002, doubleTapMs:0,   doubleBonus:0, fakePct:0.00, speed:1.00 },
+      2:{ zone:0.28, baseSp:0.090, addSp:0.060, speedUp:0.002, doubleTapMs:0,   doubleBonus:0, fakePct:0.00, speed:1.05 },
+      3:{ zone:0.34, baseSp:0.090, addSp:0.070, speedUp:0.002, doubleTapMs:330, doubleBonus:1, fakePct:0.00, speed:1.08 },
+      4:{ zone:0.34, baseSp:0.100, addSp:0.090, speedUp:0.003, doubleTapMs:0,   doubleBonus:0, fakePct:0.00, speed:1.10 },
+      5:{ zone:0.32, baseSp:0.095, addSp:0.080, speedUp:0.003, doubleTapMs:300, doubleBonus:1, fakePct:0.70, speed:1.12 },
+    },
+    plate: {
+      1:{ target:3, dupRule:'miss',  decoyDup:0, fastBonus:0, fastWithin:7, balanceAt:0, balanceBonus:0, speed:1.00, bonus:'none' },
+      2:{ target:3, dupRule:'minus', decoyDup:0, fastBonus:0, fastWithin:7, balanceAt:0, balanceBonus:0, speed:1.05, bonus:'minus' },
+      3:{ target:3, dupRule:'miss',  decoyDup:0, fastBonus:2, fastWithin:7, balanceAt:0, balanceBonus:0, speed:1.08, bonus:'fast' },
+      4:{ target:3, dupRule:'miss',  decoyDup:3, fastBonus:0, fastWithin:7, balanceAt:0, balanceBonus:0, speed:1.10, bonus:'decoy' },
+      5:{ target:4, dupRule:'miss',  decoyDup:2, fastBonus:0, fastWithin:7, balanceAt:4, balanceBonus:2, speed:1.12, bonus:'balance' },
+    }
+  };
+
+  const POOL_GJ = {
+    default:{ good:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🥜','🍇','🍊'],
+              junk:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍰','🍫'] },
+    moreJunk:{ good:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'],
+              junk:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍰','🍫','🍿','🧁'] },
+    kids:{    good:['🍎','🍌','🍇','🍊','🥛','🥚','🍚','🍞','🥦'],
+              junk:['🍟','🍔','🍕','🍩','🍬','🧋','🥤'] }
+  };
+
+  // ---------- Nutrition runners (รับ cfg) ----------
+  function runNutrition_goodjunk(cfg){
+    cfg = cfg || NUTRI_V.goodjunk[1];
+
+    gameTitle.textContent = `Nutrition Warmup — GoodJunk v${cfg._v||1}`;
+    desc.textContent = 'แตะ “ของดี” เก็บแต้ม / แตะ “ของเสีย” จะพลาด (trap/streak/pool ต่างกัน)';
     center.style.display='none';
 
-    const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'];
-    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'];
+    const pool = POOL_GJ[cfg.pool || 'default'] || POOL_GJ.default;
+    const GOOD = pool.good, JUNK = pool.junk;
+
+    const pGood = (cfg.pGood ?? 0.70);
+    const trapPct = (cfg.trapPct ?? 0);
+    const speed = (cfg.speed ?? 1.0);
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
@@ -597,314 +489,63 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     stage.appendChild(card);
 
     let curKind='good';
+    let streak=0;
+    let lockUntil=0;
+
     function next(){
-      total++;
-      curKind = (Math.random()<0.70) ? 'good' : 'junk';
+      curKind = (Math.random()<pGood) ? 'good' : 'junk';
+      if(curKind==='good' && trapPct>0 && Math.random()<trapPct) curKind='junk';
       const emo = (curKind==='good') ? randPick(GOOD) : randPick(JUNK);
       card.querySelector('#it').textContent = emo;
     }
+
     card.addEventListener('pointerdown', ()=>{
       if(!started) return;
-      if(curKind==='good'){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
+
+      const now=performance.now();
+      const cd=Math.max(120, 220 / speed);
+      if(now<lockUntil) return;
+      lockUntil = now + cd;
+
+      total++;
+      if(curKind==='good'){
+        score++; streak++;
+        toastShow('+1'); flashGood();
+
+        const n=cfg.streakN||0, b=cfg.streakBonus||0;
+        if(n>0 && b>0 && (streak % n===0)){
+          score += b;
+          toastShow(`+${b} STREAK`);
+        }
+      }else{
+        miss++; streak=0;
+        toastShow('MISS'); flashBad();
+      }
       next();
     }, {passive:true});
 
     next();
   }
 
-  // V2: Trash Dash (tap only junk, good is trap)
-  function gj_v2_trashdash(){
-    gameTitle.textContent='Nutrition Warmup — GoodJunk V2: Trash Dash';
-    desc.textContent='แตะ “ของเสีย” ให้ไว! (แตะของดีจะ MISS)';
+  function runNutrition_groups(cfg){
+    cfg = cfg || NUTRI_V.groups[1];
+
+    gameTitle.textContent = `Nutrition Warmup — 5 หมู่ v${cfg._v||1}`;
+    desc.textContent = 'ดูอาหาร แล้วแตะ “หมู่ 1–5” ให้ถูก (labels/pool/streak/2-step ต่างกัน)';
     center.style.display='none';
 
-    const GOOD = ['🍎','🥦','🥛','🍚','🐟','🥚'];
-    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🥤'];
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'48%',transform:'translate(-50%,-55%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">จับของเสีย!</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">แตะ JUNK = +1 | แตะ GOOD = MISS</div>
-      <div id="lane" style="position:relative;margin:12px auto 0;width:min(560px,100%);height:220px;border-radius:16px;
-        border:1px dashed rgba(148,163,184,.18);background:rgba(2,6,23,.25);overflow:hidden;"></div>
-    `;
-    stage.appendChild(card);
-    const lane=card.querySelector('#lane');
-
-    function spawn(){
-      if(!started) return;
-      total++;
-      const isJ = Math.random()<0.62;
-      const emo = isJ ? randPick(JUNK) : randPick(GOOD);
-      const b=DOC.createElement('button');
-      b.className='btn';
-      b.textContent=emo;
-      b.style.position='absolute';
-      b.style.left = (10 + Math.random()*80) + '%';
-      b.style.top  = '-10px';
-      b.style.transform='translate(-50%,0)';
-      b.style.borderRadius='999px';
-      b.style.fontSize='22px';
-      b.style.padding='10px 12px';
-      b.style.background='rgba(2,6,23,.42)';
-      b.dataset.kind = isJ ? 'junk' : 'good';
-      lane.appendChild(b);
-
-      let y=-10;
-      function fall(){
-        if(!started){ try{ b.remove(); }catch(e){}; return; }
-        y += 2.4;
-        b.style.top = y+'px';
-        if(y>220){
-          // missed target: if junk fell => miss, good fell => ok
-          if(b.dataset.kind==='junk'){ miss++; toastShow('MISS'); flashBad(); }
-          try{ b.remove(); }catch(e){}
-          spawn();
-          return;
-        }
-        rafLocal=requestAnimationFrame(fall);
-      }
-      rafLocal=requestAnimationFrame(fall);
-
-      b.addEventListener('click', ()=>{
-        if(!started) return;
-        if(b.dataset.kind==='junk'){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        try{ b.remove(); }catch(e){}
-        spawn();
-      });
-    }
-
-    spawn();
-  }
-
-  // V3: Speed Plate (choose which item is "healthier" of two)
-  function gj_v3_speedplate(){
-    gameTitle.textContent='Nutrition Warmup — GoodJunk V3: Speed Plate';
-    desc.textContent='เลือก “ตัวที่ดีต่อสุขภาพกว่า” จาก 2 ตัว (ผิด = MISS)';
-    center.style.display='none';
-
-    const GOOD = ['🍎','🥦','🥛','🍚','🐟','🥚','🥑','🍌'];
-    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🥤','🧋','🍭'];
-
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    wrap.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;">เลือกของ “ดี”</div>
-      <div class="muted" style="margin-top:6px;">แตะสิ่งที่ดีต่อสุขภาพกว่า</div>
-      <div id="pair" style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(wrap);
-    const pair=wrap.querySelector('#pair');
-
-    function next(){
-      total++;
-      pair.innerHTML='';
-      // 70%: good vs junk, 30%: good vs good (trick) -> then accept either as correct
-      const mode = Math.random();
-      let leftKind='good', rightKind='junk', eitherGood=false;
-
-      if(mode<0.30){
-        leftKind='good'; rightKind='good'; eitherGood=true;
-      }else{
-        leftKind = (Math.random()<0.5)?'good':'junk';
-        rightKind = (leftKind==='good')?'junk':'good';
-      }
-
-      const L = (leftKind==='good') ? randPick(GOOD) : randPick(JUNK);
-      const R = (rightKind==='good') ? randPick(GOOD) : randPick(JUNK);
-
-      const bL=mkBtn(L), bR=mkBtn(R);
-      [bL,bR].forEach(b=>{
-        b.style.padding='18px 12px';
-        b.style.borderRadius='18px';
-        b.style.fontSize='28px';
-        b.style.minHeight='90px';
-      });
-      pair.appendChild(bL); pair.appendChild(bR);
-
-      function choose(which){
-        if(!started) return;
-        const ok = eitherGood ? true : (which==='L' ? (leftKind==='good') : (rightKind==='good'));
-        if(ok){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      }
-      bL.addEventListener('click', ()=>choose('L'));
-      bR.addEventListener('click', ()=>choose('R'));
-    }
-    next();
-  }
-
-  // V4: Combo Click (tap 3 good in a row to earn bonus; junk breaks)
-  function gj_v4_combo(){
-    gameTitle.textContent='Nutrition Warmup — GoodJunk V4: Combo Click';
-    desc.textContent='แตะของดีต่อเนื่อง 3 ครั้ง = โบนัส (+2) แตะของเสีย = MISS รีเซ็ตคอมโบ';
-    center.style.display='none';
-
-    const GOOD = ['🍎','🥦','🥛','🍚','🐟','🥚','🍌','🥑'];
-    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🥤','🧋'];
-
-    let combo=0;
-
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    wrap.innerHTML=`
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
-        <div style="font-weight:1100;font-size:16px;">คอมโบของดี</div>
-        <div class="pill" id="comboPill">COMBO: 0</div>
-      </div>
-      <div class="muted" style="margin-top:6px;">แตะ “ของดี” ให้ไว ของเสียจะตัดคอมโบ</div>
-      <div id="grid" style="margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(wrap);
-    const grid=wrap.querySelector('#grid');
-    const comboPill=wrap.querySelector('#comboPill');
-
-    function render(){
-      grid.innerHTML='';
-      // 6 buttons, 4 good, 2 junk shuffled
-      const items=[];
-      for(let i=0;i<4;i++) items.push({k:'good', emo: randPick(GOOD)});
-      for(let i=0;i<2;i++) items.push({k:'junk', emo: randPick(JUNK)});
-      for(let i=items.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [items[i],items[j]]=[items[j],items[i]]; }
-
-      items.forEach(it=>{
-        const b=mkBtn(it.emo);
-        b.style.padding='18px 12px';
-        b.style.borderRadius='18px';
-        b.style.fontSize='28px';
-        b.style.minHeight='86px';
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          if(it.k==='good'){
-            score++; combo++;
-            toastShow('+1'); flashGood();
-            if(combo>=3){
-              score += 2;
-              combo = 0;
-              toastShow('+BONUS'); flashGood();
-            }
-          }else{
-            miss++; combo = 0;
-            toastShow('MISS'); flashBad();
-          }
-          comboPill.textContent = 'COMBO: ' + combo;
-          render();
-        });
-        grid.appendChild(b);
-      });
-    }
-    render();
-  }
-
-  // V5: Memory Flip (find matching good pairs quickly; mismatch = miss)
-  function gj_v5_memory(){
-    gameTitle.textContent='Nutrition Warmup — GoodJunk V5: Memory Flip';
-    desc.textContent='เปิดการ์ดหา “คู่ของดี” ให้เจอ (เปิดคู่ผิด = MISS)';
-    center.style.display='none';
-
-    const GOOD = ['🍎','🥦','🥛','🍚','🐟','🥚','🍌','🥑'];
-
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    wrap.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;text-align:center;">จับคู่ของดี</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เปิด 2 ใบ ถ้าคู่ตรง = +1 ไม่ตรง = MISS</div>
-      <div id="board" style="margin-top:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(wrap);
-    const board=wrap.querySelector('#board');
-
-    let cards=[];
-    let open=[];
-    function resetBoard(){
-      const picks=[];
-      while(picks.length<8){
-        const a=randPick(GOOD);
-        if(!picks.includes(a)) picks.push(a);
-      }
-      cards = picks.concat(picks).map(emo=>({emo, open:false, done:false}));
-      for(let i=cards.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [cards[i],cards[j]]=[cards[j],cards[i]]; }
-      open=[];
-      render();
-    }
-
-    function render(){
-      board.innerHTML='';
-      cards.forEach((c,idx)=>{
-        const b=mkBtn(c.done ? c.emo : (c.open ? c.emo : '❓'));
-        b.style.padding='16px 10px';
-        b.style.borderRadius='18px';
-        b.style.fontSize='26px';
-        b.style.minHeight='78px';
-        b.disabled = c.done;
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(c.done || c.open) return;
-          total++;
-          c.open=true;
-          open.push(idx);
-          render();
-
-          if(open.length===2){
-            const a=cards[open[0]], d=cards[open[1]];
-            if(a.emo===d.emo){
-              score++; toastShow('+1'); flashGood();
-              a.done=true; d.done=true;
-              a.open=false; d.open=false;
-              open=[];
-              // if all done -> reset (keeps loop going)
-              if(cards.every(x=>x.done)){
-                resetBoard();
-                return;
-              }
-              render();
-            }else{
-              miss++; toastShow('MISS'); flashBad();
-              const aa=open[0], bb=open[1];
-              open=[];
-              setTimeout(()=>{
-                cards[aa].open=false;
-                cards[bb].open=false;
-                render();
-              }, 260);
-            }
-          }
-        });
-        board.appendChild(b);
-      });
-    }
-
-    resetBoard();
-  }
-
-  // ---------------- NUTRITION: groups (5 หมู่) ----------------
-  // V1: 5 หมู่ Snap Match (from your previous)
-  function gr_v1_snapmatch(){
-    gameTitle.textContent='Nutrition Warmup — Groups V1: 5 หมู่ Snap Match';
-    desc.textContent='ดูอาหาร แล้วแตะ “หมู่ 1–5” ให้ถูก (เร็วขึ้นเรื่อย ๆ)';
-    center.style.display='none';
-
-    // mapping ที่คุณล็อกไว้: หมู่1 โปรตีน, หมู่2 คาร์บ, หมู่3 ผัก, หมู่4 ผลไม้, หมู่5 ไขมัน
-    const pool = [
+    const FULL = [
       {emo:'🥚', g:1},{emo:'🐟', g:1},{emo:'🥛', g:1},{emo:'🥜', g:1},
       {emo:'🍚', g:2},{emo:'🍞', g:2},{emo:'🥔', g:2},{emo:'🍠', g:2},
       {emo:'🥦', g:3},{emo:'🥬', g:3},{emo:'🥒', g:3},{emo:'🥕', g:3},
       {emo:'🍎', g:4},{emo:'🍌', g:4},{emo:'🍉', g:4},{emo:'🍊', g:4},
       {emo:'🥑', g:5},{emo:'🧈', g:5},{emo:'🫒', g:5},{emo:'🥥', g:5},
     ];
+    const pool = (cfg.pool==='lean') ? FULL.filter((_,i)=>i%2===0) : FULL;
+
+    const labels = cfg.shortLabels ? ['1','2','3','4','5'] : ['หมู่1','หมู่2','หมู่3','หมู่4','หมู่5'];
+    const speed = (cfg.speed ?? 1.0);
+    const twoStepPct = cfg.twoStepPct || 0;
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
@@ -915,22 +556,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     stage.appendChild(card);
 
     const pad=mkPad(5);
-    const labels=['หมู่1','หมู่2','หมู่3','หมู่4','หมู่5'];
-
-    let cur = randPick(pool);
-    function next(){
-      total++;
-      cur = randPick(pool);
-      card.querySelector('#it').textContent = cur.emo;
-      card.querySelector('#lbl').textContent = 'เลือกหมู่ให้ถูก';
-    }
-    function choose(g){
-      if(!started) return;
-      if(g===cur.g){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
-      next();
-    }
-
     labels.forEach((t,i)=>{
       const b=mkBtn(t);
       b.style.padding='12px 8px';
@@ -941,93 +566,81 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
       b.addEventListener('click', ()=>choose(i+1));
     });
 
-    next();
-  }
-
-  // V2..V5 for groups: for now, we keep distinct flavors but same core (no external deps)
-  function gr_v2_twochoices(){
-    gameTitle.textContent='Nutrition Warmup — Groups V2: Two-Choice';
-    desc.textContent='เลือก “หมู่ที่ถูก” จาก 2 ตัวเลือก (เร็ว/โหดขึ้น)';
-    center.style.display='none';
-
-    const pool = [
-      {emo:'🥚', g:1},{emo:'🐟', g:1},{emo:'🥛', g:1},{emo:'🥜', g:1},
-      {emo:'🍚', g:2},{emo:'🍞', g:2},{emo:'🥔', g:2},{emo:'🍠', g:2},
-      {emo:'🥦', g:3},{emo:'🥬', g:3},{emo:'🥒', g:3},{emo:'🥕', g:3},
-      {emo:'🍎', g:4},{emo:'🍌', g:4},{emo:'🍉', g:4},{emo:'🍊', g:4},
-      {emo:'🥑', g:5},{emo:'🧈', g:5},{emo:'🫒', g:5},{emo:'🥥', g:5},
-    ];
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(620px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">อาหาร: <span id="it" style="font-size:42px;">🍚</span></div>
-      <div class="muted" style="margin-top:6px;">เลือกหมู่ที่ถูกจาก 2 ตัวเลือก</div>
-      <div id="pair" style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(card);
-    const pair=card.querySelector('#pair');
+    let streak=0;
+    const streakN=cfg.streakN||0, streakBonus=cfg.streakBonus||0;
 
     let cur = randPick(pool);
+    let needSecond = false;
+    let firstPick = 0;
+
     function next(){
-      total++;
       cur = randPick(pool);
+      needSecond = (twoStepPct>0 && Math.random()<twoStepPct);
+      firstPick = 0;
       card.querySelector('#it').textContent = cur.emo;
-
-      pair.innerHTML='';
-      const wrong = ((cur.g + (1 + ((Math.random()*4)|0))) - 1) % 5 + 1;
-      const opts = Math.random()<0.5 ? [cur.g, wrong] : [wrong, cur.g];
-
-      opts.forEach(g=>{
-        const b=mkBtn('หมู่ ' + g);
-        b.style.padding='14px 12px';
-        b.style.borderRadius='16px';
-        pair.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(g===cur.g){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
+      card.querySelector('#lbl').textContent = needSecond ? 'ขั้นที่ 1: เลือกหมู่หลัก' : 'เลือกหมู่ให้ถูก';
     }
+
+    function choose(g){
+      if(!started) return;
+
+      // normal (1-step)
+      if(!needSecond){
+        total++;
+        if(g===cur.g){
+          score++; streak++;
+          toastShow('+1'); flashGood();
+          if(streakN>0 && streakBonus>0 && streak%streakN===0){ score+=streakBonus; toastShow(`+${streakBonus} STREAK`); }
+        }else{
+          miss++; streak=0;
+          toastShow('MISS'); flashBad();
+        }
+        setTimeout(next, Math.max(0, 140/speed));
+        return;
+      }
+
+      // 2-step Analyze-lite: เลือกหมู่หลัก แล้ว "ยืนยัน" (แตะหมู่เดิมอีกครั้ง)
+      total++;
+      if(!firstPick){
+        firstPick = g;
+        if(g===cur.g){ score++; toastShow('+1'); flashGood(); }
+        else { miss++; toastShow('MISS'); flashBad(); }
+        card.querySelector('#lbl').textContent = 'ขั้นที่ 2: ยืนยัน (แตะหมู่เดิมอีกครั้ง)';
+        return;
+      }else{
+        // step 2
+        total++;
+        if(g===firstPick){ score++; toastShow('+1'); flashGood(); }
+        else { miss++; toastShow('MISS'); flashBad(); }
+        setTimeout(next, Math.max(0, 140/speed));
+      }
+    }
+
     next();
   }
 
-  function gr_v3_sort5bins(){
-    gameTitle.textContent='Nutrition Warmup — Groups V3: Sort to 5 Bins';
-    desc.textContent='แตะอาหาร แล้วเลือกถังหมู่ 1–5 (จับเร็ว ๆ)';
-    // reuse V1 (same mechanics) but title differs
-    gr_v1_snapmatch();
-  }
-  function gr_v4_speedround(){
-    gameTitle.textContent='Nutrition Warmup — Groups V4: Speed Round';
-    desc.textContent='สลับโจทย์เร็วขึ้น (ผิด = MISS)';
-    // reuse V2
-    gr_v2_twochoices();
-  }
-  function gr_v5_flashcards(){
-    gameTitle.textContent='Nutrition Warmup — Groups V5: Flash Cards';
-    desc.textContent='ดูบัตรอาหาร แล้วเลือกหมู่ให้ถูก';
-    // reuse V1
-    gr_v1_snapmatch();
-  }
+  function runNutrition_hydration(cfg){
+    cfg = cfg || NUTRI_V.hydration[1];
 
-  // ---------------- NUTRITION: hydration ----------------
-  // V1: Sip Rhythm (from your previous)
-  function hy_v1_siprhythm(){
-    gameTitle.textContent='Nutrition Warmup — Hydration V1: Sip Rhythm';
-    desc.textContent='แตะตอน “จุด” เข้าโซนกลาง (วงเขียว) ให้ตรงจังหวะ';
+    gameTitle.textContent = `Nutrition Warmup — Hydration v${cfg._v||1}`;
+    desc.textContent = 'แตะตอน “จุด” เข้าโซนกลางให้ตรงจังหวะ (zone/speed/double/fake ต่างกัน)';
     center.style.display='none';
+
+    const zonePct = cfg.zone ?? 0.34;
+    const baseSp  = cfg.baseSp ?? 0.085;
+    const addSp   = cfg.addSp ?? 0.06;
+    const speedUp = cfg.speedUp ?? 0.002;
+    const doubleTapMs = cfg.doubleTapMs || 0;
+    const doubleBonus = cfg.doubleBonus || 0;
+    const fakePct = cfg.fakePct || 0;
+    const speed = cfg.speed ?? 1.0;
 
     const ring=DOC.createElement('div');
     Object.assign(ring.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
       width:'240px',height:'240px',borderRadius:'999px',
       border:'2px solid rgba(56,189,248,.35)',
-      background:'radial-gradient(circle at 50% 50%, rgba(34,197,94,.12) 0 34%, transparent 35% 100%)'
+      background:`radial-gradient(circle at 50% 50%, rgba(34,197,94,.12) 0 ${Math.round(zonePct*100)}%, transparent ${Math.round(zonePct*100)+1}% 100%)`
     });
     stage.appendChild(ring);
 
@@ -1040,261 +653,79 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     stage.appendChild(dot);
 
     let t=0;
+    let lastTap=0;
+
     function anim(){
       if(!started) return;
       const played = dur - tLeft;
-      const sp = 0.085 + Math.min(0.06, played*0.002);
+      const sp = (baseSp + Math.min(addSp, played*speedUp)) * speed;
+
       t += sp;
       const r=96;
       const x=Math.cos(t)*r;
       const y=Math.sin(t)*r;
       dot.style.marginLeft = x+'px';
       dot.style.marginTop  = (y-30)+'px';
+
       const dist=Math.hypot(x,y);
-      dot.dataset.inzone = (dist < 34) ? '1' : '0';
-      rafLocal = requestAnimationFrame(anim);
+      let inZone = (dist < (zonePct*100)) ? 1 : 0;
+
+      // fake beat: หลอกนิด ๆ (v5 ต่างชัด)
+      if(fakePct>0 && Math.random()<fakePct*0.02) inZone = 1-inZone;
+
+      dot.dataset.inzone = inZone ? '1':'0';
+      raf = requestAnimationFrame(anim);
     }
+
     stage.addEventListener('pointerdown', ()=>{
       if(!started) return;
       total++;
-      if(dot.dataset.inzone==='1'){ score++; toastShow('+1'); flashGood(); }
+
+      const ok = (dot.dataset.inzone==='1');
+      if(ok){ score++; toastShow('+1'); flashGood(); }
       else { miss++; toastShow('MISS'); flashBad(); }
-    }, {passive:true});
 
-    rafLocal = requestAnimationFrame(anim);
-  }
-
-  // V2: Cup Catch (tap only when cup icon appears)
-  function hy_v2_cupcatch(){
-    gameTitle.textContent='Nutrition Warmup — Hydration V2: Cup Catch';
-    desc.textContent='แตะเฉพาะตอน “แก้วน้ำ” โผล่ (แตะตอนอื่น = MISS)';
-    center.style.display='none';
-
-    const box=DOC.createElement('div');
-    Object.assign(box.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    box.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;">จับแก้วน้ำ</div>
-      <div class="muted" style="margin-top:6px;">แตะตอนเห็นแก้วน้ำเท่านั้น</div>
-      <div id="icon" style="margin-top:10px;font-size:64px;">…</div>
-    `;
-    stage.appendChild(box);
-    const icon=box.querySelector('#icon');
-
-    let showing=false;
-    let nextAt=0;
-
-    function step(){
-      if(!started) return;
-      const now = Date.now();
-      if(now>=nextAt){
-        showing = !showing;
-        icon.textContent = showing ? '🥤' : '…';
-        const base = showing ? 550 : 350;
-        const jitter = (Math.random()*260)|0;
-        nextAt = now + base + jitter;
+      if(doubleTapMs>0){
+        const now=performance.now();
+        if(now-lastTap<=doubleTapMs && ok && doubleBonus>0){
+          score += doubleBonus;
+          toastShow(`+${doubleBonus} DOUBLE`);
+        }
+        lastTap = now;
       }
-      rafLocal=requestAnimationFrame(step);
-    }
-
-    stage.addEventListener('pointerdown', ()=>{
-      if(!started) return;
-      total++;
-      if(showing){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
     }, {passive:true});
 
-    nextAt = Date.now() + 400;
-    rafLocal=requestAnimationFrame(step);
+    requestAnimationFrame(anim);
   }
 
-  // V3: Thirst Meter (keep pointer in green zone by tapping)
-  function hy_v3_meter(){
-    gameTitle.textContent='Nutrition Warmup — Hydration V3: Thirst Meter';
-    desc.textContent='แตะเพื่อดันตัวชี้ให้อยู่ใน “โซนเขียว” (หลุด = MISS)';
+  function runNutrition_plate(cfg){
+    cfg = cfg || NUTRI_V.plate[1];
+
+    gameTitle.textContent = `Nutrition Warmup — Plate v${cfg._v||1}`;
+    desc.textContent = 'เลือกหมู่ใส่จานให้ครบ (dupRule/decoy/fast/balance/target ต่างกัน)';
     center.style.display='none';
 
-    const box=DOC.createElement('div');
-    Object.assign(box.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(560px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    box.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;">คุมระดับน้ำ</div>
-      <div class="muted" style="margin-top:6px;">แตะเพื่อเพิ่มน้ำ / ปล่อยจะลดเอง</div>
-      <div id="track" style="margin:14px auto 0;width:min(440px,92%);height:18px;border-radius:999px;
-        border:1px solid rgba(148,163,184,.18);background: rgba(148,163,184,.12); position:relative; overflow:hidden;">
-        <div style="position:absolute;left:35%;top:0;width:30%;height:100%;background: rgba(34,197,94,.18);
-          border-left:1px solid rgba(34,197,94,.25); border-right:1px solid rgba(34,197,94,.25);"></div>
-        <div id="bar" style="position:absolute;left:10%;top:2px;width:18px;height:14px;border-radius:999px;background: rgba(56,189,248,.92);"></div>
-      </div>
-      <div class="muted" style="margin-top:10px;font-size:11px;">โซนเขียว = ได้แต้ม, นอกโซน = MISS (ทุกจังหวะ)</div>
-    `;
-    stage.appendChild(box);
-    const track=box.querySelector('#track');
-    const bar=box.querySelector('#bar');
-
-    let x=0.12; // 0..1
-    let v=-0.002;
-
-    function inGreen(){ return x>=0.35 && x<=0.65; }
-
-    function step(){
-      if(!started) return;
-      // natural drain
-      x += v;
-      x = Math.max(0.02, Math.min(0.98, x));
-      const w = track.getBoundingClientRect().width;
-      bar.style.left = Math.round(x*w) + 'px';
-
-      // score tick
-      total++;
-      if(inGreen()){ score++; flashGood(); }
-      else { miss++; flashBad(); }
-
-      rafLocal=requestAnimationFrame(step);
-    }
-
-    stage.addEventListener('pointerdown', ()=>{
-      if(!started) return;
-      // tap increases x
-      x = Math.min(0.98, x + 0.08);
-      toastShow('SIP'); flashGood();
-    }, {passive:true});
-
-    rafLocal=requestAnimationFrame(step);
-  }
-
-  // V4: Clean vs Sweet (tap water vs sugary drink)
-  function hy_v4_choice(){
-    gameTitle.textContent='Nutrition Warmup — Hydration V4: Water Choice';
-    desc.textContent='เลือก “น้ำเปล่า” (🥤/💧) ให้ถูกจาก 2 ตัวเลือก';
-    center.style.display='none';
-
-    const good=['💧','🚰','🥛']; // include milk as “ok”
-    const bad=['🧋','🥤','🥶🥤','🍹','🥤🧊'];
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(680px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;">เลือกเครื่องดื่มที่เหมาะกว่า</div>
-      <div class="muted" style="margin-top:6px;">เลือกน้ำ/ไม่หวาน</div>
-      <div id="pair" style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(card);
-    const pair=card.querySelector('#pair');
-
-    let Lkind='good', Rkind='bad';
-    function next(){
-      total++;
-      pair.innerHTML='';
-      Lkind = Math.random()<0.5?'good':'bad';
-      Rkind = (Lkind==='good')?'bad':'good';
-      const L = (Lkind==='good') ? randPick(good) : randPick(bad);
-      const R = (Rkind==='good') ? randPick(good) : randPick(bad);
-
-      const bL=mkBtn(L), bR=mkBtn(R);
-      [bL,bR].forEach(b=>{
-        b.style.padding='18px 12px';
-        b.style.borderRadius='18px';
-        b.style.fontSize='30px';
-        b.style.minHeight='92px';
-      });
-      pair.appendChild(bL); pair.appendChild(bR);
-
-      bL.addEventListener('click', ()=>{
-        if(!started) return;
-        if(Lkind==='good'){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
-      bR.addEventListener('click', ()=>{
-        if(!started) return;
-        if(Rkind==='good'){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
-    }
-    next();
-  }
-
-  // V5: Tap to Fill (tap repeatedly; missing taps is fine, but over-tap triggers miss)
-  function hy_v5_fill(){
-    gameTitle.textContent='Nutrition Warmup — Hydration V5: Fill the Bottle';
-    desc.textContent='แตะเพื่อเติมขวดให้ “พอดี” (เกิน = MISS)';
-    center.style.display='none';
-
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(620px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    wrap.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;">เติมน้ำ</div>
-      <div class="muted" style="margin-top:6px;">แตะเพื่อเติมให้ถึงเส้นเขียว (เลยเส้นแดง = MISS)</div>
-      <div id="tank" style="margin:12px auto 0;width:120px;height:240px;border-radius:18px;
-        border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.25);position:relative;overflow:hidden;">
-        <div style="position:absolute;left:0;right:0;bottom:62%;height:2px;background:rgba(34,197,94,.55);"></div>
-        <div style="position:absolute;left:0;right:0;bottom:78%;height:2px;background:rgba(251,113,133,.55);"></div>
-        <div id="water" style="position:absolute;left:0;right:0;bottom:0;height:20%;background:rgba(56,189,248,.35);"></div>
-      </div>
-      <div class="muted" id="lvl" style="margin-top:8px;font-weight:1000;">LEVEL: 20%</div>
-    `;
-    stage.appendChild(wrap);
-    const water=wrap.querySelector('#water');
-    const lvl=wrap.querySelector('#lvl');
-
-    let level=20; // %
-    function render(){
-      water.style.height = level + '%';
-      lvl.textContent = 'LEVEL: ' + level + '%';
-    }
-    function drain(){
-      if(!started) return;
-      level = Math.max(0, level - 0.18);
-      render();
-      rafLocal=requestAnimationFrame(drain);
-    }
-    stage.addEventListener('pointerdown', ()=>{
-      if(!started) return;
-      total++;
-      level = Math.min(100, level + 6);
-      // evaluate
-      if(level>=78){
-        miss++; toastShow('MISS'); flashBad();
-        level = 20; // reset
-      }else if(level>=62){
-        score++; toastShow('+1'); flashGood();
-      }else{
-        // neutral tap
-        toastShow('SIP'); flashGood();
-      }
-      render();
-    }, {passive:true});
-
-    render();
-    rafLocal=requestAnimationFrame(drain);
-  }
-
-  // ---------------- NUTRITION: plate ----------------
-  // V1: Plate Builder (from your previous)
-  function pl_v1_builder(){
-    gameTitle.textContent='Nutrition Warmup — Plate V1: Plate Builder';
-    desc.textContent='เลือกหมู่ใส่จานให้ “อย่างน้อย 3 หมู่” (ซ้ำหมู่ = MISS)';
-    center.style.display='none';
+    const target = cfg.target || 3;
+    const dupRule = cfg.dupRule || 'miss'; // miss | minus | none
+    const decoyDup = cfg.decoyDup || 0;
+    const fastBonus = cfg.fastBonus || 0;
+    const fastWithin = cfg.fastWithin || 7;
+    const balanceAt = cfg.balanceAt || 0;
+    const balanceBonus = cfg.balanceBonus || 0;
 
     const picked=new Set();
+    const tStart = performance.now();
+
     const card=DOC.createElement('div');
     Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
       width:'min(520px,92%)',padding:'14px',borderRadius:'18px',
       border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
     card.innerHTML = `<div style="font-weight:1100;font-size:16px;">เติมจาน</div>
-      <div class="muted" id="pb" style="margin-top:6px;">เป้าหมาย: ≥ 3 หมู่</div>
+      <div class="muted" id="pb" style="margin-top:6px;">เป้าหมาย: ≥ ${target} หมู่</div>
       <div style="margin-top:10px;font-size:34px;">🍽️</div>`;
     stage.appendChild(card);
 
-    const items=[
+    const itemsBase=[
       {emo:'🐟', g:1},{emo:'🥛', g:1},
       {emo:'🍚', g:2},{emo:'🍞', g:2},
       {emo:'🥦', g:3},{emo:'🥬', g:3},
@@ -1302,694 +733,229 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
       {emo:'🥑', g:5},{emo:'🧈', g:5},
     ];
 
+    const items=[...itemsBase];
+    for(let i=0;i<decoyDup;i++){
+      items.push(itemsBase[(Math.random()*itemsBase.length)|0]);
+    }
+
     const pad=mkPad(5);
-    items.forEach(it=>{
+    items.slice(0,10).forEach(it=>{
       const b=mkBtn(it.emo);
       b.style.padding='14px 8px'; b.style.borderRadius='16px';
       b.style.fontSize='18px';
       pad.appendChild(b);
+
       b.addEventListener('click', ()=>{
         if(!started) return;
         total++;
+
         if(!picked.has(it.g)){
-          picked.add(it.g); score++; toastShow('+1'); flashGood();
+          picked.add(it.g);
+          score++; toastShow('+1'); flashGood();
         }else{
-          miss++; toastShow('MISS'); flashBad();
-        }
-        card.querySelector('#pb').textContent = `ได้แล้ว: ${picked.size} หมู่ (เป้าหมาย ≥ 3)`;
-      });
-    });
-  }
-
-  // V2: Balanced 4 zones (choose missing group)
-  function pl_v2_missinggroup(){
-    gameTitle.textContent='Nutrition Warmup — Plate V2: Missing Group';
-    desc.textContent='ดูจาน แล้วเลือก “หมู่ที่ขาด” ให้ถูก (ผิด = MISS)';
-    center.style.display='none';
-
-    const groups=[1,2,3,4,5];
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    card.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;text-align:center;">หมู่ไหนหายไป?</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เลือกหมู่ที่ขาดจากจาน</div>
-      <div id="plate" style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:30px;"></div>
-      <div id="pad" style="margin-top:12px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;"></div>
-    `;
-    stage.appendChild(card);
-    const plate=card.querySelector('#plate');
-    const pad=card.querySelector('#pad');
-
-    const pool = {
-      1:['🥚','🐟','🥛','🥜'],
-      2:['🍚','🍞','🥔','🍠'],
-      3:['🥦','🥬','🥕','🥒'],
-      4:['🍎','🍌','🍉','🍊'],
-      5:['🥑','🧈','🫒','🥥'],
-    };
-
-    let missing=1;
-    function next(){
-      total++;
-      plate.innerHTML='';
-      const missIdx = ((Math.random()*5)|0)+1;
-      missing = missIdx;
-
-      // show 4 groups on plate
-      groups.filter(g=>g!==missing).forEach(g=>{
-        const s=DOC.createElement('span');
-        s.textContent = randPick(pool[g]);
-        plate.appendChild(s);
-      });
-
-      // render choices
-      pad.innerHTML='';
-      groups.forEach(g=>{
-        const b=mkBtn('หมู่'+g);
-        b.style.padding='12px 8px';
-        b.style.borderRadius='14px';
-        b.style.fontSize='12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(g===missing){ score++; toastShow('+1'); flashGood(); }
-          else{ miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-    }
-    next();
-  }
-
-  // V3: Portion tap (tap to add veggies; too much sugar triggers miss)
-  function pl_v3_portion(){
-    gameTitle.textContent='Nutrition Warmup — Plate V3: Portion Control';
-    desc.textContent='แตะเพิ่ม “ผัก” ให้ถึงเป้าหมาย (เพิ่มหวานเกิน = MISS)';
-    center.style.display='none';
-
-    let veg=0, sugar=0;
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    wrap.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;text-align:center;">คุมสัดส่วน</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เพิ่มผัก ≥ 3 ได้แต้ม | เพิ่มหวานเกิน 2 = MISS</div>
-      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
-        <div class="k"><div class="h">VEG</div><div class="v" id="vegV">0</div></div>
-        <div class="k"><div class="h">SUGAR</div><div class="v" id="sugV">0</div></div>
-      </div>
-      <div id="pad" style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(wrap);
-    const vegV=wrap.querySelector('#vegV');
-    const sugV=wrap.querySelector('#sugV');
-    const pad=wrap.querySelector('#pad');
-
-    const bVeg=mkBtn('เพิ่มผัก 🥦');
-    const bSug=mkBtn('เพิ่มหวาน 🍬');
-    [bVeg,bSug].forEach(b=>{
-      b.style.padding='16px 12px';
-      b.style.borderRadius='18px';
-      b.style.fontSize='16px';
-      pad.appendChild(b);
-    });
-
-    function render(){
-      vegV.textContent=String(veg);
-      sugV.textContent=String(sugar);
-    }
-
-    bVeg.addEventListener('click', ()=>{
-      if(!started) return;
-      total++;
-      veg++;
-      if(veg>=3){ score++; toastShow('+1'); flashGood(); veg=0; sugar=0; }
-      render();
-    });
-
-    bSug.addEventListener('click', ()=>{
-      if(!started) return;
-      total++;
-      sugar++;
-      if(sugar>2){ miss++; toastShow('MISS'); flashBad(); veg=0; sugar=0; }
-      render();
-    });
-
-    render();
-  }
-
-  // V4: Speed add (tap 3 different groups quickly; repeats miss)
-  function pl_v4_speedadd(){
-    gameTitle.textContent='Nutrition Warmup — Plate V4: Speed Add';
-    desc.textContent='เติมให้ได้ 3 หมู่ “ไม่ซ้ำ” (ซ้ำ = MISS) แล้วรีเซ็ต';
-    // reuse V1 builder (same rule) but keep title
-    pl_v1_builder();
-  }
-
-  // V5: Quiz (which is better balanced plate)
-  function pl_v5_quiz(){
-    gameTitle.textContent='Nutrition Warmup — Plate V5: Balanced Quiz';
-    desc.textContent='เลือกจานที่ “สมดุลกว่า” จาก 2 ตัวเลือก';
-    center.style.display='none';
-
-    const wrap=DOC.createElement('div');
-    Object.assign(wrap.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    wrap.innerHTML=`
-      <div style="font-weight:1100;font-size:16px;text-align:center;">จานไหนสมดุลกว่า?</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เลือกจานที่มีหมู่หลากหลายกว่า</div>
-      <div id="pair" style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"></div>
-    `;
-    stage.appendChild(wrap);
-    const pair=wrap.querySelector('#pair');
-
-    function mkPlate(groupsCount){
-      const all=['🥚','🍚','🥦','🍎','🥑'];
-      const picks=[];
-      for(let i=0;i<groupsCount;i++){
-        picks.push(all[i]);
-      }
-      // shuffle display a bit
-      for(let i=picks.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [picks[i],picks[j]]=[picks[j],picks[i]]; }
-      return picks.join(' ');
-    }
-
-    function next(){
-      total++;
-      pair.innerHTML='';
-      const g1 = 2 + ((Math.random()*2)|0); // 2..3
-      const g2 = 4 + ((Math.random()*2)|0); // 4..5
-      const leftBetter = Math.random()<0.5;
-      const L = leftBetter ? mkPlate(g2) : mkPlate(g1);
-      const R = leftBetter ? mkPlate(g1) : mkPlate(g2);
-
-      const bL=mkBtn(L), bR=mkBtn(R);
-      [bL,bR].forEach(b=>{
-        b.style.padding='18px 12px';
-        b.style.borderRadius='18px';
-        b.style.fontSize='22px';
-        b.style.minHeight='96px';
-        b.style.whiteSpace='normal';
-        b.style.lineHeight='1.2';
-      });
-      pair.appendChild(bL); pair.appendChild(bR);
-
-      bL.addEventListener('click', ()=>{
-        if(!started) return;
-        if(leftBetter){ score++; toastShow('+1'); flashGood(); }
-        else{ miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
-      bR.addEventListener('click', ()=>{
-        if(!started) return;
-        if(!leftBetter){ score++; toastShow('+1'); flashGood(); }
-        else{ miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
-    }
-    next();
-  }
-
-  // ---------------- HYGIENE ----------------
-  // handwash V1..V5
-  function hw_v1_order(){
-    gameTitle.textContent='Hygiene Warmup — Handwash V1: Wash Steps Order';
-    desc.textContent='แตะเรียง “ขั้นตอนล้างมือ” ให้ถูก (สุ่มใหม่เร็ว ๆ)';
-    center.style.display='none';
-
-    const steps = ['ถูฝ่ามือ','ถูหลังมือ','ซอกนิ้ว','หลังนิ้ว','ถูนิ้วโป้ง','ปลายนิ้ว/เล็บ'];
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'42%',transform:'translate(-50%,-50%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะตามลำดับ 1 → 3</div>
-      <div class="muted" id="hwq" style="margin-top:6px;">—</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-
-    let order=[], idx=0;
-    function newRound(){
-      idx=0;
-      const s=[...steps];
-      order=[];
-      while(order.length<3){
-        const pick=s.splice((Math.random()*s.length)|0,1)[0];
-        order.push(pick);
-      }
-      card.querySelector('#hwq').textContent = `ลำดับ: ① ${order[0]} → ② ${order[1]} → ③ ${order[2]}`;
-      pad.innerHTML='';
-      const decoy = steps.filter(x=>!order.includes(x));
-      const opts=[...order, randPick(decoy)];
-      for(let i=opts.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [opts[i],opts[j]]=[opts[j],opts[i]]; }
-      opts.forEach(txt=>{
-        const b=mkBtn(txt);
-        b.style.padding='14px 12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          if(txt===order[idx]){
-            idx++; score++; toastShow('+1'); flashGood();
-            if(idx>=3) newRound();
+          if(dupRule==='none'){
+            toastShow('OK');
+          }else if(dupRule==='minus'){
+            score = Math.max(0, score-1);
+            miss++; toastShow('-1'); flashBad();
           }else{
             miss++; toastShow('MISS'); flashBad();
           }
-        });
+        }
+
+        card.querySelector('#pb').textContent = `ได้แล้ว: ${picked.size} หมู่ (เป้าหมาย ≥ ${target})`;
+
+        if(picked.size>=target){
+          const sec = (performance.now()-tStart)/1000;
+
+          if(fastBonus>0 && sec<=fastWithin){
+            score += fastBonus;
+            toastShow(`+${fastBonus} FAST`);
+          }
+
+          if(balanceAt>0 && picked.size>=balanceAt && balanceBonus>0 && !card.dataset.balanced){
+            card.dataset.balanced='1';
+            score += balanceBonus;
+            toastShow(`+${balanceBonus} BAL`);
+          }
+        }
       });
-    }
-    newRound();
+    });
   }
-  function hw_v2_spots(){ gameTitle.textContent='Hygiene Warmup — Handwash V2'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; hw_v1_order(); }
-  function hw_v3_timer(){ gameTitle.textContent='Hygiene Warmup — Handwash V3'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; hw_v1_order(); }
-  function hw_v4_germs(){ gameTitle.textContent='Hygiene Warmup — Handwash V4'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; hw_v1_order(); }
-  function hw_v5_combo(){ gameTitle.textContent='Hygiene Warmup — Handwash V5'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; hw_v1_order(); }
 
-  // brush V1..V5
-  function br_v1_angle(){
-    gameTitle.textContent='Hygiene Warmup — Brush V1: Brush Angle Accuracy';
-    desc.textContent='สุ่มตำแหน่งฟัน แล้วแตะ “ตำแหน่ง/ทิศ” ให้ถูก (ซ้าย/ขวา/บน/ล่าง)';
-    center.style.display='none';
+  // ---------- Variant picking: ?variant=1..5 + ?pick=rand|day + no-repeat เฉพาะ theme ----------
+  function dayIndex1to5(){
+    const d = new Date();
+    return (d.getDate() % 5) + 1;
+  }
+  function pickVariantForTheme(themeKey){
+    const forced = Number(q('variant','0'));
+    if(forced>=1 && forced<=5) return forced;
 
-    const pos = [
-      {q:'บน-ซ้าย', a:'บน'}, {q:'บน-ขวา', a:'บน'},
-      {q:'ล่าง-ซ้าย', a:'ล่าง'}, {q:'ล่าง-ขวา', a:'ล่าง'},
-      {q:'แก้ม-ซ้าย', a:'ซ้าย'}, {q:'แก้ม-ขวา', a:'ขวา'},
+    const pickMode = String(q('pick','rand')).toLowerCase(); // rand|day
+    let v = (pickMode==='day') ? dayIndex1to5() : (1 + ((Math.random()*5)|0));
+
+    // no-repeat เฉพาะ theme
+    try{
+      const k = `HHA_LAST_V_${themeKey}`;
+      const last = Number(localStorage.getItem(k) || '0');
+      if(last && v===last) v = (v % 5) + 1;
+      localStorage.setItem(k, String(v));
+    }catch(e){}
+    return v;
+  }
+  function themeToVariantKey(themeKey, v){
+    if(themeKey==='goodjunk')  return `goodjunk_v${v}`;
+    if(themeKey==='groups')    return `groups_v${v}`;
+    if(themeKey==='hydration') return `hydration_v${v}`;
+    if(themeKey==='plate')     return `plate_v${v}`;
+    return themeKey;
+  }
+
+  // ---------- Theme router ----------
+  const Theme = {
+    // nutrition (fallback)
+    goodjunk:  ()=>runNutrition_goodjunk({...NUTRI_V.goodjunk[1], _v:1}),
+    groups:    ()=>runNutrition_groups({...NUTRI_V.groups[1], _v:1}),
+    hydration: ()=>runNutrition_hydration({...NUTRI_V.hydration[1], _v:1}),
+    plate:     ()=>runNutrition_plate({...NUTRI_V.plate[1], _v:1}),
+  };
+
+  function withV(theme, n){
+    return ()=>{
+      const cfg = (NUTRI_V[theme] && NUTRI_V[theme][n]) ? {...NUTRI_V[theme][n]} : {};
+      cfg._v = n;
+
+      if(theme==='goodjunk')  return runNutrition_goodjunk(cfg);
+      if(theme==='groups')    return runNutrition_groups(cfg);
+      if(theme==='hydration') return runNutrition_hydration(cfg);
+      if(theme==='plate')     return runNutrition_plate(cfg);
+    };
+  }
+  const NUTRI_FUN = {
+    goodjunk_v1: withV('goodjunk',1), goodjunk_v2: withV('goodjunk',2), goodjunk_v3: withV('goodjunk',3), goodjunk_v4: withV('goodjunk',4), goodjunk_v5: withV('goodjunk',5),
+    groups_v1: withV('groups',1), groups_v2: withV('groups',2), groups_v3: withV('groups',3), groups_v4: withV('groups',4), groups_v5: withV('groups',5),
+    hydration_v1: withV('hydration',1), hydration_v2: withV('hydration',2), hydration_v3: withV('hydration',3), hydration_v4: withV('hydration',4), hydration_v5: withV('hydration',5),
+    plate_v1: withV('plate',1), plate_v2: withV('plate',2), plate_v3: withV('plate',3), plate_v4: withV('plate',4), plate_v5: withV('plate',5),
+  };
+  Object.assign(Theme, NUTRI_FUN);
+
+  // ---------- Buff generator (A+C: บัฟเฉพาะทางตาม Theme) ----------
+  function makeWarmupBuff(themeKey){
+    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
+    const pct = Math.round(clamp(acc*100, 5, 30));
+    const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
+
+    // บัฟเฉพาะทาง
+    let wCrit=0, wDmg=0, wHeal=0;
+    let wType = 'warmup';
+
+    if(themeKey==='hydration'){
+      wHeal = 1;
+    }else if(themeKey==='plate'){
+      wCrit = 1;
+    }else if(themeKey==='groups'){
+      wCrit = 1;
+    }else if(themeKey==='goodjunk'){
+      wDmg  = 1;
+    }else{
+      wCrit = 1;
+    }
+
+    return { wType, wPct:pct, rank, wCrit, wDmg, wHeal };
+  }
+
+  // ---------- buildNextUrl ----------
+  function buildNextUrl(buff){
+    let target = next0 || hub;
+
+    if(gate==='cooldown'){
+      return target || hub;
+    }
+
+    const u = new URL(target, location.href);
+
+    const passthroughKeys = [
+      'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','cat','category','studyPhase'
     ];
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">ตำแหน่ง: <span id="bq" style="font-size:18px;">—</span></div>
-      <div class="muted" style="margin-top:6px;">แตะคำตอบให้ถูก</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const choices=['บน','ล่าง','ซ้าย','ขวา'];
-
-    let cur = randPick(pos);
-    function next(){
-      total++;
-      cur = randPick(pos);
-      card.querySelector('#bq').textContent = cur.q;
-    }
-    choices.forEach(c=>{
-      const b=mkBtn(c);
-      b.style.padding='14px 12px';
-      pad.appendChild(b);
-      b.addEventListener('click', ()=>{
-        if(!started) return;
-        if(c===cur.a){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
+    passthroughKeys.forEach(k=>{
+      const v = q(k,'');
+      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
     });
 
-    next();
-  }
-  function br_v2_zone(){ gameTitle.textContent='Hygiene Warmup — Brush V2'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; br_v1_angle(); }
-  function br_v3_combo(){ gameTitle.textContent='Hygiene Warmup — Brush V3'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; br_v1_angle(); }
-  function br_v4_timer(){ gameTitle.textContent='Hygiene Warmup — Brush V4'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; br_v1_angle(); }
-  function br_v5_quiz(){ gameTitle.textContent='Hygiene Warmup — Brush V5'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; br_v1_angle(); }
+    if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
+    if(!u.searchParams.has('cat')) u.searchParams.set('cat', cat);
+    if(!u.searchParams.has('category')) u.searchParams.set('category', cat);
+    if(studyPhase && !u.searchParams.has('studyPhase')) u.searchParams.set('studyPhase', studyPhase);
 
-  // maskcough V1..V5
-  function mc_v1_choice(){
-    gameTitle.textContent='Hygiene Warmup — MaskCough V1: Choice';
-    desc.textContent='สุ่มสถานการณ์ แล้วเลือกการกระทำที่ถูก (ใส่หน้ากาก/ปิดปาก/เว้นระยะ)';
-    center.style.display='none';
-
-    const cases = [
-      {q:'อยู่ในที่แออัด', ok:'ใส่หน้ากาก', emo:'😷'},
-      {q:'ไอ/จามกะทันหัน', ok:'ปิดปาก-จมูก', emo:'🤧'},
-      {q:'อยู่ใกล้คนอื่น', ok:'เว้นระยะ', emo:'↔️'},
-      {q:'เข้าโรงเรียน/ห้องเรียน', ok:'ใส่หน้ากาก', emo:'🏫'},
-      {q:'มือไม่สะอาดหลังจับของ', ok:'ล้างมือ', emo:'🧼'},
-    ];
-    const actions=['ใส่หน้ากาก','ปิดปาก-จมูก','เว้นระยะ','ล้างมือ'];
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(620px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">สถานการณ์</div>
-      <div id="mq" style="margin-top:8px;font-size:18px;font-weight:1000;">—</div>
-      <div id="me" style="margin-top:6px;font-size:40px;">😷</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    let cur=randPick(cases);
-    function next(){
-      total++;
-      cur=randPick(cases);
-      card.querySelector('#mq').textContent = cur.q;
-      card.querySelector('#me').textContent = cur.emo;
-    }
-    actions.forEach(a=>{
-      const b=mkBtn(a);
-      b.style.padding='14px 12px';
-      pad.appendChild(b);
-      b.addEventListener('click', ()=>{
-        if(!started) return;
-        if(a===cur.ok){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      });
-    });
-    next();
-  }
-  function mc_v2_fast(){ gameTitle.textContent='Hygiene Warmup — MaskCough V2'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; mc_v1_choice(); }
-  function mc_v3_signs(){ gameTitle.textContent='Hygiene Warmup — MaskCough V3'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; mc_v1_choice(); }
-  function mc_v4_distance(){ gameTitle.textContent='Hygiene Warmup — MaskCough V4'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; mc_v1_choice(); }
-  function mc_v5_combo(){ gameTitle.textContent='Hygiene Warmup — MaskCough V5'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; mc_v1_choice(); }
-
-  // germ V1..V5
-  function ge_v1_detect(){
-    gameTitle.textContent='Hygiene Warmup — Germ V1: Germ Detective';
-    desc.textContent='แตะ “เชื้อจริง” ให้ได้มากที่สุด (ระวังของหลอก)';
-    center.style.display='none';
-
-    const board=DOC.createElement('div');
-    Object.assign(board.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(520px,92%)',aspectRatio:'1/1',
-      display:'grid',gridTemplateColumns:'repeat(4, minmax(0,1fr))',gap:'10px'});
-    stage.appendChild(board);
-
-    function spawnCells(){
-      board.innerHTML='';
-      const idxG = (Math.random()*16)|0;
-      let idxD = (Math.random()*16)|0; if(idxD===idxG) idxD=(idxD+5)%16;
-
-      for(let i=0;i<16;i++){
-        const b=DOC.createElement('button');
-        b.className='btn';
-        b.style.height='100%';
-        b.style.borderRadius='16px';
-        b.style.fontSize='22px';
-        b.style.background='rgba(2,6,23,.35)';
-        b.style.border='1px solid rgba(148,163,184,.18)';
-        b.style.padding='0';
-        let kind='blank';
-        if(i===idxG){ b.textContent='🦠'; kind='germ'; }
-        else if(i===idxD){ b.textContent='✨'; kind='decoy'; }
-        else b.textContent='·';
-
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          if(kind==='germ'){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          spawnCells();
-        });
-        board.appendChild(b);
-      }
-    }
-    spawnCells();
-  }
-  function ge_v2_spread(){ gameTitle.textContent='Hygiene Warmup — Germ V2'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; ge_v1_detect(); }
-  function ge_v3_hide(){ gameTitle.textContent='Hygiene Warmup — Germ V3'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; ge_v1_detect(); }
-  function ge_v4_flash(){ gameTitle.textContent='Hygiene Warmup — Germ V4'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; ge_v1_detect(); }
-  function ge_v5_boss(){ gameTitle.textContent='Hygiene Warmup — Germ V5'; desc.textContent='โหมดเสริม (ใช้ V1 engine)'; ge_v1_detect(); }
-
-  // ---------------- EXERCISE ----------------
-  function ex_v1_dodge(){
-    gameTitle.textContent='Exercise Warmup — Shadow V1: Dodge & Strike';
-    desc.textContent='คำสั่งสุ่ม “ตี” หรือ “หลบ” ให้ไว';
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div class="muted" style="font-weight:1000;">ทำตามคำสั่ง</div>
-      <div id="sx" style="margin-top:10px;font-size:56px;font-weight:1100;">⚔️</div>
-      <div id="st" style="margin-top:8px;font-size:18px;font-weight:1100;">—</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const btnHit=mkBtn('ตี'); const btnDodge=mkBtn('หลบ');
-    btnHit.style.padding='14px 12px'; btnDodge.style.padding='14px 12px';
-    pad.appendChild(btnHit); pad.appendChild(btnDodge);
-
-    let cur='ตี';
-    function next(){
-      total++;
-      cur = (Math.random()<0.5)?'ตี':'หลบ';
-      card.querySelector('#st').textContent = `คำสั่ง: ${cur}`;
-      card.querySelector('#sx').textContent = (cur==='ตี')?'🥊':'🫣';
-    }
-    function choose(a){
-      if(!started) return;
-      if(a===cur){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
-      next();
-    }
-    btnHit.addEventListener('click', ()=>choose('ตี'));
-    btnDodge.addEventListener('click', ()=>choose('หลบ'));
-    next();
-  }
-
-  function ex_v1_rhythm(){
-    gameTitle.textContent='Exercise Warmup — Rhythm V1: Beat Punch';
-    desc.textContent='แตะตามจังหวะ “ซ้าย/ขวา”';
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(620px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div class="muted" style="font-weight:1000;">คำสั่ง</div>
-      <div id="rx" style="margin-top:10px;font-size:56px;font-weight:1100;">⬅️</div>
-      <div id="rt" style="margin-top:8px;font-size:18px;font-weight:1100;">ซ้าย</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const bL=mkBtn('ซ้าย'); const bR=mkBtn('ขวา');
-    bL.style.padding='14px 12px'; bR.style.padding='14px 12px';
-    pad.appendChild(bL); pad.appendChild(bR);
-
-    let cur='ซ้าย';
-    function next(){
-      total++;
-      cur = (Math.random()<0.5)?'ซ้าย':'ขวา';
-      card.querySelector('#rt').textContent = cur;
-      card.querySelector('#rx').textContent = (cur==='ซ้าย')?'⬅️':'➡️';
-    }
-    function choose(a){
-      if(!started) return;
-      if(a===cur){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
-      next();
-    }
-    bL.addEventListener('click', ()=>choose('ซ้าย'));
-    bR.addEventListener('click', ()=>choose('ขวา'));
-    next();
-  }
-
-  function ex_v1_jumpduck(){
-    gameTitle.textContent='Exercise Warmup — JumpDuck V1: Jump/Duck Drill';
-    desc.textContent='สุ่ม “JUMP” หรือ “DUCK” ให้ไว';
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-      width:'min(620px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div class="muted" style="font-weight:1000;">คำสั่ง</div>
-      <div id="jx" style="margin-top:10px;font-size:56px;font-weight:1100;">⬆️</div>
-      <div id="jt" style="margin-top:8px;font-size:18px;font-weight:1100;">JUMP</div>`;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const bJ=mkBtn('JUMP'); const bD=mkBtn('DUCK');
-    bJ.style.padding='14px 12px'; bD.style.padding='14px 12px';
-    pad.appendChild(bJ); pad.appendChild(bD);
-
-    let cur='JUMP';
-    function next(){
-      total++;
-      cur = (Math.random()<0.5)?'JUMP':'DUCK';
-      card.querySelector('#jt').textContent = cur;
-      card.querySelector('#jx').textContent = (cur==='JUMP')?'⬆️':'⬇️';
-    }
-    function choose(a){
-      if(!started) return;
-      if(a===cur){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
-      next();
-    }
-    bJ.addEventListener('click', ()=>choose('JUMP'));
-    bD.addEventListener('click', ()=>choose('DUCK'));
-    next();
-  }
-
-  function ex_v1_balance(){
-    gameTitle.textContent='Exercise Warmup — Balance V1: Hold Steady Meter';
-    desc.textContent='กดค้างให้ “แถบอยู่กลาง” (ปล่อย/หลุดกลาง = MISS)';
-    center.style.display='none';
-
-    const box=DOC.createElement('div');
-    Object.assign(box.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
-    box.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">กดค้างให้คุมให้นิ่ง</div>
-      <div class="muted" style="margin-top:6px;">ถือให้อยู่กลาง → ได้แต้มต่อเนื่อง</div>
-      <div id="track" style="margin:14px auto 0; width: min(420px,92%); height:14px; border-radius:999px;
-        border:1px solid rgba(148,163,184,.18); background: rgba(148,163,184,.12); position:relative; overflow:hidden;">
-        <div id="zone" style="position:absolute; left:44%; top:0; width:12%; height:100%;
-          background: rgba(34,197,94,.18); border-left:1px solid rgba(34,197,94,.25); border-right:1px solid rgba(34,197,94,.25);"></div>
-        <div id="bar" style="position:absolute; left:10%; top:2px; width:18px; height:10px; border-radius:999px; background: rgba(56,189,248,.92);"></div>
-      </div>
-      <div style="margin-top:12px;">
-        <button class="btn primary" id="holdBtn" style="min-width:180px;">กดค้าง (HOLD)</button>
-      </div>
-    `;
-    stage.appendChild(box);
-
-    const track=box.querySelector('#track');
-    const bar=box.querySelector('#bar');
-    const holdBtn=box.querySelector('#holdBtn');
-
-    let holding=false;
-    let x=0.10;
-    let v=0.0;
-
-    function inZone(){ return x>=0.44 && x<=0.56; }
-
-    function step(){
-      if(!started) return;
-      const played = dur - tLeft;
-      const drift = 0.002 + Math.min(0.003, played*0.0002);
-      v += (Math.random()-0.5)*drift;
-
-      if(holding){
-        v *= 0.92;
-        x += v;
-        x += (0.50 - x)*0.01;
-      }else{
-        x += v;
-      }
-      x = Math.max(0.02, Math.min(0.98, x));
-
-      const w = track.getBoundingClientRect().width;
-      bar.style.left = Math.round(x*w) + 'px';
-
-      if(holding){
-        total++;
-        if(inZone()){ score++; flashGood(); }
-        else { miss++; flashBad(); }
-      }
-      rafLocal = requestAnimationFrame(step);
-    }
-
-    holdBtn.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      holding=true;
-      holdBtn.textContent='กำลังค้าง...';
-      holdBtn.classList.add('primary');
-    });
-    WIN.addEventListener('pointerup', ()=>{
-      if(!holding) return;
-      holding=false;
-      holdBtn.textContent='กดค้าง (HOLD)';
+    Object.entries(buff||{}).forEach(([k,v])=>{
+      if(v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
     });
 
-    rafLocal = requestAnimationFrame(step);
+    if(!u.searchParams.has('wType')) u.searchParams.set('wType', String((buff&&buff.wType) || 'warmup'));
+    if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String((buff&&buff.wPct)  || 10));
+
+    return u.toString();
   }
 
-  function ex_v1_planner(){
-    gameTitle.textContent='Exercise Warmup — Planner V1: Plan Sprint';
-    desc.textContent='แตะจัด “กิจกรรม 3 ช่วง” ให้ครบ (เช้า/กลางวัน/เย็น)';
-    center.style.display='none';
+  // ---------- End ----------
+  function endNow(buffObj){
+    if(!started) return;
+    started=false;
+    cancelAnimationFrame(raf);
 
-    const acts=['เดินเร็ว','ยืดเหยียด','กระโดดตบ','วิดพื้น','สควอต','วิ่งอยู่กับที่','แพลงก์'];
-    const slots=['เช้า','กลางวัน','เย็น'];
+    markDaily(dailyPrefix, cat, pid);
 
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'42%',transform:'translate(-50%,-50%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">จัดแผน 3 ช่วง</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เลือกกิจกรรมให้ครบ 3 ช่อง (ลบช่อง = MISS)</div>
-      <div id="slots" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
-      <div id="acts" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
-    `;
-    stage.appendChild(card);
+    const buff = buffObj || {};
+    const nextUrl = buildNextUrl(buff);
 
-    const slotsEl=card.querySelector('#slots');
-    const actsEl=card.querySelector('#acts');
+    endOverlay.style.display='flex';
+    endOverlay.setAttribute('aria-hidden','false');
+    endTitle.textContent = (gate==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
+    endScore.textContent = String(score);
+    endMiss.textContent  = String(miss);
+    endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
+    endNext.textContent  = nextUrl ? 'YES' : 'HUB';
+    endMsg.textContent =
+      (gate==='cooldown')
+        ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
+        : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง';
 
-    const chosen = {เช้า:'',กลางวัน:'',เย็น:''};
-
-    function renderSlots(){
-      slotsEl.innerHTML='';
-      slots.forEach(s=>{
-        const box=DOC.createElement('div');
-        box.style.border='1px solid rgba(148,163,184,.18)';
-        box.style.borderRadius='16px';
-        box.style.background='rgba(2,6,23,.35)';
-        box.style.padding='10px 12px';
-        box.style.minHeight='60px';
-        box.innerHTML = `<div style="font-weight:1100;">${s}</div>
-          <div class="muted" style="margin-top:6px;">${chosen[s]||'ว่าง'}</div>`;
-        slotsEl.appendChild(box);
-
-        box.addEventListener('click', ()=>{
-          if(!started) return;
-          if(chosen[s]){
-            total++;
-            chosen[s]='';
-            miss++; toastShow('MISS'); flashBad();
-            renderSlots();
-          }
-        });
-      });
-    }
-
-    function renderActs(){
-      actsEl.innerHTML='';
-      const pick = [];
-      while(pick.length<6){
-        const a = randPick(acts);
-        if(!pick.includes(a)) pick.push(a);
-      }
-      pick.forEach(a=>{
-        const b=mkBtn(a);
-        b.style.padding='12px 10px';
-        b.style.borderRadius='16px';
-        actsEl.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          const s = slots.find(x=>!chosen[x]);
-          if(!s){
-            miss++; toastShow('MISS'); flashBad();
-            return;
-          }
-          chosen[s]=a;
-          score++; toastShow('+1'); flashGood();
-          renderSlots();
-
-          if(slots.every(x=>chosen[x])){
-            score += 2; toastShow('+BONUS'); flashGood();
-          }
-        });
-      });
-    }
-
-    renderSlots();
-    renderActs();
+    btnToHub.onclick = ()=> location.href = hub;
+    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
   }
 
-  // ---------------- COOLDOWN ----------------
+  // ---------- Tick ----------
+  function tick(ts){
+    if(!started) return;
+    if(!lastTs) lastTs = ts;
+    const dt = Math.min(0.25, (ts-lastTs)/1000);
+    lastTs = ts;
+    tLeft = Math.max(0, tLeft - dt);
+    setHUD();
+    if(tLeft<=0){
+      if(gate==='cooldown') endNow({ calm: 1 });
+      else endNow(makeWarmupBuff(themeKey));
+      return;
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  // ---------- Daily auto-skip ----------
+  function autoSkipIfDaily(){
+    if(!dailyDone) return false;
+    const target = (next0 || hub);
+    subLine.textContent = `วันนี้ทำ ${gate} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
+    statusText.textContent = 'Daily gate: DONE';
+    setTimeout(()=> location.replace(target), 220);
+    return true;
+  }
+
+  // ---------- Cooldown mini ----------
   function runCooldown_Calm(){
     gameTitle.textContent='Cooldown — Calm Breathing';
-    desc.textContent='แตะ “IN/OUT” ให้ตรงจังหวะ (ผ่อนคลายสั้น ๆ)';
+    desc.textContent='แตะ “IN/OUT” ให้ตรงคำสั่ง (ผ่อนคลายสั้น ๆ)';
     center.style.display='none';
 
     const card=DOC.createElement('div');
@@ -1998,7 +964,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
       border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)',textAlign:'center'});
     card.innerHTML = `
       <div style="font-weight:1100;font-size:16px;">หายใจตามจังหวะ</div>
-      <div id="bx" style="margin-top:12px;font-size:56px;">🫁</div>
+      <div style="margin-top:12px;font-size:56px;">🫁</div>
       <div id="bt" style="margin-top:8px;font-size:18px;font-weight:1100;">INHALE</div>
       <div class="muted" style="margin-top:6px;">แตะให้ตรงคำสั่ง</div>
       <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
@@ -2013,12 +979,12 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
 
     let cur='IN';
     function next(){
-      total++;
       cur = (Math.random()<0.5)?'IN':'OUT';
       bt.textContent = (cur==='IN')?'INHALE':'EXHALE';
     }
     function choose(a){
       if(!started) return;
+      total++;
       if(a===cur){ score++; flashGood(); toastShow('+1'); }
       else { miss++; flashBad(); toastShow('MISS'); }
       next();
@@ -2028,71 +994,9 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
     next();
   }
 
-  // =====================================================================
-  //  Variant router by cat+theme
-  // =====================================================================
-  const POOLS = {
-    nutrition: {
-      goodjunk:  [gj_v1_sort, gj_v2_trashdash, gj_v3_speedplate, gj_v4_combo, gj_v5_memory],
-      groups:    [gr_v1_snapmatch, gr_v2_twochoices, gr_v3_sort5bins, gr_v4_speedround, gr_v5_flashcards],
-      hydration: [hy_v1_siprhythm, hy_v2_cupcatch, hy_v3_meter, hy_v4_choice, hy_v5_fill],
-      plate:     [pl_v1_builder, pl_v2_missinggroup, pl_v3_portion, pl_v4_speedadd, pl_v5_quiz],
-    },
-    hygiene: {
-      handwash:  [hw_v1_order, hw_v2_spots, hw_v3_timer, hw_v4_germs, hw_v5_combo],
-      brush:     [br_v1_angle, br_v2_zone, br_v3_combo, br_v4_timer, br_v5_quiz],
-      maskcough: [mc_v1_choice, mc_v2_fast, mc_v3_signs, mc_v4_distance, mc_v5_combo],
-      germ:      [ge_v1_detect, ge_v2_spread, ge_v3_hide, ge_v4_flash, ge_v5_boss],
-      // extras you mentioned:
-      germprotective: [ge_v1_detect, ge_v2_spread, ge_v3_hide, ge_v4_flash, ge_v5_boss],
-      cleanobject:    [hw_v1_order, hw_v2_spots, hw_v3_timer, hw_v4_germs, hw_v5_combo],
-    },
-    exercise: {
-      shadow:   [ex_v1_dodge, ex_v1_dodge, ex_v1_dodge, ex_v1_dodge, ex_v1_dodge],
-      rhythm:   [ex_v1_rhythm, ex_v1_rhythm, ex_v1_rhythm, ex_v1_rhythm, ex_v1_rhythm],
-      jumpduck: [ex_v1_jumpduck, ex_v1_jumpduck, ex_v1_jumpduck, ex_v1_jumpduck, ex_v1_jumpduck],
-      balance:  [ex_v1_balance, ex_v1_balance, ex_v1_balance, ex_v1_balance, ex_v1_balance],
-      planner:  [ex_v1_planner, ex_v1_planner, ex_v1_planner, ex_v1_planner, ex_v1_planner],
-    }
-  };
-
-  function runWarmupByVariant(){
-    const zone = POOLS[cat] ? cat : 'nutrition';
-    const themePool = (POOLS[zone] && POOLS[zone][themeKey]) ? POOLS[zone][themeKey] : null;
-
-    // fallback theme within zone
-    let pool = themePool;
-    if(!pool){
-      const fallbackTheme = (zone==='hygiene') ? 'handwash' : (zone==='exercise') ? 'jumpduck' : 'goodjunk';
-      pool = (POOLS[zone] && POOLS[zone][fallbackTheme]) ? POOLS[zone][fallbackTheme] : POOLS.nutrition.goodjunk;
-    }
-
-    const idx = clamp(variant, 1, 5) - 1;
-    const fn = pool[idx] || pool[0];
-    fn();
-  }
-
-  // ---------- Buff generator ----------
-  function makeWarmupBuff(){
-    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
-    const pct = Math.round(clamp(acc*100, 5, 30)); // 5..30
-    const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
-
-    let wCrit=0, wDmg=0, wHeal=0;
-    // heal-ish themes
-    if(themeKey==='hydration' || themeKey==='handwash' || themeKey==='maskcough') wHeal = 1;
-    else if(themeKey==='shadow' || themeKey==='rhythm' || themeKey==='jumpduck') wDmg = 1;
-    else wCrit = 1;
-
-    return { wType:'warmup', wPct:pct, rank, wCrit, wDmg, wHeal };
-  }
-
   // ---------- Start / Skip ----------
   function start(){
-    if(dailyDone){
-      autoSkipIfDaily();
-      return;
-    }
+    if(dailyDone){ autoSkipIfDaily(); return; }
 
     clearStage();
     score=0; miss=0; total=0;
@@ -2104,19 +1008,27 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
 
     started=true;
 
-    if(phase==='cooldown'){
+    if(gate==='cooldown'){
       runCooldown_Calm();
       statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat}`;
+      pillPick.textContent = `PICK: ${String(q('pick','rand')).toUpperCase()}`;
     }else{
-      runWarmupByVariant();
-      statusText.textContent = `Warmup (${dur}s) — cat=${cat} theme=${themeKey} pick=${pickMode} var=${variant}`;
+      const v = pickVariantForTheme(themeKey);
+      const key = themeToVariantKey(themeKey, v);
+
+      pillPick.textContent = `PICK: ${String(q('pick','rand')).toUpperCase()} v${v}`;
+
+      const fn = Theme[key] || Theme[themeKey] || Theme.goodjunk;
+      fn();
+
+      statusText.textContent = `Warmup (${dur}s) — theme=${themeKey} v${v} → next`;
     }
 
-    subLine.textContent = (phase==='cooldown')
+    subLine.textContent = (gate==='cooldown')
       ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
       : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)';
 
-    rafTick = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
 
   function skip(){
@@ -2127,42 +1039,35 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260218-pick5-FULL)
 
   function maybeAutoEnd(){
     if(!started) return;
-    if(phase==='cooldown'){
-      endNow({ calm: 1 });
-    }else{
-      endNow(makeWarmupBuff());
-    }
+    if(gate==='cooldown') endNow({ calm: 1 });
+    else endNow(makeWarmupBuff(themeKey));
   }
 
   // ---------- UI init ----------
-  pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
-  pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
-  pillTheme.textContent = `THEME: ${String(themeKey).toUpperCase()}`;
-  pillPick.textContent  = `PICK: ${String(pickMode).toUpperCase()} (${runMode})`;
-  pillVar.textContent   = `VAR: ${variant}${forcedVar? ' (forced)':''}`;
-  pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
+  pillPhase.textContent  = `PHASE: ${gate.toUpperCase()}`;
+  pillCat.textContent    = `CAT: ${cat.toUpperCase()}`;
+  pillTheme.textContent  = `THEME: ${themeKey.toUpperCase()}`;
+  pillPick.textContent   = `PICK: ${String(q('pick','rand')).toUpperCase()}`;
+  pillDaily.textContent  = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
 
   btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
 
-  // tap stage to start
   stage.addEventListener('pointerdown', ()=>{
     if(!started && !dailyDone) start();
   }, {passive:true});
 
-  // auto skip if daily already done
   if(!autoSkipIfDaily()){
-    const name = (phase==='cooldown')?'Cooldown':'Warmup';
+    const name = (gate==='cooldown')?'Cooldown':'Warmup';
     subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
-    statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} pick=${pickMode} var=${variant} next=${next0 ? 'yes' : 'hub'}`;
+    statusText.textContent =
+      `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`
+      + (studyPhase ? ` studyPhase=${studyPhase}` : '');
     setHUD();
   }
 
-  // safety: if started and user leaves tab -> end
   WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && started){
-      maybeAutoEnd();
-    }
+    if(DOC.hidden && started) maybeAutoEnd();
   });
 
 })();
