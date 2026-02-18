@@ -1,19 +1,19 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR BOOT — PRODUCTION (AUTO VIEW + AUTO VR-UI + SAFE-ZONE MEASURE)
-// v2026-02-18b
+// GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
+// v2026-02-18d
 //
-// ✅ Auto view: pc/mobile/vr/cvr (from ?view=)
-// ✅ Auto load ../vr/vr-ui.js when view=vr|cvr (safe, idempotent)
-// ✅ Compute safe-zone from DOM heights (topbar + HUD top + HUD bottom + safe-area insets)
-// ✅ Set CSS vars: --gj-top-safe, --gj-bottom-safe (used by goodjunk.safe.js spawn)
-// ✅ Recompute on resize/orientation + HUD toggle + quest open/close
-// ✅ Pointer-events hardening: HUD won't block targets; top buttons still clickable
-// ✅ NO duplicate hha:end listeners here (HTML handles end overlay UI)
+// ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
+// ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+// ✅ Compute safe zones -> sets :root CSS vars:
+//    --gj-top-safe, --gj-bottom-safe, --sat/--sab/--sal/--sar
+// ✅ HUD-safe spawn: prevents targets under topbar/hud/bottom meters
+// ✅ No duplicate listeners (guards with window.__GJ_BOOT__)
+// ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot only binds buttons if present)
+// ✅ Fix "panel โผล่" / "layout แน่น" on short screens by updating safe vars on resize/orientation
 //
 // Requires:
-//  - ./goodjunk.safe.js exports boot(payload)
-//  - HTML has #gj-layer (and optional #gj-layer-r)
-//  - CSS uses --gj-top-safe/--gj-bottom-safe for spawn safe rect (safe.js reads them)
+// - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...}) OR is called elsewhere
+// - goodjunk-vr.html includes IDs used by safe.js + optional end overlay buttons.
 
 'use strict';
 
@@ -22,228 +22,278 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 (function(){
   const WIN = window;
   const DOC = document;
-  const ROOT = DOC.documentElement;
 
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const now = ()=> (performance?.now?.() ?? Date.now());
-
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+  // Guard: avoid duplicate boot on hot reload / double script include
+  if (WIN.__GJ_BOOT__ && WIN.__GJ_BOOT__.started) {
+    console.warn('[GJ BOOT] already started, skip');
+    return;
   }
-  function toNum(x, def=0){
-    const n = Number(x);
-    return Number.isFinite(n) ? n : def;
+  WIN.__GJ_BOOT__ = WIN.__GJ_BOOT__ || {};
+  WIN.__GJ_BOOT__.started = true;
+
+  // ---------------- helpers ----------------
+  const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  const byId = (id)=>DOC.getElementById(id);
+
+  function setRootVar(name, value){
+    try{ DOC.documentElement.style.setProperty(name, String(value)); }catch(_){}
   }
-
-  // ---------- read params ----------
-  const view = String(qs('view','mobile') || 'mobile').toLowerCase();
-  const diff = String(qs('diff','normal') || 'normal').toLowerCase();
-  const run  = String(qs('run','play') || 'play').toLowerCase();
-  const time = clamp(toNum(qs('time','80'), 80), 20, 300);
-
-  const hub  = (qs('hub', null) || null);
-  const seed = (qs('seed', null) || qs('ts', null) || null);
-
-  // ---------- body classes (optional) ----------
-  try{
-    DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    DOC.body.classList.add(
-      view==='pc' ? 'view-pc' :
-      view==='vr' ? 'view-vr' :
-      view==='cvr'? 'view-cvr' : 'view-mobile'
-    );
-  }catch(_){}
-
-  // ---------- auto VR-UI loader ----------
-  function ensureVRUI(){
-    if(!(view === 'vr' || view === 'cvr')) return;
-
-    // already loaded latch
-    if(WIN.__HHA_VRUI_LOADED__) return;
-
-    // if script already in DOM, mark loaded-ish
-    const existed = Array.from(DOC.scripts || []).some(s => (s?.src || '').includes('/vr/vr-ui.js'));
-    if(existed){
-      WIN.__HHA_VRUI_LOADED__ = true;
-      return;
-    }
-
-    // set config before loading
-    WIN.HHA_VRUI_CONFIG = Object.assign({
-      lockPx: 30,
-      cooldownMs: 90,
-      showCrosshair: true,
-      showButtons: true,
-      cvrStrict: (view === 'cvr')
-    }, WIN.HHA_VRUI_CONFIG || {});
-
-    const s = DOC.createElement('script');
-    s.src = '../vr/vr-ui.js?v=20260218b';
-    s.defer = true;
-    s.onload = ()=>{ WIN.__HHA_VRUI_LOADED__ = true; };
-    s.onerror = ()=>{ /* fail-safe */ };
-    DOC.head.appendChild(s);
-  }
-
-  // ---------- safe-area helpers ----------
-  function pxFromCssVar(name, fallback=0){
+  function getInsetPx(envName){
+    // best effort: CSS env values already applied via CSS, but we also write to vars
+    // We'll approximate by reading computed style of :root after env() resolved in CSS.
     try{
-      const v = String(getComputedStyle(ROOT).getPropertyValue(name) || '').trim();
-      const n = Number(String(v).replace('px',''));
-      return Number.isFinite(n) ? n : fallback;
-    }catch(_){ return fallback; }
-  }
-  function setRootVar(name, px){
-    try{ ROOT.style.setProperty(name, `${Math.max(0, Math.round(px))}px`); }catch(_){}
-  }
-  function rectH(el){
-    try{
-      if(!el) return 0;
-      const r = el.getBoundingClientRect();
-      return (r && Number.isFinite(r.height)) ? Math.max(0, r.height) : 0;
+      const cs = getComputedStyle(DOC.documentElement);
+      const v = cs.getPropertyValue(envName).trim();
+      const n = Number(String(v).replace('px','').trim());
+      return Number.isFinite(n) ? n : 0;
     }catch(_){ return 0; }
   }
-  function isVisible(el){
-    if(!el) return false;
-    const st = getComputedStyle(el);
-    return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
+
+  function detectView(){
+    const v = String(qs('view','')||'').toLowerCase().trim();
+    if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
+
+    // heuristic: cvr if query view=cvr or if user is in stereo mode param used by your hub
+    const hinted = String(qs('stereo','')||'').toLowerCase();
+    if (hinted === '1' || hinted === 'true') return 'cvr';
+
+    // PC if wide screen / has mouse
+    const w = DOC.documentElement.clientWidth || innerWidth || 800;
+    const hasCoarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+    if (!hasCoarse && w >= 760) return 'pc';
+    return 'mobile';
   }
 
-  // ---------- pointer-events hardening ----------
-  function hardenPointerEvents(){
-    // Goal: HUD shouldn't block clicking targets in the field
-    // - HUD containers => pointer-events:none
-    // - Buttons/panels => pointer-events:auto
-    try{
-      const topbar = DOC.querySelector('.gj-topbar');
-      const hudTop = DOC.querySelector('.gj-hud-top');
-      const hudBot = DOC.querySelector('.gj-hud-bot');
-
-      if(topbar) topbar.style.pointerEvents = 'auto';
-      if(hudTop) hudTop.style.pointerEvents = 'none';
-      if(hudBot) hudBot.style.pointerEvents = 'none';
-
-      // allow buttons
-      const allow = [
-        '#btnQuestOpen','#btnHideHud','#btnRestartTop','#btnHubTop',
-        '#btnQuestClose','#questPanel .gj-quest-card',
-        '.gj-topbar button','.gj-topbar .gj-btn',
-      ];
-      allow.forEach(sel=>{
-        DOC.querySelectorAll(sel).forEach(el=>{
-          try{ el.style.pointerEvents = 'auto'; }catch(_){}
-        });
-      });
-
-      // ensure playfield layers are clickable
-      const L = DOC.getElementById('gj-layer');
-      const R = DOC.getElementById('gj-layer-r');
-      if(L) L.style.pointerEvents = 'auto';
-      if(R) R.style.pointerEvents = 'auto';
-    }catch(_){}
-  }
-
-  // ---------- cVR right-eye handling ----------
-  function applyEyeMode(){
-    try{
-      const R = DOC.getElementById('gj-layer-r');
-      if(!R) return;
-      if(view === 'cvr'){
-        R.setAttribute('aria-hidden','false');
-      }else{
-        R.setAttribute('aria-hidden','true');
-      }
-    }catch(_){}
-  }
-
-  // ---------- safe-zone measurement ----------
-  function measureSafeZone(){
-    // Base safe-area insets (assumes your CSS defines --sat/--sab/--sar)
-    const sat = pxFromCssVar('--sat', 0);
-    const sab = pxFromCssVar('--sab', 0);
-
+  function computeSafeZones(){
+    // measure fixed UI blocks to compute safe spawn zones
     const topbar = DOC.querySelector('.gj-topbar');
-    const hudTop = DOC.querySelector('.gj-hud-top');
+    const hudTop = byId('hud') || DOC.querySelector('.gj-hud-top');
     const hudBot = DOC.querySelector('.gj-hud-bot');
+    const controls = DOC.querySelector('.hha-controls'); // optional
 
-    const hudHidden = DOC.body.classList.contains('hud-hidden');
+    const H = DOC.documentElement.clientHeight || innerHeight || 700;
 
-    // buffers
-    const PAD_TOP = 14;
-    const PAD_BOT = 14;
+    const sat = getInsetPx('--sat') || 0;
+    const sab = getInsetPx('--sab') || 0;
+    const sal = getInsetPx('--sal') || 0;
+    const sar = getInsetPx('--sar') || 0;
 
-    // dynamic buffer for short screens
-    const vh = DOC.documentElement.clientHeight || 800;
-    const dynamic = clamp(vh * 0.015, 6, 18);
+    // write insets anyway (if CSS didn't define them)
+    setRootVar('--sat', `${sat}px`);
+    setRootVar('--sab', `${sab}px`);
+    setRootVar('--sal', `${sal}px`);
+    setRootVar('--sar', `${sar}px`);
 
-    const hTopbar = rectH(topbar);
-    const hHudTop = (!hudHidden && isVisible(hudTop)) ? rectH(hudTop) : 0;
-    const hHudBot = (!hudHidden && isVisible(hudBot)) ? rectH(hudBot) : 0;
-
-    const topSafe = sat + hTopbar + hHudTop + PAD_TOP + dynamic;
-    const botSafe = sab + hHudBot + PAD_BOT + dynamic;
-
-    setRootVar('--gj-top-safe', topSafe);
-    setRootVar('--gj-bottom-safe', botSafe);
-
-    WIN.__GJ_SAFEZONE__ = {
-      topSafe, botSafe, sat, sab,
-      hTopbar, hHudTop, hHudBot,
-      hudHidden,
-      t: now()
-    };
-  }
-
-  function settleMeasure(){
-    // measure repeatedly during first frames (fonts/layout settle)
-    let n = 0;
-    const max = 18;
-    function step(){
-      measureSafeZone();
-      n++;
-      if(n < max) requestAnimationFrame(step);
+    function rectH(el){
+      if(!el) return 0;
+      try{
+        const r = el.getBoundingClientRect();
+        return Math.max(0, r.height || 0);
+      }catch(_){ return 0; }
     }
-    requestAnimationFrame(step);
+
+    const topbarH = rectH(topbar);
+    const hudTopH = rectH(hudTop);
+
+    // bottom: meters + optional controls cluster; add sab
+    const hudBotH = rectH(hudBot);
+    const controlsH = rectH(controls);
+
+    // top safe: topbar + (some hud) + margin
+    // If quest panel exists and is open, we still want safe rect stable; so ignore it.
+    let topSafe = topbarH + hudTopH + 10;
+    topSafe = clamp(topSafe, 110 + sat, Math.floor(H * 0.55));
+
+    // bottom safe: bottom meters + controls + margin
+    let bottomSafe = hudBotH + Math.max(0, controlsH - 8) + 10;
+    bottomSafe = clamp(bottomSafe, 90 + sab, Math.floor(H * 0.50));
+
+    // If very short screen, shrink bottom safe a bit to leave play room
+    if (H <= 640) {
+      bottomSafe = clamp(bottomSafe, 80 + sab, Math.floor(H * 0.42));
+      topSafe    = clamp(topSafe, 100 + sat, Math.floor(H * 0.50));
+    }
+    if (H <= 560) {
+      bottomSafe = clamp(bottomSafe, 70 + sab, Math.floor(H * 0.38));
+      topSafe    = clamp(topSafe, 92 + sat, Math.floor(H * 0.46));
+    }
+
+    setRootVar('--gj-top-safe', `${Math.round(topSafe)}px`);
+    setRootVar('--gj-bottom-safe', `${Math.round(bottomSafe)}px`);
+
+    // debug hook
+    WIN.__GJ_BOOT__.safe = { topSafe, bottomSafe, topbarH, hudTopH, hudBotH, controlsH, H, sat, sab, sal, sar };
   }
 
-  function watchBodyClass(){
-    // if hud-hidden / quest-open toggles => recompute safe zone
-    try{
-      const mo = new MutationObserver(()=> measureSafeZone());
-      mo.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
-    }catch(_){}
+  // Load script once (for vr-ui.js)
+  function loadScriptOnce(src){
+    return new Promise((resolve)=>{
+      try{
+        const key = '__LOADED__' + src;
+        if (WIN[key]) return resolve(true);
+
+        // also check existing script tags
+        const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes(src));
+        if (exists){
+          WIN[key] = true;
+          return resolve(true);
+        }
+
+        const s = DOC.createElement('script');
+        s.src = src;
+        s.defer = true;
+        s.onload = ()=>{ WIN[key] = true; resolve(true); };
+        s.onerror = ()=>{ resolve(false); };
+        DOC.head.appendChild(s);
+      }catch(_){
+        resolve(false);
+      }
+    });
   }
 
-  function attachResize(){
+  async function ensureVrUi(view){
+    // only load if VR/cVR or explicitly asked
+    const need = (view === 'vr' || view === 'cvr' || String(qs('vrui','0')) === '1');
+    if(!need) return;
+
+    // Provide optional config for vr-ui
+    WIN.HHA_VRUI_CONFIG = WIN.HHA_VRUI_CONFIG || {};
+    // stricter for cvr: aim from center, targets should remain tappable but we shoot from crosshair
+    if (view === 'cvr') {
+      WIN.HHA_VRUI_CONFIG.cvrStrict = true;
+      WIN.HHA_VRUI_CONFIG.lockPx = Number(qs('lockPx','28')) || 28;
+      WIN.HHA_VRUI_CONFIG.cooldownMs = Number(qs('cooldownMs','90')) || 90;
+      WIN.HHA_VRUI_CONFIG.showCrosshair = true;
+      WIN.HHA_VRUI_CONFIG.showButtons = true;
+    }
+
+    await loadScriptOnce('../vr/vr-ui.js?v=20260216a');
+  }
+
+  function bindBasicButtons(){
+    // No end overlay duplication; just button actions if present.
+    const btnRestartTop = byId('btnRestartTop');
+    const btnRestartEnd = byId('btnRestartEnd');
+    const btnHubTop     = byId('btnHubTop');
+    const btnBackHub    = byId('btnBackHub');
+
+    function hubUrl(){
+      return (qs('hub','../hub.html') || '../hub.html');
+    }
+
+    function restart(){
+      const u = new URL(location.href);
+      // avoid freeze/cached state: bump seed in play mode
+      if (String(qs('run','play')).toLowerCase() !== 'research') {
+        u.searchParams.set('seed', String(Date.now()));
+      }
+      location.href = u.toString();
+    }
+
+    btnRestartTop && btnRestartTop.addEventListener('click', restart);
+    btnRestartEnd && btnRestartEnd.addEventListener('click', restart);
+
+    btnHubTop  && btnHubTop.addEventListener('click', ()=> location.href = hubUrl());
+    btnBackHub && btnBackHub.addEventListener('click', ()=> location.href = hubUrl());
+  }
+
+  // Prevent "ค้าง" from stacking intervals (Quest panel meter sync in HTML)
+  function guardIntervals(){
+    // If prior page script set intervals and we reloaded via SPA, attempt cleanup marker
+    // (Hard to cancel unknown intervals; so we just avoid adding new ones here.)
+    // kept for future expansion
+  }
+
+  // ---------------- main ----------------
+  async function main(){
+    const view = detectView();
+    WIN.__GJ_BOOT__.view = view;
+
+    // Tag body for CSS (optional)
+    DOC.body.classList.toggle('view-pc', view === 'pc');
+    DOC.body.classList.toggle('view-mobile', view === 'mobile');
+    DOC.body.classList.toggle('view-vr', view === 'vr');
+    DOC.body.classList.toggle('view-cvr', view === 'cvr');
+
+    // ensure VR UI if needed
+    await ensureVrUi(view);
+
+    // compute safe zones (after VR UI buttons may inject)
+    computeSafeZones();
+
+    // bind base buttons
+    bindBasicButtons();
+    guardIntervals();
+
+    // re-compute safe zone on resize/orientation + when HUD toggled
     let raf = 0;
-    const on = ()=>{
-      if(raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(()=> measureSafeZone());
+    const requestRecalc = ()=>{
+      if (raf) return;
+      raf = requestAnimationFrame(()=>{
+        raf = 0;
+        computeSafeZones();
+      });
     };
-    WIN.addEventListener('resize', on, { passive:true });
-    WIN.addEventListener('orientationchange', on, { passive:true });
+
+    WIN.addEventListener('resize', requestRecalc, { passive:true });
+    WIN.addEventListener('orientationchange', requestRecalc, { passive:true });
+
+    // When user toggles HUD or quest panel, update safe rect quickly
+    DOC.addEventListener('click', (e)=>{
+      const t = e.target;
+      if(!t) return;
+      const id = t.id || '';
+      if (id === 'btnHideHud' || id === 'btnQuestOpen' || id === 'btnQuestClose') {
+        setTimeout(requestRecalc, 30);
+        setTimeout(requestRecalc, 180);
+      }
+    }, { passive:true });
+
+    // also update after fonts/layout settle
+    setTimeout(requestRecalc, 180);
+    setTimeout(requestRecalc, 600);
+
+    // payload -> safe engine
+    const payload = {
+      view,
+      run:  String(qs('run','play') || 'play'),
+      diff: String(qs('diff','normal') || 'normal'),
+      time: Number(qs('time','80') || 80),
+      hub:  qs('hub', null),
+      seed: qs('seed', null) ?? qs('ts', null),
+      studyId: qs('studyId', qs('study', null)),
+      phase: qs('phase', null),
+      conditionGroup: qs('conditionGroup', qs('cond', null)),
+    };
+
+    // Start SAFE engine (single source of truth)
+    try{
+      bootSafe(payload);
+    }catch(err){
+      console.error('[GJ BOOT] bootSafe failed:', err);
+      // soft fail message on screen
+      try{
+        const div = DOC.createElement('div');
+        div.style.position = 'fixed';
+        div.style.left = '12px';
+        div.style.right = '12px';
+        div.style.bottom = '12px';
+        div.style.zIndex = '9999';
+        div.style.padding = '10px 12px';
+        div.style.borderRadius = '14px';
+        div.style.background = 'rgba(255,80,80,.18)';
+        div.style.border = '1px solid rgba(255,80,80,.35)';
+        div.textContent = 'GoodJunkVR error: เปิด console ดูรายละเอียด';
+        DOC.body.appendChild(div);
+      }catch(_){}
+    }
   }
 
-  // ---------- init ----------
-  ensureVRUI();
-  applyEyeMode();
-  hardenPointerEvents();
-
-  measureSafeZone();
-  settleMeasure();
-  watchBodyClass();
-  attachResize();
-
-  // ---------- boot safe engine ----------
-  // NOTE: do NOT bind end overlay listeners here
-  bootSafe({
-    view,
-    diff,
-    run,
-    time,
-    hub,
-    seed
-  });
-
+  // Wait DOM ready (module executes after parse, but safe to ensure)
+  if (DOC.readyState === 'loading') {
+    DOC.addEventListener('DOMContentLoaded', main, { once:true });
+  } else {
+    main();
+  }
 })();
