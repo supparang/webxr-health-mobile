@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Clean Objects (Launcher)</title>
+  <style>
+    :root{ --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455; }
+    html,body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--fg); }
+    .wrap{ max-width:920px; margin:0 auto; padding:24px 16px 40px; }
+    h1{ margin:0 0 6px; font-size:22px; }
+    .sub{ color:var(--mut); margin:0 0 16px; }
+    .grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card{ background:var(--card); border:1px solid var(--bd); border-radius:16px; padding:14px; }
+    .card h2{ margin:0 0 6px; font-size:16px; }
+    .card p{ margin:0 0 12px; color:var(--mut); font-size:13px; line-height:1.35; }
+    .btn{ width:100%; border:1px solid var(--bd); background:#1a2a4a; color:var(--fg);
+      padding:12px 12px; border-radius:12px; font-weight:700; cursor:pointer; }
+    .btn:active{ transform: translateY(1px); }
+    .row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .pill{ padding:8px 10px; border:1px dashed var(--bd); border-radius:999px; color:var(--mut); font-size:12px; }
+    .tiny{ color:var(--mut); font-size:12px; margin-top:12px; line-height:1.4; }
+    code{ color:#cfe2ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Clean Objects — Home</h1>
+    <p class="sub">เลือกโหมดเล่น: PC/Mobile = A (Map) • Cardboard = B (3D/WebXR)</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>A) PC / Mobile (Map + Tap)</h2>
+        <p>เล่นเร็ว คิดคุ้ม (Evaluate) + วางแผน (Create) ด้วยแผนที่บ้าน</p>
+        <button class="btn" id="btnA">Play (PC/Mobile)</button>
+      </div>
+
+      <div class="card">
+        <h2>B) Cardboard (3D + Crosshair)</h2>
+        <p>สำรวจบ้านใน 3D • เล็ง crosshair แล้วทำความสะอาด (ผ่าน <code>vr-ui.js</code>)</p>
+        <button class="btn" id="btnB">Play (Cardboard)</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="pill">ส่งต่อพารามิเตอร์ทั้งหมด: run/diff/time/seed/pid/hub/ai/debug/api</div>
+      <div class="pill">ถ้าไม่ส่ง <code>view</code> มา: ปุ่มนี้จะกำหนดให้เอง</div>
+    </div>
+
+    <div class="tiny">
+      Run page: <code>/herohealth/vr-clean/home-clean.html</code><br/>
+      Tip: ถ้าเข้า launcher จาก hub แล้วมีพารามิเตอร์อยู่แล้ว (seed/time/diff ฯลฯ) ระบบจะพกไปให้ครบ
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  const RUN_URL = './vr-clean/home-clean.html'; // relative to /herohealth/
+
+  function parseQS() {
+    const u = new URL(location.href);
+    const o = {};
+    u.searchParams.forEach((v,k)=>{ o[k]=v; });
+    return o;
+  }
+  function toQS(obj){
+    const sp = new URLSearchParams();
+    Object.keys(obj).forEach(k=>{
+      if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).length) sp.set(k, String(obj[k]));
+    });
+    return sp.toString();
+  }
+
+  // keep everything, but override view as requested
+  const base = parseQS();
+
+  // sensible defaults if missing
+  if(!base.run)  base.run = 'play';
+  if(!base.diff) base.diff = 'normal';
+  if(!base.time) base.time = '90';
+  if(!base.seed) base.seed = String(Date.now());
+  if(!base.pid)  base.pid = 'anon';
+
+  function go(view){
+    const p = Object.assign({}, base, { view });
+    const url = RUN_URL + '?' + toQS(p);
+    location.href = url;
+  }
+
+  document.getElementById('btnA').addEventListener('click', ()=> {
+    // PC/Mobile → A
+    // ให้ view เป็น mobile/pc ได้ แต่ A renderer จะถือว่า "ไม่ใช่ cvr" = A
+    go(isMobileUA() ? 'mobile' : 'pc');
+  });
+
+  document.getElementById('btnB').addEventListener('click', ()=> {
+    // Cardboard → B
+    go('cvr');
+  });
+
+  function isMobileUA(){
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua);
+  }
+})();
+</script>
+</body>
+</html>
