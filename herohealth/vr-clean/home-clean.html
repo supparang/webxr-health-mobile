@@ -9,33 +9,127 @@
       --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455;
       --safeT: env(safe-area-inset-top, 0px);
       --safeB: env(safe-area-inset-bottom, 0px);
+      --ok:#1f8b4c; --warn:#c7a100; --bad:#c54848;
     }
     html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #app{ position:fixed; inset:0; padding-top:var(--safeT); padding-bottom:var(--safeB); overflow:hidden; }
 
     /* shared HUD */
-    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT)); display:flex; gap:10px; z-index:20; }
-    .hud .box{ flex:1; background:rgba(18,27,47,.86); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; }
+    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT)); display:flex; gap:10px; z-index:30; }
+    .hud .box{ flex:1; background:rgba(18,27,47,.86); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; min-width:0; }
     .hud .t{ font-size:12px; color:var(--mut); }
-    .hud .v{ font-size:16px; font-weight:800; margin-top:2px; }
+    .hud .v{ font-size:16px; font-weight:900; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     /* A renderer container */
     #mapRoot{ position:absolute; inset:0; display:none; }
-    .mapWrap{ position:absolute; inset:64px 12px 12px; border:1px solid var(--bd); border-radius:18px; background:rgba(18,27,47,.55); overflow:hidden; }
-    .mapTop{ position:absolute; left:12px; right:12px; top:calc(64px + 12px); display:flex; gap:8px; z-index:10; }
-    .btn{ border:1px solid var(--bd); background:#1a2a4a; color:var(--fg); padding:10px 12px; border-radius:12px; font-weight:800; cursor:pointer; }
+    .toolbar{
+      position:fixed; left:12px; right:12px;
+      top:calc(64px + var(--safeT));
+      display:flex; gap:8px; z-index:25; flex-wrap:wrap;
+    }
+    .btn{
+      border:1px solid var(--bd);
+      background:#1a2a4a; color:var(--fg);
+      padding:10px 12px; border-radius:12px;
+      font-weight:900; cursor:pointer;
+    }
     .btn:active{ transform: translateY(1px); }
-    .hint{ position:absolute; left:0; right:0; bottom:0; padding:10px 12px; color:var(--mut); font-size:12px; background:rgba(11,18,32,.75); }
+    .btn.ghost{ background:transparent; }
+
+    /* grid map layout */
+    .mapStage{
+      position:absolute; left:12px; right:12px;
+      top:calc(114px + var(--safeT));
+      bottom:calc(12px + var(--safeB));
+      display:grid; gap:10px;
+      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-rows: 1fr 1fr 1fr;
+    }
+    .zone{
+      background:rgba(18,27,47,.55);
+      border:1px solid var(--bd);
+      border-radius:18px;
+      padding:12px;
+      display:flex; flex-direction:column; gap:10px;
+      overflow:hidden;
+    }
+    .zone h3{ margin:0; font-size:14px; letter-spacing:.2px; }
+    .zone .sub{ margin:0; color:var(--mut); font-size:12px; }
+    .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+    .chip{
+      font-size:11px; color:var(--mut);
+      border:1px dashed var(--bd);
+      padding:5px 8px; border-radius:999px;
+      user-select:none;
+    }
+    .hotlist{
+      display:flex; flex-direction:column; gap:8px;
+      overflow:auto; padding-right:4px;
+    }
+    .hot{
+      background:rgba(11,18,32,.55);
+      border:1px solid var(--bd);
+      border-radius:14px;
+      padding:10px;
+      display:flex; gap:10px; align-items:flex-start;
+      cursor:pointer;
+    }
+    .hot:active{ transform: translateY(1px); }
+    .hot.sel{ outline:2px solid rgba(160,200,255,.45); }
+    .hot .name{ font-weight:900; font-size:13px; }
+    .meta{ color:var(--mut); font-size:11px; margin-top:3px; line-height:1.25; }
+    .right{ margin-left:auto; text-align:right; }
+    .value{ font-weight:900; font-size:13px; }
+    .stars{ font-size:11px; color:var(--mut); margin-top:3px; }
+
+    /* zone placement */
+    #zoneEntry{ grid-column:1; grid-row:1; }
+    #zoneLiving{ grid-column:1; grid-row:2; }
+    #zoneKitchen{ grid-column:1; grid-row:3; }
+    #zoneBath{ grid-column:2; grid-row:1 / span 2; }
+    #zoneBed{ grid-column:2; grid-row:3; }
+
+    /* bottom action drawer */
+    .drawer{
+      position:fixed; left:12px; right:12px;
+      bottom:calc(12px + var(--safeB));
+      z-index:40;
+      background:rgba(18,27,47,.92);
+      border:1px solid var(--bd);
+      border-radius:18px;
+      padding:12px;
+      display:none;
+    }
+    .drawer.on{ display:block; }
+    .dTitle{ font-weight:1000; font-size:14px; margin:0 0 4px; }
+    .dSub{ margin:0 0 10px; color:var(--mut); font-size:12px; line-height:1.35; }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; }
+    .badge{
+      font-size:11px; border:1px solid var(--bd);
+      padding:5px 8px; border-radius:999px; color:var(--mut);
+    }
+    .btnWide{ flex:1; min-width:150px; }
+    .mini{ font-size:11px; color:var(--mut); margin-top:10px; line-height:1.35; }
 
     /* B renderer container */
     #vrRoot{ position:absolute; inset:0; display:none; }
-    .overlayNote{ position:fixed; left:12px; right:12px; bottom:calc(12px + var(--safeB)); z-index:30;
-      background:rgba(11,18,32,.75); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; color:var(--mut); font-size:12px; }
+    .overlayNote{
+      position:fixed; left:12px; right:12px;
+      bottom:calc(12px + var(--safeB));
+      z-index:30;
+      background:rgba(11,18,32,.75);
+      border:1px solid var(--bd);
+      border-radius:14px;
+      padding:10px 12px;
+      color:var(--mut);
+      font-size:12px;
+      line-height:1.35;
+    }
   </style>
 </head>
 <body>
 <div id="app">
-  <!-- Shared HUD (placeholder values) -->
+  <!-- Shared HUD -->
   <div class="hud" id="hud">
     <div class="box"><div class="t">TIME</div><div class="v" id="hudTime">--</div></div>
     <div class="box"><div class="t">SPRAY</div><div class="v" id="hudSpray">--</div></div>
@@ -44,27 +138,86 @@
 
   <!-- A) Map renderer -->
   <div id="mapRoot">
-    <div class="mapTop">
+    <div class="toolbar">
       <button class="btn" id="btnSort">Sort by Value</button>
       <button class="btn" id="btnPlan">Plan Builder</button>
-      <button class="btn" id="btnBack">Back HUB</button>
+      <button class="btn ghost" id="btnBack">Back HUB</button>
     </div>
-    <div class="mapWrap" id="mapWrap">
-      <!-- placeholder map -->
-      <div class="hint">
-        A Mode (PC/Mobile): แผนที่บ้าน + กดเลือกวัตถุเพื่อทำความสะอาด (เดี๋ยวเราจะใส่ hotspot cards + budget loop ที่นี่)
+
+    <div class="mapStage" id="mapStage">
+      <section class="zone" id="zoneEntry">
+        <div>
+          <h3>Entry</h3>
+          <p class="sub">จุดคอขวดก่อนเข้าบ้าน</p>
+          <div class="chips"><span class="chip">Bottleneck</span><span class="chip">Touch สูง</span></div>
+        </div>
+        <div class="hotlist" data-zone="entry"></div>
+      </section>
+
+      <section class="zone" id="zoneLiving">
+        <div>
+          <h3>Living Room</h3>
+          <p class="sub">รีโมท/มือถือ/โต๊ะกลาง</p>
+          <div class="chips"><span class="chip">Shared</span><span class="chip">เร็ว</span></div>
+        </div>
+        <div class="hotlist" data-zone="living"></div>
+      </section>
+
+      <section class="zone" id="zoneKitchen">
+        <div>
+          <h3>Kitchen</h3>
+          <p class="sub">ทำกับข้าว = เสี่ยงปนเปื้อน</p>
+          <div class="chips"><span class="chip">Food</span><span class="chip">Cost สูงขึ้น</span></div>
+        </div>
+        <div class="hotlist" data-zone="kitchen"></div>
+      </section>
+
+      <section class="zone" id="zoneBath">
+        <div>
+          <h3>Bathroom</h3>
+          <p class="sub">Spread สูง (คันชัก/ก๊อก/ที่กด)</p>
+          <div class="chips"><span class="chip">Spread สูง</span><span class="chip">Priority</span></div>
+        </div>
+        <div class="hotlist" data-zone="bath"></div>
+      </section>
+
+      <section class="zone" id="zoneBed">
+        <div>
+          <h3>Bedroom</h3>
+          <p class="sub">ก่อนนอน/หลังป่วย</p>
+          <div class="chips"><span class="chip">Routine</span><span class="chip">Light</span></div>
+        </div>
+        <div class="hotlist" data-zone="bed"></div>
+      </section>
+    </div>
+
+    <!-- Action drawer (selected hotspot) -->
+    <div class="drawer" id="drawer">
+      <div class="dTitle" id="dTitle">--</div>
+      <div class="dSub" id="dSub">--</div>
+      <div class="row" style="margin-bottom:10px;">
+        <span class="badge" id="bTouch">Touch: -</span>
+        <span class="badge" id="bSpread">Spread: -</span>
+        <span class="badge" id="bCost">Cost: -</span>
+        <span class="badge" id="bValue">Value: -</span>
+      </div>
+      <div class="row">
+        <button class="btn btnWide" id="btnClean">CLEAN</button>
+        <button class="btn btnWide ghost" id="btnClose">Close</button>
+      </div>
+      <div class="mini">
+        Skeleton ตอนนี้: CLEAN จะหักทรัพยากรและติ๊ก “cleaned” ให้ก่อน<br/>
+        ถัดไปเราจะใส่ mini-action เช็ดให้ครบ (coverage) เพื่อให้เกมสนุกขึ้น
       </div>
     </div>
   </div>
 
   <!-- B) WebXR renderer -->
   <div id="vrRoot">
-    <!-- A-Frame is optional; if you include it later, this skeleton still works -->
     <div class="overlayNote">
       B Mode (Cardboard): ใช้ crosshair + tap-to-shoot ผ่าน <b>/herohealth/vr/vr-ui.js</b> (event: <code>hha:shoot</code>)<br/>
       ตอนนี้เป็น skeleton — ต่อไปเราจะใส่ hotspot glow + clean progress ใน 3D
     </div>
-    <!-- If/when you add A-Frame, keep an <a-scene> here -->
     <div id="vrStage" style="position:absolute; inset:0;"></div>
   </div>
 </div>
@@ -72,12 +225,7 @@
 <script type="module">
 'use strict';
 
-const qs = (k, d='') => {
-  try{
-    const u = new URL(location.href);
-    return u.searchParams.get(k) ?? d;
-  }catch(e){ return d; }
-};
+const qs = (k, d='') => { try{ const u=new URL(location.href); return u.searchParams.get(k) ?? d; }catch(e){ return d; } };
 const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 const isCVR = String(qs('view','')).toLowerCase() === 'cvr';
 
@@ -94,14 +242,50 @@ const P = {
   api:  String(qs('api',''))
 };
 
-// show initial HUD
-document.getElementById('hudTime').textContent  = P.time + 's';
-document.getElementById('hudSpray').textContent = '100';
-document.getElementById('hudCloth').textContent = '3';
+// Simple game state (skeleton)
+const S = {
+  timeLeft: P.time,
+  spray: 100,
+  cloth: 3,
+  selectedId: null,
+  cleaned: new Set(),
+};
+
+// Hotspots dataset (starter; we’ll tune later)
+const HOT = [
+  { id:'door_knob', zone:'entry',  name:'ลูกบิดประตูหน้า',  touch:9, spread:8, cost:3, note:'คอขวด ทุกคนจับก่อนเข้าบ้าน' },
+  { id:'light_switch', zone:'entry',name:'สวิตช์ไฟ',         touch:8, spread:5, cost:1, note:'คุ้มมาก เพราะ cost ต่ำ' },
+
+  { id:'tv_remote', zone:'living',  name:'รีโมททีวี',         touch:7, spread:6, cost:2, note:'แชร์กันทั้งบ้าน' },
+  { id:'phone', zone:'living',      name:'มือถือ/แท็บเล็ต',    touch:8, spread:7, cost:2, note:'จับบ่อย + ใกล้หน้า' },
+  { id:'drawer_handle', zone:'living', name:'มือจับลิ้นชัก/ตู้', touch:6, spread:6, cost:2, note:'จุดที่มักลืม' },
+
+  { id:'fridge_handle', zone:'kitchen', name:'มือจับตู้เย็น', touch:7, spread:7, cost:3, note:'ทำอาหาร = จับบ่อย' },
+  { id:'kitchen_faucet', zone:'kitchen',name:'ก๊อกน้ำครัว',   touch:6, spread:6, cost:2, note:'เปียก/ลื่น เชื้อเกาะได้' },
+  { id:'counter_board', zone:'kitchen', name:'เคาน์เตอร์/เขียง', touch:6, spread:8, cost:4, note:'เสี่ยงปนเปื้อนอาหาร' },
+
+  { id:'bath_door', zone:'bath',    name:'มือจับประตูห้องน้ำ', touch:6, spread:7, cost:2, note:'ทางผ่านสำคัญ' },
+  { id:'soap_pump', zone:'bath',    name:'ที่กดสบู่/ก๊อกน้ำ',  touch:6, spread:7, cost:2, note:'แตะซ้ำ ๆ' },
+  { id:'flush', zone:'bath',        name:'คันชัก/ปุ่มชักโครก', touch:5, spread:9, cost:3, note:'Spread สูงมาก' },
+
+  { id:'bed_door', zone:'bed',      name:'มือจับประตูห้องนอน', touch:5, spread:5, cost:2, note:'เหมาะทำก่อนนอน' },
+];
+
+function valueOf(h){ return (h.touch * h.spread) / Math.max(1, h.cost); }
+function fmt(n){ return (Math.round(n*10)/10).toFixed(1); }
+
+// HUD
+const $ = (id)=>document.getElementById(id);
+function renderHUD(){
+  $('hudTime').textContent  = S.timeLeft + 's';
+  $('hudSpray').textContent = String(S.spray);
+  $('hudCloth').textContent = String(S.cloth);
+}
+renderHUD();
 
 // mount correct renderer
-const mapRoot = document.getElementById('mapRoot');
-const vrRoot  = document.getElementById('vrRoot');
+const mapRoot = $('mapRoot');
+const vrRoot  = $('vrRoot');
 
 if (isCVR){
   vrRoot.style.display = 'block';
@@ -114,40 +298,127 @@ if (isCVR){
 }
 
 function bootMap(){
-  // skeleton actions
-  document.getElementById('btnSort').onclick = ()=> toast('TODO: sort hotspots by (Touch×Spread)/Cost');
-  document.getElementById('btnPlan').onclick = ()=> toast('TODO: open Plan Builder (Checklist/Routine/Route)');
-  document.getElementById('btnBack').onclick = ()=> goHub();
+  // toolbar
+  $('btnSort').onclick = ()=> {
+    // sort within each zone by Value desc
+    HOT.sort((a,b)=> valueOf(b)-valueOf(a));
+    renderZones();
+    toast('Sorted by Value ✅');
+  };
+  $('btnPlan').onclick = ()=> toast('TODO: Plan Builder (Checklist/Routine/Route)');
+  $('btnBack').onclick = ()=> goHub();
 
-  // TODO next: render zones + hotspots + tap-to-clean mini action
+  $('btnClose').onclick = closeDrawer;
+  $('btnClean').onclick = doCleanSelected;
+
+  renderZones();
+}
+
+function renderZones(){
+  const lists = document.querySelectorAll('.hotlist');
+  lists.forEach(el=> el.innerHTML = '');
+
+  const byZone = new Map();
+  for(const h of HOT){
+    if(!byZone.has(h.zone)) byZone.set(h.zone, []);
+    byZone.get(h.zone).push(h);
+  }
+
+  for(const el of lists){
+    const zone = el.getAttribute('data-zone');
+    const arr = byZone.get(zone) || [];
+    for(const h of arr){
+      const card = document.createElement('div');
+      card.className = 'hot' + (S.selectedId===h.id ? ' sel':'');
+
+      const cleaned = S.cleaned.has(h.id);
+      const val = valueOf(h);
+
+      card.innerHTML = `
+        <div>
+          <div class="name">${cleaned ? '✅ ' : ''}${h.name}</div>
+          <div class="meta">${h.note}</div>
+        </div>
+        <div class="right">
+          <div class="value">${fmt(val)}</div>
+          <div class="stars">T${h.touch} • S${h.spread} • C${h.cost}</div>
+        </div>
+      `;
+      card.onclick = ()=> openDrawer(h.id);
+      el.appendChild(card);
+    }
+  }
+}
+
+function openDrawer(id){
+  S.selectedId = id;
+  const h = HOT.find(x=>x.id===id);
+  if(!h) return;
+
+  $('drawer').classList.add('on');
+  $('dTitle').textContent = (S.cleaned.has(id) ? '✅ ' : '') + h.name;
+
+  const cleaned = S.cleaned.has(id);
+  const msg = cleaned
+    ? 'จุดนี้สะอาดแล้ว (ยังแตะ CLEAN ซ้ำได้ แต่จะสิ้นเปลืองทรัพยากร)'
+    : 'ตัดสินใจให้คุ้ม: จุดนี้ลดความเสี่ยงได้มากแค่ไหนเมื่อเทียบกับ Cost';
+  $('dSub').textContent = msg;
+
+  $('bTouch').textContent = 'Touch: ' + h.touch;
+  $('bSpread').textContent = 'Spread: ' + h.spread;
+  $('bCost').textContent = 'Cost: ' + h.cost;
+  $('bValue').textContent = 'Value: ' + fmt(valueOf(h));
+
+  renderZones();
+}
+
+function closeDrawer(){
+  $('drawer').classList.remove('on');
+}
+
+function doCleanSelected(){
+  const id = S.selectedId;
+  const h = HOT.find(x=>x.id===id);
+  if(!h) return;
+
+  // skeleton resource spend (later: add mini-action coverage)
+  const sprayNeed = 10 * h.cost;      // simple rule
+  const timeNeed  = 4  * h.cost;      // seconds
+  const clothNeed = (h.spread >= 8) ? 1 : 0; // high spread uses cloth
+
+  if(S.timeLeft < timeNeed){ toast('เวลาไม่พอ ⏳'); return; }
+  if(S.spray < sprayNeed){ toast('น้ำยาไม่พอ 🧴'); return; }
+  if(S.cloth < clothNeed){ toast('ผ้าไม่พอ 🧻'); return; }
+
+  S.timeLeft -= timeNeed;
+  S.spray -= sprayNeed;
+  S.cloth -= clothNeed;
+
+  S.cleaned.add(id);
+  renderHUD();
+  renderZones();
+  openDrawer(id);
+
+  toast('Cleaned ✅ (-time/-spray)');
 }
 
 async function bootVR(){
-  // 1) Try load A-Frame if you want (optional) — you can include it later via script tag in this file
-  // 2) Always load vr-ui.js for consistent ENTER VR/EXIT/RECENTER + crosshair + hha:shoot
   try{
-    await import('../vr/vr-ui.js'); // path: /herohealth/vr/vr-ui.js
+    await import('../vr/vr-ui.js'); // /herohealth/vr/vr-ui.js
   }catch(e){
     console.warn('vr-ui.js missing or failed to load:', e);
-    toast('vr-ui.js โหลดไม่สำเร็จ (แต่ skeleton ยังทำงานได้)');
+    toast('vr-ui.js โหลดไม่สำเร็จ');
   }
 
-  // Listen shoot event (from crosshair/tap)
   window.addEventListener('hha:shoot', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    // In cVR strict, treat shoot as "clean/activate" at center aim
-    // TODO next: raycast/select nearest hotspot & progress clean
     if(P.debug) console.log('hha:shoot', d);
+    // TODO next: raycast/select hotspot in 3D and clean
   });
-
-  // Back hub for VR too (use browser back or add a floating button later)
-  // TODO next: create 3D scene + hotspots
 }
 
 function goHub(){
-  // preserve key params when returning
   const u = new URL(P.hub, location.href);
-  // optional: pass last game id to hub
   u.searchParams.set('from', 'clean-home');
   u.searchParams.set('pid', P.pid);
   u.searchParams.set('seed', P.seed);
@@ -155,7 +426,6 @@ function goHub(){
 }
 
 function toast(msg){
-  // ultra-light toast
   const d = document.createElement('div');
   d.textContent = msg;
   d.style.position='fixed';
@@ -168,7 +438,7 @@ function toast(msg){
   d.style.background='rgba(18,27,47,.9)';
   d.style.color='var(--fg)';
   document.body.appendChild(d);
-  setTimeout(()=>{ d.remove(); }, 1500);
+  setTimeout(()=>{ d.remove(); }, 1400);
 }
 </script>
 </body>
