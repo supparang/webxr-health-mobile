@@ -1,9 +1,9 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260217c (PATCH: now() defined)
-// Purpose:
-//  - Provide ENTER VR / EXIT / RECENTER UI for HeroHealth games
-//  - Provide crosshair + tap-to-shoot -> emits window event: hha:shoot {x,y,lockPx,cooldownMs,source}
-//  - Support view=cvr strict: shoot from center crosshair (optional)
+// Universal VR UI — SAFE UNIVERSAL — v20260219b
+// ✅ FIX: now() defined (prevents "now is not defined")
+// ✅ SAFE: never crash if A-Frame missing
+// ✅ ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot -> window event: hha:shoot {x,y,lockPx,cooldownMs,source}
+// ✅ Supports view=cvr strict (shoot from center)
 
 (function(){
   'use strict';
@@ -11,9 +11,10 @@
   const WIN = window;
   const DOC = document;
 
-  if(WIN.__HHA_VRUI_READY__) return;
+  if (WIN.__HHA_VRUI_READY__) return;
   WIN.__HHA_VRUI_READY__ = true;
 
+  // --- time helper (FIX) ---
   function now(){
     try{ return (performance && typeof performance.now === 'function') ? performance.now() : Date.now(); }
     catch(_){ return Date.now(); }
@@ -141,7 +142,6 @@
         ui.id = 'hha-vrui';
         DOC.body.appendChild(ui);
       }
-
       if(!ui.__built){
         ui.__built = true;
         ui.innerHTML = '';
@@ -178,7 +178,7 @@
         crosshair.id = 'hha-crosshair';
         DOC.body.appendChild(crosshair);
       }
-      crosshair.style.display = 'grid';
+      crosshair.style.display = IS_CVR ? 'grid' : 'grid';
       crosshair.style.opacity = IS_CVR ? '0.98' : '0.88';
     }
 
@@ -195,6 +195,7 @@
     }
   }
 
+  // ---- A-Frame hooks (safe) ----
   function getScene(){
     try{ return DOC.querySelector('a-scene'); }catch(_){ return null; }
   }
@@ -210,7 +211,7 @@
   }
 
   function recenter(){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui', ts:Date.now() } })); }catch(_){}
     try{
       const cam = DOC.querySelector('a-camera');
       const lc = cam && cam.components && cam.components['look-controls'];
@@ -234,6 +235,7 @@
     s.addEventListener('exit-vr',  ()=> setVrButtons(false), {passive:true});
   }
 
+  // ---- SHOOT dispatcher ----
   function emitShoot(x,y, source){
     const t = now();
     if(t - lastShotAt < CFG.cooldownMs) return;
@@ -247,7 +249,8 @@
           lockPx: CFG.lockPx,
           cooldownMs: CFG.cooldownMs,
           source: source || 'tap',
-          view: IS_CVR ? 'cvr' : 'screen'
+          view: IS_CVR ? 'cvr' : 'screen',
+          ts: Date.now()
         }
       }));
     }catch(_){}
@@ -263,7 +266,6 @@
 
     DOC.addEventListener('pointerdown', (ev)=>{
       if(ev.defaultPrevented) return;
-
       if(IS_CVR && CFG.cvrStrict){
         centerShoot('tap');
       }else{
@@ -286,7 +288,7 @@
     wireVrState();
     wireTapShoot();
     applyCvrStrict();
-    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch(_){ } }, 600);
+    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch(_){} }, 600);
   }
 
   if(DOC.readyState === 'loading'){
