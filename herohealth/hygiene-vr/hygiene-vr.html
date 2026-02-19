@@ -1,9 +1,8 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
-✅ Works with: hygiene-vr.css v20260216a + hygiene.safe.js v20260216a + hygiene-vr.boot.js v20260216a
-✅ Views: pc/mobile/vr/cvr (body class set by qs view)
-✅ Uses: ../vr/vr-ui.js => Enter VR / Exit / Recenter + crosshair + hha:shoot
-✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219b (1+2+3)
+✅ (1) cVR: aim-select zones on 2D hand map via hha:shoot
+✅ (2) Heatmap 2D: show risk per zone + store in summary.analyze.heatmap2d
+✅ (3) Post-game 30s Create: pick routine 3 items + score + store in summary.create
 -->
 <!doctype html>
 <html lang="th">
@@ -14,13 +13,12 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260216a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260219b" />
 
-  <!-- ✅ Universal VR UI (defer) -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- ✅ FX -->
+  <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
   <!-- AI packs (optional) -->
@@ -28,11 +26,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- ✅ Quiz bank -->
+  <!-- Quiz bank -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260216a"></script>
+  <!-- Boot (module) -->
+  <script type="module" src="./hygiene-vr.boot.js?v=20260219b"></script>
 </head>
 
 <body class="view-pc">
@@ -68,8 +66,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
-
-          <!-- Power-ups -->
           <div class="hw-pill power" id="pillPower">POWER —</div>
 
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
@@ -111,7 +107,64 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
       <div class="hw-card">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
+
+        <!-- ✅ 2D Analyze + Evaluate -->
+        <div class="hw-eval" id="evalBox">
+          <div class="hw-eval-title">🧠 Analyze + Evaluate (2D)</div>
+          <div class="hw-eval-sub" id="evalSub">
+            เลือก “จุดเสี่ยงสุด” จากแผนที่มือด้านล่าง แล้วเลือกเหตุผล 1 ข้อ<br>
+            <span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span>
+          </div>
+
+          <div class="hw-handmap" id="handMap" aria-label="Hand map"></div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
+            <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
+          </div>
+
+          <div class="hw-reasons" id="evalReasons">
+            <button class="hw-reason" data-reason="ลืมถูจุดนี้บ่อย" type="button">1) ลืมถูจุดนี้บ่อย</button>
+            <button class="hw-reason" data-reason="ถูเร็วเกินไป" type="button">2) ถูเร็วเกินไป</button>
+            <button class="hw-reason" data-reason="สับสนขั้นตอน/ลำดับ" type="button">3) สับสนขั้นตอน/ลำดับ</button>
+            <button class="hw-reason" data-reason="โดน 🦠 ทำให้เสียจังหวะ" type="button">4) โดน 🦠 ทำให้เสียจังหวะ</button>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ (Evaluate)</button>
+            <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
+          </div>
+        </div>
+
+        <!-- ✅ Create routine (30s) -->
+        <div class="hw-create" id="createBox" style="display:none">
+          <div class="hw-eval-title">✨ Create (30 วินาที)</div>
+          <div class="hw-eval-sub">
+            เลือก “กติกาเตือนตัวเอง” 3 ข้อ เพื่อให้ล้างมือถูกเวลามากขึ้น<br>
+            <b class="hw-mini">เวลาที่เหลือ: <span id="createTimer">30</span>s</b>
+          </div>
+
+          <div class="hw-routine" id="routineOpts">
+            <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม" type="button">🍽️ ก่อนกินอาหาร/ขนม</button>
+            <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ" type="button">🚽 หลังเข้าห้องน้ำ</button>
+            <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ" type="button">🚪📱 หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+            <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก" type="button">😷 หลังไอ/จาม/สั่งน้ำมูก</button>
+            <button class="hw-rt" data-rt="หลังเล่นกับสัตว์" type="button">🐶 หลังเล่นกับสัตว์</button>
+            <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก" type="button">🏠 กลับถึงบ้านจากข้างนอก</button>
+          </div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
+            <div class="hw-eval-score" id="createScore">คะแนน: —</div>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ ยืนยัน Routine (Create)</button>
+          </div>
+        </div>
+
         <pre class="hw-pre" id="endJson"></pre>
+
         <div class="hw-card-row">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
           <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
@@ -119,31 +172,23 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260216a
         </div>
       </div>
     </div>
+
   </div>
 
-  <script>
-  (function(){
-    'use strict';
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-    function setViewClass(){
-      const view = (qs('view','pc')||'pc').toLowerCase();
-      document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      document.body.classList.add(
-        view==='mobile'?'view-mobile':
-        (view==='vr'?'view-vr':
-        (view==='cvr'?'view-cvr':'view-pc'))
-      );
-      const v = document.getElementById('labView');
-      if(v) v.textContent = view;
-    }
-
-    setViewClass();
-    const m = document.getElementById('labMode');
-    const d = document.getElementById('labDiff');
-    if(m) m.textContent = (qs('run','play')||'play');
-    if(d) d.textContent = (qs('diff','normal')||'normal');
-  })();
-  </script>
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+})();
+</script>
 </body>
 </html>
