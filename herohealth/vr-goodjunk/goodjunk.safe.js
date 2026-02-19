@@ -1,9 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// PATCH v20260219-coords
+// PATCH v20260219-coords+safeFULL
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FIX: crosshair hit uses real DOMRect centers (robust on short screens/HUD)
 // ✅ FIX: cVR right-eye clone also gets pointer listener (optional)
+// ✅ FIX: safe-rect y clamp on short screens (prevent no-spawn zone)
+// ✅ IMPROVE: crosshair hit radius adapts slightly to target size
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 
 'use strict';
@@ -103,7 +105,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-19_COORDS';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-19_COORDS_SAFE';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const rng = makeSeededRng(String(seed));
@@ -441,7 +443,7 @@ export function boot(payload = {}) {
     HUD.progressFill.style.width = `${Math.round(pct * 100)}%`;
   }
 
-  // ---------------- safe spawn rect (PATCH: use layer rect) ----------------
+  // ---------------- safe spawn rect (PATCH: clamp safe rect) ----------------
   function readRootPxVar(name, fallbackPx){
     try{
       const cs = getComputedStyle(DOC.documentElement);
@@ -457,15 +459,18 @@ export function boot(payload = {}) {
     const H = Math.floor(r.height);
 
     const sat = readRootPxVar('--sat', 0);
-    // NOTE: gj-top-safe / bottom-safe should represent "reserved UI px" in the viewport;
-    // for layer space, we keep same values but clamp inside layer height.
     const topSafe = readRootPxVar('--gj-top-safe', 140 + sat);
     const botSafe = readRootPxVar('--gj-bottom-safe', 140);
 
     const xMin = Math.floor(W * 0.10);
     const xMax = Math.floor(W * 0.90);
-    const yMin = Math.floor(Math.min(H-80, Math.max(20, topSafe)));
-    const yMax = Math.floor(Math.max(yMin + 120, H - botSafe));
+
+    // clamp y to avoid no-play area
+    const yMin = Math.floor(Math.min(H - 120, Math.max(20, topSafe)));
+    let yMax   = Math.floor(H - Math.max(20, botSafe));
+
+    yMax = Math.min(H - 20, yMax);
+    if (yMax < yMin + 80) yMax = Math.min(H - 20, yMin + 80);
 
     return { W,H, xMin,xMax, yMin,yMax, left:r.left, top:r.top };
   }
@@ -761,7 +766,7 @@ export function boot(payload = {}) {
     }
   }
 
-  // ---------------- VR/cVR shoot center (PATCH: real centers) ----------------
+  // ---------------- VR/cVR shoot center (PATCH: real centers + adaptive radius) ----------------
   function shootCrosshair(ev){
     if(state.ended) return;
 
@@ -769,19 +774,29 @@ export function boot(payload = {}) {
     const cx = Math.floor(ev?.detail?.x ?? (DOC.documentElement.clientWidth/2));
     const cy = Math.floor(ev?.detail?.y ?? (DOC.documentElement.clientHeight/2));
 
-    // radius slightly bigger for VR/cVR
-    const R = (isCVR || isVR) ? 92 : 76;
+    // base radius slightly bigger for VR/cVR
+    const baseR = (isCVR || isVR) ? 92 : 76;
 
     let best = null;
     let bestD = 1e9;
 
     for(const t of state.targets.values()){
       if(t.hit) continue;
+
       const c = centerOfTarget(t);
       const dx = (c.x - cx);
       const dy = (c.y - cy);
       const d = Math.hypot(dx,dy);
-      if(d < R && d < bestD){
+
+      // PATCH: adaptive extra radius by target size (keeps fair, helps short-screen drift)
+      let extra = 0;
+      try{
+        const rr = t.elL?.getBoundingClientRect();
+        if (rr && rr.width) extra = Math.min(20, rr.width * 0.18);
+      }catch(_){}
+      const hitR = baseR + extra;
+
+      if(d < hitR && d < bestD){
         bestD = d;
         best = t;
       }
@@ -1048,7 +1063,7 @@ export function boot(payload = {}) {
       misses,
       avgRtGoodMs,
       medianRtGoodMs,
-      bossDefeated: (!state.boss.active && state.bossOn), // (same behavior)
+      bossDefeated: (!state.boss.active && state.bossOn),
       stormOn: state.stormOn,
       rageOn: state.rageOn,
       startTimeIso: state.startTimeIso,
@@ -1171,6 +1186,12 @@ export function boot(payload = {}) {
       durationPlannedSec,
       startTimeIso: state.startTimeIso
     });
+
+    // PATCH: safe debug hook (no crash if boot not created)
+    try{
+      ROOT.GJ_BOOT = ROOT.GJ_BOOT || {};
+      ROOT.GJ_BOOT.safeEngine = { started:true, version: GAME_VERSION };
+    }catch(_){}
 
     requestAnimationFrame(tick);
   }
