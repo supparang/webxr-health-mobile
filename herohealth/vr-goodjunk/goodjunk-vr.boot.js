@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
-// v2026-02-18d + HUBFIX v2026-02-19a + BIND-ONCE v2026-02-19b
+// v2026-02-18d + HUBFIX v2026-02-19b
 //
 // ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
 // ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
@@ -10,7 +10,7 @@
 // ✅ No duplicate listeners (guards with window.GJ_BOOT)
 // ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot only binds buttons if present)
 // ✅ FIX HUB: default ไป /herohealth/hub.html (absolute) + still respects ?hub=
-// ✅ BIND: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + กัน bind ซ้ำด้วย onOnce()
+// ✅ PATCH B: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + onOnce
 //
 // Requires:
 // - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...})
@@ -34,15 +34,13 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 
   // ---------------- helpers ----------------
   const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const byId = (id)=>DOC.getElementById(id);
 
   function setRootVar(name, value){
     try{ DOC.documentElement.style.setProperty(name, String(value)); }catch(_){}
   }
   function getInsetPx(envName){
-    // best effort: CSS env values already applied via CSS, but we also write to vars
-    // We'll approximate by reading computed style of :root after env() resolved in CSS.
     try{
       const cs = getComputedStyle(DOC.documentElement);
       const v = cs.getPropertyValue(envName).trim();
@@ -51,23 +49,31 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     }catch(_){ return 0; }
   }
 
-  // ✅ onOnce: bind event only once per element+event (กัน bind ซ้ำ)
-  function onOnce(el, type, fn, opt){
-    if(!el) return false;
-    const key = `__once_${type}`;
+  // ✅ onOnce: ป้องกันการ bind ซ้ำ (คลิกแล้วยิงหลาย handler)
+  function onOnce(el, type, handler, opts){
+    if(!el) return;
     try{
-      if(el[key]) return false;
-      el.addEventListener(type, fn, opt);
-      el[key] = true;
-      return true;
-    }catch(_){ return false; }
+      const key = `__onOnce_${type}`;
+      if(el.dataset && el.dataset[key] === '1') return;
+      if(el.dataset) el.dataset[key] = '1';
+      el.addEventListener(type, handler, opts);
+    }catch(_){}
+  }
+
+  // ✅ findFirst: หา element จากหลาย id (รองรับ id เดิม + มาตรฐาน)
+  function findFirst(ids){
+    for(const id of (ids || [])){
+      const el = byId(id);
+      if(el) return el;
+    }
+    return null;
   }
 
   function detectView(){
     const v = String(qs('view','')||'').toLowerCase().trim();
     if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
 
-    // heuristic: cvr if query view=cvr or if user is in stereo mode param used by your hub
+    // heuristic: cvr if query view=cvr or stereo hint
     const hinted = String(qs('stereo','')||'').toLowerCase();
     if (hinted === '1' || hinted === 'true') return 'cvr';
 
@@ -79,7 +85,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
   }
 
   function computeSafeZones(){
-    // measure fixed UI blocks to compute safe spawn zones
     const topbar = DOC.querySelector('.gj-topbar');
     const hudTop = byId('hud') || DOC.querySelector('.gj-hud-top');
     const hudBot = DOC.querySelector('.gj-hud-bot');
@@ -92,7 +97,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const sal = getInsetPx('--sal') || 0;
     const sar = getInsetPx('--sar') || 0;
 
-    // write insets anyway (if CSS didn't define them)
     setRootVar('--sat', `${sat}px`);
     setRootVar('--sab', `${sab}px`);
     setRootVar('--sal', `${sal}px`);
@@ -109,19 +113,15 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const topbarH = rectH(topbar);
     const hudTopH = rectH(hudTop);
 
-    // bottom: meters + optional controls cluster; add sab
     const hudBotH = rectH(hudBot);
     const controlsH = rectH(controls);
 
-    // top safe: topbar + (some hud) + margin
     let topSafe = topbarH + hudTopH + 10;
     topSafe = clamp(topSafe, 110 + sat, Math.floor(H * 0.55));
 
-    // bottom safe: bottom meters + controls + margin
     let bottomSafe = hudBotH + Math.max(0, controlsH - 8) + 10;
     bottomSafe = clamp(bottomSafe, 90 + sab, Math.floor(H * 0.50));
 
-    // If very short screen, shrink bottom safe a bit to leave play room
     if (H <= 640) {
       bottomSafe = clamp(bottomSafe, 80 + sab, Math.floor(H * 0.42));
       topSafe    = clamp(topSafe, 100 + sat, Math.floor(H * 0.50));
@@ -134,7 +134,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     setRootVar('--gj-top-safe', `${Math.round(topSafe)}px`);
     setRootVar('--gj-bottom-safe', `${Math.round(bottomSafe)}px`);
 
-    // debug hook
     WIN.GJ_BOOT.safe = { topSafe, bottomSafe, topbarH, hudTopH, hudBotH, controlsH, H, sat, sab, sal, sar };
   }
 
@@ -145,7 +144,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
         const key = '__LOADED__' + src;
         if (WIN[key]) return resolve(true);
 
-        // also check existing script tags
         const exists = Array.from(DOC.scripts || []).some(s => (s.src || '').includes(src));
         if (exists){
           WIN[key] = true;
@@ -165,13 +163,10 @@ import { boot as bootSafe } from './goodjunk.safe.js';
   }
 
   async function ensureVrUi(view){
-    // only load if VR/cVR or explicitly asked
     const need = (view === 'vr' || view === 'cvr' || String(qs('vrui','0')) === '1');
     if(!need) return;
 
-    // Provide optional config for vr-ui
     WIN.HHA_VRUI_CONFIG = WIN.HHA_VRUI_CONFIG || {};
-    // stricter for cvr
     if (view === 'cvr') {
       WIN.HHA_VRUI_CONFIG.cvrStrict = true;
       WIN.HHA_VRUI_CONFIG.lockPx = Number(qs('lockPx','28')) || 28;
@@ -186,65 +181,94 @@ import { boot as bootSafe } from './goodjunk.safe.js';
   // ✅ HUB url resolver (absolute default + respects ?hub=)
   function resolveHubUrl(){
     const raw = qs('hub', null);
-    if (raw) return raw; // if hub is provided, trust it
+    if (raw) return raw;
 
-    // default to main hub in repo root
+    // default to main hub in repo root:
+    // https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
     const base = location.origin + '/webxr-health-mobile';
     return base + '/herohealth/hub.html';
   }
 
+  // ✅ PATCH B: รองรับ id เดิม + id มาตรฐาน + onOnce
   function bindBasicButtons(){
-    // รองรับทั้ง id มาตรฐาน + id เดิม (legacy)
-    const btnRestartTop = byId('btnRestartTop') || byId('btnRestart');
-    const btnHubTop     = byId('btnHubTop')     || byId('btnHub');
+    // Restart buttons (support old+standard)
+    const btnRestartTop = findFirst([
+      'btnRestartTop',      // standard
+      'btnRestart',         // old
+      'btnRestartGame',     // alt
+      'restartBtn',         // alt
+      'restart'             // alt
+    ]);
 
-    const btnRestartEnd = byId('btnRestartEnd'); // end overlay standard
-    const btnBackHub    = byId('btnBackHub');    // end overlay standard
+    const btnRestartEnd = findFirst([
+      'btnRestartEnd',      // standard end overlay
+      'btnRestartEndGame',  // alt
+      'btnPlayAgain',       // alt
+      'btnReplay',          // alt
+      'replayBtn'           // alt
+    ]);
 
-    const goHub = ()=> { location.href = resolveHubUrl(); };
+    // Hub buttons (support old+standard)
+    const btnHubTop = findFirst([
+      'btnHubTop',          // standard
+      'btnHub',             // old
+      'btnHome',            // alt
+      'btnBackToHub',       // alt
+      'hubBtn'              // alt
+    ]);
+
+    const btnBackHub = findFirst([
+      'btnBackHub',         // standard end overlay
+      'btnBack',            // old
+      'btnBackToHome',      // alt
+      'btnExitToHub',       // alt
+      'backBtn'             // alt
+    ]);
 
     function restart(){
       const u = new URL(location.href);
-      // avoid freeze/cached state: bump seed in play mode
+
+      // bump seed only in play (avoid breaking research repeatability)
       if (String(qs('run','play')).toLowerCase() !== 'research') {
         u.searchParams.set('seed', String(Date.now()));
       }
+
+      // remove hash to avoid weird caching on mobile
+      u.hash = '';
       location.href = u.toString();
     }
 
-    // ✅ bind แบบครั้งเดียว
-    onOnce(btnRestartTop, 'click', restart);
-    onOnce(btnRestartEnd, 'click', restart);
+    function goHub(){
+      location.href = resolveHubUrl();
+    }
 
-    onOnce(btnHubTop, 'click', goHub);
-    onOnce(btnBackHub, 'click', goHub);
+    onOnce(btnRestartTop, 'click', restart, { passive:true });
+    onOnce(btnRestartEnd, 'click', restart, { passive:true });
+
+    onOnce(btnHubTop, 'click', goHub, { passive:true });
+    onOnce(btnBackHub, 'click', goHub, { passive:true });
   }
 
-  // Prevent "ค้าง" from stacking intervals (reserved)
-  function guardIntervals(){}
+  function guardIntervals(){
+    // kept for future expansion
+  }
 
   // ---------------- main ----------------
   async function main(){
     const view = detectView();
     WIN.GJ_BOOT.view = view;
 
-    // Tag body for CSS (optional)
     DOC.body.classList.toggle('view-pc', view === 'pc');
     DOC.body.classList.toggle('view-mobile', view === 'mobile');
     DOC.body.classList.toggle('view-vr', view === 'vr');
     DOC.body.classList.toggle('view-cvr', view === 'cvr');
 
-    // ensure VR UI if needed
     await ensureVrUi(view);
 
-    // compute safe zones (after VR UI buttons may inject)
     computeSafeZones();
-
-    // bind base buttons
     bindBasicButtons();
     guardIntervals();
 
-    // re-compute safe zone on resize/orientation + when HUD toggled
     let raf = 0;
     const requestRecalc = ()=>{
       if (raf) return;
@@ -257,7 +281,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     WIN.addEventListener('resize', requestRecalc, { passive:true });
     WIN.addEventListener('orientationchange', requestRecalc, { passive:true });
 
-    // When user toggles HUD or quest panel, update safe rect quickly
     DOC.addEventListener('click', (e)=>{
       const t = e.target;
       if(!t) return;
@@ -268,11 +291,9 @@ import { boot as bootSafe } from './goodjunk.safe.js';
       }
     }, { passive:true });
 
-    // also update after fonts/layout settle
     setTimeout(requestRecalc, 180);
     setTimeout(requestRecalc, 600);
 
-    // payload -> safe engine
     const payload = {
       view,
       run:  String(qs('run','play') || 'play'),
@@ -285,12 +306,10 @@ import { boot as bootSafe } from './goodjunk.safe.js';
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     };
 
-    // Start SAFE engine (single source of truth)
     try{
       bootSafe(payload);
     }catch(err){
       console.error('[GJ BOOT] bootSafe failed:', err);
-      // soft fail message on screen
       try{
         const div = DOC.createElement('div');
         div.style.position = 'fixed';
@@ -308,7 +327,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     }
   }
 
-  // Wait DOM ready
   if (DOC.readyState === 'loading') {
     DOC.addEventListener('DOMContentLoaded', main, { once:true });
   } else {
