@@ -1,11 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// PATCH v20260219-coords+safeFULL
+// PATCH v20260219-coords + FX-FALLBACK v20260219-fx
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FIX: crosshair hit uses real DOMRect centers (robust on short screens/HUD)
 // ✅ FIX: cVR right-eye clone also gets pointer listener (optional)
-// ✅ FIX: safe-rect y clamp on short screens (prevent no-spawn zone)
-// ✅ IMPROVE: crosshair hit radius adapts slightly to target size
+// ✅ FIX: EFFECT always visible (Particles optional; DOM fallback ripple+poptext)
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 
 'use strict';
@@ -24,14 +23,104 @@ export function boot(payload = {}) {
     try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // fx bridge
+  // ---------------- FX bridge (PATCH: DOM fallback) ----------------
   function fx(){ return ROOT.Particles || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || null; }
+
+  function ensureFxStyle(){
+    try{
+      if (DOC.getElementById('gj-fx-style')) return;
+      const st = DOC.createElement('style');
+      st.id = 'gj-fx-style';
+      st.textContent = `
+#gj-fx-layer{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:9998;}
+.gj-poptext{
+  position:fixed;
+  transform:translate(-50%,-50%);
+  font-weight:900;
+  font-size:18px;
+  letter-spacing:.2px;
+  padding:6px 10px;
+  border-radius:14px;
+  background:rgba(0,0,0,.35);
+  border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  animation:gj-poptext .52s ease-out forwards;
+  will-change:transform,opacity;
+}
+@keyframes gj-poptext{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.85);}
+  15%{opacity:1;transform:translate(-50%,-60%) scale(1.02);}
+  100%{opacity:0;transform:translate(-50%,-95%) scale(1.06);}
+}
+.gj-ripple{
+  position:fixed;
+  width:14px;height:14px;
+  border-radius:999px;
+  transform:translate(-50%,-50%);
+  border:2px solid rgba(255,255,255,.55);
+  box-shadow:0 0 0 2px rgba(255,255,255,.12);
+  animation:gj-ripple .42s ease-out forwards;
+}
+@keyframes gj-ripple{
+  from{opacity:.9;transform:translate(-50%,-50%) scale(.6);}
+  to{opacity:0;transform:translate(-50%,-50%) scale(3.2);}
+}`;
+      DOC.head.appendChild(st);
+    }catch(_){}
+  }
+
+  function ensureFxLayer(){
+    try{
+      let layer = DOC.getElementById('gj-fx-layer');
+      if(layer) return layer;
+      ensureFxStyle();
+      layer = DOC.createElement('div');
+      layer.id = 'gj-fx-layer';
+      DOC.body.appendChild(layer);
+      return layer;
+    }catch(_){ return null; }
+  }
+
+  function fxTextDom(clientX, clientY, txt){
+    const L = ensureFxLayer();
+    if(!L) return;
+    const el = DOC.createElement('div');
+    el.className = 'gj-poptext';
+    el.textContent = String(txt);
+    el.style.left = `${Math.round(clientX)}px`;
+    el.style.top  = `${Math.round(clientY)}px`;
+    L.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 520);
+  }
+
+  function fxRippleDom(clientX, clientY){
+    const L = ensureFxLayer();
+    if(!L) return;
+    const el = DOC.createElement('div');
+    el.className = 'gj-ripple';
+    el.style.left = `${Math.round(clientX)}px`;
+    el.style.top  = `${Math.round(clientY)}px`;
+    L.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 420);
+  }
+
   function fxText(x,y,txt){
     try{
       const P = fx();
-      if(P && typeof P.popText==='function') P.popText(x,y,txt);
+      if(P && typeof P.popText==='function'){
+        P.popText(x,y,txt);
+        return;
+      }
     }catch(_){}
+    fxTextDom(x,y,txt);
   }
+
+  function fxHit(x,y,txt){
+    fxRippleDom(x,y);
+    if(txt != null) fxText(x,y,txt);
+  }
+
   function bodyPulse(cls, ms=160){
     try{
       DOC.body.classList.add(cls);
@@ -39,7 +128,7 @@ export function boot(payload = {}) {
     }catch(_){}
   }
 
-  // seeded RNG
+  // ---------------- seeded RNG ----------------
   function xmur3(str){
     let h = 1779033703 ^ str.length;
     for (let i=0;i<str.length;i++){
@@ -105,7 +194,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-19_COORDS_SAFE';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-19_COORDS_FX';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const rng = makeSeededRng(String(seed));
@@ -130,17 +219,18 @@ export function boot(payload = {}) {
 
   // ---------------- coordinate helpers (PATCH) ----------------
   function layerRect(){
-    // Use left layer as reference space for spawn/safe/shoot.
-    // If it's display:none or not laid out yet, fallback to viewport.
     try{
       const r = LAYER_L.getBoundingClientRect();
       if(r && r.width > 10 && r.height > 10) return r;
     }catch(_){}
-    return { left:0, top:0, width:DOC.documentElement.clientWidth, height:DOC.documentElement.clientHeight };
+    return {
+      left:0, top:0,
+      width: DOC.documentElement.clientWidth,
+      height: DOC.documentElement.clientHeight
+    };
   }
 
   function centerOfTarget(tObj){
-    // Always prefer real DOMRect center (robust with safe-zone/HUD shifts).
     try{
       const el = tObj?.elL;
       if(el){
@@ -150,9 +240,7 @@ export function boot(payload = {}) {
         }
       }
     }catch(_){}
-    // fallback to stored absolute center if any
     if(Number.isFinite(tObj?.ax) && Number.isFinite(tObj?.ay)) return { x: tObj.ax, y: tObj.ay };
-    // worst fallback
     return { x: 0, y: 0 };
   }
 
@@ -443,7 +531,7 @@ export function boot(payload = {}) {
     HUD.progressFill.style.width = `${Math.round(pct * 100)}%`;
   }
 
-  // ---------------- safe spawn rect (PATCH: clamp safe rect) ----------------
+  // ---------------- safe spawn rect (PATCH: use layer rect) ----------------
   function readRootPxVar(name, fallbackPx){
     try{
       const cs = getComputedStyle(DOC.documentElement);
@@ -464,13 +552,8 @@ export function boot(payload = {}) {
 
     const xMin = Math.floor(W * 0.10);
     const xMax = Math.floor(W * 0.90);
-
-    // clamp y to avoid no-play area
-    const yMin = Math.floor(Math.min(H - 120, Math.max(20, topSafe)));
-    let yMax   = Math.floor(H - Math.max(20, botSafe));
-
-    yMax = Math.min(H - 20, yMax);
-    if (yMax < yMin + 80) yMax = Math.min(H - 20, yMin + 80);
+    const yMin = Math.floor(Math.min(H-80, Math.max(20, topSafe)));
+    const yMax = Math.floor(Math.max(yMin + 120, H - botSafe));
 
     return { W,H, xMin,xMax, yMin,yMax, left:r.left, top:r.top };
   }
@@ -582,7 +665,6 @@ export function boot(payload = {}) {
 
     elL.addEventListener('pointerdown', onPointer, { passive:false });
     if(elR){
-      // PATCH: right eye also tappable (helpful when cVR layer is actually interactive)
       elR.addEventListener('pointerdown', onPointer, { passive:false });
     }
 
@@ -616,7 +698,7 @@ export function boot(payload = {}) {
     if(!state.boss.active) return;
     const b = state.boss;
     b.hp = Math.max(0, b.hp - Math.max(1, dmg|0));
-    fxText(px,py,`-HP ${dmg}`);
+    fxHit(px,py,`-HP ${dmg}`);
     emit('hha:judge', { label:`BOSS HIT! (${b.hp}/${b.hpMax})` });
     updateBossUI();
 
@@ -653,9 +735,10 @@ export function boot(payload = {}) {
 
     const hitAt = now();
     const rtMs = Math.max(0, Math.round(hitAt - tObj.bornAt));
+    void rtMs; // (kept for later analysis)
+
     const kind = tObj.kind;
 
-    // PATCH: prefer true center for fx/judge placement
     const c = centerOfTarget(tObj);
     const px = meta.clientX ?? c.x;
     const py = meta.clientY ?? c.y;
@@ -676,8 +759,7 @@ export function boot(payload = {}) {
         bossTakeDamage(dmg, px, py);
       }
 
-      state.rtGood.push(rtMs);
-      fxText(px,py,`+${delta}`);
+      fxHit(px,py,`+${delta}`);
       emit('hha:judge', { label:'GOOD!' });
 
     } else if(kind==='junk'){
@@ -687,14 +769,14 @@ export function boot(payload = {}) {
       if(blocked){
         state.nHitJunkGuard++;
         addFever(-6);
-        fxText(px,py,'BLOCK');
+        fxHit(px,py,'BLOCK');
         emit('hha:judge', { label:'BLOCK!' });
       }else{
         state.nHitJunk++;
         addFever(10);
         setMiss(state.miss + 1);
         setScore(state.score + (DIFF.junkPenaltyScore||-10));
-        fxText(px,py,'-');
+        fxHit(px,py,'-');
         emit('hha:judge', { label:'OOPS!' });
         bodyPulse('gj-junk-hit', 220);
       }
@@ -703,14 +785,14 @@ export function boot(payload = {}) {
       resetCombo();
       addFever(-10);
       setMiss(Math.max(0, state.miss - 1));
-      fxText(px,py,'MISS -1');
+      fxHit(px,py,'MISS -1');
       emit('hha:judge', { label:'STAR!' });
 
     } else if(kind==='shield'){
       resetCombo();
       addFever(-8);
       addShield(1);
-      fxText(px,py,'SHIELD +1');
+      fxHit(px,py,'SHIELD +1');
       emit('hha:judge', { label:'SHIELD!' });
 
     } else if(kind==='diamond'){
@@ -719,7 +801,7 @@ export function boot(payload = {}) {
       addShield(2);
       const bonus = 35;
       setScore(state.score + bonus);
-      fxText(px,py,`+${bonus}`);
+      fxHit(px,py,`+${bonus}`);
       emit('hha:judge', { label:'DIAMOND!' });
 
     } else if(kind==='skull'){
@@ -727,7 +809,7 @@ export function boot(payload = {}) {
       addFever(14);
       setMiss(state.miss + 1);
       setScore(state.score - 8);
-      fxText(px,py,'💀');
+      fxHit(px,py,'💀');
       emit('hha:judge', { label:'SKULL!' });
       bodyPulse('gj-skull-hit', 240);
 
@@ -741,13 +823,13 @@ export function boot(payload = {}) {
 
       if(blocked){
         addFever(-8);
-        fxText(px,py,'DEFUSE');
+        fxHit(px,py,'DEFUSE');
         emit('hha:judge', { label:'DEFUSED!' });
       }else{
         addFever(20);
         setMiss(state.miss + 2);
         setScore(state.score - 22);
-        fxText(px,py,'BOOM');
+        fxHit(px,py,'BOOM');
         emit('hha:judge', { label:'BOOM!' });
         bodyPulse('gj-bomb', 320);
 
@@ -766,37 +848,25 @@ export function boot(payload = {}) {
     }
   }
 
-  // ---------------- VR/cVR shoot center (PATCH: real centers + adaptive radius) ----------------
+  // ---------------- VR/cVR shoot center (PATCH: real centers) ----------------
   function shootCrosshair(ev){
     if(state.ended) return;
 
-    // prefer event-provided x/y (from vr-ui.js aim assist / crosshair)
     const cx = Math.floor(ev?.detail?.x ?? (DOC.documentElement.clientWidth/2));
     const cy = Math.floor(ev?.detail?.y ?? (DOC.documentElement.clientHeight/2));
 
-    // base radius slightly bigger for VR/cVR
-    const baseR = (isCVR || isVR) ? 92 : 76;
+    const R = (isCVR || isVR) ? 92 : 76;
 
     let best = null;
     let bestD = 1e9;
 
     for(const t of state.targets.values()){
       if(t.hit) continue;
-
       const c = centerOfTarget(t);
       const dx = (c.x - cx);
       const dy = (c.y - cy);
       const d = Math.hypot(dx,dy);
-
-      // PATCH: adaptive extra radius by target size (keeps fair, helps short-screen drift)
-      let extra = 0;
-      try{
-        const rr = t.elL?.getBoundingClientRect();
-        if (rr && rr.width) extra = Math.min(20, rr.width * 0.18);
-      }catch(_){}
-      const hitR = baseR + extra;
-
-      if(d < hitR && d < bestD){
+      if(d < R && d < bestD){
         bestD = d;
         best = t;
       }
@@ -806,7 +876,7 @@ export function boot(payload = {}) {
       onTargetHit(best, { via:'shoot', clientX: cx, clientY: cy });
     }else{
       bodyPulse('gj-miss-shot', 120);
-      fxText(cx,cy,'…');
+      fxHit(cx,cy,'…');
     }
   }
   ROOT.addEventListener('hha:shoot', shootCrosshair, { passive:true });
@@ -827,7 +897,7 @@ export function boot(payload = {}) {
           setMiss(state.miss + 1);
 
           const c = centerOfTarget(tObj);
-          fxText(c.x,c.y,'MISS');
+          fxHit(c.x,c.y,'MISS');
 
           emit('hha:judge', { label:'MISS!' });
           bodyPulse('gj-good-expire', 160);
@@ -854,7 +924,7 @@ export function boot(payload = {}) {
     if(wantStorm && !state.stormOn){
       state.stormOn = true;
       emit('hha:judge', { label:'STORM!' });
-      fxText(DOC.documentElement.clientWidth/2, 80, '⚡ STORM');
+      fxHit(DOC.documentElement.clientWidth/2, 80, '⚡ STORM');
       bodyPulse('gj-storm', 240);
     }
 
@@ -876,7 +946,7 @@ export function boot(payload = {}) {
       state.boss.teleTimer = 0;
 
       emit('hha:judge', { label:`BOSS! HP ${state.boss.hp}/${state.boss.hpMax}` });
-      fxText(DOC.documentElement.clientWidth/2, 110, '👹 BOSS');
+      fxHit(DOC.documentElement.clientWidth/2, 110, '👹 BOSS');
       bodyPulse('gj-boss', 280);
 
       for(let i=0;i<3;i++) spawnOne();
@@ -886,7 +956,7 @@ export function boot(payload = {}) {
     if(wantRage && !state.rageOn){
       state.rageOn = true;
       emit('hha:judge', { label:'RAGE!!' });
-      fxText(DOC.documentElement.clientWidth/2, 140, '🔥 RAGE');
+      fxHit(DOC.documentElement.clientWidth/2, 140, '🔥 RAGE');
       bodyPulse('gj-rage', 320);
     }
 
@@ -898,7 +968,7 @@ export function boot(payload = {}) {
     state.boss.teleOn = true;
     state.boss.teleTimer = 0;
     emit('hha:judge', { label: `⚠️ ${label}` });
-    fxText(DOC.documentElement.clientWidth/2, 168, '⚠️ INCOMING');
+    fxHit(DOC.documentElement.clientWidth/2, 168, '⚠️ INCOMING');
     bodyPulse('gj-tele', 180);
     updateBossUI();
   }
@@ -913,7 +983,7 @@ export function boot(payload = {}) {
         setMiss(state.miss + 1);
 
         const c = centerOfTarget(tObj);
-        fxText(c.x,c.y,'STOMP');
+        fxHit(c.x,c.y,'STOMP');
 
         removeTarget(tObj);
         popped++;
@@ -930,7 +1000,7 @@ export function boot(payload = {}) {
     const n = state.rageOn ? 4 : 3;
     for(let i=0;i<n;i++) spawnOne();
     emit('hha:judge', { label:'BURST!' });
-    fxText(DOC.documentElement.clientWidth/2, 190, '💥 BURST');
+    fxHit(DOC.documentElement.clientWidth/2, 190, '💥 BURST');
     bodyPulse('gj-burst', 240);
   }
 
@@ -943,7 +1013,7 @@ export function boot(payload = {}) {
       b.phaseTimer = 0;
       b.phase = (b.phase === 1) ? 2 : 1;
       emit('hha:judge', { label: (b.phase===2 ? 'PHASE 2!' : 'PHASE 1') });
-      fxText(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1');
+      fxHit(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1');
       if(b.phase===2){
         for(let i=0;i<2;i++) spawnOne();
       }
@@ -1145,6 +1215,8 @@ export function boot(payload = {}) {
 
   // ---------------- init/start ----------------
   function initHud(){
+    ensureFxLayer(); // ensure FX works from first hit
+
     setScore(0);
     setMiss(0);
     setTimeLeft(durationPlannedSec);
@@ -1186,12 +1258,6 @@ export function boot(payload = {}) {
       durationPlannedSec,
       startTimeIso: state.startTimeIso
     });
-
-    // PATCH: safe debug hook (no crash if boot not created)
-    try{
-      ROOT.GJ_BOOT = ROOT.GJ_BOOT || {};
-      ROOT.GJ_BOOT.safeEngine = { started:true, version: GAME_VERSION };
-    }catch(_){}
 
     requestAnimationFrame(tick);
   }
