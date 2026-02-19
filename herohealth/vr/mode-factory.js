@@ -1,6 +1,18 @@
 // === /herohealth/vr/mode-factory.js ===
-// PRODUCTION PATCH: ยิงแล้ว “ไม่โดนเป้า” => emit hha:judge(kind:'shot_miss') + callback onShotMiss
-// Keeps: decorateTarget + hha:shoot lock-on
+// SAFE Spawn Mode Factory — v20260219a
+// ✅ seeded RNG
+// ✅ spawn rect respects CSS safe vars: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+// ✅ pointerdown hit
+// ✅ listens to hha:shoot (from vr-ui.js) -> lock nearest target
+// ✅ NEW: shot miss -> emits hha:judge {kind:'shot_miss', ...} and calls onShotMiss callback
+//
+// Usage:
+//   import { boot as spawnBoot } from '../vr/mode-factory.js'
+//   const engine = spawnBoot({ mount, seed, spawnRate, sizeRange, kinds, decorateTarget, onHit, onExpire, onShotMiss })
+//
+// Notes:
+// - "shot miss" is not counted as canonical miss by default. Game can decide.
+// - Never crashes if callbacks throw.
 
 'use strict';
 
@@ -19,7 +31,10 @@ function seededRng(seed){
 
 function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-// NOTE: default safe vars for Plate layer
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
+}
+
 function readSafeVars(){
   const cs = getComputedStyle(DOC.documentElement);
   const top = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
@@ -40,10 +55,6 @@ function pickWeighted(rng, arr){
   return arr[arr.length-1];
 }
 
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
-}
-
 export function boot({
   mount,
   seed = Date.now(),
@@ -52,14 +63,19 @@ export function boot({
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
   onHit = ()=>{},
   onExpire = ()=>{},
-  onShotMiss = ()=>{},          // ✅ callback (optional)
-  emitShotMissEvent = true,     // ✅ NEW default ON
+  onShotMiss = ()=>{},          // ✅ NEW
   decorateTarget = null,
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
 
   const rng = seededRng(seed);
-  const state = { alive:true, lastSpawnAt:0, spawnTimer:null, targets:new Set(), cooldownUntil:0 };
+  const state = {
+    alive:true,
+    lastSpawnAt:0,
+    spawnTimer:null,
+    targets:new Set(),
+    cooldownUntil:0
+  };
 
   function computeSpawnRect(){
     const r = mount.getBoundingClientRect();
@@ -76,46 +92,52 @@ export function boot({
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
+
     state.targets.delete(target);
     try{ target.el.remove(); }catch{}
-    onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+
+    try{ onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta }); }catch{}
   }
 
   function onShoot(e){
     if(!state.alive) return;
+
     const d = e.detail || {};
     const t = now();
 
-    const cd = Number(d.cooldownMs || 90);
+    // cooldown (prefer event cooldownMs if provided)
+    const cooldownMs = Math.max(20, Number(d.cooldownMs || 90) || 90);
     if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + (Number.isFinite(cd) ? cd : 90);
+    state.cooldownUntil = t + cooldownMs;
 
     const x = Number(d.x), y = Number(d.y);
-    const lockPx = Number(d.lockPx || 28);
-    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const lockPx = Math.max(8, Number(d.lockPx || 28) || 28);
+    if(!isFinite(x) || !isFinite(y)) return;
 
     let best=null, bestDist=Infinity;
+
     for(const target of state.targets){
       const r = target.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const dist = Math.hypot(cx-x, cy-y);
-      if(dist <= lockPx && dist < bestDist){ bestDist = dist; best = target; }
+      if(dist <= lockPx && dist < bestDist){
+        bestDist = dist;
+        best = target;
+      }
     }
 
     if(best){
       hit(best, { source:'shoot' });
     }else{
       // ✅ ยิงแล้วไม่โดนเป้า
-      const miss = { x, y, lockPx, source:'shoot' };
+      const miss = { kind:'shot_miss', x, y, lockPx, source:'shoot' };
 
-      // 1) callback
+      // event stream (so games can count / UI can show)
+      emit('hha:judge', miss);
+
+      // callback (so game engine can increment shotMiss safely)
       try{ onShotMiss(miss); }catch{}
-
-      // 2) emit judge event (canonical stream)
-      if(emitShotMissEvent){
-        emit('hha:judge', { kind:'shot_miss', ...miss });
-      }
     }
   }
 
@@ -138,6 +160,7 @@ export function boot({
     const el = DOC.createElement('div');
     el.className = 'plateTarget';
     el.dataset.kind = kind;
+
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width = `${size}px`;
@@ -147,14 +170,16 @@ export function boot({
     const target = {
       el, kind,
       bornAt: now(),
-      ttlMs: kind === 'junk' ? 1700 : 2100,
+      ttlMs: (kind === 'junk') ? 1700 : 2100,
       groupIndex: Math.floor(rng()*5),
       size,
       rng
     };
     el.__hhaTarget = target;
 
-    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
+    try{
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch{}
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
@@ -169,7 +194,7 @@ export function boot({
       if(!state.targets.has(target)) return;
       state.targets.delete(target);
       try{ el.remove(); }catch{}
-      onExpire({ ...target });
+      try{ onExpire({ ...target }); }catch{}
     }, target.ttlMs);
   }
 
@@ -188,7 +213,9 @@ export function boot({
       state.alive = false;
       clearInterval(state.spawnTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
-      for(const target of state.targets){ try{ target.el.remove(); }catch{} }
+      for(const target of state.targets){
+        try{ target.el.remove(); }catch{}
+      }
       state.targets.clear();
     }
   };
