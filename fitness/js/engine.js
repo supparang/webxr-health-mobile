@@ -1,18 +1,60 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — PRODUCTION v20260216abcd (CLEAN)
-// ✅ Works with new HTML: sb-btn-start + inputs + mode tabs
-// ✅ Fix: expiry removal (no stuck targets)
-// ✅ Fix: MISS counts ONLY normal/bossface expiry (decoy/bomb/heal/shield expiry NOT miss)
-// ✅ Fix: adaptive size by layer dimension
-// ✅ Fix: meta auto-collapse on mobile + toggle
-// ✅ Fever skill: press FEVER when READY => 6s bonus mode (no AI in research)
+// Shadow Breaker engine — FULL PATCH (v20260219-full)
+// ✅ Robust boot (no crash if AI missing / API 403)
+// ✅ AI bridge: uses window.RB_AI (classic script) + optional module import future-proof
+// ✅ Targets expire & disappear smoothly
+// ✅ MISS rule: expire counts only for normal/bossface (NO miss for decoy/bomb/heal/shield expire)
+// ✅ Adaptive target size by layer/screen
+// ✅ Engine holds source-of-truth expiry map (active)
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
-import { AIPredictor } from './ai-predictor.js';
 
+// -------------------------
+// Robust AI bridge (NO AIPredictor import)
+// -------------------------
+let RB_AI = null;
+
+async function loadAI(){
+  // try module import (future-proof if you later add exports)
+  try{
+    const mod = await import('./ai-predictor.js');
+    RB_AI = mod?.RB_AI || mod?.default || null;
+  }catch(_){
+    // ignore
+  }
+  // fallback: global classic script (current)
+  if(!RB_AI){
+    try{ RB_AI = window.RB_AI || null; }catch(_){}
+  }
+  return RB_AI;
+}
+
+function fatal(err){
+  console.error(err);
+  try{
+    const box = document.createElement('div');
+    box.style.position='fixed';
+    box.style.inset='12px';
+    box.style.zIndex='99999';
+    box.style.background='rgba(2,6,23,.88)';
+    box.style.border='1px solid rgba(148,163,184,.25)';
+    box.style.borderRadius='18px';
+    box.style.padding='14px';
+    box.style.color='#e5e7eb';
+    box.style.fontFamily='system-ui';
+    box.innerHTML =
+      `<div style="font-weight:900;font-size:16px;margin-bottom:8px;">Shadow Breaker — ERROR</div>
+       <div style="opacity:.92;white-space:pre-wrap;font-size:13px;line-height:1.35;">${String(err?.stack||err?.message||err)}</div>`;
+    document.body.appendChild(box);
+  }catch(_){}
+}
+
+// -------------------------
+// URL params
+// -------------------------
 function getQS(){
   try { return new URL(location.href).searchParams; }
   catch { return new URLSearchParams(); }
@@ -24,34 +66,29 @@ const qNum = (k, def=0) => {
   return Number.isFinite(v) ? v : def;
 };
 
-const MODE = (q('mode','normal') || 'normal').toLowerCase(); // normal | research (from URL)
-const PID0 = q('pid','');
-const DIFF0 = (q('diff','normal') || 'normal').toLowerCase();
-const TIME0 = Math.max(20, Math.min(240, qNum('time', 70)));
+const MODE = (q('mode','normal') || 'normal').toLowerCase(); // normal | research
+const PID  = q('pid','');
+const DIFF = (q('diff','normal') || 'normal').toLowerCase();
+const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
 const HUB  = q('hub','./hub.html');
 
+// -------------------------
+// DOM
+// -------------------------
 const $ = (s)=>document.querySelector(s);
-
 const wrapEl = $('#sb-wrap');
 
 const viewMenu   = $('#sb-view-menu');
 const viewPlay   = $('#sb-view-play');
 const viewResult = $('#sb-view-result');
 
-const btnTabPlay     = $('#sb-btn-play');
-const btnTabResearch = $('#sb-btn-research');
-const btnStart   = $('#sb-btn-start');
-const btnHowto   = $('#sb-btn-howto');
-const howtoBox   = $('#sb-howto');
-
-const inputPid   = $('#sb-input-pid');
-const inputDiff  = $('#sb-input-diff');
-const inputTime  = $('#sb-input-time');
+const btnPlay     = $('#sb-btn-play');      // (legacy if present)
+const btnResearch = $('#sb-btn-research');  // (legacy if present)
+const btnHowto    = $('#sb-btn-howto');
+const howtoBox    = $('#sb-howto');
 
 const btnBackMenu = $('#sb-btn-back-menu');
 const btnPause    = $('#sb-btn-pause');
-const btnFever    = $('#sb-btn-fever');
-const feverHint   = $('#sb-fever-hint');
 
 const layerEl   = $('#sb-target-layer');
 const msgMainEl = $('#sb-msg-main');
@@ -69,8 +106,6 @@ const hpYouBottom = $('#sb-hp-you-bottom');
 const hpBossBottom= $('#sb-hp-boss-bottom');
 
 const bossNameEl = $('#sb-current-boss-name');
-const metaCard   = $('#sb-meta');
-const btnMeta    = $('#sb-btn-meta');
 const metaEmoji  = $('#sb-meta-emoji');
 const metaName   = $('#sb-meta-name');
 const metaDesc   = $('#sb-meta-desc');
@@ -94,9 +129,16 @@ const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
-const linkHub = $('#sb-link-hub');
-try { if(linkHub) linkHub.href = HUB || linkHub.href; } catch(_) {}
+// If your HTML uses a single START button instead of play/research tabs:
+const btnStart = $('#sb-btn-start');
+const inputPid = $('#sb-input-pid');
+const inputDiff= $('#sb-input-diff');
+const inputTime= $('#sb-input-time');
+const linkHub  = $('#sb-link-hub');
 
+// -------------------------
+// Data (bosses)
+// -------------------------
 const BOSSES = [
   { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
   { name:'Meteor Punch', emoji:'☄️', desc:'เร็วขึ้น — อย่าหลงเป้าล่อ', phases: 3 },
@@ -122,70 +164,64 @@ function showView(which){
   viewResult?.classList.toggle('is-active', which === 'result');
 }
 
-function say(text, cls){
-  if(!msgMainEl) return;
-  msgMainEl.textContent = text;
-  msgMainEl.className = 'sb-msg-main' + (cls ? ' ' + cls : '');
+function boss(){
+  const i = clamp(bossIndex,0,BOSSES.length-1);
+  return BOSSES[i];
 }
 
-let selectedMode = 'play'; // menu selection
-function applyModeUI(){
-  btnTabPlay?.classList.toggle('is-active', selectedMode === 'play');
-  btnTabResearch?.classList.toggle('is-active', selectedMode === 'research');
-}
-
-function autoCollapseMeta(){
-  if(!metaCard) return;
-  const small = (window.innerWidth || 0) <= 520;
-  if(small) metaCard.classList.add('is-collapsed');
-}
-window.addEventListener('resize', autoCollapseMeta, { passive:true });
-
-btnMeta?.addEventListener('click', ()=>{
-  if(!metaCard) return;
-  metaCard.classList.toggle('is-collapsed');
-  const collapsed = metaCard.classList.contains('is-collapsed');
-  btnMeta?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  if(btnMeta) btnMeta.textContent = collapsed ? '▸' : '▾';
-});
-
-// ✅ adaptive base size by layer width/height
+// ✅ Adaptive base size by layer width/height
 function adaptiveBaseSize(raw){
   const r = layerEl?.getBoundingClientRect?.();
   const w = r?.width || window.innerWidth || 360;
   const h = r?.height || window.innerHeight || 640;
+
   const m = Math.max(280, Math.min(860, Math.min(w,h)));
-  const scale = m / 520;
+  const scale = m / 520; // baseline
   const s = raw * scale;
   return clamp(s, 84, 130);
 }
 
-// NOTE: baseSize below is raw, then adaptiveBaseSize applied at spawn
+// ----- Difficulty config -----
+// NOTE: baseSize is "raw"; adaptiveBaseSize() applies at spawn time
 const DIFF_CONFIG = {
-  easy:   { spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
-  normal: { spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:100, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
+  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.04,  bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:100, bossDamageNormal:0.03,  bossDamageBossFace:0.35 }
 };
 
-let running=false, ended=false, paused=false;
-let tStart=0, tLastSpawn=0, timeLeft=TIME0*1000;
-let runtimeTimeSec = TIME0;
+let running = false;
+let ended = false;
+let paused = false;
 
-let score=0, combo=0, maxCombo=0, miss=0;
-let fever=0, shield=0;
-let youHp=YOU_HP_MAX, bossHp=BOSS_HP_MAX;
+let tStart = 0;
+let tLastSpawn = 0;
+let timeLeft = TIME * 1000;
 
-let bossIndex=0, phase=1, bossesCleared=0;
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+let miss = 0;
 
-let diffKey = (DIFF_CONFIG[DIFF0] ? DIFF0 : 'normal');
-let CFG = { ...DIFF_CONFIG[diffKey] };
+let fever = 0;
+let shield = 0;
+
+let youHp = YOU_HP_MAX;
+let bossHp = BOSS_HP_MAX;
+
+let bossIndex = 0;
+let phase = 1;
+let bossesCleared = 0;
+
+// Current diff may be overridden by UI inputs at runtime
+let diff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
+let CFG = DIFF_CONFIG[diff];
 
 const events = [];
 const session = {
-  pid: PID0 || '',
+  pid: PID || '',
   mode: MODE,
-  diff: diffKey,
-  timeSec: runtimeTimeSec,
+  diff: diff,
+  timeSec: TIME,
   startedAt: new Date().toISOString(),
   endedAt: '',
   score: 0,
@@ -197,9 +233,8 @@ const session = {
 };
 
 const dl = new DLFeatures();
-const ai = new AIPredictor();
 
-// Active targets with expiry (source of truth)
+// ✅ Source of truth expiry map
 const active = new Map(); // id -> { type, expireAtMs, sizePx }
 
 const renderer = new DomRendererShadow(layerEl, {
@@ -207,12 +242,7 @@ const renderer = new DomRendererShadow(layerEl, {
   feedbackEl: msgMainEl,
   onTargetHit
 });
-renderer.setDifficulty(diffKey);
-
-function boss(){
-  const i = clamp(bossIndex,0,BOSSES.length-1);
-  return BOSSES[i];
-}
+renderer.setDifficulty(diff);
 
 function setBossUI(){
   const b = boss();
@@ -224,11 +254,6 @@ function setBossUI(){
   if(bossShieldLabel) bossShieldLabel.textContent = String(shield);
   if(textPhase) textPhase.textContent = String(phase);
   if(textShield) textShield.textContent = String(shield);
-}
-
-let feverModeUntil = 0; // ms timestamp
-function feverActive(){
-  return now() < feverModeUntil;
 }
 
 function setHUD(){
@@ -244,19 +269,16 @@ function setHUD(){
 
   setScaleX(feverBar, fever / FEVER_MAX);
   if(feverLabel){
-    const ready = fever >= FEVER_MAX;
-    feverLabel.textContent = ready ? 'READY' : `${Math.round(fever)}%`;
-    feverLabel.classList.toggle('on', ready);
+    const on = fever >= FEVER_MAX;
+    feverLabel.textContent = on ? 'READY' : `${Math.round(fever)}%`;
+    feverLabel.classList.toggle('on', on);
   }
+}
 
-  if(btnFever){
-    const locked = (selectedMode === 'research'); // research lock
-    btnFever.disabled = locked || !(fever >= FEVER_MAX) || feverActive();
-  }
-  if(feverHint){
-    if(selectedMode === 'research') feverHint.textContent = 'Research: ล็อกพฤติกรรม • FEVER ใช้ได้ แต่ AI ปิดเสมอ';
-    else feverHint.textContent = fever >= FEVER_MAX ? 'READY แล้วกด ⚡ FEVER เพื่อเปิดโบนัส 6 วิ' : 'ตีให้แม่นเพื่อชาร์จ FEVER';
-  }
+function say(text, cls){
+  if(!msgMainEl) return;
+  msgMainEl.textContent = text;
+  msgMainEl.className = 'sb-msg-main' + (cls ? ' ' + cls : '');
 }
 
 function nextBossOrPhase(){
@@ -274,7 +296,7 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-// ✅ MISS rule: expire counts only normal/bossface
+// ✅ MISS rule
 function expireCountsMiss(type){
   return (type === 'normal' || type === 'bossface');
 }
@@ -300,12 +322,17 @@ function spawnOne(){
 
   const ttlMs = CFG.targetLifetime;
 
-  renderer.spawnTarget({ id, type, sizePx, bossEmoji: boss().emoji, ttlMs });
+  renderer.spawnTarget({
+    id, type,
+    sizePx,
+    bossEmoji: boss().emoji,
+    ttlMs
+  });
 
   const tNow = now();
   active.set(id, { type, expireAtMs: tNow + ttlMs, sizePx: Math.round(sizePx) });
 
-  events.push({ t: (runtimeTimeSec*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
+  events.push({ t: (TIME*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
 }
 
 function onTargetHit(id, pt){
@@ -317,16 +344,13 @@ function onTargetHit(id, pt){
 
   const type = obj?.type || 'normal';
 
-  // prevent expire race
+  // ✅ remove from active immediately to prevent expire race / "perfect+miss"
   active.delete(id);
 
   dl.onHit();
 
   let grade = 'good';
   let scoreDelta = 0;
-
-  const feverOn = feverActive(); // true only if pressed FEVER
-  const baseMult = feverOn ? 1.25 : 1.0;
 
   if(type === 'decoy'){
     grade = 'bad';
@@ -363,73 +387,27 @@ function onTargetHit(id, pt){
     bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * CFG.bossDamageBossFace));
     say('CRIT! ใส่หน้า Boss!', 'perfect');
   }else{
-    grade = feverOn ? 'perfect' : 'good';
+    grade = (fever >= FEVER_MAX) ? 'perfect' : 'good';
     scoreDelta = (grade === 'perfect') ? 14 : 10;
     combo++;
     bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * CFG.bossDamageNormal));
     say(grade === 'perfect' ? 'PERFECT!' : 'ดีมาก!', grade === 'perfect' ? 'perfect' : 'good');
   }
 
-  // apply fever multiplier (only positive deltas)
-  if(scoreDelta > 0) scoreDelta = Math.round(scoreDelta * baseMult);
-
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever charge (during fever mode charge slower)
-  const gain = (grade === 'perfect' ? 10 : 6);
-  fever = clamp(fever + (feverOn ? gain*0.5 : gain), 0, FEVER_MAX);
+  fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
 
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id);
 
-  events.push({ t: (runtimeTimeSec*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
+  events.push({ t: (TIME*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
   if(bossHp <= 0) nextBossOrPhase();
   if(youHp <= 0) endGame('dead');
 
   setHUD();
-}
-
-function handleExpiry(){
-  const tNow = now();
-  for(const [id, info] of active.entries()){
-    if(tNow < info.expireAtMs) continue;
-
-    // if renderer already removed, drop it
-    const obj = renderer.targets.get(id);
-    if(!obj?.el){
-      active.delete(id);
-      continue;
-    }
-
-    // expire FX + remove
-    renderer.playHitFx(id, { grade:'expire' });
-    renderer.expireTarget(id);
-
-    // ✅ MISS counted only for normal/bossface expiry
-    if(expireCountsMiss(info.type)){
-      miss++;
-      combo = 0;
-      say('พลาด! (Miss)', 'miss');
-
-      // optional tiny HP penalty only for normal expire
-      if(info.type === 'normal' && youHp > 0){
-        youHp = Math.max(0, youHp - 2);
-        if(youHp <= 0) endGame('dead');
-      }
-    }
-
-    events.push({
-      t: (runtimeTimeSec*1000 - timeLeft),
-      type:'expire',
-      id,
-      targetType: info.type,
-      missCounted: expireCountsMiss(info.type) ? 1 : 0
-    });
-
-    active.delete(id);
-  }
 }
 
 function endGame(reason='timeup'){
@@ -452,7 +430,7 @@ function endGame(reason='timeup'){
   const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
-  if(resTime) resTime.textContent = `${(runtimeTimeSec - timeLeft/1000).toFixed(1)} s`;
+  if(resTime) resTime.textContent = `${(TIME - timeLeft/1000).toFixed(1)} s`;
   if(resScore) resScore.textContent = String(score|0);
   if(resMaxCombo) resMaxCombo.textContent = String(maxCombo|0);
   if(resMiss) resMiss.textContent = String(miss|0);
@@ -470,6 +448,48 @@ function endGame(reason='timeup'){
   showView('result');
 }
 
+// ✅ expiry handler (smooth fade + MISS only when counted)
+function handleExpiry(){
+  const tNow = now();
+  for(const [id, info] of active.entries()){
+    if(tNow < info.expireAtMs) continue;
+
+    const obj = renderer.targets.get(id);
+    if(!obj?.el){
+      active.delete(id);
+      continue;
+    }
+
+    // always fade out
+    renderer.expireTarget(id);
+
+    // show MISS only when it counts
+    const counted = expireCountsMiss(info.type);
+    if(counted){
+      miss++;
+      combo = 0;
+      renderer.playHitFx(id, { grade:'expire' });
+      say('พลาด! (Miss)', 'miss');
+    }
+
+    events.push({
+      t: (TIME*1000 - timeLeft),
+      type:'expire',
+      id,
+      targetType: info.type,
+      missCounted: counted ? 1 : 0
+    });
+
+    active.delete(id);
+
+    // optional: tiny HP penalty for normal expire (keeps pressure but fair)
+    if(info.type === 'normal' && youHp > 0){
+      youHp = Math.max(0, youHp - 2);
+      if(youHp <= 0) endGame('dead');
+    }
+  }
+}
+
 function tick(){
   if(!running || ended) return;
   requestAnimationFrame(tick);
@@ -477,20 +497,22 @@ function tick(){
 
   const t = now();
   const dt = t - tStart;
-  timeLeft = Math.max(0, (runtimeTimeSec*1000) - dt);
-
-  // spawn pacing (slightly slower during fever mode for “feel good”)
-  const feverOn = feverActive();
-  const minI = CFG.spawnIntervalMin * (feverOn ? 1.10 : 1.0);
-  const maxI = CFG.spawnIntervalMax * (feverOn ? 1.15 : 1.0);
+  timeLeft = Math.max(0, (TIME*1000) - dt);
 
   const since = t - tLastSpawn;
-  const targetInterval = clamp(minI + Math.random()*(maxI - minI), 450, 2000);
+  const targetInterval = clamp(
+    CFG.spawnIntervalMin + Math.random()*(CFG.spawnIntervalMax - CFG.spawnIntervalMin),
+    450, 1800
+  );
 
   if(since >= targetInterval){
     tLastSpawn = t;
     spawnOne();
     dl.onShot();
+  }
+
+  if(fever >= FEVER_MAX){
+    fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
 
   handleExpiry();
@@ -502,87 +524,89 @@ function tick(){
   setHUD();
 }
 
-function startGame(){
-  // read menu inputs
-  const pid = String(inputPid?.value || PID0 || '').trim();
-  const diffSel = String(inputDiff?.value || DIFF0 || 'normal').toLowerCase();
-  const timeSel = Math.max(20, Math.min(240, Number(inputTime?.value || TIME0 || 70)));
+// -------------------------
+// Boot
+// -------------------------
+async function start(mode){
+  try{
+    // optional AI (never crashes if absent)
+    await loadAI();
 
-  selectedMode = selectedMode || 'play';
-  applyModeUI();
+    ended = false;
+    running = true;
+    paused = false;
 
-  runtimeTimeSec = timeSel;
-  diffKey = DIFF_CONFIG[diffSel] ? diffSel : 'normal';
-  CFG = { ...DIFF_CONFIG[diffKey] };
-  renderer.setDifficulty(diffKey);
+    // allow menu inputs override (if present)
+    const pidUI = (inputPid?.value || '').trim();
+    if(pidUI) session.pid = pidUI;
 
-  session.pid = pid;
-  session.diff = diffKey;
-  session.timeSec = runtimeTimeSec;
-  session.mode = (selectedMode === 'research') ? 'research' : 'normal';
-  session.startedAt = new Date().toISOString();
+    const diffUI = (inputDiff?.value || '').trim().toLowerCase();
+    if(DIFF_CONFIG[diffUI]){
+      diff = diffUI;
+      CFG = DIFF_CONFIG[diff];
+      session.diff = diff;
+      renderer.setDifficulty(diff);
+    }
 
-  ended = false;
-  running = true;
-  paused = false;
+    const timeUI = Number(inputTime?.value);
+    if(Number.isFinite(timeUI) && timeUI >= 20 && timeUI <= 240){
+      session.timeSec = timeUI;
+    }else{
+      session.timeSec = TIME;
+    }
 
-  score=0; combo=0; maxCombo=0; miss=0;
-  fever=0; shield=0;
-  feverModeUntil = 0;
+    // reset state
+    score=0; combo=0; maxCombo=0; miss=0;
+    fever=0; shield=0;
+    youHp=YOU_HP_MAX;
+    bossHp=BOSS_HP_MAX;
+    bossIndex=0; phase=1; bossesCleared=0;
 
-  youHp=YOU_HP_MAX;
-  bossHp=BOSS_HP_MAX;
-  bossIndex=0; phase=1; bossesCleared=0;
+    events.length = 0;
+    active.clear();
 
-  events.length = 0;
-  active.clear();
+    dl.reset();
+    renderer.destroy();
 
-  dl.reset();
-  renderer.destroy();
+    setBossUI();
+    setHUD();
+    say('แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!', '');
 
-  setBossUI();
-  timeLeft = runtimeTimeSec*1000;
-  setHUD();
-  say('แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!', '');
+    showView('play');
 
-  showView('play');
-  autoCollapseMeta();
-
-  tStart = now();
-  tLastSpawn = tStart;
-  requestAnimationFrame(tick);
+    tStart = now();
+    tLastSpawn = tStart;
+    requestAnimationFrame(tick);
+  }catch(err){
+    fatal(err);
+  }
 }
 
-// ---- UI events ----
-btnTabPlay?.addEventListener('click', ()=>{ selectedMode='play'; applyModeUI(); });
-btnTabResearch?.addEventListener('click', ()=>{ selectedMode='research'; applyModeUI(); });
+// legacy buttons
+btnPlay?.addEventListener('click', ()=> start('normal'));
+btnResearch?.addEventListener('click', ()=> start('research'));
 
-btnStart?.addEventListener('click', startGame);
+// single START button (your latest HTML)
+btnStart?.addEventListener('click', ()=> start(MODE));
 
-btnHowto?.addEventListener('click', ()=> howtoBox?.classList.toggle('is-on'));
+btnHowto?.addEventListener('click', ()=>{
+  howtoBox?.classList.toggle('is-on');
+});
 
 btnBackMenu?.addEventListener('click', ()=>{
-  running=false; ended=false; paused=false;
+  running = false;
+  ended = false;
+  paused = false;
   active.clear();
   renderer.destroy();
   showView('menu');
 });
 
-btnPause?.addEventListener('change', ()=>{ paused = !!btnPause.checked; });
-
-btnFever?.addEventListener('click', ()=>{
-  if(!running || ended) return;
-  if(fever < FEVER_MAX) return;
-
-  // FEVER skill: 6s bonus mode
-  fever = 0;
-  feverModeUntil = now() + 6000;
-  say('⚡ FEVER ON! (6s)', 'perfect');
-  events.push({ t: (runtimeTimeSec*1000 - timeLeft), type:'fever_on', ttlMs: 6000 });
-  setHUD();
+btnPause?.addEventListener('change', ()=>{
+  paused = !!btnPause.checked;
 });
 
-btnRetry?.addEventListener('click', startGame);
+btnRetry?.addEventListener('click', ()=> start(MODE));
 btnMenu?.addEventListener('click', ()=>{
   active.clear();
   renderer.destroy();
@@ -605,7 +629,10 @@ function downloadCSV(filename, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 800);
 }
 
-btnEvtCsv?.addEventListener('click', ()=>{ if(events.length) downloadCSV('shadowbreaker_events.csv', events); });
+btnEvtCsv?.addEventListener('click', ()=>{
+  if(!events.length) return;
+  downloadCSV('shadowbreaker_events.csv', events);
+});
 
 btnSesCsv?.addEventListener('click', ()=>{
   session.score = score|0;
@@ -622,15 +649,14 @@ btnSesCsv?.addEventListener('click', ()=>{
   downloadCSV('shadowbreaker_session.csv', [session]);
 });
 
-// init menu defaults from URL
-try {
-  if(inputPid) inputPid.value = PID0 || '';
-  if(inputDiff) inputDiff.value = DIFF_CONFIG[DIFF0] ? DIFF0 : 'normal';
-  if(inputTime) inputTime.value = String(TIME0);
-} catch (_) {}
+// init
+try{
+  // update hub link
+  if(linkHub && HUB){
+    linkHub.href = decodeURIComponent(HUB);
+  }
+}catch(_){}
 
-applyModeUI();
-autoCollapseMeta();
 showView('menu');
 setBossUI();
 setHUD();
