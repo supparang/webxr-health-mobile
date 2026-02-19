@@ -1,8 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (FOLDER) — PRODUCTION v20260217a
-✅ Has .gj-topbar + .hha-controls for hudSafeMeasure()
-✅ Has HUD quest ids for safe.js quest engine
-✅ Uses vr-ui.js (ENTER VR/RECENTER + crosshair -> hha:shoot)
+GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-19a
+✅ MATCHES goodjunk-vr.css v2026-02-18c (gj-hud-top/bot, gj-field, lowtime overlay)
+✅ Safe.js IDs intact
+✅ vr-ui.js provides hha:shoot (crosshair)
 ✅ Single boot module load: ./goodjunk-vr.boot.js
 -->
 <!doctype html>
@@ -13,126 +13,169 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v20260217a
   <title>GoodJunkVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-
-  <!-- ✅ CSS (folder) -->
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260217a"/>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260218c"/>
 </head>
 
 <body class="gj view-pc">
   <!-- =========================================================
-       TOPBAR (boot.safe-measure expects .gj-topbar)
+       TOPBAR
        ========================================================= -->
-  <div class="gj-topbar" style="position:fixed;left:12px;right:12px;top:calc(10px + var(--sat));z-index:200;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;pointer-events:auto;">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <span style="padding:7px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);color:rgba(229,231,235,.86);font-weight:1000;">🍀 GoodJunkVR</span>
-      <span id="chipMode" style="padding:7px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);color:rgba(148,163,184,.95);font-weight:900;">mode: —</span>
-      <span id="chipDiff" style="padding:7px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);color:rgba(148,163,184,.95);font-weight:900;">diff: —</span>
-      <span id="vrMiniHud" style="padding:7px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);color:rgba(34,211,238,.9);font-weight:1000;">🎯 VR: ยิงจากกลางจอ</span>
+  <div class="gj-topbar">
+    <div class="left">
+      <span class="gj-chip gj-chip-brand">🍀 GoodJunkVR</span>
+      <span id="chipMode" class="gj-chip gj-chip-mini">mode: —</span>
+      <span id="chipDiff" class="gj-chip gj-chip-mini">diff: —</span>
+      <span id="vrMiniHud" class="gj-chip gj-chip-mini">🎯 VR: ยิงจากกลางจอ</span>
     </div>
 
-    <div class="hha-controls" style="display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto;">
-      <button id="btnMissions" class="gj-btn" type="button" style="border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:#e5e7eb;padding:9px 10px;font-weight:1000;">ภารกิจ</button>
-      <button id="btnHideHud" class="gj-btn" type="button" style="border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:#e5e7eb;padding:9px 10px;font-weight:1000;">ซ่อน HUD</button>
-      <button id="btnRestart" class="gj-btn" type="button" style="border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:#e5e7eb;padding:9px 10px;font-weight:1000;">เริ่มใหม่</button>
-      <button id="btnHub" class="gj-btn" type="button" style="border-radius:14px;border:1px solid rgba(34,211,238,.25);background:rgba(34,211,238,.12);color:#e5e7eb;padding:9px 10px;font-weight:1000;">กลับ HUB</button>
+    <div class="right hha-controls">
+      <button id="btnMissions" class="gj-btn" type="button">ภารกิจ</button>
+      <button id="btnHideHud" class="gj-btn" type="button">ซ่อน HUD</button>
+      <button id="btnRestart" class="gj-btn" type="button">เริ่มใหม่</button>
+      <button id="btnHub" class="gj-btn primary" type="button">กลับ HUB</button>
     </div>
   </div>
 
   <!-- =========================================================
-       LAYERS (ids must exist)
+       PLAYFIELD (IMPORTANT: wrapper for CSS + safe padding)
        ========================================================= -->
-  <div id="gj-layer" class="gj-layer" aria-label="GoodJunk Layer"></div>
-  <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true" aria-label="GoodJunk Layer Right"></div>
+  <div class="gj-field" id="playfield" aria-label="GoodJunk Playfield">
+    <div id="gj-layer" class="gj-layer" aria-label="GoodJunk Layer"></div>
+    <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true" aria-label="GoodJunk Layer Right"></div>
+  </div>
 
   <!-- =========================================================
-       HUD (ids for quest engine)
+       HUD TOP (pointer-events none so it won't block targets)
        ========================================================= -->
-  <div id="hud" role="region" aria-label="HUD" style="margin-top:64px;">
-    <div class="hud-top">
-      <div class="hud-title">
-        <div class="hud-name">GoodJunkVR</div>
-        <div class="hud-sub">แยกของดี/ของเสีย • ยิง/แตะเป้าให้แม่น</div>
+  <div class="gj-hud-top" id="hud" role="region" aria-label="HUD" style="pointer-events:none;">
+    <div class="hud-row">
+      <div class="hud-pill">
+        <div class="hud-label">SCORE</div>
+        <div id="hud-score" class="hud-value">0</div>
       </div>
 
-      <div class="hud-stats">
-        <div class="pill"><span class="k">SCORE</span><span id="hud-score" class="v">0</span></div>
-        <div class="pill"><span class="k">TIME</span><span id="hud-time" class="v">0</span></div>
-        <div class="pill"><span class="k">MISS</span><span id="hud-miss" class="v">0</span></div>
-        <div class="pill grade"><span class="k">GRADE</span><span id="hud-grade" class="v">—</span></div>
-      </div>
-    </div>
-
-    <div class="hud-mid">
-      <div class="goal">
-        <div class="row">
-          <div class="goal-name" id="hud-goal">—</div>
-          <div class="goal-metric"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
-        </div>
-        <div class="goal-desc" id="goalDesc">—</div>
+      <div class="hud-pill warn">
+        <div class="hud-label">TIME</div>
+        <div id="hud-time" class="hud-value">0</div>
       </div>
 
-      <div class="mini">
-        <div class="row">
-          <div class="mini-title">Mini Quest</div>
-          <div class="mini-time" id="miniTimer">—</div>
-        </div>
-        <div class="mini-desc" id="hud-mini">—</div>
+      <div class="hud-pill">
+        <div class="hud-label">MISS</div>
+        <div id="hud-miss" class="hud-value">0</div>
+      </div>
+
+      <div class="hud-pill grade">
+        <div class="hud-label">GRADE</div>
+        <div id="hud-grade" class="hud-value">—</div>
       </div>
     </div>
 
-    <div class="hud-bottom">
-      <div class="meter" id="feverBox">
-        <div class="meter-head">
-          <div class="meter-title">FEVER</div>
-          <div class="meter-val" id="feverText">0%</div>
-        </div>
-        <div class="meter-bar"><div class="meter-fill" id="feverFill"></div></div>
-      </div>
-
-      <div class="shield">
-        <div class="shield-title">SHIELD</div>
-        <div class="shield-val" id="shieldPills">—</div>
+    <!-- progress -->
+    <div class="gj-progress" aria-label="progress" style="pointer-events:none;">
+      <div class="gj-progress-track">
+        <div id="gjProgressFill" class="gj-progress-fill"></div>
       </div>
     </div>
 
-    <div class="progress">
-      <div class="progress-bar" id="gjProgress"><div class="progress-fill" id="gjProgressFill"></div></div>
-    </div>
-
-    <div class="boss" id="bossBar" aria-hidden="true">
-      <div class="boss-row">
-        <div class="boss-title">BOSS</div>
-        <div class="boss-hp"><div class="boss-fill" id="bossFill"></div></div>
+    <!-- boss bar -->
+    <div id="bossBar" class="gj-bossbar" aria-hidden="true">
+      <div class="gj-bossbar-head">
+        <div class="gj-bossbar-title">BOSS</div>
+        <div id="bossHint" class="gj-bossbar-hint"></div>
       </div>
-      <div class="boss-hint" id="bossHint"></div>
+      <div class="gj-bossbar-track">
+        <div id="bossFill" class="gj-bossbar-fill"></div>
+      </div>
     </div>
   </div>
 
-  <!-- ===== Missions Peek (simple) ===== -->
-  <div id="missionsPeek" aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:220;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .14s ease;">
-    <div style="min-width:min(420px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;background:rgba(2,6,23,.78);padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.45);">
-      <div style="font-weight:1000;margin-bottom:8px;">ภารกิจตอนนี้</div>
-      <div id="peekGoal" style="color:rgba(229,231,235,.86);margin-bottom:6px;">GOAL: —</div>
-      <div id="peekMini" style="color:rgba(229,231,235,.86);">MINI: —</div>
-      <div style="color:rgba(148,163,184,.95);margin-top:10px;font-size:12px;">แตะพื้นหลังเพื่อปิด</div>
+  <!-- =========================================================
+       HUD BOTTOM (quests + fever + shield)
+       ========================================================= -->
+  <div class="gj-hud-bot" aria-label="HUD Bottom">
+    <div class="meter" aria-label="Goal">
+      <div class="meter-title" id="hud-goal">—</div>
+      <div class="meter-tip" id="goalDesc">—</div>
+      <div class="meter-num" style="margin-top:6px;">
+        <b id="hud-goal-cur">0</b> / <b id="hud-goal-target">0</b>
+      </div>
+    </div>
+
+    <div class="meter" aria-label="Mini Quest">
+      <div class="meter-title">Mini Quest</div>
+      <div class="meter-tip" id="hud-mini">—</div>
+      <div class="meter-num" style="margin-top:6px;">⏱ <span id="miniTimer">—</span></div>
+    </div>
+
+    <div class="meter" aria-label="Fever + Shield">
+      <div class="meter-title">FEVER</div>
+      <div class="meter-bar"><div id="feverFill" class="meter-fill"></div></div>
+      <div class="meter-num"><span id="feverText">0%</span></div>
+      <div class="meter-shield" style="margin-top:6px;">🛡️ <span id="shieldPills">—</span></div>
     </div>
   </div>
 
-  <!-- ===== Low time overlay ===== -->
-  <div id="lowTimeOverlay" aria-hidden="true">
-    <div class="lowtime-card">
-      <div class="lowtime-label">เหลือเวลา</div>
-      <div id="gj-lowtime-num" class="lowtime-num">5</div>
+  <!-- =========================================================
+       Missions Peek (modal)
+       ========================================================= -->
+  <div id="missionsPeek" class="gj-quest-panel" aria-hidden="true">
+    <div class="gj-quest-card" role="dialog" aria-label="ภารกิจตอนนี้">
+      <div class="gj-quest-head">
+        <div class="gj-quest-title">ภารกิจตอนนี้</div>
+        <button id="btnClosePeek" class="gj-btn" type="button">ปิด</button>
+      </div>
+
+      <div class="gj-quest-section">
+        <div class="q-title">GOAL</div>
+        <div id="peekGoal" class="q-desc">GOAL: —</div>
+      </div>
+
+      <div class="gj-quest-section">
+        <div class="q-title">MINI</div>
+        <div id="peekMini" class="q-desc">MINI: —</div>
+        <div class="q-hint">แตะ “ปิด” หรือแตะพื้นหลังเพื่อปิด</div>
+      </div>
     </div>
   </div>
 
-  <!-- ✅ Universal VR UI -->
+  <!-- =========================================================
+       Low time overlay (matches CSS v2026-02-18c)
+       ========================================================= -->
+  <div id="lowTimeOverlay" class="gj-lowtime-overlay" aria-hidden="true">
+    <div class="gj-lowtime-ring"></div>
+    <div id="gj-lowtime-num" class="gj-lowtime-num">5</div>
+  </div>
+
+  <!-- =========================================================
+       End overlay (optional). safe.js will set aria-hidden=false when ending
+       You can add buttons later if needed. For now keep minimal.
+       ========================================================= -->
+  <div id="endOverlay" class="gj-end" aria-hidden="true">
+    <div class="card">
+      <div id="endTitle" class="title">Completed</div>
+      <div id="endSub" class="sub">—</div>
+
+      <div class="grid">
+        <div class="stat"><span>GRADE</span><b id="endGrade">—</b></div>
+        <div class="stat"><span>SCORE</span><b id="endScore">0</b></div>
+        <div class="stat"><span>MISS</span><b id="endMiss">0</b></div>
+        <div class="stat"><span>TIME</span><b id="endTime">0</b></div>
+      </div>
+
+      <div class="actions">
+        <button id="btnRestartEnd" class="btn" type="button" onclick="location.reload()">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="btn alt" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js"></script>
 
-  <!-- ✅ Boot -->
-  <script type="module" src="./goodjunk-vr.boot.js?v=20260217a"></script>
+  <!-- Boot -->
+  <script type="module" src="./goodjunk-vr.boot.js?v=20260218d"></script>
 
-  <!-- ✅ UI wiring (safe: no engine duplication) -->
+  <!-- UI wiring (safe: no engine duplication) -->
   <script>
     (function(){
       const DOC = document;
@@ -152,8 +195,13 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v20260217a
       const btnB = DOC.getElementById('btnHub');
 
       const peek = DOC.getElementById('missionsPeek');
+      const btnClosePeek = DOC.getElementById('btnClosePeek');
+
       const peekGoal = DOC.getElementById('peekGoal');
       const peekMini = DOC.getElementById('peekMini');
+
+      const btnBackHub = DOC.getElementById('btnBackHub');
+      btnBackHub && btnBackHub.addEventListener('click', ()=> location.href = hubUrl());
 
       function syncHudBtn(){
         const hidden = DOC.body.classList.contains('hud-hidden');
@@ -162,7 +210,6 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v20260217a
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
-        try{ window.dispatchEvent(new CustomEvent('hha:view', { detail:{ view: DOC.body.dataset.view || '' }})); }catch(_){}
       }
       btnH && btnH.addEventListener('click', toggleHud);
       syncHudBtn();
@@ -170,16 +217,15 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v20260217a
       function showPeek(on){
         if(!peek) return;
         if(on){
-          peek.style.opacity = '1';
-          peek.style.pointerEvents = 'auto';
           peek.setAttribute('aria-hidden','false');
+          DOC.body.classList.add('quest-open');
         }else{
-          peek.style.opacity = '0';
-          peek.style.pointerEvents = 'none';
           peek.setAttribute('aria-hidden','true');
+          DOC.body.classList.remove('quest-open');
         }
       }
       btnM && btnM.addEventListener('click', ()=> showPeek(true));
+      btnClosePeek && btnClosePeek.addEventListener('click', ()=> showPeek(false));
       peek && peek.addEventListener('click', (e)=>{ if(e.target === peek) showPeek(false); });
 
       btnR && btnR.addEventListener('click', ()=> location.reload());
