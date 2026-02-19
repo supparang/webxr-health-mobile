@@ -1,9 +1,10 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks — SAFE STUB (deterministic-friendly) — v20260215a
+// AI Hooks — SAFE STUB (deterministic-friendly) — v20260218b
 // Purpose: provide window.HHA.createAIHooks() so groups.safe.js can attach AI optionally.
 // ✅ Default OFF (unless ?ai=1 AND run=play AND not research/practice)
 // ✅ Deterministic-safe: uses seed (string) -> u32 -> mulberry32 for any randomness
-// ✅ Rate-limited tips, fairness clamps, no external deps
+// ✅ Rate-limited tips (DETERMINISTIC): based on event counts (NOT time)
+// ✅ Fairness clamps, no external deps
 // API:
 //   window.HHA.createAIHooks({game, runMode, diff, seed, enabled}) -> { getDifficulty(), getTip(), onEvent() }
 
@@ -25,10 +26,6 @@
     v = Number(v);
     if (!Number.isFinite(v)) v = 0;
     return Math.max(a, Math.min(b, v));
-  }
-
-  function nowMs(){
-    try { return performance.now(); } catch { return Date.now(); }
   }
 
   function strSeedToU32(s){
@@ -65,7 +62,7 @@
     return (on === '1' || on === 'true');
   }
 
-  // Very small "director" state: we output difficulty multiplier 0.85..1.18
+  // Very small "director" state: output difficulty multiplier 0.85..1.18
   function createHooks(opts){
     const game = String(opts && opts.game ? opts.game : '').toLowerCase() || 'unknown';
     const runMode = String(opts && opts.runMode ? opts.runMode : '').toLowerCase() || 'play';
@@ -80,6 +77,7 @@
     const S = {
       enabled,
       game, runMode, diff, seed,
+
       shots: 0,
       hitGood: 0,
       hitBad: 0,
@@ -93,32 +91,33 @@
       // director output
       diffMul: 1.0,
 
-      // tip controls
-      lastTipAt: 0,
-      tipCooldownMs: 5500,
+      // tip controls (DETERMINISTIC)
+      eventCount: 0,
+      lastTipEvent: -9999,
+      tipEveryNEvents: 9,
       lastTipKey: '',
     };
 
     // Guidance library (super safe)
     const TIPS = {
       core: [
-        {k:'look_name', t:'ดู “ชื่อหมู่” ก่อนยิงทุกครั้ง ✅'},
-        {k:'combo', t:'คอมโบสำคัญ! ยิงถูกติดกันจะได้แต้มพุ่ง 🔥'},
-        {k:'slow', t:'ไม่ต้องรีบ—ยิงให้ชัวร์แล้วค่อยเร่ง 🎯'},
+        {k:'look_name', t:'ดู “ชื่อหมู่” ก่อนยิงทุกครั้ง ✅', mood:'neutral'},
+        {k:'combo', t:'คอมโบสำคัญ! ยิงถูกติดกันแต้มจะพุ่ง 🔥', mood:'happy'},
+        {k:'slow', t:'ไม่ต้องรีบ—ยิงให้ชัวร์แล้วค่อยเร่ง 🎯', mood:'neutral'},
       ],
       recover: [
-        {k:'reset', t:'หลุดคอมโบไม่เป็นไร ตั้งหลักใหม่ แล้วเก็บต่อ 💪'},
-        {k:'aim', t:'เล็งกลางเป้า แล้วแตะ/ยิงทีละช็อต จะนิ่งกว่า'},
+        {k:'reset', t:'หลุดคอมโบไม่เป็นไร ตั้งหลักแล้วเก็บต่อ 💪', mood:'neutral'},
+        {k:'aim', t:'เล็งกลางเป้า แล้วแตะ/ยิงทีละช็อต จะนิ่งกว่า', mood:'neutral'},
       ],
       cvr: [
-        {k:'cvr_center', t:'โหมด cVR: ให้ crosshair อยู่กลางเป้าก่อนค่อยยิง'},
-        {k:'cvr_tap', t:'แตะจอ “ครั้งเดียว” ต่อช็อต อย่ารัว (กันพลาด)'},
+        {k:'cvr_center', t:'โหมด cVR: ให้ crosshair อยู่กลางเป้าก่อนค่อยยิง', mood:'neutral'},
+        {k:'cvr_tap', t:'แตะจอ “ครั้งเดียว” ต่อช็อต อย่ารัว (กันพลาด)', mood:'neutral'},
       ],
       boss: [
-        {k:'boss', t:'บอสมาแล้ว! โฟกัสยิง “หมู่ที่ถูก” เท่านั้น 👊'},
+        {k:'boss', t:'บอสมาแล้ว! โฟกัสยิง “หมู่ที่ถูก” เท่านั้น 👊', mood:'fever'},
       ],
       mini: [
-        {k:'mini', t:'MINI มาแล้ว! เก็บให้ครบตามเป้าเร็ว ๆ ⚡'},
+        {k:'mini', t:'MINI มาแล้ว! เก็บให้ครบตามเป้าเร็ว ๆ ⚡', mood:'fever'},
       ],
     };
 
@@ -129,9 +128,7 @@
     }
 
     function updateDirector(){
-      // super simple & fair:
-      // - if accuracy low or many misses => slow spawn a bit (mul < 1)
-      // - if accuracy high + combo stable => speed up slightly (mul > 1)
+      // fair & simple: only tiny nudges, clamped
       const acc = accuracy();
       const total = S.shots || 0;
 
@@ -145,23 +142,20 @@
         if ((S.maxCombo || 0) >= 12) mul *= 1.05;
       }
 
-      // clamp to stay fair
       S.diffMul = clamp(mul, 0.85, 1.18);
     }
 
+    // deterministic “rate limit”: every N events
     function canTip(){
-      const t = nowMs();
-      return (t - (S.lastTipAt || 0)) >= S.tipCooldownMs;
+      return (S.eventCount - (S.lastTipEvent||0)) >= (S.tipEveryNEvents||9);
     }
 
     function chooseTip(eventName){
       const view = String(qs('view','')||'').toLowerCase();
       const pool = [];
 
-      // base tips
       pool.push.apply(pool, TIPS.core);
 
-      // contextual
       if (eventName === 'shot:hit_bad' || eventName === 'shot:miss' || eventName === 'target:timeout_miss'){
         pool.push.apply(pool, TIPS.recover);
       }
@@ -175,7 +169,6 @@
         pool.push.apply(pool, TIPS.mini);
       }
 
-      // pick tip but avoid repeating immediately
       let tip = pick(rng, pool);
       if (tip && tip.k === S.lastTipKey && pool.length > 1){
         tip = pick(rng, pool);
@@ -196,22 +189,28 @@
       const tip = chooseTip(reason || '');
       if (!tip) return null;
 
-      S.lastTipAt = nowMs();
+      S.lastTipEvent = S.eventCount;
       S.lastTipKey = tip.k;
-      return { text: tip.t, key: tip.k, reason: String(reason||'') };
+
+      return { text: tip.t, key: tip.k, reason: String(reason||''), mood: tip.mood || 'neutral' };
     }
 
     function onEvent(name, payload){
       if (!S.enabled) return;
 
+      S.eventCount++;
+
       const n = String(name||'');
       const p = payload || {};
 
-      // update stats from engine events
       if (n === 'run:start'){
-        // reset minimal
         S.shots = 0; S.hitGood = 0; S.hitBad = 0; S.missShot = 0; S.missTimeout = 0;
         S.combo = 0; S.maxCombo = 0; S.score = 0; S.miss = 0;
+
+        // deterministic: reset tip counters too
+        S.eventCount = 0;
+        S.lastTipEvent = -9999;
+        S.lastTipKey = '';
         return;
       }
 
@@ -246,14 +245,8 @@
         S.miss++;
         return;
       }
-
-      if (n === 'run:end'){
-        // nothing special
-        return;
-      }
     }
 
-    // expose safe object
     return {
       enabled: S.enabled,
       seed: S.seed,
@@ -267,7 +260,6 @@
     try{
       return createHooks(opts || {});
     }catch(_){
-      // ultra-safe fallback: disabled hooks
       return {
         enabled:false,
         getDifficulty: ()=>1.0,
