@@ -1,14 +1,17 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1b
-// PATCH: export boot({mount,cfg}) + pause bridge + shot_miss wired
+// Balanced Plate VR — SAFE ENGINE (PRODUCTION+) — v5.3-ML1 (PATCH export boot({mount,cfg}))
+// HHA Standard + Storm + Boss + AI hooks + features_1s + labels + flush-hardened
 //
+// ✅ export boot({ mount, cfg })  <<<<<< PATCH สำคัญ
+// ✅ uses /vr/mode-factory.js with onShotMiss -> increments STATE.shotMiss (NOT canonical miss)
 // ✅ emits hha:features_1s every 1s
 // ✅ emits hha:labels on end + milestones
 // ✅ integrates /vr/ai-hooks.js if present (never crashes if missing)
 // ✅ study/research: deterministic seed + AI/adaptive OFF by default
-// ✅ NEW: accepts cfg from runner (plate-vr.html) via boot({mount,cfg})
-// ✅ NEW: pause bridge via hha:pauseRequest
-// ✅ NEW: onShotMiss wired from mode-factory -> hha:judge shot_miss + STATE.shotMiss++
+//
+// Dependencies:
+//   ../vr/mode-factory.js
+//   ../vr/food5-th.js
 
 'use strict';
 
@@ -64,9 +67,15 @@ async function flushHardened(reason){
   try{
     const L = ROOT.HHA_LOGGER || ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || null;
     if(L && typeof L.flush === 'function'){
-      await Promise.race([ Promise.resolve(L.flush(reason||'manual')), new Promise(res=>setTimeout(res, 650)) ]);
+      await Promise.race([
+        Promise.resolve(L.flush(reason||'manual')),
+        new Promise(res=>setTimeout(res, 650))
+      ]);
     }else if(L && typeof L.flushNow === 'function'){
-      await Promise.race([ Promise.resolve(L.flushNow({reason})), new Promise(res=>setTimeout(res, 650)) ]);
+      await Promise.race([
+        Promise.resolve(L.flushNow({reason})),
+        new Promise(res=>setTimeout(res, 650))
+      ]);
     }
   }catch{}
 }
@@ -119,9 +128,6 @@ function createAI(){
 
 // ---------------- State ----------------
 const STATE = {
-  __booted:false,
-  __pauseBridgeWired:false,
-
   running:false,
   ended:false,
   paused:false,
@@ -136,7 +142,7 @@ const STATE = {
   hitGood:0,
   hitJunk:0,
   expireGood:0,
-  shotMiss:0,
+  shotMiss:0, // ✅ from mode-factory onShotMiss
 
   g:[0,0,0,0,0],
   spawnSeen:[false,false,false,false,false],
@@ -178,18 +184,23 @@ const STATE = {
     lastExpireGood:0,
     lastMiss:0,
     lastScore:0,
-    lastCombo:0,
-    lastTLeft:0,
+
     // deltas over 3s
     bufMiss: [],
     bufAcc: [],
     bufDensity: [],
+
     lastSpawnCount: 0,
     lastSpawnTs: 0,
     spawnCount: 0
   },
 
-  AI:null
+  AI:null,
+
+  // internal stop handles
+  _tickTimer:null,
+  __shotMissWired:false,
+  __shootBound:false
 };
 
 // ---------------- Accuracy / Quests ----------------
@@ -262,12 +273,15 @@ function emitQuest(){
       title: currentMiniTitle(),
       cur: currentMiniCur(),
       target: currentMiniTarget(),
-      done: currentMiniDone()
+      done: currentMiniDone(),
+      timeText: currentMiniTimeText()
     },
+    miniCleared: STATE.miniCleared,
+    miniTotal: STATE.miniTotal,
     allDone: STATE.goal.done && STATE.accMini.done
   });
 
-  // UI bind (best-effort)
+  // UI bind (works even if some ids absent)
   setText('uiGoalTitle', STATE.goal.title);
   setText('uiGoalCount', `${STATE.goal.cur}/${STATE.goal.target}`);
   const gf = qs('uiGoalFill'); if(gf) gf.style.width = `${STATE.goal.target ? (STATE.goal.cur/STATE.goal.target*100) : 0}%`;
@@ -348,18 +362,22 @@ function updateHUD(){
     game:'plate',
     runMode: STATE.cfg?.runMode || 'play',
     diff: STATE.cfg?.diff || 'normal',
+
+    // ✅ IMPORTANT: use timeLeftSec (match HHA Standard)
     timeLeftSec: STATE.timeLeft,
+
     score: STATE.score|0,
     combo: STATE.combo|0,
     comboMax: STATE.comboMax|0,
+
     miss: STATE.miss|0,
-    shotMiss: STATE.shotMiss|0,
+    shotMiss: STATE.shotMiss|0, // optional stream
+
     accuracyPct: Math.round(accPct*10)/10,
     grade,
     gCount: [...STATE.g]
   });
 
-  // best-effort DOM bind
   setText('uiScore', STATE.score|0);
   setText('uiCombo', STATE.combo|0);
   setText('uiComboMax', STATE.comboMax|0);
@@ -376,10 +394,12 @@ function updateHUD(){
   setText('uiG5', STATE.g[4]);
 }
 
-// ---------------- Crosshair shoot -> nearest target (optional bridge) ----------------
+// ---------------- Crosshair shoot bridge (optional, safe) ----------------
+// NOTE: vr-ui.js already emits hha:shoot.
+// This bridge helps DOM-only view=cvr cases when targets are DOM nodes.
 function bindShootOnce(){
-  if(ROOT.__PLATE_SHOOT_BOUND__) return;
-  ROOT.__PLATE_SHOOT_BOUND__ = true;
+  if(STATE.__shootBound) return;
+  STATE.__shootBound = true;
 
   ROOT.addEventListener('hha:shoot', (ev)=>{
     if(!STATE.running || STATE.paused || STATE.ended) return;
@@ -408,14 +428,19 @@ function bindShootOnce(){
   }, { passive:true });
 }
 
-// ---------------- Pause bridge (NEW) ----------------
-function wirePauseBridge(){
-  if(STATE.__pauseBridgeWired) return;
-  STATE.__pauseBridgeWired = true;
+// ---------------- Shot-miss wire (counts only shotMiss, not canonical miss) ----------------
+function wireShotMiss(){
+  if(STATE.__shotMissWired) return;
+  STATE.__shotMissWired = true;
 
-  ROOT.addEventListener('hha:pauseRequest', (e)=>{
-    const p = !!(e && e.detail && e.detail.paused);
-    setPaused(p);
+  ROOT.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    if(String(d.kind||'').toLowerCase() === 'shot_miss'){
+      STATE.shotMiss++;
+      // optional micro feedback (soft, no spam)
+      // coach('พลาดนิดเดียว! เล็งกลางเป้าอีกนิด 🎯', 'neutral');
+      updateHUD();
+    }
   }, { passive:true });
 }
 
@@ -572,16 +597,10 @@ function makeSpawner(mount){
       if(t.kind === 'good') onExpireGood(t.groupIndex ?? 0);
     },
 
-    // ✅ NEW: ยิงพลาด (crosshair/VR tap แต่ไม่โดนเป้า)
-    onShotMiss:(m)=>{
+    // ✅ NEW: miss shot callback (will also be emitted by hha:judge already)
+    onShotMiss: ()=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
       STATE.shotMiss++;
-      emit('hha:judge', { kind:'shot_miss', x:m?.x, y:m?.y, lockPx:m?.lockPx, source: m?.source || 'shoot' });
-      try{ STATE.AI?.onEvent?.('judge', { kind:'shot_miss' }); }catch{}
-      // optional micro-coach (ไม่ spam)
-      if((STATE.shotMiss % 4) === 1){
-        coach('ลองเล็งให้ใกล้เป้ากว่านี้นิดนึง 🎯', 'neutral');
-      }
       updateHUD();
     }
   });
@@ -628,8 +647,12 @@ function emitFeatures1s(){
   while(STATE.ML.bufDensity.length > 3) STATE.ML.bufDensity.shift();
 
   const missDelta3s = STATE.ML.bufMiss.reduce((s,v)=>s+v,0);
-  const accAvg3s = STATE.ML.bufAcc.length ? (STATE.ML.bufAcc.reduce((s,v)=>s+v,0) / STATE.ML.bufAcc.length) : accNowPct;
-  const densAvg3s = STATE.ML.bufDensity.length ? (STATE.ML.bufDensity.reduce((s,v)=>s+v,0) / STATE.ML.bufDensity.length) : targetDensity01();
+  const accAvg3s = STATE.ML.bufAcc.length
+    ? (STATE.ML.bufAcc.reduce((s,v)=>s+v,0) / STATE.ML.bufAcc.length)
+    : accNowPct;
+  const densAvg3s = STATE.ML.bufDensity.length
+    ? (STATE.ML.bufDensity.reduce((s,v)=>s+v,0) / STATE.ML.bufDensity.length)
+    : targetDensity01();
 
   // estimate spawnRate/s from decorateTarget counter
   const ts = now();
@@ -658,11 +681,11 @@ function emitFeatures1s(){
     missDelta1s: missD|0,
     missDelta3s: missDelta3s|0,
 
+    shotMissNow: STATE.shotMiss|0,
+
     hitGoodDelta1s: hitGoodD|0,
     hitJunkDelta1s: hitJunkD|0,
     expireGoodDelta1s: expGoodD|0,
-
-    shotMissNow: STATE.shotMiss|0,
 
     accNowPct,
     accAvg3s: Math.round(accAvg3s*10)/10,
@@ -682,9 +705,10 @@ function emitFeatures1s(){
 
   emit('hha:features_1s', feat);
 
+  // feed AI hooks
   try{ STATE.AI?.onEvent?.('features_1s', feat); }catch{}
 
-  // AI tip in play
+  // AI tip in play only
   const run = String(STATE.cfg?.runMode||'play').toLowerCase();
   const deterministic = (run === 'study' || run === 'research');
   if(!deterministic){
@@ -784,8 +808,10 @@ function onHitJunk(){
 function onExpireGood(groupIndex){
   STATE.expireGood++; STATE.miss++; resetCombo();
   const gi = clamp(groupIndex,0,4);
+
   emit('hha:judge', { kind:'expire_good', groupId: gi+1, score: STATE.score|0, combo: STATE.combo|0 });
   try{ STATE.AI?.onEvent?.('judge', { kind:'expire_good', groupId: gi+1 }); }catch{}
+
   updateAccMini();
   updateHUD();
   emitQuest();
@@ -807,7 +833,13 @@ function startStorm(){
   STATE.storm.forbidJunk = !isStudy && (accPct >= 82);
 
   coach('🌪️ พายุมาแล้ว! เก็บ GOOD ให้ทัน!', (STATE.storm.forbidJunk?'fever':'neutral'));
-  emitLabels('mini_start', { name:'storm', cycle:STATE.storm.cycleIndex+1, needGood:STATE.storm.needGood, durationSec:STATE.storm.durationSec, forbidJunk:STATE.storm.forbidJunk });
+  emitLabels('mini_start', {
+    name:'storm',
+    cycle:STATE.storm.cycleIndex+1,
+    needGood:STATE.storm.needGood,
+    durationSec:STATE.storm.durationSec,
+    forbidJunk:STATE.storm.forbidJunk
+  });
 
   updateStormHud();
   restartSpawner();
@@ -885,8 +917,6 @@ function finishBoss(ok, reason){
 }
 
 // ---------------- Timer loop ----------------
-let _tickTimer = null;
-
 function setPaused(p){
   STATE.paused = !!p;
   const hudPaused = qs('hudPaused');
@@ -894,9 +924,9 @@ function setPaused(p){
 }
 
 function startLoop(){
-  if(_tickTimer) clearInterval(_tickTimer);
+  if(STATE._tickTimer) clearInterval(STATE._tickTimer);
 
-  _tickTimer = setInterval(()=>{
+  STATE._tickTimer = setInterval(()=>{
     if(!STATE.running || STATE.ended) return;
     if(STATE.paused) return;
 
@@ -955,8 +985,8 @@ function endGame(reason='end'){
   STATE.ended = true;
   STATE.running = false;
 
-  try{ clearInterval(_tickTimer); }catch{}
-  _tickTimer = null;
+  try{ clearInterval(STATE._tickTimer); }catch{}
+  STATE._tickTimer = null;
 
   stopSpawner();
 
@@ -1002,6 +1032,7 @@ function endGame(reason='end'){
     reason
   };
 
+  // store
   saveJson(LS_LAST, summary);
   const hist = loadJson(LS_HIST, []);
   const next = Array.isArray(hist) ? hist : [];
@@ -1011,6 +1042,7 @@ function endGame(reason='end'){
 
   emit('hha:end', summary);
 
+  // labels for ML
   emitLabels('end', {
     reason,
     grade,
@@ -1019,6 +1051,7 @@ function endGame(reason='end'){
     scoreFinal: summary.scoreFinal
   });
 
+  // supervised targets
   emitLabels('targets', {
     y_grade: grade,
     y_score: summary.scoreFinal,
@@ -1033,8 +1066,8 @@ function endGame(reason='end'){
   flushHardened(reason);
 }
 
-// ---------------- Config helpers ----------------
-function cfgFallbackFromUrl(){
+// ---------------- Config + UI wiring ----------------
+function parseCfgFromUrl(){
   const U = new URL(location.href);
   const runRaw = (U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
   const diff   = (U.searchParams.get('diff') || 'normal').toLowerCase();
@@ -1052,48 +1085,51 @@ function cfgFallbackFromUrl(){
   };
 }
 
-// ---------------- Public API (NEW) ----------------
-export function boot({ mount, cfg } = {}){
-  if(STATE.__booted){
-    // idempotent: stop previous and restart cleanly
-    try{ stopSpawner(); }catch{}
-    try{ if(_tickTimer) clearInterval(_tickTimer); }catch{}
-    _tickTimer = null;
-    STATE.running = false;
-    STATE.ended = false;
-    STATE.paused = false;
-  }
-  STATE.__booted = true;
+function wireButtons(){
+  const btnStart = qs('btnStart');
+  const btnStartMain = qs('btnStartMain');
+  const startOverlay = qs('startOverlay');
 
-  if(!mount) throw new Error('[PlateVR] boot(): mount missing');
-  STATE.mountEl = mount;
+  const btnPause = qs('btnPause');
+  const btnRestart = qs('btnRestart');
+  const btnEnterVR = qs('btnEnterVR');
+  const btnBackHub = qs('btnBackHub');
 
-  // cfg from runner preferred
-  STATE.cfg = cfg && typeof cfg === 'object' ? cfg : cfgFallbackFromUrl();
+  btnStart?.addEventListener('click', ()=>{
+    if(STATE.running) return;
+    if(startOverlay) startOverlay.style.display = 'none';
+    startGame();
+  }, {passive:true});
 
-  // set deterministic rng rule
-  const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
-  STATE.rng = (runMode === 'study' || runMode === 'research') ? seededRng(STATE.cfg.seed) : Math.random;
+  btnStartMain?.addEventListener('click', ()=> btnStart?.click(), {passive:true});
 
-  // one-time wiring
-  bindShootOnce();
-  wirePauseBridge();
+  btnPause?.addEventListener('click', ()=>{
+    if(!STATE.running || STATE.ended) return;
+    setPaused(!STATE.paused);
+  }, {passive:true});
 
-  computeMinisPlanned();
+  btnRestart?.addEventListener('click', async ()=>{
+    await flushHardened('restart');
+    location.reload();
+  }, {passive:true});
 
-  // start immediately (runner controls overlay; engine starts here)
-  startGame();
+  btnEnterVR?.addEventListener('click', ()=>{
+    try{ document.querySelector('a-scene')?.enterVR?.(); }catch(e){}
+  }, {passive:true});
 
-  // return controller
-  return {
-    stop(){
-      try{ endGame('stop'); }catch{}
-    },
-    pause(p=true){ setPaused(!!p); }
-  };
+  btnBackHub?.addEventListener('click', async ()=>{
+    await flushHardened('back-hub');
+    const U = new URL(location.href);
+    const hub = U.searchParams.get('hub') || '';
+    if(hub) location.href = hub;
+    else location.href = '../hub.html';
+  }, {passive:true});
+
+  window.addEventListener('beforeunload', ()=>{ try{ flushHardened('beforeunload'); }catch{} });
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) try{ flushHardened('hidden'); }catch{} }, {passive:true});
 }
 
-// ---------------- Start ----------------
+// ---------------- Game start ----------------
 function startGame(){
   // reset
   STATE.running=true; STATE.ended=false; STATE.paused=false;
@@ -1121,6 +1157,9 @@ function startGame(){
   STATE.ML.spawnCount = 0;
 
   computeMinisPlanned();
+
+  const runMode = String(STATE.cfg?.runMode||'play').toLowerCase();
+  STATE.rng = (runMode === 'study' || runMode === 'research') ? seededRng(STATE.cfg.seed) : Math.random;
 
   STATE.timePlannedSec = Number(STATE.cfg?.durationPlannedSec || 90) || 90;
   STATE.timeLeft = STATE.timePlannedSec;
@@ -1155,4 +1194,33 @@ function startGame(){
   emitQuest();
   updateHUD();
   startLoop();
+}
+
+// ---------------- Public API (PATCH) ----------------
+// ✅ export boot({mount,cfg})
+export function boot({ mount, cfg } = {}){
+  // allow external runner to pass cfg; fallback to URL parsing
+  STATE.cfg = cfg || parseCfgFromUrl();
+
+  STATE.mountEl = mount || qs('plate-layer');
+  if(!STATE.mountEl){
+    console.error('[PlateVR] missing mount/#plate-layer');
+    return { stop(){}, start(){} };
+  }
+
+  // overlays are handled by runner (plate-vr.html) or internal (if you use internal ids)
+  wireButtons();
+  wireShotMiss();
+  bindShootOnce();
+
+  computeMinisPlanned();
+  emitQuest();
+  updateHUD();
+
+  // auto-start only if caller didn't provide UI overlay flow
+  // (plate-vr.html calls boot() on Start button; so here we DO NOT autostart)
+  return {
+    start: ()=>{ if(!STATE.running && !STATE.ended) startGame(); },
+    stop: ()=>{ try{ endGame('stop'); }catch{} }
+  };
 }
