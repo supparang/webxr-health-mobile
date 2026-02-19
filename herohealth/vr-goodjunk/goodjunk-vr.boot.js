@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
-// v2026-02-18d + HUBFIX v2026-02-19a
+// v2026-02-18d + HUBFIX v2026-02-19b (onOnce + hubUrl resolver)
 //
 // ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
 // ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
@@ -9,11 +9,8 @@
 // ✅ HUD-safe spawn: prevents targets under topbar/hud/bottom meters
 // ✅ No duplicate listeners (guards with window.GJ_BOOT)
 // ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot only binds buttons if present)
-// ✅ FIX HUB: default ไป /herohealth/hub.html (absolute) + still respects ?hub=
-//
-// Requires:
-// - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...}) OR is called elsewhere
-// - goodjunk-vr.html includes IDs used by safe.js + optional end overlay buttons.
+// ✅ FIX HUB: default ไป /herohealth/hub.html (absolute-ish) + still respects ?hub=
+// ✅ PATCH B: bind Restart/Hub with onOnce (no duplicate listeners)
 
 'use strict';
 
@@ -35,6 +32,17 @@ import { boot as bootSafe } from './goodjunk.safe.js';
   const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
   const byId = (id)=>DOC.getElementById(id);
+
+  // ✅ onOnce: กัน addEventListener ซ้ำ (สำคัญเวลา hot reload / include ซ้อน)
+  function onOnce(el, type, handler, opts){
+    if(!el) return;
+    try{
+      const key = `__once_${type}__`;
+      if(el[key]) return;
+      el[key] = true;
+      el.addEventListener(type, handler, opts || false);
+    }catch(_){}
+  }
 
   function setRootVar(name, value){
     try{ DOC.documentElement.style.setProperty(name, String(value)); }catch(_){}
@@ -171,15 +179,25 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     await loadScriptOnce('../vr/vr-ui.js?v=20260216a');
   }
 
-  // ✅ HUB url resolver (absolute default + respects ?hub=)
+  // ✅ HUB url resolver (default main hub + respects ?hub=)
   function resolveHubUrl(){
     const raw = qs('hub', null);
-    if (raw) return raw; // if hub is provided, trust it
+    if (raw) return raw;
 
-    // default to main hub in repo root
-    // https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
-    const base = location.origin + '/webxr-health-mobile';
-    return base + '/herohealth/hub.html';
+    // Try to infer repo root from current path:
+    // /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html
+    // -> /webxr-health-mobile/herohealth/hub.html
+    try{
+      const path = String(location.pathname || '');
+      const i = path.indexOf('/herohealth/');
+      if (i >= 0){
+        const repoRoot = path.slice(0, i); // includes leading ''
+        return location.origin + repoRoot + '/herohealth/hub.html';
+      }
+    }catch(_){}
+
+    // Fallback: same origin
+    return location.origin + '/herohealth/hub.html';
   }
 
   function bindBasicButtons(){
@@ -198,12 +216,13 @@ import { boot as bootSafe } from './goodjunk.safe.js';
       location.href = u.toString();
     }
 
-    btnRestartTop && btnRestartTop.addEventListener('click', restart);
-    btnRestartEnd && btnRestartEnd.addEventListener('click', restart);
-
     const goHub = ()=> { location.href = resolveHubUrl(); };
-    btnHubTop  && btnHubTop.addEventListener('click', goHub);
-    btnBackHub && btnBackHub.addEventListener('click', goHub);
+
+    // ✅ PATCH B: use onOnce (กัน listener ซ้ำ)
+    onOnce(btnRestartTop, 'click', restart);
+    onOnce(btnRestartEnd, 'click', restart);
+    onOnce(btnHubTop,     'click', goHub);
+    onOnce(btnBackHub,    'click', goHub);
   }
 
   // Prevent "ค้าง" from stacking intervals (Quest panel meter sync in HTML)
