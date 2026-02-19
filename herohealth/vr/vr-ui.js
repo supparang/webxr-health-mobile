@@ -1,8 +1,9 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260217a
-// FIX: now() defined (no ReferenceError)
-// FIX: view detection reads body[data-view] + html[data-view]
-// ✅ ENTER VR/EXIT/RECENTER + crosshair shoot -> hha:shoot
+// Universal VR UI — SAFE UNIVERSAL — v20260217c (PATCH: now() defined)
+// Purpose:
+//  - Provide ENTER VR / EXIT / RECENTER UI for HeroHealth games
+//  - Provide crosshair + tap-to-shoot -> emits window event: hha:shoot {x,y,lockPx,cooldownMs,source}
+//  - Support view=cvr strict: shoot from center crosshair (optional)
 
 (function(){
   'use strict';
@@ -13,11 +14,14 @@
   if(WIN.__HHA_VRUI_READY__) return;
   WIN.__HHA_VRUI_READY__ = true;
 
-  const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
+  function now(){
+    try{ return (performance && typeof performance.now === 'function') ? performance.now() : Date.now(); }
+    catch(_){ return Date.now(); }
+  }
 
   function qs(k, def=''){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    catch(_){ return def; }
   }
 
   function clamp(v,a,b){
@@ -28,18 +32,15 @@
 
   // ---- config ----
   const CFG0 = WIN.HHA_VRUI_CONFIG || {};
-  const bodyView = (DOC.body && DOC.body.getAttribute('data-view')) || '';
-  const htmlView = (DOC.documentElement && DOC.documentElement.dataset && DOC.documentElement.dataset.view) || '';
-  const VIEW = String(qs('view','') || bodyView || htmlView || '').toLowerCase();
-
-  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || bodyView==='cvr' || htmlView==='cvr');
+  const VIEW = String(qs('view','') || DOC.documentElement?.dataset?.view || '').toLowerCase();
+  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || DOC.documentElement?.dataset?.view === 'cvr');
 
   const CFG = {
     lockPx: clamp(CFG0.lockPx ?? 28, 6, 80),
     cooldownMs: clamp(CFG0.cooldownMs ?? 90, 20, 400),
     showCrosshair: (CFG0.showCrosshair !== false),
     showButtons: (CFG0.showButtons !== false),
-    cvrStrict: (CFG0.cvrStrict !== false),
+    cvrStrict: (CFG0.cvrStrict !== false), // default true
   };
 
   // ---- DOM layer + style ----
@@ -177,7 +178,7 @@
         crosshair.id = 'hha-crosshair';
         DOC.body.appendChild(crosshair);
       }
-      crosshair.style.display = IS_CVR ? 'grid' : 'grid';
+      crosshair.style.display = 'grid';
       crosshair.style.opacity = IS_CVR ? '0.98' : '0.88';
     }
 
@@ -190,31 +191,31 @@
     }
     if(IS_CVR){
       hint.style.display = 'inline-flex';
-      setTimeout(()=>{ try{ hint.style.display='none'; }catch{} }, 3500);
+      setTimeout(()=>{ try{ hint.style.display='none'; }catch(_){} }, 3500);
     }
   }
 
   function getScene(){
-    try{ return DOC.querySelector('a-scene'); }catch{ return null; }
+    try{ return DOC.querySelector('a-scene'); }catch(_){ return null; }
   }
 
   function enterVR(){
     const s = getScene();
-    try{ if(s && typeof s.enterVR === 'function') s.enterVR(); }catch{}
+    try{ if(s && typeof s.enterVR === 'function') s.enterVR(); }catch(_){}
   }
 
   function exitVR(){
     const s = getScene();
-    try{ if(s && typeof s.exitVR === 'function') s.exitVR(); }catch{}
+    try{ if(s && typeof s.exitVR === 'function') s.exitVR(); }catch(_){}
   }
 
   function recenter(){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch{}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch(_){}
     try{
       const cam = DOC.querySelector('a-camera');
       const lc = cam && cam.components && cam.components['look-controls'];
       if(lc && typeof lc.reset === 'function') lc.reset();
-    }catch{}
+    }catch(_){}
   }
 
   function setVrButtons(inVr){
@@ -249,7 +250,7 @@
           view: IS_CVR ? 'cvr' : 'screen'
         }
       }));
-    }catch{}
+    }catch(_){}
   }
 
   function centerShoot(source){
@@ -262,8 +263,12 @@
 
     DOC.addEventListener('pointerdown', (ev)=>{
       if(ev.defaultPrevented) return;
-      if(IS_CVR && CFG.cvrStrict) centerShoot('tap');
-      else emitShoot(ev.clientX, ev.clientY, 'pointer');
+
+      if(IS_CVR && CFG.cvrStrict){
+        centerShoot('tap');
+      }else{
+        emitShoot(ev.clientX, ev.clientY, 'pointer');
+      }
     }, {passive:true});
 
     DOC.addEventListener('keydown', (ev)=>{
@@ -273,8 +278,7 @@
 
   function applyCvrStrict(){
     if(!(IS_CVR && CFG.cvrStrict)) return;
-    try{ DOC.documentElement.dataset.view = 'cvr'; }catch{}
-    try{ if(DOC.body) DOC.body.setAttribute('data-view','cvr'); }catch{}
+    try{ DOC.documentElement.dataset.view = 'cvr'; }catch(_){}
   }
 
   function init(){
@@ -282,10 +286,13 @@
     wireVrState();
     wireTapShoot();
     applyCvrStrict();
-    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch{} }, 600);
+    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch(_){ } }, 600);
   }
 
-  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init, {once:true});
-  else init();
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', init, {once:true});
+  }else{
+    init();
+  }
 
 })();
