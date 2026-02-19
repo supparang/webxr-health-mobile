@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Bath (Home)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="stylesheet" href="./bath.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top HUD -->
+    <header id="hud">
+      <div class="hud-row">
+        <div class="pill" id="phasePill">PHASE: —</div>
+        <div class="pill" id="timePill">TIME: 0</div>
+        <div class="pill" id="cleanPill">CLEAN: 0%</div>
+      </div>
+      <div class="hud-row">
+        <div class="pill" id="comboPill">COMBO: 0</div>
+        <div class="pill" id="missPill">MISS: 0</div>
+        <div class="pill" id="viewPill">VIEW: FRONT</div>
+      </div>
+    </header>
+
+    <!-- Playfield -->
+    <main id="playfield" aria-label="Bath Game">
+      <div id="bg"></div>
+
+      <!-- Body stage -->
+      <section id="stage" role="application">
+        <div id="bath-layer">
+          <div id="body-wrap">
+            <div id="body-silhouette" aria-hidden="true">
+              <!-- simple 2D silhouette -->
+              <div class="head"></div>
+              <div class="torso"></div>
+              <div class="arm arm-l"></div>
+              <div class="arm arm-r"></div>
+              <div class="leg leg-l"></div>
+              <div class="leg leg-r"></div>
+            </div>
+
+            <!-- spawn layer (targets) -->
+            <div id="target-layer"></div>
+
+            <!-- optional cVR crosshair fallback (if vr-ui.js not present) -->
+            <div id="crosshair-fallback" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <!-- Bottom controls -->
+        <div id="controls">
+          <button id="btnStart" class="btn primary">เริ่มเล่น</button>
+          <button id="btnFlip" class="btn">สลับ หน้า/หลัง</button>
+          <button id="btnHelp" class="btn">วิธีเล่น</button>
+        </div>
+
+        <!-- Panels -->
+        <div id="panelHelp" class="panel hidden">
+          <div class="panel-card">
+            <h2>วิธีเล่น (Bath — Home)</h2>
+            <ol>
+              <li><b>WET</b> ยิง/แตะหยดน้ำให้ครอบคลุมร่างกาย</li>
+              <li><b>SOAP</b> ยิง/แตะฟองสบู่ให้ทั่ว</li>
+              <li><b>SCRUB</b> ล่าจุดอับ (เงา/ประกาย) ต้องถูซ้ำ 2–3 ครั้ง</li>
+              <li><b>RINSE+DRY</b> ล้างฟองตกค้าง แล้วเช็ดจุดสำคัญ</li>
+            </ol>
+            <p class="muted">
+              โหมด Cardboard/cVR: ใช้ crosshair กลางจอ (ยิงจากกลางจอ) — เปิดด้วย <code>?view=cvr</code>
+            </p>
+            <div class="row">
+              <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="panelEnd" class="panel hidden">
+          <div class="panel-card">
+            <h2>สรุปผล</h2>
+            <p id="endSummary" class="summary"></p>
+            <div id="heatmap" class="heatmap"></div>
+            <div class="row">
+              <button id="btnReplay" class="btn primary">เล่นอีกครั้ง</button>
+              <button id="btnBack" class="btn">กลับ</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="footer">
+      <span class="muted">HeroHealth — Bath (Home) • DOM layer • PC/Mobile/cVR</span>
+    </footer>
+  </div>
+
+  <!-- Use your universal VR UI if present -->
+  <script type="module">
+    // Try load /herohealth/vr/vr-ui.js (exists in your repo)
+    // If not found, game still works (fallback crosshair for cVR)
+    const tryLoad = async ()=>{
+      const url = new URL('../vr/vr-ui.js', location.href).toString();
+      try{
+        const m = await import(url);
+        // optional config (aim assist for cVR)
+        window.HHA_VRUI_CONFIG = Object.assign({
+          lockPx: 44,
+          cvrStrict: (new URL(location.href).searchParams.get('view')||'').toLowerCase()==='cvr'
+        }, window.HHA_VRUI_CONFIG||{});
+        // attach UI into body (vr-ui.js usually self-inits on load)
+        // If your vr-ui.js exports boot(), you can call it here:
+        if (m && typeof m.boot === 'function') {
+          m.boot({ root: document.body });
+        }
+      }catch(e){
+        // silent fallback
+      }
+    };
+    tryLoad();
+  </script>
+
+  <script type="module" src="./bath.js"></script>
+</body>
+</html>
