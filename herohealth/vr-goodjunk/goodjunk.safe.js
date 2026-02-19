@@ -1,16 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// ✅ STORM when timeLeft<=30s
-// ✅ BOSS when miss>=4
-// ✅ RAGE when miss>=5
-// ✅ Boss HP by diff: easy/normal/hard = 10/12/14
-// ✅ Phase cadence every 6s (Phase 1 <-> Phase 2)
-// ✅ Telegraph: "incoming" cue ก่อน stomp/burst
-// ✅ Miss = good expired + junk hit ; Shield-blocked junk NOT count miss
-// ✅ HUD-safe spawn via --gj-top-safe / --gj-bottom-safe (CSS variables)
-// ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
-// ✅ VR/cVR shoot from center via hha:shoot
-// ✅ FIX: Quest panel/HUD IDs match + quest:update always emitted
+// PATCH v20260219-coords
+// ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
+// ✅ FIX: crosshair hit uses real DOMRect centers (robust on short screens/HUD)
+// ✅ FIX: cVR right-eye clone also gets pointer listener (optional)
+// ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 
 'use strict';
 
@@ -109,7 +103,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-17_BOSSpp';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-19_COORDS';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const rng = makeSeededRng(String(seed));
@@ -124,7 +118,7 @@ export function boot(payload = {}) {
     return;
   }
 
-  // show right eye only when cvr (so you can wire later)
+  // show right eye only when cvr
   try{
     if(LAYER_R){
       LAYER_R.setAttribute('aria-hidden', (isCVR ? 'false' : 'true'));
@@ -132,6 +126,40 @@ export function boot(payload = {}) {
     }
   }catch(_){}
 
+  // ---------------- coordinate helpers (PATCH) ----------------
+  function layerRect(){
+    // Use left layer as reference space for spawn/safe/shoot.
+    // If it's display:none or not laid out yet, fallback to viewport.
+    try{
+      const r = LAYER_L.getBoundingClientRect();
+      if(r && r.width > 10 && r.height > 10) return r;
+    }catch(_){}
+    return { left:0, top:0, width:DOC.documentElement.clientWidth, height:DOC.documentElement.clientHeight };
+  }
+
+  function centerOfTarget(tObj){
+    // Always prefer real DOMRect center (robust with safe-zone/HUD shifts).
+    try{
+      const el = tObj?.elL;
+      if(el){
+        const r = el.getBoundingClientRect();
+        if(r && r.width > 0 && r.height > 0){
+          return { x: r.left + r.width/2, y: r.top + r.height/2 };
+        }
+      }
+    }catch(_){}
+    // fallback to stored absolute center if any
+    if(Number.isFinite(tObj?.ax) && Number.isFinite(tObj?.ay)) return { x: tObj.ax, y: tObj.ay };
+    // worst fallback
+    return { x: 0, y: 0 };
+  }
+
+  function toLayerLocal(clientX, clientY){
+    const r = layerRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  }
+
+  // ---------------- difficulty ----------------
   const DIFF = (() => {
     if(diff==='easy') return {
       spawnPerSec: 1.15,
@@ -173,7 +201,7 @@ export function boot(payload = {}) {
 
   const adaptiveOn = (runMode !== 'research');
 
-  // ---------------- UI refs (IDs ต้องตรงกับ HTML/CSS) ----------------
+  // ---------------- UI refs ----------------
   const HUD = {
     score: byId('hud-score'),
     time: byId('hud-time'),
@@ -258,12 +286,11 @@ export function boot(payload = {}) {
       hp: DIFF.bossHP,
       hpMax: DIFF.bossHP,
       phase: 1,
-      phaseEverySec: 6,      // ✅ spec
+      phaseEverySec: 6,
       phaseTimer: 0,
-      // telegraph timers
       teleOn: false,
       teleTimer: 0,
-      teleDur: 0.75,         // 750ms warning before action
+      teleDur: 0.75,
       stompCooldown: 0,
       rageBoost: 0,
     },
@@ -335,7 +362,7 @@ export function boot(payload = {}) {
     }
   }
 
-  // ---------------- QUEST UI (ภารกิจขึ้นแน่) ----------------
+  // ---------------- QUEST ----------------
   function setQuestUI(goalObj, miniObj, forceEmit=false){
     state.goalObj = goalObj || state.goalObj;
     state.miniObj = miniObj || state.miniObj;
@@ -414,7 +441,7 @@ export function boot(payload = {}) {
     HUD.progressFill.style.width = `${Math.round(pct * 100)}%`;
   }
 
-  // ---------------- safe spawn rect ----------------
+  // ---------------- safe spawn rect (PATCH: use layer rect) ----------------
   function readRootPxVar(name, fallbackPx){
     try{
       const cs = getComputedStyle(DOC.documentElement);
@@ -423,20 +450,24 @@ export function boot(payload = {}) {
       return Number.isFinite(n) ? n : fallbackPx;
     }catch(_){ return fallbackPx; }
   }
+
   function getSafeRect(){
-    const W = DOC.documentElement.clientWidth;
-    const H = DOC.documentElement.clientHeight;
+    const r = layerRect();
+    const W = Math.floor(r.width);
+    const H = Math.floor(r.height);
 
     const sat = readRootPxVar('--sat', 0);
+    // NOTE: gj-top-safe / bottom-safe should represent "reserved UI px" in the viewport;
+    // for layer space, we keep same values but clamp inside layer height.
     const topSafe = readRootPxVar('--gj-top-safe', 140 + sat);
     const botSafe = readRootPxVar('--gj-bottom-safe', 140);
 
-    const xMin = Math.floor(W * 0.12);
-    const xMax = Math.floor(W * 0.88);
-    const yMin = Math.floor(topSafe);
+    const xMin = Math.floor(W * 0.10);
+    const xMax = Math.floor(W * 0.90);
+    const yMin = Math.floor(Math.min(H-80, Math.max(20, topSafe)));
     const yMax = Math.floor(Math.max(yMin + 120, H - botSafe));
 
-    return { W,H, xMin,xMax, yMin,yMax };
+    return { W,H, xMin,xMax, yMin,yMax, left:r.left, top:r.top };
   }
 
   // ---------------- targets ----------------
@@ -532,12 +563,23 @@ export function boot(payload = {}) {
     }
 
     const bornAt = now();
-    const tObj = { id, kind, bornAt, lifeMs, x,y, elL, elR, hit:false };
 
-    elL.addEventListener('pointerdown', (ev)=>{
+    // store both local (layer) and absolute (client) positions
+    const ax = rect.left + x;
+    const ay = rect.top  + y;
+
+    const tObj = { id, kind, bornAt, lifeMs, x, y, ax, ay, elL, elR, hit:false };
+
+    function onPointer(ev){
       ev.preventDefault();
       onTargetHit(tObj, { via:'tap', clientX: ev.clientX, clientY: ev.clientY });
-    }, { passive:false });
+    }
+
+    elL.addEventListener('pointerdown', onPointer, { passive:false });
+    if(elR){
+      // PATCH: right eye also tappable (helpful when cVR layer is actually interactive)
+      elR.addEventListener('pointerdown', onPointer, { passive:false });
+    }
 
     LAYER_L.appendChild(elL);
     if(elR && LAYER_R) LAYER_R.appendChild(elR);
@@ -608,8 +650,10 @@ export function boot(payload = {}) {
     const rtMs = Math.max(0, Math.round(hitAt - tObj.bornAt));
     const kind = tObj.kind;
 
-    const px = meta.clientX ?? tObj.x;
-    const py = meta.clientY ?? tObj.y;
+    // PATCH: prefer true center for fx/judge placement
+    const c = centerOfTarget(tObj);
+    const px = meta.clientX ?? c.x;
+    const py = meta.clientY ?? c.y;
 
     if(kind==='good'){
       state.nHitGood++;
@@ -682,7 +726,6 @@ export function boot(payload = {}) {
       emit('hha:judge', { label:'SKULL!' });
       bodyPulse('gj-skull-hit', 240);
 
-      // in Phase2 skull primes stomp sooner
       if(state.boss.active && state.boss.phase===2){
         state.boss.stompCooldown = Math.max(state.boss.stompCooldown, 0.9);
       }
@@ -718,21 +761,25 @@ export function boot(payload = {}) {
     }
   }
 
-  // VR/cVR shoot center (hha:shoot)
-  function shootCrosshair(){
+  // ---------------- VR/cVR shoot center (PATCH: real centers) ----------------
+  function shootCrosshair(ev){
     if(state.ended) return;
 
-    const cx = Math.floor(DOC.documentElement.clientWidth/2);
-    const cy = Math.floor(DOC.documentElement.clientHeight/2);
+    // prefer event-provided x/y (from vr-ui.js aim assist / crosshair)
+    const cx = Math.floor(ev?.detail?.x ?? (DOC.documentElement.clientWidth/2));
+    const cy = Math.floor(ev?.detail?.y ?? (DOC.documentElement.clientHeight/2));
 
-    const R = (isCVR || isVR) ? 86 : 72;
+    // radius slightly bigger for VR/cVR
+    const R = (isCVR || isVR) ? 92 : 76;
+
     let best = null;
     let bestD = 1e9;
 
     for(const t of state.targets.values()){
       if(t.hit) continue;
-      const dx = (t.x - cx);
-      const dy = (t.y - cy);
+      const c = centerOfTarget(t);
+      const dx = (c.x - cx);
+      const dy = (c.y - cy);
       const d = Math.hypot(dx,dy);
       if(d < R && d < bestD){
         bestD = d;
@@ -763,7 +810,10 @@ export function boot(payload = {}) {
           resetCombo();
           addFever(6);
           setMiss(state.miss + 1);
-          fxText(tObj.x,tObj.y,'MISS');
+
+          const c = centerOfTarget(tObj);
+          fxText(c.x,c.y,'MISS');
+
           emit('hha:judge', { label:'MISS!' });
           bodyPulse('gj-good-expire', 160);
 
@@ -807,7 +857,7 @@ export function boot(payload = {}) {
       state.boss.stompCooldown = 0;
       state.boss.rageBoost = 0;
 
-      state.boss.teleOn = true;      // start with a warning burst
+      state.boss.teleOn = true;
       state.boss.teleTimer = 0;
 
       emit('hha:judge', { label:`BOSS! HP ${state.boss.hp}/${state.boss.hpMax}` });
@@ -828,7 +878,7 @@ export function boot(payload = {}) {
     setModeClass();
   }
 
-  // ---------------- boss tick (Telegraph + Phase + Actions) ----------------
+  // ---------------- boss tick ----------------
   function bossTelegraphStart(label){
     state.boss.teleOn = true;
     state.boss.teleTimer = 0;
@@ -839,7 +889,6 @@ export function boot(payload = {}) {
   }
 
   function bossDoStomp(){
-    // stomp pops 2 goods (punish) — but still fair: only if goods exist
     let popped = 0;
     for(const tObj of state.targets.values()){
       if(popped >= 2) break;
@@ -847,7 +896,10 @@ export function boot(payload = {}) {
         tObj.hit = true;
         state.nExpireGood++;
         setMiss(state.miss + 1);
-        fxText(tObj.x,tObj.y,'STOMP');
+
+        const c = centerOfTarget(tObj);
+        fxText(c.x,c.y,'STOMP');
+
         removeTarget(tObj);
         popped++;
       }
@@ -860,7 +912,6 @@ export function boot(payload = {}) {
   }
 
   function bossDoBurst(){
-    // burst: spawn hazards quickly (skull/bomb bias via makeTargetKind weights)
     const n = state.rageOn ? 4 : 3;
     for(let i=0;i<n;i++) spawnOne();
     emit('hha:judge', { label:'BURST!' });
@@ -872,7 +923,6 @@ export function boot(payload = {}) {
     if(!state.boss.active) return;
     const b = state.boss;
 
-    // Phase flip cadence
     b.phaseTimer += dt;
     if(b.phaseTimer >= b.phaseEverySec){
       b.phaseTimer = 0;
@@ -880,23 +930,18 @@ export function boot(payload = {}) {
       emit('hha:judge', { label: (b.phase===2 ? 'PHASE 2!' : 'PHASE 1') });
       fxText(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1');
       if(b.phase===2){
-        // Phase2: more pressure
         for(let i=0;i<2;i++) spawnOne();
       }
       updateBossUI();
-
-      // telegraph next action at phase switch
       bossTelegraphStart(b.phase===2 ? 'Burst' : 'Stomp');
     }
 
-    // Telegraph countdown -> action
     if(b.teleOn){
       b.teleTimer += dt;
       if(b.teleTimer >= b.teleDur){
         b.teleOn = false;
         b.teleTimer = 0;
 
-        // Action selection (deterministic): phase2 = burst, phase1 = stomp
         if(b.phase===2) bossDoBurst();
         else bossDoStomp();
 
@@ -904,12 +949,10 @@ export function boot(payload = {}) {
       }
     }
 
-    // extra punish trigger: stompCooldown (skull prime)
     if(b.stompCooldown > 0){
       b.stompCooldown = Math.max(0, b.stompCooldown - dt);
       if(b.stompCooldown <= 0){
         bossTelegraphStart('Stomp');
-        // schedule stomp after teleDur by setting teleOn, and ensure phase is 1-ish behavior
         b.phase = 1;
         b.phaseTimer = Math.min(b.phaseTimer, b.phaseEverySec - 0.2);
       }
@@ -959,7 +1002,6 @@ export function boot(payload = {}) {
   }
 
   function showEndOverlay(detail){
-    // ทำแบบ “ไม่ซ้ำ listener”: safe.js เป็นตัวเดียวที่โชว์ overlay
     try{
       if(!HUD.endOverlay) return;
       HUD.endTitle && (HUD.endTitle.textContent = (detail?.reason==='miss-limit') ? 'Game Over' : 'Completed');
@@ -1006,7 +1048,7 @@ export function boot(payload = {}) {
       misses,
       avgRtGoodMs,
       medianRtGoodMs,
-      bossDefeated: !state.boss.active && state.bossOn,
+      bossDefeated: (!state.boss.active && state.bossOn), // (same behavior)
       stormOn: state.stormOn,
       rageOn: state.rageOn,
       startTimeIso: state.startTimeIso,
@@ -1040,9 +1082,7 @@ export function boot(payload = {}) {
       grade,
     });
 
-    // ✅ โชว์ end overlay (ถ้ามีใน HTML)
     showEndOverlay({ ...summary });
-
     emit('hha:celebrate', { kind:'end', grade });
   }
 
@@ -1057,7 +1097,6 @@ export function boot(payload = {}) {
     const dt = Math.min(0.05, (t - lastTick) / 1000);
     lastTick = t;
 
-    // time
     state.timeLeftSec -= dt;
     if(state.timeLeftSec < 0) state.timeLeftSec = 0;
     setTimeLeft(state.timeLeftSec);
@@ -1067,7 +1106,6 @@ export function boot(payload = {}) {
 
     tickBoss(dt);
 
-    // spawn
     state.spawnAcc += dt * spawnRate();
     while(state.spawnAcc >= 1){
       state.spawnAcc -= 1;
@@ -1108,7 +1146,6 @@ export function boot(payload = {}) {
       kind: 'tip'
     });
 
-    // ✅ quest visible immediately
     recomputeQuest();
     setQuestUI(state.goalObj, state.miniObj, true);
   }
@@ -1140,6 +1177,5 @@ export function boot(payload = {}) {
 
   start();
 
-  // debug hook
   ROOT.__GJ_STATE__ = state;
 }
