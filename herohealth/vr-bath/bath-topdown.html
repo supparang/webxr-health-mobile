@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>HeroHealth — Bath Hidden Dirt Quest (Top-down, PC/Mobile)</title>
+<style>
+  :root{ --bg:#0b1020; --panel:#121a33; --txt:#e8ecff; --muted:#9aa6d6; --acc:#78c8ff; --bad:#ff5a78; --good:#6cff9f; }
+  html,body{ height:100%; }
+  body{ margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,Segoe UI,Arial; }
+  #wrap{ display:grid; grid-template-rows:auto 1fr auto; height:100dvh; }
+  #hud{
+    display:flex; gap:10px; align-items:center; padding:10px 12px;
+    background:linear-gradient(180deg, rgba(18,26,51,.98), rgba(18,26,51,.70));
+    border-bottom:1px solid rgba(255,255,255,.08);
+    flex-wrap:wrap;
+  }
+  .pill{ padding:6px 10px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); border-radius:999px; }
+  .bar{ width:140px; height:10px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; display:inline-block; vertical-align:middle; }
+  .fill{ height:100%; width:50%; background:rgba(120,200,255,.9); }
+  #coach{ color:var(--muted); }
+  #game{ position:relative; display:flex; justify-content:center; align-items:center; overflow:hidden; }
+  canvas{ width:min(100vw, 820px); height:min(74vh, 560px); background:#071022; border:1px solid rgba(255,255,255,.12); border-radius:16px; touch-action:none; }
+  #toolbar{
+    display:flex; gap:8px; padding:10px 12px;
+    background:linear-gradient(0deg, rgba(18,26,51,.98), rgba(18,26,51,.70));
+    border-top:1px solid rgba(255,255,255,.08);
+    align-items:center; justify-content:space-between;
+  }
+  .tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button, select, input{
+    background:rgba(255,255,255,.06); color:var(--txt);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:12px; padding:10px 12px; font-weight:700;
+  }
+  button.sel{ outline:2px solid rgba(120,200,255,.9); }
+  #actionBtn{ padding:12px 16px; border-radius:16px; }
+  #joy{ position:absolute; left:14px; bottom:14px; width:128px; height:128px; border-radius:64px;
+        background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10); display:none; }
+  #nub{ position:absolute; left:48px; top:48px; width:32px; height:32px; border-radius:16px;
+        background:rgba(120,200,255,.5); border:1px solid rgba(120,200,255,.9); }
+  @media (pointer:coarse){ #joy{ display:block; } }
+  /* Result overlay */
+  #result{
+    position:absolute; inset:0; display:none;
+    background:rgba(7,16,34,.92);
+    padding:18px; overflow:auto;
+  }
+  #result .card{
+    max-width:820px; margin:0 auto; background:rgba(18,26,51,.88);
+    border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:14px;
+  }
+  #grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  @media (max-width:820px){ #grid2{ grid-template-columns: 1fr; } }
+  .h2{ font-size:18px; font-weight:900; margin:6px 0 10px; }
+  .muted{ color:var(--muted); }
+  .kpi{ display:flex; gap:10px; flex-wrap:wrap; }
+  .kpi .pill{ background:rgba(255,255,255,.05); }
+  #sil{ width:100%; height:auto; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.10); border-radius:14px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span class="pill">Phase: <b id="phaseLbl">PREP</b></span>
+    <span class="pill">Time: <b id="timeLbl">80</b>s</span>
+    <span class="pill">Heat <span class="bar"><span class="fill" id="heatFill"></span></span> <b id="heatLbl">0</b></span>
+    <span class="pill">Bubble <span class="bar"><span class="fill" id="bubFill"></span></span> <b id="bubLbl">100</b></span>
+    <span class="pill">Combo: <b id="comboLbl">x1.0</b></span>
+    <span class="pill" id="coach">Tip: ไปที่ Shower ก่อน</span>
+  </div>
+
+  <div id="game">
+    <canvas id="cv" width="820" height="560"></canvas>
+    <div id="joy"><div id="nub"></div></div>
+
+    <div id="result">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div class="h2">🏁 End Summary — Heatmap</div>
+            <div class="muted" id="resSub">สรุปผลการอาบน้ำ</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="playAgain">เล่นอีกครั้ง</button>
+            <button id="closeRes">ปิด</button>
+          </div>
+        </div>
+
+        <div id="grid2" style="margin-top:10px;">
+          <div>
+            <canvas id="sil" width="520" height="420"></canvas>
+            <div class="muted" style="margin-top:8px;" id="mistakes">Top mistakes:</div>
+          </div>
+          <div>
+            <div class="h2">📊 Score Breakdown</div>
+            <div class="kpi" id="kpi"></div>
+            <div class="h2" style="margin-top:12px;">🧠 Sequence Grade</div>
+            <div class="pill" id="seqGrade">—</div>
+            <div class="h2" style="margin-top:12px;">🧪 Notes</div>
+            <div class="muted" id="notes">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <div class="tools" id="tools">
+      <button data-tool="water">💧 Water</button>
+      <button data-tool="soap">🫧 Soap</button>
+      <button data-tool="scrub">🧽 Scrub</button>
+      <button data-tool="rinse">🚿 Rinse</button>
+      <button data-tool="dry">🧺 Dry</button>
+      <button data-tool="scan">🔦 UV Scan</button>
+      <span class="pill">Diff:
+        <select id="diffSel">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </span>
+      <span class="pill">Seed:
+        <input id="seedInp" value="20260219" style="width:120px; font-weight:900;" />
+      </span>
+    </div>
+    <button id="actionBtn">กดค้างเพื่อใช้</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- DOM ----------
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const phaseLbl = document.getElementById('phaseLbl');
+  const timeLbl  = document.getElementById('timeLbl');
+  const heatLbl  = document.getElementById('heatLbl');
+  const bubLbl   = document.getElementById('bubLbl');
+  const comboLbl = document.getElementById('comboLbl');
+  const heatFill = document.getElementById('heatFill');
+  const bubFill  = document.getElementById('bubFill');
+  const coach    = document.getElementById('coach');
+  const toolsEl  = document.getElementById('tools');
+  const actionBtn= document.getElementById('actionBtn');
+  const diffSel  = document.getElementById('diffSel');
+  const seedInp  = document.getElementById('seedInp');
+
+  const resultEl = document.getElementById('result');
+  const silCv    = document.getElementById('sil');
+  const silCtx   = silCv.getContext('2d');
+  const kpiEl    = document.getElementById('kpi');
+  const mistakesEl = document.getElementById('mistakes');
+  const seqGradeEl = document.getElementById('seqGrade');
+  const notesEl  = document.getElementById('notes');
+  const resSubEl = document.getElementById('resSub');
+  const playAgainBtn = document.getElementById('playAgain');
+  const closeResBtn  = document.getElementById('closeRes');
+
+  const W = cv.width, H = cv.height;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  // ---------- RNG (deterministic) ----------
+  function xmur3(str){
+    let h = 1779033703 ^ str.length;
+    for(let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= (h >>> 16);
+      return h >>> 0;
+    }
+  }
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    }
+  }
+  function makeRng(seedStr){
+    const seed = xmur3(seedStr);
+    return sfc32(seed(), seed(), seed(), seed());
+  }
+
+  // ---------- Map (grid + collision) ----------
+  // 0 floor, 1 wall/obstacle
+  const TILE = 28;
+  const COLS = Math.floor(W / TILE);
+  const ROWS = Math.floor(H / TILE);
+
+  function makeMap(){
+    // simple bathroom map
+    const g = Array.from({length:ROWS}, ()=> Array(COLS).fill(0));
+    const wall = (x,y)=>{ if(x>=0&&y>=0&&x<COLS&&y<ROWS) g[y][x]=1; };
+
+    // outer walls
+    for(let x=0;x<COLS;x++){ wall(x,0); wall(x,ROWS-1); }
+    for(let y=0;y<ROWS;y++){ wall(0,y); wall(COLS-1,y); }
+
+    // inner blocks: sink wall, toilet, shelf
+    for(let x=6;x<18;x++) wall(x,6);     // mid wall
+    for(let y=10;y<18;y++) wall(6,y);    // vertical
+    // toilet block
+    for(let y=15;y<18;y++) for(let x=9;x<12;x++) wall(x,y);
+    // shelf block
+    for(let y=3;y<5;y++) for(let x=20;x<24;x++) wall(x,y);
+
+    // doorway opening
+    g[ROWS-1][Math.floor(COLS/2)] = 0;
+
+    return g;
+  }
+  let GRID = makeMap();
+
+  function isBlocked(px,py,r){
+    // check neighbor tiles around circle
+    const minX = Math.floor((px-r)/TILE);
+    const maxX = Math.floor((px+r)/TILE);
+    const minY = Math.floor((py-r)/TILE);
+    const maxY = Math.floor((py+r)/TILE);
+    for(let ty=minY; ty<=maxY; ty++){
+      for(let tx=minX; tx<=maxX; tx++){
+        if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return true;
+        if(GRID[ty][tx]!==1) continue;
+        // tile rect
+        const rx = tx*TILE, ry = ty*TILE;
+        const cx = clamp(px, rx, rx+TILE);
+        const cy = clamp(py, ry, ry+TILE);
+        const dx = px-cx, dy = py-cy;
+        if(dx*dx+dy*dy <= r*r) return true;
+      }
+    }
+    return false;
+  }
+
+  // ---------- Stations (zone triggers) ----------
+  // Each station is a circle zone at a tile location
+  const ST = {
+    shower: { id:'shower', x: 3*TILE, y: 3*TILE, r: 2.4*TILE, label:'🚿 Shower' },
+    soap:   { id:'soap',   x: 23*TILE, y: 4*TILE, r: 2.1*TILE, label:'🫧 Soap Rack' },
+    scan:   { id:'scan',   x: 23*TILE, y: 10*TILE, r: 2.1*TILE, label:'🔦 UV Mirror' },
+    towel:  { id:'towel',  x: 23*TILE, y: 16*TILE, r: 2.1*TILE, label:'🧺 Towel' },
+    basket: { id:'basket', x: 3*TILE,  y: 17*TILE, r: 2.2*TILE, label:'👕 Basket' },
+  };
+  function inZone(px,py, z){
+    const dx=px-z.x, dy=py-z.y;
+    return dx*dx+dy*dy <= z.r*z.r;
+  }
+
+  // ---------- Player ----------
+  const P = { x: 5*TILE, y: 16*TILE, r: 10, vx:0, vy:0 };
+
+  // ---------- Difficulty tuning ----------
+  const DIFF = {
+    easy:   { time: 90, bubble: 120, heatRise: 0.45, reveal: 0.80, holdMul: 0.75, bossChance: 0.45, scanLeft: 3 },
+    normal: { time: 80, bubble: 100, heatRise: 0.60, reveal: 0.55, holdMul: 1.00, bossChance: 0.70, scanLeft: 2 },
+    hard:   { time: 70, bubble: 90,  heatRise: 0.78, reveal: 0.35, holdMul: 1.18, bossChance: 0.92, scanLeft: 2 },
+  };
+
+  // ---------- Tools ----------
+  let tool = 'water';
+  let holding = false;
+  let holdMs = 0;
+
+  // ---------- Phase machine ----------
+  const PH = { PREP:0, WET:1, SOAP:2, SCRUB:3, RINSE:4, DRY:5, DRESS:6, DONE:7 };
+  let phase = PH.PREP;
+  let prepMs = 2500;
+
+  // ---------- Core resources ----------
+  let heat=0, bubble=100, tLeft=80;
+  let combo=1.0;
+
+  // ---------- Gameplay stats ----------
+  const STATS = {
+    cleanScore:0,
+    residuePenalty:0,
+    fungusRisk:0,
+    seqOk:0,
+    seqBad:0,
+    wrongOrder:0,
+    regrowCount:0,
+    spreadCount:0,
+    bossKilled:0,
+    scansUsed:0,
+  };
+
+  // ---------- Spots (hidden dirt on body) ----------
+  // Each spot is "attached to body" but we render as aura points around player.
+  // We keep a fixed pool of possible body spots; game spawns N of them per seed.
+  const SPOT_POOL = [
+    { id:'behindEar',  name:'หลังหู',        ox:-10, oy:-18, hold:1200, weight:1.3, zone:'head' },
+    { id:'neckBack',   name:'หลังคอ',        ox: 10, oy:-16, hold:1400, weight:1.4, zone:'head' },
+    { id:'armpit',     name:'รักแร้',        ox: 16, oy:  0, hold:1700, weight:1.6, zone:'arms' },
+    { id:'elbowFold',  name:'ข้อพับแขน',     ox:-18, oy:  2, hold:1500, weight:1.5, zone:'arms' },
+    { id:'belly',      name:'รอบสะดือ',      ox:  0, oy:  6, hold:1350, weight:1.3, zone:'torso' },
+    { id:'backKnee',   name:'หลังเข่า',      ox: -8, oy: 18, hold:1500, weight:1.5, zone:'legs' },
+    { id:'toes',       name:'ซอกนิ้วเท้า',   ox: 10, oy: 22, hold:1800, weight:1.7, zone:'legs' },
+  ];
+
+  let rng = makeRng(seedInp.value.trim() || '20260219');
+  let scanLeft = 2;
+
+  let spots = [];
+  let boss = null; // {type:'stink'|'oil', spotId, hp, armor, pulseT, spreadT}
+
+  // ---------- Fair spawn (deterministic + balanced) ----------
+  function spawnSpots(){
+    // Choose 4 spots; always include at least 1 from legs and 1 from head/arms for variety.
+    const pool = [...SPOT_POOL];
+    const pick = (fn)=>{
+      const candidates = pool.filter(fn);
+      if(!candidates.length) return null;
+      const idx = Math.floor(rng()*candidates.length);
+      const s = candidates[idx];
+      pool.splice(pool.indexOf(s),1);
+      return s;
+    };
+    const out = [];
+    const sLeg = pick(s=>s.zone==='legs');
+    if(sLeg) out.push(sLeg);
+    const sHead = pick(s=>s.zone==='head');
+    if(sHead) out.push(sHead);
+    const sArms = pick(s=>s.zone==='arms');
+    if(sArms) out.push(sArms);
+    // fill remaining
+    while(out.length<4 && pool.length){
+      const idx = Math.floor(rng()*pool.length);
+      out.push(pool.splice(idx,1)[0]);
+    }
+
+    // Build runtime state
+    spots = out.map(s=>({
+      ...s,
+      state:'hidden', // hidden|revealed|soaped|scrubbing|cleanCandidate|rinsed|dried|done
+      prog:0,
+      shinyNotClean:false,
+      wetUnlocked:false,
+      lastStep:'none', // track sequence
+      mistakes:0,
+      cleaned:false
+    }));
+  }
+
+  // ---------- Sequence rules ----------
+  // Wet -> Soap -> Scrub -> Rinse -> Dry -> Dress
+  function seqStepOk(prev, next){
+    const order = ['none','wet','soap','scrub','rinse','dry','dress'];
+    return order.indexOf(next) === order.indexOf(prev)+1;
+  }
+  function applySeq(spot, step){
+    if(seqStepOk(spot.lastStep, step)){
+      spot.lastStep = step;
+      STATS.seqOk++;
+      combo = clamp(combo + 0.03, 1.0, 2.0);
+      return true;
+    } else {
+      STATS.seqBad++;
+      STATS.wrongOrder++;
+      combo = clamp(combo - 0.06, 1.0, 2.0);
+      // punish but fair: regrow or spread
+      const roll = rng();
+      if(roll < 0.55){
+        // regrow: reduce progress / revert a step
+        STATS.regrowCount++;
+        spot.mistakes++;
+        if(spot.state==='soaped' || spot.state==='scrubbing') spot.state='revealed';
+        if(spot.state==='cleanCandidate') spot.state='soaped';
+        spot.prog = 0;
+        heat = clamp(heat + 3, 0, 100);
+        tip(`ผิดลำดับ! คราบฟื้นตัวที่ ${spot.name}`);
+      } else {
+        // spread: reveal another hidden spot (if any) but add residue risk
+        STATS.spreadCount++;
+        heat = clamp(heat + 4, 0, 100);
+        const hidden = spots.find(s=>s.state==='hidden');
+        if(hidden){ hidden.state='revealed'; hidden.wetUnlocked=true; }
+        STATS.residuePenalty += 2;
+        tip(`ผิดลำดับ! เชื้อกระจาย → มีจุดเพิ่ม`);
+      }
+      return false;
+    }
+  }
+
+  // ---------- Boss spawn / behavior ----------
+  function maybeSpawnBoss(){
+    if(boss) return;
+    const d = DIFF[diffSel.value] || DIFF.normal;
+    // Trigger conditions: high heat or too many mistakes or time passed
+    const trigger = (heat > 72) || (STATS.wrongOrder >= 2) || (tLeft < d.time*0.55 && !allCleanCandidate());
+    if(!trigger) return;
+    if(rng() > d.bossChance) return;
+
+    // Pick a spot that is revealed/soaped or force reveal one
+    let s = spots.find(x=>x.state==='revealed' || x.state==='soaped') || spots[0];
+    if(s.state==='hidden'){ s.state='revealed'; s.wetUnlocked=true; }
+    const type = (rng()<0.5) ? 'stink' : 'oil';
+
+    boss = {
+      type,
+      spotId: s.id,
+      hp: type==='stink' ? 100 : 120,
+      armor: type==='oil' ? 3 : 0, // oil has 3 layers
+      pulseT: 0,
+      spreadT: 0,
+    };
+    tip(type==='stink'
+      ? '⚠️ Stink Monster โผล่! ทำ Wet→Soap→Scrub (ค้าง) แล้วค่อย Rinse'
+      : '⚠️ Oil Slick Boss โผล่! ต้อง Wet ก่อน แล้ว Soap + Scrub ค้างให้ครบเพื่อลอกชั้นน้ำมัน');
+  }
+  function bossSpot(){
+    if(!boss) return null;
+    return spots.find(s=>s.id===boss.spotId) || null;
+  }
+  function updateBoss(dt){
+    if(!boss) return;
+    boss.pulseT += dt;
+    boss.spreadT += dt;
+    // Pulse adds heat if not handled
+    if(boss.pulseT > 1500){
+      boss.pulseT = 0;
+      heat = clamp(heat + (boss.type==='stink'?4:3), 0, 100);
+      STATS.residuePenalty += (boss.type==='stink'?2:1);
+      tip(boss.type==='stink' ? 'กลิ่นพุ่ง! รีบจัดการ' : 'น้ำมันแผ่! รีบถูให้ถูกลำดับ');
+    }
+    // Spread occasionally reveals or regrows
+    if(boss.spreadT > (boss.type==='stink'?2400:2800)){
+      boss.spreadT = 0;
+      const hidden = spots.find(s=>s.state==='hidden');
+      if(hidden){
+        hidden.state='revealed'; hidden.wetUnlocked=true;
+        STATS.spreadCount++;
+      } else {
+        // regrow a random cleaned candidate
+        const c = spots.find(s=>s.state==='cleanCandidate' || s.state==='rinsed');
+        if(c){
+          c.state='soaped'; c.prog=0; c.shinyNotClean=true;
+          STATS.regrowCount++;
+        }
+      }
+    }
+  }
+  function damageBoss(amount){
+    if(!boss) return;
+    boss.hp -= amount;
+    if(boss.hp<=0){
+      STATS.bossKilled++;
+      tip('✅ Boss ถูกชำระ! ได้โบนัส Bubble/ลด Heat');
+      bubble = clamp(bubble + 18, 0, 140);
+      heat = clamp(heat - 14, 0, 100);
+      boss = null;
+    }
+  }
+
+  // ---------- Helpers ----------
+  function tip(msg){ coach.textContent = 'Tip: ' + msg; }
+  function setTool(t){
+    tool = t;
+    [...toolsEl.querySelectorAll('button[data-tool]')].forEach(x=>x.classList.toggle('sel', x.dataset.tool===tool));
+    tipForTool();
+  }
+  function tipForTool(){
+    if(phase===PH.DONE) return;
+    if(tool==='water') tip('ใช้ Water ใน Shower เพื่อ Wet ให้ครบ');
+    else if(tool==='soap') tip('ไปที่ Soap Rack แล้วใช้ Soap เพื่อฟอกให้โดนจุดอับ');
+    else if(tool==='scrub') tip('Scrub ต้องกดค้าง ถูให้ครบเวลา (จุดอับนานกว่า)');
+    else if(tool==='rinse') tip('กลับไป Shower แล้ว Rinse เพื่อล้างฟอง/ยืนยันความสะอาด');
+    else if(tool==='dry') tip('ไปที่ Towel แล้ว Dry ลดความชื้น (Fungus risk)');
+    else if(tool==='scan') tip('ไปที่ UV Mirror แล้ว Scan (มีจำกัด) เพื่อเห็นจุดอับ');
+  }
+  function setPhase(p){
+    phase = p;
+    phaseLbl.textContent = Object.keys(PH).find(k=>PH[k]===phase);
+    tipForPhase();
+  }
+  function tipForPhase(){
+    if(phase===PH.PREP) tip('เริ่มเลย! ไปที่ Shower');
+    if(phase===PH.WET)  tip('Wet: ยืนใน Shower แล้วใช้ Water ให้ครบ');
+    if(phase===PH.SOAP) tip('Soap: ไปที่ Soap Rack แล้วฟอกให้โดนจุดอับ');
+    if(phase===PH.SCRUB)tip('Scrub: ถูค้างให้ครบเวลา (อย่าถูเร็วไป)');
+    if(phase===PH.RINSE)tip('Rinse: กลับไป Shower เพื่อล้างฟอง + ตรวจ residue');
+    if(phase===PH.DRY)  tip('Dry: ไปที่ Towel เช็ดให้แห้ง');
+    if(phase===PH.DRESS)tip('Dress: ไปที่ Basket ใส่เสื้อผ้าสะอาด');
+  }
+  function allCleanCandidate(){
+    return spots.every(s=> s.state==='cleanCandidate' || s.state==='rinsed' || s.state==='dried' || s.state==='done');
+  }
+  function allRinsed(){
+    return spots.every(s=> s.state==='rinsed' || s.state==='dried' || s.state==='done');
+  }
+
+  // ---------- Input ----------
+  const keys = {};
+  addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+  function setHolding(v){ holding=v; if(!v) holdMs=0; }
+  actionBtn.addEventListener('pointerdown', e=>{ actionBtn.setPointerCapture(e.pointerId); setHolding(true); });
+  actionBtn.addEventListener('pointerup',   ()=> setHolding(false));
+  actionBtn.addEventListener('pointercancel',()=> setHolding(false));
+  cv.addEventListener('pointerdown', e=>{ cv.setPointerCapture(e.pointerId); setHolding(true); });
+  cv.addEventListener('pointerup',   ()=> setHolding(false));
+  cv.addEventListener('pointercancel',()=> setHolding(false));
+
+  // Joystick
+  const joy = document.getElementById('joy');
+  const nub = document.getElementById('nub');
+  let joyOn=false, joyId=null, joyCx=0, joyCy=0, joyDx=0, joyDy=0;
+  joy.addEventListener('pointerdown', e=>{
+    joy.setPointerCapture(e.pointerId);
+    joyOn=true; joyId=e.pointerId;
+    const r = joy.getBoundingClientRect();
+    joyCx = r.left + r.width/2;
+    joyCy = r.top + r.height/2;
+    updateJoy(e.clientX, e.clientY);
+  });
+  joy.addEventListener('pointermove', e=>{
+    if(!joyOn || e.pointerId!==joyId) return;
+    updateJoy(e.clientX, e.clientY);
+  });
+  joy.addEventListener('pointerup', e=>{
+    if(e.pointerId!==joyId) return;
+    joyOn=false; joyId=null; joyDx=joyDy=0;
+    nub.style.left='48px'; nub.style.top='48px';
+  });
+  function updateJoy(x,y){
+    const dx=x-joyCx, dy=y-joyCy;
+    const m=Math.sqrt(dx*dx+dy*dy);
+    const max=44;
+    const nx=(m>max? dx/m*max : dx);
+    const ny=(m>max? dy/m*max : dy);
+    joyDx=nx/max; joyDy=ny/max;
+    nub.style.left=(48+nx)+'px';
+    nub.style.top =(48+ny)+'px';
+  }
+
+  // ---------- Tool buttons ----------
+  [...toolsEl.querySelectorAll('button[data-tool]')].forEach(b=>{
+    b.addEventListener('click', ()=> setTool(b.dataset.tool));
+  });
+  setTool('water');
+
+  // ---------- Restart / config ----------
+  diffSel.addEventListener('change', ()=> restart());
+  seedInp.addEventListener('change', ()=> restart());
+  playAgainBtn.addEventListener('click', ()=> restart());
+  closeResBtn.addEventListener('click', ()=> { resultEl.style.display='none'; });
+
+  function restart(){
+    // reset
+    GRID = makeMap();
+    rng = makeRng(seedInp.value.trim() || '20260219');
+    const d = DIFF[diffSel.value] || DIFF.normal;
+
+    heat=0; bubble=d.bubble; tLeft=d.time; combo=1.0;
+    prepMs=2200; phase=PH.PREP;
+    boss=null;
+
+    for(const k of Object.keys(STATS)) STATS[k]=0;
+    scanLeft = d.scanLeft;
+
+    spawnSpots();
+
+    P.x = 5*TILE; P.y = 16*TILE;
+
+    resultEl.style.display='none';
+    setPhase(PH.PREP);
+    tipForTool();
+  }
+
+  // ---------- Game loop ----------
+  let last = performance.now();
+  restart();
+  requestAnimationFrame(frame);
+
+  function frame(now){
+    const dt = now-last; last=now;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  function update(dt){
+    if(phase===PH.DONE) return;
+
+    const d = DIFF[diffSel.value] || DIFF.normal;
+
+    // timer
+    if(phase!==PH.PREP){
+      tLeft -= dt/1000;
+      if(tLeft<0) tLeft=0;
+      heat += (dt/1000) * d.heatRise;
+      // wandering penalty slightly
+      if(!holding) heat += (dt/1000)*0.10;
+    } else {
+      prepMs -= dt;
+      if(prepMs<=0) setPhase(PH.WET);
+    }
+
+    // movement (PC + joystick)
+    const spd = 190;
+    let mx=0,my=0;
+    if(keys['arrowleft']||keys['a']) mx-=1;
+    if(keys['arrowright']||keys['d']) mx+=1;
+    if(keys['arrowup']||keys['w']) my-=1;
+    if(keys['arrowdown']||keys['s']) my+=1;
+    mx += joyDx; my += joyDy;
+    const m=Math.hypot(mx,my);
+    if(m>1e-3){ mx/=Math.max(1,m); my/=Math.max(1,m); }
+
+    // attempt move with collision (axis separation)
+    let nx = P.x + mx*spd*(dt/1000);
+    let ny = P.y;
+    if(!isBlocked(nx,ny,P.r)) P.x = nx;
+    else { heat = clamp(heat + 0.3,0,100); } // bump heat slightly
+    nx = P.x;
+    ny = P.y + my*spd*(dt/1000);
+    if(!isBlocked(nx,ny,P.r)) P.y = ny;
+    else { heat = clamp(heat + 0.3,0,100); }
+
+    // clamp resources
+    heat = clamp(heat, 0, 100);
+    bubble = clamp(bubble, 0, 140);
+
+    // boss update
+    updateBoss(dt);
+
+    // reveal rule: in WET phase, being in shower and holding water unlocks hidden
+    // plus subtle reveal chance by difficulty (hard reveals less)
+    if(phase>=PH.WET){
+      for(const s of spots){
+        if(s.state==='hidden'){
+          const chance = d.reveal * (inZone(P.x,P.y,ST.shower) ? 1.0 : 0.35);
+          if(rng() < chance*0.005){ s.state='revealed'; s.wetUnlocked=true; }
+        }
+      }
+    }
+
+    // action
+    if(holding){
+      holdMs += dt;
+
+      const atShower = inZone(P.x,P.y,ST.shower);
+      const atSoap   = inZone(P.x,P.y,ST.soap);
+      const atScan   = inZone(P.x,P.y,ST.scan);
+      const atTowel  = inZone(P.x,P.y,ST.towel);
+      const atBasket = inZone(P.x,P.y,ST.basket);
+
+      // Scan is station-based + limited
+      if(tool==='scan'){
+        if(atScan && holdMs>220 && scanLeft>0){
+          scanLeft--;
+          STATS.scansUsed++;
+          // reveal all hidden
+          for(const s of spots){ if(s.state==='hidden'){ s.state='revealed'; s.wetUnlocked=true; } }
+          heat = clamp(heat + 4, 0, 100);
+          tip(`UV Scan สำเร็จ! เหลือ ${scanLeft} ครั้ง`);
+          setHolding(false);
+        } else if(!atScan && holdMs>300){
+          tip('ไปที่ UV Mirror ก่อนถึงจะ Scan ได้');
+          setHolding(false);
+        }
+      }
+
+      // PHASE 1: WET
+      if(phase===PH.WET){
+        if(tool==='water' && atShower){
+          // unlock and mark wet step
+          heat = clamp(heat - dt/1000*0.35, 0, 100);
+          for(const s of spots){
+            // wet step applies to revealed or hidden-unlocked gradually
+            if(s.state==='hidden' && rng()<0.010){ s.state='revealed'; s.wetUnlocked=true; }
+            if(s.state==='revealed'){
+              // sequence step wet
+              applySeq(s,'wet');
+            }
+          }
+          // transition when at least 3 spots have lastStep wet
+          const wetCount = spots.filter(s=>s.lastStep==='wet').length;
+          if(wetCount>=3) setPhase(PH.SOAP);
+        } else if(tool==='water' && !atShower && holdMs>260){
+          tip('Wet ต้องทำใน Shower');
+        }
+      }
+
+      // PHASE 2: SOAP
+      if(phase===PH.SOAP){
+        if(tool==='soap' && atSoap){
+          for(const s of spots){
+            if(s.state==='revealed'){
+              // sequence: soap
+              applySeq(s,'soap');
+              bubble -= dt/1000 * 10 * s.weight;
+              s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
+              if(s.prog>=1){
+                s.state='soaped'; s.prog=0;
+              }
+            }
+          }
+          if(spots.filter(s=>s.state==='soaped').length>=2) setPhase(PH.SCRUB);
+        } else if(tool==='soap' && !atSoap && holdMs>260){
+          tip('ไปที่ Soap Rack เพื่อ Soap ได้แรงสุด');
+        }
+      }
+
+      // PHASE 3: SCRUB
+      if(phase===PH.SCRUB){
+        if(tool==='scrub'){
+          // scrub works anywhere but best after soap; if scrubbing revealed-only -> fake clean
+          for(const s of spots){
+            if(s.state==='soaped'){
+              // sequence: scrub
+              applySeq(s,'scrub');
+              const need = s.hold * d.holdMul * (bubble<18?1.25:1.0) * (heat>75?1.15:1.0);
+              bubble -= dt/1000 * 7 * s.weight;
+              s.prog = clamp(s.prog + dt/need, 0, 1);
+              if(s.prog>=1){
+                s.state='cleanCandidate'; s.prog=0;
+                s.cleaned=true;
+                // damage boss if attached
+                if(boss && boss.spotId===s.id){
+                  if(boss.type==='oil' && boss.armor>0){
+                    boss.armor--;
+                    damageBoss(22);
+                    tip('ลอกชั้นน้ำมันสำเร็จ!');
+                  } else {
+                    damageBoss(30);
+                  }
+                }
+              }
+            } else if(s.state==='revealed'){
+              // scrubbing too early => shinyNotClean
+              s.shinyNotClean = true;
+            }
+          }
+          // if all revealed are cleanCandidate or soaped cleared -> go rinse
+          const anySoaped = spots.some(s=>s.state==='soaped');
+          const anyCandidate = spots.some(s=>s.state==='cleanCandidate');
+          if(!anySoaped && anyCandidate) setPhase(PH.RINSE);
+        }
+      }
+
+      // PHASE 4: RINSE (must be in shower)
+      if(phase===PH.RINSE){
+        if(tool==='rinse' && atShower){
+          heat = clamp(heat - dt/1000*0.35, 0, 100);
+          for(const s of spots){
+            if(s.state==='cleanCandidate'){
+              applySeq(s,'rinse');
+
+              // residue detection: shinyNotClean or too hot
+              if(s.shinyNotClean || heat>82){
+                STATS.residuePenalty += 6;
+                s.mistakes++;
+                s.state='soaped';
+                s.shinyNotClean=false;
+                tip(`Residue พบที่ ${s.name} — ต้อง Soap+Scrub ใหม่`);
+              } else {
+                s.state='rinsed';
+              }
+            }
+          }
+          if(allRinsed()) setPhase(PH.DRY);
+        } else if(tool==='rinse' && !atShower && holdMs>260){
+          tip('Rinse ต้องทำใน Shower');
+        }
+      }
+
+      // PHASE 5: DRY (must be at towel)
+      if(phase===PH.DRY){
+        if(tool==='dry' && atTowel){
+          heat = clamp(heat - dt/1000*0.15, 0, 100);
+          for(const s of spots){
+            if(s.state==='rinsed'){
+              applySeq(s,'dry');
+              s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
+              if(s.prog>=1){ s.state='dried'; s.prog=0; }
+            }
+          }
+          if(spots.every(s=>s.state==='dried' || s.state==='done')) setPhase(PH.DRESS);
+        } else if(tool==='dry' && !atTowel && holdMs>260){
+          tip('ไปที่ Towel เพื่อ Dry ได้คะแนนสูงสุด');
+        }
+      }
+
+      // PHASE 6: DRESS (must be at basket)
+      if(phase===PH.DRESS){
+        if(atBasket){
+          // fungus risk if heat too high or did not dry fully
+          const wetLeft = spots.filter(s=>s.state!=='dried' && s.state!=='done').length;
+          if(wetLeft>0){ STATS.fungusRisk += wetLeft*6; }
+          if(heat>75) STATS.fungusRisk += 8;
+
+          for(const s of spots){
+            if(s.state==='dried'){
+              applySeq(s,'dress');
+              s.state='done';
+            }
+          }
+          endGame(true);
+        } else if(holdMs>280){
+          tip('ไปที่ Basket เพื่อใส่เสื้อผ้าสะอาด');
+        }
+      }
+    } // holding end
+
+    // transitions / boss spawn
+    if(phase>=PH.SOAP && phase<=PH.RINSE) maybeSpawnBoss();
+
+    // time out
+    if(tLeft<=0 && phase!==PH.DONE){
+      endGame(false);
+    }
+
+    // UI update
+    timeLbl.textContent = String(Math.ceil(tLeft));
+    heatLbl.textContent = String(Math.round(heat));
+    bubLbl.textContent  = String(Math.round(bubble));
+    comboLbl.textContent = 'x' + combo.toFixed(1);
+    heatFill.style.width = (heat)+'%';
+    bubFill.style.width  = (Math.min(100, (bubble/100)*100))+'%';
+  }
+
+  // ---------- Render ----------
+  function render(){
+    ctx.clearRect(0,0,W,H);
+
+    // floor
+    ctx.fillStyle = '#06102a';
+    ctx.fillRect(0,0,W,H);
+
+    // tiles
+    ctx.globalAlpha = 0.10;
+    ctx.strokeStyle = '#ffffff';
+    for(let x=0;x<=W;x+=TILE){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<=H;y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+
+    // walls/obstacles
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        if(GRID[y][x]!==1) continue;
+        ctx.fillStyle = 'rgba(255,255,255,.06)';
+        ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+        ctx.strokeStyle = 'rgba(255,255,255,.10)';
+        ctx.strokeRect(x*TILE+0.5, y*TILE+0.5, TILE-1, TILE-1);
+      }
+    }
+
+    // stations
+    for(const k of Object.keys(ST)) drawStation(ST[k]);
+
+    // player
+    ctx.fillStyle = 'rgba(120,200,255,.95)';
+    ctx.beginPath(); ctx.arc(P.x,P.y,P.r,0,Math.PI*2); ctx.fill();
+
+    // action aura
+    ctx.strokeStyle = holding ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.10)';
+    ctx.beginPath(); ctx.arc(P.x,P.y, 42,0,Math.PI*2); ctx.stroke();
+
+    // spots around player
+    for(const s of spots){
+      const x = P.x + s.ox, y = P.y + s.oy;
+
+      if(s.state==='hidden') continue;
+
+      if(s.state==='revealed'){
+        // subtle sparkle
+        ctx.fillStyle = 'rgba(255,220,120,.30)';
+        spark(x,y, 10);
+      }
+      if(s.state==='soaped'){
+        ctx.fillStyle = 'rgba(200,240,255,.55)';
+        bubbleDot(x,y, 10);
+        progArc(x,y, 14, s.prog, 'rgba(200,240,255,.85)');
+      }
+      if(s.state==='cleanCandidate'){
+        ctx.fillStyle = 'rgba(160,255,160,.55)';
+        glow(x,y, 10);
+      }
+      if(s.state==='rinsed'){
+        ctx.fillStyle = 'rgba(140,210,255,.42)';
+        glow(x,y, 8);
+      }
+      if(s.state==='dried'){
+        ctx.fillStyle = 'rgba(255,255,255,.28)';
+        glow(x,y, 7);
+      }
+      if(s.state==='done'){
+        ctx.fillStyle = 'rgba(108,255,159,.22)';
+        glow(x,y, 6);
+      }
+
+      // boss ring
+      if(boss && boss.spotId===s.id){
+        ctx.strokeStyle = 'rgba(255,90,120,.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x,y, 18,0,Math.PI*2); ctx.stroke();
+        ctx.lineWidth = 1;
+        if(boss.type==='oil' && boss.armor>0){
+          ctx.fillStyle = 'rgba(255,90,120,.20)';
+          ctx.font = '900 12px system-ui';
+          ctx.fillText('ARMOR '+boss.armor, x-24, y-22);
+        }
+      }
+    }
+
+    // small overlay
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.fillRect(10,10, 290, 34);
+    ctx.fillStyle = '#e8ecff';
+    ctx.font = '800 13px system-ui';
+    ctx.fillText(`Tool: ${tool.toUpperCase()}  UV:${scanLeft}  Boss:${boss?boss.type:'—'}`, 18, 32);
+  }
+
+  function drawStation(s){
+    // zone circle
+    ctx.fillStyle = 'rgba(255,255,255,.05)';
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.14)';
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.stroke();
+
+    // label
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    ctx.font = '800 13px system-ui';
+    ctx.fillText(s.label, s.x - s.r + 10, s.y + 4);
+  }
+
+  function spark(x,y,n){
+    for(let i=0;i<n;i++){
+      const a = i/n*Math.PI*2;
+      const r = 6 + (i%3)*2;
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(x+Math.cos(a)*r, y+Math.sin(a)*r, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function glow(x,y,r){
+    ctx.globalAlpha = 0.65;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function bubbleDot(x,y,r){
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function progArc(x,y,r,p,color){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x,y,r, -Math.PI/2, -Math.PI/2 + Math.PI*2*p);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
+  // ---------- End game + scoring + heatmap ----------
+  function endGame(completed){
+    // compute scores
+    // CleanScore: count done + combo influence + boss bonus
+    const doneCount = spots.filter(s=>s.state==='done').length;
+    const cleanedCount = spots.filter(s=>s.cleaned).length;
+    const base = doneCount*22 + cleanedCount*10;
+    const comboBonus = Math.round((combo-1.0)*50);
+    const bossBonus = STATS.bossKilled*25;
+
+    // Sequence grade
+    const totalSeq = STATS.seqOk + STATS.seqBad;
+    const seqRate = totalSeq>0 ? (STATS.seqOk/totalSeq) : 0.0;
+    const grade = seqRate>=0.90 ? 'A' : seqRate>=0.78 ? 'B' : seqRate>=0.64 ? 'C' : 'D';
+
+    // Residue / Fungus
+    // fungus already accumulated at dress; add more if ended early and still wet
+    if(!completed){
+      const notDry = spots.filter(s=>s.state!=='done').length;
+      STATS.fungusRisk += notDry*4;
+      STATS.residuePenalty += Math.round((100-heat)/20); // mild
+    }
+
+    const residue = Math.round(STATS.residuePenalty);
+    const fungus  = Math.round(STATS.fungusRisk);
+    const mistakes = STATS.wrongOrder + STATS.regrowCount + STATS.spreadCount;
+
+    const total = Math.max(0,
+      Math.round(base + comboBonus + bossBonus
+        - residue*1.2 - fungus*1.1 - mistakes*2)
+    );
+
+    // show result
+    setPhase(PH.DONE);
+    resultEl.style.display='block';
+
+    // KPIs
+    kpiEl.innerHTML = '';
+    const addK = (k,v)=> {
+      const s = document.createElement('span');
+      s.className='pill';
+      s.innerHTML = `${k}: <b>${v}</b>`;
+      kpiEl.appendChild(s);
+    };
+    addK('Total', total);
+    addK('Clean', base);
+    addK('Combo+', comboBonus);
+    addK('Boss+', bossBonus);
+    addK('Residue-', residue);
+    addK('Fungus-', fungus);
+    addK('WrongOrder', STATS.wrongOrder);
+
+    seqGradeEl.textContent = `Grade ${grade} (Seq OK ${(seqRate*100).toFixed(0)}%)`;
+    notesEl.textContent =
+      `Regrow ${STATS.regrowCount}, Spread ${STATS.spreadCount}, UV used ${STATS.scansUsed}, Heat ${Math.round(heat)}.`;
+
+    resSubEl.textContent = completed ? 'สำเร็จ! อาบครบลำดับ' : 'หมดเวลา — ลองใหม่ให้ลื่นขึ้น';
+
+    // Heatmap: draw silhouette + spot colors based on final status/mistakes
+    drawHeatmap(grade, total);
+
+    // Top mistakes list
+    const byMist = [...spots].sort((a,b)=> (b.mistakes||0)-(a.mistakes||0));
+    const top = byMist.slice(0,3).map(s=> `${s.name} (${s.mistakes||0})`).join(', ');
+    mistakesEl.textContent = 'Top mistakes: ' + (top || '—');
+  }
+
+  function drawHeatmap(grade, total){
+    // background
+    silCtx.clearRect(0,0,silCv.width,silCv.height);
+    silCtx.fillStyle = 'rgba(255,255,255,.03)';
+    silCtx.fillRect(0,0,silCv.width,silCv.height);
+
+    // silhouette
+    const cx = silCv.width/2, cy = silCv.height/2 + 10;
+    silCtx.fillStyle = 'rgba(255,255,255,.07)';
+    // head
+    silCtx.beginPath(); silCtx.arc(cx, cy-150, 42, 0, Math.PI*2); silCtx.fill();
+    // body
+    roundRectFill(silCtx, cx-70, cy-110, 140, 210, 40);
+    // legs
+    roundRectFill(silCtx, cx-60, cy+100, 50, 150, 26);
+    roundRectFill(silCtx, cx+10, cy+100, 50, 150, 26);
+    // arms
+    roundRectFill(silCtx, cx-120, cy-90, 45, 165, 20);
+    roundRectFill(silCtx, cx+75,  cy-90, 45, 165, 20);
+
+    // map spot positions on silhouette
+    const POS = {
+      behindEar: { x: cx-28, y: cy-160 },
+      neckBack:  { x: cx+18, y: cy-145 },
+      armpit:    { x: cx-84, y: cy-70 },
+      elbowFold: { x: cx+98, y: cy-20 },
+      belly:     { x: cx,    y: cy-10 },
+      backKnee:  { x: cx-34, y: cy+170 },
+      toes:      { x: cx+34, y: cy+250 },
+    };
+
+    for(const s of spots){
+      const p = POS[s.id] || {x:cx,y:cy};
+      const clean = (s.state==='done');
+      const warn = (!clean && (s.mistakes||0)>0);
+      const risk = (!clean && (s.state==='soaped' || s.state==='revealed' || s.state==='hidden'));
+      const col = clean ? 'rgba(108,255,159,.85)'
+                : warn ? 'rgba(255,220,120,.85)'
+                : risk ? 'rgba(255,90,120,.85)'
+                : 'rgba(140,210,255,.65)';
+      silCtx.fillStyle = col;
+      silCtx.beginPath(); silCtx.arc(p.x,p.y, 12, 0, Math.PI*2); silCtx.fill();
+      silCtx.strokeStyle = 'rgba(0,0,0,.25)';
+      silCtx.stroke();
+      silCtx.fillStyle = 'rgba(255,255,255,.80)';
+      silCtx.font = '800 12px system-ui';
+      silCtx.fillText(s.name, p.x+16, p.y+4);
+    }
+
+    // footer
+    silCtx.fillStyle = 'rgba(255,255,255,.70)';
+    silCtx.font = '900 14px system-ui';
+    silCtx.fillText(`Total ${total} | Grade ${grade}`, 14, silCv.height-14);
+  }
+
+  function roundRectFill(c, x,y,w,h,r){
+    c.beginPath();
+    c.moveTo(x+r,y);
+    c.arcTo(x+w,y, x+w,y+h, r);
+    c.arcTo(x+w,y+h, x,y+h, r);
+    c.arcTo(x,y+h, x,y, r);
+    c.arcTo(x,y, x+w,y, r);
+    c.closePath();
+    c.fill();
+  }
+
+  // ---------- tool defaults ----------
+  function setDefaults(){
+    // set tool selection styles
+    setTool(tool);
+    setPhase(phase);
+  }
+  setDefaults();
+
+})();
+</script>
+</body>
+</html>
