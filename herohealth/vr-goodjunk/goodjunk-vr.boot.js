@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
-// v2026-02-18d + HUBFIX v2026-02-19b (onOnce + hubUrl resolver)
+// v2026-02-18d + HUBFIX v2026-02-19a + BIND-ONCE v2026-02-19b
 //
 // ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
 // ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
@@ -9,8 +9,12 @@
 // ✅ HUD-safe spawn: prevents targets under topbar/hud/bottom meters
 // ✅ No duplicate listeners (guards with window.GJ_BOOT)
 // ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot only binds buttons if present)
-// ✅ FIX HUB: default ไป /herohealth/hub.html (absolute-ish) + still respects ?hub=
-// ✅ PATCH B: bind Restart/Hub with onOnce (no duplicate listeners)
+// ✅ FIX HUB: default ไป /herohealth/hub.html (absolute) + still respects ?hub=
+// ✅ BIND: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + กัน bind ซ้ำด้วย onOnce()
+//
+// Requires:
+// - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...})
+// - goodjunk-vr.html includes IDs used by safe.js + optional end overlay buttons.
 
 'use strict';
 
@@ -33,17 +37,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
   const byId = (id)=>DOC.getElementById(id);
 
-  // ✅ onOnce: กัน addEventListener ซ้ำ (สำคัญเวลา hot reload / include ซ้อน)
-  function onOnce(el, type, handler, opts){
-    if(!el) return;
-    try{
-      const key = `__once_${type}__`;
-      if(el[key]) return;
-      el[key] = true;
-      el.addEventListener(type, handler, opts || false);
-    }catch(_){}
-  }
-
   function setRootVar(name, value){
     try{ DOC.documentElement.style.setProperty(name, String(value)); }catch(_){}
   }
@@ -58,6 +51,18 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     }catch(_){ return 0; }
   }
 
+  // ✅ onOnce: bind event only once per element+event (กัน bind ซ้ำ)
+  function onOnce(el, type, fn, opt){
+    if(!el) return false;
+    const key = `__once_${type}`;
+    try{
+      if(el[key]) return false;
+      el.addEventListener(type, fn, opt);
+      el[key] = true;
+      return true;
+    }catch(_){ return false; }
+  }
+
   function detectView(){
     const v = String(qs('view','')||'').toLowerCase().trim();
     if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
@@ -68,7 +73,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 
     // PC if wide screen / has mouse
     const w = DOC.documentElement.clientWidth || innerWidth || 800;
-    const hasCoarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+    const hasCoarse = (typeof matchMedia === 'function') && matchMedia('(pointer: coarse)').matches;
     if (!hasCoarse && w >= 760) return 'pc';
     return 'mobile';
   }
@@ -109,7 +114,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const controlsH = rectH(controls);
 
     // top safe: topbar + (some hud) + margin
-    // If quest panel exists and is open, we still want safe rect stable; so ignore it.
     let topSafe = topbarH + hudTopH + 10;
     topSafe = clamp(topSafe, 110 + sat, Math.floor(H * 0.55));
 
@@ -167,7 +171,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 
     // Provide optional config for vr-ui
     WIN.HHA_VRUI_CONFIG = WIN.HHA_VRUI_CONFIG || {};
-    // stricter for cvr: aim from center, targets should remain tappable but we shoot from crosshair
+    // stricter for cvr
     if (view === 'cvr') {
       WIN.HHA_VRUI_CONFIG.cvrStrict = true;
       WIN.HHA_VRUI_CONFIG.lockPx = Number(qs('lockPx','28')) || 28;
@@ -179,33 +183,25 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     await loadScriptOnce('../vr/vr-ui.js?v=20260216a');
   }
 
-  // ✅ HUB url resolver (default main hub + respects ?hub=)
+  // ✅ HUB url resolver (absolute default + respects ?hub=)
   function resolveHubUrl(){
     const raw = qs('hub', null);
-    if (raw) return raw;
+    if (raw) return raw; // if hub is provided, trust it
 
-    // Try to infer repo root from current path:
-    // /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html
-    // -> /webxr-health-mobile/herohealth/hub.html
-    try{
-      const path = String(location.pathname || '');
-      const i = path.indexOf('/herohealth/');
-      if (i >= 0){
-        const repoRoot = path.slice(0, i); // includes leading ''
-        return location.origin + repoRoot + '/herohealth/hub.html';
-      }
-    }catch(_){}
-
-    // Fallback: same origin
-    return location.origin + '/herohealth/hub.html';
+    // default to main hub in repo root
+    const base = location.origin + '/webxr-health-mobile';
+    return base + '/herohealth/hub.html';
   }
 
   function bindBasicButtons(){
-    // No end overlay duplication; just button actions if present.
-    const btnRestartTop = byId('btnRestartTop');
-    const btnRestartEnd = byId('btnRestartEnd');
-    const btnHubTop     = byId('btnHubTop');
-    const btnBackHub    = byId('btnBackHub');
+    // รองรับทั้ง id มาตรฐาน + id เดิม (legacy)
+    const btnRestartTop = byId('btnRestartTop') || byId('btnRestart');
+    const btnHubTop     = byId('btnHubTop')     || byId('btnHub');
+
+    const btnRestartEnd = byId('btnRestartEnd'); // end overlay standard
+    const btnBackHub    = byId('btnBackHub');    // end overlay standard
+
+    const goHub = ()=> { location.href = resolveHubUrl(); };
 
     function restart(){
       const u = new URL(location.href);
@@ -216,21 +212,16 @@ import { boot as bootSafe } from './goodjunk.safe.js';
       location.href = u.toString();
     }
 
-    const goHub = ()=> { location.href = resolveHubUrl(); };
-
-    // ✅ PATCH B: use onOnce (กัน listener ซ้ำ)
+    // ✅ bind แบบครั้งเดียว
     onOnce(btnRestartTop, 'click', restart);
     onOnce(btnRestartEnd, 'click', restart);
-    onOnce(btnHubTop,     'click', goHub);
-    onOnce(btnBackHub,    'click', goHub);
+
+    onOnce(btnHubTop, 'click', goHub);
+    onOnce(btnBackHub, 'click', goHub);
   }
 
-  // Prevent "ค้าง" from stacking intervals (Quest panel meter sync in HTML)
-  function guardIntervals(){
-    // If prior page script set intervals and we reloaded via SPA, attempt cleanup marker
-    // (Hard to cancel unknown intervals; so we just avoid adding new ones here.)
-    // kept for future expansion
-  }
+  // Prevent "ค้าง" from stacking intervals (reserved)
+  function guardIntervals(){}
 
   // ---------------- main ----------------
   async function main(){
@@ -317,7 +308,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     }
   }
 
-  // Wait DOM ready (module executes after parse, but safe to ensure)
+  // Wait DOM ready
   if (DOC.readyState === 'loading') {
     DOC.addEventListener('DOMContentLoaded', main, { once:true });
   } else {
