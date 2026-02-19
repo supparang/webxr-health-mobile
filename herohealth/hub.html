@@ -9,6 +9,7 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
 ✅ Last summary panel (HHA_LAST_SUMMARY) + clear
 ✅ API banner probe (401/403 latch per-tab) + retry + reset today
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
++ ✅ PATCH: Toast + Daily Badges (Quest UX)
 -->
 <!doctype html>
 <html lang="th">
@@ -152,10 +153,119 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
     .qstatus.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
     .qstatus.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
     .qactions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+    /* ===== PATCH: Toast + Daily Badges ===== */
+    .hh-toast-wrap{
+      position: fixed;
+      left: 50%;
+      top: calc(10px + var(--sat));
+      transform: translateX(-50%);
+      z-index: 9999;
+      width: min(760px, calc(100vw - 20px));
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .hh-toast{
+      border: 1px solid var(--stroke);
+      background: rgba(2,6,23,.86);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity .16s ease, transform .16s ease;
+      pointer-events: auto;
+    }
+    .hh-toast.show{ opacity: 1; transform: translateY(0); }
+    .hh-toast.ok{ border-color: rgba(34,197,94,.35); background: rgba(2,6,23,.9); }
+    .hh-toast.warn{ border-color: rgba(245,158,11,.35); }
+    .hh-toast .icon{
+      width: 24px; height: 24px; border-radius: 999px;
+      display: grid; place-items: center;
+      font-size: 14px; font-weight: 1000;
+      background: rgba(34,197,94,.14);
+      border: 1px solid rgba(34,197,94,.25);
+      flex: 0 0 auto;
+    }
+    .hh-toast .txt{ min-width: 0; }
+    .hh-toast .t{ font-size: 12px; font-weight: 1100; }
+    .hh-toast .m{ margin-top: 2px; font-size: 12px; color: rgba(229,231,235,.8); font-weight: 800; line-height: 1.3; }
+    .hh-toast .x{
+      margin-left: auto;
+      border: 1px solid var(--stroke);
+      background: rgba(2,6,23,.25);
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 1000;
+      cursor: pointer;
+    }
+
+    .badgewrap{
+      margin-top:10px;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      background:rgba(2,6,23,.28);
+      padding:10px;
+    }
+    .badgegrid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width: 700px){ .badgegrid{ grid-template-columns:1fr; } }
+
+    .badgecard{
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      background:rgba(2,6,23,.22);
+      padding:10px;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .badgecard.locked{ opacity:.65; }
+    .badgeicon{
+      width:34px; height:34px; border-radius:12px;
+      display:grid; place-items:center;
+      border:1px solid var(--stroke);
+      background:rgba(148,163,184,.10);
+      font-size:18px;
+      flex:0 0 auto;
+    }
+    .badgecard.ok .badgeicon{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.14);
+    }
+    .badgetxt .name{
+      font-size:12px; font-weight:1100;
+    }
+    .badgetxt .meta{
+      margin-top:4px;
+      font-size:11px; color:rgba(229,231,235,.78); font-weight:800; line-height:1.3;
+    }
+    .badgepill{
+      margin-top:6px;
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:10px; font-weight:1000;
+    }
+    .badgepill.ok{ border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.12); }
+    .badgepill.lock{ border-color:rgba(148,163,184,.2); background:rgba(148,163,184,.08); }
   </style>
 </head>
 
 <body>
+  <!-- ✅ PATCH: Toast container -->
+  <div class="hh-toast-wrap" id="hhToastWrap" aria-live="polite" aria-atomic="false"></div>
+
   <div class="wrap">
     <header>
       <div class="brand">
@@ -235,6 +345,17 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
         </div>
         <div class="qgrid" id="qGrid">
           <!-- JS render quests -->
+        </div>
+      </div>
+
+      <!-- ✅ PATCH: Daily Badges -->
+      <div class="badgewrap">
+        <div class="heathead">
+          <div class="t">Daily Badges</div>
+          <div class="m" id="badgeMeta">—</div>
+        </div>
+        <div class="badgegrid" id="badgeGrid">
+          <!-- JS render -->
         </div>
       </div>
     </div>
