@@ -1,18 +1,14 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
-// v2026-02-18d + HUBFIX v2026-02-19a + BIND-ONCE v2026-02-20a
+// FULL v20260220-hubBind
 //
 // ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
 // ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-// ✅ Compute safe zones -> sets :root CSS vars:
-//    --gj-top-safe, --gj-bottom-safe, --sat/--sab/--sal/--sar
-// ✅ HUD-safe spawn: prevents targets under topbar/hud/bottom meters
+// ✅ Compute safe zones -> sets :root CSS vars: --gj-top-safe, --gj-bottom-safe, --sat/--sab/--sal/--sar
 // ✅ No duplicate listeners (guards with window.GJ_BOOT)
-// ✅ FIX HUB: default ไป /herohealth/hub.html (absolute) + still respects ?hub=
-// ✅ BIND: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + onOnce กัน bind ซ้ำ
-//
-// Requires:
-// - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...})
+// ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot binds buttons if present)
+// ✅ HUB: default ไป /webxr-health-mobile/herohealth/hub.html + respects ?hub=
+// ✅ BIND: supports “id เดิม + id มาตรฐาน” + onOnce (กัน bind ซ้ำ)
 
 'use strict';
 
@@ -64,7 +60,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const topbar = DOC.querySelector('.gj-topbar');
     const hudTop = byId('hud') || DOC.querySelector('.gj-hud-top');
     const hudBot = DOC.querySelector('.gj-hud-bot');
-    const controls = DOC.querySelector('.hha-controls');
+    const controls = DOC.querySelector('.hha-controls'); // optional
 
     const H = DOC.documentElement.clientHeight || innerHeight || 700;
 
@@ -159,28 +155,49 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const raw = qs('hub', null);
     if (raw) return raw;
 
-    // default to main hub in repo root
     const base = location.origin + '/webxr-health-mobile';
     return base + '/herohealth/hub.html';
   }
 
-  // ✅ bind once helper (per-element)
-  function onOnce(el, type, fn, opts){
-    if(!el) return;
-    const key = `__onOnce_${type}`;
-    if (el[key]) return;
-    el[key] = true;
-    el.addEventListener(type, fn, opts);
+  // ✅ onOnce: prevent double-binding even if bindBasicButtons called twice
+  function onOnce(el, type, fn, keySuffix=''){
+    if(!el) return false;
+    try{
+      const key = `__once_${type}_${keySuffix || (el.id||'')}`;
+      if(el.dataset && el.dataset[key] === '1') return false;
+      if(el.dataset) el.dataset[key] = '1';
+    }catch(_){}
+    try{ el.addEventListener(type, fn); }catch(_){}
+    return true;
+  }
+
+  function firstEl(ids){
+    for(const id of ids){
+      const el = byId(id);
+      if(el) return el;
+    }
+    return null;
   }
 
   function bindBasicButtons(){
-    // Support both: legacy ids + standard ids
-    const btnRestartTop = byId('btnRestartTop') || byId('btnRestart');
-    const btnRestartEnd = byId('btnRestartEnd');
-    const btnHubTop     = byId('btnHubTop') || byId('btnHub');
-    const btnBackHub    = byId('btnBackHub');
+    // รองรับ “id เดิม + id มาตรฐาน”
+    const RESTART_IDS = [
+      // เดิม
+      'btnRestartTop', 'btnRestartEnd',
+      // มาตรฐาน/ทั่วไป
+      'btnRestart', 'btnRestart2',
+      'hhaRestart', 'hhaBtnRestart',
+      'endRestart', 'overlayRestart'
+    ];
 
-    const goHub = ()=> { location.href = resolveHubUrl(); };
+    const HUB_IDS = [
+      // เดิม
+      'btnHubTop', 'btnBackHub',
+      // มาตรฐาน/ทั่วไป
+      'btnHub', 'btnHome', 'btnBackToHub',
+      'hhaHub', 'hhaBtnHub',
+      'endHub', 'overlayHub'
+    ];
 
     function restart(){
       const u = new URL(location.href);
@@ -190,14 +207,28 @@ import { boot as bootSafe } from './goodjunk.safe.js';
       location.href = u.toString();
     }
 
-    onOnce(btnRestartTop, 'click', restart, { passive:true });
-    onOnce(btnRestartEnd, 'click', restart, { passive:true });
+    function goHub(){
+      location.href = resolveHubUrl();
+    }
 
-    onOnce(btnHubTop,  'click', goHub, { passive:true });
-    onOnce(btnBackHub, 'click', goHub, { passive:true });
+    // bind ทุกปุ่มที่พบ (ไม่ใช่แค่ตัวแรก) + กันซ้ำด้วย onOnce
+    for(const id of RESTART_IDS){
+      const el = byId(id);
+      if(el) onOnce(el, 'click', restart, 'restart');
+    }
+    for(const id of HUB_IDS){
+      const el = byId(id);
+      if(el) onOnce(el, 'click', goHub, 'hub');
+    }
+
+    // fallback: ถ้าไม่มี id แต่มี data-action
+    const q = DOC.querySelectorAll('[data-action]');
+    q.forEach(el=>{
+      const a = String(el.getAttribute('data-action')||'').toLowerCase().trim();
+      if(a === 'restart') onOnce(el, 'click', restart, 'restartData');
+      if(a === 'hub' || a === 'home') onOnce(el, 'click', goHub, 'hubData');
+    });
   }
-
-  function guardIntervals(){}
 
   // ---------------- main ----------------
   async function main(){
@@ -213,7 +244,6 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 
     computeSafeZones();
     bindBasicButtons();
-    guardIntervals();
 
     let raf = 0;
     const requestRecalc = ()=>{
