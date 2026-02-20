@@ -1,0 +1,687 @@
+<!-- === /herohealth/food-groups/build-meal.html ===
+HeroHealth — Food Groups (Create)
+Mode B: Build a Meal — deterministic by seed
+✅ Create: สร้าง “เมนู 1 มื้อ” ให้ครบหมู่ 1–5 ภายใต้เงื่อนไข (งบ/เวลา/แพ้อาหาร)
+✅ Deterministic: seed -> rng; same constraints & pantry each time
+✅ AI tip -> hha:coach rate-limit (deterministic; uses window.HHA.createAIHooks if exists)
+✅ End summary -> hha:end + save HHA_LAST_SUMMARY + back HUB (?hub=...)
+No App Script.
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Build a Meal (Create)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    :root{
+      --bg:#050814;
+      --panel: rgba(2,6,23,.74);
+      --panel2: rgba(2,6,23,.55);
+      --stroke: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.94);
+      --mut: rgba(148,163,184,.92);
+      --good: rgba(34,197,94,.95);
+      --warn: rgba(245,158,11,.95);
+      --bad: rgba(239,68,68,.95);
+      --cyan: rgba(34,211,238,.95);
+      --vio: rgba(167,139,250,.95);
+      --r:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1100px 760px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+      radial-gradient(1100px 760px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+      radial-gradient(900px 700px at 50% 95%, rgba(34,197,94,.10) 0%, transparent 60%),
+      linear-gradient(180deg, #0b1026, var(--bg));
+      color:var(--txt);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      overflow-x:hidden;
+    }
+    #app{min-height:100%;padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+    .card{border-radius:var(--r);border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.55));box-shadow:0 18px 60px rgba(0,0,0,.38);overflow:hidden}
+    .hd{padding:12px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+    .hd b{font-weight:1000;letter-spacing:.2px}
+    .sub{color:var(--mut);font-weight:900;font-size:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.48);color:var(--mut);font-size:12px;font-weight:1000}
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.55)}
+    .dot.good{background:var(--good);box-shadow:0 0 14px rgba(34,197,94,.55)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 14px rgba(245,158,11,.55)}
+    button{
+      cursor:pointer;border-radius:16px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);color:var(--txt);padding:10px 12px;font-weight:1000;
+      transition:transform .08s ease, background .15s ease, border-color .15s ease;user-select:none
+    }
+    button:hover{transform:translateY(-1px);background:rgba(2,6,23,.72);border-color:rgba(148,163,184,.32)}
+    button:active{transform:translateY(0) scale(.99)}
+    button.primary{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    button.ghost{background:rgba(148,163,184,.08)}
+    button.bad{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.28)}
+    .wrap{padding:12px;display:grid;grid-template-columns:1.1fr .9fr;gap:10px}
+    @media (max-width: 980px){.wrap{grid-template-columns:1fr}}
+    .box{border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.40);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .box h3{margin:0;font-size:16px;font-weight:1000;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .mini{color:var(--mut);font-weight:900;font-size:12.5px;line-height:1.35;white-space:pre-wrap}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);font-weight:1000;color:var(--mut);font-size:12px}
+    .pill strong{color:var(--txt)}
+    .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+    .pantry{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    @media (max-width: 520px){.pantry{grid-template-columns:1fr}}
+    .cardIt{
+      border-radius:16px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.50);
+      padding:10px;display:flex;gap:10px;align-items:flex-start
+    }
+    .em{font-size:22px}
+    .info{display:flex;flex-direction:column;gap:2px;flex:1}
+    .info b{font-size:13px;font-weight:1000}
+    .info span{font-size:11px;color:var(--mut);font-weight:900}
+    .info .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+    .chip{padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.42);font-weight:1000;font-size:11px;color:var(--mut)}
+    .pickRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .coach{
+      padding:10px 12px;border-top:1px solid rgba(148,163,184,.14);
+      color:var(--mut);font-weight:900;font-size:12.5px;display:flex;gap:10px;align-items:flex-start
+    }
+    .coach .badge{padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);font-weight:1000}
+    .coach .txt{white-space:pre-wrap;line-height:1.35}
+    .actions{padding:12px;border-top:1px solid rgba(148,163,184,.14);display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px;z-index:50}
+    .modal{width:min(760px,100%);border-radius:22px;border:1px solid rgba(148,163,184,.18);background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));box-shadow:0 22px 90px rgba(0,0,0,.55);overflow:hidden}
+    .modal .mhd{padding:12px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .modal .mbd{padding:12px;display:flex;flex-direction:column;gap:10px}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--mut)}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="card">
+    <div class="hd">
+      <div>
+        <b>🍱 Build a Meal — Create</b><br/>
+        <span class="sub">สร้าง “เมนู 1 มื้อ” ให้ครบหมู่ 1–5 ภายใต้เงื่อนไข (deterministic by seed)</span>
+      </div>
+      <div class="row">
+        <span class="tag"><span class="dot"></span> seed: <b id="seedTag" style="color:var(--txt)"></b></span>
+        <span class="tag"><span class="dot warn"></span> budget: <b id="budTag" style="color:var(--txt)"></b></span>
+        <span class="tag"><span class="dot good"></span> score: <b id="scoreTag" style="color:var(--txt)">0</b></span>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="box">
+        <h3>
+          <span>🧺 Pantry (เลือกวัตถุดิบ/เมนู)</span>
+          <span class="pill">เลือกแล้ว <strong id="pickCnt">0</strong> รายการ</span>
+        </h3>
+        <div class="mini" id="ruleTxt">—</div>
+        <div class="pantry" id="pantry"></div>
+      </div>
+
+      <div class="box">
+        <h3>
+          <span>✅ Meal Builder</span>
+          <span class="pill">เหลืองบ <strong id="budLeft">—</strong></span>
+        </h3>
+
+        <div class="mini" id="needTxt">—</div>
+
+        <div class="mini">
+          <div class="pill">หมู่ 1 โปรตีน: <strong id="c1">0</strong></div>
+          <div class="pill">หมู่ 2 คาร์บ: <strong id="c2">0</strong></div>
+          <div class="pill">หมู่ 3 ผัก: <strong id="c3">0</strong></div>
+          <div class="pill">หมู่ 4 ผลไม้: <strong id="c4">0</strong></div>
+          <div class="pill">หมู่ 5 ไขมัน: <strong id="c5">0</strong></div>
+        </div>
+
+        <div class="pickRow">
+          <button class="primary" id="btnSubmit">ส่งเมนู (ประเมิน)</button>
+          <button class="ghost" id="btnNew">สุ่มโจทย์ใหม่ (seed เดิม)</button>
+          <button class="bad" id="btnClear">ล้างที่เลือก</button>
+        </div>
+
+        <div class="mini" id="feedback">เลือกให้ครบหมู่ 1–5 ภายในงบ ✅</div>
+      </div>
+    </div>
+
+    <div class="coach" id="coachBar">
+      <span class="badge">COACH</span>
+      <div class="txt" id="coachTxt">เริ่มจาก “ครบหมู่” ก่อน แล้วค่อยปรับให้ไม่ล้นคาร์บ/ไขมัน ✅</div>
+    </div>
+
+    <div class="actions">
+      <div class="row">
+        <button class="ghost" id="btnHub">🏠 กลับ HUB</button>
+        <button class="primary" id="btnEnd">จบเกม</button>
+      </div>
+      <div class="row">
+        <span class="tag"><span class="dot good"></span> run: <b id="runTag" style="color:var(--txt)"></b></span>
+        <span class="tag"><span class="dot"></span> diff: <b id="diffTag" style="color:var(--txt)"></b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="mhd">
+      <b>สรุปผล — Build a Meal</b>
+      <button class="ghost" id="closeModal">ปิด</button>
+    </div>
+    <div class="mbd">
+      <div class="mini" id="sumTxt">—</div>
+      <div class="kbd" id="sumJson">—</div>
+      <div class="row">
+        <button class="primary" id="btnBackHub2">🏠 กลับ HUB</button>
+        <button class="ghost" id="btnPlayAgain">เล่นใหม่ (seed เดิม)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- QS / seed ----------
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = getQS();
+  const q = (k, def='') => (QS.get(k) ?? def);
+
+  function strSeedToU32(s){
+    s = String(s ?? '');
+    if (!s) s = String(Date.now());
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function makeRng(seedU32){
+    let t = seedU32 >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let x = t;
+      x = Math.imul(x ^ (x >>> 15), x | 1);
+      x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+
+  // ---------- HeroHealth basics ----------
+  const HUB = String(q('hub','/herohealth/hub.html')||'/herohealth/hub.html');
+  const RUN = String(q('run','play')||'play').toLowerCase();
+  const DIFF = String(q('diff','normal')||'normal').toLowerCase();
+  const VIEW = String(q('view','mobile')||'mobile').toLowerCase();
+  const SEED = String(q('seed','')||'').trim() || String(Date.now());
+
+  // ---------- deterministic rng ----------
+  const baseU32 = strSeedToU32(SEED + '::buildmeal::v1');
+  const rng = makeRng(baseU32);
+
+  // ---------- optional AI hooks ----------
+  function isAiEnabled(){
+    if (RUN === 'research' || RUN === 'practice') return false;
+    const on = String(q('ai','0')||'0').toLowerCase();
+    return (on === '1' || on === 'true');
+  }
+  let aiEnabled = isAiEnabled();
+  let AI = null;
+  try{
+    if (aiEnabled && window.HHA && typeof window.HHA.createAIHooks === 'function'){
+      AI = window.HHA.createAIHooks({ game:'food-build', runMode:RUN, diff:DIFF, seed:SEED, enabled:true });
+    }
+  }catch(_){ AI=null; }
+
+  // ---------- coach rate-limit ----------
+  const coachTxt = document.getElementById('coachTxt');
+  let lastCoachAt = 0;
+  const coachCooldownMs = 5200;
+  let lastCoachKey = '';
+  function nowMs(){ try{ return performance.now(); }catch{ return Date.now(); } }
+  function emitCoach(text, mood, key){
+    const t = nowMs();
+    if ((t - lastCoachAt) < coachCooldownMs) return;
+    if (key && key === lastCoachKey) return;
+    lastCoachAt = t;
+    lastCoachKey = key || lastCoachKey;
+    coachTxt.textContent = String(text||'');
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:String(text||''), mood:String(mood||'neutral'), ai:!!aiEnabled, key:key||'' } }));
+    }catch(_){}
+  }
+  const TIP_FALLBACK = [
+    {k:'cover', t:'เริ่มจาก “ครบหมู่ 1–5” ก่อน แล้วค่อยปรับให้ไม่ล้น ✅'},
+    {k:'veg', t:'เพิ่มผัก (หมู่ 3) ช่วยสมดุลมื้อได้ไว 🥦'},
+    {k:'fruit', t:'ถ้าขาดผลไม้ (หมู่ 4) เลือก 1 อย่างพอดี 🍎'},
+    {k:'fat', t:'ไขมัน (หมู่ 5) พอดีดี—มากไปลดคะแนน 🥑'},
+    {k:'carb', t:'คาร์บ (หมู่ 2) ให้พอดีตามงบ/เวลา 🍚'},
+  ];
+  function pickDet(arr){ return arr[(rng()*arr.length)|0]; }
+  function maybeTip(reason, payload){
+    if (!aiEnabled) return;
+    let tip=null;
+    try{ if (AI && AI.getTip) tip = AI.getTip(String(reason||'')); }catch(_){ tip=null; }
+    if (!tip || !tip.text){
+      const fb = pickDet(TIP_FALLBACK);
+      tip = { text: fb.t, mood:'neutral', key: fb.k, reason:String(reason||'') };
+    }
+    emitCoach(tip.text, tip.mood||'neutral', String(tip.key||''));
+    try{ if (AI && AI.onEvent) AI.onEvent('coach:tip', { reason:String(reason||''), ...(payload||{}) }); }catch(_){}
+  }
+
+  // ---------- groups mapping ----------
+  const GROUPS = [
+    { key:'g1', name:'หมู่ 1 โปรตีน' },
+    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต' },
+    { key:'g3', name:'หมู่ 3 ผัก' },
+    { key:'g4', name:'หมู่ 4 ผลไม้' },
+    { key:'g5', name:'หมู่ 5 ไขมัน' }
+  ];
+
+  // Pantry item schema: {id, g, em, name, cost, time, tags:[]}
+  const BASE_ITEMS = [
+    // g1 protein
+    {g:'g1', em:'🍗', name:'ไก่ย่าง', cost:22, time:15, tags:['meat']},
+    {g:'g1', em:'🥚', name:'ไข่ต้ม', cost:10, time:8,  tags:['egg']},
+    {g:'g1', em:'🐟', name:'ปลานึ่ง', cost:25, time:18, tags:['fish']},
+    {g:'g1', em:'🫘', name:'ถั่วต้ม', cost:12, time:12, tags:['nuts']},
+    {g:'g1', em:'🥛', name:'นม', cost:12, time:1,  tags:['dairy']},
+    // g2 carb
+    {g:'g2', em:'🍚', name:'ข้าว', cost:10, time:10, tags:['rice']},
+    {g:'g2', em:'🍞', name:'ขนมปัง', cost:10, time:2,  tags:['bread']},
+    {g:'g2', em:'🥔', name:'มัน/เผือก', cost:12, time:14, tags:['root']},
+    {g:'g2', em:'🍜', name:'เส้นก๋วยเตี๋ยว', cost:14, time:12, tags:['noodle']},
+    // g3 veg
+    {g:'g3', em:'🥦', name:'ผักลวก', cost:12, time:8,  tags:['veg']},
+    {g:'g3', em:'🥬', name:'ผักใบ', cost:10, time:6,  tags:['veg']},
+    {g:'g3', em:'🥕', name:'แครอท', cost:10, time:6,  tags:['veg']},
+    {g:'g3', em:'🍅', name:'มะเขือเทศ', cost:10, time:3, tags:['veg']},
+    // g4 fruit
+    {g:'g4', em:'🍎', name:'แอปเปิล', cost:15, time:1, tags:['fruit']},
+    {g:'g4', em:'🍌', name:'กล้วย', cost:10, time:1, tags:['fruit']},
+    {g:'g4', em:'🍉', name:'แตงโม', cost:14, time:2, tags:['fruit']},
+    {g:'g4', em:'🥭', name:'มะม่วง', cost:18, time:2, tags:['fruit']},
+    // g5 fat
+    {g:'g5', em:'🥑', name:'อะโวคาโด', cost:20, time:2, tags:['fat']},
+    {g:'g5', em:'🥜', name:'ถั่ว/เมล็ด', cost:16, time:1, tags:['nuts']},
+    {g:'g5', em:'🧈', name:'เนย', cost:18, time:1, tags:['dairy']},
+    {g:'g5', em:'🫒', name:'มะกอก/น้ำมันมะกอก', cost:18, time:1, tags:['fat']},
+  ];
+
+  function shuffleDet(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = (rng()*(i+1))|0;
+      const t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+
+  // ---------- deterministic constraints ----------
+  const budgetPool = (DIFF==='hard') ? [70,75,80] : (DIFF==='easy' ? [85,90,95] : [80,85,90]);
+  const timePool = (DIFF==='hard') ? [18,20] : (DIFF==='easy' ? [30,35] : [25,30]);
+
+  let BUDGET = budgetPool[(rng()*budgetPool.length)|0];
+  let TIME_LIMIT = timePool[(rng()*timePool.length)|0];
+
+  // allergy constraint (optional)
+  const allergyOpts = ['none','nuts','dairy','fish','egg'];
+  let ALLERGY = allergyOpts[(rng()*allergyOpts.length)|0];
+  if (RUN==='research') ALLERGY = 'none';
+
+  // ---------- build pantry deterministic subset (18 items) ----------
+  let pantry = shuffleDet(BASE_ITEMS).slice(0, 18).map((it, idx)=>({
+    id: 'it'+idx,
+    g: it.g, em: it.em, name: it.name,
+    cost: it.cost, time: it.time,
+    tags: it.tags || []
+  }));
+
+  // ensure at least 2 items per group
+  function ensureGroupCoverage(){
+    const need = {g1:2,g2:2,g3:2,g4:2,g5:2};
+    const have = {g1:0,g2:0,g3:0,g4:0,g5:0};
+    for(const it of pantry){ have[it.g] = (have[it.g]||0)+1; }
+    for(const gk of Object.keys(need)){
+      while((have[gk]||0) < need[gk]){
+        const src = BASE_ITEMS.filter(x=>x.g===gk);
+        const pick = src[(rng()*src.length)|0];
+        pantry.push({
+          id:'fix'+gk+'_'+have[gk],
+          g:gk, em:pick.em, name:pick.name,
+          cost:pick.cost, time:pick.time,
+          tags: pick.tags||[]
+        });
+        have[gk] = (have[gk]||0)+1;
+      }
+    }
+    pantry = pantry.slice(0, 22);
+  }
+  ensureGroupCoverage();
+
+  // ---------- selection state ----------
+  const chosen = new Map(); // id -> item
+  function counts(){
+    const c = {g1:0,g2:0,g3:0,g4:0,g5:0};
+    for(const it of chosen.values()) c[it.g] = (c[it.g]||0)+1;
+    return c;
+  }
+  function totalCost(){
+    let s=0; for(const it of chosen.values()) s += (it.cost|0);
+    return s;
+  }
+  function totalTime(){
+    let mx=0; for(const it of chosen.values()) mx = Math.max(mx, (it.time|0));
+    return mx;
+  }
+  function violatesAllergy(it){
+    if (ALLERGY==='none') return false;
+    return (it.tags||[]).includes(ALLERGY);
+  }
+
+  // ---------- UI refs ----------
+  const seedTag = document.getElementById('seedTag');
+  const budTag = document.getElementById('budTag');
+  const scoreTag = document.getElementById('scoreTag');
+  const budLeftEl = document.getElementById('budLeft');
+  const pickCnt = document.getElementById('pickCnt');
+  const pantryEl = document.getElementById('pantry');
+  const ruleTxt = document.getElementById('ruleTxt');
+  const needTxt = document.getElementById('needTxt');
+  const feedback = document.getElementById('feedback');
+  const runTag = document.getElementById('runTag');
+  const diffTag = document.getElementById('diffTag');
+
+  const c1 = document.getElementById('c1');
+  const c2 = document.getElementById('c2');
+  const c3 = document.getElementById('c3');
+  const c4 = document.getElementById('c4');
+  const c5 = document.getElementById('c5');
+
+  const btnSubmit = document.getElementById('btnSubmit');
+  const btnNew = document.getElementById('btnNew');
+  const btnClear = document.getElementById('btnClear');
+  const btnHub = document.getElementById('btnHub');
+  const btnEnd = document.getElementById('btnEnd');
+
+  const overlay = document.getElementById('overlay');
+  const closeModal = document.getElementById('closeModal');
+  const sumTxt = document.getElementById('sumTxt');
+  const sumJson = document.getElementById('sumJson');
+  const btnBackHub2 = document.getElementById('btnBackHub2');
+  const btnPlayAgain = document.getElementById('btnPlayAgain');
+
+  // ---------- scoring ----------
+  let score = 0;
+
+  function renderNeed(){
+    const c = counts();
+    c1.textContent = String(c.g1|0);
+    c2.textContent = String(c.g2|0);
+    c3.textContent = String(c.g3|0);
+    c4.textContent = String(c.g4|0);
+    c5.textContent = String(c.g5|0);
+
+    const cost = totalCost();
+    const left = Math.max(0, (BUDGET|0) - cost);
+    budLeftEl.textContent = String(left);
+
+    pickCnt.textContent = String(chosen.size);
+
+    const miss = [];
+    if ((c.g1|0) <= 0) miss.push('หมู่ 1 โปรตีน');
+    if ((c.g2|0) <= 0) miss.push('หมู่ 2 คาร์บ');
+    if ((c.g3|0) <= 0) miss.push('หมู่ 3 ผัก');
+    if ((c.g4|0) <= 0) miss.push('หมู่ 4 ผลไม้');
+    if ((c.g5|0) <= 0) miss.push('หมู่ 5 ไขมัน');
+
+    const t = totalTime();
+    const badTime = (t > TIME_LIMIT);
+
+    needTxt.textContent =
+`เงื่อนไขตรวจสอบ:
+- ต้องมีอย่างน้อย 1 รายการ/หมู่ (1–5)
+- งบรวม ≤ ${BUDGET}
+- เวลาโดยประมาณ ≤ ${TIME_LIMIT} นาที (คำนวณจากเวลานานสุดของรายการที่เลือก)
+${ALLERGY!=='none' ? ('- ห้ามมี: ' + ALLERGY.toUpperCase()) : '- ไม่มีข้อห้ามแพ้อาหาร'}`;
+
+    if (cost > BUDGET){
+      feedback.textContent = '❌ งบเกิน! ตัดบางอย่างออกก่อน';
+      maybeTip('budget:over', { cost, budget:BUDGET });
+    } else if (badTime){
+      feedback.textContent = '⚠️ เวลาน่าจะเกิน! ลองเลือกเมนูที่ทำไวขึ้น';
+      maybeTip('time:over', { time:t, limit:TIME_LIMIT });
+    } else if (miss.length){
+      feedback.textContent = 'ยังขาด: ' + miss.join(', ');
+    } else {
+      feedback.textContent = 'พร้อมส่งเมนูแล้ว ✅';
+    }
+  }
+
+  function renderPantry(){
+    pantryEl.innerHTML = '';
+    for(const it of pantry){
+      const g = GROUPS.find(x=>x.key===it.g);
+      const picked = chosen.has(it.id);
+      const dis = violatesAllergy(it);
+
+      const div = document.createElement('div');
+      div.className = 'cardIt';
+      div.innerHTML = `
+        <div class="em">${it.em}</div>
+        <div class="info">
+          <b>${it.name}</b>
+          <span>${g?g.name:''}</span>
+          <div class="meta">
+            <span class="chip">฿${it.cost}</span>
+            <span class="chip">${it.time}min</span>
+            ${dis ? `<span class="chip" style="border-color:rgba(239,68,68,.35);color:var(--bad)">แพ้: ${ALLERGY}</span>` : ''}
+            ${picked ? `<span class="chip" style="border-color:rgba(34,197,94,.35);color:var(--good)">เลือกแล้ว</span>` : ''}
+          </div>
+          <div class="pickRow" style="margin-top:8px">
+            <button class="${picked?'ghost':'primary'}" data-act="toggle" data-id="${it.id}" ${dis?'disabled':''}>
+              ${picked ? 'เอาออก' : 'เลือก'}
+            </button>
+          </div>
+        </div>
+      `;
+      pantryEl.appendChild(div);
+    }
+  }
+
+  function togglePick(id){
+    const it = pantry.find(x=>x.id===id);
+    if (!it) return;
+    if (violatesAllergy(it)){
+      emitCoach('รายการนี้ติดเงื่อนไขแพ้อาหารนะ ❌', 'neutral', 'allergy');
+      return;
+    }
+    if (chosen.has(id)) chosen.delete(id);
+    else chosen.set(id, it);
+
+    renderPantry();
+    renderNeed();
+
+    const c = counts();
+    if (chosen.size===1) maybeTip('pick:first', {});
+    if ((c.g3|0)===0) maybeTip('need:veg', {});
+  }
+
+  function evaluateMeal(){
+    const c = counts();
+    const cost = totalCost();
+    const t = totalTime();
+
+    const cover = ['g1','g2','g3','g4','g5'].filter(k => (c[k]|0)>0).length;
+
+    let sc = 0;
+    sc += cover * 18; // 0..90
+    sc += Math.min(10, (c.g3|0) * 3);
+    sc += Math.min(8,  (c.g4|0) * 2);
+
+    sc -= Math.max(0, (c.g2|0) - 2) * 6;
+    sc -= Math.max(0, (c.g5|0) - 1) * 7;
+
+    if (cost > BUDGET) sc -= 30 + (cost - BUDGET);
+    if (t > TIME_LIMIT) sc -= 18;
+
+    sc = Math.max(0, Math.min(100, Math.round(sc)));
+
+    const notes = [];
+    notes.push(`ครบหมู่: ${cover}/5`);
+    notes.push(`งบ: ฿${cost}/${BUDGET}`);
+    notes.push(`เวลา: ${t}/${TIME_LIMIT} นาที`);
+    if ((c.g3|0)+(c.g4|0) >= 2) notes.push('ผัก/ผลไม้โอเค ✅');
+    if ((c.g2|0) >= 3) notes.push('คาร์บค่อนข้างเยอะ ⚠️');
+    if ((c.g5|0) >= 2) notes.push('ไขมันค่อนข้างเยอะ ⚠️');
+    if (cost > BUDGET) notes.push('งบเกิน ❌');
+    if (t > TIME_LIMIT) notes.push('เวลาเกิน ⚠️');
+
+    const pass = (cover===5 && cost<=BUDGET && t<=TIME_LIMIT);
+    return { sc, pass, notes, cover, cost, time:t, cnt:c };
+  }
+
+  function saveLastSummary(summary){
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
+  }
+
+  function endGame(reason){
+    const r = evaluateMeal();
+    const grade =
+      (r.sc>=92) ? 'S' :
+      (r.sc>=86) ? 'A' :
+      (r.sc>=76) ? 'B' :
+      (r.sc>=62) ? 'C' : 'D';
+
+    const summary = {
+      game: 'food-build',
+      mode: 'create',
+      reason: String(reason||'end'),
+      seed: SEED,
+      run: RUN,
+      diff: DIFF,
+      view: VIEW,
+      scoreFinal: score|0,
+      mealScore: r.sc|0,
+      pass: !!r.pass,
+      budget: BUDGET|0,
+      timeLimit: TIME_LIMIT|0,
+      allergy: ALLERGY,
+      cost: r.cost|0,
+      time: r.time|0,
+      coverage: r.cover|0,
+      cnt: r.cnt,
+      picked: Array.from(chosen.values()).map(x=>({g:x.g, name:x.name, em:x.em, cost:x.cost, time:x.time})),
+      grade,
+      aiEnabled: !!aiEnabled
+    };
+
+    saveLastSummary(summary);
+    try{ window.dispatchEvent(new CustomEvent('hha:end', { detail: summary })); }catch(_){}
+
+    sumTxt.textContent =
+`สรุปผล:
+- Meal Score: ${summary.mealScore} (Grade ${summary.grade})
+- ผ่านเงื่อนไข: ${summary.pass ? '✅ ผ่าน' : '❌ ยังไม่ผ่าน'}
+- งบ: ฿${summary.cost}/${summary.budget}
+- เวลา: ${summary.time}/${summary.timeLimit} นาที
+- ครบหมู่: ${summary.coverage}/5
+- Allergy: ${summary.allergy.toUpperCase()}
+- Seed: ${summary.seed}`;
+
+    sumJson.textContent = JSON.stringify(summary, null, 2);
+    overlay.style.display = 'flex';
+  }
+
+  function goHub(){
+    try{ location.href = HUB; }
+    catch(_){ location.href = '/herohealth/hub.html'; }
+  }
+
+  function resetScenario(){
+    // deterministic reset: reload same URL to reconstruct rng exactly
+    try{ location.href = location.pathname + location.search; }
+    catch(_){ location.reload(); }
+  }
+
+  // ---------- init UI ----------
+  seedTag.textContent = SEED.slice(0, 22) + (SEED.length>22?'…':'');
+  budTag.textContent = '฿' + String(BUDGET) + ' / ' + String(TIME_LIMIT) + 'min' + (ALLERGY!=='none' ? (' / no '+ALLERGY) : '');
+  runTag.textContent = RUN;
+  diffTag.textContent = DIFF;
+
+  ruleTxt.textContent =
+`โจทย์ (deterministic):
+- งบ: ฿${BUDGET}
+- เวลา: ≤ ${TIME_LIMIT} นาที
+- แพ้อาหาร: ${ALLERGY==='none' ? 'ไม่มี' : ALLERGY.toUpperCase()}
+วิธีเล่น:
+1) เลือกของจาก Pantry
+2) ให้ครบหมู่ 1–5 ภายในงบ + เวลา
+3) กด “ส่งเมนู” เพื่อประเมิน`;
+
+  renderPantry();
+  renderNeed();
+  emitCoach('เริ่มจาก “ครบหมู่” ก่อน แล้วค่อยปรับให้ไม่ล้นคาร์บ/ไขมัน ✅', 'neutral', 'start');
+  maybeTip('start', {});
+
+  pantryEl.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-act="toggle"]');
+    if (!btn) return;
+    const id = String(btn.getAttribute('data-id')||'');
+    if (!id) return;
+    togglePick(id);
+  });
+
+  btnClear.addEventListener('click', ()=>{
+    chosen.clear();
+    renderPantry();
+    renderNeed();
+    emitCoach('ล้างที่เลือกแล้ว ลองจัดใหม่ให้ครบหมู่ ✅', 'neutral', 'clear');
+  });
+
+  btnNew.addEventListener('click', resetScenario);
+
+  btnSubmit.addEventListener('click', ()=>{
+    const r = evaluateMeal();
+    score = r.sc|0;
+    scoreTag.textContent = String(score);
+
+    if (r.pass){
+      feedback.textContent = '✅ ผ่าน! เมนูสมดุลภายใต้เงื่อนไข';
+      emitCoach('สุดยอด! ครบหมู่และคุมเงื่อนไขได้ ✅', 'happy', 'pass');
+      maybeTip('submit:pass', { score:r.sc });
+    } else {
+      feedback.textContent = '❌ ยังไม่ผ่าน: ' + r.notes.join(' • ');
+      emitCoach('ลองแก้ทีละข้อ: ครบหมู่ → คุมงบ → คุมเวลา ✅', 'neutral', 'fail');
+      maybeTip('submit:fail', { score:r.sc });
+    }
+
+    try{ if (AI && AI.onEvent) AI.onEvent('submit', { pass:r.pass, score:r.sc, cost:r.cost, time:r.time, cover:r.cover }); }catch(_){}
+  });
+
+  btnHub.addEventListener('click', goHub);
+  btnEnd.addEventListener('click', ()=>endGame('manual'));
+
+  closeModal.addEventListener('click', ()=>overlay.style.display='none');
+  btnBackHub2.addEventListener('click', goHub);
+  btnPlayAgain.addEventListener('click', ()=>{
+    overlay.style.display='none';
+    chosen.clear();
+    score = 0;
+    scoreTag.textContent = '0';
+    renderPantry();
+    renderNeed();
+    emitCoach('เล่นใหม่แล้ว! เริ่มจากครบหมู่ ✅', 'neutral', 'again');
+  });
+
+})();
+</script>
+</body>
+</html>
