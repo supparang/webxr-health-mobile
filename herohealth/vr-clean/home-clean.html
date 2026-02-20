@@ -4,6 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Clean Objects (Home)</title>
+
+  <!--
+    Clean Objects — Home (Grid Map) — PRODUCTION v2026-02-20a
+    ✅ A: Evaluate via Value + Risk Meter + Trade-off Event (deterministic by seed)
+    ✅ A: Wipe mini-action coverage grid 4x4 (spend scales with effective cost)
+    ✅ B: Create Plan Builder (checklist/routine/route) + Run Plan navigation highlight
+    ✅ End Summary modal + Save Last Summary (HHA_LAST_SUMMARY) + Back HUB
+    ✅ AI Coach micro-tips (explainable + rate-limit) + summary coach
+    ✅ Flush-hardened (visibility/pagehide/beforeunload/backbutton)
+    ✅ Passthrough full (studyId/phase/conditionGroup/log/view/ai/debug/api/hub...)
+    ✅ Local CSV logs (sessions/events/profile) with export buttons
+    ✅ emit hha:summary + hha:event
+    ✅ Card-friendly fields in last summary (primary/secondary/detail/icon)
+    ✅ Cardboard/cVR: auto-switch to B skeleton when ?view=cvr
+  -->
+
   <style>
     :root{
       --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455;
@@ -11,12 +27,15 @@
       --safeB: env(safe-area-inset-bottom, 0px);
       --ok:#1f8b4c; --warn:#c7a100; --bad:#c54848;
     }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #app{ position:fixed; inset:0; padding-top:var(--safeT); padding-bottom:var(--safeB); overflow:hidden; }
 
     /* shared HUD */
-    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT)); display:flex; gap:10px; z-index:30; flex-wrap:wrap; }
-    .hud .box{ flex:1; min-width:140px; background:rgba(18,27,47,.86); border:1px solid var(--bd); border-radius:14px; padding:10px 12px; }
+    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT));
+      display:flex; gap:10px; z-index:30; flex-wrap:wrap; }
+    .hud .box{ flex:1; min-width:140px; background:rgba(18,27,47,.86);
+      border:1px solid var(--bd); border-radius:14px; padding:10px 12px; }
     .hud .t{ font-size:12px; color:var(--mut); }
     .hud .v{ font-size:16px; font-weight:900; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
@@ -122,7 +141,7 @@
     }
     .modalMask.on{ display:flex; }
     .modal{
-      width:min(780px, 100%);
+      width:min(820px, 100%);
       max-height:calc(100vh - 24px);
       overflow:auto;
       background:rgba(18,27,47,.96);
@@ -221,8 +240,10 @@
       font-size:12px;
       line-height:1.35;
     }
+    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
   </style>
 </head>
+
 <body>
 <div id="app">
   <!-- Shared HUD -->
@@ -231,14 +252,19 @@
     <div class="box"><div class="t">SPRAY</div><div class="v" id="hudSpray">--</div></div>
     <div class="box"><div class="t">CLOTH</div><div class="v" id="hudCloth">--</div></div>
     <div class="box"><div class="t">PLAN</div><div class="v" id="hudPlan">OFF</div></div>
+    <div class="box"><div class="t">RISK</div><div class="v" id="hudRisk">--</div></div>
+    <div class="box"><div class="t">EVENT</div><div class="v" id="hudEvent">None</div></div>
+    <div class="box"><div class="t">AI COACH</div><div class="v" id="hudCoach">—</div></div>
   </div>
 
   <!-- A) Map renderer -->
   <div id="mapRoot">
     <div class="toolbar">
       <button class="btn" id="btnSort">Sort by Value</button>
+      <button class="btn" id="btnEvent" title="สุ่มเหตุการณ์บ้าน (deterministic by seed)">New Event</button>
       <button class="btn" id="btnPlan">Plan Builder</button>
       <button class="btn good" id="btnRunPlan" title="นำทางตามแผนที่บันทึกไว้">Run Plan</button>
+      <button class="btn good" id="btnFinish" title="จบรอบและดูสรุป">Finish</button>
       <button class="btn ghost" id="btnBack">Back HUB</button>
       <button class="btn ghost" id="btnResetPlan" title="ล้างแผนที่บันทึกไว้">Reset Plan</button>
     </div>
@@ -246,7 +272,7 @@
     <div class="mapStage" id="mapStage">
       <section class="zone" id="zoneEntry">
         <div>
-          <h3><span id="zMark_entry">Entry</span></h3>
+          <h3>Entry</h3>
           <p class="sub">จุดคอขวดก่อนเข้าบ้าน</p>
           <div class="chips"><span class="chip">Bottleneck</span><span class="chip">Touch สูง</span></div>
         </div>
@@ -255,7 +281,7 @@
 
       <section class="zone" id="zoneLiving">
         <div>
-          <h3><span id="zMark_living">Living Room</span></h3>
+          <h3>Living Room</h3>
           <p class="sub">รีโมท/มือถือ/โต๊ะกลาง</p>
           <div class="chips"><span class="chip">Shared</span><span class="chip">เร็ว</span></div>
         </div>
@@ -264,7 +290,7 @@
 
       <section class="zone" id="zoneKitchen">
         <div>
-          <h3><span id="zMark_kitchen">Kitchen</span></h3>
+          <h3>Kitchen</h3>
           <p class="sub">ทำกับข้าว = เสี่ยงปนเปื้อน</p>
           <div class="chips"><span class="chip">Food</span><span class="chip">Cost สูงขึ้น</span></div>
         </div>
@@ -273,7 +299,7 @@
 
       <section class="zone" id="zoneBath">
         <div>
-          <h3><span id="zMark_bath">Bathroom</span></h3>
+          <h3>Bathroom</h3>
           <p class="sub">Spread สูง (คันชัก/ก๊อก/ที่กด)</p>
           <div class="chips"><span class="chip">Spread สูง</span><span class="chip">Priority</span></div>
         </div>
@@ -282,7 +308,7 @@
 
       <section class="zone" id="zoneBed">
         <div>
-          <h3><span id="zMark_bed">Bedroom</span></h3>
+          <h3>Bedroom</h3>
           <p class="sub">ก่อนนอน/หลังป่วย</p>
           <div class="chips"><span class="chip">Routine</span><span class="chip">Light</span></div>
         </div>
@@ -308,14 +334,16 @@
       <div class="mini">
         Mini-action: ลากถูในกริด 4×4 ให้เต็ม → ได้ coverage% → ตัดสินใจคุ้ม (Evaluate)
       </div>
+      <div class="mini" id="evalExplain">เหตุผล: -</div>
     </div>
   </div>
 
   <!-- B) WebXR renderer -->
   <div id="vrRoot">
     <div class="overlayNote">
-      B Mode (Cardboard): ใช้ crosshair + tap-to-shoot ผ่าน <b>/herohealth/vr/vr-ui.js</b> (event: <code>hha:shoot</code>)<br/>
-      ตอนนี้เป็น skeleton — ต่อไปเราจะใส่ hotspot glow + clean progress ใน 3D
+      B Mode (Cardboard/cVR): ใช้ crosshair + tap-to-shoot ผ่าน <b>/herohealth/vr/vr-ui.js</b>
+      (event: <code>hha:shoot</code>)<br/>
+      ตอนนี้เป็น skeleton — รอบถัดไปค่อยใส่ raycast hotspot + clean progress ใน 3D
     </div>
     <div id="vrStage" style="position:absolute; inset:0;"></div>
   </div>
@@ -337,15 +365,13 @@
       <div class="progressLine"><div class="progressFill" id="wipeFill"></div></div>
       <div class="row" style="margin-top:10px;">
         <span class="badge" id="wipeCov">Coverage: 0%</span>
-        <span class="badge" id="wipeSpend">Cost: -</span>
+        <span class="badge" id="wipeSpend">Spend: -</span>
       </div>
       <div class="row" style="margin-top:10px;">
         <button class="btn btnWide good" id="wipeDone">DONE</button>
         <button class="btn btnWide danger" id="wipeReset">RESET</button>
       </div>
-      <div class="mini">
-        Tip: ยิ่ง coverage สูง → ยิ่งลด risk ได้มาก แต่ก็ยังใช้ทรัพยากรตาม Cost
-      </div>
+      <div class="mini">Tip: ให้ถึง ≥70% จะถือว่า “Cleaned ✅” และลด risk ได้ชัดเจน</div>
     </div>
   </div>
 </div>
@@ -417,25 +443,182 @@
   </div>
 </div>
 
+<!-- SUMMARY MODAL -->
+<div class="modalMask" id="sumMask" aria-hidden="true">
+  <div class="modal">
+    <div class="mHead">
+      <div>
+        <h3 class="mTitle">End Summary</h3>
+        <p class="mSub">สรุปผลการตัดสินใจ (Evaluate) + แผนที่สร้าง (Create)</p>
+      </div>
+      <button class="btn ghost" id="sumClose">Close</button>
+    </div>
+
+    <div class="twoCol">
+      <div class="list">
+        <h4>ผลรวม</h4>
+        <div id="sumOverall" class="mini"></div>
+      </div>
+      <div class="list">
+        <h4>AI Coach (Explainable)</h4>
+        <div id="sumCoach" class="mini"></div>
+      </div>
+    </div>
+
+    <div class="list" style="margin-top:12px;">
+      <h4>Top Decisions</h4>
+      <div id="sumTop"></div>
+    </div>
+
+    <div class="list" style="margin-top:12px;">
+      <h4>Missed / Remaining Risk</h4>
+      <div id="sumMissed"></div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <button class="btn btnWide" id="sumReplay">Replay (keep event)</button>
+      <button class="btn btnWide good" id="sumNewEvent">Replay + New Event</button>
+      <button class="btn btnWide" id="sumSave">Save Summary</button>
+      <button class="btn btnWide" id="sumCopyHub">Copy Hub Link</button>
+      <button class="btn btnWide" id="sumExportSessions">Export Sessions CSV</button>
+      <button class="btn btnWide" id="sumExportEvents">Export Events CSV</button>
+      <button class="btn btnWide" id="sumExportProfile">Export Profile CSV</button>
+      <button class="btn btnWide ghost" id="sumBackHub">Back HUB</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 'use strict';
 
 const qs = (k, d='') => { try{ const u=new URL(location.href); return u.searchParams.get(k) ?? d; }catch(e){ return d; } };
 const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-const isCVR = String(qs('view','')).toLowerCase() === 'cvr';
+const $ = (id)=>document.getElementById(id);
 
+// ---------------------- PARAMS (Passthrough full) ----------------------
 const P = {
-  view: String(qs('view','')).toLowerCase(),
-  run:  String(qs('run','play')).toLowerCase(),
-  diff: String(qs('diff','normal')).toLowerCase(),
+  run:  String(qs('run','play')).toLowerCase() || 'play',
+  diff: String(qs('diff','normal')).toLowerCase() || 'normal',
   time: clamp(Number(qs('time','90')), 20, 300),
   seed: String(qs('seed', String(Date.now()))),
   pid:  String(qs('pid','anon')),
-  hub:  String(qs('hub','/herohealth/hub.html')),
+  hub:  String(qs('hub','/herohealth/hub.html')) || '/herohealth/hub.html',
   ai:   Number(qs('ai','0'))||0,
   debug:Number(qs('debug','0'))||0,
-  api:  String(qs('api',''))
+  api:  String(qs('api','')),
+
+  // research infra passthrough
+  studyId: String(qs('studyId','')),
+  phase: String(qs('phase','')),
+  conditionGroup: String(qs('conditionGroup','')),
+  log: String(qs('log','1')),
+  view: String(qs('view','')),
 };
+
+// ---------------------- HHA Standard keys ----------------------
+const KEY_LAST_SUMMARY = 'HHA_LAST_SUMMARY';
+const KEY_SESSIONS_CSV = 'HHA_SESSIONS_CSV::CLEAN_HOME';
+const KEY_EVENTS_CSV   = 'HHA_EVENTS_CSV::CLEAN_HOME';
+const KEY_PROFILE_CSV  = 'HHA_PROFILE_CSV::CLEAN_HOME';
+const PLAN_KEY = `HHA_CLEAN_PLAN_HOME::${P.pid}`;
+
+// ---------------------- Deterministic RNG ----------------------
+function xmur3(str){
+  let h = 1779033703 ^ str.length;
+  for (let i=0; i<str.length; i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+function makeRng(seedStr){
+  const seed = xmur3(String(seedStr))();
+  const a = seed;
+  const b = xmur3(seedStr + '|b')();
+  const c = xmur3(seedStr + '|c')();
+  const d = xmur3(seedStr + '|d')();
+  return sfc32(a,b,c,d);
+}
+const RNG = makeRng(`${P.seed}|${P.pid}|clean-home`);
+const SESSION_ID = `${P.pid}-${P.seed}-${Math.floor(Date.now()/1000)}`;
+
+// ---------------------- View detect ----------------------
+function detectView(){
+  const v = (P.view || '').toLowerCase();
+  if(v) return v;
+  const w = Math.min(window.innerWidth, window.innerHeight);
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || w <= 520;
+  return isMobile ? 'mobile' : 'pc';
+}
+const VIEW = detectView();
+const IS_CVR = (VIEW === 'cvr');
+
+// ---------------------- Passthrough helpers ----------------------
+const PASS_KEYS = [
+  'hub','pid','seed','run','diff','time','api','ai','debug','view',
+  'studyId','phase','conditionGroup','log'
+];
+function applyPassthrough(fromUrl, toUrl){
+  for(const k of PASS_KEYS){
+    const v = fromUrl.searchParams.get(k);
+    if(v !== null && v !== undefined && v !== '') toUrl.searchParams.set(k, v);
+  }
+}
+function hubUrl(){
+  const base = new URL(P.hub, location.href);
+  const cur  = new URL(location.href);
+  applyPassthrough(cur, base);
+  base.searchParams.set('from', 'clean-home');
+  if(!base.searchParams.get('pid')) base.searchParams.set('pid', P.pid);
+  if(!base.searchParams.get('seed')) base.searchParams.set('seed', P.seed);
+  if(!base.searchParams.get('run')) base.searchParams.set('run', P.run);
+  if(!base.searchParams.get('diff')) base.searchParams.set('diff', P.diff);
+  if(!base.searchParams.get('time')) base.searchParams.set('time', String(P.time));
+  if(P.api && !base.searchParams.get('api')) base.searchParams.set('api', P.api);
+  return base.toString();
+}
+function goHub(){ location.href = hubUrl(); }
+
+// ---------------------- UI toast ----------------------
+function toast(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.position='fixed';
+  d.style.left='12px'; d.style.right='12px';
+  d.style.bottom='12px';
+  d.style.zIndex='9999';
+  d.style.padding='10px 12px';
+  d.style.border='1px solid var(--bd)';
+  d.style.borderRadius='14px';
+  d.style.background='rgba(18,27,47,.92)';
+  d.style.color='var(--fg)';
+  document.body.appendChild(d);
+  setTimeout(()=>{ d.remove(); }, 1500);
+}
+const fmt = (n)=> (Math.round(n*10)/10).toFixed(1);
+const pct = (x)=> Math.round(clamp(x,0,1)*100);
+
+// ---------------------- Emit events ----------------------
+function emit(name, detail){
+  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
+}
 
 // ---------------------- DATA ----------------------
 const HOT = [
@@ -458,11 +641,58 @@ const HOT = [
 ];
 
 const ZONES = [
-  { id:'entry',  label:'Entry', el:'zoneEntry' },
-  { id:'living', label:'Living', el:'zoneLiving' },
-  { id:'kitchen',label:'Kitchen',el:'zoneKitchen' },
-  { id:'bath',   label:'Bath', el:'zoneBath' },
-  { id:'bed',    label:'Bed', el:'zoneBed' },
+  { id:'entry',  el:'zoneEntry' },
+  { id:'living', el:'zoneLiving' },
+  { id:'kitchen',el:'zoneKitchen' },
+  { id:'bath',   el:'zoneBath' },
+  { id:'bed',    el:'zoneBed' },
+];
+
+const EVENTS = [
+  {
+    id:'cough_home',
+    name:'คนในบ้านไอ 😷',
+    desc:'มือถือ/รีโมท/ลูกบิด/ห้องน้ำ เสี่ยงแพร่เพิ่ม',
+    mod: {
+      touch: { phone:1.2, tv_remote:1.15, door_knob:1.15 },
+      spread:{ phone:1.25, tv_remote:1.15, flush:1.2, bath_door:1.1, soap_pump:1.1 },
+      cost: {}
+    }
+  },
+  {
+    id:'cooking_time',
+    name:'กำลังทำอาหาร 🍳',
+    desc:'ครัวสำคัญขึ้น โดยเฉพาะเขียง/ก๊อก/ตู้เย็น',
+    mod: {
+      touch: { fridge_handle:1.2, kitchen_faucet:1.2, counter_board:1.15 },
+      spread:{ counter_board:1.25, kitchen_faucet:1.1, fridge_handle:1.1 },
+      cost: { counter_board:1.15 }
+    }
+  },
+  {
+    id:'spray_low',
+    name:'น้ำยาเหลือน้อย 🧴',
+    desc:'Cost ทุกจุดสูงขึ้นเล็กน้อย ต้องเลือกให้คุ้มกว่าเดิม',
+    mod: {
+      touch: {},
+      spread:{},
+      cost: {
+        door_knob:1.15, light_switch:1.15, tv_remote:1.15, phone:1.15, drawer_handle:1.15,
+        fridge_handle:1.15, kitchen_faucet:1.15, counter_board:1.15,
+        bath_door:1.15, soap_pump:1.15, flush:1.15, bed_door:1.15
+      }
+    }
+  },
+  {
+    id:'guests_visit',
+    name:'มีแขกมาเยี่ยม 🚪',
+    desc:'Entry/Living เป็นคอขวด Touch สูงขึ้น',
+    mod: {
+      touch: { door_knob:1.25, light_switch:1.2, tv_remote:1.15, drawer_handle:1.1 },
+      spread:{ door_knob:1.1, light_switch:1.05 },
+      cost: {}
+    }
+  }
 ];
 
 // ---------------------- STATE ----------------------
@@ -477,46 +707,70 @@ const S = {
   // plan
   planEnabled: false,
   plan: {
-    checklist: [],            // hotspot ids
-    routine: { morning:[], afterhome:[], bed:[] }, // hotspot ids
+    checklist: [],
+    routine: { morning:[], afterhome:[], bed:[] },
     route: ['entry','living','kitchen','bath','bed'],
   },
-  planRun: {
-    active: false,
-    routeIndex: 0,
+  planRun: { active:false, routeIndex:0 },
+
+  // wipe
+  wipe: { id:null, cellsOn:new Set(), dragging:false },
+
+  // risk + event
+  currentEvent: null,
+  riskBase: 0,
+  riskNow: 0,
+
+  // analytics
+  stats: {
+    totalRiskReduced: 0,
+    cleanActions: 0,
+    partialActions: 0,
+    wipes: [] // {id,name,covBefore,covAfter,riskReduced,time,spray,cloth,ts}
   },
 
-  // wipe session
-  wipe: {
-    id: null,
-    cellsOn: new Set(),
-    dragging: false,
-  }
+  // ai coach
+  coach: {
+    lastTip: '',
+    lastTipTs: 0,
+    minGapMs: 8000,
+    tips: []
+  },
+
+  // flush hardening
+  flush: { didStart:false, didFinish:false, lastCommitTs:0 }
 };
 
-const PLAN_KEY = `HHA_CLEAN_PLAN_HOME::${P.pid}`;
-
-// ---------------------- UTILS ----------------------
-const $ = (id)=>document.getElementById(id);
 const byId = (id)=> HOT.find(x=>x.id===id);
-const valueOf = (h)=> (h.touch * h.spread) / Math.max(1, h.cost);
-const fmt = (n)=> (Math.round(n*10)/10).toFixed(1);
-const pct = (x)=> Math.round(clamp(x,0,1)*100);
 
-function toast(msg){
-  const d = document.createElement('div');
-  d.textContent = msg;
-  d.style.position='fixed';
-  d.style.left='12px'; d.style.right='12px';
-  d.style.bottom='12px';
-  d.style.zIndex='9999';
-  d.style.padding='10px 12px';
-  d.style.border='1px solid var(--bd)';
-  d.style.borderRadius='14px';
-  d.style.background='rgba(18,27,47,.92)';
-  d.style.color='var(--fg)';
-  document.body.appendChild(d);
-  setTimeout(()=>{ d.remove(); }, 1500);
+// ---------------------- EFFECTIVE METRICS (Event-modified) ----------------------
+function eventMul(kind, id){
+  const ev = S.currentEvent;
+  if(!ev || !ev.mod || !ev.mod[kind]) return 1;
+  return Number(ev.mod[kind][id]) || 1;
+}
+function effTouch(h){ return Math.max(1, Math.round(h.touch * eventMul('touch', h.id))); }
+function effSpread(h){ return Math.max(1, Math.round(h.spread * eventMul('spread', h.id))); }
+function effCost(h){
+  const c = h.cost * eventMul('cost', h.id);
+  return Math.max(1, Math.round(c * 10) / 10);
+}
+function valueEff(h){ return (effTouch(h) * effSpread(h)) / Math.max(1, effCost(h)); }
+
+// risk unit ignores cost (risk is danger, not effort)
+function riskUnit(h){ return effTouch(h) * effSpread(h); }
+function riskRemainingOf(h){
+  const cov = clamp(S.cleaned.get(h.id) || 0, 0, 1);
+  return riskUnit(h) * (1 - cov);
+}
+function recalcRisk(){
+  let base = 0, now = 0;
+  for(const h of HOT){
+    base += riskUnit(h);
+    now  += riskRemainingOf(h);
+  }
+  S.riskBase = Math.round(base * 10) / 10;
+  S.riskNow  = Math.round(now * 10) / 10;
 }
 
 // ---------------------- HUD ----------------------
@@ -525,58 +779,408 @@ function renderHUD(){
   $('hudSpray').textContent = String(S.spray);
   $('hudCloth').textContent = String(S.cloth);
   $('hudPlan').textContent  = S.planEnabled ? (S.planRun.active ? 'RUN' : 'ON') : 'OFF';
-}
-renderHUD();
 
-// ---------------------- MODE MOUNT ----------------------
-const mapRoot = $('mapRoot');
-const vrRoot  = $('vrRoot');
-
-if (isCVR){
-  vrRoot.style.display = 'block';
-  mapRoot.style.display = 'none';
-  await bootVR();
-} else {
-  mapRoot.style.display = 'block';
-  vrRoot.style.display = 'none';
-  bootMap();
+  const riskText = S.riskBase > 0 ? `${Math.round(S.riskNow)} / ${Math.round(S.riskBase)}` : '--';
+  $('hudRisk').textContent = riskText;
+  $('hudEvent').textContent = S.currentEvent ? S.currentEvent.name : 'None';
+  $('hudCoach').textContent = S.coach.lastTip || '—';
 }
 
-// ---------------------- MAP MODE ----------------------
-function bootMap(){
-  // load saved plan if exists
-  loadPlanIfAny();
+// ---------------------- AI Coach ----------------------
+function setCoachTip(text, force=false){
+  const now = Date.now();
+  if(!force && (now - S.coach.lastTipTs < S.coach.minGapMs)) return;
+  S.coach.lastTip = text;
+  S.coach.lastTipTs = now;
+  S.coach.tips.push(text);
+  if(S.coach.tips.length > 8) S.coach.tips.shift();
+  renderHUD();
+}
+function explainDecision(h){
+  const reasons = [];
+  if(effTouch(h) >= 8) reasons.push('Touch สูง');
+  if(effSpread(h) >= 8) reasons.push('Spread สูง');
+  if(effCost(h) <= 2) reasons.push('Cost ต่ำ');
+  if(S.currentEvent) reasons.push('โดนผลเหตุการณ์');
+  return reasons.length ? reasons.join(' • ') : 'ค่ากลาง';
+}
+function maybeCoachTip(context=''){
+  const remaining = HOT
+    .map(h => ({ h, rem: riskRemainingOf(h), cov:(S.cleaned.get(h.id)||0), val:valueEff(h) }))
+    .sort((a,b)=> b.rem - a.rem);
+  const top = remaining[0];
+  if(!top) return;
+  const h = top.h;
+  const reasons = [];
+  if(effTouch(h) >= 8) reasons.push('Touch สูง');
+  if(effSpread(h) >= 8) reasons.push('Spread สูง');
+  if(effCost(h) <= 2) reasons.push('Cost ต่ำ');
+  const inPlan = S.plan.checklist.includes(h.id);
+  let tip = `ลองทำ "${h.name}" ก่อน`;
+  if(reasons.length) tip += ` (${reasons.join(', ')})`;
+  if(inPlan && S.planRun.active) tip += ' • อยู่ในแผน';
+  if(S.currentEvent) tip += ` • ${S.currentEvent.name}`;
+  setCoachTip(tip);
+}
 
-  $('btnSort').onclick = ()=> {
-    HOT.sort((a,b)=> valueOf(b)-valueOf(a));
-    renderZones();
-    toast('Sorted by Value ✅');
+// ---------------------- CSV helpers ----------------------
+function csvEscape(v){
+  const s = String(v ?? '');
+  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function appendCsvRow(key, headers, rowObj){
+  try{
+    let csv = localStorage.getItem(key) || '';
+    if(!csv) csv = headers.join(',') + '\n';
+    const line = headers.map(h=> csvEscape(rowObj[h])).join(',') + '\n';
+    csv += line;
+    if(csv.length > 350000) csv = csv.slice(csv.length - 300000);
+    localStorage.setItem(key, csv);
+  }catch(e){}
+}
+function exportCsv(key, filename){
+  try{
+    const csv = localStorage.getItem(key) || '';
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }catch(e){
+    toast('Export failed');
+  }
+}
+
+// ---------------------- Last summary payload ----------------------
+function buildLastSummaryPayload(){
+  recalcRisk();
+  const riskReduced = Math.max(0, S.riskBase - S.riskNow);
+  const pctReduced = S.riskBase > 0 ? Math.round((riskReduced / S.riskBase) * 100) : 0;
+
+  const cleanedCount = HOT.filter(h => (S.cleaned.get(h.id)||0) >= 0.7).length;
+  const partialCount = HOT.filter(h => {
+    const c = (S.cleaned.get(h.id)||0); return c > 0 && c < 0.7;
+  }).length;
+
+  const top = (S.stats?.wipes || []).slice().sort((a,b)=> b.riskReduced - a.riskReduced).slice(0,3);
+  const topText = top.map(w=> `${w.name} (-risk~${w.riskReduced}, cov ${Math.round(w.covAfter*100)}%)`).join(' | ') || '-';
+
+  const missed = HOT
+    .map(h => ({ h, rem: Math.round(riskRemainingOf(h)), cov:(S.cleaned.get(h.id)||0) }))
+    .sort((a,b)=> b.rem - a.rem)
+    .slice(0,3);
+  const missedText = missed.map(m=> `${m.h.name} (rem~${m.rem}, cov ${Math.round(m.cov*100)}%)`).join(' | ') || '-';
+
+  const payload = {
+    gameId: 'clean-home',
+    title: 'Clean Objects — Home',
+    ts: Date.now(),
+    pid: P.pid,
+    seed: P.seed,
+    run: P.run,
+    diff: P.diff,
+    time: P.time,
+    event: S.currentEvent ? { id:S.currentEvent.id, name:S.currentEvent.name, desc:S.currentEvent.desc } : null,
+
+    riskBase: Math.round(S.riskBase),
+    riskNow: Math.round(S.riskNow),
+    riskReduced: Math.round(riskReduced),
+    riskReducedPct: pctReduced,
+
+    cleanedCount,
+    partialCount,
+
+    spent: {
+      timeUsed: P.time - S.timeLeft,
+      sprayUsed: 100 - S.spray,
+      clothUsed: 3 - S.cloth
+    },
+
+    topDecisions: topText,
+    missed: missedText,
+
+    coach: (S.coach && S.coach.lastTip) ? S.coach.lastTip : '',
+
+    // passthrough research meta
+    studyId: P.studyId || '',
+    phase: P.phase || '',
+    conditionGroup: P.conditionGroup || '',
+    view: VIEW,
+    log: String(P.log),
+
+    // hub-friendly card fields
+    icon: '🧼',
+    primary: `${pctReduced}% risk↓`,
+    secondary: `Clean ${cleanedCount} • Partial ${partialCount}`,
+    detail: `Event: ${S.currentEvent ? S.currentEvent.name : 'None'} | Top: ${topText}`,
   };
 
-  $('btnPlan').onclick = ()=> openPlan();
-  $('btnRunPlan').onclick = ()=> toggleRunPlan();
-  $('btnResetPlan').onclick = ()=> resetPlan();
-  $('btnBack').onclick = ()=> goHub();
+  return payload;
+}
 
-  $('btnClose').onclick = closeDrawer;
-  $('btnClean').onclick = ()=> openWipeForSelected();
+function saveLastSummary(){
+  try{
+    const payload = buildLastSummaryPayload();
+    payload.hub = P.hub || '';
+    payload.hubUrl = hubUrl();
+    localStorage.setItem(KEY_LAST_SUMMARY, JSON.stringify(payload));
 
+    emit('hha:summary', payload);
+  }catch(e){}
+}
+
+// ---------------------- Logging with schema ----------------------
+function logEvent(type, data={}){
+  if(String(P.log) === '0') return;
+
+  const payload = buildLastSummaryPayload();
+  const headers = [
+    'ts','sessionId','gameId','gameTitle',
+    'pid','studyId','phase','conditionGroup',
+    'seed','view','run','diff',
+    'eventId','eventName',
+    'type','name',
+    'x','y','z',
+    'value1','value2','value3',
+    'json'
+  ];
+
+  appendCsvRow(KEY_EVENTS_CSV, headers, {
+    ts: Date.now(),
+    sessionId: SESSION_ID,
+    gameId: payload.gameId,
+    gameTitle: payload.title,
+
+    pid: payload.pid,
+    studyId: payload.studyId || '',
+    phase: payload.phase || '',
+    conditionGroup: payload.conditionGroup || '',
+
+    seed: payload.seed,
+    view: payload.view || VIEW,
+    run: payload.run,
+    diff: payload.diff,
+
+    eventId: S.currentEvent ? S.currentEvent.id : '',
+    eventName: S.currentEvent ? S.currentEvent.name : '',
+
+    type: type,
+    name: (data && data.name) ? String(data.name) : '',
+    x: (data && data.x != null) ? data.x : '',
+    y: (data && data.y != null) ? data.y : '',
+    z: (data && data.z != null) ? data.z : '',
+    value1: (data && data.value1 != null) ? data.value1 : '',
+    value2: (data && data.value2 != null) ? data.value2 : '',
+    value3: (data && data.value3 != null) ? data.value3 : '',
+    json: JSON.stringify(data || {})
+  });
+
+  emit('hha:event', { type, data, ts: Date.now(), gameId:'clean-home', pid:P.pid, seed:P.seed });
+}
+
+function logSession(phaseName, extra={}){
+  if(String(P.log) === '0') return;
+
+  const payload = buildLastSummaryPayload();
+  const headers = [
+    'ts','sessionId','gameId','gameTitle',
+    'pid','studyId','phase','conditionGroup',
+    'seed','view','run','diff','timeSec',
+    'eventId','eventName',
+    'phaseName',
+    'riskBase','riskNow','riskReduced','riskReducedPct',
+    'cleanedCount','partialCount',
+    'timeUsed','sprayUsed','clothUsed',
+    'planEnabled','planRun',
+    'topDecisions','missed',
+    'hubUrl',
+    'extra'
+  ];
+
+  appendCsvRow(KEY_SESSIONS_CSV, headers, {
+    ts: payload.ts,
+    sessionId: SESSION_ID,
+    gameId: payload.gameId,
+    gameTitle: payload.title,
+
+    pid: payload.pid,
+    studyId: payload.studyId || '',
+    phase: payload.phase || '',
+    conditionGroup: payload.conditionGroup || '',
+
+    seed: payload.seed,
+    view: payload.view || VIEW,
+    run: payload.run,
+    diff: payload.diff,
+    timeSec: payload.time,
+
+    eventId: payload.event ? payload.event.id : '',
+    eventName: payload.event ? payload.event.name : '',
+
+    phaseName,
+
+    riskBase: payload.riskBase,
+    riskNow: payload.riskNow,
+    riskReduced: payload.riskReduced,
+    riskReducedPct: payload.riskReducedPct,
+
+    cleanedCount: payload.cleanedCount,
+    partialCount: payload.partialCount,
+
+    timeUsed: payload.spent.timeUsed,
+    sprayUsed: payload.spent.sprayUsed,
+    clothUsed: payload.spent.clothUsed,
+
+    planEnabled: (S.planEnabled ? 1 : 0),
+    planRun: (S.planRun && S.planRun.active ? 1 : 0),
+
+    topDecisions: payload.topDecisions,
+    missed: payload.missed,
+
+    hubUrl: payload.hubUrl || hubUrl(),
+    extra: JSON.stringify(extra || {})
+  });
+}
+
+function logProfileOnce(){
+  if(String(P.log) === '0') return;
+  const keyOnce = `HHA_PROFILE_ONCE::CLEAN_HOME::${P.pid}`;
+  try{
+    if(localStorage.getItem(keyOnce)) return;
+
+    const headers = [
+      'ts','pid','studyId','phase','conditionGroup',
+      'deviceUA','platform','lang',
+      'view','api','hub'
+    ];
+    appendCsvRow(KEY_PROFILE_CSV, headers, {
+      ts: Date.now(),
+      pid: P.pid,
+      studyId: P.studyId || '',
+      phase: P.phase || '',
+      conditionGroup: P.conditionGroup || '',
+      deviceUA: navigator.userAgent,
+      platform: navigator.platform || '',
+      lang: navigator.language || '',
+      view: VIEW,
+      api: P.api || '',
+      hub: P.hub || ''
+    });
+
+    localStorage.setItem(keyOnce, '1');
+  }catch(e){}
+}
+
+// ---------------------- Flush-hardened commit ----------------------
+function commitState(reason='commit'){
+  const now = Date.now();
+  if(now - (S.flush.lastCommitTs||0) < 500) return;
+  S.flush.lastCommitTs = now;
+
+  try{
+    recalcRisk();
+    saveLastSummary();
+    const phase = S.flush.didFinish ? 'finish' : 'mid';
+    logSession(phase, { reason });
+    logEvent('commit', { reason, didFinish: S.flush.didFinish ? 1 : 0 });
+  }catch(e){}
+}
+
+function attachFlushGuards(){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden') commitState('visibility_hidden');
+  });
+  window.addEventListener('pagehide', ()=> commitState('pagehide'));
+  window.addEventListener('beforeunload', ()=> commitState('beforeunload'));
+
+  try{
+    history.replaceState({ hha:'clean-home', step:0 }, '');
+    history.pushState({ hha:'clean-home', step:1 }, '');
+  }catch(e){}
+  window.addEventListener('popstate', ()=>{
+    commitState('backbutton');
+    setTimeout(()=> goHub(), 0);
+  });
+}
+
+// ---------------------- Event pick (deterministic) ----------------------
+function pickRandomEvent(){
+  const idx = Math.floor(RNG() * EVENTS.length);
+  S.currentEvent = JSON.parse(JSON.stringify(EVENTS[idx]));
+
+  recalcRisk();
+  renderHUD();
   renderZones();
+  if(S.selectedId) openDrawer(S.selectedId);
+
+  toast('Event: ' + S.currentEvent.name);
+
+  setCoachTip(`เหตุการณ์: ${S.currentEvent.name}`, true);
+  setTimeout(()=> maybeCoachTip('event'), 80);
+
+  logEvent('event_pick', { eventId:S.currentEvent.id, eventName:S.currentEvent.name });
+  commitState('event_changed');
+}
+
+// ---------------------- Plan (load/save) ----------------------
+function savePlan(){
+  try{
+    const payload = { enabled: S.planEnabled, plan: S.plan };
+    localStorage.setItem(PLAN_KEY, JSON.stringify(payload));
+    toast('Saved ✅');
+    renderHUD();
+    commitState('save_plan');
+  }catch(e){
+    toast('Save failed');
+  }
+}
+function loadPlanIfAny(){
+  try{
+    const raw = localStorage.getItem(PLAN_KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    if(d && d.plan){
+      S.plan = d.plan;
+      S.planEnabled = !!d.enabled;
+      S.planRun.active = false;
+      S.planRun.routeIndex = 0;
+      toast('Loaded plan ✅');
+    }
+  }catch(e){}
+}
+function resetPlan(){
+  S.planEnabled = false;
+  S.planRun.active = false;
+  S.planRun.routeIndex = 0;
+  S.plan = {
+    checklist: [],
+    routine: { morning:[], afterhome:[], bed:[] },
+    route: ['entry','living','kitchen','bath','bed'],
+  };
+  try{ localStorage.removeItem(PLAN_KEY); }catch(e){}
+  renderHUD();
   updateNextZoneHighlight();
+  renderZones();
+  toast('Plan reset');
+  commitState('reset_plan');
+}
+
+// ---------------------- Render Zones / Drawer ----------------------
+function zoneToEl(zoneId){
+  const z = ZONES.find(z=>z.id===zoneId);
+  return z ? $(z.el) : null;
 }
 
 function renderZones(){
-  // clear
   document.querySelectorAll('.hotlist').forEach(el=> el.innerHTML='');
-
-  // index by zone
   const byZone = new Map();
   for(const h of HOT){
     if(!byZone.has(h.zone)) byZone.set(h.zone, []);
     byZone.get(h.zone).push(h);
   }
-
-  // optional: in plan-run, order items by checklist + next zone
   const checklistSet = new Set(S.plan.checklist);
   const nextZone = (S.planRun.active) ? S.plan.route[S.planRun.routeIndex] : null;
 
@@ -584,14 +1188,12 @@ function renderZones(){
     const zone = el.getAttribute('data-zone');
     let arr = (byZone.get(zone) || []).slice();
 
-    // if plan-run active: push selected checklist items up
     if(S.planRun.active){
       arr.sort((a,b)=>{
         const aa = checklistSet.has(a.id) ? 0 : 1;
         const bb = checklistSet.has(b.id) ? 0 : 1;
         if(aa!==bb) return aa-bb;
-        // within group: higher value first
-        return valueOf(b)-valueOf(a);
+        return valueEff(b)-valueEff(a);
       });
     }
 
@@ -599,7 +1201,9 @@ function renderZones(){
       const card = document.createElement('div');
       const cov = S.cleaned.get(h.id) || 0;
       const cleaned = cov >= 0.7;
-      const val = valueOf(h);
+
+      const val = valueEff(h);
+      const tE = effTouch(h), sE = effSpread(h), cE = effCost(h);
 
       const inPlan = checklistSet.has(h.id);
       const planTag = inPlan ? ' <span class="selTag">• PLAN</span>' : '';
@@ -614,24 +1218,18 @@ function renderZones(){
         </div>
         <div class="right">
           <div class="value">${fmt(val)}</div>
-          <div class="stars">T${h.touch} • S${h.spread} • C${h.cost}</div>
+          <div class="stars">T${tE} • S${sE} • C${cE}</div>
         </div>
       `;
       card.onclick = ()=> openDrawer(h.id);
       el.appendChild(card);
     }
 
-    // zone highlight for plan-run
     const zoneEl = zoneToEl(zone);
     if(zoneEl){
       zoneEl.classList.toggle('isNext', !!nextZone && nextZone===zone);
     }
   }
-}
-
-function zoneToEl(zoneId){
-  const z = ZONES.find(z=>z.id===zoneId);
-  return z ? $(z.el) : null;
 }
 
 function openDrawer(id){
@@ -643,23 +1241,26 @@ function openDrawer(id){
   const cov = S.cleaned.get(id) || 0;
   const cleaned = cov >= 0.7;
 
+  const tE = effTouch(h), sE = effSpread(h), cE = effCost(h);
+  const vE = valueEff(h);
+
   $('dTitle').textContent = (cleaned ? '✅ ' : '') + h.name;
   $('dSub').textContent = cleaned
     ? `จุดนี้สะอาดแล้ว (coverage ${pct(cov)}%). จะเช็ดซ้ำได้แต่เปลืองทรัพยากร`
-    : `ตัดสินใจให้คุ้ม: Value=${fmt(valueOf(h))} (Touch×Spread/Cost)`;
+    : `Evaluate ตอนนี้ภายใต้เหตุการณ์บ้าน: Value=${fmt(vE)}`;
 
-  $('bTouch').textContent = 'Touch: ' + h.touch;
-  $('bSpread').textContent = 'Spread: ' + h.spread;
-  $('bCost').textContent = 'Cost: ' + h.cost;
-  $('bValue').textContent = 'Value: ' + fmt(valueOf(h));
+  $('bTouch').textContent = 'Touch: ' + tE;
+  $('bSpread').textContent = 'Spread: ' + sE;
+  $('bCost').textContent = 'Cost: ' + cE;
+  $('bValue').textContent = 'Value: ' + fmt(vE);
   $('bPlan').textContent  = 'Plan: ' + (S.plan.checklist.includes(id) ? 'YES' : 'NO');
+
+  $('evalExplain').textContent = 'เหตุผล: ' + explainDecision(h);
 
   renderZones();
 }
 
-function closeDrawer(){
-  $('drawer').classList.remove('on');
-}
+function closeDrawer(){ $('drawer').classList.remove('on'); }
 
 function canSpend(timeNeed, sprayNeed, clothNeed){
   if(S.timeLeft < timeNeed){ toast('เวลาไม่พอ ⏳'); return false; }
@@ -668,7 +1269,7 @@ function canSpend(timeNeed, sprayNeed, clothNeed){
   return true;
 }
 
-// ---------------------- WIPE MINI-ACTION (A) ----------------------
+// ---------------------- Wipe mini-action ----------------------
 const wipeMask = $('wipeMask');
 const wipeGrid = $('wipeGrid');
 const wipeFill = $('wipeFill');
@@ -702,14 +1303,11 @@ function closeWipe(){
   wipeMask.setAttribute('aria-hidden','true');
   S.wipe.dragging = false;
 }
-
 function resetWipe(){
   S.wipe.cellsOn.clear();
   updateWipeUI();
-  // clear cell class
   wipeGrid.querySelectorAll('.cell').forEach(c=> c.classList.remove('on'));
 }
-
 function buildWipeGrid(){
   wipeGrid.innerHTML = '';
   for(let i=0;i<16;i++){
@@ -729,35 +1327,29 @@ function buildWipeGrid(){
       c.setPointerCapture(ev.pointerId);
       markOn();
     });
-    c.addEventListener('pointerenter', (ev)=>{
+    c.addEventListener('pointerenter', ()=>{
       if(!S.wipe.dragging) return;
       markOn();
     });
-    c.addEventListener('pointerup', ()=>{
-      S.wipe.dragging = false;
-    });
-    c.addEventListener('pointercancel', ()=>{
-      S.wipe.dragging = false;
-    });
+    c.addEventListener('pointerup', ()=>{ S.wipe.dragging=false; });
+    c.addEventListener('pointercancel', ()=>{ S.wipe.dragging=false; });
 
     wipeGrid.appendChild(c);
   }
-
-  // release dragging if pointer leaves modal
   wipeMask.addEventListener('pointerup', ()=>{ S.wipe.dragging=false; }, { once:true });
 }
 
-function currentCoverage(){
-  return S.wipe.cellsOn.size / 16;
-}
+function currentCoverage(){ return S.wipe.cellsOn.size / 16; }
 
 function spendForWipe(h, cov){
-  // base spend from cost
-  // timeNeed scales slightly with cov, sprayNeed scales with cost, clothNeed for high spread
-  const baseTime = 3 * h.cost;
-  const timeNeed = Math.max(1, Math.round(baseTime * (0.7 + 0.6*cov))); // 0.7..1.3x
-  const sprayNeed = Math.round(10 * h.cost * (0.6 + 0.8*cov));         // 0.6..1.4x
-  const clothNeed = (h.spread >= 8 && cov >= 0.7) ? 1 : 0;             // only when "really cleaned" on high spread
+  const cE = effCost(h);
+  const sE = effSpread(h);
+
+  const baseTime = 3 * cE;
+  const timeNeed = Math.max(1, Math.round(baseTime * (0.7 + 0.6*cov)));
+  const sprayNeed = Math.round(10 * cE * (0.6 + 0.8*cov));
+  const clothNeed = (sE >= 8 && cov >= 0.7) ? 1 : 0;
+
   return { timeNeed, sprayNeed, clothNeed };
 }
 
@@ -779,39 +1371,75 @@ function finishWipe(){
 
   const cov = currentCoverage();
   const { timeNeed, sprayNeed, clothNeed } = spendForWipe(h, cov);
-
   if(!canSpend(timeNeed, sprayNeed, clothNeed)) return;
+
+  const prev = S.cleaned.get(id) || 0;
+  const covBefore = prev;
+
+  const beforeRisk = riskRemainingOf(h);
 
   // spend
   S.timeLeft -= timeNeed;
   S.spray -= sprayNeed;
   S.cloth -= clothNeed;
 
-  // save best coverage
-  const prev = S.cleaned.get(id) || 0;
+  // best coverage
   const best = Math.max(prev, cov);
   S.cleaned.set(id, best);
+
+  // risk reduced
+  const afterRisk = riskUnit(h) * (1 - best);
+  const riskReduced = Math.max(0, beforeRisk - afterRisk);
+
+  recalcRisk();
+
+  // stats
+  S.stats.totalRiskReduced += riskReduced;
+  if(best >= 0.7) S.stats.cleanActions += 1;
+  else S.stats.partialActions += 1;
+
+  S.stats.wipes.push({
+    id: h.id, name: h.name,
+    covBefore, covAfter: best,
+    riskReduced: Math.round(riskReduced),
+    time: timeNeed, spray: sprayNeed, cloth: clothNeed,
+    ts: Date.now()
+  });
+  if(S.stats.wipes.length > 50) S.stats.wipes.shift();
 
   renderHUD();
   renderZones();
   openDrawer(id);
 
-  // if plan-run active, advance when cleaned enough
   if(S.planRun.active && best >= 0.7){
-    advancePlanIfNeeded(h.zone, id);
+    advancePlanIfNeeded(h.zone);
   }
 
-  toast(best >= 0.7 ? `Cleaned ✅ (${pct(best)}%)` : `Partial wipe… (${pct(best)}%)`);
+  logEvent('wipe_done', {
+    id: h.id, name: h.name, value1: best, value2: Math.round(riskReduced),
+    spend: { time: timeNeed, spray: sprayNeed, cloth: clothNeed },
+    explain: explainDecision(h)
+  });
+
+  if(best >= 0.7){
+    toast(`Cleaned ✅ ${h.name} • ลด risk ~${Math.round(riskReduced)}`);
+    setCoachTip(`ดีมาก: ${h.name} ลด risk ~${Math.round(riskReduced)} (${explainDecision(h)})`);
+  }else{
+    toast(`Partial wipe ${pct(best)}% • risk ลด ~${Math.round(riskReduced)}`);
+    setCoachTip(`ยังไม่พอ: ${h.name} coverage ${pct(best)}% ลองให้ถึง 70%+`);
+  }
+
+  setTimeout(()=> maybeCoachTip('after_wipe'), 200);
+  commitState('wipe_commit');
+
   closeWipe();
 }
 
-// ---------------------- PLAN BUILDER (B) ----------------------
+// ---------------------- Plan Builder UI ----------------------
 const planMask = $('planMask');
 $('planClose').onclick = closePlan;
 $('btnUsePlan').onclick = ()=> { usePlan(); savePlan(); };
 $('btnSavePlan').onclick = savePlan;
-$('btnApplyRoute').onclick = ()=> { toast('Route applied ✅'); savePlan(); updateNextZoneHighlight(); renderZones(); };
-$('btnAutoRoute').onclick = ()=> { autoRouteByValue(); renderRoute(); toast('Auto route ✅'); };
 
 document.querySelectorAll('.tab').forEach(t=>{
   t.onclick = ()=>{
@@ -828,7 +1456,6 @@ function openPlan(){
   planMask.setAttribute('aria-hidden','false');
   renderPlanAll();
 }
-
 function closePlan(){
   planMask.classList.remove('on');
   planMask.setAttribute('aria-hidden','true');
@@ -844,10 +1471,21 @@ function renderPlanAll(){
 
 function renderPlanHint(){
   const n = S.plan.checklist.length;
-  const ok = n >= 6;
-  $('planHint').textContent = ok
-    ? `เลือกแล้ว ${n} จุด ✅`
-    : `เลือกแล้ว ${n} จุด (ต้องมีอย่างน้อย 6 จุด)`;
+  $('planHint').textContent = (n >= 6) ? `เลือกแล้ว ${n} จุด ✅` : `เลือกแล้ว ${n} จุด (ต้องมีอย่างน้อย 6 จุด)`;
+}
+
+function planItem(h, isSel, onClick, label){
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = `
+    <div>
+      <div class="nm">${h.name} ${isSel?'<span class="selTag">• selected</span>':''}</div>
+      <div class="sm">${h.zone.toUpperCase()} • Value ${fmt(valueEff(h))} • T${effTouch(h)} S${effSpread(h)} C${effCost(h)}</div>
+    </div>
+    <div class="sp"><button class="tinyBtn">${label}</button></div>
+  `;
+  div.querySelector('button').onclick = onClick;
+  return div;
 }
 
 function renderChecklistLists(){
@@ -856,10 +1494,9 @@ function renderChecklistLists(){
 
   const selSet = new Set(S.plan.checklist);
 
-  // sort all by zone then value
   const arrAll = HOT.slice().sort((a,b)=>{
     if(a.zone!==b.zone) return a.zone.localeCompare(b.zone);
-    return valueOf(b)-valueOf(a);
+    return valueEff(b)-valueEff(a);
   });
 
   for(const h of arrAll){
@@ -877,7 +1514,6 @@ function renderChecklistLists(){
   for(const h of arrSel){
     sel.appendChild(planItem(h, true, ()=>{
       S.plan.checklist = S.plan.checklist.filter(x=>x!==h.id);
-      // also remove from routine buckets
       for(const k of ['morning','afterhome','bed']){
         S.plan.routine[k] = S.plan.routine[k].filter(x=>x!==h.id);
       }
@@ -887,41 +1523,14 @@ function renderChecklistLists(){
   }
 }
 
-function planItem(h, isSel, onClick, label){
-  const div = document.createElement('div');
-  div.className = 'item';
-  const val = fmt(valueOf(h));
-  div.innerHTML = `
-    <div>
-      <div class="nm">${h.name} ${isSel?'<span class="selTag">• selected</span>':''}</div>
-      <div class="sm">${h.zone.toUpperCase()} • Value ${val} • T${h.touch} S${h.spread} C${h.cost}</div>
-    </div>
-    <div class="sp">
-      <button class="tinyBtn">${label}</button>
-    </div>
-  `;
-  div.querySelector('button').onclick = onClick;
-  return div;
-}
-
 function autoSuggestRoutineIfEmpty(){
-  // only suggest if routine empty
   const total = S.plan.routine.morning.length + S.plan.routine.afterhome.length + S.plan.routine.bed.length;
   if(total>0) return;
 
-  // simple heuristics:
-  // afterhome: entry + phone
-  // morning: kitchen_faucet + counter_board
-  // bed: tv_remote + bed_door
   const pick = (id)=> S.plan.checklist.includes(id) ? id : null;
-
-  const after = [pick('door_knob'), pick('light_switch'), pick('phone'), pick('fridge_handle')].filter(Boolean);
-  const morn  = [pick('kitchen_faucet'), pick('counter_board')].filter(Boolean);
-  const bed   = [pick('tv_remote'), pick('bed_door')].filter(Boolean);
-
-  S.plan.routine.afterhome = after;
-  S.plan.routine.morning = morn;
-  S.plan.routine.bed = bed;
+  S.plan.routine.afterhome = [pick('door_knob'), pick('light_switch'), pick('phone'), pick('fridge_handle')].filter(Boolean);
+  S.plan.routine.morning   = [pick('kitchen_faucet'), pick('counter_board')].filter(Boolean);
+  S.plan.routine.bed       = [pick('tv_remote'), pick('bed_door')].filter(Boolean);
 }
 
 function renderRoutineLists(){
@@ -949,7 +1558,7 @@ function renderRoutineLists(){
       it.innerHTML = `
         <div>
           <div class="nm">${h.name}</div>
-          <div class="sm">${h.zone.toUpperCase()} • Value ${fmt(valueOf(h))}</div>
+          <div class="sm">${h.zone.toUpperCase()} • Value ${fmt(valueEff(h))}</div>
         </div>
         <div class="sp">
           <button class="tinyBtn" data-m="up">↑</button>
@@ -957,8 +1566,7 @@ function renderRoutineLists(){
           <button class="tinyBtn" data-m="rm">DEL</button>
         </div>
       `;
-      const btns = it.querySelectorAll('button');
-      btns.forEach(b=>{
+      it.querySelectorAll('button').forEach(b=>{
         b.onclick = ()=>{
           const mode = b.dataset.m;
           const ids = S.plan.routine[k];
@@ -977,7 +1585,6 @@ function renderRoutineLists(){
       el.appendChild(it);
     }
 
-    // quick add buttons from checklist (small)
     const addWrap = document.createElement('div');
     addWrap.style.marginTop='10px';
     addWrap.style.display='flex';
@@ -1013,33 +1620,38 @@ function renderRoute(){
         <button class="tinyBtn" data-m="dn">↓</button>
       </div>
     `;
-    const btnUp = row.querySelector('button[data-m="up"]');
-    const btnDn = row.querySelector('button[data-m="dn"]');
-    btnUp.onclick = ()=>{
+    row.querySelector('button[data-m="up"]').onclick = ()=>{
       const i = S.plan.route.indexOf(zoneId);
-      if(i>0){ [S.plan.route[i-1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i-1]]; renderRoute(); updateNextZoneHighlight(); savePlan(); }
+      if(i>0){
+        [S.plan.route[i-1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i-1]];
+        renderRoute(); updateNextZoneHighlight(); savePlan();
+      }
     };
-    btnDn.onclick = ()=>{
+    row.querySelector('button[data-m="dn"]').onclick = ()=>{
       const i = S.plan.route.indexOf(zoneId);
-      if(i<S.plan.route.length-1){ [S.plan.route[i+1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i+1]]; renderRoute(); updateNextZoneHighlight(); savePlan(); }
+      if(i<S.plan.route.length-1){
+        [S.plan.route[i+1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i+1]];
+        renderRoute(); updateNextZoneHighlight(); savePlan();
+      }
     };
     el.appendChild(row);
   }
 }
 
 function autoRouteByValue(){
-  // zone score = sum(value) of checklist items
   const zoneScore = {};
   for(const z of S.plan.route) zoneScore[z] = 0;
   for(const id of S.plan.checklist){
     const h = byId(id);
     if(!h) continue;
-    zoneScore[h.zone] += valueOf(h);
+    zoneScore[h.zone] += valueEff(h);
   }
   S.plan.route.sort((a,b)=> (zoneScore[b]||0) - (zoneScore[a]||0));
 }
 
-// enable plan (Create -> use)
+$('btnApplyRoute').onclick = ()=> { toast('Route applied ✅'); savePlan(); updateNextZoneHighlight(); renderZones(); };
+$('btnAutoRoute').onclick = ()=> { autoRouteByValue(); renderRoute(); toast('Auto route ✅'); savePlan(); updateNextZoneHighlight(); renderZones(); };
+
 function usePlan(){
   if(S.plan.checklist.length < 6){
     toast('Checklist ต้องมีอย่างน้อย 6 จุด ❗');
@@ -1052,9 +1664,9 @@ function usePlan(){
   updateNextZoneHighlight();
   renderZones();
   toast('Plan ON ✅');
+  commitState('plan_on');
 }
 
-// Run plan: highlight zone order & “advance” when zone tasks done
 function toggleRunPlan(){
   if(!S.planEnabled){
     toast('ยังไม่ได้ Use Plan');
@@ -1070,33 +1682,29 @@ function toggleRunPlan(){
   renderHUD();
   updateNextZoneHighlight();
   renderZones();
+  commitState(S.planRun.active ? 'plan_run_on' : 'plan_run_off');
 }
 
-// advance: when current zone has no remaining checklist items to clean
-function advancePlanIfNeeded(zoneId, cleanedId){
+function advancePlanIfNeeded(zoneId){
   if(!S.planRun.active) return;
   const currentZone = S.plan.route[S.planRun.routeIndex];
   if(zoneId !== currentZone) return;
 
-  // remaining in zone?
   const remaining = S.plan.checklist
     .map(id=>byId(id))
     .filter(h=>h && h.zone===currentZone)
-    .filter(h=>{
-      const cov = S.cleaned.get(h.id) || 0;
-      return cov < 0.7;
-    });
+    .filter(h=> (S.cleaned.get(h.id) || 0) < 0.7);
 
   if(remaining.length===0){
     S.planRun.routeIndex = Math.min(S.planRun.routeIndex+1, S.plan.route.length-1);
     updateNextZoneHighlight();
     renderZones();
     toast('Next zone ➜ ' + S.plan.route[S.planRun.routeIndex].toUpperCase());
+    commitState('plan_next_zone');
   }
 }
 
 function updateNextZoneHighlight(){
-  // handled in renderZones via class; but ensure no stale
   for(const z of ZONES){
     const el = $(z.el);
     if(el) el.classList.remove('isNext');
@@ -1108,81 +1716,235 @@ function updateNextZoneHighlight(){
   }
 }
 
-function savePlan(){
-  try{
-    const payload = {
-      enabled: S.planEnabled,
-      plan: S.plan,
-    };
-    localStorage.setItem(PLAN_KEY, JSON.stringify(payload));
-    toast('Saved ✅');
-    renderHUD();
-  }catch(e){
-    toast('Save failed');
+// ---------------------- Summary ----------------------
+const sumMask = $('sumMask');
+
+function openSummary(){
+  S.flush.didFinish = true;
+  recalcRisk();
+  renderSummary();
+  sumMask.classList.add('on');
+  sumMask.setAttribute('aria-hidden','false');
+
+  saveLastSummary();
+  logEvent('summary_open', { value1: S.riskNow, value2: S.riskBase });
+  commitState('open_summary');
+}
+
+function closeSummary(){
+  sumMask.classList.remove('on');
+  sumMask.setAttribute('aria-hidden','true');
+}
+
+function renderSummary(){
+  recalcRisk();
+  const riskReduced = Math.max(0, S.riskBase - S.riskNow);
+  const pctReduced = S.riskBase > 0 ? Math.round((riskReduced / S.riskBase) * 100) : 0;
+
+  const cleanedCount = HOT.filter(h => (S.cleaned.get(h.id)||0) >= 0.7).length;
+  const partialCount = HOT.filter(h => {
+    const c=(S.cleaned.get(h.id)||0); return c>0 && c<0.7;
+  }).length;
+
+  $('sumOverall').innerHTML = `
+    • Event: <b>${S.currentEvent ? S.currentEvent.name : 'None'}</b><br/>
+    • Risk ลดลง: <b>${Math.round(riskReduced)}</b> / ${Math.round(S.riskBase)} (${pctReduced}%)<br/>
+    • Cleaned (≥70%): <b>${cleanedCount}</b> จุด • Partial: <b>${partialCount}</b> จุด<br/>
+    • ใช้ทรัพยากร: เวลา ${P.time - S.timeLeft}s • Spray ${100 - S.spray} • Cloth ${3 - S.cloth}<br/>
+    • Plan: <b>${S.planEnabled ? 'ON' : 'OFF'}</b>${S.planRun.active ? ' (RUN)' : ''}
+  `;
+
+  const top = S.stats.wipes.slice().sort((a,b)=> b.riskReduced - a.riskReduced).slice(0,5);
+  const topEl = $('sumTop');
+  topEl.innerHTML = '';
+  if(!top.length){
+    topEl.innerHTML = `<div class="mini">ยังไม่มีข้อมูลการเช็ด</div>`;
+  } else {
+    top.forEach((w, idx)=>{
+      const h = byId(w.id);
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `
+        <div>
+          <div class="nm">#${idx+1} ${w.name}</div>
+          <div class="sm">ลด risk ~${w.riskReduced} • Coverage ${Math.round(w.covAfter*100)}% • ${h ? explainDecision(h) : ''}</div>
+        </div>
+      `;
+      topEl.appendChild(row);
+    });
   }
+
+  const rem = HOT
+    .map(h => ({ h, rem: Math.round(riskRemainingOf(h)), cov: (S.cleaned.get(h.id)||0) }))
+    .sort((a,b)=> b.rem - a.rem)
+    .slice(0,5);
+
+  const missEl = $('sumMissed');
+  missEl.innerHTML = '';
+  rem.forEach((m)=>{
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.innerHTML = `
+      <div>
+        <div class="nm">${m.h.name}</div>
+        <div class="sm">Risk คงเหลือ ~${m.rem} • Coverage ${Math.round(m.cov*100)}% • T${effTouch(m.h)} S${effSpread(m.h)} C${effCost(m.h)}</div>
+      </div>
+    `;
+    missEl.appendChild(row);
+  });
+
+  const coachLines = [];
+  if (pctReduced >= 60) coachLines.push('ผลรวมดีมาก: ลดความเสี่ยงได้เกิน 60%');
+  else if (pctReduced >= 40) coachLines.push('ทำได้ดี: รอบหน้าดันให้เกิน 60%');
+  else coachLines.push('ยังลดความเสี่ยงได้น้อย: ลองเริ่มจากจุด Value สูงก่อน');
+
+  const topRem = rem[0];
+  if(topRem) coachLines.push(`จุดที่ยังควรทำต่อ: "${topRem.h.name}" เพราะ ${explainDecision(topRem.h)}`);
+
+  if (S.planEnabled && S.plan.checklist.length < 6) coachLines.push('Checklist ยังน้อย ควรเพิ่มให้ครบอย่างน้อย 6 จุด');
+  else if (S.planEnabled) coachLines.push('แผนถูกใช้แล้ว ลองปรับ Route ให้เริ่มจากโซนที่ Risk สูงสุด');
+  else coachLines.push('ลองเปิด Plan Builder เพื่อวาง Checklist + Route แล้วค่อย Run Plan');
+
+  coachLines.push(`เหตุการณ์รอบนี้: ${S.currentEvent ? S.currentEvent.desc : 'ไม่มี'}`);
+  $('sumCoach').innerHTML = coachLines.map(x=>`• ${x}`).join('<br/>');
+
+  setCoachTip(coachLines[0], true);
 }
 
-function loadPlanIfAny(){
-  try{
-    const raw = localStorage.getItem(PLAN_KEY);
-    if(!raw) return;
-    const d = JSON.parse(raw);
-    if(d && d.plan){
-      // shallow validate
-      S.plan = d.plan;
-      S.planEnabled = !!d.enabled;
-      S.planRun.active = false;
-      S.planRun.routeIndex = 0;
-      renderHUD();
-      toast('Loaded plan ✅');
-    }
-  }catch(e){}
-}
+function replayRound(withNewEvent){
+  S.timeLeft = P.time;
+  S.spray = 100;
+  S.cloth = 3;
+  S.cleaned = new Map();
 
-function resetPlan(){
-  S.planEnabled = false;
   S.planRun.active = false;
   S.planRun.routeIndex = 0;
-  S.plan = {
-    checklist: [],
-    routine: { morning:[], afterhome:[], bed:[] },
-    route: ['entry','living','kitchen','bath','bed'],
-  };
-  try{ localStorage.removeItem(PLAN_KEY); }catch(e){}
-  renderHUD();
-  updateNextZoneHighlight();
-  renderZones();
-  toast('Plan reset');
-}
 
-// ---------------------- HUB NAV ----------------------
-function goHub(){
-  const u = new URL(P.hub, location.href);
-  u.searchParams.set('from', 'clean-home');
-  u.searchParams.set('pid', P.pid);
-  u.searchParams.set('seed', P.seed);
-  location.href = u.toString();
-}
+  S.stats.totalRiskReduced = 0;
+  S.stats.cleanActions = 0;
+  S.stats.partialActions = 0;
+  S.stats.wipes = [];
 
-// ---------------------- VR MODE (B skeleton) ----------------------
-async function bootVR(){
-  try{
-    await import('../vr/vr-ui.js'); // /herohealth/vr/vr-ui.js
-  }catch(e){
-    console.warn('vr-ui.js missing or failed to load:', e);
-    toast('vr-ui.js โหลดไม่สำเร็จ');
+  S.flush.didFinish = false;
+
+  if(withNewEvent){
+    pickRandomEvent();
+    setCoachTip('เริ่มรอบใหม่ + event ใหม่', true);
+  } else {
+    recalcRisk();
+    renderHUD();
+    renderZones();
+    if (S.selectedId) openDrawer(S.selectedId);
+    setCoachTip('เริ่มรอบใหม่ (ใช้เหตุการณ์เดิม)', true);
+    setTimeout(()=> maybeCoachTip('replay_same'), 80);
   }
+
+  commitState(withNewEvent ? 'replay_new_event' : 'replay_same_event');
+  closeSummary();
+  closeDrawer();
+  updateNextZoneHighlight();
+  toast(withNewEvent ? 'Replay + New Event ✅' : 'Replay ✅');
+}
+
+// ---------------------- VR skeleton ----------------------
+async function bootVR(){
+  try{ await import('../vr/vr-ui.js'); }
+  catch(e){ console.warn('vr-ui.js failed:', e); toast('vr-ui.js โหลดไม่สำเร็จ'); }
   window.addEventListener('hha:shoot', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     if(P.debug) console.log('hha:shoot', d);
-    // TODO next: raycast/select hotspot in 3D and clean
+    // TODO: raycast/select hotspot in 3D
+    logEvent('shoot', { x:d.x, y:d.y, name:'shoot' });
   });
 }
 
-// ---------------------- PLAN UI extras ----------------------
-function zoneToEl(zoneId){
-  const z = ZONES.find(z=>z.id===zoneId);
-  return z ? $(z.el) : null;
+// ---------------------- Binds ----------------------
+$('btnClose').onclick = closeDrawer;
+$('btnClean').onclick = openWipeForSelected;
+
+$('btnPlan').onclick = openPlan;
+$('btnRunPlan').onclick = toggleRunPlan;
+
+$('btnSort').onclick = ()=>{
+  HOT.sort((a,b)=> valueEff(b)-valueEff(a));
+  renderZones();
+  toast('Sorted by Value ✅');
+  commitState('sort_value');
+};
+
+$('btnEvent').onclick = ()=> pickRandomEvent();
+
+$('btnFinish').onclick = ()=> openSummary();
+
+$('btnResetPlan').onclick = ()=> resetPlan();
+
+$('btnBack').onclick = ()=>{
+  S.flush.didFinish = true;
+  commitState('toolbar_backhub');
+  goHub();
+};
+
+// summary buttons
+$('sumClose').onclick = closeSummary;
+$('sumReplay').onclick = ()=> replayRound(false);
+$('sumNewEvent').onclick = ()=> replayRound(true);
+$('sumSave').onclick = ()=> { saveLastSummary(); toast('Saved summary ✅'); commitState('save_summary'); };
+$('sumBackHub').onclick = ()=> { S.flush.didFinish = true; commitState('summary_backhub'); goHub(); };
+
+$('sumExportSessions').onclick = ()=> exportCsv(KEY_SESSIONS_CSV, 'clean_home_sessions.csv');
+$('sumExportEvents').onclick = ()=> exportCsv(KEY_EVENTS_CSV, 'clean_home_events.csv');
+$('sumExportProfile').onclick = ()=> exportCsv(KEY_PROFILE_CSV, 'clean_home_profile.csv');
+
+$('sumCopyHub').onclick = async ()=>{
+  try{
+    await navigator.clipboard.writeText(hubUrl());
+    toast('Copied hub link ✅');
+  }catch(e){
+    toast('Copy failed');
+  }
+};
+
+// ---------------------- BOOT ----------------------
+const mapRoot = $('mapRoot');
+const vrRoot  = $('vrRoot');
+
+renderHUD();
+
+if (IS_CVR){
+  vrRoot.style.display = 'block';
+  mapRoot.style.display = 'none';
+  // ensure event exists for logging consistency
+  pickRandomEvent();
+  logProfileOnce();
+  if(!S.flush.didStart){
+    S.flush.didStart = true;
+    logSession('start', { hub:P.hub||'', studyId:P.studyId||'', phase:P.phase||'', conditionGroup:P.conditionGroup||'', view:VIEW });
+    commitState('start');
+    attachFlushGuards();
+  }
+  await bootVR();
+} else {
+  mapRoot.style.display = 'block';
+  vrRoot.style.display = 'none';
+
+  loadPlanIfAny();
+  logProfileOnce();
+
+  // deterministic event at start (seed-based)
+  pickRandomEvent();
+
+  recalcRisk();
+  renderHUD();
+  renderZones();
+  updateNextZoneHighlight();
+  maybeCoachTip('boot');
+
+  if(!S.flush.didStart){
+    S.flush.didStart = true;
+    logSession('start', { hub:P.hub||'', studyId:P.studyId||'', phase:P.phase||'', conditionGroup:P.conditionGroup||'', view:VIEW });
+    commitState('start');
+    attachFlushGuards();
+  }
 }
 </script>
 </body>
