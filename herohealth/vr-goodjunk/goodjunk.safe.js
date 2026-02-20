@@ -2,10 +2,9 @@
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
 // FULL v20260220-fxHARDEN
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
-// ✅ FIX: crosshair hit uses real DOMRect centers (robust on short screens/HUD)
-// ✅ FIX: cVR right-eye clone also gets pointer listener (optional)
-// ✅ FX: tuned per target type (GOOD/STAR/SHIELD/DIAMOND/JUNK block vs hit/💣/💀)
-// ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared) every hit/shoot
+// ✅ FX: per-kind burst + tuned JUNK (BLOCK soft / HIT heavy) + 💣/💀 heavy pulse
+// ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared)
+// ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 
 'use strict';
 
@@ -22,8 +21,46 @@ export function boot(payload = {}) {
   function emit(name, detail){
     try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
+  function safeText(x){ return (x==null) ? '—' : String(x); }
 
-  // seeded RNG
+  // ---------------- config ----------------
+  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
+  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
+  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
+  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
+
+  const seedParam = (payload.seed ?? qs('seed', null));
+  const seed = (runMode === 'research')
+    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
+    : (seedParam ?? String(Date.now()));
+
+  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
+  const phase = payload.phase ?? qs('phase', null);
+  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
+
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-20_FXHARDEN';
+  const PROJECT_TAG = 'GoodJunkVR';
+
+  const isVR  = (view === 'vr');
+  const isCVR = (view === 'cvr');
+
+  const LAYER_L = byId('gj-layer');
+  const LAYER_R = byId('gj-layer-r');
+
+  if(!LAYER_L){
+    console.error('[GoodJunkVR] missing #gj-layer');
+    return;
+  }
+
+  // show right eye only when cvr
+  try{
+    if(LAYER_R){
+      LAYER_R.setAttribute('aria-hidden', (isCVR ? 'false' : 'true'));
+      LAYER_R.style.display = isCVR ? 'block' : 'none';
+    }
+  }catch(_){}
+
+  // ---------------- seeded RNG ----------------
   function xmur3(str){
     let h = 1779033703 ^ str.length;
     for (let i=0;i<str.length;i++){
@@ -50,13 +87,14 @@ export function boot(payload = {}) {
     };
   }
   function makeSeededRng(seedStr){
-    const seed = String(seedStr ?? '');
-    const gen = xmur3(seed || String(Date.now()));
+    const seedS = String(seedStr ?? '');
+    const gen = xmur3(seedS || String(Date.now()));
     return sfc32(gen(), gen(), gen(), gen());
   }
-  function randIn(rng, a, b){ return a + (b-a) * rng(); }
+  const rng = makeSeededRng(String(seed));
+  function randIn(a, b){ return a + (b-a) * rng(); }
 
-  function pickWeighted(rng, items){
+  function pickWeighted(items){
     let sum = 0;
     for(const it of items) sum += (Number(it.w)||0);
     let r = rng() * sum;
@@ -67,72 +105,11 @@ export function boot(payload = {}) {
     return items[items.length-1]?.k;
   }
 
-  function deviceLabel(view){
-    if(view==='pc') return 'pc';
-    if(view==='vr') return 'vr';
-    if(view==='cvr') return 'cvr';
+  function deviceLabel(v){
+    if(v==='pc') return 'pc';
+    if(v==='vr') return 'vr';
+    if(v==='cvr') return 'cvr';
     return 'mobile';
-  }
-
-  // ---------------- config ----------------
-  const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
-  const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
-  const runMode = String(payload.run || qs('run','play') || 'play').toLowerCase();
-  const durationPlannedSec = clamp(Number(payload.time ?? qs('time','80') ?? 80) || 80, 20, 300);
-
-  const seedParam = (payload.seed ?? qs('seed', null));
-  const seed = (runMode === 'research')
-    ? (seedParam ?? (qs('ts', null) ?? 'RESEARCH-SEED'))
-    : (seedParam ?? String(Date.now()));
-
-  const studyId = payload.studyId ?? qs('studyId', qs('study', null));
-  const phase = payload.phase ?? qs('phase', null);
-  const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
-
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-20_FXHARDEN';
-  const PROJECT_TAG = 'GoodJunkVR';
-
-  const rng = makeSeededRng(String(seed));
-  const isVR  = (view === 'vr');
-  const isCVR = (view === 'cvr');
-
-  const LAYER_L = byId('gj-layer');
-  const LAYER_R = byId('gj-layer-r');
-
-  if(!LAYER_L){
-    console.error('[GoodJunkVR] missing #gj-layer');
-    return;
-  }
-
-  // show right eye only when cvr
-  try{
-    if(LAYER_R){
-      LAYER_R.setAttribute('aria-hidden', (isCVR ? 'false' : 'true'));
-      LAYER_R.style.display = isCVR ? 'block' : 'none';
-    }
-  }catch(_){}
-
-  // ---------------- coordinate helpers (PATCH) ----------------
-  function layerRect(){
-    try{
-      const r = LAYER_L.getBoundingClientRect();
-      if(r && r.width > 10 && r.height > 10) return r;
-    }catch(_){}
-    return { left:0, top:0, width:DOC.documentElement.clientWidth, height:DOC.documentElement.clientHeight };
-  }
-
-  function centerOfTarget(tObj){
-    try{
-      const el = tObj?.elL;
-      if(el){
-        const r = el.getBoundingClientRect();
-        if(r && r.width > 0 && r.height > 0){
-          return { x: r.left + r.width/2, y: r.top + r.height/2 };
-        }
-      }
-    }catch(_){}
-    if(Number.isFinite(tObj?.ax) && Number.isFinite(tObj?.ay)) return { x: tObj.ax, y: tObj.ay };
-    return { x: 0, y: 0 };
   }
 
   // ---------------- difficulty ----------------
@@ -177,6 +154,204 @@ export function boot(payload = {}) {
 
   const adaptiveOn = (runMode !== 'research');
 
+  // ---------------- coordinate helpers ----------------
+  function layerRect(){
+    try{
+      const r = LAYER_L.getBoundingClientRect();
+      if(r && r.width > 10 && r.height > 10) return r;
+    }catch(_){}
+    return { left:0, top:0, width:DOC.documentElement.clientWidth, height:DOC.documentElement.clientHeight };
+  }
+
+  function centerOfTarget(tObj){
+    try{
+      const el = tObj?.elL;
+      if(el){
+        const r = el.getBoundingClientRect();
+        if(r && r.width > 0 && r.height > 0){
+          return { x: r.left + r.width/2, y: r.top + r.height/2 };
+        }
+      }
+    }catch(_){}
+    if(Number.isFinite(tObj?.ax) && Number.isFinite(tObj?.ay)) return { x: tObj.ax, y: tObj.ay };
+    return { x: 0, y: 0 };
+  }
+
+  function toLayerLocal(clientX, clientY){
+    const r = layerRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  }
+
+  // ---------------- FX HARDEN ----------------
+  function ensureFxLayer(){
+    try{
+      let fx = DOC.getElementById('gj-fx');
+      const okParent = fx && (fx.parentElement === LAYER_L);
+
+      if(!fx || !okParent){
+        try{ fx && fx.remove(); }catch(_){}
+        fx = DOC.createElement('div');
+        fx.id = 'gj-fx';
+        fx.setAttribute('aria-hidden','true');
+        fx.style.position = 'absolute';
+        fx.style.inset = '0';
+        fx.style.pointerEvents = 'none';
+        fx.style.overflow = 'hidden';
+        fx.style.zIndex = '140';
+        LAYER_L.appendChild(fx);
+      }
+
+      LAYER_L.classList.add('gj-layer--hasfx');
+      return fx;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function popBurst(kind, clientX, clientY, opts={}){
+    const fx = ensureFxLayer();
+    if(!fx) return;
+
+    const { x, y } = toLayerLocal(clientX, clientY);
+    const el = DOC.createElement('div');
+    el.className = `gj-fx gj-fx-${kind}`;
+
+    const size = Number(opts.size || 90);
+    const life = Number(opts.life || 340);
+
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top  = `${Math.round(y)}px`;
+    el.style.width  = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.setProperty('--life', `${life}ms`);
+
+    fx.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+80));
+  }
+
+  function popShards(kind, clientX, clientY, opts={}){
+    const fx = ensureFxLayer();
+    if(!fx) return;
+
+    const { x, y } = toLayerLocal(clientX, clientY);
+    const n = clamp(Number(opts.n||10), 4, 22);
+    const spread = Number(opts.spread||90);
+    const life = Number(opts.life||520);
+    const sizeMin = Number(opts.sizeMin||6);
+    const sizeMax = Number(opts.sizeMax||14);
+
+    const wrap = DOC.createElement('div');
+    wrap.className = `gj-fx gj-fx-${kind} gj-fx-shards`;
+    wrap.style.left = `${Math.round(x)}px`;
+    wrap.style.top  = `${Math.round(y)}px`;
+    wrap.style.setProperty('--life', `${life}ms`);
+
+    for(let i=0;i<n;i++){
+      const s = DOC.createElement('i');
+      s.className = 'gj-shard';
+      const a = rng()*Math.PI*2;
+      const d = spread*(0.35 + 0.65*rng());
+      const tx = Math.cos(a)*d;
+      const ty = Math.sin(a)*d*0.85;
+      const sz = sizeMin + (sizeMax-sizeMin)*rng();
+      s.style.width = `${sz}px`;
+      s.style.height= `${sz}px`;
+      s.style.transform = `translate(0,0) scale(1)`;
+      s.style.setProperty('--tx', `${tx.toFixed(1)}px`);
+      s.style.setProperty('--ty', `${ty.toFixed(1)}px`);
+      wrap.appendChild(s);
+    }
+
+    fx.appendChild(wrap);
+    setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+120));
+  }
+
+  function fxText(clientX, clientY, txt, cls=''){
+    const fx = ensureFxLayer();
+    if(!fx) return;
+
+    const { x, y } = toLayerLocal(clientX, clientY);
+    const t = DOC.createElement('div');
+    t.className = `gj-fx-text ${cls||''}`.trim();
+    t.textContent = String(txt || '');
+    t.style.left = `${Math.round(x)}px`;
+    t.style.top  = `${Math.round(y)}px`;
+    fx.appendChild(t);
+
+    setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 640);
+  }
+
+  function bodyPulse(cls, ms=160){
+    try{
+      DOC.body.classList.add(cls);
+      setTimeout(()=>DOC.body.classList.remove(cls), ms);
+    }catch(_){}
+  }
+
+  function fxByKind(kind, clientX, clientY, meta={}){
+    if(kind==='good'){
+      popBurst('good', clientX, clientY, { size: 88, life: 320 });
+      popShards('good', clientX, clientY, { n: 8, spread: 76, life: 500, sizeMin: 6, sizeMax: 12 });
+      return;
+    }
+
+    if(kind==='junk'){
+      if(meta.blocked){
+        popBurst('block', clientX, clientY, { size: 96, life: 220 });
+        popShards('block', clientX, clientY, { n: 7, spread: 64, life: 360, sizeMin: 5, sizeMax: 10 });
+        bodyPulse('gj-pulse-block', 110);
+      }else{
+        popBurst('junk', clientX, clientY, { size: 126, life: 420 });
+        popShards('junk', clientX, clientY, { n: 14, spread: 118, life: 620, sizeMin: 6, sizeMax: 14 });
+        bodyPulse('gj-pulse-hurt', 220);
+      }
+      return;
+    }
+
+    if(kind==='star'){
+      popBurst('star', clientX, clientY, { size: 98, life: 320 });
+      popShards('star', clientX, clientY, { n: 9, spread: 90, life: 520, sizeMin: 5, sizeMax: 12 });
+      bodyPulse('gj-pulse-star', 120);
+      return;
+    }
+
+    if(kind==='shield'){
+      popBurst('shield', clientX, clientY, { size: 104, life: 340 });
+      popShards('shield', clientX, clientY, { n: 10, spread: 88, life: 520, sizeMin: 5, sizeMax: 12 });
+      bodyPulse('gj-pulse-shield', 120);
+      return;
+    }
+
+    if(kind==='diamond'){
+      popBurst('diamond', clientX, clientY, { size: 112, life: 360 });
+      popShards('diamond', clientX, clientY, { n: 12, spread: 102, life: 560, sizeMin: 6, sizeMax: 14 });
+      bodyPulse('gj-pulse-diamond', 140);
+      return;
+    }
+
+    if(kind==='skull'){
+      popBurst('skull', clientX, clientY, { size: 136, life: 460 });
+      popShards('skull', clientX, clientY, { n: 16, spread: 126, life: 680, sizeMin: 6, sizeMax: 15 });
+      bodyPulse('gj-pulse-danger', 260);
+      return;
+    }
+
+    if(kind==='bomb'){
+      if(meta.blocked){
+        popBurst('defuse', clientX, clientY, { size: 118, life: 320 });
+        popShards('defuse', clientX, clientY, { n: 12, spread: 110, life: 520, sizeMin: 6, sizeMax: 14 });
+        bodyPulse('gj-pulse-defuse', 160);
+      }else{
+        popBurst('bomb', clientX, clientY, { size: 158, life: 520 });
+        popShards('bomb', clientX, clientY, { n: 18, spread: 150, life: 760, sizeMin: 7, sizeMax: 16 });
+        bodyPulse('gj-pulse-explode', 360);
+      }
+      return;
+    }
+
+    popBurst('good', clientX, clientY, { size: 90, life: 320 });
+  }
+
   // ---------------- UI refs ----------------
   const HUD = {
     score: byId('hud-score'),
@@ -214,234 +389,6 @@ export function boot(payload = {}) {
     endTime: byId('endTime'),
   };
 
-  // ---------------- FX HARDENED ----------------
-  function ensureFxLayer(){
-    try{
-      let fx = DOC.getElementById('gj-fx');
-      const needRecreate = (!fx || !fx.isConnected || (fx.parentElement !== LAYER_L));
-      if(needRecreate){
-        try{ fx && fx.remove(); }catch(_){}
-        fx = DOC.createElement('div');
-        fx.id = 'gj-fx';
-        fx.setAttribute('aria-hidden','true');
-        fx.style.position = 'absolute';
-        fx.style.left = '0';
-        fx.style.top = '0';
-        fx.style.right = '0';
-        fx.style.bottom = '0';
-        fx.style.pointerEvents = 'none';
-        fx.style.zIndex = '140';
-        if(!LAYER_L.style.position) LAYER_L.style.position = 'relative';
-        LAYER_L.appendChild(fx);
-      }
-      return fx;
-    }catch(_){
-      return null;
-    }
-  }
-
-  function addFxEl(el, ttlMs){
-    const fx = ensureFxLayer();
-    if(!fx || !el) return;
-    try{
-      fx.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, ttlMs|0));
-    }catch(_){}
-  }
-
-  function screenPulse(cls, ms=160){
-    try{
-      DOC.body.classList.add(cls);
-      setTimeout(()=>DOC.body.classList.remove(cls), ms);
-    }catch(_){}
-  }
-
-  function fxText(x,y,txt, cls=''){
-    try{
-      ensureFxLayer();
-      const r = layerRect();
-      const lx = x - r.left;
-      const ly = y - r.top;
-
-      const el = DOC.createElement('div');
-      el.className = (`gj-fx-text ${cls}`).trim();
-      el.textContent = String(txt);
-
-      el.style.position = 'absolute';
-      el.style.left = `${Math.round(lx)}px`;
-      el.style.top  = `${Math.round(ly)}px`;
-      el.style.transform = 'translate(-50%,-70%)';
-      el.style.fontWeight = '1000';
-      el.style.letterSpacing = '.2px';
-      el.style.textShadow = '0 8px 22px rgba(0,0,0,.55)';
-      el.style.willChange = 'transform, opacity, filter';
-      el.style.opacity = '0';
-
-      requestAnimationFrame(()=>{
-        el.style.transition = 'transform 520ms ease, opacity 140ms ease';
-        el.style.opacity = '1';
-        el.style.transform = 'translate(-50%,-115%) scale(1.02)';
-      });
-      setTimeout(()=>{
-        el.style.transition = 'transform 340ms ease, opacity 260ms ease';
-        el.style.opacity = '0';
-        el.style.transform = 'translate(-50%,-160%) scale(.96)';
-      }, 320);
-
-      addFxEl(el, 760);
-    }catch(_){}
-  }
-
-  function fxDotBurst(x,y, cfg={}){
-    try{
-      ensureFxLayer();
-      const r = layerRect();
-      const lx = x - r.left;
-      const ly = y - r.top;
-
-      const n = cfg.n ?? 10;
-      const ttl = cfg.ttl ?? 520;
-      const spread = cfg.spread ?? 42;
-      const scale0 = cfg.scale0 ?? 1.0;
-      const scale1 = cfg.scale1 ?? 0.2;
-
-      for(let i=0;i<n;i++){
-        const a = (Math.PI*2) * (i/n) + randIn(rng, -0.25, 0.25);
-        const d = randIn(rng, spread*0.55, spread*1.08);
-        const dx = Math.cos(a)*d;
-        const dy = Math.sin(a)*d;
-
-        const dot = DOC.createElement('div');
-        dot.className = (`gj-fx-dot ${cfg.cls||''}`).trim();
-
-        dot.style.position='absolute';
-        dot.style.left = `${Math.round(lx)}px`;
-        dot.style.top  = `${Math.round(ly)}px`;
-        dot.style.width = `${cfg.size ?? 6}px`;
-        dot.style.height= `${cfg.size ?? 6}px`;
-        dot.style.borderRadius='999px';
-        dot.style.background = cfg.bg ?? 'rgba(255,255,255,.85)';
-        dot.style.boxShadow = cfg.shadow ?? '0 10px 28px rgba(0,0,0,.35)';
-        dot.style.opacity='0';
-        dot.style.transform = `translate(-50%,-50%) scale(${scale0})`;
-        dot.style.willChange='transform, opacity, filter';
-
-        requestAnimationFrame(()=>{
-          dot.style.transition = `transform ${ttl}ms cubic-bezier(.16,.9,.22,1), opacity 90ms ease`;
-          dot.style.opacity = '1';
-          dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale1})`;
-        });
-
-        setTimeout(()=>{ try{ dot.style.opacity='0'; }catch(_){ } }, Math.max(110, ttl-120));
-        addFxEl(dot, ttl+220);
-      }
-    }catch(_){}
-  }
-
-  function fxRing(x,y, cfg={}){
-    try{
-      ensureFxLayer();
-      const r = layerRect();
-      const lx = x - r.left;
-      const ly = y - r.top;
-
-      const ring = DOC.createElement('div');
-      ring.className = (`gj-fx-ring ${cfg.cls||''}`).trim();
-      ring.style.position='absolute';
-      ring.style.left = `${Math.round(lx)}px`;
-      ring.style.top  = `${Math.round(ly)}px`;
-      ring.style.transform='translate(-50%,-50%) scale(.35)';
-      ring.style.width = `${cfg.size ?? 42}px`;
-      ring.style.height= `${cfg.size ?? 42}px`;
-      ring.style.borderRadius='999px';
-      ring.style.border = cfg.border ?? '2px solid rgba(255,255,255,.55)';
-      ring.style.boxShadow = cfg.shadow ?? '0 14px 40px rgba(0,0,0,.35)';
-      ring.style.opacity='0';
-      ring.style.willChange='transform, opacity, filter';
-
-      const ttl = cfg.ttl ?? 520;
-      requestAnimationFrame(()=>{
-        ring.style.transition = `transform ${ttl}ms cubic-bezier(.12,.9,.22,1), opacity 120ms ease`;
-        ring.style.opacity='1';
-        ring.style.transform='translate(-50%,-50%) scale(1.08)';
-      });
-      setTimeout(()=>{
-        ring.style.transition = 'opacity 240ms ease';
-        ring.style.opacity='0';
-      }, Math.max(160, ttl-160));
-
-      addFxEl(ring, ttl+260);
-    }catch(_){}
-  }
-
-  function playFx(kind, x, y){
-    ensureFxLayer();
-
-    if(kind === 'good'){
-      fxDotBurst(x,y,{ n:10, spread:40, ttl:520, size:6, bg:'rgba(34,211,238,.95)', shadow:'0 14px 34px rgba(34,211,238,.18)' });
-      fxRing(x,y,{ size:46, ttl:520, border:'2px solid rgba(34,211,238,.55)', shadow:'0 16px 42px rgba(34,211,238,.12)' });
-      return;
-    }
-
-    if(kind === 'junk_block'){
-      fxRing(x,y,{ size:56, ttl:360, border:'2px solid rgba(56,189,248,.62)', shadow:'0 14px 38px rgba(56,189,248,.18)', cls:'soft' });
-      fxDotBurst(x,y,{ n:8, spread:26, ttl:320, size:5, bg:'rgba(56,189,248,.92)', shadow:'0 12px 30px rgba(56,189,248,.12)' });
-      screenPulse('gj-block', 120);
-      return;
-    }
-
-    if(kind === 'junk_hit'){
-      fxRing(x,y,{ size:64, ttl:520, border:'2px solid rgba(248,113,113,.70)', shadow:'0 18px 52px rgba(248,113,113,.22)' });
-      fxDotBurst(x,y,{ n:14, spread:48, ttl:560, size:6, bg:'rgba(248,113,113,.95)', shadow:'0 18px 52px rgba(248,113,113,.18)' });
-      fxDotBurst(x,y,{ n:10, spread:34, ttl:520, size:4, bg:'rgba(255,255,255,.75)', shadow:'0 18px 52px rgba(0,0,0,.25)' });
-      screenPulse('gj-junk-hit', 220);
-      screenPulse('gj-hurt', 180);
-      return;
-    }
-
-    if(kind === 'star'){
-      fxRing(x,y,{ size:54, ttl:520, border:'2px solid rgba(250,204,21,.62)', shadow:'0 18px 52px rgba(250,204,21,.16)' });
-      fxDotBurst(x,y,{ n:12, spread:44, ttl:560, size:5, bg:'rgba(250,204,21,.92)', shadow:'0 18px 52px rgba(250,204,21,.12)' });
-      screenPulse('gj-star', 160);
-      return;
-    }
-
-    if(kind === 'shield'){
-      fxRing(x,y,{ size:58, ttl:520, border:'2px solid rgba(52,211,153,.62)', shadow:'0 18px 52px rgba(52,211,153,.14)' });
-      fxDotBurst(x,y,{ n:11, spread:40, ttl:540, size:5, bg:'rgba(52,211,153,.92)', shadow:'0 18px 52px rgba(52,211,153,.12)' });
-      screenPulse('gj-shield', 160);
-      return;
-    }
-
-    if(kind === 'diamond'){
-      fxRing(x,y,{ size:62, ttl:560, border:'2px solid rgba(167,139,250,.70)', shadow:'0 18px 52px rgba(167,139,250,.18)' });
-      fxDotBurst(x,y,{ n:14, spread:50, ttl:620, size:5, bg:'rgba(167,139,250,.92)', shadow:'0 18px 52px rgba(167,139,250,.14)' });
-      fxDotBurst(x,y,{ n:8, spread:28, ttl:520, size:4, bg:'rgba(255,255,255,.72)', shadow:'0 18px 52px rgba(0,0,0,.22)' });
-      screenPulse('gj-diamond', 170);
-      return;
-    }
-
-    if(kind === 'skull'){
-      fxRing(x,y,{ size:70, ttl:580, border:'2px solid rgba(148,163,184,.58)', shadow:'0 20px 60px rgba(0,0,0,.35)' });
-      fxDotBurst(x,y,{ n:16, spread:54, ttl:620, size:6, bg:'rgba(148,163,184,.92)', shadow:'0 20px 60px rgba(148,163,184,.10)' });
-      fxDotBurst(x,y,{ n:10, spread:34, ttl:520, size:4, bg:'rgba(255,255,255,.62)', shadow:'0 20px 60px rgba(0,0,0,.28)' });
-      screenPulse('gj-skull-hit', 240);
-      screenPulse('gj-hurt', 200);
-      return;
-    }
-
-    if(kind === 'bomb'){
-      fxRing(x,y,{ size:78, ttl:620, border:'2px solid rgba(251,146,60,.72)', shadow:'0 22px 70px rgba(251,146,60,.20)' });
-      fxDotBurst(x,y,{ n:18, spread:62, ttl:700, size:6, bg:'rgba(251,146,60,.95)', shadow:'0 22px 70px rgba(251,146,60,.16)' });
-      fxDotBurst(x,y,{ n:12, spread:40, ttl:620, size:4, bg:'rgba(255,255,255,.70)', shadow:'0 22px 70px rgba(0,0,0,.30)' });
-      screenPulse('gj-bomb', 320);
-      screenPulse('gj-hurt', 240);
-      return;
-    }
-
-    fxDotBurst(x,y,{ n:8, spread:34, ttl:420, size:5, bg:'rgba(255,255,255,.8)', shadow:'0 14px 34px rgba(0,0,0,.28)' });
-  }
-
   // ---------------- state ----------------
   const state = {
     started: false,
@@ -454,7 +401,6 @@ export function boot(payload = {}) {
     comboMax: 0,
     miss: 0,
 
-    // counts
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -471,16 +417,13 @@ export function boot(payload = {}) {
     fever: 0,
     shield: 0,
 
-    // quests
     goalObj: null,
     miniObj: null,
     lastQuestEmitAt: 0,
 
-    // spawn
     spawnAcc: 0,
     targets: new Map(),
 
-    // modes
     stormOn: false,
     bossOn: false,
     rageOn: false,
@@ -701,7 +644,7 @@ export function boot(payload = {}) {
 
     const goodW = Math.max(0.01, 1 - (junkW+starW+shieldW+diamondW+bossHazW+bossBombW));
 
-    return pickWeighted(rng, [
+    return pickWeighted([
       {k:'good', w:goodW},
       {k:'junk', w:junkW},
       {k:'star', w:starW},
@@ -743,11 +686,11 @@ export function boot(payload = {}) {
       (kind==='skull')? 58 :
       (kind==='bomb') ? 58 : 50;
 
-    const size = clamp(baseSize + randIn(rng, -4, 12), 44, 78);
+    const size = clamp(baseSize + randIn(-4, 12), 44, 78);
 
     const rect = getSafeRect();
-    const x = Math.floor(randIn(rng, rect.xMin, rect.xMax));
-    const y = Math.floor(randIn(rng, rect.yMin, rect.yMax));
+    const x = Math.floor(randIn(rect.xMin, rect.xMax));
+    const y = Math.floor(randIn(rect.yMin, rect.yMax));
 
     const elL = DOC.createElement('div');
     elL.className = 'gj-target spawn';
@@ -765,6 +708,7 @@ export function boot(payload = {}) {
     }
 
     const bornAt = now();
+
     const ax = rect.left + x;
     const ay = rect.top  + y;
 
@@ -780,7 +724,13 @@ export function boot(payload = {}) {
       elR.addEventListener('pointerdown', onPointer, { passive:false });
     }
 
-    LAYER_L.appendChild(elL);
+    const fx = DOC.getElementById('gj-fx');
+    if(fx && fx.parentElement === LAYER_L){
+      LAYER_L.insertBefore(elL, fx);
+    }else{
+      LAYER_L.appendChild(elL);
+    }
+
     if(elR && LAYER_R) LAYER_R.appendChild(elR);
 
     state.targets.set(id, tObj);
@@ -806,11 +756,12 @@ export function boot(payload = {}) {
   }
   function resetCombo(){ state.combo = 0; }
 
-  function bossTakeDamage(dmg, px, py){
+  function bossTakeDamage(dmg, cx, cy){
     if(!state.boss.active) return;
     const b = state.boss;
     b.hp = Math.max(0, b.hp - Math.max(1, dmg|0));
-    fxText(px,py,`-HP ${dmg}`, 'boss');
+
+    fxText(cx,cy,`-HP ${dmg}`, 't-danger');
     emit('hha:judge', { label:`BOSS HIT! (${b.hp}/${b.hpMax})` });
     updateBossUI();
 
@@ -833,7 +784,10 @@ export function boot(payload = {}) {
       addShield(2);
       emit('hha:celebrate', { kind:'boss_clear' });
       emit('hha:judge', { label:'BOSS DOWN!' });
-      screenPulse('gj-boss-down', 260);
+
+      bodyPulse('gj-boss-down', 260);
+      popBurst('victory', cx, cy, { size: 160, life: 420 });
+      popShards('victory', cx, cy, { n: 16, spread: 150, life: 700, sizeMin: 6, sizeMax: 16 });
 
       updateBossUI();
       recomputeQuest();
@@ -844,8 +798,6 @@ export function boot(payload = {}) {
   function onTargetHit(tObj, meta={}){
     if(!tObj || tObj.hit || state.ended) return;
     tObj.hit = true;
-
-    ensureFxLayer();
 
     const hitAt = now();
     const rtMs = Math.max(0, Math.round(hitAt - tObj.bornAt));
@@ -872,8 +824,9 @@ export function boot(payload = {}) {
       }
 
       state.rtGood.push(rtMs);
-      playFx('good', px, py);
-      fxText(px,py,`+${delta}`, 'good');
+
+      fxByKind('good', px, py);
+      fxText(px, py, `+${delta}`, 't-good');
       emit('hha:judge', { label:'GOOD!' });
 
     } else if(kind==='junk'){
@@ -883,16 +836,19 @@ export function boot(payload = {}) {
       if(blocked){
         state.nHitJunkGuard++;
         addFever(-6);
-        playFx('junk_block', px, py);
-        fxText(px,py,'BLOCK', 'block');
+
+        fxByKind('junk', px, py, { blocked:true });
+        fxText(px, py, 'BLOCK', 't-block');
         emit('hha:judge', { label:'BLOCK!' });
+
       }else{
         state.nHitJunk++;
         addFever(10);
         setMiss(state.miss + 1);
         setScore(state.score + (DIFF.junkPenaltyScore||-10));
-        playFx('junk_hit', px, py);
-        fxText(px,py,'-', 'hurt');
+
+        fxByKind('junk', px, py, { blocked:false });
+        fxText(px, py, '-', 't-bad');
         emit('hha:judge', { label:'OOPS!' });
       }
 
@@ -900,16 +856,18 @@ export function boot(payload = {}) {
       resetCombo();
       addFever(-10);
       setMiss(Math.max(0, state.miss - 1));
-      playFx('star', px, py);
-      fxText(px,py,'MISS -1', 'star');
+
+      fxByKind('star', px, py);
+      fxText(px, py, 'MISS -1', 't-star');
       emit('hha:judge', { label:'STAR!' });
 
     } else if(kind==='shield'){
       resetCombo();
       addFever(-8);
       addShield(1);
-      playFx('shield', px, py);
-      fxText(px,py,'SHIELD +1', 'shield');
+
+      fxByKind('shield', px, py);
+      fxText(px, py, 'SHIELD +1', 't-shield');
       emit('hha:judge', { label:'SHIELD!' });
 
     } else if(kind==='diamond'){
@@ -918,8 +876,9 @@ export function boot(payload = {}) {
       addShield(2);
       const bonus = 35;
       setScore(state.score + bonus);
-      playFx('diamond', px, py);
-      fxText(px,py,`+${bonus}`, 'diamond');
+
+      fxByKind('diamond', px, py);
+      fxText(px, py, `+${bonus}`, 't-diamond');
       emit('hha:judge', { label:'DIAMOND!' });
 
     } else if(kind==='skull'){
@@ -927,8 +886,9 @@ export function boot(payload = {}) {
       addFever(14);
       setMiss(state.miss + 1);
       setScore(state.score - 8);
-      playFx('skull', px, py);
-      fxText(px,py,'💀', 'skull');
+
+      fxByKind('skull', px, py);
+      fxText(px, py, '💀', 't-danger');
       emit('hha:judge', { label:'SKULL!' });
 
       if(state.boss.active && state.boss.phase===2){
@@ -941,15 +901,18 @@ export function boot(payload = {}) {
 
       if(blocked){
         addFever(-8);
-        playFx('junk_block', px, py);
-        fxText(px,py,'DEFUSE', 'block');
+
+        fxByKind('bomb', px, py, { blocked:true });
+        fxText(px, py, 'DEFUSE', 't-defuse');
         emit('hha:judge', { label:'DEFUSED!' });
+
       }else{
         addFever(20);
         setMiss(state.miss + 2);
         setScore(state.score - 22);
-        playFx('bomb', px, py);
-        fxText(px,py,'BOOM', 'bomb');
+
+        fxByKind('bomb', px, py, { blocked:false });
+        fxText(px, py, 'BOOM', 't-bomb');
         emit('hha:judge', { label:'BOOM!' });
 
         if(state.boss.active) state.boss.rageBoost = Math.min(1.0, state.boss.rageBoost + 0.25);
@@ -970,11 +933,9 @@ export function boot(payload = {}) {
   // ---------------- VR/cVR shoot center ----------------
   function shootCrosshair(ev){
     if(state.ended) return;
-    ensureFxLayer();
 
     const cx = Math.floor(ev?.detail?.x ?? (DOC.documentElement.clientWidth/2));
     const cy = Math.floor(ev?.detail?.y ?? (DOC.documentElement.clientHeight/2));
-
     const R = (isCVR || isVR) ? 92 : 76;
 
     let best = null;
@@ -995,9 +956,9 @@ export function boot(payload = {}) {
     if(best){
       onTargetHit(best, { via:'shoot', clientX: cx, clientY: cy });
     }else{
-      screenPulse('gj-miss-shot', 120);
-      fxText(cx,cy,'…', 'miss');
-      playFx('miss', cx, cy);
+      popBurst('miss', cx, cy, { size: 70, life: 220 });
+      fxText(cx, cy, '…', 't-miss');
+      bodyPulse('gj-miss-shot', 120);
     }
   }
   ROOT.addEventListener('hha:shoot', shootCrosshair, { passive:true });
@@ -1018,11 +979,10 @@ export function boot(payload = {}) {
           setMiss(state.miss + 1);
 
           const c = centerOfTarget(tObj);
-          playFx('good', c.x, c.y);
-          fxText(c.x,c.y,'MISS', 'miss');
+          popBurst('expire', c.x, c.y, { size: 92, life: 320 });
+          fxText(c.x, c.y, 'MISS', 't-bad');
 
           emit('hha:judge', { label:'MISS!' });
-          screenPulse('gj-good-expire', 160);
 
           updateModeThresholds();
           updateBossUI();
@@ -1046,8 +1006,9 @@ export function boot(payload = {}) {
     if(wantStorm && !state.stormOn){
       state.stormOn = true;
       emit('hha:judge', { label:'STORM!' });
-      fxText(DOC.documentElement.clientWidth/2, 80, '⚡ STORM', 'storm');
-      screenPulse('gj-storm', 240);
+      popBurst('storm', DOC.documentElement.clientWidth/2, 90, { size: 160, life: 420 });
+      fxText(DOC.documentElement.clientWidth/2, 90, '⚡ STORM', 't-storm');
+      bodyPulse('gj-storm', 240);
     }
 
     const wantBoss = (state.miss >= 4);
@@ -1068,8 +1029,9 @@ export function boot(payload = {}) {
       state.boss.teleTimer = 0;
 
       emit('hha:judge', { label:`BOSS! HP ${state.boss.hp}/${state.boss.hpMax}` });
-      fxText(DOC.documentElement.clientWidth/2, 110, '👹 BOSS', 'boss');
-      screenPulse('gj-boss', 280);
+      popBurst('boss', DOC.documentElement.clientWidth/2, 120, { size: 180, life: 520 });
+      fxText(DOC.documentElement.clientWidth/2, 120, '👹 BOSS', 't-danger');
+      bodyPulse('gj-boss', 280);
 
       for(let i=0;i<3;i++) spawnOne();
     }
@@ -1078,8 +1040,9 @@ export function boot(payload = {}) {
     if(wantRage && !state.rageOn){
       state.rageOn = true;
       emit('hha:judge', { label:'RAGE!!' });
-      fxText(DOC.documentElement.clientWidth/2, 140, '🔥 RAGE', 'rage');
-      screenPulse('gj-rage', 320);
+      popBurst('rage', DOC.documentElement.clientWidth/2, 150, { size: 190, life: 520 });
+      fxText(DOC.documentElement.clientWidth/2, 150, '🔥 RAGE', 't-danger');
+      bodyPulse('gj-rage', 320);
     }
 
     setModeClass();
@@ -1089,9 +1052,11 @@ export function boot(payload = {}) {
   function bossTelegraphStart(label){
     state.boss.teleOn = true;
     state.boss.teleTimer = 0;
+
     emit('hha:judge', { label: `⚠️ ${label}` });
-    fxText(DOC.documentElement.clientWidth/2, 168, '⚠️ INCOMING', 'tele');
-    screenPulse('gj-tele', 180);
+    popBurst('tele', DOC.documentElement.clientWidth/2, 170, { size: 170, life: 420 });
+    fxText(DOC.documentElement.clientWidth/2, 170, '⚠️ INCOMING', 't-danger');
+    bodyPulse('gj-tele', 180);
     updateBossUI();
   }
 
@@ -1105,15 +1070,15 @@ export function boot(payload = {}) {
         setMiss(state.miss + 1);
 
         const c = centerOfTarget(tObj);
-        playFx('skull', c.x, c.y);
-        fxText(c.x,c.y,'STOMP', 'stomp');
+        popBurst('stomp', c.x, c.y, { size: 120, life: 420 });
+        fxText(c.x,c.y,'STOMP', 't-danger');
 
         removeTarget(tObj);
         popped++;
       }
     }
     emit('hha:judge', { label:'STOMP!' });
-    screenPulse('gj-stomp', 240);
+    bodyPulse('gj-stomp', 240);
     updateModeThresholds();
     updateBossUI();
     recomputeQuest();
@@ -1123,8 +1088,9 @@ export function boot(payload = {}) {
     const n = state.rageOn ? 4 : 3;
     for(let i=0;i<n;i++) spawnOne();
     emit('hha:judge', { label:'BURST!' });
-    fxText(DOC.documentElement.clientWidth/2, 190, '💥 BURST', 'burst');
-    screenPulse('gj-burst', 240);
+    popBurst('burst', DOC.documentElement.clientWidth/2, 195, { size: 160, life: 520 });
+    fxText(DOC.documentElement.clientWidth/2, 195, '💥 BURST', 't-danger');
+    bodyPulse('gj-burst', 240);
   }
 
   function tickBoss(dt){
@@ -1136,7 +1102,7 @@ export function boot(payload = {}) {
       b.phaseTimer = 0;
       b.phase = (b.phase === 1) ? 2 : 1;
       emit('hha:judge', { label: (b.phase===2 ? 'PHASE 2!' : 'PHASE 1') });
-      fxText(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1', 'phase');
+      fxText(DOC.documentElement.clientWidth/2, 165, b.phase===2 ? '⚔️ PHASE 2' : '🛡️ PHASE 1', 't-danger');
       if(b.phase===2){
         for(let i=0;i<2;i++) spawnOne();
       }
@@ -1213,7 +1179,9 @@ export function boot(payload = {}) {
     try{
       if(!HUD.endOverlay) return;
       HUD.endTitle && (HUD.endTitle.textContent = (detail?.reason==='miss-limit') ? 'Game Over' : 'Completed');
-      HUD.endSub && (HUD.endSub.textContent = `reason=${detail?.reason||'-'} | mode=${detail?.runMode||runMode} | view=${detail?.device||deviceLabel(view)}`);
+      HUD.endSub && (HUD.endSub.textContent =
+        `reason=${safeText(detail?.reason)} | mode=${safeText(detail?.runMode||runMode)} | view=${safeText(detail?.device||deviceLabel(view))}`
+      );
       HUD.endGrade && (HUD.endGrade.textContent = detail?.grade || '—');
       HUD.endScore && (HUD.endScore.textContent = String(detail?.scoreFinal ?? 0));
       HUD.endMiss && (HUD.endMiss.textContent  = String(detail?.misses ?? 0));
@@ -1292,6 +1260,9 @@ export function boot(payload = {}) {
 
     showEndOverlay({ ...summary });
     emit('hha:celebrate', { kind:'end', grade });
+
+    popBurst('end', DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight/2, { size: 220, life: 600 });
+    popShards('end', DOC.documentElement.clientWidth/2, DOC.documentElement.clientHeight/2, { n: 18, spread: 170, life: 820, sizeMin: 7, sizeMax: 16 });
   }
 
   // ---------------- loop ----------------
@@ -1348,6 +1319,8 @@ export function boot(payload = {}) {
 
     updateProgressUI();
     updateBossUI();
+
+    ensureFxLayer();
 
     emit('hha:coach', {
       msg: 'โหดขึ้นแล้ว! ⚡เหลือ 30s = STORM | MISS ≥4 = BOSS | MISS ≥5 = RAGE (ระวัง 💣/💀) — มี ⚠️ telegraph ให้หลบ/สวน',
