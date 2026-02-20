@@ -1,809 +1,594 @@
-/* === /fitness/css/rhythm-boxer.css ===
-   Rhythm Boxer — FULL CSS (Latest patched baseline)
-   ✅ Hit line at bottom
-   ✅ Notes fall to hit line (bottom-aligned)
-   ✅ 5-lane layout (3-lane also works)
-   ✅ Menu / Play / Result styling
-   ✅ Mobile + PC responsive
+/* === /fitness/css/rhythm-boxer.css — Rhythm Boxer (PROD) ===
+   ✅ Hit line is at the BOTTOM (gold line)
+   ✅ Notes fall DOWN to the hit line (engine y=0 means "at hit line")
+   ✅ Note tail length via --rb-note-len
+   ✅ Works on PC/Mobile + safe-area
 */
 
 :root{
-  --rb-bg-0: #0b1020;
-  --rb-bg-1: #11182d;
-  --rb-bg-2: #18213d;
-  --rb-card: rgba(255,255,255,0.06);
-  --rb-card-bd: rgba(255,255,255,0.12);
-  --rb-text: #f7f8ff;
-  --rb-text-dim: rgba(247,248,255,0.75);
-  --rb-text-faint: rgba(247,248,255,0.55);
+  --rb-bg: #050814;
+  --rb-panel: rgba(2,6,23,.72);
+  --rb-panel2: rgba(2,6,23,.55);
+  --rb-line: rgba(148,163,184,.18);
+  --rb-txt: rgba(229,231,235,.94);
+  --rb-mut: rgba(148,163,184,.96);
 
-  --rb-primary: #6ee7ff;
-  --rb-primary-2: #4fc3ff;
-  --rb-accent: #b388ff;
-  --rb-ok: #40d39a;
-  --rb-warn: #ffd166;
-  --rb-danger: #ff6b8a;
+  --rb-good: rgba(16,185,129,.95);
+  --rb-blue: rgba(59,130,246,.95);
+  --rb-warn: rgba(251,191,36,.95);
+  --rb-bad: rgba(239,68,68,.95);
+  --rb-pink: rgba(244,114,182,.95);
 
-  --rb-hitline-y: 56px;         /* ระยะจากล่างของ lane ถึงเส้นตี */
-  --rb-lane-h: 420px;           /* ความสูงสนามเริ่มต้น */
+  --rb-radius: 18px;
+
+  /* layout */
+  --rb-maxw: 1120px;
+  --rb-pad: 14px;
+
+  /* field */
+  --rb-field-h: 520px;
   --rb-lane-gap: 10px;
-  --rb-lane-radius: 16px;
+  --rb-lane-radius: 18px;
 
-  --rb-note-w: 42px;
-  --rb-note-head: 42px;
-  --rb-note-len: 180px;         /* fallback; JS จะ override ต่อโน้ต */
+  /* hit line */
+  --rb-hitline-bottom: 54px; /* distance from lane bottom */
+  --rb-hitline-thick: 4px;
 
-  --rb-shadow: 0 10px 28px rgba(0,0,0,0.35);
-  --rb-safe-top: env(safe-area-inset-top, 0px);
-  --rb-safe-bot: env(safe-area-inset-bottom, 0px);
+  /* note */
+  --rb-note-w: 54px;
+  --rb-note-ico: 30px;
 }
 
-*{ box-sizing:border-box; }
-
-html,body{
-  margin:0;
-  padding:0;
-  min-height:100%;
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(110,231,255,.16), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(179,136,255,.14), transparent 60%),
-    linear-gradient(180deg, var(--rb-bg-0), var(--rb-bg-1) 50%, #0a0f1d);
-  color:var(--rb-text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-  -webkit-tap-highlight-color: transparent;
-}
-
+*{box-sizing:border-box}
+html,body{height:100%}
 body{
-  padding-top: var(--rb-safe-top);
-  padding-bottom: var(--rb-safe-bot);
+  margin:0;
+  background:
+    radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+    radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
+    var(--rb-bg);
+  color:var(--rb-txt);
+  font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
 }
 
-.hidden{ display:none !important; }
+a{color:inherit;text-decoration:none}
+.hidden{display:none !important}
 
+/* ===== container ===== */
 #rb-wrap{
-  width:min(1100px, 100%);
-  margin:0 auto;
-  padding:14px 14px calc(14px + var(--rb-safe-bot));
-  position:relative;
+  min-height:100%;
+  padding: calc(var(--rb-pad) + env(safe-area-inset-top)) var(--rb-pad) calc(var(--rb-pad) + env(safe-area-inset-bottom));
 }
 
-/* ===== Flash overlay ===== */
-#rb-flash{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease;
-  z-index:50;
-  background: radial-gradient(circle at center, rgba(255,255,255,.10), rgba(255,255,255,.03), transparent 70%);
+.rb-view{
+  max-width: var(--rb-maxw);
+  margin: 0 auto;
 }
-#rb-flash.active{ opacity:1; }
 
-/* ===== Generic cards / buttons ===== */
-.rb-view{ display:block; }
-
-.rb-header,
-.rb-play-header{
+/* ===== header ===== */
+.rb-header{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
-  gap:12px;
-  margin-bottom:12px;
+  gap: 12px;
+  margin: 10px 0 14px;
 }
-
-.rb-head-main{ min-width:0; }
-
+.rb-head-main{max-width: 780px}
 .rb-pill{
   display:inline-flex;
   align-items:center;
-  gap:6px;
-  border:1px solid rgba(255,255,255,.18);
-  background: rgba(255,255,255,.05);
-  color: var(--rb-text-dim);
-  border-radius:999px;
-  padding:4px 10px;
-  font-size:12px;
-  margin-bottom:6px;
+  gap:8px;
+  padding:6px 10px;
+  border-radius: 999px;
+  background: rgba(99,102,241,.14);
+  border:1px solid rgba(99,102,241,.24);
+  color: rgba(229,231,235,.92);
+  font-size: 13px;
 }
-
 .rb-title{
-  margin:0;
-  font-size: clamp(22px, 3vw, 30px);
-  line-height:1.1;
-  letter-spacing:.2px;
+  margin: 10px 0 6px;
+  font-size: 34px;
+  line-height: 1.1;
 }
-
-.rb-title-sm{
-  margin:0;
-  font-size:18px;
-  line-height:1.15;
-}
-
 .rb-sub{
-  margin:6px 0 0;
-  color:var(--rb-text-dim);
-  font-size:14px;
-  line-height:1.35;
+  margin: 0 0 6px;
+  color: rgba(229,231,235,.84);
 }
 .rb-sub-small{
   display:inline-block;
-  margin-top:6px;
-  color:var(--rb-text-faint);
-  font-size:12px;
+  color: rgba(148,163,184,.98);
+  font-size: 12.5px;
 }
-.rb-sub-sm{
-  margin:4px 0 0;
-  color:var(--rb-text-dim);
-  font-size:12px;
-}
-
 .rb-back{
-  color: var(--rb-primary);
-  text-decoration:none;
-  border:1px solid rgba(110,231,255,.25);
-  background: rgba(110,231,255,.06);
-  border-radius:10px;
-  padding:8px 10px;
-  font-size:13px;
-  white-space:nowrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(2,6,23,.55);
+  border: 1px solid rgba(148,163,184,.16);
+  color: rgba(229,231,235,.92);
+  white-space: nowrap;
 }
-.rb-back:hover{ background: rgba(110,231,255,.11); }
+.rb-back:hover{border-color: rgba(251,191,36,.35)}
 
-.rb-section{
-  margin-top:12px;
-}
-
+/* ===== section/cards ===== */
+.rb-section{margin: 12px 0}
 .rb-grid-2{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:12px;
+  gap: 12px;
 }
-
 .rb-research-box{
-  background: var(--rb-card);
-  border:1px solid var(--rb-card-bd);
-  border-radius:18px;
-  padding:12px;
-  box-shadow: var(--rb-shadow);
-  backdrop-filter: blur(6px);
+  background: var(--rb-panel);
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: var(--rb-radius);
+  padding: 14px;
+  box-shadow: 0 18px 45px rgba(0,0,0,.22);
 }
-
 .rb-section-title{
-  margin:0 0 8px;
-  font-size:15px;
-  font-weight:700;
+  margin: 0 0 10px;
+  font-size: 16px;
 }
 .rb-section-title-sm{
-  margin:0 0 6px;
-  font-size:14px;
-  font-weight:700;
+  margin: 0 0 8px;
+  font-size: 15px;
 }
 .rb-section-subtitle{
-  margin:0 0 8px;
-  color:var(--rb-text-dim);
-  font-size:12px;
+  margin: 0 0 10px;
+  color: rgba(148,163,184,.96);
+  font-size: 13px;
 }
-.rb-mode-desc{
-  margin:8px 0 0;
-  color:var(--rb-text-dim);
-  font-size:12px;
-  line-height:1.4;
-}
+.rb-section-subtitle .mut{opacity:.9}
 
-/* ===== Forms ===== */
-.rb-field{
-  display:grid;
-  gap:4px;
-  margin:8px 0;
-}
-.rb-field label{
-  font-size:12px;
-  color:var(--rb-text-dim);
-}
-.rb-field input{
-  width:100%;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(7,10,20,.65);
-  color: var(--rb-text);
-  padding:10px 10px;
-  outline:none;
-}
-.rb-field input:focus{
-  border-color: rgba(110,231,255,.55);
-  box-shadow: 0 0 0 3px rgba(110,231,255,.12);
-}
-
-.rb-hint-inline{
-  margin:8px 0 0;
-  font-size:12px;
-  color:var(--rb-text-faint);
-  line-height:1.35;
-}
-
-.rb-hint-block{
-  margin-top:10px;
-  border:1px dashed rgba(255,255,255,.16);
-  border-radius:12px;
-  padding:10px;
-  background: rgba(255,255,255,.03);
-}
-.rb-hint-title{
-  margin:0 0 6px;
-  font-size:12px;
-  font-weight:700;
-}
-.rb-hint-list{
-  margin:0;
-  padding-left:18px;
-  color:var(--rb-text-dim);
-  font-size:12px;
-  line-height:1.45;
-}
-.rb-hint-list li + li{ margin-top:4px; }
-
-/* ===== Buttons ===== */
-.rb-btn{
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.05);
-  color: var(--rb-text);
-  border-radius:12px;
-  padding:10px 12px;
-  font-weight:600;
-  font-size:13px;
-  cursor:pointer;
-  transition: transform .06s ease, background .12s ease, border-color .12s ease;
-}
-.rb-btn:hover{ background: rgba(255,255,255,.09); }
-.rb-btn:active{ transform: translateY(1px); }
-
-.rb-btn-primary{
-  background: linear-gradient(180deg, rgba(110,231,255,.25), rgba(79,195,255,.14));
-  border-color: rgba(110,231,255,.35);
-  color:#fff;
-}
-.rb-btn-primary:hover{
-  background: linear-gradient(180deg, rgba(110,231,255,.30), rgba(79,195,255,.18));
-}
-
-.rb-btn-ghost{
-  background: rgba(255,255,255,.03);
-}
-
-.rb-btn-sm{
-  padding:8px 10px;
-  font-size:12px;
-}
-
-.rb-btn-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-
-/* ===== Toggle / radio pills ===== */
+/* mode toggle buttons (radio) */
 .rb-mode-toggle{
   display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin-top:4px;
+  gap: 10px;
+  margin: 8px 0 8px;
+  flex-wrap: wrap;
 }
-
 .rb-mode-btn{
-  position:relative;
   display:flex;
   align-items:center;
-  gap:8px;
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:12px;
-  padding:8px 10px;
-  background: rgba(255,255,255,.04);
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(2,6,23,.55);
+  border: 1px solid rgba(148,163,184,.16);
   cursor:pointer;
   user-select:none;
-  transition: border-color .12s ease, background .12s ease;
 }
-.rb-mode-btn:hover{
-  background: rgba(255,255,255,.07);
+.rb-mode-btn input{accent-color: rgb(251,191,36)}
+.rb-mode-btn:hover{border-color: rgba(251,191,36,.35)}
+.rb-mode-desc{
+  margin: 6px 0 0;
+  color: rgba(229,231,235,.84);
+  font-size: 13px;
 }
-.rb-mode-btn input{
-  margin:0;
-  accent-color: var(--rb-primary-2);
+
+.rb-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin: 10px 0 0;
 }
-.rb-mode-btn:has(input:checked){
-  border-color: rgba(110,231,255,.45);
-  background: rgba(110,231,255,.09);
+.rb-field label{font-size: 13px; color: rgba(229,231,235,.9)}
+.rb-field input{
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 12px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.62);
+  color: rgba(229,231,235,.95);
+  outline: none;
 }
+.rb-field input:focus{border-color: rgba(251,191,36,.45); box-shadow: 0 0 0 3px rgba(251,191,36,.12)}
+
+.rb-hint-inline{
+  margin: 10px 0 0;
+  color: rgba(148,163,184,.96);
+  font-size: 12.5px;
+}
+.rb-hint-block{
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(2,6,23,.45);
+  border: 1px dashed rgba(148,163,184,.16);
+}
+.rb-hint-title{margin: 0 0 8px; font-weight: 700; font-size: 13px}
+.rb-hint-list{margin:0; padding-left: 18px; color: rgba(229,231,235,.86); font-size: 13px}
+.rb-hint-list li{margin: 4px 0}
+
+/* ===== buttons ===== */
+.rb-btn-row{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items:center;
+  justify-content:center;
+}
+.rb-btn{
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
+  color: rgba(229,231,235,.95);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.rb-btn:hover{border-color: rgba(251,191,36,.35)}
+.rb-btn:active{transform: translateY(1px)}
+.rb-btn-primary{
+  background: linear-gradient(135deg, rgba(251,191,36,.95), rgba(244,114,182,.85));
+  border-color: rgba(251,191,36,.25);
+  color: rgba(2,6,23,.92);
+}
+.rb-btn-ghost{
+  background: transparent;
+  border: 1px solid rgba(148,163,184,.2);
+}
+.rb-btn-sm{
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+/* ===== flash ===== */
+#rb-flash{
+  position: fixed;
+  inset: 0;
+  pointer-events:none;
+  opacity: 0;
+  background: rgba(239,68,68,.12);
+  transition: opacity .12s ease;
+  z-index: 50;
+}
+#rb-flash.active{opacity: 1}
+
+/* ===== PLAY view header ===== */
+.rb-play-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin: 10px 0 10px;
+}
+.rb-title-sm{margin:0; font-size: 18px}
+.rb-sub-sm{margin: 3px 0 0; color: rgba(148,163,184,.96); font-size: 13px}
 
 /* ===== HUD ===== */
-.rb-hud{
-  padding:10px;
-}
+.rb-hud{margin-bottom: 12px}
 .rb-hud-row{
   display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-bottom:6px;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 0;
 }
-.rb-hud-row:last-child{ margin-bottom:0; }
-
 .rb-chip{
   display:inline-flex;
+  gap: 6px;
   align-items:center;
-  gap:4px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.05);
-  color: var(--rb-text-dim);
-  padding:5px 8px;
-  font-size:12px;
-  line-height:1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.55);
+  border: 1px solid rgba(148,163,184,.16);
+  color: rgba(229,231,235,.92);
+  font-size: 13px;
 }
-.rb-chip b{
-  color:#fff;
-  font-weight:700;
-}
-
-.rb-chip-ai{
-  border-color: rgba(179,136,255,.22);
-  background: rgba(179,136,255,.07);
-}
+.rb-chip b{font-weight: 800}
+.rb-chip-ai{border-color: rgba(59,130,246,.22)}
 .rb-chip-tip{
-  width:100%;
-  justify-content:flex-start;
-  border-radius:10px;
-  line-height:1.25;
-  white-space:normal;
+  border-color: rgba(244,114,182,.28);
+  width: 100%;
 }
-.rb-chip-tip-label{
-  color: var(--rb-text-faint);
-}
-#rb-hud-ai-tip.hidden{
-  display:none !important;
-}
+.rb-chip-tip-label{opacity:.9}
 
-/* ===== Bars ===== */
 .rb-bars{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:8px;
-  margin-top:4px;
+  gap: 12px;
+  margin-top: 12px;
 }
 .rb-bar-block{
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:10px;
-  background: rgba(255,255,255,.03);
-  padding:8px;
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  align-items:center;
+  gap: 10px;
 }
 .rb-bar-label{
-  display:block;
-  font-size:11px;
-  color:var(--rb-text-faint);
-  margin-bottom:4px;
+  font-weight: 800;
+  font-size: 12px;
+  opacity: .9;
 }
 .rb-bar{
-  height:8px;
-  border-radius:999px;
-  background: rgba(255,255,255,.08);
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.12);
+  border: 1px solid rgba(148,163,184,.16);
   overflow:hidden;
-  border:1px solid rgba(255,255,255,.06);
 }
 .rb-bar-fill{
-  height:100%;
-  width:0%;
-  border-radius:999px;
-  transition: width .12s linear;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width .18s ease;
 }
-.rb-bar-fever{
-  background: linear-gradient(90deg, #ffd166, #ff8c42);
-}
-.rb-bar-progress{
-  background: linear-gradient(90deg, #6ee7ff, #4fc3ff);
-}
+.rb-bar-fever{background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(244,114,182,.9))}
+.rb-bar-progress{background: linear-gradient(90deg, rgba(59,130,246,.95), rgba(34,211,238,.9))}
 .rb-bar-status{
-  display:block;
-  margin-top:4px;
-  font-size:11px;
-  color:var(--rb-text-dim);
+  font-size: 12px;
+  color: rgba(229,231,235,.9);
 }
 
-/* ===== Field / Lanes ===== */
+/* ===== field / lanes ===== */
 .rb-field-wrap{
-  margin-top:10px;
+  max-width: var(--rb-maxw);
+  margin: 0 auto;
 }
-
 #rb-field{
-  position:relative;
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.12);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)),
-    radial-gradient(700px 200px at 50% 0%, rgba(110,231,255,.06), transparent 70%),
-    rgba(7,10,20,.75);
-  box-shadow: var(--rb-shadow);
+  position: relative;
+  height: var(--rb-field-h);
+  border-radius: var(--rb-radius);
+  border: 1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.58);
   overflow:hidden;
-  min-height: calc(var(--rb-lane-h) + 8px);
+  box-shadow: 0 18px 45px rgba(0,0,0,.22);
 }
 
 .rb-feedback{
   position:absolute;
-  top:8px;
-  left:50%;
+  top: 14px;
+  left: 50%;
   transform: translateX(-50%);
-  z-index:20;
-  min-width:100px;
-  text-align:center;
-  border-radius:999px;
-  padding:6px 10px;
-  font-weight:800;
-  letter-spacing:.3px;
-  font-size:13px;
-  color:#fff;
-  background: rgba(0,0,0,.28);
-  border:1px solid rgba(255,255,255,.12);
-  pointer-events:none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.65);
+  border: 1px solid rgba(148,163,184,.16);
+  color: rgba(229,231,235,.95);
+  font-weight: 800;
+  letter-spacing: .4px;
+  z-index: 10;
 }
-.rb-feedback.perfect{ color:#fff; background:rgba(64,211,154,.22); border-color:rgba(64,211,154,.35);}
-.rb-feedback.great{ color:#fff; background:rgba(110,231,255,.20); border-color:rgba(110,231,255,.35);}
-.rb-feedback.good{ color:#fff; background:rgba(255,209,102,.20); border-color:rgba(255,209,102,.35);}
-.rb-feedback.miss{ color:#fff; background:rgba(255,107,138,.20); border-color:rgba(255,107,138,.35);}
+.rb-feedback.perfect{border-color: rgba(244,114,182,.35)}
+.rb-feedback.great{border-color: rgba(251,191,36,.35)}
+.rb-feedback.good{border-color: rgba(16,185,129,.35)}
+.rb-feedback.miss{border-color: rgba(239,68,68,.35)}
 
 .rb-lanes{
-  position:relative;
-  z-index:1;
+  position:absolute;
+  inset: 0;
   display:grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--rb-lane-gap);
-  padding: 42px 10px 10px;
-  min-height: var(--rb-lane-h);
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
-
-/* 3-lane preset support (if HTML has 3 lane divs only) */
-.rb-lanes:has(.rb-lane:nth-child(3):last-child){
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .rb-lane{
-  position:relative;
-  min-height: calc(var(--rb-lane-h) - 52px);
+  position: relative;
   border-radius: var(--rb-lane-radius);
-  border:1px solid rgba(255,255,255,.10);
+  border: 1px solid rgba(148,163,184,.12);
   background:
-    linear-gradient(180deg,
-      rgba(255,255,255,.04) 0%,
-      rgba(255,255,255,.02) 55%,
-      rgba(255,255,255,.03) 100%);
+    linear-gradient(180deg, rgba(99,102,241,.08), rgba(2,6,23,.35) 55%, rgba(2,6,23,.52));
   overflow:hidden;
-  touch-action: manipulation;
-  user-select:none;
 }
 
-/* lane separators / pulse look */
+/* lane label near bottom */
+.rb-lane-label{
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.65);
+  border: 1px solid rgba(148,163,184,.16);
+  font-weight: 800;
+  font-size: 13px;
+  z-index: 6;
+}
+
+/* ==== HIT LINE (gold) at bottom ==== */
+.rb-lane::after{
+  content:"";
+  position:absolute;
+  left: 10px;
+  right: 10px;
+  height: var(--rb-hitline-thick);
+  bottom: var(--rb-hitline-bottom);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251,191,36,.95), rgba(244,114,182,.75));
+  box-shadow: 0 0 0 1px rgba(251,191,36,.18), 0 10px 22px rgba(251,191,36,.12);
+  z-index: 5;
+}
+
+/* faint guide above hit line */
 .rb-lane::before{
   content:"";
   position:absolute;
-  inset:0;
+  left: 14px;
+  right: 14px;
+  top: 14px;
+  bottom: 14px;
+  border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(110,231,255,.04), transparent 28%),
-    repeating-linear-gradient(
-      180deg,
-      transparent 0 28px,
-      rgba(255,255,255,.03) 28px 29px
-    );
+    linear-gradient(180deg, rgba(148,163,184,.10), transparent 22%),
+    linear-gradient(180deg, transparent 0%, rgba(148,163,184,.06) 48%, transparent 74%);
   pointer-events:none;
-}
-.rb-lane::after{
-  /* HIT LINE (เส้นตีสีทองด้านล่าง) */
-  content:"";
-  position:absolute;
-  left:6px;
-  right:6px;
-  bottom: var(--rb-hitline-y);
-  height:4px;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(255,209,102,.95), rgba(255,230,160,.95));
-  box-shadow:
-    0 0 0 1px rgba(255,209,102,.20),
-    0 0 14px rgba(255,209,102,.35);
-  z-index:6;
-  pointer-events:none;
+  z-index: 0;
 }
 
-.rb-lane-label{
-  position:absolute;
-  left:50%;
-  bottom:12px;
-  transform:translateX(-50%);
-  z-index:8;
-  min-width:32px;
-  text-align:center;
-  font-size:11px;
-  font-weight:800;
-  color:#fff;
-  border-radius:999px;
-  padding:4px 8px;
-  background: rgba(0,0,0,.35);
-  border:1px solid rgba(255,255,255,.12);
-  pointer-events:none;
-}
-
-/* ===== Notes ===== */
-/* Important: note anchor is the HEAD center.
-   JS sets transform: translate(-50%, y)
-   y = 0 when note head is exactly on hit line.
+/* ===== NOTE =====
+   IMPORTANT: anchor note to HIT LINE using bottom.
+   Engine sets transform translate(-50%, y). When y=0 => head is at hit line.
 */
 .rb-note{
   position:absolute;
-  left:50%;
-  bottom: calc(var(--rb-hitline-y) - (var(--rb-note-head) / 2)); /* head center aligns hit line when y=0 */
+  left: 50%;
+  bottom: var(--rb-hitline-bottom);
   width: var(--rb-note-w);
-  height: var(--rb-note-head);
-  transform: translate(-50%, -999px);
-  transform-origin: 50% 50%;
-  z-index:7;
-  pointer-events:none;
-  opacity:1;
+  height: calc(var(--rb-note-ico) + var(--rb-note-len, 160px));
+  transform: translate(-50%, -9999px); /* replaced each frame by engine */
   will-change: transform, opacity;
+  pointer-events:none;
+  z-index: 7;
+  opacity: 1;
 }
 
 /* tail */
 .rb-note::before{
   content:"";
   position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  bottom: calc(var(--rb-note-head) * 0.52);
-  width: 8px;
-  height: var(--rb-note-len);
-  border-radius:999px;
-  background:
-    linear-gradient(180deg,
-      rgba(110,231,255,.00) 0%,
-      rgba(110,231,255,.30) 22%,
-      rgba(110,231,255,.65) 70%,
-      rgba(255,255,255,.88) 100%);
-  box-shadow: 0 0 12px rgba(110,231,255,.25);
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--rb-note-ico) - 2px);
+  width: 10px;
+  height: var(--rb-note-len, 160px);
+  border-radius: 999px;
+  background: linear-gradient(180deg,
+    rgba(59,130,246,.0),
+    rgba(59,130,246,.22) 30%,
+    rgba(251,191,36,.30) 78%,
+    rgba(251,191,36,.12)
+  );
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
 }
 
-/* head */
+/* note head icon (emoji/🎵) */
 .rb-note-ico{
   position:absolute;
-  left:50%;
-  top:50%;
-  transform: translate(-50%, -50%);
-  width: var(--rb-note-head);
-  height: var(--rb-note-head);
-  display:grid;
-  place-items:center;
-  border-radius:999px;
-  font-size:24px;
-  line-height:1;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255,255,255,.35), rgba(255,255,255,.08) 38%, rgba(79,195,255,.10) 60%, rgba(79,195,255,.15) 100%);
-  border:1px solid rgba(110,231,255,.30);
-  box-shadow:
-    0 6px 18px rgba(0,0,0,.25),
-    0 0 14px rgba(110,231,255,.18);
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: var(--rb-note-w);
+  height: var(--rb-note-ico);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 26px;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
 }
 
-/* diff styling from data-diff */
-#rb-wrap[data-diff="easy"] .rb-note-ico{
-  border-color: rgba(64,211,154,.35);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25), 0 0 14px rgba(64,211,154,.16);
-}
-#rb-wrap[data-diff="hard"] .rb-note-ico{
-  border-color: rgba(255,107,138,.34);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25), 0 0 14px rgba(255,107,138,.18);
-}
-
-/* ===== FX (score text + fragments) ===== */
-.rb-score-fx{
-  position:fixed;
-  left:0; top:0;
-  z-index:80;
-  transform: translate(-50%, -50%) translateY(0);
-  opacity:0;
-  font-weight:900;
-  font-size:18px;
-  text-shadow: 0 2px 8px rgba(0,0,0,.45);
+/* ===== FX fragments / score ===== */
+.rb-frag{
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
   pointer-events:none;
-  transition: transform .42s ease, opacity .42s ease;
+  transform: translate(-50%, -50%);
+  animation: rbFrag var(--life, 520ms) ease-out forwards;
+}
+.rb-frag-perfect{background: rgba(244,114,182,.95)}
+.rb-frag-great{background: rgba(251,191,36,.95)}
+.rb-frag-good{background: rgba(16,185,129,.95)}
+.rb-frag-miss{background: rgba(239,68,68,.95)}
+
+@keyframes rbFrag{
+  0%{ opacity: 1; transform: translate(-50%,-50%) translate(0,0) scale(1); }
+  100%{ opacity: 0; transform: translate(-50%,-50%) translate(var(--dx,0), var(--dy,24px)) scale(.6); }
+}
+
+.rb-score-fx{
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%,-50%) scale(.92);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(148,163,184,.16);
+  font-weight: 900;
+  letter-spacing: .3px;
+  opacity: 0;
+  pointer-events:none;
+  transition: transform .12s ease, opacity .12s ease;
+  z-index: 999;
 }
 .rb-score-fx.is-live{
-  opacity:1;
-  transform: translate(-50%, -50%) translateY(-26px);
+  opacity: 1;
+  transform: translate(-50%,-60%) scale(1);
 }
-.rb-score-perfect{ color:#40d39a; }
-.rb-score-great{ color:#6ee7ff; }
-.rb-score-good{ color:#ffd166; }
-
-.rb-frag{
-  position:fixed;
-  left:0; top:0;
-  z-index:79;
-  border-radius:999px;
-  pointer-events:none;
-  opacity:.95;
-  transform: translate(-50%,-50%);
-  animation: rb-frag-burst var(--life,480ms) ease-out forwards;
-  background: rgba(255,255,255,.85);
-  box-shadow: 0 0 10px rgba(255,255,255,.18);
-}
-.rb-frag-perfect{ background:#40d39a; }
-.rb-frag-great{ background:#6ee7ff; }
-.rb-frag-good{ background:#ffd166; }
-.rb-frag-miss{ background:#ff6b8a; border-radius:4px; }
-
-@keyframes rb-frag-burst{
-  from{
-    opacity:.95;
-    transform: translate(-50%,-50%) translate(0,0) scale(1);
-  }
-  to{
-    opacity:0;
-    transform: translate(-50%,-50%) translate(var(--dx,0), var(--dy,-24px)) scale(.5);
-  }
-}
+.rb-score-perfect{border-color: rgba(244,114,182,.35); color: rgba(244,114,182,.95)}
+.rb-score-great{border-color: rgba(251,191,36,.35); color: rgba(251,191,36,.95)}
+.rb-score-good{border-color: rgba(16,185,129,.35); color: rgba(16,185,129,.95)}
+.rb-score-miss{border-color: rgba(239,68,68,.35); color: rgba(239,68,68,.95)}
 
 .rb-howto-inline{
-  margin:8px 4px 0;
-  color:var(--rb-text-faint);
-  font-size:12px;
-  line-height:1.35;
+  margin: 10px 0 0;
+  text-align:center;
+  color: rgba(148,163,184,.96);
+  font-size: 12.5px;
 }
 
-/* ===== Result ===== */
+/* ===== result ===== */
 .rb-result-grid{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:10px;
-  margin-top:8px;
+  gap: 12px;
 }
 .rb-result-card{
-  background: var(--rb-card);
-  border:1px solid var(--rb-card-bd);
-  border-radius:14px;
-  padding:10px;
-  box-shadow: var(--rb-shadow);
+  background: var(--rb-panel);
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: var(--rb-radius);
+  padding: 14px;
 }
-.rb-result-title{
-  margin:0 0 8px;
-  font-size:13px;
-  font-weight:800;
-}
+.rb-result-title{margin: 0 0 10px; font-size: 16px}
 .rb-result-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
-  padding:6px 0;
-  border-top:1px dashed rgba(255,255,255,.08);
-  font-size:12px;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(148,163,184,.10);
 }
-.rb-result-row:first-of-type{ border-top:none; }
-.rb-result-row span{ color:var(--rb-text-dim); }
-.rb-result-row b{
-  color:#fff;
-  text-align:right;
-}
-
+.rb-result-row:last-child{border-bottom:none}
+.rb-result-row span{color: rgba(148,163,184,.96); font-size: 13px}
+.rb-result-row b{font-weight: 900}
 .rb-quality-note{
-  margin:10px 0 0;
-  border-radius:10px;
-  border:1px solid rgba(255,209,102,.25);
-  background: rgba(255,209,102,.08);
-  color:#fff;
-  padding:8px 10px;
-  font-size:12px;
-  line-height:1.35;
+  max-width: var(--rb-maxw);
+  margin: 12px auto 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(251,191,36,.12);
+  border: 1px solid rgba(251,191,36,.22);
+  color: rgba(229,231,235,.92);
 }
 
-/* ===== Mobile / tablet ===== */
-@media (max-width: 920px){
-  #rb-wrap{ padding:10px; }
+/* ===== responsive ===== */
+@media (max-width: 980px){
+  :root{ --rb-field-h: 500px; }
   .rb-grid-2{ grid-template-columns: 1fr; }
   .rb-result-grid{ grid-template-columns: 1fr; }
-
-  .rb-header,
-  .rb-play-header{
-    flex-direction:column;
-    align-items:stretch;
-  }
-  .rb-back{
-    align-self:flex-start;
-  }
+  .rb-title{ font-size: 30px; }
 }
 
-@media (max-width: 700px){
+@media (max-width: 560px){
   :root{
-    --rb-lane-h: 360px;
-    --rb-hitline-y: 52px;
-    --rb-note-w: 38px;
-    --rb-note-head: 38px;
+    --rb-field-h: 470px;
+    --rb-lane-gap: 8px;
+    --rb-note-w: 50px;
+    --rb-note-ico: 28px;
+    --rb-hitline-bottom: 52px;
   }
-
-  .rb-lanes{
-    padding: 40px 8px 8px;
-    gap:8px;
-  }
-  .rb-lane{
-    border-radius:12px;
-    min-height: calc(var(--rb-lane-h) - 50px);
-  }
-  .rb-lane-label{
-    bottom:10px;
-    font-size:10px;
-    padding:3px 7px;
-  }
-  .rb-note-ico{
-    font-size:21px;
-  }
-
-  .rb-chip{
-    font-size:11px;
-    padding:4px 7px;
-  }
-
-  .rb-bars{
-    grid-template-columns: 1fr;
-  }
+  .rb-lanes{ padding: 12px; }
+  .rb-feedback{ top: 10px; }
+  .rb-chip{ font-size: 12.5px; padding: 7px 9px; }
 }
 
-@media (max-width: 520px){
-  :root{
-    --rb-lane-h: 320px;
-    --rb-hitline-y: 50px;
-    --rb-lane-gap: 6px;
-    --rb-note-head: 34px;
-    --rb-note-w: 34px;
-  }
+/* ===== 3-lane preset (optional) =====
+   If you want 3 lanes, set:
+   - HTML: keep only 3 .rb-lane (0,1,2)
+   or
+   - add class "rb-lanes-3" to #rb-lanes and hide others via CSS below
+*/
+.rb-lanes.rb-lanes-3{ grid-template-columns: repeat(3, 1fr); }
+.rb-lanes.rb-lanes-3 .rb-lane[data-lane="3"],
+.rb-lanes.rb-lanes-3 .rb-lane[data-lane="4"]{ display:none; }
 
-  .rb-title{ font-size:22px; }
-  .rb-sub{ font-size:13px; }
-  .rb-mode-btn{ width:100%; }
-  .rb-mode-toggle{ display:grid; grid-template-columns:1fr 1fr; }
-  .rb-hud-row{ gap:4px; }
-
-  .rb-chip{
-    font-size:10px;
-    padding:4px 6px;
-  }
-
-  .rb-feedback{
-    font-size:12px;
-    padding:5px 9px;
-    top:6px;
-  }
-
-  .rb-lanes{
-    padding-top: 36px;
-  }
-}
-
-/* ===== cVR / view=cardboard friendly compact tweaks (optional hook) ===== */
-body[data-view="cvr"] #rb-wrap,
-body.view-cvr #rb-wrap{
-  width:100%;
-  max-width:none;
-}
-
-body[data-view="cvr"] .rb-hud,
-body.view-cvr .rb-hud{
-  padding:8px;
-}
-
-body[data-view="cvr"] .rb-chip,
-body.view-cvr .rb-chip{
-  font-size:10px;
-  padding:3px 6px;
-}
-
-/* ===== Accessibility ===== */
+/* ===== accessibility / reduced motion ===== */
 @media (prefers-reduced-motion: reduce){
-  .rb-score-fx,
-  .rb-frag,
-  .rb-bar-fill,
-  #rb-flash{
-    transition:none !important;
-    animation:none !important;
-  }
+  .rb-bar-fill{ transition: none; }
+  .rb-score-fx{ transition: none; }
+  .rb-frag{ animation: none; opacity: 0.9; }
 }
