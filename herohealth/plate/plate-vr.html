@@ -1,11 +1,10 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
+HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260220a
 ✅ HHA Standard + Start overlay + Pause overlay + Result overlay + Back HUB
 ✅ PC/Mobile/cVR supported (view=cvr ยิงจาก crosshair ผ่าน vr-ui.js => hha:shoot)
 ✅ Uses /herohealth/plate/plate.safe.js (module) and calls boot({mount,cfg})
-✅ Coach images: /herohealth/img/plate-*.png
-✅ PATCH: pause bridge emits hha:pause (plate.safe.js listens optional) + blocks pointer events
-✅ PATCH: safe-zone CSS vars explicit (for mode-factory spawn clamp, if used)
+✅ Safe-zone vars for spawner: --plate-top-safe/--plate-bottom-safe/--plate-left-safe/--plate-right-safe
+✅ Pause bridge -> window.HHA_PLATE_PAUSE(true/false)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,6 +15,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- External CSS (optional) -->
   <link rel="stylesheet" href="./plate-vr.css" />
 
   <!-- A-Frame -->
@@ -46,12 +46,13 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      /* ✅ Explicit HUD-safe zones that spawn engine can read */
-      --hha-top-safe: calc(150px + var(--sat));
-      --hha-bottom-safe: calc(150px + var(--sab));
-      --hha-left-safe: calc(10px + var(--sal));
-      --hha-right-safe: calc(10px + var(--sar));
+      /* ✅ spawn-safe zone for mode-factory.js */
+      --plate-top-safe:    calc(150px + var(--sat));
+      --plate-bottom-safe: calc(170px + var(--sab));
+      --plate-left-safe:   calc(12px + var(--sal));
+      --plate-right-safe:  calc(12px + var(--sar));
     }
+
     *{ box-sizing:border-box; }
     html,body{
       margin:0; height:100%; width:100%;
@@ -222,7 +223,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
   </style>
 
   <script>
-    // Universal VR UI crosshair assist (vr-ui.js emits hha:shoot {x,y})
+    // vr-ui.js emits hha:shoot {x,y,lockPx}
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
@@ -408,6 +409,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
               <span class="pill">🎯 Acc <b id="rAcc">0%</b></span>
               <span class="pill">🎯 Goals <b id="rGoals">0/0</b></span>
               <span class="pill">⚡ Minis <b id="rMinis">0/0</b></span>
+              <span class="pill">🎯 ShotMiss <b id="rShotMiss">0</b></span>
             </div>
           </div>
 
@@ -440,7 +442,6 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
     const $ = (id)=>document.getElementById(id);
     const sp = new URL(location.href).searchParams;
 
-    // ---- params ----
     const run = (sp.get('run') || 'play').toLowerCase();     // play | study | research
     const diff = (sp.get('diff') || 'normal').toLowerCase(); // easy | normal | hard
     const time = Number(sp.get('time') || 90) || 90;
@@ -452,15 +453,16 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
     const conditionGroup = sp.get('conditionGroup') || '';
     const log = sp.get('log') || ''; // optional
 
-    const dbg = $('startDbg');
-    if(dbg) dbg.textContent = 'URL: ' + location.href;
-
     const setText = (id,v)=>{ const e=$(id); if(e) e.textContent = String(v); };
+
+    // preview
     setText('uiRunPreview', run);
     setText('uiDiffPreview', diff);
     setText('uiTimePreview', time);
+    const dbg = $('startDbg');
+    if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-    // resolve hub safely
+    // hub resolve
     function resolveHubUrl(){
       const raw = sp.get('hub');
       if(!raw) return new URL('../hub.html', location.href).toString();
@@ -483,6 +485,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
 
     const show = (el, on)=>{ if(!el) return; el.style.display = on ? 'grid' : 'none'; };
 
+    // buttons
     $('btnStartMain')?.addEventListener('click', ()=> $('btnStart')?.click(), {passive:true});
     $('btnCopyLink')?.addEventListener('click', async ()=>{
       try{ await navigator.clipboard.writeText(location.href); if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว'; }
@@ -496,11 +499,14 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
     $('btnResume2')?.addEventListener('click', ()=> $('btnPause')?.click(), {passive:true});
     $('btnRestart2')?.addEventListener('click', ()=> $('btnRestart')?.click(), {passive:true});
 
-    // ---- game start/stop ----
+    $('btnEnterVR')?.addEventListener('click', ()=>{
+      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(e){}
+    }, {passive:true});
+
+    // ---- start/ pause bridge ----
     const mount = $('plate-layer');
     let started = false;
     let paused = false;
-    let gameApi = null;
 
     function cfgFromUrl(){
       return {
@@ -508,9 +514,8 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
         diff,
         seed: seed || Date.now(),
         durationPlannedSec: time,
-
-        pid, studyId, phase, conditionGroup, log,
-        view
+        pid, studyId, phase, conditionGroup, log, view,
+        hub: HUB_URL
       };
     }
 
@@ -532,7 +537,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
 
       setText('uiMiniTitle', 'ความแม่นยำ');
       setText('uiMiniTime', '--');
-      setText('uiMiniCount', '0/0');
+      setText('uiMiniCount', '0/80');
       const mf = $('uiMiniFill'); if(mf) mf.style.width = '0%';
 
       const coachImg = $('coachImg'); if(coachImg) coachImg.src = '../img/plate-neutral.png';
@@ -541,27 +546,19 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       const fever = $('uiFeverFill'); if(fever) fever.style.width = '0%';
       setText('uiShieldN', 0);
 
-      show(resultOverlay, false);
-      show(pausedOverlay, false);
-      mount.style.pointerEvents = 'auto';
-      paused = false;
-    }
+      setText('rShotMiss', 0);
 
-    function emitPauseToGame(paused){
-      // ✅ pause bridge (plate.safe.js may listen; safe if not)
-      window.dispatchEvent(new CustomEvent('hha:pause', { detail:{ game:'plate', paused: !!paused }}));
+      show(resultOverlay, false);
     }
 
     function startGame(){
       if(!mount) { alert('plate-layer not found'); return; }
-
       hardResetUI();
       show(startOverlay, false);
+      show(pausedOverlay, false);
+      paused = false;
 
-      // IMPORTANT: boot returns API {start/stop}; we call start() now
-      gameApi = plateBoot({ mount, cfg: cfgFromUrl() });
-      if(gameApi && typeof gameApi.start === 'function') gameApi.start();
-
+      plateBoot({ mount, cfg: cfgFromUrl() });
       started = true;
     }
 
@@ -570,29 +567,29 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       startGame();
     }, {passive:true});
 
-    // Pause = UI-level pause: block mount + overlay + emit pause event
     $('btnPause')?.addEventListener('click', ()=>{
       if(!started) return;
       paused = !paused;
+
+      // UI overlay
       show(pausedOverlay, paused);
+
+      // block clicks
       mount.style.pointerEvents = paused ? 'none' : 'auto';
-      emitPauseToGame(paused);
+
+      // ✅ bridge to engine (plate.safe.js)
+      try{
+        if(typeof window.HHA_PLATE_PAUSE === 'function') window.HHA_PLATE_PAUSE(paused);
+      }catch(e){}
     }, {passive:true});
 
-    // Restart
     $('btnRestart')?.addEventListener('click', ()=>{
       location.reload();
     }, {passive:true});
 
-    // Enter VR button
-    $('btnEnterVR')?.addEventListener('click', ()=>{
-      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(e){}
-    }, {passive:true});
-
-    // keep Start overlay open initially
     show(startOverlay, true);
 
-    // ---- UI events from plate.safe.js ----
+    // ---- events from plate.safe.js ----
     window.addEventListener('hha:start', (e)=>{
       const d = e.detail || {};
       setText('uiTime', d.timePlannedSec ?? time);
@@ -603,43 +600,31 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       setText('uiScore', d.score ?? 0);
       setText('uiCombo', d.combo ?? 0);
       setText('uiComboMax', d.comboMax ?? 0);
-
-      const s = Number(d.score||0);
-      const g = s>=2200?'S':s>=1700?'A':s>=1200?'B':s>=700?'C':'D';
-      setText('uiGrade', g);
+      if(d.miss != null) setText('uiMiss', d.miss);
+      if(d.accuracyPct != null) setText('uiAcc', `${Math.round(Number(d.accuracyPct)||0)}%`);
+      if(d.grade) setText('uiGrade', d.grade);
     });
 
     window.addEventListener('hha:time', (e)=>{
       const d = e.detail || {};
-      // plate.safe.js uses timeLeftSec
-      setText('uiTime', d.timeLeftSec ?? d.leftSec ?? 0);
+      setText('uiTime', d.leftSec ?? d.timeLeftSec ?? 0);
     });
 
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       if(d.goal){
-        setText('uiGoalTitle', d.goal.title ?? d.goal.name ?? '—');
+        setText('uiGoalTitle', d.goal.name ?? '—');
         setText('uiGoalCount', `${d.goal.cur ?? 0}/${d.goal.target ?? 0}`);
         const p = (d.goal.target>0) ? Math.round((d.goal.cur/d.goal.target)*100) : 0;
         const gf = $('uiGoalFill'); if(gf) gf.style.width = `${Math.max(0,Math.min(100,p))}%`;
         setText('uiPlateHave', d.goal.cur ?? 0);
       }
       if(d.mini){
-        setText('uiMiniTitle', d.mini.title ?? d.mini.name ?? '—');
-        // miniCount panel shows cleared/total
-        setText('uiMiniCount', `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`);
-        setText('uiMiniTime', d.mini.timeText ?? '--');
-
-        // fill shows progress within current mini (cur/target)
-        const cur = Number(d.mini.cur ?? 0);
-        const tar = Number(d.mini.target ?? 0) || 1;
-        const p2 = Math.round((cur/tar)*100);
+        setText('uiMiniTitle', d.mini.name ?? '—');
+        setText('uiMiniCount', `${d.mini.cur ?? 0}/${d.mini.target ?? 0}`);
+        const p2 = (d.mini.target>0) ? Math.round((d.mini.cur/d.mini.target)*100) : 0;
         const mf = $('uiMiniFill'); if(mf) mf.style.width = `${Math.max(0,Math.min(100,p2))}%`;
-
-        // if mini is "accuracy", show uiAcc
-        if(/แม่น|acc/i.test(String(d.mini.title||d.mini.name||''))){
-          setText('uiAcc', `${cur}%`);
-        }
+        setText('uiAcc', `${d.mini.cur ?? 0}%`);
       }
     });
 
@@ -651,37 +636,12 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       const img = $('coachImg');
       if(!img) return;
 
-      let mood = String(d.mood||'neutral').toLowerCase();
-      if(!/neutral|happy|sad|fever/.test(mood)){
-        if(/เยี่ยม|ดีมาก|สุดยอด|สำเร็จ|🎉|👍|perfect|great/.test(msg)) mood='happy';
-        else if(/ระวัง|พลาด|ผิด|ช้า|⚠️|miss|oops|โดนขยะ/.test(msg)) mood='sad';
-        else if(/fever|สปีด|พายุ|storm|บอส|boss|ลุย/.test(msg)) mood='fever';
-        else mood='neutral';
-      }
-      img.src = `../img/plate-${mood}.png`;
-    });
+      let mood = 'neutral';
+      if(/เยี่ยม|ดีมาก|สุดยอด|สำเร็จ|🎉|👍|perfect|great/.test(msg)) mood='happy';
+      else if(/ระวัง|พลาด|ผิด|ช้า|⚠️|miss|oops/.test(msg)) mood='sad';
+      else if(/fever|สปีด|ลุย/.test(msg)) mood='fever';
 
-    // realtime miss visualization (optional): from judge junk/expire_good/shot_miss
-    window.addEventListener('hha:judge', (e)=>{
-      const d = e.detail || {};
-      const kind = String(d.kind||'').toLowerCase();
-      if(kind === 'junk' || kind === 'expire_good'){
-        const cur = Number(($('uiMiss')?.textContent)||0) || 0;
-        setText('uiMiss', cur + 1);
-      }
-      if(kind === 'shot_miss'){
-        // show as soft hint (don’t count as canonical miss here)
-        // could blink hint etc. (keep simple)
-      }
-      if(kind === 'good'){
-        const gid = Number(d.groupId||0);
-        const map = {1:'uiG1',2:'uiG2',3:'uiG3',4:'uiG4',5:'uiG5'};
-        const id = map[gid];
-        if(id){
-          const cur = Number(($(id)?.textContent)||0) || 0;
-          setText(id, cur + 1);
-        }
-      }
+      img.src = `../img/plate-${mood}.png`;
     });
 
     window.addEventListener('hha:end', (e)=>{
@@ -691,6 +651,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       setText('rScore', s.scoreFinal ?? 0);
       setText('rMaxCombo', s.comboMax ?? 0);
       setText('rMiss', s.miss ?? 0);
+      setText('rShotMiss', s.shotMiss ?? 0);
       setText('rAcc', (s.accuracyPct!=null) ? `${s.accuracyPct}%` : '—');
       setText('rGoals', `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`);
       setText('rMinis', `${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`);
@@ -702,9 +663,7 @@ HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260219a
       show(pausedOverlay, false);
       show(resultOverlay, true);
       mount.style.pointerEvents = 'none';
-      emitPauseToGame(true);
     });
-
   </script>
 </body>
 </html>
