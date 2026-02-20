@@ -1,0 +1,231 @@
+/* === /herohealth/vr-goodjunk/goodjunk-vr.fx.css ===
+   FX PACK for GoodJunkVR — v20260220-fxHARDEN
+   Paste into your existing goodjunk css (ท้ายไฟล์) ได้เลย
+*/
+
+/* Ensure layer stacking */
+#gj-layer { position: relative; isolation: isolate; }
+#gj-layer-r { position: relative; isolation: isolate; }
+
+/* Hardened FX layer (safe.js recreates this, but css makes it consistent) */
+#gj-fx{
+  position:absolute; inset:0;
+  pointer-events:none;
+  z-index:140;
+  contain: layout paint;
+}
+
+/* ---------------- FX text ---------------- */
+.gj-fx-text{
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(2,6,23,.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.38);
+  user-select:none;
+}
+
+.gj-fx-text.good{
+  border-color: rgba(34,211,238,.28);
+  background: rgba(34,211,238,.10);
+  text-shadow: 0 10px 26px rgba(34,211,238,.22);
+}
+.gj-fx-text.block{
+  border-color: rgba(56,189,248,.30);
+  background: rgba(56,189,248,.10);
+  text-shadow: 0 10px 26px rgba(56,189,248,.22);
+}
+.gj-fx-text.hurt{
+  border-color: rgba(248,113,113,.34);
+  background: rgba(248,113,113,.12);
+  text-shadow: 0 12px 28px rgba(248,113,113,.22);
+}
+.gj-fx-text.star{
+  border-color: rgba(250,204,21,.32);
+  background: rgba(250,204,21,.10);
+  text-shadow: 0 12px 28px rgba(250,204,21,.18);
+}
+.gj-fx-text.shield{
+  border-color: rgba(52,211,153,.30);
+  background: rgba(52,211,153,.10);
+  text-shadow: 0 12px 28px rgba(52,211,153,.16);
+}
+.gj-fx-text.diamond{
+  border-color: rgba(167,139,250,.34);
+  background: rgba(167,139,250,.12);
+  text-shadow: 0 12px 28px rgba(167,139,250,.18);
+}
+.gj-fx-text.bomb{
+  border-color: rgba(251,146,60,.36);
+  background: rgba(251,146,60,.12);
+  text-shadow: 0 14px 30px rgba(251,146,60,.20);
+}
+.gj-fx-text.skull{
+  border-color: rgba(148,163,184,.34);
+  background: rgba(148,163,184,.12);
+  text-shadow: 0 14px 30px rgba(148,163,184,.16);
+}
+.gj-fx-text.boss{
+  border-color: rgba(244,114,182,.35);
+  background: rgba(244,114,182,.12);
+  text-shadow: 0 14px 30px rgba(244,114,182,.18);
+}
+.gj-fx-text.tele{
+  border-color: rgba(251,191,36,.36);
+  background: rgba(251,191,36,.12);
+  text-shadow: 0 14px 30px rgba(251,191,36,.18);
+}
+.gj-fx-text.phase{
+  border-color: rgba(96,165,250,.34);
+  background: rgba(96,165,250,.12);
+  text-shadow: 0 14px 30px rgba(96,165,250,.18);
+}
+.gj-fx-text.rage{
+  border-color: rgba(248,113,113,.38);
+  background: rgba(248,113,113,.14);
+  text-shadow: 0 16px 34px rgba(248,113,113,.22);
+}
+.gj-fx-text.stomp,
+.gj-fx-text.burst{
+  border-color: rgba(255,255,255,.26);
+  background: rgba(255,255,255,.08);
+  text-shadow: 0 16px 34px rgba(0,0,0,.35);
+}
+
+/* ---------------- FX dot ---------------- */
+.gj-fx-dot{
+  filter: saturate(1.25);
+  will-change: transform, opacity;
+}
+
+/* ---------------- FX ring ---------------- */
+.gj-fx-ring{
+  will-change: transform, opacity;
+}
+.gj-fx-ring.soft{
+  filter: blur(.2px);
+}
+
+/* ---------------- Screen pulse (DELIBERATELY STRONG for JUNK) ----------------
+   safe.js toggles these classes on <body>
+*/
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events:none;
+  z-index: 1200;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* “กันได้” นุ่ม/สั้น */
+body.gj-block::before{
+  opacity: .22;
+  background:
+    radial-gradient(900px 520px at 50% 70%, rgba(56,189,248,.25), transparent 60%),
+    radial-gradient(700px 420px at 50% 55%, rgba(56,189,248,.18), transparent 62%);
+}
+
+/* “พัง/เจ็บ” แรง/ชัด */
+body.gj-junk-hit::before{
+  opacity: .40;
+  background:
+    radial-gradient(950px 560px at 50% 70%, rgba(248,113,113,.35), transparent 60%),
+    radial-gradient(720px 420px at 50% 55%, rgba(248,113,113,.22), transparent 62%);
+}
+
+/* extra hurt thump */
+body.gj-hurt{
+  animation: gjShake 180ms ease;
+}
+@keyframes gjShake{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(1px,0,0); }
+  55%{ transform: translate3d(-1px,1px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+
+/* bomb is BIG */
+body.gj-bomb::before{
+  opacity: .52;
+  background:
+    radial-gradient(980px 580px at 50% 70%, rgba(251,146,60,.40), transparent 62%),
+    radial-gradient(740px 460px at 50% 55%, rgba(248,113,113,.24), transparent 64%);
+}
+
+/* skull */
+body.gj-skull-hit::before{
+  opacity: .42;
+  background:
+    radial-gradient(980px 580px at 50% 70%, rgba(148,163,184,.34), transparent 62%),
+    radial-gradient(740px 460px at 50% 55%, rgba(248,113,113,.18), transparent 64%);
+}
+
+/* star/shield/diamond “เฉพาะทาง” */
+body.gj-star::before{
+  opacity: .26;
+  background: radial-gradient(900px 520px at 50% 70%, rgba(250,204,21,.28), transparent 62%);
+}
+body.gj-shield::before{
+  opacity: .24;
+  background: radial-gradient(900px 520px at 50% 70%, rgba(52,211,153,.26), transparent 62%);
+}
+body.gj-diamond::before{
+  opacity: .26;
+  background:
+    radial-gradient(900px 520px at 50% 70%, rgba(167,139,250,.28), transparent 62%),
+    radial-gradient(700px 420px at 50% 55%, rgba(255,255,255,.12), transparent 62%);
+}
+
+/* storm/boss/rage accents (optional) */
+body.gj-storm::before{
+  opacity: .18;
+  background: radial-gradient(980px 580px at 50% 40%, rgba(34,211,238,.18), transparent 62%);
+}
+body.gj-boss::before{
+  opacity: .20;
+  background: radial-gradient(980px 580px at 50% 40%, rgba(244,114,182,.18), transparent 62%);
+}
+body.gj-rage::before{
+  opacity: .24;
+  background: radial-gradient(980px 580px at 50% 40%, rgba(248,113,113,.20), transparent 62%);
+}
+body.gj-tele::before{
+  opacity: .22;
+  background: radial-gradient(980px 580px at 50% 40%, rgba(251,191,36,.18), transparent 62%);
+}
+body.gj-stomp::before{
+  opacity: .28;
+  background: radial-gradient(980px 580px at 50% 70%, rgba(255,255,255,.14), transparent 62%);
+}
+body.gj-burst::before{
+  opacity: .30;
+  background:
+    radial-gradient(980px 580px at 50% 70%, rgba(255,255,255,.14), transparent 62%),
+    radial-gradient(740px 460px at 50% 55%, rgba(251,146,60,.18), transparent 64%);
+}
+body.gj-boss-down::before{
+  opacity: .22;
+  background: radial-gradient(980px 580px at 50% 40%, rgba(52,211,153,.18), transparent 62%);
+}
+
+/* miss shot subtle */
+body.gj-miss-shot::before{
+  opacity: .12;
+  background: radial-gradient(900px 520px at 50% 70%, rgba(148,163,184,.16), transparent 62%);
+}
+
+/* low time tick (optional) */
+body.gj-tick{
+  animation: gjTick 120ms ease;
+}
+@keyframes gjTick{
+  0%{ filter: brightness(1); }
+  55%{ filter: brightness(1.10); }
+  100%{ filter: brightness(1); }
+}
