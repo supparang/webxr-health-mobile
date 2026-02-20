@@ -1,25 +1,10 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
 // MaskCough SAFE Engine — FUN+FX + AI Prediction (ML/DL hooks) + HHA Research Logging
-// v20260219a  (Threat meter + Risk Zones + Telegraph + Quality Metrics)
-//
-// ✅ Play / Study modes
-// - play: adaptive AI + DL allowed
-// - study/research: deterministic seed + AI assist OFF (fair/controlled)
-//
-// ✅ Controls
-// - PC/Mobile: pointerdown on targets
-// - cVR: crosshair shoot via ../vr/vr-ui.js => window event: hha:shoot {x,y}
-//
-// ✅ Analyze upgrades (this patch)
-// - Threat meter (0..100) + threatMax/threatAvg
-// - Risk Zones (spatial risk) -> affects TTL + threat penalties
-// - Telegraph cough/boss (fair timing, deeper decisions)
-// - Quality metrics: chainPanic, shieldFirst/scoreFirst decisions
-//
-// ✅ Logging (optional)
-// - ?log=https://...  (POST JSON lines)
-// - emits: hha:start, hha:time, hha:judge, hha:end + ai:risk + boss events
-// - flush-hardened on end + visibilitychange + beforeunload
+// v20260219a (FULL PATCH 1–4)
+// ✅ HOT STREAK 10s (addictive)
+// ✅ Decision Fork A/B (Analyze trade-off)
+// ✅ Critical replay note (3s moment text) + threatMax + chainPanic
+// ✅ Summary metrics & HUD wave=HOT
 //
 // URL params:
 // ?hub=...&pid=...&seed=...&diff=easy|normal|hard&time=60
@@ -41,6 +26,7 @@
 
   function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
   function getQS(){ try{return new URL(location.href).searchParams;}catch(_){return new URLSearchParams();} }
+
   function getViewAuto(){
     const qs=getQS();
     const v=(qs.get('view')||'').toLowerCase(); if(v) return v;
@@ -155,7 +141,7 @@
 
     function push(ev){
       q.push({ ...base(ev), ...ev });
-      if(q.length > 1200) q.splice(0, q.length - 900);
+      if(q.length > 1400) q.splice(0, q.length - 1000);
     }
 
     async function flush(reason){
@@ -256,7 +242,7 @@
       maxAssist: 0.45,
       coachCooldownMs: 8500,
     };
-    const st={
+    const stA={
       lastT: performance.now(),
       risk: 0.12,
       taps:0,hits:0,timeouts:0,coughTimeouts:0,perfects:0,
@@ -267,39 +253,39 @@
     };
 
     function reset(){
-      st.lastT=performance.now();
-      st.risk=0.12;
-      st.taps=st.hits=st.timeouts=0;
-      st.coughTimeouts=0; st.perfects=0;
-      st.latencySum=0; st.latencyN=0;
-      st.shieldPrev=st.shieldNow=40;
-      st.shieldSlope=0;
-      st.coachT=0;
-      st.riskSum=0; st.riskN=0;
+      stA.lastT=performance.now();
+      stA.risk=0.12;
+      stA.taps=stA.hits=stA.timeouts=0;
+      stA.coughTimeouts=0; stA.perfects=0;
+      stA.latencySum=0; stA.latencyN=0;
+      stA.shieldPrev=stA.shieldNow=40;
+      stA.shieldSlope=0;
+      stA.coachT=0;
+      stA.riskSum=0; stA.riskN=0;
     }
 
     function onTick(nowMs, shield){
-      st.shieldNow=shield;
-      st.riskSum += st.risk; st.riskN++;
+      stA.shieldNow=shield;
+      stA.riskSum += stA.risk; stA.riskN++;
 
-      if(!cfg.enabled) return st.risk;
+      if(!cfg.enabled) return stA.risk;
 
-      if(nowMs - st.lastT >= cfg.windowMs){
-        const total=Math.max(1, st.taps + st.timeouts);
-        const hitRate=st.hits/total;
-        const missRate=st.timeouts/total;
-        const avgLat=st.latencyN ? (st.latencySum/st.latencyN) : 0;
-        const coughFail=st.coughTimeouts/Math.max(1, st.timeouts);
-        const perfectRate=st.perfects/Math.max(1, st.hits);
+      if(nowMs - stA.lastT >= cfg.windowMs){
+        const total=Math.max(1, stA.taps + stA.timeouts);
+        const hitRate=stA.hits/total;
+        const missRate=stA.timeouts/total;
+        const avgLat=stA.latencyN ? (stA.latencySum/stA.latencyN) : 0;
+        const coughFail=stA.coughTimeouts/Math.max(1, stA.timeouts);
+        const perfectRate=stA.perfects/Math.max(1, stA.hits);
 
-        st.shieldSlope=(st.shieldNow - st.shieldPrev)/100;
-        st.shieldPrev=st.shieldNow;
+        stA.shieldSlope=(stA.shieldNow - stA.shieldPrev)/100;
+        stA.shieldPrev=stA.shieldNow;
 
         const feat=[
           nz(missRate,0.05,0.55),
           nz(1-hitRate,0.10,0.70),
-          nz(1-(st.shieldNow/100),0.30,0.95),
-          nz(Math.max(0,-st.shieldSlope),0.00,0.30),
+          nz(1-(stA.shieldNow/100),0.30,0.95),
+          nz(Math.max(0,-stA.shieldSlope),0.00,0.30),
           nz(coughFail,0.05,0.60),
           nz(avgLat,180,650),
           nz(1-perfectRate,0.20,0.95),
@@ -308,21 +294,21 @@
         const r2=cfg.enableDL ? mlp.predict(feat) : r1;
         const r=cfg.enableDL ? (0.55*r1 + 0.45*r2) : r1;
 
-        st.risk = cfg.alpha*st.risk + (1-cfg.alpha)*r;
+        stA.risk = cfg.alpha*stA.risk + (1-cfg.alpha)*r;
 
-        st.taps=st.hits=st.timeouts=0;
-        st.coughTimeouts=0; st.perfects=0;
-        st.latencySum=0; st.latencyN=0;
-        st.lastT=nowMs;
+        stA.taps=stA.hits=stA.timeouts=0;
+        stA.coughTimeouts=0; stA.perfects=0;
+        stA.latencySum=0; stA.latencyN=0;
+        stA.lastT=nowMs;
 
-        logger.push({ type:'ai:risk', risk: +st.risk.toFixed(4) });
+        logger.push({ type:'ai:risk', risk: +stA.risk.toFixed(4) });
       }
-      return st.risk;
+      return stA.risk;
     }
 
     function assistParams(){
       if(!cfg.enabled) return {assist:0,maskBonus:0,coughPenalty:0,spawnSlow:0,ttlBoost:0,perfectBoost:0};
-      const a=Math.min(cfg.maxAssist, Math.max(0,(st.risk-0.25)*0.85));
+      const a=Math.min(cfg.maxAssist, Math.max(0,(stA.risk-0.25)*0.85));
       return {
         assist:a,
         maskBonus:0.10*a,
@@ -334,35 +320,34 @@
     }
 
     function onEvent(ev){
-      st.taps += 1;
-      if(ev.type==='hit'){ st.hits += 1; }
-      else if(ev.type==='perfect'){ st.hits += 1; st.perfects += 1; }
+      stA.taps += 1;
+      if(ev.type==='hit'){ stA.hits += 1; }
+      else if(ev.type==='perfect'){ stA.hits += 1; stA.perfects += 1; }
       else if(ev.type==='timeout'){
-        st.timeouts += 1;
-        if(ev.kind==='cough' || ev.kind==='boss') st.coughTimeouts += 1;
+        stA.timeouts += 1;
+        if(ev.kind==='cough' || ev.kind==='boss') stA.coughTimeouts += 1;
       }
-      if(Number.isFinite(ev.latencyMs)){ st.latencySum += ev.latencyMs; st.latencyN += 1; }
+      if(Number.isFinite(ev.latencyMs)){ stA.latencySum += ev.latencyMs; stA.latencyN += 1; }
     }
 
     function coachHint(nowMs, state){
       if(!cfg.enabled) return null;
-      if(nowMs - st.coachT < cfg.coachCooldownMs) return null;
-      if(st.risk < 0.42 && state.shield > 34) return null;
+      if(nowMs - stA.coachT < cfg.coachCooldownMs) return null;
+      if(stA.risk < 0.42 && state.shield > 34) return null;
 
-      st.coachT = nowMs;
+      stA.coachT = nowMs;
 
       if(state.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
-      if(st.risk > 0.70) return '🎯 โฟกัส 🤧 ตอนท้าย ๆ เพื่อ Perfect Block (คะแนนพุ่ง!)';
+      if(stA.risk > 0.70) return '🎯 โฟกัส 🤧 ตอนท้าย ๆ เพื่อ Perfect Block (คะแนนพุ่ง!)';
       if(state.miss >= 6) return '💦 อย่าให้ละอองหลุดเยอะ—ตี 💦 ให้ทันก่อน!';
-      return '✨ สะสม streak แล้วจะเข้า FEVER ได้เร็วขึ้น!';
+      return '✨ สะสม streak แล้วจะเข้า FEVER/HOT ได้เร็วขึ้น!';
     }
 
-    function riskAvg(){ return st.riskN ? (st.riskSum/st.riskN) : st.risk; }
+    function riskAvg(){ return stA.riskN ? (stA.riskSum/stA.riskN) : stA.risk; }
 
-    return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){return st.risk;} };
+    return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, get risk(){return stA.risk;} };
   }
 
-  // ✅ study => deterministic & AI OFF
   const aiEnabled = (mode === 'play'); // play ON, study OFF
   const ai = createAIDirector({ enabled: aiEnabled, enableDL: aiEnabled });
 
@@ -440,37 +425,7 @@
 
   function fxFeverGlow(on){
     if(!wrap) return;
-    if(on){
-      wrap.style.filter = 'saturate(1.12) brightness(1.05)';
-    }else{
-      wrap.style.filter = '';
-    }
-  }
-
-  // Telegraph (fair + fun)
-  function fxTelegraph(x,y, kind){
-    const el=document.createElement('div');
-    el.style.position='absolute';
-    el.style.left=x+'px';
-    el.style.top=y+'px';
-    el.style.width='14px';
-    el.style.height='14px';
-    el.style.borderRadius='999px';
-    el.style.border = (kind==='boss')
-      ? '2px solid rgba(167,139,250,.75)'
-      : '2px solid rgba(239,68,68,.70)';
-    el.style.boxShadow = (kind==='boss')
-      ? '0 0 28px rgba(167,139,250,.35)'
-      : '0 0 28px rgba(239,68,68,.30)';
-    el.style.transform='translate(-50%,-50%) scale(1)';
-    el.style.opacity='0.92';
-    el.style.transition='transform .42s ease, opacity .42s ease';
-    fxLayer.appendChild(el);
-    requestAnimationFrame(()=>{
-      el.style.transform='translate(-50%,-50%) scale(7)';
-      el.style.opacity='0';
-    });
-    setTimeout(()=>{ try{el.remove();}catch(_){} }, 460);
+    wrap.style.filter = on ? 'saturate(1.12) brightness(1.05)' : '';
   }
 
   // ---------------- state ----------------
@@ -483,14 +438,6 @@
     score:0, streak:0, maxStreak:0, miss:0, perfect:0,
     shield:40,
 
-    // Analyze / Threat
-    threat: 12,        // 0..100
-    threatMax: 12,
-    threatSum: 0,
-    threatN: 0,
-    chainPanic: 0,
-    decisions: { shieldFirst:0, scoreFirst:0 },
-
     baseSpawnMs: (diff==='hard' ? 650 : diff==='easy' ? 880 : 760),
     ttlBaseMs:   (diff==='hard' ? 1450 : diff==='easy' ? 1850 : 1650),
     perfectBaseMs: 220,
@@ -502,83 +449,57 @@
 
     risk: 0.12,
 
-    targets: new Map(), // id -> {el, kind, bornMs, dieMs, x, y, zoneLv}
-    uid:0
+    targets: new Map(),
+    uid:0,
+
+    // --- HOT STREAK ---
+    hotOn:false,
+    hotUntil:0,
+    hotCount:0,
+    hotTimeMs:0,
+    hotScore:0,
+    hotNeedStreak: (diff==='hard' ? 10 : diff==='easy' ? 14 : 12),
+    hotDurationMs: 10000,
+    hotMult: (diff==='hard' ? 1.35 : 1.25),
+
+    // --- Choice / Decision fork ---
+    choiceOn:false,
+    choiceUntil:0,
+    nextChoiceAt:0,
+    choiceBuff:'none', // 'A' | 'B' | 'none'
+    choiceA:0,
+    choiceB:0,
+
+    // --- Replay / Crit ---
+    crit: [],
+    threatMax: 0,
+    chainPanic: 0,
   };
-
-  // Threat helpers
-  function addThreat(d){
-    st.threat = clamp(st.threat + d, 0, 100);
-    st.threatMax = Math.max(st.threatMax, st.threat);
-  }
-  function tickThreatStats(){
-    st.threatSum += st.threat;
-    st.threatN += 1;
-  }
-  function threatAvg(){
-    return st.threatN ? (st.threatSum/st.threatN) : st.threat;
-  }
-
-  // ---------------- Risk Zones (Analyze layer) ----------------
-  const zones = {
-    enabled: true,
-    list: [], // {id, x,y,w,h, level:0..1, el}
-  };
-
-  function makeZones(){
-    zones.list = [];
-    if(!layer) return;
-
-    layer.querySelectorAll('.mc-zone').forEach(el=>{ try{el.remove();}catch(_){} });
-
-    const r = layer.getBoundingClientRect();
-    const W = r.width, H = r.height;
-
-    const z = [
-      { id:'crowd', x: 0.06*W, y: 0.62*H, w: 0.36*W, h: 0.30*H, level: 0.85 },
-      { id:'desk',  x: 0.34*W, y: 0.30*H, w: 0.36*W, h: 0.30*H, level: 0.55 },
-      { id:'door',  x: 0.64*W, y: 0.06*H, w: 0.30*W, h: 0.26*H, level: 0.35 },
-    ];
-
-    for(const zz of z){
-      const el = document.createElement('div');
-      el.className = 'mc-zone';
-      el.dataset.id = zz.id;
-      el.style.position = 'absolute';
-      el.style.left = zz.x + 'px';
-      el.style.top  = zz.y + 'px';
-      el.style.width  = zz.w + 'px';
-      el.style.height = zz.h + 'px';
-      el.style.borderRadius = '18px';
-      el.style.border = '1px dashed rgba(245,158,11,.28)';
-      el.style.background = `rgba(245,158,11,${0.06 + 0.08*zz.level})`;
-      el.style.boxShadow = `0 0 24px rgba(245,158,11,${0.08 + 0.12*zz.level})`;
-      el.style.pointerEvents = 'none';
-      el.style.mixBlendMode = 'screen';
-      el.style.opacity = '0.85';
-      layer.appendChild(el);
-
-      zones.list.push({ ...zz, el });
-    }
-  }
-
-  function zoneLevelAt(x,y){
-    if(!zones.enabled || !zones.list.length) return 0;
-    let best = 0;
-    for(const z of zones.list){
-      if(x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h){
-        best = Math.max(best, z.level);
-      }
-    }
-    return best;
-  }
 
   // HUD elements
   const tScore=$('#tScore'), tStreak=$('#tStreak'), tMiss=$('#tMiss');
   const tMask=$('#tMask'), bMask=$('#bMask');
   const tWave=$('#tWave'), tInt=$('#tInt'), tFever=$('#tFever'), tRisk=$('#tRisk');
   const tFeverPct=$('#tFeverPct'), bFever=$('#bFever');
-  const tThreat=$('#tThreat'), tThreat2=$('#tThreat2'), bThreat=$('#bThreat');
+
+  function startHot(){
+    const now = performance.now();
+    if(st.hotOn && now < st.hotUntil) return;
+    st.hotOn = true;
+    st.hotUntil = now + st.hotDurationMs;
+    st.hotCount += 1;
+    showPrompt('🔥 HOT STREAK! 10s คะแนนคูณ + สปอว์นถี่ขึ้น');
+    toast('🔥 HOT ON');
+    logger.push({type:'hot:start', untilMs: Math.round(st.hotUntil)});
+    try{ wrap && (wrap.style.boxShadow = '0 0 0 1px rgba(245,158,11,.18), 0 18px 90px rgba(245,158,11,.10)'); }catch(_){}
+  }
+
+  function stopHot(reason){
+    if(!st.hotOn) return;
+    st.hotOn = false;
+    logger.push({type:'hot:end', reason:String(reason||'time')});
+    try{ wrap && (wrap.style.boxShadow = ''); }catch(_){}
+  }
 
   function setHud(){
     if(tScore) tScore.textContent = String(st.score);
@@ -589,18 +510,10 @@
     if(tMask) tMask.textContent = `${Math.round(sh)}%`;
     if(bMask) bMask.style.width = `${sh}%`;
 
-    if(tWave) tWave.textContent = director.wave || '—';
+    if(tWave) tWave.textContent = (st.hotOn ? 'HOT' : (director.wave || '—'));
     if(tInt) tInt.textContent = (director.intensity||0).toFixed(2);
     if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
     if(tRisk) tRisk.textContent = (st.risk||0).toFixed(2);
-
-    if(tThreat) tThreat.textContent = String(Math.round(st.threat));
-    if(tThreat2) tThreat2.textContent = String(Math.round(st.threat));
-    if(bThreat){
-      bThreat.style.width = `${Math.round(st.threat)}%`;
-      const v = st.threat/100;
-      bThreat.style.background = v<0.35 ? 'rgba(34,197,94,.85)' : v<0.7 ? 'rgba(245,158,11,.88)' : 'rgba(239,68,68,.86)';
-    }
 
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
@@ -610,6 +523,39 @@
 
     fxFeverGlow(!!director.feverOn);
   }
+
+  // Decision Fork UI (optional; won't crash if missing)
+  const choiceEl = DOC.getElementById('mc-choice');
+  const choiceDesc = DOC.getElementById('mcChoiceDesc');
+  const btnChoiceA = DOC.getElementById('btnChoiceA');
+  const btnChoiceB = DOC.getElementById('btnChoiceB');
+
+  function showChoice(){
+    if(!choiceEl) return;
+    st.choiceOn = true;
+    st.choiceUntil = performance.now() + 10000;
+    choiceEl.hidden = false;
+
+    const a = 'A) 🛡️ Safe Shield: +22% Shield (แต่คะแนนต่อ hit ลดลงนิด)';
+    const b = 'B) 🎯 Score Rush: คะแนนคูณเพิ่มชั่วคราว (แต่โทษ miss แรงขึ้น)';
+    if(choiceDesc) choiceDesc.textContent = `${a}\n${b}`;
+    showPrompt('🧠 เลือกแผน A/B (10s)');
+    logger.push({type:'choice:show'});
+  }
+  function hideChoice(){
+    st.choiceOn = false;
+    if(choiceEl) choiceEl.hidden = true;
+  }
+  function pickChoice(which){
+    hideChoice();
+    st.choiceBuff = which;
+    if(which==='A'){ st.choiceA += 1; st.shield = clamp(st.shield + 22, 0, 100); toast('🛡️ Choice A'); }
+    if(which==='B'){ st.choiceB += 1; toast('🎯 Choice B'); }
+    logger.push({type:'choice:pick', which});
+    setHud();
+  }
+  if(btnChoiceA) btnChoiceA.addEventListener('click', ()=>pickChoice('A'), {passive:true});
+  if(btnChoiceB) btnChoiceB.addEventListener('click', ()=>pickChoice('B'), {passive:true});
 
   function emoji(kind){
     if(kind==='droplet') return '💦';
@@ -663,7 +609,7 @@
     return 'mask';
   }
 
-  function spawnAt(kind, x, y, ttlMs, zoneLv){
+  function spawnAt(kind, x, y, ttlMs){
     if(!st.running || st.over || st.paused) return;
 
     const id=String(++st.uid);
@@ -678,7 +624,7 @@
     const born=performance.now();
     const die=born+ttlMs;
 
-    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y, zoneLv: zoneLv||0});
+    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y});
 
     el.addEventListener('pointerdown', (ev)=>{
       if(view==='cvr') return;
@@ -698,17 +644,11 @@
     const x = pad + rng() * Math.max(10,(r.width - pad*2));
     const y = pad + rng() * Math.max(10,(r.height - pad*2));
 
-    const zLv = zoneLevelAt(x,y); // 0..1
-
     const ap=ai.assistParams();
-
-    const ttlMs0=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
-    const ttlMs=Math.max(520, Math.round(ttlMs0 * (1 - 0.22*zLv)));
+    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
 
     if(st.bossActive){
-      const rr = layerRect();
-      fxTelegraph(rr.left + x, rr.top + y, 'boss');
-      setTimeout(()=> spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)), zLv), 420);
+      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)));
       return;
     }
 
@@ -717,15 +657,7 @@
       kind='infected';
     }
 
-    // telegraph for cough (fair timing + Analyze)
-    if(kind==='cough'){
-      const rr = layerRect();
-      fxTelegraph(rr.left + x, rr.top + y, 'cough');
-      setTimeout(()=> spawnAt('cough', x, y, ttlMs, zLv), 440);
-      return;
-    }
-
-    spawnAt(kind, x, y, ttlMs, zLv);
+    spawnAt(kind, x, y, ttlMs);
   }
 
   function removeTarget(id, popped){
@@ -755,23 +687,20 @@
 
   function coughShockwave(x,y){
     const radius=130;
-    let turned = 0;
-
+    let mutated = 0;
     for(const [id, it] of st.targets){
       if(it.kind!=='droplet') continue;
       const dx=it.x-x, dy=it.y-y;
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d<=radius){
-        turned++;
+        mutated++;
         removeTarget(id,false);
-        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)), it.zoneLv||0);
+        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
       }
     }
-
-    if(turned>0){
-      st.chainPanic += turned;
-      addThreat(Math.min(18, 2 + turned*2));
-    }
+    st.chainPanic += 1;
+    st.crit.push({ t: +st.elapsedSec.toFixed(2), msg: `🤧 Shockwave เปลี่ยน 💦→🦠 x${mutated}` });
+    if(st.crit.length>20) st.crit.shift();
 
     fxShockwave(x,y);
     flashBad();
@@ -785,9 +714,6 @@
     const t=performance.now();
     const remain=it.dieMs - t;
 
-    // decision quality snapshot (Analyze proxy)
-    const riskContext = (st.threat >= 55) || (st.shield <= 28);
-
     removeTarget(id,true);
 
     const ap=ai.assistParams();
@@ -797,23 +723,32 @@
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
 
-    if(it.kind==='droplet'){
-      if(riskContext && st.shield <= 28) st.decisions.scoreFirst++;
+    // score multiplier (HOT + Choice)
+    let mult = st.hotOn ? st.hotMult : 1.0;
+    if(st.choiceBuff==='A') mult *= 0.92;
+    if(st.choiceBuff==='B') mult *= 1.10;
 
-      st.score += director.feverOn ? 2 : 1;
+    function addScore(n){
+      const v = Math.round(n * mult);
+      st.score += v;
+      if(st.hotOn) st.hotScore += v;
+    }
+
+    if(it.kind==='droplet'){
+      addScore(director.feverOn ? 2 : 1);
       st.streak += 1;
 
       const ttlApprox=st.ttlBaseMs;
       if(remain > ttlApprox*0.55){
-        st.score += 1;
+        addScore(1);
         st.perfect += 1;
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain), zoneLv: it.zoneLv||0});
+        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain)});
       }else{
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain), zoneLv: it.zoneLv||0});
+        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain)});
       }
 
       fxSpark(fxX, fxY);
@@ -824,60 +759,54 @@
       st.streak = 0;
       st.score = Math.max(0, st.score - 2);
       st.shield = clamp(st.shield - 10, 0, 100);
-
-      addThreat(14 + 10*(it.zoneLv||0));
-
       flashBad();
       toast('🦠 โดนเชื้อ!');
       ai.onEvent({type:'hit', kind:'infected', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why, zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why});
 
       fxShockwave(fxX, fxY);
 
     } else if(it.kind==='mask'){
-      if(riskContext) st.decisions.shieldFirst++;
-
       st.shield = clamp(st.shield + (director.feverOn?16:14), 0, 100);
-      st.score += 1;
+      addScore(1);
       st.streak += 1;
-
-      addThreat(-6);
-
       toast('🛡️ Shield +');
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'hit', kind:'mask', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why, zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why});
 
       fxSpark(fxX, fxY);
 
     } else if(it.kind==='cough' || it.kind==='boss'){
       if(remain <= perfectWindow){
-        st.score += (it.kind==='boss' ? 6 : 4);
+        addScore(it.kind==='boss' ? 6 : 4);
         st.streak += 1;
         st.perfect += 1;
-
-        addThreat(-(it.kind==='boss' ? 18 : 12));
-
         toast('✨ Perfect Block!');
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, remainMs:Math.round(remain), zoneLv: it.zoneLv||0});
+        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, remainMs:Math.round(remain)});
 
         fxConfettiBurst(fxX, fxY);
 
         if(st.bossActive) st.bossNeedPerfect=false;
       }else{
-        st.score += 2;
+        addScore(2);
         st.streak += 1;
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, remainMs:Math.round(remain), zoneLv: it.zoneLv||0});
+        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, remainMs:Math.round(remain)});
 
         fxSpark(fxX, fxY);
       }
     }
 
     st.maxStreak = Math.max(st.maxStreak, st.streak);
+
+    // HOT trigger
+    if(!st.hotOn && st.streak >= st.hotNeedStreak){
+      startHot();
+    }
 
     if(director.feverOn && rng()<0.10) burstClear(1);
 
@@ -899,36 +828,31 @@
       st.streak = 0;
       st.score = Math.max(0, st.score - 1);
       st.shield = clamp(st.shield - 6, 0, 100);
-
-      // Threat penalty scales by zone risk
-      addThreat(6 + 10*(it.zoneLv||0));
-
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'droplet', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet', zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet'});
 
     } else if(it.kind==='infected'){
-      // good avoid
       st.score += 1;
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'timeout', kind:'infected', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'avoid', kind:'infected', zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'avoid', kind:'infected'});
 
     } else if(it.kind==='mask'){
       st.miss += 1;
       st.streak = 0;
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'mask', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'mask', zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'mask'});
 
     } else if(it.kind==='cough' || it.kind==='boss'){
       st.miss += 1;
       st.streak = 0;
-      st.shield = clamp(st.shield - (it.kind==='boss'?22:16), 0, 100);
+
+      const extra = (st.choiceBuff==='B') ? 1.15 : 1.0;
+      st.shield = clamp(st.shield - Math.round((it.kind==='boss'?22:16)*extra), 0, 100);
+
       st.score = Math.max(0, st.score - 2);
-
-      addThreat(it.kind==='boss' ? 22 : 16);
-
       toast('😷 โดนละอองไอ!');
       flashBad();
 
@@ -937,7 +861,7 @@
 
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'cough', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind, zoneLv: it.zoneLv||0});
+      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind});
     }
 
     setHud();
@@ -981,7 +905,9 @@
     const ap=ai.assistParams();
     const base=st.baseSpawnMs;
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
-    const eff = Math.max(220, Math.round(every*(1+ap.spawnSlow)));
+
+    const hotMul = st.hotOn ? 0.88 : 1.0;
+    const eff = Math.max(200, Math.round(every*(1+ap.spawnSlow) * hotMul));
 
     spawnTimer=setTimeout(()=>{
       spawn();
@@ -1011,22 +937,20 @@
           if(st.bossNeedPerfect){
             st.shield=clamp(st.shield-18,0,100);
             st.score=Math.max(0, st.score-4);
-
-            addThreat(14);
-
             flashBad();
             toast('❌ บอสไม่ผ่าน!');
             logger.push({type:'boss:end', pass:false});
+            st.crit.push({ t:+st.elapsedSec.toFixed(2), msg:'❌ บอสไม่ผ่าน (ไม่มี Perfect)' });
           }else{
             st.shield=clamp(st.shield+12,0,100);
             st.score += 6;
-
-            addThreat(-10);
-
             toast('✅ ผ่านบอส! +Shield');
             burstClear(2);
             logger.push({type:'boss:end', pass:true});
+            st.crit.push({ t:+st.elapsedSec.toFixed(2), msg:'✅ ผ่านบอส (มี Perfect)' });
           }
+          if(st.crit.length>20) st.crit.shift();
+
           setHud();
           st.nextBossAt = performance.now() + st.bossEveryMs;
           return;
@@ -1043,7 +967,21 @@
     director = fun ? fun.tick() : director;
 
     const nowMs=performance.now();
+
+    // HOT timer
+    if(st.hotOn){
+      if(nowMs >= st.hotUntil) stopHot('expire');
+      else st.hotTimeMs += 80;
+    }
+
     st.risk = ai.onTick(nowMs, st.shield);
+
+    // threat max + crit moment
+    st.threatMax = Math.max(st.threatMax, st.risk||0);
+    if(st.risk >= 0.78){
+      st.crit.push({ t: +st.elapsedSec.toFixed(2), msg: '⚠️ Threat สูงมาก (เกือบแตก)' });
+      if(st.crit.length>20) st.crit.shift();
+    }
 
     const hint = ai.coachHint(nowMs, {shield:st.shield, miss:st.miss});
     if(hint) { showPrompt(hint); logger.push({type:'hha:coach', msg:hint}); }
@@ -1054,25 +992,23 @@
 
     maybeBoss(nowMs);
 
+    // choice timer (skip during boss)
+    if(!st.choiceOn && nowMs >= st.nextChoiceAt && !st.bossActive){
+      showChoice();
+      st.nextChoiceAt = nowMs + (10000 + Math.round(rng()*5000));
+    }
+    if(st.choiceOn && nowMs >= st.choiceUntil){
+      hideChoice();
+      logger.push({type:'choice:timeout'});
+    }
+
     st.elapsedSec = (nowMs - st.t0)/1000;
     if(st.elapsedSec >= timeLimit){
       endGame('time'); return;
     }
 
-    // threat stats (quality metric)
-    tickThreatStats();
-
-    // per-second heartbeat
     if(((nowMs - st.t0) % 1000) < 90){
-      logger.push({
-        type:'hha:time',
-        t: +st.elapsedSec.toFixed(2),
-        score:st.score,
-        miss:st.miss,
-        shield:+st.shield.toFixed(1),
-        risk:+st.risk.toFixed(3),
-        threat:+st.threat.toFixed(1)
-      });
+      logger.push({type:'hha:time', t: +st.elapsedSec.toFixed(2), score:st.score, miss:st.miss, shield:+st.shield.toFixed(1), risk:+st.risk.toFixed(3)});
     }
 
     setHud();
@@ -1096,9 +1032,10 @@
     const b=[];
     if(st.perfect>=3) b.push({id:'PERFECT_3', label:'✨ Perfect x3'});
     if(st.maxStreak>=12) b.push({id:'STREAK_12', label:'🔥 Streak 12'});
+    if(st.hotCount>=1) b.push({id:'HOT_ON', label:'🔥 HOT'});
+    if(st.choiceA+st.choiceB>=1) b.push({id:'DECISION', label:'🧠 Decision'});
     if(st.miss<=3 && st.elapsedSec>=timeLimit-0.2) b.push({id:'CLEAN_RUN', label:'🧼 Clean Run'});
     if(st.shield>=60) b.push({id:'SHIELD_MASTER', label:'🛡️ Shield Master'});
-    if(st.threatMax<=35) b.push({id:'THREAT_COOL', label:'🧠 Threat Control'});
     return b;
   }
 
@@ -1112,6 +1049,11 @@
     set('sShield', Math.round(st.shield)+'%');
     set('sRisk', (ai.riskAvg()?ai.riskAvg():st.risk).toFixed(2));
 
+    // optional extra fields (won't crash if absent)
+    set('sThreatMax', (st.threatMax||0).toFixed(2));
+    set('sChainPanic', st.chainPanic||0);
+    set('sHot', `${st.hotCount||0}x / ${Math.round(st.hotTimeMs/1000)}s`);
+
     const badgeRow=DOC.getElementById('badgeRow');
     const badges=makeBadges();
     if(badgeRow){
@@ -1121,10 +1063,12 @@
     }
 
     const note=DOC.getElementById('endNote');
+    const last = st.crit.length ? st.crit[st.crit.length-1] : null;
     if(note){
       note.textContent = `pid=${pid||'—'} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed} | log=${logEndpoint||'—'}`
-        + ` | threatMax=${Math.round(st.threatMax)} | threatAvg=${threatAvg().toFixed(1)} | chain=${st.chainPanic}`
-        + ` | shieldFirst=${st.decisions.shieldFirst} | scoreFirst=${st.decisions.scoreFirst}`;
+        + ` | threatMax=${(st.threatMax||0).toFixed(2)} | chainPanic=${st.chainPanic||0} | hot=${st.hotCount}x`
+        + ` | choice(A/B)=${st.choiceA}/${st.choiceB}`
+        + (last && (st.threatMax>=0.72 || st.chainPanic>=2) ? ` | CRIT@${last.t}s: ${last.msg}` : '');
     }
 
     const endEl=$('#end');
@@ -1142,6 +1086,9 @@
     const endEl=$('#end');
     if(endEl) endEl.hidden=true;
 
+    hideChoice();
+    stopHot('reset');
+
     st.running=true; st.paused=false; st.over=false;
     st.t0=performance.now();
     st.elapsedSec=0;
@@ -1149,11 +1096,16 @@
     st.score=0; st.streak=0; st.maxStreak=0; st.miss=0; st.perfect=0;
     st.shield=40;
 
-    // reset Analyze metrics
-    st.threat=12; st.threatMax=12; st.threatSum=0; st.threatN=0;
-    st.chainPanic=0;
-    st.decisions.shieldFirst=0;
-    st.decisions.scoreFirst=0;
+    st.hotOn=false; st.hotUntil=0; st.hotCount=0; st.hotTimeMs=0; st.hotScore=0;
+
+    st.choiceBuff='none';
+    st.choiceOn=false;
+    st.choiceA=0; st.choiceB=0;
+    st.nextChoiceAt = performance.now() + (9000 + Math.round(rng()*5000));
+
+    st.crit.length = 0;
+    st.threatMax = 0;
+    st.chainPanic = 0;
 
     clearAllTargets();
 
@@ -1163,9 +1115,6 @@
     st.nextBossAt = performance.now() + st.bossEveryMs;
     st.bossActive=false;
     st.bossNeedPerfect=false;
-
-    // create spatial zones for this run
-    makeZones();
 
     toast('เริ่ม! กันละอองให้ได้มากที่สุด');
     setHud();
@@ -1198,6 +1147,9 @@
     if(spawnTimer) clearTimeout(spawnTimer);
     if(tickTimer) clearInterval(tickTimer);
 
+    hideChoice();
+    if(st.hotOn) stopHot('end');
+
     clearAllTargets();
 
     const sum = {
@@ -1213,12 +1165,16 @@
       perfect: st.perfect,
       shieldEnd: Math.round(st.shield),
       riskAvg: Math.round((ai.riskAvg?ai.riskAvg():st.risk)*100)/100,
-      threatMax: Math.round(st.threatMax),
-      threatAvg: Math.round(threatAvg()*10)/10,
-      chainPanic: st.chainPanic,
-      shieldFirst: st.decisions.shieldFirst,
-      scoreFirst: st.decisions.scoreFirst,
-      reason
+      reason,
+
+      // PATCH 4 metrics
+      threatMax: Math.round((st.threatMax||0)*100)/100,
+      chainPanic: st.chainPanic||0,
+      hotCount: st.hotCount||0,
+      hotTimeSec: Math.round((st.hotTimeMs||0)/100)/10,
+      hotScore: st.hotScore||0,
+      choiceA: st.choiceA||0,
+      choiceB: st.choiceB||0,
     };
 
     saveSummary(sum);
@@ -1255,14 +1211,9 @@
     }
   }, {passive:true});
 
-  // resize -> rebuild zones (spatial Analyze)
-  window.addEventListener('resize', ()=>{
-    if(st.running && !st.over) makeZones();
-  }, {passive:true});
-
   // init
   setHud();
   showPrompt(view==='cvr'
     ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) เป้าในชั้นเล่นจะไม่รับ tap ตรง ๆ'
-    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 มีวงเตือน และตอนท้าย = Perfect!');
+    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 ตอนท้าย = Perfect! (streak สูงเข้า HOT)');
 })();
