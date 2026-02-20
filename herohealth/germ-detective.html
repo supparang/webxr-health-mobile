@@ -5,232 +5,272 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — Germ Detective (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
   <style>
     :root{
-      --bg:#070A14;
-      --panel: rgba(2,6,23,.72);
-      --border: rgba(148,163,184,.18);
-      --txt: rgba(229,231,235,.96);
-      --muted: rgba(229,231,235,.70);
+      --bg:#070A14; --panel: rgba(2,6,23,.72); --panel2: rgba(255,255,255,.03);
+      --border: rgba(148,163,184,.18); --txt: rgba(229,231,235,.96); --muted: rgba(229,231,235,.70);
+      --acc: rgba(99,102,241,.95);
     }
-    body{ margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
-    .wrap{ min-height:100vh; display:grid; place-items:center; padding:18px; }
-    .card{
-      width:min(980px, 100%);
-      border:1px solid var(--border);
-      background:var(--panel);
-      border-radius:20px;
-      padding:16px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 20px 60px rgba(0,0,0,.35);
-    }
-    h1{ margin:0 0 8px; font-size:18px; }
-    .sub{ color:var(--muted); font-weight:700; font-size:12px; margin-bottom:14px; }
-    .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; }
-    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
-    .pane{
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.03);
-      border-radius:16px;
-      padding:12px;
-    }
-    label{ display:block; font-size:11px; color:var(--muted); font-weight:900; margin:8px 0 6px; }
-    select,input{
-      width:100%;
-      height:40px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.05);
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; min-height:100vh;
+      background: radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+                  radial-gradient(1000px 700px at 90% 10%, rgba(34,197,94,.14), transparent 60%),
+                  var(--bg);
       color: var(--txt);
-      padding: 0 10px;
-      outline:none;
-      font-weight:850;
-      font-size:12px;
+      font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
-    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    @media (max-width:520px){ .row{ grid-template-columns:1fr; } }
-    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 90px; }
+    .hero{
+      margin-top: 12px;
+      border:1px solid var(--border);
+      background: var(--panel);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+    }
+    h1{ margin:0 0 6px; font-size: 22px; letter-spacing:.2px; }
+    .sub{ color: var(--muted); font-weight: 850; line-height: 1.35; }
+    .grid{
+      margin-top: 14px;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 12px;
+    }
+    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+    .card{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(255,255,255,.03);
+      border-radius: 20px;
+      padding: 14px;
+    }
+    .card h3{ margin:0 0 8px; font-size: 14px; }
+    label{ display:block; margin-top: 10px; color: var(--muted); font-weight: 900; font-size: 12px; }
+    select, input{
+      width:100%;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: var(--txt);
+      font-weight: 900;
+      outline:none;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
     .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:12px 14px;
+      appearance:none; border:none;
+      border-radius: 16px;
+      padding: 12px 14px;
       background: rgba(2,6,23,.75);
       border: 1px solid rgba(148,163,184,.22);
       color: var(--txt);
-      font-weight:1000;
-      font-size:12px;
+      font-weight: 1000;
       cursor:pointer;
       user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
+    .btn.primary{
+      background: rgba(99,102,241,.22);
+      border-color: rgba(99,102,241,.45);
+      box-shadow: 0 0 0 2px rgba(99,102,241,.10) inset;
+    }
     .btn:active{ transform: translateY(1px); }
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.03);
-      color: var(--muted);
-      font-weight:900; font-size:11px;
-      margin-top:10px;
-    }
-    .mini{ color:var(--muted); font-weight:800; font-size:12px; line-height:1.35; }
-    .casebox{ display:grid; gap:10px; }
-    .casecard{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding: 6px 10px;
+      border-radius: 999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(255,255,255,.03);
-      border-radius:16px;
-      padding:12px;
+      color: rgba(229,231,235,.86);
+      font-weight: 900;
+      font-size: 12px;
+      margin-top: 10px;
     }
-    .casecard h3{ margin:0 0 6px; font-size:13px; }
-    .casecard p{ margin:0; color:var(--muted); font-weight:800; font-size:12px; line-height:1.35; }
-    .tag{ display:inline-flex; padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); color:var(--muted); font-weight:900; font-size:11px; margin-top:10px; }
+    .tips{ margin-top:10px; color: var(--muted); font-weight: 850; line-height: 1.35; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .foot{
+      position: fixed; left:0; right:0; bottom:0;
+      padding: 10px 16px;
+      background: rgba(2,6,23,.70);
+      border-top: 1px solid rgba(148,163,184,.14);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-weight: 850;
+      z-index: 9;
+    }
+    .foot .wrap2{ max-width:980px; margin:0 auto; display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; }
+    a{ color: rgba(199,210,254,.95); text-decoration: none; font-weight: 1000; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>🕵️ Germ Detective</h1>
-      <div class="sub">สำรวจ • เก็บหลักฐาน • ต่อ chain การแพร่ • ตัดสินใจทำความสะอาดภายใต้ทรัพยากรจำกัด • ลด R₀ & Exposure ให้ต่ำที่สุด</div>
+    <div class="hero">
+      <h1>🕵️‍♀️ Germ Detective</h1>
+      <div class="sub">
+        สำรวจ → เก็บหลักฐาน (UV/Swab/Camera) → ต่อ Chain (A→B→C) → Triage ทำความสะอาด (ทรัพยากรจำกัด) → กด R₀ &lt; 1
+      </div>
+      <div class="pill">รองรับ: PC • Mobile • Cardboard (cVR)</div>
 
       <div class="grid">
-        <div class="pane">
+        <div class="card">
+          <h3>⚙️ ตั้งค่าการเล่น</h3>
+
+          <label>Case</label>
+          <select id="caseId">
+            <option value="classroom">โรงเรียน (เด็กป่วยในห้องเรียน)</option>
+            <option value="home">บ้าน (บ้านมีคนไอ)</option>
+          </select>
+
+          <label>Difficulty</label>
+          <select id="diff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+
+          <label>Time (sec)</label>
+          <input id="time" type="number" min="90" max="480" value="240"/>
+
+          <label>AI Prediction (Level 1: heuristic coach)</label>
+          <select id="ai">
+            <option value="1" selected>ON</option>
+            <option value="0">OFF</option>
+          </select>
+
+          <label>PID</label>
+          <input id="pid" value="anon"/>
+
+          <label>Seed (deterministic)</label>
+          <input id="seed" class="mono" placeholder="leave blank = now()"/>
           <div class="row">
-            <div>
-              <label>Case</label>
-              <select id="caseSel">
-                <option value="classroom">เด็กป่วยในห้องเรียน 3 คน</option>
-                <option value="home">บ้านมีคนไอ</option>
-              </select>
-            </div>
-            <div>
-              <label>View</label>
-              <select id="viewSel">
-                <option value="pc">PC (mouse/keyboard)</option>
-                <option value="mobile">Mobile (touch)</option>
-                <option value="cvr">Cardboard VR (crosshair)</option>
-              </select>
-            </div>
+            <button class="btn" id="btnSeedNow">Seed = now()</button>
+            <button class="btn" id="btnSeedKeep">Keep current</button>
           </div>
 
-          <div class="row">
-            <div>
-              <label>Difficulty</label>
-              <select id="diffSel">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-            <div>
-              <label>Time (sec)</label>
-              <input id="timeInp" type="number" min="90" max="480" value="240"/>
-            </div>
+          <div class="tips">
+            <b>Research-safe:</b> AI ตอนนี้เป็น heuristic + explainable (ไม่ปรับยากตามตัวผู้เล่นแบบแอบ ๆ) และ log ลง local เท่านั้น
           </div>
-
-          <div class="row">
-            <div>
-              <label>pid</label>
-              <input id="pidInp" placeholder="เช่น p001" value="anon"/>
-            </div>
-            <div>
-              <label>seed</label>
-              <input id="seedInp" placeholder="ปล่อยว่าง = auto" value=""/>
-            </div>
-          </div>
-
-          <div class="row">
-            <div>
-              <label>AI (research-safe)</label>
-              <select id="aiSel">
-                <option value="0">AI OFF (baseline)</option>
-                <option value="1" selected>AI ON (coach + pacing แบบ explainable)</option>
-              </select>
-            </div>
-            <div>
-              <label>Gate (เริ่มเกม)</label>
-              <select id="gateSel">
-                <option value="1" selected>Cold Open → Explore</option>
-                <option value="2">ข้าม Cold Open</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn" id="btnPlay">▶ เล่น</button>
-            <button class="btn" id="btnPlayRun">🧪 Run (debug)</button>
-            <button class="btn" id="btnResetToday">🧹 ล้างค่าแบบวันนี้</button>
-          </div>
-
-          <div class="pill" id="hint">Tip: Cardboard ใช้ crosshair ยิง (แตะจอหรือ Space)</div>
         </div>
 
-        <div class="pane">
-          <div class="casebox">
-            <div class="casecard">
-              <h3>🎬 Core Loop</h3>
-              <p>Cold Open → Explore → Evidence combo (UV→Swab→Cam) → Chain (A→B→C) → Triage cleaning (resources limited) → End (ลด R₀/Exposure + badge)</p>
-              <div class="tag">AI ไม่หลอกตัวเอง: no-leakage + baseline + explainable tips</div>
-            </div>
-            <div class="casecard">
-              <h3>🏆 ชนะเงื่อนไข (Super Sleuth)</h3>
-              <p>ทำให้ <b>R₀ &lt; 1</b> + ต่อ chain ถูก ≥ 3 เส้น + ใช้ทรัพยากรคุ้ม (waste ต่ำ)</p>
-            </div>
+        <div class="card">
+          <h3>🕶️ เลือกโหมดอุปกรณ์</h3>
+          <div class="tips">แนะนำ: Cardboard ให้ใช้ Triage เป็นหลัก (เพราะ chain ลากยาก)</div>
+          <div class="row">
+            <button class="btn primary" id="playPC">▶ เล่นบน PC</button>
+            <button class="btn primary" id="playMobile">📱 เล่นบน Mobile</button>
+            <button class="btn primary" id="playCVR">🕶 เล่น Cardboard (cVR)</button>
           </div>
-          <div class="mini" style="margin-top:10px;">
-            Root: <b>/herohealth/germ-detective.html</b><br/>
-            Run: <b>/herohealth/germ-detective/germ-detective.html</b>
+
+          <div class="tips" style="margin-top:14px;">
+            <div><b>Run path:</b> <span class="mono">/herohealth/germ-detective/germ-detective.html</span></div>
+            <div><b>Hub:</b> <span class="mono">/herohealth/hub.html</span></div>
+            <div style="margin-top:10px;">
+              <button class="btn" id="openHub">↩ เปิด HUB</button>
+            </div>
           </div>
         </div>
       </div>
+
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="wrap2">
+      <div>HeroHealth • Germ Detective Launcher</div>
+      <div>Offline logs (no App Script)</div>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  function qs(id){ return document.getElementById(id); }
-  function clamp(n,a,b){ n=Number(n); if(!Number.isFinite(n)) n=a; return Math.max(a, Math.min(b,n)); }
+
+  const RUN_URL = './germ-detective/germ-detective.html';
+  const HUB_URL = './hub.html';
+
+  const $ = (id)=> document.getElementById(id);
+  const KEY = 'HHA_GD_LAUNCH_PREFS_V1';
+
+  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
   function nowSeed(){ return String(Date.now()); }
 
-  const HUB = './hub.html';
-  const RUN = './germ-detective/germ-detective.html';
-
-  function play(isDebug){
-    const c = qs('caseSel').value;
-    const view = qs('viewSel').value;
-    const diff = qs('diffSel').value;
-    const time = clamp(qs('timeInp').value, 90, 480);
-    const pid  = (qs('pidInp').value || 'anon').trim();
-    const seed = (qs('seedInp').value || nowSeed()).trim();
-    const ai   = qs('aiSel').value;
-    const gate = qs('gateSel').value;
-
-    const p = new URLSearchParams();
-    p.set('hub', HUB);
-    p.set('case', c);
-    p.set('view', view);
-    p.set('diff', diff);
-    p.set('time', String(time));
-    p.set('pid', pid);
-    p.set('seed', seed);
-    p.set('ai', ai);
-    p.set('gate', gate);
-    p.set('run', isDebug ? 'debug' : 'play');
-
-    location.href = RUN + '?' + p.toString();
+  function loadPrefs(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(_){ return {}; }
+  }
+  function savePrefs(p){
+    try{ localStorage.setItem(KEY, JSON.stringify(p)); }catch(_){}
   }
 
-  qs('btnPlay').onclick = ()=> play(false);
-  qs('btnPlayRun').onclick = ()=> play(true);
-  qs('btnResetToday').onclick = ()=>{
-    try{
-      localStorage.removeItem('HHA_LAST_SUMMARY');
-      // ไม่ล้าง offline logs ทิ้งทั้งหมด ให้ใช้ปุ่มใน HUB ล้างได้
-      alert('ล้าง HHA_LAST_SUMMARY แล้ว');
-    }catch(e){}
-  };
+  function initForm(){
+    const p = loadPrefs();
+    if(p.caseId) $('caseId').value = p.caseId;
+    if(p.diff) $('diff').value = p.diff;
+    if(p.time) $('time').value = p.time;
+    if(p.ai !== undefined) $('ai').value = String(p.ai);
+    if(p.pid) $('pid').value = p.pid;
+    if(p.seed) $('seed').value = p.seed;
+
+    $('btnSeedNow').onclick = ()=> $('seed').value = nowSeed();
+    $('btnSeedKeep').onclick = ()=> { /* noop */ };
+
+    $('openHub').onclick = ()=> location.href = HUB_URL;
+  }
+
+  function collect(){
+    const prefs = {
+      caseId: $('caseId').value || 'classroom',
+      diff: $('diff').value || 'normal',
+      time: clamp($('time').value || 240, 90, 480),
+      ai: Number($('ai').value || 1),
+      pid: String($('pid').value || 'anon').trim() || 'anon',
+      seed: String($('seed').value || '').trim() || nowSeed()
+    };
+    savePrefs(prefs);
+    return prefs;
+  }
+
+  function go(view){
+    const p = collect();
+    const url = new URL(RUN_URL, location.href);
+    url.searchParams.set('view', view);
+    url.searchParams.set('case', p.caseId);
+    url.searchParams.set('diff', p.diff);
+    url.searchParams.set('time', String(p.time));
+    url.searchParams.set('ai', String(p.ai));
+    url.searchParams.set('pid', p.pid);
+    url.searchParams.set('seed', p.seed);
+    url.searchParams.set('run', 'play');
+    url.searchParams.set('gate', '1');
+    url.searchParams.set('hub', HUB_URL);
+    // no api/spreadsheet/appscript
+    location.href = url.toString();
+  }
+
+  function detectMobile(){
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  }
+
+  initForm();
+
+  $('playPC').onclick = ()=> go('pc');
+  $('playMobile').onclick = ()=> go('mobile');
+  $('playCVR').onclick = ()=> go('cvr');
+
+  // gentle default seed
+  if(!$('seed').value) $('seed').value = nowSeed();
+
+  // optional: auto-suggest mobile
+  if(detectMobile()){
+    // keep user choice; no auto redirect
+  }
+
 })();
 </script>
 </body>
