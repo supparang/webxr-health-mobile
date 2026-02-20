@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — PRODUCTION (AUTO VIEW + VR-UI + SAFE-ZONE)
-// v2026-02-18d + HUBFIX v2026-02-19b
+// v2026-02-18d + HUBFIX v2026-02-19a + BIND-ONCE v2026-02-20a
 //
 // ✅ Auto detect view (pc/mobile/cvr/vr) + allow override via ?view=
 // ✅ Auto load ../vr/vr-ui.js once (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
@@ -8,13 +8,11 @@
 //    --gj-top-safe, --gj-bottom-safe, --sat/--sab/--sal/--sar
 // ✅ HUD-safe spawn: prevents targets under topbar/hud/bottom meters
 // ✅ No duplicate listeners (guards with window.GJ_BOOT)
-// ✅ End overlay: CLEAN (safe.js controls aria-hidden; boot only binds buttons if present)
 // ✅ FIX HUB: default ไป /herohealth/hub.html (absolute) + still respects ?hub=
-// ✅ PATCH B: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + onOnce
+// ✅ BIND: bindBasicButtons รองรับ id เดิม + id มาตรฐาน + onOnce กัน bind ซ้ำ
 //
 // Requires:
 // - goodjunk.safe.js exports boot({view,diff,run,time,hub,seed,...})
-// - goodjunk-vr.html includes IDs used by safe.js + optional end overlay buttons.
 
 'use strict';
 
@@ -34,7 +32,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
 
   // ---------------- helpers ----------------
   const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
-  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
   const byId = (id)=>DOC.getElementById(id);
 
   function setRootVar(name, value){
@@ -49,37 +47,15 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     }catch(_){ return 0; }
   }
 
-  // ✅ onOnce: ป้องกันการ bind ซ้ำ (คลิกแล้วยิงหลาย handler)
-  function onOnce(el, type, handler, opts){
-    if(!el) return;
-    try{
-      const key = `__onOnce_${type}`;
-      if(el.dataset && el.dataset[key] === '1') return;
-      if(el.dataset) el.dataset[key] = '1';
-      el.addEventListener(type, handler, opts);
-    }catch(_){}
-  }
-
-  // ✅ findFirst: หา element จากหลาย id (รองรับ id เดิม + มาตรฐาน)
-  function findFirst(ids){
-    for(const id of (ids || [])){
-      const el = byId(id);
-      if(el) return el;
-    }
-    return null;
-  }
-
   function detectView(){
     const v = String(qs('view','')||'').toLowerCase().trim();
     if (v === 'pc' || v === 'mobile' || v === 'vr' || v === 'cvr') return v;
 
-    // heuristic: cvr if query view=cvr or stereo hint
     const hinted = String(qs('stereo','')||'').toLowerCase();
     if (hinted === '1' || hinted === 'true') return 'cvr';
 
-    // PC if wide screen / has mouse
     const w = DOC.documentElement.clientWidth || innerWidth || 800;
-    const hasCoarse = (typeof matchMedia === 'function') && matchMedia('(pointer: coarse)').matches;
+    const hasCoarse = matchMedia && matchMedia('(pointer: coarse)').matches;
     if (!hasCoarse && w >= 760) return 'pc';
     return 'mobile';
   }
@@ -88,7 +64,7 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const topbar = DOC.querySelector('.gj-topbar');
     const hudTop = byId('hud') || DOC.querySelector('.gj-hud-top');
     const hudBot = DOC.querySelector('.gj-hud-bot');
-    const controls = DOC.querySelector('.hha-controls'); // optional
+    const controls = DOC.querySelector('.hha-controls');
 
     const H = DOC.documentElement.clientHeight || innerHeight || 700;
 
@@ -183,75 +159,45 @@ import { boot as bootSafe } from './goodjunk.safe.js';
     const raw = qs('hub', null);
     if (raw) return raw;
 
-    // default to main hub in repo root:
-    // https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
+    // default to main hub in repo root
     const base = location.origin + '/webxr-health-mobile';
     return base + '/herohealth/hub.html';
   }
 
-  // ✅ PATCH B: รองรับ id เดิม + id มาตรฐาน + onOnce
+  // ✅ bind once helper (per-element)
+  function onOnce(el, type, fn, opts){
+    if(!el) return;
+    const key = `__onOnce_${type}`;
+    if (el[key]) return;
+    el[key] = true;
+    el.addEventListener(type, fn, opts);
+  }
+
   function bindBasicButtons(){
-    // Restart buttons (support old+standard)
-    const btnRestartTop = findFirst([
-      'btnRestartTop',      // standard
-      'btnRestart',         // old
-      'btnRestartGame',     // alt
-      'restartBtn',         // alt
-      'restart'             // alt
-    ]);
+    // Support both: legacy ids + standard ids
+    const btnRestartTop = byId('btnRestartTop') || byId('btnRestart');
+    const btnRestartEnd = byId('btnRestartEnd');
+    const btnHubTop     = byId('btnHubTop') || byId('btnHub');
+    const btnBackHub    = byId('btnBackHub');
 
-    const btnRestartEnd = findFirst([
-      'btnRestartEnd',      // standard end overlay
-      'btnRestartEndGame',  // alt
-      'btnPlayAgain',       // alt
-      'btnReplay',          // alt
-      'replayBtn'           // alt
-    ]);
-
-    // Hub buttons (support old+standard)
-    const btnHubTop = findFirst([
-      'btnHubTop',          // standard
-      'btnHub',             // old
-      'btnHome',            // alt
-      'btnBackToHub',       // alt
-      'hubBtn'              // alt
-    ]);
-
-    const btnBackHub = findFirst([
-      'btnBackHub',         // standard end overlay
-      'btnBack',            // old
-      'btnBackToHome',      // alt
-      'btnExitToHub',       // alt
-      'backBtn'             // alt
-    ]);
+    const goHub = ()=> { location.href = resolveHubUrl(); };
 
     function restart(){
       const u = new URL(location.href);
-
-      // bump seed only in play (avoid breaking research repeatability)
       if (String(qs('run','play')).toLowerCase() !== 'research') {
         u.searchParams.set('seed', String(Date.now()));
       }
-
-      // remove hash to avoid weird caching on mobile
-      u.hash = '';
       location.href = u.toString();
-    }
-
-    function goHub(){
-      location.href = resolveHubUrl();
     }
 
     onOnce(btnRestartTop, 'click', restart, { passive:true });
     onOnce(btnRestartEnd, 'click', restart, { passive:true });
 
-    onOnce(btnHubTop, 'click', goHub, { passive:true });
+    onOnce(btnHubTop,  'click', goHub, { passive:true });
     onOnce(btnBackHub, 'click', goHub, { passive:true });
   }
 
-  function guardIntervals(){
-    // kept for future expansion
-  }
+  function guardIntervals(){}
 
   // ---------------- main ----------------
   async function main(){
