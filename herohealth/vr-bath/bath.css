@@ -2,27 +2,27 @@
   --bg1: #0b1020;
   --bg2: #101b33;
   --card: rgba(255,255,255,.08);
-  --card2: rgba(255,255,255,.12);
   --txt: rgba(255,255,255,.92);
   --muted: rgba(255,255,255,.65);
   --good: rgba(120,255,170,.95);
   --warn: rgba(255,210,90,.95);
   --bad: rgba(255,110,110,.95);
-  --hudH: 92px;
-  --ctlH: 72px;
   --safeTop: calc(env(safe-area-inset-top, 0px) + 8px);
   --safeBot: calc(env(safe-area-inset-bottom, 0px) + 10px);
   --stagePad: 12px;
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),var(--bg2)); color: var(--txt); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif; }
+html,body{
+  height:100%; margin:0;
+  background: linear-gradient(180deg,var(--bg1),var(--bg2));
+  color: var(--txt);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+}
 
 #app{ height:100%; display:flex; flex-direction:column; }
 #hud{
-  position: sticky;
-  top:0;
-  z-index: 50;
+  position: sticky; top:0; z-index: 50;
   padding: calc(var(--safeTop)) 12px 10px 12px;
   background: linear-gradient(180deg, rgba(0,0,0,.40), rgba(0,0,0,.12));
   backdrop-filter: blur(8px);
@@ -31,14 +31,18 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
 .pill{
   padding: 8px 10px;
   border-radius: 999px;
-  background: var(--card);
+  background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.10);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: .2px;
   font-size: 12px;
 }
 
-#playfield{ flex:1; position:relative; display:flex; justify-content:center; align-items:stretch; padding: 10px 10px var(--safeBot); }
+#playfield{
+  flex:1; position:relative;
+  display:flex; justify-content:center; align-items:stretch;
+  padding: 10px 10px var(--safeBot);
+}
 #bg{
   position:absolute; inset:0;
   background:
@@ -119,13 +123,9 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
 #body-silhouette .leg-l{ left: 40%; transform: rotate(2deg); }
 #body-silhouette .leg-r{ right: 40%; transform: rotate(-2deg); }
 
-#target-layer{
-  position:absolute; inset:0;
-  pointer-events: auto;
-}
+#target-layer{ position:absolute; inset:0; pointer-events: auto; }
 
 #controls{
-  height: calc(var(--ctlH) + var(--safeBot));
   padding: 8px 2px calc(var(--safeBot));
   display:flex;
   gap:10px;
@@ -140,7 +140,7 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
   color: var(--txt);
   padding: 12px 14px;
   border-radius: 14px;
-  font-weight: 800;
+  font-weight: 900;
   cursor:pointer;
   min-width: 110px;
 }
@@ -172,7 +172,7 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
 .panel-card .row{ display:flex; gap:10px; justify-content:flex-end; margin-top: 12px; }
 .muted{ color: var(--muted); font-size: 12px; }
 
-.summary{ font-weight: 800; margin: 8px 0 10px; }
+.summary{ font-weight: 900; margin: 8px 0 10px; }
 
 .heatmap{
   display:grid;
@@ -190,7 +190,7 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
   align-items:center;
   font-weight: 900;
 }
-.hm small{ font-weight: 800; color: var(--muted); }
+.hm small{ font-weight: 900; color: var(--muted); }
 
 /* Targets */
 .target{
@@ -200,7 +200,6 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
   display:flex;
   justify-content:center;
   align-items:center;
-  font-weight: 900;
   user-select:none;
   touch-action: manipulation;
   transform: translate(-50%, -50%);
@@ -223,15 +222,20 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
 }
 @keyframes spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
 
-.target.pop{
-  animation: pop .12s ease-out;
-}
+.target.pop{ animation: pop .12s ease-out; }
 @keyframes pop{
   from{ transform: translate(-50%,-50%) scale(.92); }
   to{ transform: translate(-50%,-50%) scale(1.06); }
 }
 
-/* Crosshair fallback (only visible if view=cvr AND vr-ui not present) */
+/* Fake foam: dotted + faster ring (fair trick) */
+.target.is-fake .ring{
+  border-style: dotted;
+  opacity:.55;
+  animation: spin 1.1s linear infinite;
+}
+
+/* Crosshair fallback */
 #crosshair-fallback{
   position:absolute;
   left:50%; top:50%;
@@ -246,7 +250,4 @@ html,body{ height:100%; margin:0; background: linear-gradient(180deg,var(--bg1),
 }
 body.cvr #crosshair-fallback{ display:block; }
 
-#footer{
-  padding: 8px 12px 12px;
-  text-align:center;
-}
+#footer{ padding: 8px 12px 12px; text-align:center; }
