@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
-✅ SAFE IDs intact (goodjunk.safe.js)
-✅ Boot is the single source of truth for Hub/Restart + VR-UI loading + safe-zones
-✅ No duplicate vr-ui.js load
-✅ Inline script keeps ONLY: missions peek, HUD toggle, chips, quest:update text
+GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
+✅ No inline HUB/Restart binds (Boot คุมหมด)
+✅ No duplicate vr-ui.js load (Boot จะโหลดเมื่อ vr/cvr หรือ ?vrui=1)
+✅ IDs ของ safe.js ครบ + โครง HUD/overlay เหมือนเดิม
+✅ Versions locked: css?v=20260220b, boot.js?v=20260220b
 -->
 <!doctype html>
 <html lang="th">
@@ -32,9 +32,13 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
       <button id="btnMissions" class="gj-btn" type="button">ภารกิจ</button>
       <button id="btnHideHud" class="gj-btn" type="button">ซ่อน HUD</button>
 
-      <!-- IDs here are "legacy ids" that Boot already supports -->
+      <!-- legacy ids (Boot รองรับ) -->
       <button id="btnRestart" class="gj-btn" type="button">เริ่มใหม่</button>
       <button id="btnHub" class="gj-btn primary" type="button">กลับ HUB</button>
+
+      <!-- optional standard ids (ถ้าคุณอยากใช้ในอนาคต Boot ก็รองรับ) -->
+      <!-- <button id="btnRestartTop" class="gj-btn" type="button">เริ่มใหม่</button> -->
+      <!-- <button id="btnHubTop" class="gj-btn primary" type="button">กลับ HUB</button> -->
     </div>
   </div>
 
@@ -149,8 +153,7 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
   </div>
 
   <!-- =========================================================
-       End overlay (safe.js toggles aria-hidden on end)
-       IMPORTANT: No inline onclick. Boot controls restart/hub.
+       End overlay (safe.js จะเปิด aria-hidden=false ตอนจบเกม)
        ========================================================= -->
   <div id="endOverlay" class="gj-end" aria-hidden="true">
     <div class="card">
@@ -165,7 +168,7 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
       </div>
 
       <div class="actions">
-        <!-- standard ids that Boot supports -->
+        <!-- Boot binds these too -->
         <button id="btnRestartEnd" class="btn" type="button">เล่นอีกครั้ง</button>
         <button id="btnBackHub" class="btn alt" type="button">กลับ HUB</button>
       </div>
@@ -175,7 +178,8 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
   <!-- Boot (single source of truth) -->
   <script type="module" src="./goodjunk-vr.boot.js?v=20260220b"></script>
 
-  <!-- UI wiring (ONLY missions/hud/chips/peek text) -->
+  <!-- UI-only wiring: missions modal + hide HUD + chips + quest peek text
+       (ไม่มี hub/restart bind ใด ๆ) -->
   <script>
     (function(){
       const DOC = document;
@@ -184,28 +188,36 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
       // chips
       const chipMode = DOC.getElementById('chipMode');
       const chipDiff = DOC.getElementById('chipDiff');
-      chipMode && (chipMode.textContent = `mode: ${qs('run','play')}`);
-      chipDiff && (chipDiff.textContent = `diff: ${qs('diff','normal')}`);
+      if (chipMode) chipMode.textContent = `mode: ${qs('run','play')}`;
+      if (chipDiff) chipDiff.textContent = `diff: ${qs('diff','normal')}`;
 
-      // HUD toggle
+      // show VR chip only when VR/CVR
+      const vrMiniHud = DOC.getElementById('vrMiniHud');
+      if (vrMiniHud) {
+        const view = String(qs('view','')||'').toLowerCase();
+        const hintedStereo = String(qs('stereo','')||'').toLowerCase();
+        const isCvr = (view === 'cvr') || hintedStereo === '1' || hintedStereo === 'true';
+        const isVr  = (view === 'vr');
+        vrMiniHud.style.display = (isVr || isCvr) ? 'inline-flex' : 'none';
+      }
+
+      // HUD hide/show
       const btnH = DOC.getElementById('btnHideHud');
       function syncHudBtn(){
         const hidden = DOC.body.classList.contains('hud-hidden');
-        if(btnH) btnH.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
+        if (btnH) btnH.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
       }
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
       }
-      btnH && btnH.addEventListener('click', toggleHud, { passive:true });
+      if (btnH) btnH.addEventListener('click', toggleHud, { passive:true });
       syncHudBtn();
 
-      // missions peek
+      // Missions peek modal
       const btnM = DOC.getElementById('btnMissions');
       const peek = DOC.getElementById('missionsPeek');
       const btnClosePeek = DOC.getElementById('btnClosePeek');
-      const peekGoal = DOC.getElementById('peekGoal');
-      const peekMini = DOC.getElementById('peekMini');
 
       function showPeek(on){
         if(!peek) return;
@@ -217,12 +229,15 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
           DOC.body.classList.remove('quest-open');
         }
       }
-      btnM && btnM.addEventListener('click', ()=> showPeek(true), { passive:true });
-      btnClosePeek && btnClosePeek.addEventListener('click', ()=> showPeek(false), { passive:true });
-      peek && peek.addEventListener('click', (e)=>{ if(e.target === peek) showPeek(false); }, { passive:true });
+      if (btnM) btnM.addEventListener('click', ()=> showPeek(true), { passive:true });
+      if (btnClosePeek) btnClosePeek.addEventListener('click', ()=> showPeek(false), { passive:true });
+      if (peek) peek.addEventListener('click', (e)=>{ if(e.target === peek) showPeek(false); }, { passive:true });
 
       // quest:update -> update peek text
+      const peekGoal = DOC.getElementById('peekGoal');
+      const peekMini = DOC.getElementById('peekMini');
       function safeText(x){ return (x==null) ? '—' : String(x); }
+
       function onQuestUpdate(ev){
         try{
           const goal = ev?.detail?.goal || null;
@@ -231,7 +246,9 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
           if(peekGoal){
             if(goal){
               peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
-            }else peekGoal.textContent = 'GOAL: —';
+            }else{
+              peekGoal.textContent = 'GOAL: —';
+            }
           }
 
           if(peekMini){
@@ -240,15 +257,18 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION v2026-02-20b
                 peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) < ${safeText(mini.thrMs)}ms`;
               }else if(typeof mini.timeLeftSec === 'number'){
                 peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) • ${Math.ceil(mini.timeLeftSec)}s`;
+              }else if(mini.timerText){
+                peekMini.textContent = `MINI: ${safeText(mini.title)} • ${safeText(mini.timerText)}`;
               }else{
                 peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
               }
-            }else peekMini.textContent = 'MINI: —';
+            }else{
+              peekMini.textContent = 'MINI: —';
+            }
           }
         }catch(_){}
       }
       window.addEventListener('quest:update', onQuestUpdate, { passive:true });
-      document.addEventListener('quest:update', onQuestUpdate, { passive:true });
     })();
   </script>
 </body>
