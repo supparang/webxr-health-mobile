@@ -1,372 +1,575 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-   GoodJunkVR RUN CSS — PRODUCTION
-   FULL v20260220-fxHARDEN
+   GoodJunkVR RUN (FOLDER) — PRODUCTION
+   FULL v20260220-cssFXHARDEN
 
-   ✅ Layout base (layer + HUD safe helpers)
-   ✅ Targets (spawn/expire/gone)
-   ✅ FX Layer hardened (#gj-fx) + per-kind bursts + shards + text pop
-   ✅ Screen pulse classes (BLOCK/HURT/BOOM/etc.)
+   ✅ Safe-area vars: --sat/--sab/--sal/--sar
+   ✅ Safe spawn vars: --gj-top-safe / --gj-bottom-safe (set by boot.js)
+   ✅ HUD compact + hud-hidden
+   ✅ Target FX-ready (gj-fx overlay hardened by safe.js)
+   ✅ Per-kind feel: GOOD / JUNK(block/hit) / STAR / SHIELD / DIAMOND / 💣 / 💀
 */
 
 :root{
+  --bg:#050814;
+  --panel: rgba(2,6,23,.72);
+  --panel2: rgba(2,6,23,.52);
+  --line: rgba(148,163,184,.18);
+  --txt: rgba(229,231,235,.94);
+  --mut: rgba(148,163,184,.96);
+
+  --good: rgba(16,185,129,.95);
+  --cyan: rgba(34,211,238,.95);
+  --warn: rgba(251,191,36,.95);
+  --bad: rgba(239,68,68,.95);
+  --pink: rgba(244,114,182,.95);
+
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* boot computes these */
-  --gj-top-safe: 140px;
-  --gj-bottom-safe: 140px;
+  /* updated by boot */
+  --gj-top-safe: 160px;
+  --gj-bottom-safe: 150px;
 
-  --bg:#050814;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(2,6,23,.55);
-  --line: rgba(148,163,184,.18);
-  --txt: rgba(229,231,235,.94);
-  --mut: rgba(148,163,184,.96);
+  --shadow: 0 18px 60px rgba(0,0,0,.45);
+  --shadow2: 0 12px 32px rgba(0,0,0,.40);
 
-  --good: rgba(34,197,94,.95);
-  --bad: rgba(239,68,68,.95);
-  --warn: rgba(250,204,21,.95);
-  --cyan: rgba(56,189,248,.95);
-  --purple: rgba(168,85,247,.95);
-  --orange: rgba(249,115,22,.95);
+  --r: 18px;
 }
 
-html,body{
-  height:100%;
-  margin:0;
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body.gj{
+  min-height:100%;
   background:
-    radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+    radial-gradient(1200px 800px at 18% 0%, rgba(99,102,241,.18), transparent 55%),
     radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
     var(--bg);
   color:var(--txt);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", "Prompt", "Segoe UI", sans-serif;
-  overscroll-behavior:none;
+  font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,Arial,sans-serif;
+  overflow:hidden;
 }
 
-body.gj{ min-height:100%; }
+/* allow taps */
+button{ -webkit-tap-highlight-color: transparent; }
+.gj-btn{ cursor:pointer; }
 
-/* ---------------- layers ---------------- */
+/* ---------- layers ---------- */
 .gj-layer{
   position:fixed;
-  left:0; right:0;
-  top:0; bottom:0;
+  left:0; top:0; right:0; bottom:0;
   padding-left: var(--sal);
   padding-right: var(--sar);
-  padding-top: 0;
-  padding-bottom: 0;
-  z-index: 20;
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
   overflow:hidden;
-  touch-action: manipulation;
+  z-index:10;
+  pointer-events:none; /* targets themselves are pointer-events:auto */
 }
 
-/* right-eye layer for cVR */
+/* right-eye clone only for cVR */
 .gj-layer-r{
-  z-index: 19;
-  opacity: .98;
-  pointer-events:auto;
+  position:fixed;
+  left:0; top:0; right:0; bottom:0;
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  overflow:hidden;
+  z-index:11;
+  pointer-events:none;
+  display:none;
 }
+body.view-cvr .gj-layer-r{ display:block; }
 
-/* ---------------- targets ---------------- */
+/* FX overlay (safe.js will create #gj-fx / #gj-fx-r if missing) */
+#gj-fx, #gj-fx-r{
+  position:absolute;
+  left:0; top:0; right:0; bottom:0;
+  pointer-events:none;
+}
+#gj-fx{ z-index:12; }
+#gj-fx-r{ z-index:13; }
+
+/* ---------- targets ---------- */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%) scale(1);
+  filter: drop-shadow(0 18px 26px rgba(0,0,0,.55));
   user-select:none;
-  -webkit-user-select:none;
-  cursor:pointer;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
-  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
-  will-change: transform, opacity;
+  pointer-events:auto;
+  will-change: transform, opacity, filter;
+  line-height:1;
 }
 
-.gj-target.spawn{ animation: gjSpawn 140ms ease-out both; }
-@keyframes gjSpawn{
-  from{ transform: translate(-50%, -50%) scale(.72); opacity: .0; }
-  to  { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+.gj-target.spawn{
+  animation: gj-pop .14s ease-out both;
 }
-
-.gj-target:active{
-  transform: translate(-50%, -50%) scale(.92);
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45)) brightness(1.04);
+@keyframes gj-pop{
+  from{ transform: translate(-50%,-50%) scale(.72); opacity:.0; }
+  to  { transform: translate(-50%,-50%) scale(1.0); opacity:1; }
 }
-
 .gj-target.gone{
-  opacity:0;
-  transform: translate(-50%, -50%) scale(.75);
+  animation: gj-gone .14s ease-in both;
+}
+@keyframes gj-gone{
+  from{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+  to  { transform: translate(-50%,-50%) scale(.85); opacity:0; }
 }
 
-body.storm .gj-target{ filter: drop-shadow(0 10px 26px rgba(0,0,0,.55)) saturate(1.05); }
-body.rage  .gj-target{ filter: drop-shadow(0 12px 28px rgba(0,0,0,.60)) saturate(1.12) contrast(1.02); }
+/* kind hint (subtle glow) */
+.gj-target[data-kind="good"]{ filter: drop-shadow(0 18px 26px rgba(16,185,129,.16)) drop-shadow(0 10px 18px rgba(0,0,0,.52)); }
+.gj-target[data-kind="junk"]{ filter: drop-shadow(0 18px 26px rgba(239,68,68,.16)) drop-shadow(0 10px 18px rgba(0,0,0,.52)); }
+.gj-target[data-kind="star"]{ filter: drop-shadow(0 18px 26px rgba(251,191,36,.15)) drop-shadow(0 10px 18px rgba(0,0,0,.52)); }
+.gj-target[data-kind="shield"]{ filter: drop-shadow(0 18px 26px rgba(34,211,238,.15)) drop-shadow(0 10px 18px rgba(0,0,0,.52)); }
+.gj-target[data-kind="diamond"]{ filter: drop-shadow(0 18px 26px rgba(244,114,182,.14)) drop-shadow(0 10px 18px rgba(0,0,0,.52)); }
+.gj-target[data-kind="skull"],
+.gj-target[data-kind="bomb"]{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)) drop-shadow(0 12px 22px rgba(0,0,0,.60)); }
 
-/* ---------------- HUD helpers ---------------- */
+/* ---------- HUD ---------- */
 #hud{
   position:fixed;
   left:12px; right:12px;
-  top:calc(56px + var(--sat));
-  z-index:110;
+  top:calc(60px + var(--sat));
+  z-index:180;
   pointer-events:none;
 }
 
-body.hud-hidden #hud{
-  opacity:0;
-  transform: translateY(-8px);
-  transition: opacity 140ms ease, transform 140ms ease;
+#hud .hud-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
 }
 
-/* Low time overlay */
+.hud-title{
+  pointer-events:none;
+  min-width: 180px;
+}
+.hud-name{
+  font-weight:1100;
+  font-size:20px;
+  letter-spacing:.2px;
+}
+.hud-sub{
+  color:rgba(148,163,184,.95);
+  margin-top:2px;
+  font-size:12px;
+  font-weight:800;
+}
+
+.hud-stats{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+.pill{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.45);
+  border-radius:999px;
+  box-shadow: var(--shadow2);
+}
+.pill .k{
+  font-size:11px;
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
+}
+.pill .v{
+  font-size:14px;
+  font-weight:1100;
+  color:rgba(229,231,235,.95);
+}
+.pill.grade{
+  border-color: rgba(34,211,238,.25);
+  background: rgba(34,211,238,.10);
+}
+
+.hud-mid{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  pointer-events:none;
+}
+.goal,.mini{
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.55);
+  border-radius: var(--r);
+  padding:10px 12px;
+  box-shadow: var(--shadow2);
+}
+.goal .row, .mini .row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.goal-name{
+  font-weight:1100;
+}
+.goal-metric{
+  color:rgba(34,211,238,.90);
+  font-weight:1100;
+}
+.goal-desc,.mini-desc{
+  margin-top:6px;
+  color:rgba(229,231,235,.86);
+  font-size:12px;
+  font-weight:850;
+}
+.mini-title{
+  font-weight:1100;
+}
+.mini-time{
+  color:rgba(251,191,36,.95);
+  font-weight:1100;
+}
+
+/* bottom meters */
+.hud-bottom{
+  margin-top:10px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+.meter, .shield{
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.55);
+  border-radius: var(--r);
+  padding:10px 12px;
+  box-shadow: var(--shadow2);
+}
+.meter{ flex: 1 1 220px; min-width: 220px; }
+.shield{ flex: 0 0 auto; min-width: 160px; }
+
+.meter-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+}
+.meter-title{
+  font-weight:1100;
+  letter-spacing:.3px;
+}
+.meter-val{
+  color:rgba(34,211,238,.92);
+  font-weight:1100;
+}
+.meter-bar{
+  margin-top:8px;
+  height:12px;
+  border-radius:999px;
+  background:rgba(148,163,184,.16);
+  overflow:hidden;
+}
+.meter-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(16,185,129,.95));
+  transition: width .12s linear;
+}
+
+.shield-title{
+  font-weight:1100;
+}
+.shield-val{
+  margin-top:8px;
+  font-weight:1100;
+}
+
+/* progress bar */
+.progress{
+  margin-top:10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.16);
+  height:10px;
+  overflow:hidden;
+  box-shadow: var(--shadow2);
+}
+.progress-bar{ height:10px; }
+.progress-fill{
+  height:10px;
+  width:0%;
+  background: linear-gradient(90deg, rgba(99,102,241,.95), rgba(34,211,238,.95));
+  transition: width .12s linear;
+}
+
+/* boss bar */
+.boss{
+  margin-top:10px;
+  border:1px solid rgba(239,68,68,.24);
+  background: rgba(239,68,68,.10);
+  border-radius: var(--r);
+  padding:10px 12px;
+  box-shadow: var(--shadow2);
+}
+.boss[aria-hidden="true"]{ display:none; }
+.boss-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.boss-title{ font-weight:1100; letter-spacing:.4px; color: rgba(255,160,160,.98); }
+.boss-hp{
+  flex:1;
+  height:12px;
+  border-radius:999px;
+  background: rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.boss-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(251,191,36,.95));
+  transition: width .12s linear;
+}
+.boss-hint{
+  margin-top:6px;
+  color: rgba(255,210,210,.92);
+  font-size:12px;
+  font-weight:900;
+}
+
+/* ---------- overlays ---------- */
+#missionsPeek{
+  backdrop-filter: blur(3px);
+}
 #lowTimeOverlay{
   position:fixed;
   inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:210;
+  z-index:240;
   pointer-events:none;
+  opacity:1;
 }
-#lowTimeOverlay[aria-hidden="true"]{ opacity:0; }
-
-/* ---------------- FX (HARDEN) ---------------- */
-/* FX container is injected/ensured by JS; keep absolute covering layer */
-#gj-fx{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  overflow:hidden;
-  z-index:140;
+#lowTimeOverlay[aria-hidden="true"]{ display:none; }
+.lowtime-card{
+  width:min(240px,84vw);
+  border:1px solid rgba(251,191,36,.26);
+  background: rgba(251,191,36,.10);
+  border-radius: 22px;
+  padding:16px 16px 14px;
+  box-shadow: var(--shadow);
+  text-align:center;
 }
-
-/* base */
-.gj-fx{
-  position:absolute;
-  left:0; top:0;
-  transform: translate(-50%, -50%);
-  pointer-events:none;
-  will-change: transform, opacity, filter;
-}
-
-.gj-fx::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  opacity:.95;
-  filter: blur(.5px);
-  transform: scale(.35);
-  animation: gjBurst var(--life, 340ms) ease-out forwards;
-}
-
-@keyframes gjBurst{
-  0%   { transform: scale(.35); opacity: .92; }
-  60%  { transform: scale(1.02); opacity: .78; }
-  100% { transform: scale(1.38); opacity: 0; }
-}
-
-/* shards */
-.gj-fx-shards{
-  transform: translate(-50%, -50%);
-  animation: gjShardWrap var(--life, 560ms) ease-out forwards;
-}
-@keyframes gjShardWrap{
-  0%   { opacity:.95; transform: translate(-50%, -50%) scale(.9); }
-  100% { opacity:0;   transform: translate(-50%, -50%) scale(1.05); }
-}
-.gj-fx-shards .gj-shard{
-  position:absolute;
-  left:0; top:0;
-  border-radius:999px;
-  animation: gjShard var(--life, 560ms) cubic-bezier(.2,.9,.2,1) forwards;
-  will-change: transform, opacity;
-}
-@keyframes gjShard{
-  0%   { opacity:.95; transform: translate(0,0) scale(1); }
-  100% { opacity:0;   transform: translate(var(--tx, 60px), var(--ty, -30px)) scale(.6); }
-}
-
-/* floating text */
-.gj-fx-text{
-  position:absolute;
-  left:0; top:0;
-  transform: translate(-50%, -50%);
-  font-weight:900;
+.lowtime-label{
+  font-weight:1100;
+  color: rgba(255,240,200,.95);
   letter-spacing:.3px;
-  font-size:18px;
-  line-height:1;
-  opacity:.98;
-  text-shadow:
-    0 6px 18px rgba(0,0,0,.45),
-    0 0 18px rgba(255,255,255,.12);
-  animation: gjText 620ms ease-out forwards;
-  pointer-events:none;
-  user-select:none;
 }
-@keyframes gjText{
-  0%   { transform: translate(-50%, -50%) scale(.96); opacity:.98; }
-  65%  { transform: translate(-50%, calc(-50% - 22px)) scale(1.06); opacity:.90; }
-  100% { transform: translate(-50%, calc(-50% - 42px)) scale(1.02); opacity:0; }
+.lowtime-num{
+  margin-top:6px;
+  font-weight:1200;
+  font-size:46px;
+  color: rgba(255,230,170,.98);
 }
 
-/* ---------- per-kind burst styles ---------- */
-/* GOOD */
-.gj-fx-good::before{
-  background: radial-gradient(circle at 35% 35%,
-    rgba(255,255,255,.95),
-    rgba(34,197,94,.85) 36%,
-    rgba(34,197,94,0) 70%);
-  box-shadow: 0 0 22px rgba(34,197,94,.30), 0 0 40px rgba(34,197,94,.18);
+/* ---------- HUD hide mode ---------- */
+body.hud-hidden #hud{
+  opacity:0;
+  transform: translateY(-6px);
+  pointer-events:none;
+  transition: opacity .12s ease, transform .12s ease;
 }
-.gj-fx-shards.gj-fx-good .gj-shard{ background: rgba(34,197,94,.88); }
+body:not(.hud-hidden) #hud{
+  opacity:1;
+  transform: translateY(0);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+/* ---------- responsive tightening ---------- */
+@media (max-width: 760px){
+  #hud{ left:10px; right:10px; top:calc(58px + var(--sat)); }
+  .hud-name{ font-size:18px; }
+  .hud-mid{ grid-template-columns: 1fr; }
+  .meter{ min-width: 180px; }
+}
+@media (max-height: 680px){
+  #hud{ top:calc(54px + var(--sat)); }
+  .goal,.mini,.meter,.shield,.boss{ padding:9px 10px; }
+  .hud-sub{ font-size:11px; }
+  .progress{ margin-top:8px; }
+}
+@media (max-height: 560px){
+  #hud{ top:calc(50px + var(--sat)); }
+  .hud-mid{ gap:8px; margin-top:8px; }
+  .hud-bottom{ gap:8px; margin-top:8px; }
+  .boss{ margin-top:8px; }
+}
+
+/* ---------- Gameplay feedback (pulses) ---------- */
+/* general tick */
+body.gj-tick{
+  animation: gj-tick .12s ease-in-out;
+}
+@keyframes gj-tick{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(1.12); }
+  100%{ filter: brightness(1); }
+}
+
+/* GOOD expire / miss */
+body.gj-good-expire{
+  animation: gj-miss .16s ease-out;
+}
+@keyframes gj-miss{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(.82) contrast(1.06); }
+  100%{ filter: brightness(1); }
+}
 
 /* JUNK HIT (แรง/ชัด) */
-.gj-fx-junk::before{
-  background: radial-gradient(circle at 40% 40%,
-    rgba(255,255,255,.92),
-    rgba(239,68,68,.92) 34%,
-    rgba(239,68,68,0) 72%);
-  box-shadow: 0 0 28px rgba(239,68,68,.40), 0 0 62px rgba(239,68,68,.22);
-  filter: blur(.25px) saturate(1.2);
+body.gj-junk-hit{
+  animation: gj-junk-hit .22s ease-out;
 }
-.gj-fx-shards.gj-fx-junk .gj-shard{ background: rgba(239,68,68,.92); }
-
-/* BLOCK (นุ่ม/สั้น) */
-.gj-fx-block::before{
-  background: radial-gradient(circle at 40% 40%,
-    rgba(255,255,255,.90),
-    rgba(59,130,246,.78) 32%,
-    rgba(59,130,246,0) 70%);
-  box-shadow: 0 0 18px rgba(59,130,246,.28), 0 0 34px rgba(59,130,246,.14);
-}
-.gj-fx-shards.gj-fx-block .gj-shard{ background: rgba(96,165,250,.88); }
-
-/* STAR */
-.gj-fx-star::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.92),
-    rgba(250,204,21,.88) 34%,
-    rgba(250,204,21,0) 72%);
-  box-shadow: 0 0 22px rgba(250,204,21,.30), 0 0 46px rgba(250,204,21,.18);
-}
-.gj-fx-shards.gj-fx-star .gj-shard{ background: rgba(250,204,21,.92); }
-
-/* SHIELD */
-.gj-fx-shield::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.92),
-    rgba(14,165,233,.88) 34%,
-    rgba(14,165,233,0) 72%);
-  box-shadow: 0 0 22px rgba(14,165,233,.30), 0 0 46px rgba(14,165,233,.18);
-}
-.gj-fx-shards.gj-fx-shield .gj-shard{ background: rgba(56,189,248,.92); }
-
-/* DIAMOND */
-.gj-fx-diamond::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.95),
-    rgba(168,85,247,.86) 34%,
-    rgba(168,85,247,0) 72%);
-  box-shadow: 0 0 24px rgba(168,85,247,.34), 0 0 54px rgba(168,85,247,.18);
-}
-.gj-fx-shards.gj-fx-diamond .gj-shard{ background: rgba(168,85,247,.92); }
-
-/* 💀 SKULL */
-.gj-fx-skull::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.90),
-    rgba(244,63,94,.94) 32%,
-    rgba(244,63,94,0) 74%);
-  box-shadow: 0 0 34px rgba(244,63,94,.45), 0 0 76px rgba(244,63,94,.24);
-  filter: saturate(1.25);
-}
-.gj-fx-shards.gj-fx-skull .gj-shard{ background: rgba(244,63,94,.95); }
-
-/* 💣 BOMB */
-.gj-fx-bomb::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.92),
-    rgba(249,115,22,.95) 30%,
-    rgba(249,115,22,0) 76%);
-  box-shadow: 0 0 38px rgba(249,115,22,.46), 0 0 86px rgba(249,115,22,.26);
-  filter: saturate(1.25);
-}
-.gj-fx-shards.gj-fx-bomb .gj-shard{ background: rgba(249,115,22,.95); }
-
-/* DEFUSE */
-.gj-fx-defuse::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.92),
-    rgba(34,197,94,.82) 34%,
-    rgba(34,197,94,0) 72%);
-  box-shadow: 0 0 22px rgba(34,197,94,.26), 0 0 54px rgba(34,197,94,.14);
-}
-.gj-fx-shards.gj-fx-defuse .gj-shard{ background: rgba(34,197,94,.92); }
-
-/* misc */
-.gj-fx-miss::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.70),
-    rgba(148,163,184,.55) 40%,
-    rgba(148,163,184,0) 76%);
-  box-shadow: 0 0 18px rgba(148,163,184,.22);
-}
-.gj-fx-expire::before{
-  background: radial-gradient(circle at 45% 45%,
-    rgba(255,255,255,.72),
-    rgba(239,68,68,.55) 40%,
-    rgba(239,68,68,0) 78%);
-  box-shadow: 0 0 20px rgba(239,68,68,.20);
+@keyframes gj-junk-hit{
+  0%{ transform: translateZ(0); filter: brightness(1); }
+  35%{ transform: translate3d(0,1px,0); filter: brightness(1.18) contrast(1.12) saturate(1.2); }
+  100%{ transform: translateZ(0); filter: brightness(1); }
 }
 
-/* text tones */
-.gj-fx-text.t-good{ color: rgba(34,197,94,.96); }
-.gj-fx-text.t-bad{ color: rgba(239,68,68,.96); }
-.gj-fx-text.t-block{ color: rgba(96,165,250,.96); }
-.gj-fx-text.t-star{ color: rgba(250,204,21,.96); }
-.gj-fx-text.t-shield{ color: rgba(56,189,248,.96); }
-.gj-fx-text.t-diamond{ color: rgba(168,85,247,.96); }
-.gj-fx-text.t-danger{ color: rgba(244,63,94,.96); }
-.gj-fx-text.t-defuse{ color: rgba(34,197,94,.96); }
-.gj-fx-text.t-bomb{ color: rgba(249,115,22,.96); }
-.gj-fx-text.t-miss{ color: rgba(148,163,184,.92); }
-
-/* ---------- screen pulses ---------- */
-@keyframes gjPulseSoft{
-  0%{ filter:none; }
-  35%{ filter: brightness(1.06) saturate(1.05); }
-  100%{ filter:none; }
+/* JUNK BLOCK (นุ่ม/สั้น) */
+body.gj-junk-block{
+  animation: gj-block .12s ease-out;
 }
-@keyframes gjPulseHurt{
-  0%{ filter:none; }
-  18%{ filter: brightness(1.15) saturate(1.22) contrast(1.03); }
-  55%{ filter: brightness(1.06) saturate(1.10); }
-  100%{ filter:none; }
-}
-@keyframes gjPulseBoom{
-  0%{ filter:none; }
-  10%{ filter: brightness(1.22) saturate(1.35) contrast(1.06); }
-  30%{ filter: brightness(1.12) saturate(1.18); }
-  100%{ filter:none; }
+@keyframes gj-block{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(1.10); }
+  100%{ filter: brightness(1); }
 }
 
-body.gj-pulse-block{ animation: gjPulseSoft 110ms ease-out; }
-body.gj-pulse-hurt{  animation: gjPulseHurt 220ms ease-out; }
-body.gj-pulse-star{  animation: gjPulseSoft 120ms ease-out; }
-body.gj-pulse-shield{animation: gjPulseSoft 120ms ease-out; }
-body.gj-pulse-diamond{animation: gjPulseSoft 140ms ease-out; }
-body.gj-pulse-danger{animation: gjPulseHurt 260ms ease-out; }
-body.gj-pulse-defuse{animation: gjPulseSoft 160ms ease-out; }
-body.gj-pulse-explode{animation: gjPulseBoom 360ms ease-out; }
-
-/* reduce motion */
-@media (prefers-reduced-motion: reduce){
-  .gj-target.spawn{ animation-duration: 1ms !important; }
-  .gj-fx::before,
-  .gj-fx-text,
-  .gj-fx-shards,
-  .gj-fx-shards .gj-shard,
-  body.gj-pulse-block,
-  body.gj-pulse-hurt,
-  body.gj-pulse-explode{
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-  }
+/* Bomb / Skull heavy */
+body.gj-bomb{
+  animation: gj-bomb .32s cubic-bezier(.2,.9,.2,1);
 }
+@keyframes gj-bomb{
+  0%{ transform: translateZ(0); filter: brightness(1); }
+  28%{ transform: translate3d(0,2px,0); filter: brightness(1.28) contrast(1.18) saturate(1.28); }
+  100%{ transform: translateZ(0); filter: brightness(1); }
+}
+body.gj-skull-hit{
+  animation: gj-skull .24s ease-out;
+}
+@keyframes gj-skull{
+  0%{ filter: brightness(1); }
+  40%{ filter: brightness(1.22) contrast(1.16); }
+  100%{ filter: brightness(1); }
+}
+
+/* Boss events */
+body.gj-boss{ animation: gj-boss .28s ease-out; }
+@keyframes gj-boss{
+  0%{ filter: brightness(1); }
+  45%{ filter: brightness(1.12) contrast(1.05); }
+  100%{ filter: brightness(1); }
+}
+body.gj-tele{ animation: gj-tele .18s ease-out; }
+@keyframes gj-tele{
+  0%{ filter: brightness(1); }
+  45%{ filter: brightness(1.10); }
+  100%{ filter: brightness(1); }
+}
+body.gj-stomp{ animation: gj-stomp .24s ease-out; }
+@keyframes gj-stomp{
+  0%{ filter: brightness(1); }
+  40%{ filter: brightness(.88) contrast(1.08); }
+  100%{ filter: brightness(1); }
+}
+body.gj-burst{ animation: gj-burst .24s ease-out; }
+@keyframes gj-burst{
+  0%{ filter: brightness(1); }
+  45%{ filter: brightness(1.14) contrast(1.06); }
+  100%{ filter: brightness(1); }
+}
+body.gj-rage{ animation: gj-rage .32s ease-out; }
+@keyframes gj-rage{
+  0%{ filter: brightness(1); }
+  35%{ filter: brightness(1.22) contrast(1.10) saturate(1.25); }
+  100%{ filter: brightness(1); }
+}
+body.gj-storm{ animation: gj-storm .24s ease-out; }
+@keyframes gj-storm{
+  0%{ filter: brightness(1); }
+  40%{ filter: brightness(1.10); }
+  100%{ filter: brightness(1); }
+}
+body.gj-boss-down{ animation: gj-bossdown .26s ease-out; }
+@keyframes gj-bossdown{
+  0%{ filter: brightness(1); }
+  40%{ filter: brightness(1.18) contrast(1.06); }
+  100%{ filter: brightness(1); }
+}
+
+/* missed shot (shoot with no target) */
+body.gj-miss-shot{
+  animation: gj-missshot .12s ease-out;
+}
+@keyframes gj-missshot{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(.92); }
+  100%{ filter: brightness(1); }
+}
+
+/* ---------- FX particles primitives (used by safe.js) ---------- */
+.gj-fx-burst{
+  position:absolute;
+  width:10px; height:10px;
+  border-radius:999px;
+  opacity:.95;
+  transform: translate(-50%,-50%) scale(1);
+  will-change: transform, opacity;
+  pointer-events:none;
+}
+.gj-fx-text{
+  position:absolute;
+  transform: translate(-50%,-50%);
+  font-weight:1200;
+  letter-spacing:.2px;
+  text-shadow: 0 14px 26px rgba(0,0,0,.55);
+  pointer-events:none;
+  opacity:.98;
+  will-change: transform, opacity;
+}
+
+/* different "feel" keyframes */
+@keyframes fx-pop-soft{
+  0%{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
+  25%{ opacity:.98; }
+  100%{ transform: translate(-50%,-50%) scale(1.6); opacity:0; }
+}
+@keyframes fx-pop-mid{
+  0%{ transform: translate(-50%,-50%) scale(.75); opacity:0; }
+  20%{ opacity:1; }
+  100%{ transform: translate(-50%,-50%) scale(2.1); opacity:0; }
+}
+@keyframes fx-pop-hard{
+  0%{ transform: translate(-50%,-50%) scale(.7); opacity:0; }
+  16%{ opacity:1; }
+  65%{ opacity:.95; }
+  100%{ transform: translate(-50%,-50%) scale(2.7); opacity:0; }
+}
+
+@keyframes fx-float-soft{
+  0%{ transform: translate(-50%,-50%) translateY(0); opacity:0; }
+  18%{ opacity:1; }
+  100%{ transform: translate(-50%,-50%) translateY(-26px); opacity:0; }
+}
+@keyframes fx-float-hard{
+  0%{ transform: translate(-50%,-50%) translateY(0); opacity:0; }
+  12%{ opacity:1; }
+  100%{ transform: translate(-50%,-50%) translateY(-38px); opacity:0; }
+}
+
+/* view-cvr: tighten HUD a bit so crosshair stays clear */
+body.view-cvr #hud{
+  top:calc(56px + var(--sat));
+}
+body.view-cvr .hud-sub{ opacity:.92; }
