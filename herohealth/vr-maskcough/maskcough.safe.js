@@ -1,10 +1,9 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
 // MaskCough SAFE Engine — FUN+FX + AI Prediction (ML/DL hooks) + HHA Research Logging
-// v20260219a (FULL PATCH 1–4)
-// ✅ HOT STREAK 10s (addictive)
-// ✅ Decision Fork A/B (Analyze trade-off)
-// ✅ Critical replay note (3s moment text) + threatMax + chainPanic
-// ✅ Summary metrics & HUD wave=HOT
+// v20260220a (FULL: HOT + Choice + Crit + RiskZones + Telegraph)
+//
+// ✅ A) Risk Zones: Safe/Risk/Danger grid zones (TTL + score + penalties change by zone)
+// ✅ B) Telegraph: pre-warning ring + countdown cue before cough/boss spawn (perfect timing more skillful)
 //
 // URL params:
 // ?hub=...&pid=...&seed=...&diff=easy|normal|hard&time=60
@@ -12,6 +11,9 @@
 // &view=pc|mobile|cvr
 // &log=https://endpoint
 // &studyId&phase&conditionGroup
+// Optional:
+// &tz=0/1 (force show risk zones overlay if CSS/HTML exist)
+// &sfx=0/1 (telegraph sound on/off, default 1)
 
 (function(){
   'use strict';
@@ -35,7 +37,7 @@
     return isMobile ? 'cvr' : 'pc';
   }
 
-  // deterministic RNG (mulberry32-like)
+  // deterministic RNG
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
@@ -86,6 +88,9 @@
   const phase = (qs.get('phase')||'').trim();
   const conditionGroup = (qs.get('conditionGroup')||'').trim();
 
+  const showZones = (qs.get('tz')||'').trim()==='1';
+  const sfxOn = (qs.get('sfx')||'1').trim() !== '0';
+
   const seed = (safeNum(seedParam, Date.now()) >>> 0);
 
   const wrap = $('#mc-wrap');
@@ -112,7 +117,7 @@
   }
   applyHubLink($('#btnEndBack'));
 
-  // ---------------- HHA logger (flush-hardened) ----------------
+  // ---------------- HHA logger ----------------
   function createLogger(ctx){
     const q = [];
     let seq = 0;
@@ -141,7 +146,7 @@
 
     function push(ev){
       q.push({ ...base(ev), ...ev });
-      if(q.length > 1400) q.splice(0, q.length - 1000);
+      if(q.length > 1600) q.splice(0, q.length - 1100);
     }
 
     async function flush(reason){
@@ -154,31 +159,17 @@
           navigator.sendBeacon(ctx.log, new Blob([body], {type:'text/plain'}));
           return;
         }
-        await fetch(ctx.log, {
-          method:'POST',
-          headers:{'content-type':'text/plain'},
-          body,
-          keepalive:true
-        });
+        await fetch(ctx.log, { method:'POST', headers:{'content-type':'text/plain'}, body, keepalive:true });
       }catch(_){}
     }
 
     return { sessionId, push, flush };
   }
 
-  const ctx = {
-    pid, hub, diff, mode, view, seed,
-    timePlannedSec: timeLimit,
-    log: logEndpoint,
-    studyId, phase, conditionGroup
-  };
+  const ctx = { pid, hub, diff, mode, view, seed, timePlannedSec: timeLimit, log: logEndpoint, studyId, phase, conditionGroup };
   const logger = createLogger(ctx);
 
-  WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden'){
-      logger.flush('unload');
-    }
-  });
+  WIN.addEventListener('visibilitychange', ()=>{ if(DOC.visibilityState === 'hidden') logger.flush('unload'); });
   WIN.addEventListener('beforeunload', ()=> logger.flush('unload'));
 
   // ---------------- Fun Boost (optional) ----------------
@@ -193,7 +184,7 @@
   });
   let director = fun ? fun.tick() : {spawnMul:1,timeScale:1,wave:'calm',intensity:0,feverOn:false};
 
-  // ---------------- AI Prediction (ML/DL hooks) ----------------
+  // ---------------- AI Prediction ----------------
   function sigmoid(x){
     if(x >= 0){ const z=Math.exp(-x); return 1/(1+z); }
     const z=Math.exp(x); return z/(1+z);
@@ -340,7 +331,7 @@
       if(state.shield < 22) return '⚠️ โล่ใกล้หมด! รีบเก็บ 😷 เพิ่ม Shield ก่อน';
       if(stA.risk > 0.70) return '🎯 โฟกัส 🤧 ตอนท้าย ๆ เพื่อ Perfect Block (คะแนนพุ่ง!)';
       if(state.miss >= 6) return '💦 อย่าให้ละอองหลุดเยอะ—ตี 💦 ให้ทันก่อน!';
-      return '✨ สะสม streak แล้วจะเข้า FEVER/HOT ได้เร็วขึ้น!';
+      return '✨ อ่านโซนเสี่ยง แล้วเลือกทำให้คุ้มที่สุด!';
     }
 
     function riskAvg(){ return stA.riskN ? (stA.riskSum/stA.riskN) : stA.risk; }
@@ -351,7 +342,7 @@
   const aiEnabled = (mode === 'play'); // play ON, study OFF
   const ai = createAIDirector({ enabled: aiEnabled, enableDL: aiEnabled });
 
-  // ---------------- FX heavy (DOM) ----------------
+  // ---------------- FX layer ----------------
   const fxLayer = DOC.createElement('div');
   fxLayer.style.position='fixed';
   fxLayer.style.inset='0';
@@ -428,6 +419,72 @@
     wrap.style.filter = on ? 'saturate(1.12) brightness(1.05)' : '';
   }
 
+  // Telegraph ring (DOM)
+  function fxTelegraph(x,y, ms, label){
+    const el = DOC.createElement('div');
+    el.className = 'mc-telegraph';
+    el.style.position='absolute';
+    el.style.left = x+'px';
+    el.style.top = y+'px';
+    el.style.width='10px';
+    el.style.height='10px';
+    el.style.borderRadius='999px';
+    el.style.border='2px solid rgba(239,68,68,.65)';
+    el.style.boxShadow='0 0 30px rgba(239,68,68,.20)';
+    el.style.transform='translate(-50%,-50%) scale(1)';
+    el.style.opacity='0.95';
+    el.style.pointerEvents='none';
+    el.style.transition=`transform ${Math.max(220,ms)}ms linear, opacity ${Math.max(220,ms)}ms linear`;
+    fxLayer.appendChild(el);
+
+    let txt=null;
+    if(label){
+      txt=DOC.createElement('div');
+      txt.style.position='absolute';
+      txt.style.left=x+'px';
+      txt.style.top=(y-34)+'px';
+      txt.style.transform='translate(-50%,-50%)';
+      txt.style.fontWeight='1000';
+      txt.style.fontSize='12px';
+      txt.style.color='rgba(239,68,68,.95)';
+      txt.style.textShadow='0 10px 22px rgba(0,0,0,.45)';
+      txt.style.pointerEvents='none';
+      txt.textContent = label;
+      fxLayer.appendChild(txt);
+      txt.style.opacity='0.95';
+      txt.style.transition=`opacity ${Math.max(220,ms)}ms linear`;
+    }
+
+    requestAnimationFrame(()=>{
+      el.style.transform='translate(-50%,-50%) scale(18)';
+      el.style.opacity='0';
+      if(txt) txt.style.opacity='0';
+    });
+
+    setTimeout(()=>{ try{el.remove();}catch(_){} }, ms+80);
+    setTimeout(()=>{ try{txt && txt.remove();}catch(_){} }, ms+120);
+  }
+
+  // tiny sfx (WebAudio) — optional
+  let AC=null;
+  function beep(freq, durMs, gain){
+    if(!sfxOn) return;
+    try{
+      AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+      const o = AC.createOscillator();
+      const g = AC.createGain();
+      o.type='sine';
+      o.frequency.value = freq;
+      g.gain.value = Math.max(0.0001, gain||0.05);
+      o.connect(g); g.connect(AC.destination);
+      o.start();
+      o.stop(AC.currentTime + (durMs/1000));
+      // fade out
+      g.gain.setValueAtTime(g.gain.value, AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + (durMs/1000));
+    }catch(_){}
+  }
+
   // ---------------- state ----------------
   const rng = seededRng(seed);
 
@@ -474,6 +531,20 @@
     crit: [],
     threatMax: 0,
     chainPanic: 0,
+
+    // --- A) Risk Zones ---
+    zonesOn: true,
+    zoneSafe: {name:'safe',  ttlMul:1.15, scoreMul:0.95, missMul:0.85, shieldDmgMul:0.85},
+    zoneRisk: {name:'risk',  ttlMul:1.00, scoreMul:1.05, missMul:1.00, shieldDmgMul:1.00},
+    zoneDanger:{name:'danger',ttlMul:0.82, scoreMul:1.20, missMul:1.18, shieldDmgMul:1.18},
+    zoneHits: {safe:0, risk:0, danger:0},
+    zoneMiss: {safe:0, risk:0, danger:0},
+
+    // --- B) Telegraph ---
+    teleOn: true,
+    teleMinMs: (diff==='hard'?520: diff==='easy'?720:620),
+    teleMaxMs: (diff==='hard'?850: diff==='easy'?1050:950),
+    teleQueued: 0,
   };
 
   // HUD elements
@@ -481,6 +552,43 @@
   const tMask=$('#tMask'), bMask=$('#bMask');
   const tWave=$('#tWave'), tInt=$('#tInt'), tFever=$('#tFever'), tRisk=$('#tRisk');
   const tFeverPct=$('#tFeverPct'), bFever=$('#bFever');
+
+  // Decision Fork UI (optional)
+  const choiceEl = DOC.getElementById('mc-choice');
+  const choiceDesc = DOC.getElementById('mcChoiceDesc');
+  const btnChoiceA = DOC.getElementById('btnChoiceA');
+  const btnChoiceB = DOC.getElementById('btnChoiceB');
+
+  function hideChoice(){
+    st.choiceOn = false;
+    if(choiceEl) choiceEl.hidden = true;
+  }
+  function showChoice(){
+    if(!choiceEl) return;
+    st.choiceOn = true;
+    st.choiceUntil = performance.now() + 10000;
+    choiceEl.hidden = false;
+
+    const a = 'A) 🛡️ Safe Shield: +22% Shield (แต่คะแนนต่อ hit ลดลงนิด)';
+    const b = 'B) 🎯 Score Rush: คะแนนคูณเพิ่มชั่วคราว (แต่โทษ miss แรงขึ้น)';
+    if(choiceDesc) choiceDesc.textContent = `${a}\n${b}`;
+    showPrompt('🧠 เลือกแผน A/B (10s)');
+    logger.push({type:'choice:show'});
+  }
+  function pickChoice(which){
+    hideChoice();
+    st.choiceBuff = which;
+    if(which==='A'){ st.choiceA += 1; st.shield = clamp(st.shield + 22, 0, 100); toast('🛡️ Choice A'); }
+    if(which==='B'){ st.choiceB += 1; toast('🎯 Choice B'); }
+    logger.push({type:'choice:pick', which});
+    setHud();
+  }
+  if(btnChoiceA) btnChoiceA.addEventListener('click', ()=>pickChoice('A'), {passive:true});
+  if(btnChoiceB) btnChoiceB.addEventListener('click', ()=>pickChoice('B'), {passive:true});
+
+  // Zones overlay (optional; purely visual)
+  const zoneOverlay = DOC.getElementById('mc-zones');
+  if(zoneOverlay && (showZones || view==='pc')) zoneOverlay.hidden = false;
 
   function startHot(){
     const now = performance.now();
@@ -524,39 +632,6 @@
     fxFeverGlow(!!director.feverOn);
   }
 
-  // Decision Fork UI (optional; won't crash if missing)
-  const choiceEl = DOC.getElementById('mc-choice');
-  const choiceDesc = DOC.getElementById('mcChoiceDesc');
-  const btnChoiceA = DOC.getElementById('btnChoiceA');
-  const btnChoiceB = DOC.getElementById('btnChoiceB');
-
-  function showChoice(){
-    if(!choiceEl) return;
-    st.choiceOn = true;
-    st.choiceUntil = performance.now() + 10000;
-    choiceEl.hidden = false;
-
-    const a = 'A) 🛡️ Safe Shield: +22% Shield (แต่คะแนนต่อ hit ลดลงนิด)';
-    const b = 'B) 🎯 Score Rush: คะแนนคูณเพิ่มชั่วคราว (แต่โทษ miss แรงขึ้น)';
-    if(choiceDesc) choiceDesc.textContent = `${a}\n${b}`;
-    showPrompt('🧠 เลือกแผน A/B (10s)');
-    logger.push({type:'choice:show'});
-  }
-  function hideChoice(){
-    st.choiceOn = false;
-    if(choiceEl) choiceEl.hidden = true;
-  }
-  function pickChoice(which){
-    hideChoice();
-    st.choiceBuff = which;
-    if(which==='A'){ st.choiceA += 1; st.shield = clamp(st.shield + 22, 0, 100); toast('🛡️ Choice A'); }
-    if(which==='B'){ st.choiceB += 1; toast('🎯 Choice B'); }
-    logger.push({type:'choice:pick', which});
-    setHud();
-  }
-  if(btnChoiceA) btnChoiceA.addEventListener('click', ()=>pickChoice('A'), {passive:true});
-  if(btnChoiceB) btnChoiceB.addEventListener('click', ()=>pickChoice('B'), {passive:true});
-
   function emoji(kind){
     if(kind==='droplet') return '💦';
     if(kind==='cough') return '🤧';
@@ -575,6 +650,31 @@
   }
 
   function layerRect(){ return layer.getBoundingClientRect(); }
+
+  // ---- A) Risk Zones classification ----
+  // Zone map: Top-left/Bottom-right are DANGER, center band is RISK, remainder SAFE
+  // This makes the player "read the map" and choose where to focus.
+  function zoneOf(x, y, w, h){
+    if(!st.zonesOn) return 'risk';
+    const nx = (w>0) ? (x / w) : 0.5;
+    const ny = (h>0) ? (y / h) : 0.5;
+
+    // corners danger
+    const corner = (nx<0.22 && ny<0.22) || (nx>0.78 && ny>0.78) || (nx<0.20 && ny>0.80) || (nx>0.80 && ny<0.20);
+    if(corner) return 'danger';
+
+    // central diagonal risk band
+    const diag = Math.abs(nx - ny);
+    if(diag < 0.18) return 'risk';
+
+    // edges mostly safe
+    return 'safe';
+  }
+  function zoneCfg(z){
+    if(z==='danger') return st.zoneDanger;
+    if(z==='safe') return st.zoneSafe;
+    return st.zoneRisk;
+  }
 
   function pickKind(){
     const feverOn=!!director.feverOn;
@@ -609,7 +709,7 @@
     return 'mask';
   }
 
-  function spawnAt(kind, x, y, ttlMs){
+  function spawnAt(kind, x, y, ttlMs, meta){
     if(!st.running || st.over || st.paused) return;
 
     const id=String(++st.uid);
@@ -624,7 +724,9 @@
     const born=performance.now();
     const die=born+ttlMs;
 
-    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y});
+    const zone = meta?.zone || 'risk';
+
+    st.targets.set(id, {el, kind, bornMs:born, dieMs:die, x, y, zone});
 
     el.addEventListener('pointerdown', (ev)=>{
       if(view==='cvr') return;
@@ -633,6 +735,12 @@
     }, {passive:false});
 
     layer.appendChild(el);
+
+    // subtle telegraph ring for danger spawns (micro-cue)
+    if(zone==='danger' && kind!=='mask'){
+      const r=layerRect();
+      fxTelegraph(r.left+x, r.top+y, 260, 'DANGER');
+    }
   }
 
   function spawn(){
@@ -644,20 +752,58 @@
     const x = pad + rng() * Math.max(10,(r.width - pad*2));
     const y = pad + rng() * Math.max(10,(r.height - pad*2));
 
+    const z = zoneOf(x,y,r.width,r.height);
+    const zc = zoneCfg(z);
+
     const ap=ai.assistParams();
-    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
+    let ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost));
+    ttlMs = Math.round(ttlMs * zc.ttlMul);
 
     if(st.bossActive){
-      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)));
+      spawnAt('boss', x, y, Math.max(720, Math.round(ttlMs*0.78)), {zone:z});
       return;
     }
 
     let kind = pickKind();
+
+    // Danger zone spawns more cough/infected during high intensity (spicy)
+    if(z==='danger' && (director.intensity||0) > 0.55 && rng() < 0.18) kind = (rng()<0.55 ? 'cough' : kind);
+
     if(kind==='droplet' && !director.feverOn && (director.intensity||0) > 0.62 && rng() < 0.18){
       kind='infected';
     }
 
-    spawnAt(kind, x, y, ttlMs);
+    // B) Telegraph for cough spawn (pre-warning)
+    if(st.teleOn && (kind==='cough') && !st.choiceOn){
+      scheduleTelegraphSpawn(kind, x, y, ttlMs, z);
+      return;
+    }
+
+    spawnAt(kind, x, y, ttlMs, {zone:z});
+  }
+
+  // ---------------- B) Telegraph scheduler ----------------
+  function scheduleTelegraphSpawn(kind, x, y, ttlMs, zone){
+    if(!st.running || st.over || st.paused) return;
+    st.teleQueued += 1;
+
+    const ms = Math.round(st.teleMinMs + rng()*(st.teleMaxMs - st.teleMinMs));
+    const r=layerRect();
+    fxTelegraph(r.left+x, r.top+y, ms, '🤧 INCOMING');
+
+    // cue sound: 2 short beeps then "go"
+    beep(520, 70, 0.05);
+    setTimeout(()=>beep(620, 70, 0.05), Math.max(40, ms-220));
+    setTimeout(()=>beep(760, 60, 0.04), Math.max(60, ms-110));
+
+    logger.push({type:'tele:start', kind, zone, delayMs: ms});
+
+    setTimeout(()=>{
+      st.teleQueued = Math.max(0, st.teleQueued-1);
+      if(!st.running || st.over || st.paused) return;
+      spawnAt(kind, x, y, ttlMs, {zone});
+      logger.push({type:'tele:spawn', kind, zone});
+    }, ms);
   }
 
   function removeTarget(id, popped){
@@ -695,7 +841,7 @@
       if(d<=radius){
         mutated++;
         removeTarget(id,false);
-        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
+        spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)), {zone: it.zone || 'risk'});
       }
     }
     st.chainPanic += 1;
@@ -723,16 +869,23 @@
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
 
-    // score multiplier (HOT + Choice)
+    // multiplier: HOT + Choice + Zone
     let mult = st.hotOn ? st.hotMult : 1.0;
     if(st.choiceBuff==='A') mult *= 0.92;
     if(st.choiceBuff==='B') mult *= 1.10;
+
+    const z = it.zone || 'risk';
+    const zc = zoneCfg(z);
+    mult *= zc.scoreMul;
 
     function addScore(n){
       const v = Math.round(n * mult);
       st.score += v;
       if(st.hotOn) st.hotScore += v;
     }
+
+    // record zone touches
+    if(it.kind==='droplet' || it.kind==='mask' || it.kind==='cough' || it.kind==='boss') st.zoneHits[z] = (st.zoneHits[z]||0)+1;
 
     if(it.kind==='droplet'){
       addScore(director.feverOn ? 2 : 1);
@@ -744,11 +897,11 @@
         st.perfect += 1;
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'perfect', kind:'droplet', why, zone:z, remainMs:Math.round(remain)});
       }else{
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'droplet', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'hit', kind:'droplet', why, zone:z, remainMs:Math.round(remain)});
       }
 
       fxSpark(fxX, fxY);
@@ -757,12 +910,14 @@
     } else if(it.kind==='infected'){
       st.miss += 1;
       st.streak = 0;
-      st.score = Math.max(0, st.score - 2);
-      st.shield = clamp(st.shield - 10, 0, 100);
+      st.score = Math.max(0, st.score - Math.round(2*zc.missMul));
+      st.shield = clamp(st.shield - Math.round(10*zc.shieldDmgMul), 0, 100);
+      st.zoneMiss[z] = (st.zoneMiss[z]||0)+1;
+
       flashBad();
       toast('🦠 โดนเชื้อ!');
       ai.onEvent({type:'hit', kind:'infected', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why});
+      logger.push({type:'hha:judge', judge:'bad_hit', kind:'infected', why, zone:z});
 
       fxShockwave(fxX, fxY);
 
@@ -773,7 +928,7 @@
       toast('🛡️ Shield +');
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'hit', kind:'mask', latencyMs:t - it.bornMs});
-      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why});
+      logger.push({type:'hha:judge', judge:'hit', kind:'mask', why, zone:z});
 
       fxSpark(fxX, fxY);
 
@@ -785,9 +940,10 @@
         toast('✨ Perfect Block!');
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'perfect', kind:it.kind, why, zone:z, remainMs:Math.round(remain)});
 
         fxConfettiBurst(fxX, fxY);
+        beep(980, 60, 0.03);
 
         if(st.bossActive) st.bossNeedPerfect=false;
       }else{
@@ -795,7 +951,7 @@
         st.streak += 1;
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'cough', latencyMs:t - it.bornMs});
-        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, remainMs:Math.round(remain)});
+        logger.push({type:'hha:judge', judge:'hit', kind:it.kind, why, zone:z, remainMs:Math.round(remain)});
 
         fxSpark(fxX, fxY);
       }
@@ -823,36 +979,44 @@
 
     removeTarget(id,false);
 
+    const z = it.zone || 'risk';
+    const zc = zoneCfg(z);
+
     if(it.kind==='droplet'){
       st.miss += 1;
       st.streak = 0;
-      st.score = Math.max(0, st.score - 1);
-      st.shield = clamp(st.shield - 6, 0, 100);
+      st.score = Math.max(0, st.score - Math.round(1*zc.missMul));
+      st.shield = clamp(st.shield - Math.round(6*zc.shieldDmgMul), 0, 100);
+      st.zoneMiss[z] = (st.zoneMiss[z]||0)+1;
+
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'droplet', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet'});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'droplet', zone:z});
 
     } else if(it.kind==='infected'){
-      st.score += 1;
+      st.score += 1; // avoided
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'timeout', kind:'infected', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'avoid', kind:'infected'});
+      logger.push({type:'hha:judge', judge:'avoid', kind:'infected', zone:z});
 
     } else if(it.kind==='mask'){
       st.miss += 1;
       st.streak = 0;
+      st.zoneMiss[z] = (st.zoneMiss[z]||0)+1;
+
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'mask', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:'mask'});
+      logger.push({type:'hha:judge', judge:'timeout', kind:'mask', zone:z});
 
     } else if(it.kind==='cough' || it.kind==='boss'){
       st.miss += 1;
       st.streak = 0;
 
       const extra = (st.choiceBuff==='B') ? 1.15 : 1.0;
-      st.shield = clamp(st.shield - Math.round((it.kind==='boss'?22:16)*extra), 0, 100);
+      st.shield = clamp(st.shield - Math.round((it.kind==='boss'?22:16)*extra*zc.shieldDmgMul), 0, 100);
+      st.score = Math.max(0, st.score - Math.round(2*zc.missMul));
+      st.zoneMiss[z] = (st.zoneMiss[z]||0)+1;
 
-      st.score = Math.max(0, st.score - 2);
       toast('😷 โดนละอองไอ!');
       flashBad();
 
@@ -861,14 +1025,11 @@
 
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'cough', latencyMs:performance.now() - it.bornMs});
-      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind});
+      logger.push({type:'hha:judge', judge:'timeout', kind:it.kind, zone:z});
     }
 
     setHud();
-
-    if(st.shield <= 0){
-      endGame('shield');
-    }
+    if(st.shield <= 0) endGame('shield');
   }
 
   // cVR shoot
@@ -907,7 +1068,7 @@
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
 
     const hotMul = st.hotOn ? 0.88 : 1.0;
-    const eff = Math.max(200, Math.round(every*(1+ap.spawnSlow) * hotMul));
+    const eff = Math.max(190, Math.round(every*(1+ap.spawnSlow) * hotMul));
 
     spawnTimer=setTimeout(()=>{
       spawn();
@@ -928,6 +1089,28 @@
 
       const bossDur = (diff==='hard'?3200:3800);
       const endAt = nowMs + bossDur;
+
+      // boss telegraph: 2 rings near center (harder to read)
+      const r=layerRect();
+      const x = r.width*(0.35 + rng()*0.30);
+      const y = r.height*(0.35 + rng()*0.30);
+      const z = zoneOf(x,y,r.width,r.height);
+      const zc = zoneCfg(z);
+
+      if(st.teleOn){
+        const dly = Math.round(st.teleMinMs + rng()*(st.teleMaxMs - st.teleMinMs));
+        fxTelegraph(r.left+x, r.top+y, dly, '👿 BOSS');
+        beep(420, 90, 0.06);
+        setTimeout(()=>beep(520, 90, 0.06), Math.max(50, dly-250));
+        setTimeout(()=>beep(700, 80, 0.05), Math.max(80, dly-120));
+        setTimeout(()=>{
+          if(st.running && !st.over && !st.paused){
+            spawnAt('boss', x, y, Math.round(st.ttlBaseMs*0.78*zc.ttlMul), {zone:z});
+          }
+        }, dly);
+      }else{
+        spawnAt('boss', x, y, Math.round(st.ttlBaseMs*0.78*zc.ttlMul), {zone:z});
+      }
 
       const bossTick=()=>{
         const t=performance.now();
@@ -1008,7 +1191,15 @@
     }
 
     if(((nowMs - st.t0) % 1000) < 90){
-      logger.push({type:'hha:time', t: +st.elapsedSec.toFixed(2), score:st.score, miss:st.miss, shield:+st.shield.toFixed(1), risk:+st.risk.toFixed(3)});
+      logger.push({
+        type:'hha:time',
+        t: +st.elapsedSec.toFixed(2),
+        score: st.score,
+        miss: st.miss,
+        shield: +st.shield.toFixed(1),
+        risk: +st.risk.toFixed(3),
+        teleQueued: st.teleQueued
+      });
     }
 
     setHud();
@@ -1034,6 +1225,7 @@
     if(st.maxStreak>=12) b.push({id:'STREAK_12', label:'🔥 Streak 12'});
     if(st.hotCount>=1) b.push({id:'HOT_ON', label:'🔥 HOT'});
     if(st.choiceA+st.choiceB>=1) b.push({id:'DECISION', label:'🧠 Decision'});
+    if(st.zoneHits.danger>=6) b.push({id:'DANGER_DIVER', label:'☠️ Danger Diver'});
     if(st.miss<=3 && st.elapsedSec>=timeLimit-0.2) b.push({id:'CLEAN_RUN', label:'🧼 Clean Run'});
     if(st.shield>=60) b.push({id:'SHIELD_MASTER', label:'🛡️ Shield Master'});
     return b;
@@ -1049,10 +1241,11 @@
     set('sShield', Math.round(st.shield)+'%');
     set('sRisk', (ai.riskAvg()?ai.riskAvg():st.risk).toFixed(2));
 
-    // optional extra fields (won't crash if absent)
+    // optional extra fields
     set('sThreatMax', (st.threatMax||0).toFixed(2));
     set('sChainPanic', st.chainPanic||0);
     set('sHot', `${st.hotCount||0}x / ${Math.round(st.hotTimeMs/1000)}s`);
+    set('sZone', `S/R/D = ${st.zoneHits.safe||0}/${st.zoneHits.risk||0}/${st.zoneHits.danger||0}  | miss ${st.zoneMiss.safe||0}/${st.zoneMiss.risk||0}/${st.zoneMiss.danger||0}`);
 
     const badgeRow=DOC.getElementById('badgeRow');
     const badges=makeBadges();
@@ -1067,7 +1260,7 @@
     if(note){
       note.textContent = `pid=${pid||'—'} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed} | log=${logEndpoint||'—'}`
         + ` | threatMax=${(st.threatMax||0).toFixed(2)} | chainPanic=${st.chainPanic||0} | hot=${st.hotCount}x`
-        + ` | choice(A/B)=${st.choiceA}/${st.choiceB}`
+        + ` | zones(S/R/D hits)=${st.zoneHits.safe}/${st.zoneHits.risk}/${st.zoneHits.danger}`
         + (last && (st.threatMax>=0.72 || st.chainPanic>=2) ? ` | CRIT@${last.t}s: ${last.msg}` : '');
     }
 
@@ -1107,6 +1300,10 @@
     st.threatMax = 0;
     st.chainPanic = 0;
 
+    st.zoneHits = {safe:0,risk:0,danger:0};
+    st.zoneMiss = {safe:0,risk:0,danger:0};
+    st.teleQueued = 0;
+
     clearAllTargets();
 
     director = fun ? fun.tick() : director;
@@ -1116,7 +1313,7 @@
     st.bossActive=false;
     st.bossNeedPerfect=false;
 
-    toast('เริ่ม! กันละอองให้ได้มากที่สุด');
+    toast('เริ่ม! อ่านโซนเสี่ยง แล้วตัดสินใจให้คุ้ม');
     setHud();
 
     logger.push({type:'hha:start', seed, diff, mode, view, timePlannedSec:timeLimit});
@@ -1167,7 +1364,6 @@
       riskAvg: Math.round((ai.riskAvg?ai.riskAvg():st.risk)*100)/100,
       reason,
 
-      // PATCH 4 metrics
       threatMax: Math.round((st.threatMax||0)*100)/100,
       chainPanic: st.chainPanic||0,
       hotCount: st.hotCount||0,
@@ -1175,6 +1371,10 @@
       hotScore: st.hotScore||0,
       choiceA: st.choiceA||0,
       choiceB: st.choiceB||0,
+
+      zoneHits: st.zoneHits,
+      zoneMiss: st.zoneMiss,
+      teleQueued: st.teleQueued
     };
 
     saveSummary(sum);
@@ -1214,6 +1414,6 @@
   // init
   setHud();
   showPrompt(view==='cvr'
-    ? '🎯 cVR: ยิงด้วยกากบาท (แตะจอเพื่อยิง) เป้าในชั้นเล่นจะไม่รับ tap ตรง ๆ'
-    : 'แตะ 💦 ปัดละออง • แตะ 😷 เพิ่มโล่ • 🤧 ตอนท้าย = Perfect! (streak สูงเข้า HOT)');
+    ? '🎯 cVR: ยิงด้วยกากบาท • อ่านโซนเสี่ยง แล้วตัดสินใจ'
+    : 'แตะ 💦 / 😷 • 🤧 มีวงเตือนก่อนโผล่ (Telegraph) • โซน DANGER คุ้มแต่เสี่ยง!');
 })();
