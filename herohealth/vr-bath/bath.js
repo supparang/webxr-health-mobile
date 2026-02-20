@@ -32,7 +32,7 @@ function strSeed(s){
   return h >>> 0;
 }
 
-const VIEW = String(qs('view','')).toLowerCase();      // 'cvr' for cardboard
+const VIEW = String(qs('view','')).toLowerCase();       // 'cvr' for cardboard
 const DIFF = String(qs('diff','normal')).toLowerCase(); // easy|normal|hard
 const SEED = qs('seed', String(Date.now()));
 const seedN = /^\d+$/.test(SEED) ? (Number(SEED)>>>0) : strSeed(SEED);
@@ -54,8 +54,8 @@ const UI = {
   comboPill: byId('comboPill'),
   missPill:  byId('missPill'),
   viewPill:  byId('viewPill'),
-  questPill: byId('questPill'), // <-- add in HTML
-  meterPill: byId('meterPill'), // <-- add in HTML
+  questPill: byId('questPill'),
+  meterPill: byId('meterPill'),
 
   btnStart:  byId('btnStart'),
   btnFlip:   byId('btnFlip'),
@@ -81,7 +81,6 @@ const ZONES = [
   { key:'toeGap',     label:'ซอกนิ้วเท้า',    front:{x:0.48,y:0.92}, back:{x:0.52,y:0.92} },
 ];
 
-// base phases (will be modulated by spawnMul / meter stress)
 const PHASES = [
   { id:'WET',   secs: 8,  type:'water',   spawnEvery: 360, goalHits: 10 },
   { id:'SOAP',  secs: 22, type:'foam',    spawnEvery: 460, goalHits: 14 },
@@ -91,16 +90,15 @@ const PHASES = [
 
 const STATE = {
   running:false,
-  side:'front', // front/back
+  side:'front',
   phaseIdx: -1,
   phaseEndsAt: 0,
   lastTick: 0,
 
-  // scoring
   combo:0,
   miss:0,
   hits:0,
-  cleanScore:0, // 0..100
+  cleanScore:0,
 
   wetHits:0,
   soapHits:0,
@@ -114,8 +112,7 @@ const STATE = {
   oil: null,
   oilNeed: 0,
 
-  // fun systems (ABC)
-  meter: 0,                 // 0..100
+  meter: 0,
   meterPeak: 0,
   meterLockUntil: 0,
   questText: '—',
@@ -125,19 +122,15 @@ const STATE = {
   bossRushUntil: 0,
   bossKills: 0,
 
-  // bookkeeping
   active: new Map(),
   uid: 0,
 
-  // anti spam
   lastShootAt: 0,
   shootCdMs: CFG.cd,
 
-  // aim assist
   lockPx: Number(WIN.HHA_VRUI_CONFIG?.lockPx ?? CFG.lockPx),
   cvrStrict: Boolean(WIN.HHA_VRUI_CONFIG?.cvrStrict ?? (VIEW==='cvr')),
 
-  // tricks
   fakeFoamRate: CFG.fakeFoam,
 };
 
@@ -147,6 +140,7 @@ function resetGame(){
   STATE.running = false;
   STATE.phaseIdx = -1;
   STATE.phaseEndsAt = 0;
+
   STATE.combo = 0;
   STATE.miss = 0;
   STATE.hits = 0;
@@ -155,6 +149,7 @@ function resetGame(){
   STATE.soapHits = 0;
   STATE.residueHits = 0;
   STATE.dryHits = 0;
+
   STATE.hiddenPlan = [];
   STATE.hiddenNeed = {};
   STATE.hiddenCleared = {};
@@ -166,6 +161,7 @@ function resetGame(){
   STATE.meterLockUntil = 0;
   STATE.questText = '—';
   STATE.questDone = false;
+
   STATE.bossRush = false;
   STATE.bossRushUntil = 0;
   STATE.bossKills = 0;
@@ -175,7 +171,6 @@ function resetGame(){
   UI.targetLayer.innerHTML = '';
   updateHUD();
 
-  // button state
   if (UI.btnStart){
     UI.btnStart.disabled = false;
     UI.btnStart.textContent = 'เริ่มเล่น';
@@ -195,24 +190,14 @@ function updateHUD(){
   setPill(UI.meterPill, `SWEAT: ${Math.round(STATE.meter)}%`);
 }
 
-function bodyRect(){
-  return UI.bathLayer.getBoundingClientRect();
-}
-
-function toLocal(x,y){
-  const r = bodyRect();
-  return { lx: x - r.left, ly: y - r.top, w:r.width, h:r.height };
-}
+function bodyRect(){ return UI.bathLayer.getBoundingClientRect(); }
+function toLocal(x,y){ const r = bodyRect(); return { lx: x - r.left, ly: y - r.top, w:r.width, h:r.height }; }
 
 function spawnPoint(){
   const r = bodyRect();
   const pad = 26;
-
-  // avoid bottom UI overlays a bit (works well across devices)
-  // this is not perfect overlay-detection but prevents most collisions
   const topPad = pad + 8;
-  const botPad = pad + 64;
-
+  const botPad = pad + 64; // กันทับปุ่ม VR/controls แบบง่ายแต่ได้ผล
   const x = r.left + pad + rnd() * (r.width  - pad*2);
   const y = r.top  + topPad + rnd() * (r.height - (topPad + botPad));
   return { x, y };
@@ -232,6 +217,7 @@ function kindClass(kind){
 function makeTarget({ kind, x, y, ttlMs=1400, hitsToClear=1, zoneKey=null }){
   const id = `t${++STATE.uid}`;
   const local = toLocal(x,y);
+
   const el = DOC.createElement('div');
   el.className = `target ${kindClass(kind)}`;
   el.dataset.id = id;
@@ -247,14 +233,7 @@ function makeTarget({ kind, x, y, ttlMs=1400, hitsToClear=1, zoneKey=null }){
 
   UI.targetLayer.appendChild(el);
 
-  const obj = {
-    id, kind, el,
-    born: now(),
-    ttl: ttlMs,
-    hitsToClear,
-    zoneKey,
-    hitCount: 0,
-  };
+  const obj = { id, kind, el, born: now(), ttl: ttlMs, hitsToClear, zoneKey, hitCount: 0 };
   STATE.active.set(id, obj);
   return obj;
 }
@@ -271,16 +250,13 @@ function addMeter(delta, reason=''){
   if (t < STATE.meterLockUntil) return;
   STATE.meterLockUntil = t + 110;
 
-  // scale up/down by diff
   const scaled = (delta >= 0) ? (delta * CFG.meterUp) : (delta * CFG.meterDown);
-
   STATE.meter = clamp(STATE.meter + scaled, 0, 100);
   STATE.meterPeak = Math.max(STATE.meterPeak, STATE.meter);
 
   emit('hha:event', { game:'bath', type:'meter', delta: scaled, meter: STATE.meter, reason, t });
 
   if (STATE.meter >= 100){
-    // penalty burst (survival feel)
     STATE.miss += 1;
     STATE.combo = 0;
     STATE.meter = 70;
@@ -307,18 +283,14 @@ function aimAssistPick(x,y){
   const el = DOC.elementFromPoint(x,y);
   if (el && el.classList && el.classList.contains('target')) return el;
 
-  let best = null;
-  let bestD = Infinity;
+  let best = null, bestD = Infinity;
   for (const obj of STATE.active.values()){
     const r = obj.el.getBoundingClientRect();
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
     const dx = cx - x, dy = cy - y;
     const d = Math.sqrt(dx*dx + dy*dy);
-    if (d < bestD){
-      bestD = d;
-      best = obj.el;
-    }
+    if (d < bestD){ bestD = d; best = obj.el; }
   }
   if (best && bestD <= STATE.lockPx) return best;
   return null;
@@ -337,15 +309,10 @@ function recomputeClean(){
   const rd = clamp((rinse*0.65 + dry*0.35), 0, 1);
 
   const missPenalty = clamp(STATE.miss * 0.04, 0, 0.25);
-
   STATE.cleanScore = clamp((wet*20 + soap*20 + scrub*40 + rd*20) * (1 - missPenalty), 0, 100);
 }
 
-function setQuest(text){
-  STATE.questText = text || '—';
-  STATE.questDone = false;
-}
-
+function setQuest(text){ STATE.questText = text || '—'; STATE.questDone = false; }
 function completeQuest(){
   if (STATE.questDone) return;
   STATE.questDone = true;
@@ -353,7 +320,6 @@ function completeQuest(){
   addMeter(-10, 'quest_bonus');
   emit('hha:event', { game:'bath', type:'quest_done', quest: STATE.questText, t: now() });
 }
-
 function checkQuest(){
   const phase = PHASES[STATE.phaseIdx]?.id;
   if (!phase || STATE.questDone) return;
@@ -371,7 +337,6 @@ function checkQuest(){
 }
 
 function awardByKind(kind, zoneKey){
-  // boss rush kill counter
   if (STATE.bossRush && now() <= STATE.bossRushUntil){
     if (kind==='hidden' || kind==='oil') STATE.bossKills++;
   }
@@ -382,24 +347,19 @@ function awardByKind(kind, zoneKey){
   if (kind==='dry') STATE.dryHits++;
 
   if (kind==='fakefoam'){
-    // trick: no soap credit + meter rises
     addMeter(3, 'fakefoam');
-    // coach (rate limited via meterLock)
     emit('hha:coach', { game:'bath', msg:'ฟองปลอม! มองหา “เงา/ประกาย” ของจุดอับนะ', t: now() });
   }
 
   if (kind==='hidden' && zoneKey){
     const left = Math.max(0, (STATE.hiddenNeed[zoneKey] ?? 0) - 1);
     STATE.hiddenNeed[zoneKey] = left;
-    if (left <= 0){
-      STATE.hiddenCleared[zoneKey] = true;
-    }
+    if (left <= 0) STATE.hiddenCleared[zoneKey] = true;
   }
   if (kind==='oil'){
     STATE.oilNeed = Math.max(0, STATE.oilNeed - 1);
   }
 
-  // survival rewards
   if (kind==='hidden' || kind==='oil') addMeter(-4, 'clear_hidden');
   if (kind==='residue' || kind==='dry') addMeter(-2, 'cleanup');
 
@@ -427,9 +387,7 @@ function handleShootAt(x,y, source='pointer'){
   if (!obj) return;
 
   obj.hitCount++;
-  hitEl.classList.remove('pop');
-  void hitEl.offsetWidth;
-  hitEl.classList.add('pop');
+  hitEl.classList.remove('pop'); void hitEl.offsetWidth; hitEl.classList.add('pop');
 
   const cleared = obj.hitCount >= obj.hitsToClear;
 
@@ -474,24 +432,19 @@ function zonePoint(zoneKey){
 }
 
 function spawnForPhase(phase){
-  // meter affects gameplay (survival)
   const stress = clamp(STATE.meter/100, 0, 1);
-  const ttlStressMul = 1 - 0.18*stress; // stress ↑ ttl ↓
+  const ttlStressMul = 1 - 0.18*stress;
   const extraSpawnChance = 0.10 + 0.22*stress;
 
   const type = phase.type;
 
-  // cap active to avoid clutter
   if (STATE.active.size >= (CFG.maxActive || 7)) return;
 
-  const baseSpawn = phase.spawnEvery / (CFG.spawnMul || 1);
   const ttlBase = 1700 * (CFG.ttlMul || 1) * ttlStressMul;
 
   if (type==='water' || type==='residue'){
     const {x,y} = spawnPoint();
     makeTarget({ kind:type, x,y, ttlMs: ttlBase, hitsToClear: 1 });
-
-    // occasional extra spawn when stressed (arcade pressure)
     if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
       const p2 = spawnPoint();
       makeTarget({ kind:type, x:p2.x, y:p2.y, ttlMs: ttlBase*0.95, hitsToClear: 1 });
@@ -503,7 +456,6 @@ function spawnForPhase(phase){
     const {x,y} = spawnPoint();
     const isFake = rnd() < STATE.fakeFoamRate;
     makeTarget({ kind: isFake ? 'fakefoam' : 'foam', x,y, ttlMs: ttlBase, hitsToClear: 1 });
-
     if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
       const p2 = spawnPoint();
       const fake2 = rnd() < (STATE.fakeFoamRate * 0.85);
@@ -516,7 +468,6 @@ function spawnForPhase(phase){
     const candidates = STATE.hiddenPlan.filter(k => !STATE.hiddenCleared[k]);
     if (!candidates.length) return;
 
-    // oil appears more often when stressed
     const oilChance = 0.16 + 0.16*stress;
 
     if (STATE.oilNeed > 0 && rnd() < oilChance){
@@ -537,7 +488,6 @@ function spawnForPhase(phase){
     const p = zonePoint(k);
     if (!p) return;
 
-    // telegraph event (think + fair)
     if (!phase._telegraphAt || now() - phase._telegraphAt > 800){
       phase._telegraphAt = now();
       emit('hha:event', { game:'bath', type:'telegraph', zoneKey: k, t: now() });
@@ -552,7 +502,6 @@ function spawnForPhase(phase){
       zoneKey: k
     });
 
-    // sometimes spawn a second during stress (arcade)
     if (rnd() < (0.22 + 0.28*stress) && STATE.active.size < (CFG.maxActive||7)){
       const k2 = candidates[Math.floor(rnd()*candidates.length)];
       const p2 = zonePoint(k2);
@@ -585,7 +534,6 @@ function startPhase(idx){
   const phase = PHASES[idx];
   STATE.phaseEndsAt = now() + phase.secs*1000;
 
-  // clear phase internals
   phase._nextSpawnAt = 0;
   phase._rushSpawnAt = 0;
   phase._telegraphAt = 0;
@@ -595,7 +543,6 @@ function startPhase(idx){
   STATE.bossRushUntil = 0;
   STATE.bossKills = 0;
 
-  // quests per phase
   if (phase.id==='WET')   setQuest('เปียกให้ครบ 10 ครั้ง');
   if (phase.id==='SOAP')  setQuest('ทำฟองจริงให้ครบ 14 ครั้ง');
   if (phase.id==='SCRUB') setQuest('เคลียร์จุดอับ 3 จุด + คอมโบ 8+');
@@ -617,7 +564,6 @@ function startPhase(idx){
 function endGame(){
   STATE.running = false;
 
-  // boss bonus
   if (STATE.bossKills >= 4){
     STATE.cleanScore = clamp(STATE.cleanScore + 8, 0, 100);
     emit('hha:event', { game:'bath', type:'boss_bonus', bossKills: STATE.bossKills, t: now() });
@@ -649,7 +595,6 @@ function endGame(){
 
   UI.panelEnd.classList.remove('hidden');
 
-  // button state
   if (UI.btnStart){
     UI.btnStart.disabled = false;
     UI.btnStart.textContent = 'เริ่มเล่น';
@@ -678,14 +623,8 @@ function tick(){
   const phase = PHASES[STATE.phaseIdx];
   const timeLeft = STATE.phaseEndsAt - t;
 
-  // spawn scheduling
-  if (!STATE.lastTick) STATE.lastTick = t;
-  STATE.lastTick = t;
-
-  // expire old targets
   expireTargets();
 
-  // boss rush (arcade peak + survival)
   if (phase.id === 'SCRUB'){
     if (!STATE.bossRush && timeLeft <= 6000){
       STATE.bossRush = true;
@@ -694,7 +633,6 @@ function tick(){
       emit('hha:coach', { game:'bath', msg:'BOSS RUSH! 6 วิสุดท้าย เคลียร์ให้ไว!', t });
     }
 
-    // near end hint
     if (timeLeft < 7000){
       const remaining = STATE.hiddenPlan.filter(k=>!STATE.hiddenCleared[k]);
       if (remaining.length && !phase._hinted){
@@ -705,17 +643,14 @@ function tick(){
     }
   }
 
-  // base spawn interval (modulated)
   const baseEvery = (phase.spawnEvery / (CFG.spawnMul || 1));
   if (!phase._nextSpawnAt) phase._nextSpawnAt = t;
 
-  // during boss rush: override with faster spawn (capped)
   if (STATE.bossRush && t <= STATE.bossRushUntil){
     if (!phase._rushSpawnAt) phase._rushSpawnAt = t;
     if (t >= phase._rushSpawnAt){
       if (STATE.active.size < (CFG.maxActive||7)) spawnForPhase(phase);
       if (STATE.active.size < (CFG.maxActive||7) && rnd() < 0.55) spawnForPhase(phase);
-
       const step = (360 / (CFG.bossMul || 1)) + rnd()*120;
       phase._rushSpawnAt = t + step;
     }
@@ -726,7 +661,6 @@ function tick(){
     }
   }
 
-  // phase end?
   if (timeLeft <= 0){
     if (STATE.phaseIdx < PHASES.length - 1){
       startPhase(STATE.phaseIdx + 1);
@@ -741,22 +675,18 @@ function tick(){
   requestAnimationFrame(tick);
 }
 
-/** pointer input */
 function onPointerDown(ev){
   if (!STATE.running) return;
   const x = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : ev.clientX;
   const y = (ev.touches && ev.touches[0]) ? ev.touches[0].clientY : ev.clientY;
   handleShootAt(x,y,'pointer');
 }
-
 function onKeyDown(ev){
   if (ev.code === 'Space'){
     const r = bodyRect();
     handleShootAt(r.left + r.width/2, r.top + r.height/2, 'key');
   }
 }
-
-/** hha:shoot from vr-ui.js */
 function onHHAShoot(ev){
   if (!STATE.running) return;
   const d = ev.detail || {};
@@ -767,26 +697,20 @@ function onHHAShoot(ev){
   const r = bodyRect();
   handleShootAt(r.left + r.width/2, r.top + r.height/2, 'hha:shoot');
 }
-
-/** flip body view */
 function flipView(){
   STATE.side = (STATE.side === 'front') ? 'back' : 'front';
   updateHUD();
   emit('hha:event', { game:'bath', type:'flip', side: STATE.side, t: now() });
 }
-
-/** start game */
 function startGame(){
   resetGame();
   UI.panelEnd.classList.add('hidden');
 
-  // button state during play
   if (UI.btnStart){
     UI.btnStart.disabled = true;
     UI.btnStart.textContent = 'กำลังเล่น...';
   }
 
-  // start
   STATE.running = true;
   startPhase(0);
 
@@ -802,7 +726,7 @@ function startGame(){
   requestAnimationFrame(tick);
 }
 
-// ----------------- Wire UI -----------------
+// Wire UI
 UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp.classList.remove('hidden'));
 UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp.classList.add('hidden'));
 
@@ -810,16 +734,13 @@ UI.btnStart?.addEventListener('click', startGame);
 UI.btnReplay?.addEventListener('click', startGame);
 UI.btnFlip?.addEventListener('click', flipView);
 
-UI.btnBack?.addEventListener('click', ()=>{
-  UI.panelEnd.classList.add('hidden');
-});
+UI.btnBack?.addEventListener('click', ()=> UI.panelEnd.classList.add('hidden'));
 
 UI.bathLayer?.addEventListener('mousedown', onPointerDown, { passive:true });
 UI.bathLayer?.addEventListener('touchstart', onPointerDown, { passive:true });
 WIN.addEventListener('keydown', onKeyDown);
 WIN.addEventListener('hha:shoot', onHHAShoot);
 
-// cVR strict: allow tap anywhere to shoot center
 if (STATE.cvrStrict){
   UI.bathLayer?.addEventListener('click', ()=>{
     const r = bodyRect();
@@ -827,5 +748,4 @@ if (STATE.cvrStrict){
   }, { passive:true });
 }
 
-// initial state
 resetGame();
