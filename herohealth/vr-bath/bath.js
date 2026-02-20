@@ -81,6 +81,7 @@ const ZONES = [
   { key:'toeGap',     label:'ซอกนิ้วเท้า',    front:{x:0.48,y:0.92}, back:{x:0.52,y:0.92} },
 ];
 
+// base phases
 const PHASES = [
   { id:'WET',   secs: 8,  type:'water',   spawnEvery: 360, goalHits: 10 },
   { id:'SOAP',  secs: 22, type:'foam',    spawnEvery: 460, goalHits: 14 },
@@ -93,7 +94,6 @@ const STATE = {
   side:'front',
   phaseIdx: -1,
   phaseEndsAt: 0,
-  lastTick: 0,
 
   combo:0,
   miss:0,
@@ -122,6 +122,9 @@ const STATE = {
   bossRushUntil: 0,
   bossKills: 0,
 
+  // A+B+C additions
+  stormUntil: 0,
+
   active: new Map(),
   uid: 0,
 
@@ -145,6 +148,7 @@ function resetGame(){
   STATE.miss = 0;
   STATE.hits = 0;
   STATE.cleanScore = 0;
+
   STATE.wetHits = 0;
   STATE.soapHits = 0;
   STATE.residueHits = 0;
@@ -166,6 +170,8 @@ function resetGame(){
   STATE.bossRushUntil = 0;
   STATE.bossKills = 0;
 
+  STATE.stormUntil = 0;
+
   STATE.active.clear();
   STATE.uid = 0;
   UI.targetLayer.innerHTML = '';
@@ -180,7 +186,14 @@ function resetGame(){
 function updateHUD(){
   const phase = PHASES[STATE.phaseIdx]?.id ?? '—';
   const tLeft = STATE.running ? Math.max(0, Math.ceil((STATE.phaseEndsAt - now())/1000)) : 0;
-  setPill(UI.phasePill, `PHASE: ${phase}${STATE.bossRush ? ' (BOSS!)' : ''}`);
+  const storm = (STATE.running && now() <= STATE.stormUntil);
+
+  // make phase pill feel “gamey”
+  let phaseTxt = `PHASE: ${phase}`;
+  if (storm) phaseTxt += ' ⚡STORM';
+  if (STATE.bossRush) phaseTxt += ` (BOSS!) K${STATE.bossKills}`;
+
+  setPill(UI.phasePill, phaseTxt);
   setPill(UI.timePill,  `TIME: ${tLeft}`);
   setPill(UI.comboPill, `COMBO: ${STATE.combo}`);
   setPill(UI.missPill,  `MISS: ${STATE.miss}`);
@@ -197,7 +210,7 @@ function spawnPoint(){
   const r = bodyRect();
   const pad = 26;
   const topPad = pad + 8;
-  const botPad = pad + 64; // กันทับปุ่ม VR/controls แบบง่ายแต่ได้ผล
+  const botPad = pad + 64;
   const x = r.left + pad + rnd() * (r.width  - pad*2);
   const y = r.top  + topPad + rnd() * (r.height - (topPad + botPad));
   return { x, y };
@@ -222,6 +235,7 @@ function makeTarget({ kind, x, y, ttlMs=1400, hitsToClear=1, zoneKey=null }){
   el.className = `target ${kindClass(kind)}`;
   el.dataset.id = id;
   el.dataset.kind = kind;
+  if (zoneKey) el.dataset.zoneKey = String(zoneKey);
   el.style.left = `${local.lx}px`;
   el.style.top  = `${local.ly}px`;
 
@@ -245,6 +259,16 @@ function removeTarget(id){
   STATE.active.delete(id);
 }
 
+// ---------- A) Timing system (Perfect/Good/Late) ----------
+function hitTiming(obj){
+  const age = now() - obj.born;
+  const p = age / Math.max(1, obj.ttl); // 0..1
+  if (p <= 0.35) return 'perfect';
+  if (p <= 0.80) return 'good';
+  return 'late';
+}
+
+// meter
 function addMeter(delta, reason=''){
   const t = now();
   if (t < STATE.meterLockUntil) return;
@@ -268,12 +292,23 @@ function expireTargets(){
   const t = now();
   for (const [id, obj] of STATE.active){
     if (t - obj.born >= obj.ttl){
+
+      // core penalties
       if (obj.kind === 'hidden' || obj.kind === 'oil'){
         STATE.miss++;
         STATE.combo = 0;
         addMeter(12, 'miss_important');
         emit('hha:event', { game:'bath', type:'miss', kind: obj.kind, zoneKey: obj.zoneKey, t });
       }
+
+      // B) Decision: risk dry (only when zoneKey === 'risk')
+      if (obj.kind === 'dry' && obj.zoneKey === 'risk'){
+        STATE.miss++;
+        STATE.combo = 0;
+        addMeter(8, 'miss_dry_risk');
+        emit('hha:coach', { game:'bath', msg:'พลาดจุดแห้งเสี่ยง! รีบจัดลำดับเป้าดี ๆ', t });
+      }
+
       removeTarget(id);
     }
   }
@@ -348,7 +383,7 @@ function awardByKind(kind, zoneKey){
 
   if (kind==='fakefoam'){
     addMeter(3, 'fakefoam');
-    emit('hha:coach', { game:'bath', msg:'ฟองปลอม! มองหา “เงา/ประกาย” ของจุดอับนะ', t: now() });
+    emit('hha:coach', { game:'bath', msg:'ฟองปลอม! อย่าจิ้มมั่ว—ดูจังหวะกับเป้าคุ้ม ๆ', t: now() });
   }
 
   if (kind==='hidden' && zoneKey){
@@ -360,8 +395,12 @@ function awardByKind(kind, zoneKey){
     STATE.oilNeed = Math.max(0, STATE.oilNeed - 1);
   }
 
+  // survival rewards
   if (kind==='hidden' || kind==='oil') addMeter(-4, 'clear_hidden');
   if (kind==='residue' || kind==='dry') addMeter(-2, 'cleanup');
+
+  // B) decision reward: saving risk dry is extra good
+  if (kind==='dry' && zoneKey === 'risk') addMeter(-6, 'save_dry_risk');
 
   recomputeClean();
   checkQuest();
@@ -392,10 +431,19 @@ function handleShootAt(x,y, source='pointer'){
   const cleared = obj.hitCount >= obj.hitsToClear;
 
   if (cleared){
+    // base success
     STATE.hits++;
     STATE.combo++;
+
+    // A) Timing bonus/penalty
+    const timing = hitTiming(obj);
+    if (timing === 'perfect') { STATE.combo += 1; addMeter(-1.2,'perfect'); }
+    else if (timing === 'late') { addMeter(0.8,'late'); }
+
+    emit('hha:event', { game:'bath', type:'timing', timing, kind: obj.kind, zoneKey: obj.zoneKey, t });
+
     awardByKind(obj.kind, obj.zoneKey);
-    emit('hha:event', { game:'bath', type:'hit', kind: obj.kind, zoneKey: obj.zoneKey, combo: STATE.combo, source, x,y, t });
+    emit('hha:event', { game:'bath', type:'hit', kind: obj.kind, zoneKey: obj.zoneKey, combo: STATE.combo, timing, source, x,y, t });
     removeTarget(id);
   } else {
     emit('hha:event', { game:'bath', type:'hit_partial', kind: obj.kind, zoneKey: obj.zoneKey, remaining: (obj.hitsToClear-obj.hitCount), source, x,y, t });
@@ -432,19 +480,35 @@ function zonePoint(zoneKey){
 }
 
 function spawnForPhase(phase){
+  // meter affects gameplay (survival)
   const stress = clamp(STATE.meter/100, 0, 1);
   const ttlStressMul = 1 - 0.18*stress;
   const extraSpawnChance = 0.10 + 0.22*stress;
 
   const type = phase.type;
 
+  // cap active to avoid clutter
   if (STATE.active.size >= (CFG.maxActive || 7)) return;
 
   const ttlBase = 1700 * (CFG.ttlMul || 1) * ttlStressMul;
 
+  // -------- B) Decision: risk dry occasionally in WET/SOAP (priority target) --------
+  // spawn risk only if there isn't already a risk target
+  const hasRisk = (()=> {
+    for (const o of STATE.active.values()) if (o.kind==='dry' && o.zoneKey==='risk') return true;
+    return false;
+  })();
+
+  if (!hasRisk && (phase.id==='WET' || phase.id==='SOAP') && rnd() < (phase.id==='WET' ? 0.22 : 0.14)) {
+    const p = spawnPoint();
+    makeTarget({ kind:'dry', x:p.x, y:p.y, ttlMs: 1500 * (CFG.ttlMul||1), hitsToClear: 1, zoneKey:'risk' });
+    // do not return: still allow normal spawn below to keep flow
+  }
+
   if (type==='water' || type==='residue'){
     const {x,y} = spawnPoint();
     makeTarget({ kind:type, x,y, ttlMs: ttlBase, hitsToClear: 1 });
+
     if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
       const p2 = spawnPoint();
       makeTarget({ kind:type, x:p2.x, y:p2.y, ttlMs: ttlBase*0.95, hitsToClear: 1 });
@@ -456,6 +520,7 @@ function spawnForPhase(phase){
     const {x,y} = spawnPoint();
     const isFake = rnd() < STATE.fakeFoamRate;
     makeTarget({ kind: isFake ? 'fakefoam' : 'foam', x,y, ttlMs: ttlBase, hitsToClear: 1 });
+
     if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
       const p2 = spawnPoint();
       const fake2 = rnd() < (STATE.fakeFoamRate * 0.85);
@@ -529,6 +594,41 @@ function spawnDryPack(){
   }
 }
 
+// -------- C) Storm system (3s mini-storm per phase, scheduled) --------
+function scheduleStorm(phase){
+  const t = now();
+  // deterministic schedule per phase start
+  phase._nextStormAt = t + 6500 + rnd()*6500; // 6.5–13s
+  phase._stormSpawnAt = 0;
+}
+function maybeStartStorm(phase){
+  const t = now();
+  if (t <= STATE.stormUntil) return false;
+  if (!phase._nextStormAt) return false;
+  if (t < phase._nextStormAt) return false;
+
+  STATE.stormUntil = t + 3000; // 3s
+  phase._stormSpawnAt = t;
+  // next storm 12–20s later
+  phase._nextStormAt = t + 12000 + rnd()*8000;
+
+  emit('hha:coach', { game:'bath', msg:'⚡ STORM 3 วิ! ล่า PERFECT + เลือกเป้าคุ้ม!', t });
+  emit('hha:event', { game:'bath', type:'storm_start', phase: phase.id, t });
+  return true;
+}
+function stormTickSpawn(phase){
+  const t = now();
+  if (t > STATE.stormUntil) return;
+  if (!phase._stormSpawnAt) phase._stormSpawnAt = t;
+
+  // extra spawns every ~180ms (safe + capped)
+  if (t >= phase._stormSpawnAt){
+    if (STATE.active.size < (CFG.maxActive||7)) spawnForPhase(phase);
+    if (STATE.active.size < (CFG.maxActive||7) && rnd() < 0.55) spawnForPhase(phase);
+    phase._stormSpawnAt = t + 180;
+  }
+}
+
 function startPhase(idx){
   STATE.phaseIdx = idx;
   const phase = PHASES[idx];
@@ -538,6 +638,8 @@ function startPhase(idx){
   phase._rushSpawnAt = 0;
   phase._telegraphAt = 0;
   phase._hinted = false;
+
+  scheduleStorm(phase);
 
   STATE.bossRush = false;
   STATE.bossRushUntil = 0;
@@ -550,7 +652,7 @@ function startPhase(idx){
 
   if (phase.id==='SCRUB' && STATE.hiddenPlan.length===0){
     pickHiddenPlan();
-    emit('hha:coach', { game:'bath', msg:'เข้าสู่ SCRUB! ล่าจุดอับ: หลังหู/รักแร้/หลังเข่า/ซอกนิ้วเท้า', t: now() });
+    emit('hha:coach', { game:'bath', msg:'เข้าสู่ SCRUB! ล่าจุดอับ (ต้องถูซ้ำ) — ล่า PERFECT จะคอมโบขึ้นไว', t: now() });
   }
 
   if (phase.id==='RINSE'){
@@ -625,6 +727,13 @@ function tick(){
 
   expireTargets();
 
+  // C) storm scheduling/spawning (not in RINSE? still ok, but you can disable by if)
+  if (phase.id !== 'RINSE'){
+    maybeStartStorm(phase);
+    stormTickSpawn(phase);
+  }
+
+  // boss rush (existing)
   if (phase.id === 'SCRUB'){
     if (!STATE.bossRush && timeLeft <= 6000){
       STATE.bossRush = true;
@@ -675,6 +784,7 @@ function tick(){
   requestAnimationFrame(tick);
 }
 
+// input
 function onPointerDown(ev){
   if (!STATE.running) return;
   const x = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : ev.clientX;
