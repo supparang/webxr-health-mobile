@@ -1,0 +1,699 @@
+<!-- === /herohealth/food-groups/compare-plates.html ===
+HeroHealth — Food Groups (Evaluate)
+Mode A: Compare 2 Plates — deterministic by seed + round
+✅ Evaluate: เลือกจานที่สมดุลกว่า + ให้เหตุผล
+✅ Deterministic: seed -> rng; round index stable
+✅ AI tip -> hha:coach rate-limit (still deterministic; uses window.HHA.createAIHooks if exists)
+✅ End summary -> hha:end + save HHA_LAST_SUMMARY + back HUB (?hub=...)
+No App Script.
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Compare 2 Plates (Evaluate)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    :root{
+      --bg:#050814;
+      --panel: rgba(2,6,23,.74);
+      --panel2: rgba(2,6,23,.55);
+      --stroke: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.94);
+      --mut: rgba(148,163,184,.92);
+      --good: rgba(34,197,94,.95);
+      --warn: rgba(245,158,11,.95);
+      --bad: rgba(239,68,68,.95);
+      --cyan: rgba(34,211,238,.95);
+      --pink: rgba(255,79,216,.95);
+      --r:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1100px 760px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+      radial-gradient(1100px 760px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+      radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
+      linear-gradient(180deg, #0b1026, var(--bg));
+      color:var(--txt);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      overflow-x:hidden;
+    }
+    a{color:inherit;text-decoration:none}
+    #app{min-height:100%;padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+    .card{border-radius:var(--r);border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.55));box-shadow:0 18px 60px rgba(0,0,0,.38);overflow:hidden}
+    .hd{padding:12px 12px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+    .hd b{font-weight:1000;letter-spacing:.2px}
+    .sub{color:var(--mut);font-weight:900;font-size:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.48);color:var(--mut);font-size:12px;font-weight:1000}
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.55)}
+    .dot.good{background:var(--good);box-shadow:0 0 14px rgba(34,197,94,.55)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 14px rgba(245,158,11,.55)}
+    .dot.pink{background:var(--pink);box-shadow:0 0 14px rgba(255,79,216,.55)}
+    button{
+      cursor:pointer;border-radius:16px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);color:var(--txt);padding:10px 12px;font-weight:1000;
+      transition:transform .08s ease, background .15s ease, border-color .15s ease;user-select:none
+    }
+    button:hover{transform:translateY(-1px);background:rgba(2,6,23,.72);border-color:rgba(148,163,184,.32)}
+    button:active{transform:translateY(0) scale(.99)}
+    button.primary{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    button.ghost{background:rgba(148,163,184,.08)}
+    .body{padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width: 920px){.body{grid-template-columns:1fr}}
+    .plate{
+      border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.40);
+      padding:12px;display:flex;flex-direction:column;gap:10px;min-height:240px
+    }
+    .plate h3{margin:0;font-size:16px;font-weight:1000;display:flex;justify-content:space-between;align-items:center}
+    .mini{color:var(--mut);font-weight:900;font-size:12px;line-height:1.35}
+    .gridItems{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    @media (max-width: 520px){.gridItems{grid-template-columns:repeat(2,1fr)}}
+    .item{
+      border-radius:16px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.50);
+      padding:10px;display:flex;gap:10px;align-items:center
+    }
+    .em{font-size:24px}
+    .lbl{display:flex;flex-direction:column}
+    .lbl b{font-size:13px;font-weight:1000}
+    .lbl span{font-size:11px;color:var(--mut);font-weight:900}
+    .actions{padding:12px;border-top:1px solid rgba(148,163,184,.14);display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+    .coach{
+      padding:10px 12px;border-top:1px solid rgba(148,163,184,.14);
+      color:var(--mut);font-weight:900;font-size:12.5px;display:flex;gap:10px;align-items:flex-start
+    }
+    .coach .badge{padding:2px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);font-weight:1000}
+    .coach .txt{white-space:pre-wrap;line-height:1.35}
+    .panel{
+      padding:12px;border-top:1px solid rgba(148,163,184,.14);
+      display:grid;grid-template-columns:1.2fr 1fr;gap:10px
+    }
+    @media (max-width: 920px){.panel{grid-template-columns:1fr}}
+    .field{border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.38);padding:10px;display:flex;flex-direction:column;gap:8px}
+    select{
+      width:100%;border-radius:14px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);color:var(--txt);padding:10px;font-weight:1000;outline:none
+    }
+    .stat{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.45);font-weight:1000;color:var(--mut);font-size:12px}
+    .pill strong{color:var(--txt)}
+    .good{color:var(--good)}
+    .bad{color:var(--bad)}
+    .warn{color:var(--warn)}
+    .overlay{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.55);padding:16px;z-index:50
+    }
+    .modal{
+      width:min(720px,100%);border-radius:22px;border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
+      box-shadow:0 22px 90px rgba(0,0,0,.55);overflow:hidden
+    }
+    .modal .mhd{padding:12px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .modal .mhd b{font-weight:1000}
+    .modal .mbd{padding:12px;display:flex;flex-direction:column;gap:10px}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--mut)}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="card">
+    <div class="hd">
+      <div>
+        <b>🥗 Compare 2 Plates — Evaluate</b><br/>
+        <span class="sub">เลือก “จานที่สมดุลกว่า” + ให้เหตุผล (deterministic by seed)</span>
+      </div>
+      <div class="row">
+        <span class="tag"><span class="dot"></span> seed: <b id="seedTag" style="color:var(--txt)"></b></span>
+        <span class="tag"><span class="dot warn"></span> round: <b id="roundTag" style="color:var(--txt)"></b></span>
+        <span class="tag"><span class="dot good"></span> score: <b id="scoreTag" style="color:var(--txt)">0</b></span>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="plate" id="plateA">
+        <h3><span>🅰️ จาน A</span><span class="pill">Balance <strong id="balA">—</strong></span></h3>
+        <div class="mini" id="miniA">—</div>
+        <div class="gridItems" id="itemsA"></div>
+        <button class="primary" id="pickA">เลือกจาน A</button>
+      </div>
+
+      <div class="plate" id="plateB">
+        <h3><span>🅱️ จาน B</span><span class="pill">Balance <strong id="balB">—</strong></span></h3>
+        <div class="mini" id="miniB">—</div>
+        <div class="gridItems" id="itemsB"></div>
+        <button class="primary" id="pickB">เลือกจาน B</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label class="sub">เหตุผลที่เลือก (ต้องเลือก 1 ข้อ)</label>
+        <select id="selReason">
+          <option value="" selected>— เลือกเหตุผล —</option>
+          <option value="covers_more_groups">ครบหมู่มากกว่า (ครอบคลุมหมู่ 1–5)</option>
+          <option value="less_excess_fat_sugar">ไขมัน/หวานมันน้อยกว่า</option>
+          <option value="more_veg_fruit">มีผัก/ผลไม้มากกว่า</option>
+          <option value="more_protein_quality">โปรตีนเหมาะสมกว่า</option>
+          <option value="carb_not_over">คาร์บไม่ล้นเกินไป</option>
+        </select>
+        <div class="mini">Tip: เลือก “เหตุผล” ให้สอดคล้องกับสิ่งที่เห็นในจาน จะได้คะแนนเพิ่ม ✅</div>
+      </div>
+
+      <div class="field">
+        <div class="stat">
+          <span class="pill">ถูก: <strong class="good" id="okCnt">0</strong></span>
+          <span class="pill">ผิด: <strong class="bad" id="badCnt">0</strong></span>
+          <span class="pill">สตรีค: <strong id="streakCnt">0</strong></span>
+          <span class="pill">เวลา: <strong id="timeLeft">60</strong>s</span>
+        </div>
+        <div class="mini" id="statusTxt">เลือกจานที่สมดุลกว่า แล้วให้เหตุผล</div>
+      </div>
+    </div>
+
+    <div class="coach" id="coachBar">
+      <span class="badge">COACH</span>
+      <div class="txt" id="coachTxt">ดู “ครบหมู่” ก่อน แล้วค่อยดู “ล้นหมู่” ✅</div>
+    </div>
+
+    <div class="actions">
+      <div class="row">
+        <button class="ghost" id="btnNext">ข้าม/สุ่มรอบใหม่</button>
+        <button class="ghost" id="btnReset">รีเซ็ต (seed เดิม)</button>
+      </div>
+      <div class="row">
+        <button class="ghost" id="btnHub">🏠 กลับ HUB</button>
+        <button class="primary" id="btnEnd">จบเกม</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="mhd">
+      <b>สรุปผล — Compare 2 Plates</b>
+      <button class="ghost" id="closeModal">ปิด</button>
+    </div>
+    <div class="mbd">
+      <div class="mini" id="sumTxt">—</div>
+      <div class="kbd" id="sumJson">—</div>
+      <div class="row">
+        <button class="primary" id="btnBackHub2">🏠 กลับ HUB</button>
+        <button class="ghost" id="btnPlayAgain">เล่นใหม่ (seed เดิม)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- QS / seed ----------
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = getQS();
+  const q = (k, def='') => (QS.get(k) ?? def);
+
+  function strSeedToU32(s){
+    s = String(s ?? '');
+    if (!s) s = String(Date.now());
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function makeRng(seedU32){
+    let t = seedU32 >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let x = t;
+      x = Math.imul(x ^ (x >>> 15), x | 1);
+      x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+
+  // ---------- HeroHealth basics ----------
+  const HUB = String(q('hub','/herohealth/hub.html')||'/herohealth/hub.html');
+  const RUN = String(q('run','play')||'play').toLowerCase();
+  const DIFF = String(q('diff','normal')||'normal').toLowerCase();
+  const VIEW = String(q('view','mobile')||'mobile').toLowerCase();
+  const TIME_SEC = clamp(q('time','60'), 30, 180) || 60;
+  const SEED = String(q('seed','')||'').trim() || String(Date.now());
+
+  // deterministic session rng base (do NOT use Date.now after seed fixed)
+  const baseU32 = strSeedToU32(SEED + '::compare2plates::v1');
+  const baseRng = makeRng(baseU32);
+
+  // ---------- optional AI hooks ----------
+  function isAiEnabled(){
+    if (RUN === 'research' || RUN === 'practice') return false;
+    const on = String(q('ai','0')||'0').toLowerCase();
+    return (on === '1' || on === 'true');
+  }
+  let AI = null;
+  let aiEnabled = isAiEnabled();
+  try{
+    if (aiEnabled && window.HHA && typeof window.HHA.createAIHooks === 'function'){
+      AI = window.HHA.createAIHooks({ game:'food-compare', runMode:RUN, diff:DIFF, seed:SEED, enabled:true });
+    }
+  }catch(_){ AI=null; }
+
+  // ---------- coach rate-limit (still deterministic) ----------
+  const coachBar = document.getElementById('coachBar');
+  const coachTxt = document.getElementById('coachTxt');
+  let lastCoachAt = 0;
+  const coachCooldownMs = 5200;
+  let lastCoachKey = '';
+
+  const TIP_FALLBACK = [
+    {k:'cover', t:'ดู “ครบหมู่ 1–5” ก่อน แล้วค่อยดู “ล้นหมู่” ✅'},
+    {k:'veg', t:'จานที่มี “ผัก+ผลไม้” มากกว่า มักสมดุลกว่า 🥦🍉'},
+    {k:'fat', t:'ถ้าไขมัน/ของทอดเยอะเกิน → สมดุลลดลง 🥑(พอดี)'},
+    {k:'carb', t:'คาร์บได้ แต่ถ้าล้นมาก → เสียดุล 🍚'},
+    {k:'protein', t:'โปรตีนพอดีช่วยสมดุลมื้อ 🍗🥚'},
+  ];
+  function nowMs(){ try{ return performance.now(); }catch{ return Date.now(); } }
+  function pickDet(arr){
+    const i = (baseRng()*arr.length)|0;
+    return arr[i];
+  }
+  function emitCoach(text, mood, key){
+    const t = nowMs();
+    if ((t - lastCoachAt) < coachCooldownMs) return;
+    if (key && key === lastCoachKey) return;
+    lastCoachAt = t;
+    lastCoachKey = key || lastCoachKey;
+    coachTxt.textContent = String(text||'');
+    try{
+      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text:String(text||''), mood:String(mood||'neutral'), ai: !!aiEnabled, key:key||'' } }));
+    }catch(_){}
+  }
+  function maybeTip(reason){
+    if (!aiEnabled) return;
+    let tip = null;
+    try{
+      if (AI && typeof AI.getTip === 'function') tip = AI.getTip(String(reason||''));
+    }catch(_){ tip=null; }
+
+    if (!tip || !tip.text){
+      const fb = pickDet(TIP_FALLBACK);
+      tip = { text: fb.t, mood:'neutral', key: fb.k, reason:String(reason||'') };
+    }
+    emitCoach(tip.text, tip.mood || 'neutral', String(tip.key||''));
+  }
+
+  // ---------- food groups database ----------
+  const GROUPS = [
+    { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
+    { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
+    { key:'g3', name:'หมู่ 3 ผัก', emoji:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
+    { key:'g4', name:'หมู่ 4 ผลไม้', emoji:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
+    { key:'g5', name:'หมู่ 5 ไขมัน', emoji:['🥑','🧈','🥜','🫒','🥥','🧴','🍳'] }
+  ];
+
+  function makeRoundRng(round){
+    return makeRng(strSeedToU32(SEED + '::r' + String(round) + '::cmp'));
+  }
+  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
+
+  // plate item schema: {g:'g3', em:'🥦', name:'ผัก'}
+  function genItem(rng, groupKey){
+    const g = GROUPS.find(x=>x.key===groupKey) || GROUPS[0];
+    const em = pick(rng, g.emoji);
+    return { g: g.key, em, name: g.name };
+  }
+
+  // deterministic plate generator with controlled "balance profiles"
+  // profile: 0=balanced,1=missing groups,2=carb heavy,3=fat heavy,4=protein+veg heavy
+  function genPlate(rng, profile){
+    const items = [];
+    // default size 6..8
+    const n = 6 + ((rng()*3)|0);
+
+    function add(gk){ items.push(genItem(rng,gk)); }
+    function addRand(){ add(pick(rng, GROUPS).key); }
+
+    if (profile === 0){
+      // balanced: cover 4-5 groups
+      const order = GROUPS.map(g=>g.key).slice();
+      // shuffle deterministic
+      for(let i=order.length-1;i>0;i--){
+        const j = (rng()*(i+1))|0;
+        const tmp = order[i]; order[i]=order[j]; order[j]=tmp;
+      }
+      const cover = 4 + ((rng()*2)|0); // 4-5 groups
+      for(let i=0;i<cover;i++) add(order[i]);
+      while(items.length < n) add(order[(rng()*cover)|0]);
+    } else if (profile === 1){
+      // missing groups: cover 2-3 groups only
+      const gA = pick(rng, GROUPS).key;
+      let gB = pick(rng, GROUPS).key; if (gB===gA) gB = GROUPS[(GROUPS.findIndex(x=>x.key===gA)+1)%5].key;
+      const cover = (rng()<0.5) ? [gA,gB] : [gA,gB,pick(rng, GROUPS).key];
+      while(items.length < n) add(cover[(rng()*cover.length)|0]);
+    } else if (profile === 2){
+      // carb heavy
+      add('g2'); add('g2'); add('g2');
+      add('g1');
+      if (rng()<0.6) add('g3'); else add('g4');
+      while(items.length < n) addRand();
+    } else if (profile === 3){
+      // fat heavy
+      add('g5'); add('g5');
+      add('g2');
+      add('g1');
+      add('g3');
+      while(items.length < n) addRand();
+    } else {
+      // protein + veg heavy (often good)
+      add('g1'); add('g1');
+      add('g3'); add('g3');
+      add('g2');
+      if (rng()<0.5) add('g4'); else add('g5');
+      while(items.length < n) addRand();
+    }
+
+    return items.slice(0, Math.max(5, Math.min(9, items.length)));
+  }
+
+  // simple balance score (0..100) deterministic: coverage + penalty for excess
+  function balanceScore(items){
+    const cnt = {g1:0,g2:0,g3:0,g4:0,g5:0};
+    for(const it of items){ if(cnt[it.g]!=null) cnt[it.g]++; }
+    const present = Object.values(cnt).filter(x=>x>0).length;
+
+    // coverage weight
+    let score = 0;
+    score += present * 14; // 0..70
+
+    // veg+fruit bonus
+    score += Math.min(12, (cnt.g3*4 + cnt.g4*3));
+
+    // penalty for excess carb/fat (over 2 each)
+    score -= Math.max(0, (cnt.g2 - 2)) * 6;
+    score -= Math.max(0, (cnt.g5 - 1)) * 7;
+
+    // protein bonus but capped
+    score += Math.min(10, cnt.g1 * 3);
+
+    // normalize
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    return {score, cnt, present};
+  }
+
+  // choose correct plate by score; tie-break deterministic on seed+round
+  function decide(plateA, plateB, rrng){
+    const a = balanceScore(plateA);
+    const b = balanceScore(plateB);
+    if (a.score > b.score) return { correct:'A', a, b };
+    if (b.score > a.score) return { correct:'B', a, b };
+    // tie -> prefer one with more present groups
+    if (a.present > b.present) return { correct:'A', a, b };
+    if (b.present > a.present) return { correct:'B', a, b };
+    // still tie -> deterministic pick
+    return { correct: (rrng()<0.5 ? 'A':'B'), a, b };
+  }
+
+  // ---------- UI refs ----------
+  const seedTag = document.getElementById('seedTag');
+  const roundTag = document.getElementById('roundTag');
+  const scoreTag = document.getElementById('scoreTag');
+  const balA = document.getElementById('balA');
+  const balB = document.getElementById('balB');
+  const itemsA = document.getElementById('itemsA');
+  const itemsB = document.getElementById('itemsB');
+  const miniA = document.getElementById('miniA');
+  const miniB = document.getElementById('miniB');
+  const pickA = document.getElementById('pickA');
+  const pickB = document.getElementById('pickB');
+  const selReason = document.getElementById('selReason');
+  const statusTxt = document.getElementById('statusTxt');
+  const okCntEl = document.getElementById('okCnt');
+  const badCntEl = document.getElementById('badCnt');
+  const streakEl = document.getElementById('streakCnt');
+  const timeLeftEl = document.getElementById('timeLeft');
+  const btnNext = document.getElementById('btnNext');
+  const btnReset = document.getElementById('btnReset');
+  const btnHub = document.getElementById('btnHub');
+  const btnEnd = document.getElementById('btnEnd');
+
+  const overlay = document.getElementById('overlay');
+  const closeModal = document.getElementById('closeModal');
+  const sumTxt = document.getElementById('sumTxt');
+  const sumJson = document.getElementById('sumJson');
+  const btnBackHub2 = document.getElementById('btnBackHub2');
+  const btnPlayAgain = document.getElementById('btnPlayAgain');
+
+  // ---------- game state ----------
+  let tLeft = TIME_SEC;
+  let timerId = 0;
+
+  let round = 1;
+  let score = 0;
+  let ok = 0;
+  let bad = 0;
+  let streak = 0;
+  let maxStreak = 0;
+
+  let cur = null; // {plateA, plateB, d:{correct,a,b}, rrng}
+
+  function renderItems(el, items){
+    el.innerHTML = '';
+    for(const it of items){
+      const g = GROUPS.find(x=>x.key===it.g);
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML = `
+        <div class="em">${it.em}</div>
+        <div class="lbl">
+          <b>${(g?g.name:'')}</b>
+          <span>${it.g}</span>
+        </div>`;
+      el.appendChild(div);
+    }
+  }
+
+  function describeBalance(B){
+    // short explanation
+    const c = B.cnt;
+    const parts = [];
+    parts.push(`ครบหมู่: ${B.present}/5`);
+    if (c.g3 + c.g4 >= 2) parts.push('ผัก/ผลไม้โอเค');
+    if (c.g2 >= 3) parts.push('คาร์บค่อนข้างเยอะ');
+    if (c.g5 >= 2) parts.push('ไขมันค่อนข้างเยอะ');
+    return parts.join(' • ');
+  }
+
+  function newRound(r){
+    round = r|0;
+    const rrng = makeRoundRng(round);
+
+    // decide profiles for A/B deterministic and ensure “มีความต่าง”
+    // A profile biased better sometimes, not always
+    const pA = (rrng()<0.55) ? 0 : (rrng()<0.75 ? 4 : 2);
+    const pB = (rrng()<0.35) ? 0 : (rrng()<0.60 ? 1 : 3);
+    let plate1 = genPlate(rrng, pA);
+    let plate2 = genPlate(rrng, pB);
+
+    // occasionally swap to avoid always A better
+    if (rrng() < 0.48){
+      const tmp=plate1; plate1=plate2; plate2=tmp;
+    }
+
+    const d = decide(plate1, plate2, rrng);
+    cur = { plateA:plate1, plateB:plate2, d, rrng };
+
+    roundTag.textContent = String(round);
+    balA.textContent = String(d.a.score);
+    balB.textContent = String(d.b.score);
+    renderItems(itemsA, plate1);
+    renderItems(itemsB, plate2);
+    miniA.textContent = describeBalance(d.a);
+    miniB.textContent = describeBalance(d.b);
+
+    // clear reason
+    selReason.value = '';
+    statusTxt.textContent = 'เลือกจานที่สมดุลกว่า แล้วให้เหตุผล';
+    maybeTip('round:new');
+  }
+
+  function addPoints(base){
+    score = Math.max(0, (score|0) + (base|0));
+    scoreTag.textContent = String(score);
+  }
+
+  function lockPicks(lock){
+    pickA.disabled = !!lock;
+    pickB.disabled = !!lock;
+    btnNext.disabled = !!lock;
+  }
+
+  function onPick(which){
+    if (!cur) return;
+    const reason = String(selReason.value||'');
+    if (!reason){
+      statusTxt.textContent = '⚠️ ต้องเลือก “เหตุผล” ก่อน';
+      emitCoach('เลือกเหตุผล 1 ข้อก่อนนะ ✅', 'neutral', 'need_reason');
+      return;
+    }
+
+    lockPicks(true);
+
+    const correct = cur.d.correct;
+    const isOk = (which === correct);
+
+    if (isOk){
+      ok++; streak++; maxStreak = Math.max(maxStreak, streak);
+      okCntEl.textContent = String(ok);
+      streakEl.textContent = String(streak);
+
+      // base points by difficulty
+      const base = (DIFF==='hard') ? 18 : (DIFF==='easy' ? 14 : 16);
+
+      // reason bonus if matches simple feature
+      let bonus = 0;
+      const a = cur.d.a.cnt, b = cur.d.b.cnt;
+      // Compare chosen plate to other
+      const chosen = (which==='A') ? cur.d.a : cur.d.b;
+      const other  = (which==='A') ? cur.d.b : cur.d.a;
+
+      if (reason==='covers_more_groups' && chosen.present > other.present) bonus = 6;
+      if (reason==='more_veg_fruit' && (chosen.cnt.g3+chosen.cnt.g4) > (other.cnt.g3+other.cnt.g4)) bonus = 6;
+      if (reason==='less_excess_fat_sugar' && chosen.cnt.g5 < other.cnt.g5) bonus = 5;
+      if (reason==='carb_not_over' && chosen.cnt.g2 < other.cnt.g2) bonus = 5;
+      if (reason==='more_protein_quality' && chosen.cnt.g1 > other.cnt.g1) bonus = 4;
+
+      addPoints(base + bonus + Math.min(10, streak));
+      statusTxt.textContent = `✅ ถูก! (+${base}+โบนัสเหตุผล+สตรีค)`;
+      maybeTip('pick:correct');
+      try{ if (AI && AI.onEvent) AI.onEvent('pick:correct', { round, streak, reason }); }catch(_){}
+    } else {
+      bad++; streak = 0;
+      badCntEl.textContent = String(bad);
+      streakEl.textContent = String(streak);
+      addPoints(-10);
+      statusTxt.textContent = `❌ ยังไม่ใช่ (คำตอบคือจาน ${correct})`;
+      maybeTip('pick:wrong');
+      try{ if (AI && AI.onEvent) AI.onEvent('pick:wrong', { round, correct, reason }); }catch(_){}
+    }
+
+    // auto next after short delay
+    setTimeout(()=>{
+      lockPicks(false);
+      newRound(round + 1);
+    }, 650);
+  }
+
+  function saveLastSummary(summary){
+    try{
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+    }catch(_){}
+  }
+
+  function endGame(reason){
+    clearInterval(timerId);
+    timerId = 0;
+
+    const total = ok + bad;
+    const acc = total ? Math.round((ok/total)*100) : 0;
+    const grade =
+      (acc>=92 && score>=220) ? 'S' :
+      (acc>=86 && score>=170) ? 'A' :
+      (acc>=76 && score>=120) ? 'B' :
+      (acc>=62) ? 'C' : 'D';
+
+    const summary = {
+      game: 'food-compare',
+      mode: 'evaluate',
+      reason: String(reason||'end'),
+      seed: SEED,
+      run: RUN,
+      diff: DIFF,
+      view: VIEW,
+      timePlannedSec: TIME_SEC|0,
+      timeLeftSec: tLeft|0,
+      scoreFinal: score|0,
+      ok: ok|0,
+      bad: bad|0,
+      accuracyPct: acc|0,
+      grade,
+      streakMax: maxStreak|0,
+      aiEnabled: !!aiEnabled
+    };
+
+    saveLastSummary(summary);
+    try{ window.dispatchEvent(new CustomEvent('hha:end', { detail: summary })); }catch(_){}
+
+    sumTxt.textContent =
+`สรุปผล:
+- Score: ${summary.scoreFinal}
+- ถูก/ผิด: ${summary.ok}/${summary.bad} (Accuracy ${summary.accuracyPct}%)
+- Grade: ${summary.grade}
+- Max Streak: ${summary.streakMax}
+- Seed: ${summary.seed}
+- Mode: ${summary.run}  diff=${summary.diff}`;
+
+    sumJson.textContent = JSON.stringify(summary, null, 2);
+    overlay.style.display = 'flex';
+  }
+
+  function goHub(){
+    try{ location.href = HUB; }
+    catch(_){ location.href = '/herohealth/hub.html'; }
+  }
+
+  // ---------- init ----------
+  seedTag.textContent = SEED.slice(0, 22) + (SEED.length>22?'…':'');
+  timeLeftEl.textContent = String(tLeft);
+
+  newRound(round);
+  emitCoach('ดู “ครบหมู่” ก่อน แล้วค่อยดู “ล้นหมู่” ✅', 'neutral', 'start');
+
+  timerId = setInterval(()=>{
+    tLeft = Math.max(0, (tLeft|0) - 1);
+    timeLeftEl.textContent = String(tLeft);
+    try{ window.dispatchEvent(new CustomEvent('hha:time', { detail:{ left:tLeft|0 } })); }catch(_){}
+    if (tLeft === 0) endGame('time');
+  }, 1000);
+
+  pickA.addEventListener('click', ()=>onPick('A'));
+  pickB.addEventListener('click', ()=>onPick('B'));
+
+  btnNext.addEventListener('click', ()=>{
+    streak = 0; streakEl.textContent = '0';
+    newRound(round + 1);
+  });
+
+  btnReset.addEventListener('click', ()=>{
+    // reset stats but keep seed
+    score=0; ok=0; bad=0; streak=0; maxStreak=0; tLeft=TIME_SEC;
+    scoreTag.textContent='0'; okCntEl.textContent='0'; badCntEl.textContent='0'; streakEl.textContent='0';
+    timeLeftEl.textContent=String(tLeft);
+    newRound(1);
+    emitCoach('รีเซ็ตแล้ว! ดูครบหมู่ก่อนนะ ✅', 'neutral', 'reset');
+  });
+
+  btnHub.addEventListener('click', goHub);
+  btnEnd.addEventListener('click', ()=>endGame('manual'));
+
+  closeModal.addEventListener('click', ()=>overlay.style.display='none');
+  btnBackHub2.addEventListener('click', goHub);
+  btnPlayAgain.addEventListener('click', ()=>{
+    overlay.style.display='none';
+    score=0; ok=0; bad=0; streak=0; maxStreak=0; tLeft=TIME_SEC;
+    scoreTag.textContent='0'; okCntEl.textContent='0'; badCntEl.textContent='0'; streakEl.textContent='0';
+    timeLeftEl.textContent=String(tLeft);
+    newRound(1);
+  });
+
+})();
+</script>
+</body>
+</html>
