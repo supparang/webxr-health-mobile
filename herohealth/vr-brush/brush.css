@@ -236,3 +236,10 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
 
 .fx-fin{position:absolute;inset:0;opacity:0;background: radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);transition: opacity .18s ease}
 .fx-fin.on{opacity:1}
+
+/* === PATCH v20260219b — FIX hidden overlay priority (IMPORTANT) === */
+[hidden]{ display:none !important; }
+.br-menu[hidden]{ display:none !important; }
+.br-end[hidden]{ display:none !important; }
+.br-menu[aria-hidden="true"]{ display:none !important; }
+.br-end[aria-hidden="true"]{ display:none !important; }
