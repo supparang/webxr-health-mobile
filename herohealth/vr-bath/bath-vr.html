@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>HeroHealth — Bath Hidden Dirt Quest (Top-down, PC/Mobile) vABC</title>
+<title>HeroHealth — Bath Hidden Dirt Quest (Top-down, PC/Mobile) vABC-123</title>
 <style>
   :root{ --bg:#0b1020; --panel:#121a33; --txt:#e8ecff; --muted:#9aa6d6; --acc:#78c8ff; --bad:#ff5a78; --good:#6cff9f; }
   html,body{ height:100%; }
@@ -74,16 +74,35 @@
   .kpi{ display:flex; gap:10px; flex-wrap:wrap; }
   .kpi .pill{ background:rgba(255,255,255,.05); }
   #sil{ width:100%; height:auto; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.10); border-radius:14px; }
+
+  /* Big overlay for Practice / Mini-quest */
+  #overlay{
+    position:absolute; inset:0; display:none;
+    background:rgba(7,16,34,.86);
+    padding:18px;
+  }
+  #overlay .card{
+    max-width:720px; margin:0 auto;
+    background:rgba(18,26,51,.90);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;
+    padding:14px;
+  }
+  #overlay .big{
+    font-size:46px; font-weight:1000; letter-spacing:.5px;
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="hud">
+    <span class="pill">Mode: <b id="modeLbl">PRACTICE</b></span>
     <span class="pill">Phase: <b id="phaseLbl">PREP</b></span>
     <span class="pill">Time: <b id="timeLbl">80</b>s</span>
     <span class="pill">Heat <span class="bar"><span class="fill" id="heatFill"></span></span> <b id="heatLbl">0</b></span>
     <span class="pill">Bubble <span class="bar"><span class="fill" id="bubFill"></span></span> <b id="bubLbl">100</b></span>
     <span class="pill">Combo: <b id="comboLbl">x1.0</b></span>
+    <span class="pill">Debuff: <b id="debLbl">—</b></span>
 
     <div id="missions" style="width:100%;">
       <div class="mcard">
@@ -107,6 +126,26 @@
     <canvas id="cv" width="860" height="580"></canvas>
     <div id="joy"><div id="nub"></div></div>
 
+    <!-- Practice + mini-quest overlay -->
+    <div id="overlay">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div class="h2" id="ovTitle">Practice Mode</div>
+            <div class="muted" id="ovDesc">ฝึก 15 วินาที: เดิน + กดค้างใช้เครื่องมือ</div>
+          </div>
+          <button id="ovBtn">เริ่ม</button>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="big" id="ovBig">15</div>
+          <div class="muted" id="ovHint" style="margin-top:6px;">
+            เป้าหมายฝึก: ไป Shower → Water / ไป Soap Rack → Soap / ไป UV Mirror → Scan 1 ครั้ง
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
     <div id="result">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -136,6 +175,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <div id="toolbar">
@@ -166,11 +206,13 @@
   // ---------- DOM ----------
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
+  const modeLbl = document.getElementById('modeLbl');
   const phaseLbl = document.getElementById('phaseLbl');
   const timeLbl  = document.getElementById('timeLbl');
   const heatLbl  = document.getElementById('heatLbl');
   const bubLbl   = document.getElementById('bubLbl');
   const comboLbl = document.getElementById('comboLbl');
+  const debLbl   = document.getElementById('debLbl');
   const heatFill = document.getElementById('heatFill');
   const bubFill  = document.getElementById('bubFill');
   const coach    = document.getElementById('coach');
@@ -184,6 +226,15 @@
   const m2t=document.getElementById('m2t'), m2s=document.getElementById('m2s'), m2f=document.getElementById('m2f');
   const m3t=document.getElementById('m3t'), m3s=document.getElementById('m3s'), m3f=document.getElementById('m3f');
 
+  // Overlay (Practice / mini-quest)
+  const overlayEl = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const ovDesc  = document.getElementById('ovDesc');
+  const ovBig   = document.getElementById('ovBig');
+  const ovHint  = document.getElementById('ovHint');
+  const ovBtn   = document.getElementById('ovBtn');
+
+  // Result
   const resultEl = document.getElementById('result');
   const silCv    = document.getElementById('sil');
   const silCtx   = silCv.getContext('2d');
@@ -198,7 +249,34 @@
   const W = cv.width, H = cv.height;
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-  // ---------- RNG (deterministic) ----------
+  // ---------- Audio + Haptics (2) ----------
+  let AC = null;
+  function audioCtx(){
+    if(AC) return AC;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return null;
+    AC = new Ctx();
+    return AC;
+  }
+  function beep(freq=420, dur=0.06, type='sine', gain=0.05){
+    const ac = audioCtx();
+    if(!ac) return;
+    try{
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g); g.connect(ac.destination);
+      o.start();
+      o.stop(ac.currentTime + dur);
+    }catch(e){}
+  }
+  function rumble(ms=30){
+    try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+  }
+
+  // ---------- RNG ----------
   function xmur3(str){
     let h = 1779033703 ^ str.length;
     for(let i=0;i<str.length;i++){
@@ -230,7 +308,7 @@
     return sfc32(seed(), seed(), seed(), seed());
   }
 
-  // ---------- Map (grid + collision) ----------
+  // ---------- Map ----------
   const TILE = 28;
   const COLS = Math.floor(W / TILE);
   const ROWS = Math.floor(H / TILE);
@@ -239,19 +317,15 @@
     const g = Array.from({length:ROWS}, ()=> Array(COLS).fill(0));
     const wall = (x,y)=>{ if(x>=0&&y>=0&&x<COLS&&y<ROWS) g[y][x]=1; };
 
-    // outer walls
     for(let x=0;x<COLS;x++){ wall(x,0); wall(x,ROWS-1); }
     for(let y=0;y<ROWS;y++){ wall(0,y); wall(COLS-1,y); }
 
-    // inner blocks
     for(let x=6;x<18;x++) wall(x,6);
     for(let y=10;y<18;y++) wall(6,y);
     for(let y=15;y<18;y++) for(let x=9;x<12;x++) wall(x,y);
     for(let y=3;y<5;y++) for(let x=20;x<24;x++) wall(x,y);
 
-    // doorway
     g[ROWS-1][Math.floor(COLS/2)] = 0;
-
     return g;
   }
   let GRID = makeMap();
@@ -287,9 +361,12 @@
     const dx=px-z.x, dy=py-z.y;
     return dx*dx+dy*dy <= z.r*z.r;
   }
+  function inCircle(px,py,cx,cy,r){
+    const dx=px-cx, dy=py-cy;
+    return dx*dx+dy*dy <= r*r;
+  }
 
-  // ---------- A) Wet floor / slippery around shower ----------
-  // Create a "wet region" bigger than shower. When wet, movement becomes slippery.
+  // ---------- A) Wet floor around shower ----------
   const WET_FLOOR = { x: ST.shower.x, y: ST.shower.y, r: ST.shower.r*1.55 };
 
   // ---------- Player ----------
@@ -307,14 +384,38 @@
   let holding = false;
   let holdMs = 0;
 
-  // ---------- Phases ----------
+  // ---------- Modes / Phases (3: Practice 15s) ----------
+  const MODE = { PRACTICE:0, RUN:1, DONE:2 };
+  let mode = MODE.PRACTICE;
+
   const PH = { PREP:0, WET:1, SOAP:2, SCRUB:3, RINSE:4, DRY:5, DRESS:6, DONE:7 };
   let phase = PH.PREP;
-  let prepMs = 2500;
+  let prepMs = 1800;
+
+  // Practice state
+  let pracLeft = 15.0;           // seconds
+  let pracGoals = { shower:false, soap:false, scan:false };
 
   // ---------- Resources ----------
   let heat=0, bubble=100, tLeft=80;
   let combo=1.0;
+  let scanLeft = 2;
+
+  // ---------- Debuff system (1) ----------
+  // debuff types: NONE, BUBBLE_LEAK, HEAT_RISE, SLIP_PLUS
+  let debuff = { type:'NONE', until:0 };
+  function debuffSet(type, ms){
+    const now = performance.now();
+    debuff.type = type;
+    debuff.until = now + ms;
+    debLbl.textContent = type==='NONE' ? '—' : type;
+  }
+  function debuffActive(){
+    const now = performance.now();
+    if(debuff.type==='NONE') return false;
+    if(now > debuff.until){ debuffSet('NONE',0); return false; }
+    return true;
+  }
 
   // ---------- Stats ----------
   const STATS = {
@@ -329,6 +430,8 @@
     bossKilled:0,
     scansUsed:0,
     slips:0,
+    miniQuestFail:0,
+    miniQuestPass:0,
   };
 
   // ---------- Spots pool ----------
@@ -343,22 +446,94 @@
   ];
 
   let rng = makeRng(seedInp.value.trim() || '20260219');
-  let scanLeft = 2;
   let spots = [];
-  let boss = null; // {type, spotId, hp, armor, pulseT, spreadT}
+  let boss = null;
 
-  // ---------- B) Missions (3 cards + progress + bonus) ----------
+  // ---------- Mini-Quest items (1) ----------
+  // items spawn on map; player can "pick" by holding near.
+  // correct order per phase: SOAP phase expects SOAP item; DRY expects TOWEL; optional: SHAMPOO gives bonus (but wrong time debuff)
+  const ITEM_TYPES = {
+    SHAMPOO:{ id:'shampoo', icon:'🧴', label:'Shampoo', bonus:10 },
+    SOAP:   { id:'soap',    icon:'🫧', label:'Soap', bonus:8  },
+    TOWEL:  { id:'towel',   icon:'🧺', label:'Towel', bonus:8  },
+  };
+  let items = []; // {typeId,x,y,r,picked:boolean}
+  function spawnItems(){
+    // deterministic positions (seed-based)
+    const pickPos = (minTx,maxTx,minTy,maxTy) => {
+      for(let k=0;k<50;k++){
+        const tx = Math.floor(minTx + rng()*(maxTx-minTx));
+        const ty = Math.floor(minTy + rng()*(maxTy-minTy));
+        const x = tx*TILE + TILE/2;
+        const y = ty*TILE + TILE/2;
+        if(!isBlocked(x,y,10)) return {x,y};
+      }
+      return {x: 12*TILE, y: 12*TILE};
+    };
+
+    items = [];
+    const p1 = pickPos(10,18, 9,13);
+    const p2 = pickPos(15,24, 12,18);
+    const p3 = pickPos( 2, 8, 8,14);
+
+    // one of each (shampoo/soap/towel)
+    items.push({ typeId:'shampoo', ...p1, r:14, picked:false });
+    items.push({ typeId:'soap',    ...p2, r:14, picked:false });
+    items.push({ typeId:'towel',   ...p3, r:14, picked:false });
+  }
+  function itemAtPlayer(){
+    for(const it of items){
+      if(it.picked) continue;
+      if(inCircle(P.x,P.y, it.x,it.y, it.r+18)) return it;
+    }
+    return null;
+  }
+  function expectedItemForPhase(){
+    if(phase===PH.SOAP) return 'soap';
+    if(phase===PH.DRY)  return 'towel';
+    // shampoo: bonus-only; “wrong time” causes debuff
+    return null;
+  }
+  function pickItem(it){
+    it.picked = true;
+    const exp = expectedItemForPhase();
+    if(exp && it.typeId===exp){
+      STATS.miniQuestPass++;
+      // reward: bubble + small heat drop
+      bubble = clamp(bubble + 10, 0, 140);
+      heat   = clamp(heat - 6, 0, 100);
+      beep(660, 0.07, 'triangle', 0.06); rumble(20);
+      coachSay(`เก็บถูก: ${ITEM_TYPES_LABEL(it.typeId)} — เหตุผล: ช่วยให้ Phase นี้มีประสิทธิภาพขึ้น`);
+    } else if(!exp && it.typeId==='shampoo'){
+      STATS.miniQuestPass++;
+      // reward: bonus score later via stats only; in-run effect small
+      bubble = clamp(bubble + 6, 0, 140);
+      beep(720, 0.06, 'sine', 0.05);
+      coachSay('Shampoo bonus! เหตุผล: เก็บได้จะช่วยลดคราบมันเล็กน้อย (ไม่บังคับ)');
+    } else {
+      STATS.miniQuestFail++;
+      // debuff depends on mismatch
+      const roll = rng();
+      const type = roll<0.34 ? 'BUBBLE_LEAK' : roll<0.67 ? 'HEAT_RISE' : 'SLIP_PLUS';
+      debuffSet(type, 6500);
+      beep(220, 0.10, 'sawtooth', 0.04); rumble(55);
+      coachSay(`หยิบผิดเวลา → Debuff (${type}) เพราะใช้อุปกรณ์ไม่ตรงขั้น`);
+    }
+  }
+  function ITEM_TYPES_LABEL(id){
+    if(id==='shampoo') return 'Shampoo';
+    if(id==='soap') return 'Soap';
+    if(id==='towel') return 'Towel';
+    return id;
+  }
+
+  // ---------- B) Missions ----------
   let missions = [];
   function makeMissions(){
-    // deterministic by seed + diff
-    const d = DIFF[diffSel.value] || DIFF.normal;
     const r = rng;
-
-    // pick 2 focus spots for mission 1
     const pickSpot = () => spots[Math.floor(r()*spots.length)];
     const s1 = pickSpot();
-    let s2 = pickSpot();
-    if(s2.id===s1.id) s2 = spots[(spots.indexOf(s1)+1)%spots.length];
+    let s2 = pickSpot(); if(s2.id===s1.id) s2 = spots[(spots.indexOf(s1)+1)%spots.length];
 
     missions = [
       {
@@ -368,7 +543,6 @@
         targets:[s1.id, s2.id],
         done:0, need:2,
         bonus:20,
-        hint:'ทำลำดับ Wet→Soap→Scrub→Rinse ให้ครบ',
       },
       {
         id:'m2',
@@ -377,7 +551,6 @@
         threshold: diffSel.value==='hard'?60:65,
         done:0, need:1,
         bonus:15,
-        hint:'อยู่ใน Shower จะเย็นลง + ทำคอมโบถูกลำดับลด Heat',
       },
       {
         id:'m3',
@@ -386,15 +559,12 @@
         limit: diffSel.value==='hard'?6:8,
         done:0, need:1,
         bonus:15,
-        hint:'อย่าข้าม Rinse และอย่าถูเร็วไป (Fake clean)',
       },
     ];
-
     renderMissions();
   }
   function renderMissions(){
     const m1=missions[0], m2=missions[1], m3=missions[2];
-    if(!m1||!m2||!m3) return;
     m1t.textContent=m1.title; m2t.textContent=m2.title; m3t.textContent=m3.title;
     updateMissionUI();
   }
@@ -416,7 +586,6 @@
     updateMissionUI();
   }
   function missionFinalize(){
-    // Called on endGame to confirm pass/fail style missions
     const m2 = missions.find(m=>m.id==='m2');
     const m3 = missions.find(m=>m.id==='m3');
     if(m2 && heat <= m2.threshold) m2.done = m2.need;
@@ -429,45 +598,45 @@
     return b;
   }
 
-  // ---------- C) AI Coach micro-tip (rate-limit + explainable + deterministic) ----------
-  const COACH = {
-    lastAt: -9999,
-    cooldownMs: 1400,     // rate-limit
-    lastMsg: '',
-  };
+  // ---------- C) AI Coach ----------
+  const COACH = { lastAt:-9999, cooldownMs:1400, lastMsg:'' };
   function coachSay(msg){
-    // rate limit: only if enough time passed OR different important message
     const now = performance.now();
-    if(now - COACH.lastAt < COACH.cooldownMs && msg === COACH.lastMsg) return;
-    COACH.lastAt = now;
-    COACH.lastMsg = msg;
+    if(now-COACH.lastAt < COACH.cooldownMs && msg===COACH.lastMsg) return;
+    COACH.lastAt = now; COACH.lastMsg = msg;
     coach.textContent = 'Tip: ' + msg;
   }
   function coachCheck(){
-    // deterministic-style logic based on current state; no random choices except stable conditions
+    if(mode===MODE.PRACTICE){
+      if(!pracGoals.shower) coachSay('Practice: ไป Shower แล้ว Water — เหตุผล: ล้างเริ่มต้นให้ครบ');
+      else if(!pracGoals.soap) coachSay('Practice: ไป Soap Rack แล้ว Soap — เหตุผล: ฟอกก่อนถึงถู');
+      else if(!pracGoals.scan) coachSay('Practice: ไป UV Mirror แล้ว Scan 1 ครั้ง — เหตุผล: เห็นจุดอับ');
+      else coachSay('Practice: เก่งแล้ว! รอเข้าด่านจริง');
+      return;
+    }
     if(phase===PH.WET){
-      if(!inZone(P.x,P.y, ST.shower)) coachSay('Wet ต้องทำใน Shower — เหตุผล: ถ้าไม่เปียกทั่ว ฟอกจะไม่ติด');
-      else if(tool!=='water') coachSay('ตอนนี้อยู่ Shower แล้ว ใช้ Water จะคุ้มสุด (ลด Heat ด้วย)');
+      if(!inZone(P.x,P.y, ST.shower)) coachSay('Wet ต้องทำใน Shower — เหตุผล: เปียกไม่ทั่ว ฟอกไม่ติด');
+      else if(tool!=='water') coachSay('อยู่ Shower แล้ว ใช้ Water — เหตุผล: ลด Heat และปลดล็อคจุดอับ');
     }
     if(phase===PH.SOAP){
-      if(!inZone(P.x,P.y, ST.soap)) coachSay('ไป Soap Rack — เหตุผล: ฟอกใกล้จุดสบู่ ประสิทธิภาพสูงและเปลือง Bubble น้อย');
-      if(tool!=='soap') coachSay('Phase Soap ควรใช้ Soap ก่อนถู — เหตุผล: ถูเร็วไปจะ “ปลอมสะอาด”');
+      if(!inZone(P.x,P.y, ST.soap)) coachSay('ไป Soap Rack — เหตุผล: ฟอกแรงและประหยัด Bubble');
+      if(tool!=='soap') coachSay('Phase Soap: ใช้ Soap ก่อนถู — เหตุผล: กัน “ปลอมสะอาด”');
     }
     if(phase===PH.SCRUB){
       const soaped = spots.filter(s=>s.state==='soaped');
-      if(!soaped.length) coachSay('ยังไม่มีจุดที่ Soap สำเร็จ — เหตุผล: ต้องฟอกก่อนถึงถูได้ผล');
-      if(tool!=='scrub') coachSay('Phase Scrub ใช้ Scrub และ “กดค้าง” — เหตุผล: จุดอับต้องใช้เวลา');
-      if(bubble<18) coachSay('Bubble ใกล้หมด — เหตุผล: ฟอก/ถูจะช้าลง ลองไป Shower ลด Heat แล้วค่อยต่อ');
+      if(!soaped.length) coachSay('ยังไม่มีจุดที่ Soap สำเร็จ — เหตุผล: ต้องฟอกก่อนถู');
+      if(tool!=='scrub') coachSay('Phase Scrub: ใช้ Scrub และกดค้าง — เหตุผล: จุดอับต้องใช้เวลา');
+      if(bubble<18) coachSay('Bubble ต่ำ — เหตุผล: ถูช้าลง ลอง Shower ลด Heat แล้วค่อยต่อ');
     }
     if(phase===PH.RINSE){
-      if(!inZone(P.x,P.y, ST.shower)) coachSay('Rinse ต้องกลับ Shower — เหตุผล: ถ้าไม่ล้างฟอง Residue จะติดลบ');
+      if(!inZone(P.x,P.y, ST.shower)) coachSay('Rinse ต้องกลับ Shower — เหตุผล: ไม่ล้างฟอง = residue ติดลบ');
     }
     if(phase===PH.DRY){
-      if(!inZone(P.x,P.y, ST.towel)) coachSay('ไป Towel เพื่อ Dry — เหตุผล: ชื้น = fungus risk เพิ่ม');
+      if(!inZone(P.x,P.y, ST.towel)) coachSay('Dry ที่ Towel — เหตุผล: ชื้น = fungus risk เพิ่ม');
     }
   }
 
-  // ---------- Fair spawn ----------
+  // ---------- Spots ----------
   function spawnSpots(){
     const pool = [...SPOT_POOL];
     const pick = (fn)=>{
@@ -498,12 +667,17 @@
     }));
   }
 
-  // ---------- Sequence rules ----------
+  // ---------- Sequence ----------
   function seqStepOk(prev, next){
     const order = ['none','wet','soap','scrub','rinse','dry','dress'];
     return order.indexOf(next) === order.indexOf(prev)+1;
   }
   function applySeq(spot, step){
+    if(mode===MODE.PRACTICE){
+      // practice: no harsh punish, still teaches order gently
+      if(seqStepOk(spot.lastStep, step)) spot.lastStep = step;
+      return true;
+    }
     if(seqStepOk(spot.lastStep, step)){
       spot.lastStep = step;
       STATS.seqOk++;
@@ -514,7 +688,6 @@
       STATS.wrongOrder++;
       combo = clamp(combo - 0.06, 1.0, 2.0);
 
-      // punish fair
       const roll = rng();
       if(roll < 0.55){
         STATS.regrowCount++;
@@ -523,6 +696,7 @@
         if(spot.state==='cleanCandidate') spot.state='soaped';
         spot.prog=0;
         heat = clamp(heat + 3, 0, 100);
+        beep(240,0.06,'square',0.03); rumble(20);
         coachSay(`ผิดลำดับ → คราบฟื้นตัว (${spot.name}) เพราะข้ามขั้น`);
       } else {
         STATS.spreadCount++;
@@ -530,14 +704,22 @@
         const hidden = spots.find(s=>s.state==='hidden');
         if(hidden){ hidden.state='revealed'; hidden.wetUnlocked=true; }
         STATS.residuePenalty += 2;
-        coachSay('ผิดลำดับ → เชื้อกระจาย เพราะไปขั้นถัดไปตอนยังไม่สะอาด');
+        beep(200,0.08,'sawtooth',0.03); rumble(25);
+        coachSay('ผิดลำดับ → เชื้อกระจาย เพราะไปขั้นถัดไปก่อนล้างครบ');
       }
       return false;
     }
   }
 
   // ---------- Boss ----------
+  function allCleanCandidate(){
+    return spots.every(s=> s.state==='cleanCandidate' || s.state==='rinsed' || s.state==='dried' || s.state==='done');
+  }
+  function allRinsed(){
+    return spots.every(s=> s.state==='rinsed' || s.state==='dried' || s.state==='done');
+  }
   function maybeSpawnBoss(){
+    if(mode!==MODE.RUN) return;
     if(boss) return;
     const d = DIFF[diffSel.value] || DIFF.normal;
     const trigger = (heat > 72) || (STATS.wrongOrder >= 2) || (tLeft < d.time*0.55 && !allCleanCandidate());
@@ -556,19 +738,25 @@
       pulseT: 0,
       spreadT: 0,
     };
+    beep(140,0.10,'sawtooth',0.05); rumble(70);
     coachSay(type==='stink'
-      ? '⚠️ Stink Monster: ถ้าไม่ล้างถูกลำดับ กลิ่นจะเพิ่ม Heat และทำให้คราบโตไว'
-      : '⚠️ Oil Boss: ต้อง Wet ก่อนถึงจะลอกชั้นน้ำมัน ไม่งั้นถูเท่าไหร่ก็ไม่ลง');
+      ? '⚠️ Stink Monster: ถ้าไม่ล้างถูกลำดับ Heat จะพุ่ง'
+      : '⚠️ Oil Boss: ต้อง Wet ก่อน Scrub ไม่งั้นไม่หลุด');
   }
   function updateBoss(dt){
     if(!boss) return;
     boss.pulseT += dt;
     boss.spreadT += dt;
+
     if(boss.pulseT > 1500){
       boss.pulseT = 0;
       heat = clamp(heat + (boss.type==='stink'?4:3), 0, 100);
       STATS.residuePenalty += (boss.type==='stink'?2:1);
+      // (2) haptics/sfx pulse
+      beep(boss.type==='stink'?170:190, 0.05, 'square', 0.04);
+      rumble(25);
     }
+
     if(boss.spreadT > (boss.type==='stink'?2400:2800)){
       boss.spreadT = 0;
       const hidden = spots.find(s=>s.state==='hidden');
@@ -592,44 +780,42 @@
       bubble = clamp(bubble + 18, 0, 140);
       heat = clamp(heat - 14, 0, 100);
       boss = null;
-      coachSay('✅ Boss ถูกชำระ! เหตุผล: ทำลำดับครบ ทำให้จุดอับไม่สะสมคราบ');
+      beep(820,0.08,'triangle',0.07); rumble(35);
+      coachSay('✅ Boss ถูกชำระ! เหตุผล: ทำลำดับครบ คราบสะสมไม่ทัน');
     }
   }
 
-  // ---------- Helpers ----------
-  function inCircle(px,py,cx,cy,r){
-    const dx=px-cx, dy=py-cy;
-    return dx*dx+dy*dy <= r*r;
+  // ---------- Practice overlay (3) ----------
+  function showOverlay(title, desc, big, hint, btnText){
+    ovTitle.textContent = title;
+    ovDesc.textContent  = desc;
+    ovBig.textContent   = big;
+    ovHint.textContent  = hint;
+    ovBtn.textContent   = btnText || 'เริ่ม';
+    overlayEl.style.display = 'block';
   }
+  function hideOverlay(){ overlayEl.style.display = 'none'; }
+  ovBtn.addEventListener('click', async ()=>{
+    // ensure audio can play after user gesture
+    const ac = audioCtx();
+    if(ac && ac.state==='suspended') { try{ await ac.resume(); }catch(e){} }
+    hideOverlay();
+  });
+
+  // ---------- Tools ----------
   function tipForTool(){
     if(phase===PH.DONE) return;
-    if(tool==='water') coachSay('Water ใน Shower: ลด Heat และทำให้ฟอกติดดีขึ้น');
-    else if(tool==='soap') coachSay('Soap ที่ Soap Rack: คุ้ม Bubble และปลดล็อคการถู');
-    else if(tool==='scrub') coachSay('Scrub: กดค้างเพื่อ “สะอาดจริง” ไม่ใช่แค่เงา');
+    if(tool==='water') coachSay('Water ใน Shower: ลด Heat และปลดล็อคจุดอับ');
+    else if(tool==='soap') coachSay('Soap ที่ Soap Rack: ประหยัด Bubble และฟอกแรง');
+    else if(tool==='scrub') coachSay('Scrub: กดค้างให้ครบเวลา เพื่อสะอาดจริง');
     else if(tool==='rinse') coachSay('Rinse ใน Shower: กัน residue ติดลบ');
-    else if(tool==='dry') coachSay('Dry ที่ Towel: ลดความชื้น ลด fungus risk');
-    else if(tool==='scan') coachSay('UV Scan ที่ Mirror: เห็นจุดอับ (มีจำกัด)');
+    else if(tool==='dry') coachSay('Dry ที่ Towel: ลดความชื้น ลดเชื้อรา');
+    else if(tool==='scan') coachSay('UV Scan ที่ Mirror: เห็นจุดอับ (จำกัดครั้ง)');
   }
   function setTool(t){
     tool = t;
     [...toolsEl.querySelectorAll('button[data-tool]')].forEach(x=>x.classList.toggle('sel', x.dataset.tool===tool));
     tipForTool();
-  }
-  function setPhase(p){
-    phase = p;
-    phaseLbl.textContent = Object.keys(PH).find(k=>PH[k]===phase);
-    if(phase===PH.WET) coachSay('Phase Wet: ไป Shower แล้ว Water ให้ครบ (ปลดล็อคจุดอับ)');
-    if(phase===PH.SOAP) coachSay('Phase Soap: ไป Soap Rack แล้วฟอกจุดอับ');
-    if(phase===PH.SCRUB) coachSay('Phase Scrub: ถูค้างให้ครบเวลา (จุดอับนานกว่า)');
-    if(phase===PH.RINSE) coachSay('Phase Rinse: กลับ Shower เพื่อล้างฟองและยืนยันความสะอาด');
-    if(phase===PH.DRY) coachSay('Phase Dry: เช็ดให้แห้ง ลดความเสี่ยงเชื้อรา');
-    if(phase===PH.DRESS) coachSay('Phase Dress: ใส่เสื้อผ้าสะอาด ปิดภารกิจ');
-  }
-  function allCleanCandidate(){
-    return spots.every(s=> s.state==='cleanCandidate' || s.state==='rinsed' || s.state==='dried' || s.state==='done');
-  }
-  function allRinsed(){
-    return spots.every(s=> s.state==='rinsed' || s.state==='dried' || s.state==='done');
   }
 
   // ---------- Input ----------
@@ -683,28 +869,62 @@
   playAgainBtn.addEventListener('click', ()=> restart());
   closeResBtn.addEventListener('click', ()=> { resultEl.style.display='none'; });
 
+  // ---------- Core state ----------
+  function setMode(m){
+    mode = m;
+    modeLbl.textContent = (mode===MODE.PRACTICE?'PRACTICE':mode===MODE.RUN?'RUN':'DONE');
+  }
+  function setPhase(p){
+    phase = p;
+    phaseLbl.textContent = Object.keys(PH).find(k=>PH[k]===phase);
+    if(mode===MODE.RUN){
+      if(phase===PH.WET) coachSay('Phase Wet: ไป Shower แล้ว Water ให้ครบ (ระวังพื้นลื่น)');
+      if(phase===PH.SOAP) coachSay('Phase Soap: ไป Soap Rack แล้วฟอกจุดอับ (ถ้าหยิบ Soap item จะคุ้ม)');
+      if(phase===PH.SCRUB) coachSay('Phase Scrub: ถูค้างให้ครบเวลา (จุดอับนานกว่า)');
+      if(phase===PH.RINSE) coachSay('Phase Rinse: กลับ Shower ล้างฟองและตรวจ residue');
+      if(phase===PH.DRY) coachSay('Phase Dry: ไป Towel เช็ดให้แห้ง (หยิบ Towel item จะคุ้ม)');
+      if(phase===PH.DRESS) coachSay('Phase Dress: ไป Basket ใส่เสื้อผ้าสะอาด');
+    }
+  }
+
+  // ---------- Init / Restart ----------
   function restart(){
     GRID = makeMap();
     rng = makeRng(seedInp.value.trim() || '20260219');
     const d = DIFF[diffSel.value] || DIFF.normal;
 
     heat=0; bubble=d.bubble; tLeft=d.time; combo=1.0;
-    prepMs=2200; phase=PH.PREP;
-    boss=null;
+    scanLeft = d.scanLeft;
+    prepMs=1400; boss=null;
+    debuffSet('NONE',0);
 
     for(const k of Object.keys(STATS)) STATS[k]=0;
-    scanLeft = d.scanLeft;
 
     spawnSpots();
-    makeMissions(); // B
+    spawnItems();   // (1)
+    makeMissions();
 
     P.x = 5*TILE; P.y = 16*TILE;
     P.vx=0; P.vy=0;
 
     resultEl.style.display='none';
-    setPhase(PH.PREP);
     setTool('water');
-    coachSay('เริ่มเลย! ไป Shower ก่อน');
+
+    // Practice reset (3)
+    pracLeft = 15.0;
+    pracGoals = { shower:false, soap:false, scan:false };
+    setMode(MODE.PRACTICE);
+    setPhase(PH.PREP);
+
+    showOverlay(
+      'Practice Mode (15s)',
+      'ฝึกก่อนลงด่านจริง: เดิน + กดค้างใช้เครื่องมือ',
+      '15',
+      'เป้าหมายฝึก: ไป Shower → Water / ไป Soap Rack → Soap / ไป UV Mirror → Scan 1 ครั้ง',
+      'เริ่มฝึก'
+    );
+
+    coachSay('Practice: เริ่มจาก Shower ก่อน');
   }
 
   // ---------- Loop ----------
@@ -719,25 +939,54 @@
     requestAnimationFrame(frame);
   }
 
+  // ---------- Update ----------
   function update(dt){
     if(phase===PH.DONE) return;
 
     const d = DIFF[diffSel.value] || DIFF.normal;
 
-    // prep timer
-    if(phase===PH.PREP){
+    // Practice countdown (3)
+    if(mode===MODE.PRACTICE){
+      // overlay big timer if visible
+      if(overlayEl.style.display==='block'){
+        // just display current time, do not tick until start pressed
+      } else {
+        pracLeft -= dt/1000;
+        if(pracLeft < 0) pracLeft = 0;
+        ovBig.textContent = String(Math.ceil(pracLeft));
+        // end practice early if all goals done
+        if((pracGoals.shower && pracGoals.soap && pracGoals.scan) || pracLeft<=0){
+          // transition to RUN
+          setMode(MODE.RUN);
+          setPhase(PH.WET);
+          coachSay('เข้าเกมจริง! ไป Shower แล้วเริ่ม Wet');
+          beep(520,0.08,'triangle',0.05);
+          // no overlay now
+          overlayEl.style.display='none';
+        }
+      }
+    }
+
+    // prep timer only at beginning of RUN (keep it light)
+    if(mode===MODE.RUN && phase===PH.PREP){
       prepMs -= dt;
       if(prepMs<=0) setPhase(PH.WET);
-    } else {
-      // countdown
+    }
+
+    // timer / heat for RUN only
+    if(mode===MODE.RUN && phase!==PH.PREP){
       tLeft -= dt/1000; if(tLeft<0) tLeft=0;
-      // heat rises baseline
-      heat += (dt/1000) * d.heatRise;
+
+      // base heat rise + debuff modifier
+      let heatRise = d.heatRise;
+      if(debuffActive() && debuff.type==='HEAT_RISE') heatRise *= 1.45;
+      heat += (dt/1000) * heatRise;
       if(!holding) heat += (dt/1000)*0.10;
     }
 
-    // A) slippery wet floor around shower
+    // wet floor slip (A) + debuff slip
     const onWetFloor = inCircle(P.x,P.y, WET_FLOOR.x, WET_FLOOR.y, WET_FLOOR.r);
+    const slipPlus = (debuffActive() && debuff.type==='SLIP_PLUS') ? 1 : 0;
 
     // movement input
     let mx=0,my=0;
@@ -749,15 +998,16 @@
     const m = Math.hypot(mx,my);
     if(m>1e-3){ mx/=Math.max(1,m); my/=Math.max(1,m); }
 
-    // velocity with friction (slippery => lower friction)
+    // velocity with friction
     const accel = 900;
-    const fric  = onWetFloor ? 5.5 : 10.5;  // lower friction => slide
+    const fricBase = onWetFloor ? 5.5 : 10.5;
+    const fric = slipPlus ? Math.max(3.8, fricBase-2.0) : fricBase;
+
     P.vx += mx * accel * (dt/1000);
     P.vy += my * accel * (dt/1000);
     P.vx *= Math.exp(-fric*(dt/1000));
     P.vy *= Math.exp(-fric*(dt/1000));
 
-    // cap speed (slippery slightly higher)
     const vmax = onWetFloor ? 230 : 200;
     const sp = Math.hypot(P.vx,P.vy);
     if(sp>vmax){
@@ -765,25 +1015,47 @@
       P.vy = P.vy/sp*vmax;
     }
 
-    // move with collision (axis separate)
+    // move collision (axis separate)
     let nx = P.x + P.vx*(dt/1000);
     let ny = P.y;
     if(!isBlocked(nx,ny,P.r)) P.x = nx;
-    else { P.vx *= -0.22; heat = clamp(heat + 0.35,0,100); if(onWetFloor){ STATS.slips++; } }
+    else {
+      P.vx *= -0.22;
+      heat = clamp(heat + 0.35,0,100);
+      if(onWetFloor){
+        STATS.slips++;
+        // (2) haptic/sfx for slip
+        beep(160,0.05,'square',0.03);
+        rumble(18);
+      }
+    }
     nx = P.x;
     ny = P.y + P.vy*(dt/1000);
     if(!isBlocked(nx,ny,P.r)) P.y = ny;
-    else { P.vy *= -0.22; heat = clamp(heat + 0.35,0,100); if(onWetFloor){ STATS.slips++; } }
+    else {
+      P.vy *= -0.22;
+      heat = clamp(heat + 0.35,0,100);
+      if(onWetFloor){
+        STATS.slips++;
+        beep(160,0.05,'square',0.03);
+        rumble(18);
+      }
+    }
 
-    // clamp resources
+    // clamp
     heat = clamp(heat, 0, 100);
     bubble = clamp(bubble, 0, 140);
+
+    // debuff bubble leak (1)
+    if(mode===MODE.RUN && debuffActive() && debuff.type==='BUBBLE_LEAK'){
+      bubble = clamp(bubble - (dt/1000)*6.5, 0, 140);
+    }
 
     // boss update
     updateBoss(dt);
 
-    // reveal trickle
-    if(phase>=PH.WET){
+    // reveal trickle in RUN only
+    if(mode===MODE.RUN && phase>=PH.WET){
       for(const s of spots){
         if(s.state==='hidden'){
           const chance = d.reveal * (inZone(P.x,P.y, ST.shower) ? 1.0 : 0.35);
@@ -792,9 +1064,16 @@
       }
     }
 
-    // Holding actions
+    // Holding actions (RUN & PRACTICE)
     if(holding){
       holdMs += dt;
+
+      // (1) mini-quest: pick item by holding near any time
+      const it = itemAtPlayer();
+      if(it && holdMs>260){
+        pickItem(it);
+        setHolding(false);
+      }
 
       const atShower = inZone(P.x,P.y,ST.shower);
       const atSoap   = inZone(P.x,P.y,ST.soap);
@@ -802,194 +1081,215 @@
       const atTowel  = inZone(P.x,P.y,ST.towel);
       const atBasket = inZone(P.x,P.y,ST.basket);
 
-      // Scan (station-based)
+      // Scan
       if(tool==='scan'){
         if(atScan && holdMs>220 && scanLeft>0){
           scanLeft--;
           STATS.scansUsed++;
           for(const s of spots){ if(s.state==='hidden'){ s.state='revealed'; s.wetUnlocked=true; } }
-          heat = clamp(heat + 4, 0, 100);
-          coachSay(`UV Scan สำเร็จ! เหตุผล: ทำให้เห็นจุดอับที่ซ่อนอยู่ (เหลือ ${scanLeft})`);
+          heat = clamp(heat + (mode===MODE.PRACTICE?1:4), 0, 100);
+          beep(540,0.06,'sine',0.05);
+          rumble(18);
+          coachSay(`UV Scan สำเร็จ! เหตุผล: ทำให้เห็นจุดอับ (เหลือ ${scanLeft})`);
+          if(mode===MODE.PRACTICE) pracGoals.scan=true;
           setHolding(false);
         } else if(!atScan && holdMs>300){
-          coachSay('Scan ต้องทำที่ UV Mirror เท่านั้น — เหตุผล: เป็นเครื่องมือตรวจคราบ');
+          coachSay('Scan ต้องทำที่ UV Mirror — เหตุผล: เป็นเครื่องมือตรวจคราบ');
           setHolding(false);
         }
       }
 
-      // Phase WET
-      if(phase===PH.WET){
-        if(tool==='water' && atShower){
-          // cooling (A): shower cools more
-          heat = clamp(heat - dt/1000*0.55, 0, 100);
-          for(const s of spots){
-            if(s.state==='hidden' && rng()<0.012){ s.state='revealed'; s.wetUnlocked=true; }
-            if(s.state==='revealed'){
-              applySeq(s,'wet');
-            }
-          }
-          const wetCount = spots.filter(s=>s.lastStep==='wet').length;
-          if(wetCount>=3) setPhase(PH.SOAP);
-        } else if(tool==='water' && !atShower && holdMs>260){
-          coachSay('Wet ต้องทำใน Shower — เหตุผล: เปียกไม่ทั่ว ฟองทำงานไม่เต็ม');
+      // Practice goals
+      if(mode===MODE.PRACTICE){
+        if(tool==='water' && atShower && holdMs>260){
+          pracGoals.shower=true; beep(620,0.05,'triangle',0.04);
+          coachSay('Practice: Shower OK — ไป Soap Rack ต่อ');
+          setHolding(false);
+        }
+        if(tool==='soap' && atSoap && holdMs>260){
+          pracGoals.soap=true; beep(680,0.05,'triangle',0.04);
+          coachSay('Practice: Soap OK — ไป UV Mirror ต่อ');
+          setHolding(false);
         }
       }
 
-      // Phase SOAP
-      if(phase===PH.SOAP){
-        if(tool==='soap' && atSoap){
-          for(const s of spots){
-            if(s.state==='revealed'){
-              applySeq(s,'soap');
-              bubble -= dt/1000 * 10 * s.weight;
-              s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
-              if(s.prog>=1){
-                s.state='soaped'; s.prog=0;
+      // RUN phases
+      if(mode===MODE.RUN){
+        // Phase WET
+        if(phase===PH.WET){
+          if(tool==='water' && atShower){
+            // shower cooling
+            heat = clamp(heat - dt/1000*0.55, 0, 100);
+            for(const s of spots){
+              if(s.state==='hidden' && rng()<0.012){ s.state='revealed'; s.wetUnlocked=true; }
+              if(s.state==='revealed'){
+                applySeq(s,'wet');
               }
             }
+            const wetCount = spots.filter(s=>s.lastStep==='wet').length;
+            if(wetCount>=3) setPhase(PH.SOAP);
+          } else if(tool==='water' && !atShower && holdMs>260){
+            coachSay('Wet ต้องทำใน Shower — เหตุผล: เปียกไม่ทั่ว ฟอกไม่ติด');
           }
-          if(spots.filter(s=>s.state==='soaped').length>=2) setPhase(PH.SCRUB);
-        } else if(tool==='soap' && !atSoap && holdMs>260){
-          coachSay('Soap ที่ Soap Rack คุ้มสุด — เหตุผล: ใช้ Bubble น้อยกว่าและเข้มข้นกว่า');
         }
-      }
 
-      // Phase SCRUB
-      if(phase===PH.SCRUB){
-        if(tool==='scrub'){
-          for(const s of spots){
-            if(s.state==='soaped'){
-              applySeq(s,'scrub');
-              const need = s.hold * d.holdMul * (bubble<18?1.25:1.0) * (heat>75?1.15:1.0);
-              bubble -= dt/1000 * 7 * s.weight;
-              s.prog = clamp(s.prog + dt/need, 0, 1);
-              if(s.prog>=1){
-                s.state='cleanCandidate'; s.prog=0;
-                s.cleaned=true;
-
-                // B) Mission 1 progress
-                const m1 = missions.find(m=>m.id==='m1');
-                if(m1 && m1.targets.includes(s.id)){
-                  // count unique completion
-                  if(!m1._doneSet) m1._doneSet = {};
-                  if(!m1._doneSet[s.id]){
-                    m1._doneSet[s.id]=true;
-                    missionAddDone('m1',1);
-                    coachSay(`ทำสำเร็จ: ${s.name} — เหตุผล: ถูครบเวลาแล้ว`);
-                  }
-                }
-
-                // boss damage
-                if(boss && boss.spotId===s.id){
-                  if(boss.type==='oil' && boss.armor>0){
-                    boss.armor--;
-                    damageBoss(22);
-                    coachSay('ลอกชั้นน้ำมันสำเร็จ — เหตุผล: Wet+Soap ก่อน Scrub ทำให้หลุดเป็นชั้น');
-                  } else {
-                    damageBoss(30);
-                  }
+        // Phase SOAP
+        if(phase===PH.SOAP){
+          if(tool==='soap' && atSoap){
+            for(const s of spots){
+              if(s.state==='revealed'){
+                applySeq(s,'soap');
+                bubble -= dt/1000 * 10 * s.weight;
+                s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
+                if(s.prog>=1){
+                  s.state='soaped'; s.prog=0;
+                  beep(520,0.03,'sine',0.02);
                 }
               }
-            } else if(s.state==='revealed'){
-              s.shinyNotClean = true;
             }
+            if(spots.filter(s=>s.state==='soaped').length>=2) setPhase(PH.SCRUB);
+          } else if(tool==='soap' && !atSoap && holdMs>260){
+            coachSay('Soap ที่ Soap Rack คุ้มสุด — เหตุผล: ประหยัด Bubble และแรงกว่า');
           }
-          const anySoaped = spots.some(s=>s.state==='soaped');
-          const anyCandidate = spots.some(s=>s.state==='cleanCandidate');
-          if(!anySoaped && anyCandidate) setPhase(PH.RINSE);
         }
-      }
 
-      // Phase RINSE
-      if(phase===PH.RINSE){
-        if(tool==='rinse' && atShower){
-          heat = clamp(heat - dt/1000*0.50, 0, 100);
-          for(const s of spots){
-            if(s.state==='cleanCandidate'){
-              applySeq(s,'rinse');
-              if(s.shinyNotClean || heat>82){
-                STATS.residuePenalty += 6;
-                s.mistakes++;
-                s.state='soaped';
-                s.shinyNotClean=false;
-                coachSay(`Residue พบที่ ${s.name} — เหตุผล: ถูเร็วไป/ร้อนเกิน ทำให้คราบยังเกาะ`);
-              } else {
-                s.state='rinsed';
+        // Phase SCRUB
+        if(phase===PH.SCRUB){
+          if(tool==='scrub'){
+            for(const s of spots){
+              if(s.state==='soaped'){
+                applySeq(s,'scrub');
+                const need = s.hold * d.holdMul * (bubble<18?1.25:1.0) * (heat>75?1.15:1.0);
+                bubble -= dt/1000 * 7 * s.weight;
+                s.prog = clamp(s.prog + dt/need, 0, 1);
+                if(s.prog>=1){
+                  s.state='cleanCandidate'; s.prog=0;
+                  s.cleaned=true;
+                  beep(740,0.05,'triangle',0.05); rumble(16);
+
+                  // mission 1 progress
+                  const m1 = missions.find(m=>m.id==='m1');
+                  if(m1 && m1.targets.includes(s.id)){
+                    if(!m1._doneSet) m1._doneSet = {};
+                    if(!m1._doneSet[s.id]){
+                      m1._doneSet[s.id]=true;
+                      missionAddDone('m1',1);
+                    }
+                  }
+
+                  // boss damage
+                  if(boss && boss.spotId===s.id){
+                    if(boss.type==='oil' && boss.armor>0){
+                      boss.armor--;
+                      damageBoss(22);
+                      coachSay('ลอกชั้นน้ำมัน — เหตุผล: Wet+Soap ก่อน Scrub ทำให้หลุด');
+                    } else {
+                      damageBoss(30);
+                    }
+                  }
+                }
+              } else if(s.state==='revealed'){
+                s.shinyNotClean = true;
               }
             }
+            const anySoaped = spots.some(s=>s.state==='soaped');
+            const anyCandidate = spots.some(s=>s.state==='cleanCandidate');
+            if(!anySoaped && anyCandidate) setPhase(PH.RINSE);
           }
-          if(allRinsed()) setPhase(PH.DRY);
-        } else if(tool==='rinse' && !atShower && holdMs>260){
-          coachSay('Rinse ต้องทำใน Shower — เหตุผล: ไม่ล้างฟอง = residue ติดลบ');
         }
-      }
 
-      // Phase DRY
-      if(phase===PH.DRY){
-        if(tool==='dry' && atTowel){
-          heat = clamp(heat - dt/1000*0.15, 0, 100);
-          for(const s of spots){
-            if(s.state==='rinsed'){
-              applySeq(s,'dry');
-              s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
-              if(s.prog>=1){ s.state='dried'; s.prog=0; }
+        // Phase RINSE
+        if(phase===PH.RINSE){
+          if(tool==='rinse' && atShower){
+            heat = clamp(heat - dt/1000*0.50, 0, 100);
+            for(const s of spots){
+              if(s.state==='cleanCandidate'){
+                applySeq(s,'rinse');
+                if(s.shinyNotClean || heat>82){
+                  STATS.residuePenalty += 6;
+                  s.mistakes++;
+                  s.state='soaped';
+                  s.shinyNotClean=false;
+                  beep(250,0.06,'square',0.03); rumble(22);
+                  coachSay(`Residue ที่ ${s.name} — เหตุผล: ถูเร็วไป/ร้อนเกิน`);
+                } else {
+                  s.state='rinsed';
+                  beep(500,0.03,'sine',0.02);
+                }
+              }
             }
+            if(allRinsed()) setPhase(PH.DRY);
+          } else if(tool==='rinse' && !atShower && holdMs>260){
+            coachSay('Rinse ต้องทำใน Shower — เหตุผล: ไม่ล้างฟอง = residue');
           }
-          if(spots.every(s=>s.state==='dried' || s.state==='done')) setPhase(PH.DRESS);
-        } else if(tool==='dry' && !atTowel && holdMs>260){
-          coachSay('Dry ที่ Towel — เหตุผล: ลดความชื้น จุดอับชื้นเสี่ยงเชื้อรา');
         }
-      }
 
-      // Phase DRESS
-      if(phase===PH.DRESS){
-        if(atBasket){
-          const wetLeft = spots.filter(s=>s.state!=='dried' && s.state!=='done').length;
-          if(wetLeft>0){ STATS.fungusRisk += wetLeft*6; }
-          if(heat>75) STATS.fungusRisk += 8;
-
-          for(const s of spots){
-            if(s.state==='dried'){
-              applySeq(s,'dress');
-              s.state='done';
+        // Phase DRY
+        if(phase===PH.DRY){
+          if(tool==='dry' && atTowel){
+            heat = clamp(heat - dt/1000*0.15, 0, 100);
+            for(const s of spots){
+              if(s.state==='rinsed'){
+                applySeq(s,'dry');
+                s.prog = clamp(s.prog + dt/1000 * 0.70, 0, 1);
+                if(s.prog>=1){ s.state='dried'; s.prog=0; beep(560,0.03,'sine',0.02); }
+              }
             }
+            if(spots.every(s=>s.state==='dried' || s.state==='done')) setPhase(PH.DRESS);
+          } else if(tool==='dry' && !atTowel && holdMs>260){
+            coachSay('Dry ที่ Towel — เหตุผล: ลดความชื้น ลดเชื้อรา');
           }
-          endGame(true);
-        } else if(holdMs>280){
-          coachSay('ไป Basket เพื่อ Dress — เหตุผล: ใส่เสื้อผ้าสะอาดปิดภารกิจ');
         }
-      }
+
+        // Phase DRESS
+        if(phase===PH.DRESS){
+          if(atBasket){
+            const wetLeft = spots.filter(s=>s.state!=='dried' && s.state!=='done').length;
+            if(wetLeft>0){ STATS.fungusRisk += wetLeft*6; }
+            if(heat>75) STATS.fungusRisk += 8;
+
+            for(const s of spots){
+              if(s.state==='dried'){
+                applySeq(s,'dress');
+                s.state='done';
+              }
+            }
+            endGame(true);
+          } else if(holdMs>280){
+            coachSay('ไป Basket เพื่อ Dress — เหตุผล: ปิดภารกิจ');
+          }
+        }
+      } // RUN
     } // holding end
 
-    // Boss spawn
-    if(phase>=PH.SOAP && phase<=PH.RINSE) maybeSpawnBoss();
+    // boss spawn
+    if(mode===MODE.RUN && phase>=PH.SOAP && phase<=PH.RINSE) maybeSpawnBoss();
 
-    // B) Missions 2 and 3 are evaluated at end; still show live partial
-    // Live mission 2: mark done temporarily when heat <= threshold for a while (simple)
-    const m2 = missions.find(m=>m.id==='m2');
-    if(m2 && heat <= m2.threshold) m2.done = 1; else if(m2) m2.done = 0;
+    // missions live update
+    if(missions.length){
+      const m2 = missions.find(m=>m.id==='m2');
+      const m3 = missions.find(m=>m.id==='m3');
+      if(m2) m2.done = (heat <= m2.threshold) ? 1 : 0;
+      if(m3) m3.done = (STATS.residuePenalty <= m3.limit) ? 1 : 0;
+      updateMissionUI();
+    }
 
-    const m3 = missions.find(m=>m.id==='m3');
-    if(m3 && STATS.residuePenalty <= m3.limit) m3.done = 1; else if(m3) m3.done = 0;
-
-    updateMissionUI();
-
-    // C) Coach check (rate-limited)
-    if(Math.random()<0.02) { /* do nothing: avoid spam */ }
+    // coach periodic
     coachCheck();
 
     // timeout
-    if(tLeft<=0 && phase!==PH.DONE){
+    if(mode===MODE.RUN && tLeft<=0 && phase!==PH.DONE){
       endGame(false);
     }
 
     // UI
-    timeLbl.textContent = String(Math.ceil(tLeft));
+    timeLbl.textContent = String(Math.ceil(mode===MODE.PRACTICE ? pracLeft : tLeft));
     heatLbl.textContent = String(Math.round(heat));
     bubLbl.textContent  = String(Math.round(bubble));
     comboLbl.textContent = 'x' + combo.toFixed(1);
     heatFill.style.width = (heat)+'%';
     bubFill.style.width  = (Math.min(100, (bubble/100)*100))+'%';
+    debLbl.textContent = debuffActive() ? debuff.type : '—';
   }
 
   // ---------- Render ----------
@@ -1000,7 +1300,7 @@
     ctx.fillStyle = '#06102a';
     ctx.fillRect(0,0,W,H);
 
-    // A) wet floor glow region
+    // wet floor glow
     ctx.globalAlpha = 0.20;
     radialFill(WET_FLOOR.x, WET_FLOOR.y, WET_FLOOR.r, 'rgba(120,200,255,.28)', 'rgba(120,200,255,0)');
     ctx.globalAlpha = 1;
@@ -1026,6 +1326,27 @@
     // stations
     for(const k of Object.keys(ST)) drawStation(ST[k]);
 
+    // (1) items
+    for(const it of items){
+      if(it.picked) continue;
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.beginPath(); ctx.arc(it.x,it.y,it.r+6,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.beginPath(); ctx.arc(it.x,it.y,it.r+6,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.font = '900 18px system-ui';
+      const ic = it.typeId==='shampoo' ? '🧴' : it.typeId==='soap' ? '🫧' : '🧺';
+      ctx.fillText(ic, it.x-10, it.y+7);
+
+      // hint ring when near
+      if(inCircle(P.x,P.y, it.x,it.y, it.r+18)){
+        ctx.globalAlpha=0.45;
+        ctx.strokeStyle='rgba(120,200,255,.7)';
+        ctx.beginPath(); ctx.arc(it.x,it.y,it.r+18,0,Math.PI*2); ctx.stroke();
+        ctx.globalAlpha=1;
+      }
+    }
+
     // player
     ctx.fillStyle = 'rgba(120,200,255,.95)';
     ctx.beginPath(); ctx.arc(P.x,P.y,P.r,0,Math.PI*2); ctx.fill();
@@ -1039,25 +1360,12 @@
       const x = P.x + s.ox, y = P.y + s.oy;
       if(s.state==='hidden') continue;
 
-      if(s.state==='revealed'){
-        ctx.fillStyle = 'rgba(255,220,120,.30)'; spark(x,y, 10);
-      }
-      if(s.state==='soaped'){
-        ctx.fillStyle = 'rgba(200,240,255,.55)'; bubbleDot(x,y, 10);
-        progArc(x,y, 14, s.prog, 'rgba(200,240,255,.85)');
-      }
-      if(s.state==='cleanCandidate'){
-        ctx.fillStyle = 'rgba(160,255,160,.55)'; glow(x,y, 10);
-      }
-      if(s.state==='rinsed'){
-        ctx.fillStyle = 'rgba(140,210,255,.42)'; glow(x,y, 8);
-      }
-      if(s.state==='dried'){
-        ctx.fillStyle = 'rgba(255,255,255,.28)'; glow(x,y, 7);
-      }
-      if(s.state==='done'){
-        ctx.fillStyle = 'rgba(108,255,159,.22)'; glow(x,y, 6);
-      }
+      if(s.state==='revealed'){ ctx.fillStyle = 'rgba(255,220,120,.30)'; spark(x,y, 10); }
+      if(s.state==='soaped'){ ctx.fillStyle = 'rgba(200,240,255,.55)'; bubbleDot(x,y, 10); progArc(x,y, 14, s.prog, 'rgba(200,240,255,.85)'); }
+      if(s.state==='cleanCandidate'){ ctx.fillStyle = 'rgba(160,255,160,.55)'; glow(x,y, 10); }
+      if(s.state==='rinsed'){ ctx.fillStyle = 'rgba(140,210,255,.42)'; glow(x,y, 8); }
+      if(s.state==='dried'){ ctx.fillStyle = 'rgba(255,255,255,.28)'; glow(x,y, 7); }
+      if(s.state==='done'){ ctx.fillStyle = 'rgba(108,255,159,.22)'; glow(x,y, 6); }
 
       if(boss && boss.spotId===s.id){
         ctx.strokeStyle = 'rgba(255,90,120,.85)';
@@ -1074,10 +1382,11 @@
 
     // overlay info
     ctx.fillStyle = 'rgba(255,255,255,.06)';
-    ctx.fillRect(10,10, 320, 34);
+    ctx.fillRect(10,10, 420, 34);
     ctx.fillStyle = '#e8ecff';
     ctx.font = '800 13px system-ui';
-    ctx.fillText(`Tool:${tool.toUpperCase()} UV:${scanLeft} Boss:${boss?boss.type:'—'} Slips:${STATS.slips}`, 18, 32);
+    const deb = debuffActive()?debuff.type:'—';
+    ctx.fillText(`Tool:${tool.toUpperCase()} UV:${scanLeft} Boss:${boss?boss.type:'—'} Debuff:${deb} Items:${items.filter(i=>!i.picked).length}`, 18, 32);
   }
 
   function radialFill(x,y,r, c1, c2){
@@ -1087,7 +1396,6 @@
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
   }
-
   function drawStation(s){
     ctx.fillStyle = 'rgba(255,255,255,.05)';
     ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
@@ -1097,7 +1405,6 @@
     ctx.font = '800 13px system-ui';
     ctx.fillText(s.label, s.x - s.r + 10, s.y + 4);
   }
-
   function spark(x,y,n){
     for(let i=0;i<n;i++){
       const a = i/n*Math.PI*2;
@@ -1128,14 +1435,17 @@
     ctx.lineWidth = 1;
   }
 
-  // ---------- End game + scoring + heatmap ----------
+  // ---------- End game ----------
   function endGame(completed){
-    // finalize missions
     missionFinalize();
     const mBonus = missionBonusTotal();
 
     const doneCount = spots.filter(s=>s.state==='done').length;
     const cleanedCount = spots.filter(s=>s.cleaned).length;
+
+    // (1) mini-quest bonus adds to score
+    const miniBonus = STATS.miniQuestPass*8 - STATS.miniQuestFail*6;
+
     const base = doneCount*22 + cleanedCount*10;
     const comboBonus = Math.round((combo-1.0)*50);
     const bossBonus = STATS.bossKilled*25;
@@ -1155,13 +1465,17 @@
     const mistakes = STATS.wrongOrder + STATS.regrowCount + STATS.spreadCount;
 
     const total = Math.max(0,
-      Math.round(base + comboBonus + bossBonus + mBonus
+      Math.round(base + comboBonus + bossBonus + mBonus + miniBonus
         - residue*1.2 - fungus*1.1 - mistakes*2 - (STATS.slips*0.5))
     );
 
     phase = PH.DONE;
+    setMode(MODE.DONE);
     phaseLbl.textContent = 'DONE';
     resultEl.style.display='block';
+
+    beep(completed?880:260, 0.10, completed?'triangle':'sawtooth', 0.06);
+    rumble(completed?40:25);
 
     // KPIs
     kpiEl.innerHTML = '';
@@ -1176,34 +1490,22 @@
     addK('Combo+', comboBonus);
     addK('Boss+', bossBonus);
     addK('Mission+', mBonus);
+    addK('Mini+', miniBonus);
     addK('Residue-', residue);
     addK('Fungus-', fungus);
     addK('Slips', STATS.slips);
 
     seqGradeEl.textContent = `Grade ${grade} (Seq OK ${(seqRate*100).toFixed(0)}%)`;
     notesEl.textContent =
-      `Regrow ${STATS.regrowCount}, Spread ${STATS.spreadCount}, UV ${STATS.scansUsed}, Heat ${Math.round(heat)}.`;
+      `Regrow ${STATS.regrowCount}, Spread ${STATS.spreadCount}, UV ${STATS.scansUsed}, Heat ${Math.round(heat)}, MiniPass ${STATS.miniQuestPass}, MiniFail ${STATS.miniQuestFail}.`;
 
-    resSubEl.textContent = completed ? 'สำเร็จ! อาบครบลำดับ + ผ่านมิชชั่นได้โบนัส' : 'หมดเวลา — ลองใหม่ให้ลื่นขึ้น';
+    resSubEl.textContent = completed ? 'สำเร็จ! อาบครบลำดับ + เก็บของถูกจังหวะได้โบนัส' : 'หมดเวลา — ลองใหม่ให้ลื่นขึ้น';
 
     drawHeatmap(grade, total);
 
     const byMist = [...spots].sort((a,b)=> (b.mistakes||0)-(a.mistakes||0));
     const top = byMist.slice(0,3).map(s=> `${s.name} (${s.mistakes||0})`).join(', ');
     mistakesEl.textContent = 'Top mistakes: ' + (top || '—');
-  }
-
-  function missionFinalize(){
-    const m2 = missions.find(m=>m.id==='m2');
-    const m3 = missions.find(m=>m.id==='m3');
-    if(m2 && heat <= m2.threshold) m2.done = m2.need;
-    if(m3 && STATS.residuePenalty <= m3.limit) m3.done = m3.need;
-    updateMissionUI();
-  }
-  function missionBonusTotal(){
-    let b=0;
-    for(const m of missions){ if(m.done>=m.need) b += m.bonus; }
-    return b;
   }
 
   function drawHeatmap(grade, total){
@@ -1250,7 +1552,7 @@
 
     silCtx.fillStyle = 'rgba(255,255,255,.70)';
     silCtx.font = '900 14px system-ui';
-    silCtx.fillText(`Total ${total} | Grade ${grade} | Mission+ ${missionBonusTotal()}`, 14, silCv.height-14);
+    silCtx.fillText(`Total ${total} | Grade ${grade} | Mini ${STATS.miniQuestPass}/${STATS.miniQuestFail}`, 14, silCv.height-14);
   }
 
   function roundRectFill(c, x,y,w,h,r){
@@ -1264,584 +1566,14 @@
     c.fill();
   }
 
-  // ---------- Coach check ----------
-  const COACH = { lastAt:-9999, cooldownMs:1400, lastMsg:'' };
-  function coachSay(msg){
-    const now = performance.now();
-    if(now-COACH.lastAt < COACH.cooldownMs && msg===COACH.lastMsg) return;
-    COACH.lastAt = now; COACH.lastMsg = msg;
-    coach.textContent = 'Tip: ' + msg;
-  }
-  function coachCheck(){
-    if(phase===PH.WET){
-      if(!inZone(P.x,P.y, ST.shower)) coachSay('Wet ต้องทำใน Shower — เหตุผล: เปียกไม่ทั่ว ฟอกไม่ติด');
-      else if(tool!=='water') coachSay('อยู่ Shower แล้ว ใช้ Water — เหตุผล: ลด Heat และปลดล็อคจุดอับ');
-    }
-    if(phase===PH.SOAP){
-      if(!inZone(P.x,P.y, ST.soap)) coachSay('ไป Soap Rack — เหตุผล: ฟอกได้แรงและประหยัด Bubble');
-      if(tool!=='soap') coachSay('Phase Soap: ใช้ Soap ก่อนถู — เหตุผล: กัน “ปลอมสะอาด”');
-    }
-    if(phase===PH.SCRUB){
-      const soaped = spots.filter(s=>s.state==='soaped');
-      if(!soaped.length) coachSay('ยังไม่มีจุดที่ Soap สำเร็จ — เหตุผล: ต้องฟอกก่อนถู');
-      if(tool!=='scrub') coachSay('Phase Scrub: ใช้ Scrub และกดค้าง — เหตุผล: จุดอับต้องใช้เวลา');
-      if(bubble<18) coachSay('Bubble ต่ำ — เหตุผล: ถูจะช้า ลอง Shower ลด Heat แล้วค่อยต่อ');
-    }
-    if(phase===PH.RINSE){
-      if(!inZone(P.x,P.y, ST.shower)) coachSay('Rinse ต้องกลับ Shower — เหตุผล: ไม่ล้างฟอง = residue ติดลบ');
-    }
-    if(phase===PH.DRY){
-      if(!inZone(P.x,P.y, ST.towel)) coachSay('Dry ที่ Towel — เหตุผล: ชื้น = fungus risk เพิ่ม');
-    }
-  }
-
-  // ---------- Boss update ----------
-  function updateBoss(dt){
-    if(!boss) return;
-    boss.pulseT += dt;
-    boss.spreadT += dt;
-    if(boss.pulseT>1500){
-      boss.pulseT=0;
-      heat = clamp(heat + (boss.type==='stink'?4:3), 0, 100);
-      STATS.residuePenalty += (boss.type==='stink'?2:1);
-    }
-    if(boss.spreadT>(boss.type==='stink'?2400:2800)){
-      boss.spreadT=0;
-      const hidden = spots.find(s=>s.state==='hidden');
-      if(hidden){ hidden.state='revealed'; hidden.wetUnlocked=true; STATS.spreadCount++; }
-      else {
-        const c = spots.find(s=>s.state==='cleanCandidate' || s.state==='rinsed');
-        if(c){ c.state='soaped'; c.prog=0; c.shinyNotClean=true; STATS.regrowCount++; }
-      }
-    }
-  }
-  function maybeSpawnBoss(){
-    if(boss) return;
-    const d = DIFF[diffSel.value] || DIFF.normal;
-    const trigger = (heat > 72) || (STATS.wrongOrder >= 2) || (tLeft < d.time*0.55 && !allCleanCandidate());
-    if(!trigger) return;
-    if(rng() > d.bossChance) return;
-    let s = spots.find(x=>x.state==='revealed' || x.state==='soaped') || spots[0];
-    if(s.state==='hidden'){ s.state='revealed'; s.wetUnlocked=true; }
-    const type = (rng()<0.5) ? 'stink' : 'oil';
-    boss = { type, spotId:s.id, hp:(type==='stink'?100:120), armor:(type==='oil'?3:0), pulseT:0, spreadT:0 };
-    coachSay(type==='stink'
-      ? '⚠️ Stink Monster: ต้องล้างถูกลำดับ ไม่งั้น Heat จะพุ่ง'
-      : '⚠️ Oil Boss: ต้อง Wet ก่อนถึงถูจะลอกชั้นน้ำมัน');
-  }
-  function damageBoss(amount){
-    if(!boss) return;
-    boss.hp -= amount;
-    if(boss.hp<=0){
-      STATS.bossKilled++;
-      bubble = clamp(bubble + 18, 0, 140);
-      heat = clamp(heat - 14, 0, 100);
-      boss=null;
-      coachSay('✅ Boss ถูกชำระ! เหตุผล: ทำตามลำดับครบ ลดการสะสมคราบในจุดอับ');
-    }
-  }
-
-  // ---------- Sequence ----------
-  function seqStepOk(prev,next){
-    const order=['none','wet','soap','scrub','rinse','dry','dress'];
-    return order.indexOf(next)===order.indexOf(prev)+1;
-  }
-  function applySeq(spot, step){
-    if(seqStepOk(spot.lastStep, step)){
-      spot.lastStep=step;
-      STATS.seqOk++;
-      combo = clamp(combo + 0.03, 1.0, 2.0);
-      return true;
-    }
-    STATS.seqBad++; STATS.wrongOrder++;
-    combo = clamp(combo - 0.06, 1.0, 2.0);
-    const roll=rng();
-    if(roll<0.55){
-      STATS.regrowCount++; spot.mistakes++;
-      if(spot.state==='soaped' || spot.state==='scrubbing') spot.state='revealed';
-      if(spot.state==='cleanCandidate') spot.state='soaped';
-      spot.prog=0;
-      heat = clamp(heat+3,0,100);
-      coachSay(`ผิดลำดับ → คราบฟื้นตัว (${spot.name}) เพราะข้ามขั้น`);
-    } else {
-      STATS.spreadCount++; heat = clamp(heat+4,0,100);
-      const hidden = spots.find(s=>s.state==='hidden');
-      if(hidden){ hidden.state='revealed'; hidden.wetUnlocked=true; }
-      STATS.residuePenalty += 2;
-      coachSay('ผิดลำดับ → เชื้อกระจาย เพราะไปขั้นถัดไปก่อนล้างให้ครบ');
-    }
-    return false;
-  }
-
-  function allCleanCandidate(){
-    return spots.every(s=> ['cleanCandidate','rinsed','dried','done'].includes(s.state));
-  }
-  function allRinsed(){
-    return spots.every(s=> ['rinsed','dried','done'].includes(s.state));
-  }
-
-  // ---------- Tools ----------
+  // ---------- Buttons ----------
   [...toolsEl.querySelectorAll('button[data-tool]')].forEach(b=>{
     b.addEventListener('click', ()=> setTool(b.dataset.tool));
   });
-  function setTool(t){
-    tool=t;
-    [...toolsEl.querySelectorAll('button[data-tool]')].forEach(x=>x.classList.toggle('sel', x.dataset.tool===tool));
-    tipForTool();
-  }
-  function tipForTool(){
-    if(phase===PH.DONE) return;
-    if(tool==='water') coachSay('Water ใน Shower: ลด Heat และปลดล็อคจุดอับ');
-    if(tool==='soap') coachSay('Soap ที่ Soap Rack: ประหยัด Bubble และฟอกแรง');
-    if(tool==='scrub') coachSay('Scrub: กดค้างให้ครบเวลา เพื่อสะอาดจริง');
-    if(tool==='rinse') coachSay('Rinse ใน Shower: กัน residue ติดลบ');
-    if(tool==='dry') coachSay('Dry ที่ Towel: ลดความชื้น ลดเชื้อรา');
-    if(tool==='scan') coachSay('UV Scan ที่ Mirror: เห็นจุดอับ (จำกัดครั้ง)');
-  }
 
-  // ---------- Holding ----------
-  function setHolding(v){ holding=v; if(!v) holdMs=0; }
-  actionBtn.addEventListener('pointerdown', e=>{ actionBtn.setPointerCapture(e.pointerId); setHolding(true); });
-  actionBtn.addEventListener('pointerup',   ()=> setHolding(false));
-  actionBtn.addEventListener('pointercancel',()=> setHolding(false));
-  cv.addEventListener('pointerdown', e=>{ cv.setPointerCapture(e.pointerId); setHolding(true); });
-  cv.addEventListener('pointerup',   ()=> setHolding(false));
-  cv.addEventListener('pointercancel',()=> setHolding(false));
-
-  // ---------- Joystick ----------
-  const joy = document.getElementById('joy');
-  const nub = document.getElementById('nub');
-  let joyOn=false, joyId=null, joyCx=0, joyCy=0, joyDx=0, joyDy=0;
-  joy.addEventListener('pointerdown', e=>{
-    joy.setPointerCapture(e.pointerId);
-    joyOn=true; joyId=e.pointerId;
-    const r = joy.getBoundingClientRect();
-    joyCx = r.left + r.width/2;
-    joyCy = r.top + r.height/2;
-    updateJoy(e.clientX, e.clientY);
-  });
-  joy.addEventListener('pointermove', e=>{
-    if(!joyOn || e.pointerId!==joyId) return;
-    updateJoy(e.clientX, e.clientY);
-  });
-  joy.addEventListener('pointerup', e=>{
-    if(e.pointerId!==joyId) return;
-    joyOn=false; joyId=null; joyDx=joyDy=0;
-    nub.style.left='48px'; nub.style.top='48px';
-  });
-  function updateJoy(x,y){
-    const dx=x-joyCx, dy=y-joyCy;
-    const m=Math.sqrt(dx*dx+dy*dy);
-    const max=44;
-    const nx=(m>max? dx/m*max : dx);
-    const ny=(m>max? dy/m*max : dy);
-    joyDx=nx/max; joyDy=ny/max;
-    nub.style.left=(48+nx)+'px';
-    nub.style.top =(48+ny)+'px';
-  }
-
-  // ---------- Restart hooks ----------
-  diffSel.addEventListener('change', ()=> restart());
-  seedInp.addEventListener('change', ()=> restart());
-  playAgainBtn.addEventListener('click', ()=> restart());
-  closeResBtn.addEventListener('click', ()=> { resultEl.style.display='none'; });
-
-  // ---------- Map + zones ----------
-  function makeMap(){
-    const g = Array.from({length:ROWS}, ()=> Array(COLS).fill(0));
-    const wall=(x,y)=>{ if(x>=0&&y>=0&&x<COLS&&y<ROWS) g[y][x]=1; };
-    for(let x=0;x<COLS;x++){ wall(x,0); wall(x,ROWS-1); }
-    for(let y=0;y<ROWS;y++){ wall(0,y); wall(COLS-1,y); }
-    for(let x=6;x<18;x++) wall(x,6);
-    for(let y=10;y<18;y++) wall(6,y);
-    for(let y=15;y<18;y++) for(let x=9;x<12;x++) wall(x,y);
-    for(let y=3;y<5;y++) for(let x=20;x<24;x++) wall(x,y);
-    g[ROWS-1][Math.floor(COLS/2)] = 0;
-    return g;
-  }
-  function inZone(px,py,z){
-    const dx=px-z.x, dy=py-z.y;
-    return dx*dx+dy*dy <= z.r*z.r;
-  }
-  function isBlocked(px,py,r){
-    const minX=Math.floor((px-r)/TILE), maxX=Math.floor((px+r)/TILE);
-    const minY=Math.floor((py-r)/TILE), maxY=Math.floor((py+r)/TILE);
-    for(let ty=minY; ty<=maxY; ty++){
-      for(let tx=minX; tx<=maxX; tx++){
-        if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return true;
-        if(GRID[ty][tx]!==1) continue;
-        const rx=tx*TILE, ry=ty*TILE;
-        const cx=clamp(px,rx,rx+TILE), cy=clamp(py,ry,ry+TILE);
-        const dx=px-cx, dy=py-cy;
-        if(dx*dx+dy*dy <= r*r) return true;
-      }
-    }
-    return false;
-  }
-
-  // ---------- Render helpers ----------
-  function spark(x,y,n){
-    for(let i=0;i<n;i++){
-      const a=i/n*Math.PI*2;
-      const rr=6+(i%3)*2;
-      ctx.globalAlpha=0.35;
-      ctx.beginPath(); ctx.arc(x+Math.cos(a)*rr,y+Math.sin(a)*rr,2,0,Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha=1;
-  }
-  function glow(x,y,r){
-    ctx.globalAlpha=0.65;
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1;
-  }
-  function bubbleDot(x,y,r){
-    ctx.globalAlpha=0.75;
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1;
-  }
-  function progArc(x,y,r,p,color){
-    ctx.strokeStyle=color; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(x,y,r,-Math.PI/2,-Math.PI/2+Math.PI*2*p); ctx.stroke();
-    ctx.lineWidth=1;
-  }
-  function roundRectFill(c,x,y,w,h,r){
-    c.beginPath();
-    c.moveTo(x+r,y);
-    c.arcTo(x+w,y,x+w,y+h,r);
-    c.arcTo(x+w,y+h,x,y+h,r);
-    c.arcTo(x,y+h,x,y,r);
-    c.arcTo(x,y,x+w,y,r);
-    c.closePath(); c.fill();
-  }
-
-  // ---------- Render ----------
-  function render(){
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle='#06102a'; ctx.fillRect(0,0,W,H);
-
-    // Wet floor glow
-    ctx.globalAlpha=0.20;
-    const gx=WET_FLOOR.x, gy=WET_FLOOR.y, gr=WET_FLOOR.r;
-    const grad=ctx.createRadialGradient(gx,gy,0,gx,gy,gr);
-    grad.addColorStop(0,'rgba(120,200,255,.28)');
-    grad.addColorStop(1,'rgba(120,200,255,0)');
-    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(gx,gy,gr,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1;
-
-    // tiles
-    ctx.globalAlpha=0.10; ctx.strokeStyle='#fff';
-    for(let x=0;x<=W;x+=TILE){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    for(let y=0;y<=H;y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-    ctx.globalAlpha=1;
-
-    // obstacles
-    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-      if(GRID[y][x]!==1) continue;
-      ctx.fillStyle='rgba(255,255,255,.06)';
-      ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-      ctx.strokeStyle='rgba(255,255,255,.10)';
-      ctx.strokeRect(x*TILE+0.5,y*TILE+0.5,TILE-1,TILE-1);
-    }
-
-    // stations
-    for(const k of Object.keys(ST)){
-      const s=ST[k];
-      ctx.fillStyle='rgba(255,255,255,.05)';
-      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,.14)';
-      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.stroke();
-      ctx.fillStyle='rgba(255,255,255,.78)';
-      ctx.font='800 13px system-ui';
-      ctx.fillText(s.label, s.x-s.r+10, s.y+4);
-    }
-
-    // player
-    ctx.fillStyle='rgba(120,200,255,.95)';
-    ctx.beginPath(); ctx.arc(P.x,P.y,P.r,0,Math.PI*2); ctx.fill();
-
-    // aura
-    ctx.strokeStyle = holding ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.10)';
-    ctx.beginPath(); ctx.arc(P.x,P.y,42,0,Math.PI*2); ctx.stroke();
-
-    // spots
-    for(const s of spots){
-      const x=P.x+s.ox, y=P.y+s.oy;
-      if(s.state==='hidden') continue;
-      if(s.state==='revealed'){ ctx.fillStyle='rgba(255,220,120,.30)'; spark(x,y,10); }
-      if(s.state==='soaped'){ ctx.fillStyle='rgba(200,240,255,.55)'; bubbleDot(x,y,10); progArc(x,y,14,s.prog,'rgba(200,240,255,.85)'); }
-      if(s.state==='cleanCandidate'){ ctx.fillStyle='rgba(160,255,160,.55)'; glow(x,y,10); }
-      if(s.state==='rinsed'){ ctx.fillStyle='rgba(140,210,255,.42)'; glow(x,y,8); }
-      if(s.state==='dried'){ ctx.fillStyle='rgba(255,255,255,.28)'; glow(x,y,7); }
-      if(s.state==='done'){ ctx.fillStyle='rgba(108,255,159,.22)'; glow(x,y,6); }
-
-      if(boss && boss.spotId===s.id){
-        ctx.strokeStyle='rgba(255,90,120,.85)'; ctx.lineWidth=2;
-        ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.stroke();
-        ctx.lineWidth=1;
-        if(boss.type==='oil' && boss.armor>0){
-          ctx.fillStyle='rgba(255,90,120,.20)';
-          ctx.font='900 12px system-ui';
-          ctx.fillText('ARMOR '+boss.armor, x-24, y-22);
-        }
-      }
-    }
-
-    // overlay
-    ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(10,10, 350, 34);
-    ctx.fillStyle='#e8ecff'; ctx.font='800 13px system-ui';
-    ctx.fillText(`Tool:${tool.toUpperCase()} UV:${scanLeft} Boss:${boss?boss.type:'—'} Bubble:${Math.round(bubble)} Heat:${Math.round(heat)}`, 18, 32);
-  }
-
-  // ---------- Main update ----------
-  function update(dt){
-    if(phase===PH.DONE) return;
-    const d = DIFF[diffSel.value] || DIFF.normal;
-
-    if(phase===PH.PREP){
-      prepMs -= dt;
-      if(prepMs<=0) setPhase(PH.WET);
-    } else {
-      tLeft -= dt/1000; if(tLeft<0) tLeft=0;
-      heat += (dt/1000)*d.heatRise;
-      if(!holding) heat += (dt/1000)*0.10;
-    }
-
-    // wet floor slip
-    const onWet = inCircle(P.x,P.y, WET_FLOOR.x, WET_FLOOR.y, WET_FLOOR.r);
-
-    // input vector
-    let mx=0,my=0;
-    if(keys['arrowleft']||keys['a']) mx-=1;
-    if(keys['arrowright']||keys['d']) mx+=1;
-    if(keys['arrowup']||keys['w']) my-=1;
-    if(keys['arrowdown']||keys['s']) my+=1;
-    mx += joyDx; my += joyDy;
-    const m=Math.hypot(mx,my);
-    if(m>1e-3){ mx/=Math.max(1,m); my/=Math.max(1,m); }
-
-    // velocity integrate
-    const accel=900;
-    const fric = onWet ? 5.5 : 10.5;
-    P.vx += mx*accel*(dt/1000);
-    P.vy += my*accel*(dt/1000);
-    P.vx *= Math.exp(-fric*(dt/1000));
-    P.vy *= Math.exp(-fric*(dt/1000));
-
-    const vmax = onWet ? 230 : 200;
-    const sp=Math.hypot(P.vx,P.vy);
-    if(sp>vmax){ P.vx=P.vx/sp*vmax; P.vy=P.vy/sp*vmax; }
-
-    // move collision
-    let nx=P.x+P.vx*(dt/1000), ny=P.y;
-    if(!isBlocked(nx,ny,P.r)) P.x=nx; else { P.vx*=-0.22; heat=clamp(heat+0.35,0,100); if(onWet) STATS.slips++; }
-    nx=P.x; ny=P.y+P.vy*(dt/1000);
-    if(!isBlocked(nx,ny,P.r)) P.y=ny; else { P.vy*=-0.22; heat=clamp(heat+0.35,0,100); if(onWet) STATS.slips++; }
-
-    heat=clamp(heat,0,100);
-    bubble=clamp(bubble,0,140);
-
-    updateBoss(dt);
-
-    // reveal trickle
-    if(phase>=PH.WET){
-      for(const s of spots){
-        if(s.state==='hidden'){
-          const chance=d.reveal*(inZone(P.x,P.y,ST.shower)?1.0:0.35);
-          if(rng()<chance*0.005){ s.state='revealed'; s.wetUnlocked=true; }
-        }
-      }
-    }
-
-    // actions
-    if(holding){
-      holdMs += dt;
-      const atShower=inZone(P.x,P.y,ST.shower);
-      const atSoap=inZone(P.x,P.y,ST.soap);
-      const atScan=inZone(P.x,P.y,ST.scan);
-      const atTowel=inZone(P.x,P.y,ST.towel);
-      const atBasket=inZone(P.x,P.y,ST.basket);
-
-      if(tool==='scan'){
-        if(atScan && holdMs>220 && scanLeft>0){
-          scanLeft--; STATS.scansUsed++;
-          for(const s of spots){ if(s.state==='hidden'){ s.state='revealed'; s.wetUnlocked=true; } }
-          heat=clamp(heat+4,0,100);
-          coachSay(`UV Scan สำเร็จ — เหตุผล: ทำให้เห็นจุดอับ (เหลือ ${scanLeft})`);
-          setHolding(false);
-        } else if(!atScan && holdMs>300){
-          coachSay('Scan ต้องทำที่ UV Mirror — เหตุผล: เป็นเครื่องมือตรวจคราบ');
-          setHolding(false);
-        }
-      }
-
-      if(phase===PH.WET){
-        if(tool==='water' && atShower){
-          heat=clamp(heat-dt/1000*0.55,0,100);
-          for(const s of spots){
-            if(s.state==='hidden' && rng()<0.012){ s.state='revealed'; s.wetUnlocked=true; }
-            if(s.state==='revealed'){ applySeq(s,'wet'); }
-          }
-          const wetCount=spots.filter(s=>s.lastStep==='wet').length;
-          if(wetCount>=3) setPhase(PH.SOAP);
-        } else if(tool==='water' && !atShower && holdMs>260){
-          coachSay('Wet ต้องทำใน Shower — เหตุผล: เปียกไม่ทั่ว ฟองไม่ติด');
-        }
-      }
-
-      if(phase===PH.SOAP){
-        if(tool==='soap' && atSoap){
-          for(const s of spots){
-            if(s.state==='revealed'){
-              applySeq(s,'soap');
-              bubble -= dt/1000*10*s.weight;
-              s.prog = clamp(s.prog + dt/1000*0.70,0,1);
-              if(s.prog>=1){ s.state='soaped'; s.prog=0; }
-            }
-          }
-          if(spots.filter(s=>s.state==='soaped').length>=2) setPhase(PH.SCRUB);
-        } else if(tool==='soap' && !atSoap && holdMs>260){
-          coachSay('Soap ที่ Soap Rack คุ้มสุด — เหตุผล: ประหยัด Bubble และแรงกว่า');
-        }
-      }
-
-      if(phase===PH.SCRUB){
-        if(tool==='scrub'){
-          for(const s of spots){
-            if(s.state==='soaped'){
-              applySeq(s,'scrub');
-              const need=s.hold*d.holdMul*(bubble<18?1.25:1.0)*(heat>75?1.15:1.0);
-              bubble -= dt/1000*7*s.weight;
-              s.prog = clamp(s.prog + dt/need,0,1);
-              if(s.prog>=1){
-                s.state='cleanCandidate'; s.prog=0; s.cleaned=true;
-
-                // mission 1
-                const m1=missions.find(m=>m.id==='m1');
-                if(m1 && m1.targets.includes(s.id)){
-                  if(!m1._doneSet) m1._doneSet={};
-                  if(!m1._doneSet[s.id]){ m1._doneSet[s.id]=true; missionAddDone('m1',1); }
-                }
-
-                // boss dmg
-                if(boss && boss.spotId===s.id){
-                  if(boss.type==='oil' && boss.armor>0){ boss.armor--; damageBoss(22); }
-                  else damageBoss(30);
-                }
-              }
-            } else if(s.state==='revealed'){
-              s.shinyNotClean=true;
-            }
-          }
-          const anySoaped=spots.some(s=>s.state==='soaped');
-          const anyCandidate=spots.some(s=>s.state==='cleanCandidate');
-          if(!anySoaped && anyCandidate) setPhase(PH.RINSE);
-        }
-      }
-
-      if(phase===PH.RINSE){
-        if(tool==='rinse' && atShower){
-          heat=clamp(heat-dt/1000*0.50,0,100);
-          for(const s of spots){
-            if(s.state==='cleanCandidate'){
-              applySeq(s,'rinse');
-              if(s.shinyNotClean || heat>82){
-                STATS.residuePenalty += 6;
-                s.mistakes++;
-                s.state='soaped'; s.shinyNotClean=false;
-              } else {
-                s.state='rinsed';
-              }
-            }
-          }
-          if(allRinsed()) setPhase(PH.DRY);
-        } else if(tool==='rinse' && !atShower && holdMs>260){
-          coachSay('Rinse ต้องทำใน Shower — เหตุผล: ไม่ล้างฟอง = residue');
-        }
-      }
-
-      if(phase===PH.DRY){
-        if(tool==='dry' && atTowel){
-          heat=clamp(heat-dt/1000*0.15,0,100);
-          for(const s of spots){
-            if(s.state==='rinsed'){
-              applySeq(s,'dry');
-              s.prog=clamp(s.prog+dt/1000*0.70,0,1);
-              if(s.prog>=1){ s.state='dried'; s.prog=0; }
-            }
-          }
-          if(spots.every(s=>s.state==='dried' || s.state==='done')) setPhase(PH.DRESS);
-        } else if(tool==='dry' && !atTowel && holdMs>260){
-          coachSay('Dry ที่ Towel — เหตุผล: ลดความชื้น ลดเชื้อรา');
-        }
-      }
-
-      if(phase===PH.DRESS){
-        if(atBasket){
-          const wetLeft=spots.filter(s=>s.state!=='dried' && s.state!=='done').length;
-          if(wetLeft>0) STATS.fungusRisk += wetLeft*6;
-          if(heat>75) STATS.fungusRisk += 8;
-          for(const s of spots){
-            if(s.state==='dried'){ applySeq(s,'dress'); s.state='done'; }
-          }
-          endGame(true);
-        } else if(holdMs>280){
-          coachSay('ไป Basket เพื่อ Dress — เหตุผล: ปิดภารกิจและกันเชื้อกระจาย');
-        }
-      }
-    }
-
-    // boss spawn
-    if(phase>=PH.SOAP && phase<=PH.RINSE) maybeSpawnBoss();
-
-    // missions live update (m2/m3)
-    const m2=missions.find(m=>m.id==='m2'); if(m2) m2.done = (heat<=m2.threshold ? 1 : 0);
-    const m3=missions.find(m=>m.id==='m3'); if(m3) m3.done = (STATS.residuePenalty<=m3.limit ? 1 : 0);
-    updateMissionUI();
-
-    // coach periodic check
-    coachCheck();
-
-    // timeout
-    if(tLeft<=0 && phase!==PH.DONE) endGame(false);
-
-    // UI
-    timeLbl.textContent=String(Math.ceil(tLeft));
-    heatLbl.textContent=String(Math.round(heat));
-    bubLbl.textContent=String(Math.round(bubble));
-    comboLbl.textContent='x'+combo.toFixed(1);
-    heatFill.style.width=(heat)+'%';
-    bubFill.style.width=(Math.min(100,(bubble/100)*100))+'%';
-  }
-
-  // ---------- Loop ----------
-  let last = performance.now();
-  restart();
-  requestAnimationFrame(loop);
-  function loop(now){
-    const dt=now-last; last=now;
-    update(dt);
-    render();
-    requestAnimationFrame(loop);
-  }
-
-  // ---------- Restart ----------
-  function restart(){
-    GRID = makeMap();
-    rng = makeRng(seedInp.value.trim() || '20260219');
-    const d = DIFF[diffSel.value] || DIFF.normal;
-    heat=0; bubble=d.bubble; tLeft=d.time; combo=1.0;
-    prepMs=2200; phase=PH.PREP; boss=null;
-    for(const k of Object.keys(STATS)) STATS[k]=0;
-    scanLeft=d.scanLeft;
-    spawnSpots();
-    makeMissions();
-    P.x=5*TILE; P.y=16*TILE; P.vx=0; P.vy=0;
-    resultEl.style.display='none';
-    setTool('water');
-    setPhase(PH.PREP);
-    coachSay('เริ่มเลย! ไป Shower ก่อน (ระวังพื้นเปียกลื่น)');
-  }
-
+  // ---------- Start ----------
+  // Important: show overlay first; it ticks after pressing start.
+  // We keep overlay visible on restart; the user presses "เริ่มฝึก".
 })();
 </script>
 </body>
