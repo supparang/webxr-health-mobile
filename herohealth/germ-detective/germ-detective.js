@@ -1,7 +1,7 @@
 // === /herohealth/germ-detective/germ-detective.js ===
-// Germ Detective — PRODUCTION v20260218a
+// Germ Detective — PRODUCTION v20260218b (PATCH: Drag-Connect Chain + Cleaning Triage)
 // PC/Mobile/cVR supported
-// Core loop: ColdOpen -> Explore -> Evidence combo (UV->Swab->Cam) -> Chain A->B->C -> Triage Cleaning (resources) -> End (R0/Exposure + Badge)
+// Core loop: ColdOpen -> Explore -> Evidence combo (UV->Swab->Cam) -> Chain (drag connect) -> Triage cleaning (priorities 1-3) -> End
 // AI: Level1 Heuristic Coach (explainable, no-leakage, baseline-able). ML/DL hooks prepared in logs (future work).
 // Offline logs: localStorage (events/sessions) + export CSV/JSON
 
@@ -30,8 +30,8 @@ export default function Game(opts = {}) {
   function qs(id){ return DOC.getElementById(id); }
   function el(tag='div', cls=''){ const e = DOC.createElement(tag); if(cls) e.className = cls; return e; }
   function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+
   function rand01(seedObj){
-    // xorshift32 deterministic
     let x = seedObj.x|0;
     x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
     seedObj.x = x|0;
@@ -44,7 +44,6 @@ export default function Game(opts = {}) {
   }
   function pad2(n){ n=Number(n)||0; return (n<10?'0':'')+n; }
   function fmtSec(s){ s=Number(s); if(!Number.isFinite(s) || s<0) return '—'; const m=Math.floor(s/60), r=Math.floor(s%60); return `${m}:${pad2(r)}`; }
-
   function b64(s){
     try{ return btoa(unescape(encodeURIComponent(String(s||'')))).replace(/=+$/,''); }
     catch{ return String(s||''); }
@@ -54,6 +53,15 @@ export default function Game(opts = {}) {
     const seed = CTX.seed || '';
     const t = String(Date.now());
     return b64(pid+'|'+seed+'|'+t).slice(0,22);
+  }
+  function hash32(str){
+    str = String(str||'');
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h|0;
   }
 
   // ---------- Offline Store ----------
@@ -139,25 +147,34 @@ export default function Game(opts = {}) {
     zones: [],
 
     tool: 'uv', // uv|swab|cam|clean
-    resources: { spray: 6, cloth: 6, time: 3 }, // triage resources (diff affects)
+    resources: { spray: 6, cloth: 6, time: 3 }, // triage tokens in `time`
     r0: 1.55,
     exposure: 0.65, // 0..1
 
-    // evidence records
-    evidence: [], // {type:'uv'|'swab'|'photo'|'inspect', target, zone, quality, t, meta}
+    evidence: [], // {type, target, zone, quality, t, meta}
     comboState: new Map(), // target -> {uv, swab, cam}
-    chain: [], // [{from,to,why}]
+    chain: [], // [{from,to,why,ok}]
 
-    // scoring
+    // chain builder UI state
+    chainUI: {
+      selectedA: null, // click-select fallback
+      draggingFrom: null,
+      dragOver: null,
+      tempLine: null
+    },
+
+    // triage UI state
+    triage: {
+      picks: [], // [{target, rank}]
+    },
+
     score: 0,
-    alert: 0, // penalties
-    waste: 0, // wasted cleaning
+    alert: 0,
+    waste: 0,
     chainOk: 0,
 
-    // outbreak dynamics
     outbreak: { active:false, tLeft:0, gapSec:26, since:0, infected:new Set() },
 
-    // logging/proxy actions
     shots: { total:0, hit:0, miss:0 },
     mistakesByTarget: new Map(),
 
@@ -176,7 +193,6 @@ export default function Game(opts = {}) {
   function buildCase(caseId, diff){
     const seedObj = { x: hash32(String(CTX.seed||Date.now())) };
 
-    // base zones
     const Z = (caseId === 'home')
       ? [
           { id:'home-living', name:'บ้าน • ห้องนั่งเล่น', hotspots: [
@@ -221,7 +237,6 @@ export default function Game(opts = {}) {
           ]},
         ];
 
-    // assign true/fake + infected seeds (deterministic)
     const allTargets = [];
     Z.forEach(z=> z.hotspots.forEach(h=> allTargets.push({ zone:z.id, name:h.name, tag:h.tag, base:h.base })));
 
@@ -241,12 +256,10 @@ export default function Game(opts = {}) {
       if(pickT) infected.add(pickT.name);
     }
 
-    // resources by diff
     const res = (diff==='hard')
       ? { spray: 5, cloth: 5, time: 2 }
       : (diff==='easy' ? { spray: 7, cloth: 7, time: 4 } : { spray: 6, cloth: 6, time: 3 });
 
-    // objectives: top-touch hubs must be checked (fair trigger for AI)
     const objectives = [];
     const must = allTargets.filter(t=>t.tag==='hub').slice(0,5);
     must.forEach(t=> objectives.push({ type:'scan', tool:'uv', target:t.name }));
@@ -256,20 +269,12 @@ export default function Game(opts = {}) {
     return { zones: Z, truth, infected, resources: res, objectives };
   }
 
-  // stable hash for seed -> int32
-  function hash32(str){
-    str = String(str||'');
-    let h = 2166136261;
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h|0;
-  }
-
   // ---------- UI refs ----------
   let ROOT=null, hud=null, toolbar=null, board=null, pill=null, overlay=null;
   let layer=null, fxLayer=null, zoneTitle=null;
+
+  // chain map DOM refs
+  let chainMap=null, chainCanvas=null, chainNodesBox=null;
 
   // ---------- Build UI ----------
   function buildUI(){
@@ -282,13 +287,11 @@ export default function Game(opts = {}) {
     zoneTitle.textContent = '—';
     DOC.body.appendChild(zoneTitle);
 
-    // main scene layer (DOM proxy)
     layer = el('div','gd-layer');
     fxLayer = el('div','gd-fx');
     layer.appendChild(fxLayer);
     wrap.appendChild(layer);
 
-    // HUD top
     hud = el('div','gd-hud');
     hud.innerHTML = `
       <div class="gd-card" style="min-width:180px;">
@@ -312,40 +315,58 @@ export default function Game(opts = {}) {
     `;
     DOC.body.appendChild(hud);
 
-    // toolbar bottom
     toolbar = el('div','gd-toolbar');
     toolbar.innerHTML = `
       <button class="gd-btn" id="gdToolUV">UV</button>
       <button class="gd-btn" id="gdToolSwab">Swab</button>
       <button class="gd-btn" id="gdToolCam">Camera</button>
       <button class="gd-btn" id="gdToolClean">Clean</button>
-      <button class="gd-btn" id="gdBtnChain">🧩 Chain</button>
+      <button class="gd-btn" id="gdBtnTriage">🧴 Triage</button>
       <button class="gd-btn" id="gdBtnSubmit">📤 ส่งรายงาน</button>
       <button class="gd-btn" id="gdBtnPause">⏸ Pause</button>
       <button class="gd-btn" id="gdBtnBack">↩ HUB</button>
     `;
     DOC.body.appendChild(toolbar);
 
-    // coach pill
     pill = el('div','gd-pill'); pill.id='gdPill';
     DOC.body.appendChild(pill);
 
-    // evidence board
     board = el('div','gd-board');
     board.innerHTML = `
       <h3>หลักฐาน & Chain</h3>
       <div class="mini" id="gdObj">—</div>
+
+      <div class="gd-chainmap" id="gdChainMap">
+        <canvas class="gd-chainmap-canvas" id="gdChainCanvas"></canvas>
+        <div class="gd-chainmap-head">
+          <div class="mini"><b>Drag-Connect Chain</b> (ลากจากจุด A ไปจุด B) • ต้องได้ ≥ 3 เส้น</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="gd-btn" id="gdChainHelp" style="padding:8px 10px;">Help</button>
+            <button class="gd-btn" id="gdChainClear" style="padding:8px 10px;">Clear</button>
+          </div>
+        </div>
+        <div class="gd-nodes" id="gdChainNodes"></div>
+        <div class="mini" style="margin-top:10px;">
+          Tip: ถ้าเป็น Cardboard ให้ใช้ปุ่ม <b>🧴 Triage</b> หรือ “ยิงเลือก” แล้วกด Link ในโหมดช่วย (Help)
+        </div>
+      </div>
+
       <div id="gdEvList"></div>
+
       <div class="gd-chain" id="gdChainBox">
-        <div class="mini"><b>Chain (A→B→C)</b> ลากเลือก 2 จุดเพื่อเชื่อม • ต้องได้ ≥ 3 เส้น</div>
+        <div class="mini"><b>Chain list</b> (ตรวจเหตุผล) </div>
         <div id="gdChainList"></div>
       </div>
     `;
     DOC.body.appendChild(board);
 
-    // overlays: cold open / chain builder / end
     overlay = el('div','gd-overlay'); overlay.id='gdOverlay';
     DOC.body.appendChild(overlay);
+
+    // cache refs
+    chainMap = qs('gdChainMap');
+    chainCanvas = qs('gdChainCanvas');
+    chainNodesBox = qs('gdChainNodes');
 
     wireUI();
   }
@@ -377,13 +398,21 @@ export default function Game(opts = {}) {
     qs('gdToolCam').onclick = ()=> setTool('cam');
     qs('gdToolClean').onclick = ()=> setTool('clean');
 
-    qs('gdBtnChain').onclick = ()=> openChainOverlay();
+    qs('gdBtnTriage').onclick = ()=> openTriageOverlay();
     qs('gdBtnSubmit').onclick = ()=> submitReport();
     qs('gdBtnPause').onclick = ()=> togglePause();
     qs('gdBtnBack').onclick = ()=> backHub();
 
-    // cVR shoot / click/tap support
-    // click/tap on hotspot uses pointer coords; cVR uses hha:shoot center aiming (from vr-ui.js)
+    qs('gdChainClear').onclick = ()=>{
+      STATE.chain = [];
+      logEvent('chain_clear', {});
+      renderChainList();
+      renderChainMap(true);
+      setPill('ล้าง chain แล้ว');
+    };
+    qs('gdChainHelp').onclick = ()=> openChainHelpOverlay();
+
+    // cVR shoot / click/tap support on hotspots
     WIN.addEventListener('hha:shoot', (ev)=>{
       const d = ev.detail || {};
       onShoot(d.x, d.y, Number(d.lockPx)||28, d.source||'tap');
@@ -392,11 +421,10 @@ export default function Game(opts = {}) {
     // desktop: click inside layer hits
     layer.addEventListener('pointerdown', (ev)=>{
       if(ev.defaultPrevented) return;
-      if(String(CTX.view||'') === 'cvr') return; // cvr strictly uses crosshair shoot
+      if(String(CTX.view||'') === 'cvr') return;
       onShoot(ev.clientX, ev.clientY, 28, 'pointer');
     }, { passive:true });
 
-    // space shoot in any view
     DOC.addEventListener('keydown', (ev)=>{
       if(ev.code === 'Space'){
         onShoot(innerWidth/2, innerHeight/2, 28, 'space');
@@ -405,22 +433,36 @@ export default function Game(opts = {}) {
       if(ev.key === '2') setTool('swab');
       if(ev.key === '3') setTool('cam');
       if(ev.key === '4') setTool('clean');
-    });
+      if(ev.key.toLowerCase() === 't') openTriageOverlay();
+    }, { passive:true });
+
+    // chain map drag connect
+    chainNodesBox.addEventListener('pointerdown', onNodePointerDown, { passive:false });
+    chainNodesBox.addEventListener('pointermove', onNodePointerMove, { passive:false });
+    chainNodesBox.addEventListener('pointerup', onNodePointerUp, { passive:false });
+    chainNodesBox.addEventListener('pointercancel', onNodePointerUp, { passive:false });
+
+    // resize redraw
+    WIN.addEventListener('resize', ()=>{
+      renderChainMap(true);
+    }, { passive:true });
   }
 
-  // ---------- Hotspots spawn (DOM) ----------
+  // ---------- World ----------
   const WORLD = {
     truth: new Map(),
     infected: new Set(),
     objectives: [],
-    // zone-> target objects with runtime fields
     zones: []
   };
 
-  function placeHotspots(zone){
-    // clear old
-    layer.querySelectorAll('.gd-spot').forEach(n=> n.remove());
+  function currentZone(){
+    return WORLD.zones[STATE.zoneIdx] || WORLD.zones[0];
+  }
 
+  // ---------- Hotspots spawn (DOM) ----------
+  function placeHotspots(zone){
+    layer.querySelectorAll('.gd-spot').forEach(n=> n.remove());
     zoneTitle.textContent = zone.name;
 
     const seedObj = { x: hash32(String(CTX.seed||Date.now()) + '|' + zone.id) };
@@ -428,7 +470,6 @@ export default function Game(opts = {}) {
 
     const used = [];
     function ok(x,y){
-      // keep away from top (hud) and bottom (toolbar)
       const safeTop = 64, safeBottom = 64;
       if(y < safeTop || y > (h - safeBottom)) return false;
       for(const p of used){
@@ -452,7 +493,6 @@ export default function Game(opts = {}) {
       d.style.left = x+'px';
       d.style.top = y+'px';
 
-      // mark visually high-touch hubs (fair hint)
       if(hs.tag === 'hub') d.dataset.risk = 'hub';
       else if(hs.base === 'hi') d.dataset.risk = 'hi';
 
@@ -460,14 +500,12 @@ export default function Game(opts = {}) {
       d.dataset.zone = zone.id;
       d.dataset.clean = '0';
 
-      // runtime record
       hs._x = x; hs._y = y; hs._el = d;
       layer.appendChild(d);
     });
-  }
 
-  function currentZone(){
-    return WORLD.zones[STATE.zoneIdx] || WORLD.zones[0];
+    // refresh chain nodes for current zone (more relevant)
+    renderChainMap(true);
   }
 
   // ---------- Evidence + Combo + Scoring ----------
@@ -476,30 +514,47 @@ export default function Game(opts = {}) {
     if(!c){ c = { uv:false, swab:false, cam:false }; STATE.comboState.set(target, c); }
     return c;
   }
+  function ensureClue(target){
+    const hs = findHotspotByName(target);
+    if(!hs._clue){
+      hs._clue = {
+        truth: WORLD.truth.get(target) || 'true',
+        revealedByUV: false,
+        swabOk: false,
+        photoOk: false
+      };
+    }
+    return hs._clue;
+  }
+  function averageEvidenceQuality(){
+    const ev = STATE.evidence.filter(e=>!e?.meta?.practice);
+    if(!ev.length) return 0.0;
+    let s=0;
+    for(const e of ev) s += clamp(e.quality ?? 0.5, 0, 1);
+    return s / ev.length;
+  }
 
   function addEvidence(rec){
     rec.t = iso();
     STATE.evidence.push(rec);
 
-    // update board list (latest first)
     const list = qs('gdEvList');
     if(list){
       const item = el('div','gd-ev');
       item.innerHTML = `<b>${rec.type.toUpperCase()}</b> • ${rec.target} <span class="mini">(${rec.zone})</span><div class="mini">${rec.info||''}</div>`;
       list.insertBefore(item, list.firstChild);
-      // keep list short in UI
       while(list.children.length > 10) list.removeChild(list.lastChild);
     }
 
     logEvent('evidence_added', rec);
 
-    // score update (quality matters)
     const q = clamp(rec.quality ?? 0.5, 0, 1);
     const add = Math.round(30 + 70*q);
     STATE.score += add;
-
-    // reduce exposure slightly if strong evidence helps triage
     STATE.exposure = clamp(STATE.exposure - 0.01*q, 0, 1);
+
+    // evidence changed -> chain nodes metadata refresh
+    renderChainMap(false);
   }
 
   function markMistake(target, kind){
@@ -510,40 +565,26 @@ export default function Game(opts = {}) {
     STATE.alert += 1;
     STATE.score = Math.max(0, STATE.score - 25);
     logEvent('mistake', { target: target||'', kind });
-    aiUpdateSkill({ hit:false, target: target||'' });
+    aiUpdateSkill();
   }
 
-  // ---------- R0 / Exposure model (simple, visible, fair) ----------
-  // R0 rises with outbreak + high-touch uncleaned + time pressure; falls with cleaning hubs + correct chain + evidence quality
+  // ---------- Risk model ----------
   function recomputeRisk(){
-    const zone = currentZone();
-
-    // base by diff
     const base = (STATE.diff==='hard') ? 1.65 : (STATE.diff==='easy' ? 1.35 : 1.55);
 
-    // count hub hotspots cleaned
     const all = WORLD.zones.flatMap(z=> z.hotspots);
     const hubs = all.filter(h=>h.tag==='hub');
     const cleaned = hubs.filter(h=> h._el && h._el.dataset.clean === '1').length;
     const cleanRatio = hubs.length ? (cleaned / hubs.length) : 0;
 
-    // outbreak adds
     const ob = STATE.outbreak.active ? 0.22 : 0;
-
-    // chain correctness reduces (cap)
     const chainBonus = clamp(STATE.chainOk * 0.06, 0, 0.22);
-
-    // evidence quality reduces
-    const q = averageEvidenceQuality();
-    const qBonus = clamp(q * 0.18, 0, 0.18);
-
-    // time pressure: last 60s adds
+    const qBonus = clamp(averageEvidenceQuality() * 0.18, 0, 0.18);
     const pressure = (STATE.timeLeft < 60) ? 0.10 : 0;
 
     let r0 = base + ob + pressure - (0.55*cleanRatio) - chainBonus - qBonus;
     r0 = clamp(r0, 0.6, 2.4);
 
-    // exposure: depends on unclean infected hubs + time + mistakes
     let exp = 0.45 + (STATE.outbreak.active ? 0.12 : 0);
     exp += clamp((STATE.alert * 0.03), 0, 0.24);
     exp += (STATE.timeLeft < 60) ? 0.08 : 0;
@@ -554,15 +595,7 @@ export default function Game(opts = {}) {
     STATE.exposure = exp;
   }
 
-  function averageEvidenceQuality(){
-    const ev = STATE.evidence.filter(e=>!e?.meta?.practice);
-    if(!ev.length) return 0.0;
-    let s=0;
-    for(const e of ev) s += clamp(e.quality ?? 0.5, 0, 1);
-    return s / ev.length;
-  }
-
-  // ---------- Outbreak scheduler (dynamic) ----------
+  // ---------- Outbreak ----------
   function outbreakTick(){
     STATE.outbreak.since++;
 
@@ -572,7 +605,6 @@ export default function Game(opts = {}) {
       STATE.outbreak.since = 0;
       STATE.outbreak.infected = new Set();
 
-      // pick infected targets weighted to hubs
       const all = WORLD.zones.flatMap(z=> z.hotspots);
       const hubs = all.filter(h=>h.tag==='hub');
       const pool = (hubs.length ? hubs : all).map(h=> h.name);
@@ -585,7 +617,7 @@ export default function Game(opts = {}) {
       }
 
       logEvent('outbreak_start', { tLeft: STATE.outbreak.tLeft, infected:[...STATE.outbreak.infected] });
-      setPill('🦠 Outbreak! รีบลด R₀: เน้นจุดสัมผัส hub + clean ให้คุ้ม');
+      setPill('🦠 Outbreak! เน้น clean จุด hub/เสี่ยงเพื่อกด R₀');
     }
 
     if(STATE.outbreak.active){
@@ -598,23 +630,8 @@ export default function Game(opts = {}) {
     }
   }
 
-  // ---------- AI Level 1 (Explainable coach + pacing, no leakage) ----------
-  function ensureClue(target){
-    // clue state stored on hotspot object
-    const hs = findHotspotByName(target);
-    if(!hs._clue){
-      hs._clue = {
-        truth: WORLD.truth.get(target) || 'true',
-        revealedByUV: false,
-        swabOk: false,
-        photoOk: false
-      };
-    }
-    return hs._clue;
-  }
-
+  // ---------- AI L1 ----------
   function predictRisk(target){
-    // purely from observable + state (no future data)
     const hs = findHotspotByName(target);
     const c = ensureClue(target);
     let r = 0.35;
@@ -623,33 +640,26 @@ export default function Game(opts = {}) {
     if(hs.base === 'hi') r += 0.10;
     if(STATE.outbreak.active && STATE.outbreak.infected.has(target)) r += 0.22;
 
-    // fake suspect risk until UV reveals
     if(c.truth === 'fake' && !c.revealedByUV) r += 0.25;
 
-    // player mistakes on this target
     const bad = STATE.mistakesByTarget.get(target) || 0;
     r += Math.min(0.18, bad*0.06);
 
-    // difficulty baseline
     if(STATE.diff === 'hard') r += 0.08;
     if(STATE.diff === 'easy') r -= 0.06;
 
-    // skill reduces risk (better players handle)
     r -= (STATE.ai.skill - 0.45) * 0.20;
-
     return clamp(r, 0.05, 0.95);
   }
 
   function aiPickNextTarget(){
     if(!STATE.ai.enabled) return null;
-
     const zone = currentZone();
     const done = new Set(STATE.evidence.map(e=>e.target));
     const pool = zone.hotspots.map(h=>h.name).filter(n=>!done.has(n));
-
     const candidates = pool.length ? pool : zone.hotspots.map(h=>h.name);
-    let best=null, bestScore=-1;
 
+    let best=null, bestScore=-1;
     for(const t of candidates){
       const risk = predictRisk(t);
       const c = ensureCombo(t);
@@ -666,7 +676,6 @@ export default function Game(opts = {}) {
     const t = now();
     if(t - STATE.ai.lastTipAt < 5200) return;
 
-    // detect "missing important hub hotspot" in current zone
     const zone = currentZone();
     const hubs = zone.hotspots.filter(h=>h.tag==='hub').map(h=>h.name);
     const scannedUV = new Set(STATE.evidence.filter(e=>e.type==='uv').map(e=>e.target));
@@ -674,16 +683,16 @@ export default function Game(opts = {}) {
 
     let tip = '';
     if(missingHub && (cfg.ctx.timeSec - STATE.timeLeft) > 18){
-      tip = `AI Coach: ลองตรวจ "${missingHub}" ด้วย UV — จุดสัมผัสสูง (เหตุผล: hub hotspot ยังไม่สแกน)`;
+      tip = `AI Coach: ลองตรวจ "${missingHub}" ด้วย UV — จุดสัมผัสสูง (hub ยังไม่สแกน)`;
       STATE.ai.focusTarget = missingHub;
     }else{
       const target = aiPickNextTarget();
       if(!target) return;
       const c = ensureClue(target);
       if(c.truth === 'fake' && !c.revealedByUV){
-        tip = `AI Coach: "${target}" อาจเป็นจุดหลอก — ใช้ UV ก่อนเพื่อดู pattern แล้วค่อย Swab/Camera`;
+        tip = `AI Coach: "${target}" อาจเป็นจุดหลอก — ใช้ UV ก่อนเพื่อดู pattern`;
       }else{
-        tip = `AI Coach: โฟกัส "${target}" ทำคอมโบ UV→Swab→Cam เพื่อคุณภาพหลักฐานสูง`;
+        tip = `AI Coach: โฟกัส "${target}" ทำคอมโบ UV→Swab→Cam เพื่อหลักฐานคุณภาพสูง`;
       }
       STATE.ai.focusTarget = target;
     }
@@ -712,14 +721,11 @@ export default function Game(opts = {}) {
   function aiApplyPacing(){
     if(!STATE.ai.enabled) return;
     const s = STATE.ai.skill;
-
     STATE.ai.chaos = clamp(0.25 + (s - 0.45)*0.55, 0.10, 0.70);
 
-    // outbreak gap dynamic
     const baseGap = (STATE.diff==='hard') ? 20 : (STATE.diff==='easy' ? 32 : 26);
     STATE.outbreak.gapSec = Math.round(clamp(baseGap - STATE.ai.chaos*10, 14, 34));
 
-    // cVR assist fairness
     if(STATE.view === 'cvr'){
       const extra = Math.round(clamp((0.55 - s)*18, -4, 10));
       STATE.ai.lockBonusPx = extra;
@@ -740,9 +746,7 @@ export default function Game(opts = {}) {
       const hx = Number(h._x)||0, hy = Number(h._y)||0;
       const dx = px - hx, dy = py - hy;
       const d2 = dx*dx + dy*dy;
-      if(d2 < bestD){
-        bestD = d2; best = h;
-      }
+      if(d2 < bestD){ bestD = d2; best = h; }
     }
     const lock = Math.max(18, Number(lockPx)||28);
     if(best && bestD <= lock*lock) return best;
@@ -776,11 +780,9 @@ export default function Game(opts = {}) {
     logEvent('shot_hit', { target: hit.name, zone: hit.zone||currentZone().id, source, lock });
     aiUpdateSkill();
 
-    // local fx
     const rect = layer.getBoundingClientRect();
     fxBurst(clientX - rect.left, clientY - rect.top);
 
-    // apply tool action
     applyToolOn(hit);
   }
 
@@ -797,9 +799,8 @@ export default function Game(opts = {}) {
     const target = hs.name;
     const zoneId = currentZone().id;
 
-    // if clean tool -> triage decision
     if(STATE.tool === 'clean'){
-      doClean(hs);
+      doClean(hs, { source:'manual' });
       return;
     }
 
@@ -810,7 +811,6 @@ export default function Game(opts = {}) {
       c.uv = true;
       clue.revealedByUV = true;
 
-      // reveal: true shows "pattern", fake shows "flat"
       const isFake = (clue.truth === 'fake');
       const q = isFake ? 0.35 : 0.70;
 
@@ -828,13 +828,11 @@ export default function Game(opts = {}) {
         meta:{ truthHint: isFake?'fake':'true' }
       });
 
-      // small immediate risk improvement if hub scanned
       if(hs.tag==='hub') STATE.exposure = clamp(STATE.exposure - 0.01, 0, 1);
       return;
     }
 
     if(STATE.tool === 'swab'){
-      // must have UV first for best quality (fair combo)
       if(!c.uv){
         markMistake(target, 'swab_without_uv');
         addEvidence({ type:'swab', target, zone: zoneId, quality: 0.25, info:'Swab (ไม่มี UV ก่อน) → คุณภาพต่ำ', meta:{ lowQuality:true } });
@@ -842,7 +840,6 @@ export default function Game(opts = {}) {
       }
       c.swab = true;
 
-      // swab "value" depends on infected + truth
       const infected = (WORLD.infected.has(target) || (STATE.outbreak.active && STATE.outbreak.infected.has(target)));
       const isFake = (clue.truth === 'fake');
       const ok = infected && !isFake;
@@ -858,13 +855,11 @@ export default function Game(opts = {}) {
         meta:{ infected: ok }
       });
 
-      // if swab confirms infected, raise urgency (but also gives player clarity)
       if(ok) setPill(`ยืนยันแล้ว: "${target}" เสี่ยงสูง — พิจารณา clean ก่อนเพื่อกด R₀`);
       return;
     }
 
     if(STATE.tool === 'cam'){
-      // camera wants UV+Swab for best (combo)
       const q = (c.uv && c.swab) ? 0.95 : (c.uv ? 0.70 : 0.45);
       c.cam = true;
       clue.photoOk = true;
@@ -878,7 +873,6 @@ export default function Game(opts = {}) {
         meta:{ combo: (c.uv && c.swab) }
       });
 
-      // combo bonus
       if(c.uv && c.swab){
         STATE.score += 60;
         setPill('🔥 Sleuth Combo! คุณภาพหลักฐานสูง + โบนัสคะแนน');
@@ -887,25 +881,23 @@ export default function Game(opts = {}) {
     }
   }
 
-  // ---------- Cleaning triage ----------
-  function doClean(hs){
+  // ---------- Cleaning (manual + plan) ----------
+  function doClean(hs, meta = {}){
     const target = hs.name;
     const zoneId = currentZone().id;
 
     if(hs._el.dataset.clean === '1'){
-      // waste
       STATE.waste += 1;
       STATE.score = Math.max(0, STATE.score - 18);
-      logEvent('clean_waste', { target, zone: zoneId });
+      logEvent('clean_waste', { target, zone: zoneId, source: meta.source || 'manual' });
       setPill('ทำซ้ำแล้ว (waste) — เลือกจุดใหม่ให้คุ้ม');
-      return;
+      return { ok:false, eff:0, wasted:true };
     }
 
-    // resource check
     if(STATE.resources.spray <= 0 || STATE.resources.cloth <= 0){
       markMistake(target, 'clean_no_resource');
-      setPill('ทรัพยากรไม่พอ! เลือกให้คุ้ม/ปิด outbreak ให้ดี');
-      return;
+      setPill('ทรัพยากรไม่พอ! ต้องเลือกให้คุ้ม');
+      return { ok:false, eff:0, noRes:true };
     }
 
     STATE.resources.spray -= 1;
@@ -913,174 +905,553 @@ export default function Game(opts = {}) {
 
     hs._el.dataset.clean = '1';
 
-    // effect: hubs matter more; cleaning infected matter much more
     const infected = (WORLD.infected.has(target) || (STATE.outbreak.active && STATE.outbreak.infected.has(target)));
     const hub = (hs.tag === 'hub');
 
     let eff = 0.05 + (hub ? 0.06 : 0.02) + (infected ? 0.08 : 0);
     eff = clamp(eff, 0.03, 0.18);
 
+    // plan bonus (evidence-informed cleaning is more effective, but explainable)
+    const c = ensureCombo(target);
+    const evidenceBoost = (c.uv ? 0.01 : 0) + (c.swab ? 0.02 : 0) + (c.cam ? 0.01 : 0);
+    eff = clamp(eff + evidenceBoost, 0.03, 0.22);
+
     STATE.r0 = clamp(STATE.r0 - eff, 0.6, 2.4);
     STATE.exposure = clamp(STATE.exposure - eff*0.65, 0, 1);
-
     STATE.score += Math.round(70 + eff*220);
 
-    logEvent('clean', { target, zone: zoneId, hub, infected, eff });
+    logEvent('clean', { target, zone: zoneId, hub, infected, eff, source: meta.source || 'manual', evidenceBoost });
 
     setPill(infected ? `✅ Clean "${target}" (infected) → R₀ ลดแรง!` : `✅ Clean "${target}" → ลดความเสี่ยง`);
+    renderChainMap(false);
+    return { ok:true, eff, infected, hub };
   }
 
-  // ---------- Chain builder ----------
-  let chainPick = null;
-
-  function renderChain(){
-    const box = qs('gdChainList');
-    if(!box) return;
-    box.innerHTML = '';
-    STATE.chain.forEach((c, idx)=>{
-      const chip = el('div','gd-ev');
-      chip.innerHTML = `<b>${idx+1})</b> ${c.from} → ${c.to}<div class="mini">${c.why}</div>`;
-      box.appendChild(chip);
+  // ---------- NEW: Cleaning Triage Overlay ----------
+  function buildTriageCandidates(){
+    const all = WORLD.zones.flatMap(z=> z.hotspots);
+    const cand = all.map(h=>{
+      const clue = ensureClue(h.name);
+      const c = ensureCombo(h.name);
+      const cleaned = (h._el && h._el.dataset.clean === '1');
+      const infectedNow = (WORLD.infected.has(h.name) || (STATE.outbreak.active && STATE.outbreak.infected.has(h.name)));
+      const risk = predictRisk(h.name);
+      const comboN = (c.uv?1:0) + (c.swab?1:0) + (c.cam?1:0);
+      const fakeKnown = clue.revealedByUV && clue.truth === 'fake';
+      // triage score: high risk + hub + infected + evidence quality; penalty if already cleaned / fake-known
+      let tri = risk + (h.tag==='hub'?0.18:0) + (infectedNow?0.22:0) + (comboN*0.04);
+      if(cleaned) tri -= 0.50;
+      if(fakeKnown) tri -= 0.35;
+      tri = clamp(tri, 0, 2.0);
+      return {
+        name: h.name,
+        zone: WORLD.zones.find(z=> z.hotspots.includes(h))?.id || '',
+        hub: h.tag==='hub',
+        base: h.base,
+        cleaned,
+        infectedNow,
+        fakeKnown,
+        comboN,
+        risk: Number(risk.toFixed(2)),
+        tri: Number(tri.toFixed(3))
+      };
     });
-    // compute chainOk: plausible chains count
-    STATE.chainOk = STATE.chain.filter(c=> c.ok).length;
+
+    cand.sort((a,b)=> b.tri - a.tri);
+    return cand;
+  }
+
+  function openTriageOverlay(){
+    const cand = buildTriageCandidates().slice(0, 10);
+    const picks = new Map(STATE.triage.picks.map(p=> [p.target, p.rank])); // persist last picks
+
+    function rankOf(name){ return picks.get(name) || 0; }
+    function setRank(name, r){
+      // ensure unique ranks 1..3
+      for(const [k,v] of picks.entries()){
+        if(v === r && k !== name) picks.set(k, 0);
+      }
+      picks.set(name, r);
+    }
+    function togglePick(name){
+      // cycle 0->1->2->3->0
+      const r = rankOf(name);
+      const nr = (r===0)?1:(r===1)?2:(r===2)?3:0;
+      if(nr===0) picks.set(name,0);
+      else setRank(name,nr);
+    }
+    function getSelected(){
+      const arr = [];
+      for(const [t,r] of picks.entries()){
+        if(r>=1 && r<=3) arr.push({ target:t, rank:r });
+      }
+      arr.sort((a,b)=> a.rank - b.rank);
+      return arr;
+    }
+
+    const rowsHtml = cand.map(c=>{
+      const tags = [
+        c.hub ? `<span class="gd-chip acc">hub</span>` : '',
+        c.infectedNow ? `<span class="gd-chip bad">infected?</span>` : '',
+        c.fakeKnown ? `<span class="gd-chip warn">fake</span>` : '',
+        c.cleaned ? `<span class="gd-chip">cleaned</span>` : ''
+      ].join(' ');
+      return `
+        <div class="gd-triage-item" data-name="${c.name}">
+          <div class="gd-triage-left">
+            <div class="gd-triage-title">${c.name} ${tags}</div>
+            <div class="gd-triage-sub">risk=${c.risk} • combo=${c.comboN} • triScore=${c.tri}</div>
+          </div>
+          <div class="gd-rank" data-r="${rankOf(c.name)||0}">${rankOf(c.name)||0 || '—'}</div>
+        </div>
+      `;
+    }).join('');
+
+    showOverlay(`
+      <h2>🧴 Cleaning Triage (เลือก 1–3 จุดที่ “คุ้มสุด”)</h2>
+      <p>แตะรายการเพื่อจัดอันดับ (1→2→3→ยกเลิก) แล้วกด Apply • ใช้ทรัพยากร: spray/cloth ตามจำนวนจุด + ใช้ <b>time token</b> 1 ต่อการ Apply</p>
+
+      <div class="gd-triage">
+        <div class="mini">Resources: spray=${STATE.resources.spray} • cloth=${STATE.resources.cloth} • timeToken=${STATE.resources.time}</div>
+        <div class="gd-triage-list" id="gdTriageList">${rowsHtml}</div>
+      </div>
+
+      <div class="row">
+        <button class="gd-bigbtn" id="gdTriageApply">✅ Apply Plan</button>
+        <button class="gd-bigbtn" id="gdTriageClose">ปิด</button>
+      </div>
+      <div class="row">
+        <button class="gd-bigbtn" id="gdTriageAuto">✨ Auto Pick (Top 3)</button>
+        <button class="gd-bigbtn" id="gdTriageClear">🗑 Clear Picks</button>
+      </div>
+    `);
+
+    const list = qs('gdTriageList');
+    const refreshRanks = ()=>{
+      list.querySelectorAll('.gd-triage-item').forEach(item=>{
+        const name = item.dataset.name;
+        const r = rankOf(name);
+        const box = item.querySelector('.gd-rank');
+        box.textContent = r || '—';
+        box.dataset.r = String(r||0);
+      });
+    };
+
+    list.addEventListener('click', (ev)=>{
+      const item = ev.target.closest('.gd-triage-item');
+      if(!item) return;
+      togglePick(item.dataset.name);
+      refreshRanks();
+      logEvent('triage_pick', { picks: getSelected() });
+    });
+
+    qs('gdTriageAuto').onclick = ()=>{
+      // take top 3 tri score not cleaned and not fakeKnown
+      const top = cand.filter(x=>!x.cleaned && !x.fakeKnown).slice(0,3);
+      picks.clear();
+      top.forEach((t, idx)=> picks.set(t.name, idx+1));
+      refreshRanks();
+      logEvent('triage_auto', { picks: getSelected() });
+      setPill('Auto เลือก Top3 แล้ว');
+    };
+
+    qs('gdTriageClear').onclick = ()=>{
+      picks.clear();
+      refreshRanks();
+      logEvent('triage_clear', {});
+      setPill('ล้าง picks แล้ว');
+    };
+
+    qs('gdTriageClose').onclick = ()=> closeOverlay();
+
+    qs('gdTriageApply').onclick = ()=>{
+      const sel = getSelected();
+      if(sel.length < 1){
+        setPill('ต้องเลือกอย่างน้อย 1 จุด');
+        return;
+      }
+      if(STATE.resources.time <= 0){
+        setPill('time token ไม่พอ! (Resources.time)');
+        markMistake('', 'triage_no_time_token');
+        return;
+      }
+
+      // compute resource need
+      const need = sel.length;
+      if(STATE.resources.spray < need || STATE.resources.cloth < need){
+        setPill('spray/cloth ไม่พอสำหรับจำนวนจุดที่เลือก');
+        markMistake('', 'triage_no_material');
+        return;
+      }
+
+      STATE.resources.time -= 1;
+
+      logEvent('triage_apply_start', { sel });
+
+      // Apply in order 1..3 with order bonus:
+      // - If rank1 is hub or infected -> extra efficiency
+      // - If rank2 also hub -> extra
+      // - If picks include fakeKnown -> penalty (but user sees fake tag)
+      let orderBonus = 0;
+      sel.forEach(s=>{
+        const hs = findHotspotByName(s.target);
+        const clue = ensureClue(s.target);
+        const infectedNow = (WORLD.infected.has(s.target) || (STATE.outbreak.active && STATE.outbreak.infected.has(s.target)));
+        if(s.rank === 1 && (hs.tag==='hub' || infectedNow)) orderBonus += 0.02;
+        if(s.rank === 2 && hs.tag==='hub') orderBonus += 0.01;
+        if(clue.revealedByUV && clue.truth==='fake') orderBonus -= 0.02;
+      });
+      orderBonus = clamp(orderBonus, -0.03, 0.04);
+
+      let totalEff = 0;
+      let cleanedCount = 0;
+      for(const s of sel){
+        const hs = findHotspotByName(s.target);
+        const beforeR0 = STATE.r0;
+        const r = doClean(hs, { source:'triage', rank:s.rank });
+        if(r.ok){
+          cleanedCount++;
+          // apply order bonus as a second-pass improvement (explainable: “ทำลำดับถูก → ลดการแพร่ได้มากขึ้น”)
+          const add = clamp(orderBonus, -0.02, 0.04);
+          STATE.r0 = clamp(STATE.r0 - add, 0.6, 2.4);
+          STATE.exposure = clamp(STATE.exposure - add*0.55, 0, 1);
+          totalEff += (beforeR0 - STATE.r0);
+        }
+      }
+
+      recomputeRisk();
+      updateHUD();
+
+      // persist picks
+      STATE.triage.picks = sel;
+
+      logEvent('triage_apply_end', {
+        sel, cleanedCount,
+        orderBonus,
+        r0: STATE.r0,
+        exposure: STATE.exposure
+      });
+
+      setPill(`✅ Apply Plan สำเร็จ (${cleanedCount}/${sel.length}) • โบนัสลำดับ=${orderBonus.toFixed(2)} • R₀=${STATE.r0.toFixed(2)}`);
+      closeOverlay();
+    };
+  }
+
+  // ---------- NEW: Chain drag-connect map ----------
+  function nodeMeta(name){
+    const hs = findHotspotByName(name);
+    const clue = ensureClue(name);
+    const c = ensureCombo(name);
+    const cleaned = (hs._el && hs._el.dataset.clean === '1');
+    const infectedNow = (WORLD.infected.has(name) || (STATE.outbreak.active && STATE.outbreak.infected.has(name)));
+    const fakeKnown = clue.revealedByUV && clue.truth === 'fake';
+    const hi = (hs.base === 'hi' || hs.tag === 'hub');
+    return {
+      name,
+      hub: hs.tag === 'hub',
+      risk: hi ? 'hi' : 'mid',
+      cleaned,
+      infectedNow,
+      fakeKnown,
+      comboN: (c.uv?1:0) + (c.swab?1:0) + (c.cam?1:0)
+    };
+  }
+
+  function chainCandidateNames(){
+    // show node set = current zone hotspots + any evidence targets (so board feels alive)
+    const zone = currentZone();
+    const base = zone.hotspots.map(h=>h.name);
+    const evT = Array.from(new Set(STATE.evidence.map(e=>e.target)));
+    const set = new Set([...base, ...evT]);
+    return Array.from(set).slice(0, 10);
+  }
+
+  function renderChainMap(force){
+    if(!chainNodesBox || !chainCanvas || !chainMap) return;
+
+    const names = chainCandidateNames();
+    const old = chainNodesBox.dataset._sig || '';
+    const sig = names.join('|') + '|' + (STATE.evidence.length) + '|' + (STATE.outbreak.active?'1':'0') + '|' + (STATE.resources.spray);
+    if(!force && old === sig){
+      // still redraw lines if needed
+      drawChainCanvas();
+      return;
+    }
+    chainNodesBox.dataset._sig = sig;
+
+    chainNodesBox.innerHTML = '';
+    names.forEach(n=>{
+      const m = nodeMeta(n);
+      const node = el('div','gd-node');
+      node.dataset.name = m.name;
+      node.dataset.hub = m.hub ? '1' : '0';
+      node.dataset.risk = m.risk;
+      node.dataset.clean = m.cleaned ? '1' : '0';
+      node.dataset.infected = m.infectedNow ? '1' : '0';
+      node.dataset.fake = m.fakeKnown ? '1' : '0';
+      node.dataset.sel = '0';
+      node.innerHTML = `<span class="gd-dot"></span><span>${m.name}</span>`;
+      chainNodesBox.appendChild(node);
+    });
+
+    // size canvas to container
+    resizeChainCanvas();
+    drawChainCanvas();
+  }
+
+  function resizeChainCanvas(){
+    const rect = chainMap.getBoundingClientRect();
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    chainCanvas.width = Math.floor(rect.width * dpr);
+    chainCanvas.height = Math.floor(rect.height * dpr);
+    chainCanvas.style.width = rect.width + 'px';
+    chainCanvas.style.height = rect.height + 'px';
+  }
+
+  function nodeCenterInMap(nodeEl){
+    const rNode = nodeEl.getBoundingClientRect();
+    const rMap = chainMap.getBoundingClientRect();
+    const x = (rNode.left + rNode.right)/2 - rMap.left;
+    const y = (rNode.top + rNode.bottom)/2 - rMap.top;
+    return { x, y };
+  }
+
+  function drawLine(ctx, ax, ay, bx, by, alpha=0.9){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawChainCanvas(){
+    if(!chainCanvas) return;
+    const ctx2d = chainCanvas.getContext('2d');
+    if(!ctx2d) return;
+
+    const rect = chainMap.getBoundingClientRect();
+    const dpr = chainCanvas.width / Math.max(1, rect.width);
+
+    ctx2d.clearRect(0,0, chainCanvas.width, chainCanvas.height);
+    ctx2d.strokeStyle = 'rgba(99,102,241,.85)';
+
+    const nodes = Array.from(chainNodesBox.querySelectorAll('.gd-node'));
+    const pos = new Map(nodes.map(n=> [n.dataset.name, nodeCenterInMap(n)]));
+
+    // draw existing chain
+    for(const c of STATE.chain){
+      const a = pos.get(c.from);
+      const b = pos.get(c.to);
+      if(!a || !b) continue;
+      ctx2d.strokeStyle = c.ok ? 'rgba(34,197,94,.85)' : 'rgba(239,68,68,.85)';
+      drawLine(ctx2d, a.x*dpr, a.y*dpr, b.x*dpr, b.y*dpr, 0.9);
+    }
+
+    // temp dragging line
+    if(STATE.chainUI.draggingFrom && STATE.chainUI.tempLine){
+      const a = pos.get(STATE.chainUI.draggingFrom);
+      if(a){
+        ctx2d.strokeStyle = 'rgba(99,102,241,.85)';
+        drawLine(ctx2d, a.x*dpr, a.y*dpr, STATE.chainUI.tempLine.x*dpr, STATE.chainUI.tempLine.y*dpr, 0.75);
+      }
+    }
   }
 
   function plausibleLink(a,b){
-    // fair plausibility: if either is hub or infected or both in same zone
     const ha = findHotspotByName(a);
     const hb = findHotspotByName(b);
     const zoneA = WORLD.zones.find(z=> z.hotspots.includes(ha))?.id || '';
     const zoneB = WORLD.zones.find(z=> z.hotspots.includes(hb))?.id || '';
     const sameZone = zoneA && zoneA === zoneB;
 
-    const infectedA = WORLD.infected.has(a);
-    const infectedB = WORLD.infected.has(b);
+    const infectedA = WORLD.infected.has(a) || (STATE.outbreak.active && STATE.outbreak.infected.has(a));
+    const infectedB = WORLD.infected.has(b) || (STATE.outbreak.active && STATE.outbreak.infected.has(b));
 
-    let ok = false;
+    let ok = true;
     let why = '';
 
     if(sameZone && (ha.tag==='hub' || hb.tag==='hub')){
-      ok = true; why = 'ทั้งคู่เป็นจุดสัมผัสในโซนเดียวกัน (hub touch)';
+      why = 'โซนเดียวกัน + มี hub hotspot → แพร่ผ่านการสัมผัสสูง';
     }else if(infectedA || infectedB){
-      ok = true; why = 'มีจุดที่ยืนยัน/สงสัยว่า infected ทำให้ chain มีน้ำหนัก';
+      why = 'มีจุดที่สงสัย/ยืนยันเสี่ยงสูง → chain มีน้ำหนัก';
     }else{
-      ok = true; why = 'แพร่ผ่านการสัมผัสต่อเนื่อง (เหตุผลทั่วไป)'; // game-friendly (ยังไม่โหด)
+      why = 'แพร่ผ่านการสัมผัสต่อเนื่อง (หลักฐานเชิงพฤติกรรม)';
     }
 
     return { ok, why, zoneA, zoneB };
   }
 
-  function openChainOverlay(){
+  function addChainEdge(a,b, source){
+    if(!a || !b || a===b) return false;
+    if(STATE.chain.length >= 8){
+      setPill('Chain เต็ม (8 เส้น) — เคลียร์ก่อนถ้าจะต่อเพิ่ม');
+      return false;
+    }
+    // avoid duplicate edges
+    const dup = STATE.chain.some(e=> (e.from===a && e.to===b) || (e.from===b && e.to===a));
+    if(dup){ setPill('มีเส้นนี้แล้ว'); return false; }
+
+    const p = plausibleLink(a,b);
+    STATE.chain.push({ from:a, to:b, why:p.why, ok:p.ok });
+    logEvent('chain_add', { from:a, to:b, why:p.why, ok:p.ok, source: source||'drag' });
+
+    renderChainList();
+    renderChainMap(false);
+    recomputeRisk();
+    updateHUD();
+
+    setPill(`🧩 ต่อเส้น: ${a} → ${b}`);
+    return true;
+  }
+
+  function renderChainList(){
+    const box = qs('gdChainList');
+    if(!box) return;
+    box.innerHTML = '';
+    STATE.chain.forEach((c, idx)=>{
+      const item = el('div','gd-ev');
+      item.innerHTML = `<b>${idx+1})</b> ${c.from} → ${c.to} ${c.ok ? '<span class="gd-chip good">OK</span>' : '<span class="gd-chip bad">weak</span>'}<div class="mini">${c.why}</div>`;
+      box.appendChild(item);
+    });
+    STATE.chainOk = STATE.chain.filter(c=> c.ok).length;
+  }
+
+  // pointer drag handlers (PC/Mobile)
+  function nearestNodeElFromEvent(ev){
+    const t = ev.target;
+    if(!t) return null;
+    const node = t.closest('.gd-node');
+    return node || null;
+  }
+
+  function onNodePointerDown(ev){
+    if(STATE.ended) return;
+    if(!STATE.running) return;
+
+    const node = nearestNodeElFromEvent(ev);
+    if(!node) return;
+
+    // prevent scroll while dragging inside board
+    ev.preventDefault();
+
+    const name = node.dataset.name;
+    STATE.chainUI.draggingFrom = name;
+    STATE.chainUI.dragOver = null;
+
+    // highlight
+    chainNodesBox.querySelectorAll('.gd-node').forEach(n=> n.dataset.sel='0');
+    node.dataset.sel = '1';
+
+    // capture pointer
+    try{ node.setPointerCapture(ev.pointerId); }catch(_){}
+
+    // init temp line at pointer pos within map
+    const rMap = chainMap.getBoundingClientRect();
+    STATE.chainUI.tempLine = { x: ev.clientX - rMap.left, y: ev.clientY - rMap.top };
+    drawChainCanvas();
+  }
+
+  function onNodePointerMove(ev){
+    if(!STATE.chainUI.draggingFrom) return;
+    ev.preventDefault();
+
+    const rMap = chainMap.getBoundingClientRect();
+    STATE.chainUI.tempLine = { x: ev.clientX - rMap.left, y: ev.clientY - rMap.top };
+
+    const over = nearestNodeElFromEvent(ev);
+    STATE.chainUI.dragOver = over ? over.dataset.name : null;
+
+    drawChainCanvas();
+  }
+
+  function onNodePointerUp(ev){
+    if(!STATE.chainUI.draggingFrom) return;
+    ev.preventDefault();
+
+    const from = STATE.chainUI.draggingFrom;
+    const over = nearestNodeElFromEvent(ev);
+    const to = over ? over.dataset.name : null;
+
+    STATE.chainUI.draggingFrom = null;
+    STATE.chainUI.dragOver = null;
+    STATE.chainUI.tempLine = null;
+
+    // clear highlight
+    chainNodesBox.querySelectorAll('.gd-node').forEach(n=> n.dataset.sel='0');
+
+    if(to && from && to !== from){
+      addChainEdge(from, to, 'drag');
+    }else{
+      // click-select fallback: tap twice
+      // First tap sets A, second tap links A->B
+      if(!STATE.chainUI.selectedA){
+        STATE.chainUI.selectedA = from;
+        setPill(`เลือก A แล้ว: ${from} (แตะอีกจุดเพื่อเชื่อม)`);
+      }else{
+        const a = STATE.chainUI.selectedA;
+        STATE.chainUI.selectedA = null;
+        if(a !== from){
+          addChainEdge(a, from, 'tap2');
+        }
+      }
+    }
+
+    drawChainCanvas();
+  }
+
+  function openChainHelpOverlay(){
     showOverlay(`
-      <h2>🧩 ต่อ Chain (A→B→C)</h2>
-      <p>เลือก 2 จุดเพื่อเชื่อม 1 เส้น • ทำให้ได้อย่างน้อย 3 เส้น • ระบบจะให้ “เหตุผล” อัตโนมัติ</p>
+      <h2>🧩 Chain Help</h2>
+      <p>PC/Mobile: ลากจากจุด A ไปจุด B เพื่อสร้างเส้น (Drag-Connect)</p>
+      <p>Cardboard: ใช้ <b>🧴 Triage</b> เป็นหลัก (เพราะ chain ละเอียด) หรือใช้โหมดช่วย: เลือก A แล้วเลือก B (แตะ/ยิงบนบอร์ดไม่สะดวก)</p>
       <div class="row">
-        <button class="gd-bigbtn" id="gdChainPickA">เลือก A (ยังไม่เลือก)</button>
-        <button class="gd-bigbtn" id="gdChainPickB">เลือก B (ยังไม่เลือก)</button>
+        <button class="gd-bigbtn" id="gdChainAuto1">✨ Auto เติม 1 เส้น</button>
+        <button class="gd-bigbtn" id="gdChainClose2">ปิด</button>
       </div>
       <div class="row">
-        <button class="gd-bigbtn" id="gdChainAdd">➕ เพิ่มเส้น</button>
-        <button class="gd-bigbtn" id="gdChainClose">ปิด</button>
-      </div>
-      <div class="row">
-        <button class="gd-bigbtn" id="gdChainAuto">✨ Auto เติม 1 เส้น (ช่วย)</button>
-        <button class="gd-bigbtn" id="gdChainClear">🗑 ล้าง Chain</button>
+        <button class="gd-bigbtn" id="gdChainAuto3">✨ Auto เติมให้ครบ 3 เส้น</button>
+        <button class="gd-bigbtn" id="gdChainClear2">🗑 Clear Chain</button>
       </div>
     `);
 
-    let A=null, B=null;
-    const btnA = qs('gdChainPickA');
-    const btnB = qs('gdChainPickB');
-
-    function setPick(which){
-      chainPick = which;
-      setPill(which==='A' ? 'เลือกเป้าเป็น A: ยิง hotspot 1 จุด' : 'เลือกเป้าเป็น B: ยิง hotspot 1 จุด');
-    }
-
-    btnA.onclick = ()=> setPick('A');
-    btnB.onclick = ()=> setPick('B');
-
-    qs('gdChainAdd').onclick = ()=>{
-      if(!A || !B){ setPill('ต้องเลือก A และ B ก่อน'); return; }
-      const p = plausibleLink(A,B);
-      STATE.chain.push({ from:A, to:B, why:p.why, ok:p.ok });
-      logEvent('chain_add', { from:A, to:B, why:p.why, ok:p.ok });
-      A=null; B=null;
-      btnA.textContent = 'เลือก A (ยังไม่เลือก)';
-      btnB.textContent = 'เลือก B (ยังไม่เลือก)';
-      chainPick = null;
-      closeOverlay();
-      renderChain();
-      setPill('เพิ่ม chain แล้ว ✅');
-    };
-
-    qs('gdChainAuto').onclick = ()=>{
-      // fill 1 plausible edge using evidence targets
-      const evT = Array.from(new Set(STATE.evidence.map(e=>e.target)));
-      const zone = currentZone();
-      const pool = evT.length ? evT : zone.hotspots.map(h=>h.name);
-      if(pool.length < 2){ setPill('ยังไม่มีจุดพอให้ auto'); return; }
-      const seedObj = { x: hash32(String(CTX.seed)+'|auto|'+STATE.chain.length) };
-      const a = pick(seedObj, pool);
-      let b = pick(seedObj, pool);
-      if(b === a) b = pool[(pool.indexOf(a)+1) % pool.length];
-      const p = plausibleLink(a,b);
-      STATE.chain.push({ from:a, to:b, why:'(auto) '+p.why, ok:p.ok });
-      logEvent('chain_auto', { from:a, to:b, ok:p.ok });
-      closeOverlay();
-      renderChain();
-      setPill('Auto เติม chain 1 เส้น ✅');
-    };
-
-    qs('gdChainClear').onclick = ()=>{
+    qs('gdChainClose2').onclick = ()=> closeOverlay();
+    qs('gdChainClear2').onclick = ()=>{
       STATE.chain = [];
       logEvent('chain_clear', {});
+      renderChainList();
+      renderChainMap(true);
       closeOverlay();
-      renderChain();
       setPill('ล้าง chain แล้ว');
     };
 
-    qs('gdChainClose').onclick = ()=> closeOverlay();
-
-    // chain pick: intercept next hotspot hit
-    const pickListener = (ev)=>{
-      if(!chainPick) return;
-      const d = ev.detail || {};
-      const hit = findDomHotspotAt(d.x, d.y, (d.lockPx||28) + (STATE.ai.lockBonusPx||0));
-      if(!hit) return;
-      if(chainPick === 'A'){
-        A = hit.name;
-        btnA.textContent = 'A: ' + A;
-        chainPick = null;
-      }else{
-        B = hit.name;
-        btnB.textContent = 'B: ' + B;
-        chainPick = null;
-      }
+    qs('gdChainAuto1').onclick = ()=>{
+      autoAddChain(1);
+      closeOverlay();
     };
-    // temporarily listen to shoot
-    const onShootTmp = (ev)=> pickListener(ev);
-    WIN.addEventListener('hha:shoot', onShootTmp);
-
-    // also pointer in non-cvr overlay
-    layer.addEventListener('pointerdown', (ev)=>{
-      if(!chainPick) return;
-      if(String(CTX.view||'') === 'cvr') return;
-      const hit = findDomHotspotAt(ev.clientX, ev.clientY, 28);
-      if(!hit) return;
-      if(chainPick === 'A'){ A=hit.name; btnA.textContent='A: '+A; chainPick=null; }
-      else { B=hit.name; btnB.textContent='B: '+B; chainPick=null; }
-    }, { passive:true });
-
-    // cleanup on close overlay
-    overlay.__cleanup = ()=>{
-      try{ WIN.removeEventListener('hha:shoot', onShootTmp); }catch{}
-      chainPick = null;
+    qs('gdChainAuto3').onclick = ()=>{
+      autoAddChain(3);
+      closeOverlay();
     };
   }
 
-  // ---------- Objectives + feedback ----------
+  function autoAddChain(n){
+    const names = chainCandidateNames();
+    if(names.length < 2) return;
+    const seedObj = { x: hash32(String(CTX.seed)+'|autoChain|'+STATE.chain.length+'|'+STATE.timeLeft) };
+    let added = 0;
+    for(let i=0;i<30 && added < n;i++){
+      const a = pick(seedObj, names);
+      let b = pick(seedObj, names);
+      if(b === a) b = names[(names.indexOf(a)+1) % names.length];
+      if(addChainEdge(a,b,'auto')) added++;
+    }
+    setPill(`Auto เพิ่ม chain ${added} เส้น`);
+  }
+
+  // ---------- Objectives ----------
   function renderObjectives(){
     const obj = WORLD.objectives || [];
     const scannedUV = new Set(STATE.evidence.filter(e=>e.type==='uv').map(e=>e.target));
@@ -1091,7 +1462,6 @@ export default function Game(opts = {}) {
     lines.push(`Case: <b>${STATE.caseId}</b> • Diff: <b>${STATE.diff}</b> • View: <b>${STATE.view}</b> • AI: <b>${STATE.ai.enabled?'ON':'OFF'}</b>`);
     lines.push(`Goal: ลด <b>R₀ &lt; 1</b> + ต่อ chain ≥ <b>3</b> + ใช้ทรัพยากรคุ้ม`);
 
-    // show scan objectives progress
     const scanTargets = obj.filter(o=>o.type==='scan').map(o=>o.target);
     const done = scanTargets.filter(t=> scannedUV.has(t)).length;
     lines.push(`Scan hub (UV): <b>${done}/${scanTargets.length}</b>`);
@@ -1103,13 +1473,12 @@ export default function Game(opts = {}) {
     if(box) box.innerHTML = lines.join('<br/>');
   }
 
-  // ---------- Overlays (cold open / pause / end) ----------
+  // ---------- Overlays ----------
   function showOverlay(innerHtml){
     overlay.style.display = 'grid';
     overlay.innerHTML = `<div class="gd-modal">${innerHtml}</div>`;
   }
   function closeOverlay(){
-    if(overlay && overlay.__cleanup){ try{ overlay.__cleanup(); }catch{} overlay.__cleanup=null; }
     overlay.style.display = 'none';
     overlay.innerHTML = '';
   }
@@ -1140,7 +1509,7 @@ export default function Game(opts = {}) {
     qs('gdSkip').onclick  = ()=> { closeOverlay(); startGame(); };
     qs('gdBackHub').onclick = ()=> backHub();
     qs('gdHow').onclick = ()=>{
-      setPill('คอมโบ: UV→Swab→Cam | ต่อ chain ≥3 | Clean จุด hub/infected ให้คุ้มเพื่อกด R₀');
+      setPill('คอมโบ: UV→Swab→Cam | ต่อ chain ≥3 (ลากเชื่อม) | 🧴Triage เลือก 1–3 จุดคุ้มสุดแล้ว Apply');
     };
   }
 
@@ -1153,6 +1522,27 @@ export default function Game(opts = {}) {
 
   // ---------- Timer loop ----------
   let _timer = null;
+  let _zoneShiftIn = 0;
+
+  function scheduleZoneShift(){
+    const base = 38;
+    const jitter = 7;
+    const sec = base + Math.floor(Math.random()*jitter);
+    return sec;
+  }
+
+  function zoneTick(){
+    _zoneShiftIn--;
+    if(_zoneShiftIn > 0) return;
+    _zoneShiftIn = scheduleZoneShift();
+
+    STATE.zoneIdx = (STATE.zoneIdx + 1) % WORLD.zones.length;
+    const z = currentZone();
+    placeHotspots(z);
+    logEvent('zone_switch', { zone: z.id });
+
+    setPill(`📍 เปลี่ยนโซน: ${z.name} (risk map เปลี่ยน)`);
+  }
 
   function updateHUD(){
     qs('gdTime').textContent = fmtSec(STATE.timeLeft);
@@ -1161,7 +1551,6 @@ export default function Game(opts = {}) {
     qs('gdRes').textContent = `spray ${STATE.resources.spray} • cloth ${STATE.resources.cloth} • time ${STATE.resources.time}`;
 
     const bar = qs('gdR0Bar');
-    // map r0 0.6..2.4 to 5..95%
     const w = clamp(((STATE.r0 - 0.6) / (2.4 - 0.6)) * 90 + 5, 5, 95);
     if(bar) bar.style.width = w + '%';
 
@@ -1203,20 +1592,16 @@ export default function Game(opts = {}) {
       ctx: CTX
     };
 
-    // save last summary for hub
     try{ localStorage.setItem(cfg.lastSummaryKey, JSON.stringify(summary)); }catch(_){}
-    // save session to offline
     OfflineStore.appendSession(summary);
 
     logEvent('session_end', summary);
-
     showEndSummary(summary);
   }
 
   function gradeReport(superSleuth){
-    // rubric: R0, chain, resource efficiency, evidence quality
     const chainOk = STATE.chain.filter(c=>c.ok).length;
-    const r0Score = clamp((1.6 - STATE.r0) / 1.0, 0, 1); // lower r0 better
+    const r0Score = clamp((1.6 - STATE.r0) / 1.0, 0, 1);
     const chScore = clamp(chainOk / 3, 0, 1);
     const wasteScore = clamp(1 - (STATE.waste/5), 0, 1);
     const qScore = clamp(averageEvidenceQuality(), 0, 1);
@@ -1239,7 +1624,6 @@ export default function Game(opts = {}) {
 
   // ---------- Report submission ----------
   function submitReport(){
-    // mimic “ส่งรายงาน” = lock decision + end
     logEvent('report_submitted', {
       chainOk: STATE.chain.filter(c=>c.ok).length,
       r0: STATE.r0,
@@ -1249,7 +1633,7 @@ export default function Game(opts = {}) {
     endGame('submitted');
   }
 
-  // ---------- Export (offline) ----------
+  // ---------- Export ----------
   function downloadText(filename, text, mime='text/plain'){
     const blob = new Blob([text], { type: mime+';charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1350,17 +1734,13 @@ export default function Game(opts = {}) {
     qs('gdExportEventsCSV').onclick = exportEventsCSV;
     qs('gdExportSessionsCSV').onclick = exportSessionsCSV;
     qs('gdBackHub2').onclick = ()=> backHub();
-    qs('gdReplay').onclick = ()=> {
-      // reload keeps params
-      location.reload();
-    };
+    qs('gdReplay').onclick = ()=> location.reload();
     qs('gdClearLocal').onclick = ()=> { OfflineStore.clearAll(); setPill('🧹 ล้าง local logs แล้ว'); };
   }
 
-  // ---------- Back hub (flush-hardened) ----------
+  // ---------- Back hub ----------
   function backHub(){
     try{ logEvent('back_hub', { to: CTX.hub||'../hub.html' }); }catch(_){}
-    // safe end snapshot if not ended
     if(!STATE.ended){
       try{
         const snap = {
@@ -1376,30 +1756,6 @@ export default function Game(opts = {}) {
     location.href = CTX.hub || '../hub.html';
   }
 
-  // ---------- Zone switching (keeps excitement) ----------
-  function scheduleZoneShift(){
-    // every 35-45 sec shift to new zone -> risk changes
-    const base = 38;
-    const jitter = 7;
-    const sec = base + Math.floor(Math.random()*jitter);
-    return sec;
-  }
-  let _zoneShiftIn = 0;
-
-  function zoneTick(){
-    _zoneShiftIn--;
-    if(_zoneShiftIn > 0) return;
-    _zoneShiftIn = scheduleZoneShift();
-
-    // switch zone
-    STATE.zoneIdx = (STATE.zoneIdx + 1) % WORLD.zones.length;
-    const z = currentZone();
-    placeHotspots(z);
-    logEvent('zone_switch', { zone: z.id });
-
-    setPill(`📍 เปลี่ยนโซน: ${z.name} (risk map เปลี่ยน)`);
-  }
-
   // ---------- init + start ----------
   function initWorld(){
     const pack = buildCase(STATE.caseId, STATE.diff);
@@ -1410,7 +1766,6 @@ export default function Game(opts = {}) {
 
     STATE.resources = pack.resources;
 
-    // place initial
     STATE.zoneIdx = 0;
     placeHotspots(currentZone());
 
@@ -1432,10 +1787,13 @@ export default function Game(opts = {}) {
     _zoneShiftIn = scheduleZoneShift();
 
     setTool('uv');
-    renderChain();
+    renderChainList();
+    renderChainMap(true);
     renderObjectives();
 
+    recomputeRisk();
     updateHUD();
+
     logEvent('session_start', { session_id: STATE.sessionId, ctx: CTX });
 
     clearInterval(_timer);
@@ -1446,28 +1804,24 @@ export default function Game(opts = {}) {
       STATE.timeLeft--;
       if(STATE.timeLeft < 0) STATE.timeLeft = 0;
 
-      // ticks
       outbreakTick();
       zoneTick();
 
-      // AI pacing and tips
-      if(STATE.timeLeft % 5 === 0){
+      if(STATE.ai.enabled && STATE.timeLeft % 5 === 0){
         aiApplyPacing();
         logEvent('ai_pacing', { skill: STATE.ai.skill, chaos: STATE.ai.chaos, gapSec: STATE.outbreak.gapSec, lockBonusPx: STATE.ai.lockBonusPx });
       }
       aiMaybeTip();
 
-      // recompute risk
       recomputeRisk();
       updateHUD();
+      drawChainCanvas();
 
-      // end
       if(STATE.timeLeft <= 0){
         endGame('timeup');
       }
     }, 1000);
 
-    // flush-hardened snapshots
     WIN.addEventListener('beforeunload', ()=>{
       try{ logEvent('beforeunload', { timeLeft: STATE.timeLeft, score: STATE.score, r0: STATE.r0, exposure: STATE.exposure }); }catch(_){}
     });
@@ -1477,22 +1831,19 @@ export default function Game(opts = {}) {
   }
 
   function init(){
-    // bootstrap
     STATE.sessionId = makeSessionId();
     buildUI();
     initWorld();
+
     recomputeRisk();
     updateHUD();
+    renderChainList();
+    renderChainMap(true);
 
-    // gate
-    if(STATE.gate === 1){
-      openColdOpen();
-    }else{
-      startGame();
-    }
+    if(STATE.gate === 1) openColdOpen();
+    else startGame();
   }
 
-  // expose API
   return {
     init,
     getState: ()=> STATE,
