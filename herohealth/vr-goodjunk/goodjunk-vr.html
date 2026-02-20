@@ -1,11 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (FOLDER) — PRODUCTION
-FULL v20260220-hub+vruiDedup
-✅ MATCHES goodjunk-vr.css v20260220-hudFix
+GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v2026-02-20-htmlHUB-once
+✅ Matches goodjunk-vr.css (gj-hud-top/bot, gj-field, lowtime overlay)
 ✅ Safe.js IDs intact
-✅ VR-UI loaded by boot (avoid double load)
-✅ Hub defaults to /webxr-health-mobile/herohealth/hub.html (still respects ?hub=)
-✅ UI wiring supports legacy ids + standard ids
+✅ Boot handles: view detect + vr-ui load + safe-zone vars + bind Hub/Restart (once) + payload->safe
+✅ HTML handles: missions modal + hud-hidden toggle + quest peek rendering (once)
+✅ FIX: Hub/Restart buttons no longer conflict (no duplicate navigation logic)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,8 +14,7 @@ FULL v20260220-hub+vruiDedup
   <title>GoodJunkVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <!-- UPDATE: match latest CSS -->
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260220-hudFix"/>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260220a"/>
 </head>
 
 <body class="gj view-pc">
@@ -35,18 +33,14 @@ FULL v20260220-hub+vruiDedup
       <button id="btnMissions" class="gj-btn" type="button">ภารกิจ</button>
       <button id="btnHideHud" class="gj-btn" type="button">ซ่อน HUD</button>
 
-      <!-- legacy ids -->
+      <!-- ✅ Standard ids (boot supports legacy too) -->
       <button id="btnRestart" class="gj-btn" type="button">เริ่มใหม่</button>
       <button id="btnHub" class="gj-btn primary" type="button">กลับ HUB</button>
-
-      <!-- (optional) standard ids (hidden by default; kept for compatibility) -->
-      <button id="btnRestartTop" class="gj-btn" type="button" style="display:none;">เริ่มใหม่</button>
-      <button id="btnHubTop" class="gj-btn primary" type="button" style="display:none;">กลับ HUB</button>
     </div>
   </div>
 
   <!-- =========================================================
-       PLAYFIELD
+       PLAYFIELD (IMPORTANT: wrapper for CSS + safe padding)
        ========================================================= -->
   <div class="gj-field" id="playfield" aria-label="GoodJunk Playfield">
     <div id="gj-layer" class="gj-layer" aria-label="GoodJunk Layer"></div>
@@ -156,7 +150,7 @@ FULL v20260220-hub+vruiDedup
   </div>
 
   <!-- =========================================================
-       End overlay
+       End overlay (safe.js sets aria-hidden=false when ending)
        ========================================================= -->
   <div id="endOverlay" class="gj-end" aria-hidden="true">
     <div class="card">
@@ -171,19 +165,17 @@ FULL v20260220-hub+vruiDedup
       </div>
 
       <div class="actions">
+        <!-- NOTE: boot will bind restart/hub safely too -->
         <button id="btnRestartEnd" class="btn" type="button">เล่นอีกครั้ง</button>
         <button id="btnBackHub" class="btn alt" type="button">กลับ HUB</button>
-
-        <!-- (optional) standard id alias -->
-        <button id="btnBackHubStd" class="btn alt" type="button" style="display:none;">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./goodjunk-vr.boot.js?v=20260219a"></script>
+  <!-- Boot (module): auto view + vr-ui load + safe-zone + binds (once) + starts safe engine -->
+  <script type="module" src="./goodjunk-vr.boot.js?v=20260220-bootHUB-once"></script>
 
-  <!-- UI wiring (safe: no engine duplication) -->
+  <!-- UI wiring (modal + hud toggle + quest peek) -->
   <script>
     (function(){
       const DOC = document;
@@ -193,63 +185,44 @@ FULL v20260220-hub+vruiDedup
         catch { return def; }
       }
 
-      function hubUrl(){
-        const raw = qs('hub', null);
-        if (raw) return raw;
-        const base = location.origin + '/webxr-health-mobile';
-        return base + '/herohealth/hub.html';
+      function onOnce(el, type, handler, opts){
+        if(!el) return false;
+        try{
+          const key = '__once_' + type;
+          if (el[key]) return false;
+          el[key] = true;
+          el.addEventListener(type, handler, opts || false);
+          return true;
+        }catch(_){
+          try{ el.addEventListener(type, handler, opts || false); }catch(__){}
+          return true;
+        }
       }
 
-      // chips
+      // Chips (safe)
       const chipMode = DOC.getElementById('chipMode');
       const chipDiff = DOC.getElementById('chipDiff');
       chipMode && (chipMode.textContent = `mode: ${qs('run','play')}`);
       chipDiff && (chipDiff.textContent = `diff: ${qs('diff','normal')}`);
 
-      // buttons (legacy + standard aliases)
-      const btnM   = DOC.getElementById('btnMissions');
-      const btnH   = DOC.getElementById('btnHideHud');
-
-      const btnR   = DOC.getElementById('btnRestart') || DOC.getElementById('btnRestartTop');
-      const btnB   = DOC.getElementById('btnHub')     || DOC.getElementById('btnHubTop');
-
-      const btnRestartEnd = DOC.getElementById('btnRestartEnd');
-      const btnBackHub    = DOC.getElementById('btnBackHub') || DOC.getElementById('btnBackHubStd');
-
-      const peek = DOC.getElementById('missionsPeek');
-      const btnClosePeek = DOC.getElementById('btnClosePeek');
-
-      const peekGoal = DOC.getElementById('peekGoal');
-      const peekMini = DOC.getElementById('peekMini');
-
-      // restart behavior: reload; in play mode let boot bump seed (boot handles), but reload here is fine
-      function restart(){
-        // keep URL; boot may also adjust seed when clicking restart buttons in boot layer
-        location.reload();
-      }
-
-      // hub
-      function goHub(){ location.href = hubUrl(); }
-
-      btnRestartEnd && btnRestartEnd.addEventListener('click', restart);
-      btnBackHub    && btnBackHub.addEventListener('click', goHub);
-
-      btnR && btnR.addEventListener('click', restart);
-      btnB && btnB.addEventListener('click', goHub);
-
       // HUD toggle
+      const btnHideHud = DOC.getElementById('btnHideHud');
       function syncHudBtn(){
         const hidden = DOC.body.classList.contains('hud-hidden');
-        if(btnH) btnH.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
+        btnHideHud && (btnHideHud.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD');
       }
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
       }
-      btnH && btnH.addEventListener('click', toggleHud);
+      onOnce(btnHideHud, 'click', toggleHud);
       syncHudBtn();
 
-      // missions peek
+      // Missions peek modal
+      const btnMissions = DOC.getElementById('btnMissions');
+      const peek = DOC.getElementById('missionsPeek');
+      const btnClosePeek = DOC.getElementById('btnClosePeek');
+
       function showPeek(on){
         if(!peek) return;
         if(on){
@@ -260,12 +233,16 @@ FULL v20260220-hub+vruiDedup
           DOC.body.classList.remove('quest-open');
         }
       }
-      btnM && btnM.addEventListener('click', ()=> showPeek(true));
-      btnClosePeek && btnClosePeek.addEventListener('click', ()=> showPeek(false));
-      peek && peek.addEventListener('click', (e)=>{ if(e.target === peek) showPeek(false); });
+      onOnce(btnMissions, 'click', ()=> showPeek(true));
+      onOnce(btnClosePeek, 'click', ()=> showPeek(false));
+      onOnce(peek, 'click', (e)=>{ if(e.target === peek) showPeek(false); });
 
       // quest:update -> update peek text
+      const peekGoal = DOC.getElementById('peekGoal');
+      const peekMini = DOC.getElementById('peekMini');
+
       function safeText(x){ return (x==null) ? '—' : String(x); }
+
       function onQuestUpdate(ev){
         try{
           const goal = ev?.detail?.goal || null;
@@ -274,7 +251,9 @@ FULL v20260220-hub+vruiDedup
           if(peekGoal){
             if(goal){
               peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
-            }else peekGoal.textContent = 'GOAL: —';
+            }else{
+              peekGoal.textContent = 'GOAL: —';
+            }
           }
 
           if(peekMini){
@@ -286,12 +265,20 @@ FULL v20260220-hub+vruiDedup
               }else{
                 peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
               }
-            }else peekMini.textContent = 'MINI: —';
+            }else{
+              peekMini.textContent = 'MINI: —';
+            }
           }
         }catch(_){}
       }
+
       window.addEventListener('quest:update', onQuestUpdate, { passive:true });
       document.addEventListener('quest:update', onQuestUpdate, { passive:true });
+
+      // NOTE:
+      // - Restart/Hub buttons are bound in boot.js (once) and resolveHubUrl() uses /herohealth/hub.html
+      // - We intentionally DO NOT bind btnHub/btnRestart/btnBackHub here to avoid conflicts.
+      // - btnRestartEnd inline onclick removed; boot binds it to restart() (seed bump in play mode).
     })();
   </script>
 </body>
