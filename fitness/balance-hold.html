@@ -1,16 +1,169 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Balance Hold</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Balance Hold — VR Fitness (DOM)</title>
+  <link rel="stylesheet" href="./css/balance-hold.css" />
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
-  hhGo('../fitness/balance-hold.html', { defaults: {} });
-</script>
+  <main class="bh-app">
+    <!-- MENU -->
+    <section id="view-menu" class="view">
+      <div class="panel card">
+        <h1>🧘‍♀️ Balance Hold</h1>
+        <p class="sub">
+          เกมฝึกทรงตัวบนแพลตฟอร์ม พร้อมหลบแรงรบกวน (Obstacle Avoidance)
+          <br/>Balance on the platform and avoid disturbance shocks.
+        </p>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Difficulty</span>
+            <select id="difficulty">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Session Duration (sec)</span>
+            <select id="sessionDuration">
+              <option value="30">30</option>
+              <option value="60" selected>60</option>
+              <option value="90">90</option>
+              <option value="120">120</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" data-action="start-normal">▶ Start Play</button>
+          <button class="btn" data-action="goto-research">🧪 Research Mode</button>
+        </div>
+
+        <details class="help">
+          <summary>How to play / วิธีเล่น</summary>
+          <ul>
+            <li>ลากนิ้ว/เมาส์ ซ้าย–ขวา เพื่อควบคุมการเอียง (target balance)</li>
+            <li>รักษาตัวชี้ให้อยู่ในโซนปลอดภัยให้นานที่สุด</li>
+            <li>เมื่อ obstacle (💨/💣) เข้ามา ให้คุมสมดุลเพื่อ “หลบ” ให้ได้</li>
+            <li>ผลลัพธ์จะสรุป Stability, Mean/RMS Tilt, Avoid rate และ Fatigue index</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <!-- RESEARCH -->
+    <section id="view-research" class="view hidden">
+      <div class="panel card">
+        <h2>🧪 Research Session</h2>
+        <p class="sub">กรอกข้อมูลผู้เข้าร่วม (optional แต่แนะนำสำหรับเก็บ CSV)</p>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Participant ID</span>
+            <input id="researchId" type="text" placeholder="เช่น P001" />
+          </label>
+          <label class="field">
+            <span>Group</span>
+            <input id="researchGroup" type="text" placeholder="เช่น A / Control / Exp" />
+          </label>
+          <label class="field">
+            <span>Phase</span>
+            <input id="researchPhase" type="text" placeholder="เช่น pre / post / week1" />
+          </label>
+          <div></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" data-action="start-research">▶ Start Research</button>
+          <button class="btn" data-action="back-menu">← Back</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAY -->
+    <section id="view-play" class="view hidden">
+      <div class="hud card">
+        <div class="hud-row">
+          <div><b>Mode:</b> <span id="hud-mode">-</span></div>
+          <div><b>Diff:</b> <span id="hud-diff">-</span></div>
+          <div><b>Dur:</b> <span id="hud-dur">-</span>s</div>
+          <div><b>Time:</b> <span id="hud-time">0.0</span>s</div>
+        </div>
+        <div class="hud-row">
+          <div><b>Stability:</b> <span id="hud-stability">0%</span></div>
+          <div><b>Avoid / Total:</b> <span id="hud-obstacles">0 / 0</span></div>
+        </div>
+      </div>
+
+      <div id="playArea" class="play-area" aria-label="Balance play area">
+        <!-- coach -->
+        <div class="coach-wrap">
+          <div id="coachLabel" class="coach-label">
+            จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล
+          </div>
+          <div id="coachBubble" class="coach-bubble hidden"></div>
+        </div>
+
+        <!-- balance lane -->
+        <div id="platform-wrap" class="platform-wrap">
+          <div class="safe-zone"></div>
+          <div class="center-line"></div>
+          <div id="platform" class="platform">
+            <div class="platform-top"></div>
+          </div>
+          <div id="indicator" class="indicator" title="balance indicator">⚪</div>
+        </div>
+
+        <!-- obstacles -->
+        <div id="obstacle-layer" class="obstacle-layer" aria-hidden="true"></div>
+
+        <!-- touch hint -->
+        <div class="touch-hint">⇆ Drag left / right</div>
+      </div>
+
+      <div class="actions play-actions">
+        <button class="btn danger" data-action="stop">⏹ Stop</button>
+        <button class="btn" data-action="back-menu">← Menu</button>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="view-result" class="view hidden">
+      <div class="panel card">
+        <h2>📊 Session Result</h2>
+
+        <div class="result-grid">
+          <div class="item"><span>Mode</span><b id="res-mode">-</b></div>
+          <div class="item"><span>Difficulty</span><b id="res-diff">-</b></div>
+          <div class="item"><span>Duration</span><b id="res-dur">-</b></div>
+          <div class="item"><span>End</span><b id="res-end">-</b></div>
+
+          <div class="item"><span>Stability</span><b id="res-stability">-</b></div>
+          <div class="item"><span>Mean Tilt</span><b id="res-meanTilt">-</b></div>
+          <div class="item"><span>RMS Tilt</span><b id="res-rmsTilt">-</b></div>
+          <div class="item"><span>Samples</span><b id="res-samples">-</b></div>
+
+          <div class="item"><span>Avoid</span><b id="res-avoid">-</b></div>
+          <div class="item"><span>Hit</span><b id="res-hit">-</b></div>
+          <div class="item"><span>Avoid Rate</span><b id="res-avoidRate">-</b></div>
+          <div class="item"><span>Fatigue Index</span><b id="res-fatigue">-</b></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" data-action="play-again">🔁 Play Again</button>
+          <button class="btn" data-action="back-menu">← Menu</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- If you have dashboard collector -->
+  <!-- <script src="./js/vrfitness-stats.js"></script> -->
+
+  <script src="./js/balance-hold.js"></script>
 </body>
 </html>
