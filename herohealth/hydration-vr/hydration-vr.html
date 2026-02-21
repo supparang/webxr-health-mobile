@@ -341,10 +341,70 @@
       0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
+
+    /* ===== Path B: use ui-water.js ONLY (hide legacy HUD water panel) ===== */
+    body.b-uiwater .waterPanel{ display:none !important; }
+
+    /* quest ขยายเต็ม เมื่อซ่อน waterPanel แล้ว */
+    body.b-uiwater .questPanel{
+      grid-column: 1 / span 2 !important;
+      grid-row: 2 !important;
+      align-self: start !important;
+    }
+
+    /* ซ่อน spacer แถวล่างกันช่องว่างค้าง */
+    body.b-uiwater .hudSpacer{ display:none !important; }
+
+    /* จัด mini row ให้ดูดีขึ้นตอน quest กว้างเต็ม */
+    body.b-uiwater .questPanel .miniRow{
+      justify-content:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    /* mobile compact */
+    @media (max-width: 780px){
+      .hud{
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr auto;
+        gap:10px;
+        padding:
+          calc(10px + var(--sat)) calc(10px + var(--sar))
+          calc(84px + var(--sab)) calc(10px + var(--sal));
+      }
+      .resultGrid{ grid-template-columns:1fr; }
+      .card{ padding:14px; }
+      .header{ align-items:flex-start; }
+      .logo{ width:46px;height:46px;font-size:22px; }
+
+      /* วาง panel ตามลำดับบน mobile */
+      .hud > .panel:nth-child(1){ grid-column:1; grid-row:1; }
+      .hud > .panel:nth-child(2){ grid-column:1; grid-row:2; }
+      .questPanel{ grid-column:1 !important; grid-row:3 !important; }
+      .waterPanel{ grid-column:1 !important; grid-row:4 !important; align-self:start !important; }
+
+      body.b-uiwater .questPanel{
+        grid-column:1 !important;
+        grid-row:3 !important;
+      }
+    }
+
+    @media (max-width: 520px){
+      .v{ font-size:18px; }
+      .statBox{ padding:9px 10px; }
+      .questLine{ font-size:12px; }
+      .pill{ padding:7px 9px; }
+      body.b-uiwater .hud{
+        padding:
+          calc(10px + var(--sat)) calc(10px + var(--sar))
+          calc(82px + var(--sab)) calc(10px + var(--sal));
+      }
+    }
   </style>
 </head>
 
-<body class="view-pc">
+<!-- ✅ เปิด Path B ตรงนี้เลย -->
+<body class="view-pc b-uiwater">
   <!-- PLAYFIELD (PC/Mobile/cVR) -->
   <div id="playfield">
     <!-- ✅ ต้องมี ID นี้ให้ hydration.safe.js spawn ใส่ -->
@@ -383,7 +443,8 @@
       </div>
     </div>
 
-    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
+    <!-- ✅ questPanel class เพิ่มแล้ว -->
+    <div class="panel questPanel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
       <div class="questTitle">ภารกิจ Hydration 💧</div>
       <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
       <div class="questLine" id="quest-line2">—</div>
@@ -396,6 +457,7 @@
       </div>
     </div>
 
+    <!-- ⚠️ Legacy water panel (ยังเก็บไว้ในโค้ด แต่ Path B ซ่อนไว้ด้วย .b-uiwater) -->
     <div class="panel waterPanel" style="grid-column:2 / span 1; grid-row:2; align-self:end;">
       <div class="top">
         <div>
@@ -412,7 +474,8 @@
       <div class="waterTip" id="water-tip">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
     </div>
 
-    <div style="grid-column:1 / span 2; grid-row:3;"></div>
+    <!-- ✅ spacer มี class แล้ว -->
+    <div class="hudSpacer" style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
   <!-- START OVERLAY -->
@@ -498,6 +561,11 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
     const hub = String(qs('hub','../hub.html'));
 
+    // ✅ Path B auto via query (default = on)
+    const uiwater = String(qs('uiwater','1'));
+    if (uiwater === '1') document.body.classList.add('b-uiwater');
+    else document.body.classList.remove('b-uiwater');
+
     document.querySelectorAll('.btnBackHub').forEach(btn=>{
       btn.addEventListener('click', ()=> location.href = hub);
     });
@@ -516,6 +584,7 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
       if (view === 'cardboard' || view === 'cvr') await enterFull();
       const u = new URL(location.href);
       u.searchParams.set('view', view);
+      u.searchParams.set('uiwater', '1'); // ✅ force Path B ทุกโหมด
       if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
       location.href = u.toString();
     }
