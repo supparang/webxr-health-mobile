@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
-✅ No inline HUB/Restart binds (Boot คุมหมด)
-✅ No duplicate vr-ui.js load (Boot จะโหลดเมื่อ vr/cvr หรือ ?vrui=1)
-✅ IDs ของ safe.js ครบ + โครง HUD/overlay เหมือนเดิม
-✅ Versions locked: css?v=20260220b, boot.js?v=20260220b
+GoodJunkVR RUN (FOLDER) — PRODUCTION FULL (clean)
+v20260220b
+✅ IDs ครบสำหรับ goodjunk.safe.js
+✅ ไม่มี inline bind ปุ่ม HUB/Restart (ให้ boot.js คุม)
+✅ ไม่มีโหลด ../vr/vr-ui.js ซ้ำ (boot จะโหลดให้เมื่อจำเป็น)
+✅ โครง HUD / overlays ครบ
 -->
 <!doctype html>
 <html lang="th">
@@ -15,12 +16,12 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
   <link rel="icon" href="../favicon.ico"/>
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260220b"/>
 </head>
-
 <body class="gj view-pc">
+
   <!-- =========================================================
        TOPBAR
        ========================================================= -->
-  <div class="gj-topbar">
+  <div class="gj-topbar" role="region" aria-label="Top Bar">
     <div class="left">
       <span class="gj-chip gj-chip-brand">🍀 GoodJunkVR</span>
       <span id="chipMode" class="gj-chip gj-chip-mini">mode: —</span>
@@ -32,13 +33,9 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
       <button id="btnMissions" class="gj-btn" type="button">ภารกิจ</button>
       <button id="btnHideHud" class="gj-btn" type="button">ซ่อน HUD</button>
 
-      <!-- legacy ids (Boot รองรับ) -->
+      <!-- รองรับ id มาตรฐาน + id เดิม (boot.js bind ให้ทั้งคู่) -->
       <button id="btnRestart" class="gj-btn" type="button">เริ่มใหม่</button>
       <button id="btnHub" class="gj-btn primary" type="button">กลับ HUB</button>
-
-      <!-- optional standard ids (ถ้าคุณอยากใช้ในอนาคต Boot ก็รองรับ) -->
-      <!-- <button id="btnRestartTop" class="gj-btn" type="button">เริ่มใหม่</button> -->
-      <!-- <button id="btnHubTop" class="gj-btn primary" type="button">กลับ HUB</button> -->
     </div>
   </div>
 
@@ -48,10 +45,11 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
   <div class="gj-field" id="playfield" aria-label="GoodJunk Playfield">
     <div id="gj-layer" class="gj-layer" aria-label="GoodJunk Layer"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true" aria-label="GoodJunk Layer Right"></div>
+    <!-- safe.js อาจสร้าง #gj-fx เองแบบ hardened -->
   </div>
 
   <!-- =========================================================
-       HUD TOP (pointer-events none so it won't block targets)
+       HUD TOP
        ========================================================= -->
   <div class="gj-hud-top" id="hud" role="region" aria-label="HUD" style="pointer-events:none;">
     <div class="hud-row">
@@ -96,7 +94,7 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
   </div>
 
   <!-- =========================================================
-       HUD BOTTOM (quests + fever + shield)
+       HUD BOTTOM
        ========================================================= -->
   <div class="gj-hud-bot" aria-label="HUD Bottom">
     <div class="meter" aria-label="Goal">
@@ -125,7 +123,7 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
        Missions Peek (modal)
        ========================================================= -->
   <div id="missionsPeek" class="gj-quest-panel" aria-hidden="true">
-    <div class="gj-quest-card" role="dialog" aria-label="ภารกิจตอนนี้">
+    <div class="gj-quest-card" role="dialog" aria-modal="true" aria-label="ภารกิจตอนนี้">
       <div class="gj-quest-head">
         <div class="gj-quest-title">ภารกิจตอนนี้</div>
         <button id="btnClosePeek" class="gj-btn" type="button">ปิด</button>
@@ -153,7 +151,7 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
   </div>
 
   <!-- =========================================================
-       End overlay (safe.js จะเปิด aria-hidden=false ตอนจบเกม)
+       End overlay
        ========================================================= -->
   <div id="endOverlay" class="gj-end" aria-hidden="true">
     <div class="card">
@@ -168,107 +166,118 @@ GoodJunkVR RUN (FOLDER) — PRODUCTION FULL v20260220b (CLEAN)
       </div>
 
       <div class="actions">
-        <!-- Boot binds these too -->
+        <!-- id มาตรฐาน + id เดิม รองรับใน boot -->
         <button id="btnRestartEnd" class="btn" type="button">เล่นอีกครั้ง</button>
         <button id="btnBackHub" class="btn alt" type="button">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- Boot (single source of truth) -->
+  <!-- =========================================================
+       Boot (single source of truth)
+       ========================================================= -->
   <script type="module" src="./goodjunk-vr.boot.js?v=20260220b"></script>
 
-  <!-- UI-only wiring: missions modal + hide HUD + chips + quest peek text
-       (ไม่มี hub/restart bind ใด ๆ) -->
+  <!-- =========================================================
+       Lightweight UI-only wiring (ไม่ bind restart/hub เพื่อไม่ชนกับ boot)
+       - chips mode/diff
+       - missions modal open/close
+       - hide HUD toggle
+       - quest:update -> update peek text
+       ========================================================= -->
   <script>
     (function(){
       const DOC = document;
-      function qs(k, def=null){ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } }
+      const WIN = window;
 
-      // chips
+      function qs(k, defVal=null){
+        try { return new URL(location.href).searchParams.get(k) ?? defVal; }
+        catch(_) { return defVal; }
+      }
+
+      // --- chips ---
       const chipMode = DOC.getElementById('chipMode');
       const chipDiff = DOC.getElementById('chipDiff');
       if (chipMode) chipMode.textContent = `mode: ${qs('run','play')}`;
       if (chipDiff) chipDiff.textContent = `diff: ${qs('diff','normal')}`;
 
-      // show VR chip only when VR/CVR
-      const vrMiniHud = DOC.getElementById('vrMiniHud');
-      if (vrMiniHud) {
-        const view = String(qs('view','')||'').toLowerCase();
-        const hintedStereo = String(qs('stereo','')||'').toLowerCase();
-        const isCvr = (view === 'cvr') || hintedStereo === '1' || hintedStereo === 'true';
-        const isVr  = (view === 'vr');
-        vrMiniHud.style.display = (isVr || isCvr) ? 'inline-flex' : 'none';
-      }
-
-      // HUD hide/show
-      const btnH = DOC.getElementById('btnHideHud');
+      // --- HUD show/hide (UI-only) ---
+      const btnHideHud = DOC.getElementById('btnHideHud');
       function syncHudBtn(){
+        if (!btnHideHud) return;
         const hidden = DOC.body.classList.contains('hud-hidden');
-        if (btnH) btnH.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
+        btnHideHud.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
       }
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
       }
-      if (btnH) btnH.addEventListener('click', toggleHud, { passive:true });
+      btnHideHud && btnHideHud.addEventListener('click', toggleHud);
       syncHudBtn();
 
-      // Missions peek modal
-      const btnM = DOC.getElementById('btnMissions');
-      const peek = DOC.getElementById('missionsPeek');
+      // --- Missions modal ---
+      const btnMissions  = DOC.getElementById('btnMissions');
+      const missionsPeek = DOC.getElementById('missionsPeek');
       const btnClosePeek = DOC.getElementById('btnClosePeek');
 
       function showPeek(on){
-        if(!peek) return;
-        if(on){
-          peek.setAttribute('aria-hidden','false');
+        if (!missionsPeek) return;
+        if (on){
+          missionsPeek.setAttribute('aria-hidden', 'false');
           DOC.body.classList.add('quest-open');
-        }else{
-          peek.setAttribute('aria-hidden','true');
+        } else {
+          missionsPeek.setAttribute('aria-hidden', 'true');
           DOC.body.classList.remove('quest-open');
         }
       }
-      if (btnM) btnM.addEventListener('click', ()=> showPeek(true), { passive:true });
-      if (btnClosePeek) btnClosePeek.addEventListener('click', ()=> showPeek(false), { passive:true });
-      if (peek) peek.addEventListener('click', (e)=>{ if(e.target === peek) showPeek(false); }, { passive:true });
 
-      // quest:update -> update peek text
+      btnMissions && btnMissions.addEventListener('click', ()=>showPeek(true));
+      btnClosePeek && btnClosePeek.addEventListener('click', ()=>showPeek(false));
+      missionsPeek && missionsPeek.addEventListener('click', (e)=>{
+        if (e.target === missionsPeek) showPeek(false);
+      });
+
+      // --- quest:update -> missions peek text ---
       const peekGoal = DOC.getElementById('peekGoal');
       const peekMini = DOC.getElementById('peekMini');
-      function safeText(x){ return (x==null) ? '—' : String(x); }
+
+      function safeText(x){ return (x == null) ? '—' : String(x); }
 
       function onQuestUpdate(ev){
         try{
-          const goal = ev?.detail?.goal || null;
-          const mini = ev?.detail?.mini || null;
+          const goal = ev && ev.detail ? (ev.detail.goal || null) : null;
+          const mini = ev && ev.detail ? (ev.detail.mini || null) : null;
 
-          if(peekGoal){
-            if(goal){
-              peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
-            }else{
+          if (peekGoal){
+            if (goal){
+              peekGoal.textContent =
+                `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
+            } else {
               peekGoal.textContent = 'GOAL: —';
             }
           }
 
-          if(peekMini){
-            if(mini){
-              if(mini.type === 'fast_hits'){
-                peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) < ${safeText(mini.thrMs)}ms`;
-              }else if(typeof mini.timeLeftSec === 'number'){
-                peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) • ${Math.ceil(mini.timeLeftSec)}s`;
-              }else if(mini.timerText){
-                peekMini.textContent = `MINI: ${safeText(mini.title)} • ${safeText(mini.timerText)}`;
-              }else{
-                peekMini.textContent = `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
+          if (peekMini){
+            if (mini){
+              if (mini.type === 'fast_hits'){
+                peekMini.textContent =
+                  `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) < ${safeText(mini.thrMs)}ms`;
+              } else if (typeof mini.timeLeftSec === 'number'){
+                peekMini.textContent =
+                  `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) • ${Math.ceil(mini.timeLeftSec)}s`;
+              } else {
+                peekMini.textContent =
+                  `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
               }
-            }else{
+            } else {
               peekMini.textContent = 'MINI: —';
             }
           }
         }catch(_){}
       }
-      window.addEventListener('quest:update', onQuestUpdate, { passive:true });
+
+      WIN.addEventListener('quest:update', onQuestUpdate, { passive:true });
+      DOC.addEventListener('quest:update', onQuestUpdate, { passive:true });
     })();
   </script>
 </body>
