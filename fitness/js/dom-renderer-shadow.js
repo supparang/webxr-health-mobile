@@ -3,9 +3,9 @@
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
-// ✅ store targets as { el, type }
+// ✅ store targets as { el, type } (engine uses type)
 // ✅ expireTarget(id) with soft fade/shrink
-// ✅ expire FX is OPTIONAL (engine decides if miss should be shown)
+// ✅ renderer no longer decides MISS-on-expire (engine decides UX + miss rules)
 
 'use strict';
 
@@ -40,7 +40,7 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // margins driven by CSS vars (helps HUD/meta not overlap spawn area)
+    // margins driven by CSS vars (tune in CSS without touching JS)
     const cs = getComputedStyle(document.documentElement);
     const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
     const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
@@ -112,7 +112,7 @@ export class DomRendererShadow {
     this.targets.delete(id);
   }
 
-  // Soft expire animation then remove
+  // Soft expire animation only (MISS logic/FX handled by engine)
   expireTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
@@ -120,27 +120,20 @@ export class DomRendererShadow {
 
     try {
       el.classList.add('is-expiring');
-      el.style.pointerEvents = 'none'; // prevent click during fade
+      el.style.pointerEvents = 'none';
       setTimeout(() => this.removeTarget(id), 180);
     } catch {
       this.removeTarget(id);
     }
   }
 
-  // Optional dedicated expire FX (engine should call ONLY when missCounted === true)
-  playExpireFx(id, opts = {}){
+  // optional helper for engine
+  getTargetCenter(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
-    if (!el) return;
-
-    const rect = el.getBoundingClientRect();
-    const x = opts.clientX ?? (rect.left + rect.width / 2);
-    const y = opts.clientY ?? (rect.top + rect.height / 2);
-    const label = opts.label || 'MISS';
-
-    // เบา ๆ ไม่แรงเกินไป จะได้ไม่ชนกับ hit FX
-    FxBurst.burst(x, y, { n: 6, spread: 34, ttlMs: 380, cls: 'sb-fx-miss' });
-    FxBurst.popText(x, y, label, 'sb-fx-miss');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
   }
 
   playHitFx(id, info = {}){
@@ -156,17 +149,16 @@ export class DomRendererShadow {
 
     if (grade === 'perfect') {
       FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0, scoreDelta)}`, 'sb-fx-fever');
 
     } else if (grade === 'good') {
       FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
+      FxBurst.popText(x, y, `+${Math.max(0, scoreDelta)}`, 'sb-fx-hit');
 
     } else if (grade === 'bad') {
-      // decoy hit
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-decoy' });
-      if (scoreDelta < 0) FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-decoy');
-      else FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-decoy');
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
+      // decoy usually negative score — show sign correctly
+      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : '-'}${Math.abs(scoreDelta)}`, 'sb-fx-miss');
 
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
@@ -180,12 +172,14 @@ export class DomRendererShadow {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
 
-    } else if (grade === 'expire') {
-      // IMPORTANT:
-      // Keep silent by default to avoid fake MISS on decoy/bomb/heal/shield expiry.
-      // Engine should call playExpireFx() only when missCounted=true.
-      // (No-op here intentionally.)
-      return;
+    } else if (grade === 'expire-miss') {
+      // show MISS only when engine decides this expire should count miss
+      FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
+
+    } else if (grade === 'expire-soft') {
+      // very subtle fade feedback (optional for non-miss expire)
+      FxBurst.burst(x, y, { n: 4, spread: 28, ttlMs: 260, cls: 'sb-fx-decoy' });
 
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
