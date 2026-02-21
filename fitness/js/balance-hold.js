@@ -1,4 +1,4 @@
-// fitness/js/balance-hold.js
+// /fitness/js/balance-hold.js
 // DOM-based Balance Platform + Obstacle Avoidance
 'use strict';
 
@@ -6,48 +6,47 @@ const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
 /* ---- DOM refs ---- */
-const viewMenu    = $('#view-menu');
-const viewResearch= $('#view-research');
-const viewPlay    = $('#view-play');
-const viewResult  = $('#view-result');
+const viewMenu     = $('#view-menu');
+const viewResearch = $('#view-research');
+const viewPlay     = $('#view-play');
+const viewResult   = $('#view-result');
 
-const elDiffSel   = $('#difficulty');
-const elDurSel    = $('#sessionDuration');
+const elDiffSel    = $('#difficulty');
+const elDurSel     = $('#sessionDuration');
 
-const hudMode     = $('#hud-mode');
-const hudDiff     = $('#hud-diff');
-const hudDur      = $('#hud-dur');
-const hudStab     = $('#hud-stability');
-const hudObs      = $('#hud-obstacles');
-const hudTime     = $('#hud-time');
+const hudMode      = $('#hud-mode');
+const hudDiff      = $('#hud-diff');
+const hudDur       = $('#hud-dur');
+const hudStab      = $('#hud-stability');
+const hudObs       = $('#hud-obstacles');
+const hudTime      = $('#hud-time');
 
-const playArea    = $('#playArea');
-const platformWrap= $('#platform-wrap');
-const platformEl  = $('#platform');
-const indicatorEl = $('#indicator');
+const playArea      = $('#playArea');
+const platformWrap  = $('#platform-wrap');
+const platformEl    = $('#platform');
+const indicatorEl   = $('#indicator');
 const obstacleLayer = $('#obstacle-layer');
-const coachLabel  = $('#coachLabel');
-const coachBubble = $('#coachBubble');
+const coachLabel    = $('#coachLabel');
+const coachBubble   = $('#coachBubble');
 
 /* result fields */
-const resMode        = $('#res-mode');
-const resDiff        = $('#res-diff');
-const resDur         = $('#res-dur');
-const resEnd         = $('#res-end');
-const resStab        = $('#res-stability');
-const resMeanTilt    = $('#res-meanTilt');
-const resRmsTilt     = $('#res-rmsTilt');
-const resAvoid       = $('#res-avoid');
-const resHit         = $('#res-hit');
-const resAvoidRate   = $('#res-avoidRate');
-const resFatigue     = $('#res-fatigue');
-const resSamples     = $('#res-samples');
+const resMode      = $('#res-mode');
+const resDiff      = $('#res-diff');
+const resDur       = $('#res-dur');
+const resEnd       = $('#res-end');
+const resStab      = $('#res-stability');
+const resMeanTilt  = $('#res-meanTilt');
+const resRmsTilt   = $('#res-rmsTilt');
+const resAvoid     = $('#res-avoid');
+const resHit       = $('#res-hit');
+const resAvoidRate = $('#res-avoidRate');
+const resFatigue   = $('#res-fatigue');
+const resSamples   = $('#res-samples');
 
 /* ---- Config ---- */
-
 const GAME_DIFF = {
   easy: {
-    safeHalf: 0.35,      // โซนปลอดภัย กว้าง
+    safeHalf: 0.35,
     disturbMinMs: 1400,
     disturbMaxMs: 2600,
     disturbStrength: 0.18,
@@ -64,14 +63,12 @@ const GAME_DIFF = {
     safeHalf: 0.18,
     disturbMinMs: 900,
     disturbMaxMs: 1800,
-    disturbStrength: 0.3,
+    disturbStrength: 0.30,
     passiveDrift: 0.03
   }
 };
 
-function pickDiff(key){
-  return GAME_DIFF[key] || GAME_DIFF.normal;
-}
+function pickDiff(key){ return GAME_DIFF[key] || GAME_DIFF.normal; }
 
 function mapEndReason(code){
   switch(code){
@@ -83,13 +80,15 @@ function mapEndReason(code){
 const fmtPercent = (v)=>(v==null||Number.isNaN(v))?'-':(v*100).toFixed(1)+'%';
 const fmtFloat   = (v,d=2)=>(v==null||Number.isNaN(v))?'-':v.toFixed(d);
 
-/* ---- State ---- */
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function randomBetween(a,b){ return a + Math.random()*(b-a); }
 
-let gameMode   = 'play'; // 'play' | 'research'
-let state      = null;
-let rafId      = null;
-let logger     = null;
-let sessionMeta= null;
+/* ---- State ---- */
+let gameMode    = 'play'; // 'play' | 'research'
+let state       = null;
+let rafId       = null;
+let logger      = null;
+let sessionMeta = null;
 
 const COACH_LINES = {
   welcome: 'พร้อมทรงตัวแล้วนะ ✨ เลื่อนไปซ้าย–ขวาเบา ๆ เพื่อรักษาจุดให้อยู่โซนปลอดภัย / Gently balance left–right to stay in the safe zone.',
@@ -103,7 +102,6 @@ let lastCoachSnapshot = null;
 const COACH_COOLDOWN_MS = 5000;
 
 /* ---- Views ---- */
-
 function showView(name){
   [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v && v.classList.add('hidden'));
   if (name==='menu')     viewMenu && viewMenu.classList.remove('hidden');
@@ -113,7 +111,6 @@ function showView(name){
 }
 
 /* ---- Coach ---- */
-
 function showCoach(key){
   if (!coachBubble) return;
   const now = performance.now();
@@ -123,7 +120,9 @@ function showCoach(key){
   lastCoachAt = now;
   coachBubble.textContent = msg;
   coachBubble.classList.remove('hidden');
-  setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 4200);
+  setTimeout(()=>{
+    if (coachBubble) coachBubble.classList.add('hidden');
+  }, 4200);
 }
 
 function updateCoach(){
@@ -135,6 +134,7 @@ function updateCoach(){
     avoidObstacles: state.obstaclesAvoided,
     meanTilt: Math.abs(state.meanTilt || 0)
   };
+
   if (!lastCoachSnapshot){
     showCoach('welcome');
     lastCoachSnapshot = snap;
@@ -143,16 +143,14 @@ function updateCoach(){
   const prev = lastCoachSnapshot;
 
   // stability improved
-  if (snap.totalSamples>20){
-    const prevStab = prev.totalSamples? (prev.stabTime/prev.totalSamples) : 0;
-    const currStab = snap.totalSamples? (snap.stabTime/snap.totalSamples):0;
-    if (currStab - prevStab > 0.12){
-      showCoach('good');
-    }
+  if (snap.totalSamples > 20){
+    const prevStab = prev.totalSamples ? (prev.stabTime/prev.totalSamples) : 0;
+    const currStab = snap.totalSamples ? (snap.stabTime/snap.totalSamples) : 0;
+    if (currStab - prevStab > 0.12) showCoach('good');
   }
 
   // drift high
-  if (snap.meanTilt>0.5 && prev.meanTilt<=0.5){
+  if (snap.meanTilt > 0.5 && prev.meanTilt <= 0.5){
     showCoach('drift');
   }
 
@@ -167,7 +165,6 @@ function updateCoach(){
 }
 
 /* ---- CSV Logger ---- */
-
 function createCSVLogger(meta){
   const rows = [];
   const header = [
@@ -192,8 +189,8 @@ function createCSVLogger(meta){
   }
 
   return {
-    logSample(info){ push('sample',info); },
-    logObstacle(info){ push('obstacle',info); },
+    logSample(info){ push('sample', info); },
+    logObstacle(info){ push('obstacle', info); },
     finish(summary){
       push('summary',{
         tilt: summary.meanTilt,
@@ -203,16 +200,17 @@ function createCSVLogger(meta){
         obstacleResult:`avoid=${summary.obstaclesAvoided},hit=${summary.obstaclesHit}`
       });
 
+      // auto download CSV in research mode
       if (meta.mode === 'research'){
         const csv = rows.map(r=>r.map(v=>{
           const s = String(v ?? '');
-          if (s.includes('"') || s.includes(',')){
+          if (s.includes('"') || s.includes(',') || s.includes('\n')){
             return '"' + s.replace(/"/g,'""') + '"';
           }
           return s;
         }).join(',')).join('\r\n');
 
-        const blob = new Blob([csv],{type:'text/csv'});
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
         const url  = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -220,7 +218,7 @@ function createCSVLogger(meta){
         document.body.appendChild(a);
         a.click();
         setTimeout(()=>{
-          document.body.removeChild(a);
+          try{ document.body.removeChild(a); }catch(e){}
           URL.revokeObjectURL(url);
         }, 120);
       }
@@ -228,8 +226,7 @@ function createCSVLogger(meta){
   };
 }
 
-/* dashboard hook */
-
+/* ---- dashboard hook ---- */
 const globalStats =
   (window.VRFitnessStats && window.VRFitnessStats.recordSession)
   ? window.VRFitnessStats
@@ -242,15 +239,14 @@ function recordSessionToDashboard(gameId, summary){
     try{
       const key = 'vrfit_sessions_'+gameId;
       const arr = JSON.parse(localStorage.getItem(key) || '[]');
-      arr.push({...summary, ts:Date.now()});
+      arr.push({ ...summary, ts: Date.now() });
       localStorage.setItem(key, JSON.stringify(arr));
     }catch(e){}
   }
 }
 
 /* ---- Session meta ---- */
-
-function buildSessionMeta(diffKey,durationSec){
+function buildSessionMeta(diffKey, durationSec){
   let playerId='anon', group='', phase='';
   if (gameMode==='research'){
     const id  = $('#researchId')?.value.trim();
@@ -262,7 +258,7 @@ function buildSessionMeta(diffKey,durationSec){
   }
   return {
     gameId:'balance-hold',
-    playerId,group,phase,
+    playerId, group, phase,
     mode: gameMode,
     difficulty: diffKey,
     durationSec,
@@ -271,41 +267,43 @@ function buildSessionMeta(diffKey,durationSec){
 }
 
 /* ---- Start game ---- */
-
 function startGame(kind){
-  gameMode = (kind==='research' ? 'research' : 'play');
+  gameMode = (kind === 'research' ? 'research' : 'play');
 
-  const diffKey  = elDiffSel?.value || 'normal';
-  const durSec   = parseInt(elDurSel?.value || '60',10) || 60;
-  const cfg      = pickDiff(diffKey);
+  const diffKey = elDiffSel?.value || 'normal';
+  const durSec  = parseInt(elDurSel?.value || '60',10) || 60;
+  const cfg     = pickDiff(diffKey);
 
-  sessionMeta = buildSessionMeta(diffKey,durSec);
+  sessionMeta = buildSessionMeta(diffKey, durSec);
   logger      = createCSVLogger(sessionMeta);
+
+  // clear old obstacles
+  if (obstacleLayer) obstacleLayer.innerHTML = '';
 
   const now = performance.now();
   state = {
     diffKey,
     cfg,
-    durationMs: durSec*1000,
+    durationMs: durSec * 1000,
     startTime: now,
     elapsed: 0,
 
-    angle: 0,         // -1..1
-    targetAngle: 0,   // -1..1
+    angle: 0,       // current simulated balance angle -1..1+
+    targetAngle: 0, // player input target -1..1
     lastFrame: now,
-    inputActive:false,
+    inputActive: false,
 
     // sampling
     sampleEveryMs: 120,
     nextSampleAt: now + 120,
     totalSamples: 0,
-    stableSamples:0,
+    stableSamples: 0,
     sumTiltAbs: 0,
     sumTiltSq: 0,
-    samples: [],   // {tNorm, tilt}
+    samples: [], // {tNorm, tilt}
 
     // obstacles
-    nextObstacleAt: now + randomBetween(cfg.disturbMinMs,cfg.disturbMaxMs),
+    nextObstacleAt: now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs),
     obstacleSeq: 1,
     obstaclesTotal: 0,
     obstaclesAvoided: 0,
@@ -318,7 +316,7 @@ function startGame(kind){
   lastCoachSnapshot = null;
   if (coachBubble) coachBubble.classList.add('hidden');
 
-  if (hudMode) hudMode.textContent = (gameMode==='research'?'Research':'Play');
+  if (hudMode) hudMode.textContent = (gameMode==='research' ? 'Research' : 'Play');
   if (hudDiff) hudDiff.textContent = diffKey;
   if (hudDur)  hudDur.textContent  = String(durSec);
   if (hudStab) hudStab.textContent = '0%';
@@ -328,26 +326,20 @@ function startGame(kind){
   if (coachLabel) coachLabel.textContent =
     'จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance';
 
-  if (rafId!=null) cancelAnimationFrame(rafId);
+  if (rafId != null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 
   showView('play');
 }
 
-/* helpers */
-
-function randomBetween(a,b){
-  return a + Math.random()*(b-a);
-}
-
-/* main loop */
-
+/* ---- main loop ---- */
 function loop(now){
   if (!state) return;
-  const dt = now - state.lastFrame;
-  state.lastFrame = now;
 
+  const dt = Math.max(0, Math.min(50, now - state.lastFrame)); // clamp dt
+  state.lastFrame = now;
   state.elapsed = now - state.startTime;
+
   const remainMs = Math.max(0, state.durationMs - state.elapsed);
   if (hudTime) hudTime.textContent = (remainMs/1000).toFixed(1);
 
@@ -359,28 +351,28 @@ function loop(now){
   // physics: move angle toward target + passive drift
   const cfg = state.cfg;
   const lerp = 0.11;
-  const driftDir = (Math.random()<0.5? -1:1) * cfg.passiveDrift * (dt/1000);
+  const driftDir = (Math.random()<0.5 ? -1 : 1) * cfg.passiveDrift * (dt/1000);
+
+  // tiny disturbance baseline (feels alive)
   const target = state.targetAngle + driftDir;
-  state.angle += (target - state.angle)*lerp;
+  state.angle += (target - state.angle) * lerp;
 
-  // clamp
-  state.angle = Math.max(-1.2, Math.min(1.2, state.angle));
-  state.targetAngle = Math.max(-1, Math.min(1, state.targetAngle));
+  state.angle = clamp(state.angle, -1.2, 1.2);
+  state.targetAngle = clamp(state.targetAngle, -1, 1);
 
-  // update visuals
   updateVisuals();
 
   // sampling stability
   if (now >= state.nextSampleAt){
-    const safeHalf = cfg.safeHalf;
-    const inSafe = Math.abs(state.angle) <= safeHalf;
+    const inSafe = Math.abs(state.angle) <= cfg.safeHalf;
     state.totalSamples++;
     if (inSafe) state.stableSamples++;
+
     const absTilt = Math.abs(state.angle);
     state.sumTiltAbs += absTilt;
-    state.sumTiltSq  += absTilt*absTilt;
+    state.sumTiltSq  += absTilt * absTilt;
     const tNorm = state.elapsed / state.durationMs;
-    state.samples.push({tNorm, tilt:absTilt});
+    state.samples.push({ tNorm, tilt: absTilt });
 
     logger && logger.logSample({
       tilt: state.angle.toFixed(4),
@@ -390,9 +382,11 @@ function loop(now){
 
     state.nextSampleAt = now + state.sampleEveryMs;
 
-    const stabRatio = state.totalSamples? state.stableSamples/state.totalSamples : 0;
+    const stabRatio = state.totalSamples ? state.stableSamples/state.totalSamples : 0;
     if (hudStab) hudStab.textContent = fmtPercent(stabRatio);
 
+    // keep lightweight live mean for coach drift check
+    state.meanTilt = state.totalSamples ? (state.sumTiltAbs / state.totalSamples) : 0;
     updateCoach();
   }
 
@@ -404,10 +398,10 @@ function loop(now){
   rafId = requestAnimationFrame(loop);
 }
 
-/* visuals */
-
+/* ---- visuals ---- */
 function updateVisuals(){
   if (!platformEl || !indicatorEl || !state) return;
+
   const maxDeg = 16;
   const angleDeg = state.angle * maxDeg;
   platformEl.style.transform = `rotate(${angleDeg}deg)`;
@@ -416,46 +410,49 @@ function updateVisuals(){
   if (wrapRect){
     const halfW = wrapRect.width * 0.34;
     const x = state.angle * halfW;
-    indicatorEl.style.transform =
-      `translateX(${x}px) translateY(-18px)`;
+    indicatorEl.style.transform = `translateX(${x}px) translateY(-18px)`;
   }
 
-  // update HUD obstacles
   if (hudObs){
     hudObs.textContent = `${state.obstaclesAvoided} / ${state.obstaclesTotal}`;
   }
 }
 
-/* obstacles */
-
+/* ---- obstacles ---- */
 function spawnObstacle(now){
   if (!state || !obstacleLayer) return;
+
   const cfg = state.cfg;
   const id = state.obstacleSeq++;
   state.obstaclesTotal++;
 
-  const kind = Math.random()<0.6 ? 'gust' : 'bomb';
-  const emoji = kind==='gust' ? '💨' : '💣';
+  const kind = Math.random() < 0.6 ? 'gust' : 'bomb';
+  const emoji = kind === 'gust' ? '💨' : '💣';
 
   const span = document.createElement('div');
   span.className = 'obstacle';
   span.textContent = emoji;
+  span.dataset.id = String(id);
+  span.dataset.kind = kind;
 
   const wrapRect = playArea?.getBoundingClientRect();
-  let xNorm = (Math.random()*2 - 1); // -1..1
+  const xNorm = (Math.random()*2 - 1); // -1..1
   const pxX = wrapRect ? (wrapRect.width/2 + xNorm*(wrapRect.width*0.32)) : 0;
 
-  span.style.left = pxX+'px';
+  span.style.left = pxX + 'px';
   obstacleLayer.appendChild(span);
-  setTimeout(()=> span.remove(), 1300);
 
-  // resolve hit / avoid at "impact" time (end of animation)
-  const impactAt = now + 950;
+  // remove fallback if still present
+  const removeTimer = setTimeout(()=>{
+    try{ span.remove(); }catch(e){}
+  }, 1500);
+
+  // resolve at impact time
+  const impactDelay = Math.max(0, 950); // stable timing relative to spawn
   setTimeout(()=>{
     if (!state) return;
-    const safeHalf = cfg.safeHalf;
-    const absTilt = Math.abs(state.angle);
-    const inSafe = absTilt <= safeHalf;
+
+    const inSafe = Math.abs(state.angle) <= cfg.safeHalf;
 
     if (inSafe){
       span.classList.add('avoid');
@@ -463,30 +460,32 @@ function spawnObstacle(now){
     }else{
       span.classList.add('hit');
       state.obstaclesHit++;
-      // push tilt a bit more to simulate knock
-      const knockDir = (state.angle>=0 ? 1 : -1);
-      state.angle += knockDir * cfg.disturbStrength*0.7;
+      // knock further toward same tilt direction (or random if centered)
+      const knockDir = (Math.abs(state.angle) < 0.02) ? (Math.random()<0.5 ? -1 : 1) : (state.angle >= 0 ? 1 : -1);
+      state.angle += knockDir * cfg.disturbStrength * 0.7;
+      state.angle = clamp(state.angle, -1.2, 1.2);
     }
 
     logger && logger.logObstacle({
-      obstacleId:id,
-      obstacleResult: inSafe?'avoid':'hit',
+      obstacleId: id,
+      obstacleResult: inSafe ? 'avoid' : 'hit',
       tilt: state.angle.toFixed(4),
-      inSafe: inSafe?1:0
+      inSafe: inSafe ? 1 : 0
     });
 
     if (hudObs){
-      hudObs.textContent =
-        `${state.obstaclesAvoided} / ${state.obstaclesTotal}`;
+      hudObs.textContent = `${state.obstaclesAvoided} / ${state.obstaclesTotal}`;
     }
-  }, impactAt - performance.now());
 
-  // next obstacle
-  state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs,cfg.disturbMaxMs);
+    // let avoid/hit animation show before removing
+    clearTimeout(removeTimer);
+    setTimeout(()=>{ try{ span.remove(); }catch(e){} }, 360);
+  }, impactDelay);
+
+  state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs);
 }
 
 /* ---- Analytics ---- */
-
 function computeAnalytics(){
   if (!state || !state.totalSamples){
     return {
@@ -497,39 +496,39 @@ function computeAnalytics(){
       samples:0
     };
   }
-  const n = state.totalSamples;
-  const stabRatio = state.stableSamples / n;
-  const meanTilt  = state.sumTiltAbs / n;
-  const rmsTilt   = Math.sqrt(state.sumTiltSq / n);
 
-  // fatigue: compare first 25% vs last 25% of samples
-  let fatigue = 0;
-  if (state.samples.length>=8){
+  const n = state.totalSamples;
+  const stabilityRatio = state.stableSamples / n;
+  const meanTilt = state.sumTiltAbs / n;
+  const rmsTilt = Math.sqrt(state.sumTiltSq / n);
+
+  // fatigue: compare first 25% vs last 25%
+  let fatigueIndex = 0;
+  if (state.samples.length >= 8){
     const arr = state.samples;
-    const seg = Math.max(2, Math.floor(arr.length*0.25));
+    const seg = Math.max(2, Math.floor(arr.length * 0.25));
     const early = arr.slice(0, seg);
     const late  = arr.slice(-seg);
-    const mE = early.reduce((a,b)=>a+b.tilt,0)/early.length;
-    const mL = late.reduce((a,b)=>a+b.tilt,0)/late.length;
-    if (mE>0) fatigue = (mL-mE)/mE;
+    const mE = early.reduce((a,b)=>a+b.tilt,0) / early.length;
+    const mL = late.reduce((a,b)=>a+b.tilt,0) / late.length;
+    if (mE > 0) fatigueIndex = (mL - mE) / mE;
   }
 
-  return {
-    stabilityRatio: stabRatio,
-    meanTilt,
-    rmsTilt,
-    fatigueIndex: fatigue,
-    samples: n
-  };
+  return { stabilityRatio, meanTilt, rmsTilt, fatigueIndex, samples:n };
 }
 
 /* ---- Stop & summary ---- */
-
 function stopGame(endedBy){
   if (!state) return;
-  if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
+
+  if (rafId != null){
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
 
   const a = computeAnalytics();
+  const liveSamples = state.totalSamples;
+
   const summary = {
     gameId:'balance-hold',
     mode: sessionMeta?.mode || gameMode,
@@ -540,7 +539,8 @@ function stopGame(endedBy){
     rmsTilt: a.rmsTilt,
     fatigueIndex: a.fatigueIndex,
     obstaclesAvoided: state.obstaclesAvoided,
-    obstaclesHit: state.obstaclesHit
+    obstaclesHit: state.obstaclesHit,
+    samples: liveSamples
   };
 
   logger && logger.finish(summary);
@@ -553,32 +553,29 @@ function stopGame(endedBy){
 }
 
 function fillResultView(endedBy, summary){
-  const modeLabel =
-    summary.mode==='research' ? 'Research' :
-    'Play';
+  const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
 
-  if (resMode)      resMode.textContent      = modeLabel;
-  if (resDiff)      resDiff.textContent      = summary.difficulty || '-';
-  if (resDur)       resDur.textContent       = String(summary.durationSec || '-');
-  if (resEnd)       resEnd.textContent       = mapEndReason(endedBy);
+  if (resMode)      resMode.textContent = modeLabel;
+  if (resDiff)      resDiff.textContent = summary.difficulty || '-';
+  if (resDur)       resDur.textContent  = String(summary.durationSec || '-');
+  if (resEnd)       resEnd.textContent  = mapEndReason(endedBy);
 
-  if (resStab)      resStab.textContent      = fmtPercent(summary.stabilityRatio || 0);
-  if (resMeanTilt)  resMeanTilt.textContent  = fmtFloat(summary.meanTilt || 0,3);
-  if (resRmsTilt)   resRmsTilt.textContent   = fmtFloat(summary.rmsTilt || 0,3);
+  if (resStab)      resStab.textContent     = fmtPercent(summary.stabilityRatio || 0);
+  if (resMeanTilt)  resMeanTilt.textContent = fmtFloat(summary.meanTilt || 0, 3);
+  if (resRmsTilt)   resRmsTilt.textContent  = fmtFloat(summary.rmsTilt || 0, 3);
 
-  if (resAvoid)     resAvoid.textContent     = String(summary.obstaclesAvoided || 0);
-  if (resHit)       resHit.textContent       = String(summary.obstaclesHit || 0);
+  if (resAvoid)     resAvoid.textContent = String(summary.obstaclesAvoided || 0);
+  if (resHit)       resHit.textContent   = String(summary.obstaclesHit || 0);
 
-  const totalObs    = (summary.obstaclesAvoided||0)+(summary.obstaclesHit||0);
-  const avoidRate   = totalObs? (summary.obstaclesAvoided/totalObs) : 0;
+  const totalObs = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const avoidRate = totalObs ? (summary.obstaclesAvoided/totalObs) : 0;
   if (resAvoidRate) resAvoidRate.textContent = fmtPercent(avoidRate);
 
-  if (resFatigue)   resFatigue.textContent   = fmtFloat(summary.fatigueIndex || 0,3);
-  if (resSamples)   resSamples.textContent   = String(state ? state.totalSamples : (summary.samples||0));
+  if (resFatigue)   resFatigue.textContent = fmtFloat(summary.fatigueIndex || 0, 3);
+  if (resSamples)   resSamples.textContent = String(summary.samples || 0);
 }
 
 /* ---- Input handling ---- */
-
 function attachInput(){
   if (!playArea) return;
 
@@ -587,64 +584,71 @@ function attachInput(){
   function updateTargetFromEvent(ev){
     if (!state) return;
     const rect = playArea.getBoundingClientRect();
-    const x = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX);
-    if (x==null) return;
+
+    let x = ev.clientX;
+    if (x == null && ev.touches && ev.touches[0]) x = ev.touches[0].clientX;
+    if (x == null) return;
+
     const relX = (x - rect.left) / rect.width; // 0..1
     const norm = (relX - 0.5) * 2; // -1..1
-    state.targetAngle = norm;
+    state.targetAngle = clamp(norm, -1, 1);
   }
 
   playArea.addEventListener('pointerdown', ev=>{
     active = true;
     if (state) state.inputActive = true;
-    playArea.setPointerCapture(ev.pointerId);
+    try{ playArea.setPointerCapture(ev.pointerId); }catch(e){}
     updateTargetFromEvent(ev);
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive:false });
 
   playArea.addEventListener('pointermove', ev=>{
     if (!active) return;
     updateTargetFromEvent(ev);
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive:false });
 
   playArea.addEventListener('pointerup', ev=>{
     active = false;
     if (state) state.inputActive = false;
     try{ playArea.releasePointerCapture(ev.pointerId); }catch(e){}
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive:false });
 
   playArea.addEventListener('pointercancel', ev=>{
     active = false;
     if (state) state.inputActive = false;
+    try{ playArea.releasePointerCapture(ev.pointerId); }catch(e){}
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive:false });
+
+  // Optional: keyboard support for PC
+  window.addEventListener('keydown', ev=>{
+    if (!state) return;
+    if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A'){
+      state.targetAngle = clamp(state.targetAngle - 0.12, -1, 1);
+    }else if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D'){
+      state.targetAngle = clamp(state.targetAngle + 0.12, -1, 1);
+    }
+  });
 }
 
 /* ---- Init ---- */
-
 function init(){
-  // menu actions
-  $('[data-action="start-normal"]')?.addEventListener('click',()=>{
-    startGame('play');
-  });
-  $('[data-action="goto-research"]')?.addEventListener('click',()=>{
-    showView('research');
-  });
+  $('[data-action="start-normal"]')?.addEventListener('click', ()=> startGame('play'));
+  $('[data-action="goto-research"]')?.addEventListener('click', ()=> showView('research'));
+
   $$('[data-action="back-menu"]').forEach(btn=>{
-    btn.addEventListener('click',()=> showView('menu'));
+    btn.addEventListener('click', ()=> showView('menu'));
   });
 
-  $('[data-action="start-research"]')?.addEventListener('click',()=>{
-    startGame('research');
-  });
+  $('[data-action="start-research"]')?.addEventListener('click', ()=> startGame('research'));
 
-  $('[data-action="stop"]')?.addEventListener('click',()=>{
+  $('[data-action="stop"]')?.addEventListener('click', ()=>{
     if (state) stopGame('manual');
   });
 
-  $('[data-action="play-again"]')?.addEventListener('click',()=>{
+  $('[data-action="play-again"]')?.addEventListener('click', ()=>{
     showView('menu');
   });
 
