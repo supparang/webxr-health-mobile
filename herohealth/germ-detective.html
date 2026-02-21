@@ -1,277 +1,331 @@
+<!-- === /herohealth/germ-detective.html ===
+Germ Detective Launcher — PC/Mobile/Cardboard
+✅ Query passthrough to run file
+✅ Presets: case/diff/time/view
+✅ Seed + PID + AI toggle
+✅ Back to HUB support (?hub=...)
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Germ Detective (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#070A14; --panel: rgba(2,6,23,.72); --panel2: rgba(255,255,255,.03);
-      --border: rgba(148,163,184,.18); --txt: rgba(229,231,235,.96); --muted: rgba(229,231,235,.70);
-      --acc: rgba(99,102,241,.95);
+      --bg:#050814;
+      --panel: rgba(2,6,23,.72);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.95);
+      --mut: rgba(148,163,184,.95);
+      --acc: rgba(34,211,238,.95);
+      --ok: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
     }
     *{ box-sizing:border-box; }
-    body{
-      margin:0; min-height:100vh;
-      background: radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
-                  radial-gradient(1000px 700px at 90% 10%, rgba(34,197,94,.14), transparent 60%),
-                  var(--bg);
-      color: var(--txt);
-      font-family: system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    html,body{ height:100%; margin:0; background:
+      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
+      var(--bg);
+      color:var(--txt);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
-    .wrap{ max-width: 980px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 90px; }
+    .wrap{ max-width:980px; margin:0 auto; padding:16px; }
     .hero{
-      margin-top: 12px;
-      border:1px solid var(--border);
+      border:1px solid var(--line);
       background: var(--panel);
-      border-radius: 24px;
-      padding: 18px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.45);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
       backdrop-filter: blur(10px);
     }
-    h1{ margin:0 0 6px; font-size: 22px; letter-spacing:.2px; }
-    .sub{ color: var(--muted); font-weight: 850; line-height: 1.35; }
-    .grid{
-      margin-top: 14px;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 12px;
-    }
-    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+    .title{ font-size:22px; font-weight:1000; }
+    .sub{ color:var(--mut); margin-top:4px; }
+    .grid{ display:grid; grid-template-columns:1.15fr .85fr; gap:14px; margin-top:14px; }
+    @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
+
     .card{
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(255,255,255,.03);
-      border-radius: 20px;
-      padding: 14px;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.58);
+      border-radius:16px;
+      padding:14px;
     }
-    .card h3{ margin:0 0 8px; font-size: 14px; }
-    label{ display:block; margin-top: 10px; color: var(--muted); font-weight: 900; font-size: 12px; }
-    select, input{
+    .card h3{ margin:0 0 10px; font-size:15px; }
+    .row{ display:grid; grid-template-columns:150px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
+    .row label{ color:var(--mut); font-weight:700; }
+    @media (max-width:640px){ .row{ grid-template-columns:1fr; gap:6px; } }
+
+    input,select{
       width:100%;
-      margin-top: 6px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color: var(--txt);
-      font-weight: 900;
-      outline:none;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(15,23,42,.8);
+      color:var(--txt);
+      padding:10px 12px;
+      font:inherit;
     }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
-    .btn{
-      appearance:none; border:none;
-      border-radius: 16px;
-      padding: 12px 14px;
-      background: rgba(2,6,23,.75);
-      border: 1px solid rgba(148,163,184,.22);
-      color: var(--txt);
-      font-weight: 1000;
+    .seg{ display:flex; gap:8px; flex-wrap:wrap; }
+    .seg button{
+      border:1px solid var(--line);
+      background: rgba(15,23,42,.7);
+      color:var(--txt);
+      border-radius:999px;
+      padding:8px 12px;
       cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
+      font-weight:800;
     }
-    .btn.primary{
-      background: rgba(99,102,241,.22);
-      border-color: rgba(99,102,241,.45);
-      box-shadow: 0 0 0 2px rgba(99,102,241,.10) inset;
+    .seg button.on{ border-color: rgba(34,211,238,.45); box-shadow: 0 0 0 2px rgba(34,211,238,.12) inset; }
+
+    .views{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .viewBtn{
+      border:1px solid var(--line); border-radius:14px; padding:12px; cursor:pointer;
+      background: rgba(15,23,42,.65); text-align:left;
     }
-    .btn:active{ transform: translateY(1px); }
+    .viewBtn.on{ border-color: rgba(34,211,238,.45); background: rgba(2,6,23,.85); }
+    .viewBtn .t{ font-weight:900; }
+    .viewBtn .m{ font-size:12px; color:var(--mut); margin-top:4px; }
+
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      border-radius:12px; padding:12px 14px; font-weight:1000; font-size:14px;
+      background: rgba(2,6,23,.72); color:var(--txt);
+      border:1px solid var(--line);
+    }
+    .btn.primary{ background: linear-gradient(180deg, rgba(34,211,238,.20), rgba(34,211,238,.08)); border-color: rgba(34,211,238,.35); }
+    .btn.success{ background: linear-gradient(180deg, rgba(16,185,129,.18), rgba(16,185,129,.08)); border-color: rgba(16,185,129,.35); }
+
+    .tips{ font-size:13px; color:var(--mut); line-height:1.45; }
     .pill{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(255,255,255,.03);
-      color: rgba(229,231,235,.86);
-      font-weight: 900;
-      font-size: 12px;
-      margin-top: 10px;
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--line); border-radius:999px;
+      padding:6px 10px; font-size:12px; font-weight:800;
+      background: rgba(15,23,42,.55);
     }
-    .tips{ margin-top:10px; color: var(--muted); font-weight: 850; line-height: 1.35; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .foot{
-      position: fixed; left:0; right:0; bottom:0;
-      padding: 10px 16px;
-      background: rgba(2,6,23,.70);
-      border-top: 1px solid rgba(148,163,184,.14);
-      backdrop-filter: blur(10px);
-      color: var(--muted);
-      font-weight: 850;
-      z-index: 9;
+    .preview{
+      border-radius:14px; border:1px dashed var(--line); padding:12px; margin-top:10px;
+      background: rgba(2,6,23,.35); font-size:13px;
+      word-break: break-all;
     }
-    .foot .wrap2{ max-width:980px; margin:0 auto; display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; }
-    a{ color: rgba(199,210,254,.95); text-decoration: none; font-weight: 1000; }
+    .mut{ color:var(--mut); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>🕵️‍♀️ Germ Detective</h1>
-      <div class="sub">
-        สำรวจ → เก็บหลักฐาน (UV/Swab/Camera) → ต่อ Chain (A→B→C) → Triage ทำความสะอาด (ทรัพยากรจำกัด) → กด R₀ &lt; 1
-      </div>
-      <div class="pill">รองรับ: PC • Mobile • Cardboard (cVR)</div>
+      <div class="title">🕵️ Germ Detective — Launcher</div>
+      <div class="sub">สืบหาจุดแพร่เชื้อ • เก็บหลักฐาน • ต่อ chain • Triage cleaning • กด R₀ ให้ต่ำกว่า 1</div>
 
       <div class="grid">
-        <div class="card">
-          <h3>⚙️ ตั้งค่าการเล่น</h3>
+        <section class="card">
+          <h3>ตั้งค่าเกม</h3>
 
-          <label>Case</label>
-          <select id="caseId">
-            <option value="classroom">โรงเรียน (เด็กป่วยในห้องเรียน)</option>
-            <option value="home">บ้าน (บ้านมีคนไอ)</option>
-          </select>
-
-          <label>Difficulty</label>
-          <select id="diff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
-
-          <label>Time (sec)</label>
-          <input id="time" type="number" min="90" max="480" value="240"/>
-
-          <label>AI Prediction (Level 1: heuristic coach)</label>
-          <select id="ai">
-            <option value="1" selected>ON</option>
-            <option value="0">OFF</option>
-          </select>
-
-          <label>PID</label>
-          <input id="pid" value="anon"/>
-
-          <label>Seed (deterministic)</label>
-          <input id="seed" class="mono" placeholder="leave blank = now()"/>
           <div class="row">
-            <button class="btn" id="btnSeedNow">Seed = now()</button>
-            <button class="btn" id="btnSeedKeep">Keep current</button>
+            <label for="caseId">Case</label>
+            <select id="caseId">
+              <option value="classroom">โรงเรียน (Classroom)</option>
+              <option value="home">บ้าน (Home)</option>
+            </select>
           </div>
 
-          <div class="tips">
-            <b>Research-safe:</b> AI ตอนนี้เป็น heuristic + explainable (ไม่ปรับยากตามตัวผู้เล่นแบบแอบ ๆ) และ log ลง local เท่านั้น
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>🕶️ เลือกโหมดอุปกรณ์</h3>
-          <div class="tips">แนะนำ: Cardboard ให้ใช้ Triage เป็นหลัก (เพราะ chain ลากยาก)</div>
           <div class="row">
-            <button class="btn primary" id="playPC">▶ เล่นบน PC</button>
-            <button class="btn primary" id="playMobile">📱 เล่นบน Mobile</button>
-            <button class="btn primary" id="playCVR">🕶 เล่น Cardboard (cVR)</button>
-          </div>
-
-          <div class="tips" style="margin-top:14px;">
-            <div><b>Run path:</b> <span class="mono">/herohealth/germ-detective/germ-detective.html</span></div>
-            <div><b>Hub:</b> <span class="mono">/herohealth/hub.html</span></div>
-            <div style="margin-top:10px;">
-              <button class="btn" id="openHub">↩ เปิด HUB</button>
+            <label>Difficulty</label>
+            <div class="seg" id="diffSeg">
+              <button type="button" data-v="easy">Easy</button>
+              <button type="button" data-v="normal" class="on">Normal</button>
+              <button type="button" data-v="hard">Hard</button>
             </div>
           </div>
-        </div>
+
+          <div class="row">
+            <label for="timeSec">เวลา (วินาที)</label>
+            <input id="timeSec" type="number" min="90" max="480" step="10" value="240" />
+          </div>
+
+          <div class="row">
+            <label for="seed">Seed</label>
+            <input id="seed" type="text" placeholder="auto" />
+          </div>
+
+          <div class="row">
+            <label for="pid">Participant ID</label>
+            <input id="pid" type="text" value="anon" />
+          </div>
+
+          <div class="row">
+            <label for="ai">AI Coach</label>
+            <select id="ai">
+              <option value="1" selected>เปิด (Heuristic Prediction)</option>
+              <option value="0">ปิด</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>โหมดอุปกรณ์</h3>
+          <div class="views" id="viewGrid">
+            <button type="button" class="viewBtn on" data-v="pc">
+              <div class="t">💻 PC</div>
+              <div class="m">WASD + เมาส์ / คีย์ 1-4</div>
+            </button>
+            <button type="button" class="viewBtn" data-v="mobile">
+              <div class="t">📱 Mobile</div>
+              <div class="m">จอยเสมือน + แตะใช้งาน</div>
+            </button>
+            <button type="button" class="viewBtn" data-v="cvr">
+              <div class="t">🕶 Cardboard</div>
+              <div class="m">crosshair + tap-to-shoot + teleport + aim-assist</div>
+            </button>
+          </div>
+
+          <div class="actions">
+            <button id="btnPlay" class="btn primary">▶ เริ่มเกม</button>
+            <button id="btnQuick" class="btn success">⚡ Quick Start (Recommended)</button>
+            <button id="btnHub" class="btn">🏠 กลับ HUB</button>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <span class="pill">✅ PC / Mobile / cVR</span>
+            <span class="pill">✅ AI Prediction (L1)</span>
+            <span class="pill">✅ Offline (no App Script)</span>
+          </div>
+
+          <div class="preview" id="previewUrl"></div>
+
+          <div class="tips" style="margin-top:10px;">
+            <b>Tip:</b> ลำดับเล่นให้แรงและสนุกสุด → <span class="mut">เก็บหลักฐาน → ต่อ Chain → Triage → ตี Boss → Submit</span>
+          </div>
+        </section>
       </div>
-
     </div>
   </div>
 
-  <div class="foot">
-    <div class="wrap2">
-      <div>HeroHealth • Germ Detective Launcher</div>
-      <div>Offline logs (no App Script)</div>
-    </div>
-  </div>
+  <script>
+    (function(){
+      'use strict';
 
-<script>
-(function(){
-  'use strict';
+      function q(k, def=''){
+        try { return new URL(location.href).searchParams.get(k) ?? def; }
+        catch { return def; }
+      }
+      function clamp(v,a,b){
+        v = Number(v); if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+      function nowSeed(){ return String(Date.now()); }
 
-  const RUN_URL = './germ-detective/germ-detective.html';
-  const HUB_URL = './hub.html';
+      const els = {
+        caseId: document.getElementById('caseId'),
+        timeSec: document.getElementById('timeSec'),
+        seed: document.getElementById('seed'),
+        pid: document.getElementById('pid'),
+        ai: document.getElementById('ai'),
+        diffSeg: document.getElementById('diffSeg'),
+        viewGrid: document.getElementById('viewGrid'),
+        btnPlay: document.getElementById('btnPlay'),
+        btnQuick: document.getElementById('btnQuick'),
+        btnHub: document.getElementById('btnHub'),
+        previewUrl: document.getElementById('previewUrl'),
+      };
 
-  const $ = (id)=> document.getElementById(id);
-  const KEY = 'HHA_GD_LAUNCH_PREFS_V1';
+      // incoming passthrough defaults
+      const ctx = {
+        hub: q('hub', './hub.html'),
+        run: q('run', 'play'),
+        caseId: q('caseId', 'classroom'),
+        diff: q('diff', 'normal'),
+        time: q('time', '240'),
+        seed: q('seed', ''),
+        pid: q('pid', 'anon'),
+        ai: q('ai', '1'),
+        view: q('view', 'pc'),
+      };
 
-  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
-  function nowSeed(){ return String(Date.now()); }
+      els.caseId.value = (ctx.caseId === 'home') ? 'home' : 'classroom';
+      els.timeSec.value = String(clamp(ctx.time, 90, 480));
+      els.seed.value = ctx.seed || '';
+      els.pid.value = ctx.pid || 'anon';
+      els.ai.value = (ctx.ai === '0') ? '0' : '1';
 
-  function loadPrefs(){
-    try{
-      const raw = localStorage.getItem(KEY);
-      return raw ? JSON.parse(raw) : {};
-    }catch(_){ return {}; }
-  }
-  function savePrefs(p){
-    try{ localStorage.setItem(KEY, JSON.stringify(p)); }catch(_){}
-  }
+      let selDiff = ['easy','normal','hard'].includes(ctx.diff) ? ctx.diff : 'normal';
+      let selView = ['pc','mobile','cvr'].includes(ctx.view) ? ctx.view : 'pc';
 
-  function initForm(){
-    const p = loadPrefs();
-    if(p.caseId) $('caseId').value = p.caseId;
-    if(p.diff) $('diff').value = p.diff;
-    if(p.time) $('time').value = p.time;
-    if(p.ai !== undefined) $('ai').value = String(p.ai);
-    if(p.pid) $('pid').value = p.pid;
-    if(p.seed) $('seed').value = p.seed;
+      [...els.diffSeg.querySelectorAll('button')].forEach(b=>{
+        b.classList.toggle('on', b.dataset.v === selDiff);
+        b.addEventListener('click', ()=>{
+          selDiff = b.dataset.v;
+          [...els.diffSeg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x===b));
+          refreshPreview();
+        });
+      });
 
-    $('btnSeedNow').onclick = ()=> $('seed').value = nowSeed();
-    $('btnSeedKeep').onclick = ()=> { /* noop */ };
+      [...els.viewGrid.querySelectorAll('.viewBtn')].forEach(b=>{
+        b.classList.toggle('on', b.dataset.v === selView);
+        b.addEventListener('click', ()=>{
+          selView = b.dataset.v;
+          [...els.viewGrid.querySelectorAll('.viewBtn')].forEach(x=>x.classList.toggle('on', x===b));
+          refreshPreview();
+        });
+      });
 
-    $('openHub').onclick = ()=> location.href = HUB_URL;
-  }
+      [els.caseId, els.timeSec, els.seed, els.pid, els.ai].forEach(inp=>{
+        inp.addEventListener('input', refreshPreview, false);
+        inp.addEventListener('change', refreshPreview, false);
+      });
 
-  function collect(){
-    const prefs = {
-      caseId: $('caseId').value || 'classroom',
-      diff: $('diff').value || 'normal',
-      time: clamp($('time').value || 240, 90, 480),
-      ai: Number($('ai').value || 1),
-      pid: String($('pid').value || 'anon').trim() || 'anon',
-      seed: String($('seed').value || '').trim() || nowSeed()
-    };
-    savePrefs(prefs);
-    return prefs;
-  }
+      function buildRunUrl(useQuick){
+        const p = new URLSearchParams();
+        p.set('hub', ctx.hub || './hub.html');
+        p.set('run', 'play');
 
-  function go(view){
-    const p = collect();
-    const url = new URL(RUN_URL, location.href);
-    url.searchParams.set('view', view);
-    url.searchParams.set('case', p.caseId);
-    url.searchParams.set('diff', p.diff);
-    url.searchParams.set('time', String(p.time));
-    url.searchParams.set('ai', String(p.ai));
-    url.searchParams.set('pid', p.pid);
-    url.searchParams.set('seed', p.seed);
-    url.searchParams.set('run', 'play');
-    url.searchParams.set('gate', '1');
-    url.searchParams.set('hub', HUB_URL);
-    // no api/spreadsheet/appscript
-    location.href = url.toString();
-  }
+        const caseId = els.caseId.value || 'classroom';
+        const diff = selDiff || 'normal';
+        const timeSec = String(clamp(els.timeSec.value || 240, 90, 480));
+        const pid = (els.pid.value || 'anon').trim() || 'anon';
+        const ai = els.ai.value === '0' ? '0' : '1';
+        const seed = ((els.seed.value || '').trim() || nowSeed());
 
-  function detectMobile(){
-    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-  }
+        p.set('caseId', caseId);
+        p.set('diff', diff);
+        p.set('time', timeSec);
+        p.set('pid', pid);
+        p.set('ai', ai);
+        p.set('seed', seed);
+        p.set('view', selView);
 
-  initForm();
+        // optional quality-of-life flags
+        if (useQuick) p.set('quick', '1');
 
-  $('playPC').onclick = ()=> go('pc');
-  $('playMobile').onclick = ()=> go('mobile');
-  $('playCVR').onclick = ()=> go('cvr');
+        return './germ-detective/germ-detective.html?' + p.toString();
+      }
 
-  // gentle default seed
-  if(!$('seed').value) $('seed').value = nowSeed();
+      function refreshPreview(){
+        els.previewUrl.textContent = buildRunUrl(false);
+      }
 
-  // optional: auto-suggest mobile
-  if(detectMobile()){
-    // keep user choice; no auto redirect
-  }
+      els.btnPlay.addEventListener('click', ()=>{
+        location.href = buildRunUrl(false);
+      }, false);
 
-})();
-</script>
+      els.btnQuick.addEventListener('click', ()=>{
+        // Recommended quick profile
+        if (!els.seed.value.trim()) els.seed.value = nowSeed();
+        if (!els.pid.value.trim()) els.pid.value = 'anon';
+        if (!['normal','hard'].includes(selDiff)) {
+          selDiff = 'normal';
+          [...els.diffSeg.querySelectorAll('button')].forEach(x=>x.classList.toggle('on', x.dataset.v===selDiff));
+        }
+        refreshPreview();
+        location.href = buildRunUrl(true);
+      }, false);
+
+      els.btnHub.addEventListener('click', ()=>{
+        location.href = ctx.hub || './hub.html';
+      }, false);
+
+      refreshPreview();
+    })();
+  </script>
 </body>
 </html>
