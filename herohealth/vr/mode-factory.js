@@ -1,9 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
-// HHA Mode Factory — PRODUCTION
-// PATCH v20260219-shotmiss
-// ✅ supports decorateTarget(el, target)
-// ✅ listens hha:shoot {x,y,lockPx} (from vr-ui.js crosshair)
-// ✅ NEW: miss-shot => emits hha:judge kind:'shot_miss' + calls onShotMiss(cb)
+// MODE FACTORY (shared spawner + hha:shoot judge)
+// PRODUCTION v20260221a
+// ✅ keep decorateTarget(el, target)
+// ✅ listens hha:shoot {x,y,lockPx}
+// ✅ NEW: when shoot misses => emits hha:judge {kind:'shot_miss'} AND calls onShotMiss()
+// ✅ safe-zone vars: prefers --plate-*-safe, then --gj-*-safe, then --hw-*-safe, else 0
 
 'use strict';
 
@@ -20,34 +21,46 @@ function seededRng(seed){
   };
 }
 
-function now(){ return performance.now ? performance.now() : Date.now(); }
+function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
+
+function readNumVar(cs, name){
+  const v = parseFloat(cs.getPropertyValue(name));
+  return Number.isFinite(v) ? v : 0;
+}
+
+/**
+ * readSafeVars()
+ * - Prefer --plate-top-safe etc.
+ * - Fallback to --gj-* (GoodJunk) then --hw-* (Handwash) to be reusable.
+ */
 function readSafeVars(){
-  // NOTE: kept backward compat with older css vars
   const cs = getComputedStyle(DOC.documentElement);
 
-  // preferred (new)
-  const topN = parseFloat(cs.getPropertyValue('--hha-top-safe')) || 0;
-  const bottomN = parseFloat(cs.getPropertyValue('--hha-bottom-safe')) || 0;
-  const leftN = parseFloat(cs.getPropertyValue('--hha-left-safe')) || 0;
-  const rightN = parseFloat(cs.getPropertyValue('--hha-right-safe')) || 0;
+  // primary
+  let top    = readNumVar(cs, '--plate-top-safe');
+  let bottom = readNumVar(cs, '--plate-bottom-safe');
+  let left   = readNumVar(cs, '--plate-left-safe');
+  let right  = readNumVar(cs, '--plate-right-safe');
 
-  // fallback (legacy plate vars)
-  const topP = parseFloat(cs.getPropertyValue('--plate-top-safe')) || 0;
-  const bottomP = parseFloat(cs.getPropertyValue('--plate-bottom-safe')) || 0;
-  const leftP = parseFloat(cs.getPropertyValue('--plate-left-safe')) || 0;
-  const rightP = parseFloat(cs.getPropertyValue('--plate-right-safe')) || 0;
+  // fallback (goodjunk)
+  if(!(top||bottom||left||right)){
+    top    = readNumVar(cs, '--gj-top-safe');
+    bottom = readNumVar(cs, '--gj-bottom-safe');
+    left   = readNumVar(cs, '--gj-left-safe');
+    right  = readNumVar(cs, '--gj-right-safe');
+  }
 
-  // fallback (legacy hw vars)
-  const topH = parseFloat(cs.getPropertyValue('--hw-top-safe')) || 0;
-  const bottomH = parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 0;
-  const leftH = parseFloat(cs.getPropertyValue('--hw-left-safe')) || 0;
-  const rightH = parseFloat(cs.getPropertyValue('--hw-right-safe')) || 0;
-
-  const top = topN || topP || topH || 0;
-  const bottom = bottomN || bottomP || bottomH || 0;
-  const left = leftN || leftP || leftH || 0;
-  const right = rightN || rightP || rightH || 0;
+  // fallback (handwash / others)
+  if(!(top||bottom||left||right)){
+    top    = readNumVar(cs, '--hw-top-safe');
+    bottom = readNumVar(cs, '--hw-bottom-safe');
+    left   = readNumVar(cs, '--hw-left-safe');
+    right  = readNumVar(cs, '--hw-right-safe');
+  }
 
   return { top, bottom, left, right };
 }
@@ -63,10 +76,12 @@ function pickWeighted(rng, arr){
   return arr[arr.length-1];
 }
 
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
-}
-
+/**
+ * boot({ mount, seed, spawnRate, sizeRange, kinds, onHit, onExpire, onShotMiss, decorateTarget })
+ * - mount: HTMLElement (absolute or fixed container)
+ * - onShotMiss: optional callback({x,y,lockPx,source,ts})
+ * - also emits 'hha:judge' kind:'shot_miss' always on miss-shot (safe for games that listen)
+ */
 export function boot({
   mount,
   seed = Date.now(),
@@ -75,7 +90,7 @@ export function boot({
   kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
   onHit = ()=>{},
   onExpire = ()=>{},
-  onShotMiss = ()=>{},          // ✅ NEW (optional)
+  onShotMiss = ()=>{},          // ✅ NEW
   decorateTarget = null,
 }){
   if(!mount) throw new Error('mode-factory: mount missing');
@@ -101,12 +116,31 @@ export function boot({
     return { left, top, right, bottom, w, h };
   }
 
+  function removeTarget(target){
+    try{ target.el.remove(); }catch{}
+  }
+
   function hit(target, meta){
     if(!state.alive) return;
     if(!state.targets.has(target)) return;
     state.targets.delete(target);
-    try{ target.el.remove(); }catch{}
+    removeTarget(target);
     onHit({ kind: target.kind, groupIndex: target.groupIndex, ...meta });
+  }
+
+  function judgeShotMiss(meta){
+    // emit judge (for any game that listens)
+    emit('hha:judge', {
+      kind:'shot_miss',
+      x: meta.x, y: meta.y,
+      lockPx: meta.lockPx,
+      source: meta.source || 'shoot',
+      ts: meta.ts || now()
+    });
+
+    // callback (for canonical counters like Plate)
+    try{ onShotMiss({ x:meta.x, y:meta.y, lockPx:meta.lockPx, source:meta.source||'shoot', ts:meta.ts||now() }); }
+    catch{}
   }
 
   function onShoot(e){
@@ -118,7 +152,7 @@ export function boot({
 
     const x = Number(d.x), y = Number(d.y);
     const lockPx = Number(d.lockPx || 28);
-    if(!isFinite(x) || !isFinite(y)) return;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
 
     let best=null, bestDist=Infinity;
     for(const target of state.targets){
@@ -126,16 +160,16 @@ export function boot({
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const dist = Math.hypot(cx-x, cy-y);
-      if(dist <= lockPx && dist < bestDist){ bestDist = dist; best = target; }
+      if(dist <= lockPx && dist < bestDist){
+        bestDist = dist; best = target;
+      }
     }
 
     if(best){
-      hit(best, { source:'shoot' });
+      hit(best, { source:'shoot', x, y, lockPx });
     }else{
-      // ✅ NEW: ยิงแล้วไม่โดนเป้า => emit shot_miss
-      const payload = { kind:'shot_miss', x, y, lockPx, source:'shoot' };
-      emit('hha:judge', payload);
-      try{ onShotMiss(payload); }catch{}
+      // ✅ NEW: ยิงแล้วไม่โดนเป้า
+      judgeShotMiss({ x, y, lockPx, source:'shoot', ts:t });
     }
   }
 
@@ -172,10 +206,16 @@ export function boot({
       size,
       rng
     };
-    el.__hhaTarget = target;
 
-    try{ if(typeof decorateTarget === 'function') decorateTarget(el, target); }catch{}
+    // attach for debug / external
+    try{ el.__hhaTarget = target; }catch{}
 
+    // let the game decorate it (emoji/labels etc.)
+    try{
+      if(typeof decorateTarget === 'function') decorateTarget(el, target);
+    }catch{}
+
+    // tap/click hit
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       hit(target, { source:'tap' });
@@ -184,11 +224,12 @@ export function boot({
     mount.appendChild(el);
     state.targets.add(target);
 
+    // TTL expire
     setTimeout(()=>{
       if(!state.alive) return;
       if(!state.targets.has(target)) return;
       state.targets.delete(target);
-      try{ el.remove(); }catch{}
+      removeTarget(target);
       onExpire({ ...target });
     }, target.ttlMs);
   }
@@ -208,7 +249,7 @@ export function boot({
       state.alive = false;
       clearInterval(state.spawnTimer);
       WIN.removeEventListener('hha:shoot', onShoot);
-      for(const target of state.targets){ try{ target.el.remove(); }catch{} }
+      for(const target of state.targets){ removeTarget(target); }
       state.targets.clear();
     }
   };
