@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (FOLDER) — PRODUCTION FULL (clean)
-v20260220b
-✅ IDs ครบสำหรับ goodjunk.safe.js
-✅ ไม่มี inline bind ปุ่ม HUB/Restart (ให้ boot.js คุม)
-✅ ไม่มีโหลด ../vr/vr-ui.js ซ้ำ (boot จะโหลดให้เมื่อจำเป็น)
-✅ โครง HUD / overlays ครบ
+GoodJunkVR RUN (FOLDER) — PRODUCTION v20260220b (CLEAN)
+✅ MATCHES goodjunk-vr.css v20260220b (safe-zone + short-screen stable)
+✅ Safe.js IDs intact
+✅ Single boot module load: ./goodjunk-vr.boot.js (Boot คุม restart/hub + vr-ui load)
+✅ No duplicate vr-ui.js load
+✅ No inline hub/restart binds that conflict with Boot
 -->
 <!doctype html>
 <html lang="th">
@@ -17,11 +17,10 @@ v20260220b
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260220b"/>
 </head>
 <body class="gj view-pc">
-
   <!-- =========================================================
        TOPBAR
        ========================================================= -->
-  <div class="gj-topbar" role="region" aria-label="Top Bar">
+  <div class="gj-topbar">
     <div class="left">
       <span class="gj-chip gj-chip-brand">🍀 GoodJunkVR</span>
       <span id="chipMode" class="gj-chip gj-chip-mini">mode: —</span>
@@ -32,26 +31,23 @@ v20260220b
     <div class="right hha-controls">
       <button id="btnMissions" class="gj-btn" type="button">ภารกิจ</button>
       <button id="btnHideHud" class="gj-btn" type="button">ซ่อน HUD</button>
-
-      <!-- รองรับ id มาตรฐาน + id เดิม (boot.js bind ให้ทั้งคู่) -->
       <button id="btnRestart" class="gj-btn" type="button">เริ่มใหม่</button>
       <button id="btnHub" class="gj-btn primary" type="button">กลับ HUB</button>
     </div>
   </div>
 
   <!-- =========================================================
-       PLAYFIELD
+       PLAYFIELD (IMPORTANT: wrapper for CSS + safe padding)
        ========================================================= -->
   <div class="gj-field" id="playfield" aria-label="GoodJunk Playfield">
     <div id="gj-layer" class="gj-layer" aria-label="GoodJunk Layer"></div>
     <div id="gj-layer-r" class="gj-layer gj-layer-r" aria-hidden="true" aria-label="GoodJunk Layer Right"></div>
-    <!-- safe.js อาจสร้าง #gj-fx เองแบบ hardened -->
   </div>
 
   <!-- =========================================================
-       HUD TOP
+       HUD TOP (pointer-events:none so targets remain hittable)
        ========================================================= -->
-  <div class="gj-hud-top" id="hud" role="region" aria-label="HUD" style="pointer-events:none;">
+  <div class="gj-hud-top" id="hud" role="region" aria-label="HUD">
     <div class="hud-row">
       <div class="hud-pill">
         <div class="hud-label">SCORE</div>
@@ -75,7 +71,7 @@ v20260220b
     </div>
 
     <!-- progress -->
-    <div class="gj-progress" aria-label="progress" style="pointer-events:none;">
+    <div class="gj-progress" aria-label="progress">
       <div class="gj-progress-track">
         <div id="gjProgressFill" class="gj-progress-fill"></div>
       </div>
@@ -94,13 +90,13 @@ v20260220b
   </div>
 
   <!-- =========================================================
-       HUD BOTTOM
+       HUD BOTTOM (quests + fever + shield)
        ========================================================= -->
   <div class="gj-hud-bot" aria-label="HUD Bottom">
     <div class="meter" aria-label="Goal">
       <div class="meter-title" id="hud-goal">—</div>
       <div class="meter-tip" id="goalDesc">—</div>
-      <div class="meter-num" style="margin-top:6px;">
+      <div class="meter-num">
         <b id="hud-goal-cur">0</b> / <b id="hud-goal-target">0</b>
       </div>
     </div>
@@ -108,14 +104,14 @@ v20260220b
     <div class="meter" aria-label="Mini Quest">
       <div class="meter-title">Mini Quest</div>
       <div class="meter-tip" id="hud-mini">—</div>
-      <div class="meter-num" style="margin-top:6px;">⏱ <span id="miniTimer">—</span></div>
+      <div class="meter-num">⏱ <span id="miniTimer">—</span></div>
     </div>
 
     <div class="meter" aria-label="Fever + Shield">
       <div class="meter-title">FEVER</div>
       <div class="meter-bar"><div id="feverFill" class="meter-fill"></div></div>
       <div class="meter-num"><span id="feverText">0%</span></div>
-      <div class="meter-shield" style="margin-top:6px;">🛡️ <span id="shieldPills">—</span></div>
+      <div class="meter-shield">🛡️ <span id="shieldPills">—</span></div>
     </div>
   </div>
 
@@ -151,7 +147,8 @@ v20260220b
   </div>
 
   <!-- =========================================================
-       End overlay
+       End overlay (safe.js controls aria-hidden + text values)
+       Buttons are bound by Boot (no inline onclick)
        ========================================================= -->
   <div id="endOverlay" class="gj-end" aria-hidden="true">
     <div class="card">
@@ -166,7 +163,6 @@ v20260220b
       </div>
 
       <div class="actions">
-        <!-- id มาตรฐาน + id เดิม รองรับใน boot -->
         <button id="btnRestartEnd" class="btn" type="button">เล่นอีกครั้ง</button>
         <button id="btnBackHub" class="btn alt" type="button">กลับ HUB</button>
       </div>
@@ -174,84 +170,87 @@ v20260220b
   </div>
 
   <!-- =========================================================
-       Boot (single source of truth)
+       Boot (single source of truth for:
+       - detect view
+       - load vr-ui.js only when needed
+       - bind restart/hub
+       - compute safe-zones
+       - start safe.js engine)
        ========================================================= -->
   <script type="module" src="./goodjunk-vr.boot.js?v=20260220b"></script>
 
   <!-- =========================================================
-       Lightweight UI-only wiring (ไม่ bind restart/hub เพื่อไม่ชนกับ boot)
-       - chips mode/diff
-       - missions modal open/close
-       - hide HUD toggle
-       - quest:update -> update peek text
+       UI wiring only (missions peek / HUD toggle / chips / quest text)
+       ✅ No restart/hub binding here
+       ✅ No vr-ui.js direct load here
        ========================================================= -->
   <script>
     (function(){
       const DOC = document;
-      const WIN = window;
 
-      function qs(k, defVal=null){
-        try { return new URL(location.href).searchParams.get(k) ?? defVal; }
-        catch(_) { return defVal; }
+      function qs(k, def=null){
+        try { return new URL(location.href).searchParams.get(k) ?? def; }
+        catch(_) { return def; }
       }
 
-      // --- chips ---
+      // chips
       const chipMode = DOC.getElementById('chipMode');
       const chipDiff = DOC.getElementById('chipDiff');
-      if (chipMode) chipMode.textContent = `mode: ${qs('run','play')}`;
-      if (chipDiff) chipDiff.textContent = `diff: ${qs('diff','normal')}`;
+      chipMode && (chipMode.textContent = `mode: ${qs('run','play')}`);
+      chipDiff && (chipDiff.textContent = `diff: ${qs('diff','normal')}`);
 
-      // --- HUD show/hide (UI-only) ---
-      const btnHideHud = DOC.getElementById('btnHideHud');
+      // UI refs
+      const btnM = DOC.getElementById('btnMissions');
+      const btnH = DOC.getElementById('btnHideHud');
+
+      const peek = DOC.getElementById('missionsPeek');
+      const btnClosePeek = DOC.getElementById('btnClosePeek');
+
+      const peekGoal = DOC.getElementById('peekGoal');
+      const peekMini = DOC.getElementById('peekMini');
+
+      // HUD toggle
       function syncHudBtn(){
-        if (!btnHideHud) return;
         const hidden = DOC.body.classList.contains('hud-hidden');
-        btnHideHud.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
+        if (btnH) btnH.textContent = hidden ? 'แสดง HUD' : 'ซ่อน HUD';
       }
       function toggleHud(){
         DOC.body.classList.toggle('hud-hidden');
         syncHudBtn();
       }
-      btnHideHud && btnHideHud.addEventListener('click', toggleHud);
+      btnH && btnH.addEventListener('click', toggleHud, { passive:true });
       syncHudBtn();
 
-      // --- Missions modal ---
-      const btnMissions  = DOC.getElementById('btnMissions');
-      const missionsPeek = DOC.getElementById('missionsPeek');
-      const btnClosePeek = DOC.getElementById('btnClosePeek');
-
+      // Missions peek
       function showPeek(on){
-        if (!missionsPeek) return;
-        if (on){
-          missionsPeek.setAttribute('aria-hidden', 'false');
+        if(!peek) return;
+        if(on){
+          peek.setAttribute('aria-hidden','false');
           DOC.body.classList.add('quest-open');
         } else {
-          missionsPeek.setAttribute('aria-hidden', 'true');
+          peek.setAttribute('aria-hidden','true');
           DOC.body.classList.remove('quest-open');
         }
       }
 
-      btnMissions && btnMissions.addEventListener('click', ()=>showPeek(true));
-      btnClosePeek && btnClosePeek.addEventListener('click', ()=>showPeek(false));
-      missionsPeek && missionsPeek.addEventListener('click', (e)=>{
-        if (e.target === missionsPeek) showPeek(false);
+      btnM && btnM.addEventListener('click', ()=> showPeek(true), { passive:true });
+      btnClosePeek && btnClosePeek.addEventListener('click', ()=> showPeek(false), { passive:true });
+
+      peek && peek.addEventListener('click', (e)=>{
+        if (e.target === peek) showPeek(false);
       });
 
-      // --- quest:update -> missions peek text ---
-      const peekGoal = DOC.getElementById('peekGoal');
-      const peekMini = DOC.getElementById('peekMini');
-
+      // quest:update -> update peek text
       function safeText(x){ return (x == null) ? '—' : String(x); }
 
       function onQuestUpdate(ev){
         try{
-          const goal = ev && ev.detail ? (ev.detail.goal || null) : null;
-          const mini = ev && ev.detail ? (ev.detail.mini || null) : null;
+          const goal = ev?.detail?.goal || null;
+          const mini = ev?.detail?.mini || null;
 
           if (peekGoal){
             if (goal){
-              peekGoal.textContent =
-                `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
+              peekGoal.textContent = `GOAL: ${safeText(goal.title)} (${safeText(goal.cur)}/${safeText(goal.target)})`;
             } else {
               peekGoal.textContent = 'GOAL: —';
             }
@@ -265,6 +264,8 @@ v20260220b
               } else if (typeof mini.timeLeftSec === 'number'){
                 peekMini.textContent =
                   `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)}) • ${Math.ceil(mini.timeLeftSec)}s`;
+              } else if (mini.timerText){
+                peekMini.textContent = `MINI: ${safeText(mini.title)} • ${safeText(mini.timerText)}`;
               } else {
                 peekMini.textContent =
                   `MINI: ${safeText(mini.title)} (${safeText(mini.cur)}/${safeText(mini.target)})`;
@@ -276,8 +277,16 @@ v20260220b
         }catch(_){}
       }
 
-      WIN.addEventListener('quest:update', onQuestUpdate, { passive:true });
-      DOC.addEventListener('quest:update', onQuestUpdate, { passive:true });
+      // listen both on window + document (compat)
+      window.addEventListener('quest:update', onQuestUpdate, { passive:true });
+      document.addEventListener('quest:update', onQuestUpdate, { passive:true });
+
+      // optional: keyboard ESC closes modal
+      document.addEventListener('keydown', (e)=>{
+        if (e.key === 'Escape' && peek && peek.getAttribute('aria-hidden') === 'false') {
+          showPeek(false);
+        }
+      });
     })();
   </script>
 </body>
