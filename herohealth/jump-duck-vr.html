@@ -1,28 +1,177 @@
-<!-- === /herohealth/jump-duck-vr.html (Launcher) === -->
+<!-- === /herohealth/jump-duck-vr.html — Launcher (HHA passthrough) v20260221a === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — Jump-Duck (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#050814; --panel: rgba(2,6,23,.72); --panel2: rgba(2,6,23,.55);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.94); --mut: rgba(148,163,184,.96);
+      --good:#22c55e; --cyan:#22d3ee; --vio:#a78bfa; --amber:#f59e0b; --red:#ef4444;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+      --r: 22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
+      var(--bg);
+      color:var(--txt);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    a{color:inherit;text-decoration:none}
+    .wrap{min-height:100%; display:flex; justify-content:center; padding: calc(16px + var(--sat)) 14px calc(16px + var(--sab));}
+    .card{width:min(980px,100%); background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.55));
+      border:1px solid var(--line); border-radius: var(--r); box-shadow: 0 20px 60px rgba(0,0,0,.35); padding:18px;}
+    h1{margin:0; font-size: 28px;}
+    .sub{margin:10px 0 0; color:var(--mut); line-height:1.45}
+    .grid{display:grid; grid-template-columns: 1.2fr .9fr; gap: 14px; margin-top: 14px;}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr;} }
+    .blk{background: rgba(10,16,36,.35); border:1px solid rgba(148,163,184,.14); border-radius:18px; padding:14px;}
+    label{display:block;font-weight:800;margin:10px 0 6px}
+    select,input{width:100%; padding:12px 12px; border-radius:14px; border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55); color:var(--txt); outline:none;}
+    select:focus,input:focus{border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.12);}
+    .hint{margin:8px 0 0; color:var(--mut); font-size: 13px;}
+    .btnRow{display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px;}
+    .btn{cursor:pointer; border-radius:14px; padding:12px 14px; border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55); color:var(--txt); font-weight:900;}
+    .btnP{background: linear-gradient(180deg, rgba(34,211,238,.22), rgba(99,102,241,.18));
+      border-color: rgba(34,211,238,.35);}
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:900;
+      padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.55);}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;}
+    .mini{color:var(--mut); font-size:13px; line-height:1.45}
+    .warn{margin-top:12px; border-radius:16px; border:1px solid rgba(239,68,68,.25); background: rgba(239,68,68,.06); padding:12px;}
+  </style>
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
+  <div class="wrap">
+    <div class="card">
+      <h1>Jump-Duck (Launcher)</h1>
+      <p class="sub">เลือกโหมด/ความยาก/เวลาที่เล่น แล้วกด Start — ระบบจะส่งพารามิเตอร์ไปหน้าเกม (รองรับ <b>?log=</b> สำหรับ Cloud Logger)</p>
 
-  // ✅ ใส่ Web App URL ของคุณตรงนี้ (ตัวที่ส่งมาแล้ว)
-  const LOG = 'https://script.google.com/macros/s/AKfycbzxSLAGlvcFBxDkWhWnKmAehnRGKzE4nt8CpX9AgTWuNo33KuF2T9XrEgsrLtycnL-BFA/exec';
+      <div class="grid">
+        <div class="blk">
+          <label>Mode</label>
+          <select id="mode">
+            <option value="training">training</option>
+            <option value="test">test</option>
+            <option value="research">research</option>
+          </select>
 
-  hhGo('../fitness/jump-duck.html', {
-    defaults: {
-      mode: 'training',
-      diff: 'normal',
-      duration: '60',
-      log: LOG
-    }
+          <label>Difficulty</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+
+          <label>Duration (sec)</label>
+          <select id="duration">
+            <option value="45">45</option>
+            <option value="60" selected>60</option>
+            <option value="80">80</option>
+            <option value="120">120</option>
+          </select>
+
+          <label>Seed (optional)</label>
+          <input id="seed" placeholder="ปล่อยว่าง = auto (แต่ research/test แนะนำกำหนด)" />
+
+          <label>?log= (Web App URL, optional)</label>
+          <input id="log" placeholder="https://script.google.com/macros/s/XXXX/exec" />
+
+          <div class="btnRow">
+            <button class="btn btnP" id="btnStart">Start Game</button>
+            <a class="btn" id="btnBackHub" href="hub.html">Back to Hub</a>
+          </div>
+
+          <div class="row">
+            <span class="pill">📌 Pass-through: hub, pid, studyId, phase, conditionGroup</span>
+            <span class="pill">🧪 Research: AI = prediction only (locked)</span>
+          </div>
+          <p class="hint">Tip: ตั้ง <b>seed</b> ใน research/test เพื่อให้ได้สตรีมอุปสรรคเหมือนเดิมทุกครั้ง</p>
+        </div>
+
+        <div class="blk">
+          <h3 style="margin:0 0 8px;">Research fields (optional)</h3>
+          <label>Participant ID (pid)</label>
+          <input id="pid" placeholder="เช่น P001" />
+          <label>Group</label>
+          <input id="group" placeholder="เช่น A / B" />
+          <label>Note</label>
+          <input id="note" placeholder="บันทึกสั้น ๆ" />
+
+          <div class="warn">
+            <div style="font-weight:900;">⚠️ ถ้าใช้ Cloud Logger</div>
+            <div class="mini">ใส่ Web App URL ในช่อง <b>?log=</b> แล้วเกมจะส่ง session summary + CSV แนบไปให้</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  function qs(k){
+    try{ return new URL(location.href).searchParams.get(k); }catch(_){ return null; }
+  }
+  function setIf(id, v){ if(v!=null && v!=='') $(id).value = v; }
+
+  // preload from URL if present
+  setIf('mode', qs('mode'));
+  setIf('diff', qs('diff'));
+  setIf('duration', qs('duration'));
+  setIf('seed', qs('seed'));
+  setIf('log', qs('log'));
+  setIf('pid', qs('pid'));
+  setIf('group', qs('group'));
+  setIf('note', qs('note'));
+
+  // backHub link
+  const hub = qs('hub');
+  if(hub) $('btnBackHub').href = hub;
+
+  $('btnStart').addEventListener('click', ()=>{
+    const mode = $('mode').value;
+    const diff = $('diff').value;
+    const dur  = $('duration').value;
+
+    const seed = $('seed').value.trim();
+    const log  = $('log').value.trim();
+
+    const pid  = $('pid').value.trim();
+    const group= $('group').value.trim();
+    const note = $('note').value.trim();
+
+    // passthrough from launcher URL (hub params, study params)
+    const sp0 = new URL(location.href).searchParams;
+    const pass = ['hub','studyId','phase','conditionGroup','view','api','run'];
+    const sp = new URLSearchParams();
+    sp.set('mode', mode);
+    sp.set('diff', diff);
+    sp.set('duration', dur);
+    if(seed) sp.set('seed', seed);
+    if(log) sp.set('log', log);
+    if(pid) sp.set('pid', pid);
+    if(group) sp.set('group', group);
+    if(note) sp.set('note', note);
+
+    pass.forEach(k=>{
+      const v = sp0.get(k);
+      if(v!=null && v!=='') sp.set(k, v);
+    });
+
+    // Go to game page
+    // NOTE: adjust path if your fitness folder sits elsewhere
+    location.href = '../fitness/jump-duck.html?' + sp.toString();
   });
+})();
 </script>
 </body>
 </html>
