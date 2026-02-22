@@ -3,10 +3,9 @@
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
-// ✅ store targets as { el, type } (engine needs type)
-// ✅ expireTarget(id, {showFx}) with soft fade/shrink
-// ✅ silent expire for non-miss targets (decoy/bomb/heal/shield)
-// ✅ suppress overlapping MISS FX right after hit FX (avoid PERFECT+MISS visual clash)
+// ✅ targets map stores { el, type }
+// ✅ expireTarget(id) soft fade/shrink
+// ✅ UX PATCH: selective expire FX + anti "PERFECT + MISS" visual overlap
 
 'use strict';
 
@@ -25,13 +24,8 @@ export class DomRendererShadow {
     this.diffKey = 'normal';
     this.targets = new Map(); // id -> { el, type }
 
-    // ✅ FX anti-overlap memory (recent hit position/time)
-    this._lastFx = {
-      t: 0,
-      x: -9999,
-      y: -9999,
-      kind: ''
-    };
+    // ✅ UX PATCH: remember recent “strong hit FX” timestamp to avoid MISS overlay deception
+    this._lastStrongFxAt = 0;
 
     this._onPointer = this._onPointer.bind(this);
   }
@@ -39,7 +33,7 @@ export class DomRendererShadow {
   setDifficulty(k){ this.diffKey = k || 'normal'; }
 
   destroy(){
-    for (const [id, obj] of this.targets.entries()) {
+    for (const [, obj] of this.targets.entries()) {
       const el = obj?.el;
       try { el?.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el?.remove(); } catch {}
@@ -50,7 +44,7 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // margins driven by CSS vars (solve HUD/meta cramped)
+    // margins driven by CSS vars (tune in shadow-breaker.css)
     const cs = getComputedStyle(document.documentElement);
     const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
     const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
@@ -85,6 +79,7 @@ export class DomRendererShadow {
     const type = (data.type || 'normal');
     el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
+    el.dataset.type = String(type);
 
     const size = clamp(Number(data.sizePx) || 110, 64, 240);
     el.style.width = size + 'px';
@@ -122,58 +117,47 @@ export class DomRendererShadow {
     this.targets.delete(id);
   }
 
-  // ✅ expire softly then remove
-  // opts.showFx = true  -> show MISS FX
-  // opts.showFx = false -> silent expire (no MISS FX popup)
-  expireTarget(id, opts = {}){
+  expireTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
 
-    const showFx = !!opts.showFx;
-
     try {
-      // visual fade/shrink
       el.classList.add('is-expiring');
-      // prevent click during fade
       el.style.pointerEvents = 'none';
-
-      // optional soft fx only if engine says this expire counts as miss
-      if (showFx) {
-        const rect = el.getBoundingClientRect();
-        this.playHitFx(id, {
-          grade: 'expire',
-          clientX: rect.left + rect.width / 2,
-          clientY: rect.top + rect.height / 2
-        });
-      }
-
-      setTimeout(()=> this.removeTarget(id), 180);
+      setTimeout(() => this.removeTarget(id), 180);
     } catch {
       this.removeTarget(id);
     }
   }
 
-  // helper: avoid "PERFECT + MISS" fake overlap visual in same area/time
-  _shouldSuppressExpireFx(x, y){
-    const t = performance.now();
-    const dt = t - (this._lastFx.t || 0);
-    const dx = x - (this._lastFx.x || 0);
-    const dy = y - (this._lastFx.y || 0);
-    const dist2 = dx*dx + dy*dy;
+  // ✅ NEW: selective expire FX
+  // showMissText: true => visual MISS text/burst
+  // showMissText: false => silent/soft vanish (used by decoy/bomb/heal/shield expire)
+  playExpireFx(id, opts = {}){
+    const obj = this.targets.get(id);
+    const el = obj?.el;
+    if (!el) return;
 
-    // if another FX was just played near same point, suppress expire MISS text/burst
-    // tuned to stop eye-confusing overlaps without killing legit separate misses
-    return (dt <= 140 && dist2 <= (54 * 54));
-  }
+    const rect = el.getBoundingClientRect();
+    const x = rect.left + rect.width/2;
+    const y = rect.top + rect.height/2;
 
-  _rememberFx(x, y, kind){
-    this._lastFx = {
-      t: performance.now(),
-      x: Number(x) || 0,
-      y: Number(y) || 0,
-      kind: kind || ''
-    };
+    const showMissText = !!opts.showMissText;
+    const silent = !!opts.silent;
+
+    // ✅ Anti-overlap: if a strong hit FX just happened, suppress MISS text briefly
+    const nowTs = performance.now();
+    const tooCloseToStrongHit = (nowTs - this._lastStrongFxAt) < 120;
+
+    if (silent || !showMissText || tooCloseToStrongHit) {
+      // เบา ๆ ให้รู้ว่าหาย แต่ไม่เด้ง MISS หลอกตา
+      FxBurst.burst(x, y, { n: 4, spread: 26, ttlMs: 260, cls: 'sb-fx-expire-soft' });
+      return;
+    }
+
+    FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
+    FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
   }
 
   playHitFx(id, info = {}){
@@ -187,51 +171,39 @@ export class DomRendererShadow {
     const grade = info.grade || 'good';
     const scoreDelta = Number(info.scoreDelta) || 0;
 
-    // ✅ suppress overlapping expire FX after hit FX near same point/time
-    if (grade === 'expire' && this._shouldSuppressExpireFx(x, y)) {
-      return;
-    }
+    // mark strong FX timestamps to prevent immediate MISS overlay confusion
+    const markStrong = () => { this._lastStrongFxAt = performance.now(); };
 
     if (grade === 'perfect') {
+      markStrong();
       FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
       FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
-      this._rememberFx(x, y, 'perfect');
-
     } else if (grade === 'good') {
+      markStrong();
       FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
-      this._rememberFx(x, y, 'good');
-
     } else if (grade === 'bad') {
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      // decoy is negative score in your design; keep sign correct
-      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, 'sb-fx-miss');
-      this._rememberFx(x, y, 'bad');
-
+      // decoy hit = bad (not MISS)
+      markStrong();
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-decoy' });
+      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, 'sb-fx-decoy');
     } else if (grade === 'bomb') {
+      markStrong();
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
-      this._rememberFx(x, y, 'bomb');
-
     } else if (grade === 'heal') {
+      markStrong();
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
       FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
-      this._rememberFx(x, y, 'heal');
-
     } else if (grade === 'shield') {
+      markStrong();
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-      this._rememberFx(x, y, 'shield');
-
     } else if (grade === 'expire') {
-      // ✅ MISS FX for expire (only call when engine says missCounted=true)
-      FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
-      this._rememberFx(x, y, 'expire');
-
+      // backward-compatible path (if engine still calls playHitFx(id,{grade:'expire'}))
+      this.playExpireFx(id, { showMissText: true });
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
-      this._rememberFx(x, y, 'other');
     }
   }
 }
