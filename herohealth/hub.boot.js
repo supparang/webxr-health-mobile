@@ -1,6 +1,7 @@
 // === /herohealth/hub.boot.js ===
-// HeroHealth HUB Controller — PRODUCTION (PATCH v20260218-warmupGatePick5)
-// ✅ Adds Warmup/Cooldown Gate routing with: cat(zone) + theme(game) + pick(play=rand, research=day)
+// HeroHealth HUB Controller — PRODUCTION (PATCH v20260218-warmupGatePick5 + hub-buttons)
+// ✅ Warmup/Cooldown Gate routing for real Hub buttons (#goGoodJunk, #goHandwash, ...)
+// ✅ Supports hygiene additions: germ-detective, bath, cleanobjects(run=home-clean.html)
 // ✅ Supports overrides: ?pick=rand|day and ?variant=1..5
 // ✅ Safe pass-through of study/research params + hub back-link
 'use strict';
@@ -55,7 +56,6 @@ function buildUrl(base, params){
 }
 
 function passCommon(u){
-  // NOTE: warmup-gate and run pages will receive these
   const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','log','pick','variant'];
   keys.forEach(k=>{
     const v = P[k];
@@ -74,82 +74,154 @@ function decidePickMode(){
 function mapGameToCatTheme(gameKey){
   gameKey = String(gameKey||'').toLowerCase().trim();
 
-  // nutrition (your 4)
-  if(gameKey==='goodjunk') return { cat:'nutrition', theme:'goodjunk' };
-  if(gameKey==='groups')   return { cat:'nutrition', theme:'groups' };
-  if(gameKey==='hydration')return { cat:'nutrition', theme:'hydration' };
-  if(gameKey==='plate')    return { cat:'nutrition', theme:'plate' };
+  // nutrition
+  if(gameKey==='goodjunk')      return { cat:'nutrition', theme:'goodjunk' };
+  if(gameKey==='groups')        return { cat:'nutrition', theme:'groups' };
+  if(gameKey==='hydration')     return { cat:'nutrition', theme:'hydration' };
+  if(gameKey==='plate')         return { cat:'nutrition', theme:'plate' };
 
-  // hygiene (examples)
-  if(gameKey==='handwash') return { cat:'hygiene', theme:'handwash' };
-  if(gameKey==='brush')    return { cat:'hygiene', theme:'brush' };
-  if(gameKey==='maskcough')return { cat:'hygiene', theme:'maskcough' };
-  if(gameKey==='germ')     return { cat:'hygiene', theme:'germ' };
+  // hygiene (UPDATED)
+  if(gameKey==='handwash')      return { cat:'hygiene', theme:'handwash' };
+  if(gameKey==='brush')         return { cat:'hygiene', theme:'brush' };
+  if(gameKey==='maskcough')     return { cat:'hygiene', theme:'maskcough' };
+  if(gameKey==='germdetective') return { cat:'hygiene', theme:'germdetective' };
+  if(gameKey==='germ')          return { cat:'hygiene', theme:'germdetective' }; // alias
+  if(gameKey==='bath')          return { cat:'hygiene', theme:'bath' };
+  if(gameKey==='cleanobjects')  return { cat:'hygiene', theme:'clean' };
+  if(gameKey==='clean')         return { cat:'hygiene', theme:'clean' };          // alias
 
-  // exercise (examples)
-  if(gameKey==='shadow')   return { cat:'exercise', theme:'shadow' };
-  if(gameKey==='rhythm')   return { cat:'exercise', theme:'rhythm' };
-  if(gameKey==='jumpduck') return { cat:'exercise', theme:'jumpduck' };
-  if(gameKey==='balance')  return { cat:'exercise', theme:'balance' };
-  if(gameKey==='planner')  return { cat:'exercise', theme:'planner' };
+  // fitness / exercise (use cat='exercise' for warmup-gate compatibility)
+  if(gameKey==='shadow')        return { cat:'exercise', theme:'shadow' };
+  if(gameKey==='rhythm')        return { cat:'exercise', theme:'rhythm' };
+  if(gameKey==='jumpduck')      return { cat:'exercise', theme:'jumpduck' };
+  if(gameKey==='balancehold')   return { cat:'exercise', theme:'balance' };
+  if(gameKey==='balance')       return { cat:'exercise', theme:'balance' };        // alias
+  if(gameKey==='planner')       return { cat:'exercise', theme:'planner' };
 
   // fallback
   return { cat:'nutrition', theme:'goodjunk' };
 }
 
-function warmupGateUrlFor(nextUrl, gameKey, phase){
-  const gate = abs('./warmup-gate.html');   // /herohealth/warmup-gate.html (same folder)
+function warmupGateUrlFor(nextUrl, gameKey, gatePhase){
+  const gate = abs('./warmup-gate.html'); // /herohealth/warmup-gate.html
   const hub  = abs('./hub.html');
 
   const { cat, theme } = mapGameToCatTheme(gameKey);
   const pick = decidePickMode();
 
-  const params = {};
-  params.hub = hub;
-  params.next = abs(nextUrl || hub);
-  params.phase = String(phase||'warmup'); // warmup|cooldown
-  params.cat = cat;
-  params.theme = theme;
-  params.pick = pick;
+  // IMPORTANT: preserve research "phase" separately from gate phase
+  const params = {
+    hub,
+    next: abs(nextUrl || hub),
+
+    // gate phase (warmup/cooldown)
+    gatePhase: String(gatePhase || 'warmup'),
+    phase: String(gatePhase || 'warmup'), // keep backward compatibility if gate expects "phase"
+
+    cat,
+    theme,
+    pick,
+
+    // pass common context
+    run: P.run, diff: P.diff, time: P.time, seed: P.seed,
+    studyId: P.studyId,
+    pid: P.pid,
+    view: P.view, log: P.log
+  };
+
+  // keep research phase under a dedicated key to avoid collision
+  if (P.phase) params.researchPhase = P.phase;
+  if (P.conditionGroup) params.conditionGroup = P.conditionGroup;
 
   // optional forced variant
-  if(P.variant) params.variant = P.variant;
-
-  // pass common research/play context
-  // (we pass these via query too, so gate can forward to run page)
-  Object.assign(params, {
-    run: P.run, diff: P.diff, time: P.time, seed: P.seed,
-    studyId: P.studyId, phase: P.phase, conditionGroup: P.conditionGroup,
-    pid: P.pid, view: P.view, log: P.log
-  });
-
-  // separate durations if you want:
-  // params.dur = 20;
-  // params.cdur = 18;
+  if (P.variant) params.variant = P.variant;
 
   return buildUrl(gate, params);
 }
 
-// ---------- UI wiring (minimal generic) ----------
+// ---------- Helpers to patch plain hub links (add pass-through when opened directly) ----------
+function patchLink(id){
+  const el = DOC.getElementById(id);
+  if(!el) return;
+  const href = el.getAttribute('href');
+  if(!href || href === '#' || el.getAttribute('aria-disabled') === 'true') return;
+
+  try{
+    const u = new URL(href, location.href);
+    passCommon(u);
+    // ensure back-link to hub exists for run pages that support ?hub=
+    u.searchParams.set('hub', abs('./hub.html'));
+    el.setAttribute('href', u.toString());
+  }catch(e){}
+}
+
+// ---------- Real hub button routing via warmup-gate ----------
+function setupHubButtons(){
+  // Map hub button IDs -> gameKey used by warmup mapping
+  const BTN_GAME_MAP = {
+    // Nutrition
+    goGoodJunk: 'goodjunk',
+    goGroups: 'groups',
+    goHydration: 'hydration',
+    goPlate: 'plate',
+
+    // Hygiene
+    goHandwash: 'handwash',
+    goBrush: 'brush',
+    goMaskCough: 'maskcough',
+    goGermDetective: 'germdetective',
+    goBath: 'bath',
+    goCleanObjects: 'cleanobjects',
+
+    // Fitness
+    goPlanner: 'planner',
+    goShadow: 'shadow',
+    goRhythm: 'rhythm',
+    goJumpDuck: 'jumpduck',
+    goBalanceHold: 'balancehold',
+  };
+
+  Object.entries(BTN_GAME_MAP).forEach(([id, gameKey])=>{
+    const el = DOC.getElementById(id);
+    if(!el) return;
+
+    const href = el.getAttribute('href') || '';
+    const disabled = el.classList.contains('btn--disabled') || el.getAttribute('aria-disabled') === 'true' || href === '#';
+    if(disabled) return;
+
+    // first patch href with passthrough (useful for open-in-new-tab / long press)
+    patchLink(id);
+
+    el.addEventListener('click', (e)=>{
+      // modifier/middle click => allow normal behavior
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+
+      e.preventDefault();
+
+      const currentHref = el.getAttribute('href') || href;
+      const gateUrl = warmupGateUrlFor(currentHref, gameKey, 'warmup');
+      location.href = gateUrl;
+    });
+  });
+}
+
+// ---------- Legacy generic card wiring (kept for compatibility if other hub pages use it) ----------
 function setupGameCards(){
-  // Expect cards/links with data-game + data-run-href
-  // Example in hub.html:
-  // <a class="game-card" data-game="goodjunk" data-run-href="./vr-goodjunk/goodjunk-vr.html">Play</a>
   $$('.game-card,[data-game][data-run-href]').forEach(el=>{
     const game = el.getAttribute('data-game');
     const runHref = el.getAttribute('data-run-href');
+    if(!game || !runHref) return;
 
     el.addEventListener('click', (e)=>{
-      // route via warmup gate always (warmup)
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
       e.preventDefault();
-
       const gate = warmupGateUrlFor(runHref, game, 'warmup');
       location.href = gate;
     });
   });
 
-  // Optional cooldown button example:
-  // <button id="btnCooldown" data-next="./hub.html" data-cat="nutrition">Cooldown</button>
+  // Optional cooldown button
   const cd = $('#btnCooldown');
   if(cd){
     cd.addEventListener('click', (e)=>{
@@ -159,12 +231,15 @@ function setupGameCards(){
       const gate = buildUrl(abs('./warmup-gate.html'), {
         hub: abs('./hub.html'),
         next: abs(next),
-        phase: 'cooldown',
+        gatePhase: 'cooldown',
+        phase: 'cooldown', // backward compatibility
         cat,
         theme: 'calm',
         pick: decidePickMode(),
         run: P.run, pid: P.pid, diff: P.diff, time: P.time, seed: P.seed,
-        studyId: P.studyId, phase: P.phase, conditionGroup: P.conditionGroup,
+        studyId: P.studyId,
+        researchPhase: P.phase || '',
+        conditionGroup: P.conditionGroup || '',
         view: P.view, log: P.log
       });
       location.href = gate;
@@ -172,20 +247,22 @@ function setupGameCards(){
   }
 }
 
-// ---------- API banner + retry (kept compatible with your old hub) ----------
+// ---------- API banner + retry ----------
 async function boot(){
   try{
     setBanner('info', 'กำลังตรวจสอบระบบ…');
     attachRetry();
 
-    // Probe API (403-safe)
     await probeAPI(API_ENDPOINT);
     setBanner('ok', 'พร้อมใช้งาน');
   }catch(err){
-    // probeAPI in your code likely already handles disable latch; still show text
     setBanner('warn', 'โหมดออฟไลน์/จำกัดการเชื่อมต่อ (ยังเล่นได้)');
   }
 
+  // ✅ real hub buttons
+  setupHubButtons();
+
+  // ✅ legacy generic cards (if any)
   setupGameCards();
 
   // small hint: show pick policy
@@ -193,6 +270,13 @@ async function boot(){
     const pick = decidePickMode();
     const tip = $('#hubPickTip');
     if(tip) tip.textContent = `Pick: ${pick.toUpperCase()} (run=${P.run})`;
+  }catch(e){}
+
+  // optional toast hint
+  try{
+    if (typeof toast === 'function') {
+      toast(`Warmup routing: ${decidePickMode().toUpperCase()} • run=${P.run}`, { kind:'info', ttl: 1800 });
+    }
   }catch(e){}
 }
 
