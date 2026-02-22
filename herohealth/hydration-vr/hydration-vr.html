@@ -38,11 +38,11 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-
     *{ box-sizing:border-box; }
     html,body{
       margin:0; padding:0; width:100%; height:100%;
-      overflow:hidden; background:var(--bg); color:var(--text);
+      overflow:hidden;
+      background:var(--bg); color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
     }
     a{ color:inherit; }
@@ -58,7 +58,7 @@
       z-index:0;
     }
 
-    /* ---------- HUD layout ---------- */
+    /* ---------- HUD layout (B mode clean: no legacy waterPanel) ---------- */
     .hud{
       position:fixed;
       inset:0;
@@ -69,8 +69,9 @@
         calc(86px + var(--sab)) calc(12px + var(--sal)); /* เผื่อปุ่ม ENTER VR */
       display:grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto auto 1fr;
       gap:12px;
+      align-content:start;
     }
 
     .panel{
@@ -80,7 +81,7 @@
       border-radius:var(--radius);
       box-shadow: 0 18px 70px rgba(0,0,0,.40);
       backdrop-filter: blur(10px);
-      padding:12px 12px;
+      padding:12px;
       min-width:0;
     }
 
@@ -90,7 +91,6 @@
       gap:10px;
       align-items:stretch;
     }
-
     .statBox{
       display:flex;
       justify-content:space-between;
@@ -102,110 +102,53 @@
       border:1px solid rgba(148,163,184,.14);
       min-width:0;
     }
-
     .k{ font-size:12px; color:var(--muted); letter-spacing:.2px; }
-    .v{ font-size:20px; font-weight:900; }
+    .v{
+      font-size:20px;
+      font-weight:900;
+      line-height:1;
+      white-space:nowrap;
+    }
 
-    .questTitle{ font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
-    .questLine{ margin:2px 0; color:rgba(229,231,235,.92); font-size:13px; line-height:1.25; }
+    .questPanel{
+      grid-column:1 / span 2;
+      grid-row:2;
+      align-self:start;
+    }
+    .questTitle{
+      font-weight:900;
+      letter-spacing:.2px;
+      margin:0 0 8px 0;
+      font-size:14px;
+    }
+    .questLine{
+      margin:3px 0;
+      color:rgba(229,231,235,.92);
+      font-size:13px;
+      line-height:1.25;
+      word-break:break-word;
+    }
     .questLine.muted{ color:rgba(148,163,184,.95); }
 
     .miniRow{
       margin-top:10px;
       display:flex;
       gap:10px;
-      justify-content:space-between;
+      justify-content:flex-start;
       align-items:center;
+      flex-wrap:wrap;
       color:rgba(229,231,235,.92);
       font-size:12px;
-      flex-wrap:wrap;
     }
-
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
       padding:8px 10px;
       border-radius:var(--pill);
       background:rgba(15,23,42,.55);
       border:1px solid rgba(148,163,184,.14);
-    }
-
-    /* ===== Hydration HUD layout (B mode: no HUD water panel) ===== */
-    body.hud-b .hud{
-      grid-template-columns: minmax(280px, 1.05fr) minmax(280px, .95fr);
-      grid-template-rows: auto auto 1fr;
-      align-content:start;
-    }
-
-    body.hud-b .hud > .panel:nth-of-type(1){
-      grid-column:1; grid-row:1; align-self:start;
-    }
-    body.hud-b .hud > .panel:nth-of-type(2){
-      grid-column:2; grid-row:1; align-self:start;
-    }
-    body.hud-b .hud > .panel:nth-of-type(3){
-      grid-column:1 / span 2;
-      grid-row:2;
-      align-self:start;
-    }
-
-    body.hud-b .hud > div[style*="grid-column:1 / span 2; grid-row:3"]{
-      display:none !important;
-    }
-
-    body.hud-b .questTitle{
-      margin-bottom:8px;
-      font-size:14px;
-    }
-    body.hud-b .questLine{
-      font-size:13px;
-      line-height:1.28;
-    }
-    body.hud-b .miniRow{
-      margin-top:12px;
-      justify-content:flex-start;
-      flex-wrap:wrap;
-    }
-
-    @media (max-width: 900px){
-      body.hud-b .hud{
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
-        gap:10px;
-        padding:
-          calc(10px + var(--sat)) calc(10px + var(--sar))
-          calc(84px + var(--sab)) calc(10px + var(--sal));
-      }
-      body.hud-b .hud > .panel:nth-of-type(1){
-        grid-column:1; grid-row:1;
-      }
-      body.hud-b .hud > .panel:nth-of-type(2){
-        grid-column:1; grid-row:2;
-      }
-      body.hud-b .hud > .panel:nth-of-type(3){
-        grid-column:1; grid-row:3;
-      }
-
-      body.hud-b .statBox{ padding:9px 10px; }
-      body.hud-b .v{ font-size:18px; }
-    }
-
-    @media (max-height: 520px){
-      body.hud-b .hud{
-        gap:8px;
-        padding-top: calc(8px + var(--sat));
-      }
-      body.hud-b .panel{
-        padding:10px;
-        border-radius:14px;
-      }
-      body.hud-b .questLine{
-        font-size:12px;
-        line-height:1.2;
-        margin:1px 0;
-      }
-      body.hud-b .miniRow{
-        margin-top:8px;
-      }
+      min-height:34px;
     }
 
     /* ---------- Playfield ---------- */
@@ -216,16 +159,13 @@
       overflow:hidden;
       touch-action:manipulation;
     }
-
-    /* สำคัญ: ต้องมี position เพื่อให้ target absolute วางถูก */
     #hydration-layer{
       position:absolute; inset:0;
       pointer-events:auto;
     }
 
-    /* cardboard: split L/R */
+    /* cardboard split */
     #cbPlayfield{ display:none; }
-
     .cbHalf{
       position:absolute;
       top:0; bottom:0;
@@ -235,12 +175,10 @@
     }
     .cbHalf.left{ left:0; }
     .cbHalf.right{ right:0; }
-
     .cbLayer{
       position:absolute; inset:0;
       pointer-events:auto;
     }
-
     .cbHalf::before{
       content:"";
       position:absolute; inset:0;
@@ -255,11 +193,10 @@
     body.cardboard #playfield{ display:none; }
     body.cardboard #cbPlayfield{ display:block; }
 
-    /* cVR (crosshair ยิงกลางจอ) */
+    /* cVR */
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
-    body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจากกลางจอ */
-
+    body.view-cvr #hydration-layer{ pointer-events:none; } /* ยิงจาก crosshair */
     .crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -277,14 +214,8 @@
       transform:translate(-50%,-50%);
       border-radius:999px;
     }
-    .crosshair::before{
-      width:18px; height:18px;
-      border:2px solid rgba(229,231,235,.85);
-    }
-    .crosshair::after{
-      width:4px; height:4px;
-      background:rgba(34,211,238,.95);
-    }
+    .crosshair::before{ width:18px; height:18px; border:2px solid rgba(229,231,235,.85); }
+    .crosshair::after{ width:4px; height:4px; background:rgba(34,211,238,.95); }
     body.view-cvr .crosshair{ display:block; }
 
     /* ---------- Start Overlay ---------- */
@@ -309,22 +240,16 @@
       box-shadow: 0 24px 90px rgba(0,0,0,.55);
       padding:18px;
     }
-
-    .header{
-      display:flex; gap:14px; align-items:center;
-      margin-bottom:14px;
-    }
-
+    .header{ display:flex; gap:14px; align-items:center; margin-bottom:14px; }
     .logo{
       width:52px; height:52px; border-radius:14px;
       background:rgba(34,211,238,.12);
       border:1px solid rgba(34,211,238,.18);
       display:flex; align-items:center; justify-content:center;
       font-size:26px;
+      flex:0 0 auto;
     }
-
     .title{ font-size:18px; font-weight:900; margin:0; }
-
     .sub{
       margin:4px 0 0 0;
       color:rgba(148,163,184,.95);
@@ -332,14 +257,7 @@
       line-height:1.35;
       white-space:pre-line;
     }
-
-    .btnRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
-    }
-
+    .btnRow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
     .btn{
       pointer-events:auto;
       appearance:none;
@@ -356,7 +274,6 @@
     .btn.primary{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.16); }
     .btn.cyan{ border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.12); }
     .btn.warn{ border-color: rgba(245,158,11,.26); background: rgba(245,158,11,.14); }
-
     .note{
       margin-top:12px;
       font-size:12px;
@@ -378,7 +295,6 @@
       padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
     }
     #resultBackdrop[hidden]{ display:none; }
-
     .resultCard{
       width:min(980px, 100%);
       border-radius:22px;
@@ -387,23 +303,17 @@
       box-shadow: 0 24px 90px rgba(0,0,0,.55);
       padding:16px;
     }
-
-    .resultTop{
-      display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
-    }
+    .resultTop{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .resultTop h2{ margin:0; font-size:16px; font-weight:900; }
-
     .resultGrid{
       margin-top:12px;
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:12px;
     }
-
     .kv{ display:flex; justify-content:space-between; gap:10px; margin:6px 0; }
     .kv .k2{ color:rgba(148,163,184,.95); font-size:12px; }
     .kv .v2{ font-weight:900; }
-
     pre{
       margin:10px 0 0 0;
       white-space:pre-wrap;
@@ -416,36 +326,16 @@
       line-height:1.3;
     }
 
-    @media (max-width: 900px){
-      .resultGrid{ grid-template-columns: 1fr; }
-      .resultTop{ flex-direction:column; align-items:stretch; }
-    }
-
     /* ---------------- FX HOOKS ---------------- */
-    body.hha-endfx{
-      animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
-    }
-    @keyframes endBlink{
-      0%,100%{ filter: brightness(1); }
-      50%{ filter: brightness(1.08) saturate(1.06); }
-    }
-    @keyframes endShake{
-      0%,100%{ transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(0,1px,0); }
-    }
+    body.hha-endfx{ animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite; }
+    @keyframes endBlink{ 0%,100%{ filter: brightness(1); } 50%{ filter: brightness(1.08) saturate(1.06); } }
+    @keyframes endShake{ 0%,100%{ transform: translate3d(0,0,0); } 50%{ transform: translate3d(0,1px,0); } }
 
     body.hha-hitfx{ animation: hitPulse .14s ease-out 1; }
-    @keyframes hitPulse{
-      0%{ filter: brightness(1); }
-      60%{ filter: brightness(1.12) saturate(1.10); }
-      100%{ filter: brightness(1); }
-    }
+    @keyframes hitPulse{ 0%{ filter: brightness(1); } 60%{ filter: brightness(1.12) saturate(1.10); } 100%{ filter: brightness(1); } }
 
     body.hha-bossfx{ animation: bossFlash .22s ease-in-out infinite; }
-    @keyframes bossFlash{
-      0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); }
-      50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
-    }
+    @keyframes bossFlash{ 0%,100%{ box-shadow: inset 0 0 0 rgba(239,68,68,0); } 50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); } }
 
     .hha-shock{
       position:absolute;
@@ -465,13 +355,63 @@
       0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 900px){
+      .hud{
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto 1fr;
+        gap:10px;
+        padding:
+          calc(10px + var(--sat)) calc(10px + var(--sar))
+          calc(82px + var(--sab)) calc(10px + var(--sal));
+      }
+      .questPanel{
+        grid-column:1;
+        grid-row:3;
+      }
+      .resultGrid{
+        grid-template-columns: 1fr;
+      }
+      .header{
+        align-items:flex-start;
+      }
+    }
+
+    @media (max-width: 560px){
+      .panel{ padding:10px; border-radius:16px; }
+      .statGrid{ gap:8px; }
+      .statBox{ padding:8px 10px; border-radius:12px; }
+      .k{ font-size:11px; }
+      .v{ font-size:18px; }
+      .questLine{ font-size:12px; }
+      .pill{ padding:7px 9px; font-size:11px; }
+      .card{ padding:14px; border-radius:18px; }
+      .title{ font-size:16px; }
+      .sub{ font-size:12px; }
+    }
+
+    /* In cardboard mode, reduce HUD footprint */
+    body.cardboard .hud{
+      padding-top: calc(8px + var(--sat));
+      gap:8px;
+    }
+    body.cardboard .panel{
+      padding:8px 10px;
+      background:rgba(2,6,23,.68);
+    }
+    body.cardboard .v{ font-size:16px; }
+    body.cardboard .questLine{ font-size:11px; line-height:1.2; }
+    body.cardboard .pill{ padding:6px 8px; font-size:11px; }
+
+    /* Optional: if old HTML accidentally still contains waterPanel, kill it */
+    .waterPanel{ display:none !important; }
   </style>
 </head>
 
-<body class="view-pc hud-b">
+<body class="view-pc">
   <!-- PLAYFIELD (PC/Mobile/cVR) -->
   <div id="playfield">
-    <!-- ✅ hydration.safe.js ใช้ ID นี้ spawn target -->
     <div id="hydration-layer"></div>
   </div>
 
@@ -490,6 +430,7 @@
 
   <!-- HUD -->
   <div class="hud">
+    <!-- Top left -->
     <div class="panel">
       <div class="statGrid">
         <div class="statBox"><div class="k">Score</div><div class="v" id="stat-score">0</div></div>
@@ -497,6 +438,7 @@
       </div>
     </div>
 
+    <!-- Top right -->
     <div class="panel">
       <div class="statGrid">
         <div class="statBox"><div class="k">Time</div><div class="v" id="stat-time">0</div></div>
@@ -507,7 +449,8 @@
       </div>
     </div>
 
-    <div class="panel">
+    <!-- Middle full-width quest -->
+    <div class="panel questPanel">
       <div class="questTitle">ภารกิจ Hydration 💧</div>
       <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
       <div class="questLine" id="quest-line2">—</div>
@@ -519,9 +462,6 @@
         <div class="pill">Shield <b id="shield-count">0</b></div>
       </div>
     </div>
-
-    <!-- spacer row (hidden by hud-b CSS) -->
-    <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
   <!-- START OVERLAY -->
@@ -614,20 +554,15 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     async function enterFull(){
       try{
         const el = document.documentElement;
-        if (!document.fullscreenElement && el.requestFullscreen) {
-          await el.requestFullscreen({navigationUI:'hide'});
-        }
+        if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({navigationUI:'hide'});
       }catch(_){}
       try{
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape');
-        }
+        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
       }catch(_){}
     }
 
     async function go(view){
       if (view === 'cardboard' || view === 'cvr') await enterFull();
-
       const u = new URL(location.href);
       u.searchParams.set('view', view);
       if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
@@ -644,18 +579,6 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
       document.getElementById('startOverlay')?.classList.add('hide');
       window.dispatchEvent(new CustomEvent('hha:start'));
     }
-  })();
-  </script>
-
-  <!-- กัน water gauge ซ้ำ (ชั้นเสริม) -->
-  <script>
-  (function(){
-    try{
-      const list = document.querySelectorAll('#hha-water-gauge');
-      if (list.length > 1){
-        for (let i=0; i<list.length-1; i++) list[i].remove();
-      }
-    }catch(_){}
   })();
   </script>
 
