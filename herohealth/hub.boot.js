@@ -506,7 +506,6 @@ function computeCooldownNextTargetForPlan(params){
 
 // ---------- Optional plan runner inputs reader (safe fallback) ----------
 function readPlanRunnerInputs(){
-  // ถ้าคุณมี UI panel อยู่แล้ว ให้เปลี่ยน selector ให้ตรงจริงได้
   const dayEl = DOC.getElementById('planDay');
   const slotEl = DOC.getElementById('planSlot');
   const modeEl = DOC.getElementById('planMode');
