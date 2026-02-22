@@ -1,40 +1,56 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR BOOT — PRODUCTION (AI HUD + Big Pop C)
+// BrushVR BOOT — PATCH v20260222a
 // ✅ Tap-to-start unlock (mobile/vr)
-// ✅ Boot ctx parse + passthrough hub/seed/time/view
-// ✅ Listen brush:ai -> HUD AI panel + Big pop C (rate-limited)
-// ✅ SAFE PATCH: prevent double boot (fix immediate summary / duplicate listeners)
+// ✅ Safe boot order + guard against double boot
+// ✅ Context parse + passthrough
+// ✅ AI HUD listener (optional)
+// ✅ No auto-start / no auto-summary glitch
 
 (function(){
   'use strict';
+
   const WIN = window, DOC = document;
 
-  // ✅ prevent double execution of whole boot file
-  if (WIN.__BRUSH_BOOT_FILE_READY__) return;
-  WIN.__BRUSH_BOOT_FILE_READY__ = true;
+  if (WIN.__BRUSH_BOOT_PATCHED__) return;
+  WIN.__BRUSH_BOOT_PATCHED__ = true;
 
   const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const num = (v,d)=>{ const n = Number(v); return isFinite(n)? n : d; };
+  const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n) ? n : d; };
 
-  // -------------------------
-  // Context builder (HHA style)
-  // -------------------------
+  function getViewAuto(){
+    const qv = String(qs('view','') || '').toLowerCase();
+    if (qv) return qv;
+    const ua = navigator.userAgent || '';
+    const isMobile =
+      /Android|iPhone|iPad|iPod/i.test(ua) ||
+      (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+    return isMobile ? 'cvr' : 'pc';
+  }
+
   function buildCtx(){
-    const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
-    const hub  = qs('hub','') || '';
+    const view = getViewAuto();
+    const hub  = qs('hub','') || '../hub.html';
     const seed = num(qs('seed', Date.now()), Date.now());
-    const time = num(qs('time', 90), 90);
+    const time = Math.max(30, Math.min(120, num(qs('time', 80), 80)));
+    const diff = String(qs('diff','normal') || 'normal').toLowerCase();
 
-    // passthrough research params if you use them later
-    const studyId = qs('studyId','') || '';
-    const phase = qs('phase','') || '';
-    const conditionGroup = qs('conditionGroup','') || '';
-
-    return { view, hub, seed, time, studyId, phase, conditionGroup };
+    return {
+      view,
+      hub,
+      seed,
+      time,
+      diff,
+      run: String(qs('run','play') || 'play').toLowerCase(),
+      pid: qs('pid','') || qs('participantId','') || '',
+      studyId: qs('studyId','') || '',
+      phase: qs('phase','') || '',
+      conditionGroup: qs('conditionGroup','') || '',
+      log: qs('log','') || ''
+    };
   }
 
   // -------------------------
-  // Minimal HUD AI (creates DOM if not present)
+  // Minimal AI HUD (optional)
   // -------------------------
   function ensureAIHud(){
     let wrap = DOC.getElementById('hud-ai');
@@ -43,22 +59,24 @@
     wrap = DOC.createElement('section');
     wrap.id = 'hud-ai';
     wrap.className = 'hudCard hudAI';
-    wrap.style.position = 'fixed';
-    wrap.style.left = '12px';
-    wrap.style.bottom = '12px';
-    wrap.style.zIndex = '59';
-    wrap.style.width = 'min(420px, 92vw)';
-    wrap.style.border = '1px solid rgba(148,163,184,.18)';
-    wrap.style.borderRadius = '20px';
-    wrap.style.padding = '10px 12px';
-    wrap.style.background = 'rgba(2,6,23,.72)';
-    wrap.style.backdropFilter = 'blur(10px)';
-    wrap.style.webkitBackdropFilter = 'blur(10px)';
-    wrap.style.boxShadow = '0 18px 60px rgba(0,0,0,.35)';
-    wrap.style.pointerEvents = 'none';
-    wrap.style.opacity = '0';
-    wrap.style.transition = 'opacity .18s ease, transform .18s ease';
-    wrap.style.transform = 'translateY(6px)';
+    Object.assign(wrap.style, {
+      position: 'fixed',
+      left: '12px',
+      bottom: '12px',
+      zIndex: '59',
+      width: 'min(420px, 92vw)',
+      border: '1px solid rgba(148,163,184,.18)',
+      borderRadius: '20px',
+      padding: '10px 12px',
+      background: 'rgba(2,6,23,.72)',
+      backdropFilter: 'blur(10px)',
+      webkitBackdropFilter: 'blur(10px)',
+      boxShadow: '0 18px 60px rgba(0,0,0,.35)',
+      pointerEvents: 'none',
+      opacity: '0',
+      transition: 'opacity .18s ease, transform .18s ease',
+      transform: 'translateY(6px)'
+    });
 
     wrap.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;">
@@ -70,7 +88,7 @@
         <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
       </div>
       <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">
-        ทำ PERFECT เพื่อคอมโบ + เติม UV
+        ทำ PERFECT เพื่อคอมโบ + เติม FEVER
       </div>
     `;
     DOC.body.appendChild(wrap);
@@ -98,32 +116,31 @@
     }, msg.ms || 1600);
   }
 
-  // -------------------------
-  // Big pop C (center toast)
-  // -------------------------
   function bigPop(msg){
     let el = DOC.getElementById('ai-bigpop');
     if(!el){
       el = DOC.createElement('div');
       el.id = 'ai-bigpop';
-      el.style.position='fixed';
-      el.style.left='50%';
-      el.style.top='50%';
-      el.style.transform='translate(-50%,-50%) scale(0.96)';
-      el.style.zIndex='60';
-      el.style.padding='12px 16px';
-      el.style.borderRadius='999px';
-      el.style.border='1px solid rgba(148,163,184,.22)';
-      el.style.background='rgba(2,6,23,.78)';
-      el.style.color='rgba(229,231,235,.95)';
-      el.style.fontWeight='950';
-      el.style.letterSpacing='.6px';
-      el.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
-      el.style.backdropFilter='blur(10px)';
-      el.style.webkitBackdropFilter='blur(10px)';
-      el.style.pointerEvents='none';
-      el.style.opacity='0';
-      el.style.transition='opacity .14s ease, transform .14s ease';
+      Object.assign(el.style, {
+        position:'fixed',
+        left:'50%',
+        top:'50%',
+        transform:'translate(-50%,-50%) scale(0.96)',
+        zIndex:'60',
+        padding:'12px 16px',
+        borderRadius:'999px',
+        border:'1px solid rgba(148,163,184,.22)',
+        background:'rgba(2,6,23,.78)',
+        color:'rgba(229,231,235,.95)',
+        fontWeight:'950',
+        letterSpacing:'.6px',
+        boxShadow:'0 18px 60px rgba(0,0,0,.45)',
+        backdropFilter:'blur(10px)',
+        webkitBackdropFilter:'blur(10px)',
+        pointerEvents:'none',
+        opacity:'0',
+        transition:'opacity .14s ease, transform .14s ease'
+      });
       DOC.body.appendChild(el);
     }
     el.textContent = msg.big || msg.title || 'READY!';
@@ -143,15 +160,11 @@
 
     switch(t){
       case 'boss_start':   return mk('🦠','บอสมาแล้ว!','โหมด BOSS เริ่ม','โฟกัส PERFECT + คุมคอมโบ','BOSS',1800,'BOSS!',900);
-      case 'boss_phase':   return mk('🔥',`บอส Phase ${d.phase||'?'}` ,`HP เหลือ ${Math.round(d.hp||0)}`,'Phase 3–4 จะมี Weak Spot 🎯','BOSS',1700);
       case 'gate_on':      return mk('🛡️','GATE เปิด!','ต้องทำ PERFECT ติดกัน','อย่าพลาด—ช้าแต่แม่น','GATE',1900,'GATE!',900);
-      case 'gate_reset':   return mk('😵','GATE รีเซ็ต','พลาดแล้วต้องเริ่มใหม่','กลับไปจับจังหวะ PERFECT','GATE',1600);
       case 'gate_break':   return mk('💥','เกราะแตก!','ตีบอสได้เต็มแรงแล้ว','รีบกวาด Weak Spot 🎯','GATE',1600,'BREAK!',900);
-      case 'laser_warn':   return mk('⚠️','เลเซอร์กำลังมา','อีกแป๊บห้ามตี','ปล่อยมือ รอให้ผ่าน','LASER',1500,'STOP!',900);
       case 'laser_on':     return mk('🚫','LASER SWEEP!','ห้ามตีช่วงนี้','นิ่งไว้ก่อน แล้วค่อยลุยต่อ','LASER',1500,'NO HIT!',900);
-      case 'shock_on':     return mk('🎵','SHOCKWAVE!','ตีเฉพาะตอน “วงเขียว”','พลาดจังหวะคอมโบจะหาย','SHOCK',1700,'TIMING!',900);
-      case 'shock_pulse':  return mk('🟢',`PULSE ${d.idx||''}`,'ตอนนี้ “วงเขียว” เปิด','ตี 1 ทีพอ! อย่ารัว','SHOCK',900);
-      case 'finisher_on':  return mk('🏁','FINISHER!','โอกาสปิดเกม','ทำ PERFECT ให้ครบตามจำนวน','FIN',1900,'FINISH!',900);
+      case 'shock_on':     return mk('🎵','SHOCKWAVE!','ตีเฉพาะตอน “วงเขียว”','จับจังหวะให้แม่น','SHOCK',1700,'TIMING!',900);
+      case 'finisher_on':  return mk('🏁','FINISHER!','โอกาสปิดเกม','ทำ PERFECT ให้ครบ','FIN',1900,'FINISH!',900);
       case 'time_10s':     return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
       default: return null;
     }
@@ -159,21 +172,16 @@
 
   function shouldBigPop(type){
     const t = String(type||'').toLowerCase();
-    return (
-      t==='boss_start' || t==='gate_on' || t==='gate_break' ||
-      t==='laser_on'  || t==='shock_on' || t==='finisher_on' || t==='time_10s'
-    );
+    return ['boss_start','gate_on','gate_break','laser_on','shock_on','finisher_on','time_10s'].includes(t);
   }
 
   const RL = { lastAny:0, lastBig:0, minAnyMs:260, minBigMs:900 };
 
   function onBrushAI(ev){
-    const d = ev?.detail || {};
-    const type = d.type;
-    const now = Date.now();
-
-    if(now - RL.lastAny < RL.minAnyMs) return;
-    RL.lastAny = now;
+    const type = ev?.detail?.type;
+    const t = Date.now();
+    if(t - RL.lastAny < RL.minAnyMs) return;
+    RL.lastAny = t;
 
     const msg = aiMsgFromEvent(ev);
     if(!msg) return;
@@ -181,8 +189,8 @@
     setAI(msg);
 
     if(shouldBigPop(type)){
-      if(now - RL.lastBig < RL.minBigMs) return;
-      RL.lastBig = now;
+      if(t - RL.lastBig < RL.minBigMs) return;
+      RL.lastBig = t;
       bigPop(msg);
     }
   }
@@ -190,19 +198,22 @@
   // -------------------------
   // Boot once
   // -------------------------
-  function boot(){
-    // ✅ hard guard: prevent duplicate engine boot
-    if (WIN.__BRUSH_BOOT_DONE__) return;
-    WIN.__BRUSH_BOOT_DONE__ = true;
+  let booted = false;
+  function bootOnce(){
+    if(booted) return;
+    booted = true;
 
     const ctx = buildCtx();
+
     DOC.body.setAttribute('data-view', ctx.view);
+    try { DOC.documentElement.dataset.view = ctx.view; } catch(_){}
 
     WIN.addEventListener('brush:ai', onBrushAI);
 
-    if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
+    // IMPORTANT: only boot if engine exists
+    if (WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
       WIN.BrushVR.boot(ctx);
-    }else{
+    } else {
       console.warn('[BrushVR] missing BrushVR.boot(ctx)');
     }
   }
@@ -211,28 +222,42 @@
     const tap = DOC.getElementById('tapStart');
     const btn = DOC.getElementById('tapBtn');
 
+    // If no overlay, boot directly
     if(!tap || !btn){
-      boot();
+      bootOnce();
+      return;
+    }
+
+    // Show overlay only on coarse pointer or cvr/mobile view
+    const mobileLike = (DOC.body.getAttribute('data-view') === 'cvr') ||
+      (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
+
+    if (!mobileLike){
+      tap.style.display = 'none';
+      bootOnce();
       return;
     }
 
     tap.style.display = 'grid';
 
-    let started = false;
     const go = ()=>{
-      if(started) return;
-      started = true;
-      try{ tap.style.display='none'; }catch(_){}
-      boot();
+      try { tap.style.display='none'; } catch(_){}
+      bootOnce();
     };
 
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); go(); }, {passive:false});
-    tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); e.stopPropagation(); go(); } }, {passive:false});
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); go(); }, { passive:false, once:true });
+    tap.addEventListener('click', (e)=>{
+      if(e.target === tap){
+        e.preventDefault();
+        e.stopPropagation();
+        go();
+      }
+    }, { passive:false });
   }
 
   if(DOC.readyState === 'loading'){
     DOC.addEventListener('DOMContentLoaded', setupTapStart, { once:true });
-  }else{
+  } else {
     setupTapStart();
   }
 })();
