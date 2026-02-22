@@ -1,149 +1,202 @@
 // === /fitness/js/dom-renderer-rhythm.js ===
-// Rhythm Boxer DOM Renderer (FX) — PRODUCTION
-// ✅ Hit/Miss FX anchored to HIT LINE (bottom yellow line) per lane
-// ✅ Works on PC/Mobile/cVR (no WebGL required)
-// ✅ Uses CSS vars: --rb-hitline-bottom (px) for hit line position from lane bottom
+// Rhythm Boxer DOM Renderer — PATCH (5-lane + mobile feedback + stable FX)
+// ใช้ร่วมกับ rhythm-engine.js (engine เป็นคนสร้าง/ขยับ .rb-note)
+
 'use strict';
 
 (function(){
+  const WIN = window;
   const DOC = document;
 
-  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
 
-  class RhythmDomRenderer{
+  class DomRendererRhythm {
     constructor(opts = {}){
-      this.lanesEl = opts.lanesEl || document.querySelector('#rb-lanes');
-      this.fieldEl = opts.fieldEl || document.querySelector('#rb-field');
-      this.flashEl = opts.flashEl || document.querySelector('#rb-flash');
-      this.feedbackEl = opts.feedbackEl || document.querySelector('#rb-feedback');
+      this.wrap = opts.wrap || DOC.querySelector('#rb-wrap') || DOC.body;
+      this.field = opts.field || DOC.querySelector('#rb-field');
+      this.lanesEl = opts.lanesEl || DOC.querySelector('#rb-lanes');
+      this.feedbackEl = opts.feedbackEl || DOC.querySelector('#rb-feedback');
 
-      this._flashT = null;
-      this._fbT = null;
-    }
+      this._feedbackTimer = null;
+      this._lastLanePulseAt = new Map();
 
-    // ===== public helpers =====
-    setFeedback(text, cls){
-      if(!this.feedbackEl) return;
-      this.feedbackEl.textContent = String(text || '');
-      this.feedbackEl.classList.remove('perfect','great','good','miss','ready');
-      if(cls) this.feedbackEl.classList.add(cls);
-      clearTimeout(this._fbT);
-      // auto clear highlight class, keep text
-      this._fbT = setTimeout(()=>{
-        if(!this.feedbackEl) return;
-        this.feedbackEl.classList.remove('perfect','great','good','miss','ready');
-      }, 240);
-    }
-
-    flash(kind){
-      if(!this.flashEl) return;
-      this.flashEl.classList.add('active');
-      clearTimeout(this._flashT);
-      this._flashT = setTimeout(()=>{
-        if(this.flashEl) this.flashEl.classList.remove('active');
-      }, 140);
-    }
-
-    // ===== engine callbacks =====
-    showHitFx({ lane, judgment, scoreDelta }){
-      const p = this._hitPointForLane(lane);
-      this._spawnHitParticle(p.x, p.y, judgment);
-      this._spawnScoreText(p.x, p.y, scoreDelta, judgment);
-      this.setFeedback(String(judgment||'HIT').toUpperCase(), judgment || 'good');
-    }
-
-    showMissFx({ lane }){
-      const p = this._hitPointForLane(lane);
-      this._spawnMissParticle(p.x, p.y);
-      this.flash('miss');
-      this.setFeedback('MISS', 'miss');
-    }
-
-    // ===== anchor math =====
-    _hitPointForLane(lane){
-      // Anchor = lane center X, hit line Y at bottom (yellow line)
-      const lanesEl = this.lanesEl || DOC.querySelector('#rb-lanes');
-      const laneEl = lanesEl ? lanesEl.querySelector(`.rb-lane[data-lane="${lane}"]`) : null;
-
-      // fallback: center screen-ish
-      if(!laneEl){
-        const r = (this.fieldEl || DOC.body).getBoundingClientRect();
-        return { x: r.left + r.width/2, y: r.top + r.height*0.72 };
-      }
-
-      const rect = laneEl.getBoundingClientRect();
-      const x = rect.left + rect.width/2;
-
-      // CSS var: --rb-hitline-bottom (px) = distance from lane bottom upward to hit line
-      const cs = getComputedStyle(laneEl);
-      let hitBottom = parseFloat(cs.getPropertyValue('--rb-hitline-bottom'));
-      if(!Number.isFinite(hitBottom)) hitBottom = 58; // sane default
-
-      // Y is at (lane bottom - hitBottom)
-      const y = rect.top + rect.height - hitBottom;
-
-      return { x, y };
-    }
-
-    // ===== FX spawners =====
-    _spawnScoreText(x, y, scoreDelta, judgment){
-      if(!Number.isFinite(scoreDelta)) return;
-      const el = DOC.createElement('div');
-      el.className = `rb-score-fx rb-score-${judgment || 'good'}`;
-      el.textContent = `${scoreDelta > 0 ? '+' : ''}${scoreDelta}`;
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
-      DOC.body.appendChild(el);
-      void el.offsetWidth;
-      el.classList.add('is-live');
-      setTimeout(()=>{ el.classList.remove('is-live'); el.remove(); }, 520);
-    }
-
-    _spawnHitParticle(x, y, judgment){
-      const n = 12;
-      for(let i=0;i<n;i++){
-        const el = DOC.createElement('div');
-        el.className = `rb-frag rb-frag-${judgment || 'good'}`;
-
-        const size = 6 + Math.random()*7;
-        const ang = (i/n) * Math.PI*2 + (Math.random()*0.35);
-        const dist = 22 + Math.random()*34;
-
-        const dx = Math.cos(ang)*dist;
-        const dy = Math.sin(ang)*dist;
-
-        const life = 420 + Math.random()*220;
-
-        el.style.width = size+'px';
-        el.style.height = size+'px';
-        el.style.left = x+'px';
-        el.style.top  = y+'px';
-        el.style.setProperty('--dx', dx+'px');
-        el.style.setProperty('--dy', dy+'px');
-        el.style.setProperty('--life', life+'ms');
-
-        DOC.body.appendChild(el);
-        setTimeout(()=>el.remove(), life);
+      // safety
+      if (!this.field || !this.lanesEl) {
+        console.warn('[DomRendererRhythm] missing #rb-field or #rb-lanes');
       }
     }
 
-    _spawnMissParticle(x, y){
+    // -----------------------------
+    // Public API used by engine
+    // -----------------------------
+    showHitFx(payload = {}){
+      const lane = Number(payload.lane);
+      const judgment = String(payload.judgment || 'good').toLowerCase();
+      const scoreDelta = Number(payload.scoreDelta || 0);
+
+      // feedback text
+      const label =
+        judgment === 'perfect' ? 'PERFECT' :
+        judgment === 'great'   ? 'GREAT'   :
+        judgment === 'good'    ? 'GOOD'    : 'HIT';
+
+      this._setFeedback(label, judgment);
+
+      // lane pulse
+      this._pulseLane(lane, judgment);
+
+      // spark at hit line
+      this._spawnSpark(lane, judgment);
+
+      // floating score (optional)
+      if (scoreDelta > 0) {
+        this._spawnFloatText(lane, `+${scoreDelta}`, judgment);
+      }
+    }
+
+    showMissFx(payload = {}){
+      const lane = Number(payload.lane);
+      this._setFeedback('MISS', 'miss');
+      this._pulseLane(lane, 'miss');
+      this._spawnSpark(lane, 'miss');
+    }
+
+    // optional (if later needed)
+    clear(){
+      if (!this.lanesEl) return;
+      this.lanesEl.querySelectorAll('.rb-fx-spark,.rb-fx-float').forEach(el=>el.remove());
+      this._clearFeedbackTimer();
+      if (this.feedbackEl) {
+        this.feedbackEl.textContent = 'พร้อม!';
+        this.feedbackEl.classList.remove(
+          'is-perfect','is-great','is-good','is-miss','show'
+        );
+      }
+    }
+
+    // -----------------------------
+    // Internals
+    // -----------------------------
+    _laneEl(lane){
+      if (!this.lanesEl || !Number.isFinite(lane)) return null;
+      return this.lanesEl.querySelector(`.rb-lane[data-lane="${lane}"]`);
+    }
+
+    _setFeedback(text, kind){
+      const el = this.feedbackEl;
+      if (!el) return;
+
+      el.textContent = text || '';
+      el.classList.remove('is-perfect','is-great','is-good','is-miss');
+      if (kind) el.classList.add(`is-${kind}`);
+      el.classList.add('show');
+
+      this._clearFeedbackTimer();
+      this._feedbackTimer = setTimeout(()=>{
+        el.classList.remove('show','is-perfect','is-great','is-good','is-miss');
+      }, kind === 'miss' ? 320 : 260);
+    }
+
+    _clearFeedbackTimer(){
+      if (this._feedbackTimer){
+        clearTimeout(this._feedbackTimer);
+        this._feedbackTimer = null;
+      }
+    }
+
+    _pulseLane(lane, kind){
+      const laneEl = this._laneEl(lane);
+      if (!laneEl) return;
+
+      // กัน pulse ถี่เกินบนมือถือ
+      const now = performance.now();
+      const last = this._lastLanePulseAt.get(lane) || 0;
+      if (now - last < 35) return;
+      this._lastLanePulseAt.set(lane, now);
+
+      laneEl.classList.remove('fx-hit-perfect','fx-hit-great','fx-hit-good','fx-hit-miss');
+
+      const cls =
+        kind === 'perfect' ? 'fx-hit-perfect' :
+        kind === 'great'   ? 'fx-hit-great'   :
+        kind === 'good'    ? 'fx-hit-good'    :
+                             'fx-hit-miss';
+
+      // force reflow ให้เล่น animation ซ้ำได้
+      void laneEl.offsetWidth;
+      laneEl.classList.add(cls);
+
+      // cleanup class หลัง anim
+      setTimeout(()=> laneEl.classList.remove(cls), 260);
+    }
+
+    _spawnSpark(lane, kind){
+      const laneEl = this._laneEl(lane);
+      if (!laneEl) return;
+
+      // จุดเกิด FX: แถวเส้นตี (ด้านล่าง)
+      // ใช้ CSS var --rb-hitline-y ถ้ามี; fallback 78%
+      const hitlineYVar = this._readCssPx(this.wrap, '--rb-hitline-y');
+      const laneRect = laneEl.getBoundingClientRect();
+      const yPx = Number.isFinite(hitlineYVar)
+        ? clamp(hitlineYVar, 40, laneRect.height - 20)
+        : Math.round(laneRect.height * 0.78);
+
+      const fx = DOC.createElement('div');
+      fx.className = `rb-fx-spark ${this._sparkKindClass(kind)}`;
+      fx.style.left = '50%';
+      fx.style.top = `${Math.round(yPx)}px`;
+      fx.style.transform = 'translate(-50%, -50%)';
+
+      laneEl.appendChild(fx);
+
+      // auto remove
+      setTimeout(()=> fx.remove(), 260);
+    }
+
+    _spawnFloatText(lane, text, kind){
+      const laneEl = this._laneEl(lane);
+      if (!laneEl) return;
+
+      const hitlineYVar = this._readCssPx(this.wrap, '--rb-hitline-y');
+      const laneRect = laneEl.getBoundingClientRect();
+      const yPx = Number.isFinite(hitlineYVar)
+        ? clamp(hitlineYVar - 32, 20, laneRect.height - 40)
+        : Math.round(laneRect.height * 0.70);
+
       const el = DOC.createElement('div');
-      el.className = 'rb-frag rb-frag-miss';
+      el.className = `rb-fx-float ${this._sparkKindClass(kind)}`;
+      el.textContent = text;
+      el.style.left = '50%';
+      el.style.top = `${Math.round(yPx)}px`;
+      el.style.transform = 'translate(-50%, -50%)';
 
-      const life = 520;
-      el.style.width = '18px';
-      el.style.height = '18px';
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-      el.style.setProperty('--dx', '0px');
-      el.style.setProperty('--dy', '30px');
-      el.style.setProperty('--life', life+'ms');
+      laneEl.appendChild(el);
+      setTimeout(()=> el.remove(), 520);
+    }
 
-      DOC.body.appendChild(el);
-      setTimeout(()=>el.remove(), life);
+    _sparkKindClass(kind){
+      if (kind === 'perfect') return 'is-perfect';
+      if (kind === 'great') return 'is-great';
+      if (kind === 'good') return 'is-good';
+      return 'is-miss';
+    }
+
+    _readCssPx(el, varName){
+      try{
+        if (!el) return NaN;
+        const s = getComputedStyle(el).getPropertyValue(varName).trim();
+        if (!s) return NaN;
+        // รองรับ "123px" หรือ "123"
+        const n = parseFloat(s.replace('px',''));
+        return Number.isFinite(n) ? n : NaN;
+      }catch(_){
+        return NaN;
+      }
     }
   }
 
-  window.RhythmDomRenderer = RhythmDomRenderer;
+  // expose
+  WIN.DomRendererRhythm = DomRendererRhythm;
+
 })();
