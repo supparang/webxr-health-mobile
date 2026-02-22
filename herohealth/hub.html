@@ -1,6 +1,6 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (401/403-safe + Offline fallback)
-PACK v20260216e (ALL + Heatmap7 + QuestDirector)
+PACK v20260222-planWarmupSeq-ultra
 ✅ Quick Play (random game)
 ✅ Zone done pills + Zone progress (plays today)
 ✅ Daily streak + daily missions panel
@@ -9,7 +9,8 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
 ✅ Last summary panel (HHA_LAST_SUMMARY) + clear
 ✅ API banner probe (401/403 latch per-tab) + retry + reset today
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
-+ ✅ PATCH: Toast + Daily Badges (Quest UX)
+✅ NEW: Plan Runner panel (day/slot/mode/autoNext/warmup/cooldown)
+✅ NEW: Hygiene buttons Bath + CleanObjects (optional)
 -->
 <!doctype html>
 <html lang="th">
@@ -113,7 +114,6 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
     .kpi .k{font-size:11px;color:rgba(229,231,235,.72);font-weight:900}
     .kpi .v{margin-top:4px;font-size:14px;font-weight:1100}
 
-    /* heatmap */
     .heatwrap{margin-top:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(2,6,23,.28);padding:10px}
     .heathead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
     .heathead .t{font-size:12px;font-weight:1000;color:rgba(229,231,235,.92)}
@@ -135,7 +135,6 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
     .cell.full{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.28)}
     .cell.today{box-shadow:0 0 0 2px rgba(34,211,238,.18) inset}
 
-    /* quests */
     .qwrap{margin-top:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(2,6,23,.28);padding:10px}
     .qgrid{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     @media (max-width: 560px){ .qgrid{grid-template-columns:1fr;} }
@@ -154,118 +153,53 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
     .qstatus.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
     .qactions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 
-    /* ===== PATCH: Toast + Daily Badges ===== */
-    .hh-toast-wrap{
-      position: fixed;
-      left: 50%;
-      top: calc(10px + var(--sat));
-      transform: translateX(-50%);
-      z-index: 9999;
-      width: min(760px, calc(100vw - 20px));
-      display: grid;
-      gap: 8px;
-      pointer-events: none;
-    }
-    .hh-toast{
-      border: 1px solid var(--stroke);
-      background: rgba(2,6,23,.86);
-      border-radius: 14px;
-      padding: 10px 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-      opacity: 0;
-      transform: translateY(-8px);
-      transition: opacity .16s ease, transform .16s ease;
-      pointer-events: auto;
-    }
-    .hh-toast.show{ opacity: 1; transform: translateY(0); }
-    .hh-toast.ok{ border-color: rgba(34,197,94,.35); background: rgba(2,6,23,.9); }
-    .hh-toast.warn{ border-color: rgba(245,158,11,.35); }
-    .hh-toast .icon{
-      width: 24px; height: 24px; border-radius: 999px;
-      display: grid; place-items: center;
-      font-size: 14px; font-weight: 1000;
-      background: rgba(34,197,94,.14);
-      border: 1px solid rgba(34,197,94,.25);
-      flex: 0 0 auto;
-    }
-    .hh-toast .txt{ min-width: 0; }
-    .hh-toast .t{ font-size: 12px; font-weight: 1100; }
-    .hh-toast .m{ margin-top: 2px; font-size: 12px; color: rgba(229,231,235,.8); font-weight: 800; line-height: 1.3; }
-    .hh-toast .x{
-      margin-left: auto;
-      border: 1px solid var(--stroke);
-      background: rgba(2,6,23,.25);
-      border-radius: 10px;
-      padding: 4px 8px;
-      font-size: 11px;
-      font-weight: 1000;
-      cursor: pointer;
-    }
-
-    .badgewrap{
-      margin-top:10px;
-      border:1px solid var(--stroke);
-      border-radius:14px;
-      background:rgba(2,6,23,.28);
-      padding:10px;
-    }
-    .badgegrid{
+    /* NEW: plan runner */
+    .plan-grid{
       margin-top:10px;
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px;
     }
-    @media (max-width: 700px){ .badgegrid{ grid-template-columns:1fr; } }
-
-    .badgecard{
+    @media (max-width: 700px){ .plan-grid{ grid-template-columns:1fr 1fr; } }
+    @media (max-width: 520px){ .plan-grid{ grid-template-columns:1fr; } }
+    .f{
       border:1px solid var(--stroke);
       border-radius:14px;
-      background:rgba(2,6,23,.22);
+      background:rgba(2,6,23,.25);
       padding:10px;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
     }
-    .badgecard.locked{ opacity:.65; }
-    .badgeicon{
-      width:34px; height:34px; border-radius:12px;
-      display:grid; place-items:center;
+    .f label{
+      display:block;
+      font-size:11px;
+      color:rgba(229,231,235,.72);
+      font-weight:900;
+      margin-bottom:6px;
+    }
+    .f input,.f select{
+      width:100%;
       border:1px solid var(--stroke);
-      background:rgba(148,163,184,.10);
-      font-size:18px;
-      flex:0 0 auto;
+      border-radius:10px;
+      background:rgba(2,6,23,.45);
+      color:var(--text);
+      padding:8px 10px;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
     }
-    .badgecard.ok .badgeicon{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.14);
+    .f.chk{
+      display:flex;align-items:center;gap:8px;
     }
-    .badgetxt .name{
-      font-size:12px; font-weight:1100;
+    .f.chk input{ width:auto; }
+    .hintline{
+      margin-top:8px;
+      font-size:11px;
+      color:rgba(229,231,235,.72);
+      font-weight:850;
     }
-    .badgetxt .meta{
-      margin-top:4px;
-      font-size:11px; color:rgba(229,231,235,.78); font-weight:800; line-height:1.3;
-    }
-    .badgepill{
-      margin-top:6px;
-      display:inline-flex; align-items:center; gap:6px;
-      border:1px solid var(--stroke);
-      border-radius:999px;
-      padding:4px 8px;
-      font-size:10px; font-weight:1000;
-    }
-    .badgepill.ok{ border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.12); }
-    .badgepill.lock{ border-color:rgba(148,163,184,.2); background:rgba(148,163,184,.08); }
   </style>
 </head>
 
 <body>
-  <!-- ✅ PATCH: Toast container -->
-  <div class="hh-toast-wrap" id="hhToastWrap" aria-live="polite" aria-atomic="false"></div>
-
   <div class="wrap">
     <header>
       <div class="brand">
@@ -285,10 +219,10 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
         <a class="btn ghost" id="goQuickPlay" href="#">🎲 Quick Play</a>
         <a class="btn ghost" id="goBadges" href="./badges.html">🏅 Badges</a>
         <a class="btn ghost" id="goCheckin" href="./checkin.html">✅ Check-in</a>
+        <span class="chip" id="hubPickTip">Pick: —</span>
       </div>
     </header>
 
-    <!-- API status banner -->
     <div class="banner" id="apiBanner" aria-live="polite">
       <div class="dot warn" id="apiDot"></div>
       <div>
@@ -301,7 +235,73 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
       </div>
     </div>
 
-    <!-- Daily missions + streak + heatmap -->
+    <!-- NEW: Plan Runner Panel -->
+    <div class="panel" id="planPanel">
+      <div class="panelhead">
+        <div>
+          <h4>Plan Runner (Warmup ↔ Game ↔ Cooldown ↔ Next Slot)</h4>
+          <div class="meta">ตั้งค่า day/slot และโหมดสุ่มในหมวดเดียวกัน (zone-random / zone-day) แล้วเริ่มวิ่งตามแผน</div>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <div class="f">
+          <label for="planDay">Plan Day</label>
+          <select id="planDay">
+            <option value="1">Day 1</option>
+            <option value="2">Day 2</option>
+            <option value="3">Day 3</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="planSlot">Start Slot</label>
+          <select id="planSlot">
+            <option value="s1">S1</option>
+            <option value="s2">S2</option>
+            <option value="s3">S3</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="planMode">Mode</label>
+          <select id="planMode">
+            <option value="plan">plan (ตามเกมที่กำหนด)</option>
+            <option value="zone-random">zone-random (สุ่มในหมวดเดียวกัน)</option>
+            <option value="zone-day">zone-day (สุ่มแบบ deterministic รายวันในหมวดเดียวกัน)</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="planWarmupDur">Warmup (s)</label>
+          <input id="planWarmupDur" type="number" min="5" max="60" step="1" value="20" />
+        </div>
+
+        <div class="f">
+          <label for="planCooldownDur">Cooldown (s)</label>
+          <input id="planCooldownDur" type="number" min="5" max="60" step="1" value="15" />
+        </div>
+
+        <div class="f chk">
+          <input id="planEnableCooldown" type="checkbox" checked />
+          <label for="planEnableCooldown" style="margin:0;">Enable Cooldown Gate</label>
+        </div>
+
+        <div class="f chk">
+          <input id="planAutoNext" type="checkbox" checked />
+          <label for="planAutoNext" style="margin:0;">Auto Next Slot (chain)</label>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <a class="btn primary" id="btnPlanStartDay" href="#">▶ Start Day (จาก S1)</a>
+        <a class="btn" id="btnPlanStartSlot" href="#">▶ Start Selected Slot</a>
+      </div>
+      <div class="hintline">
+        * ปุ่มนี้ผูกกับ hub.boot.js patch ล่าสุด (AN-Ultra) • ถ้าเกมรองรับ cdnext แล้วจะ chain ครบทั้งวันอัตโนมัติ
+      </div>
+    </div>
+
     <div class="panel" id="dailyPanel">
       <div class="panelhead">
         <div>
@@ -333,9 +333,7 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
           <div class="t">Weekly Heatmap (7 days)</div>
           <div class="m" id="heatMeta">—</div>
         </div>
-        <div class="heat" id="heatGrid">
-          <!-- JS render 7 cells -->
-        </div>
+        <div class="heat" id="heatGrid"></div>
       </div>
 
       <div class="qwrap">
@@ -343,24 +341,10 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
           <div class="t">Quest Director (Today)</div>
           <div class="m" id="qMeta">—</div>
         </div>
-        <div class="qgrid" id="qGrid">
-          <!-- JS render quests -->
-        </div>
-      </div>
-
-      <!-- ✅ PATCH: Daily Badges -->
-      <div class="badgewrap">
-        <div class="heathead">
-          <div class="t">Daily Badges</div>
-          <div class="m" id="badgeMeta">—</div>
-        </div>
-        <div class="badgegrid" id="badgeGrid">
-          <!-- JS render -->
-        </div>
+        <div class="qgrid" id="qGrid"></div>
       </div>
     </div>
 
-    <!-- Last summary -->
     <div class="panel" id="lastSummary" style="display:none">
       <div class="panelhead">
         <div>
@@ -403,7 +387,7 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
           <span>🧼 Hygiene Zone</span>
           <span class="pill warn" id="zHygiene">Today: —</span>
         </h3>
-        <p><b>Handwash</b> • Brush • Mask &amp; Cough • Germ Detective</p>
+        <p><b>Handwash</b> • Brush • Mask &amp; Cough • Germ Detective • Bath • Clean Objects</p>
 
         <div class="progress">
           <div class="prow">
@@ -417,9 +401,11 @@ PACK v20260216e (ALL + Heatmap7 + QuestDirector)
           <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
           <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
           <a class="btn" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
-          <a class="btn" id="goGermDetective" href="#" aria-disabled="true">Germ Detective</a>
+          <a class="btn" id="goGermDetective" href="./germ-detective-vr.html">Germ Detective</a>
+          <a class="btn" id="goBath" href="./bath-vr.html">Bath</a>
+          <a class="btn" id="goCleanObjects" href="./home-clean.html">Clean Objects</a>
         </div>
-        <div class="small">* Germ Detective: coming soon (ไม่ทำให้ 404)</div>
+        <div class="small">* ถ้าไฟล์จริงยังไม่พร้อม ให้เปลี่ยน href เป็น # และใส่ aria-disabled="true"</div>
       </div>
 
       <div class="card">
