@@ -1,3 +1,8 @@
+/* === /herohealth/vr-brush/brush.css ===
+BrushVR CSS — PRODUCTION — PATCH v20260222a
+✅ FIX: br-end shows even when [hidden] due to CSS override
+*/
+
 :root{
   --bg:#050814;
   --panel: rgba(2,6,23,.72);
@@ -94,23 +99,14 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
 .br-bar .fill.good{background:rgba(16,185,129,.92)}
 .br-bar .fill.pink{background:rgba(244,114,182,.88)}
 
-/* ===== overlays =====
-   IMPORTANT PATCH:
-   - Do NOT force display:grid on .br-end / .br-menu unconditionally
-   - Respect [hidden] and aria-hidden
-*/
+/* overlays */
 .br-menu,.br-end{
-  position:fixed;inset:0;
-  place-items:center;
-  z-index:10;
-  padding:18px;
-  background: rgba(0,0,0,.0);
+  position:fixed;inset:0;display:grid;place-items:center;z-index:10;padding:18px;
 }
-/* show only when NOT hidden */
-.br-menu:not([hidden]),
-.br-end:not([hidden]){
-  display:grid;
-}
+
+/* ✅ FIX: respect [hidden] even if CSS sets display:grid above */
+.br-end[hidden]{ display:none !important; }
+.br-menu[hidden]{ display:none !important; }
 
 .br-card,.br-endCard{
   width:min(520px, 92vw);
@@ -174,9 +170,6 @@ a-scene{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.12}
   z-index:9999;
 }
 .br-hidden{display:none}
-
-/* ✅ PATCH: always respect [hidden] no matter what */
-[hidden]{ display:none !important; }
 
 /* ===== Targets ===== */
 .br-t{
