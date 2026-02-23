@@ -3,17 +3,16 @@
 // ✅ spawn/remove targets in #sb-target-layer
 // ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
 // ✅ FX via FxBurst
-// ✅ store targets as { el, type, dying }
-// ✅ expireTarget(id, opts) with soft fade/shrink + optional FX
-// ✅ safe-zone spawn via CSS vars (--sb-safe-*)
-// ✅ anti-race: prevent hit/expire double-processing
+// ✅ store targets as { el, type }
+// ✅ expireTarget(id, opts): soft fade/shrink, supports silent expire
+// ✅ UX patch: avoid duplicate expire FX on already-hit target
 
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-function rand(min, max){ return min + Math.random() * (max - min); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
 
 export class DomRendererShadow {
   constructor(layerEl, opts = {}) {
@@ -23,18 +22,14 @@ export class DomRendererShadow {
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
-    // id -> { el, type, dying:boolean }
-    this.targets = new Map();
-
+    this.targets = new Map(); // id -> { el, type }
     this._onPointer = this._onPointer.bind(this);
   }
 
-  setDifficulty(k){
-    this.diffKey = k || 'normal';
-  }
+  setDifficulty(k){ this.diffKey = k || 'normal'; }
 
   destroy(){
-    for (const [, obj] of this.targets.entries()) {
+    for (const [id, obj] of this.targets.entries()) {
       const el = obj?.el;
       try { el?.removeEventListener('pointerdown', this._onPointer); } catch {}
       try { el?.remove(); } catch {}
@@ -45,9 +40,8 @@ export class DomRendererShadow {
   _safeAreaRect(){
     const r = this.layer.getBoundingClientRect();
 
-    // CSS vars allow layout tuning without JS edits
+    // margins driven by CSS vars (helps layout/HUD overlap)
     const cs = getComputedStyle(document.documentElement);
-
     const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
     const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
     const padSide = Number.parseFloat(cs.getPropertyValue('--sb-safe-side')) || 14;
@@ -77,16 +71,12 @@ export class DomRendererShadow {
 
     const { left, top, right, bottom } = this._safeAreaRect();
 
-    const type = (data.type || 'normal');
-    const id = Number(data.id);
-    if (!Number.isFinite(id)) return;
-
-    // if same id somehow exists, remove old first (safety)
-    if (this.targets.has(id)) this.removeTarget(id);
-
     const el = document.createElement('div');
+    const type = (data.type || 'normal');
     el.className = 'sb-target sb-target--' + type;
-    el.dataset.id = String(id);
+    el.dataset.id = String(data.id);
+    el.dataset.type = type;
+    el.dataset.state = 'alive'; // alive | expiring | removed
 
     const size = clamp(Number(data.sizePx) || 110, 64, 240);
     el.style.width = size + 'px';
@@ -98,34 +88,21 @@ export class DomRendererShadow {
     el.style.top  = Math.round(y) + 'px';
 
     el.textContent = this._emojiForType(type, data.bossEmoji);
-
-    // optional TTL visual hint (pure visual, engine is source-of-truth)
-    if (Number.isFinite(Number(data.ttlMs)) && Number(data.ttlMs) > 0) {
-      el.style.setProperty('--sb-ttl-ms', `${Math.round(Number(data.ttlMs))}ms`);
-    }
-
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(id, { el, type, dying: false });
+    this.targets.set(Number(data.id), { el, type });
   }
 
   _onPointer(e){
     const el = e.currentTarget;
     if (!el) return;
 
+    // กันการกดย้ำระหว่าง expiring/removing
+    if (el.dataset.state && el.dataset.state !== 'alive') return;
+
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
-
-    const obj = this.targets.get(id);
-    if (!obj || !obj.el) return;
-
-    // ✅ anti-race: if expiring/removing, ignore hit
-    if (obj.dying) return;
-
-    // lock immediately to avoid double trigger on touch/pointer races
-    obj.dying = true;
-    el.style.pointerEvents = 'none';
 
     if (this.onTargetHit) {
       this.onTargetHit(id, { clientX: e.clientX, clientY: e.clientY });
@@ -135,74 +112,76 @@ export class DomRendererShadow {
   removeTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
-    if (!el) {
-      this.targets.delete(id);
-      return;
-    }
+    if (!el) return;
 
+    try { el.dataset.state = 'removed'; } catch {}
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
+
     this.targets.delete(id);
   }
 
   /**
-   * Soft-expire a target before removal.
-   * @param {number} id
-   * @param {{showFx?: boolean, missCounted?: boolean}} opts
+   * expireTarget(id, opts)
+   * opts = {
+   *   silent?: boolean,   // true => no visual "miss" emphasis class
+   *   ttlMs?: number      // fade duration before remove (default 180)
+   * }
    */
   expireTarget(id, opts = {}){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
 
-    // ✅ anti-race: if already being hit/expired, ignore
-    if (obj.dying) return;
-    obj.dying = true;
+    // already transitioning/removed => do nothing
+    if (el.dataset.state && el.dataset.state !== 'alive') return;
 
-    const showFx = !!opts.showFx; // engine decides when MISS FX is truly shown
+    const silent = !!opts.silent;
+    const ttlMs = clamp(Number(opts.ttlMs) || 180, 90, 420);
 
     try {
+      el.dataset.state = 'expiring';
       el.style.pointerEvents = 'none';
 
-      if (showFx) {
-        // only engine should request this when miss is counted (normal/bossface)
-        this.playHitFx(id, { grade: 'expire' });
-      }
-
-      // visual soften
+      // base expire animation class
       el.classList.add('is-expiring');
 
-      // remove after CSS animation window
-      setTimeout(() => this.removeTarget(id), 180);
+      // only add miss emphasis when this expiry should feel like a real miss
+      if (!silent) el.classList.add('is-expire-miss');
+
+      // hard remove after animation
+      setTimeout(() => this.removeTarget(id), ttlMs);
     } catch {
       this.removeTarget(id);
     }
   }
 
   playHitFx(id, info = {}){
+    // NOTE:
+    // - If target is already removed, fallback to provided clientX/clientY still works
+    // - Engine should call this BEFORE removeTarget(id) on hit
     const obj = this.targets.get(id);
     const el = obj?.el;
 
     const rect = el ? el.getBoundingClientRect() : null;
-    const x = info.clientX ?? (rect ? rect.left + rect.width / 2 : window.innerWidth / 2);
-    const y = info.clientY ?? (rect ? rect.top + rect.height / 2 : window.innerHeight / 2);
+    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
+    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
 
     const grade = info.grade || 'good';
     const scoreDelta = Number(info.scoreDelta) || 0;
 
     if (grade === 'perfect') {
       FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0, scoreDelta)}`, 'sb-fx-fever');
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
 
     } else if (grade === 'good') {
       FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0, scoreDelta)}`, 'sb-fx-hit');
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
 
     } else if (grade === 'bad') {
-      // decoy hit (bad choice) => should look "penalty", not miss-expire
+      // decoy hit (penalty)
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-decoy' });
-      if (scoreDelta < 0) FxBurst.popText(x, y, `${scoreDelta}`, 'sb-fx-decoy');
-      else FxBurst.popText(x, y, 'DECOY!', 'sb-fx-decoy');
+      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, 'sb-fx-decoy');
 
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
@@ -217,9 +196,13 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
 
     } else if (grade === 'expire') {
-      // ✅ MISS FX: use only when engine says this expire really counts miss
-      FxBurst.burst(x, y, { n: 6, spread: 34, ttlMs: 400, cls: 'sb-fx-miss' });
+      // show ONLY when engine decides this is a real miss expire (normal/bossface)
+      FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
       FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
+
+    } else if (grade === 'expire-silent') {
+      // no text, just tiny subtle fade sparkle (optional)
+      FxBurst.burst(x, y, { n: 4, spread: 22, ttlMs: 260, cls: 'sb-fx-decoy' });
 
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
