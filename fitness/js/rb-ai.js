@@ -1,9 +1,9 @@
 // === /fitness/js/rb-ai.js ===
-// Rhythm Boxer AI Director / Prediction Hook
-// ✅ Research lock support
-// ✅ Normal assist flag ?ai=1
-// ✅ Predict fatigue / skill / suggestion / pressure chance
-// ✅ Hook points for future ML/DL models (window.RB_AI_MODEL)
+// Rhythm Boxer AI Prediction / Coach / Assist Flags (ML-ready, explainable)
+// ✅ Research lock supported
+// ✅ Normal assist opt-in via ?ai=1
+// ✅ Predict-only by default (no hidden adaptive changes)
+// ✅ Smoothing + explainable tips + fatigue/skill estimates
 'use strict';
 
 (function(){
@@ -11,149 +11,150 @@
 
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function clamp01(v){ return clamp(v,0,1); }
-  function num(v, d=0){ v=Number(v); return Number.isFinite(v)?v:d; }
-
-  const SP = new URL(location.href).searchParams;
-  const qAi = (SP.get('ai') || '').toLowerCase();
-  const qMode = (SP.get('mode') || '').toLowerCase();
-
-  // policy:
-  // - research => locked (no adaptive)
-  // - normal/play => assist if ?ai=1
-  let _assistEnabled = (qAi === '1' || qAi === 'on' || qAi === 'true');
-  let _locked = (qMode === 'research');
-
-  function setAssistEnabled(v){ _assistEnabled = !!v; }
-  function setLocked(v){ _locked = !!v; }
-
-  function isAssistEnabled(){ return !!_assistEnabled; }
-  function isLocked(){ return !!_locked; }
-
-  // ---- feature engineering ----
-  function featurize(snap){
-    const acc = clamp01(num(snap.accPct,0) / 100);
-    const miss = num(snap.hitMiss,0);
-    const perf = num(snap.hitPerfect,0);
-    const great = num(snap.hitGreat,0);
-    const good = num(snap.hitGood,0);
-    const combo = num(snap.combo,0);
-    const hp = clamp01(num(snap.hp,100) / 100);
-    const t = num(snap.songTime,0);
-    const dur = Math.max(1, num(snap.durationSec,60));
-    const p = clamp01(t / dur);
-    const offAbs = num(snap.offsetAbsMean, 0.08); // sec
-
-    const judged = perf + great + good + miss;
-    const hit = perf + great + good;
-    const perfectRate = judged ? perf / judged : 0;
-    const missRate = judged ? miss / judged : 0;
-
-    return {
-      acc, miss, perf, great, good, combo, hp, t, dur, p, offAbs,
-      judged, hit, perfectRate, missRate
-    };
+  function q(name, def=''){
+    try{ return new URL(location.href).searchParams.get(name) ?? def; }
+    catch(_){ return def; }
   }
 
-  // ---- fallback heuristic predictor (production-safe, deterministic for same snap) ----
-  function heuristicPredict(snap){
-    const f = featurize(snap);
+  const state = {
+    hist: [],
+    lastTip: '',
+    lastTipAt: 0,
+    modeLocked: false,   // research = locked
+    assistOn: false,     // ?ai=1 enables normal assist signaling
+    explain: true
+  };
 
-    // fatigue risk rises when hp low, miss rate high, offsets large, late-session progress
-    let fatigueRisk =
-      0.35 * (1 - f.hp) +
-      0.25 * f.missRate +
-      0.20 * clamp01((f.offAbs - 0.04) / 0.12) +
-      0.20 * f.p;
+  function init(){
+    const mode = String(q('mode','')).toLowerCase();
+    state.modeLocked = (mode === 'research' || q('run','') === 'research');
+    state.assistOn = String(q('ai','0')) === '1';
+  }
 
-    // skill score from acc/perfect/combo stability
-    let skillScore =
-      0.50 * f.acc +
-      0.20 * f.perfectRate +
-      0.20 * clamp01(f.combo / 25) +
-      0.10 * (1 - clamp01((f.offAbs - 0.03) / 0.10));
+  function smoothPush(x){
+    state.hist.push(x);
+    if(state.hist.length > 12) state.hist.shift();
+  }
 
-    fatigueRisk = clamp01(fatigueRisk);
-    skillScore = clamp01(skillScore);
+  function avg(arr, key){
+    if(!arr.length) return 0;
+    let s=0;
+    for(const x of arr) s += (x[key] || 0);
+    return s / arr.length;
+  }
 
-    // suggested difficulty (prediction only)
-    let suggestedDifficulty = 'normal';
-    if (skillScore > 0.80 && fatigueRisk < 0.35) suggestedDifficulty = 'hard';
-    else if (skillScore < 0.45 || fatigueRisk > 0.70) suggestedDifficulty = 'easy';
-
-    // pressure chance = probability of "mix pattern / fake pressure" burst recommendation
-    const pressureChance = clamp01(
-      0.15 +
-      0.35 * skillScore +
-      0.20 * clamp01(f.combo / 20) -
-      0.20 * fatigueRisk
-    );
-
-    // boss intensity recommendation 1..3
-    let bossIntensity = 1;
-    if (skillScore > 0.55 && fatigueRisk < 0.75) bossIntensity = 2;
-    if (skillScore > 0.78 && fatigueRisk < 0.45) bossIntensity = 3;
+  function pickTip(snapshot, derived){
+    const now = performance.now ? performance.now() : Date.now();
+    const cooldownMs = 2200;
 
     let tip = '';
-    if (fatigueRisk > 0.75) tip = 'หายใจลึก ๆ ลดแรงตี เน้นจังหวะกลางก่อน';
-    else if (f.offAbs > 0.095) tip = 'จังหวะยังแกว่ง ลองโฟกัส hit line และกดให้พอดี';
-    else if (f.missRate > 0.22) tip = 'อย่ารีบกดล่วงหน้า รอให้โน้ตเข้าเส้นแล้วค่อยตี';
-    else if (skillScore > 0.82) tip = 'ดีมาก! พร้อมรับช่วง Pressure Burst ได้';
-    else if (f.combo >= 10) tip = 'คอมโบมาแล้ว รักษาจังหวะคงที่ไว้';
+    let why = '';
 
-    return {
+    // priority order
+    if (derived.fatigueRisk > 0.78 && snapshot.hp < 55){
+      tip = 'ผ่อนแรง 2 จังหวะ แล้วค่อยกลับมาเก็บคอมโบ';
+      why = 'hp-low+fatigue';
+    } else if (derived.lateBias > 0.65){
+      tip = 'คุณกดช้าเล็กน้อย — ลองกด “ก่อนถึงเส้น” นิดหนึ่ง';
+      why = 'late-bias';
+    } else if (derived.earlyBias > 0.65){
+      tip = 'คุณกดเร็วไปนิด — รอให้โน้ตเข้าใกล้เส้นมากขึ้น';
+      why = 'early-bias';
+    } else if (snapshot.combo >= 12 && derived.skillScore > 0.68){
+      tip = 'ดีมาก! รักษาจังหวะนี้ไว้ แล้วโฟกัสความแม่นยำมากกว่าความแรง';
+      why = 'good-streak';
+    } else if ((snapshot.hitMiss || 0) >= 8 && snapshot.combo === 0){
+      tip = 'อย่ากดรัวมั่ว ลองจับ lane หลักก่อน แล้วค่อยขยาย';
+      why = 'spam-risk';
+    } else if ((snapshot.offsetAbsMean || 0) > 0.10){
+      tip = 'ลองปรับ Cal ±20ms ถ้ารู้สึกเพลงกับภาพไม่ตรงกัน';
+      why = 'calibration';
+    }
+
+    if (!tip) return '';
+
+    // rate limit repeated tips
+    if (tip === state.lastTip && (now - state.lastTipAt) < 4000) return '';
+    if ((now - state.lastTipAt) < cooldownMs) return '';
+
+    state.lastTip = tip;
+    state.lastTipAt = now;
+    return tip;
+  }
+
+  function predict(snapshot){
+    // snapshot from engine:
+    // accPct, hitMiss, hitPerfect, hitGreat, hitGood, combo, offsetAbsMean, hp, songTime, durationSec
+    snapshot = snapshot || {};
+
+    // derive normalized features
+    const acc = clamp01((snapshot.accPct || 0) / 100);
+    const missLoad = clamp01((snapshot.hitMiss || 0) / 20);
+    const comboNorm = clamp01((snapshot.combo || 0) / 25);
+    const hpNorm = clamp01((snapshot.hp || 0) / 100);
+    const prog = (snapshot.durationSec > 0) ? clamp01((snapshot.songTime || 0) / snapshot.durationSec) : 0;
+    const offsetAbs = clamp01(((snapshot.offsetAbsMean || 0) / 0.14)); // ~140ms = poor timing
+
+    // optional early/late biases passed from engine (if added)
+    const earlyBias = clamp01(snapshot.earlyBias || 0);
+    const lateBias  = clamp01(snapshot.lateBias  || 0);
+
+    // fatigue risk (rule-based baseline, ML-ready later)
+    const fatigueRisk = clamp01(
+      0.34 * (1 - hpNorm) +
+      0.24 * missLoad +
+      0.20 * offsetAbs +
+      0.12 * prog +
+      0.10 * (comboNorm < 0.2 ? 1 : 0)
+    );
+
+    // skill score (stability/accuracy proxy)
+    const skillScore = clamp01(
+      0.50 * acc +
+      0.22 * (1 - offsetAbs) +
+      0.18 * comboNorm +
+      0.10 * hpNorm
+    );
+
+    let suggestedDifficulty = 'normal';
+    if (skillScore >= 0.78 && fatigueRisk < 0.45) suggestedDifficulty = 'hard';
+    else if (skillScore <= 0.40 || fatigueRisk > 0.75) suggestedDifficulty = 'easy';
+
+    const frame = {
       fatigueRisk,
       skillScore,
       suggestedDifficulty,
-      pressureChance,
-      bossIntensity,
-      tip
+      earlyBias,
+      lateBias
     };
-  }
+    smoothPush(frame);
 
-  // ---- optional external ML/DL model hook ----
-  // If future model exists, it can replace/augment heuristic:
-  // window.RB_AI_MODEL.predict(features) => { ... }
-  function predict(snap){
-    const base = heuristicPredict(snap);
+    // smoothed outputs
+    const out = {
+      fatigueRisk: +avg(state.hist, 'fatigueRisk').toFixed(3),
+      skillScore: +avg(state.hist, 'skillScore').toFixed(3),
+      suggestedDifficulty: suggestedDifficulty,
+      earlyBias: +avg(state.hist, 'earlyBias').toFixed(3),
+      lateBias: +avg(state.hist, 'lateBias').toFixed(3),
+      locked: state.modeLocked ? 1 : 0,
+      assistOn: state.assistOn ? 1 : 0,
+      tip: ''
+    };
 
-    try{
-      if (WIN.RB_AI_MODEL && typeof WIN.RB_AI_MODEL.predict === 'function'){
-        const out = WIN.RB_AI_MODEL.predict({
-          accPct: snap.accPct,
-          hitMiss: snap.hitMiss,
-          hitPerfect: snap.hitPerfect,
-          hitGreat: snap.hitGreat,
-          hitGood: snap.hitGood,
-          combo: snap.combo,
-          offsetAbsMean: snap.offsetAbsMean,
-          hp: snap.hp,
-          songTime: snap.songTime,
-          durationSec: snap.durationSec
-        }) || {};
-
-        // merge carefully
-        return {
-          fatigueRisk: clamp01(num(out.fatigueRisk, base.fatigueRisk)),
-          skillScore: clamp01(num(out.skillScore, base.skillScore)),
-          suggestedDifficulty: String(out.suggestedDifficulty || base.suggestedDifficulty),
-          pressureChance: clamp01(num(out.pressureChance, base.pressureChance)),
-          bossIntensity: Math.max(1, Math.min(3, Math.round(num(out.bossIntensity, base.bossIntensity)))),
-          tip: String(out.tip || base.tip || '')
-        };
-      }
-    }catch(err){
-      // silent fallback
-      console.warn('[RB_AI] model predict fallback:', err);
+    if (state.explain){
+      out.tip = pickTip(snapshot, out);
     }
-
-    return base;
+    return out;
   }
 
-  WIN.RB_AI = {
+  function isLocked(){ return !!state.modeLocked; }
+  function isAssistEnabled(){ return !!state.assistOn; }
+
+  init();
+
+  WIN.RB_AI = Object.assign({}, WIN.RB_AI || {}, {
     predict,
     isLocked,
-    isAssistEnabled,
-    setLocked,
-    setAssistEnabled
-  };
+    isAssistEnabled
+  });
 })();
