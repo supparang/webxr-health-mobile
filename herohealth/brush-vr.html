@@ -7,118 +7,128 @@
   <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#050814; --panel:rgba(2,6,23,.78); --line:rgba(148,163,184,.18);
-      --txt:rgba(229,231,235,.96); --mut:rgba(148,163,184,.95); --ok:rgba(16,185,129,.95);
+      --bg:#050814; --txt:#e5e7eb; --mut:#94a3b8; --line:rgba(148,163,184,.18);
+      --panel:rgba(2,6,23,.72);
     }
-    *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:
-      radial-gradient(1200px 800px at 10% 0%, rgba(99,102,241,.18), transparent 55%),
-      radial-gradient(900px 700px at 95% 15%, rgba(34,211,238,.12), transparent 55%),
-      var(--bg); color:var(--txt);
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;}
+      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
+      var(--bg);
+      color:var(--txt); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    }
     .wrap{min-height:100%;display:grid;place-items:center;padding:18px}
-    .card{width:min(720px,96vw);border:1px solid var(--line);border-radius:24px;background:var(--panel);backdrop-filter:blur(14px);padding:16px;box-shadow:0 24px 90px rgba(0,0,0,.4)}
-    h1{margin:0;font-size:28px}
-    p{margin:8px 0 0;color:rgba(229,231,235,.8);font-weight:700}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-    @media (max-width:700px){.grid{grid-template-columns:1fr}}
-    .box{border:1px solid var(--line);border-radius:18px;background:rgba(2,6,23,.55);padding:10px 12px}
-    .k{font-size:12px;color:var(--mut);font-weight:1000}
-    .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    label{font-weight:900;font-size:12px;color:var(--mut)}
-    input,select{
-      width:100%;margin-top:4px;background:rgba(2,6,23,.55);color:var(--txt);
-      border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:10px 12px;font-weight:900
+    .card{
+      width:min(560px,92vw);
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:var(--panel);
+      backdrop-filter:blur(14px);
+      box-shadow:0 22px 90px rgba(0,0,0,.45);
+      padding:14px;
     }
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .title{font-size:20px;font-weight:1000;margin:0}
+    .sub{margin:6px 0 0;color:rgba(229,231,235,.75);font-weight:800}
+    .pill{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(2,6,23,.55);color:var(--mut);font-weight:1000}
+    .mono{margin-top:12px;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:rgba(2,6,23,.45);font:900 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
     .btn{
-      appearance:none;border:none;border-radius:999px;padding:12px 14px;cursor:pointer;
-      background:rgba(2,6,23,.70);color:var(--txt);border:1px solid rgba(148,163,184,.22);
-      font:1000 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      box-shadow:0 16px 40px rgba(0,0,0,.3);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;
+      appearance:none;border:none;border-radius:999px;padding:10px 12px;
+      background:rgba(16,185,129,.20); border:1px solid rgba(16,185,129,.35);
+      color:rgba(229,231,235,.96); font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      box-shadow:0 16px 40px rgba(0,0,0,.30); cursor:pointer; text-decoration:none;
+      display:inline-flex; align-items:center; justify-content:center;
     }
-    .btn.primary{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.35)}
-    .mut{color:rgba(229,231,235,.72);font-size:12px;font-weight:800;margin-top:8px}
-    code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+    .ghost{background:rgba(2,6,23,.55);border-color:rgba(148,163,184,.22)}
+    .mut{color:var(--mut)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="k">HeroHealth · Hygiene</div>
-      <h1>🦷 BrushVR — Launcher</h1>
-      <p>ตัวนี้จะส่งค่าไปหน้าเล่นจริง: <code>/herohealth/vr-brush/brush.html</code></p>
-
-      <div class="grid">
-        <div class="box">
-          <label>View
-            <select id="view">
-              <option value="mobile">mobile</option>
-              <option value="pc">pc</option>
-              <option value="cvr">cvr (Cardboard)</option>
-            </select>
-          </label>
-          <label>Mode
-            <select id="run">
-              <option value="play">play</option>
-              <option value="research">research</option>
-            </select>
-          </label>
-          <label>Difficulty
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="box">
-          <label>Time (sec)
-            <input id="time" type="number" min="20" max="300" step="10" value="80" />
-          </label>
-          <label>PID
-            <input id="pid" type="text" value="anon" />
-          </label>
-          <label>Seed
-            <input id="seed" type="number" value="" />
-          </label>
-        </div>
+      <h1 class="title">🦷 BrushVR Launcher</h1>
+      <p class="sub">กำลังพาเข้าเกมเวอร์ชัน run page (vr-brush/brush.html)…</p>
+      <div class="pill">HeroHealth · Hygiene · Launcher-only</div>
+      <div id="dbg" class="mono">Preparing redirect…</div>
+      <div class="row">
+        <a id="openNow" class="btn" href="#">▶ เปิดเกมทันที</a>
+        <a id="goHub" class="btn ghost" href="./hub.html">🏰 กลับ HUB</a>
       </div>
-
-      <div class="actions">
-        <button class="btn primary" id="go">▶ เข้าเล่น BrushVR</button>
-        <a class="btn" id="goHub" href="./hub.html">🏰 กลับ HUB</a>
-      </div>
-
-      <div class="mut">
-        Root launcher = <code>brush-vr.html</code> → Run page = <code>vr-brush/brush.html</code>
-      </div>
+      <div class="sub mut" style="margin-top:10px">ถ้าไม่ redirect อัตโนมัติ ให้กด “เปิดเกมทันที”</div>
     </div>
   </div>
 
   <script>
-    (function(){
-      'use strict';
-      const $ = (s)=>document.querySelector(s);
-      const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||a));
-      const seedEl = $('#seed');
-      if(!seedEl.value) seedEl.value = String(Date.now());
+  (function(){
+    'use strict';
+    const WIN = window, DOC = document;
 
-      $('#go').addEventListener('click', ()=>{
-        const p = new URLSearchParams();
-        p.set('view', $('#view').value || 'mobile');
-        p.set('run', $('#run').value || 'play');
-        p.set('diff', $('#diff').value || 'normal');
-        p.set('time', String(clamp($('#time').value,20,300)));
-        p.set('pid', ($('#pid').value || 'anon').trim() || 'anon');
-        p.set('seed', String(Number($('#seed').value) || Date.now()));
-        p.set('hub', './hub.html');
-        p.set('ai', '0');
-        p.set('debug', '0');
-        location.href = './vr-brush/brush.html?' + p.toString();
-      });
-    })();
+    function qs(name, def=''){
+      try{ return new URL(location.href).searchParams.get(name) ?? def; }
+      catch(_){ return def; }
+    }
+    function clamp(v,min,max){
+      v = Number(v);
+      if(!Number.isFinite(v)) v = min;
+      return Math.max(min, Math.min(max, v));
+    }
+    function nowSeed(){ return String(Date.now()); }
+
+    // ---- source params from launcher URL ----
+    const p = {
+      view: String(qs('view','mobile') || 'mobile').toLowerCase(),
+      run:  String(qs('run','play') || 'play').toLowerCase(),
+      diff: String(qs('diff','normal') || 'normal').toLowerCase(),
+      time: String(clamp(qs('time','80'), 20, 300)),
+      seed: String(qs('seed', nowSeed()) || nowSeed()),
+      pid:  String(qs('pid','anon') || 'anon'),
+      hub:  String(qs('hub','./hub.html') || './hub.html'),
+      api:  String(qs('api','') || ''),
+      health:String(qs('health','') || ''),
+      ai:   String(qs('ai','0') || '0'),
+      debug:String(qs('debug','0') || '0')
+    };
+
+    // run page target (ใน folder vr-brush)
+    // ✅ ใช้ brush.html ตามที่คุณยืนยัน
+    const target = new URL('./vr-brush/brush.html', location.href);
+
+    // pass-through queries
+    Object.entries(p).forEach(([k,v])=>{
+      if(v !== '' && v != null) target.searchParams.set(k, v);
+    });
+
+    // กัน launcher ไปชน flow เก่า
+    target.searchParams.set('launcher', 'brush-vr.html');
+    target.searchParams.set('src', 'launcher');
+
+    // debug text
+    const dbg = DOC.getElementById('dbg');
+    if(dbg){
+      dbg.textContent =
+`Launcher: ${location.pathname}
+Run page:  ${target.pathname}
+
+view=${p.view}
+run=${p.run}
+diff=${p.diff}
+time=${p.time}
+seed=${p.seed}
+pid=${p.pid}
+ai=${p.ai}
+debug=${p.debug}`;
+    }
+
+    const openNow = DOC.getElementById('openNow');
+    if(openNow) openNow.href = target.href;
+
+    const goHub = DOC.getElementById('goHub');
+    if(goHub) goHub.href = p.hub || './hub.html';
+
+    // auto redirect (เบา ๆ)
+    setTimeout(function(){
+      try{ location.replace(target.href); }catch(_){ /* fallback manual */ }
+    }, 220);
+  })();
   </script>
 </body>
 </html>
