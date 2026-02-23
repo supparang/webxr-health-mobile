@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload)
-FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
+FULL v20260223-run-wired (FIX PATHS)
 -->
 <!doctype html>
 <html lang="th">
@@ -9,45 +9,27 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- Core CSS (your file) -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
+  <!-- ✅ FIX: Core CSS path (same folder) -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
   <style>
-    /* Minimal layout safety (keep if your CSS already has these) */
     html,body{height:100%;margin:0;}
     body{overflow:hidden;}
 
-    /* layers */
-    .gj-stage{
-      position:relative;
-      width:100%;
-      height:100%;
-    }
+    .gj-stage{ position:relative; width:100%; height:100%; }
     #gj-layer, #gj-layer-r{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      touch-action: manipulation;
+      position:absolute; inset:0; overflow:hidden; touch-action: manipulation;
     }
     #gj-layer-r{ display:none; }
 
-    /* top HUD wrapper */
     .gj-hud{
-      position:fixed;
-      left:0; right:0; top:0;
-      z-index:120;
-      pointer-events:none;
+      position:fixed; left:0; right:0; top:0;
+      z-index:120; pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
       padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
-
-    .gj-hud-row{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
-    }
+    .gj-hud-row{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
 
     .gj-card{
       pointer-events:none;
@@ -60,161 +42,88 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-
-    .gj-stat{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800;
-      letter-spacing:.2px;
-    }
+    .gj-stat{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:800; letter-spacing:.2px; }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
-    .gj-mini{
-      margin-top:8px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      font-size: 13px;
-      opacity:.96;
-    }
+
+    .gj-mini{ margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size:13px; opacity:.96; }
     .gj-mini .chip{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.42);
       font-weight:800;
     }
 
     .gj-progress{
-      position:fixed;
-      left:0; right:0;
+      position:fixed; left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px;
-      z-index:130;
+      height:4px; z-index:130;
       background: rgba(148,163,184,.10);
     }
     #gjProgressFill{
-      height:100%;
-      width:0%;
+      height:100%; width:0%;
       background: rgba(99,102,241,.95);
       transition: width 120ms linear;
     }
 
-    /* Fever + Shield row */
-    .gj-bars{
-      pointer-events:none;
-      margin-top:8px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
-    }
-    .gj-bar{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      font-size: 13px;
-    }
+    .gj-bars{ pointer-events:none; margin-top:8px; display:grid; grid-template-columns:1fr; gap:8px; }
+    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size:13px; }
     .gj-bar .track{
-      flex:1;
-      height: 10px;
-      border-radius:999px;
+      flex:1; height:10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #feverFill{
-      height:100%;
-      width:0%;
-      background: rgba(251,191,36,.96);
-      transition: width 120ms linear;
-    }
+    #feverFill{ height:100%; width:0%; background: rgba(251,191,36,.96); transition: width 120ms linear; }
     #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
     #shieldPills{ opacity:.98; }
 
-    /* Boss Bar */
     #bossBar{
-      position:fixed;
-      left: 10px;
-      right: 10px;
+      position:fixed; left:10px; right:10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
-      z-index:125;
-      pointer-events:none;
+      z-index:125; pointer-events:none;
     }
     #bossBar[aria-hidden="true"]{ display:none; }
     .boss-wrap{
-      border-radius: 14px;
+      border-radius:14px;
       border:1px solid rgba(244,63,94,.22);
       background: rgba(2,6,23,.66);
-      padding: 10px 12px;
+      padding:10px 12px;
       box-shadow: 0 10px 26px rgba(0,0,0,.25);
       backdrop-filter: blur(10px);
     }
-    .boss-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      letter-spacing:.2px;
-    }
+    .boss-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:900; letter-spacing:.2px; }
     .boss-track{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
+      margin-top:8px; height:10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #bossFill{
-      height:100%;
-      width:0%;
-      background: rgba(244,63,94,.92);
-      transition: width 120ms linear;
-    }
-    #bossHint{
-      margin-top:8px;
-      font-size: 12px;
-      opacity:.92;
-      font-weight:800;
-    }
+    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
+    #bossHint{ margin-top:8px; font-size:12px; opacity:.92; font-weight:800; }
 
-    /* Low time overlay */
     #lowTimeOverlay{
-      position:fixed;
-      inset:0;
-      z-index:200;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:200;
+      display:flex; align-items:center; justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
     .lowtime-pill{
-      font-weight:1000;
-      letter-spacing:.5px;
-      font-size: 64px;
+      font-weight:1000; letter-spacing:.5px; font-size:64px;
       color: rgba(255,255,255,.95);
       text-shadow: 0 14px 48px rgba(0,0,0,.55);
-      border-radius: 999px;
-      padding: 18px 26px;
+      border-radius:999px; padding:18px 26px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
     }
 
-    /* End overlay */
     #endOverlay{
-      position:fixed;
-      inset:0;
-      z-index:300;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 18px;
+      position:fixed; inset:0; z-index:300;
+      display:flex; align-items:center; justify-content:center;
+      padding:18px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
@@ -222,83 +131,54 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     #endOverlay[aria-hidden="true"]{ display:none; }
     .end-card{
       width:min(680px, 94vw);
-      border-radius: 18px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
       color: rgba(229,231,235,.95);
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 16px;
+      padding:16px;
     }
-    .end-title{
-      font-weight:1000;
-      font-size: 20px;
-      letter-spacing:.2px;
-    }
-    .end-sub{
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      word-break: break-all;
-    }
-    .end-grid{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 10px;
-    }
+    .end-title{ font-weight:1000; font-size:20px; letter-spacing:.2px; }
+    .end-sub{ margin-top:6px; font-size:12px; opacity:.92; word-break: break-all; }
+    .end-grid{ margin-top:12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
     .end-item{
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 10px 12px;
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:900;
     }
     .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
     .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
 
-    .end-actions{
-      margin-top: 14px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
+    .end-actions{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
     .btn{
       pointer-events:auto;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       color: rgba(229,231,235,.95);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-weight: 900;
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:900;
       cursor:pointer;
     }
     .btn:hover{ filter: brightness(1.05); }
-    .btn.primary{
-      border-color: rgba(99,102,241,.35);
-      background: rgba(99,102,241,.22);
-    }
-    .btn.danger{
-      border-color: rgba(244,63,94,.30);
-      background: rgba(244,63,94,.16);
-    }
+    .btn.primary{ border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.22); }
+    .btn.danger{ border-color: rgba(244,63,94,.30); background: rgba(244,63,94,.16); }
 
-    /* smaller on mobile */
-    @media (max-width: 520px){
+    @media (max-width:520px){
       .end-grid{ grid-template-columns: 1fr; }
-      .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
+      .lowtime-pill{ font-size:54px; padding:14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
     }
   </style>
 </head>
 
 <body>
-  <!-- progress bar (✅ show) -->
   <div class="gj-progress" aria-hidden="false">
     <div id="gjProgressFill"></div>
   </div>
 
-  <!-- HUD -->
   <div class="gj-hud" aria-hidden="false">
     <div class="gj-hud-row">
       <div class="gj-card" style="min-width:220px">
@@ -333,7 +213,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
         </div>
       </div>
 
-      <!-- right side mini card -->
       <div class="gj-card" style="min-width:140px; opacity:.92">
         <div style="font-weight:1000">GOODJUNK</div>
         <div style="margin-top:6px; font-size:12px; opacity:.9">
@@ -345,7 +224,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     </div>
   </div>
 
-  <!-- Boss bar -->
   <div id="bossBar" aria-hidden="true">
     <div class="boss-wrap">
       <div class="boss-top">
@@ -357,31 +235,25 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     </div>
   </div>
 
-  <!-- Low time overlay -->
   <div id="lowTimeOverlay" aria-hidden="true">
     <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
   </div>
 
-  <!-- Game stage -->
   <div class="gj-stage">
     <div id="gj-layer" aria-label="GoodJunk layer"></div>
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
   </div>
 
-  <!-- End overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
       <div class="end-title" id="endTitle">Completed</div>
       <div class="end-sub" id="endSub">—</div>
 
-      <!-- ✅ MISS breakdown -->
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-
         <div class="end-item"><div class="k">MISS TOTAL</div><div class="v" id="endMiss">0</div></div>
         <div class="end-item"><div class="k">MISS (GOOD EXPIRE)</div><div class="v" id="endMissGood">0</div></div>
-
         <div class="end-item"><div class="k">MISS (JUNK HIT)</div><div class="v" id="endMissJunk">0</div></div>
         <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
       </div>
@@ -394,12 +266,11 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     </div>
   </div>
 
-  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair hha:shoot) -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
-  <!-- Boot -->
   <script type="module">
-    import { boot } from './vr-goodjunk/goodjunk.safe.js';
+    // ✅ FIX: import path (same folder)
+    import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -409,7 +280,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
     }
 
-    // base64url encode JSON (for hub.boot.js queueLogFromUrl)
     function b64urlEncodeJson(obj){
       try{
         const json = JSON.stringify(obj || {});
@@ -420,18 +290,11 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       }
     }
 
-    function normalizeSummary(x){
-      if(!x) return null;
-      if(x.summary && typeof x.summary === 'object') return x.summary;
-      return x;
-    }
-
     function buildGateCooldownUrl(nextUrl){
       const gate = abs('../warmup-gate.html');
       const hub = abs('../hub.html');
       const u = new URL(gate, location.href);
 
-      // preserve common context
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
@@ -445,11 +308,9 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       u.searchParams.set('cat', 'nutrition');
       u.searchParams.set('theme', 'calm');
 
-      // cooldown duration
       const cdur = clamp(qs('cdur','15'), 5, 60);
       u.searchParams.set('dur', String(cdur));
       u.searchParams.set('cdur', String(cdur));
-
       return u.toString();
     }
 
@@ -457,20 +318,13 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
-      // preserve essentials if missing
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
         if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
       });
 
-      // attach log payload (hub will queue it)
-      const payload = {
-        kind: 'hha_end',
-        ts: Date.now(),
-        game: 'goodjunk',
-        summary: summary || null
-      };
+      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
       const log = b64urlEncodeJson(payload);
       if(log) u.searchParams.set('log', log);
 
@@ -483,14 +337,9 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     }
 
     function handleEnd(summary){
-      // normalize (if passed as {summary:{...}})
-      const s = summary?.summary ? summary.summary : summary;
-      summary = s || {};
-
       const cooldown = String(qs('cooldown','0')||'0') === '1';
       const cdnext = String(qs('cdnext','')||'').trim();
 
-      // HUB url that already has ?log=
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const hubUrl = new URL(hub, location.href);
       const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
@@ -511,7 +360,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       goHubWithLog(summary);
     }
 
-    // Wire buttons
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
     const btnCopy = document.getElementById('btnCopy');
@@ -519,7 +367,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     let lastSummary = null;
 
     btnReplay?.addEventListener('click', ()=> location.reload());
-
     btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}));
 
     btnCopy?.addEventListener('click', async ()=>{
@@ -533,14 +380,9 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
       }
     });
 
-    // ✅ Listen end events (compat)
-    function captureSummary(ev){
-      lastSummary = normalizeSummary(ev?.detail || null);
-    }
-    window.addEventListener('hha:end', captureSummary);
-    window.addEventListener('hha:game-ended', captureSummary);
+    window.addEventListener('hha:game-ended', (ev)=>{ lastSummary = ev?.detail || null; });
+    window.addEventListener('hha:end', (ev)=>{ lastSummary = ev?.detail?.summary || ev?.detail || null; });
 
-    // Show tiny info
     const uiView = document.getElementById('uiView');
     const uiRun = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
@@ -548,7 +390,6 @@ FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
     if(uiRun) uiRun.textContent = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
-    // Start game
     boot({
       view: qs('view','mobile'),
       run: qs('run','play'),
