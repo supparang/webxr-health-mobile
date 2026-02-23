@@ -1,861 +1,1196 @@
 'use strict';
 
-const DOC = document;
-const WIN = window;
+(() => {
+  const D = document;
+  const W = window;
 
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const qs = (k, def=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; } };
-const now = ()=> performance.now();
-const byId = (id)=> DOC.getElementById(id);
+  /* =========================
+   * Helpers
+   * ========================= */
+  const $ = (s, el = D) => el.querySelector(s);
+  const $$ = (s, el = D) => Array.from(el.querySelectorAll(s));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rand = (a, b) => a + Math.random() * (b - a);
 
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
-}
+  function qstr(k, d = '') {
+    try {
+      const u = new URL(location.href);
+      const v = u.searchParams.get(k);
+      return (v == null || v === '') ? d : v;
+    } catch { return d; }
+  }
+  function qbool(k, d = false) {
+    const v = String(qstr(k, d ? '1' : '0')).toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(v);
+  }
 
-/** deterministic RNG (mulberry32) */
-function mulberry32(seed){
-  let t = seed >>> 0;
-  return function(){
-    t += 0x6D2B79F5;
-    let x = Math.imul(t ^ (t >>> 15), 1 | t);
-    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  const DIFF = (qstr('diff', 'normal') || 'normal').toLowerCase();
+  const VIEW = (qstr('view', 'front') || 'front').toLowerCase();
+  const DEBUG = qbool('debug', false);
+
+  const CFG = {
+    easy:   { time: 95, wetNeed: 12, soapNeed: 10, scrubHits: [2,3], rinseNeed: 10, dryNeed: 8, hiddenCount: 6, bossChance: 0.45, sweatRise: 0.35 },
+    normal: { time: 80, wetNeed: 15, soapNeed: 13, scrubHits: [2,4], rinseNeed: 12, dryNeed: 10, hiddenCount: 8, bossChance: 0.70, sweatRise: 0.55 },
+    hard:   { time: 68, wetNeed: 18, soapNeed: 16, scrubHits: [3,4], rinseNeed: 14, dryNeed: 12, hiddenCount:10, bossChance: 1.00, sweatRise: 0.85 },
+  }[DIFF] || null;
+
+  /* =========================
+   * UI refs
+   * ========================= */
+  const UI = {
+    phasePill: $('#phasePill'),
+    timePill: $('#timePill'),
+    cleanPill: $('#cleanPill'),
+    comboPill: $('#comboPill'),
+    missPill: $('#missPill'),
+    questPill: $('#questPill'),
+    meterPill: $('#meterPill'),
+    viewPill: $('#viewPill'),
+
+    stage: $('#stage'),
+    bathLayer: $('#bath-layer'),
+    bodyWrap: $('#body-wrap'),
+    targetLayer: $('#target-layer'),
+    bodySilhouette: $('#body-silhouette'),
+    crosshairFallback: $('#crosshair-fallback'),
+
+    btnStart: $('#btnStart'),
+    btnFlip: $('#btnFlip'),
+    btnHelp: $('#btnHelp'),
+    btnCloseHelp: $('#btnCloseHelp'),
+    btnReplay: $('#btnReplay'),
+    btnBack: $('#btnBack'),
+
+    panelHelp: $('#panelHelp'),
+    panelEnd: $('#panelEnd'),
+    endSummary: $('#endSummary'),
+    heatmap: $('#heatmap'),
   };
-}
-function strSeed(s){
-  s = String(s ?? '');
-  let h = 2166136261;
-  for (let i=0;i<s.length;i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+
+  // optional nodes if you already patched HTML
+  const fxLayer = $('#bathFxLayer');
+  const fxCanvas = $('#bathFxCanvas');
+  const fxFloatLayer = $('#bathFloatLayer');
+  const fxBossChip = $('#bathBossChip');
+  const fxHeatVignette = $('#bathHeatVignette');
+  const bathBodyCanvas = $('#bathBodyCanvas');
+
+  /* =========================
+   * Game state
+   * ========================= */
+  const S = {
+    running: false,
+    ended: false,
+    phase: 'prep', // prep, wet, soap, scrub, rinse, drydress, summary
+    phaseStartedAt: 0,
+    startedAt: 0,
+    lastTs: 0,
+    timeLeft: CFG ? CFG.time : 80,
+
+    score: 0,
+    combo: 0,
+    comboExpireAt: 0,
+    miss: 0,
+    sweat: 0, // use as heat meter 0..100
+    cleanPct: 0,
+
+    view: (VIEW === 'back' ? 'BACK' : 'FRONT'),
+
+    progress: {
+      wetHits: 0,
+      soapHits: 0,
+      rinseHits: 0,
+      dryHits: 0,
+    },
+
+    hiddenSpots: [],
+    hiddenRevealedCount: 0,
+    hiddenCleanedCount: 0,
+
+    boss: null, // { alive, x,y,hp,hpMax, timeoutAt, label }
+    questText: '—',
+
+    pointerDown: false,
+    lastPointer: { x: 0, y: 0 },
+  };
+
+  const PHASE_ORDER = ['prep', 'wet', 'soap', 'scrub', 'rinse', 'drydress', 'summary'];
+
+  /* =========================
+   * Hidden Spots (top-down normalized positions)
+   * Front / Back sets
+   * ========================= */
+  const HIDDEN_FRONT = [
+    { id:'neck', label:'คอ', x:0.50, y:0.24, r:0.045 },
+    { id:'armpitL', label:'รักแร้ซ้าย', x:0.34, y:0.35, r:0.045 },
+    { id:'armpitR', label:'รักแร้ขวา', x:0.66, y:0.35, r:0.045 },
+    { id:'elbowL', label:'ข้อพับแขนซ้าย', x:0.25, y:0.47, r:0.040 },
+    { id:'elbowR', label:'ข้อพับแขนขวา', x:0.75, y:0.47, r:0.040 },
+    { id:'toeL', label:'ซอกนิ้วเท้าซ้าย', x:0.44, y:0.87, r:0.045 },
+    { id:'toeR', label:'ซอกนิ้วเท้าขวา', x:0.56, y:0.87, r:0.045 },
+    { id:'kneeL', label:'หัวเข่าซ้าย', x:0.44, y:0.67, r:0.040 },
+    { id:'kneeR', label:'หัวเข่าขวา', x:0.56, y:0.67, r:0.040 },
+  ];
+  const HIDDEN_BACK = [
+    { id:'behindEarL', label:'หลังหูซ้าย', x:0.40, y:0.18, r:0.040 },
+    { id:'behindEarR', label:'หลังหูขวา', x:0.60, y:0.18, r:0.040 },
+    { id:'neckBack', label:'คอด้านหลัง', x:0.50, y:0.25, r:0.045 },
+    { id:'armpitL', label:'รักแร้ซ้าย', x:0.34, y:0.35, r:0.045 },
+    { id:'armpitR', label:'รักแร้ขวา', x:0.66, y:0.35, r:0.045 },
+    { id:'kneeBackL', label:'หลังเข่าซ้าย', x:0.44, y:0.69, r:0.042 },
+    { id:'kneeBackR', label:'หลังเข่าขวา', x:0.56, y:0.69, r:0.042 },
+    { id:'toeL', label:'ซอกนิ้วเท้าซ้าย', x:0.44, y:0.87, r:0.045 },
+    { id:'toeR', label:'ซอกนิ้วเท้าขวา', x:0.56, y:0.87, r:0.045 },
+  ];
+
+  /* =========================
+   * FX helpers (works even if no FX layer patch)
+   * ========================= */
+  let fxCtx = null;
+  let fxDpr = 1;
+  const FX = {
+    pulses: [],
+    floats: [],
+    trails: [],
+    rings: [],
+  };
+
+  function resizeFxCanvas() {
+    if (!fxCanvas || !UI.bodyWrap) return;
+    const r = UI.bodyWrap.getBoundingClientRect();
+    fxDpr = Math.min(2, W.devicePixelRatio || 1);
+    fxCanvas.width = Math.max(1, Math.round(r.width * fxDpr));
+    fxCanvas.height = Math.max(1, Math.round(r.height * fxDpr));
+    fxCanvas.style.width = `${r.width}px`;
+    fxCanvas.style.height = `${r.height}px`;
+    fxCtx = fxCanvas.getContext('2d');
   }
-  return h >>> 0;
-}
-
-const VIEW = String(qs('view','')).toLowerCase();       // 'cvr' for cardboard
-const DIFF = String(qs('diff','normal')).toLowerCase(); // easy|normal|hard
-const SEED = qs('seed', String(Date.now()));
-const seedN = /^\d+$/.test(SEED) ? (Number(SEED)>>>0) : strSeed(SEED);
-const rnd = mulberry32(seedN);
-
-if (VIEW === 'cvr') DOC.body.classList.add('cvr');
-
-const DIFFCFG = {
-  easy:   { lockPx: 52, cd: 80,  ttlMul: 1.25, spawnMul: 1.15, hiddenNeedAdd: 0, bossMul: 0.85, fakeFoam: 0.10, meterUp: 0.85, meterDown: 1.15, maxActive: 7 },
-  normal: { lockPx: 44, cd: 60,  ttlMul: 1.00, spawnMul: 1.00, hiddenNeedAdd: 0, bossMul: 1.00, fakeFoam: 0.18, meterUp: 1.00, meterDown: 1.00, maxActive: 7 },
-  hard:   { lockPx: 36, cd: 50,  ttlMul: 0.86, spawnMul: 0.90, hiddenNeedAdd: 1, bossMul: 1.15, fakeFoam: 0.26, meterUp: 1.15, meterDown: 0.90, maxActive: 8 },
-};
-const CFG = DIFFCFG[DIFF] || DIFFCFG.normal;
-
-const UI = {
-  phasePill: byId('phasePill'),
-  timePill:  byId('timePill'),
-  cleanPill: byId('cleanPill'),
-  comboPill: byId('comboPill'),
-  missPill:  byId('missPill'),
-  viewPill:  byId('viewPill'),
-  questPill: byId('questPill'),
-  meterPill: byId('meterPill'),
-
-  btnStart:  byId('btnStart'),
-  btnFlip:   byId('btnFlip'),
-  btnHelp:   byId('btnHelp'),
-  panelHelp: byId('panelHelp'),
-  btnCloseHelp: byId('btnCloseHelp'),
-  panelEnd:  byId('panelEnd'),
-  endSummary: byId('endSummary'),
-  heatmap: byId('heatmap'),
-  btnReplay: byId('btnReplay'),
-  btnBack: byId('btnBack'),
-  bathLayer: byId('bath-layer'),
-  bodyWrap: byId('body-wrap'),
-  targetLayer: byId('target-layer'),
-};
-
-const ZONES = [
-  { key:'behindEar',  label:'หลังหู',         front:{x:0.45,y:0.12}, back:{x:0.55,y:0.12} },
-  { key:'neckBack',   label:'คอด้านหลัง',     front:{x:0.50,y:0.18}, back:{x:0.50,y:0.18} },
-  { key:'armpit',     label:'รักแร้',         front:{x:0.34,y:0.30}, back:{x:0.66,y:0.30} },
-  { key:'elbowFold',  label:'ข้อพับแขน',      front:{x:0.26,y:0.40}, back:{x:0.74,y:0.40} },
-  { key:'behindKnee', label:'หลังเข่า',        front:{x:0.43,y:0.72}, back:{x:0.57,y:0.72} },
-  { key:'toeGap',     label:'ซอกนิ้วเท้า',    front:{x:0.48,y:0.92}, back:{x:0.52,y:0.92} },
-];
-
-// base phases
-const PHASES = [
-  { id:'WET',   secs: 8,  type:'water',   spawnEvery: 360, goalHits: 10 },
-  { id:'SOAP',  secs: 22, type:'foam',    spawnEvery: 460, goalHits: 14 },
-  { id:'SCRUB', secs: 26, type:'hidden',  spawnEvery: 820, goalHits: 0  },
-  { id:'RINSE', secs: 14, type:'residue', spawnEvery: 480, goalHits: 8  },
-];
-
-const STATE = {
-  running:false,
-  side:'front',
-  phaseIdx: -1,
-  phaseEndsAt: 0,
-
-  combo:0,
-  miss:0,
-  hits:0,
-  cleanScore:0,
-
-  wetHits:0,
-  soapHits:0,
-  residueHits:0,
-  dryHits:0,
-
-  hiddenPlan: [],
-  hiddenNeed: {},
-  hiddenCleared: {},
-
-  oil: null,
-  oilNeed: 0,
-
-  meter: 0,
-  meterPeak: 0,
-  meterLockUntil: 0,
-  questText: '—',
-  questDone: false,
-
-  bossRush: false,
-  bossRushUntil: 0,
-  bossKills: 0,
-
-  // A+B+C additions
-  stormUntil: 0,
-
-  active: new Map(),
-  uid: 0,
-
-  lastShootAt: 0,
-  shootCdMs: CFG.cd,
-
-  lockPx: Number(WIN.HHA_VRUI_CONFIG?.lockPx ?? CFG.lockPx),
-  cvrStrict: Boolean(WIN.HHA_VRUI_CONFIG?.cvrStrict ?? (VIEW==='cvr')),
-
-  fakeFoamRate: CFG.fakeFoam,
-};
-
-function setPill(el, txt){ if(el) el.textContent = txt; }
-
-function resetGame(){
-  STATE.running = false;
-  STATE.phaseIdx = -1;
-  STATE.phaseEndsAt = 0;
-
-  STATE.combo = 0;
-  STATE.miss = 0;
-  STATE.hits = 0;
-  STATE.cleanScore = 0;
-
-  STATE.wetHits = 0;
-  STATE.soapHits = 0;
-  STATE.residueHits = 0;
-  STATE.dryHits = 0;
-
-  STATE.hiddenPlan = [];
-  STATE.hiddenNeed = {};
-  STATE.hiddenCleared = {};
-  STATE.oil = null;
-  STATE.oilNeed = 0;
-
-  STATE.meter = 0;
-  STATE.meterPeak = 0;
-  STATE.meterLockUntil = 0;
-  STATE.questText = '—';
-  STATE.questDone = false;
-
-  STATE.bossRush = false;
-  STATE.bossRushUntil = 0;
-  STATE.bossKills = 0;
-
-  STATE.stormUntil = 0;
-
-  STATE.active.clear();
-  STATE.uid = 0;
-  UI.targetLayer.innerHTML = '';
-  updateHUD();
-
-  if (UI.btnStart){
-    UI.btnStart.disabled = false;
-    UI.btnStart.textContent = 'เริ่มเล่น';
+  function normToPx(nx, ny) {
+    const r = UI.bodyWrap.getBoundingClientRect();
+    return { x: nx * r.width, y: ny * r.height };
   }
-}
-
-function updateHUD(){
-  const phase = PHASES[STATE.phaseIdx]?.id ?? '—';
-  const tLeft = STATE.running ? Math.max(0, Math.ceil((STATE.phaseEndsAt - now())/1000)) : 0;
-  const storm = (STATE.running && now() <= STATE.stormUntil);
-
-  // make phase pill feel “gamey”
-  let phaseTxt = `PHASE: ${phase}`;
-  if (storm) phaseTxt += ' ⚡STORM';
-  if (STATE.bossRush) phaseTxt += ` (BOSS!) K${STATE.bossKills}`;
-
-  setPill(UI.phasePill, phaseTxt);
-  setPill(UI.timePill,  `TIME: ${tLeft}`);
-  setPill(UI.comboPill, `COMBO: ${STATE.combo}`);
-  setPill(UI.missPill,  `MISS: ${STATE.miss}`);
-  setPill(UI.viewPill,  `VIEW: ${STATE.side.toUpperCase()} • ${DIFF.toUpperCase()}`);
-  setPill(UI.cleanPill, `CLEAN: ${Math.round(STATE.cleanScore)}%`);
-  setPill(UI.questPill, `QUEST: ${STATE.questText}${STATE.questDone ? ' ✅' : ''}`);
-  setPill(UI.meterPill, `SWEAT: ${Math.round(STATE.meter)}%`);
-}
-
-function bodyRect(){ return UI.bathLayer.getBoundingClientRect(); }
-function toLocal(x,y){ const r = bodyRect(); return { lx: x - r.left, ly: y - r.top, w:r.width, h:r.height }; }
-
-function spawnPoint(){
-  const r = bodyRect();
-  const pad = 26;
-  const topPad = pad + 8;
-  const botPad = pad + 64;
-  const x = r.left + pad + rnd() * (r.width  - pad*2);
-  const y = r.top  + topPad + rnd() * (r.height - (topPad + botPad));
-  return { x, y };
-}
-
-function kindClass(kind){
-  if (kind==='water') return 't-water';
-  if (kind==='foam') return 't-foam';
-  if (kind==='fakefoam') return 't-foam is-fake';
-  if (kind==='hidden') return 't-hidden';
-  if (kind==='oil') return 't-oil';
-  if (kind==='residue') return 't-residue';
-  if (kind==='dry') return 't-dry';
-  return '';
-}
-
-function makeTarget({ kind, x, y, ttlMs=1400, hitsToClear=1, zoneKey=null }){
-  const id = `t${++STATE.uid}`;
-  const local = toLocal(x,y);
-
-  const el = DOC.createElement('div');
-  el.className = `target ${kindClass(kind)}`;
-  el.dataset.id = id;
-  el.dataset.kind = kind;
-  if (zoneKey) el.dataset.zoneKey = String(zoneKey);
-  el.style.left = `${local.lx}px`;
-  el.style.top  = `${local.ly}px`;
-
-  const ring = DOC.createElement('div');
-  ring.className = 'ring';
-  el.appendChild(ring);
-
-  if (STATE.cvrStrict) el.style.pointerEvents = 'none';
-
-  UI.targetLayer.appendChild(el);
-
-  const obj = { id, kind, el, born: now(), ttl: ttlMs, hitsToClear, zoneKey, hitCount: 0 };
-  STATE.active.set(id, obj);
-  return obj;
-}
-
-function removeTarget(id){
-  const obj = STATE.active.get(id);
-  if (!obj) return;
-  try{ obj.el.remove(); }catch(e){}
-  STATE.active.delete(id);
-}
-
-// ---------- A) Timing system (Perfect/Good/Late) ----------
-function hitTiming(obj){
-  const age = now() - obj.born;
-  const p = age / Math.max(1, obj.ttl); // 0..1
-  if (p <= 0.35) return 'perfect';
-  if (p <= 0.80) return 'good';
-  return 'late';
-}
-
-// meter
-function addMeter(delta, reason=''){
-  const t = now();
-  if (t < STATE.meterLockUntil) return;
-  STATE.meterLockUntil = t + 110;
-
-  const scaled = (delta >= 0) ? (delta * CFG.meterUp) : (delta * CFG.meterDown);
-  STATE.meter = clamp(STATE.meter + scaled, 0, 100);
-  STATE.meterPeak = Math.max(STATE.meterPeak, STATE.meter);
-
-  emit('hha:event', { game:'bath', type:'meter', delta: scaled, meter: STATE.meter, reason, t });
-
-  if (STATE.meter >= 100){
-    STATE.miss += 1;
-    STATE.combo = 0;
-    STATE.meter = 70;
-    emit('hha:coach', { game:'bath', msg:'SWEAT เต็ม! รีบเคลียร์จุดอับ/ล้างฟอง!', t });
+  function fxPulse(nx, ny, kind='warn') {
+    if (!fxCanvas) return;
+    const p = normToPx(nx, ny);
+    FX.pulses.push({ x:p.x, y:p.y, r:8, life:1, kind });
   }
-}
+  function fxRing(nx, ny, kind='good') {
+    if (!fxCanvas) return;
+    const p = normToPx(nx, ny);
+    FX.rings.push({ x:p.x, y:p.y, r:10, life:1, kind });
+  }
+  function fxFloat(text, nx, ny, tone='good') {
+    if (!fxFloatLayer) return;
+    const p = normToPx(nx, ny);
+    const div = D.createElement('div');
+    div.className = `bath-float-text ${tone}`;
+    div.textContent = text;
+    div.style.left = `${p.x}px`;
+    div.style.top = `${p.y}px`;
+    fxFloatLayer.appendChild(div);
+    setTimeout(()=>div.remove(), 900);
+  }
+  function fxTrail(x, y) {
+    if (!fxCanvas) return;
+    FX.trails.push({
+      x, y,
+      vx: rand(-0.5, 0.5),
+      vy: rand(-0.8, -0.1),
+      size: rand(3, 7),
+      life: 1,
+      decay: rand(0.03, 0.06)
+    });
+  }
 
-function expireTargets(){
-  const t = now();
-  for (const [id, obj] of STATE.active){
-    if (t - obj.born >= obj.ttl){
+  function renderFx(dtMs) {
+    if (!fxCtx || !fxCanvas) return;
+    const r = UI.bodyWrap.getBoundingClientRect();
+    const w = r.width, h = r.height;
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    fxCtx.save();
+    fxCtx.scale(fxDpr, fxDpr);
 
-      // core penalties
-      if (obj.kind === 'hidden' || obj.kind === 'oil'){
-        STATE.miss++;
-        STATE.combo = 0;
-        addMeter(12, 'miss_important');
-        emit('hha:event', { game:'bath', type:'miss', kind: obj.kind, zoneKey: obj.zoneKey, t });
-      }
-
-      // B) Decision: risk dry (only when zoneKey === 'risk')
-      if (obj.kind === 'dry' && obj.zoneKey === 'risk'){
-        STATE.miss++;
-        STATE.combo = 0;
-        addMeter(8, 'miss_dry_risk');
-        emit('hha:coach', { game:'bath', msg:'พลาดจุดแห้งเสี่ยง! รีบจัดลำดับเป้าดี ๆ', t });
-      }
-
-      removeTarget(id);
+    // Heat vignette
+    if (fxHeatVignette) {
+      let o = 0;
+      if (S.sweat >= 85) o = 0.85;
+      else if (S.sweat >= 70) o = 0.55;
+      else if (S.sweat >= 40) o = 0.28;
+      fxHeatVignette.style.opacity = String(o);
     }
-  }
-}
 
-function aimAssistPick(x,y){
-  const el = DOC.elementFromPoint(x,y);
-  if (el && el.classList && el.classList.contains('target')) return el;
-
-  let best = null, bestD = Infinity;
-  for (const obj of STATE.active.values()){
-    const r = obj.el.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top  + r.height/2;
-    const dx = cx - x, dy = cy - y;
-    const d = Math.sqrt(dx*dx + dy*dy);
-    if (d < bestD){ bestD = d; best = obj.el; }
-  }
-  if (best && bestD <= STATE.lockPx) return best;
-  return null;
-}
-
-function recomputeClean(){
-  const wet = clamp(STATE.wetHits / PHASES[0].goalHits, 0, 1);
-  const soap = clamp(STATE.soapHits / PHASES[1].goalHits, 0, 1);
-
-  const hiddenTotal = Math.max(1, STATE.hiddenPlan.length);
-  const hiddenDone = STATE.hiddenPlan.filter(k=>STATE.hiddenCleared[k]).length;
-  const scrub = clamp(hiddenDone / hiddenTotal, 0, 1);
-
-  const rinse = clamp(STATE.residueHits / PHASES[3].goalHits, 0, 1);
-  const dry = clamp(STATE.dryHits / 4, 0, 1);
-  const rd = clamp((rinse*0.65 + dry*0.35), 0, 1);
-
-  const missPenalty = clamp(STATE.miss * 0.04, 0, 0.25);
-  STATE.cleanScore = clamp((wet*20 + soap*20 + scrub*40 + rd*20) * (1 - missPenalty), 0, 100);
-}
-
-function setQuest(text){ STATE.questText = text || '—'; STATE.questDone = false; }
-function completeQuest(){
-  if (STATE.questDone) return;
-  STATE.questDone = true;
-  STATE.combo += 3;
-  addMeter(-10, 'quest_bonus');
-  emit('hha:event', { game:'bath', type:'quest_done', quest: STATE.questText, t: now() });
-}
-function checkQuest(){
-  const phase = PHASES[STATE.phaseIdx]?.id;
-  if (!phase || STATE.questDone) return;
-
-  if (phase === 'WET'){
-    if (STATE.wetHits >= 10) completeQuest();
-  } else if (phase === 'SOAP'){
-    if (STATE.soapHits >= 14) completeQuest();
-  } else if (phase === 'SCRUB'){
-    const hiddenDone = STATE.hiddenPlan.filter(k=>STATE.hiddenCleared[k]).length;
-    if (hiddenDone >= 3 && STATE.combo >= 8) completeQuest();
-  } else if (phase === 'RINSE'){
-    if (STATE.residueHits >= 8 && STATE.dryHits >= 3) completeQuest();
-  }
-}
-
-function awardByKind(kind, zoneKey){
-  if (STATE.bossRush && now() <= STATE.bossRushUntil){
-    if (kind==='hidden' || kind==='oil') STATE.bossKills++;
-  }
-
-  if (kind==='water') STATE.wetHits++;
-  if (kind==='foam') STATE.soapHits++;
-  if (kind==='residue') STATE.residueHits++;
-  if (kind==='dry') STATE.dryHits++;
-
-  if (kind==='fakefoam'){
-    addMeter(3, 'fakefoam');
-    emit('hha:coach', { game:'bath', msg:'ฟองปลอม! อย่าจิ้มมั่ว—ดูจังหวะกับเป้าคุ้ม ๆ', t: now() });
-  }
-
-  if (kind==='hidden' && zoneKey){
-    const left = Math.max(0, (STATE.hiddenNeed[zoneKey] ?? 0) - 1);
-    STATE.hiddenNeed[zoneKey] = left;
-    if (left <= 0) STATE.hiddenCleared[zoneKey] = true;
-  }
-  if (kind==='oil'){
-    STATE.oilNeed = Math.max(0, STATE.oilNeed - 1);
-  }
-
-  // survival rewards
-  if (kind==='hidden' || kind==='oil') addMeter(-4, 'clear_hidden');
-  if (kind==='residue' || kind==='dry') addMeter(-2, 'cleanup');
-
-  // B) decision reward: saving risk dry is extra good
-  if (kind==='dry' && zoneKey === 'risk') addMeter(-6, 'save_dry_risk');
-
-  recomputeClean();
-  checkQuest();
-}
-
-function handleShootAt(x,y, source='pointer'){
-  const t = now();
-  if (!STATE.running) return;
-
-  if (t - STATE.lastShootAt < STATE.shootCdMs) return;
-  STATE.lastShootAt = t;
-
-  const hitEl = (STATE.cvrStrict || source==='hha:shoot') ? aimAssistPick(x,y) : DOC.elementFromPoint(x,y);
-
-  if (!hitEl || !hitEl.dataset || !hitEl.dataset.id) {
-    addMeter(1.2, 'shoot_miss');
-    emit('hha:event', { game:'bath', type:'shoot', hit:false, source, x,y, t });
-    return;
-  }
-
-  const id = hitEl.dataset.id;
-  const obj = STATE.active.get(id);
-  if (!obj) return;
-
-  obj.hitCount++;
-  hitEl.classList.remove('pop'); void hitEl.offsetWidth; hitEl.classList.add('pop');
-
-  const cleared = obj.hitCount >= obj.hitsToClear;
-
-  if (cleared){
-    // base success
-    STATE.hits++;
-    STATE.combo++;
-
-    // A) Timing bonus/penalty
-    const timing = hitTiming(obj);
-    if (timing === 'perfect') { STATE.combo += 1; addMeter(-1.2,'perfect'); }
-    else if (timing === 'late') { addMeter(0.8,'late'); }
-
-    emit('hha:event', { game:'bath', type:'timing', timing, kind: obj.kind, zoneKey: obj.zoneKey, t });
-
-    awardByKind(obj.kind, obj.zoneKey);
-    emit('hha:event', { game:'bath', type:'hit', kind: obj.kind, zoneKey: obj.zoneKey, combo: STATE.combo, timing, source, x,y, t });
-    removeTarget(id);
-  } else {
-    emit('hha:event', { game:'bath', type:'hit_partial', kind: obj.kind, zoneKey: obj.zoneKey, remaining: (obj.hitsToClear-obj.hitCount), source, x,y, t });
-  }
-
-  updateHUD();
-}
-
-function pickHiddenPlan(){
-  const keys = ZONES.map(z=>z.key);
-  for (let i=keys.length-1;i>0;i--){
-    const j = Math.floor(rnd()*(i+1));
-    const tmp = keys[i]; keys[i]=keys[j]; keys[j]=tmp;
-  }
-  const plan = keys.slice(0,4);
-  STATE.hiddenPlan = plan;
-
-  for (const k of plan){
-    const base = 2 + (rnd() < 0.35 ? 1 : 0) + (CFG.hiddenNeedAdd || 0);
-    STATE.hiddenNeed[k] = clamp(base, 2, 4);
-    STATE.hiddenCleared[k] = false;
-  }
-
-  STATE.oil = plan[Math.floor(rnd()*plan.length)];
-  STATE.oilNeed = 3 + (DIFF==='hard' ? 1 : 0);
-}
-
-function zonePoint(zoneKey){
-  const z = ZONES.find(x=>x.key===zoneKey);
-  if (!z) return null;
-  const p = (STATE.side==='front') ? z.front : z.back;
-  const r = bodyRect();
-  return { x: r.left + p.x * r.width, y: r.top + p.y * r.height };
-}
-
-function spawnForPhase(phase){
-  // meter affects gameplay (survival)
-  const stress = clamp(STATE.meter/100, 0, 1);
-  const ttlStressMul = 1 - 0.18*stress;
-  const extraSpawnChance = 0.10 + 0.22*stress;
-
-  const type = phase.type;
-
-  // cap active to avoid clutter
-  if (STATE.active.size >= (CFG.maxActive || 7)) return;
-
-  const ttlBase = 1700 * (CFG.ttlMul || 1) * ttlStressMul;
-
-  // -------- B) Decision: risk dry occasionally in WET/SOAP (priority target) --------
-  // spawn risk only if there isn't already a risk target
-  const hasRisk = (()=> {
-    for (const o of STATE.active.values()) if (o.kind==='dry' && o.zoneKey==='risk') return true;
-    return false;
-  })();
-
-  if (!hasRisk && (phase.id==='WET' || phase.id==='SOAP') && rnd() < (phase.id==='WET' ? 0.22 : 0.14)) {
-    const p = spawnPoint();
-    makeTarget({ kind:'dry', x:p.x, y:p.y, ttlMs: 1500 * (CFG.ttlMul||1), hitsToClear: 1, zoneKey:'risk' });
-    // do not return: still allow normal spawn below to keep flow
-  }
-
-  if (type==='water' || type==='residue'){
-    const {x,y} = spawnPoint();
-    makeTarget({ kind:type, x,y, ttlMs: ttlBase, hitsToClear: 1 });
-
-    if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
-      const p2 = spawnPoint();
-      makeTarget({ kind:type, x:p2.x, y:p2.y, ttlMs: ttlBase*0.95, hitsToClear: 1 });
-    }
-    return;
-  }
-
-  if (type==='foam'){
-    const {x,y} = spawnPoint();
-    const isFake = rnd() < STATE.fakeFoamRate;
-    makeTarget({ kind: isFake ? 'fakefoam' : 'foam', x,y, ttlMs: ttlBase, hitsToClear: 1 });
-
-    if (rnd() < extraSpawnChance && STATE.active.size < (CFG.maxActive||7)){
-      const p2 = spawnPoint();
-      const fake2 = rnd() < (STATE.fakeFoamRate * 0.85);
-      makeTarget({ kind: fake2 ? 'fakefoam' : 'foam', x:p2.x, y:p2.y, ttlMs: ttlBase*0.95, hitsToClear: 1 });
-    }
-    return;
-  }
-
-  if (type==='hidden'){
-    const candidates = STATE.hiddenPlan.filter(k => !STATE.hiddenCleared[k]);
-    if (!candidates.length) return;
-
-    const oilChance = 0.16 + 0.16*stress;
-
-    if (STATE.oilNeed > 0 && rnd() < oilChance){
-      const p = zonePoint(STATE.oil);
-      if (p){
-        makeTarget({
-          kind:'oil',
-          x:p.x, y:p.y,
-          ttlMs: (2000 * (CFG.ttlMul||1) * ttlStressMul),
-          hitsToClear: STATE.oilNeed,
-          zoneKey: STATE.oil
-        });
+    // Boss chip
+    if (fxBossChip) {
+      if (S.boss && S.boss.alive) {
+        const sec = Math.max(0, Math.ceil((S.boss.timeoutAt - performance.now()) / 1000));
+        fxBossChip.textContent = `⚠️ ${S.boss.label} • HP ${S.boss.hp}/${S.boss.hpMax} • ${sec}s`;
+        fxBossChip.classList.remove('hidden');
+      } else {
+        fxBossChip.classList.add('hidden');
       }
+    }
+
+    // trails
+    for (let i = FX.trails.length - 1; i >= 0; i--) {
+      const t = FX.trails[i];
+      t.x += t.vx * dtMs * 0.06;
+      t.y += t.vy * dtMs * 0.06;
+      t.life -= t.decay * (dtMs / 16);
+      if (t.life <= 0) { FX.trails.splice(i,1); continue; }
+      fxCtx.beginPath();
+      fxCtx.fillStyle = `rgba(147,197,253,${0.12 + t.life*0.25})`;
+      fxCtx.arc(t.x, t.y, t.size * (0.4 + t.life), 0, Math.PI*2);
+      fxCtx.fill();
+    }
+
+    // pulses
+    for (let i = FX.pulses.length - 1; i >= 0; i--) {
+      const p = FX.pulses[i];
+      p.life -= 0.03 * (dtMs / 16);
+      p.r += 2.6 * (dtMs / 16);
+      if (p.life <= 0) { FX.pulses.splice(i,1); continue; }
+      let col = '245,158,11';
+      if (p.kind === 'boss') col = '239,68,68';
+      if (p.kind === 'good') col = '16,185,129';
+      fxCtx.beginPath();
+      fxCtx.strokeStyle = `rgba(${col},${0.5*p.life})`;
+      fxCtx.lineWidth = p.kind === 'boss' ? 4 : 3;
+      fxCtx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      fxCtx.stroke();
+    }
+
+    // rings
+    for (let i = FX.rings.length - 1; i >= 0; i--) {
+      const g = FX.rings[i];
+      g.life -= 0.04 * (dtMs / 16);
+      g.r += 2.8 * (dtMs / 16);
+      if (g.life <= 0) { FX.rings.splice(i,1); continue; }
+      let col = '16,185,129';
+      if (g.kind === 'bosshit') col = '239,68,68';
+      fxCtx.beginPath();
+      fxCtx.strokeStyle = `rgba(${col},${0.55*g.life})`;
+      fxCtx.lineWidth = 3;
+      fxCtx.arc(g.x, g.y, g.r, 0, Math.PI*2);
+      fxCtx.stroke();
+    }
+
+    // Boss timer ring on boss position
+    if (S.boss && S.boss.alive) {
+      const p = normToPx(S.boss.x, S.boss.y);
+      const rem = Math.max(0, S.boss.timeoutAt - performance.now());
+      const total = S.boss.durationMs || 12000;
+      const frac = clamp(rem / total, 0, 1);
+      const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.08;
+
+      fxCtx.beginPath();
+      fxCtx.strokeStyle = 'rgba(239,68,68,.95)';
+      fxCtx.lineWidth = 3;
+      fxCtx.arc(p.x, p.y, 20 * pulse, 0, Math.PI * 2);
+      fxCtx.stroke();
+
+      fxCtx.beginPath();
+      fxCtx.strokeStyle = 'rgba(251,191,36,.95)';
+      fxCtx.lineWidth = 4;
+      fxCtx.arc(p.x, p.y, 32, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      fxCtx.stroke();
+    }
+
+    fxCtx.restore();
+  }
+
+  /* =========================
+   * Main Canvas renderer (optional if patched HTML includes bathBodyCanvas)
+   * ========================= */
+  let bodyCtx = null;
+  let bodyDpr = 1;
+
+  function resizeBodyCanvas() {
+    if (!bathBodyCanvas || !UI.bodyWrap) return;
+    const r = UI.bodyWrap.getBoundingClientRect();
+    bodyDpr = Math.min(2, W.devicePixelRatio || 1);
+    bathBodyCanvas.width = Math.max(1, Math.round(r.width * bodyDpr));
+    bathBodyCanvas.height = Math.max(1, Math.round(r.height * bodyDpr));
+    bathBodyCanvas.style.width = `${r.width}px`;
+    bathBodyCanvas.style.height = `${r.height}px`;
+    bodyCtx = bathBodyCanvas.getContext('2d');
+  }
+
+  function renderBodyCanvas() {
+    if (!bodyCtx || !bathBodyCanvas) return;
+    const r = UI.bodyWrap.getBoundingClientRect();
+    const w = r.width, h = r.height;
+
+    bodyCtx.clearRect(0, 0, bathBodyCanvas.width, bathBodyCanvas.height);
+    bodyCtx.save();
+    bodyCtx.scale(bodyDpr, bodyDpr);
+
+    // BG tint by phase
+    let phaseTint = 'rgba(15,23,42,.35)';
+    if (S.phase === 'wet') phaseTint = 'rgba(59,130,246,.10)';
+    if (S.phase === 'soap') phaseTint = 'rgba(255,255,255,.06)';
+    if (S.phase === 'scrub') phaseTint = 'rgba(245,158,11,.06)';
+    if (S.phase === 'rinse') phaseTint = 'rgba(16,185,129,.08)';
+    if (S.phase === 'drydress') phaseTint = 'rgba(251,191,36,.06)';
+    bodyCtx.fillStyle = phaseTint;
+    bodyCtx.fillRect(0, 0, w, h);
+
+    // hidden spots hints
+    for (const s of S.hiddenSpots) {
+      const x = s.x * w, y = s.y * h;
+      const rr = Math.max(10, s.r * Math.min(w, h));
+      if (!s.revealed && !DEBUG) continue;
+
+      if (s.cleaned) {
+        bodyCtx.beginPath();
+        bodyCtx.fillStyle = 'rgba(16,185,129,.85)';
+        bodyCtx.arc(x, y, rr * 0.75, 0, Math.PI * 2);
+        bodyCtx.fill();
+      } else {
+        const pulse = 1 + Math.sin((performance.now() + s.phaseOffset) * 0.008) * 0.08;
+        bodyCtx.beginPath();
+        bodyCtx.fillStyle = 'rgba(245,158,11,.26)';
+        bodyCtx.arc(x, y, rr * 1.45 * pulse, 0, Math.PI * 2);
+        bodyCtx.fill();
+
+        bodyCtx.beginPath();
+        bodyCtx.fillStyle = 'rgba(245,158,11,.60)';
+        bodyCtx.arc(x, y, rr * pulse, 0, Math.PI * 2);
+        bodyCtx.fill();
+
+        // remaining hit count
+        bodyCtx.fillStyle = 'rgba(255,255,255,.95)';
+        bodyCtx.font = 'bold 12px system-ui';
+        bodyCtx.textAlign = 'center';
+        bodyCtx.fillText(String(Math.max(0, s.needHits - s.hitCount)), x, y + 4);
+      }
+    }
+
+    bodyCtx.restore();
+  }
+
+  /* =========================
+   * Targets (DOM spawn layer)
+   * ========================= */
+  let targetSeq = 0;
+
+  function clearTargets() {
+    UI.targetLayer.innerHTML = '';
+  }
+
+  function spawnTarget(kind, opts = {}) {
+    const el = D.createElement('button');
+    el.className = `tgt tgt-${kind}`;
+    el.type = 'button';
+    el.dataset.kind = kind;
+    el.dataset.id = `t${++targetSeq}`;
+
+    const x = clamp(opts.x ?? rand(0.10, 0.90), 0.05, 0.95);
+    const y = clamp(opts.y ?? rand(0.12, 0.92), 0.08, 0.96);
+    const size = opts.size ?? (kind === 'boss' ? 58 : rand(28, 42));
+
+    el.style.position = 'absolute';
+    el.style.left = `${x * 100}%`;
+    el.style.top = `${y * 100}%`;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.transform = 'translate(-50%, -50%)';
+    el.style.borderRadius = '999px';
+    el.style.border = '1px solid rgba(255,255,255,.35)';
+    el.style.cursor = 'pointer';
+    el.style.display = 'grid';
+    el.style.placeItems = 'center';
+    el.style.fontWeight = '800';
+    el.style.userSelect = 'none';
+    el.style.webkitTapHighlightColor = 'transparent';
+
+    // look by kind
+    if (kind === 'wet') {
+      el.textContent = '💧';
+      el.style.background = 'rgba(59,130,246,.85)';
+      el.style.boxShadow = '0 4px 16px rgba(59,130,246,.35)';
+    } else if (kind === 'soap') {
+      el.textContent = '🫧';
+      el.style.background = 'rgba(255,255,255,.90)';
+      el.style.color = '#111827';
+      el.style.boxShadow = '0 4px 16px rgba(255,255,255,.25)';
+    } else if (kind === 'fakeSoap') {
+      el.textContent = '☁️';
+      el.style.background = 'rgba(148,163,184,.8)';
+      el.style.boxShadow = '0 4px 16px rgba(148,163,184,.25)';
+    } else if (kind === 'rinse') {
+      el.textContent = '🚿';
+      el.style.background = 'rgba(16,185,129,.85)';
+      el.style.boxShadow = '0 4px 16px rgba(16,185,129,.35)';
+    } else if (kind === 'dry') {
+      el.textContent = '🧻';
+      el.style.background = 'rgba(245,158,11,.9)';
+      el.style.boxShadow = '0 4px 16px rgba(245,158,11,.35)';
+    } else if (kind === 'boss') {
+      el.textContent = '🦠';
+      el.style.background = 'rgba(239,68,68,.92)';
+      el.style.boxShadow = '0 8px 24px rgba(239,68,68,.45)';
+      el.style.zIndex = '5';
+    }
+
+    const ttl = opts.ttl ?? 1400;
+    const bornAt = performance.now();
+
+    let expired = false;
+    const timer = setTimeout(() => {
+      if (expired || S.ended) return;
+      expired = true;
+      onTargetExpired(el);
+      el.remove();
+    }, ttl);
+
+    el.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      if (S.ended || !S.running) return;
+      if (expired) return;
+      expired = true;
+      clearTimeout(timer);
+      onTargetHit(el);
+      el.remove();
+    }, { passive: false });
+
+    UI.targetLayer.appendChild(el);
+
+    // animate slight pulse
+    el.animate(
+      [{ transform: 'translate(-50%,-50%) scale(0.9)' }, { transform: 'translate(-50%,-50%) scale(1.0)' }],
+      { duration: 120, easing: 'ease-out', fill: 'forwards' }
+    );
+
+    return el;
+  }
+
+  function onTargetHit(el) {
+    const kind = el.dataset.kind;
+    const p = getElNormPos(el);
+
+    if (kind === 'wet') {
+      if (S.phase !== 'wet') return wrongAction(p.x, p.y, 'ผิดลำดับ');
+      S.progress.wetHits++;
+      addScore(2, p.x, p.y);
+      comboUp();
+      fxFloat('💧 เปียก!', p.x, p.y, 'good');
+      fxRing(p.x, p.y, 'good');
+      S.sweat = clamp(S.sweat - 1.5, 0, 100);
       return;
     }
 
-    const k = candidates[Math.floor(rnd()*candidates.length)];
-    const p = zonePoint(k);
-    if (!p) return;
-
-    if (!phase._telegraphAt || now() - phase._telegraphAt > 800){
-      phase._telegraphAt = now();
-      emit('hha:event', { game:'bath', type:'telegraph', zoneKey: k, t: now() });
+    if (kind === 'soap') {
+      if (S.phase !== 'soap') return wrongAction(p.x, p.y, 'ผิดลำดับ');
+      S.progress.soapHits++;
+      addScore(3, p.x, p.y);
+      comboUp();
+      fxFloat('🫧 ฟอก!', p.x, p.y, 'good');
+      fxRing(p.x, p.y, 'good');
+      return;
     }
 
-    const need = STATE.hiddenNeed[k] ?? 2;
-    makeTarget({
-      kind:'hidden',
-      x:p.x, y:p.y,
-      ttlMs: (1750 * (CFG.ttlMul||1) * ttlStressMul),
-      hitsToClear: Math.min(need, 4),
-      zoneKey: k
+    if (kind === 'fakeSoap') {
+      if (S.phase !== 'soap') return wrongAction(p.x, p.y, 'ฟองปลอม!');
+      missUp(p.x, p.y, 'ฟองปลอม!');
+      comboBreak();
+      S.sweat = clamp(S.sweat + 4, 0, 100);
+      return;
+    }
+
+    if (kind === 'rinse') {
+      if (S.phase !== 'rinse') return wrongAction(p.x, p.y, 'ผิดลำดับ');
+      S.progress.rinseHits++;
+      addScore(2, p.x, p.y);
+      comboUp();
+      fxFloat('🚿 ล้าง!', p.x, p.y, 'good');
+      return;
+    }
+
+    if (kind === 'dry') {
+      if (S.phase !== 'drydress') return wrongAction(p.x, p.y, 'ผิดลำดับ');
+      S.progress.dryHits++;
+      addScore(2, p.x, p.y);
+      comboUp();
+      fxFloat('🧻 แห้ง!', p.x, p.y, 'good');
+      S.sweat = clamp(S.sweat - 1.0, 0, 100);
+      return;
+    }
+
+    if (kind === 'boss') {
+      if (!S.boss || !S.boss.alive || S.phase !== 'scrub') return;
+      S.boss.hp = Math.max(0, S.boss.hp - 1);
+      addScore(5, p.x, p.y);
+      comboUp();
+      fxRing(p.x, p.y, 'bosshit');
+      fxFloat('💥 HIT!', p.x, p.y, 'warn');
+      if (S.boss.hp <= 0) {
+        S.boss.alive = false;
+        addScore(20, p.x, p.y);
+        fxPulse(p.x, p.y, 'good');
+        fxFloat('🏆 BOSS DOWN!', p.x, p.y, 'good');
+        S.sweat = clamp(S.sweat - 12, 0, 100);
+      }
+      return;
+    }
+  }
+
+  function onTargetExpired(el) {
+    const kind = el.dataset.kind;
+    const p = getElNormPos(el);
+
+    // Miss เฉพาะ target สำคัญ
+    if (['wet','soap','rinse','dry'].includes(kind)) {
+      missUp(p.x, p.y, 'MISS');
+      comboBreak();
+      S.sweat = clamp(S.sweat + 2.5, 0, 100);
+    }
+
+    if (kind === 'boss' && S.boss && S.boss.alive) {
+      // timeout handled in loop too, but keep safe
+      S.boss.alive = false;
+      missUp(p.x, p.y, '☣️ กระจาย!');
+      S.sweat = clamp(S.sweat + 10, 0, 100);
+    }
+  }
+
+  function getElNormPos(el) {
+    const r = UI.bodyWrap.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    const x = ((e.left + e.width / 2) - r.left) / r.width;
+    const y = ((e.top + e.height / 2) - r.top) / r.height;
+    return { x: clamp(x, 0, 1), y: clamp(y, 0, 1) };
+  }
+
+  /* =========================
+   * Hidden spot scrub interaction (tap/drag on body)
+   * ========================= */
+  function getPointerNormFromEvent(e) {
+    const r = UI.bodyWrap.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX) ?? 0;
+    const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY) ?? 0;
+    return {
+      x: clamp((clientX - r.left) / Math.max(1, r.width), 0, 1),
+      y: clamp((clientY - r.top) / Math.max(1, r.height), 0, 1),
+      px: clientX - r.left,
+      py: clientY - r.top,
+    };
+  }
+
+  function pointHitSpot(nx, ny, s) {
+    const dx = nx - s.x;
+    const dy = ny - s.y;
+    const rr = s.r * 1.25; // touch-friendly
+    return dx * dx + dy * dy <= rr * rr;
+  }
+
+  function handleScrubPointer(nx, ny, px, py) {
+    if (S.phase !== 'scrub') return;
+    if (fxCanvas) fxTrail(px, py);
+
+    let hitAny = false;
+
+    for (const s of S.hiddenSpots) {
+      if (!s.revealed || s.cleaned) continue;
+      if (!pointHitSpot(nx, ny, s)) continue;
+
+      hitAny = true;
+      s.hitCount++;
+      comboUp();
+
+      if (s.hitCount >= s.needHits) {
+        s.cleaned = true;
+        S.hiddenCleanedCount++;
+        addScore(8, s.x, s.y);
+        fxRing(s.x, s.y, 'good');
+        fxFloat('✨ สะอาด!', s.x, s.y, 'good');
+      } else {
+        addScore(1, s.x, s.y);
+        fxFloat(`🧽 ${s.hitCount}/${s.needHits}`, s.x, s.y, 'warn');
+      }
+
+      // boss if on same spot
+      if (S.boss && S.boss.alive && S.boss.spotId === s.id) {
+        S.boss.hp = Math.max(0, S.boss.hp - 1);
+        fxRing(s.x, s.y, 'bosshit');
+        if (S.boss.hp <= 0) {
+          S.boss.alive = false;
+          addScore(18, s.x, s.y);
+          fxPulse(s.x, s.y, 'good');
+          fxFloat('🏆 BOSS DOWN!', s.x, s.y, 'good');
+        }
+      }
+      break;
+    }
+
+    if (!hitAny && Math.random() < 0.06) {
+      // scrub พลาดบ้าง
+      comboBreak();
+    }
+  }
+
+  /* =========================
+   * Phase control
+   * ========================= */
+  function setPhase(next) {
+    S.phase = next;
+    S.phaseStartedAt = performance.now();
+    clearTargets();
+
+    if (next === 'prep') {
+      S.questText = 'เตรียมตัว 3 วินาที';
+    } else if (next === 'wet') {
+      S.questText = `ยิง/แตะน้ำให้ครบ ${CFG.wetNeed}`;
+      spawnPhaseTargets('wet');
+    } else if (next === 'soap') {
+      S.questText = `ฟองจริง ${CFG.soapNeed} (ระวังฟองปลอม)`;
+      spawnPhaseTargets('soap');
+    } else if (next === 'scrub') {
+      S.questText = 'ล่าจุดอับ และถูซ้ำให้ครบ';
+      revealHiddenSpots();
+      maybeSpawnBoss();
+    } else if (next === 'rinse') {
+      S.questText = `ล้างฟองตกค้าง ${CFG.rinseNeed}`;
+      spawnPhaseTargets('rinse');
+    } else if (next === 'drydress') {
+      S.questText = `เช็ดให้แห้ง ${CFG.dryNeed} แล้วจบ`;
+      spawnPhaseTargets('dry');
+    } else if (next === 'summary') {
+      S.questText = 'สรุปผล';
+    }
+
+    updateHUD();
+  }
+
+  function nextPhase() {
+    const i = PHASE_ORDER.indexOf(S.phase);
+    const next = PHASE_ORDER[Math.min(PHASE_ORDER.length - 1, i + 1)];
+    setPhase(next);
+  }
+
+  function autoPhaseCheck() {
+    if (S.phase === 'prep') {
+      if ((performance.now() - S.phaseStartedAt) >= 3000) nextPhase();
+      return;
+    }
+    if (S.phase === 'wet' && S.progress.wetHits >= CFG.wetNeed) return nextPhase();
+    if (S.phase === 'soap' && S.progress.soapHits >= CFG.soapNeed) return nextPhase();
+    if (S.phase === 'scrub' && S.hiddenCleanedCount >= Math.ceil(S.hiddenSpots.length * 0.8)) return nextPhase();
+    if (S.phase === 'rinse' && S.progress.rinseHits >= CFG.rinseNeed) return nextPhase();
+    if (S.phase === 'drydress' && S.progress.dryHits >= CFG.dryNeed) return endGame(true);
+  }
+
+  function spawnPhaseTargets(kind) {
+    const burstCount = {
+      wet: 4,
+      soap: 4,
+      rinse: 4,
+      dry: 4
+    }[kind] || 4;
+
+    for (let i = 0; i < burstCount; i++) {
+      spawnOneForPhase(kind, i * 120);
+    }
+  }
+
+  function spawnOneForPhase(kind, delay = 0) {
+    setTimeout(() => {
+      if (!S.running || S.ended || S.phase === 'summary') return;
+
+      if (kind === 'wet' && S.phase === 'wet') {
+        spawnTarget('wet', { ttl: rand(1000, 1600) });
+        return;
+      }
+      if (kind === 'soap' && S.phase === 'soap') {
+        const fake = Math.random() < (DIFF === 'hard' ? 0.35 : DIFF === 'normal' ? 0.25 : 0.15);
+        spawnTarget(fake ? 'fakeSoap' : 'soap', { ttl: rand(900, 1500) });
+        return;
+      }
+      if (kind === 'rinse' && S.phase === 'rinse') {
+        spawnTarget('rinse', { ttl: rand(1000, 1600) });
+        return;
+      }
+      if (kind === 'dry' && S.phase === 'drydress') {
+        spawnTarget('dry', { ttl: rand(1100, 1700) });
+        return;
+      }
+    }, delay);
+  }
+
+  function phaseSpawnerTick() {
+    if (!S.running || S.ended) return;
+    if (S.phase === 'wet' && Math.random() < 0.08) spawnOneForPhase('wet');
+    if (S.phase === 'soap' && Math.random() < 0.09) spawnOneForPhase('soap');
+    if (S.phase === 'rinse' && Math.random() < 0.08) spawnOneForPhase('rinse');
+    if (S.phase === 'drydress' && Math.random() < 0.08) spawnOneForPhase('dry');
+  }
+
+  /* =========================
+   * Hidden spots + boss
+   * ========================= */
+  function buildHiddenSpots() {
+    const base = (S.view === 'BACK') ? HIDDEN_BACK : HIDDEN_FRONT;
+    const copy = base.map(s => ({
+      ...s,
+      hitCount: 0,
+      needHits: randInt(CFG.scrubHits[0], CFG.scrubHits[1]),
+      revealed: false,
+      cleaned: false,
+      phaseOffset: rand(0, 10000)
+    }));
+
+    // pick N by diff
+    shuffle(copy);
+    S.hiddenSpots = copy.slice(0, Math.min(CFG.hiddenCount, copy.length));
+    S.hiddenRevealedCount = 0;
+    S.hiddenCleanedCount = 0;
+  }
+
+  function revealHiddenSpots() {
+    // reveal in waves for excitement
+    const arr = S.hiddenSpots.slice();
+    shuffle(arr);
+    arr.forEach((s, idx) => {
+      const t = 300 + idx * rand(180, 380);
+      setTimeout(() => {
+        if (!S.running || S.ended || S.phase !== 'scrub') return;
+        s.revealed = true;
+        S.hiddenRevealedCount++;
+        fxPulse(s.x, s.y, 'warn');
+        fxFloat('👀 จุดอับ!', s.x, s.y, 'warn');
+      }, t);
+    });
+  }
+
+  function maybeSpawnBoss() {
+    if (Math.random() > CFG.bossChance) return;
+    const candidates = S.hiddenSpots.filter(s => !s.cleaned);
+    if (!candidates.length) return;
+    const spot = candidates[Math.floor(Math.random() * candidates.length)];
+    S.boss = {
+      alive: true,
+      x: spot.x,
+      y: spot.y,
+      hp: (DIFF === 'hard' ? 10 : DIFF === 'normal' ? 8 : 6),
+      hpMax: (DIFF === 'hard' ? 10 : DIFF === 'normal' ? 8 : 6),
+      spotId: spot.id,
+      label: (Math.random() < 0.5 ? 'Stink Monster' : 'Oil Slick Boss'),
+      durationMs: (DIFF === 'hard' ? 14000 : 12000),
+      timeoutAt: performance.now() + (DIFF === 'hard' ? 14000 : 12000),
+    };
+    fxPulse(S.boss.x, S.boss.y, 'boss');
+    fxFloat('🧪 MINI-BOSS!', S.boss.x, S.boss.y, 'bad');
+
+    // optional visible boss target (clickable DOM) for extra action
+    spawnTarget('boss', { x: S.boss.x, y: S.boss.y, size: 58, ttl: S.boss.durationMs });
+  }
+
+  function bossTick() {
+    if (!S.boss || !S.boss.alive) return;
+    if (performance.now() >= S.boss.timeoutAt) {
+      S.boss.alive = false;
+      missUp(S.boss.x, S.boss.y, '☣️ กระจาย!');
+      S.sweat = clamp(S.sweat + 12, 0, 100);
+      comboBreak();
+    }
+  }
+
+  /* =========================
+   * Scoring / combo / miss
+   * ========================= */
+  function addScore(n, nx, ny) {
+    S.score += Math.round(n * (1 + Math.min(0.5, S.combo * 0.03)));
+    if (typeof nx === 'number' && typeof ny === 'number') {
+      if (n >= 5) fxFloat(`+${Math.round(n)}`, nx, ny, 'good');
+    }
+  }
+
+  function comboUp() {
+    const now = performance.now();
+    if (S.comboExpireAt && now <= S.comboExpireAt) S.combo++;
+    else S.combo = 1;
+    S.comboExpireAt = now + 850;
+  }
+
+  function comboBreak() {
+    S.combo = 0;
+    S.comboExpireAt = 0;
+  }
+
+  function missUp(nx, ny, text = 'MISS') {
+    S.miss++;
+    fxFloat(text, nx, ny, 'bad');
+  }
+
+  function wrongAction(nx, ny, text = 'ผิดลำดับ') {
+    S.miss++;
+    S.sweat = clamp(S.sweat + 4, 0, 100);
+    comboBreak();
+    fxFloat(`⚠️ ${text}`, nx, ny, 'bad');
+  }
+
+  /* =========================
+   * HUD
+   * ========================= */
+  function updateHUD() {
+    if (UI.phasePill) UI.phasePill.textContent = `PHASE: ${S.phase.toUpperCase()}`;
+    if (UI.timePill) UI.timePill.textContent = `TIME: ${Math.ceil(S.timeLeft)}`;
+    if (UI.cleanPill) UI.cleanPill.textContent = `CLEAN: ${Math.round(S.cleanPct)}%`;
+    if (UI.comboPill) UI.comboPill.textContent = `COMBO: ${S.combo}`;
+    if (UI.missPill) UI.missPill.textContent = `MISS: ${S.miss}`;
+    if (UI.questPill) UI.questPill.textContent = `QUEST: ${S.questText}`;
+    if (UI.meterPill) UI.meterPill.textContent = `SWEAT: ${Math.round(S.sweat)}%`;
+    if (UI.viewPill) UI.viewPill.textContent = `VIEW: ${S.view}`;
+  }
+
+  function recalcCleanPct() {
+    const weights = {
+      wet: Math.min(1, S.progress.wetHits / CFG.wetNeed) * 18,
+      soap: Math.min(1, S.progress.soapHits / CFG.soapNeed) * 20,
+      scrub: (S.hiddenSpots.length ? (S.hiddenCleanedCount / S.hiddenSpots.length) : 0) * 35,
+      rinse: Math.min(1, S.progress.rinseHits / CFG.rinseNeed) * 15,
+      dry: Math.min(1, S.progress.dryHits / CFG.dryNeed) * 12
+    };
+    S.cleanPct = clamp(weights.wet + weights.soap + weights.scrub + weights.rinse + weights.dry, 0, 100);
+  }
+
+  /* =========================
+   * End summary + heatmap
+   * ========================= */
+  function calcGrade(score) {
+    if (score >= 90 && S.miss <= 4 && S.sweat <= 45) return 'A+';
+    if (score >= 80 && S.miss <= 6) return 'A';
+    if (score >= 65) return 'B';
+    if (score >= 50) return 'C';
+    return 'D';
+  }
+
+  function renderHeatmap() {
+    if (!UI.heatmap) return;
+    UI.heatmap.innerHTML = '';
+
+    for (const s of S.hiddenSpots) {
+      const item = D.createElement('div');
+      const status = s.cleaned ? 'clean' : (s.revealed ? 'missed' : 'hidden');
+      item.className = `hm-item ${status}`;
+      item.innerHTML = `
+        <span class="hm-dot"></span>
+        <span class="hm-label">${escapeHtml(s.label)}</span>
+        <span class="hm-stat">${status === 'clean' ? 'สะอาด' : status === 'missed' ? 'พลาด' : 'ซ่อน'}</span>
+      `;
+      UI.heatmap.appendChild(item);
+    }
+  }
+
+  function showEndPanel(win) {
+    S.phase = 'summary';
+    updateHUD();
+
+    const grade = calcGrade(Math.round(S.cleanPct));
+    const cleaned = S.hiddenCleanedCount;
+    const total = Math.max(1, S.hiddenSpots.length);
+
+    if (UI.endSummary) {
+      UI.endSummary.innerHTML = `
+        ${win ? '✅ จบเกมสำเร็จ' : '⏰ หมดเวลา'}<br/>
+        คะแนนปฏิบัติความสะอาด <b>${Math.round(S.cleanPct)}</b>% |
+        Score <b>${Math.round(S.score)}</b> |
+        Grade <b>${grade}</b><br/>
+        จุดอับสะอาด <b>${cleaned}/${total}</b> |
+        Combo สูงสุด (ประมาณ) <b>${S.combo}</b> |
+        Miss <b>${S.miss}</b> |
+        Sweat <b>${Math.round(S.sweat)}</b>%
+      `;
+    }
+
+    renderHeatmap();
+    UI.panelEnd?.classList.remove('hidden');
+
+    // save last summary (HHA style minimal)
+    try {
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+        game: 'bath',
+        cleanPct: Math.round(S.cleanPct),
+        score: Math.round(S.score),
+        grade,
+        hiddenCleaned: cleaned,
+        hiddenTotal: total,
+        miss: S.miss,
+        sweat: Math.round(S.sweat),
+        ts: Date.now()
+      }));
+    } catch {}
+  }
+
+  /* =========================
+   * Loop
+   * ========================= */
+  let rafId = 0;
+  function loop(ts) {
+    rafId = requestAnimationFrame(loop);
+    if (!S.running || S.ended) return;
+
+    const dt = Math.min(33, S.lastTs ? (ts - S.lastTs) : 16);
+    S.lastTs = ts;
+
+    // timer
+    S.timeLeft = Math.max(0, S.timeLeft - dt / 1000);
+
+    // sweat rises with time, more in scrub
+    let rise = CFG.sweatRise;
+    if (S.phase === 'scrub') rise *= 1.35;
+    if (S.phase === 'prep') rise *= 0.5;
+    S.sweat = clamp(S.sweat + rise * (dt / 1000) * 10, 0, 100);
+
+    // hidden regrow feel (simple): at high sweat, unclean revealed spots get "harder"
+    if (S.phase === 'scrub' && S.sweat >= 70 && Math.random() < 0.01) {
+      const cand = S.hiddenSpots.filter(x => x.revealed && !x.cleaned);
+      if (cand.length) {
+        const s = cand[Math.floor(Math.random() * cand.length)];
+        s.needHits = Math.min(s.needHits + 1, 5);
+        fxFloat('☣️ คราบฟื้นตัว', s.x, s.y, 'bad');
+        comboBreak();
+      }
+    }
+
+    // boss timeout
+    bossTick();
+
+    // combo timeout
+    if (S.comboExpireAt && ts > S.comboExpireAt) {
+      S.combo = 0;
+      S.comboExpireAt = 0;
+    }
+
+    // phase spawns
+    phaseSpawnerTick();
+
+    // clean pct + hud
+    recalcCleanPct();
+    updateHUD();
+
+    // renders
+    renderBodyCanvas();
+    renderFx(dt);
+
+    // phase progression
+    autoPhaseCheck();
+
+    // timeout end
+    if (S.timeLeft <= 0) {
+      endGame(false);
+    }
+  }
+
+  /* =========================
+   * Start / End / Reset
+   * ========================= */
+  function startGame() {
+    cancelAnimationFrame(rafId);
+
+    S.running = true;
+    S.ended = false;
+    S.phase = 'prep';
+    S.phaseStartedAt = performance.now();
+    S.startedAt = performance.now();
+    S.lastTs = 0;
+    S.timeLeft = CFG.time;
+
+    S.score = 0;
+    S.combo = 0;
+    S.comboExpireAt = 0;
+    S.miss = 0;
+    S.sweat = 0;
+    S.cleanPct = 0;
+
+    S.progress.wetHits = 0;
+    S.progress.soapHits = 0;
+    S.progress.rinseHits = 0;
+    S.progress.dryHits = 0;
+
+    S.view = (UI.viewPill?.textContent || '').includes('BACK') ? 'BACK' : S.view;
+    buildHiddenSpots();
+    S.boss = null;
+
+    S.questText = 'เตรียมตัว 3 วินาที';
+
+    UI.panelEnd?.classList.add('hidden');
+    clearTargets();
+
+    if (UI.btnStart) UI.btnStart.textContent = 'กำลังเล่น...';
+
+    updateHUD();
+    resizeBodyCanvas();
+    resizeFxCanvas();
+    renderBodyCanvas();
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function endGame(win) {
+    if (S.ended) return;
+    S.ended = true;
+    S.running = false;
+    clearTargets();
+    cancelAnimationFrame(rafId);
+
+    if (UI.btnStart) UI.btnStart.textContent = 'เริ่มเล่น';
+    showEndPanel(win);
+  }
+
+  /* =========================
+   * Input wiring
+   * ========================= */
+  function bindInputs() {
+    UI.btnStart?.addEventListener('click', () => {
+      if (!S.running) startGame();
     });
 
-    if (rnd() < (0.22 + 0.28*stress) && STATE.active.size < (CFG.maxActive||7)){
-      const k2 = candidates[Math.floor(rnd()*candidates.length)];
-      const p2 = zonePoint(k2);
-      if (p2){
-        const need2 = STATE.hiddenNeed[k2] ?? 2;
-        makeTarget({
-          kind:'hidden',
-          x:p2.x, y:p2.y,
-          ttlMs: (1650 * (CFG.ttlMul||1) * ttlStressMul),
-          hitsToClear: Math.min(need2, 4),
-          zoneKey: k2
-        });
+    UI.btnReplay?.addEventListener('click', () => {
+      UI.panelEnd?.classList.add('hidden');
+      startGame();
+    });
+
+    UI.btnBack?.addEventListener('click', () => {
+      const hub = qstr('hub', '../hub.html');
+      location.href = hub;
+    });
+
+    UI.btnHelp?.addEventListener('click', () => UI.panelHelp?.classList.remove('hidden'));
+    UI.btnCloseHelp?.addEventListener('click', () => UI.panelHelp?.classList.add('hidden'));
+
+    UI.btnFlip?.addEventListener('click', () => {
+      S.view = (S.view === 'FRONT') ? 'BACK' : 'FRONT';
+      updateHUD();
+
+      // if playing scrub, rebuild hidden spots for current view (optional challenge)
+      if (S.running && !S.ended && ['prep','wet','soap'].includes(S.phase)) {
+        buildHiddenSpots();
       }
-    }
-    return;
-  }
-}
+      renderBodyCanvas();
+    });
 
-function spawnDryPack(){
-  const keys = ['behindEar','armpit','behindKnee','toeGap'];
-  for (const k of keys){
-    const p = zonePoint(k);
-    if (!p) continue;
-    makeTarget({ kind:'dry', x:p.x, y:p.y, ttlMs: 2500 * (CFG.ttlMul||1), hitsToClear: 1, zoneKey: k });
-  }
-}
+    // Body scrub input (pointer)
+    UI.bodyWrap?.addEventListener('pointerdown', (e) => {
+      S.pointerDown = true;
+      const p = getPointerNormFromEvent(e);
+      S.lastPointer = { x: p.x, y: p.y };
+      if (S.phase === 'scrub') handleScrubPointer(p.x, p.y, p.px, p.py);
+    }, { passive: true });
 
-// -------- C) Storm system (3s mini-storm per phase, scheduled) --------
-function scheduleStorm(phase){
-  const t = now();
-  // deterministic schedule per phase start
-  phase._nextStormAt = t + 6500 + rnd()*6500; // 6.5–13s
-  phase._stormSpawnAt = 0;
-}
-function maybeStartStorm(phase){
-  const t = now();
-  if (t <= STATE.stormUntil) return false;
-  if (!phase._nextStormAt) return false;
-  if (t < phase._nextStormAt) return false;
+    UI.bodyWrap?.addEventListener('pointermove', (e) => {
+      if (!S.pointerDown) return;
+      const p = getPointerNormFromEvent(e);
+      S.lastPointer = { x: p.x, y: p.y };
+      if (S.phase === 'scrub') handleScrubPointer(p.x, p.y, p.px, p.py);
+    }, { passive: true });
 
-  STATE.stormUntil = t + 3000; // 3s
-  phase._stormSpawnAt = t;
-  // next storm 12–20s later
-  phase._nextStormAt = t + 12000 + rnd()*8000;
+    W.addEventListener('pointerup', () => {
+      S.pointerDown = false;
+    }, { passive: true });
 
-  emit('hha:coach', { game:'bath', msg:'⚡ STORM 3 วิ! ล่า PERFECT + เลือกเป้าคุ้ม!', t });
-  emit('hha:event', { game:'bath', type:'storm_start', phase: phase.id, t });
-  return true;
-}
-function stormTickSpawn(phase){
-  const t = now();
-  if (t > STATE.stormUntil) return;
-  if (!phase._stormSpawnAt) phase._stormSpawnAt = t;
-
-  // extra spawns every ~180ms (safe + capped)
-  if (t >= phase._stormSpawnAt){
-    if (STATE.active.size < (CFG.maxActive||7)) spawnForPhase(phase);
-    if (STATE.active.size < (CFG.maxActive||7) && rnd() < 0.55) spawnForPhase(phase);
-    phase._stormSpawnAt = t + 180;
-  }
-}
-
-function startPhase(idx){
-  STATE.phaseIdx = idx;
-  const phase = PHASES[idx];
-  STATE.phaseEndsAt = now() + phase.secs*1000;
-
-  phase._nextSpawnAt = 0;
-  phase._rushSpawnAt = 0;
-  phase._telegraphAt = 0;
-  phase._hinted = false;
-
-  scheduleStorm(phase);
-
-  STATE.bossRush = false;
-  STATE.bossRushUntil = 0;
-  STATE.bossKills = 0;
-
-  if (phase.id==='WET')   setQuest('เปียกให้ครบ 10 ครั้ง');
-  if (phase.id==='SOAP')  setQuest('ทำฟองจริงให้ครบ 14 ครั้ง');
-  if (phase.id==='SCRUB') setQuest('เคลียร์จุดอับ 3 จุด + คอมโบ 8+');
-  if (phase.id==='RINSE') setQuest('ล้างฟอง 8 + เช็ด 3');
-
-  if (phase.id==='SCRUB' && STATE.hiddenPlan.length===0){
-    pickHiddenPlan();
-    emit('hha:coach', { game:'bath', msg:'เข้าสู่ SCRUB! ล่าจุดอับ (ต้องถูซ้ำ) — ล่า PERFECT จะคอมโบขึ้นไว', t: now() });
-  }
-
-  if (phase.id==='RINSE'){
-    spawnDryPack();
-    emit('hha:coach', { game:'bath', msg:'RINSE+DRY! ล้างฟองตกค้าง แล้วเช็ดให้แห้ง', t: now() });
-  }
-
-  updateHUD();
-}
-
-function endGame(){
-  STATE.running = false;
-
-  if (STATE.bossKills >= 4){
-    STATE.cleanScore = clamp(STATE.cleanScore + 8, 0, 100);
-    emit('hha:event', { game:'bath', type:'boss_bonus', bossKills: STATE.bossKills, t: now() });
-  }
-
-  updateHUD();
-
-  const hiddenTotal = STATE.hiddenPlan.length || 4;
-  const hiddenDone  = STATE.hiddenPlan.filter(k=>STATE.hiddenCleared[k]).length;
-
-  const bossTxt = (STATE.bossKills >= 4) ? ` • BOSS KILLS ${STATE.bossKills} (BONUS!)` : ` • BOSS KILLS ${STATE.bossKills}`;
-  UI.endSummary.textContent =
-    `CLEAN ${Math.round(STATE.cleanScore)}% • HIT ${STATE.hits} • MISS ${STATE.miss} • Hidden ${hiddenDone}/${hiddenTotal}${bossTxt} • SWEAT PEAK ${Math.round(STATE.meterPeak)}%`;
-
-  UI.heatmap.innerHTML = '';
-  for (const z of ZONES){
-    const ok = STATE.hiddenPlan.includes(z.key) ? !!STATE.hiddenCleared[z.key] : true;
-    const div = DOC.createElement('div');
-    div.className = 'hm';
-    const left = DOC.createElement('div');
-    left.textContent = z.label;
-    const right = DOC.createElement('small');
-    right.textContent = ok ? 'OK' : 'พลาด';
-    right.style.color = ok ? 'var(--good)' : 'var(--bad)';
-    div.appendChild(left);
-    div.appendChild(right);
-    UI.heatmap.appendChild(div);
-  }
-
-  UI.panelEnd.classList.remove('hidden');
-
-  if (UI.btnStart){
-    UI.btnStart.disabled = false;
-    UI.btnStart.textContent = 'เริ่มเล่น';
-  }
-
-  emit('hha:session_end', {
-    game:'bath',
-    seed: SEED,
-    diff: DIFF,
-    view: VIEW || 'normal',
-    clean: Math.round(STATE.cleanScore),
-    hits: STATE.hits,
-    miss: STATE.miss,
-    meterPeak: Math.round(STATE.meterPeak),
-    bossKills: STATE.bossKills,
-    hiddenDone,
-    hiddenTotal,
-    ts: Date.now()
-  });
-}
-
-function tick(){
-  if (!STATE.running) return;
-
-  const t = now();
-  const phase = PHASES[STATE.phaseIdx];
-  const timeLeft = STATE.phaseEndsAt - t;
-
-  expireTargets();
-
-  // C) storm scheduling/spawning (not in RINSE? still ok, but you can disable by if)
-  if (phase.id !== 'RINSE'){
-    maybeStartStorm(phase);
-    stormTickSpawn(phase);
-  }
-
-  // boss rush (existing)
-  if (phase.id === 'SCRUB'){
-    if (!STATE.bossRush && timeLeft <= 6000){
-      STATE.bossRush = true;
-      STATE.bossRushUntil = t + 6000;
-      STATE.bossKills = 0;
-      emit('hha:coach', { game:'bath', msg:'BOSS RUSH! 6 วิสุดท้าย เคลียร์ให้ไว!', t });
+    // cVR fallback crosshair visual only
+    if (UI.crosshairFallback) {
+      const isCVR = (qstr('view','').toLowerCase() === 'cvr');
+      UI.crosshairFallback.style.display = isCVR ? 'block' : 'none';
     }
 
-    if (timeLeft < 7000){
-      const remaining = STATE.hiddenPlan.filter(k=>!STATE.hiddenCleared[k]);
-      if (remaining.length && !phase._hinted){
-        phase._hinted = true;
-        const z = ZONES.find(x=>x.key===remaining[0]);
-        emit('hha:coach', { game:'bath', msg:`ใกล้หมดเวลา! อย่าลืมจุดอับ: ${z?.label || 'จุดอับ'}`, t });
-      }
+    // keyboard debug shortcuts
+    if (DEBUG) {
+      W.addEventListener('keydown', (e) => {
+        if (e.key === 'n') nextPhase();
+        if (e.key === 'b') maybeSpawnBoss();
+        if (e.key === 'e') endGame(true);
+      });
     }
+
+    W.addEventListener('resize', () => {
+      resizeBodyCanvas();
+      resizeFxCanvas();
+    }, { passive: true });
   }
 
-  const baseEvery = (phase.spawnEvery / (CFG.spawnMul || 1));
-  if (!phase._nextSpawnAt) phase._nextSpawnAt = t;
+  /* =========================
+   * Utils
+   * ========================= */
+  function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
 
-  if (STATE.bossRush && t <= STATE.bossRushUntil){
-    if (!phase._rushSpawnAt) phase._rushSpawnAt = t;
-    if (t >= phase._rushSpawnAt){
-      if (STATE.active.size < (CFG.maxActive||7)) spawnForPhase(phase);
-      if (STATE.active.size < (CFG.maxActive||7) && rnd() < 0.55) spawnForPhase(phase);
-      const step = (360 / (CFG.bossMul || 1)) + rnd()*120;
-      phase._rushSpawnAt = t + step;
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-  } else {
-    if (t >= phase._nextSpawnAt){
-      if (STATE.active.size < (CFG.maxActive||7)) spawnForPhase(phase);
-      phase._nextSpawnAt = t + baseEvery + (rnd()*160 - 80);
-    }
+    return arr;
   }
 
-  if (timeLeft <= 0){
-    if (STATE.phaseIdx < PHASES.length - 1){
-      startPhase(STATE.phaseIdx + 1);
-    } else {
-      endGame();
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  /* =========================
+   * Boot
+   * ========================= */
+  function boot() {
+    if (!CFG) {
+      console.error('Bath config missing');
       return;
     }
+
+    // view pill init
+    if (UI.viewPill) UI.viewPill.textContent = `VIEW: ${S.view}`;
+
+    // basic styles for targets if css not yet patched
+    ensureTargetBaseStyles();
+
+    bindInputs();
+    resizeBodyCanvas();
+    resizeFxCanvas();
+    buildHiddenSpots();
+    recalcCleanPct();
+    updateHUD();
+    renderBodyCanvas();
+
+    // expose debug
+    W.HHBathDebug = Object.assign(W.HHBathDebug || {}, {
+      start: startGame,
+      end: (ok=true) => endGame(!!ok),
+      nextPhase,
+      boss: () => maybeSpawnBoss(),
+      revealAll: () => { S.hiddenSpots.forEach(s => s.revealed = true); renderBodyCanvas(); },
+      cleanAll: () => { S.hiddenSpots.forEach(s => { s.revealed = true; s.cleaned = true; s.hitCount = s.needHits; }); S.hiddenCleanedCount = S.hiddenSpots.length; recalcCleanPct(); updateHUD(); renderBodyCanvas(); },
+      state: () => S
+    });
+
+    console.log('[Bath] booted', { diff: DIFF, view: VIEW, debug: DEBUG });
   }
 
-  checkQuest();
-  updateHUD();
-  requestAnimationFrame(tick);
-}
-
-// input
-function onPointerDown(ev){
-  if (!STATE.running) return;
-  const x = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : ev.clientX;
-  const y = (ev.touches && ev.touches[0]) ? ev.touches[0].clientY : ev.clientY;
-  handleShootAt(x,y,'pointer');
-}
-function onKeyDown(ev){
-  if (ev.code === 'Space'){
-    const r = bodyRect();
-    handleShootAt(r.left + r.width/2, r.top + r.height/2, 'key');
-  }
-}
-function onHHAShoot(ev){
-  if (!STATE.running) return;
-  const d = ev.detail || {};
-  if (Number.isFinite(d.x) && Number.isFinite(d.y)){
-    handleShootAt(d.x, d.y, 'hha:shoot');
-    return;
-  }
-  const r = bodyRect();
-  handleShootAt(r.left + r.width/2, r.top + r.height/2, 'hha:shoot');
-}
-function flipView(){
-  STATE.side = (STATE.side === 'front') ? 'back' : 'front';
-  updateHUD();
-  emit('hha:event', { game:'bath', type:'flip', side: STATE.side, t: now() });
-}
-function startGame(){
-  resetGame();
-  UI.panelEnd.classList.add('hidden');
-
-  if (UI.btnStart){
-    UI.btnStart.disabled = true;
-    UI.btnStart.textContent = 'กำลังเล่น...';
+  function ensureTargetBaseStyles() {
+    if (D.getElementById('bath-target-inline-style')) return;
+    const st = D.createElement('style');
+    st.id = 'bath-target-inline-style';
+    st.textContent = `
+      #target-layer { position:absolute; inset:0; z-index:3; pointer-events:none; }
+      #target-layer .tgt { pointer-events:auto; }
+      #crosshair-fallback {
+        position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+        width:22px; height:22px; border-radius:999px;
+        border:2px solid rgba(255,255,255,.85);
+        box-shadow:0 0 0 1px rgba(0,0,0,.35) inset;
+        z-index:6; pointer-events:none; display:none;
+      }
+      #crosshair-fallback::before, #crosshair-fallback::after {
+        content:''; position:absolute; background:rgba(255,255,255,.9);
+      }
+      #crosshair-fallback::before { left:50%; top:-6px; width:2px; height:34px; transform:translateX(-50%); }
+      #crosshair-fallback::after { top:50%; left:-6px; width:34px; height:2px; transform:translateY(-50%); }
+    `;
+    D.head.appendChild(st);
   }
 
-  STATE.running = true;
-  startPhase(0);
-
-  emit('hha:session_start', {
-    game:'bath',
-    seed: SEED,
-    diff: DIFF,
-    view: VIEW || 'normal',
-    side: STATE.side,
-    ts: Date.now()
-  });
-
-  requestAnimationFrame(tick);
-}
-
-// Wire UI
-UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp.classList.remove('hidden'));
-UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp.classList.add('hidden'));
-
-UI.btnStart?.addEventListener('click', startGame);
-UI.btnReplay?.addEventListener('click', startGame);
-UI.btnFlip?.addEventListener('click', flipView);
-
-UI.btnBack?.addEventListener('click', ()=> UI.panelEnd.classList.add('hidden'));
-
-UI.bathLayer?.addEventListener('mousedown', onPointerDown, { passive:true });
-UI.bathLayer?.addEventListener('touchstart', onPointerDown, { passive:true });
-WIN.addEventListener('keydown', onKeyDown);
-WIN.addEventListener('hha:shoot', onHHAShoot);
-
-if (STATE.cvrStrict){
-  UI.bathLayer?.addEventListener('click', ()=>{
-    const r = bodyRect();
-    handleShootAt(r.left + r.width/2, r.top + r.height/2, 'cvr-click');
-  }, { passive:true });
-}
-
-resetGame();
+  if (D.readyState === 'loading') D.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
+})();
