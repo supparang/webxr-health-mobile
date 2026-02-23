@@ -1,24 +1,13 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260219b
-// ✅ FIX: now() defined (prevents "now is not defined")
-// ✅ SAFE: never crash if A-Frame missing
-// ✅ ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot -> window event: hha:shoot {x,y,lockPx,cooldownMs,source}
-// ✅ Supports view=cvr strict (shoot from center)
-
+// Universal VR UI — SAFE UNIVERSAL — v20260223p1
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
 
-  if (WIN.__HHA_VRUI_READY__) return;
+  if(WIN.__HHA_VRUI_READY__) return;
   WIN.__HHA_VRUI_READY__ = true;
-
-  // --- time helper (FIX) ---
-  function now(){
-    try{ return (performance && typeof performance.now === 'function') ? performance.now() : Date.now(); }
-    catch(_){ return Date.now(); }
-  }
 
   function qs(k, def=''){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
@@ -31,20 +20,26 @@
     return v<a?a:(v>b?b:v);
   }
 
+  function nowMs(){
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
+
   // ---- config ----
   const CFG0 = WIN.HHA_VRUI_CONFIG || {};
-  const VIEW = String(qs('view','') || DOC.documentElement?.dataset?.view || '').toLowerCase();
-  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || DOC.documentElement?.dataset?.view === 'cvr');
+  const VIEW_Q = String(qs('view','') || '').toLowerCase();
+  const VIEW_DS_HTML = String((DOC.documentElement && DOC.documentElement.dataset && DOC.documentElement.dataset.view) || '').toLowerCase();
+  const VIEW_DS_BODY = String((DOC.body && DOC.body.dataset && DOC.body.dataset.view) || '').toLowerCase();
+  const VIEW = VIEW_Q || VIEW_DS_HTML || VIEW_DS_BODY || 'screen';
+  const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard');
 
   const CFG = {
     lockPx: clamp(CFG0.lockPx ?? 28, 6, 80),
     cooldownMs: clamp(CFG0.cooldownMs ?? 90, 20, 400),
     showCrosshair: (CFG0.showCrosshair !== false),
     showButtons: (CFG0.showButtons !== false),
-    cvrStrict: (CFG0.cvrStrict !== false), // default true
+    cvrStrict: (CFG0.cvrStrict !== false),
   };
 
-  // ---- DOM layer + style ----
   let ui = null;
   let crosshair = null;
   let lastShotAt = 0;
@@ -56,10 +51,10 @@
     st.textContent = `
       #hha-vrui{
         position:fixed;
-        left: max(10px, env(safe-area-inset-left, 0px));
-        right: max(10px, env(safe-area-inset-right, 0px));
-        bottom: max(10px, env(safe-area-inset-bottom, 0px));
-        z-index: 9997;
+        left:max(10px, env(safe-area-inset-left, 0px));
+        right:max(10px, env(safe-area-inset-right, 0px));
+        bottom:max(10px, env(safe-area-inset-bottom, 0px));
+        z-index:9997;
         display:flex;
         gap:8px;
         flex-wrap:wrap;
@@ -72,12 +67,12 @@
         border:none;
         border-radius:999px;
         padding:10px 12px;
-        background: rgba(2,6,23,.70);
-        border: 1px solid rgba(148,163,184,.22);
-        color: rgba(229,231,235,.96);
-        font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-        box-shadow: 0 16px 40px rgba(0,0,0,.32);
-        backdrop-filter: blur(10px);
+        background:rgba(2,6,23,.70);
+        border:1px solid rgba(148,163,184,.22);
+        color:rgba(229,231,235,.96);
+        font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+        box-shadow:0 16px 40px rgba(0,0,0,.32);
+        backdrop-filter:blur(10px);
         cursor:pointer;
         user-select:none;
         -webkit-tap-highlight-color: transparent;
@@ -86,14 +81,12 @@
 
       #hha-crosshair{
         position:fixed;
-        left:50%;
-        top:50%;
-        width:20px;
-        height:20px;
-        transform: translate(-50%,-50%);
-        z-index: 9996;
+        left:50%; top:50%;
+        width:20px; height:20px;
+        transform:translate(-50%,-50%);
+        z-index:9996;
         pointer-events:none;
-        opacity: .92;
+        opacity:.92;
         display:grid;
         place-items:center;
       }
@@ -101,30 +94,30 @@
         content:'';
         width:18px; height:18px;
         border-radius:999px;
-        border: 2px solid rgba(229,231,235,.62);
-        box-shadow: 0 0 0 2px rgba(2,6,23,.55);
+        border:2px solid rgba(229,231,235,.62);
+        box-shadow:0 0 0 2px rgba(2,6,23,.55);
       }
       #hha-crosshair:after{
         content:'';
         position:absolute;
         width:2px; height:2px;
         border-radius:999px;
-        background: rgba(229,231,235,.95);
-        box-shadow: 0 0 0 2px rgba(2,6,23,.55);
+        background:rgba(229,231,235,.95);
+        box-shadow:0 0 0 2px rgba(2,6,23,.55);
       }
 
       #hha-vrui-hint{
         position:fixed;
-        left: max(10px, env(safe-area-inset-left, 0px));
-        top: max(10px, env(safe-area-inset-top, 0px));
-        z-index: 9997;
+        left:max(10px, env(safe-area-inset-left, 0px));
+        top:max(10px, env(safe-area-inset-top, 0px));
+        z-index:9997;
         pointer-events:none;
-        background: rgba(2,6,23,.55);
-        border: 1px solid rgba(148,163,184,.18);
-        color: rgba(229,231,235,.92);
-        border-radius: 999px;
-        padding: 6px 10px;
-        font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+        background:rgba(2,6,23,.55);
+        border:1px solid rgba(148,163,184,.18);
+        color:rgba(229,231,235,.92);
+        border-radius:999px;
+        padding:6px 10px;
+        font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
         backdrop-filter: blur(10px);
         display:none;
       }
@@ -142,6 +135,7 @@
         ui.id = 'hha-vrui';
         DOC.body.appendChild(ui);
       }
+
       if(!ui.__built){
         ui.__built = true;
         ui.innerHTML = '';
@@ -178,7 +172,7 @@
         crosshair.id = 'hha-crosshair';
         DOC.body.appendChild(crosshair);
       }
-      crosshair.style.display = IS_CVR ? 'grid' : 'grid';
+      crosshair.style.display = 'grid';
       crosshair.style.opacity = IS_CVR ? '0.98' : '0.88';
     }
 
@@ -191,11 +185,10 @@
     }
     if(IS_CVR){
       hint.style.display = 'inline-flex';
-      setTimeout(()=>{ try{ hint.style.display='none'; }catch(_){} }, 3500);
+      setTimeout(()=>{ try{ hint.style.display='none'; }catch(_){ } }, 2500);
     }
   }
 
-  // ---- A-Frame hooks (safe) ----
   function getScene(){
     try{ return DOC.querySelector('a-scene'); }catch(_){ return null; }
   }
@@ -204,23 +197,21 @@
     const s = getScene();
     try{ if(s && typeof s.enterVR === 'function') s.enterVR(); }catch(_){}
   }
-
   function exitVR(){
     const s = getScene();
     try{ if(s && typeof s.exitVR === 'function') s.exitVR(); }catch(_){}
   }
 
   function recenter(){
-    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui', ts:Date.now() } })); }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch(_){}
     try{
-      const cam = DOC.querySelector('a-camera');
+      const cam = DOC.querySelector('a-camera,[camera]');
       const lc = cam && cam.components && cam.components['look-controls'];
       if(lc && typeof lc.reset === 'function') lc.reset();
     }catch(_){}
   }
 
   function setVrButtons(inVr){
-    if(!ui) return;
     const enter = DOC.getElementById('hhaBtnEnterVR');
     const exit  = DOC.getElementById('hhaBtnExitVR');
     if(enter) enter.style.display = inVr ? 'none' : 'inline-flex';
@@ -235,29 +226,26 @@
     s.addEventListener('exit-vr',  ()=> setVrButtons(false), {passive:true});
   }
 
-  // ---- SHOOT dispatcher ----
   function emitShoot(x,y, source){
-    const t = now();
+    const t = nowMs(); // ✅ fixed (was now())
     if(t - lastShotAt < CFG.cooldownMs) return;
     lastShotAt = t;
 
     try{
       WIN.dispatchEvent(new CustomEvent('hha:shoot', {
         detail:{
-          x: Number(x),
-          y: Number(y),
-          lockPx: CFG.lockPx,
-          cooldownMs: CFG.cooldownMs,
+          x:Number(x), y:Number(y),
+          lockPx:CFG.lockPx,
+          cooldownMs:CFG.cooldownMs,
           source: source || 'tap',
-          view: IS_CVR ? 'cvr' : 'screen',
-          ts: Date.now()
+          view: IS_CVR ? 'cvr' : 'screen'
         }
       }));
     }catch(_){}
   }
 
   function centerShoot(source){
-    emitShoot(innerWidth/2, innerHeight/2, source || 'tap');
+    emitShoot(WIN.innerWidth/2, WIN.innerHeight/2, source || 'tap');
   }
 
   function wireTapShoot(){
@@ -266,6 +254,13 @@
 
     DOC.addEventListener('pointerdown', (ev)=>{
       if(ev.defaultPrevented) return;
+
+      // ถ้ากดบนปุ่ม vr-ui เอง ไม่ต้องยิง
+      const t = ev.target;
+      if(t && (t.id === 'hhaBtnEnterVR' || t.id === 'hhaBtnExitVR' || t.id === 'hhaBtnRecenter' || (t.closest && t.closest('#hha-vrui')))){
+        return;
+      }
+
       if(IS_CVR && CFG.cvrStrict){
         centerShoot('tap');
       }else{
@@ -274,7 +269,9 @@
     }, {passive:true});
 
     DOC.addEventListener('keydown', (ev)=>{
-      if(ev.code === 'Space') centerShoot('space');
+      if(ev.code === 'Space'){
+        centerShoot('space');
+      }
     }, {passive:true});
   }
 
@@ -288,7 +285,8 @@
     wireVrState();
     wireTapShoot();
     applyCvrStrict();
-    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch(_){} }, 600);
+
+    setTimeout(()=>{ try{ ensureUI(); wireVrState(); }catch(_){ } }, 600);
   }
 
   if(DOC.readyState === 'loading'){
@@ -296,5 +294,4 @@
   }else{
     init();
   }
-
 })();
