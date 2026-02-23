@@ -1,491 +1,494 @@
-<!-- === /herohealth/germ-detective.html ===
-HeroHealth — Germ Detective (Launcher)
-PC / Mobile / Cardboard VR entry page
-✅ Query passthrough to run page
-✅ Remember last settings
-✅ Clear entry modes (PC/Mobile/Cardboard)
-✅ Back to HUB
-✅ No App Script required
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>HeroHealth • Germ Detective (Launcher)</title>
   <style>
     :root{
       color-scheme: dark;
-      --bg:#030712;
-      --panel:rgba(15,23,42,.78);
-      --panel2:rgba(2,6,23,.72);
-      --line:rgba(148,163,184,.18);
-      --txt:rgba(241,245,249,.96);
-      --mut:rgba(148,163,184,.95);
-      --acc:rgba(34,211,238,.95);
-      --good:rgba(16,185,129,.95);
-      --warn:rgba(251,191,36,.95);
-      --bad:rgba(244,63,94,.95);
-      --shadow:0 20px 60px rgba(0,0,0,.35);
-      --r:18px;
-      --sat: env(safe-area-inset-top,0px);
-      --sar: env(safe-area-inset-right,0px);
-      --sab: env(safe-area-inset-bottom,0px);
-      --sal: env(safe-area-inset-left,0px);
+      --bg:#020617;
+      --bg2:#0b1220;
+      --panel: rgba(2,6,23,.72);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(241,245,249,.96);
+      --mut: rgba(148,163,184,.95);
+      --acc: rgba(34,211,238,.95);
+      --good: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
+      --bad: rgba(244,63,94,.95);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0}
-    body{
-      font-family: system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
-      color:var(--txt);
+    html,body{
+      margin:0; height:100%;
       background:
-        radial-gradient(900px 500px at 10% -10%, rgba(99,102,241,.22), transparent 60%),
-        radial-gradient(700px 460px at 100% 0%, rgba(34,211,238,.14), transparent 60%),
-        radial-gradient(800px 600px at 50% 100%, rgba(16,185,129,.08), transparent 60%),
-        var(--bg);
+        radial-gradient(1000px 700px at 10% 0%, rgba(99,102,241,.12), transparent 60%),
+        radial-gradient(700px 500px at 100% 0%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg2), var(--bg));
+      color:var(--txt);
+      font-family: system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+    }
+    .page{
+      min-height:100%;
       padding:
-        max(12px,var(--sat))
-        max(12px,var(--sar))
-        max(12px,var(--sab))
-        max(12px,var(--sal));
-    }
-    .wrap{
-      max-width: 1100px;
-      margin: 0 auto;
-      min-height: calc(100dvh - max(24px,var(--sat)) - max(24px,var(--sab)));
+        calc(max(14px,var(--sat)) + 4px)
+        calc(max(14px,var(--sar)) + 4px)
+        calc(max(14px,var(--sab)) + 4px)
+        calc(max(14px,var(--sal)) + 4px);
       display:grid;
-      gap:14px;
       grid-template-rows:auto auto 1fr auto;
-    }
-    .topbar{
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:10px 12px;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .brand{display:flex;align-items:center;gap:10px}
-    .badge{
-      width:38px;height:38px;border-radius:12px;
-      display:grid;place-items:center;
-      background:linear-gradient(180deg, rgba(34,211,238,.18), rgba(34,211,238,.08));
-      border:1px solid rgba(34,211,238,.25);
-      font-size:20px;
-    }
-    .title h1{margin:0;font-size:18px;line-height:1.15}
-    .title p{margin:2px 0 0;color:var(--mut);font-size:12px}
-    .btn{
-      appearance:none;border:1px solid var(--line);background:var(--panel);
-      color:var(--txt);border-radius:999px;padding:9px 12px;
-      font:800 12px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
-      cursor:pointer; box-shadow:var(--shadow);
-    }
-    .btn:active{transform:translateY(1px)}
-    .btn.primary{
-      background:linear-gradient(180deg, rgba(34,211,238,.18), rgba(34,211,238,.08));
-      border-color:rgba(34,211,238,.26);
+      gap:12px;
     }
     .hero{
-      border:1px solid var(--line); border-radius:var(--r);
-      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.72));
-      box-shadow:var(--shadow);
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.60));
+      box-shadow:0 20px 60px rgba(0,0,0,.28);
       padding:14px;
     }
-    .hero-grid{
-      display:grid; gap:14px;
-      grid-template-columns: 1.2fr .8fr;
+    .hero h1{
+      margin:0;
+      font-size: clamp(20px, 3.6vw, 30px);
+      line-height:1.1;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    .hero p{
+      margin:8px 0 0;
+      color:var(--mut);
+      line-height:1.4;
+      font-size:13px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+      align-items:start;
     }
     .card{
       border:1px solid var(--line);
       border-radius:16px;
-      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.58));
+      box-shadow:0 14px 40px rgba(0,0,0,.22);
       padding:12px;
     }
-    .card h2,.card h3{margin:0 0 8px}
-    .mut{color:var(--mut)}
-    .pill{
-      display:inline-flex; align-items:center; gap:6px;
-      border:1px solid var(--line); border-radius:999px;
-      padding:6px 10px; font-size:12px; color:var(--mut);
-      background:rgba(255,255,255,.02);
-      margin:0 6px 6px 0;
+    .card h2{
+      margin:0 0 8px;
+      font-size:14px;
+      color:var(--txt);
     }
+    .mut{ color:var(--mut); font-size:12px; }
+
     .form-grid{
-      display:grid; gap:10px;
-      grid-template-columns: repeat(2,minmax(0,1fr));
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
     }
-    .field{display:grid; gap:6px}
-    .field label{font-size:12px; color:var(--mut); font-weight:700}
+    .field{
+      display:grid;
+      gap:6px;
+    }
+    .field label{
+      font-size:12px;
+      color:var(--mut);
+      font-weight:700;
+    }
     .field input,.field select{
-      width:100%; border-radius:12px; border:1px solid var(--line);
-      background:rgba(2,6,23,.6); color:var(--txt);
-      padding:10px 12px; outline:none;
+      width:100%;
+      appearance:none;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      color:var(--txt);
+      padding:10px 12px;
+      font:700 13px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+      outline:none;
     }
-    .field input:focus,.field select:focus{border-color:rgba(34,211,238,.4)}
-    .modes{
-      display:grid; gap:10px;
-      grid-template-columns: repeat(3,minmax(0,1fr));
+
+    .view-cards{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
       margin-top:10px;
     }
-    .mode{
+    .view-card{
       border:1px solid var(--line);
       border-radius:14px;
-      padding:12px;
-      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-      display:grid; gap:8px;
+      background:rgba(255,255,255,.02);
+      padding:10px;
+      cursor:pointer;
+      text-align:left;
+      display:grid;
+      gap:6px;
+      min-height:92px;
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
-    .mode h4{margin:0;font-size:14px}
-    .mode p{margin:0;color:var(--mut);font-size:12px;min-height:34px}
-    .mode .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .mode .go{
-      flex:1;
-      min-width:110px;
-      appearance:none; border:1px solid var(--line); border-radius:12px;
-      padding:10px 12px; cursor:pointer; color:var(--txt);
-      background:rgba(255,255,255,.03);
-      font:900 12px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+    .view-card:hover{ transform:translateY(-1px); }
+    .view-card.active{
+      border-color: rgba(34,211,238,.32);
+      box-shadow: inset 0 0 0 1px rgba(34,211,238,.10), 0 0 18px rgba(34,211,238,.08);
+      background: linear-gradient(180deg, rgba(34,211,238,.10), rgba(34,211,238,.04));
     }
-    .mode .go.primary{
-      background:linear-gradient(180deg, rgba(16,185,129,.18), rgba(16,185,129,.08));
-      border-color:rgba(16,185,129,.28);
+    .view-card .t1{ font-weight:900; font-size:13px; }
+    .view-card .t2{ font-size:11px; color:var(--mut); line-height:1.35; }
+
+    .scene-list{
+      display:grid;
+      gap:8px;
     }
-    .tips{display:grid; gap:8px}
-    .tips li{margin:0 0 0 18px; color:var(--mut)}
+    .scene-item{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      background:rgba(255,255,255,.02);
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+    .scene-item strong{ font-size:13px; }
+    .scene-item small{ color:var(--mut); display:block; margin-top:2px; }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:flex-end;
+      align-items:center;
+      margin-top:12px;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:10px 14px;
+      cursor:pointer;
+      background:rgba(2,6,23,.62);
+      color:var(--txt);
+      font:900 13px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+    }
+    .btn.primary{
+      border-color: rgba(34,211,238,.28);
+      background: linear-gradient(180deg, rgba(34,211,238,.14), rgba(34,211,238,.06));
+    }
+    .btn.good{
+      border-color: rgba(16,185,129,.24);
+      background: linear-gradient(180deg, rgba(16,185,129,.12), rgba(16,185,129,.05));
+    }
+    .btn.warn{
+      border-color: rgba(251,191,36,.24);
+      background: linear-gradient(180deg, rgba(251,191,36,.12), rgba(251,191,36,.05));
+    }
+
+    .preview{
+      border:1px dashed rgba(148,163,184,.24);
+      border-radius:12px;
+      padding:10px;
+      background: rgba(255,255,255,.01);
+      font-size:12px;
+      line-height:1.45;
+      word-break:break-word;
+    }
+    code{
+      color: rgba(241,245,249,.98);
+      font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px;
+    }
+
     .footer{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      border:1px solid var(--line); border-radius:14px; padding:10px 12px;
-      background:rgba(2,6,23,.45);
+      color:var(--mut);
+      font-size:12px;
+      text-align:center;
+      padding:4px 0 2px;
     }
-    .status{font-size:12px; color:var(--mut)}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .kchip{
-      font-size:11px; font-weight:800; letter-spacing:.02em;
-      border-radius:999px; padding:4px 8px;
-      border:1px solid var(--line); background:rgba(255,255,255,.02);
-    }
-    @media (max-width: 920px){
-      .hero-grid{grid-template-columns:1fr}
-      .modes{grid-template-columns:1fr}
-      .form-grid{grid-template-columns:1fr}
+
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .view-cards{ grid-template-columns: 1fr; }
+      .form-grid{ grid-template-columns: 1fr; }
+      .actions{ justify-content:stretch; }
+      .actions .btn{ flex:1 1 auto; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header class="topbar">
-      <div class="brand">
-        <div class="badge">🦠</div>
-        <div class="title">
-          <h1>Germ Detective</h1>
-          <p>สำรวจจุดเสี่ยง • เก็บหลักฐาน • ต่อ chain การแพร่ • ตัดสินใจแก้ภายใต้ทรัพยากรจำกัด</p>
-        </div>
-      </div>
-      <div class="row">
-        <button id="btnBackHub" class="btn">⬅ กลับ HUB</button>
-      </div>
-    </header>
-
+  <div class="page">
     <section class="hero">
-      <div class="hero-grid">
-        <div class="card">
-          <h2>ตั้งค่าเคส</h2>
-          <div class="form-grid">
-            <div class="field">
-              <label for="sceneType">ฉากคดี</label>
-              <select id="sceneType">
-                <option value="classroom">ห้องเรียน (เด็กป่วย 3 คน)</option>
-                <option value="home">บ้าน (มีคนไอในบ้าน)</option>
-                <option value="canteen">โรงอาหาร (จุดสัมผัสสูง)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="difficulty">ความยาก</label>
-              <select id="difficulty">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="sessionTime">เวลาเล่น (วินาที)</label>
-              <select id="sessionTime">
-                <option value="90">90</option>
-                <option value="120">120</option>
-                <option value="180" selected>180</option>
-                <option value="240">240</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="seed">Seed (deterministic)</label>
-              <input id="seed" type="text" placeholder="auto" />
-            </div>
-
-            <div class="field">
-              <label for="runMode">Run mode</label>
-              <select id="runMode">
-                <option value="play" selected>play</option>
-                <option value="research">research</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="aiMode">AI Coach / Prediction</label>
-              <select id="aiMode">
-                <option value="0">ปิด</option>
-                <option value="1" selected>เปิด (heuristic + prediction overlay)</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="pid">Participant ID (optional)</label>
-              <input id="pid" type="text" placeholder="P001" />
-            </div>
-            <div class="field">
-              <label for="studyId">Study ID (optional)</label>
-              <input id="studyId" type="text" placeholder="GD-2026-01" />
-            </div>
-          </div>
-
-          <div style="margin-top:10px">
-            <span class="pill">✅ PC / Mobile / Cardboard</span>
-            <span class="pill">✅ Query passthrough</span>
-            <span class="pill">✅ HHA event hooks</span>
-            <span class="pill">✅ vr-ui.js</span>
-            <span class="pill">✅ No App Script (ตอนนี้)</span>
-          </div>
-        </div>
-
-        <aside class="card">
-          <h3>วิธีเล่นแบบสนุก/ท้าทาย</h3>
-          <ul class="tips">
-            <li>ใช้ <b>UV</b> หา hotspot ซ่อน</li>
-            <li>ใช้ <b>Swab</b> เก็บตัวอย่างเฉพาะจุดสำคัญ</li>
-            <li>ใช้ <b>Camera</b> ถ่ายหลักฐานเพื่อปลดล็อก chain</li>
-            <li>ทรัพยากรจำกัด: เวลา + charges + ลำดับการแก้</li>
-            <li>AI Coach เตือน “จุดเสี่ยงที่ควรเช็คก่อน” แบบมีเหตุผล</li>
-            <li>คะแนนมาจากความแม่น + chain ถูก + ลด exposure ได้จริง</li>
-          </ul>
-          <div style="margin-top:10px" class="mut">
-            <small>Tip: Cardboard ใช้โหมด <b>view=cvr</b> + ยิง/แตะผ่าน crosshair จาก <code>vr-ui.js</code></small>
-          </div>
-        </aside>
-      </div>
-
-      <div class="modes" aria-label="Entry modes">
-        <div class="mode">
-          <h4>🖥️ PC</h4>
-          <p>เมาส์/คีย์บอร์ด เหมาะทดสอบระบบและเล่นเร็ว</p>
-          <div class="actions">
-            <button class="go primary" data-view="pc">เข้าเล่น PC</button>
-          </div>
-          <div class="mut"><small>คีย์ลัด: 1=UV, 2=Swab, 3=Camera, Space=ยิงกลางจอ</small></div>
-        </div>
-
-        <div class="mode">
-          <h4>📱 Mobile</h4>
-          <p>แตะจอเล่น, UI ปรับให้เหมาะมือถือ</p>
-          <div class="actions">
-            <button class="go primary" data-view="mobile">เข้าเล่น Mobile</button>
-          </div>
-          <div class="mut"><small>รองรับ safe-area และ touch controls</small></div>
-        </div>
-
-        <div class="mode">
-          <h4>🥽 Cardboard (cVR)</h4>
-          <p>ใช้ crosshair กลางจอ + tap-to-shoot จาก Universal VR UI</p>
-          <div class="actions">
-            <button class="go primary" data-view="cvr">เข้าเล่น Cardboard</button>
-          </div>
-          <div class="mut"><small>จะส่ง <code>view=cvr</code> ไปหน้า run และเปิด strict crosshair mode</small></div>
-        </div>
-      </div>
+      <h1>🕵️ Germ Detective <span style="font-size:.55em;color:var(--mut);font-weight:800">HeroHealth • Launcher</span></h1>
+      <p>
+        สำรวจจุดเสี่ยง • เก็บหลักฐาน (UV / Swab / Camera) • ต่อ chain การแพร่ • ตัดสินใจลด exposure ภายใต้เวลาและทรัพยากรจำกัด
+      </p>
     </section>
 
-    <section class="card">
-      <h3>พารามิเตอร์ที่จะส่งไปหน้าเกม (Preview)</h3>
-      <div id="qpPreview" class="mut" style="word-break:break-all;font-family:ui-monospace,Consolas,monospace;font-size:12px"></div>
-    </section>
+    <div class="grid">
+      <section class="card">
+        <h2>ตั้งค่าเกม</h2>
 
-    <footer class="footer">
-      <div class="status" id="statusText">พร้อมเริ่มคดี 🕵️‍♀️</div>
-      <div class="row">
-        <span class="kchip">Root=/herohealth/germ-detective.html</span>
-        <span class="kchip">Run=/herohealth/germ-detective/germ-detective.html</span>
-      </div>
-    </footer>
+        <div class="form-grid">
+          <div class="field">
+            <label for="scene">Scene</label>
+            <select id="scene">
+              <option value="classroom">Classroom (ห้องเรียน)</option>
+              <option value="home">Home (บ้าน)</option>
+              <option value="canteen">Canteen (โรงอาหาร)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="run">Mode</label>
+            <select id="run">
+              <option value="play">Play</option>
+              <option value="research">Research</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="diff">Difficulty</label>
+            <select id="diff">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">Time (seconds)</label>
+            <input id="time" type="number" min="45" max="600" step="5" value="180" />
+          </div>
+
+          <div class="field">
+            <label for="pid">PID (optional)</label>
+            <input id="pid" type="text" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="seed">Seed (optional)</label>
+            <input id="seed" type="text" placeholder="auto" />
+          </div>
+        </div>
+
+        <h2 style="margin-top:12px">เลือกโหมดการแสดงผล / Device</h2>
+        <div class="view-cards" id="viewCards">
+          <button type="button" class="view-card active" data-view="pc">
+            <div class="t1">🖥️ PC</div>
+            <div class="t2">คลิก hotspot ได้ตรง ๆ • ใช้คีย์ 1/2/3 เปลี่ยนเครื่องมือ</div>
+          </button>
+          <button type="button" class="view-card" data-view="mobile">
+            <div class="t1">📱 Mobile</div>
+            <div class="t2">แตะ hotspot โดยตรง • UI compact • ยังเล่นได้ลื่น</div>
+          </button>
+          <button type="button" class="view-card" data-view="cvr">
+            <div class="t1">🥽 Cardboard (cVR)</div>
+            <div class="t2">ยิงจาก crosshair กลางจอผ่าน hha:shoot • ใช้ /herohealth/vr/vr-ui.js</div>
+          </button>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="btnRandomSeed">สุ่ม Seed</button>
+          <button class="btn warn" id="btnReset">รีเซ็ต</button>
+          <button class="btn primary" id="btnPreview">ดู URL</button>
+          <button class="btn good" id="btnStart">▶ เริ่มเล่น Germ Detective</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Quick Guide</h2>
+
+        <div class="scene-list" style="margin-bottom:10px">
+          <div class="scene-item">
+            <div>
+              <strong>1) สำรวจ</strong>
+              <small>เริ่มด้วย UV ที่จุดสัมผัสสูง เช่น ลูกบิด ก๊อกน้ำ ราวจับ</small>
+            </div>
+            <span>🔦</span>
+          </div>
+          <div class="scene-item">
+            <div>
+              <strong>2) ยืนยันหลักฐาน</strong>
+              <small>ใช้ Swab / Camera กับจุดที่น่าสงสัย (verification สำคัญ)</small>
+            </div>
+            <span>🧪📷</span>
+          </div>
+          <div class="scene-item">
+            <div>
+              <strong>3) ต่อ Chain & ตัดสินใจ</strong>
+              <small>จัดลำดับการแพร่ + เลือกแก้จุดคุ้มสุดภายใต้เวลา</small>
+            </div>
+            <span>🧠</span>
+          </div>
+          <div class="scene-item">
+            <div>
+              <strong>4) รับมือ Event</strong>
+              <small>Outbreak Surge / False Clue / Time Pressure ทำให้เกมท้าทายขึ้น</small>
+            </div>
+            <span>🔥</span>
+          </div>
+        </div>
+
+        <h2>Preview URL</h2>
+        <div class="preview">
+          <code id="urlPreview">-</code>
+        </div>
+
+        <h2 style="margin-top:12px">Notes</h2>
+        <div class="mut">
+          • Root launcher: <code>/herohealth/germ-detective.html</code><br>
+          • Run page: <code>/herohealth/germ-detective/germ-detective.html</code><br>
+          • ยังไม่ใช้ App Script / online logging (โหมด local-first)
+        </div>
+      </section>
+    </div>
+
+    <div class="footer">HeroHealth • Germ Detective Launcher • PC / Mobile / Cardboard(cVR)</div>
   </div>
 
   <script>
     (function(){
       'use strict';
 
-      const KEY = 'HHA_GERM_LAUNCHER_CFG_V1';
-      const RUN_PATH = './germ-detective/germ-detective.html';
+      const RUN_PATH = '/herohealth/germ-detective/germ-detective.html';
 
       const $ = (s)=>document.querySelector(s);
-      const $$ = (s)=>document.querySelectorAll(s);
+      const $$ = (s)=>Array.from(document.querySelectorAll(s));
+      const params = new URL(location.href).searchParams;
 
-      const fields = {
-        sceneType: $('#sceneType'),
-        difficulty: $('#difficulty'),
-        sessionTime: $('#sessionTime'),
-        seed: $('#seed'),
-        runMode: $('#runMode'),
-        aiMode: $('#aiMode'),
-        pid: $('#pid'),
-        studyId: $('#studyId'),
-      };
+      const elScene = $('#scene');
+      const elRun   = $('#run');
+      const elDiff  = $('#diff');
+      const elTime  = $('#time');
+      const elPid   = $('#pid');
+      const elSeed  = $('#seed');
+      const elUrl   = $('#urlPreview');
 
-      function qs(k, def=''){
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
+      let selectedView = 'pc';
+
+      function clamp(v,a,b){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
       }
 
-      function setStatus(t){
-        const el = $('#statusText');
-        if(el) el.textContent = t;
-      }
-
-      function safeNowSeed(){
+      function nowSeed(){
         return String(Date.now());
       }
 
-      function readIncomingParams(){
-        const u = new URL(location.href);
-        const p = u.searchParams;
-        return {
-          hub: p.get('hub') || './hub.html',
-          api: p.get('api') || '',
-          log: p.get('log') || '',
-          phase: p.get('phase') || '',
-          conditionGroup: p.get('conditionGroup') || '',
-          time: p.get('time') || '',
-          diff: p.get('diff') || '',
-          run: p.get('run') || '',
-          seed: p.get('seed') || '',
-          studyId: p.get('studyId') || '',
-          pid: p.get('pid') || '',
-          scene: p.get('scene') || '',
-          ai: p.get('ai') || ''
-        };
+      function pickView(v){
+        selectedView = (v === 'mobile' || v === 'cvr') ? v : 'pc';
+        $$('#viewCards .view-card').forEach(b => {
+          b.classList.toggle('active', b.dataset.view === selectedView);
+        });
+        renderURL();
       }
 
-      function loadLocal(){
-        try{
-          const raw = localStorage.getItem(KEY);
-          if(!raw) return null;
-          return JSON.parse(raw);
-        }catch{ return null; }
+      function inferDefaultView(){
+        const qv = String(params.get('view') || '').toLowerCase();
+        if (['pc','mobile','cvr'].includes(qv)) return qv;
+
+        // rough device detection
+        const ua = navigator.userAgent || '';
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+        return isMobile ? 'mobile' : 'pc';
       }
 
-      function saveLocal(){
-        try{
-          const payload = {
-            sceneType: fields.sceneType.value,
-            difficulty: fields.difficulty.value,
-            sessionTime: fields.sessionTime.value,
-            seed: fields.seed.value,
-            runMode: fields.runMode.value,
-            aiMode: fields.aiMode.value,
-            pid: fields.pid.value,
-            studyId: fields.studyId.value,
-            ts: Date.now()
-          };
-          localStorage.setItem(KEY, JSON.stringify(payload));
-        }catch{}
+      function loadFromQuery(){
+        const q = params;
+
+        if(q.get('scene')) elScene.value = q.get('scene');
+        if(q.get('run'))   elRun.value   = q.get('run');
+        if(q.get('diff'))  elDiff.value  = q.get('diff');
+        if(q.get('time'))  elTime.value  = clamp(q.get('time'), 45, 600);
+        if(q.get('pid'))   elPid.value   = q.get('pid');
+        if(q.get('seed'))  elSeed.value  = q.get('seed');
+
+        pickView(inferDefaultView());
       }
 
-      function hydrate(){
-        const inc = readIncomingParams();
-        const local = loadLocal() || {};
+      function buildRunURL(){
+        const u = new URL(RUN_PATH, location.origin);
 
-        fields.sceneType.value   = inc.scene || local.sceneType || 'classroom';
-        fields.difficulty.value  = inc.diff  || local.difficulty || 'normal';
-        fields.sessionTime.value = inc.time  || local.sessionTime || '180';
-        fields.seed.value        = inc.seed  || local.seed || '';
-        fields.runMode.value     = inc.run   || local.runMode || 'play';
-        fields.aiMode.value      = inc.ai    || local.aiMode || '1';
-        fields.pid.value         = inc.pid   || local.pid || '';
-        fields.studyId.value     = inc.studyId || local.studyId || '';
+        const scene = String(elScene.value || 'classroom');
+        const run   = String(elRun.value || 'play');
+        const diff  = String(elDiff.value || 'normal');
+        const time  = String(clamp(elTime.value || 180, 45, 600));
+        const pid   = String(elPid.value || '').trim() || 'anon';
+        const seed  = String(elSeed.value || '').trim() || nowSeed();
+        const view  = selectedView || 'pc';
 
-        updatePreview();
-      }
+        u.searchParams.set('scene', scene);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('seed', seed);
+        u.searchParams.set('view', view);
 
-      function buildRunURL(view){
-        const inc = readIncomingParams();
-        const u = new URL(RUN_PATH, location.href);
+        // pass through hub link if present
+        const hub = params.get('hub');
+        if(hub) u.searchParams.set('hub', hub);
 
-        // Core settings from launcher
-        const seed = (fields.seed.value || '').trim() || safeNowSeed();
-        const diff = fields.difficulty.value;
-        const time = fields.sessionTime.value;
-        const run  = fields.runMode.value;
-        const ai   = fields.aiMode.value;
-        const scene = fields.sceneType.value;
-        const pid = (fields.pid.value || '').trim();
-        const studyId = (fields.studyId.value || '').trim();
-
-        // Standard passthrough (keep if provided)
-        const setIf = (k,v)=>{ if(v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k, String(v)); };
-
-        // launcher-controlled
-        setIf('view', view);
-        setIf('run', run);
-        setIf('diff', diff);
-        setIf('time', time);
-        setIf('seed', seed);
-        setIf('scene', scene);
-        setIf('ai', ai);
-
-        // pass-through from hub / standard params
-        setIf('hub', inc.hub || './hub.html');
-        setIf('api', inc.api);
-        setIf('log', inc.log);
-        setIf('phase', inc.phase);
-        setIf('conditionGroup', inc.conditionGroup);
-        setIf('pid', pid || inc.pid);
-        setIf('studyId', studyId || inc.studyId);
+        // pass through any optional study params if present
+        ['gid','phase','cond','group','api'].forEach(k=>{
+          const v = params.get(k);
+          if(v != null && v !== '') u.searchParams.set(k, v);
+        });
 
         return u;
       }
 
-      function updatePreview(){
-        const u = buildRunURL('pc');
-        const el = $('#qpPreview');
-        if(el) el.textContent = u.pathname + u.search;
+      function renderURL(){
+        const u = buildRunURL();
+        elUrl.textContent = u.pathname + u.search;
       }
 
-      function go(view){
-        saveLocal();
-        const u = buildRunURL(view);
-        setStatus('กำลังเปิดคดี… ' + view.toUpperCase());
-        location.href = u.toString();
+      function resetForm(){
+        elScene.value = 'classroom';
+        elRun.value = 'play';
+        elDiff.value = 'normal';
+        elTime.value = 180;
+        elPid.value = '';
+        elSeed.value = '';
+        pickView(inferDefaultView());
       }
 
-      function backHub(){
-        const hub = qs('hub','./hub.html');
-        location.href = hub;
-      }
-
-      // events
-      Object.values(fields).forEach(inp=>{
-        if(!inp) return;
-        inp.addEventListener('change', ()=>{ saveLocal(); updatePreview(); }, {passive:true});
-        inp.addEventListener('input',  ()=>{ updatePreview(); }, {passive:true});
+      // wire
+      $$('#viewCards .view-card').forEach(btn=>{
+        btn.addEventListener('click', ()=> pickView(btn.dataset.view), { passive:true });
       });
 
-      $$('.go').forEach(btn=>{
-        btn.addEventListener('click', ()=> go(btn.dataset.view || 'pc'));
+      [elScene, elRun, elDiff, elTime, elPid, elSeed].forEach(n=>{
+        n.addEventListener('input', renderURL, { passive:true });
+        n.addEventListener('change', renderURL, { passive:true });
       });
 
-      $('#btnBackHub').addEventListener('click', backHub);
+      $('#btnRandomSeed').addEventListener('click', ()=>{
+        elSeed.value = nowSeed();
+        renderURL();
+      }, { passive:true });
 
-      hydrate();
-      setStatus('พร้อมเริ่มคดี 🧪 เลือกโหมดการเล่นได้เลย');
+      $('#btnReset').addEventListener('click', ()=>{
+        resetForm();
+        renderURL();
+      }, { passive:true });
+
+      $('#btnPreview').addEventListener('click', ()=>{
+        renderURL();
+        try{
+          navigator.clipboard?.writeText(elUrl.textContent || '');
+        }catch{}
+      }, { passive:true });
+
+      $('#btnStart').addEventListener('click', ()=>{
+        const u = buildRunURL();
+        location.href = u.pathname + u.search;
+      }, { passive:true });
+
+      // init
+      loadFromQuery();
+      renderURL();
     })();
   </script>
 </body>
