@@ -1,251 +1,178 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Exercise Planner (VR)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="./planner.css?v=20260213a" />
-
-  <!-- =========================================================
-    PRO PATCH v20260213a
-    ✅ Auto-detect view if missing (pc/mobile)
-    ✅ Default params for real use: time=90 diff=normal run=play
-    ✅ Ensure hub param exists (back to hub)
-  ========================================================== -->
-  <script>
-  (function(){
-    'use strict';
-    function safeURL(){
-      try{ return new URL(location.href); }catch(_){ return null; }
-    }
-    function hasParam(u,k){
-      const v = u.searchParams.get(k);
-      return v != null && String(v).trim() !== '';
-    }
-    function setIfMissing(u,k,v){
-      if(!hasParam(u,k)) u.searchParams.set(k, v);
-    }
-    function detectView(){
-      try{
-        const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
-        const small = Math.min(innerWidth||9999, innerHeight||9999) <= 820;
-        const ua = navigator.userAgent || '';
-        const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-        return (coarse || small || isMobileUA) ? 'mobile' : 'pc';
-      }catch(_){
-        return 'mobile';
-      }
-    }
-    const u = safeURL();
-    if(!u) return;
-
-    // 1) view default
-    if(!hasParam(u,'view')){
-      u.searchParams.set('view', detectView());
-      location.replace(u.toString());
-      return;
-    }
-
-    // 2) real-use defaults
-    setIfMissing(u, 'run',  'play');
-    setIfMissing(u, 'diff', 'normal');
-    setIfMissing(u, 'time', '90');
-
-    // 3) ensure hub exists (so summary back works)
-    if(!hasParam(u,'hub')){
-      try{
-        const hub = new URL('../hub.html', location.href).toString();
-        u.searchParams.set('hub', hub);
-      }catch(_){}
-    }
-
-    // If we changed anything, replace once (avoid loops)
-    if(u.toString() !== location.href){
-      location.replace(u.toString());
-      return;
-    }
-  })();
-  </script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth · Fitness Planner (Create)</title>
+  <link rel="stylesheet" href="./planner.css"/>
 </head>
-
 <body>
-  <div id="fp-fatal" class="fp-fatal fp-hidden"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">HH</div>
+      <div>
+        <div class="ttl">Fitness Planner — Create</div>
+        <div class="sub">7-day Plan Builder (Bloom: Create) · เหมาะสำหรับ ป.5</div>
+      </div>
+    </div>
 
-  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement:true"
-    background="color: #060a12">
-    <a-entity position="0 1.6 -2">
-      <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
-      <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
-    </a-entity>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-  </a-scene>
+    <div class="top-actions">
+      <button class="btn ghost" id="btnLoad">โหลดแผนล่าสุด</button>
+      <button class="btn ghost" id="btnReset">เริ่มแผนใหม่</button>
+      <button class="btn" id="btnExportMD">Export แผน (MD)</button>
+      <button class="btn" id="btnExportJSON">Export JSON</button>
+    </div>
+  </header>
 
-  <!-- HUD / UI Layer -->
-  <div id="fp-wrap" data-state="build">
-    <header class="fp-top">
-      <div class="fp-brand">
-        <span class="fp-pill">HeroHealth · Fitness</span>
-        <h1 class="fp-title">Exercise Planner</h1>
-        <p class="fp-sub">ออกแบบคอมโบเอง แล้วลองเล่นใน VR</p>
+  <main class="wrap">
+    <section class="panel">
+      <div class="panel-h">
+        <h2>ตั้งค่าแผนสัปดาห์</h2>
+        <div class="chips">
+          <span class="chip" id="chipPid">pid: anon</span>
+          <span class="chip" id="chipRun">run: play</span>
+          <span class="chip" id="chipWeek">week: —</span>
+        </div>
       </div>
 
-      <!-- ctx -->
-      <div class="fp-ctx">
-        <div class="fp-ctxrow"><span class="k">view</span><span id="fp-ctx-view" class="v">-</span></div>
-        <div class="fp-ctxrow"><span class="k">seed</span><span id="fp-ctx-seed" class="v">-</span></div>
-        <div class="fp-ctxrow"><span class="k">diff</span><span id="fp-ctx-diff" class="v">-</span></div>
-        <div class="fp-ctxrow"><span class="k">time</span><span id="fp-ctx-time" class="v">-</span></div>
-        <div class="fp-ctxrow"><span class="k">run</span><span id="fp-ctx-run" class="v">-</span></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h">เป้าหมายสัปดาห์ (เลือก 1–2)</div>
+          <div class="goal-pills" id="goalPills"></div>
+          <div class="hint">แนะนำ: เลือก 1 เป้าหมายหลัก + 1 เป้าหมายรอง</div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">ข้อจำกัด (สมจริงสำหรับวันเรียน)</div>
+          <div class="form">
+            <label>วันธรรมดา จำกัดเวลา/วัน
+              <select id="limitWeekday">
+                <option value="8">8 นาที</option>
+                <option value="10" selected>10 นาที</option>
+                <option value="12">12 นาที</option>
+              </select>
+            </label>
+
+            <label>เสาร์-อาทิตย์ จำกัดเวลา/วัน
+              <select id="limitWeekend">
+                <option value="10">10 นาที</option>
+                <option value="12" selected>12 นาที</option>
+                <option value="15">15 นาที</option>
+              </select>
+            </label>
+
+            <label>เล่นขั้นต่ำ/สัปดาห์ (days)
+              <select id="minDays">
+                <option value="3">3 วัน</option>
+                <option value="4" selected>4 วัน</option>
+                <option value="5">5 วัน</option>
+                <option value="6">6 วัน</option>
+              </select>
+            </label>
+
+            <label>วันพักที่แนะนำ
+              <select id="restDays">
+                <option value="0">0 วัน</option>
+                <option value="1" selected>1 วัน</option>
+                <option value="2">2 วัน</option>
+              </select>
+            </label>
+          </div>
+          <div class="hint">ระบบจะ “เตือน” ถ้าแผนหนักเกิน/เล่นติดกันแบบเสี่ยง</div>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <!-- BUILD VIEW -->
-    <main id="fp-view-build" class="fp-view">
-      <section class="fp-panel">
-        <h2 class="fp-h2">1) เลือกท่า (3–5 ท่า)</h2>
-        <p class="fp-help">แตะเพื่อเพิ่มลงคอมโบ · แตะที่คอมโบเพื่อเอาออก</p>
-
-        <div class="fp-palette" role="list">
-          <button class="fp-card" data-move="punch_shadow" aria-label="ต่อยเงา">🥊<span>ต่อยเงา</span></button>
-          <button class="fp-card" data-move="punch_rhythm" aria-label="ต่อยตามจังหวะ">🎵<span>ต่อยจังหวะ</span></button>
-          <button class="fp-card" data-move="jump" aria-label="กระโดด">🦘<span>กระโดด</span></button>
-          <button class="fp-card" data-move="duck" aria-label="หมอบหลบ">🧎<span>หมอบหลบ</span></button>
-          <button class="fp-card" data-move="balance" aria-label="ทรงตัว">⚖️<span>ทรงตัว</span></button>
+    <section class="panel">
+      <div class="panel-h">
+        <h2>ตาราง 7 วัน</h2>
+        <div class="right">
+          <button class="btn small ghost" id="btnAutoFill">Auto-Fill (แนะนำ)</button>
+          <button class="btn small ghost" id="btnClearWeek">ล้างทั้งสัปดาห์</button>
         </div>
+      </div>
 
-        <div class="fp-comboWrap">
-          <div class="fp-comboHead">
-            <div class="fp-h3">คอมโบของฉัน</div>
-            <div class="fp-mini"><span id="fp-count">0</span>/5</div>
+      <div class="week-grid" id="weekGrid"></div>
+      <div class="footnote">
+        Tip: 1 วันเลือกได้ 0–2 เกม · รวมเวลาต่อวันควรอยู่ในข้อจำกัด · เป้าหมายสัปดาห์จะช่วยให้ระบบให้คำแนะนำได้แม่นขึ้น
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-h">
+        <h2>คะแนนแผน + โค้ชอธิบาย (Explainable)</h2>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="scoreRow">
+            <div>
+              <div class="big" id="scoreTotal">0</div>
+              <div class="mut">คะแนนรวม (0–100)</div>
+            </div>
+            <div class="meter">
+              <div class="bar" id="scoreBar" style="width:0%"></div>
+            </div>
           </div>
-          <div id="fp-combo" class="fp-combo" aria-label="รายการคอมโบ"></div>
 
-          <div class="fp-actions">
-            <button id="fp-clear" class="fp-btn fp-btn-ghost" type="button">ล้างคอมโบ</button>
-            <button id="fp-start" class="fp-btn fp-btn-primary" type="button" disabled>เริ่มเล่น</button>
-          </div>
-        </div>
-      </section>
+          <div class="breakdown" id="breakdown"></div>
 
-      <section class="fp-panel fp-panel2">
-        <h2 class="fp-h2">2) กติกาสั้น ๆ (เด็ก ป.5)</h2>
-        <ul class="fp-bul">
-          <li><b>ต่อย</b>: แตะ/ยิงที่เป้าให้โดน</li>
-          <li><b>กระโดด</b>: แตะปุ่ม “JUMP” ให้ทัน</li>
-          <li><b>หมอบ</b>: กดค้างปุ่ม “DUCK” จนครบเวลา</li>
-          <li><b>ทรงตัว</b>: เล็งกากบาทให้นิ่งที่ “จุดกลาง” จนครบเวลา</li>
-        </ul>
-      </section>
-    </main>
-
-    <!-- RUN VIEW -->
-    <main id="fp-view-run" class="fp-view fp-hidden">
-      <section class="fp-runTop">
-        <div class="fp-runRow">
-          <div class="fp-runLabel">ด่าน</div>
-          <div class="fp-runValue"><span id="fp-step-idx">1</span>/<span id="fp-step-total">1</span></div>
-        </div>
-        <div class="fp-runRow">
-          <div class="fp-runLabel">คะแนน</div>
-          <div class="fp-runValue" id="fp-score">0</div>
-        </div>
-        <div class="fp-runRow">
-          <div class="fp-runLabel">เวลา</div>
-          <div class="fp-runValue"><span id="fp-time">0.0</span>s</div>
-        </div>
-      </section>
-
-      <section class="fp-stage">
-        <div class="fp-instr" id="fp-instr">เตรียมตัว…</div>
-
-        <!-- Punch Target -->
-        <button id="fp-target" class="fp-target fp-hidden" aria-label="เป้าหมาย"></button>
-
-        <!-- Center Balance Dot -->
-        <div id="fp-center" class="fp-center fp-hidden" aria-hidden="true"></div>
-
-        <!-- Action Buttons -->
-        <div id="fp-actbar" class="fp-actbar fp-hidden">
-          <button id="fp-btn-jump" class="fp-act fp-act-jump" type="button">JUMP</button>
-          <button id="fp-btn-duck" class="fp-act fp-act-duck" type="button">DUCK</button>
-        </div>
-
-        <div class="fp-progress">
-          <div id="fp-bar" class="fp-bar"></div>
-        </div>
-      </section>
-    </main>
-
-    <!-- SUMMARY VIEW -->
-    <main id="fp-view-summary" class="fp-view fp-hidden">
-      <section class="fp-panel">
-        <h2 class="fp-h2">สรุปผล</h2>
-        <div class="fp-sumGrid">
-          <div class="fp-sumBox">
-            <div class="k">คะแนน</div>
-            <div class="v" id="fp-sum-score">0</div>
-          </div>
-          <div class="fp-sumBox">
-            <div class="k">ผ่านด่าน</div>
-            <div class="v"><span id="fp-sum-pass">0</span>/<span id="fp-sum-total">0</span></div>
-          </div>
-          <div class="fp-sumBox">
-            <div class="k">เวลา</div>
-            <div class="v"><span id="fp-sum-time">0.0</span>s</div>
+          <div class="mini">
+            <div class="miniRow">
+              <div>รวมเวลาเล่นทั้งสัปดาห์</div>
+              <div class="val" id="sumMinutes">0 นาที</div>
+            </div>
+            <div class="miniRow">
+              <div>วันเล่นจริง</div>
+              <div class="val" id="sumDays">0 วัน</div>
+            </div>
+            <div class="miniRow">
+              <div>ความหนักเฉลี่ย/วันเล่น (load)</div>
+              <div class="val" id="avgLoad">0</div>
+            </div>
           </div>
         </div>
 
-        <div class="fp-reflect">
-          <h3 class="fp-h3">คำถามสะท้อนคิด (สำหรับวิจัย)</h3>
-          <p class="fp-help">เลือก 1 ข้อ (ง่าย/พอดี/ยาก) แล้วกดบันทึก</p>
-          <div class="fp-choices">
-            <label class="fp-choice"><input type="radio" name="diff" value="easy"> ง่าย</label>
-            <label class="fp-choice"><input type="radio" name="diff" value="ok" checked> พอดี</label>
-            <label class="fp-choice"><input type="radio" name="diff" value="hard"> ยาก</label>
+        <div class="card">
+          <div class="card-h">Coach (เหตุผลที่ระบบแนะนำ)</div>
+          <ul class="coach" id="coachList"></ul>
+          <div class="hint">
+            โหมดวิจัย: แผนนี้ใช้เป็น “Create task” ได้ทันที (ไม่ปรับความยากอัตโนมัติ) · Export แล้วแนบในบท 4 ได้เลย
           </div>
-          <button id="fp-save" class="fp-btn fp-btn-primary" type="button">บันทึกผล</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-h">
+        <h2>ส่งออก (สำหรับรายงาน/ครู)</h2>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h">Export แผน</div>
+          <div class="exportBtns">
+            <button class="btn" id="btnExportMD2">Download Plan.md</button>
+            <button class="btn ghost" id="btnCopyMD">Copy MD</button>
+            <button class="btn" id="btnExportJSON2">Download Plan.json</button>
+          </div>
+          <div class="hint">MD เหมาะกับแปะรายงานบท 4 · JSON ใช้โหลดกลับมาแก้/ทำต่อ Evaluate ในภายหลัง</div>
         </div>
 
-        <div class="fp-actions">
-          <button id="fp-retry" class="fp-btn fp-btn-ghost" type="button">เล่นคอมโบเดิมอีกครั้ง</button>
-          <a id="fp-backhub" class="fp-btn fp-btn-primary fp-link" href="../hub.html">กลับ HUB</a>
+        <div class="card">
+          <div class="card-h">Preview (Markdown)</div>
+          <textarea id="mdPreview" spellcheck="false"></textarea>
         </div>
-      </section>
-    </main>
-  </div>
+      </div>
+    </section>
 
-  <!-- ✅ IMPORTANT: safe.js MUST load before boot.js -->
-  <script src="../vr/vr-ui.js?v=20260213a"></script>
-  <script src="./planner.safe.js?v=20260213a"></script>
-  <script src="./planner.boot.js?v=20260213a"></script>
+    <footer class="footer">
+      <a class="link" id="backHub" href="../hub.html">กลับ HUB</a>
+      <span class="mut">·</span>
+      <span class="mut">HeroHealth Fitness Planner (Create) · local-only</span>
+    </footer>
+  </main>
 
-  <!-- Patch: set ctx + hub link (non-invasive, works even if boot forgets) -->
-  <script>
-  (function(){
-    'use strict';
-    function qs(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
-    const Q = qs();
-    const setText=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v==null||String(v).trim()==='')?'-':String(v); };
-
-    setText('fp-ctx-view', Q.get('view'));
-    setText('fp-ctx-seed', Q.get('seed'));
-    setText('fp-ctx-diff', Q.get('diff'));
-    setText('fp-ctx-time', Q.get('time'));
-    setText('fp-ctx-run',  Q.get('run'));
-
-    // hub back link: use ?hub= if provided
-    const hub = Q.get('hub');
-    const back = document.getElementById('fp-backhub');
-    if(back && hub && String(hub).trim()!==''){
-      back.setAttribute('href', hub);
-    }
-  })();
-  </script>
+  <script type="module" src="./planner-create.js"></script>
 </body>
 </html>
