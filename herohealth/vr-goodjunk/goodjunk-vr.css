@@ -1,466 +1,269 @@
-/* === CONTINUE: /herohealth/vr-goodjunk/goodjunk-vr.css ===
-   (ต่อจาก @keyframes gjPulseVictory ...)
-   ✅ เติม HUD / Boss bar / Quest / Progress / Low-time / End overlay
-   ✅ รองรับ mobile / pc / vr / cvr + safe-area
+/* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
+GoodJunkVR CSS — PRODUCTION (targets + fx + pulses)
+FULL v20260223-css-full+antiFlashFX-isGoGate
 */
 
-/* =========================================================
-   HUD layout (top)
-========================================================= */
+:root{
+  color-scheme: dark;
 
-#gj-hud{
-  position: absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index: 160;
-  pointer-events: none;
+  --bg0:#020617;
+  --panel: rgba(2,6,23,.68);
+  --line: rgba(148,163,184,.18);
+  --txt: rgba(229,231,235,.95);
+
+  --gj-top-safe: 140px;
+  --gj-bottom-safe: 140px;
+
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 }
 
-.gj-hud-row{
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-  justify-content:space-between;
-}
-
-/* compact chips */
-.gj-chip{
-  pointer-events:none;
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.58);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.30);
-  color: rgba(229,231,235,.95);
-  min-height: 38px;
-}
-
-.gj-chip .k{ color: rgba(148,163,184,.92); font-weight: 900; font-size: 12px; letter-spacing:.2px; }
-.gj-chip .v{ font-weight: 1000; font-size: 16px; letter-spacing:.2px; }
-
-#hud-score{ font-variant-numeric: tabular-nums; }
-#hud-time{ font-variant-numeric: tabular-nums; }
-#hud-miss{ font-variant-numeric: tabular-nums; }
-#hud-grade{
-  font-weight: 1100;
-  letter-spacing:.6px;
-}
-
-/* left group / right group */
-.gj-hud-left,
-.gj-hud-right{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-
-/* =========================================================
-   Quest panel (goal + mini)
-========================================================= */
-
-#gj-quest{
-  margin-top: 10px;
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-  justify-content:space-between;
-}
-
-.gj-quest-card{
-  pointer-events:none;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.52);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.26);
-}
-
-.gj-quest-title{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  font-weight: 1000;
-  font-size: 13px;
-  color: rgba(229,231,235,.95);
-}
-
-.gj-quest-sub{
-  margin-top: 6px;
-  display:flex;
-  gap:10px;
-  align-items:baseline;
-  justify-content:space-between;
-  color: rgba(148,163,184,.96);
-  font-weight: 900;
-  font-size: 12px;
-}
-
-.gj-quest-metric{
-  display:flex;
-  gap:6px;
-  align-items:baseline;
-  color: rgba(229,231,235,.95);
-  font-variant-numeric: tabular-nums;
-}
-.gj-quest-metric b{ font-weight: 1100; }
-
-#goalDesc{
-  margin-top: 6px;
-  color: rgba(148,163,184,.96);
-  font-size: 12px;
-  line-height: 1.25;
-}
-
-/* =========================================================
-   Fever bar + Shield
-========================================================= */
-
-#gj-meta{
-  margin-top: 10px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-}
-
-#gj-fever{
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.48);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.24);
-}
-
-#gj-fever-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  font-weight: 1000;
-  font-size: 12px;
-  color: rgba(229,231,235,.95);
-}
-#feverText{ font-variant-numeric: tabular-nums; color: rgba(148,163,184,.96); font-weight: 1000; }
-
-#feverTrack{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.35);
-  overflow:hidden;
-}
-#feverFill{
+html,body{
   height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,211,238,.70), rgba(251,191,36,.70), rgba(244,63,94,.72));
+  margin:0;
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(99,102,241,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(244,63,94,.10), transparent 55%),
+    var(--bg0);
+  color: var(--txt);
 }
 
-#gj-shield{
-  width: 178px;
-  max-width: 40vw;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.48);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.24);
+body{
+  overflow:hidden;
+  -webkit-tap-highlight-color: transparent;
 }
-#gj-shield .k{
-  font-size: 12px;
-  font-weight: 1000;
-  color: rgba(229,231,235,.95);
+
+#gj-layer, #gj-layer-r{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  touch-action: manipulation;
 }
-#shieldPills{
-  margin-top: 6px;
-  font-size: 16px;
-  letter-spacing: 2px;
-  color: rgba(229,231,235,.95);
-  min-height: 22px;
-  font-variant-numeric: tabular-nums;
+
+.gj-layer--hasfx{}
+
+/* ---------------- targets ---------------- */
+.gj-target{
+  position:absolute;
+  transform: translate(-50%,-50%) translateZ(0);
+  will-change: transform, opacity, filter;
+  user-select:none;
+  cursor:pointer;
+  filter: drop-shadow(0 10px 28px rgba(0,0,0,.35));
+}
+
+.gj-target.spawn{
+  animation: gjSpawn 220ms ease-out forwards;
+}
+@keyframes gjSpawn{
+  0%   { opacity:0; transform: translate(-50%,-50%) scale(.80); }
+  100% { opacity:1; transform: translate(-50%,-50%) scale(1.00); }
+}
+
+.gj-target.gone{
+  animation: gjGone 140ms ease-in forwards;
+}
+@keyframes gjGone{
+  0%   { opacity:1; transform: translate(-50%,-50%) scale(1.00); }
+  100% { opacity:0; transform: translate(-50%,-50%) scale(.70); }
+}
+
+/* little tick on last seconds */
+body.gj-tick{ animation: gjTick 120ms ease-out; }
+@keyframes gjTick{
+  0%{ filter:none; }
+  40%{ filter: brightness(1.06); }
+  100%{ filter:none; }
+}
+
+/* ---------------- storm/boss/rage vibes (subtle) ---------------- */
+body.storm{
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(59,130,246,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(244,63,94,.08), transparent 55%),
+    var(--bg0);
+}
+body.boss{
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(244,63,94,.14), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(99,102,241,.12), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(251,191,36,.06), transparent 55%),
+    var(--bg0);
+}
+body.rage{
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(244,63,94,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(251,191,36,.10), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(99,102,241,.10), transparent 55%),
+    var(--bg0);
 }
 
 /* =========================================================
-   Boss bar (center-top)
+   FX — ANTI-FLASH HARD (is-go gate)
+   - elements are appended hidden; animation starts only after .is-go
 ========================================================= */
 
-#bossBar{
+#gj-fx{
   position:absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  top: calc(128px + var(--sat));
-  z-index: 165;
+  inset:0;
   pointer-events:none;
+  overflow:hidden;
+  z-index:140;
+  contain: layout paint;
+  transform: translateZ(0);
 }
 
-#bossBar[aria-hidden="true"]{ display:none; }
-
-#bossWrap{
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(244,63,94,.28);
-  background: rgba(2,6,23,.56);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 18px 46px rgba(0,0,0,.34);
+.gj-fx,
+.gj-fx-text{
+  position:absolute;
+  left:0;
+  top:0;
+  transform: translate(-50%,-50%) translateZ(0);
+  will-change: transform, opacity, filter;
+  pointer-events:none;
+  opacity: 0;
 }
 
-#bossHint{
-  font-weight: 1100;
-  font-size: 12px;
-  color: rgba(229,231,235,.95);
+/* ---- BURST ---- */
+.gj-fx{
+  width: 90px;
+  height: 90px;
+  border-radius: 999px;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+  /* no animation until is-go */
+}
+.gj-fx.is-go{
+  animation: gjFxPop var(--life, 340ms) ease-out forwards;
+}
+@keyframes gjFxPop{
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.70); }
+  10%  { opacity: .95; transform: translate(-50%,-50%) scale(1.00); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.35); }
+}
+
+/* ---- SHARDS WRAPPER ---- */
+.gj-fx-shards{
+  width: 1px;
+  height: 1px;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.25));
+  /* no animation until is-go */
+}
+.gj-fx-shards.is-go{
+  animation: gjShardWrap var(--life, 520ms) ease-out forwards;
+}
+@keyframes gjShardWrap{
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.90); }
+  10%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.0); }
+}
+
+.gj-fx-shards .gj-shard{
+  position:absolute;
+  left:0; top:0;
+  border-radius: 6px;
+  opacity: .95;
+  transform: translate(0,0) scale(1);
+  /* shard fly only when wrapper is-go (still ok) */
+}
+.gj-fx-shards.is-go .gj-shard{
+  animation: gjShardFly var(--life, 520ms) ease-out forwards;
+}
+@keyframes gjShardFly{
+  0%   { opacity: 0; transform: translate(0,0) scale(.8) rotate(0deg); }
+  10%  { opacity: .95; }
+  100% { opacity: 0; transform: translate(var(--tx, 60px), var(--ty, -40px)) scale(.55) rotate(60deg); }
+}
+
+/* ---- FLOATING TEXT ---- */
+.gj-fx-text{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.60);
+  color: rgba(229,231,235,.96);
+  font-weight: 1000;
+  font-size: 14px;
   letter-spacing: .2px;
-}
-
-#bossTrack{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(244,63,94,.28);
-  background: rgba(2,6,23,.35);
-  overflow:hidden;
-}
-
-#bossFill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(244,63,94,.74), rgba(251,191,36,.64));
-}
-
-/* =========================================================
-   Progress bar (bottom)
-========================================================= */
-
-#gjProgress{
-  position:absolute;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.40);
-  overflow:hidden;
-  z-index: 160;
-  pointer-events:none;
-}
-
-#gjProgressFill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(99,102,241,.68), rgba(34,211,238,.62));
-}
-
-/* =========================================================
-   Low time overlay (center)
-========================================================= */
-
-#lowTimeOverlay{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  padding-top: calc(18vh + var(--sat));
-  z-index: 170;
-  pointer-events:none;
-}
-
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
-
-#lowTimeBadge{
-  padding: 12px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(251,191,36,.30);
-  background: rgba(2,6,23,.58);
+  text-shadow: 0 12px 30px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 20px 60px rgba(0,0,0,.38);
-  display:flex;
-  gap:10px;
-  align-items:center;
-  font-weight: 1100;
+  /* no animation until is-go */
+}
+.gj-fx-text.is-go{
+  animation: gjTextFloat 640ms ease-out forwards;
+}
+@keyframes gjTextFloat{
+  0%   { opacity: 0; transform: translate(-50%,-50%) translateY(6px) scale(.98); }
+  18%  { opacity: 1; transform: translate(-50%,-50%) translateY(0px) scale(1.00); }
+  100% { opacity: 0; transform: translate(-50%,-50%) translateY(-26px) scale(1.02); }
 }
 
-#gj-lowtime-num{
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .6px;
-  color: rgba(229,231,235,.98);
-}
+/* ---- Color variants ---- */
+.gj-fx-good    { box-shadow: 0 0 0 2px rgba(16,185,129,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.55), rgba(16,185,129,.08) 60%, transparent 72%); }
+.gj-fx-junk    { box-shadow: 0 0 0 2px rgba(244,63,94,.32) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55),  rgba(244,63,94,.10) 60%, transparent 72%); }
+.gj-fx-block   { box-shadow: 0 0 0 2px rgba(59,130,246,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(59,130,246,.55), rgba(59,130,246,.10) 60%, transparent 72%); }
+.gj-fx-star    { box-shadow: 0 0 0 2px rgba(251,191,36,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(251,191,36,.60), rgba(251,191,36,.10) 60%, transparent 72%); }
+.gj-fx-shield  { box-shadow: 0 0 0 2px rgba(34,211,238,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(34,211,238,.60), rgba(34,211,238,.10) 60%, transparent 72%); }
+.gj-fx-diamond { box-shadow: 0 0 0 2px rgba(167,139,250,.30) inset;background: radial-gradient(circle at 40% 35%, rgba(167,139,250,.60), rgba(167,139,250,.10) 60%, transparent 72%); }
+.gj-fx-bomb    { box-shadow: 0 0 0 2px rgba(255,255,255,.18) inset;background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(148,163,184,.08) 60%, transparent 72%); }
+.gj-fx-defuse  { box-shadow: 0 0 0 2px rgba(16,185,129,.22) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.42), rgba(16,185,129,.08) 60%, transparent 72%); }
+.gj-fx-skull   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.45), rgba(2,6,23,.18) 62%, transparent 72%); }
+.gj-fx-storm   { box-shadow: 0 0 0 2px rgba(59,130,246,.26) inset; background: radial-gradient(circle at 40% 35%, rgba(59,130,246,.50), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-boss    { box-shadow: 0 0 0 2px rgba(244,63,94,.34) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.50), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-rage    { box-shadow: 0 0 0 2px rgba(244,63,94,.34) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55), rgba(251,191,36,.10) 62%, transparent 72%); }
+.gj-fx-tele    { box-shadow: 0 0 0 2px rgba(251,191,36,.34) inset; background: radial-gradient(circle at 40% 35%, rgba(251,191,36,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-burst   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.50), rgba(2,6,23,.10) 62%, transparent 72%); }
+.gj-fx-expire  { box-shadow: 0 0 0 2px rgba(244,63,94,.24) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.40), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-miss    { box-shadow: 0 0 0 2px rgba(148,163,184,.22) inset; background: radial-gradient(circle at 40% 35%, rgba(148,163,184,.35), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-end     { box-shadow: 0 0 0 2px rgba(99,102,241,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(99,102,241,.55), rgba(2,6,23,.14) 62%, transparent 72%); }
+.gj-fx-victory { box-shadow: 0 0 0 2px rgba(16,185,129,.26) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-stomp   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
 
-/* =========================================================
-   End overlay
-========================================================= */
+.gj-fx-text.t-good   { border-color: rgba(16,185,129,.28); }
+.gj-fx-text.t-bad    { border-color: rgba(244,63,94,.30); }
+.gj-fx-text.t-block  { border-color: rgba(59,130,246,.30); }
+.gj-fx-text.t-star   { border-color: rgba(251,191,36,.30); }
+.gj-fx-text.t-shield { border-color: rgba(34,211,238,.30); }
+.gj-fx-text.t-diamond{ border-color: rgba(167,139,250,.30); }
+.gj-fx-text.t-danger { border-color: rgba(244,63,94,.34); }
+.gj-fx-text.t-defuse { border-color: rgba(16,185,129,.26); }
+.gj-fx-text.t-storm  { border-color: rgba(59,130,246,.26); }
+.gj-fx-text.t-miss   { border-color: rgba(148,163,184,.22); }
 
-#endOverlay{
-  position:absolute;
-  inset:0;
-  z-index: 200;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-  background: radial-gradient(900px 700px at 50% 40%, rgba(2,6,23,.62), rgba(2,6,23,.86));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
+/* ---- Body pulse classes used by JS ---- */
+body.gj-pulse-hurt    { animation: gjPulseHurt 220ms ease-out; }
+body.gj-pulse-block   { animation: gjPulseBlock 120ms ease-out; }
+body.gj-pulse-star    { animation: gjPulseStar 120ms ease-out; }
+body.gj-pulse-shield  { animation: gjPulseShield 120ms ease-out; }
+body.gj-pulse-diamond { animation: gjPulseDiamond 140ms ease-out; }
+body.gj-pulse-danger  { animation: gjPulseDanger 260ms ease-out; }
+body.gj-pulse-explode { animation: gjPulseExplode 360ms ease-out; }
+body.gj-pulse-defuse  { animation: gjPulseDefuse 160ms ease-out; }
+body.gj-miss-shot     { animation: gjPulseMiss 120ms ease-out; }
+body.gj-storm         { animation: gjPulseStorm 240ms ease-out; }
+body.gj-boss          { animation: gjPulseBoss 280ms ease-out; }
+body.gj-rage          { animation: gjPulseRage 320ms ease-out; }
+body.gj-tele          { animation: gjPulseTele 180ms ease-out; }
+body.gj-burst         { animation: gjPulseBurst 240ms ease-out; }
+body.gj-boss-down     { animation: gjPulseVictory 260ms ease-out; }
+body.gj-stomp         { animation: gjPulseDanger 240ms ease-out; }
 
-#endOverlay[aria-hidden="true"]{ display:none; }
-
-#endCard{
-  width: min(520px, 96vw);
-  border-radius: 26px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.68);
-  box-shadow: 0 26px 80px rgba(0,0,0,.52);
-  padding: 16px 16px 14px;
-}
-
-#endTitle{
-  font-weight: 1200;
-  font-size: 22px;
-  letter-spacing: .4px;
-  color: rgba(229,231,235,.98);
-}
-
-#endSub{
-  margin-top: 6px;
-  color: rgba(148,163,184,.96);
-  font-weight: 900;
-  font-size: 12px;
-  line-height: 1.2;
-  word-break: break-word;
-}
-
-#endGrid{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.endStat{
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.42);
-  padding: 10px 12px;
-}
-
-.endStat .k{
-  color: rgba(148,163,184,.96);
-  font-weight: 1000;
-  font-size: 12px;
-}
-.endStat .v{
-  margin-top: 4px;
-  color: rgba(229,231,235,.98);
-  font-weight: 1200;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-#endGrade{
-  font-size: 22px;
-  letter-spacing: 1px;
-}
-
-#endFooter{
-  margin-top: 12px;
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  align-items:center;
-  color: rgba(148,163,184,.96);
-  font-size: 12px;
-  font-weight: 1000;
-}
-
-/* =========================================================
-   Responsive tweaks
-========================================================= */
-
-@media (max-width: 420px){
-  :root{
-    --gj-top-safe: 130px;
-    --gj-bottom-safe: 130px;
-  }
-
-  .gj-chip{ padding: 9px 10px; border-radius: 14px; }
-  .gj-chip .v{ font-size: 15px; }
-
-  #gj-quest{ flex-direction: column; }
-  #gj-shield{ width: 160px; }
-
-  #bossBar{ top: calc(120px + var(--sat)); }
-}
-
-@media (min-width: 760px){
-  #gj-hud{
-    left: calc(16px + var(--sal));
-    right: calc(16px + var(--sar));
-    top: calc(14px + var(--sat));
-  }
-  .gj-chip{ padding: 10px 14px; }
-  #endCard{ padding: 18px 18px 16px; }
-}
-
-/* view:vr / cvr — ให้ HUD ไม่ไปบังปุ่ม ENTER VR ของ vr-ui.js */
-body.view-vr #gj-hud,
-body.view-cvr #gj-hud{
-  top: calc(54px + var(--sat));
-}
-body.view-vr #bossBar,
-body.view-cvr #bossBar{
-  top: calc(168px + var(--sat));
-}
-
-/* =========================================================
-   Accessibility: reduce motion
-========================================================= */
-
-@media (prefers-reduced-motion: reduce){
-  .gj-target.spawn,
-  .gj-target.gone,
-  .gj-fx,
-  .gj-fx-shards,
-  .gj-fx-text,
-  body.gj-tick,
-  body.gj-pulse-hurt,
-  body.gj-pulse-block,
-  body.gj-pulse-star,
-  body.gj-pulse-shield,
-  body.gj-pulse-diamond,
-  body.gj-pulse-danger,
-  body.gj-pulse-explode,
-  body.gj-pulse-defuse,
-  body.gj-miss-shot,
-  body.gj-storm,
-  body.gj-boss,
-  body.gj-rage,
-  body.gj-tele,
-  body.gj-burst,
-  body.gj-boss-down,
-  body.gj-stomp{
-    animation: none !important;
-  }
-}
+@keyframes gjPulseHurt    { 0%{ filter: none; } 30%{ filter: brightness(1.06) saturate(1.10); } 100%{ filter:none; } }
+@keyframes gjPulseBlock   { 0%{ filter: none; } 40%{ filter: brightness(1.04); } 100%{ filter:none; } }
+@keyframes gjPulseStar    { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseShield  { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseDiamond { 0%{ filter: none; } 40%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseDanger  { 0%{ filter: none; } 35%{ filter: brightness(1.07) contrast(1.04); } 100%{ filter:none; } }
+@keyframes gjPulseExplode { 0%{ filter: none; } 25%{ filter: brightness(1.10) contrast(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseDefuse  { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseMiss    { 0%{ filter: none; } 45%{ filter: brightness(1.03); } 100%{ filter:none; } }
+@keyframes gjPulseStorm   { 0%{ filter: none; } 30%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseBoss    { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseRage    { 0%{ filter: none; } 25%{ filter: brightness(1.08) saturate(1.10); } 100%{ filter:none; } }
+@keyframes gjPulseTele    { 0%{ filter: none; } 35%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseBurst   { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseVictory { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
