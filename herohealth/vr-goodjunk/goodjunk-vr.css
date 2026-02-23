@@ -1,1024 +1,267 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR RUN CSS — FINAL v20260220b
-✅ HUD ไม่ซ้อน / จอเตี้ยนิ่ง
-✅ ใช้ safe-zone จาก Boot (--gj-top-safe / --gj-bottom-safe)
-✅ รองรับ hud-hidden
-✅ รองรับ VR-UI controls (.hha-controls)
-✅ รองรับ cVR right-eye layer
-✅ End overlay / missions modal / low-time overlay
+GoodJunkVR CSS — PRODUCTION (targets + fx + pulses)
+FULL v20260223-css-full+antiFlashFX
 */
 
 :root{
   color-scheme: dark;
 
   --bg0:#020617;
-  --bg1:#0b1220;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.66);
-  --stroke: rgba(148,163,184,.18);
-  --text: rgba(229,231,235,.96);
-  --muted: rgba(148,163,184,.95);
+  --panel: rgba(2,6,23,.68);
+  --line: rgba(148,163,184,.18);
+  --txt: rgba(229,231,235,.95);
 
-  --good: rgba(34,197,94,.95);
-  --cyan: rgba(34,211,238,.95);
-  --warn: rgba(245,158,11,.95);
-  --bad:  rgba(239,68,68,.95);
-  --pink: rgba(244,114,182,.95);
-  --vio:  rgba(129,140,248,.95);
+  /* safe zones used by JS getSafeRect() */
+  --gj-top-safe: 140px;
+  --gj-bottom-safe: 140px;
 
-  --chipH: 32px;
-  --radius: 16px;
-  --shadow: 0 10px 30px rgba(0,0,0,.25);
-
-  /* safe-area insets (boot may overwrite) */
+  /* if you set safe-area vars elsewhere it’s ok */
   --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-
-  /* computed by boot (fallbacks here) */
-  --gj-top-safe: 150px;
-  --gj-bottom-safe: 160px;
-
-  /* playable margins */
-  --gj-field-pad-x: clamp(8px, 2vw, 18px);
-  --gj-field-pad-y: 6px;
-
-  /* target / fx layers */
-  --layer-z: 5;
-  --hud-z: 20;
-  --modal-z: 60;
-  --end-z: 80;
-  --vrui-z: 90; /* vr-ui.js usually high; keep CSS below if needed */
-
-  --topbar-h: 52px;
-  --hud-top-gap: 8px;
-  --hud-bot-gap: 10px;
 }
 
-*{ box-sizing:border-box; }
 html,body{
-  width:100%;
   height:100%;
   margin:0;
-  padding:0;
   background:
-    radial-gradient(1200px 700px at 10% -10%, rgba(99,102,241,.16), transparent 55%),
-    radial-gradient(900px 700px at 100% 10%, rgba(34,211,238,.10), transparent 55%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
-  color:var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Noto Sans Thai", "Segoe UI", Roboto, sans-serif;
+    radial-gradient(1200px 800px at 18% 0%, rgba(99,102,241,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(244,63,94,.10), transparent 55%),
+    var(--bg0);
+  color: var(--txt);
+}
+
+body{
   overflow:hidden;
   -webkit-tap-highlight-color: transparent;
+}
+
+#gj-layer, #gj-layer-r{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
   touch-action: manipulation;
 }
 
-body.gj{
-  position:relative;
-  user-select:none;
-}
+.gj-layer--hasfx{}
 
-/* =========================
-   Topbar
-   ========================= */
-.gj-topbar{
-  position:fixed;
-  z-index:var(--hud-z);
-  top:max(0px, var(--sat));
-  left:max(0px, var(--sal));
-  right:max(0px, var(--sar));
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-
-  padding:8px 10px;
-  min-height: var(--topbar-h);
-
-  background: linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.58));
-  border-bottom:1px solid var(--stroke);
-  backdrop-filter: blur(8px);
-}
-
-.gj-topbar .left,
-.gj-topbar .right{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  min-width:0;
-  flex-wrap:wrap;
-}
-
-.gj-topbar .right.hha-controls{
-  justify-content:flex-end;
-}
-
-.gj-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-height:var(--chipH);
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.72);
-  color:var(--text);
-  font-size:13px;
-  line-height:1;
-  white-space:nowrap;
-}
-
-.gj-chip-brand{
-  font-weight:800;
-  letter-spacing:.2px;
-  background: linear-gradient(180deg, rgba(34,197,94,.18), rgba(34,197,94,.08));
-  border-color: rgba(34,197,94,.28);
-}
-
-.gj-chip-mini{
-  color:var(--muted);
-  font-weight:600;
-}
-
-/* hide VR helper chip outside VR/cVR if wanted */
-body.view-pc #vrMiniHud,
-body.view-mobile #vrMiniHud{
-  opacity:.85;
-}
-
-.gj-btn{
-  appearance:none;
-  border:1px solid var(--stroke);
-  background: rgba(15,23,42,.86);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 8px 10px;
-  min-height: 34px;
-  line-height: 1;
-  font-weight: 700;
-  font-size: 13px;
-  cursor:pointer;
-  box-shadow: 0 4px 14px rgba(0,0,0,.18);
-  transition: transform .06s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
-}
-.gj-btn:hover{ background: rgba(30,41,59,.9); }
-.gj-btn:active{ transform: translateY(1px) scale(.995); }
-.gj-btn.primary{
-  background: linear-gradient(180deg, rgba(59,130,246,.34), rgba(37,99,235,.22));
-  border-color: rgba(96,165,250,.38);
-}
-.gj-btn.primary:hover{
-  background: linear-gradient(180deg, rgba(59,130,246,.40), rgba(37,99,235,.26));
-}
-
-/* =========================
-   Playfield + layers
-   ========================= */
-.gj-field{
-  position:fixed;
-  inset:0;
-  z-index:1;
-  overflow:hidden;
-
-  /* keep left/right safe-area */
-  padding-left: max(var(--gj-field-pad-x), var(--sal));
-  padding-right:max(var(--gj-field-pad-x), var(--sar));
-  padding-top:0;
-  padding-bottom:0;
-}
-
-/* visual subtle field frame */
-.gj-field::before{
-  content:"";
-  position:absolute;
-  inset:6px max(6px,var(--sar)) 6px max(6px,var(--sal));
-  border-radius:20px;
-  border:1px solid rgba(148,163,184,.08);
-  pointer-events:none;
-  z-index:1;
-}
-
-/* left eye/main layer */
-.gj-layer{
-  position:absolute;
-  inset:0;
-  z-index:var(--layer-z);
-  overflow:hidden;
-  pointer-events:auto;
-}
-
-/* right eye clone layer (cVR) */
-.gj-layer-r{
-  display:none;
-}
-
-/* cVR split-view approximation (DOM overlay stereo) */
-body.view-cvr .gj-layer{
-  width:50%;
-}
-body.view-cvr .gj-layer:not(.gj-layer-r){
-  left:0;
-}
-body.view-cvr .gj-layer-r{
-  display:block;
-  left:50%;
-  width:50%;
-  border-left:1px solid rgba(148,163,184,.12);
-}
-
-/* =========================
-   Targets
-   ========================= */
+/* ---------------- targets ---------------- */
 .gj-target{
   position:absolute;
-  transform: translate(-50%, -50%) scale(1);
-  transform-origin:center center;
-  display:grid;
-  place-items:center;
-  line-height:1;
-  filter:
-    drop-shadow(0 5px 10px rgba(0,0,0,.35))
-    drop-shadow(0 0 10px rgba(255,255,255,.07));
-  will-change: transform, opacity;
-  pointer-events:auto;
+  transform: translate(-50%,-50%) translateZ(0);
+  will-change: transform, opacity, filter;
+  user-select:none;
   cursor:pointer;
-  z-index:calc(var(--layer-z) + 1);
-  transition:
-    transform .12s ease,
-    opacity .12s ease,
-    filter .12s ease;
+  filter: drop-shadow(0 10px 28px rgba(0,0,0,.35));
 }
-.gj-target:hover{
-  transform: translate(-50%, -50%) scale(1.04);
-}
+
 .gj-target.spawn{
-  animation: gjSpawn .14s ease-out both;
+  animation: gjSpawn 220ms ease-out forwards;
 }
+@keyframes gjSpawn{
+  0%   { opacity:0; transform: translate(-50%,-50%) scale(.80); }
+  100% { opacity:1; transform: translate(-50%,-50%) scale(1.00); }
+}
+
 .gj-target.gone{
-  animation: gjGone .14s ease-in forwards;
-  pointer-events:none;
+  animation: gjGone 140ms ease-in forwards;
+}
+@keyframes gjGone{
+  0%   { opacity:1; transform: translate(-50%,-50%) scale(1.00); }
+  100% { opacity:0; transform: translate(-50%,-50%) scale(.70); }
 }
 
-.gj-target[data-kind="good"]{
-  text-shadow: 0 0 10px rgba(34,197,94,.14);
+/* little tick on last seconds */
+body.gj-tick{
+  animation: gjTick 120ms ease-out;
 }
-.gj-target[data-kind="junk"]{
-  text-shadow: 0 0 12px rgba(239,68,68,.16);
-}
-.gj-target[data-kind="star"],
-.gj-target[data-kind="diamond"]{
-  text-shadow: 0 0 12px rgba(250,204,21,.20);
-}
-.gj-target[data-kind="shield"]{
-  text-shadow: 0 0 12px rgba(59,130,246,.18);
-}
-.gj-target[data-kind="bomb"],
-.gj-target[data-kind="skull"]{
-  filter:
-    drop-shadow(0 6px 14px rgba(0,0,0,.45))
-    drop-shadow(0 0 14px rgba(239,68,68,.22));
+@keyframes gjTick{
+  0%{ filter:none; }
+  40%{ filter: brightness(1.06); }
+  100%{ filter:none; }
 }
 
-/* =========================
-   HUD TOP
-   ========================= */
-.gj-hud-top{
-  position:fixed;
-  z-index:var(--hud-z);
-  top: calc(max(0px, var(--sat)) + var(--topbar-h) + var(--hud-top-gap));
-  left:max(8px, calc(var(--sal) + 4px));
-  right:max(8px, calc(var(--sar) + 4px));
-
-  display:grid;
-  gap:8px;
-  pointer-events:none; /* important: don't block targets */
-}
-
-.hud-row{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap:8px;
-}
-
-.hud-pill{
-  min-height:56px;
-  padding:8px 10px;
-  border-radius:14px;
-  border:1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.58));
-  backdrop-filter: blur(6px);
-  box-shadow: var(--shadow);
-  display:grid;
-  align-content:center;
-  gap:2px;
-  min-width:0;
-}
-.hud-pill.warn{
-  border-color: rgba(245,158,11,.25);
-}
-.hud-pill.grade{
-  border-color: rgba(129,140,248,.22);
-}
-
-.hud-label{
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:.55px;
-  color:var(--muted);
-  opacity:.95;
-  white-space:nowrap;
-}
-.hud-value{
-  font-size:20px;
-  font-weight:900;
-  line-height:1.05;
-  letter-spacing:.2px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-/* progress */
-.gj-progress{
-  pointer-events:none;
-}
-.gj-progress-track{
-  height:8px;
-  width:100%;
-  border-radius:999px;
-  background: rgba(148,163,184,.16);
-  border:1px solid rgba(148,163,184,.12);
-  overflow:hidden;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
-}
-.gj-progress-fill{
-  height:100%;
-  width:0%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95), rgba(129,140,248,.95));
-  transition: width .12s linear;
-}
-
-/* boss bar */
-.gj-bossbar{
-  display:grid;
-  gap:6px;
-  padding:8px 10px;
-  border-radius:14px;
-  border:1px solid rgba(239,68,68,.22);
-  background: linear-gradient(180deg, rgba(127,29,29,.16), rgba(2,6,23,.64));
-  box-shadow: var(--shadow);
-}
-.gj-bossbar[aria-hidden="true"]{
-  display:none;
-}
-.gj-bossbar-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.gj-bossbar-title{
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:.6px;
-  color:#fecaca;
-}
-.gj-bossbar-hint{
-  font-size:12px;
-  color:#fee2e2;
-  opacity:.9;
-  text-align:right;
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.gj-bossbar-track{
-  height:10px;
-  border-radius:999px;
-  background: rgba(239,68,68,.12);
-  border:1px solid rgba(239,68,68,.18);
-  overflow:hidden;
-}
-.gj-bossbar-fill{
-  height:100%;
-  width:0%;
-  background: linear-gradient(90deg, rgba(248,113,113,.95), rgba(239,68,68,.95));
-  transition: width .12s linear;
-}
-
-/* =========================
-   HUD BOTTOM
-   ========================= */
-.gj-hud-bot{
-  position:fixed;
-  z-index:var(--hud-z);
-  left:max(8px, calc(var(--sal) + 4px));
-  right:max(8px, calc(var(--sar) + 4px));
-  bottom: calc(max(8px, var(--sab)) + var(--hud-bot-gap));
-
-  display:grid;
-  grid-template-columns: 1.15fr 1.05fr 1fr;
-  gap:10px;
-  align-items:stretch;
-}
-
-.meter{
-  min-height:92px;
-  padding:10px 12px;
-  border-radius:16px;
-  border:1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.60));
-  backdrop-filter: blur(8px);
-  box-shadow: var(--shadow);
-  min-width:0;
-  overflow:hidden;
-}
-
-.meter-title{
-  font-size:13px;
-  font-weight:800;
-  line-height:1.2;
-  color:var(--text);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.meter-tip{
-  margin-top:4px;
-  font-size:12px;
-  line-height:1.25;
-  color:var(--muted);
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
-  overflow:hidden;
-}
-.meter-num{
-  margin-top:6px;
-  font-size:13px;
-  color:var(--text);
-}
-.meter-bar{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  background: rgba(148,163,184,.14);
-  border:1px solid rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.meter-fill{
-  width:0%;
-  height:100%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(250,204,21,.95), rgba(244,114,182,.95));
-  transition: width .12s linear;
-}
-.meter-shield{
-  font-size:13px;
-  color:var(--text);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-/* =========================
-   Missions panel (modal)
-   ========================= */
-.gj-quest-panel{
-  position:fixed;
-  inset:0;
-  z-index:var(--modal-z);
-  display:grid;
-  place-items:center;
-  padding:
-    max(12px, calc(var(--sat) + 8px))
-    max(12px, calc(var(--sar) + 8px))
-    max(12px, calc(var(--sab) + 8px))
-    max(12px, calc(var(--sal) + 8px));
-  background: rgba(2,6,23,.45);
-  backdrop-filter: blur(6px);
-  opacity:1;
-  transition: opacity .16s ease;
-}
-.gj-quest-panel[aria-hidden="true"]{
-  opacity:0;
-  pointer-events:none;
-}
-.gj-quest-card{
-  width:min(560px, 100%);
-  border-radius:18px;
-  border:1px solid var(--stroke);
-  background: linear-gradient(180deg, rgba(2,6,23,.94), rgba(15,23,42,.88));
-  box-shadow: 0 24px 70px rgba(0,0,0,.42);
-  padding:14px;
-}
-.gj-quest-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-.gj-quest-title{
-  font-size:16px;
-  font-weight:900;
-  letter-spacing:.2px;
-}
-.gj-quest-section{
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.52);
-  border-radius:14px;
-  padding:10px 12px;
-}
-.gj-quest-section + .gj-quest-section{ margin-top:10px; }
-.q-title{
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.6px;
-  color:var(--muted);
-}
-.q-desc{
-  margin-top:6px;
-  font-size:13px;
-  line-height:1.35;
-}
-.q-hint{
-  margin-top:8px;
-  color:var(--muted);
-  font-size:12px;
-}
-
-/* =========================
-   Low time overlay
-   ========================= */
-.gj-lowtime-overlay{
-  position:fixed;
-  inset:0;
-  z-index:calc(var(--hud-z) + 5);
-  pointer-events:none;
-  display:grid;
-  place-items:center;
-  opacity:1;
-  transition: opacity .15s ease;
-}
-.gj-lowtime-overlay[aria-hidden="true"]{
-  opacity:0;
-}
-.gj-lowtime-ring{
-  position:absolute;
-  width:min(42vmin, 280px);
-  aspect-ratio:1/1;
-  border-radius:999px;
-  border:6px solid rgba(239,68,68,.24);
-  box-shadow:
-    0 0 0 10px rgba(239,68,68,.08),
-    0 0 70px rgba(239,68,68,.18) inset;
-  animation: gjPulseRing .45s ease-out infinite alternate;
-}
-.gj-lowtime-num{
-  position:relative;
-  z-index:1;
-  font-size: clamp(42px, 9vmin, 80px);
-  font-weight: 1000;
-  color: #fee2e2;
-  text-shadow: 0 8px 30px rgba(239,68,68,.38);
-}
-
-/* =========================
-   End overlay
-   ========================= */
-.gj-end{
-  position:fixed;
-  inset:0;
-  z-index:var(--end-z);
-  display:grid;
-  place-items:center;
-  padding:
-    max(12px, calc(var(--sat) + 8px))
-    max(12px, calc(var(--sar) + 8px))
-    max(12px, calc(var(--sab) + 8px))
-    max(12px, calc(var(--sal) + 8px));
-  background: rgba(2,6,23,.52);
-  backdrop-filter: blur(8px);
-  opacity:1;
-  transition: opacity .16s ease;
-}
-.gj-end[aria-hidden="true"]{
-  opacity:0;
-  pointer-events:none;
-}
-.gj-end .card{
-  width:min(680px, 100%);
-  border-radius:20px;
-  border:1px solid var(--stroke);
+/* ---------------- storm/boss/rage vibes (subtle) ---------------- */
+body.storm{
   background:
-    radial-gradient(90% 120% at 0% 0%, rgba(99,102,241,.16), transparent 60%),
-    radial-gradient(80% 120% at 100% 0%, rgba(34,211,238,.12), transparent 60%),
-    linear-gradient(180deg, rgba(2,6,23,.96), rgba(15,23,42,.90));
-  box-shadow: 0 28px 80px rgba(0,0,0,.45);
-  padding:16px;
+    radial-gradient(1200px 800px at 18% 0%, rgba(59,130,246,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(244,63,94,.08), transparent 55%),
+    var(--bg0);
 }
-.gj-end .title{
-  font-size: clamp(20px, 2vw, 28px);
-  font-weight:1000;
-  line-height:1.1;
+body.boss{
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(244,63,94,.14), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(99,102,241,.12), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(251,191,36,.06), transparent 55%),
+    var(--bg0);
 }
-.gj-end .sub{
-  margin-top:6px;
-  color:var(--muted);
-  font-size:12px;
-  line-height:1.35;
-  word-break: break-word;
-}
-.gj-end .grid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap:10px;
-}
-.gj-end .stat{
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.54);
-  padding:10px;
-  display:grid;
-  gap:4px;
-}
-.gj-end .stat span{
-  color:var(--muted);
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:.5px;
-}
-.gj-end .stat b{
-  font-size:18px;
-  line-height:1.1;
-}
-.gj-end .actions{
-  margin-top:14px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  justify-content:flex-end;
-}
-.gj-end .btn{
-  appearance:none;
-  border:1px solid var(--stroke);
-  background: rgba(37,99,235,.20);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 10px 12px;
-  min-height: 38px;
-  font-weight:800;
-  cursor:pointer;
-}
-.gj-end .btn.alt{
-  background: rgba(15,23,42,.78);
+body.rage{
+  background:
+    radial-gradient(1200px 800px at 18% 0%, rgba(244,63,94,.18), transparent 55%),
+    radial-gradient(900px 700px at 92% 18%, rgba(251,191,36,.10), transparent 55%),
+    radial-gradient(900px 700px at 60% 100%, rgba(99,102,241,.10), transparent 55%),
+    var(--bg0);
 }
 
-/* =========================
-   HUD hidden mode
-   ========================= */
-body.hud-hidden .gj-hud-top,
-body.hud-hidden .gj-hud-bot{
-  opacity:0;
+/* =========================================================
+   GoodJunkVR FX — ANTI-FLASH PATCH (v20260223)
+   ✅ Prevent "flash at top-left" by ensuring transform/opacity
+      are applied at creation frame.
+   ✅ Keep hit effects intact (bursts/shards/text/pulses).
+========================================================= */
+
+#gj-fx{
+  position:absolute;
+  inset:0;
   pointer-events:none;
-  transform: translateY(-4px);
-  transition: opacity .14s ease, transform .14s ease;
-}
-body.hud-hidden .gj-hud-bot{
-  transform: translateY(6px);
-}
-body.hud-hidden .gj-topbar .gj-btn#btnHideHud,
-body.hud-hidden .gj-topbar .gj-btn[id="btnHideHud"]{
-  opacity:1;
-}
-
-/* keep missions/end overlays visible even if hud hidden */
-body.hud-hidden .gj-quest-panel,
-body.hud-hidden .gj-end{
-  opacity:1;
-}
-
-/* =========================
-   FX body pulses / modes
-   ========================= */
-@keyframes gjBodyFlashBad {
-  0%   { box-shadow: inset 0 0 0 0 rgba(239,68,68,0); }
-  40%  { box-shadow: inset 0 0 0 9999px rgba(239,68,68,.07); }
-  100% { box-shadow: inset 0 0 0 0 rgba(239,68,68,0); }
-}
-@keyframes gjBodyFlashWarn {
-  0%   { box-shadow: inset 0 0 0 0 rgba(245,158,11,0); }
-  40%  { box-shadow: inset 0 0 0 9999px rgba(245,158,11,.06); }
-  100% { box-shadow: inset 0 0 0 0 rgba(245,158,11,0); }
-}
-@keyframes gjBodyFlashCyan {
-  0%   { box-shadow: inset 0 0 0 0 rgba(34,211,238,0); }
-  40%  { box-shadow: inset 0 0 0 9999px rgba(34,211,238,.06); }
-  100% { box-shadow: inset 0 0 0 0 rgba(34,211,238,0); }
-}
-
-body.gj-junk-hit{ animation: gjBodyFlashBad .24s ease; }
-body.gj-bomb{ animation: gjBodyFlashBad .34s ease; }
-body.gj-skull-hit{ animation: gjBodyFlashBad .24s ease; }
-body.gj-good-expire{ animation: gjBodyFlashWarn .18s ease; }
-body.gj-miss-shot{ animation: gjBodyFlashWarn .12s ease; }
-body.gj-storm{ animation: gjBodyFlashCyan .24s ease; }
-
-body.gj-boss .gj-topbar{
-  border-bottom-color: rgba(239,68,68,.22);
-}
-body.gj-rage .gj-bossbar{
-  box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 14px 36px rgba(127,29,29,.20);
-}
-body.gj-rage .gj-bossbar-fill{
-  background: linear-gradient(90deg, rgba(251,113,133,.98), rgba(239,68,68,.98), rgba(220,38,38,.98));
-}
-body.gj-storm .gj-progress-fill{
-  filter: saturate(1.15) brightness(1.08);
-}
-
-/* helper "tick" low time */
-body.gj-tick .gj-hud-top,
-body.gj-tick .gj-hud-bot{
+  overflow:hidden;
+  z-index:140;
+  contain: layout paint;
   transform: translateZ(0);
 }
 
-/* =========================
-   Animations
-   ========================= */
-@keyframes gjSpawn{
-  from{
-    opacity:0;
-    transform: translate(-50%, -50%) scale(.76);
-    filter: blur(2px) drop-shadow(0 0 0 rgba(0,0,0,0));
-  }
-  to{
-    opacity:1;
-    transform: translate(-50%, -50%) scale(1);
-    filter:
-      drop-shadow(0 5px 10px rgba(0,0,0,.35))
-      drop-shadow(0 0 10px rgba(255,255,255,.07));
-  }
-}
-
-@keyframes gjGone{
-  from{
-    opacity:1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  to{
-    opacity:0;
-    transform: translate(-50%, -50%) scale(.72);
-  }
-}
-
-@keyframes gjPulseRing{
-  from{
-    transform: scale(.97);
-    opacity:.85;
-  }
-  to{
-    transform: scale(1.03);
-    opacity:1;
-  }
-}
-
-/* =========================
-   Responsive tuning (สำคัญมากสำหรับจอเตี้ย)
-   ========================= */
-
-/* Tablet / medium */
-@media (max-width: 980px){
-  .gj-topbar{
-    gap:8px;
-    padding:7px 8px;
-  }
-  .gj-chip{ font-size:12px; padding:6px 9px; }
-  .gj-btn{ font-size:12px; padding:8px 9px; }
-
-  .hud-value{ font-size:18px; }
-  .meter{ min-height:88px; padding:10px; }
-}
-
-/* Mobile landscape / short width */
-@media (max-width: 760px){
-  :root{
-    --topbar-h: 58px; /* allow wrap */
-    --hud-top-gap: 6px;
-    --hud-bot-gap: 8px;
-  }
-
-  .gj-topbar{
-    align-items:flex-start;
-  }
-  .gj-topbar .left{
-    flex:1 1 auto;
-    min-width:0;
-  }
-  .gj-topbar .right{
-    flex:0 0 auto;
-  }
-
-  .hud-row{
-    grid-template-columns: repeat(4, minmax(0,1fr));
-    gap:6px;
-  }
-  .hud-pill{
-    min-height:50px;
-    padding:7px 8px;
-    border-radius:12px;
-  }
-  .hud-label{ font-size:10px; }
-  .hud-value{ font-size:17px; }
-
-  .gj-hud-bot{
-    grid-template-columns: 1fr;
-    gap:8px;
-  }
-  .meter{
-    min-height:72px;
-    padding:8px 10px;
-    border-radius:14px;
-  }
-  .meter-tip{
-    -webkit-line-clamp:1;
-  }
-
-  .gj-end .grid{
-    grid-template-columns: repeat(2, minmax(0,1fr));
-  }
-}
-
-/* Short screens: ลดความสูง HUD ให้ไม่ซ้อน */
-@media (max-height: 740px){
-  :root{
-    --topbar-h: 50px;
-    --hud-top-gap: 6px;
-    --hud-bot-gap: 6px;
-  }
-
-  .gj-chip{ min-height:28px; padding:5px 8px; font-size:12px; }
-  .gj-btn{ min-height:30px; padding:6px 8px; font-size:12px; border-radius:10px; }
-
-  .hud-pill{
-    min-height:46px;
-    padding:6px 8px;
-  }
-  .hud-label{ font-size:10px; }
-  .hud-value{ font-size:16px; }
-
-  .gj-progress-track{ height:7px; }
-
-  .gj-bossbar{
-    padding:6px 8px;
-    gap:4px;
-  }
-  .gj-bossbar-hint{
-    font-size:11px;
-  }
-
-  .gj-hud-bot{
-    gap:7px;
-  }
-  .meter{
-    min-height:64px;
-    padding:7px 9px;
-  }
-  .meter-title{ font-size:12px; }
-  .meter-tip{ font-size:11px; margin-top:3px; }
-  .meter-num{ font-size:12px; margin-top:4px; }
-  .meter-bar{ margin-top:5px; height:8px; }
-}
-
-/* Very short screens (เช่น Android browser UI เยอะ) */
-@media (max-height: 620px){
-  :root{
-    --topbar-h: 46px;
-    --hud-top-gap: 4px;
-    --hud-bot-gap: 4px;
-  }
-
-  .gj-topbar{
-    padding:5px 6px;
-  }
-  .gj-topbar .left,
-  .gj-topbar .right{ gap:5px; }
-
-  .gj-chip{
-    min-height:24px;
-    padding:4px 6px;
-    font-size:11px;
-    border-radius:999px;
-  }
-
-  .gj-btn{
-    min-height:26px;
-    padding:4px 7px;
-    font-size:11px;
-    border-radius:9px;
-  }
-
-  .gj-hud-top{
-    gap:5px;
-  }
-  .hud-row{
-    gap:5px;
-  }
-  .hud-pill{
-    min-height:40px;
-    padding:5px 6px;
-    border-radius:10px;
-  }
-  .hud-label{
-    font-size:9px;
-    letter-spacing:.35px;
-  }
-  .hud-value{
-    font-size:14px;
-  }
-
-  .gj-progress-track{ height:6px; }
-
-  .gj-bossbar{
-    padding:5px 7px;
-    border-radius:10px;
-  }
-  .gj-bossbar-title{ font-size:11px; }
-  .gj-bossbar-hint{ font-size:10px; }
-
-  .gj-hud-bot{
-    gap:6px;
-  }
-  .meter{
-    min-height:58px;
-    padding:6px 8px;
-    border-radius:12px;
-  }
-  .meter-title{ font-size:11px; }
-  .meter-tip{
-    font-size:10px;
-    margin-top:2px;
-    -webkit-line-clamp:1;
-  }
-  .meter-num{
-    margin-top:3px;
-    font-size:11px;
-  }
-  .meter-bar{ height:7px; margin-top:4px; }
-
-  .gj-lowtime-ring{
-    width:min(36vmin, 220px);
-    border-width:4px;
-  }
-}
-
-/* Ultra short + narrow: hide some cosmetic chips first */
-@media (max-width: 560px) and (max-height: 620px){
-  #chipMode, #chipDiff{
-    display:none;
-  }
-  #vrMiniHud{
-    max-width: 44vw;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-}
-
-/* =========================
-   pointer-events sanity
-   ========================= */
-/* Allow button panel to receive clicks */
-.gj-topbar .hha-controls,
-.gj-topbar .hha-controls *{
-  pointer-events:auto;
-}
-
-/* HUD top is pointer-events:none inline in HTML; keep it that way */
-.gj-hud-top *{
+.gj-fx,
+.gj-fx-text{
+  position:absolute;
+  left:0;
+  top:0;
+  transform: translate(-50%,-50%) translateZ(0);
+  will-change: transform, opacity, filter;
   pointer-events:none;
+  opacity: 0;
 }
 
-/* HUD bottom can be non-interactive by default */
-.gj-hud-bot,
-.gj-hud-bot *{
-  pointer-events:none;
+/* ---- BURST ---- */
+.gj-fx{
+  width: 90px;
+  height: 90px;
+  border-radius: 999px;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+  animation: gjFxPop var(--life, 340ms) ease-out forwards;
 }
 
-/* modal/end overlays interactive */
-.gj-quest-panel,
-.gj-quest-panel * ,
-.gj-end,
-.gj-end *{
-  pointer-events:auto;
+@keyframes gjFxPop{
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.70); }
+  10%  { opacity: .95; transform: translate(-50%,-50%) scale(1.00); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.35); }
 }
 
-/* =========================
-   Optional compatibility IDs/classes (เผื่อ safe.js/boot รุ่นก่อน)
-   ========================= */
-#playfield{ position:fixed; inset:0; }
-#hud{ /* already .gj-hud-top */ }
+/* ---- SHARDS WRAPPER ---- */
+.gj-fx-shards{
+  width: 1px;
+  height: 1px;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.25));
+  animation: gjShardWrap var(--life, 520ms) ease-out forwards;
+}
+
+@keyframes gjShardWrap{
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.90); }
+  10%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.0); }
+}
+
+.gj-fx-shards .gj-shard{
+  position:absolute;
+  left:0; top:0;
+  border-radius: 6px;
+  opacity: .95;
+  transform: translate(0,0) scale(1);
+  animation: gjShardFly var(--life, 520ms) ease-out forwards;
+}
+
+@keyframes gjShardFly{
+  0%   { opacity: 0; transform: translate(0,0) scale(.8) rotate(0deg); }
+  10%  { opacity: .95; }
+  100% { opacity: 0; transform: translate(var(--tx, 60px), var(--ty, -40px)) scale(.55) rotate(60deg); }
+}
+
+/* ---- FLOATING TEXT ---- */
+.gj-fx-text{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.60);
+  color: rgba(229,231,235,.96);
+  font-weight: 1000;
+  font-size: 14px;
+  letter-spacing: .2px;
+  text-shadow: 0 12px 30px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: gjTextFloat 640ms ease-out forwards;
+}
+
+@keyframes gjTextFloat{
+  0%   { opacity: 0; transform: translate(-50%,-50%) translateY(6px) scale(.98); }
+  18%  { opacity: 1; transform: translate(-50%,-50%) translateY(0px) scale(1.00); }
+  100% { opacity: 0; transform: translate(-50%,-50%) translateY(-26px) scale(1.02); }
+}
+
+/* ---- Color variants ---- */
+.gj-fx-good    { box-shadow: 0 0 0 2px rgba(16,185,129,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.55), rgba(16,185,129,.08) 60%, transparent 72%); }
+.gj-fx-junk    { box-shadow: 0 0 0 2px rgba(244,63,94,.32) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55),  rgba(244,63,94,.10) 60%, transparent 72%); }
+.gj-fx-block   { box-shadow: 0 0 0 2px rgba(59,130,246,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(59,130,246,.55), rgba(59,130,246,.10) 60%, transparent 72%); }
+.gj-fx-star    { box-shadow: 0 0 0 2px rgba(251,191,36,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(251,191,36,.60), rgba(251,191,36,.10) 60%, transparent 72%); }
+.gj-fx-shield  { box-shadow: 0 0 0 2px rgba(34,211,238,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(34,211,238,.60), rgba(34,211,238,.10) 60%, transparent 72%); }
+.gj-fx-diamond { box-shadow: 0 0 0 2px rgba(167,139,250,.30) inset;background: radial-gradient(circle at 40% 35%, rgba(167,139,250,.60), rgba(167,139,250,.10) 60%, transparent 72%); }
+.gj-fx-bomb    { box-shadow: 0 0 0 2px rgba(255,255,255,.18) inset;background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.35), rgba(148,163,184,.08) 60%, transparent 72%); }
+.gj-fx-defuse  { box-shadow: 0 0 0 2px rgba(16,185,129,.22) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.42), rgba(16,185,129,.08) 60%, transparent 72%); }
+.gj-fx-skull   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.45), rgba(2,6,23,.18) 62%, transparent 72%); }
+.gj-fx-storm   { box-shadow: 0 0 0 2px rgba(59,130,246,.26) inset; background: radial-gradient(circle at 40% 35%, rgba(59,130,246,.50), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-boss    { box-shadow: 0 0 0 2px rgba(244,63,94,.34) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.50), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-rage    { box-shadow: 0 0 0 2px rgba(244,63,94,.34) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55), rgba(251,191,36,.10) 62%, transparent 72%); }
+.gj-fx-tele    { box-shadow: 0 0 0 2px rgba(251,191,36,.34) inset; background: radial-gradient(circle at 40% 35%, rgba(251,191,36,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-burst   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.50), rgba(2,6,23,.10) 62%, transparent 72%); }
+.gj-fx-expire  { box-shadow: 0 0 0 2px rgba(244,63,94,.24) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.40), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-miss    { box-shadow: 0 0 0 2px rgba(148,163,184,.22) inset; background: radial-gradient(circle at 40% 35%, rgba(148,163,184,.35), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-end     { box-shadow: 0 0 0 2px rgba(99,102,241,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(99,102,241,.55), rgba(2,6,23,.14) 62%, transparent 72%); }
+.gj-fx-victory { box-shadow: 0 0 0 2px rgba(16,185,129,.26) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
+.gj-fx-stomp   { box-shadow: 0 0 0 2px rgba(244,63,94,.30) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55), rgba(2,6,23,.12) 62%, transparent 72%); }
+
+.gj-fx-text.t-good   { border-color: rgba(16,185,129,.28); }
+.gj-fx-text.t-bad    { border-color: rgba(244,63,94,.30); }
+.gj-fx-text.t-block  { border-color: rgba(59,130,246,.30); }
+.gj-fx-text.t-star   { border-color: rgba(251,191,36,.30); }
+.gj-fx-text.t-shield { border-color: rgba(34,211,238,.30); }
+.gj-fx-text.t-diamond{ border-color: rgba(167,139,250,.30); }
+.gj-fx-text.t-danger { border-color: rgba(244,63,94,.34); }
+.gj-fx-text.t-defuse { border-color: rgba(16,185,129,.26); }
+.gj-fx-text.t-storm  { border-color: rgba(59,130,246,.26); }
+.gj-fx-text.t-miss   { border-color: rgba(148,163,184,.22); }
+
+/* ---- Body pulse classes used by JS ---- */
+body.gj-pulse-hurt    { animation: gjPulseHurt 220ms ease-out; }
+body.gj-pulse-block   { animation: gjPulseBlock 120ms ease-out; }
+body.gj-pulse-star    { animation: gjPulseStar 120ms ease-out; }
+body.gj-pulse-shield  { animation: gjPulseShield 120ms ease-out; }
+body.gj-pulse-diamond { animation: gjPulseDiamond 140ms ease-out; }
+body.gj-pulse-danger  { animation: gjPulseDanger 260ms ease-out; }
+body.gj-pulse-explode { animation: gjPulseExplode 360ms ease-out; }
+body.gj-pulse-defuse  { animation: gjPulseDefuse 160ms ease-out; }
+body.gj-miss-shot     { animation: gjPulseMiss 120ms ease-out; }
+body.gj-storm         { animation: gjPulseStorm 240ms ease-out; }
+body.gj-boss          { animation: gjPulseBoss 280ms ease-out; }
+body.gj-rage          { animation: gjPulseRage 320ms ease-out; }
+body.gj-tele          { animation: gjPulseTele 180ms ease-out; }
+body.gj-burst         { animation: gjPulseBurst 240ms ease-out; }
+body.gj-boss-down     { animation: gjPulseVictory 260ms ease-out; }
+body.gj-stomp         { animation: gjPulseDanger 240ms ease-out; }
+
+@keyframes gjPulseHurt    { 0%{ filter: none; } 30%{ filter: brightness(1.06) saturate(1.10); } 100%{ filter:none; } }
+@keyframes gjPulseBlock   { 0%{ filter: none; } 40%{ filter: brightness(1.04); } 100%{ filter:none; } }
+@keyframes gjPulseStar    { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseShield  { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseDiamond { 0%{ filter: none; } 40%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseDanger  { 0%{ filter: none; } 35%{ filter: brightness(1.07) contrast(1.04); } 100%{ filter:none; } }
+@keyframes gjPulseExplode { 0%{ filter: none; } 25%{ filter: brightness(1.10) contrast(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseDefuse  { 0%{ filter: none; } 40%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseMiss    { 0%{ filter: none; } 45%{ filter: brightness(1.03); } 100%{ filter:none; } }
+@keyframes gjPulseStorm   { 0%{ filter: none; } 30%{ filter: brightness(1.05); } 100%{ filter:none; } }
+@keyframes gjPulseBoss    { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseRage    { 0%{ filter: none; } 25%{ filter: brightness(1.08) saturate(1.10); } 100%{ filter:none; } }
+@keyframes gjPulseTele    { 0%{ filter: none; } 35%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseBurst   { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
+@keyframes gjPulseVictory { 0%{ filter: none; } 30%{ filter: brightness(1.06); } 100%{ filter:none; } }
