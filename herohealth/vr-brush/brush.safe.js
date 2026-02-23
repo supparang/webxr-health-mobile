@@ -1,11 +1,11 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR Engine — SAFE PATCH FULL (v20260223p3)
-// ✅ FUN PACK: Combo Streak (10+) + Boss Phase2 (weakspot moves) + Golden Target mini-quest
-// ✅ Expose window.BrushVR { start, reset, showHow, togglePause }
-// ✅ Integrate boot events: brush:prestart-reset, brush:gate-handshake
-// ✅ Dispatch events: brush:start, brush:end, brush:ui
-// ✅ Fix: shots double-count (cVR hha:shoot path)
-// ✅ Init hardened (auto init on DOM ready, no duplicates)
+// BrushVR Engine — SAFE PATCH FULL (v20260223p4)
+// ✅ FUN PACK P4: Golden Rush (3s) + Boss Teleport on Phase2 + AI Coach micro-tips (deterministic, rate-limited)
+// ✅ Public API: window.BrushVR { start, reset, showHow, togglePause }
+// ✅ Boot integration: brush:prestart-reset, brush:gate-handshake, emits brush:start/brush:end/brush:ui
+// ✅ Fix: shots not double-counted (pointer vs hha:shoot)
+// ✅ Mobile/PC/cVR support (hha:shoot lock)
+// ✅ Harden summary/menu visibility
 
 (function(){
   'use strict';
@@ -70,7 +70,7 @@
     speed: 1.0,     // >1 faster spawn / shorter ttl
     assist: 'off',  // off|low|med|high
     tier: '',       // S/A/B/C
-    diffHint: 0     // -1 easier, 0 neutral, +1 harder
+    diffHint: 0
   };
 
   // Aim / lock radius used for hha:shoot selection
@@ -80,14 +80,20 @@
   let spawnMsCurrent = 850;
 
   // FUN: combo streak boost
-  let streak = {
-    on: false,
-    untilMs: 0,
-    level: 0 // 0..3
-  };
+  let streak = { on:false, untilMs:0, level:0 };
 
   // FUN: golden target schedule
   let nextGoldAtMs = 0;
+
+  // FUN: golden rush window after gold hit
+  let goldRushUntilMs = 0;
+
+  // AI Coach (deterministic + rate-limited)
+  const coach = {
+    nextAtMs: 0,
+    minGapMs: 2200,
+    lastKey: '',
+  };
 
   /* ---------------- config ---------------- */
   function readConfig(){
@@ -147,7 +153,6 @@
   }
 
   function setUiMode(mode){
-    // mode = menu | play | end
     try{ DOC.documentElement.dataset.brUi = mode; }catch(_){}
     try{ root && (root.dataset.state = mode); }catch(_){}
 
@@ -162,8 +167,7 @@
     }
     if(end){
       end.hidden = (mode !== 'end');
-      if(mode === 'end') end.style.display = '';
-      else end.style.display = 'none';
+      end.style.display = (mode === 'end') ? '' : 'none';
     }
 
     emit('brush:ui', { mode });
@@ -177,32 +181,59 @@
     showToast._t = setTimeout(()=> toastEl && toastEl.classList.remove('show'), 1200);
   }
 
+  /* ---------------- coach tips ---------------- */
+  function coachTip(key, text, detail){
+    try{
+      if(!text) return;
+      const t = nowMs();
+      if(t < coach.nextAtMs) return;
+      if(key && key === coach.lastKey) return;
+      coach.lastKey = String(key || '');
+      coach.nextAtMs = t + coach.minGapMs;
+
+      const payload = {
+        kind: 'coach',
+        game: 'brush',
+        ts: Date.now(),
+        seed: cfg && cfg.seed,
+        diff: cfg && cfg.diff,
+        view: cfg && cfg.view,
+        pid: cfg && cfg.pid,
+        key: String(key || ''),
+        msg: String(text || ''),
+        ...(detail || {})
+      };
+
+      // for universal listeners
+      emit('hha:coach', payload);
+      emit('brush:coach', payload);
+    }catch(_){}
+  }
+
   /* ---------------- game state ---------------- */
   function freshState(){
     return {
-      started: false,
-      ended: false,
-      paused: false,
+      started:false, ended:false, paused:false,
 
-      timeTotal: Number(cfg.time),
-      timeLeft: Number(cfg.time),
+      timeTotal:Number(cfg.time),
+      timeLeft:Number(cfg.time),
 
-      score: 0,
-      combo: 0,
-      maxCombo: 0,
-      miss: 0,
-      hits: 0,
-      shots: 0,
-      cleanPct: 0,
+      score:0,
+      combo:0,
+      maxCombo:0,
+      miss:0,
+      hits:0,
+      shots:0,
+      cleanPct:0,
 
-      feverOn: false,
-      feverGauge: 0, // 0..100
-      spawned: 0,
-      bossSpawned: 0,
+      feverOn:false,
+      feverGauge:0,
+      spawned:0,
+      bossSpawned:0,
 
-      startAtMs: 0,
-      endAtMs: 0,
-      lastTickAt: 0,
+      startAtMs:0,
+      endAtMs:0,
+      lastTickAt:0,
     };
   }
 
@@ -232,15 +263,15 @@
     if(!state) return;
     if(tScore) tScore.textContent = String(Math.round(state.score));
     if(tCombo) tCombo.textContent = String(Math.round(state.combo));
-    if(tMiss)  tMiss.textContent = String(Math.round(state.miss));
-    if(tTime)  tTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
+    if(tMiss)  tMiss.textContent  = String(Math.round(state.miss));
+    if(tTime)  tTime.textContent  = String(Math.max(0, Math.ceil(state.timeLeft)));
     if(tClean) tClean.textContent = pct(state.cleanPct);
 
-    // show fever state + streak state
     if(tFever){
       const fever = state.feverOn ? 'ON' : 'OFF';
       const stk = streak.on ? ` | STREAK ${streak.level}` : '';
-      tFever.textContent = fever + stk;
+      const rush = (goldRushUntilMs > nowMs()) ? ' | GOLD RUSH' : '';
+      tFever.textContent = fever + stk + rush;
     }
 
     if(bClean) bClean.style.width = clamp(state.cleanPct,0,100) + '%';
@@ -267,7 +298,6 @@
   function applyGateToCfg(){
     if(!cfg) return;
 
-    // research-safe: apply in run=play by default; for research use ?gateApply=1
     const run = String(cfg.run || 'play').toLowerCase();
     const gateApply = String(qs('gateApply','') || '').trim();
     const shouldApply = (run === 'play') || (gateApply === '1' || gateApply.toLowerCase() === 'true');
@@ -316,7 +346,8 @@
       gate.diffHint = safeNum(d.gateDiffHint, 0);
 
       applyGateToCfg();
-      try{ showToast(`Warmup Buff: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`); }catch(_){}
+      showToast(`Warmup Buff: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`);
+      coachTip('gate', `โหมดวอร์มอัป: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`, { gate:{...gate} });
     }, { passive:true });
   }
 
@@ -331,6 +362,17 @@
     const x = pad + (r.width - pad*2) * rng();
     const y = 70 + (r.height - (70 + pad) - pad) * rng();
     return { x, y };
+  }
+
+  function teleportTarget(t){
+    if(!t || !t.el) return;
+    const p = pickSpawnPos(t.isBoss ? 92 : 78);
+    try{
+      t.el.classList.add('teleport');
+      t.el.style.left = p.x + 'px';
+      t.el.style.top  = p.y + 'px';
+      setTimeout(()=>{ try{ t.el.classList.remove('teleport'); }catch(_){} }, 220);
+    }catch(_){}
   }
 
   function jitterWeakspot(el, intensity){
@@ -348,20 +390,26 @@
 
     const id = 't' + (targetSeq++);
     const isBoss = (kind === 'boss');
-    const isGold = (kind === 'gold');
+    const isGold = (kind === 'gold'); // star
+    const isRushGold = (kind === 'rushgold'); // spawned during gold rush (slightly weaker reward)
 
     const hpMax = isBoss ? cfg.bossHp : 1;
-    const size = isBoss ? 92 : (isGold ? 74 : 78);
+    const size = isBoss ? 92 : (isGold || isRushGold ? 74 : 78);
 
-    // gold shorter TTL to be spicy
     const ttlBase = isBoss ? Math.round(cfg.ttlMs * 1.65) : cfg.ttlMs;
-    const ttl = isGold ? Math.round(ttlBase * 0.78) : ttlBase;
+    const ttl = (isGold || isRushGold) ? Math.round(ttlBase * 0.78) : ttlBase;
 
     const p = pickSpawnPos(size);
 
     const el = DOC.createElement('button');
     el.type = 'button';
-    el.className = 'br-t' + (isBoss ? ' thick' : '') + (isGold ? ' gold' : '') + ' pop';
+    el.className =
+      'br-t' +
+      (isBoss ? ' thick' : '') +
+      ((isGold || isRushGold) ? ' gold' : '') +
+      (isRushGold ? ' rush' : '') +
+      ' pop';
+
     el.style.left = p.x + 'px';
     el.style.top  = p.y + 'px';
     el.dataset.id = id;
@@ -373,7 +421,7 @@
 
     const emo = DOC.createElement('div');
     emo.className = 'emo';
-    emo.textContent = isBoss ? '💎' : (isGold ? '⭐' : '🦠');
+    emo.textContent = isBoss ? '💎' : ((isGold || isRushGold) ? '⭐' : '🦠');
     el.appendChild(emo);
 
     if(isBoss){
@@ -393,14 +441,15 @@
     }
 
     const t = {
-      id, el, kind, isBoss, isGold,
+      id, el, kind,
+      isBoss, isGold, isRushGold,
       hp: hpMax, hpMax,
-      x: p.x, y: p.y,
       bornAt: nowMs(),
       expireAt: nowMs() + ttl,
       removed: false,
       ttl,
-      phase2: false
+      phase2: false,
+      didTeleport: false,
     };
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -453,6 +502,7 @@
       state.feverOn = true;
       state.feverGauge = 100;
       showToast('FEVER ON 🔥');
+      coachTip('fever', 'โหมด FEVER แล้ว! เน้น PERFECT ช่วงท้ายเป้า', { fever:true });
       clearTimeout(feverTimer);
       feverTimer = setTimeout(()=>{
         if(!state) return;
@@ -465,8 +515,9 @@
 
   function scoreMult(){
     let m = 1.0;
-    if(streak.on) m += 0.15 * clamp(streak.level, 1, 3); // small but noticeable
+    if(streak.on) m += 0.15 * clamp(streak.level, 1, 3);
     if(state.feverOn) m += 0.20;
+    if(goldRushUntilMs > nowMs()) m += 0.15;
     return m;
   }
 
@@ -494,12 +545,11 @@
     streak.level = on ? clamp(level || streak.level || 1, 1, 3) : 0;
     streak.untilMs = on ? (nowMs() + 4200) : 0;
 
-    // adjust spawn interval while streak changes
     if(streak.on !== was){
       if(streak.on){
         flashFx('flash');
         showToast(`STREAK x${streak.level} ⚡`);
-        // faster spawn
+        coachTip('streak', `คอมโบดีมาก! เข้า STREAK x${streak.level} แล้ว`, { streakLevel: streak.level });
         const f = 1 + 0.22 * streak.level;
         rescheduleSpawn(Math.round(cfg.spawnMs / f));
       }else{
@@ -511,21 +561,23 @@
   function tryEnterStreak(){
     if(!state || !state.started || state.ended) return;
     if(state.combo >= 10 && !streak.on){
-      // deterministic level from rng
       const r = rng();
       const lvl = (r < 0.20) ? 3 : (r < 0.60 ? 2 : 1);
       setStreak(true, lvl);
     }
-    // refresh streak duration while combo continues
-    if(streak.on){
-      streak.untilMs = nowMs() + 3600;
-    }
+    if(streak.on) streak.untilMs = nowMs() + 3600;
   }
 
   function breakStreak(){
     if(streak.on){
       setStreak(false, 0);
     }
+  }
+
+  function startGoldRush(){
+    goldRushUntilMs = nowMs() + 3000;
+    showToast('GOLD RUSH ✨');
+    coachTip('goldrush', 'GOLD RUSH! ช่วงนี้รีบยิงให้ไว คะแนน/clean จะพุ่ง', { goldRush:true });
   }
 
   function hitTargetCore(t, hitX, hitY){
@@ -535,34 +587,47 @@
     const rem = Math.max(0, t.expireAt - nowMs());
     const perfect = rem <= Math.min(420, t.ttl * 0.22);
 
-    if(t.isGold){
-      // GOLD: big reward
+    // GOLD / RUSH GOLD
+    if(t.isGold || t.isRushGold){
       state.hits++;
       state.combo++;
       state.maxCombo = Math.max(state.maxCombo, state.combo);
-      addScore(10, perfect, false, true);
-      addClean(cfg.cleanGain + 16);
-      gainFever(22);
-      removeTarget(t, 'gold-hit');
+
+      const big = t.isGold;
+      addScore(big ? 10 : 7, perfect, false, true);
+      addClean(cfg.cleanGain + (big ? 16 : 10));
+      gainFever(big ? 22 : 14);
+
+      removeTarget(t, big ? 'gold-hit' : 'rush-gold-hit');
       flashFx('shock');
-      showToast('GOLD! ⭐ +CLEAN');
+      showToast(big ? 'GOLD! ⭐ +CLEAN' : 'RUSH ⭐');
+
+      if(big) startGoldRush();
       tryEnterStreak();
       renderHud();
       checkEndConditions();
       return;
     }
 
+    // BOSS
     if(t.isBoss){
       const crit = bossWeakspotHit(t, hitX, hitY);
       const dmg = crit ? 2 : 1;
       t.hp = Math.max(0, t.hp - dmg);
 
-      // boss phase2 trigger (<=50%)
-      const phase2 = (t.hp > 0 && t.hp <= Math.ceil(t.hpMax * 0.5));
-      if(phase2 && !t.phase2){
+      const phase2Now = (t.hp > 0 && t.hp <= Math.ceil(t.hpMax * 0.5));
+      if(phase2Now && !t.phase2){
         t.phase2 = true;
         try{ t.el.classList.add('phase2'); }catch(_){}
         showToast('BOSS PHASE 2 ⚠');
+        coachTip('boss_p2', 'บอสเข้า PHASE 2 แล้ว! เล็ง weakspot ให้แม่น', { bossPhase:2 });
+
+        // ✅ teleport once on phase2
+        if(!t.didTeleport){
+          t.didTeleport = true;
+          teleportTarget(t);
+          coachTip('boss_tp', 'บอสวาร์ป! อย่าหลงจุด', { bossTeleport:true });
+        }
       }
 
       if(crit){
@@ -572,7 +637,7 @@
         }catch(_){}
       }
 
-      // in phase2, weakspot moves more aggressively each hit
+      // in phase2, weakspot jitter more
       if(t.phase2){
         jitterWeakspot(t.el, crit ? 26 : 20);
       }
@@ -596,19 +661,22 @@
       }
 
       tryEnterStreak();
-    }else{
-      state.hits++;
-      state.combo++;
-      state.maxCombo = Math.max(state.maxCombo, state.combo);
-      addScore(5, perfect, false, false);
-      addClean(cfg.cleanGain);
-      gainFever(8);
-      removeTarget(t, 'normal-hit');
-      flashFx(perfect ? 'flash' : 'laser');
-
-      tryEnterStreak();
+      renderHud();
+      checkEndConditions();
+      return;
     }
 
+    // NORMAL
+    state.hits++;
+    state.combo++;
+    state.maxCombo = Math.max(state.maxCombo, state.combo);
+    addScore(5, perfect, false, false);
+    addClean(cfg.cleanGain);
+    gainFever(8);
+    removeTarget(t, 'normal-hit');
+    flashFx(perfect ? 'flash' : 'laser');
+
+    tryEnterStreak();
     renderHud();
     checkEndConditions();
   }
@@ -643,6 +711,12 @@
     state.combo = 0;
     decayCleanOnMiss();
     breakStreak();
+
+    // coach: miss hint (rate-limited)
+    if(state.miss === 1 || (state.miss % 4 === 0)){
+      coachTip('miss', 'พลาดแล้ว! ลองยิงใกล้กึ่งกลางเป้ามากขึ้น หรือรอให้เป้าเข้าใกล้กากบาท', { miss: state.miss });
+    }
+
     renderHud();
   }
 
@@ -655,13 +729,18 @@
         state.combo = 0;
         decayCleanOnMiss();
         breakStreak();
+
+        // coach: expired hint
+        if(state.miss % 5 === 0){
+          coachTip('expire', 'เป้าหมดเวลา! พยายามจัดลำดับ: ยิงเป้าที่ใกล้หมดเวลาก่อน', { miss: state.miss });
+        }
+
         removeTarget(t, 'expire');
       }
     });
   }
 
   function scheduleNextGold(){
-    // deterministic-ish spacing, around 9-12 seconds, seeded by rng
     const base = 9800;
     const jitter = 2600 * rng();
     nextGoldAtMs = nowMs() + base + jitter;
@@ -679,13 +758,31 @@
     }
   }
 
+  function maybeSpawnRushGold(){
+    if(!state || !state.started || state.ended || state.paused) return;
+    if(TARGETS.size >= cfg.maxTargets) return;
+
+    if(goldRushUntilMs > nowMs()){
+      // chance to convert one spawn into rush-gold
+      const p = 0.38; // spicy but not too frequent
+      if(rng() < p){
+        makeTarget('rushgold');
+        return true;
+      }
+    }
+    return false;
+  }
+
   function maybeSpawn(){
     if(!state || !state.started || state.ended || state.paused) return;
 
-    // golden quest check
+    // golden scheduled
     maybeSpawnGold();
 
     if(TARGETS.size >= cfg.maxTargets) return;
+
+    // rush conversion
+    if(maybeSpawnRushGold()) return;
 
     const shouldBoss = (state.spawned > 0 && state.spawned % cfg.bossEvery === 0);
     makeTarget(shouldBoss ? 'boss' : 'normal');
@@ -725,14 +822,20 @@
 
     expireTargets();
 
-    // fever decay
     if(!state.feverOn && state.feverGauge > 0){
       state.feverGauge = Math.max(0, state.feverGauge - dt * 3.5);
     }
 
-    // streak timeout
     if(streak.on && nowMs() >= streak.untilMs){
       setStreak(false, 0);
+    }
+
+    // coach: late-game hint (once-ish)
+    if(state.timeLeft <= 10 && state.timeLeft >= 9.5){
+      const acc = state.shots > 0 ? (state.hits/state.shots) : 0;
+      if(state.cleanPct < 85){
+        coachTip('late', 'ใกล้หมดเวลา! เล็งเป้าที่ใกล้หมดเวลาก่อน + อย่าพลาด miss จะกิน clean', { timeLeft: state.timeLeft, clean: state.cleanPct, acc: Math.round(acc*100) });
+      }
     }
 
     renderHud();
@@ -757,7 +860,6 @@
     state.lastTickAt = Date.now();
     tickTimer = setInterval(tick, 100);
 
-    // dynamic
     spawnMsCurrent = cfg.spawnMs;
     spawnTimer = setInterval(maybeSpawn, spawnMsCurrent);
 
@@ -776,7 +878,6 @@
     const timeSpent = Math.max(0, cfg.time - state.timeLeft);
     const acc = state.shots > 0 ? Math.round((state.hits / state.shots) * 100) : 0;
     const grade = gradeFromScore(acc, state.cleanPct, timeSpent);
-
     const timeText = timeSpent.toFixed(1) + 's';
 
     let msg = '-';
@@ -858,10 +959,13 @@
     state.started = true;
     state.startAtMs = Date.now();
 
-    // reset fun schedulers
     streak.on = false; streak.level = 0; streak.untilMs = 0;
     nextGoldAtMs = 0;
+    goldRushUntilMs = 0;
     scheduleNextGold();
+
+    coach.nextAtMs = 0;
+    coach.lastKey = '';
 
     renderHud();
     setUiMode('play');
@@ -873,7 +977,8 @@
     maybeSpawn();
     showToast('เริ่มแปรง! 🪥');
 
-    emit('brush:start', { ts: Date.now(), seed: cfg.seed, diff: cfg.diff, view: cfg.view });
+    emit('brush:start', { ts: Date.now(), seed: cfg.seed, diff: cfg.diff, view: cfg.view, pid: cfg.pid });
+    coachTip('start', 'เริ่มแล้ว! ยิงเป้าให้ไวและอย่าพลาด miss (มันกิน clean)', {});
   }
 
   function retryGame(){
@@ -889,6 +994,7 @@
 
     streak.on = false; streak.level = 0; streak.untilMs = 0;
     nextGoldAtMs = 0;
+    goldRushUntilMs = 0;
 
     renderHud();
     setUiMode('menu');
@@ -904,11 +1010,11 @@
   }
 
   function showHow(){
-    showToast('ยิง/แตะ 🦠 | GOLD ⭐ +CLEAN | บอส 💎 มีจุดอ่อน + PHASE 2');
+    showToast('ยิง/แตะ 🦠 | GOLD ⭐ +CLEAN + GOLD RUSH ✨ | บอส 💎 PHASE 2 วาร์ป!');
   }
 
   function doRecenter(){
-    try{ emit('hha:recenter', { source:'brush' }); }catch(_){}
+    emit('hha:recenter', { source:'brush' });
     showToast('Recenter 🎯');
   }
 
@@ -1020,8 +1126,6 @@
       // debug
       WIN.__BRUSH_STATE__ = ()=> state;
       WIN.__BRUSH_CFG__ = cfg;
-      WIN.__brushStart = startGame;
-      WIN.__brushEnd = endGame;
 
     }catch(err){
       console.error('[BrushVR] init error', err);
