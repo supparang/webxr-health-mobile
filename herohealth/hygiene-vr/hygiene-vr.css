@@ -545,3 +545,102 @@ body.view-vr{
 body.hw-overlay-open{
   overflow: hidden;
 }
+/* ===== PATCH v20260223-scrollfix (append at end of hygiene-vr.css) =====
+FIX mobile/cVR: overlay scroll blocked by fixed HUD + VR UI buttons
+*/
+
+:root{
+  --vr-ui-bottom-clearance: 96px; /* room for ENTER VR / RECENTER */
+}
+
+/* Overlay should scroll vertically on mobile/cVR */
+.hw-overlay{
+  display: block !important; /* override previous grid */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-top: calc(14px + var(--sat));
+  padding-right: calc(14px + var(--sar));
+  padding-bottom: calc(14px + var(--sab));
+  padding-left: calc(14px + var(--sal));
+}
+
+/* spacer so first card isn't glued to top */
+.hw-overlay::before{
+  content:"";
+  display:block;
+  min-height: max(6px, calc(2px + var(--sat)));
+}
+
+/* centered card + bottom clearance so VR UI doesn't cover buttons */
+.hw-card{
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 0;
+  margin-bottom: calc(14px + var(--sab) + var(--vr-ui-bottom-clearance));
+}
+
+/* When overlay is open, disable gameplay hit interception */
+body.hw-overlay-open .hw-hud{
+  pointer-events: none !important;
+}
+body.hw-overlay-open .hw-stage,
+body.hw-overlay-open .hw-tgt{
+  pointer-events: none !important;
+}
+
+/* overlay interactive elements must still receive taps */
+.hw-overlay .hw-cta,
+.hw-overlay .hw-ghost,
+.hw-overlay .hw-reason,
+.hw-overlay .hw-rt,
+.hw-overlay .hw-zone{
+  pointer-events: auto;
+}
+
+/* Reduce accidental horizontal pan bounce */
+body.hw-overlay-open .hw-card,
+body.hw-overlay-open .hw-eval,
+body.hw-overlay-open .hw-create,
+body.hw-overlay-open .hw-pre{
+  touch-action: pan-y;
+}
+
+/* cVR uses shoot selection, no tap on zones */
+body.view-cvr .hw-zone{
+  pointer-events: none !important;
+}
+
+/* More clearance on phones (VR UI sits above bottom edge) */
+body.view-mobile{
+  --vr-ui-bottom-clearance: 112px;
+}
+body.view-cvr{
+  --vr-ui-bottom-clearance: 120px;
+}
+
+/* Short screens: compress overlay a bit so confirm buttons appear sooner */
+@media (max-height: 760px){
+  :root{ --hmH: 240px; }
+  body.view-mobile{ --hmH: 230px; }
+  body.view-cvr{ --hmH: 230px; }
+
+  .hw-card{ padding: 14px; }
+  .hw-eval, .hw-create{ padding: 10px; }
+  .hw-reason, .hw-rt{
+    min-height: 48px;
+    padding: 10px 12px;
+  }
+  .hw-pre{
+    max-height: min(28vh, 220px);
+  }
+}
+
+/* Optional: hide raw JSON box on very small screens to reduce scroll length */
+@media (max-width: 480px) and (max-height: 860px){
+  .hw-pre{
+    display: none;
+  }
+}
