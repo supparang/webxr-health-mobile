@@ -314,14 +314,11 @@
       pointer-events:auto;
     }
 
-    /* hide debug in research unless ?debug=1 */
     body.no-debug #debugPanel,
     body.no-debug #debugToggle{ display:none !important; }
 
-    /* ensure vr-ui bottom pills don't hide ours too much */
     #controls, #coachCard { position:relative; z-index:81; }
 
-    /* A-Frame canvas safety (if present) */
     a-scene, canvas.a-canvas{
       position:absolute !important;
       inset:0 !important;
@@ -331,17 +328,14 @@
 </head>
 <body>
   <div id="app">
-    <!-- optional world / aframe mount -->
     <div id="world" aria-hidden="true"></div>
 
-    <!-- fx overlays -->
     <div id="stormFx" aria-hidden="true"></div>
     <div id="bossFx" aria-hidden="true"></div>
 
     <!-- IMPORTANT spawn mount -->
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
-    <!-- paused -->
     <div id="hudPaused"><div class="inner">⏸️ Paused</div></div>
 
     <!-- top HUD -->
@@ -470,19 +464,20 @@
   <script type="module">
     import { boot as bootPlate } from './plate.safe.js';
 
-    // ---------------- helpers ----------------
     const $ = (s)=>document.querySelector(s);
     const U = new URL(location.href);
     const DEBUG = U.searchParams.get('debug') === '1';
+
     if(!DEBUG) document.body.classList.add('no-debug');
 
     const debugEl = $('#debugPanel');
     const debugBtn = $('#debugToggle');
     let debugOpen = !!DEBUG;
     if (debugEl) debugEl.style.display = debugOpen ? 'block' : 'none';
+
     debugBtn?.addEventListener('click', ()=>{
       debugOpen = !debugOpen;
-      debugEl.style.display = debugOpen ? 'block' : 'none';
+      if (debugEl) debugEl.style.display = debugOpen ? 'block' : 'none';
     });
 
     function dlog(...args){
@@ -512,13 +507,14 @@
       };
     }
 
-    // ---------------- coach / HUD event bridge ----------------
+    // coach / HUD bridge
     const coachMap = {
       happy: '../img/coach-happy.png',
       neutral: '../img/coach-neutral.png',
       sad: '../img/coach-sad.png',
       fever: '../img/coach-fever.png'
     };
+
     window.addEventListener('hha:coach', (e)=>{
       const d = e.detail || {};
       const mood = String(d.mood || 'neutral').toLowerCase();
@@ -535,7 +531,6 @@
 
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
-      // compat alias + optional HUD fields
       const feverPct = num(d.feverPct, 0);
       const shield   = num(d.shield, 0);
       const ff = $('#uiFeverFill'); if (ff) ff.style.width = `${clamp(feverPct,0,100)}%`;
@@ -543,9 +538,10 @@
       const sh = $('#uiShield');    if (sh) sh.textContent = String(Math.max(0, shield));
     }, { passive:true });
 
-    // ---------------- pause bridge hook (ไม่ชนกับ engine) ----------------
+    // pause bridge hook (ไม่ชนกับ engine)
     let paused = false;
     const btnPause = $('#btnPause');
+
     function setPauseBtn(){
       if (!btnPause) return;
       btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
@@ -559,7 +555,6 @@
       dlog('pause-btn', { paused });
     });
 
-    // sync back from engine state (if engine pauses elsewhere)
     window.addEventListener('hha:pause_state', (e)=>{
       const d = e.detail || {};
       paused = !!d.paused;
@@ -567,7 +562,7 @@
       dlog('pause-state', d);
     }, { passive:true });
 
-    // ---------------- debug: mount rect / target count ----------------
+    // debug helpers
     function mountRectInfo(el){
       if (!el) return null;
       const r = el.getBoundingClientRect();
@@ -590,14 +585,13 @@
       });
     }
 
-    // ---------------- z-index/layer sanity fixes ----------------
+    // z-index/layer sanity fixes
     function ensureLayerSanity(){
       const app = $('#app');
       const mount = $('#plate-layer');
       if (!app || !mount) return;
       const cs = getComputedStyle(mount);
 
-      // force valid mount dimensions if something collapses it
       if (cs.position === 'static') mount.style.position = 'absolute';
       if ((mount.offsetWidth|0) <= 0 || (mount.offsetHeight|0) <= 0){
         mount.style.inset = '0';
@@ -605,11 +599,9 @@
         mount.style.minHeight = '1px';
       }
 
-      // pointer events: layer none, targets auto
       mount.style.pointerEvents = 'none';
       mount.style.zIndex = '30';
 
-      // if other overlay accidentally blocks, keep hud above, world below
       $('#hudTop')?.style.setProperty('z-index', '80');
       $('#hudBottom')?.style.setProperty('z-index', '80');
 
@@ -622,7 +614,7 @@
       });
     }
 
-    // ---------------- fallback if #plate-layer still 0 ----------------
+    // fallback if #plate-layer still 0
     function ensureMountReadyOrFallback(){
       const mount = $('#plate-layer');
       if (!mount) throw new Error('missing #plate-layer');
@@ -630,7 +622,6 @@
       let r = mount.getBoundingClientRect();
       if (r.width > 8 && r.height > 8) return mount;
 
-      // fallback 1: force layout styles
       mount.style.position = 'absolute';
       mount.style.left = '0';
       mount.style.top = '0';
@@ -642,21 +633,19 @@
       mount.style.minHeight = '1px';
       mount.style.display = 'block';
 
-      // fallback 2: if parent is weird, attach to #app directly (already is in this file, but keep safe)
       const app = $('#app');
       if (app && mount.parentElement !== app){
         app.appendChild(mount);
       }
 
-      // fallback 3: trigger reflow
-      void mount.offsetHeight;
+      void mount.offsetHeight; // reflow
       r = mount.getBoundingClientRect();
 
       dlog('fallback-mount', { rect: mountRectInfo(mount) });
       return mount;
     }
 
-    // ---------------- boot after layout stable ----------------
+    // boot after layout stable
     let booted = false;
     let plateApi = null;
     let stableChecks = 0;
@@ -683,6 +672,7 @@
 
     async function bootWhenStable(){
       if (booted) return;
+
       ensureLayerSanity();
 
       dlog('boot:start', {
@@ -703,12 +693,12 @@
       });
 
       booted = true;
+
       dlog('boot:done', {
         mountAfter: mountRectInfo(mount),
         api: !!plateApi
       });
 
-      // debug poll target count (first few seconds)
       let n = 0;
       const poll = setInterval(()=>{
         n++;
@@ -717,14 +707,12 @@
       }, 500);
     }
 
-    // Run as soon as DOM ready + after fonts/layout settle
     if (document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded', ()=> bootWhenStable(), { once:true });
     } else {
       bootWhenStable();
     }
 
-    // Re-check mount after resize/orientation changes
     let resizeT = null;
     window.addEventListener('resize', ()=>{
       clearTimeout(resizeT);
@@ -741,7 +729,6 @@
       }, 180);
     }, { passive:true });
 
-    // ResizeObserver for mount diagnostics
     try{
       const ro = new ResizeObserver(()=>{
         logSpawnSnapshot('mount-resize');
@@ -752,7 +739,6 @@
       dlog('ResizeObserver unavailable', String(e));
     }
 
-    // Helpful debug hooks from mode-factory (if emitted)
     window.addEventListener('hha:spawn_debug', (e)=>{
       dlog('spawn_debug', e.detail || {});
     }, { passive:true });
