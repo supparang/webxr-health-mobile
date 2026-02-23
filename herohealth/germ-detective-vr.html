@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Redirecting… Germ Detective</title>
+  <meta http-equiv="refresh" content="0; url=/herohealth/germ-detective.html" />
+  <script>
+    (function(){
+      'use strict';
+      try{
+        const q = location.search || '';
+        // redirect ไป launcher โดยเก็บ query เดิมทั้งหมด
+        location.replace('/herohealth/germ-detective.html' + q);
+      }catch(e){
+        location.href = '/herohealth/germ-detective.html' + (location.search || '');
+      }
+    })();
+  </script>
+</head>
+<body>
+  กำลังพาไปหน้าใหม่… <a id="go" href="/herohealth/germ-detective.html">ไปต่อ</a>
+  <script>
+    document.getElementById('go').href = '/herohealth/germ-detective.html' + (location.search || '');
+  </script>
+</body>
+</html>
