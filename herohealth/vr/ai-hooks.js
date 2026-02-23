@@ -79,7 +79,7 @@ export function createAIHooks(cfg = {}) {
   function pushEvent(type, detail){
     const e = {
       ts: Date.now(),
-      t: +( (performance.now() - st.lastTick) / 1000 ).toFixed(3), // relative-ish; not strict
+      t: +( (performance.now() - st.lastTick) / 1000 ).toFixed(3),
       type,
       detail: detail || null
     };
@@ -117,14 +117,20 @@ export function createAIHooks(cfg = {}) {
       next5.push('💣 ระวัง Bomb');
       next5.push('💀 ระวัง Skull');
       next5.push('🛡️ เก็บ Shield');
+      next5.push('⭐ หา Star ลด MISS');
+      next5.push('🥦 เน้น Good');
     }else if(risk >= 0.38){
       next5.push('🍟 Junk โผล่ถี่ขึ้น');
       next5.push('⭐ หา Star ลด MISS');
       next5.push('🛡️ เตรียม Block');
+      next5.push('💎 Diamond โบนัส');
+      next5.push('🥦 เน้น Good');
     }else{
       next5.push('🥦 เน้น Good + Combo');
       next5.push('⭐ Star เป็นกันชน');
       next5.push('💎 Diamond โบนัส');
+      next5.push('🛡️ เก็บ Shield');
+      next5.push('🎯 ยิงให้ไว');
     }
 
     st.pred = {
