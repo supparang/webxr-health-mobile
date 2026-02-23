@@ -1,9 +1,11 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR Boot — STABILIZE PATCH v20260223b
-// ✅ Fix: start -> end overlay immediately
-// ✅ Fix: page scroll drifting during play on mobile
-// ✅ Fix: tapStart/menu/end overlay visibility sync
-// ✅ Safe with brush.safe.js exposing window.BrushVR.start/reset/showHow (optional)
+// BrushVR Boot — STABILIZE + HHA PATCH v20260223c
+// ✅ Fix: end overlay immediate (ignore premature end until started)
+// ✅ Fix: scroll drifting + touchmove/wheel prevention during play/end (mobile-like only)
+// ✅ Add: auto-start support (?autoStart=1 | ?start=1) for play flow
+// ✅ Add: Warmup Gate handshake passthrough -> dispatch brush:gate-handshake
+// ✅ Add: end overlay hub navigation helpers (hub param)
+// ✅ Safe with brush.safe.js exposing window.BrushVR.start/reset/showHow/togglePause (optional)
 
 (function(){
   'use strict';
@@ -15,20 +17,28 @@
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
     catch(_){ return def; }
   }
+  function byId(id){ return DOC.getElementById(id); }
 
   function isMobileLike(){
     const v = String(qs('view','') || DOC.body?.dataset?.view || '').toLowerCase();
-    return v === 'mobile' || v === 'cvr' || /android|iphone|ipad/i.test(navigator.userAgent || '');
+    return v === 'mobile' || v === 'cvr' || v === 'vr' || v === 'cardboard' || /android|iphone|ipad/i.test(navigator.userAgent || '');
+  }
+  function isVRLike(){
+    const v = String(qs('view','') || '').toLowerCase();
+    return v === 'vr' || v === 'cvr' || v === 'cardboard';
   }
 
-  function byId(id){ return DOC.getElementById(id); }
-
+  // -------- scroll lock (mobile only) --------
   let __scrollY = 0;
   function setScrollLock(lock){
+    // lock only on mobile-like to avoid breaking desktop scroll
+    if(!isMobileLike()) return;
+
     try{
       const html = DOC.documentElement;
       const body = DOC.body;
       if(!html || !body) return;
+
       if(lock){
         __scrollY = WIN.scrollY || WIN.pageYOffset || 0;
         html.dataset.brScroll = 'lock';
@@ -52,32 +62,31 @@
     }catch(_){}
   }
 
+  // -------- UI mode sync --------
   function setUiMode(mode){
     // mode: menu | play | end
     try{ DOC.documentElement.dataset.brUi = mode; }catch(_){}
     const menu = byId('br-menu');
-    const end = byId('br-end');
-    const tap = byId('tapStart');
+    const end  = byId('br-end');
+    const tap  = byId('tapStart');
 
     if(menu){
       const show = mode === 'menu';
       menu.style.display = show ? '' : 'none';
       menu.setAttribute('aria-hidden', show ? 'false' : 'true');
     }
+
     if(end){
-      if(mode === 'end'){
-        end.hidden = false;
-        end.style.display = '';
-      }else{
-        end.hidden = true;
-        end.style.display = 'none';
-      }
+      const show = mode === 'end';
+      end.hidden = !show;
+      end.style.display = show ? '' : 'none';
     }
+
     if(tap && mode !== 'menu'){
       tap.style.display = 'none';
     }
 
-    // lock scroll ตอนเล่น/สรุปผล
+    // lock scroll in play/end (mobile only)
     if(mode === 'play' || mode === 'end'){
       setScrollLock(true);
       try{ WIN.scrollTo(0,0); }catch(_){}
@@ -85,7 +94,7 @@
       setScrollLock(false);
     }
 
-    // ซ่อน VR UI ตอน menu/end
+    // hide VR UI outside play (if present)
     try{
       ['hha-vrui','hha-crosshair','hha-vrui-hint'].forEach((id)=>{
         const el = byId(id);
@@ -97,6 +106,7 @@
     }catch(_){}
   }
 
+  // -------- toast + fatal --------
   function toast(msg){
     const t = byId('toast');
     if(!t) return;
@@ -105,7 +115,6 @@
     clearTimeout(t.__tm);
     t.__tm = setTimeout(()=> t.classList.remove('show'), 1300);
   }
-
   function showFatal(msg){
     const box = byId('fatal');
     if(!box) return;
@@ -113,8 +122,10 @@
     box.classList.remove('br-hidden');
   }
 
+  // -------- prevent scroll during play/end (mobile only) --------
   function bindNoScrollWhilePlay(){
-    // กันปัดหน้าจอเลื่อนตอนเล่น
+    if(!isMobileLike()) return;
+
     DOC.addEventListener('touchmove', function(ev){
       const mode = DOC.documentElement?.dataset?.brUi || '';
       if(mode === 'play' || mode === 'end'){
@@ -131,8 +142,14 @@
 
     WIN.addEventListener('pagehide', ()=> setScrollLock(false), { passive:true });
     WIN.addEventListener('beforeunload', ()=> setScrollLock(false), { passive:true });
+
+    // if app goes background during play/end -> unlock to avoid stuck body fixed
+    WIN.addEventListener('visibilitychange', ()=>{
+      if(DOC.hidden) setScrollLock(false);
+    }, { passive:true });
   }
 
+  // -------- safe API calls --------
   function safeCall(fnName, ...args){
     try{
       const API = WIN.BrushVR || WIN.brushGame || WIN.BRUSH || {};
@@ -145,50 +162,121 @@
     return undefined;
   }
 
+  // -------- Warmup Gate Handshake -> dispatch to safe.js --------
+  function readGateHandshake(){
+    // gateSR/gateTier/gateAssist/gateSpeed/gateFocus/gateDiffHint etc.
+    // If present, dispatch once at boot so safe.js can consume.
+    try{
+      const sp = new URL(location.href).searchParams;
+      const gateSR = sp.get('gateSR');
+      const gateAssist = sp.get('gateAssist');
+      const gateSpeed = sp.get('gateSpeed');
+      const gateTier = sp.get('gateTier');
+      const gateFocus = sp.get('gateFocus');
+      const gateDiffHint = sp.get('gateDiffHint');
+
+      const has = (gateSR!=null) || (gateAssist!=null) || (gateSpeed!=null) || (gateTier!=null) || (gateDiffHint!=null);
+      if(!has) return null;
+
+      const hs = {
+        gateVer: sp.get('gateVer') || '',
+        gateSR: Number(gateSR || 0),
+        gateTier: String(gateTier || ''),
+        gateAssist: String(gateAssist || ''),
+        gateSpeed: Number(gateSpeed || 1),
+        gateFocus: String(gateFocus || ''),
+        gateDiffHint: Number(gateDiffHint || 0),
+        gateAcc: Number(sp.get('gateAcc') || 0),
+        gateHitRate: Number(sp.get('gateHitRate') || 0),
+        gateStreak: Number(sp.get('gateStreak') || 0),
+        gateSeed: String(sp.get('gateSeed') || ''),
+      };
+
+      // notify engine layer (safe.js) if it wants it
+      try{
+        WIN.dispatchEvent(new CustomEvent('brush:gate-handshake', { detail: hs }));
+      }catch(_){}
+
+      return hs;
+    }catch(_){}
+    return null;
+  }
+
+  // -------- state guard: prevent premature end overlay --------
+  let __startedOnce = false;
+  let __inPlay = false;
+  let __startToken = 0; // increases each start
+
   function resetBeforeStart(){
-    const end = byId('br-end');
+    const end  = byId('br-end');
     const menu = byId('br-menu');
-    const tap = byId('tapStart');
+    const tap  = byId('tapStart');
     if(end){ end.hidden = true; end.style.display = 'none'; }
     if(menu){ menu.style.display = 'none'; menu.setAttribute('aria-hidden','true'); }
     if(tap){ tap.style.display = 'none'; }
 
-    // event แจ้ง safe.js ว่าเริ่มรอบใหม่
+    // notify safe.js round reset
     try{
       WIN.dispatchEvent(new CustomEvent('brush:prestart-reset', { detail:{ ts: Date.now() } }));
     }catch(_){}
   }
 
   function startFlow(){
+    __startToken++;
+    const myToken = __startToken;
+
     resetBeforeStart();
     setUiMode('play');
+    __startedOnce = true;
+    __inPlay = true;
+
     try{ WIN.scrollTo(0,0); }catch(_){}
 
-    // เรียก engine start ถ้ามี
+    // call engine start
     const res = safeCall('start');
+
+    // if engine returns false -> back to menu
     if(res === false){
-      // ถ้า engine คืน false ให้กลับ menu
-      setUiMode('menu');
-      toast('เริ่มเกมไม่สำเร็จ');
-    }else{
-      toast('เริ่มเกม!');
+      __inPlay = false;
+      if(myToken === __startToken){
+        setUiMode('menu');
+        toast('เริ่มเกมไม่สำเร็จ');
+      }
+      return;
     }
+
+    toast('เริ่มเกม!');
+    // optional: notify start in case engine doesn’t
+    try{ WIN.dispatchEvent(new CustomEvent('brush:start', { detail:{ ts: Date.now(), source:'boot' } })); }catch(_){}
   }
 
   function retryFlow(){
+    __startToken++;
+    const myToken = __startToken;
+
     resetBeforeStart();
-    // เรียก reset ก่อน (ถ้ามี)
     safeCall('reset');
     setUiMode('play');
+    __startedOnce = true;
+    __inPlay = true;
+
     try{ WIN.scrollTo(0,0); }catch(_){}
+
     const res = safeCall('start');
     if(res === false){
-      setUiMode('menu');
-      toast('เริ่มใหม่ไม่สำเร็จ');
+      __inPlay = false;
+      if(myToken === __startToken){
+        setUiMode('menu');
+        toast('เริ่มใหม่ไม่สำเร็จ');
+      }
+      return;
     }
+    toast('เริ่มใหม่!');
+    try{ WIN.dispatchEvent(new CustomEvent('brush:start', { detail:{ ts: Date.now(), source:'boot-retry' } })); }catch(_){}
   }
 
   function openHow(){
+    // avoid alert inside VR (annoying in headset); use toast instead
     const how = [
       'วิธีเล่น BrushVR',
       '• แตะ/ยิง 🦠 ให้ทัน',
@@ -196,29 +284,47 @@
       '• บอส 💎 ต้องยิงหลายครั้ง (จุดอ่อนจะเด้ง)',
       '• โหมด cVR ยิงจากกากบาทกลางจอ'
     ].join('\n');
+
+    if(isVRLike()){
+      toast('How: แตะ/ยิง 🦠 ให้ทัน • บอส 💎 ต้องยิงหลายครั้ง');
+      return;
+    }
     alert(how);
   }
 
+  // -------- hub navigation helpers --------
+  function absUrlMaybe(url){
+    if(!url) return '';
+    try{ return new URL(url, location.href).toString(); }catch(_){ return url; }
+  }
+  function getHubUrl(){
+    return absUrlMaybe(qs('hub','../hub.html')) || '../hub.html';
+  }
+  function goHub(){
+    location.href = getHubUrl();
+  }
+
   function wireButtons(){
-    const btnStart = byId('btnStart');
-    const btnRetry = byId('btnRetry');
-    const btnPause = byId('btnPause');
-    const btnHow = byId('btnHow');
-    const btnRecenter = byId('btnRecenter');
-    const tapBtn = byId('tapBtn');
+    const btnStart   = byId('btnStart');
+    const btnRetry   = byId('btnRetry');
+    const btnPause   = byId('btnPause');
+    const btnHow     = byId('btnHow');
+    const btnRecenter= byId('btnRecenter');
+    const tapBtn     = byId('tapBtn');
+
+    const btnHubEnd  = byId('btnToHub');      // optional end overlay buttons
+    const btnContEnd = byId('btnContinue');   // optional
 
     if(btnStart) btnStart.addEventListener('click', startFlow, { passive:true });
     if(btnRetry) btnRetry.addEventListener('click', retryFlow, { passive:true });
 
     if(btnPause){
       btnPause.addEventListener('click', function(){
-        // toggle pause ผ่าน engine (ถ้ามี)
         const API = WIN.BrushVR || WIN.brushGame || WIN.BRUSH || {};
         if(typeof API.togglePause === 'function'){
           API.togglePause();
           return;
         }
-        // fallback: ยิง event ให้ safe.js ฟังเอง
         try{ WIN.dispatchEvent(new CustomEvent('brush:toggle-pause')); }catch(_){}
       }, { passive:true });
     }
@@ -237,18 +343,47 @@
 
     if(tapBtn){
       tapBtn.addEventListener('click', function(){
-        // ปลดล็อกเสียง/gesture แล้วเริ่มเกม
         const tap = byId('tapStart');
         if(tap) tap.style.display = 'none';
         startFlow();
       }, { passive:true });
     }
+
+    // optional end overlay nav
+    if(btnHubEnd) btnHubEnd.addEventListener('click', goHub, { passive:true });
+
+    if(btnContEnd){
+      btnContEnd.addEventListener('click', function(){
+        // If you want "continue" meaning "retry" for brush, do retry
+        // If you want pass-through to next (like warmup gate), support ?next
+        const next = absUrlMaybe(qs('next',''));
+        if(next){
+          location.replace(next);
+        }else{
+          retryFlow();
+        }
+      }, { passive:true });
+    }
   }
 
   function wireEngineEvents(){
-    // ✅ ให้ safe.js แจ้ง boot เมื่อเกมจบ -> เปิด end overlay
+    // engine -> end
     WIN.addEventListener('brush:end', function(ev){
-      const d = ev && ev.detail || {};
+      const d = (ev && ev.detail) || {};
+
+      // IMPORTANT: ignore premature end signals before we actually started a round
+      // (fixes "end overlay immediately" if safe.js fires end due to init/reset)
+      if(!__startedOnce || !__inPlay){
+        // keep end hidden; stay in menu
+        try{
+          const end = byId('br-end');
+          if(end){ end.hidden = true; end.style.display = 'none'; }
+        }catch(_){}
+        return;
+      }
+
+      __inPlay = false;
+
       const end = byId('br-end');
       if(end){
         end.hidden = false;
@@ -256,14 +391,12 @@
       }
       setUiMode('end');
 
-      // เติม note ถ้ามี
+      // note
       const endNote = byId('endNote');
       if(endNote && d.note) endNote.textContent = String(d.note);
 
-      // summary fields ถ้ามี detail
-      const map = {
-        sScore:'score', sMiss:'miss', sCombo:'maxCombo', sClean:'cleanPct', sTime:'timeText'
-      };
+      // summary fields
+      const map = { sScore:'score', sMiss:'miss', sCombo:'maxCombo', sClean:'cleanPct', sTime:'timeText' };
       Object.keys(map).forEach((id)=>{
         const el = byId(id);
         const k = map[id];
@@ -271,45 +404,73 @@
       });
       if(byId('sAcc') && d.accPct != null) byId('sAcc').textContent = String(d.accPct) + '%';
       if(byId('endGrade') && d.grade != null) byId('endGrade').textContent = String(d.grade);
+
     }, { passive:true });
 
-    // ✅ เริ่มรอบใหม่ -> ซ่อน end overlay แน่นอน
+    // engine -> start
     WIN.addEventListener('brush:start', function(){
       resetBeforeStart();
       setUiMode('play');
+      __startedOnce = true;
+      __inPlay = true;
     }, { passive:true });
 
-    // fallback: ถ้า safe.js dispatch ui mode
+    // engine -> ui override
     WIN.addEventListener('brush:ui', function(ev){
       const mode = ev && ev.detail && ev.detail.mode;
       if(mode === 'menu' || mode === 'play' || mode === 'end'){
+        if(mode === 'menu'){ __inPlay = false; }
+        if(mode === 'play'){ __startedOnce = true; __inPlay = true; }
         setUiMode(mode);
       }
     }, { passive:true });
   }
 
   function setupInitialView(){
-    // ค่าเริ่มต้น: เข้าหน้าเมนู
+    // default: menu
     setUiMode('menu');
 
-    // มือถือ + run=play แสดง tapStart
-    const tap = byId('tapStart');
-    const run = String(qs('run','play')).toLowerCase();
-    if(tap){
-      tap.style.display = (isMobileLike() && run === 'play') ? '' : 'none';
-    }
-
-    // ถ้าไม่มือถือ ให้โชว์เมนูปกติ
-    if(!isMobileLike() && tap){
-      tap.style.display = 'none';
-    }
-
-    // สำคัญ: ซ่อน end ทันที กัน state ค้างจาก markup/สคริปต์อื่น
+    // always hide end (avoid markup residue)
     const end = byId('br-end');
     if(end){
       end.hidden = true;
       end.style.display = 'none';
     }
+
+    // mobile-like + run=play => show tapStart overlay
+    const tap = byId('tapStart');
+    const run = String(qs('run','play')).toLowerCase();
+    if(tap){
+      tap.style.display = (isMobileLike() && run === 'play') ? '' : 'none';
+    }
+    if(!isMobileLike() && tap){
+      tap.style.display = 'none';
+    }
+
+    // reset guards
+    __startedOnce = false;
+    __inPlay = false;
+  }
+
+  function maybeAutoStart(){
+    // conditions:
+    // - run=play
+    // - autoStart=1 OR start=1
+    // - for mobile-like: if tapStart exists -> require user tap (don’t force)
+    const run = String(qs('run','play')).toLowerCase();
+    if(run !== 'play') return;
+
+    const auto = String(qs('autoStart','') || qs('start','') || '').trim();
+    if(auto !== '1' && auto.toLowerCase() !== 'true') return;
+
+    const tap = byId('tapStart');
+    if(isMobileLike() && tap){
+      // keep tapStart visible; user must tap for gesture/audio
+      return;
+    }
+
+    // desktop or no tapStart: safe to auto-start
+    startFlow();
   }
 
   function init(){
@@ -318,10 +479,19 @@
     wireEngineEvents();
     setupInitialView();
 
-    // debug hook (optional)
+    // warmup gate handshake (dispatch once at boot)
+    const hs = readGateHandshake();
+    if(hs){
+      // also expose for debug
+      WIN.__BR_GATE_HANDSHAKE__ = hs;
+    }
+
+    // optional debug hook
     WIN.BrushVRBoot = {
       setUiMode, setScrollLock, startFlow, retryFlow, resetBeforeStart
     };
+
+    maybeAutoStart();
   }
 
   if(DOC.readyState === 'loading'){
@@ -330,11 +500,12 @@
     init();
   }
 
-  // Global error panel (optional)
+  // global error
   WIN.addEventListener('error', function(ev){
     try{
       const msg = (ev && (ev.error && ev.error.stack || ev.message)) || 'Script error.';
       showFatal(msg);
     }catch(_){}
   });
+
 })();
