@@ -1,16 +1,18 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// FULL v20260223-missStd+endCompat+hudBreakdown+fxAntiFlashHard
+// GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH + AI HOOKS)
+// FULL v20260223-missStd+endCompat+hudBreakdown+aihooks
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FX: per-kind burst + tuned JUNK (BLOCK soft / HIT heavy) + 💣/💀 heavy pulse
 // ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared)
-// ✅ Anti-flash HARD: FX elements are appended hidden, forced-reflow, then animated (no (0,0) blink)
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 // ✅ MISS standard: miss = good expired + junk hit (unblocked); shield block not miss
 // ✅ HUD miss breakdown: "3 (G2/J1)" when width allows
 // ✅ End events compat: emits both 'hha:end' and 'hha:game-ended'
+// ✅ AI Hooks: prediction-only (research-safe), event stream, summary.ai pack
 
 'use strict';
+
+import { createAIHooks } from '../vr/ai-hooks.js';
 
 export function boot(payload = {}) {
   const ROOT = window;
@@ -42,7 +44,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT_FXANTIFLASHHARD';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT_AIHOOKS';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const isVR  = (view === 'vr');
@@ -158,6 +160,15 @@ export function boot(payload = {}) {
 
   const adaptiveOn = (runMode !== 'research');
 
+  // ---------------- AI hooks (prediction-only, research-safe) ----------------
+  const AI = createAIHooks({
+    game: 'goodjunk',
+    seed: String(seed),
+    runMode,
+    diff,
+    device: deviceLabel(view),
+  });
+
   // ---------------- coordinate helpers ----------------
   function layerRect(){
     try{
@@ -186,7 +197,7 @@ export function boot(payload = {}) {
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  // ---------------- FX HARDEN (anti-flash HARD) ----------------
+  // ---------------- FX HARDEN ----------------
   function ensureFxLayer(){
     try{
       let fx = DOC.getElementById('gj-fx');
@@ -202,8 +213,6 @@ export function boot(payload = {}) {
         fx.style.pointerEvents = 'none';
         fx.style.overflow = 'hidden';
         fx.style.zIndex = '140';
-        // contain/transform handled by CSS too; keep inline safe
-        fx.style.transform = 'translateZ(0)';
         LAYER_L.appendChild(fx);
       }
 
@@ -214,50 +223,32 @@ export function boot(payload = {}) {
     }
   }
 
-  // Append hidden -> reflow -> animate
-  function mountFx(el){
-    const fx = ensureFxLayer();
-    if(!fx) return null;
-
-    // IMPORTANT: start hidden & with final transform baseline
-    el.style.opacity = '0';
-    el.style.transform = 'translate(-50%,-50%) translateZ(0)';
-
-    fx.appendChild(el);
-
-    // Force a layout flush so the browser commits left/top/opacity/transform before animation kicks in
-    try{ el.getBoundingClientRect(); }catch(_){}
-
-    // Next frame: allow animation (class triggers animation in CSS)
-    requestAnimationFrame(()=>{ try{ el.classList.add('is-go'); }catch(_){ } });
-
-    return fx;
-  }
-
   function popBurst(kind, clientX, clientY, opts={}){
-    const { x, y } = toLayerLocal(clientX, clientY);
+    const fx = ensureFxLayer();
+    if(!fx) return;
 
+    const { x, y } = toLayerLocal(clientX, clientY);
     const el = DOC.createElement('div');
     el.className = `gj-fx gj-fx-${kind}`;
 
     const size = Number(opts.size || 90);
     const life = Number(opts.life || 340);
 
-    // Set final coords BEFORE append
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
     el.style.setProperty('--life', `${life}ms`);
 
-    mountFx(el);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+120));
+    fx.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+80));
   }
 
   function popShards(kind, clientX, clientY, opts={}){
-    const { x, y } = toLayerLocal(clientX, clientY);
+    const fx = ensureFxLayer();
+    if(!fx) return;
 
+    const { x, y } = toLayerLocal(clientX, clientY);
     const n = clamp(Number(opts.n||10), 4, 22);
     const spread = Number(opts.spread||90);
     const life = Number(opts.life||520);
@@ -286,23 +277,23 @@ export function boot(payload = {}) {
       wrap.appendChild(s);
     }
 
-    mountFx(wrap);
-
-    setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+200));
+    fx.appendChild(wrap);
+    setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+120));
   }
 
   function fxText(clientX, clientY, txt, cls=''){
-    const { x, y } = toLayerLocal(clientX, clientY);
+    const fx = ensureFxLayer();
+    if(!fx) return;
 
+    const { x, y } = toLayerLocal(clientX, clientY);
     const t = DOC.createElement('div');
     t.className = `gj-fx-text ${cls||''}`.trim();
     t.textContent = String(txt || '');
     t.style.left = `${Math.round(x)}px`;
     t.style.top  = `${Math.round(y)}px`;
+    fx.appendChild(t);
 
-    mountFx(t);
-
-    setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 740);
+    setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 640);
   }
 
   function bodyPulse(cls, ms=160){
@@ -426,6 +417,7 @@ export function boot(payload = {}) {
     combo: 0,
     comboMax: 0,
 
+    // MISS standard (split)
     miss: 0,
     missGoodExpired: 0,
     missJunkHit: 0,
@@ -796,6 +788,9 @@ export function boot(payload = {}) {
     if(elR && LAYER_R) LAYER_R.appendChild(elR);
 
     state.targets.set(id, tObj);
+
+    // AI hook
+    try { AI.onSpawn(kind, { id, lifeMs, size, x, y }); } catch(_){}
   }
 
   function removeTarget(tObj){
@@ -869,6 +864,9 @@ export function boot(payload = {}) {
     const px = meta.clientX ?? c.x;
     const py = meta.clientY ?? c.y;
 
+    // AI hook
+    try { AI.onHit(kind, { id: tObj.id, rtMs, via: meta?.via || 'tap' }); } catch(_){}
+
     if(kind==='good'){
       state.nHitGood++;
       addCombo();
@@ -906,7 +904,7 @@ export function boot(payload = {}) {
       }else{
         state.nHitJunk++;
         addFever(10);
-        addMissJunk(1);
+        addMissJunk(1); // ✅ MISS standard
         setScore(state.score + (DIFF.junkPenaltyScore||-10));
 
         fxByKind('junk', px, py, { blocked:false });
@@ -917,7 +915,7 @@ export function boot(payload = {}) {
     } else if(kind==='star'){
       resetCombo();
       addFever(-10);
-      reduceMiss(1);
+      reduceMiss(1); // ✅
 
       fxByKind('star', px, py);
       fxText(px, py, 'MISS -1', 't-star');
@@ -1032,12 +1030,15 @@ export function boot(payload = {}) {
       if(age >= tObj.lifeMs){
         tObj.hit = true;
 
+        // AI hook
+        try { AI.onExpire(tObj.kind, { id: tObj.id, ageMs: Math.round(age) }); } catch(_){}
+
         if(tObj.kind === 'good'){
           state.nExpireGood++;
           resetCombo();
           addFever(6);
 
-          addMissGood(1);
+          addMissGood(1); // ✅ MISS standard
 
           const c = centerOfTarget(tObj);
           popBurst('expire', c.x, c.y, { size: 92, life: 320 });
@@ -1131,7 +1132,7 @@ export function boot(payload = {}) {
         tObj.hit = true;
         state.nExpireGood++;
 
-        addMissGood(1);
+        addMissGood(1); // ✅ stomp counts as good expired
 
         const c = centerOfTarget(tObj);
         popBurst('stomp', c.x, c.y, { size: 120, life: 420 });
@@ -1294,6 +1295,7 @@ export function boot(payload = {}) {
       scoreFinal,
       comboMax,
 
+      // ✅ MISS breakdown
       missTotal: misses,
       missGoodExpired: state.missGoodExpired,
       missJunkHit: state.missJunkHit,
@@ -1308,8 +1310,20 @@ export function boot(payload = {}) {
       grade,
     };
 
+    // AI pack attach
+    try{
+      const aiPack = AI.onEnd(summary);
+      summary.ai = {
+        meta: aiPack.meta,
+        stats: aiPack.stats,
+        predictionLast: aiPack.predictionLast,
+        events: aiPack.events
+      };
+    }catch(_){}
+
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
+    // ✅ Emit main end (schema style)
     emit('hha:end', {
       projectTag: PROJECT_TAG,
       runMode,
@@ -1338,6 +1352,7 @@ export function boot(payload = {}) {
       summary,
     });
 
+    // ✅ Compat end event (html listener)
     emit('hha:game-ended', summary);
 
     showEndOverlay({ ...summary });
@@ -1380,6 +1395,18 @@ export function boot(payload = {}) {
     updateProgressUI();
     updateBossUI();
     recomputeQuest();
+
+    // AI tick -> emit prediction (HUD can subscribe)
+    try{
+      const pred = AI.onTick(dt, {
+        missGoodExpired: state.missGoodExpired,
+        missJunkHit: state.missJunkHit,
+        shield: state.shield,
+        fever: state.fever,
+        combo: state.combo
+      });
+      emit('hha:ai-prediction', pred);
+    }catch(_){}
 
     if(state.timeLeftSec <= 0){
       endGame('timeup');
