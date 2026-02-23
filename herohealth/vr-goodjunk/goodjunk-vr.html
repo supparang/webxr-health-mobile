@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload)
-FULL v20260223-run-wired-FIXPATH+END
+FULL v20260223-run-wired+endCompat+missBreakdown+progressShow
 -->
 <!doctype html>
 <html lang="th">
@@ -9,8 +9,8 @@ FULL v20260223-run-wired-FIXPATH+END
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- Core CSS (FIX: correct relative path within /vr-goodjunk/) -->
-  <link rel="stylesheet" href="./goodjunk-vr.css"/>
+  <!-- Core CSS (your file) -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
 
   <style>
     /* Minimal layout safety (keep if your CSS already has these) */
@@ -293,8 +293,8 @@ FULL v20260223-run-wired-FIXPATH+END
 </head>
 
 <body>
-  <!-- progress bar -->
-  <div class="gj-progress" aria-hidden="true">
+  <!-- progress bar (✅ show) -->
+  <div class="gj-progress" aria-hidden="false">
     <div id="gjProgressFill"></div>
   </div>
 
@@ -374,10 +374,15 @@ FULL v20260223-run-wired-FIXPATH+END
       <div class="end-title" id="endTitle">Completed</div>
       <div class="end-sub" id="endSub">—</div>
 
+      <!-- ✅ MISS breakdown -->
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+
+        <div class="end-item"><div class="k">MISS TOTAL</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">MISS (GOOD EXPIRE)</div><div class="v" id="endMissGood">0</div></div>
+
+        <div class="end-item"><div class="k">MISS (JUNK HIT)</div><div class="v" id="endMissJunk">0</div></div>
         <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
       </div>
 
@@ -389,13 +394,12 @@ FULL v20260223-run-wired-FIXPATH+END
     </div>
   </div>
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair hha:shoot) -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
   <!-- Boot -->
   <script type="module">
-    /* FIX: correct relative import within /vr-goodjunk/ */
-    import { boot } from './goodjunk.safe.js';
+    import { boot } from './vr-goodjunk/goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -414,6 +418,12 @@ FULL v20260223-run-wired-FIXPATH+END
       }catch(e){
         return '';
       }
+    }
+
+    function normalizeSummary(x){
+      if(!x) return null;
+      if(x.summary && typeof x.summary === 'object') return x.summary;
+      return x;
     }
 
     function buildGateCooldownUrl(nextUrl){
@@ -447,14 +457,14 @@ FULL v20260223-run-wired-FIXPATH+END
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
-      // keep essentials if missing
+      // preserve essentials if missing
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
         if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
       });
 
-      // attach log payload
+      // attach log payload (hub will queue it)
       const payload = {
         kind: 'hha_end',
         ts: Date.now(),
@@ -473,12 +483,16 @@ FULL v20260223-run-wired-FIXPATH+END
     }
 
     function handleEnd(summary){
+      // normalize (if passed as {summary:{...}})
+      const s = summary?.summary ? summary.summary : summary;
+      summary = s || {};
+
       const cooldown = String(qs('cooldown','0')||'0') === '1';
       const cdnext = String(qs('cdnext','')||'').trim();
 
+      // HUB url that already has ?log=
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const hubUrl = new URL(hub, location.href);
-
       const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
       const log = b64urlEncodeJson(payload);
       if(log) hubUrl.searchParams.set('log', log);
@@ -505,6 +519,7 @@ FULL v20260223-run-wired-FIXPATH+END
     let lastSummary = null;
 
     btnReplay?.addEventListener('click', ()=> location.reload());
+
     btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}));
 
     btnCopy?.addEventListener('click', async ()=>{
@@ -518,17 +533,19 @@ FULL v20260223-run-wired-FIXPATH+END
       }
     });
 
-    /* FIX: listen to correct event emitted by goodjunk.safe.js */
-    window.addEventListener('hha:end', (ev)=>{
-      lastSummary = ev?.detail || null;
-    });
+    // ✅ Listen end events (compat)
+    function captureSummary(ev){
+      lastSummary = normalizeSummary(ev?.detail || null);
+    }
+    window.addEventListener('hha:end', captureSummary);
+    window.addEventListener('hha:game-ended', captureSummary);
 
     // Show tiny info
     const uiView = document.getElementById('uiView');
     const uiRun = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
     if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
+    if(uiRun) uiRun.textContent = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
     // Start game
@@ -542,9 +559,6 @@ FULL v20260223-run-wired-FIXPATH+END
       phase: qs('phase', null),
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     });
-
-    // Optional auto-next (disabled)
-    // window.addEventListener('hha:end', (ev)=>{ setTimeout(()=>handleEnd(ev.detail||{}), 1200); });
   </script>
 </body>
 </html>
