@@ -1,10 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260219c (1+2+3 + end-overlay mobile scroll fix)
+// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260223-scrollfix (based on v20260219b)
 // ✅ (1) cVR: aim-select handmap zones via hha:shoot (end overlay)
 // ✅ (2) Heatmap 2D: risk per step -> zones; show + store in summary.analyze.heatmap2d
 // ✅ (3) Create routine 30s: pick 3 items + score + store in summary.create
 // ✅ FIX: “ตีแล้วไม่หาย” (is-dying + forced remove), TTL cleanup, watchdog
-// ✅ FIX: End overlay scroll/touch on mobile/cVR (setEndOverlayMode)
+// ✅ FIX: mobile/cVR end overlay scroll blocked (HUD/VR UI fixed buttons)
 // Exports: boot()
 'use strict';
 
@@ -124,27 +124,37 @@ export function boot(){
   const btnBack      = DOC.getElementById('btnBack');
   const btnBack2     = DOC.getElementById('btnBack2');
 
-  // ✅ end-overlay mode helper (mobile/cVR scroll/touch fix)
-  function setEndOverlayMode(on){
+  // ---- overlay scroll lock helpers (mobile/cVR) ----
+  function setOverlayOpen(on){
     try{
-      const v = !!on;
-      DOC.documentElement.classList.toggle('is-end-open', v);
-      DOC.body.classList.toggle('is-end-open', v);
+      DOC.body.classList.toggle('hw-overlay-open', !!on);
+      DOC.documentElement.classList.toggle('hw-overlay-open', !!on);
 
-      if (endOverlay){
-        endOverlay.style.pointerEvents = v ? 'auto' : 'none';
-        endOverlay.style.touchAction = v ? 'pan-y' : 'auto';
-        endOverlay.style.overscrollBehavior = v ? 'contain' : 'auto';
+      [startOverlay, endOverlay].forEach(ov=>{
+        if(!ov) return;
+        ov.style.pointerEvents = on ? 'auto' : 'none';
+      });
+
+      // lock background page scroll while allowing overlay scroll
+      if(on){
+        DOC.body.style.overflow = 'hidden';
+        DOC.documentElement.style.overflow = 'hidden';
+      }else{
+        DOC.body.style.overflow = '';
+        DOC.documentElement.style.overflow = '';
       }
 
-      try{
-        const card = endOverlay?.querySelector?.('.hw-card');
-        if (card){
-          card.style.webkitOverflowScrolling = v ? 'touch' : 'auto';
-          void card.offsetHeight; // force reflow
-        }
-      }catch{}
-    }catch{}
+      if(on){
+        try{ startOverlay && (startOverlay.scrollTop = 0); }catch{}
+        try{ endOverlay && (endOverlay.scrollTop = 0); }catch{}
+      }
+    }catch(e){}
+  }
+
+  function stopCreateTimer(){
+    try{ clearInterval(createState.t); }catch{}
+    createState.t = null;
+    createState.active = false;
   }
 
   // params
@@ -460,6 +470,8 @@ export function boot(){
 
     const {x,y,rect} = pickSpawnXY(radius);
 
+    // NOTE: stage is fixed fullscreen, but CSS uses vw/vh.
+    // keep legacy behavior for compatibility.
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
@@ -522,7 +534,7 @@ export function boot(){
     const lockPx = Number(d.lockPx||30);
 
     // If end overlay is open and evaluate is active -> select zones
-    if(endOverlay && endOverlay.style.display === 'grid' && evalState.active && !evalState.confirmed){
+    if(endOverlay && endOverlay.style.display !== 'none' && evalState.active && !evalState.confirmed){
       aimPickZone(lockPx);
       return;
     }
@@ -894,6 +906,7 @@ export function boot(){
   }
 
   function startGame(playSeconds){
+    stopCreateTimer();
     resetGame();
     running=true;
     tStartMs = nowMs();
@@ -905,7 +918,7 @@ export function boot(){
 
     startOverlay && (startOverlay.style.display = 'none');
     endOverlay && (endOverlay.style.display = 'none');
-    setEndOverlayMode(false); // ✅ important
+    setOverlayOpen(false);
 
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
     showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
@@ -955,10 +968,8 @@ export function boot(){
   function buildHandMapUI(heatmap2d){
     if(!handMap) return;
 
-    // clear
     handMap.innerHTML = '';
 
-    // create zones
     const byId = new Map((heatmap2d||[]).map(z=>[z.zoneId, z]));
     for(const z of ZONES){
       const hz = byId.get(z.id) || { heat:0, risk:0 };
@@ -972,7 +983,6 @@ export function boot(){
       const riskPct = Math.round((hz.risk||0)*100);
       btn.innerHTML = `<div class="zlab">${z.name}<span class="zmini">${riskPct}%</span></div>`;
 
-      // click pick (pc/mobile)
       btn.addEventListener('click', ()=>{
         if(view==='cvr') return; // cVR selects by shoot
         pickZone(z.id);
@@ -1031,7 +1041,6 @@ export function boot(){
     if(btnEvalConfirm) btnEvalConfirm.disabled = !ok;
   }
 
-  // cVR aim pick in end overlay
   function aimPickZone(lockPx){
     if(!handMap) return;
 
@@ -1039,7 +1048,6 @@ export function boot(){
     const cx = WIN.innerWidth/2;
     const cy = WIN.innerHeight/2;
 
-    // if crosshair isn't inside map box, do nothing (prevents accidental pick)
     if(cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
 
     let best=null, bestDist=1e9;
@@ -1077,12 +1085,9 @@ export function boot(){
     const pickedName = (ZONES.find(z=>z.id===picked)?.name) || picked || '—';
     if(evalScore) evalScore.textContent = evalScoreText(match, pickedName);
 
-    // lock UI
     if(btnEvalConfirm) btnEvalConfirm.disabled = true;
 
     showBanner(match ? '✅ Evaluate: คุณชี้จุดเสี่ยงได้ถูกต้อง!' : '🧠 Evaluate: ดีมาก! ลองดูจุดเสี่ยงที่วงกระพริบด้วยนะ');
-
-    // move to Create
     openCreate30s();
   }
 
@@ -1100,7 +1105,6 @@ export function boot(){
     createState.score = null;
     createState.left = 30;
 
-    // reset routine UI
     if(routineOpts){
       const btns = [...routineOpts.querySelectorAll('.hw-rt')];
       btns.forEach(b=>b.classList.remove('is-picked'));
@@ -1109,7 +1113,6 @@ export function boot(){
     if(createScore) createScore.textContent = 'คะแนน: —';
     if(btnCreateConfirm) btnCreateConfirm.disabled = true;
 
-    // timer
     clearInterval(createState.t);
     if(createTimerEl) createTimerEl.textContent = String(createState.left);
 
@@ -1119,10 +1122,14 @@ export function boot(){
       if(createTimerEl) createTimerEl.textContent = String(createState.left);
       if(createState.left <= 0){
         clearInterval(createState.t);
-        // auto-confirm if not confirmed
         if(!createState.score) finalizeCreate(true);
       }
     }, 1000);
+
+    // ensure user can scroll to create area immediately on mobile
+    try{
+      createBox.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }catch{}
   }
 
   function toggleRoutineItem(text){
@@ -1139,7 +1146,6 @@ export function boot(){
       createState.picked.push(text);
     }
 
-    // update UI states
     if(routineOpts){
       const btns = [...routineOpts.querySelectorAll('.hw-rt')];
       for(const b of btns){
@@ -1154,7 +1160,6 @@ export function boot(){
   }
 
   function scoreRoutine(picked){
-    // simple rubric: must include core 3 for grade5 habit
     const core = [
       'ก่อนกินอาหาร/ขนม',
       'หลังเข้าห้องน้ำ',
@@ -1163,7 +1168,6 @@ export function boot(){
     let coreHit = 0;
     for(const c of core) if(picked.includes(c)) coreHit++;
 
-    // score 0..100
     const score = coreHit===3 ? 95 : (coreHit===2 ? 78 : (coreHit===1 ? 60 : 45));
     const label = coreHit===3 ? 'ยอดเยี่ยม' : (coreHit===2 ? 'ดี' : (coreHit===1 ? 'พอใช้' : 'ควรปรับ'));
     const tip = coreHit===3 ? 'ครบ 3 ช่วงสำคัญ! โอกาสป่วยลดลงชัด' :
@@ -1181,7 +1185,6 @@ export function boot(){
     clearInterval(createState.t);
 
     const picked = createState.picked.slice(0,3);
-    // if user didn’t pick 3 (auto) -> fill with top core
     if(picked.length < 3){
       const fill = [
         'ก่อนกินอาหาร/ขนม',
@@ -1211,7 +1214,6 @@ export function boot(){
     if(createScore) createScore.textContent = `คะแนน: ${sc.score}/100 (${sc.label}) • core=${sc.coreHit}/3`;
     showBanner(auto ? '⏱️ หมดเวลา! ระบบสรุป routine ให้อัตโนมัติ' : '✅ Create: บันทึก routine แล้ว');
 
-    // write into endSummary + endJson
     if(endSummary){
       endSummary.create = {
         routine: picked,
@@ -1257,11 +1259,10 @@ export function boot(){
 
     const sessionId = `HW-${Date.now()}-${Math.floor(rng()*1e6)}`;
 
-    // build heatmap2d
     const hm2 = calcHeatmap2D();
 
     const summary = {
-      version:'20260219c',
+      version:'20260223-scrollfix',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -1317,21 +1318,21 @@ export function boot(){
 
     emit('hha:end', summary);
 
-    // open end overlay
     endSummary = JSON.parse(JSON.stringify(Object.assign({grade}, summary)));
 
     if(endTitle) endTitle.textContent = (reason==='fail') ? 'จบเกม ❌ (Miss เต็ม)' : 'จบเกม ✅';
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
-    if(endOverlay) endOverlay.style.display = 'grid';
-    setEndOverlayMode(true); // ✅ important
 
-    // init Evaluate/Create UI
+    if(endOverlay) endOverlay.style.display = 'block';
+    setOverlayOpen(true);
+    try{ endOverlay && (endOverlay.scrollTop = 0); }catch{}
+    try{ endOverlay && endOverlay.scrollTo({ top:0, behavior:'auto' }); }catch{}
+
     initEndFlow();
   }
 
   function initEndFlow(){
-    // Evaluate defaults
     evalState.active = true;
     evalState.confirmed = false;
     evalState.pickedZone = null;
@@ -1340,29 +1341,24 @@ export function boot(){
     const topRisk = endSummary?.analyze?.topRiskZone || null;
     evalState.topRiskZone = topRisk;
 
-    // hint text
     if(evalHint){
       evalHint.textContent = (view==='cvr')
         ? 'โหมด cVR: เล็ง crosshair ไปที่วงกลม แล้ว “ยิง” เพื่อเลือก'
         : 'แตะวงกลมเพื่อเลือก';
     }
 
-    // build map + heat + pulse top risk
     buildHandMapUI(endSummary?.analyze?.heatmap2d || []);
     setTopRiskPulse(topRisk);
 
-    // reset labels
     if(evalPicked) evalPicked.textContent = 'เลือก: —';
     if(evalScore) evalScore.textContent = 'ผลประเมิน: —';
     if(btnEvalConfirm) btnEvalConfirm.disabled = true;
 
-    // reset reasons UI
     if(evalReasons){
       const btns = [...evalReasons.querySelectorAll('.hw-reason')];
       btns.forEach(b=>b.classList.remove('is-picked'));
     }
 
-    // hide create until eval confirm/skip
     if(createBox) createBox.style.display = 'none';
     createState.active = false;
     clearInterval(createState.t);
@@ -1372,31 +1368,18 @@ export function boot(){
 
   // ---------------- Hub nav ----------------
   function goHub(){
+    stopCreateTimer();
     try{
-      setEndOverlayMode(false);
       if(hub) location.href = hub;
       else location.href = '../hub.html';
     }catch{}
   }
 
   // ---------------- UI binds ----------------
-  btnStart?.addEventListener('click', ()=>{
-    setEndOverlayMode(false);
-    startGame();
-  }, { passive:true });
-
-  btnPractice?.addEventListener('click', ()=>{
-    setEndOverlayMode(false);
-    startGame(15);
-  }, { passive:true });
-
+  btnStart?.addEventListener('click', ()=>startGame(), { passive:true });
+  btnPractice?.addEventListener('click', ()=>startGame(15), { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
-
-  btnPlayAgain?.addEventListener('click', ()=>{
-    setEndOverlayMode(false);
-    startGame();
-  }, { passive:true });
-
+  btnPlayAgain?.addEventListener('click', ()=>startGame(), { passive:true });
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
   btnBack?.addEventListener('click', goHub, { passive:true });
   btnBack2?.addEventListener('click', goHub, { passive:true });
@@ -1408,7 +1391,6 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // Evaluate binds
   evalReasons?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-reason')) return;
@@ -1418,7 +1400,6 @@ export function boot(){
 
   btnEvalConfirm?.addEventListener('click', ()=>{
     if(btnEvalConfirm.disabled) return;
-    // write evaluate into summary
     const picked = evalState.pickedZone;
     const reason = evalState.pickedReason;
     const top = evalState.topRiskZone;
@@ -1445,7 +1426,6 @@ export function boot(){
     skipEvaluate();
   }, { passive:true });
 
-  // Create binds
   routineOpts?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-rt')) return;
@@ -1457,7 +1437,6 @@ export function boot(){
     confirmCreate();
   }, { passive:true });
 
-  // auto-enable create confirm when 3 picked
   const mo = new MutationObserver(()=>{
     if(btnCreateConfirm){
       btnCreateConfirm.disabled = (createState.picked.length !== 3);
@@ -1465,10 +1444,8 @@ export function boot(){
   });
   try{ mo.observe(routineOpts||DOC.body, { subtree:true, attributes:true, attributeFilter:['class'] }); }catch{}
 
-  // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // badge popup
   WIN.addEventListener('hha:badge', (e)=>{
     const b = (e && e.detail) || {};
     if(fxOn && WIN.Particles && WIN.Particles.popText){
@@ -1477,7 +1454,7 @@ export function boot(){
     }
   });
 
-  // initial
-  setEndOverlayMode(false);
+  // initial (start overlay visible -> enable overlay mode)
   setHud();
+  setOverlayOpen(true);
 }
