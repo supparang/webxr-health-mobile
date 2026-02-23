@@ -6,9 +6,7 @@
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-
-  <!-- ✅ CSS -->
-  <link rel="stylesheet" href="./brush.css?v=20260219b"/>
+  <link rel="stylesheet" href="./brush.css?v=20260223p1"/>
 </head>
 <body data-view="pc">
   <!-- fatal -->
@@ -23,17 +21,17 @@
     </div>
   </div>
 
-  <!-- Minimal A-Frame scene for WebXR Enter VR reliability -->
+  <!-- Minimal A-Frame scene (safe) -->
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="colorManagement:true"
+    renderer="antialias:true; colorManagement:true"
     background="color: #060a12">
     <a-entity position="0 1.6 -2">
       <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
       <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
     </a-entity>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <a-entity camera="active:true" look-controls position="0 1.6 0"></a-entity>
   </a-scene>
 
   <div id="br-wrap" data-view="pc" data-state="menu">
@@ -42,7 +40,7 @@
       <div class="br-brand">
         <span class="br-pill">HeroHealth · Hygiene</span>
         <h1 class="br-title">BrushVR — Plaque Breaker</h1>
-        <p class="br-sub">แปรงคราบให้ทัน · ใกล้หมดเวลา = PERFECT · มีบอสคราบหนา 💎</p>
+        <p class="br-sub">แปรงคราบให้ทัน · ใกล้หมดเวลา = PERFECT · บอสมี “จุดอ่อน” 🎯</p>
       </div>
 
       <div class="br-ctx">
@@ -56,6 +54,7 @@
     <!-- STAGE -->
     <main class="br-stage" role="application" aria-label="BrushVR game">
       <div id="br-layer" class="br-layer" aria-label="play layer"></div>
+      <div id="br-fx" aria-hidden="true"></div>
 
       <!-- ACTIONS -->
       <div class="br-actions">
@@ -88,7 +87,7 @@
 
           <div class="br-mini">
             <div class="k">ตั้งค่า</div>
-            <div class="v">diff=<span id="mDiff">-</span> · time=<span id="mTime">-</span></div>
+            <div class="v">diff=<span id="mDiff">-</span> · time=<span id="mTime">-</span>s</div>
             <div class="k" style="margin-top:6px">cVR</div>
             <div class="v">โหมด view=cvr ยิงจากกากบาท (vr-ui)</div>
           </div>
@@ -101,7 +100,7 @@
       <div class="br-card">
         <div class="br-cardHead">
           <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
-          <div class="br-cardSub">แตะ/ยิง “🦠” ให้ทัน · บอส “💎” ต้องหลายครั้ง</div>
+          <div class="br-cardSub">แตะ/ยิง “🦠” ให้ทัน · บอส “💎” ต้องหลายครั้ง (จุดอ่อน = โบนัส)</div>
         </div>
 
         <div class="br-cardList">
@@ -118,7 +117,7 @@
     </div>
 
     <!-- END SUMMARY -->
-    <div id="br-end" class="br-end" hidden aria-hidden="true">
+    <div id="br-end" class="br-end" hidden>
       <div class="br-endCard">
         <div class="br-endHead">
           <div class="br-endTitle">สรุปผล</div>
@@ -146,18 +145,18 @@
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <!-- ✅ Required libs -->
+  <!-- Required libs -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ Optional fun boost -->
+  <!-- Optional fun boost -->
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
 
-  <!-- ✅ Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260219b"></script>
+  <!-- Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260223p1"></script>
 
-  <!-- ✅ Engine & Boot -->
-  <script src="./brush.safe.js?v=20260219b"></script>
-  <script src="./brush.boot.js?v=20260219b"></script>
+  <!-- Engine & Boot -->
+  <script src="./brush.safe.js?v=20260223p1"></script>
+  <script src="./brush.boot.js?v=20260223p1"></script>
 </body>
 </html>
