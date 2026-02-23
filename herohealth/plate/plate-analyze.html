@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate Analyze (Scenario)</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --line:rgba(148,163,184,.18);
+      --txt:#e5e7eb;
+      --mut:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --acc:#38bdf8;
+      --radius:18px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0; width:100%; height:100%; overflow:hidden;
+      background:
+        radial-gradient(1100px 800px at 8% 0%, rgba(56,189,248,.10), transparent 55%),
+        radial-gradient(1000px 700px at 92% 18%, rgba(34,197,94,.08), transparent 55%),
+        linear-gradient(180deg,#020617,#020617);
+      color:var(--txt);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    }
+    .app{
+      height:100%;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 16px 50px rgba(0,0,0,.25);
+    }
+    .top{
+      padding:10px 12px;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:var(--pill);
+      border:1px solid var(--line); background:rgba(15,23,42,.55);
+      font-weight:900; font-size:12px; white-space:nowrap;
+    }
+    .mut{ color:var(--mut); font-weight:900; }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      color:var(--txt);
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:999px;
+      padding:9px 12px;
+      font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+      box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.30); }
+    .btn.bad{ background:rgba(239,68,68,.10); border-color:rgba(239,68,68,.25); }
+    .btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+    .scenario{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:12px;
+    }
+    .scenario h2{
+      margin:0 0 6px; font-size:18px; line-height:1.2; font-weight:1200;
+    }
+    .scenario .desc{
+      color:var(--mut); font-weight:900; line-height:1.35; font-size:13px;
+    }
+    .box{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+    }
+    .box h3{
+      margin:0 0 8px; font-size:12px; font-weight:1100; color:rgba(229,231,235,.92);
+      letter-spacing:.2px;
+    }
+    .list{
+      display:flex; flex-wrap:wrap; gap:8px;
+    }
+    .tag{
+      display:inline-flex; align-items:center;
+      border:1px solid var(--line);
+      background:rgba(2,6,23,.45);
+      border-radius:999px;
+      padding:6px 9px;
+      font-weight:900; font-size:12px;
+    }
+
+    .main{
+      min-height:0;
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:10px;
+    }
+
+    .foodsWrap, .pickWrap{
+      min-height:0;
+      display:grid;
+      grid-template-rows:auto 1fr;
+    }
+    .sectionHead{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    }
+    .sectionHead .title{
+      font-weight:1100; font-size:14px;
+    }
+    .sectionBody{
+      min-height:0; overflow:auto;
+      padding:10px;
+    }
+
+    .foodGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px,1fr));
+      gap:10px;
+    }
+    .foodCard{
+      border:1px solid var(--line);
+      background:rgba(15,23,42,.50);
+      border-radius:14px;
+      padding:10px;
+      display:grid;
+      gap:6px;
+      cursor:pointer;
+      user-select:none;
+      transition:transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .foodCard:hover{ transform:translateY(-1px); }
+    .foodCard.selected{
+      border-color:rgba(56,189,248,.45);
+      background:rgba(56,189,248,.10);
+      box-shadow: inset 0 0 0 1px rgba(56,189,248,.22);
+    }
+    .foodTop{
+      display:flex; justify-content:space-between; gap:8px; align-items:flex-start;
+    }
+    .foodName{ font-weight:1100; line-height:1.2; }
+    .foodMeta{ color:var(--mut); font-weight:900; font-size:12px; }
+    .tiny{ font-size:11px; font-weight:900; color:var(--mut); }
+    .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+    .chip{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:11px;
+      font-weight:900;
+      background:rgba(2,6,23,.35);
+    }
+    .chip.bad{ border-color:rgba(239,68,68,.20); color:#fecaca; }
+    .chip.warn{ border-color:rgba(245,158,11,.22); color:#fde68a; }
+
+    .pickList{
+      display:grid; gap:8px;
+    }
+    .pickItem{
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(15,23,42,.45);
+      padding:8px 10px;
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+    }
+    .pickItem .name{ font-weight:1000; }
+    .pickItem .meta{ font-size:12px; color:var(--mut); font-weight:900; }
+    .pickEmpty{
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius:14px;
+      padding:12px;
+      color:var(--mut);
+      font-weight:900;
+      text-align:center;
+    }
+
+    .reasonArea{
+      padding:10px;
+      display:grid; gap:10px;
+    }
+    .reasonChips{
+      display:flex; flex-wrap:wrap; gap:8px;
+    }
+    .reasonChip{
+      border:1px solid var(--line);
+      background:rgba(15,23,42,.45);
+      color:var(--txt);
+      border-radius:999px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .reasonChip.active{
+      border-color:rgba(34,197,94,.35);
+      background:rgba(34,197,94,.10);
+    }
+    .reasonNote{
+      width:100%;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(2,6,23,.40);
+      color:var(--txt);
+      padding:10px 12px;
+      font: 900 13px/1.35 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+      resize:vertical;
+      min-height:64px;
+      max-height:140px;
+      outline:none;
+    }
+
+    .bottom{
+      padding:10px 12px;
+      display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center;
+    }
+
+    /* overlays */
+    .overlay{
+      position:fixed; inset:0; z-index:100;
+      display:none; place-items:center;
+      background:rgba(2,6,23,.56);
+      backdrop-filter: blur(9px);
+      padding:14px;
+    }
+    .overlay.show{ display:grid; }
+    .panel{
+      width:min(980px, 100%);
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:14px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.38);
+    }
+    .panel h3{ margin:0; font-size:18px; font-weight:1200; }
+    .grid2{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    .scoreBig{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      margin-top:10px;
+    }
+    .scoreBox{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(15,23,42,.52);
+      padding:10px 12px;
+      min-width:120px;
+    }
+    .scoreBox .k{ font-size:12px; color:var(--mut); font-weight:900; }
+    .scoreBox .v{ margin-top:4px; font-size:20px; font-weight:1200; }
+    .feedbackList{
+      display:grid; gap:8px; margin-top:10px;
+    }
+    .fb{
+      border:1px solid var(--line); border-radius:12px; padding:8px 10px;
+      background:rgba(15,23,42,.45); font-weight:900; font-size:13px;
+    }
+    .fb.good{ border-color:rgba(34,197,94,.25); }
+    .fb.bad{ border-color:rgba(239,68,68,.20); }
+
+    @media (max-width: 980px){
+      .scenario{ grid-template-columns:1fr; }
+      .main{ grid-template-columns:1fr; }
+      .grid2{ grid-template-columns:1fr; }
+      .foodGrid{ grid-template-columns: repeat(auto-fill, minmax(148px,1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- HUD TOP -->
+    <section class="card top">
+      <div class="row">
+        <span class="pill">🍽️ Plate Analyze</span>
+        <span class="pill">🎮 <span class="mut">Mode</span> <span id="uiRun">play</span></span>
+        <span class="pill">🧪 <span class="mut">Seed</span> <span id="uiSeed">0</span></span>
+        <span class="pill">📚 <span class="mut">Case</span> <span id="uiCaseIdx">1</span>/<span id="uiCaseTotal">1</span></span>
+        <span class="pill">🏆 <span class="mut">Scoreรวม</span> <span id="uiSessionScore">0</span></span>
+        <span class="pill">⭐ <span class="mut">Avg Grade</span> <span id="uiSessionGrade">-</span></span>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์ 🔗</button>
+        <button class="btn warn" id="btnRestart" type="button">เริ่มใหม่ ♻</button>
+        <button class="btn" id="btnBackHub" type="button">กลับ HUB 🏠</button>
+      </div>
+    </section>
+
+    <!-- SCENARIO -->
+    <section class="card scenario">
+      <div class="box">
+        <h3>📌 Scenario</h3>
+        <h2 id="scTitle">-</h2>
+        <div class="desc" id="scContext">-</div>
+        <div class="list" style="margin-top:10px" id="scGoalTags"></div>
+      </div>
+
+      <div class="box">
+        <h3>🧩 Constraints</h3>
+        <div class="list" id="scConstraints"></div>
+      </div>
+    </section>
+
+    <!-- MAIN -->
+    <section class="main">
+      <!-- foods -->
+      <section class="card foodsWrap">
+        <div class="sectionHead">
+          <div class="title">🥗 ตัวเลือกอาหาร</div>
+          <div class="row">
+            <span class="pill">Budget <span id="uiBudgetNow">0</span>/<span id="uiBudgetMax">-</span></span>
+            <span class="pill">Prep <span id="uiPrepNow">0</span>/<span id="uiPrepMax">-</span> min</span>
+            <span class="pill">เลือก <span id="uiPickCount">0</span></span>
+          </div>
+        </div>
+        <div class="sectionBody">
+          <div class="foodGrid" id="foodGrid"></div>
+        </div>
+      </section>
+
+      <!-- selected + reasons -->
+      <section class="card pickWrap">
+        <div class="sectionHead">
+          <div class="title">🍽️ จานที่เลือก</div>
+          <div class="row">
+            <button class="btn bad" id="btnClearPick" type="button">ล้างที่เลือก</button>
+          </div>
+        </div>
+        <div class="sectionBody">
+          <div class="pickList" id="pickList"></div>
+
+          <div class="reasonArea">
+            <div class="box">
+              <h3>📝 เลือกเหตุผล (ได้หลายข้อ)</h3>
+              <div class="reasonChips" id="reasonChips"></div>
+              <textarea id="reasonNote" class="reasonNote" placeholder="พิมพ์เหตุผลสั้น ๆ เพิ่มเติม (ไม่บังคับ) เช่น เลือกไข่+ข้าว+แตงกวาเพราะเตรียมเร็วและคุมงบได้"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- BOTTOM -->
+    <section class="card bottom">
+      <div class="row">
+        <span class="pill">💡 เป้าหมาย: เลือกอาหารให้ตรงโจทย์ + ให้เหตุผลสอดคล้อง</span>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnSubmit" type="button">ส่งคำตอบ ✅</button>
+        <button class="btn" id="btnNext" type="button" disabled>เคสถัดไป ▶</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- result overlay -->
+  <div class="overlay" id="resultOverlay">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <h3>🏁 ผลการประเมินเคสนี้</h3>
+          <div class="mut" style="margin-top:6px;font-size:13px" id="resScenarioLine">Scenario -</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnCloseResult" type="button">ปิด</button>
+          <button class="btn primary" id="btnNextFromResult" type="button">เคสถัดไป ▶</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="box">
+          <h3>คะแนน</h3>
+          <div class="scoreBig">
+            <div class="scoreBox"><div class="k">รวม</div><div class="v" id="rTotal">0</div></div>
+            <div class="scoreBox"><div class="k">เกรด</div><div class="v" id="rGrade">C</div></div>
+            <div class="scoreBox"><div class="k">Balance</div><div class="v" id="rBal">0</div></div>
+            <div class="scoreBox"><div class="k">Constraints+Goal</div><div class="v" id="rCG">0</div></div>
+            <div class="scoreBox"><div class="k">Reason</div><div class="v" id="rReason">0</div></div>
+          </div>
+
+          <div class="scoreBig" style="margin-top:12px">
+            <span class="pill">💸 งบ <span id="rBudget">0</span></span>
+            <span class="pill">⏱️ เวลาเตรียม <span id="rPrep">0</span> min</span>
+            <span class="pill">🍽️ หมู่ที่มี <span id="rGroups">0</span></span>
+          </div>
+        </div>
+
+        <div class="box">
+          <h3>Feedback</h3>
+          <div class="feedbackList" id="rStrengths"></div>
+          <div class="feedbackList" id="rIssues" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="box" style="margin-top:12px">
+        <h3>สรุปคำตอบของคุณ</h3>
+        <div class="mut" style="font-size:13px;margin-top:4px" id="rPickedLine">-</div>
+        <div class="mut" style="font-size:13px;margin-top:4px" id="rReasonLine">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- session summary overlay -->
+  <div class="overlay" id="sessionOverlay">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <h3>🎉 จบชุด Scenario</h3>
+          <div class="mut" style="margin-top:6px;font-size:13px">สรุปผลรอบนี้ (บันทึก localStorage แล้ว)</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnPlayAgainSet" type="button">เล่นชุดใหม่ ♻</button>
+          <button class="btn" id="btnBackHub2" type="button">กลับ HUB 🏠</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="box">
+          <h3>ภาพรวม</h3>
+          <div class="scoreBig">
+            <div class="scoreBox"><div class="k">เคสทั้งหมด</div><div class="v" id="ssCases">0</div></div>
+            <div class="scoreBox"><div class="k">คะแนนรวม</div><div class="v" id="ssScore">0</div></div>
+            <div class="scoreBox"><div class="k">เฉลี่ย/เคส</div><div class="v" id="ssAvg">0</div></div>
+            <div class="scoreBox"><div class="k">เกรดเฉลี่ย</div><div class="v" id="ssGrade">-</div></div>
+          </div>
+        </div>
+        <div class="box">
+          <h3>จุดที่ควรพัฒนา (รวม)</h3>
+          <div class="feedbackList" id="ssTips"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./plate-analyze.js"></script>
+</body>
+</html>
