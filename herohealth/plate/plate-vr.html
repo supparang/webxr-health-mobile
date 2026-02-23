@@ -1,338 +1,766 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Balanced Plate VR (RUN) — PRODUCTION v20260221b
-✅ HHA Standard + Start overlay + Pause overlay + Result overlay + Back HUB
-✅ PC/Mobile/cVR supported (view=cvr ยิงจาก crosshair ผ่าน vr-ui.js => hha:shoot)
-✅ Uses /herohealth/plate/plate.safe.js (module) with export boot({ mount, cfg })
-✅ FIX: safe-zone CSS vars renamed to --plate-* (mode-factory.js compatible)
-✅ FIX: pause bridge sends commands to plate.safe.js (engine pause/resume true pause)
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — Plate VR (Run)</title>
+  <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./plate-vr.css" />
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- FX + Logger + Universal VR UI + AI Hooks -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <!-- Optional logger / shared libs (safe if missing) -->
+  <script src="../api/hha-cloud-logger.js" defer></script>
   <script src="../vr/vr-ui.js" defer></script>
   <script src="../vr/ai-hooks.js" defer></script>
 
   <style>
     :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --radius:18px;
-      --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      /* ✅ FIX: mode-factory.js reads --plate-* safe vars */
-      --plate-top-safe: calc(150px + var(--sat));
-      --plate-bottom-safe: calc(150px + var(--sab));
-      --plate-left-safe: calc(8px + var(--sal));
-      --plate-right-safe: calc(8px + var(--sar));
+      --hud-top: calc(var(--sat) + 10px);
+      --hud-bottom: calc(var(--sab) + 12px);
+
+      --panel: rgba(2,6,23,.78);
+      --panel2: rgba(2,6,23,.64);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.96);
+      --mut: rgba(148,163,184,.95);
+      --good: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
+      --bad: rgba(239,68,68,.95);
+      --accent: rgba(99,102,241,.95);
+      --radius: 16px;
     }
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; width:100%;
-      overflow:hidden;
-      background:var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      margin:0; height:100%; overflow:hidden;
+      background:#020617; color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
     }
-    a-scene{ position:fixed; inset:0; z-index:0; }
 
-    .bg{
-      position:fixed; inset:0; z-index:1;
+    body{
       background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+        radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
+        radial-gradient(900px 700px at 95% 20%, rgba(99,102,241,.12), transparent 60%),
+        linear-gradient(180deg, #020617, #020b1b);
+    }
+
+    #app{
+      position:fixed; inset:0;
+      overflow:hidden;
+    }
+
+    /* World layer */
+    #world{
+      position:absolute; inset:0;
+      z-index:0;
       pointer-events:none;
     }
 
-    .stage{
-      position:fixed; inset:0; z-index:2;
-      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-    }
-
+    /* plate spawn layer (IMPORTANT) */
     #plate-layer{
-      position:fixed; inset:0;
-      z-index:10;
-      pointer-events:auto;
-      touch-action:none;
+      position:absolute;
+      inset:0;
+      z-index:30;               /* above world */
+      pointer-events:none;      /* targets themselves re-enable pointer */
+      overflow:hidden;
+      transform: translateZ(0);
+      will-change: contents;
+      min-width: 1px;
+      min-height: 1px;
+    }
+
+    /* spawn targets styled by engine */
+    #plate-layer .plateTarget{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      width:56px; height:56px;
+      border-radius:999px;
+      background:rgba(15,23,42,.82);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 8px 20px rgba(2,6,23,.35);
+      font-size: 28px;
+      line-height:1;
       user-select:none;
+      pointer-events:auto;      /* IMPORTANT */
+      touch-action:manipulation;
+      transition: transform .08s ease, opacity .14s ease;
     }
-
-    #hitFx{
-      position:fixed; inset:0;
-      z-index:12;
-      pointer-events:none;
+    #plate-layer .plateTarget[data-kind="junk"]{
+      background:rgba(127,29,29,.55);
+      border-color: rgba(248,113,113,.25);
+      box-shadow: 0 8px 20px rgba(127,29,29,.18);
+    }
+    #plate-layer .plateTarget.hit{
+      transform: scale(.88);
+      opacity:.25;
+    }
+    #plate-layer .plateTarget.expire{
+      transform: scale(.78);
       opacity:0;
-      transition: opacity .12s ease;
     }
 
-    .hudTop{
-      position:fixed;
-      left:10px; right:10px;
-      top: calc(10px + var(--sat));
-      z-index:30;
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:flex-start;
+    /* HUD shell */
+    .hud{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      z-index:80; /* above plate-layer */
+      display:grid;
+      gap:8px;
       pointer-events:none;
+    }
+    #hudTop{ top:var(--hud-top); }
+    #hudBottom{
+      bottom:var(--hud-bottom);
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+
+    .row{
+      display:grid;
+      gap:8px;
+    }
+    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
+    .row.cols-2{ grid-template-columns: 1fr 1fr; }
+    @media (max-width: 780px){
+      .row.cols-3{ grid-template-columns: 1fr; }
+      .row.cols-2{ grid-template-columns: 1fr; }
     }
 
     .card{
-      pointer-events:auto;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
+      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+      border:1px solid var(--line);
+      border-radius: 18px;
       padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-      min-width: 220px;
+      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
     }
-    .card.small{ min-width: 180px; }
-    .t{ font-weight:1000; font-size:12px; color:rgba(229,231,235,.92); }
-    .v{ margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px;
-      border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.56);
-      font-weight:1000;
+    .card h4{
+      margin:0 0 8px 0;
       font-size:12px;
-      white-space:nowrap;
+      color:var(--mut);
+      font-weight:700;
+      letter-spacing:.2px;
     }
-    .muted{ color:var(--muted); font-weight:900; }
+
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:8px;
+    }
+    .stats.two{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .pill{
+      background: rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 999px;
+      min-height: 42px;
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; padding: 8px 10px;
+      font-weight:700;
+      font-size: 13px;
+    }
+    .pill .v{ font-size:15px; font-weight:800; }
 
     .bar{
-      width:160px;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.10);
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
       border:1px solid rgba(148,163,184,.14);
       overflow:hidden;
     }
-    .bar > i{ display:block; height:100%; width:0%; background:rgba(34,197,94,.85); }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(99,102,241,.9));
+      transition: width .18s ease;
+    }
 
-    #miniPanel, #coachPanel{
-      position:fixed;
-      left:10px; right:10px;
-      z-index:28;
+    #stormHud, #bossHud{
+      display:none;
+    }
+    #stormFx, #bossFx{
+      display:none;
+      position:absolute; inset:0; z-index:20;
+      pointer-events:none;
+      opacity:.16;
+    }
+    #stormFx.storm-on{
+      background:
+        radial-gradient(400px 250px at 20% 20%, rgba(56,189,248,.32), transparent 70%),
+        radial-gradient(500px 300px at 80% 30%, rgba(96,165,250,.22), transparent 70%);
+    }
+    #stormFx.storm-panic{ opacity:.26; }
+    #bossFx.boss-on{
+      background:
+        radial-gradient(420px 280px at 50% 20%, rgba(244,63,94,.28), transparent 70%),
+        radial-gradient(520px 320px at 50% 80%, rgba(239,68,68,.18), transparent 70%);
+    }
+    #bossFx.boss-panic{ opacity:.28; }
+
+    /* coach */
+    #coachBox{
+      display:grid;
+      grid-template-columns: 56px 1fr;
+      gap:10px;
+      align-items:center;
       pointer-events:none;
     }
-    #miniPanel{ top: calc(84px + var(--sat)); }
-    #coachPanel{ bottom: calc(72px + var(--sab)); }
+    #coachAvatar{
+      width:56px;height:56px;border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.75);
+      display:grid; place-items:center;
+      overflow:hidden;
+      font-size: 28px;
+    }
+    #coachAvatar img{
+      width:100%; height:100%; object-fit:cover;
+      display:block;
+    }
+    #coachName{ font-weight:800; font-size:13px; color:var(--mut); margin-bottom:2px; }
+    #coachMsg{ font-size:14px; font-weight:700; line-height:1.25; }
 
-    .questCard{
+    /* controls */
+    #controls{
+      display:flex; flex-wrap:wrap; gap:8px;
       pointer-events:auto;
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.26);
-      backdrop-filter: blur(10px);
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-    }
-    .questCol{ display:flex; flex-direction:column; gap:6px; min-width:220px; }
-    .questRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
-    .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
-
-    #hudBtns{
-      position:fixed;
-      right:10px;
-      bottom: calc(10px + var(--sab));
-      z-index:40;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      pointer-events:none;
     }
     .btn{
-      pointer-events:auto;
       appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:10px 12px;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color:rgba(229,231,235,.95);
-      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius: 999px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:800;
+      font-size:14px;
       cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
+      box-shadow: 0 6px 18px rgba(2,6,23,.22);
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
-    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
+    .btn.primary{
+      border-color: rgba(59,130,246,.35);
+      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.25);
+      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
 
-    #startOverlay, #hudPaused, #resultBackdrop{
-      position:fixed; inset:0;
-      z-index:70;
+    /* start overlay (kept for compatibility, but engine auto-starts) */
+    #startOverlay{
+      position:absolute; inset:0;
+      z-index:90;
       display:none;
       place-items:center;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
+      background: rgba(2,6,23,.28);
+      pointer-events:none; /* don't block if auto-start */
     }
-    .panelCard{
-      width:min(980px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+    #startCard{
+      width:min(92vw, 520px);
+      background: rgba(2,6,23,.78);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:14px;
+      pointer-events:auto;
+      box-shadow: 0 18px 40px rgba(2,6,23,.35);
     }
 
-    @media (max-width: 920px){
-      .card{ min-width: 170px; }
-      .bar{ width:140px; }
+    /* paused overlay */
+    #hudPaused{
+      position:absolute; inset:0;
+      z-index:85;
+      display:none;
+      place-items:center;
+      pointer-events:none;
+      background: rgba(2,6,23,.18);
+    }
+    #hudPaused .inner{
+      background: rgba(2,6,23,.74);
+      border:1px solid rgba(148,163,184,.2);
+      border-radius:16px;
+      padding:12px 16px;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    /* debug panel */
+    #debugPanel{
+      position:absolute;
+      right:max(8px, calc(var(--sar) + 8px));
+      bottom: calc(var(--hud-bottom) + 92px);
+      z-index:88;
+      width:min(92vw, 420px);
+      max-height:38vh;
+      overflow:auto;
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.2);
+      border-radius:12px;
+      padding:8px 10px;
+      color:#cbd5e1;
+      display:none;
+      pointer-events:auto;
+      white-space:pre-wrap;
+    }
+    #debugToggle{
+      position:absolute;
+      right:max(8px, calc(var(--sar) + 8px));
+      top: calc(var(--hud-top) + 4px);
+      z-index:89;
+      pointer-events:auto;
+    }
+
+    /* hide debug in research unless ?debug=1 */
+    body.no-debug #debugPanel,
+    body.no-debug #debugToggle{ display:none !important; }
+
+    /* ensure vr-ui bottom pills don't hide ours too much */
+    #controls, #coachCard { position:relative; z-index:81; }
+
+    /* A-Frame canvas safety (if present) */
+    a-scene, canvas.a-canvas{
+      position:absolute !important;
+      inset:0 !important;
+      z-index:1 !important;
     }
   </style>
-
-  <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
-  </script>
 </head>
-
 <body>
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
-    <a-entity id="rig" position="0 0 0">
-      <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
-    </a-entity>
-  </a-scene>
+  <div id="app">
+    <!-- optional world / aframe mount -->
+    <div id="world" aria-hidden="true"></div>
 
-  <div class="bg"></div>
+    <!-- fx overlays -->
+    <div id="stormFx" aria-hidden="true"></div>
+    <div id="bossFx" aria-hidden="true"></div>
 
-  <div class="stage">
+    <!-- IMPORTANT spawn mount -->
     <div id="plate-layer" aria-label="plate targets layer"></div>
-    <div id="hitFx"></div>
 
-    <!-- HUD TOP -->
-    <div class="hudTop" id="hudTop">
-      <div class="card">
-        <div class="t">คะแนน / คอมโบ / พลาด</div>
-        <div class="v">
-          <span class="pill">🏆 <span id="uiScore">0</span></span>
-          <span class="pill">🔥 <span id="uiCombo">0</span> (<span class="muted">max</span> <span id="uiComboMax">0</span>)</span>
-          <span class="pill">💥 <span id="uiMiss">0</span></span>
-        </div>
-      </div>
+    <!-- paused -->
+    <div id="hudPaused"><div class="inner">⏸️ Paused</div></div>
 
-      <div class="card small">
-        <div class="t">จาน 5 หมู่ / ความแม่นยำ / เกรด</div>
-        <div class="v">
-          <span class="pill">🍽️ <span id="uiPlateHave">0</span>/5</span>
-          <span class="pill">🎯 <span id="uiAcc">0%</span></span>
-          <span class="pill">🏅 <span id="uiGrade">C</span></span>
-        </div>
-      </div>
+    <!-- top HUD -->
+    <div id="hudTop" class="hud">
+      <button id="debugToggle" class="btn" type="button" style="padding:6px 10px;min-height:34px;">🐞 debug</button>
+      <div id="debugPanel">debug init…</div>
 
-      <div class="card small">
-        <div class="t">เวลา / Fever / Shield</div>
-        <div class="v">
-          <span class="pill">⏱️ <span id="uiTime">0</span>s</span>
-          <span class="pill">🛡️ <span id="uiShieldN">0</span></span>
-        </div>
-        <div class="v" style="margin-top:8px">
-          <span class="muted">FEVER</span>
-          <div class="bar" style="flex:1; min-width:140px">
-            <i id="uiFeverFill"></i>
+      <div class="row cols-3">
+        <div class="card">
+          <h4>คะแนน / คอมโบ / พลาด</h4>
+          <div class="stats">
+            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
           </div>
         </div>
+
+        <div class="card">
+          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
+          <div class="stats">
+            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+          </div>
+
+          <div style="height:8px"></div>
+          <div class="stats two">
+            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+              <span id="uiGoalTitle">เติมจานให้ครบ 5 หมู่</span>
+            </div>
+            <div class="pill" style="justify-content:center;">
+              <span id="uiGoalCount">0/5</span>
+            </div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bar"><i id="uiGoalFill"></i></div>
+        </div>
+
+        <div class="card">
+          <h4>เวลา / Fever / Shield</h4>
+          <div class="stats">
+            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+          </div>
+          <div style="height:8px"></div>
+          <div style="font-weight:800; margin-bottom:6px;">FEVER</div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="t">จำนวนที่เก็บได้ (5 หมู่)</div>
-        <div class="v">
-          <span class="pill">🥦 <span id="uiG1">0</span></span>
-          <span class="pill">🍎 <span id="uiG2">0</span></span>
-          <span class="pill">🐟 <span id="uiG3">0</span></span>
-          <span class="pill">🍚 <span id="uiG4">0</span></span>
-          <span class="pill">🥑 <span id="uiG5">0</span></span>
+      <div class="row cols-2">
+        <div class="card" id="stormHud">
+          <h4 id="stormTitle">🌪️ STORM</h4>
+          <div id="stormHint" style="font-weight:700;margin-bottom:6px;">...</div>
+          <div id="stormProg" class="pill" style="justify-content:flex-start;">...</div>
+        </div>
+        <div class="card" id="bossHud">
+          <h4 id="bossTitle">👹 BOSS</h4>
+          <div id="bossHint" style="font-weight:700;margin-bottom:6px;">...</div>
+          <div id="bossProg" class="pill" style="justify-content:flex-start;">...</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
+          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+            <div class="pill">🥦 <span id="uiG1" class="v">0</span></div>
+            <div class="pill">🍎 <span id="uiG2" class="v">0</span></div>
+            <div class="pill">🐟 <span id="uiG3" class="v">0</span></div>
+            <div class="pill">🍚 <span id="uiG4" class="v">0</span></div>
+            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          </div>
+          <div style="height:8px"></div>
+          <div class="stats two">
+            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+              <span id="uiMiniTitle">ความแม่นยำ</span>
+            </div>
+            <div class="pill" style="justify-content:center;">
+              <span id="uiMiniTime">--</span> • <span id="uiMiniCount">0/0</span>
+            </div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bar"><i id="uiMiniFill"></i></div>
         </div>
       </div>
     </div>
 
-    <!-- GOAL + MINI -->
-    <div id="miniPanel">
-      <div class="questCard">
-        <div class="questCol">
-          <div class="k">🎯 GOAL</div>
-          <div style="font-weight:1100" id="uiGoalTitle">—</div>
-          <div class="questRow">
-            <span class="pill"><span id="uiGoalCount">0/0</span></span>
-            <div class="bar" style="width:200px"><i id="uiGoalFill" style="width:0%"></i></div>
+    <!-- bottom HUD -->
+    <div id="hudBottom" class="hud">
+      <div id="coachCard" class="card">
+        <div id="coachBox">
+          <div id="coachAvatar" aria-hidden="true">
+            <img id="coachAvatarImg" src="../img/coach-neutral.png" alt="" onerror="this.style.display='none'; this.parentElement.textContent='🧑‍🏫';">
           </div>
-        </div>
-
-        <div class="questCol">
-          <div class="k">⚡ MINI</div>
-          <div style="font-weight:1100" id="uiMiniTitle">—</div>
-          <div class="questRow">
-            <span class="pill">⏳ <span id="uiMiniTime">--</span></span>
-            <span class="pill">✅ <span id="uiMiniCount">0/0</span></span>
-            <div class="bar" style="width:200px">
-              <i id="uiMiniFill" style="width:0%; background:rgba(245,158,11,.85)"></i>
+          <div>
+            <div id="coachName">👨‍🏫 Coach</div>
+            <div id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+            <div style="font-size:12px;color:var(--mut);margin-top:4px;">
+              ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="questCol" style="min-width:260px">
-          <div class="k">💡 Hint</div>
-          <div class="hint" id="uiHint">เติมจานให้ครบ 5 หมู่ แล้วคุมความแม่นยำ!</div>
-          <div class="hint" id="uiCvrHint" style="margin-top:6px">Cardboard: view=cvr ยิงจาก crosshair</div>
-        </div>
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnEnterVR" class="btn" type="button">🥽 ENTER VR</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+        <button id="btnStartMain" class="btn primary" type="button" style="display:none;">▶ เริ่ม</button>
       </div>
     </div>
 
-    <!-- COACH -->
-    <div id="coachPanel">
-      <div class="questCard" style="justify-content:space-between">
-        <div style="display:flex; gap:10px; align-items:center; min-width:260px;">
-          <img id="coachImg" src="../img/plate-neutral.png" alt="coach"
-               style="width:44px;height:44px;border-radius:14px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.50);object-fit:cover" />
-          <div>
-            <div class="k">🧑‍🏫 Coach</div>
-            <div id="coachMsg" style="font-weight:1100">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-          </div>
-        </div>
-        <div class="hint" style="text-align:right; max-width:360px">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
-        </div>
+    <!-- compatibility overlay/buttons used by plate.safe.js -->
+    <div id="startOverlay" aria-hidden="true">
+      <div id="startCard">
+        <div style="font-weight:800;font-size:18px;margin-bottom:8px;">Plate VR พร้อมเล่น</div>
+        <div style="color:#cbd5e1;margin-bottom:12px;">ถ้าไม่ auto-start ให้กดเริ่ม</div>
+        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
       </div>
     </div>
+  </div>
 
-    <!-- Buttons -->
-    <div id="hudBtns">
-      <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
-      <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
-      <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
-      <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
-    </div>
+  <script type="module">
+    import { boot as bootPlate } from './plate.safe.js';
+
+    // ---------------- helpers ----------------
+    const $ = (s)=>document.querySelector(s);
+    const U = new URL(location.href);
+    const DEBUG = U.searchParams.get('debug') === '1';
+    if(!DEBUG) document.body.classList.add('no-debug');
+
+    const debugEl = $('#debugPanel');
+    const debugBtn = $('#debugToggle');
+    let debugOpen = !!DEBUG;
+    if (debugEl) debugEl.style.display = debugOpen ? 'block' : 'none';
+    debugBtn?.addEventListener('click', ()=>{
+      debugOpen = !debugOpen;
+      debugEl.style.display = debugOpen ? 'block' : 'none';
+    });
+
+    function dlog(...args){
+      if(!debugEl) return;
+      const line = args.map(a=>{
+        if (typeof a === 'string') return a;
+        try { return JSON.stringify(a); } catch { return String(a); }
+      }).join(' ');
+      debugEl.textContent = `[${new Date().toLocaleTimeString()}] ${line}\n` + debugEl.textContent;
+    }
+
+    function num(v, fb=0){ v=Number(v); return Number.isFinite(v)?v:fb; }
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+    function parseCfg(){
+      const runQ = String(U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
+      const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+      const time = clamp(num(U.searchParams.get('time'), 90), 20, 9999);
+      const seedQ = U.searchParams.get('seed');
+      const isStudy = (runQ === 'study' || runQ === 'research');
+
+      return {
+        runMode: isStudy ? runQ : 'play',
+        diff: ['easy','normal','hard'].includes(diff) ? diff : 'normal',
+        seed: isStudy ? (num(seedQ, 13579) || 13579) : (seedQ!=null ? (num(seedQ, 13579) || 13579) : ((Date.now() ^ (Math.random()*1e9))|0)),
+        durationPlannedSec: time
+      };
+    }
+
+    // ---------------- coach / HUD event bridge ----------------
+    const coachMap = {
+      happy: '../img/coach-happy.png',
+      neutral: '../img/coach-neutral.png',
+      sad: '../img/coach-sad.png',
+      fever: '../img/coach-fever.png'
+    };
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail || {};
+      const mood = String(d.mood || 'neutral').toLowerCase();
+      const msg  = String(d.msg || '');
+      const img  = $('#coachAvatarImg');
+      const msgEl= $('#coachMsg');
+      if (msgEl && msg) msgEl.textContent = msg;
+      if (img){
+        img.style.display = '';
+        img.src = coachMap[mood] || coachMap.neutral;
+      }
+      dlog('coach', { mood, msg });
+    }, { passive:true });
+
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      // compat alias + optional HUD fields
+      const feverPct = num(d.feverPct, 0);
+      const shield   = num(d.shield, 0);
+      const ff = $('#uiFeverFill'); if (ff) ff.style.width = `${clamp(feverPct,0,100)}%`;
+      const fv = $('#uiFever');     if (fv) fv.textContent = `${Math.round(clamp(feverPct,0,100))}%`;
+      const sh = $('#uiShield');    if (sh) sh.textContent = String(Math.max(0, shield));
+    }, { passive:true });
+
+    // ---------------- pause bridge hook (ไม่ชนกับ engine) ----------------
+    let paused = false;
+    const btnPause = $('#btnPause');
+    function setPauseBtn(){
+      if (!btnPause) return;
+      btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    }
+    setPauseBtn();
+
+    btnPause?.addEventListener('click', ()=>{
+      paused = !paused;
+      setPauseBtn();
+      window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
+      dlog('pause-btn', { paused });
+    });
+
+    // sync back from engine state (if engine pauses elsewhere)
+    window.addEventListener('hha:pause_state', (e)=>{
+      const d = e.detail || {};
+      paused = !!d.paused;
+      setPauseBtn();
+      dlog('pause-state', d);
+    }, { passive:true });
+
+    // ---------------- debug: mount rect / target count ----------------
+    function mountRectInfo(el){
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.x), y: Math.round(r.y),
+        w: Math.round(r.width), h: Math.round(r.height),
+        top: Math.round(r.top), left: Math.round(r.left)
+      };
+    }
+    function targetCount(){
+      return document.querySelectorAll('#plate-layer .plateTarget').length;
+    }
+    function logSpawnSnapshot(tag='snap'){
+      const mount = $('#plate-layer');
+      dlog(tag, {
+        mount: mountRectInfo(mount),
+        targetCount: targetCount(),
+        app: mountRectInfo($('#app')),
+        viewport: { w: innerWidth, h: innerHeight }
+      });
+    }
+
+    // ---------------- z-index/layer sanity fixes ----------------
+    function ensureLayerSanity(){
+      const app = $('#app');
+      const mount = $('#plate-layer');
+      if (!app || !mount) return;
+      const cs = getComputedStyle(mount);
+
+      // force valid mount dimensions if something collapses it
+      if (cs.position === 'static') mount.style.position = 'absolute';
+      if ((mount.offsetWidth|0) <= 0 || (mount.offsetHeight|0) <= 0){
+        mount.style.inset = '0';
+        mount.style.minWidth = '1px';
+        mount.style.minHeight = '1px';
+      }
+
+      // pointer events: layer none, targets auto
+      mount.style.pointerEvents = 'none';
+      mount.style.zIndex = '30';
+
+      // if other overlay accidentally blocks, keep hud above, world below
+      $('#hudTop')?.style.setProperty('z-index', '80');
+      $('#hudBottom')?.style.setProperty('z-index', '80');
+
+      dlog('layer-sanity', {
+        plateLayerStyle: {
+          pos: getComputedStyle(mount).position,
+          z: getComputedStyle(mount).zIndex,
+          pe: getComputedStyle(mount).pointerEvents
+        }
+      });
+    }
+
+    // ---------------- fallback if #plate-layer still 0 ----------------
+    function ensureMountReadyOrFallback(){
+      const mount = $('#plate-layer');
+      if (!mount) throw new Error('missing #plate-layer');
+
+      let r = mount.getBoundingClientRect();
+      if (r.width > 8 && r.height > 8) return mount;
+
+      // fallback 1: force layout styles
+      mount.style.position = 'absolute';
+      mount.style.left = '0';
+      mount.style.top = '0';
+      mount.style.right = '0';
+      mount.style.bottom = '0';
+      mount.style.width = '100%';
+      mount.style.height = '100%';
+      mount.style.minWidth = '1px';
+      mount.style.minHeight = '1px';
+      mount.style.display = 'block';
+
+      // fallback 2: if parent is weird, attach to #app directly (already is in this file, but keep safe)
+      const app = $('#app');
+      if (app && mount.parentElement !== app){
+        app.appendChild(mount);
+      }
+
+      // fallback 3: trigger reflow
+      void mount.offsetHeight;
+      r = mount.getBoundingClientRect();
+
+      dlog('fallback-mount', { rect: mountRectInfo(mount) });
+      return mount;
+    }
+
+    // ---------------- boot after layout stable ----------------
+    let booted = false;
+    let plateApi = null;
+    let stableChecks = 0;
+
+    async function waitLayoutStable(maxFrames = 24){
+      let last = null;
+      for (let i=0; i<maxFrames; i++){
+        await new Promise(r=>requestAnimationFrame(r));
+        const m = $('#plate-layer');
+        const rect = m ? m.getBoundingClientRect() : { width:0, height:0 };
+        const snap = `${Math.round(rect.width)}x${Math.round(rect.height)}@${innerWidth}x${innerHeight}`;
+        if (snap === last){
+          stableChecks++;
+        } else {
+          stableChecks = 0;
+          last = snap;
+        }
+        if (rect.width > 8 && rect.height > 8 && stableChecks >= 2){
+          return true;
+        }
+      }
+      return false;
+    }
+
+    async function bootWhenStable(){
+      if (booted) return;
+      ensureLayerSanity();
+
+      dlog('boot:start', {
+        href: location.href,
+        cfg: parseCfg(),
+        mountBefore: mountRectInfo($('#plate-layer'))
+      });
+
+      const stable = await waitLayoutStable(28);
+      dlog('layout-stable?', stable, mountRectInfo($('#plate-layer')));
+
+      const mount = ensureMountReadyOrFallback();
+      logSpawnSnapshot('before-boot');
+
+      plateApi = bootPlate({
+        mount,
+        cfg: parseCfg()
+      });
+
+      booted = true;
+      dlog('boot:done', {
+        mountAfter: mountRectInfo(mount),
+        api: !!plateApi
+      });
+
+      // debug poll target count (first few seconds)
+      let n = 0;
+      const poll = setInterval(()=>{
+        n++;
+        logSpawnSnapshot(`poll#${n}`);
+        if (targetCount() > 0 || n >= 10) clearInterval(poll);
+      }, 500);
+    }
+
+    // Run as soon as DOM ready + after fonts/layout settle
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', ()=> bootWhenStable(), { once:true });
+    } else {
+      bootWhenStable();
+    }
+
+    // Re-check mount after resize/orientation changes
+    let resizeT = null;
+    window.addEventListener('resize', ()=>{
+      clearTimeout(resizeT);
+      resizeT = setTimeout(()=>{
+        ensureLayerSanity();
+        logSpawnSnapshot('resize');
+      }, 120);
+    }, { passive:true });
+
+    window.addEventListener('orientationchange', ()=>{
+      setTimeout(()=>{
+        ensureLayerSanity();
+        logSpawnSnapshot('orientation');
+      }, 180);
+    }, { passive:true });
+
+    // ResizeObserver for mount diagnostics
+    try{
+      const ro = new ResizeObserver(()=>{
+        logSpawnSnapshot('mount-resize');
+      });
+      const mount = $('#plate-layer');
+      if (mount) ro.observe(mount);
+    }catch(e){
+      dlog('ResizeObserver unavailable', String(e));
+    }
+
+    // Helpful debug hooks from mode-factory (if emitted)
+    window.addEventListener('hha:spawn_debug', (e)=>{
+      dlog('spawn_debug', e.detail || {});
+    }, { passive:true });
+
+    window.addEventListener('hha:judge', (e)=>{
+      const d = e.detail || {};
+      if (d.kind === 'shot_miss') dlog('judge shot_miss', d);
+    }, { passive:true });
+  </script>
+</body>
+</html>
