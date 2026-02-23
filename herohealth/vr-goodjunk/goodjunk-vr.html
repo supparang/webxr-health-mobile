@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload)
-FULL v20260223-run-wired+endBreakdown
+GoodJunkVR RUN — PRODUCTION (HUD + AI chip + AI coach bubble)
+FULL v20260223-html-aihud-coach
 -->
 <!doctype html>
 <html lang="th">
@@ -8,338 +8,125 @@ FULL v20260223-run-wired+endBreakdown
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
-
-  <!-- Core CSS (your file) -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
-
-  <style>
-    html,body{height:100%;margin:0;}
-    body{overflow:hidden;}
-
-    .gj-stage{ position:relative; width:100%; height:100%; }
-    #gj-layer, #gj-layer-r{
-      position:absolute; inset:0; overflow:hidden;
-      touch-action: manipulation;
-    }
-    #gj-layer-r{ display:none; }
-
-    .gj-hud{
-      position:fixed;
-      left:0; right:0; top:0;
-      z-index:120;
-      pointer-events:none;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
-      padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
-      padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
-    }
-    .gj-hud-row{
-      display:flex; gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
-    }
-    .gj-card{
-      pointer-events:none;
-      background: rgba(2,6,23,.68);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 14px;
-      padding: 10px 12px;
-      color: rgba(229,231,235,.95);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      box-shadow: 0 10px 30px rgba(0,0,0,.22);
-    }
-    .gj-stat{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800;
-      letter-spacing:.2px;
-    }
-    .gj-stat .k{opacity:.78;font-weight:700;}
-    .gj-stat .v{font-variant-numeric: tabular-nums;}
-
-    .gj-mini{
-      margin-top:8px;
-      display:flex; gap:10px; flex-wrap:wrap;
-      font-size: 13px;
-      opacity:.96;
-    }
-    .gj-mini .chip{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.42);
-      font-weight:800;
-    }
-
-    .gj-progress{
-      position:fixed;
-      left:0; right:0;
-      top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px;
-      z-index:130;
-      background: rgba(148,163,184,.10);
-    }
-    #gjProgressFill{
-      height:100%;
-      width:0%;
-      background: rgba(99,102,241,.95);
-      transition: width 120ms linear;
-    }
-
-    .gj-bars{
-      pointer-events:none;
-      margin-top:8px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
-    }
-    .gj-bar{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      font-size: 13px;
-    }
-    .gj-bar .track{
-      flex:1;
-      height: 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      overflow:hidden;
-    }
-    #feverFill{
-      height:100%;
-      width:0%;
-      background: rgba(251,191,36,.96);
-      transition: width 120ms linear;
-    }
-    #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
-    #shieldPills{ opacity:.98; }
-
-    #bossBar{
-      position:fixed;
-      left: 10px;
-      right: 10px;
-      top: calc(env(safe-area-inset-top, 0px) + 92px);
-      z-index:125;
-      pointer-events:none;
-    }
-    #bossBar[aria-hidden="true"]{ display:none; }
-    .boss-wrap{
-      border-radius: 14px;
-      border:1px solid rgba(244,63,94,.22);
-      background: rgba(2,6,23,.66);
-      padding: 10px 12px;
-      box-shadow: 0 10px 26px rgba(0,0,0,.25);
-      backdrop-filter: blur(10px);
-    }
-    .boss-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      letter-spacing:.2px;
-    }
-    .boss-track{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      overflow:hidden;
-    }
-    #bossFill{
-      height:100%;
-      width:0%;
-      background: rgba(244,63,94,.92);
-      transition: width 120ms linear;
-    }
-    #bossHint{
-      margin-top:8px;
-      font-size: 12px;
-      opacity:.92;
-      font-weight:800;
-    }
-
-    #lowTimeOverlay{
-      position:fixed;
-      inset:0;
-      z-index:200;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      pointer-events:none;
-      background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
-    }
-    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
-    .lowtime-pill{
-      font-weight:1000;
-      letter-spacing:.5px;
-      font-size: 64px;
-      color: rgba(255,255,255,.95);
-      text-shadow: 0 14px 48px rgba(0,0,0,.55);
-      border-radius: 999px;
-      padding: 18px 26px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-    }
-
-    #endOverlay{
-      position:fixed;
-      inset:0;
-      z-index:300;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 18px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    #endOverlay[aria-hidden="true"]{ display:none; }
-    .end-card{
-      width:min(680px, 94vw);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 16px;
-    }
-    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
-    .end-sub{
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      word-break: break-all;
-    }
-    .end-grid{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 10px;
-    }
-    .end-item{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight:900;
-    }
-    .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
-    .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-
-    .end-actions{
-      margin-top: 14px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-weight: 900;
-      cursor:pointer;
-    }
-    .btn:hover{ filter: brightness(1.05); }
-    .btn.primary{
-      border-color: rgba(99,102,241,.35);
-      background: rgba(99,102,241,.22);
-    }
-    .btn.danger{
-      border-color: rgba(244,63,94,.30);
-      background: rgba(244,63,94,.16);
-    }
-
-    @media (max-width: 520px){
-      .end-grid{ grid-template-columns: 1fr; }
-      .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
-      #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
-    }
-  </style>
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 </head>
-
 <body>
-  <div class="gj-progress" aria-hidden="true">
-    <div id="gjProgressFill"></div>
-  </div>
 
-  <div class="gj-hud" aria-hidden="false">
-    <div class="gj-hud-row">
-      <div class="gj-card" style="min-width:220px">
-        <div class="gj-stat">
-          <span class="k">SCORE</span> <span id="hud-score" class="v">0</span>
-          <span class="k">TIME</span> <span id="hud-time" class="v">0</span>
-          <span class="k">MISS</span> <span id="hud-miss" class="v">0</span>
-          <span class="k">GRADE</span> <span id="hud-grade" class="v">—</span>
-        </div>
+  <!-- LAYER (Left eye / main) -->
+  <div id="gj-layer" aria-label="GoodJunk layer"></div>
 
-        <div class="gj-bars">
-          <div class="gj-bar">
-            <span style="min-width:64px">FEVER</span>
-            <div class="track"><div id="feverFill"></div></div>
-            <span id="feverText">0%</span>
-          </div>
-          <div class="gj-bar">
-            <span style="min-width:64px">SHIELD</span>
-            <span id="shieldPills">—</span>
-          </div>
-        </div>
+  <!-- LAYER (Right eye for cVR only) -->
+  <div id="gj-layer-r" aria-hidden="true" style="display:none"></div>
 
-        <div class="gj-mini">
-          <span class="chip">🎯 <span id="hud-goal">—</span></span>
-          <span class="chip">🧮 <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></span>
-          <span class="chip">📝 <span id="goalDesc">—</span></span>
-        </div>
-
-        <div class="gj-mini">
-          <span class="chip">⚡ <span id="hud-mini">—</span></span>
-          <span class="chip">⏱ <span id="miniTimer">—</span></span>
-        </div>
+  <!-- HUD -->
+  <div id="hud" aria-label="HUD">
+    <div class="hud-top">
+      <div class="hud-pill">
+        <div class="hud-k">SCORE</div>
+        <div class="hud-v" id="hud-score">0</div>
       </div>
 
-      <div class="gj-card" style="min-width:140px; opacity:.92">
-        <div style="font-weight:1000">GOODJUNK</div>
-        <div style="margin-top:6px; font-size:12px; opacity:.9">
-          view=<span id="uiView">—</span><br/>
-          run=<span id="uiRun">—</span><br/>
-          diff=<span id="uiDiff">—</span>
+      <div class="hud-pill">
+        <div class="hud-k">TIME</div>
+        <div class="hud-v" id="hud-time">—</div>
+      </div>
+
+      <div class="hud-pill">
+        <div class="hud-k">MISS</div>
+        <div class="hud-v" id="hud-miss">0</div>
+      </div>
+
+      <div class="hud-pill">
+        <div class="hud-k">GRADE</div>
+        <div class="hud-v" id="hud-grade">—</div>
+      </div>
+    </div>
+
+    <div class="hud-mid">
+      <div class="hud-panel">
+        <div class="hud-row">
+          <div class="hud-k">GOAL</div>
+          <div class="hud-v" id="hud-goal">—</div>
+        </div>
+        <div class="hud-row">
+          <div class="hud-k">PROGRESS</div>
+          <div class="hud-v">
+            <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
+          </div>
+        </div>
+        <div class="hud-desc" id="goalDesc">—</div>
+      </div>
+
+      <div class="hud-panel">
+        <div class="hud-row">
+          <div class="hud-k">MINI</div>
+          <div class="hud-v" id="hud-mini">—</div>
+        </div>
+        <div class="hud-row">
+          <div class="hud-k">TIMER</div>
+          <div class="hud-v" id="miniTimer">—</div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div id="bossBar" aria-hidden="true">
-    <div class="boss-wrap">
-      <div class="boss-top">
-        <div style="font-weight:1000">👹 BOSS</div>
-        <div style="opacity:.92">HP</div>
+    <div class="hud-bot">
+      <div class="hud-meter">
+        <div class="hud-k">FEVER</div>
+        <div class="bar">
+          <div class="bar-fill" id="feverFill" style="width:0%"></div>
+        </div>
+        <div class="hud-v" id="feverText">0%</div>
       </div>
-      <div class="boss-track"><div id="bossFill"></div></div>
-      <div id="bossHint"></div>
+
+      <div class="hud-meter">
+        <div class="hud-k">SHIELD</div>
+        <div class="hud-v hud-shield" id="shieldPills">—</div>
+      </div>
+
+      <div class="hud-progress">
+        <div class="hud-progress-track">
+          <div class="hud-progress-fill" id="gjProgressFill" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boss bar -->
+    <div id="bossBar" aria-hidden="true">
+      <div class="boss-track"><div class="boss-fill" id="bossFill" style="width:0%"></div></div>
+      <div class="boss-hint" id="bossHint"></div>
     </div>
   </div>
 
+  <!-- LOW TIME overlay -->
   <div id="lowTimeOverlay" aria-hidden="true">
-    <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
+    <div class="lowtime-inner">
+      <div class="lowtime-k">LAST</div>
+      <div class="lowtime-v" id="gj-lowtime-num">5</div>
+      <div class="lowtime-k">SECONDS</div>
+    </div>
   </div>
 
-  <div class="gj-stage">
-    <div id="gj-layer" aria-label="GoodJunk layer"></div>
-    <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
+  <!-- =========================
+       AI HUD CHIP + AI COACH
+       ========================= -->
+  <div id="aiHud" aria-hidden="false">
+    <div id="aiRiskChip" class="ai-chip risk-low" role="status" aria-live="polite">
+      <span class="ai-badge">AI</span>
+      <span class="ai-label">Risk</span>
+      <span class="ai-value" id="aiRiskVal">0.00</span>
+      <span class="ai-sep">•</span>
+      <span class="ai-next" id="aiNextRow">Next: —</span>
+    </div>
+
+    <div id="aiCoachWrap" aria-hidden="true">
+      <div id="aiCoachBubble">
+        <div class="coach-title">AI Coach</div>
+        <div class="coach-msg" id="aiCoachMsg">—</div>
+      </div>
+    </div>
   </div>
 
-  <!-- End overlay -->
+  <!-- END overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
       <div class="end-title" id="endTitle">Completed</div>
@@ -348,162 +135,172 @@ FULL v20260223-run-wired+endBreakdown
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">MISS TOTAL</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">MISS (GOOD EXPIRE)</div><div class="v" id="endMissGood">0</div></div>
-        <div class="end-item"><div class="k">MISS (JUNK HIT)</div><div class="v" id="endMissJunk">0</div></div>
-        <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
+
+        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">GOOD MISS</div><div class="v" id="endMissGood">0</div></div>
+        <div class="end-item"><div class="k">JUNK MISS</div><div class="v" id="endMissJunk">0</div></div>
+
+        <div class="end-item"><div class="k">TIME</div><div class="v" id="endTime">0</div></div>
       </div>
 
-      <div class="end-actions">
-        <button class="btn" id="btnCopy">Copy Summary</button>
-        <button class="btn danger" id="btnReplay">Replay</button>
-        <button class="btn primary" id="btnBackHub">Back HUB</button>
-      </div>
+      <div class="end-note">ใช้ปุ่ม Back ที่ Hub เพื่อกลับหน้า HUB</div>
     </div>
   </div>
 
-  <!-- Universal VR UI -->
-  <script type="module" src="../vr/vr-ui.js"></script>
-
   <script type="module">
-    import { boot } from './vr-goodjunk/goodjunk.safe.js';
+    import { boot } from './goodjunk.safe.js';
 
-    const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
-    const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
+    // boot game
+    boot({});
 
-    function abs(url){
-      if(!url) return '';
-      try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
+    // =========================
+    // AI HUD + Coach wiring
+    // listens to `hha:ai-prediction` emitted by goodjunk.safe.js
+    // =========================
+    const $ = (s)=>document.querySelector(s);
+
+    const chip = $('#aiRiskChip');
+    const riskVal = $('#aiRiskVal');
+    const nextRow = $('#aiNextRow');
+
+    const coachWrap = $('#aiCoachWrap');
+    const coachMsg  = $('#aiCoachMsg');
+
+    let lastUIAt = 0;
+    let lastCoachAt = 0;
+    let lastShownTip = '';
+    let lastRisk = 0;
+    let lastMiss = 0;
+
+    const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+    const now = ()=> performance.now();
+
+    function getState(){
+      return window.__GJ_STATE__ || null;
     }
 
-    function b64urlEncodeJson(obj){
-      try{
-        const json = JSON.stringify(obj || {});
-        const b64 = btoa(unescape(encodeURIComponent(json)));
-        return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      }catch(e){
-        return '';
+    function riskClass(r){
+      if(r >= 0.66) return 'risk-high';
+      if(r >= 0.38) return 'risk-med';
+      return 'risk-low';
+    }
+
+    function fmtRisk(r){
+      const rr = clamp(Number(r)||0, 0, 1);
+      return rr.toFixed(2);
+    }
+
+    function pickTip(pred){
+      const st = getState();
+      const risk = clamp(pred?.hazardRisk ?? 0, 0, 1);
+
+      const missGood = st?.missGoodExpired|0;
+      const missJunk = st?.missJunkHit|0;
+      const miss = (missGood + missJunk)|0;
+      const shield = st?.shield|0;
+      const fever = Math.round(st?.fever||0);
+
+      // Detect "trend"
+      const missUp = (miss > lastMiss);
+
+      if(risk >= 0.75){
+        if(shield <= 0) return 'เสี่ยงมาก! 🛡️ ยังไม่มีโล่—รีบเก็บ Shield แล้วค่อยลุย';
+        if(missUp) return 'MISS เพิ่มเร็ว! ⭐ หา Star เพื่อลด MISS และหยุดเลือดไหล';
+        return 'โหมดอันตราย! เล็งยิง Good ให้ไวขึ้น + ระวัง 💣/💀';
       }
+
+      if(risk >= 0.55){
+        if(shield <= 1) return 'เริ่มเสี่ยง: เก็บ 🛡️ เพิ่ม แล้วคุม Junk ให้ดี (อย่าพลาดบล็อก)';
+        if(fever >= 70) return 'FEVER สูง—ใจเย็น ๆ ลดพลาดก่อน (เน้น Good ชัวร์ ๆ)';
+        return 'กลาง ๆ แต่เริ่มหนัก: ถ้าเห็น ⭐ ให้เก็บเพื่อลด MISS';
+      }
+
+      if(risk >= 0.35){
+        if(missUp) return 'พลาดเมื่อกี้—ชะลอ 0.5 วิ แล้วกลับมาเก็บ Good ให้แม่น';
+        return 'กำลังดี! รักษา Combo และหา 💎 เป็นโบนัส';
+      }
+
+      return 'ปลอดภัย! เน้น Combo ยิง Good ต่อเนื่อง แล้วตุน 🛡️ เป็นกันชน';
     }
 
-    function buildGateCooldownUrl(nextUrl){
-      const gate = abs('../warmup-gate.html');
-      const hub  = abs('../hub.html');
-      const u = new URL(gate, location.href);
+    function showCoach(text){
+      if(!coachWrap || !coachMsg) return;
+      coachMsg.textContent = String(text || '—');
+      coachWrap.setAttribute('aria-hidden', 'false');
+      coachWrap.classList.add('show');
 
-      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
-      keys.forEach(k=>{
-        const v = qs(k,'');
-        if(v!=='') u.searchParams.set(k, String(v));
+      // auto-hide
+      setTimeout(()=>{
+        coachWrap.classList.remove('show');
+        coachWrap.setAttribute('aria-hidden', 'true');
+      }, 2200);
+    }
+
+    function updateAIUI(pred){
+      const t = now();
+      // throttle UI updates (avoid spam)
+      if(t - lastUIAt < 180) return;
+      lastUIAt = t;
+
+      const risk = clamp(Number(pred?.hazardRisk)||0, 0, 1);
+      lastRisk = risk;
+
+      // chip value
+      if(riskVal) riskVal.textContent = fmtRisk(risk);
+
+      // class
+      if(chip){
+        chip.classList.remove('risk-low','risk-med','risk-high');
+        chip.classList.add(riskClass(risk));
+      }
+
+      // next list (show 3 items)
+      const arr = Array.isArray(pred?.next5) ? pred.next5 : [];
+      const top3 = arr.slice(0,3).map(s=>{
+        // keep icon prefix if any
+        const m = String(s||'').trim();
+        // if "Next: 💣 ..." already present, just show it
+        return m;
       });
 
-      u.searchParams.set('hub', hub);
-      u.searchParams.set('next', abs(nextUrl || hub));
-      u.searchParams.set('gatePhase', 'cooldown');
-      u.searchParams.set('phase', 'cooldown');
-      u.searchParams.set('cat', 'nutrition');
-      u.searchParams.set('theme', 'calm');
-
-      const cdur = clamp(qs('cdur','15'), 5, 60);
-      u.searchParams.set('dur', String(cdur));
-      u.searchParams.set('cdur', String(cdur));
-
-      return u.toString();
-    }
-
-    function goHubWithLog(summary){
-      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
-      const u = new URL(hub, location.href);
-
-      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
-      keys.forEach(k=>{
-        const v = qs(k,'');
-        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
-      });
-
-      const payload = {
-        kind: 'hha_end',
-        ts: Date.now(),
-        game: 'goodjunk',
-        summary: summary || null
-      };
-      const log = b64urlEncodeJson(payload);
-      if(log) u.searchParams.set('log', log);
-
-      const flush = qs('flush','');
-      const endpoint = qs('endpoint','');
-      if(flush==='1') u.searchParams.set('flush','1');
-      if(endpoint) u.searchParams.set('endpoint', endpoint);
-
-      location.href = u.toString();
-    }
-
-    function handleEnd(summary){
-      const cooldown = String(qs('cooldown','0')||'0') === '1';
-      const cdnext = String(qs('cdnext','')||'').trim();
-
-      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
-      const hubUrl = new URL(hub, location.href);
-      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
-      const log = b64urlEncodeJson(payload);
-      if(log) hubUrl.searchParams.set('log', log);
-
-      const flush = qs('flush','');
-      const endpoint = qs('endpoint','');
-      if(flush==='1') hubUrl.searchParams.set('flush','1');
-      if(endpoint) hubUrl.searchParams.set('endpoint', endpoint);
-
-      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrl.toString();
-
-      if(cooldown){
-        location.href = buildGateCooldownUrl(nextAfterCooldown);
-        return;
+      if(nextRow){
+        nextRow.textContent = top3.length ? `Next: ${top3.join(' • ')}` : 'Next: —';
       }
 
-      goHubWithLog(summary);
+      // Coach rate-limit
+      const st = getState();
+      const missGood = st?.missGoodExpired|0;
+      const missJunk = st?.missJunkHit|0;
+      const miss = (missGood + missJunk)|0;
+
+      // only coach if meaningful, and not too often
+      const coachCooldown = (risk >= 0.66) ? 1200 : 2000;
+      const shouldCoach = (risk >= 0.42) || (miss > lastMiss);
+
+      if(shouldCoach && (t - lastCoachAt >= coachCooldown)){
+        const tip = pickTip(pred);
+        // avoid repeating exact same line too often
+        if(tip && tip !== lastShownTip){
+          lastCoachAt = t;
+          lastShownTip = tip;
+          showCoach(tip);
+        }
+      }
+
+      lastMiss = miss;
     }
 
-    const btnReplay = document.getElementById('btnReplay');
-    const btnBackHub = document.getElementById('btnBackHub');
-    const btnCopy = document.getElementById('btnCopy');
-
-    let lastSummary = null;
-
-    btnReplay?.addEventListener('click', ()=> location.reload());
-    btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}));
-
-    btnCopy?.addEventListener('click', async ()=>{
+    window.addEventListener('hha:ai-prediction', (ev)=>{
       try{
-        const txt = JSON.stringify(lastSummary || {}, null, 2);
-        await navigator.clipboard.writeText(txt);
-        btnCopy.textContent = 'Copied ✅';
-        setTimeout(()=>btnCopy.textContent='Copy Summary', 900);
-      }catch(e){
-        alert('Copy failed');
-      }
-    });
+        updateAIUI(ev.detail || {});
+      }catch(_){}
+    }, { passive:true });
 
-    window.addEventListener('hha:game-ended', (ev)=>{
-      lastSummary = ev?.detail || null;
-    });
-
-    const uiView = document.getElementById('uiView');
-    const uiRun  = document.getElementById('uiRun');
-    const uiDiff = document.getElementById('uiDiff');
-    if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
-    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
-
-    boot({
-      view: qs('view','mobile'),
-      run:  qs('run','play'),
-      diff: qs('diff','normal'),
-      time: clamp(qs('time','80'), 20, 300),
-      seed: qs('seed', null),
-      studyId: qs('studyId', qs('study', null)),
-      phase: qs('phase', null),
-      conditionGroup: qs('conditionGroup', qs('cond', null)),
-    });
+    // optional: fade AI chip slightly while end overlay shown
+    window.addEventListener('hha:game-ended', ()=>{
+      try{ document.body.classList.add('is-ended'); }catch(_){}
+    }, { passive:true });
   </script>
+
 </body>
 </html>
