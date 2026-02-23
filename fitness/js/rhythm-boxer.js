@@ -1,8 +1,8 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
-// PATCH v20260223-ABC
+// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) [PATCH LATEST] ===
 'use strict';
 
 (function () {
+
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -38,31 +38,6 @@
   const btnDlEvents    = $('#rb-btn-dl-events');
   const btnDlSessions  = $('#rb-btn-dl-sessions');
 
-  // Calibration buttons
-  const btnCalMinus = $('#rb-btn-cal-minus');
-  const btnCalPlus  = $('#rb-btn-cal-plus');
-  const btnCalReset = $('#rb-btn-cal-reset');
-
-  // Result fields (optional-safe)
-  const res = {
-    mode: $('#rb-res-mode'),
-    track: $('#rb-res-track'),
-    score: $('#rb-res-score'),
-    combo: $('#rb-res-combo'),
-    acc: $('#rb-res-acc'),
-    p: $('#rb-res-perfect'),
-    g: $('#rb-res-great'),
-    gd: $('#rb-res-good'),
-    m: $('#rb-res-miss'),
-    dur: $('#rb-res-dur'),
-    rank: $('#rb-res-rank'),
-    note: $('#rb-res-note'),
-    offsetMean: $('#rb-res-offset-mean'),
-    offsetStd: $('#rb-res-offset-std'),
-    endReason: $('#rb-res-end-reason'),
-    participant: $('#rb-res-participant')
-  };
-
   // HUD elements
   const hud = {
     mode:   $('#rb-hud-mode'),
@@ -87,6 +62,24 @@
     aiTip:        $('#rb-hud-ai-tip')
   };
 
+  // แสดงผลสรุป
+  const res = {
+    mode:        $('#rb-res-mode'),
+    track:       $('#rb-res-track'),
+    endReason:   $('#rb-res-endreason'),
+    score:       $('#rb-res-score'),
+    maxCombo:    $('#rb-res-maxcombo'),
+    hits:        $('#rb-res-detail-hit'),
+    acc:         $('#rb-res-acc'),
+    duration:    $('#rb-res-duration'),
+    rank:        $('#rb-res-rank'),
+    offsetAvg:   $('#rb-res-offset-avg'),
+    offsetStd:   $('#rb-res-offset-std'),
+    participant: $('#rb-res-participant'),
+    qualityNote: $('#rb-res-quality-note')
+  };
+
+  // mapping เพลงในเมนู → engine trackId + diff + label
   const TRACK_CONFIG = {
     n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
     n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
@@ -95,87 +88,75 @@
   };
 
   let engine = null;
-  let lastSummary = null;
+  let isStarting = false;
+  let lastRun = { mode: 'normal', trackKey: 'n1' };
 
-  // ---------- URL helpers ----------
-  function getSP() { try { return new URL(location.href).searchParams; } catch(_) { return new URLSearchParams(); } }
-  function q(k, d=''){ const v = getSP().get(k); return (v == null || v === '') ? d : v; }
-  function hubHref(defaultHref='hub.html'){
-    const h = q('hub', defaultHref);
-    return h || defaultHref;
-  }
-  function getLogUrl(){
-    const s = q('log', '').trim();
-    return s || '';
-  }
-
-  // ---------- Cloud logger (optional) ----------
-  async function postLogSession(summary){
-    const logUrl = getLogUrl();
-    if(!logUrl) return { skipped:true, reason:'no-log-param' };
-
-    const payload = {
-      _table: 'sessions',
-      type: 'session',
-      projectTag: 'HeroHealth-RhythmBoxer',
-      timestampIso: new Date().toISOString(),
-      page: location.pathname,
-      gameId: 'rhythm-boxer',
-      mode: summary.modeLabel || '',
-      trackName: summary.trackName || '',
-      endReason: summary.endReason || '',
-      scoreFinal: Number(summary.finalScore || 0),
-      comboMax: Number(summary.maxCombo || 0),
-      accuracyPct: Number(summary.accuracyPct || 0),
-      hitPerfect: Number(summary.hitPerfect || 0),
-      hitGreat: Number(summary.hitGreat || 0),
-      hitGood: Number(summary.hitGood || 0),
-      hitMiss: Number(summary.hitMiss || 0),
-      durationPlayedSec: Number(summary.durationSec || 0),
-      rank: summary.rank || '',
-      participantId: summary.participant || '',
-      note: summary.qualityNote || '',
-      aiEnabled: (window.RB_AI && window.RB_AI.isAssistEnabled) ? !!window.RB_AI.isAssistEnabled() : false,
-      aiLocked: (window.RB_AI && window.RB_AI.isLocked) ? !!window.RB_AI.isLocked() : false,
-      __extraJson: JSON.stringify({
-        offsetMean: summary.offsetMean ?? null,
-        offsetStd: summary.offsetStd ?? null
-      })
-    };
-
-    try{
-      const r = await fetch(logUrl, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const txt = await r.text();
-      let j = null; try { j = JSON.parse(txt); } catch(_) {}
-      return { ok: r.ok, status: r.status, body: j || txt };
-    }catch(err){
-      return { ok:false, error:String(err && (err.message || err) || err) };
+  // ---------- query helpers ----------
+  function readQuery() {
+    try {
+      return new URL(location.href).searchParams;
+    } catch (_) {
+      return new URLSearchParams();
     }
   }
 
-  // ---------- UI ----------
+  function readQueryMode() {
+    const q = readQuery();
+    const m = String(q.get('mode') || '').toLowerCase();
+    if (m === 'research') return 'research';
+    return 'normal'; // play / normal / empty => normal
+  }
+
+  function readQueryTrack() {
+    const q = readQuery();
+    const t = String(q.get('track') || '').toLowerCase();
+    return TRACK_CONFIG[t] ? t : null;
+  }
+
+  function aiFlagsText() {
+    const ai = window.RB_AI;
+    if (!ai) return 'AI: predictor unavailable';
+    const locked = !!(ai.isLocked && ai.isLocked());
+    const assist = !!(ai.isAssistEnabled && ai.isAssistEnabled());
+    if (locked) return 'AI: prediction ON · gameplay adjust OFF (Research Lock)';
+    return assist
+      ? 'AI: prediction ON · assist ON (?ai=1)'
+      : 'AI: prediction ON · assist OFF';
+  }
+
+  // ---------- mode / track selection ----------
   function getSelectedMode() {
     const r = modeRadios.find(x => x.checked);
     return r ? r.value : 'normal';
   }
+
   function getSelectedTrackKey() {
     const r = trackRadios.find(x => x.checked);
     return r ? r.value : 'n1';
   }
+
   function setSelectedTrackKey(key) {
     trackRadios.forEach(r => { r.checked = (r.value === key); });
+  }
+
+  function setSelectedMode(mode) {
+    const m = (mode === 'research') ? 'research' : 'normal';
+    const r = modeRadios.find(x => x.value === m);
+    if (r) r.checked = true;
+    updateModeUI();
   }
 
   function updateModeUI() {
     const mode = getSelectedMode();
 
     if (mode === 'normal') {
-      if (modeDescEl) modeDescEl.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
-      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      if (modeDescEl) {
+        modeDescEl.textContent =
+          'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      }
+      if (trackModeLbl) {
+        trackModeLbl.textContent = 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+      }
       if (researchBox) researchBox.classList.add('hidden');
 
       trackLabels.forEach(lbl => {
@@ -185,9 +166,15 @@
       });
 
       if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
+
     } else {
-      if (modeDescEl) modeDescEl.textContent = 'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV';
-      if (trackModeLbl) trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      if (modeDescEl) {
+        modeDescEl.textContent =
+          'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV (AI prediction แสดงได้ แต่ไม่ปรับเกม)';
+      }
+      if (trackModeLbl) {
+        trackModeLbl.textContent = 'โหมด Research — เพลงวิจัย Research Track 120';
+      }
       if (researchBox) researchBox.classList.remove('hidden');
 
       trackLabels.forEach(lbl => {
@@ -200,6 +187,7 @@
     }
   }
 
+  // ---------- view switching ----------
   function switchView(name) {
     if (viewMenu) viewMenu.classList.add('hidden');
     if (viewPlay) viewPlay.classList.add('hidden');
@@ -210,6 +198,14 @@
     else if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
+  function setBtnBusy(isBusy) {
+    if (!btnStart) return;
+    btnStart.disabled = !!isBusy;
+    btnStart.style.opacity = isBusy ? '0.75' : '';
+    btnStart.style.pointerEvents = isBusy ? 'none' : '';
+  }
+
+  // ---------- engine ----------
   function createEngine() {
     const renderer = new window.RbDomRenderer(fieldEl, {
       flashEl,
@@ -222,101 +218,121 @@
       field: fieldEl,
       lanesEl: lanesEl,
       audio: audioEl,
-      renderer,
-      hud,
+      renderer: renderer,
+      hud: hud,
       hooks: {
-        onEnd: handleEngineEnd
+        onEnd: handleEngineEnd,
+        onAIUpdate: handleAIUpdate
       }
     });
   }
 
   function startGame() {
-    if (!engine) createEngine();
+    if (isStarting) return;
+    isStarting = true;
+    setBtnBusy(true);
 
-    const mode = getSelectedMode();
-    const trackKey = getSelectedTrackKey();
-    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
+    try {
+      if (!engine) createEngine();
 
-    if (wrap) wrap.dataset.diff = cfg.diff;
+      const mode = getSelectedMode();
+      const trackKey = getSelectedTrackKey();
+      const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
 
-    if (hud.mode)  hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
-    if (hud.track) hud.track.textContent = cfg.labelShort;
+      lastRun = { mode, trackKey };
 
-    // AI flags by URL
-    // ?ai=1 enables assist in normal mode only; research remains locked
-    if (window.RB_AI && typeof window.RB_AI.configure === 'function') {
-      window.RB_AI.configure({
-        mode,
-        assistEnabled: String(q('ai','0')) === '1',
-        locked: (mode === 'research')
-      });
+      if (wrap) wrap.dataset.diff = cfg.diff;
+
+      if (hud.mode) hud.mode.textContent  = (mode === 'research') ? 'Research' : 'Normal';
+      if (hud.track) hud.track.textContent = cfg.labelShort;
+
+      // reset AI HUD lines before start
+      if (hud.aiFatigue) hud.aiFatigue.textContent = '0%';
+      if (hud.aiSkill) hud.aiSkill.textContent = '50%';
+      if (hud.aiSuggest) hud.aiSuggest.textContent = 'normal';
+      if (hud.aiTip) {
+        hud.aiTip.textContent = aiFlagsText();
+        hud.aiTip.classList.remove('hidden');
+      }
+
+      const meta = {
+        id:   (inputParticipant && inputParticipant.value || '').trim(),
+        group:(inputGroup && inputGroup.value || '').trim(),
+        note: (inputNote && inputNote.value || '').trim()
+      };
+
+      engine.start(mode, cfg.engineId, meta);
+      switchView('play');
+    } finally {
+      // กัน double-click ช่วงเริ่ม
+      setTimeout(() => {
+        isStarting = false;
+        setBtnBusy(false);
+      }, 250);
     }
-
-    const meta = {
-      id:   (inputParticipant && inputParticipant.value || '').trim(),
-      group:(inputGroup && inputGroup.value || '').trim(),
-      note: (inputNote && inputNote.value || '').trim()
-    };
-
-    engine.start(mode, cfg.engineId, meta);
-    switchView('play');
   }
 
   function stopGame(reason) {
     if (engine) engine.stop(reason || 'manual-stop');
   }
 
-  function fmtMs(s){
-    if (s == null || s === '' || !Number.isFinite(Number(s))) return '-';
-    return `${Math.round(Number(s)*1000)} ms`;
-  }
+  function handleEngineEnd(summary) {
+    if (!summary) return;
 
-  async function handleEngineEnd(summary) {
-    lastSummary = summary || {};
+    if (res.mode)        res.mode.textContent      = summary.modeLabel ?? '-';
+    if (res.track)       res.track.textContent     = summary.trackName ?? '-';
+    if (res.endReason)   res.endReason.textContent = summary.endReason ?? '-';
+    if (res.score)       res.score.textContent     = String(summary.finalScore ?? 0);
+    if (res.maxCombo)    res.maxCombo.textContent  = String(summary.maxCombo ?? 0);
+    if (res.hits) {
+      res.hits.textContent = `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`;
+    }
+    if (res.acc)         res.acc.textContent       = (Number(summary.accuracyPct || 0)).toFixed(1) + ' %';
+    if (res.duration)    res.duration.textContent  = (Number(summary.durationSec || 0)).toFixed(1) + ' s';
+    if (res.rank)        res.rank.textContent      = summary.rank ?? '-';
 
-    // result UI (optional-safe)
-    if (res.mode)        res.mode.textContent = summary.modeLabel || '-';
-    if (res.track)       res.track.textContent = summary.trackName || '-';
-    if (res.score)       res.score.textContent = String(summary.finalScore ?? 0);
-    if (res.combo)       res.combo.textContent = String(summary.maxCombo ?? 0);
-    if (res.acc)         res.acc.textContent = `${Number(summary.accuracyPct || 0).toFixed(1)}%`;
-    if (res.p)           res.p.textContent = String(summary.hitPerfect ?? 0);
-    if (res.g)           res.g.textContent = String(summary.hitGreat ?? 0);
-    if (res.gd)          res.gd.textContent = String(summary.hitGood ?? 0);
-    if (res.m)           res.m.textContent = String(summary.hitMiss ?? 0);
-    if (res.dur)         res.dur.textContent = `${Number(summary.durationSec || 0).toFixed(1)}s`;
-    if (res.rank)        res.rank.textContent = summary.rank || 'C';
-    if (res.note)        res.note.textContent = summary.qualityNote || '—';
-    if (res.offsetMean)  res.offsetMean.textContent = fmtMs(summary.offsetMean);
-    if (res.offsetStd)   res.offsetStd.textContent = fmtMs(summary.offsetStd);
-    if (res.endReason)   res.endReason.textContent = summary.endReason || '-';
-    if (res.participant) res.participant.textContent = summary.participant || '-';
+    if (res.offsetAvg) {
+      res.offsetAvg.textContent =
+        (summary.offsetMean != null && Number.isFinite(summary.offsetMean))
+          ? Number(summary.offsetMean).toFixed(3) + ' s'
+          : '-';
+    }
+    if (res.offsetStd) {
+      res.offsetStd.textContent =
+        (summary.offsetStd != null && Number.isFinite(summary.offsetStd))
+          ? Number(summary.offsetStd).toFixed(3) + ' s'
+          : '-';
+    }
+    if (res.participant) {
+      res.participant.textContent = summary.participant || '-';
+    }
 
-    // save last summary (HHA-style quick recall)
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-        game: 'rhythm-boxer',
-        ts: new Date().toISOString(),
-        page: location.href,
-        summary
-      }));
-    }catch(_){}
-
-    // optional cloud log via ?log=
-    try{
-      const r = await postLogSession(summary);
-      if (r && r.ok) {
-        console.log('[RB] cloud log ok', r);
-      } else if (r && !r.skipped) {
-        console.warn('[RB] cloud log fail', r);
+    if (res.qualityNote) {
+      if (summary.qualityNote) {
+        res.qualityNote.textContent = summary.qualityNote;
+        res.qualityNote.classList.remove('hidden');
+      } else {
+        res.qualityNote.textContent = '';
+        res.qualityNote.classList.add('hidden');
       }
-    }catch(err){
-      console.warn('[RB] cloud log error', err);
     }
 
     switchView('result');
   }
 
+  function handleAIUpdate(ai){
+    if (!ai || !hud) return;
+    if (hud.aiFatigue) hud.aiFatigue.textContent = Math.round((ai.fatigueRisk||0)*100) + '%';
+    if (hud.aiSkill)   hud.aiSkill.textContent   = Math.round((ai.skillScore||0)*100) + '%';
+    if (hud.aiSuggest) hud.aiSuggest.textContent = (ai.suggestedDifficulty||'normal');
+    if (hud.aiTip){
+      const txt = ai.tip || aiFlagsText();
+      hud.aiTip.textContent = txt;
+      hud.aiTip.classList.toggle('hidden', !txt);
+    }
+  }
+
+  // ---------- CSV ----------
   function downloadCsv(csvText, filename) {
     if (!csvText) return;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
@@ -330,58 +346,86 @@
     URL.revokeObjectURL(url);
   }
 
-  // wiring
+  // ---------- URL presets ----------
+  function applyModeTrackFromQuery(){
+    const qMode = readQueryMode();
+    const qTrack = readQueryTrack();
+
+    setSelectedMode(qMode);
+
+    if (qTrack) {
+      // only apply if visible/allowed in mode
+      if (qMode === 'research' && qTrack === 'r1') setSelectedTrackKey('r1');
+      if (qMode === 'normal' && qTrack !== 'r1') setSelectedTrackKey(qTrack);
+    }
+
+    updateModeUI();
+  }
+
+  // ---------- wiring ----------
   modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-  if (btnStart)   btnStart.addEventListener('click', startGame);
-  if (btnStop)    btnStop.addEventListener('click', () => stopGame('manual-stop'));
-  if (btnAgain)   btnAgain.addEventListener('click', () => startGame());
-  if (btnBackMenu)btnBackMenu.addEventListener('click', () => switchView('menu'));
+
+  if (btnStart) btnStart.addEventListener('click', startGame);
+  if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
+
+  if (btnAgain) {
+    btnAgain.addEventListener('click', () => {
+      // เล่นเพลงเดิม / โหมดเดิมทันที
+      setSelectedMode(lastRun.mode);
+      setSelectedTrackKey(lastRun.trackKey);
+      startGame();
+    });
+  }
+
+  if (btnBackMenu) {
+    btnBackMenu.addEventListener('click', () => {
+      switchView('menu');
+    });
+  }
 
   if (btnDlEvents) {
     btnDlEvents.addEventListener('click', () => {
-      if (!engine) return;
-      downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+      if (!engine || typeof engine.getEventsCsv !== 'function') return;
+      const pid = (inputParticipant && inputParticipant.value || '').trim();
+      const suffix = pid ? `-${pid}` : '';
+      downloadCsv(engine.getEventsCsv(), `rb-events${suffix}.csv`);
     });
   }
+
   if (btnDlSessions) {
     btnDlSessions.addEventListener('click', () => {
-      if (!engine) return;
-      downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+      if (!engine || typeof engine.getSessionCsv !== 'function') return;
+      const pid = (inputParticipant && inputParticipant.value || '').trim();
+      const suffix = pid ? `-${pid}` : '';
+      downloadCsv(engine.getSessionCsv(), `rb-sessions${suffix}.csv`);
     });
   }
 
-  // Calibration
-  function calDelta(ms){
-    if(!engine) return;
-    engine.adjustCalMs(ms);
-  }
-  if(btnCalMinus) btnCalMinus.addEventListener('click', ()=>calDelta(-20));
-  if(btnCalPlus)  btnCalPlus.addEventListener('click',  ()=>calDelta(+20));
-  if(btnCalReset) btnCalReset.addEventListener('click', ()=>{ if(engine) engine.setCalMs(0); });
+  // Keyboard shortcuts (UI level)
+  document.addEventListener('keydown', (e) => {
+    const k = (e.key || '').toLowerCase();
 
-  // apply mode from URL (?mode=research|play)
-  (function applyModeFromQuery(){
-    try{
-      const m = (q('mode','') || '').toLowerCase();
-      if (m === 'research'){
-        const r = modeRadios.find(x => x.value === 'research');
-        if (r) r.checked = true;
-      } else if (m === 'play' || m === 'normal'){
-        const r = modeRadios.find(x => x.value === 'normal');
-        if (r) r.checked = true;
-      }
-    }catch(_){}
-  })();
+    // ESC = stop during play
+    if (k === 'escape' && viewPlay && !viewPlay.classList.contains('hidden')) {
+      stopGame('manual-stop');
+      return;
+    }
 
-  // back-to-hub links (if present)
-  (function patchHubLinks(){
-    const href = hubHref('hub.html');
-    ['#rb-btn-hub-menu', '#rb-btn-hub-play', '#rb-btn-hub-result'].forEach(sel=>{
-      const a = $(sel);
-      if (a && a.tagName === 'A') a.href = href;
-    });
-  })();
+    // Enter = start from menu
+    if (k === 'enter' && viewMenu && !viewMenu.classList.contains('hidden')) {
+      if (btnStart && !btnStart.disabled) startGame();
+      return;
+    }
 
-  updateModeUI();
+    // R = replay from result
+    if (k === 'r' && viewResult && !viewResult.classList.contains('hidden')) {
+      if (btnAgain) btnAgain.click();
+      return;
+    }
+  });
+
+  // ---------- init ----------
+  applyModeTrackFromQuery();
   switchView('menu');
+
 })();
