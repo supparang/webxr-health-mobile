@@ -3,28 +3,43 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Mask & Cough</title>
+  <title>HeroHealth — Mask & Cough (Analyze)</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ CSS (อยู่ระดับเดียวกับไฟล์นี้) -->
-  <link rel="stylesheet" href="./maskcough.css?v=20260216b"/>
+  <!-- CSS -->
+  <link rel="stylesheet" href="./css/maskcough.css?v=20260223a"/>
 </head>
 <body>
-  <div id="mc-flash"></div>
+  <!-- Global FX -->
+  <div id="mc-flash" aria-hidden="true"></div>
+  <div id="mc-feverGlow" aria-hidden="true"></div>
+
+  <!-- Coach / system prompt -->
   <div id="mc-prompt" class="mc-prompt" aria-live="polite"></div>
 
   <div id="mc-wrap" data-view="pc" data-run="play">
-    <main class="mc-stage" role="application" aria-label="MaskCough game">
+    <!-- Stage -->
+    <main class="mc-stage" role="application" aria-label="Mask & Cough Analyze game">
       <div id="layer" class="mc-layer" aria-label="play layer"></div>
+
+      <!-- threat banner -->
+      <div id="bossBanner" class="mc-boss-banner" hidden>
+        <span id="bossBannerText">👿 BOSS SWEEP!</span>
+      </div>
+
+      <!-- center crosshair hint for cVR -->
+      <div id="crosshairHint" class="mc-crosshair-hint" hidden>🎯 cVR ยิงจากกลางจอ</div>
     </main>
 
+    <!-- HUD -->
     <section class="mc-hud" aria-label="HUD">
       <div class="mc-hud-row">
         <span class="mc-pill">Score <b id="tScore">0</b></span>
         <span class="mc-pill">Streak <b id="tStreak">0</b></span>
         <span class="mc-pill">Miss <b id="tMiss">0</b></span>
         <span class="mc-pill">Risk <b id="tRisk">0.00</b></span>
+        <span class="mc-pill">Threat <b id="tThreat">LOW</b></span>
         <span class="mc-pill">Wave <b id="tWave">calm</b></span>
         <span class="mc-pill">Int <b id="tInt">0.00</b></span>
         <span class="mc-pill">Fever <b id="tFever">OFF</b> <span style="opacity:.8">(<span id="tFeverPct">0%</span>)</span></span>
@@ -40,6 +55,23 @@
           <div class="mc-bar-label"><span>Fever</span><b id="tFever2">Charge</b></div>
           <div class="mc-bar-track"><div class="mc-bar-fill mc-bad" id="bFever" style="width:0%"></div></div>
         </div>
+
+        <div>
+          <div class="mc-bar-label"><span>Focus</span><b id="tFocus">100</b></div>
+          <div class="mc-bar-track"><div class="mc-bar-fill mc-focus" id="bFocus" style="width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="mc-analyze-panel">
+        <div class="mc-analyze-head">🧠 Analyze Metrics</div>
+        <div class="mc-analyze-grid">
+          <div class="mc-miniCard"><span>Safe</span><b id="tSafeHits">0</b></div>
+          <div class="mc-miniCard"><span>Risk</span><b id="tRiskHits">0</b></div>
+          <div class="mc-miniCard"><span>Danger</span><b id="tDangerHits">0</b></div>
+          <div class="mc-miniCard"><span>Perfect%</span><b id="tPerfectRate">0%</b></div>
+          <div class="mc-miniCard"><span>Spam</span><b id="tSpam">0</b></div>
+          <div class="mc-miniCard"><span>Route</span><b id="tRouteChain">0</b></div>
+        </div>
       </div>
 
       <div class="mc-controls">
@@ -54,7 +86,7 @@
     <section id="end" class="mc-end" hidden>
       <div class="mc-end-card">
         <div class="mc-end-head">
-          <div class="mc-end-title">สรุปผล — Mask & Cough</div>
+          <div class="mc-end-title">สรุปผล — Mask & Cough (Analyze)</div>
           <div class="mc-pill">Reason <b id="tEndReason">time</b></div>
         </div>
 
@@ -65,20 +97,18 @@
           <div class="mc-end-item"><div class="k">Perfect</div><div class="v" id="sPerfect">0</div></div>
           <div class="mc-end-item"><div class="k">Shield End</div><div class="v" id="sShield">0%</div></div>
           <div class="mc-end-item"><div class="k">Risk Avg</div><div class="v" id="sRisk">0.00</div></div>
-
-          <!-- ✅ Quality metrics -->
-          <div class="mc-end-item"><div class="k">Accuracy</div><div class="v" id="sAcc">0%</div></div>
-          <div class="mc-end-item"><div class="k">Avg RT</div><div class="v" id="sRT">—</div></div>
-          <div class="mc-end-item"><div class="k">Cough Perfect%</div><div class="v" id="sCoughP">0%</div></div>
-          <div class="mc-end-item"><div class="k">Avoid 🦠</div><div class="v" id="sAvoid">0</div></div>
-          <div class="mc-end-item"><div class="k">Saved 💦</div><div class="v" id="sSaved">0</div></div>
-          <div class="mc-end-item"><div class="k">Damage</div><div class="v" id="sDmg">0</div></div>
+          <div class="mc-end-item"><div class="k">Analyze Score</div><div class="v" id="sAnalyzeScore">0</div></div>
+          <div class="mc-end-item"><div class="k">Danger Overuse</div><div class="v" id="sDangerOveruse">0%</div></div>
+          <div class="mc-end-item"><div class="k">Spam Rate</div><div class="v" id="sSpamRate">0%</div></div>
         </div>
 
         <div class="mc-end-badges-wrap">
           <div class="mc-end-sub">Badges</div>
           <div class="mc-end-badges" id="badgeRow"></div>
         </div>
+
+        <div class="mc-end-sub">Coach Summary</div>
+        <div class="mc-end-note" id="endCoachSummary">—</div>
 
         <div class="mc-end-note" id="endNote"></div>
 
@@ -89,14 +119,16 @@
       </div>
     </section>
 
+    <!-- Toast -->
     <div id="toast"></div>
   </div>
 
-  <script src="../vr/fun-boost.js?v=20260216b"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260216b"></script>
-  <script src="../vr/vr-ui.js?v=20260216b"></script>
+  <!-- Optional (if present in /herohealth/vr/) -->
+  <script src="../vr/fun-boost.js?v=20260223a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260223a"></script>
+  <script src="../vr/vr-ui.js?v=20260223a"></script>
 
-  <!-- ENGINE -->
-  <script src="./maskcough.safe.js?v=20260216b"></script>
+  <!-- Engine -->
+  <script src="./maskcough.safe.js?v=20260223a"></script>
 </body>
 </html>
