@@ -1,9 +1,10 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260219b (1+2+3)
+// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260219c (1+2+3 + end-overlay mobile scroll fix)
 // ✅ (1) cVR: aim-select handmap zones via hha:shoot (end overlay)
 // ✅ (2) Heatmap 2D: risk per step -> zones; show + store in summary.analyze.heatmap2d
 // ✅ (3) Create routine 30s: pick 3 items + score + store in summary.create
 // ✅ FIX: “ตีแล้วไม่หาย” (is-dying + forced remove), TTL cleanup, watchdog
+// ✅ FIX: End overlay scroll/touch on mobile/cVR (setEndOverlayMode)
 // Exports: boot()
 'use strict';
 
@@ -122,6 +123,29 @@ export function boot(){
   const btnPause     = DOC.getElementById('btnPause');
   const btnBack      = DOC.getElementById('btnBack');
   const btnBack2     = DOC.getElementById('btnBack2');
+
+  // ✅ end-overlay mode helper (mobile/cVR scroll/touch fix)
+  function setEndOverlayMode(on){
+    try{
+      const v = !!on;
+      DOC.documentElement.classList.toggle('is-end-open', v);
+      DOC.body.classList.toggle('is-end-open', v);
+
+      if (endOverlay){
+        endOverlay.style.pointerEvents = v ? 'auto' : 'none';
+        endOverlay.style.touchAction = v ? 'pan-y' : 'auto';
+        endOverlay.style.overscrollBehavior = v ? 'contain' : 'auto';
+      }
+
+      try{
+        const card = endOverlay?.querySelector?.('.hw-card');
+        if (card){
+          card.style.webkitOverflowScrolling = v ? 'touch' : 'auto';
+          void card.offsetHeight; // force reflow
+        }
+      }catch{}
+    }catch{}
+  }
 
   // params
   const runMode = (qs('run','play')||'play').toLowerCase();
@@ -881,6 +905,7 @@ export function boot(){
 
     startOverlay && (startOverlay.style.display = 'none');
     endOverlay && (endOverlay.style.display = 'none');
+    setEndOverlayMode(false); // ✅ important
 
     emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec });
     showBanner(`เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`);
@@ -1139,7 +1164,6 @@ export function boot(){
     for(const c of core) if(picked.includes(c)) coreHit++;
 
     // score 0..100
-    // 3 picked always, so focus on core coverage
     const score = coreHit===3 ? 95 : (coreHit===2 ? 78 : (coreHit===1 ? 60 : 45));
     const label = coreHit===3 ? 'ยอดเยี่ยม' : (coreHit===2 ? 'ดี' : (coreHit===1 ? 'พอใช้' : 'ควรปรับ'));
     const tip = coreHit===3 ? 'ครบ 3 ช่วงสำคัญ! โอกาสป่วยลดลงชัด' :
@@ -1237,7 +1261,7 @@ export function boot(){
     const hm2 = calcHeatmap2D();
 
     const summary = {
-      version:'20260219b',
+      version:'20260219c',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -1300,6 +1324,7 @@ export function boot(){
     if(endSub) endSub.textContent = `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(1)}% • haz ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
+    setEndOverlayMode(true); // ✅ important
 
     // init Evaluate/Create UI
     initEndFlow();
@@ -1348,16 +1373,30 @@ export function boot(){
   // ---------------- Hub nav ----------------
   function goHub(){
     try{
+      setEndOverlayMode(false);
       if(hub) location.href = hub;
       else location.href = '../hub.html';
     }catch{}
   }
 
   // ---------------- UI binds ----------------
-  btnStart?.addEventListener('click', ()=>startGame(), { passive:true });
-  btnPractice?.addEventListener('click', ()=>startGame(15), { passive:true });
+  btnStart?.addEventListener('click', ()=>{
+    setEndOverlayMode(false);
+    startGame();
+  }, { passive:true });
+
+  btnPractice?.addEventListener('click', ()=>{
+    setEndOverlayMode(false);
+    startGame(15);
+  }, { passive:true });
+
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
-  btnPlayAgain?.addEventListener('click', ()=>startGame(), { passive:true });
+
+  btnPlayAgain?.addEventListener('click', ()=>{
+    setEndOverlayMode(false);
+    startGame();
+  }, { passive:true });
+
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
   btnBack?.addEventListener('click', goHub, { passive:true });
   btnBack2?.addEventListener('click', goHub, { passive:true });
@@ -1439,5 +1478,6 @@ export function boot(){
   });
 
   // initial
+  setEndOverlayMode(false);
   setHud();
 }
