@@ -1,9 +1,10 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260219c
+HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260221d
 ✅ FIX: “ตีแล้วไม่หาย” => .hw-tgt.is-dying (shrink+fade) + JS remove
 ✅ FIX: HUD occlusion => safe vars + responsive
 ✅ NEW: 2D HandMap heat + Evaluate UI + Create routine (30s)
-✅ FIX: End overlay scroll/touch on mobile/cVR
+✅ FIX: overlay scroll on mobile/cVR (start/end overlay เลื่อนได้จริง)
+✅ FIX: bottom controls hidden by Universal VR UI (ENTER VR / RECENTER)
 */
 
 :root{
@@ -40,6 +41,13 @@ HygieneVR CSS — PRODUCTION (HHA Standard) — PATCH v20260219c
   /* hand map sizes */
   --hmW: min(520px, 100%);
   --hmH: 260px;
+
+  /* ✅ reserve space for Universal VR UI bottom buttons */
+  --vrui-bottom-reserve: 92px; /* default */
+  --overlay-pad-bottom: calc(14px + var(--sab) + var(--vrui-bottom-reserve));
+
+  /* mobile chrome + tall overlays */
+  --overlay-maxw: 760px;
 }
 
 *{ box-sizing:border-box; }
@@ -49,14 +57,6 @@ html,body{
   background:var(--bg0);
   color:var(--text);
   font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
-
-/* ✅ when end overlay open: lock page behind, allow overlay/card scroll */
-html.is-end-open,
-body.is-end-open{
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: none;
 }
 
 button{ font: inherit; }
@@ -191,47 +191,42 @@ button{ font: inherit; }
 }
 
 /* ===== Overlays ===== */
+/* ✅ key fix: allow overlay itself to scroll */
 .hw-overlay{
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background: radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
-              rgba(2,6,23,.66);
-  z-index: 90;
-
-  /* ✅ scroll fix */
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  display: block;                 /* was grid */
+  overflow-y: auto;               /* allow scrolling */
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  pointer-events: none; /* JS opens it when needed */
+  -webkit-overflow-scrolling: touch;
+  padding:
+    calc(14px + var(--sat))
+    calc(14px + var(--sar))
+    var(--overlay-pad-bottom)
+    calc(14px + var(--sal));
+  background:
+    radial-gradient(900px 600px at 50% 20%, rgba(34,211,238,.08), transparent 65%),
+    rgba(2,6,23,.66);
+  z-index: 90;
 }
 
-/* ensure overlay can align to top when content tall */
-.hw-overlay > .hw-card{
-  align-self: start;
-  margin-top: max(8px, calc(4px + var(--sat)));
-  margin-bottom: max(8px, calc(4px + var(--sab)));
+/* wrapper behavior for centered but scrollable content */
+.hw-overlay .hw-card{
+  width: min(var(--overlay-maxw), 100%);
+  margin: 0 auto;
+  /* for tall content, keep start aligned; for short content, give visual centering via top margin */
+  margin-top: max(10px, 2vh);
+  margin-bottom: 0;
 }
 
 .hw-card{
-  width: min(760px, 100%);
   border-radius: var(--r);
   border: 1px solid var(--stroke);
   background: rgba(2,6,23,.74);
   box-shadow: 0 24px 90px rgba(0,0,0,.55);
   padding: 16px;
   backdrop-filter: blur(12px);
-
-  /* ✅ scrollable card content when very tall */
-  max-height: min(86dvh, calc(100dvh - 24px - var(--sat) - var(--sab)));
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  min-width: 0;
 }
 
 .hw-card-title{ font-weight: 950; font-size: 18px; letter-spacing: .2px; }
@@ -277,7 +272,6 @@ button{ font: inherit; }
   overflow: auto;
   font-size: 12px;
   color: rgba(229,231,235,.92);
-  -webkit-overflow-scrolling: touch;
 }
 
 /* ===== Targets ===== */
@@ -375,6 +369,7 @@ button{ font: inherit; }
 .hw-handmap{
   margin-top: 10px;
   width: var(--hmW);
+  max-width: 100%;
   height: var(--hmH);
   border-radius: 18px;
   border: 1px solid rgba(148,163,184,.18);
@@ -384,9 +379,8 @@ button{ font: inherit; }
     rgba(2,6,23,.45);
   position: relative;
   overflow: hidden;
-
-  /* mobile/cVR interaction */
-  touch-action: manipulation;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* zone dots */
@@ -447,7 +441,6 @@ button{ font: inherit; }
   padding: 12px 12px;
   font-weight: 950;
   cursor:pointer;
-  touch-action: manipulation;
 }
 .hw-reason.is-picked{
   border-color: rgba(34,211,238,.35);
@@ -469,31 +462,41 @@ button{ font: inherit; }
   font-weight: 950;
   cursor:pointer;
   min-height: 54px;
-  touch-action: manipulation;
 }
 .hw-rt.is-picked{
   border-color: rgba(34,197,94,.35);
   background: rgba(34,197,94,.12);
 }
 
-@media (max-width: 760px){
-  .hw-card{
-    padding: 14px;
-    border-radius: 18px;
-  }
-  .hw-pre{
-    max-height: 28vh;
-  }
-}
-
+/* ✅ mobile fit: reduce handmap + buttons spacing so end overlay fits easier */
 @media (max-width: 520px){
   .hw-reasons{ grid-template-columns: 1fr; }
   .hw-routine{ grid-template-columns: 1fr; }
   .hw-banner{ top: calc(130px + var(--sat)); }
 
+  .hw-card{
+    padding: 14px;
+    border-radius: 18px;
+  }
+  .hw-card-title{ font-size: 16px; }
+  .hw-card-sub{ font-size: 12px; }
+
+  .hw-card-row{
+    gap: 8px;
+  }
+  .hw-cta, .hw-ghost{
+    padding: 10px 11px;
+    border-radius: 14px;
+    min-height: 44px;
+  }
+
+  .hw-handmap{
+    --hmW: 100%;
+    --hmH: 238px; /* smaller on narrow screens */
+  }
   .hw-zone{
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
   }
   .hw-zone .zlab{ font-size: 11px; }
   .hw-zone .zmini{ font-size: 10px; }
@@ -505,7 +508,10 @@ body.view-mobile{
   --hw-bottom-safe: 230px;
   --tgtSize: clamp(58px, 10vh, 98px);
   --tgtFont: clamp(24px, 3.8vh, 36px);
-  --hmH: 280px;
+  --hmH: 260px;
+
+  /* ✅ extra reserve for floating VR UI buttons on mobile browsers */
+  --vrui-bottom-reserve: 110px;
 }
 
 body.view-cvr{
@@ -513,7 +519,8 @@ body.view-cvr{
   --hw-bottom-safe: 250px;
   --tgtSize: clamp(64px, 10.5vh, 104px);
   --tgtFont: clamp(26px, 4.0vh, 38px);
-  --hmH: 300px;
+  --hmH: 270px;
+  --vrui-bottom-reserve: 120px;
 }
 
 /* cVR: disable pointer on zones; select by shoot */
@@ -525,4 +532,16 @@ body.view-cvr .hw-zone{
 body.view-vr{
   --hw-top-safe: 160px;
   --hw-bottom-safe: 220px;
+  --vrui-bottom-reserve: 110px;
+}
+
+/* ✅ when overlay opened, allow touch scrolling priority on overlay content */
+.hw-overlay,
+.hw-overlay *{
+  touch-action: auto;
+}
+
+/* ✅ optional helper class (JS can toggle) */
+body.hw-overlay-open{
+  overflow: hidden;
 }
