@@ -1,10 +1,11 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR Engine — SAFE PATCH FULL (v20260223p1)
-// ✅ no auto-end before start
-// ✅ no duplicate boot/bind
-// ✅ mobile/pc/cVR support (hha:shoot)
-// ✅ boss weakspot bonus
-// ✅ summary/menu visibility hardened
+// BrushVR Engine — SAFE PATCH FULL (v20260223p2)
+// ✅ Expose window.BrushVR { start, reset, showHow, togglePause }
+// ✅ Integrate boot events: brush:prestart-reset, brush:gate-handshake
+// ✅ Dispatch events: brush:start, brush:end, brush:ui
+// ✅ Fix: shots double-count (cVR hha:shoot path)
+// ✅ Init hardened (auto init on DOM ready, no duplicates)
+
 (function(){
   'use strict';
 
@@ -33,6 +34,10 @@
   }
   function pct(n){ return Math.round(Number(n)||0) + '%'; }
 
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  }
+
   /* ---------------- state ---------------- */
   let cfg = null, rng = rand01;
   let root, layer, fxLayer, menu, end, tapStart;
@@ -49,7 +54,6 @@
   let tickTimer = 0;
   let spawnTimer = 0;
   let feverTimer = 0;
-  let lastFrameAt = 0;
 
   let bootOnce = false;
   let boundOnce = false;
@@ -58,6 +62,18 @@
 
   const TARGETS = new Map();
   let targetSeq = 1;
+
+  // Warmup Gate handshake (optional)
+  let gate = {
+    has: false,
+    speed: 1.0,     // >1 faster spawn / shorter ttl
+    assist: 'off',  // off|low|med|high
+    tier: '',       // S/A/B/C
+    diffHint: 0     // -1 easier, 0 neutral, +1 harder
+  };
+
+  // Aim / lock radius used for hha:shoot selection
+  let lockPxBase = 28;
 
   /* ---------------- config ---------------- */
   function readConfig(){
@@ -69,15 +85,13 @@
     const seed = safeNum(qs('seed', String(Date.now())), Date.now());
     const hub  = String(qs('hub','../hub.html') || '../hub.html');
 
-    const D = {
+    const base = ({
       easy:   { spawnMs: 1050, ttlMs: 2200, bossEvery: 9,  bossHp: 4, cleanGain: 8,  missClean: 1, maxTargets: 3 },
       normal: { spawnMs: 850,  ttlMs: 1800, bossEvery: 7,  bossHp: 5, cleanGain: 7,  missClean: 1, maxTargets: 4 },
       hard:   { spawnMs: 700,  ttlMs: 1500, bossEvery: 6,  bossHp: 6, cleanGain: 6,  missClean: 2, maxTargets: 5 },
-    }[diff] || {
-      spawnMs: 850, ttlMs: 1800, bossEvery: 7, bossHp: 5, cleanGain: 7, missClean: 1, maxTargets: 4
-    };
+    }[diff]) || { spawnMs: 850, ttlMs: 1800, bossEvery: 7, bossHp: 5, cleanGain: 7, missClean: 1, maxTargets: 4 };
 
-    return { view, run, diff, time, pid, seed, hub, ...D };
+    return { view, run, diff, time, pid, seed, hub, ...base };
   }
 
   /* ---------------- dom ---------------- */
@@ -134,7 +148,12 @@
     }
     if(end){
       end.hidden = (mode !== 'end');
+      if(mode === 'end') end.style.display = '';
+      else end.style.display = 'none';
     }
+
+    // let boot sync too (optional)
+    emit('brush:ui', { mode });
   }
 
   function showToast(msg){
@@ -225,6 +244,79 @@
     if(btnBackHub2) btnBackHub2.href = cfg.hub || '../hub.html';
   }
 
+  /* ---------------- Warmup Gate handshake apply ---------------- */
+  function applyGateToCfg(){
+    if(!cfg) return;
+
+    // keep it research-safe: only apply in run=play by default
+    // if you want research to apply too, pass ?gateApply=1 explicitly.
+    const run = String(cfg.run || 'play').toLowerCase();
+    const gateApply = String(qs('gateApply','') || '').trim();
+    const shouldApply = (run === 'play') || (gateApply === '1' || gateApply.toLowerCase() === 'true');
+    if(!gate.has || !shouldApply) return;
+
+    // speed: clamp to sane range
+    const sp = clamp(gate.speed, 0.85, 1.25);
+
+    // spawn faster when sp>1, slower when sp<1
+    cfg.spawnMs = Math.round(clamp(cfg.spawnMs / sp, 420, 1800));
+
+    // ttl slightly shorter when speed up, longer when slow down
+    cfg.ttlMs = Math.round(clamp(cfg.ttlMs / (0.92*sp + 0.08), 900, 4200));
+
+    // assist affects lock radius (cVR shooting)
+    const a = String(gate.assist || 'off').toLowerCase();
+    const add =
+      (a === 'high') ? 34 :
+      (a === 'med'  || a === 'mid') ? 22 :
+      (a === 'low') ? 12 : 0;
+    lockPxBase = clamp(28 + add, 22, 78);
+
+    // diff hint nudges maxTargets/bossEvery a bit
+    const dh = clamp(gate.diffHint, -1, 1);
+    if(dh < 0){
+      cfg.maxTargets = clamp(cfg.maxTargets - 1, 2, 6);
+      cfg.bossEvery  = clamp(cfg.bossEvery + 1, 5, 14);
+    }else if(dh > 0){
+      cfg.maxTargets = clamp(cfg.maxTargets + 1, 2, 7);
+      cfg.bossEvery  = clamp(cfg.bossEvery - 1, 4, 12);
+    }
+  }
+
+  function bindGateEventsOnce(){
+    if(bindGateEventsOnce._done) return;
+    bindGateEventsOnce._done = true;
+
+    // from boot: new round about to start
+    WIN.addEventListener('brush:prestart-reset', ()=>{
+      // hard hide end overlay and clear locks
+      endLock = false;
+      if(end){
+        end.hidden = true;
+        end.style.display = 'none';
+      }
+      setUiMode('menu');
+    }, { passive:true });
+
+    // from warmup gate (boot dispatches)
+    WIN.addEventListener('brush:gate-handshake', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      gate.has = true;
+      gate.speed = safeNum(d.gateSpeed, 1.0);
+      gate.assist = String(d.gateAssist || d.gateAssistLevel || 'off');
+      gate.tier = String(d.gateTier || '');
+      gate.diffHint = safeNum(d.gateDiffHint, 0);
+
+      // apply immediately (affects next start)
+      applyGateToCfg();
+
+      // small feedback
+      try{
+        showToast(`Warmup Buff: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`);
+      }catch(_){}
+    }, { passive:true });
+  }
+
   /* ---------------- target logic ---------------- */
   function layerRect(){
     return layer ? layer.getBoundingClientRect() : {left:0,top:0,width:320,height:240};
@@ -269,7 +361,6 @@
     if(isBoss){
       const ws = DOC.createElement('div');
       ws.className = 'br-ws';
-      // ขยับจุดอ่อนแบบสุ่มเล็กน้อย
       const dx = (rng()*16 - 8);
       const dy = (rng()*16 - 8);
       ws.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
@@ -296,7 +387,9 @@
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       ev.stopPropagation();
-      hitTargetByPointer(t, ev.clientX, ev.clientY);
+      // ✅ count a shot exactly once (pointer path)
+      state.shots++;
+      hitTargetCore(t, ev.clientX, ev.clientY);
     }, {passive:false});
 
     TARGETS.set(id, t);
@@ -373,8 +466,6 @@
     if(!state || !state.started || state.ended || state.paused) return;
     if(!t || t.removed) return;
 
-    state.shots++;
-
     const rem = Math.max(0, t.expireAt - nowMs());
     const perfect = rem <= Math.min(420, t.ttl * 0.22);
 
@@ -403,8 +494,6 @@
         flashFx('shock');
         showToast(crit ? 'CRIT! 💎' : 'Boss แตก! 💎');
       }else{
-        // hit but not dead yet
-        state.combo = Math.max(0, state.combo);
         addScore(2, false, crit);
         gainFever(6 + (crit?4:0));
         flashFx(crit ? 'flash' : 'laser');
@@ -424,17 +513,13 @@
     checkEndConditions();
   }
 
-  function hitTargetByPointer(t, clientX, clientY){
-    hitTargetCore(t, clientX, clientY);
-  }
-
   function hitByScreenPoint(clientX, clientY){
     if(!state || !state.started || state.ended || state.paused) return;
 
+    // ✅ count a shot exactly once (screen shoot path)
     state.shots++;
 
-    // เลือก target ที่ใกล้ที่สุดใน lock radius
-    const lockPx = 28;
+    const lockPx = lockPxBase; // tuned by gate assist
     let best = null, bestD = 1e9;
 
     TARGETS.forEach((t)=>{
@@ -450,7 +535,6 @@
     });
 
     if(best && bestD <= lockPx + (best.isBoss ? 18 : 8)){
-      // ใช้พิกัดจริงเพื่อเช็ค weakspot
       hitTargetCore(best, clientX, clientY);
       return;
     }
@@ -467,7 +551,6 @@
     TARGETS.forEach((t)=>{
       if(t.removed) return;
       if(tNow >= t.expireAt){
-        // expire = miss
         state.miss++;
         state.combo = 0;
         decayCleanOnMiss();
@@ -499,7 +582,6 @@
     const el = ensureFx(k);
     if(!el) return;
     el.classList.remove('on');
-    // force reflow
     void el.offsetWidth;
     el.classList.add('on');
     const dur = (k === 'laser') ? 1300 : (k === 'shock' ? 400 : 180);
@@ -519,7 +601,6 @@
 
     expireTargets();
 
-    // auto fever decay when not ON
     if(!state.feverOn && state.feverGauge > 0){
       state.feverGauge = Math.max(0, state.feverGauge - dt * 3.5);
     }
@@ -531,7 +612,6 @@
   function frame(){
     if(!state || !state.started || state.ended) return;
     rafId = requestAnimationFrame(frame);
-    // reserved for future motion/ai hooks
   }
 
   function startLoops(){
@@ -550,26 +630,46 @@
     return 'D';
   }
 
-  function fillSummary(reason){
+  function buildSummary(reason){
     const timeSpent = Math.max(0, cfg.time - state.timeLeft);
     const acc = state.shots > 0 ? Math.round((state.hits / state.shots) * 100) : 0;
     const grade = gradeFromScore(acc, state.cleanPct, timeSpent);
 
-    sScore && (sScore.textContent = String(Math.round(state.score)));
-    sAcc && (sAcc.textContent = acc + '%');
-    sMiss && (sMiss.textContent = String(Math.round(state.miss)));
-    sCombo && (sCombo.textContent = String(Math.round(state.maxCombo)));
-    sClean && (sClean.textContent = pct(state.cleanPct));
-    sTime && (sTime.textContent = timeSpent.toFixed(1) + 's');
-    endGrade && (endGrade.textContent = grade);
+    const timeText = timeSpent.toFixed(1) + 's';
 
     let msg = '-';
-    if(reason === 'clean') msg = 'ALMOST!'; // ตามภาพ/สไตล์ที่คุณชอบ
+    if(reason === 'clean') msg = 'ALMOST!';
     if(reason === 'timeout' && state.cleanPct >= 70) msg = 'เกือบผ่านแล้ว!';
     if(reason === 'timeout' && state.cleanPct < 70) msg = 'ลองจัดลำดับเป้าหมายให้แม่นขึ้น 💪';
 
     const meta = `reason=${reason} | seed=${cfg.seed} | diff=${cfg.diff} | view=${cfg.view} | pid=${cfg.pid}`;
-    endNote && (endNote.textContent = `${msg}\n${meta}`);
+    const note = `${msg}\n${meta}`;
+
+    return {
+      reason: String(reason || 'timeout'),
+      score: Math.round(state.score),
+      miss: Math.round(state.miss),
+      hits: Math.round(state.hits),
+      shots: Math.round(state.shots),
+      maxCombo: Math.round(state.maxCombo),
+      cleanPct: Math.round(state.cleanPct),
+      accPct: acc,
+      timeText,
+      grade,
+      note
+    };
+  }
+
+  function fillSummaryUI(sum){
+    if(!sum) return;
+    sScore && (sScore.textContent = String(sum.score));
+    sAcc && (sAcc.textContent = sum.accPct + '%');
+    sMiss && (sMiss.textContent = String(sum.miss));
+    sCombo && (sCombo.textContent = String(sum.maxCombo));
+    sClean && (sClean.textContent = pct(sum.cleanPct));
+    sTime && (sTime.textContent = sum.timeText);
+    endGrade && (endGrade.textContent = sum.grade);
+    endNote && (endNote.textContent = sum.note);
   }
 
   function endGame(reason){
@@ -583,9 +683,13 @@
     stopLoops();
     TARGETS.forEach(t => { try{ t.el.style.pointerEvents='none'; }catch(_){ } });
 
-    fillSummary(reason || 'timeout');
+    const sum = buildSummary(reason || 'timeout');
+    fillSummaryUI(sum);
     renderHud();
     setUiMode('end');
+
+    // ✅ notify boot
+    emit('brush:end', sum);
 
     setTimeout(()=>{ endLock = false; }, 80);
   }
@@ -606,6 +710,9 @@
   function startGame(){
     if(!state) state = freshState();
 
+    // Apply gate tweaks right before start (affects this round)
+    applyGateToCfg();
+
     // fresh state each round
     resetAllRuntime();
     state = freshState();
@@ -619,13 +726,27 @@
     if(btnPause) btnPause.textContent = 'Pause';
 
     startLoops();
-    maybeSpawn(); // spawn first target quickly
+    maybeSpawn();
     showToast('เริ่มแปรง! 🪥');
+
+    // ✅ notify boot
+    emit('brush:start', { ts: Date.now(), seed: cfg.seed, diff: cfg.diff, view: cfg.view });
   }
 
   function retryGame(){
-    if(end) end.hidden = true;
+    if(end){ end.hidden = true; end.style.display='none'; }
     startGame();
+  }
+
+  function resetGame(){
+    // reset to menu without starting
+    endLock = false;
+    stopLoops();
+    resetAllRuntime();
+    state = freshState();
+    renderHud();
+    setUiMode('menu');
+    showToast('พร้อมเริ่มใหม่');
   }
 
   function togglePause(){
@@ -641,9 +762,7 @@
   }
 
   function doRecenter(){
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'brush' } }));
-    }catch(_){}
+    try{ emit('hha:recenter', { source:'brush' }); }catch(_){}
     showToast('Recenter 🎯');
   }
 
@@ -684,7 +803,6 @@
     boundOnce = true;
 
     bindOnce(btnStart, 'click', ()=>{
-      // ถ้ามี tap overlay อยู่ ให้ tap overlay เริ่มจริง
       if(tapStart && tapStart.style.display !== 'none') return;
       startGame();
     });
@@ -695,7 +813,7 @@
     bindOnce(btnRecenter, 'click', ()=> doRecenter());
     bindOnce(tapBtn, 'click', ()=> onTapUnlock());
 
-    // รับยิงจาก vr-ui (cVR / screen center shoot)
+    // Receive shoot from vr-ui (cVR / center shoot)
     bindOnce(WIN, 'hha:shoot', (ev)=>{
       if(!state || !state.started || state.ended || state.paused) return;
 
@@ -710,15 +828,18 @@
       hitByScreenPoint(x, y);
     });
 
-    // ถ้ากด ESC ระหว่างเล่น = pause
+    // ESC = pause
     bindOnce(DOC, 'keydown', (ev)=>{
       if(ev.code === 'Escape'){
         togglePause();
       }
     });
+
+    // Boot prestart reset + gate handshake
+    bindGateEventsOnce();
   }
 
-  /* ---------------- public init ---------------- */
+  /* ---------------- public init/export ---------------- */
   function initBrushGame(){
     if(bootOnce) return;
     bootOnce = true;
@@ -731,6 +852,19 @@
         throw new Error('BrushVR DOM missing (#br-wrap/#br-layer/#br-menu/#br-end)');
       }
 
+      // init gate from QS too (optional)
+      const gateSpeedQS = safeNum(qs('gateSpeed',''), NaN);
+      const gateAssistQS = String(qs('gateAssist','') || '').trim();
+      const gateDiffHintQS = safeNum(qs('gateDiffHint',''), NaN);
+      if(Number.isFinite(gateSpeedQS) || gateAssistQS || Number.isFinite(gateDiffHintQS)){
+        gate.has = true;
+        if(Number.isFinite(gateSpeedQS)) gate.speed = gateSpeedQS;
+        if(gateAssistQS) gate.assist = gateAssistQS;
+        if(Number.isFinite(gateDiffHintQS)) gate.diffHint = gateDiffHintQS;
+      }
+
+      applyGateToCfg();
+
       renderCtx();
       state = freshState();
       renderHud();
@@ -738,13 +872,9 @@
       setUiMode('menu');
       bindAll();
 
-      // mobile/cVR show tap overlay before start
       maybeRequireTapStart();
 
-      // ถ้าไม่มี tap overlay และเป็น play/research ให้ผู้เล่นกด Start เอง (ไม่ auto-start)
-      // IMPORTANT: no auto-start here.
-
-      // expose (optional debug)
+      // expose debug
       WIN.__BRUSH_STATE__ = ()=> state;
       WIN.__BRUSH_CFG__ = cfg;
       WIN.__brushStart = startGame;
@@ -756,7 +886,25 @@
     }
   }
 
-  /* export for boot */
+  // ✅ Public API for boot.js
+  WIN.BrushVR = WIN.BrushVR || {};
+  WIN.BrushVR.start = function(){ try{ initBrushGame(); return startGame(), true; }catch(_){ return false; } };
+  WIN.BrushVR.reset = function(){ try{ initBrushGame(); resetGame(); return true; }catch(_){ return false; } };
+  WIN.BrushVR.showHow = function(){ try{ showHow(); return true; }catch(_){ return false; } };
+  WIN.BrushVR.togglePause = function(){ try{ togglePause(); return true; }catch(_){ return false; } };
+
+  // Keep compat exports
   WIN.initBrushGame = initBrushGame;
   WIN.__brushInit = initBrushGame;
+
+  // ✅ auto init on DOM ready (safe, no duplicates)
+  function autoInit(){
+    try{ initBrushGame(); }catch(_){}
+  }
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', autoInit, { once:true });
+  }else{
+    autoInit();
+  }
+
 })();
