@@ -81,6 +81,24 @@
           <div class="hint">ระบบจะ “เตือน” ถ้าแผนหนักเกิน/เล่นติดกันแบบเสี่ยง</div>
         </div>
       </div>
+
+      <div class="badgesRow">
+        <div class="card">
+          <div class="card-h">Badges สายวางแผน</div>
+          <div class="badgeGrid" id="badgeGrid"></div>
+          <div class="hint">Badge ไม่ใช่คะแนนวิจัย แต่ช่วยทำให้ “Create” สนุกและมีเป้าหมาย</div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">Try Today</div>
+          <div class="tryRow">
+            <div class="mut" id="todayLabel">วันนี้: —</div>
+            <button class="btn" id="btnTryToday">▶️ เล่นตามแผนวันนี้</button>
+          </div>
+          <div class="hint">จะเปิดลิงก์เกมตามรายการวันนี้ (แก้ mapping URL ได้ใน JS)</div>
+          <div class="tryList" id="tryList"></div>
+        </div>
+      </div>
     </section>
 
     <section class="panel">
@@ -94,7 +112,7 @@
 
       <div class="week-grid" id="weekGrid"></div>
       <div class="footnote">
-        Tip: 1 วันเลือกได้ 0–2 เกม · รวมเวลาต่อวันควรอยู่ในข้อจำกัด · เป้าหมายสัปดาห์จะช่วยให้ระบบให้คำแนะนำได้แม่นขึ้น
+        Tip: 1 วันเลือกได้ 0–2 เกม · รวมเวลาต่อวันควรอยู่ในข้อจำกัด · Energy/day ช่วยกันโอเวอร์โหลด · Export แล้วแนบรายงานบท 4 ได้เลย
       </div>
     </section>
 
