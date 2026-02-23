@@ -1,10 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// FULL v20260220-fxHARDEN
+// FULL v20260223-missStd+endCompat+hudBreakdown
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FX: per-kind burst + tuned JUNK (BLOCK soft / HIT heavy) + 💣/💀 heavy pulse
 // ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared)
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
+// ✅ MISS standard: miss = good expired + junk hit (unblocked); shield block not miss
+// ✅ HUD miss breakdown: "3 (G2/J1)" when width allows
+// ✅ End events compat: emits both 'hha:end' and 'hha:game-ended'
 
 'use strict';
 
@@ -38,7 +41,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-20_FXHARDEN';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const isVR  = (view === 'vr');
@@ -386,6 +389,8 @@ export function boot(payload = {}) {
     endGrade: byId('endGrade'),
     endScore: byId('endScore'),
     endMiss: byId('endMiss'),
+    endMissGood: byId('endMissGood'),
+    endMissJunk: byId('endMissJunk'),
     endTime: byId('endTime'),
   };
 
@@ -399,7 +404,11 @@ export function boot(payload = {}) {
     score: 0,
     combo: 0,
     comboMax: 0,
+
+    // MISS standard (split)
     miss: 0,
+    missGoodExpired: 0,
+    missJunkHit: 0,
 
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
@@ -459,10 +468,43 @@ export function boot(payload = {}) {
     if(HUD.score) HUD.score.textContent = String(state.score);
     emit('hha:score', { score: state.score });
   }
-  function setMiss(v){
-    state.miss = Math.max(0, Math.floor(v));
-    if(HUD.miss) HUD.miss.textContent = String(state.miss);
+
+  function missTotal(){
+    return Math.max(0, (state.missGoodExpired|0) + (state.missJunkHit|0));
   }
+
+  function renderMiss(){
+    const g = (state.missGoodExpired|0);
+    const j = (state.missJunkHit|0);
+    const t = Math.max(0, g + j);
+
+    state.miss = t;
+
+    if(HUD.miss){
+      const W = (LAYER_L && LAYER_L.getBoundingClientRect) ? (LAYER_L.getBoundingClientRect().width||0) : 0;
+      const showBreakdown = (W >= 360);
+      HUD.miss.textContent = showBreakdown ? `${t} (G${g}/J${j})` : String(t);
+    }
+  }
+
+  function addMissGood(n=1){
+    state.missGoodExpired = Math.max(0, (state.missGoodExpired|0) + (n|0));
+    renderMiss();
+  }
+  function addMissJunk(n=1){
+    state.missJunkHit = Math.max(0, (state.missJunkHit|0) + (n|0));
+    renderMiss();
+  }
+  function reduceMiss(n=1){
+    let k = Math.max(0, n|0);
+    while(k-- > 0){
+      if(state.missGoodExpired > 0) state.missGoodExpired--;
+      else if(state.missJunkHit > 0) state.missJunkHit--;
+      else break;
+    }
+    renderMiss();
+  }
+
   function setTimeLeft(sec){
     state.timeLeftSec = Math.max(0, sec);
     if(HUD.time) HUD.time.textContent = String(Math.ceil(state.timeLeftSec));
@@ -536,7 +578,7 @@ export function boot(payload = {}) {
   function recomputeQuest(){
     const goal = {
       title: 'Survive',
-      cur: state.miss,
+      cur: missTotal(),
       target: DIFF.missLimit,
       desc: `ห้าม MISS ถึง ${DIFF.missLimit} (MISS ≥4 จะมี BOSS / ≥5 จะ RAGE)`,
     };
@@ -844,7 +886,7 @@ export function boot(payload = {}) {
       }else{
         state.nHitJunk++;
         addFever(10);
-        setMiss(state.miss + 1);
+        addMissJunk(1); // ✅ MISS standard
         setScore(state.score + (DIFF.junkPenaltyScore||-10));
 
         fxByKind('junk', px, py, { blocked:false });
@@ -855,7 +897,7 @@ export function boot(payload = {}) {
     } else if(kind==='star'){
       resetCombo();
       addFever(-10);
-      setMiss(Math.max(0, state.miss - 1));
+      reduceMiss(1); // ✅
 
       fxByKind('star', px, py);
       fxText(px, py, 'MISS -1', 't-star');
@@ -884,7 +926,6 @@ export function boot(payload = {}) {
     } else if(kind==='skull'){
       resetCombo();
       addFever(14);
-      setMiss(state.miss + 1);
       setScore(state.score - 8);
 
       fxByKind('skull', px, py);
@@ -908,7 +949,6 @@ export function boot(payload = {}) {
 
       }else{
         addFever(20);
-        setMiss(state.miss + 2);
         setScore(state.score - 22);
 
         fxByKind('bomb', px, py, { blocked:false });
@@ -925,7 +965,7 @@ export function boot(payload = {}) {
     updateBossUI();
     recomputeQuest();
 
-    if(state.miss >= DIFF.missLimit){
+    if(missTotal() >= DIFF.missLimit){
       endGame('miss-limit');
     }
   }
@@ -976,7 +1016,8 @@ export function boot(payload = {}) {
           state.nExpireGood++;
           resetCombo();
           addFever(6);
-          setMiss(state.miss + 1);
+
+          addMissGood(1); // ✅ MISS standard
 
           const c = centerOfTarget(tObj);
           popBurst('expire', c.x, c.y, { size: 92, life: 320 });
@@ -988,7 +1029,7 @@ export function boot(payload = {}) {
           updateBossUI();
           recomputeQuest();
 
-          if(state.miss >= DIFF.missLimit){
+          if(missTotal() >= DIFF.missLimit){
             removeTarget(tObj);
             endGame('miss-limit');
             return;
@@ -1002,6 +1043,8 @@ export function boot(payload = {}) {
 
   // ---------------- mode thresholds ----------------
   function updateModeThresholds(){
+    const m = missTotal();
+
     const wantStorm = (state.timeLeftSec <= 30);
     if(wantStorm && !state.stormOn){
       state.stormOn = true;
@@ -1011,7 +1054,7 @@ export function boot(payload = {}) {
       bodyPulse('gj-storm', 240);
     }
 
-    const wantBoss = (state.miss >= 4);
+    const wantBoss = (m >= 4);
     if(wantBoss && !state.bossOn){
       state.bossOn = true;
       state.boss.active = true;
@@ -1036,7 +1079,7 @@ export function boot(payload = {}) {
       for(let i=0;i<3;i++) spawnOne();
     }
 
-    const wantRage = (state.miss >= 5);
+    const wantRage = (m >= 5);
     if(wantRage && !state.rageOn){
       state.rageOn = true;
       emit('hha:judge', { label:'RAGE!!' });
@@ -1067,7 +1110,8 @@ export function boot(payload = {}) {
       if(!tObj.hit && tObj.kind === 'good'){
         tObj.hit = true;
         state.nExpireGood++;
-        setMiss(state.miss + 1);
+
+        addMissGood(1); // ✅ stomp counts as good expired (still "good removed by time/boss")
 
         const c = centerOfTarget(tObj);
         popBurst('stomp', c.x, c.y, { size: 120, life: 420 });
@@ -1138,7 +1182,7 @@ export function boot(payload = {}) {
     let r = DIFF.spawnPerSec;
 
     if(adaptiveOn){
-      const struggle = clamp((state.miss / Math.max(1, DIFF.missLimit)), 0, 1);
+      const struggle = clamp((missTotal() / Math.max(1, DIFF.missLimit)), 0, 1);
       const comboBoost = clamp(state.combo / 18, 0, 1);
       r = r * (1 + 0.18*comboBoost) * (1 - 0.20*struggle);
     }
@@ -1184,7 +1228,15 @@ export function boot(payload = {}) {
       );
       HUD.endGrade && (HUD.endGrade.textContent = detail?.grade || '—');
       HUD.endScore && (HUD.endScore.textContent = String(detail?.scoreFinal ?? 0));
-      HUD.endMiss && (HUD.endMiss.textContent  = String(detail?.misses ?? 0));
+
+      const mt = Number(detail?.missTotal ?? detail?.misses ?? 0) || 0;
+      const mg = Number(detail?.missGoodExpired ?? 0) || 0;
+      const mj = Number(detail?.missJunkHit ?? 0) || 0;
+
+      HUD.endMiss && (HUD.endMiss.textContent = String(mt));
+      HUD.endMissGood && (HUD.endMissGood.textContent = String(mg));
+      HUD.endMissJunk && (HUD.endMissJunk.textContent = String(mj));
+
       HUD.endTime && (HUD.endTime.textContent  = String(Math.round(Number(detail?.durationPlayedSec||0))));
       HUD.endOverlay.setAttribute('aria-hidden','false');
     }catch(_){}
@@ -1199,7 +1251,7 @@ export function boot(payload = {}) {
 
     const scoreFinal = state.score;
     const comboMax = state.comboMax;
-    const misses = state.miss;
+    const misses = missTotal();
     const avgRtGoodMs = avg(state.rtGood);
     const medianRtGoodMs = median(state.rtGood);
     const grade = gradeFrom(scoreFinal, misses);
@@ -1221,7 +1273,12 @@ export function boot(payload = {}) {
       durationPlayedSec,
       scoreFinal,
       comboMax,
-      misses,
+
+      // ✅ MISS breakdown
+      missTotal: misses,
+      missGoodExpired: state.missGoodExpired,
+      missJunkHit: state.missJunkHit,
+
       avgRtGoodMs,
       medianRtGoodMs,
       bossDefeated: (!state.boss.active && state.bossOn),
@@ -1234,6 +1291,7 @@ export function boot(payload = {}) {
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
+    // ✅ Emit main end (schema style)
     emit('hha:end', {
       projectTag: PROJECT_TAG,
       runMode,
@@ -1250,13 +1308,20 @@ export function boot(payload = {}) {
       scoreFinal,
       comboMax,
       misses,
+      missTotal: misses,
+      missGoodExpired: state.missGoodExpired,
+      missJunkHit: state.missJunkHit,
       avgRtGoodMs,
       medianRtGoodMs,
       reason,
       startTimeIso: state.startTimeIso,
       endTimeIso: state.endTimeIso,
       grade,
+      summary,
     });
+
+    // ✅ Compat end event (html listener)
+    emit('hha:game-ended', summary);
 
     showEndOverlay({ ...summary });
     emit('hha:celebrate', { kind:'end', grade });
@@ -1310,7 +1375,11 @@ export function boot(payload = {}) {
   // ---------------- init/start ----------------
   function initHud(){
     setScore(0);
-    setMiss(0);
+
+    state.missGoodExpired = 0;
+    state.missJunkHit = 0;
+    renderMiss();
+
     setTimeLeft(durationPlannedSec);
     setGradeText('—');
 
