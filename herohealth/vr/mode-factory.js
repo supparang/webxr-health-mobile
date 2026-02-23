@@ -1,295 +1,375 @@
 // === /herohealth/vr/mode-factory.js ===
-// PATCH: onShotMiss callback + emits hha:judge(kind=shot_miss) + keep decorateTarget + hha:shoot
-// Works with PC/Mobile tap + cVR/VR crosshair via vr-ui.js (hha:shoot)
-
+// DOM target spawn factory (SAFE) — with mount rect fallback + shot_miss callback
 'use strict';
 
-const WIN = window;
-const DOC = document;
+/**
+ * boot({
+ *   mount, seed, spawnRate, sizeRange, kinds, decorateTarget,
+ *   onHit, onExpire, onShotMiss
+ * })
+ *
+ * kinds: [{kind:'good', weight:0.7}, {kind:'junk', weight:0.3}]
+ */
+export function boot(opts = {}){
+  const mount = opts.mount;
+  if (!mount) throw new Error('mode-factory: missing mount');
 
-function seededRng(seed){
-  let t = (Number(seed) || Date.now()) >>> 0;
-  return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+  const ROOT = window;
+  const DOC = document;
 
-function now(){
-  return (performance && performance.now) ? performance.now() : Date.now();
-}
+  const spawnRate = Math.max(120, Number(opts.spawnRate || 900));
+  const sizeRange = Array.isArray(opts.sizeRange) ? opts.sizeRange : [44, 64];
+  const kinds     = Array.isArray(opts.kinds) && opts.kinds.length ? opts.kinds : [{kind:'good', weight:1}];
+  const decorateTarget = (typeof opts.decorateTarget === 'function') ? opts.decorateTarget : ()=>{};
+  const onHit     = (typeof opts.onHit === 'function') ? opts.onHit : ()=>{};
+  const onExpire  = (typeof opts.onExpire === 'function') ? opts.onExpire : ()=>{};
+  const onShotMiss= (typeof opts.onShotMiss === 'function') ? opts.onShotMiss : null;
 
-function readSafeVars(){
-  const cs = getComputedStyle(DOC.documentElement);
-
-  // รองรับหลายเกม (plate / goodjunk / hydration / groups ฯลฯ)
-  const top =
-    parseFloat(cs.getPropertyValue('--plate-top-safe')) ||
-    parseFloat(cs.getPropertyValue('--gj-top-safe')) ||
-    parseFloat(cs.getPropertyValue('--hy-top-safe')) ||
-    parseFloat(cs.getPropertyValue('--groups-top-safe')) ||
-    parseFloat(cs.getPropertyValue('--hw-top-safe')) || 0;
-
-  const bottom =
-    parseFloat(cs.getPropertyValue('--plate-bottom-safe')) ||
-    parseFloat(cs.getPropertyValue('--gj-bottom-safe')) ||
-    parseFloat(cs.getPropertyValue('--hy-bottom-safe')) ||
-    parseFloat(cs.getPropertyValue('--groups-bottom-safe')) ||
-    parseFloat(cs.getPropertyValue('--hw-bottom-safe')) || 0;
-
-  const left =
-    parseFloat(cs.getPropertyValue('--plate-left-safe')) ||
-    parseFloat(cs.getPropertyValue('--gj-left-safe')) ||
-    parseFloat(cs.getPropertyValue('--hy-left-safe')) ||
-    parseFloat(cs.getPropertyValue('--groups-left-safe')) ||
-    parseFloat(cs.getPropertyValue('--hw-left-safe')) || 0;
-
-  const right =
-    parseFloat(cs.getPropertyValue('--plate-right-safe')) ||
-    parseFloat(cs.getPropertyValue('--gj-right-safe')) ||
-    parseFloat(cs.getPropertyValue('--hy-right-safe')) ||
-    parseFloat(cs.getPropertyValue('--groups-right-safe')) ||
-    parseFloat(cs.getPropertyValue('--hw-right-safe')) || 0;
-
-  return { top, bottom, left, right };
-}
-
-function pickWeighted(rng, arr){
-  let sum = 0;
-  for(const it of arr) sum += (it.weight ?? 1);
-  let x = rng() * Math.max(0.0001, sum);
-
-  for(const it of arr){
-    x -= (it.weight ?? 1);
-    if(x <= 0) return it;
+  // -------- rng --------
+  function seededRng(seed){
+    let t = (Number(seed) || Date.now()) >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
   }
-  return arr[arr.length - 1];
-}
+  const rng = seededRng(opts.seed);
 
-function emitJudge(detail){
-  try{
-    WIN.dispatchEvent(new CustomEvent('hha:judge', { detail }));
-  }catch{}
-}
+  const rand  = (a,b)=> a + (b-a)*rng();
 
-export function boot({
-  mount,
-  seed = Date.now(),
-  spawnRate = 900,
-  sizeRange = [44,64],
-  kinds = [{ kind:'good', weight:0.7 }, { kind:'junk', weight:0.3 }],
+  // -------- state --------
+  let stopped = false;
+  let spawnTimer = null;
+  let rafId = 0;
+  let seq = 0;
 
-  onHit = ()=>{},
-  onExpire = ()=>{},
-  onShotMiss = ()=>{},   // ✅ NEW callback
-  decorateTarget = null,
-} = {}){
-  if(!mount) throw new Error('mode-factory: mount missing');
+  // active targets: id -> record
+  const active = new Map();
 
-  const rng = seededRng(seed);
+  // dedupe shot_miss between pointerdown on target and global pointerdown
+  let lastTargetPointerTs = 0;
 
-  const state = {
-    alive: true,
-    lastSpawnAt: 0,
-    spawnTimer: null,
-    targets: new Set(),
-    cooldownUntil: 0,
-    spawnSeq: 0
-  };
+  // -------- geometry / safe-zone --------
+  function getMountRectSafe(){
+    let r = null;
+    try { r = mount.getBoundingClientRect(); } catch {}
+    let w = r ? r.width : 0;
+    let h = r ? r.height : 0;
+    let x = r ? r.left : 0;
+    let y = r ? r.top  : 0;
 
-  function computeSpawnRect(){
-    const r = mount.getBoundingClientRect();
-    const safe = readSafeVars();
+    let fallback = false;
+    if (!(w > 8 && h > 8)){
+      fallback = true;
 
-    const left = r.left + safe.left;
-    const top = r.top + safe.top;
-    const right = r.right - safe.right;
-    const bottom = r.bottom - safe.bottom;
+      // Try offset sizes first
+      w = mount.offsetWidth || 0;
+      h = mount.offsetHeight || 0;
+      x = 0; y = 0;
 
-    const w = Math.max(0, right - left);
-    const h = Math.max(0, bottom - top);
-
-    return { left, top, right, bottom, w, h };
-  }
-
-  function removeTarget(target){
-    if(!target) return;
-    try{ target.el?.remove?.(); }catch{}
-  }
-
-  function hit(target, meta){
-    if(!state.alive) return;
-    if(!state.targets.has(target)) return;
-
-    state.targets.delete(target);
-    removeTarget(target);
-
-    try{
-      onHit({
-        kind: target.kind,
-        groupIndex: target.groupIndex,
-        targetId: target.id,
-        bornAt: target.bornAt,
-        ttlMs: target.ttlMs,
-        ...meta
-      });
-    }catch{}
-  }
-
-  function onShoot(ev){
-    if(!state.alive) return;
-
-    const d = ev?.detail || {};
-    const t = now();
-
-    // anti-double fire
-    if(t < state.cooldownUntil) return;
-    state.cooldownUntil = t + 90;
-
-    const x = Number(d.x);
-    const y = Number(d.y);
-    const lockPx = Math.max(6, Number(d.lockPx || 28) || 28);
-
-    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-    let best = null;
-    let bestDist = Infinity;
-
-    for(const target of state.targets){
-      const el = target.el;
-      if(!el || !el.isConnected) continue;
-
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const dist = Math.hypot(cx - x, cy - y);
-
-      if(dist <= lockPx && dist < bestDist){
-        best = target;
-        bestDist = dist;
+      if (!(w > 8 && h > 8)){
+        // viewport fallback (important when layout not ready)
+        w = ROOT.innerWidth  || DOC.documentElement.clientWidth  || 360;
+        h = ROOT.innerHeight || DOC.documentElement.clientHeight || 640;
+        x = 0; y = 0;
       }
     }
 
-    if(best){
-      hit(best, {
-        source: 'shoot',
-        x, y,
-        lockPx,
-        distPx: Math.round(bestDist * 100) / 100
+    // safe insets from CSS vars if available
+    const cs = getComputedStyle(DOC.documentElement);
+    const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
+    const sar = parseFloat(cs.getPropertyValue('--sar')) || 0;
+    const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
+    const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
+
+    // HUD avoidance (top/bottom)
+    const topPad = Math.max(12 + sat, 120);   // reserve top HUD area
+    const botPad = Math.max(12 + sab, 180);   // reserve coach+controls area
+    const sidePadL = Math.max(12 + sal, 12);
+    const sidePadR = Math.max(12 + sar, 12);
+
+    const safe = {
+      left:   x + sidePadL,
+      top:    y + topPad,
+      right:  x + Math.max(sidePadL + 80, w - sidePadR),
+      bottom: y + Math.max(topPad + 120, h - botPad)
+    };
+
+    // ensure valid safe area
+    if (safe.right - safe.left < 80){
+      safe.left = x + 8;
+      safe.right = x + Math.max(120, w - 8);
+    }
+    if (safe.bottom - safe.top < 80){
+      safe.top = y + 8;
+      safe.bottom = y + Math.max(120, h - 8);
+    }
+
+    emitSpawnDebug('mount_rect', {
+      rect: { x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h) },
+      safe: {
+        left:Math.round(safe.left), top:Math.round(safe.top),
+        right:Math.round(safe.right), bottom:Math.round(safe.bottom)
+      },
+      fallback
+    });
+
+    return { x, y, w, h, safe, fallback };
+  }
+
+  // -------- weighted kind pick --------
+  function pickKind(){
+    let total = 0;
+    for (const k of kinds) total += Math.max(0, Number(k.weight || 0));
+    if (total <= 0) return { kind:'good', rng };
+
+    let t = rng() * total;
+    for (const k of kinds){
+      t -= Math.max(0, Number(k.weight || 0));
+      if (t <= 0) return { ...k, rng };
+    }
+    return { ...kinds[kinds.length - 1], rng };
+  }
+
+  // -------- target create/remove --------
+  function createTarget(){
+    if (stopped) return;
+    const g = getMountRectSafe();
+
+    const size = Math.round(rand(
+      Math.min(sizeRange[0], sizeRange[1]),
+      Math.max(sizeRange[0], sizeRange[1])
+    ));
+
+    // spawn inside SAFE area
+    const minX = g.safe.left;
+    const maxX = g.safe.right - size;
+    const minY = g.safe.top;
+    const maxY = g.safe.bottom - size;
+
+    // if geometry still weird, skip this tick quietly
+    if (!(maxX > minX && maxY > minY)){
+      emitSpawnDebug('spawn_skip_bad_safe', {
+        minX, maxX, minY, maxY, size,
+        rect: { w:g.w, h:g.h }, fallback: g.fallback
       });
       return;
     }
 
-    // ✅ ยิงแล้วไม่โดนเป้า
-    const missPayload = {
-      kind: 'shot_miss',
-      source: 'shoot',
-      x, y, lockPx,
-      t: Date.now()
-    };
+    const vx = rand(minX, maxX);
+    const vy = rand(minY, maxY);
 
-    // 1) callback path
-    try{ onShotMiss(missPayload); }catch{}
+    const kindObj = pickKind();
+    const id = `t_${Date.now()}_${(++seq)}`;
 
-    // 2) event path (fallback / telemetry)
-    emitJudge(missPayload);
-  }
-
-  WIN.addEventListener('hha:shoot', onShoot, { passive: true });
-
-  function spawnOne(){
-    if(!state.alive) return;
-
-    const rect = computeSpawnRect();
-    if(rect.w < 80 || rect.h < 80) return;
-
-    const minS = Math.min(sizeRange[0] ?? 44, sizeRange[1] ?? 64);
-    const maxS = Math.max(sizeRange[0] ?? 44, sizeRange[1] ?? 64);
-    const size = Math.round(minS + rng() * (maxS - minS));
-
-    const pad = Math.max(10, Math.round(size * 0.55));
-    const x = rect.left + pad + rng() * Math.max(1, (rect.w - pad * 2));
-    const y = rect.top + pad + rng() * Math.max(1, (rect.h - pad * 2));
-
-    const chosen = pickWeighted(rng, kinds || [{ kind:'good', weight:1 }]);
-    const kind = chosen?.kind || 'good';
-
-    const el = DOC.createElement('div');
+    const el = DOC.createElement('button');
+    el.type = 'button';
     el.className = 'plateTarget';
-    el.dataset.kind = kind;
-    el.style.position = 'fixed'; // robust even if CSS delayed
-    el.style.left = `${Math.round(x)}px`;
-    el.style.top = `${Math.round(y)}px`;
+    el.dataset.id = id;
+    el.dataset.kind = String(kindObj.kind || 'good');
+
+    // place relative to mount
+    const localX = Math.round(vx - g.x);
+    const localY = Math.round(vy - g.y);
+    el.style.left = `${localX}px`;
+    el.style.top = `${localY}px`;
     el.style.width = `${size}px`;
     el.style.height = `${size}px`;
-    el.style.transform = 'translate(-50%,-50%)';
 
-    const target = {
-      id: `t_${Date.now()}_${(++state.spawnSeq)}`,
-      el,
-      kind,
-      bornAt: now(),
-      ttlMs: kind === 'junk' ? 1700 : 2100,
-      groupIndex: Math.floor(rng() * 5),
-      size,
-      rng
+    // default TTL by mode if not provided
+    let ttl = 2200;
+    if (kindObj.kind === 'junk') ttl = 2400;
+    if (spawnRate <= 700) ttl = Math.max(1500, ttl - 250);
+
+    const rec = {
+      id, el,
+      kind: kindObj.kind || 'good',
+      groupIndex: null,
+      bornAt: performance.now(),
+      ttl,
+      dead: false,
+      x: localX, y: localY, size
     };
 
-    el.__hhaTarget = target;
+    // let game decorate assign group/emoji/etc
+    try { decorateTarget(el, { ...kindObj, el, id, size }); } catch (e) {
+      console.warn('decorateTarget error', e);
+    }
 
-    try{
-      if(typeof decorateTarget === 'function') decorateTarget(el, target);
-    }catch{}
+    const gId = Number(el.dataset.group || 0);
+    if (gId >= 1 && gId <= 5) rec.groupIndex = gId - 1;
 
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      hit(target, { source:'tap' });
-    }, { passive:false });
+    // target hit
+    const onTargetPointer = (ev)=>{
+      if (stopped || rec.dead) return;
+      rec.dead = true;
+      lastTargetPointerTs = performance.now();
 
-    mount.appendChild(el);
-    state.targets.add(target);
+      el.classList.add('hit');
+      setTimeout(()=>{ tryRemove(id); }, 70);
 
-    setTimeout(()=>{
-      if(!state.alive) return;
-      if(!state.targets.has(target)) return;
-
-      state.targets.delete(target);
-      removeTarget(target);
-
-      try{
-        onExpire({
-          ...target,
-          source: 'ttl'
+      try {
+        onHit({
+          id: rec.id,
+          el: rec.el,
+          kind: rec.kind,
+          groupIndex: rec.groupIndex,
+          x: rec.x, y: rec.y, size: rec.size,
+          event: ev
         });
-      }catch{}
-    }, target.ttlMs);
+      } catch (e) {
+        console.warn('onHit error', e);
+      }
+    };
+
+    el.addEventListener('pointerdown', onTargetPointer, { passive:true });
+    el.addEventListener('click', onTargetPointer, { passive:true });
+
+    active.set(id, rec);
+    mount.appendChild(el);
+
+    emitSpawnDebug('spawn', {
+      id,
+      kind: rec.kind,
+      groupIndex: rec.groupIndex,
+      x: rec.x, y: rec.y, size: rec.size,
+      ttl,
+      mountFallback: g.fallback
+    });
   }
 
-  state.spawnTimer = setInterval(()=>{
-    if(!state.alive) return;
+  function tryRemove(id){
+    const rec = active.get(id);
+    if (!rec) return false;
+    active.delete(id);
+    try { rec.el.remove(); } catch {}
+    return true;
+  }
 
-    const t = now();
-    if((t - state.lastSpawnAt) >= spawnRate){
-      state.lastSpawnAt = t;
-      spawnOne();
+  // -------- expire loop --------
+  function tick(){
+    if (stopped) return;
+    const now = performance.now();
+
+    for (const [id, rec] of active){
+      if (rec.dead) continue;
+      if ((now - rec.bornAt) >= rec.ttl){
+        rec.dead = true;
+        rec.el.classList.add('expire');
+        setTimeout(()=>{ tryRemove(id); }, 90);
+
+        try {
+          onExpire({
+            id: rec.id,
+            el: rec.el,
+            kind: rec.kind,
+            groupIndex: rec.groupIndex,
+            x: rec.x, y: rec.y, size: rec.size
+          });
+        } catch (e) {
+          console.warn('onExpire error', e);
+        }
+      }
     }
-  }, 60);
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // -------- global shot_miss bridge --------
+  function fireShotMiss(meta){
+    if (!onShotMiss) return;
+    try { onShotMiss(meta || {}); } catch (e) { console.warn('onShotMiss error', e); }
+  }
+
+  function onGlobalPointerDown(ev){
+    if (stopped) return;
+
+    // If a target pointer happened same frame-ish, skip miss
+    const dt = performance.now() - lastTargetPointerTs;
+    if (dt >= 0 && dt < 30) return;
+
+    const t = ev.target;
+    if (t && t.closest && t.closest('.plateTarget')) return;
+
+    fireShotMiss({
+      source: 'pointer',
+      x: Number(ev.clientX)||0,
+      y: Number(ev.clientY)||0
+    });
+  }
+
+  function onShootEvent(ev){
+    if (stopped) return;
+
+    // Let run page / vr-ui try auto-hit first; if no target got clicked in short window => miss
+    const d = ev.detail || {};
+    const ts0 = performance.now();
+    setTimeout(()=>{
+      const dt = performance.now() - lastTargetPointerTs;
+      if (lastTargetPointerTs < ts0 && dt >= 0){
+        fireShotMiss({
+          source: 'hha:shoot',
+          x: Number(d.x)||0,
+          y: Number(d.y)||0,
+          lockPx: Number(d.lockPx)||0
+        });
+      }
+    }, 24);
+  }
+
+  // -------- spawn debug event --------
+  function emitSpawnDebug(type, detail){
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:spawn_debug', {
+        detail: { type, ...(detail||{}) }
+      }));
+    }catch{}
+  }
+
+  // -------- controls --------
+  function startSpawning(){
+    if (spawnTimer) clearInterval(spawnTimer);
+    createTarget(); // immediate first target
+    spawnTimer = setInterval(createTarget, spawnRate);
+    emitSpawnDebug('start', { spawnRate });
+  }
+
+  function stop(){
+    if (stopped) return;
+    stopped = true;
+
+    try { clearInterval(spawnTimer); } catch {}
+    spawnTimer = null;
+
+    try { cancelAnimationFrame(rafId); } catch {}
+    rafId = 0;
+
+    ROOT.removeEventListener('pointerdown', onGlobalPointerDown, true);
+    ROOT.removeEventListener('hha:shoot', onShootEvent, false);
+
+    for (const [id] of active) tryRemove(id);
+    active.clear();
+
+    emitSpawnDebug('stop', {});
+  }
+
+  // -------- init --------
+  ROOT.addEventListener('pointerdown', onGlobalPointerDown, true);
+  ROOT.addEventListener('hha:shoot', onShootEvent, { passive:true });
+
+  startSpawning();
+  rafId = requestAnimationFrame(tick);
 
   return {
-    stop(){
-      if(!state.alive) return;
-
-      state.alive = false;
-
-      try{ clearInterval(state.spawnTimer); }catch{}
-      WIN.removeEventListener('hha:shoot', onShoot, { passive: true });
-
-      for(const target of state.targets){
-        removeTarget(target);
-      }
-      state.targets.clear();
+    stop,
+    getState(){
+      return {
+        stopped,
+        spawnRate,
+        activeCount: active.size
+      };
     }
   };
 }
