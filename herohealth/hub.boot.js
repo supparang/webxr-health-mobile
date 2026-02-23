@@ -1,11 +1,13 @@
 // === /herohealth/hub.boot.js ===
-// HeroHealth HUB Controller — PRODUCTION (PATCH v20260222-planWarmupSeq-ultra)
+// HeroHealth HUB Controller — PRODUCTION (PATCH v20260223-logQueueFlush)
 // ✅ Warmup/Cooldown Gate routing for real Hub buttons
 // ✅ Supports hygiene additions: germ-detective, bath, cleanobjects(home-clean)
 // ✅ Supports overrides: ?pick=rand|day and ?variant=1..5
 // ✅ Plan Runner integration (AN + AN-Plus + AN-Ultra)
 // ✅ Direct cooldown chain via cdnext (slot -> next slot warmup gate)
 // ✅ Preserves hub context + plan sequence params in ?hub=
+// ✅ NEW: Receive ?log= payload -> localStorage queue (HHA_LOG_QUEUE)
+// ✅ NEW: Flush queue opt-in via ?flush=1&endpoint=... (403-safe disable latch)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -70,6 +72,187 @@ function decidePickMode(){
   if(P.pick==='rand' || P.pick==='day') return P.pick;
   // default policy: play=rand, research=day
   return (P.run==='research') ? 'day' : 'rand';
+}
+
+// ============================================================
+// LOG QUEUE (receive ?log=... from games) + FLUSH (opt-in)
+// ============================================================
+
+const LOGQ_KEY = 'HHA_LOG_QUEUE';
+const FLUSH_DISABLED_KEY = 'HHA_FLUSH_DISABLED';
+const FLUSH_DISABLED_TTL_MS = 15 * 60 * 1000;
+
+function b64urlDecodeJson(s){
+  try{
+    s = String(s||'').replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length % 4) s += '=';
+    const json = decodeURIComponent(escape(atob(s)));
+    return JSON.parse(json);
+  }catch(_){
+    return null;
+  }
+}
+
+function queueLogFromUrl(){
+  const logB64 = String(qs('log','') || '').trim();
+  if(!logB64) return;
+
+  const payload = b64urlDecodeJson(logB64);
+  if(!payload) return;
+
+  try{
+    const arr = JSON.parse(localStorage.getItem(LOGQ_KEY) || '[]');
+    arr.push(payload);
+    localStorage.setItem(LOGQ_KEY, JSON.stringify(arr));
+    console.log('[HHA] queued log:', payload);
+  }catch(e){
+    console.warn('[HHA] queue log failed', e);
+  }
+
+  // clean URL to avoid re-queue on refresh
+  try{
+    const u = new URL(location.href);
+    u.searchParams.delete('log');
+    u.searchParams.delete('logKind');
+    u.searchParams.delete('from');
+    history.replaceState({}, '', u.toString());
+  }catch(_){}
+}
+
+function flushDisabledInfo(){
+  try{
+    const raw = sessionStorage.getItem(FLUSH_DISABLED_KEY);
+    if(!raw) return { disabled:false };
+    const d = JSON.parse(raw);
+    const age = Date.now() - (d.ts||0);
+    if(age > FLUSH_DISABLED_TTL_MS){
+      sessionStorage.removeItem(FLUSH_DISABLED_KEY);
+      return { disabled:false };
+    }
+    return { disabled:true, code:d.code||0, reason:d.reason||'', ts:d.ts||0 };
+  }catch(_){
+    return { disabled:false };
+  }
+}
+
+function disableFlush(code, reason){
+  try{
+    sessionStorage.setItem(FLUSH_DISABLED_KEY, JSON.stringify({
+      code: Number(code)||0,
+      reason: String(reason||''),
+      ts: Date.now()
+    }));
+  }catch(_){}
+}
+
+function loadQueue(){
+  try{ return JSON.parse(localStorage.getItem(LOGQ_KEY) || '[]'); }catch(_){ return []; }
+}
+function saveQueue(arr){
+  try{ localStorage.setItem(LOGQ_KEY, JSON.stringify(arr||[])); }catch(_){}
+}
+
+async function postJSON(url, payload){
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type':'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return res;
+}
+
+async function flushQueueIfRequested(){
+  const flushOn = String(qs('flush','0') || '0') === '1';
+  if(!flushOn) return;
+
+  const endpoint = String(qs('endpoint','') || qs('api','') || '').trim();
+  if(!endpoint) return;
+
+  const dis = flushDisabledInfo();
+  if(dis.disabled){
+    console.warn('[HHA] flush disabled:', dis);
+    return;
+  }
+
+  if(window.__HHA_FLUSH_RUNNING__) return;
+  window.__HHA_FLUSH_RUNNING__ = true;
+
+  try{
+    let q = loadQueue();
+    if(!q.length){
+      console.log('[HHA] queue empty');
+      return;
+    }
+
+    const batchMax = clamp(Number(qs('flushN','8')||8), 1, 25);
+    const batch = q.slice(0, batchMax);
+
+    // try batch first
+    try{
+      const res = await postJSON(endpoint, {
+        kind: 'hha_batch',
+        ts: Date.now(),
+        source: 'hub',
+        count: batch.length,
+        items: batch
+      });
+
+      if(res.status === 401 || res.status === 403){
+        disableFlush(res.status, 'unauthorized/forbidden');
+        console.warn('[HHA] flush blocked', res.status);
+        return;
+      }
+
+      if(res.ok){
+        q = q.slice(batch.length);
+        saveQueue(q);
+        console.log('[HHA] flush ok. remain:', q.length);
+        return;
+      }
+
+      throw new Error('batch not ok');
+    }catch(e){
+      console.warn('[HHA] batch failed -> fallback per-item', e);
+    }
+
+    // fallback per-item
+    let remain = q.slice();
+    let sent = 0;
+
+    for(let i=0;i<batch.length;i++){
+      const item = batch[i];
+
+      try{
+        const res = await postJSON(endpoint, item);
+
+        if(res.status === 401 || res.status === 403){
+          disableFlush(res.status, 'unauthorized/forbidden');
+          console.warn('[HHA] flush blocked', res.status);
+          break;
+        }
+
+        if(res.ok){
+          sent++;
+          remain.shift();
+        }else{
+          console.warn('[HHA] item failed status', res.status);
+          break;
+        }
+      }catch(err){
+        console.warn('[HHA] item send error', err);
+        break;
+      }
+
+      await new Promise(r=>setTimeout(r, 180 + Math.floor(Math.random()*120)));
+    }
+
+    if(sent > 0){
+      saveQueue(remain);
+      console.log('[HHA] per-item sent', sent, 'remain', remain.length);
+    }
+  } finally {
+    window.__HHA_FLUSH_RUNNING__ = false;
+  }
 }
 
 // ============================================================
@@ -751,6 +934,10 @@ function bindPlanRunnerButtons(){
 
 // ---------- API banner + retry ----------
 async function boot(){
+  // receive ?log= first, before any navigation logic
+  try{ queueLogFromUrl(); }catch(_){}
+  try{ await flushQueueIfRequested(); }catch(_){}
+
   try{
     setBanner('info', 'กำลังตรวจสอบระบบ…');
     attachRetry();
