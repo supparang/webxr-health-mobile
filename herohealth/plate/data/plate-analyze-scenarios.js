@@ -1,9 +1,11 @@
 // /herohealth/plate/data/plate-analyze-scenarios.js
+'use strict';
+
 export const SCENARIOS = [
   {
     id:'scn01',
     title:'เร่งรีบก่อนเข้าเรียน',
-    context:'มีเวลาไม่มาก ต้องกินให้พอและไม่พลาดข้อห้าม',
+    context:'มีเวลาไม่มาก ต้องกินให้พอและไม่ชนข้อห้าม',
     constraints:{ maxPrepMin:5, maxBudget:50, avoidAllergens:['milk'] },
     goals:['protein_high'],
     available:['egg_boiled','milk','brown_rice','banana','chicken_shred','yogurt','cucumber','fried_sausage','sweet_drink','apple'],
@@ -19,7 +21,6 @@ export const SCENARIOS = [
       'คุมงบด้วยอาหารง่าย ๆ'
     ]
   },
-
   {
     id:'scn02',
     title:'มื้อเช้าคุมหวาน',
@@ -39,7 +40,6 @@ export const SCENARIOS = [
       'เพิ่มผักให้สมดุล'
     ]
   },
-
   {
     id:'scn03',
     title:'ก่อนออกกำลังกาย',
@@ -59,7 +59,6 @@ export const SCENARIOS = [
       'เพิ่มผลไม้แทนน้ำหวาน'
     ]
   },
-
   {
     id:'scn04',
     title:'หลังออกกำลังกาย',
@@ -79,7 +78,6 @@ export const SCENARIOS = [
       'คาร์บพอดีช่วยฟื้นตัว'
     ]
   },
-
   {
     id:'scn05',
     title:'มื้อกลางวันงบจำกัด',
@@ -99,7 +97,6 @@ export const SCENARIOS = [
       'เพิ่มผัก/ผลไม้แม้ปริมาณไม่มาก'
     ]
   },
-
   {
     id:'scn06',
     title:'แพ้ถั่ว',
@@ -119,7 +116,6 @@ export const SCENARIOS = [
       'เติมโปรตีนจากไข่หรือเต้าหู้'
     ]
   },
-
   {
     id:'scn07',
     title:'มื้อก่อนสอบ',
@@ -139,7 +135,6 @@ export const SCENARIOS = [
       'เพิ่มผัก/ผลไม้เพื่อสมดุล'
     ]
   },
-
   {
     id:'scn08',
     title:'ของในบ้านเท่านั้น',
