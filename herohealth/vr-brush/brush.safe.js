@@ -1,19 +1,35 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE — Plaque Breaker (HHA Standard-ish) — PATCH v20260223a
-// ✅ Fix: end summary overlay showing on load (hidden/CSS race)
-// ✅ Fix: explicit menu/end visibility on start/end
-// ✅ Fix: ignore hha:shoot before game starts
-// ✅ Tap/Click (pc/mobile) + Crosshair Shoot (cVR via vr-ui.js -> hha:shoot)
-// ✅ Perfect window near expiry for dopamine
-// ✅ Fever bar + Fever mode
-// ✅ Boss plaque (multi-hit) appears by progress
-// ✅ Summary + Back Hub + Save last summary
-// ✅ Emits: hha:start, hha:time, hha:score, hha:judge, hha:end, hha:coach
+// BrushVR SAFE — Plaque Breaker (PATCH v20260223c)
+// ✅ Fix: summary auto-open / stale timers / duplicate instance
+// ✅ Tap/Click + cVR hha:shoot
+// ✅ Perfect near expiry + Fever
+// ✅ Boss plaque + Weakspot
+// ✅ AI phase events -> window 'brush:ai' (for brush.boot.js HUD)
+// ✅ Summary + back hub + save last summary
 (function(){
   'use strict';
 
   const WIN = window;
   const DOC = document;
+
+  // ---------- INSTANCE GUARD ----------
+  if (WIN.__BRUSH_SAFE_ACTIVE__ && WIN.__BRUSH_SAFE_ACTIVE__.dispose) {
+    try { WIN.__BRUSH_SAFE_ACTIVE__.dispose('replaced-by-new-instance'); } catch(_) {}
+  }
+
+  const __ENGINE_INSTANCE_ID__ = 'brushsafe-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+  let __disposed__ = false;
+  let __sessionToken__ = 0;
+
+  function currentToken(){ return __sessionToken__; }
+  function newSessionToken(){ __sessionToken__ += 1; return __sessionToken__; }
+  function isLiveToken(tok){ return !__disposed__ && tok === __sessionToken__; }
+  function guardToken(tok, fn){
+    return function(...args){
+      if (!isLiveToken(tok)) return;
+      return fn.apply(this, args);
+    };
+  }
 
   // ---------- helpers ----------
   const $ = (s)=>DOC.querySelector(s);
@@ -36,6 +52,7 @@
     el.textContent = msg;
     el.classList.remove('br-hidden');
   }
+
   WIN.addEventListener('error', (e)=>{
     fatal('JS ERROR:\n' + (e?.message||e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
   });
@@ -60,18 +77,12 @@
     if(v) return v;
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    // mobile = mobile (ไม่ force cvr)
-    return isMobile ? 'mobile' : 'pc';
+    return isMobile ? 'cvr' : 'pc';
   }
-
   function passHubUrl(ctx){
-    // always ensure hub param exists so vr games can go back
     const qs = getQS();
-    const hub = qs.get('hub') || ctx.hub || '../hub.html';
-    return hub;
+    return qs.get('hub') || ctx.hub || '../hub.html';
   }
-
-  // deterministic rng (mulberry-like)
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
@@ -81,12 +92,11 @@
       return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
   }
-
-  // emit event helper
   function emit(type, detail){
-    try{
-      WIN.dispatchEvent(new CustomEvent(type, { detail }));
-    }catch(_){}
+    try{ WIN.dispatchEvent(new CustomEvent(type, { detail })); }catch(_){}
+  }
+  function emitBrushAI(type, detail){
+    try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: { type, ...(detail||{}) } })); }catch(_){}
   }
 
   // ---------- DOM refs ----------
@@ -131,6 +141,9 @@
   const endGrade = $('#endGrade');
   const endNote = $('#endNote');
 
+  // Optional FX layer (if HTML/CSS has #br-fx)
+  const fxRoot = $('#br-fx');
+
   // ---------- context ----------
   const qs = getQS();
   const ctx = {
@@ -144,27 +157,25 @@
     studyId: (qs.get('studyId') || '').trim(),
     phase: (qs.get('phase') || '').trim(),
     conditionGroup: (qs.get('conditionGroup') || '').trim(),
-    log: (qs.get('log') || '').trim()
+    log: (qs.get('log') || '').trim(),
+    ai: safeNum(qs.get('ai'), 0),
+    debug: safeNum(qs.get('debug'), 0)
   };
-
-  // clamp time choices
   ctx.time = clamp(ctx.time, 30, 120);
 
-  // update view & back hub
+  // ---------- UI ctx ----------
   if (wrap) wrap.dataset.view = ctx.view;
   if (ctxView) ctxView.textContent = ctx.view;
   if (ctxSeed) ctxSeed.textContent = String((ctx.seed >>> 0));
   if (ctxTime) ctxTime.textContent = `${ctx.time}s`;
   if (diffTag) diffTag.textContent = ctx.diff;
-
   if (mDiff) mDiff.textContent = ctx.diff;
   if (mTime) mTime.textContent = `${ctx.time}s`;
 
-  // back links keep some ctx
   function setBackLinks(){
     const hubUrl = passHubUrl(ctx);
     for (const a of [btnBack, btnBackHub2]){
-      if(!a) continue;
+      if (!a) continue;
       try{
         const u = new URL(hubUrl, location.href);
         if(ctx.pid) u.searchParams.set('pid', ctx.pid);
@@ -179,7 +190,7 @@
   }
   setBackLinks();
 
-  // rng
+  // ---------- RNG ----------
   const rng = seededRng(ctx.seed);
 
   // ---------- fun boost (optional) ----------
@@ -192,10 +203,9 @@
     feverSpawnBoost: 1.18,
     feverTimeScale: 0.92
   });
-
   let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
 
-  // ---------- game state ----------
+  // ---------- state ----------
   const st = {
     running:false,
     paused:false,
@@ -209,26 +219,27 @@
     shots:0,
     hits:0,
 
-    // progress: "clean" percent
-    clean:0, // 0..100
-    cleanGainPerHit: 1.2, // tuned by diff
+    clean:0,
+    cleanGainPerHit: 1.2,
     cleanLosePerMiss: 0.6,
 
-    // spawn config
     baseSpawnMs: 760,
     ttlMs: 1650,
     perfectWindowMs: 220,
 
-    // boss
-    bossEveryPct: 28,   // spawn boss each progress step
+    bossEveryPct: 28,
     nextBossAt: 28,
     bossActive:false,
 
     uid:0,
-    targets: new Map(), // id -> {el, kind, born, die, hpMax, hp}
+    targets: new Map(), // id -> target object
+
+    // AI phases
+    aiPhase: 'normal',
+    lastAiEmitAt: 0,
+    time10sFired: false
   };
 
-  // diff tuning
   (function tune(){
     if(ctx.diff==='easy'){
       st.baseSpawnMs = 900;
@@ -245,6 +256,76 @@
     }
   })();
 
+  // ---------- FX helpers ----------
+  function fxFlash(){
+    if(!fxRoot) return;
+    const el = DOC.createElement('div');
+    el.className = 'fx-flash';
+    fxRoot.appendChild(el);
+    requestAnimationFrame(()=> el.classList.add('on'));
+    setTimeout(()=> { try{ el.remove(); }catch(_){} }, 180);
+  }
+  function fxLaser(){
+    if(!fxRoot) return;
+    const el = DOC.createElement('div');
+    el.className = 'fx-laser';
+    fxRoot.appendChild(el);
+    requestAnimationFrame(()=> el.classList.add('on'));
+    setTimeout(()=> { try{ el.remove(); }catch(_){} }, 1400);
+  }
+  function fxShock(){
+    if(!fxRoot) return;
+    const el = DOC.createElement('div');
+    el.className = 'fx-shock';
+    fxRoot.appendChild(el);
+    requestAnimationFrame(()=> el.classList.add('on'));
+    setTimeout(()=> { try{ el.remove(); }catch(_){} }, 480);
+  }
+  function fxFin(){
+    if(!fxRoot) return;
+    const el = DOC.createElement('div');
+    el.className = 'fx-fin';
+    fxRoot.appendChild(el);
+    requestAnimationFrame(()=> el.classList.add('on'));
+    setTimeout(()=> { try{ el.remove(); }catch(_){} }, 350);
+  }
+
+  // ---------- AI phase system (lightweight / deterministic hooks) ----------
+  function aiEmitRateLimited(type, detail, gapMs=250){
+    const t = Date.now();
+    if (t - st.lastAiEmitAt < gapMs) return;
+    st.lastAiEmitAt = t;
+    emitBrushAI(type, detail);
+  }
+
+  function updateAiPhase(leftSec){
+    // time-based phase cue (works even without advanced mechanics)
+    let phase = 'normal';
+    if (st.clean >= 85) phase = 'finisher';
+    else if (st.bossActive) phase = 'boss';
+    else if (director.intensity >= 0.75) phase = 'shock';
+    else if (director.intensity >= 0.45) phase = 'laser';
+
+    if (phase !== st.aiPhase){
+      st.aiPhase = phase;
+      if (phase === 'laser'){
+        aiEmitRateLimited('laser_warn', { phase, intensity: director.intensity });
+      } else if (phase === 'shock'){
+        aiEmitRateLimited('shock_on', { phase, intensity: director.intensity });
+        fxShock();
+      } else if (phase === 'finisher'){
+        aiEmitRateLimited('finisher_on', { phase, clean: Math.round(st.clean) }, 600);
+        fxFin();
+      }
+    }
+
+    if (!st.time10sFired && leftSec <= 10){
+      st.time10sFired = true;
+      emitBrushAI('time_10s', { left: leftSec });
+    }
+  }
+
+  // ---------- HUD ----------
   function hud(force){
     const t = now();
     if(!force && t - st.lastHud < 60) return;
@@ -269,12 +350,35 @@
     if (bFever) bFever.style.width = `${pct}%`;
   }
 
-  function layerRect(){
-    return layer ? layer.getBoundingClientRect() : {left:0,top:0,width: innerWidth, height: innerHeight};
+  function layerRect(){ return layer.getBoundingClientRect(); }
+
+  // ---------- target creation ----------
+  function makeWeakspot(targetEl){
+    let ws = targetEl.querySelector('.br-ws');
+    if (ws) return ws;
+    ws = DOC.createElement('div');
+    ws.className = 'br-ws';
+    targetEl.appendChild(ws);
+    return ws;
+  }
+
+  function randomWeakspotOffsetPx(radiusPx){
+    // deterministic-ish via rng
+    const a = rng() * Math.PI * 2;
+    const r = rng() * radiusPx;
+    return { x: Math.cos(a)*r, y: Math.sin(a)*r };
+  }
+
+  function placeWeakspot(it){
+    if (!it || it.kind !== 'boss' || !it.wsEl) return;
+    const off = randomWeakspotOffsetPx(16);
+    it.wsOffsetX = off.x;
+    it.wsOffsetY = off.y;
+    it.wsEl.style.left = `calc(50% + ${off.x.toFixed(1)}px)`;
+    it.wsEl.style.top  = `calc(50% + ${off.y.toFixed(1)}px)`;
   }
 
   function mkTarget({x,y,kind,hpMax}){
-    if(!layer) return;
     const id = String(++st.uid);
 
     const el = DOC.createElement('div');
@@ -295,46 +399,56 @@
     hp.appendChild(fill);
     el.appendChild(hp);
 
-    // weakspot for boss
+    let wsEl = null, wsOffsetX = 0, wsOffsetY = 0;
     if (kind === 'boss') {
-      const ws = DOC.createElement('div');
-      ws.className = 'br-ws';
-      el.appendChild(ws);
+      wsEl = makeWeakspot(el);
     }
 
     const born = now();
     const ttl = st.ttlMs * (director.timeScale || 1);
-    const die  = born + ttl;
+    const die = born + ttl;
 
-    st.targets.set(id, { el, kind, bornMs: born, dieMs: die, hpMax, hp: hpMax, fillEl: fill });
+    const it = {
+      id, el, kind,
+      bornMs: born,
+      dieMs: die,
+      hpMax, hp: hpMax,
+      fillEl: fill,
+      x, y,
+      wsEl, wsOffsetX, wsOffsetY,
+      lastHitAt: 0
+    };
 
-    // pointer tap for pc/mobile (not cvr strict)
+    st.targets.set(id, it);
+    if (kind === 'boss') placeWeakspot(it);
+
+    // pointer tap for pc/mobile (cvr strict mode will ignore target pointer via CSS)
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       onHitAt(ev.clientX, ev.clientY, { source:'tap', targetId:id });
     }, { passive:false });
 
     layer.appendChild(el);
+    updateHpVis(it);
   }
 
   function spawnOne(){
     if(!st.running || st.paused || st.over) return;
-    if(!layer) return;
-
     director = fun ? fun.tick() : director;
 
     const r = layerRect();
     const pad = 56;
-
     const x = pad + rng() * Math.max(10, (r.width - pad*2));
     const y = pad + rng() * Math.max(10, (r.height - pad*2));
 
-    // boss rule
     if(!st.bossActive && st.clean >= st.nextBossAt && st.clean < 100){
       st.bossActive = true;
-      mkTarget({ x, y, kind:'boss', hpMax: (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4) });
+      const hp = (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4);
+      mkTarget({ x, y, kind:'boss', hpMax: hp });
       toast('💎 BOSS PLAQUE!');
       emit('hha:coach', { msg:'เจอบอสคราบหนา! ยิง/แตะหลายครั้งให้แตก!', ts: Date.now() });
+      emitBrushAI('boss_start', { hp, clean: Math.round(st.clean) });
+      fxFlash();
       return;
     }
 
@@ -354,10 +468,16 @@
 
     const el = it.el;
     if(!el) return;
-
     if(popped) el.classList.add('pop');
     el.classList.add('fade');
     setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
+  }
+
+  function clearAllTargetsHard(){
+    try{
+      for(const [id] of st.targets) removeTarget(id, false);
+      st.targets.clear();
+    }catch(_){}
   }
 
   function gradeFromAcc(acc){
@@ -374,7 +494,7 @@
     toast('✨ Perfect!');
   }
 
-  function onHitTarget(it, remainMs){
+  function onHitTarget(it, remainMs, isWeakspot=false){
     st.hits += 1;
 
     if(remainMs <= st.perfectWindowMs) onPerfect();
@@ -384,10 +504,13 @@
     st.comboMax = Math.max(st.comboMax, st.combo);
 
     const comboMul = 1 + Math.min(0.6, st.combo * 0.02);
-    const base = (it.kind==='boss') ? 3 : 1;
+    let base = (it.kind==='boss') ? 3 : 1;
+    if (isWeakspot) base += 2;
+
     st.score += Math.round(base * comboMul * (director.feverOn ? 1.3 : 1.0));
 
-    const gain = st.cleanGainPerHit * (it.kind==='boss' ? 1.4 : 1.0) * (director.feverOn ? 1.25 : 1.0);
+    let gain = st.cleanGainPerHit * (it.kind==='boss' ? 1.4 : 1.0) * (director.feverOn ? 1.25 : 1.0);
+    if (isWeakspot) gain *= 1.35;
     st.clean = clamp(st.clean + gain, 0, 100);
 
     if(director.feverOn && rng() < 0.18){
@@ -408,40 +531,54 @@
     for(let i=0;i<Math.min(n, arr.length);i++){
       const pick = arr[Math.floor(rng()*arr.length)];
       if(!pick) break;
-      const [id] = pick;
-      const it = st.targets.get(id);
+      const [id, it] = pick;
       if(it){
-        onHitTarget(it, 0);
+        onHitTarget(it, 0, false);
         removeTarget(id, true);
       }
     }
   }
 
-  // -------- shooting / hit test ----------
+  // ---------- hit test ----------
   function hitTest(x,y){
     const rad = 44;
     let best = null;
     let bestD = 1e9;
 
     for(const [id,it] of st.targets){
-      const el = it.el;
-      if(!el) continue;
-
-      // hit test from actual DOM rect (รองรับ transform / responsive)
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-
-      const dx = cx - x;
-      const dy = cy - y;
+      const ex = parseFloat(it.el.style.left || '0');
+      const ey = parseFloat(it.el.style.top  || '0');
+      const dx = ex - x;
+      const dy = ey - y;
       const d2 = dx*dx + dy*dy;
 
-      if(d2 <= rad*rad && d2 < bestD){
+      // boss larger hit radius
+      const rr = (it.kind === 'boss') ? 54 : rad;
+      if(d2 <= rr*rr && d2 < bestD){
         bestD = d2;
         best = { id, it };
       }
     }
     return best;
+  }
+
+  function isBossWeakspotHit(it, x, y){
+    if (!it || it.kind !== 'boss') return false;
+    const ex = parseFloat(it.el.style.left || '0');
+    const ey = parseFloat(it.el.style.top  || '0');
+    const wx = ex + (it.wsOffsetX || 0);
+    const wy = ey + (it.wsOffsetY || 0);
+    const dx = wx - x;
+    const dy = wy - y;
+    return (dx*dx + dy*dy) <= (18*18);
+  }
+
+  function markWeakspotHit(it){
+    if (!it || !it.el) return;
+    it.el.classList.remove('ws-hit');
+    void it.el.offsetWidth;
+    it.el.classList.add('ws-hit');
+    setTimeout(()=> { try{ it.el.classList.remove('ws-hit'); }catch(_){} }, 180);
   }
 
   function onHitAt(x,y, meta){
@@ -450,7 +587,6 @@
 
     const t = now();
     const hit = hitTest(x,y);
-
     if(!hit){
       st.combo = 0;
       st.miss += 1;
@@ -461,16 +597,29 @@
     }
 
     const { id, it } = hit;
-
     const remain = it.dieMs - t;
-    it.hp = Math.max(0, it.hp - 1);
+
+    let damage = 1;
+    let weakspot = false;
+    if (it.kind === 'boss'){
+      weakspot = isBossWeakspotHit(it, x, y);
+      if (weakspot) {
+        damage = 2; // reward precision
+        markWeakspotHit(it);
+        emitBrushAI('gate_break', { hp: it.hp, weakspot: true });
+      }
+    }
+
+    it.hp = Math.max(0, it.hp - damage);
     updateHpVis(it);
 
-    onHitTarget(it, remain);
+    onHitTarget(it, remain, weakspot);
 
-    if(it.kind === 'boss'){
-      it.el?.classList?.add('ws-hit');
-      setTimeout(()=> it.el?.classList?.remove('ws-hit'), 180);
+    if (it.kind === 'boss'){
+      emitBrushAI('boss_phase', { phase: Math.max(1, it.hp), hp: it.hp });
+      if (it.hp > 0 && weakspot) {
+        placeWeakspot(it); // move weakspot after correct hit
+      }
     }
 
     if(it.hp <= 0){
@@ -481,6 +630,8 @@
         st.nextBossAt = Math.min(100, st.nextBossAt + st.bossEveryPct);
         toast('💥 Boss แตก!');
         emit('hha:coach', { msg:'เยี่ยม! คราบหนาแตกแล้ว ไปต่อ!', ts: Date.now() });
+        emitBrushAI('gate_break', { bossDefeated:true, nextBossAt: st.nextBossAt });
+        fxFlash();
       }
     }
 
@@ -488,21 +639,18 @@
     emit('hha:score', { score: st.score, combo: st.combo, miss: st.miss, clean: st.clean, ts: Date.now() });
 
     if(st.clean >= 100){
-      endGame('clean');
+      endGame('clean', currentToken());
     }
   }
 
-  // cVR shoot hook from vr-ui.js
+  // ---------- cVR shoot hook ----------
   WIN.addEventListener('hha:shoot', (ev)=>{
-    // ✅ hard guard first
-    if(!st.running || st.paused || st.over) return;
-
+    if (__disposed__) return;
     const d = ev?.detail || {};
     const x = safeNum(d.x, NaN);
     const y = safeNum(d.y, NaN);
-
     if(Number.isFinite(x) && Number.isFinite(y)){
-      onHitAt(x, y, { source:'shoot' });
+      onHitAt(x, y, { source:'shoot', view:d.view||'' });
     }
   });
 
@@ -510,32 +658,44 @@
   let spawnTimer = null;
   let tickTimer = null;
 
-  function scheduleSpawn(){
+  function clearAllLoops(){
+    try { clearTimeout(spawnTimer); } catch(_) {}
+    try { clearInterval(tickTimer); } catch(_) {}
+    spawnTimer = null;
+    tickTimer = null;
+  }
+
+  function scheduleSpawn(token){
     clearTimeout(spawnTimer);
     if(!st.running || st.paused || st.over) return;
+    if(!isLiveToken(token)) return;
 
     const base = st.baseSpawnMs;
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
 
-    spawnTimer = setTimeout(()=>{
+    spawnTimer = setTimeout(guardToken(token, ()=>{
+      if(!st.running || st.paused || st.over) return;
       spawnOne();
-      scheduleSpawn();
-    }, every);
+      scheduleSpawn(token);
+    }), every);
   }
 
-  function tick(){
+  function tick(token){
+    if(!isLiveToken(token)) return;
     if(!st.running || st.paused || st.over) return;
 
     director = fun ? fun.tick() : director;
 
     const t = now();
 
+    // timeout targets
     for(const [id,it] of st.targets){
       if(t >= it.dieMs){
         removeTarget(id, false);
         if(it.kind==='boss'){
           st.bossActive = false;
           toast('💎 Boss หลุด!');
+          emitBrushAI('gate_reset', { reason:'boss_timeout' });
         }
         onMiss(it.kind);
       }
@@ -543,18 +703,48 @@
 
     const elapsed = (t - st.t0)/1000;
     const left = ctx.time - elapsed;
-    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
 
+    // AI phase cues
+    updateAiPhase(left);
+
+    // lightweight phase FX cues (visual flavor)
+    if (st.aiPhase === 'laser' && rng() < 0.025) fxLaser();
+    if (st.aiPhase === 'shock' && rng() < 0.03)  fxShock();
+
+    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
     hud();
 
     if(left <= 0){
-      endGame('time');
+      endGame('time', token);
     }
   }
 
   // ---------- start/end ----------
+  function forceUiToMenuSafe(){
+    try{
+      if (menu) menu.style.display = 'grid';
+      if (end)  { end.hidden = true; end.style.display = 'none'; }
+      if (wrap) wrap.dataset.state = 'menu';
+    }catch(_){}
+  }
+
+  function resetSummaryUi(){
+    if (sScore) sScore.textContent = '0';
+    if (sAcc) sAcc.textContent = '0%';
+    if (sMiss) sMiss.textContent = '0';
+    if (sCombo) sCombo.textContent = '0';
+    if (sClean) sClean.textContent = '0%';
+    if (sTime) sTime.textContent = '0s';
+    if (endGrade) endGrade.textContent = '—';
+    if (endNote) endNote.textContent = '-';
+  }
+
   function startGame(){
-    // reset
+    if (__disposed__) return;
+
+    const token = newSessionToken();
+    clearAllLoops();
+
     st.running = true;
     st.paused = false;
     st.over = false;
@@ -571,23 +761,18 @@
     st.nextBossAt = st.bossEveryPct;
     st.bossActive = false;
 
-    // clear layer
-    for(const [id] of st.targets) removeTarget(id, false);
-    st.targets.clear();
+    st.aiPhase = 'normal';
+    st.lastAiEmitAt = 0;
+    st.time10sFired = false;
 
-    // ✅ explicit UI state (กัน overlay ค้าง/โผล่เอง)
-    if(menu){
-      menu.hidden = true;
-      menu.style.display = 'none';
-      menu.setAttribute('aria-hidden','true');
-    }
-    if(end){
-      end.hidden = true;
-      end.style.display = 'none';
-    }
+    clearAllTargetsHard();
 
+    if (menu) menu.style.display = 'none';
+    if (end)  { end.hidden = true; end.style.display = 'none'; }
     if (wrap) wrap.dataset.state = 'play';
     if (btnPause) btnPause.textContent = 'Pause';
+
+    resetSummaryUi();
 
     toast('เริ่ม! แปรงคราบให้ทัน!');
     hud(true);
@@ -603,24 +788,26 @@
       diff: ctx.diff,
       view: ctx.view,
       timePlannedSec: ctx.time,
-      ts: Date.now()
+      ts: Date.now(),
+      token
     });
 
-    scheduleSpawn();
-    clearInterval(tickTimer);
-    tickTimer = setInterval(tick, 80);
+    emitBrushAI('boss_phase', { phase:'start', hp:0 });
+
+    scheduleSpawn(token);
+    tickTimer = setInterval(()=> tick(token), 80);
   }
 
-  function endGame(reason){
+  function endGame(reason, token){
+    if (__disposed__) return;
+    if (typeof token === 'number' && !isLiveToken(token)) return;
     if(st.over) return;
+
     st.over = true;
     st.running = false;
 
-    clearTimeout(spawnTimer);
-    clearInterval(tickTimer);
-
-    for(const [id] of st.targets) removeTarget(id, false);
-    st.targets.clear();
+    clearAllLoops();
+    clearAllTargetsHard();
 
     const acc = (st.shots > 0) ? (st.hits / st.shots) * 100 : 0;
     const grade = gradeFromAcc(acc);
@@ -669,7 +856,6 @@
     emit('hha:judge', { ...summary });
     emit('hha:end', { ...summary });
 
-    // UI summary
     if (sScore) sScore.textContent = String(summary.score);
     if (sAcc)   sAcc.textContent   = `${summary.accuracyPct}%`;
     if (sMiss)  sMiss.textContent  = String(summary.miss);
@@ -677,22 +863,14 @@
     if (sClean) sClean.textContent = `${summary.cleanPct}%`;
     if (sTime)  sTime.textContent  = `${summary.timePlayedSec}s`;
     if (endGrade) endGrade.textContent = summary.grade;
-
-    if (endNote){
+    if (endNote) {
       endNote.textContent =
         `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
     }
 
-    // ✅ explicit overlay visibility
-    if(menu){
-      menu.hidden = true;
-      menu.style.display = 'none';
-      menu.setAttribute('aria-hidden','true');
-    }
-    if(end){
-      end.hidden = false;
-      end.style.display = 'grid';
-    }
+    if (menu) menu.style.display = 'none';
+    if (end)  { end.hidden = false; end.style.display = 'grid'; }
+    if (wrap) wrap.dataset.state = 'end';
 
     toast(reason==='clean' ? '🦷 สะอาดแล้ว! เยี่ยม!' : 'หมดเวลา!');
   }
@@ -705,13 +883,20 @@
   }
 
   // ---------- controls ----------
-  btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRetry?.addEventListener('click', startGame, { passive:true });
+  let __lastStartTap__ = 0;
+  function startGameDebounced(){
+    const t = Date.now();
+    if (t - __lastStartTap__ < 300) return;
+    __lastStartTap__ = t;
+    startGame();
+  }
 
+  btnStart?.addEventListener('click', startGameDebounced, { passive:true });
+  btnRetry?.addEventListener('click', startGameDebounced, { passive:true });
   btnPause?.addEventListener('click', togglePause, { passive:true });
 
   btnHow?.addEventListener('click', ()=>{
-    toast('แตะ/ยิง “🦠” ให้ทัน • คราบหนา “💎” ต้องหลายครั้ง • ใกล้หมดเวลา = Perfect!');
+    toast('แตะ/ยิง “🦠” ให้ทัน • คราบหนา “💎” ยิงจุดเหลืองแรงกว่า • ใกล้หมดเวลา = Perfect!');
   }, { passive:true });
 
   btnRecenter?.addEventListener('click', ()=>{
@@ -719,30 +904,47 @@
     toast('Recenter');
   }, { passive:true });
 
-  // layer pointer fallback (PC/Mobile) — cVR uses crosshair
+  // click on layer = shoot at point (avoid duplicate in cvr strict)
   layer?.addEventListener('pointerdown', (ev)=>{
     if(ctx.view==='cvr') return;
     if(!st.running || st.paused || st.over) return;
     onHitAt(ev.clientX, ev.clientY, { source:'layer' });
   }, { passive:true });
 
-  // ---------- init ----------
-  (function initUIState(){
-    // ✅ force initial overlay state (fix CSS race / hidden overridden)
-    if (end){
-      end.hidden = true;
-      end.style.display = 'none';
-    }
-    if (menu){
-      menu.hidden = false;
-      menu.style.display = ''; // let CSS class control it
-      menu.setAttribute('aria-hidden', 'false');
-    }
-    if (wrap){
-      wrap.dataset.state = 'menu';
-    }
-  })();
+  // ---------- dispose ----------
+  function disposeEngine(reason){
+    if (__disposed__) return;
+    __disposed__ = true;
 
+    newSessionToken(); // invalidate all old async work
+    clearAllLoops();
+    clearAllTargetsHard();
+
+    try{
+      const el = $('#toast');
+      if (el) el.classList.remove('show');
+    }catch(_){}
+
+    console.warn('[BrushVR SAFE] disposed:', reason || 'unknown');
+  }
+
+  WIN.__BRUSH_SAFE_ACTIVE__ = {
+    id: __ENGINE_INSTANCE_ID__,
+    dispose: disposeEngine
+  };
+
+  WIN.addEventListener('pagehide', ()=> {
+    try { disposeEngine('pagehide'); } catch(_) {}
+  }, { passive:true });
+
+  WIN.addEventListener('beforeunload', ()=> {
+    try { disposeEngine('beforeunload'); } catch(_) {}
+  }, { passive:true });
+
+  // ---------- init ----------
+  forceUiToMenuSafe();
+  resetSummaryUi();
   hud(true);
   toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
+
 })();
