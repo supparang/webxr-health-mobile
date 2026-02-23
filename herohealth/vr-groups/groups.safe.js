@@ -1,14 +1,16 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION
-// PATCH v20260219-bossAI (Boss 1+2 + AI coach tips rate-limit, deterministic)
-// ✅ HUD-safe spawn + Occlusion guard (timeout_miss NOT counted if occluded)
-// ✅ Emit groups:group + groups:director
-// ✅ Shot rate-limit (prevents miss spikes)
-// ✅ AI hooks attach point via window.HHA.createAIHooks (play only, enable only with ?ai=1)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v20260223-groupsBossFairAI)
+// ✅ HUD-safe spawn + Occlusion guard => timeout_miss NOT counted if target center is under HUD/overlay
+// ✅ Emit groups:group / groups:director
+// ✅ Shot rate-limit
+// ✅ AI hooks attach point via window.HHA.createAIHooks (play only; ?ai=1)
 // ✅ LockPx Aim Assist (uses ev.detail.lockPx from vr-ui.js)
-// ✅ FX emits 'groups:hit' for hit_good/hit_bad/shot_miss/timeout_miss
-// ✅ Boss: Telegraph → Vulnerable → Burst reward (fun + fair + deterministic via S.rng)
-// ✅ AI tip -> hha:coach rate-limit (still deterministic, no spam)
+// ✅ FX emits 'groups:hit'
+// ✅ Direct tap/click targets works
+// ✅ Badges bridge
+// ✅ NEW: Boss pattern A/B deterministic (using S.rng only) + fairness clamp (no “โกง” streak)
+// ✅ NEW: AI tip relay -> hha:coach (rate-limit, deterministic-safe)
+// API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 
 (function(){
   'use strict';
@@ -42,7 +44,6 @@
     return h >>> 0;
   }
 
-  // mulberry32
   function makeRng(seedU32){
     let t = seedU32 >>> 0;
     return function(){
@@ -96,7 +97,6 @@
   }
 
   // ---------------- food groups (ไทย) ----------------
-  // mapping ที่ล็อกไว้: หมู่ 1 โปรตีน, หมู่ 2 คาร์บ, หมู่ 3 ผัก, หมู่ 4 ผลไม้, หมู่ 5 ไขมัน
   const GROUPS = [
     { key:'g1', name:'หมู่ 1 โปรตีน', emoji:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
     { key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', emoji:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
@@ -115,7 +115,7 @@
     rng:()=>Math.random(),
     seed:'',
 
-    runMode:'play', // play|research|practice
+    runMode:'play',
     diff:'normal',
     style:'mix',
     view:'mobile',
@@ -130,35 +130,28 @@
     shots:0,
     goodShots:0,
 
-    // badges runtime flags
     maxCombo:0,
     streak10Awarded:false,
     miniAwarded:false,
     bossAwarded:false,
 
-    // power / group cycle
     groupIdx:0,
     powerCur:0,
     powerThr:8,
 
-    // spawn pacing
     spawnIt:0,
     targets:[],
     storm:false,
-
-    // ---- Boss (fun+fair deterministic) ----
     boss:false,
     bossHp:0,
-    bossPhase:'off',        // off|telegraph|vuln|burst
-    bossTeleLeft:0,         // seconds
-    bossVulnLeft:0,         // seconds
-    bossBurstLeft:0,        // seconds
-    bossWantedKey:'',       // fixed key during vuln (fair)
-    bossSwapCount:0,        // how many vuln rounds
-    bossDecoyBudget:0,      // limit wrong-group spawns in vuln
-    bossLastPhaseAt:0,
 
-    // mini quest
+    // boss deterministic patterns / fairness
+    bossPattern:'A',        // 'A' | 'B'
+    bossPhaseTick:0,        // increments per boss spawn
+    bossWaveBurstLeft:0,    // for pattern B
+    bossPatternCooldown:0,  // reserved / soft step cooldown
+    bossFairStreakBad:0,    // consecutive wrong-group spawns during boss (fairness clamp)
+
     goalNow:0,
     goalTot:12,
     miniNow:0,
@@ -167,29 +160,25 @@
     miniActive:false,
     miniKind:'streak',
 
-    // throttles
     lastCoachAt:0,
     lastQuestEmitAt:0,
 
-    // shot throttle
     lastShotAt:0,
     shotCooldownMs: 70,
 
-    // AI hooks
     ai:null,
     aiEnabled:false,
 
-    // 🔥 AI tip -> hha:coach (rate-limit + deterministic)
-    lastTipAt: 0,
-    tipCooldownMs: 5200,
-    lastTipKey: '',
+    // AI tip relay (rate-limit at engine side too)
+    aiTipLastAt:0,
+    aiTipCooldownMs: 6000
   };
 
   function cfgForDiff(diff){
     diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4, bossHp:5 };
-    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6, bossHp:7 };
-    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5, bossHp:6 };
+    if (diff === 'easy') return { spawnMs: 930, lifeMs:[2200,3200], powerThr:7, goalTot:10, miniTot:4 };
+    if (diff === 'hard') return { spawnMs: 620, lifeMs:[1600,2500], powerThr:9, goalTot:14, miniTot:6 };
+    return { spawnMs: 760, lifeMs:[1900,2900], powerThr:8, goalTot:12, miniTot:5 };
   }
 
   // ---------------- DOM helpers ----------------
@@ -198,8 +187,7 @@
     const w = DOC.createElement('div');
     w.id = 'groupsPlayWrap';
     w.style.cssText =
-      'position:relative; width:100%; height:100%; pointer-events:none; ' +
-      'contain:layout style paint;';
+      'position:relative; width:100%; height:100%; pointer-events:none; contain:layout style paint;';
     S.wrapEl = w;
 
     if (S.layerEl){
@@ -224,7 +212,6 @@
     S.targets.length = 0;
   }
 
-  // direct tap/click => same shoot pipeline
   function wireDirectTap(el){
     if(!el) return;
     el.addEventListener('pointerdown', (e)=>{
@@ -253,10 +240,8 @@
 
     const host = S.layerEl || DOC.body;
     const r = host.getBoundingClientRect ? host.getBoundingClientRect() : { left:0, top:0, width:(WIN.innerWidth||360), height:(WIN.innerHeight||640) };
-
     const w = Math.max(240, r.width||360);
     const h = Math.max(240, r.height||520);
-
     const size = 72;
     const pad = 10;
 
@@ -354,12 +339,10 @@
     emit('quest:update', {
       groupKey: g.key,
       groupName: g.name,
-
       goalTitle: `ยิงให้ถูก: ${g.name}`,
       goalNow: S.goalNow,
       goalTotal: S.goalTot,
       goalPct,
-
       miniTitle: (S.miniKind==='streak')
         ? `MINI: คอมโบติดกัน ${S.miniTot} ครั้ง`
         : `MINI: เก็บให้ได้ ${S.miniTot} ครั้ง`,
@@ -380,7 +363,7 @@
   // ---------------- AI hooks (optional) ----------------
   function isAiEnabledByParams(){
     const run = String(qs('run','play')||'play').toLowerCase();
-    if (run === 'research' || run === 'practice') return false;
+    if (run === 'research') return false;
     const on = String(qs('ai','0')||'0').toLowerCase();
     return (on === '1' || on === 'true');
   }
@@ -388,6 +371,7 @@
   function initAI(){
     S.aiEnabled = (S.runMode === 'play') && isAiEnabledByParams();
     S.ai = null;
+    S.aiTipLastAt = 0;
 
     if (!S.aiEnabled){
       emitDirectorStatus(S.runMode === 'research' ? 'RESEARCH' :
@@ -420,63 +404,24 @@
     }catch(_){}
   }
 
-  // ---------------- AI coach tips (rate-limit, deterministic) ----------------
-  function canTipNow(){
-    const t = nowMs();
-    return (t - (S.lastTipAt||0)) >= (S.tipCooldownMs|0);
-  }
-
-  const TIP_FALLBACK = [
-    {k:'look', t:'ดูชื่อหมู่ก่อนยิงทุกครั้ง ✅', mood:'neutral'},
-    {k:'center', t:'เล็งกลางเป้า แล้วค่อยยิง จะนิ่งกว่า 🎯', mood:'neutral'},
-    {k:'combo', t:'คอมโบสำคัญ! ยิงถูกติดกันแต้มพุ่ง 🔥', mood:'fever'},
-    {k:'slow', t:'ไม่ต้องรีบ—ยิงให้ชัวร์แล้วค่อยเร่ง 💪', mood:'neutral'},
-    {k:'reset', t:'หลุดคอมโบไม่เป็นไร ตั้งหลักใหม่แล้วลุยต่อ ✨', mood:'happy'},
-    {k:'cvr', t:'โหมด cVR: วาง crosshair กลางเป้า แล้วค่อยยิงทีละช็อต', mood:'neutral'},
-  ];
-
-  function pickDetTip(){
-    if(!TIP_FALLBACK.length) return null;
-    let tip = TIP_FALLBACK[(S.rng()*TIP_FALLBACK.length)|0];
-    if(tip && tip.k === S.lastTipKey && TIP_FALLBACK.length>1){
-      tip = TIP_FALLBACK[(S.rng()*TIP_FALLBACK.length)|0];
-    }
-    return tip || null;
-  }
-
-  function maybeAiCoach(reason, payload){
-    if (!S.aiEnabled) return;
-    if (!canTipNow()) return;
-
-    let tipObj = null;
-
+  function maybeAiTip(reason){
     try{
-      if (S.ai && typeof S.ai.getTip === 'function'){
-        tipObj = S.ai.getTip(String(reason||''));
-      }
-    }catch(_){ tipObj = null; }
+      if (!S.aiEnabled || !S.ai || typeof S.ai.getTip !== 'function') return;
+      const t = nowMs();
+      if ((t - (S.aiTipLastAt||0)) < S.aiTipCooldownMs) return;
 
-    if (!tipObj){
-      const fb = pickDetTip();
-      if (fb) tipObj = { text: fb.t, key: fb.k, mood: fb.mood, reason: String(reason||'') };
-    }
+      const tip = S.ai.getTip(String(reason||''));
+      if (!tip || !tip.text) return;
 
-    if (!tipObj || !tipObj.text) return;
-
-    const k = String(tipObj.key || '');
-    if (k && k === S.lastTipKey) return;
-
-    S.lastTipAt = nowMs();
-    S.lastTipKey = k || S.lastTipKey;
-
-    emit('hha:coach', {
-      text: String(tipObj.text),
-      mood: String(tipObj.mood || 'neutral'),
-      reason: String(reason||''),
-      ai: true
-    });
-
-    aiOnEvent('coach:tip', { reason: String(reason||''), key: k, ...((payload&&typeof payload==='object')?payload:{}) });
+      S.aiTipLastAt = t;
+      emit('hha:coach', {
+        text: String(tip.text),
+        mood: 'neutral',
+        source: 'ai',
+        key: tip.key || '',
+        reason: tip.reason || String(reason||'')
+      });
+    }catch(_){}
   }
 
   // ---------------- gameplay rules ----------------
@@ -495,9 +440,9 @@
     if (S.timeLeftSec % 11 === 0 && S.timeLeftSec <= (S.timePlannedSec-6)){
       resetMini();
       coach('MINI มาแล้ว! ยิงให้ “ถูกหมู่” ติดกันเร็ว ๆ ⚡', 'fever');
-      maybeAiCoach('mini:start', { sec:S.miniLeft|0 });
       emitQuest(true);
       aiOnEvent('mini:start', { timeLeft: S.timeLeftSec });
+      maybeAiTip('mini:start');
     }
   }
 
@@ -512,6 +457,7 @@
     emitGroup();
     coach('สลับหมู่แล้ว! ดูชื่อหมู่แล้วค่อยยิง 🎯', 'neutral');
     aiOnEvent('group:switch', { groupKey: currentGroup().key });
+    maybeAiTip('group:switch');
   }
 
   function addScore(isGood){
@@ -551,7 +497,6 @@
       if (S.miniNow >= S.miniTot){
         S.score += 35;
         coach('MINI สำเร็จ! +โบนัส ✅', 'happy');
-        maybeAiCoach('mini:clear', {});
         S.miniActive = false;
 
         if(!S.miniAwarded){
@@ -564,6 +509,7 @@
           });
         }
         aiOnEvent('mini:clear', { score:S.score|0, combo:S.combo|0 });
+        maybeAiTip('mini:clear');
       }
     }
     emitQuest(false);
@@ -585,8 +531,10 @@
       emit('groups:progress', { kind:'storm_on' });
       coach('พายุมาแล้ว! ช้าลงนิด แต่ยิงให้ชัวร์ 🌪️', 'fever');
       aiOnEvent('storm:on', { frac });
+      maybeAiTip('storm:on');
     }
   }
+
   function endStormIfNeeded(){
     if (!S.storm) return;
     const elapsed = (S.timePlannedSec - S.timeLeftSec);
@@ -596,121 +544,7 @@
       emit('groups:progress', { kind:'storm_off' });
       coach('พายุจบ! เก็บคอมโบต่อเลย ✨', 'happy');
       aiOnEvent('storm:off', { frac });
-    }
-  }
-
-  // ---------------- Boss (1+2) deterministic fun+fair ----------------
-  function bossStart(){
-    if (S.boss) return;
-    const C = cfgForDiff(S.diff);
-    S.boss = true;
-    S.bossHp = C.bossHp|0;
-
-    S.bossPhase = 'telegraph';
-    S.bossTeleLeft = 2;   // 2s warn
-    S.bossVulnLeft = 0;
-    S.bossBurstLeft = 0;
-
-    // pick a "wanted" group for vuln that is FAIR (can be current group or neighbor)
-    // deterministic via S.rng()
-    const roll = S.rng();
-    if (roll < 0.60) S.bossWantedKey = currentGroup().key;
-    else S.bossWantedKey = pick(S.rng, GROUPS).key;
-
-    S.bossSwapCount = 0;
-    S.bossDecoyBudget = 3; // limit decoys during vuln (fair)
-
-    emit('groups:progress', { kind:'boss_spawn', hp:S.bossHp|0, wanted:S.bossWantedKey });
-    coach('⚠️ บอสมา! เตรียมเล็งให้แม่น…', 'fever');
-    maybeAiCoach('boss:spawn', { hp:S.bossHp|0, wanted:S.bossWantedKey });
-    aiOnEvent('boss:spawn', { hp:S.bossHp|0, wanted:S.bossWantedKey });
-  }
-
-  function bossTickPerSecond(){
-    if (!S.boss) return;
-
-    if (S.bossPhase === 'telegraph'){
-      S.bossTeleLeft = Math.max(0, (S.bossTeleLeft|0) - 1);
-      if (S.bossTeleLeft <= 0){
-        S.bossPhase = 'vuln';
-        S.bossVulnLeft = 5; // 5s window
-        S.bossDecoyBudget = 3;
-        coach(`💥 เปิดจังหวะ! ยิงให้ถูก “${(GROUPS.find(g=>g.key===S.bossWantedKey)||currentGroup()).name}”`, 'fever');
-        maybeAiCoach('boss:vuln_on', { wanted:S.bossWantedKey, sec:S.bossVulnLeft|0 });
-        aiOnEvent('boss:vuln_on', { wanted:S.bossWantedKey, sec:S.bossVulnLeft|0 });
-      }
-      return;
-    }
-
-    if (S.bossPhase === 'vuln'){
-      S.bossVulnLeft = Math.max(0, (S.bossVulnLeft|0) - 1);
-      if (S.bossVulnLeft <= 0){
-        // if player didn't finish, swap wanted group ONCE (fair) then another vuln window
-        if (S.bossHp > 0 && S.bossSwapCount < 1){
-          S.bossSwapCount++;
-          S.bossPhase = 'telegraph';
-          S.bossTeleLeft = 1; // short warn
-          // choose new wanted different from previous (deterministic)
-          let nk = pick(S.rng, GROUPS).key;
-          if (nk === S.bossWantedKey) nk = GROUPS[(clamp(S.groupIdx+1,0,4))].key;
-          S.bossWantedKey = nk;
-          coach('🔁 บอสสลับหมู่เป้าหมาย! เตรียมตัว…', 'fever');
-          maybeAiCoach('boss:swap', { wanted:S.bossWantedKey });
-          aiOnEvent('boss:swap', { wanted:S.bossWantedKey });
-        } else {
-          // go burst reward anyway (feels good, not punish)
-          S.bossPhase = 'burst';
-          S.bossBurstLeft = 4; // 4s reward
-          coach('⚡ BURST! เก็บแต้มโบนัสเร็ว!', 'happy');
-          maybeAiCoach('boss:burst_on', {});
-          aiOnEvent('boss:burst_on', {});
-        }
-      }
-      return;
-    }
-
-    if (S.bossPhase === 'burst'){
-      S.bossBurstLeft = Math.max(0, (S.bossBurstLeft|0) - 1);
-      if (S.bossBurstLeft <= 0){
-        // boss ends
-        S.boss = false;
-        S.bossPhase = 'off';
-        emit('groups:progress', { kind:'boss_end' });
-        coach('บอสจบ! เก็บคอมโบต่อเลย 🔥', 'neutral');
-        aiOnEvent('boss:end', {});
-      }
-    }
-  }
-
-  function bossOnGoodHit(groupKey){
-    if (!S.boss) return;
-    if (S.bossPhase !== 'vuln') return;
-
-    // only count if hit wanted group (fair)
-    if (String(groupKey||'') !== String(S.bossWantedKey||'')) return;
-
-    S.bossHp = Math.max(0, (S.bossHp|0) - 1);
-
-    emit('groups:progress', { kind:'boss_hit', hp:S.bossHp|0 });
-
-    if (S.bossHp <= 0){
-      // down -> burst reward immediately
-      S.score += 60;
-      emitScore(); emitRank();
-      emit('groups:progress', { kind:'boss_down' });
-      coach('💥 บอสแตก! โคตรดี — BURST โบนัสมา!', 'happy');
-      maybeAiCoach('boss:down', {});
-      aiOnEvent('boss:down', { score:S.score|0, miss:S.miss|0 });
-
-      if(!S.bossAwarded){
-        S.bossAwarded = true;
-        awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
-      }
-
-      S.bossPhase = 'burst';
-      S.bossBurstLeft = 4;
-      maybeAiCoach('boss:burst_on', {});
-      aiOnEvent('boss:burst_on', {});
+      maybeAiTip('storm:off');
     }
   }
 
@@ -718,7 +552,40 @@
     if (S.boss) return;
     const frac = (S.timePlannedSec - S.timeLeftSec) / Math.max(1,S.timePlannedSec);
     if (frac >= 0.82){
-      bossStart();
+      S.boss = true;
+      S.bossHp = 6;
+
+      // deterministic boss pattern by current seeded RNG
+      S.bossPattern = (S.rng() < 0.5) ? 'A' : 'B';
+      S.bossPhaseTick = 0;
+      S.bossWaveBurstLeft = 0;
+      S.bossPatternCooldown = 0;
+      S.bossFairStreakBad = 0;
+
+      emit('groups:progress', { kind:'boss_spawn', pattern:S.bossPattern });
+      coach(`บอสมา! Pattern ${S.bossPattern} ยิง “หมู่ที่ถูก” ให้แม่น 👊`, 'fever');
+      aiOnEvent('boss:spawn', { hp:S.bossHp|0, pattern:S.bossPattern });
+      maybeAiTip('boss:spawn');
+    }
+  }
+
+  function bossHit(){
+    if (!S.boss) return;
+    S.bossHp = Math.max(0, (S.bossHp|0) - 1);
+    if (S.bossHp <= 0){
+      S.boss = false;
+      S.score += 60;
+      emitScore();
+      emitRank();
+      emit('groups:progress', { kind:'boss_down' });
+      coach('บอสแตก! โคตรดี 💥', 'happy');
+
+      if(!S.bossAwarded){
+        S.bossAwarded = true;
+        awardOnce('groups','boss_clear_1', { scoreFinal:S.score|0, comboMax:S.maxCombo|0, miss:S.miss|0 });
+      }
+      aiOnEvent('boss:down', { score:S.score|0, miss:S.miss|0 });
+      maybeAiTip('boss:down');
     }
   }
 
@@ -812,7 +679,6 @@
     const d = ev.detail||{};
     const x = Number(d.x)||0;
     const y = Number(d.y)||0;
-
     const lockPx = clamp(Number(d.lockPx ?? 0), 0, 96);
 
     S.shots++;
@@ -827,7 +693,7 @@
       onBadHit();
       emitFx('shot_miss', x, y, false);
       aiOnEvent('shot:miss', { x, y, lockPx });
-      maybeAiCoach('shot:miss', { lockPx });
+      maybeAiTip('shot:miss');
       return;
     }
 
@@ -842,17 +708,15 @@
     if (good){
       emitFx('hit_good', x, y, true);
       onGoodHit();
-
-      // boss only counts in vuln and only if wanted group hit
-      bossOnGoodHit(tg);
-
+      if (S.boss) bossHit();
       aiOnEvent('shot:hit_good', { groupKey: tg, combo:S.combo|0, score:S.score|0 });
+      if ((S.combo|0) >= 6 && (S.combo % 5) === 0) maybeAiTip('combo:high');
     }else{
       emitFx('hit_bad', x, y, false);
       onBadHit();
       coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
       aiOnEvent('shot:hit_bad', { groupKey: tg, wanted: cg });
-      maybeAiCoach('shot:hit_bad', { wanted: cg, got: tg });
+      maybeAiTip('shot:hit_bad');
     }
   }
 
@@ -864,25 +728,20 @@
     const dt = Math.min(0.06, Math.max(0.001, (t - S.lastTickT) / 1000));
     S.lastTickT = t;
 
-    // timer
     const elapsed = (t - S.startT) / 1000;
     const left = Math.max(0, Math.ceil(S.timePlannedSec - elapsed));
     if (left !== S.timeLeftSec){
       S.timeLeftSec = left;
       emit('hha:time', { left:S.timeLeftSec });
 
-      // per-second boss tick (deterministic enough, uses seconds step)
-      bossTickPerSecond();
-
-      // mini countdown
       if (S.miniActive){
         S.miniLeft = Math.max(0, (S.miniLeft|0) - 1);
         if (S.miniLeft <= 0){
           S.miniActive = false;
           S.miniNow = 0;
           coach('MINI หมดเวลา! เล่นต่อได้เลย 🔥', 'neutral');
-          maybeAiCoach('mini:timeout', {});
           aiOnEvent('mini:timeout', {});
+          maybeAiTip('mini:timeout');
         }
         emitQuest(false);
       }
@@ -893,7 +752,6 @@
       startBossIfNeeded();
     }
 
-    // target expiry => timeout miss (only if current group AND not occluded by HUD)
     for (let i=S.targets.length-1;i>=0;i--){
       const tg = S.targets[i];
       if (!tg || tg.hit) { S.targets.splice(i,1); continue; }
@@ -917,7 +775,7 @@
             emitFx('timeout_miss', r.left + r.width/2, r.top + r.height/2, false);
           }catch(_){}
           aiOnEvent('target:timeout_miss', { groupKey: tg.groupKey, timeLeft: S.timeLeftSec|0 });
-          maybeAiCoach('target:timeout_miss', { groupKey: tg.groupKey });
+          maybeAiTip('target:timeout_miss');
         }else{
           aiOnEvent('target:timeout_ignored', { reason: occluded ? 'occluded' : 'not_fair', groupKey: tg.groupKey });
         }
@@ -932,7 +790,6 @@
       }
     }
 
-    // spawn pacing
     if (S.running){
       S.spawnIt -= dt;
       if (S.spawnIt <= 0){
@@ -948,16 +805,9 @@
         }
 
         const stormMul = S.storm ? 0.70 : 1.0;
+        const bossMul  = S.boss ? 0.80 : 1.0;
 
-        // boss phase pacing (fun but fair)
-        let bossMul = 1.0;
-        if (S.boss){
-          if (S.bossPhase === 'telegraph') bossMul = 1.08; // slightly slower to read
-          else if (S.bossPhase === 'vuln') bossMul = 0.92; // little faster
-          else if (S.bossPhase === 'burst') bossMul = 0.78; // faster reward
-        }
-
-        const intervalMs = clamp(base * stormMul * bossMul * mul, 340, 1500);
+        const intervalMs = clamp(base * stormMul * bossMul * mul, 360, 1500);
         S.spawnIt = intervalMs / 1000;
 
         spawnOne();
@@ -972,68 +822,116 @@
     S.rafId = requestAnimationFrame(rafLoop);
   }
 
-  function chooseGroupForSpawn(){
-    const cg = currentGroup();
-
-    // burst: mostly correct group (feel good)
-    if (S.boss && S.bossPhase === 'burst'){
-      return (S.rng() < 0.80) ? cg.key : pick(S.rng, GROUPS).key;
-    }
-
-    // vuln: bias to wanted group, with limited decoys (fair)
-    if (S.boss && S.bossPhase === 'vuln'){
-      const wanted = S.bossWantedKey || cg.key;
-
-      if (S.rng() < 0.72) return wanted;
-
-      // decoy budget: at most N wrong spawns during vuln
-      if ((S.bossDecoyBudget|0) > 0){
-        S.bossDecoyBudget--;
-        // choose a wrong group deterministically
-        let dk = pick(S.rng, GROUPS).key;
-        if (dk === wanted) dk = cg.key; // still ok if same (rare)
-        if (dk === wanted) dk = GROUPS[(clamp(S.groupIdx+1,0,4))].key;
-        return dk;
-      }
-      return wanted;
-    }
-
-    // normal: playable bias toward current group
-    const r = S.rng();
-    if (r < 0.58) return cg.key;
-    return pick(S.rng, GROUPS).key;
-  }
-
+  // ---------------- spawnOne (LATEST deterministic boss pattern A/B) ----------------
   function spawnOne(){
     if (!S.running) return;
     ensureWrap();
 
     const C = cfgForDiff(S.diff);
-
-    const gKey = chooseGroupForSpawn();
     const cg = currentGroup();
-    const g = GROUPS.find(x=>x.key===gKey) || cg;
 
+    let gKey = '';
+    let lifeBoostMul = 1.0;
+    let forceCorrect = false;
+
+    // ---------------- BOSS deterministic patterns ----------------
+    if (S.boss){
+      S.bossPhaseTick = (S.bossPhaseTick|0) + 1;
+
+      if (S.bossPatternCooldown > 0) S.bossPatternCooldown--;
+
+      if ((S.bossFairStreakBad|0) >= 2){
+        forceCorrect = true;
+      }
+
+      const pat = S.bossPattern || 'A';
+      const k = S.bossPhaseTick;
+
+      if (pat === 'A'){
+        // Rhythm Boss: 4-step cycle (readable + challenge + recovery)
+        const phase = ((k - 1) % 4) + 1;
+
+        if (forceCorrect){
+          gKey = cg.key;
+          lifeBoostMul = 1.10;
+        } else if (phase === 1){
+          gKey = cg.key;
+          lifeBoostMul = 1.05;
+        } else if (phase === 2){
+          gKey = (S.rng() < 0.78) ? cg.key : pick(S.rng, GROUPS).key;
+        } else if (phase === 3){
+          gKey = (S.rng() < 0.62) ? cg.key : pick(S.rng, GROUPS).key;
+        } else {
+          gKey = (S.rng() < 0.88) ? cg.key : pick(S.rng, GROUPS).key;
+          lifeBoostMul = 1.18;
+        }
+
+        if ((k % 7) === 0 && S.bossWaveBurstLeft <= 0){
+          S.bossWaveBurstLeft = 1; // micro-burst cue
+        }
+
+      } else {
+        // Burst Boss: calm -> burst(2-3) -> calm, but fair
+        if (S.bossWaveBurstLeft > 0){
+          if (forceCorrect){
+            gKey = cg.key;
+            lifeBoostMul = 1.05;
+          } else {
+            gKey = (S.rng() < 0.68) ? cg.key : pick(S.rng, GROUPS).key;
+          }
+          S.bossWaveBurstLeft--;
+        } else {
+          if (forceCorrect){
+            gKey = cg.key;
+            lifeBoostMul = 1.12;
+          } else {
+            gKey = (S.rng() < 0.82) ? cg.key : pick(S.rng, GROUPS).key;
+          }
+
+          if ((k % 5) === 0 && S.rng() < 0.72){
+            S.bossWaveBurstLeft = (S.rng() < 0.5) ? 2 : 3;
+          }
+        }
+      }
+
+      if (gKey === cg.key) S.bossFairStreakBad = 0;
+      else S.bossFairStreakBad = (S.bossFairStreakBad|0) + 1;
+
+    } else {
+      // ---------------- normal / non-boss spawning ----------------
+      const r = S.rng();
+      if (r < 0.58) gKey = cg.key;
+      else gKey = pick(S.rng, GROUPS).key;
+
+      if (S.storm && S.rng() < 0.64) gKey = cg.key;
+    }
+
+    const g = GROUPS.find(x=>x.key===gKey) || cg;
     const em = pick(S.rng, g.emoji);
 
     const lifeMin = C.lifeMs[0];
     const lifeMax = C.lifeMs[1];
+    let life = clamp(lifeMin + S.rng()*(lifeMax-lifeMin), 900, 5200);
 
-    // boss burst gives slightly longer life (feels rewarding)
-    let life = lifeMin + S.rng()*(lifeMax-lifeMin);
-    if (S.boss && S.bossPhase === 'burst') life *= 1.15;
-    if (S.boss && S.bossPhase === 'telegraph') life *= 1.05;
-
-    life = clamp(life, 900, 5600);
+    if (S.boss){
+      life = Math.round(life * 0.90 * (lifeBoostMul || 1));
+      life = clamp(life, 900, 4800);
+    }
 
     const t = mkTarget(g.key, em, life);
     S.targets.push(t);
 
-    // cap targets
     const cap = (S.view==='pc') ? 12 : 10;
     if (S.targets.length > cap){
-      let idx = S.targets.findIndex(x=>x.groupKey !== currentGroup().key);
+      let idx = -1;
+      if (S.boss){
+        idx = S.targets.findIndex(x => x.groupKey !== currentGroup().key);
+      }
+      if (idx < 0){
+        idx = S.targets.findIndex(x => x.groupKey !== currentGroup().key);
+      }
       if (idx < 0) idx = 0;
+
       const old = S.targets[idx];
       try{ old.el.remove(); }catch(_){}
       S.targets.splice(idx,1);
@@ -1072,42 +970,30 @@
 
     S.targets.length = 0;
     S.storm = false;
-
-    // boss reset
     S.boss = false;
     S.bossHp = 0;
-    S.bossPhase = 'off';
-    S.bossTeleLeft = 0;
-    S.bossVulnLeft = 0;
-    S.bossBurstLeft = 0;
-    S.bossWantedKey = '';
-    S.bossSwapCount = 0;
-    S.bossDecoyBudget = 0;
-    S.bossLastPhaseAt = 0;
+
+    S.bossPattern = 'A';
+    S.bossPhaseTick = 0;
+    S.bossWaveBurstLeft = 0;
+    S.bossPatternCooldown = 0;
+    S.bossFairStreakBad = 0;
 
     S.lastCoachAt = 0;
     S.lastQuestEmitAt = 0;
-
     S.lastShotAt = 0;
+    S.aiTipLastAt = 0;
 
-    // tip reset
-    S.lastTipAt = 0;
-    S.lastTipKey = '';
-
-    // seed / rng
     S.seed = String(ctx && ctx.seed ? ctx.seed : (qs('seed','')||Date.now()));
     const u32 = strSeedToU32(S.seed);
     S.rng = makeRng(u32);
 
-    // time
-    const tt = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
-    S.timePlannedSec = clamp(tt, 15, 180);
+    const t = Number(ctx && ctx.time ? ctx.time : qs('time', 90));
+    S.timePlannedSec = clamp(t, 15, 180);
     S.timeLeftSec = S.timePlannedSec;
 
-    // spawn timer
     S.spawnIt = 0;
 
-    // init AI
     initAI();
 
     emitPower();
@@ -1167,6 +1053,7 @@
     WIN.addEventListener('hha:shoot', handleShoot, { passive:true });
 
     aiOnEvent('run:start', { diff:S.diff, runMode:S.runMode, seed:S.seed, time:S.timePlannedSec|0 });
+    maybeAiTip('run:start');
 
     S.rafId = requestAnimationFrame(rafLoop);
     return true;
@@ -1225,7 +1112,8 @@
       comboMax: S.maxCombo|0,
       miniCleared: !!S.miniAwarded,
       bossCleared: !!S.bossAwarded,
-      aiEnabled: !!S.aiEnabled
+      aiEnabled: !!S.aiEnabled,
+      bossPattern: S.bossPattern || null
     };
 
     emit('hha:end', summary);
@@ -1234,7 +1122,7 @@
     clearTargets();
   }
 
-  // ---------------- flush harden hook ----------------
+  // ---------------- flush harden hook (optional for your html) ----------------
   WIN.GroupsVR.bindFlushOnLeave = function bindFlushOnLeave(getSummaryFn){
     function safeCall(){
       try{
