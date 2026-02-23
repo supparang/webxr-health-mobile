@@ -1,1951 +1,354 @@
+<!-- === /herohealth/vr-clean/home-clean.html ===
+Clean Objects (Evaluate → Create) — MVP v20260223
+A: PC/Mobile Evaluate (45s, spray 3)
+B: Cardboard/cVR Create (60s, N=5)
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Clean Objects (Home)</title>
-
-  <!--
-    Clean Objects — Home (Grid Map) — PRODUCTION v2026-02-20a
-    ✅ A: Evaluate via Value + Risk Meter + Trade-off Event (deterministic by seed)
-    ✅ A: Wipe mini-action coverage grid 4x4 (spend scales with effective cost)
-    ✅ B: Create Plan Builder (checklist/routine/route) + Run Plan navigation highlight
-    ✅ End Summary modal + Save Last Summary (HHA_LAST_SUMMARY) + Back HUB
-    ✅ AI Coach micro-tips (explainable + rate-limit) + summary coach
-    ✅ Flush-hardened (visibility/pagehide/beforeunload/backbutton)
-    ✅ Passthrough full (studyId/phase/conditionGroup/log/view/ai/debug/api/hub...)
-    ✅ Local CSV logs (sessions/events/profile) with export buttons
-    ✅ emit hha:summary + hha:event
-    ✅ Card-friendly fields in last summary (primary/secondary/detail/icon)
-    ✅ Cardboard/cVR: auto-switch to B skeleton when ?view=cvr
-  -->
-
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Clean Objects</title>
+  <meta name="color-scheme" content="dark light"/>
   <style>
     :root{
-      --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455;
-      --safeT: env(safe-area-inset-top, 0px);
-      --safeB: env(safe-area-inset-bottom, 0px);
-      --ok:#1f8b4c; --warn:#c7a100; --bad:#c54848;
-    }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    #app{ position:fixed; inset:0; padding-top:var(--safeT); padding-bottom:var(--safeB); overflow:hidden; }
+      color-scheme: dark;
+      --bg:#050814;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(2,6,23,.55);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.94);
+      --mut: rgba(148,163,184,.92);
+      --good: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
+      --bad: rgba(239,68,68,.95);
+      --blue: rgba(59,130,246,.95);
 
-    /* shared HUD */
-    .hud{ position:fixed; left:12px; right:12px; top:calc(12px + var(--safeT));
-      display:flex; gap:10px; z-index:30; flex-wrap:wrap; }
-    .hud .box{ flex:1; min-width:140px; background:rgba(18,27,47,.86);
-      border:1px solid var(--bd); border-radius:14px; padding:10px 12px; }
-    .hud .t{ font-size:12px; color:var(--mut); }
-    .hud .v{ font-size:16px; font-weight:900; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-    /* A renderer container */
-    #mapRoot{ position:absolute; inset:0; display:none; }
-    .toolbar{
-      position:fixed; left:12px; right:12px;
-      top:calc(64px + var(--safeT));
-      display:flex; gap:8px; z-index:25; flex-wrap:wrap;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    .btn{
-      border:1px solid var(--bd);
-      background:#1a2a4a; color:var(--fg);
-      padding:10px 12px; border-radius:12px;
-      font-weight:900; cursor:pointer;
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 60%),
+      radial-gradient(700px 500px at 40% 100%, rgba(244,114,182,.10), transparent 55%),
+      var(--bg);
+      color:var(--txt);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.ghost{ background:transparent; }
-    .btn.danger{ background:#3a1a22; }
-    .btn.good{ background:#183a2a; }
-
-    /* grid map layout */
-    .mapStage{
-      position:absolute; left:12px; right:12px;
-      top:calc(114px + var(--safeT));
-      bottom:calc(12px + var(--safeB));
-      display:grid; gap:10px;
-      grid-template-columns: 1.1fr 0.9fr;
-      grid-template-rows: 1fr 1fr 1fr;
-    }
-    .zone{
-      background:rgba(18,27,47,.55);
-      border:1px solid var(--bd);
-      border-radius:18px;
-      padding:12px;
-      display:flex; flex-direction:column; gap:10px;
-      overflow:hidden;
-    }
-    .zone.isNext{ outline:2px solid rgba(160,200,255,.45); }
-    .zone h3{ margin:0; font-size:14px; letter-spacing:.2px; display:flex; align-items:center; gap:8px; }
-    .zone .sub{ margin:0; color:var(--mut); font-size:12px; }
-    .chips{ display:flex; gap:6px; flex-wrap:wrap; }
-    .chip{
-      font-size:11px; color:var(--mut);
-      border:1px dashed var(--bd);
-      padding:5px 8px; border-radius:999px;
-      user-select:none;
-    }
-    .hotlist{
-      display:flex; flex-direction:column; gap:8px;
-      overflow:auto; padding-right:4px;
-    }
-    .hot{
-      background:rgba(11,18,32,.55);
-      border:1px solid var(--bd);
-      border-radius:14px;
-      padding:10px;
-      display:flex; gap:10px; align-items:flex-start;
-      cursor:pointer;
-    }
-    .hot:active{ transform: translateY(1px); }
-    .hot.sel{ outline:2px solid rgba(160,200,255,.45); }
-    .hot .name{ font-weight:900; font-size:13px; }
-    .meta{ color:var(--mut); font-size:11px; margin-top:3px; line-height:1.25; }
-    .right{ margin-left:auto; text-align:right; }
-    .value{ font-weight:900; font-size:13px; }
-    .stars{ font-size:11px; color:var(--mut); margin-top:3px; }
-
-    /* zone placement */
-    #zoneEntry{ grid-column:1; grid-row:1; }
-    #zoneLiving{ grid-column:1; grid-row:2; }
-    #zoneKitchen{ grid-column:1; grid-row:3; }
-    #zoneBath{ grid-column:2; grid-row:1 / span 2; }
-    #zoneBed{ grid-column:2; grid-row:3; }
-
-    /* bottom action drawer */
-    .drawer{
-      position:fixed; left:12px; right:12px;
-      bottom:calc(12px + var(--safeB));
-      z-index:40;
-      background:rgba(18,27,47,.92);
-      border:1px solid var(--bd);
-      border-radius:18px;
-      padding:12px;
-      display:none;
-    }
-    .drawer.on{ display:block; }
-    .dTitle{ font-weight:1000; font-size:14px; margin:0 0 4px; }
-    .dSub{ margin:0 0 10px; color:var(--mut); font-size:12px; line-height:1.35; }
-    .row{ display:flex; gap:8px; flex-wrap:wrap; }
-    .badge{
-      font-size:11px; border:1px solid var(--bd);
-      padding:5px 8px; border-radius:999px; color:var(--mut);
-    }
-    .btnWide{ flex:1; min-width:150px; }
-    .mini{ font-size:11px; color:var(--mut); margin-top:10px; line-height:1.35; }
-
-    /* modal */
-    .modalMask{
-      position:fixed; inset:0; background:rgba(0,0,0,.55);
-      z-index:80; display:none; align-items:center; justify-content:center;
-      padding:18px 12px;
-    }
-    .modalMask.on{ display:flex; }
-    .modal{
-      width:min(820px, 100%);
-      max-height:calc(100vh - 24px);
-      overflow:auto;
-      background:rgba(18,27,47,.96);
-      border:1px solid var(--bd);
-      border-radius:18px;
-      padding:14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-    }
-    .mHead{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
-    .mTitle{ margin:0; font-size:15px; font-weight:1000; }
-    .mSub{ margin:4px 0 0; color:var(--mut); font-size:12px; line-height:1.35; }
-    .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
-    .tab{ padding:8px 10px; border:1px solid var(--bd); border-radius:999px; background:transparent; color:var(--fg); font-weight:900; cursor:pointer; }
-    .tab.on{ background:#1a2a4a; }
-    .panel{ display:none; }
-    .panel.on{ display:block; }
-
-    /* wipe mini-action */
-    .wipeBox{
-      margin-top:12px;
-      border:1px solid var(--bd);
-      border-radius:16px;
-      background:rgba(11,18,32,.55);
-      padding:12px;
-    }
-    .gridWipe{
+    *{box-sizing:border-box}
+    .cleanApp{
+      height:100%;
       display:grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap:8px;
-      user-select:none;
-      touch-action:none;
+      grid-template-columns: 1.2fr .8fr;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
     }
-    .cell{
-      aspect-ratio: 1 / 1;
-      border:1px solid var(--bd);
-      border-radius:12px;
-      background:rgba(18,27,47,.55);
+
+    /* HUD */
+    .hud{
+      grid-column: 1 / -1;
+      border:1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    }
+    .hudRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      padding: 7px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      font-weight: 900;
+      letter-spacing:.02em;
+      font-size: 12px;
+      opacity:.95;
+    }
+
+    /* Board */
+    .board{
+      grid-column: 1 / 2;
+      border:1px solid var(--line);
+      background: var(--panel2);
+      border-radius: 18px;
       position:relative;
       overflow:hidden;
+      min-height: 360px;
     }
-    .cell.on{
-      background:rgba(31,139,76,.25);
-      border-color:rgba(31,139,76,.55);
+    .grid{
+      position:absolute; inset: 10px;
+      border-radius: 16px;
+      background: rgba(2,6,23,.35);
+      border:1px solid rgba(148,163,184,.12);
+      overflow:hidden;
     }
-    .cell.on::after{
-      content:'';
-      position:absolute; inset:-20%;
-      background: radial-gradient(circle at 30% 30%, rgba(140,220,180,.45), rgba(31,139,76,.08));
-      transform: rotate(12deg);
+    .gridBg{ position:absolute; inset:0; }
+    .zoneRect{
+      position:absolute;
+      border:1px dashed rgba(148,163,184,.18);
+      background: rgba(99,102,241,.06);
+      border-radius: 10px;
+      overflow:hidden;
     }
-    .progressLine{
-      height:10px; border:1px solid var(--bd); border-radius:999px; overflow:hidden; background:rgba(11,18,32,.55);
-      margin-top:10px;
+    .zoneLab{
+      position:absolute; left:8px; top:6px;
+      font-size: 11px;
+      font-weight: 900;
+      opacity:.78;
+      letter-spacing:.06em;
     }
-    .progressFill{
-      height:100%; width:0%;
-      background:rgba(160,200,255,.55);
+    .gridLines{ position:absolute; inset:0; pointer-events:none; }
+    .vLine,.hLine{
+      position:absolute;
+      background: rgba(148,163,184,.10);
+    }
+    .vLine{ top:0; bottom:0; width:1px; }
+    .hLine{ left:0; right:0; height:1px; }
+
+    .markerLayer{ position:absolute; inset:0; }
+    .spot{
+      position:absolute;
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.55);
+      color: var(--txt);
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      padding:0;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    }
+    .spot .lab{ display:none; }
+    .spot .dot{
+      width: 10px; height:10px; border-radius: 999px;
+      background: rgba(148,163,184,.25);
+      border: 1px solid rgba(148,163,184,.22);
+    }
+    .spot.rHigh .dot{ background: rgba(239,68,68,.35); border-color: rgba(239,68,68,.35); }
+    .spot.rMed  .dot{ background: rgba(251,191,36,.28); border-color: rgba(251,191,36,.30); }
+    .spot.rLow  .dot{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.30); }
+
+    .spot.isFocus{
+      outline: 2px solid rgba(59,130,246,.55);
+      outline-offset: 2px;
+      transform: scale(1.06);
+    }
+    .spot.isCleaned{
+      border-color: rgba(16,185,129,.38);
+      background: rgba(16,185,129,.14);
+    }
+    .spot.isRoute{
+      border-color: rgba(59,130,246,.45);
+      background: rgba(59,130,246,.16);
     }
 
-    /* plan lists */
-    .twoCol{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    @media (max-width:720px){ .twoCol{ grid-template-columns: 1fr; } }
-    .list{
-      border:1px solid var(--bd);
-      border-radius:16px;
-      background:rgba(11,18,32,.45);
-      padding:10px;
+    .overlay{ position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; padding: 12px; }
+    .ovHint{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.60);
+      border-radius: 16px;
+      padding: 10px 12px;
+      max-width: 520px;
+      text-align:center;
+      box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-    .list h4{ margin:0 0 8px; font-size:13px; }
-    .item{
-      display:flex; gap:8px; align-items:center;
-      border:1px solid var(--bd);
-      border-radius:14px;
-      padding:8px 10px;
-      margin-bottom:8px;
-      background:rgba(18,27,47,.55);
-    }
-    .item .nm{ font-weight:900; font-size:12px; }
-    .item .sm{ color:var(--mut); font-size:11px; }
-    .item .sp{ margin-left:auto; display:flex; gap:6px; }
-    .tinyBtn{ padding:6px 8px; border-radius:10px; font-weight:900; border:1px solid var(--bd); background:transparent; color:var(--fg); cursor:pointer; }
-    .tinyBtn:active{ transform: translateY(1px); }
-    .selTag{ font-size:11px; color:rgba(160,200,255,.95); }
+    .ovT{ font-weight: 1000; }
+    .ovS{ font-size: 12px; opacity:.85; margin-top:4px; }
 
-    /* B renderer container */
-    #vrRoot{ position:absolute; inset:0; display:none; }
-    .overlayNote{
-      position:fixed; left:12px; right:12px;
-      bottom:calc(12px + var(--safeB));
-      z-index:30;
-      background:rgba(11,18,32,.75);
-      border:1px solid var(--bd);
-      border-radius:14px;
-      padding:10px 12px;
-      color:var(--mut);
-      font-size:12px;
-      line-height:1.35;
+    /* Info */
+    .info{
+      grid-column: 2 / 3;
+      border:1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 12px;
+      overflow:auto;
+      min-height: 360px;
     }
-    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
+    .infoH{ display:flex; justify-content:space-between; gap:10px; }
+    .infoT{ font-weight: 1000; font-size: 14px; }
+    .infoSub{ font-size: 12px; opacity:.80; margin-top:2px; }
+    .infoBody{ margin-top: 10px; display:flex; flex-direction:column; gap:10px; }
+    .kv{ display:flex; justify-content:space-between; border:1px solid rgba(148,163,184,.14); background: rgba(2,6,23,.25); padding: 8px 10px; border-radius: 14px; }
+    .kv span{ font-size: 12px; opacity:.82; font-weight: 800; }
+    .kv b{ font-size: 13px; font-weight: 1000; }
+    .tags{ display:flex; gap:6px; flex-wrap:wrap; }
+    .tag{
+      padding: 5px 8px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.28);
+      font-size: 11px;
+      font-weight: 900;
+      opacity:.92;
+    }
+    .actions{ display:flex; flex-direction:column; gap:8px; margin-top: 4px; }
+    .mut{ font-size: 12px; opacity:.78; }
+    .btn{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.35);
+      color: var(--txt);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      font-weight: 1000;
+    }
+    .btn:hover{ border-color: rgba(148,163,184,.35); }
+    .btn.primary{
+      border-color: rgba(59,130,246,.35);
+      background: rgba(59,130,246,.18);
+    }
+    .btn.ghost{
+      background: rgba(2,6,23,.10);
+    }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .reasonChips{ display:flex; gap:8px; flex-wrap:wrap; margin-top: 2px; }
+    .chip{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.20);
+      color: var(--txt);
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor:pointer;
+      opacity:.92;
+    }
+    .chip.on{
+      border-color: rgba(245,158,11,.38);
+      background: rgba(245,158,11,.16);
+    }
+
+    /* Route panel */
+    .routePanel{
+      grid-column: 1 / -1;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.50);
+      border-radius: 18px;
+      padding: 10px 12px;
+      max-height: 220px;
+      overflow:auto;
+    }
+    .rpH{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .rpT{ font-weight: 1000; }
+    .rpSub{ font-size: 12px; opacity:.78; }
+    .rpList{ margin-top: 8px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+    .rpItem{
+      display:flex; gap:10px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.22);
+      border-radius: 16px;
+      padding: 10px 10px;
+    }
+    .rpIdx{
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      display:flex; align-items:center; justify-content:center;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.30);
+      font-weight: 1000;
+    }
+    .rpName{ font-weight: 1000; }
+    .rpMeta{ font-size: 12px; opacity:.78; margin-top:2px; }
+
+    /* Summary overlay */
+    .summary{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      background: rgba(0,0,0,.55);
+      z-index: 99;
+    }
+    .sumCard{
+      width: min(860px, 96vw);
+      max-height: 86vh;
+      overflow:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.86);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    }
+    .sumTop{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .sumTitle{ font-weight: 1100; font-size: 16px; }
+    .sumSub{ font-size: 12px; opacity:.78; margin-top:3px; }
+    .sumGrid{
+      margin-top: 12px;
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+    }
+    .sumBox{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      border-radius: 16px;
+      padding: 10px 12px;
+    }
+    .sumBox .k{ font-size: 11px; letter-spacing:.08em; opacity:.75; font-weight: 900; }
+    .sumBox .v{ font-weight: 1100; font-size: 18px; margin-top:3px; }
+    .sumBadges{ margin-top: 10px; font-size: 12px; opacity:.92; }
+    .badge{
+      display:inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.25);
+      margin-right: 6px;
+      margin-top: 6px;
+      font-weight: 900;
+    }
+    .sumList{ margin-top: 12px; border:1px solid rgba(148,163,184,.14); background: rgba(2,6,23,.25); border-radius: 16px; padding: 10px 12px; }
+    .sumListH{ font-weight: 1000; margin-bottom: 6px; }
+    .sumList ul{ margin:0; padding-left: 18px; }
+    .sumList li{ margin: 6px 0; font-size: 12px; opacity:.92; }
+    .sumActions{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+
+    @media (max-width: 980px){
+      .cleanApp{ grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto; }
+      .board{ grid-column: 1 / -1; min-height: 340px; }
+      .info{ grid-column: 1 / -1; }
+      .rpList{ grid-template-columns: 1fr; }
+      .sumGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
   </style>
 </head>
-
 <body>
-<div id="app">
-  <!-- Shared HUD -->
-  <div class="hud" id="hud">
-    <div class="box"><div class="t">TIME</div><div class="v" id="hudTime">--</div></div>
-    <div class="box"><div class="t">SPRAY</div><div class="v" id="hudSpray">--</div></div>
-    <div class="box"><div class="t">CLOTH</div><div class="v" id="hudCloth">--</div></div>
-    <div class="box"><div class="t">PLAN</div><div class="v" id="hudPlan">OFF</div></div>
-    <div class="box"><div class="t">RISK</div><div class="v" id="hudRisk">--</div></div>
-    <div class="box"><div class="t">EVENT</div><div class="v" id="hudEvent">None</div></div>
-    <div class="box"><div class="t">AI COACH</div><div class="v" id="hudCoach">—</div></div>
-  </div>
+  <div id="app"></div>
 
-  <!-- A) Map renderer -->
-  <div id="mapRoot">
-    <div class="toolbar">
-      <button class="btn" id="btnSort">Sort by Value</button>
-      <button class="btn" id="btnEvent" title="สุ่มเหตุการณ์บ้าน (deterministic by seed)">New Event</button>
-      <button class="btn" id="btnPlan">Plan Builder</button>
-      <button class="btn good" id="btnRunPlan" title="นำทางตามแผนที่บันทึกไว้">Run Plan</button>
-      <button class="btn good" id="btnFinish" title="จบรอบและดูสรุป">Finish</button>
-      <button class="btn ghost" id="btnBack">Back HUB</button>
-      <button class="btn ghost" id="btnResetPlan" title="ล้างแผนที่บันทึกไว้">Reset Plan</button>
-    </div>
+  <script type="module">
+    import { createCleanCore } from './clean.core.js';
+    import { mountCleanUI } from './clean.ui.js';
+    import { saveSummary } from '../analytics/summary-store.js';
 
-    <div class="mapStage" id="mapStage">
-      <section class="zone" id="zoneEntry">
-        <div>
-          <h3>Entry</h3>
-          <p class="sub">จุดคอขวดก่อนเข้าบ้าน</p>
-          <div class="chips"><span class="chip">Bottleneck</span><span class="chip">Touch สูง</span></div>
-        </div>
-        <div class="hotlist" data-zone="entry"></div>
-      </section>
+    // Optional: attach universal VR UI if you want (won't break if missing)
+    // If you already have /herohealth/vr/vr-ui.js, uncomment these:
+    // import '../vr/vr-ui.js';
 
-      <section class="zone" id="zoneLiving">
-        <div>
-          <h3>Living Room</h3>
-          <p class="sub">รีโมท/มือถือ/โต๊ะกลาง</p>
-          <div class="chips"><span class="chip">Shared</span><span class="chip">เร็ว</span></div>
-        </div>
-        <div class="hotlist" data-zone="living"></div>
-      </section>
+    const root = document.getElementById('app');
 
-      <section class="zone" id="zoneKitchen">
-        <div>
-          <h3>Kitchen</h3>
-          <p class="sub">ทำกับข้าว = เสี่ยงปนเปื้อน</p>
-          <div class="chips"><span class="chip">Food</span><span class="chip">Cost สูงขึ้น</span></div>
-        </div>
-        <div class="hotlist" data-zone="kitchen"></div>
-      </section>
-
-      <section class="zone" id="zoneBath">
-        <div>
-          <h3>Bathroom</h3>
-          <p class="sub">Spread สูง (คันชัก/ก๊อก/ที่กด)</p>
-          <div class="chips"><span class="chip">Spread สูง</span><span class="chip">Priority</span></div>
-        </div>
-        <div class="hotlist" data-zone="bath"></div>
-      </section>
-
-      <section class="zone" id="zoneBed">
-        <div>
-          <h3>Bedroom</h3>
-          <p class="sub">ก่อนนอน/หลังป่วย</p>
-          <div class="chips"><span class="chip">Routine</span><span class="chip">Light</span></div>
-        </div>
-        <div class="hotlist" data-zone="bed"></div>
-      </section>
-    </div>
-
-    <!-- Action drawer (selected hotspot) -->
-    <div class="drawer" id="drawer">
-      <div class="dTitle" id="dTitle">--</div>
-      <div class="dSub" id="dSub">--</div>
-      <div class="row" style="margin-bottom:10px;">
-        <span class="badge" id="bTouch">Touch: -</span>
-        <span class="badge" id="bSpread">Spread: -</span>
-        <span class="badge" id="bCost">Cost: -</span>
-        <span class="badge" id="bValue">Value: -</span>
-        <span class="badge" id="bPlan">Plan: -</span>
-      </div>
-      <div class="row">
-        <button class="btn btnWide" id="btnClean">CLEAN (wipe)</button>
-        <button class="btn btnWide ghost" id="btnClose">Close</button>
-      </div>
-      <div class="mini">
-        Mini-action: ลากถูในกริด 4×4 ให้เต็ม → ได้ coverage% → ตัดสินใจคุ้ม (Evaluate)
-      </div>
-      <div class="mini" id="evalExplain">เหตุผล: -</div>
-    </div>
-  </div>
-
-  <!-- B) WebXR renderer -->
-  <div id="vrRoot">
-    <div class="overlayNote">
-      B Mode (Cardboard/cVR): ใช้ crosshair + tap-to-shoot ผ่าน <b>/herohealth/vr/vr-ui.js</b>
-      (event: <code>hha:shoot</code>)<br/>
-      ตอนนี้เป็น skeleton — รอบถัดไปค่อยใส่ raycast hotspot + clean progress ใน 3D
-    </div>
-    <div id="vrStage" style="position:absolute; inset:0;"></div>
-  </div>
-</div>
-
-<!-- WIPE MODAL -->
-<div class="modalMask" id="wipeMask" aria-hidden="true">
-  <div class="modal">
-    <div class="mHead">
-      <div>
-        <h3 class="mTitle" id="wipeTitle">Wipe</h3>
-        <p class="mSub" id="wipeSub">ลากถูให้เต็มกริดเพื่อเพิ่ม coverage</p>
-      </div>
-      <button class="btn ghost" id="wipeClose">Close</button>
-    </div>
-
-    <div class="wipeBox">
-      <div class="gridWipe" id="wipeGrid"></div>
-      <div class="progressLine"><div class="progressFill" id="wipeFill"></div></div>
-      <div class="row" style="margin-top:10px;">
-        <span class="badge" id="wipeCov">Coverage: 0%</span>
-        <span class="badge" id="wipeSpend">Spend: -</span>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button class="btn btnWide good" id="wipeDone">DONE</button>
-        <button class="btn btnWide danger" id="wipeReset">RESET</button>
-      </div>
-      <div class="mini">Tip: ให้ถึง ≥70% จะถือว่า “Cleaned ✅” และลด risk ได้ชัดเจน</div>
-    </div>
-  </div>
-</div>
-
-<!-- PLAN MODAL -->
-<div class="modalMask" id="planMask" aria-hidden="true">
-  <div class="modal">
-    <div class="mHead">
-      <div>
-        <h3 class="mTitle">Plan Builder (Create)</h3>
-        <p class="mSub">สร้าง Checklist + Routine + Route แล้วกด Use Plan เพื่อให้เกม “นำทาง” รอบถัดไป</p>
-      </div>
-      <button class="btn ghost" id="planClose">Close</button>
-    </div>
-
-    <div class="tabs">
-      <button class="tab on" data-tab="chk">Checklist</button>
-      <button class="tab" data-tab="rt">Routine</button>
-      <button class="tab" data-tab="route">Route</button>
-    </div>
-
-    <div class="panel on" id="panel_chk">
-      <div class="twoCol">
-        <div class="list">
-          <h4>All Hotspots</h4>
-          <div id="allList"></div>
-        </div>
-        <div class="list">
-          <h4>My Checklist (ต้องมี ≥ 6 จุด)</h4>
-          <div id="selList"></div>
-          <div class="row">
-            <button class="btn btnWide good" id="btnUsePlan">Use Plan</button>
-            <button class="btn btnWide" id="btnSavePlan">Save</button>
-          </div>
-          <div class="mini" id="planHint">ยังไม่ได้เลือก</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel" id="panel_rt">
-      <div class="twoCol">
-        <div class="list">
-          <h4>Morning 🌞</h4>
-          <div id="rt_morning"></div>
-        </div>
-        <div class="list">
-          <h4>After Home 🏠</h4>
-          <div id="rt_afterhome"></div>
-        </div>
-      </div>
-      <div class="list" style="margin-top:12px;">
-        <h4>Before Bed 🌙</h4>
-        <div id="rt_bed"></div>
-        <div class="mini">ตั้งต้น: เกมจะช่วยแนะนำตำแหน่ง แต่คุณปรับได้หมด</div>
-      </div>
-    </div>
-
-    <div class="panel" id="panel_route">
-      <div class="list">
-        <h4>Route Order (ลำดับโซน)</h4>
-        <div id="routeList"></div>
-        <div class="row">
-          <button class="btn btnWide good" id="btnApplyRoute">Apply Route</button>
-          <button class="btn btnWide" id="btnAutoRoute">Auto (value)</button>
-        </div>
-        <div class="mini">Run Plan จะไฮไลต์ “โซนถัดไป” ตามลำดับนี้</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- SUMMARY MODAL -->
-<div class="modalMask" id="sumMask" aria-hidden="true">
-  <div class="modal">
-    <div class="mHead">
-      <div>
-        <h3 class="mTitle">End Summary</h3>
-        <p class="mSub">สรุปผลการตัดสินใจ (Evaluate) + แผนที่สร้าง (Create)</p>
-      </div>
-      <button class="btn ghost" id="sumClose">Close</button>
-    </div>
-
-    <div class="twoCol">
-      <div class="list">
-        <h4>ผลรวม</h4>
-        <div id="sumOverall" class="mini"></div>
-      </div>
-      <div class="list">
-        <h4>AI Coach (Explainable)</h4>
-        <div id="sumCoach" class="mini"></div>
-      </div>
-    </div>
-
-    <div class="list" style="margin-top:12px;">
-      <h4>Top Decisions</h4>
-      <div id="sumTop"></div>
-    </div>
-
-    <div class="list" style="margin-top:12px;">
-      <h4>Missed / Remaining Risk</h4>
-      <div id="sumMissed"></div>
-    </div>
-
-    <div class="row" style="margin-top:12px;">
-      <button class="btn btnWide" id="sumReplay">Replay (keep event)</button>
-      <button class="btn btnWide good" id="sumNewEvent">Replay + New Event</button>
-      <button class="btn btnWide" id="sumSave">Save Summary</button>
-      <button class="btn btnWide" id="sumCopyHub">Copy Hub Link</button>
-      <button class="btn btnWide" id="sumExportSessions">Export Sessions CSV</button>
-      <button class="btn btnWide" id="sumExportEvents">Export Events CSV</button>
-      <button class="btn btnWide" id="sumExportProfile">Export Profile CSV</button>
-      <button class="btn btnWide ghost" id="sumBackHub">Back HUB</button>
-    </div>
-  </div>
-</div>
-
-<script type="module">
-'use strict';
-
-const qs = (k, d='') => { try{ const u=new URL(location.href); return u.searchParams.get(k) ?? d; }catch(e){ return d; } };
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-const $ = (id)=>document.getElementById(id);
-
-// ---------------------- PARAMS (Passthrough full) ----------------------
-const P = {
-  run:  String(qs('run','play')).toLowerCase() || 'play',
-  diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-  time: clamp(Number(qs('time','90')), 20, 300),
-  seed: String(qs('seed', String(Date.now()))),
-  pid:  String(qs('pid','anon')),
-  hub:  String(qs('hub','/herohealth/hub.html')) || '/herohealth/hub.html',
-  ai:   Number(qs('ai','0'))||0,
-  debug:Number(qs('debug','0'))||0,
-  api:  String(qs('api','')),
-
-  // research infra passthrough
-  studyId: String(qs('studyId','')),
-  phase: String(qs('phase','')),
-  conditionGroup: String(qs('conditionGroup','')),
-  log: String(qs('log','1')),
-  view: String(qs('view','')),
-};
-
-// ---------------------- HHA Standard keys ----------------------
-const KEY_LAST_SUMMARY = 'HHA_LAST_SUMMARY';
-const KEY_SESSIONS_CSV = 'HHA_SESSIONS_CSV::CLEAN_HOME';
-const KEY_EVENTS_CSV   = 'HHA_EVENTS_CSV::CLEAN_HOME';
-const KEY_PROFILE_CSV  = 'HHA_PROFILE_CSV::CLEAN_HOME';
-const PLAN_KEY = `HHA_CLEAN_PLAN_HOME::${P.pid}`;
-
-// ---------------------- Deterministic RNG ----------------------
-function xmur3(str){
-  let h = 1779033703 ^ str.length;
-  for (let i=0; i<str.length; i++){
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function(){
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= h >>> 16) >>> 0;
-  };
-}
-function sfc32(a,b,c,d){
-  return function(){
-    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-    let t = (a + b) | 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) | 0;
-    c = (c << 21) | (c >>> 11);
-    d = (d + 1) | 0;
-    t = (t + d) | 0;
-    c = (c + t) | 0;
-    return (t >>> 0) / 4294967296;
-  };
-}
-function makeRng(seedStr){
-  const seed = xmur3(String(seedStr))();
-  const a = seed;
-  const b = xmur3(seedStr + '|b')();
-  const c = xmur3(seedStr + '|c')();
-  const d = xmur3(seedStr + '|d')();
-  return sfc32(a,b,c,d);
-}
-const RNG = makeRng(`${P.seed}|${P.pid}|clean-home`);
-const SESSION_ID = `${P.pid}-${P.seed}-${Math.floor(Date.now()/1000)}`;
-
-// ---------------------- View detect ----------------------
-function detectView(){
-  const v = (P.view || '').toLowerCase();
-  if(v) return v;
-  const w = Math.min(window.innerWidth, window.innerHeight);
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || w <= 520;
-  return isMobile ? 'mobile' : 'pc';
-}
-const VIEW = detectView();
-const IS_CVR = (VIEW === 'cvr');
-
-// ---------------------- Passthrough helpers ----------------------
-const PASS_KEYS = [
-  'hub','pid','seed','run','diff','time','api','ai','debug','view',
-  'studyId','phase','conditionGroup','log'
-];
-function applyPassthrough(fromUrl, toUrl){
-  for(const k of PASS_KEYS){
-    const v = fromUrl.searchParams.get(k);
-    if(v !== null && v !== undefined && v !== '') toUrl.searchParams.set(k, v);
-  }
-}
-function hubUrl(){
-  const base = new URL(P.hub, location.href);
-  const cur  = new URL(location.href);
-  applyPassthrough(cur, base);
-  base.searchParams.set('from', 'clean-home');
-  if(!base.searchParams.get('pid')) base.searchParams.set('pid', P.pid);
-  if(!base.searchParams.get('seed')) base.searchParams.set('seed', P.seed);
-  if(!base.searchParams.get('run')) base.searchParams.set('run', P.run);
-  if(!base.searchParams.get('diff')) base.searchParams.set('diff', P.diff);
-  if(!base.searchParams.get('time')) base.searchParams.set('time', String(P.time));
-  if(P.api && !base.searchParams.get('api')) base.searchParams.set('api', P.api);
-  return base.toString();
-}
-function goHub(){ location.href = hubUrl(); }
-
-// ---------------------- UI toast ----------------------
-function toast(msg){
-  const d = document.createElement('div');
-  d.textContent = msg;
-  d.style.position='fixed';
-  d.style.left='12px'; d.style.right='12px';
-  d.style.bottom='12px';
-  d.style.zIndex='9999';
-  d.style.padding='10px 12px';
-  d.style.border='1px solid var(--bd)';
-  d.style.borderRadius='14px';
-  d.style.background='rgba(18,27,47,.92)';
-  d.style.color='var(--fg)';
-  document.body.appendChild(d);
-  setTimeout(()=>{ d.remove(); }, 1500);
-}
-const fmt = (n)=> (Math.round(n*10)/10).toFixed(1);
-const pct = (x)=> Math.round(clamp(x,0,1)*100);
-
-// ---------------------- Emit events ----------------------
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
-}
-
-// ---------------------- DATA ----------------------
-const HOT = [
-  { id:'door_knob', zone:'entry',  name:'ลูกบิดประตูหน้า',  touch:9, spread:8, cost:3, note:'คอขวด ทุกคนจับก่อนเข้าบ้าน' },
-  { id:'light_switch', zone:'entry',name:'สวิตช์ไฟ',         touch:8, spread:5, cost:1, note:'คุ้มมาก เพราะ cost ต่ำ' },
-
-  { id:'tv_remote', zone:'living',  name:'รีโมททีวี',         touch:7, spread:6, cost:2, note:'แชร์กันทั้งบ้าน' },
-  { id:'phone', zone:'living',      name:'มือถือ/แท็บเล็ต',    touch:8, spread:7, cost:2, note:'จับบ่อย + ใกล้หน้า' },
-  { id:'drawer_handle', zone:'living', name:'มือจับลิ้นชัก/ตู้', touch:6, spread:6, cost:2, note:'จุดที่มักลืม' },
-
-  { id:'fridge_handle', zone:'kitchen', name:'มือจับตู้เย็น', touch:7, spread:7, cost:3, note:'ทำอาหาร = จับบ่อย' },
-  { id:'kitchen_faucet', zone:'kitchen',name:'ก๊อกน้ำครัว',   touch:6, spread:6, cost:2, note:'เปียก/ลื่น เชื้อเกาะได้' },
-  { id:'counter_board', zone:'kitchen', name:'เคาน์เตอร์/เขียง', touch:6, spread:8, cost:4, note:'เสี่ยงปนเปื้อนอาหาร' },
-
-  { id:'bath_door', zone:'bath',    name:'มือจับประตูห้องน้ำ', touch:6, spread:7, cost:2, note:'ทางผ่านสำคัญ' },
-  { id:'soap_pump', zone:'bath',    name:'ที่กดสบู่/ก๊อกน้ำ',  touch:6, spread:7, cost:2, note:'แตะซ้ำ ๆ' },
-  { id:'flush', zone:'bath',        name:'คันชัก/ปุ่มชักโครก', touch:5, spread:9, cost:3, note:'Spread สูงมาก' },
-
-  { id:'bed_door', zone:'bed',      name:'มือจับประตูห้องนอน', touch:5, spread:5, cost:2, note:'เหมาะทำก่อนนอน' },
-];
-
-const ZONES = [
-  { id:'entry',  el:'zoneEntry' },
-  { id:'living', el:'zoneLiving' },
-  { id:'kitchen',el:'zoneKitchen' },
-  { id:'bath',   el:'zoneBath' },
-  { id:'bed',    el:'zoneBed' },
-];
-
-const EVENTS = [
-  {
-    id:'cough_home',
-    name:'คนในบ้านไอ 😷',
-    desc:'มือถือ/รีโมท/ลูกบิด/ห้องน้ำ เสี่ยงแพร่เพิ่ม',
-    mod: {
-      touch: { phone:1.2, tv_remote:1.15, door_knob:1.15 },
-      spread:{ phone:1.25, tv_remote:1.15, flush:1.2, bath_door:1.1, soap_pump:1.1 },
-      cost: {}
-    }
-  },
-  {
-    id:'cooking_time',
-    name:'กำลังทำอาหาร 🍳',
-    desc:'ครัวสำคัญขึ้น โดยเฉพาะเขียง/ก๊อก/ตู้เย็น',
-    mod: {
-      touch: { fridge_handle:1.2, kitchen_faucet:1.2, counter_board:1.15 },
-      spread:{ counter_board:1.25, kitchen_faucet:1.1, fridge_handle:1.1 },
-      cost: { counter_board:1.15 }
-    }
-  },
-  {
-    id:'spray_low',
-    name:'น้ำยาเหลือน้อย 🧴',
-    desc:'Cost ทุกจุดสูงขึ้นเล็กน้อย ต้องเลือกให้คุ้มกว่าเดิม',
-    mod: {
-      touch: {},
-      spread:{},
-      cost: {
-        door_knob:1.15, light_switch:1.15, tv_remote:1.15, phone:1.15, drawer_handle:1.15,
-        fridge_handle:1.15, kitchen_faucet:1.15, counter_board:1.15,
-        bath_door:1.15, soap_pump:1.15, flush:1.15, bed_door:1.15
+    const core = createCleanCore({}, {
+      onState: (S)=> ui.onState(S),
+      onTick: (S,dt)=> ui.onTick(S,dt),
+      onSummary: (payload)=> {
+        // save to hub history
+        try{ saveSummary(payload); }catch(e){}
+        ui.onSummary(payload);
       }
-    }
-  },
-  {
-    id:'guests_visit',
-    name:'มีแขกมาเยี่ยม 🚪',
-    desc:'Entry/Living เป็นคอขวด Touch สูงขึ้น',
-    mod: {
-      touch: { door_knob:1.25, light_switch:1.2, tv_remote:1.15, drawer_handle:1.1 },
-      spread:{ door_knob:1.1, light_switch:1.05 },
-      cost: {}
-    }
-  }
-];
-
-// ---------------------- STATE ----------------------
-const S = {
-  timeLeft: P.time,
-  spray: 100,
-  cloth: 3,
-
-  selectedId: null,
-  cleaned: new Map(), // id -> coverage (0..1)
-
-  // plan
-  planEnabled: false,
-  plan: {
-    checklist: [],
-    routine: { morning:[], afterhome:[], bed:[] },
-    route: ['entry','living','kitchen','bath','bed'],
-  },
-  planRun: { active:false, routeIndex:0 },
-
-  // wipe
-  wipe: { id:null, cellsOn:new Set(), dragging:false },
-
-  // risk + event
-  currentEvent: null,
-  riskBase: 0,
-  riskNow: 0,
-
-  // analytics
-  stats: {
-    totalRiskReduced: 0,
-    cleanActions: 0,
-    partialActions: 0,
-    wipes: [] // {id,name,covBefore,covAfter,riskReduced,time,spray,cloth,ts}
-  },
-
-  // ai coach
-  coach: {
-    lastTip: '',
-    lastTipTs: 0,
-    minGapMs: 8000,
-    tips: []
-  },
-
-  // flush hardening
-  flush: { didStart:false, didFinish:false, lastCommitTs:0 }
-};
-
-const byId = (id)=> HOT.find(x=>x.id===id);
-
-// ---------------------- EFFECTIVE METRICS (Event-modified) ----------------------
-function eventMul(kind, id){
-  const ev = S.currentEvent;
-  if(!ev || !ev.mod || !ev.mod[kind]) return 1;
-  return Number(ev.mod[kind][id]) || 1;
-}
-function effTouch(h){ return Math.max(1, Math.round(h.touch * eventMul('touch', h.id))); }
-function effSpread(h){ return Math.max(1, Math.round(h.spread * eventMul('spread', h.id))); }
-function effCost(h){
-  const c = h.cost * eventMul('cost', h.id);
-  return Math.max(1, Math.round(c * 10) / 10);
-}
-function valueEff(h){ return (effTouch(h) * effSpread(h)) / Math.max(1, effCost(h)); }
-
-// risk unit ignores cost (risk is danger, not effort)
-function riskUnit(h){ return effTouch(h) * effSpread(h); }
-function riskRemainingOf(h){
-  const cov = clamp(S.cleaned.get(h.id) || 0, 0, 1);
-  return riskUnit(h) * (1 - cov);
-}
-function recalcRisk(){
-  let base = 0, now = 0;
-  for(const h of HOT){
-    base += riskUnit(h);
-    now  += riskRemainingOf(h);
-  }
-  S.riskBase = Math.round(base * 10) / 10;
-  S.riskNow  = Math.round(now * 10) / 10;
-}
-
-// ---------------------- HUD ----------------------
-function renderHUD(){
-  $('hudTime').textContent  = S.timeLeft + 's';
-  $('hudSpray').textContent = String(S.spray);
-  $('hudCloth').textContent = String(S.cloth);
-  $('hudPlan').textContent  = S.planEnabled ? (S.planRun.active ? 'RUN' : 'ON') : 'OFF';
-
-  const riskText = S.riskBase > 0 ? `${Math.round(S.riskNow)} / ${Math.round(S.riskBase)}` : '--';
-  $('hudRisk').textContent = riskText;
-  $('hudEvent').textContent = S.currentEvent ? S.currentEvent.name : 'None';
-  $('hudCoach').textContent = S.coach.lastTip || '—';
-}
-
-// ---------------------- AI Coach ----------------------
-function setCoachTip(text, force=false){
-  const now = Date.now();
-  if(!force && (now - S.coach.lastTipTs < S.coach.minGapMs)) return;
-  S.coach.lastTip = text;
-  S.coach.lastTipTs = now;
-  S.coach.tips.push(text);
-  if(S.coach.tips.length > 8) S.coach.tips.shift();
-  renderHUD();
-}
-function explainDecision(h){
-  const reasons = [];
-  if(effTouch(h) >= 8) reasons.push('Touch สูง');
-  if(effSpread(h) >= 8) reasons.push('Spread สูง');
-  if(effCost(h) <= 2) reasons.push('Cost ต่ำ');
-  if(S.currentEvent) reasons.push('โดนผลเหตุการณ์');
-  return reasons.length ? reasons.join(' • ') : 'ค่ากลาง';
-}
-function maybeCoachTip(context=''){
-  const remaining = HOT
-    .map(h => ({ h, rem: riskRemainingOf(h), cov:(S.cleaned.get(h.id)||0), val:valueEff(h) }))
-    .sort((a,b)=> b.rem - a.rem);
-  const top = remaining[0];
-  if(!top) return;
-  const h = top.h;
-  const reasons = [];
-  if(effTouch(h) >= 8) reasons.push('Touch สูง');
-  if(effSpread(h) >= 8) reasons.push('Spread สูง');
-  if(effCost(h) <= 2) reasons.push('Cost ต่ำ');
-  const inPlan = S.plan.checklist.includes(h.id);
-  let tip = `ลองทำ "${h.name}" ก่อน`;
-  if(reasons.length) tip += ` (${reasons.join(', ')})`;
-  if(inPlan && S.planRun.active) tip += ' • อยู่ในแผน';
-  if(S.currentEvent) tip += ` • ${S.currentEvent.name}`;
-  setCoachTip(tip);
-}
-
-// ---------------------- CSV helpers ----------------------
-function csvEscape(v){
-  const s = String(v ?? '');
-  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-  return s;
-}
-function appendCsvRow(key, headers, rowObj){
-  try{
-    let csv = localStorage.getItem(key) || '';
-    if(!csv) csv = headers.join(',') + '\n';
-    const line = headers.map(h=> csvEscape(rowObj[h])).join(',') + '\n';
-    csv += line;
-    if(csv.length > 350000) csv = csv.slice(csv.length - 300000);
-    localStorage.setItem(key, csv);
-  }catch(e){}
-}
-function exportCsv(key, filename){
-  try{
-    const csv = localStorage.getItem(key) || '';
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-  }catch(e){
-    toast('Export failed');
-  }
-}
-
-// ---------------------- Last summary payload ----------------------
-function buildLastSummaryPayload(){
-  recalcRisk();
-  const riskReduced = Math.max(0, S.riskBase - S.riskNow);
-  const pctReduced = S.riskBase > 0 ? Math.round((riskReduced / S.riskBase) * 100) : 0;
-
-  const cleanedCount = HOT.filter(h => (S.cleaned.get(h.id)||0) >= 0.7).length;
-  const partialCount = HOT.filter(h => {
-    const c = (S.cleaned.get(h.id)||0); return c > 0 && c < 0.7;
-  }).length;
-
-  const top = (S.stats?.wipes || []).slice().sort((a,b)=> b.riskReduced - a.riskReduced).slice(0,3);
-  const topText = top.map(w=> `${w.name} (-risk~${w.riskReduced}, cov ${Math.round(w.covAfter*100)}%)`).join(' | ') || '-';
-
-  const missed = HOT
-    .map(h => ({ h, rem: Math.round(riskRemainingOf(h)), cov:(S.cleaned.get(h.id)||0) }))
-    .sort((a,b)=> b.rem - a.rem)
-    .slice(0,3);
-  const missedText = missed.map(m=> `${m.h.name} (rem~${m.rem}, cov ${Math.round(m.cov*100)}%)`).join(' | ') || '-';
-
-  const payload = {
-    gameId: 'clean-home',
-    title: 'Clean Objects — Home',
-    ts: Date.now(),
-    pid: P.pid,
-    seed: P.seed,
-    run: P.run,
-    diff: P.diff,
-    time: P.time,
-    event: S.currentEvent ? { id:S.currentEvent.id, name:S.currentEvent.name, desc:S.currentEvent.desc } : null,
-
-    riskBase: Math.round(S.riskBase),
-    riskNow: Math.round(S.riskNow),
-    riskReduced: Math.round(riskReduced),
-    riskReducedPct: pctReduced,
-
-    cleanedCount,
-    partialCount,
-
-    spent: {
-      timeUsed: P.time - S.timeLeft,
-      sprayUsed: 100 - S.spray,
-      clothUsed: 3 - S.cloth
-    },
-
-    topDecisions: topText,
-    missed: missedText,
-
-    coach: (S.coach && S.coach.lastTip) ? S.coach.lastTip : '',
-
-    // passthrough research meta
-    studyId: P.studyId || '',
-    phase: P.phase || '',
-    conditionGroup: P.conditionGroup || '',
-    view: VIEW,
-    log: String(P.log),
-
-    // hub-friendly card fields
-    icon: '🧼',
-    primary: `${pctReduced}% risk↓`,
-    secondary: `Clean ${cleanedCount} • Partial ${partialCount}`,
-    detail: `Event: ${S.currentEvent ? S.currentEvent.name : 'None'} | Top: ${topText}`,
-  };
-
-  return payload;
-}
-
-function saveLastSummary(){
-  try{
-    const payload = buildLastSummaryPayload();
-    payload.hub = P.hub || '';
-    payload.hubUrl = hubUrl();
-    localStorage.setItem(KEY_LAST_SUMMARY, JSON.stringify(payload));
-
-    emit('hha:summary', payload);
-  }catch(e){}
-}
-
-// ---------------------- Logging with schema ----------------------
-function logEvent(type, data={}){
-  if(String(P.log) === '0') return;
-
-  const payload = buildLastSummaryPayload();
-  const headers = [
-    'ts','sessionId','gameId','gameTitle',
-    'pid','studyId','phase','conditionGroup',
-    'seed','view','run','diff',
-    'eventId','eventName',
-    'type','name',
-    'x','y','z',
-    'value1','value2','value3',
-    'json'
-  ];
-
-  appendCsvRow(KEY_EVENTS_CSV, headers, {
-    ts: Date.now(),
-    sessionId: SESSION_ID,
-    gameId: payload.gameId,
-    gameTitle: payload.title,
-
-    pid: payload.pid,
-    studyId: payload.studyId || '',
-    phase: payload.phase || '',
-    conditionGroup: payload.conditionGroup || '',
-
-    seed: payload.seed,
-    view: payload.view || VIEW,
-    run: payload.run,
-    diff: payload.diff,
-
-    eventId: S.currentEvent ? S.currentEvent.id : '',
-    eventName: S.currentEvent ? S.currentEvent.name : '',
-
-    type: type,
-    name: (data && data.name) ? String(data.name) : '',
-    x: (data && data.x != null) ? data.x : '',
-    y: (data && data.y != null) ? data.y : '',
-    z: (data && data.z != null) ? data.z : '',
-    value1: (data && data.value1 != null) ? data.value1 : '',
-    value2: (data && data.value2 != null) ? data.value2 : '',
-    value3: (data && data.value3 != null) ? data.value3 : '',
-    json: JSON.stringify(data || {})
-  });
-
-  emit('hha:event', { type, data, ts: Date.now(), gameId:'clean-home', pid:P.pid, seed:P.seed });
-}
-
-function logSession(phaseName, extra={}){
-  if(String(P.log) === '0') return;
-
-  const payload = buildLastSummaryPayload();
-  const headers = [
-    'ts','sessionId','gameId','gameTitle',
-    'pid','studyId','phase','conditionGroup',
-    'seed','view','run','diff','timeSec',
-    'eventId','eventName',
-    'phaseName',
-    'riskBase','riskNow','riskReduced','riskReducedPct',
-    'cleanedCount','partialCount',
-    'timeUsed','sprayUsed','clothUsed',
-    'planEnabled','planRun',
-    'topDecisions','missed',
-    'hubUrl',
-    'extra'
-  ];
-
-  appendCsvRow(KEY_SESSIONS_CSV, headers, {
-    ts: payload.ts,
-    sessionId: SESSION_ID,
-    gameId: payload.gameId,
-    gameTitle: payload.title,
-
-    pid: payload.pid,
-    studyId: payload.studyId || '',
-    phase: payload.phase || '',
-    conditionGroup: payload.conditionGroup || '',
-
-    seed: payload.seed,
-    view: payload.view || VIEW,
-    run: payload.run,
-    diff: payload.diff,
-    timeSec: payload.time,
-
-    eventId: payload.event ? payload.event.id : '',
-    eventName: payload.event ? payload.event.name : '',
-
-    phaseName,
-
-    riskBase: payload.riskBase,
-    riskNow: payload.riskNow,
-    riskReduced: payload.riskReduced,
-    riskReducedPct: payload.riskReducedPct,
-
-    cleanedCount: payload.cleanedCount,
-    partialCount: payload.partialCount,
-
-    timeUsed: payload.spent.timeUsed,
-    sprayUsed: payload.spent.sprayUsed,
-    clothUsed: payload.spent.clothUsed,
-
-    planEnabled: (S.planEnabled ? 1 : 0),
-    planRun: (S.planRun && S.planRun.active ? 1 : 0),
-
-    topDecisions: payload.topDecisions,
-    missed: payload.missed,
-
-    hubUrl: payload.hubUrl || hubUrl(),
-    extra: JSON.stringify(extra || {})
-  });
-}
-
-function logProfileOnce(){
-  if(String(P.log) === '0') return;
-  const keyOnce = `HHA_PROFILE_ONCE::CLEAN_HOME::${P.pid}`;
-  try{
-    if(localStorage.getItem(keyOnce)) return;
-
-    const headers = [
-      'ts','pid','studyId','phase','conditionGroup',
-      'deviceUA','platform','lang',
-      'view','api','hub'
-    ];
-    appendCsvRow(KEY_PROFILE_CSV, headers, {
-      ts: Date.now(),
-      pid: P.pid,
-      studyId: P.studyId || '',
-      phase: P.phase || '',
-      conditionGroup: P.conditionGroup || '',
-      deviceUA: navigator.userAgent,
-      platform: navigator.platform || '',
-      lang: navigator.language || '',
-      view: VIEW,
-      api: P.api || '',
-      hub: P.hub || ''
     });
 
-    localStorage.setItem(keyOnce, '1');
-  }catch(e){}
-}
+    const ui = mountCleanUI(root, core);
 
-// ---------------------- Flush-hardened commit ----------------------
-function commitState(reason='commit'){
-  const now = Date.now();
-  if(now - (S.flush.lastCommitTs||0) < 500) return;
-  S.flush.lastCommitTs = now;
+    core.start();
 
-  try{
-    recalcRisk();
-    saveLastSummary();
-    const phase = S.flush.didFinish ? 'finish' : 'mid';
-    logSession(phase, { reason });
-    logEvent('commit', { reason, didFinish: S.flush.didFinish ? 1 : 0 });
-  }catch(e){}
-}
-
-function attachFlushGuards(){
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState === 'hidden') commitState('visibility_hidden');
-  });
-  window.addEventListener('pagehide', ()=> commitState('pagehide'));
-  window.addEventListener('beforeunload', ()=> commitState('beforeunload'));
-
-  try{
-    history.replaceState({ hha:'clean-home', step:0 }, '');
-    history.pushState({ hha:'clean-home', step:1 }, '');
-  }catch(e){}
-  window.addEventListener('popstate', ()=>{
-    commitState('backbutton');
-    setTimeout(()=> goHub(), 0);
-  });
-}
-
-// ---------------------- Event pick (deterministic) ----------------------
-function pickRandomEvent(){
-  const idx = Math.floor(RNG() * EVENTS.length);
-  S.currentEvent = JSON.parse(JSON.stringify(EVENTS[idx]));
-
-  recalcRisk();
-  renderHUD();
-  renderZones();
-  if(S.selectedId) openDrawer(S.selectedId);
-
-  toast('Event: ' + S.currentEvent.name);
-
-  setCoachTip(`เหตุการณ์: ${S.currentEvent.name}`, true);
-  setTimeout(()=> maybeCoachTip('event'), 80);
-
-  logEvent('event_pick', { eventId:S.currentEvent.id, eventName:S.currentEvent.name });
-  commitState('event_changed');
-}
-
-// ---------------------- Plan (load/save) ----------------------
-function savePlan(){
-  try{
-    const payload = { enabled: S.planEnabled, plan: S.plan };
-    localStorage.setItem(PLAN_KEY, JSON.stringify(payload));
-    toast('Saved ✅');
-    renderHUD();
-    commitState('save_plan');
-  }catch(e){
-    toast('Save failed');
-  }
-}
-function loadPlanIfAny(){
-  try{
-    const raw = localStorage.getItem(PLAN_KEY);
-    if(!raw) return;
-    const d = JSON.parse(raw);
-    if(d && d.plan){
-      S.plan = d.plan;
-      S.planEnabled = !!d.enabled;
-      S.planRun.active = false;
-      S.planRun.routeIndex = 0;
-      toast('Loaded plan ✅');
+    function loop(){
+      core.tick();
+      requestAnimationFrame(loop);
     }
-  }catch(e){}
-}
-function resetPlan(){
-  S.planEnabled = false;
-  S.planRun.active = false;
-  S.planRun.routeIndex = 0;
-  S.plan = {
-    checklist: [],
-    routine: { morning:[], afterhome:[], bed:[] },
-    route: ['entry','living','kitchen','bath','bed'],
-  };
-  try{ localStorage.removeItem(PLAN_KEY); }catch(e){}
-  renderHUD();
-  updateNextZoneHighlight();
-  renderZones();
-  toast('Plan reset');
-  commitState('reset_plan');
-}
-
-// ---------------------- Render Zones / Drawer ----------------------
-function zoneToEl(zoneId){
-  const z = ZONES.find(z=>z.id===zoneId);
-  return z ? $(z.el) : null;
-}
-
-function renderZones(){
-  document.querySelectorAll('.hotlist').forEach(el=> el.innerHTML='');
-  const byZone = new Map();
-  for(const h of HOT){
-    if(!byZone.has(h.zone)) byZone.set(h.zone, []);
-    byZone.get(h.zone).push(h);
-  }
-  const checklistSet = new Set(S.plan.checklist);
-  const nextZone = (S.planRun.active) ? S.plan.route[S.planRun.routeIndex] : null;
-
-  for(const el of document.querySelectorAll('.hotlist')){
-    const zone = el.getAttribute('data-zone');
-    let arr = (byZone.get(zone) || []).slice();
-
-    if(S.planRun.active){
-      arr.sort((a,b)=>{
-        const aa = checklistSet.has(a.id) ? 0 : 1;
-        const bb = checklistSet.has(b.id) ? 0 : 1;
-        if(aa!==bb) return aa-bb;
-        return valueEff(b)-valueEff(a);
-      });
-    }
-
-    for(const h of arr){
-      const card = document.createElement('div');
-      const cov = S.cleaned.get(h.id) || 0;
-      const cleaned = cov >= 0.7;
-
-      const val = valueEff(h);
-      const tE = effTouch(h), sE = effSpread(h), cE = effCost(h);
-
-      const inPlan = checklistSet.has(h.id);
-      const planTag = inPlan ? ' <span class="selTag">• PLAN</span>' : '';
-      const covTag  = cov>0 ? ` • ${pct(cov)}%` : '';
-
-      card.className = 'hot' + (S.selectedId===h.id ? ' sel':'');
-
-      card.innerHTML = `
-        <div>
-          <div class="name">${cleaned ? '✅ ' : ''}${h.name}${planTag}</div>
-          <div class="meta">${h.note}${covTag}</div>
-        </div>
-        <div class="right">
-          <div class="value">${fmt(val)}</div>
-          <div class="stars">T${tE} • S${sE} • C${cE}</div>
-        </div>
-      `;
-      card.onclick = ()=> openDrawer(h.id);
-      el.appendChild(card);
-    }
-
-    const zoneEl = zoneToEl(zone);
-    if(zoneEl){
-      zoneEl.classList.toggle('isNext', !!nextZone && nextZone===zone);
-    }
-  }
-}
-
-function openDrawer(id){
-  S.selectedId = id;
-  const h = byId(id);
-  if(!h) return;
-
-  $('drawer').classList.add('on');
-  const cov = S.cleaned.get(id) || 0;
-  const cleaned = cov >= 0.7;
-
-  const tE = effTouch(h), sE = effSpread(h), cE = effCost(h);
-  const vE = valueEff(h);
-
-  $('dTitle').textContent = (cleaned ? '✅ ' : '') + h.name;
-  $('dSub').textContent = cleaned
-    ? `จุดนี้สะอาดแล้ว (coverage ${pct(cov)}%). จะเช็ดซ้ำได้แต่เปลืองทรัพยากร`
-    : `Evaluate ตอนนี้ภายใต้เหตุการณ์บ้าน: Value=${fmt(vE)}`;
-
-  $('bTouch').textContent = 'Touch: ' + tE;
-  $('bSpread').textContent = 'Spread: ' + sE;
-  $('bCost').textContent = 'Cost: ' + cE;
-  $('bValue').textContent = 'Value: ' + fmt(vE);
-  $('bPlan').textContent  = 'Plan: ' + (S.plan.checklist.includes(id) ? 'YES' : 'NO');
-
-  $('evalExplain').textContent = 'เหตุผล: ' + explainDecision(h);
-
-  renderZones();
-}
-
-function closeDrawer(){ $('drawer').classList.remove('on'); }
-
-function canSpend(timeNeed, sprayNeed, clothNeed){
-  if(S.timeLeft < timeNeed){ toast('เวลาไม่พอ ⏳'); return false; }
-  if(S.spray < sprayNeed){ toast('น้ำยาไม่พอ 🧴'); return false; }
-  if(S.cloth < clothNeed){ toast('ผ้าไม่พอ 🧻'); return false; }
-  return true;
-}
-
-// ---------------------- Wipe mini-action ----------------------
-const wipeMask = $('wipeMask');
-const wipeGrid = $('wipeGrid');
-const wipeFill = $('wipeFill');
-const wipeCov  = $('wipeCov');
-const wipeSpend= $('wipeSpend');
-
-$('wipeClose').onclick = closeWipe;
-$('wipeReset').onclick = resetWipe;
-$('wipeDone').onclick = finishWipe;
-
-function openWipeForSelected(){
-  const id = S.selectedId;
-  const h = byId(id);
-  if(!h) return;
-
-  S.wipe.id = id;
-  S.wipe.cellsOn.clear();
-
-  $('wipeTitle').textContent = `Wipe: ${h.name}`;
-  $('wipeSub').textContent = 'ลากถูช่องให้ครบ (อย่างน้อย 70% เพื่อถือว่าสะอาด)';
-
-  buildWipeGrid();
-  updateWipeUI();
-
-  wipeMask.classList.add('on');
-  wipeMask.setAttribute('aria-hidden','false');
-}
-
-function closeWipe(){
-  wipeMask.classList.remove('on');
-  wipeMask.setAttribute('aria-hidden','true');
-  S.wipe.dragging = false;
-}
-function resetWipe(){
-  S.wipe.cellsOn.clear();
-  updateWipeUI();
-  wipeGrid.querySelectorAll('.cell').forEach(c=> c.classList.remove('on'));
-}
-function buildWipeGrid(){
-  wipeGrid.innerHTML = '';
-  for(let i=0;i<16;i++){
-    const c = document.createElement('div');
-    c.className = 'cell';
-    c.dataset.idx = String(i);
-
-    const markOn = ()=> {
-      S.wipe.cellsOn.add(i);
-      c.classList.add('on');
-      updateWipeUI();
-    };
-
-    c.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      S.wipe.dragging = true;
-      c.setPointerCapture(ev.pointerId);
-      markOn();
-    });
-    c.addEventListener('pointerenter', ()=>{
-      if(!S.wipe.dragging) return;
-      markOn();
-    });
-    c.addEventListener('pointerup', ()=>{ S.wipe.dragging=false; });
-    c.addEventListener('pointercancel', ()=>{ S.wipe.dragging=false; });
-
-    wipeGrid.appendChild(c);
-  }
-  wipeMask.addEventListener('pointerup', ()=>{ S.wipe.dragging=false; }, { once:true });
-}
-
-function currentCoverage(){ return S.wipe.cellsOn.size / 16; }
-
-function spendForWipe(h, cov){
-  const cE = effCost(h);
-  const sE = effSpread(h);
-
-  const baseTime = 3 * cE;
-  const timeNeed = Math.max(1, Math.round(baseTime * (0.7 + 0.6*cov)));
-  const sprayNeed = Math.round(10 * cE * (0.6 + 0.8*cov));
-  const clothNeed = (sE >= 8 && cov >= 0.7) ? 1 : 0;
-
-  return { timeNeed, sprayNeed, clothNeed };
-}
-
-function updateWipeUI(){
-  const id = S.wipe.id;
-  const h = byId(id);
-  const cov = currentCoverage();
-  const { timeNeed, sprayNeed, clothNeed } = spendForWipe(h, cov);
-
-  wipeFill.style.width = pct(cov) + '%';
-  wipeCov.textContent = `Coverage: ${pct(cov)}%`;
-  wipeSpend.textContent = `Spend: -${timeNeed}s / -${sprayNeed}spray ${clothNeed?'/ -1cloth':''}`;
-}
-
-function finishWipe(){
-  const id = S.wipe.id;
-  const h = byId(id);
-  if(!h) return;
-
-  const cov = currentCoverage();
-  const { timeNeed, sprayNeed, clothNeed } = spendForWipe(h, cov);
-  if(!canSpend(timeNeed, sprayNeed, clothNeed)) return;
-
-  const prev = S.cleaned.get(id) || 0;
-  const covBefore = prev;
-
-  const beforeRisk = riskRemainingOf(h);
-
-  // spend
-  S.timeLeft -= timeNeed;
-  S.spray -= sprayNeed;
-  S.cloth -= clothNeed;
-
-  // best coverage
-  const best = Math.max(prev, cov);
-  S.cleaned.set(id, best);
-
-  // risk reduced
-  const afterRisk = riskUnit(h) * (1 - best);
-  const riskReduced = Math.max(0, beforeRisk - afterRisk);
-
-  recalcRisk();
-
-  // stats
-  S.stats.totalRiskReduced += riskReduced;
-  if(best >= 0.7) S.stats.cleanActions += 1;
-  else S.stats.partialActions += 1;
-
-  S.stats.wipes.push({
-    id: h.id, name: h.name,
-    covBefore, covAfter: best,
-    riskReduced: Math.round(riskReduced),
-    time: timeNeed, spray: sprayNeed, cloth: clothNeed,
-    ts: Date.now()
-  });
-  if(S.stats.wipes.length > 50) S.stats.wipes.shift();
-
-  renderHUD();
-  renderZones();
-  openDrawer(id);
-
-  if(S.planRun.active && best >= 0.7){
-    advancePlanIfNeeded(h.zone);
-  }
-
-  logEvent('wipe_done', {
-    id: h.id, name: h.name, value1: best, value2: Math.round(riskReduced),
-    spend: { time: timeNeed, spray: sprayNeed, cloth: clothNeed },
-    explain: explainDecision(h)
-  });
-
-  if(best >= 0.7){
-    toast(`Cleaned ✅ ${h.name} • ลด risk ~${Math.round(riskReduced)}`);
-    setCoachTip(`ดีมาก: ${h.name} ลด risk ~${Math.round(riskReduced)} (${explainDecision(h)})`);
-  }else{
-    toast(`Partial wipe ${pct(best)}% • risk ลด ~${Math.round(riskReduced)}`);
-    setCoachTip(`ยังไม่พอ: ${h.name} coverage ${pct(best)}% ลองให้ถึง 70%+`);
-  }
-
-  setTimeout(()=> maybeCoachTip('after_wipe'), 200);
-  commitState('wipe_commit');
-
-  closeWipe();
-}
-
-// ---------------------- Plan Builder UI ----------------------
-const planMask = $('planMask');
-$('planClose').onclick = closePlan;
-$('btnUsePlan').onclick = ()=> { usePlan(); savePlan(); };
-$('btnSavePlan').onclick = savePlan;
-
-document.querySelectorAll('.tab').forEach(t=>{
-  t.onclick = ()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
-    t.classList.add('on');
-    const key = t.dataset.tab;
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-    $('panel_'+key).classList.add('on');
-  };
-});
-
-function openPlan(){
-  planMask.classList.add('on');
-  planMask.setAttribute('aria-hidden','false');
-  renderPlanAll();
-}
-function closePlan(){
-  planMask.classList.remove('on');
-  planMask.setAttribute('aria-hidden','true');
-}
-
-function renderPlanAll(){
-  renderChecklistLists();
-  autoSuggestRoutineIfEmpty();
-  renderRoutineLists();
-  renderRoute();
-  renderPlanHint();
-}
-
-function renderPlanHint(){
-  const n = S.plan.checklist.length;
-  $('planHint').textContent = (n >= 6) ? `เลือกแล้ว ${n} จุด ✅` : `เลือกแล้ว ${n} จุด (ต้องมีอย่างน้อย 6 จุด)`;
-}
-
-function planItem(h, isSel, onClick, label){
-  const div = document.createElement('div');
-  div.className = 'item';
-  div.innerHTML = `
-    <div>
-      <div class="nm">${h.name} ${isSel?'<span class="selTag">• selected</span>':''}</div>
-      <div class="sm">${h.zone.toUpperCase()} • Value ${fmt(valueEff(h))} • T${effTouch(h)} S${effSpread(h)} C${effCost(h)}</div>
-    </div>
-    <div class="sp"><button class="tinyBtn">${label}</button></div>
-  `;
-  div.querySelector('button').onclick = onClick;
-  return div;
-}
-
-function renderChecklistLists(){
-  const all = $('allList'); all.innerHTML='';
-  const sel = $('selList'); sel.innerHTML='';
-
-  const selSet = new Set(S.plan.checklist);
-
-  const arrAll = HOT.slice().sort((a,b)=>{
-    if(a.zone!==b.zone) return a.zone.localeCompare(b.zone);
-    return valueEff(b)-valueEff(a);
-  });
-
-  for(const h of arrAll){
-    const isSel = selSet.has(h.id);
-    all.appendChild(planItem(h, isSel, ()=>{
-      if(isSel) return;
-      S.plan.checklist.push(h.id);
-      renderChecklistLists();
-      renderPlanHint();
-      renderZones();
-    }, 'ADD'));
-  }
-
-  const arrSel = S.plan.checklist.map(id=>byId(id)).filter(Boolean);
-  for(const h of arrSel){
-    sel.appendChild(planItem(h, true, ()=>{
-      S.plan.checklist = S.plan.checklist.filter(x=>x!==h.id);
-      for(const k of ['morning','afterhome','bed']){
-        S.plan.routine[k] = S.plan.routine[k].filter(x=>x!==h.id);
-      }
-      renderPlanAll();
-      renderZones();
-    }, 'DEL'));
-  }
-}
-
-function autoSuggestRoutineIfEmpty(){
-  const total = S.plan.routine.morning.length + S.plan.routine.afterhome.length + S.plan.routine.bed.length;
-  if(total>0) return;
-
-  const pick = (id)=> S.plan.checklist.includes(id) ? id : null;
-  S.plan.routine.afterhome = [pick('door_knob'), pick('light_switch'), pick('phone'), pick('fridge_handle')].filter(Boolean);
-  S.plan.routine.morning   = [pick('kitchen_faucet'), pick('counter_board')].filter(Boolean);
-  S.plan.routine.bed       = [pick('tv_remote'), pick('bed_door')].filter(Boolean);
-}
-
-function renderRoutineLists(){
-  const buckets = [
-    ['morning','rt_morning'],
-    ['afterhome','rt_afterhome'],
-    ['bed','rt_bed'],
-  ];
-  for(const [k, elId] of buckets){
-    const el = $(elId);
-    el.innerHTML='';
-    const arr = S.plan.routine[k].map(id=>byId(id)).filter(Boolean);
-
-    if(!arr.length){
-      const p = document.createElement('div');
-      p.style.color='var(--mut)';
-      p.style.fontSize='12px';
-      p.textContent = 'ยังไม่มีรายการ (เพิ่มจาก Checklist แล้วกด + ใส่ช่วงเวลา)';
-      el.appendChild(p);
-    }
-
-    for(const h of arr){
-      const it = document.createElement('div');
-      it.className = 'item';
-      it.innerHTML = `
-        <div>
-          <div class="nm">${h.name}</div>
-          <div class="sm">${h.zone.toUpperCase()} • Value ${fmt(valueEff(h))}</div>
-        </div>
-        <div class="sp">
-          <button class="tinyBtn" data-m="up">↑</button>
-          <button class="tinyBtn" data-m="dn">↓</button>
-          <button class="tinyBtn" data-m="rm">DEL</button>
-        </div>
-      `;
-      it.querySelectorAll('button').forEach(b=>{
-        b.onclick = ()=>{
-          const mode = b.dataset.m;
-          const ids = S.plan.routine[k];
-          const idx = ids.indexOf(h.id);
-          if(idx<0) return;
-
-          if(mode==='rm'){ ids.splice(idx,1); }
-          if(mode==='up' && idx>0){ [ids[idx-1], ids[idx]] = [ids[idx], ids[idx-1]]; }
-          if(mode==='dn' && idx<ids.length-1){ [ids[idx+1], ids[idx]] = [ids[idx], ids[idx+1]]; }
-
-          renderRoutineLists();
-          savePlan();
-        };
-      });
-
-      el.appendChild(it);
-    }
-
-    const addWrap = document.createElement('div');
-    addWrap.style.marginTop='10px';
-    addWrap.style.display='flex';
-    addWrap.style.flexWrap='wrap';
-    addWrap.style.gap='6px';
-    for(const id of S.plan.checklist){
-      if(S.plan.routine[k].includes(id)) continue;
-      const h = byId(id);
-      if(!h) continue;
-      const b = document.createElement('button');
-      b.className='tinyBtn';
-      b.textContent = '+ ' + h.name;
-      b.onclick = ()=> { S.plan.routine[k].push(id); renderRoutineLists(); savePlan(); };
-      addWrap.appendChild(b);
-    }
-    el.appendChild(addWrap);
-  }
-}
-
-function renderRoute(){
-  const el = $('routeList');
-  el.innerHTML = '';
-  for(const zoneId of S.plan.route){
-    const row = document.createElement('div');
-    row.className = 'item';
-    row.innerHTML = `
-      <div>
-        <div class="nm">${zoneId.toUpperCase()}</div>
-        <div class="sm">โซนถัดไปจะถูกไฮไลต์เมื่อ Run Plan</div>
-      </div>
-      <div class="sp">
-        <button class="tinyBtn" data-m="up">↑</button>
-        <button class="tinyBtn" data-m="dn">↓</button>
-      </div>
-    `;
-    row.querySelector('button[data-m="up"]').onclick = ()=>{
-      const i = S.plan.route.indexOf(zoneId);
-      if(i>0){
-        [S.plan.route[i-1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i-1]];
-        renderRoute(); updateNextZoneHighlight(); savePlan();
-      }
-    };
-    row.querySelector('button[data-m="dn"]').onclick = ()=>{
-      const i = S.plan.route.indexOf(zoneId);
-      if(i<S.plan.route.length-1){
-        [S.plan.route[i+1], S.plan.route[i]] = [S.plan.route[i], S.plan.route[i+1]];
-        renderRoute(); updateNextZoneHighlight(); savePlan();
-      }
-    };
-    el.appendChild(row);
-  }
-}
-
-function autoRouteByValue(){
-  const zoneScore = {};
-  for(const z of S.plan.route) zoneScore[z] = 0;
-  for(const id of S.plan.checklist){
-    const h = byId(id);
-    if(!h) continue;
-    zoneScore[h.zone] += valueEff(h);
-  }
-  S.plan.route.sort((a,b)=> (zoneScore[b]||0) - (zoneScore[a]||0));
-}
-
-$('btnApplyRoute').onclick = ()=> { toast('Route applied ✅'); savePlan(); updateNextZoneHighlight(); renderZones(); };
-$('btnAutoRoute').onclick = ()=> { autoRouteByValue(); renderRoute(); toast('Auto route ✅'); savePlan(); updateNextZoneHighlight(); renderZones(); };
-
-function usePlan(){
-  if(S.plan.checklist.length < 6){
-    toast('Checklist ต้องมีอย่างน้อย 6 จุด ❗');
-    return;
-  }
-  S.planEnabled = true;
-  S.planRun.active = false;
-  S.planRun.routeIndex = 0;
-  renderHUD();
-  updateNextZoneHighlight();
-  renderZones();
-  toast('Plan ON ✅');
-  commitState('plan_on');
-}
-
-function toggleRunPlan(){
-  if(!S.planEnabled){
-    toast('ยังไม่ได้ Use Plan');
-    return;
-  }
-  S.planRun.active = !S.planRun.active;
-  if(S.planRun.active){
-    S.planRun.routeIndex = 0;
-    toast('Run Plan ▶️');
-  } else {
-    toast('Run Plan OFF');
-  }
-  renderHUD();
-  updateNextZoneHighlight();
-  renderZones();
-  commitState(S.planRun.active ? 'plan_run_on' : 'plan_run_off');
-}
-
-function advancePlanIfNeeded(zoneId){
-  if(!S.planRun.active) return;
-  const currentZone = S.plan.route[S.planRun.routeIndex];
-  if(zoneId !== currentZone) return;
-
-  const remaining = S.plan.checklist
-    .map(id=>byId(id))
-    .filter(h=>h && h.zone===currentZone)
-    .filter(h=> (S.cleaned.get(h.id) || 0) < 0.7);
-
-  if(remaining.length===0){
-    S.planRun.routeIndex = Math.min(S.planRun.routeIndex+1, S.plan.route.length-1);
-    updateNextZoneHighlight();
-    renderZones();
-    toast('Next zone ➜ ' + S.plan.route[S.planRun.routeIndex].toUpperCase());
-    commitState('plan_next_zone');
-  }
-}
-
-function updateNextZoneHighlight(){
-  for(const z of ZONES){
-    const el = $(z.el);
-    if(el) el.classList.remove('isNext');
-  }
-  if(S.planRun.active){
-    const next = S.plan.route[S.planRun.routeIndex];
-    const el = zoneToEl(next);
-    if(el) el.classList.add('isNext');
-  }
-}
-
-// ---------------------- Summary ----------------------
-const sumMask = $('sumMask');
-
-function openSummary(){
-  S.flush.didFinish = true;
-  recalcRisk();
-  renderSummary();
-  sumMask.classList.add('on');
-  sumMask.setAttribute('aria-hidden','false');
-
-  saveLastSummary();
-  logEvent('summary_open', { value1: S.riskNow, value2: S.riskBase });
-  commitState('open_summary');
-}
-
-function closeSummary(){
-  sumMask.classList.remove('on');
-  sumMask.setAttribute('aria-hidden','true');
-}
-
-function renderSummary(){
-  recalcRisk();
-  const riskReduced = Math.max(0, S.riskBase - S.riskNow);
-  const pctReduced = S.riskBase > 0 ? Math.round((riskReduced / S.riskBase) * 100) : 0;
-
-  const cleanedCount = HOT.filter(h => (S.cleaned.get(h.id)||0) >= 0.7).length;
-  const partialCount = HOT.filter(h => {
-    const c=(S.cleaned.get(h.id)||0); return c>0 && c<0.7;
-  }).length;
-
-  $('sumOverall').innerHTML = `
-    • Event: <b>${S.currentEvent ? S.currentEvent.name : 'None'}</b><br/>
-    • Risk ลดลง: <b>${Math.round(riskReduced)}</b> / ${Math.round(S.riskBase)} (${pctReduced}%)<br/>
-    • Cleaned (≥70%): <b>${cleanedCount}</b> จุด • Partial: <b>${partialCount}</b> จุด<br/>
-    • ใช้ทรัพยากร: เวลา ${P.time - S.timeLeft}s • Spray ${100 - S.spray} • Cloth ${3 - S.cloth}<br/>
-    • Plan: <b>${S.planEnabled ? 'ON' : 'OFF'}</b>${S.planRun.active ? ' (RUN)' : ''}
-  `;
-
-  const top = S.stats.wipes.slice().sort((a,b)=> b.riskReduced - a.riskReduced).slice(0,5);
-  const topEl = $('sumTop');
-  topEl.innerHTML = '';
-  if(!top.length){
-    topEl.innerHTML = `<div class="mini">ยังไม่มีข้อมูลการเช็ด</div>`;
-  } else {
-    top.forEach((w, idx)=>{
-      const h = byId(w.id);
-      const row = document.createElement('div');
-      row.className = 'item';
-      row.innerHTML = `
-        <div>
-          <div class="nm">#${idx+1} ${w.name}</div>
-          <div class="sm">ลด risk ~${w.riskReduced} • Coverage ${Math.round(w.covAfter*100)}% • ${h ? explainDecision(h) : ''}</div>
-        </div>
-      `;
-      topEl.appendChild(row);
-    });
-  }
-
-  const rem = HOT
-    .map(h => ({ h, rem: Math.round(riskRemainingOf(h)), cov: (S.cleaned.get(h.id)||0) }))
-    .sort((a,b)=> b.rem - a.rem)
-    .slice(0,5);
-
-  const missEl = $('sumMissed');
-  missEl.innerHTML = '';
-  rem.forEach((m)=>{
-    const row = document.createElement('div');
-    row.className = 'item';
-    row.innerHTML = `
-      <div>
-        <div class="nm">${m.h.name}</div>
-        <div class="sm">Risk คงเหลือ ~${m.rem} • Coverage ${Math.round(m.cov*100)}% • T${effTouch(m.h)} S${effSpread(m.h)} C${effCost(m.h)}</div>
-      </div>
-    `;
-    missEl.appendChild(row);
-  });
-
-  const coachLines = [];
-  if (pctReduced >= 60) coachLines.push('ผลรวมดีมาก: ลดความเสี่ยงได้เกิน 60%');
-  else if (pctReduced >= 40) coachLines.push('ทำได้ดี: รอบหน้าดันให้เกิน 60%');
-  else coachLines.push('ยังลดความเสี่ยงได้น้อย: ลองเริ่มจากจุด Value สูงก่อน');
-
-  const topRem = rem[0];
-  if(topRem) coachLines.push(`จุดที่ยังควรทำต่อ: "${topRem.h.name}" เพราะ ${explainDecision(topRem.h)}`);
-
-  if (S.planEnabled && S.plan.checklist.length < 6) coachLines.push('Checklist ยังน้อย ควรเพิ่มให้ครบอย่างน้อย 6 จุด');
-  else if (S.planEnabled) coachLines.push('แผนถูกใช้แล้ว ลองปรับ Route ให้เริ่มจากโซนที่ Risk สูงสุด');
-  else coachLines.push('ลองเปิด Plan Builder เพื่อวาง Checklist + Route แล้วค่อย Run Plan');
-
-  coachLines.push(`เหตุการณ์รอบนี้: ${S.currentEvent ? S.currentEvent.desc : 'ไม่มี'}`);
-  $('sumCoach').innerHTML = coachLines.map(x=>`• ${x}`).join('<br/>');
-
-  setCoachTip(coachLines[0], true);
-}
-
-function replayRound(withNewEvent){
-  S.timeLeft = P.time;
-  S.spray = 100;
-  S.cloth = 3;
-  S.cleaned = new Map();
-
-  S.planRun.active = false;
-  S.planRun.routeIndex = 0;
-
-  S.stats.totalRiskReduced = 0;
-  S.stats.cleanActions = 0;
-  S.stats.partialActions = 0;
-  S.stats.wipes = [];
-
-  S.flush.didFinish = false;
-
-  if(withNewEvent){
-    pickRandomEvent();
-    setCoachTip('เริ่มรอบใหม่ + event ใหม่', true);
-  } else {
-    recalcRisk();
-    renderHUD();
-    renderZones();
-    if (S.selectedId) openDrawer(S.selectedId);
-    setCoachTip('เริ่มรอบใหม่ (ใช้เหตุการณ์เดิม)', true);
-    setTimeout(()=> maybeCoachTip('replay_same'), 80);
-  }
-
-  commitState(withNewEvent ? 'replay_new_event' : 'replay_same_event');
-  closeSummary();
-  closeDrawer();
-  updateNextZoneHighlight();
-  toast(withNewEvent ? 'Replay + New Event ✅' : 'Replay ✅');
-}
-
-// ---------------------- VR skeleton ----------------------
-async function bootVR(){
-  try{ await import('../vr/vr-ui.js'); }
-  catch(e){ console.warn('vr-ui.js failed:', e); toast('vr-ui.js โหลดไม่สำเร็จ'); }
-  window.addEventListener('hha:shoot', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(P.debug) console.log('hha:shoot', d);
-    // TODO: raycast/select hotspot in 3D
-    logEvent('shoot', { x:d.x, y:d.y, name:'shoot' });
-  });
-}
-
-// ---------------------- Binds ----------------------
-$('btnClose').onclick = closeDrawer;
-$('btnClean').onclick = openWipeForSelected;
-
-$('btnPlan').onclick = openPlan;
-$('btnRunPlan').onclick = toggleRunPlan;
-
-$('btnSort').onclick = ()=>{
-  HOT.sort((a,b)=> valueEff(b)-valueEff(a));
-  renderZones();
-  toast('Sorted by Value ✅');
-  commitState('sort_value');
-};
-
-$('btnEvent').onclick = ()=> pickRandomEvent();
-
-$('btnFinish').onclick = ()=> openSummary();
-
-$('btnResetPlan').onclick = ()=> resetPlan();
-
-$('btnBack').onclick = ()=>{
-  S.flush.didFinish = true;
-  commitState('toolbar_backhub');
-  goHub();
-};
-
-// summary buttons
-$('sumClose').onclick = closeSummary;
-$('sumReplay').onclick = ()=> replayRound(false);
-$('sumNewEvent').onclick = ()=> replayRound(true);
-$('sumSave').onclick = ()=> { saveLastSummary(); toast('Saved summary ✅'); commitState('save_summary'); };
-$('sumBackHub').onclick = ()=> { S.flush.didFinish = true; commitState('summary_backhub'); goHub(); };
-
-$('sumExportSessions').onclick = ()=> exportCsv(KEY_SESSIONS_CSV, 'clean_home_sessions.csv');
-$('sumExportEvents').onclick = ()=> exportCsv(KEY_EVENTS_CSV, 'clean_home_events.csv');
-$('sumExportProfile').onclick = ()=> exportCsv(KEY_PROFILE_CSV, 'clean_home_profile.csv');
-
-$('sumCopyHub').onclick = async ()=>{
-  try{
-    await navigator.clipboard.writeText(hubUrl());
-    toast('Copied hub link ✅');
-  }catch(e){
-    toast('Copy failed');
-  }
-};
-
-// ---------------------- BOOT ----------------------
-const mapRoot = $('mapRoot');
-const vrRoot  = $('vrRoot');
-
-renderHUD();
-
-if (IS_CVR){
-  vrRoot.style.display = 'block';
-  mapRoot.style.display = 'none';
-  // ensure event exists for logging consistency
-  pickRandomEvent();
-  logProfileOnce();
-  if(!S.flush.didStart){
-    S.flush.didStart = true;
-    logSession('start', { hub:P.hub||'', studyId:P.studyId||'', phase:P.phase||'', conditionGroup:P.conditionGroup||'', view:VIEW });
-    commitState('start');
-    attachFlushGuards();
-  }
-  await bootVR();
-} else {
-  mapRoot.style.display = 'block';
-  vrRoot.style.display = 'none';
-
-  loadPlanIfAny();
-  logProfileOnce();
-
-  // deterministic event at start (seed-based)
-  pickRandomEvent();
-
-  recalcRisk();
-  renderHUD();
-  renderZones();
-  updateNextZoneHighlight();
-  maybeCoachTip('boot');
-
-  if(!S.flush.didStart){
-    S.flush.didStart = true;
-    logSession('start', { hub:P.hub||'', studyId:P.studyId||'', phase:P.phase||'', conditionGroup:P.conditionGroup||'', view:VIEW });
-    commitState('start');
-    attachFlushGuards();
-  }
-}
-</script>
+    requestAnimationFrame(loop);
+  </script>
 </body>
 </html>
