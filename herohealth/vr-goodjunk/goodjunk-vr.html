@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload)
-FULL v20260223-run-wired
+FULL v20260223-run-wired-FIXPATH+END
 -->
 <!doctype html>
 <html lang="th">
@@ -9,8 +9,8 @@ FULL v20260223-run-wired
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- Core CSS (your file) -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
+  <!-- Core CSS (FIX: correct relative path within /vr-goodjunk/) -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
   <style>
     /* Minimal layout safety (keep if your CSS already has these) */
@@ -333,7 +333,7 @@ FULL v20260223-run-wired
         </div>
       </div>
 
-      <!-- right side mini card (optional space for future) -->
+      <!-- right side mini card -->
       <div class="gj-card" style="min-width:140px; opacity:.92">
         <div style="font-weight:1000">GOODJUNK</div>
         <div style="margin-top:6px; font-size:12px; opacity:.9">
@@ -389,12 +389,13 @@ FULL v20260223-run-wired
     </div>
   </div>
 
-  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair hha:shoot) -->
+  <!-- Universal VR UI -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
   <!-- Boot -->
   <script type="module">
-    import { boot } from './vr-goodjunk/goodjunk.safe.js';
+    /* FIX: correct relative import within /vr-goodjunk/ */
+    import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -446,16 +447,14 @@ FULL v20260223-run-wired
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
-      // preserve hub context if hub already includes params
-      // (it may already carry run/diff/time/seed/pid...)
-      // but we still keep essentials if missing
+      // keep essentials if missing
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
         if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
       });
 
-      // attach log payload (hub will queue it)
+      // attach log payload
       const payload = {
         kind: 'hha_end',
         ts: Date.now(),
@@ -465,7 +464,6 @@ FULL v20260223-run-wired
       const log = b64urlEncodeJson(payload);
       if(log) u.searchParams.set('log', log);
 
-      // optional: trigger flush automatically if user passes endpoint+flush=1 in original URL
       const flush = qs('flush','');
       const endpoint = qs('endpoint','');
       if(flush==='1') u.searchParams.set('flush','1');
@@ -475,14 +473,12 @@ FULL v20260223-run-wired
     }
 
     function handleEnd(summary){
-      // If cooldown enabled -> go cooldown gate, next = cdnext || hub(with log)
       const cooldown = String(qs('cooldown','0')||'0') === '1';
       const cdnext = String(qs('cdnext','')||'').trim();
 
-      // If we must run cooldown chain, we still want HUB to receive log:
-      // strategy: first go cooldown gate, and set its "next" to HUB url that already has ?log=
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const hubUrl = new URL(hub, location.href);
+
       const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
       const log = b64urlEncodeJson(payload);
       if(log) hubUrl.searchParams.set('log', log);
@@ -498,8 +494,6 @@ FULL v20260223-run-wired
         location.href = buildGateCooldownUrl(nextAfterCooldown);
         return;
       }
-
-      // else back hub directly
       goHubWithLog(summary);
     }
 
@@ -510,14 +504,8 @@ FULL v20260223-run-wired
 
     let lastSummary = null;
 
-    btnReplay?.addEventListener('click', ()=>{
-      // keep all params (seed, run, etc.) except avoid replaying with ended overlay state
-      location.reload();
-    });
-
-    btnBackHub?.addEventListener('click', ()=>{
-      handleEnd(lastSummary || {});
-    });
+    btnReplay?.addEventListener('click', ()=> location.reload());
+    btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}));
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -530,8 +518,8 @@ FULL v20260223-run-wired
       }
     });
 
-    // Listen from game safe.js
-    window.addEventListener('hha:game-ended', (ev)=>{
+    /* FIX: listen to correct event emitted by goodjunk.safe.js */
+    window.addEventListener('hha:end', (ev)=>{
       lastSummary = ev?.detail || null;
     });
 
@@ -540,7 +528,7 @@ FULL v20260223-run-wired
     const uiRun = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
     if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun) uiRun.textContent = String(qs('run','play'));
+    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
     // Start game
@@ -555,7 +543,7 @@ FULL v20260223-run-wired
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     });
 
-    // Optional: auto go next on end overlay after a delay (disabled by default)
+    // Optional auto-next (disabled)
     // window.addEventListener('hha:end', (ev)=>{ setTimeout(()=>handleEnd(ev.detail||{}), 1200); });
   </script>
 </body>
