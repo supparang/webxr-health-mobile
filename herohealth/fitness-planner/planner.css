@@ -1,9 +1,7 @@
 :root{
   color-scheme: dark;
   --bg0:#020617;
-  --bg1:#050b1d;
   --panel: rgba(2,6,23,.72);
-  --panel2: rgba(2,6,23,.55);
   --line: rgba(148,163,184,.16);
   --txt: rgba(229,231,235,.94);
   --mut: rgba(148,163,184,.92);
@@ -133,6 +131,71 @@ select{
   font-weight: 900;
 }
 
+.badgesRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 920px){ .badgesRow{grid-template-columns:1fr;} }
+
+.badgeGrid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 520px){ .badgeGrid{grid-template-columns:1fr;} }
+
+.bCard{
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  padding: 10px;
+}
+.bTop{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.bName{font-weight: 1000}
+.bState{
+  font-size: 12px; font-weight: 1000;
+  padding: 6px 10px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.18);
+}
+.bState.on{border-color: rgba(16,185,129,.40); background: rgba(16,185,129,.12)}
+.bState.off{border-color: rgba(251,191,36,.30); background: rgba(251,191,36,.08)}
+.bDesc{margin-top: 8px; color: rgba(255,255,255,.84); font-size: 12px; line-height: 1.35}
+
+.tryRow{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.tryList{
+  margin-top: 10px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.tryItem{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding: 10px;
+  border-radius: 14px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+}
+.tryItem .l{display:flex; flex-direction:column; gap:4px}
+.tryItem .t{font-weight: 1000}
+.tryItem .m{font-size: 12px; color: var(--mut)}
+.tryItem .r{display:flex; gap:8px; flex-wrap:wrap}
+.tryItem a{
+  text-decoration:none;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border:1px solid rgba(59,130,246,.30);
+  background: rgba(59,130,246,.14);
+  color: rgba(255,255,255,.95);
+  font-weight: 1000;
+}
+.tryItem a:hover{background: rgba(59,130,246,.22)}
+.tryItem .disabled{
+  opacity: .65;
+  border-color: rgba(239,68,68,.25);
+  background: rgba(239,68,68,.10);
+}
+
 .week-grid{
   display:grid;
   grid-template-columns: repeat(7, 1fr);
@@ -147,12 +210,41 @@ select{
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(0,0,0,.18);
   padding: 10px;
-  min-height: 220px;
+  min-height: 270px;
   display:flex; flex-direction:column; gap:10px;
 }
-.day .dh{display:flex; align-items:center; justify-content:space-between; gap:8px;}
-.day .dttl{font-weight: 900}
-.day .dmeta{font-size: 12px; color: var(--mut);}
+.day .dh{display:flex; align-items:flex-start; justify-content:space-between; gap:8px;}
+.day .dttl{font-weight: 1000}
+.day .dmeta{font-size: 12px; color: var(--mut); margin-top: 2px;}
+
+.badge{
+  font-size: 12px; font-weight: 1000;
+  padding: 6px 10px; border-radius: 999px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+}
+.badge.good{border-color: rgba(16,185,129,.40); background: rgba(16,185,129,.12)}
+.badge.warn{border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.10)}
+.badge.bad{border-color: rgba(239,68,68,.40); background: rgba(239,68,68,.10)}
+
+.energy{
+  margin-top: 6px;
+  border-radius: 12px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  padding: 8px;
+}
+.energy .erow{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size: 12px; color: rgba(255,255,255,.86);}
+.energy .emeter{
+  height: 10px; border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+  margin-top: 6px;
+}
+.energy .ebar{height:100%; width:0%; background: rgba(16,185,129,.82)}
+.energy.bad .ebar{background: rgba(239,68,68,.80)}
+.energy.warn .ebar{background: rgba(251,191,36,.85)}
 
 .items{display:flex; flex-direction:column; gap:8px;}
 .item{
@@ -175,7 +267,7 @@ select{
   border: 1px solid rgba(239,68,68,.35);
   background: rgba(239,68,68,.10);
   color: rgba(255,255,255,.95);
-  font-weight: 900;
+  font-weight: 1000;
   cursor:pointer;
 }
 .item .rm button:hover{background: rgba(239,68,68,.14)}
@@ -189,27 +281,17 @@ select{
   border:1px solid rgba(255,255,255,.14);
   background: rgba(0,0,0,.18);
   color: rgba(255,255,255,.95);
-  font-weight: 900;
+  font-weight: 1000;
   cursor:pointer;
 }
 .day .actions button:hover{background: rgba(255,255,255,.10)}
 .day .actions button.primary{background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.35)}
 .day .actions button.primary:hover{background: rgba(59,130,246,.24)}
 
-.badge{
-  font-size: 12px; font-weight: 900;
-  padding: 6px 10px; border-radius: 999px;
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
-}
-.badge.good{border-color: rgba(16,185,129,.40); background: rgba(16,185,129,.12)}
-.badge.warn{border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.10)}
-.badge.bad{border-color: rgba(239,68,68,.40); background: rgba(239,68,68,.10)}
-
 .footnote{margin-top: 10px; font-size: 12px; color: var(--mut);}
 
 .scoreRow{display:flex; align-items:center; gap:14px;}
-.big{font-size: 42px; font-weight: 1000; line-height: 1;}
+.big{font-size: 42px; font-weight: 1100; line-height: 1;}
 .meter{
   flex:1; height: 14px;
   border-radius: 999px;
@@ -228,12 +310,12 @@ select{
   padding: 10px;
 }
 .kpi .k{font-size: 12px; color: var(--mut)}
-.kpi .v{font-size: 20px; font-weight: 1000; margin-top: 2px}
+.kpi .v{font-size: 20px; font-weight: 1100; margin-top: 2px}
 .kpi .d{font-size: 12px; color: rgba(255,255,255,.80); margin-top: 6px; line-height: 1.35}
 
 .mini{margin-top: 12px; border-top: 1px dashed rgba(255,255,255,.14); padding-top: 10px;}
 .miniRow{display:flex; justify-content:space-between; gap:10px; font-size: 12px; color: rgba(255,255,255,.86); padding: 6px 0;}
-.miniRow .val{font-weight: 1000}
+.miniRow .val{font-weight: 1100}
 
 .coach{margin: 0; padding-left: 18px; color: rgba(255,255,255,.90); line-height: 1.45;}
 .coach li{margin: 8px 0;}
