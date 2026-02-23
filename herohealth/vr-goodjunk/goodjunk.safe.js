@@ -1,9 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// FULL v20260223-missStd+endCompat+hudBreakdown
+// FULL v20260223-missStd+endCompat+hudBreakdown + antiFlashLive
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FX: per-kind burst + tuned JUNK (BLOCK soft / HIT heavy) + 💣/💀 heavy pulse
 // ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared)
+// ✅ ANTI-FLASH: FX nodes append first, then rAF add .is-live (no 1-frame (0,0) blink)
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 // ✅ MISS standard: miss = good expired + junk hit (unblocked); shield block not miss
 // ✅ HUD miss breakdown: "3 (G2/J1)" when width allows
@@ -26,6 +27,15 @@ export function boot(payload = {}) {
   }
   function safeText(x){ return (x==null) ? '—' : String(x); }
 
+  // FX: add "live" after the browser has a chance to apply left/top
+  function markLiveNextFrame(el){
+    if(!el) return;
+    try{
+      el.classList.remove('is-live');
+      requestAnimationFrame(()=>{ try{ el.classList.add('is-live'); }catch(_){} });
+    }catch(_){}
+  }
+
   // ---------------- config ----------------
   const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
   const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
@@ -41,7 +51,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT_ANTIFLASHLIVE';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const isVR  = (view === 'vr');
@@ -229,6 +239,8 @@ export function boot(payload = {}) {
     el.style.setProperty('--life', `${life}ms`);
 
     fx.appendChild(el);
+    markLiveNextFrame(el); // ✅ anti-flash: only animate after positioned
+
     setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+80));
   }
 
@@ -266,6 +278,8 @@ export function boot(payload = {}) {
     }
 
     fx.appendChild(wrap);
+    markLiveNextFrame(wrap); // ✅ anti-flash
+
     setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+120));
   }
 
@@ -279,7 +293,9 @@ export function boot(payload = {}) {
     t.textContent = String(txt || '');
     t.style.left = `${Math.round(x)}px`;
     t.style.top  = `${Math.round(y)}px`;
+
     fx.appendChild(t);
+    markLiveNextFrame(t); // ✅ anti-flash
 
     setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 640);
   }
@@ -1111,7 +1127,7 @@ export function boot(payload = {}) {
         tObj.hit = true;
         state.nExpireGood++;
 
-        addMissGood(1); // ✅ stomp counts as good expired (still "good removed by time/boss")
+        addMissGood(1); // ✅ stomp counts as good expired
 
         const c = centerOfTarget(tObj);
         popBurst('stomp', c.x, c.y, { size: 120, life: 420 });
@@ -1274,7 +1290,6 @@ export function boot(payload = {}) {
       scoreFinal,
       comboMax,
 
-      // ✅ MISS breakdown
       missTotal: misses,
       missGoodExpired: state.missGoodExpired,
       missJunkHit: state.missJunkHit,
@@ -1291,7 +1306,6 @@ export function boot(payload = {}) {
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
 
-    // ✅ Emit main end (schema style)
     emit('hha:end', {
       projectTag: PROJECT_TAG,
       runMode,
@@ -1320,7 +1334,6 @@ export function boot(payload = {}) {
       summary,
     });
 
-    // ✅ Compat end event (html listener)
     emit('hha:game-ended', summary);
 
     showEndOverlay({ ...summary });
