@@ -1,11 +1,13 @@
 // === /herohealth/hub/launch-normalizer.js ===
-// HHA Universal Launch Normalizer — MODULE (v20260223)
+// HHA Universal Launch Normalizer — MODULE (v20260223-gate)
 // Normalize hub->game URLs:
 // ✅ inject hub backlink
 // ✅ default endui=cool
 // ✅ map next -> cdnext
 // ✅ passthrough hub params (pid/run/diff/time/seed/...)
 // ✅ deterministic daily seed for research if missing
+// ✅ optional route via warmup-gate (viaGate:true)
+
 'use strict';
 
 export function installLaunchNormalizer(opts = {}) {
@@ -44,7 +46,8 @@ export function installLaunchNormalizer(opts = {}) {
       'run','diff','time','seed',
       'variant','pick','theme','game',
       'api','endpoint',
-      'endui'
+      'endui',
+      'hub'
     ],
 
     // defaults
@@ -54,6 +57,12 @@ export function installLaunchNormalizer(opts = {}) {
 
     // click intercept for buttons with data-href
     interceptButtons: (opts.interceptButtons !== false),
+
+    // optional: route via warmup-gate.html
+    viaGate: !!opts.viaGate,
+    gatePath: String(opts.gatePath || './warmup-gate.html'), // relative from hub.html
+    gateMode: String(opts.gateMode || 'theme'), // 'theme' = use ?theme=, 'game' = use ?game=
+    gateCat: String(opts.gateCat || 'auto'),   // 'auto' infer from game tag
 
     // debug
     debug: !!opts.debug
@@ -103,11 +112,60 @@ export function installLaunchNormalizer(opts = {}) {
     return 'game';
   }
 
+  function inferCatFromTag(tag){
+    tag = String(tag||'').toLowerCase();
+    // nutrition
+    if(['goodjunk','groups','hydration','plate'].includes(tag)) return 'nutrition';
+    // hygiene
+    if(['handwash','brush','maskcough','germdetective','bath','cleanobjects'].includes(tag)) return 'hygiene';
+    // exercise
+    if(['shadow','rhythm','jumpduck','balance','planner'].includes(tag)) return 'exercise';
+    return 'nutrition';
+  }
+
   function makeDailySeed(tag) {
     const pid = qs('pid', 'anon') || 'anon';
     const d = new Date();
     const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return `${pid}|${tag || 'game'}|${day}`;
+  }
+
+  function buildGateUrl(gameUrl, tag){
+    try{
+      const gate = new URL(config.gatePath, location.href);
+
+      const cat = (config.gateCat === 'auto') ? inferCatFromTag(tag) : config.gateCat;
+      gate.searchParams.set('cat', cat);
+
+      if(config.gateMode === 'game'){
+        gate.searchParams.set('game', tag);
+      }else{
+        gate.searchParams.set('theme', tag);
+      }
+
+      // warmup-gate uses next as chain target
+      gate.searchParams.set('next', gameUrl);
+
+      // pass-through hub params to gate
+      const hubU = new URL(location.href);
+      for(const k of config.pass){
+        const v = hubU.searchParams.get(k);
+        if(v != null && v !== '') gate.searchParams.set(k, v);
+      }
+
+      // ensure hub backlink
+      if(!gate.searchParams.get('hub')) gate.searchParams.set('hub', currentHubUrl());
+
+      // endui default
+      if(!gate.searchParams.get('endui')){
+        const hubEndui = qs('endui', '');
+        gate.searchParams.set('endui', hubEndui || config.defaultEndui);
+      }
+
+      return gate.toString();
+    }catch(_){
+      return null;
+    }
   }
 
   function normalizeGameUrl(rawHref) {
@@ -151,7 +209,16 @@ export function installLaunchNormalizer(opts = {}) {
         u.searchParams.set('seed', makeDailySeed(tag));
       }
 
-      return u.toString();
+      const normalizedGameUrl = u.toString();
+
+      // 7) optional via gate
+      if(config.viaGate){
+        const gateUrl = buildGateUrl(normalizedGameUrl, tag);
+        if(gateUrl) return gateUrl;
+      }
+
+      return normalizedGameUrl;
+
     } catch (e) {
       return rawHref;
     }
@@ -180,10 +247,8 @@ export function installLaunchNormalizer(opts = {}) {
   }
 
   function patchAll() {
-    // 1) patch known ids
     for (const id of config.ids) patchEl(DOC.getElementById(id));
 
-    // 2) patch any anchors/buttons that look like games
     const cand = DOC.querySelectorAll('a[href], button[data-href]');
     cand.forEach(el => {
       const href = el.tagName === 'A' ? (el.getAttribute('href') || '') : (el.getAttribute('data-href') || '');
@@ -193,7 +258,6 @@ export function installLaunchNormalizer(opts = {}) {
 
   patchAll();
 
-  // 3) intercept button clicks to ensure normalization applies even if hub uses JS
   if (config.interceptButtons) {
     DOC.addEventListener('click', (ev) => {
       const t = ev.target?.closest?.('button[data-href]');
@@ -210,7 +274,6 @@ export function installLaunchNormalizer(opts = {}) {
     }, { capture: true });
   }
 
-  // Return small API for debugging/custom usage
   return {
     normalize: normalizeGameUrl,
     patchAll
