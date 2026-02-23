@@ -1,6 +1,6 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
 GoodJunkVR CSS — PRODUCTION (targets + fx + pulses)
-FULL v20260223-css-full+antiFlashFX
+FULL v20260223-css-full+antiFlashFX+isLive
 */
 
 :root{
@@ -107,10 +107,9 @@ body.rage{
 }
 
 /* =========================================================
-   GoodJunkVR FX — ANTI-FLASH PATCH (v20260223)
-   ✅ Prevent "flash at top-left" by ensuring transform/opacity
-      are applied at creation frame.
-   ✅ Keep hit effects intact (bursts/shards/text/pulses).
+   GoodJunkVR FX — ANTI-FLASH (is-live gate)
+   ✅ Prevent "flash at top-left" by disabling animation until .is-live
+   ✅ JS adds .is-live in rAF after append
 ========================================================= */
 
 #gj-fx{
@@ -134,12 +133,23 @@ body.rage{
   opacity: 0;
 }
 
+/* ---- Gate: BEFORE live => no animation, invisible ---- */
+.gj-fx:not(.is-live),
+.gj-fx-text:not(.is-live){
+  opacity: 0 !important;
+  animation: none !important;
+}
+
 /* ---- BURST ---- */
 .gj-fx{
   width: 90px;
   height: 90px;
   border-radius: 999px;
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+}
+
+/* animate only when live */
+.gj-fx.is-live{
   animation: gjFxPop var(--life, 340ms) ease-out forwards;
 }
 
@@ -154,6 +164,10 @@ body.rage{
   width: 1px;
   height: 1px;
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.25));
+}
+
+/* animate only when live */
+.gj-fx-shards.is-live{
   animation: gjShardWrap var(--life, 520ms) ease-out forwards;
 }
 
@@ -169,6 +183,7 @@ body.rage{
   border-radius: 6px;
   opacity: .95;
   transform: translate(0,0) scale(1);
+  /* keep animation but it won't show until wrapper is-live (opacity gated) */
   animation: gjShardFly var(--life, 520ms) ease-out forwards;
 }
 
@@ -191,6 +206,10 @@ body.rage{
   text-shadow: 0 12px 30px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+/* animate only when live */
+.gj-fx-text.is-live{
   animation: gjTextFloat 640ms ease-out forwards;
 }
 
