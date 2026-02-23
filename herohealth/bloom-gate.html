@@ -1,0 +1,423 @@
+<!-- === /herohealth/bloom-gate.html ===
+HeroHealth Bloom Gate — FULL (v20260223-bloom1)
+✅ Inject Bloom micro tasks (Remember→Create) by cat+theme+bphase
+✅ Daily once per PID+cat+theme+bphase
+✅ Deterministic pick via pick=day (pid+day(+slot))
+✅ Output -> next via ?bloom= (base64url JSON) and also queue log in hub via ?log=
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Bloom Gate</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#020617; --panel: rgba(2,6,23,.78); --panel2: rgba(15,23,42,.60);
+      --stroke: rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
+      --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1000px 700px at 15% 0%, rgba(34,211,238,.14), transparent 55%),
+      radial-gradient(900px 650px at 92% 12%, rgba(167,139,250,.12), transparent 55%),
+      var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; overscroll-behavior:none;
+    }
+    .wrap{min-height:100%; padding: calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
+      display:flex; align-items:center; justify-content:center;}
+    .shell{width:min(980px,100%); border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
+      border-radius:24px; box-shadow:0 16px 60px rgba(0,0,0,.42); overflow:hidden;}
+    .top{padding:12px 14px; border-bottom:1px solid var(--stroke); background:rgba(2,6,23,.45);
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;}
+    .brand{display:flex; gap:10px; align-items:center}
+    .logo{width:40px;height:40px;border-radius:12px;border:1px solid var(--stroke);
+      background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
+      display:grid; place-items:center; font-weight:1000;}
+    .title{font-weight:1000}
+    .sub{font-size:12px; color:var(--muted); font-weight:800; margin-top:2px}
+    .chips{display:flex; gap:8px; flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke); background:rgba(2,6,23,.28);
+      border-radius:999px; padding:6px 10px; font-size:11px; font-weight:1000; white-space:nowrap;}
+    .main{display:grid; grid-template-columns: 1.2fr .8fr;}
+    @media (max-width: 860px){ .main{grid-template-columns:1fr;} }
+
+    .play{position:relative; min-height:560px; border-right:1px solid var(--stroke);
+      background: radial-gradient(700px 320px at 50% 10%, rgba(34,211,238,.06), transparent 70%),
+                 linear-gradient(180deg, rgba(2,6,23,.20), rgba(2,6,23,.06));
+      overflow:hidden;}
+    @media (max-width: 860px){ .play{border-right:none;border-bottom:1px solid var(--stroke);min-height:520px;}}
+
+    .hud{position:absolute; left:10px; right:10px; top:10px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px; z-index:4;}
+    .hud .box{border:1px solid var(--stroke); background:rgba(2,6,23,.38); border-radius:14px; padding:8px 10px; text-align:center;}
+    .hud .k{font-size:10px; color:var(--muted); font-weight:900}
+    .hud .v{margin-top:4px; font-size:15px; font-weight:1100}
+
+    .stage{position:absolute; inset:0; padding:82px 14px 14px; overflow:auto; touch-action:manipulation;}
+    .q{border:1px solid var(--stroke); background:rgba(2,6,23,.38); border-radius:18px; padding:12px;}
+    .q h2{margin:0; font-size:16px; font-weight:1100}
+    .q .p{margin-top:8px; color:rgba(229,231,235,.86); font-size:12px; line-height:1.35; font-weight:850; white-space:pre-line;}
+    .opts{margin-top:10px; display:grid; gap:8px;}
+    .btn{appearance:none;border:1px solid var(--stroke); background:rgba(2,6,23,.30); color:var(--text);
+      border-radius:14px; padding:12px 12px; font-weight:1000; font-size:13px; cursor:pointer; min-height:44px; text-align:left;}
+    .btn.primary{border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.14);}
+    .btn.warn{border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.12);}
+
+    .side{padding:14px; display:flex; flex-direction:column; gap:12px; background:rgba(2,6,23,.22);}
+    .card{border:1px solid var(--stroke); background:rgba(2,6,23,.34); border-radius:18px; padding:12px;}
+    .card h3{margin:0; font-size:14px; font-weight:1000;}
+    .muted{color:rgba(229,231,235,.74); font-size:12px; line-height:1.35; font-weight:750;}
+    .row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      border:1px solid var(--stroke); background:rgba(2,6,23,.22); border-radius:14px; padding:8px 10px; font-size:12px;}
+    .row .k{color:var(--muted); font-weight:900;}
+    .row .v{font-weight:1000; text-align:right;}
+
+    .toast{position:absolute; left:50%; top:78px; transform:translateX(-50%) translateY(-6px);
+      z-index:6; border:1px solid var(--stroke); background:rgba(2,6,23,.78);
+      border-radius:999px; padding:7px 12px; font-size:12px; font-weight:1100; opacity:0;
+      transition:all .12s ease; pointer-events:none;}
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+    .flash{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .12s ease; z-index:5;}
+    .flash.good{background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0));}
+    .flash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.16), rgba(239,68,68,0));}
+
+    .input{margin-top:10px; width:100%; border:1px solid var(--stroke); background:rgba(2,6,23,.30);
+      color:var(--text); border-radius:14px; padding:12px 12px; font-weight:900; outline:none;}
+    .meter{margin-top:10px; width:100%; height:14px; border-radius:999px; border:1px solid var(--stroke);
+      background:rgba(148,163,184,.12); position:relative; overflow:hidden;}
+    .meter .zone{position:absolute; left:44%; width:12%; height:100%; background:rgba(34,197,94,.18);
+      border-left:1px solid rgba(34,197,94,.25); border-right:1px solid rgba(34,197,94,.25);}
+    .meter .bar{position:absolute; top:2px; width:18px; height:10px; border-radius:999px; background:rgba(56,189,248,.92); left:50%;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="shell">
+      <div class="top">
+        <div class="brand">
+          <div class="logo">HH</div>
+          <div>
+            <div class="title" id="gameTitle">Bloom Gate</div>
+            <div class="sub" id="subLine">Remember → Create (micro-task)</div>
+          </div>
+        </div>
+        <div class="chips">
+          <div class="chip" id="pillPhase">BLOOM: REMEMBER</div>
+          <div class="chip" id="pillCat">CAT: NUTRITION</div>
+          <div class="chip" id="pillTheme">THEME: GOODJUNK</div>
+          <div class="chip" id="pillDaily">DAILY: NEW</div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="play">
+          <div class="hud">
+            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">25s</div></div>
+            <div class="box"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
+            <div class="box"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
+            <div class="box"><div class="k">TOTAL</div><div class="v" id="hudTotal">0</div></div>
+          </div>
+
+          <div class="stage" id="stage">
+            <div class="q">
+              <h2 id="qTitle">กำลังโหลด…</h2>
+              <div class="p" id="qPrompt">—</div>
+              <input class="input" id="txtInput" style="display:none" />
+              <div class="meter" id="meter" style="display:none">
+                <div class="zone"></div><div class="bar" id="meterBar"></div>
+              </div>
+              <div class="opts" id="opts"></div>
+            </div>
+          </div>
+
+          <div class="toast" id="toast">+1</div>
+          <div class="flash" id="flash"></div>
+        </div>
+
+        <div class="side">
+          <div class="card">
+            <h3>สถานะ Bloom</h3>
+            <div class="muted" id="desc" style="margin-top:6px;">ทำ micro-task สั้น ๆ เพื่อให้ครบ Bloom</div>
+            <div style="margin-top:10px; display:grid; gap:8px;">
+              <div class="row"><div class="k">PID</div><div class="v" id="pidText">anon</div></div>
+              <div class="row"><div class="k">Run</div><div class="v" id="runText">play</div></div>
+              <div class="row"><div class="k">Pick</div><div class="v" id="pickText">rand</div></div>
+              <div class="row"><div class="k">Next</div><div class="v" id="nextText">yes</div></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+              <button class="btn primary" id="btnStart">เริ่ม</button>
+              <button class="btn warn" id="btnSkip">ข้าม</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>หมายเหตุ</h3>
+            <div class="muted" style="margin-top:6px;">
+              • ทำวันละครั้งต่อ (PID+cat+theme+bphase)<br/>
+              • โหมด research แนะนำ pick=day (deterministic)<br/>
+              • ผลจะถูกส่งต่อไป next ผ่าน URL และสามารถเข้าคิว log ได้ที่ Hub
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="./bloom/bloom-engine.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const DOC=document, WIN=window;
+    const $=(id)=>DOC.getElementById(id);
+
+    function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+    const QS=getQS();
+    const q=(k,d='')=> (QS.get(k) ?? d);
+    const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
+    function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+
+    function abs(url){ try{ return new URL(url, location.href).toString(); }catch(_){ return url; } }
+
+    function b64urlEncodeJson(obj){
+      try{
+        const json = JSON.stringify(obj||{});
+        const b64 = btoa(unescape(encodeURIComponent(json)));
+        return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      }catch(_){ return ''; }
+    }
+
+    // params
+    const hub = abs(q('hub','./hub.html')) || './hub.html';
+    const next0 = abs(q('next','')) || hub;
+
+    const cat = String(q('cat','nutrition')).toLowerCase();
+    const theme = String(q('theme','goodjunk')).toLowerCase();
+    const bphase = String(q('bphase','remember')).toLowerCase();
+
+    const pid = String(q('pid','anon')).trim() || 'anon';
+    const run = String(q('run','play')).toLowerCase();
+    const pick = String(q('pick', (run==='research'?'day':'rand'))).toLowerCase();
+    const dur = clamp(qNum('dur',25), 10, 60);
+
+    // UI refs
+    const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
+    const gameTitle=$('gameTitle'), subLine=$('subLine');
+
+    const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
+    const qTitle=$('qTitle'), qPrompt=$('qPrompt'), opts=$('opts');
+    const txtInput=$('txtInput');
+    const meter=$('meter'), meterBar=$('meterBar');
+
+    const toast=$('toast'), flash=$('flash');
+    const btnStart=$('btnStart'), btnSkip=$('btnSkip');
+
+    const pidText=$('pidText'), runText=$('runText'), pickText=$('pickText'), nextText=$('nextText');
+
+    function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+    function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+    function toastShow(text){
+      toast.textContent=text;
+      toast.classList.add('show');
+      setTimeout(()=>toast.classList.remove('show'), 420);
+    }
+
+    function setOptions(items){
+      opts.innerHTML='';
+      (items||[]).forEach(it=>{
+        const b = DOC.createElement('button');
+        b.className = 'btn';
+        b.textContent = it.label || '—';
+        opts.appendChild(b);
+
+        // support hold button (onDown/onUp)
+        if(typeof it.onDown === 'function'){
+          b.classList.add('primary');
+          b.addEventListener('pointerdown', (e)=>{ e.preventDefault(); it.onDown(); });
+          WIN.addEventListener('pointerup', ()=>{ try{ it.onUp && it.onUp(); }catch(_){} }, {once:false});
+        }else{
+          b.addEventListener('click', (e)=>{ e.preventDefault(); it.onClick && it.onClick(); });
+        }
+      });
+    }
+
+    let __inputValue = '';
+    let __checklist = null;
+
+    function setInput(cfg){
+      txtInput.style.display='';
+      txtInput.value = '';
+      __inputValue = '';
+      txtInput.placeholder = String((cfg && cfg.placeholder) || 'พิมพ์…');
+      const maxLen = Number((cfg && cfg.maxLen) || 60);
+      txtInput.maxLength = maxLen;
+      txtInput.oninput = ()=>{ __inputValue = txtInput.value; };
+    }
+    function hideInput(){
+      txtInput.style.display='none';
+      txtInput.value = '';
+      txtInput.oninput = null;
+      __inputValue = '';
+    }
+    function getInput(){ return __inputValue || txtInput.value || ''; }
+
+    function setChecklist(cfg){
+      // simple: reuse text input as multi-line with separators (optional)
+      // keep minimal UI: show 3 inputs using prompt text
+      __checklist = Array((cfg&&cfg.slots)||3).fill('');
+      hideInput();
+      const wrap = DOC.createElement('div');
+      wrap.style.display='grid';
+      wrap.style.gap='8px';
+      wrap.style.marginTop='10px';
+      wrap.id='ckWrap';
+      opts.parentNode.insertBefore(wrap, opts);
+
+      wrap.innerHTML='';
+      for(let i=0;i<__checklist.length;i++){
+        const inp = DOC.createElement('input');
+        inp.className='input';
+        inp.placeholder = `ข้อ ${i+1}`;
+        inp.maxLength = 80;
+        inp.oninput = ()=>{ __checklist[i]=inp.value; };
+        wrap.appendChild(inp);
+      }
+    }
+    function cleanupChecklist(){
+      const w = DOC.getElementById('ckWrap');
+      if(w) w.remove();
+    }
+    function getChecklist(){
+      return (__checklist||[]).slice();
+    }
+
+    function setMeter(x){
+      meter.style.display='';
+      const w = meter.getBoundingClientRect().width || 300;
+      const px = Math.round(clamp(x,0.05,0.95)*w);
+      meterBar.style.left = px + 'px';
+    }
+    function hideMeter(){ meter.style.display='none'; }
+
+    function setHUD(o){
+      hudTime.textContent = `${Math.ceil(o.time||dur)}s`;
+      hudScore.textContent = String(o.score||0);
+      hudMiss.textContent = String(o.miss||0);
+      hudTotal.textContent = String(o.total||0);
+    }
+
+    function buildNextUrl(payload){
+      // send bloom summary forward
+      const u = new URL(next0 || hub, location.href);
+
+      // passthrough common context keys (do not overwrite if already exists)
+      [
+        'hub','run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone'
+      ].forEach(k=>{
+        const v = q(k,'');
+        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
+      });
+
+      // attach bloom payload
+      const b64 = b64urlEncodeJson(payload||{});
+      if(b64) u.searchParams.set('bloom', b64);
+
+      return u.toString();
+    }
+
+    function end(payload){
+      // Mark daily (simple local mark handled in engine; here we just navigate)
+      // Also: attach a compact log payload to Hub by using ?log= if NEXT is hub or has hub=...
+      const nextUrl = buildNextUrl(payload);
+
+      // Direct go next
+      location.replace(nextUrl || hub);
+    }
+
+    function autoSkip(){
+      location.replace(next0 || hub);
+    }
+
+    function setTitle(t){
+      gameTitle.textContent = t || 'Bloom Gate';
+      subLine.textContent = `Bloom: ${String(bphase||'remember').toUpperCase()} • ${dur}s`;
+    }
+
+    function setQuestion(t){
+      qTitle.textContent = t || '—';
+    }
+    function setPrompt(t){
+      qPrompt.textContent = t || '';
+    }
+
+    // init pills
+    pillPhase.textContent = `BLOOM: ${String(bphase).toUpperCase()}`;
+    pillCat.textContent   = `CAT: ${String(cat).toUpperCase()}`;
+    pillTheme.textContent = `THEME: ${String(theme).toUpperCase()}`;
+    pillDaily.textContent = 'DAILY: —';
+
+    pidText.textContent = pid;
+    runText.textContent = run;
+    pickText.textContent = pick;
+    nextText.textContent = next0 ? 'YES' : 'HUB';
+
+    function start(){
+      cleanupChecklist();
+      hideInput();
+      hideMeter();
+
+      // boot engine
+      WIN.HHA_BloomEngine.runBloomGate({
+        cat, theme, bphase, pid, run, pick, dur,
+        mount: {
+          setHUD,
+          setTitle,
+          showToast: toastShow,
+          flashGood,
+          flashBad,
+          end: (payload)=> end(payload),
+          autoSkip,
+          ui: {
+            setQuestion, setPrompt, setOptions,
+            setInput, getInput,
+            setChecklist, getChecklist,
+            setMeter
+          }
+        }
+      });
+
+      // daily flag (best effort): we can't peek internal daily status easily, so show NEW->RUNNING
+      pillDaily.textContent = 'DAILY: RUN';
+    }
+
+    function skip(){
+      location.replace(next0 || hub);
+    }
+
+    btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
+    btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
+
+    // autoplay on tap (nice UX)
+    DOC.getElementById('stage').addEventListener('pointerdown', ()=>{
+      // If not started yet and user taps inside stage, start.
+      // Keep it simple: start on first tap.
+      if(pillDaily.textContent !== 'DAILY: RUN') start();
+    }, {passive:true});
+
+    // ready
+    setHUD({time:dur,score:0,miss:0,total:0});
+    setTitle('Bloom Gate');
+    setQuestion('แตะ “เริ่ม” เพื่อทำ micro-task');
+    setPrompt('สั้น ๆ 25 วินาที แล้วไปต่อ');
+    setOptions([{label:'เริ่ม', onClick:start},{label:'ข้าม', onClick:skip}]);
+
+  })();
+  </script>
+</body>
+</html>
