@@ -1,10 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (BOSS++ + STORM + RAGE + TELEGRAPH)
-// FULL v20260223-missStd+endCompat+hudBreakdown + antiFlashLive
+// FULL v20260223-missStd+endCompat+hudBreakdown+fxAntiFlashHard
 // ✅ FIX: coordinate space unified to #gj-layer rect (shoot/tap/FX)
 // ✅ FX: per-kind burst + tuned JUNK (BLOCK soft / HIT heavy) + 💣/💀 heavy pulse
 // ✅ Hardened FX: ensure #gj-fx exists (recreate if layer re-rendered/cleared)
-// ✅ ANTI-FLASH: FX nodes append first, then rAF add .is-live (no 1-frame (0,0) blink)
+// ✅ Anti-flash HARD: FX elements are appended hidden, forced-reflow, then animated (no (0,0) blink)
 // ✅ Keeps: STORM/BOSS/RAGE/Telegraph/quests/end emits etc.
 // ✅ MISS standard: miss = good expired + junk hit (unblocked); shield block not miss
 // ✅ HUD miss breakdown: "3 (G2/J1)" when width allows
@@ -27,15 +27,6 @@ export function boot(payload = {}) {
   }
   function safeText(x){ return (x==null) ? '—' : String(x); }
 
-  // FX: add "live" after the browser has a chance to apply left/top
-  function markLiveNextFrame(el){
-    if(!el) return;
-    try{
-      el.classList.remove('is-live');
-      requestAnimationFrame(()=>{ try{ el.classList.add('is-live'); }catch(_){} });
-    }catch(_){}
-  }
-
   // ---------------- config ----------------
   const view = String(payload.view || qs('view','mobile') || 'mobile').toLowerCase();
   const diff = String(payload.diff || qs('diff','normal') || 'normal').toLowerCase();
@@ -51,7 +42,7 @@ export function boot(payload = {}) {
   const phase = payload.phase ?? qs('phase', null);
   const conditionGroup = payload.conditionGroup ?? qs('conditionGroup', qs('cond', null));
 
-  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT_ANTIFLASHLIVE';
+  const GAME_VERSION = 'GoodJunkVR_SAFE_2026-02-23_MISSSTD_ENDCOMPAT_FXANTIFLASHHARD';
   const PROJECT_TAG = 'GoodJunkVR';
 
   const isVR  = (view === 'vr');
@@ -195,7 +186,7 @@ export function boot(payload = {}) {
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  // ---------------- FX HARDEN ----------------
+  // ---------------- FX HARDEN (anti-flash HARD) ----------------
   function ensureFxLayer(){
     try{
       let fx = DOC.getElementById('gj-fx');
@@ -211,6 +202,8 @@ export function boot(payload = {}) {
         fx.style.pointerEvents = 'none';
         fx.style.overflow = 'hidden';
         fx.style.zIndex = '140';
+        // contain/transform handled by CSS too; keep inline safe
+        fx.style.transform = 'translateZ(0)';
         LAYER_L.appendChild(fx);
       }
 
@@ -221,34 +214,50 @@ export function boot(payload = {}) {
     }
   }
 
-  function popBurst(kind, clientX, clientY, opts={}){
+  // Append hidden -> reflow -> animate
+  function mountFx(el){
     const fx = ensureFxLayer();
-    if(!fx) return;
+    if(!fx) return null;
 
+    // IMPORTANT: start hidden & with final transform baseline
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%,-50%) translateZ(0)';
+
+    fx.appendChild(el);
+
+    // Force a layout flush so the browser commits left/top/opacity/transform before animation kicks in
+    try{ el.getBoundingClientRect(); }catch(_){}
+
+    // Next frame: allow animation (class triggers animation in CSS)
+    requestAnimationFrame(()=>{ try{ el.classList.add('is-go'); }catch(_){ } });
+
+    return fx;
+  }
+
+  function popBurst(kind, clientX, clientY, opts={}){
     const { x, y } = toLayerLocal(clientX, clientY);
+
     const el = DOC.createElement('div');
     el.className = `gj-fx gj-fx-${kind}`;
 
     const size = Number(opts.size || 90);
     const life = Number(opts.life || 340);
 
+    // Set final coords BEFORE append
     el.style.left = `${Math.round(x)}px`;
     el.style.top  = `${Math.round(y)}px`;
     el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
     el.style.setProperty('--life', `${life}ms`);
 
-    fx.appendChild(el);
-    markLiveNextFrame(el); // ✅ anti-flash: only animate after positioned
+    mountFx(el);
 
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+80));
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, Math.max(60, life+120));
   }
 
   function popShards(kind, clientX, clientY, opts={}){
-    const fx = ensureFxLayer();
-    if(!fx) return;
-
     const { x, y } = toLayerLocal(clientX, clientY);
+
     const n = clamp(Number(opts.n||10), 4, 22);
     const spread = Number(opts.spread||90);
     const life = Number(opts.life||520);
@@ -277,27 +286,23 @@ export function boot(payload = {}) {
       wrap.appendChild(s);
     }
 
-    fx.appendChild(wrap);
-    markLiveNextFrame(wrap); // ✅ anti-flash
+    mountFx(wrap);
 
-    setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+120));
+    setTimeout(()=>{ try{ wrap.remove(); }catch(_){} }, Math.max(80, life+200));
   }
 
   function fxText(clientX, clientY, txt, cls=''){
-    const fx = ensureFxLayer();
-    if(!fx) return;
-
     const { x, y } = toLayerLocal(clientX, clientY);
+
     const t = DOC.createElement('div');
     t.className = `gj-fx-text ${cls||''}`.trim();
     t.textContent = String(txt || '');
     t.style.left = `${Math.round(x)}px`;
     t.style.top  = `${Math.round(y)}px`;
 
-    fx.appendChild(t);
-    markLiveNextFrame(t); // ✅ anti-flash
+    mountFx(t);
 
-    setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 640);
+    setTimeout(()=>{ try{ t.remove(); }catch(_){} }, 740);
   }
 
   function bodyPulse(cls, ms=160){
@@ -421,7 +426,6 @@ export function boot(payload = {}) {
     combo: 0,
     comboMax: 0,
 
-    // MISS standard (split)
     miss: 0,
     missGoodExpired: 0,
     missJunkHit: 0,
@@ -902,7 +906,7 @@ export function boot(payload = {}) {
       }else{
         state.nHitJunk++;
         addFever(10);
-        addMissJunk(1); // ✅ MISS standard
+        addMissJunk(1);
         setScore(state.score + (DIFF.junkPenaltyScore||-10));
 
         fxByKind('junk', px, py, { blocked:false });
@@ -913,7 +917,7 @@ export function boot(payload = {}) {
     } else if(kind==='star'){
       resetCombo();
       addFever(-10);
-      reduceMiss(1); // ✅
+      reduceMiss(1);
 
       fxByKind('star', px, py);
       fxText(px, py, 'MISS -1', 't-star');
@@ -1033,7 +1037,7 @@ export function boot(payload = {}) {
           resetCombo();
           addFever(6);
 
-          addMissGood(1); // ✅ MISS standard
+          addMissGood(1);
 
           const c = centerOfTarget(tObj);
           popBurst('expire', c.x, c.y, { size: 92, life: 320 });
@@ -1127,7 +1131,7 @@ export function boot(payload = {}) {
         tObj.hit = true;
         state.nExpireGood++;
 
-        addMissGood(1); // ✅ stomp counts as good expired
+        addMissGood(1);
 
         const c = centerOfTarget(tObj);
         popBurst('stomp', c.x, c.y, { size: 120, life: 420 });
