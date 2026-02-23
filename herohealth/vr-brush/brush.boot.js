@@ -1,5 +1,5 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR Boot — SAFE PATCH (v20260223-bootguard)
+// BrushVR Boot — SAFE PATCH (v20260223p1)
 (function(){
   'use strict';
 
@@ -29,7 +29,6 @@
 
   ready(function(){
     try{
-      // เรียก init จาก safe engine (รองรับหลายชื่อ)
       if (typeof WIN.initBrushGame === 'function') {
         WIN.initBrushGame();
       } else if (typeof WIN.BrushBoot === 'function') {
@@ -37,9 +36,9 @@
       } else if (typeof WIN.__brushInit === 'function') {
         WIN.__brushInit();
       } else {
-        console.warn('[BrushBoot] No init function found (initBrushGame / BrushBoot / __brushInit)');
+        console.warn('[BrushBoot] No init function found');
       }
-      // ❌ ห้าม auto-start ที่นี่ — ให้ผู้เล่นกดเริ่มเอง
+      // IMPORTANT: do not auto-start here
     }catch(err){
       console.error('[BrushBoot] init error', err);
       showFatal(err);
