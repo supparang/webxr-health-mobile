@@ -1,38 +1,52 @@
 // === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer UI Controller — LOCAL-FIRST + 403-safe remote logging
-// ✅ Menu / Play / Result flow
-// ✅ Wires engine HUD + renderer
+// Rhythm Boxer UI Controller — FULL PATCH
+// Works with classic scripts:
+//   - window.RB_AI
+//   - window.DomRendererRhythm (optional)
+//   - window.RhythmBoxerEngine
+//
+// Features
+// ✅ Menu / Play / Result view flow
+// ✅ Normal / Research mode toggle
+// ✅ Track options filtering by mode
+// ✅ Start / Stop / Replay
 // ✅ CSV download (events/sessions)
-// ✅ Optional remote logging (?log=1&api=...)
-// ✅ Auto-disable remote on 401/403 (no retry spam)
-// ✅ Flush status badge on result page
+// ✅ HUD wiring
+// ✅ AI prediction HUD visible, research-lock respected by engine/RB_AI
+// ✅ Calibration hotkeys ([ and ]) + reset (\)
+// ✅ Pass query params (?mode=research&track=r1&ai=1 etc.)
+// ✅ 5-lane HTML works; 3-lane preset can be done by HTML/CSS later
+
 'use strict';
 
 (function () {
   const WIN = window;
   const DOC = document;
 
-  const $ = (s, root = DOC) => root.querySelector(s);
-  const $$ = (s, root = DOC) => Array.from(root.querySelectorAll(s));
+  // ---------- helpers ----------
+  const $ = (s, root) => (root || DOC).querySelector(s);
+  const $$ = (s, root) => Array.from((root || DOC).querySelectorAll(s));
 
-  function qs(name, fallback = '') {
-    try {
-      const u = new URL(WIN.location.href);
-      const v = u.searchParams.get(name);
-      return (v == null || v === '') ? fallback : v;
-    } catch (_) {
-      return fallback;
-    }
+  function safeText(v) { return (v == null ? '' : String(v)); }
+
+  function setHidden(el, yes) {
+    if (!el) return;
+    el.classList.toggle('hidden', !!yes);
   }
 
-  function clamp(v, a, b) {
-    v = Number(v);
-    if (!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
+  function readQuery() {
+    try { return new URL(WIN.location.href).searchParams; }
+    catch (_) { return new URLSearchParams(); }
   }
 
-  function downloadText(filename, text, mime) {
-    const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  function readQueryFlag(params, key, defVal) {
+    const v = (params.get(key) || '').toLowerCase();
+    if (!v) return !!defVal;
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  }
+
+  function dlBlob(filename, text, type) {
+    const blob = new Blob([text], { type: type || 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = DOC.createElement('a');
     a.href = url;
@@ -40,708 +54,660 @@
     DOC.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  function fmtNum(n, d = 2) {
+  function fmtNum(n, d) {
     const x = Number(n);
-    return Number.isFinite(x) ? x.toFixed(d) : '-';
+    if (!Number.isFinite(x)) return '-';
+    return x.toFixed(d == null ? 2 : d);
   }
 
-  // ---------------------------
-  // Remote log guard (403-safe)
-  // ---------------------------
-  const REMOTE_LATCH_KEY = 'RB_REMOTE_DISABLED';
-  const REMOTE_LATCH_TTL_MS = 15 * 60 * 1000;
-
-  function disableRemote(code, reason) {
-    try {
-      sessionStorage.setItem(REMOTE_LATCH_KEY, JSON.stringify({
-        code: Number(code) || 403,
-        reason: String(reason || ''),
-        ts: Date.now()
-      }));
-    } catch (_) {}
+  function rankHintClass(rank) {
+    const r = String(rank || '').toUpperCase();
+    if (r === 'SSS' || r === 'SS' || r === 'S') return 'is-perfect';
+    if (r === 'A' || r === 'B') return 'is-great';
+    return 'is-good';
   }
 
-  function clearRemoteDisable() {
-    try { sessionStorage.removeItem(REMOTE_LATCH_KEY); } catch (_) {}
-  }
+  // ---------- DOM refs ----------
+  const refs = {
+    wrap: $('#rb-wrap'),
 
-  function getRemoteDisableInfo() {
-    try {
-      const raw = sessionStorage.getItem(REMOTE_LATCH_KEY);
-      if (!raw) return { disabled: false };
-      const d = JSON.parse(raw);
-      if (!d || !d.ts) return { disabled: false };
-      const age = Date.now() - Number(d.ts || 0);
-      if (age > REMOTE_LATCH_TTL_MS) {
-        sessionStorage.removeItem(REMOTE_LATCH_KEY);
-        return { disabled: false };
-      }
-      return {
-        disabled: true,
-        code: Number(d.code || 403),
-        reason: String(d.reason || ''),
-        ts: Number(d.ts || 0)
-      };
-    } catch (_) {
-      return { disabled: false };
-    }
-  }
+    // Views
+    viewMenu: $('#rb-view-menu'),
+    viewPlay: $('#rb-view-play'),
+    viewResult: $('#rb-view-result'),
 
-  function isRemoteDisabled() {
-    return !!getRemoteDisableInfo().disabled;
-  }
+    // Menu
+    modeRadios: $$('input[name="rb-mode"]'),
+    modeDesc: $('#rb-mode-desc'),
+    researchFields: $('#rb-research-fields'),
 
-  // ---------------------------
-  // Optional remote logger
-  // ---------------------------
-  class RhythmRemoteLogger {
-    constructor(opts = {}) {
-      this.enabled = !!opts.enabled;
-      this.api = String(opts.api || '').trim();
-      this.timeoutMs = clamp(opts.timeoutMs || 3500, 1000, 15000);
+    participant: $('#rb-participant'),
+    group: $('#rb-group'),
+    note: $('#rb-note'),
 
-      this.queue = []; // { kind:'events'|'sessions', csv, meta }
-      this.flushing = false;
-      this.lastFlushStatus = 'idle'; // idle | queued | flushing | ok | disabled | error
-      this.lastFlushMsg = '';
-      this.lastFlushAt = 0;
-    }
+    trackModeLabel: $('#rb-track-mode-label'),
+    trackRadios: $$('input[name="rb-track"]'),
+    trackOptionLabels: $$('#rb-track-options .rb-mode-btn'),
 
-    get canUseRemote() {
-      return this.enabled && !!this.api && !isRemoteDisabled();
-    }
+    btnStart: $('#rb-btn-start'),
 
-    enqueue(kind, csv, meta = {}) {
-      if (!csv || typeof csv !== 'string') return;
-      this.queue.push({ kind, csv, meta, ts: Date.now() });
-      this.lastFlushStatus = 'queued';
-      this.lastFlushMsg = `คิว ${this.queue.length} รายการ`;
-      this._emitStatus();
-    }
+    // Play
+    btnStop: $('#rb-btn-stop'),
+    audio: $('#rb-audio'),
+    field: $('#rb-field'),
+    lanes: $('#rb-lanes'),
+    feedback: $('#rb-feedback'),
 
-    getStatus() {
-      const disabled = getRemoteDisableInfo();
-      if (disabled.disabled) {
-        return {
-          state: 'disabled',
-          text: `Remote log ปิดชั่วคราว (${disabled.code})`,
-          queue: this.queue.length
-        };
-      }
-      return {
-        state: this.lastFlushStatus,
-        text: this.lastFlushMsg || this.lastFlushStatus,
-        queue: this.queue.length
-      };
-    }
+    // Result
+    btnAgain: $('#rb-btn-again'),
+    btnBackMenu: $('#rb-btn-back-menu'),
+    btnDlEvents: $('#rb-btn-dl-events'),
+    btnDlSessions: $('#rb-btn-dl-sessions'),
 
-    _emitStatus() {
-      const detail = this.getStatus();
-      WIN.dispatchEvent(new CustomEvent('rb:flush-status', { detail }));
-    }
+    resMode: $('#rb-res-mode'),
+    resTrack: $('#rb-res-track'),
+    resEndReason: $('#rb-res-endreason'),
+    resScore: $('#rb-res-score'),
+    resMaxCombo: $('#rb-res-maxcombo'),
+    resDetailHit: $('#rb-res-detail-hit'),
+    resAcc: $('#rb-res-acc'),
+    resDuration: $('#rb-res-duration'),
+    resRank: $('#rb-res-rank'),
+    resOffsetAvg: $('#rb-res-offset-avg'),
+    resOffsetStd: $('#rb-res-offset-std'),
+    resParticipant: $('#rb-res-participant'),
+    resQualityNote: $('#rb-res-quality-note'),
 
-    async flushAll() {
-      if (this.flushing) return { ok: false, reason: 'busy' };
+    // HUD
+    hudMode: $('#rb-hud-mode'),
+    hudTrack: $('#rb-hud-track'),
+    hudScore: $('#rb-hud-score'),
+    hudCombo: $('#rb-hud-combo'),
+    hudAcc: $('#rb-hud-acc'),
+    hudHp: $('#rb-hud-hp'),
+    hudShield: $('#rb-hud-shield'),
+    hudTime: $('#rb-hud-time'),
 
-      if (!this.canUseRemote) {
-        const info = getRemoteDisableInfo();
-        this.lastFlushStatus = info.disabled ? 'disabled' : 'idle';
-        this.lastFlushMsg = info.disabled
-          ? `Remote log ถูกปิด (${info.code})`
-          : (!this.enabled ? 'Remote log = OFF' : 'ยังไม่ได้ตั้ง API');
-        this._emitStatus();
-        return { ok: false, reason: this.lastFlushMsg };
-      }
+    hudPerfect: $('#rb-hud-perfect'),
+    hudGreat: $('#rb-hud-great'),
+    hudGood: $('#rb-hud-good'),
+    hudMiss: $('#rb-hud-miss'),
 
-      if (!this.queue.length) {
-        this.lastFlushStatus = 'ok';
-        this.lastFlushMsg = 'ไม่มีข้อมูลค้างส่ง';
-        this.lastFlushAt = Date.now();
-        this._emitStatus();
-        return { ok: true, sent: 0 };
-      }
+    hudAiFatigue: $('#rb-hud-ai-fatigue'),
+    hudAiSkill: $('#rb-hud-ai-skill'),
+    hudAiSuggest: $('#rb-hud-ai-suggest'),
+    hudAiTip: $('#rb-hud-ai-tip'),
 
-      this.flushing = true;
-      this.lastFlushStatus = 'flushing';
-      this.lastFlushMsg = `กำลังส่ง ${this.queue.length} รายการ...`;
-      this._emitStatus();
-
-      let sent = 0;
-      try {
-        while (this.queue.length) {
-          const item = this.queue[0];
-          await this._postCsv(item);
-          this.queue.shift();
-          sent++;
-          this.lastFlushStatus = 'flushing';
-          this.lastFlushMsg = `ส่งแล้ว ${sent} รายการ`;
-          this._emitStatus();
-        }
-
-        this.lastFlushStatus = 'ok';
-        this.lastFlushMsg = `ส่งสำเร็จ ${sent} รายการ`;
-        this.lastFlushAt = Date.now();
-        this._emitStatus();
-        return { ok: true, sent };
-      } catch (err) {
-        const msg = String(err && err.message || err || 'flush failed');
-        this.lastFlushStatus = isRemoteDisabled() ? 'disabled' : 'error';
-        this.lastFlushMsg = msg;
-        this._emitStatus();
-        return { ok: false, sent, error: msg };
-      } finally {
-        this.flushing = false;
-      }
-    }
-
-    async _postCsv(item) {
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), this.timeoutMs);
-
-      try {
-        const payload = {
-          kind: item.kind,
-          csv: item.csv,
-          meta: item.meta || {},
-          client: 'rhythm-boxer',
-          ts: new Date().toISOString()
-        };
-
-        const res = await fetch(this.api, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-
-        if (!res.ok) {
-          // 401/403 => latch disable per-tab to prevent spam
-          if (res.status === 401 || res.status === 403) {
-            disableRemote(res.status, 'forbidden');
-          }
-          throw new Error(`Remote log HTTP ${res.status}`);
-        }
-
-        // tolerate non-json
-        return true;
-      } catch (err) {
-        if (String(err && err.name) === 'AbortError') {
-          throw new Error('Remote log timeout');
-        }
-        throw err;
-      } finally {
-        clearTimeout(t);
-      }
-    }
-  }
-
-  // ---------------------------
-  // DOM refs
-  // ---------------------------
-  const viewMenu   = $('#rb-view-menu');
-  const viewPlay   = $('#rb-view-play');
-  const viewResult = $('#rb-view-result');
-
-  const rbWrap = $('#rb-wrap');
-
-  // menu
-  const modeInputs = $$('input[name="rb-mode"]');
-  const trackInputs = $$('input[name="rb-track"]');
-  const modeDesc = $('#rb-mode-desc');
-  const researchFields = $('#rb-research-fields');
-  const trackModeLabel = $('#rb-track-mode-label');
-  const btnStart = $('#rb-btn-start');
-
-  const inParticipant = $('#rb-participant');
-  const inGroup = $('#rb-group');
-  const inNote = $('#rb-note');
-
-  // play
-  const btnStop = $('#rb-btn-stop');
-  const fieldEl = $('#rb-field');
-  const lanesEl = $('#rb-lanes');
-  const audioEl = $('#rb-audio');
-  const feedbackEl = $('#rb-feedback');
-
-  // HUD
-  const hud = {
-    mode: $('#rb-hud-mode'),
-    track: $('#rb-hud-track'),
-    score: $('#rb-hud-score'),
-    combo: $('#rb-hud-combo'),
-    acc: $('#rb-hud-acc'),
-    hp: $('#rb-hud-hp'),
-    shield: $('#rb-hud-shield'),
-    time: $('#rb-hud-time'),
-    countPerfect: $('#rb-hud-perfect'),
-    countGreat: $('#rb-hud-great'),
-    countGood: $('#rb-hud-good'),
-    countMiss: $('#rb-hud-miss'),
     feverFill: $('#rb-fever-fill'),
     feverStatus: $('#rb-fever-status'),
     progFill: $('#rb-progress-fill'),
-    progText: $('#rb-progress-text'),
-    aiFatigue: $('#rb-hud-ai-fatigue'),
-    aiSkill: $('#rb-hud-ai-skill'),
-    aiSuggest: $('#rb-hud-ai-suggest'),
-    aiTip: $('#rb-hud-ai-tip')
+    progText: $('#rb-progress-text')
   };
 
-  // result
-  const resMode = $('#rb-res-mode');
-  const resTrack = $('#rb-res-track');
-  const resEndReason = $('#rb-res-endreason');
-  const resScore = $('#rb-res-score');
-  const resMaxCombo = $('#rb-res-maxcombo');
-  const resDetailHit = $('#rb-res-detail-hit');
-  const resAcc = $('#rb-res-acc');
-  const resDuration = $('#rb-res-duration');
-  const resRank = $('#rb-res-rank');
-  const resOffsetAvg = $('#rb-res-offset-avg');
-  const resOffsetStd = $('#rb-res-offset-std');
-  const resParticipant = $('#rb-res-participant');
-  const resQualityNote = $('#rb-res-quality-note');
-
-  const btnAgain = $('#rb-btn-again');
-  const btnBackMenu = $('#rb-btn-back-menu');
-  const btnDlEvents = $('#rb-btn-dl-events');
-  const btnDlSessions = $('#rb-btn-dl-sessions');
-
-  // flush status UI (created dynamically if not in HTML)
-  let flushBadge = null;
-  let flushHint = null;
-
-  // runtime
-  let renderer = null;
-  let engine = null;
-  let lastSummary = null;
-  let lastTrackId = 'n1';
-  let lastMode = 'normal';
-
-  // config from query
-  const Q = {
-    run: String(qs('run', '')).toLowerCase(),
-    mode: String(qs('mode', '')).toLowerCase(),
-    diff: String(qs('diff', 'normal')).toLowerCase(),
-    time: clamp(qs('time', '60'), 20, 300),
-    seed: qs('seed', ''),
-    pid: qs('pid', ''),
-    log: String(qs('log', '0')) === '1',
-    api: qs('api', '')
+  // ---------- controller state ----------
+  const state = {
+    mode: 'normal', // normal | research
+    trackId: 'n1',
+    lastSummary: null,
+    lastMode: 'normal',
+    lastTrackId: 'n1',
+    lastMeta: {},
+    engine: null,
+    renderer: null,
+    query: readQuery()
   };
 
-  // Remote logger (OFF by default unless ?log=1&api=...)
-  const remoteLogger = new RhythmRemoteLogger({
-    enabled: Q.log,
-    api: Q.api,
-    timeoutMs: 3500
-  });
+  const TRACK_META = {
+    n1: { name: 'Warm-up Groove', label: 'Warm-up Groove · ง่าย · 100 BPM', mode: 'normal' },
+    n2: { name: 'Focus Combo', label: 'Focus Combo · ปกติ · 120 BPM', mode: 'normal' },
+    n3: { name: 'Speed Rush', label: 'Speed Rush · ยาก · 140 BPM', mode: 'normal' },
+    r1: { name: 'Research Track 120', label: 'Research Track 120 · ทดลอง · 120 BPM', mode: 'research' }
+  };
 
-  function ensureResultFlushUi() {
-    if (flushBadge && flushHint) return;
-    const card = viewResult && viewResult.querySelector('.rb-research-box.rb-section');
-    if (!card) return;
-
-    const wrap = DOC.createElement('div');
-    wrap.className = 'rb-section';
-    wrap.style.marginTop = '12px';
-
-    const row = DOC.createElement('div');
-    row.className = 'rb-btn-row';
-    row.style.alignItems = 'center';
-    row.style.justifyContent = 'space-between';
-    row.style.gap = '8px';
-
-    flushBadge = DOC.createElement('span');
-    flushBadge.className = 'rb-chip';
-    flushBadge.textContent = 'Flush: idle';
-
-    const btnFlush = DOC.createElement('button');
-    btnFlush.className = 'rb-btn rb-btn-sm';
-    btnFlush.textContent = '☁ ส่ง log (ถ้ามี API)';
-    btnFlush.addEventListener('click', async () => {
-      await flushRemoteNow();
-    });
-
-    row.appendChild(flushBadge);
-    row.appendChild(btnFlush);
-
-    flushHint = DOC.createElement('p');
-    flushHint.className = 'rb-hint-inline';
-    flushHint.style.marginTop = '8px';
-    flushHint.textContent = 'Local CSV ใช้งานได้เสมอ · Remote จะส่งเมื่อเปิด ?log=1&api=...';
-
-    wrap.appendChild(row);
-    wrap.appendChild(flushHint);
-    card.appendChild(wrap);
-
-    WIN.addEventListener('rb:flush-status', (ev) => {
-      const d = ev && ev.detail ? ev.detail : {};
-      updateFlushUi(d);
-    });
-
-    // initial status
-    updateFlushUi(remoteLogger.getStatus());
-  }
-
-  function updateFlushUi(status) {
-    if (!flushBadge || !flushHint) return;
-    const st = status || remoteLogger.getStatus();
-    flushBadge.textContent = `Flush: ${st.state || 'idle'}${typeof st.queue === 'number' ? ` · q=${st.queue}` : ''}`;
-
-    let msg = st.text || '';
-    if (!Q.log) {
-      msg = 'Remote log = OFF (ตอนนี้ใช้ Local CSV อย่างเดียว)';
-    } else if (!Q.api) {
-      msg = 'เปิด log=1 แล้ว แต่ยังไม่มี api=...';
-    }
-    flushHint.textContent = msg;
-  }
-
-  async function flushRemoteNow() {
-    // queue current CSV (if there is any completed run)
-    if (engine) {
-      try {
-        const evCsv = engine.getEventsCsv();
-        const seCsv = engine.getSessionCsv();
-        if (evCsv && evCsv.split('\n').length > 1) {
-          remoteLogger.enqueue('events', evCsv, { source: 'result-click' });
-        }
-        if (seCsv && seCsv.split('\n').length > 1) {
-          remoteLogger.enqueue('sessions', seCsv, { source: 'result-click' });
-        }
-      } catch (_) {}
-    }
-    const out = await remoteLogger.flushAll();
-    return out;
-  }
-
+  // ---------- view helpers ----------
   function showView(name) {
-    [viewMenu, viewPlay, viewResult].forEach(v => v && v.classList.add('hidden'));
-    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
+    setHidden(refs.viewMenu, name !== 'menu');
+    setHidden(refs.viewPlay, name !== 'play');
+    setHidden(refs.viewResult, name !== 'result');
   }
 
+  function pulseFeedback(text, kind) {
+    if (!refs.feedback) return;
+    refs.feedback.textContent = text || '';
+    refs.feedback.classList.remove('is-perfect', 'is-great', 'is-good', 'is-miss', 'show');
+    if (kind) refs.feedback.classList.add(kind);
+    // reflow for animation retrigger
+    void refs.feedback.offsetWidth;
+    refs.feedback.classList.add('show');
+    setTimeout(() => refs.feedback && refs.feedback.classList.remove('show'), 120);
+  }
+
+  // ---------- mode / track UI ----------
   function getSelectedMode() {
-    const el = modeInputs.find(i => i.checked);
-    return el ? el.value : 'normal';
+    const r = refs.modeRadios.find(x => x.checked);
+    return (r && r.value === 'research') ? 'research' : 'normal';
+  }
+
+  function setSelectedMode(mode) {
+    const m = (mode === 'research') ? 'research' : 'normal';
+    refs.modeRadios.forEach(r => { r.checked = (r.value === m); });
+    state.mode = m;
+    refreshModeUI();
   }
 
   function getSelectedTrack() {
-    const el = trackInputs.find(i => i.checked);
-    return el ? el.value : 'n1';
+    const r = refs.trackRadios.find(x => x.checked);
+    return r ? r.value : 'n1';
   }
 
-  function setModeUI(mode) {
-    const isResearch = mode === 'research';
-    researchFields && researchFields.classList.toggle('hidden', !isResearch);
+  function setSelectedTrack(trackId) {
+    const t = TRACK_META[trackId] ? trackId : 'n1';
+    const target = refs.trackRadios.find(r => r.value === t);
+    if (target) target.checked = true;
+    state.trackId = t;
+    refreshModeUI();
+  }
 
-    if (modeDesc) {
-      modeDesc.textContent = isResearch
-        ? 'Research: ใช้เก็บข้อมูลการเล่น (Participant / Group / Note) และดาวน์โหลด CSV สำหรับวิเคราะห์'
+  function refreshModeUI() {
+    state.mode = getSelectedMode();
+
+    // Research fields
+    setHidden(refs.researchFields, state.mode !== 'research');
+
+    // Description
+    if (refs.modeDesc) {
+      refs.modeDesc.textContent = (state.mode === 'research')
+        ? 'Research: แสดง AI prediction ได้ แต่ล็อกเกม 100% (AI ไม่ปรับความยาก/พฤติกรรมเกม) และบันทึก CSV เพื่อวิเคราะห์'
         : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
     }
 
-    if (trackModeLabel) {
-      trackModeLabel.textContent = isResearch
-        ? 'โหมด Research — แนะนำใช้ Research Track 120 เพื่อความสม่ำเสมอ'
+    // Track label
+    if (refs.trackModeLabel) {
+      refs.trackModeLabel.textContent = (state.mode === 'research')
+        ? 'โหมด Research — ใช้ Research Track เพื่อความคงที่ของการทดลอง'
         : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
     }
 
-    // hide/show track options by data-mode
-    $$('[data-mode="research"]').forEach(x => {
-      x.style.display = isResearch ? '' : 'none';
-    });
-    $$('[data-mode="normal"]').forEach(x => {
-      x.style.display = isResearch ? 'none' : '';
+    // Show/hide track options by mode
+    refs.trackOptionLabels.forEach(label => {
+      const mode = (label.getAttribute('data-mode') || 'normal').toLowerCase();
+      const hide = (state.mode === 'research') ? (mode !== 'research') : (mode !== 'normal');
+      label.classList.toggle('hidden', hide);
     });
 
-    // auto select a valid track
-    const current = getSelectedTrack();
-    const currentEl = trackInputs.find(i => i.value === current);
-    const visible = currentEl && currentEl.closest('[data-mode]') &&
-      currentEl.closest('[data-mode]').style.display !== 'none';
+    // Force valid track for mode
+    const currentTrack = getSelectedTrack();
+    const meta = TRACK_META[currentTrack];
+    if (!meta || meta.mode !== state.mode) {
+      setSelectedTrack(state.mode === 'research' ? 'r1' : 'n1');
+    } else {
+      state.trackId = currentTrack;
+    }
 
-    if (!visible) {
-      const fallback = isResearch ? 'r1' : 'n1';
-      const f = trackInputs.find(i => i.value === fallback);
-      if (f) f.checked = true;
+    // Update wrap data-diff (optional visual use)
+    if (refs.wrap) {
+      const tid = getSelectedTrack();
+      let diff = 'normal';
+      if (tid === 'n1') diff = 'easy';
+      else if (tid === 'n3') diff = 'hard';
+      refs.wrap.setAttribute('data-diff', diff);
     }
   }
 
-  function collectMeta(mode) {
-    const meta = {
-      id: (inParticipant && inParticipant.value || '').trim(),
-      group: (inGroup && inGroup.value || '').trim(),
-      note: (inNote && inNote.value || '').trim(),
-      pid: Q.pid || ''
+  function readMetaFromForm() {
+    return {
+      id: safeText(refs.participant && refs.participant.value).trim(),
+      group: safeText(refs.group && refs.group.value).trim(),
+      note: safeText(refs.note && refs.note.value).trim()
     };
-
-    if (mode !== 'research') {
-      // keep optional note only if user typed something
-      if (!meta.note) meta.note = '';
-    }
-    return meta;
   }
 
-  function attachRendererHooks() {
-    // dom-renderer-rhythm.js expected API
-    if (WIN.RhythmDomRenderer) {
-      renderer = new WIN.RhythmDomRenderer({
-        field: fieldEl,
-        lanesEl: lanesEl,
-        feedbackEl: feedbackEl
-      });
-      return;
+  // ---------- renderer ----------
+  function createRenderer() {
+    // Prefer external renderer if available
+    if (WIN.DomRendererRhythm && typeof WIN.DomRendererRhythm === 'function') {
+      try {
+        return new WIN.DomRendererRhythm({
+          fieldEl: refs.field,
+          lanesEl: refs.lanes,
+          feedbackEl: refs.feedback
+        });
+      } catch (e) {
+        console.warn('[RhythmBoxer] DomRendererRhythm init failed, fallback renderer used:', e);
+      }
     }
 
-    // fallback dummy renderer (so engine still runs)
-    renderer = {
-      showHitFx({ judgment }) {
-        if (!feedbackEl) return;
-        feedbackEl.textContent = String(judgment || 'HIT').toUpperCase();
-        feedbackEl.classList.remove('rb-fb-miss');
-        feedbackEl.classList.add('rb-fb-hit');
+    // Fallback mini renderer (safe)
+    return {
+      showHitFx({ lane, judgment }) {
+        const laneEl = refs.lanes && refs.lanes.querySelector(`.rb-lane[data-lane="${lane}"]`);
+        if (!laneEl) return;
+
+        // lane flash class
+        const cls = judgment === 'perfect' ? 'fx-hit-perfect'
+          : judgment === 'great' ? 'fx-hit-great'
+          : judgment === 'good' ? 'fx-hit-good'
+          : 'fx-hit-miss';
+
+        laneEl.classList.remove('fx-hit-perfect', 'fx-hit-great', 'fx-hit-good', 'fx-hit-miss');
+        void laneEl.offsetWidth;
+        laneEl.classList.add(cls);
+        setTimeout(() => laneEl.classList.remove(cls), 230);
+
+        // feedback text
+        const text = judgment.toUpperCase();
+        const kind = judgment === 'perfect' ? 'is-perfect'
+          : judgment === 'great' ? 'is-great'
+          : judgment === 'good' ? 'is-good'
+          : 'is-miss';
+        pulseFeedback(text, kind);
+
+        // spark near hit line
+        try {
+          const spark = DOC.createElement('div');
+          spark.className = `rb-fx-spark is-${judgment}`;
+          spark.style.left = '50%';
+          spark.style.top = 'var(--rb-hitline-y)';
+          laneEl.appendChild(spark);
+          setTimeout(() => spark.remove(), 260);
+
+          const f = DOC.createElement('div');
+          f.className = `rb-fx-float is-${judgment}`;
+          f.textContent = text;
+          f.style.left = '50%';
+          f.style.top = 'var(--rb-hitline-y)';
+          laneEl.appendChild(f);
+          setTimeout(() => f.remove(), 520);
+        } catch (_) {}
       },
-      showMissFx() {
-        if (!feedbackEl) return;
-        feedbackEl.textContent = 'MISS';
-        feedbackEl.classList.remove('rb-fb-hit');
-        feedbackEl.classList.add('rb-fb-miss');
+
+      showMissFx({ lane }) {
+        const laneEl = refs.lanes && refs.lanes.querySelector(`.rb-lane[data-lane="${lane}"]`);
+        if (!laneEl) return;
+
+        laneEl.classList.remove('fx-hit-perfect', 'fx-hit-great', 'fx-hit-good', 'fx-hit-miss');
+        void laneEl.offsetWidth;
+        laneEl.classList.add('fx-hit-miss');
+        setTimeout(() => laneEl.classList.remove('fx-hit-miss'), 230);
+
+        pulseFeedback('MISS', 'is-miss');
+
+        try {
+          const spark = DOC.createElement('div');
+          spark.className = 'rb-fx-spark is-miss';
+          spark.style.left = '50%';
+          spark.style.top = 'var(--rb-hitline-y)';
+          laneEl.appendChild(spark);
+          setTimeout(() => spark.remove(), 260);
+        } catch (_) {}
       }
     };
   }
 
+  // ---------- engine ----------
   function createEngine() {
     if (!WIN.RhythmBoxerEngine) {
-      console.error('[Rhythm Boxer] RhythmBoxerEngine not found');
-      return null;
+      throw new Error('RhythmBoxerEngine not found (js/rhythm-engine.js not loaded)');
     }
 
-    engine = new WIN.RhythmBoxerEngine({
-      wrap: rbWrap,
-      field: fieldEl,
-      lanesEl: lanesEl,
-      audio: audioEl,
+    const renderer = createRenderer();
+    state.renderer = renderer;
+
+    const eng = new WIN.RhythmBoxerEngine({
+      wrap: refs.wrap,
+      field: refs.field,
+      lanesEl: refs.lanes,
+      audio: refs.audio,
       renderer,
-      hud,
+
+      hud: {
+        score: refs.hudScore,
+        combo: refs.hudCombo,
+        acc: refs.hudAcc,
+        hp: refs.hudHp,
+        shield: refs.hudShield,
+        time: refs.hudTime,
+
+        countPerfect: refs.hudPerfect,
+        countGreat: refs.hudGreat,
+        countGood: refs.hudGood,
+        countMiss: refs.hudMiss,
+
+        aiFatigue: refs.hudAiFatigue,
+        aiSkill: refs.hudAiSkill,
+        aiSuggest: refs.hudAiSuggest,
+        aiTip: refs.hudAiTip,
+
+        feverFill: refs.feverFill,
+        feverStatus: refs.feverStatus,
+        progFill: refs.progFill,
+        progText: refs.progText
+      },
+
       hooks: {
-        onStart(info) {
-          // HUD top labels
-          if (hud.mode) hud.mode.textContent = info.mode === 'research' ? 'Research' : 'Normal';
-          if (hud.track) hud.track.textContent = info.track && info.track.name ? info.track.name : '-';
-
-          // clear feedback
-          if (feedbackEl) {
-            feedbackEl.textContent = 'พร้อม!';
-            feedbackEl.classList.remove('rb-fb-hit', 'rb-fb-miss');
-          }
+        onStart(payload) {
+          // Optional place to expose session id
+          // console.log('[RhythmBoxer] Start', payload);
         },
+
         onEnd(summary) {
-          lastSummary = summary || null;
-          renderResult(summary || {});
+          state.lastSummary = summary || null;
+          fillResult(summary || {});
           showView('result');
-
-          // queue local-generated CSV for remote (if enabled)
-          try {
-            const evCsv = engine.getEventsCsv();
-            const seCsv = engine.getSessionCsv();
-
-            if (evCsv && evCsv.split('\n').length > 1) {
-              remoteLogger.enqueue('events', evCsv, { source: 'onEnd' });
-            }
-            if (seCsv && seCsv.split('\n').length > 1) {
-              remoteLogger.enqueue('sessions', seCsv, { source: 'onEnd' });
-            }
-          } catch (_) {}
-
-          // auto flush one-shot (safe; disabled on 401/403)
-          remoteLogger.flushAll().catch(() => {});
         }
       }
     });
 
-    // calibration from query if provided (ms)
-    const calMs = Number(qs('cal', '0'));
-    if (Number.isFinite(calMs)) {
-      engine.calOffsetSec = calMs / 1000;
-    }
-
-    return engine;
+    return eng;
   }
 
-  function renderResult(summary) {
-    ensureResultFlushUi();
+  function ensureEngine() {
+    if (!state.engine) state.engine = createEngine();
+    return state.engine;
+  }
 
-    resMode && (resMode.textContent = summary.modeLabel || '-');
-    resTrack && (resTrack.textContent = summary.trackName || '-');
-    resEndReason && (resEndReason.textContent = summary.endReason || '-');
-    resScore && (resScore.textContent = String(summary.finalScore ?? 0));
-    resMaxCombo && (resMaxCombo.textContent = String(summary.maxCombo ?? 0));
-    resDetailHit && (resDetailHit.textContent =
-      `${summary.hitPerfect ?? 0} / ${summary.hitGreat ?? 0} / ${summary.hitGood ?? 0} / ${summary.hitMiss ?? 0}`);
-    resAcc && (resAcc.textContent = `${fmtNum(summary.accuracyPct, 1)} %`);
-    resDuration && (resDuration.textContent = `${fmtNum(summary.durationSec, 1)} s`);
-    resRank && (resRank.textContent = summary.rank || '-');
-    resOffsetAvg && (resOffsetAvg.textContent = `${fmtNum(summary.offsetMean, 4)} s`);
-    resOffsetStd && (resOffsetStd.textContent = `${fmtNum(summary.offsetStd, 4)} s`);
-    resParticipant && (resParticipant.textContent = summary.participant || '-');
+  // ---------- start / stop ----------
+  function applyModeTrackHud(mode, trackId) {
+    if (refs.hudMode) refs.hudMode.textContent = (mode === 'research' ? 'Research' : 'Normal');
+    if (refs.hudTrack) refs.hudTrack.textContent = (TRACK_META[trackId] && TRACK_META[trackId].name) || trackId;
+  }
 
-    if (resQualityNote) {
-      const note = String(summary.qualityNote || '').trim();
-      resQualityNote.textContent = note;
-      resQualityNote.classList.toggle('hidden', !note);
-    }
-
-    updateFlushUi(remoteLogger.getStatus());
+  function syncQueryToAI(mode) {
+    // ai-predictor.js reads query param "mode"; make URL consistent (no reload)
+    try {
+      const u = new URL(WIN.location.href);
+      u.searchParams.set('mode', mode);
+      // preserve ai if present or set from current url only
+      WIN.history.replaceState(null, '', u.toString());
+    } catch (_) {}
   }
 
   function startGame() {
     const mode = getSelectedMode();
     const trackId = getSelectedTrack();
-    const meta = collectMeta(mode);
+    const meta = readMetaFromForm();
 
-    lastMode = mode;
-    lastTrackId = trackId;
+    // Research mode should have participant optional but recommended
+    if (mode === 'research' && !meta.id) {
+      // Allow start (don’t block research workflow), but warn visually
+      pulseFeedback('ใส่ Participant ID จะดีกว่าสำหรับงานวิจัย', 'is-good');
+    }
 
-    if (!renderer) attachRendererHooks();
-    if (!engine) createEngine();
-    if (!engine) return;
+    state.lastMode = mode;
+    state.lastTrackId = trackId;
+    state.lastMeta = meta;
+
+    syncQueryToAI(mode);
+    applyModeTrackHud(mode, trackId);
+
+    // Reset on-play labels
+    if (refs.hudAiTip) {
+      refs.hudAiTip.textContent = '';
+      refs.hudAiTip.classList.add('hidden');
+    }
+    if (refs.feedback) {
+      refs.feedback.textContent = 'พร้อม!';
+      refs.feedback.classList.remove('is-perfect', 'is-great', 'is-good', 'is-miss', 'show');
+    }
 
     showView('play');
 
-    // HUD seed labels right before start (engine also updates in onStart)
-    if (hud.mode) hud.mode.textContent = mode === 'research' ? 'Research' : 'Normal';
+    // Start engine
+    const eng = ensureEngine();
+    eng.start(mode, trackId, meta);
 
-    engine.start(mode, trackId, meta);
-  }
-
-  function stopGame() {
-    if (engine && engine.running) {
-      engine.stop('manual-stop');
+    // show lock hint in feedback for research
+    if (mode === 'research') {
+      setTimeout(() => pulseFeedback('RESEARCH LOCK', 'is-great'), 120);
     }
   }
 
-  function playAgainSameTrack() {
-    // return to play and restart with same mode/track + current field values
-    if (!renderer) attachRendererHooks();
-    if (!engine) createEngine();
-    if (!engine) return;
-
-    // sync radios for UI consistency
-    const m = modeInputs.find(x => x.value === lastMode);
-    if (m) m.checked = true;
-    setModeUI(lastMode);
-
-    const t = trackInputs.find(x => x.value === lastTrackId);
-    if (t) t.checked = true;
-
-    showView('play');
-    engine.start(lastMode, lastTrackId, collectMeta(lastMode));
+  function stopGame(reason) {
+    if (!state.engine) return;
+    try {
+      state.engine.stop(reason || 'manual-stop');
+    } catch (e) {
+      console.error('[RhythmBoxer] stopGame error:', e);
+    }
   }
 
+  function replaySame() {
+    if (state.engine && state.engine.running) {
+      stopGame('restart');
+    }
+    // start again same selection/meta
+    setSelectedMode(state.lastMode || getSelectedMode());
+    setSelectedTrack(state.lastTrackId || getSelectedTrack());
+
+    if (refs.participant) refs.participant.value = safeText(state.lastMeta.id);
+    if (refs.group) refs.group.value = safeText(state.lastMeta.group);
+    if (refs.note) refs.note.value = safeText(state.lastMeta.note);
+
+    startGame();
+  }
+
+  // ---------- result ----------
+  function fillResult(summary) {
+    const s = summary || {};
+
+    if (refs.resMode) refs.resMode.textContent = safeText(s.modeLabel || '-');
+    if (refs.resTrack) refs.resTrack.textContent = safeText(s.trackName || '-');
+    if (refs.resEndReason) refs.resEndReason.textContent = safeText(s.endReason || '-');
+    if (refs.resScore) refs.resScore.textContent = String(Math.round(Number(s.finalScore) || 0));
+    if (refs.resMaxCombo) refs.resMaxCombo.textContent = String(Math.round(Number(s.maxCombo) || 0));
+
+    if (refs.resDetailHit) {
+      refs.resDetailHit.textContent =
+        `${Math.round(Number(s.hitPerfect)||0)} / ${Math.round(Number(s.hitGreat)||0)} / ${Math.round(Number(s.hitGood)||0)} / ${Math.round(Number(s.hitMiss)||0)}`;
+    }
+
+    if (refs.resAcc) refs.resAcc.textContent = `${fmtNum(s.accuracyPct, 1)} %`;
+    if (refs.resDuration) refs.resDuration.textContent = `${fmtNum(s.durationSec, 1)} s`;
+    if (refs.resRank) {
+      refs.resRank.textContent = safeText(s.rank || '-');
+      refs.resRank.classList.remove('is-perfect', 'is-great', 'is-good', 'is-miss');
+      refs.resRank.classList.add(rankHintClass(s.rank));
+    }
+
+    if (refs.resOffsetAvg) refs.resOffsetAvg.textContent = `${fmtNum((Number(s.offsetMean)||0) * 1000, 1)} ms`;
+    if (refs.resOffsetStd) refs.resOffsetStd.textContent = `${fmtNum((Number(s.offsetStd)||0) * 1000, 1)} ms`;
+    if (refs.resParticipant) refs.resParticipant.textContent = safeText(s.participant || '-');
+
+    if (refs.resQualityNote) {
+      const txt = safeText(s.qualityNote || '');
+      refs.resQualityNote.textContent = txt;
+      refs.resQualityNote.classList.toggle('hidden', !txt);
+    }
+  }
+
+  // ---------- CSV download ----------
   function downloadEventsCsv() {
-    if (!engine) return;
-    const csv = engine.getEventsCsv();
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    downloadText(`rhythm-boxer-events-${stamp}.csv`, csv, 'text/csv;charset=utf-8');
+    if (!state.engine || typeof state.engine.getEventsCsv !== 'function') return;
+    const csv = state.engine.getEventsCsv();
+    const t = new Date();
+    const ts = [
+      t.getFullYear(),
+      String(t.getMonth() + 1).padStart(2, '0'),
+      String(t.getDate()).padStart(2, '0'),
+      '-',
+      String(t.getHours()).padStart(2, '0'),
+      String(t.getMinutes()).padStart(2, '0'),
+      String(t.getSeconds()).padStart(2, '0')
+    ].join('');
+    dlBlob(`rhythm-boxer-events-${ts}.csv`, csv, 'text/csv;charset=utf-8');
   }
 
   function downloadSessionCsv() {
-    if (!engine) return;
-    const csv = engine.getSessionCsv();
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    downloadText(`rhythm-boxer-sessions-${stamp}.csv`, csv, 'text/csv;charset=utf-8');
+    if (!state.engine || typeof state.engine.getSessionCsv !== 'function') return;
+    const csv = state.engine.getSessionCsv();
+    const t = new Date();
+    const ts = [
+      t.getFullYear(),
+      String(t.getMonth() + 1).padStart(2, '0'),
+      String(t.getDate()).padStart(2, '0'),
+      '-',
+      String(t.getHours()).padStart(2, '0'),
+      String(t.getMinutes()).padStart(2, '0'),
+      String(t.getSeconds()).padStart(2, '0')
+    ].join('');
+    dlBlob(`rhythm-boxer-sessions-${ts}.csv`, csv, 'text/csv;charset=utf-8');
   }
 
-  function wireEvents() {
-    modeInputs.forEach(i => i.addEventListener('change', () => setModeUI(getSelectedMode())));
-    btnStart && btnStart.addEventListener('click', startGame);
-    btnStop && btnStop.addEventListener('click', stopGame);
+  // ---------- calibration (hotkeys only; no extra HTML required) ----------
+  function adjustCal(msDelta) {
+    if (!state.engine) return;
+    const e = state.engine;
+    const next = (Number(e.calOffsetSec) || 0) + (msDelta / 1000);
+    e.calOffsetSec = Math.max(-0.200, Math.min(0.200, next)); // ±200ms cap
+    pulseFeedback(`Cal ${Math.round(e.calOffsetSec * 1000)}ms`, 'is-great');
+    if (typeof e._updateCalibrationHud === 'function') e._updateCalibrationHud();
+  }
 
-    btnAgain && btnAgain.addEventListener('click', playAgainSameTrack);
-    btnBackMenu && btnBackMenu.addEventListener('click', () => {
-      showView('menu');
-      updateFlushUi(remoteLogger.getStatus());
+  function resetCal() {
+    if (!state.engine) return;
+    state.engine.calOffsetSec = 0;
+    pulseFeedback('Cal 0ms', 'is-good');
+    if (typeof state.engine._updateCalibrationHud === 'function') state.engine._updateCalibrationHud();
+  }
+
+  // ---------- query init ----------
+  function initFromQuery() {
+    const q = state.query;
+
+    // mode
+    const qMode = (q.get('mode') || '').toLowerCase();
+    if (qMode === 'research' || qMode === 'normal') {
+      setSelectedMode(qMode);
+    } else {
+      setSelectedMode('normal');
+    }
+
+    // track
+    const qTrack = (q.get('track') || '').toLowerCase();
+    if (TRACK_META[qTrack]) {
+      setSelectedTrack(qTrack);
+    }
+
+    // if track conflicts with mode, refreshModeUI will correct it
+    refreshModeUI();
+
+    // optional prefill (nice for research links)
+    if (refs.participant && q.get('pid')) refs.participant.value = q.get('pid') || '';
+    if (refs.group && q.get('group')) refs.group.value = q.get('group') || '';
+    if (refs.note && q.get('note')) refs.note.value = q.get('note') || '';
+
+    // Optional auto mode hint for AI assist
+    if (refs.modeDesc) {
+      const aiOn = readQueryFlag(q, 'ai', false);
+      if (state.mode === 'normal' && aiOn) {
+        refs.modeDesc.textContent += ' · AI assist (prediction/assist) ถูกเปิดด้วย ?ai=1';
+      }
+    }
+  }
+
+  // ---------- events ----------
+  function bindEvents() {
+    refs.modeRadios.forEach(r => {
+      r.addEventListener('change', refreshModeUI);
     });
 
-    btnDlEvents && btnDlEvents.addEventListener('click', downloadEventsCsv);
-    btnDlSessions && btnDlSessions.addEventListener('click', downloadSessionCsv);
+    refs.trackRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        state.trackId = getSelectedTrack();
+        refreshModeUI();
+      });
+    });
 
-    // keyboard shortcuts (optional)
+    if (refs.btnStart) refs.btnStart.addEventListener('click', startGame);
+    if (refs.btnStop) refs.btnStop.addEventListener('click', () => stopGame('manual-stop'));
+
+    if (refs.btnAgain) refs.btnAgain.addEventListener('click', replaySame);
+    if (refs.btnBackMenu) refs.btnBackMenu.addEventListener('click', () => showView('menu'));
+
+    if (refs.btnDlEvents) refs.btnDlEvents.addEventListener('click', downloadEventsCsv);
+    if (refs.btnDlSessions) refs.btnDlSessions.addEventListener('click', downloadSessionCsv);
+
+    // Keyboard shortcuts:
+    // Space/Enter = start (menu) or tap center lane (play) optional
+    // [ / ] = calibration -/+ 5ms
+    // \     = reset calibration
     DOC.addEventListener('keydown', (ev) => {
-      const k = (ev.key || '').toLowerCase();
-      if (k === 'escape' && viewPlay && !viewPlay.classList.contains('hidden')) {
-        stopGame();
+      const key = ev.key || '';
+
+      // Calibration keys (global, only useful after engine created)
+      if (key === '[') { adjustCal(-5); ev.preventDefault(); return; }
+      if (key === ']') { adjustCal(+5); ev.preventDefault(); return; }
+      if (key === '\\') { resetCal(); ev.preventDefault(); return; }
+
+      // Start key on menu
+      if (!refs.viewMenu.classList.contains('hidden')) {
+        if (key === 'Enter' || key === ' ') {
+          ev.preventDefault();
+          startGame();
+          return;
+        }
+      }
+
+      // Stop with Escape on play
+      if (!refs.viewPlay.classList.contains('hidden') && key === 'Escape') {
+        ev.preventDefault();
+        stopGame('manual-stop');
       }
     });
 
-    // page leave: best-effort one last flush (won't block)
+    // Mobile visibility pause safeguard
+    DOC.addEventListener('visibilitychange', () => {
+      if (DOC.hidden && state.engine && state.engine.running) {
+        stopGame('visibility-hidden');
+      }
+    });
+
     WIN.addEventListener('beforeunload', () => {
-      try { remoteLogger.flushAll(); } catch (_) {}
+      if (state.engine && state.engine.running) {
+        try { state.engine.stop('unload'); } catch (_) {}
+      }
     });
   }
 
-  function initFromQuery() {
-    // mode
-    let mode = 'normal';
-    if (Q.mode === 'research') mode = 'research';
-    const m = modeInputs.find(x => x.value === mode);
-    if (m) m.checked = true;
-    setModeUI(mode);
-
-    // diff -> default track in normal mode
-    if (mode === 'normal') {
-      const diffMap = { easy: 'n1', normal: 'n2', hard: 'n3' };
-      const want = diffMap[Q.diff] || 'n1';
-      const t = trackInputs.find(x => x.value === want);
-      if (t) t.checked = true;
-    } else {
-      const r = trackInputs.find(x => x.value === 'r1');
-      if (r) r.checked = true;
+  // ---------- startup ----------
+  function bootstrap() {
+    if (!refs.viewMenu || !refs.viewPlay || !refs.viewResult) {
+      console.error('[RhythmBoxer] Required views not found');
+      return;
     }
 
-    // prefill participant from query if present
-    if (Q.pid && inParticipant && !inParticipant.value) {
-      inParticipant.value = Q.pid;
-    }
-
-    // clear disable latch manually if query says so
-    if (String(qs('resetlog', '0')) === '1') {
-      clearRemoteDisable();
-    }
-
-    // auto-run if query asks
-    if (Q.run === 'play') {
-      setTimeout(() => startGame(), 50);
-    }
-  }
-
-  function init() {
-    attachRendererHooks();
-    createEngine();
-    wireEvents();
+    showView('menu');
+    bindEvents();
     initFromQuery();
-    ensureResultFlushUi();
+    refreshModeUI();
 
-    // show remote status in console once
-    const info = getRemoteDisableInfo();
-    if (info.disabled) {
-      console.warn('[Rhythm Boxer] Remote log disabled (latch):', info);
-    } else if (Q.log && Q.api) {
-      console.info('[Rhythm Boxer] Remote log enabled:', Q.api);
-    } else {
-      console.info('[Rhythm Boxer] Local CSV mode (remote disabled/off)');
+    // Pre-create engine so calibration/hud exists before start (optional)
+    try {
+      ensureEngine();
+    } catch (e) {
+      console.error(e);
+      if (refs.modeDesc) {
+        refs.modeDesc.textContent = 'โหลด engine ไม่สำเร็จ: ' + (e && e.message ? e.message : e);
+      }
+    }
+
+    // Initial feedback
+    if (refs.feedback) {
+      refs.feedback.textContent = 'พร้อม!';
+    }
+
+    // If ?autostart=1
+    if (readQueryFlag(state.query, 'autostart', false)) {
+      setTimeout(startGame, 120);
     }
   }
 
   if (DOC.readyState === 'loading') {
-    DOC.addEventListener('DOMContentLoaded', init);
+    DOC.addEventListener('DOMContentLoaded', bootstrap, { once: true });
   } else {
-    init();
+    bootstrap();
   }
 })();
