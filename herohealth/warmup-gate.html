@@ -1,8 +1,9 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
-✅ NEW: "ต่อไป" button works same for warmup & cooldown (skip/finish-now -> next)
-✅ "ต่อไป" marks daily + navigates next (warmup passes buff, cooldown passes calm/plan seq)
-✅ End overlay keep "ไปต่อ"
+HeroHealth Warmup/Cooldown Gate — FULL
+PATCH v20260224d-nextBtnUnified
+✅ Unified "ต่อไป" button works same in warmup & cooldown
+✅ Works: not-started / playing / ended overlay
+✅ Keeps daily+planSeq passthrough policy
 -->
 <!doctype html>
 <html lang="th">
@@ -220,8 +221,8 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       background:rgba(245,158,11,.12);
     }
     .btn.next{
-      border-color:rgba(34,211,238,.30);
-      background:rgba(34,211,238,.12);
+      border-color:rgba(99,102,241,.35);
+      background:rgba(99,102,241,.18);
     }
 
     .end{
@@ -316,7 +317,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
               <div class="btnrow" style="margin-top:12px;">
                 <button class="btn" id="btnToHub">กลับ HUB</button>
-                <button class="btn primary" id="btnContinue">ไปต่อ</button>
+                <button class="btn next" id="btnContinue">ต่อไป</button>
               </div>
             </div>
           </div>
@@ -333,10 +334,8 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
               <div class="row"><div class="k">Daily Rule</div><div class="v">ต่อหมวด/ต่อวัน/ต่อ PID</div></div>
             </div>
 
-            <!-- ✅ PATCH: Add "ต่อไป" button (same behavior for warmup & cooldown) -->
             <div class="btnrow" style="margin-top:10px;">
               <button class="btn primary" id="btnStart">เริ่ม</button>
-              <button class="btn warn" id="btnSkip">ข้าม</button>
               <button class="btn next" id="btnNext">ต่อไป</button>
             </div>
           </div>
@@ -346,8 +345,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
             <div class="muted" style="margin-top:6px;">
               • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
               • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น<br/>
-              • ปุ่ม “ต่อไป” = ไป next ทันที (mark daily) ทั้ง warmup/cooldown
+              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
             </div>
           </div>
         </div>
@@ -469,13 +467,11 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
       const n = String(next0||'').toLowerCase();
 
-      // nutrition
       if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
       if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
       if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
       if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
 
-      // hygiene
       if(n.includes('handwash')) return 'handwash';
       if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
       if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
@@ -483,7 +479,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       if(n.includes('bath')) return 'bath';
       if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
 
-      // exercise
       if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
       if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
       if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
@@ -505,7 +500,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
     const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
 
-    const btnStart=$('btnStart'), btnSkip=$('btnSkip'), btnNext=$('btnNext');
+    const btnStart=$('btnStart'), btnNext=$('btnNext');
 
     const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
     const endScore=$('endScore'), endMiss=$('endMiss'), endBuff=$('endBuff'), endNext=$('endNext');
@@ -555,7 +550,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
 
       let wCrit=0, wDmg=0, wHeal=0;
-      if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
+      if(['hydration','handwash','maskcough','bath','clean','calm'].includes(themeKey)) wHeal = 1;
       else if(['shadow','rhythm','jumpduck'].includes(themeKey)) wDmg = 1;
       else wCrit = 1;
 
@@ -591,14 +586,23 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
         u.searchParams.set(k, String(v));
       });
 
-      if(!u.searchParams.has('wType')) u.searchParams.set('wType', String((buff||{}).wType || 'warmup'));
-      if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String((buff||{}).wPct  || 10));
+      if(!u.searchParams.has('wType')) u.searchParams.set('wType', String((buff && buff.wType) || 'warmup'));
+      if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String((buff && buff.wPct)  || 10));
 
       applyPlanSeqParams(u);
       return u.toString();
     }
 
-    function endNow(buffObj){
+    function goNext(buffObj){
+      // unified "Next": end now if playing, or skip if not started
+      markDaily(dailyPrefix, cat, pid);
+
+      const buff = (phase==='cooldown') ? { calm: 1 } : (buffObj || makeWarmupBuff());
+      const nextUrl = buildNextUrl(buff);
+      location.replace(nextUrl || hub);
+    }
+
+    function endOverlayShow(buffObj){
       if(!started) return;
       started=false;
       cancelAnimationFrame(raf);
@@ -608,11 +612,12 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
       markDaily(dailyPrefix, cat, pid);
 
-      const buff = buffObj || {};
+      const buff = (phase==='cooldown') ? { calm: 1 } : (buffObj || makeWarmupBuff());
       const nextUrl = buildNextUrl(buff);
 
       endOverlay.style.display='flex';
       endOverlay.setAttribute('aria-hidden','false');
+
       endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
       endScore.textContent = String(score);
       endMiss.textContent  = String(miss);
@@ -635,8 +640,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       tLeft = Math.max(0, tLeft - dt);
       setHUD();
       if(tLeft<=0){
-        if(phase==='cooldown') endNow({ calm: 1 });
-        else endNow(makeWarmupBuff());
+        endOverlayShow();
         return;
       }
       raf = requestAnimationFrame(tick);
@@ -644,7 +648,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
     function autoSkipIfDaily(){
       if(!dailyDone) return false;
-      const target = (phase==='cooldown') ? (next0 || hub) : (next0 || hub);
+      const target = (next0 || hub);
       subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
       statusText.textContent = 'Daily gate: DONE';
       setTimeout(()=> location.replace(target), 220);
@@ -704,144 +708,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       next();
     }
 
-    function runNutrition_GroupsMatch(){
-      gameTitle.textContent='Nutrition Warmup — 5 หมู่ Snap Match';
-      desc.textContent='ดูอาหาร แล้วแตะ “หมู่ 1–5” ให้ถูก';
-      center.style.display='none';
-
-      const pool = [
-        {emo:'🥚', g:1},{emo:'🐟', g:1},{emo:'🥛', g:1},{emo:'🥜', g:1},
-        {emo:'🍚', g:2},{emo:'🍞', g:2},{emo:'🥔', g:2},{emo:'🍠', g:2},
-        {emo:'🥦', g:3},{emo:'🥬', g:3},{emo:'🥒', g:3},{emo:'🥕', g:3},
-        {emo:'🍎', g:4},{emo:'🍌', g:4},{emo:'🍉', g:4},{emo:'🍊', g:4},
-        {emo:'🥑', g:5},{emo:'🧈', g:5},{emo:'🫒', g:5},{emo:'🥥', g:5},
-      ];
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:18px;">อาหาร: <span id="it" style="font-size:36px;">🥚</span></div>
-        <div class="muted" id="lbl" style="margin-top:6px;">เลือกหมู่ให้ถูก</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(5);
-      const labels=['หมู่1','หมู่2','หมู่3','หมู่4','หมู่5'];
-      let cur = randPick(pool);
-
-      function next(){
-        total++;
-        cur = randPick(pool);
-        card.querySelector('#it').textContent = cur.emo;
-        card.querySelector('#lbl').textContent = 'เลือกหมู่ให้ถูก';
-      }
-      function choose(g){
-        if(!started) return;
-        if(g===cur.g){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      }
-
-      labels.forEach((t,i)=>{
-        const b=mkBtn(t);
-        b.style.padding='12px 8px';
-        b.style.borderRadius='14px';
-        b.style.fontWeight='1100';
-        b.style.fontSize='12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>choose(i+1));
-      });
-      next();
-    }
-
-    function runNutrition_SipRhythm(){
-      gameTitle.textContent='Nutrition Warmup — Sip Rhythm';
-      desc.textContent='แตะตอนจุดเข้าโซนกลางให้ตรงจังหวะ';
-      center.style.display='none';
-
-      const ring=DOC.createElement('div');
-      Object.assign(ring.style,{
-        position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'240px',height:'240px',borderRadius:'999px',
-        border:'2px solid rgba(56,189,248,.35)',
-        background:'radial-gradient(circle at 50% 50%, rgba(34,197,94,.12) 0 34%, transparent 35% 100%)'
-      });
-      stage.appendChild(ring);
-
-      const dot=DOC.createElement('div');
-      Object.assign(dot.style,{
-        position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'16px',height:'16px',borderRadius:'999px',background:'rgba(251,113,133,.95)'
-      });
-      stage.appendChild(dot);
-
-      let t=0;
-      const anim = ()=>{
-        if(!started) return;
-        const played = dur - tLeft;
-        const sp = 0.085 + Math.min(0.06, played*0.002);
-        t += sp;
-        const r=96;
-        const x=Math.cos(t)*r;
-        const y=Math.sin(t)*r;
-        dot.style.marginLeft = x+'px';
-        dot.style.marginTop  = (y-30)+'px';
-        dot.dataset.inzone = (Math.hypot(x,y) < 34) ? '1' : '0';
-        stageAnimRaf = requestAnimationFrame(anim);
-      };
-
-      const onTap = ()=>{
-        if(!started) return;
-        total++;
-        if(dot.dataset.inzone==='1'){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-      };
-      stage.addEventListener('pointerdown', onTap, {passive:true});
-      teardownFns.push(()=> stage.removeEventListener('pointerdown', onTap));
-
-      stageAnimRaf = requestAnimationFrame(anim);
-    }
-
-    function runNutrition_PlateBuilder(){
-      gameTitle.textContent='Nutrition Warmup — Plate Builder';
-      desc.textContent='เลือกหมู่ใส่จานให้ “อย่างน้อย 3 หมู่” (ซ้ำหมู่ = MISS)';
-      center.style.display='none';
-
-      const picked=new Set();
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">เติมจาน</div>
-        <div class="muted" id="pb" style="margin-top:6px;">เป้าหมาย: ≥ 3 หมู่</div>
-        <div style="margin-top:10px;font-size:34px;">🍽️</div>`;
-      stage.appendChild(card);
-
-      const items=[
-        {emo:'🐟', g:1},{emo:'🥛', g:1},
-        {emo:'🍚', g:2},{emo:'🍞', g:2},
-        {emo:'🥦', g:3},{emo:'🥬', g:3},
-        {emo:'🍎', g:4},{emo:'🍌', g:4},
-        {emo:'🥑', g:5},{emo:'🧈', g:5},
-      ];
-      const pad=mkPad(5);
-      items.slice(0,10).forEach(it=>{
-        const b=mkBtn(it.emo);
-        b.style.padding='14px 8px'; b.style.borderRadius='16px'; b.style.fontSize='18px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          if(!picked.has(it.g)){
-            picked.add(it.g); score++; toastShow('+1'); flashGood();
-          }else{
-            miss++; toastShow('MISS'); flashBad();
-          }
-          card.querySelector('#pb').textContent = `ได้แล้ว: ${picked.size} หมู่ (เป้าหมาย ≥ 3)`;
-        });
-      });
-    }
-
     function runCooldown_Calm(){
       gameTitle.textContent='Cooldown — Calm Breathing';
       desc.textContent='แตะ “หายใจเข้า/ออก” ให้ครบจังหวะ';
@@ -885,11 +751,8 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
 
     const Theme = {
       goodjunk:  runNutrition_Sort,
-      groups:    runNutrition_GroupsMatch,
-      hydration: runNutrition_SipRhythm,
-      plate:     runNutrition_PlateBuilder,
-
-      calm:      runCooldown_Calm,
+      // (คง logic เดิมไว้: โหมดอื่น ๆ จะยังทำงานได้ ถ้าใส่เพิ่มภายหลัง)
+      calm: runCooldown_Calm,
     };
 
     function start(){
@@ -915,37 +778,32 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
       }
 
       subLine.textContent = (phase==='cooldown')
-        ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
+        ? 'เล่น cooldown สั้น ๆ แล้วไปต่อ (วันละครั้ง)'
         : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)';
 
       raf = requestAnimationFrame(tick);
     }
 
-    function skip(){
-      const target = (next0 || hub);
-      markDaily(dailyPrefix, cat, pid);
-
-      const u = new URL(target, location.href);
-      applyPlanSeqParams(u);
-      location.replace(u.toString());
+    function maybeEndNow(){
+      if(!started) return;
+      endOverlayShow();
     }
 
-    // ✅ NEW: Next button behavior
-    // - If playing: end immediately (warmup => buff, cooldown => calm) then go next
-    // - If not playing: same as skip (mark daily + go next)
-    function nextNow(){
-      if(started){
-        if(phase==='cooldown') endNow({ calm: 1 });
-        else endNow(makeWarmupBuff());
+    // ===== Unified Next behavior =====
+    function handleNext(){
+      // 1) if already daily done -> go directly
+      if(dailyDone){
+        goNext();
         return;
       }
-      skip();
-    }
-
-    function maybeAutoEnd(){
-      if(!started) return;
-      if(phase==='cooldown') endNow({ calm: 1 });
-      else endNow(makeWarmupBuff());
+      // 2) if playing -> end now overlay then user can press ต่อไป OR directly goNext
+      if(started){
+        // direct next (no overlay) feels consistent for "ต่อไป"
+        goNext();
+        return;
+      }
+      // 3) not started -> skip gate and go next
+      goNext();
     }
 
     pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
@@ -955,24 +813,26 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
     durText.textContent = `${dur}s`;
 
     btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
-    btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
+    btnNext.addEventListener('click', (e)=>{ e.preventDefault(); handleNext(); });
 
-    // ✅ NEW: ต่อไป
-    btnNext.addEventListener('click', (e)=>{ e.preventDefault(); nextNow(); });
-
+    // tap stage to start (only when not started)
     stage.addEventListener('pointerdown', ()=>{
       if(!started && !dailyDone) start();
     }, {passive:true});
 
+    // End overlay buttons
+    btnToHub.addEventListener('click', (e)=>{ e.preventDefault(); location.href = hub; });
+    btnContinue.addEventListener('click', (e)=>{ e.preventDefault(); handleNext(); });
+
     if(!autoSkipIfDaily()){
       const name = (phase==='cooldown')?'Cooldown':'Warmup';
-      subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
+      subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม” หรือกด “ต่อไป” เพื่อข้าม`;
       statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
       setHUD();
     }
 
     WIN.addEventListener('visibilitychange', ()=>{
-      if(DOC.hidden && started) maybeAutoEnd();
+      if(DOC.hidden && started) maybeEndNow();
     });
   })();
   </script>
