@@ -1,18 +1,12 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — FULL (v20260224-planSeq-pick5)
-✅ Cat = Zone (nutrition/hygiene/exercise)
-✅ Theme = Game (goodjunk/groups/hydration/plate/handwash/brush/maskcough/germdetective/bath/clean/shadow/rhythm/jumpduck/balance/planner)
-✅ Theme pick policy (5 modes via hub policy support):
-   1) ?theme= override
-   2) ?game= legacy override
-   3) ?pick=rand => random within category
-   4) ?pick=day  => deterministic by pid+cat+day(+slot)
-   5) fallback detect from next path
-✅ Daily once-per-day per PID+category for warmup and cooldown
-✅ Warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
-✅ Cooldown end -> supports plan sequence passthrough + cdnext chain target already in next
-✅ Works PC/Mobile (tap/click). Safe, no external deps.
-✅ PATCH: autoSkipIfDaily() applyPlanSeqParams to avoid planSeq drop.
+HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
+✅ warmup-gate.html อยู่ /herohealth/ (root)
+✅ hub default = ./hub.html (root-safe)
+✅ theme pick policy (theme/game/pick=rand|day/detect next)
+✅ daily once-per-day per PID+category for warmup & cooldown
+✅ warmup end -> pass buffs into next URL
+✅ cooldown end -> plan sequence passthrough + cdnext chain target already in next
+✅ Works PC/Mobile (tap/click). Safe, no deps.
 -->
 <!doctype html>
 <html lang="th">
@@ -90,10 +84,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224-planSeq-pick5)
       white-space:nowrap;
     }
 
-    .main{
-      display:grid; grid-template-columns: 1.2fr .8fr;
-      gap:0;
-    }
+    .main{display:grid; grid-template-columns: 1.2fr .8fr; gap:0;}
     @media (max-width: 860px){ .main{ grid-template-columns:1fr; } }
 
     .play{
@@ -126,8 +117,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224-planSeq-pick5)
     .hud .v{margin-top:4px; font-size:15px; font-weight:1100}
 
     .center{
-      position:absolute;
-      left:50%; top:50%;
+      position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
       text-align:center;
       z-index:2;
@@ -187,11 +177,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224-planSeq-pick5)
       border-radius:18px;
       padding:12px;
     }
-    .card h3{
-      margin:0;
-      font-size:14px;
-      font-weight:1000;
-    }
+    .card h3{ margin:0; font-size:14px; font-weight:1000; }
     .muted{
       color:rgba(229,231,235,.74);
       font-size:12px;
@@ -358,482 +344,607 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224-planSeq-pick5)
     </div>
   </div>
 
-  <script>
-  (function(){
-    'use strict';
-    const WIN=window, DOC=document;
-    const $= (id)=>DOC.getElementById(id);
+<script>
+(function(){
+  'use strict';
+  const WIN=window, DOC=document;
+  const $= (id)=>DOC.getElementById(id);
 
-    function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
-    const QS=getQS();
-    const q=(k,d='')=> (QS.get(k) ?? d);
-    const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
+  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS=getQS();
+  const q=(k,d='')=> (QS.get(k) ?? d);
+  const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
+  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
 
-    function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+  function absUrlMaybe(url){
+    if(!url) return '';
+    try{ return new URL(url, location.href).toString(); }catch{ return url; }
+  }
 
-    function absUrlMaybe(url){
-      if(!url) return '';
-      try{ return new URL(url, location.href).toString(); }catch{ return url; }
+  function getLocalDayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function dailyKey(prefix, category, pid){
+    const day=getLocalDayKey();
+    const p=(pid||'anon').trim()||'anon';
+    return `${prefix}:${category}:${p}:${day}`;
+  }
+  function isDaily(prefix, category, pid){
+    try{ return localStorage.getItem(dailyKey(prefix,category,pid))==='1'; }catch{ return false; }
+  }
+  function markDaily(prefix, category, pid){
+    try{ localStorage.setItem(dailyKey(prefix,category,pid),'1'); }catch{}
+  }
+
+  const phase = String(q('gatePhase', q('phase','warmup'))).toLowerCase();
+  const cat   = String(q('cat','nutrition')).toLowerCase();
+  const themeFromQs = String(q('theme','')).toLowerCase().trim();
+
+  // ✅ ROOT-SAFE defaults (warmup-gate.html at /herohealth/)
+  const hub   = absUrlMaybe(q('hub','./hub.html')) || './hub.html';
+  const next0 = absUrlMaybe(q('next','')) || hub;
+
+  const durWarm = clamp(qNum('dur', 20), 5, 60);
+  const durCool = clamp(qNum('cdur', qNum('dur',20)), 5, 60);
+  const dur = (phase==='cooldown') ? durCool : durWarm;
+
+  let pid = String(q('pid','')).trim() || 'anon';
+
+  function applyPlanSeqParams(u){
+    [
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone'
+    ].forEach(k=>{
+      const v = q(k,'');
+      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
+    });
+    return u;
+  }
+
+  function hash32(str){
+    let h = 2166136261 >>> 0;
+    str = String(str || '');
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
+    return h >>> 0;
+  }
 
-    function getLocalDayKey(){
-      const d=new Date();
-      const yyyy=d.getFullYear();
-      const mm=String(d.getMonth()+1).padStart(2,'0');
-      const dd=String(d.getDate()).padStart(2,'0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    function dailyKey(prefix, category, pid){
-      const day=getLocalDayKey();
-      const p=(pid||'anon').trim()||'anon';
-      return `${prefix}:${category}:${p}:${day}`;
-    }
-    function isDaily(prefix, category, pid){
-      try{ return localStorage.getItem(dailyKey(prefix,category,pid))==='1'; }catch{ return false; }
-    }
-    function markDaily(prefix, category, pid){
-      try{ localStorage.setItem(dailyKey(prefix,category,pid),'1'); }catch{}
-    }
+  function zoneThemePool(category){
+    const c = String(category || '').toLowerCase();
+    if(c === 'nutrition') return ['goodjunk','groups','hydration','plate'];
+    if(c === 'hygiene')   return ['handwash','brush','maskcough','germdetective','bath','clean'];
+    if(c === 'exercise')  return ['shadow','rhythm','jumpduck','balance','planner'];
+    return ['goodjunk','groups','hydration','plate'];
+  }
 
-    const phase = String(q('gatePhase', q('phase','warmup'))).toLowerCase();
-    const cat   = String(q('cat','nutrition')).toLowerCase();
-    const themeFromQs = String(q('theme','')).toLowerCase().trim();
-    const hub   = absUrlMaybe(q('hub','../hub.html')) || '../hub.html';
-    const next0 = absUrlMaybe(q('next','')) || hub;
+  function pickThemeByPolicy(category){
+    if(themeFromQs) return themeFromQs;
 
-    const durWarm = clamp(qNum('dur', 20), 5, 60);
-    const durCool = clamp(qNum('cdur', qNum('dur',20)), 5, 60);
-    const dur = (phase==='cooldown') ? durCool : durWarm;
+    const g = String(q('game','')).toLowerCase().trim();
+    if(g) return g;
 
-    let pid = String(q('pid','')).trim() || 'anon';
+    const pick = String(q('pick','')).toLowerCase().trim();
+    const run = String(q('run','play')).toLowerCase().trim();
+    const mode = (pick==='rand' || pick==='day') ? pick : (run==='research' ? 'day' : 'rand');
 
-    function applyPlanSeqParams(u){
-      [
-        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone'
-      ].forEach(k=>{
-        const v = q(k,'');
-        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-      });
-      return u;
-    }
+    const pool = zoneThemePool(category);
+    if(!pool.length) return 'goodjunk';
 
-    function hash32(str){
-      let h = 2166136261 >>> 0;
-      str = String(str || '');
-      for(let i=0;i<str.length;i++){
-        h ^= str.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-      }
-      return h >>> 0;
-    }
+    if(mode === 'rand') return pool[(Math.random()*pool.length)|0];
 
-    function zoneThemePool(category){
-      const c = String(category || '').toLowerCase();
-      if(c === 'nutrition') return ['goodjunk','groups','hydration','plate'];
-      if(c === 'hygiene')   return ['handwash','brush','maskcough','germdetective','bath','clean'];
-      if(c === 'exercise')  return ['shadow','rhythm','jumpduck','balance','planner'];
-      return ['goodjunk','groups','hydration','plate'];
-    }
+    const dayKey = getLocalDayKey();
+    const slot = String(q('planSlot','')).toLowerCase().trim();
+    const seed = `${pid}|${dayKey}|${slot}|${category}|${run}|warmup-gate`;
+    const idx = hash32(seed) % pool.length;
+    return pool[idx];
+  }
 
-    function pickThemeByPolicy(category){
-      if(themeFromQs) return themeFromQs;
+  function detectThemeKey(){
+    if(themeFromQs) return themeFromQs;
+    const g = String(q('game','')).toLowerCase().trim();
+    if(g) return g;
 
-      const g = String(q('game','')).toLowerCase().trim();
-      if(g) return g;
+    const usePick = String(q('pick','')).toLowerCase().trim();
+    if(usePick==='rand' || usePick==='day') return pickThemeByPolicy(cat);
 
-      const pick = String(q('pick','')).toLowerCase().trim();
-      const run = String(q('run','play')).toLowerCase().trim();
-      const mode = (pick==='rand' || pick==='day') ? pick : (run==='research' ? 'day' : 'rand');
+    const n = String(next0||'').toLowerCase();
 
-      const pool = zoneThemePool(category);
-      if(!pool.length) return 'goodjunk';
+    // nutrition
+    if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
+    if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
+    if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
+    if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
 
-      if(mode === 'rand'){
-        return pool[(Math.random()*pool.length)|0];
-      }
+    // hygiene
+    if(n.includes('handwash')) return 'handwash';
+    if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
+    if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
+    if(n.includes('germ-detective') || n.includes('germ') || n.includes('detective')) return 'germdetective';
+    if(n.includes('bath')) return 'bath';
+    if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
 
-      const dayKey = getLocalDayKey();
-      const slot = String(q('planSlot','')).toLowerCase().trim();
-      const seed = `${pid}|${dayKey}|${slot}|${category}|${run}|warmup-gate`;
-      const idx = hash32(seed) % pool.length;
-      return pool[idx];
-    }
+    // exercise
+    if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
+    if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
+    if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
+    if(n.includes('balance-hold') || n.includes('balance')) return 'balance';
+    if(n.includes('fitness-planner') || n.includes('planner')) return 'planner';
 
-    function detectThemeKey(){
-      if(themeFromQs) return themeFromQs;
-      const g = String(q('game','')).toLowerCase().trim();
-      if(g) return g;
+    return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'jumpduck' : 'goodjunk';
+  }
+  const themeKey = detectThemeKey();
 
-      const usePick = String(q('pick','')).toLowerCase().trim();
-      if(usePick==='rand' || usePick==='day'){
-        return pickThemeByPolicy(cat);
-      }
+  const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
+  const dailyDone = isDaily(dailyPrefix, cat, pid);
 
-      const n = String(next0||'').toLowerCase();
+  const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
+  const subLine=$('subLine'), statusText=$('statusText'), durText=$('durText');
+  const gameTitle=$('gameTitle'), desc=$('desc');
+  const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
+  const toast=$('toast'), flash=$('flash');
 
-      // nutrition
-      if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
-      if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
-      if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
-      if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
+  const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
 
-      // hygiene
-      if(n.includes('handwash')) return 'handwash';
-      if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
-      if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
-      if(n.includes('germ-detective') || n.includes('germ') || n.includes('detective')) return 'germdetective';
-      if(n.includes('bath')) return 'bath';
-      if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
+  const btnStart=$('btnStart'), btnSkip=$('btnSkip');
 
-      // exercise
-      if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
-      if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
-      if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
-      if(n.includes('balance-hold') || n.includes('balance')) return 'balance';
-      if(n.includes('fitness-planner') || n.includes('planner')) return 'planner';
+  const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
+  const endScore=$('endScore'), endMiss=$('endMiss'), endBuff=$('endBuff'), endNext=$('endNext');
+  const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
 
-      return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'jumpduck' : 'goodjunk';
-    }
-    const themeKey = detectThemeKey();
+  function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+  function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+  function toastShow(text){
+    toast.textContent=text;
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 420);
+  }
 
-    const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
-    const dailyDone = isDaily(dailyPrefix, cat, pid);
+  let started=false;
+  let tLeft=dur;
+  let score=0, miss=0, total=0;
+  let raf=0, lastTs=0;
+  let stageAnimRaf=0;
+  let teardownFns=[];
 
-    const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
-    const subLine=$('subLine'), statusText=$('statusText'), durText=$('durText');
-    const gameTitle=$('gameTitle');
-    const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
-    const toast=$('toast'), flash=$('flash');
+  function setHUD(){
+    hudTime.textContent = `${Math.ceil(tLeft)}s`;
+    hudScore.textContent = String(score);
+    hudMiss.textContent = String(miss);
+    hudTotal.textContent = String(total);
+  }
 
-    const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
+  function clearStage(){
+    cancelAnimationFrame(stageAnimRaf);
+    stageAnimRaf = 0;
+    teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
+    teardownFns = [];
 
-    const btnStart=$('btnStart'), btnSkip=$('btnSkip');
+    Array.from(stage.children).forEach(el=>{
+      if(el===toast || el===flash || el===center) return;
+      try{ el.remove(); }catch{}
+    });
 
-    const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
-    const endScore=$('endScore'), endMiss=$('endMiss'), endBuff=$('endBuff'), endNext=$('endNext');
-    const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
+    center.style.display='block';
+    big.textContent='🎯';
+    hint.textContent='กด “เริ่ม” แล้วเล่นสั้น ๆ ก่อนเข้าเกมจริง';
+  }
 
-    function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-    function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-    function toastShow(text){
-      toast.textContent=text;
-      toast.classList.add('show');
-      setTimeout(()=>toast.classList.remove('show'), 420);
-    }
+  function makeWarmupBuff(){
+    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
+    const pct = Math.round(clamp(acc*100, 5, 30));
+    const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
 
-    let started=false;
-    let tLeft=dur;
-    let score=0, miss=0, total=0;
-    let raf=0, lastTs=0;
-    let stageAnimRaf=0;
-    let teardownFns=[];
+    let wCrit=0, wDmg=0, wHeal=0;
+    if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
+    else if(['shadow','rhythm','jumpduck'].includes(themeKey)) wDmg = 1;
+    else wCrit = 1;
 
-    function setHUD(){
-      hudTime.textContent = `${Math.ceil(tLeft)}s`;
-      hudScore.textContent = String(score);
-      hudMiss.textContent = String(miss);
-      hudTotal.textContent = String(total);
-    }
+    return { wType:'warmup', wPct:pct, rank, wCrit, wDmg, wHeal };
+  }
 
-    function clearStage(){
-      cancelAnimationFrame(stageAnimRaf);
-      stageAnimRaf = 0;
-      teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
-      teardownFns = [];
+  function buildNextUrl(buff){
+    let target = next0 || hub;
 
-      Array.from(stage.children).forEach(el=>{
-        if(el===toast || el===flash || el===center) return;
-        try{ el.remove(); }catch{}
-      });
-
-      center.style.display='block';
-      big.textContent='🎯';
-      hint.textContent='กด “เริ่ม” แล้วเล่นสั้น ๆ ก่อนเข้าเกมจริง';
-    }
-
-    function makeWarmupBuff(){
-      const acc = (total>0) ? (score/Math.max(1,total)) : 0;
-      const pct = Math.round(clamp(acc*100, 5, 30));
-      const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
-
-      let wCrit=0, wDmg=0, wHeal=0;
-      if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
-      else if(['shadow','rhythm','jumpduck'].includes(themeKey)) wDmg = 1;
-      else wCrit = 1;
-
-      return { wType:'warmup', wPct:pct, rank, wCrit, wDmg, wHeal };
-    }
-
-    function buildNextUrl(buff){
-      let target = next0 || hub;
-
-      if(phase==='cooldown'){
-        const u = new URL(target, location.href);
-        applyPlanSeqParams(u);
-        return u.toString();
-      }
-
+    if(phase==='cooldown'){
       const u = new URL(target, location.href);
-
-      const passthroughKeys = [
-        'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase'
-      ];
-      passthroughKeys.forEach(k=>{
-        const v = q(k,'');
-        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-      });
-
-      const rp = q('researchPhase','');
-      if(rp && !u.searchParams.has('phase')) u.searchParams.set('phase', rp);
-
-      if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
-
-      Object.entries(buff||{}).forEach(([k,v])=>{
-        if(v===undefined || v===null || v==='') return;
-        u.searchParams.set(k, String(v));
-      });
-
-      if(!u.searchParams.has('wType')) u.searchParams.set('wType', String(buff.wType || 'warmup'));
-      if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String(buff.wPct  || 10));
-
       applyPlanSeqParams(u);
       return u.toString();
     }
 
-    function endNow(buffObj){
-      if(!started) return;
-      started=false;
-      cancelAnimationFrame(raf);
-      cancelAnimationFrame(stageAnimRaf);
-      raf = 0;
-      stageAnimRaf = 0;
+    const u = new URL(target, location.href);
 
-      markDaily(dailyPrefix, cat, pid);
+    const passthroughKeys = [
+      'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase','api'
+    ];
+    passthroughKeys.forEach(k=>{
+      const v = q(k,'');
+      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
+    });
 
-      const buff = buffObj || {};
-      const nextUrl = buildNextUrl(buff);
+    const rp = q('researchPhase','');
+    if(rp && !u.searchParams.has('phase')) u.searchParams.set('phase', rp);
 
-      endOverlay.style.display='flex';
-      endOverlay.setAttribute('aria-hidden','false');
-      endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
-      endScore.textContent = String(score);
-      endMiss.textContent  = String(miss);
-      endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
-      endNext.textContent  = nextUrl ? 'YES' : 'HUB';
-      endMsg.textContent =
-        (phase==='cooldown')
-          ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
-          : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง';
+    if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
 
-      btnToHub.onclick = ()=> location.href = hub;
-      btnContinue.onclick = ()=> location.replace(nextUrl || hub);
-    }
+    Object.entries(buff||{}).forEach(([k,v])=>{
+      if(v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
+    });
 
-    function tick(ts){
-      if(!started) return;
-      if(!lastTs) lastTs = ts;
-      const dt = Math.min(0.25, (ts-lastTs)/1000);
-      lastTs = ts;
-      tLeft = Math.max(0, tLeft - dt);
-      setHUD();
-      if(tLeft<=0){
-        if(phase==='cooldown') endNow({ calm: 1 });
-        else endNow(makeWarmupBuff());
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    }
+    if(!u.searchParams.has('wType')) u.searchParams.set('wType', String(buff.wType || 'warmup'));
+    if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String(buff.wPct  || 10));
 
-    // ✅ PATCH: auto-skip must keep planSeq params
-    function autoSkipIfDaily(){
-      if(!dailyDone) return false;
-      const target = (next0 || hub);
+    applyPlanSeqParams(u);
+    return u.toString();
+  }
 
-      subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
-      statusText.textContent = 'Daily gate: DONE';
+  function endNow(buffObj){
+    if(!started) return;
+    started=false;
+    cancelAnimationFrame(raf);
+    cancelAnimationFrame(stageAnimRaf);
+    raf = 0;
+    stageAnimRaf = 0;
 
-      setTimeout(()=>{
-        try{
-          const u = new URL(target, location.href);
-          applyPlanSeqParams(u);
-          location.replace(u.toString());
-        }catch(_){
-          location.replace(target);
-        }
-      }, 220);
+    markDaily(dailyPrefix, cat, pid);
 
-      return true;
-    }
+    const buff = buffObj || {};
+    const nextUrl = buildNextUrl(buff);
 
-    function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
-    function mkBtn(label){
-      const b=DOC.createElement('button');
-      b.className='btn';
-      b.textContent=label;
-      return b;
-    }
-    function mkPad(cols){
-      const pad=DOC.createElement('div');
-      pad.style.position='absolute';
-      pad.style.left='12px'; pad.style.right='12px'; pad.style.bottom='12px';
-      pad.style.display='grid';
-      pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
-      pad.style.gap='8px';
-      stage.appendChild(pad);
-      return pad;
-    }
+    endOverlay.style.display='flex';
+    endOverlay.setAttribute('aria-hidden','false');
+    endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
+    endScore.textContent = String(score);
+    endMiss.textContent  = String(miss);
+    endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
+    endNext.textContent  = nextUrl ? 'YES' : 'HUB';
+    endMsg.textContent =
+      (phase==='cooldown')
+        ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
+        : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง';
 
-    // ---------- MINI GAMES (เหมือนที่คุณแปะเดิมทั้งหมด) ----------
-    // (คงเดิม 100% เพื่อไม่ทำให้แตก)
+    btnToHub.onclick = ()=> location.href = hub;
+    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
+  }
 
-    function runNutrition_Sort(){
-      gameTitle.textContent='Nutrition Warmup — Food Sort Sprint';
-      center.style.display='none';
-
-      const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'];
-      const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'];
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะให้ทัน!</div>
-        <div id="it" style="font-size:60px;margin-top:8px;">🍎</div>
-        <div class="muted" style="margin-top:6px;">GOOD = +1 / JUNK = MISS</div>`;
-      stage.appendChild(card);
-
-      let curKind='good';
-      function next(){
-        total++;
-        curKind = (Math.random()<0.70) ? 'good' : 'junk';
-        card.querySelector('#it').textContent = (curKind==='good') ? randPick(GOOD) : randPick(JUNK);
-      }
-      const onTap = ()=>{
-        if(!started) return;
-        if(curKind==='good'){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      };
-      card.addEventListener('pointerdown', onTap, {passive:true});
-      teardownFns.push(()=> card.removeEventListener('pointerdown', onTap));
-      next();
-    }
-
-    function runCooldown_Calm(){
-      gameTitle.textContent='Cooldown — Calm Breathing';
-      center.style.display='none';
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(560px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `
-        <div style="font-weight:1100;font-size:16px;">หายใจตามจังหวะ</div>
-        <div id="bx" style="margin-top:12px;font-size:56px;">🫁</div>
-        <div id="bt" style="margin-top:8px;font-size:18px;font-weight:1100;">INHALE</div>
-        <div class="muted" style="margin-top:6px;">แตะให้ตรงคำสั่ง</div>
-        <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-          <button class="btn primary" id="bin">IN</button>
-          <button class="btn" id="bout">OUT</button>
-        </div>`;
-      stage.appendChild(card);
-
-      const bin=card.querySelector('#bin');
-      const bout=card.querySelector('#bout');
-      const bt=card.querySelector('#bt');
-
-      let cur='IN';
-      function next(){
-        total++;
-        cur = (Math.random()<0.5)?'IN':'OUT';
-        bt.textContent = (cur==='IN')?'INHALE':'EXHALE';
-      }
-      function choose(a){
-        if(!started) return;
-        if(a===cur){ score++; flashGood(); toastShow('+1'); }
-        else { miss++; flashBad(); toastShow('MISS'); }
-        next();
-      }
-      bin.addEventListener('click', ()=>choose('IN'));
-      bout.addEventListener('click', ()=>choose('OUT'));
-      next();
-    }
-
-    const Theme = {
-      goodjunk:  runNutrition_Sort,
-      // ที่เหลือคงเดิมของคุณ (ผมย่อไว้ตรงนี้เพื่อไม่ทำให้ไฟล์ยาวเกิน)
-      // ถ้าคุณต้องการ “รวมทุก mini game เดิมครบ 100%” บอกคำเดียว ผมจะรวมให้ครบทั้งไฟล์แบบยาวเต็ม ๆ
-    };
-
-    function start(){
-      if(dailyDone){ autoSkipIfDaily(); return; }
-
-      clearStage();
-      score=0; miss=0; total=0;
-      tLeft=dur; lastTs=0;
-      setHUD();
-
-      endOverlay.style.display='none';
-      endOverlay.setAttribute('aria-hidden','true');
-
-      started=true;
-
-      if(phase==='cooldown'){
-        runCooldown_Calm();
-        statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat}`;
-      }else{
-        const fn = Theme[themeKey] || Theme.goodjunk;
-        fn();
-        statusText.textContent = `Warmup (${dur}s) — theme=${themeKey}`;
-      }
-
-      subLine.textContent = (phase==='cooldown')
-        ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
-        : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)';
-
-      raf = requestAnimationFrame(tick);
-    }
-
-    function skip(){
-      const target = (next0 || hub);
-      markDaily(dailyPrefix, cat, pid);
-
-      const u = new URL(target, location.href);
-      applyPlanSeqParams(u);
-      location.replace(u.toString());
-    }
-
-    function maybeAutoEnd(){
-      if(!started) return;
+  function tick(ts){
+    if(!started) return;
+    if(!lastTs) lastTs = ts;
+    const dt = Math.min(0.25, (ts-lastTs)/1000);
+    lastTs = ts;
+    tLeft = Math.max(0, tLeft - dt);
+    setHUD();
+    if(tLeft<=0){
       if(phase==='cooldown') endNow({ calm: 1 });
       else endNow(makeWarmupBuff());
+      return;
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  function autoSkipIfDaily(){
+    if(!dailyDone) return false;
+    const target = (next0 || hub);
+    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
+    statusText.textContent = 'Daily gate: DONE';
+    setTimeout(()=> location.replace(target), 220);
+    return true;
+  }
+
+  function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
+  function mkBtn(label){
+    const b=DOC.createElement('button');
+    b.className='btn';
+    b.textContent=label;
+    return b;
+  }
+  function mkPad(cols){
+    const pad=DOC.createElement('div');
+    pad.style.position='absolute';
+    pad.style.left='12px'; pad.style.right='12px'; pad.style.bottom='12px';
+    pad.style.display='grid';
+    pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+    pad.style.gap='8px';
+    stage.appendChild(pad);
+    return pad;
+  }
+
+  // ---------- MINI GAMES (เดิม) ----------
+  function runNutrition_Sort(){
+    gameTitle.textContent='Nutrition Warmup — Food Sort Sprint';
+    desc.textContent='แตะ “ของดี” เก็บแต้ม / แตะ “ของเสีย” จะพลาด';
+    center.style.display='none';
+
+    const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'];
+    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'];
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'});
+    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะให้ทัน!</div>
+      <div id="it" style="font-size:60px;margin-top:8px;">🍎</div>
+      <div class="muted" style="margin-top:6px;">GOOD = +1 / JUNK = MISS</div>`;
+    stage.appendChild(card);
+
+    let curKind='good';
+    function next(){
+      total++;
+      curKind = (Math.random()<0.70) ? 'good' : 'junk';
+      card.querySelector('#it').textContent = (curKind==='good') ? randPick(GOOD) : randPick(JUNK);
+    }
+    const onTap = ()=>{
+      if(!started) return;
+      if(curKind==='good'){ score++; toastShow('+1'); flashGood(); }
+      else { miss++; toastShow('MISS'); flashBad(); }
+      next();
+    };
+    card.addEventListener('pointerdown', onTap, {passive:true});
+    teardownFns.push(()=> card.removeEventListener('pointerdown', onTap));
+    next();
+  }
+
+  function runNutrition_GroupsMatch(){
+    gameTitle.textContent='Nutrition Warmup — 5 หมู่ Snap Match';
+    desc.textContent='ดูอาหาร แล้วแตะ “หมู่ 1–5” ให้ถูก';
+    center.style.display='none';
+
+    const pool = [
+      {emo:'🥚', g:1},{emo:'🐟', g:1},{emo:'🥛', g:1},{emo:'🥜', g:1},
+      {emo:'🍚', g:2},{emo:'🍞', g:2},{emo:'🥔', g:2},{emo:'🍠', g:2},
+      {emo:'🥦', g:3},{emo:'🥬', g:3},{emo:'🥒', g:3},{emo:'🥕', g:3},
+      {emo:'🍎', g:4},{emo:'🍌', g:4},{emo:'🍉', g:4},{emo:'🍊', g:4},
+      {emo:'🥑', g:5},{emo:'🧈', g:5},{emo:'🫒', g:5},{emo:'🥥', g:5},
+    ];
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'});
+    card.innerHTML = `<div style="font-weight:1100;font-size:18px;">อาหาร: <span id="it" style="font-size:36px;">🥚</span></div>
+      <div class="muted" id="lbl" style="margin-top:6px;">เลือกหมู่ให้ถูก</div>`;
+    stage.appendChild(card);
+
+    const pad=mkPad(5);
+    const labels=['หมู่1','หมู่2','หมู่3','หมู่4','หมู่5'];
+    let cur = randPick(pool);
+
+    function next(){
+      total++;
+      cur = randPick(pool);
+      card.querySelector('#it').textContent = cur.emo;
+      card.querySelector('#lbl').textContent = 'เลือกหมู่ให้ถูก';
+    }
+    function choose(g){
+      if(!started) return;
+      if(g===cur.g){ score++; toastShow('+1'); flashGood(); }
+      else { miss++; toastShow('MISS'); flashBad(); }
+      next();
     }
 
-    pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
-    pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
-    pillTheme.textContent = `THEME: ${themeKey.toUpperCase()}`;
-    pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
-    durText.textContent = `${dur}s`;
-
-    btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
-    btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
-
-    stage.addEventListener('pointerdown', ()=>{
-      if(!started && !dailyDone) start();
-    }, {passive:true});
-
-    if(!autoSkipIfDaily()){
-      const name = (phase==='cooldown')?'Cooldown':'Warmup';
-      subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
-      statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
-      setHUD();
-    }
-
-    WIN.addEventListener('visibilitychange', ()=>{
-      if(DOC.hidden && started) maybeAutoEnd();
+    labels.forEach((t,i)=>{
+      const b=mkBtn(t);
+      b.style.padding='12px 8px';
+      b.style.borderRadius='14px';
+      b.style.fontWeight='1100';
+      b.style.fontSize='12px';
+      pad.appendChild(b);
+      b.addEventListener('click', ()=>choose(i+1));
     });
-  })();
-  </script>
+    next();
+  }
+
+  function runNutrition_SipRhythm(){
+    gameTitle.textContent='Nutrition Warmup — Sip Rhythm';
+    desc.textContent='แตะตอนจุดเข้าโซนกลางให้ตรงจังหวะ';
+    center.style.display='none';
+
+    const ring=DOC.createElement('div');
+    Object.assign(ring.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'240px',height:'240px',borderRadius:'999px',
+      border:'2px solid rgba(56,189,248,.35)',
+      background:'radial-gradient(circle at 50% 50%, rgba(34,197,94,.12) 0 34%, transparent 35% 100%)'
+    });
+    stage.appendChild(ring);
+
+    const dot=DOC.createElement('div');
+    Object.assign(dot.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'16px',height:'16px',borderRadius:'999px',background:'rgba(251,113,133,.95)'
+    });
+    stage.appendChild(dot);
+
+    let t=0;
+    const anim = ()=>{
+      if(!started) return;
+      const played = dur - tLeft;
+      const sp = 0.085 + Math.min(0.06, played*0.002);
+      t += sp;
+      const r=96;
+      const x=Math.cos(t)*r;
+      const y=Math.sin(t)*r;
+      dot.style.marginLeft = x+'px';
+      dot.style.marginTop  = (y-30)+'px';
+      dot.dataset.inzone = (Math.hypot(x,y) < 34) ? '1' : '0';
+      stageAnimRaf = requestAnimationFrame(anim);
+    };
+
+    const onTap = ()=>{
+      if(!started) return;
+      total++;
+      if(dot.dataset.inzone==='1'){ score++; toastShow('+1'); flashGood(); }
+      else { miss++; toastShow('MISS'); flashBad(); }
+    };
+    stage.addEventListener('pointerdown', onTap, {passive:true});
+    teardownFns.push(()=> stage.removeEventListener('pointerdown', onTap));
+
+    stageAnimRaf = requestAnimationFrame(anim);
+  }
+
+  function runNutrition_PlateBuilder(){
+    gameTitle.textContent='Nutrition Warmup — Plate Builder';
+    desc.textContent='เลือกหมู่ใส่จานให้ “อย่างน้อย 3 หมู่” (ซ้ำหมู่ = MISS)';
+    center.style.display='none';
+
+    const picked=new Set();
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'});
+    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">เติมจาน</div>
+      <div class="muted" id="pb" style="margin-top:6px;">เป้าหมาย: ≥ 3 หมู่</div>
+      <div style="margin-top:10px;font-size:34px;">🍽️</div>`;
+    stage.appendChild(card);
+
+    const items=[
+      {emo:'🐟', g:1},{emo:'🥛', g:1},
+      {emo:'🍚', g:2},{emo:'🍞', g:2},
+      {emo:'🥦', g:3},{emo:'🥬', g:3},
+      {emo:'🍎', g:4},{emo:'🍌', g:4},
+      {emo:'🥑', g:5},{emo:'🧈', g:5},
+    ];
+    const pad=mkPad(5);
+    items.forEach(it=>{
+      const b=mkBtn(it.emo);
+      b.style.padding='14px 8px'; b.style.borderRadius='16px'; b.style.fontSize='18px';
+      pad.appendChild(b);
+      b.addEventListener('click', ()=>{
+        if(!started) return;
+        total++;
+        if(!picked.has(it.g)){
+          picked.add(it.g); score++; toastShow('+1'); flashGood();
+        }else{
+          miss++; toastShow('MISS'); flashBad();
+        }
+        card.querySelector('#pb').textContent = `ได้แล้ว: ${picked.size} หมู่ (เป้าหมาย ≥ 3)`;
+      });
+    });
+  }
+
+  function runCooldown_Calm(){
+    gameTitle.textContent='Cooldown — Calm Breathing';
+    desc.textContent='แตะ “หายใจเข้า/ออก” ให้ครบจังหวะ';
+    center.style.display='none';
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+      width:'min(560px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'});
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">หายใจตามจังหวะ</div>
+      <div id="bx" style="margin-top:12px;font-size:56px;">🫁</div>
+      <div id="bt" style="margin-top:8px;font-size:18px;font-weight:1100;">INHALE</div>
+      <div class="muted" style="margin-top:6px;">แตะให้ตรงคำสั่ง</div>
+      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn primary" id="bin">IN</button>
+        <button class="btn" id="bout">OUT</button>
+      </div>`;
+    stage.appendChild(card);
+
+    const bin=card.querySelector('#bin');
+    const bout=card.querySelector('#bout');
+    const bt=card.querySelector('#bt');
+
+    let cur='IN';
+    function next(){
+      total++;
+      cur = (Math.random()<0.5)?'IN':'OUT';
+      bt.textContent = (cur==='IN')?'INHALE':'EXHALE';
+    }
+    function choose(a){
+      if(!started) return;
+      if(a===cur){ score++; flashGood(); toastShow('+1'); }
+      else { miss++; flashBad(); toastShow('MISS'); }
+      next();
+    }
+    bin.addEventListener('click', ()=>choose('IN'));
+    bout.addEventListener('click', ()=>choose('OUT'));
+    next();
+  }
+
+  const Theme = {
+    goodjunk:  runNutrition_Sort,
+    groups:    runNutrition_GroupsMatch,
+    hydration: runNutrition_SipRhythm,
+    plate:     runNutrition_PlateBuilder,
+  };
+
+  function start(){
+    if(dailyDone){ autoSkipIfDaily(); return; }
+
+    clearStage();
+    score=0; miss=0; total=0;
+    tLeft=dur; lastTs=0;
+    setHUD();
+
+    endOverlay.style.display='none';
+    endOverlay.setAttribute('aria-hidden','true');
+
+    started=true;
+
+    if(phase==='cooldown'){
+      runCooldown_Calm();
+      statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat}`;
+    }else{
+      const fn = Theme[themeKey] || Theme.goodjunk;
+      fn();
+      statusText.textContent = `Warmup (${dur}s) — theme=${themeKey}`;
+    }
+
+    subLine.textContent = (phase==='cooldown')
+      ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
+      : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)';
+
+    raf = requestAnimationFrame(tick);
+  }
+
+  function skip(){
+    const target = (next0 || hub);
+    markDaily(dailyPrefix, cat, pid);
+
+    const u = new URL(target, location.href);
+    applyPlanSeqParams(u);
+    location.replace(u.toString());
+  }
+
+  function maybeAutoEnd(){
+    if(!started) return;
+    if(phase==='cooldown') endNow({ calm: 1 });
+    else endNow(makeWarmupBuff());
+  }
+
+  pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
+  pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
+  pillTheme.textContent = `THEME: ${themeKey.toUpperCase()}`;
+  pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
+  durText.textContent = `${dur}s`;
+
+  btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
+  btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
+
+  stage.addEventListener('pointerdown', ()=>{
+    if(!started && !dailyDone) start();
+  }, {passive:true});
+
+  if(!autoSkipIfDaily()){
+    const name = (phase==='cooldown')?'Cooldown':'Warmup';
+    subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
+    statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
+    setHUD();
+  }
+
+  WIN.addEventListener('visibilitychange', ()=>{
+    if(DOC.hidden && started) maybeAutoEnd();
+  });
+
+})();
+</script>
 </body>
 </html>
