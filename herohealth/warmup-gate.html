@@ -1,12 +1,8 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
-✅ warmup-gate.html อยู่ /herohealth/ (root)
-✅ hub default = ./hub.html (root-safe)
-✅ theme pick policy (theme/game/pick=rand|day/detect next)
-✅ daily once-per-day per PID+category for warmup & cooldown
-✅ warmup end -> pass buffs into next URL
-✅ cooldown end -> plan sequence passthrough + cdnext chain target already in next
-✅ Works PC/Mobile (tap/click). Safe, no deps.
+HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe-2530)
+✅ warmup default 30s, cooldown default 25s
+✅ clamp dur/cdur ให้อยู่ในช่วง 25–30 เสมอ (ตามที่เคยตกลง)
+✅ warmup-gate.html อยู่ /herohealth/ (root) + hub default ./hub.html
 -->
 <!doctype html>
 <html lang="th">
@@ -279,7 +275,7 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
       <div class="main">
         <div class="play">
           <div class="hud">
-            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">20s</div></div>
+            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">30s</div></div>
             <div class="box"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
             <div class="box"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
             <div class="box"><div class="k">TOTAL</div><div class="v" id="hudTotal">0</div></div>
@@ -321,7 +317,7 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
 
             <div class="meta">
               <div class="row"><div class="k">Status</div><div class="v" id="statusText">ready</div></div>
-              <div class="row"><div class="k">Duration</div><div class="v" id="durText">20s</div></div>
+              <div class="row"><div class="k">Duration</div><div class="v" id="durText">30s</div></div>
               <div class="row"><div class="k">Daily Rule</div><div class="v">ต่อหมวด/ต่อวัน/ต่อ PID</div></div>
             </div>
 
@@ -334,9 +330,9 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
           <div class="card">
             <h3>หมายเหตุ</h3>
             <div class="muted" style="margin-top:6px;">
+              • Warmup/Cooldown ถูกล็อกให้อยู่ในช่วง 25–30s<br/>
               • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
-              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
+              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)
             </div>
           </div>
         </div>
@@ -354,7 +350,10 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
   const QS=getQS();
   const q=(k,d='')=> (QS.get(k) ?? d);
   const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
-  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+
+  // ✅ ตามที่ตกลง: 25–30 เท่านั้น
+  const DUR_MIN = 25, DUR_MAX = 30;
+  function clampDur(v){ v=Number(v); if(!Number.isFinite(v)) v=DUR_MAX; return Math.max(DUR_MIN, Math.min(DUR_MAX, v)); }
 
   function absUrlMaybe(url){
     if(!url) return '';
@@ -384,12 +383,13 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
   const cat   = String(q('cat','nutrition')).toLowerCase();
   const themeFromQs = String(q('theme','')).toLowerCase().trim();
 
-  // ✅ ROOT-SAFE defaults (warmup-gate.html at /herohealth/)
+  // ✅ ROOT-SAFE defaults
   const hub   = absUrlMaybe(q('hub','./hub.html')) || './hub.html';
   const next0 = absUrlMaybe(q('next','')) || hub;
 
-  const durWarm = clamp(qNum('dur', 20), 5, 60);
-  const durCool = clamp(qNum('cdur', qNum('dur',20)), 5, 60);
+  // ✅ default warmup=30, cooldown=25 และ clamp ให้อยู่ 25–30
+  const durWarm = clampDur(qNum('dur', 30));
+  const durCool = clampDur(qNum('cdur', qNum('dur',25)));
   const dur = (phase==='cooldown') ? durCool : durWarm;
 
   let pid = String(q('pid','')).trim() || 'anon';
@@ -425,7 +425,6 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
 
   function pickThemeByPolicy(category){
     if(themeFromQs) return themeFromQs;
-
     const g = String(q('game','')).toLowerCase().trim();
     if(g) return g;
 
@@ -455,13 +454,11 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
 
     const n = String(next0||'').toLowerCase();
 
-    // nutrition
     if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
     if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
     if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
     if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
 
-    // hygiene
     if(n.includes('handwash')) return 'handwash';
     if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
     if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
@@ -469,7 +466,6 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
     if(n.includes('bath')) return 'bath';
     if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
 
-    // exercise
     if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
     if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
     if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
@@ -537,7 +533,7 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
 
   function makeWarmupBuff(){
     const acc = (total>0) ? (score/Math.max(1,total)) : 0;
-    const pct = Math.round(clamp(acc*100, 5, 30));
+    const pct = Math.round(Math.max(5, Math.min(30, acc*100)));
     const rank = (acc>=0.85) ? 'S' : (acc>=0.70) ? 'A' : (acc>=0.55) ? 'B' : 'C';
 
     let wCrit=0, wDmg=0, wHeal=0;
@@ -655,7 +651,7 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
     return pad;
   }
 
-  // ---------- MINI GAMES (เดิม) ----------
+  // ---------- MINI GAMES ----------
   function runNutrition_Sort(){
     gameTitle.textContent='Nutrition Warmup — Food Sort Sprint';
     desc.textContent='แตะ “ของดี” เก็บแต้ม / แตะ “ของเสีย” จะพลาด';
@@ -839,7 +835,7 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
       background:'rgba(2,6,23,.50)',textAlign:'center'});
     card.innerHTML = `
       <div style="font-weight:1100;font-size:16px;">หายใจตามจังหวะ</div>
-      <div id="bx" style="margin-top:12px;font-size:56px;">🫁</div>
+      <div style="margin-top:12px;font-size:56px;">🫁</div>
       <div id="bt" style="margin-top:8px;font-size:18px;font-weight:1100;">INHALE</div>
       <div class="muted" style="margin-top:6px;">แตะให้ตรงคำสั่ง</div>
       <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
@@ -899,8 +895,8 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
     }
 
     subLine.textContent = (phase==='cooldown')
-      ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
-      : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)';
+      ? `Cooldown ${dur}s แล้วกลับ/ไปต่อ (วันละครั้ง)`
+      : `Warmup ${dur}s แล้วเข้าเกมจริง (วันละครั้ง)`;
 
     raf = requestAnimationFrame(tick);
   }
@@ -908,16 +904,9 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
   function skip(){
     const target = (next0 || hub);
     markDaily(dailyPrefix, cat, pid);
-
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
     location.replace(u.toString());
-  }
-
-  function maybeAutoEnd(){
-    if(!started) return;
-    if(phase==='cooldown') endNow({ calm: 1 });
-    else endNow(makeWarmupBuff());
   }
 
   pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
@@ -939,10 +928,6 @@ HeroHealth Warmup/Cooldown Gate — ROOT-SAFE FULL (v20260224-rootSafe)
     statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
     setHUD();
   }
-
-  WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && started) maybeAutoEnd();
-  });
 
 })();
 </script>
