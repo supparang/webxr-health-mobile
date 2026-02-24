@@ -95,7 +95,7 @@
             <div class="mut" id="todayLabel">วันนี้: —</div>
             <button class="btn" id="btnTryToday">▶️ เล่นตามแผนวันนี้</button>
           </div>
-          <div class="hint">จะเปิดลิงก์เกมตามรายการวันนี้ (แก้ mapping URL ได้ใน JS)</div>
+          <div class="hint">จะพาไป “เกมแรกของวันนี้” ในแท็บเดิม (กัน popup block)</div>
           <div class="tryList" id="tryList"></div>
         </div>
       </div>
@@ -155,7 +155,7 @@
           <div class="card-h">Coach (เหตุผลที่ระบบแนะนำ)</div>
           <ul class="coach" id="coachList"></ul>
           <div class="hint">
-            โหมดวิจัย: แผนนี้ใช้เป็น “Create task” ได้ทันที (ไม่ปรับความยากอัตโนมัติ) · Export แล้วแนบในบท 4 ได้เลย
+            โหมดวิจัย: Planner เป็น “Create task” (Bloom) ผู้เรียนออกแบบแผนเอง + ระบบอธิบายเหตุผล (โปร่งใส)
           </div>
         </div>
       </div>
@@ -174,7 +174,7 @@
             <button class="btn ghost" id="btnCopyMD">Copy MD</button>
             <button class="btn" id="btnExportJSON2">Download Plan.json</button>
           </div>
-          <div class="hint">MD เหมาะกับแปะรายงานบท 4 · JSON ใช้โหลดกลับมาแก้/ทำต่อ Evaluate ในภายหลัง</div>
+          <div class="hint">MD เหมาะกับแปะรายงานบท 4 · JSON ใช้โหลดกลับมาแก้/ทำต่อ Evaluate</div>
         </div>
 
         <div class="card">
@@ -191,6 +191,7 @@
     </footer>
   </main>
 
-  <script type="module" src="./planner-create.js"></script>
+  <!-- ✅ ใช้ boot.js + safe.js (แก้ปัญหา planner.safe.js missing) -->
+  <script src="./planner.boot.js" defer></script>
 </body>
 </html>
