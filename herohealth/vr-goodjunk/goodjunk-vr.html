@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (end: Next->Cooldown + Coach overlay + hub log payload)
-FULL v20260224-run-nextCooldown+coachOverlay
+GoodJunkVR RUN — PRODUCTION (end summary -> Next Cooldown, hide BackHub when cooldown=1)
+FULL v20260224-endNextCooldown
 -->
 <!doctype html>
 <html lang="th">
@@ -9,7 +9,6 @@ FULL v20260224-run-nextCooldown+coachOverlay
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- Core CSS -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
 
   <style>
@@ -18,24 +17,19 @@ FULL v20260224-run-nextCooldown+coachOverlay
 
     .gj-stage{ position:relative; width:100%; height:100%; }
     #gj-layer, #gj-layer-r{
-      position:absolute; inset:0;
-      overflow:hidden;
-      touch-action: manipulation;
+      position:absolute; inset:0; overflow:hidden; touch-action: manipulation;
     }
     #gj-layer-r{ display:none; }
 
     .gj-hud{
       position:fixed; left:0; right:0; top:0;
-      z-index:120;
-      pointer-events:none;
+      z-index:120; pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
       padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
     .gj-hud-row{
-      display:flex; gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
     }
     .gj-card{
       pointer-events:none;
@@ -48,14 +42,19 @@ FULL v20260224-run-nextCooldown+coachOverlay
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-    .gj-stat{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:800; letter-spacing:.2px; }
+    .gj-stat{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      font-weight:800; letter-spacing:.2px;
+    }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
-    .gj-mini{ margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size: 13px; opacity:.96; }
+    .gj-mini{
+      margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;
+      font-size: 13px; opacity:.96;
+    }
     .gj-mini .chip{
       display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
+      padding:6px 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.42);
       font-weight:800;
@@ -64,8 +63,7 @@ FULL v20260224-run-nextCooldown+coachOverlay
     .gj-progress{
       position:fixed; left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px;
-      z-index:130;
+      height: 4px; z-index:130;
       background: rgba(148,163,184,.10);
     }
     #gjProgressFill{
@@ -74,16 +72,28 @@ FULL v20260224-run-nextCooldown+coachOverlay
       transition: width 120ms linear;
     }
 
-    .gj-bars{ pointer-events:none; margin-top:8px; display:grid; grid-template-columns: 1fr; gap:8px; }
-    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size: 13px; }
+    .gj-bars{
+      pointer-events:none;
+      margin-top:8px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:8px;
+    }
+    .gj-bar{
+      display:flex; align-items:center; gap:10px;
+      font-weight:900; font-size: 13px;
+    }
     .gj-bar .track{
-      flex:1; height: 10px;
-      border-radius:999px;
+      flex:1; height: 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #feverFill{ height:100%; width:0%; background: rgba(251,191,36,.96); transition: width 120ms linear; }
+    #feverFill{
+      height:100%; width:0%;
+      background: rgba(251,191,36,.96);
+      transition: width 120ms linear;
+    }
     #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
     #shieldPills{ opacity:.98; }
 
@@ -91,8 +101,7 @@ FULL v20260224-run-nextCooldown+coachOverlay
       position:fixed;
       left: 10px; right: 10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
-      z-index:125;
-      pointer-events:none;
+      z-index:125; pointer-events:none;
     }
     #bossBar[aria-hidden="true"]{ display:none; }
     .boss-wrap{
@@ -103,29 +112,32 @@ FULL v20260224-run-nextCooldown+coachOverlay
       box-shadow: 0 10px 26px rgba(0,0,0,.25);
       backdrop-filter: blur(10px);
     }
-    .boss-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:900; letter-spacing:.2px; }
+    .boss-top{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      font-weight:900; letter-spacing:.2px;
+    }
     .boss-track{
-      margin-top:8px; height:10px;
-      border-radius:999px;
+      margin-top:8px; height:10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
+    #bossFill{
+      height:100%; width:0%;
+      background: rgba(244,63,94,.92);
+      transition: width 120ms linear;
+    }
     #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
 
     #lowTimeOverlay{
-      position:fixed; inset:0;
-      z-index:200;
+      position:fixed; inset:0; z-index:200;
       display:flex; align-items:center; justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
     .lowtime-pill{
-      font-weight:1000;
-      letter-spacing:.5px;
-      font-size: 64px;
+      font-weight:1000; letter-spacing:.5px; font-size: 64px;
       color: rgba(255,255,255,.95);
       text-shadow: 0 14px 48px rgba(0,0,0,.55);
       border-radius: 999px;
@@ -135,48 +147,8 @@ FULL v20260224-run-nextCooldown+coachOverlay
       backdrop-filter: blur(10px);
     }
 
-    /* ===== Coach overlay (ใช้ coach*.png) ===== */
-    #coachWrap{
-      position:fixed;
-      left: calc(env(safe-area-inset-left,0px) + 10px);
-      bottom: calc(env(safe-area-inset-bottom,0px) + 10px);
-      z-index:160;
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      pointer-events:none;
-      opacity:0;
-      transform: translateY(10px);
-      transition: opacity 180ms ease, transform 180ms ease;
-    }
-    #coachWrap.on{
-      opacity:1;
-      transform: translateY(0);
-    }
-    #coachImg{
-      width: 86px;
-      height:auto;
-      filter: drop-shadow(0 12px 28px rgba(0,0,0,.35));
-    }
-    #coachBubble{
-      max-width: min(64vw, 520px);
-      padding: 10px 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.72);
-      color: rgba(229,231,235,.96);
-      font-weight: 900;
-      line-height: 1.25;
-      box-shadow: 0 12px 34px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    #coachBubble small{ display:block; opacity:.88; font-weight:800; margin-top:4px; }
-
-    /* End overlay */
     #endOverlay{
-      position:fixed; inset:0;
-      z-index:300;
+      position:fixed; inset:0; z-index:300;
       display:flex; align-items:center; justify-content:center;
       padding: 18px;
       background: rgba(0,0,0,.55);
@@ -194,7 +166,9 @@ FULL v20260224-run-nextCooldown+coachOverlay
       padding: 16px;
     }
     .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
-    .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
+    .end-sub{
+      margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all;
+    }
     .end-grid{
       margin-top:12px;
       display:grid;
@@ -238,11 +212,13 @@ FULL v20260224-run-nextCooldown+coachOverlay
       background: rgba(244,63,94,.16);
     }
 
+    /* hide helper */
+    .is-hidden{ display:none !important; }
+
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
-      #coachImg{ width: 74px; }
     }
   </style>
 </head>
@@ -312,12 +288,6 @@ FULL v20260224-run-nextCooldown+coachOverlay
     <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
   </div>
 
-  <!-- Coach overlay -->
-  <div id="coachWrap" aria-hidden="false">
-    <img id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
-    <div id="coachBubble">…</div>
-  </div>
-
   <div class="gj-stage">
     <div id="gj-layer" aria-label="GoodJunk layer"></div>
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
@@ -338,14 +308,16 @@ FULL v20260224-run-nextCooldown+coachOverlay
       <div class="end-actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
         <button class="btn danger" id="btnReplay">Replay</button>
-        <!-- ✅ Next to Cooldown (โชว์เฉพาะเมื่อ cooldown=1) -->
-        <button class="btn primary" id="btnNext">ต่อไป (Cooldown)</button>
-        <button class="btn" id="btnBackHub">Back HUB</button>
+
+        <!-- ✅ PATCH: show when cooldown=1 -->
+        <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+
+        <!-- ✅ PATCH: hidden when cooldown=1 -->
+        <button class="btn primary" id="btnBackHub">Back HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- Universal VR UI -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
   <script type="module">
@@ -388,10 +360,11 @@ FULL v20260224-run-nextCooldown+coachOverlay
       const cdur = clamp(qs('cdur','15'), 5, 60);
       u.searchParams.set('dur', String(cdur));
       u.searchParams.set('cdur', String(cdur));
+
       return u.toString();
     }
 
-    function goHubWithLog(summary){
+    function buildHubUrlWithLog(summary){
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
@@ -410,47 +383,54 @@ FULL v20260224-run-nextCooldown+coachOverlay
       if(flush==='1') u.searchParams.set('flush','1');
       if(endpoint) u.searchParams.set('endpoint', endpoint);
 
-      location.href = u.toString();
+      return u.toString();
     }
 
-    function handleEnd(summary, forceCooldown=false){
-      const cooldownEnabled = (String(qs('cooldown','0')||'0') === '1');
-      const cdnext = String(qs('cdnext','')||'').trim();
+    // ✅ PATCH: UI policy
+    function applyEndButtonsPolicy(){
+      const cooldown = String(qs('cooldown','0')||'0') === '1';
+      const btnNext = document.getElementById('btnNextCooldown');
+      const btnHub  = document.getElementById('btnBackHub');
 
-      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
-      const hubUrl = new URL(hub, location.href);
-      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
-      const log = b64urlEncodeJson(payload);
-      if(log) hubUrl.searchParams.set('log', log);
-
-      const flush = qs('flush','');
-      const endpoint = qs('endpoint','');
-      if(flush==='1') hubUrl.searchParams.set('flush','1');
-      if(endpoint) hubUrl.searchParams.set('endpoint', endpoint);
-
-      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrl.toString();
-
-      // ✅ ถ้ากด “ต่อไป” ให้ไป cooldown แน่นอน (เมื่อ cooldown=1)
-      if((forceCooldown || cooldownEnabled) && cooldownEnabled){
-        location.href = buildGateCooldownUrl(nextAfterCooldown);
-        return;
+      if(cooldown){
+        btnNext?.classList.remove('is-hidden');   // show Next Cooldown
+        btnHub?.classList.add('is-hidden');      // hide Back HUB (enforce flow)
+      }else{
+        btnNext?.classList.add('is-hidden');
+        btnHub?.classList.remove('is-hidden');
       }
-
-      // fallback
-      goHubWithLog(summary);
     }
 
-    // Buttons
+    function goCooldown(summary){
+      const cdnext = String(qs('cdnext','')||'').trim();
+      const hubUrlWithLog = buildHubUrlWithLog(summary || {});
+      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrlWithLog;
+      location.href = buildGateCooldownUrl(nextAfterCooldown);
+    }
+
+    function goHub(summary){
+      location.href = buildHubUrlWithLog(summary || {});
+    }
+
+    // Wire buttons
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
+    const btnNextCooldown = document.getElementById('btnNextCooldown');
     const btnCopy = document.getElementById('btnCopy');
-    const btnNext = document.getElementById('btnNext');
 
     let lastSummary = null;
 
     btnReplay?.addEventListener('click', ()=> location.reload());
-    btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}, false));
-    btnNext?.addEventListener('click', ()=> handleEnd(lastSummary || {}, true));
+
+    btnBackHub?.addEventListener('click', ()=>{
+      // only available when cooldown!=1 (policy)
+      goHub(lastSummary || {});
+    });
+
+    btnNextCooldown?.addEventListener('click', ()=>{
+      // main CTA when cooldown=1
+      goCooldown(lastSummary || {});
+    });
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -463,45 +443,19 @@ FULL v20260224-run-nextCooldown+coachOverlay
       }
     });
 
-    // show/hide Next button
-    try{
-      const cooldownEnabled = (String(qs('cooldown','0')||'0') === '1');
-      if(btnNext) btnNext.style.display = cooldownEnabled ? 'inline-flex' : 'none';
-    }catch(e){}
-
-    // Listen end summary
-    window.addEventListener('hha:game-ended', (ev)=>{ lastSummary = ev?.detail || null; });
-
-    // Tiny info
-    document.getElementById('uiView')?.textContent = String(qs('view','mobile'));
-    document.getElementById('uiRun')?.textContent = String(qs('run','play'));
-    document.getElementById('uiDiff')?.textContent = String(qs('diff','normal'));
-
-    // ✅ Coach overlay listener
-    const coachWrap = document.getElementById('coachWrap');
-    const coachImg  = document.getElementById('coachImg');
-    const coachBubble = document.getElementById('coachBubble');
-    let coachTimer = 0;
-
-    function showCoach(msg, kind='neutral'){
-      if(!coachWrap || !coachImg || !coachBubble) return;
-      const k = String(kind||'neutral').toLowerCase();
-      const src =
-        (k==='happy') ? '../img/coach-happy.png' :
-        (k==='sad')   ? '../img/coach-sad.png' :
-        (k==='fever') ? '../img/coach-fever.png' :
-        '../img/coach-neutral.png';
-      coachImg.src = src;
-      coachBubble.textContent = String(msg || '');
-      coachWrap.classList.add('on');
-      clearTimeout(coachTimer);
-      coachTimer = setTimeout(()=> coachWrap.classList.remove('on'), 1800);
-    }
-
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = ev?.detail || {};
-      showCoach(d.msg || '…', d.kind || 'neutral');
+    window.addEventListener('hha:game-ended', (ev)=>{
+      lastSummary = ev?.detail || null;
+      // ✅ once end summary exists, enforce policy (cooldown vs hub)
+      applyEndButtonsPolicy();
     });
+
+    // Show tiny info
+    const uiView = document.getElementById('uiView');
+    const uiRun = document.getElementById('uiRun');
+    const uiDiff = document.getElementById('uiDiff');
+    if(uiView) uiView.textContent = String(qs('view','mobile'));
+    if(uiRun) uiRun.textContent = String(qs('run','play'));
+    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
     // Start game
     boot({
