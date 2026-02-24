@@ -1,241 +1,460 @@
-<!-- === /herohealth/vr-goodjunk/badges.html === -->
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN — PRODUCTION (FIX paths + end summary -> Next Cooldown, hide BackHub when cooldown=1)
+FULL v20260224-fixPaths-endNextCooldown
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Achievements</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth • GoodJunk VR</title>
+
+  <!-- ✅ FIX: correct path (same folder) -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
+
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.82);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.22);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --radius:22px;
-      --pill:999px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+    html,body{height:100%;margin:0;}
+    body{overflow:hidden;}
+
+    .gj-stage{ position:relative; width:100%; height:100%; }
+    #gj-layer, #gj-layer-r{
+      position:absolute; inset:0; overflow:hidden; touch-action: manipulation;
     }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background:
-      radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
-      radial-gradient(circle at bottom right, rgba(167,139,250,.10), transparent 55%),
-      var(--bg);
-      color:var(--text);
-      font-family: system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    #gj-layer-r{ display:none; }
+
+    .gj-hud{
+      position:fixed; left:0; right:0; top:0;
+      z-index:120; pointer-events:none;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+      padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
+      padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
-    .wrap{
-      min-height:100%;
-      padding: calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
-      display:flex; align-items:flex-start; justify-content:center;
+    .gj-hud-row{
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
     }
-    .card{
-      width:min(980px, 98vw);
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: 0 22px 60px rgba(0,0,0,.45);
-      overflow:hidden;
+    .gj-card{
+      pointer-events:none;
+      background: rgba(2,6,23,.68);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: rgba(229,231,235,.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-    .head{
-      padding:18px 18px 14px;
-      display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
-      background: linear-gradient(180deg, rgba(34,197,94,.10), transparent 60%);
+    .gj-stat{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      font-weight:800; letter-spacing:.2px;
     }
-    .title{ font-size:20px; font-weight:1100; letter-spacing:.2px; }
-    .sub{ margin-top:6px; color:var(--muted); font-weight:800; font-size:12px; line-height:1.45; }
-    .chip{
-      display:inline-flex; align-items:center; gap:8px;
-      border:1px solid rgba(148,163,184,.22);
-      padding: 8px 12px;
-      border-radius: var(--pill);
-      background: rgba(2,6,23,.45);
-      font-weight:900;
-      font-size:12px;
-      color: var(--text);
+    .gj-stat .k{opacity:.78;font-weight:700;}
+    .gj-stat .v{font-variant-numeric: tabular-nums;}
+    .gj-mini{
+      margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;
+      font-size: 13px; opacity:.96;
     }
-    .grid{
+    .gj-mini .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.42);
+      font-weight:800;
+    }
+
+    .gj-progress{
+      position:fixed; left:0; right:0;
+      top: calc(env(safe-area-inset-top, 0px) + 0px);
+      height: 4px; z-index:130;
+      background: rgba(148,163,184,.10);
+    }
+    #gjProgressFill{
+      height:100%; width:0%;
+      background: rgba(99,102,241,.95);
+      transition: width 120ms linear;
+    }
+
+    .gj-bars{
+      pointer-events:none;
+      margin-top:8px;
       display:grid;
       grid-template-columns: 1fr;
-      gap:12px;
-      padding: 0 18px 18px;
+      gap:8px;
     }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-    .btn{
-      height:46px; border-radius: 16px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      font-weight:1100;
-      cursor:pointer;
-      padding:0 14px;
+    .gj-bar{
+      display:flex; align-items:center; gap:10px;
+      font-weight:900; font-size: 13px;
     }
-    .btn.primary{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.14);
-      color:#eafff3;
-    }
-    .list{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.45);
-      border-radius: 18px;
-      padding: 10px;
-    }
-    .item{
-      display:flex; gap:12px; align-items:flex-start;
-      padding: 10px 10px;
-      border-radius: 16px;
-      border:1px solid transparent;
-    }
-    .item + .item{ margin-top:8px; }
-    .item.locked{
-      opacity:.65;
-      border-color: rgba(148,163,184,.12);
-      background: rgba(2,6,23,.30);
-    }
-    .item.unlocked{
-      border-color: rgba(34,197,94,.22);
-      background: rgba(34,197,94,.08);
-    }
-    .icon{
-      width:42px; height:42px;
-      border-radius: 14px;
-      display:flex; align-items:center; justify-content:center;
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      font-size:20px;
-      flex:0 0 auto;
-    }
-    .meta{ flex:1; }
-    .name{ font-weight:1100; }
-    .desc{ margin-top:4px; color:var(--muted); font-weight:850; font-size:12px; line-height:1.35; }
-    .tag{
-      margin-left:auto;
-      font: 1100 12px/1 system-ui;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(148,163,184,.18);
-      color: var(--muted);
+    .gj-bar .track{
+      flex:1; height: 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
-      flex:0 0 auto;
+      overflow:hidden;
     }
-    .item.unlocked .tag{
-      border-color: rgba(34,197,94,.28);
-      color:#dcfce7;
-      background: rgba(34,197,94,.10);
+    #feverFill{
+      height:100%; width:0%;
+      background: rgba(251,191,36,.96);
+      transition: width 120ms linear;
     }
-    .foot{
-      padding: 0 18px 18px;
-      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
-      color:var(--muted); font-size:12px; font-weight:850;
+    #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
+    #shieldPills{ opacity:.98; }
+
+    #bossBar{
+      position:fixed;
+      left: 10px; right: 10px;
+      top: calc(env(safe-area-inset-top, 0px) + 92px);
+      z-index:125; pointer-events:none;
     }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
+    #bossBar[aria-hidden="true"]{ display:none; }
+    .boss-wrap{
+      border-radius: 14px;
+      border:1px solid rgba(244,63,94,.22);
+      background: rgba(2,6,23,.66);
+      padding: 10px 12px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+    }
+    .boss-top{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      font-weight:900; letter-spacing:.2px;
+    }
+    .boss-track{
+      margin-top:8px; height:10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      overflow:hidden;
+    }
+    #bossFill{
+      height:100%; width:0%;
+      background: rgba(244,63,94,.92);
+      transition: width 120ms linear;
+    }
+    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
+
+    #lowTimeOverlay{
+      position:fixed; inset:0; z-index:200;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none;
+      background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
+    }
+    #lowTimeOverlay[aria-hidden="true"]{ display:none; }
+    .lowtime-pill{
+      font-weight:1000; letter-spacing:.5px; font-size: 64px;
+      color: rgba(255,255,255,.95);
+      text-shadow: 0 14px 48px rgba(0,0,0,.55);
+      border-radius: 999px;
+      padding: 18px 26px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+    }
+
+    #endOverlay{
+      position:fixed; inset:0; z-index:300;
+      display:flex; align-items:center; justify-content:center;
+      padding: 18px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #endOverlay[aria-hidden="true"]{ display:none; }
+    .end-card{
+      width:min(680px, 94vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      color: rgba(229,231,235,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 16px;
+    }
+    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+    .end-sub{
+      margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all;
+    }
+    .end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+    }
+    .end-item{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:900;
+    }
+    .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
+    .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+
+    .end-actions{
+      margin-top: 14px;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: rgba(229,231,235,.95);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 900;
+      cursor:pointer;
+    }
+    .btn:hover{ filter: brightness(1.05); }
+    .btn.primary{
+      border-color: rgba(99,102,241,.35);
+      background: rgba(99,102,241,.22);
+    }
+    .btn.danger{
+      border-color: rgba(244,63,94,.30);
+      background: rgba(244,63,94,.16);
+    }
+
+    .is-hidden{ display:none !important; }
+
+    @media (max-width: 520px){
+      .end-grid{ grid-template-columns: 1fr; }
+      .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
+      #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
+    }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="head">
-        <div>
-          <div class="title">🏆 HeroHealth — Achievements</div>
-          <div class="sub">
-            แสดงรายการตราปลดล็อกของ GoodJunkVR (อ่านจาก <span class="mono">localStorage</span>)<br/>
-            * ถ้าล้างแคช/เปลี่ยนเครื่อง ตราจะหาย (ถ้าจะทำถาวรจริง ให้ sync ไป Google Sheet/บัญชีภายหลัง)
+  <div class="gj-progress" aria-hidden="true">
+    <div id="gjProgressFill"></div>
+  </div>
+
+  <div class="gj-hud" aria-hidden="false">
+    <div class="gj-hud-row">
+      <div class="gj-card" style="min-width:220px">
+        <div class="gj-stat">
+          <span class="k">SCORE</span> <span id="hud-score" class="v">0</span>
+          <span class="k">TIME</span> <span id="hud-time" class="v">0</span>
+          <span class="k">MISS</span> <span id="hud-miss" class="v">0</span>
+          <span class="k">GRADE</span> <span id="hud-grade" class="v">—</span>
+        </div>
+
+        <div class="gj-bars">
+          <div class="gj-bar">
+            <span style="min-width:64px">FEVER</span>
+            <div class="track"><div id="feverFill"></div></div>
+            <span id="feverText">0%</span>
+          </div>
+          <div class="gj-bar">
+            <span style="min-width:64px">SHIELD</span>
+            <span id="shieldPills">—</span>
           </div>
         </div>
-        <div class="row" style="gap:10px;">
-          <div class="chip">✅ ปลดแล้ว: <span id="nUnlocked">0</span></div>
-          <div class="chip">🔒 เหลือ: <span id="nLocked">0</span></div>
+
+        <div class="gj-mini">
+          <span class="chip">🎯 <span id="hud-goal">—</span></span>
+          <span class="chip">🧮 <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></span>
+          <span class="chip">📝 <span id="goalDesc">—</span></span>
+        </div>
+
+        <div class="gj-mini">
+          <span class="chip">⚡ <span id="hud-mini">—</span></span>
+          <span class="chip">⏱ <span id="miniTimer">—</span></span>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="row">
-          <div class="chip">ที่เก็บ: <span class="mono">HHA_ACHIEVEMENTS</span></div>
-          <div class="row" style="gap:10px;">
-            <button class="btn" id="btnBack">↩ กลับ</button>
-            <button class="btn primary" id="btnReset">ล้าง Achievements</button>
-          </div>
+      <div class="gj-card" style="min-width:140px; opacity:.92">
+        <div style="font-weight:1000">GOODJUNK</div>
+        <div style="margin-top:6px; font-size:12px; opacity:.9">
+          view=<span id="uiView">—</span><br/>
+          run=<span id="uiRun">—</span><br/>
+          diff=<span id="uiDiff">—</span>
         </div>
-
-        <div class="list" id="list">—</div>
-      </div>
-
-      <div class="foot">
-        <div>© HeroHealth Academy</div>
-        <div>ไฟล์: <span class="mono">/herohealth/vr-goodjunk/badges.html</span></div>
       </div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const ACHV = [
-        { id:'gj_first_clear',  name:'First Clear',  icon:'🎉', desc:'เล่นจบ 1 รอบ (ไม่ว่าจะเกรดอะไร)' },
-        { id:'gj_no_junk',      name:'No Junk',      icon:'🧼', desc:'จบรอบแบบไม่โดนขยะเลย (Hit junk = 0)' },
-        { id:'gj_low_miss',     name:'Low Miss',     icon:'🛡️', desc:'MISS ไม่เกิน 2' },
-        { id:'gj_combo_20',     name:'Combo 20+',    icon:'⚡', desc:'Combo Max ≥ 20' },
-        { id:'gj_speedy',       name:'Speedy',       icon:'⏱️', desc:'Fast-hit rate ≥ 50%' },
-        { id:'gj_s_rank',       name:'S Rank',       icon:'⭐', desc:'ได้เกรด S / SS / SSS' },
-        { id:'gj_ss_rank',      name:'SS Rank',      icon:'🔥', desc:'ได้เกรด SS / SSS' },
-        { id:'gj_sss_rank',     name:'SSS Rank',     icon:'👑', desc:'ได้เกรด SSS' },
-      ];
+  <div id="bossBar" aria-hidden="true">
+    <div class="boss-wrap">
+      <div class="boss-top">
+        <div style="font-weight:1000">👹 BOSS</div>
+        <div style="opacity:.92">HP</div>
+      </div>
+      <div class="boss-track"><div id="bossFill"></div></div>
+      <div id="bossHint"></div>
+    </div>
+  </div>
 
-      const LS_ACHV = 'HHA_ACHIEVEMENTS';
+  <div id="lowTimeOverlay" aria-hidden="true">
+    <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
+  </div>
 
-      const $ = (id)=>document.getElementById(id);
+  <div class="gj-stage">
+    <div id="gj-layer" aria-label="GoodJunk layer"></div>
+    <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
+  </div>
 
-      function readUnlocked(){
-        try{ return JSON.parse(localStorage.getItem(LS_ACHV)||'{}') || {}; }
-        catch(_){ return {}; }
-      }
+  <div id="endOverlay" aria-hidden="true">
+    <div class="end-card">
+      <div class="end-title" id="endTitle">Completed</div>
+      <div class="end-sub" id="endSub">—</div>
 
-      function render(){
-        const unlocked = readUnlocked();
-        const list = $('list');
-        const unlockedIds = new Set(Object.keys(unlocked).filter(k=>unlocked[k]));
-        const nU = ACHV.filter(a=>unlockedIds.has(a.id)).length;
-        const nL = ACHV.length - nU;
+      <div class="end-grid">
+        <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+        <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
+      </div>
 
-        $('nUnlocked').textContent = String(nU);
-        $('nLocked').textContent = String(nL);
+      <div class="end-actions">
+        <button class="btn" id="btnCopy">Copy Summary</button>
+        <button class="btn danger" id="btnReplay">Replay</button>
 
-        list.innerHTML = ACHV.map(a=>{
-          const ok = unlockedIds.has(a.id);
-          return `
-            <div class="item ${ok?'unlocked':'locked'}">
-              <div class="icon">${a.icon||'🏅'}</div>
-              <div class="meta">
-                <div class="name">${ok?'✅':'🔒'} ${a.name}</div>
-                <div class="desc">${a.desc||''}</div>
-                <div class="desc"><span class="mono">${a.id}</span></div>
-              </div>
-              <div class="tag">${ok?'UNLOCKED':'LOCKED'}</div>
-            </div>
-          `;
-        }).join('');
-      }
+        <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+        <button class="btn primary" id="btnBackHub">Back HUB</button>
+      </div>
+    </div>
+  </div>
 
-      $('btnBack').addEventListener('click', ()=> history.back());
+  <!-- ✅ VR UI (correct relative to /vr-goodjunk/) -->
+  <script type="module" src="../vr/vr-ui.js"></script>
 
-      $('btnReset').addEventListener('click', ()=>{
-        if(confirm('ล้าง Achievements ทั้งหมด? (จะกลับเป็น LOCKED)')){
-          try{ localStorage.removeItem(LS_ACHV); }catch(_){}
-          render();
-        }
+  <script type="module">
+    // ✅ FIX: correct import (same folder)
+    import { boot } from './goodjunk.safe.js';
+
+    const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
+    const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
+
+    function abs(url){
+      if(!url) return '';
+      try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
+    }
+
+    function b64urlEncodeJson(obj){
+      try{
+        const json = JSON.stringify(obj || {});
+        const b64 = btoa(unescape(encodeURIComponent(json)));
+        return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      }catch(e){ return ''; }
+    }
+
+    function buildGateCooldownUrl(nextUrl){
+      const gate = abs('../warmup-gate.html');
+      const hub  = abs('../hub.html');
+      const u = new URL(gate, location.href);
+
+      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant','hub'];
+      keys.forEach(k=>{
+        const v = qs(k,'');
+        if(v!=='') u.searchParams.set(k, String(v));
       });
 
-      render();
-    })();
+      // enforce required gate params
+      u.searchParams.set('hub', qs('hub', hub) || hub);
+      u.searchParams.set('next', abs(nextUrl || hub));
+      u.searchParams.set('gatePhase', 'cooldown');
+      u.searchParams.set('phase', 'cooldown');
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('theme', 'calm');
+
+      const cdur = clamp(qs('cdur','15'), 5, 60);
+      u.searchParams.set('dur', String(cdur));
+      u.searchParams.set('cdur', String(cdur));
+
+      return u.toString();
+    }
+
+    function buildHubUrlWithLog(summary){
+      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
+      const u = new URL(hub, location.href);
+
+      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
+      keys.forEach(k=>{
+        const v = qs(k,'');
+        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
+      });
+
+      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
+      const log = b64urlEncodeJson(payload);
+      if(log) u.searchParams.set('log', log);
+
+      const flush = qs('flush','');
+      const endpoint = qs('endpoint','');
+      if(flush==='1') u.searchParams.set('flush','1');
+      if(endpoint) u.searchParams.set('endpoint', endpoint);
+
+      return u.toString();
+    }
+
+    function applyEndButtonsPolicy(){
+      const cooldown = String(qs('cooldown','0')||'0') === '1';
+      const btnNext = document.getElementById('btnNextCooldown');
+      const btnHub  = document.getElementById('btnBackHub');
+
+      if(cooldown){
+        btnNext?.classList.remove('is-hidden');
+        btnHub?.classList.add('is-hidden');   // ✅ hide Back HUB on cooldown flow
+      }else{
+        btnNext?.classList.add('is-hidden');
+        btnHub?.classList.remove('is-hidden');
+      }
+    }
+
+    function goCooldown(summary){
+      const cdnext = String(qs('cdnext','')||'').trim();
+      const hubUrlWithLog = buildHubUrlWithLog(summary || {});
+      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrlWithLog;
+      location.href = buildGateCooldownUrl(nextAfterCooldown);
+    }
+
+    function goHub(summary){
+      location.href = buildHubUrlWithLog(summary || {});
+    }
+
+    const btnReplay = document.getElementById('btnReplay');
+    const btnBackHub = document.getElementById('btnBackHub');
+    const btnNextCooldown = document.getElementById('btnNextCooldown');
+    const btnCopy = document.getElementById('btnCopy');
+
+    let lastSummary = null;
+
+    btnReplay?.addEventListener('click', ()=> location.reload());
+    btnBackHub?.addEventListener('click', ()=> goHub(lastSummary || {}));
+    btnNextCooldown?.addEventListener('click', ()=> goCooldown(lastSummary || {}));
+
+    btnCopy?.addEventListener('click', async ()=>{
+      try{
+        const txt = JSON.stringify(lastSummary || {}, null, 2);
+        await navigator.clipboard.writeText(txt);
+        btnCopy.textContent = 'Copied ✅';
+        setTimeout(()=>btnCopy.textContent='Copy Summary', 900);
+      }catch(e){
+        alert('Copy failed');
+      }
+    });
+
+    window.addEventListener('hha:game-ended', (ev)=>{
+      lastSummary = ev?.detail || null;
+      applyEndButtonsPolicy();
+    });
+
+    const uiView = document.getElementById('uiView');
+    const uiRun  = document.getElementById('uiRun');
+    const uiDiff = document.getElementById('uiDiff');
+    if(uiView) uiView.textContent = String(qs('view','mobile'));
+    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
+    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
+
+    boot({
+      view: qs('view','mobile'),
+      run:  qs('run','play'),
+      diff: qs('diff','normal'),
+      time: clamp(qs('time','80'), 20, 300),
+      seed: qs('seed', null),
+      studyId: qs('studyId', qs('study', null)),
+      phase: qs('phase', null),
+      conditionGroup: qs('conditionGroup', qs('cond', null)),
+    });
   </script>
 </body>
 </html>
