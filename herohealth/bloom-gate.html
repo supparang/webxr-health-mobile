@@ -256,7 +256,7 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       <div class="main">
         <div class="play">
           <div class="hud">
-            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">20s</div></div>
+            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">18s</div></div>
             <div class="box"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
             <div class="box"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
             <div class="box"><div class="k">TOTAL</div><div class="v" id="hudTotal">0</div></div>
@@ -298,7 +298,7 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
 
             <div class="meta">
               <div class="row"><div class="k">Status</div><div class="v" id="statusText">ready</div></div>
-              <div class="row"><div class="k">Duration</div><div class="v" id="durText">20s</div></div>
+              <div class="row"><div class="k">Duration</div><div class="v" id="durText">18s</div></div>
               <div class="row"><div class="k">Daily Rule</div><div class="v">ต่อหมวด/ต่อวัน/ต่อ PID/ต่อ Bloom</div></div>
             </div>
 
@@ -337,33 +337,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     if(!url) return '';
     try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
   }
-  function buildUrl(base, params){
-    const u = new URL(base, location.href);
-    Object.entries(params||{}).forEach(([k,v])=>{
-      if(v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }
-
-  function getLocalDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function dailyKey(prefix, category, bloom, pid){
-    const day=getLocalDayKey();
-    const p=(pid||'anon').trim()||'anon';
-    return `${prefix}:${category}:${bloom}:${p}:${day}`;
-  }
-  function isDaily(prefix, category, bloom, pid){
-    try{ return localStorage.getItem(dailyKey(prefix,category,bloom,pid))==='1'; }catch{ return false; }
-  }
-  function markDaily(prefix, category, bloom, pid){
-    try{ localStorage.setItem(dailyKey(prefix,category,bloom,pid),'1'); }catch{}
-  }
 
   function applyPlanSeqParams(u){
     [
@@ -386,6 +359,25 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     return h >>> 0;
   }
 
+  function getLocalDayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function dailyKey(prefix, category, bloom, pid){
+    const day=getLocalDayKey();
+    const p=(pid||'anon').trim()||'anon';
+    return `${prefix}:${category}:${bloom}:${p}:${day}`;
+  }
+  function isDaily(prefix, category, bloom, pid){
+    try{ return localStorage.getItem(dailyKey(prefix,category,bloom,pid))==='1'; }catch{ return false; }
+  }
+  function markDaily(prefix, category, bloom, pid){
+    try{ localStorage.setItem(dailyKey(prefix,category,bloom,pid),'1'); }catch{}
+  }
+
   const bloom = String(q('bloom','c')).toLowerCase().trim();     // a|b|c
   const cat   = String(q('cat','nutrition')).toLowerCase().trim();
   const theme = String(q('theme','')).toLowerCase().trim() || 'goodjunk';
@@ -393,11 +385,10 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
   const next0 = absUrlMaybe(q('next','')) || hub;
   const pid   = String(q('pid','')).trim() || 'anon';
 
-  const dur = clamp(qNum('dur', 18), 8, 40); // bloom สั้นกว่า warmup
+  const dur = clamp(qNum('dur', 18), 8, 40); // bloom สั้น
   const dailyPrefix = 'HHA_BLOOM_DONE';
   const dailyDone = isDaily(dailyPrefix, cat, bloom, pid);
 
-  // deterministic variant 1..5 (override ?variant=)
   function resolveVariant(){
     const ov = clamp(qNum('variant', 0), 0, 5);
     if(ov>=1 && ov<=5) return ov;
@@ -441,7 +432,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
   let score=0, miss=0, total=0;
   let raf=0, lastTs=0;
   let stageAnimRaf=0;
-  let teardownFns=[];
 
   function setHUD(){
     hudTime.textContent = `${Math.ceil(tLeft)}s`;
@@ -453,8 +443,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
   function clearStage(){
     cancelAnimationFrame(stageAnimRaf);
     stageAnimRaf = 0;
-    teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
-    teardownFns = [];
 
     Array.from(stage.children).forEach(el=>{
       if(el===toast || el===flash || el===center) return;
@@ -539,10 +527,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     return pad;
   }
 
-  // ============================================================
-  // BLOOM MISSIONS (A/B/C) — variants 1..5 (theme-aware)
-  // ============================================================
-
   function missionTitle(){
     return `Bloom ${bloom.toUpperCase()} • ${cat.toUpperCase()} • ${theme.toUpperCase()} • V${variant}`;
   }
@@ -555,7 +539,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     durText.textContent = `${dur}s`;
   }
 
-  // A: Recall (ง่าย แต่เร็ว)
   function runA(){
     gameTitle.textContent = missionTitle();
     desc.textContent = 'A (Remember): ตอบเร็ว ๆ ให้ถูก';
@@ -589,7 +572,7 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'
     });
     card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">${bloom.toUpperCase()} — คำถามเร็ว</div>
+      <div style="font-weight:1100;font-size:16px;text-align:center;">A — คำถามเร็ว</div>
       <div id="qq" style="margin-top:10px;font-size:18px;font-weight:1100;text-align:center;">—</div>
       <div class="muted" style="margin-top:6px;text-align:center;">เลือกคำตอบ</div>
     `;
@@ -617,7 +600,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     next();
   }
 
-  // B: Apply (สถานการณ์ + กฎ)
   function runB(){
     gameTitle.textContent = missionTitle();
     desc.textContent = 'B (Apply): ใช้กฎแก้สถานการณ์';
@@ -679,32 +661,26 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     next();
   }
 
-  // C: Evaluate/Analyze (เลือก “ดีที่สุด” ภายใต้เงื่อนไข + tradeoff)
   function runC(){
     gameTitle.textContent = missionTitle();
     desc.textContent = 'C (Evaluate): เลือก “ดีที่สุด” ภายใต้ข้อจำกัด';
     center.style.display='none';
 
-    // 5 variants per category/theme: เลือกชุดโจทย์ C1..C5
-    // ใช้ deterministic variant เพื่อให้ research ทำซ้ำได้
     const cases = [];
 
     if(cat==='nutrition'){
-      // คะแนน: คุณเลือกที่ “บาลานซ์กว่า/ลด junk/เพิ่มหมู่ที่ขาด”
       cases.push(
         {q:'มีเวลา 1 นาที แก้จานเด็กที่มีแต่ 🍚🍟 → เลือกอะไร “คุ้มสุด”?', opts:['เพิ่ม 🥦 + 🍎','เพิ่ม 🍩','เพิ่ม 🧋','เพิ่ม 🍟'], ok:0, why:'เพิ่มผัก+ผลไม้ เติมสมดุล'},
         {q:'เด็กดื่มน้ำหวานทุกวัน → ทางเลือก “ดีที่สุด” วันนี้?', opts:['น้ำเปล่าแทน 1 แก้ว','เพิ่มน้ำหวาน','งดน้ำทั้งหมด','ดื่มชาเย็นเพิ่ม'], ok:0, why:'ลดน้ำตาลแต่ยังไฮเดรต'},
         {q:'จานมีหมู่ 1+2 แล้ว ขาดอะไรให้ครบง่ายสุด?', opts:['หมู่ 3 หรือ 4','เพิ่มหมู่ 2','เพิ่มหมู่ 1','เพิ่มหมู่ 5 อย่างเดียว'], ok:0, why:'เพิ่มผัก/ผลไม้ช่วยสมดุล'}
       );
     }else if(cat==='hygiene'){
-      // เลือกที่ลดการแพร่เชื้อ/ลดความเสี่ยงสูงสุด
       cases.push(
         {q:'กลับบ้านมือสกปรก + มีของต้องหยิบหลายอย่าง → ทำอะไร “ดีที่สุด” ก่อน?', opts:['ล้างมือก่อน','กินขนมก่อน','จับหน้าเช็ดเหงื่อ','ไปนอนก่อน'], ok:0, why:'ลดการแพร่เชื้อจากมือ'},
         {q:'ไอในที่แออัด + มีหน้ากากอยู่ → เลือก “ดีที่สุด”?', opts:['ใส่หน้ากาก + ปิดปาก-จมูก','ถอดหน้ากาก','ไอใส่อากาศเฉย ๆ','ตะโกนให้คนหลบ'], ok:0, why:'ลดละอองฝอย'},
         {q:'ต้องทำความสะอาดบ้าน แต่เวลาเหลือน้อย → เลือกจุด “คุ้มสุด”?', opts:['ลูกบิด/รีโมต/โต๊ะกินข้าว','ผนังที่ไม่จับ','พื้นแห้งที่สะอาด','ชั้นวางที่ไม่ใช้'], ok:0, why:'จุดสัมผัสสูงเสี่ยงสุด'}
       );
     }else{
-      // exercise: เลือกที่ปลอดภัย/ยั่งยืน/ลดบาดเจ็บ
       cases.push(
         {q:'หมดเวลาแล้วแต่ยังอยากเพิ่มเซ็ต → เลือก “ดีที่สุด”?', opts:['คูลดาวน์ก่อน แล้วค่อยเพิ่มพรุ่งนี้','ฝืนเล่นต่อทันที','หยุดนิ่งแบบไม่หายใจ','กินน้ำหวานแล้วเล่นต่อ'], ok:0, why:'ลดเสี่ยงบาดเจ็บ/ฟื้นตัว'},
         {q:'วันนี้เหนื่อยมาก แต่ยังอยากรักษา streak → ทำอะไร “คุ้มสุด”?', opts:['ยืดเหยียดเบา ๆ 3 นาที','เล่นหนัก 20 นาที','ไม่ทำอะไรเลย','กลั้นหายใจ 1 นาที'], ok:0, why:'ได้กิจกรรม+ปลอดภัย'},
@@ -712,8 +688,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       );
     }
 
-    // เลือกเคสตาม variant ให้ “เปลี่ยนโจทย์/เรียงโจทย์”
-    // variant 1..5: เลื่อนจุดเริ่ม
     const startIdx = (variant-1) % Math.max(1,cases.length);
     let idx = startIdx;
 
@@ -773,7 +747,6 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
 
     started=true;
 
-    // เลือกภารกิจตาม bloom
     if(bloom==='a') runA();
     else if(bloom==='b') runB();
     else runC();
@@ -794,8 +767,8 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
   setMetaText();
   setHUD();
 
-  btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
-  btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
+  $('btnStart').addEventListener('click', (e)=>{ e.preventDefault(); start(); });
+  $('btnSkip').addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
 
   stage.addEventListener('pointerdown', ()=>{
     if(!started && !dailyDone) start();
