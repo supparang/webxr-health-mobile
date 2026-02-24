@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload + coach dock)
-FULL v20260224-run-pathfix+coach+fxnoflash
+GoodJunkVR RUN — PRODUCTION (coach HUD + FX stable + cooldown continue)
+FULL v20260224-run-coach+cooldownContinue+antiFlash
 -->
 <!doctype html>
 <html lang="th">
@@ -9,13 +9,14 @@ FULL v20260224-run-pathfix+coach+fxnoflash
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- ✅ FIX PATH: css อยู่โฟลเดอร์เดียวกับไฟล์นี้ -->
+  <!-- Core CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
   <style>
     html,body{height:100%;margin:0;}
     body{overflow:hidden;}
 
+    /* layers */
     .gj-stage{ position:relative; width:100%; height:100%; }
     #gj-layer, #gj-layer-r{
       position:absolute; inset:0;
@@ -24,9 +25,10 @@ FULL v20260224-run-pathfix+coach+fxnoflash
     }
     #gj-layer-r{ display:none; }
 
-    /* HUD */
+    /* top HUD wrapper */
     .gj-hud{
-      position:fixed; left:0; right:0; top:0;
+      position:fixed;
+      left:0; right:0; top:0;
       z-index:120;
       pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
@@ -34,7 +36,8 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
     .gj-hud-row{
-      display:flex; gap:10px;
+      display:flex;
+      gap:10px;
       align-items:flex-start;
       justify-content:space-between;
     }
@@ -51,52 +54,83 @@ FULL v20260224-run-pathfix+coach+fxnoflash
     }
     .gj-stat{
       display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800; letter-spacing:.2px;
+      font-weight:800;
+      letter-spacing:.2px;
     }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
     .gj-mini{
-      margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;
-      font-size: 13px; opacity:.96;
+      margin-top:8px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size: 13px;
+      opacity:.96;
     }
     .gj-mini .chip{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px; border-radius:999px;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.42);
       font-weight:800;
     }
 
-    /* progress */
+    /* progress bar */
     .gj-progress{
-      position:fixed; left:0; right:0;
+      position:fixed;
+      left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px; z-index:130;
+      height: 4px;
+      z-index:130;
       background: rgba(148,163,184,.10);
     }
     #gjProgressFill{
-      height:100%; width:0%;
+      height:100%;
+      width:0%;
       background: rgba(99,102,241,.95);
       transition: width 120ms linear;
     }
 
     /* Fever + Shield row */
-    .gj-bars{ margin-top:8px; display:grid; grid-template-columns: 1fr; gap:8px; }
-    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size: 13px; }
+    .gj-bars{
+      pointer-events:none;
+      margin-top:8px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:8px;
+    }
+    .gj-bar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      font-size: 13px;
+    }
     .gj-bar .track{
-      flex:1; height: 10px; border-radius:999px;
+      flex:1;
+      height: 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #feverFill{ height:100%; width:0%; background: rgba(251,191,36,.96); transition: width 120ms linear; }
+    #feverFill{
+      height:100%;
+      width:0%;
+      background: rgba(251,191,36,.96);
+      transition: width 120ms linear;
+    }
     #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
     #shieldPills{ opacity:.98; }
 
-    /* Boss bar */
+    /* BOSS bar */
     #bossBar{
       position:fixed;
-      left: 10px; right: 10px;
+      left: 10px;
+      right: 10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
       z-index:125;
       pointer-events:none;
@@ -111,40 +145,114 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       backdrop-filter: blur(10px);
     }
     .boss-top{
-      display:flex; justify-content:space-between; align-items:center;
-      gap:10px; font-weight:900; letter-spacing:.2px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      letter-spacing:.2px;
     }
     .boss-track{
-      margin-top:8px; height:10px; border-radius:999px;
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
-    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
+    #bossFill{
+      height:100%;
+      width:0%;
+      background: rgba(244,63,94,.92);
+      transition: width 120ms linear;
+    }
+    #bossHint{
+      margin-top:8px;
+      font-size: 12px;
+      opacity:.92;
+      font-weight:800;
+    }
 
     /* Low time overlay */
     #lowTimeOverlay{
-      position:fixed; inset:0; z-index:200;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed;
+      inset:0;
+      z-index:200;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
     .lowtime-pill{
-      font-weight:1000; letter-spacing:.5px;
-      font-size: 64px; color: rgba(255,255,255,.95);
+      font-weight:1000;
+      letter-spacing:.5px;
+      font-size: 64px;
+      color: rgba(255,255,255,.95);
       text-shadow: 0 14px 48px rgba(0,0,0,.55);
-      border-radius: 999px; padding: 18px 26px;
+      border-radius: 999px;
+      padding: 18px 26px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
     }
 
+    /* Coach HUD (fixed bottom-left; never inside #gj-layer so it won't disappear) */
+    .gj-coach{
+      position:fixed;
+      left: calc(env(safe-area-inset-left, 0px) + 10px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+      z-index:160;
+      pointer-events:none;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      max-width: min(520px, 92vw);
+    }
+    .gj-coach .avatar{
+      width: 72px; height: 72px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+      flex:0 0 auto;
+      backdrop-filter: blur(8px);
+    }
+    .gj-coach img{
+      width:100%; height:100%;
+      object-fit: cover;
+      display:block;
+    }
+    .gj-coach .bubble{
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.62);
+      color: rgba(229,231,235,.96);
+      font-weight: 900;
+      line-height: 1.25;
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .gj-coach .bubble small{
+      display:block;
+      opacity:.8;
+      font-weight:800;
+      margin-top:6px;
+    }
+    .gj-coach[aria-hidden="true"]{ display:none; }
+
     /* End overlay */
     #endOverlay{
-      position:fixed; inset:0; z-index:300;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed;
+      inset:0;
+      z-index:300;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding: 18px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
@@ -152,7 +260,7 @@ FULL v20260224-run-pathfix+coach+fxnoflash
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
     .end-card{
-      width:min(680px, 94vw);
+      width:min(720px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
@@ -160,11 +268,21 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
-    .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
+    .end-title{
+      font-weight:1000;
+      font-size: 20px;
+      letter-spacing:.2px;
+    }
+    .end-sub{
+      margin-top:6px;
+      font-size: 12px;
+      opacity:.92;
+      word-break: break-all;
+    }
     .end-grid{
       margin-top:12px;
-      display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
     }
     .end-item{
@@ -179,7 +297,9 @@ FULL v20260224-run-pathfix+coach+fxnoflash
 
     .end-actions{
       margin-top: 14px;
-      display:flex; gap: 10px; flex-wrap:wrap;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
       justify-content:flex-end;
     }
     .btn{
@@ -193,59 +313,21 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       cursor:pointer;
     }
     .btn:hover{ filter: brightness(1.05); }
-    .btn.primary{ border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.22); }
-    .btn.danger{ border-color: rgba(244,63,94,.30); background: rgba(244,63,94,.16); }
-
-    /* ✅ COACH DOCK (left-bottom) */
-    #coachDock{
-      position:fixed;
-      left: calc(env(safe-area-inset-left, 0px) + 10px);
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-      z-index:160; /* above FX */
-      pointer-events:none;
-      display:flex;
-      align-items:flex-end;
-      gap:10px;
+    .btn.primary{
+      border-color: rgba(99,102,241,.35);
+      background: rgba(99,102,241,.22);
     }
-    #coachImg{
-      width:76px; height:76px;
-      border-radius:16px;
-      background: rgba(2,6,23,.35);
-      border: 1px solid rgba(148,163,184,.18);
-      box-shadow: 0 14px 46px rgba(0,0,0,.35);
-      object-fit: contain;
-      padding: 6px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    #coachBubble{
-      max-width: min(72vw, 420px);
-      padding: 10px 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.62);
-      color: rgba(229,231,235,.96);
-      font-weight: 900;
-      line-height: 1.25;
-      box-shadow: 0 14px 46px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      opacity:.96;
-    }
-    #coachBubble .small{
-      display:block;
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      font-weight:800;
+    .btn.danger{
+      border-color: rgba(244,63,94,.30);
+      background: rgba(244,63,94,.16);
     }
 
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
-      #coachImg{ width:68px; height:68px; }
-      #coachBubble{ max-width: min(76vw, 360px); }
+      .gj-coach .avatar{ width:64px; height:64px; border-radius: 16px; }
+      .gj-coach .bubble{ font-size: 14px; }
     }
   </style>
 </head>
@@ -302,6 +384,17 @@ FULL v20260224-run-pathfix+coach+fxnoflash
     </div>
   </div>
 
+  <!-- Coach HUD -->
+  <div id="gjCoach" class="gj-coach" aria-hidden="false">
+    <div class="avatar">
+      <img id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
+    </div>
+    <div class="bubble">
+      <div id="coachLine">พร้อมลุย! เก็บอาหารดีให้ไว เลี่ยงขยะ!</div>
+      <small id="coachMeta">—</small>
+    </div>
+  </div>
+
   <!-- Boss bar -->
   <div id="bossBar" aria-hidden="true">
     <div class="boss-wrap">
@@ -325,15 +418,6 @@ FULL v20260224-run-pathfix+coach+fxnoflash
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
   </div>
 
-  <!-- ✅ Coach Dock -->
-  <div id="coachDock" aria-hidden="false">
-    <img id="coachImg" alt="coach" src="../img/coach-neutral.png"/>
-    <div id="coachBubble">
-      พร้อมลุย! 🎯 ยิง Good ต่อเนื่องทำคอมโบ • ระวัง Junk/💣/💀
-      <span class="small" id="coachMini">STORM เหลือ 30s • MISS ≥4=BOSS • ≥5=RAGE</span>
-    </div>
-  </div>
-
   <!-- End overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
@@ -343,12 +427,15 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">MISS (Total)</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">MISS (G/J)</div><div class="v"><span id="endMissGood">0</span>/<span id="endMissJunk">0</span></div></div>
         <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
+        <div class="end-item"><div class="k">NEXT</div><div class="v" style="font-size:14px;opacity:.9">ไป HUB หรือ Cooldown</div></div>
       </div>
 
       <div class="end-actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
+        <button class="btn" id="btnCooldown">Continue → Cooldown</button>
         <button class="btn danger" id="btnReplay">Replay</button>
         <button class="btn primary" id="btnBackHub">Back HUB</button>
       </div>
@@ -360,7 +447,6 @@ FULL v20260224-run-pathfix+coach+fxnoflash
 
   <!-- Boot -->
   <script type="module">
-    /* ✅ FIX PATH: safe.js อยู่โฟลเดอร์เดียวกับไฟล์นี้ */
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
@@ -406,17 +492,18 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       return u.toString();
     }
 
-    function goHubWithLog(summary){
+    function hubUrlWithLog(summary){
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
+      // keep essentials if hub lacks
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
         if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
       });
 
-      const payload = { kind: 'hha_end', ts: Date.now(), game: 'goodjunk', summary: summary || null };
+      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
       const log = b64urlEncodeJson(payload);
       if(log) u.searchParams.set('log', log);
 
@@ -425,41 +512,37 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       if(flush==='1') u.searchParams.set('flush','1');
       if(endpoint) u.searchParams.set('endpoint', endpoint);
 
-      location.href = u.toString();
+      return u.toString();
     }
 
-    function handleEnd(summary){
-      const cooldown = String(qs('cooldown','0')||'0') === '1';
+    function goHubWithLog(summary){
+      location.href = hubUrlWithLog(summary);
+    }
+
+    function goCooldownThen(nextAfterCooldown){
+      location.href = buildGateCooldownUrl(nextAfterCooldown);
+    }
+
+    function buildNextAfterCooldown(summary){
       const cdnext = String(qs('cdnext','')||'').trim();
-
-      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
-      const hubUrl = new URL(hub, location.href);
-      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
-      const log = b64urlEncodeJson(payload);
-      if(log) hubUrl.searchParams.set('log', log);
-
-      const flush = qs('flush','');
-      const endpoint = qs('endpoint','');
-      if(flush==='1') hubUrl.searchParams.set('flush','1');
-      if(endpoint) hubUrl.searchParams.set('endpoint', endpoint);
-
-      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrl.toString();
-
-      if(cooldown){
-        location.href = buildGateCooldownUrl(nextAfterCooldown);
-        return;
-      }
-      goHubWithLog(summary);
+      if(cdnext) return abs(cdnext);
+      return hubUrlWithLog(summary);
     }
 
-    const btnReplay = document.getElementById('btnReplay');
-    const btnBackHub = document.getElementById('btnBackHub');
-    const btnCopy = document.getElementById('btnCopy');
+    // Buttons
+    const btnReplay    = document.getElementById('btnReplay');
+    const btnBackHub   = document.getElementById('btnBackHub');
+    const btnCopy      = document.getElementById('btnCopy');
+    const btnCooldown  = document.getElementById('btnCooldown');
 
     let lastSummary = null;
 
     btnReplay?.addEventListener('click', ()=> location.reload());
-    btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}));
+    btnBackHub?.addEventListener('click', ()=> goHubWithLog(lastSummary || {}));
+    btnCooldown?.addEventListener('click', ()=> {
+      const next = buildNextAfterCooldown(lastSummary || {});
+      goCooldownThen(next);
+    });
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -472,15 +555,46 @@ FULL v20260224-run-pathfix+coach+fxnoflash
       }
     });
 
+    // Listen from safe.js
     window.addEventListener('hha:game-ended', (ev)=>{ lastSummary = ev?.detail || null; });
 
-    const uiView = document.getElementById('uiView');
-    const uiRun = document.getElementById('uiRun');
-    const uiDiff = document.getElementById('uiDiff');
-    if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun) uiRun.textContent = String(qs('run','play'));
-    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
+    // Coach events (safe.js emits hha:coach)
+    const coachLine = document.getElementById('coachLine');
+    const coachMeta = document.getElementById('coachMeta');
+    const coachImg  = document.getElementById('coachImg');
+    const coachWrap = document.getElementById('gjCoach');
 
+    function setCoachFace(kind){
+      // map kind -> /herohealth/img/coach-*.png
+      const map = {
+        happy:  '../img/coach-happy.png',
+        neutral:'../img/coach-neutral.png',
+        sad:    '../img/coach-sad.png',
+        fever:  '../img/coach-fever.png'
+      };
+      if(!coachImg) return;
+      coachImg.src = map[kind] || map.neutral;
+    }
+
+    window.addEventListener('hha:coach', (ev)=>{
+      const d = ev?.detail || {};
+      const msg = String(d.msg || '').trim();
+      const kind = String(d.kind || 'neutral').toLowerCase();
+      if(coachWrap) coachWrap.setAttribute('aria-hidden', msg ? 'false' : 'true');
+      if(coachLine && msg) coachLine.textContent = msg;
+      if(coachMeta) coachMeta.textContent = `coach=${kind}`;
+      if(kind.includes('fever')) setCoachFace('fever');
+      else if(kind.includes('happy') || kind.includes('good')) setCoachFace('happy');
+      else if(kind.includes('sad') || kind.includes('warn') || kind.includes('bad')) setCoachFace('sad');
+      else setCoachFace('neutral');
+    });
+
+    // Tiny info
+    document.getElementById('uiView')?.append(String(qs('view','mobile')));
+    document.getElementById('uiRun')?.append(String(qs('run','play')));
+    document.getElementById('uiDiff')?.append(String(qs('diff','normal')));
+
+    // Start game
     boot({
       view: qs('view','mobile'),
       run: qs('run','play'),
