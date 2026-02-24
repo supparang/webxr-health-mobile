@@ -1,6 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (FX+Coach restored + end summary -> Next Cooldown)
-FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
+GoodJunkVR RUN — PRODUCTION (fixed paths + cache-bust + FX root + COACH + nextBtnFlow)
+FULL v20260224c-nextBtnFlow+fxroot+coach
+✅ End overlay stays (summary)
+✅ cooldown=1 => show "ถัดไป: Cooldown" (and hide Back HUB)
+✅ cooldown=0 => show Back HUB (go hub with log)
+✅ Adds #gj-fx root so popup/score/burst return
+✅ Adds coach UI listening hha:coach
 -->
 <!doctype html>
 <html lang="th">
@@ -9,100 +14,337 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <link rel="stylesheet" href="./goodjunk-vr.css"/>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260224c"/>
 
   <style>
     html,body{height:100%;margin:0;}
-    body{overflow:hidden;}
+    body{overflow:hidden;-webkit-tap-highlight-color:transparent;}
 
     .gj-stage{ position:relative; width:100%; height:100%; }
-    #gj-layer, #gj-layer-r{ position:absolute; inset:0; overflow:hidden; touch-action: manipulation; }
+    #gj-layer, #gj-layer-r{
+      position:absolute; inset:0;
+      overflow:hidden;
+      touch-action: manipulation;
+    }
     #gj-layer-r{ display:none; }
 
-    /* (HUD/End styles เหมือนเดิม) — ย่อไว้เพื่อไม่ยาวเกิน แต่ “ใช้ของเดิมได้” */
-    .gj-hud{ position:fixed; left:0; right:0; top:0; z-index:120; pointer-events:none;
+    /* (optional) target fallback */
+    .gj-target{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      user-select:none;
+      pointer-events:auto;
+      font-size:56px;
+      will-change: transform, opacity;
+    }
+
+    .gj-hud{
+      position:fixed;
+      left:0; right:0; top:0;
+      z-index:120;
+      pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
       padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
-    .gj-hud-row{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
-    .gj-card{ pointer-events:none; background: rgba(2,6,23,.68); border: 1px solid rgba(148,163,184,.18);
-      border-radius: 14px; padding: 10px 12px; color: rgba(229,231,235,.95);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+
+    .gj-hud-row{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+    }
+
+    .gj-card{
+      pointer-events:none;
+      background: rgba(2,6,23,.68);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: rgba(229,231,235,.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-    .gj-stat{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:800; letter-spacing:.2px; }
-    .gj-stat .k{opacity:.78;font-weight:700;} .gj-stat .v{font-variant-numeric: tabular-nums;}
 
-    .gj-mini{ margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size: 13px; opacity:.96; }
-    .gj-mini .chip{ display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.16); background: rgba(2,6,23,.42); font-weight:800;
+    .gj-stat{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+    .gj-stat .k{opacity:.78;font-weight:700;}
+    .gj-stat .v{font-variant-numeric: tabular-nums;}
+    .gj-mini{
+      margin-top:8px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size: 13px;
+      opacity:.96;
+    }
+    .gj-mini .chip{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.42);
+      font-weight:800;
     }
 
-    .gj-progress{ position:fixed; left:0; right:0; top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px; z-index:130; background: rgba(148,163,184,.10);
+    .gj-progress{
+      position:fixed;
+      left:0; right:0;
+      top: calc(env(safe-area-inset-top, 0px) + 0px);
+      height: 4px;
+      z-index:130;
+      background: rgba(148,163,184,.10);
     }
-    #gjProgressFill{ height:100%; width:0%; background: rgba(99,102,241,.95); transition: width 120ms linear; }
+    #gjProgressFill{
+      height:100%;
+      width:0%;
+      background: rgba(99,102,241,.95);
+      transition: width 120ms linear;
+    }
 
-    #bossBar{ position:fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 92px);
-      z-index:125; pointer-events:none;
+    .gj-bars{
+      pointer-events:none;
+      margin-top:8px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:8px;
+    }
+    .gj-bar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      font-size: 13px;
+    }
+    .gj-bar .track{
+      flex:1;
+      height: 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      overflow:hidden;
+    }
+    #feverFill{
+      height:100%;
+      width:0%;
+      background: rgba(251,191,36,.96);
+      transition: width 120ms linear;
+    }
+    #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
+    #shieldPills{ opacity:.98; }
+
+    #bossBar{
+      position:fixed;
+      left: 10px;
+      right: 10px;
+      top: calc(env(safe-area-inset-top, 0px) + 92px);
+      z-index:125;
+      pointer-events:none;
     }
     #bossBar[aria-hidden="true"]{ display:none; }
-    .boss-wrap{ border-radius: 14px; border:1px solid rgba(244,63,94,.22); background: rgba(2,6,23,.66);
-      padding: 10px 12px; box-shadow: 0 10px 26px rgba(0,0,0,.25); backdrop-filter: blur(10px);
+    .boss-wrap{
+      border-radius: 14px;
+      border:1px solid rgba(244,63,94,.22);
+      background: rgba(2,6,23,.66);
+      padding: 10px 12px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
     }
-    .boss-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:900; }
-    .boss-track{ margin-top:8px; height:10px; border-radius:999px; border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45); overflow:hidden;
+    .boss-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      letter-spacing:.2px;
     }
-    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
-    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
+    .boss-track{
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      overflow:hidden;
+    }
+    #bossFill{
+      height:100%;
+      width:0%;
+      background: rgba(244,63,94,.92);
+      transition: width 120ms linear;
+    }
+    #bossHint{
+      margin-top:8px;
+      font-size: 12px;
+      opacity:.92;
+      font-weight:800;
+    }
 
-    #lowTimeOverlay{ position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
-      pointer-events:none; background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
+    #lowTimeOverlay{
+      position:fixed;
+      inset:0;
+      z-index:200;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
-    .lowtime-pill{ font-weight:1000; letter-spacing:.5px; font-size: 64px; color: rgba(255,255,255,.95);
-      text-shadow: 0 14px 48px rgba(0,0,0,.55); border-radius: 999px; padding: 18px 26px;
-      border: 1px solid rgba(255,255,255,.14); background: rgba(2,6,23,.55); backdrop-filter: blur(10px);
+    .lowtime-pill{
+      font-weight:1000;
+      letter-spacing:.5px;
+      font-size: 64px;
+      color: rgba(255,255,255,.95);
+      text-shadow: 0 14px 48px rgba(0,0,0,.55);
+      border-radius: 999px;
+      padding: 18px 26px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
     }
 
-    #endOverlay{ position:fixed; inset:0; z-index:300; display:flex; align-items:center; justify-content:center;
-      padding: 18px; background: rgba(0,0,0,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    #endOverlay{
+      position:fixed;
+      inset:0;
+      z-index:300;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
-    .end-card{ width:min(680px, 94vw); border-radius: 18px; border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82); color: rgba(229,231,235,.95); box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    .end-card{
+      width:min(680px, 94vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      color: rgba(229,231,235,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{ font-weight:1000; font-size: 20px; }
+    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
     .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
-    .end-grid{ margin-top:12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
-    .end-item{ border:1px solid rgba(148,163,184,.14); background: rgba(2,6,23,.55); border-radius: 14px;
-      padding: 10px 12px; font-weight:900;
+    .end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+    }
+    .end-item{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:900;
     }
     .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
     .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
 
-    .end-actions{ margin-top: 14px; display:flex; gap: 10px; flex-wrap:wrap; justify-content:flex-end; }
-    .btn{ pointer-events:auto; border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95); padding: 10px 12px; border-radius: 14px; font-weight: 900; cursor:pointer;
+    .end-actions{
+      margin-top: 14px;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: rgba(229,231,235,.95);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 900;
+      cursor:pointer;
     }
     .btn:hover{ filter: brightness(1.05); }
-    .btn.primary{ border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.22); }
-    .btn.danger{ border-color: rgba(244,63,94,.30); background: rgba(244,63,94,.16); }
+    .btn.primary{
+      border-color: rgba(99,102,241,.35);
+      background: rgba(99,102,241,.22);
+    }
+    .btn.danger{
+      border-color: rgba(244,63,94,.30);
+      background: rgba(244,63,94,.16);
+    }
     .is-hidden{ display:none !important; }
+
+    /* ✅ COACH UI */
+    #gjCoach{
+      position:fixed;
+      left: calc(env(safe-area-inset-left, 0px) + 10px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+      z-index: 210;
+      pointer-events:none;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      opacity:0;
+      transform: translateY(6px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+    #gjCoach.is-on{ opacity:1; transform: translateY(0); }
+    #gjCoach .face{
+      width:64px;height:64px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      box-shadow: 0 10px 26px rgba(0,0,0,.28);
+      overflow:hidden;
+      display:grid; place-items:center;
+    }
+    #gjCoach img{ width:100%; height:100%; object-fit:cover; display:block; }
+    #gjCoach .bubble{
+      max-width:min(66vw, 520px);
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      color: rgba(229,231,235,.96);
+      box-shadow: 0 10px 26px rgba(0,0,0,.28);
+      padding: 10px 12px;
+      font-weight:900;
+      line-height:1.25;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #coachMsg{ font-size: 13px; opacity:.98; }
+
+    #gjDebug{
+      position:fixed;
+      left:10px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      z-index: 260;
+      font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 6px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      color: rgba(229,231,235,.92);
+      pointer-events:none;
+      opacity:.9;
+    }
+    #gjDebug[aria-hidden="true"]{ display:none; }
 
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
+      #gjCoach .face{ width:56px;height:56px; }
+      #coachMsg{ font-size: 12px; }
     }
   </style>
 </head>
 
 <body>
-  <div class="gj-progress">
+  <div class="gj-progress" aria-hidden="true">
     <div id="gjProgressFill"></div>
   </div>
 
@@ -116,6 +358,18 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
           <span class="k">GRADE</span> <span id="hud-grade" class="v">—</span>
         </div>
 
+        <div class="gj-bars">
+          <div class="gj-bar">
+            <span style="min-width:64px">FEVER</span>
+            <div class="track"><div id="feverFill"></div></div>
+            <span id="feverText">0%</span>
+          </div>
+          <div class="gj-bar">
+            <span style="min-width:64px">SHIELD</span>
+            <span id="shieldPills">—</span>
+          </div>
+        </div>
+
         <div class="gj-mini">
           <span class="chip">🎯 <span id="hud-goal">—</span></span>
           <span class="chip">🧮 <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></span>
@@ -125,11 +379,6 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
         <div class="gj-mini">
           <span class="chip">⚡ <span id="hud-mini">—</span></span>
           <span class="chip">⏱ <span id="miniTimer">—</span></span>
-        </div>
-
-        <div class="gj-mini">
-          <span class="chip">FEVER <span id="feverText">0%</span></span>
-          <span class="chip">🛡️ <span id="shieldPills">—</span></span>
         </div>
       </div>
 
@@ -159,18 +408,18 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
     <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
   </div>
 
+  <!-- ✅ COACH -->
+  <div id="gjCoach" aria-hidden="true">
+    <div class="face"><img id="coachImg" alt="coach"/></div>
+    <div class="bubble"><div id="coachMsg">—</div></div>
+  </div>
+
   <div class="gj-stage">
     <div id="gj-layer" aria-label="GoodJunk layer"></div>
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
-  </div>
 
-  <!-- ✅ COACH UI -->
-  <div id="gj-coach" aria-hidden="true">
-    <img id="gjCoachFace" class="gj-coach-face" alt="coach"/>
-    <div class="gj-coach-bubble">
-      <div class="gj-coach-title" id="gjCoachTitle">COACH</div>
-      <div class="gj-coach-msg" id="gjCoachMsg">—</div>
-    </div>
+    <!-- ✅ FX ROOT (critical: popup/score/burst/spawn FX) -->
+    <div id="gj-fx" aria-hidden="true"></div>
   </div>
 
   <div id="endOverlay" aria-hidden="true">
@@ -188,13 +437,19 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
       <div class="end-actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
         <button class="btn danger" id="btnReplay">Replay</button>
+
+        <!-- ✅ cooldown=1 => show this -->
         <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+
+        <!-- ✅ cooldown=0 => show this -->
         <button class="btn primary" id="btnBackHub">Back HUB</button>
       </div>
     </div>
   </div>
 
-  <script type="module" src="../vr/vr-ui.js"></script>
+  <div id="gjDebug" aria-hidden="true">dbg</div>
+
+  <script type="module" src="../vr/vr-ui.js?v=20260224c"></script>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
@@ -212,33 +467,12 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
         const json = JSON.stringify(obj || {});
         const b64 = btoa(unescape(encodeURIComponent(json)));
         return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      }catch(e){ return ''; }
+      }catch(e){
+        return '';
+      }
     }
 
-    function buildGateCooldownUrl(nextUrl){
-      const gate = abs('../warmup-gate.html');
-      const hub  = abs('../hub.html');
-      const u = new URL(gate, location.href);
-
-      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
-      keys.forEach(k=>{
-        const v = qs(k,'');
-        if(v!=='') u.searchParams.set(k, String(v));
-      });
-
-      u.searchParams.set('hub', hub);
-      u.searchParams.set('next', abs(nextUrl || hub));
-      u.searchParams.set('gatePhase', 'cooldown');
-      u.searchParams.set('cat', 'nutrition');
-      u.searchParams.set('theme', 'calm');
-
-      const cdur = clamp(qs('cdur','15'), 5, 60);
-      u.searchParams.set('dur', String(cdur));
-      u.searchParams.set('cdur', String(cdur));
-
-      return u.toString();
-    }
-
+    // Build HUB url with passthrough + log + flush/endpoint (this becomes "next=" for cooldown gate)
     function buildHubUrlWithLog(summary){
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
@@ -261,25 +495,31 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
       return u.toString();
     }
 
-    function shouldForceCooldown(){
-      const cd = String(qs('cooldown','0')||'0');
-      const gp = String(qs('gatePhase','')||'').toLowerCase();
-      const cd2= String(qs('cd','0')||'0');
-      return (cd==='1') || (cd2==='1') || (gp==='cooldown');
-    }
+    // Cooldown gate URL: next points to hubUrlWithLog (or cdnext if provided)
+    function buildGateCooldownUrl(nextAfterCooldownUrl){
+      const gate = abs('../warmup-gate.html');
+      const hub = abs(qs('hub','../hub.html') || '../hub.html');
+      const u = new URL(gate, location.href);
 
-    function applyEndButtonsPolicy(){
-      const cooldown = shouldForceCooldown();
-      const btnNext = document.getElementById('btnNextCooldown');
-      const btnHub  = document.getElementById('btnBackHub');
+      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone'];
+      keys.forEach(k=>{
+        const v = qs(k,'');
+        if(v!=='') u.searchParams.set(k, String(v));
+      });
 
-      if(cooldown){
-        btnNext?.classList.remove('is-hidden');
-        btnHub?.classList.add('is-hidden');
-      }else{
-        btnNext?.classList.add('is-hidden');
-        btnHub?.classList.remove('is-hidden');
-      }
+      u.searchParams.set('hub', hub);
+      u.searchParams.set('next', abs(nextAfterCooldownUrl || hub));
+
+      u.searchParams.set('gatePhase', 'cooldown');
+      u.searchParams.set('phase', 'cooldown');
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('theme', 'calm');
+
+      const cdur = clamp(qs('cdur','15'), 5, 60);
+      u.searchParams.set('dur', String(cdur));
+      u.searchParams.set('cdur', String(cdur));
+
+      return u.toString();
     }
 
     function goCooldown(summary){
@@ -293,64 +533,30 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
       location.href = buildHubUrlWithLog(summary || {});
     }
 
-    // ---------------- COACH wiring ----------------
-    const coachWrap = document.getElementById('gj-coach');
-    const coachFace = document.getElementById('gjCoachFace');
-    const coachTitle= document.getElementById('gjCoachTitle');
-    const coachMsg  = document.getElementById('gjCoachMsg');
-
-    // ✅ path ของ coach มาตรฐาน HeroHealth: /herohealth/img/coach-*.png
-    const COACH_IMG = {
-      neutral: abs('../img/coach-neutral.png'),
-      happy:   abs('../img/coach-happy.png'),
-      sad:     abs('../img/coach-sad.png'),
-      fever:   abs('../img/coach-fever.png'),
-    };
-
-    let coachTimer = 0;
-    function showCoach(kind, msg){
-      try{
-        const k = String(kind||'neutral').toLowerCase();
-        const src = COACH_IMG[k] || COACH_IMG.neutral;
-        if(coachFace) coachFace.src = src;
-        if(coachTitle) coachTitle.textContent = `COACH • ${k.toUpperCase()}`;
-        if(coachMsg) coachMsg.textContent = String(msg || '');
-        if(coachWrap){
-          coachWrap.classList.add('is-show');
-          coachWrap.setAttribute('aria-hidden','false');
-        }
-        clearTimeout(coachTimer);
-        coachTimer = setTimeout(()=>{
-          if(coachWrap){
-            coachWrap.classList.remove('is-show');
-            coachWrap.setAttribute('aria-hidden','true');
-          }
-        }, 2200);
-      }catch(_){}
+    // ✅ Button policy: cooldown=1 => must go cooldown (and hide hub)
+    function applyEndButtonsPolicy(){
+      const cooldown = String(qs('cooldown','0')||'0') === '1';
+      const btnNext = document.getElementById('btnNextCooldown');
+      const btnHub  = document.getElementById('btnBackHub');
+      if(cooldown){
+        btnNext?.classList.remove('is-hidden');
+        btnHub?.classList.add('is-hidden');
+      }else{
+        btnNext?.classList.add('is-hidden');
+        btnHub?.classList.remove('is-hidden');
+      }
     }
 
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = ev?.detail || {};
-      showCoach(d.kind || 'neutral', d.msg || d.text || '');
-    });
-
-    // ---------------- buttons ----------------
-    const btnReplay = document.getElementById('btnReplay');
+    const btnReplay  = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
-    const btnNextCooldown = document.getElementById('btnNextCooldown');
-    const btnCopy = document.getElementById('btnCopy');
+    const btnNextCd  = document.getElementById('btnNextCooldown');
+    const btnCopy    = document.getElementById('btnCopy');
+
     let lastSummary = null;
 
-    btnReplay?.addEventListener('click', ()=>{
-      const mode = String(qs('run','play')).toLowerCase();
-      const u = new URL(location.href);
-      u.searchParams.delete('log');
-      if(mode !== 'research') u.searchParams.set('seed', String(Date.now()));
-      location.href = u.toString();
-    });
-
+    btnReplay?.addEventListener('click', ()=> location.reload());
     btnBackHub?.addEventListener('click', ()=> goHub(lastSummary || {}));
-    btnNextCooldown?.addEventListener('click', ()=> goCooldown(lastSummary || {}));
+    btnNextCd?.addEventListener('click', ()=> goCooldown(lastSummary || {}));
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -363,26 +569,57 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
       }
     });
 
+    // ✅ capture summary + enforce end policy
     window.addEventListener('hha:game-ended', (ev)=>{
       lastSummary = ev?.detail || null;
       applyEndButtonsPolicy();
-      showCoach('happy', `จบแล้ว! เกรด ${lastSummary?.grade || '—'} • คะแนน ${lastSummary?.scoreFinal ?? 0}`);
     });
 
-    window.addEventListener('hha:end', (ev)=>{
-      try{ lastSummary = ev?.detail?.summary || ev?.detail || lastSummary; }catch(_){}
-      applyEndButtonsPolicy();
-    });
+    // ✅ COACH listener
+    (function coachWire(){
+      const coach = document.getElementById('gjCoach');
+      const img = document.getElementById('coachImg');
+      const msg = document.getElementById('coachMsg');
 
-    // show tiny info
+      function showCoach(text, face){
+        if(!coach || !msg || !img) return;
+        msg.textContent = String(text || '');
+        const f = String(face || 'coach-happy.png');
+        img.src = abs(`../img/${f}`); // coach*.png อยู่ /herohealth/img/
+        coach.classList.add('is-on');
+        coach.setAttribute('aria-hidden','false');
+        clearTimeout(window.__GJ_COACH_T);
+        window.__GJ_COACH_T = setTimeout(()=>{
+          coach.classList.remove('is-on');
+          coach.setAttribute('aria-hidden','true');
+        }, 2400);
+      }
+
+      window.addEventListener('hha:coach', (ev)=>{
+        const d = ev?.detail || {};
+        const text = d.msg || d.text || d.label || '';
+        const kind = String(d.kind || '').toLowerCase();
+
+        let face = 'coach-happy.png';
+        if(kind.includes('warn') || kind.includes('danger')) face = 'coach-fever.png';
+        if(kind.includes('sad') || kind.includes('oops')) face = 'coach-sad.png';
+        if(kind.includes('neutral')) face = 'coach-neutral.png';
+
+        if(text) showCoach(text, face);
+      });
+    })();
+
     const uiView = document.getElementById('uiView');
-    const uiRun = document.getElementById('uiRun');
+    const uiRun  = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
     if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun) uiRun.textContent = String(qs('run','play'));
+    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
-    // boot
+    const dbg = document.getElementById('gjDebug');
+    const dbgOn = String(qs('dbg','0')) === '1';
+    if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
+
     boot({
       view: qs('view','mobile'),
       run:  qs('run','play'),
@@ -394,8 +631,25 @@ FULL v20260224-endNextCooldown-FIXPATH-FXCOACH
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     });
 
-    // hello coach once
-    showCoach('neutral', 'พร้อมลุย! ยิงของดี เลี่ยงขยะ 🥦✨');
+    if(dbgOn){
+      setInterval(()=>{
+        try{
+          const st = window.__GJ_STATE__;
+          const layer = document.getElementById('gj-layer');
+          const fx = document.getElementById('gj-fx');
+          const r = layer?.getBoundingClientRect?.();
+          const miss = (typeof st?.missTotal === 'function') ? st.missTotal() : (st?.missTotal ?? '?');
+          dbg.textContent =
+            `targets=${st?.targets?.size ?? '?'} ` +
+            `miss=${miss} ` +
+            `fx=${fx ? 'Y' : 'N'} ` +
+            `W=${Math.round(r?.width||0)} H=${Math.round(r?.height||0)}`;
+        }catch(e){}
+      }, 800);
+    }
+
+    // initial policy (before end)
+    applyEndButtonsPolicy();
   </script>
 </body>
 </html>
