@@ -1,6 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PRODUCTION (HUD safe-area + layers + targets + overlays)
-FULL v20260224b (pairs with goodjunk-vr.html v20260224a)
+GoodJunkVR CSS — PRODUCTION (HUD safe-area + layers + targets + overlays + spawn-safety + cVR split)
+FULL v20260224c (pairs with goodjunk-vr.html v20260224a / warmup-gate v20260224b)
+✅ ADD: layer safe padding using --spawn-* vars (prevents targets under HUD/boss/end)
+✅ ADD: view-cvr split L/R (half width) + correct pointer routing
+✅ ADD: target base sizing & tap affordance + reduced-motion friendly
 */
 
 :root{
@@ -28,6 +31,12 @@ FULL v20260224b (pairs with goodjunk-vr.html v20260224a)
   --spawn-top: calc(var(--sat) + 140px); /* keep away from HUD + bossbar */
   --spawn-bot: calc(var(--sab) + 110px); /* keep away from end overlay buttons / bottom UI */
   --spawn-side: calc(14px + var(--sal));
+
+  /* target sizing */
+  --tgt-min: 46px;           /* mobile base hit area */
+  --tgt-font: 56px;          /* emoji size default */
+  --tgt-font-small: 50px;
+  --tgt-font-big: 68px;      /* boss/rare */
 }
 
 *{ box-sizing:border-box; }
@@ -51,19 +60,43 @@ body{
   height:100%;
 }
 
+/* ✅ IMPORTANT: layer gets padding based on safe spawn area
+   So JS can place targets in (0..w,0..h) and still be safe. */
 #gj-layer, #gj-layer-r{
   position:absolute;
   inset:0;
   overflow:hidden;
   touch-action: manipulation;
+  padding-top: var(--spawn-top);
+  padding-bottom: var(--spawn-bot);
+  padding-left: var(--spawn-side);
+  padding-right: calc(14px + var(--sar));
 }
 
 /* default: single layer (mobile/pc) */
 #gj-layer-r{ display:none; }
 
-/* view-cvr / cardboard: show right layer too (JS can toggle) */
-body.view-cvr #gj-layer-r{ display:block; }
-body.view-cvr #gj-layer{ display:block; }
+/* ✅ view-cvr / cardboard:
+   We show both layers and split into half width, so crosshair/tap-to-shoot can route properly.
+   - Left layer = left half
+   - Right layer = right half
+   You can still keep JS logic; CSS ensures visuals & pointer separation. */
+body.view-cvr #gj-layer,
+body.view-cvr #gj-layer-r{
+  display:block;
+  width:50%;
+  top:0; bottom:0;
+}
+body.view-cvr #gj-layer{ left:0; }
+body.view-cvr #gj-layer-r{ right:0; left:auto; }
+
+/* ✅ Pointer routing:
+   - In strict cVR (tap-to-shoot from center), you generally want targets NOT to steal pointer events.
+   - But some builds still want touch/click for testing.
+   We'll default to pointer-events on, but allow disabling via body.view-cvr.strict */
+body.view-cvr.strict .gj-target{
+  pointer-events:none !important;
+}
 
 /* targets */
 .gj-target{
@@ -74,7 +107,19 @@ body.view-cvr #gj-layer{ display:block; }
   pointer-events:auto;
   will-change: transform, opacity;
   filter: drop-shadow(0 10px 30px rgba(0,0,0,.38));
+
+  /* ✅ tap affordance */
+  min-width: var(--tgt-min);
+  min-height: var(--tgt-min);
+  display:grid;
+  place-items:center;
+  font-size: var(--tgt-font);
+  line-height:1;
 }
+
+/* tweak sizes via data */
+.gj-target[data-size="sm"]{ font-size: var(--tgt-font-small); }
+.gj-target[data-size="lg"]{ font-size: var(--tgt-font-big); }
 
 /* simple hit/expire motion hooks (JS can toggle classes) */
 .gj-target.is-hit{
@@ -88,11 +133,11 @@ body.view-cvr #gj-layer{ display:block; }
 }
 
 /* rarity / types optional styling */
-.gj-target[data-kind="good"]{ }
-.gj-target[data-kind="junk"]{ }
-.gj-target[data-kind="boss"]{ filter: drop-shadow(0 14px 34px rgba(244,63,94,.28)); }
+.gj-target[data-kind="boss"]{
+  filter: drop-shadow(0 14px 34px rgba(244,63,94,.28));
+}
 
-/* HUD: already in HTML but keep consistency if class used elsewhere */
+/* HUD */
 .gj-hud{
   position:fixed;
   left:0; right:0; top:0;
@@ -356,8 +401,23 @@ body.view-cvr #gj-layer{ display:block; }
 @media (max-width: 520px){
   :root{
     --spawn-top: calc(var(--sat) + 152px);
+    --tgt-min: 44px;
+    --tgt-font: 54px;
   }
   #bossBar{ top: calc(var(--sat) + 104px); }
   .end-grid{ grid-template-columns: 1fr; }
   .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
+}
+
+/* Reduced motion: keep accessible */
+@media (prefers-reduced-motion: reduce){
+  #gjProgressFill,
+  #feverFill,
+  #bossFill{
+    transition: none !important;
+  }
+  .gj-target.is-hit,
+  .gj-target.is-dying{
+    transition: none !important;
+  }
 }
