@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (end summary -> Next Cooldown, hide BackHub when cooldown=1)
-FULL v20260224-endNextCooldown
+FULL v20260224-endNextCooldown-FIXPATH
 -->
 <!doctype html>
 <html lang="th">
@@ -9,7 +9,8 @@ FULL v20260224-endNextCooldown
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
+  <!-- ✅ FIX PATH: CSS อยู่โฟลเดอร์เดียวกัน -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
   <style>
     html,body{height:100%;margin:0;}
@@ -212,7 +213,6 @@ FULL v20260224-endNextCooldown
       background: rgba(244,63,94,.16);
     }
 
-    /* hide helper */
     .is-hidden{ display:none !important; }
 
     @media (max-width: 520px){
@@ -224,7 +224,7 @@ FULL v20260224-endNextCooldown
 </head>
 
 <body>
-  <div class="gj-progress" aria-hidden="true">
+  <div class="gj-progress">
     <div id="gjProgressFill"></div>
   </div>
 
@@ -309,19 +309,18 @@ FULL v20260224-endNextCooldown
         <button class="btn" id="btnCopy">Copy Summary</button>
         <button class="btn danger" id="btnReplay">Replay</button>
 
-        <!-- ✅ PATCH: show when cooldown=1 -->
         <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
-
-        <!-- ✅ PATCH: hidden when cooldown=1 -->
         <button class="btn primary" id="btnBackHub">Back HUB</button>
       </div>
     </div>
   </div>
 
+  <!-- ✅ โหลดครั้งเดียวพอ -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
   <script type="module">
-    import { boot } from './vr-goodjunk/goodjunk.safe.js';
+    // ✅ FIX PATH: safe.js อยู่โฟลเดอร์เดียวกัน
+    import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -340,8 +339,10 @@ FULL v20260224-endNextCooldown
     }
 
     function buildGateCooldownUrl(nextUrl){
+      // ✅ อยู่ใต้ /vr-goodjunk => gate อยู่ ../warmup-gate.html
       const gate = abs('../warmup-gate.html');
-      const hub = abs('../hub.html');
+      const hub  = abs('../hub.html');
+
       const u = new URL(gate, location.href);
 
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
@@ -352,8 +353,9 @@ FULL v20260224-endNextCooldown
 
       u.searchParams.set('hub', hub);
       u.searchParams.set('next', abs(nextUrl || hub));
+
+      // โหมด cooldown
       u.searchParams.set('gatePhase', 'cooldown');
-      u.searchParams.set('phase', 'cooldown');
       u.searchParams.set('cat', 'nutrition');
       u.searchParams.set('theme', 'calm');
 
@@ -386,15 +388,22 @@ FULL v20260224-endNextCooldown
       return u.toString();
     }
 
-    // ✅ PATCH: UI policy
+    // ✅ robust: cooldown=1 OR gatePhase=cooldown OR cd=1
+    function shouldForceCooldown(){
+      const cd = String(qs('cooldown','0')||'0');
+      const gp = String(qs('gatePhase','')||'').toLowerCase();
+      const cd2= String(qs('cd','0')||'0');
+      return (cd==='1') || (cd2==='1') || (gp==='cooldown');
+    }
+
     function applyEndButtonsPolicy(){
-      const cooldown = String(qs('cooldown','0')||'0') === '1';
+      const cooldown = shouldForceCooldown();
       const btnNext = document.getElementById('btnNextCooldown');
       const btnHub  = document.getElementById('btnBackHub');
 
       if(cooldown){
-        btnNext?.classList.remove('is-hidden');   // show Next Cooldown
-        btnHub?.classList.add('is-hidden');      // hide Back HUB (enforce flow)
+        btnNext?.classList.remove('is-hidden');
+        btnHub?.classList.add('is-hidden');
       }else{
         btnNext?.classList.add('is-hidden');
         btnHub?.classList.remove('is-hidden');
@@ -420,17 +429,19 @@ FULL v20260224-endNextCooldown
 
     let lastSummary = null;
 
-    btnReplay?.addEventListener('click', ()=> location.reload());
-
-    btnBackHub?.addEventListener('click', ()=>{
-      // only available when cooldown!=1 (policy)
-      goHub(lastSummary || {});
+    btnReplay?.addEventListener('click', ()=>{
+      // play: seed ใหม่, research: ไม่ทับ
+      const mode = String(qs('run','play')).toLowerCase();
+      const u = new URL(location.href);
+      u.searchParams.delete('log');
+      if(mode !== 'research'){
+        u.searchParams.set('seed', String(Date.now()));
+      }
+      location.href = u.toString();
     });
 
-    btnNextCooldown?.addEventListener('click', ()=>{
-      // main CTA when cooldown=1
-      goCooldown(lastSummary || {});
-    });
+    btnBackHub?.addEventListener('click', ()=> goHub(lastSummary || {}));
+    btnNextCooldown?.addEventListener('click', ()=> goCooldown(lastSummary || {}));
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -443,24 +454,32 @@ FULL v20260224-endNextCooldown
       }
     });
 
+    // ✅ เมื่อเกมจบ (compat) => อัปเดต summary + enforce policy
     window.addEventListener('hha:game-ended', (ev)=>{
       lastSummary = ev?.detail || null;
-      // ✅ once end summary exists, enforce policy (cooldown vs hub)
       applyEndButtonsPolicy();
     });
 
-    // Show tiny info
+    // ✅ เผื่อบางหน้า listen 'hha:end' แทน
+    window.addEventListener('hha:end', (ev)=>{
+      try{
+        lastSummary = ev?.detail?.summary || ev?.detail || lastSummary;
+      }catch(_){}
+      applyEndButtonsPolicy();
+    });
+
+    // meta
     const uiView = document.getElementById('uiView');
-    const uiRun = document.getElementById('uiRun');
+    const uiRun  = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
     if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun) uiRun.textContent = String(qs('run','play'));
+    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
     // Start game
     boot({
       view: qs('view','mobile'),
-      run: qs('run','play'),
+      run:  qs('run','play'),
       diff: qs('diff','normal'),
       time: clamp(qs('time','80'), 20, 300),
       seed: qs('seed', null),
