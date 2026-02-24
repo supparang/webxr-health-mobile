@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (fixed paths + cache-bust + target failsafe)
-FULL v20260224a-run-fixCSSPath+failsafeTarget
+GoodJunkVR RUN — PRODUCTION (wiring + cooldown chain + hub log payload + coach dock)
+FULL v20260224-run-pathfix+coach+fxnoflash
 -->
 <!doctype html>
 <html lang="th">
@@ -9,57 +9,35 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- ✅ FIX: correct CSS path (this file is inside /vr-goodjunk/) -->
-  <!-- ✅ cache-bust to avoid stale CSS on mobile -->
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260224a"/>
+  <!-- ✅ FIX PATH: css อยู่โฟลเดอร์เดียวกับไฟล์นี้ -->
+  <link rel="stylesheet" href="./goodjunk-vr.css"/>
 
   <style>
-    /* Minimal layout safety */
     html,body{height:100%;margin:0;}
-    body{overflow:hidden;-webkit-tap-highlight-color:transparent;}
+    body{overflow:hidden;}
 
-    /* layers */
-    .gj-stage{
-      position:relative;
-      width:100%;
-      height:100%;
-    }
+    .gj-stage{ position:relative; width:100%; height:100%; }
     #gj-layer, #gj-layer-r{
-      position:absolute;
-      inset:0;
+      position:absolute; inset:0;
       overflow:hidden;
       touch-action: manipulation;
     }
     #gj-layer-r{ display:none; }
 
-    /* ✅ FAILSAFE: If external CSS fails to load, targets still appear */
-    .gj-target{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      user-select:none;
-      pointer-events:auto;
-      font-size:56px;
-      will-change: transform, opacity;
-    }
-
-    /* top HUD wrapper */
+    /* HUD */
     .gj-hud{
-      position:fixed;
-      left:0; right:0; top:0;
+      position:fixed; left:0; right:0; top:0;
       z-index:120;
       pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
       padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
-
     .gj-hud-row{
-      display:flex;
-      gap:10px;
+      display:flex; gap:10px;
       align-items:flex-start;
       justify-content:space-between;
     }
-
     .gj-card{
       pointer-events:none;
       background: rgba(2,6,23,.68);
@@ -71,85 +49,54 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-
     .gj-stat{
       display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800;
-      letter-spacing:.2px;
+      font-weight:800; letter-spacing:.2px;
     }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
     .gj-mini{
-      margin-top:8px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      font-size: 13px;
-      opacity:.96;
+      margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;
+      font-size: 13px; opacity:.96;
     }
     .gj-mini .chip{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.42);
       font-weight:800;
     }
 
+    /* progress */
     .gj-progress{
-      position:fixed;
-      left:0; right:0;
+      position:fixed; left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
-      height: 4px;
-      z-index:130;
+      height: 4px; z-index:130;
       background: rgba(148,163,184,.10);
     }
     #gjProgressFill{
-      height:100%;
-      width:0%;
+      height:100%; width:0%;
       background: rgba(99,102,241,.95);
       transition: width 120ms linear;
     }
 
     /* Fever + Shield row */
-    .gj-bars{
-      pointer-events:none;
-      margin-top:8px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
-    }
-    .gj-bar{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      font-size: 13px;
-    }
+    .gj-bars{ margin-top:8px; display:grid; grid-template-columns: 1fr; gap:8px; }
+    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size: 13px; }
     .gj-bar .track{
-      flex:1;
-      height: 10px;
-      border-radius:999px;
+      flex:1; height: 10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #feverFill{
-      height:100%;
-      width:0%;
-      background: rgba(251,191,36,.96);
-      transition: width 120ms linear;
-    }
+    #feverFill{ height:100%; width:0%; background: rgba(251,191,36,.96); transition: width 120ms linear; }
     #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
     #shieldPills{ opacity:.98; }
 
-    /* Boss Bar */
+    /* Boss bar */
     #bossBar{
       position:fixed;
-      left: 10px;
-      right: 10px;
+      left: 10px; right: 10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
       z-index:125;
       pointer-events:none;
@@ -164,54 +111,31 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       backdrop-filter: blur(10px);
     }
     .boss-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      letter-spacing:.2px;
+      display:flex; justify-content:space-between; align-items:center;
+      gap:10px; font-weight:900; letter-spacing:.2px;
     }
     .boss-track{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
+      margin-top:8px; height:10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #bossFill{
-      height:100%;
-      width:0%;
-      background: rgba(244,63,94,.92);
-      transition: width 120ms linear;
-    }
-    #bossHint{
-      margin-top:8px;
-      font-size: 12px;
-      opacity:.92;
-      font-weight:800;
-    }
+    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
+    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
 
     /* Low time overlay */
     #lowTimeOverlay{
-      position:fixed;
-      inset:0;
-      z-index:200;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:200;
+      display:flex; align-items:center; justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
     .lowtime-pill{
-      font-weight:1000;
-      letter-spacing:.5px;
-      font-size: 64px;
-      color: rgba(255,255,255,.95);
+      font-weight:1000; letter-spacing:.5px;
+      font-size: 64px; color: rgba(255,255,255,.95);
       text-shadow: 0 14px 48px rgba(0,0,0,.55);
-      border-radius: 999px;
-      padding: 18px 26px;
+      border-radius: 999px; padding: 18px 26px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
@@ -219,12 +143,8 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
 
     /* End overlay */
     #endOverlay{
-      position:fixed;
-      inset:0;
-      z-index:300;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:300;
+      display:flex; align-items:center; justify-content:center;
       padding: 18px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
@@ -240,21 +160,11 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{
-      font-weight:1000;
-      font-size: 20px;
-      letter-spacing:.2px;
-    }
-    .end-sub{
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      word-break: break-all;
-    }
+    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+    .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
     .end-grid{
       margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
     }
     .end-item{
@@ -269,9 +179,7 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
 
     .end-actions{
       margin-top: 14px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
+      display:flex; gap: 10px; flex-wrap:wrap;
       justify-content:flex-end;
     }
     .btn{
@@ -285,36 +193,59 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       cursor:pointer;
     }
     .btn:hover{ filter: brightness(1.05); }
-    .btn.primary{
-      border-color: rgba(99,102,241,.35);
-      background: rgba(99,102,241,.22);
-    }
-    .btn.danger{
-      border-color: rgba(244,63,94,.30);
-      background: rgba(244,63,94,.16);
-    }
+    .btn.primary{ border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.22); }
+    .btn.danger{ border-color: rgba(244,63,94,.30); background: rgba(244,63,94,.16); }
 
-    /* tiny debug bar */
-    #gjDebug{
+    /* ✅ COACH DOCK (left-bottom) */
+    #coachDock{
       position:fixed;
-      left:10px;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
-      z-index: 160;
-      font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-      padding: 6px 8px;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.45);
-      color: rgba(229,231,235,.92);
+      left: calc(env(safe-area-inset-left, 0px) + 10px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      z-index:160; /* above FX */
       pointer-events:none;
-      opacity:.9;
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
     }
-    #gjDebug[aria-hidden="true"]{ display:none; }
+    #coachImg{
+      width:76px; height:76px;
+      border-radius:16px;
+      background: rgba(2,6,23,.35);
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: 0 14px 46px rgba(0,0,0,.35);
+      object-fit: contain;
+      padding: 6px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #coachBubble{
+      max-width: min(72vw, 420px);
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      color: rgba(229,231,235,.96);
+      font-weight: 900;
+      line-height: 1.25;
+      box-shadow: 0 14px 46px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity:.96;
+    }
+    #coachBubble .small{
+      display:block;
+      margin-top:6px;
+      font-size: 12px;
+      opacity:.92;
+      font-weight:800;
+    }
 
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
+      #coachImg{ width:68px; height:68px; }
+      #coachBubble{ max-width: min(76vw, 360px); }
     }
   </style>
 </head>
@@ -394,6 +325,15 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
   </div>
 
+  <!-- ✅ Coach Dock -->
+  <div id="coachDock" aria-hidden="false">
+    <img id="coachImg" alt="coach" src="../img/coach-neutral.png"/>
+    <div id="coachBubble">
+      พร้อมลุย! 🎯 ยิง Good ต่อเนื่องทำคอมโบ • ระวัง Junk/💣/💀
+      <span class="small" id="coachMini">STORM เหลือ 30s • MISS ≥4=BOSS • ≥5=RAGE</span>
+    </div>
+  </div>
+
   <!-- End overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
@@ -415,15 +355,12 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
     </div>
   </div>
 
-  <!-- Debug -->
-  <div id="gjDebug" aria-hidden="true">dbg</div>
-
-  <!-- ✅ Universal VR UI (path fixed: from /vr-goodjunk/ -> /vr/) -->
-  <script type="module" src="../vr/vr-ui.js?v=20260224a"></script>
+  <!-- Universal VR UI -->
+  <script type="module" src="../vr/vr-ui.js"></script>
 
   <!-- Boot -->
   <script type="module">
-    // ✅ FIX: correct JS import path (this file is inside /vr-goodjunk/)
+    /* ✅ FIX PATH: safe.js อยู่โฟลเดอร์เดียวกับไฟล์นี้ */
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
@@ -479,7 +416,7 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
         if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
       });
 
-      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
+      const payload = { kind: 'hha_end', ts: Date.now(), game: 'goodjunk', summary: summary || null };
       const log = b64urlEncodeJson(payload);
       if(log) u.searchParams.set('log', log);
 
@@ -512,14 +449,12 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
         location.href = buildGateCooldownUrl(nextAfterCooldown);
         return;
       }
-
       goHubWithLog(summary);
     }
 
-    // Buttons
-    const btnReplay  = document.getElementById('btnReplay');
+    const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
-    const btnCopy    = document.getElementById('btnCopy');
+    const btnCopy = document.getElementById('btnCopy');
 
     let lastSummary = null;
 
@@ -537,27 +472,18 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       }
     });
 
-    window.addEventListener('hha:game-ended', (ev)=>{
-      lastSummary = ev?.detail || null;
-    });
+    window.addEventListener('hha:game-ended', (ev)=>{ lastSummary = ev?.detail || null; });
 
-    // Tiny info
     const uiView = document.getElementById('uiView');
-    const uiRun  = document.getElementById('uiRun');
+    const uiRun = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
     if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
+    if(uiRun) uiRun.textContent = String(qs('run','play'));
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
-    // Debug toggle: ?dbg=1
-    const dbg = document.getElementById('gjDebug');
-    const dbgOn = String(qs('dbg','0')) === '1';
-    if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
-
-    // Start game
     boot({
       view: qs('view','mobile'),
-      run:  qs('run','play'),
+      run: qs('run','play'),
       diff: qs('diff','normal'),
       time: clamp(qs('time','80'), 20, 300),
       seed: qs('seed', null),
@@ -565,21 +491,6 @@ FULL v20260224a-run-fixCSSPath+failsafeTarget
       phase: qs('phase', null),
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     });
-
-    // Debug sampler: targets count / layer rect
-    if(dbgOn){
-      setInterval(()=>{
-        try{
-          const st = window.__GJ_STATE__;
-          const layer = document.getElementById('gj-layer');
-          const r = layer?.getBoundingClientRect?.();
-          dbg.textContent =
-            `targets=${st?.targets?.size ?? '?'} ` +
-            `miss=${st?.miss ?? '?'} ` +
-            `W=${Math.round(r?.width||0)} H=${Math.round(r?.height||0)}`;
-        }catch(e){}
-      }, 800);
-    }
   </script>
 </body>
 </html>
