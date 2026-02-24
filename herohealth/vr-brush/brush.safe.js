@@ -1,15 +1,14 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR Engine — SAFE PATCH FULL (v20260223p5)
-// ✅ FUN PACK P5:
-//   (1) Boss Fake-out: Phase2 -> teleport + shield; must "break shield" before weakspot crit works
-//   (2) Daily Mini-Missions (deterministic by local-day + pid): 3 missions + progress + end summary
-//   (3) Optional HHA logger: ?log=1&api=... POST {kind:"events"| "sessions", rows:[...]}
-// ✅ Public API: window.BrushVR { start, reset, showHow, togglePause }
-// ✅ Boot integration: brush:prestart-reset, brush:gate-handshake, emits brush:start/brush:end/brush:ui
-// ✅ Mobile/PC/cVR support (hha:shoot lock)
-// ✅ Shots not double-counted (pointer vs hha:shoot)
-// ✅ Summary/menu hardened
-
+// BrushVR Engine — SAFE FULL v20260224pFULL (overwrite whole file)
+// ✅ no auto-end before start
+// ✅ no duplicate boot/bind
+// ✅ mobile/pc/cVR support (hha:shoot lockPx)
+// ✅ boss weakspot bonus + Phase2 shield fake-out + warp
+// ✅ Daily Mini-Missions (deterministic by local day + pid)
+// ✅ Mission popup (optional, if HTML exists) + Mission panel (optional, if HTML exists)
+// ✅ Mission → Boss synergy: Shield Breaker (spotlight reward)
+// ✅ HHA Events/Sessions Logger (optional): ?log=1&api=... POST JSON {kind:"events"| "sessions", rows:[...]}
+// ✅ hardened summary/menu + dispatch brush:start / brush:end for boot.js
 (function(){
   'use strict';
 
@@ -29,37 +28,61 @@
   }
   function safeNum(v, d=0){ v=Number(v); return Number.isFinite(v)?v:d; }
   function pct(n){ return Math.round(Number(n)||0) + '%'; }
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
-  }
-
-  function isoDayLocal(){
-    // deterministic per local day for Bangkok timezone (device local)
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const da= String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${da}`;
-  }
-
   function hash32(str){
-    // FNV-1a-ish fast hash (deterministic)
-    str = String(str||'');
     let h = 2166136261 >>> 0;
+    str = String(str || '');
     for(let i=0;i<str.length;i++){
       h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
+      h = Math.imul(h, 16777619);
     }
     return h >>> 0;
   }
-
+  function getLocalDayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
   function makeRng(seed){
     let s = (Number(seed)||Date.now()) >>> 0;
     return function(){
       s = (1664525 * s + 1013904223) >>> 0;
       return s / 4294967296;
     };
+  }
+  function shuffleInPlace(arr, rnd){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(rnd()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function tryEvent(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  }
+
+  /* === tiny audio (optional, safe) === */
+  function __beep(freq=660, ms=90, gain=0.06){
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!AC) return;
+      if(!WIN.__brAC) WIN.__brAC = new AC();
+      const ac = WIN.__brAC;
+      if(ac.state === 'suspended') ac.resume().catch(()=>{});
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.value = Number(freq)||660;
+      g.gain.value = 0;
+      o.connect(g); g.connect(ac.destination);
+      const t0 = ac.currentTime;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(Number(gain)||0.06, t0+0.01);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + (Number(ms)||90)/1000);
+      o.start(t0);
+      o.stop(t0 + (Number(ms)||90)/1000 + 0.02);
+    }catch(_){}
   }
 
   /* ---------------- state ---------------- */
@@ -88,45 +111,19 @@
   const TARGETS = new Map();
   let targetSeq = 1;
 
-  // Warmup Gate handshake (optional)
-  let gate = { has:false, speed:1.0, assist:'off', tier:'', diffHint:0 };
+  // missions
+  let MISSIONS = null;
+  let __lastCleanPct = 0;
+  let __mpopTm = 0;
+  let __mpopLastKey = '';
+  let __mpopCooldown = 0;
 
-  // Aim lock radius for hha:shoot selection
-  let lockPxBase = 28;
+  // synergy
+  let __shieldBreaker = 0;         // 0..2
+  let __shieldBreakerUntil = 0;
 
-  // Dynamic spawn interval
-  let spawnMsCurrent = 850;
-
-  // Combo streak boost
-  let streak = { on:false, untilMs:0, level:0 };
-
-  // Golden schedule + rush window
-  let nextGoldAtMs = 0;
-  let goldRushUntilMs = 0;
-
-  // AI Coach (deterministic + rate-limited)
-  const coach = { nextAtMs:0, minGapMs:2200, lastKey:'' };
-
-  // Daily missions (deterministic)
-  const missions = {
-    day: '',
-    list: [],
-    progress: { goldHits:0, maxCombo:0, clean:0, bossCrit:0, miss:0 },
-    done: [false,false,false],
-    allDone:false,
-    textLine:''
-  };
-
-  // Optional logger
-  const logger = {
-    enabled: false,
-    endpoint: '',
-    queueKey: 'HHA_BRUSH_QUEUE',
-    sid: '',
-    startedAt: 0,
-    sentStart:false,
-    allowRemote:true,
-  };
+  // logger
+  let LOG = null;
 
   /* ---------------- config ---------------- */
   function readConfig(){
@@ -138,18 +135,19 @@
     const seed = safeNum(qs('seed', String(Date.now())), Date.now());
     const hub  = String(qs('hub','../hub.html') || '../hub.html');
 
-    const base = ({
+    // logger opts
+    const logOn = String(qs('log','0')) === '1';
+    const api = String(qs('api','') || '').trim();
+
+    const D = {
       easy:   { spawnMs: 1050, ttlMs: 2200, bossEvery: 9,  bossHp: 4, cleanGain: 8,  missClean: 1, maxTargets: 3 },
       normal: { spawnMs: 850,  ttlMs: 1800, bossEvery: 7,  bossHp: 5, cleanGain: 7,  missClean: 1, maxTargets: 4 },
       hard:   { spawnMs: 700,  ttlMs: 1500, bossEvery: 6,  bossHp: 6, cleanGain: 6,  missClean: 2, maxTargets: 5 },
-    }[diff]) || { spawnMs: 850, ttlMs: 1800, bossEvery: 7, bossHp: 5, cleanGain: 7, missClean: 1, maxTargets: 4 };
+    }[diff] || {
+      spawnMs: 850, ttlMs: 1800, bossEvery: 7, bossHp: 5, cleanGain: 7, missClean: 1, maxTargets: 4
+    };
 
-    // logger (optional)
-    const api = String(qs('api','') || '').trim();
-    const log = String(qs('log','0') || '0').toLowerCase();
-    const logOn = (log === '1' || log === 'true' || log === 'yes') && !!api;
-
-    return { view, run, diff, time, pid, seed, hub, api, logOn, ...base };
+    return { view, run, diff, time, pid, seed, hub, logOn, api, ...D };
   }
 
   /* ---------------- dom ---------------- */
@@ -191,6 +189,7 @@
   }
 
   function setUiMode(mode){
+    // mode = menu | play | end
     try{ DOC.documentElement.dataset.brUi = mode; }catch(_){}
     try{ root && (root.dataset.state = mode); }catch(_){}
 
@@ -208,7 +207,8 @@
       end.style.display = (mode === 'end') ? '' : 'none';
     }
 
-    emit('brush:ui', { mode });
+    // broadcast to boot (optional)
+    tryEvent('brush:ui', { mode });
   }
 
   function showToast(msg){
@@ -219,173 +219,74 @@
     showToast._t = setTimeout(()=> toastEl && toastEl.classList.remove('show'), 1200);
   }
 
-  /* ---------------- coach tips ---------------- */
-  function coachTip(key, text, detail){
-    try{
-      if(!text) return;
-      const t = nowMs();
-      if(t < coach.nextAtMs) return;
-      if(key && key === coach.lastKey) return;
-      coach.lastKey = String(key || '');
-      coach.nextAtMs = t + coach.minGapMs;
+  /* ---------------- logger (optional) ---------------- */
+  function buildLogger(){
+    if(!cfg || !cfg.logOn || !cfg.api) return null;
+    const endpoint = cfg.api;
+    const sid = `brush-${cfg.pid}-${cfg.seed}-${Date.now()}`;
 
-      const payload = {
-        kind: 'coach',
+    async function post(kind, rows){
+      try{
+        await fetch(endpoint, {
+          method:'POST',
+          headers:{ 'content-type':'application/json' },
+          body: JSON.stringify({ kind, rows })
+        });
+      }catch(_){}
+    }
+
+    function baseRow(extra){
+      return Object.assign({
+        ts: new Date().toISOString(),
         game: 'brush',
-        ts: Date.now(),
-        seed: cfg && cfg.seed,
-        diff: cfg && cfg.diff,
-        view: cfg && cfg.view,
-        pid: cfg && cfg.pid,
-        key: String(key || ''),
-        msg: String(text || ''),
-        ...(detail || {})
-      };
-
-      emit('hha:coach', payload);
-      emit('brush:coach', payload);
-
-      if(logger.enabled) logEvent('coach', { key: payload.key, msg: payload.msg });
-    }catch(_){}
-  }
-
-  /* ---------------- logger ---------------- */
-  function loggerInit(){
-    logger.enabled = !!(cfg && cfg.logOn && cfg.api);
-    logger.endpoint = (cfg && cfg.api) ? String(cfg.api) : '';
-    logger.sid = `brush_${Date.now()}_${Math.floor(Math.random()*1e6)}`;
-    logger.startedAt = Date.now();
-    logger.sentStart = false;
-
-    // allow remote latch (optional)
-    logger.allowRemote = true;
-  }
-
-  function loadQueue(){
-    try{
-      const raw = localStorage.getItem(logger.queueKey);
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    }catch(_){ return []; }
-  }
-
-  function saveQueue(arr){
-    try{ localStorage.setItem(logger.queueKey, JSON.stringify(arr || [])); }catch(_){}
-  }
-
-  function enqueue(kind, row){
-    if(!logger.enabled) return;
-    const q = loadQueue();
-    q.push({ kind:String(kind||'events'), row: row || {}, ts: Date.now() });
-    if(q.length > 250) q.splice(0, q.length-250);
-    saveQueue(q);
-  }
-
-  async function flushQueue(){
-    if(!logger.enabled || !logger.allowRemote) return;
-    const q = loadQueue();
-    if(!q.length) return;
-
-    // group by kind
-    const groups = {};
-    q.forEach(it=>{
-      const k = String(it.kind || 'events');
-      if(!groups[k]) groups[k] = [];
-      groups[k].push(it.row);
-    });
-
-    // try post each group
-    const remain = [];
-    for(const k of Object.keys(groups)){
-      const rows = groups[k];
-      const ok = await postJson({ kind: k, rows });
-      if(!ok){
-        // keep unsent
-        rows.forEach(r=> remain.push({ kind:k, row:r, ts:Date.now() }));
-        // stop early to avoid spam
-        break;
-      }
+        pid: cfg.pid,
+        seed: cfg.seed,
+        diff: cfg.diff,
+        view: cfg.view,
+        run: cfg.run,
+        sid
+      }, extra || {});
     }
-    saveQueue(remain);
-  }
 
-  async function postJson(body){
-    try{
-      const res = await fetch(logger.endpoint, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if(res.status === 401 || res.status === 403){
-        logger.allowRemote = false;
-        return false;
-      }
-      if(!res.ok) return false;
-      return true;
-    }catch(_){
-      return false;
-    }
-  }
-
-  function logEvent(type, data){
-    if(!logger.enabled) return;
-    enqueue('events', {
-      ts: new Date().toISOString(),
-      game: 'brush',
-      type: String(type||'event'),
-      sid: logger.sid,
-      pid: cfg.pid,
-      diff: cfg.diff,
-      view: cfg.view,
-      seed: cfg.seed,
-      data: data || {}
-    });
-  }
-
-  function logSessionEnd(summary){
-    if(!logger.enabled) return;
-    enqueue('sessions', {
-      ts: new Date().toISOString(),
-      game: 'brush',
-      sid: logger.sid,
-      pid: cfg.pid,
-      diff: cfg.diff,
-      view: cfg.view,
-      seed: cfg.seed,
-      dur_s: safeNum(summary && summary.timeSpent, 0),
-      score: safeNum(summary && summary.score, 0),
-      miss: safeNum(summary && summary.miss, 0),
-      acc: safeNum(summary && summary.accPct, 0),
-      clean: safeNum(summary && summary.cleanPct, 0),
-      maxCombo: safeNum(summary && summary.maxCombo, 0),
-      grade: String(summary && summary.grade || ''),
-      missionsDone: String(summary && summary.missionsDone || '')
-    });
+    return {
+      sid,
+      event: (name, extra)=> post('events', [baseRow({ name, ...(extra||{}) })]),
+      sessionStart: ()=> post('sessions', [baseRow({ type:'session_start', time: cfg.time })]),
+      sessionEnd: (summary)=> post('sessions', [baseRow({ type:'session_end', ...(summary||{}) })]),
+    };
   }
 
   /* ---------------- game state ---------------- */
   function freshState(){
     return {
-      started:false, ended:false, paused:false,
-      timeTotal:Number(cfg.time),
-      timeLeft:Number(cfg.time),
+      started: false,
+      ended: false,
+      paused: false,
 
-      score:0,
-      combo:0,
-      maxCombo:0,
-      miss:0,
-      hits:0,
-      shots:0,
-      cleanPct:0,
+      timeTotal: Number(cfg.time),
+      timeLeft: Number(cfg.time),
 
-      feverOn:false,
-      feverGauge:0,
-      spawned:0,
-      bossSpawned:0,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      miss: 0,
+      hits: 0,
+      shots: 0,
+      cleanPct: 0,
 
-      startAtMs:0,
-      endAtMs:0,
-      lastTickAt:0,
+      feverOn: false,
+      feverGauge: 0, // 0..100
+      spawned: 0,
+      bossSpawned: 0,
+
+      // deterministic “reads” (in-round only)
+      missStreak: 0,
+      hitStreak: 0,
+      lastHitAt: 0,
+
+      startAtMs: 0,
+      endAtMs: 0,
+      lastTickAt: 0,
     };
   }
 
@@ -410,7 +311,20 @@
     try{ if(feverTimer){ clearTimeout(feverTimer); feverTimer = 0; } }catch(_){}
   }
 
-  /* ---------------- ctx/hud ---------------- */
+  /* ---------------- hud ---------------- */
+  function renderHud(){
+    if(!state) return;
+    if(tScore) tScore.textContent = String(Math.round(state.score));
+    if(tCombo) tCombo.textContent = String(Math.round(state.combo));
+    if(tMiss)  tMiss.textContent = String(Math.round(state.miss));
+    if(tTime)  tTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
+    if(tClean) tClean.textContent = pct(state.cleanPct);
+    if(tFever) tFever.textContent = state.feverOn ? 'ON' : 'OFF';
+
+    if(bClean) bClean.style.width = clamp(state.cleanPct,0,100) + '%';
+    if(bFever) bFever.style.width = clamp(state.feverGauge,0,100) + '%';
+  }
+
   function renderCtx(){
     if(!cfg) return;
     if(ctxView) ctxView.textContent = cfg.view;
@@ -425,637 +339,6 @@
 
     if(btnBack) btnBack.href = cfg.hub || '../hub.html';
     if(btnBackHub2) btnBackHub2.href = cfg.hub || '../hub.html';
-  }
-
-  function missionsText(){
-    if(!missions.list.length) return '';
-    const c = missions.done.map(d=> d ? '✅' : '⬜');
-    return `M:${c[0]}${c[1]}${c[2]}`;
-  }
-
-  function renderHud(){
-    if(!state) return;
-    if(tScore) tScore.textContent = String(Math.round(state.score));
-    if(tCombo) tCombo.textContent = String(Math.round(state.combo));
-    if(tMiss)  tMiss.textContent  = String(Math.round(state.miss));
-    if(tTime)  tTime.textContent  = String(Math.max(0, Math.ceil(state.timeLeft)));
-    if(tClean) tClean.textContent = pct(state.cleanPct);
-
-    if(tFever){
-      const fever = state.feverOn ? 'ON' : 'OFF';
-      const stk = streak.on ? ` | STREAK ${streak.level}` : '';
-      const rush = (goldRushUntilMs > nowMs()) ? ' | GOLD RUSH' : '';
-      const mis = missionsText();
-      tFever.textContent = fever + stk + rush + (mis ? ` | ${mis}` : '');
-    }
-
-    if(bClean) bClean.style.width = clamp(state.cleanPct,0,100) + '%';
-    if(bFever) bFever.style.width = clamp(state.feverGauge,0,100) + '%';
-
-    // keep mission progress updated
-    missions.progress.maxCombo = Math.max(missions.progress.maxCombo, state.maxCombo);
-    missions.progress.clean = Math.max(missions.progress.clean, Math.round(state.cleanPct));
-    missions.progress.miss = Math.round(state.miss);
-    checkMissions();
-  }
-
-  /* ---------------- Warmup Gate apply ---------------- */
-  function applyGateToCfg(){
-    if(!cfg) return;
-    const run = String(cfg.run || 'play').toLowerCase();
-    const gateApply = String(qs('gateApply','') || '').trim();
-    const shouldApply = (run === 'play') || (gateApply === '1' || gateApply.toLowerCase() === 'true');
-    if(!gate.has || !shouldApply) return;
-
-    const sp = clamp(gate.speed, 0.85, 1.25);
-    cfg.spawnMs = Math.round(clamp(cfg.spawnMs / sp, 420, 1800));
-    cfg.ttlMs   = Math.round(clamp(cfg.ttlMs / (0.92*sp + 0.08), 900, 4200));
-
-    const a = String(gate.assist || 'off').toLowerCase();
-    const add =
-      (a === 'high') ? 34 :
-      (a === 'med'  || a === 'mid') ? 22 :
-      (a === 'low') ? 12 : 0;
-    lockPxBase = clamp(28 + add, 22, 78);
-
-    const dh = clamp(gate.diffHint, -1, 1);
-    if(dh < 0){
-      cfg.maxTargets = clamp(cfg.maxTargets - 1, 2, 6);
-      cfg.bossEvery  = clamp(cfg.bossEvery + 1, 5, 14);
-    }else if(dh > 0){
-      cfg.maxTargets = clamp(cfg.maxTargets + 1, 2, 7);
-      cfg.bossEvery  = clamp(cfg.bossEvery - 1, 4, 12);
-    }
-  }
-
-  function bindGateEventsOnce(){
-    if(bindGateEventsOnce._done) return;
-    bindGateEventsOnce._done = true;
-
-    WIN.addEventListener('brush:prestart-reset', ()=>{
-      endLock = false;
-      if(end){
-        end.hidden = true;
-        end.style.display = 'none';
-      }
-      setUiMode('menu');
-    }, { passive:true });
-
-    WIN.addEventListener('brush:gate-handshake', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      gate.has = true;
-      gate.speed = safeNum(d.gateSpeed, 1.0);
-      gate.assist = String(d.gateAssist || d.gateAssistLevel || 'off');
-      gate.tier = String(d.gateTier || '');
-      gate.diffHint = safeNum(d.gateDiffHint, 0);
-
-      applyGateToCfg();
-      showToast(`Warmup Buff: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`);
-      coachTip('gate', `โหมดวอร์มอัป: speed×${gate.speed.toFixed(2)} assist=${gate.assist}`, { gate:{...gate} });
-      logEvent('gate', { gate:{...gate} });
-    }, { passive:true });
-  }
-
-  /* ---------------- missions (deterministic) ---------------- */
-  function buildDailyMissions(){
-    missions.day = isoDayLocal();
-    missions.list = [];
-    missions.done = [false,false,false];
-    missions.allDone = false;
-    missions.textLine = '';
-
-    // deterministic RNG: day + pid
-    const h = hash32(`${missions.day}|${cfg.pid}|brush`);
-    const r = makeRng(h);
-
-    // pick 3 missions from pool (deterministically)
-    const pool = [
-      { id:'gold2',   text:'ยิง ⭐ ให้ได้ 2 ครั้ง',               check:()=> missions.progress.goldHits >= 2 },
-      { id:'combo12', text:'ทำคอมโบสูงสุดให้ถึง 12',              check:()=> missions.progress.maxCombo >= 12 },
-      { id:'clean90', text:'ทำความสะอาดให้ถึง 90%',               check:()=> missions.progress.clean >= 90 },
-      { id:'bosscrit2',text:'ยิงจุดอ่อนบอส (CRIT) ให้ได้ 2 ครั้ง',check:()=> missions.progress.bossCrit >= 2 },
-      { id:'miss<=6', text:'พลาด (MISS) ไม่เกิน 6 ครั้ง',         check:()=> missions.progress.miss <= 6 && state && state.ended },
-    ];
-
-    // choose 3 unique
-    const chosen = [];
-    while(chosen.length < 3){
-      const idx = Math.floor(r() * pool.length);
-      const pick = pool[idx];
-      if(!chosen.find(x=>x.id===pick.id)) chosen.push(pick);
-    }
-
-    missions.list = chosen;
-    missions.textLine = `DAILY (${missions.day}): 1) ${chosen[0].text} | 2) ${chosen[1].text} | 3) ${chosen[2].text}`;
-    coachTip('daily', 'ภารกิจวันนี้มาแล้ว! ดูที่มุม FEVER: M:⬜⬜⬜', { missions: chosen.map(x=>x.id) });
-    logEvent('missions', { day: missions.day, ids: chosen.map(x=>x.id), texts: chosen.map(x=>x.text) });
-  }
-
-  function checkMissions(){
-    if(!missions.list.length) return;
-    for(let i=0;i<3;i++){
-      if(missions.done[i]) continue;
-      const ok = !!(missions.list[i] && missions.list[i].check && missions.list[i].check());
-      if(ok){
-        missions.done[i] = true;
-        showToast(`MISSION ${i+1} สำเร็จ ✅`);
-        coachTip('mission_done', `ภารกิจ ${i+1} สำเร็จ!`, { idx:i+1, id: missions.list[i].id });
-        logEvent('mission_done', { idx:i+1, id: missions.list[i].id });
-      }
-    }
-    missions.allDone = missions.done.every(Boolean);
-    if(missions.allDone){
-      coachTip('mission_all', 'ครบทุกภารกิจแล้ว! เก่งมาก 🔥', { all:true });
-    }
-  }
-
-  /* ---------------- scoring & streak ---------------- */
-  function scoreMult(){
-    let m = 1.0;
-    if(streak.on) m += 0.15 * clamp(streak.level, 1, 3);
-    if(state && state.feverOn) m += 0.20;
-    if(goldRushUntilMs > nowMs()) m += 0.15;
-    return m;
-  }
-
-  function addScore(base, perfect, crit, gold){
-    let s = Number(base)||0;
-    if(perfect) s += 3;
-    if(crit) s += 6;
-    if(gold) s += 8;
-    if(state.combo >= 5) s += 2;
-    s = Math.round(s * scoreMult());
-    state.score += s;
-  }
-
-  function addClean(n){
-    state.cleanPct = clamp(state.cleanPct + n, 0, 100);
-  }
-
-  function decayCleanOnMiss(){
-    state.cleanPct = clamp(state.cleanPct - cfg.missClean, 0, 100);
-  }
-
-  function setStreak(on, level){
-    const was = streak.on;
-    streak.on = !!on;
-    streak.level = on ? clamp(level || streak.level || 1, 1, 3) : 0;
-    streak.untilMs = on ? (nowMs() + 4200) : 0;
-
-    if(streak.on !== was){
-      if(streak.on){
-        flashFx('flash');
-        showToast(`STREAK x${streak.level} ⚡`);
-        coachTip('streak', `คอมโบดีมาก! เข้า STREAK x${streak.level} แล้ว`, { streakLevel: streak.level });
-        const f = 1 + 0.22 * streak.level;
-        rescheduleSpawn(Math.round(cfg.spawnMs / f));
-      }else{
-        rescheduleSpawn(cfg.spawnMs);
-      }
-    }
-  }
-
-  function tryEnterStreak(){
-    if(!state || !state.started || state.ended) return;
-    if(state.combo >= 10 && !streak.on){
-      const r = rng();
-      const lvl = (r < 0.20) ? 3 : (r < 0.60 ? 2 : 1);
-      setStreak(true, lvl);
-    }
-    if(streak.on) streak.untilMs = nowMs() + 3600;
-  }
-
-  function breakStreak(){
-    if(streak.on) setStreak(false, 0);
-  }
-
-  function startGoldRush(){
-    goldRushUntilMs = nowMs() + 3000;
-    showToast('GOLD RUSH ✨');
-    coachTip('goldrush', 'GOLD RUSH! ช่วงนี้รีบยิงให้ไว คะแนน/clean จะพุ่ง', { goldRush:true });
-    logEvent('goldrush', { on:true });
-  }
-
-  /* ---------------- target logic ---------------- */
-  function layerRect(){
-    return layer ? layer.getBoundingClientRect() : {left:0,top:0,width:320,height:240};
-  }
-
-  function pickSpawnPos(size){
-    const r = layerRect();
-    const pad = Math.max(44, size * 0.7);
-    const x = pad + (r.width - pad*2) * rng();
-    const y = 70 + (r.height - (70 + pad) - pad) * rng();
-    return { x, y };
-  }
-
-  function teleportTarget(t){
-    if(!t || !t.el) return;
-    const p = pickSpawnPos(t.isBoss ? 92 : 78);
-    try{
-      t.el.classList.add('teleport');
-      t.el.style.left = p.x + 'px';
-      t.el.style.top  = p.y + 'px';
-      setTimeout(()=>{ try{ t.el.classList.remove('teleport'); }catch(_){} }, 220);
-    }catch(_){}
-  }
-
-  function jitterWeakspot(el, intensity){
-    try{
-      const ws = el && el.querySelector && el.querySelector('.br-ws');
-      if(!ws) return;
-      const dx = (rng()*2 - 1) * intensity;
-      const dy = (rng()*2 - 1) * intensity;
-      ws.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    }catch(_){}
-  }
-
-  function bossWeakspotHit(t, clientX, clientY){
-    if(!t || !t.isBoss || !t.el) return false;
-    const ws = t.el.querySelector('.br-ws');
-    if(!ws) return false;
-    const a = ws.getBoundingClientRect();
-    return (clientX >= a.left && clientX <= a.right && clientY >= a.top && clientY <= a.bottom);
-  }
-
-  function makeTarget(kind){
-    if(!layer || !state || !state.started || state.ended) return null;
-
-    kind = kind || 'normal';
-    const id = 't' + (targetSeq++);
-    const isBoss = (kind === 'boss');
-    const isGold = (kind === 'gold');
-    const isRushGold = (kind === 'rushgold');
-
-    const hpMax = isBoss ? cfg.bossHp : 1;
-    const size = isBoss ? 92 : (isGold || isRushGold ? 74 : 78);
-
-    const ttlBase = isBoss ? Math.round(cfg.ttlMs * 1.65) : cfg.ttlMs;
-    const ttl = (isGold || isRushGold) ? Math.round(ttlBase * 0.78) : ttlBase;
-
-    const p = pickSpawnPos(size);
-
-    const el = DOC.createElement('button');
-    el.type = 'button';
-    el.className =
-      'br-t' +
-      (isBoss ? ' thick' : '') +
-      ((isGold || isRushGold) ? ' gold' : '') +
-      (isRushGold ? ' rush' : '') +
-      ' pop';
-
-    el.style.left = p.x + 'px';
-    el.style.top  = p.y + 'px';
-    el.dataset.id = id;
-    el.dataset.kind = kind;
-    el.dataset.hp = String(hpMax);
-    el.dataset.hpMax = String(hpMax);
-    el.dataset.spawnAt = String(nowMs());
-    el.dataset.expireAt = String(nowMs() + ttl);
-
-    const emo = DOC.createElement('div');
-    emo.className = 'emo';
-    emo.textContent = isBoss ? '💎' : ((isGold || isRushGold) ? '⭐' : '🦠');
-    el.appendChild(emo);
-
-    if(isBoss){
-      const ws = DOC.createElement('div');
-      ws.className = 'br-ws';
-      const dx = (rng()*16 - 8);
-      const dy = (rng()*16 - 8);
-      ws.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      el.appendChild(ws);
-    }
-
-    if(hpMax > 1){
-      const hp = DOC.createElement('div');
-      hp.className = 'hp';
-      hp.innerHTML = '<i></i>';
-      el.appendChild(hp);
-    }
-
-    const t = {
-      id, el, kind,
-      isBoss, isGold, isRushGold,
-      hp: hpMax, hpMax,
-      bornAt: nowMs(),
-      expireAt: nowMs() + ttl,
-      removed: false,
-      ttl,
-      phase2: false,
-      didTeleport: false,
-      shieldOn: false,      // ✅ fake-out shield (phase2)
-      shieldBroke: false,   // ✅ must break first
-    };
-
-    // ✅ pointer path counts shot once here
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      ev.stopPropagation();
-      state.shots++;
-      hitTargetCore(t, ev.clientX, ev.clientY);
-    }, {passive:false});
-
-    TARGETS.set(id, t);
-    layer.appendChild(el);
-
-    state.spawned++;
-    if(isBoss) state.bossSpawned++;
-    return t;
-  }
-
-  function updateTargetHpUI(t){
-    if(!t || !t.el) return;
-    t.el.dataset.hp = String(t.hp);
-    const hpFill = t.el.querySelector('.hp i');
-    if(hpFill){
-      const w = clamp((t.hp / t.hpMax) * 100, 0, 100);
-      hpFill.style.width = w + '%';
-    }
-    try{
-      if(t.isBoss){
-        t.el.classList.toggle('shield', !!t.shieldOn && !t.shieldBroke);
-      }
-    }catch(_){}
-  }
-
-  function removeTarget(t){
-    if(!t || t.removed) return;
-    t.removed = true;
-    TARGETS.delete(t.id);
-    try{
-      t.el.classList.add('fade');
-      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 180);
-    }catch(_){}
-  }
-
-  /* ---------------- fever ---------------- */
-  function gainFever(n){
-    state.feverGauge = clamp(state.feverGauge + n, 0, 100);
-    if(!state.feverOn && state.feverGauge >= 100){
-      state.feverOn = true;
-      state.feverGauge = 100;
-      showToast('FEVER ON 🔥');
-      coachTip('fever', 'โหมด FEVER แล้ว! เน้น PERFECT ช่วงท้ายเป้า', { fever:true });
-      logEvent('fever_on', {});
-      clearTimeout(feverTimer);
-      feverTimer = setTimeout(()=>{
-        if(!state) return;
-        state.feverOn = false;
-        state.feverGauge = 0;
-        renderHud();
-        logEvent('fever_off', {});
-      }, 7000);
-    }
-  }
-
-  /* ---------------- hit logic ---------------- */
-  function hitTargetCore(t, hitX, hitY){
-    if(!state || !state.started || state.ended || state.paused) return;
-    if(!t || t.removed) return;
-
-    const rem = Math.max(0, t.expireAt - nowMs());
-    const perfect = rem <= Math.min(420, t.ttl * 0.22);
-
-    // GOLD / RUSH GOLD
-    if(t.isGold || t.isRushGold){
-      state.hits++;
-      state.combo++;
-      state.maxCombo = Math.max(state.maxCombo, state.combo);
-      missions.progress.goldHits += 1;
-
-      const big = t.isGold;
-      addScore(big ? 10 : 7, perfect, false, true);
-      addClean(cfg.cleanGain + (big ? 16 : 10));
-      gainFever(big ? 22 : 14);
-
-      removeTarget(t);
-      flashFx('shock');
-      showToast(big ? 'GOLD! ⭐ +CLEAN' : 'RUSH ⭐');
-
-      if(big) startGoldRush();
-      tryEnterStreak();
-
-      logEvent('hit_gold', { big, perfect });
-      renderHud();
-      checkEndConditions();
-      return;
-    }
-
-    // BOSS
-    if(t.isBoss){
-      const critRaw = bossWeakspotHit(t, hitX, hitY);
-
-      // Phase2 detection
-      const phase2Now = (t.hp > 0 && t.hp <= Math.ceil(t.hpMax * 0.5));
-      if(phase2Now && !t.phase2){
-        t.phase2 = true;
-
-        // ✅ fake-out: teleport + shield on
-        t.shieldOn = true;
-        t.shieldBroke = false;
-        try{ t.el.classList.add('phase2'); }catch(_){}
-        showToast('BOSS PHASE 2 ⚠');
-        coachTip('boss_p2', 'บอสเข้า PHASE 2 แล้ว! ระวังวาร์ปหลอก + โล่หลอก', { bossPhase:2 });
-        logEvent('boss_phase2', { hp:t.hp, hpMax:t.hpMax });
-
-        if(!t.didTeleport){
-          t.didTeleport = true;
-          teleportTarget(t);
-          coachTip('boss_tp', 'บอสวาร์ปหลอก! หาจังหวะยิงให้โล่แตกก่อน', { bossTeleport:true });
-          logEvent('boss_teleport', {});
-        }
-      }
-
-      // ✅ fake-out shield behavior:
-      // - while shieldOn && !shieldBroke: CRIT does NOT give dmg=2; treat as normal 1 (or even 0 extra)
-      // - first ANY hit breaks shield (visual hint)
-      let crit = critRaw;
-      let dmg = 1;
-
-      if(t.shieldOn && !t.shieldBroke){
-        // break shield on first hit
-        t.shieldBroke = true;
-        showToast('โล่บอสแตก! 🎯');
-        coachTip('boss_shield_break', 'โล่แตกแล้ว! ตอนนี้ CRIT จะแรง', {});
-        logEvent('boss_shield_break', {});
-        // damage this hit is small
-        crit = false;
-        dmg = 1;
-      }else{
-        dmg = crit ? 2 : 1;
-      }
-
-      t.hp = Math.max(0, t.hp - dmg);
-
-      if(crit){
-        missions.progress.bossCrit += 1;
-        try{
-          t.el.classList.add('ws-hit');
-          setTimeout(()=>{ try{ t.el.classList.remove('ws-hit'); }catch(_){ } }, 160);
-        }catch(_){}
-      }
-
-      // phase2 weakspot jitter harder
-      if(t.phase2){
-        jitterWeakspot(t.el, crit ? 26 : 20);
-      }
-
-      updateTargetHpUI(t);
-
-      if(t.hp <= 0){
-        state.hits++;
-        state.combo++;
-        state.maxCombo = Math.max(state.maxCombo, state.combo);
-
-        addScore(12, perfect, crit, false);
-        addClean(cfg.cleanGain + 8);
-        gainFever(18);
-
-        removeTarget(t);
-        flashFx('shock');
-        showToast(crit ? 'CRIT! 💎' : 'Boss แตก! 💎');
-
-        logEvent('boss_kill', { crit, perfect });
-      }else{
-        addScore(2, false, crit, false);
-        gainFever(6 + (crit?4:0));
-        flashFx(crit ? 'flash' : 'laser');
-
-        logEvent('boss_hit', { crit, dmg, hp:t.hp, shield: t.shieldOn && !t.shieldBroke });
-      }
-
-      tryEnterStreak();
-      renderHud();
-      checkEndConditions();
-      return;
-    }
-
-    // NORMAL
-    state.hits++;
-    state.combo++;
-    state.maxCombo = Math.max(state.maxCombo, state.combo);
-
-    addScore(5, perfect, false, false);
-    addClean(cfg.cleanGain);
-    gainFever(8);
-    removeTarget(t);
-    flashFx(perfect ? 'flash' : 'laser');
-
-    logEvent('hit', { kind:'normal', perfect });
-
-    tryEnterStreak();
-    renderHud();
-    checkEndConditions();
-  }
-
-  function hitByScreenPoint(clientX, clientY){
-    if(!state || !state.started || state.ended || state.paused) return;
-
-    // ✅ screen shoot counts shot once here
-    state.shots++;
-
-    const lockPx = lockPxBase;
-    let best = null, bestD = 1e9;
-
-    TARGETS.forEach((t)=>{
-      if(!t || t.removed) return;
-      const r = t.el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const dx = cx - clientX, dy = cy - clientY;
-      const d = Math.hypot(dx, dy);
-      if(d < bestD){
-        bestD = d; best = t;
-      }
-    });
-
-    if(best && bestD <= lockPx + (best.isBoss ? 18 : 8)){
-      hitTargetCore(best, clientX, clientY);
-      return;
-    }
-
-    // miss
-    state.miss++;
-    state.combo = 0;
-    decayCleanOnMiss();
-    breakStreak();
-
-    logEvent('miss', {});
-
-    if(state.miss === 1 || (state.miss % 4 === 0)){
-      coachTip('miss', 'พลาดแล้ว! ลองยิงใกล้กึ่งกลางเป้ามากขึ้น หรือรอให้เป้าเข้าใกล้กากบาท', { miss: state.miss });
-    }
-
-    renderHud();
-  }
-
-  function expireTargets(){
-    const tNow = nowMs();
-    TARGETS.forEach((t)=>{
-      if(t.removed) return;
-      if(tNow >= t.expireAt){
-        state.miss++;
-        state.combo = 0;
-        decayCleanOnMiss();
-        breakStreak();
-
-        logEvent('expire', { kind: t.kind });
-
-        if(state.miss % 5 === 0){
-          coachTip('expire', 'เป้าหมดเวลา! พยายามจัดลำดับ: ยิงเป้าที่ใกล้หมดเวลาก่อน', { miss: state.miss });
-        }
-        removeTarget(t);
-      }
-    });
-  }
-
-  function scheduleNextGold(){
-    const base = 9800;
-    const jitter = 2600 * rng();
-    nextGoldAtMs = nowMs() + base + jitter;
-  }
-
-  function maybeSpawnGold(){
-    if(!state || !state.started || state.ended || state.paused) return;
-    if(TARGETS.size >= cfg.maxTargets) return;
-
-    const tNow = nowMs();
-    if(!nextGoldAtMs) scheduleNextGold();
-    if(tNow >= nextGoldAtMs){
-      makeTarget('gold');
-      scheduleNextGold();
-      logEvent('spawn_gold', {});
-    }
-  }
-
-  function maybeSpawnRushGold(){
-    if(!state || !state.started || state.ended || state.paused) return false;
-    if(TARGETS.size >= cfg.maxTargets) return false;
-
-    if(goldRushUntilMs > nowMs()){
-      const p = 0.38;
-      if(rng() < p){
-        makeTarget('rushgold');
-        logEvent('spawn_rushgold', {});
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function maybeSpawn(){
-    if(!state || !state.started || state.ended || state.paused) return;
-
-    maybeSpawnGold();
-
-    if(TARGETS.size >= cfg.maxTargets) return;
-
-    if(maybeSpawnRushGold()) return;
-
-    const shouldBoss = (state.spawned > 0 && state.spawned % cfg.bossEvery === 0);
-    makeTarget(shouldBoss ? 'boss' : 'normal');
-    logEvent('spawn', { kind: shouldBoss ? 'boss' : 'normal' });
   }
 
   /* ---------------- fx ---------------- */
@@ -1079,6 +362,739 @@
     setTimeout(()=>{ try{ el.classList.remove('on'); }catch(_){ } }, dur);
   }
 
+  /* ---------------- scoring helpers ---------------- */
+  function __bonusScore(n){
+    if(!state) return;
+    state.score += Math.max(0, Number(n)||0);
+  }
+  function __bonusClean(n){
+    if(!state) return;
+    state.cleanPct = clamp(state.cleanPct + (Number(n)||0), 0, 100);
+  }
+  function __addTime(sec){
+    if(!state) return;
+    state.timeLeft = Math.min(state.timeTotal, state.timeLeft + Math.max(0, Number(sec)||0));
+  }
+
+  /* ---------------- missions ---------------- */
+  function __mpBump(el){
+    try{
+      if(!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(()=>{ try{ el.classList.remove('bump'); }catch(_){ } }, 260);
+    }catch(_){}
+  }
+
+  function __mpopShow(title, desc, pct01){
+    try{
+      const pop = DOC.getElementById('br-mpop');
+      const t = DOC.getElementById('br-mpop-title');
+      const d = DOC.getElementById('br-mpop-desc');
+      const b = DOC.getElementById('br-mpop-bar');
+      if(!pop || !t || !d || !b) return;
+      t.textContent = String(title || 'MISSION');
+      d.textContent = String(desc || '');
+      b.style.width = Math.round(clamp(pct01,0,1)*100) + '%';
+      pop.classList.add('show');
+      pop.setAttribute('aria-hidden','false');
+      clearTimeout(__mpopTm);
+      __mpopTm = setTimeout(()=>{
+        try{
+          pop.classList.remove('show');
+          pop.setAttribute('aria-hidden','true');
+        }catch(_){}
+      }, 900);
+    }catch(_){}
+  }
+
+  function __mpopMaybeHint(){
+    if(!MISSIONS || !state || !state.started || state.ended) return;
+    const now = Date.now();
+    if(now < __mpopCooldown) return;
+
+    // spotlight first
+    let m = MISSIONS.find(x=>!x.done && x.spot);
+    if(!m) m = MISSIONS.find(x=>!x.done);
+    if(!m || !m.goal) return;
+
+    const p = clamp(m.cur / m.goal, 0, 1);
+    if(p < 0.90 || p >= 1) return;
+
+    const key = `${m.id}:${Math.floor(p*100)}`;
+    if(key === __mpopLastKey) return;
+    __mpopLastKey = key;
+
+    __mpopCooldown = now + 650;
+    __mpopShow('เกือบสำเร็จ!', `${m.title} • ${m.cur}/${m.goal}`, p);
+  }
+
+  function __missionCatalog(){
+    // goals are computed deterministically from seed+pid+day
+    return [
+      {
+        id:'combo',
+        title:'คอมโบให้ถึง',
+        desc:'ทำคอมโบสูงสุดให้ถึงเป้า',
+        make:(r)=>({ goal: 6 + Math.floor(r()*5) }), // 6..10
+        progress:()=>({ cur: Math.min(state.maxCombo, 999), goal: MISSIONS_META.combo.goal }),
+        done:()=> state.maxCombo >= MISSIONS_META.combo.goal
+      },
+      {
+        id:'weakspot',
+        title:'ยิงจุดอ่อนบอส',
+        desc:'ยิง weakspot ให้ครบ',
+        make:(r)=>({ goal: 2 + Math.floor(r()*3) }), // 2..4
+        progress:()=>({ cur: MISSIONS_META.weakspot.cur, goal: MISSIONS_META.weakspot.goal }),
+        done:()=> MISSIONS_META.weakspot.cur >= MISSIONS_META.weakspot.goal
+      },
+      {
+        id:'clean',
+        title:'ความสะอาดให้ถึง',
+        desc:'สะสม Clean% ให้ถึงเป้า',
+        make:(r)=>({ goal: 70 + Math.floor(r()*21) }), // 70..90
+        progress:()=>({ cur: Math.floor(state.cleanPct), goal: MISSIONS_META.clean.goal }),
+        done:()=> state.cleanPct >= MISSIONS_META.clean.goal
+      },
+      {
+        id:'fever',
+        title:'เปิด FEVER',
+        desc:'ทำให้ FEVER ติดอย่างน้อย 1 ครั้ง',
+        make:()=>({ goal: 1 }),
+        progress:()=>({ cur: MISSIONS_META.fever.cur, goal: 1 }),
+        done:()=> MISSIONS_META.fever.cur >= 1
+      },
+      {
+        id:'nomiss',
+        title:'พลาดให้น้อย',
+        desc:'จบรอบด้วย MISS ไม่เกินเป้า',
+        make:(r)=>({ goal: 6 + Math.floor(r()*5) }), // 6..10
+        progress:()=>({ cur: state.miss, goal: MISSIONS_META.nomiss.goal }),
+        done:()=> state.miss <= MISSIONS_META.nomiss.goal && (state.timeLeft<=0 || state.cleanPct>=100 || state.ended)
+      },
+      {
+        id:'perfect',
+        title:'เก็บ PERFECT',
+        desc:'ยิงใกล้หมดเวลาเป้าให้ได้ครบ',
+        make:(r)=>({ goal: 2 + Math.floor(r()*4) }), // 2..5
+        progress:()=>({ cur: MISSIONS_META.perfect.cur, goal: MISSIONS_META.perfect.goal }),
+        done:()=> MISSIONS_META.perfect.cur >= MISSIONS_META.perfect.goal
+      }
+    ];
+  }
+
+  // runtime meta store for mission-specific counters/goals
+  let MISSIONS_META = null;
+
+  function __buildDailyMissions(){
+    const day = getLocalDayKey();
+    const seedStr = `${cfg.pid}|${cfg.seed}|${cfg.diff}|${cfg.view}|${day}|brush-missions`;
+    const r = makeRng(hash32(seedStr));
+
+    const catalog = __missionCatalog();
+    const ids = catalog.map(x=>x.id);
+
+    // deterministic pick 3 unique
+    shuffleInPlace(ids, r);
+    const picked = ids.slice(0,3);
+
+    // pick spotlight deterministically among 3
+    const spotIdx = hash32(seedStr + '|spot') % 3;
+
+    // init meta store
+    MISSIONS_META = {
+      combo: { goal: 8, cur:0 },
+      weakspot: { goal: 3, cur:0 },
+      clean: { goal: 80, cur:0 },
+      fever: { goal: 1, cur:0 },
+      nomiss: { goal: 8, cur:0 },
+      perfect: { goal: 3, cur:0 }
+    };
+
+    // assign goals
+    picked.forEach((id)=>{
+      const m = catalog.find(x=>x.id===id);
+      if(!m) return;
+      const g = (m.make ? m.make(r) : {goal:1});
+      if(MISSIONS_META[id]){
+        MISSIONS_META[id].goal = clamp(g.goal, 1, 999);
+        MISSIONS_META[id].cur = 0;
+      }
+    });
+
+    return picked.map((id, idx)=>{
+      const m = catalog.find(x=>x.id===id);
+      return {
+        id,
+        title: m ? m.title : id,
+        desc:  m ? m.desc : '',
+        goal:  MISSIONS_META[id] ? MISSIONS_META[id].goal : 1,
+        cur:   0,
+        done:  false,
+        spot:  idx === spotIdx
+      };
+    });
+  }
+
+  function __renderMissionsPanel(){
+    try{
+      const panel = DOC.getElementById('br-mpanel');
+      if(!panel || !MISSIONS) return;
+
+      const list = panel.querySelector('.br-mlist');
+      const press = panel.querySelector('.br-press b');
+      if(!list) return;
+
+      list.innerHTML = '';
+      let left = 0;
+
+      MISSIONS.forEach((m)=>{
+        left += m.done ? 0 : 1;
+
+        const row = DOC.createElement('div');
+        row.className = 'br-mi' + (m.spot ? ' is-spot' : '') + (m.done ? ' is-done' : '');
+        row.dataset.mid = m.id;
+
+        const t = DOC.createElement('div');
+        t.className = 't';
+        t.textContent = m.title + (m.spot ? ' ★' : '');
+        row.appendChild(t);
+
+        const d = DOC.createElement('div');
+        d.className = 'd';
+        d.textContent = m.desc;
+        row.appendChild(d);
+
+        const c = DOC.createElement('div');
+        c.className = 'c';
+        c.textContent = `${m.cur}/${m.goal}`;
+        row.appendChild(c);
+
+        const p = DOC.createElement('div');
+        p.className = 'p';
+        const i = DOC.createElement('i');
+        i.style.width = Math.round(clamp(m.cur / Math.max(1,m.goal),0,1) * 100) + '%';
+        p.appendChild(i);
+        row.appendChild(p);
+
+        list.appendChild(row);
+      });
+
+      if(press) press.textContent = String(left);
+    }catch(_){}
+  }
+
+  function __applyMissionReward(mid){
+    if(!state || !MISSIONS) return;
+    const m = MISSIONS.find(x=>x.id===mid);
+    if(!m) return;
+
+    // small deterministic reward
+    const spot = !!m.spot;
+    const clutch = state.timeLeft <= 12;
+
+    // reward baseline
+    __bonusScore( spot ? 45 : 25 );
+    __bonusClean( spot ? 6 : 3 );
+    if(clutch && spot) __addTime(0.6);
+
+    showToast(spot ? 'MISSION CLEAR ★' : 'MISSION CLEAR');
+    __beep(720, 110, 0.07);
+
+    // synergy: spotlight -> Shield Breaker
+    if(spot){
+      __grantShieldBreaker(clutch ? 2 : 1, clutch ? 14 : 10);
+    }
+
+    // log
+    if(LOG) LOG.event('mission_clear', { mid, spot: spot?1:0, clutch: clutch?1:0 });
+  }
+
+  function __missionProgress(reason){
+    if(!MISSIONS || !MISSIONS_META || !state) return;
+
+    // update dynamic counters
+    // clean increment
+    const cNow = Math.floor(state.cleanPct);
+    const deltaClean = Math.max(0, cNow - (__lastCleanPct||0));
+    __lastCleanPct = cNow;
+
+    // apply to missions that depend on deltas
+    if(deltaClean>0){
+      // nothing special; clean mission reads state.cleanPct
+    }
+
+    // update each mission cur/done
+    MISSIONS.forEach((m)=>{
+      if(m.done) return;
+
+      if(m.id === 'combo'){
+        m.cur = Math.min(state.maxCombo, m.goal);
+      }else if(m.id === 'weakspot'){
+        m.cur = clamp(MISSIONS_META.weakspot.cur, 0, m.goal);
+      }else if(m.id === 'clean'){
+        m.cur = clamp(Math.floor(state.cleanPct), 0, m.goal);
+      }else if(m.id === 'fever'){
+        m.cur = clamp(MISSIONS_META.fever.cur, 0, 1);
+      }else if(m.id === 'nomiss'){
+        // "done" evaluated at end; still show cur
+        m.cur = Math.min(state.miss, m.goal+50);
+      }else if(m.id === 'perfect'){
+        m.cur = clamp(MISSIONS_META.perfect.cur, 0, m.goal);
+      }
+
+      // compute done
+      let done = false;
+      if(m.id === 'nomiss'){
+        // only finalize at end, but if already exceed goal => cannot complete
+        done = state.ended ? (state.miss <= m.goal) : false;
+      }else{
+        done = (m.cur >= m.goal);
+      }
+
+      if(done && !m.done){
+        m.done = true;
+        __applyMissionReward(m.id);
+
+        // bump row (if panel exists)
+        const row = DOC.querySelector(`.br-mi[data-mid="${m.id}"]`);
+        __mpBump(row);
+      }
+    });
+
+    __renderMissionsPanel();
+    __mpopMaybeHint();
+
+    // all clear bonus (in-round, only once when last mission flips)
+    if(state.started && !state.ended && MISSIONS.every(x=>x.done)){
+      // give a small “victory” glow once (guard using a flag on state)
+      if(!state.__allMissionsClear){
+        state.__allMissionsClear = true;
+        showToast('ALL MISSIONS CLEAR 🎉');
+        __beep(760, 140, 0.08);
+        __bonusScore(60);
+        __bonusClean(4);
+      }
+    }
+  }
+
+  /* ---------------- synergy ---------------- */
+  function __grantShieldBreaker(amount, secs){
+    amount = clamp(amount, 1, 2);
+    secs = clamp(secs, 6, 18);
+    __shieldBreaker = Math.max(__shieldBreaker, amount);
+    __shieldBreakerUntil = Date.now() + secs*1000;
+    showToast(`Shield Breaker ⚡ x${__shieldBreaker}`);
+    __beep(820, 110, 0.07);
+  }
+
+  function __useShieldBreaker(){
+    if(__shieldBreaker <= 0) return 0;
+    if(Date.now() > __shieldBreakerUntil){
+      __shieldBreaker = 0;
+      return 0;
+    }
+    __shieldBreaker = Math.max(0, __shieldBreaker - 1);
+    return 1;
+  }
+
+  function __tickSynergy(){
+    if(__shieldBreaker > 0 && Date.now() > __shieldBreakerUntil){
+      __shieldBreaker = 0;
+    }
+  }
+
+  /* ---------------- target logic ---------------- */
+  function layerRect(){
+    return layer ? layer.getBoundingClientRect() : {left:0,top:0,width:320,height:240};
+  }
+
+  function pickSpawnPos(size){
+    const r = layerRect();
+    const pad = Math.max(44, size * 0.7);
+    const x = pad + (r.width - pad*2) * rng();
+    const y = 70 + (r.height - (70 + pad) - pad) * rng();
+    return { x, y };
+  }
+
+  function makeTarget(kind='normal'){
+    if(!layer || !state || !state.started || state.ended) return null;
+
+    const id = 't' + (targetSeq++);
+    const isBoss = (kind === 'boss');
+
+    const hpMax = isBoss ? cfg.bossHp : 1;
+    const size = isBoss ? 92 : 78;
+    const ttl = isBoss ? Math.round(cfg.ttlMs * 1.65) : cfg.ttlMs;
+    const p = pickSpawnPos(size);
+
+    const el = DOC.createElement('button');
+    el.type = 'button';
+    el.className = 'br-t' + (isBoss ? ' thick' : '') + ' pop';
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
+    el.dataset.id = id;
+    el.dataset.kind = kind;
+    el.dataset.hp = String(hpMax);
+    el.dataset.hpMax = String(hpMax);
+    el.dataset.spawnAt = String(nowMs());
+    el.dataset.expireAt = String(nowMs() + ttl);
+
+    const emo = DOC.createElement('div');
+    emo.className = 'emo';
+    emo.textContent = isBoss ? '💎' : '🦠';
+    el.appendChild(emo);
+
+    // boss weakspot + shield overlay (Phase2 fake-out)
+    if(isBoss){
+      const ws = DOC.createElement('div');
+      ws.className = 'br-ws';
+      const dx = (rng()*16 - 8);
+      const dy = (rng()*16 - 8);
+      ws.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      el.appendChild(ws);
+
+      const sh = DOC.createElement('div');
+      sh.className = 'br-shield';
+      sh.style.display = 'none';
+      el.appendChild(sh);
+
+      // inline fallback style (in case CSS not patched yet)
+      sh.style.position = 'absolute';
+      sh.style.left='50%'; sh.style.top='50%';
+      sh.style.width='120%'; sh.style.height='120%';
+      sh.style.transform='translate(-50%,-50%)';
+      sh.style.borderRadius='999px';
+      sh.style.border='2px solid rgba(34,211,238,.35)';
+      sh.style.boxShadow='0 0 0 2px rgba(34,211,238,.10) inset';
+      sh.style.background='radial-gradient(circle at 50% 50%, rgba(34,211,238,.14), rgba(34,211,238,0) 60%)';
+      sh.style.pointerEvents='none';
+    }
+
+    if(hpMax > 1){
+      const hp = DOC.createElement('div');
+      hp.className = 'hp';
+      hp.innerHTML = '<i></i>';
+      el.appendChild(hp);
+    }
+
+    const t = {
+      id, el, kind, isBoss,
+      hp: hpMax, hpMax,
+      x: p.x, y: p.y,
+      bornAt: nowMs(),
+      expireAt: nowMs() + ttl,
+      removed: false,
+      ttl,
+
+      // boss phase2 fake-out
+      phase: 1,
+      shieldOn: false,
+      shieldHp: 0,
+      warpLeft: 0,
+    };
+
+    el.addEventListener('pointerdown', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      hitTargetByPointer(t, ev.clientX, ev.clientY);
+    }, {passive:false});
+
+    TARGETS.set(id, t);
+    layer.appendChild(el);
+
+    state.spawned++;
+    if(isBoss) state.bossSpawned++;
+    return t;
+  }
+
+  function updateTargetHpUI(t){
+    if(!t || !t.el) return;
+    t.el.dataset.hp = String(t.hp);
+    const hpFill = t.el.querySelector('.hp i');
+    if(hpFill){
+      const w = clamp((t.hp / t.hpMax) * 100, 0, 100);
+      hpFill.style.width = w + '%';
+    }
+  }
+
+  function removeTarget(t){
+    if(!t || t.removed) return;
+    t.removed = true;
+    TARGETS.delete(t.id);
+    try{
+      t.el.classList.add('fade');
+      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 180);
+    }catch(_){}
+  }
+
+  function bossWeakspotHit(t, clientX, clientY){
+    if(!t || !t.isBoss || !t.el) return false;
+    const ws = t.el.querySelector('.br-ws');
+    if(!ws) return false;
+    const a = ws.getBoundingClientRect();
+    return (clientX >= a.left && clientX <= a.right && clientY >= a.top && clientY <= a.bottom);
+  }
+
+  function gainFever(n){
+    state.feverGauge = clamp(state.feverGauge + n, 0, 100);
+    if(!state.feverOn && state.feverGauge >= 100){
+      state.feverOn = true;
+      state.feverGauge = 100;
+      MISSIONS_META && (MISSIONS_META.fever.cur = 1);
+      showToast('FEVER ON 🔥');
+      __beep(690, 110, 0.06);
+      clearTimeout(feverTimer);
+      feverTimer = setTimeout(()=>{
+        if(!state) return;
+        state.feverOn = false;
+        state.feverGauge = 0;
+        renderHud();
+      }, 7000);
+    }
+  }
+
+  function addScore(base, perfect=false, crit=false){
+    let s = base;
+    if(perfect) s += 3;
+    if(crit) s += 6;
+    if(state.combo >= 5) s += 2;
+    if(state.feverOn) s = Math.round(s * 1.5);
+    state.score += s;
+  }
+
+  function addClean(n){
+    state.cleanPct = clamp(state.cleanPct + n, 0, 100);
+  }
+
+  function decayCleanOnMiss(){
+    state.cleanPct = clamp(state.cleanPct - cfg.missClean, 0, 100);
+  }
+
+  function __bossEnterPhase2(t){
+    if(!t || !t.isBoss || t.phase !== 1) return;
+    t.phase = 2;
+    t.shieldOn = true;
+
+    const base = 3;
+    const bonus = (state.hitStreak >= 6) ? 1 : 0;
+    const mercy = (state.missStreak >= 2) ? 1 : 0;
+    t.shieldHp = clamp(base + bonus - mercy, 2, 4);
+
+    t.warpLeft = (state.hitStreak >= 6) ? 2 : 1;
+
+    const sh = t.el.querySelector('.br-shield');
+    if(sh) sh.style.display = '';
+
+    showToast('PHASE 2! โล่ขึ้น ⚡');
+    __beep(820, 120, 0.07);
+    if(LOG) LOG.event('boss_phase2', { shieldHp: t.shieldHp, warpLeft: t.warpLeft });
+  }
+
+  function hitTargetCore(t, hitX, hitY){
+    if(!state || !state.started || state.ended || state.paused) return;
+    if(!t || t.removed) return;
+
+    state.shots++;
+
+    const rem = Math.max(0, t.expireAt - nowMs());
+    const perfect = rem <= Math.min(420, t.ttl * 0.22);
+
+    if(t.isBoss){
+      // Phase2 shield fake-out: must break shield first
+      if(t.shieldOn){
+        t.shieldHp = Math.max(0, (t.shieldHp||0) - 1);
+
+        // synergy breaker (spotlight mission reward)
+        const cut = __useShieldBreaker();
+        if(cut){
+          t.shieldHp = Math.max(0, (t.shieldHp||0) - 1);
+          showToast('Breaker! ⚡');
+          __beep(900, 80, 0.08);
+        }
+
+        addScore(2, false, false);
+        gainFever(6);
+        flashFx('laser');
+
+        t.el.classList.add('ws-hit');
+        setTimeout(()=>{ try{ t.el.classList.remove('ws-hit'); }catch(_){ } }, 120);
+
+        if(t.shieldHp <= 0){
+          t.shieldOn = false;
+          const sh = t.el.querySelector('.br-shield');
+          if(sh) sh.style.display = 'none';
+          showToast('โล่แตก! 🎯 ยิงจุดอ่อน!');
+          __beep(760, 140, 0.07);
+          if(LOG) LOG.event('boss_shield_break', {});
+        }else{
+          showToast(`โล่ ${t.shieldHp}`);
+        }
+
+        renderHud();
+        __missionProgress('shield');
+        checkEndConditions();
+        return;
+      }
+
+      // normal boss damage with weakspot crit
+      const crit = bossWeakspotHit(t, hitX, hitY);
+      const dmg = crit ? 2 : 1;
+      t.hp = Math.max(0, t.hp - dmg);
+
+      if(crit){
+        // mission weakspot
+        if(MISSIONS_META && MISSIONS_META.weakspot) MISSIONS_META.weakspot.cur++;
+        t.el.classList.add('ws-hit');
+        setTimeout(()=>{ try{ t.el.classList.remove('ws-hit'); }catch(_){ } }, 160);
+      }
+
+      // enter phase2 threshold (<=55%)
+      if(t.phase === 1 && t.hp <= Math.ceil(t.hpMax * 0.55)){
+        __bossEnterPhase2(t);
+        // do not return: allow this hit to count, then next hits go to shield
+      }
+
+      updateTargetHpUI(t);
+
+      if(t.hp <= 0){
+        state.hits++;
+        state.combo++;
+        state.maxCombo = Math.max(state.maxCombo, state.combo);
+        state.hitStreak++;
+        state.missStreak = 0;
+        state.lastHitAt = Date.now();
+
+        addScore(12, perfect, crit);
+        addClean(cfg.cleanGain + 8);
+        gainFever(18);
+        removeTarget(t);
+        flashFx('shock');
+
+        showToast(crit ? 'CRIT! 💎' : 'Boss แตก! 💎');
+        __beep(720, 120, 0.07);
+        if(LOG) LOG.event('boss_kill', { crit: crit?1:0, perfect: perfect?1:0 });
+
+      }else{
+        // hit but not dead yet
+        state.hits++;
+        state.combo++;
+        state.maxCombo = Math.max(state.maxCombo, state.combo);
+        state.hitStreak++;
+        state.missStreak = 0;
+        state.lastHitAt = Date.now();
+
+        addScore(3, false, crit);
+        gainFever(6 + (crit?4:0));
+        flashFx(crit ? 'flash' : 'laser');
+
+        // warp fake-out (Phase2) after successful hit (shield already down)
+        if(t.phase === 2 && !t.shieldOn && t.warpLeft > 0){
+          t.warpLeft--;
+          const p = pickSpawnPos(92);
+          t.el.style.left = p.x + 'px';
+          t.el.style.top  = p.y + 'px';
+          showToast('WARP! ✨');
+          __beep(980, 70, 0.06);
+          flashFx('shock');
+          if(LOG) LOG.event('boss_warp', { left: t.warpLeft });
+        }
+      }
+
+    }else{
+      // normal germ
+      state.hits++;
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.hitStreak++;
+      state.missStreak = 0;
+      state.lastHitAt = Date.now();
+
+      addScore(5, perfect, false);
+      addClean(cfg.cleanGain);
+      gainFever(8);
+
+      if(perfect && MISSIONS_META && MISSIONS_META.perfect){
+        MISSIONS_META.perfect.cur++;
+      }
+
+      removeTarget(t);
+      flashFx(perfect ? 'flash' : 'laser');
+      __beep(perfect ? 760 : 690, 70, 0.05);
+    }
+
+    renderHud();
+    __missionProgress('hit');
+    checkEndConditions();
+  }
+
+  function hitTargetByPointer(t, clientX, clientY){
+    hitTargetCore(t, clientX, clientY);
+  }
+
+  function hitByScreenPoint(clientX, clientY){
+    if(!state || !state.started || state.ended || state.paused) return;
+
+    state.shots++;
+
+    // lock to closest target
+    const lockPx = 28;
+    let best = null, bestD = 1e9;
+
+    TARGETS.forEach((t)=>{
+      if(!t || t.removed) return;
+      const r = t.el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      const dx = cx - clientX, dy = cy - clientY;
+      const d = Math.hypot(dx, dy);
+      if(d < bestD){
+        bestD = d; best = t;
+      }
+    });
+
+    if(best && bestD <= lockPx + (best.isBoss ? 18 : 8)){
+      hitTargetCore(best, clientX, clientY);
+      return;
+    }
+
+    // miss
+    state.miss++;
+    state.combo = 0;
+    state.missStreak++;
+    state.hitStreak = 0;
+
+    decayCleanOnMiss();
+    renderHud();
+    __missionProgress('miss');
+    if(LOG) LOG.event('miss', { kind:'shoot' });
+  }
+
+  function expireTargets(){
+    const tNow = nowMs();
+    TARGETS.forEach((t)=>{
+      if(t.removed) return;
+      if(tNow >= t.expireAt){
+        state.miss++;
+        state.combo = 0;
+        state.missStreak++;
+        state.hitStreak = 0;
+        decayCleanOnMiss();
+        removeTarget(t);
+        if(LOG) LOG.event('miss', { kind:'expire', isBoss: t.isBoss?1:0 });
+      }
+    });
+  }
+
+  function maybeSpawn(){
+    if(!state || !state.started || state.ended || state.paused) return;
+    if(TARGETS.size >= cfg.maxTargets) return;
+
+    const shouldBoss = (state.spawned > 0 && state.spawned % cfg.bossEvery === 0);
+    makeTarget(shouldBoss ? 'boss' : 'normal');
+  }
+
   /* ---------------- loop ---------------- */
   function tick(){
     if(!state || !state.started || state.ended || state.paused) return;
@@ -1096,25 +1112,13 @@
       state.feverGauge = Math.max(0, state.feverGauge - dt * 3.5);
     }
 
-    if(streak.on && nowMs() >= streak.untilMs){
-      setStreak(false, 0);
-    }
-
-    // late-game tip
-    if(state.timeLeft <= 10 && state.timeLeft >= 9.5){
-      const acc = state.shots > 0 ? (state.hits/state.shots) : 0;
-      if(state.cleanPct < 85){
-        coachTip('late', 'ใกล้หมดเวลา! เล็งเป้าที่ใกล้หมดเวลาก่อน + อย่าพลาด miss จะกิน clean', { timeLeft: state.timeLeft, clean: state.cleanPct, acc: Math.round(acc*100) });
-      }
-    }
-
+    __tickSynergy();
     renderHud();
-    checkEndConditions();
 
-    // try flush queue occasionally
-    if(logger.enabled && (Math.floor(Date.now()/3000) % 2 === 0)){
-      flushQueue();
-    }
+    // missions tick (also drives popup)
+    __missionProgress('tick');
+
+    checkEndConditions();
   }
 
   function frame(){
@@ -1122,22 +1126,11 @@
     rafId = requestAnimationFrame(frame);
   }
 
-  function rescheduleSpawn(ms){
-    const next = Math.round(clamp(ms, 380, 1800));
-    if(next === spawnMsCurrent) return;
-    spawnMsCurrent = next;
-    try{ if(spawnTimer){ clearInterval(spawnTimer); spawnTimer = 0; } }catch(_){}
-    spawnTimer = setInterval(maybeSpawn, spawnMsCurrent);
-  }
-
   function startLoops(){
     stopLoops();
     state.lastTickAt = Date.now();
     tickTimer = setInterval(tick, 100);
-
-    spawnMsCurrent = cfg.spawnMs;
-    spawnTimer = setInterval(maybeSpawn, spawnMsCurrent);
-
+    spawnTimer = setInterval(maybeSpawn, cfg.spawnMs);
     rafId = requestAnimationFrame(frame);
   }
 
@@ -1149,48 +1142,29 @@
     return 'D';
   }
 
-  function buildSummary(reason){
+  function fillSummary(reason){
     const timeSpent = Math.max(0, cfg.time - state.timeLeft);
     const acc = state.shots > 0 ? Math.round((state.hits / state.shots) * 100) : 0;
     const grade = gradeFromScore(acc, state.cleanPct, timeSpent);
-    const timeText = timeSpent.toFixed(1) + 's';
+
+    sScore && (sScore.textContent = String(Math.round(state.score)));
+    sAcc && (sAcc.textContent = acc + '%');
+    sMiss && (sMiss.textContent = String(Math.round(state.miss)));
+    sCombo && (sCombo.textContent = String(Math.round(state.maxCombo)));
+    sClean && (sClean.textContent = pct(state.cleanPct));
+    sTime && (sTime.textContent = timeSpent.toFixed(1) + 's');
+    endGrade && (endGrade.textContent = grade);
+
+    const mDone = (MISSIONS && MISSIONS.length) ? MISSIONS.filter(x=>x.done).length : 0;
+    const mAll  = (MISSIONS && MISSIONS.length) ? MISSIONS.length : 0;
 
     let msg = '-';
     if(reason === 'clean') msg = 'ALMOST!';
     if(reason === 'timeout' && state.cleanPct >= 70) msg = 'เกือบผ่านแล้ว!';
-    if(reason === 'timeout' && state.cleanPct < 70) msg = 'ลองจัดลำดับเป้าหมายให้แม่นขึ้น 💪';
+    if(reason === 'timeout' && state.cleanPct < 70) msg = 'ลองโฟกัสเป้าจังหวะท้าย ๆ ให้แม่นขึ้น 💪';
 
-    const meta = `reason=${reason} | seed=${cfg.seed} | diff=${cfg.diff} | view=${cfg.view} | pid=${cfg.pid}`;
-    const missionLine = missions.textLine ? `\n${missions.textLine}\nDONE: ${missions.done.map(d=>d?'1':'0').join('')}` : '';
-    const note = `${msg}\n${meta}${missionLine}`;
-
-    return {
-      reason: String(reason || 'timeout'),
-      score: Math.round(state.score),
-      miss: Math.round(state.miss),
-      hits: Math.round(state.hits),
-      shots: Math.round(state.shots),
-      maxCombo: Math.round(state.maxCombo),
-      cleanPct: Math.round(state.cleanPct),
-      accPct: acc,
-      timeText,
-      timeSpent,
-      grade,
-      note,
-      missionsDone: missions.done.map(d=>d?'1':'0').join('')
-    };
-  }
-
-  function fillSummaryUI(sum){
-    if(!sum) return;
-    sScore && (sScore.textContent = String(sum.score));
-    sAcc && (sAcc.textContent = sum.accPct + '%');
-    sMiss && (sMiss.textContent = String(sum.miss));
-    sCombo && (sCombo.textContent = String(sum.maxCombo));
-    sClean && (sClean.textContent = pct(sum.cleanPct));
-    sTime && (sTime.textContent = sum.timeText);
-    endGrade && (endGrade.textContent = sum.grade);
-    endNote && (endNote.textContent = sum.note);
+    const meta = `reason=${reason} | missions=${mDone}/${mAll} | seed=${cfg.seed} | diff=${cfg.diff} | view=${cfg.view} | pid=${cfg.pid}`;
+    endNote && (endNote.textContent = `${msg}\n${meta}`);
   }
 
   function endGame(reason){
@@ -1204,20 +1178,55 @@
     stopLoops();
     TARGETS.forEach(t => { try{ t.el.style.pointerEvents='none'; }catch(_){ } });
 
-    // mission final checks
+    // finalize nomiss mission (only at end)
+    try{
+      if(MISSIONS){
+        const nm = MISSIONS.find(x=>x.id==='nomiss');
+        if(nm && !nm.done){
+          nm.cur = state.miss;
+          if(state.miss <= nm.goal){
+            nm.done = true;
+            __applyMissionReward('nomiss');
+          }
+        }
+      }
+    }catch(_){}
+
+    // ✅ Mission clear bonus at end (big payoff, still safe)
+    try{
+      if(MISSIONS && MISSIONS.length && MISSIONS.every(m=>m.done)){
+        __bonusScore(120);
+        __bonusClean(10);
+        __addTime(1.0);
+        showToast('ALL MISSIONS CLEAR 🎉');
+        __beep(740,120,0.07);
+      }
+    }catch(_){}
+
+    fillSummary(reason || 'timeout');
     renderHud();
-    checkMissions();
-
-    const sum = buildSummary(reason || 'timeout');
-    fillSummaryUI(sum);
-
     setUiMode('end');
 
-    emit('brush:end', sum);
+    // dispatch for boot.js
+    tryEvent('brush:end', {
+      reason: String(reason||'timeout'),
+      score: Math.round(state.score),
+      miss: Math.round(state.miss),
+      maxCombo: Math.round(state.maxCombo),
+      cleanPct: Math.round(state.cleanPct),
+      accPct: state.shots > 0 ? Math.round((state.hits/state.shots)*100) : 0,
+      timeText: (Math.max(0, cfg.time - state.timeLeft)).toFixed(1) + 's',
+      grade: endGrade ? endGrade.textContent : '',
+      note: endNote ? endNote.textContent : ''
+    });
 
-    logEvent('end', { reason: sum.reason, score: sum.score, clean: sum.cleanPct, acc: sum.accPct, miss: sum.miss, missions: sum.missionsDone });
-    logSessionEnd(sum);
-    flushQueue();
+    // logger
+    if(LOG){
+      const acc = state.shots > 0 ? Math.round((state.hits/state.shots)*100) : 0;
+      const mDone = (MISSIONS && MISSIONS.length) ? MISSIONS.filter(x=>x.done).length : 0;
+      LOG.event('end', { reason:String(reason||'timeout'), score:Math.round(state.score), miss:state.miss, combo:state.maxCombo, clean:Math.round(state.cleanPct), acc });
+      LOG.sessionEnd({ score:Math.round(state.score), miss:state.miss, combo:state.maxCombo, clean:Math.round(state.cleanPct), acc, missions:mDone });
+    }
 
     setTimeout(()=>{ endLock = false; }, 80);
   }
@@ -1236,23 +1245,18 @@
 
   /* ---------------- controls ---------------- */
   function startGame(){
-    applyGateToCfg();
-    resetAllRuntime();
+    if(!state) state = freshState();
 
+    resetAllRuntime();
     state = freshState();
     state.started = true;
     state.startAtMs = Date.now();
 
-    streak.on = false; streak.level = 0; streak.untilMs = 0;
-    nextGoldAtMs = 0;
-    goldRushUntilMs = 0;
-    scheduleNextGold();
+    __lastCleanPct = 0;
 
-    coach.nextAtMs = 0;
-    coach.lastKey = '';
-
-    // missions per day+pid
-    buildDailyMissions();
+    // build daily missions once per start (deterministic)
+    MISSIONS = __buildDailyMissions();
+    __renderMissionsPanel();
 
     renderHud();
     setUiMode('play');
@@ -1260,45 +1264,24 @@
     if(tapStart) tapStart.style.display = 'none';
     if(btnPause) btnPause.textContent = 'Pause';
 
-    // logger session start
-    loggerInit();
-    if(logger.enabled){
-      logEvent('start', { day: missions.day, missions: missions.list.map(x=>x.id) });
-      flushQueue();
+    // logger
+    if(LOG){
+      LOG.sessionStart();
+      LOG.event('start', { time: cfg.time });
     }
 
     startLoops();
     maybeSpawn();
     showToast('เริ่มแปรง! 🪥');
+    __beep(660, 90, 0.06);
 
-    emit('brush:start', { ts: Date.now(), seed: cfg.seed, diff: cfg.diff, view: cfg.view, pid: cfg.pid });
-    coachTip('start', 'เริ่มแล้ว! ยิงให้ไว + อย่าพลาด miss (มันกิน clean)', {});
+    // dispatch for boot.js
+    tryEvent('brush:start', { ts: Date.now(), seed: cfg.seed, diff: cfg.diff, view: cfg.view });
   }
 
   function retryGame(){
-    if(end){ end.hidden = true; end.style.display='none'; }
+    if(end){ end.hidden = true; end.style.display = 'none'; }
     startGame();
-  }
-
-  function resetGame(){
-    endLock = false;
-    stopLoops();
-    resetAllRuntime();
-    state = freshState();
-
-    streak.on = false; streak.level = 0; streak.untilMs = 0;
-    nextGoldAtMs = 0;
-    goldRushUntilMs = 0;
-
-    missions.day = '';
-    missions.list = [];
-    missions.done = [false,false,false];
-    missions.allDone = false;
-    missions.textLine = '';
-
-    renderHud();
-    setUiMode('menu');
-    showToast('พร้อมเริ่มใหม่');
   }
 
   function togglePause(){
@@ -1306,24 +1289,17 @@
     state.paused = !state.paused;
     if(btnPause) btnPause.textContent = state.paused ? 'Resume' : 'Pause';
     showToast(state.paused ? 'พักเกม ⏸' : 'เล่นต่อ ▶');
+    __beep(state.paused ? 520 : 690, 80, 0.05);
     if(!state.paused) state.lastTickAt = Date.now();
-    logEvent('pause', { paused: state.paused });
+    if(LOG) LOG.event('pause', { on: state.paused?1:0 });
   }
 
   function showHow(){
-    const lines = [
-      'วิธีเล่น BrushVR',
-      '• แตะ/ยิง 🦠 ให้ทัน (อย่าพลาด MISS)',
-      '• ⭐ GOLD = clean+score พุ่ง + เปิด GOLD RUSH 3 วิ',
-      '• 💎 BOSS เข้า PHASE2: วาร์ปหลอก + โล่หลอก (ต้องยิงให้โล่แตกก่อน)',
-      `• Daily Missions: ดูที่ FEVER -> ${missionsText() || 'M:⬜⬜⬜'}`
-    ];
-    showToast(lines[1]);
-    alert(lines.join('\n'));
+    showToast('ยิง/แตะ 🦠 | บอส 💎 มีจุดอ่อน 🎯 | Phase2 ต้องแตกโล่ก่อน ⚡');
   }
 
   function doRecenter(){
-    emit('hha:recenter', { source:'brush' });
+    try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'brush' } })); }catch(_){}
     showToast('Recenter 🎯');
   }
 
@@ -1374,7 +1350,7 @@
     bindOnce(btnRecenter, 'click', ()=> doRecenter());
     bindOnce(tapBtn, 'click', ()=> onTapUnlock());
 
-    // receive shoot from vr-ui
+    // VR UI shoot event (cVR)
     bindOnce(WIN, 'hha:shoot', (ev)=>{
       if(!state || !state.started || state.ended || state.paused) return;
 
@@ -1389,19 +1365,22 @@
       hitByScreenPoint(x, y);
     });
 
+    // ESC = pause
     bindOnce(DOC, 'keydown', (ev)=>{
-      if(ev.code === 'Escape'){
-        togglePause();
-      }
+      if(ev.code === 'Escape') togglePause();
     });
 
-    bindGateEventsOnce();
-
-    // flush on pagehide
-    bindOnce(WIN, 'pagehide', ()=>{ try{ flushQueue(); }catch(_){} }, {passive:true});
+    // boot.js prestart reset hook (optional)
+    bindOnce(WIN, 'brush:prestart-reset', ()=>{
+      try{
+        // ensure end hidden
+        if(end){ end.hidden = true; end.style.display = 'none'; }
+        setUiMode('menu');
+      }catch(_){}
+    });
   }
 
-  /* ---------------- init/export ---------------- */
+  /* ---------------- public init ---------------- */
   function initBrushGame(){
     if(bootOnce) return;
     bootOnce = true;
@@ -1410,33 +1389,38 @@
       cfg = readConfig();
       rng = makeRng(cfg.seed);
       cacheDom();
+
       if(!root || !layer || !menu || !end){
         throw new Error('BrushVR DOM missing (#br-wrap/#br-layer/#br-menu/#br-end)');
       }
 
-      // optional: gate from QS
-      const gateSpeedQS = safeNum(qs('gateSpeed',''), NaN);
-      const gateAssistQS = String(qs('gateAssist','') || '').trim();
-      const gateDiffHintQS = safeNum(qs('gateDiffHint',''), NaN);
-      if(Number.isFinite(gateSpeedQS) || gateAssistQS || Number.isFinite(gateDiffHintQS)){
-        gate.has = true;
-        if(Number.isFinite(gateSpeedQS)) gate.speed = gateSpeedQS;
-        if(gateAssistQS) gate.assist = gateAssistQS;
-        if(Number.isFinite(gateDiffHintQS)) gate.diffHint = gateDiffHintQS;
-      }
-
-      applyGateToCfg();
       renderCtx();
+
+      // build logger (optional)
+      LOG = buildLogger();
 
       state = freshState();
       renderHud();
       resetAllRuntime();
       setUiMode('menu');
-      bindAll();
 
+      // harden end overlay
+      try{ end.hidden = true; end.style.display = 'none'; }catch(_){}
+
+      bindAll();
       maybeRequireTapStart();
 
-      // debug
+      // expose for boot.js (safeCall)
+      WIN.BrushVR = {
+        start: ()=>{ startGame(); return true; },
+        reset: ()=>{ retryGame(); return true; },
+        togglePause: ()=>{ togglePause(); return true; },
+        showHow: ()=>{ showHow(); return true; },
+        end: (reason)=>{ endGame(reason||'manual'); return true; },
+        getState: ()=> state,
+        getCfg: ()=> cfg
+      };
+
       WIN.__BRUSH_STATE__ = ()=> state;
       WIN.__BRUSH_CFG__ = cfg;
 
@@ -1446,23 +1430,14 @@
     }
   }
 
-  // Public API for boot.js
-  WIN.BrushVR = WIN.BrushVR || {};
-  WIN.BrushVR.start = function(){ try{ initBrushGame(); startGame(); return true; }catch(_){ return false; } };
-  WIN.BrushVR.reset = function(){ try{ initBrushGame(); resetGame(); return true; }catch(_){ return false; } };
-  WIN.BrushVR.showHow = function(){ try{ showHow(); return true; }catch(_){ return false; } };
-  WIN.BrushVR.togglePause = function(){ try{ togglePause(); return true; }catch(_){ return false; } };
-
-  // compat exports
+  // export init (boot may call)
   WIN.initBrushGame = initBrushGame;
   WIN.__brushInit = initBrushGame;
 
-  // auto init on DOM ready
-  function autoInit(){ try{ initBrushGame(); }catch(_){ } }
+  // auto init when DOM ready (safe)
   if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', autoInit, { once:true });
+    DOC.addEventListener('DOMContentLoaded', initBrushGame, { once:true });
   }else{
-    autoInit();
+    initBrushGame();
   }
-
 })();
