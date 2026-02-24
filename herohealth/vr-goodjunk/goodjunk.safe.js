@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened)
-// FULL v20260224-SAFE-FXCOACH-ENDONCE
+// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
+// FULL v20260224-SAFE-SPAWNSAFE
 'use strict';
 
 export function boot(cfg){
@@ -320,9 +320,52 @@ export function boot(cfg){
     return layer.getBoundingClientRect();
   }
 
+  // ===== HUD SAFE SPAWN RECT (from goodjunk-vr.html) =====
+  function getSpawnSafeLocal(){
+    const r = layerRect();
+    let s = null;
+    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
+
+    // If HTML provides viewport-safe rect, convert to layer-local
+    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
+      let xMin = Number(s.xMin) - r.left;
+      let xMax = Number(s.xMax) - r.left;
+      let yMin = Number(s.yMin) - r.top;
+      let yMax = Number(s.yMax) - r.top;
+
+      // clamp into layer bounds
+      xMin = clamp(xMin, 0, r.width);
+      xMax = clamp(xMax, 0, r.width);
+      yMin = clamp(yMin, 0, r.height);
+      yMax = clamp(yMax, 0, r.height);
+
+      // if invalid, fall through to fallback
+      if((xMax - xMin) >= 120 && (yMax - yMin) >= 140){
+        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
+      }
+    }
+
+    // fallback: keep away from top HUD & bottom VR bar (conservative)
+    const pad = 18;
+    const yMin = Math.min(r.height - 160, 180);           // avoid HUD area
+    const yMax = Math.max(yMin + 160, r.height - 110);    // avoid bottom buttons
+    return {
+      xMin: pad,
+      xMax: Math.max(pad + 120, r.width - pad),
+      yMin: clamp(yMin, pad, Math.max(pad, r.height - 200)),
+      yMax: clamp(yMax, Math.max(pad+160, yMin+160), Math.max(pad+200, r.height - pad)),
+      w: r.width,
+      h: r.height
+    };
+  }
+
+  // allow HTML to push safe rect updates (resize/orientation)
+  WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){
+    try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){}
+  };
+
   // ---------- UI update ----------
   function gradeFromScore(s){
-    // quick grade based on score per second + miss
     const played = Math.max(1, plannedSec - tLeft);
     const sps = s / played;
     const pen = missTotal * 6;
@@ -414,7 +457,7 @@ export function boot(cfg){
 
     return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-24_FXROOT_COACH',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-24_SPAWNSAFE',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -446,7 +489,6 @@ export function boot(cfg){
   function showEnd(reason){
     playing = false;
 
-    // hide targets
     for(const t of targets.values()){
       try{ t.el.remove(); }catch(e){}
     }
@@ -456,7 +498,6 @@ export function boot(cfg){
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
-    // end overlay
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
@@ -466,10 +507,8 @@ export function boot(cfg){
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
     }
-    // a final coach line (once)
-    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
 
-    // freeze progress
+    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
     setHUD();
   }
 
@@ -482,13 +521,16 @@ export function boot(cfg){
     el.dataset.id = id;
     el.dataset.kind = kind;
 
-    // position
-    const r = layerRect();
-    const pad = 18;
-    const x = pad + r01()*(Math.max(1, r.width - pad*2));
-    const yMin = 120; // keep away from top HUD
-    const yMax = Math.max(yMin+40, r.height - 90);
-    const y = yMin + r01()*(yMax - yMin);
+    // position using HUD-safe rect
+    const safe = getSpawnSafeLocal();
+    const rPad = (view==='mobile') ? 32 : 38; // half-size-ish of emoji target
+    const xMin = safe.xMin + rPad;
+    const xMax = safe.xMax - rPad;
+    const yMin = safe.yMin + rPad;
+    const yMax = safe.yMax - rPad;
+
+    const x = xMin + r01()*(Math.max(1, xMax - xMin));
+    const y = yMin + r01()*(Math.max(1, yMax - yMin));
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -500,7 +542,6 @@ export function boot(cfg){
     const born = nowMs();
     const ttl = Math.max(0.8, ttlSec) * 1000;
 
-    // attach
     layer.appendChild(el);
 
     const tObj = {
@@ -539,7 +580,6 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
-    // RT stats
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
     goodHitCount++;
     rtSum += rt;
@@ -548,7 +588,7 @@ export function boot(cfg){
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
-    let add = 10 + Math.min(12, combo); // grows with combo
+    let add = 10 + Math.min(12, combo);
     if(rageOn) add = Math.round(add * 1.6);
 
     score += add;
@@ -559,7 +599,6 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
 
-    // coach
     if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
     if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
 
@@ -567,7 +606,6 @@ export function boot(cfg){
   }
 
   function onHitJunk(t, clientX, clientY){
-    // shield blocks junk hit (NO MISS as per your standard)
     if(shield > 0){
       shield--;
       fxBurst(clientX, clientY);
@@ -577,7 +615,6 @@ export function boot(cfg){
       return;
     }
 
-    // count miss (junk hit)
     missTotal++;
     missJunkHit++;
     combo = 0;
@@ -628,7 +665,6 @@ export function boot(cfg){
       return;
     }
 
-    // weakspot phase big damage
     const dmg = rageOn ? 4 : 3;
     bossHp = Math.max(0, bossHp - dmg);
 
@@ -645,7 +681,6 @@ export function boot(cfg){
     if(bossHp<=0){
       sayCoach('บอสแพ้แล้ว! 🎉');
       bossActive = false;
-      // reward
       score += 120;
       addFever(40);
     }
@@ -663,7 +698,6 @@ export function boot(cfg){
     else if(kind==='boss') onHitBoss(t, clientX, clientY);
   }
 
-  // click/tap targets
   function onPointerDown(ev){
     if(!playing) return;
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
@@ -707,13 +741,11 @@ export function boot(cfg){
   // ---------- spawning ----------
   let spawnAcc = 0;
   function spawnTick(dt){
-    // storm toggles in late game
     stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
 
     const mult = stormOn ? TUNE.stormMult : 1.0;
     const base = TUNE.spawnBase * mult;
 
-    // rage makes the field lively
     const rageBoost = rageOn ? 1.18 : 1.0;
 
     spawnAcc += base * rageBoost * dt;
@@ -721,7 +753,6 @@ export function boot(cfg){
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
-      // boss trigger once at ~35% time left
       if(!bossActive && tLeft <= plannedSec*0.35 && tLeft > 6){
         bossActive = true;
         bossHpMax = TUNE.bossHp;
@@ -731,7 +762,6 @@ export function boot(cfg){
         sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
       }
 
-      // decide spawn type
       let kind = 'good';
       const p = r01();
 
@@ -756,7 +786,6 @@ export function boot(cfg){
       }else if(kind==='shield'){
         makeTarget('shield', rPick(SHIELDS), 2.6);
       }else if(kind==='boss'){
-        // boss object depends on phase
         const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
         makeTarget('boss', emo, 2.2);
       }
@@ -766,39 +795,40 @@ export function boot(cfg){
   // ---------- update targets (expiry / drift) ----------
   function updateTargets(dt){
     const tNow = nowMs();
+    const safe = getSpawnSafeLocal();
+    const rPad = (view==='mobile') ? 32 : 38;
+
     for(const t of Array.from(targets.values())){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      // drift / fade
+      // drift + clamp within safe X
       const dx = t.drift * dt;
       t.x += dx;
+
+      const xMin = safe.xMin + rPad;
+      const xMax = safe.xMax - rPad;
+      t.x = clamp(t.x, xMin, xMax);
+
       t.el.style.left = `${t.x}px`;
 
-      // fade when near expiry
       if(p > 0.75){
         t.el.style.opacity = String(clamp(1 - (p-0.75)/0.25, 0.15, 1));
         t.el.style.transform = `translate(-50%,-50%) scale(${1 - 0.08*(p-0.75)/0.25})`;
       }
 
-      // expire logic
       if(age >= t.ttl){
-        // good expires => MISS (as per standard)
         if(t.kind === 'good'){
           missTotal++;
           missGoodExpired++;
           combo = 0;
 
-          // small penalty
           score = Math.max(0, score - 4);
-          // FX at element center
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
 
           if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
-        // junk expires => NOT MISS (per your earlier rule set for other games; keep forgiving)
-        // boss/bonus/shield expires => no miss
         removeTarget(t.id);
       }
     }
@@ -824,7 +854,6 @@ export function boot(cfg){
         mini.name = '—';
       }
     }else{
-      // sometimes prompt a micro mission
       if(r01() < dt*0.05){
         const type = rPick(['avoid-junk','combo-5','grab-bonus']);
         if(type==='avoid-junk'){
@@ -854,14 +883,11 @@ export function boot(cfg){
       showEnd('miss-limit');
       return true;
     }
-    // goal completion reward (optional)
     if(goal.cur >= goal.target && playing){
-      // one-time bump goal target upward to keep game running
       goal.target += 10;
       score += 60;
       addFever(18);
       sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
-      // mini celebration
       const r = layerRect();
       fxBurst(r.left+r.width/2, r.top+r.height*0.55);
       fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
@@ -884,11 +910,6 @@ export function boot(cfg){
     updateRage(dt);
     updateMini(dt);
 
-    // boss phase switch when shield broken (handled in hit)
-    // but ensure boss targets spawn as correct emoji
-    // (we handle by using bossPhase in spawner)
-
-    // update HUD
     setHUD();
 
     if(checkEnd()) return;
@@ -898,19 +919,15 @@ export function boot(cfg){
   // ---------- visibility safety: end cleanly (no stuck state) ----------
   DOC.addEventListener('visibilitychange', ()=>{
     if(DOC.hidden && playing){
-      // end politely (don’t lose data)
       showEnd('background');
     }
   });
 
   // ---------- init ----------
-  // Reset end latch (for reload)
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
 
-  // initial coach
   sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
 
-  // show HUD immediately
   setHUD();
   requestAnimationFrame(tick);
 }
