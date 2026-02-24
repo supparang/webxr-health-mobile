@@ -1,6 +1,6 @@
 // === /herohealth/hub.boot.js ===
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
-// PATCH v20260224: Bloom Gate wrapper (Bloom -> Warmup -> Game) + keep planSeq everywhere
+// PATCH v20260224e: FIX hub root lock + first-cooldown-of-day policy (per pid+zone) + cdkey passthrough
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -10,12 +10,63 @@ function nowSeed(){ return String(Date.now()); }
 
 const API_ENDPOINT = qs('api', 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/');
 
+function absUrlMaybe(url){
+  if(!url) return '';
+  try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
+}
+
+/** ✅ HARD LOCK: hub ต้องเป็น root เท่านั้น (ป้องกันหลุดไป /vr-goodjunk/hub.html) */
+function rootHubUrl(){
+  return absUrlMaybe('./hub.html');
+}
+
+/** YYYY-MM-DD (ใช้ local timezone ของเครื่อง ซึ่งคุณอยู่ไทยก็จะเป็นวันไทย) */
+function todayYMD(){
+  try{
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da= String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
+  }catch(_){
+    return '0000-00-00';
+  }
+}
+
+/** โซนจาก gameKey */
+function inferZoneByGameKey(gameKey){
+  const k = String(gameKey||'').toLowerCase();
+  if(['goodjunk','groups','hydration','plate'].includes(k)) return 'nutrition';
+  if(['handwash','brush','maskcough','germdetective','bath','clean'].includes(k)) return 'hygiene';
+  return 'exercise';
+}
+
+/** key สำหรับ cooldown ครั้งแรกของวัน (per pid+zone+day) */
+function cooldownDoneKey(pid, zone){
+  const p = (String(pid||'').trim() || 'anon').toLowerCase();
+  const z = (String(zone||'').trim() || 'nutrition').toLowerCase();
+  return `HHA_CD_DONE_V1:${p}:${z}:${todayYMD()}`;
+}
+
+/** ตรวจว่าควรบังคับ cooldown ไหม (ครั้งแรกของวัน) */
+function shouldCooldownFirstOfDay(pid, zone){
+  try{
+    const key = cooldownDoneKey(pid, zone);
+    return !localStorage.getItem(key);
+  }catch(_){
+    // ถ้าอ่าน localStorage ไม่ได้ ให้ “บังคับ cooldown” เพื่อความปลอดภัยของ flow งานวิจัย
+    return true;
+  }
+}
+
 const P = {
   run:  String(qs('run','play')).toLowerCase() || 'play',
   diff: String(qs('diff','normal')).toLowerCase() || 'normal',
   time: clamp(qs('time','80'), 20, 300),
   seed: String(qs('seed','')) || nowSeed(),
-  hub:  String(qs('hub','./hub.html')) || './hub.html',
+
+  // ✅ force hub root always
+  hub:  rootHubUrl(),
 
   pid: String(qs('pid','')).trim(),
   studyId: String(qs('studyId','')).trim(),
@@ -24,7 +75,7 @@ const P = {
   view: String(qs('view','')).trim(),
   log: String(qs('log','')).trim(),
 
-  // warmup/cooldown policies (you already use these in hub)
+  // warmup/cooldown policies base (จะ override ต่อเกมอีกที)
   warmup: String(qs('warmup','1')),
   cooldown: String(qs('cooldown','1')),
   dur: clamp(qs('dur','20'), 5, 60),
@@ -47,14 +98,10 @@ const P = {
   bloom: String(qs('bloom','c')).toLowerCase().trim(),
 };
 
-function absUrlMaybe(url){
-  if(!url) return '';
-  try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
-}
-
 function addCommonParams(u){
   const set = (k,v)=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k, String(v)); };
 
+  // ✅ always root hub
   set('hub', P.hub);
   set('api', API_ENDPOINT);
 
@@ -70,7 +117,7 @@ function addCommonParams(u){
   set('view', P.view);
   set('log', P.log);
 
-  // warmup/cooldown policy passthrough
+  // warmup/cooldown base passthrough (note: per-game override later)
   set('warmup', P.warmup);
   set('cooldown', P.cooldown);
   set('dur', P.dur);
@@ -83,13 +130,14 @@ function addCommonParams(u){
     'plannedGame','finalGame','zone'
   ].forEach(k=> set(k, P[k]) );
 
+  // bloom passthrough (ช่วยให้ bloom gate รู้ระดับ)
+  set('bloom', P.bloom || 'c');
+
   return u;
 }
 
 function gameRunPathByKey(gameKey){
   const k = String(gameKey||'').toLowerCase();
-  // คุณมี mapping จริงอยู่แล้วใน hub (อันนี้คือ stub ให้ครบ)
-  // ปรับได้ตามโครงจริงของคุณ
   if(k==='goodjunk') return './vr-goodjunk/goodjunk-vr.html';
   if(k==='groups')   return './vr-groups/groups-vr.html';
   if(k==='hydration')return './hydration/hydration-vr.html';
@@ -111,27 +159,52 @@ function gameRunPathByKey(gameKey){
   return './vr-goodjunk/goodjunk-vr.html';
 }
 
+/**
+ * ✅ per-game cooldown policy:
+ * - ถ้า cooldown policy เปิดอยู่ (P.cooldown != '0')
+ * - และเป็น "ครั้งแรกของวัน" ของ zone นั้น (per pid)
+ * => ส่ง cooldown=1 พร้อม cdkey ให้ warmup-gate ทำเครื่องหมายว่า done แล้ว
+ * ไม่งั้น cooldown=0
+ */
+function applyCooldownPolicyToUrl(u, gameKey){
+  const zone = inferZoneByGameKey(gameKey);
+  const baseEnable = String(P.cooldown||'1') !== '0';
+
+  let needCd = false;
+  if(baseEnable){
+    needCd = shouldCooldownFirstOfDay(P.pid, zone);
+  }
+
+  u.searchParams.set('zone', zone);
+  u.searchParams.set('cooldown', needCd ? '1' : '0');
+  u.searchParams.set('cdur', String(P.cdur || 15));
+
+  // ✅ ส่ง key ให้ gate ใช้ mark done
+  // warmup-gate.html: ถ้า gatePhase=cooldown และเล่นจบ ให้ localStorage.setItem(cdkey,'1')
+  const cdkey = cooldownDoneKey(P.pid, zone);
+  u.searchParams.set('cdkey', cdkey);
+
+  return u;
+}
+
 function buildGameRunUrlFromGameKey(gameKey){
   const base = absUrlMaybe(gameRunPathByKey(gameKey));
   const u = new URL(base, location.href);
 
   addCommonParams(u);
 
-  // ✅ set zone if missing (helps cooldown cat)
+  // ✅ ensure zone
   if(!u.searchParams.get('zone')){
-    // infer minimal
-    const k = String(gameKey||'').toLowerCase();
-    const z =
-      (['goodjunk','groups','hydration','plate'].includes(k)) ? 'nutrition' :
-      (['handwash','brush','maskcough','germdetective','bath','clean'].includes(k)) ? 'hygiene' :
-      'exercise';
-    u.searchParams.set('zone', z);
+    u.searchParams.set('zone', inferZoneByGameKey(gameKey));
   }
 
-  // ✅ cdnext chain: ถ้ามี plan sequence ให้ hub ทำ url slot ถัดไปเอง (ตามโค้ดจริงของคุณ)
-  // ตรงนี้คุณมี logic เดิมอยู่แล้ว: ส่ง cdnext=... ไปเกม
-  // ถ้ายังไม่มี ให้คงว่างไว้ก่อน (เกมจะกลับ hub)
-  // ตัวอย่าง:
+  // ✅ override hub root (กันหลุดอีกชั้น)
+  u.searchParams.set('hub', P.hub);
+
+  // ✅ apply cooldown policy
+  applyCooldownPolicyToUrl(u, gameKey);
+
+  // ✅ cdnext chain (ถ้าคุณมี logic จริงอยู่แล้ว ให้เสียบตรงนี้)
   // const cdnext = computeNextSlotUrl(); if(cdnext) u.searchParams.set('cdnext', cdnext);
 
   return u.toString();
@@ -143,35 +216,56 @@ function warmupGateUrlFor(gameUrl, gameKey, phase){
 
   addCommonParams(u);
 
+  // ✅ hub root always
+  u.searchParams.set('hub', P.hub);
+
+  // ✅ gate chaining
   u.searchParams.set('gatePhase', String(phase||'warmup'));
   u.searchParams.set('next', absUrlMaybe(gameUrl));
-  u.searchParams.set('cat', String(P.zone || u.searchParams.get('zone') || 'nutrition'));
+
+  const zone = inferZoneByGameKey(gameKey);
+  u.searchParams.set('zone', zone);
+
+  // warmup-gate ใช้ cat (zone) เป็นตัวจัดหมวด
+  u.searchParams.set('cat', zone);
 
   // ช่วยให้ theme detect แม่น
   u.searchParams.set('theme', String(gameKey||'').toLowerCase());
 
+  // ✅ ส่ง cdkey ต่อไปด้วย (สำคัญตอน cooldown)
+  u.searchParams.set('cdkey', cooldownDoneKey(P.pid, zone));
+
   return u.toString();
 }
 
-// ✅ NEW: Bloom gate url
+// ✅ Bloom gate url
 function bloomGateUrlFor(nextUrl, gameKey, bloomLevel){
   const gate = absUrlMaybe('./bloom-gate.html');
   const u = new URL(gate, location.href);
 
   addCommonParams(u);
 
+  u.searchParams.set('hub', P.hub);
+
   u.searchParams.set('bloom', String(bloomLevel||P.bloom||'c'));
   u.searchParams.set('next', absUrlMaybe(nextUrl));
-  u.searchParams.set('cat', String(P.zone || 'nutrition'));
+
+  const zone = inferZoneByGameKey(gameKey);
+  u.searchParams.set('zone', zone);
+  u.searchParams.set('cat', zone);
+
   u.searchParams.set('theme', String(gameKey||'').toLowerCase());
 
   // bloom สั้นกว่า warmup
   if(!u.searchParams.get('dur')) u.searchParams.set('dur', '18');
 
+  // pass cdkey
+  u.searchParams.set('cdkey', cooldownDoneKey(P.pid, zone));
+
   return u.toString();
 }
 
-// ✅ NEW: wrapper: Bloom -> Warmup -> Game
+// ✅ wrapper: Bloom -> Warmup -> Game
 function wrapBloomWarmup(gameUrl, gameKey){
   const warmUrl = warmupGateUrlFor(gameUrl, gameKey, 'warmup');
 
@@ -185,16 +279,17 @@ function wrapBloomWarmup(gameUrl, gameKey){
 }
 
 function setupHubButtons(){
-  // ปุ่มแต่ละเกมใน HUB ของคุณ (ตัวจริงคุณมี querySelector ที่เจาะปุ่ม)
-  // ตรงนี้ทำให้เป็นตัวอย่างที่ “แปะทับ” ได้โดยไม่พัง:
   const btns = document.querySelectorAll('[data-game]');
   btns.forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       e.preventDefault();
+
       const gameKey = String(btn.getAttribute('data-game')||'goodjunk').toLowerCase();
+
+      // ✅ build game url with per-game cooldown policy + hub root lock
       const gameUrl = buildGameRunUrlFromGameKey(gameKey);
 
-      // ✅ PATCH: go Bloom -> Warmup -> Game
+      // ✅ go Bloom -> Warmup -> Game
       const finalUrl = wrapBloomWarmup(gameUrl, gameKey);
       location.href = finalUrl;
     }, {passive:false});
