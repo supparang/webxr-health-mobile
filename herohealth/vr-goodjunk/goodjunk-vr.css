@@ -1,6 +1,6 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PRODUCTION (targets + fx + pulses + FX-NO-FLASH)
-FULL v20260224-css-fxnoflash+coachfriendly
+GoodJunkVR CSS — PRODUCTION (targets + fx + pulses)
+FULL v20260224-css-antiFlashFxKeepEffects
 */
 
 :root{
@@ -72,7 +72,7 @@ body{
   100% { opacity:0; transform: translate(-50%,-50%) scale(.70); }
 }
 
-/* tick last seconds */
+/* little tick on last seconds */
 body.gj-tick{
   animation: gjTick 120ms ease-out;
 }
@@ -82,7 +82,7 @@ body.gj-tick{
   100%{ filter:none; }
 }
 
-/* ---------------- storm/boss/rage vibes ---------------- */
+/* storm/boss/rage vibes */
 body.storm{
   background:
     radial-gradient(1200px 800px at 18% 0%, rgba(59,130,246,.18), transparent 55%),
@@ -106,8 +106,7 @@ body.rage{
 }
 
 /* =========================================================
-   FX — NO-FLASH TWO-PHASE MOUNT
-   JS จะใส่ class: gj-pre แล้วค่อยเติม gj-on ใน rAF
+   FX — anti flash + keep pop/shards/text
 ========================================================= */
 
 #gj-fx{
@@ -125,48 +124,40 @@ body.rage{
   position:absolute;
   left:0;
   top:0;
+  /* IMPORTANT: base transform exists even before keyframes -> no flash */
   transform: translate(-50%,-50%) translateZ(0);
   will-change: transform, opacity, filter;
   pointer-events:none;
-}
-
-/* ✅ pre state กัน flash */
-.gj-pre{
   opacity: 0;
-  transform: translate(-50%,-50%) scale(.7);
 }
-.gj-on{}
 
-/* ---- BURST ---- */
+/* BURST */
 .gj-fx{
   width: 90px;
   height: 90px;
   border-radius: 999px;
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
-}
-.gj-fx.gj-on{
   animation: gjFxPop var(--life, 340ms) ease-out forwards;
 }
 
 @keyframes gjFxPop{
-  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.70); }
-  10%  { opacity: .95; transform: translate(-50%,-50%) scale(1.00); }
-  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.35); }
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.70) translateZ(0); }
+  10%  { opacity: .95; transform: translate(-50%,-50%) scale(1.00) translateZ(0); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.35) translateZ(0); }
 }
 
-/* ---- SHARDS WRAPPER ---- */
+/* SHARDS WRAPPER */
 .gj-fx-shards{
   width: 1px;
   height: 1px;
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.25));
-}
-.gj-fx-shards.gj-on{
   animation: gjShardWrap var(--life, 520ms) ease-out forwards;
 }
+
 @keyframes gjShardWrap{
-  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.90); }
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.90) translateZ(0); }
   10%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.0); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.0) translateZ(0); }
 }
 
 .gj-fx-shards .gj-shard{
@@ -175,8 +166,6 @@ body.rage{
   border-radius: 6px;
   opacity: .95;
   transform: translate(0,0) scale(1);
-}
-.gj-fx-shards.gj-on .gj-shard{
   animation: gjShardFly var(--life, 520ms) ease-out forwards;
 }
 
@@ -186,7 +175,7 @@ body.rage{
   100% { opacity: 0; transform: translate(var(--tx, 60px), var(--ty, -40px)) scale(.55) rotate(60deg); }
 }
 
-/* ---- FLOATING TEXT ---- */
+/* FLOATING TEXT */
 .gj-fx-text{
   padding: 6px 10px;
   border-radius: 999px;
@@ -199,18 +188,16 @@ body.rage{
   text-shadow: 0 12px 30px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-.gj-fx-text.gj-on{
   animation: gjTextFloat 640ms ease-out forwards;
 }
 
 @keyframes gjTextFloat{
-  0%   { opacity: 0; transform: translate(-50%,-50%) translateY(6px) scale(.98); }
-  18%  { opacity: 1; transform: translate(-50%,-50%) translateY(0px) scale(1.00); }
-  100% { opacity: 0; transform: translate(-50%,-50%) translateY(-26px) scale(1.02); }
+  0%   { opacity: 0; transform: translate(-50%,-50%) translateY(6px) scale(.98) translateZ(0); }
+  18%  { opacity: 1; transform: translate(-50%,-50%) translateY(0px) scale(1.00) translateZ(0); }
+  100% { opacity: 0; transform: translate(-50%,-50%) translateY(-26px) scale(1.02) translateZ(0); }
 }
 
-/* ---- Color variants ---- */
+/* Color variants */
 .gj-fx-good    { box-shadow: 0 0 0 2px rgba(16,185,129,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(16,185,129,.55), rgba(16,185,129,.08) 60%, transparent 72%); }
 .gj-fx-junk    { box-shadow: 0 0 0 2px rgba(244,63,94,.32) inset;  background: radial-gradient(circle at 40% 35%, rgba(244,63,94,.55),  rgba(244,63,94,.10) 60%, transparent 72%); }
 .gj-fx-block   { box-shadow: 0 0 0 2px rgba(59,130,246,.30) inset; background: radial-gradient(circle at 40% 35%, rgba(59,130,246,.55), rgba(59,130,246,.10) 60%, transparent 72%); }
@@ -242,7 +229,7 @@ body.rage{
 .gj-fx-text.t-storm  { border-color: rgba(59,130,246,.26); }
 .gj-fx-text.t-miss   { border-color: rgba(148,163,184,.22); }
 
-/* ---- Body pulse classes used by JS ---- */
+/* Body pulse classes used by JS */
 body.gj-pulse-hurt    { animation: gjPulseHurt 220ms ease-out; }
 body.gj-pulse-block   { animation: gjPulseBlock 120ms ease-out; }
 body.gj-pulse-star    { animation: gjPulseStar 120ms ease-out; }
