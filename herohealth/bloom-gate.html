@@ -1,11 +1,13 @@
 <!-- === /herohealth/bloom-gate.html ===
 HeroHealth Bloom Gate — FULL (v20260223-C)
-✅ stage=analyze|evaluate|create (Bloom)
-✅ cat + theme mapping (nutrition/hygiene/exercise)
-✅ deterministic pick=day (pid+day+slot+stage+theme) for research
-✅ UI: 1 screen, quick tasks, score/miss/total, end -> next
-✅ Create stage supports 3-item plan builder (no typing, fast)
-✅ Safe, no external deps
+✅ Bloom Level: Analyze / Evaluate / Create (default=C=Evaluate+Create micro)
+✅ Cat = Zone (nutrition/hygiene/exercise)
+✅ Theme = Game (goodjunk/groups/hydration/plate/handwash/brush/maskcough/germdetective/bath/clean/shadow/rhythm/jumpduck/balance/planner)
+✅ Pick policy compatible with HUB: ?theme / ?game / ?pick=rand|day + research default day
+✅ Deterministic (pick=day) uses pid+cat+day(+slot)+bloom
+✅ Preserves plan sequence params + hub context
+✅ Outputs bloom result via URL: bLevel, bScore, bMiss, bTotal, bRank, bKey
+✅ Safe PC/Mobile, no deps
 -->
 <!doctype html>
 <html lang="th">
@@ -49,7 +51,7 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       display:flex; align-items:center; justify-content:center;
     }
     .shell{
-      width:min(980px, 100%);
+      width:min(1020px, 100%);
       border:1px solid var(--stroke);
       background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
       border-radius:24px;
@@ -80,28 +82,27 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       font-size:11px; font-weight:1000;
       white-space:nowrap;
     }
-    .main{
-      display:grid; grid-template-columns: 1.2fr .8fr;
-      gap:0;
-    }
+
+    .main{ display:grid; grid-template-columns: 1.2fr .8fr; gap:0; }
     @media (max-width: 860px){ .main{ grid-template-columns:1fr; } }
+
     .play{
       position:relative;
-      min-height:560px;
+      min-height:580px;
       border-right:1px solid var(--stroke);
       background:
-        radial-gradient(700px 320px at 50% 10%, rgba(34,211,238,.06), transparent 70%),
+        radial-gradient(700px 320px at 50% 10%, rgba(167,139,250,.08), transparent 70%),
         linear-gradient(180deg, rgba(2,6,23,.20), rgba(2,6,23,.06));
       overflow:hidden;
     }
     @media (max-width: 860px){
-      .play{ border-right:none; border-bottom:1px solid var(--stroke); min-height:500px; }
+      .play{ border-right:none; border-bottom:1px solid var(--stroke); min-height:520px; }
     }
+
     .hud{
       position:absolute; left:10px; right:10px; top:10px;
       display:grid; grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:8px;
-      z-index:4;
+      gap:8px; z-index:4;
     }
     .hud .box{
       border:1px solid var(--stroke);
@@ -117,27 +118,17 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       position:absolute; inset:0;
       overflow:hidden;
       touch-action:manipulation;
-      user-select:none;
-      -webkit-user-select:none;
+      user-select:none; -webkit-user-select:none;
     }
     .center{
-      position:absolute;
-      left:50%; top:50%;
+      position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
       text-align:center;
       z-index:2;
       pointer-events:none;
     }
-    .center .big{
-      font-size:64px; line-height:1;
-      filter:drop-shadow(0 8px 24px rgba(0,0,0,.35));
-    }
-    .center .hint{
-      margin-top:8px;
-      color:rgba(229,231,235,.85);
-      font-weight:900;
-      font-size:14px;
-    }
+    .center .big{ font-size:64px; line-height:1; filter:drop-shadow(0 8px 24px rgba(0,0,0,.35)); }
+    .center .hint{ margin-top:8px; color:rgba(229,231,235,.85); font-weight:900; font-size:14px; }
 
     .toast{
       position:absolute; left:50%; top:78px; transform:translateX(-50%) translateY(-6px);
@@ -174,17 +165,9 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       border-radius:18px;
       padding:12px;
     }
-    .card h3{
-      margin:0;
-      font-size:14px;
-      font-weight:1000;
-    }
-    .muted{
-      color:rgba(229,231,235,.74);
-      font-size:12px;
-      line-height:1.35;
-      font-weight:750;
-    }
+    .card h3{ margin:0; font-size:14px; font-weight:1000; }
+    .muted{ color:rgba(229,231,235,.74); font-size:12px; line-height:1.35; font-weight:750; }
+    .meta{ margin-top:8px; display:grid; gap:8px; }
     .row{
       display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
       border:1px solid var(--stroke);
@@ -207,14 +190,8 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       font-weight:1000; font-size:13px;
       min-height:42px;
     }
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:rgba(34,197,94,.14);
-    }
-    .btn.warn{
-      border-color:rgba(245,158,11,.32);
-      background:rgba(245,158,11,.12);
-    }
+    .btn.primary{ border-color:rgba(167,139,250,.32); background:rgba(167,139,250,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.12); }
 
     .end{
       position:absolute; inset:0;
@@ -226,7 +203,7 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
       padding:16px;
     }
     .end .panel{
-      width:min(560px,100%);
+      width:min(620px,100%);
       border:1px solid var(--stroke);
       background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
       border-radius:20px;
@@ -249,6 +226,8 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
 
     @media (max-width:560px){
       .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); top:8px; left:8px; right:8px; }
+      .center .big{ font-size:56px; }
+      .center .hint{ font-size:13px; }
       .top{ padding:10px 12px; }
       .side{ padding:12px; }
       .kv{ grid-template-columns:1fr; }
@@ -262,15 +241,15 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
         <div class="brand">
           <div class="logo">HH</div>
           <div>
-            <div class="title" id="gameTitle">Bloom Gate</div>
-            <div class="sub" id="subLine">Analyze → Evaluate → Create</div>
+            <div class="title" id="pageTitle">Bloom Gate</div>
+            <div class="sub" id="subLine">ภารกิจสั้น ๆ แบบ C ก่อนเข้าเกมจริง</div>
           </div>
         </div>
         <div class="chips">
-          <div class="chip" id="pillStage">STAGE: ANALYZE</div>
+          <div class="chip" id="pillBloom">BLOOM: C</div>
           <div class="chip" id="pillCat">CAT: NUTRITION</div>
           <div class="chip" id="pillTheme">THEME: GOODJUNK</div>
-          <div class="chip" id="pillMode">PICK: DAY</div>
+          <div class="chip" id="pillPick">PICK: DAY</div>
         </div>
       </div>
 
@@ -286,7 +265,7 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
           <div class="stage" id="stage" aria-live="polite">
             <div class="center" id="center">
               <div class="big" id="big">🧠</div>
-              <div class="hint" id="hint">กด “เริ่ม” เพื่อทำภารกิจสั้น ๆ</div>
+              <div class="hint" id="hint">กด “เริ่ม” หรือแตะหน้าจอเพื่อทำภารกิจ Bloom</div>
             </div>
             <div class="toast" id="toast">+1</div>
             <div class="flash" id="flash"></div>
@@ -294,13 +273,13 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
 
           <div class="end" id="endOverlay" aria-hidden="true">
             <div class="panel">
-              <h3 id="endTitle">เสร็จแล้ว!</h3>
-              <div class="muted" id="endMsg" style="margin-top:6px;">ไปต่อได้เลย</div>
+              <h3 id="endTitle">Bloom เสร็จแล้ว!</h3>
+              <div class="muted" id="endMsg" style="margin-top:6px;">ไปต่อด่านถัดไปได้เลย</div>
 
               <div class="kv">
                 <div class="item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
                 <div class="item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-                <div class="item"><div class="k">STAGE</div><div class="v" id="endStage">—</div></div>
+                <div class="item"><div class="k">RANK</div><div class="v" id="endRank">B</div></div>
                 <div class="item"><div class="k">NEXT</div><div class="v" id="endNext">YES</div></div>
               </div>
 
@@ -314,13 +293,15 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
 
         <div class="side">
           <div class="card">
-            <h3>สถานะ Bloom</h3>
-            <div class="muted" id="desc" style="margin-top:6px;">ภารกิจสั้น ๆ เพื่อให้ครบ Bloom ตามเกม</div>
+            <h3>Bloom Mission</h3>
+            <div class="muted" id="desc" style="margin-top:6px;">
+              โหมด C: เน้น “ตัดสินใจ/วางแผน” แบบเร็ว ๆ ก่อนเข้าเกมจริง
+            </div>
 
-            <div style="margin-top:10px; display:grid; gap:8px;">
-              <div class="row"><div class="k">Stage</div><div class="v" id="stageText">analyze</div></div>
-              <div class="row"><div class="k">Theme</div><div class="v" id="themeText">goodjunk</div></div>
+            <div class="meta">
+              <div class="row"><div class="k">Bloom Level</div><div class="v" id="bloomText">C</div></div>
               <div class="row"><div class="k">Duration</div><div class="v" id="durText">25s</div></div>
+              <div class="row"><div class="k">Deterministic</div><div class="v" id="detText">ON (pick=day)</div></div>
             </div>
 
             <div class="btnrow" style="margin-top:10px;">
@@ -332,10 +313,9 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
           <div class="card">
             <h3>หมายเหตุ</h3>
             <div class="muted" style="margin-top:6px;">
-              • Analyze = แยกสัญญาณ/เหตุผล/สิ่งสำคัญ<br/>
-              • Evaluate = เลือกสิ่งที่คุ้ม/ถูกต้องที่สุด<br/>
-              • Create = วางแผน/สร้าง routine 3 ขั้นสั้น ๆ<br/>
-              • research แนะนำ pick=day (deterministic)
+              • Bloom จะส่งผลผ่าน URL (bLevel/bScore/...) ไปด่านถัดไป<br/>
+              • โหมด research ค่าเริ่มต้น pick=day เพื่อให้ repeat ได้<br/>
+              • รองรับ plan sequence params เหมือน warmup-gate
             </div>
           </div>
         </div>
@@ -347,7 +327,7 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
 (function(){
   'use strict';
   const WIN=window, DOC=document;
-  const $= (id)=>DOC.getElementById(id);
+  const $=(id)=>DOC.getElementById(id);
 
   function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
   const QS=getQS();
@@ -359,71 +339,109 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
     if(!url) return '';
     try{ return new URL(url, location.href).toString(); }catch{ return url; }
   }
-  function buildUrl(base, params){
-    const u = new URL(base, location.href);
-    Object.entries(params||{}).forEach(([k,v])=>{
-      if(v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-    return u.toString();
-  }
 
-  function todayKeyLocal(){
+  function getLocalDayKey(){
     const d=new Date();
     const yyyy=d.getFullYear();
     const mm=String(d.getMonth()+1).padStart(2,'0');
     const dd=String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
+
+  function applyPlanSeqParams(u){
+    [
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone'
+    ].forEach(k=>{
+      const v = q(k,'');
+      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
+    });
+    return u;
+  }
+
   function hash32(str){
     let h = 2166136261 >>> 0;
-    const s = String(str || '');
-    for(let i=0;i<s.length;i++){
-      h ^= s.charCodeAt(i);
+    str = String(str || '');
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
     return h >>> 0;
   }
 
-  const stageKind = String(q('stage', q('bloom','analyze'))).toLowerCase().trim(); // analyze|evaluate|create
-  const cat   = String(q('cat','nutrition')).toLowerCase().trim();
-  const theme = String(q('theme','goodjunk')).toLowerCase().trim();
-  const pick  = String(q('pick','')).toLowerCase().trim() || 'day';
-  const run   = String(q('run','play')).toLowerCase().trim();
-  const pid   = String(q('pid','anon')).trim() || 'anon';
-  const slot  = String(q('planSlot','')).toLowerCase().trim();
-  const hub   = absUrlMaybe(q('hub','../hub.html')) || '../hub.html';
-  const next0 = absUrlMaybe(q('next', hub)) || hub;
+  function zoneThemePool(category){
+    const c = String(category || '').toLowerCase();
+    if(c === 'nutrition') return ['goodjunk','groups','hydration','plate'];
+    if(c === 'hygiene')   return ['handwash','brush','maskcough','germdetective','bath','clean'];
+    if(c === 'exercise')  return ['shadow','rhythm','jumpduck','balance','planner'];
+    return ['goodjunk','groups','hydration','plate'];
+  }
 
-  const dur = clamp(qNum('dur', stageKind==='create'?30:25), 10, 120);
+  const bloom = String(q('bloom', q('b','c'))).toLowerCase().trim() || 'c'; // a|b|c
+  const cat   = String(q('cat','nutrition')).toLowerCase();
+  const hub   = absUrlMaybe(q('hub','./hub.html')) || './hub.html';
+  const next0 = absUrlMaybe(q('next','')) || hub;
+
+  const themeFromQs = String(q('theme','')).toLowerCase().trim();
+  const pid = String(q('pid','')).trim() || 'anon';
+
+  const pickQS = String(q('pick','')).toLowerCase().trim();
+  const run = String(q('run','play')).toLowerCase().trim();
+  const pickMode = (pickQS==='rand' || pickQS==='day') ? pickQS : (run==='research' ? 'day' : 'rand');
+
+  function pickTheme(){
+    if(themeFromQs) return themeFromQs;
+    const g = String(q('game','')).toLowerCase().trim();
+    if(g) return g;
+
+    const pool = zoneThemePool(cat);
+    if(!pool.length) return 'goodjunk';
+
+    if(pickMode === 'rand'){
+      return pool[(Math.random()*pool.length)|0];
+    }
+
+    // day deterministic
+    const dayKey = getLocalDayKey();
+    const slot = String(q('planSlot','')).toLowerCase().trim();
+    const seed = `${pid}|${dayKey}|${slot}|${cat}|${run}|bloom|${bloom}`;
+    const idx = hash32(seed) % pool.length;
+    return pool[idx];
+  }
+
+  const themeKey = pickTheme();
 
   // UI refs
-  const pillStage=$('pillStage'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillMode=$('pillMode');
-  const gameTitle=$('gameTitle'), subLine=$('subLine'), desc=$('desc');
-  const stageText=$('stageText'), themeText=$('themeText'), durText=$('durText');
+  const pillBloom=$('pillBloom'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillPick=$('pillPick');
+  const pageTitle=$('pageTitle'), subLine=$('subLine'), desc=$('desc');
+  const bloomText=$('bloomText'), durText=$('durText'), detText=$('detText');
 
-  const stageEl=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
+  const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
   const toast=$('toast'), flash=$('flash');
+
   const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
 
   const btnStart=$('btnStart'), btnSkip=$('btnSkip');
-
   const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
-  const endScore=$('endScore'), endMiss=$('endMiss'), endStage=$('endStage'), endNext=$('endNext');
+  const endScore=$('endScore'), endMiss=$('endMiss'), endRank=$('endRank'), endNext=$('endNext');
   const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
 
+  function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+  function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
   function toastShow(text){
     toast.textContent=text;
     toast.classList.add('show');
     setTimeout(()=>toast.classList.remove('show'), 420);
   }
-  function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-  function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
+
+  // duration policy: Bloom C ~ 25s default
+  const dur = clamp(qNum('dur', 25), 10, 90);
 
   let started=false;
   let tLeft=dur;
   let score=0, miss=0, total=0;
   let raf=0, lastTs=0;
+  let stageAnimRaf=0;
   let teardownFns=[];
 
   function setHUD(){
@@ -434,60 +452,19 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
   }
 
   function clearStage(){
+    cancelAnimationFrame(stageAnimRaf); stageAnimRaf=0;
     teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
     teardownFns=[];
-    Array.from(stageEl.children).forEach(el=>{
+    Array.from(stage.children).forEach(el=>{
       if(el===toast || el===flash || el===center) return;
       try{ el.remove(); }catch{}
     });
     center.style.display='block';
-    big.textContent = (stageKind==='create')?'🛠️':(stageKind==='evaluate')?'⚖️':'🧠';
-    hint.textContent = 'กด “เริ่ม” เพื่อทำภารกิจสั้น ๆ';
+    big.textContent='🧠';
+    hint.textContent='กด “เริ่ม” แล้วทำ Bloom mission สั้น ๆ';
   }
 
-  function endNow(){
-    if(!started) return;
-    started=false;
-    cancelAnimationFrame(raf);
-    raf=0;
-
-    const nextUrl = next0 || hub;
-
-    endOverlay.style.display='flex';
-    endOverlay.setAttribute('aria-hidden','false');
-    endTitle.textContent = `Bloom ${stageKind.toUpperCase()} เสร็จแล้ว!`;
-    endMsg.textContent = 'เยี่ยม! ไปต่อได้เลย';
-    endScore.textContent = String(score);
-    endMiss.textContent  = String(miss);
-    endStage.textContent = stageKind;
-    endNext.textContent  = nextUrl ? 'YES' : 'HUB';
-
-    btnToHub.onclick = ()=> location.href = hub;
-    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
-  }
-
-  function tick(ts){
-    if(!started) return;
-    if(!lastTs) lastTs = ts;
-    const dt = Math.min(0.25, (ts-lastTs)/1000);
-    lastTs = ts;
-    tLeft = Math.max(0, tLeft - dt);
-    setHUD();
-    if(tLeft<=0){ endNow(); return; }
-    raf = requestAnimationFrame(tick);
-  }
-
-  // ---------- deterministic picker ----------
-  function pickDet(arr, key){
-    if(!arr.length) return null;
-    if(pick!=='day') return arr[(Math.random()*arr.length)|0];
-    const day=todayKeyLocal();
-    const seed = `${pid}|${day}|${slot}|${run}|${stageKind}|${theme}|${key||'k'}`;
-    const idx = hash32(seed) % arr.length;
-    return arr[idx];
-  }
-
-  // ---------- helpers ----------
+  // --- helper UI creators ---
   function mkBtn(label){
     const b=DOC.createElement('button');
     b.className='btn';
@@ -501,323 +478,467 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
     pad.style.display='grid';
     pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
     pad.style.gap='8px';
-    stageEl.appendChild(pad);
+    stage.appendChild(pad);
     return pad;
   }
-
-  // ==========================================================
-  // BLOOM TASKS (theme-aware)
-  // ==========================================================
-
-  function runAnalyze(){
-    // Analyze: แยก "สำคัญ/ไม่สำคัญ" หรือ "สาเหตุ/ผล" ให้ไว
-    gameTitle.textContent = `Analyze — ${cat.toUpperCase()} / ${theme.toUpperCase()}`;
-    desc.textContent = 'แตะการ์ดที่ “สำคัญจริง” (signal) ให้ถูก';
-
-    const pools = {
-      nutrition: {
-        goodjunk: [
-          {t:'น้ำเปล่า', ok:1},{t:'ขนมหวาน', ok:0},{t:'ผัก', ok:1},{t:'น้ำอัดลม', ok:0},
-          {t:'ผลไม้', ok:1},{t:'ของทอด', ok:0},
-        ],
-        groups: [
-          {t:'หมู่ 1 โปรตีน', ok:1},{t:'หมู่ 2 คาร์บ', ok:1},{t:'หมู่ 6', ok:0},{t:'น้ำตาลจัด', ok:0},
-          {t:'หมู่ 3 ผัก', ok:1},{t:'หมู่ 4 ผลไม้', ok:1},{t:'หมู่ 5 ไขมัน', ok:1},
-        ],
-        hydration: [
-          {t:'ปากแห้ง', ok:1},{t:'ปัสสาวะเข้ม', ok:1},{t:'ง่วงเพราะดึก', ok:0},{t:'เวียนหัวหลังวิ่ง', ok:1},
-        ],
-        plate: [
-          {t:'มีผัก', ok:1},{t:'มีผลไม้', ok:1},{t:'มีแต่น้ำหวาน', ok:0},{t:'ครบ ≥3 หมู่', ok:1},
-        ]
-      },
-      hygiene: {
-        handwash: [
-          {t:'ก่อนกินข้าว', ok:1},{t:'หลังเข้าห้องน้ำ', ok:1},{t:'จับลูกบิดประตู', ok:1},{t:'แค่จับเสื้อ', ok:0},
-        ],
-        brush: [
-          {t:'แปรงก่อนนอน', ok:1},{t:'แปรง 10 วิ', ok:0},{t:'แปรงผิวฟันทุกด้าน', ok:1},{t:'ไม่ต้องใช้ไหมขัดฟันเลย', ok:0},
-        ],
-        maskcough: [
-          {t:'ไอ/จามให้ปิดปาก', ok:1},{t:'อยู่แออัดควรใส่หน้ากาก', ok:1},{t:'ไอใส่เพื่อนแล้วค่อยขอโทษ', ok:0},
-        ],
-        germdetective: [
-          {t:'จุดสัมผัสร่วม', ok:1},{t:'ลำดับการแพร่', ok:1},{t:'เดาแบบสุ่ม', ok:0},{t:'ทำความสะอาดก่อน-หลัง', ok:1},
-        ],
-        bath: [
-          {t:'จุดอับ (หลังหู/รักแร้)', ok:1},{t:'ฟอกแล้วล้าง', ok:1},{t:'ข้ามขั้นเช็ดตัว', ok:0},
-        ],
-        cleanobjects: [
-          {t:'ลูกบิดประตู', ok:1},{t:'รีโมตทีวี', ok:1},{t:'ผนังที่ไม่มีคนจับ', ok:0},{t:'โต๊ะกินข้าว', ok:1},
-        ]
-      },
-      exercise: {
-        shadow: [
-          {t:'เป้าจริง (normal)', ok:1},{t:'decoy หลอก', ok:0},{t:'boss target', ok:1},{t:'bomb โดนแล้วพลาด', ok:0},
-        ],
-        rhythm: [
-          {t:'จังหวะตรง hit line', ok:1},{t:'ตีมั่ว ๆ', ok:0},{t:'calibration สำคัญ', ok:1},
-        ],
-        jumpduck: [
-          {t:'อ่านสิ่งกีดขวาง', ok:1},{t:'กระโดดทุกครั้ง', ok:0},{t:'หลบให้ถูกช่วง', ok:1},
-        ],
-        balancehold: [
-          {t:'คุมให้อยู่กลาง', ok:1},{t:'แกว่งแรง ๆ', ok:0},{t:'หายใจนิ่ง', ok:1},
-        ],
-        planner: [
-          {t:'จัดแผน 3 ช่วง', ok:1},{t:'ออกกำลังเฉพาะวันเดียว', ok:0},{t:'ทำต่อเนื่อง', ok:1},
-        ]
-      }
-    };
-
-    const list =
-      (pools[cat] && pools[cat][theme]) ||
-      (pools[cat] && pools[cat].goodjunk) ||
-      [{t:'ตัวอย่าง',ok:1},{t:'หลอก',ok:0}];
-
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'48%',transform:'translate(-50%,-50%)',
-      width:'min(720px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">ANALYZE: เลือก “สำคัญจริง”</div>
-      <div class="muted" style="margin-top:6px;">แตะ “สำคัญ” หรือ “ไม่สำคัญ”</div>
-      <div id="q" style="margin-top:12px;font-size:18px;font-weight:1100;">—</div>`;
-    stageEl.appendChild(card);
-
-    const pad=mkPad(2);
-    const b1=mkBtn('สำคัญ'); b1.classList.add('primary');
-    const b0=mkBtn('ไม่สำคัญ');
-    b1.style.padding='14px 12px'; b0.style.padding='14px 12px';
-    pad.appendChild(b1); pad.appendChild(b0);
-
-    let cur = pickDet(list, 'analyze');
-    function next(){
-      total++;
-      cur = pickDet(list, 'analyze-'+total) || list[(Math.random()*list.length)|0];
-      card.querySelector('#q').textContent = cur.t;
+  function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
+  function shuffle(a){
+    a = a.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j=(Math.random()*(i+1))|0;
+      [a[i],a[j]]=[a[j],a[i]];
     }
-    function choose(v){
-      if(!started) return;
-      if(!!v === !!cur.ok){ score++; toastShow('+1'); flashGood(); }
-      else { miss++; toastShow('MISS'); flashBad(); }
-      next();
-    }
-    b1.addEventListener('click', ()=>choose(1));
-    b0.addEventListener('click', ()=>choose(0));
-    teardownFns.push(()=>{ b1.onclick=null; b0.onclick=null; });
-
-    next();
+    return a;
   }
 
-  function runEvaluate(){
-    // Evaluate: เลือกตัวเลือกที่ "คุ้ม/ถูกที่สุด" (มี 3 ตัวเลือก)
-    gameTitle.textContent = `Evaluate — ${cat.toUpperCase()} / ${theme.toUpperCase()}`;
-    desc.textContent = 'เลือกคำตอบที่ “ดีที่สุด”';
+  // ============================================================
+  // BLOOM MISSIONS (C) — fast Evaluate/Create micro tasks
+  // ============================================================
 
+  // C/Nutrition: Evaluate “which plate is better” (fast compare) + Create “pick 3 groups”
+  function missionC_Nutrition(){
+    pageTitle.textContent='Bloom C — Nutrition';
+    desc.textContent='ตัดสินใจ “จานไหนดีกว่า” + เติมจานให้ครบหลายหมู่';
     center.style.display='none';
 
-    const casesByTheme = {
-      goodjunk: [
-        {q:'อยากได้ของว่างตอนบ่าย เลือกอะไรดีที่สุด?', a:['🍎 ผลไม้','🍩 โดนัท','🥤 น้ำหวาน'], ok:0},
-        {q:'ก่อนนอนควรดื่มอะไร?', a:['🥤 น้ำอัดลม','🧋 ชานม','💧 น้ำเปล่า'], ok:2},
-      ],
-      groups: [
-        {q:'อาหารไหนเข้าหมู่ 1 (โปรตีน) มากที่สุด?', a:['🐟 ปลา','🍚 ข้าว','🍎 ผลไม้'], ok:0},
-        {q:'อาหารไหนเข้าหมู่ 3 (ผัก)?', a:['🥦 บรอกโคลี','🥛 นม','🍞 ขนมปัง'], ok:0},
-      ],
-      hydration: [
-        {q:'หลังวิ่งเหงื่อออก ควรทำอะไร?', a:['💧 ดื่มน้ำ','🥤 ดื่มน้ำหวาน','⏳ รอให้หายเอง'], ok:0},
-        {q:'ปัสสาวะเข้ม แปลว่า?', a:['ควรดื่มน้ำเพิ่ม','ปกติดี','ควรงดน้ำ'], ok:0},
-      ],
-      plate: [
-        {q:'จานที่ดีควรมีอะไรเพิ่ม?', a:['เพิ่มผัก/ผลไม้','เพิ่มน้ำหวาน','เพิ่มขนมทอด'], ok:0},
-      ],
-      handwash: [
-        {q:'ก่อนกินข้าวมือสกปรก ควรทำอะไร?', a:['ล้างมือด้วยสบู่','เช็ดกางเกง','ล้างน้ำเปล่าเร็ว ๆ'], ok:0},
-      ],
-      brush: [
-        {q:'แปรงฟันที่ดีที่สุดคือ?', a:['ก่อนนอน','เมื่อไหร่ก็ได้','เฉพาะเช้า'], ok:0},
-      ],
-      maskcough: [
-        {q:'ไอในห้องเรียนควรทำอะไร?', a:['ปิดปาก-จมูก','ไอใส่อากาศเฉย ๆ','ถอดหน้ากากทันที'], ok:0},
-      ],
-      germdetective: [
-        {q:'เจอจุดสัมผัสร่วม ควรทำก่อน?', a:['เช็ดทำความสะอาดจุดนั้น','ไม่สนใจ','บอกว่าไม่มีอะไร'], ok:0},
-      ],
-      bath: [
-        {q:'อาบน้ำควรทำอะไรไม่ควรข้าม?', a:['ล้างจุดอับ','ข้ามการล้าง','เช็ดตัวก่อนล้าง'], ok:0},
-      ],
-      cleanobjects: [
-        {q:'ถ้ามีเวลาจำกัด ควรทำความสะอาดอะไรก่อน?', a:['ลูกบิดประตู','พื้นสะอาด','ผนังมุมห้อง'], ok:0},
-      ],
-      shadow: [
-        {q:'เป้าไหนควรตี?', a:['เป้าจริง','decoy','หลบทุกอย่าง'], ok:0},
-      ],
-      rhythm: [
-        {q:'จะได้คะแนนดีควรทำ?', a:['ตีตรง hit line','ตีเร็วสุด','ตีมั่ว'], ok:0},
-      ],
-      jumpduck: [
-        {q:'ถ้าเห็นสิ่งกีดขวางต่ำ ควร?', a:['DUCK','JUMP','หยุดเล่น'], ok:0},
-      ],
-      balancehold: [
-        {q:'จะคุมสมดุลดีขึ้นควร?', a:['คุมให้นิ่งกลาง','แกว่งแรง ๆ','ปล่อยไป'], ok:0},
-      ],
-      planner: [
-        {q:'แผนออกกำลังที่ดีคือ?', a:['แบ่งเช้า-กลางวัน-เย็น','ทำครั้งเดียวพอ','ทำเฉพาะวันหยุด'], ok:0},
-      ],
-    };
+    // Part 1: Evaluate
+    const evalCard=DOC.createElement('div');
+    Object.assign(evalCard.style,{
+      position:'absolute',left:'50%',top:'34%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.52)'
+    });
+    evalCard.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Evaluate) จานไหน “สมดุลกว่า” ?</div>
+      <div class="muted" style="text-align:center; margin-top:4px;">แตะ A หรือ B</div>
+      <div id="row" style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div id="A" style="border:1px solid rgba(148,163,184,.18); border-radius:16px; padding:12px; background:rgba(2,6,23,.28); text-align:center;">
+          <div style="font-weight:1100;">Plate A</div>
+          <div id="aemo" style="font-size:32px; margin-top:8px;">🍚🥦🍎</div>
+          <div class="muted" id="albl" style="margin-top:6px;">3 หมู่</div>
+        </div>
+        <div id="B" style="border:1px solid rgba(148,163,184,.18); border-radius:16px; padding:12px; background:rgba(2,6,23,.28); text-align:center;">
+          <div style="font-weight:1100;">Plate B</div>
+          <div id="bemo" style="font-size:32px; margin-top:8px;">🍟🍔🥤</div>
+          <div class="muted" id="blbl" style="margin-top:6px;">Junk-heavy</div>
+        </div>
+      </div>`;
+    stage.appendChild(evalCard);
 
-    const list = casesByTheme[theme] || casesByTheme.goodjunk;
+    // deterministic-ish question set (use hash if pick=day)
+    const qset = [
+      {A:['🍚','🥦','🍎'], Ag:3, B:['🍔','🍟','🥤'], Bg:1, ok:'A'},
+      {A:['🥚','🍚','🥦'], Ag:3, B:['🍞','🍞','🍞'], Bg:1, ok:'A'},
+      {A:['🥛','🐟','🥑'], Ag:2, B:['🍚','🥦','🍎','🥑'], Bg:4, ok:'B'},
+      {A:['🍩','🍬','🥤'], Ag:0, B:['🍚','🐟','🥦'], Bg:3, ok:'B'},
+      {A:['🍚','🍚','🍚'], Ag:1, B:['🍚','🥦','🍎'], Bg:3, ok:'B'},
+    ];
+    let qi = 0;
+
+    function stableIndex(){
+      if(pickMode!=='day') return 0;
+      const dayKey=getLocalDayKey();
+      const slot = String(q('planSlot','')).toLowerCase().trim();
+      return hash32(`${pid}|${dayKey}|${slot}|C|nutrition`) % qset.length;
+    }
+    qi = stableIndex();
+
+    const aemo=evalCard.querySelector('#aemo');
+    const bemo=evalCard.querySelector('#bemo');
+    const albl=evalCard.querySelector('#albl');
+    const blbl=evalCard.querySelector('#blbl');
+
+    function renderQ(){
+      const qq = qset[qi % qset.length];
+      aemo.textContent = qq.A.join('');
+      bemo.textContent = qq.B.join('');
+      albl.textContent = `หมู่รวม ~ ${qq.Ag}`;
+      blbl.textContent = `หมู่รวม ~ ${qq.Bg}`;
+    }
+    function answer(which){
+      if(!started) return;
+      total++;
+      const qq = qset[qi % qset.length];
+      if(which===qq.ok){ score++; toastShow('+1'); flashGood(); }
+      else { miss++; toastShow('MISS'); flashBad(); }
+      qi++;
+      renderQ();
+    }
+    evalCard.querySelector('#A').addEventListener('click', ()=>answer('A'));
+    evalCard.querySelector('#B').addEventListener('click', ()=>answer('B'));
+
+    teardownFns.push(()=>{ try{ evalCard.remove(); }catch{} });
+
+    renderQ();
+
+    // Part 2: Create quick (pick 3 distinct groups)
+    const createCard=DOC.createElement('div');
+    Object.assign(createCard.style,{
+      position:'absolute',left:'50%',top:'64%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.44)'
+    });
+    createCard.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Create) เติมจานให้ได้ “อย่างน้อย 3 หมู่”</div>
+      <div class="muted" id="ct" style="text-align:center; margin-top:4px;">ตอนนี้: 0 หมู่</div>
+      <div style="text-align:center; font-size:34px; margin-top:8px;">🍽️</div>
+    `;
+    stage.appendChild(createCard);
+
+    const picked = new Set();
+    const ct=createCard.querySelector('#ct');
+
+    const pad = mkPad(5);
+    const items = [
+      {emo:'🐟', g:1},{emo:'🥚', g:1},{emo:'🥛', g:1},
+      {emo:'🍚', g:2},{emo:'🍞', g:2},{emo:'🥔', g:2},
+      {emo:'🥦', g:3},{emo:'🥬', g:3},
+      {emo:'🍎', g:4},{emo:'🍌', g:4},
+      {emo:'🥑', g:5},{emo:'🧈', g:5},
+    ];
+    shuffle(items).slice(0,10).forEach(it=>{
+      const b=mkBtn(it.emo);
+      b.style.padding='14px 8px'; b.style.borderRadius='16px'; b.style.fontSize='18px';
+      pad.appendChild(b);
+      b.addEventListener('click', ()=>{
+        if(!started) return;
+        total++;
+        if(!picked.has(it.g)){
+          picked.add(it.g);
+          score++; toastShow('+1'); flashGood();
+        }else{
+          miss++; toastShow('MISS'); flashBad();
+        }
+        ct.textContent = `ตอนนี้: ${picked.size} หมู่`;
+        if(picked.size>=3){
+          // small bonus once
+          if(!ct.dataset.bonus){
+            ct.dataset.bonus='1';
+            score += 2; toastShow('+BONUS'); flashGood();
+          }
+        }
+      });
+    });
+
+    teardownFns.push(()=>{ try{ createCard.remove(); }catch{} });
+  }
+
+  // C/Hygiene: Evaluate “priority cleaning” + Create “routine order”
+  function missionC_Hygiene(){
+    pageTitle.textContent='Bloom C — Hygiene';
+    desc.textContent='เลือกสิ่งที่คุ้มทำก่อน + จัดลำดับ routine สั้น ๆ';
+    center.style.display='none';
+
+    const cases = [
+      {q:'ลูกบิดประตู', w:3, emo:'🚪'},
+      {q:'รีโมตทีวี', w:3, emo:'📺'},
+      {q:'โต๊ะกินข้าวหลังใช้งาน', w:3, emo:'🍽️'},
+      {q:'ชั้นวางที่ไม่ค่อยจับ', w:1, emo:'🪑'},
+      {q:'พื้นแห้งสะอาด', w:1, emo:'🧽'},
+      {q:'สวิตช์ไฟ', w:2, emo:'💡'},
+      {q:'มือถือ', w:3, emo:'📱'},
+    ];
 
     const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'44%',transform:'translate(-50%,-50%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">EVALUATE: เลือกคำตอบที่ดีที่สุด</div>
-      <div id="q" style="margin-top:10px;font-size:18px;font-weight:1100;">—</div>
-      <div class="muted" style="margin-top:6px;">เลือก 1 ตัวเลือก</div>`;
-    stageEl.appendChild(card);
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'42%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.52)'
+    });
+    card.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Evaluate) เลือก “ควรทำก่อน”</div>
+      <div class="muted" style="text-align:center; margin-top:4px;">แตะตัวเลือกที่เสี่ยง/จับบ่อยก่อน</div>
+      <div id="grid" style="margin-top:10px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
+      <div class="muted" id="hint2" style="text-align:center; margin-top:8px;">ทำถูก = +1 (ทำผิด = MISS)</div>
+    `;
+    stage.appendChild(card);
 
-    const pad=mkPad(1);
-    pad.style.gridTemplateColumns='1fr';
-    let cur = pickDet(list, 'eval');
+    const grid = card.querySelector('#grid');
 
-    function next(){
-      total++;
-      cur = pickDet(list, 'eval-'+total) || list[(Math.random()*list.length)|0];
-      card.querySelector('#q').textContent = cur.q;
-      pad.innerHTML='';
-      cur.a.forEach((txt,i)=>{
-        const b=mkBtn(txt);
-        b.style.padding='14px 12px'; b.style.borderRadius='16px';
-        pad.appendChild(b);
+    function stablePick3(){
+      const pool = cases.slice();
+      if(pickMode==='day'){
+        const dayKey=getLocalDayKey();
+        const slot = String(q('planSlot','')).toLowerCase().trim();
+        let h = hash32(`${pid}|${dayKey}|${slot}|C|hygiene`);
+        // deterministic shuffle
+        for(let i=pool.length-1;i>0;i--){
+          const j = (h % (i+1))|0;
+          [pool[i],pool[j]]=[pool[j],pool[i]];
+          h = (h * 1103515245 + 12345) >>> 0;
+        }
+      }else{
+        for(let i=pool.length-1;i>0;i--){
+          const j=(Math.random()*(i+1))|0;
+          [pool[i],pool[j]]=[pool[j],pool[i]];
+        }
+      }
+      return pool.slice(0,3);
+    }
+
+    let trio = stablePick3();
+    function render(){
+      grid.innerHTML='';
+      const best = trio.reduce((a,b)=> (b.w>a.w?b:a), trio[0]);
+      trio.forEach(it=>{
+        const b = mkBtn(`${it.emo} ${it.q}`);
+        b.style.borderRadius='16px';
+        b.style.padding='12px';
+        b.style.fontSize='12px';
+        b.style.textAlign='left';
         b.addEventListener('click', ()=>{
           if(!started) return;
-          if(i===cur.ok){ score++; toastShow('+1'); flashGood(); }
+          total++;
+          if(it===best){ score++; toastShow('+1'); flashGood(); }
           else { miss++; toastShow('MISS'); flashBad(); }
-          next();
+          trio = stablePick3();
+          render();
         });
+        grid.appendChild(b);
       });
     }
-    next();
-  }
+    render();
 
-  function runCreate(){
-    // Create: สร้าง “mini routine” 3 ขั้น (เลือก 3 ชิ้น) ให้เข้าธีม
-    gameTitle.textContent = `Create — ${cat.toUpperCase()} / ${theme.toUpperCase()}`;
-    desc.textContent = 'สร้างแผน 3 ขั้นสั้น ๆ ให้เข้าธีมเกม';
+    // Create: arrange routine order (tap in correct order)
+    const routine = ['เก็บของ','เช็ดจุดสัมผัส','ฆ่าเชื้อ','ล้างมือ'];
+    const order = (pickMode==='day')
+      ? routine.slice() // stable
+      : shuffle(routine);
 
-    center.style.display='none';
+    const card2=DOC.createElement('div');
+    Object.assign(card2.style,{
+      position:'absolute',left:'50%',top:'74%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.44)'
+    });
+    card2.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Create) แตะจัดลำดับ routine: 1→4</div>
+      <div class="muted" id="rt" style="text-align:center; margin-top:4px;">เริ่มที่ข้อ 1</div>
+      <div id="rpad" style="margin-top:10px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;"></div>
+    `;
+    stage.appendChild(card2);
 
-    const lib = {
-      nutrition: {
-        goodjunk: ['เลือกของว่างดี','ดื่มน้ำเปล่า','ลดน้ำหวาน','เพิ่มผลไม้','อ่านฉลากหวาน'],
-        groups: ['ครบ 3 หมู่','เพิ่มผัก','เพิ่มโปรตีน','คุมแป้ง','เลือกไขมันดี'],
-        hydration: ['จิบน้ำระหว่างวัน','ดูสีปัสสาวะ','พกขวดน้ำ','ดื่มหลังออกแรง','ลดน้ำหวาน'],
-        plate: ['เติมผักครึ่งจาน','โปรตีนพอดี','คาร์บพอประมาณ','ผลไม้หลังอาหาร','ลดของทอด']
-      },
-      hygiene: {
-        handwash: ['ล้างก่อนกิน','ถูซอกนิ้ว','ถูนิ้วโป้ง','ล้างหลังเข้าห้องน้ำ','เช็ดให้แห้ง'],
-        brush: ['แปรงก่อนนอน','แปรง 2 นาที','แปรงทุกด้าน','ใช้ไหมขัดฟัน','บ้วนปากพอดี'],
-        maskcough: ['ใส่หน้ากาก','ปิดปาก-จมูก','เว้นระยะ','ทิ้งทิชชูให้ถูก','ล้างมือหลังไอ'],
-        germdetective: ['หาจุดสัมผัสร่วม','สรุปลำดับแพร่','เช็ดทำความสะอาด','แจ้งคนเกี่ยวข้อง','ลดความเสี่ยงซ้ำ'],
-        bath: ['เปียกตัว','ฟอกสบู่','ถูจุดอับ','ล้างให้สะอาด','เช็ดตัว/ใส่เสื้อผ้า'],
-        cleanobjects: ['เช็ดลูกบิดประตู','เช็ดรีโมต','เช็ดโต๊ะกินข้าว','ล้างมือหลังเช็ด','เปิดหน้าต่างระบาย']
-      },
-      exercise: {
-        shadow: ['วอร์มอัพ 1 นาที','โฟกัสเป้าจริง','หลบ bomb','พักหายใจ','คูลดาวน์ยืดเหยียด'],
-        rhythm: ['ตั้ง cal ให้ตรง','ตีตามจังหวะ','พักมือสั้น ๆ','เพิ่มความเร็วทีละนิด','คูลดาวน์หายใจ'],
-        jumpduck: ['ยืดเข่า','อ่านสิ่งกีดขวาง','สลับ jump/duck','พักเมื่อเหนื่อย','ยืดเหยียดหลังเล่น'],
-        balancehold: ['ตั้งท่ายืน','มองจุดคงที่','คุมให้อยู่กลาง','หายใจนิ่ง','ผ่อนคลายหลังจบ'],
-        planner: ['เลือกกิจกรรม','แบ่ง 3 ช่วง','กำหนดเวลาจริง','ทำต่อเนื่อง','ทบทวนผล']
-      }
-    };
+    const rpad = card2.querySelector('#rpad');
+    const rt = card2.querySelector('#rt');
+    let idx=0;
+    const options = shuffle(order);
 
-    const pool =
-      (lib[cat] && lib[cat][theme]) ||
-      (lib[cat] && lib[cat].goodjunk) ||
-      ['ทำขั้น 1','ทำขั้น 2','ทำขั้น 3','ทำขั้น 4'];
-
-    const chosen = [];
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'44%',transform:'translate(-50%,-50%)',
-      width:'min(820px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)'});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">CREATE: สร้างแผน 3 ขั้น</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เลือกให้ครบ 3 ขั้น (ครบแล้วได้โบนัส)</div>
-      <div id="plan" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
-      <div id="opts" style="margin-top:12px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;"></div>`;
-    stageEl.appendChild(card);
-
-    const planEl=card.querySelector('#plan');
-    const optsEl=card.querySelector('#opts');
-
-    function renderPlan(){
-      planEl.innerHTML='';
-      for(let i=0;i<3;i++){
-        const box=DOC.createElement('div');
-        box.style.border='1px solid rgba(148,163,184,.18)';
-        box.style.borderRadius='16px';
-        box.style.background='rgba(2,6,23,.35)';
-        box.style.padding='10px 12px';
-        box.style.minHeight='60px';
-        const txt = chosen[i] || 'ว่าง';
-        box.innerHTML = `<div style="font-weight:1100;">ขั้น ${i+1}</div><div class="muted" style="margin-top:6px;">${txt}</div>`;
-        planEl.appendChild(box);
-
-        box.addEventListener('click', ()=>{
-          if(!started) return;
-          if(!chosen[i]) return;
-          total++;
-          chosen.splice(i,1);
-          miss++; toastShow('UNDO'); flashBad();
-          renderPlan();
-        });
-      }
-    }
-
-    function renderOpts(){
-      optsEl.innerHTML='';
-      const pickList = [];
-      const n = Math.min(8, pool.length);
-      // deterministic select candidate set
-      for(let i=0;i<n;i++){
-        const it = pickDet(pool, 'create-opt-'+i) || pool[i];
-        if(!pickList.includes(it)) pickList.push(it);
-      }
-      while(pickList.length < n){
-        const it = pool[(Math.random()*pool.length)|0];
-        if(!pickList.includes(it)) pickList.push(it);
-      }
-
-      pickList.forEach(txt=>{
-        const b=mkBtn(txt);
-        b.style.padding='12px 10px';
+    function renderRoutine(){
+      rpad.innerHTML='';
+      options.forEach(step=>{
+        const b = mkBtn(step);
         b.style.borderRadius='16px';
-        optsEl.appendChild(b);
+        b.style.padding='12px';
         b.addEventListener('click', ()=>{
           if(!started) return;
           total++;
-          if(chosen.includes(txt)){ miss++; toastShow('DUP'); flashBad(); return; }
-          if(chosen.length>=3){ miss++; toastShow('FULL'); flashBad(); return; }
-          chosen.push(txt);
-          score++; toastShow('+1'); flashGood();
-          renderPlan();
-
-          if(chosen.length===3){
-            score += 2;
-            toastShow('+BONUS');
-            flashGood();
+          if(step===order[idx]){
+            score++; toastShow('+1'); flashGood();
+            idx++;
+            rt.textContent = (idx>=order.length) ? 'ครบแล้ว! +BONUS' : `ต่อไป: ข้อ ${idx+1}`;
+            if(idx>=order.length){
+              if(!rt.dataset.bonus){ rt.dataset.bonus='1'; score += 2; toastShow('+BONUS'); flashGood(); }
+              idx=0; // loop
+            }
+          }else{
+            miss++; toastShow('MISS'); flashBad();
           }
         });
+        rpad.appendChild(b);
       });
     }
+    renderRoutine();
 
-    renderPlan();
-    renderOpts();
+    teardownFns.push(()=>{ try{ card.remove(); card2.remove(); }catch{} });
+  }
+
+  // C/Exercise: Evaluate “choose safer/better action” + Create “mini plan pick 3”
+  function missionC_Exercise(){
+    pageTitle.textContent='Bloom C — Exercise';
+    desc.textContent='เลือกการกระทำที่เหมาะ + สร้างแผนสั้น ๆ';
+    center.style.display='none';
+
+    const cases = [
+      {q:'ก่อนออกกำลังควรทำอะไร?', ok:'วอร์มอัพ', a:['ยืดเหยียด','วอร์มอัพ','นั่งเล่น'], emo:'🏃'},
+      {q:'เหนื่อยมาก/เวียนหัวควรทำ?', ok:'พัก/ดื่มน้ำ', a:['ฝืนต่อ','พัก/ดื่มน้ำ','กระโดดเพิ่ม'], emo:'💧'},
+      {q:'อยากพัฒนาแรง ควรเน้น?', ok:'สควอต/วิดพื้น', a:['สควอต/วิดพื้น','นอนเฉย','กินขนม'], emo:'💪'},
+      {q:'หลังออกกำลังควรทำ?', ok:'คูลดาวน์', a:['คูลดาวน์','เล่นมือถือ','วิ่งเร็วต่อ'], emo:'🧘'},
+    ];
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.52)'
+    });
+    card.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Evaluate) เลือกคำตอบที่เหมาะที่สุด</div>
+      <div id="qq" style="margin-top:8px; font-size:16px; font-weight:1000; text-align:center;">—</div>
+      <div id="qe" style="margin-top:6px; font-size:40px; text-align:center;">💪</div>
+      <div id="pad" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
+    `;
+    stage.appendChild(card);
+
+    const qq=card.querySelector('#qq');
+    const qe=card.querySelector('#qe');
+    const pad=card.querySelector('#pad');
+
+    let idx = 0;
+    if(pickMode==='day'){
+      const dayKey=getLocalDayKey();
+      const slot = String(q('planSlot','')).toLowerCase().trim();
+      idx = hash32(`${pid}|${dayKey}|${slot}|C|exercise`) % cases.length;
+    }else idx = (Math.random()*cases.length)|0;
+
+    function render(){
+      const c = cases[idx % cases.length];
+      qq.textContent = c.q;
+      qe.textContent = c.emo;
+      pad.innerHTML='';
+      const opts = shuffle(c.a);
+      opts.forEach(ans=>{
+        const b=mkBtn(ans);
+        b.style.borderRadius='16px';
+        b.style.padding='12px';
+        b.style.fontSize='12px';
+        b.addEventListener('click', ()=>{
+          if(!started) return;
+          total++;
+          if(ans===c.ok){ score++; toastShow('+1'); flashGood(); }
+          else { miss++; toastShow('MISS'); flashBad(); }
+          idx++;
+          render();
+        });
+        pad.appendChild(b);
+      });
+    }
+    render();
+
+    // Create: choose 3 activities
+    const acts=['เดินเร็ว','ยืดเหยียด','กระโดดตบ','วิดพื้น','สควอต','วิ่งอยู่กับที่','แพลงก์'];
+    const chosen=[];
+    const card2=DOC.createElement('div');
+    Object.assign(card2.style,{
+      position:'absolute',left:'50%',top:'76%',transform:'translate(-50%,-50%)',
+      width:'min(860px,94%)',padding:'12px',borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)', background:'rgba(2,6,23,.44)'
+    });
+    card2.innerHTML = `
+      <div style="font-weight:1100; text-align:center;">(Create) เลือกกิจกรรม 3 อย่าง</div>
+      <div class="muted" id="ct" style="text-align:center; margin-top:4px;">ตอนนี้: 0/3</div>
+      <div id="apad" style="margin-top:10px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
+    `;
+    stage.appendChild(card2);
+
+    const ct = card2.querySelector('#ct');
+    const apad = card2.querySelector('#apad');
+    const pick = shuffle(acts).slice(0,6);
+
+    pick.forEach(a=>{
+      const b=mkBtn(a);
+      b.style.borderRadius='16px';
+      b.style.padding='12px';
+      b.style.fontSize='12px';
+      b.addEventListener('click', ()=>{
+        if(!started) return;
+        total++;
+        if(chosen.includes(a)){
+          miss++; toastShow('MISS'); flashBad();
+          return;
+        }
+        chosen.push(a);
+        score++; toastShow('+1'); flashGood();
+        ct.textContent = `ตอนนี้: ${chosen.length}/3`;
+        if(chosen.length>=3){
+          if(!ct.dataset.bonus){ ct.dataset.bonus='1'; score += 2; toastShow('+BONUS'); flashGood(); }
+        }
+      });
+      apad.appendChild(b);
+    });
+
+    teardownFns.push(()=>{ try{ card.remove(); card2.remove(); }catch{} });
+  }
+
+  function runBloomC(){
+    // choose by category
+    if(cat==='hygiene') return missionC_Hygiene();
+    if(cat==='exercise') return missionC_Exercise();
+    return missionC_Nutrition();
+  }
+
+  function rankFromAcc(acc){
+    if(acc>=0.88) return 'S';
+    if(acc>=0.74) return 'A';
+    if(acc>=0.58) return 'B';
+    return 'C';
+  }
+
+  function buildNextUrl(){
+    const u = new URL(next0 || hub, location.href);
+
+    // pass-through common context
+    [
+      'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','researchPhase'
+    ].forEach(k=>{
+      const v=q(k,'');
+      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
+    });
+
+    // preserve research phase
+    const rp=q('researchPhase','');
+    if(rp && !u.searchParams.has('phase')) u.searchParams.set('phase', rp);
+
+    // bloom outputs
+    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
+    const bRank = rankFromAcc(acc);
+
+    u.searchParams.set('bloom', bloom.toUpperCase());
+    u.searchParams.set('bLevel', bloom.toUpperCase());
+    u.searchParams.set('bScore', String(score));
+    u.searchParams.set('bMiss', String(miss));
+    u.searchParams.set('bTotal', String(total));
+    u.searchParams.set('bRank', String(bRank));
+    u.searchParams.set('bKey', `${cat}:${themeKey}`);
+
+    applyPlanSeqParams(u);
+    return u.toString();
+  }
+
+  function endNow(){
+    if(!started) return;
+    started=false;
+    cancelAnimationFrame(raf); raf=0;
+    cancelAnimationFrame(stageAnimRaf); stageAnimRaf=0;
+
+    const nextUrl = buildNextUrl();
+    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
+    const bRank = rankFromAcc(acc);
+
+    endOverlay.style.display='flex';
+    endOverlay.setAttribute('aria-hidden','false');
+    endTitle.textContent = 'Bloom (C) เสร็จแล้ว!';
+    endMsg.textContent = 'ไปต่อด่านถัดไป (เช่น warmup หรือเกมจริง) ได้เลย';
+    endScore.textContent = String(score);
+    endMiss.textContent = String(miss);
+    endRank.textContent = bRank;
+    endNext.textContent = nextUrl ? 'YES' : 'HUB';
+
+    btnToHub.onclick = ()=> location.href = hub;
+    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
+  }
+
+  function tick(ts){
+    if(!started) return;
+    if(!lastTs) lastTs = ts;
+    const dt = Math.min(0.25, (ts-lastTs)/1000);
+    lastTs = ts;
+    tLeft = Math.max(0, tLeft - dt);
+    setHUD();
+    if(tLeft<=0){
+      endNow();
+      return;
+    }
+    raf = requestAnimationFrame(tick);
   }
 
   function start(){
@@ -831,42 +952,40 @@ HeroHealth Bloom Gate — FULL (v20260223-C)
 
     started=true;
 
-    if(stageKind==='create') runCreate();
-    else if(stageKind==='evaluate') runEvaluate();
-    else runAnalyze();
+    // Only implement C now (as requested)
+    runBloomC();
 
+    subLine.textContent = 'Bloom C — ทำภารกิจสั้น ๆ แล้วไปต่อ';
     raf = requestAnimationFrame(tick);
   }
 
   function skip(){
-    const target = next0 || hub;
-    location.replace(target);
+    const u = new URL(next0 || hub, location.href);
+    applyPlanSeqParams(u);
+    location.replace(u.toString());
   }
 
-  // header pills
-  pillStage.textContent = `STAGE: ${stageKind.toUpperCase()}`;
+  // ---- init pills ----
+  pillBloom.textContent = `BLOOM: ${String(bloom||'c').toUpperCase()}`;
   pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
-  pillTheme.textContent = `THEME: ${theme.toUpperCase()}`;
-  pillMode.textContent  = `PICK: ${(pick||'day').toUpperCase()}`;
+  pillTheme.textContent = `THEME: ${themeKey.toUpperCase()}`;
+  pillPick.textContent  = `PICK: ${pickMode.toUpperCase()}`;
 
-  stageText.textContent = stageKind;
-  themeText.textContent = theme;
+  bloomText.textContent = String(bloom||'c').toUpperCase();
   durText.textContent = `${dur}s`;
-
-  subLine.textContent = `Bloom: ${stageKind} • ทำภารกิจสั้น ๆ แล้วไปต่อ`;
-  desc.textContent = 'ภารกิจสั้น ๆ เพื่อให้ครบ Bloom ตามเกม';
+  detText.textContent = (pickMode==='day') ? 'ON (pick=day)' : 'OFF (pick=rand)';
 
   btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
 
-  stageEl.addEventListener('pointerdown', ()=>{
+  stage.addEventListener('pointerdown', ()=>{
     if(!started) start();
   }, {passive:true});
 
-  btnToHub.onclick = ()=> location.href = hub;
-  btnContinue.onclick = ()=> location.replace(next0 || hub);
+  WIN.addEventListener('visibilitychange', ()=>{
+    if(DOC.hidden && started) endNow();
+  });
 
-  setHUD();
 })();
 </script>
 </body>
