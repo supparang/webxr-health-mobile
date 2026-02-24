@@ -1,595 +1,605 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR Engine — PRODUCTION (DOM targets + cVR shoot + boss + fever/shield + deterministic RNG)
-// FULL v20260224c-goodjunk-safe
-// ✅ export boot({ view, run, diff, time, seed, studyId, phase, conditionGroup })
-// ✅ Deterministic RNG when seed provided
-// ✅ MISS definition: miss = good expired + junk hit (junk blocked by shield => NOT miss)
-// ✅ Supports view-cvr shooting via event 'hha:shoot' (uses elementFromPoint hit-test)
-// ✅ End overlay + dispatch window event 'hha:game-ended' with summary
+// GoodJunkVR Engine — PRODUCTION (spawn-safe + failsafe + shoot support)
+// FULL v20260224c
+// ✅ spawn uses layer content box (CSS padding = safe spawn zone)
+// ✅ supports click/tap + hha:shoot (vr-ui crosshair)
+// ✅ failsafe: if no targets appear, force spawn
+// ✅ end overlay + summary + window.__GJ_STATE__ for debug
 
 'use strict';
 
-function $(sel, root=document){ return root.querySelector(sel); }
+export function boot(cfg = {}){
+  const DOC = document;
+  const WIN = window;
 
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+  const now = ()=>Date.now();
 
-function nowISO(){ try{ return new Date().toISOString(); }catch{ return String(Date.now()); } }
+  // ---------- QS helpers ----------
+  const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } })();
+  const qs = (k,d='')=> (QS.get(k) ?? d);
+  const qNum = (k,d)=>{ const n = Number(qs(k,d)); return Number.isFinite(n)?n:d; };
 
-/* ---------- Seeded RNG (mulberry32) ---------- */
-function hash32(str){
-  str = String(str ?? '');
-  let h = 2166136261 >>> 0;
-  for(let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+  // ---------- config ----------
+  const view = String(cfg.view ?? qs('view','mobile')).toLowerCase();
+  const run  = String(cfg.run  ?? qs('run','play')).toLowerCase();
+  const diff = String(cfg.diff ?? qs('diff','normal')).toLowerCase();
+  const timeLimit = clamp(Number(cfg.time ?? qNum('time',80)), 20, 300);
+
+  const seed0 = String(cfg.seed ?? qs('seed','') ?? '').trim();
+  const seed = seed0 || String(Date.now());
+  const studyId = String(cfg.studyId ?? qs('studyId', qs('study','')) ?? '').trim();
+  const phase = String(cfg.phase ?? qs('phase','') ?? '').trim();
+  const conditionGroup = String(cfg.conditionGroup ?? qs('conditionGroup', qs('cond','')) ?? '').trim();
+
+  // ---------- DOM ----------
+  const layerL = DOC.getElementById('gj-layer');
+  const layerR = DOC.getElementById('gj-layer-r');
+  if(!layerL) throw new Error('GoodJunk: missing #gj-layer');
+
+  const elScore = DOC.getElementById('hud-score');
+  const elTime  = DOC.getElementById('hud-time');
+  const elMiss  = DOC.getElementById('hud-miss');
+  const elGrade = DOC.getElementById('hud-grade');
+
+  const elGoal     = DOC.getElementById('hud-goal');
+  const elGoalCur  = DOC.getElementById('hud-goal-cur');
+  const elGoalTgt  = DOC.getElementById('hud-goal-target');
+  const elGoalDesc = DOC.getElementById('goalDesc');
+
+  const elMini     = DOC.getElementById('hud-mini');
+  const elMiniT    = DOC.getElementById('miniTimer');
+
+  const elProg = DOC.getElementById('gjProgressFill');
+
+  const elFeverFill = DOC.getElementById('feverFill');
+  const elFeverText = DOC.getElementById('feverText');
+  const elShieldPills = DOC.getElementById('shieldPills');
+
+  const bossBar = DOC.getElementById('bossBar');
+  const bossFill = DOC.getElementById('bossFill');
+  const bossHint = DOC.getElementById('bossHint');
+
+  const lowTimeOverlay = DOC.getElementById('lowTimeOverlay');
+  const lowTimeNum = DOC.getElementById('gj-lowtime-num');
+
+  const endOverlay = DOC.getElementById('endOverlay');
+  const endTitle   = DOC.getElementById('endTitle');
+  const endSub     = DOC.getElementById('endSub');
+  const endGrade   = DOC.getElementById('endGrade');
+  const endScore   = DOC.getElementById('endScore');
+  const endMiss    = DOC.getElementById('endMiss');
+  const endTime    = DOC.getElementById('endTime');
+
+  // ---------- view flags ----------
+  DOC.body.classList.toggle('view-cvr', view === 'cvr' || view === 'cardboard' || view === 'vr');
+  const strictCvr = String(qs('strict','0')) === '1';
+  DOC.body.classList.toggle('strict', strictCvr);
+
+  // Show R eye layer only in cVR/cardboard
+  const isCVR = DOC.body.classList.contains('view-cvr');
+  if(layerR){
+    layerR.style.display = isCVR ? 'block' : 'none';
   }
-  return h >>> 0;
-}
-function mulberry32(seed){
-  let a = seed >>> 0;
-  return function(){
-    a |= 0;
-    a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
-/* ---------- DOM helpers ---------- */
-function safeRect(el){
-  try{ return el.getBoundingClientRect(); }catch{ return {left:0,top:0,width:0,height:0,right:0,bottom:0}; }
-}
-function pxVar(name, fallback=0){
-  try{
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    if(!v) return fallback;
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : fallback;
-  }catch{ return fallback; }
-}
-function setAriaHidden(el, hidden){
-  if(!el) return;
-  el.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-}
-
-/* ---------- Game config ---------- */
-function cfgByDiff(diff){
-  const d = String(diff||'normal').toLowerCase();
-  if(d==='easy'){
-    return {
-      spawnMs: 720,
-      ttlMs: 1750,
-      junkRate: 0.22,
-      bossEveryGood: 18,
-      bossHp: 10,
-      shieldStart: 2,
-      feverOnJunk: 12,
-      feverDecayPerSec: 3.2,
+  // ---------- RNG ----------
+  function hash32(str){
+    let h = 2166136261 >>> 0;
+    str = String(str || '');
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  if(d==='hard'){
-    return {
-      spawnMs: 520,
-      ttlMs: 1400,
-      junkRate: 0.34,
-      bossEveryGood: 14,
-      bossHp: 14,
-      shieldStart: 1,
-      feverOnJunk: 16,
-      feverDecayPerSec: 2.6,
-    };
-  }
-  return {
-    spawnMs: 620,
-    ttlMs: 1550,
-    junkRate: 0.28,
-    bossEveryGood: 16,
-    bossHp: 12,
-    shieldStart: 2,
-    feverOnJunk: 14,
-    feverDecayPerSec: 3.0,
-  };
-}
+  const rng = mulberry32(hash32(`${seed}|goodjunk|${run}|${diff}`));
+  const rand = ()=>rng();
+  const randi = (n)=> (rand()*n)|0;
 
-function gradeOf(score, miss, total){
-  const acc = total>0 ? (score/Math.max(1,total)) : 0;
-  if(acc>=0.88 && miss<=2) return 'S';
-  if(acc>=0.76) return 'A';
-  if(acc>=0.62) return 'B';
-  return 'C';
-}
+  // ---------- gameplay tuning ----------
+  const DIFF = {
+    easy:   { spawnMin: 520, spawnJit: 420, ttlMin: 1050, ttlJit: 900, junkRate: 0.22, bossEvery: 18, bossHp: 6,  shieldStart: 2 },
+    normal: { spawnMin: 430, spawnJit: 360, ttlMin: 920,  ttlJit: 820, junkRate: 0.28, bossEvery: 16, bossHp: 8,  shieldStart: 2 },
+    hard:   { spawnMin: 360, spawnJit: 300, ttlMin: 820,  ttlJit: 740, junkRate: 0.34, bossEvery: 14, bossHp: 10, shieldStart: 1 },
+  }[diff] || { spawnMin: 430, spawnJit: 360, ttlMin: 920, ttlJit: 820, junkRate: 0.28, bossEvery: 16, bossHp: 8, shieldStart: 2 };
 
-/* ---------- Public API ---------- */
-export function boot(userCfg={}){
-  const view = String(userCfg.view || 'mobile').toLowerCase();
-  const run  = String(userCfg.run  || 'play').toLowerCase();
-  const diff = String(userCfg.diff || 'normal').toLowerCase();
-  const timeSec = clamp(userCfg.time ?? 80, 20, 300);
+  // goal (simple + stable)
+  const goalName = 'HIT GOOD';
+  const goalTarget = clamp(qNum('goal', 18), 6, 60);
 
-  const seedRaw = (userCfg.seed ?? '').toString().trim();
-  const seedUsed = seedRaw || String(Date.now());
-  const rng = mulberry32(hash32(seedUsed));
+  // ---------- state ----------
+  let started = false;
+  let ended = false;
 
-  const C = cfgByDiff(diff);
+  let tStart = 0;
+  let tLeft = timeLimit;
 
-  /* DOM refs */
-  const layerL = $('#gj-layer');
-  const layerR = $('#gj-layer-r');
-  const endOverlay = $('#endOverlay');
+  let score = 0;
+  let miss  = 0;
+  let totalSpawn = 0;
 
-  const hudScore = $('#hud-score');
-  const hudTime  = $('#hud-time');
-  const hudMiss  = $('#hud-miss');
-  const hudGrade = $('#hud-grade');
+  let fever = 0; // 0..100
+  let shields = DIFF.shieldStart;
 
-  const hudGoal = $('#hud-goal');
-  const hudGoalCur = $('#hud-goal-cur');
-  const hudGoalTarget = $('#hud-goal-target');
-  const goalDesc = $('#goalDesc');
+  let goalCur = 0;
 
-  const feverFill = $('#feverFill');
-  const feverText = $('#feverText');
+  let bossActive = false;
+  let bossHP = 0;
+  let bossMax = 0;
 
-  const shieldPills = $('#shieldPills');
+  const targets = new Map(); // id -> {el, kind, born, ttl, hp, layer:'L'|'R'}
+  let idSeq = 1;
 
-  const bossBar = $('#bossBar');
-  const bossFill = $('#bossFill');
-  const bossHint = $('#bossHint');
+  // expose for debug
+  WIN.__GJ_STATE__ = { targets, get miss(){return miss;}, get score(){return score;} };
 
-  const lowTimeOverlay = $('#lowTimeOverlay');
-  const lowTimeNum = $('#gj-lowtime-num');
-
-  const progressFill = $('#gjProgressFill');
-
-  const endTitle = $('#endTitle');
-  const endSub   = $('#endSub');
-  const endGrade = $('#endGrade');
-  const endScore = $('#endScore');
-  const endMiss  = $('#endMiss');
-  const endTime  = $('#endTime');
-
-  if(!layerL){
-    console.error('[GoodJunk] Missing #gj-layer');
-    return;
+  // ---------- HUD ----------
+  function setText(el, t){ if(el) el.textContent = String(t); }
+  function setAriaHidden(el, hide){
+    if(!el) return;
+    el.setAttribute('aria-hidden', hide ? 'true' : 'false');
   }
 
-  /* view flags */
-  const isCVR = view.includes('cvr') || view.includes('cardboard');
-  document.body.classList.toggle('view-cvr', !!isCVR);
-
-  /* State (exposed for debug in HTML) */
-  const S = {
-    startedAt: performance.now(),
-    ended: false,
-    timeLeft: timeSec,
-    score: 0,
-    miss: 0,
-    total: 0,
-    fever: 0,            // 0..100
-    shield: C.shieldStart,
-    boss: null,          // {hp,max,active,hits}
-    goodHits: 0,
-    targets: new Map(),  // id -> {el, kind, born, ttl, x, y}
-    nextId: 1,
-    lastSpawnAt: 0,
-    lastTickAt: performance.now(),
-    lastSecondShown: -1,
-    seed: seedUsed,
-    diff, run, view,
-  };
-  window.__GJ_STATE__ = S;
-
-  /* Goal (simple + readable) */
-  const goalTarget = (diff==='easy') ? 20 : (diff==='hard') ? 28 : 24;
-  const goalName = 'GOOD HITS';
-  const goalText = 'เก็บของดีให้ถึงเป้า (ระวังของ junk)';
-  if(hudGoal) hudGoal.textContent = goalName;
-  if(goalDesc) goalDesc.textContent = goalText;
-  if(hudGoalTarget) hudGoalTarget.textContent = String(goalTarget);
-
-  /* Spawn safe zone from CSS vars (fallback ok) */
-  function spawnBounds(){
-    const r = safeRect(layerL);
-    const topPad  = pxVar('--spawn-top', 140);
-    const botPad  = pxVar('--spawn-bot', 110);
-    const sidePad = pxVar('--spawn-side', 14);
-
-    const x0 = r.left + sidePad;
-    const x1 = r.left + Math.max(sidePad+40, r.width - sidePad);
-    const y0 = r.top + topPad;
-    const y1 = r.top + Math.max(topPad+40, r.height - botPad);
-
-    return { r, x0, x1, y0, y1 };
+  function computeGrade(){
+    // simple: accuracy weight + goal bonus
+    const acc = (score + miss) > 0 ? (score / Math.max(1, score+miss)) : 0;
+    const g = (acc >= 0.90 && goalCur >= Math.floor(goalTarget*0.8)) ? 'S'
+            : (acc >= 0.80) ? 'A'
+            : (acc >= 0.65) ? 'B'
+            : 'C';
+    return g;
   }
 
-  /* Render helpers */
-  function setHUD(){
-    if(hudScore) hudScore.textContent = String(S.score);
-    if(hudMiss)  hudMiss.textContent  = String(S.miss);
+  function updateHUD(){
+    setText(elScore, score);
+    setText(elMiss, miss);
+    setText(elTime, Math.ceil(tLeft));
+    setText(elGrade, started ? computeGrade() : '—');
 
-    const t = Math.max(0, S.timeLeft);
-    const sec = Math.ceil(t);
-    if(hudTime) hudTime.textContent = String(sec);
+    setText(elGoal, goalName);
+    setText(elGoalCur, goalCur);
+    setText(elGoalTgt, goalTarget);
+    setText(elGoalDesc, `แตะ GOOD ให้ถึง ${goalTarget}`);
 
-    const grade = gradeOf(S.score, S.miss, S.total);
-    if(hudGrade) hudGrade.textContent = grade;
+    // mini info
+    setText(elMini, bossActive ? 'BOSS' : 'NORMAL');
+    setText(elMiniT, `${Math.ceil(tLeft)}s`);
 
-    if(hudGoalCur) hudGoalCur.textContent = String(S.goodHits);
-
-    if(progressFill){
-      const p = 1 - (t / timeSec);
-      progressFill.style.width = `${clamp(p*100, 0, 100)}%`;
+    if(elProg){
+      const pct = clamp(((timeLimit - tLeft) / timeLimit) * 100, 0, 100);
+      elProg.style.width = pct.toFixed(2) + '%';
     }
 
-    if(feverFill) feverFill.style.width = `${clamp(S.fever, 0, 100)}%`;
-    if(feverText) feverText.textContent = `${Math.round(clamp(S.fever, 0, 100))}%`;
+    // fever/shield
+    fever = clamp(fever, 0, 100);
+    if(elFeverFill) elFeverFill.style.width = fever.toFixed(1) + '%';
+    setText(elFeverText, Math.round(fever) + '%');
 
-    if(shieldPills){
-      shieldPills.textContent = S.shield>0 ? '🛡️'.repeat(Math.min(6, S.shield)) : '—';
+    const pills = shields <= 0 ? '—' : '🛡️'.repeat(clamp(shields,0,6));
+    setText(elShieldPills, pills);
+
+    // boss bar
+    if(bossBar){
+      setAriaHidden(bossBar, !bossActive);
+      if(bossActive && bossFill){
+        const hpPct = bossMax > 0 ? clamp((bossHP / bossMax) * 100, 0, 100) : 0;
+        bossFill.style.width = hpPct.toFixed(1) + '%';
+      }
+      if(bossActive && bossHint){
+        bossHint.textContent = `ตีบอสให้ครบ ${bossHP}/${bossMax}`;
+      }
     }
 
-    if(lowTimeOverlay && lowTimeNum){
-      const on = (S.timeLeft <= 5 && S.timeLeft > 0);
-      setAriaHidden(lowTimeOverlay, !on);
-      if(on) lowTimeNum.textContent = String(Math.ceil(S.timeLeft));
-    }
+    // low time
+    const low = tLeft <= 5;
+    setAriaHidden(lowTimeOverlay, !low);
+    if(lowTimeNum) lowTimeNum.textContent = String(Math.max(0, Math.ceil(tLeft)));
   }
 
-  function showBossBar(show){
-    if(!bossBar) return;
-    setAriaHidden(bossBar, !show);
+  // ---------- layer / spawn helpers ----------
+  function activeLayerForPoint(x, y){
+    if(!isCVR || !layerR) return { el: layerL, side: 'L' };
+    // split screen: left half = L, right half = R
+    const w = WIN.innerWidth || DOC.documentElement.clientWidth || 1;
+    return (x > w/2) ? { el: layerR, side: 'R' } : { el: layerL, side: 'L' };
   }
 
-  function setBoss(hp, max, hint=''){
-    S.boss = { hp, max, active:true, hits:0 };
-    showBossBar(true);
-    if(bossFill) bossFill.style.width = `${clamp((hp/max)*100, 0, 100)}%`;
-    if(bossHint) bossHint.textContent = hint || 'ตี BOSS ให้ครบ';
+  function layerRect(layer){
+    try{ return layer.getBoundingClientRect(); }catch{ return {left:0,top:0,width:1,height:1}; }
   }
 
-  function updateBossUI(){
-    if(!S.boss || !S.boss.active){ showBossBar(false); return; }
-    const {hp,max} = S.boss;
-    if(bossFill) bossFill.style.width = `${clamp((hp/max)*100, 0, 100)}%`;
-    if(bossHint) bossHint.textContent = `HP ${hp}/${max}`;
+  function spawnPos(layer){
+    // Because layer has padding (spawn-safe), clientWidth/Height already represent safe area.
+    const w = Math.max(1, layer.clientWidth || 1);
+    const h = Math.max(1, layer.clientHeight || 1);
+
+    // keep away from edges a bit
+    const pad = 10;
+    const x = pad + rand() * Math.max(1, w - pad*2);
+    const y = pad + rand() * Math.max(1, h - pad*2);
+    return { x, y };
   }
 
-  function clearAllTargets(){
-    for(const [id, t] of S.targets){
-      try{ t.el.remove(); }catch{}
-    }
-    S.targets.clear();
-  }
-
-  function makeTarget(kind, x, y, emo){
-    const el = document.createElement('div');
+  function makeTargetEl(kind){
+    const el = DOC.createElement('div');
     el.className = 'gj-target';
     el.dataset.kind = kind;
-    el.dataset.id = String(S.nextId);
 
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
+    // emoji set
+    const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'];
+    const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'];
+    const BOSS = ['👹','😈','🧟','👾'];
 
-    // size tuning (feels gamey)
-    const base = (kind==='boss') ? 74 : 56;
-    const wobble = (rng()*10 - 5);
-    el.style.fontSize = `${base + wobble}px`;
+    if(kind === 'good') el.textContent = GOOD[randi(GOOD.length)];
+    else if(kind === 'junk') el.textContent = JUNK[randi(JUNK.length)];
+    else el.textContent = BOSS[randi(BOSS.length)];
 
-    el.textContent = emo;
+    // size hints
+    if(kind === 'boss') el.dataset.size = 'lg';
+    else if(rand() < 0.25) el.dataset.size = 'sm';
 
-    const id = S.nextId++;
-    const born = performance.now();
-    const ttl  = (kind==='boss') ? 999999 : C.ttlMs;
-
-    S.targets.set(id, { el, kind, born, ttl, x, y });
-
-    // click/tap hit
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      hitByElement(el, {clientX: ev.clientX, clientY: ev.clientY});
-    }, {passive:false});
-
-    layerL.appendChild(el);
-    return id;
+    return el;
   }
 
-  function randomEmoji(kind){
-    if(kind==='good'){
-      const list = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'];
-      return list[(rng()*list.length)|0];
-    }
-    if(kind==='junk'){
-      const list = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'];
-      return list[(rng()*list.length)|0];
-    }
-    return '👹';
+  function addTarget(kind, forceSide=null){
+    const spawnLayer = (forceSide === 'R' && layerR) ? layerR : layerL;
+    const side = (spawnLayer === layerR) ? 'R' : 'L';
+
+    const id = String(idSeq++);
+    const el = makeTargetEl(kind);
+
+    const pos = spawnPos(spawnLayer);
+    el.style.left = pos.x + 'px';
+    el.style.top  = pos.y + 'px';
+
+    const ttl = DIFF.ttlMin + rand() * DIFF.ttlJit;
+
+    const obj = {
+      id, el, kind,
+      born: now(),
+      ttl,
+      hp: (kind === 'boss') ? bossHP : 1,
+      side,
+    };
+
+    // click/tap support (unless strict cvr)
+    const onTap = (ev)=>{
+      if(ended || !started) return;
+      if(strictCvr && isCVR) return; // strict: no pointer hits
+      ev.preventDefault?.();
+      handleHit(id, { via:'tap' });
+    };
+    el.addEventListener('pointerdown', onTap, {passive:false});
+
+    // store teardown
+    obj._off = ()=> el.removeEventListener('pointerdown', onTap);
+
+    targets.set(id, obj);
+    spawnLayer.appendChild(el);
+
+    totalSpawn++;
+    return obj;
   }
 
-  function spawnOne(){
-    if(S.ended) return;
+  function removeTarget(id, dying=false){
+    const t = targets.get(id);
+    if(!t) return;
+    targets.delete(id);
+    try{
+      t._off?.();
+      if(dying){
+        t.el.classList.add('is-dying');
+        setTimeout(()=>{ try{ t.el.remove(); }catch{} }, 160);
+      }else{
+        t.el.remove();
+      }
+    }catch{}
+  }
 
-    // boss gate
-    if(!S.boss?.active && S.goodHits>0 && (S.goodHits % C.bossEveryGood === 0)){
-      const b = spawnBounds();
-      const x = b.x0 + (rng()*(b.x1-b.x0));
-      const y = b.y0 + (rng()*(b.y1-b.y0));
-      makeTarget('boss', x, y, randomEmoji('boss'));
-      setBoss(C.bossHp, C.bossHp, 'BOSS โผล่! ตีให้ครบ');
+  // ---------- scoring ----------
+  function onGood(){
+    score += 1;
+    goalCur += 1;
+    fever = clamp(fever + 2.5, 0, 100);
+  }
+  function onJunk(){
+    if(shields > 0){
+      shields -= 1;
+      // shield blocks miss (per your standard)
+      fever = clamp(fever + 1.0, 0, 100);
       return;
     }
-
-    const kind = (rng() < C.junkRate) ? 'junk' : 'good';
-    const b = spawnBounds();
-    const x = b.x0 + (rng()*(b.x1-b.x0));
-    const y = b.y0 + (rng()*(b.y1-b.y0));
-    makeTarget(kind, x, y, randomEmoji(kind));
+    miss += 1;
+    fever = clamp(fever + 4.0, 0, 100);
+  }
+  function onBossHit(){
+    score += 2;
+    fever = clamp(fever + 3.0, 0, 100);
   }
 
-  function expireTargets(now){
-    for(const [id, t] of S.targets){
-      if(t.kind==='boss') continue;
-      if(now - t.born >= t.ttl){
-        // good expiring counts miss; junk expiring does not
-        if(t.kind==='good'){
-          S.miss += 1;
-          S.total += 1;
-        }
-        try{
-          t.el.classList.add('is-dying');
-          setTimeout(()=>{ try{ t.el.remove(); }catch{} }, 160);
-        }catch{}
-        S.targets.delete(id);
-      }
-    }
-  }
-
-  function findIdByEl(el){
-    const s = el?.dataset?.id;
-    const id = Number(s);
-    return Number.isFinite(id) ? id : null;
-  }
-
-  function hitByElement(el, pos){
-    if(S.ended) return;
-    if(!el) return;
-
-    const id = findIdByEl(el);
-    if(id==null) return;
-
-    const t = S.targets.get(id);
+  // ---------- hit logic ----------
+  function handleHit(id, meta={}){
+    if(ended || !started) return;
+    const t = targets.get(id);
     if(!t) return;
 
-    // visual hit
-    try{ el.classList.add('is-hit'); setTimeout(()=>el.classList.remove('is-hit'), 120); }catch{}
+    // hit FX
+    t.el.classList.add('is-hit');
+    setTimeout(()=>t.el.classList.remove('is-hit'), 110);
 
     if(t.kind === 'good'){
-      S.score += 1;
-      S.total += 1;
-      S.goodHits += 1;
+      onGood();
+      removeTarget(id, true);
+    }else if(t.kind === 'junk'){
+      onJunk();
+      removeTarget(id, true);
+    }else{ // boss
+      if(!bossActive) bossActive = true;
 
-      // tiny fever reward for good play (keeps action)
-      S.fever = clamp(S.fever + 3.5, 0, 100);
+      bossHP = Math.max(0, bossHP - 1);
+      onBossHit();
 
-      // remove
-      S.targets.delete(id);
-      try{ el.classList.add('is-dying'); setTimeout(()=>{ try{ el.remove(); }catch{} }, 160); }catch{}
-
-      // boss trigger: if boss currently active and element is boss, handled below
-    }
-    else if(t.kind === 'junk'){
-      S.total += 1;
-
-      // shield blocks junk hit => no miss
-      if(S.shield > 0){
-        S.shield -= 1;
-        // still remove the junk
-        S.targets.delete(id);
-        try{ el.classList.add('is-dying'); setTimeout(()=>{ try{ el.remove(); }catch{} }, 160); }catch{}
+      if(bossHP <= 0){
+        bossActive = false;
+        // clear any remaining boss targets
+        for(const [tid, obj] of targets.entries()){
+          if(obj.kind === 'boss') removeTarget(tid, true);
+        }
       }else{
-        // counts miss (junk hit)
-        S.miss += 1;
-        S.fever = clamp(S.fever + C.feverOnJunk, 0, 100);
-
-        S.targets.delete(id);
-        try{ el.classList.add('is-dying'); setTimeout(()=>{ try{ el.remove(); }catch{} }, 160); }catch{}
-      }
-    }
-    else if(t.kind === 'boss'){
-      // boss needs multiple hits
-      if(!S.boss?.active){
-        // safety: if boss state missing, create one
-        setBoss(C.bossHp, C.bossHp, 'BOSS');
-      }
-      S.total += 1;
-      S.score += 1;
-
-      S.boss.hits += 1;
-      S.boss.hp = Math.max(0, S.boss.hp - 1);
-
-      if(S.boss.hp <= 0){
-        S.boss.active = false;
-        showBossBar(false);
-
-        // reward: shield + fever
-        S.shield += 1;
-        S.fever = clamp(S.fever + 10, 0, 100);
-
-        // remove boss target
-        S.targets.delete(id);
-        try{ el.classList.add('is-dying'); setTimeout(()=>{ try{ el.remove(); }catch{} }, 160); }catch{}
-      }else{
-        updateBossUI();
+        // keep boss target but nudge slightly to feel alive
+        const layer = (t.side === 'R' && layerR) ? layerR : layerL;
+        const pos = spawnPos(layer);
+        t.el.style.left = pos.x + 'px';
+        t.el.style.top  = pos.y + 'px';
       }
     }
 
-    // win condition hint (not force stop; still play until time)
-    setHUD();
+    updateHUD();
+
+    // goal achieved: small reward (shield)
+    if(goalCur === goalTarget){
+      shields += 1;
+    }
   }
 
-  /* cVR shoot handler: hit-test by screen point */
-  function hitByPoint(x, y){
-    if(S.ended) return;
-    x = Number(x); y = Number(y);
-    if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+  // ---------- shoot support (VR crosshair) ----------
+  function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
 
-    let el = null;
-    try{
-      el = document.elementFromPoint(x, y);
-    }catch(e){ el = null; }
+  function shootAt(clientX, clientY){
+    if(ended || !started) return;
 
-    if(!el) return;
+    const { el: layer, side } = activeLayerForPoint(clientX, clientY);
+    const rect = layerRect(layer);
 
-    const tgt = el.closest ? el.closest('.gj-target') : null;
-    if(tgt) hitByElement(tgt, {clientX:x, clientY:y});
+    // aim point relative to layer content box
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    // pick nearest target within lock radius
+    const lockPx = clamp(qNum('lockPx', 64), 24, 140);
+    const lock2 = lockPx * lockPx;
+
+    let bestId = null;
+    let bestD2 = 1e18;
+
+    for(const [id, t] of targets.entries()){
+      if(isCVR && t.side !== side) continue;
+
+      const r = t.el.getBoundingClientRect();
+      const cx = (r.left + r.right)/2 - rect.left;
+      const cy = (r.top + r.bottom)/2 - rect.top;
+
+      const d2 = dist2(x,y,cx,cy);
+      if(d2 < bestD2){
+        bestD2 = d2;
+        bestId = id;
+      }
+    }
+
+    if(bestId && bestD2 <= lock2){
+      handleHit(bestId, { via:'shoot' });
+    }else{
+      // missed shot (in strict VR we can count as miss optionally; keep gentle = no miss)
+      // If you want: miss++ when strict and no lock.
+    }
   }
 
-  function onShoot(ev){
-    // expected: ev.detail = { x, y, lockPx? } OR {clientX, clientY}
+  WIN.addEventListener('hha:shoot', (ev)=>{
     const d = ev?.detail || {};
-    const x = d.x ?? d.clientX;
-    const y = d.y ?? d.clientY;
-
-    if(Number.isFinite(Number(x)) && Number.isFinite(Number(y))){
-      hitByPoint(Number(x), Number(y));
-      return;
+    const x = Number(d.clientX ?? d.x);
+    const y = Number(d.clientY ?? d.y);
+    if(Number.isFinite(x) && Number.isFinite(y)){
+      shootAt(x,y);
+    }else{
+      // fallback center of screen
+      shootAt((WIN.innerWidth||0)/2, (WIN.innerHeight||0)/2);
     }
-    // fallback to center
-    hitByPoint(window.innerWidth/2, window.innerHeight/2);
+  });
+
+  // ---------- main loops ----------
+  let raf = 0;
+  let lastTs = 0;
+  let spawnTimer = 0;
+  let failsafeTimer = 0;
+
+  function scheduleSpawn(){
+    const ms = DIFF.spawnMin + rand() * DIFF.spawnJit;
+    spawnTimer = now() + ms;
   }
 
-  /* main pointer fallback: tap anywhere => try hit top-most target under pointer */
-  function onStagePointer(ev){
-    if(S.ended) return;
-    // if tapped empty, no penalty; just attempt hit
-    hitByPoint(ev.clientX, ev.clientY);
+  function maybeSpawn(){
+    if(now() < spawnTimer) return;
+
+    // boss logic: every N spawns, start a boss phase
+    if(!bossActive && totalSpawn > 0 && (totalSpawn % DIFF.bossEvery === 0)){
+      bossActive = true;
+      bossMax = DIFF.bossHp;
+      bossHP = DIFF.bossHp;
+      addTarget('boss', isCVR && rand() < 0.5 ? 'R' : 'L');
+    }else{
+      const kind = (rand() < DIFF.junkRate) ? 'junk' : 'good';
+      addTarget(kind, isCVR && rand() < 0.5 ? 'R' : 'L');
+    }
+
+    scheduleSpawn();
   }
 
-  /* Fever decay + time */
-  function tick(){
-    if(S.ended) return;
-
-    const now = performance.now();
-    const dt = Math.min(0.25, (now - S.lastTickAt)/1000);
-    S.lastTickAt = now;
-
-    // time
-    S.timeLeft = Math.max(0, S.timeLeft - dt);
-
-    // fever decay
-    S.fever = clamp(S.fever - (C.feverDecayPerSec * dt), 0, 100);
-
-    // spawn
-    if(now - S.lastSpawnAt >= C.spawnMs){
-      S.lastSpawnAt = now;
-      spawnOne();
-      // spawn spice: fever high => slightly more spawns
-      if(S.fever >= 70 && rng() < 0.25) spawnOne();
+  function expireOld(){
+    const t = now();
+    for(const [id, obj] of targets.entries()){
+      if(obj.kind === 'boss') continue; // boss does not expire by ttl
+      if(t - obj.born > obj.ttl){
+        // expired counts as miss only for GOOD (your standard: miss = good expired + junk hit)
+        if(obj.kind === 'good'){
+          miss += 1;
+          fever = clamp(fever + 2.0, 0, 100);
+        }
+        removeTarget(id, true);
+      }
     }
+  }
 
-    // expire
-    expireTargets(now);
-
-    // goal tick
-    if(hudGoalCur) hudGoalCur.textContent = String(S.goodHits);
-
-    // update HUD (but not every frame heavy)
-    setHUD();
-
-    // end
-    if(S.timeLeft <= 0){
-      endGame('timeup');
+  function failsafe(){
+    // if nothing in field for too long => force spawn
+    const any = targets.size > 0;
+    if(any){
+      failsafeTimer = now() + 1100;
       return;
     }
+    if(now() > failsafeTimer){
+      addTarget('good', isCVR && rand() < 0.5 ? 'R' : 'L');
+      failsafeTimer = now() + 1100;
+    }
+  }
 
-    requestAnimationFrame(tick);
+  function tick(ts){
+    if(ended) return;
+
+    if(!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+
+    if(started){
+      tLeft = Math.max(0, tLeft - dt);
+
+      maybeSpawn();
+      expireOld();
+      failsafe();
+
+      // small fever decay
+      fever = clamp(fever - dt * 1.2, 0, 100);
+
+      if(tLeft <= 0){
+        endGame('timeup');
+        return;
+      }
+    }
+
+    updateHUD();
+    raf = requestAnimationFrame(tick);
+  }
+
+  // ---------- start / end ----------
+  function startGame(){
+    if(started || ended) return;
+    started = true;
+    tStart = now();
+    tLeft = timeLimit;
+    score = 0; miss = 0; totalSpawn = 0;
+    fever = 0;
+    shields = DIFF.shieldStart;
+    goalCur = 0;
+    bossActive = false; bossHP = 0; bossMax = 0;
+
+    // clear targets
+    for(const [id] of targets.entries()) removeTarget(id, false);
+
+    scheduleSpawn();
+    failsafeTimer = now() + 900;
+
+    setAriaHidden(endOverlay, true);
+
+    updateHUD();
   }
 
   function buildSummary(reason){
-    const grade = gradeOf(S.score, S.miss, S.total);
-    const playedSec = Math.round(timeSec - Math.max(0, S.timeLeft));
-    const acc = (S.total>0) ? (S.score/Math.max(1,S.total)) : 0;
+    const playedSec = Math.round((timeLimit - tLeft));
+    const acc = (score + miss) > 0 ? score / (score + miss) : 0;
 
     return {
-      ok: true,
+      kind: 'summary',
       game: 'goodjunk',
-      ts: nowISO(),
-      reason: reason || 'end',
-      run: S.run,
-      view: S.view,
-      diff: S.diff,
-      seed: S.seed,
-      time: timeSec,
+      ts: now(),
+      reason: reason || '',
+      run, view, diff,
+      seed,
+      studyId: studyId || null,
+      phase: phase || null,
+      conditionGroup: conditionGroup || null,
+      timeLimit,
       playedSec,
-      score: S.score,
-      miss: S.miss,
-      total: S.total,
-      goodHits: S.goodHits,
-      goalTarget,
-      goalMet: (S.goodHits >= goalTarget),
-      feverEnd: Math.round(S.fever),
-      shieldEnd: S.shield,
-      grade,
-      acc: Math.round(acc*1000)/10, // percent with 0.1
-      studyId: userCfg.studyId ?? null,
-      phase: userCfg.phase ?? null,
-      conditionGroup: userCfg.conditionGroup ?? null,
+      score,
+      miss,
+      goal: { name: goalName, cur: goalCur, target: goalTarget },
+      fever: Math.round(fever),
+      shields,
+      grade: computeGrade(),
+      acc: Number(acc.toFixed(3)),
     };
   }
 
-  function showEnd(summary){
-    if(!endOverlay) return;
+  function endGame(reason){
+    if(ended) return;
+    ended = true;
+    started = false;
 
-    if(endTitle) endTitle.textContent = (summary.goalMet ? 'Completed ✅' : 'Finished');
-    if(endSub)   endSub.textContent   = `seed=${summary.seed} • diff=${summary.diff} • view=${summary.view} • run=${summary.run}`;
-    if(endGrade) endGrade.textContent = summary.grade;
-    if(endScore) endScore.textContent = String(summary.score);
-    if(endMiss)  endMiss.textContent  = String(summary.miss);
-    if(endTime)  endTime.textContent  = String(summary.playedSec);
+    // stop spawning/clean up
+    cancelAnimationFrame(raf);
+
+    // show end overlay
+    const summary = buildSummary(reason);
+    setText(endTitle, 'GoodJunk — Completed');
+    setText(endSub, `seed=${seed} • run=${run} • diff=${diff} • view=${view}`);
+    setText(endGrade, summary.grade);
+    setText(endScore, summary.score);
+    setText(endMiss, summary.miss);
+    setText(endTime, summary.playedSec);
 
     setAriaHidden(endOverlay, false);
-  }
 
-  function dispatchEnded(summary){
+    // dispatch for runner (goodjunk-vr.html)
     try{
-      window.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary }));
+      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary }));
     }catch(e){}
   }
 
-  function endGame(reason){
-    if(S.ended) return;
-    S.ended = true;
-
-    clearAllTargets();
-    showBossBar(false);
-
-    const summary = buildSummary(reason);
-    showEnd(summary);
-    dispatchEnded(summary);
+  // ---------- input start ----------
+  // auto start on load (tap anywhere also ok)
+  function onAnyStart(){
+    if(ended) return;
+    if(!started) startGame();
   }
+  layerL.addEventListener('pointerdown', onAnyStart, {passive:true});
+  layerR?.addEventListener?.('pointerdown', onAnyStart, {passive:true});
 
-  /* ---------- Wire events ---------- */
-  // pointer on layer
-  layerL.addEventListener('pointerdown', onStagePointer, {passive:true});
+  // also start immediately
+  startGame();
 
-  // cVR shoot event from universal vr-ui.js
-  window.addEventListener('hha:shoot', onShoot);
+  // ---------- lifecycle ----------
+  raf = requestAnimationFrame(tick);
 
-  // if tab hidden, end gracefully (prevents stuck sessions)
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden && !S.ended) endGame('hidden');
+  // If tab hidden while playing, end cleanly
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.hidden && started && !ended){
+      endGame('hidden');
+    }
   });
-
-  // init UI
-  setAriaHidden(endOverlay, true);
-  setAriaHidden(lowTimeOverlay, true);
-  showBossBar(false);
-
-  S.timeLeft = timeSec;
-  S.lastSpawnAt = performance.now();
-  S.lastTickAt = performance.now();
-  setHUD();
-
-  // start loop
-  requestAnimationFrame(tick);
 }
