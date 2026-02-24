@@ -1,8 +1,8 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
-✅ NEW: “ต่อไป” button shown in BOTH warmup & cooldown (side card + end overlay)
-✅ NEW: If DAILY DONE -> do NOT auto-redirect; show “ต่อไป” to continue manually (keeps rule, improves UX)
-✅ Keeps: pick policy (rand/day), theme detection, buffs passthrough, planSeq passthrough, cdnext chain
+HeroHealth Warmup/Cooldown Gate — FULL (v20260224b-nextBtnBothPhases)
+✅ NEW: "ต่อไป" button works same for warmup & cooldown (skip/finish-now -> next)
+✅ "ต่อไป" marks daily + navigates next (warmup passes buff, cooldown passes calm/plan seq)
+✅ End overlay keep "ไปต่อ"
 -->
 <!doctype html>
 <html lang="th">
@@ -104,7 +104,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       display:grid; grid-template-columns: repeat(4, minmax(0,1fr));
       gap:8px;
       z-index:4;
-      pointer-events:none;
     }
     .hud .box{
       border:1px solid var(--stroke);
@@ -221,13 +220,8 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       background:rgba(245,158,11,.12);
     }
     .btn.next{
-      border-color:rgba(99,102,241,.32);
-      background:rgba(99,102,241,.14);
-    }
-    .btn[disabled]{
-      opacity:.55;
-      cursor:not-allowed;
-      filter:saturate(.85);
+      border-color:rgba(34,211,238,.30);
+      background:rgba(34,211,238,.12);
     }
 
     .end{
@@ -322,7 +316,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
 
               <div class="btnrow" style="margin-top:12px;">
                 <button class="btn" id="btnToHub">กลับ HUB</button>
-                <button class="btn next" id="btnContinue">ต่อไป</button>
+                <button class="btn primary" id="btnContinue">ไปต่อ</button>
               </div>
             </div>
           </div>
@@ -339,10 +333,11 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
               <div class="row"><div class="k">Daily Rule</div><div class="v">ต่อหมวด/ต่อวัน/ต่อ PID</div></div>
             </div>
 
+            <!-- ✅ PATCH: Add "ต่อไป" button (same behavior for warmup & cooldown) -->
             <div class="btnrow" style="margin-top:10px;">
               <button class="btn primary" id="btnStart">เริ่ม</button>
               <button class="btn warn" id="btnSkip">ข้าม</button>
-              <button class="btn next" id="btnNext" disabled>ต่อไป</button>
+              <button class="btn next" id="btnNext">ต่อไป</button>
             </div>
           </div>
 
@@ -351,7 +346,8 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
             <div class="muted" style="margin-top:6px;">
               • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
               • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
+              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น<br/>
+              • ปุ่ม “ต่อไป” = ไป next ทันที (mark daily) ทั้ง warmup/cooldown
             </div>
           </div>
         </div>
@@ -473,11 +469,13 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
 
       const n = String(next0||'').toLowerCase();
 
+      // nutrition
       if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
       if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
       if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
       if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
 
+      // hygiene
       if(n.includes('handwash')) return 'handwash';
       if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
       if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
@@ -485,6 +483,7 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       if(n.includes('bath')) return 'bath';
       if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
 
+      // exercise
       if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
       if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
       if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
@@ -592,22 +591,11 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
         u.searchParams.set(k, String(v));
       });
 
-      if(!u.searchParams.has('wType')) u.searchParams.set('wType', String((buff && buff.wType) || 'warmup'));
-      if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String((buff && buff.wPct)  || 10));
+      if(!u.searchParams.has('wType')) u.searchParams.set('wType', String((buff||{}).wType || 'warmup'));
+      if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String((buff||{}).wPct  || 10));
 
       applyPlanSeqParams(u);
       return u.toString();
-    }
-
-    function goNextDirect(){
-      // if user presses “ต่อไป” without finishing, we still honor daily rule:
-      // - if daily already done => just go
-      // - else: treat as skip (mark daily) then go
-      const target = next0 || hub;
-      markDaily(dailyPrefix, cat, pid);
-      const u = new URL(target, location.href);
-      applyPlanSeqParams(u);
-      location.replace(u.toString());
     }
 
     function endNow(buffObj){
@@ -632,15 +620,11 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       endNext.textContent  = nextUrl ? 'YES' : 'HUB';
       endMsg.textContent =
         (phase==='cooldown')
-          ? 'เยี่ยม! ผ่อนคลายแล้ว กด “ต่อไป” เพื่อกลับ/ไปต่อ'
-          : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วกด “ต่อไป” เข้าเกมจริง';
+          ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
+          : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง';
 
       btnToHub.onclick = ()=> location.href = hub;
       btnContinue.onclick = ()=> location.replace(nextUrl || hub);
-
-      // also enable side Next
-      btnNext.disabled = false;
-      btnNext.onclick = ()=> location.replace(nextUrl || hub);
     }
 
     function tick(ts){
@@ -658,22 +642,12 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       raf = requestAnimationFrame(tick);
     }
 
-    function showDailyDonePanel(){
-      // NEW: daily done => no auto redirect; show next button instead
-      const target = next0 || hub;
-      subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat})`;
-      statusText.textContent = 'Daily gate: DONE (กด “ต่อไป”)';
-      pillDaily.textContent = 'DAILY: DONE';
-
-      btnStart.disabled = true;
-      btnSkip.disabled = false;
-      btnNext.disabled = false;
-
-      btnSkip.onclick = (e)=>{ e && e.preventDefault && e.preventDefault(); goNextDirect(); };
-      btnNext.onclick = (e)=>{ e && e.preventDefault && e.preventDefault(); location.replace(target); };
-
-      // adjust hint
-      hint.textContent = 'วันนี้ทำแล้ว — กด “ต่อไป” เพื่อไปต่อ';
+    function autoSkipIfDaily(){
+      if(!dailyDone) return false;
+      const target = (phase==='cooldown') ? (next0 || hub) : (next0 || hub);
+      subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
+      statusText.textContent = 'Daily gate: DONE';
+      setTimeout(()=> location.replace(target), 220);
       return true;
     }
 
@@ -868,508 +842,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       });
     }
 
-    function runHygiene_WashOrder(){
-      gameTitle.textContent='Hygiene Warmup — Wash Steps Order';
-      desc.textContent='แตะเรียง “ขั้นตอนล้างมือ” ให้ถูก';
-      center.style.display='none';
-
-      const steps = ['ถูฝ่ามือ','ถูหลังมือ','ซอกนิ้ว','หลังนิ้ว','ถูนิ้วโป้ง','ปลายนิ้ว/เล็บ'];
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'42%',transform:'translate(-50%,-50%)',
-        width:'min(720px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะตามลำดับ 1 → 3</div>
-        <div class="muted" id="hwq" style="margin-top:6px;">—</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      let order=[], idx=0;
-
-      function newRound(){
-        idx=0;
-        const s=[...steps];
-        order=[];
-        while(order.length<3){
-          order.push(s.splice((Math.random()*s.length)|0,1)[0]);
-        }
-        card.querySelector('#hwq').textContent = `ลำดับ: ① ${order[0]} → ② ${order[1]} → ③ ${order[2]}`;
-        pad.innerHTML='';
-        const decoy = steps.filter(x=>!order.includes(x));
-        const opts=[...order, randPick(decoy)];
-        for(let i=opts.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [opts[i],opts[j]]=[opts[j],opts[i]]; }
-
-        opts.forEach(txt=>{
-          const b=mkBtn(txt);
-          b.style.padding='14px 12px';
-          pad.appendChild(b);
-          b.addEventListener('click', ()=>{
-            if(!started) return;
-            total++;
-            if(txt===order[idx]){
-              idx++; score++; toastShow('+1'); flashGood();
-              if(idx>=3) newRound();
-            }else{
-              miss++; toastShow('MISS'); flashBad();
-            }
-          });
-        });
-      }
-      newRound();
-    }
-
-    function runHygiene_BrushAngle(){
-      gameTitle.textContent='Hygiene Warmup — Brush Angle Accuracy';
-      desc.textContent='สุ่มตำแหน่ง แล้วแตะ “บน/ล่าง/ซ้าย/ขวา” ให้ถูก';
-      center.style.display='none';
-
-      const pos = [
-        {q:'บน-ซ้าย', a:'บน'}, {q:'บน-ขวา', a:'บน'},
-        {q:'ล่าง-ซ้าย', a:'ล่าง'}, {q:'ล่าง-ขวา', a:'ล่าง'},
-        {q:'แก้ม-ซ้าย', a:'ซ้าย'}, {q:'แก้ม-ขวา', a:'ขวา'},
-      ];
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">ตำแหน่ง: <span id="bq" style="font-size:18px;">—</span></div>
-        <div class="muted" style="margin-top:6px;">แตะคำตอบให้ถูก</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      const choices=['บน','ล่าง','ซ้าย','ขวา'];
-      let cur = randPick(pos);
-      function next(){
-        total++;
-        cur = randPick(pos);
-        card.querySelector('#bq').textContent = cur.q;
-      }
-      choices.forEach(c=>{
-        const b=mkBtn(c);
-        b.style.padding='14px 12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(c===cur.a){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-      next();
-    }
-
-    function runHygiene_MaskChoice(){
-      gameTitle.textContent='Hygiene Warmup — Mask & Cough Choice';
-      desc.textContent='สุ่มสถานการณ์ แล้วเลือกการกระทำที่ถูก';
-      center.style.display='none';
-
-      const cases = [
-        {q:'อยู่ในที่แออัด', ok:'ใส่หน้ากาก', emo:'😷'},
-        {q:'ไอ/จามกะทันหัน', ok:'ปิดปาก-จมูก', emo:'🤧'},
-        {q:'อยู่ใกล้คนอื่น', ok:'เว้นระยะ', emo:'↔️'},
-        {q:'เข้าโรงเรียน/ห้องเรียน', ok:'ใส่หน้ากาก', emo:'🏫'},
-        {q:'มือไม่สะอาดหลังจับของ', ok:'ล้างมือ', emo:'🧼'},
-      ];
-      const actions=['ใส่หน้ากาก','ปิดปาก-จมูก','เว้นระยะ','ล้างมือ'];
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(620px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">สถานการณ์</div>
-        <div id="mq" style="margin-top:8px;font-size:18px;font-weight:1000;">—</div>
-        <div id="me" style="margin-top:6px;font-size:40px;">😷</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      let cur=randPick(cases);
-      function next(){
-        total++;
-        cur=randPick(cases);
-        card.querySelector('#mq').textContent = cur.q;
-        card.querySelector('#me').textContent = cur.emo;
-      }
-      actions.forEach(a=>{
-        const b=mkBtn(a); b.style.padding='14px 12px'; pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(a===cur.ok){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-      next();
-    }
-
-    function runHygiene_GermDetect(){
-      gameTitle.textContent='Hygiene Warmup — Germ Detective';
-      desc.textContent='แตะ “เชื้อจริง” ให้ได้มากที่สุด (ระวังของหลอก)';
-      center.style.display='none';
-
-      const board=DOC.createElement('div');
-      Object.assign(board.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',aspectRatio:'1/1',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:'10px'});
-      stage.appendChild(board);
-
-      function spawnCells(){
-        board.innerHTML='';
-        const idxG = (Math.random()*16)|0;
-        let idxD = (Math.random()*16)|0; if(idxD===idxG) idxD=(idxD+5)%16;
-
-        for(let i=0;i<16;i++){
-          const b=DOC.createElement('button');
-          b.className='btn';
-          b.style.height='100%'; b.style.borderRadius='16px'; b.style.fontSize='22px';
-          b.style.background='rgba(2,6,23,.35)'; b.style.border='1px solid rgba(148,163,184,.18)'; b.style.padding='0';
-          let kind='blank';
-          if(i===idxG){ b.textContent='🦠'; kind='germ'; }
-          else if(i===idxD){ b.textContent='✨'; kind='decoy'; }
-          else b.textContent='·';
-
-          b.addEventListener('click', ()=>{
-            if(!started) return;
-            total++;
-            if(kind==='germ'){ score++; toastShow('+1'); flashGood(); }
-            else { miss++; toastShow('MISS'); flashBad(); }
-            spawnCells();
-          });
-          board.appendChild(b);
-        }
-      }
-      spawnCells();
-    }
-
-    function runHygiene_Bath(){
-      gameTitle.textContent='Hygiene Warmup — Bath Hidden Spot';
-      desc.textContent='แตะจุดสกปรกที่ซ่อนอยู่ให้เร็ว';
-      center.style.display='none';
-
-      const board=DOC.createElement('div');
-      Object.assign(board.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',aspectRatio:'1/1',display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'10px'});
-      stage.appendChild(board);
-
-      function render(){
-        board.innerHTML='';
-        const hot = (Math.random()*9)|0;
-        for(let i=0;i<9;i++){
-          const b=DOC.createElement('button');
-          b.className='btn';
-          b.style.height='100%'; b.style.borderRadius='16px'; b.style.fontSize='24px';
-          b.textContent = (i===hot) ? '🟤' : '🫧';
-          b.addEventListener('click', ()=>{
-            if(!started) return;
-            total++;
-            if(i===hot){ score++; toastShow('+1'); flashGood(); }
-            else { miss++; toastShow('MISS'); flashBad(); }
-            render();
-          });
-          board.appendChild(b);
-        }
-      }
-      render();
-    }
-
-    function runHygiene_CleanObjects(){
-      gameTitle.textContent='Hygiene Warmup — Clean Object Choice';
-      desc.textContent='เลือกสิ่งที่ “ควรทำความสะอาดก่อน”';
-      center.style.display='none';
-
-      const cases = [
-        {q:'ลูกบิดประตู', ok:'ทำก่อน', emo:'🚪'},
-        {q:'รีโมตทีวี', ok:'ทำก่อน', emo:'📺'},
-        {q:'พื้นแห้งสะอาด', ok:'รอได้', emo:'🧽'},
-        {q:'โต๊ะกินข้าวหลังใช้งาน', ok:'ทำก่อน', emo:'🍽️'},
-        {q:'ชั้นวางที่ไม่ค่อยจับ', ok:'รอได้', emo:'🪑'}
-      ];
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(620px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div style="font-weight:1100;font-size:16px;">เลือกความสำคัญ</div>
-        <div id="cq" style="margin-top:8px;font-size:18px;font-weight:1000;">—</div>
-        <div id="ce" style="margin-top:6px;font-size:40px;">🧼</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      let cur = randPick(cases);
-
-      function next(){
-        total++;
-        cur = randPick(cases);
-        card.querySelector('#cq').textContent = cur.q;
-        card.querySelector('#ce').textContent = cur.emo;
-      }
-
-      ['ทำก่อน','รอได้'].forEach(a=>{
-        const b=mkBtn(a); b.style.padding='14px 12px'; pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(a===cur.ok){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-
-      next();
-    }
-
-    function runExercise_DodgeStrike(){
-      gameTitle.textContent='Exercise Warmup — Dodge & Strike Reaction';
-      desc.textContent='คำสั่งสุ่ม “ตี” หรือ “หลบ” ให้ไว';
-      center.style.display='none';
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div class="muted" style="font-weight:1000;">ทำตามคำสั่ง</div>
-        <div id="sx" style="margin-top:10px;font-size:56px;font-weight:1100;">⚔️</div>
-        <div id="st" style="margin-top:8px;font-size:18px;font-weight:1100;">—</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      const btnHit=mkBtn('ตี'); const btnDodge=mkBtn('หลบ');
-      btnHit.style.padding='14px 12px'; btnDodge.style.padding='14px 12px';
-      pad.appendChild(btnHit); pad.appendChild(btnDodge);
-
-      let cur='ตี';
-      function next(){
-        total++;
-        cur = (Math.random()<0.5)?'ตี':'หลบ';
-        card.querySelector('#st').textContent = `คำสั่ง: ${cur}`;
-        card.querySelector('#sx').textContent = (cur==='ตี')?'🥊':'🫣';
-      }
-      function choose(a){
-        if(!started) return;
-        if(a===cur){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      }
-      btnHit.addEventListener('click', ()=>choose('ตี'));
-      btnDodge.addEventListener('click', ()=>choose('หลบ'));
-      next();
-    }
-
-    function runExercise_BeatPunch(){
-      gameTitle.textContent='Exercise Warmup — Beat Punch';
-      desc.textContent='แตะตามจังหวะ “ซ้าย/ขวา”';
-      center.style.display='none';
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(620px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div class="muted" style="font-weight:1000;">คำสั่ง</div>
-        <div id="rx" style="margin-top:10px;font-size:56px;font-weight:1100;">⬅️</div>
-        <div id="rt" style="margin-top:8px;font-size:18px;font-weight:1100;">ซ้าย</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      const bL=mkBtn('ซ้าย'); const bR=mkBtn('ขวา');
-      bL.style.padding='14px 12px'; bR.style.padding='14px 12px';
-      pad.appendChild(bL); pad.appendChild(bR);
-
-      let cur='ซ้าย';
-      function next(){
-        total++;
-        cur = (Math.random()<0.5)?'ซ้าย':'ขวา';
-        card.querySelector('#rt').textContent = cur;
-        card.querySelector('#rx').textContent = (cur==='ซ้าย')?'⬅️':'➡️';
-      }
-      function choose(a){
-        if(!started) return;
-        if(a===cur){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      }
-      bL.addEventListener('click', ()=>choose('ซ้าย'));
-      bR.addEventListener('click', ()=>choose('ขวา'));
-      next();
-    }
-
-    function runExercise_JumpDuck(){
-      gameTitle.textContent='Exercise Warmup — Jump / Duck Drill';
-      desc.textContent='สุ่ม JUMP หรือ DUCK ให้ไว';
-      center.style.display='none';
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'46%',transform:'translate(-50%,-50%)',
-        width:'min(620px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      card.innerHTML = `<div class="muted" style="font-weight:1000;">คำสั่ง</div>
-        <div id="jx" style="margin-top:10px;font-size:56px;font-weight:1100;">⬆️</div>
-        <div id="jt" style="margin-top:8px;font-size:18px;font-weight:1100;">JUMP</div>`;
-      stage.appendChild(card);
-
-      const pad=mkPad(2);
-      const bJ=mkBtn('JUMP'); const bD=mkBtn('DUCK');
-      bJ.style.padding='14px 12px'; bD.style.padding='14px 12px';
-      pad.appendChild(bJ); pad.appendChild(bD);
-
-      let cur='JUMP';
-      function next(){
-        total++;
-        cur = (Math.random()<0.5)?'JUMP':'DUCK';
-        card.querySelector('#jt').textContent = cur;
-        card.querySelector('#jx').textContent = (cur==='JUMP')?'⬆️':'⬇️';
-      }
-      function choose(a){
-        if(!started) return;
-        if(a===cur){ score++; toastShow('+1'); flashGood(); }
-        else { miss++; toastShow('MISS'); flashBad(); }
-        next();
-      }
-      bJ.addEventListener('click', ()=>choose('JUMP'));
-      bD.addEventListener('click', ()=>choose('DUCK'));
-      next();
-    }
-
-    function runExercise_BalanceMeter(){
-      gameTitle.textContent='Exercise Warmup — Balance Hold Meter';
-      desc.textContent='กดค้างให้แถบอยู่กลาง';
-      center.style.display='none';
-
-      const box=DOC.createElement('div');
-      Object.assign(box.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-        width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)',textAlign:'center'});
-      box.innerHTML = `
-        <div style="font-weight:1100;font-size:16px;">กดค้างให้คุมให้นิ่ง</div>
-        <div class="muted" style="margin-top:6px;">ถือให้อยู่กลาง → ได้แต้มต่อเนื่อง</div>
-        <div id="track" style="margin:14px auto 0; width:min(420px,92%); height:14px; border-radius:999px;
-          border:1px solid rgba(148,163,184,.18); background:rgba(148,163,184,.12); position:relative; overflow:hidden;">
-          <div id="zone" style="position:absolute; left:44%; top:0; width:12%; height:100%;
-            background:rgba(34,197,94,.18); border-left:1px solid rgba(34,197,94,.25); border-right:1px solid rgba(34,197,94,.25);"></div>
-          <div id="bar" style="position:absolute; left:10%; top:2px; width:18px; height:10px; border-radius:999px; background:rgba(56,189,248,.92);"></div>
-        </div>
-        <div style="margin-top:12px;">
-          <button class="btn primary" id="holdBtn" style="min-width:180px;">กดค้าง (HOLD)</button>
-        </div>`;
-      stage.appendChild(box);
-
-      const track=box.querySelector('#track');
-      const bar=box.querySelector('#bar');
-      const holdBtn=box.querySelector('#holdBtn');
-
-      let holding=false, x=0.10, v=0.0;
-      function inZone(){ return x>=0.44 && x<=0.56; }
-
-      const onDown = (e)=>{ e.preventDefault(); holding=true; holdBtn.textContent='กำลังค้าง...'; };
-      const onUp   = ()=>{ if(!holding) return; holding=false; holdBtn.textContent='กดค้าง (HOLD)'; };
-
-      holdBtn.addEventListener('pointerdown', onDown);
-      WIN.addEventListener('pointerup', onUp);
-      teardownFns.push(()=>{
-        holdBtn.removeEventListener('pointerdown', onDown);
-        WIN.removeEventListener('pointerup', onUp);
-      });
-
-      const step = ()=>{
-        if(!started) return;
-        const played = dur - tLeft;
-        const drift = 0.002 + Math.min(0.003, played*0.0002);
-        v += (Math.random()-0.5)*drift;
-
-        if(holding){
-          v *= 0.92;
-          x += v;
-          x += (0.50 - x)*0.01;
-        }else{
-          x += v;
-        }
-        x = Math.max(0.02, Math.min(0.98, x));
-
-        const w = track.getBoundingClientRect().width;
-        bar.style.left = Math.round(x*w) + 'px';
-
-        if(holding){
-          total++;
-          if(inZone()){ score++; }
-          else { miss++; }
-        }
-        stageAnimRaf = requestAnimationFrame(step);
-      };
-
-      stageAnimRaf = requestAnimationFrame(step);
-    }
-
-    function runExercise_PlanSprint(){
-      gameTitle.textContent='Exercise Warmup — Plan Sprint';
-      desc.textContent='เลือกกิจกรรมให้ครบ 3 ช่วง';
-      center.style.display='none';
-
-      const acts=['เดินเร็ว','ยืดเหยียด','กระโดดตบ','วิดพื้น','สควอต','วิ่งอยู่กับที่','แพลงก์'];
-      const slots=['เช้า','กลางวัน','เย็น'];
-
-      const card=DOC.createElement('div');
-      Object.assign(card.style,{position:'absolute',left:'50%',top:'42%',transform:'translate(-50%,-50%)',
-        width:'min(760px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-        background:'rgba(2,6,23,.50)'});
-      card.innerHTML = `
-        <div style="font-weight:1100;font-size:16px;text-align:center;">จัดแผน 3 ช่วง</div>
-        <div class="muted" style="margin-top:6px;text-align:center;">เลือกกิจกรรมให้ครบ 3 ช่อง</div>
-        <div id="slots" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
-        <div id="acts" style="margin-top:12px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>`;
-      stage.appendChild(card);
-
-      const slotsEl=card.querySelector('#slots');
-      const actsEl=card.querySelector('#acts');
-      const chosen = {เช้า:'',กลางวัน:'',เย็น:''};
-
-      function renderSlots(){
-        slotsEl.innerHTML='';
-        slots.forEach(s=>{
-          const box=DOC.createElement('div');
-          box.style.border='1px solid rgba(148,163,184,.18)';
-          box.style.borderRadius='16px';
-          box.style.background='rgba(2,6,23,.35)';
-          box.style.padding='10px 12px';
-          box.style.minHeight='60px';
-          box.innerHTML = `<div style="font-weight:1100;">${s}</div><div class="muted" style="margin-top:6px;">${chosen[s]||'ว่าง'}</div>`;
-          slotsEl.appendChild(box);
-
-          box.addEventListener('click', ()=>{
-            if(!started) return;
-            if(chosen[s]){
-              total++;
-              chosen[s]='';
-              miss++; toastShow('MISS'); flashBad();
-              renderSlots();
-            }
-          });
-        });
-      }
-
-      function renderActs(){
-        actsEl.innerHTML='';
-        const pick = [];
-        while(pick.length<6){
-          const a = randPick(acts);
-          if(!pick.includes(a)) pick.push(a);
-        }
-        pick.forEach(a=>{
-          const b=mkBtn(a);
-          b.style.padding='12px 10px';
-          b.style.borderRadius='16px';
-          actsEl.appendChild(b);
-          b.addEventListener('click', ()=>{
-            if(!started) return;
-            total++;
-            const s = slots.find(x=>!chosen[x]);
-            if(!s){ miss++; toastShow('MISS'); flashBad(); return; }
-            chosen[s]=a;
-            score++; toastShow('+1'); flashGood();
-            renderSlots();
-            if(slots.every(x=>chosen[x])){ score += 2; toastShow('+BONUS'); flashGood(); }
-          });
-        });
-      }
-
-      renderSlots();
-      renderActs();
-    }
-
     function runCooldown_Calm(){
       gameTitle.textContent='Cooldown — Calm Breathing';
       desc.textContent='แตะ “หายใจเข้า/ออก” ให้ครบจังหวะ';
@@ -1417,24 +889,11 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       hydration: runNutrition_SipRhythm,
       plate:     runNutrition_PlateBuilder,
 
-      handwash:     runHygiene_WashOrder,
-      brush:        runHygiene_BrushAngle,
-      maskcough:    runHygiene_MaskChoice,
-      germdetective:runHygiene_GermDetect,
-      germ:         runHygiene_GermDetect,
-      bath:         runHygiene_Bath,
-      clean:        runHygiene_CleanObjects,
-      cleanobjects: runHygiene_CleanObjects,
-
-      shadow:    runExercise_DodgeStrike,
-      rhythm:    runExercise_BeatPunch,
-      jumpduck:  runExercise_JumpDuck,
-      balance:   runExercise_BalanceMeter,
-      planner:   runExercise_PlanSprint,
+      calm:      runCooldown_Calm,
     };
 
     function start(){
-      if(dailyDone){ showDailyDonePanel(); return; }
+      if(dailyDone){ autoSkipIfDaily(); return; }
 
       clearStage();
       score=0; miss=0; total=0;
@@ -1445,9 +904,6 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
       endOverlay.setAttribute('aria-hidden','true');
 
       started=true;
-
-      // reset next button state while playing
-      btnNext.disabled = true;
 
       if(phase==='cooldown'){
         runCooldown_Calm();
@@ -1466,8 +922,24 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
     }
 
     function skip(){
-      // skip means mark daily + go next/hub
-      goNextDirect();
+      const target = (next0 || hub);
+      markDaily(dailyPrefix, cat, pid);
+
+      const u = new URL(target, location.href);
+      applyPlanSeqParams(u);
+      location.replace(u.toString());
+    }
+
+    // ✅ NEW: Next button behavior
+    // - If playing: end immediately (warmup => buff, cooldown => calm) then go next
+    // - If not playing: same as skip (mark daily + go next)
+    function nextNow(){
+      if(started){
+        if(phase==='cooldown') endNow({ calm: 1 });
+        else endNow(makeWarmupBuff());
+        return;
+      }
+      skip();
     }
 
     function maybeAutoEnd(){
@@ -1485,23 +957,18 @@ HeroHealth Warmup/Cooldown Gate — FULL (v20260224c-nextButtonUnified)
     btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
     btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
 
-    // “ต่อไป” side button: if not daily done, treat as skip; if daily done, go next
-    btnNext.addEventListener('click', (e)=>{ e.preventDefault(); goNextDirect(); });
+    // ✅ NEW: ต่อไป
+    btnNext.addEventListener('click', (e)=>{ e.preventDefault(); nextNow(); });
 
     stage.addEventListener('pointerdown', ()=>{
       if(!started && !dailyDone) start();
     }, {passive:true});
 
-    // init state
-    if(dailyDone){
-      showDailyDonePanel();
-      setHUD();
-    }else{
+    if(!autoSkipIfDaily()){
       const name = (phase==='cooldown')?'Cooldown':'Warmup';
       subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
       statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
       setHUD();
-      btnNext.disabled = true; // unlock after end
     }
 
     WIN.addEventListener('visibilitychange', ()=>{
