@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (coachDock + anti-overlap + safe-zone tuning)
-FULL v20260223-run-wired+coachDock+safeZone
+GoodJunkVR RUN — PRODUCTION (fixed paths + cache-bust + target failsafe)
+FULL v20260224a-run-fixCSSPath+failsafeTarget
 -->
 <!doctype html>
 <html lang="th">
@@ -9,32 +9,57 @@ FULL v20260223-run-wired+coachDock+safeZone
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <!-- Core CSS -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
+  <!-- ✅ FIX: correct CSS path (this file is inside /vr-goodjunk/) -->
+  <!-- ✅ cache-bust to avoid stale CSS on mobile -->
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260224a"/>
 
   <style>
+    /* Minimal layout safety */
     html,body{height:100%;margin:0;}
-    body{overflow:hidden;}
+    body{overflow:hidden;-webkit-tap-highlight-color:transparent;}
 
-    .gj-stage{ position:relative; width:100%; height:100%; }
+    /* layers */
+    .gj-stage{
+      position:relative;
+      width:100%;
+      height:100%;
+    }
     #gj-layer, #gj-layer-r{
-      position:absolute; inset:0; overflow:hidden; touch-action: manipulation;
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      touch-action: manipulation;
     }
     #gj-layer-r{ display:none; }
 
-    /* HUD */
+    /* ✅ FAILSAFE: If external CSS fails to load, targets still appear */
+    .gj-target{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      user-select:none;
+      pointer-events:auto;
+      font-size:56px;
+      will-change: transform, opacity;
+    }
+
+    /* top HUD wrapper */
     .gj-hud{
       position:fixed;
       left:0; right:0; top:0;
-      z-index:130;              /* make sure above VR UI */
+      z-index:120;
       pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
       padding-left: calc(env(safe-area-inset-left, 0px) + 10px);
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
+
     .gj-hud-row{
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
     }
+
     .gj-card{
       pointer-events:none;
       background: rgba(2,6,23,.68);
@@ -46,38 +71,49 @@ FULL v20260223-run-wired+coachDock+safeZone
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
+
     .gj-stat{
       display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800; letter-spacing:.2px;
+      font-weight:800;
+      letter-spacing:.2px;
     }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
     .gj-mini{
-      margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;
-      font-size: 13px; opacity:.96;
+      margin-top:8px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size: 13px;
+      opacity:.96;
     }
     .gj-mini .chip{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px; border-radius:999px;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.42);
       font-weight:800;
     }
 
     .gj-progress{
-      position:fixed; left:0; right:0;
+      position:fixed;
+      left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
       height: 4px;
-      z-index:135;
+      z-index:130;
       background: rgba(148,163,184,.10);
-      pointer-events:none;
     }
     #gjProgressFill{
-      height:100%; width:0%;
+      height:100%;
+      width:0%;
       background: rgba(99,102,241,.95);
       transition: width 120ms linear;
     }
 
+    /* Fever + Shield row */
     .gj-bars{
       pointer-events:none;
       margin-top:8px;
@@ -85,15 +121,24 @@ FULL v20260223-run-wired+coachDock+safeZone
       grid-template-columns: 1fr;
       gap:8px;
     }
-    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size: 13px; }
+    .gj-bar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      font-size: 13px;
+    }
     .gj-bar .track{
-      flex:1; height: 10px; border-radius:999px;
+      flex:1;
+      height: 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
     #feverFill{
-      height:100%; width:0%;
+      height:100%;
+      width:0%;
       background: rgba(251,191,36,.96);
       transition: width 120ms linear;
     }
@@ -106,7 +151,7 @@ FULL v20260223-run-wired+coachDock+safeZone
       left: 10px;
       right: 10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
-      z-index:128;
+      z-index:125;
       pointer-events:none;
     }
     #bossBar[aria-hidden="true"]{ display:none; }
@@ -119,32 +164,50 @@ FULL v20260223-run-wired+coachDock+safeZone
       backdrop-filter: blur(10px);
     }
     .boss-top{
-      display:flex; justify-content:space-between; align-items:center; gap:10px;
-      font-weight:900; letter-spacing:.2px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      letter-spacing:.2px;
     }
     .boss-track{
-      margin-top:8px; height:10px; border-radius:999px;
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
     #bossFill{
-      height:100%; width:0%;
+      height:100%;
+      width:0%;
       background: rgba(244,63,94,.92);
       transition: width 120ms linear;
     }
-    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
+    #bossHint{
+      margin-top:8px;
+      font-size: 12px;
+      opacity:.92;
+      font-weight:800;
+    }
 
     /* Low time overlay */
     #lowTimeOverlay{
-      position:fixed; inset:0; z-index:200;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed;
+      inset:0;
+      z-index:200;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
     #lowTimeOverlay[aria-hidden="true"]{ display:none; }
     .lowtime-pill{
-      font-weight:1000; letter-spacing:.5px; font-size: 64px;
+      font-weight:1000;
+      letter-spacing:.5px;
+      font-size: 64px;
       color: rgba(255,255,255,.95);
       text-shadow: 0 14px 48px rgba(0,0,0,.55);
       border-radius: 999px;
@@ -156,8 +219,12 @@ FULL v20260223-run-wired+coachDock+safeZone
 
     /* End overlay */
     #endOverlay{
-      position:fixed; inset:0; z-index:300;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed;
+      inset:0;
+      z-index:300;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding: 18px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
@@ -165,7 +232,7 @@ FULL v20260223-run-wired+coachDock+safeZone
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
     .end-card{
-      width:min(720px, 96vw);
+      width:min(680px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
@@ -173,10 +240,15 @@ FULL v20260223-run-wired+coachDock+safeZone
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+    .end-title{
+      font-weight:1000;
+      font-size: 20px;
+      letter-spacing:.2px;
+    }
     .end-sub{
       margin-top:6px;
-      font-size: 12px; opacity:.92;
+      font-size: 12px;
+      opacity:.92;
       word-break: break-all;
     }
     .end-grid{
@@ -184,9 +256,6 @@ FULL v20260223-run-wired+coachDock+safeZone
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
-    }
-    @media (min-width: 760px){
-      .end-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
     }
     .end-item{
       border:1px solid rgba(148,163,184,.14);
@@ -225,89 +294,27 @@ FULL v20260223-run-wired+coachDock+safeZone
       background: rgba(244,63,94,.16);
     }
 
-    /* --- VR UI overlap guard (override vr-ui.js container if needed) --- */
-    #hha-vr-ui, .hha-vr-ui, .vr-ui, .vrui, [data-hha-vr-ui]{
-      z-index: 118 !important; /* below HUD (130) but above layer */
+    /* tiny debug bar */
+    #gjDebug{
+      position:fixed;
+      left:10px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      z-index: 160;
+      font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 6px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      color: rgba(229,231,235,.92);
+      pointer-events:none;
+      opacity:.9;
     }
+    #gjDebug[aria-hidden="true"]{ display:none; }
 
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
-    }
-
-    /* --- CoachDock (uses coach-*.png) --- */
-    #coachDock{
-      position: fixed;
-      left: calc(env(safe-area-inset-left, 0px) + 10px);
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
-      z-index: 129; /* under HUD (130) but above layer */
-      display: flex;
-      align-items: flex-end;
-      gap: 10px;
-      pointer-events: none;
-      max-width: min(520px, 92vw);
-    }
-    #coachAvatar{
-      width: 64px; height: 64px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.60);
-      box-shadow: 0 10px 28px rgba(0,0,0,.25);
-      overflow: hidden;
-      flex: 0 0 auto;
-    }
-    #coachAvatar img{
-      width:100%; height:100%;
-      object-fit: cover;
-      display:block;
-      transform: translateZ(0);
-    }
-    #coachBubble{
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.72);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 14px 36px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      padding: 10px 12px;
-      line-height: 1.25;
-      font-weight: 900;
-      letter-spacing: .1px;
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 160ms ease, transform 160ms ease;
-    }
-    #coachBubble.show{
-      opacity: 1;
-      transform: translateY(0);
-    }
-    #coachBubble .meta{
-      font-size: 11px;
-      opacity: .86;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-    #coachBubble .msg{
-      font-size: 13px;
-      font-weight: 900;
-      overflow-wrap: anywhere;
-    }
-    #coachBubble .tag{
-      display:inline-flex;
-      gap:6px;
-      align-items:center;
-      margin-top:8px;
-      font-size: 11px;
-      opacity:.9;
-      font-weight: 800;
-      border: 1px solid rgba(148,163,184,.14);
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: rgba(2,6,23,.45);
-      width: fit-content;
     }
   </style>
 </head>
@@ -387,16 +394,6 @@ FULL v20260223-run-wired+coachDock+safeZone
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
   </div>
 
-  <!-- CoachDock (no more “flash top-left” judge text) -->
-  <div id="coachDock" aria-hidden="false">
-    <div id="coachAvatar"><img id="coachImg" src="../img/coach-neutral.png" alt="coach"/></div>
-    <div id="coachBubble" class="">
-      <div class="meta" id="coachMeta">COACH</div>
-      <div class="msg" id="coachMsg">—</div>
-      <div class="tag" id="coachTag">READY</div>
-    </div>
-  </div>
-
   <!-- End overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
@@ -406,10 +403,7 @@ FULL v20260223-run-wired+coachDock+safeZone
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">MISS TOTAL</div><div class="v" id="endMiss">0</div></div>
-
-        <div class="end-item"><div class="k">MISS (GOOD EXPIRE)</div><div class="v" id="endMissGood">0</div></div>
-        <div class="end-item"><div class="k">MISS (JUNK HIT)</div><div class="v" id="endMissJunk">0</div></div>
+        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
         <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
       </div>
 
@@ -421,12 +415,16 @@ FULL v20260223-run-wired+coachDock+safeZone
     </div>
   </div>
 
-  <!-- Universal VR UI -->
-  <script type="module" src="../vr/vr-ui.js"></script>
+  <!-- Debug -->
+  <div id="gjDebug" aria-hidden="true">dbg</div>
+
+  <!-- ✅ Universal VR UI (path fixed: from /vr-goodjunk/ -> /vr/) -->
+  <script type="module" src="../vr/vr-ui.js?v=20260224a"></script>
 
   <!-- Boot -->
   <script type="module">
-    import { boot } from './vr-goodjunk/goodjunk.safe.js';
+    // ✅ FIX: correct JS import path (this file is inside /vr-goodjunk/)
+    import { boot } from './goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -441,7 +439,9 @@ FULL v20260223-run-wired+coachDock+safeZone
         const json = JSON.stringify(obj || {});
         const b64 = btoa(unescape(encodeURIComponent(json)));
         return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      }catch(e){ return ''; }
+      }catch(e){
+        return '';
+      }
     }
 
     function buildGateCooldownUrl(nextUrl){
@@ -512,58 +512,14 @@ FULL v20260223-run-wired+coachDock+safeZone
         location.href = buildGateCooldownUrl(nextAfterCooldown);
         return;
       }
+
       goHubWithLog(summary);
     }
 
-    // --- CoachDock logic (captures hha:coach / hha:judge so nothing “flashes top-left”) ---
-    const coachImg  = document.getElementById('coachImg');
-    const coachBubble = document.getElementById('coachBubble');
-    const coachMeta = document.getElementById('coachMeta');
-    const coachMsg  = document.getElementById('coachMsg');
-    const coachTag  = document.getElementById('coachTag');
-
-    const COACH = {
-      neutral: '../img/coach-neutral.png',
-      happy:   '../img/coach-happy.png',
-      sad:     '../img/coach-sad.png',
-      fever:   '../img/coach-fever.png',
-    };
-
-    let coachHideT = 0;
-    function showCoach(kind, msg, tag){
-      try{
-        if(coachHideT) clearTimeout(coachHideT);
-        const k = (kind && COACH[kind]) ? kind : 'neutral';
-        if(coachImg) coachImg.src = COACH[k];
-        if(coachMeta) coachMeta.textContent = (k==='fever') ? 'ALERT' : 'COACH';
-        if(coachMsg) coachMsg.textContent = String(msg || '—');
-        if(coachTag) coachTag.textContent = String(tag || 'INFO');
-        coachBubble?.classList.add('show');
-        coachHideT = setTimeout(()=>coachBubble?.classList.remove('show'), 1800);
-      }catch(e){}
-    }
-
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = ev?.detail || {};
-      showCoach(d.kind==='tip' ? 'happy' : 'neutral', d.msg || '—', 'TIP');
-    });
-
-    window.addEventListener('hha:judge', (ev)=>{
-      const d = ev?.detail || {};
-      const label = String(d.label || '').trim();
-      if(!label) return;
-      // map mood
-      let mood = 'neutral';
-      if(/GOOD|STAR|DIAMOND|BOSS DOWN|DEFUSED|SHIELD/i.test(label)) mood = 'happy';
-      if(/MISS|OOPS|BOOM|SKULL|RAGE|BOSS!/i.test(label)) mood = 'sad';
-      if(/FEVER|STORM|INCOMING/i.test(label)) mood = 'fever';
-      showCoach(mood, label, 'NOW');
-    });
-
-    // Wire buttons
-    const btnReplay = document.getElementById('btnReplay');
+    // Buttons
+    const btnReplay  = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
-    const btnCopy = document.getElementById('btnCopy');
+    const btnCopy    = document.getElementById('btnCopy');
 
     let lastSummary = null;
 
@@ -585,52 +541,45 @@ FULL v20260223-run-wired+coachDock+safeZone
       lastSummary = ev?.detail || null;
     });
 
-    // show tiny info
+    // Tiny info
     const uiView = document.getElementById('uiView');
-    const uiRun = document.getElementById('uiRun');
+    const uiRun  = document.getElementById('uiRun');
     const uiDiff = document.getElementById('uiDiff');
-    const view = String(qs('view','mobile'));
-    const run  = String(qs('run','play'));
-    const diff = String(qs('diff','normal'));
-    if(uiView) uiView.textContent = view;
-    if(uiRun) uiRun.textContent = run;
-    if(uiDiff) uiDiff.textContent = diff;
+    if(uiView) uiView.textContent = String(qs('view','mobile'));
+    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
+    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
-    // --- Safe-zone tuning by view (prevents spawn under HUD/VRUI/BossBar) ---
-    // JS getSafeRect() reads --gj-top-safe / --gj-bottom-safe
-    try{
-      const root = document.documentElement;
-      // base: mobile
-      let topSafe = 160;
-      let bottomSafe = 150;
-
-      if(view === 'vr'){
-        topSafe = 190;
-        bottomSafe = 170;
-      }else if(view === 'cvr'){
-        topSafe = 210;    // cVR often has extra UI at top + crosshair
-        bottomSafe = 180;
-      }
-      // if boss bar visible, extra cushion (still safe even when hidden)
-      topSafe += 14;
-
-      root.style.setProperty('--gj-top-safe', `${topSafe}px`);
-      root.style.setProperty('--gj-bottom-safe', `${bottomSafe}px`);
-
-      document.body.classList.add(`view-${view}`);
-    }catch(e){}
+    // Debug toggle: ?dbg=1
+    const dbg = document.getElementById('gjDebug');
+    const dbgOn = String(qs('dbg','0')) === '1';
+    if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
 
     // Start game
     boot({
-      view,
-      run,
-      diff,
+      view: qs('view','mobile'),
+      run:  qs('run','play'),
+      diff: qs('diff','normal'),
       time: clamp(qs('time','80'), 20, 300),
       seed: qs('seed', null),
       studyId: qs('studyId', qs('study', null)),
       phase: qs('phase', null),
       conditionGroup: qs('conditionGroup', qs('cond', null)),
     });
+
+    // Debug sampler: targets count / layer rect
+    if(dbgOn){
+      setInterval(()=>{
+        try{
+          const st = window.__GJ_STATE__;
+          const layer = document.getElementById('gj-layer');
+          const r = layer?.getBoundingClientRect?.();
+          dbg.textContent =
+            `targets=${st?.targets?.size ?? '?'} ` +
+            `miss=${st?.miss ?? '?'} ` +
+            `W=${Math.round(r?.width||0)} H=${Math.round(r?.height||0)}`;
+        }catch(e){}
+      }, 800);
+    }
   </script>
 </body>
 </html>
