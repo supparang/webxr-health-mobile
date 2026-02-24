@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (coach HUD + FX stable + cooldown continue)
-FULL v20260224-run-coach+cooldownContinue+antiFlash
+GoodJunkVR RUN — PRODUCTION (end: Next->Cooldown + Coach overlay + hub log payload)
+FULL v20260224-run-nextCooldown+coachOverlay
 -->
 <!doctype html>
 <html lang="th">
@@ -10,13 +10,12 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
   <title>HeroHealth • GoodJunk VR</title>
 
   <!-- Core CSS -->
-  <link rel="stylesheet" href="./goodjunk-vr.css"/>
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css"/>
 
   <style>
     html,body{height:100%;margin:0;}
     body{overflow:hidden;}
 
-    /* layers */
     .gj-stage{ position:relative; width:100%; height:100%; }
     #gj-layer, #gj-layer-r{
       position:absolute; inset:0;
@@ -25,10 +24,8 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
     }
     #gj-layer-r{ display:none; }
 
-    /* top HUD wrapper */
     .gj-hud{
-      position:fixed;
-      left:0; right:0; top:0;
+      position:fixed; left:0; right:0; top:0;
       z-index:120;
       pointer-events:none;
       padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
@@ -36,8 +33,7 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       padding-right: calc(env(safe-area-inset-right, 0px) + 10px);
     }
     .gj-hud-row{
-      display:flex;
-      gap:10px;
+      display:flex; gap:10px;
       align-items:flex-start;
       justify-content:space-between;
     }
@@ -52,25 +48,12 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       -webkit-backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.22);
     }
-    .gj-stat{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      font-weight:800;
-      letter-spacing:.2px;
-    }
+    .gj-stat{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:800; letter-spacing:.2px; }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
-    .gj-mini{
-      margin-top:8px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      font-size: 13px;
-      opacity:.96;
-    }
+    .gj-mini{ margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size: 13px; opacity:.96; }
     .gj-mini .chip{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
+      display:inline-flex; gap:8px; align-items:center;
       padding:6px 10px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
@@ -78,59 +61,35 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       font-weight:800;
     }
 
-    /* progress bar */
     .gj-progress{
-      position:fixed;
-      left:0; right:0;
+      position:fixed; left:0; right:0;
       top: calc(env(safe-area-inset-top, 0px) + 0px);
       height: 4px;
       z-index:130;
       background: rgba(148,163,184,.10);
     }
     #gjProgressFill{
-      height:100%;
-      width:0%;
+      height:100%; width:0%;
       background: rgba(99,102,241,.95);
       transition: width 120ms linear;
     }
 
-    /* Fever + Shield row */
-    .gj-bars{
-      pointer-events:none;
-      margin-top:8px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
-    }
-    .gj-bar{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      font-size: 13px;
-    }
+    .gj-bars{ pointer-events:none; margin-top:8px; display:grid; grid-template-columns: 1fr; gap:8px; }
+    .gj-bar{ display:flex; align-items:center; gap:10px; font-weight:900; font-size: 13px; }
     .gj-bar .track{
-      flex:1;
-      height: 10px;
+      flex:1; height: 10px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #feverFill{
-      height:100%;
-      width:0%;
-      background: rgba(251,191,36,.96);
-      transition: width 120ms linear;
-    }
+    #feverFill{ height:100%; width:0%; background: rgba(251,191,36,.96); transition: width 120ms linear; }
     #feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
     #shieldPills{ opacity:.98; }
 
-    /* BOSS bar */
     #bossBar{
       position:fixed;
-      left: 10px;
-      right: 10px;
+      left: 10px; right: 10px;
       top: calc(env(safe-area-inset-top, 0px) + 92px);
       z-index:125;
       pointer-events:none;
@@ -144,43 +103,21 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       box-shadow: 0 10px 26px rgba(0,0,0,.25);
       backdrop-filter: blur(10px);
     }
-    .boss-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      letter-spacing:.2px;
-    }
+    .boss-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:900; letter-spacing:.2px; }
     .boss-track{
-      margin-top:8px;
-      height:10px;
+      margin-top:8px; height:10px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       overflow:hidden;
     }
-    #bossFill{
-      height:100%;
-      width:0%;
-      background: rgba(244,63,94,.92);
-      transition: width 120ms linear;
-    }
-    #bossHint{
-      margin-top:8px;
-      font-size: 12px;
-      opacity:.92;
-      font-weight:800;
-    }
+    #bossFill{ height:100%; width:0%; background: rgba(244,63,94,.92); transition: width 120ms linear; }
+    #bossHint{ margin-top:8px; font-size: 12px; opacity:.92; font-weight:800; }
 
-    /* Low time overlay */
     #lowTimeOverlay{
-      position:fixed;
-      inset:0;
+      position:fixed; inset:0;
       z-index:200;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display:flex; align-items:center; justify-content:center;
       pointer-events:none;
       background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
     }
@@ -198,61 +135,49 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       backdrop-filter: blur(10px);
     }
 
-    /* Coach HUD (fixed bottom-left; never inside #gj-layer so it won't disappear) */
-    .gj-coach{
+    /* ===== Coach overlay (ใช้ coach*.png) ===== */
+    #coachWrap{
       position:fixed;
-      left: calc(env(safe-area-inset-left, 0px) + 10px);
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+      left: calc(env(safe-area-inset-left,0px) + 10px);
+      bottom: calc(env(safe-area-inset-bottom,0px) + 10px);
       z-index:160;
-      pointer-events:none;
       display:flex;
       gap:10px;
       align-items:flex-end;
-      max-width: min(520px, 92vw);
+      pointer-events:none;
+      opacity:0;
+      transform: translateY(10px);
+      transition: opacity 180ms ease, transform 180ms ease;
     }
-    .gj-coach .avatar{
-      width: 72px; height: 72px;
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      box-shadow: 0 14px 40px rgba(0,0,0,.35);
-      overflow:hidden;
-      flex:0 0 auto;
-      backdrop-filter: blur(8px);
+    #coachWrap.on{
+      opacity:1;
+      transform: translateY(0);
     }
-    .gj-coach img{
-      width:100%; height:100%;
-      object-fit: cover;
-      display:block;
+    #coachImg{
+      width: 86px;
+      height:auto;
+      filter: drop-shadow(0 12px 28px rgba(0,0,0,.35));
     }
-    .gj-coach .bubble{
+    #coachBubble{
+      max-width: min(64vw, 520px);
       padding: 10px 12px;
       border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.62);
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
       color: rgba(229,231,235,.96);
       font-weight: 900;
       line-height: 1.25;
-      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      box-shadow: 0 12px 34px rgba(0,0,0,.35);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
-    .gj-coach .bubble small{
-      display:block;
-      opacity:.8;
-      font-weight:800;
-      margin-top:6px;
-    }
-    .gj-coach[aria-hidden="true"]{ display:none; }
+    #coachBubble small{ display:block; opacity:.88; font-weight:800; margin-top:4px; }
 
     /* End overlay */
     #endOverlay{
-      position:fixed;
-      inset:0;
+      position:fixed; inset:0;
       z-index:300;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display:flex; align-items:center; justify-content:center;
       padding: 18px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
@@ -260,7 +185,7 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
     .end-card{
-      width:min(720px, 94vw);
+      width:min(680px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
@@ -268,17 +193,8 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{
-      font-weight:1000;
-      font-size: 20px;
-      letter-spacing:.2px;
-    }
-    .end-sub{
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      word-break: break-all;
-    }
+    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+    .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
     .end-grid{
       margin-top:12px;
       display:grid;
@@ -326,19 +242,16 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       .end-grid{ grid-template-columns: 1fr; }
       .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
       #bossBar{ top: calc(env(safe-area-inset-top, 0px) + 104px); }
-      .gj-coach .avatar{ width:64px; height:64px; border-radius: 16px; }
-      .gj-coach .bubble{ font-size: 14px; }
+      #coachImg{ width: 74px; }
     }
   </style>
 </head>
 
 <body>
-  <!-- progress bar -->
   <div class="gj-progress" aria-hidden="true">
     <div id="gjProgressFill"></div>
   </div>
 
-  <!-- HUD -->
   <div class="gj-hud" aria-hidden="false">
     <div class="gj-hud-row">
       <div class="gj-card" style="min-width:220px">
@@ -384,18 +297,6 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
     </div>
   </div>
 
-  <!-- Coach HUD -->
-  <div id="gjCoach" class="gj-coach" aria-hidden="false">
-    <div class="avatar">
-      <img id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
-    </div>
-    <div class="bubble">
-      <div id="coachLine">พร้อมลุย! เก็บอาหารดีให้ไว เลี่ยงขยะ!</div>
-      <small id="coachMeta">—</small>
-    </div>
-  </div>
-
-  <!-- Boss bar -->
   <div id="bossBar" aria-hidden="true">
     <div class="boss-wrap">
       <div class="boss-top">
@@ -407,18 +308,21 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
     </div>
   </div>
 
-  <!-- Low time overlay -->
   <div id="lowTimeOverlay" aria-hidden="true">
     <div class="lowtime-pill"><span id="gj-lowtime-num">5</span></div>
   </div>
 
-  <!-- Game stage -->
+  <!-- Coach overlay -->
+  <div id="coachWrap" aria-hidden="false">
+    <img id="coachImg" src="../img/coach-neutral.png" alt="coach"/>
+    <div id="coachBubble">…</div>
+  </div>
+
   <div class="gj-stage">
     <div id="gj-layer" aria-label="GoodJunk layer"></div>
     <div id="gj-layer-r" aria-label="GoodJunk layer right eye"></div>
   </div>
 
-  <!-- End overlay -->
   <div id="endOverlay" aria-hidden="true">
     <div class="end-card">
       <div class="end-title" id="endTitle">Completed</div>
@@ -427,17 +331,16 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       <div class="end-grid">
         <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
         <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">MISS (Total)</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">MISS (G/J)</div><div class="v"><span id="endMissGood">0</span>/<span id="endMissJunk">0</span></div></div>
+        <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
         <div class="end-item"><div class="k">TIME (s)</div><div class="v" id="endTime">0</div></div>
-        <div class="end-item"><div class="k">NEXT</div><div class="v" style="font-size:14px;opacity:.9">ไป HUB หรือ Cooldown</div></div>
       </div>
 
       <div class="end-actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
-        <button class="btn" id="btnCooldown">Continue → Cooldown</button>
         <button class="btn danger" id="btnReplay">Replay</button>
-        <button class="btn primary" id="btnBackHub">Back HUB</button>
+        <!-- ✅ Next to Cooldown (โชว์เฉพาะเมื่อ cooldown=1) -->
+        <button class="btn primary" id="btnNext">ต่อไป (Cooldown)</button>
+        <button class="btn" id="btnBackHub">Back HUB</button>
       </div>
     </div>
   </div>
@@ -445,9 +348,8 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
   <!-- Universal VR UI -->
   <script type="module" src="../vr/vr-ui.js"></script>
 
-  <!-- Boot -->
   <script type="module">
-    import { boot } from './goodjunk.safe.js';
+    import { boot } from './vr-goodjunk/goodjunk.safe.js';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -462,9 +364,7 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
         const json = JSON.stringify(obj || {});
         const b64 = btoa(unescape(encodeURIComponent(json)));
         return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      }catch(e){
-        return '';
-      }
+      }catch(e){ return ''; }
     }
 
     function buildGateCooldownUrl(nextUrl){
@@ -488,15 +388,13 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       const cdur = clamp(qs('cdur','15'), 5, 60);
       u.searchParams.set('dur', String(cdur));
       u.searchParams.set('cdur', String(cdur));
-
       return u.toString();
     }
 
-    function hubUrlWithLog(summary){
+    function goHubWithLog(summary){
       const hub = abs(qs('hub', '../hub.html') || '../hub.html');
       const u = new URL(hub, location.href);
 
-      // keep essentials if hub lacks
       const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant'];
       keys.forEach(k=>{
         const v = qs(k,'');
@@ -512,37 +410,47 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       if(flush==='1') u.searchParams.set('flush','1');
       if(endpoint) u.searchParams.set('endpoint', endpoint);
 
-      return u.toString();
+      location.href = u.toString();
     }
 
-    function goHubWithLog(summary){
-      location.href = hubUrlWithLog(summary);
-    }
-
-    function goCooldownThen(nextAfterCooldown){
-      location.href = buildGateCooldownUrl(nextAfterCooldown);
-    }
-
-    function buildNextAfterCooldown(summary){
+    function handleEnd(summary, forceCooldown=false){
+      const cooldownEnabled = (String(qs('cooldown','0')||'0') === '1');
       const cdnext = String(qs('cdnext','')||'').trim();
-      if(cdnext) return abs(cdnext);
-      return hubUrlWithLog(summary);
+
+      const hub = abs(qs('hub', '../hub.html') || '../hub.html');
+      const hubUrl = new URL(hub, location.href);
+      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
+      const log = b64urlEncodeJson(payload);
+      if(log) hubUrl.searchParams.set('log', log);
+
+      const flush = qs('flush','');
+      const endpoint = qs('endpoint','');
+      if(flush==='1') hubUrl.searchParams.set('flush','1');
+      if(endpoint) hubUrl.searchParams.set('endpoint', endpoint);
+
+      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrl.toString();
+
+      // ✅ ถ้ากด “ต่อไป” ให้ไป cooldown แน่นอน (เมื่อ cooldown=1)
+      if((forceCooldown || cooldownEnabled) && cooldownEnabled){
+        location.href = buildGateCooldownUrl(nextAfterCooldown);
+        return;
+      }
+
+      // fallback
+      goHubWithLog(summary);
     }
 
     // Buttons
-    const btnReplay    = document.getElementById('btnReplay');
-    const btnBackHub   = document.getElementById('btnBackHub');
-    const btnCopy      = document.getElementById('btnCopy');
-    const btnCooldown  = document.getElementById('btnCooldown');
+    const btnReplay = document.getElementById('btnReplay');
+    const btnBackHub = document.getElementById('btnBackHub');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnNext = document.getElementById('btnNext');
 
     let lastSummary = null;
 
     btnReplay?.addEventListener('click', ()=> location.reload());
-    btnBackHub?.addEventListener('click', ()=> goHubWithLog(lastSummary || {}));
-    btnCooldown?.addEventListener('click', ()=> {
-      const next = buildNextAfterCooldown(lastSummary || {});
-      goCooldownThen(next);
-    });
+    btnBackHub?.addEventListener('click', ()=> handleEnd(lastSummary || {}, false));
+    btnNext?.addEventListener('click', ()=> handleEnd(lastSummary || {}, true));
 
     btnCopy?.addEventListener('click', async ()=>{
       try{
@@ -555,44 +463,45 @@ FULL v20260224-run-coach+cooldownContinue+antiFlash
       }
     });
 
-    // Listen from safe.js
+    // show/hide Next button
+    try{
+      const cooldownEnabled = (String(qs('cooldown','0')||'0') === '1');
+      if(btnNext) btnNext.style.display = cooldownEnabled ? 'inline-flex' : 'none';
+    }catch(e){}
+
+    // Listen end summary
     window.addEventListener('hha:game-ended', (ev)=>{ lastSummary = ev?.detail || null; });
 
-    // Coach events (safe.js emits hha:coach)
-    const coachLine = document.getElementById('coachLine');
-    const coachMeta = document.getElementById('coachMeta');
-    const coachImg  = document.getElementById('coachImg');
-    const coachWrap = document.getElementById('gjCoach');
+    // Tiny info
+    document.getElementById('uiView')?.textContent = String(qs('view','mobile'));
+    document.getElementById('uiRun')?.textContent = String(qs('run','play'));
+    document.getElementById('uiDiff')?.textContent = String(qs('diff','normal'));
 
-    function setCoachFace(kind){
-      // map kind -> /herohealth/img/coach-*.png
-      const map = {
-        happy:  '../img/coach-happy.png',
-        neutral:'../img/coach-neutral.png',
-        sad:    '../img/coach-sad.png',
-        fever:  '../img/coach-fever.png'
-      };
-      if(!coachImg) return;
-      coachImg.src = map[kind] || map.neutral;
+    // ✅ Coach overlay listener
+    const coachWrap = document.getElementById('coachWrap');
+    const coachImg  = document.getElementById('coachImg');
+    const coachBubble = document.getElementById('coachBubble');
+    let coachTimer = 0;
+
+    function showCoach(msg, kind='neutral'){
+      if(!coachWrap || !coachImg || !coachBubble) return;
+      const k = String(kind||'neutral').toLowerCase();
+      const src =
+        (k==='happy') ? '../img/coach-happy.png' :
+        (k==='sad')   ? '../img/coach-sad.png' :
+        (k==='fever') ? '../img/coach-fever.png' :
+        '../img/coach-neutral.png';
+      coachImg.src = src;
+      coachBubble.textContent = String(msg || '');
+      coachWrap.classList.add('on');
+      clearTimeout(coachTimer);
+      coachTimer = setTimeout(()=> coachWrap.classList.remove('on'), 1800);
     }
 
     window.addEventListener('hha:coach', (ev)=>{
       const d = ev?.detail || {};
-      const msg = String(d.msg || '').trim();
-      const kind = String(d.kind || 'neutral').toLowerCase();
-      if(coachWrap) coachWrap.setAttribute('aria-hidden', msg ? 'false' : 'true');
-      if(coachLine && msg) coachLine.textContent = msg;
-      if(coachMeta) coachMeta.textContent = `coach=${kind}`;
-      if(kind.includes('fever')) setCoachFace('fever');
-      else if(kind.includes('happy') || kind.includes('good')) setCoachFace('happy');
-      else if(kind.includes('sad') || kind.includes('warn') || kind.includes('bad')) setCoachFace('sad');
-      else setCoachFace('neutral');
+      showCoach(d.msg || '…', d.kind || 'neutral');
     });
-
-    // Tiny info
-    document.getElementById('uiView')?.append(String(qs('view','mobile')));
-    document.getElementById('uiRun')?.append(String(qs('run','play')));
-    document.getElementById('uiDiff')?.append(String(qs('diff','normal')));
 
     // Start game
     boot({
