@@ -1,301 +1,51 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-HeroHealth — GoodJunkVR LAUNCHER (ROOT) — PRODUCTION v20260217a
-✅ Launcher = ROOT, Run = /herohealth/vr-goodjunk/goodjunk-vr.html
-✅ Choose PC / Mobile / Cardboard (cVR)
-✅ Remembers last view/diff/time/run
-✅ Pass-through: hub, run, diff, time, seed, pid, api, studyId, phase, conditionGroup
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GoodJunkVR</title>
-  <meta name="color-scheme" content="dark light"/>
-  <meta name="theme-color" content="#020617"/>
-  <link rel="icon" href="./favicon.ico"/>
-
-  <style>
-    :root{
-      --bg:#020617; --panel: rgba(2,6,23,.72); --panel2: rgba(15,23,42,.62);
-      --stroke: rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
-      --accent: rgba(34,211,238,.9);
-      --sat: env(safe-area-inset-top,0px);
-      --sab: env(safe-area-inset-bottom,0px);
-      --sal: env(safe-area-inset-left,0px);
-      --sar: env(safe-area-inset-right,0px);
-      --r:18px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      background:
-        radial-gradient(1200px 700px at 12% 10%, rgba(34,197,94,.12), transparent 55%),
-        radial-gradient(1000px 600px at 85% 18%, rgba(34,211,238,.10), transparent 55%),
-        radial-gradient(900px 520px at 55% 92%, rgba(167,139,250,.10), transparent 55%),
-        linear-gradient(180deg, #020617, #0b1226);
-      overflow:hidden;
-    }
-    .wrap{
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(16px + var(--sab)) calc(14px + var(--sal));
-      display:flex; align-items:center; justify-content:center;
-    }
-    .card{
-      width:min(980px, 100%);
-      border:1px solid var(--stroke);
-      border-radius: 22px;
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 16px;
-    }
-    .top{
-      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
-      padding: 4px 4px 10px;
-    }
-    .title{ font-weight:1000; font-size:18px; letter-spacing:.2px }
-    .sub{ color:var(--muted); margin-top:6px; font-size:13px; line-height:1.35; max-width: 62ch; }
-    .grid{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 1.25fr 1fr;
-      gap: 12px;
-    }
-    @media (max-width: 880px){ .grid{ grid-template-columns: 1fr; } }
-    .panel{
-      border:1px solid var(--stroke);
-      border-radius: var(--r);
-      background: rgba(2,6,23,.45);
-      padding: 12px;
-    }
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    label{ font-size:12px; color:var(--muted); font-weight:900; letter-spacing:.2px }
-    select,input{
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.22);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 10px;
-      outline:none;
-      font-size: 13px;
-      min-width: 160px;
-    }
-    input[type="number"]{ width: 140px; }
-    .btns{ margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; }
-    .btn{
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight: 1000;
-      cursor:pointer;
-    }
-    .btn.primary{
-      border-color: rgba(34,211,238,.25);
-      background: rgba(34,211,238,.12);
-      box-shadow: 0 12px 40px rgba(34,211,238,.08);
-    }
-    .hint{ margin-top: 10px; color: rgba(229,231,235,.82); font-size: 12.5px; line-height:1.4; }
-    .chip{
-      display:inline-flex; align-items:center; gap:8px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.45);
-      padding: 7px 10px;
-      border-radius: 999px;
-      color: var(--muted);
-      font-weight: 900;
-      font-size: 12px;
-    }
-    .chip b{ color: var(--text); }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-  </style>
+  <title>GoodJunkVR Launcher</title>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card" role="application" aria-label="GoodJunkVR launcher">
-      <div class="top">
-        <div>
-          <div class="title">🍀 GoodJunkVR</div>
-          <div class="sub">
-            เลือกโหมดเข้าเล่น (PC / Mobile / Cardboard) แล้วระบบจะส่งไป RUN ในโฟลเดอร์
-            พร้อมพารามิเตอร์วิจัย/Hub ครบเหมือนเกมอื่น
-          </div>
-        </div>
-        <div class="row">
-          <span class="chip">RUN: <b class="mono">/herohealth/vr-goodjunk/goodjunk-vr.html</b></span>
-        </div>
-      </div>
+<script>
+(function(){
+  'use strict';
+  const here = new URL(location.href);
 
-      <div class="grid">
-        <div class="panel">
-          <div class="row" style="margin-bottom:10px">
-            <div style="flex:1 1 220px">
-              <label>View</label><br/>
-              <select id="viewSel">
-                <option value="pc">PC</option>
-                <option value="mobile">Mobile</option>
-                <option value="cvr">Cardboard (cVR)</option>
-              </select>
-            </div>
-            <div style="flex:1 1 220px">
-              <label>Mode</label><br/>
-              <select id="runSel">
-                <option value="play">play</option>
-                <option value="research">research</option>
-              </select>
-            </div>
-            <div style="flex:1 1 220px">
-              <label>Difficulty</label><br/>
-              <select id="diffSel">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-          </div>
+  const qs = (k, def=null)=> here.searchParams.get(k) ?? def;
+  const setIfMissing = (url,k,v)=>{ if(!url.searchParams.has(k) && v!=null) url.searchParams.set(k, String(v)); };
 
-          <div class="row">
-            <div style="flex:0 0 auto">
-              <label>Time (sec)</label><br/>
-              <input id="timeNum" type="number" min="20" max="300" step="1" value="80"/>
-            </div>
-            <div style="flex:1 1 260px">
-              <label>Seed (optional)</label><br/>
-              <input id="seedTxt" type="text" placeholder="ปล่อยว่าง = auto"/>
-            </div>
-          </div>
+  // ✅ RUN file (จริง)
+  const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', here);
 
-          <div class="btns">
-            <button class="btn primary" id="btnPlay">เริ่มเล่น</button>
-            <button class="btn" id="btnHub">กลับ HUB</button>
-          </div>
+  // passthrough ทุกอย่างก่อน
+  for (const [k,v] of here.searchParams.entries()){
+    runUrl.searchParams.set(k, v);
+  }
 
-          <div class="hint">
-            • Cardboard: ระบบจะใช้ <span class="mono">?view=cvr</span> และยิงจากกลางจอผ่าน <span class="mono">hha:shoot</span><br/>
-            • Research: แนะนำให้ส่ง <span class="mono">seed</span> คงที่เพื่อ deterministic
-          </div>
-        </div>
+  // ✅ defaults สำคัญ (กันเข้ามาแบบ view/run/diff/time หาย)
+  setIfMissing(runUrl, 'view', 'mobile');
+  setIfMissing(runUrl, 'run',  'play');
+  setIfMissing(runUrl, 'diff', 'normal');
+  setIfMissing(runUrl, 'time', '80');
+  setIfMissing(runUrl, 'pid',  'anon');
 
-        <div class="panel">
-          <div class="row" style="margin-bottom:10px">
-            <div style="flex:1 1 100%">
-              <label>Pass-through params (แก้ได้จาก URL ของ Launcher)</label>
-              <div class="hint">
-                ระบบจะส่งต่อ: <span class="mono">hub, pid, api, studyId, phase, conditionGroup</span> (ถ้ามี)
-              </div>
-            </div>
-          </div>
+  // ✅ hub back-link ต้องชี้ root hub เสมอ
+  // ถ้าส่ง hub มาแล้วใช้ของเดิม ถ้าไม่ส่งมาให้เด้งกลับ root hub
+  setIfMissing(runUrl, 'hub', './hub.html');
 
-          <div class="row">
-            <div style="flex:1 1 100%">
-              <div class="chip">hub: <b class="mono" id="chipHub">—</b></div>
-            </div>
-            <div style="flex:1 1 100%">
-              <div class="chip">pid: <b class="mono" id="chipPid">—</b></div>
-            </div>
-            <div style="flex:1 1 100%">
-              <div class="chip">api: <b class="mono" id="chipApi">—</b></div>
-            </div>
-          </div>
+  // ✅ seed: play = now, research = เดิม (ถ้ามีส่งมาแล้วไม่ทับ)
+  if(!runUrl.searchParams.has('seed')){
+    const mode = String(qs('run','play')).toLowerCase();
+    runUrl.searchParams.set('seed', mode==='research' ? (qs('seed','RESEARCH-SEED')) : String(Date.now()));
+  }
 
-          <div class="hint" style="margin-top:12px">
-            ถ้าเจอ 401/403 ใน Hub: เป็นเรื่องปลายทาง API (ต้องมี auth / API key / authorizer) ไม่เกี่ยวกับ Launcher โดยตรง
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    (function(){
-      const LS_KEY = 'HHA_GJ_LAUNCHER_PREF';
-      const RUN_URL = './vr-goodjunk/goodjunk-vr.html';
-
-      function qs(k, def=null){
-        try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; }
-      }
-      function clamp(v,min,max){
-        v = Number(v); if(!Number.isFinite(v)) v=min;
-        return Math.max(min, Math.min(max, v));
-      }
-      function loadPref(){
-        try{ return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; }catch{ return {}; }
-      }
-      function savePref(p){
-        try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch(_){}
-      }
-
-      const viewSel = document.getElementById('viewSel');
-      const runSel  = document.getElementById('runSel');
-      const diffSel = document.getElementById('diffSel');
-      const timeNum = document.getElementById('timeNum');
-      const seedTxt = document.getElementById('seedTxt');
-
-      const chipHub = document.getElementById('chipHub');
-      const chipPid = document.getElementById('chipPid');
-      const chipApi = document.getElementById('chipApi');
-
-      // pass-through from launcher URL
-      const hub = qs('hub', './hub.html');
-      const pid = qs('pid', 'anon');
-      const api = qs('api', '');
-
-      const studyId = qs('studyId', qs('study', ''));
-      const phase = qs('phase', '');
-      const conditionGroup = qs('conditionGroup', qs('cond', ''));
-
-      chipHub && (chipHub.textContent = hub || '—');
-      chipPid && (chipPid.textContent = pid || '—');
-      chipApi && (chipApi.textContent = api || '—');
-
-      // hydrate prefs
-      const pref = loadPref();
-      viewSel.value = pref.view || qs('view','') || 'pc';
-      runSel.value  = pref.run  || qs('run','')  || 'play';
-      diffSel.value = pref.diff || qs('diff','') || 'normal';
-      timeNum.value = String(clamp(pref.time ?? qs('time',80), 20, 300));
-      seedTxt.value = String(pref.seed ?? qs('seed','') ?? '');
-
-      function buildRunUrl(){
-        const view = viewSel.value || 'pc';
-        const run  = runSel.value  || 'play';
-        const diff = diffSel.value || 'normal';
-        const time = clamp(timeNum.value, 20, 300);
-        const seed = String(seedTxt.value || '').trim();
-
-        // remember
-        savePref({ view, run, diff, time, seed });
-
-        const u = new URL(RUN_URL, location.href);
-        u.searchParams.set('view', view);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-        if(seed) u.searchParams.set('seed', seed);
-
-        if(hub) u.searchParams.set('hub', hub);
-        if(pid) u.searchParams.set('pid', pid);
-        if(api) u.searchParams.set('api', api);
-
-        if(studyId) u.searchParams.set('studyId', studyId);
-        if(phase) u.searchParams.set('phase', phase);
-        if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
-
-        return u.toString();
-      }
-
-      document.getElementById('btnPlay').addEventListener('click', ()=>{
-        location.href = buildRunUrl();
-      });
-
-      document.getElementById('btnHub').addEventListener('click', ()=>{
-        location.href = hub || './hub.html';
-      });
-    })();
-  </script>
+  // กันวนลูป launcher->launcher
+  if(runUrl.pathname.endsWith('/goodjunk-vr.html') && runUrl.pathname.includes('/vr-goodjunk/')){
+    location.replace(runUrl.toString());
+  }else{
+    location.replace(runUrl.toString());
+  }
+})();
+</script>
 </body>
 </html>
