@@ -1,1414 +1,561 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — P5 UPGRADE FULL (v20260224p5)
-✅ root file (as you said)
-✅ pick5 policies: theme/game/pick=rand|day + detect from next
-✅ daily once-per-day per PID+category for warmup and cooldown
-✅ warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
-✅ cooldown end -> supports plan sequence passthrough + cdnext chain already in next
-✅ NEW (P5): grade=p5 => default dur/cdur=30 (teacher override respected)
-✅ NEW: Mission panel (3 daily missions deterministic by day+pid) + bonus
-✅ NEW: P5 mini-games: risky/skill-based (streak, decoys, perfect timing)
-✅ NEW: Cooldown breath ring timing with perfect window
-Works PC/Mobile (tap/click). Safe, no external deps.
+HeroHealth Warmup/Cooldown Gate — PRODUCTION (daily done keys + next routing)
+FULL v20260224-GATE-DAILYDONE
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Warmup Gate</title>
+  <title>HeroHealth • Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.78);
-      --panel2: rgba(15,23,42,.60);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --bad:#ef4444;
-      --warn:#f59e0b;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
+      --bg0:#050814;
+      --bg1:#0b1220;
+      --card: rgba(2,6,23,.72);
+      --card2: rgba(2,6,23,.55);
+      --bd: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.96);
+      --mut: rgba(148,163,184,.95);
+      --vio: rgba(99,102,241,.95);
+      --good: rgba(34,197,94,.95);
+      --warn: rgba(251,191,36,.96);
+      --bad: rgba(244,63,94,.92);
 
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{
-      height:100%; margin:0;
-      background:
-        radial-gradient(1000px 700px at 15% 0%, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(900px 650px at 92% 12%, rgba(167,139,250,.12), transparent 55%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      overscroll-behavior:none;
-    }
+    html,body{ height:100%; margin:0; background: radial-gradient(1100px 700px at 50% 12%, rgba(99,102,241,.18), rgba(0,0,0,0) 60%), linear-gradient(180deg,var(--bg0),var(--bg1)); color:var(--txt); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body{ overflow:hidden; }
 
     .wrap{
-      min-height:100%;
-      padding: calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
-      display:flex; align-items:center; justify-content:center;
-    }
-    .shell{
-      width:min(980px, 100%);
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
-      border-radius:24px;
-      box-shadow:0 16px 60px rgba(0,0,0,.42);
-      overflow:hidden;
-    }
-    .top{
-      padding:12px 14px;
-      border-bottom:1px solid var(--stroke);
-      background:rgba(2,6,23,.45);
-      display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
-    }
-    .brand{display:flex; gap:10px; align-items:center}
-    .logo{
-      width:40px;height:40px;border-radius:12px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
-      display:grid; place-items:center; font-weight:1000;
-    }
-    .title{font-weight:1000}
-    .sub{font-size:12px; color:var(--muted); font-weight:800; margin-top:2px}
-
-    .chips{display:flex; gap:8px; flex-wrap:wrap}
-    .chip{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.28);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:11px; font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .main{
-      display:grid; grid-template-columns: 1.2fr .8fr;
-      gap:0;
-    }
-    @media (max-width: 860px){ .main{ grid-template-columns:1fr; } }
-
-    .play{
-      position:relative;
-      min-height:560px;
-      border-right:1px solid var(--stroke);
-      background:
-        radial-gradient(700px 320px at 50% 10%, rgba(34,211,238,.06), transparent 70%),
-        linear-gradient(180deg, rgba(2,6,23,.20), rgba(2,6,23,.06));
-      overflow:hidden;
-    }
-    @media (max-width: 860px){
-      .play{ border-right:none; border-bottom:1px solid var(--stroke); min-height:520px; }
-    }
-
-    .hud{
-      position:absolute; left:10px; right:10px; top:10px;
-      display:grid; grid-template-columns: repeat(5, minmax(0,1fr));
-      gap:8px;
-      z-index:4;
-    }
-    .hud .box{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.38);
-      border-radius:14px;
-      padding:8px 10px;
-      text-align:center;
-    }
-    .hud .k{font-size:10px; color:var(--muted); font-weight:900}
-    .hud .v{margin-top:4px; font-size:15px; font-weight:1100}
-    @media (max-width:560px){
-      .hud{ grid-template-columns:repeat(3,minmax(0,1fr)); top:8px; left:8px; right:8px; }
-    }
-
-    .stage{
-      position:absolute; inset:0;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
-    .center{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      text-align:center;
-      z-index:2;
-      pointer-events:none;
-    }
-    .center .big{
-      font-size:64px; line-height:1;
-      filter:drop-shadow(0 8px 24px rgba(0,0,0,.35));
-    }
-    .center .hint{
-      margin-top:8px;
-      color:rgba(229,231,235,.85);
-      font-weight:900;
-      font-size:14px;
-    }
-
-    .flash{
-      position:absolute; inset:0;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .12s ease;
-      z-index:5;
-    }
-    .flash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
-    .flash.bad{  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.16), rgba(239,68,68,0)); }
-
-    .toast{
-      position:absolute; left:50%; top:78px; transform:translateX(-50%) translateY(-6px);
-      z-index:6;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.78);
-      border-radius:999px;
-      padding:7px 12px;
-      font-size:12px; font-weight:1100;
-      opacity:0;
-      transition:all .12s ease;
-      pointer-events:none;
-      white-space:nowrap;
-    }
-    .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-
-    .side{
-      padding:14px;
-      display:flex; flex-direction:column; gap:12px;
-      background:rgba(2,6,23,.22);
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
     }
     .card{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.34);
-      border-radius:18px;
-      padding:12px;
+      width:min(860px, 96vw);
+      border-radius: 18px;
+      border:1px solid var(--bd);
+      background: var(--card);
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 16px;
     }
-    .card h3{
-      margin:0;
-      font-size:14px;
-      font-weight:1000;
-    }
-    .muted{
-      color:rgba(229,231,235,.74);
-      font-size:12px;
-      line-height:1.35;
-      font-weight:750;
-    }
-    .meta{ margin-top:8px; display:grid; gap:8px; }
-    .row{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.22);
-      border-radius:14px;
-      padding:8px 10px;
-      font-size:12px;
-    }
-    .row .k{ color:var(--muted); font-weight:900; }
-    .row .v{ font-weight:1000; text-align:right; }
-
-    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-    .btn{
-      appearance:none; border:none; outline:none; cursor:pointer;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.30);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000; font-size:13px;
-      min-height:42px;
-    }
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:rgba(34,197,94,.14);
-    }
-    .btn.warn{
-      border-color:rgba(245,158,11,.32);
-      background:rgba(245,158,11,.12);
-    }
-
-    /* --- mission panel minimal --- */
-    .mwrap{ margin-top:10px; display:grid; gap:8px; }
-    .mitem{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.22);
-      border-radius:14px;
-      padding:9px 10px;
+    .top{
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
-      gap:10px;
+      align-items:flex-start;
+      gap:12px;
     }
-    .mleft{ display:flex; gap:8px; align-items:flex-start; }
-    .mbadge{
-      width:26px;height:26px;border-radius:10px;
-      border:1px solid var(--stroke);
-      display:grid; place-items:center;
-      background:rgba(2,6,23,.26);
+    .title{
       font-weight:1000;
+      letter-spacing:.2px;
+      font-size: 18px;
+      margin:0;
     }
-    .mtext .t{ font-weight:1000; font-size:12px; }
-    .mtext .s{ font-size:11px; color:rgba(229,231,235,.70); margin-top:2px; }
-    .mdone{
-      font-weight:1100;
-      font-size:11px;
-      border:1px solid rgba(34,197,94,.28);
-      background:rgba(34,197,94,.10);
-      padding:4px 8px;
+    .sub{
+      margin-top:6px;
+      color:var(--mut);
+      font-size: 12px;
+      word-break: break-all;
+      line-height:1.35;
+    }
+    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
       border-radius:999px;
-      opacity:.45;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.42);
+      font-weight:900;
+      font-size:12px;
+      color:var(--txt);
     }
-    .mitem.done .mdone{ opacity:1; }
-    .mitem.done .mbadge{ border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.08); }
-    .mitem.done .mtext .t{ color:rgba(34,197,94,.95); }
+    .pill b{ opacity:.9; }
 
-    /* end overlay */
-    .end{
-      position:absolute; inset:0;
-      background:rgba(2,6,23,.82);
-      backdrop-filter: blur(4px);
-      display:none;
-      align-items:center; justify-content:center;
-      z-index:9;
-      padding:16px;
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:12px;
+      align-items:stretch;
     }
-    .end .panel{
-      width:min(560px,100%);
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
-      border-radius:20px;
-      padding:14px;
-      box-shadow:0 14px 50px rgba(0,0,0,.35);
+    .panel{
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.14);
+      background: var(--card2);
+      padding: 12px;
     }
-    .end h3{ margin:0; font-size:16px; font-weight:1100; }
-    .kv{
+
+    .timerBox{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      gap:10px;
+      min-height: 220px;
+    }
+    .bigTime{
+      font-size: 72px;
+      font-weight:1100;
+      letter-spacing:.5px;
+      line-height:1;
+      text-shadow: 0 18px 70px rgba(0,0,0,.45);
+    }
+    .hint{
+      font-size: 13px;
+      color: var(--mut);
+      text-align:center;
+      line-height:1.45;
+      max-width: 520px;
+    }
+    .task{
       margin-top:10px;
-      display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.45);
+      font-weight:900;
+      line-height:1.35;
     }
-    .kv .item{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.28);
-      border-radius:14px;
-      padding:8px 10px;
-    }
-    .kv .k{ font-size:10px; color:var(--muted); font-weight:900; }
-    .kv .v{ margin-top:4px; font-size:13px; font-weight:1000; word-break:break-word; }
+    .task .k{ font-size:12px; color:var(--mut); font-weight:900; }
+    .task .v{ margin-top:6px; font-size:15px; color:var(--txt); }
 
-    @media (max-width:560px){
-      .top{ padding:10px 12px; }
-      .side{ padding:12px; }
-      .kv{ grid-template-columns:1fr; }
+    .actions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .btn{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: var(--txt);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 1000;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:hover{ filter:brightness(1.06); }
+    .btn.primary{
+      border-color: rgba(99,102,241,.35);
+      background: rgba(99,102,241,.22);
+    }
+    .btn.good{
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.14);
+    }
+    .btn.danger{
+      border-color: rgba(244,63,94,.30);
+      background: rgba(244,63,94,.16);
+    }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:none;
+    }
+
+    .bar{
+      margin-top: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      overflow:hidden;
+    }
+    #barFill{
+      height:100%;
+      width:0%;
+      background: rgba(99,102,241,.92);
+      transition: width 120ms linear;
+    }
+
+    .stamp{
+      margin-top:10px;
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: rgba(229,231,235,.92);
+      opacity:.9;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.42);
+      word-break: break-all;
+    }
+    .stamp small{ color: var(--mut); display:block; margin-bottom:6px; }
+
+    .bannerDone{
+      display:none;
+      margin-top:10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(34,197,94,.24);
+      background: rgba(34,197,94,.10);
+      font-weight: 1000;
+      color: rgba(229,231,235,.96);
+    }
+    .bannerDone.show{ display:block; }
+
+    @media (max-width: 720px){
+      .grid{ grid-template-columns: 1fr; }
+      .bigTime{ font-size: 62px; }
+      .timerBox{ min-height: 200px; }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="shell">
+    <div class="card">
       <div class="top">
-        <div class="brand">
-          <div class="logo">HH</div>
-          <div>
-            <div class="title" id="gameTitle">Warmup Gate</div>
-            <div class="sub" id="subLine">เตรียมความพร้อมก่อนเข้าเกม</div>
+        <div>
+          <h1 class="title" id="title">Gate</h1>
+          <div class="sub" id="sub">—</div>
+          <div class="pillRow">
+            <span class="pill">🧭 <b>phase</b> <span id="pillPhase">—</span></span>
+            <span class="pill">🏷️ <b>cat</b> <span id="pillCat">—</span></span>
+            <span class="pill">👤 <b>pid</b> <span id="pillPid">—</span></span>
+            <span class="pill">⏱ <b>dur</b> <span id="pillDur">—</span>s</span>
+            <span class="pill">📅 <b>day</b> <span id="pillDay">—</span></span>
           </div>
         </div>
-        <div class="chips">
-          <div class="chip" id="pillPhase">PHASE: WARMUP</div>
-          <div class="chip" id="pillCat">CAT: NUTRITION</div>
-          <div class="chip" id="pillTheme">THEME: GOODJUNK</div>
-          <div class="chip" id="pillDaily">DAILY: NEW</div>
+        <div style="text-align:right; min-width: 180px;">
+          <div style="font-weight:1000; opacity:.95" id="modeTag">HEROHEALTH</div>
+          <div style="margin-top:6px; font-size:12px; color:var(--mut)" id="themeTag">theme=—</div>
         </div>
       </div>
 
-      <div class="main">
-        <div class="play">
-          <div class="hud">
-            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">30s</div></div>
-            <div class="box"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
-            <div class="box"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
-            <div class="box"><div class="k">STREAK</div><div class="v" id="hudStreak">0</div></div>
-            <div class="box"><div class="k">ACC</div><div class="v" id="hudAcc">0%</div></div>
+      <div class="grid">
+        <div class="panel">
+          <div style="font-weight:1000; margin-bottom:8px;">ภารกิจวันนี้</div>
+          <div class="task">
+            <div class="k">TASK</div>
+            <div class="v" id="taskText">—</div>
+          </div>
+          <div class="task" id="breathBox">
+            <div class="k">GUIDE</div>
+            <div class="v" id="guideText">—</div>
           </div>
 
-          <div class="stage" id="stage" aria-live="polite">
-            <div class="center" id="center">
-              <div class="big" id="big">⚡</div>
-              <div class="hint" id="hint">แตะ “เริ่ม” แล้วทำภารกิจให้ครบ — ป.5 จะท้าทายขึ้น!</div>
-            </div>
-            <div class="toast" id="toast">+1</div>
-            <div class="flash" id="flash"></div>
+          <div class="bar" aria-hidden="false">
+            <div id="barFill"></div>
           </div>
 
-          <div class="end" id="endOverlay" aria-hidden="true">
-            <div class="panel">
-              <h3 id="endTitle">Warmup เสร็จแล้ว!</h3>
-              <div class="muted" id="endMsg" style="margin-top:6px;">พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง</div>
+          <div class="bannerDone" id="doneBanner">✅ บันทึกแล้วสำหรับวันนี้ — ไปต่อได้เลย</div>
 
-              <div class="kv">
-                <div class="item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-                <div class="item"><div class="k">ACC</div><div class="v" id="endAcc">0%</div></div>
-                <div class="item"><div class="k">STREAK</div><div class="v" id="endStreak">0</div></div>
-                <div class="item"><div class="k">MISSIONS</div><div class="v" id="endMissions">0/3</div></div>
-                <div class="item"><div class="k">BUFF KEYS</div><div class="v" id="endBuff">—</div></div>
-                <div class="item"><div class="k">NEXT</div><div class="v" id="endNext">YES</div></div>
-              </div>
-
-              <div class="btnrow" style="margin-top:12px;">
-                <button class="btn" id="btnToHub">กลับ HUB</button>
-                <button class="btn primary" id="btnContinue">ไปต่อ</button>
-              </div>
-            </div>
+          <div class="stamp" id="debugBox" style="display:none;">
+            <small>debug</small>
+            <div id="debugText">—</div>
           </div>
         </div>
 
-        <div class="side">
-          <div class="card">
-            <h3>สถานะ Gate</h3>
-            <div class="muted" id="desc" style="margin-top:6px;">Warmup/Cooldown แบบสั้น เพื่อความพร้อมก่อน/หลังเล่น</div>
+        <div class="panel">
+          <div class="timerBox">
+            <div style="font-weight:1000; opacity:.9" id="timerLabel">READY</div>
+            <div class="bigTime" id="timeText">—</div>
+            <div class="hint" id="hintText">กด Start เพื่อเริ่มจับเวลา</div>
 
-            <div class="meta">
-              <div class="row"><div class="k">Status</div><div class="v" id="statusText">ready</div></div>
-              <div class="row"><div class="k">Duration</div><div class="v" id="durText">30s</div></div>
-              <div class="row"><div class="k">Grade</div><div class="v" id="gradeText">—</div></div>
-            </div>
-
-            <div class="btnrow" style="margin-top:10px;">
-              <button class="btn primary" id="btnStart">เริ่ม</button>
-              <button class="btn warn" id="btnSkip">ข้าม</button>
-            </div>
-          </div>
-
-          <div class="card" id="missionCard">
-            <h3>ภารกิจวันนี้ (Daily Missions)</h3>
-            <div class="muted" style="margin-top:6px;">
-              ทำได้ใน 30 วิ — สำเร็จจะได้โบนัสในสรุปผล (สุ่มแบบเดิมทุกวัน/ทุก PID)
-            </div>
-            <div class="mwrap" id="missionWrap"></div>
-          </div>
-
-          <div class="card">
-            <h3>หมายเหตุ</h3>
-            <div class="muted" style="margin-top:6px;">
-              • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
-              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
+            <div class="actions">
+              <button class="btn primary" id="btnStart">Start</button>
+              <button class="btn" id="btnSkip">Skip</button>
+              <button class="btn danger" id="btnBackHub">Back HUB</button>
             </div>
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  const WIN=window, DOC=document;
-  const $=(id)=>DOC.getElementById(id);
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
-  function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS=getQS();
-  const q=(k,d='')=> (QS.get(k) ?? d);
-  const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
-  const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
+  const $ = (id)=> document.getElementById(id);
 
-  function absUrlMaybe(url){
+  // ---- params ----
+  const gatePhase = String(qs('gatePhase', qs('phase','warmup')) || 'warmup').toLowerCase();
+  const cat = String(qs('cat','nutrition') || 'nutrition').toLowerCase();
+  const pid = String(qs('pid','anon') || 'anon').trim() || 'anon';
+  const theme = String(qs('theme', gatePhase==='cooldown' ? 'calm' : 'active') || '').toLowerCase();
+
+  // dur priority: dur, else wdur/cdur, else default
+  let dur = Number(qs('dur',''));
+  if(!Number.isFinite(dur) || dur<=0){
+    dur = gatePhase==='cooldown' ? Number(qs('cdur','15')) : Number(qs('wdur','10'));
+  }
+  dur = clamp(dur, 5, 60);
+
+  const hub = String(qs('hub','')||'').trim();
+  const next = String(qs('next','')||'').trim();
+  const dbg = String(qs('dbg','0')||'0') === '1';
+
+  function abs(url){
     if(!url) return '';
-    try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
+    try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
   }
 
-  function getLocalDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
+  // ---- daily key ----
+  function localDayKey(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  function dailyKey(prefix, category, pid){
-    const day=getLocalDayKey();
-    const p=(pid||'anon').trim()||'anon';
-    return `${prefix}:${category}:${p}:${day}`;
+  const dayKey = localDayKey();
+
+  function dailyKeyFor(phase, cat, pid){
+    const c = String(cat||'nutrition').toLowerCase() || 'nutrition';
+    const p = String(pid||'anon').trim() || 'anon';
+    const d = dayKey;
+    if(phase==='cooldown') return `HHA_COOLDOWN_DONE:${c}:${p}:${d}`;
+    return `HHA_WARMUP_DONE:${c}:${p}:${d}`;
   }
-  function isDaily(prefix, category, pid){
-    try{ return localStorage.getItem(dailyKey(prefix,category,pid))==='1'; }catch{ return false; }
+  const doneKey = dailyKeyFor(gatePhase, cat, pid);
+
+  function isDoneToday(){
+    try{ return localStorage.getItem(doneKey) === '1'; }catch(e){ return false; }
   }
-  function markDaily(prefix, category, pid){
-    try{ localStorage.setItem(dailyKey(prefix,category,pid),'1'); }catch{}
+  function markDone(){
+    try{ localStorage.setItem(doneKey, '1'); }catch(e){}
   }
 
-  function hash32(str){
-    let h = 2166136261 >>> 0;
-    str = String(str || '');
+  // ---- content (deterministic tasks) ----
+  function xmur3(str){
+    str = String(str||'');
+    let h = 1779033703 ^ str.length;
     for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
     }
-    return h >>> 0;
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
+    };
   }
-
-  function zoneThemePool(category){
-    const c = String(category || '').toLowerCase();
-    if(c === 'nutrition') return ['goodjunk','groups','hydration','plate'];
-    if(c === 'hygiene')   return ['handwash','brush','maskcough','germdetective','bath','clean'];
-    if(c === 'exercise')  return ['shadow','rhythm','jumpduck','balance','planner'];
-    return ['goodjunk','groups','hydration','plate'];
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
   }
-
-  const phase = String(q('gatePhase', q('phase','warmup'))).toLowerCase();
-  const cat   = String(q('cat','nutrition')).toLowerCase();
-  const themeFromQs = String(q('theme','')).toLowerCase().trim();
-  const hub   = absUrlMaybe(q('hub','../hub.html')) || '../hub.html';
-  const next0 = absUrlMaybe(q('next','')) || hub;
-
-  let pid = String(q('pid','')).trim() || 'anon';
-  const run = String(q('run','play')).toLowerCase().trim();
-  const pick = String(q('pick','')).toLowerCase().trim();
-
-  const grade = String(q('grade','')).toLowerCase().trim();
-  const isP5 = (grade === 'p5' || grade === 'g5' || grade === 'kid' || grade === 'เด็ก');
-
-  // duration: teacher override respected, else P5 defaults 30s, else 20s
-  const durWarmDefault = isP5 ? 30 : 20;
-  const durCoolDefault = isP5 ? 30 : 15;
-
-  const durWarm = clamp(qNum('dur', durWarmDefault), 5, 60);
-  const durCool = clamp(qNum('cdur', durCoolDefault), 5, 60);
-  const dur = (phase==='cooldown') ? durCool : durWarm;
-
-  function pickThemeByPolicy(category){
-    if(themeFromQs) return themeFromQs;
-
-    const g = String(q('game','')).toLowerCase().trim();
-    if(g) return g;
-
-    const mode = (pick==='rand' || pick==='day') ? pick : (run==='research' ? 'day' : 'rand');
-    const pool = zoneThemePool(category);
-    if(!pool.length) return 'goodjunk';
-
-    if(mode === 'rand') return pool[(Math.random()*pool.length)|0];
-
-    const dayKey = getLocalDayKey();
-    const slot = String(q('planSlot','')).toLowerCase().trim();
-    const seed = `${pid}|${dayKey}|${slot}|${category}|${run}|warmup-gate`;
-    const idx = hash32(seed) % pool.length;
-    return pool[idx];
+  function makeRng(seedStr){
+    const seed = xmur3(seedStr);
+    return sfc32(seed(), seed(), seed(), seed());
   }
+  const seedStr = `HHA_GATE|${gatePhase}|${cat}|${pid}|${dayKey}`;
+  const rng = makeRng(seedStr);
+  const r01 = ()=> rng();
+  const pick = (arr)=> arr[(r01()*arr.length)|0];
 
-  function detectThemeKey(){
-    if(themeFromQs) return themeFromQs;
-    const g = String(q('game','')).toLowerCase().trim();
-    if(g) return g;
+  const WARM_TASKS = [
+    'ยืดคอ-ไหล่ 3 ท่า (ขวา/ซ้าย/หมุนไหล่) ช้า ๆ',
+    'ขยับแขนขึ้น-ลง 20 ครั้ง + หมุนข้อมือ 10 ครั้ง',
+    'ยืดหลัง: ก้มแตะเข่าเบา ๆ 10 วินาที x2',
+    'วอร์มมือ: แบมือ/กำมือ 25 ครั้ง + หมุนข้อศอก 10 ครั้ง',
+    'โฟกัสสายตา: มองไกล 5 วิ → ใกล้ 5 วิ ทำ 6 รอบ'
+  ];
+  const COOL_TASKS = [
+    'หายใจช้า ๆ 4-2-6 (เข้า-ค้าง-ออก) ทำต่อเนื่อง',
+    'ยืดแขนข้างลำตัว 10 วินาที/ข้าง x2',
+    'คลายไหล่: ยกไหล่ค้าง 2 วิ → ปล่อย ทำ 8 รอบ',
+    'ผ่อนคลายสายตา: หลับตาเบา ๆ 10 วิ → มองไกล 10 วิ',
+    'ยืดข้อมือ/นิ้ว 10 วินาที/ข้าง + สะบัดมือเบา ๆ'
+  ];
 
-    if(pick==='rand' || pick==='day' || run==='research'){
-      return pickThemeByPolicy(cat);
+  const task = (gatePhase==='cooldown') ? pick(COOL_TASKS) : pick(WARM_TASKS);
+
+  // ---- UI wiring ----
+  const title = $('title');
+  const sub = $('sub');
+  const pillPhase = $('pillPhase');
+  const pillCat = $('pillCat');
+  const pillPid = $('pillPid');
+  const pillDur = $('pillDur');
+  const pillDay = $('pillDay');
+  const themeTag = $('themeTag');
+  const modeTag = $('modeTag');
+
+  const taskText = $('taskText');
+  const guideText = $('guideText');
+  const breathBox = $('breathBox');
+
+  const timerLabel = $('timerLabel');
+  const timeText = $('timeText');
+  const hintText = $('hintText');
+  const barFill = $('barFill');
+  const btnStart = $('btnStart');
+  const btnSkip = $('btnSkip');
+  const btnBackHub = $('btnBackHub');
+  const doneBanner = $('doneBanner');
+
+  const debugBox = $('debugBox');
+  const debugText = $('debugText');
+
+  const isCooldown = gatePhase==='cooldown';
+
+  title.textContent = isCooldown ? 'Cooldown ก่อนกลับ HUB' : 'Warmup ก่อนเริ่มเกม';
+  pillPhase.textContent = gatePhase;
+  pillCat.textContent = cat;
+  pillPid.textContent = pid;
+  pillDur.textContent = String(dur);
+  pillDay.textContent = dayKey;
+  themeTag.textContent = `theme=${theme}`;
+  modeTag.textContent = isCooldown ? 'COOLDOWN' : 'WARMUP';
+
+  taskText.textContent = task;
+
+  function setGuideByTheme(){
+    if(isCooldown){
+      guideText.textContent = 'ค่อย ๆ หายใจยาวขึ้น คลายไหล่ ไม่รีบ — ให้หัวใจกลับสู่ปกติ';
+    }else{
+      guideText.textContent = 'ขยับเบา ๆ ให้ร่างกายตื่นตัว — พร้อมสำหรับการเล่น/การเรียนรู้';
     }
-
-    const n = String(next0||'').toLowerCase();
-
-    if(n.includes('vr-goodjunk') || n.includes('goodjunk')) return 'goodjunk';
-    if(n.includes('vr-groups')   || n.includes('groups'))   return 'groups';
-    if(n.includes('hydration-vr')|| n.includes('hydration'))return 'hydration';
-    if(n.includes('/plate/')     || n.includes('plate-vr')) return 'plate';
-
-    if(n.includes('handwash')) return 'handwash';
-    if(n.includes('vr-brush') || n.includes('brush')) return 'brush';
-    if(n.includes('maskcough') || n.includes('mask')) return 'maskcough';
-    if(n.includes('germ-detective') || n.includes('germ') || n.includes('detective')) return 'germdetective';
-    if(n.includes('bath')) return 'bath';
-    if(n.includes('home-clean') || n.includes('cleanobjects') || n.includes('clean')) return 'clean';
-
-    if(n.includes('shadow-breaker') || n.includes('shadow')) return 'shadow';
-    if(n.includes('rhythm-boxer') || n.includes('rhythm')) return 'rhythm';
-    if(n.includes('jump-duck') || n.includes('jumpduck')) return 'jumpduck';
-    if(n.includes('balance-hold') || n.includes('balance')) return 'balance';
-    if(n.includes('fitness-planner') || n.includes('planner')) return 'planner';
-
-    return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'jumpduck' : 'goodjunk';
-  }
-  const themeKey = detectThemeKey();
-
-  // daily
-  const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
-  const dailyDone = isDaily(dailyPrefix, cat, pid);
-
-  // dom
-  const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
-  const subLine=$('subLine'), statusText=$('statusText'), durText=$('durText'), gradeText=$('gradeText');
-  const gameTitle=$('gameTitle'), desc=$('desc');
-  const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
-  const toast=$('toast'), flash=$('flash');
-
-  const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudStreak=$('hudStreak'), hudAcc=$('hudAcc');
-  const btnStart=$('btnStart'), btnSkip=$('btnSkip');
-
-  const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
-  const endScore=$('endScore'), endAcc=$('endAcc'), endStreak=$('endStreak'), endMissions=$('endMissions'), endBuff=$('endBuff'), endNext=$('endNext');
-  const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
-
-  const missionWrap=$('missionWrap');
-
-  function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-  function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-  function toastShow(text){
-    toast.textContent=text;
-    toast.classList.add('show');
-    setTimeout(()=>toast.classList.remove('show'), 420);
-  }
-
-  // runtime
-  let started=false;
-  let tLeft=dur;
-  let score=0, miss=0, total=0;
-  let streak=0, bestStreak=0;
-  let raf=0, lastTs=0;
-  let stageAnimRaf=0;
-  let teardownFns=[];
-
-  // missions
-  const missions = { list: [], done: [false,false,false], doneCount: 0 };
-  function mkMissions(){
-    const day = getLocalDayKey();
-    const seed = `${pid}|${day}|${cat}|${themeKey}|missions`;
-    const base = hash32(seed);
-
-    const pool = [
-      { code:'ACC75',  icon:'🎯', text:'ความแม่น ≥ 75%',       check:()=> accPct()>=75 },
-      { code:'ACC85',  icon:'🏹', text:'ความแม่น ≥ 85%',       check:()=> accPct()>=85 },
-      { code:'STREAK6',icon:'🔥', text:'สตรีคให้ถึง 6',        check:()=> bestStreak>=6 },
-      { code:'STREAK9',icon:'⚡', text:'สตรีคให้ถึง 9',        check:()=> bestStreak>=9 },
-      { code:'SCORE35',icon:'💎', text:'ทำคะแนน ≥ 35',         check:()=> score>=35 },
-      { code:'SCORE50',icon:'🏆', text:'ทำคะแนน ≥ 50',         check:()=> score>=50 },
-      { code:'MISS3',  icon:'🧠', text:'พลาดไม่เกิน 3',        check:()=> miss<=3 && total>=8 },
-      { code:'PERF2',  icon:'✨', text:'Perfect 2 ครั้ง',       check:()=> perfCount>=2 },
-      { code:'BOMB0',  icon:'🧨', text:'อย่าโดนระเบิด',         check:()=> bombHit===0 && total>=8 },
-    ];
-
-    // deterministic pick 3 (allow repeat by day+pid)
-    const pick3 = [];
-    for(let i=0;i<3;i++){
-      const idx = (base + i*1013) % pool.length;
-      pick3.push(pool[idx]);
+    if(theme==='calm'){
+      guideText.textContent = 'โหมดสงบ: หายใจช้า ๆ + คลายไหล่ + ผ่อนสายตา';
     }
-    missions.list = pick3;
-    missions.done = [false,false,false];
-    missions.doneCount = 0;
-    renderMissions();
-  }
-
-  function renderMissions(){
-    if(!missionWrap) return;
-    missionWrap.innerHTML='';
-    missions.list.forEach((m,i)=>{
-      const row = DOC.createElement('div');
-      row.className = 'mitem' + (missions.done[i] ? ' done' : '');
-      row.innerHTML = `
-        <div class="mleft">
-          <div class="mbadge">${m.icon}</div>
-          <div class="mtext">
-            <div class="t">${m.text}</div>
-            <div class="s">รหัส: ${m.code}</div>
-          </div>
-        </div>
-        <div class="mdone">${missions.done[i] ? 'DONE' : '—'}</div>
-      `;
-      missionWrap.appendChild(row);
-    });
-  }
-
-  function accPct(){
-    return total>0 ? Math.round((score/Math.max(1,total))*100) : 0;
-  }
-
-  // P5 counters
-  let perfCount=0;
-  let bombHit=0;
-
-  function setHUD(){
-    hudTime.textContent = `${Math.ceil(tLeft)}s`;
-    hudScore.textContent = String(score);
-    hudMiss.textContent = String(miss);
-    hudStreak.textContent = String(bestStreak);
-    hudAcc.textContent = accPct() + '%';
-  }
-
-  function clearStage(){
-    cancelAnimationFrame(stageAnimRaf);
-    stageAnimRaf = 0;
-    teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
-    teardownFns = [];
-
-    Array.from(stage.children).forEach(el=>{
-      if(el===toast || el===flash || el===center) return;
-      try{ el.remove(); }catch{}
-    });
-
-    center.style.display='block';
-    big.textContent = isP5 ? '⚡' : '🎯';
-    hint.textContent = isP5
-      ? 'โหมด ป.5: ทำภารกิจ + รักษาสตรีค ระวังกับดัก!'
-      : 'กด “เริ่ม” แล้วเล่นสั้น ๆ ก่อนเข้าเกมจริง';
-  }
-
-  function makeWarmupBuff(){
-    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
-    // P5: ให้ช่วงบัฟกว้างขึ้นนิด (5..30)
-    const pctBuff = Math.round(clamp(acc*100, 5, 30));
-    const rank = (acc>=0.88) ? 'S' : (acc>=0.74) ? 'A' : (acc>=0.60) ? 'B' : 'C';
-
-    let wCrit=0, wDmg=0, wHeal=0;
-    if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
-    else if(['shadow','rhythm','jumpduck'].includes(themeKey)) wDmg = 1;
-    else wCrit = 1;
-
-    // mission bonus: complete >=2 => +5% buff (cap 30)
-    const bonus = (missions.doneCount>=2) ? 5 : 0;
-    const finalPct = clamp(pctBuff + bonus, 5, 30);
-
-    return { wType:'warmup', wPct:finalPct, rank, wCrit, wDmg, wHeal };
-  }
-
-  function applyPlanSeqParams(u){
-    [
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext'
-    ].forEach(k=>{
-      const v = q(k,'');
-      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-    });
-    return u;
-  }
-
-  function buildNextUrl(buff){
-    let target = next0 || hub;
-
-    const u = new URL(target, location.href);
-    applyPlanSeqParams(u);
-
-    if(phase==='cooldown'){
-      // always calm
-      u.searchParams.set('calm', '1');
-      if(isP5) u.searchParams.set('grade','p5');
-      return u.toString();
+    if(theme==='active'){
+      guideText.textContent = 'โหมดตื่นตัว: ขยับแขน/ไหล่ + ยืดหลัง + โฟกัสสายตา';
     }
+  }
+  setGuideByTheme();
 
-    // passthrough
-    [
-      'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase','grade'
-    ].forEach(k=>{
-      const v = q(k,'');
-      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-    });
-
-    const rp = q('researchPhase','');
-    if(rp && !u.searchParams.has('phase')) u.searchParams.set('phase', rp);
-
-    if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
-    if(isP5 && !u.searchParams.has('grade')) u.searchParams.set('grade','p5');
-
-    Object.entries(buff||{}).forEach(([k,v])=>{
-      if(v===undefined || v===null || v==='') return;
-      u.searchParams.set(k, String(v));
-    });
-
-    if(!u.searchParams.has('wType')) u.searchParams.set('wType', String(buff.wType || 'warmup'));
-    if(!u.searchParams.has('wPct'))  u.searchParams.set('wPct',  String(buff.wPct  || 10));
-
-    return u.toString();
+  if(dbg){
+    debugBox.style.display = 'block';
+    debugText.textContent =
+      `seed=${seedStr}\n`+
+      `doneKey=${doneKey}\n`+
+      `next=${abs(next)||'(none)'}\n`+
+      `hub=${abs(hub)||'(none)'}\n`;
   }
 
-  function updateMissions(){
-    let c=0;
-    missions.list.forEach((m,i)=>{
-      const ok = !!m.check();
-      missions.done[i]=ok;
-      if(ok) c++;
-    });
-    missions.doneCount = c;
-    renderMissions();
+  // ---- routing ----
+  function fallbackHub(){
+    if(hub) return abs(hub);
+    try{ return new URL('./hub.html', location.href).toString(); }catch(e){ return './hub.html'; }
+  }
+  function nextUrl(){
+    if(next) return abs(next);
+    if(hub) return abs(hub);
+    return fallbackHub();
   }
 
-  function endNow(buffObj){
-    if(!started) return;
-    started=false;
-    cancelAnimationFrame(raf);
-    cancelAnimationFrame(stageAnimRaf);
-    raf = 0; stageAnimRaf = 0;
-
-    markDaily(dailyPrefix, cat, pid);
-
-    updateMissions();
-
-    const buff = buffObj || {};
-    const nextUrl = buildNextUrl(buff);
-
-    endOverlay.style.display='flex';
-    endOverlay.setAttribute('aria-hidden','false');
-
-    const a = accPct();
-    endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
-    endScore.textContent = String(score);
-    endAcc.textContent   = a + '%';
-    endStreak.textContent= String(bestStreak);
-    endMissions.textContent = `${missions.doneCount}/3`;
-
-    endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
-    endNext.textContent  = nextUrl ? 'YES' : 'HUB';
-    endMsg.textContent =
-      (phase==='cooldown')
-        ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
-        : (missions.doneCount>=2 ? 'สุดยอด! ทำภารกิจได้ ≥ 2 ข้อ ได้โบนัสบัฟด้วย!' : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง');
-
-    btnToHub.onclick = ()=> location.href = hub;
-    btnContinue.onclick = ()=> location.replace(nextUrl || hub);
+  // prevent loop spam (per tab)
+  const LOOP_KEY = `HHA_GATE_LOOP:${gatePhase}:${cat}:${pid}:${dayKey}`;
+  function loopCount(){
+    try{ return Number(sessionStorage.getItem(LOOP_KEY)||'0')||0; }catch(e){ return 0; }
+  }
+  function bumpLoop(){
+    try{ sessionStorage.setItem(LOOP_KEY, String(loopCount()+1)); }catch(e){}
   }
 
-  function tick(ts){
-    if(!started) return;
-    if(!lastTs) lastTs = ts;
-    const dt = Math.min(0.25, (ts-lastTs)/1000);
-    lastTs = ts;
+  // if already done today → show banner + enable “go next” immediately
+  const alreadyDone = isDoneToday();
+  if(alreadyDone){
+    doneBanner.classList.add('show');
+    timerLabel.textContent = 'DONE TODAY';
+    timeText.textContent = '0';
+    hintText.textContent = 'วันนี้ทำแล้ว ✅ กด Start (ข้ามได้) หรือไปต่อได้เลย';
+    btnStart.textContent = 'Go Next';
+    btnStart.classList.add('good');
+  }
+
+  btnBackHub.addEventListener('click', ()=> location.href = fallbackHub());
+
+  btnSkip.addEventListener('click', ()=>{
+    // skip does NOT mark done
+    location.href = nextUrl();
+  });
+
+  // ---- timer flow ----
+  let running = false;
+  let tLeft = dur;
+  let t0 = 0;
+
+  function updateUI(){
+    timeText.textContent = String(Math.max(0, Math.ceil(tLeft)));
+    const p = (dur>0) ? (1 - (tLeft/dur)) : 1;
+    barFill.style.width = `${Math.max(0, Math.min(100, p*100))}%`;
+  }
+  updateUI();
+
+  function finishAndGo(){
+    markDone();
+    doneBanner.classList.add('show');
+    timerLabel.textContent = 'SAVED ✅';
+    hintText.textContent = 'บันทึกแล้วสำหรับวันนี้ — กำลังไปต่อ...';
+    setTimeout(()=> location.href = nextUrl(), 450);
+  }
+
+  function tick(now){
+    if(!running) return;
+    const dt = (now - t0)/1000;
+    t0 = now;
     tLeft = Math.max(0, tLeft - dt);
-
-    // update missions live (lightweight)
-    updateMissions();
-
-    setHUD();
-    if(tLeft<=0){
-      if(phase==='cooldown') endNow({ calm: 1 });
-      else endNow(makeWarmupBuff());
+    updateUI();
+    if(tLeft <= 0){
+      running = false;
+      finishAndGo();
       return;
     }
-    raf = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
 
-  function autoSkipIfDaily(){
-    if(!dailyDone) return false;
-    const target = (next0 || hub);
-    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}) → ข้ามอัตโนมัติ`;
-    statusText.textContent = 'Daily gate: DONE';
-    setTimeout(()=> location.replace(target), 220);
-    return true;
-  }
-
-  function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function mkBtn(label){
-    const b=DOC.createElement('button');
-    b.className='btn';
-    b.textContent=label;
-    return b;
-  }
-  function mkPad(cols){
-    const pad=DOC.createElement('div');
-    pad.style.position='absolute';
-    pad.style.left='12px'; pad.style.right='12px'; pad.style.bottom='12px';
-    pad.style.display='grid';
-    pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
-    pad.style.gap='8px';
-    stage.appendChild(pad);
-    return pad;
-  }
-
-  // ===== P5 MINI GAMES (skill/risk/goal) =====
-  // Generic target spawner: tap correct, avoid traps, keep streak
-  function runP5_TargetRush(opts){
-    // opts: { title, desc, goodSet, badSet, bombSet?, goodRate?, bombRate?, ttlMsBase? }
-    gameTitle.textContent = opts.title;
-    desc.textContent = opts.desc;
-    center.style.display='none';
-
-    const board=DOC.createElement('div');
-    Object.assign(board.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',height:'min(360px,54vh)',
-      border:'1px solid rgba(148,163,184,.18)',
-      borderRadius:'18px',
-      background:'rgba(2,6,23,.36)',
-      overflow:'hidden'
-    });
-    stage.appendChild(board);
-
-    const note=DOC.createElement('div');
-    note.style.position='absolute';
-    note.style.left='14px'; note.style.top='14px';
-    note.style.fontWeight='1100';
-    note.style.fontSize='12px';
-    note.style.color='rgba(229,231,235,.78)';
-    note.textContent = 'รักษาสตรีค! (พลาดแล้วสตรีคจะรีเซ็ต)';
-    board.appendChild(note);
-
-    const fever=DOC.createElement('div');
-    fever.style.position='absolute';
-    fever.style.right='14px'; fever.style.top='14px';
-    fever.style.fontWeight='1100';
-    fever.style.fontSize='12px';
-    fever.style.color='rgba(167,139,250,.95)';
-    fever.textContent = '×1';
-    board.appendChild(fever);
-
-    let alive=true;
-    let liveTargets=0;
-    let spawnTimer=0;
-
-    function spawnOne(){
-      if(!started || !alive) return;
-      if(liveTargets>=4) return;
-
-      const played = dur - tLeft;
-      const ttlBase = opts.ttlMsBase || 900;
-      const ttl = clamp(ttlBase - played*6, 520, 980);
-
-      const roll = Math.random();
-      const goodRate = (opts.goodRate ?? 0.70);
-      const bombRate = (opts.bombRate ?? 0.12);
-      let kind='good';
-      if(roll > goodRate){
-        kind = (opts.bombSet && roll > (1 - bombRate)) ? 'bomb' : 'bad';
-      }
-
-      const el=DOC.createElement('button');
-      el.className='btn';
-      el.type='button';
-      el.style.position='absolute';
-      el.style.width='74px'; el.style.height='74px';
-      el.style.borderRadius='18px';
-      el.style.padding='0';
-      el.style.fontSize='26px';
-      el.style.display='grid';
-      el.style.placeItems='center';
-      el.style.border='1px solid rgba(148,163,184,.18)';
-      el.style.background='rgba(2,6,23,.26)';
-
-      const w = board.getBoundingClientRect().width;
-      const h = board.getBoundingClientRect().height;
-      const x = 18 + (w-18-74-18) * Math.random();
-      const y = 62 + (h-62-74-18) * Math.random();
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-
-      const emo =
-        (kind==='good') ? randPick(opts.goodSet) :
-        (kind==='bomb') ? randPick(opts.bombSet) :
-        randPick(opts.badSet);
-
-      el.textContent = emo;
-
-      liveTargets++;
-      board.appendChild(el);
-
-      let died=false;
-      const born = performance.now();
-
-      function removeSelf(){
-        if(died) return;
-        died=true;
-        liveTargets = Math.max(0, liveTargets-1);
-        try{ el.remove(); }catch(_){}
-      }
-
-      // timeout => treat as miss (only if good)
-      const tm = setTimeout(()=>{
-        if(died) return;
-        if(kind==='good'){
-          miss++; total++;
-          streak=0;
-          toastShow('MISS'); flashBad();
-        }
-        removeSelf();
-      }, ttl);
-
-      el.addEventListener('pointerdown', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        if(died || !started) return;
-        clearTimeout(tm);
-
-        total++;
-
-        // perfect window: last 22% of ttl
-        const age = performance.now() - born;
-        const perfect = age >= ttl*0.78;
-
-        if(kind==='good'){
-          score += perfect ? 3 : 2;
-          streak++;
-          bestStreak = Math.max(bestStreak, streak);
-          if(perfect){ perfCount++; toastShow('PERFECT ✨'); }
-          else toastShow('+2');
-          flashGood();
-        }else if(kind==='bomb'){
-          bombHit++;
-          miss += 2;
-          streak = 0;
-          toastShow('BOMB! 🧨'); flashBad();
-        }else{
-          miss++;
-          streak = 0;
-          toastShow('TRAP'); flashBad();
-        }
-
-        // fever multiplier in last 6s
-        const mult = (tLeft <= 6) ? 2 : 1;
-        fever.textContent = '×' + mult;
-        if(mult===2 && kind==='good'){
-          score += 1; // small extra
-        }
-
-        removeSelf();
-      }, {passive:false});
-
-      teardownFns.push(()=>{
-        try{ clearTimeout(tm); }catch(_){}
-        try{ el.remove(); }catch(_){}
-      });
+  btnStart.addEventListener('click', ()=>{
+    // if already done today -> just go next
+    if(isDoneToday()){
+      location.href = nextUrl();
+      return;
     }
 
-    spawnTimer = setInterval(spawnOne, 220);
-    teardownFns.push(()=>{ try{ clearInterval(spawnTimer); }catch(_){ } });
-
-    // spawn a few at start
-    for(let i=0;i<2;i++) setTimeout(spawnOne, 120 + i*140);
-  }
-
-  // Nutrition P5
-  function runP5_Nutrition(){
-    runP5_TargetRush({
-      title:'P5 Warmup — Food Sort Rush',
-      desc:'แตะ “ของดี” เก็บแต้ม (PERFECT ได้โบนัส) ระวัง JUNK/ระเบิด!',
-      goodSet:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'],
-      badSet:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'],
-      bombSet:['💥','🧨'],
-      goodRate:0.72,
-      bombRate:0.12,
-      ttlMsBase:920
-    });
-  }
-
-  // Hygiene P5
-  function runP5_Hygiene(){
-    // boss shield micro: occasionally spawn 💎 (good but must tap twice quickly)
-    gameTitle.textContent='P5 Warmup — Hygiene Combo Hunt';
-    desc.textContent='แตะ “เชื้อจริง” ให้ไว ระวังกับดัก ✨ และบอส 💎 (ต้องแตะ 2 ครั้ง)';
-    center.style.display='none';
-
-    const board=DOC.createElement('div');
-    Object.assign(board.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',height:'min(360px,54vh)',
-      border:'1px solid rgba(148,163,184,.18)',borderRadius:'18px',
-      background:'rgba(2,6,23,.36)',overflow:'hidden'
-    });
-    stage.appendChild(board);
-
-    const legend=DOC.createElement('div');
-    legend.style.position='absolute';
-    legend.style.left='14px'; legend.style.top='14px';
-    legend.style.fontWeight='1100';
-    legend.style.fontSize='12px';
-    legend.style.color='rgba(229,231,235,.78)';
-    legend.textContent='🦠=แต้ม | ✨=กับดัก | 💎=บอส (2 hits)';
-    board.appendChild(legend);
-
-    let live=0;
-    let spawnTimer=0;
-
-    function spawn(){
-      if(!started) return;
-      if(live>=4) return;
-
-      const played = dur - tLeft;
-      const ttl = clamp(860 - played*7, 520, 920);
-
-      const roll=Math.random();
-      let kind='germ';
-      if(roll>0.78) kind = (roll>0.93)?'boss':'trap';
-
-      const el=DOC.createElement('button');
-      el.className='btn';
-      el.type='button';
-      el.style.position='absolute';
-      el.style.width='74px'; el.style.height='74px';
-      el.style.borderRadius='18px';
-      el.style.padding='0';
-      el.style.fontSize='26px';
-      el.style.display='grid';
-      el.style.placeItems='center';
-      el.style.border='1px solid rgba(148,163,184,.18)';
-      el.style.background='rgba(2,6,23,.26)';
-
-      const w = board.getBoundingClientRect().width;
-      const h = board.getBoundingClientRect().height;
-      el.style.left = (18 + (w-110)*Math.random())+'px';
-      el.style.top  = (62 + (h-154)*Math.random())+'px';
-
-      let hp = (kind==='boss') ? 2 : 1;
-      el.textContent = (kind==='germ')?'🦠':(kind==='trap')?'✨':'💎';
-
-      live++;
-      board.appendChild(el);
-
-      let dead=false;
-      const born=performance.now();
-      const tm=setTimeout(()=>{
-        if(dead) return;
-        if(kind==='germ' || kind==='boss'){
-          miss++; total++; streak=0; flashBad(); toastShow('MISS');
-        }
-        dead=true; live=Math.max(0,live-1);
-        try{ el.remove(); }catch(_){}
-      }, ttl);
-
-      el.addEventListener('pointerdown',(ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        if(dead || !started) return;
-
-        total++;
-
-        const age=performance.now()-born;
-        const perfect = age >= ttl*0.78;
-
-        if(kind==='trap'){
-          miss++; streak=0; bombHit++; // count as hazard
-          flashBad(); toastShow('TRAP');
-          clearTimeout(tm);
-          dead=true; live=Math.max(0,live-1);
-          try{ el.remove(); }catch(_){}
-          return;
-        }
-
-        if(kind==='boss'){
-          hp--;
-          if(hp>0){
-            // shield fake: first tap only breaks shield
-            score += 1;
-            streak++; bestStreak=Math.max(bestStreak, streak);
-            flashGood(); toastShow('SHIELD!');
-            el.textContent='🎯'; // show weakspot now
-            return;
-          }
-          // boss kill
-          score += perfect ? 5 : 4;
-          if(perfect){ perfCount++; toastShow('PERFECT 💎'); } else toastShow('+4');
-          streak++; bestStreak=Math.max(bestStreak, streak);
-          flashGood();
-        }else{
-          score += perfect ? 3 : 2;
-          if(perfect){ perfCount++; toastShow('PERFECT ✨'); } else toastShow('+2');
-          streak++; bestStreak=Math.max(bestStreak, streak);
-          flashGood();
-        }
-
-        clearTimeout(tm);
-        dead=true; live=Math.max(0,live-1);
-        try{ el.remove(); }catch(_){}
-      },{passive:false});
-
-      teardownFns.push(()=>{ try{ clearTimeout(tm); }catch(_){ } try{ el.remove(); }catch(_){ } });
+    // anti-loop: if bounced too many times in this tab, allow pass-through
+    bumpLoop();
+    if(loopCount() >= 6){
+      // fail-safe: avoid trapping the user
+      location.href = nextUrl();
+      return;
     }
 
-    spawnTimer=setInterval(spawn, 230);
-    teardownFns.push(()=>{ try{ clearInterval(spawnTimer); }catch(_){ } });
-    setTimeout(spawn, 120);
-    setTimeout(spawn, 260);
-  }
+    if(running) return;
+    running = true;
+    btnStart.disabled = true;
+    btnSkip.disabled = true;
+    btnBackHub.disabled = true;
 
-  // Exercise P5
-  function runP5_Exercise(){
-    gameTitle.textContent='P5 Warmup — Coach Callouts';
-    desc.textContent='ทำตามโค้ชให้ไว: ซ้าย/ขวา/กระโดด/หมอบ (ผิด = รีสเตรียค)';
-    center.style.display='none';
+    timerLabel.textContent = isCooldown ? 'COOLDOWN' : 'WARMUP';
+    hintText.textContent = 'ทำตามคำแนะนำ แล้วรอครบเวลา ระบบจะไปต่อให้อัตโนมัติ';
+    tLeft = dur;
+    updateUI();
 
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',padding:'14px',
-      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
-    });
-    card.innerHTML = `
-      <div class="muted" style="font-weight:1100;">คำสั่งโค้ช</div>
-      <div id="cx" style="margin-top:10px;font-size:58px;font-weight:1100;">⬅️</div>
-      <div id="ct" style="margin-top:8px;font-size:18px;font-weight:1100;">ซ้าย</div>
-      <div class="muted" style="margin-top:6px;">กดให้ตรง “หน้าต่างจังหวะ” (ท้าย ๆ จะเร็วขึ้น)</div>
-    `;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const btnA=mkBtn('ซ้าย'); const btnB=mkBtn('ขวา');
-    btnA.style.padding='14px 12px'; btnB.style.padding='14px 12px';
-    pad.appendChild(btnA); pad.appendChild(btnB);
-
-    const pad2=mkPad(2);
-    pad2.style.bottom='64px';
-    const btnC=mkBtn('JUMP'); const btnD=mkBtn('DUCK');
-    btnC.style.padding='14px 12px'; btnD.style.padding='14px 12px';
-    pad2.appendChild(btnC); pad2.appendChild(btnD);
-
-    const cmds = [
-      {t:'ซ้าย', emo:'⬅️'}, {t:'ขวา', emo:'➡️'},
-      {t:'JUMP', emo:'⬆️'}, {t:'DUCK', emo:'⬇️'}
-    ];
-    let cur = randPick(cmds);
-    let born=performance.now();
-    let winMs = 620; // reaction window, shrinks over time
-
-    function next(){
-      total++;
-      cur = randPick(cmds);
-      born = performance.now();
-      const played = dur - tLeft;
-      winMs = clamp(620 - played*10, 320, 620);
-      card.querySelector('#ct').textContent = cur.t;
-      card.querySelector('#cx').textContent = cur.emo;
-    }
-
-    function choose(a){
-      if(!started) return;
-      const age = performance.now() - born;
-      const perfect = (age <= winMs);
-
-      if(a===cur.t && perfect){
-        score += 3;
-        streak++; bestStreak=Math.max(bestStreak, streak);
-        perfCount++; toastShow('PERFECT ✨'); flashGood();
-      }else if(a===cur.t){
-        score += 2;
-        streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('+2'); flashGood();
-      }else{
-        miss++; streak=0;
-        toastShow('MISS'); flashBad();
-      }
-      next();
-    }
-
-    [
-      [btnA,'ซ้าย'],[btnB,'ขวา'],[btnC,'JUMP'],[btnD,'DUCK']
-    ].forEach(([b,val])=> b.addEventListener('click', ()=>choose(val)));
-
-    next();
-  }
-
-  // ===== Cooldown: Breath Ring Timing (perfect window) =====
-  function runCooldown_BreathRing(){
-    gameTitle.textContent = 'Cooldown — Breath Ring Timing';
-    desc.textContent = 'กด “หายใจเข้า/ออก” ให้ตรงจังหวะวง (Perfect ได้คะแนน)';
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',padding:'14px',
-      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
-    });
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">หายใจตามวง</div>
-      <div class="muted" style="margin-top:6px;">วงหด = IN | วงขยาย = OUT (กดให้ตรงช่วงสีเขียว)</div>
-      <div id="ringBox" style="position:relative; margin:14px auto 0; width:260px; height:260px;">
-        <div id="ring" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          width:240px; height:240px; border-radius:999px; border:2px solid rgba(56,189,248,.35);
-          box-shadow:0 0 0 10px rgba(34,197,94,.06) inset;">
-        </div>
-        <div id="zone" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          width:160px; height:160px; border-radius:999px; border:2px dashed rgba(34,197,94,.30);">
-        </div>
-        <div id="label" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          font-weight:1200; font-size:22px;">IN</div>
-      </div>
-      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <button class="btn primary" id="bin">IN</button>
-        <button class="btn" id="bout">OUT</button>
-      </div>
-    `;
-    stage.appendChild(card);
-
-    const ring=card.querySelector('#ring');
-    const label=card.querySelector('#label');
-    const bin=card.querySelector('#bin');
-    const bout=card.querySelector('#bout');
-
-    let t=0;
-    let cur='IN'; // expected
-    let inPerfect=false;
-
-    function step(){
-      if(!started) return;
-      const played = dur - tLeft;
-
-      // breathing cycle speed: slightly faster at end but still calm
-      const sp = 0.018 + Math.min(0.010, played*0.0004);
-      t += sp;
-
-      // s in [0..1]
-      const s = (Math.sin(t)+1)/2;
-      const size = 150 + s*90; // 150..240
-      ring.style.width = size+'px';
-      ring.style.height= size+'px';
-
-      // expected: when shrinking => IN, expanding => OUT
-      const v = Math.cos(t); // derivative sign approx
-      cur = (v < 0) ? 'OUT' : 'IN';
-      label.textContent = cur;
-
-      // perfect zone: around mid radius
-      inPerfect = (size >= 182 && size <= 198);
-
-      stageAnimRaf = requestAnimationFrame(step);
-    }
-
-    function choose(a){
-      if(!started) return;
-      total++;
-      if(a===cur && inPerfect){
-        score += 3; perfCount++; streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('PERFECT ✨'); flashGood();
-      }else if(a===cur){
-        score += 2; streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('+2'); flashGood();
-      }else{
-        miss++; streak=0; toastShow('MISS'); flashBad();
-      }
-    }
-
-    bin.addEventListener('click', ()=>choose('IN'));
-    bout.addEventListener('click', ()=>choose('OUT'));
-
-    stageAnimRaf = requestAnimationFrame(step);
-  }
-
-  // Legacy (non-P5) fallbacks (keep your original simpler ones)
-  function runLegacy_SimpleTap(){
-    gameTitle.textContent='Warmup — Quick Tap';
-    desc.textContent='แตะให้ทัน (โหมดมาตรฐาน)';
-    center.style.display='none';
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
-      width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะให้ทัน!</div>
-      <div id="it" style="font-size:60px;margin-top:8px;">🎯</div>
-      <div class="muted" style="margin-top:6px;">แตะ = +1</div>`;
-    stage.appendChild(card);
-
-    function onTap(){
-      if(!started) return;
-      total++; score++; streak++; bestStreak=Math.max(bestStreak, streak);
-      toastShow('+1'); flashGood();
-    }
-    card.addEventListener('pointerdown', onTap, {passive:true});
-    teardownFns.push(()=> card.removeEventListener('pointerdown', onTap));
-  }
-
-  // Theme map
-  const ThemeP5 = {
-    // nutrition
-    goodjunk: runP5_Nutrition,
-    groups:   runP5_Nutrition,
-    hydration:runP5_Nutrition,
-    plate:    runP5_Nutrition,
-    // hygiene
-    handwash: runP5_Hygiene,
-    brush:    runP5_Hygiene,
-    maskcough:runP5_Hygiene,
-    germdetective:runP5_Hygiene,
-    germ:     runP5_Hygiene,
-    bath:     runP5_Hygiene,
-    clean:    runP5_Hygiene,
-    cleanobjects:runP5_Hygiene,
-    // exercise
-    shadow:   runP5_Exercise,
-    rhythm:   runP5_Exercise,
-    jumpduck: runP5_Exercise,
-    balance:  runP5_Exercise,
-    planner:  runP5_Exercise,
-  };
-
-  function start(){
-    if(dailyDone){ autoSkipIfDaily(); return; }
-
-    clearStage();
-    score=0; miss=0; total=0;
-    streak=0; bestStreak=0;
-    perfCount=0; bombHit=0;
-
-    tLeft=dur; lastTs=0;
-    setHUD();
-
-    mkMissions();
-
-    endOverlay.style.display='none';
-    endOverlay.setAttribute('aria-hidden','true');
-
-    started=true;
-
-    if(phase==='cooldown'){
-      runCooldown_BreathRing();
-      statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat}`;
-    }else{
-      if(isP5){
-        const fn = ThemeP5[themeKey] || runP5_Nutrition;
-        fn();
-      }else{
-        runLegacy_SimpleTap();
-      }
-      statusText.textContent = `Warmup (${dur}s) — theme=${themeKey}`;
-    }
-
-    subLine.textContent = (phase==='cooldown')
-      ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง)'
-      : (isP5 ? 'โหมด ป.5: ทำภารกิจ + รักษาสตรีค แล้วเข้าเกมจริง' : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง)');
-
-    raf = requestAnimationFrame(tick);
-  }
-
-  function skip(){
-    const target = (next0 || hub);
-    markDaily(dailyPrefix, cat, pid);
-
-    const u = new URL(target, location.href);
-    applyPlanSeqParams(u);
-    if(isP5 && !u.searchParams.get('grade')) u.searchParams.set('grade','p5');
-    location.replace(u.toString());
-  }
-
-  function maybeAutoEnd(){
-    if(!started) return;
-    if(phase==='cooldown') endNow({ calm: 1 });
-    else endNow(makeWarmupBuff());
-  }
-
-  // top pills
-  pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
-  pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
-  pillTheme.textContent = `THEME: ${themeKey.toUpperCase()}`;
-  pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
-  durText.textContent = `${dur}s`;
-  gradeText.textContent = isP5 ? 'P5' : (grade || '—');
-
-  btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
-  btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
-
-  stage.addEventListener('pointerdown', ()=>{
-    if(!started && !dailyDone) start();
-  }, {passive:true});
-
-  if(!autoSkipIfDaily()){
-    const name = (phase==='cooldown')?'Cooldown':'Warmup';
-    subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
-    statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
-    setHUD();
-    mkMissions();
-  }
-
-  WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && started) maybeAutoEnd();
+    t0 = performance.now();
+    requestAnimationFrame(tick);
   });
+
+  // paint initial time
+  timeText.textContent = alreadyDone ? '0' : String(dur);
+
 })();
 </script>
 </body>
