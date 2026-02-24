@@ -1,13 +1,6 @@
 // === /herohealth/hub.boot.js ===
-// HeroHealth HUB Controller — PRODUCTION (PATCH v20260223-logQueueFlush)
-// ✅ Warmup/Cooldown Gate routing for real Hub buttons
-// ✅ Supports hygiene additions: germ-detective, bath, cleanobjects(home-clean)
-// ✅ Supports overrides: ?pick=rand|day and ?variant=1..5
-// ✅ Plan Runner integration (AN + AN-Plus + AN-Ultra)
-// ✅ Direct cooldown chain via cdnext (slot -> next slot warmup gate)
-// ✅ Preserves hub context + plan sequence params in ?hub=
-// ✅ NEW: Receive ?log= payload -> localStorage queue (HHA_LOG_QUEUE)
-// ✅ NEW: Flush queue opt-in via ?flush=1&endpoint=... (403-safe disable latch)
+// Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
+// PATCH v20260224: Bloom Gate wrapper (Bloom -> Warmup -> Game) + keep planSeq everywhere
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -15,955 +8,210 @@ import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js
 function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
 function nowSeed(){ return String(Date.now()); }
 
-// ---- base endpoint
 const API_ENDPOINT = qs('api', 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/');
 
-// ---- Hub params (pass-through)
 const P = {
-  run:  String(qs('run','play')).toLowerCase() || 'play',        // play|research
+  run:  String(qs('run','play')).toLowerCase() || 'play',
   diff: String(qs('diff','normal')).toLowerCase() || 'normal',
   time: clamp(qs('time','80'), 20, 300),
-  seed: String(qs('seed', nowSeed())),
+  seed: String(qs('seed','')) || nowSeed(),
+  hub:  String(qs('hub','./hub.html')) || './hub.html',
 
-  // research context
+  pid: String(qs('pid','')).trim(),
   studyId: String(qs('studyId','')).trim(),
-  phase: String(qs('phase','')).trim(), // research phase (not gate phase)
+  phase: String(qs('phase','')).trim(),
   conditionGroup: String(qs('conditionGroup','')).trim(),
-  pid: String(qs('pid','')).trim() || 'anon',
-
-  // view/log passthrough
   view: String(qs('view','')).trim(),
   log: String(qs('log','')).trim(),
 
-  // overrides for warmup-gate
-  pick: String(qs('pick','')).toLowerCase().trim(),   // rand|day
-  variant: String(qs('variant','')).trim(),           // 1..5
+  // warmup/cooldown policies (you already use these in hub)
+  warmup: String(qs('warmup','1')),
+  cooldown: String(qs('cooldown','1')),
+  dur: clamp(qs('dur','20'), 5, 60),
+  cdur: clamp(qs('cdur','15'), 5, 60),
+  pick: String(qs('pick','')).toLowerCase().trim(), // rand|day|''
+
+  // plan sequence passthrough
+  planSeq: String(qs('planSeq','')).trim(),
+  planDay: String(qs('planDay','')).trim(),
+  planSlot: String(qs('planSlot','')).trim(),
+  planMode: String(qs('planMode','')).trim(),
+  planSlots: String(qs('planSlots','')).trim(),
+  planIndex: String(qs('planIndex','')).trim(),
+  autoNext: String(qs('autoNext','')).trim(),
+  plannedGame: String(qs('plannedGame','')).trim(),
+  finalGame: String(qs('finalGame','')).trim(),
+  zone: String(qs('zone','')).trim(),
+
+  // ✅ BLOOM: a|b|c (default c)
+  bloom: String(qs('bloom','c')).toLowerCase().trim(),
 };
 
-// ---- DOM helpers
-const DOC = document;
-const $$ = (sel)=>Array.from(DOC.querySelectorAll(sel));
-const $  = (sel)=>DOC.querySelector(sel);
-
-function abs(url){
+function absUrlMaybe(url){
   if(!url) return '';
-  try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
+  try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
 }
 
-function buildUrl(base, params){
-  const u = new URL(base, location.href);
-  Object.entries(params||{}).forEach(([k,v])=>{
-    if(v===undefined || v===null || v==='') return;
-    u.searchParams.set(k, String(v));
-  });
-  return u.toString();
-}
-
-function passCommon(u){
-  const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','log','pick','variant'];
-  keys.forEach(k=>{
-    const v = P[k];
-    if(v!==undefined && v!==null && String(v).trim()!=='') u.searchParams.set(k, String(v));
-  });
-}
-
-function decidePickMode(){
-  // user override wins
-  if(P.pick==='rand' || P.pick==='day') return P.pick;
-  // default policy: play=rand, research=day
-  return (P.run==='research') ? 'day' : 'rand';
-}
-
-// ============================================================
-// LOG QUEUE (receive ?log=... from games) + FLUSH (opt-in)
-// ============================================================
-
-const LOGQ_KEY = 'HHA_LOG_QUEUE';
-const FLUSH_DISABLED_KEY = 'HHA_FLUSH_DISABLED';
-const FLUSH_DISABLED_TTL_MS = 15 * 60 * 1000;
-
-function b64urlDecodeJson(s){
-  try{
-    s = String(s||'').replace(/-/g,'+').replace(/_/g,'/');
-    while(s.length % 4) s += '=';
-    const json = decodeURIComponent(escape(atob(s)));
-    return JSON.parse(json);
-  }catch(_){
-    return null;
-  }
-}
-
-function queueLogFromUrl(){
-  const logB64 = String(qs('log','') || '').trim();
-  if(!logB64) return;
-
-  const payload = b64urlDecodeJson(logB64);
-  if(!payload) return;
-
-  try{
-    const arr = JSON.parse(localStorage.getItem(LOGQ_KEY) || '[]');
-    arr.push(payload);
-    localStorage.setItem(LOGQ_KEY, JSON.stringify(arr));
-    console.log('[HHA] queued log:', payload);
-  }catch(e){
-    console.warn('[HHA] queue log failed', e);
-  }
-
-  // clean URL to avoid re-queue on refresh
-  try{
-    const u = new URL(location.href);
-    u.searchParams.delete('log');
-    u.searchParams.delete('logKind');
-    u.searchParams.delete('from');
-    history.replaceState({}, '', u.toString());
-  }catch(_){}
-}
-
-function flushDisabledInfo(){
-  try{
-    const raw = sessionStorage.getItem(FLUSH_DISABLED_KEY);
-    if(!raw) return { disabled:false };
-    const d = JSON.parse(raw);
-    const age = Date.now() - (d.ts||0);
-    if(age > FLUSH_DISABLED_TTL_MS){
-      sessionStorage.removeItem(FLUSH_DISABLED_KEY);
-      return { disabled:false };
-    }
-    return { disabled:true, code:d.code||0, reason:d.reason||'', ts:d.ts||0 };
-  }catch(_){
-    return { disabled:false };
-  }
-}
-
-function disableFlush(code, reason){
-  try{
-    sessionStorage.setItem(FLUSH_DISABLED_KEY, JSON.stringify({
-      code: Number(code)||0,
-      reason: String(reason||''),
-      ts: Date.now()
-    }));
-  }catch(_){}
-}
-
-function loadQueue(){
-  try{ return JSON.parse(localStorage.getItem(LOGQ_KEY) || '[]'); }catch(_){ return []; }
-}
-function saveQueue(arr){
-  try{ localStorage.setItem(LOGQ_KEY, JSON.stringify(arr||[])); }catch(_){}
-}
-
-async function postJSON(url, payload){
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type':'application/json' },
-    body: JSON.stringify(payload)
-  });
-  return res;
-}
-
-async function flushQueueIfRequested(){
-  const flushOn = String(qs('flush','0') || '0') === '1';
-  if(!flushOn) return;
-
-  const endpoint = String(qs('endpoint','') || qs('api','') || '').trim();
-  if(!endpoint) return;
-
-  const dis = flushDisabledInfo();
-  if(dis.disabled){
-    console.warn('[HHA] flush disabled:', dis);
-    return;
-  }
-
-  if(window.__HHA_FLUSH_RUNNING__) return;
-  window.__HHA_FLUSH_RUNNING__ = true;
-
-  try{
-    let q = loadQueue();
-    if(!q.length){
-      console.log('[HHA] queue empty');
-      return;
-    }
-
-    const batchMax = clamp(Number(qs('flushN','8')||8), 1, 25);
-    const batch = q.slice(0, batchMax);
-
-    // try batch first
-    try{
-      const res = await postJSON(endpoint, {
-        kind: 'hha_batch',
-        ts: Date.now(),
-        source: 'hub',
-        count: batch.length,
-        items: batch
-      });
-
-      if(res.status === 401 || res.status === 403){
-        disableFlush(res.status, 'unauthorized/forbidden');
-        console.warn('[HHA] flush blocked', res.status);
-        return;
-      }
-
-      if(res.ok){
-        q = q.slice(batch.length);
-        saveQueue(q);
-        console.log('[HHA] flush ok. remain:', q.length);
-        return;
-      }
-
-      throw new Error('batch not ok');
-    }catch(e){
-      console.warn('[HHA] batch failed -> fallback per-item', e);
-    }
-
-    // fallback per-item
-    let remain = q.slice();
-    let sent = 0;
-
-    for(let i=0;i<batch.length;i++){
-      const item = batch[i];
-
-      try{
-        const res = await postJSON(endpoint, item);
-
-        if(res.status === 401 || res.status === 403){
-          disableFlush(res.status, 'unauthorized/forbidden');
-          console.warn('[HHA] flush blocked', res.status);
-          break;
-        }
-
-        if(res.ok){
-          sent++;
-          remain.shift();
-        }else{
-          console.warn('[HHA] item failed status', res.status);
-          break;
-        }
-      }catch(err){
-        console.warn('[HHA] item send error', err);
-        break;
-      }
-
-      await new Promise(r=>setTimeout(r, 180 + Math.floor(Math.random()*120)));
-    }
-
-    if(sent > 0){
-      saveQueue(remain);
-      console.log('[HHA] per-item sent', sent, 'remain', remain.length);
-    }
-  } finally {
-    window.__HHA_FLUSH_RUNNING__ = false;
-  }
-}
-
-// ============================================================
-// PLAN / SEQUENCE HELPERS (AN + AN-Plus + AN-Ultra)
-// ============================================================
-
-function parseCsvList(s){
-  return String(s || '')
-    .split(',')
-    .map(x => x.trim())
-    .filter(Boolean);
-}
-
-function normDayKey(v){
-  const s = String(v || '').trim().toLowerCase();
-  if (!s) return '1';
-  if (['1','d1','day1'].includes(s)) return '1';
-  if (['2','d2','day2'].includes(s)) return '2';
-  if (['3','d3','day3'].includes(s)) return '3';
-  return s.replace(/[^\w-]/g,'') || '1';
-}
-
-function normalizeSlotOrder(slots){
-  const uniq = [];
-  const seen = new Set();
-  (slots || []).forEach(x=>{
-    const k = String(x || '').trim().toLowerCase();
-    if (!k || seen.has(k)) return;
-    seen.add(k);
-    uniq.push(k);
-  });
-  return uniq;
-}
-
-function todayKeyLocal(){
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// default slot templates per day (customize later)
-function getPlanSlotsForDay(day){
-  const d = normDayKey(day);
-  if (d === '2') return ['s1','s2','s3'];
-  if (d === '3') return ['s1','s2','s3'];
-  return ['s1','s2','s3'];
-}
-
-// ---------- canonical game/zone ----------
-function canonicalGameKey(game){
-  const g = String(game || '').toLowerCase().trim();
-
-  // nutrition
-  if (['goodjunk','good-junk'].includes(g)) return 'goodjunk';
-  if (['groups','foodgroups','food-groups'].includes(g)) return 'groups';
-  if (['hydration','water'].includes(g)) return 'hydration';
-  if (['plate','balancedplate','balanced-plate'].includes(g)) return 'plate';
-
-  // hygiene
-  if (['handwash','wash','hygiene'].includes(g)) return 'handwash';
-  if (['brush','toothbrush','brushing'].includes(g)) return 'brush';
-  if (['maskcough','mask-cough','mask','cough'].includes(g)) return 'maskcough';
-  if (['germdetective','germ-detective','germ'].includes(g)) return 'germdetective';
-  if (['bath','bathing'].includes(g)) return 'bath';
-  if (['cleanobjects','clean-objects','clean','home-clean'].includes(g)) return 'cleanobjects';
-
-  // exercise
-  if (['planner','fitnessplanner','fitness-planner'].includes(g)) return 'planner';
-  if (['shadow','shadowbreaker','shadow-breaker'].includes(g)) return 'shadow';
-  if (['rhythm','rhythmboxer','rhythm-boxer'].includes(g)) return 'rhythm';
-  if (['jumpduck','jump-duck'].includes(g)) return 'jumpduck';
-  if (['balance','balancehold','balance-hold'].includes(g)) return 'balancehold';
-
-  return g || 'goodjunk';
-}
-
-function zoneOfGame(game){
-  const g = canonicalGameKey(game);
-  if (['goodjunk','groups','hydration','plate'].includes(g)) return 'nutrition';
-  if (['handwash','brush','maskcough','germdetective','bath','cleanobjects'].includes(g)) return 'hygiene';
-  if (['planner','shadow','rhythm','jumpduck','balancehold'].includes(g)) return 'exercise';
-  return 'nutrition';
-}
-
-function gamesInZone(zone){
-  const z = String(zone || '').toLowerCase().trim();
-  if (z === 'nutrition') return ['goodjunk','groups','hydration','plate'];
-  if (z === 'hygiene') return ['handwash','brush','maskcough','germdetective','bath','cleanobjects'];
-  if (z === 'exercise') return ['planner','shadow','rhythm','jumpduck','balancehold'];
-  return ['goodjunk','groups','hydration','plate'];
-}
-
-function hash32(str){
-  let h = 2166136261 >>> 0;
-  const s = String(str || '');
-  for(let i=0;i<s.length;i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function pickVariantInSameZone(baseGame, pickMode, ctx){
-  const zone = zoneOfGame(baseGame);
-  const pool = gamesInZone(zone);
-  if (!pool.length) return canonicalGameKey(baseGame);
-
-  const mode = String(pickMode || '').toLowerCase().trim() || 'rand';
-  if (mode === 'rand'){
-    return pool[(Math.random() * pool.length) | 0];
-  }
-
-  // day deterministic
-  const pid = String((ctx && ctx.pid) || P.pid || 'anon').trim() || 'anon';
-  const dayKey = String((ctx && ctx.dayKey) || todayKeyLocal());
-  const slot = String((ctx && ctx.slot) || '');
-  const run = String((ctx && ctx.run) || P.run || 'play');
-  const seedStr = `${pid}|${dayKey}|${slot}|${zone}|${run}`;
-  const idx = hash32(seedStr) % pool.length;
-  return pool[idx];
-}
-
-// ---------- plan source (state/config) ----------
-function resolvePlanItemFromState(day, slot){
-  const d = normDayKey(day);
-  const s = String(slot || '').toLowerCase().trim();
-
-  // localStorage override (optional)
-  try{
-    const key = `HHA_PLAN_DAY_${d}`;
-    const raw = localStorage.getItem(key);
-    if (raw){
-      const obj = JSON.parse(raw);
-      const item = obj && obj[s];
-      if (item && (item.game || item.zone)) {
-        return {
-          game: canonicalGameKey(item.game || ''),
-          zone: String(item.zone || zoneOfGame(item.game || '')).toLowerCase()
-        };
-      }
-    }
-  }catch(e){}
-
-  // fallback defaults (edit later)
-  const defaults = {
-    '1': {
-      s1: { game:'goodjunk', zone:'nutrition' },
-      s2: { game:'handwash', zone:'hygiene'   },
-      s3: { game:'planner',  zone:'exercise'  },
-    },
-    '2': {
-      s1: { game:'groups',    zone:'nutrition' },
-      s2: { game:'maskcough', zone:'hygiene'   },
-      s3: { game:'rhythm',    zone:'exercise'  },
-    },
-    '3': {
-      s1: { game:'plate',         zone:'nutrition' },
-      s2: { game:'germdetective', zone:'hygiene'   },
-      s3: { game:'jumpduck',      zone:'exercise'  },
-    }
-  };
-
-  const dayMap = defaults[d] || defaults['1'];
-  return dayMap[s] || dayMap['s1'] || { game:'goodjunk', zone:'nutrition' };
-}
-
-// ---------- hub URL helper (preserve sequence context) ----------
-function buildHubUrlWithContext(extra){
-  const u = new URL(abs('./hub.html'), location.href);
-
-  passCommon(u);
-
-  const seqKeys = ['planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone'];
-  seqKeys.forEach(k=>{
-    const v = qs(k,'');
-    if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
-  });
-
-  Object.entries(extra || {}).forEach(([k,v])=>{
-    if(v===undefined || v===null || v==='') return;
-    u.searchParams.set(k, String(v));
-  });
-
-  return u.toString();
-}
-
-// Map each game to (cat, theme) for gate
-function mapGameToCatTheme(gameKey){
-  gameKey = String(gameKey||'').toLowerCase().trim();
-
-  // nutrition
-  if(gameKey==='goodjunk')      return { cat:'nutrition', theme:'goodjunk' };
-  if(gameKey==='groups')        return { cat:'nutrition', theme:'groups' };
-  if(gameKey==='hydration')     return { cat:'nutrition', theme:'hydration' };
-  if(gameKey==='plate')         return { cat:'nutrition', theme:'plate' };
-
-  // hygiene
-  if(gameKey==='handwash')      return { cat:'hygiene', theme:'handwash' };
-  if(gameKey==='brush')         return { cat:'hygiene', theme:'brush' };
-  if(gameKey==='maskcough')     return { cat:'hygiene', theme:'maskcough' };
-  if(gameKey==='germdetective') return { cat:'hygiene', theme:'germdetective' };
-  if(gameKey==='germ')          return { cat:'hygiene', theme:'germdetective' }; // alias
-  if(gameKey==='bath')          return { cat:'hygiene', theme:'bath' };
-  if(gameKey==='cleanobjects')  return { cat:'hygiene', theme:'clean' };
-  if(gameKey==='clean')         return { cat:'hygiene', theme:'clean' };          // alias
-
-  // exercise (warmup-gate uses cat='exercise')
-  if(gameKey==='shadow')        return { cat:'exercise', theme:'shadow' };
-  if(gameKey==='rhythm')        return { cat:'exercise', theme:'rhythm' };
-  if(gameKey==='jumpduck')      return { cat:'exercise', theme:'jumpduck' };
-  if(gameKey==='balancehold')   return { cat:'exercise', theme:'balance' };
-  if(gameKey==='balance')       return { cat:'exercise', theme:'balance' };        // alias
-  if(gameKey==='planner')       return { cat:'exercise', theme:'planner' };
-
-  return { cat:'nutrition', theme:'goodjunk' };
-}
-
-function warmupGateUrlFor(nextUrl, gameKey, gatePhase, extra){
-  const gate = abs('./warmup-gate.html');
-  const hub  = abs('./hub.html');
-
-  const { cat, theme } = mapGameToCatTheme(gameKey);
-  const pick = decidePickMode();
-  const ex = extra || {};
-
-  const params = {
-    hub,
-    next: abs(nextUrl || hub),
-
-    // gate phase
-    gatePhase: String(gatePhase || 'warmup'),
-    phase: String(gatePhase || 'warmup'), // backward compatibility
-
-    cat,
-    theme,
-    pick,
-
-    // common context
-    run: P.run, diff: P.diff, time: P.time, seed: P.seed,
-    studyId: P.studyId,
-    pid: P.pid,
-    view: P.view, log: P.log
-  };
-
-  // preserve research phase separately
-  if (P.phase) params.researchPhase = P.phase;
-  if (P.conditionGroup) params.conditionGroup = P.conditionGroup;
-
-  if (P.variant) params.variant = P.variant;
-
-  Object.entries(ex).forEach(([k,v])=>{
-    if(v===undefined || v===null || v==='') return;
-    params[k] = v;
-  });
-
-  return buildUrl(gate, params);
-}
-
-// ---------- Build real game run URL ----------
-function buildGameRunUrlFromGameKey(gameKey, params){
-  const key = canonicalGameKey(gameKey);
-  const p = params || {};
-
-  const hrefMap = {
-    // nutrition
-    goodjunk: './goodjunk-vr.html',
-    groups: './groups-vr.html',
-    hydration: './hydration-vr.html',
-    plate: './plate-vr.html',
-
-    // hygiene
-    handwash: './hygiene-vr.html',
-    brush: './brush-vr.html',
-    maskcough: './maskcough-vr.html',
-    germdetective: './germ-detective-vr.html', // ปรับถ้าชื่อไฟล์จริงต่าง
-    bath: './bath-vr.html',                    // ปรับถ้าชื่อไฟล์จริงต่าง
-    cleanobjects: './home-clean.html',
-
-    // exercise
-    planner: './fitness-planner-vr.html',
-    shadow: '../fitness/shadow-breaker.html',
-    rhythm: '../fitness/rhythm-boxer.html',
-    jumpduck: './jump-duck-vr.html',
-    balancehold: './balance-hold-vr.html',
-  };
-
-  const base = hrefMap[key] || './goodjunk-vr.html';
-  const u = new URL(base, location.href);
-
-  passCommon(u);
-
-  const hubUrl = buildHubUrlWithContext({
-    planSeq: p.planSeq ? 1 : '',
-    planDay: p.planDay || '',
-    planSlot: p.planSlot || '',
-    planMode: p.planMode || '',
-    planSlots: p.planSlots || '',
-    planIndex: (p.planIndex ?? ''),
-    autoNext: p.autoNext ? 1 : '',
-    plannedGame: p.plannedGame || '',
-    finalGame: p.finalGame || key,
-    zone: p.zone || zoneOfGame(key)
-  });
-  u.searchParams.set('hub', hubUrl);
-
-  if (Number(p.cooldown || 0)) u.searchParams.set('cooldown', '1');
-  if (p.cdur != null) u.searchParams.set('cdur', String(p.cdur));
-  if (p.cdnext) u.searchParams.set('cdnext', String(p.cdnext)); // direct-chain
-
-  if (p.dur != null) u.searchParams.set('dur', String(p.dur));
-
+function addCommonParams(u){
+  const set = (k,v)=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k, String(v)); };
+
+  set('hub', P.hub);
+  set('api', API_ENDPOINT);
+
+  set('run', P.run);
+  set('diff', P.diff);
+  set('time', P.time);
+  set('seed', P.seed);
+
+  set('pid', P.pid);
+  set('studyId', P.studyId);
+  set('phase', P.phase);
+  set('conditionGroup', P.conditionGroup);
+  set('view', P.view);
+  set('log', P.log);
+
+  // warmup/cooldown policy passthrough
+  set('warmup', P.warmup);
+  set('cooldown', P.cooldown);
+  set('dur', P.dur);
+  set('cdur', P.cdur);
+  if(P.pick) set('pick', P.pick);
+
+  // plan sequence passthrough
   [
     'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
     'plannedGame','finalGame','zone'
-  ].forEach(k=>{
-    const v = p[k];
-    if(v===undefined || v===null || v==='') return;
-    u.searchParams.set(k, String(v));
-  });
+  ].forEach(k=> set(k, P[k]) );
+
+  return u;
+}
+
+function gameRunPathByKey(gameKey){
+  const k = String(gameKey||'').toLowerCase();
+  // คุณมี mapping จริงอยู่แล้วใน hub (อันนี้คือ stub ให้ครบ)
+  // ปรับได้ตามโครงจริงของคุณ
+  if(k==='goodjunk') return './vr-goodjunk/goodjunk-vr.html';
+  if(k==='groups')   return './vr-groups/groups-vr.html';
+  if(k==='hydration')return './hydration/hydration-vr.html';
+  if(k==='plate')    return './plate/plate-vr.html';
+
+  if(k==='handwash') return './hygiene-vr/handwash-vr.html';
+  if(k==='brush')    return './hygiene-vr/brush-vr.html';
+  if(k==='maskcough')return './mask-cough/mask-cough.html';
+  if(k==='germdetective') return './germ-detective/germ-detective.html';
+  if(k==='bath')     return './vr-bath/bath-vr.html';
+  if(k==='clean')    return './home-clean/clean-objects.html';
+
+  if(k==='shadow')   return '../fitness/shadow-breaker.html';
+  if(k==='rhythm')   return '../fitness/rhythm-boxer.html';
+  if(k==='jumpduck') return '../fitness/jump-duck.html';
+  if(k==='balance')  return '../fitness/balance-hold.html';
+  if(k==='planner')  return '../fitness/fitness-planner/index.html';
+
+  return './vr-goodjunk/goodjunk-vr.html';
+}
+
+function buildGameRunUrlFromGameKey(gameKey){
+  const base = absUrlMaybe(gameRunPathByKey(gameKey));
+  const u = new URL(base, location.href);
+
+  addCommonParams(u);
+
+  // ✅ set zone if missing (helps cooldown cat)
+  if(!u.searchParams.get('zone')){
+    // infer minimal
+    const k = String(gameKey||'').toLowerCase();
+    const z =
+      (['goodjunk','groups','hydration','plate'].includes(k)) ? 'nutrition' :
+      (['handwash','brush','maskcough','germdetective','bath','clean'].includes(k)) ? 'hygiene' :
+      'exercise';
+    u.searchParams.set('zone', z);
+  }
+
+  // ✅ cdnext chain: ถ้ามี plan sequence ให้ hub ทำ url slot ถัดไปเอง (ตามโค้ดจริงของคุณ)
+  // ตรงนี้คุณมี logic เดิมอยู่แล้ว: ส่ง cdnext=... ไปเกม
+  // ถ้ายังไม่มี ให้คงว่างไว้ก่อน (เกมจะกลับ hub)
+  // ตัวอย่าง:
+  // const cdnext = computeNextSlotUrl(); if(cdnext) u.searchParams.set('cdnext', cdnext);
 
   return u.toString();
 }
 
-// ---------- AN-Ultra) Build next warmup gate URL for next plan slot ----------
-function computeNextPlanSlotGateUrl(ctx, options){
-  const day = normDayKey(ctx.day || '1');
-  const slots = (ctx.slots && ctx.slots.length) ? normalizeSlotOrder(ctx.slots) : getPlanSlotsForDay(day);
+function warmupGateUrlFor(gameUrl, gameKey, phase){
+  const gate = absUrlMaybe('./warmup-gate.html');
+  const u = new URL(gate, location.href);
 
-  const curIndex = Number.isFinite(Number(ctx.index))
-    ? Number(ctx.index)
-    : Math.max(0, slots.indexOf(String(ctx.slot||'').toLowerCase()));
+  addCommonParams(u);
 
-  const nextIndex = curIndex + 1;
-  const hasNext = nextIndex < slots.length;
+  u.searchParams.set('gatePhase', String(phase||'warmup'));
+  u.searchParams.set('next', absUrlMaybe(gameUrl));
+  u.searchParams.set('cat', String(P.zone || u.searchParams.get('zone') || 'nutrition'));
 
-  const opt = Object.assign({
-    warmupDur: 20,
-    cooldownDur: 15,
-    enableCooldown: 1
-  }, options || {});
+  // ช่วยให้ theme detect แม่น
+  u.searchParams.set('theme', String(gameKey||'').toLowerCase());
 
-  if(!hasNext){
-    return buildHubUrlWithContext({
-      planSeq: 1,
-      planDay: day,
-      planSlot: ctx.slot || '',
-      planMode: ctx.mode || 'plan',
-      planSlots: slots.join(','),
-      planIndex: curIndex,
-      autoNext: ctx.autoNext ? 1 : ''
-    });
-  }
-
-  const nextSlot = slots[nextIndex];
-  const resolved = resolvePlanItemFromState(day, nextSlot);
-  let baseGame = canonicalGameKey((resolved && resolved.game) || '');
-  let zone = String((resolved && resolved.zone) || '').toLowerCase().trim();
-
-  if(!baseGame){
-    if(zone === 'hygiene') baseGame = 'handwash';
-    else if(zone === 'exercise') baseGame = 'planner';
-    else baseGame = 'goodjunk';
-  }
-  if(!zone) zone = zoneOfGame(baseGame);
-
-  const mode = String(ctx.mode || 'plan').toLowerCase();
-  let finalGame = baseGame;
-  if(mode === 'zone-random' || mode === 'zone-day'){
-    finalGame = pickVariantInSameZone(baseGame, (mode === 'zone-day' ? 'day' : 'rand'), {
-      pid: P.pid,
-      dayKey: todayKeyLocal(),
-      slot: nextSlot,
-      run: P.run
-    });
-  }
-
-  const planMeta = {
-    planDay: day,
-    planSlot: nextSlot,
-    planMode: mode,
-    planSeq: 1,
-    planSlots: slots.join(','),
-    planIndex: nextIndex,
-    autoNext: ctx.autoNext ? 1 : 0,
-    plannedGame: baseGame,
-    finalGame,
-    zone
-  };
-
-  const gameUrl = buildGameRunUrlFromGameKey(finalGame, {
-    ...planMeta,
-    cdur: opt.cooldownDur,
-    cooldown: opt.enableCooldown ? 1 : 0
-  });
-
-  return warmupGateUrlFor(gameUrl, finalGame, 'warmup', {
-    dur: opt.warmupDur,
-    cdur: opt.cooldownDur,
-    ...planMeta
-  });
+  return u.toString();
 }
 
-function computeCooldownNextTargetForPlan(params){
-  const day = normDayKey(params.planDay || '1');
-  const slots = parseCsvList(params.planSlots || '').length
-    ? normalizeSlotOrder(parseCsvList(params.planSlots || ''))
-    : getPlanSlotsForDay(day);
+// ✅ NEW: Bloom gate url
+function bloomGateUrlFor(nextUrl, gameKey, bloomLevel){
+  const gate = absUrlMaybe('./bloom-gate.html');
+  const u = new URL(gate, location.href);
 
-  const idx = Number.isFinite(Number(params.planIndex))
-    ? Number(params.planIndex)
-    : Math.max(0, slots.indexOf(String(params.planSlot || '').toLowerCase()));
+  addCommonParams(u);
 
-  const ctx = {
-    day,
-    slot: params.planSlot || slots[idx] || '',
-    mode: params.planMode || 'plan',
-    slots,
-    index: idx,
-    autoNext: Number(params.autoNext || 0) ? 1 : 0
-  };
+  u.searchParams.set('bloom', String(bloomLevel||P.bloom||'c'));
+  u.searchParams.set('next', absUrlMaybe(nextUrl));
+  u.searchParams.set('cat', String(P.zone || 'nutrition'));
+  u.searchParams.set('theme', String(gameKey||'').toLowerCase());
 
-  const input = (typeof readPlanRunnerInputs === 'function')
-    ? readPlanRunnerInputs()
-    : { warmupDur:20, cooldownDur:15, enableCooldown:true };
+  // bloom สั้นกว่า warmup
+  if(!u.searchParams.get('dur')) u.searchParams.set('dur', '18');
 
-  return computeNextPlanSlotGateUrl(ctx, {
-    warmupDur: Number(input.warmupDur || 20),
-    cooldownDur: Number(input.cooldownDur || 15),
-    enableCooldown: input.enableCooldown ? 1 : 0
-  });
+  return u.toString();
 }
 
-// ---------- Optional plan runner inputs reader (safe fallback) ----------
-function readPlanRunnerInputs(){
-  const dayEl = DOC.getElementById('planDay');
-  const slotEl = DOC.getElementById('planSlot');
-  const modeEl = DOC.getElementById('planMode');
-  const autoEl = DOC.getElementById('planAutoNext');
-  const wuEl = DOC.getElementById('planWarmupDur');
-  const cdEl = DOC.getElementById('planCooldownDur');
-  const enCdEl = DOC.getElementById('planEnableCooldown');
+// ✅ NEW: wrapper: Bloom -> Warmup -> Game
+function wrapBloomWarmup(gameUrl, gameKey){
+  const warmUrl = warmupGateUrlFor(gameUrl, gameKey, 'warmup');
 
-  return {
-    day: dayEl ? String(dayEl.value || '1') : String(qs('planDay','1') || '1'),
-    slot: slotEl ? String(slotEl.value || 's1') : String(qs('planSlot','s1') || 's1'),
-    mode: modeEl ? String(modeEl.value || 'plan') : String(qs('planMode','plan') || 'plan'),
-    autoNext: autoEl ? !!autoEl.checked : Number(qs('autoNext','0')) === 1,
-    warmupDur: wuEl ? Number(wuEl.value || 20) : Number(qs('dur','20') || 20),
-    cooldownDur: cdEl ? Number(cdEl.value || 15) : Number(qs('cdur','15') || 15),
-    enableCooldown: enCdEl ? !!enCdEl.checked : Number(qs('cooldown','1')) !== 0
-  };
+  const b = String(P.bloom || 'c').toLowerCase();
+  const useBloom = (b === 'a' || b === 'b' || b === 'c');
+
+  if(!useBloom) return warmUrl;
+
+  // next ของ bloom = warmup gate
+  return bloomGateUrlFor(warmUrl, gameKey, b);
 }
 
-// ---------- Start a plan slot (AN-Plus/Ultra) ----------
-function startPlanDaySlot(opts){
-  const o = opts || {};
-
-  const day = normDayKey(o.day || qs('planDay','1') || '1');
-  const slot = String(o.slot || qs('planSlot','s1') || 's1').toLowerCase();
-  const mode = String(o.mode || qs('planMode','plan') || 'plan').toLowerCase(); // plan | zone-random | zone-day
-  const planSeq = Number(o.planSeq ?? qs('planSeq','1')) ? 1 : 0;
-  const autoNext = Number(o.autoNext ?? qs('autoNext','0')) ? 1 : 0;
-
-  const input = (typeof readPlanRunnerInputs === 'function')
-    ? readPlanRunnerInputs()
-    : { warmupDur:20, cooldownDur:15, enableCooldown:true };
-
-  const warmupDur = Number(o.warmupDur ?? input.warmupDur ?? 20) || 20;
-  const cooldownDur = Number(o.cooldownDur ?? input.cooldownDur ?? 15) || 15;
-  const enableCooldown = Number(o.enableCooldown ?? (input.enableCooldown ? 1 : 0));
-
-  const slots = normalizeSlotOrder(
-    parseCsvList(o.planSlots || qs('planSlots','')).length
-      ? parseCsvList(o.planSlots || qs('planSlots',''))
-      : getPlanSlotsForDay(day)
-  );
-  const planSlotsCsv = slots.join(',');
-  const planIndex = Number.isFinite(Number(o.planIndex))
-    ? Number(o.planIndex)
-    : Math.max(0, slots.indexOf(slot));
-
-  const resolved = resolvePlanItemFromState(day, slot);
-  let baseGame = canonicalGameKey((resolved && resolved.game) || '');
-  let zone = String((resolved && resolved.zone) || zoneOfGame(baseGame)).toLowerCase();
-
-  if (!baseGame){
-    if(zone === 'hygiene') baseGame = 'handwash';
-    else if(zone === 'exercise') baseGame = 'planner';
-    else baseGame = 'goodjunk';
-  }
-  if (!zone) zone = zoneOfGame(baseGame);
-
-  let finalGame = baseGame;
-  if (mode === 'zone-random' || mode === 'zone-day'){
-    finalGame = pickVariantInSameZone(baseGame, mode === 'zone-day' ? 'day' : 'rand', {
-      pid: P.pid,
-      dayKey: todayKeyLocal(),
-      slot,
-      run: P.run
-    });
-  }
-
-  const planMeta = {
-    planSeq,
-    planDay: day,
-    planSlot: slot,
-    planMode: mode,
-    planSlots: planSlotsCsv,
-    planIndex: (planIndex < 0 ? 0 : planIndex),
-    autoNext,
-    plannedGame: baseGame,
-    finalGame,
-    zone
-  };
-
-  let cdnext = '';
-  if (planSeq) {
-    cdnext = computeCooldownNextTargetForPlan(planMeta);
-  }
-
-  const gameUrl = buildGameRunUrlFromGameKey(finalGame, {
-    ...planMeta,
-    cooldown: enableCooldown ? 1 : 0,
-    cdur: cooldownDur,
-    cdnext
-  });
-
-  const gateUrl = warmupGateUrlFor(gameUrl, finalGame, 'warmup', {
-    dur: warmupDur,
-    cdur: cooldownDur,
-    ...planMeta
-  });
-
-  location.href = gateUrl;
-}
-
-// ---------- Patch plain hub links (pass-through + hub back link) ----------
-function patchLink(id){
-  const el = DOC.getElementById(id);
-  if(!el) return;
-  const href = el.getAttribute('href');
-  if(!href || href === '#' || el.getAttribute('aria-disabled') === 'true') return;
-
-  try{
-    const u = new URL(href, location.href);
-    passCommon(u);
-    u.searchParams.set('hub', buildHubUrlWithContext());
-    el.setAttribute('href', u.toString());
-  }catch(e){}
-}
-
-// ---------- Real hub button routing via warmup-gate ----------
 function setupHubButtons(){
-  const BTN_GAME_MAP = {
-    // Nutrition
-    goGoodJunk: 'goodjunk',
-    goGroups: 'groups',
-    goHydration: 'hydration',
-    goPlate: 'plate',
-
-    // Hygiene
-    goHandwash: 'handwash',
-    goBrush: 'brush',
-    goMaskCough: 'maskcough',
-    goGermDetective: 'germdetective',
-    goBath: 'bath',
-    goCleanObjects: 'cleanobjects',
-
-    // Fitness
-    goPlanner: 'planner',
-    goShadow: 'shadow',
-    goRhythm: 'rhythm',
-    goJumpDuck: 'jumpduck',
-    goBalanceHold: 'balancehold',
-  };
-
-  Object.entries(BTN_GAME_MAP).forEach(([id, gameKey])=>{
-    const el = DOC.getElementById(id);
-    if(!el) return;
-
-    const href = el.getAttribute('href') || '';
-    const disabled = el.classList.contains('btn--disabled') || el.getAttribute('aria-disabled') === 'true' || href === '#';
-    if(disabled) return;
-
-    patchLink(id);
-
-    el.addEventListener('click', (e)=>{
-      if (e.defaultPrevented) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-
+  // ปุ่มแต่ละเกมใน HUB ของคุณ (ตัวจริงคุณมี querySelector ที่เจาะปุ่ม)
+  // ตรงนี้ทำให้เป็นตัวอย่างที่ “แปะทับ” ได้โดยไม่พัง:
+  const btns = document.querySelectorAll('[data-game]');
+  btns.forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
       e.preventDefault();
+      const gameKey = String(btn.getAttribute('data-game')||'goodjunk').toLowerCase();
+      const gameUrl = buildGameRunUrlFromGameKey(gameKey);
 
-      const currentHref = el.getAttribute('href') || href;
-      const gateUrl = warmupGateUrlFor(currentHref, gameKey, 'warmup');
-      location.href = gateUrl;
-    });
+      // ✅ PATCH: go Bloom -> Warmup -> Game
+      const finalUrl = wrapBloomWarmup(gameUrl, gameKey);
+      location.href = finalUrl;
+    }, {passive:false});
   });
 }
 
-// ---------- Legacy generic card wiring ----------
-function setupGameCards(){
-  $$('.game-card,[data-game][data-run-href]').forEach(el=>{
-    const game = el.getAttribute('data-game');
-    const runHref = el.getAttribute('data-run-href');
-    if(!game || !runHref) return;
-
-    el.addEventListener('click', (e)=>{
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-      e.preventDefault();
-      const gate = warmupGateUrlFor(runHref, game, 'warmup');
-      location.href = gate;
-    });
-  });
-
-  const cd = $('#btnCooldown');
-  if(cd){
-    cd.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const cat = String(cd.getAttribute('data-cat')||'nutrition').toLowerCase();
-      const next = String(cd.getAttribute('data-next')||'./hub.html');
-      const gate = buildUrl(abs('./warmup-gate.html'), {
-        hub: abs('./hub.html'),
-        next: abs(next),
-        gatePhase: 'cooldown',
-        phase: 'cooldown',
-        cat,
-        theme: 'calm',
-        pick: decidePickMode(),
-        run: P.run, pid: P.pid, diff: P.diff, time: P.time, seed: P.seed,
-        studyId: P.studyId,
-        researchPhase: P.phase || '',
-        conditionGroup: P.conditionGroup || '',
-        view: P.view, log: P.log
-      });
-      location.href = gate;
-    });
-  }
-}
-
-// ---------- Optional plan runner buttons ----------
-function bindPlanRunnerButtons(){
-  const btnStartSlot = DOC.getElementById('btnPlanStartSlot');
-  const btnStartDay = DOC.getElementById('btnPlanStartDay');
-
-  if (btnStartSlot){
-    btnStartSlot.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const v = readPlanRunnerInputs();
-      startPlanDaySlot({
-        day: v.day || '1',
-        slot: v.slot || 's1',
-        mode: v.mode || 'plan',
-        planSeq: 1,
-        autoNext: v.autoNext ? 1 : 0
-      });
-    });
-  }
-
-  if (btnStartDay){
-    btnStartDay.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const v = readPlanRunnerInputs();
-      const day = normDayKey(v.day || '1');
-      const slots = getPlanSlotsForDay(day);
-      startPlanDaySlot({
-        day,
-        slot: slots[0] || 's1',
-        mode: v.mode || 'plan',
-        planSeq: 1,
-        planSlots: slots.join(','),
-        planIndex: 0,
-        autoNext: v.autoNext ? 1 : 0
-      });
-    });
-  }
-}
-
-// ---------- API banner + retry ----------
 async function boot(){
-  // receive ?log= first, before any navigation logic
-  try{ queueLogFromUrl(); }catch(_){}
-  try{ await flushQueueIfRequested(); }catch(_){}
-
   try{
-    setBanner('info', 'กำลังตรวจสอบระบบ…');
-    attachRetry();
-
-    await probeAPI(API_ENDPOINT);
-    setBanner('ok', 'พร้อมใช้งาน');
-  }catch(err){
-    setBanner('warn', 'โหมดออฟไลน์/จำกัดการเชื่อมต่อ (ยังเล่นได้)');
+    setBanner('API', 'checking…');
+    const ok = await probeAPI(API_ENDPOINT);
+    setBanner('API', ok ? 'OK' : 'offline');
+    attachRetry(API_ENDPOINT);
+  }catch(e){
+    setBanner('API', 'offline');
   }
 
   setupHubButtons();
-  setupGameCards();
-
-  try { bindPlanRunnerButtons(); } catch(e){}
-
-  try{
-    const pick = decidePickMode();
-    const tip = $('#hubPickTip');
-    if(tip) tip.textContent = `Pick: ${pick.toUpperCase()} (run=${P.run})`;
-  }catch(e){}
-
-  try{
-    if (typeof toast === 'function') {
-      toast(`Warmup routing: ${decidePickMode().toUpperCase()} • run=${P.run}`, { kind:'info', ttl: 1800 });
-    }
-  }catch(e){}
 }
 
 boot();
