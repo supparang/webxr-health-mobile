@@ -1,511 +1,310 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR Boot — STABILIZE + HHA PATCH v20260223c
-// ✅ Fix: end overlay immediate (ignore premature end until started)
-// ✅ Fix: scroll drifting + touchmove/wheel prevention during play/end (mobile-like only)
-// ✅ Add: auto-start support (?autoStart=1 | ?start=1) for play flow
-// ✅ Add: Warmup Gate handshake passthrough -> dispatch brush:gate-handshake
-// ✅ Add: end overlay hub navigation helpers (hub param)
-// ✅ Safe with brush.safe.js exposing window.BrushVR.start/reset/showHow/togglePause (optional)
-
+// BrushVR BOOT — PRODUCTION PATCH (scroll lock + AI HUD + tap start)
 (function(){
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
+  const WIN = window, DOC = document;
 
-  function qs(k, def=''){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }
-    catch(_){ return def; }
-  }
-  function byId(id){ return DOC.getElementById(id); }
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const num = (v,d)=>{ const n = Number(v); return isFinite(n)? n : d; };
 
-  function isMobileLike(){
-    const v = String(qs('view','') || DOC.body?.dataset?.view || '').toLowerCase();
-    return v === 'mobile' || v === 'cvr' || v === 'vr' || v === 'cardboard' || /android|iphone|ipad/i.test(navigator.userAgent || '');
-  }
-  function isVRLike(){
-    const v = String(qs('view','') || '').toLowerCase();
-    return v === 'vr' || v === 'cvr' || v === 'cardboard';
+  function buildCtx(){
+    const view = String(qs('view', DOC.body.getAttribute('data-view')||'pc')||'pc').toLowerCase();
+    const hub  = qs('hub','') || '';
+    const seed = num(qs('seed', Date.now()), Date.now());
+    const time = num(qs('time', 90), 90);
+    const studyId = qs('studyId','') || '';
+    const phase = qs('phase','') || '';
+    const conditionGroup = qs('conditionGroup','') || '';
+    return { view, hub, seed, time, studyId, phase, conditionGroup };
   }
 
-  // -------- scroll lock (mobile only) --------
-  let __scrollY = 0;
-  function setScrollLock(lock){
-    // lock only on mobile-like to avoid breaking desktop scroll
-    if(!isMobileLike()) return;
+  // -------------------------
+  // Scroll lock (fix mobile page jump)
+  // -------------------------
+  function setScrollLock(locked){
+    const de = document.documentElement;
+    const body = document.body;
+    if(!de || !body) return;
 
-    try{
-      const html = DOC.documentElement;
-      const body = DOC.body;
-      if(!html || !body) return;
-
-      if(lock){
-        __scrollY = WIN.scrollY || WIN.pageYOffset || 0;
-        html.dataset.brScroll = 'lock';
-        body.style.position = 'fixed';
-        body.style.top = `-${__scrollY}px`;
-        body.style.left = '0';
-        body.style.right = '0';
-        body.style.width = '100%';
-        body.style.overflow = 'hidden';
-      }else{
-        html.dataset.brScroll = 'unlock';
-        const y = Math.abs(parseInt(body.style.top || '0', 10)) || __scrollY || 0;
-        body.style.position = '';
-        body.style.top = '';
-        body.style.left = '';
-        body.style.right = '';
-        body.style.width = '';
-        body.style.overflow = '';
-        try{ WIN.scrollTo(0, y); }catch(_){}
-      }
-    }catch(_){}
+    if(locked){
+      de.setAttribute('data-br-scroll', 'lock');
+      body.setAttribute('data-br-scroll', 'lock');
+      de.style.overscrollBehavior = 'none';
+      body.style.overscrollBehavior = 'none';
+      de.style.overflow = 'hidden';
+      body.style.overflow = 'hidden';
+      body.style.touchAction = 'none';
+    }else{
+      de.setAttribute('data-br-scroll', 'free');
+      body.setAttribute('data-br-scroll', 'free');
+      de.style.overscrollBehavior = '';
+      body.style.overscrollBehavior = '';
+      de.style.overflow = '';
+      body.style.overflow = '';
+      body.style.touchAction = '';
+    }
   }
 
-  // -------- UI mode sync --------
   function setUiMode(mode){
-    // mode: menu | play | end
-    try{ DOC.documentElement.dataset.brUi = mode; }catch(_){}
-    const menu = byId('br-menu');
-    const end  = byId('br-end');
-    const tap  = byId('tapStart');
+    DOC.documentElement.setAttribute('data-br-ui', mode);
+
+    const menu = DOC.getElementById('br-menu');
+    const end  = DOC.getElementById('br-end');
 
     if(menu){
-      const show = mode === 'menu';
-      menu.style.display = show ? '' : 'none';
-      menu.setAttribute('aria-hidden', show ? 'false' : 'true');
+      menu.setAttribute('aria-hidden', mode === 'menu' ? 'false' : 'true');
+      menu.style.display = (mode === 'menu') ? 'grid' : 'none';
     }
-
     if(end){
-      const show = mode === 'end';
-      end.hidden = !show;
-      end.style.display = show ? '' : 'none';
+      end.hidden = (mode !== 'end');
+      end.style.display = (mode === 'end') ? 'grid' : 'none';
     }
 
-    if(tap && mode !== 'menu'){
-      tap.style.display = 'none';
-    }
-
-    // lock scroll in play/end (mobile only)
-    if(mode === 'play' || mode === 'end'){
+    if(mode === 'play'){
       setScrollLock(true);
-      try{ WIN.scrollTo(0,0); }catch(_){}
+    }else if(mode === 'end'){
+      setScrollLock(true);
     }else{
       setScrollLock(false);
     }
-
-    // hide VR UI outside play (if present)
-    try{
-      ['hha-vrui','hha-crosshair','hha-vrui-hint'].forEach((id)=>{
-        const el = byId(id);
-        if(!el) return;
-        const show = (mode === 'play');
-        el.style.opacity = show ? '1' : '0';
-        el.style.pointerEvents = show ? '' : 'none';
-      });
-    }catch(_){}
   }
 
-  // -------- toast + fatal --------
-  function toast(msg){
-    const t = byId('toast');
-    if(!t) return;
-    t.textContent = String(msg || '');
-    t.classList.add('show');
-    clearTimeout(t.__tm);
-    t.__tm = setTimeout(()=> t.classList.remove('show'), 1300);
-  }
-  function showFatal(msg){
-    const box = byId('fatal');
-    if(!box) return;
-    box.textContent = 'JS ERROR:\n' + String(msg || 'Unknown error');
-    box.classList.remove('br-hidden');
-  }
+  // Observe state changes from engine (wrap[data-state])
+  function wireStateObserver(){
+    const wrap = DOC.getElementById('br-wrap');
+    if(!wrap || wrap.__stateObserverWired) return;
+    wrap.__stateObserverWired = true;
 
-  // -------- prevent scroll during play/end (mobile only) --------
-  function bindNoScrollWhilePlay(){
-    if(!isMobileLike()) return;
-
-    DOC.addEventListener('touchmove', function(ev){
-      const mode = DOC.documentElement?.dataset?.brUi || '';
-      if(mode === 'play' || mode === 'end'){
-        ev.preventDefault();
-      }
-    }, { passive:false });
-
-    DOC.addEventListener('wheel', function(ev){
-      const mode = DOC.documentElement?.dataset?.brUi || '';
-      if(mode === 'play' || mode === 'end'){
-        ev.preventDefault();
-      }
-    }, { passive:false });
-
-    WIN.addEventListener('pagehide', ()=> setScrollLock(false), { passive:true });
-    WIN.addEventListener('beforeunload', ()=> setScrollLock(false), { passive:true });
-
-    // if app goes background during play/end -> unlock to avoid stuck body fixed
-    WIN.addEventListener('visibilitychange', ()=>{
-      if(DOC.hidden) setScrollLock(false);
-    }, { passive:true });
-  }
-
-  // -------- safe API calls --------
-  function safeCall(fnName, ...args){
-    try{
-      const API = WIN.BrushVR || WIN.brushGame || WIN.BRUSH || {};
-      const fn = API && API[fnName];
-      if(typeof fn === 'function') return fn.apply(API, args);
-    }catch(err){
-      console.error('[BrushVR boot] call failed:', fnName, err);
-      showFatal(err && err.stack || err && err.message || String(err));
-    }
-    return undefined;
-  }
-
-  // -------- Warmup Gate Handshake -> dispatch to safe.js --------
-  function readGateHandshake(){
-    // gateSR/gateTier/gateAssist/gateSpeed/gateFocus/gateDiffHint etc.
-    // If present, dispatch once at boot so safe.js can consume.
-    try{
-      const sp = new URL(location.href).searchParams;
-      const gateSR = sp.get('gateSR');
-      const gateAssist = sp.get('gateAssist');
-      const gateSpeed = sp.get('gateSpeed');
-      const gateTier = sp.get('gateTier');
-      const gateFocus = sp.get('gateFocus');
-      const gateDiffHint = sp.get('gateDiffHint');
-
-      const has = (gateSR!=null) || (gateAssist!=null) || (gateSpeed!=null) || (gateTier!=null) || (gateDiffHint!=null);
-      if(!has) return null;
-
-      const hs = {
-        gateVer: sp.get('gateVer') || '',
-        gateSR: Number(gateSR || 0),
-        gateTier: String(gateTier || ''),
-        gateAssist: String(gateAssist || ''),
-        gateSpeed: Number(gateSpeed || 1),
-        gateFocus: String(gateFocus || ''),
-        gateDiffHint: Number(gateDiffHint || 0),
-        gateAcc: Number(sp.get('gateAcc') || 0),
-        gateHitRate: Number(sp.get('gateHitRate') || 0),
-        gateStreak: Number(sp.get('gateStreak') || 0),
-        gateSeed: String(sp.get('gateSeed') || ''),
-      };
-
-      // notify engine layer (safe.js) if it wants it
-      try{
-        WIN.dispatchEvent(new CustomEvent('brush:gate-handshake', { detail: hs }));
-      }catch(_){}
-
-      return hs;
-    }catch(_){}
-    return null;
-  }
-
-  // -------- state guard: prevent premature end overlay --------
-  let __startedOnce = false;
-  let __inPlay = false;
-  let __startToken = 0; // increases each start
-
-  function resetBeforeStart(){
-    const end  = byId('br-end');
-    const menu = byId('br-menu');
-    const tap  = byId('tapStart');
-    if(end){ end.hidden = true; end.style.display = 'none'; }
-    if(menu){ menu.style.display = 'none'; menu.setAttribute('aria-hidden','true'); }
-    if(tap){ tap.style.display = 'none'; }
-
-    // notify safe.js round reset
-    try{
-      WIN.dispatchEvent(new CustomEvent('brush:prestart-reset', { detail:{ ts: Date.now() } }));
-    }catch(_){}
-  }
-
-  function startFlow(){
-    __startToken++;
-    const myToken = __startToken;
-
-    resetBeforeStart();
-    setUiMode('play');
-    __startedOnce = true;
-    __inPlay = true;
-
-    try{ WIN.scrollTo(0,0); }catch(_){}
-
-    // call engine start
-    const res = safeCall('start');
-
-    // if engine returns false -> back to menu
-    if(res === false){
-      __inPlay = false;
-      if(myToken === __startToken){
-        setUiMode('menu');
-        toast('เริ่มเกมไม่สำเร็จ');
-      }
-      return;
-    }
-
-    toast('เริ่มเกม!');
-    // optional: notify start in case engine doesn’t
-    try{ WIN.dispatchEvent(new CustomEvent('brush:start', { detail:{ ts: Date.now(), source:'boot' } })); }catch(_){}
-  }
-
-  function retryFlow(){
-    __startToken++;
-    const myToken = __startToken;
-
-    resetBeforeStart();
-    safeCall('reset');
-    setUiMode('play');
-    __startedOnce = true;
-    __inPlay = true;
-
-    try{ WIN.scrollTo(0,0); }catch(_){}
-
-    const res = safeCall('start');
-    if(res === false){
-      __inPlay = false;
-      if(myToken === __startToken){
-        setUiMode('menu');
-        toast('เริ่มใหม่ไม่สำเร็จ');
-      }
-      return;
-    }
-    toast('เริ่มใหม่!');
-    try{ WIN.dispatchEvent(new CustomEvent('brush:start', { detail:{ ts: Date.now(), source:'boot-retry' } })); }catch(_){}
-  }
-
-  function openHow(){
-    // avoid alert inside VR (annoying in headset); use toast instead
-    const how = [
-      'วิธีเล่น BrushVR',
-      '• แตะ/ยิง 🦠 ให้ทัน',
-      '• ใกล้หมดเวลา = PERFECT โบนัส',
-      '• บอส 💎 ต้องยิงหลายครั้ง (จุดอ่อนจะเด้ง)',
-      '• โหมด cVR ยิงจากกากบาทกลางจอ'
-    ].join('\n');
-
-    if(isVRLike()){
-      toast('How: แตะ/ยิง 🦠 ให้ทัน • บอส 💎 ต้องยิงหลายครั้ง');
-      return;
-    }
-    alert(how);
-  }
-
-  // -------- hub navigation helpers --------
-  function absUrlMaybe(url){
-    if(!url) return '';
-    try{ return new URL(url, location.href).toString(); }catch(_){ return url; }
-  }
-  function getHubUrl(){
-    return absUrlMaybe(qs('hub','../hub.html')) || '../hub.html';
-  }
-  function goHub(){
-    location.href = getHubUrl();
-  }
-
-  function wireButtons(){
-    const btnStart   = byId('btnStart');
-    const btnRetry   = byId('btnRetry');
-    const btnPause   = byId('btnPause');
-    const btnHow     = byId('btnHow');
-    const btnRecenter= byId('btnRecenter');
-    const tapBtn     = byId('tapBtn');
-
-    const btnHubEnd  = byId('btnToHub');      // optional end overlay buttons
-    const btnContEnd = byId('btnContinue');   // optional
-
-    if(btnStart) btnStart.addEventListener('click', startFlow, { passive:true });
-    if(btnRetry) btnRetry.addEventListener('click', retryFlow, { passive:true });
-
-    if(btnPause){
-      btnPause.addEventListener('click', function(){
-        const API = WIN.BrushVR || WIN.brushGame || WIN.BRUSH || {};
-        if(typeof API.togglePause === 'function'){
-          API.togglePause();
-          return;
-        }
-        try{ WIN.dispatchEvent(new CustomEvent('brush:toggle-pause')); }catch(_){}
-      }, { passive:true });
-    }
-
-    if(btnHow) btnHow.addEventListener('click', function(){
-      safeCall('showHow');
-      openHow();
-    }, { passive:true });
-
-    if(btnRecenter){
-      btnRecenter.addEventListener('click', function(){
-        try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'brush-boot' } })); }catch(_){}
-        toast('Recenter');
-      }, { passive:true });
-    }
-
-    if(tapBtn){
-      tapBtn.addEventListener('click', function(){
-        const tap = byId('tapStart');
-        if(tap) tap.style.display = 'none';
-        startFlow();
-      }, { passive:true });
-    }
-
-    // optional end overlay nav
-    if(btnHubEnd) btnHubEnd.addEventListener('click', goHub, { passive:true });
-
-    if(btnContEnd){
-      btnContEnd.addEventListener('click', function(){
-        // If you want "continue" meaning "retry" for brush, do retry
-        // If you want pass-through to next (like warmup gate), support ?next
-        const next = absUrlMaybe(qs('next',''));
-        if(next){
-          location.replace(next);
-        }else{
-          retryFlow();
-        }
-      }, { passive:true });
-    }
-  }
-
-  function wireEngineEvents(){
-    // engine -> end
-    WIN.addEventListener('brush:end', function(ev){
-      const d = (ev && ev.detail) || {};
-
-      // IMPORTANT: ignore premature end signals before we actually started a round
-      // (fixes "end overlay immediately" if safe.js fires end due to init/reset)
-      if(!__startedOnce || !__inPlay){
-        // keep end hidden; stay in menu
-        try{
-          const end = byId('br-end');
-          if(end){ end.hidden = true; end.style.display = 'none'; }
-        }catch(_){}
-        return;
-      }
-
-      __inPlay = false;
-
-      const end = byId('br-end');
-      if(end){
-        end.hidden = false;
-        end.style.display = '';
-      }
-      setUiMode('end');
-
-      // note
-      const endNote = byId('endNote');
-      if(endNote && d.note) endNote.textContent = String(d.note);
-
-      // summary fields
-      const map = { sScore:'score', sMiss:'miss', sCombo:'maxCombo', sClean:'cleanPct', sTime:'timeText' };
-      Object.keys(map).forEach((id)=>{
-        const el = byId(id);
-        const k = map[id];
-        if(el && d[k] != null) el.textContent = String(d[k]);
-      });
-      if(byId('sAcc') && d.accPct != null) byId('sAcc').textContent = String(d.accPct) + '%';
-      if(byId('endGrade') && d.grade != null) byId('endGrade').textContent = String(d.grade);
-
-    }, { passive:true });
-
-    // engine -> start
-    WIN.addEventListener('brush:start', function(){
-      resetBeforeStart();
-      setUiMode('play');
-      __startedOnce = true;
-      __inPlay = true;
-    }, { passive:true });
-
-    // engine -> ui override
-    WIN.addEventListener('brush:ui', function(ev){
-      const mode = ev && ev.detail && ev.detail.mode;
-      if(mode === 'menu' || mode === 'play' || mode === 'end'){
-        if(mode === 'menu'){ __inPlay = false; }
-        if(mode === 'play'){ __startedOnce = true; __inPlay = true; }
-        setUiMode(mode);
-      }
-    }, { passive:true });
-  }
-
-  function setupInitialView(){
-    // default: menu
-    setUiMode('menu');
-
-    // always hide end (avoid markup residue)
-    const end = byId('br-end');
-    if(end){
-      end.hidden = true;
-      end.style.display = 'none';
-    }
-
-    // mobile-like + run=play => show tapStart overlay
-    const tap = byId('tapStart');
-    const run = String(qs('run','play')).toLowerCase();
-    if(tap){
-      tap.style.display = (isMobileLike() && run === 'play') ? '' : 'none';
-    }
-    if(!isMobileLike() && tap){
-      tap.style.display = 'none';
-    }
-
-    // reset guards
-    __startedOnce = false;
-    __inPlay = false;
-  }
-
-  function maybeAutoStart(){
-    // conditions:
-    // - run=play
-    // - autoStart=1 OR start=1
-    // - for mobile-like: if tapStart exists -> require user tap (don’t force)
-    const run = String(qs('run','play')).toLowerCase();
-    if(run !== 'play') return;
-
-    const auto = String(qs('autoStart','') || qs('start','') || '').trim();
-    if(auto !== '1' && auto.toLowerCase() !== 'true') return;
-
-    const tap = byId('tapStart');
-    if(isMobileLike() && tap){
-      // keep tapStart visible; user must tap for gesture/audio
-      return;
-    }
-
-    // desktop or no tapStart: safe to auto-start
-    startFlow();
-  }
-
-  function init(){
-    bindNoScrollWhilePlay();
-    wireButtons();
-    wireEngineEvents();
-    setupInitialView();
-
-    // warmup gate handshake (dispatch once at boot)
-    const hs = readGateHandshake();
-    if(hs){
-      // also expose for debug
-      WIN.__BR_GATE_HANDSHAKE__ = hs;
-    }
-
-    // optional debug hook
-    WIN.BrushVRBoot = {
-      setUiMode, setScrollLock, startFlow, retryFlow, resetBeforeStart
+    const apply = ()=>{
+      const st = String(wrap.getAttribute('data-state') || 'menu').toLowerCase();
+      if(st === 'play') setUiMode('play');
+      else if(st === 'end') setUiMode('end');
+      else setUiMode('menu');
     };
 
-    maybeAutoStart();
+    apply();
+
+    try{
+      const mo = new MutationObserver(apply);
+      mo.observe(wrap, { attributes:true, attributeFilter:['data-state'] });
+      wrap.__stateObserver = mo;
+    }catch(_){}
+  }
+
+  // -------------------------
+  // Minimal HUD AI (creates DOM if not present)
+  // -------------------------
+  function ensureAIHud(){
+    let wrap = DOC.getElementById('hud-ai');
+    if(wrap) return wrap;
+
+    wrap = DOC.createElement('section');
+    wrap.id = 'hud-ai';
+    wrap.className = 'hudCard hudAI';
+    wrap.style.position = 'fixed';
+    wrap.style.left = '12px';
+    wrap.style.bottom = '12px';
+    wrap.style.zIndex = '59';
+    wrap.style.width = 'min(420px, 92vw)';
+    wrap.style.border = '1px solid rgba(148,163,184,.18)';
+    wrap.style.borderRadius = '20px';
+    wrap.style.padding = '10px 12px';
+    wrap.style.background = 'rgba(2,6,23,.72)';
+    wrap.style.backdropFilter = 'blur(10px)';
+    wrap.style.webkitBackdropFilter = 'blur(10px)';
+    wrap.style.boxShadow = '0 18px 60px rgba(0,0,0,.35)';
+    wrap.style.pointerEvents = 'none';
+    wrap.style.opacity = '0';
+    wrap.style.transition = 'opacity .18s ease, transform .18s ease';
+    wrap.style.transform = 'translateY(6px)';
+
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="ai-emo" style="font-size:18px;line-height:1;">🧠</div>
+        <div style="flex:1;min-width:0">
+          <div id="ai-title" style="font-weight:950;letter-spacing:.2px;">AI Coach</div>
+          <div id="ai-sub" style="margin-top:2px;color:rgba(229,231,235,.82);font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">พร้อมช่วย!</div>
+        </div>
+        <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
+      </div>
+      <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">
+        ยิงจุดอ่อนวงเหลืองบนบอส 💎
+      </div>
+    `;
+    DOC.body.appendChild(wrap);
+    return wrap;
+  }
+
+  function setAI(msg){
+    const wrap = ensureAIHud();
+    const emo = DOC.getElementById('ai-emo');
+    const title = DOC.getElementById('ai-title');
+    const sub = DOC.getElementById('ai-sub');
+    const tag = DOC.getElementById('ai-tag');
+    const mini = DOC.getElementById('ai-mini');
+    if(emo) emo.textContent = msg.emo || '🧠';
+    if(title) title.textContent = msg.title || 'AI Coach';
+    if(sub) sub.textContent = msg.sub || '';
+    if(tag) tag.textContent = msg.tag || 'TIP';
+    if(mini) mini.textContent = msg.mini || '';
+    wrap.style.opacity = '1';
+    wrap.style.transform = 'translateY(0)';
+    clearTimeout(setAI._t);
+    setAI._t = setTimeout(()=>{
+      wrap.style.opacity = '0';
+      wrap.style.transform = 'translateY(6px)';
+    }, msg.ms || 1600);
+  }
+
+  function bigPop(msg){
+    let el = DOC.getElementById('ai-bigpop');
+    if(!el){
+      el = DOC.createElement('div');
+      el.id = 'ai-bigpop';
+      el.style.position='fixed';
+      el.style.left='50%';
+      el.style.top='50%';
+      el.style.transform='translate(-50%,-50%) scale(0.96)';
+      el.style.zIndex='60';
+      el.style.padding='12px 16px';
+      el.style.borderRadius='999px';
+      el.style.border='1px solid rgba(148,163,184,.22)';
+      el.style.background='rgba(2,6,23,.78)';
+      el.style.color='rgba(229,231,235,.95)';
+      el.style.fontWeight='950';
+      el.style.letterSpacing='.6px';
+      el.style.boxShadow='0 18px 60px rgba(0,0,0,.45)';
+      el.style.backdropFilter='blur(10px)';
+      el.style.webkitBackdropFilter='blur(10px)';
+      el.style.pointerEvents='none';
+      el.style.opacity='0';
+      el.style.transition='opacity .14s ease, transform .14s ease';
+      DOC.body.appendChild(el);
+    }
+    el.textContent = msg.big || msg.title || 'READY!';
+    el.style.opacity='1';
+    el.style.transform='translate(-50%,-50%) scale(1)';
+    clearTimeout(bigPop._t);
+    bigPop._t = setTimeout(()=>{
+      el.style.opacity='0';
+      el.style.transform='translate(-50%,-50%) scale(0.96)';
+    }, msg.bigMs || 900);
+  }
+
+  function aiMsgFromEvent(ev){
+    const d = ev?.detail || {};
+    const t = String(d.type||'').toLowerCase();
+    const mk = (emo,title,sub,mini,tag='TIP',ms=1600,big=null,bigMs=900)=>({emo,title,sub,mini,tag,ms,big,bigMs});
+
+    switch(t){
+      case 'boss_start':
+        return mk('💎','บอสคราบหนามาแล้ว!','ยิงวงเหลือง = แรงกว่า','อย่ารัวสุ่ม เล็งวงเหลืองก่อน','BOSS',1800,'BOSS!',900);
+      case 'boss_phase':
+        return mk('🔥','บอสยังอยู่','ทำคอมโบต่อเนื่อง','เก็บคอมโบ + ยิง weakspot','BOSS',1400);
+      case 'gate_break':
+        return mk('🎯','Weakspot Hit!','โดนจุดอ่อนแล้ว','ยิงซ้ำต่อได้เลย','HIT',1200,'WEAK!',800);
+      case 'time_10s':
+        return mk('⏳','อีก 10 วิ!','เร่งแบบแม่น ๆ','กันพลาด > รักษาคอมโบ','TIME',1200,'10s!',800);
+      default:
+        return null;
+    }
+  }
+
+  function shouldBigPop(type){
+    const t = String(type||'').toLowerCase();
+    return (t==='boss_start' || t==='gate_break' || t==='time_10s');
+  }
+
+  const RL = {
+    lastAny: 0,
+    lastBig: 0,
+    minAnyMs: 260,
+    minBigMs: 900
+  };
+
+  function onBrushAI(ev){
+    const d = ev?.detail || {};
+    const type = d.type;
+    const n = Date.now();
+
+    if(n - RL.lastAny < RL.minAnyMs) return;
+    RL.lastAny = n;
+
+    const msg = aiMsgFromEvent(ev);
+    if(!msg) return;
+
+    setAI(msg);
+
+    if(shouldBigPop(type)){
+      if(n - RL.lastBig < RL.minBigMs) return;
+      RL.lastBig = n;
+      bigPop(msg);
+    }
+  }
+
+  function wireButtonsUiHints(){
+    const btnStart = DOC.getElementById('btnStart');
+    const btnRetry = DOC.getElementById('btnRetry');
+    const btnBack = DOC.getElementById('btnBack');
+    const btnBackHub2 = DOC.getElementById('btnBackHub2');
+
+    btnStart?.addEventListener('click', ()=> setUiMode('play'), {passive:true});
+    btnRetry?.addEventListener('click', ()=> setUiMode('play'), {passive:true});
+    btnBack?.addEventListener('click', ()=> setUiMode('menu'), {passive:true});
+    btnBackHub2?.addEventListener('click', ()=> setUiMode('menu'), {passive:true});
+
+    // custom events from engine
+    WIN.addEventListener('hha:mode', (e)=>{
+      const mode = String(e?.detail?.mode || '').toLowerCase();
+      if(mode === 'play') setUiMode('play');
+      else if(mode === 'end') setUiMode('end');
+      else if(mode) setUiMode('menu');
+    });
+  }
+
+  function boot(){
+    const ctx = buildCtx();
+
+    DOC.body.setAttribute('data-view', ctx.view);
+    DOC.documentElement.setAttribute('data-view', ctx.view);
+
+    WIN.addEventListener('brush:ai', onBrushAI);
+    wireStateObserver();
+    wireButtonsUiHints();
+
+    // initial mode = menu
+    setUiMode('menu');
+
+    // ถ้ามี engine API ก็เรียก (แต่ brush.safe.js ปัจจุบัน autoload UI แล้ว)
+    if(WIN.BrushVR && typeof WIN.BrushVR.boot === 'function'){
+      try{ WIN.BrushVR.boot(ctx); }catch(e){ console.warn('[BrushVR.boot] error', e); }
+    }else{
+      console.warn('[BrushVR] missing BrushVR.boot(ctx) — using safe.js autoload mode');
+    }
+  }
+
+  function setupTapStart(){
+    const tap = DOC.getElementById('tapStart');
+    const btn = DOC.getElementById('tapBtn');
+    if(!tap || !btn){
+      boot();
+      return;
+    }
+    tap.style.display = 'grid';
+
+    const go = ()=>{
+      try{ tap.style.display='none'; }catch(_){}
+      boot();
+    };
+
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+    tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); go(); } }, {passive:false});
   }
 
   if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', init, { once:true });
+    DOC.addEventListener('DOMContentLoaded', setupTapStart);
   }else{
-    init();
+    setupTapStart();
   }
-
-  // global error
-  WIN.addEventListener('error', function(ev){
-    try{
-      const msg = (ev && (ev.error && ev.error.stack || ev.message)) || 'Script error.';
-      showFatal(msg);
-    }catch(_){}
-  });
-
 })();
