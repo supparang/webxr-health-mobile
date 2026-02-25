@@ -1,3 +1,11 @@
+<!-- === /herohealth/clean-objects.html ===
+HeroHealth • Clean Objects (Launcher) — ROOT
+Routes to: /herohealth/vr-clean/home-clean.html
+Keeps all query params (run/diff/time/seed/pid/hub/ai/debug/api/...)
+Sets view:
+  - A (PC/Mobile): view=pc or view=mobile
+  - B (Cardboard): view=cvr (+ vr=1 hint)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -26,25 +34,26 @@
 <body>
   <div class="wrap">
     <h1>Clean Objects — Home</h1>
-    <p class="sub">เลือกโหมดเล่น: PC/Mobile = A (Map) • Cardboard = B (3D/WebXR)</p>
+    <p class="sub">เลือกโหมดเล่น: PC/Mobile = A (Map) • Cardboard = B (Crosshair)</p>
 
     <div class="grid">
       <div class="card">
         <h2>A) PC / Mobile (Map + Tap)</h2>
         <p>เล่นเร็ว คิดคุ้ม (Evaluate) + วางแผน (Create) ด้วยแผนที่บ้าน</p>
-        <button class="btn" id="btnA">Play (PC/Mobile)</button>
+        <button class="btn" id="btnA" type="button">Play (PC/Mobile)</button>
       </div>
 
       <div class="card">
-        <h2>B) Cardboard (3D + Crosshair)</h2>
-        <p>สำรวจบ้านใน 3D • เล็ง crosshair แล้วทำความสะอาด (ผ่าน <code>vr-ui.js</code>)</p>
-        <button class="btn" id="btnB">Play (Cardboard)</button>
+        <h2>B) Cardboard (Crosshair)</h2>
+        <p>เล็ง crosshair แล้วเลือกจุด (รองรับ event <code>hha:shoot</code> จาก <code>vr-ui.js</code>)</p>
+        <button class="btn" id="btnB" type="button">Play (Cardboard)</button>
       </div>
     </div>
 
     <div class="row">
       <div class="pill">ส่งต่อพารามิเตอร์ทั้งหมด: run/diff/time/seed/pid/hub/ai/debug/api</div>
       <div class="pill">ถ้าไม่ส่ง <code>view</code> มา: ปุ่มนี้จะกำหนดให้เอง</div>
+      <div class="pill">Tip: ใส่ <code>auto=1</code> เพื่อให้เข้า A อัตโนมัติ (ไม่ต้องกดปุ่ม)</div>
     </div>
 
     <div class="tiny">
@@ -57,7 +66,8 @@
 (function(){
   'use strict';
 
-  const RUN_URL = './vr-clean/home-clean.html'; // relative to /herohealth/
+  // relative to /herohealth/
+  const RUN_URL = './vr-clean/home-clean.html';
 
   function parseQS() {
     const u = new URL(location.href);
@@ -68,42 +78,52 @@
   function toQS(obj){
     const sp = new URLSearchParams();
     Object.keys(obj).forEach(k=>{
-      if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).length) sp.set(k, String(obj[k]));
+      const v = obj[k];
+      if (v !== undefined && v !== null && String(v).length) sp.set(k, String(v));
     });
     return sp.toString();
   }
 
-  // keep everything, but override view as requested
   const base = parseQS();
 
   // sensible defaults if missing
   if(!base.run)  base.run = 'play';
   if(!base.diff) base.diff = 'normal';
-  if(!base.time) base.time = '90';
+  if(!base.time) base.time = '80';          // match hub default you used often
   if(!base.seed) base.seed = String(Date.now());
   if(!base.pid)  base.pid = 'anon';
-
-  function go(view){
-    const p = Object.assign({}, base, { view });
-    const url = RUN_URL + '?' + toQS(p);
-    location.href = url;
-  }
-
-  document.getElementById('btnA').addEventListener('click', ()=> {
-    // PC/Mobile → A
-    // ให้ view เป็น mobile/pc ได้ แต่ A renderer จะถือว่า "ไม่ใช่ cvr" = A
-    go(isMobileUA() ? 'mobile' : 'pc');
-  });
-
-  document.getElementById('btnB').addEventListener('click', ()=> {
-    // Cardboard → B
-    go('cvr');
-  });
 
   function isMobileUA(){
     const ua = navigator.userAgent || '';
     return /Android|iPhone|iPad|iPod/i.test(ua);
   }
+
+  // keep everything, but override view
+  function go(view){
+    const p = Object.assign({}, base, { view });
+
+    // hint: when using cardboard, allow run page to auto-show VR affordance if you want
+    if(view === 'cvr'){
+      if(!p.vr) p.vr = '1';
+    }
+
+    const url = RUN_URL + '?' + toQS(p);
+    location.href = url;
+  }
+
+  document.getElementById('btnA').addEventListener('click', ()=> {
+    go(isMobileUA() ? 'mobile' : 'pc');
+  });
+
+  document.getElementById('btnB').addEventListener('click', ()=> {
+    go('cvr');
+  });
+
+  // optional: auto-skip launcher (useful for hub direct launch)
+  if(String(base.auto||'') === '1'){
+    go(isMobileUA() ? 'mobile' : 'pc');
+  }
+
 })();
 </script>
 </body>
