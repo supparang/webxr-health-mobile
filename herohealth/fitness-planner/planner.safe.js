@@ -1,6 +1,8 @@
 // === /herohealth/fitness-planner/planner.safe.js ===
 // Fitness Planner — Create MVP (Bloom: Create) — SAFE (non-module)
-// Patch: URL Settings modal + persistent mapping + TryToday/links use mapping
+// A1: URL mapping persistent + TryToday works
+// A2: Auto Storyboard Generator (Create)
+// A3: Sequential Play (1–2 games/day) via hub back-link to planner with next pointer
 
 'use strict';
 
@@ -11,7 +13,14 @@
     const u = new URL(location.href);
     return u.searchParams.get(name) ?? def;
   }
+  function setQS(url, key, val){
+    const u = new URL(url, location.href);
+    if(val===null || val===undefined || val==='') u.searchParams.delete(key);
+    else u.searchParams.set(key, String(val));
+    return u.toString();
+  }
   function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+
   function todayKey(){
     const d=new Date();
     const y=d.getFullYear();
@@ -32,6 +41,7 @@
     const d = new Date();
     return (d.getDay()+6)%7; // Mon=0
   }
+
   function safeParseJSON(s){ try{ return JSON.parse(s); }catch(_){ return null; } }
   function saveLS(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
   function loadLS(k,def){ try{ return safeParseJSON(localStorage.getItem(k)||'') ?? def; }catch(_){ return def; } }
@@ -46,6 +56,7 @@
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }
   function dlJson(filename, obj){ dlText(filename, JSON.stringify(obj, null, 2)); }
+
   function toast(msg){
     const t = document.createElement('div');
     t.style.cssText = `
@@ -61,15 +72,16 @@
     document.body.appendChild(t);
     setTimeout(()=>t.remove(), 1400);
   }
+
   function copyToClipboard(text){
     try{
       navigator.clipboard.writeText(text);
-      toast('คัดลอกลิงก์แล้ว ✅');
+      toast('คัดลอกแล้ว ✅');
     }catch(_){
       const ta=document.createElement('textarea');
       ta.value=text; document.body.appendChild(ta);
       ta.select(); document.execCommand('copy'); ta.remove();
-      toast('คัดลอกลิงก์แล้ว ✅');
+      toast('คัดลอกแล้ว ✅');
     }
   }
 
@@ -87,7 +99,7 @@
   const KEY_URLS = 'HHA_FITNESS_GAME_URLS_V1';
   const DEFAULT_URLS = {
     shadow:   '../fitness/shadow-breaker.html',
-    rhythm:   '../fitness/rhythm-boxer.html', // ✅ confirmed
+    rhythm:   '../fitness/rhythm-boxer.html',
     jumpduck: '../fitness/jump-duck.html',
     balance:  '../fitness/balance-hold.html',
   };
@@ -113,7 +125,6 @@
   }
 
   let GAME_URL = loadUrls();
-
   function gameUrl(id){
     const u = GAME_URL[id];
     if(!u) return '';
@@ -176,6 +187,7 @@
 
   // --------- plan ----------
   const KEY_LAST = 'HHA_FITNESS_PLAN_LAST_V1';
+  const KEY_STORY = 'HHA_FITNESS_STORY_LAST_V1';
 
   const runRaw = String(qs('run','play') || '').toLowerCase().trim();
   const runSafe = (runRaw === 'research' || runRaw === 'play') ? runRaw : 'play';
@@ -189,6 +201,7 @@
     seed: String(qs('seed', String(Date.now()))),
     diff: diffSafe,
     time: clamp(qs('time','80'), 20, 600),
+    view: qs('view', null),
   };
 
   const DEFAULT_PLAN = ()=>{
@@ -238,6 +251,13 @@
   const elBadgeGrid = $('#badgeGrid');
   const elTodayLabel = $('#todayLabel');
   const elTryList = $('#tryList');
+
+  const elStoryPreview = $('#storyPreview');
+
+  // Next panel A3
+  const elNextPanel = $('#nextPanel');
+  const elNextTitle = $('#nextTitle');
+  const elNextHint = $('#nextHint');
 
   // Modal refs
   const elUrlModal = $('#urlModal');
@@ -467,6 +487,158 @@
     }
   }
 
+  // =====================
+  // A2: Storyboard Generator
+  // =====================
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashStr(s){
+    s = String(s||'');
+    let h = 2166136261 >>> 0;
+    for(let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function pick(rng, arr){
+    if(!arr.length) return null;
+    return arr[Math.floor(rng()*arr.length)];
+  }
+
+  const STORY_THEMES = [
+    'ฮีโร่พลังปอด', 'สปีดสายฟ้า', 'สมดุลนักสู้', 'ภารกิจโรงเรียนแอคทีฟ',
+    'ท้าคอมโบ', 'วันแข่งกับตัวเอง', 'แผนแบบมือโปร', 'โหมดช่วยเพื่อน'
+  ];
+  const STORY_LOC = ['หน้าห้องเรียน', 'สนามเด็กเล่น', 'ลานกีฬา', 'โถงฮีโร่อะคาเดมี'];
+  const STORY_RULES = [
+    'โฟกัส “แม่นก่อนเร็ว”', 'หายใจยาว ๆ แล้วค่อยเร่งสปีด', 'ถ้าเริ่มล้า ลดเป็น easy ได้',
+    'ทำให้ได้ “สม่ำเสมอ” ดีกว่า “หนักวันเดียว”', 'ตั้งเป้าเล็ก ๆ แล้วทำให้สำเร็จ'
+  ];
+  const STORY_REFLECT = [
+    'วันนี้ฉันเก่งขึ้นตรงไหน 1 อย่าง?',
+    'ฉันจะปรับแผนพรุ่งนี้ให้ “สมจริงกว่าเดิม” ยังไง?',
+    'ถ้าเพื่อนเหนื่อย ฉันจะแนะนำเขายังไงให้เล่นต่อได้?',
+    'วันนี้ฉันคุมลมหายใจ/จังหวะได้ดีแค่ไหน (1–5)? เพราะอะไร?'
+  ];
+
+  function storyForDay(dayIdx, plan, sc, rng){
+    const d = plan.days[dayIdx];
+    const isRest = !d.items || !d.items.length;
+    const theme = pick(rng, STORY_THEMES);
+    const loc = pick(rng, STORY_LOC);
+    const rule = pick(rng, STORY_RULES);
+    const refQ = pick(rng, STORY_REFLECT);
+
+    if(isRest){
+      return [
+        `### ${dayName(dayIdx)} — วันพัก (Recovery Day)`,
+        `**ฉาก:** ${loc}`,
+        `**เรื่องเล่า:** วันนี้ฮีโร่เลือก “พักอย่างฉลาด” เพื่อเก็บพลังไว้ทำภารกิจวันถัดไป`,
+        `**ภารกิจเล็ก:** เดินเบา ๆ 3 นาที + ดื่มน้ำ 1 แก้ว`,
+        `**โค้ชอธิบาย:** วันพักช่วยให้ร่างกายฟื้นตัว ทำให้สัปดาห์นี้ “สม่ำเสมอ” มากขึ้น`,
+        `**คำถามสะท้อนคิด:** ${refQ}`,
+        ``
+      ].join('\n');
+    }
+
+    const items = d.items.map((it)=>{
+      const g = getGame(it.game);
+      return `${g.ico} ${g.name} (${it.diff}, ${clamp(it.min,2,20)} นาที)`;
+    }).join(' + ');
+
+    const mins = dayMinutes(d);
+    const load = dayLoad(d).toFixed(1);
+    const energy = dayEnergy(d).toFixed(1);
+
+    // Make it feel "Create": player designs + mission constraints
+    const mission = [
+      `ทำให้ได้ **“ภารกิจวันนี้”**:`,
+      `- เล่นตามแผน: ${items}`,
+      `- เป้ารวมเวลา: ${mins} นาที`,
+      `- เป้าโฟกัส: ${plan.goals.map(g=>GOALS.find(x=>x.id===g)?.label||g).join(' + ')}`,
+      `- กติกาท้าทาย: ${rule}`,
+    ].join('\n');
+
+    // Explainable coach per day
+    const limit = isWeekend(dayIdx) ? plan.constraints.limitWeekend : plan.constraints.limitWeekday;
+    const over = mins > limit;
+    const eOver = Number(energy) > ENERGY_BUDGET;
+
+    const coach = [
+      `**โค้ชอธิบาย (Why):**`,
+      `- วันนี้โหลดประมาณ **${load}** และ Energy **${energy}/${ENERGY_BUDGET}**`,
+      over ? `- ⚠️ วันนี้เวลาเกินโควต้า (${mins}/${limit} นาที) → ลด 1–2 นาที หรือเปลี่ยนเป็น easy` : `- ✅ วันนี้เวลาอยู่ในโควต้า (${mins}/${limit} นาที)`,
+      eOver ? `- ⚠️ Energy/day เกินงบ → ถ้าเหนื่อย ให้ลดความยากก่อน` : `- ✅ Energy/day อยู่ในงบ ช่วยให้เล่นต่อเนื่องได้`,
+    ].join('\n');
+
+    return [
+      `### ${dayName(dayIdx)} — ${theme}`,
+      `**ฉาก:** ${loc}`,
+      `**เรื่องเล่า:** วันนี้ฮีโร่ต้องทำภารกิจให้สำเร็จ “แบบไม่โอเวอร์โหลด” เพื่อชนะตัวเอง`,
+      ``,
+      mission,
+      ``,
+      coach,
+      ``,
+      `**คำถามสะท้อนคิด (ป.5):** ${refQ}`,
+      ``
+    ].join('\n');
+  }
+
+  function generateStoryboard(){
+    const sc = scorePlan(PLAN);
+    const seedBase = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|story`);
+    const rng = mulberry32(seedBase ^ (Date.now() & 0xffff)); // allow “สุ่มใหม่”
+    const lines = [];
+    lines.push(`# HeroHealth Fitness — Storyboard (Create)`);
+    lines.push(`- date: ${todayKey()}`);
+    lines.push(`- pid: ${PLAN.pid}`);
+    lines.push(`- weekStart: ${PLAN.weekStart}`);
+    lines.push(`- goals: ${PLAN.goals.join(' + ')}`);
+    lines.push(`- planScore: ${sc.total}/100`);
+    lines.push(``);
+    lines.push(`## กติกาเรื่องเล่า (สำหรับเด็ก ป.5)`);
+    lines.push(`- อ่าน “ภารกิจวันนี้” 20 วินาทีก่อนเล่น`);
+    lines.push(`- เล่นให้สำเร็จแบบ “สม่ำเสมอ” (ไม่ต้องหนักทุกวัน)`);
+    lines.push(`- หลังเล่น ตอบคำถามสะท้อนคิด 1 ข้อ`);
+    lines.push(``);
+
+    for(let i=0;i<7;i++){
+      lines.push(storyForDay(i, PLAN, sc, rng));
+    }
+
+    const text = lines.join('\n');
+    saveLS(KEY_STORY, { v:1, weekStart: PLAN.weekStart, pid: PLAN.pid, ts: Date.now(), text });
+    if(elStoryPreview) elStoryPreview.value = text;
+    toast('สร้าง Storyboard แล้ว ✅');
+    return text;
+  }
+
+  function loadStoryboardIntoUI(){
+    if(!elStoryPreview) return;
+    const st = loadLS(KEY_STORY, null);
+    if(st && st.text && String(st.weekStart)===String(PLAN.weekStart) && String(st.pid)===String(PLAN.pid)){
+      elStoryPreview.value = String(st.text);
+    } else {
+      elStoryPreview.value = '';
+    }
+  }
+
+  function exportStoryboardMD(){
+    const txt = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
+    if(!txt.trim()){ toast('ยังไม่มี storyboard (กด “สร้าง Storyboard”)'); return; }
+    dlText(`HHA_story_${todayKey()}_${PLAN.pid||'anon'}.md`, txt);
+    toast('ดาวน์โหลด Storyboard.md ✅');
+  }
+
+  // --------- Plan markdown ----------
   function planToMarkdown(plan, sc, coach){
     const lines = [];
     lines.push(`# HeroHealth Fitness — 7-day Plan (Create)`);
@@ -521,31 +693,47 @@
     const coach = coachReasons(PLAN, sc);
     const md = planToMarkdown(PLAN, sc, coach);
     dlText(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.md`, md);
-    toast('ดาวน์โหลด MD แล้ว ✅');
+    toast('ดาวน์โหลด Plan.md ✅');
   }
   function exportJSON(){
     dlJson(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.json`, PLAN);
-    toast('ดาวน์โหลด JSON แล้ว ✅');
+    toast('ดาวน์โหลด Plan.json ✅');
   }
 
-  // --- Try Today (uses URL mapping) ---
-  function tryTodayGo(){
-    const idx = todayIndexMon0();
-    const d = PLAN.days[idx];
-    if(!d || !d.items || !d.items.length){
-      toast('วันนี้ไม่มีเกมในแผน');
-      return;
+  // =====================
+  // A3: Sequential play helpers
+  // =====================
+  function plannerSelfUrl(extra){
+    // Keep current url but clean sequence params; then apply extras
+    let u = new URL(location.href);
+    // clean seq params
+    ['seq','day','done'].forEach(k=>u.searchParams.delete(k));
+    // always keep run/diff/time/seed/pid/view if present
+    // (already in url) so no action
+    if(extra){
+      for(const k in extra){
+        if(extra[k]===null || extra[k]===undefined || extra[k]==='') u.searchParams.delete(k);
+        else u.searchParams.set(k, String(extra[k]));
+      }
     }
-    const first = d.items[0];
-    const url = gameUrl(first.game);
+    return u.toString();
+  }
+
+  function launchGameItem(it, dayIdx, itemIdx, seqMode){
+    const url = gameUrl(it.game);
     if(!url){
       toast('ยังไม่ตั้ง URL เกม (กด “ตั้งค่า URL เกม”)');
       openUrlModal();
       return;
     }
 
-    const min = clamp(first.min, 2, 20);
-    const diff = (first.diff==='easy' || first.diff==='normal' || first.diff==='hard') ? first.diff : 'normal';
+    const min = clamp(it.min, 2, 20);
+    const diff = (it.diff==='easy' || it.diff==='normal' || it.diff==='hard') ? it.diff : 'normal';
+
+    // HUB back: if seqMode, return to planner with pointer
+    const back = seqMode
+      ? plannerSelfUrl({ seq: 1, day: dayIdx, done: itemIdx })
+      : plannerSelfUrl(null);
 
     const params = {
       pid: PLAN.pid,
@@ -553,16 +741,79 @@
       diff,
       time: String(min * 60),
       seed: PLAN.seed,
-      view: qs('view', null),
-      hub: new URL('../hub.html', location.href).toString(),
+      view: RUNTIME.view,
+      hub: back
     };
 
     location.href = withParams(url, params);
   }
 
+  function tryTodayGo(seqMode){
+    const idx = todayIndexMon0();
+    const d = PLAN.days[idx];
+    if(!d || !d.items || !d.items.length){
+      toast('วันนี้ไม่มีเกมในแผน');
+      return;
+    }
+    launchGameItem(d.items[0], idx, 0, !!seqMode);
+  }
+
+  function computeNextFromSeqParams(){
+    const seq = String(qs('seq','')||'');
+    if(seq !== '1') return null;
+
+    const day = clamp(qs('day','-1'), -1, 6);
+    const done = clamp(qs('done','-1'), -1, 1);
+
+    if(day < 0 || day > 6) return null;
+    const d = PLAN.days[day];
+    if(!d || !d.items || !d.items.length) return null;
+
+    const nextIdx = done + 1;
+    if(nextIdx >= d.items.length) return { doneAll: true, day, nextIdx: null, item: null };
+
+    return { doneAll: false, day, nextIdx, item: d.items[nextIdx] };
+  }
+
+  function showNextPanelIfAny(){
+    if(!elNextPanel) return;
+    const nx = computeNextFromSeqParams();
+    if(!nx) { elNextPanel.style.display='none'; return; }
+
+    elNextPanel.style.display = 'block';
+
+    if(nx.doneAll){
+      elNextTitle.textContent = `วันนี้เล่นครบตามแผนแล้ว ✅`;
+      elNextHint.textContent = `สุดยอด! ถ้าอยากเล่นเพิ่ม แนะนำเล่น easy อีก 3–5 นาที หรือพักให้พอดี`;
+      $('#btnPlayNext').textContent = '🎉 จบภารกิจวันนี้';
+      $('#btnPlayNext').disabled = true;
+    } else {
+      const g = getGame(nx.item.game);
+      elNextTitle.textContent = `NEXT: ${g.ico} ${g.name} (${nx.item.diff}, ${clamp(nx.item.min,2,20)} นาที)`;
+      elNextHint.textContent = `กดเล่นเกมถัดไป แล้วในเกมกด “กลับ HUB” เพื่อกลับมาที่นี่อีกครั้ง`;
+      $('#btnPlayNext').textContent = '▶️ เล่นเกมถัดไป';
+      $('#btnPlayNext').disabled = false;
+
+      $('#btnPlayNext').onclick = ()=>{
+        launchGameItem(nx.item, nx.day, nx.nextIdx, true);
+      };
+    }
+
+    $('#btnBackToToday').onclick = ()=>{
+      document.getElementById('todayLabel')?.scrollIntoView({behavior:'smooth', block:'center'});
+    };
+    $('#btnDismissNext').onclick = ()=>{
+      elNextPanel.style.display='none';
+    };
+
+    // Also clean URL after showing (avoid infinite)
+    // Keep it simple: we keep params, but hide panel possible.
+  }
+
+  // --- Try Today list render ---
   function renderTryToday(){
     const idx = todayIndexMon0();
-    elTodayLabel.textContent = `วันนี้: ${dayName(idx)} (Day ${idx+1})`;
+    $('#todayLabel').textContent = `วันนี้: ${dayName(idx)} (Day ${idx+1})`;
 
     const d = PLAN.days[idx];
     elTryList.innerHTML = '';
@@ -572,22 +823,23 @@
       return;
     }
 
-    for(const it of d.items){
+    for(let j=0;j<d.items.length;j++){
+      const it = d.items[j];
       const g = getGame(it.game);
       const url = gameUrl(it.game);
       const title = `${g.ico} ${g.name}`;
-
       const min = clamp(it.min, 2, 20);
       const diff = (it.diff==='easy' || it.diff==='normal' || it.diff==='hard') ? it.diff : 'normal';
 
+      const back = plannerSelfUrl({ seq: 1, day: idx, done: j }); // for copy open too
       const params = {
         pid: PLAN.pid,
         run: (PLAN.run==='research' ? 'research' : 'play'),
         diff,
         time: String(min * 60),
         seed: PLAN.seed,
-        hub: new URL('../hub.html', location.href).toString(),
-        view: qs('view', null)
+        view: RUNTIME.view,
+        hub: back
       };
 
       const li = document.createElement('div');
@@ -601,21 +853,21 @@
       right.className = 'r';
 
       if(url){
-        const a = document.createElement('a');
-        a.href = withParams(url, params);
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.textContent = 'เปิดเกม';
-        right.appendChild(a);
+        const open = document.createElement('a');
+        open.href = withParams(url, params);
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.textContent = 'เปิดเกม';
+        right.appendChild(open);
 
-        const a2 = document.createElement('a');
-        a2.href = '#';
-        a2.textContent = 'คัดลอกลิงก์';
-        a2.addEventListener('click', (e)=>{
+        const copy = document.createElement('a');
+        copy.href = '#';
+        copy.textContent = 'คัดลอกลิงก์';
+        copy.addEventListener('click', (e)=>{
           e.preventDefault();
           copyToClipboard(withParams(url, params));
         });
-        right.appendChild(a2);
+        right.appendChild(copy);
       } else {
         const a = document.createElement('a');
         a.href = '#';
@@ -656,6 +908,20 @@
       });
       elGoalPills.appendChild(b);
     }
+  }
+
+  function labelWrap(txt, el){
+    const w = document.createElement('div');
+    w.style.display = 'flex';
+    w.style.flexDirection = 'column';
+    w.style.gap = '6px';
+    const lab = document.createElement('small');
+    lab.textContent = txt;
+    lab.style.color = 'rgba(148,163,184,.92)';
+    lab.style.fontWeight = '1000';
+    w.appendChild(lab);
+    w.appendChild(el);
+    return w;
   }
 
   function renderWeekGrid(){
@@ -789,20 +1055,6 @@
     });
   }
 
-  function labelWrap(txt, el){
-    const w = document.createElement('div');
-    w.style.display = 'flex';
-    w.style.flexDirection = 'column';
-    w.style.gap = '6px';
-    const lab = document.createElement('small');
-    lab.textContent = txt;
-    lab.style.color = 'rgba(148,163,184,.92)';
-    lab.style.fontWeight = '1000';
-    w.appendChild(lab);
-    w.appendChild(el);
-    return w;
-  }
-
   function renderScore(){
     const sc = scorePlan(PLAN);
 
@@ -914,7 +1166,7 @@
       saveUrls(u);
       GAME_URL = loadUrls();
       closeUrlModal();
-      renderTryToday(); // refresh “ตั้ง URL ก่อน”
+      renderTryToday();
       toast('บันทึก URL แล้ว ✅');
     });
   }
@@ -925,53 +1177,68 @@
     renderWeekGrid();
     renderScore();
     renderTryToday();
+    syncControlsFromPlan();
     saveNow();
   }
 
   // --------- events ----------
   function bindEvents(){
-    $('#btnLoad').addEventListener('click', ()=>{
+    $('#btnLoad')?.addEventListener('click', ()=>{
       const last = loadLS(KEY_LAST, null);
       if(!last){ toast('ยังไม่มีแผนที่บันทึกไว้'); return; }
       PLAN = last;
       PLAN.pid = RUNTIME.pid; PLAN.run = RUNTIME.run; PLAN.seed = RUNTIME.seed;
       syncControlsFromPlan();
       renderAll();
+      loadStoryboardIntoUI();
       toast('โหลดแผนล่าสุดแล้ว ✅');
     });
 
-    $('#btnReset').addEventListener('click', ()=>{
+    $('#btnReset')?.addEventListener('click', ()=>{
       PLAN = DEFAULT_PLAN();
       syncControlsFromPlan();
       renderAll();
       saveNow();
+      loadStoryboardIntoUI();
       toast('เริ่มแผนใหม่ ✅');
     });
 
-    $('#btnClearWeek').addEventListener('click', ()=>{
+    $('#btnClearWeek')?.addEventListener('click', ()=>{
       for(const d of PLAN.days){ d.items = []; }
       renderAll(); saveNow();
       toast('ล้างทั้งสัปดาห์ ✅');
     });
 
-    $('#btnAutoFill').addEventListener('click', ()=>{
+    $('#btnAutoFill')?.addEventListener('click', ()=>{
       autoFillPlan();
       renderAll(); saveNow();
       toast('เติมแผนแนะนำแล้ว ✅');
     });
 
-    $('#btnExportMD').addEventListener('click', ()=> exportMD());
-    $('#btnExportMD2').addEventListener('click', ()=> exportMD());
-    $('#btnExportJSON').addEventListener('click', ()=> exportJSON());
-    $('#btnExportJSON2').addEventListener('click', ()=> exportJSON());
-    $('#btnCopyMD').addEventListener('click', ()=> copyToClipboard(elMdPreview.value));
+    $('#btnExportMD')?.addEventListener('click', ()=> exportMD());
+    $('#btnExportMD2')?.addEventListener('click', ()=> exportMD());
+    $('#btnExportJSON')?.addEventListener('click', ()=> exportJSON());
+    $('#btnExportJSON2')?.addEventListener('click', ()=> exportJSON());
+    $('#btnCopyMD')?.addEventListener('click', ()=> copyToClipboard(elMdPreview.value));
 
-    $('#btnTryToday').addEventListener('click', ()=> tryTodayGo());
+    // A2 Storyboard
+    $('#btnMakeStory')?.addEventListener('click', ()=> generateStoryboard());
+    $('#btnRegenStory')?.addEventListener('click', ()=> generateStoryboard());
+    $('#btnExportStoryMD')?.addEventListener('click', ()=> exportStoryboardMD());
+    $('#btnCopyStory')?.addEventListener('click', ()=>{
+      const t = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
+      if(!t.trim()){ toast('ยังไม่มี storyboard'); return; }
+      copyToClipboard(t);
+    });
 
-    elLimitWeekday.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elLimitWeekend.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elMinDays.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elRestDays.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
+    // A3 try today
+    $('#btnTryToday')?.addEventListener('click', ()=> tryTodayGo(false));
+    $('#btnTryTodaySeq')?.addEventListener('click', ()=> tryTodayGo(true));
+
+    elLimitWeekday?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
+    elLimitWeekend?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
+    elMinDays?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
+    elRestDays?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
 
     bindUrlModal();
   }
@@ -981,6 +1248,10 @@
     bindEvents();
     syncControlsFromPlan();
     renderAll();
+    loadStoryboardIntoUI();
+
+    // A3: if we returned from a game via hub=...&seq=1...
+    showNextPanelIfAny();
     saveNow();
   }
 
