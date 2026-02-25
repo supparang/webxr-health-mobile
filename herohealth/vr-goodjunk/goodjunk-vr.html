@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
-FULL v20260225-FULLPATCH-cooldownDailyKeyCatGamePidDay
+FULL v20260225-FULLPATCH-cooldownDailyKeyCatGamePidDay+eventsFix+initPolicy
 Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
 -->
 <!doctype html>
@@ -448,6 +448,10 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
         // NEW (matches warmup-gate.html)
         `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`,
 
+        // legacy game-key variants (extra safety)
+        `HHA_COOLDOWN_DONE:${c}:goodjunk-vr:${p}:${day}`,
+        `HHA_COOLDOWN_DONE:${c}:vr-goodjunk:${p}:${day}`,
+
         // older variants (backward)
         `HHA_COOLDOWN_DONE:${c}:${p}:${day}`,
         `HHA_COOLDOWN_DONE:${c}:${p}`,
@@ -548,7 +552,6 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       const cat = String(qs('cat','nutrition')||'nutrition');
       const pid = String(qs('pid','anon')||'anon');
 
-      // ✅ check using gameKey
       const doneToday = isCooldownDoneToday(cat, pid, 'goodjunk');
       const shouldShowNextCooldown = cooldownFlag && !doneToday;
 
@@ -593,8 +596,21 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       }
     });
 
-    // ========= Primary: listen to game-ended =========
+    // ✅ Init policy immediately (covers refresh/edge cases)
+    applyEndButtonsPolicy();
+
+    // ========= Primary: listen to game-ended (new) =========
     window.addEventListener('hha:game-ended', (ev)=>{
+      lastSummary = ev?.detail || null;
+      applyEndButtonsPolicy();
+    });
+
+    // ✅ Backward/compat: other end-event names
+    window.addEventListener('hha:end', (ev)=>{
+      lastSummary = ev?.detail || null;
+      applyEndButtonsPolicy();
+    });
+    window.addEventListener('hha:ended', (ev)=>{
       lastSummary = ev?.detail || null;
       applyEndButtonsPolicy();
     });
