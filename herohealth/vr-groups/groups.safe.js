@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v20260223-groupsBossFairAI)
+// GroupsVR SAFE Engine — Standalone (NO modules) — PRODUCTION (PATCH v20260225-groupsCooldownBtnPerGame)
 // ✅ HUD-safe spawn + Occlusion guard => timeout_miss NOT counted if target center is under HUD/overlay
 // ✅ Emit groups:group / groups:director
 // ✅ Shot rate-limit
@@ -8,8 +8,9 @@
 // ✅ FX emits 'groups:hit'
 // ✅ Direct tap/click targets works
 // ✅ Badges bridge
-// ✅ NEW: Boss pattern A/B deterministic (using S.rng only) + fairness clamp (no “โกง” streak)
-// ✅ NEW: AI tip relay -> hha:coach (rate-limit, deterministic-safe)
+// ✅ Boss pattern A/B deterministic (using S.rng only) + fairness clamp (no “โกง” streak)
+// ✅ AI tip relay -> hha:coach (rate-limit, deterministic-safe)
+// ✅ NEW: End Summary Overlay + "Go Cooldown (daily-first per game)" button (cat+game)
 // API: window.GroupsVR.GameEngine.start(diff, ctx), stop(), setLayerEl(el)
 
 (function(){
@@ -33,6 +34,206 @@
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
+  // ---------------- COOL DOWN (per-game daily) ----------------
+  const HH_CAT  = 'nutrition';
+  const HH_GAME = 'groups';
+  const __END_SENT_KEY = '__HHA_GROUPS_END_SENT__';
+
+  function dayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+
+  function cooldownDone(cat, gameKey, pid){
+    const day = dayKey();
+    const p = String(pid||'anon').trim()||'anon';
+    const c = String(cat||'nutrition').toLowerCase();
+    const g = String(gameKey||'unknown').toLowerCase();
+    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
+    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
+    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
+  }
+
+  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+    const gate = new URL('../warmup-gate.html', location.href);
+    gate.searchParams.set('gatePhase','cooldown');
+    gate.searchParams.set('cat', String(cat||'nutrition'));
+    gate.searchParams.set('theme', String(gameKey||'unknown'));
+    gate.searchParams.set('pid', String(pid||'anon'));
+
+    if(hub) gate.searchParams.set('hub', String(hub));
+    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+
+    // passthrough essentials
+    const sp = new URL(location.href).searchParams;
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'pick','variant','style',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'zone','cdnext'
+    ].forEach(k=>{
+      const v = sp.get(k);
+      if(v!=null && v!=='') gate.searchParams.set(k, v);
+    });
+
+    return gate.toString();
+  }
+
+  // lightweight end overlay (engine-side)
+  function ensureEndOverlay(){
+    let ov = DOC.getElementById('hhaEndOverlay');
+    if (ov && DOC.body.contains(ov)) return ov;
+
+    ov = DOC.createElement('div');
+    ov.id = 'hhaEndOverlay';
+    ov.style.cssText =
+      'position:fixed; inset:0; z-index:9999; display:none; '+
+      'background:rgba(0,0,0,.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);';
+
+    const panel = DOC.createElement('div');
+    panel.className = 'hhaEndPanel';
+    panel.style.cssText =
+      'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); '+
+      'width:min(92vw, 720px); border-radius:18px; '+
+      'background:rgba(2,6,23,.82); color:rgba(229,231,235,.96); '+
+      'border:1px solid rgba(148,163,184,.18); box-shadow:0 24px 80px rgba(0,0,0,.45); '+
+      'padding:14px 14px 12px;';
+
+    panel.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font:1000 16px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+          🥦 GroupsVR • สรุปผล
+        </div>
+        <button id="hhaEndClose" type="button"
+          style="border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:rgba(229,231,235,.92);
+          border-radius:12px; padding:8px 10px; font-weight:1000; cursor:pointer;">
+          ปิด
+        </button>
+      </div>
+
+      <div id="hhaEndBody" style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div style="border:1px solid rgba(148,163,184,.16); border-radius:14px; padding:10px; background:rgba(15,23,42,.40);">
+          <div style="opacity:.82; font-weight:900; margin-bottom:6px;">ผลรวม</div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; font-weight:1000;">
+            <div>Score: <span id="hhaEndScore">0</span></div>
+            <div>Acc: <span id="hhaEndAcc">0</span>%</div>
+            <div>Miss: <span id="hhaEndMiss">0</span></div>
+            <div>Grade: <span id="hhaEndGrade">—</span></div>
+          </div>
+        </div>
+
+        <div style="border:1px solid rgba(148,163,184,.16); border-radius:14px; padding:10px; background:rgba(15,23,42,.40);">
+          <div style="opacity:.82; font-weight:900; margin-bottom:6px;">รายละเอียด</div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; font-weight:900; opacity:.94;">
+            <div>ComboMax: <span id="hhaEndCombo">0</span></div>
+            <div>Boss: <span id="hhaEndBoss">—</span></div>
+            <div>AI: <span id="hhaEndAi">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hh-end-actions" style="margin-top:12px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding-top:10px; border-top:1px solid rgba(148,163,184,.16);">
+        <button id="hhaGoHub" type="button"
+          style="border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:rgba(229,231,235,.92);
+          border-radius:14px; padding:10px 12px; font-weight:1000; cursor:pointer; min-height:42px;">
+          กลับ HUB
+        </button>
+        <button id="hhaRestart" type="button"
+          style="border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:rgba(229,231,235,.92);
+          border-radius:14px; padding:10px 12px; font-weight:1000; cursor:pointer; min-height:42px;">
+          เล่นอีกครั้ง
+        </button>
+        <button id="hhaGoCooldown" type="button" data-hh-cd="1"
+          style="display:none; border:1px solid rgba(34,197,94,.30); background:rgba(34,197,94,.14); color:rgba(229,231,235,.96);
+          border-radius:14px; padding:10px 12px; font-weight:1100; cursor:pointer; min-height:42px;">
+          ไป Cooldown (ครั้งแรกของวันนี้)
+        </button>
+      </div>
+
+      <div style="margin-top:10px; opacity:.72; text-align:center; font:800 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+        reason=<span id="hhaEndReason">end</span> • mode=<span id="hhaEndMode">play</span> • view=<span id="hhaEndView">mobile</span>
+      </div>
+    `;
+
+    ov.appendChild(panel);
+    DOC.body.appendChild(ov);
+
+    const close = panel.querySelector('#hhaEndClose');
+    close && close.addEventListener('click', ()=>{ ov.style.display='none'; });
+
+    return ov;
+  }
+
+  function showEndOverlay(summary){
+    const ov = ensureEndOverlay();
+    const panel = ov.querySelector('.hhaEndPanel') || ov;
+
+    function set(id, v){
+      const el = ov.querySelector('#'+id);
+      if (el) el.textContent = String(v);
+    }
+
+    set('hhaEndScore', summary.scoreFinal|0);
+    set('hhaEndAcc', summary.accuracyPct|0);
+    set('hhaEndMiss', summary.miss|0);
+    set('hhaEndGrade', summary.grade||'—');
+    set('hhaEndCombo', summary.comboMax|0);
+    set('hhaEndBoss', summary.bossCleared ? 'CLEAR' : (summary.bossPattern ? `PAT ${summary.bossPattern}` : '—'));
+    set('hhaEndAi', summary.aiEnabled ? 'ON' : 'OFF');
+    set('hhaEndReason', summary.reason||'end');
+    set('hhaEndMode', summary.runMode||'play');
+    set('hhaEndView', summary.view||'');
+
+    const hub = String(qs('hub','../hub.html')||'../hub.html');
+    const cdnext = String(qs('cdnext','')||'');
+    const pid = String(qs('pid','')||'') || (summary.pid||'') || 'anon';
+
+    const goHub = ov.querySelector('#hhaGoHub');
+    if (goHub){
+      goHub.onclick = ()=>{ location.href = hub; };
+    }
+
+    const restart = ov.querySelector('#hhaRestart');
+    if (restart){
+      restart.onclick = ()=>{ location.reload(); };
+    }
+
+    const cdBtn = ov.querySelector('#hhaGoCooldown');
+    if (cdBtn){
+      const done = cooldownDone(HH_CAT, HH_GAME, pid);
+      if (!done){
+        cdBtn.style.display = 'inline-flex';
+        const url = buildCooldownUrl({
+          hub,
+          nextAfterCooldown: cdnext || hub || '../hub.html',
+          cat: HH_CAT,
+          gameKey: HH_GAME,
+          pid
+        });
+        cdBtn.onclick = ()=>{ location.href = url; };
+      }else{
+        cdBtn.style.display = 'none';
+      }
+    }
+
+    ov.style.display='block';
+  }
+
+  function dispatchGameEndedOnce(summary){
+    try{
+      if(WIN[__END_SENT_KEY]) return;
+      WIN[__END_SENT_KEY] = 1;
+      WIN.__HHA_LAST_SUMMARY = summary || null;
+      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary || null }));
+    }catch(_){}
+  }
+
+  // ---------------- seed/rng ----------------
   function strSeedToU32(s){
     s = String(s ?? '');
     if (!s) s = String(Date.now());
@@ -286,7 +487,8 @@
         topEl.closest('.questTop') ||
         topEl.closest('.powerWrap') ||
         topEl.closest('.coachWrap') ||
-        topEl.closest('.overlay')
+        topEl.closest('.overlay') ||
+        topEl.closest('#hhaEndOverlay')
       );
       return !!hud;
     }catch(_){
@@ -834,7 +1036,6 @@
     let lifeBoostMul = 1.0;
     let forceCorrect = false;
 
-    // ---------------- BOSS deterministic patterns ----------------
     if (S.boss){
       S.bossPhaseTick = (S.bossPhaseTick|0) + 1;
 
@@ -848,7 +1049,6 @@
       const k = S.bossPhaseTick;
 
       if (pat === 'A'){
-        // Rhythm Boss: 4-step cycle (readable + challenge + recovery)
         const phase = ((k - 1) % 4) + 1;
 
         if (forceCorrect){
@@ -867,11 +1067,10 @@
         }
 
         if ((k % 7) === 0 && S.bossWaveBurstLeft <= 0){
-          S.bossWaveBurstLeft = 1; // micro-burst cue
+          S.bossWaveBurstLeft = 1;
         }
 
       } else {
-        // Burst Boss: calm -> burst(2-3) -> calm, but fair
         if (S.bossWaveBurstLeft > 0){
           if (forceCorrect){
             gKey = cg.key;
@@ -898,7 +1097,6 @@
       else S.bossFairStreakBad = (S.bossFairStreakBad|0) + 1;
 
     } else {
-      // ---------------- normal / non-boss spawning ----------------
       const r = S.rng();
       if (r < 0.58) gKey = cg.key;
       else gKey = pick(S.rng, GROUPS).key;
@@ -995,6 +1193,8 @@
     S.spawnIt = 0;
 
     initAI();
+
+    try{ WIN[__END_SENT_KEY] = 0; }catch(_){}
 
     emitPower();
     emitScore();
@@ -1097,6 +1297,8 @@
     }
 
     const summary = {
+      projectTag: 'GroupsVR',
+      gameVersion: 'GroupsVR_SAFE_2026-02-25_CD',
       reason: reason || 'end',
       scoreFinal: S.score|0,
       miss: S.miss|0,
@@ -1113,11 +1315,22 @@
       miniCleared: !!S.miniAwarded,
       bossCleared: !!S.bossAwarded,
       aiEnabled: !!S.aiEnabled,
-      bossPattern: S.bossPattern || null
+      bossPattern: S.bossPattern || null,
+      cat: HH_CAT,
+      game: HH_GAME,
+      pid: String(qs('pid','')||'') || (badgeMeta().pid||'') || 'anon',
+      hub: String(qs('hub','../hub.html')||'../hub.html')
     };
 
+    // existing signal
     emit('hha:end', summary);
     aiOnEvent('run:end', summary);
+
+    // ✅ standard summary for platform + once-only ended signal
+    dispatchGameEndedOnce(summary);
+
+    // ✅ engine-side end overlay + cooldown button logic
+    try{ showEndOverlay(summary); }catch(_){}
 
     clearTargets();
   }
