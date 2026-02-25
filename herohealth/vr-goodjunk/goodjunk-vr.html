@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
-FULL v20260225-FULLPATCH-cooldownDailyKeyCatGamePidDay+eventsFix+initPolicy
+FULL v20260225p3-FULLPATCH-BKKDAY-CVRSTRICT-FLUSH-TELEM
 Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
 -->
 <!doctype html>
@@ -10,7 +10,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk VR</title>
 
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260224e"/>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260225p3"/>
 
   <style>
     html,body{height:100%;margin:0;}
@@ -402,10 +402,10 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
 
   <div id="gjDebug" aria-hidden="true">dbg</div>
 
-  <script type="module" src="../vr/vr-ui.js?v=20260224e"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260225p3"></script>
 
   <script type="module">
-    import { boot } from './goodjunk.safe.js';
+    import { boot } from './goodjunk.safe.js?v=20260225p3';
 
     const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
     const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
@@ -447,10 +447,6 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       return [
         // NEW (matches warmup-gate.html)
         `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`,
-
-        // legacy game-key variants (extra safety)
-        `HHA_COOLDOWN_DONE:${c}:goodjunk-vr:${p}:${day}`,
-        `HHA_COOLDOWN_DONE:${c}:vr-goodjunk:${p}:${day}`,
 
         // older variants (backward)
         `HHA_COOLDOWN_DONE:${c}:${p}:${day}`,
@@ -552,6 +548,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       const cat = String(qs('cat','nutrition')||'nutrition');
       const pid = String(qs('pid','anon')||'anon');
 
+      // ✅ check using gameKey
       const doneToday = isCooldownDoneToday(cat, pid, 'goodjunk');
       const shouldShowNextCooldown = cooldownFlag && !doneToday;
 
@@ -596,23 +593,19 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       }
     });
 
-    // ✅ Init policy immediately (covers refresh/edge cases)
-    applyEndButtonsPolicy();
-
-    // ========= Primary: listen to game-ended (new) =========
+    // ========= Primary: listen to game-ended =========
     window.addEventListener('hha:game-ended', (ev)=>{
       lastSummary = ev?.detail || null;
       applyEndButtonsPolicy();
     });
 
-    // ✅ Backward/compat: other end-event names
-    window.addEventListener('hha:end', (ev)=>{
-      lastSummary = ev?.detail || null;
-      applyEndButtonsPolicy();
+    // ✅ OPTIONAL: capture flush/telemetry events (for debugging now; later route to logger)
+    const dbgOn = String(qs('dbg','0')) === '1';
+    window.addEventListener('hha:flush', (ev)=>{
+      if(dbgOn) console.log('[GoodJunk] hha:flush', ev?.detail);
     });
-    window.addEventListener('hha:ended', (ev)=>{
-      lastSummary = ev?.detail || null;
-      applyEndButtonsPolicy();
+    window.addEventListener('hha:telemetry', (ev)=>{
+      if(dbgOn) console.log('[GoodJunk] hha:telemetry', ev?.detail);
     });
 
     // ========= Fallback: if END overlay opens but event never arrives (cache/old safe.js) =========
@@ -641,7 +634,6 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
     if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
 
     const dbg = document.getElementById('gjDebug');
-    const dbgOn = String(qs('dbg','0')) === '1';
     if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
 
     // Start game
@@ -654,6 +646,8 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       studyId: qs('studyId', qs('study', null)),
       phase: qs('phase', null),
       conditionGroup: qs('conditionGroup', qs('cond', null)),
+      pid: qs('pid','anon'),
+      hub: resolveHubUrl(),
     });
 
     if(dbgOn){
