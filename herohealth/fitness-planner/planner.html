@@ -12,7 +12,7 @@
       <div class="logo">HH</div>
       <div>
         <div class="ttl">Fitness Planner — Create</div>
-        <div class="sub">7-day Plan Builder (Bloom: Create) · เหมาะสำหรับ ป.5</div>
+        <div class="sub">7-day Plan Builder (Bloom: Create) · ป.5 · เล่นสนุก + วางแผนเป็น</div>
       </div>
     </div>
 
@@ -20,12 +20,36 @@
       <button class="btn ghost" id="btnSetUrls">ตั้งค่า URL เกม</button>
       <button class="btn ghost" id="btnLoad">โหลดแผนล่าสุด</button>
       <button class="btn ghost" id="btnReset">เริ่มแผนใหม่</button>
-      <button class="btn" id="btnExportMD">Export แผน (MD)</button>
-      <button class="btn" id="btnExportJSON">Export JSON</button>
+      <button class="btn" id="btnAutoFill">Auto-Fill (แนะนำ)</button>
+      <button class="btn ghost" id="btnMakeStory">สร้าง Storyboard</button>
+      <button class="btn" id="btnExportMD">Export Plan.md</button>
+      <button class="btn ghost" id="btnExportJSON">Export JSON</button>
     </div>
   </header>
 
   <main class="wrap">
+    <!-- Next Up banner (A3) -->
+    <section class="panel" id="nextPanel" style="display:none;">
+      <div class="panel-h">
+        <h2>เล่นต่อเนื่องตามแผนวันนี้</h2>
+        <div class="right">
+          <button class="btn ghost small" id="btnDismissNext">ซ่อน</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="nextRow">
+          <div>
+            <div class="big" id="nextTitle">NEXT: —</div>
+            <div class="mut" id="nextHint">ถ้าคุณเพิ่งกด “กลับ HUB” จากเกม ระบบจะพาเล่นเกมถัดไปได้เลย</div>
+          </div>
+          <div class="nextBtns">
+            <button class="btn" id="btnPlayNext">▶️ เล่นเกมถัดไป</button>
+            <button class="btn ghost" id="btnBackToToday">ดูรายการวันนี้</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-h">
         <h2>ตั้งค่าแผนสัปดาห์</h2>
@@ -79,7 +103,7 @@
               </select>
             </label>
           </div>
-          <div class="hint">ระบบจะ “เตือน” ถ้าแผนหนักเกิน/เล่นติดกันแบบเสี่ยง</div>
+          <div class="hint">ระบบจะเตือนถ้า “หนักเกิน” และจะช่วยทำให้แผน “สมจริง”</div>
         </div>
       </div>
 
@@ -87,16 +111,19 @@
         <div class="card">
           <div class="card-h">Badges สายวางแผน</div>
           <div class="badgeGrid" id="badgeGrid"></div>
-          <div class="hint">Badge ไม่ใช่คะแนนวิจัย แต่ช่วยทำให้ “Create” สนุกและมีเป้าหมาย</div>
+          <div class="hint">Badge ช่วยให้ “Create” สนุกขึ้น (ไม่ใช่คะแนนวิจัย)</div>
         </div>
 
         <div class="card">
           <div class="card-h">Try Today</div>
           <div class="tryRow">
             <div class="mut" id="todayLabel">วันนี้: —</div>
-            <button class="btn" id="btnTryToday">▶️ เล่นตามแผนวันนี้</button>
+            <div class="tryBtns">
+              <button class="btn" id="btnTryToday">▶️ เล่นเกมแรกของวันนี้</button>
+              <button class="btn ghost" id="btnTryTodaySeq">▶️ เล่นแบบต่อเนื่อง (1–2 เกม)</button>
+            </div>
           </div>
-          <div class="hint">จะพาไป “เกมแรกของวันนี้” ในแท็บเดิม (กัน popup block)</div>
+          <div class="hint">โหมดต่อเนื่อง: เล่นเกมแรก → กด “กลับ HUB” ในเกม → กลับมาที่ Planner แล้วกด “เล่นเกมถัดไป”</div>
           <div class="tryList" id="tryList"></div>
         </div>
       </div>
@@ -106,7 +133,6 @@
       <div class="panel-h">
         <h2>ตาราง 7 วัน</h2>
         <div class="right">
-          <button class="btn small ghost" id="btnAutoFill">Auto-Fill (แนะนำ)</button>
           <button class="btn small ghost" id="btnClearWeek">ล้างทั้งสัปดาห์</button>
         </div>
       </div>
@@ -155,7 +181,35 @@
         <div class="card">
           <div class="card-h">Coach (เหตุผลที่ระบบแนะนำ)</div>
           <ul class="coach" id="coachList"></ul>
-          <div class="hint">Planner เป็น “Create task” (Bloom) ผู้เรียนออกแบบแผนเอง + ระบบอธิบายเหตุผล (โปร่งใส)</div>
+          <div class="hint">Planner คือ “Create task” ผู้เรียนออกแบบแผนเอง + ระบบอธิบายเหตุผล (โปร่งใส)</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-h">
+        <h2>Storyboard (Auto) — ทำให้ “Create” มีเรื่องเล่า</h2>
+        <div class="right">
+          <button class="btn small ghost" id="btnRegenStory">สุ่มใหม่</button>
+          <button class="btn small" id="btnExportStoryMD">Download Storyboard.md</button>
+          <button class="btn small ghost" id="btnCopyStory">Copy</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h">Preview (Storyboard)</div>
+          <textarea id="storyPreview" spellcheck="false"></textarea>
+          <div class="hint">มี: Theme รายวัน, ภารกิจ, กติกา “สนุก-ท้าทาย”, โค้ชอธิบาย, คำถามสะท้อนคิด ป.5</div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">How-to ใช้กับการสอน/วิจัย</div>
+          <ul class="howto">
+            <li>ก่อนเล่น: ครูให้นักเรียนอ่าน “Mission วันนี้” 20 วินาที</li>
+            <li>หลังเล่น: ตอบคำถามสะท้อนคิด 1 ข้อ (บันทึกในสมุด/แบบฟอร์ม)</li>
+            <li>โหมดวิจัย: ใช้ storyboard เดิมทั้งกลุ่ม (seed เดียว) เพื่อเทียบผลได้</li>
+          </ul>
         </div>
       </div>
     </section>
@@ -170,14 +224,14 @@
           <div class="card-h">Export แผน</div>
           <div class="exportBtns">
             <button class="btn" id="btnExportMD2">Download Plan.md</button>
-            <button class="btn ghost" id="btnCopyMD">Copy MD</button>
+            <button class="btn ghost" id="btnCopyMD">Copy Plan MD</button>
             <button class="btn" id="btnExportJSON2">Download Plan.json</button>
           </div>
-          <div class="hint">MD เหมาะกับแปะรายงานบท 4 · JSON ใช้โหลดกลับมาแก้/ทำต่อ Evaluate</div>
+          <div class="hint">MD เหมาะกับแปะรายงาน · JSON ใช้โหลดกลับมาแก้/ทำต่อ Evaluate</div>
         </div>
 
         <div class="card">
-          <div class="card-h">Preview (Markdown)</div>
+          <div class="card-h">Preview (Plan Markdown)</div>
           <textarea id="mdPreview" spellcheck="false"></textarea>
         </div>
       </div>
@@ -220,7 +274,7 @@
         <button class="btn ghost" id="btnRestoreDefault">คืนค่าเริ่มต้น</button>
         <button class="btn" id="btnSaveUrls">บันทึก</button>
       </div>
-      <div class="hint">ถ้าโฟลเดอร์จริงของคุณคือ /herohealth/fitness/... ตามภาพ “fitness” ให้ปล่อยค่าเริ่มต้นได้เลย</div>
+      <div class="hint">ถ้าโฟลเดอร์จริงของคุณคือ /herohealth/fitness/... ให้ปล่อยค่าเริ่มต้นได้เลย</div>
     </div>
   </div>
 
