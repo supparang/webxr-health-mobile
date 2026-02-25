@@ -1,432 +1,294 @@
-/* === /fitness/css/shadow-breaker.css ===
-Shadow Breaker — PRODUCTION v20260216abcd
-✅ Fix cramped layout on mobile
-✅ Safe-area vars for renderer: --sb-safe-top/side/bot/pad
-✅ Stage uses reserved HUD zones (top + bottom)
-✅ Meta card auto-collapses on small screens + toggle
-✅ Targets remain tappable; HUD does not block taps
-*/
+<!-- === /fitness/shadow-breaker.html ===
+Shadow Breaker (DOM) — RUN GAME (latest run shell)
+✅ Menu / Play / Result views
+✅ IDs aligned with engine.js (current patches)
+✅ Meta toggle + Fever button placeholders
+✅ Back HUB passthrough support (engine reads ?hub=)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Shadow Breaker</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260225-run" />
+</head>
+<body>
+  <div id="sb-wrap" class="sb-wrap">
 
-:root{
-  --bg0:#050812;
-  --bg1:#070d1e;
-  --panel: rgba(10,16,34,.55);
-  --panel2: rgba(10,16,34,.72);
-  --stroke: rgba(255,255,255,.08);
-  --stroke2: rgba(255,255,255,.12);
-  --txt: rgba(255,255,255,.92);
-  --muted: rgba(255,255,255,.68);
+    <!-- Header -->
+    <header class="sb-header">
+      <div class="sb-header-left">
+        <div class="sb-kicker">VR Fitness • Shadow Breaker</div>
+        <h1 class="sb-title">Shadow Breaker</h1>
+        <div class="sb-sub">ชก/แตะเป้าให้ทัน • Boss phases • Fever • Research-ready</div>
+      </div>
 
-  /* layout scale */
-  --r: 18px;
-  --pad: 14px;
-  --gap: 10px;
+      <div class="sb-header-right">
+        <div class="sb-tip">Tip: โหมดเล่นเปิด AI ได้ด้วย <code>?ai=1</code></div>
+        <div class="sb-links">
+          <a class="sb-link" id="sb-link-hub" href="./../herohealth/hub.html">← Back HUB</a>
+        </div>
+      </div>
+    </header>
 
-  /* HUD reserved heights (tuned for mobile) */
-  --sb-hud-top: 118px;      /* top HUD block */
-  --sb-bars-top: 52px;      /* top bars */
-  --sb-bars-bottom: 192px;  /* fever + compact bars */
+    <main class="sb-main">
 
-  /* safe spawn margins for renderer (used by dom-renderer-shadow.js) */
-  --sb-safe-pad: 18;
-  --sb-safe-top: 10;   /* extra inside stage top */
-  --sb-safe-side: 10;
-  --sb-safe-bot: 10;
+      <!-- =========================
+           MENU VIEW
+      ========================== -->
+      <section id="sb-view-menu" class="sb-view sb-panel is-active" aria-label="Menu view">
+        <div class="sb-mode-row" role="tablist" aria-label="Mode">
+          <button id="sb-btn-play" class="sb-mode-btn is-active" type="button">🎮 Play</button>
+          <button id="sb-btn-research" class="sb-mode-btn" type="button">🧪 Research</button>
+        </div>
 
-  /* stage side padding inside */
-  --sb-stage-pad: 10px;
-}
+        <div class="sb-mode-desc" id="sb-mode-desc">
+          Play: สนุก/ปรับได้ • Research: ล็อกพฤติกรรมเพื่อวิจัย (AI ปิดเสมอ)
+        </div>
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  color:var(--txt);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-  background:
-    radial-gradient(1200px 700px at 25% 10%, rgba(92,180,255,.12), transparent 60%),
-    radial-gradient(900px 650px at 90% 30%, rgba(210,120,255,.10), transparent 55%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
-}
+        <form class="sb-form" onsubmit="return false;">
+          <div class="sb-field">
+            <div class="sb-label">Participant ID (pid)</div>
+            <input id="sb-input-pid" class="sb-input" placeholder="เช่น P-XXXX" />
+          </div>
 
-code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: .92em; }
+          <div class="sb-field">
+            <div class="sb-label">Difficulty (diff)</div>
+            <select id="sb-input-diff" class="sb-input">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
 
-.sb-wrap{
-  max-width: 980px;
-  margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 14px);
-}
+          <div class="sb-field">
+            <div class="sb-label">Time (seconds)</div>
+            <input id="sb-input-time" class="sb-input" type="number" min="20" max="240" value="70" />
+          </div>
 
-.sb-header{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
+          <div class="sb-actions">
+            <!-- หมายเหตุ: engine patch ปัจจุบันใช้ btnPlay/btnResearch start ตรง ๆ -->
+            <!-- ปุ่มนี้เก็บไว้สำหรับ flow เวอร์ชันที่ใช้ form start -->
+            <button id="sb-btn-start" class="sb-btn sb-btn-primary" type="button">▶ เริ่มเกม</button>
+            <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">วิธีเล่น</button>
+          </div>
 
-.sb-kicker{ color:var(--muted); font-size:12px; letter-spacing:.2px; }
-.sb-title{ margin:4px 0 6px; font-size:34px; line-height:1.05; }
-.sb-sub{ color:var(--muted); font-size:14px; }
+          <div id="sb-howto" class="sb-howto" aria-live="polite">
+            <ul>
+              <li>แตะ/ชกเป้า 🎯 ให้ทันก่อนหมดอายุ</li>
+              <li>เป้าล่อ 👀 ตีโดนจะเสียแต้มและคอมโบแตก</li>
+              <li>ระเบิด 💣 ถ้ามี Shield จะกันได้</li>
+              <li>เก็บ Shield 🛡️ / Heal 🩹 เพื่อเอาตัวรอด</li>
+              <li>Boss face 👊 โผล่ช่วงเลือดบอสต่ำ ตีโดนแรงกว่า</li>
+              <li>Fever READY แล้วกด ⚡ FEVER เพื่อเปิดโหมดเร่งคะแนน</li>
+            </ul>
+          </div>
 
-.sb-tip{ color:var(--muted); font-size:12px; text-align:right; }
-.sb-links{ margin-top: 8px; display:flex; justify-content:flex-end; }
-.sb-link{
-  color: rgba(160,220,255,.95);
-  text-decoration:none;
-  padding: 8px 12px;
-  border: 1px solid var(--stroke);
-  border-radius: 999px;
-  background: rgba(0,0,0,.10);
-}
+          <div class="sb-mini-note">
+            <div>
+              <b>Query params</b> ที่รองรับ:
+              <code>pid</code>, <code>diff</code>, <code>time</code>,
+              <code>mode</code>/<code>run</code>, <code>hub</code>, <code>ai</code>
+            </div>
+          </div>
+        </form>
+      </section>
 
-.sb-main{ display:block; }
+      <!-- =========================
+           PLAY VIEW
+      ========================== -->
+      <section id="sb-view-play" class="sb-view sb-play" aria-label="Play view">
 
-.sb-view{ display:none; }
-.sb-view.is-active{ display:block; }
+        <!-- HUD top -->
+        <div class="sb-hud">
+          <div class="sb-hud-left">
+            <div class="sb-stat"><span class="k">Time</span> <span class="v" id="sb-text-time">0.0 s</span></div>
+            <div class="sb-stat"><span class="k">Score</span> <span class="v" id="sb-text-score">0</span></div>
+            <div class="sb-stat"><span class="k">Combo</span> <span class="v" id="sb-text-combo">0</span></div>
+            <div class="sb-stat"><span class="k">Miss</span> <span class="v" id="sb-text-miss">0</span></div>
+          </div>
 
-.sb-panel{
-  background: var(--panel2);
-  border: 1px solid var(--stroke);
-  border-radius: calc(var(--r) + 6px);
-  padding: 14px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.26);
-  backdrop-filter: blur(10px);
-}
+          <div class="sb-hud-center">
+            <div class="sb-boss-name" id="sb-current-boss-name">Boss</div>
+          </div>
 
-/* Menu */
-.sb-mode-row{ display:flex; gap:10px; margin-bottom:10px; }
-.sb-mode-btn{
-  flex:1;
-  border:1px solid var(--stroke);
-  border-radius: 14px;
-  background: rgba(0,0,0,.10);
-  color: var(--txt);
-  padding: 10px 10px;
-  font-weight: 700;
-}
-.sb-mode-btn.is-active{
-  background: rgba(120,190,255,.18);
-  border-color: rgba(120,190,255,.30);
-}
+          <div class="sb-hud-right">
+            <label class="sb-toggle" title="Pause">
+              <input id="sb-btn-pause" type="checkbox" />
+              Pause
+            </label>
+            <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost" type="button">⟵ Menu</button>
+          </div>
+        </div>
 
-.sb-mode-desc{ color:var(--muted); font-size:13px; margin-bottom: 12px; }
+        <!-- HP bars top -->
+        <div class="sb-bars sb-bars-top">
+          <div class="sb-bar">
+            <div class="sb-bar-label">YOU</div>
+            <div class="sb-bar-track"><div id="sb-hp-you-top" class="sb-bar-fill"></div></div>
+          </div>
+          <div class="sb-bar">
+            <div class="sb-bar-label">BOSS</div>
+            <div class="sb-bar-track"><div id="sb-hp-boss-top" class="sb-bar-fill boss"></div></div>
+          </div>
+        </div>
 
-.sb-form{ display:grid; gap: 12px; }
-.sb-field{ display:grid; gap: 6px; }
-.sb-label{ color:var(--muted); font-size:12px; }
-.sb-input{
-  width:100%;
-  border-radius: 14px;
-  border: 1px solid var(--stroke2);
-  background: rgba(0,0,0,.18);
-  color: var(--txt);
-  padding: 12px 12px;
-  outline: none;
-}
-.sb-input:focus{ border-color: rgba(120,190,255,.40); }
+        <!-- Stage -->
+        <div class="sb-stage" id="sb-stage">
+          <!-- center message -->
+          <div class="sb-center-msg">
+            <div id="sb-msg-main" class="sb-msg-main">Ready</div>
+          </div>
 
-.sb-actions{ display:flex; gap: 10px; align-items:center; }
-.sb-btn{
-  border-radius: 999px;
-  border: 1px solid var(--stroke2);
-  padding: 10px 14px;
-  background: rgba(0,0,0,.12);
-  color: var(--txt);
-  font-weight: 700;
-}
-.sb-btn-primary{
-  background: rgba(120,190,255,.22);
-  border-color: rgba(120,190,255,.30);
-}
-.sb-btn-ghost{ background: transparent; }
+          <!-- target layer -->
+          <div id="sb-target-layer" class="sb-target-layer" aria-label="target layer"></div>
 
-.sb-howto{
-  display:none;
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  padding: 10px 12px;
-  color: var(--muted);
-  background: rgba(0,0,0,.10);
-}
-.sb-howto.is-on{ display:block; }
-.sb-howto ul{ margin: 8px 0 0 18px; padding:0; }
-.sb-mini-note{ color:var(--muted); font-size:12px; line-height:1.35; }
+          <!-- Boss meta card -->
+          <aside id="sb-meta" class="sb-meta" aria-label="boss meta">
+            <div class="sb-meta-rowtop">
+              <div class="sb-meta-emoji" id="sb-meta-emoji">🎯</div>
+              <button id="sb-btn-meta" class="sb-meta-toggle" type="button" aria-expanded="true">▾</button>
+            </div>
 
-/* Play view layout */
-.sb-play{
-  border-radius: calc(var(--r) + 10px);
-  overflow: hidden;
-  border: 1px solid var(--stroke);
-  background: rgba(0,0,0,.12);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 14px 40px rgba(0,0,0,.26);
-}
+            <div class="sb-meta-body" id="sb-meta-body">
+              <div class="sb-meta-name" id="sb-meta-name">Boss</div>
+              <div class="sb-meta-desc" id="sb-meta-desc">desc</div>
 
-/* HUD top */
-.sb-hud{
-  display:flex;
-  gap: 10px;
-  align-items:center;
-  justify-content:space-between;
-  padding: 10px 12px;
-  background: rgba(0,0,0,.12);
-  border-bottom: 1px solid var(--stroke);
-}
-.sb-hud-left, .sb-hud-right{ display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
-.sb-hud-center{ flex:1; display:flex; justify-content:center; }
-.sb-boss-name{
-  font-weight: 800;
-  border: 1px solid var(--stroke);
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(0,0,0,.12);
-}
-.sb-stat{ color:var(--muted); font-size:12px; display:flex; gap:6px; align-items:baseline; }
-.sb-stat .k{ opacity:.8; }
-.sb-stat .v{ color:var(--txt); font-weight: 800; }
-.sb-toggle{ display:flex; gap:8px; align-items:center; color:var(--muted); font-size:12px; }
+              <div class="sb-meta-row">
+                <span>Phase</span><b id="sb-boss-phase-label">1</b>
+              </div>
+              <div class="sb-meta-row">
+                <span>Shield</span><b id="sb-boss-shield-label">0</b>
+              </div>
+            </div>
+          </aside>
+        </div>
 
-/* Bars top/bottom */
-.sb-bars{
-  padding: 8px 12px;
-  background: rgba(0,0,0,.10);
-  border-bottom: 1px solid var(--stroke);
-}
-.sb-bars-bottom{ border-top: 1px solid var(--stroke); border-bottom: none; }
-.sb-bars-top{ }
+        <!-- Bottom HUD -->
+        <div class="sb-bars sb-bars-bottom">
+          <div class="sb-fever">
+            <div class="sb-fever-head">
+              <div><span class="k">FEVER</span> <span id="sb-label-fever" class="v">0%</span></div>
+              <button id="sb-btn-fever" class="sb-fever-btn" type="button" title="Use Fever">⚡ FEVER</button>
+            </div>
+            <div class="sb-fever-track"><div id="sb-fever-bar" class="sb-fever-fill"></div></div>
+            <div class="sb-fever-hint" id="sb-fever-hint">READY แล้วกด FEVER เพื่อเปิดโหมดคูณคะแนน</div>
+          </div>
 
-.sb-bar{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin: 6px 0;
-}
-.sb-bar-label{ width:52px; color:var(--muted); font-weight:700; font-size:12px; }
-.sb-bar-track{
-  flex:1;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.10);
-  overflow:hidden;
-}
-.sb-bar-fill{
-  height:100%;
-  width:100%;
-  transform-origin:left center;
-  transform: scaleX(1);
-  background: rgba(70,220,140,.90);
-}
-.sb-bar-fill.boss{ background: rgba(255,110,130,.88); }
+          <div class="sb-bars-compact">
+            <div class="sb-row">
+              <span class="k">Phase</span> <b id="sb-text-phase" class="v">1</b>
+            </div>
+            <div class="sb-row">
+              <span class="k">Shield</span> <b id="sb-text-shield" class="v">0</b>
+            </div>
 
-/* Stage = playable area. Reserve space by min-height calc */
-.sb-stage{
-  position: relative;
-  padding: var(--sb-stage-pad);
-  min-height: 46vh; /* fallback */
-  background: rgba(0,0,0,.08);
-}
+            <div class="sb-bar">
+              <div class="sb-bar-label">YOU</div>
+              <div class="sb-bar-track"><div id="sb-hp-you-bottom" class="sb-bar-fill"></div></div>
+            </div>
+            <div class="sb-bar">
+              <div class="sb-bar-label">BOSS</div>
+              <div class="sb-bar-track"><div id="sb-hp-boss-bottom" class="sb-bar-fill boss"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-/* Make stage height stable on mobile */
-@supports (height: 100dvh){
-  .sb-stage{
-    min-height: calc(100dvh - 24px - var(--sb-hud-top) - var(--sb-bars-top) - var(--sb-bars-bottom));
-  }
-}
+      <!-- =========================
+           RESULT VIEW
+      ========================== -->
+      <section id="sb-view-result" class="sb-view sb-panel" aria-label="Result view">
+        <h2 class="sb-result-title">สรุปผล</h2>
 
-/* Center message should NOT block taps */
-.sb-center-msg{
-  position:absolute;
-  left:0; right:0;
-  top: 44%;
-  display:flex;
-  justify-content:center;
-  pointer-events:none;
-  z-index: 3;
-}
-.sb-msg-main{
-  pointer-events:none;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--stroke);
-  background: rgba(0,0,0,.18);
-  font-weight: 900;
-  letter-spacing:.2px;
-}
-.sb-msg-main.good{ border-color: rgba(70,220,140,.35); }
-.sb-msg-main.perfect{ border-color: rgba(120,190,255,.40); }
-.sb-msg-main.bad{ border-color: rgba(255,110,130,.35); }
-.sb-msg-main.miss{ border-color: rgba(255,200,120,.35); }
+        <div class="sb-result-grid">
+          <div class="sb-result-card"><div class="k">Time</div><div class="v" id="sb-res-time">0</div></div>
+          <div class="sb-result-card"><div class="k">Score</div><div class="v" id="sb-res-score">0</div></div>
+          <div class="sb-result-card"><div class="k">Max Combo</div><div class="v" id="sb-res-max-combo">0</div></div>
+          <div class="sb-result-card"><div class="k">Miss</div><div class="v" id="sb-res-miss">0</div></div>
+          <div class="sb-result-card"><div class="k">Phase</div><div class="v" id="sb-res-phase">0</div></div>
+          <div class="sb-result-card"><div class="k">Boss Cleared</div><div class="v" id="sb-res-boss-cleared">0</div></div>
+          <div class="sb-result-card"><div class="k">Accuracy</div><div class="v" id="sb-res-acc">0</div></div>
+          <div class="sb-result-card"><div class="k">Grade</div><div class="v" id="sb-res-grade">C</div></div>
+        </div>
 
-/* Target layer = full stage; allow taps */
-.sb-target-layer{
-  position: relative;
-  height: 100%;
-  min-height: 46vh;
-  border-radius: calc(var(--r) + 6px);
-  overflow:hidden;
-}
+        <div class="sb-result-actions">
+          <button id="sb-btn-result-retry" class="sb-btn sb-btn-primary" type="button">↻ เล่นอีกครั้ง</button>
+          <button id="sb-btn-result-menu" class="sb-btn" type="button">☰ เมนู</button>
+          <button id="sb-btn-download-events" class="sb-btn sb-btn-ghost" type="button">⬇ Events CSV</button>
+          <button id="sb-btn-download-session" class="sb-btn sb-btn-ghost" type="button">⬇ Session CSV</button>
+        </div>
+      </section>
 
-/* Targets */
-.sb-target{
-  position:absolute;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.30), rgba(0,0,0,.12) 60%, rgba(0,0,0,.18));
-  box-shadow: 0 10px 28px rgba(0,0,0,.22);
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  font-size: 28px;
-  z-index: 2;
-}
+    </main>
+  </div>
 
-/* expiring animation */
-.sb-target.is-expiring{
-  transform: scale(.88);
-  opacity: .0;
-  transition: transform 160ms ease, opacity 160ms ease;
-}
+  <script>
+    // --- Lightweight UI-only helpers (safe even if engine doesn't use them) ---
+    (function(){
+      const qs = new URL(location.href).searchParams;
+      const hub = qs.get('hub');
+      const linkHub = document.getElementById('sb-link-hub');
+      if (hub && linkHub) linkHub.href = hub;
 
-/* Meta card (boss info) */
-.sb-meta{
-  position:absolute;
-  right: 10px;
-  top: 10px;
-  width: min(320px, 56vw);
-  border-radius: calc(var(--r) + 8px);
-  border: 1px solid var(--stroke);
-  background: rgba(0,0,0,.18);
-  padding: 10px 10px;
-  z-index: 4;
-  backdrop-filter: blur(8px);
-}
-.sb-meta-rowtop{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.sb-meta-emoji{ font-size: 22px; }
-.sb-meta-toggle{
-  border-radius: 999px;
-  border: 1px solid var(--stroke);
-  background: rgba(0,0,0,.12);
-  color: var(--txt);
-  padding: 6px 10px;
-  font-weight: 800;
-}
-.sb-meta-body{ margin-top: 8px; display:block; }
-.sb-meta-name{ font-weight: 900; font-size: 16px; }
-.sb-meta-desc{ color:var(--muted); font-size: 12px; margin-top: 4px; line-height:1.35; }
-.sb-meta-row{ display:flex; justify-content:space-between; margin-top: 8px; color:var(--muted); font-size: 12px; }
+      // Prefill menu inputs from query (engine may ignore menu fields in some patch versions)
+      const pidEl  = document.getElementById('sb-input-pid');
+      const diffEl = document.getElementById('sb-input-diff');
+      const timeEl = document.getElementById('sb-input-time');
+      if (pidEl && qs.get('pid')) pidEl.value = qs.get('pid');
+      if (diffEl && qs.get('diff')) diffEl.value = qs.get('diff');
+      if (timeEl && qs.get('time')) timeEl.value = qs.get('time');
 
-/* collapsed meta */
-.sb-meta.is-collapsed .sb-meta-body{ display:none; }
-.sb-meta.is-collapsed{ width: 110px; }
+      // Meta collapse button (pure UI)
+      const btnMeta = document.getElementById('sb-btn-meta');
+      const meta = document.getElementById('sb-meta');
+      if (btnMeta && meta){
+        btnMeta.addEventListener('click', ()=>{
+          const collapsed = meta.classList.toggle('is-collapsed');
+          btnMeta.setAttribute('aria-expanded', String(!collapsed));
+          btnMeta.textContent = collapsed ? '▸' : '▾';
+        });
+      }
 
-/* Fever */
-.sb-fever{
-  border: 1px solid var(--stroke);
-  border-radius: calc(var(--r) + 8px);
-  padding: 10px;
-  background: rgba(0,0,0,.10);
-}
-.sb-fever-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom: 8px;
-}
-.sb-fever-head .k{ color:var(--muted); font-weight:800; }
-.sb-fever-head .v{ font-weight:900; }
-.sb-fever-btn{
-  border-radius: 999px;
-  border: 1px solid rgba(180,130,255,.25);
-  background: rgba(180,130,255,.18);
-  color: var(--txt);
-  padding: 8px 12px;
-  font-weight: 900;
-}
-.sb-fever-track{
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.10);
-  overflow:hidden;
-}
-.sb-fever-fill{
-  height:100%;
-  width:0%;
-  transform-origin:left center;
-  transform: scaleX(0);
-  background: linear-gradient(90deg, rgba(120,190,255,.9), rgba(180,130,255,.9));
-}
-.sb-fever-hint{ color:var(--muted); font-size:12px; margin-top: 8px; }
+      // Optional: menu "Start" button bridges to current engine buttons
+      const btnStart = document.getElementById('sb-btn-start');
+      const btnPlay = document.getElementById('sb-btn-play');
+      const btnResearch = document.getElementById('sb-btn-research');
+      let mode = (qs.get('mode') || qs.get('run') || 'play').toLowerCase();
 
-/* Bottom compact stats */
-.sb-bars-compact{
-  margin-top: 10px;
-  display:grid;
-  gap: 8px;
-}
-.sb-bars-compact .sb-row{
-  display:flex;
-  justify-content:space-between;
-  color:var(--muted);
-  font-size:12px;
-}
-.sb-bars-compact .sb-row .v{ color:var(--txt); font-weight:900; }
+      if (btnPlay && btnResearch){
+        btnPlay.addEventListener('click', ()=>{
+          mode = 'play';
+          btnPlay.classList.add('is-active');
+          btnResearch.classList.remove('is-active');
+          const d = document.getElementById('sb-mode-desc');
+          if (d) d.textContent = 'Play: สนุก/ปรับได้ • Research: ล็อกพฤติกรรมเพื่อวิจัย (AI ปิดเสมอ)';
+        });
 
-/* Result */
-.sb-result-title{ margin: 0 0 12px; }
-.sb-result-grid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 10px;
-}
-.sb-result-card{
-  border: 1px solid var(--stroke);
-  background: rgba(0,0,0,.12);
-  border-radius: 16px;
-  padding: 10px 12px;
-}
-.sb-result-card .k{ color:var(--muted); font-size:12px; }
-.sb-result-card .v{ font-weight: 900; font-size: 18px; margin-top: 4px; }
-.sb-result-actions{ margin-top: 12px; display:flex; flex-wrap:wrap; gap: 10px; }
+        btnResearch.addEventListener('click', ()=>{
+          mode = 'research';
+          btnResearch.classList.add('is-active');
+          btnPlay.classList.remove('is-active');
+          const d = document.getElementById('sb-mode-desc');
+          if (d) d.textContent = 'Research: โหมดวิจัย (AI ปิด) • ล็อกพฤติกรรมให้เทียบซ้ำได้';
+        });
+      }
 
-/* Mobile tightening */
-@media (max-width: 520px){
-  :root{
-    --pad: 12px;
-    --gap: 8px;
+      if (btnStart){
+        btnStart.addEventListener('click', ()=>{
+          // Engine patches บางเวอร์ชัน bind เริ่มเกมกับ btnPlay/btnResearch โดยตรง
+          // เลยยิง click ต่อให้ตามโหมดที่เลือก
+          if (mode === 'research') btnResearch?.click();
+          else btnPlay?.click();
+        });
+      }
+    })();
+  </script>
 
-    --sb-hud-top: 108px;
-    --sb-bars-top: 50px;
-    --sb-bars-bottom: 188px;
-
-    --sb-safe-pad: 20;
-    --sb-safe-top: 6;
-    --sb-safe-side: 8;
-    --sb-safe-bot: 10;
-  }
-
-  .sb-wrap{ padding-left: 10px; padding-right: 10px; }
-  .sb-title{ font-size: 30px; }
-  .sb-hud-left{ gap: 8px; }
-  .sb-meta{ width: min(300px, 62vw); }
-
-  /* Auto-collapse meta to avoid blocking play */
-  .sb-meta{ right: 8px; top: 8px; }
-}
-
-/* FX text classes (used by fx-burst) */
-.sb-fx-hit{}
-.sb-fx-fever{}
-.sb-fx-miss{}
-.sb-fx-bomb{}
-.sb-fx-heal{}
-.sb-fx-shield{}
+  <!-- Engine -->
+  <script type="module" src="./js/engine.js?v=20260225-run"></script>
+</body>
+</html>
