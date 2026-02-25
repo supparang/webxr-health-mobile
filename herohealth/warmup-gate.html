@@ -1,17 +1,15 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — P5 UPGRADE FULL (v20260224p6)
+HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL (v20260225p1)
 ✅ root file
-✅ pick5 policies: theme/game/pick=rand|day + detect from next
-✅ DAILY POLICY (ตามที่คุณย้ำล่าสุด):
-   - Warmup = cat-only (cat ÷ game) : วันละครั้งต่อโซน ต่อ PID
-   - Cooldown = cat + game          : วันละครั้งต่อโซน+เกม ต่อ PID
+✅ DAILY = cat + game + pid + day (NEW) + fallback old cat-only
+✅ warmup/cooldown once-per-day per PID+category+game
 ✅ warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
 ✅ cooldown end -> supports plan sequence passthrough + cdnext chain already in next
-✅ NEW (P5): grade=p5 => default dur/cdur=30 (teacher override respected)
-✅ NEW: Mission panel (3 daily missions deterministic by day+pid) + bonus
-✅ NEW: P5 mini-games: risky/skill-based (streak, decoys, perfect timing)
-✅ NEW: Cooldown breath ring timing with perfect window
-Works PC/Mobile (tap/click). Safe, no external deps.
+✅ P5: grade=p5 => default dur/cdur=30 (override respected)
+✅ Mission panel (3 daily missions deterministic by day+pid)
+✅ P5 mini-games: risky/skill-based (streak, decoys, perfect timing)
+✅ Cooldown breath ring timing with perfect window
+Works PC/Mobile. Safe, no external deps.
 -->
 <!doctype html>
 <html lang="th">
@@ -396,9 +394,9 @@ Works PC/Mobile (tap/click). Safe, no external deps.
           <div class="card">
             <h3>หมายเหตุ</h3>
             <div class="muted" style="margin-top:6px;">
-              • Warmup ส่งบัฟผ่าน URL ไปเกมจริง<br/>
-              • Cooldown ส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • Daily policy: Warmup=cat-only | Cooldown=cat+game
+              • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
+              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
+              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
             </div>
           </div>
         </div>
@@ -431,22 +429,33 @@ Works PC/Mobile (tap/click). Safe, no external deps.
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // ✅ DAILY KEY POLICY:
-  // Warmup  = cat-only (ignore game)
-  // Cooldown= cat + game
-  function dailyKey(prefix, category, pid, gameKey, includeGame){
+  // ✅ NEW daily key: prefix:cat:game:pid:day
+  function dailyKeyNew(prefix, category, gameKey, pid){
     const day=getLocalDayKey();
     const p=(pid||'anon').trim()||'anon';
     const c=String(category||'nutrition').toLowerCase();
-    const g=String(gameKey||'').toLowerCase().trim();
-    if(includeGame && g) return `${prefix}:${c}:${g}:${p}:${day}`;
+    const g=String(gameKey||'unknown').toLowerCase();
+    return `${prefix}:${c}:${g}:${p}:${day}`;
+  }
+  // ✅ OLD fallback: prefix:cat:pid:day (support your previous installs)
+  function dailyKeyOld(prefix, category, pid){
+    const day=getLocalDayKey();
+    const p=(pid||'anon').trim()||'anon';
+    const c=String(category||'nutrition').toLowerCase();
     return `${prefix}:${c}:${p}:${day}`;
   }
-  function isDaily(prefix, category, pid, gameKey, includeGame){
-    try{ return localStorage.getItem(dailyKey(prefix,category,pid,gameKey,includeGame))==='1'; }catch{ return false; }
+
+  function isDaily(prefix, category, gameKey, pid){
+    try{
+      const kNew = dailyKeyNew(prefix, category, gameKey, pid);
+      const kOld = dailyKeyOld(prefix, category, pid);
+      return localStorage.getItem(kNew)==='1' || localStorage.getItem(kOld)==='1';
+    }catch{ return false; }
   }
-  function markDaily(prefix, category, pid, gameKey, includeGame){
-    try{ localStorage.setItem(dailyKey(prefix,category,pid,gameKey,includeGame),'1'); }catch{}
+  function markDaily(prefix, category, gameKey, pid){
+    try{
+      localStorage.setItem(dailyKeyNew(prefix,category,gameKey,pid),'1');
+    }catch{}
   }
 
   function hash32(str){
@@ -480,7 +489,6 @@ Works PC/Mobile (tap/click). Safe, no external deps.
   const grade = String(q('grade','')).toLowerCase().trim();
   const isP5 = (grade === 'p5' || grade === 'g5' || grade === 'kid' || grade === 'เด็ก');
 
-  // duration: teacher override respected, else P5 defaults 30s, else 20s
   const durWarmDefault = isP5 ? 30 : 20;
   const durCoolDefault = isP5 ? 30 : 15;
 
@@ -540,10 +548,9 @@ Works PC/Mobile (tap/click). Safe, no external deps.
   }
   const themeKey = detectThemeKey();
 
-  // ✅ Apply policy switch
-  const includeGameInDailyKey = (phase === 'cooldown'); // warmup: false, cooldown: true
+  // ✅ DAILY per game
   const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
-  const dailyDone = isDaily(dailyPrefix, cat, pid, themeKey, includeGameInDailyKey);
+  const dailyDone = isDaily(dailyPrefix, cat, themeKey, pid);
 
   // dom
   const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
@@ -743,8 +750,8 @@ Works PC/Mobile (tap/click). Safe, no external deps.
     cancelAnimationFrame(stageAnimRaf);
     raf = 0; stageAnimRaf = 0;
 
-    // ✅ mark daily with policy
-    markDaily(dailyPrefix, cat, pid, themeKey, includeGameInDailyKey);
+    // ✅ mark daily per game
+    markDaily(dailyPrefix, cat, themeKey, pid);
 
     updateMissions();
 
@@ -780,8 +787,8 @@ Works PC/Mobile (tap/click). Safe, no external deps.
     tLeft = Math.max(0, tLeft - dt);
 
     updateMissions();
-
     setHUD();
+
     if(tLeft<=0){
       if(phase==='cooldown') endNow({ calm: 1 });
       else endNow(makeWarmupBuff());
@@ -793,18 +800,9 @@ Works PC/Mobile (tap/click). Safe, no external deps.
   function autoSkipIfDaily(){
     if(!dailyDone) return false;
     const target = (next0 || hub);
-
-    const pol = includeGameInDailyKey ? 'cat+game' : 'cat-only';
-    const keyPreview = dailyKey(dailyPrefix, cat, pid, themeKey, includeGameInDailyKey);
-
-    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (${pol}) → ข้ามอัตโนมัติ`;
+    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}, game=${themeKey}) → ข้ามอัตโนมัติ`;
     statusText.textContent = 'Daily gate: DONE';
-    // กันข้ามเร็วเกินจนผู้เล่นงง: มี delay นิดเดียว
     setTimeout(()=> location.replace(target), 220);
-    try{
-      pillDaily.textContent = 'DAILY: DONE';
-      pillDaily.title = keyPreview;
-    }catch(_){}
     return true;
   }
 
@@ -1239,7 +1237,6 @@ Works PC/Mobile (tap/click). Safe, no external deps.
     function step(){
       if(!started) return;
       const played = dur - tLeft;
-
       const sp = 0.018 + Math.min(0.010, played*0.0004);
       t += sp;
 
@@ -1253,7 +1250,6 @@ Works PC/Mobile (tap/click). Safe, no external deps.
       label.textContent = cur;
 
       inPerfect = (size >= 182 && size <= 198);
-
       stageAnimRaf = requestAnimationFrame(step);
     }
 
@@ -1273,7 +1269,6 @@ Works PC/Mobile (tap/click). Safe, no external deps.
 
     bin.addEventListener('click', ()=>choose('IN'));
     bout.addEventListener('click', ()=>choose('OUT'));
-
     stageAnimRaf = requestAnimationFrame(step);
   }
 
@@ -1301,25 +1296,10 @@ Works PC/Mobile (tap/click). Safe, no external deps.
   }
 
   const ThemeP5 = {
-    goodjunk: runP5_Nutrition,
-    groups:   runP5_Nutrition,
-    hydration:runP5_Nutrition,
-    plate:    runP5_Nutrition,
-
-    handwash: runP5_Hygiene,
-    brush:    runP5_Hygiene,
-    maskcough:runP5_Hygiene,
-    germdetective:runP5_Hygiene,
-    germ:     runP5_Hygiene,
-    bath:     runP5_Hygiene,
-    clean:    runP5_Hygiene,
-    cleanobjects:runP5_Hygiene,
-
-    shadow:   runP5_Exercise,
-    rhythm:   runP5_Exercise,
-    jumpduck: runP5_Exercise,
-    balance:  runP5_Exercise,
-    planner:  runP5_Exercise,
+    goodjunk: runP5_Nutrition, groups: runP5_Nutrition, hydration: runP5_Nutrition, plate: runP5_Nutrition,
+    handwash: runP5_Hygiene, brush: runP5_Hygiene, maskcough: runP5_Hygiene, germdetective: runP5_Hygiene,
+    bath: runP5_Hygiene, clean: runP5_Hygiene,
+    shadow: runP5_Exercise, rhythm: runP5_Exercise, jumpduck: runP5_Exercise, balance: runP5_Exercise, planner: runP5_Exercise,
   };
 
   function start(){
@@ -1342,7 +1322,7 @@ Works PC/Mobile (tap/click). Safe, no external deps.
 
     if(phase==='cooldown'){
       runCooldown_BreathRing();
-      statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat} game=${themeKey} (daily=cat+game)`;
+      statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat} game=${themeKey}`;
     }else{
       if(isP5){
         const fn = ThemeP5[themeKey] || runP5_Nutrition;
@@ -1350,12 +1330,12 @@ Works PC/Mobile (tap/click). Safe, no external deps.
       }else{
         runLegacy_SimpleTap();
       }
-      statusText.textContent = `Warmup (${dur}s) — pid=${pid} cat=${cat} (daily=cat-only)`;
+      statusText.textContent = `Warmup (${dur}s) — theme=${themeKey}`;
     }
 
     subLine.textContent = (phase==='cooldown')
-      ? 'Cooldown วันละครั้งต่อ cat+game → ผ่อนคลายแล้วไปต่อ'
-      : (isP5 ? 'Warmup วันละครั้งต่อ cat (ไม่แยกเกม) → ทำภารกิจ + รักษาสตรีค แล้วเข้าเกมจริง' : 'Warmup วันละครั้งต่อ cat แล้วเข้าเกมจริง');
+      ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง/ต่อเกม)'
+      : (isP5 ? 'โหมด ป.5: ทำภารกิจ + รักษาสตรีค แล้วเข้าเกมจริง (วันละครั้ง/ต่อเกม)' : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง/ต่อเกม)');
 
     raf = requestAnimationFrame(tick);
   }
@@ -1363,8 +1343,8 @@ Works PC/Mobile (tap/click). Safe, no external deps.
   function skip(){
     const target = (next0 || hub);
 
-    // ✅ mark daily with policy (warmup cat-only, cooldown cat+game)
-    markDaily(dailyPrefix, cat, pid, themeKey, includeGameInDailyKey);
+    // ✅ mark daily per game (skip counts as done)
+    markDaily(dailyPrefix, cat, themeKey, pid);
 
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
@@ -1395,12 +1375,8 @@ Works PC/Mobile (tap/click). Safe, no external deps.
 
   if(!autoSkipIfDaily()){
     const name = (phase==='cooldown')?'Cooldown':'Warmup';
-    const pol = includeGameInDailyKey ? 'cat+game' : 'cat-only';
-    const keyPreview = dailyKey(dailyPrefix, cat, pid, themeKey, includeGameInDailyKey);
-
     subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
-    statusText.textContent = `ready: pid=${pid} cat=${cat} game=${themeKey} daily=${pol} next=${next0 ? 'yes' : 'hub'}`;
-    try{ pillDaily.title = keyPreview; }catch(_){}
+    statusText.textContent = `ready: pid=${pid} cat=${cat} game=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
     setHUD();
     mkMissions();
   }
