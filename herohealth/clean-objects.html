@@ -1,64 +1,35 @@
 <!-- === /herohealth/clean-objects.html ===
-HeroHealth • Clean Objects (Launcher) — ROOT
-Routes to: /herohealth/vr-clean/home-clean.html
-Keeps all query params (run/diff/time/seed/pid/hub/ai/debug/api/...)
-Sets view:
-  - A (PC/Mobile): view=pc or view=mobile
-  - B (Cardboard): view=cvr (+ vr=1 hint)
+Clean Objects — ROOT Auto-Redirect Launcher
+Redirects to: /herohealth/vr-clean/home-clean.html
+Keeps querystring + sets defaults + auto view when missing
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Clean Objects (Launcher)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Redirecting…</title>
+  <meta name="color-scheme" content="dark light"/>
   <style>
-    :root{ --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455; }
-    html,body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--fg); }
-    .wrap{ max-width:920px; margin:0 auto; padding:24px 16px 40px; }
-    h1{ margin:0 0 6px; font-size:22px; }
-    .sub{ color:var(--mut); margin:0 0 16px; }
-    .grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-    .card{ background:var(--card); border:1px solid var(--bd); border-radius:16px; padding:14px; }
-    .card h2{ margin:0 0 6px; font-size:16px; }
-    .card p{ margin:0 0 12px; color:var(--mut); font-size:13px; line-height:1.35; }
-    .btn{ width:100%; border:1px solid var(--bd); background:#1a2a4a; color:var(--fg);
-      padding:12px 12px; border-radius:12px; font-weight:700; cursor:pointer; }
-    .btn:active{ transform: translateY(1px); }
-    .row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-    .pill{ padding:8px 10px; border:1px dashed var(--bd); border-radius:999px; color:var(--mut); font-size:12px; }
-    .tiny{ color:var(--mut); font-size:12px; margin-top:12px; line-height:1.4; }
-    code{ color:#cfe2ff; }
+    :root{ --bg:#050814; --fg:rgba(229,231,235,.92); --mut:rgba(148,163,184,.9); }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:720px;margin:0 auto;padding:20px}
+    .card{border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.60);border-radius:18px;padding:14px}
+    .mut{color:var(--mut);font-size:12px;line-height:1.45}
+    code{color:#cfe2ff}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Clean Objects — Home</h1>
-    <p class="sub">เลือกโหมดเล่น: PC/Mobile = A (Map) • Cardboard = B (Crosshair)</p>
-
-    <div class="grid">
-      <div class="card">
-        <h2>A) PC / Mobile (Map + Tap)</h2>
-        <p>เล่นเร็ว คิดคุ้ม (Evaluate) + วางแผน (Create) ด้วยแผนที่บ้าน</p>
-        <button class="btn" id="btnA" type="button">Play (PC/Mobile)</button>
+    <div class="card">
+      <div style="font-weight:900">Launching Clean Objects…</div>
+      <div class="mut" style="margin-top:6px">
+        Redirecting to <code>/herohealth/vr-clean/home-clean.html</code><br/>
+        (If not redirected, tap the link below.)
       </div>
-
-      <div class="card">
-        <h2>B) Cardboard (Crosshair)</h2>
-        <p>เล็ง crosshair แล้วเลือกจุด (รองรับ event <code>hha:shoot</code> จาก <code>vr-ui.js</code>)</p>
-        <button class="btn" id="btnB" type="button">Play (Cardboard)</button>
+      <div class="mut" style="margin-top:10px">
+        <a id="fallback" href="./vr-clean/home-clean.html" style="color:#93c5fd">Open run game</a>
       </div>
-    </div>
-
-    <div class="row">
-      <div class="pill">ส่งต่อพารามิเตอร์ทั้งหมด: run/diff/time/seed/pid/hub/ai/debug/api</div>
-      <div class="pill">ถ้าไม่ส่ง <code>view</code> มา: ปุ่มนี้จะกำหนดให้เอง</div>
-      <div class="pill">Tip: ใส่ <code>auto=1</code> เพื่อให้เข้า A อัตโนมัติ (ไม่ต้องกดปุ่ม)</div>
-    </div>
-
-    <div class="tiny">
-      Run page: <code>/herohealth/vr-clean/home-clean.html</code><br/>
-      Tip: ถ้าเข้า launcher จาก hub แล้วมีพารามิเตอร์อยู่แล้ว (seed/time/diff ฯลฯ) ระบบจะพกไปให้ครบ
     </div>
   </div>
 
@@ -66,64 +37,45 @@ Sets view:
 (function(){
   'use strict';
 
-  // relative to /herohealth/
   const RUN_URL = './vr-clean/home-clean.html';
-
-  function parseQS() {
-    const u = new URL(location.href);
-    const o = {};
-    u.searchParams.forEach((v,k)=>{ o[k]=v; });
-    return o;
-  }
-  function toQS(obj){
-    const sp = new URLSearchParams();
-    Object.keys(obj).forEach(k=>{
-      const v = obj[k];
-      if (v !== undefined && v !== null && String(v).length) sp.set(k, String(v));
-    });
-    return sp.toString();
-  }
-
-  const base = parseQS();
-
-  // sensible defaults if missing
-  if(!base.run)  base.run = 'play';
-  if(!base.diff) base.diff = 'normal';
-  if(!base.time) base.time = '80';          // match hub default you used often
-  if(!base.seed) base.seed = String(Date.now());
-  if(!base.pid)  base.pid = 'anon';
 
   function isMobileUA(){
     const ua = navigator.userAgent || '';
     return /Android|iPhone|iPad|iPod/i.test(ua);
   }
 
-  // keep everything, but override view
-  function go(view){
-    const p = Object.assign({}, base, { view });
+  function build(){
+    const u = new URL(location.href);
+    const sp = new URLSearchParams(u.search);
 
-    // hint: when using cardboard, allow run page to auto-show VR affordance if you want
-    if(view === 'cvr'){
-      if(!p.vr) p.vr = '1';
+    // defaults (keep if already present)
+    if(!sp.get('run'))  sp.set('run','play');
+    if(!sp.get('diff')) sp.set('diff','normal');
+    if(!sp.get('time')) sp.set('time','80');
+    if(!sp.get('seed')) sp.set('seed', String(Date.now()));
+    if(!sp.get('pid'))  sp.set('pid','anon');
+
+    // view: keep if provided; else auto
+    if(!sp.get('view')){
+      sp.set('view', isMobileUA() ? 'mobile' : 'pc');
     }
 
-    const url = RUN_URL + '?' + toQS(p);
-    location.href = url;
+    // (optional) if view=cvr, hint vr=1
+    if(sp.get('view') === 'cvr' && !sp.get('vr')){
+      sp.set('vr','1');
+    }
+
+    const target = RUN_URL + '?' + sp.toString() + (u.hash || '');
+    return target;
   }
 
-  document.getElementById('btnA').addEventListener('click', ()=> {
-    go(isMobileUA() ? 'mobile' : 'pc');
-  });
+  const target = build();
 
-  document.getElementById('btnB').addEventListener('click', ()=> {
-    go('cvr');
-  });
+  // fallback link
+  document.getElementById('fallback').href = target;
 
-  // optional: auto-skip launcher (useful for hub direct launch)
-  if(String(base.auto||'') === '1'){
-    go(isMobileUA() ? 'mobile' : 'pc');
-  }
-
+  // redirect now (replace keeps history clean)
+  location.replace(target);
 })();
 </script>
 </body>
