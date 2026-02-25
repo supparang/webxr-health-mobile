@@ -9,69 +9,123 @@
   --pink: rgba(244,114,182,.95);
   --warn: rgba(251,191,36,.95);
   --bad: rgba(239,68,68,.95);
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
-*{ box-sizing: border-box; }
-
+/* ✅ สำคัญ: กัน browser scroll / pull-to-refresh ตอนเล่น */
 html,body{
-  height:100%;margin:0;
+  height:100%;
+  margin:0;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+html[data-br-scroll="lock"],
+body[data-br-scroll="lock"]{
+  overflow: hidden !important;
+  height: 100dvh;
+}
+html[data-br-scroll="lock"] body,
+body[data-br-scroll="lock"]{
+  touch-action: none;
+}
+
+body{
   background:
     radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
     radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
     var(--bg);
   color:var(--txt);
   font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+  overflow:hidden; /* ✅ กันหน้าทั้งหน้าเลื่อน */
+  position: relative;
 }
 
+/* A-Frame background scene */
 a-scene{
-  position:fixed; inset:0; z-index:0;
-  pointer-events:none; opacity:.12;
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  opacity:.12;
 }
 
-#br-wrap{position:relative; z-index:2; min-height:100%;}
+#br-wrap{
+  position:relative;
+  z-index:2;
+  min-height:100dvh;  /* ✅ ใช้ dvh กัน mobile URL bar ทำเลย์เอาต์กระตุก */
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;    /* ✅ อย่าให้ content ดันยาวจนเกิด scroll */
+}
 
-/* ===== Top ===== */
 .br-top{
-  display:flex; gap:12px; justify-content:space-between; align-items:flex-start; flex-wrap:wrap;
-  padding:14px 14px 8px;
+  display:flex;
+  gap:12px;
+  justify-content:space-between;
+  align-items:flex-start;
+  flex-wrap:wrap;
+  padding: calc(10px + var(--sat)) calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  flex: 0 0 auto;
 }
 .br-pill{
-  display:inline-flex; gap:8px; align-items:center;
-  padding:6px 10px; border:1px solid var(--line); border-radius:999px;
-  background:rgba(2,6,23,.55); color:var(--mut); font-weight:1000;
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
+  padding:6px 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(2,6,23,.55);
+  color:var(--mut);
+  font-weight:1000
 }
-.br-title{margin:8px 0 4px; font-size:22px; letter-spacing:.2px}
-.br-sub{margin:0; color:rgba(229,231,235,.76); line-height:1.4}
+.br-title{margin:8px 0 4px;font-size:22px;letter-spacing:.2px}
+.br-sub{margin:0;color:rgba(229,231,235,.76);line-height:1.4}
 .br-ctx{
-  border:1px solid var(--line); border-radius:18px;
-  background:var(--panel); backdrop-filter:blur(10px);
-  padding:10px 12px; min-width:190px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--panel);
+  backdrop-filter:blur(10px);
+  padding:10px 12px;
+  min-width:190px
 }
-.br-ctxrow{display:flex; justify-content:space-between; gap:12px; font-size:12px}
-.br-ctxrow .k{color:rgba(148,163,184,.95); font-weight:1000}
-.br-ctxrow .v{font-weight:1000; text-align:right}
+.br-ctxrow{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.br-ctxrow .k{color:rgba(148,163,184,.95);font-weight:1000}
+.br-ctxrow .v{font-weight:1000}
 
-/* ===== Stage ===== */
-.br-stage{position:relative; padding:6px 14px 18px}
+.br-stage{
+  position:relative;
+  padding:6px calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
+  flex: 1 1 auto;
+  min-height: 0; /* ✅ สำคัญกับ flex child */
+  overflow: hidden;
+}
 .br-layer{
   position:relative;
   width:min(980px, 100%);
-  height:min(520px, calc(100vh - 280px));
-  min-height:260px;
+  height:min(520px, calc(100dvh - 290px)); /* ✅ dvh */
+  min-height: 280px;
   margin:0 auto;
   border:1px solid rgba(148,163,184,.16);
   border-radius:24px;
   background: rgba(2,6,23,.35);
   box-shadow: 0 22px 80px rgba(0,0,0,.35);
   overflow:hidden;
+  touch-action: manipulation; /* ✅ เล่นใน layer แล้วไม่แพนหน้า */
 }
 
 .br-actions{
   position:absolute;
-  left:50%; transform:translateX(-50%);
+  left:50%;
+  transform:translateX(-50%);
   top: 10px;
-  display:flex; gap:8px;
+  display:flex;
+  gap:8px;
   z-index:5;
+  pointer-events: auto;
 }
 
 .br-btn{
@@ -91,8 +145,11 @@ a-scene{
 .br-ghost{background: rgba(2,6,23,.55)}
 .br-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 
-/* ===== HUD ===== */
-.br-hud{width:min(980px,100%);margin:10px auto 0}
+.br-hud{
+  width:min(980px,100%);
+  margin:10px auto 0;
+  flex: 0 0 auto;
+}
 .br-hudGrid{display:grid;grid-template-columns: 1fr 1fr .95fr;gap:10px}
 @media (max-width:860px){.br-hudGrid{grid-template-columns:1fr}}
 .br-box,.br-mini{
@@ -117,15 +174,21 @@ a-scene{
 .br-bar .fill.good{background:rgba(16,185,129,.92)}
 .br-bar .fill.pink{background:rgba(244,114,182,.88)}
 
-/* ===== Menu + End ===== */
+/* ✅ overlays fixed + scroll only inside card if needed */
 .br-menu,.br-end{
-  position:fixed; inset:0;
-  display:grid; place-items:center;
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
   z-index:10;
   padding:18px;
+  background: rgba(2,6,23,.24);
+  overscroll-behavior: contain;
 }
 .br-card,.br-endCard{
   width:min(520px, 92vw);
+  max-height:min(82dvh, 760px);
+  overflow:auto; /* ✅ ถ้าเนื้อหาเกิน ให้ scroll ใน card ไม่ใช่ทั้งหน้า */
   border:1px solid var(--line);
   border-radius:24px;
   background: rgba(2,6,23,.78);
@@ -146,14 +209,13 @@ a-scene{
 .br-endGrid .box{border:1px solid rgba(148,163,184,.14);border-radius:18px;background:rgba(2,6,23,.55);padding:10px 12px}
 .br-endGrid .k{color:rgba(148,163,184,.95);font-weight:1000;font-size:12px}
 .br-endGrid .v{font-weight:1000;font-size:18px;margin-top:4px}
-.br-endNote{margin-top:10px;color:rgba(229,231,235,.65);font-weight:800;font-size:12px;line-height:1.45}
+.br-endNote{margin-top:10px;color:rgba(229,231,235,.65);font-weight:800;font-size:12px}
 .br-endActions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
 
-/* ===== Toast ===== */
 .br-toast{
   position:fixed;
   left:50%;
-  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  bottom: max(16px, calc(var(--sab) + 8px));
   transform:translateX(-50%);
   z-index:12;
   padding:10px 12px;
@@ -166,21 +228,27 @@ a-scene{
   opacity:0;
   transition:opacity .18s ease, transform .18s ease;
   pointer-events:none;
+  max-width: 92vw;
+  text-align:center;
 }
 .br-toast.show{opacity:1; transform:translateX(-50%) translateY(-2px)}
 
-/* ===== Tap Start ===== */
 .br-tap{
-  position:fixed;inset:0;display:grid;place-items:center;z-index:30;padding:18px;background:rgba(0,0,0,.25)
+  position:fixed;inset:0;display:grid;place-items:center;z-index:30;padding:18px;
+  background:rgba(0,0,0,.25)
 }
 .br-tapCard{
-  width:min(420px,92vw);border:1px solid var(--line);border-radius:24px;
-  background:rgba(2,6,23,.85);backdrop-filter:blur(14px);box-shadow:0 22px 90px rgba(0,0,0,.45);padding:14px
+  width:min(420px,92vw);
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:rgba(2,6,23,.85);
+  backdrop-filter:blur(14px);
+  box-shadow:0 22px 90px rgba(0,0,0,.45);
+  padding:14px
 }
 .br-tapTitle{font-weight:1000;font-size:18px}
 .br-tapSub{color:rgba(229,231,235,.75);font-weight:900;margin-top:6px}
 
-/* ===== Fatal ===== */
 .br-fatal{
   position:fixed;inset:12px;
   border:1px solid rgba(239,68,68,.35);
@@ -207,9 +275,7 @@ a-scene{
   place-items:center;
   transform: translate(-50%, -50%);
   overflow:hidden;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:manipulation;
+  padding:0;
 }
 .br-t.thick{width:92px;height:92px;border-color:rgba(167,243,208,.28)}
 .br-t .emo{font-size:28px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
@@ -222,7 +288,7 @@ a-scene{
 .br-t.pop{animation:pop .22s ease}
 @keyframes pop{0%{transform:translate(-50%,-50%) scale(.95)}100%{transform:translate(-50%,-50%) scale(1.04)}}
 
-/* Boss Weakspot */
+/* ✅ Boss Weakspot */
 .br-ws{
   position:absolute;
   left:50%; top:50%;
@@ -246,7 +312,7 @@ a-scene{
 @keyframes wsHit{0%{transform:translate(-50%,-50%) scale(.9)}100%{transform:translate(-50%,-50%) scale(1.15)}}
 
 /* ===== FX ===== */
-#br-fx{position:absolute;inset:0;z-index:4;pointer-events:none}
+#br-fx{position:fixed;inset:0;z-index:8;pointer-events:none}
 .fx-flash{position:absolute;inset:0;opacity:0;background:rgba(255,255,255,.12);transition:opacity .12s ease}
 .fx-flash.on{opacity:1}
 
@@ -263,65 +329,47 @@ a-scene{
 .fx-laser.on{opacity:1;animation: laserSweep 1.25s linear both;}
 @keyframes laserSweep{0%{transform: translateX(-120%) skewX(-10deg)}100%{transform: translateX(120%) skewX(-10deg)}}
 
-.fx-shock{
-  position:absolute;left:50%;top:50%;
-  width:18px;height:18px;border-radius:999px;
-  border:2px solid rgba(34,211,238,.65);
-  box-shadow:0 0 0 2px rgba(2,6,23,.55);
-  transform: translate(-50%,-50%) scale(.2);
-  opacity:0;
+.fx-fin{
+  position:absolute;inset:0;opacity:0;
+  background: radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);
+  transition: opacity .18s ease
 }
-.fx-shock.on{opacity:1;animation: shockRing .36s ease-out both;}
-@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(.2);opacity:.25}100%{transform:translate(-50%,-50%) scale(20);opacity:0}}
-
-.fx-fin{position:absolute;inset:0;opacity:0;background: radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);transition: opacity .18s ease}
 .fx-fin.on{opacity:1}
 
-/* ===== PATCH: visibility hardening ===== */
-#br-menu[aria-hidden="true"]{ display:none !important; }
-#br-end[hidden]{ display:none !important; }
-#br-end:not([hidden]){ display:grid !important; }
-
-#br-end{ z-index: 10010; }
-#br-menu{ z-index: 10005; }
-#fatal{ z-index: 10050; }
-
-html[data-br-ui="menu"] #hha-vrui,
-html[data-br-ui="menu"] #hha-crosshair,
-html[data-br-ui="menu"] #hha-vrui-hint,
-html[data-br-ui="end"] #hha-vrui,
-html[data-br-ui="end"] #hha-crosshair,
-html[data-br-ui="end"] #hha-vrui-hint{
-  opacity:0 !important;
-  pointer-events:none !important;
-  transition:opacity .15s ease;
-}
-
+/* mobile tuning */
 @media (max-width: 860px){
-  .br-top{padding:12px 12px 6px}
-  .br-title{font-size:20px}
-  .br-stage{padding:6px 12px 14px}
+  .br-title{font-size:18px}
+  .br-sub{font-size:12px}
+  .br-ctx{min-width:unset; width:100%}
+  .br-top{gap:8px}
+  .br-stage{
+    padding-left: calc(10px + var(--sal));
+    padding-right: calc(10px + var(--sar));
+    padding-bottom: calc(10px + var(--sab));
+  }
   .br-layer{
-    height:min(440px, calc(100vh - 300px));
+    height: min(420px, calc(100dvh - 330px));
+    min-height: 250px;
     border-radius:20px;
   }
   .br-actions{
-    top:8px;
+    top: 8px;
     gap:6px;
-    width:calc(100% - 16px);
-    justify-content:center;
     flex-wrap:wrap;
+    width: calc(100% - 20px);
+    justify-content:center;
   }
-  .br-btn{padding:10px 12px;font-size:12px}
-  .br-end{
-    align-items:start;
-    padding-top:max(14px, env(safe-area-inset-top, 0px));
-    padding-bottom:max(90px, env(safe-area-inset-bottom, 0px));
-    overflow:auto;
+  .br-btn{
+    padding:9px 10px;
+    font-size:11px;
   }
-  .br-endCard{
-    width:min(560px, 94vw);
-    margin:0 auto;
-    border-radius:20px;
-  }
+  .br-t{ width:70px; height:70px; }
+  .br-t.thick{ width:84px; height:84px; }
+  .br-t .emo{ font-size:24px; }
+}
+
+/* cVR strict: target pointer off (vr-ui ยิงจาก crosshair) */
+html[data-view="cvr"] .br-layer .br-t,
+body[data-view="cvr"] .br-layer .br-t{
+  pointer-events: none !important;
 }
