@@ -1,10 +1,10 @@
 <!-- === /herohealth/bloom-gate.html ===
-HeroHealth Bloom Gate — FULL (v20260224-ABC)
-✅ bloom=a|b|c (default c)
-✅ deterministic variants 1..5 by pid+day+slot+cat+theme+bloom (or override ?variant=)
-✅ daily once-per-day per PID+cat+bloom (auto-skip)
-✅ next= can point to warmup-gate (so flow: Bloom -> Warmup -> Game)
-✅ planSeq passthrough
+HeroHealth Bloom Gate — PER ZONE DAILY (v20260225)
+✅ root file
+✅ marks localStorage: HHA_BLOOM_DONE:{zone}:{pid}:{YYYY-MM-DD}=1 when Continue
+✅ next=... -> redirect
+✅ supports bloom=a|b|c (Remember/Apply/Analyze framing)
+✅ uses cat/zone/theme/pid from QS
 -->
 <!doctype html>
 <html lang="th">
@@ -22,10 +22,10 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       --text:#e5e7eb;
       --muted:#94a3b8;
       --good:#22c55e;
-      --bad:#ef4444;
       --warn:#f59e0b;
-      --cyan:#22d3ee;
       --violet:#a78bfa;
+      --cyan:#22d3ee;
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -35,8 +35,8 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
     html,body{
       height:100%; margin:0;
       background:
-        radial-gradient(1000px 700px at 15% 0%, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(900px 650px at 92% 12%, rgba(167,139,250,.12), transparent 55%),
+        radial-gradient(1000px 700px at 15% 0%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 650px at 92% 12%, rgba(167,139,250,.10), transparent 55%),
         var(--bg);
       color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
@@ -47,141 +47,58 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       padding: calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
       display:flex; align-items:center; justify-content:center;
     }
-    .shell{
-      width:min(980px, 100%);
+    .card{
+      width:min(820px, 100%);
       border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
       border-radius:24px;
-      box-shadow:0 16px 60px rgba(0,0,0,.42);
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.62));
+      box-shadow:0 18px 70px rgba(0,0,0,.42);
       overflow:hidden;
     }
     .top{
-      padding:12px 14px;
+      padding:14px 16px;
       border-bottom:1px solid var(--stroke);
-      background:rgba(2,6,23,.45);
-      display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
+      background:rgba(2,6,23,.44);
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
     }
     .brand{display:flex; gap:10px; align-items:center}
     .logo{
-      width:40px;height:40px;border-radius:12px;
+      width:44px;height:44px;border-radius:14px;
       border:1px solid var(--stroke);
       background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
       display:grid; place-items:center; font-weight:1000;
     }
-    .title{font-weight:1000}
+    .title{font-weight:1100}
     .sub{font-size:12px; color:var(--muted); font-weight:800; margin-top:2px}
-
     .chips{display:flex; gap:8px; flex-wrap:wrap}
     .chip{
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.28);
+      background:rgba(2,6,23,.26);
       border-radius:999px;
       padding:6px 10px;
       font-size:11px; font-weight:1000;
       white-space:nowrap;
     }
-
-    .main{ display:grid; grid-template-columns: 1.2fr .8fr; gap:0; }
-    @media (max-width: 860px){ .main{ grid-template-columns:1fr; } }
-
-    .play{
-      position:relative;
-      min-height:560px;
-      border-right:1px solid var(--stroke);
-      background:
-        radial-gradient(700px 320px at 50% 10%, rgba(34,211,238,.06), transparent 70%),
-        linear-gradient(180deg, rgba(2,6,23,.20), rgba(2,6,23,.06));
-      overflow:hidden;
-    }
-    @media (max-width: 860px){
-      .play{ border-right:none; border-bottom:1px solid var(--stroke); min-height:520px; }
-    }
-
-    .hud{
-      position:absolute; left:10px; right:10px; top:10px;
-      display:grid; grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:8px;
-      z-index:4;
-    }
-    .hud .box{
+    .main{ padding:16px; display:grid; gap:12px; grid-template-columns: 1.2fr .8fr; }
+    @media (max-width:860px){ .main{ grid-template-columns:1fr; } }
+    .panel{
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.38);
-      border-radius:14px;
-      padding:8px 10px;
-      text-align:center;
-    }
-    .hud .k{font-size:10px; color:var(--muted); font-weight:900}
-    .hud .v{margin-top:4px; font-size:15px; font-weight:1100}
-
-    .stage{
-      position:absolute; inset:0;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
-      -webkit-user-select:none;
-      padding-top:64px;
-    }
-    .center{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      text-align:center;
-      z-index:2;
-      pointer-events:none;
-    }
-    .center .big{ font-size:56px; line-height:1; filter:drop-shadow(0 8px 24px rgba(0,0,0,.35)); }
-    .center .hint{ margin-top:8px; color:rgba(229,231,235,.85); font-weight:900; font-size:14px; }
-
-    .flash{
-      position:absolute; inset:0;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .12s ease;
-      z-index:5;
-    }
-    .flash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
-    .flash.bad{  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.16), rgba(239,68,68,0)); }
-
-    .toast{
-      position:absolute; left:50%; top:78px; transform:translateX(-50%) translateY(-6px);
-      z-index:6;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.78);
-      border-radius:999px;
-      padding:7px 12px;
-      font-size:12px; font-weight:1100;
-      opacity:0;
-      transition:all .12s ease;
-      pointer-events:none;
-    }
-    .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-
-    .side{
-      padding:14px;
-      display:flex; flex-direction:column; gap:12px;
-      background:rgba(2,6,23,.22);
-    }
-    .card{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.34);
+      background:rgba(2,6,23,.30);
       border-radius:18px;
+      padding:14px;
+    }
+    h2{ margin:0; font-size:18px; font-weight:1100; }
+    .muted{ color:rgba(229,231,235,.74); font-size:12px; line-height:1.4; font-weight:750; margin-top:8px; }
+    .box{
+      margin-top:12px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.24);
+      border-radius:16px;
       padding:12px;
     }
-    .card h3{ margin:0; font-size:14px; font-weight:1000; }
-    .muted{ color:rgba(229,231,235,.74); font-size:12px; line-height:1.35; font-weight:750; }
-    .meta{ margin-top:8px; display:grid; gap:8px; }
-    .row{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.22);
-      border-radius:14px;
-      padding:8px 10px;
-      font-size:12px;
-    }
-    .row .k{ color:var(--muted); font-weight:900; }
-    .row .v{ font-weight:1000; text-align:right; }
-
-    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+    .k{ font-size:10px; color:var(--muted); font-weight:900; }
+    .v{ margin-top:6px; font-size:14px; font-weight:1050; }
+    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
     .btn{
       appearance:none; border:none; outline:none; cursor:pointer;
       border:1px solid var(--stroke);
@@ -189,132 +106,88 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
       color:var(--text);
       border-radius:14px;
       padding:10px 12px;
-      font-weight:1000; font-size:13px;
+      font-weight:1100; font-size:13px;
       min-height:42px;
     }
     .btn.primary{ border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.14); }
     .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.12); }
-
-    .end{
-      position:absolute; inset:0;
-      background:rgba(2,6,23,.82);
-      backdrop-filter: blur(4px);
-      display:none;
-      align-items:center; justify-content:center;
-      z-index:9;
-      padding:16px;
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid rgba(167,139,250,.28);
+      background:rgba(167,139,250,.10);
+      padding:6px 10px; border-radius:999px;
+      font-weight:1100; font-size:12px;
     }
-    .end .panel{
-      width:min(560px,100%);
+    .mini{
+      display:grid; gap:8px; margin-top:10px;
+    }
+    .item{
       border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
-      border-radius:20px;
-      padding:14px;
-      box-shadow:0 14px 50px rgba(0,0,0,.35);
-    }
-    .end h3{ margin:0; font-size:16px; font-weight:1100; }
-    .kv{
-      margin-top:10px;
-      display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
-    }
-    .kv .item{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.28);
+      background:rgba(2,6,23,.22);
       border-radius:14px;
-      padding:8px 10px;
+      padding:10px;
     }
-    .kv .k{ font-size:10px; color:var(--muted); font-weight:900; }
-    .kv .v{ margin-top:4px; font-size:13px; font-weight:1000; word-break:break-word; }
-
-    @media (max-width:560px){
-      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); top:8px; left:8px; right:8px; }
-      .center .big{ font-size:50px; }
-      .center .hint{ font-size:13px; }
-      .kv{ grid-template-columns:1fr; }
-    }
+    .item b{ font-weight:1100; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="shell">
+    <div class="card">
       <div class="top">
         <div class="brand">
           <div class="logo">HH</div>
           <div>
-            <div class="title" id="gameTitle">Bloom Gate</div>
-            <div class="sub" id="subLine">ภารกิจ Bloom สั้น ๆ ก่อนเข้าเกม</div>
+            <div class="title" id="tTitle">Bloom Gate</div>
+            <div class="sub" id="tSub">เข้า 1 ครั้ง/วัน/โซน เพื่อจัดกรอบการคิดก่อนเล่น</div>
           </div>
         </div>
         <div class="chips">
           <div class="chip" id="pillBloom">BLOOM: C</div>
-          <div class="chip" id="pillCat">CAT: NUTRITION</div>
-          <div class="chip" id="pillTheme">THEME: GOODJUNK</div>
-          <div class="chip" id="pillDaily">DAILY: NEW</div>
+          <div class="chip" id="pillZone">ZONE: NUTRITION</div>
+          <div class="chip" id="pillTheme">THEME: —</div>
+          <div class="chip" id="pillPid">PID: anon</div>
+          <div class="chip" id="pillDay">DAY: —</div>
         </div>
       </div>
 
       <div class="main">
-        <div class="play">
-          <div class="hud">
-            <div class="box"><div class="k">TIME</div><div class="v" id="hudTime">18s</div></div>
-            <div class="box"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
-            <div class="box"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
-            <div class="box"><div class="k">TOTAL</div><div class="v" id="hudTotal">0</div></div>
+        <div class="panel">
+          <h2 id="h">โหมด Bloom (C) — วิเคราะห์ก่อนเล่น</h2>
+          <div class="muted" id="desc">
+            ตั้งเป้าหมายให้ชัดก่อนลงมือ: “วันนี้เราจะทำให้ดีขึ้นตรงไหน?”
           </div>
 
-          <div class="stage" id="stage" aria-live="polite">
-            <div class="center" id="center">
-              <div class="big" id="big">🧠</div>
-              <div class="hint" id="hint">กด “เริ่ม” เพื่อทำภารกิจ Bloom สั้น ๆ</div>
-            </div>
-            <div class="toast" id="toast">+1</div>
-            <div class="flash" id="flash"></div>
+          <div class="box">
+            <div class="k">โจทย์สั้น (ทำในใจ 10–15 วิ)</div>
+            <div class="v" id="prompt">—</div>
+            <div class="mini" id="mini"></div>
           </div>
 
-          <div class="end" id="endOverlay" aria-hidden="true">
-            <div class="panel">
-              <h3 id="endTitle">Bloom ผ่านแล้ว!</h3>
-              <div class="muted" id="endMsg" style="margin-top:6px;">ไปต่อ Warmup แล้วเข้าเกมจริง</div>
+          <div class="btnrow">
+            <button class="btn warn" id="btnSkip">ข้าม Bloom</button>
+            <button class="btn primary" id="btnGo">ไปต่อ</button>
+          </div>
 
-              <div class="kv">
-                <div class="item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-                <div class="item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-                <div class="item"><div class="k">VARIANT</div><div class="v" id="endVar">1</div></div>
-                <div class="item"><div class="k">NEXT</div><div class="v" id="endNext">YES</div></div>
-              </div>
-
-              <div class="btnrow" style="margin-top:12px;">
-                <button class="btn" id="btnToHub">กลับ HUB</button>
-                <button class="btn primary" id="btnContinue">ไปต่อ</button>
-              </div>
-            </div>
+          <div class="muted" id="note">
+            * หน้านี้จะไม่เข้าซ้ำในโซนเดิมภายในวันเดียวกัน (ต่อ pid)
           </div>
         </div>
 
-        <div class="side">
-          <div class="card">
-            <h3>สถานะ Bloom</h3>
-            <div class="muted" id="desc" style="margin-top:6px;">Bloom A/B/C — สั้น แต่ “คิดจริง”</div>
+        <div class="panel">
+          <div class="badge" id="badge">✅ Bloom per-zone: READY</div>
 
-            <div class="meta">
-              <div class="row"><div class="k">Status</div><div class="v" id="statusText">ready</div></div>
-              <div class="row"><div class="k">Duration</div><div class="v" id="durText">18s</div></div>
-              <div class="row"><div class="k">Daily Rule</div><div class="v">ต่อหมวด/ต่อวัน/ต่อ PID/ต่อ Bloom</div></div>
-            </div>
-
-            <div class="btnrow" style="margin-top:10px;">
-              <button class="btn primary" id="btnStart">เริ่ม</button>
-              <button class="btn warn" id="btnSkip">ข้าม</button>
-            </div>
+          <div class="box">
+            <div class="k">Next</div>
+            <div class="v" id="nextLine">—</div>
           </div>
 
-          <div class="card">
-            <h3>หมายเหตุ</h3>
-            <div class="muted" style="margin-top:6px;">
-              • C = เลือก “คำตอบที่ดีที่สุด” ภายใต้เงื่อนไข<br/>
-              • variant 1..5 deterministic (หรือ override ด้วย ?variant=)<br/>
-              • เล่นครั้งเดียวต่อวัน (ต่อ cat+bloom+pid) แล้วข้ามอัตโนมัติ
-            </div>
+          <div class="box">
+            <div class="k">Key (debug)</div>
+            <div class="v" id="keyLine">—</div>
+          </div>
+
+          <div class="muted">
+            โหมดวิจัย (research) จะยัง deterministic ได้ เพราะ “เข้า Bloom ครั้งเดียวต่อโซน” และบันทึกด้วยวัน+pid+zone
           </div>
         </div>
       </div>
@@ -324,466 +197,98 @@ HeroHealth Bloom Gate — FULL (v20260224-ABC)
 <script>
 (function(){
   'use strict';
-  const WIN=window, DOC=document;
+  const DOC=document, WIN=window;
   const $=(id)=>DOC.getElementById(id);
 
   function getQS(){ try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); } }
   const QS=getQS();
   const q=(k,d='')=> (QS.get(k) ?? d);
-  const qNum=(k,d=0)=>{ const n=Number(q(k,d)); return Number.isFinite(n)?n:d; };
-  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
 
-  function absUrlMaybe(url){
-    if(!url) return '';
-    try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
-  }
-
-  function applyPlanSeqParams(u){
-    [
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone'
-    ].forEach(k=>{
-      const v = q(k,'');
-      if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
-    });
-    return u;
-  }
-
-  function hash32(str){
-    let h = 2166136261 >>> 0;
-    str = String(str || '');
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-
-  function getLocalDayKey(){
+  function localDayKey(){
     const d=new Date();
     const yyyy=d.getFullYear();
     const mm=String(d.getMonth()+1).padStart(2,'0');
     const dd=String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  function dailyKey(prefix, category, bloom, pid){
-    const day=getLocalDayKey();
-    const p=(pid||'anon').trim()||'anon';
-    return `${prefix}:${category}:${bloom}:${p}:${day}`;
-  }
-  function isDaily(prefix, category, bloom, pid){
-    try{ return localStorage.getItem(dailyKey(prefix,category,bloom,pid))==='1'; }catch{ return false; }
-  }
-  function markDaily(prefix, category, bloom, pid){
-    try{ localStorage.setItem(dailyKey(prefix,category,bloom,pid),'1'); }catch{}
-  }
 
-  const bloom = String(q('bloom','c')).toLowerCase().trim();     // a|b|c
-  const cat   = String(q('cat','nutrition')).toLowerCase().trim();
-  const theme = String(q('theme','')).toLowerCase().trim() || 'goodjunk';
-  const hub   = absUrlMaybe(q('hub','./hub.html')) || './hub.html';
-  const next0 = absUrlMaybe(q('next','')) || hub;
-  const pid   = String(q('pid','')).trim() || 'anon';
+  const bloom = String(q('bloom','c')).toLowerCase();
+  const zone  = String(q('zone', q('cat','nutrition'))).toLowerCase();
+  const theme = String(q('theme','')).toLowerCase();
+  const pid   = (String(q('pid','')).trim() || 'anon');
+  const day   = String(q('day','')).trim() || localDayKey();
+  const next  = String(q('next','')).trim() || String(q('hub','./hub.html')).trim() || './hub.html';
 
-  const dur = clamp(qNum('dur', 18), 8, 40); // bloom สั้น
-  const dailyPrefix = 'HHA_BLOOM_DONE';
-  const dailyDone = isDaily(dailyPrefix, cat, bloom, pid);
-
-  function resolveVariant(){
-    const ov = clamp(qNum('variant', 0), 0, 5);
-    if(ov>=1 && ov<=5) return ov;
-
-    const pick = String(q('pick','')).toLowerCase().trim();
-    const run = String(q('run','play')).toLowerCase().trim();
-    const mode = (pick==='rand' || pick==='day') ? pick : (run==='research' ? 'day' : 'rand');
-    if(mode==='rand') return 1 + ((Math.random()*5)|0);
-
-    const slot = String(q('planSlot','')).toLowerCase().trim();
-    const dayKey = getLocalDayKey();
-    const seed = `${pid}|${dayKey}|${slot}|${cat}|${theme}|${bloom}|bloom-gate`;
-    return 1 + (hash32(seed) % 5);
-  }
-  const variant = resolveVariant();
-
-  const pillBloom=$('pillBloom'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
-  const subLine=$('subLine'), statusText=$('statusText'), durText=$('durText');
-  const gameTitle=$('gameTitle'), desc=$('desc');
-  const stage=$('stage'), center=$('center'), big=$('big'), hint=$('hint');
-  const toast=$('toast'), flash=$('flash');
-
-  const hudTime=$('hudTime'), hudScore=$('hudScore'), hudMiss=$('hudMiss'), hudTotal=$('hudTotal');
-
-  const btnStart=$('btnStart'), btnSkip=$('btnSkip');
-
-  const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
-  const endScore=$('endScore'), endMiss=$('endMiss'), endVar=$('endVar'), endNext=$('endNext');
-  const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
-
-  function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-  function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
-  function toastShow(text){
-    toast.textContent=text;
-    toast.classList.add('show');
-    setTimeout(()=>toast.classList.remove('show'), 420);
+  function bloomKey(){
+    const z = zone || 'nutrition';
+    const p = pid || 'anon';
+    return `HHA_BLOOM_DONE:${z}:${p}:${day}`;
   }
 
-  let started=false;
-  let tLeft=dur;
-  let score=0, miss=0, total=0;
-  let raf=0, lastTs=0;
-  let stageAnimRaf=0;
-
-  function setHUD(){
-    hudTime.textContent = `${Math.ceil(tLeft)}s`;
-    hudScore.textContent = String(score);
-    hudMiss.textContent = String(miss);
-    hudTotal.textContent = String(total);
+  function markDone(){
+    try{ localStorage.setItem(bloomKey(),'1'); }catch(_){}
   }
 
-  function clearStage(){
-    cancelAnimationFrame(stageAnimRaf);
-    stageAnimRaf = 0;
-
-    Array.from(stage.children).forEach(el=>{
-      if(el===toast || el===flash || el===center) return;
-      try{ el.remove(); }catch{}
-    });
-
-    center.style.display='block';
-    big.textContent='🧠';
-    hint.textContent='กด “เริ่ม” เพื่อทำ Bloom สั้น ๆ ก่อนเข้าเกม';
+  function goNext(){
+    // mark then go
+    markDone();
+    try{ location.replace(next); }catch(_){ location.href = next; }
   }
 
-  function endNow(){
-    if(!started) return;
-    started=false;
-    cancelAnimationFrame(raf);
-    cancelAnimationFrame(stageAnimRaf);
-    raf = 0; stageAnimRaf = 0;
+  // UI
+  $('pillBloom').textContent = `BLOOM: ${String(bloom).toUpperCase()}`;
+  $('pillZone').textContent  = `ZONE: ${String(zone).toUpperCase()}`;
+  $('pillTheme').textContent = `THEME: ${theme ? theme.toUpperCase() : '—'}`;
+  $('pillPid').textContent   = `PID: ${pid}`;
+  $('pillDay').textContent   = `DAY: ${day}`;
 
-    markDaily(dailyPrefix, cat, bloom, pid);
+  $('nextLine').textContent  = next;
+  $('keyLine').textContent   = bloomKey();
 
-    const u = new URL(next0 || hub, location.href);
-    applyPlanSeqParams(u);
+  // content by bloom level
+  const H = $('h');
+  const DESC = $('desc');
+  const PROMPT = $('prompt');
+  const MINI = $('mini');
 
-    endOverlay.style.display='flex';
-    endOverlay.setAttribute('aria-hidden','false');
-    endTitle.textContent = `Bloom ${bloom.toUpperCase()} ผ่านแล้ว!`;
-    endScore.textContent = String(score);
-    endMiss.textContent  = String(miss);
-    endVar.textContent   = String(variant);
-    endNext.textContent  = (next0 ? 'YES' : 'HUB');
-    endMsg.textContent   = 'ไปต่อ Warmup แล้วเข้าเกมจริง';
-
-    btnToHub.onclick = ()=> location.href = hub;
-    btnContinue.onclick = ()=> location.replace(u.toString());
+  function addMini(title, text){
+    const d = DOC.createElement('div');
+    d.className = 'item';
+    d.innerHTML = `<b>${title}</b><div class="muted" style="margin-top:4px">${text}</div>`;
+    MINI.appendChild(d);
   }
 
-  function tick(ts){
-    if(!started) return;
-    if(!lastTs) lastTs = ts;
-    const dt = Math.min(0.25, (ts-lastTs)/1000);
-    lastTs = ts;
-    tLeft = Math.max(0, tLeft - dt);
-    setHUD();
-    if(tLeft<=0){ endNow(); return; }
-    raf = requestAnimationFrame(tick);
+  MINI.innerHTML = '';
+  if(bloom === 'a'){
+    H.textContent = 'โหมด Bloom (A) — จำให้ได้ก่อนเล่น';
+    DESC.textContent = 'โฟกัส “จำกติกา/สัญลักษณ์/เป้าหมาย” ให้ชัด เพื่อไม่พลาดง่าย ๆ';
+    PROMPT.textContent = 'วันนี้ “สิ่งที่ต้องไม่พลาด” ในโซนนี้คืออะไร 1 ข้อ?';
+    addMini('Remember', 'ทบทวน 1 กติกาหลัก + 1 สิ่งที่มักพลาด');
+    addMini('Target', 'ตั้งเป้า: miss ลดลง 1–2 ครั้ง');
+  }else if(bloom === 'b'){
+    H.textContent = 'โหมด Bloom (B) — ลงมือทำแบบมีแผน';
+    DESC.textContent = 'โฟกัส “วิธีทำให้ดีขึ้น” ด้วยแผนสั้น ๆ ก่อนเริ่ม';
+    PROMPT.textContent = 'วันนี้จะปรับวิธีเล่นอย่างไร 1 อย่าง (เช่น จังหวะ/เป้าหมาย/ลำดับ)?';
+    addMini('Apply', 'เลือก 1 เทคนิคแล้วทำซ้ำให้ได้ตลอดรอบ');
+    addMini('Checkpoint', 'ถ้าพลาด → หยุด 1 วิ แล้วเริ่มใหม่แบบตั้งใจ');
+  }else{
+    H.textContent = 'โหมด Bloom (C) — วิเคราะห์ก่อนเล่น';
+    DESC.textContent = 'โฟกัส “เหตุ-ผล” และ “เลือกวิธีที่ดีกว่า”';
+    PROMPT.textContent = 'ถ้าเกมยากขึ้น 1 ระดับ… คุณจะรับมืออย่างไร (เลือก 1 วิธี)?';
+    addMini('Analyze', 'แยกปัญหา: พลาดเพราะช้า/เพราะเลือกเป้าผิด/เพราะลน?');
+    addMini('Strategy', 'เลือก 1 กลยุทธ์: โฟกัสเป้าคุ้มค่า / รักษาสตรีค / ลด miss');
   }
 
-  function autoSkipIfDaily(){
-    if(!dailyDone) return false;
+  // buttons
+  $('btnGo').addEventListener('click', (e)=>{ e.preventDefault(); goNext(); });
+  $('btnSkip').addEventListener('click', (e)=>{ e.preventDefault(); goNext(); });
 
-    subLine.textContent = `วันนี้ทำ Bloom แล้ว (pid=${pid}, cat=${cat}, bloom=${bloom}) → ข้ามอัตโนมัติ`;
-    statusText.textContent = 'Daily gate: DONE';
-
-    setTimeout(()=>{
-      try{
-        const u = new URL(next0 || hub, location.href);
-        applyPlanSeqParams(u);
-        location.replace(u.toString());
-      }catch(_){
-        location.replace(next0 || hub);
-      }
-    }, 220);
-
-    return true;
+  // optional: auto-continue after short time (keep gentle)
+  // ถ้าอยาก auto ให้เปิดเอง: QS ?auto=1
+  const auto = String(q('auto','0')) === '1';
+  if(auto){
+    setTimeout(goNext, 1200);
   }
-
-  function randPick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function mkBtn(label){
-    const b=DOC.createElement('button');
-    b.className='btn';
-    b.textContent=label;
-    return b;
-  }
-  function mkPad(cols){
-    const pad=DOC.createElement('div');
-    pad.style.position='absolute';
-    pad.style.left='12px'; pad.style.right='12px'; pad.style.bottom='12px';
-    pad.style.display='grid';
-    pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
-    pad.style.gap='8px';
-    stage.appendChild(pad);
-    return pad;
-  }
-
-  function missionTitle(){
-    return `Bloom ${bloom.toUpperCase()} • ${cat.toUpperCase()} • ${theme.toUpperCase()} • V${variant}`;
-  }
-
-  function setMetaText(){
-    pillBloom.textContent = `BLOOM: ${bloom.toUpperCase()}`;
-    pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
-    pillTheme.textContent = `THEME: ${theme.toUpperCase()}`;
-    pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
-    durText.textContent = `${dur}s`;
-  }
-
-  function runA(){
-    gameTitle.textContent = missionTitle();
-    desc.textContent = 'A (Remember): ตอบเร็ว ๆ ให้ถูก';
-    center.style.display='none';
-
-    const qaPool = {
-      nutrition: [
-        {q:'อาหารหมู่ 1 คืออะไร?', opts:['โปรตีน','คาร์บ','ผัก','ผลไม้'], ok:0},
-        {q:'หมู่ 5 คืออะไร?', opts:['ผัก','ไขมัน','ผลไม้','โปรตีน'], ok:1},
-        {q:'หมู่ 3 คืออะไร?', opts:['คาร์บ','ผัก','ไขมัน','โปรตีน'], ok:1},
-      ],
-      hygiene: [
-        {q:'ล้างมือก่อนทำอะไร?', opts:['กินข้าว','เล่นมือถือ','วิ่ง','ดูทีวี'], ok:0},
-        {q:'ไอ/จามควรทำ?', opts:['ปิดปาก-จมูก','ตะโกน','วิ่งหนี','จับหน้าเพื่อน'], ok:0},
-        {q:'แปรงฟันวันละกี่ครั้ง?', opts:['1','2','3','5'], ok:1},
-      ],
-      exercise: [
-        {q:'ก่อนออกกำลังควรทำ?', opts:['วอร์มอัป','กินขนม','นอน','เล่นเกม'], ok:0},
-        {q:'ท่าที่ฝึกความสมดุลคือ?', opts:['Balance','Snack','Sleep','Skip'], ok:0},
-        {q:'ทำไมต้องคูลดาวน์?', opts:['ผ่อนคลาย','หิว','ง่วง','เจ็บ'], ok:0},
-      ]
-    };
-
-    const pool = qaPool[cat] || qaPool.nutrition;
-    let cur = randPick(pool);
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'44%',transform:'translate(-50%,-50%)',
-      width:'min(760px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'
-    });
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">A — คำถามเร็ว</div>
-      <div id="qq" style="margin-top:10px;font-size:18px;font-weight:1100;text-align:center;">—</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">เลือกคำตอบ</div>
-    `;
-    stage.appendChild(card);
-
-    const pad = mkPad(2);
-
-    function next(){
-      total++;
-      cur = randPick(pool);
-      card.querySelector('#qq').textContent = cur.q;
-      pad.innerHTML='';
-      cur.opts.forEach((t,i)=>{
-        const b=mkBtn(t);
-        b.style.padding='14px 12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(i===cur.ok){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-    }
-    next();
-  }
-
-  function runB(){
-    gameTitle.textContent = missionTitle();
-    desc.textContent = 'B (Apply): ใช้กฎแก้สถานการณ์';
-    center.style.display='none';
-
-    const casesByCat = {
-      nutrition: [
-        {q:'จานมีแต่ข้าว+ขนม → ควรเพิ่ม?', opts:['ผัก/ผลไม้','น้ำหวาน','ขนมเพิ่ม','ทอดเพิ่ม'], ok:0},
-        {q:'กินนม+ไข่ → อยู่หมู่?', opts:['1','2','3','4'], ok:0},
-        {q:'กินกล้วย → อยู่หมู่?', opts:['1','2','4','5'], ok:2},
-      ],
-      hygiene: [
-        {q:'มือจับลูกบิดประตูแล้วจะกินข้าว → ทำอะไร?', opts:['ล้างมือ','จับหน้า','ไอใส่','วิ่งเล่น'], ok:0},
-        {q:'ไอในห้องเรียน → ทำอะไร “ถูกสุด”?', opts:['ปิดปาก-จมูก','ถอดหน้ากาก','ตะโกน','จับเพื่อน'], ok:0},
-        {q:'แปรงฟัน → ท่าที่เหมาะ?', opts:['45° เบา ๆ','แรง ๆ','ขูดเหงือก','แปรงนิดเดียว'], ok:0},
-      ],
-      exercise: [
-        {q:'จะเล่นหนักทันที → ควรทำก่อน?', opts:['วอร์มอัป','นอน','กินน้ำหวาน','หยุด'], ok:0},
-        {q:'เหนื่อยมากหลังเล่น → ควรทำ?', opts:['คูลดาวน์','กระโดดเพิ่ม','หยุดทันที','กลั้นหายใจ'], ok:0},
-        {q:'ฝึกสมดุล → ควรเน้น?', opts:['นิ่ง+คุมแกน','รีบๆ','หลับตาตลอด','กระโดด'], ok:0},
-      ],
-    };
-
-    const pool = casesByCat[cat] || casesByCat.nutrition;
-    let cur = randPick(pool);
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'44%',transform:'translate(-50%,-50%)',
-      width:'min(820px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'
-    });
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">B — เลือกการกระทำให้เหมาะ</div>
-      <div id="qq" style="margin-top:10px;font-size:18px;font-weight:1100;text-align:center;">—</div>
-      <div class="muted" style="margin-top:6px;text-align:center;">ใช้กฎ/เหตุผลแบบเร็ว ๆ</div>
-    `;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-
-    function next(){
-      total++;
-      cur = randPick(pool);
-      card.querySelector('#qq').textContent = cur.q;
-      pad.innerHTML='';
-      cur.opts.forEach((t,i)=>{
-        const b=mkBtn(t);
-        b.style.padding='14px 12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(i===cur.ok){ score++; toastShow('+1'); flashGood(); }
-          else { miss++; toastShow('MISS'); flashBad(); }
-          next();
-        });
-      });
-    }
-    next();
-  }
-
-  function runC(){
-    gameTitle.textContent = missionTitle();
-    desc.textContent = 'C (Evaluate): เลือก “ดีที่สุด” ภายใต้ข้อจำกัด';
-    center.style.display='none';
-
-    const cases = [];
-
-    if(cat==='nutrition'){
-      cases.push(
-        {q:'มีเวลา 1 นาที แก้จานเด็กที่มีแต่ 🍚🍟 → เลือกอะไร “คุ้มสุด”?', opts:['เพิ่ม 🥦 + 🍎','เพิ่ม 🍩','เพิ่ม 🧋','เพิ่ม 🍟'], ok:0, why:'เพิ่มผัก+ผลไม้ เติมสมดุล'},
-        {q:'เด็กดื่มน้ำหวานทุกวัน → ทางเลือก “ดีที่สุด” วันนี้?', opts:['น้ำเปล่าแทน 1 แก้ว','เพิ่มน้ำหวาน','งดน้ำทั้งหมด','ดื่มชาเย็นเพิ่ม'], ok:0, why:'ลดน้ำตาลแต่ยังไฮเดรต'},
-        {q:'จานมีหมู่ 1+2 แล้ว ขาดอะไรให้ครบง่ายสุด?', opts:['หมู่ 3 หรือ 4','เพิ่มหมู่ 2','เพิ่มหมู่ 1','เพิ่มหมู่ 5 อย่างเดียว'], ok:0, why:'เพิ่มผัก/ผลไม้ช่วยสมดุล'}
-      );
-    }else if(cat==='hygiene'){
-      cases.push(
-        {q:'กลับบ้านมือสกปรก + มีของต้องหยิบหลายอย่าง → ทำอะไร “ดีที่สุด” ก่อน?', opts:['ล้างมือก่อน','กินขนมก่อน','จับหน้าเช็ดเหงื่อ','ไปนอนก่อน'], ok:0, why:'ลดการแพร่เชื้อจากมือ'},
-        {q:'ไอในที่แออัด + มีหน้ากากอยู่ → เลือก “ดีที่สุด”?', opts:['ใส่หน้ากาก + ปิดปาก-จมูก','ถอดหน้ากาก','ไอใส่อากาศเฉย ๆ','ตะโกนให้คนหลบ'], ok:0, why:'ลดละอองฝอย'},
-        {q:'ต้องทำความสะอาดบ้าน แต่เวลาเหลือน้อย → เลือกจุด “คุ้มสุด”?', opts:['ลูกบิด/รีโมต/โต๊ะกินข้าว','ผนังที่ไม่จับ','พื้นแห้งที่สะอาด','ชั้นวางที่ไม่ใช้'], ok:0, why:'จุดสัมผัสสูงเสี่ยงสุด'}
-      );
-    }else{
-      cases.push(
-        {q:'หมดเวลาแล้วแต่ยังอยากเพิ่มเซ็ต → เลือก “ดีที่สุด”?', opts:['คูลดาวน์ก่อน แล้วค่อยเพิ่มพรุ่งนี้','ฝืนเล่นต่อทันที','หยุดนิ่งแบบไม่หายใจ','กินน้ำหวานแล้วเล่นต่อ'], ok:0, why:'ลดเสี่ยงบาดเจ็บ/ฟื้นตัว'},
-        {q:'วันนี้เหนื่อยมาก แต่ยังอยากรักษา streak → ทำอะไร “คุ้มสุด”?', opts:['ยืดเหยียดเบา ๆ 3 นาที','เล่นหนัก 20 นาที','ไม่ทำอะไรเลย','กลั้นหายใจ 1 นาที'], ok:0, why:'ได้กิจกรรม+ปลอดภัย'},
-        {q:'ฝึก Balance แล้วแกว่งมาก → วิธี “ดีที่สุด”?', opts:['ลดความยาก/โฟกัสแกน','เร่งความเร็ว','หลับตาตลอด','กระโดดเพิ่ม'], ok:0, why:'คุมฟอร์มก่อนความเร็ว'}
-      );
-    }
-
-    const startIdx = (variant-1) % Math.max(1,cases.length);
-    let idx = startIdx;
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'44%',transform:'translate(-50%,-50%)',
-      width:'min(860px,92%)',padding:'14px',borderRadius:'18px',
-      border:'1px solid rgba(148,163,184,.18)',background:'rgba(2,6,23,.50)'
-    });
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;text-align:center;">C — เลือกตัวเลือกที่ “ดีที่สุด”</div>
-      <div id="qq" style="margin-top:10px;font-size:18px;font-weight:1100;text-align:center;">—</div>
-      <div class="muted" id="why" style="margin-top:6px;text-align:center;">ตอบแล้วจะโชว์เหตุผลสั้น ๆ</div>
-    `;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-
-    function showCase(){
-      const cur = cases[idx % cases.length];
-      card.querySelector('#qq').textContent = cur.q;
-      card.querySelector('#why').textContent = 'ตอบแล้วจะโชว์เหตุผลสั้น ๆ';
-      pad.innerHTML='';
-      cur.opts.forEach((t,i)=>{
-        const b=mkBtn(t);
-        b.style.padding='14px 12px';
-        pad.appendChild(b);
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          total++;
-          if(i===cur.ok){
-            score++; toastShow('+1'); flashGood();
-            card.querySelector('#why').textContent = '✅ เพราะ: ' + cur.why;
-          }else{
-            miss++; toastShow('MISS'); flashBad();
-            card.querySelector('#why').textContent = '❌ ลองคิด “คุ้มสุด/เสี่ยงต่ำสุด” อีกครั้ง';
-          }
-          idx++;
-          setTimeout(showCase, 520);
-        });
-      });
-    }
-
-    showCase();
-  }
-
-  function start(){
-    if(dailyDone){ autoSkipIfDaily(); return; }
-
-    clearStage();
-    score=0; miss=0; total=0;
-    tLeft=dur; lastTs=0;
-    setHUD();
-
-    endOverlay.style.display='none';
-    endOverlay.setAttribute('aria-hidden','true');
-
-    started=true;
-
-    if(bloom==='a') runA();
-    else if(bloom==='b') runB();
-    else runC();
-
-    subLine.textContent = `Bloom ${bloom.toUpperCase()} (${dur}s) พร้อมแล้ว — ทำสั้น ๆ ก่อนเข้าเกม`;
-    statusText.textContent = `running: pid=${pid} cat=${cat} theme=${theme} bloom=${bloom} v=${variant}`;
-
-    raf = requestAnimationFrame(tick);
-  }
-
-  function skip(){
-    markDaily(dailyPrefix, cat, bloom, pid);
-    const u = new URL(next0 || hub, location.href);
-    applyPlanSeqParams(u);
-    location.replace(u.toString());
-  }
-
-  setMetaText();
-  setHUD();
-
-  $('btnStart').addEventListener('click', (e)=>{ e.preventDefault(); start(); });
-  $('btnSkip').addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
-
-  stage.addEventListener('pointerdown', ()=>{
-    if(!started && !dailyDone) start();
-  }, {passive:true});
-
-  if(!autoSkipIfDaily()){
-    const name = `Bloom ${bloom.toUpperCase()}`;
-    subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
-    statusText.textContent = `ready: pid=${pid} cat=${cat} theme=${theme} bloom=${bloom} v=${variant}`;
-  }
-
-  WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && started) endNow();
-  });
-
 })();
 </script>
 </body>
