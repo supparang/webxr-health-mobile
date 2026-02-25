@@ -1,0 +1,864 @@
+<!-- === /herohealth/plate/plate-create.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Plate Create (Constraint Plate)</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#07111f;
+      --bg2:#0b1729;
+      --panel:rgba(12,20,38,.82);
+      --panel2:rgba(18,30,54,.76);
+      --line:rgba(148,163,184,.2);
+      --txt:#e8eefc;
+      --mut:#a7b7d8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --vio:#8b5cf6;
+      --chip:#13233f;
+      --chip2:#1a2f55;
+      --shadow:0 12px 30px rgba(0,0,0,.28);
+      --r:16px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      color:var(--txt);
+      overflow:hidden;
+    }
+
+    #app{
+      height:100%;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+      padding:
+        calc(10px + var(--safe-top))
+        calc(10px + var(--safe-right))
+        calc(10px + var(--safe-bottom))
+        calc(10px + var(--safe-left));
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Top HUD */
+    #topHud{
+      display:grid;
+      grid-template-columns: 1fr auto auto auto auto;
+      gap:8px;
+      align-items:center;
+      padding:10px 12px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px;
+      min-width:0;
+    }
+    .brand .icon{
+      width:40px; height:40px; display:grid; place-items:center;
+      border-radius:12px;
+      background:linear-gradient(135deg, rgba(34,211,238,.22), rgba(139,92,246,.22));
+      border:1px solid rgba(255,255,255,.08);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+    .brand .text{ min-width:0; }
+    .brand .title{
+      font-weight:800; line-height:1.1; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .brand .sub{
+      color:var(--mut); font-size:12px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    .pill{
+      display:flex; align-items:center; gap:6px;
+      min-height:38px;
+      padding:0 10px;
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      white-space:nowrap;
+      font-weight:700;
+      font-size:13px;
+    }
+    .pill b{ color:#fff; font-size:14px; }
+
+    /* Scenario strip */
+    #scenarioStrip{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      padding:10px 12px;
+      align-items:center;
+    }
+    #scenarioBox{ min-width:0; }
+    #crRoundPill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:800;
+      color:#dbeafe;
+      background:rgba(59,130,246,.16);
+      border:1px solid rgba(59,130,246,.28);
+      border-radius:999px;
+      padding:4px 10px;
+      margin-bottom:6px;
+      font-size:12px;
+    }
+    #crScenarioTitle{
+      font-weight:900;
+      line-height:1.15;
+      font-size:18px;
+      letter-spacing:.1px;
+      margin-bottom:4px;
+      word-break:break-word;
+    }
+    #crScenarioMeta{
+      color:var(--mut);
+      font-size:13px;
+      line-height:1.3;
+      white-space:normal;
+      word-break:break-word;
+    }
+    #scenarioActions{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+    }
+
+    /* Main layout */
+    #mainGrid{
+      min-height:0;
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:10px;
+    }
+
+    .panel{
+      min-height:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+    }
+    .panelHead{
+      display:flex; justify-content:space-between; align-items:center; gap:8px;
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+    }
+    .panelHead h3{
+      margin:0; font-size:15px; letter-spacing:.15px;
+    }
+    .panelHead .hint{
+      color:var(--mut); font-size:12px;
+      text-align:right;
+    }
+    .panelBody{
+      min-height:0;
+      overflow:auto;
+      padding:10px;
+      scrollbar-width:thin;
+    }
+    .panelFoot{
+      border-top:1px solid var(--line);
+      padding:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    /* Food pool */
+    #crFoodPool{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap:8px;
+      align-content:start;
+    }
+    .food-chip{
+      appearance:none;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      color:var(--txt);
+      border-radius:12px;
+      min-height:48px;
+      padding:8px 10px;
+      text-align:left;
+      cursor:pointer;
+      font-weight:700;
+      line-height:1.2;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+      transition: transform .08s ease, border-color .12s ease, background .12s ease, opacity .12s ease;
+    }
+    .food-chip:hover{ border-color:rgba(148,163,184,.35); background:rgba(255,255,255,.04); }
+    .food-chip:active{ transform:scale(.985); }
+    .food-chip.is-used{
+      opacity:.58;
+      border-style:dashed;
+      background:rgba(34,197,94,.08);
+    }
+    .food-chip.is-onplate{
+      width:100%;
+      cursor:default;
+      background:rgba(59,130,246,.10);
+      border-color:rgba(59,130,246,.25);
+    }
+    .food-chip.unknown{
+      color:#fecaca;
+      border-color:rgba(239,68,68,.28);
+    }
+
+    /* Plate panel */
+    #crPlateSlots{
+      display:grid;
+      gap:10px;
+      align-content:start;
+    }
+    .plate-empty{
+      border:1px dashed var(--line);
+      background:rgba(255,255,255,.02);
+      border-radius:14px;
+      padding:16px;
+      color:var(--mut);
+      text-align:center;
+      min-height:96px;
+      display:grid;
+      place-items:center;
+      line-height:1.35;
+    }
+    .plate-selected-list{
+      display:grid;
+      gap:8px;
+    }
+    .plate-selected-item{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px;
+      align-items:center;
+    }
+    .plate-remove-btn{
+      appearance:none;
+      border:1px solid rgba(239,68,68,.28);
+      background:rgba(239,68,68,.10);
+      color:#fecaca;
+      border-radius:10px;
+      min-height:40px;
+      padding:0 12px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .plate-remove-btn:hover{ background:rgba(239,68,68,.14); }
+
+    .plate-live-stats{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      border-radius:12px;
+      padding:10px;
+      display:grid;
+      gap:6px;
+    }
+    .plate-live-stats .row{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px;
+      align-items:start;
+      font-size:13px;
+      color:var(--mut);
+    }
+    .plate-live-stats .row b{
+      color:var(--txt);
+      text-align:right;
+      font-weight:800;
+      word-break:break-word;
+    }
+
+    /* Reasoning panel */
+    #reasonWrap{
+      display:grid;
+      gap:10px;
+    }
+    #crReasonChips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-content:flex-start;
+    }
+    .reason-chip{
+      appearance:none;
+      border-radius:999px;
+      min-height:36px;
+      padding:0 12px;
+      border:1px solid var(--line);
+      background:var(--chip);
+      color:var(--txt);
+      cursor:pointer;
+      font-weight:700;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .reason-chip.pos{ background:rgba(34,197,94,.10); border-color:rgba(34,197,94,.22); }
+    .reason-chip.neg{ background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.18); color:#fee2e2; }
+    .reason-chip.is-on{
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 2px rgba(34,211,238,.16);
+      background:rgba(34,211,238,.12);
+      border-color:rgba(34,211,238,.34);
+    }
+
+    .field{
+      display:grid; gap:6px;
+    }
+    .field label{
+      font-size:13px; color:var(--mut); font-weight:700;
+    }
+    textarea{
+      width:100%;
+      min-height:84px;
+      resize:vertical;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--txt);
+      padding:10px 12px;
+      font: inherit;
+      line-height:1.35;
+      outline:none;
+    }
+    textarea:focus{
+      border-color:rgba(34,211,238,.35);
+      box-shadow:0 0 0 3px rgba(34,211,238,.10);
+    }
+
+    /* Feedback + summary */
+    #statusStrip{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .statusBox{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      min-height:58px;
+      display:grid;
+      align-content:center;
+      gap:4px;
+    }
+    .statusBox .cap{
+      color:var(--mut); font-size:11px; font-weight:800; letter-spacing:.3px;
+      text-transform:uppercase;
+    }
+    .statusBox .txt{
+      font-weight:700; line-height:1.25;
+      word-break:break-word;
+    }
+    #crFeedbackBox .txt{ color:#e5f3ff; }
+    #crSummaryBox .txt{ color:#dcfce7; }
+
+    /* Buttons */
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--txt);
+      border-radius:12px;
+      min-height:42px;
+      padding:0 12px;
+      cursor:pointer;
+      font-weight:800;
+      letter-spacing:.15px;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
+    }
+    .btn:hover{ background:rgba(255,255,255,.05); border-color:rgba(148,163,184,.35); }
+    .btn:active{ transform:translateY(1px); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.12));
+      border-color:rgba(34,211,238,.28);
+    }
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.10));
+      border-color:rgba(34,197,94,.25);
+    }
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(245,158,11,.20), rgba(245,158,11,.08));
+      border-color:rgba(245,158,11,.24);
+    }
+    .btn.bad{
+      background:linear-gradient(180deg, rgba(239,68,68,.20), rgba(239,68,68,.08));
+      border-color:rgba(239,68,68,.24);
+    }
+
+    /* Bottom action bar */
+    #bottomBar{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+    }
+    #bottomLeft{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      min-width:0;
+    }
+    #bottomRight{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    /* Pause overlay */
+    #crPaused{
+      position:fixed;
+      inset:0;
+      display:none;
+      place-items:center;
+      background:rgba(2,6,23,.55);
+      backdrop-filter: blur(3px);
+      z-index:90;
+      pointer-events:none;
+    }
+    #crPaused .inner{
+      pointer-events:auto;
+      min-width:min(92vw, 420px);
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(8,14,26,.90);
+      box-shadow:var(--shadow);
+      padding:18px;
+      text-align:center;
+    }
+    #crPaused .inner h3{
+      margin:0 0 6px;
+      font-size:20px;
+    }
+    #crPaused .inner p{
+      margin:0;
+      color:var(--mut);
+    }
+
+    /* Debug panel */
+    details#debugWrap{
+      margin-top:8px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(255,255,255,.02);
+      overflow:hidden;
+    }
+    details#debugWrap > summary{
+      cursor:pointer;
+      padding:10px 12px;
+      color:var(--mut);
+      font-weight:700;
+      user-select:none;
+    }
+    #crDebug{
+      margin:0;
+      padding:10px 12px 12px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#c7d2fe;
+      font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+      border-top:1px solid var(--line);
+      max-height:220px;
+      overflow:auto;
+    }
+
+    /* Mobile */
+    @media (max-width: 980px){
+      #topHud{
+        grid-template-columns: 1fr auto auto;
+        grid-auto-rows:auto;
+      }
+      #topHud .pill.hide-md{ display:none; }
+      #mainGrid{
+        grid-template-columns:1fr;
+        grid-auto-rows:minmax(0,1fr);
+      }
+      .panel{
+        min-height:260px;
+      }
+      #statusStrip{
+        grid-template-columns:1fr;
+      }
+      #bottomBar{
+        grid-template-columns:1fr;
+        align-items:stretch;
+      }
+      #bottomRight{
+        justify-content:stretch;
+      }
+      #bottomRight .btn{
+        flex:1 1 140px;
+      }
+    }
+
+    @media (max-width: 640px){
+      #app{ gap:8px; padding:
+        calc(8px + var(--safe-top))
+        calc(8px + var(--safe-right))
+        calc(8px + var(--safe-bottom))
+        calc(8px + var(--safe-left)); }
+
+      #topHud{
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+      }
+      #topHud .brand{
+        grid-column:1 / -1;
+      }
+      .pill{
+        min-height:34px;
+        padding:0 8px;
+        font-size:12px;
+      }
+      .pill b{ font-size:13px; }
+      #scenarioStrip{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+      #scenarioActions{
+        justify-content:flex-start;
+      }
+      #crFoodPool{
+        grid-template-columns: repeat(2, minmax(0,1fr));
+      }
+      .food-chip{
+        min-height:44px;
+        font-size:13px;
+      }
+      .btn{
+        min-height:40px;
+        border-radius:10px;
+      }
+      textarea{
+        min-height:76px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <!-- Top HUD -->
+    <header id="topHud" class="card" aria-label="HUD">
+      <div class="brand">
+        <div class="icon" aria-hidden="true">🍽️</div>
+        <div class="text">
+          <div class="title">Plate Create • Constraint Plate</div>
+          <div class="sub">Bloom: Create — สร้างจานใหม่ภายใต้ข้อจำกัด + เหตุผล</div>
+        </div>
+      </div>
+
+      <div class="pill" title="คะแนนรวม">🏆 SCORE <b id="crScore">0</b></div>
+      <div class="pill" title="ผ่าน/จำนวนที่ส่ง">✅ PASS <b id="crCorrect">0/0</b></div>
+      <div class="pill hide-md" title="รอบ">🧩 ROUND <b id="crRound">1/4</b></div>
+      <div class="pill" title="เวลา">⏱️ TIME <b id="crTimer">0s</b></div>
+    </header>
+
+    <!-- Scenario strip -->
+    <section id="scenarioStrip" class="card" aria-label="Scenario">
+      <div id="scenarioBox">
+        <div id="crRoundPill">รอบ 1/4</div>
+        <div id="crScenarioTitle">กำลังเตรียมโจทย์...</div>
+        <div id="crScenarioMeta">ข้อจำกัดของรอบนี้จะแสดงที่นี่</div>
+      </div>
+      <div id="scenarioActions">
+        <button id="crShufflePool" class="btn" type="button" title="สลับลำดับตัวเลือก">🔀 สลับตัวเลือก</button>
+        <button id="crClearPlate" class="btn warn" type="button" title="ล้างรายการในจาน">🧹 ล้างจาน</button>
+      </div>
+    </section>
+
+    <!-- Main -->
+    <main id="mainGrid" aria-label="Main layout">
+
+      <!-- Left: Food pool -->
+      <section class="panel card" aria-labelledby="poolHead">
+        <div class="panelHead">
+          <h3 id="poolHead">ตัวเลือกอาหาร (เลือกเพื่อนำลงจาน)</h3>
+          <div class="hint">แตะรายการเพื่อ “เพิ่มลงจาน” • สูงสุด <span id="maxPickHint">5</span> รายการ</div>
+        </div>
+        <div class="panelBody">
+          <div id="crFoodPool" aria-live="polite" aria-label="Food pool"></div>
+          <details id="debugWrap">
+            <summary>Debug (optional)</summary>
+            <pre id="crDebug"></pre>
+          </details>
+        </div>
+        <div class="panelFoot">
+          <button id="crSubmit" class="btn primary" type="button">ส่งจานนี้</button>
+          <button id="crNext" class="btn good" type="button" style="display:none">รอบถัดไป ▶</button>
+        </div>
+      </section>
+
+      <!-- Right: Plate + Reasoning -->
+      <section class="panel card" aria-labelledby="plateHead">
+        <div class="panelHead">
+          <h3 id="plateHead">จานที่สร้าง + เหตุผล</h3>
+          <div class="hint">จัดจานให้ “สมดุล + ผ่านเงื่อนไข” แล้วอธิบายเหตุผล</div>
+        </div>
+
+        <div class="panelBody">
+          <div id="crPlateSlots" aria-live="polite" aria-label="Selected plate"></div>
+
+          <div id="reasonWrap" style="margin-top:12px">
+            <div class="field">
+              <label for="crReasonChips">เลือกเหตุผล (ชิป)</label>
+              <div id="crReasonChips" aria-label="Reason chips"></div>
+            </div>
+
+            <div class="field">
+              <label for="crExplain">เหตุผลเพิ่มเติม (1 บรรทัดขึ้นไป) — กด Ctrl/Cmd + Enter เพื่อส่งได้</label>
+              <textarea id="crExplain" placeholder="ตัวอย่าง: เลือกผักและโปรตีนก่อน เพราะงบจำกัดและต้องอิ่มนานก่อนเรียน/ก่อนออกกำลังกาย"></textarea>
+            </div>
+
+            <div id="statusStrip" aria-live="polite">
+              <div id="crFeedbackBox" class="statusBox">
+                <div class="cap">Feedback</div>
+                <div class="txt" id="crFeedback">แตะอาหารจากตัวเลือกเพื่อเพิ่มลงจาน</div>
+              </div>
+              <div id="crSummaryBox" class="statusBox">
+                <div class="cap">Summary</div>
+                <div class="txt" id="crSummary">จัดจานใหม่ให้ผ่านเงื่อนไข แล้วอธิบายเหตุผล</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panelFoot">
+          <button id="crPauseBtn" class="btn" type="button">⏸️ Pause</button>
+          <button id="crResumeBtn" class="btn" type="button">▶ Resume</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom bar -->
+    <footer id="bottomBar" class="card" aria-label="Actions">
+      <div id="bottomLeft">
+        <button id="crRestart" class="btn" type="button">🔄 Restart</button>
+        <button id="crBackHub" class="btn bad" type="button">↩ กลับ HUB</button>
+        <span style="color:var(--mut); font-size:12px;">
+          โหมดนี้วัด: ความสมดุลของจาน + การผ่านข้อจำกัด + เหตุผลที่สอดคล้อง
+        </span>
+      </div>
+      <div id="bottomRight">
+        <button id="emitPauseEvt" class="btn" type="button" title="ทดสอบ pause bridge">Emit hha:pause</button>
+        <button id="emitResumeEvt" class="btn" type="button" title="ทดสอบ pause bridge">Emit hha:resume</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Pause overlay (listened by plate-create.js via hha:pause/hha:resume bridge) -->
+  <div id="crPaused" aria-hidden="true">
+    <div class="inner card">
+      <h3>⏸️ เกมหยุดชั่วคราว</h3>
+      <p>กด Resume หรือส่ง event <code>hha:resume</code> เพื่อเล่นต่อ</p>
+    </div>
+  </div>
+
+  <script type="module">
+    // === /herohealth/plate/plate-create.html (run bridge) ===
+    // ผูกกับ /herohealth/plate/plate-create.js แบบ export boot({ mount, cfg })
+
+    import { boot as bootPlateCreate } from './plate-create.js';
+
+    const U = new URL(location.href);
+
+    // ---------- helpers ----------
+    const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+    const toRunMode = (s)=>{
+      s = String(s || 'play').toLowerCase();
+      return (s === 'study' || s === 'research') ? s : 'play';
+    };
+    const toDiff = (s)=>{
+      s = String(s || 'normal').toLowerCase();
+      return ['easy','normal','hard'].includes(s) ? s : 'normal';
+    };
+
+    function parseCfgFromUrl(){
+      const runMode = toRunMode(U.searchParams.get('run') || U.searchParams.get('runMode') || 'play');
+      const diff = toDiff(U.searchParams.get('diff') || 'normal');
+      const time = clamp(U.searchParams.get('time') || 240, 30, 3600);
+      const rounds = clamp(U.searchParams.get('rounds') || 4, 1, 20);
+      const poolSize = clamp(U.searchParams.get('pool') || 10, 6, 24);
+      const maxPick = clamp(U.searchParams.get('maxpick') || 5, 3, 8);
+      const seedQ = U.searchParams.get('seed');
+      const scenario = U.searchParams.get('scenario') || '';
+
+      const deterministic = (runMode === 'study' || runMode === 'research');
+      const seed = deterministic
+        ? (Number(seedQ) || 97531)
+        : (seedQ != null ? (Number(seedQ)||97531) : ((Date.now() ^ (Math.random()*1e9))|0));
+
+      return { runMode, diff, durationPlannedSec: time, roundsPlanned: rounds, poolSize, maxPick, seed, scenario };
+    }
+
+    function applyUiHints(cfg){
+      const el = document.getElementById('maxPickHint');
+      if(el) el.textContent = String(cfg.maxPick || 5);
+      document.title = `HeroHealth • Plate Create (${cfg.diff})`;
+    }
+
+    function waitForLayoutStable(maxFrames = 18){
+      return new Promise((resolve)=>{
+        let f = 0;
+        let last = null;
+
+        function tick(){
+          f++;
+          const app = document.getElementById('app');
+          const main = document.getElementById('mainGrid');
+          const r1 = app?.getBoundingClientRect?.();
+          const r2 = main?.getBoundingClientRect?.();
+
+          const cur = [
+            Math.round(r1?.width || 0), Math.round(r1?.height || 0),
+            Math.round(r2?.width || 0), Math.round(r2?.height || 0)
+          ].join('x');
+
+          if(cur === last && f >= 2) return resolve();
+          last = cur;
+
+          if(f >= maxFrames) return resolve();
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    function debugRects(tag='layout'){
+      try{
+        const ids = ['app','topHud','scenarioStrip','mainGrid','crFoodPool','crPlateSlots'];
+        const out = {};
+        for(const id of ids){
+          const el = document.getElementById(id);
+          if(!el) { out[id] = null; continue; }
+          const r = el.getBoundingClientRect();
+          out[id] = {
+            x: Math.round(r.x), y: Math.round(r.y),
+            w: Math.round(r.width), h: Math.round(r.height)
+          };
+        }
+        console.log(`[plate-create] ${tag}`, out);
+      }catch(e){}
+    }
+
+    // ---------- pause bridge buttons (UI -> events) ----------
+    document.getElementById('crPauseBtn')?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:pause', { detail:{ source:'plate-create-ui' }}));
+    }, { passive:true });
+
+    document.getElementById('crResumeBtn')?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:resume', { detail:{ source:'plate-create-ui' }}));
+    }, { passive:true });
+
+    document.getElementById('emitPauseEvt')?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:pause', { detail:{ source:'plate-create-debug' }}));
+    }, { passive:true });
+
+    document.getElementById('emitResumeEvt')?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:resume', { detail:{ source:'plate-create-debug' }}));
+    }, { passive:true });
+
+    // overlay state mirror (doesn't interfere with engine)
+    window.addEventListener('hha:pause_state', (e)=>{
+      const d = e.detail || {};
+      if(String(d.game||'') !== 'plate-create') return;
+      const paused = !!d.paused;
+      const ov = document.getElementById('crPaused');
+      if(ov){
+        ov.style.display = paused ? 'grid' : 'none';
+        ov.setAttribute('aria-hidden', paused ? 'false' : 'true');
+      }
+    }, { passive:true });
+
+    // optional live HUD sync from hha:score / hha:time
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      if(String(d.game||'') !== 'plate-create') return;
+      if(document.getElementById('crScore') && d.scoreTotal != null){
+        document.getElementById('crScore').textContent = String(d.scoreTotal|0);
+      }
+      if(document.getElementById('crCorrect') && d.passCount != null){
+        const sent = (d.passCount|0) + (d.failCount|0);
+        document.getElementById('crCorrect').textContent = `${d.passCount|0}/${sent}`;
+      }
+      if(document.getElementById('crRound') && d.round != null && d.roundsPlanned != null){
+        document.getElementById('crRound').textContent = `${d.round}/${d.roundsPlanned}`;
+      }
+    }, { passive:true });
+
+    window.addEventListener('hha:time', (e)=>{
+      const d = e.detail || {};
+      if(String(d.game||'') !== 'plate-create') return;
+      const t = (d.timeLeftSec ?? d.leftSec);
+      if(t != null && document.getElementById('crTimer')){
+        document.getElementById('crTimer').textContent = `${Math.max(0, Number(t)|0)}s`;
+      }
+    }, { passive:true });
+
+    // ---------- boot after layout stable ----------
+    let api = null;
+    (async function main(){
+      const cfg = parseCfgFromUrl();
+      applyUiHints(cfg);
+
+      await waitForLayoutStable();
+      debugRects('before-boot');
+
+      try{
+        api = bootPlateCreate({
+          mount: document.body,
+          cfg
+        });
+        window.__PLATE_CREATE_API__ = api;
+        console.log('[plate-create] boot ok', cfg);
+
+        // one more frame for final measurements
+        requestAnimationFrame(()=> debugRects('after-boot'));
+      }catch(err){
+        console.error('[plate-create] boot error', err);
+        const fb = document.getElementById('crFeedback');
+        const sm = document.getElementById('crSummary');
+        if(fb) fb.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Plate Create';
+        if(sm) sm.textContent = String(err?.message || err || 'Unknown error');
+      }
+    })();
+
+    // ---------- BackHub fallback if script wiring fails ----------
+    document.getElementById('crBackHub')?.addEventListener('click', ()=>{
+      const hub = U.searchParams.get('hub') || '';
+      if(!hub) return;
+      // plate-create.js already handles flush + redirect; this is just fallback
+      setTimeout(()=>{ try{ location.href = hub; }catch(e){} }, 900);
+    }, { passive:true });
+
+    // ---------- beforeunload safe (non-blocking) ----------
+    window.addEventListener('beforeunload', ()=>{
+      try{ api?.stop?.('beforeunload'); }catch(e){}
+    });
+  </script>
+</body>
+</html>
