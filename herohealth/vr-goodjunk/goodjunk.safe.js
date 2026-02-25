@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
-// FULL v20260224-SAFE-SPAWNSAFE
+// + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
+// FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
 'use strict';
 
 export function boot(cfg){
@@ -16,6 +17,104 @@ export function boot(cfg){
   function $(id){ return DOC.getElementById(id); }
   function setText(id, v){ const el=$(id); if(el) el.textContent = String(v); }
   function setHidden(id, hide){ const el=$(id); if(el) el.setAttribute('aria-hidden', hide ? 'true' : 'false'); }
+
+  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
+  function hhDayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+
+  function hhCooldownDone(cat, gameKey, pid){
+    const day = hhDayKey();
+    const p = String(pid||'anon').trim()||'anon';
+    const c = String(cat||'nutrition').toLowerCase();
+    const g = String(gameKey||'unknown').toLowerCase();
+
+    // NEW + OLD fallback
+    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
+    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
+    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
+  }
+
+  function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+    const gate = new URL('../warmup-gate.html', location.href);
+    gate.searchParams.set('gatePhase','cooldown');
+    gate.searchParams.set('cat', String(cat||'nutrition'));
+    gate.searchParams.set('theme', String(gameKey||'unknown'));
+    gate.searchParams.set('pid', String(pid||'anon'));
+    if(hub) gate.searchParams.set('hub', String(hub));
+
+    // next = ที่จะไปหลัง cooldown (ปกติ = cdnext ถ้ามี ไม่งั้นกลับ hub)
+    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+
+    // passthrough params ที่ใช้ในแพลตฟอร์ม
+    const sp = new URL(location.href).searchParams;
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone','cdnext','grade'
+    ].forEach(k=>{
+      const v = sp.get(k);
+      if(v!=null && v!=='') gate.searchParams.set(k, v);
+    });
+
+    return gate.toString();
+  }
+
+  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
+    if(!endOverlayEl) return;
+
+    const cdDone = hhCooldownDone(cat, gameKey, pid);
+    if(cdDone) return; // วันนี้เกมนี้เข้า cooldown แล้ว ไม่ต้องโชว์ปุ่ม
+
+    const sp = new URL(location.href).searchParams;
+    const cdnext = sp.get('cdnext') || '';
+    const nextAfterCooldown = cdnext || hub || '../hub.html';
+    const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
+
+    // หา panel ภายใน overlay ถ้ามี ไม่งั้นใช้ overlay เป็น container
+    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
+
+    // action row
+    let row = panel.querySelector('.hh-end-actions');
+    if(!row){
+      row = DOC.createElement('div');
+      row.className = 'hh-end-actions';
+      row.style.display='flex';
+      row.style.gap='10px';
+      row.style.flexWrap='wrap';
+      row.style.justifyContent='center';
+      row.style.marginTop='12px';
+      row.style.paddingTop='10px';
+      row.style.borderTop='1px solid rgba(148,163,184,.16)';
+      panel.appendChild(row);
+    }
+
+    // prevent duplicates
+    if(row.querySelector('[data-hh-cd="1"]')) return;
+
+    const btn = DOC.createElement('button');
+    btn.type='button';
+    btn.dataset.hhCd = '1';
+    btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
+    // try to use site button styles if exist, else inline-safe
+    btn.className = 'btn primary';
+    btn.style.border='1px solid rgba(34,197,94,.30)';
+    btn.style.background='rgba(34,197,94,.14)';
+    btn.style.color='rgba(229,231,235,.96)';
+    btn.style.borderRadius='14px';
+    btn.style.padding='10px 12px';
+    btn.style.fontWeight='1000';
+    btn.style.cursor='pointer';
+    btn.style.minHeight='42px';
+
+    btn.addEventListener('click', ()=> location.href = url);
+    row.appendChild(btn);
+  }
 
   // deterministic RNG (xmur3 + sfc32)
   function xmur3(str){
@@ -98,6 +197,12 @@ export function boot(cfg){
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
+
+  // hub / pid / cat / gameKey (used for cooldown button)
+  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
+  const HH_CAT = 'nutrition';
+  const HH_GAME = 'goodjunk';
 
   // ---------- difficulty tuning ----------
   const TUNE = (function(){
@@ -457,7 +562,7 @@ export function boot(cfg){
 
     return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-24_SPAWNSAFE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-25_SPAWNSAFE_CD',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -506,6 +611,17 @@ export function boot(cfg){
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
+
+      // ✅ Inject "Go Cooldown (daily-first per game)" button
+      try{
+        hhInjectCooldownButton({
+          endOverlayEl: endOverlay,
+          hub: hubUrl,
+          cat: HH_CAT,
+          gameKey: HH_GAME,
+          pid
+        });
+      }catch(e){}
     }
 
     sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
