@@ -1,1641 +1,1443 @@
 // === /fitness/js/jump-duck.js ===
-// Jump-Duck — VR Fitness Academy (HHA Standard)
-// FULL v20260220-bossALL-aiPRED
-// ✅ Boss for Training/Test/Research
-// ✅ Boss phases 1-3 + HP + Break moment
-// ✅ Mixed boss: tempo shift + double + hold-duck + feint (decoy)
-// ✅ Risk-Reward: Overdrive + Shield + Cashout
-// ✅ AI prediction baseline (research-locked)
-// ✅ CSV sessions/events + optional remote POST via ?log=
-// ✅ Input: keyboard, touch (top/bottom), action buttons, VR shoot (hha:shoot)
-
+// Jump-Duck — HHA Standard (PC/Mobile/cVR-ready DOM game)
+// PATCH FULL (Boss in Training/Test/Research + Mixed Boss + AI prediction hook)
+// v20260225-jd-boss-mixed-full
 'use strict';
 
 (function () {
   const WIN = window;
   const DOC = document;
 
-  // ---------------- utils ----------------
-  const $ = (sel) => DOC.querySelector(sel);
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const clamp01 = (v) => clamp(v, 0, 1);
-  const now = () => performance.now();
+  /* =========================
+   * Helpers
+   * ========================= */
+  const $ = (s, el = DOC) => el.querySelector(s);
+  const $$ = (s, el = DOC) => Array.from(el.querySelectorAll(s));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const nowMs = () => performance.now();
 
-  function qs(name, def = '') {
-    try {
-      const sp = new URL(location.href).searchParams;
-      const v = sp.get(name);
-      return v == null ? def : v;
-    } catch (_) { return def; }
+  function qs(k, def = null) {
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
   }
-  function toLowerSafe(x, def = '') {
-    return String(x == null ? def : x).trim().toLowerCase();
-  }
-  function isFiniteNum(x) { return Number.isFinite(Number(x)); }
-  function fmt1(x) { return (Number.isFinite(x) ? x.toFixed(1) : '0.0'); }
-  function isoNow() { return new Date().toISOString(); }
 
-  // deterministic RNG (for research repeatability)
-  function makeRng(seedStr) {
-    let seed = 0;
-    const s = String(seedStr || '0');
-    for (let i = 0; i < s.length; i++) seed = (seed * 31 + s.charCodeAt(i)) >>> 0;
-    return function rnd() {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
+  function safeJsonParse(s, fallback = null) {
+    try { return JSON.parse(s); } catch (_) { return fallback; }
+  }
+
+  function dlText(filename, text, type = 'text/plain;charset=utf-8') {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = DOC.createElement('a');
+    a.href = url;
+    a.download = filename;
+    DOC.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* =========================
+   * DOM refs
+   * ========================= */
+  const els = {
+    fatal: $('#jd-fatal'),
+
+    app: $('#jd-app'),
+    viewMenu: $('#view-menu'),
+    viewPlay: $('#view-play'),
+    viewResult: $('#view-result'),
+
+    modeSel: $('#jd-mode'),
+    diffSel: $('#jd-diff'),
+    durSel: $('#jd-duration'),
+    bossStyleSel: $('#jd-boss-style'),
+
+    researchBlock: $('#jd-research-block'),
+    participantId: $('#jd-participant-id'),
+    group: $('#jd-group'),
+    note: $('#jd-note'),
+
+    backHubMenu: $('#jd-back-hub-menu'),
+    backHubPlay: $('#jd-back-hub-play'),
+    backHubResult: $('#jd-back-hub-result'),
+
+    playArea: $('#jd-play-area'),
+    avatar: $('#jd-avatar'),
+    obstaclesWrap: $('#jd-obstacles'),
+    judge: $('#jd-judge'),
+    tele: $('#jd-tele'),
+
+    // HUD
+    hudPhase: $('#hud-phase'),
+    hudBoss: $('#hud-boss'),
+    hudProgFill: $('#hud-prog-fill'),
+    hudProgText: $('#hud-prog-text'),
+    hudFeverFill: $('#hud-fever-fill'),
+    hudFeverStatus: $('#hud-fever-status'),
+    bossBarWrap: $('#boss-bar-wrap'),
+    hudBossStatus: $('#hud-boss-status'),
+    hudBossFill: $('#hud-boss-fill'),
+
+    hudMode: $('#hud-mode'),
+    hudDiff: $('#hud-diff'),
+    hudDuration: $('#hud-duration'),
+    hudStability: $('#hud-stability'),
+    hudTime: $('#hud-time'),
+    hudObstacles: $('#hud-obstacles'),
+    hudScore: $('#hud-score'),
+    hudCombo: $('#hud-combo'),
+
+    // Result
+    resMode: $('#res-mode'),
+    resDiff: $('#res-diff'),
+    resDuration: $('#res-duration'),
+    resTotalObs: $('#res-total-obs'),
+    resHits: $('#res-hits'),
+    resMiss: $('#res-miss'),
+    resJumpHit: $('#res-jump-hit'),
+    resDuckHit: $('#res-duck-hit'),
+    resJumpMiss: $('#res-jump-miss'),
+    resDuckMiss: $('#res-duck-miss'),
+    resAcc: $('#res-acc'),
+    resRtMean: $('#res-rt-mean'),
+    resStabilityMin: $('#res-stability-min'),
+    resScore: $('#res-score'),
+    resRank: $('#res-rank'),
+
+    // audio
+    sfxHit: $('#jd-sfx-hit'),
+    sfxMiss: $('#jd-sfx-miss'),
+    sfxCombo: $('#jd-sfx-combo'),
+    sfxBeep: $('#jd-sfx-beep'),
+    sfxBoss: $('#jd-sfx-boss'),
+    sfxFever: $('#jd-sfx-fever'),
+  };
+
+  /* =========================
+   * Config
+   * ========================= */
+  const CFG = {
+    gravityPx: 2800,
+    jumpVelPx: 860,
+    duckHoldMs: 260,
+    baseGroundY: 64, // CSS avatar bottom
+    hitXRatio: 0.24, // visual hit line
+
+    spawnLeadPx: 900, // object starts at right
+    obstacleW: 92,
+    obstacleH: 92,
+
+    actionWindowPx: 54, // detection around hit line
+    laneLowY: 208,
+    laneHighY: 96,
+
+    score: {
+      hit: 100,
+      perfect: 150,
+      bossCounter: 220
+    },
+
+    fever: {
+      onAt: 100,
+      offAt: 55,
+      hitGain: 12,
+      missLoss: 18,
+      decayPerSec: 4.0
+    },
+
+    diff: {
+      easy:   { speed: 260, spawnEveryMs: 1050, durationMul: 1.00, fakeoutRate: 0.05 },
+      normal: { speed: 340, spawnEveryMs: 820,  durationMul: 1.00, fakeoutRate: 0.10 },
+      hard:   { speed: 430, spawnEveryMs: 650,  durationMul: 1.00, fakeoutRate: 0.14 }
+    },
+
+    // Boss (เปิดทุกโหมด)
+    boss: {
+      enabledByMode: { training: true, test: true, research: true },
+      spawnAtPctByMode: { training: 0.62, test: 0.58, research: 0.58 },
+      durationSecByDiff: { easy: 10, normal: 14, hard: 18 },
+      styleDefault: 'mixed',
+      mixedWeights: { tempoShift: 0.28, fakeout: 0.20, burst: 0.26, counter: 0.14, jamLane: 0.12 },
+      counterWindowMs: { easy: 260, normal: 210, hard: 170 }
+    }
+  };
+
+  /* =========================
+   * RNG (seeded for research)
+   * ========================= */
+  function xmur3(str) {
+    for (var i = 0, h = 1779033703 ^ str.length; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = h << 13 | h >>> 19;
+    }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
     };
   }
-
-  // CSV helpers
-  function csvEscape(v) {
-    v = (v == null) ? '' : String(v);
-    if (/[",\n\r]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
-    return v;
+  function sfc32(a, b, c, d) {
+    return function () {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      var t = (a + b) | 0;
+      a = b ^ b >>> 9;
+      b = c + (c << 3) | 0;
+      c = (c << 21 | c >>> 11);
+      d = d + 1 | 0;
+      t = t + d | 0;
+      c = c + t | 0;
+      return (t >>> 0) / 4294967296;
+    };
   }
-  function toCsvRow(obj, cols) {
-    return cols.map(k => csvEscape(obj && obj[k] != null ? obj[k] : '')).join(',');
-  }
-  class CsvTable {
-    constructor(columns) { this.columns = columns.slice(0); this.rows = []; }
-    add(row) { this.rows.push(Object.assign({}, row)); }
-    toCsv() {
-      const head = this.columns.join(',');
-      const body = this.rows.map(r => toCsvRow(r, this.columns)).join('\n');
-      return head + (body ? '\n' + body : '');
-    }
-    clear() { this.rows.length = 0; }
+  function makeRng(seedStr) {
+    const seedFn = xmur3(String(seedStr || Date.now()));
+    return sfc32(seedFn(), seedFn(), seedFn(), seedFn());
   }
 
-  async function postJson(url, payload) {
-    if (!url) return { ok: false, error: 'no_url' };
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const txt = await res.text();
-      let j = null;
-      try { j = JSON.parse(txt); } catch (_) { j = { raw: txt }; }
-      return { ok: res.ok, status: res.status, data: j };
-    } catch (err) {
-      return { ok: false, error: String(err && (err.message || err) || err) };
-    }
-  }
-
-  // ---------------- DOM ----------------
-  const fatalEl = $('#jd-fatal');
-
-  const viewMenu = $('#view-menu');
-  const viewPlay = $('#view-play');
-  const viewResult = $('#view-result');
-
-  const selMode = $('#jd-mode');
-  const selDiff = $('#jd-diff');
-  const selDur = $('#jd-duration');
-
-  const researchBlock = $('#jd-research-block');
-  const inpPid = $('#jd-participant-id');
-  const inpGroup = $('#jd-group');
-  const inpNote = $('#jd-note');
-
-  const playArea = $('#jd-play-area');
-  const obstaclesEl = $('#jd-obstacles');
-  const avatarEl = $('#jd-avatar');
-  const judgeEl = $('#jd-judge');
-
-  const teleEl = $('#jd-tele');
-
-  const hud = {
-    phase: $('#hud-phase'),
-    boss: $('#hud-boss'),
-    mode: $('#hud-mode'),
-    diff: $('#hud-diff'),
-    duration: $('#hud-duration'),
-    stability: $('#hud-stability'),
-    time: $('#hud-time'),
-    obstacles: $('#hud-obstacles'),
-    score: $('#hud-score'),
-    combo: $('#hud-combo'),
-
-    progFill: $('#hud-prog-fill'),
-    progText: $('#hud-prog-text'),
-
-    feverFill: $('#hud-fever-fill'),
-    feverStatus: $('#hud-fever-status'),
-
-    bossWrap: $('#boss-bar-wrap'),
-    bossFill: $('#hud-boss-fill'),
-    bossStatus: $('#hud-boss-status'),
-  };
-
-  const res = {
-    mode: $('#res-mode'),
-    diff: $('#res-diff'),
-    duration: $('#res-duration'),
-    totalObs: $('#res-total-obs'),
-    hits: $('#res-hits'),
-    miss: $('#res-miss'),
-    jHit: $('#res-jump-hit'),
-    dHit: $('#res-duck-hit'),
-    jMiss: $('#res-jump-miss'),
-    dMiss: $('#res-duck-miss'),
-    acc: $('#res-acc'),
-    rtMean: $('#res-rt-mean'),
-    stabMin: $('#res-stability-min'),
-    score: $('#res-score'),
-    rank: $('#res-rank'),
-  };
-
-  const sfx = {
-    hit: $('#jd-sfx-hit'),
-    miss: $('#jd-sfx-miss'),
-    combo: $('#jd-sfx-combo'),
-    beep: $('#jd-sfx-beep'),
-    boss: $('#jd-sfx-boss'),
-    fever: $('#jd-sfx-fever'),
-  };
-  function playSfx(a, vol = 0.9) {
-    try {
-      if (!a) return;
-      a.currentTime = 0;
-      a.volume = clamp(vol, 0, 1);
-      const p = a.play();
-      if (p && p.catch) p.catch(() => {});
-    } catch (_) {}
-  }
-
-  function showFatal(err) {
-    try {
-      const msg = String(err && (err.stack || err.message) || err);
-      fatalEl.textContent = 'JUMP-DUCK FATAL:\n' + msg;
-      fatalEl.classList.remove('jd-hidden');
-    } catch (_) {}
-  }
-
-  function switchView(name) {
-    viewMenu.classList.add('jd-hidden');
-    viewPlay.classList.add('jd-hidden');
-    viewResult.classList.add('jd-hidden');
-    if (name === 'menu') viewMenu.classList.remove('jd-hidden');
-    else if (name === 'play') viewPlay.classList.remove('jd-hidden');
-    else viewResult.classList.remove('jd-hidden');
-  }
-
-  // ---------------- device / input modes ----------------
-  const VIEW = (() => {
-    // allow override with ?view=pc|mobile|cvr|vr
-    const q = toLowerSafe(qs('view', ''));
-    if (q === 'pc' || q === 'mobile' || q === 'cvr' || q === 'vr') return q;
-    const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
-    return touch ? 'mobile' : 'pc';
-  })();
-  DOC.documentElement.classList.add('view-' + VIEW);
-
-  function bindInput() {
-    // keyboard
-    DOC.addEventListener('keydown', (ev) => {
-      if (!STATE.running) return;
-      const k = (ev.key || '').toLowerCase();
-      if (k === 'arrowup' || k === 'w') action('jump', 'key');
-      if (k === 'arrowdown' || k === 's') action('duck', 'key');
-      if (k === ' ') { // space -> jump
-        ev.preventDefault();
-        action('jump', 'key');
-      }
-    });
-
-    // touch play area: top = jump, bottom = duck (but not block UI)
-    if (playArea) {
-      playArea.addEventListener('pointerdown', (ev) => {
-        if (!STATE.running) return;
-        const rect = playArea.getBoundingClientRect();
-        const y = ev.clientY - rect.top;
-        const half = rect.height * 0.5;
-        if (y < half) action('jump', 'touch');
-        else action('duck', 'touch');
-      }, { passive: true });
-    }
-
-    // quick buttons
-    DOC.addEventListener('click', (ev) => {
-      const btn = ev.target && ev.target.closest ? ev.target.closest('[data-action]') : null;
-      if (!btn) return;
-      const a = btn.getAttribute('data-action');
-      if (!a) return;
-
-      if (a === 'start') startFromMenu();
-      else if (a === 'tutorial') startTutorial();
-      else if (a === 'stop-early') stopGame('manual-stop');
-      else if (a === 'play-again') replay();
-      else if (a === 'back-menu') backToMenu();
-      else if (a === 'jump') action('jump', 'btn');
-      else if (a === 'duck') action('duck', 'btn');
-    });
-
-    // VR shoot (center tap): treat as "confirm action" based on gaze/pose
-    // Here: alternate (or decide from last telegraph): we map shoot -> "smart" action (AI assist light)
-    WIN.addEventListener('hha:shoot', (ev) => {
-      if (!STATE.running) return;
-      // heuristic: if next obstacle is high -> duck else jump
-      const nxt = peekNextObstacle();
-      if (!nxt) return action('jump', 'vr');
-      action(nxt.kind === 'high' || nxt.kind === 'high-long' ? 'duck' : 'jump', 'vr');
-    });
-  }
-
-  // ---------------- game config ----------------
-  const CFG = {
-    // spawn timing
-    leadSec: 2.2,             // time obstacle travels before hit line
-    baseInterval: { easy: 0.92, normal: 0.76, hard: 0.62 }, // seconds between spawns (phase 1 baseline)
-    speedMul: { easy: 0.95, normal: 1.00, hard: 1.08 },    // travel speed multiplier
-
-    // judgment windows (sec)
-    winPerfect: 0.080,
-    winGreat: 0.130,
-    winGood: 0.185,
-
-    // score
-    scorePerfect: 160,
-    scoreGreat: 110,
-    scoreGood: 70,
-    scoreMissPenalty: 0,
-
-    // fever
-    feverAdd: { perfect: 0.10, great: 0.07, good: 0.045 },
-    feverDecayPerMiss: 0.10,
-    feverDropOnOverdriveMiss: 0.22,
-
-    // boss
-    boss: {
-      enabled: true,
-      phases: 3,
-      hpDrainOnHit: { p1: 0.015, p2: 0.020, p3: 0.028 },     // per judged hit
-      hpPenaltyOnMiss: { p1: 0.000, p2: 0.008, p3: 0.012 },  // miss reduces boss hp slower? -> we penalize player score instead; here we make boss tougher by regen tiny
-      armorStart: 0.35,           // break armor once
-      breakFreezeMs: 220,
-    },
-
-    // risk-reward
-    cashoutEvery: 10,
-    cashoutBonusPerStep: 120,
-    overdrive: {
-      minFever: 0.80,
-      durationSec: 7.5,
-      scoreMul: 1.5,
-      tightenWinMul: 0.86, // narrower windows
-    },
-    shield: {
-      enabled: true,
-      dropPhase: 3,
-      dropAtTimeFrac: 0.55, // around mid phase3
-    },
-
-    // obstacle types probabilities (base)
-    probs: {
-      low: 0.52,
-      high: 0.48,
-    }
-  };
-
-  // ---------------- state ----------------
-  const STATE = {
+  /* =========================
+   * State
+   * ========================= */
+  const state = {
+    phase: 'menu',
     running: false,
     ended: false,
-
-    mode: 'training', // training|test|research
-    diff: 'normal',
-    durationPlannedSec: 60,
     tutorial: false,
 
-    seed: '',
-    rnd: null,
+    mode: 'training',      // training | test | research
+    diff: 'normal',        // easy | normal | hard
+    durationSec: 60,
+    bossStyle: 'mixed',
+    seed: String(qs('seed', Date.now())),
 
-    // timing
-    t0: 0,
-    lastTs: 0,
-    elapsed: 0,
-    timeLeft: 0,
+    startedAtPerf: 0,
+    startedAtIso: '',
+    elapsedMs: 0,
+    dtMs: 16,
+    lastFrameMs: 0,
+    raf: 0,
 
-    // gameplay
+    spawnTimerMs: 0,
+    obstacles: [],
+    nextObsId: 1,
+
+    // avatar
+    avatarY: 0,
+    avatarVy: 0,
+    avatarOnGround: true,
+    duckUntilMs: 0,
+    currentAction: 'idle', // idle|jump|duck
+    lastActionAtMs: 0,
+
+    // scoring
     score: 0,
     combo: 0,
     comboMax: 0,
+    stability: 100,
+    stabilityMin: 100,
 
     totalObs: 0,
-    hit: 0,
-    miss: 0,
+    clearedObs: 0,
+
     jumpHit: 0,
     duckHit: 0,
     jumpMiss: 0,
     duckMiss: 0,
+    misses: 0,
 
-    rtSum: 0,
-    rtN: 0,
+    // RT
+    rtHits: [],
 
-    stability: 100,
-    stabilityMin: 100,
-
-    // fever
+    // Fever
     fever: 0,
-    feverActive: false,
-    feverTime: 0,
+    feverOn: false,
 
-    // risk
-    overdriveOn: false,
-    overdriveLeft: 0,
-    shieldOn: false,
-    shieldUsed: false,
-    cashoutReady: false,
-
-    // boss
-    boss: {
-      active: false,
-      phase: 1,
-      hp: 1,
-      armor: 0,
-      breakUsed: false,
-      name: 'MIXED',
-      shieldDropDone: false,
-    },
-
-    // obstacle stream
-    obstacles: [], // { id, tHit, kind, decoy, holdSec, revealed, el, spawnedAt, judged:false, actionNeeded:'jump'|'duck' }
-    nextId: 1,
-
-    // AI prediction
+    // AI prediction (predict-only)
     ai: {
-      locked: false,           // in test/research locked
-      assistOn: false,         // only in training via ?ai=1 (still prediction-only here)
+      enabled: true,
+      lockedInResearch: true,
       fatigueRisk: 0,
-      driftScore: 0,
-      predictMissBurst: 0,
-      tip: '',
-      nextTick: 0,
-      // rolling
-      miss5s: [],
-      hit5s: [],
-      rt5s: [],
-      off5s: [],
-      comboBreaks10s: [],
-      lastCombo: 0,
+      skillScore: 0.5,
+      suggested: 'normal',
+      confidence: 0.5,
+      reason: ''
     },
 
-    // research meta
-    meta: { pid: '', group: '', note: '' },
+    // Boss
+    boss: {
+      enabled: false,
+      active: false,
+      style: 'mixed',
+      phase: 0,
+      hp: 0,
+      hpMax: 100,
+      startedAtMs: 0,
+      endsAtMs: 0,
+      triggerAtMs: 0,
+      maxDurationMs: 0,
+      nextPatternAtMs: 0,
+      currentPattern: null,
+      counterOpenUntilMs: 0,
+      counterExpectedAction: null,
+      jamActive: false,
+      jamEndsAtMs: 0,
+      timeline: []
+    },
 
-    // logging
+    // modifiers
+    tempoMul: 1,
+    tempoUntilMs: 0,
+    spawnPressureMul: 1,
+    spawnPressureUntilMs: 0,
+
+    // logging-ish
+    participant: '',
+    group: '',
+    note: '',
     sessionId: '',
-    startIso: '',
-    endIso: '',
-    logUrl: '',
-
-    events: new CsvTable([
-      'timestampIso','runMode','gameMode','diff','sessionId','eventType','timeFromStartMs',
-      'obstacleId','itemType','lane','rtMs','judgment','totalScore','combo',
-      'feverState','feverValue','bossPhase','bossHp','overdriveOn','shieldOn',
-      'ai_locked','ai_predictMissBurst','ai_driftScore','ai_fatigueRisk','extra'
-    ]),
-    sessions: new CsvTable([
-      'timestampIso','runMode','gameMode','diff','durationPlannedSec','durationPlayedSec',
-      'sessionId','scoreFinal','comboMax','misses','obstaclesTotal',
-      'jumpHit','duckHit','jumpMiss','duckMiss',
-      'accuracyPct','avgRtMs','stabilityMinPct',
-      'bossPhaseEnd','bossHpEnd','feverTimePct',
-      'ai_locked','ai_predictMissBurst','ai_driftScore','ai_fatigueRisk',
-      'reason','startTimeIso','endTimeIso','participantId','group','note','__extraJson'
-    ]),
+    lastSummary: null,
+    lastBossTimeline: []
   };
 
-  function makeSessionId() {
-    const t = Date.now().toString(36);
-    const r = Math.random().toString(36).slice(2, 7);
-    return `JD-${t}-${r}`;
+  /* =========================
+   * View helpers
+   * ========================= */
+  function switchView(name) {
+    state.phase = name;
+    els.viewMenu.classList.add('jd-hidden');
+    els.viewPlay.classList.add('jd-hidden');
+    els.viewResult.classList.add('jd-hidden');
+    if (name === 'menu') els.viewMenu.classList.remove('jd-hidden');
+    if (name === 'play') els.viewPlay.classList.remove('jd-hidden');
+    if (name === 'result') els.viewResult.classList.remove('jd-hidden');
   }
 
-  function applyMenuVisibility() {
-    const m = toLowerSafe(selMode.value, 'training');
-    researchBlock.classList.toggle('jd-hidden', m !== 'research');
+  function applyViewClass() {
+    const touch = ('ontouchstart' in WIN) || (navigator.maxTouchPoints > 0);
+    const qv = String(qs('view', '') || '').toLowerCase();
+    DOC.body.classList.remove('view-pc', 'view-mobile', 'view-vr', 'view-cvr');
+    if (qv === 'vr') DOC.body.classList.add('view-vr');
+    else if (qv === 'cvr') DOC.body.classList.add('view-cvr');
+    else DOC.body.classList.add(touch ? 'view-mobile' : 'view-pc');
   }
 
-  // ---------------- boss/phase logic ----------------
-  function phaseForTimeFrac(f) {
-    if (f < 0.34) return 1;
-    if (f < 0.72) return 2;
-    return 3;
+  function updateHubLinks() {
+    const hub = qs('hub', 'hub.html');
+    [els.backHubMenu, els.backHubPlay, els.backHubResult].forEach(a => {
+      if (a) a.href = hub || 'hub.html';
+    });
   }
 
-  function setTele(on, text) {
-    if (!teleEl) return;
-    teleEl.classList.toggle('jd-hidden', !on);
-    teleEl.classList.toggle('on', !!on);
-    const inner = teleEl.querySelector('.jd-tele-inner');
-    if (inner && text) inner.textContent = text;
+  function updateResearchBlockUI() {
+    const m = String(els.modeSel?.value || 'training').toLowerCase();
+    if (els.researchBlock) {
+      els.researchBlock.classList.toggle('jd-hidden', m !== 'research');
+    }
   }
 
-  function bossHpDrainOnHit() {
-    const p = STATE.boss.phase;
-    if (p === 1) return CFG.boss.hpDrainOnHit.p1;
-    if (p === 2) return CFG.boss.hpDrainOnHit.p2;
-    return CFG.boss.hpDrainOnHit.p3;
+  /* =========================
+   * Audio helpers
+   * ========================= */
+  function playSfx(el, vol) {
+    try {
+      if (!el) return;
+      if (Number.isFinite(vol)) el.volume = vol;
+      el.currentTime = 0;
+      el.play().catch(() => {});
+    } catch (_) {}
   }
 
-  function maybeStartBoss() {
-    // Boss always enabled for ALL modes (Training/Test/Research) ✅
-    if (!CFG.boss.enabled) return;
-    STATE.boss.active = true;
-    STATE.boss.hp = 1;
-    STATE.boss.armor = CFG.boss.armorStart;
-    STATE.boss.breakUsed = false;
-    STATE.boss.name = 'MIXED';
-    STATE.boss.phase = 1;
-    STATE.boss.shieldDropDone = false;
-    hud.bossWrap && hud.bossWrap.classList.remove('jd-hidden');
-    hud.bossStatus && (hud.bossStatus.textContent = 'READY');
-    hud.boss && (hud.boss.textContent = STATE.boss.name);
+  /* =========================
+   * HUD / UI helpers
+   * ========================= */
+  function setJudge(text, kind) {
+    if (!els.judge) return;
+    els.judge.textContent = text || '';
+    els.judge.classList.remove('ok', 'combo', 'miss', 'boss', 'show');
+    if (kind) els.judge.classList.add(kind);
+    if (/BOSS|COUNTER|JAM/i.test(String(text || ''))) els.judge.classList.add('boss');
+    els.judge.classList.add('show');
+    clearTimeout(els.judge._timer);
+    els.judge._timer = setTimeout(() => els.judge.classList.remove('show'), 320);
   }
 
-  function updateBossByTime() {
-    if (!STATE.boss.active) return;
-    const frac = (STATE.elapsed / STATE.durationPlannedSec);
-    const pPrev = STATE.boss.phase;
-    const pNow = phaseForTimeFrac(frac);
-    if (pNow !== pPrev) {
-      STATE.boss.phase = pNow;
-      hud.phase && (hud.phase.textContent = String(pNow));
-      playSfx(sfx.boss, 0.8);
+  function telegraph(text) {
+    if (!els.tele) return;
+    const inner = els.tele.querySelector('.jd-tele-inner');
+    if (inner) inner.textContent = text || '⚡ TEMPO SHIFT';
+    els.tele.classList.remove('jd-hidden');
+    els.tele.classList.add('on');
+    clearTimeout(els.tele._timer);
+    els.tele._timer = setTimeout(() => els.tele.classList.remove('on'), 520);
+  }
 
-      // telegraph tempo shift entering phase2
-      if (pNow === 2) {
-        setTele(true, '⚡ TEMPO SHIFT');
-        setTimeout(() => setTele(false), 550);
+  function setBossBar(show) {
+    if (!els.bossBarWrap) return;
+    els.bossBarWrap.classList.toggle('jd-hidden', !show);
+  }
+
+  function setBossUiName(name) {
+    if (els.hudBoss) els.hudBoss.textContent = name || '—';
+  }
+
+  function setBossUiPhase(p) {
+    if (els.hudPhase) els.hudPhase.textContent = String(p || 1);
+  }
+
+  function setBossHpUi(ratio) {
+    const r = clamp(ratio, 0, 1);
+    if (els.hudBossFill) els.hudBossFill.style.transform = `scaleX(${r})`;
+    if (els.hudBossStatus) {
+      if (state.boss.active) {
+        els.hudBossStatus.textContent = `HP ${Math.round(state.boss.hp)}/${Math.round(state.boss.hpMax)}`;
+        els.hudBossStatus.classList.add('on');
+      } else {
+        els.hudBossStatus.textContent = '—';
+        els.hudBossStatus.classList.remove('on');
       }
-      if (pNow === 3) {
-        setTele(true, '🔥 BOSS BURST');
-        setTimeout(() => setTele(false), 550);
+    }
+  }
+
+  function setCounterState(on, expected) {
+    if (!els.playArea) return;
+    els.playArea.classList.toggle('jd-counter-on', !!on);
+    els.playArea.dataset.counterExpected = on ? String(expected || '') : '';
+  }
+
+  function setJamState(on) {
+    if (!els.playArea) return;
+    els.playArea.classList.toggle('jd-jam-on', !!on);
+  }
+
+  function updateHud() {
+    if (els.hudMode) els.hudMode.textContent = state.mode[0].toUpperCase() + state.mode.slice(1);
+    if (els.hudDiff) els.hudDiff.textContent = state.diff;
+    if (els.hudDuration) els.hudDuration.textContent = `${state.durationSec}s`;
+
+    if (els.hudStability) els.hudStability.textContent = `${Math.round(state.stability)}%`;
+    if (els.hudTime) els.hudTime.textContent = Math.max(0, (state.durationSec - state.elapsedMs / 1000)).toFixed(1);
+    if (els.hudObstacles) els.hudObstacles.textContent = `${state.clearedObs} / ${state.totalObs}`;
+    if (els.hudScore) els.hudScore.textContent = String(Math.round(state.score));
+    if (els.hudCombo) els.hudCombo.textContent = String(state.combo);
+
+    const p = clamp((state.elapsedMs / 1000) / Math.max(1, state.durationSec), 0, 1);
+    if (els.hudProgFill) els.hudProgFill.style.transform = `scaleX(${p})`;
+    if (els.hudProgText) els.hudProgText.textContent = `${Math.round(p * 100)}%`;
+
+    const fv = clamp(state.fever / 100, 0, 1);
+    if (els.hudFeverFill) els.hudFeverFill.style.transform = `scaleX(${fv})`;
+    if (els.hudFeverStatus) {
+      if (state.feverOn) {
+        els.hudFeverStatus.textContent = 'FEVER!';
+        els.hudFeverStatus.classList.add('on');
+      } else if (state.fever >= 80) {
+        els.hudFeverStatus.textContent = 'BUILD';
+        els.hudFeverStatus.classList.remove('on');
+      } else {
+        els.hudFeverStatus.textContent = 'Ready';
+        els.hudFeverStatus.classList.remove('on');
       }
     }
-    // shield drop (phase 3 mid)
-    if (CFG.shield.enabled && STATE.boss.phase === CFG.shield.dropPhase && !STATE.boss.shieldDropDone) {
-      const phaseFrac = (frac - 0.72) / (1 - 0.72);
-      if (phaseFrac >= CFG.shield.dropAtTimeFrac) {
-        // drop a "shield pickup" as a special obstacle (auto pickup on correct action)
-        spawnSpecial('shield');
-        STATE.boss.shieldDropDone = true;
+
+    setBossHpUi((state.boss.hpMax > 0) ? (state.boss.hp / state.boss.hpMax) : 0);
+  }
+
+  function updateAvatarUi() {
+    if (!els.avatar) return;
+    els.avatar.classList.remove('jump', 'duck');
+    if (state.currentAction === 'jump' && !state.avatarOnGround) els.avatar.classList.add('jump');
+    if (state.currentAction === 'duck') els.avatar.classList.add('duck');
+
+    // Optional visual Y (CSS mostly handles)
+    const y = -state.avatarY;
+    els.avatar.style.transform = `translateX(-50%) translateY(${Math.round(y)}px)`;
+    if (state.currentAction === 'duck') {
+      els.avatar.style.transform = `translateX(-50%) translateY(${Math.round(y + 12)}px) scale(.98)`;
+    }
+  }
+
+  function updateResultUI() {
+    const totalHits = state.jumpHit + state.duckHit;
+    const totalMiss = state.jumpMiss + state.duckMiss;
+    const totalJudged = totalHits + totalMiss;
+    const acc = totalJudged ? (totalHits / totalJudged) * 100 : 0;
+    const rtMean = state.rtHits.length ? (state.rtHits.reduce((a, b) => a + b, 0) / state.rtHits.length) : null;
+
+    if (els.resMode) els.resMode.textContent = state.mode[0].toUpperCase() + state.mode.slice(1);
+    if (els.resDiff) els.resDiff.textContent = state.diff;
+    if (els.resDuration) els.resDuration.textContent = `${state.durationSec}s`;
+
+    if (els.resTotalObs) els.resTotalObs.textContent = String(state.totalObs);
+    if (els.resHits) els.resHits.textContent = String(totalHits);
+    if (els.resMiss) els.resMiss.textContent = String(totalMiss);
+
+    if (els.resJumpHit) els.resJumpHit.textContent = String(state.jumpHit);
+    if (els.resDuckHit) els.resDuckHit.textContent = String(state.duckHit);
+    if (els.resJumpMiss) els.resJumpMiss.textContent = String(state.jumpMiss);
+    if (els.resDuckMiss) els.resDuckMiss.textContent = String(state.duckMiss);
+
+    if (els.resAcc) els.resAcc.textContent = `${acc.toFixed(1)} %`;
+    if (els.resRtMean) els.resRtMean.textContent = rtMean == null ? '-' : `${rtMean.toFixed(0)} ms`;
+    if (els.resStabilityMin) els.resStabilityMin.textContent = `${state.stabilityMin.toFixed(1)} %`;
+    if (els.resScore) els.resScore.textContent = String(Math.round(state.score));
+
+    let rank = 'C';
+    if (acc >= 95 && state.stabilityMin >= 70) rank = 'S';
+    else if (acc >= 88) rank = 'A';
+    else if (acc >= 75) rank = 'B';
+    if (els.resRank) els.resRank.textContent = rank;
+
+    state.lastSummary = {
+      mode: state.mode,
+      diff: state.diff,
+      durationSec: state.durationSec,
+      totalObs: state.totalObs,
+      hits: totalHits,
+      miss: totalMiss,
+      accPct: +acc.toFixed(2),
+      rtMeanMs: rtMean == null ? null : +rtMean.toFixed(2),
+      stabilityMin: +state.stabilityMin.toFixed(2),
+      score: Math.round(state.score),
+      rank,
+      ai: { ...state.ai },
+      boss: {
+        style: state.boss.style,
+        timelineCount: (state.lastBossTimeline || []).length
       }
-    }
-  }
-
-  function applyBossDamageFromHit(mult = 1) {
-    if (!STATE.boss.active) return;
-    let d = bossHpDrainOnHit() * mult;
-
-    // armor first
-    if (STATE.boss.armor > 0) {
-      const a0 = STATE.boss.armor;
-      STATE.boss.armor = Math.max(0, STATE.boss.armor - d * 1.6);
-      d = d * 0.35; // while armor on, real hp drains slower
-      if (a0 > 0 && STATE.boss.armor === 0 && !STATE.boss.breakUsed) {
-        STATE.boss.breakUsed = true;
-        // BREAK moment: freeze a bit
-        setTele(true, '💥 BREAK!');
-        setTimeout(() => setTele(false), 420);
-        // micro-freeze: pause movement briefly by shifting t0
-        const freeze = CFG.boss.breakFreezeMs;
-        STATE.t0 += freeze;
-      }
-    }
-
-    STATE.boss.hp = Math.max(0, STATE.boss.hp - d);
-  }
-
-  // ---------------- obstacle generation ----------------
-  function baseInterval() {
-    const d = STATE.diff;
-    let iv = CFG.baseInterval[d] || CFG.baseInterval.normal;
-
-    // phase adjustments
-    const p = STATE.boss.phase;
-    if (p === 2) iv *= 0.88;
-    if (p === 3) iv *= 0.82;
-
-    // tutorial slower
-    if (STATE.tutorial) iv *= 1.15;
-
-    return clamp(iv, 0.40, 1.20);
-  }
-
-  function pickObstacleKind() {
-    const rnd = STATE.rnd;
-
-    // Phase 2/3 introduce specials
-    const p = STATE.boss.phase;
-
-    // chance gates
-    const allowFeint = (p >= 2);
-    const allowDouble = (p >= 2);
-    const allowHold = (p >= 2);
-
-    // decide base high/low
-    const r = rnd();
-    let kind = (r < CFG.probs.low) ? 'low' : 'high';
-
-    // specials
-    if (allowHold && rnd() < (STATE.diff === 'hard' ? 0.18 : 0.12)) {
-      // hold duck: high-long
-      kind = 'high-long';
-    }
-
-    // feint (decoy): make it readable with reveal near hit line
-    let decoy = false;
-    if (allowFeint && rnd() < (STATE.diff === 'hard' ? 0.14 : 0.10)) {
-      decoy = true;
-    }
-
-    // double: handled at schedule time (spawn two close)
-    const wantDouble = allowDouble && (rnd() < (STATE.diff === 'hard' ? 0.22 : 0.14));
-
-    return { kind, decoy, wantDouble };
-  }
-
-  function spawnObstacleAt(tHit, kind, opt = {}) {
-    const id = STATE.nextId++;
-    const o = {
-      id,
-      tHit,
-      kind,           // 'low'|'high'|'high-long'|'shield'
-      decoy: !!opt.decoy,
-      holdSec: opt.holdSec || (kind === 'high-long' ? (STATE.diff === 'hard' ? 0.85 : 0.70) : 0),
-      revealed: false,
-      judged: false,
-      spawnedAt: now(),
-      actionNeeded: (kind === 'high' || kind === 'high-long') ? 'duck' : 'jump',
-      el: null,
-      special: opt.special || '',
     };
-    STATE.obstacles.push(o);
-    STATE.totalObs++;
-    return o;
+
+    try { localStorage.setItem('JD_LAST_SUMMARY', JSON.stringify(state.lastSummary)); } catch (_) {}
   }
 
-  function spawnSpecial(type) {
-    // schedule shield pickup to arrive soon
-    const tHit = STATE.elapsed + CFG.leadSec + 0.85;
-    spawnObstacleAt(tHit, 'shield', { special: 'shield', decoy: false, holdSec: 0 });
+  /* =========================
+   * Score/stability helpers
+   * ========================= */
+  function addScore(n) {
+    const mul = state.feverOn ? 1.5 : 1.0;
+    state.score += Math.round((Number(n) || 0) * mul);
+  }
+  function addCombo(n = 1) {
+    state.combo = Math.max(0, state.combo + (Number(n) || 0));
+    state.comboMax = Math.max(state.comboMax, state.combo);
+  }
+  function breakCombo(drop = 9999) {
+    state.combo = Math.max(0, state.combo - Math.max(1, Number(drop) || 1));
+  }
+  function addMiss(n = 1) {
+    state.misses += Math.max(1, Number(n) || 1);
+  }
+  function reduceStability(n) {
+    state.stability = Math.max(0, state.stability - (Number(n) || 0));
+    state.stabilityMin = Math.min(state.stabilityMin, state.stability);
+  }
+  function healStability(n) {
+    state.stability = Math.min(100, state.stability + (Number(n) || 0));
   }
 
-  function renderSpawn(o) {
+  function addFever(v) {
+    state.fever = clamp(state.fever + (Number(v) || 0), 0, 100);
+    if (!state.feverOn && state.fever >= CFG.fever.onAt) {
+      state.feverOn = true;
+      playSfx(els.sfxFever, 0.65);
+      telegraph('🔥 FEVER!');
+    }
+  }
+  function loseFever(v) {
+    state.fever = clamp(state.fever - (Number(v) || 0), 0, 100);
+    if (state.feverOn && state.fever <= CFG.fever.offAt) {
+      state.feverOn = false;
+    }
+  }
+
+  /* =========================
+   * Obstacle system
+   * ========================= */
+  function hitLineX() {
+    if (!els.playArea) return 200;
+    const r = els.playArea.getBoundingClientRect();
+    return r.width * CFG.hitXRatio;
+  }
+
+  function obstacleTypeToNeed(type) {
+    return type === 'low' ? 'jump' : 'duck';
+  }
+
+  function spawnObstacle(kind, opts = {}) {
+    const id = state.nextObsId++;
+    const speedBase = (CFG.diff[state.diff] || CFG.diff.normal).speed;
+    const speed = speedBase * (opts.speedMul || 1) * (state.tempoMul || 1);
+    const playRect = els.playArea.getBoundingClientRect();
+    const startX = playRect.width + 60;
+
+    const ob = {
+      id,
+      kind,               // low | high
+      x: startX,
+      y: kind === 'low' ? CFG.laneLowY : CFG.laneHighY,
+      w: CFG.obstacleW,
+      h: CFG.obstacleH,
+      speed,
+      spawnedAtMs: state.elapsedMs,
+      dueAtMs: 0,
+      judged: false,
+      passed: false,
+      fakeout: !!opts.fakeout,
+      fakeoutAtX: opts.fakeoutAtX ?? null,
+      _fakeoutDone: false
+    };
+
+    // Estimate due time to hit line
+    const hx = hitLineX();
+    ob.dueAtMs = state.elapsedMs + ((ob.x - hx) / Math.max(10, ob.speed)) * 1000;
+
     const el = DOC.createElement('div');
-    el.className = 'jd-obstacle';
-
-    // position by kind
-    const isLow = (o.kind === 'low');
-    const isHigh = (o.kind === 'high' || o.kind === 'high-long');
-    const isShield = (o.kind === 'shield');
-
-    if (isLow) el.classList.add('jd-obstacle--low');
-    else el.classList.add('jd-obstacle--high');
+    el.className = `jd-obstacle jd-obstacle--${kind}`;
+    if (ob.fakeout) el.classList.add('jd-feint');
 
     const inner = DOC.createElement('div');
     inner.className = 'jd-obstacle-inner';
 
-    const icon = DOC.createElement('div');
-    icon.className = 'jd-obs-icon';
+    const ico = DOC.createElement('div');
+    ico.className = 'jd-obs-icon';
+    ico.textContent = (kind === 'low') ? '🪵' : '🧱';
 
     const tag = DOC.createElement('div');
     tag.className = 'jd-obs-tag';
+    tag.textContent = (kind === 'low') ? 'JUMP' : 'DUCK';
 
-    if (isShield) {
-      icon.textContent = '🛡️';
-      tag.textContent = 'SHIELD';
-      el.classList.add('jd-reveal'); // always clear
-    } else if (isLow) {
-      icon.textContent = '🧱';
-      tag.textContent = 'LOW';
-    } else if (isHigh) {
-      icon.textContent = (o.kind === 'high-long') ? '🌀' : '🚧';
-      tag.textContent = (o.kind === 'high-long') ? 'HOLD' : 'HIGH';
-    }
-
-    inner.appendChild(icon);
+    inner.appendChild(ico);
     inner.appendChild(tag);
     el.appendChild(inner);
+    els.obstaclesWrap?.appendChild(el);
 
-    // feint visuals
-    if (o.decoy) el.classList.add('jd-feint');
+    ob.el = el;
+    ob.icoEl = ico;
+    ob.tagEl = tag;
 
-    obstaclesEl.appendChild(el);
-    o.el = el;
+    state.obstacles.push(ob);
+    state.totalObs++;
+    return ob;
   }
 
-  function updateObstaclePositions() {
-    // travel from right to hit line at left 24% (CSS hit line)
-    const lead = CFG.leadSec / (CFG.speedMul[STATE.diff] || 1.0);
-    const rect = playArea.getBoundingClientRect();
-    const w = rect.width || 800;
+  function flipObstacleType(ob) {
+    if (!ob || ob.judged) return;
+    ob.kind = (ob.kind === 'low') ? 'high' : 'low';
+    ob.y = ob.kind === 'low' ? CFG.laneLowY : CFG.laneHighY;
 
-    // anchor x so that at tHit it's around hit line (24% of width)
-    const xHit = w * 0.24;
-    const xStart = w + 120; // offscreen right
-    const xTravel = xStart - xHit;
+    if (ob.el) {
+      ob.el.classList.toggle('jd-obstacle--low', ob.kind === 'low');
+      ob.el.classList.toggle('jd-obstacle--high', ob.kind === 'high');
+      ob.el.classList.add('jd-reveal');
+    }
+    if (ob.icoEl) ob.icoEl.textContent = (ob.kind === 'low') ? '🪵' : '🧱';
+    if (ob.tagEl) ob.tagEl.textContent = (ob.kind === 'low') ? 'JUMP' : 'DUCK';
+  }
 
-    for (const o of STATE.obstacles) {
-      if (o.judged) continue;
-      const dt = o.tHit - STATE.elapsed; // time until hit
-      const p = 1 - clamp01(dt / lead);  // 0..1
-      const x = xStart - xTravel * p;
+  function updateObstacles(dtSec) {
+    const hx = hitLineX();
+    const winPx = CFG.actionWindowPx;
 
-      // reveal feint near end (readable, fair)
-      if (o.decoy && !o.revealed && dt < 0.40) {
-        o.revealed = true;
-        if (o.el) o.el.classList.add('jd-reveal');
+    for (let i = state.obstacles.length - 1; i >= 0; i--) {
+      const ob = state.obstacles[i];
+
+      // speed may be influenced live by tempo
+      const speedBase = (CFG.diff[state.diff] || CFG.diff.normal).speed;
+      const liveMul = (state.tempoMul || 1);
+      ob.speed = speedBase * liveMul * (state.boss.jamActive ? 1.06 : 1);
+
+      ob.x -= ob.speed * dtSec;
+
+      // fakeout reveal/flip
+      if (ob.fakeout && !ob._fakeoutDone) {
+        const triggerX = ob.fakeoutAtX || (hx + 120);
+        if (ob.x <= triggerX) {
+          ob._fakeoutDone = true;
+          flipObstacleType(ob);
+          telegraph('👀 FAKEOUT!');
+        }
       }
 
-      // spawn DOM when within lead window
-      if (!o.el && dt < lead + 0.02) {
-        renderSpawn(o);
+      // visual
+      if (ob.el) {
+        ob.el.style.left = `${ob.x}px`;
+        ob.el.style.top = `${ob.y}px`;
       }
 
-      if (o.el) {
-        o.el.style.left = x.toFixed(1) + 'px';
+      // timeout miss if passed hit line too far and not judged
+      if (!ob.judged && ob.x < (hx - winPx)) {
+        ob.judged = true;
+        ob.passed = true;
+        const need = obstacleTypeToNeed(ob.kind);
+        if (need === 'jump') state.jumpMiss++;
+        else state.duckMiss++;
+
+        addMiss(1);
+        breakCombo(999);
+        reduceStability(state.boss.active ? 10 : 7);
+        loseFever(CFG.fever.missLoss);
+        playSfx(els.sfxMiss, 0.5);
+        setJudge('MISS', 'miss');
       }
 
-      // timeout past hit line
-      if (dt < -CFG.winGood - 0.10) {
-        // missed by timeout if not judged
-        applyMiss(o, 'timeout');
+      // cleanup off-screen
+      if (ob.x < -160) {
+        if (ob.el) ob.el.remove();
+        state.obstacles.splice(i, 1);
+      }
+    }
+  }
+
+  function tryJudgeAction(action) {
+    const hx = hitLineX();
+    const winPx = CFG.actionWindowPx;
+
+    let best = null;
+    let bestDx = Infinity;
+
+    for (const ob of state.obstacles) {
+      if (ob.judged) continue;
+      const dx = Math.abs(ob.x - hx);
+      if (dx <= winPx && dx < bestDx) {
+        bestDx = dx;
+        best = ob;
       }
     }
 
-    // cleanup judged elements
-    STATE.obstacles = STATE.obstacles.filter(o => {
-      if (o.judged && o.el) { o.el.remove(); o.el = null; }
-      return !o.judged;
+    if (!best) {
+      // blank tap => small penalty only during jam or spam
+      setJudge('—', 'miss');
+      return false;
+    }
+
+    const need = obstacleTypeToNeed(best.kind);
+    const rtMs = Math.round(state.elapsedMs - best.dueAtMs); // negative=early positive=late
+    const absRt = Math.abs(rtMs);
+
+    best.judged = true;
+    if (best.el) {
+      best.el.style.opacity = '.15';
+      setTimeout(() => best.el && best.el.remove(), 80);
+    }
+
+    if (action === need) {
+      state.clearedObs++;
+      if (action === 'jump') state.jumpHit++;
+      else state.duckHit++;
+      state.rtHits.push(absRt);
+
+      let text = 'OK';
+      let kind = 'ok';
+      let score = CFG.score.hit;
+
+      if (absRt <= 70) { text = 'PERFECT'; score = CFG.score.perfect; kind = 'combo'; }
+      else if (absRt <= 130) { text = 'GREAT'; score = 120; kind = 'ok'; }
+
+      addScore(score);
+      addCombo(1);
+      healStability(state.feverOn ? 0.8 : 0.5);
+      addFever(CFG.fever.hitGain);
+
+      // boss chip damage on good play
+      if (state.boss.active) {
+        const chip = absRt <= 70 ? 4 : (absRt <= 130 ? 3 : 2);
+        damageBoss(chip, 'obstacle_hit');
+      }
+
+      if (state.combo > 0 && state.combo % 10 === 0) playSfx(els.sfxCombo, 0.55);
+      else playSfx(els.sfxHit, 0.55);
+
+      setJudge(text, kind);
+      return true;
+    } else {
+      if (need === 'jump') state.jumpMiss++;
+      else state.duckMiss++;
+
+      addMiss(1);
+      breakCombo(999);
+      reduceStability(state.boss.active ? 11 : 8);
+      loseFever(CFG.fever.missLoss);
+      playSfx(els.sfxMiss, 0.5);
+      setJudge('MISS', 'miss');
+      return false;
+    }
+  }
+
+  /* =========================
+   * Boss system
+   * ========================= */
+  function pushBossTimeline(type, extra = {}) {
+    state.boss.timeline.push({
+      tMs: Math.round(state.elapsedMs),
+      type,
+      phase: state.boss.phase || 0,
+      hp: Math.round(state.boss.hp || 0),
+      ...extra
     });
   }
 
-  function peekNextObstacle() {
-    // next arriving obstacle (soonest tHit >= now)
-    let best = null;
-    let bestDt = 999;
-    for (const o of STATE.obstacles) {
-      if (o.judged) continue;
-      const dt = o.tHit - STATE.elapsed;
-      if (dt >= -0.2 && dt < bestDt) { bestDt = dt; best = o; }
+  function pickWeighted(items, weights) {
+    const sum = weights.reduce((a, b) => a + (Number(b) || 0), 0) || 1;
+    let r = state.rng() * sum;
+    for (let i = 0; i < items.length; i++) {
+      r -= (Number(weights[i]) || 0);
+      if (r <= 0) return items[i];
     }
-    return best;
+    return items[items.length - 1];
   }
 
-  function scheduleSpawns(dtSec) {
-    // spawn based on elapsed time increments
-    // We'll keep a "nextSpawnAt" in STATE.ai.nextTick? Use separate:
-    if (!STATE._nextSpawnAt) STATE._nextSpawnAt = 0;
+  function damageBoss(amount, reason) {
+    if (!state.boss.active) return;
+    state.boss.hp = Math.max(0, state.boss.hp - (Number(amount) || 0));
+    setBossHpUi(state.boss.hp / Math.max(1, state.boss.hpMax));
+    pushBossTimeline('boss_damage', { amount: Number(amount) || 0, reason });
 
-    while (STATE.elapsed >= STATE._nextSpawnAt) {
-      const iv = baseInterval();
-      const baseT = STATE.elapsed + CFG.leadSec + 0.25; // time it should hit later
-
-      const pick = pickObstacleKind();
-      const kind = pick.kind;
-
-      if (pick.wantDouble) {
-        // double pattern (fast swap)
-        const kind2 = (kind === 'low') ? 'high' : 'low';
-        spawnObstacleAt(baseT, kind, { decoy: pick.decoy });
-        spawnObstacleAt(baseT + clamp(iv * 0.42, 0.28, 0.45), kind2, { decoy: false });
-      } else {
-        spawnObstacleAt(baseT, kind, { decoy: pick.decoy });
-      }
-
-      STATE._nextSpawnAt += iv;
-      if (STATE._nextSpawnAt < STATE.elapsed + 0.05) STATE._nextSpawnAt = STATE.elapsed + iv;
+    if (state.boss.hp <= 0) {
+      endBoss('boss-clear');
     }
   }
 
-  // ---------------- judge/action ----------------
-  function tightenedWindows() {
-    if (!STATE.overdriveOn) return { p: CFG.winPerfect, g: CFG.winGreat, b: CFG.winGood };
-    const m = CFG.overdrive.tightenWinMul;
-    return { p: CFG.winPerfect * m, g: CFG.winGreat * m, b: CFG.winGood * m };
+  function applyBossPenalty(kind) {
+    const dmg = (kind === 'counter_fail') ? 8 : 5;
+    const comboDrop = (kind === 'counter_fail') ? 2 : 1;
+
+    reduceStability(dmg);
+    addMiss(1);
+    breakCombo(comboDrop);
+    loseFever(kind === 'counter_fail' ? 12 : 8);
+
+    playSfx(els.sfxMiss, 0.55);
+    setJudge(kind === 'counter_fail' ? 'COUNTER MISS!' : 'JAM!', 'miss');
+    pushBossTimeline('boss_penalty', { kind, dmg, comboDrop });
   }
 
-  function showJudge(text, cls) {
-    if (!judgeEl) return;
-    judgeEl.textContent = text;
-    judgeEl.classList.remove('ok', 'combo', 'miss', 'show');
-    if (cls) judgeEl.classList.add(cls);
-    judgeEl.classList.add('show');
-    setTimeout(() => judgeEl.classList.remove('show'), 180);
+  function triggerTempoShift(factor, ms, announce) {
+    state.tempoMul = Number(factor) || 1;
+    state.tempoUntilMs = state.elapsedMs + (Number(ms) || 900);
+    if (announce) telegraph(`⚡ TEMPO x${state.tempoMul.toFixed(2)}`);
+
+    els.playArea?.classList.add('shake');
+    setTimeout(() => els.playArea?.classList.remove('shake'), 180);
   }
 
-  function setAvatarPose(pose) {
-    if (!avatarEl) return;
-    avatarEl.classList.remove('jump', 'duck');
-    if (pose === 'jump') avatarEl.classList.add('jump');
-    if (pose === 'duck') avatarEl.classList.add('duck');
-    setTimeout(() => avatarEl.classList.remove('jump', 'duck'), 140);
+  function setSpawnPressureBoost(factor, ms) {
+    state.spawnPressureMul = Number(factor) || 1;
+    state.spawnPressureUntilMs = state.elapsedMs + (Number(ms) || 1000);
   }
 
-  function applyHit(o, judgment, rtMs, src) {
-    STATE.hit++;
-    STATE.combo++;
-    STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
+  function startBoss() {
+    state.boss.active = true;
+    state.boss.phase = 1;
+    state.boss.startedAtMs = state.elapsedMs;
+    state.boss.endsAtMs = state.elapsedMs + state.boss.maxDurationMs;
+    state.boss.hp = state.boss.hpMax;
+    state.boss.currentPattern = null;
+    state.boss.nextPatternAtMs = state.elapsedMs + 900;
+    state.boss.counterExpectedAction = null;
+    state.boss.jamActive = false;
+    state.boss.timeline.length = 0;
 
-    // per action
-    if (o.actionNeeded === 'jump') STATE.jumpHit++;
-    else STATE.duckHit++;
+    setBossBar(true);
+    setBossUiName((state.boss.style || 'mixed').toUpperCase());
+    setBossUiPhase(1);
+    setBossHpUi(1);
 
-    // score
-    let base = CFG.scoreGood;
-    if (judgment === 'perfect') base = CFG.scorePerfect;
-    else if (judgment === 'great') base = CFG.scoreGreat;
+    playSfx(els.sfxBoss, 0.6);
+    telegraph(`🔥 BOSS START • ${(state.boss.style || 'mixed').toUpperCase()}`);
+    pushBossTimeline('boss_start', { style: state.boss.style });
 
-    // overdrive multiplier
-    const mul = STATE.overdriveOn ? CFG.overdrive.scoreMul : 1.0;
-    const delta = Math.round(base * mul);
-    STATE.score += delta;
+    triggerTempoShift(1.08, 900, true);
+  }
 
-    // fever
-    STATE.fever = clamp01(STATE.fever + (CFG.feverAdd[judgment] || 0.03));
-    if (!STATE.feverActive && STATE.fever >= 1) {
-      STATE.feverActive = true;
-      playSfx(sfx.fever, 0.85);
+  function endBoss(reason) {
+    if (!state.boss.active) return;
+    state.boss.active = false;
+    state.boss.counterExpectedAction = null;
+    state.boss.counterOpenUntilMs = 0;
+    state.boss.jamActive = false;
+    state.boss.jamEndsAtMs = 0;
+
+    setCounterState(false);
+    setJamState(false);
+    setBossBar(false);
+
+    pushBossTimeline('boss_end', { reason });
+    telegraph(reason === 'boss-clear' ? '✅ BOSS CLEAR' : '⏱️ BOSS END');
+  }
+
+  function runBossTempoShift() {
+    const p = state.boss.phase || 1;
+    const factor = (p === 1) ? 1.10 : (p === 2 ? 1.18 : 1.25);
+    const dur = (p === 3) ? 1300 : 900;
+    triggerTempoShift(factor, dur, true);
+    damageBoss(8 + p * 2, 'tempoShift');
+    state.boss.nextPatternAtMs = state.elapsedMs + dur + 500;
+  }
+
+  function runBossFakeout() {
+    const p = state.boss.phase || 1;
+    telegraph('👀 FAKEOUT');
+    // spawn a short sequence with fake flips
+    const count = (p === 1) ? 2 : (p === 2 ? 3 : 4);
+    for (let i = 0; i < count; i++) {
+      const kind = state.rng() < 0.5 ? 'low' : 'high';
+      const ob = spawnObstacle(kind, {
+        speedMul: 1.03 + p * 0.04,
+        fakeout: true,
+        fakeoutAtX: hitLineX() + 110 + i * 10
+      });
+      // stagger x a bit by shifting position right
+      ob.x += i * 140;
+      if (ob.el) ob.el.style.left = `${ob.x}px`;
+    }
+    damageBoss(10 + p * 2, 'fakeout');
+    state.boss.nextPatternAtMs = state.elapsedMs + 1400;
+  }
+
+  function runBossBurst() {
+    const p = state.boss.phase || 1;
+    telegraph('⚡ BURST');
+    setSpawnPressureBoost(p === 3 ? 1.35 : 1.18, p === 3 ? 1600 : 1200);
+    triggerTempoShift(p === 3 ? 1.22 : 1.12, p === 3 ? 1200 : 800, false);
+    damageBoss(12 + p * 3, 'burst');
+    state.boss.nextPatternAtMs = state.elapsedMs + (p === 3 ? 1700 : 1500);
+  }
+
+  function runBossCounter() {
+    const p = state.boss.phase || 1;
+    const expected = state.rng() < 0.5 ? 'jump' : 'duck';
+    state.boss.counterExpectedAction = expected;
+    state.boss.counterOpenUntilMs = state.elapsedMs + (CFG.boss.counterWindowMs[state.diff] || 210);
+
+    setCounterState(true, expected);
+    telegraph(`🛡️ COUNTER • ${expected.toUpperCase()}`);
+    pushBossTimeline('counter_open', {
+      expected,
+      windowMs: (CFG.boss.counterWindowMs[state.diff] || 210)
+    });
+
+    // small extra obstacles around counter for pressure
+    if (p >= 2 && state.rng() < 0.7) {
+      const kind = state.rng() < 0.5 ? 'low' : 'high';
+      const ob = spawnObstacle(kind, { speedMul: 1.05 + p * 0.03 });
+      ob.x += 120;
+      if (ob.el) ob.el.style.left = `${ob.x}px`;
     }
 
-    // boss damage
-    const bossMult = (STATE.boss.phase === 3 && STATE.overdriveOn) ? 1.35 : 1.0;
-    applyBossDamageFromHit(bossMult);
-
-    // RT
-    if (rtMs != null && Number.isFinite(rtMs)) {
-      STATE.rtSum += rtMs;
-      STATE.rtN++;
-    }
-
-    // stability proxy (simple): penalize rapid misses; hits recover slowly
-    STATE.stability = clamp(STATE.stability + 0.45, 55, 100);
-    STATE.stabilityMin = Math.min(STATE.stabilityMin, STATE.stability);
-
-    // cashout readiness
-    STATE.cashoutReady = (STATE.combo > 0 && (STATE.combo % CFG.cashoutEvery === 0));
-
-    // shield pickup
-    if (o.kind === 'shield') {
-      STATE.shieldOn = true;
-      STATE.shieldUsed = false;
-      setTele(true, '🛡️ SHIELD READY');
-      setTimeout(() => setTele(false), 480);
-    }
-
-    // sfx/feedback
-    playSfx(sfx.hit, judgment === 'perfect' ? 0.9 : 0.75);
-    if (STATE.combo > 0 && STATE.combo % 10 === 0) playSfx(sfx.combo, 0.75);
-
-    showJudge(judgment.toUpperCase(), (judgment === 'perfect' || judgment === 'great') ? 'ok' : 'combo');
-
-    // log event
-    logEvent('hit', o, judgment, rtMs, src, { scoreDelta: delta });
+    state.boss.nextPatternAtMs = state.elapsedMs + 1200;
   }
 
-  function applyMiss(o, kind) {
-    if (o.judged) return;
-    o.judged = true;
+  function runBossJam() {
+    const p = state.boss.phase || 1;
+    state.boss.jamActive = true;
+    state.boss.jamEndsAtMs = state.elapsedMs + (p === 3 ? 1800 : 1300);
+    setJamState(true);
 
-    // shield block
-    if (STATE.shieldOn && !STATE.shieldUsed) {
-      STATE.shieldUsed = true;
-      STATE.shieldOn = false;
-      setTele(true, '🛡️ BLOCK!');
-      setTimeout(() => setTele(false), 350);
-      showJudge('BLOCK', 'ok');
-      logEvent('miss_blocked', o, 'block', '', 'shield', {});
+    telegraph('🧨 JAM');
+    pushBossTimeline('jam_start', { ms: state.boss.jamEndsAtMs - state.elapsedMs });
+
+    setSpawnPressureBoost(p === 3 ? 1.25 : 1.12, state.boss.jamEndsAtMs - state.elapsedMs);
+    damageBoss(9 + p * 2, 'jamLane');
+    state.boss.nextPatternAtMs = state.boss.jamEndsAtMs + 450;
+  }
+
+  function scheduleNextBossPattern() {
+    const phase = state.boss.phase || 1;
+    const style = state.boss.style || 'mixed';
+
+    let type = 'tempoShift';
+
+    if (style === 'classic') {
+      type = (phase === 1) ? 'tempoShift' : (phase === 2 ? 'burst' : 'counter');
+    } else if (style === 'random') {
+      type = pickWeighted(Object.keys(CFG.boss.mixedWeights), Object.values(CFG.boss.mixedWeights));
+    } else {
+      const w = { ...CFG.boss.mixedWeights };
+      if (phase === 1) { w.fakeout += 0.05; w.counter = Math.max(0, w.counter - 0.04); }
+      if (phase === 2) { w.burst += 0.06; w.tempoShift += 0.04; }
+      if (phase === 3) { w.counter += 0.08; w.jamLane += 0.05; }
+      type = pickWeighted(Object.keys(w), Object.values(w));
+    }
+
+    state.boss.currentPattern = type;
+    pushBossTimeline('pattern', { pattern: type, phase });
+
+    if (type === 'tempoShift') runBossTempoShift();
+    else if (type === 'fakeout') runBossFakeout();
+    else if (type === 'burst') runBossBurst();
+    else if (type === 'counter') runBossCounter();
+    else if (type === 'jamLane') runBossJam();
+    else runBossTempoShift();
+  }
+
+  function updateBossSystem() {
+    if (!state.boss.enabled) return;
+
+    if (!state.boss.active && state.elapsedMs >= state.boss.triggerAtMs && !state.ended) {
+      startBoss();
+    }
+    if (!state.boss.active) return;
+
+    if (state.elapsedMs >= state.boss.endsAtMs) {
+      endBoss('boss-timeup');
       return;
     }
 
-    STATE.miss++;
-    STATE.combo = 0;
-
-    if (o.actionNeeded === 'jump') STATE.jumpMiss++;
-    else STATE.duckMiss++;
-
-    // fever decay
-    if (STATE.overdriveOn) STATE.fever = clamp01(STATE.fever - CFG.feverDropOnOverdriveMiss);
-    else STATE.fever = clamp01(STATE.fever - CFG.feverDecayPerMiss);
-    if (STATE.feverActive && STATE.fever < 0.60) STATE.feverActive = false;
-
-    // stability drop
-    STATE.stability = clamp(STATE.stability - (kind === 'timeout' ? 9.0 : 7.0), 0, 100);
-    STATE.stabilityMin = Math.min(STATE.stabilityMin, STATE.stability);
-
-    // shake
-    if (playArea) {
-      playArea.classList.add('shake');
-      setTimeout(() => playArea.classList.remove('shake'), 200);
+    const hpPct = state.boss.hp / Math.max(1, state.boss.hpMax);
+    const targetPhase = hpPct > 0.66 ? 1 : (hpPct > 0.33 ? 2 : 3);
+    if (targetPhase !== state.boss.phase) {
+      state.boss.phase = targetPhase;
+      setBossUiPhase(targetPhase);
+      telegraph(`BOSS PHASE ${targetPhase}`);
+      pushBossTimeline('phase', { phase: targetPhase });
     }
 
-    playSfx(sfx.miss, 0.9);
-    showJudge('MISS', 'miss');
-
-    logEvent(kind === 'timeout' ? 'timeout' : 'miss', o, 'miss', '', 'sys', {});
-  }
-
-  function applyBlankMiss(actionType) {
-    // user acted but no obstacle in window -> small penalty
-    STATE.miss++;
-    STATE.combo = 0;
-
-    if (actionType === 'jump') STATE.jumpMiss++;
-    else STATE.duckMiss++;
-
-    STATE.fever = clamp01(STATE.fever - 0.06);
-    if (STATE.feverActive && STATE.fever < 0.60) STATE.feverActive = false;
-
-    STATE.stability = clamp(STATE.stability - 4.5, 0, 100);
-    STATE.stabilityMin = Math.min(STATE.stabilityMin, STATE.stability);
-
-    playSfx(sfx.miss, 0.6);
-    showJudge('MISS', 'miss');
-
-    logEvent('blank', null, 'miss', '', 'blank', { action: actionType });
-  }
-
-  function findBestObstacleForAction(actionType) {
-    const w = tightenedWindows();
-    let best = null;
-    let bestAbs = 999;
-
-    for (const o of STATE.obstacles) {
-      if (o.judged) continue;
-      if (o.actionNeeded !== actionType) continue;
-
-      const dt = STATE.elapsed - o.tHit;  // negative early, positive late
-      const a = Math.abs(dt);
-
-      if (a < bestAbs) {
-        bestAbs = a;
-        best = { o, dt };
-      }
+    if (state.elapsedMs >= state.boss.nextPatternAtMs) {
+      scheduleNextBossPattern();
     }
 
-    if (!best) return null;
-    if (bestAbs > w.b) return null;
-
-    // decoy: if decoy and revealed => treat as "do nothing" obstacle (blank miss if acted)
-    if (best.o.decoy) {
-      // if revealed, it's a feint → player should NOT act; treat as blank miss
-      if (best.o.revealed) return { decoyTrap: true, o: best.o, dt: best.dt };
-      // if not revealed, allow it to behave normally (keeps fairness)
+    if (state.boss.counterExpectedAction && state.elapsedMs > state.boss.counterOpenUntilMs) {
+      applyBossPenalty('counter_fail');
+      pushBossTimeline('counter_fail_timeout');
+      state.boss.counterExpectedAction = null;
+      setCounterState(false);
     }
 
-    // hold-duck: must keep duck held; handled in action()
-    return best;
-  }
-
-  // hold state for duck
-  let HOLD = { on: false, until: 0, targetId: 0 };
-
-  function action(actionType, src) {
-    if (!STATE.running) return;
-
-    setAvatarPose(actionType);
-
-    // cashout tap (only in CVR/VR?) -> we keep auto-cashout option: long-press not needed
-    // (we do auto cashout when ready and user hits perfect streak in overdrive; simple)
-
-    const best = findBestObstacleForAction(actionType);
-    if (!best) {
-      return applyBlankMiss(actionType);
-    }
-
-    if (best.decoyTrap) {
-      // feint revealed: acting is punished lightly
-      best.o.judged = true;
-      if (best.o.el) best.o.el.remove();
-      applyBlankMiss(actionType);
-      logEvent('feint_trap', best.o, 'miss', '', src, {});
-      return;
-    }
-
-    const o = best.o;
-    const dt = best.dt;
-    const w = tightenedWindows();
-
-    // judgment by timing
-    let judgment = 'good';
-    if (Math.abs(dt) <= w.p) judgment = 'perfect';
-    else if (Math.abs(dt) <= w.g) judgment = 'great';
-
-    const rtMs = Math.round(Math.abs(dt) * 1000);
-
-    // hold-duck logic
-    if (o.kind === 'high-long') {
-      if (actionType !== 'duck') {
-        applyMiss(o, 'wrong');
-        o.judged = true;
-        return;
-      }
-      // start hold; only count hit if held enough
-      HOLD.on = true;
-      HOLD.targetId = o.id;
-      HOLD.until = now() + (o.holdSec * 1000);
-      showJudge('HOLD', 'combo');
-      logEvent('hold_start', o, 'hold', rtMs, src, { holdSec: o.holdSec });
-
-      // mark as "pending"; don't judge yet
-      o._holdPending = true;
-      // remove visual only after hold completes
-      return;
-    }
-
-    // shield pickup behaves like normal hit
-    o.judged = true;
-    applyHit(o, judgment, rtMs, src);
-
-    // overdrive trigger (risk-reward)
-    maybeTriggerOverdrive();
-
-    // cashout auto prompt (light)
-    if (STATE.cashoutReady) {
-      setTele(true, `💰 CASHOUT +${CFG.cashoutBonusPerStep}`);
-      setTimeout(() => setTele(false), 380);
+    if (state.boss.jamActive && state.elapsedMs > state.boss.jamEndsAtMs) {
+      state.boss.jamActive = false;
+      setJamState(false);
+      pushBossTimeline('jam_end');
     }
   }
 
-  function updateHold() {
-    if (!HOLD.on) return;
-    if (!STATE.running) { HOLD.on = false; return; }
+  /* =========================
+   * AI prediction hook (predict-only)
+   * ========================= */
+  function updateAiPrediction() {
+    if (!state.ai.enabled) return;
 
-    const t = now();
-    // find hold obstacle still pending
-    const o = STATE.obstacles.find(x => x && x.id === HOLD.targetId);
-    if (!o) { HOLD.on = false; return; }
+    const totalHits = state.jumpHit + state.duckHit;
+    const totalMiss = state.jumpMiss + state.duckMiss;
+    const judged = totalHits + totalMiss;
+    const acc = judged ? (totalHits / judged) * 100 : 0;
+    const p = clamp((state.elapsedMs / 1000) / Math.max(1, state.durationSec), 0, 1);
 
-    if (t >= HOLD.until) {
-      // success hold -> count as hit (great by default)
-      o.judged = true;
-      if (o.el) { o.el.classList.add('jd-reveal'); }
-      applyHit(o, 'great', 0, 'hold');
-      logEvent('hold_ok', o, 'great', 0, 'hold', {});
-      // remove visual
-      if (o.el) o.el.remove();
-      HOLD.on = false;
-      maybeTriggerOverdrive();
-      return;
-    }
+    const fatigueRisk = clamp((1 - state.stability / 100) * 0.55 + Math.min(0.4, totalMiss * 0.03) + p * 0.12, 0, 1);
+    const skillScore = clamp((acc / 100) * 0.55 + Math.min(0.3, state.combo * 0.01) + (state.stability / 100) * 0.15, 0, 1);
 
-    // if player breaks hold early by jumping, we treat as miss (we can't detect pose, so detect explicit jump)
-    // handled via action(): if user presses jump while HOLD.on -> break
+    let suggested = 'normal';
+    if (skillScore > 0.78 && fatigueRisk < 0.35) suggested = 'hard';
+    else if (skillScore < 0.42 || fatigueRisk > 0.70) suggested = 'easy';
+
+    let reason = 'balanced performance';
+    if (fatigueRisk > 0.70) reason = 'fatigue/miss/stability trend ↑';
+    else if (skillScore > 0.75) reason = 'accuracy+combo stable';
+
+    state.ai.fatigueRisk = fatigueRisk;
+    state.ai.skillScore = skillScore;
+    state.ai.suggested = suggested;
+    state.ai.confidence = 0.6 + Math.min(0.35, p * 0.35);
+    state.ai.reason = reason;
+
+    // research lock = predict only (no adaptive changes)
   }
 
-  // break hold if jump happens
-  const _origAction = action;
-  action = function(actionType, src){
-    if (HOLD.on && actionType === 'jump') {
-      const o = STATE.obstacles.find(x => x && x.id === HOLD.targetId);
-      if (o && !o.judged) {
-        o.judged = true;
-        if (o.el) o.el.remove();
-        HOLD.on = false;
-        applyMiss(o, 'hold_break');
-        logEvent('hold_break', o, 'miss', '', src, {});
-        return;
-      }
-    }
-    return _origAction(actionType, src);
-  };
+  /* =========================
+   * Game flow
+   * ========================= */
+  function resetGameState() {
+    state.running = false;
+    state.ended = false;
+    state.elapsedMs = 0;
+    state.dtMs = 16;
+    state.lastFrameMs = 0;
+    state.spawnTimerMs = 0;
+    state.obstacles.length = 0;
+    state.nextObsId = 1;
 
-  // ---------------- overdrive / cashout ----------------
-  function maybeTriggerOverdrive() {
-    if (STATE.overdriveOn) return;
-    if (STATE.fever < CFG.overdrive.minFever) return;
+    state.avatarY = 0;
+    state.avatarVy = 0;
+    state.avatarOnGround = true;
+    state.duckUntilMs = 0;
+    state.currentAction = 'idle';
+    state.lastActionAtMs = -99999;
 
-    // start overdrive in Phase 3 (most exciting), or in Phase2 hard
-    const p = STATE.boss.phase;
-    const allow = (p >= 3) || (p === 2 && STATE.diff === 'hard');
-    if (!allow) return;
+    state.score = 0;
+    state.combo = 0;
+    state.comboMax = 0;
+    state.stability = 100;
+    state.stabilityMin = 100;
+    state.totalObs = 0;
+    state.clearedObs = 0;
+    state.jumpHit = 0;
+    state.duckHit = 0;
+    state.jumpMiss = 0;
+    state.duckMiss = 0;
+    state.misses = 0;
+    state.rtHits.length = 0;
 
-    STATE.overdriveOn = true;
-    STATE.overdriveLeft = CFG.overdrive.durationSec;
-    setTele(true, '⚡ OVERDRIVE');
-    setTimeout(() => setTele(false), 520);
-    playSfx(sfx.boss, 0.7);
+    state.fever = 0;
+    state.feverOn = false;
+
+    state.tempoMul = 1;
+    state.tempoUntilMs = 0;
+    state.spawnPressureMul = 1;
+    state.spawnPressureUntilMs = 0;
+
+    // Boss reset
+    state.boss.active = false;
+    state.boss.phase = 0;
+    state.boss.hpMax = 100;
+    state.boss.hp = 100;
+    state.boss.startedAtMs = 0;
+    state.boss.endsAtMs = 0;
+    state.boss.nextPatternAtMs = 0;
+    state.boss.currentPattern = null;
+    state.boss.counterOpenUntilMs = 0;
+    state.boss.counterExpectedAction = null;
+    state.boss.jamActive = false;
+    state.boss.jamEndsAtMs = 0;
+    state.boss.timeline = [];
+
+    // DOM cleanup
+    els.obstaclesWrap && (els.obstaclesWrap.innerHTML = '');
+    setCounterState(false);
+    setJamState(false);
+    setBossBar(false);
+    setBossUiName('—');
+    setBossUiPhase(1);
+    setBossHpUi(1);
+    updateAvatarUi();
+    updateHud();
   }
 
-  function updateOverdrive(dtSec) {
-    if (!STATE.overdriveOn) return;
-    STATE.overdriveLeft -= dtSec;
-    if (STATE.overdriveLeft <= 0) {
-      STATE.overdriveOn = false;
-      STATE.overdriveLeft = 0;
-    }
+  function makeSessionId() {
+    return `JD-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 
-  function doCashoutIfReady() {
-    if (!STATE.cashoutReady) return;
-    // auto cashout after a successful hit following the threshold
-    // (keeps it simple; you can later add a button)
-    STATE.score += CFG.cashoutBonusPerStep;
-    STATE.combo = 0;
-    STATE.cashoutReady = false;
-    setTele(true, `💰 CASHOUT +${CFG.cashoutBonusPerStep}`);
-    setTimeout(() => setTele(false), 360);
-  }
+  function startGame(opts = {}) {
+    resetGameState();
 
-  // ---------------- AI prediction baseline ----------------
-  function aiInit() {
-    const aiQ = toLowerSafe(qs('ai', '0'));
-    STATE.ai.assistOn = (aiQ === '1' || aiQ === 'true');
+    state.tutorial = !!opts.tutorial;
+    state.mode = String(els.modeSel?.value || 'training').toLowerCase();
+    state.diff = String(els.diffSel?.value || 'normal').toLowerCase();
+    state.durationSec = clamp(state.tutorial ? 15 : (els.durSel?.value || 60), 15, 180);
+    state.bossStyle = String((els.bossStyleSel?.value || qs('boss', CFG.boss.styleDefault) || CFG.boss.styleDefault)).toLowerCase();
+    if (!['mixed', 'classic', 'random'].includes(state.bossStyle)) state.bossStyle = CFG.boss.styleDefault;
 
-    // lock AI effects in test/research (still show predictions)
-    STATE.ai.locked = (STATE.mode === 'test' || STATE.mode === 'research');
+    state.participant = (els.participantId?.value || '').trim();
+    state.group = (els.group?.value || '').trim();
+    state.note = (els.note?.value || '').trim();
 
-    STATE.ai.nextTick = 0;
-    STATE.ai.miss5s = [];
-    STATE.ai.hit5s = [];
-    STATE.ai.rt5s = [];
-    STATE.ai.comboBreaks10s = [];
-    STATE.ai.lastCombo = 0;
-  }
+    state.seed = String(qs('seed', Date.now()));
+    const seedBasis = `${state.seed}|${state.mode}|${state.diff}|${state.durationSec}|${state.participant}|${state.group}|${state.note}|${state.tutorial ? 'tutorial' : 'main'}`;
+    state.rng = makeRng(seedBasis);
 
-  function aiPushRolling(arr, item, maxN) {
-    arr.push(item);
-    if (arr.length > maxN) arr.splice(0, arr.length - maxN);
-  }
+    state.sessionId = makeSessionId();
+    state.startedAtIso = new Date().toISOString();
+    state.startedAtPerf = nowMs();
+    state.lastFrameMs = state.startedAtPerf;
 
-  function aiTick() {
-    if (!STATE.running) return;
-    const t = STATE.elapsed;
-    if (t < STATE.ai.nextTick) return;
-    STATE.ai.nextTick = t + 0.50;
+    // Boss init (เปิดทุกโหมดตาม requirement)
+    state.boss.enabled = !!CFG.boss.enabledByMode[state.mode];
+    state.boss.style = state.bossStyle;
+    const startPct = CFG.boss.spawnAtPctByMode[state.mode] ?? 0.60;
+    state.boss.triggerAtMs = Math.floor(state.durationSec * 1000 * startPct);
+    state.boss.maxDurationMs = (CFG.boss.durationSecByDiff[state.diff] || 14) * 1000;
 
-    // rolling window snapshots
-    // (approx: store last 10 ticks = 5s)
-    const missNow = STATE.miss;
-    const hitNow = STATE.hit;
+    // Tutorial = boss off (ซ้อม)
+    if (state.tutorial) state.boss.enabled = false;
 
-    // we store diffs (like counters)
-    if (!STATE.ai._lastMiss) STATE.ai._lastMiss = missNow;
-    if (!STATE.ai._lastHit) STATE.ai._lastHit = hitNow;
+    switchView('play');
+    state.running = true;
+    state.ended = false;
 
-    const dMiss = Math.max(0, missNow - STATE.ai._lastMiss);
-    const dHit = Math.max(0, hitNow - STATE.ai._lastHit);
+    // HUD labels
+    if (els.hudMode) els.hudMode.textContent = state.tutorial ? 'Tutorial' : (state.mode[0].toUpperCase() + state.mode.slice(1));
+    if (els.hudDiff) els.hudDiff.textContent = state.diff;
+    if (els.hudDuration) els.hudDuration.textContent = `${state.durationSec}s`;
 
-    STATE.ai._lastMiss = missNow;
-    STATE.ai._lastHit = hitNow;
-
-    aiPushRolling(STATE.ai.miss5s, dMiss, 10);
-    aiPushRolling(STATE.ai.hit5s, dHit, 10);
-
-    // RT rolling: use avg recent; fallback
-    const rtRecent = STATE.rtN ? (STATE.rtSum / STATE.rtN) : 0;
-    aiPushRolling(STATE.ai.rt5s, rtRecent, 10);
-
-    // combo breaks
-    const cb = (STATE.ai.lastCombo > 0 && STATE.combo === 0) ? 1 : 0;
-    STATE.ai.lastCombo = STATE.combo;
-    aiPushRolling(STATE.ai.comboBreaks10s, cb, 20);
-
-    const miss5 = STATE.ai.miss5s.reduce((a, b) => a + b, 0);
-    const hit5 = STATE.ai.hit5s.reduce((a, b) => a + b, 0);
-    const act5 = miss5 + hit5;
-
-    const missRate5 = act5 ? (miss5 / act5) : 0;
-    const comboBreaks10 = STATE.ai.comboBreaks10s.reduce((a, b) => a + b, 0);
-
-    // drift score: higher when RT increases + stability drops
-    const rtMean5 = STATE.ai.rt5s.reduce((a, b) => a + b, 0) / Math.max(1, STATE.ai.rt5s.length);
-    const rtNorm = clamp01(rtMean5 / 520); // normalize around 520ms
-    const stabInv = clamp01((100 - STATE.stability) / 60);
-
-    const driftScore = clamp01(0.55 * rtNorm + 0.45 * stabInv);
-
-    // fatigue risk: miss rate + drift
-    const fatigueRisk = clamp01(0.60 * missRate5 + 0.40 * driftScore);
-
-    // predict miss burst next 5s (baseline)
-    const predictMissBurst = (missRate5 > 0.35 || comboBreaks10 >= 2 || fatigueRisk > 0.62) ? 1 : 0;
-
-    STATE.ai.driftScore = driftScore;
-    STATE.ai.fatigueRisk = fatigueRisk;
-    STATE.ai.predictMissBurst = predictMissBurst;
-
-    // tip (short, explainable)
-    let tip = '';
-    if (predictMissBurst) tip = 'ชะลอ 1 จังหวะ แล้วค่อยเร่ง (โฟกัส LOW/HIGH ให้ชัด)';
-    else if (STATE.boss.phase >= 2 && driftScore > 0.45) tip = 'ระวัง TEMPO SHIFT — กะจังหวะใหม่ก่อน';
-    else if (STATE.overdriveOn) tip = 'OVERDRIVE: หน้าต่างแคบขึ้น เล่นให้ “ชัวร์”';
-    STATE.ai.tip = tip;
-
-    // (research lock) — ไม่ปรับ difficulty/spawn ใด ๆ
-  }
-
-  // ---------------- logging ----------------
-  function logEvent(eventType, o, judgment, rtMs, src, extraObj) {
-    const row = {
-      timestampIso: isoNow(),
-      runMode: STATE.mode,
-      gameMode: STATE.tutorial ? 'tutorial' : 'play',
-      diff: STATE.diff,
-      sessionId: STATE.sessionId,
-      eventType,
-      timeFromStartMs: Math.round(STATE.elapsed * 1000),
-
-      obstacleId: o ? o.id : '',
-      itemType: o ? (o.kind + (o.decoy ? ':feint' : '') + (o.special ? ':' + o.special : '')) : '',
-      lane: '',
-      rtMs: (rtMs == null ? '' : rtMs),
-      judgment: judgment || '',
-      totalScore: STATE.score,
-      combo: STATE.combo,
-
-      feverState: STATE.feverActive ? 'on' : 'off',
-      feverValue: STATE.fever.toFixed(3),
-      bossPhase: STATE.boss.phase,
-      bossHp: STATE.boss.hp.toFixed(3),
-      overdriveOn: STATE.overdriveOn ? 1 : 0,
-      shieldOn: STATE.shieldOn ? 1 : 0,
-
-      ai_locked: STATE.ai.locked ? 1 : 0,
-      ai_predictMissBurst: STATE.ai.predictMissBurst ? 1 : 0,
-      ai_driftScore: (STATE.ai.driftScore || 0).toFixed(3),
-      ai_fatigueRisk: (STATE.ai.fatigueRisk || 0).toFixed(3),
-      extra: extraObj ? JSON.stringify(extraObj) : ''
-    };
-    STATE.events.add(row);
-  }
-
-  async function flushRemoteSessionIfAny(reason) {
-    const url = STATE.logUrl;
-    if (!url) return;
-
-    // send session summary row (sessions table) as JSON
-    const csvSession = STATE.sessions.toCsv();
-    const csvEvents = STATE.events.toCsv();
-
-    const payload = {
-      _table: 'sessions',
-      type: 'session',
-      timestampIso: isoNow(),
-      sessionId: STATE.sessionId,
-      runMode: STATE.mode,
-      game: 'jump-duck',
-      diff: STATE.diff,
-      reason,
-      // include both CSV for archive
-      sessionCsv: csvSession,
-      eventsCsv: csvEvents,
-      // include key fields for Sheets columns if you want to map later
-      scoreFinal: STATE.score,
-      comboMax: STATE.comboMax,
-      misses: STATE.miss,
-      obstaclesTotal: STATE.totalObs,
-      accuracyPct: calcAcc().toFixed(2),
-      avgRtMs: calcAvgRt().toFixed(1),
-      stabilityMinPct: STATE.stabilityMin.toFixed(1),
-      bossPhaseEnd: STATE.boss.phase,
-      bossHpEnd: STATE.boss.hp.toFixed(3),
-      feverTimePct: calcFeverTimePct().toFixed(2),
-      participantId: STATE.meta.pid || '',
-      group: STATE.meta.group || '',
-      note: STATE.meta.note || '',
-      ai_locked: STATE.ai.locked ? 1 : 0,
-      ai_predictMissBurst: STATE.ai.predictMissBurst ? 1 : 0,
-      ai_driftScore: (STATE.ai.driftScore || 0).toFixed(3),
-      ai_fatigueRisk: (STATE.ai.fatigueRisk || 0).toFixed(3),
-      __extraJson: JSON.stringify({
-        view: VIEW,
-        seed: STATE.seed,
-        tutorial: STATE.tutorial,
-        shieldUsed: STATE.shieldUsed,
-        overdriveUsed: !!STATE._overdriveEver,
-      })
-    };
-
-    // POST once (your GAS can flatten JSON)
-    await postJson(url, payload);
-
-    // optionally send events rows as separate table (if you want):
-    // await postJson(url, { _table:'events', type:'event', sessionId:STATE.sessionId, eventsCsv: csvEvents });
-  }
-
-  // ---------------- HUD update ----------------
-  function calcAcc() {
-    const judged = STATE.hit + STATE.miss;
-    if (!judged) return 0;
-    return (STATE.hit / judged) * 100;
-  }
-  function calcAvgRt() {
-    return STATE.rtN ? (STATE.rtSum / STATE.rtN) : 0;
-  }
-  function calcFeverTimePct() {
-    const dur = Math.max(0.001, Math.min(STATE.elapsed, STATE.durationPlannedSec));
-    return (STATE.feverTime / dur) * 100;
-  }
-
-  function updateHud() {
-    hud.mode && (hud.mode.textContent = cap(STATE.mode));
-    hud.diff && (hud.diff.textContent = STATE.diff);
-    hud.duration && (hud.duration.textContent = STATE.durationPlannedSec + 's');
-
-    hud.time && (hud.time.textContent = fmt1(STATE.timeLeft));
-    hud.score && (hud.score.textContent = String(STATE.score));
-    hud.combo && (hud.combo.textContent = String(STATE.combo));
-    hud.obstacles && (hud.obstacles.textContent = `${STATE.totalObs} / ${STATE.totalObs}`);
-
-    hud.stability && (hud.stability.textContent = Math.round(STATE.stability) + '%');
-
-    // progress
-    const p = clamp01(STATE.elapsed / STATE.durationPlannedSec);
-    hud.progFill && (hud.progFill.style.transform = `scaleX(${p.toFixed(4)})`);
-    hud.progText && (hud.progText.textContent = Math.round(p * 100) + '%');
-
-    // fever
-    hud.feverFill && (hud.feverFill.style.transform = `scaleX(${STATE.fever.toFixed(4)})`);
-    if (hud.feverStatus) {
-      if (STATE.overdriveOn) {
-        hud.feverStatus.textContent = 'OVERDRIVE';
-        hud.feverStatus.classList.add('on');
-      } else if (STATE.feverActive) {
-        hud.feverStatus.textContent = 'FEVER!';
-        hud.feverStatus.classList.add('on');
-      } else if (STATE.fever >= 0.85) {
-        hud.feverStatus.textContent = 'BUILD';
-        hud.feverStatus.classList.remove('on');
-      } else {
-        hud.feverStatus.textContent = 'READY';
-        hud.feverStatus.classList.remove('on');
-      }
-    }
-
-    // boss
-    hud.phase && (hud.phase.textContent = String(STATE.boss.phase));
-    hud.boss && (hud.boss.textContent = STATE.boss.name || 'MIXED');
-    if (hud.bossFill) {
-      const hp = clamp01(STATE.boss.hp);
-      hud.bossFill.style.transform = `scaleX(${hp.toFixed(4)})`;
-    }
-    if (hud.bossStatus) {
-      let t = '—';
-      if (STATE.boss.armor > 0 && !STATE.boss.breakUsed) t = 'ARMOR';
-      else if (STATE.boss.breakUsed) t = 'BREAK!';
-      else t = (STATE.boss.phase === 3 ? 'BURST' : (STATE.boss.phase === 2 ? 'SHIFT' : 'WARM'));
-      hud.bossStatus.textContent = t;
-      hud.bossStatus.classList.toggle('on', STATE.boss.phase >= 2);
-    }
-  }
-
-  function cap(s) {
-    s = String(s || '');
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
-
-  // ---------------- loop ----------------
-  let RAF = 0;
-  function loop(ts) {
-    if (!STATE.running) return;
-
-    if (!STATE.t0) STATE.t0 = ts;
-    const dtMs = ts - STATE.lastTs;
-    STATE.lastTs = ts;
-
-    const dtSec = Math.max(0, dtMs / 1000);
-
-    // time
-    STATE.elapsed = (ts - STATE.t0) / 1000;
-    STATE.timeLeft = Math.max(0, STATE.durationPlannedSec - STATE.elapsed);
-
-    // fever time
-    if (STATE.feverActive || STATE.overdriveOn) STATE.feverTime += dtSec;
-
-    // boss phase/time behavior
-    updateBossByTime();
-
-    // spawn
-    scheduleSpawns(dtSec);
-
-    // movement
-    updateObstaclePositions();
-
-    // hold updates
-    updateHold();
-
-    // overdrive countdown
-    if (STATE.overdriveOn) STATE._overdriveEver = true;
-    updateOverdrive(dtSec);
-
-    // AI tick (prediction baseline)
-    aiTick();
-
-    // auto cashout if ready and just hit (simple: if combo==0 but cashoutReady false we already paid)
-    if (STATE.cashoutReady && STATE.combo === 0) STATE.cashoutReady = false;
-    if (STATE.cashoutReady && STATE.combo > 0 && STATE.combo % CFG.cashoutEvery === 0) {
-      // if user keeps going, do nothing; cashout only after next success:
-    }
-
-    // update HUD
+    // quick announcement
+    setJudge(state.tutorial ? 'TUTORIAL' : 'READY', 'ok');
     updateHud();
 
-    // end?
-    if (STATE.timeLeft <= 0.001) {
-      stopGame('time-end');
-      return;
-    }
-    if (STATE.boss.active && STATE.boss.hp <= 0) {
-      stopGame('boss-defeat');
-      return;
-    }
-
-    RAF = requestAnimationFrame(loop);
+    cancelAnimationFrame(state.raf);
+    state.raf = requestAnimationFrame(loop);
   }
 
-  // ---------------- start/stop ----------------
-  function readParamsIntoMenu() {
+  function stopGame(reason = 'manual-stop') {
+    if (!state.running || state.ended) return;
+    endGame(reason);
+  }
+
+  function endGame(reason = 'song-end') {
+    state.running = false;
+    state.ended = true;
+    cancelAnimationFrame(state.raf);
+    state.raf = 0;
+
+    // finalize boss
+    if (state.boss.active) endBoss(reason);
+
+    state.lastBossTimeline = Array.isArray(state.boss.timeline) ? state.boss.timeline.slice() : [];
+    try { localStorage.setItem('JD_LAST_BOSS_TIMELINE', JSON.stringify(state.lastBossTimeline)); } catch (_) {}
+
+    // Save last summary/hub summary
+    const endIso = new Date().toISOString();
     try {
-      const m = toLowerSafe(qs('mode', ''));
-      const d = toLowerSafe(qs('diff', ''));
-      const dur = qs('duration', '');
-
-      if (m && selMode) selMode.value = (m === 'research' ? 'research' : (m === 'test' ? 'test' : 'training'));
-      if (d && selDiff) selDiff.value = (d === 'easy' || d === 'hard' ? d : 'normal');
-      if (dur && selDur && isFiniteNum(dur)) {
-        const v = String(Math.round(Number(dur)));
-        const opt = Array.from(selDur.options).find(o => o.value === v);
-        if (opt) selDur.value = v;
-      }
-
-      applyMenuVisibility();
+      const hha = {
+        game: 'jump-duck',
+        sessionId: state.sessionId,
+        mode: state.mode,
+        diff: state.diff,
+        durationSec: state.durationSec,
+        reason,
+        startTimeIso: state.startedAtIso,
+        endTimeIso: endIso,
+        scoreFinal: Math.round(state.score),
+        comboMax: state.comboMax,
+        misses: state.misses,
+        bossStyle: state.boss.style,
+        bossTimelineCount: state.lastBossTimeline.length
+      };
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(hha));
     } catch (_) {}
-  }
 
-  function setBackLinks() {
-    // keep hub param passthrough if present
-    const hub = qs('hub', '');
-    const back = hub ? hub : 'hub.html';
-    const a1 = $('#jd-back-hub-menu');
-    const a2 = $('#jd-back-hub-play');
-    const a3 = $('#jd-back-hub-result');
-    [a1, a2, a3].forEach(a => { if (a) a.href = back; });
-  }
-
-  function startFromMenu() {
-    const mode = toLowerSafe(selMode.value, 'training');
-    const diff = toLowerSafe(selDiff.value, 'normal');
-    const dur = Number(selDur.value || 60);
-
-    const meta = {
-      pid: (inpPid && inpPid.value || '').trim(),
-      group: (inpGroup && inpGroup.value || '').trim(),
-      note: (inpNote && inpNote.value || '').trim()
-    };
-
-    startGame(mode, diff, dur, false, meta);
-  }
-
-  function startTutorial() {
-    const diff = toLowerSafe(selDiff.value, 'normal');
-    startGame('training', diff, 15, true, { pid: '', group: '', note: 'tutorial' });
-  }
-
-  function startGame(mode, diff, dur, tutorial, meta) {
-    // reset
-    STATE.running = true;
-    STATE.ended = false;
-
-    STATE.mode = (mode === 'research') ? 'research' : (mode === 'test' ? 'test' : 'training');
-    STATE.diff = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
-    STATE.durationPlannedSec = clamp(Number(dur) || 60, 15, 180);
-    STATE.tutorial = !!tutorial;
-
-    STATE.seed = qs('seed', '') || (STATE.mode === 'research' || STATE.mode === 'test' ? 'R1' : String(Date.now()));
-    STATE.rnd = makeRng(STATE.seed + '|' + STATE.mode + '|' + STATE.diff + '|' + STATE.durationPlannedSec);
-
-    STATE.score = 0;
-    STATE.combo = 0;
-    STATE.comboMax = 0;
-
-    STATE.totalObs = 0;
-    STATE.hit = 0;
-    STATE.miss = 0;
-    STATE.jumpHit = 0;
-    STATE.duckHit = 0;
-    STATE.jumpMiss = 0;
-    STATE.duckMiss = 0;
-
-    STATE.rtSum = 0;
-    STATE.rtN = 0;
-
-    STATE.stability = 100;
-    STATE.stabilityMin = 100;
-
-    STATE.fever = 0;
-    STATE.feverActive = false;
-    STATE.feverTime = 0;
-
-    STATE.overdriveOn = false;
-    STATE.overdriveLeft = 0;
-    STATE._overdriveEver = false;
-
-    STATE.shieldOn = false;
-    STATE.shieldUsed = false;
-
-    STATE.cashoutReady = false;
-
-    HOLD.on = false;
-    HOLD.until = 0;
-    HOLD.targetId = 0;
-
-    // boss for ALL modes
-    maybeStartBoss();
-
-    // obstacles
-    STATE.obstacles.length = 0;
-    STATE.nextId = 1;
-    STATE._nextSpawnAt = 0;
-
-    // session/logging
-    STATE.sessionId = makeSessionId();
-    STATE.startIso = isoNow();
-    STATE.endIso = '';
-    STATE.meta = meta || { pid: '', group: '', note: '' };
-
-    STATE.events.clear();
-    STATE.sessions.clear();
-
-    // remote log url
-    STATE.logUrl = String(qs('log', '') || '').trim();
-
-    // ai init
-    aiInit();
-
-    // hud init
-    hud.bossWrap && hud.bossWrap.classList.remove('jd-hidden');
-
-    // clear DOM
-    obstaclesEl && (obstaclesEl.innerHTML = '');
-    setTele(false);
-
-    // switch to play
-    switchView('play');
-
-    // kickoff
-    STATE.t0 = 0;
-    STATE.lastTs = 0;
-    RAF && cancelAnimationFrame(RAF);
-    RAF = requestAnimationFrame(loop);
-
-    // beep
-    playSfx(sfx.beep, 0.55);
-
-    // log start event
-    logEvent('start', null, '', '', 'sys', { seed: STATE.seed, view: VIEW });
-  }
-
-  function stopGame(reason) {
-    if (!STATE.running || STATE.ended) return;
-    STATE.running = false;
-    STATE.ended = true;
-    RAF && cancelAnimationFrame(RAF);
-
-    STATE.endIso = isoNow();
-
-    // finalize metrics
-    const durPlayed = Math.min(STATE.elapsed, STATE.durationPlannedSec);
-    const acc = calcAcc();
-    const avgRt = calcAvgRt();
-    const feverPct = calcFeverTimePct();
-
-    // rank
-    const rank =
-      acc >= 95 ? 'SSS' :
-      acc >= 90 ? 'SS' :
-      acc >= 85 ? 'S' :
-      acc >= 75 ? 'A' :
-      acc >= 65 ? 'B' : 'C';
-
-    // fill result UI
-    res.mode && (res.mode.textContent = cap(STATE.mode));
-    res.diff && (res.diff.textContent = STATE.diff);
-    res.duration && (res.duration.textContent = STATE.durationPlannedSec + 's');
-
-    res.totalObs && (res.totalObs.textContent = String(STATE.totalObs));
-    res.hits && (res.hits.textContent = String(STATE.hit));
-    res.miss && (res.miss.textContent = String(STATE.miss));
-
-    res.jHit && (res.jHit.textContent = String(STATE.jumpHit));
-    res.dHit && (res.dHit.textContent = String(STATE.duckHit));
-    res.jMiss && (res.jMiss.textContent = String(STATE.jumpMiss));
-    res.dMiss && (res.dMiss.textContent = String(STATE.duckMiss));
-
-    res.acc && (res.acc.textContent = acc.toFixed(1) + ' %');
-    res.rtMean && (res.rtMean.textContent = (avgRt ? Math.round(avgRt) + ' ms' : '-'));
-    res.stabMin && (res.stabMin.textContent = STATE.stabilityMin.toFixed(1) + ' %');
-    res.score && (res.score.textContent = String(STATE.score));
-    res.rank && (res.rank.textContent = rank);
-
-    // build session row + CSV
-    const sessRow = {
-      timestampIso: isoNow(),
-      runMode: STATE.mode,
-      gameMode: STATE.tutorial ? 'tutorial' : 'play',
-      diff: STATE.diff,
-      durationPlannedSec: STATE.durationPlannedSec,
-      durationPlayedSec: durPlayed.toFixed(2),
-      sessionId: STATE.sessionId,
-      scoreFinal: STATE.score,
-      comboMax: STATE.comboMax,
-      misses: STATE.miss,
-      obstaclesTotal: STATE.totalObs,
-
-      jumpHit: STATE.jumpHit,
-      duckHit: STATE.duckHit,
-      jumpMiss: STATE.jumpMiss,
-      duckMiss: STATE.duckMiss,
-
-      accuracyPct: acc.toFixed(3),
-      avgRtMs: avgRt ? avgRt.toFixed(1) : '',
-      stabilityMinPct: STATE.stabilityMin.toFixed(2),
-
-      bossPhaseEnd: STATE.boss.phase,
-      bossHpEnd: STATE.boss.hp.toFixed(3),
-      feverTimePct: feverPct.toFixed(3),
-
-      ai_locked: STATE.ai.locked ? 1 : 0,
-      ai_predictMissBurst: STATE.ai.predictMissBurst ? 1 : 0,
-      ai_driftScore: (STATE.ai.driftScore || 0).toFixed(3),
-      ai_fatigueRisk: (STATE.ai.fatigueRisk || 0).toFixed(3),
-
-      reason: reason || 'end',
-      startTimeIso: STATE.startIso,
-      endTimeIso: STATE.endIso,
-
-      participantId: STATE.meta.pid || '',
-      group: STATE.meta.group || '',
-      note: STATE.meta.note || '',
-
-      __extraJson: JSON.stringify({
-        view: VIEW,
-        seed: STATE.seed,
-        tutorial: STATE.tutorial,
-        bossName: STATE.boss.name,
-        breakUsed: STATE.boss.breakUsed,
-        armorEnd: STATE.boss.armor,
-        overdriveEver: !!STATE._overdriveEver,
-        shieldUsed: STATE.shieldUsed,
-      })
-    };
-    STATE.sessions.add(sessRow);
-
-    // end log event
-    logEvent('end', null, rank, '', 'sys', { reason, acc, avgRt, rank });
-
-    // optional remote flush
-    flushRemoteSessionIfAny(reason).catch(() => {});
-
-    // go result view
+    updateResultUI();
     switchView('result');
   }
 
-  function replay() {
-    // replay with same mode/diff/duration; keep seed new unless research/test (deterministic)
-    const meta = STATE.meta;
-    const mode = STATE.mode;
-    const diff = STATE.diff;
-    const dur = STATE.durationPlannedSec;
-    const tut = STATE.tutorial;
-    startGame(mode, diff, dur, tut, meta);
+  function loop(ts) {
+    if (!state.running || state.ended) return;
+    const dt = clamp(ts - state.lastFrameMs, 0, 50);
+    state.lastFrameMs = ts;
+    state.dtMs = dt;
+    state.elapsedMs = ts - state.startedAtPerf;
+
+    // End by time
+    if (state.elapsedMs >= state.durationSec * 1000) {
+      endGame('time-up');
+      return;
+    }
+
+    // Modifiers expire
+    if (state.elapsedMs >= state.tempoUntilMs) state.tempoMul = 1;
+    if (state.elapsedMs >= state.spawnPressureUntilMs) state.spawnPressureMul = 1;
+
+    // Fever decay
+    loseFever(CFG.fever.decayPerSec * (dt / 1000));
+
+    // Spawn
+    const diffCfg = CFG.diff[state.diff] || CFG.diff.normal;
+    const baseSpawn = diffCfg.spawnEveryMs;
+    const feverMul = state.feverOn ? 0.92 : 1.0;
+    const bossMul = state.boss.active ? 0.92 : 1.0;
+    const jamMul = state.spawnPressureMul || 1;
+    const tempoMul = state.tempoMul || 1;
+    const spawnInterval = baseSpawn / (jamMul * tempoMul) * feverMul * bossMul;
+
+    state.spawnTimerMs += dt;
+    while (state.spawnTimerMs >= spawnInterval) {
+      state.spawnTimerMs -= spawnInterval;
+      let kind = (state.rng() < 0.5) ? 'low' : 'high';
+
+      // Slight pattern control to prevent impossible spam same-type too often
+      const last2 = state.obstacles.slice(-2).map(o => o.kind);
+      if (last2.length === 2 && last2[0] === kind && last2[1] === kind && state.rng() < 0.6) {
+        kind = (kind === 'low') ? 'high' : 'low';
+      }
+
+      const fakeoutAllowed = state.boss.active && (state.boss.currentPattern === 'fakeout');
+      const fakeout = fakeoutAllowed && state.rng() < (0.35 + (state.boss.phase * 0.10));
+
+      spawnObstacle(kind, {
+        speedMul: 1 + (state.boss.active ? 0.03 * state.boss.phase : 0),
+        fakeout
+      });
+    }
+
+    // Avatar physics
+    const dtSec = dt / 1000;
+    if (!state.avatarOnGround) {
+      state.avatarVy -= CFG.gravityPx * dtSec;
+      state.avatarY += state.avatarVy * dtSec;
+      if (state.avatarY <= 0) {
+        state.avatarY = 0;
+        state.avatarVy = 0;
+        state.avatarOnGround = true;
+        if (state.currentAction === 'jump') state.currentAction = 'idle';
+      }
+    }
+
+    if (state.currentAction === 'duck' && state.elapsedMs >= state.duckUntilMs) {
+      state.currentAction = 'idle';
+    }
+
+    // Update world
+    updateObstacles(dtSec);
+    updateBossSystem();
+    updateAiPrediction();
+    updateAvatarUi();
+    updateHud();
+
+    // Fail state by stability
+    if (state.stability <= 0) {
+      endGame('stability-zero');
+      return;
+    }
+
+    state.raf = requestAnimationFrame(loop);
   }
 
-  function backToMenu() {
-    switchView('menu');
+  /* =========================
+   * Input / actions
+   * ========================= */
+  function performAction(action) {
+    if (!state.running || state.ended) return;
+    const now = state.elapsedMs;
+
+    // Anti-spam (especially useful in JAM)
+    const dt = now - state.lastActionAtMs;
+    state.lastActionAtMs = now;
+    if (state.boss.active && state.boss.jamActive && dt < 90) {
+      applyBossPenalty('jam_hit');
+      pushBossTimeline('jam_penalty_spam', { action, dt });
+      // continue to allow actual action judge too (fun but punishing)
+    }
+
+    // Counter mechanic
+    if (state.boss.active && state.boss.counterExpectedAction) {
+      const within = now <= state.boss.counterOpenUntilMs;
+      const correct = action === state.boss.counterExpectedAction;
+
+      if (within && correct) {
+        setCounterState(false);
+        state.boss.counterExpectedAction = null;
+
+        addScore(CFG.score.bossCounter);
+        addCombo(1);
+        addFever(16);
+        damageBoss(18, 'counter_success');
+
+        setJudge('COUNTER!', 'combo');
+        playSfx(els.sfxCombo, 0.6);
+        pushBossTimeline('counter_success', { action });
+        return; // counter input consumes this action
+      } else if (within && !correct) {
+        applyBossPenalty('counter_fail');
+        setCounterState(false);
+        state.boss.counterExpectedAction = null;
+        pushBossTimeline('counter_fail_wrong', { action });
+        // continue to judge obstacle too
+      }
+    }
+
+    // Avatar action state
+    if (action === 'jump') {
+      if (state.avatarOnGround) {
+        state.avatarOnGround = false;
+        state.avatarVy = CFG.jumpVelPx;
+        state.currentAction = 'jump';
+      }
+    } else if (action === 'duck') {
+      state.currentAction = 'duck';
+      state.duckUntilMs = now + CFG.duckHoldMs;
+    }
+
+    // Judge obstacle
+    tryJudgeAction(action);
   }
 
-  // ---------------- boot ----------------
+  function onPointerPlayArea(ev) {
+    if (!state.running || state.ended || !els.playArea) return;
+    const r = els.playArea.getBoundingClientRect();
+    const y = ev.clientY - r.top;
+    const action = (y < r.height / 2) ? 'jump' : 'duck';
+    performAction(action);
+  }
+
+  function onKeyDown(ev) {
+    const k = String(ev.key || '').toLowerCase();
+    if (k === 'arrowup' || k === 'w') { ev.preventDefault(); performAction('jump'); }
+    if (k === 'arrowdown' || k === 's') { ev.preventDefault(); performAction('duck'); }
+    if (k === 'escape' && state.running) { ev.preventDefault(); stopGame('escape'); }
+  }
+
+  /* =========================
+   * Actions wiring
+   * ========================= */
+  function bindActionButtons() {
+    DOC.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('[data-action]');
+      if (!btn) return;
+      const act = btn.getAttribute('data-action');
+
+      if (act === 'start') startGame({ tutorial: false });
+      else if (act === 'tutorial') startGame({ tutorial: true });
+      else if (act === 'jump') performAction('jump');
+      else if (act === 'duck') performAction('duck');
+      else if (act === 'stop-early') stopGame('stop-early');
+      else if (act === 'play-again') startGame({ tutorial: false });
+      else if (act === 'back-menu') {
+        stopGame('back-menu');
+        resetGameState();
+        switchView('menu');
+      }
+      else if (act === 'download-boss-timeline') {
+        const data = state.lastBossTimeline || safeJsonParse(localStorage.getItem('JD_LAST_BOSS_TIMELINE'), []) || [];
+        dlText(`jumpduck-boss-timeline-${Date.now()}.json`, JSON.stringify(data, null, 2), 'application/json');
+      }
+    });
+  }
+
+  function bindEvents() {
+    els.modeSel?.addEventListener('change', updateResearchBlockUI);
+
+    // pointer play area (tap top/bottom)
+    els.playArea?.addEventListener('pointerdown', onPointerPlayArea, { passive: true });
+
+    // quick buttons are handled by data-action
+    DOC.addEventListener('keydown', onKeyDown);
+
+    bindActionButtons();
+  }
+
+  /* =========================
+   * Boot
+   * ========================= */
   function boot() {
-    try {
-      applyMenuVisibility();
-      setBackLinks();
-      readParamsIntoMenu();
-      bindInput();
+    applyViewClass();
+    updateHubLinks();
+    updateResearchBlockUI();
+    resetGameState();
+    switchView('menu');
+    bindEvents();
 
-      if (selMode) selMode.addEventListener('change', applyMenuVisibility);
+    // Query presets
+    const qMode = String(qs('mode', '') || '').toLowerCase();
+    if (els.modeSel && ['training', 'test', 'research'].includes(qMode)) els.modeSel.value = qMode;
 
-      // default view
-      switchView('menu');
+    const qDiff = String(qs('diff', '') || '').toLowerCase();
+    if (els.diffSel && ['easy', 'normal', 'hard'].includes(qDiff)) els.diffSel.value = qDiff;
 
-      // auto-start if ?autostart=1
-      const auto = toLowerSafe(qs('autostart', '0'));
-      if (auto === '1' || auto === 'true') startFromMenu();
+    const qDur = String(qs('duration', qs('time', '')) || '').trim();
+    if (els.durSel && ['45', '60', '90'].includes(qDur)) els.durSel.value = qDur;
 
-    } catch (err) {
-      showFatal(err);
+    const qBoss = String(qs('boss', '') || '').toLowerCase();
+    if (els.bossStyleSel && ['mixed', 'classic', 'random'].includes(qBoss)) els.bossStyleSel.value = qBoss;
+
+    updateResearchBlockUI();
+  }
+
+  try {
+    boot();
+  } catch (err) {
+    console.error(err);
+    if (els.fatal) {
+      els.fatal.classList.remove('jd-hidden');
+      els.fatal.textContent = '[Jump-Duck Fatal Error]\\n' + String(err && (err.stack || err.message) || err);
+    } else {
+      alert(String(err && (err.stack || err.message) || err));
     }
   }
-
-  // safety
-  WIN.addEventListener('error', (e) => showFatal(e && e.error || e && e.message || e));
-  WIN.addEventListener('unhandledrejection', (e) => showFatal(e && e.reason || e));
-
-  boot();
-
 })();
