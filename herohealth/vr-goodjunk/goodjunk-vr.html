@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR (Run) — PRODUCTION SAFE
-FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
+GoodJunkVR (Run) — PRODUCTION SAFE + HHA LOG FLUSH
+FULL v20260225p3-SAFE-SPAWNSAFE-cooldownBtn+HHAlog+flush
 ✅ Uses goodjunk.safe.js (export boot)
 ✅ Computes HUD-safe spawn rect -> window.__HHA_SPAWN_SAFE__
 ✅ Works PC/Mobile + view=cvr ยิงด้วย hha:shoot (via /herohealth/vr/vr-ui.js)
 ✅ End overlay shows cooldown button (injected by JS) + Back HUB button (always)
+✅ HHA passthrough hub builder + flush before navigation
 -->
 <!doctype html>
 <html lang="th">
@@ -113,6 +114,32 @@ FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
 
     // ===== query helpers =====
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const sp = ()=> new URL(location.href).searchParams;
+
+    // ===== HHA passthrough HUB builder =====
+    function buildHubUrl(){
+      // user can pass full hub url; if missing, use ../hub.html
+      const raw = String(qs('hub','../hub.html'));
+      let hub;
+      try{ hub = new URL(raw, location.href); }
+      catch(e){ hub = new URL('../hub.html', location.href); }
+
+      // ensure core params are preserved (HHA standard)
+      const src = sp();
+      [
+        'run','diff','time','seed','pid','view','studyId','phase','conditionGroup','log',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade'
+      ].forEach(k=>{
+        const v = src.get(k);
+        if(v!=null && v!==''){
+          // only set if hub doesn't already have it (avoid overriding hub presets)
+          if(!hub.searchParams.has(k)) hub.searchParams.set(k, v);
+        }
+      });
+
+      return hub.toString();
+    }
 
     // ===== view class =====
     const view = String(qs('view','mobile')).toLowerCase();
@@ -125,10 +152,6 @@ FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
     if(dbgEl) dbgEl.setAttribute('aria-hidden', dbg ? 'false' : 'true');
 
     // ===== SPAWN SAFE RECT COMPUTE =====
-    // This creates a viewport-safe rectangle excluding:
-    // - top HUD block (hudRoot + bossBar area)
-    // - bottom safe region for VR UI / coach / end buttons
-    // Result stored in window.__HHA_SPAWN_SAFE__ (viewport coords)
     function computeSpawnSafe(){
       const layer = document.getElementById('gj-layer');
       if(!layer) return;
@@ -144,7 +167,6 @@ FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
 
       const topBlock = Math.max(hudR.bottom, bossR ? bossR.bottom : 0);
 
-      // conservative bottoms (VR buttons / coach)
       const sab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
       const bottomBlock = window.innerHeight - (sab + 110);
 
@@ -174,25 +196,40 @@ FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
     window.addEventListener('orientationchange', ()=> setTimeout(computeSpawnSafe, 180), { passive:true });
     setTimeout(computeSpawnSafe, 30);
 
-    // ===== Buttons =====
-    const hub = qs('hub','../hub.html');
+    // ===== Buttons (flush-hardened navigation) =====
     const btnBackHub = document.getElementById('btnBackHub');
     const btnRestart = document.getElementById('btnRestart');
-    if(btnBackHub) btnBackHub.addEventListener('click', ()=> location.href = hub);
-    if(btnRestart) btnRestart.addEventListener('click', ()=> location.reload());
 
-    // ===== Listen end summary (optional hook) =====
-    window.addEventListener('hha:game-ended', (ev)=>{
-      // keep last summary in localStorage too (optional, safe)
+    async function flushNow(){
+      // provided by game JS (safe even if missing)
       try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(ev.detail||null));
+        if(typeof window.__HHA_FLUSH_NOW__ === 'function'){
+          await window.__HHA_FLUSH_NOW__();
+        }
       }catch(e){}
+    }
+
+    if(btnBackHub){
+      btnBackHub.addEventListener('click', async ()=>{
+        const hub = buildHubUrl();
+        await flushNow();
+        location.href = hub;
+      });
+    }
+    if(btnRestart){
+      btnRestart.addEventListener('click', async ()=>{
+        await flushNow();
+        location.reload();
+      });
+    }
+
+    // ===== Listen end summary (keep for hub) =====
+    window.addEventListener('hha:game-ended', (ev)=>{
+      try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(ev.detail||null)); }catch(e){}
       setTimeout(computeSpawnSafe, 60);
     });
 
     // ===== VR UI (ENTER VR / RECENTER / crosshair -> hha:shoot) =====
-    // If your repo already has this module, keep this import.
-    // If not present yet, comment it out.
     try{
       await import('../vr/vr-ui.js');
     }catch(e){
@@ -207,7 +244,7 @@ FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
       time: qs('time','80'),
       seed: qs('seed', String(Date.now())),
       pid: qs('pid','anon'),
-      hub
+      hub: buildHubUrl() // ✅ pass hub with passthrough
     });
   </script>
 </body>
