@@ -143,6 +143,75 @@ select:focus{ border-color: rgba(59,130,246,.35); box-shadow: 0 0 0 4px rgba(59,
 .badgesRow{ display:grid; grid-template-columns: 1.1fr .9fr; gap: 12px; }
 @media (max-width: 920px){ .badgesRow{ grid-template-columns: 1fr; } }
 
+/* Rewards */
+.xpRow{ display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+.xpBox{
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.14);
+  border-radius: 16px;
+  padding: 10px 12px;
+  min-width: 160px;
+}
+.xpBig{ font-size: 28px; font-weight: 1200; }
+.stRow{ flex:1; min-width: 240px; }
+.stickers{ display:flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.stk{
+  width: 40px; height: 40px;
+  border-radius: 14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 18px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+}
+.stk.on{
+  border-color: rgba(16,185,129,.35);
+  background: rgba(16,185,129,.12);
+}
+.stk.off{
+  border-color: rgba(251,191,36,.22);
+  background: rgba(251,191,36,.08);
+  opacity: .9;
+}
+
+/* Challenge card */
+.challengeCard{
+  margin-top: 10px;
+  border: 1px solid rgba(59,130,246,.24);
+  background: rgba(59,130,246,.10);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+.ccTop{ display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+.ccTitle{ font-weight: 1200; }
+.ccTag{
+  font-weight: 1100; font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(0,0,0,.14);
+}
+.ccBody{ margin-top: 6px; font-weight: 1000; line-height: 1.35; }
+.ccMeta{ margin-top: 6px; color: rgba(255,255,255,.82); font-size: 12px; }
+
+/* Next panel */
+.nextRow{ display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+.nextBtns{ display:flex; gap: 10px; flex-wrap:wrap; justify-content:flex-end; }
+
+/* Reward banner */
+.rewardBanner{
+  margin-top: 12px;
+  border: 1px solid rgba(16,185,129,.28);
+  background: rgba(16,185,129,.10);
+  border-radius: 16px;
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+.rbTtl{ font-weight: 1200; }
+.rbSub{ color: rgba(255,255,255,.88); font-size: 12px; margin-top: 2px; }
+
 .badgeGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
@@ -350,10 +419,6 @@ textarea:focus{ border-color: rgba(59,130,246,.35); box-shadow: 0 0 0 4px rgba(5
 }
 
 .footnote{ color: var(--mut); font-size: 12px; margin-top: 8px; }
-
-/* Next panel (A3) */
-.nextRow{ display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
-.nextBtns{ display:flex; gap: 10px; flex-wrap:wrap; justify-content:flex-end; }
 
 /* How-to list */
 .howto{ margin:0; padding-left: 18px; display:flex; flex-direction:column; gap: 8px; color: rgba(255,255,255,.90); }
