@@ -1,8 +1,6 @@
 // === /herohealth/fitness-planner/planner.safe.js ===
 // Fitness Planner — Create MVP (Bloom: Create) — SAFE (non-module)
-// Local-only, no App Script
-// FIX: Try Today stuck (URL mapping + no popup-block)
-// CONFIRMED: rhythm -> ../fitness/rhythm-boxer.html
+// Patch: URL Settings modal + persistent mapping + TryToday/links use mapping
 
 'use strict';
 
@@ -37,6 +35,7 @@
   function safeParseJSON(s){ try{ return JSON.parse(s); }catch(_){ return null; } }
   function saveLS(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
   function loadLS(k,def){ try{ return safeParseJSON(localStorage.getItem(k)||'') ?? def; }catch(_){ return def; } }
+
   function dlText(filename, text){
     const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
     const url = URL.createObjectURL(blob);
@@ -46,23 +45,7 @@
     a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }
-  function dlJson(filename, obj){
-    dlText(filename, JSON.stringify(obj, null, 2));
-  }
-  function copyToClipboard(text){
-    try{
-      navigator.clipboard.writeText(text);
-      toast('คัดลอกแล้ว ✅');
-    }catch(_){
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-      toast('คัดลอกแล้ว ✅');
-    }
-  }
+  function dlJson(filename, obj){ dlText(filename, JSON.stringify(obj, null, 2)); }
   function toast(msg){
     const t = document.createElement('div');
     t.style.cssText = `
@@ -78,21 +61,63 @@
     document.body.appendChild(t);
     setTimeout(()=>t.remove(), 1400);
   }
+  function copyToClipboard(text){
+    try{
+      navigator.clipboard.writeText(text);
+      toast('คัดลอกลิงก์แล้ว ✅');
+    }catch(_){
+      const ta=document.createElement('textarea');
+      ta.value=text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+      toast('คัดลอกลิงก์แล้ว ✅');
+    }
+  }
 
-  // --------- URL mapping ----------
-  const GAME_URL = {
+  function withParams(url, params){
+    const u = new URL(url, location.href);
+    for(const k in params){
+      if(params[k]!==undefined && params[k]!==null && params[k]!=='' ) u.searchParams.set(k, String(params[k]));
+    }
+    return u.toString();
+  }
+
+  // =====================
+  // URL mapping (persistent)
+  // =====================
+  const KEY_URLS = 'HHA_FITNESS_GAME_URLS_V1';
+  const DEFAULT_URLS = {
     shadow:   '../fitness/shadow-breaker.html',
     rhythm:   '../fitness/rhythm-boxer.html', // ✅ confirmed
     jumpduck: '../fitness/jump-duck.html',
     balance:  '../fitness/balance-hold.html',
   };
 
-  function withParams(url, params){
-    const u = new URL(url, location.href);
-    for(const k in params){
-      if(params[k]!==undefined && params[k]!==null) u.searchParams.set(k, String(params[k]));
-    }
-    return u.toString();
+  function loadUrls(){
+    const x = loadLS(KEY_URLS, null);
+    if(!x || typeof x !== 'object') return {...DEFAULT_URLS};
+    return {
+      shadow:   String(x.shadow   || DEFAULT_URLS.shadow),
+      rhythm:   String(x.rhythm   || DEFAULT_URLS.rhythm),
+      jumpduck: String(x.jumpduck || DEFAULT_URLS.jumpduck),
+      balance:  String(x.balance  || DEFAULT_URLS.balance),
+    };
+  }
+  function saveUrls(u){
+    saveLS(KEY_URLS, {
+      shadow: String(u.shadow||''),
+      rhythm: String(u.rhythm||''),
+      jumpduck: String(u.jumpduck||''),
+      balance: String(u.balance||''),
+      ts: Date.now()
+    });
+  }
+
+  let GAME_URL = loadUrls();
+
+  function gameUrl(id){
+    const u = GAME_URL[id];
+    if(!u) return '';
+    return String(u).trim();
   }
 
   // --------- registry ----------
@@ -112,7 +137,6 @@
     { id:'speed',     label:'ความไว',   ico:'⚡' },
     { id:'balance',   label:'ทรงตัว',   ico:'🧘' },
   ];
-
   const ENERGY_BUDGET = 10;
 
   function getGame(id){ return GAMES.find(g=>g.id===id) || GAMES[0]; }
@@ -176,12 +200,7 @@
       seed: RUNTIME.seed,
       weekStart,
       goals: ['endurance'],
-      constraints: {
-        limitWeekday: 10,
-        limitWeekend: 12,
-        minDays: 4,
-        restDays: 1
-      },
+      constraints: { limitWeekday: 10, limitWeekend: 12, minDays: 4, restDays: 1 },
       days: Array.from({length:7}).map((_,i)=>({ dayIndex: i, items: [] })),
       ts: Date.now()
     };
@@ -220,6 +239,13 @@
   const elTodayLabel = $('#todayLabel');
   const elTryList = $('#tryList');
 
+  // Modal refs
+  const elUrlModal = $('#urlModal');
+  const elUrlShadow = $('#urlShadow');
+  const elUrlRhythm = $('#urlRhythm');
+  const elUrlJump = $('#urlJump');
+  const elUrlBalance = $('#urlBalance');
+
   function dayName(i){
     return ['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'][i] || `Day ${i+1}`;
   }
@@ -234,25 +260,6 @@
       sel.appendChild(o);
     }
     return sel;
-  }
-
-  function labelWrap(txt, el){
-    const w = document.createElement('div');
-    w.style.display = 'flex';
-    w.style.flexDirection = 'column';
-    w.style.gap = '6px';
-    const lab = document.createElement('small');
-    lab.textContent = txt;
-    lab.style.color = 'rgba(148,163,184,.92)';
-    lab.style.fontWeight = '1000';
-    w.appendChild(lab);
-    w.appendChild(el);
-    return w;
-  }
-  function small(t){
-    const s = document.createElement('small');
-    s.textContent = t;
-    return s;
   }
 
   function saveNow(){ saveLS(KEY_LAST, PLAN); }
@@ -278,7 +285,6 @@
   // -------- scoring / badges / coach ----------
   function scorePlan(plan){
     const c = plan.constraints;
-
     const minutesWeek = plan.days.reduce((s,d)=>s + dayMinutes(d), 0);
     const daysPlayed = plan.days.filter(dayHasAny).length;
     const loads = plan.days.map(dayLoad);
@@ -303,9 +309,7 @@
         energyOverCount++;
         realism -= Math.min(6, (energy - ENERGY_BUDGET) * 1.6);
       }
-      if(dayHasHard(plan.days[i]) && mins >= (limit-0)){
-        realism -= 2.5;
-      }
+      if(dayHasHard(plan.days[i]) && mins >= (limit-0)) realism -= 2.5;
     }
     realism = clamp(realism, 0, 25);
 
@@ -316,7 +320,7 @@
     let gapPenalty = 0;
     let curGap = 0;
     for(let i=0;i<7;i++){
-      if(dayHasAny(plan.days[i])){ curGap = 0; }
+      if(dayHasAny(plan.days[i])) curGap = 0;
       else { curGap++; if(curGap>=3) gapPenalty += 1.8; }
     }
     let clusterPenalty = 0;
@@ -385,7 +389,6 @@
 
   function computeBadges(plan, sc){
     const c = plan.constraints;
-
     let hardStreak = 0, hardMax = 0;
     for(let i=0;i<7;i++){
       if(dayHasHard(plan.days[i])){ hardStreak++; hardMax = Math.max(hardMax, hardStreak); }
@@ -393,8 +396,7 @@
     }
     let energyBad = 0;
     for(let i=0;i<7;i++){
-      const e = dayEnergy(plan.days[i]);
-      if(e > ENERGY_BUDGET) energyBad++;
+      if(dayEnergy(plan.days[i]) > ENERGY_BUDGET) energyBad++;
     }
     const balancedWeek = (hardMax <= 1) && (energyBad === 0) && (sc.meta.overCount===0);
     const consistencyHero = sc.meta.daysPlayed >= Math.max(c.minDays, 5);
@@ -409,7 +411,7 @@
 
   function coachReasons(plan, sc){
     const out = [];
-    const { minutesWeek, daysPlayed, avgLoad, overCount, energyOverCount, rest, ratio, want } = sc.meta;
+    const { daysPlayed, avgLoad, overCount, energyOverCount, rest, ratio, want } = sc.meta;
     const c = plan.constraints;
 
     if(daysPlayed >= c.minDays) out.push({ cls:'good', t:`ดีมาก! วางแผนเล่น ${daysPlayed} วัน/สัปดาห์ ตามขั้นต่ำ ${c.minDays} วัน ✅`});
@@ -434,11 +436,6 @@
     else if(rest < restTarget) out.push({ cls:'warn', t:`วันพักน้อยไป (${rest} วัน) ลองเว้น 1 วันเป็นพัก`});
     else out.push({ cls:'warn', t:`วันพักเยอะไป (${rest} วัน) ถ้าไหว เพิ่มอีก 1 วันเล่นเบา ๆ`});
 
-    out.push({ cls:'good', t:`เป้าหมาย: ${plan.goals.map(g=>{
-      const m = GOALS.find(x=>x.id===g);
-      return `${m?.ico||''}${m?.label||g}`;
-    }).join(' + ')}`});
-
     const pct = (x)=>Math.round(x*100);
     out.push({ cls:'warn', t:`สัดส่วนกิจกรรม: ทน ${pct(ratio.endurance)}% · ไว ${pct(ratio.speed)}% · ทรงตัว ${pct(ratio.balance)}%`});
 
@@ -446,13 +443,10 @@
     if(plan.goals.includes('endurance') && ratio.endurance < want.endurance - 0.10) needMore.push('ความทน');
     if(plan.goals.includes('speed')     && ratio.speed     < want.speed     - 0.10) needMore.push('ความไว');
     if(plan.goals.includes('balance')   && ratio.balance   < want.balance   - 0.10) needMore.push('ทรงตัว');
-
     if(needMore.length) out.push({ cls:'warn', t:`เพื่อให้ตรงเป้ามากขึ้น ลองเพิ่ม: ${needMore.join(' + ')} (easy/normal)`});
     else if(daysPlayed>0) out.push({ cls:'good', t:`สัดส่วนกิจกรรมใกล้เคียงเป้าหมายแล้ว เยี่ยม!`});
 
     if(avgLoad > 11 && overCount===0) out.push({ cls:'warn', t:`แผนนี้ท้าทายมาก (load เฉลี่ย ${avgLoad.toFixed(1)}) ถ้าวันไหนเหนื่อย ลดเป็น easy ได้`});
-    if(minutesWeek === 0) out.push({ cls:'bad', t:`ยังไม่เลือกเกมเลย ลองใส่ 1 เกมในวันแรก แล้วคะแนนจะขยับทันที`});
-
     return out.slice(0, 10);
   }
 
@@ -473,16 +467,6 @@
     }
   }
 
-  function bestGoalHint(game){
-    const m = game.goal;
-    const arr = [
-      {k:'ความทน', v:m.endurance},
-      {k:'ความไว', v:m.speed},
-      {k:'ทรงตัว', v:m.balance},
-    ].sort((a,b)=>b.v-a.v);
-    return `${arr[0].k}เด่น`;
-  }
-
   function planToMarkdown(plan, sc, coach){
     const lines = [];
     lines.push(`# HeroHealth Fitness — 7-day Plan (Create)`);
@@ -494,15 +478,14 @@
     lines.push(`- constraints: weekday<=${plan.constraints.limitWeekday}m, weekend<=${plan.constraints.limitWeekend}m, minDays=${plan.constraints.minDays}, restDays=${plan.constraints.restDays}`);
     lines.push(`- energyBudgetPerDay: ${ENERGY_BUDGET}`);
     lines.push('');
-
     lines.push(`## Plan Table`);
-    lines.push(`| Day | Session | Minutes | Difficulty | Load | Energy | Goal hint |`);
-    lines.push(`|---|---|---:|---|---:|---:|---|`);
+    lines.push(`| Day | Session | Minutes | Difficulty | Load | Energy |`);
+    lines.push(`|---|---|---:|---|---:|---:|`);
 
     for(let i=0;i<7;i++){
       const d = plan.days[i];
       if(!d.items.length){
-        lines.push(`| ${dayName(i)} | พัก | 0 | — | 0.0 | 0.0 | ฟื้นตัว |`);
+        lines.push(`| ${dayName(i)} | พัก | 0 | — | 0.0 | 0.0 |`);
         continue;
       }
       for(const it of d.items){
@@ -511,38 +494,25 @@
         const diff = getDiff(it.diff).name;
         const load = loadPerItem(it).toFixed(1);
         const e = energyPerItem(it).toFixed(1);
-        lines.push(`| ${dayName(i)} | ${g.name} | ${mins} | ${diff} | ${load} | ${e} | ${bestGoalHint(g)} |`);
+        lines.push(`| ${dayName(i)} | ${g.name} | ${mins} | ${diff} | ${load} | ${e} |`);
       }
     }
     lines.push('');
-
     lines.push(`## Plan Score (0–100)`);
     lines.push(`- total: **${sc.total}**`);
     lines.push(`- balanced_load: ${Math.round(sc.parts.balanced)}/30`);
     lines.push(`- consistency: ${Math.round(sc.parts.consistency)}/25`);
     lines.push(`- realism: ${Math.round(sc.parts.realism)}/25`);
     lines.push(`- goal_fit: ${Math.round(sc.parts.goalFit)}/20`);
-    lines.push(`- minutes_week: ${sc.meta.minutesWeek}`);
-    lines.push(`- days_played: ${sc.meta.daysPlayed}`);
-    lines.push(`- energyOverDays: ${sc.meta.energyOverCount}`);
     lines.push('');
-
     lines.push(`## Badges`);
     for(const b of computeBadges(plan, sc)){
       lines.push(`- ${b.on ? '🏅' : '🎯'} ${b.name}: ${b.on ? 'ได้แล้ว' : 'กำลังทำ'} — ${b.desc}`);
     }
     lines.push('');
-
-    lines.push(`## Explainable Coach (เหตุผล/คำแนะนำ)`);
+    lines.push(`## Explainable Coach`);
     for(const x of coach) lines.push(`- ${x.t}`);
     lines.push('');
-
-    lines.push(`## Notes (Chapter 4)`);
-    lines.push(`- Planner เป็นกิจกรรม “Create” (Bloom) ให้ผู้เรียนออกแบบแผน 7 วันภายใต้ข้อจำกัดเวลา/ความหนัก/ความต่อเนื่อง`);
-    lines.push(`- ระบบให้คะแนน 4 มิติ (balanced load, consistency, realism, goal fit) และมี Energy budget/day กันโอเวอร์โหลด`);
-    lines.push(`- ระบบให้เหตุผลแบบอธิบายได้ (explainable coach) เพื่อความโปร่งใส`);
-    lines.push('');
-
     return lines.join('\n');
   }
 
@@ -550,17 +520,15 @@
     const sc = scorePlan(PLAN);
     const coach = coachReasons(PLAN, sc);
     const md = planToMarkdown(PLAN, sc, coach);
-    const fn = `HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.md`;
-    dlText(fn, md);
+    dlText(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.md`, md);
     toast('ดาวน์โหลด MD แล้ว ✅');
   }
   function exportJSON(){
-    const fn = `HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.json`;
-    dlJson(fn, PLAN);
+    dlJson(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.json`, PLAN);
     toast('ดาวน์โหลด JSON แล้ว ✅');
   }
 
-  // --- Try Today (FIX) ---
+  // --- Try Today (uses URL mapping) ---
   function tryTodayGo(){
     const idx = todayIndexMon0();
     const d = PLAN.days[idx];
@@ -569,9 +537,10 @@
       return;
     }
     const first = d.items[0];
-    const url = GAME_URL[first.game];
+    const url = gameUrl(first.game);
     if(!url){
-      toast('ยังไม่ได้ตั้ง URL เกม (ไปตั้ง GAME_URL ใน JS)');
+      toast('ยังไม่ตั้ง URL เกม (กด “ตั้งค่า URL เกม”)');
+      openUrlModal();
       return;
     }
 
@@ -582,7 +551,7 @@
       pid: PLAN.pid,
       run: (PLAN.run==='research' ? 'research' : 'play'),
       diff,
-      time: String(min * 60), // ✅ seconds
+      time: String(min * 60),
       seed: PLAN.seed,
       view: qs('view', null),
       hub: new URL('../hub.html', location.href).toString(),
@@ -605,7 +574,7 @@
 
     for(const it of d.items){
       const g = getGame(it.game);
-      const url = GAME_URL[it.game];
+      const url = gameUrl(it.game);
       const title = `${g.ico} ${g.name}`;
 
       const min = clamp(it.min, 2, 20);
@@ -616,7 +585,6 @@
         run: (PLAN.run==='research' ? 'research' : 'play'),
         diff,
         time: String(min * 60),
-        min: min,
         seed: PLAN.seed,
         hub: new URL('../hub.html', location.href).toString(),
         view: qs('view', null)
@@ -655,7 +623,7 @@
         a.textContent = 'ตั้ง URL ก่อน';
         a.addEventListener('click', (e)=>{
           e.preventDefault();
-          toast('ไปตั้งค่า GAME_URL ใน planner.safe.js ก่อนนะ');
+          openUrlModal();
         });
         right.appendChild(a);
       }
@@ -779,7 +747,6 @@
         const left = document.createElement('div');
         left.className = 'row';
         left.appendChild(labelWrap('เกม', selGame));
-        left.appendChild(small(`เหมาะกับ: ทน ${g.goal.endurance.toFixed(2)} · ไว ${g.goal.speed.toFixed(2)} · ทรงตัว ${g.goal.balance.toFixed(2)}`));
 
         const right = document.createElement('div');
         right.className = 'row';
@@ -822,15 +789,25 @@
     });
   }
 
+  function labelWrap(txt, el){
+    const w = document.createElement('div');
+    w.style.display = 'flex';
+    w.style.flexDirection = 'column';
+    w.style.gap = '6px';
+    const lab = document.createElement('small');
+    lab.textContent = txt;
+    lab.style.color = 'rgba(148,163,184,.92)';
+    lab.style.fontWeight = '1000';
+    w.appendChild(lab);
+    w.appendChild(el);
+    return w;
+  }
+
   function renderScore(){
     const sc = scorePlan(PLAN);
 
     elScoreTotal.textContent = String(sc.total);
     elScoreBar.style.width = `${clamp(sc.total,0,100)}%`;
-    if(sc.total >= 80) elScoreBar.style.background = 'rgba(16,185,129,.85)';
-    else if(sc.total >= 55) elScoreBar.style.background = 'rgba(251,191,36,.85)';
-    else elScoreBar.style.background = 'rgba(239,68,68,.80)';
-
     elBreakdown.innerHTML = '';
     const parts = [
       { k:'Balanced load', v: sc.parts.balanced, max:30, d:'กระจายความหนัก ไม่ hard ติดกัน ลดเสี่ยงล้า' },
@@ -870,17 +847,10 @@
   // ---------- autofill ----------
   function autoFillPlan(){
     for(const d of PLAN.days) d.items = [];
-
-    const pickForGoal = (goal)=>{
-      if(goal==='balance') return 'balance';
-      if(goal==='speed') return 'shadow';
-      return 'jumpduck';
-    };
-    const supportForGoal = ()=> 'rhythm';
-
-    const main = pickForGoal(PLAN.goals[0] || 'endurance');
-    const sup  = supportForGoal(PLAN.goals[0] || 'endurance');
-
+    const main = (PLAN.goals[0]==='balance') ? 'balance'
+              : (PLAN.goals[0]==='speed')   ? 'shadow'
+              : 'jumpduck';
+    const sup  = 'rhythm';
     const playIdx = [0,2,4,5]; // Mon/Wed/Fri/Sat
 
     for(const i of playIdx){
@@ -888,22 +858,65 @@
       const items = [];
       items.push({ game: main, diff: 'normal', min: Math.min(6, limit) });
       if(limit >= 10) items.push({ game: sup, diff: 'easy', min: 4 });
-
-      if(PLAN.goals.length===2 && i===4){
-        const main2 = pickForGoal(PLAN.goals[1]);
-        items[0] = { game: main2, diff: 'normal', min: Math.min(6, limit) };
-      }
       PLAN.days[i].items = items.slice(0,2);
     }
-
     const need = PLAN.constraints.minDays;
-    let have = PLAN.days.filter(dayHasAny).length;
+    const have = PLAN.days.filter(dayHasAny).length;
     if(have < need){
       const i = 6;
       const limit = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
       PLAN.days[i].items = [{ game: 'rhythm', diff:'easy', min: Math.min(6, limit) }];
     }
     PLAN.ts = Date.now();
+  }
+
+  // =====================
+  // URL modal helpers
+  // =====================
+  function openUrlModal(){
+    if(!elUrlModal) return;
+    GAME_URL = loadUrls();
+    elUrlShadow.value = GAME_URL.shadow || '';
+    elUrlRhythm.value = GAME_URL.rhythm || '';
+    elUrlJump.value = GAME_URL.jumpduck || '';
+    elUrlBalance.value = GAME_URL.balance || '';
+    elUrlModal.dataset.open = '1';
+  }
+  function closeUrlModal(){
+    if(!elUrlModal) return;
+    elUrlModal.dataset.open = '0';
+  }
+  function bindUrlModal(){
+    if(!elUrlModal) return;
+
+    $('#btnSetUrls')?.addEventListener('click', openUrlModal);
+    $('#btnCloseModal')?.addEventListener('click', closeUrlModal);
+
+    elUrlModal.addEventListener('click', (e)=>{
+      if(e.target === elUrlModal) closeUrlModal();
+    });
+
+    $('#btnRestoreDefault')?.addEventListener('click', ()=>{
+      elUrlShadow.value = DEFAULT_URLS.shadow;
+      elUrlRhythm.value = DEFAULT_URLS.rhythm;
+      elUrlJump.value = DEFAULT_URLS.jumpduck;
+      elUrlBalance.value = DEFAULT_URLS.balance;
+      toast('คืนค่าเริ่มต้นแล้ว');
+    });
+
+    $('#btnSaveUrls')?.addEventListener('click', ()=>{
+      const u = {
+        shadow: String(elUrlShadow.value||'').trim(),
+        rhythm: String(elUrlRhythm.value||'').trim(),
+        jumpduck: String(elUrlJump.value||'').trim(),
+        balance: String(elUrlBalance.value||'').trim(),
+      };
+      saveUrls(u);
+      GAME_URL = loadUrls();
+      closeUrlModal();
+      renderTryToday(); // refresh “ตั้ง URL ก่อน”
+      toast('บันทึก URL แล้ว ✅');
+    });
   }
 
   // --------- render all ----------
@@ -959,17 +972,17 @@
     elLimitWeekend.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
     elMinDays.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
     elRestDays.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
+
+    bindUrlModal();
   }
 
   function bootImpl(){
-    if(!$('#weekGrid')) return; // not this page
+    if(!$('#weekGrid')) return;
     bindEvents();
     syncControlsFromPlan();
     renderAll();
     saveNow();
   }
 
-  window.HHA_FITNESS_PLANNER = {
-    boot: bootImpl
-  };
+  window.HHA_FITNESS_PLANNER = { boot: bootImpl };
 })();
