@@ -12,7 +12,7 @@
       <div class="logo">HH</div>
       <div>
         <div class="ttl">Fitness Planner — Create</div>
-        <div class="sub">7-day Plan Builder (Bloom: Create) · ป.5 · เล่นสนุก + วางแผนเป็น</div>
+        <div class="sub">7-day Plan Builder (Bloom: Create) · ป.5 · วางแผน + เล่นจริง + ได้รางวัล</div>
       </div>
     </div>
 
@@ -45,6 +45,17 @@
           <div class="nextBtns">
             <button class="btn" id="btnPlayNext">▶️ เล่นเกมถัดไป</button>
             <button class="btn ghost" id="btnBackToToday">ดูรายการวันนี้</button>
+          </div>
+        </div>
+
+        <!-- Reward banner -->
+        <div class="rewardBanner" id="rewardBanner" style="display:none;">
+          <div class="rbLeft">
+            <div class="rbTtl">🎉 ได้รางวัลวันนี้!</div>
+            <div class="rbSub" id="rewardText">Sticker + XP</div>
+          </div>
+          <div class="rbRight">
+            <button class="btn ghost small" id="btnHideReward">โอเค</button>
           </div>
         </div>
       </div>
@@ -109,13 +120,23 @@
 
       <div class="badgesRow">
         <div class="card">
-          <div class="card-h">Badges สายวางแผน</div>
-          <div class="badgeGrid" id="badgeGrid"></div>
-          <div class="hint">Badge ช่วยให้ “Create” สนุกขึ้น (ไม่ใช่คะแนนวิจัย)</div>
+          <div class="card-h">Rewards (Stickers + XP)</div>
+          <div class="xpRow">
+            <div class="xpBox">
+              <div class="xpBig" id="xpTotal">0</div>
+              <div class="mut">XP สัปดาห์นี้</div>
+            </div>
+            <div class="stRow">
+              <div class="mut">Stickers 7 วัน</div>
+              <div class="stickers" id="stickersRow"></div>
+            </div>
+          </div>
+          <div class="hint">ได้ Sticker เมื่อ “เล่นครบตามแผนวันนี้” (โหมดต่อเนื่อง 1–2 เกม)</div>
         </div>
 
         <div class="card">
-          <div class="card-h">Try Today</div>
+          <div class="card-h">Try Today + Challenge Card</div>
+
           <div class="tryRow">
             <div class="mut" id="todayLabel">วันนี้: —</div>
             <div class="tryBtns">
@@ -123,6 +144,16 @@
               <button class="btn ghost" id="btnTryTodaySeq">▶️ เล่นแบบต่อเนื่อง (1–2 เกม)</button>
             </div>
           </div>
+
+          <div class="challengeCard" id="todayChallenge">
+            <div class="ccTop">
+              <div class="ccTitle">🎯 Challenge วันนี้</div>
+              <div class="ccTag" id="ccTag">—</div>
+            </div>
+            <div class="ccBody" id="ccBody">—</div>
+            <div class="ccMeta" id="ccMeta">—</div>
+          </div>
+
           <div class="hint">โหมดต่อเนื่อง: เล่นเกมแรก → กด “กลับ HUB” ในเกม → กลับมาที่ Planner แล้วกด “เล่นเกมถัดไป”</div>
           <div class="tryList" id="tryList"></div>
         </div>
@@ -206,7 +237,7 @@
         <div class="card">
           <div class="card-h">How-to ใช้กับการสอน/วิจัย</div>
           <ul class="howto">
-            <li>ก่อนเล่น: ครูให้นักเรียนอ่าน “Mission วันนี้” 20 วินาที</li>
+            <li>ก่อนเล่น: ครูให้นักเรียนอ่าน “Mission วันนี้” 20 วินาที + Challenge วันนี้</li>
             <li>หลังเล่น: ตอบคำถามสะท้อนคิด 1 ข้อ (บันทึกในสมุด/แบบฟอร์ม)</li>
             <li>โหมดวิจัย: ใช้ storyboard เดิมทั้งกลุ่ม (seed เดียว) เพื่อเทียบผลได้</li>
           </ul>
