@@ -3,6 +3,7 @@
 // A1: URL mapping persistent + TryToday works
 // A2: Auto Storyboard Generator (Create)
 // A3: Sequential Play (1–2 games/day) via hub back-link to planner with next pointer
+// A4: Challenge Cards (daily deterministic) + Rewards (Stickers + XP)
 
 'use strict';
 
@@ -12,12 +13,6 @@
   function qs(name, def=null){
     const u = new URL(location.href);
     return u.searchParams.get(name) ?? def;
-  }
-  function setQS(url, key, val){
-    const u = new URL(url, location.href);
-    if(val===null || val===undefined || val==='') u.searchParams.delete(key);
-    else u.searchParams.set(key, String(val));
-    return u.toString();
   }
   function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
 
@@ -41,7 +36,6 @@
     const d = new Date();
     return (d.getDay()+6)%7; // Mon=0
   }
-
   function safeParseJSON(s){ try{ return JSON.parse(s); }catch(_){ return null; } }
   function saveLS(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
   function loadLS(k,def){ try{ return safeParseJSON(localStorage.getItem(k)||'') ?? def; }catch(_){ return def; } }
@@ -189,6 +183,9 @@
   const KEY_LAST = 'HHA_FITNESS_PLAN_LAST_V1';
   const KEY_STORY = 'HHA_FITNESS_STORY_LAST_V1';
 
+  // A4 Rewards state
+  const KEY_REWARD = 'HHA_FITNESS_REWARDS_V1';
+
   const runRaw = String(qs('run','play') || '').toLowerCase().trim();
   const runSafe = (runRaw === 'research' || runRaw === 'play') ? runRaw : 'play';
 
@@ -224,6 +221,31 @@
   PLAN.run = RUNTIME.run;
   PLAN.seed = RUNTIME.seed;
 
+  // rewards (stickers + xp) scoped by pid+weekStart
+  function rewardKey(){
+    return `${PLAN.pid||'anon'}|${PLAN.weekStart||''}`;
+  }
+  function loadRewards(){
+    const all = loadLS(KEY_REWARD, {});
+    const k = rewardKey();
+    const cur = (all && all[k]) ? all[k] : null;
+    if(cur && typeof cur === 'object'){
+      return {
+        xp: Number(cur.xp)||0,
+        stickers: Array.isArray(cur.stickers) ? cur.stickers.slice(0,7).map(x=>!!x) : Array(7).fill(false),
+        lastEarnTs: Number(cur.lastEarnTs)||0
+      };
+    }
+    return { xp:0, stickers:Array(7).fill(false), lastEarnTs:0 };
+  }
+  function saveRewards(rw){
+    const all = loadLS(KEY_REWARD, {});
+    const k = rewardKey();
+    all[k] = { xp: Number(rw.xp)||0, stickers: (rw.stickers||[]).slice(0,7), lastEarnTs: Number(rw.lastEarnTs)||0 };
+    saveLS(KEY_REWARD, all);
+  }
+  let REW = loadRewards();
+
   // --------- UI refs ----------
   const elGoalPills = $('#goalPills');
   const elWeekGrid  = $('#weekGrid');
@@ -248,16 +270,26 @@
 
   const elMdPreview = $('#mdPreview');
 
-  const elBadgeGrid = $('#badgeGrid');
   const elTodayLabel = $('#todayLabel');
   const elTryList = $('#tryList');
 
   const elStoryPreview = $('#storyPreview');
 
-  // Next panel A3
+  // Rewards UI
+  const elXpTotal = $('#xpTotal');
+  const elStickersRow = $('#stickersRow');
+
+  // Challenge UI
+  const elCCtag = $('#ccTag');
+  const elCCbody = $('#ccBody');
+  const elCCmeta = $('#ccMeta');
+
+  // Next panel A3 + reward banner
   const elNextPanel = $('#nextPanel');
   const elNextTitle = $('#nextTitle');
   const elNextHint = $('#nextHint');
+  const elRewardBanner = $('#rewardBanner');
+  const elRewardText = $('#rewardText');
 
   // Modal refs
   const elUrlModal = $('#urlModal');
@@ -302,7 +334,9 @@
     PLAN.ts = Date.now();
   }
 
-  // -------- scoring / badges / coach ----------
+  // =====================
+  // scoring
+  // =====================
   function scorePlan(plan){
     const c = plan.constraints;
     const minutesWeek = plan.days.reduce((s,d)=>s + dayMinutes(d), 0);
@@ -407,28 +441,6 @@
     };
   }
 
-  function computeBadges(plan, sc){
-    const c = plan.constraints;
-    let hardStreak = 0, hardMax = 0;
-    for(let i=0;i<7;i++){
-      if(dayHasHard(plan.days[i])){ hardStreak++; hardMax = Math.max(hardMax, hardStreak); }
-      else hardStreak = 0;
-    }
-    let energyBad = 0;
-    for(let i=0;i<7;i++){
-      if(dayEnergy(plan.days[i]) > ENERGY_BUDGET) energyBad++;
-    }
-    const balancedWeek = (hardMax <= 1) && (energyBad === 0) && (sc.meta.overCount===0);
-    const consistencyHero = sc.meta.daysPlayed >= Math.max(c.minDays, 5);
-    const realisticPlanner = (sc.meta.overCount===0) && (sc.meta.energyOverCount<=1) && (sc.meta.avgLoad <= 11.5 || sc.meta.daysPlayed===0);
-
-    return [
-      { id:'balanced', name:'Balanced Week', on: balancedWeek, desc:'ไม่มี hard ติดกัน + ไม่เกิน Energy/day + ไม่เกินเวลาต่อวัน' },
-      { id:'consistency', name:'Consistency Hero', on: consistencyHero, desc:'เล่นสม่ำเสมอ ≥ 5 วัน/สัปดาห์ (หรือมากกว่าขั้นต่ำ)' },
-      { id:'realistic', name:'Realistic Planner', on: realisticPlanner, desc:'แผนทำได้จริง ไม่หนักเกินไป เหมาะกับวันเรียน' },
-    ];
-  }
-
   function coachReasons(plan, sc){
     const out = [];
     const { daysPlayed, avgLoad, overCount, energyOverCount, rest, ratio, want } = sc.meta;
@@ -470,34 +482,9 @@
     return out.slice(0, 10);
   }
 
-  function renderBadges(sc){
-    const bs = computeBadges(PLAN, sc);
-    elBadgeGrid.innerHTML = '';
-    for(const b of bs){
-      const div = document.createElement('div');
-      div.className = 'bCard';
-      div.innerHTML = `
-        <div class="bTop">
-          <div class="bName">${b.on ? '🏅' : '🎯'} ${b.name}</div>
-          <div class="bState ${b.on?'on':'off'}">${b.on?'ได้แล้ว':'กำลังทำ'}</div>
-        </div>
-        <div class="bDesc">${b.desc}</div>
-      `;
-      elBadgeGrid.appendChild(div);
-    }
-  }
-
   // =====================
-  // A2: Storyboard Generator
+  // A4: Challenge Cards (deterministic)
   // =====================
-  function mulberry32(a){
-    return function(){
-      let t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
   function hashStr(s){
     s = String(s||'');
     let h = 2166136261 >>> 0;
@@ -507,135 +494,87 @@
     }
     return h >>> 0;
   }
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
   function pick(rng, arr){
     if(!arr.length) return null;
     return arr[Math.floor(rng()*arr.length)];
   }
 
-  const STORY_THEMES = [
-    'ฮีโร่พลังปอด', 'สปีดสายฟ้า', 'สมดุลนักสู้', 'ภารกิจโรงเรียนแอคทีฟ',
-    'ท้าคอมโบ', 'วันแข่งกับตัวเอง', 'แผนแบบมือโปร', 'โหมดช่วยเพื่อน'
-  ];
-  const STORY_LOC = ['หน้าห้องเรียน', 'สนามเด็กเล่น', 'ลานกีฬา', 'โถงฮีโร่อะคาเดมี'];
-  const STORY_RULES = [
-    'โฟกัส “แม่นก่อนเร็ว”', 'หายใจยาว ๆ แล้วค่อยเร่งสปีด', 'ถ้าเริ่มล้า ลดเป็น easy ได้',
-    'ทำให้ได้ “สม่ำเสมอ” ดีกว่า “หนักวันเดียว”', 'ตั้งเป้าเล็ก ๆ แล้วทำให้สำเร็จ'
-  ];
-  const STORY_REFLECT = [
-    'วันนี้ฉันเก่งขึ้นตรงไหน 1 อย่าง?',
-    'ฉันจะปรับแผนพรุ่งนี้ให้ “สมจริงกว่าเดิม” ยังไง?',
-    'ถ้าเพื่อนเหนื่อย ฉันจะแนะนำเขายังไงให้เล่นต่อได้?',
-    'วันนี้ฉันคุมลมหายใจ/จังหวะได้ดีแค่ไหน (1–5)? เพราะอะไร?'
+  const CHALLENGES = [
+    { id:'steady', tag:'STEADY', text:'เล่นแบบ “นิ่งและแม่น” — ถ้าพลาด 1 ครั้ง ให้หยุด 3 วินาทีแล้วค่อยเริ่มใหม่', xp: 18 },
+    { id:'tempo',  tag:'TEMPO',  text:'โฟกัส “จังหวะ” — นับ 1–2–3 ในใจให้สม่ำเสมอ (ไม่เร่ง)', xp: 16 },
+    { id:'breath', tag:'BREATH', text:'หายใจ 3 รอบ — ก่อนเริ่มเกม (เข้า 3 วิ / ออก 3 วิ)', xp: 14 },
+    { id:'micro',  tag:'MICRO',  text:'ตั้งเป้าย่อย — วันนี้ขอ “ดีขึ้น 1 อย่าง” เช่น แม่นขึ้น/นิ่งขึ้น/ไวขึ้น', xp: 15 },
+    { id:'safe',   tag:'SAFE',   text:'ถ้าเริ่มล้า ให้ลดเป็น easy ได้ทันที (ฮีโร่ฉลาด = ปลอดภัย)', xp: 14 },
+    { id:'combo',  tag:'COMBO',  text:'ภารกิจคอมโบ — ตั้งใจทำ streak ต่อเนื่อง 5 ครั้ง (หรือ 5 วินาที)', xp: 20 },
   ];
 
-  function storyForDay(dayIdx, plan, sc, rng){
-    const d = plan.days[dayIdx];
-    const isRest = !d.items || !d.items.length;
-    const theme = pick(rng, STORY_THEMES);
-    const loc = pick(rng, STORY_LOC);
-    const rule = pick(rng, STORY_RULES);
-    const refQ = pick(rng, STORY_REFLECT);
-
-    if(isRest){
-      return [
-        `### ${dayName(dayIdx)} — วันพัก (Recovery Day)`,
-        `**ฉาก:** ${loc}`,
-        `**เรื่องเล่า:** วันนี้ฮีโร่เลือก “พักอย่างฉลาด” เพื่อเก็บพลังไว้ทำภารกิจวันถัดไป`,
-        `**ภารกิจเล็ก:** เดินเบา ๆ 3 นาที + ดื่มน้ำ 1 แก้ว`,
-        `**โค้ชอธิบาย:** วันพักช่วยให้ร่างกายฟื้นตัว ทำให้สัปดาห์นี้ “สม่ำเสมอ” มากขึ้น`,
-        `**คำถามสะท้อนคิด:** ${refQ}`,
-        ``
-      ].join('\n');
-    }
-
-    const items = d.items.map((it)=>{
-      const g = getGame(it.game);
-      return `${g.ico} ${g.name} (${it.diff}, ${clamp(it.min,2,20)} นาที)`;
-    }).join(' + ');
-
+  function dailyChallenge(dayIdx){
+    const seed = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|ch|${dayIdx}`);
+    const rng = mulberry32(seed);
+    const c = pick(rng, CHALLENGES) || CHALLENGES[0];
+    // Add “context” from plan day
+    const d = PLAN.days[dayIdx];
     const mins = dayMinutes(d);
-    const load = dayLoad(d).toFixed(1);
-    const energy = dayEnergy(d).toFixed(1);
-
-    // Make it feel "Create": player designs + mission constraints
-    const mission = [
-      `ทำให้ได้ **“ภารกิจวันนี้”**:`,
-      `- เล่นตามแผน: ${items}`,
-      `- เป้ารวมเวลา: ${mins} นาที`,
-      `- เป้าโฟกัส: ${plan.goals.map(g=>GOALS.find(x=>x.id===g)?.label||g).join(' + ')}`,
-      `- กติกาท้าทาย: ${rule}`,
-    ].join('\n');
-
-    // Explainable coach per day
-    const limit = isWeekend(dayIdx) ? plan.constraints.limitWeekend : plan.constraints.limitWeekday;
-    const over = mins > limit;
-    const eOver = Number(energy) > ENERGY_BUDGET;
-
-    const coach = [
-      `**โค้ชอธิบาย (Why):**`,
-      `- วันนี้โหลดประมาณ **${load}** และ Energy **${energy}/${ENERGY_BUDGET}**`,
-      over ? `- ⚠️ วันนี้เวลาเกินโควต้า (${mins}/${limit} นาที) → ลด 1–2 นาที หรือเปลี่ยนเป็น easy` : `- ✅ วันนี้เวลาอยู่ในโควต้า (${mins}/${limit} นาที)`,
-      eOver ? `- ⚠️ Energy/day เกินงบ → ถ้าเหนื่อย ให้ลดความยากก่อน` : `- ✅ Energy/day อยู่ในงบ ช่วยให้เล่นต่อเนื่องได้`,
-    ].join('\n');
-
-    return [
-      `### ${dayName(dayIdx)} — ${theme}`,
-      `**ฉาก:** ${loc}`,
-      `**เรื่องเล่า:** วันนี้ฮีโร่ต้องทำภารกิจให้สำเร็จ “แบบไม่โอเวอร์โหลด” เพื่อชนะตัวเอง`,
-      ``,
-      mission,
-      ``,
-      coach,
-      ``,
-      `**คำถามสะท้อนคิด (ป.5):** ${refQ}`,
-      ``
-    ].join('\n');
+    const items = (d.items||[]).map(it => `${getGame(it.game).ico}${getGame(it.game).name}`).join(' + ') || 'พัก/ยังไม่มีเกม';
+    const meta = (mins>0)
+      ? `วันนี้เล่น: ${items} · รวม ${mins} นาที · รับ XP เมื่อ “เล่นครบตามแผนวันนี้”`
+      : `วันนี้เป็นวันพัก → รับ XP เมื่อทำภารกิจพัก (เดินเบา ๆ 3 นาที + ดื่มน้ำ)`;
+    return { ...c, meta };
   }
 
-  function generateStoryboard(){
-    const sc = scorePlan(PLAN);
-    const seedBase = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|story`);
-    const rng = mulberry32(seedBase ^ (Date.now() & 0xffff)); // allow “สุ่มใหม่”
-    const lines = [];
-    lines.push(`# HeroHealth Fitness — Storyboard (Create)`);
-    lines.push(`- date: ${todayKey()}`);
-    lines.push(`- pid: ${PLAN.pid}`);
-    lines.push(`- weekStart: ${PLAN.weekStart}`);
-    lines.push(`- goals: ${PLAN.goals.join(' + ')}`);
-    lines.push(`- planScore: ${sc.total}/100`);
-    lines.push(``);
-    lines.push(`## กติกาเรื่องเล่า (สำหรับเด็ก ป.5)`);
-    lines.push(`- อ่าน “ภารกิจวันนี้” 20 วินาทีก่อนเล่น`);
-    lines.push(`- เล่นให้สำเร็จแบบ “สม่ำเสมอ” (ไม่ต้องหนักทุกวัน)`);
-    lines.push(`- หลังเล่น ตอบคำถามสะท้อนคิด 1 ข้อ`);
-    lines.push(``);
-
-    for(let i=0;i<7;i++){
-      lines.push(storyForDay(i, PLAN, sc, rng));
-    }
-
-    const text = lines.join('\n');
-    saveLS(KEY_STORY, { v:1, weekStart: PLAN.weekStart, pid: PLAN.pid, ts: Date.now(), text });
-    if(elStoryPreview) elStoryPreview.value = text;
-    toast('สร้าง Storyboard แล้ว ✅');
-    return text;
+  function renderChallengeToday(){
+    if(!elCCtag || !elCCbody || !elCCmeta) return;
+    const idx = todayIndexMon0();
+    const c = dailyChallenge(idx);
+    elCCtag.textContent = c.tag;
+    elCCbody.textContent = c.text;
+    elCCmeta.textContent = c.meta;
   }
 
-  function loadStoryboardIntoUI(){
-    if(!elStoryPreview) return;
-    const st = loadLS(KEY_STORY, null);
-    if(st && st.text && String(st.weekStart)===String(PLAN.weekStart) && String(st.pid)===String(PLAN.pid)){
-      elStoryPreview.value = String(st.text);
-    } else {
-      elStoryPreview.value = '';
+  // =====================
+  // A4 Rewards (stickers + xp)
+  // =====================
+  const STK_EMOJI = ['⭐','🔥','💎','🌈','🛡️','🚀','🏆'];
+
+  function renderRewards(){
+    REW = loadRewards();
+    if(elXpTotal) elXpTotal.textContent = String(REW.xp || 0);
+    if(elStickersRow){
+      elStickersRow.innerHTML = '';
+      for(let i=0;i<7;i++){
+        const d = document.createElement('div');
+        d.className = 'stk ' + (REW.stickers[i] ? 'on' : 'off');
+        d.title = `${dayName(i)}: ${REW.stickers[i] ? 'ได้แล้ว' : 'ยังไม่ได้'}`;
+        d.textContent = REW.stickers[i] ? STK_EMOJI[i] : '·';
+        elStickersRow.appendChild(d);
+      }
     }
   }
 
-  function exportStoryboardMD(){
-    const txt = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
-    if(!txt.trim()){ toast('ยังไม่มี storyboard (กด “สร้าง Storyboard”)'); return; }
-    dlText(`HHA_story_${todayKey()}_${PLAN.pid||'anon'}.md`, txt);
-    toast('ดาวน์โหลด Storyboard.md ✅');
+  function awardTodayIfEligible(dayIdx){
+    // award only once/dayIdx per week
+    REW = loadRewards();
+    if(REW.stickers[dayIdx]) return { awarded:false };
+
+    const ch = dailyChallenge(dayIdx);
+    const baseXP = 20; // completion XP
+    const bonus = Number(ch.xp)||0;
+
+    REW.stickers[dayIdx] = true;
+    REW.xp = (Number(REW.xp)||0) + baseXP + bonus;
+    REW.lastEarnTs = Date.now();
+    saveRewards(REW);
+    renderRewards();
+
+    return { awarded:true, xp: baseXP + bonus, sticker: STK_EMOJI[dayIdx], tag: ch.tag };
   }
 
   // --------- Plan markdown ----------
@@ -649,7 +588,13 @@
     lines.push(`- goals: ${plan.goals.join(' + ')}`);
     lines.push(`- constraints: weekday<=${plan.constraints.limitWeekday}m, weekend<=${plan.constraints.limitWeekend}m, minDays=${plan.constraints.minDays}, restDays=${plan.constraints.restDays}`);
     lines.push(`- energyBudgetPerDay: ${ENERGY_BUDGET}`);
-    lines.push('');
+    lines.push(``);
+    lines.push(`## Daily Challenge (deterministic)`);
+    for(let i=0;i<7;i++){
+      const c = dailyChallenge(i);
+      lines.push(`- ${dayName(i)}: [${c.tag}] ${c.text}`);
+    }
+    lines.push(``);
     lines.push(`## Plan Table`);
     lines.push(`| Day | Session | Minutes | Difficulty | Load | Energy |`);
     lines.push(`|---|---|---:|---|---:|---:|`);
@@ -677,13 +622,12 @@
     lines.push(`- realism: ${Math.round(sc.parts.realism)}/25`);
     lines.push(`- goal_fit: ${Math.round(sc.parts.goalFit)}/20`);
     lines.push('');
-    lines.push(`## Badges`);
-    for(const b of computeBadges(plan, sc)){
-      lines.push(`- ${b.on ? '🏅' : '🎯'} ${b.name}: ${b.on ? 'ได้แล้ว' : 'กำลังทำ'} — ${b.desc}`);
-    }
-    lines.push('');
     lines.push(`## Explainable Coach`);
     for(const x of coach) lines.push(`- ${x.t}`);
+    lines.push('');
+    lines.push(`## Rewards (local-only)`);
+    lines.push(`- XP: ${Number(REW.xp||0)}`);
+    lines.push(`- Stickers: ${REW.stickers.map((v,i)=>v?STK_EMOJI[i]:'·').join(' ')}`);
     lines.push('');
     return lines.join('\n');
   }
@@ -701,15 +645,121 @@
   }
 
   // =====================
-  // A3: Sequential play helpers
+  // A2 Storyboard Generator (ย่อ: ใช้ของเดิม + แทรก Challenge)
+  // =====================
+  const STORY_THEMES = [
+    'ฮีโร่พลังปอด', 'สปีดสายฟ้า', 'สมดุลนักสู้', 'ภารกิจโรงเรียนแอคทีฟ',
+    'ท้าคอมโบ', 'วันแข่งกับตัวเอง', 'แผนแบบมือโปร', 'โหมดช่วยเพื่อน'
+  ];
+  const STORY_LOC = ['หน้าห้องเรียน', 'สนามเด็กเล่น', 'ลานกีฬา', 'โถงฮีโร่อะคาเดมี'];
+  const STORY_RULES = [
+    'โฟกัส “แม่นก่อนเร็ว”', 'หายใจยาว ๆ แล้วค่อยเร่งสปีด', 'ถ้าเริ่มล้า ลดเป็น easy ได้',
+    'ทำให้ได้ “สม่ำเสมอ” ดีกว่า “หนักวันเดียว”', 'ตั้งเป้าเล็ก ๆ แล้วทำให้สำเร็จ'
+  ];
+  const STORY_REFLECT = [
+    'วันนี้ฉันเก่งขึ้นตรงไหน 1 อย่าง?',
+    'ฉันจะปรับแผนพรุ่งนี้ให้ “สมจริงกว่าเดิม” ยังไง?',
+    'ถ้าเพื่อนเหนื่อย ฉันจะแนะนำเขายังไงให้เล่นต่อได้?',
+    'วันนี้ฉันคุมลมหายใจ/จังหวะได้ดีแค่ไหน (1–5)? เพราะอะไร?'
+  ];
+
+  function generateStoryboard(){
+    const sc = scorePlan(PLAN);
+    const seedBase = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|story`);
+    const rng = mulberry32(seedBase ^ (Date.now() & 0xffff)); // allow “สุ่มใหม่”
+    const lines = [];
+    lines.push(`# HeroHealth Fitness — Storyboard (Create)`);
+    lines.push(`- date: ${todayKey()}`);
+    lines.push(`- pid: ${PLAN.pid}`);
+    lines.push(`- weekStart: ${PLAN.weekStart}`);
+    lines.push(`- goals: ${PLAN.goals.join(' + ')}`);
+    lines.push(`- planScore: ${sc.total}/100`);
+    lines.push(``);
+    lines.push(`## กติกาเรื่องเล่า (สำหรับเด็ก ป.5)`);
+    lines.push(`- อ่าน “ภารกิจวันนี้” + “Challenge วันนี้” 20 วินาทีก่อนเล่น`);
+    lines.push(`- เล่นให้สำเร็จแบบ “สม่ำเสมอ” (ไม่ต้องหนักทุกวัน)`);
+    lines.push(`- หลังเล่น ตอบคำถามสะท้อนคิด 1 ข้อ`);
+    lines.push(``);
+
+    for(let i=0;i<7;i++){
+      const d = PLAN.days[i];
+      const isRest = !d.items || !d.items.length;
+      const theme = pick(rng, STORY_THEMES);
+      const loc = pick(rng, STORY_LOC);
+      const rule = pick(rng, STORY_RULES);
+      const refQ = pick(rng, STORY_REFLECT);
+      const ch = dailyChallenge(i);
+
+      if(isRest){
+        lines.push(`### ${dayName(i)} — วันพัก (Recovery Day)`);
+        lines.push(`**ฉาก:** ${loc}`);
+        lines.push(`**เรื่องเล่า:** วันนี้ฮีโร่เลือก “พักอย่างฉลาด” เพื่อเก็บพลังไว้ทำภารกิจวันถัดไป`);
+        lines.push(`**Challenge:** [${ch.tag}] ${ch.text}`);
+        lines.push(`**ภารกิจเล็ก:** เดินเบา ๆ 3 นาที + ดื่มน้ำ 1 แก้ว`);
+        lines.push(`**โค้ชอธิบาย:** วันพักช่วยให้ร่างกายฟื้นตัว ทำให้สัปดาห์นี้ “สม่ำเสมอ” มากขึ้น`);
+        lines.push(`**คำถามสะท้อนคิด:** ${refQ}`);
+        lines.push(``);
+        continue;
+      }
+
+      const items = d.items.map((it)=>{
+        const g = getGame(it.game);
+        return `${g.ico} ${g.name} (${it.diff}, ${clamp(it.min,2,20)} นาที)`;
+      }).join(' + ');
+
+      const mins = dayMinutes(d);
+      const load = dayLoad(d).toFixed(1);
+      const energy = dayEnergy(d).toFixed(1);
+      const limit = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
+
+      lines.push(`### ${dayName(i)} — ${theme}`);
+      lines.push(`**ฉาก:** ${loc}`);
+      lines.push(`**เรื่องเล่า:** วันนี้ฮีโร่ต้องทำภารกิจให้สำเร็จ “แบบไม่โอเวอร์โหลด” เพื่อชนะตัวเอง`);
+      lines.push(``);
+      lines.push(`ทำให้ได้ **“ภารกิจวันนี้”**:`);
+      lines.push(`- เล่นตามแผน: ${items}`);
+      lines.push(`- เป้ารวมเวลา: ${mins} นาที (โควต้า ${limit} นาที)`);
+      lines.push(`- กติกาท้าทาย: ${rule}`);
+      lines.push(`- **Challenge:** [${ch.tag}] ${ch.text}`);
+      lines.push(``);
+      lines.push(`**โค้ชอธิบาย (Why):**`);
+      lines.push(`- วันนี้โหลดประมาณ **${load}** และ Energy **${energy}/${ENERGY_BUDGET}**`);
+      lines.push(mins > limit ? `- ⚠️ เวลาเกินโควต้า → ลด 1–2 นาที หรือเปลี่ยนเป็น easy` : `- ✅ เวลาอยู่ในโควต้า`);
+      lines.push(Number(energy) > ENERGY_BUDGET ? `- ⚠️ Energy/day เกินงบ → ลดความยากก่อน` : `- ✅ Energy/day อยู่ในงบ`);
+      lines.push(``);
+      lines.push(`**คำถามสะท้อนคิด (ป.5):** ${refQ}`);
+      lines.push(``);
+    }
+
+    const text = lines.join('\n');
+    saveLS(KEY_STORY, { v:1, weekStart: PLAN.weekStart, pid: PLAN.pid, ts: Date.now(), text });
+    if(elStoryPreview) elStoryPreview.value = text;
+    toast('สร้าง Storyboard แล้ว ✅');
+    return text;
+  }
+
+  function loadStoryboardIntoUI(){
+    if(!elStoryPreview) return;
+    const st = loadLS(KEY_STORY, null);
+    if(st && st.text && String(st.weekStart)===String(PLAN.weekStart) && String(st.pid)===String(PLAN.pid)){
+      elStoryPreview.value = String(st.text);
+    } else {
+      elStoryPreview.value = '';
+    }
+  }
+  function exportStoryboardMD(){
+    const txt = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
+    if(!txt.trim()){ toast('ยังไม่มี storyboard (กด “สร้าง Storyboard”)'); return; }
+    dlText(`HHA_story_${todayKey()}_${PLAN.pid||'anon'}.md`, txt);
+    toast('ดาวน์โหลด Storyboard.md ✅');
+  }
+
+  // =====================
+  // A3: Sequential play
   // =====================
   function plannerSelfUrl(extra){
-    // Keep current url but clean sequence params; then apply extras
     let u = new URL(location.href);
-    // clean seq params
     ['seq','day','done'].forEach(k=>u.searchParams.delete(k));
-    // always keep run/diff/time/seed/pid/view if present
-    // (already in url) so no action
     if(extra){
       for(const k in extra){
         if(extra[k]===null || extra[k]===undefined || extra[k]==='') u.searchParams.delete(k);
@@ -730,7 +780,6 @@
     const min = clamp(it.min, 2, 20);
     const diff = (it.diff==='easy' || it.diff==='normal' || it.diff==='hard') ? it.diff : 'normal';
 
-    // HUB back: if seqMode, return to planner with pointer
     const back = seqMode
       ? plannerSelfUrl({ seq: 1, day: dayIdx, done: itemIdx })
       : plannerSelfUrl(null);
@@ -775,6 +824,13 @@
     return { doneAll: false, day, nextIdx, item: d.items[nextIdx] };
   }
 
+  function showRewardBanner(msg){
+    if(!elRewardBanner || !elRewardText) return;
+    elRewardText.textContent = msg;
+    elRewardBanner.style.display = 'flex';
+    $('#btnHideReward') && ($('#btnHideReward').onclick = ()=>{ elRewardBanner.style.display='none'; });
+  }
+
   function showNextPanelIfAny(){
     if(!elNextPanel) return;
     const nx = computeNextFromSeqParams();
@@ -784,9 +840,16 @@
 
     if(nx.doneAll){
       elNextTitle.textContent = `วันนี้เล่นครบตามแผนแล้ว ✅`;
-      elNextHint.textContent = `สุดยอด! ถ้าอยากเล่นเพิ่ม แนะนำเล่น easy อีก 3–5 นาที หรือพักให้พอดี`;
+      elNextHint.textContent = `สุดยอด! ได้ Sticker + XP แล้ว (ดูที่ Rewards)`;
       $('#btnPlayNext').textContent = '🎉 จบภารกิจวันนี้';
       $('#btnPlayNext').disabled = true;
+
+      // A4: award sticker + xp (once)
+      const got = awardTodayIfEligible(nx.day);
+      if(got.awarded){
+        showRewardBanner(`ได้ ${got.sticker} Sticker + ${got.xp} XP · Challenge [${got.tag}] สำเร็จ!`);
+        toast('ได้รางวัลวันนี้! 🎉');
+      }
     } else {
       const g = getGame(nx.item.game);
       elNextTitle.textContent = `NEXT: ${g.ico} ${g.name} (${nx.item.diff}, ${clamp(nx.item.min,2,20)} นาที)`;
@@ -805,15 +868,14 @@
     $('#btnDismissNext').onclick = ()=>{
       elNextPanel.style.display='none';
     };
-
-    // Also clean URL after showing (avoid infinite)
-    // Keep it simple: we keep params, but hide panel possible.
   }
 
   // --- Try Today list render ---
   function renderTryToday(){
     const idx = todayIndexMon0();
     $('#todayLabel').textContent = `วันนี้: ${dayName(idx)} (Day ${idx+1})`;
+
+    renderChallengeToday();
 
     const d = PLAN.days[idx];
     elTryList.innerHTML = '';
@@ -831,7 +893,7 @@
       const min = clamp(it.min, 2, 20);
       const diff = (it.diff==='easy' || it.diff==='normal' || it.diff==='hard') ? it.diff : 'normal';
 
-      const back = plannerSelfUrl({ seq: 1, day: idx, done: j }); // for copy open too
+      const back = plannerSelfUrl({ seq: 1, day: idx, done: j });
       const params = {
         pid: PLAN.pid,
         run: (PLAN.run==='research' ? 'research' : 'play'),
@@ -886,7 +948,7 @@
     }
   }
 
-  // --- render goals + week ---
+  // --- goals + week ---
   function renderGoalPills(){
     elGoalPills.innerHTML = '';
     for(const g of GOALS){
@@ -950,11 +1012,13 @@
       if(energy > ENERGY_BUDGET*1.15) eCls += ' bad';
       else if(energy > ENERGY_BUDGET) eCls += ' warn';
 
+      const ch = dailyChallenge(idx);
+
       dayEl.innerHTML = `
         <div class="dh">
           <div>
             <div class="dttl">${dayName(idx)}</div>
-            <div class="dmeta">วัน ${idx+1}/7 · ${isWeekend(idx)?'Weekend':'Weekday'} · load ${load.toFixed(1)}</div>
+            <div class="dmeta">วัน ${idx+1}/7 · ${isWeekend(idx)?'Weekend':'Weekday'} · load ${load.toFixed(1)} · challenge [${ch.tag}]</div>
             <div class="${eCls}">
               <div class="erow">
                 <div>Energy</div>
@@ -1061,6 +1125,7 @@
     elScoreTotal.textContent = String(sc.total);
     elScoreBar.style.width = `${clamp(sc.total,0,100)}%`;
     elBreakdown.innerHTML = '';
+
     const parts = [
       { k:'Balanced load', v: sc.parts.balanced, max:30, d:'กระจายความหนัก ไม่ hard ติดกัน ลดเสี่ยงล้า' },
       { k:'Consistency',  v: sc.parts.consistency, max:25, d:'เล่นสม่ำเสมอครบตามขั้นต่ำ และไม่เว้นนานเกิน' },
@@ -1081,8 +1146,6 @@
     elSumMinutes.textContent = `${sc.meta.minutesWeek} นาที`;
     elSumDays.textContent = `${sc.meta.daysPlayed} วัน`;
     elAvgLoad.textContent = sc.meta.daysPlayed ? sc.meta.avgLoad.toFixed(1) : '0';
-
-    renderBadges(sc);
 
     const coach = coachReasons(PLAN, sc);
     elCoachList.innerHTML = '';
@@ -1176,6 +1239,7 @@
     renderGoalPills();
     renderWeekGrid();
     renderScore();
+    renderRewards();
     renderTryToday();
     syncControlsFromPlan();
     saveNow();
@@ -1188,6 +1252,7 @@
       if(!last){ toast('ยังไม่มีแผนที่บันทึกไว้'); return; }
       PLAN = last;
       PLAN.pid = RUNTIME.pid; PLAN.run = RUNTIME.run; PLAN.seed = RUNTIME.seed;
+      REW = loadRewards();
       syncControlsFromPlan();
       renderAll();
       loadStoryboardIntoUI();
@@ -1196,6 +1261,7 @@
 
     $('#btnReset')?.addEventListener('click', ()=>{
       PLAN = DEFAULT_PLAN();
+      REW = loadRewards();
       syncControlsFromPlan();
       renderAll();
       saveNow();
@@ -1221,7 +1287,7 @@
     $('#btnExportJSON2')?.addEventListener('click', ()=> exportJSON());
     $('#btnCopyMD')?.addEventListener('click', ()=> copyToClipboard(elMdPreview.value));
 
-    // A2 Storyboard
+    // Storyboard
     $('#btnMakeStory')?.addEventListener('click', ()=> generateStoryboard());
     $('#btnRegenStory')?.addEventListener('click', ()=> generateStoryboard());
     $('#btnExportStoryMD')?.addEventListener('click', ()=> exportStoryboardMD());
@@ -1231,7 +1297,7 @@
       copyToClipboard(t);
     });
 
-    // A3 try today
+    // Try today
     $('#btnTryToday')?.addEventListener('click', ()=> tryTodayGo(false));
     $('#btnTryTodaySeq')?.addEventListener('click', ()=> tryTodayGo(true));
 
@@ -1249,8 +1315,6 @@
     syncControlsFromPlan();
     renderAll();
     loadStoryboardIntoUI();
-
-    // A3: if we returned from a game via hub=...&seq=1...
     showNextPanelIfAny();
     saveNow();
   }
