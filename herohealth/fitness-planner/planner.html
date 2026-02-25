@@ -17,6 +17,7 @@
     </div>
 
     <div class="top-actions">
+      <button class="btn ghost" id="btnSetUrls">ตั้งค่า URL เกม</button>
       <button class="btn ghost" id="btnLoad">โหลดแผนล่าสุด</button>
       <button class="btn ghost" id="btnReset">เริ่มแผนใหม่</button>
       <button class="btn" id="btnExportMD">Export แผน (MD)</button>
@@ -112,7 +113,7 @@
 
       <div class="week-grid" id="weekGrid"></div>
       <div class="footnote">
-        Tip: 1 วันเลือกได้ 0–2 เกม · รวมเวลาต่อวันควรอยู่ในข้อจำกัด · Energy/day ช่วยกันโอเวอร์โหลด · Export แล้วแนบรายงานบท 4 ได้เลย
+        Tip: 1 วันเลือกได้ 0–2 เกม · รวมเวลาต่อวันควรอยู่ในข้อจำกัด · Energy/day ช่วยกันโอเวอร์โหลด
       </div>
     </section>
 
@@ -154,9 +155,7 @@
         <div class="card">
           <div class="card-h">Coach (เหตุผลที่ระบบแนะนำ)</div>
           <ul class="coach" id="coachList"></ul>
-          <div class="hint">
-            โหมดวิจัย: Planner เป็น “Create task” (Bloom) ผู้เรียนออกแบบแผนเอง + ระบบอธิบายเหตุผล (โปร่งใส)
-          </div>
+          <div class="hint">Planner เป็น “Create task” (Bloom) ผู้เรียนออกแบบแผนเอง + ระบบอธิบายเหตุผล (โปร่งใส)</div>
         </div>
       </div>
     </section>
@@ -191,7 +190,40 @@
     </footer>
   </main>
 
-  <!-- ✅ ใช้ boot.js + safe.js (แก้ปัญหา planner.safe.js missing) -->
+  <!-- URL Settings Modal -->
+  <div class="modal" id="urlModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="urlModalTitle">
+      <div class="modal-h">
+        <div>
+          <div class="modal-title" id="urlModalTitle">ตั้งค่า URL เกม (ครั้งแรกครั้งเดียว)</div>
+          <div class="modal-sub">เก็บในเครื่อง (localStorage) · ถ้าไฟล์/โฟลเดอร์เปลี่ยน แก้ที่นี่ได้เลย</div>
+        </div>
+        <button class="btn ghost small" id="btnCloseModal">ปิด</button>
+      </div>
+
+      <div class="modal-grid">
+        <label>Shadow Breaker URL
+          <input id="urlShadow" placeholder="../fitness/shadow-breaker.html"/>
+        </label>
+        <label>Rhythm Boxer URL
+          <input id="urlRhythm" placeholder="../fitness/rhythm-boxer.html"/>
+        </label>
+        <label>Jump-Duck URL
+          <input id="urlJump" placeholder="../fitness/jump-duck.html"/>
+        </label>
+        <label>Balance Hold URL
+          <input id="urlBalance" placeholder="../fitness/balance-hold.html"/>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="btnRestoreDefault">คืนค่าเริ่มต้น</button>
+        <button class="btn" id="btnSaveUrls">บันทึก</button>
+      </div>
+      <div class="hint">ถ้าโฟลเดอร์จริงของคุณคือ /herohealth/fitness/... ตามภาพ “fitness” ให้ปล่อยค่าเริ่มต้นได้เลย</div>
+    </div>
+  </div>
+
   <script src="./planner.boot.js" defer></script>
 </body>
 </html>
