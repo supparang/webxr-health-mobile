@@ -1,7 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
 // + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// FULL v20260225p2-SAFE-SPAWNSAFE-cooldownBtn
+// + ✅ HHA LOG (?log=1 buffer | ?log=https://endpoint) + flush-hardened (end/back/cooldown/pagehide)
+// FULL v20260225p4-SAFE-SPAWNSAFE-cooldownBtn+HHAlog+flush
 'use strict';
 
 export function boot(cfg){
@@ -13,10 +14,144 @@ export function boot(cfg){
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
+  const tryJson = (x, d=null)=>{ try{ return JSON.parse(x); }catch(e){ return d; } };
 
   function $(id){ return DOC.getElementById(id); }
-  function setText(id, v){ const el=$(id); if(el) el.textContent = String(v); }
-  function setHidden(id, hide){ const el=$(id); if(el) el.setAttribute('aria-hidden', hide ? 'true' : 'false'); }
+
+  // ---------- view/run/diff/time ----------
+  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
+  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
+  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
+  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
+
+  // hub / pid / cat / gameKey (used for cooldown button)
+  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
+  const HH_CAT = 'nutrition';
+  const HH_GAME = 'goodjunk';
+
+  // =========================
+  // HHA LOGGER (SAFE + FLUSH)
+  // =========================
+  const logParam = String(qs('log', cfg.log ?? '') || '').trim();
+  const logEnabled = !!logParam && (logParam !== '0' && logParam !== 'off' && logParam !== 'false');
+  const logRemoteUrl = (logParam.startsWith('http://') || logParam.startsWith('https://')) ? logParam : '';
+  const logLocalBuffer = (!!logEnabled && !logRemoteUrl); // ?log=1 or ?log=on => local buffer
+
+  const dayKey = (()=>{
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
+
+  const sessionId = `GJ:${pid}:${dayKey}:${String(qs('seed', cfg.seed ?? Date.now()))}:${Math.floor(Date.now())}`;
+  const bufKey = `HHA_EVENTS_BUFFER:${HH_CAT}:${HH_GAME}:${pid}:${dayKey}`;
+
+  let eventsBuf = [];
+  if(logLocalBuffer){
+    try{
+      const prev = tryJson(localStorage.getItem(bufKey) || '[]', []);
+      if(Array.isArray(prev)) eventsBuf = prev;
+    }catch(e){}
+  }
+
+  function hhaEmit(type, data){
+    if(!logEnabled) return;
+    const rec = {
+      ts: Date.now(),
+      iso: nowIso(),
+      sessionId,
+      projectTag: 'GoodJunkVR',
+      cat: HH_CAT,
+      game: HH_GAME,
+      view, runMode, diff,
+      pid,
+      seed: String(qs('seed', cfg.seed ?? '')),
+      type: String(type||'event'),
+      ...((data && typeof data==='object') ? data : {})
+    };
+
+    // 1) dispatch for platform listeners
+    try{ WIN.dispatchEvent(new CustomEvent('hha:log', { detail: rec })); }catch(e){}
+
+    // 2) local buffer
+    if(logLocalBuffer){
+      eventsBuf.push(rec);
+      // cap to avoid runaway
+      if(eventsBuf.length > 1200) eventsBuf = eventsBuf.slice(-1200);
+      try{ localStorage.setItem(bufKey, JSON.stringify(eventsBuf)); }catch(e){}
+    }
+
+    // 3) fire-and-forget remote (best-effort)
+    if(logRemoteUrl){
+      try{
+        const payload = JSON.stringify(rec);
+        if(navigator && navigator.sendBeacon){
+          const ok = navigator.sendBeacon(logRemoteUrl, new Blob([payload], { type:'application/json' }));
+          if(ok) return;
+        }
+        fetch(logRemoteUrl, {
+          method:'POST',
+          headers:{ 'content-type':'application/json' },
+          body: payload,
+          keepalive: true
+        }).catch(()=>{});
+      }catch(e){}
+    }
+  }
+
+  async function hhaFlush(reason){
+    if(!logEnabled) return true;
+
+    // local buffer: nothing to "send", but we persist already
+    if(logLocalBuffer){
+      // mark flush checkpoint (optional)
+      try{ localStorage.setItem(`${bufKey}:flushedAt`, String(Date.now())); }catch(e){}
+      return true;
+    }
+
+    // remote: send a compact flush marker
+    if(logRemoteUrl){
+      try{
+        const rec = {
+          ts: Date.now(),
+          iso: nowIso(),
+          sessionId,
+          projectTag:'GoodJunkVR',
+          cat: HH_CAT, game: HH_GAME,
+          view, runMode, diff, pid,
+          type:'flush',
+          reason: String(reason||'')
+        };
+        const payload = JSON.stringify(rec);
+        if(navigator && navigator.sendBeacon){
+          navigator.sendBeacon(logRemoteUrl, new Blob([payload], { type:'application/json' }));
+          return true;
+        }
+        await fetch(logRemoteUrl, {
+          method:'POST',
+          headers:{ 'content-type':'application/json' },
+          body: payload,
+          keepalive: true
+        }).catch(()=>{});
+      }catch(e){}
+    }
+    return true;
+  }
+
+  // expose flush for run HTML + cooldown button
+  WIN.__HHA_FLUSH_NOW__ = ()=> hhaFlush('manual');
+
+  // pagehide / visibility flush (harden)
+  WIN.addEventListener('pagehide', ()=>{ try{ hhaFlush('pagehide'); }catch(e){} }, { passive:true });
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.hidden){ try{ hhaFlush('hidden'); }catch(e){} }
+  });
+
+  // session start
+  hhaEmit('session_start', { startUrl: String(location.href) });
 
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
   function hhDayKey(){
@@ -48,10 +183,8 @@ export function boot(cfg){
     gate.searchParams.set('pid', String(pid||'anon'));
     if(hub) gate.searchParams.set('hub', String(hub));
 
-    // next = ที่จะไปหลัง cooldown (ปกติ = cdnext ถ้ามี ไม่งั้นกลับ hub)
     gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
 
-    // passthrough params ที่ใช้ในแพลตฟอร์ม
     const sp = new URL(location.href).searchParams;
     [
       'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
@@ -69,17 +202,15 @@ export function boot(cfg){
     if(!endOverlayEl) return;
 
     const cdDone = hhCooldownDone(cat, gameKey, pid);
-    if(cdDone) return; // วันนี้เกมนี้เข้า cooldown แล้ว ไม่ต้องโชว์ปุ่ม
+    if(cdDone) return;
 
     const sp = new URL(location.href).searchParams;
     const cdnext = sp.get('cdnext') || '';
     const nextAfterCooldown = cdnext || hub || '../hub.html';
     const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
 
-    // หา panel ภายใน overlay ถ้ามี ไม่งั้นใช้ overlay เป็น container
     const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
 
-    // action row
     let row = panel.querySelector('.hh-end-actions');
     if(!row){
       row = DOC.createElement('div');
@@ -93,15 +224,12 @@ export function boot(cfg){
       row.style.borderTop='1px solid rgba(148,163,184,.16)';
       panel.appendChild(row);
     }
-
-    // prevent duplicates
     if(row.querySelector('[data-hh-cd="1"]')) return;
 
     const btn = DOC.createElement('button');
     btn.type='button';
     btn.dataset.hhCd = '1';
     btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
-    // try to use site button styles if exist, else inline-safe
     btn.className = 'btn primary';
     btn.style.border='1px solid rgba(34,197,94,.30)';
     btn.style.background='rgba(34,197,94,.14)';
@@ -112,7 +240,11 @@ export function boot(cfg){
     btn.style.cursor='pointer';
     btn.style.minHeight='42px';
 
-    btn.addEventListener('click', ()=> location.href = url);
+    btn.addEventListener('click', async ()=>{
+      try{ hhaEmit('nav', { to:'cooldown', url }); }catch(e){}
+      try{ await hhaFlush('before-cooldown'); }catch(e){}
+      location.href = url;
+    });
     row.appendChild(btn);
   }
 
@@ -150,12 +282,10 @@ export function boot(cfg){
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
-  const rInt = (a,b)=> (a + Math.floor(r01()*(b-a+1)));
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
-  const layerR = $('gj-layer-r'); // optional (not used now)
   const hud = {
     score: $('hud-score'),
     time: $('hud-time'),
@@ -192,23 +322,11 @@ export function boot(cfg){
     return;
   }
 
-  // ---------- view/run/diff/time ----------
-  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
-  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
-  // hub / pid / cat / gameKey (used for cooldown button)
-  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
-  const HH_CAT = 'nutrition';
-  const HH_GAME = 'goodjunk';
-
   // ---------- difficulty tuning ----------
   const TUNE = (function(){
-    let spawnBase = 0.78;      // items/sec baseline
-    let lifeMissLimit = 10;    // miss limit
-    let ttlGood = 2.6;         // seconds before good expires -> miss
+    let spawnBase = 0.78;
+    let lifeMissLimit = 10;
+    let ttlGood = 2.6;
     let ttlJunk = 2.9;
     let ttlBonus = 2.4;
     let stormMult = 1.0;
@@ -229,9 +347,7 @@ export function boot(cfg){
       stormMult = 1.12;
       bossHp = 22;
     }
-    // view tweaks
     if(view==='cvr' || view==='vr'){
-      // in VR, keep slightly longer TTL to avoid frustration
       ttlGood += 0.15;
       ttlJunk += 0.15;
     }
@@ -243,8 +359,7 @@ export function boot(cfg){
   const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'];
   const BONUS = ['⭐','💎','⚡'];
   const SHIELDS = ['🛡️','🛡️','🛡️'];
-  const BOSS_FACE = '👹';
-  const BOSS_SHIELD = '🛡️';   // fake shield phase
+  const BOSS_SHIELD = '🛡️';
   const WEAK = '🎯';
 
   // ---------- FX layer ----------
@@ -360,7 +475,7 @@ export function boot(cfg){
   let coachLatchMs = 0;
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 4500) return; // rate-limit
+    if(t - coachLatchMs < 4500) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -385,75 +500,56 @@ export function boot(cfg){
   let combo = 0;
   let bestCombo = 0;
 
-  let fever = 0;           // 0..100
+  let fever = 0;
   let rageOn = false;
   let rageLeft = 0;
 
-  let shield = 0;          // charges
+  let shield = 0;
   let stormOn = false;
 
-  // reaction time stats (good hits)
   let goodHitCount = 0;
   let rtSum = 0;
   const rtList = [];
 
-  // goal/minimission (simple)
   const goal = { name:'Daily', desc:'Hit GOOD 20', cur:0, target:20 };
   const mini = { name:'—', t:0 };
 
-  // boss
   let bossActive = false;
   let bossHpMax = TUNE.bossHp;
   let bossHp = bossHpMax;
-  let bossPhase = 0; // 0=shielded, 1=weakspot
+  let bossPhase = 0;
   let bossShieldHp = 5;
 
-  // targets map
-  const targets = new Map(); // id -> targetObj
+  const targets = new Map();
   let idSeq = 1;
 
-  // expose for debug
-  WIN.__GJ_STATE__ = {
-    targets,
-    get miss(){ return missTotal; },
-    get score(){ return score; },
-    get combo(){ return combo; },
-    get fever(){ return fever; }
-  };
+  // ---------- spawn safe rect ----------
+  function layerRect(){ return layer.getBoundingClientRect(); }
 
-  function layerRect(){
-    return layer.getBoundingClientRect();
-  }
-
-  // ===== HUD SAFE SPAWN RECT (from goodjunk-vr.html) =====
   function getSpawnSafeLocal(){
     const r = layerRect();
     let s = null;
     try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
 
-    // If HTML provides viewport-safe rect, convert to layer-local
     if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
       let xMin = Number(s.xMin) - r.left;
       let xMax = Number(s.xMax) - r.left;
       let yMin = Number(s.yMin) - r.top;
       let yMax = Number(s.yMax) - r.top;
 
-      // clamp into layer bounds
       xMin = clamp(xMin, 0, r.width);
       xMax = clamp(xMax, 0, r.width);
       yMin = clamp(yMin, 0, r.height);
       yMax = clamp(yMax, 0, r.height);
 
-      // if invalid, fall through to fallback
       if((xMax - xMin) >= 120 && (yMax - yMin) >= 140){
         return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
       }
     }
 
-    // fallback: keep away from top HUD & bottom VR bar (conservative)
     const pad = 18;
-    const yMin = Math.min(r.height - 160, 180);           // avoid HUD area
-    const yMax = Math.max(yMin + 160, r.height - 110);    // avoid bottom buttons
+    const yMin = Math.min(r.height - 160, 180);
+    const yMax = Math.max(yMin + 160, r.height - 110);
     return {
       xMin: pad,
       xMax: Math.max(pad + 120, r.width - pad),
@@ -464,7 +560,6 @@ export function boot(cfg){
     };
   }
 
-  // allow HTML to push safe rect updates (resize/orientation)
   WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){
     try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){}
   };
@@ -503,7 +598,6 @@ export function boot(cfg){
       else shieldPills.textContent = '🛡️'.repeat(Math.min(6, shield));
     }
 
-    // boss UI
     if(bossBar){
       if(!bossActive){
         bossBar.setAttribute('aria-hidden','true');
@@ -513,21 +607,18 @@ export function boot(cfg){
         if(bossFill) bossFill.style.width = `${clamp(hpPct,0,100)}%`;
         if(bossHint){
           bossHint.textContent =
-            bossPhase===0
-              ? 'Shield up! Break 🛡️ first'
-              : 'Weakspot 🎯 ! Big damage';
+            bossPhase===0 ? 'Shield up! Break 🛡️ first'
+                          : 'Weakspot 🎯 ! Big damage';
         }
       }
     }
 
-    // progress bar
     if(progressWrap && progressFill){
       const p = (plannedSec>0) ? (1 - (tLeft/plannedSec)) : 0;
       progressWrap.setAttribute('aria-hidden','false');
       progressFill.style.width = `${clamp(p*100,0,100)}%`;
     }
 
-    // low time overlay
     if(lowTimeOverlay){
       if(tLeft <= 5 && tLeft > 0){
         lowTimeOverlay.setAttribute('aria-hidden','false');
@@ -562,7 +653,7 @@ export function boot(cfg){
 
     return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-25_SPAWNSAFE_CD',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-25_SPAWNSAFE_CD_LOG',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -591,7 +682,7 @@ export function boot(cfg){
     };
   }
 
-  function showEnd(reason){
+  async function showEnd(reason){
     playing = false;
 
     for(const t of targets.values()){
@@ -601,7 +692,16 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
     WIN.__HHA_LAST_SUMMARY = summary;
+
+    // ✅ persist last summary (HHA standard)
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(e){}
+
+    // ✅ emit end event + log end
     hhaDispatchEndOnce(summary);
+    try{ hhaEmit('session_end', { reason: summary.reason, summary }); }catch(e){}
+
+    // ✅ flush-hardened at end
+    try{ await hhaFlush('end'); }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
@@ -612,7 +712,7 @@ export function boot(cfg){
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
 
-      // ✅ Inject "Go Cooldown (daily-first per game)" button
+      // ✅ Inject cooldown button
       try{
         hhInjectCooldownButton({
           endOverlayEl: endOverlay,
@@ -637,9 +737,9 @@ export function boot(cfg){
     el.dataset.id = id;
     el.dataset.kind = kind;
 
-    // position using HUD-safe rect
     const safe = getSpawnSafeLocal();
-    const rPad = (view==='mobile') ? 32 : 38; // half-size-ish of emoji target
+    const rPad = (view==='mobile') ? 32 : 38;
+
     const xMin = safe.xMin + rPad;
     const xMax = safe.xMax - rPad;
     const yMin = safe.yMin + rPad;
@@ -652,23 +752,17 @@ export function boot(cfg){
     el.style.top  = `${y}px`;
     el.style.opacity = '1';
 
-    // subtle drift
     const drift = (r01()*2-1) * (view==='mobile' ? 16 : 22);
-
     const born = nowMs();
     const ttl = Math.max(0.8, ttlSec) * 1000;
 
     layer.appendChild(el);
 
-    const tObj = {
-      id, el, kind,
-      born, ttl,
-      x, y,
-      drift,
-      promptMs: nowMs() // for RT
-    };
-
+    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
     targets.set(id, tObj);
+
+    // log spawn (lightweight)
+    hhaEmit('spawn', { kind });
     return tObj;
   }
 
@@ -687,12 +781,14 @@ export function boot(cfg){
       rageLeft = 7.0;
       fever = 100;
       sayCoach('FEVER! คะแนนคูณ 🔥');
+      hhaEmit('mode', { rageOn:true });
     }
   }
 
   function addShield(){
     shield = clamp(shield + 1, 0, 9);
     sayCoach('ได้โล่! 🛡️ กันของเสียได้');
+    hhaEmit('pickup', { item:'shield', shield });
   }
 
   function onHitGood(t, clientX, clientY){
@@ -709,11 +805,12 @@ export function boot(cfg){
 
     score += add;
     goal.cur = clamp(goal.cur + 1, 0, 9999);
-
     addFever(6.5);
 
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
+
+    hhaEmit('hit', { kind:'good', add, score, combo, rt });
 
     if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
     if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
@@ -727,6 +824,7 @@ export function boot(cfg){
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
+      hhaEmit('block', { kind:'junk', shield, score, combo });
       removeTarget(t.id);
       return;
     }
@@ -739,6 +837,8 @@ export function boot(cfg){
     score = Math.max(0, score - sub);
 
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
+    hhaEmit('hit', { kind:'junk', sub, score, combo });
+
     removeTarget(t.id);
 
     if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
@@ -755,6 +855,8 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
     sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
+
+    hhaEmit('pickup', { item:'bonus', add, score, combo });
 
     removeTarget(t.id);
   }
@@ -773,9 +875,12 @@ export function boot(cfg){
       bossShieldHp--;
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
+      hhaEmit('boss', { phase:'shield', bossShieldHp });
+
       if(bossShieldHp<=0){
         bossPhase = 1;
         sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
+        hhaEmit('boss', { phase:'weakspot' });
       }
       removeTarget(t.id);
       return;
@@ -792,6 +897,8 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
+    hhaEmit('boss', { phase:'weakspot', dmg, bossHp, score });
+
     removeTarget(t.id);
 
     if(bossHp<=0){
@@ -799,6 +906,7 @@ export function boot(cfg){
       bossActive = false;
       score += 120;
       addFever(40);
+      hhaEmit('boss', { defeated:true, score });
     }
   }
 
@@ -851,6 +959,7 @@ export function boot(cfg){
       const y = r.top  + r.height/2;
       const t = pickTargetAt(x,y, lockPx);
       if(t) hitTargetById(t.id, x, y);
+      else hhaEmit('shoot_miss', { lockPx });
     }catch(e){}
   });
 
@@ -861,7 +970,6 @@ export function boot(cfg){
 
     const mult = stormOn ? TUNE.stormMult : 1.0;
     const base = TUNE.spawnBase * mult;
-
     const rageBoost = rageOn ? 1.18 : 1.0;
 
     spawnAcc += base * rageBoost * dt;
@@ -876,6 +984,7 @@ export function boot(cfg){
         bossPhase = 0;
         bossShieldHp = 5;
         sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
+        hhaEmit('boss', { appear:true, bossHpMax });
       }
 
       let kind = 'good';
@@ -918,7 +1027,6 @@ export function boot(cfg){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      // drift + clamp within safe X
       const dx = t.drift * dt;
       t.x += dx;
 
@@ -942,8 +1050,11 @@ export function boot(cfg){
           score = Math.max(0, score - 4);
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
+          hhaEmit('expire', { kind:'good', missTotal, score });
 
           if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
+        }else{
+          hhaEmit('expire', { kind:t.kind });
         }
         removeTarget(t.id);
       }
@@ -959,15 +1070,17 @@ export function boot(cfg){
       rageLeft = 0;
       fever = clamp(fever - 18, 0, 100);
       sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
+      hhaEmit('mode', { rageOn:false, fever });
     }
   }
 
-  // ---------- minimission timer (simple UI) ----------
+  // ---------- minimission timer ----------
   function updateMini(dt){
     if(mini.t > 0){
       mini.t = Math.max(0, mini.t - dt);
       if(mini.t<=0){
         mini.name = '—';
+        hhaEmit('mini', { end:true });
       }
     }else{
       if(r01() < dt*0.05){
@@ -976,14 +1089,17 @@ export function boot(cfg){
           mini.name = 'No JUNK 6s';
           mini.t = 6;
           sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
+          hhaEmit('mini', { type:'avoid-junk', t:6 });
         }else if(type==='combo-5'){
           mini.name = 'Combo x5';
           mini.t = 8;
           sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
+          hhaEmit('mini', { type:'combo-5', t:8 });
         }else{
           mini.name = 'Grab ⭐';
           mini.t = 7;
           sayCoach('ภารกิจ: เก็บโบนัส!');
+          hhaEmit('mini', { type:'grab-bonus', t:7 });
         }
       }
     }
@@ -1007,6 +1123,7 @@ export function boot(cfg){
       const r = layerRect();
       fxBurst(r.left+r.width/2, r.top+r.height*0.55);
       fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
+      hhaEmit('goal', { reached:true, score, newTarget: goal.target });
     }
     return false;
   }
@@ -1032,7 +1149,7 @@ export function boot(cfg){
     requestAnimationFrame(tick);
   }
 
-  // ---------- visibility safety: end cleanly (no stuck state) ----------
+  // ---------- visibility safety: end cleanly ----------
   DOC.addEventListener('visibilitychange', ()=>{
     if(DOC.hidden && playing){
       showEnd('background');
@@ -1041,7 +1158,6 @@ export function boot(cfg){
 
   // ---------- init ----------
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
-
   sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
 
   setHUD();
