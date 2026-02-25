@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
-FULL v20260224e-cooldownDailyBtn-FALLBACK
+FULL v20260225-FULLPATCH-cooldownDailyKeyCatGamePidDay
 Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
 -->
 <!doctype html>
@@ -428,10 +428,8 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
     // ========= DAILY COOLDOWN CHECK (Asia/Bangkok day) =========
     function localDayKeyBangkok(){
       try{
-        // en-CA yields YYYY-MM-DD format conveniently
         return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
       }catch(e){
-        // fallback (device local)
         const d = new Date();
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth()+1).padStart(2,'0');
@@ -440,22 +438,27 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       }
     }
 
-    // Prefer the key you defined, but also tolerate older variants.
-    function cooldownDailyKeys(cat, pid){
+    // ✅ PATCH: match warmup-gate daily lock (cat + game + pid + day) + tolerate older variants
+    function cooldownDailyKeys(cat, pid, gameKey){
       const c = String(cat||'nutrition').toLowerCase() || 'nutrition';
       const p = String(pid||'anon').trim() || 'anon';
+      const g = String(gameKey||'goodjunk').toLowerCase() || 'goodjunk';
       const day = localDayKeyBangkok();
       return [
-        `HHA_COOLDOWN_DONE:${c}:${p}:${day}`,         // current scheme (your code)
-        `HHA_COOLDOWN_DONE:${c}:${p}`,               // older loose scheme (no day)
-        `HHA_COOLDOWN_DONE:${p}:${day}`,             // possible older variants
+        // NEW (matches warmup-gate.html)
+        `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`,
+
+        // older variants (backward)
+        `HHA_COOLDOWN_DONE:${c}:${p}:${day}`,
+        `HHA_COOLDOWN_DONE:${c}:${p}`,
+        `HHA_COOLDOWN_DONE:${p}:${day}`,
         `HHA_COOLDOWN_DONE:${p}`,
       ];
     }
 
-    function isCooldownDoneToday(cat, pid){
+    function isCooldownDoneToday(cat, pid, gameKey){
       try{
-        const keys = cooldownDailyKeys(cat, pid);
+        const keys = cooldownDailyKeys(cat, pid, gameKey);
         for(const k of keys){
           if(localStorage.getItem(k) === '1') return true;
         }
@@ -524,7 +527,9 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
 
       u.searchParams.set('gatePhase', 'cooldown');
       u.searchParams.set('cat', String(qs('cat','nutrition')||'nutrition'));
-      u.searchParams.set('theme', 'calm');
+
+      // ✅ IMPORTANT: theme must be the GAME KEY for daily lock
+      u.searchParams.set('theme', 'goodjunk');
 
       const cdur = clamp(qs('cdur','15'), 5, 60);
       u.searchParams.set('dur', String(cdur));
@@ -543,7 +548,8 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
       const cat = String(qs('cat','nutrition')||'nutrition');
       const pid = String(qs('pid','anon')||'anon');
 
-      const doneToday = isCooldownDoneToday(cat, pid);
+      // ✅ check using gameKey
+      const doneToday = isCooldownDoneToday(cat, pid, 'goodjunk');
       const shouldShowNextCooldown = cooldownFlag && !doneToday;
 
       if(shouldShowNextCooldown){
@@ -590,7 +596,6 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
     // ========= Primary: listen to game-ended =========
     window.addEventListener('hha:game-ended', (ev)=>{
       lastSummary = ev?.detail || null;
-      // Policy is applied when END is visible (but safe to apply anyway)
       applyEndButtonsPolicy();
     });
 
@@ -602,14 +607,11 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
     let fallbackTick = 0;
     const fallbackTimer = setInterval(()=>{
       fallbackTick++;
-      // stop after 3 minutes just in case
       if(fallbackTick > 360){ clearInterval(fallbackTimer); return; }
 
       if(isEndVisible()){
-        // grab summary if available
         if(!lastSummary && window.__HHA_LAST_SUMMARY) lastSummary = window.__HHA_LAST_SUMMARY;
         applyEndButtonsPolicy();
-        // once we applied in end-visible state, we can stop checking
         clearInterval(fallbackTimer);
       }
     }, 500);
@@ -648,7 +650,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260224b+)
             `targets=${st?.targets?.size ?? '?'} ` +
             `miss=${st?.miss ?? '?'} ` +
             `W=${Math.round(r?.width||0)} H=${Math.round(r?.height||0)} ` +
-            `cooldown=${String(qs('cooldown','0'))} done=${isCooldownDoneToday(String(qs('cat','nutrition')), String(qs('pid','anon')))} ` +
+            `cooldown=${String(qs('cooldown','0'))} done=${isCooldownDoneToday(String(qs('cat','nutrition')), String(qs('pid','anon')), 'goodjunk')} ` +
             `day(BKK)=${localDayKeyBangkok()}`;
         }catch(e){}
       }, 800);
