@@ -19,22 +19,13 @@ export function boot(cfg){
   function setHidden(id, hide){ const el=$(id); if(el) el.setAttribute('aria-hidden', hide ? 'true' : 'false'); }
 
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
-  // ✅ PATCH A: Bangkok day key (match run page / warmup-gate)
   function hhDayKey(){
-    try{
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone:'Asia/Bangkok',
-        year:'numeric', month:'2-digit', day:'2-digit'
-      }).format(new Date());
-    }catch(e){
-      const d=new Date();
-      const yyyy=d.getFullYear();
-      const mm=String(d.getMonth()+1).padStart(2,'0');
-      const dd=String(d.getDate()).padStart(2,'0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
   }
-
   function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
 
   function hhCooldownDone(cat, gameKey, pid){
@@ -557,15 +548,6 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ✅ PATCH D: flush hint hook (logger/flush-hardened)
-  function hhaFlushHint(summary){
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:flush', {
-        detail: { game:'goodjunk', ts: Date.now(), summary: summary || WIN.__HHA_LAST_SUMMARY || null }
-      }));
-    }catch(e){}
-  }
-
   function median(arr){
     if(!arr || !arr.length) return 0;
     const a = arr.slice().sort((x,y)=>x-y);
@@ -619,17 +601,7 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
     WIN.__HHA_LAST_SUMMARY = summary;
-
-    // main end event
     hhaDispatchEndOnce(summary);
-
-    // ✅ PATCH D/E: flush + telemetry hooks
-    hhaFlushHint(summary);
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:telemetry', {
-        detail: { game:'goodjunk', ts: Date.now(), summary }
-      }));
-    }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
@@ -640,31 +612,21 @@ export function boot(cfg){
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
 
-      // ✅ PATCH B: Inject cooldown button ONLY if run page doesn't already provide it
+      // ✅ Inject "Go Cooldown (daily-first per game)" button
       try{
-        const hasRunCooldownBtn = !!DOC.getElementById('btnNextCooldown');
-        if(!hasRunCooldownBtn){
-          hhInjectCooldownButton({
-            endOverlayEl: endOverlay,
-            hub: hubUrl,
-            cat: HH_CAT,
-            gameKey: HH_GAME,
-            pid
-          });
-        }
+        hhInjectCooldownButton({
+          endOverlayEl: endOverlay,
+          hub: hubUrl,
+          cat: HH_CAT,
+          gameKey: HH_GAME,
+          pid
+        });
       }catch(e){}
     }
 
     sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
     setHUD();
   }
-
-  // ✅ PATCH D: pagehide flush safeguard
-  WIN.addEventListener('pagehide', ()=>{
-    try{
-      if(WIN.__HHA_LAST_SUMMARY) hhaFlushHint(WIN.__HHA_LAST_SUMMARY);
-    }catch(e){}
-  });
 
   // ---------- target create/remove ----------
   function makeTarget(kind, emoji, ttlSec){
@@ -674,9 +636,6 @@ export function boot(cfg){
     el.textContent = emoji;
     el.dataset.id = id;
     el.dataset.kind = kind;
-
-    // ✅ PATCH C: cVR strict = crosshair-only (no touch hits)
-    if(view === 'cvr') el.style.pointerEvents = 'none';
 
     // position using HUD-safe rect
     const safe = getSpawnSafeLocal();
@@ -857,9 +816,6 @@ export function boot(cfg){
 
   function onPointerDown(ev){
     if(!playing) return;
-    // ✅ PATCH C: cVR strict: no touch hits
-    if(view === 'cvr') return;
-
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
     if(!el) return;
     const id = el.dataset.id;
