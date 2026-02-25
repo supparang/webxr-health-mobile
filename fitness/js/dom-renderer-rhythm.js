@@ -1,284 +1,209 @@
-// === /fitness/js/dom-renderer-rhythm.js ===
-// DOM Renderer for Rhythm Boxer (PC/Mobile/cVR friendly)
-// ✅ Hit/Miss FX rendered near lane hit line (reads CSS --rb-hitline-y)
-// ✅ Feedback text on #rb-feedback
-// ✅ No module export (classic <script>)
-// ✅ Safe if some DOM nodes missing
-
+// === /fitness/js/dom-renderer-rhythm.js — Rhythm Boxer DOM Renderer (FX, hitline-bottom aware) ===
 'use strict';
 
-(function () {
-  const WIN = window;
+(function(){
   const DOC = document;
+  const WIN = window;
 
-  function clamp(v, a, b) {
-    v = Number(v);
-    if (!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
-  }
+  class RbDomRenderer{
+    constructor(host, opts = {}){
+      this.host = host || DOC.body;
+      this.wrapEl = opts.wrapEl || DOC.body;
+      this.flashEl = opts.flashEl || null;
+      this.feedbackEl = opts.feedbackEl || null;
 
-  function rand(min, max) {
-    return min + Math.random() * (max - min);
-  }
-
-  function getCssVarPx(el, name, fallback) {
-    try {
-      const v = getComputedStyle(el).getPropertyValue(name).trim();
-      if (!v) return fallback;
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : fallback;
-    } catch (_) {
-      return fallback;
-    }
-  }
-
-  function centerOfRect(r) {
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }
-
-  class RhythmDomRenderer {
-    constructor(opts = {}) {
-      this.wrap = opts.wrap || DOC.querySelector('#rb-wrap') || DOC.body;
-      this.field = opts.field || DOC.querySelector('#rb-field');
-      this.lanesEl = opts.lanesEl || DOC.querySelector('#rb-lanes');
-      this.feedbackEl = opts.feedbackEl || DOC.querySelector('#rb-feedback');
-      this.flashEl = opts.flashEl || DOC.querySelector('#rb-flash');
-
-      this._feedbackTimer = null;
-      this._lastLanePulse = 0;
+      // cache
+      this._flashT = null;
+      this._feedbackT = null;
     }
 
-    // ---- public API used by engine ----
+    // ------------------------------
+    // Helpers
+    // ------------------------------
+    _num(v, fb){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fb;
+    }
 
-    showHitFx(payload = {}) {
-      const lane = Number(payload.lane);
-      const judgment = String(payload.judgment || 'good').toLowerCase();
-      const scoreDelta = Number(payload.scoreDelta) || 0;
+    _readHitlineOffsetPx(laneEl){
+      // Prefer CSS var --rb-hitline-y from lane / root
+      // meaning: distance from lane bottom to hit line
+      try{
+        const csLane = laneEl ? getComputedStyle(laneEl) : null;
+        let raw = csLane ? csLane.getPropertyValue('--rb-hitline-y') : '';
+        if (!raw || !String(raw).trim()){
+          const csRoot = getComputedStyle(DOC.documentElement);
+          raw = csRoot.getPropertyValue('--rb-hitline-y');
+        }
+        const n = parseFloat(raw);
+        if (Number.isFinite(n)) return n;
+      }catch(_){}
+      return 42; // fallback same as previous behavior
+    }
 
-      const laneEl = this._getLaneEl(lane);
-      if (!laneEl) {
-        this._showFeedback(this._labelFromJudgment(judgment, scoreDelta), judgment);
-        return;
+    _laneHitlineScreenPos(lane){
+      // Get exact screen position near the hit line for a lane
+      const laneEl = DOC.querySelector(`.rb-lane[data-lane="${lane}"]`);
+
+      if(!laneEl){
+        const r = (this.wrapEl || DOC.body).getBoundingClientRect();
+        return { x: r.left + r.width/2, y: r.top + r.height/2 };
       }
 
-      const p = this._getLaneHitPoint(laneEl);
+      const rect = laneEl.getBoundingClientRect();
+      const hitlineYFromBottom = this._readHitlineOffsetPx(laneEl);
 
-      // 1) floating score/judgment text
-      this._spawnScoreFx({
-        x: p.x,
-        y: p.y - 8,
-        judgment,
-        scoreDelta
-      });
+      const x = rect.left + rect.width / 2;
+      const y = rect.bottom - hitlineYFromBottom; // hit line near bottom
 
-      // 2) particles burst at hit line
-      this._spawnBurst({
-        x: p.x,
-        y: p.y,
-        judgment
-      });
-
-      // 3) lane pulse
-      this._pulseLane(laneEl, judgment);
-
-      // 4) top feedback pill text
-      this._showFeedback(this._labelFromJudgment(judgment, scoreDelta), judgment);
-
-      // 5) subtle screen flash on perfect/great
-      if (judgment === 'perfect') this._flash(0.16);
-      else if (judgment === 'great') this._flash(0.10);
+      return { x, y };
     }
 
-    showMissFx(payload = {}) {
-      const lane = Number(payload.lane);
-      const laneEl = this._getLaneEl(lane);
-
-      if (laneEl) {
-        const p = this._getLaneHitPoint(laneEl);
-
-        this._spawnScoreFx({
-          x: p.x,
-          y: p.y - 6,
-          judgment: 'miss',
-          scoreDelta: 0
-        });
-
-        this._spawnBurst({
-          x: p.x,
-          y: p.y,
-          judgment: 'miss'
-        });
-
-        this._pulseLane(laneEl, 'miss');
-      }
-
-      this._showFeedback('MISS', 'miss');
-      this._flash(0.06);
+    _flash(kind){
+      if(!this.flashEl) return;
+      // kind reserved for future CSS variations
+      this.flashEl.classList.add('active');
+      clearTimeout(this._flashT);
+      this._flashT = setTimeout(()=>{
+        if (this.flashEl) this.flashEl.classList.remove('active');
+      }, 140);
     }
 
-    // ---- internals ----
-
-    _getLaneEl(lane) {
-      if (!this.lanesEl) return null;
-      if (!Number.isFinite(lane)) return null;
-      return this.lanesEl.querySelector(`.rb-lane[data-lane="${lane}"]`);
-    }
-
-    _getLaneHitPoint(laneEl) {
-      // IMPORTANT: sync with CSS hit line at bottom: var(--rb-hitline-y)
-      // Engine visual note reaches hit line when translateY -> 0.
-      const r = laneEl.getBoundingClientRect();
-      const center = centerOfRect(r);
-
-      // Prefer lane element CSS variable; fallback to root default
-      let hitlineY = getCssVarPx(laneEl, '--rb-hitline-y', NaN);
-      if (!Number.isFinite(hitlineY)) {
-        hitlineY = getCssVarPx(DOC.documentElement, '--rb-hitline-y', 74);
-      }
-
-      // y at line center (lane bottom - hitlineY + ~2px line thickness center)
-      const y = r.bottom - hitlineY + 2;
-
-      return {
-        x: center.x,
-        y
-      };
-    }
-
-    _labelFromJudgment(j, scoreDelta) {
-      if (j === 'perfect') return `PERFECT +${scoreDelta || 150}`;
-      if (j === 'great') return `GREAT +${scoreDelta || 100}`;
-      if (j === 'good') return `GOOD +${scoreDelta || 50}`;
-      return 'MISS';
-    }
-
-    _showFeedback(text, kind) {
-      if (!this.feedbackEl) return;
+    _feedback(text, cls){
+      if(!this.feedbackEl) return;
 
       this.feedbackEl.textContent = text || '';
-      this.feedbackEl.classList.remove('perfect', 'great', 'good', 'miss');
-      if (kind) this.feedbackEl.classList.add(kind);
+      this.feedbackEl.classList.remove('perfect','great','good','miss','show');
 
-      // animate with quick "pop"
-      this.feedbackEl.animate(
-        [
-          { transform: 'translateX(-50%) scale(0.96)', opacity: 0.75 },
-          { transform: 'translateX(-50%) scale(1.04)', opacity: 1.00 },
-          { transform: 'translateX(-50%) scale(1.00)', opacity: 1.00 }
-        ],
-        { duration: 180, easing: 'ease-out' }
-      );
+      if (cls) this.feedbackEl.classList.add(cls);
 
-      if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
-      this._feedbackTimer = setTimeout(() => {
-        // return to neutral text (optional)
-        if (!this.feedbackEl) return;
-        this.feedbackEl.classList.remove('perfect', 'great', 'good', 'miss');
-        this.feedbackEl.textContent = 'พร้อม!';
-      }, 380);
+      // trigger small pop animation if CSS supports .show
+      void this.feedbackEl.offsetWidth;
+      this.feedbackEl.classList.add('show');
+
+      clearTimeout(this._feedbackT);
+      this._feedbackT = setTimeout(()=>{
+        if (this.feedbackEl) this.feedbackEl.classList.remove('show');
+      }, 220);
     }
 
-    _pulseLane(laneEl, judgment) {
-      if (!laneEl) return;
-
-      let glow = 'rgba(99,102,241,.22)';
-      if (judgment === 'perfect') glow = 'rgba(250,204,21,.30)';
-      else if (judgment === 'great') glow = 'rgba(96,165,250,.28)';
-      else if (judgment === 'good') glow = 'rgba(52,211,153,.24)';
-      else if (judgment === 'miss') glow = 'rgba(239,68,68,.22)';
-
-      // Use WAAPI so we don't need extra CSS classes
-      laneEl.animate(
-        [
-          { boxShadow: `inset 0 0 0 0 ${glow}, inset 0 -8px 20px 0 rgba(0,0,0,0)` },
-          { boxShadow: `inset 0 0 0 1px ${glow}, inset 0 -20px 40px 0 ${glow}` },
-          { boxShadow: `inset 0 0 0 0 rgba(0,0,0,0), inset 0 -8px 20px 0 rgba(0,0,0,0)` }
-        ],
-        { duration: judgment === 'miss' ? 220 : 180, easing: 'ease-out' }
-      );
+    _appendFx(el){
+      // FX must not block lane taps
+      el.style.pointerEvents = 'none';
+      (DOC.body || this.wrapEl || DOC.documentElement).appendChild(el);
+      return el;
     }
 
-    _spawnScoreFx({ x, y, judgment, scoreDelta }) {
-      const el = DOC.createElement('div');
-      el.className = `rb-score-fx rb-score-${judgment}`;
+    // ------------------------------
+    // Public API called by engine
+    // ------------------------------
+    showHitFx({ lane, judgment, scoreDelta }){
+      const p = this._laneHitlineScreenPos(lane);
 
-      if (judgment === 'miss') {
-        el.textContent = 'MISS';
-      } else {
-        const label = judgment.toUpperCase();
-        const plus = scoreDelta ? ` +${scoreDelta}` : '';
-        el.textContent = `${label}${plus}`;
+      this.spawnHitParticle(p.x, p.y, judgment);
+      this.spawnScoreText(p.x, p.y, scoreDelta, judgment);
+
+      // subtle flash for perfect/great
+      if (judgment === 'perfect' || judgment === 'great') {
+        this._flash('hit');
       }
 
+      this._feedback(String(judgment || 'HIT').toUpperCase(), judgment || 'good');
+    }
+
+    showMissFx({ lane }){
+      const p = this._laneHitlineScreenPos(lane);
+
+      this.spawnMissParticle(p.x, p.y);
+      this._flash('miss');
+      this._feedback('MISS', 'miss');
+    }
+
+    // ------------------------------
+    // FX primitives
+    // ------------------------------
+    spawnScoreText(x, y, scoreDelta, judgment){
+      if(!Number.isFinite(scoreDelta)) return;
+
+      const el = DOC.createElement('div');
+      el.className = `rb-score-fx rb-score-${judgment || 'good'}`;
+
+      // prettier labels (optional)
+      const sign = scoreDelta > 0 ? '+' : '';
+      el.textContent = `${sign}${scoreDelta}`;
+
       el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.style.fontSize =
-        judgment === 'perfect' ? '18px' :
-        judgment === 'great' ? '16px' :
-        judgment === 'good' ? '15px' : '15px';
+      // spawn just above hit line
+      el.style.top  = `${y - 8}px`;
 
-      DOC.body.appendChild(el);
+      this._appendFx(el);
 
-      // next frame -> animate in
-      requestAnimationFrame(() => {
-        el.classList.add('is-live');
-      });
+      // kick animation
+      void el.offsetWidth;
+      el.classList.add('is-live');
 
-      // cleanup
-      setTimeout(() => {
+      setTimeout(()=>{
+        el.classList.remove('is-live');
         el.remove();
       }, 460);
     }
 
-    _spawnBurst({ x, y, judgment }) {
-      const count =
-        judgment === 'perfect' ? 10 :
-        judgment === 'great' ? 8 :
-        judgment === 'good' ? 6 : 6;
+    spawnHitParticle(x, y, judgment){
+      const n = 10;
 
-      for (let i = 0; i < count; i++) {
-        const frag = DOC.createElement('div');
-        frag.className = `rb-frag rb-frag-${judgment}`;
+      for(let i=0;i<n;i++){
+        const el = DOC.createElement('div');
+        el.className = `rb-frag rb-frag-${judgment || 'good'}`;
 
-        const size =
-          judgment === 'miss'
-            ? rand(4, 7)
-            : rand(4, 9);
+        const size = 6 + Math.random() * 6;
+        const ang = (i / n) * Math.PI * 2 + (Math.random() * 0.25);
+        const dist = 22 + Math.random() * 34;
 
-        frag.style.width = `${size}px`;
-        frag.style.height = `${size}px`;
-        frag.style.left = `${x + rand(-8, 8)}px`;
-        frag.style.top = `${y + rand(-4, 4)}px`;
+        const dx = Math.cos(ang) * dist;
+        const dy = Math.sin(ang) * dist - (4 + Math.random()*6); // bias a bit upward
 
-        // spread mostly upward + sideways from hit line
-        const dx = rand(-34, 34);
-        const dy = judgment === 'miss' ? rand(-8, 14) : rand(-34, 8);
-        frag.style.setProperty('--dx', `${dx}px`);
-        frag.style.setProperty('--dy', `${dy}px`);
-        frag.style.setProperty('--life', `${Math.round(rand(300, 520))}ms`);
+        const life = 360 + Math.random() * 180;
 
-        DOC.body.appendChild(frag);
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
+        el.style.left = `${x}px`;
+        el.style.top  = `${y}px`;
 
-        setTimeout(() => frag.remove(), 700);
+        // CSS animation variables
+        el.style.setProperty('--dx', `${dx}px`);
+        el.style.setProperty('--dy', `${dy}px`);
+        el.style.setProperty('--life', `${Math.round(life)}ms`);
+
+        this._appendFx(el);
+
+        // some CSS setups animate on insertion, no extra class needed
+        setTimeout(()=>el.remove(), life + 40);
       }
     }
 
-    _flash(alpha) {
-      if (!this.flashEl) return;
-      const a = clamp(alpha, 0, 0.3);
-      this.flashEl.style.opacity = String(a);
-      this.flashEl.classList.add('active');
+    spawnMissParticle(x, y){
+      // center drop puff / cross fragment
+      const el = DOC.createElement('div');
+      el.className = 'rb-frag rb-frag-miss';
 
-      // quick fade
-      clearTimeout(this._flashTimer);
-      this._flashTimer = setTimeout(() => {
-        if (!this.flashEl) return;
-        this.flashEl.style.opacity = '0';
-        this.flashEl.classList.remove('active');
-      }, 80);
+      const size = 14;
+      const life = 440;
+
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.left = `${x}px`;
+      el.style.top  = `${y}px`;
+
+      // drift downward from hit line for "miss"
+      el.style.setProperty('--dx', '0px');
+      el.style.setProperty('--dy', '26px');
+      el.style.setProperty('--life', `${life}ms`);
+
+      this._appendFx(el);
+
+      setTimeout(()=>el.remove(), life + 30);
     }
   }
 
-  // expose globally (classic script)
-  WIN.RhythmDomRenderer = RhythmDomRenderer;
+  WIN.RbDomRenderer = RbDomRenderer;
 })();
