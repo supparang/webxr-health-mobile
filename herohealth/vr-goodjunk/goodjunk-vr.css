@@ -1,54 +1,54 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PRODUCTION (HUD safe-area + layers + targets + overlays + FX PACK)
-FULL v20260224c-fxpack
-✅ Adds #gj-fx + bursts + shards + floating text
-✅ Adds body pulse classes used by goodjunk.safe.js
-✅ Adds lightweight telegraph + storm/rage/boss atmos
+GoodJunkVR CSS — PRODUCTION (PC/Mobile/VR/cVR) + HUD-safe + target FX helpers
+FULL v20260225p3-CSS-PRO
 */
 
 :root{
-  color-scheme: dark light;
+  --bg:#050814;
+  --fg: rgba(229,231,235,.95);
+  --mut: rgba(148,163,184,.92);
 
-  --bg0:#020617;
-  --bg1:#050814;
-  --panel: rgba(2,6,23,.72);
-  --panel2: rgba(15,23,42,.58);
-  --stroke: rgba(148,163,184,.18);
-  --txt: rgba(229,231,235,.95);
-  --mut: rgba(148,163,184,.95);
+  --panel: rgba(2,6,23,.68);
+  --panel2: rgba(2,6,23,.55);
+  --line: rgba(148,163,184,.18);
 
-  --good: rgba(34,197,94,.95);
-  --bad: rgba(239,68,68,.95);
+  --pri: rgba(99,102,241,.95);
   --warn: rgba(251,191,36,.96);
-  --violet: rgba(99,102,241,.95);
+  --bad: rgba(244,63,94,.92);
+  --ok: rgba(34,197,94,.92);
 
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
+  --r: 14px;
 
-  /* spawn safe zone */
-  --spawn-top: calc(var(--sat) + 140px);
-  --spawn-bot: calc(var(--sab) + 110px);
-  --spawn-side: calc(14px + var(--sal));
+  /* target sizing */
+  --tSize: 56px;
+  --tShadow: 0 18px 45px rgba(0,0,0,.42);
+
+  /* layer pads (fallback when spawn-safe not injected) */
+  --safeTop: calc(env(safe-area-inset-top, 0px) + 128px);
+  --safeBot: calc(env(safe-area-inset-bottom, 0px) + 120px);
+  --safeSide: calc(env(safe-area-inset-left, 0px) + 18px);
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; }
+html,body{
+  height:100%;
+  margin:0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
 body{
   overflow:hidden;
-  background:
-    radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.14), transparent 55%),
-    radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.10), transparent 55%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
-  color:var(--txt);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior:none;
+  touch-action: manipulation;
 }
 
-/* stage/layers */
-.gj-stage{ position:relative; width:100%; height:100%; }
+/* --- stage/layers --- */
+.gj-stage{
+  position:relative;
+  width:100%;
+  height:100%;
+}
 
 #gj-layer, #gj-layer-r{
   position:absolute;
@@ -56,440 +56,73 @@ body{
   overflow:hidden;
   touch-action: manipulation;
 }
-#gj-layer-r{ display:none; }
 
-/* view-cvr / cardboard */
-body.view-cvr #gj-layer-r{ display:block; }
-body.view-cvr #gj-layer{ display:block; }
-
-/* targets */
+/* --- targets --- */
 .gj-target{
   position:absolute;
+  left:50%;
+  top:50%;
   transform: translate(-50%,-50%);
+  font-size: var(--tSize);
+  line-height: 1;
   user-select:none;
   -webkit-user-select:none;
   pointer-events:auto;
-  will-change: transform, opacity;
-  filter: drop-shadow(0 10px 30px rgba(0,0,0,.38));
+  filter: drop-shadow(var(--tShadow));
+  will-change: transform, opacity, left, top;
 }
 
-.gj-target.is-hit{
-  transform: translate(-50%,-50%) scale(1.06);
-  transition: transform 90ms ease;
-}
-.gj-target.is-dying{
-  opacity:0;
-  transform: translate(-50%,-50%) scale(.72);
-  transition: opacity 140ms ease, transform 140ms ease;
+/* hover feedback (PC) */
+@media (hover:hover){
+  .gj-target:hover{
+    transform: translate(-50%,-50%) scale(1.06);
+    filter: drop-shadow(0 22px 55px rgba(0,0,0,.55));
+  }
 }
 
-.gj-target[data-kind="boss"]{ filter: drop-shadow(0 14px 34px rgba(244,63,94,.28)); }
+/* tap feedback */
+.gj-target:active{
+  transform: translate(-50%,-50%) scale(0.96);
+}
 
-/* HUD */
-.gj-hud{
-  position:fixed;
-  left:0; right:0; top:0;
-  z-index:120;
-  pointer-events:none;
-  padding-top: calc(var(--sat) + 10px);
-  padding-left: calc(var(--sal) + 10px);
-  padding-right: calc(var(--sar) + 10px);
+/* --- end overlay buttons feel --- */
+.btn{
+  transition: filter .12s ease, transform .12s ease;
 }
-.gj-hud-row{
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-  justify-content:space-between;
+
+.btn:active{
+  transform: translateY(1px);
 }
-.gj-card{
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  padding: 10px 12px;
-  color: var(--txt);
+
+/* --- reduced motion --- */
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important; }
+}
+
+/* --- compact mobile tuning --- */
+@media (max-width: 520px){
+  :root{
+    --tSize: 52px;
+    --safeTop: calc(env(safe-area-inset-top, 0px) + 140px);
+    --safeBot: calc(env(safe-area-inset-bottom, 0px) + 130px);
+  }
+}
+
+/* --- VR/cVR tuning (bigger targets slightly) --- */
+@media (min-width: 700px){
+  :root{ --tSize: 58px; }
+}
+
+/* ========= OPTIONAL cVR STRICT CSS (safe even if not used) =========
+   If you later set: document.body.dataset.view = 'cvr'
+   this will enforce crosshair-only touches at CSS level too.
+*/
+body[data-view="cvr"] .gj-target{
+  pointer-events:none !important;
+}
+
+/* ===== helper: debug readable on bright bg ===== */
+#gjDebug{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
-}
-.gj-stat{
-  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-  font-weight:900;
-  letter-spacing:.2px;
-}
-.gj-stat .k{ opacity:.80; font-weight:850; }
-.gj-stat .v{ font-variant-numeric: tabular-nums; }
-
-.gj-mini{
-  margin-top:8px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  font-size:13px;
-  opacity:.96;
-}
-.gj-mini .chip{
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.42);
-  font-weight:900;
-}
-
-/* top progress */
-.gj-progress{
-  position:fixed;
-  left:0; right:0;
-  top: var(--sat);
-  height: 4px;
-  z-index:130;
-  background: rgba(148,163,184,.10);
-}
-#gjProgressFill{
-  height:100%;
-  width:0%;
-  background: var(--violet);
-  transition: width 120ms linear;
-}
-
-/* Fever + shield */
-.gj-bars{
-  pointer-events:none;
-  margin-top:8px;
-  display:grid;
-  grid-template-columns: 1fr;
-  gap:8px;
-}
-.gj-bar{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-weight:950;
-  font-size:13px;
-}
-.gj-bar .track{
-  flex:1;
-  height: 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.45);
-  overflow:hidden;
-}
-#feverFill{
-  height:100%;
-  width:0%;
-  background: var(--warn);
-  transition: width 120ms linear;
-}
-#feverText{ font-variant-numeric: tabular-nums; opacity:.95; }
-
-/* boss bar */
-#bossBar{
-  position:fixed;
-  left:10px;
-  right:10px;
-  top: calc(var(--sat) + 92px);
-  z-index:125;
-  pointer-events:none;
-}
-#bossBar[aria-hidden="true"]{ display:none; }
-
-.boss-wrap{
-  border-radius:14px;
-  border:1px solid rgba(244,63,94,.22);
-  background: rgba(2,6,23,.66);
-  padding: 10px 12px;
-  box-shadow: 0 10px 26px rgba(0,0,0,.25);
-  backdrop-filter: blur(10px);
-}
-.boss-top{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  font-weight:1000;
-  letter-spacing:.2px;
-}
-.boss-track{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.45);
-  overflow:hidden;
-}
-#bossFill{
-  height:100%;
-  width:0%;
-  background: rgba(244,63,94,.92);
-  transition: width 120ms linear;
-}
-#bossHint{
-  margin-top:8px;
-  font-size:12px;
-  opacity:.92;
-  font-weight:900;
-}
-
-/* low time */
-#lowTimeOverlay{
-  position:fixed;
-  inset:0;
-  z-index:200;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:none;
-  background: radial-gradient(700px 500px at 50% 35%, rgba(244,63,94,.18), rgba(0,0,0,0) 60%);
-}
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
-.lowtime-pill{
-  font-weight:1100;
-  letter-spacing:.5px;
-  font-size:64px;
-  color: rgba(255,255,255,.95);
-  text-shadow: 0 14px 48px rgba(0,0,0,.55);
-  border-radius:999px;
-  padding: 18px 26px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-}
-
-/* end overlay */
-#endOverlay{
-  position:fixed;
-  inset:0;
-  z-index:300;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 18px;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-#endOverlay[aria-hidden="true"]{ display:none; }
-.end-card{
-  width:min(680px, 94vw);
-  border-radius: 18px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.82);
-  color: var(--txt);
-  box-shadow: 0 18px 60px rgba(0,0,0,.45);
-  padding: 16px;
-}
-.end-title{ font-weight:1100; font-size:20px; letter-spacing:.2px; }
-.end-sub{ margin-top:6px; font-size:12px; opacity:.92; word-break: break-all; }
-.end-grid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 10px;
-}
-.end-item{
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.55);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight:1000;
-}
-.end-item .k{ font-size:12px; opacity:.82; font-weight:900; }
-.end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-
-.end-actions{
-  margin-top: 14px;
-  display:flex;
-  gap: 10px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-
-.btn{
-  appearance:none;
-  pointer-events:auto;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  color: var(--txt);
-  padding: 10px 12px;
-  border-radius: 14px;
-  font-weight: 1000;
-  cursor:pointer;
-}
-.btn:hover{ filter: brightness(1.05); }
-.btn.primary{
-  border-color: rgba(99,102,241,.35);
-  background: rgba(99,102,241,.22);
-}
-.btn.danger{
-  border-color: rgba(244,63,94,.30);
-  background: rgba(244,63,94,.16);
-}
-
-/* debug */
-#gjDebug{
-  position:fixed;
-  left:10px;
-  bottom: calc(var(--sab) + 64px);
-  z-index: 160;
-  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  padding: 6px 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.45);
-  color: rgba(229,231,235,.92);
-  pointer-events:none;
-  opacity:.9;
-}
-#gjDebug[aria-hidden="true"]{ display:none; }
-
-/* =========================
-   FX PACK (used by JS)
-   ========================= */
-
-/* FX layer root */
-#gj-fx{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  overflow:hidden;
-  z-index:140;
-}
-
-/* burst core */
-.gj-fx{
-  position:absolute;
-  transform: translate(-50%,-50%) scale(.8);
-  border-radius:999px;
-  opacity:.0;
-  filter: blur(.0px);
-  animation: gjBurst var(--life, 340ms) ease-out forwards;
-}
-@keyframes gjBurst{
-  0%{ opacity:.0; transform: translate(-50%,-50%) scale(.55); }
-  12%{ opacity:.92; transform: translate(-50%,-50%) scale(1.0); }
-  100%{ opacity:0; transform: translate(-50%,-50%) scale(1.25); }
-}
-
-/* burst variants */
-.gj-fx-good{ background: radial-gradient(circle, rgba(34,197,94,.55), rgba(34,197,94,0) 62%); }
-.gj-fx-junk{ background: radial-gradient(circle, rgba(239,68,68,.55), rgba(239,68,68,0) 62%); }
-.gj-fx-block{ background: radial-gradient(circle, rgba(148,163,184,.48), rgba(148,163,184,0) 62%); }
-.gj-fx-star{ background: radial-gradient(circle, rgba(251,191,36,.55), rgba(251,191,36,0) 62%); }
-.gj-fx-shield{ background: radial-gradient(circle, rgba(99,102,241,.55), rgba(99,102,241,0) 62%); }
-.gj-fx-diamond{ background: radial-gradient(circle, rgba(34,211,238,.55), rgba(34,211,238,0) 62%); }
-.gj-fx-skull{ background: radial-gradient(circle, rgba(244,63,94,.50), rgba(244,63,94,0) 62%); }
-.gj-fx-bomb{ background: radial-gradient(circle, rgba(244,63,94,.55), rgba(244,63,94,0) 62%); }
-.gj-fx-defuse{ background: radial-gradient(circle, rgba(16,185,129,.50), rgba(16,185,129,0) 62%); }
-.gj-fx-expire{ background: radial-gradient(circle, rgba(148,163,184,.40), rgba(148,163,184,0) 62%); }
-.gj-fx-miss{ background: radial-gradient(circle, rgba(148,163,184,.30), rgba(148,163,184,0) 62%); }
-.gj-fx-storm{ background: radial-gradient(circle, rgba(99,102,241,.42), rgba(99,102,241,0) 62%); }
-.gj-fx-rage{ background: radial-gradient(circle, rgba(244,63,94,.42), rgba(244,63,94,0) 62%); }
-.gj-fx-boss{ background: radial-gradient(circle, rgba(244,63,94,.42), rgba(244,63,94,0) 62%); }
-.gj-fx-victory{ background: radial-gradient(circle, rgba(34,197,94,.45), rgba(34,197,94,0) 62%); }
-.gj-fx-end{ background: radial-gradient(circle, rgba(99,102,241,.38), rgba(99,102,241,0) 62%); }
-
-/* shards */
-.gj-fx-shards{
-  position:absolute;
-  transform: translate(-50%,-50%);
-  width:1px; height:1px;
-  pointer-events:none;
-  animation: gjShardsFade var(--life, 520ms) ease-out forwards;
-}
-@keyframes gjShardsFade{
-  0%{ opacity:1; }
-  100%{ opacity:0; }
-}
-.gj-shard{
-  position:absolute;
-  left:0; top:0;
-  border-radius: 6px;
-  background: rgba(229,231,235,.92);
-  transform: translate(0,0) scale(1);
-  animation: gjShardFly var(--life, 520ms) cubic-bezier(.2,.8,.2,1) forwards;
-}
-@keyframes gjShardFly{
-  0%{ transform: translate(0,0) scale(1); filter: blur(0); opacity:1; }
-  100%{ transform: translate(var(--tx, 60px), var(--ty, -40px)) scale(.65); filter: blur(.2px); opacity:0; }
-}
-
-/* floating text */
-.gj-fx-text{
-  position:absolute;
-  transform: translate(-50%,-50%);
-  font-weight:1100;
-  letter-spacing:.2px;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 10px 30px rgba(0,0,0,.45);
-  opacity:0;
-  animation: gjFloatText 640ms ease-out forwards;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.40);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-@keyframes gjFloatText{
-  0%{ opacity:0; transform: translate(-50%,-45%) scale(.96); }
-  18%{ opacity:1; }
-  100%{ opacity:0; transform: translate(-50%,-85%) scale(1.02); }
-}
-.gj-fx-text.t-good{ border-color: rgba(34,197,94,.22); }
-.gj-fx-text.t-bad{ border-color: rgba(239,68,68,.22); }
-.gj-fx-text.t-star{ border-color: rgba(251,191,36,.22); }
-.gj-fx-text.t-shield{ border-color: rgba(99,102,241,.22); }
-.gj-fx-text.t-diamond{ border-color: rgba(34,211,238,.22); }
-.gj-fx-text.t-danger{ border-color: rgba(244,63,94,.22); }
-.gj-fx-text.t-block{ border-color: rgba(148,163,184,.22); }
-.gj-fx-text.t-defuse{ border-color: rgba(16,185,129,.22); }
-.gj-fx-text.t-miss{ border-color: rgba(148,163,184,.18); }
-.gj-fx-text.t-storm{ border-color: rgba(99,102,241,.22); }
-
-/* body pulses referenced by JS */
-@keyframes gjPulse{
-  0%{ filter: brightness(1); }
-  50%{ filter: brightness(1.08); }
-  100%{ filter: brightness(1); }
-}
-body.gj-pulse-hurt{ animation: gjPulse 220ms ease-out 1; }
-body.gj-pulse-block{ animation: gjPulse 110ms ease-out 1; }
-body.gj-pulse-star{ animation: gjPulse 120ms ease-out 1; }
-body.gj-pulse-shield{ animation: gjPulse 120ms ease-out 1; }
-body.gj-pulse-diamond{ animation: gjPulse 140ms ease-out 1; }
-body.gj-pulse-danger{ animation: gjPulse 260ms ease-out 1; }
-body.gj-pulse-defuse{ animation: gjPulse 160ms ease-out 1; }
-body.gj-pulse-explode{ animation: gjPulse 360ms ease-out 1; }
-body.gj-miss-shot{ animation: gjPulse 120ms ease-out 1; }
-body.gj-storm{ animation: gjPulse 240ms ease-out 1; }
-body.gj-rage{ animation: gjPulse 320ms ease-out 1; }
-body.gj-boss{ animation: gjPulse 280ms ease-out 1; }
-body.gj-boss-down{ animation: gjPulse 260ms ease-out 1; }
-
-/* ambient modes */
-body.storm{
-  background:
-    radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
-    radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.12), transparent 55%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
-}
-body.rage{
-  background:
-    radial-gradient(1200px 800px at 25% 10%, rgba(244,63,94,.16), transparent 55%),
-    radial-gradient(900px 700px at 85% 25%, rgba(251,191,36,.10), transparent 55%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
-}
-
-/* tick hint when low time */
-body.gj-tick .gj-progress{ filter: brightness(1.3); }
-
-/* Responsive tweaks */
-@media (max-width: 520px){
-  :root{ --spawn-top: calc(var(--sat) + 152px); }
-  #bossBar{ top: calc(var(--sat) + 104px); }
-  .end-grid{ grid-template-columns: 1fr; }
-  .lowtime-pill{ font-size: 54px; padding: 14px 20px; }
 }
