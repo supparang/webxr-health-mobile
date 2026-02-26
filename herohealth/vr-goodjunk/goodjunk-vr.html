@@ -404,258 +404,45 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 
   <script type="module" src="../vr/vr-ui.js?v=20260225p3"></script>
 
-  <script type="module">
-    import { boot } from './goodjunk.safe.js?v=20260225p3';
-
-    const qs = (k, def=null)=>{ try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; } };
-    const clamp = (v,min,max)=>{ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max,v)); };
-
-    function abs(url){
-      if(!url) return '';
-      try{ return new URL(url, location.href).toString(); }catch(e){ return url; }
-    }
-
-    function b64urlEncodeJson(obj){
-      try{
-        const json = JSON.stringify(obj || {});
-        const b64 = btoa(unescape(encodeURIComponent(json)));
-        return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      }catch(e){
-        return '';
-      }
-    }
-
-    // ========= DAILY COOLDOWN CHECK (Asia/Bangkok day) =========
-    function localDayKeyBangkok(){
-      try{
-        return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
-      }catch(e){
-        const d = new Date();
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth()+1).padStart(2,'0');
-        const dd = String(d.getDate()).padStart(2,'0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
-    }
-
-    // ✅ PATCH: match warmup-gate daily lock (cat + game + pid + day) + tolerate older variants
-    function cooldownDailyKeys(cat, pid, gameKey){
-      const c = String(cat||'nutrition').toLowerCase() || 'nutrition';
-      const p = String(pid||'anon').trim() || 'anon';
-      const g = String(gameKey||'goodjunk').toLowerCase() || 'goodjunk';
-      const day = localDayKeyBangkok();
-      return [
-        `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`,
-        `HHA_COOLDOWN_DONE:${c}:${p}:${day}`,
-        `HHA_COOLDOWN_DONE:${c}:${p}`,
-        `HHA_COOLDOWN_DONE:${p}:${day}`,
-        `HHA_COOLDOWN_DONE:${p}`,
-      ];
-    }
-
-    function isCooldownDoneToday(cat, pid, gameKey){
-      try{
-        const keys = cooldownDailyKeys(cat, pid, gameKey);
-        for(const k of keys){
-          if(localStorage.getItem(k) === '1') return true;
-        }
-        return false;
-      }catch(e){
-        return false;
-      }
-    }
-
-    // ========= HUB normalize: avoid /vr-goodjunk/hub.html trap =========
-    function resolveHubUrl(){
-      const raw = String(qs('hub','')||'').trim();
-      if(raw){
-        const u = abs(raw);
-        try{
-          const uu = new URL(u);
-          if(/\/vr-goodjunk\/hub\.html$/i.test(uu.pathname)){
-            uu.pathname = uu.pathname.replace(/\/vr-goodjunk\/hub\.html$/i, '/hub.html');
-            return uu.toString();
-          }
-        }catch(e){}
-        return u;
-      }
-      return abs('../hub.html');
-    }
-
-    function buildHubUrlWithLog(summary){
-      const hub = resolveHubUrl();
-      const u = new URL(hub, location.href);
-
-      const keys = ['run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant','warmup','cooldown','dur','cdur','cat'];
-      keys.forEach(k=>{
-        const v = qs(k,'');
-        if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, String(v));
-      });
-
-      const payload = { kind:'hha_end', ts: Date.now(), game:'goodjunk', summary: summary || null };
-      const log = b64urlEncodeJson(payload);
-      if(log) u.searchParams.set('log', log);
-
-      const flush = qs('flush','');
-      const endpoint = qs('endpoint','');
-      if(flush==='1') u.searchParams.set('flush','1');
-      if(endpoint) u.searchParams.set('endpoint', endpoint);
-
-      return u.toString();
-    }
-
-    function buildGateCooldownUrl(nextAfterCooldownUrl){
-      const gate = abs('../warmup-gate.html');
-      const hub = resolveHubUrl();
-      const u = new URL(gate, location.href);
-
-      const keys = [
-        'run','diff','time','seed','studyId','phase','conditionGroup','pid','view','pick','variant',
-        'warmup','cooldown','dur','cdur','cat',
-        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone'
-      ];
-      keys.forEach(k=>{
-        const v = qs(k,'');
-        if(v!=='') u.searchParams.set(k, String(v));
-      });
-
-      u.searchParams.set('hub', hub);
-      u.searchParams.set('next', abs(nextAfterCooldownUrl || hub));
-
-      u.searchParams.set('gatePhase', 'cooldown');
-      u.searchParams.set('cat', String(qs('cat','nutrition')||'nutrition'));
-      u.searchParams.set('theme', 'goodjunk');
-
-      const cdur = clamp(qs('cdur','15'), 5, 60);
-      u.searchParams.set('dur', String(cdur));
-      u.searchParams.set('cdur', String(cdur));
-
-      return u.toString();
-    }
-
-    // ========= END BUTTON POLICY =========
-    const btnNext = document.getElementById('btnNextCooldown');
-    const btnHub  = document.getElementById('btnBackHub');
-    const endOverlay = document.getElementById('endOverlay');
-
-    function applyEndButtonsPolicy(){
-      const cooldownFlag = String(qs('cooldown','0')||'0') === '1';
-      const cat = String(qs('cat','nutrition')||'nutrition');
-      const pid = String(qs('pid','anon')||'anon');
-      const doneToday = isCooldownDoneToday(cat, pid, 'goodjunk');
-      const shouldShowNextCooldown = cooldownFlag && !doneToday;
-
-      if(shouldShowNextCooldown){
-        btnNext?.classList.remove('is-hidden');
-        btnHub?.classList.add('is-hidden');
-      }else{
-        btnNext?.classList.add('is-hidden');
-        btnHub?.classList.remove('is-hidden');
-      }
-    }
-
-    function goCooldown(summary){
-      const cdnext = String(qs('cdnext','')||'').trim();
-      const hubUrlWithLog = buildHubUrlWithLog(summary || {});
-      const nextAfterCooldown = cdnext ? abs(cdnext) : hubUrlWithLog;
-      location.href = buildGateCooldownUrl(nextAfterCooldown);
-    }
-
-    function goHub(summary){
-      location.href = buildHubUrlWithLog(summary || {});
-    }
-
-    // ========= Buttons =========
-    const btnReplay = document.getElementById('btnReplay');
-    const btnCopy = document.getElementById('btnCopy');
-
-    let lastSummary = null;
-
-    btnReplay?.addEventListener('click', ()=> location.reload());
-    btnHub?.addEventListener('click', ()=> goHub(lastSummary || {}));
-    btnNext?.addEventListener('click', ()=> goCooldown(lastSummary || {}));
-
-    btnCopy?.addEventListener('click', async ()=>{
-      try{
-        const txt = JSON.stringify(lastSummary || window.__HHA_LAST_SUMMARY || {}, null, 2);
-        await navigator.clipboard.writeText(txt);
-        btnCopy.textContent = 'Copied ✅';
-        setTimeout(()=>btnCopy.textContent='Copy Summary', 900);
-      }catch(e){
-        alert('Copy failed');
-      }
+ <script type="module">
+  // ✅ install shield ก่อน boot เกม
+  try{
+    window.HHA_Shield?.install({
+      watchDOM: true,
+      lockScroll: true,
+      quietApollo403: true,
+      quietNetworkNoise: true
     });
+  }catch(e){}
 
-    // ========= Primary: listen to game-ended =========
-    window.addEventListener('hha:game-ended', (ev)=>{
-      lastSummary = ev?.detail || null;
-      applyEndButtonsPolicy();
-    });
+  // ✅ import ai-hooks as module (แก้ export error)
+  import { createAIHooks } from '../vr/ai-hooks.js';
 
-    // ✅ OPTIONAL: capture flush/telemetry events (debug now; later route to logger)
-    const dbgOn = String(qs('dbg','0')) === '1';
-    window.addEventListener('hha:flush', (ev)=>{ if(dbgOn) console.log('[GoodJunk] hha:flush', ev?.detail); });
-    window.addEventListener('hha:telemetry', (ev)=>{ if(dbgOn) console.log('[GoodJunk] hha:telemetry', ev?.detail); });
+  // ✅ import game boot (ของคุณ)
+  import { boot as bootGoodJunk } from './goodjunk.safe.js';
 
-    // ========= Fallback: if END overlay opens but event never arrives =========
-    function isEndVisible(){
-      try{ return endOverlay && endOverlay.getAttribute('aria-hidden') !== 'true'; }catch(e){ return false; }
-    }
+  const U = new URL(location.href);
+  const runMode = String(U.searchParams.get('run') || 'play').toLowerCase(); // play/research
+  const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+  const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+  const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
-    let fallbackTick = 0;
-    const fallbackTimer = setInterval(()=>{
-      fallbackTick++;
-      if(fallbackTick > 360){ clearInterval(fallbackTimer); return; }
-      if(isEndVisible()){
-        if(!lastSummary && window.__HHA_LAST_SUMMARY) lastSummary = window.__HHA_LAST_SUMMARY;
-        applyEndButtonsPolicy();
-        clearInterval(fallbackTimer);
-      }
-    }, 500);
+  // ✅ สร้าง ai hooks (research-safe)
+  const ai = createAIHooks({
+    seed: String(seed),
+    runMode,
+    game: 'goodjunk',
+    diff,
+    device: view
+  });
 
-    // ========= Tiny info =========
-    const uiView = document.getElementById('uiView');
-    const uiRun  = document.getElementById('uiRun');
-    const uiDiff = document.getElementById('uiDiff');
-    if(uiView) uiView.textContent = String(qs('view','mobile'));
-    if(uiRun)  uiRun.textContent  = String(qs('run','play'));
-    if(uiDiff) uiDiff.textContent = String(qs('diff','normal'));
+  // expose ให้ engine เรียกใช้ได้ (ถ้าคุณต้องการ)
+  window.HHA_AI = ai;
 
-    // ✅ PATCH A+B: set body view flag for adaptive target sizing (vr/cvr only)
-    try{ document.body.dataset.view = String(qs('view','mobile')).toLowerCase(); }catch(e){}
-
-    const dbg = document.getElementById('gjDebug');
-    if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
-
-    // Start game
-    boot({
-      view: qs('view','mobile'),
-      run:  qs('run','play'),
-      diff: qs('diff','normal'),
-      time: clamp(qs('time','80'), 20, 300),
-      seed: qs('seed', null),
-      studyId: qs('studyId', qs('study', null)),
-      phase: qs('phase', null),
-      conditionGroup: qs('conditionGroup', qs('cond', null)),
-      pid: qs('pid','anon'),
-      hub: resolveHubUrl(),
-    });
-
-    if(dbgOn){
-      setInterval(()=>{
-        try{
-          const st = window.__GJ_STATE__;
-          const layer = document.getElementById('gj-layer');
-          const r = layer?.getBoundingClientRect?.();
-          dbg.textContent =
-            `targets=${st?.targets?.size ?? '?'} ` +
-            `miss=${st?.miss ?? '?'} ` +
-            `W=${Math.round(r?.width||0)} H=${Math.round(r?.height||0)} ` +
-            `cooldown=${String(qs('cooldown','0'))} done=${isCooldownDoneToday(String(qs('cat','nutrition')), String(qs('pid','anon')), 'goodjunk')} ` +
-            `day(BKK)=${localDayKeyBangkok()}`;
-        }catch(e){}
-      }, 800);
-    }
-  </script>
+  // boot เกม
+  bootGoodJunk({
+    ai
+  });
+</script>
 </body>
 </html>
