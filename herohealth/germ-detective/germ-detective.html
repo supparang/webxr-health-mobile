@@ -4,10 +4,239 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Germ Detective (Run)</title>
-  <link rel="stylesheet" href="./germ-detective.styles.css" />
+  <meta name="color-scheme" content="dark light" />
+
+  <!-- Optional: if you have external CSS, keep it -->
+  <link rel="stylesheet" href="./germ-detective.css" />
+  <!-- Optional: modular safe CSS -->
+  <!-- <link rel="stylesheet" href="./germ-detective.styles.css" /> -->
+
+  <style>
+    /* SAFE minimal fallback styles (won't fight your main CSS) */
+    :root{
+      --bg:#050814;
+      --panel: rgba(2,6,23,.72);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.96);
+      --mut: rgba(148,163,184,.95);
+    }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
+    #gdFallback{
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center; padding:16px;
+    }
+    .card{
+      width:min(820px, 100%);
+      border:1px solid var(--line);
+      border-radius:16px;
+      background: linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.62));
+      box-shadow: 0 20px 70px rgba(0,0,0,.35);
+      padding:14px;
+    }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .pill{
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:6px 10px;
+      background:rgba(255,255,255,.02);
+      font-weight:800;
+      font-size:12px;
+      color:var(--mut);
+    }
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:10px 12px;
+      background:rgba(2,6,23,.70);
+      color:var(--txt);
+      font:900 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      cursor:pointer;
+      backdrop-filter: blur(10px);
+    }
+    .btn:active{ transform: translateY(1px); }
+    #gdBackHubBtn{
+      position:fixed; left:max(12px, env(safe-area-inset-left, 0px)); bottom:max(12px, env(safe-area-inset-bottom, 0px));
+      z-index:9999;
+    }
+    #gdDebugBar{
+      position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(12px, env(safe-area-inset-bottom, 0px));
+      z-index:9999;
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+      pointer-events:none;
+    }
+    #gdDebugBar .pill{ pointer-events:none; }
+  </style>
 </head>
+
 <body>
-  <script src="/herohealth/vr/vr-ui.js"></script>
-  <script type="module" src="./germ-detective.boot.js"></script>
+  <!-- SAFE fallback UI (only shown if boot not loaded / crashes) -->
+  <div id="gdFallback">
+    <div class="card">
+      <div class="row">
+        <div style="font-weight:1000;font-size:18px;">🕵️ Germ Detective (Run)</div>
+        <div class="pill" id="gdFallbackMeta">loading…</div>
+      </div>
+      <div style="margin-top:10px; color:var(--mut); line-height:1.5; font-size:13px;">
+        ถ้าเห็นหน้านี้นานเกิน 3–5 วินาที แปลว่าไฟล์ boot ยังไม่โหลดหรือมี error
+        <br/>ตรวจว่าไฟล์เหล่านี้อยู่จริงบน host:
+        <br/>• <code style="color:var(--txt)">/herohealth/germ-detective/germ-detective.boot.js</code>
+        <br/>• <code style="color:var(--txt)">/herohealth/germ-detective/app.js</code>
+        <br/>และ path ในไฟล์นี้ตรงกับโฟลเดอร์จริง
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" id="gdRetryBtn" type="button">ลองโหลดใหม่</button>
+        <button class="btn" id="gdCopyUrlBtn" type="button">คัดลอก URL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Always-available Back HUB -->
+  <button class="btn" id="gdBackHubBtn" type="button">กลับ HUB</button>
+
+  <!-- Tiny debug pills (safe) -->
+  <div id="gdDebugBar">
+    <div class="pill" id="gdPillView">view: -</div>
+    <div class="pill" id="gdPillScene">scene: -</div>
+    <div class="pill" id="gdPillRun">run: -</div>
+    <div class="pill" id="gdPillDiff">diff: -</div>
+  </div>
+
+  <!-- Optional: preload VR UI for Cardboard (cVR) via JS below -->
+  <!-- <script src="/herohealth/vr/vr-ui.js"></script> -->
+
+  <script>
+    (function(){
+      'use strict';
+
+      function qs(k, def){
+        try{ return new URL(location.href).searchParams.get(k) ?? def; }
+        catch{ return def; }
+      }
+      function clamp(v,a,b){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = a;
+        return Math.max(a, Math.min(b, v));
+      }
+      function nowSeed(){ return String(Date.now()); }
+
+      // Params (safe)
+      var P = {
+        run:  String(qs('run','play')).toLowerCase(),
+        diff: String(qs('diff','normal')).toLowerCase(),
+        time: clamp(qs('time','80'), 20, 600),
+        seed: String(qs('seed', nowSeed())),
+        pid:  String(qs('pid','anon')),
+        scene:String(qs('scene','classroom')).toLowerCase(),
+        view: String(qs('view','pc')).toLowerCase(),
+        hub:  String(qs('hub','/herohealth/hub.html'))
+      };
+
+      // Debug pills
+      var set = function(id, txt){
+        var el = document.getElementById(id);
+        if(el) el.textContent = txt;
+      };
+      set('gdPillView',  'view: ' + P.view);
+      set('gdPillScene', 'scene: ' + P.scene);
+      set('gdPillRun',   'run: ' + P.run);
+      set('gdPillDiff',  'diff: ' + P.diff);
+
+      // Back HUB button
+      var backBtn = document.getElementById('gdBackHubBtn');
+      backBtn.addEventListener('click', function(){
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+            game:'germ-detective',
+            at: new Date().toISOString(),
+            url: location.href
+          }));
+        }catch(e){}
+        location.href = P.hub;
+      }, { passive:true });
+
+      // Fallback controls
+      var fallback = document.getElementById('gdFallback');
+      var meta = document.getElementById('gdFallbackMeta');
+      var retryBtn = document.getElementById('gdRetryBtn');
+      var copyBtn = document.getElementById('gdCopyUrlBtn');
+
+      retryBtn.addEventListener('click', function(){ location.reload(); }, { passive:true });
+      copyBtn.addEventListener('click', async function(){
+        try{
+          await navigator.clipboard.writeText(location.href);
+        }catch(e){
+          var ta = document.createElement('textarea');
+          ta.value = location.href;
+          document.body.appendChild(ta);
+          ta.select();
+          try{ document.execCommand('copy'); }catch(err){}
+          ta.remove();
+        }
+      }, { passive:true });
+
+      // Show fallback if boot not loaded within 3.5s
+      var shown = false;
+      var t = setTimeout(function(){
+        if(shown) return;
+        // if your boot sets a flag, it will prevent fallback
+        if(window.GD && window.GD.started) return;
+        shown = true;
+        if(meta) meta.textContent = 'view=' + P.view + ' • scene=' + P.scene + ' • run=' + P.run;
+        fallback.style.display = 'flex';
+      }, 3500);
+
+      // Auto-load vr-ui.js only for cVR
+      if(P.view === 'cvr' || P.view === 'cardboard'){
+        window.HHA_VRUI_CONFIG = Object.assign({
+          lockPx: 28,
+          cooldownMs: 90,
+          showCrosshair: true,
+          showButtons: true,
+          cvrStrict: true
+        }, window.HHA_VRUI_CONFIG || {});
+
+        if(!window.__HHA_VRUI_READY__ && !document.querySelector('script[data-hha-vrui="1"]')){
+          var s = document.createElement('script');
+          s.src = '/herohealth/vr/vr-ui.js';
+          s.async = true;
+          s.dataset.hhaVrui = '1';
+          document.head.appendChild(s);
+        }
+      }
+
+      // Load boot module (SAFE) — you can change this path if needed
+      // Primary expected:
+      //   /herohealth/germ-detective/germ-detective.boot.js
+      // Fallback alternative:
+      //   ./germ-detective.boot.js
+      function loadBoot(src){
+        return new Promise(function(resolve, reject){
+          var sc = document.createElement('script');
+          sc.type = 'module';
+          sc.src = src;
+          sc.onload = function(){ resolve(true); };
+          sc.onerror = function(){ reject(new Error('load failed: ' + src)); };
+          document.body.appendChild(sc);
+        });
+      }
+
+      // try absolute then relative (covers GitHub Pages base path cases)
+      loadBoot('/herohealth/germ-detective/germ-detective.boot.js')
+        .catch(function(){
+          return loadBoot('./germ-detective.boot.js');
+        })
+        .catch(function(err){
+          // show fallback immediately on hard error
+          console.warn(err);
+          try{
+            clearTimeout(t);
+            if(meta) meta.textContent = 'boot load failed';
+            fallback.style.display = 'flex';
+          }catch(e){}
+        });
+
+    })();
+  </script>
 </body>
 </html>
