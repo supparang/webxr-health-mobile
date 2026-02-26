@@ -2,7 +2,9 @@
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
 // + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
 // + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// FULL v20260226-SAFE-HELPPAUSE
+// + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
+// + ✅ hha:score + hha:coach events for universal HUD/coach bridge
+// FULL v20260227-SAFE-HELPPAUSE-AIWIRED
 'use strict';
 
 export function boot(cfg){
@@ -14,7 +16,6 @@ export function boot(cfg){
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
-
   function $(id){ return DOC.getElementById(id); }
 
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
@@ -137,6 +138,35 @@ export function boot(cfg){
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
+
+  // ---------- AI Hooks (optional) ----------
+  const ai = cfg.ai || WIN.HHA_AI || null;
+
+  function aiKindFrom(kind, emoji){
+    // ai-hooks supports: good, junk, star, shield, diamond, skull, bomb
+    if(kind === 'good') return 'good';
+    if(kind === 'junk') return 'junk';
+    if(kind === 'shield') return 'shield';
+    if(kind === 'bonus'){
+      if(emoji === '⭐') return 'star';
+      if(emoji === '💎') return 'diamond';
+      return 'star'; // ⚡ -> treat as star baseline
+    }
+    if(kind === 'boss'){
+      // boss presence -> skull baseline
+      return 'skull';
+    }
+    return 'good';
+  }
+
+  function aiSafe(fn, ...args){
+    try{
+      if(!ai || typeof ai[fn] !== 'function') return null;
+      return ai[fn](...args);
+    }catch(e){
+      return null;
+    }
+  }
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
@@ -339,6 +369,14 @@ export function boot(cfg){
 
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
+
+  function coachMoodFromMsg(msg){
+    msg = String(msg||'');
+    if(/บอสแพ้|ดีมาก|สำเร็จ|โบนัส|คอมโบ|FEVER!|บล็อกได้/.test(msg)) return 'happy';
+    if(/ระวัง|MISS|โดนของเสีย|พลาด|หมดแล้ว/.test(msg)) return 'sad';
+    return 'neutral';
+  }
+
   function sayCoach(msg){
     const t = nowMs();
     if(t - coachLatchMs < 4500) return;
@@ -346,6 +384,14 @@ export function boot(cfg){
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
     coach.style.transform = 'translateY(0)';
+
+    // ✅ universal coach event (optional)
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { mood: coachMoodFromMsg(msg), msg: String(msg||'') }
+      }));
+    }catch(e){}
+
     setTimeout(()=>{
       coach.style.opacity = '0';
       coach.style.transform = 'translateY(6px)';
@@ -366,6 +412,8 @@ export function boot(cfg){
   };
 
   let score = 0;
+
+  // ✅ MISS definition (per your standard)
   let missTotal = 0;
   let missGoodExpired = 0;
   let missJunkHit = 0;
@@ -401,7 +449,8 @@ export function boot(cfg){
     get miss(){ return missTotal; },
     get score(){ return score; },
     get combo(){ return combo; },
-    get fever(){ return fever; }
+    get fever(){ return fever; },
+    get shield(){ return shield; }
   };
 
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -456,6 +505,23 @@ export function boot(cfg){
     return 'D';
   }
 
+  function emitScoreEvent(){
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:score', {
+        detail: {
+          score: score|0,
+          miss: missTotal|0,
+          combo: combo|0,
+          comboMax: bestCombo|0,
+          feverPct: +clamp(fever,0,100),
+          shield: shield|0,
+          missGoodExpired: missGoodExpired|0,
+          missJunkHit: missJunkHit|0
+        }
+      }));
+    }catch(e){}
+  }
+
   function setHUD(){
     if(hud.score) hud.score.textContent = String(score|0);
     if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
@@ -506,6 +572,8 @@ export function boot(cfg){
         lowTimeOverlay.setAttribute('aria-hidden','true');
       }
     }
+
+    emitScoreEvent();
   }
 
   const __HHA_END_SENT_KEY = '__HHA_GJ_END_SENT__';
@@ -530,7 +598,7 @@ export function boot(cfg){
     const medRt = Math.round(median(rtList));
     return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-26_HELPPAUSE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-27_HELPPAUSE_AIWIRED',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -548,6 +616,7 @@ export function boot(cfg){
       bossDefeated: !!(bossActive && bossHp<=0),
       stormOn: !!stormOn,
       rageOn: !!rageOn,
+      shieldEnd: shield|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score)
@@ -564,6 +633,17 @@ export function boot(cfg){
     targets.clear();
 
     const summary = buildEndSummary(reason);
+
+    // ✅ AI end pack (keep small; do NOT attach huge events array)
+    const aiPack = aiSafe('onEnd', summary);
+    if(aiPack && aiPack.meta){
+      summary.ai = {
+        meta: aiPack.meta,
+        predictionLast: aiPack.predictionLast || null,
+        stats: aiPack.stats || null
+      };
+    }
+
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
@@ -613,8 +693,12 @@ export function boot(cfg){
 
     layer.appendChild(el);
 
-    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
+    const tObj = { id, el, kind, emoji, born, ttl, x, y, drift, promptMs: nowMs() };
     targets.set(id, tObj);
+
+    // ✅ AI spawn
+    aiSafe('onSpawn', aiKindFrom(kind, emoji), { id, kind, emoji, ttlMs: Math.round(ttl) });
+
     return tObj;
   }
 
@@ -641,6 +725,9 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
+    // ✅ AI hit
+    aiSafe('onHit', aiKindFrom('good', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
+
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
     goodHitCount++;
     rtSum += rt;
@@ -666,14 +753,22 @@ export function boot(cfg){
   }
 
   function onHitJunk(t, clientX, clientY){
+    // shield block => not miss
     if(shield > 0){
       shield--;
+
+      // ✅ AI hit (still a hit event)
+      aiSafe('onHit', aiKindFrom('junk', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, blocked:true });
+
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
       removeTarget(t.id);
       return;
     }
+
+    // ✅ AI hit
+    aiSafe('onHit', aiKindFrom('junk', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, blocked:false });
 
     missTotal++;
     missJunkHit++;
@@ -689,6 +784,8 @@ export function boot(cfg){
   }
 
   function onHitBonus(t, clientX, clientY){
+    aiSafe('onHit', aiKindFrom('bonus', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
+
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
@@ -704,6 +801,8 @@ export function boot(cfg){
   }
 
   function onHitShield(t, clientX, clientY){
+    aiSafe('onHit', aiKindFrom('shield', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
+
     addShield();
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
@@ -712,6 +811,8 @@ export function boot(cfg){
 
   function onHitBoss(t, clientX, clientY){
     if(!bossActive) return;
+
+    aiSafe('onHit', aiKindFrom('boss', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, bossPhase });
 
     if(bossPhase===0){
       bossShieldHp--;
@@ -867,7 +968,11 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
+        // ✅ AI expire
+        aiSafe('onExpire', aiKindFrom(t.kind, t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
+
         if(t.kind === 'good'){
+          // ✅ GOOD expire counts as miss
           missTotal++;
           missGoodExpired++;
           combo = 0;
@@ -951,6 +1056,22 @@ export function boot(cfg){
 
     tLeft = Math.max(0, tLeft - dt);
 
+    // ✅ AI tick (prediction only)
+    const pred = aiSafe('onTick', dt, {
+      missGoodExpired: missGoodExpired|0,
+      missJunkHit: missJunkHit|0,
+      shield: shield|0,
+      fever: +fever,
+      combo: combo|0
+    });
+
+    // Optional: micro hint from prediction (rate-limited by sayCoach latch already)
+    try{
+      if(pred && typeof pred.hazardRisk === 'number' && pred.hazardRisk >= 0.66 && r01() < dt*0.35){
+        sayCoach('AI: ระวัง! โอกาสพลาดสูงขึ้น—โฟกัสของดี + เก็บ 🛡️');
+      }
+    }catch(e){}
+
     spawnTick(dt);
     updateTargets(dt);
     updateRage(dt);
@@ -969,6 +1090,10 @@ export function boot(cfg){
   });
 
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
+
+  // ✅ AI meta init snapshot (optional)
+  aiSafe('updateInputs', { missGoodExpired:0, missJunkHit:0, shield:0, fever:0, combo:0 });
+
   sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
   setHUD();
   requestAnimationFrame(tick);
