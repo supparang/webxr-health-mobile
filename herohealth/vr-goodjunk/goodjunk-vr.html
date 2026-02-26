@@ -1,6 +1,7 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
 FULL v20260225p3-FULLPATCH-BKKDAY-CVRSTRICT-FLUSH-TELEM + A+B target-size
+PATCH v20260227: +HHA Shield +correct vr-ui loading +cloud-logger path
 Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 -->
 <!doctype html>
@@ -8,9 +9,21 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="google" content="notranslate">
+  <meta name="grammarly" content="false">
   <title>HeroHealth • GoodJunk VR</title>
 
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260225p3"/>
+
+  <!-- ✅ HHA Shield (กัน network noise/403 + กัน scroll/overlay แปลกๆ) -->
+  <script src="../vr/hha-shield.js" defer></script>
+
+  <!-- ✅ Cloud logger อยู่ที่ /herohealth/vr/hha-cloud-logger.js (คุณยืนยันแล้ว) -->
+  <script src="../vr/hha-cloud-logger.js" defer></script>
+
+  <!-- ✅ Universal VR UI: ใช้ defer (ไม่ใช่ module) -->
+  <script src="../vr/vr-ui.js?v=20260225p3" defer></script>
 
   <style>
     html,body{height:100%;margin:0;}
@@ -402,47 +415,41 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 
   <div id="gjDebug" aria-hidden="true">dbg</div>
 
-  <script type="module" src="../vr/vr-ui.js?v=20260225p3"></script>
+  <script type="module">
+    // ✅ 1) Shield ต้องถูกติดตั้ง “หลังจากไฟล์โหลด” (เราใช้ defer แล้ว)
+    try{
+      window.HHA_Shield?.install({
+        watchDOM: true,
+        lockScroll: true,
+        quietApollo403: true,
+        quietNetworkNoise: true
+      });
+    }catch(e){}
 
- <script type="module">
-  // ✅ install shield ก่อน boot เกม
-  try{
-    window.HHA_Shield?.install({
-      watchDOM: true,
-      lockScroll: true,
-      quietApollo403: true,
-      quietNetworkNoise: true
+    // ✅ 2) ai-hooks เป็น ES module (แก้ export error)
+    import { createAIHooks } from '../vr/ai-hooks.js';
+
+    // ✅ 3) game boot
+    import { boot as bootGoodJunk } from './goodjunk.safe.js';
+
+    const U = new URL(location.href);
+    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase(); // play/research
+    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+
+    // ✅ สร้าง ai hooks (research-safe)
+    const ai = createAIHooks({
+      seed: String(seed),
+      runMode,
+      game: 'goodjunk',
+      diff,
+      device: view
     });
-  }catch(e){}
 
-  // ✅ import ai-hooks as module (แก้ export error)
-  import { createAIHooks } from '../vr/ai-hooks.js';
+    window.HHA_AI = ai;
 
-  // ✅ import game boot (ของคุณ)
-  import { boot as bootGoodJunk } from './goodjunk.safe.js';
-
-  const U = new URL(location.href);
-  const runMode = String(U.searchParams.get('run') || 'play').toLowerCase(); // play/research
-  const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
-  const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
-  const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
-
-  // ✅ สร้าง ai hooks (research-safe)
-  const ai = createAIHooks({
-    seed: String(seed),
-    runMode,
-    game: 'goodjunk',
-    diff,
-    device: view
-  });
-
-  // expose ให้ engine เรียกใช้ได้ (ถ้าคุณต้องการ)
-  window.HHA_AI = ai;
-
-  // boot เกม
-  bootGoodJunk({
-    ai
-  });
-</script>
+    bootGoodJunk({ ai });
+  </script>
 </body>
 </html>
