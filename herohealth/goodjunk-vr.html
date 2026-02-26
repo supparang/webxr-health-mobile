@@ -1,5 +1,5 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-HeroHealth • GoodJunkVR (Launcher root) — run=folder redirect
+GoodJunkVR Launcher (root) — run=folder redirect
 v20260227-goodjunk-launcher
 -->
 <!doctype html>
@@ -11,56 +11,20 @@ v20260227-goodjunk-launcher
   <meta name="google" content="notranslate">
   <meta name="grammarly" content="false">
   <title>HeroHealth — GoodJunkVR (Launcher)</title>
-  <style>
-    :root{ --bg:#050814; --fg:#e8eefc; --mut:#9fb0d0; --card:#0b1220; --bd:#243455; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    .wrap{ max-width:920px; margin:0 auto; padding:22px 16px 40px; }
-    .card{ background:linear-gradient(180deg, rgba(11,18,32,.9), rgba(11,18,32,.72));
-      border:1px solid rgba(36,52,85,.55); border-radius:18px; padding:16px; box-shadow:0 18px 40px rgba(0,0,0,.35);
-    }
-    .t{ font-weight:900; font-size:18px; }
-    .s{ margin-top:8px; color:var(--mut); line-height:1.5; }
-    .mini{ opacity:.8; font-size:12px; margin-top:10px; }
-    .pill{ display:inline-flex; align-items:center; gap:8px; margin-top:12px;
-      padding:10px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.7); font-weight:800;
-    }
-  </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="t">🥦🍔 GoodJunkVR — Launcher</div>
-      <div class="s">
-        กำลังพาไปหน้าเกมในโฟลเดอร์…<br>
-        (run=folder → <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code>)
-      </div>
-      <div class="pill">⏳ Redirecting…</div>
-      <div class="mini" id="dbg"></div>
-    </div>
-  </div>
-
-  <script>
-  (function(){
-    try{
-      const u = new URL(location.href);
-      // บังคับให้ “run=folder” อยู่ใน query เพื่อ debug/trace ได้ง่าย (ไม่ทับ run=play/research ถ้ามีอยู่แล้ว)
-      if(!u.searchParams.has('runner')) u.searchParams.set('runner','folder');
-
-      // ส่งต่อไป run file ในโฟลเดอร์
-      const dest = new URL('./vr-goodjunk/goodjunk-vr.html', u);
-      // คง query ทั้งหมดไว้
-      dest.search = u.search;
-
-      const dbg = document.getElementById('dbg');
-      if(dbg) dbg.textContent = '→ ' + dest.href;
-
-      location.replace(dest.href);
-    }catch(e){
-      // fallback
-      location.href = './vr-goodjunk/goodjunk-vr.html';
-    }
-  })();
-  </script>
+<script>
+(function(){
+  try{
+    const u = new URL(location.href);
+    if(!u.searchParams.has('runner')) u.searchParams.set('runner','folder');
+    const dest = new URL('./vr-goodjunk/goodjunk-vr.html', u);
+    dest.search = u.search;
+    location.replace(dest.href);
+  }catch(e){
+    location.href = './vr-goodjunk/goodjunk-vr.html';
+  }
+})();
+</script>
 </body>
 </html>
