@@ -6,12 +6,12 @@
 // Detect base prefix for GitHub Pages project site
 export function hhaBase(){
   const p = location.pathname || '';
-  // If hosted under repo "webxr-health-mobile"
+  // GitHub Pages project site for repo: webxr-health-mobile
   if (p.startsWith('/webxr-health-mobile/')) return '/webxr-health-mobile';
   return ''; // local/custom domain root
 }
 
-// Join base + path, and normalize
+// Join base + path, normalize
 export function withBase(path){
   const base = hhaBase();
   if(!path) return base || '';
@@ -21,8 +21,8 @@ export function withBase(path){
   if(base && path.startsWith(base + '/')) return path;
   // absolute path at domain root
   if(path.startsWith('/')) return base + path;
-  // relative path => treat as root-relative under /herohealth/ by default caller
-  return base + '/' + path.replace(/^\.?\//,'');
+  // relative -> base + / + relative
+  return base + '/' + String(path).replace(/^\.?\//,'');
 }
 
 // Canonical hub URL
@@ -30,29 +30,33 @@ export function hhaHub(){
   return withBase('/herohealth/hub.html');
 }
 
-// Canonical warmup gate URL
-export function hhaWarmupGate(){
-  return withBase('/herohealth/warmup-gate.html');
-}
-
-// Resolve hub param safely (accepts: full url, /herohealth/hub.html, hub.html, etc.)
+// Resolve hub param safely (accepts: full url, /herohealth/hub.html, hub.html, ./hub.html, ../hub.html, herohealth/hub.html)
 export function resolveHub(h){
   if(!h) return hhaHub();
+
   // decode once if encoded
   try{
     const dec = decodeURIComponent(h);
     if(dec && dec !== h) h = dec;
   }catch(e){}
 
+  h = String(h);
+
+  // absolute URL stays
   if(/^https?:\/\//i.test(h)) return h;
+
+  // absolute path -> attach base
   if(h.startsWith('/')) return withBase(h);
 
-  // common cases: "hub.html", "./hub.html", "../hub.html"
-  const cleaned = h.replace(/^(\.\/)+/,'').replace(/^(\.\.\/)+/,'');
-  // if they passed "herohealth/hub.html" (no leading slash) make it absolute
-  if(cleaned.startsWith('herohealth/')) return withBase('/' + cleaned);
-  // if they passed just "hub.html" treat as /herohealth/hub.html
-  if(cleaned === 'hub.html') return hhaHub();
+  // common relative patterns
+  const cleaned = h
+    .replace(/^(\.\/)+/,'')
+    .replace(/^(\.\.\/)+/,'')
+    .trim();
 
-  // fallback: base + "/" + cleaned
+  if(cleaned === 'hub.html') return hhaHub();
+  if(cleaned.startsWith('herohealth/')) return withBase('/' + cleaned);
+
+  // fallback: treat as root-relative under base
   return withBase('/' + cleaned);
+}
