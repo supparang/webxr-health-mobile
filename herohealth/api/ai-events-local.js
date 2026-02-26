@@ -1,10 +1,11 @@
 // === /herohealth/api/ai-events-local.js ===
-// HeroHealth AI Local Logger — PRODUCTION (AI events + AI sessions -> localStorage -> CSV export)
+// HeroHealth AI Local Logger — UNIVERSAL (ALL GAMES)
 // ✅ listens: hha:ai-predict, hha:ai-coach, hha:game-ended
-// ✅ events queue + sessions queue (cap)
-// ✅ builds per-session AI stats: nPredict, nCoach, avgConf, minConf, maxConf, topWhy
+// ✅ events + sessions queues -> localStorage -> CSV export
+// ✅ auto-detect game name from detail/query/path
+// ✅ per-session AI stats: nPredict, nCoach, avg/min/max conf, topWhy
 // ✅ debug mini button "AI CSV" when ?dbg=1 or ?aicsv=1
-// v20260226-AI-LOCALCSV-PRO
+// v20260226-AI-LOCALCSV-UNIV
 
 'use strict';
 
@@ -16,27 +17,10 @@
   const nowIso = ()=> new Date().toISOString();
 
   // queues
-  const Q_EVENTS = 'HHA_AI_EVENTS_Q_V1';
-  const Q_SESS   = 'HHA_AI_SESS_Q_V1';
-  const MAX_EVENTS = 5000;
-  const MAX_SESS   = 800;
-
-  // in-session aggregator (resets on load, closes on game-ended)
-  let sessAgg = {
-    id: String(Date.now()) + '_' + Math.random().toString(16).slice(2),
-    startTs: Date.now(),
-    startIso: nowIso(),
-    nPredict: 0,
-    nCoach: 0,
-    confSum: 0,
-    confMin: 101,
-    confMax: -1,
-    whyCount: Object.create(null),
-    lastBestKind: '',
-    lastBestEmoji: '',
-    lastWhy: '',
-    lastConf: null
-  };
+  const Q_EVENTS = 'HHA_AI_EVENTS_Q_V2';
+  const Q_SESS   = 'HHA_AI_SESS_Q_V2';
+  const MAX_EVENTS = 8000;
+  const MAX_SESS   = 1200;
 
   function safeJson(obj, maxLen){
     try{
@@ -82,18 +66,83 @@
       phase: String(qs('phase','')||''),
       conditionGroup: String(qs('conditionGroup', qs('cond',''))||''),
       cat: String(qs('cat','')||''),
-      theme: String(qs('theme', qs('game',''))||''),
-      // useful for planner chaining, etc.
-      planSeq: String(qs('planSeq','')||''),
-      planDay: String(qs('planDay','')||''),
-      planSlot: String(qs('planSlot','')||''),
-      planIndex: String(qs('planIndex','')||'')
+      theme: String(qs('theme','')||''),
+      gameQ: String(qs('game','')||''),
+      hub: String(qs('hub','')||''),
+      url: String(location.href)
     };
+  }
+
+  function gameFromPath(){
+    try{
+      const p = location.pathname || '';
+      const parts = p.split('/').filter(Boolean);
+      const last = parts[parts.length-1] || '';
+      const base = last.replace(/\.html$/i,'');
+      // common folder patterns
+      if(base) return base;
+      const folder = parts[parts.length-2] || '';
+      return folder || 'unknown';
+    }catch(e){
+      return 'unknown';
+    }
+  }
+
+  function resolveGameName(detail){
+    const c = ctx();
+    const d = detail || {};
+    // priority: explicit in detail
+    const g1 = String(d.game || '').trim();
+    if(g1) return g1;
+    const g2 = String(d.projectTag || '').trim();
+    if(g2) return g2;
+    // query hints
+    if(c.theme) return c.theme;
+    if(c.gameQ) return c.gameQ;
+    // fallback path
+    return gameFromPath();
+  }
+
+  // in-session aggregator (resets after game-ended)
+  let sessAgg = {
+    id: String(Date.now()) + '_' + Math.random().toString(16).slice(2),
+    startTs: Date.now(),
+    startIso: nowIso(),
+    nPredict: 0,
+    nCoach: 0,
+    confSum: 0,
+    confMin: 101,
+    confMax: -1,
+    whyCount: Object.create(null),
+    lastBestKind: '',
+    lastBestEmoji: '',
+    lastWhy: '',
+    lastConf: null
+  };
+
+  function bumpWhy(why){
+    if(!why) return;
+    const key = String(why).slice(0,140);
+    sessAgg.whyCount[key] = (sessAgg.whyCount[key] || 0) + 1;
+  }
+
+  function topWhy(){
+    let bestK = '';
+    let bestV = -1;
+    const m = sessAgg.whyCount || {};
+    for(const k in m){
+      const v = m[k] || 0;
+      if(v > bestV){
+        bestV = v;
+        bestK = k;
+      }
+    }
+    return { why: bestK || '', count: Math.max(0, bestV) };
   }
 
   function normalizeEvent(kind, detail){
     const c = ctx();
-    const game = String(detail?.game || c.theme || 'goodjunk');
+    const game = resolveGameName(detail);
     return {
       kind: String(kind),
       ts: Date.now(),
@@ -110,6 +159,8 @@
       phase: c.phase,
       conditionGroup: c.conditionGroup,
       cat: c.cat,
+      hub: c.hub,
+      url: c.url,
 
       why: detail?.why ?? null,
       confidence: detail?.confidence ?? null,
@@ -122,15 +173,8 @@
       next2Emoji: detail?.next?.[1]?.emoji ?? null,
 
       msg: detail?.msg ?? null,
-      payload: safeJson(detail, 6500)
+      payload: safeJson(detail, 8000)
     };
-  }
-
-  // ===== Aggregator update =====
-  function bumpWhy(why){
-    if(!why) return;
-    const key = String(why).slice(0,120);
-    sessAgg.whyCount[key] = (sessAgg.whyCount[key] || 0) + 1;
   }
 
   function updateAggFromPredict(detail){
@@ -146,39 +190,21 @@
     sessAgg.lastWhy = String(why || '');
     bumpWhy(sessAgg.lastWhy);
 
-    const bk = detail?.best?.kind ?? '';
-    const be = detail?.best?.emoji ?? '';
-    sessAgg.lastBestKind = String(bk || '');
-    sessAgg.lastBestEmoji = String(be || '');
+    sessAgg.lastBestKind = String(detail?.best?.kind ?? '');
+    sessAgg.lastBestEmoji = String(detail?.best?.emoji ?? '');
   }
 
   function updateAggFromCoach(detail){
     sessAgg.nCoach++;
-    // coach meta might include confidence too (optional)
-    const conf = Number(detail?.meta?.confidence);
+    const conf = Number(detail?.meta?.confidence ?? detail?.confidence);
     if(Number.isFinite(conf)){
       sessAgg.confSum += conf;
       sessAgg.confMin = Math.min(sessAgg.confMin, conf);
       sessAgg.confMax = Math.max(sessAgg.confMax, conf);
       sessAgg.lastConf = conf;
     }
-    // prefer detail.meta.why, else detail.why
     const why = detail?.meta?.why ?? detail?.why ?? '';
     if(why) bumpWhy(String(why));
-  }
-
-  function topWhy(){
-    let bestK = '';
-    let bestV = -1;
-    const m = sessAgg.whyCount || {};
-    for(const k in m){
-      const v = m[k] || 0;
-      if(v > bestV){
-        bestV = v;
-        bestK = k;
-      }
-    }
-    return { why: bestK || '', count: Math.max(0, bestV) };
   }
 
   // ===== listeners =====
@@ -203,6 +229,7 @@
     try{
       const end = e?.detail || null;
       const c = ctx();
+      const game = resolveGameName(end);
       const tWhy = topWhy();
 
       const nConf = (sessAgg.nPredict + sessAgg.nCoach);
@@ -216,7 +243,7 @@
         iso: nowIso(),
         sessionId: sessAgg.id,
 
-        game: String(end?.projectTag || end?.game || c.theme || 'goodjunk'),
+        game,
         gameVersion: String(end?.gameVersion || ''),
         pid: c.pid,
         run: c.run,
@@ -227,12 +254,16 @@
         phase: c.phase,
         conditionGroup: c.conditionGroup,
         cat: c.cat,
+        hub: c.hub,
+        url: c.url,
 
         durationPlannedSec: end?.durationPlannedSec ?? '',
         durationPlayedSec: end?.durationPlayedSec ?? '',
         scoreFinal: end?.scoreFinal ?? '',
         missTotal: end?.missTotal ?? '',
         grade: end?.grade ?? '',
+        endReason: end?.reason ?? '',
+        endTimeIso: end?.endTimeIso ?? '',
 
         aiPredictN: sessAgg.nPredict,
         aiCoachN: sessAgg.nCoach,
@@ -246,14 +277,12 @@
         aiLastWhy: sessAgg.lastWhy,
         aiLastConf: sessAgg.lastConf ?? '',
 
-        endReason: end?.reason ?? '',
-        endTimeIso: end?.endTimeIso ?? '',
-        payloadEnd: safeJson(end, 6500)
+        payloadEnd: safeJson(end, 8000)
       };
 
       pushQ(Q_SESS, row, MAX_SESS);
 
-      // reset aggregator for next run (same page reload may happen)
+      // reset aggregator
       sessAgg = {
         id: String(Date.now()) + '_' + Math.random().toString(16).slice(2),
         startTs: Date.now(),
@@ -302,34 +331,29 @@
   function exportEventsCsv(){
     const rows = loadQ(Q_EVENTS);
     const cols = [
-      'kind','ts','iso','sessionId','game','pid','run','diff','view','seed','studyId','phase','conditionGroup','cat',
+      'kind','ts','iso','sessionId','game','pid','run','diff','view','seed','studyId','phase','conditionGroup','cat','hub','url',
       'why','confidence','bestKind','bestEmoji','next1Kind','next1Emoji','next2Kind','next2Emoji','msg','payload'
     ];
-    const csv = toCsv(rows, cols);
     const c = ctx();
     const tag = `${c.pid}_${c.run}_${c.view}`.replace(/[^\w\-]+/g,'_');
-    downloadText(`HHA_AI_EVENTS_${tag}_${Date.now()}.csv`, csv);
+    downloadText(`HHA_AI_EVENTS_${tag}_${Date.now()}.csv`, toCsv(rows, cols));
   }
 
   function exportSessionsCsv(){
     const rows = loadQ(Q_SESS);
     const cols = [
-      'kind','ts','iso','sessionId','game','gameVersion','pid','run','diff','view','seed','studyId','phase','conditionGroup','cat',
-      'durationPlannedSec','durationPlayedSec','scoreFinal','missTotal','grade',
+      'kind','ts','iso','sessionId','game','gameVersion','pid','run','diff','view','seed','studyId','phase','conditionGroup','cat','hub','url',
+      'durationPlannedSec','durationPlayedSec','scoreFinal','missTotal','grade','endReason','endTimeIso',
       'aiPredictN','aiCoachN','aiAvgConf','aiMinConf','aiMaxConf','aiTopWhy','aiTopWhyCount',
       'aiLastBestKind','aiLastBestEmoji','aiLastWhy','aiLastConf',
-      'endReason','endTimeIso','payloadEnd'
+      'payloadEnd'
     ];
-    const csv = toCsv(rows, cols);
     const c = ctx();
     const tag = `${c.pid}_${c.run}_${c.view}`.replace(/[^\w\-]+/g,'_');
-    downloadText(`HHA_AI_SESSIONS_${tag}_${Date.now()}.csv`, csv);
+    downloadText(`HHA_AI_SESSIONS_${tag}_${Date.now()}.csv`, toCsv(rows, cols));
   }
 
-  function exportBoth(){
-    exportEventsCsv();
-    exportSessionsCsv();
-  }
+  function exportBoth(){ exportEventsCsv(); exportSessionsCsv(); }
 
   // ===== debug button =====
   const showBtn = (String(qs('dbg','0'))==='1') || (String(qs('aicsv','0'))==='1');
@@ -359,7 +383,7 @@
       const nE = loadQ(Q_EVENTS).length;
       const nS = loadQ(Q_SESS).length;
       const pick = prompt(
-        `Export AI CSV:\n` +
+        `Export AI CSV (UNIVERSAL):\n` +
         `1 = EVENTS (${nE})\n` +
         `2 = SESSIONS (${nS})\n` +
         `3 = BOTH\n` +
@@ -383,11 +407,8 @@
     DOC.body.appendChild(btn);
   }
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', ensureBtn);
-  }else{
-    ensureBtn();
-  }
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', ensureBtn);
+  else ensureBtn();
 
   // public helpers
   WIN.HHA_AI_LOCAL = {
