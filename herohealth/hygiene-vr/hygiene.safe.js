@@ -176,13 +176,27 @@ export function boot(){
   })();
 
   const coachOn = (qs('coach','1') !== '0');
-  const ddOn    = (qs('dd','1') !== '0');
-  const coach = (coachOn && WIN.HHA_AICoach) ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' }) : null;
-  const dd = (ddOn && WIN.HHA_DD) ? WIN.HHA_DD.create({
-    seed, runMode,
-    base,
-    bounds:{ spawnPerSec:[1.15, 4.00], hazardRate:[0.05, 0.24], decoyRate:[0.10, 0.38] }
-  }) : null;
+
+  // ✅ PATCH: dd requested but file missing => auto disable (no crash)
+  const ddWanted = (qs('dd','1') !== '0');
+  const ddAvail  = !!WIN.HHA_DD;
+  const ddOn     = ddWanted && ddAvail;
+
+  const coach = (coachOn && WIN.HHA_AICoach)
+    ? WIN.HHA_AICoach.create({ gameId:'hygiene', seed, runMode, lang:'th' })
+    : null;
+
+  const dd = ddOn
+    ? WIN.HHA_DD.create({
+        seed, runMode,
+        base,
+        bounds:{ spawnPerSec:[1.15, 4.00], hazardRate:[0.05, 0.24], decoyRate:[0.10, 0.38] }
+      })
+    : null;
+
+  if(ddWanted && !ddAvail){
+    console.warn('[Hygiene] dd requested but HHA_DD missing -> dd disabled');
+  }
 
   // state
   let running=false, paused=false;
@@ -245,6 +259,22 @@ export function boot(){
     left: 30,
     t: null
   };
+
+  // ✅ PATCH: prevent crash if user clicks confirm/skip too early
+  function ensureEndSummary(){
+    if(endSummary) return endSummary;
+    endSummary = {
+      version:'20260223-scrollfix',
+      game:'hygiene',
+      runMode, diff, view, seed,
+      sessionId: `HW-${Date.now()}-${Math.floor(rng()*1e6)}`,
+      timestampIso: nowIso(),
+      analyze: {},
+      evaluate: null,
+      create: null
+    };
+    return endSummary;
+  }
 
   // 2D zones (positions in % of handMap box)
   const ZONES = [
@@ -470,8 +500,6 @@ export function boot(){
 
     const {x,y,rect} = pickSpawnXY(radius);
 
-    // NOTE: stage is fixed fullscreen, but CSS uses vw/vh.
-    // keep legacy behavior for compatibility.
     el.style.setProperty('--x', ((x/rect.w)*100).toFixed(3));
     el.style.setProperty('--y', ((y/rect.h)*100).toFixed(3));
     el.style.setProperty('--s', (0.90 + rng()*0.25).toFixed(3));
@@ -528,18 +556,15 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shoot: gameplay OR end-overlay selection
   function onShoot(e){
     const d = (e && e.detail) || {};
     const lockPx = Number(d.lockPx||30);
 
-    // If end overlay is open and evaluate is active -> select zones
     if(endOverlay && endOverlay.style.display !== 'none' && evalState.active && !evalState.confirmed){
       aimPickZone(lockPx);
       return;
     }
 
-    // Otherwise: gameplay shoot (cvr only)
     if(!running || paused) return;
     if(view !== 'cvr') return;
 
@@ -667,7 +692,6 @@ export function boot(){
       comboMax = Math.max(comboMax, combo);
       rtOk.push(rt);
 
-      // per-step stats
       stepStats[stepIdx].ok++;
       stepStats[stepIdx].rt.push(rt);
 
@@ -722,7 +746,6 @@ export function boot(){
       totalStepHits++;
       combo = 0;
 
-      // per-step stats (wrong step counts as error on current step)
       stepStats[stepIdx].wrong++;
 
       if(quizOpen && quizOpen._armed){
@@ -750,7 +773,6 @@ export function boot(){
       if(!blocked){
         hazHits++;
         combo = 0;
-        // haz counts as unsafe on current step
         stepStats[stepIdx].haz++;
       }
 
@@ -886,7 +908,6 @@ export function boot(){
     rtOk.length=0;
     spawnAcc=0;
 
-    // reset stepStats
     for(let i=0;i<stepStats.length;i++){
       stepStats[i].ok=0; stepStats[i].wrong=0; stepStats[i].haz=0;
       stepStats[i].rt.length=0;
@@ -936,7 +957,6 @@ export function boot(){
   }
 
   function calcHeatmap2D(){
-    // risk per step = (wrong + haz) / total interactions (ok+wrong+haz)
     const hm = STEPS.map((s,i)=>{
       const st = stepStats[i];
       const total = st.ok + st.wrong + st.haz;
@@ -955,7 +975,6 @@ export function boot(){
       };
     });
 
-    // find top risk zone (tie -> highest haz then wrong)
     const top = hm.slice().sort((a,b)=>{
       if(b.risk!==a.risk) return b.risk-a.risk;
       if(b.haz!==a.haz) return b.haz-a.haz;
@@ -984,7 +1003,7 @@ export function boot(){
       btn.innerHTML = `<div class="zlab">${z.name}<span class="zmini">${riskPct}%</span></div>`;
 
       btn.addEventListener('click', ()=>{
-        if(view==='cvr') return; // cVR selects by shoot
+        if(view==='cvr') return;
         pickZone(z.id);
       }, { passive:true });
 
@@ -1126,7 +1145,6 @@ export function boot(){
       }
     }, 1000);
 
-    // ensure user can scroll to create area immediately on mobile
     try{
       createBox.scrollIntoView({ behavior:'smooth', block:'nearest' });
     }catch{}
@@ -1398,15 +1416,19 @@ export function boot(){
     if(r) pickReason(r);
   });
 
+  // ✅ PATCH: confirm uses ensureEndSummary()
   btnEvalConfirm?.addEventListener('click', ()=>{
     if(btnEvalConfirm.disabled) return;
+
+    const s = ensureEndSummary();
+
     const picked = evalState.pickedZone;
     const reason = evalState.pickedReason;
     const top = evalState.topRiskZone;
     const match = (picked && top && picked===top);
 
     const pickedName = (ZONES.find(z=>z.id===picked)?.name) || picked || '';
-    endSummary.evaluate = {
+    s.evaluate = {
       pickedZone: picked,
       pickedName,
       pickedReason: reason,
@@ -1415,14 +1437,16 @@ export function boot(){
       view,
       seed
     };
-    if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
 
+    if(endJson) endJson.textContent = JSON.stringify(s, null, 2);
     confirmEvaluate();
   }, { passive:true });
 
+  // ✅ PATCH: skip uses ensureEndSummary()
   btnEvalSkip?.addEventListener('click', ()=>{
-    endSummary.evaluate = { skipped:true, view, seed };
-    if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
+    const s = ensureEndSummary();
+    s.evaluate = { skipped:true, view, seed };
+    if(endJson) endJson.textContent = JSON.stringify(s, null, 2);
     skipEvaluate();
   }, { passive:true });
 
