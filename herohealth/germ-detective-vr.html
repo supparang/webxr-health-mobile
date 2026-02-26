@@ -2,26 +2,414 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Redirecting… Germ Detective</title>
-  <meta http-equiv="refresh" content="0; url=/herohealth/germ-detective.html" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Germ Detective (Launcher)</title>
+  <style>
+    :root{
+      --bg:#070b16; --panel:rgba(2,6,23,.78); --line:rgba(148,163,184,.18);
+      --txt:#e5e7eb; --mut:#94a3b8; --cyan:#22d3ee; --good:#10b981; --warn:#f59e0b;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; background:var(--bg); color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; }
+    .wrap{ max-width:1000px; margin:0 auto; padding:20px 14px 40px; }
+    .hero{
+      border:1px solid var(--line); border-radius:16px; background:var(--panel);
+      padding:16px; box-shadow:0 20px 50px rgba(0,0,0,.25);
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(34,211,238,.06), transparent 40%),
+        radial-gradient(circle at 85% 15%, rgba(16,185,129,.06), transparent 40%);
+    }
+    h1{ margin:0 0 6px; font-size:22px; }
+    .mut{ color:var(--mut); font-size:13px; }
+    .grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:12px; margin-top:12px; }
+    .card{
+      border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.02);
+      padding:12px;
+    }
+    .card h3{ margin:0 0 10px; font-size:15px; }
+    .fgrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .field{ display:grid; gap:6px; }
+    .field label{ font-size:12px; color:var(--mut); font-weight:700; }
+    .field input,.field select{
+      width:100%;
+      border-radius:10px; border:1px solid var(--line);
+      background:rgba(255,255,255,.02); color:var(--txt);
+      padding:9px 10px; font:inherit;
+    }
+    .field .hint{ font-size:11px; color:var(--mut); }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      appearance:none; border:1px solid var(--line); border-radius:10px;
+      background:rgba(255,255,255,.03); color:var(--txt); padding:10px 12px;
+      font-weight:800; cursor:pointer;
+    }
+    .btn.primary{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.10); }
+    .btn.good{ border-color:rgba(16,185,129,.28); background:rgba(16,185,129,.10); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.10); }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line);
+      border-radius:999px; padding:6px 10px; font-size:12px; background:rgba(255,255,255,.02)
+    }
+    .scene-preview{
+      min-height:220px; border:1px solid var(--line); border-radius:12px; position:relative;
+      background:rgba(255,255,255,.02); overflow:hidden;
+    }
+    .scene-preview .dot{
+      position:absolute; transform:translate(-50%,-50%);
+      border-radius:999px; padding:4px 8px; font-size:11px; font-weight:800;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.75);
+      white-space:nowrap;
+    }
+    .kv{ display:grid; grid-template-columns:120px 1fr; gap:6px 10px; font-size:13px; }
+    .kv .k{ color:var(--mut); }
+    .urlbox{
+      margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:10px;
+      background:rgba(255,255,255,.02); font-size:12px; word-break:break-all;
+    }
+    .footerActions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .tag{ font-size:11px; border:1px solid var(--line); border-radius:999px; padding:2px 8px; color:var(--mut); }
+    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } .fgrid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <h1>🕵️ Germ Detective — Launcher</h1>
+          <div class="mut">เลือกโหมดเล่น / วิจัย แล้วส่งพารามิเตอร์เข้าเกมจริง (PC, Mobile, Cardboard VR)</div>
+        </div>
+        <div class="row">
+          <span class="tag">Root: /herohealth/germ-detective.html</span>
+          <span class="tag">Run: /herohealth/germ-detective/germ-detective.html</span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>⚙️ Game Setup</h3>
+          <div class="fgrid">
+            <div class="field">
+              <label for="scene">Scene</label>
+              <select id="scene">
+                <option value="classroom">Classroom (ห้องเรียน)</option>
+                <option value="home">Home (บ้าน)</option>
+                <option value="canteen">Canteen (โรงอาหาร)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="view">View / Device</label>
+              <select id="view">
+                <option value="pc">PC</option>
+                <option value="mobile">Mobile</option>
+                <option value="cvr">Cardboard VR (cVR)</option>
+                <option value="vr">VR</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="run">Run Mode</label>
+              <select id="run">
+                <option value="play">play</option>
+                <option value="research">research (deterministic)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="diff">Difficulty</label>
+              <select id="diff">
+                <option value="easy">easy</option>
+                <option value="normal">normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="time">Time (sec)</label>
+              <input id="time" type="number" min="20" max="600" step="5" value="80" />
+            </div>
+
+            <div class="field">
+              <label for="pid">PID</label>
+              <input id="pid" type="text" value="anon" />
+              <div class="hint">สำหรับโหมดวิจัย ใช้ participant id เพื่อ deterministic replay</div>
+            </div>
+
+            <div class="field">
+              <label for="seed">Seed</label>
+              <input id="seed" type="text" />
+              <div class="hint">play = เปลี่ยนใหม่ได้ทุกครั้ง, research = ใช้ร่วมกับ pid/scene/day</div>
+            </div>
+
+            <div class="field">
+              <label for="hub">Hub URL (Back)</label>
+              <input id="hub" type="text" />
+              <div class="hint">ลิงก์กลับ HUB หลังจบเกม</div>
+            </div>
+          </div>
+
+          <div class="footerActions">
+            <button class="btn" id="btnRandomSeed" type="button">🎲 Random Seed</button>
+            <button class="btn warn" id="btnResearchPreset" type="button">🧪 Preset Research</button>
+            <button class="btn" id="btnSavePreset" type="button">💾 Save Preset</button>
+            <button class="btn" id="btnResetPreset" type="button">♻️ Reset</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🗺️ Scene Preview / Summary</h3>
+          <div class="scene-preview" id="scenePreview"></div>
+
+          <div style="margin-top:10px" class="kv">
+            <div class="k">Run URL</div>
+            <div id="runPathText">/herohealth/germ-detective/germ-detective.html</div>
+
+            <div class="k">Replay Mode</div>
+            <div id="detInfo">play mode</div>
+
+            <div class="k">Back HUB</div>
+            <div id="hubText">-</div>
+          </div>
+
+          <div class="urlbox" id="urlPreview">-</div>
+
+          <div class="footerActions">
+            <button class="btn primary" id="btnPlay" type="button">▶️ เข้าเกม</button>
+            <button class="btn good" id="btnOpenNewTab" type="button">🪟 เปิดแท็บใหม่</button>
+            <button class="btn" id="btnCopyUrl" type="button">📋 คัดลอก URL</button>
+          </div>
+
+          <div class="mut" style="margin-top:8px">
+            สำหรับ Cardboard/cVR: ระบบจะใช้ <code>vr-ui.js</code> ยิงจาก crosshair ผ่าน event <code>hha:shoot</code>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <script>
     (function(){
       'use strict';
-      try{
-        const q = location.search || '';
-        // redirect ไป launcher โดยเก็บ query เดิมทั้งหมด
-        location.replace('/herohealth/germ-detective.html' + q);
-      }catch(e){
-        location.href = '/herohealth/germ-detective.html' + (location.search || '');
+
+      const $ = (s, el=document) => el.querySelector(s);
+      const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
+
+      const RUN_PATH = '/herohealth/germ-detective/germ-detective.html';
+      const PRESET_KEY = 'GD_LAUNCHER_PRESET_V1';
+
+      const SCENE_SPOTS = {
+        classroom: [
+          { n:'ลูกบิด', x:8, y:20 }, { n:'โต๊ะ', x:35, y:36 }, { n:'สวิตช์ไฟ', x:16, y:56 }, { n:'ก๊อกน้ำ', x:72, y:22 }, { n:'ราวจับ', x:74, y:58 }
+        ],
+        home: [
+          { n:'รีโมต', x:14, y:28 }, { n:'ลูกบิด', x:78, y:18 }, { n:'โต๊ะกินข้าว', x:48, y:54 }, { n:'ก๊อกน้ำ', x:73, y:62 }, { n:'มือถือ', x:30, y:18 }, { n:'ฟองน้ำ', x:58, y:72 }
+        ],
+        canteen: [
+          { n:'ถาด', x:16, y:28 }, { n:'ช้อน', x:34, y:20 }, { n:'โต๊ะ', x:54, y:42 }, { n:'ก๊อกน้ำ', x:78, y:24 }, { n:'ราวจับ', x:80, y:58 }, { n:'เขียง', x:28, y:70 }
+        ]
+      };
+
+      function nowSeed(){ return String(Date.now()); }
+
+      function defaultHub(){
+        try{
+          // ถ้าหน้านี้ถูกเปิดจาก hub ด้วย query hub=... ให้ใช้ค่าตรงนั้น
+          const qHub = new URL(location.href).searchParams.get('hub');
+          if(qHub) return qHub;
+        }catch(e){}
+        return '/herohealth/hub.html';
       }
+
+      function els(){
+        return {
+          scene: $('#scene'),
+          view: $('#view'),
+          run: $('#run'),
+          diff: $('#diff'),
+          time: $('#time'),
+          pid: $('#pid'),
+          seed: $('#seed'),
+          hub: $('#hub'),
+
+          preview: $('#scenePreview'),
+          urlPreview: $('#urlPreview'),
+          detInfo: $('#detInfo'),
+          hubText: $('#hubText')
+        };
+      }
+
+      function readForm(){
+        const e = els();
+        return {
+          scene: String(e.scene.value || 'classroom'),
+          view: String(e.view.value || 'pc'),
+          run: String(e.run.value || 'play'),
+          diff: String(e.diff.value || 'normal'),
+          time: clamp(e.time.value, 20, 600),
+          pid: String(e.pid.value || 'anon').trim() || 'anon',
+          seed: String(e.seed.value || '').trim() || nowSeed(),
+          hub: String(e.hub.value || '').trim() || defaultHub()
+        };
+      }
+
+      function applyForm(v){
+        const e = els();
+        if(!v) return;
+        if(v.scene) e.scene.value = v.scene;
+        if(v.view) e.view.value = v.view;
+        if(v.run) e.run.value = v.run;
+        if(v.diff) e.diff.value = v.diff;
+        if(v.time) e.time.value = v.time;
+        if(v.pid != null) e.pid.value = v.pid;
+        if(v.seed) e.seed.value = v.seed;
+        if(v.hub) e.hub.value = v.hub;
+      }
+
+      function savePreset(){
+        const v = readForm();
+        localStorage.setItem(PRESET_KEY, JSON.stringify(v));
+      }
+
+      function loadPreset(){
+        try{
+          const raw = localStorage.getItem(PRESET_KEY);
+          if(!raw) return null;
+          return JSON.parse(raw);
+        }catch(e){ return null; }
+      }
+
+      function resetPreset(){
+        localStorage.removeItem(PRESET_KEY);
+        applyForm({
+          scene:'classroom', view:'pc', run:'play', diff:'normal', time:80, pid:'anon', seed:nowSeed(), hub:defaultHub()
+        });
+        renderAll();
+      }
+
+      function buildRunURL(){
+        const v = readForm();
+        const u = new URL(RUN_PATH, location.origin);
+        u.searchParams.set('run', v.run);
+        u.searchParams.set('diff', v.diff);
+        u.searchParams.set('time', String(v.time));
+        u.searchParams.set('seed', v.seed);
+        u.searchParams.set('pid', v.pid);
+        u.searchParams.set('scene', v.scene);
+        u.searchParams.set('view', v.view);
+        u.searchParams.set('hub', v.hub);
+        return u;
+      }
+
+      function renderScenePreview(scene){
+        const host = $('#scenePreview');
+        host.innerHTML = '';
+        const spots = SCENE_SPOTS[scene] || SCENE_SPOTS.classroom;
+        spots.forEach(s=>{
+          const d = document.createElement('div');
+          d.className = 'dot';
+          d.style.left = s.x + '%';
+          d.style.top = s.y + '%';
+          d.textContent = s.n;
+          host.appendChild(d);
+        });
+      }
+
+      function renderAll(){
+        const v = readForm();
+        const u = buildRunURL();
+
+        renderScenePreview(v.scene);
+
+        $('#runPathText').textContent = RUN_PATH;
+        $('#urlPreview').textContent = u.href;
+        $('#hubText').textContent = v.hub;
+
+        $('#detInfo').textContent = (v.run === 'research')
+          ? `research (deterministic by pid+scene+day+seed) → pid=${v.pid}, scene=${v.scene}, seed=${v.seed}`
+          : `play mode (non-deterministic AI timing / events)`;
+      }
+
+      async function copyText(text){
+        try{
+          await navigator.clipboard.writeText(text);
+          return true;
+        }catch(e){
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try{ document.execCommand('copy'); ta.remove(); return true; }
+          catch(err){ ta.remove(); return false; }
+        }
+      }
+
+      function bind(){
+        ['scene','view','run','diff','time','pid','seed','hub'].forEach(id=>{
+          $('#' + id).addEventListener('input', renderAll);
+          $('#' + id).addEventListener('change', renderAll);
+        });
+
+        $('#btnRandomSeed').addEventListener('click', ()=>{
+          $('#seed').value = nowSeed();
+          renderAll();
+        });
+
+        $('#btnResearchPreset').addEventListener('click', ()=>{
+          $('#run').value = 'research';
+          $('#view').value = 'pc';
+          $('#diff').value = 'normal';
+          if(!$('#pid').value.trim()) $('#pid').value = 'anon';
+          if(!$('#seed').value.trim()) $('#seed').value = nowSeed();
+          renderAll();
+        });
+
+        $('#btnSavePreset').addEventListener('click', ()=>{
+          savePreset();
+          alert('บันทึก preset แล้ว');
+        });
+
+        $('#btnResetPreset').addEventListener('click', resetPreset);
+
+        $('#btnPlay').addEventListener('click', ()=>{
+          savePreset();
+          location.href = buildRunURL().href;
+        });
+
+        $('#btnOpenNewTab').addEventListener('click', ()=>{
+          savePreset();
+          window.open(buildRunURL().href, '_blank', 'noopener');
+        });
+
+        $('#btnCopyUrl').addEventListener('click', async ()=>{
+          const ok = await copyText(buildRunURL().href);
+          alert(ok ? 'คัดลอก URL แล้ว' : 'คัดลอกไม่สำเร็จ');
+        });
+      }
+
+      function init(){
+        const preset = loadPreset();
+        applyForm(preset || {
+          scene:'classroom', view:'pc', run:'play', diff:'normal', time:80, pid:'anon', seed:nowSeed(), hub:defaultHub()
+        });
+
+        // override from query if provided (useful when hub passes defaults)
+        try{
+          const u = new URL(location.href);
+          ['scene','view','run','diff','time','pid','seed','hub'].forEach(k=>{
+            const v = u.searchParams.get(k);
+            if(v != null && $('#'+k)) $('#'+k).value = v;
+          });
+        }catch(e){}
+
+        bind();
+        renderAll();
+      }
+
+      init();
     })();
-  </script>
-</head>
-<body>
-  กำลังพาไปหน้าใหม่… <a id="go" href="/herohealth/germ-detective.html">ไปต่อ</a>
-  <script>
-    document.getElementById('go').href = '/herohealth/germ-detective.html' + (location.search || '');
   </script>
 </body>
 </html>
