@@ -182,6 +182,24 @@ Requires:
     .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; }
     .coachWrap .sub{ color:var(--muted); font-size:12px; font-weight:900; }
 
+    /* ✅ Coach Toast (mobile): float above bottom, auto-hide animation */
+    .coachToast{
+      position:absolute;
+      left: 10px; right: 10px;
+      bottom: calc(10px + var(--sab) + 84px);
+      display:none;
+      z-index: 40;
+      pointer-events:none;
+      transform: translateY(10px);
+      opacity: 0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coachToast.show{
+      display:block;
+      opacity: 1;
+      transform: translateY(0px);
+    }
+
     /* End screen */
     #endOverlay{
       position:absolute; inset:0;
@@ -223,11 +241,6 @@ Requires:
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     .endBtns{ padding: 12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-
-    /* leave space for vr-ui buttons in cVR */
-    body[data-view="cvr"] .hudBottom{
-      bottom: calc(64px + var(--sab));
-    }
 
     /* cVR strict: disable direct tap on targets => only crosshair shoot */
     body[data-view="cvr"][data-cvr-strict="1"] .tgt{
@@ -385,6 +398,13 @@ Requires:
     body[data-view="cvr"]{
       --hudBottomPad: calc(92px + var(--sab));
     }
+
+    /* ✅ on mobile: hide persistent bottom coach box, use toast instead */
+    body[data-view="mobile"] .hudBottom{ display:none; }
+    body[data-view="pc"] .coachToast{ display:none !important; }
+    body[data-view="cvr"] .coachToast{
+      bottom: calc(10px + var(--sab) + 112px);
+    }
   </style>
 </head>
 
@@ -455,16 +475,26 @@ Requires:
       </div>
     </div>
 
-    <!-- HUD BOTTOM -->
+    <!-- HUD BOTTOM (PC/cVR) -->
     <div class="hud hudBottom">
-      <div class="coachWrap">
+      <div class="coachWrap" id="coachBox">
         <div class="face" id="coachFace">🙂</div>
         <div>
           <div class="txt" id="coachTxt">เริ่มได้เลย!</div>
           <div class="sub" id="coachSub">แตะ/ยิงเป้าให้ถูกหมู่</div>
         </div>
       </div>
-      <!-- ✅ removed VIEW/SEED box from bottom -->
+    </div>
+
+    <!-- ✅ Coach Toast (Mobile/cVR optional) -->
+    <div class="coachToast" id="coachToast">
+      <div class="coachWrap">
+        <div class="face" id="toastFace">🙂</div>
+        <div>
+          <div class="txt" id="toastTxt">เริ่มได้เลย!</div>
+          <div class="sub" id="toastSub">แตะ/ยิงเป้าให้ถูกหมู่</div>
+        </div>
+      </div>
     </div>
 
     <!-- Practice overlay -->
@@ -611,6 +641,11 @@ Requires:
   const coachTxt  = $('#coachTxt');
   const coachSub  = $('#coachSub');
 
+  const coachToast = $('#coachToast');
+  const toastFace = $('#toastFace');
+  const toastTxt  = $('#toastTxt');
+  const toastSub  = $('#toastSub');
+
   const buffPill = $('#buffPill');
   const buffText = $('#buffText');
 
@@ -705,15 +740,39 @@ Requires:
 
   let lastSummary = null;
 
-  function setCoach(text, mood){
-    coachTxt.textContent = text || '';
-    coachSub.textContent = mood ? String(mood) : 'coach';
-    const face =
+  function faceFromMood(mood){
+    return (
       mood === 'happy' ? '😄' :
       mood === 'fever' ? '🔥' :
       mood === 'sad'   ? '😵' :
-      mood === 'neutral' ? '🙂' : '🙂';
-    coachFace.textContent = face;
+      mood === 'neutral' ? '🙂' : '🙂'
+    );
+  }
+
+  let toastTimer = null;
+  function showToast(text, mood){
+    if(!coachToast) return;
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+
+    toastTxt.textContent = text || '';
+    toastSub.textContent = mood ? String(mood) : 'coach';
+    toastFace.textContent = faceFromMood(mood);
+
+    coachToast.classList.add('show');
+    toastTimer = setTimeout(()=>{
+      coachToast.classList.remove('show');
+    }, 2600);
+  }
+
+  function setCoach(text, mood){
+    coachTxt.textContent = text || '';
+    coachSub.textContent = mood ? String(mood) : 'coach';
+    coachFace.textContent = faceFromMood(mood);
+
+    // ✅ Mobile uses toast (not persistent HUD)
+    if(VIEW === 'mobile'){
+      showToast(text, mood || 'neutral');
+    }
   }
 
   window.addEventListener('hha:time', (ev)=>{
@@ -856,12 +915,19 @@ Requires:
       }
     }catch(_){}
   }
+
+  // ✅ guard: don't bind multiple leave listeners on restart
+  let flushBound = false;
   function bindFlush(){
+    if(flushBound) return;
+    flushBound = true;
+
     try{
       if(window.GroupsVR && typeof window.GroupsVR.bindFlushOnLeave === 'function'){
         window.GroupsVR.bindFlushOnLeave(()=>lastSummary || null);
       }
     }catch(_){}
+
     window.addEventListener('pagehide', ()=>flushAll(), { passive:true });
     window.addEventListener('beforeunload', ()=>flushAll(), { passive:true });
     document.addEventListener('visibilitychange', ()=>{
