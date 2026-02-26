@@ -1,63 +1,50 @@
 // === /herohealth/plate/plate-create.js ===
-// HeroHealth Plate Create (Constraint Plate) — v1.0
-// ✅ Bloom Create: สร้างจานใหม่ภายใต้ข้อจำกัด
-// ✅ Uses shared scoring core: /herohealth/plate/plate-reasoning-score.js
-// ✅ Uses shared scenarios + food catalog: /herohealth/plate/plate-reasoning-scenarios.js
-// ✅ Deterministic by seed (study/research), random in play
-// ✅ Emits HHA events: start / score / judge / end / labels / features_1s
-// ✅ UI expects IDs from plate-create.html (see comments below)
+// Plate Create / Constraint Plate — SAFE ENGINE (PRODUCTION+) — v1.0
+// HHA Standard events + deterministic research + optional scoring core + pause bridge
 //
-// Recommended HTML IDs:
-// - crScenarioTitle, crScenarioMeta, crRoundPill
-// - crFoodPool (food choices pool)
-// - crPlateSlots (selected items area)
-// - crReasonChips (reason chips container)
-// - crExplain (textarea)
-// - crSubmit, crNext, crRestart, crBackHub
-// - crClearPlate, crShufflePool (optional)
-// - crScore, crCorrect, crRound, crTimer
-// - crFeedback, crSummary
-// - crDebug (optional)
-// - crPaused (optional)
-//
-// Exports:
-// - boot({ mount, cfg })
+// Expected UI ids from plate-create.html:
+// crRound, crRoundPill, crTimer, crScore, crCorrect
+// crScenarioTitle, crScenarioMeta
+// crFoodPool, crPlateSlots, crReasonChips, crExplain
+// crFeedback, crSummary, crDebug
+// buttons: crSubmit, crNext, crShufflePool, crClearPlate, crRestart, crBackHub
 
 'use strict';
 
-import {
-  FOOD_MAP,
-  getScenarioById,
-  listScenarioIds,
-  computePlateStats,
-  summarizeConstraintsTH,
-  foodChipLabelTH
-} from './plate-reasoning-scenarios.js';
-
-import {
-  scoreCreatePlate,
-  summarizeScoreTH
-} from './plate-reasoning-score.js';
-
 const ROOT = window;
+const DOC  = document;
 
-// --------------------------------------------------
-// Utils
-// --------------------------------------------------
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-function q(id){ return document.getElementById(id); }
-function setText(id, v){ const el=q(id); if(el) el.textContent = String(v ?? ''); }
-function show(el, on=true){ if(el) el.style.display = on ? '' : 'none'; }
-function emit(name, detail){ try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){} }
-function esc(s){
-  return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// ---------------- Soft dependency: scoring core ----------------
+// If you later add /herohealth/plate/plate-reasoning-score.js with export scorePlateCreate(payload)
+// this engine will auto-use it.
+let SCORE_CORE = null;
+try{
+  import('./plate-reasoning-score.js')
+    .then(mod => { SCORE_CORE = mod; })
+    .catch(()=>{});
+}catch(e){}
+
+// ---------------- Utilities ----------------
+const clamp = (v,a,b)=>{ v = Number(v)||0; return v<a?a:(v>b?b:v); };
+const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
+const qs = (id)=> DOC.getElementById(id);
+
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
 }
-function uniq(arr){ return [...new Set((Array.isArray(arr)?arr:[]).map(String))]; }
-function round1(v){ return Math.round((Number(v)||0)*10)/10; }
-function round0(v){ return Math.round(Number(v)||0); }
+function setText(id, v){
+  const el = qs(id);
+  if(el) el.textContent = String(v);
+}
+function saveJson(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{}
+}
+function loadJson(key, fallback){
+  try{
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
+  }catch{ return fallback; }
+}
 
 function seededRng(seed){
   let t = (Number(seed)||Date.now()) >>> 0;
@@ -68,95 +55,347 @@ function seededRng(seed){
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
-function pickOne(arr, rng=Math.random){
-  const A = Array.isArray(arr) ? arr : [];
-  if(!A.length) return null;
-  return A[Math.floor(rng()*A.length)];
-}
-function shuffle(arr, rng=Math.random){
-  const a = [...(Array.isArray(arr)?arr:[])];
-  for(let i=a.length-1;i>0;i--){
+function shuffleInPlace(arr, rng=Math.random){
+  for(let i=arr.length-1;i>0;i--){
     const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
+    [arr[i],arr[j]] = [arr[j],arr[i]];
   }
-  return a;
+  return arr;
+}
+function uniq(arr){ return [...new Set(arr)]; }
+function pick(arr, rng=Math.random){
+  if(!Array.isArray(arr) || !arr.length) return undefined;
+  return arr[Math.floor(rng()*arr.length)];
 }
 
-function parseQS(){
-  const U = new URL(location.href);
-  const runRaw = String(U.searchParams.get('run') || 'play').toLowerCase();
-  const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
-  const time = clamp(U.searchParams.get('time') || 240, 30, 3600);
-  const rounds = clamp(U.searchParams.get('rounds') || 4, 1, 20);
-  const poolSize = clamp(U.searchParams.get('pool') || 10, 6, 24);
-  const maxPick = clamp(U.searchParams.get('maxpick') || 5, 3, 8);
-  const seedQ = U.searchParams.get('seed');
-  const scenario = U.searchParams.get('scenario') || '';
-  const isStudy = (runRaw === 'study' || runRaw === 'research');
-  const seed = isStudy
-    ? (Number(seedQ) || 97531)
-    : (seedQ != null ? (Number(seedQ)||97531) : ((Date.now() ^ (Math.random()*1e9))|0));
-
-  return {
-    runMode: isStudy ? runRaw : 'play',
-    diff: ['easy','normal','hard'].includes(diff) ? diff : 'normal',
-    durationPlannedSec: time,
-    roundsPlanned: rounds,
-    poolSize,
-    maxPick,
-    seed,
-    scenario
-  };
-}
-function normalizeCfg(cfg){
-  const d = parseQS();
-  const x = Object.assign({}, d, (cfg && typeof cfg==='object') ? cfg : {});
-  x.runMode = String(x.runMode || x.run || d.runMode || 'play').toLowerCase();
-  if(x.runMode !== 'study' && x.runMode !== 'research') x.runMode = 'play';
-
-  x.diff = String(x.diff || d.diff || 'normal').toLowerCase();
-  if(!['easy','normal','hard'].includes(x.diff)) x.diff = 'normal';
-
-  x.durationPlannedSec = clamp(x.durationPlannedSec ?? x.time ?? d.durationPlannedSec ?? 240, 30, 3600);
-  x.roundsPlanned = clamp(x.roundsPlanned ?? x.rounds ?? d.roundsPlanned ?? 4, 1, 20);
-  x.poolSize = clamp(x.poolSize ?? d.poolSize ?? 10, 6, 24);
-  x.maxPick = clamp(x.maxPick ?? d.maxPick ?? 5, 3, 8);
-
-  const isStudy = (x.runMode === 'study' || x.runMode === 'research');
-  x.seed = isStudy ? (Number(x.seed)||97531) : (Number(x.seed)||((Date.now() ^ (Math.random()*1e9))|0));
-  x.scenario = String(x.scenario || d.scenario || '');
-
-  return x;
+async function flushHardened(reason){
+  try{
+    const L = ROOT.HHA_LOGGER || ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || null;
+    if(L && typeof L.flush === 'function'){
+      await Promise.race([ Promise.resolve(L.flush(reason||'manual')), new Promise(res=>setTimeout(res,650)) ]);
+    }else if(L && typeof L.flushNow === 'function'){
+      await Promise.race([ Promise.resolve(L.flushNow({reason})), new Promise(res=>setTimeout(res,650)) ]);
+    }
+  }catch{}
 }
 
-// --------------------------------------------------
-// Reason chips (fallback)
-// --------------------------------------------------
-const REASON_CHIPS_FALLBACK = [
-  { id:'veg_enough', labelTH:'มีผักเพียงพอ', polarity:'good' },
-  { id:'protein_ok', labelTH:'โปรตีนเหมาะสม', polarity:'good' },
-  { id:'carb_ok', labelTH:'คาร์บพอเหมาะ', polarity:'good' },
-  { id:'budget_fit', labelTH:'อยู่ในงบ', polarity:'good' },
-  { id:'time_fit', labelTH:'เตรียมทันเวลา', polarity:'good' },
-  { id:'allergy_safe', labelTH:'ปลอดภัยต่อการแพ้', polarity:'good' },
-  { id:'preworkout_fit', labelTH:'เหมาะก่อนออกกำลัง', polarity:'good' },
-  { id:'postworkout_fit', labelTH:'เหมาะหลังออกกำลัง', polarity:'good' },
-  { id:'school_morning_fit', labelTH:'เหมาะมื้อเช้าไปโรงเรียน', polarity:'good' },
-  { id:'home_ingredient_fit', labelTH:'ใช้ของที่บ้านได้คุ้ม', polarity:'good' },
+// ---------------- Storage keys ----------------
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
-  { id:'veg_too_low', labelTH:'ผักน้อยเกินไป', polarity:'bad' },
-  { id:'protein_too_low', labelTH:'โปรตีนน้อยไป', polarity:'bad' },
-  { id:'carb_too_high', labelTH:'แป้งมากเกินไป', polarity:'bad' },
-  { id:'sugar_high', labelTH:'น้ำตาลสูง', polarity:'bad' },
-  { id:'fried_high', labelTH:'ของทอด/ไขมันสูง', polarity:'bad' },
-  { id:'budget_over', labelTH:'เกินงบ', polarity:'bad' },
-  { id:'time_over', labelTH:'ใช้เวลาเตรียมนานเกิน', polarity:'bad' },
-  { id:'allergy_violated', labelTH:'มีอาหารที่แพ้', polarity:'bad' }
+// ---------------- Thai 5 food groups (fixed mapping) ----------------
+const GROUPS = {
+  1: { id:1, nameTH:'โปรตีน', short:'โปรตีน', emoji:'🍗' },
+  2: { id:2, nameTH:'คาร์โบไฮเดรต', short:'คาร์บ', emoji:'🍚' },
+  3: { id:3, nameTH:'ผัก', short:'ผัก', emoji:'🥬' },
+  4: { id:4, nameTH:'ผลไม้', short:'ผลไม้', emoji:'🍎' },
+  5: { id:5, nameTH:'ไขมัน', short:'ไขมัน', emoji:'🥜' }
+};
+
+// ---------------- Food catalog (toy set; safe + expandable) ----------------
+const FOODS = [
+  // G1 Protein
+  { id:'egg', nameTH:'ไข่ต้ม', g:1, budget:'low', prepMin:5, dairy:false, highProtein:true, preWorkout:true, processed:false },
+  { id:'chicken', nameTH:'อกไก่ย่าง', g:1, budget:'mid', prepMin:12, dairy:false, highProtein:true, preWorkout:true, processed:false },
+  { id:'tofu', nameTH:'เต้าหู้', g:1, budget:'low', prepMin:6, dairy:false, highProtein:true, preWorkout:true, processed:false, vegetarian:true },
+  { id:'milk', nameTH:'นมจืด', g:1, budget:'mid', prepMin:1, dairy:true, highProtein:false, preWorkout:true, processed:false },
+  { id:'yogurt', nameTH:'โยเกิร์ต', g:1, budget:'mid', prepMin:1, dairy:true, highProtein:false, preWorkout:true, processed:false },
+
+  // G2 Carb
+  { id:'rice', nameTH:'ข้าวสวย', g:2, budget:'low', prepMin:3, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'brownrice', nameTH:'ข้าวกล้อง', g:2, budget:'mid', prepMin:4, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'bread', nameTH:'ขนมปังโฮลวีต', g:2, budget:'low', prepMin:1, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'sweetpotato', nameTH:'มันหวาน', g:2, budget:'low', prepMin:8, dairy:false, highProtein:false, preWorkout:true, processed:false },
+
+  // G3 Veg
+  { id:'kale', nameTH:'คะน้า', g:3, budget:'low', prepMin:6, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'cucumber', nameTH:'แตงกวา', g:3, budget:'low', prepMin:2, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'broccoli', nameTH:'บรอกโคลี', g:3, budget:'mid', prepMin:7, dairy:false, highProtein:false, preWorkout:true, processed:false },
+
+  // G4 Fruit
+  { id:'banana', nameTH:'กล้วย', g:4, budget:'low', prepMin:1, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'papaya', nameTH:'มะละกอ', g:4, budget:'low', prepMin:2, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'apple', nameTH:'แอปเปิล', g:4, budget:'mid', prepMin:1, dairy:false, highProtein:false, preWorkout:true, processed:false },
+
+  // G5 Fat
+  { id:'peanut', nameTH:'ถั่วลิสง', g:5, budget:'low', prepMin:1, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'sesame', nameTH:'งา', g:5, budget:'low', prepMin:1, dairy:false, highProtein:false, preWorkout:true, processed:false },
+  { id:'avocado', nameTH:'อะโวคาโด', g:5, budget:'high', prepMin:2, dairy:false, highProtein:false, preWorkout:true, processed:false },
+
+  // distractors (outside 5 groups / processed)
+  { id:'soda', nameTH:'น้ำอัดลม', g:0, budget:'mid', prepMin:1, dairy:false, highProtein:false, preWorkout:false, processed:true },
+  { id:'fries', nameTH:'เฟรนช์ฟรายส์', g:0, budget:'mid', prepMin:8, dairy:false, highProtein:false, preWorkout:false, processed:true },
+  { id:'cake', nameTH:'เค้ก', g:0, budget:'mid', prepMin:2, dairy:true, highProtein:false, preWorkout:false, processed:true },
 ];
 
-// --------------------------------------------------
-// State
-// --------------------------------------------------
+// ---------------- Reason chips ----------------
+const REASON_CHIPS = [
+  { id:'bal_5groups', text:'พยายามให้ครบหลายหมู่', tags:['balance'] },
+  { id:'veg_first', text:'เพิ่มผักเพราะมักขาด', tags:['balance','veg'] },
+  { id:'protein_satiety', text:'เลือกโปรตีนเพื่ออิ่มนาน', tags:['protein'] },
+  { id:'quick_prep', text:'เลือกของทำเร็วเพราะเวลาน้อย', tags:['time'] },
+  { id:'budget_limit', text:'เลือกของประหยัดตามงบ', tags:['budget'] },
+  { id:'avoid_dairy', text:'หลีกเลี่ยงนม/ผลิตภัณฑ์นม', tags:['allergy','dairy'] },
+  { id:'preworkout_energy', text:'เน้นพลังงานก่อนออกกำลัง', tags:['preworkout'] },
+  { id:'reduce_processed', text:'ลดของหวาน/ทอด/แปรรูป', tags:['processed'] },
+  { id:'just_tasty', text:'เลือกเพราะอร่อยอย่างเดียว', tags:['weak_reason'] },
+];
+
+// ---------------- Scenarios (Create / Constraint Plate) ----------------
+const SCENARIOS = [
+  {
+    id:'quick-budget',
+    title:'เช้าเร่งรีบ งบจำกัด',
+    meta:'เวลา 5 นาที • งบจำกัด • ต้องอิ่มพอเรียน',
+    maxPick:5,
+    poolSize:10,
+    constraints:{
+      timeMaxMin:5,
+      budgetMax:'low-mid',
+      requireGroupsMin:3,
+      noDairy:false,
+      highProtein:false,
+      preWorkout:false,
+      avoidProcessed:true
+    },
+    preferReasonTags:['time','budget','balance']
+  },
+  {
+    id:'high-protein',
+    title:'ต้องการโปรตีนสูง',
+    meta:'อยากได้โปรตีนสูง • ยังต้องสมดุล',
+    maxPick:5,
+    poolSize:11,
+    constraints:{
+      timeMaxMin:null,
+      budgetMax:null,
+      requireGroupsMin:3,
+      noDairy:false,
+      highProtein:true,
+      preWorkout:false,
+      avoidProcessed:true
+    },
+    preferReasonTags:['protein','balance']
+  },
+  {
+    id:'no-dairy',
+    title:'แพ้นม (Dairy-free)',
+    meta:'หลีกเลี่ยงนม/โยเกิร์ต • จัดจานให้สมดุล',
+    maxPick:5,
+    poolSize:10,
+    constraints:{
+      timeMaxMin:null,
+      budgetMax:null,
+      requireGroupsMin:3,
+      noDairy:true,
+      highProtein:false,
+      preWorkout:false,
+      avoidProcessed:true
+    },
+    preferReasonTags:['allergy','balance']
+  },
+  {
+    id:'preworkout',
+    title:'มื้อก่อนออกกำลังกาย',
+    meta:'พลังงานพอดี • ย่อยง่าย • ไม่หนักเกินไป',
+    maxPick:5,
+    poolSize:10,
+    constraints:{
+      timeMaxMin:null,
+      budgetMax:null,
+      requireGroupsMin:3,
+      noDairy:false,
+      highProtein:false,
+      preWorkout:true,
+      avoidProcessed:true
+    },
+    preferReasonTags:['preworkout','balance']
+  },
+];
+
+// ---------------- Fallback scoring (if no plate-reasoning-score.js) ----------------
+function budgetRank(b){
+  if(b === 'low') return 1;
+  if(b === 'mid') return 2;
+  if(b === 'high') return 3;
+  return 2;
+}
+function evaluateBalance(selected){
+  const gCount = {1:0,2:0,3:0,4:0,5:0,0:0};
+  for(const f of selected){
+    const g = Number(f.g)||0;
+    if(gCount[g] == null) gCount[g] = 0;
+    gCount[g]++;
+  }
+  const distinct = [1,2,3,4,5].filter(g=>gCount[g]>0).length;
+  const maxOne = Math.max(...[1,2,3,4,5].map(g=>gCount[g])) || 0;
+  let score = distinct / 5;
+  if(maxOne >= 3) score -= 0.15;
+  if(maxOne >= 4) score -= 0.15;
+  score -= Math.min(0.3, (gCount[0]||0) * 0.12);
+  return { score: clamp(score,0,1), distinct, gCount };
+}
+function evaluateConstraints(selected, scenario){
+  const c = scenario?.constraints || {};
+  let score = 1;
+  let pass = true;
+  const issues = [];
+  const positives = [];
+
+  if(c.requireGroupsMin != null){
+    const distinct = uniq(selected.map(f=>f.g).filter(g=>g>=1&&g<=5)).length;
+    if(distinct < c.requireGroupsMin){ pass=false; score -= 0.25; issues.push(`ยังไม่ถึง ${c.requireGroupsMin} หมู่`); }
+    else positives.push(`มีอย่างน้อย ${distinct} หมู่`);
+  }
+
+  if(c.noDairy){
+    const dairyHit = selected.some(f=>!!f.dairy);
+    if(dairyHit){ pass=false; score -= 0.35; issues.push('มีอาหารที่มีนม/ผลิตภัณฑ์นม'); }
+    else positives.push('หลีกเลี่ยงนมได้ถูกต้อง');
+  }
+
+  if(c.highProtein){
+    const hasP = selected.some(f=>f.g===1 || f.highProtein);
+    if(!hasP){ pass=false; score -= 0.25; issues.push('โจทย์นี้ต้องการโปรตีนสูง'); }
+    else positives.push('มีแหล่งโปรตีน');
+  }
+
+  if(c.preWorkout){
+    const bad = selected.filter(f => f.preWorkout === false || f.processed);
+    if(bad.length >= 2){ pass=false; score -= 0.25; issues.push('มีของที่ไม่เหมาะก่อนออกกำลังมากไป'); }
+    else positives.push('ค่อนข้างเหมาะก่อนออกกำลังกาย');
+  }
+
+  if(c.avoidProcessed){
+    const p = selected.filter(f=>f.processed || f.g===0).length;
+    if(p >= 2){ pass=false; score -= 0.25; issues.push('มีอาหารแปรรูป/หวาน/ทอดมากเกินไป'); }
+    else if(p === 1){ score -= 0.08; issues.push('มีอาหารแปรรูป 1 รายการ'); }
+    else positives.push('หลีกเลี่ยงอาหารแปรรูปได้ดี');
+  }
+
+  if(c.timeMaxMin != null){
+    const avgPrep = selected.length ? (selected.reduce((s,f)=>s+(Number(f.prepMin)||0),0)/selected.length) : 99;
+    if(avgPrep > Number(c.timeMaxMin)+0.2){ pass=false; score -= 0.2; issues.push(`ใช้เวลานาน (เฉลี่ย ~${avgPrep.toFixed(1)} นาที)`); }
+    else positives.push(`เตรียมได้ทันเวลา (${c.timeMaxMin} นาที)`);
+  }
+
+  if(c.budgetMax){
+    const maxAllowed = (c.budgetMax === 'low-mid') ? 2 : budgetRank(c.budgetMax);
+    const avgB = selected.length ? (selected.reduce((s,f)=>s+budgetRank(f.budget),0)/selected.length) : 99;
+    if(avgB > maxAllowed + 0.05){ pass=false; score -= 0.2; issues.push('เกินงบโดยรวม'); }
+    else positives.push('อยู่ในงบประมาณ');
+  }
+
+  score = clamp(score,0,1);
+  return { pass, score, issues, positives };
+}
+function evaluateReasoning(reasonChipIds, reasonText, scenario){
+  const chips = Array.isArray(reasonChipIds) ? reasonChipIds : [];
+  const text = String(reasonText||'').trim();
+  const wanted = scenario?.preferReasonTags || [];
+  const picked = chips.map(id => REASON_CHIPS.find(c=>c.id===id)).filter(Boolean);
+  const tags = uniq(picked.flatMap(c => c.tags||[]));
+
+  let score = 0.40;
+  const issues = [];
+  const positives = [];
+
+  if(chips.length > 0){ score += 0.18; positives.push('เลือกชิปเหตุผล'); }
+  else issues.push('ยังไม่เลือกชิปเหตุผล');
+
+  if(text.length >= 10){ score += 0.18; positives.push('มีคำอธิบาย'); }
+  else issues.push('คำอธิบายสั้นเกินไป');
+
+  const matchWanted = wanted.filter(t=>tags.includes(t)).length;
+  if(wanted.length){
+    score += Math.min(0.18, matchWanted * 0.07);
+    if(matchWanted>0) positives.push('เหตุผลสอดคล้องเงื่อนไขโจทย์');
+    else issues.push('เหตุผลยังไม่ชี้เงื่อนไขโจทย์');
+  }
+
+  if(tags.includes('weak_reason')){ score -= 0.14; issues.push('เหตุผลยังเน้นความชอบมากไป'); }
+
+  return { score: clamp(score,0,1), tags, matchWanted, issues, positives };
+}
+function fallbackScoreCreate(payload){
+  const selected = payload?.selectedFoods || [];
+  const scenario = payload?.scenario || null;
+  const bal = evaluateBalance(selected);
+  const con = evaluateConstraints(selected, scenario);
+  const rea = evaluateReasoning(payload?.selectedReasonChipIds || [], payload?.reasonText || '', scenario);
+
+  const total01 = clamp((bal.score*0.40) + (con.score*0.38) + (rea.score*0.22), 0, 1);
+  const total = Math.round(total01 * 100);
+  const pass = (total >= 65) && con.pass && (bal.distinct >= (scenario?.constraints?.requireGroupsMin || 3));
+
+  const labels = {
+    y_pass: pass?1:0,
+    y_score: total,
+    y_balance: Math.round(bal.score*100),
+    y_constraints: Math.round(con.score*100),
+    y_reasoning: Math.round(rea.score*100),
+    y_distinct_groups: bal.distinct,
+    y_processed_count: (bal.gCount?.[0]||0)
+  };
+
+  const feedback = []
+    .concat(con.positives||[])
+    .concat(con.issues||[])
+    .concat(rea.positives||[])
+    .concat(rea.issues||[])
+    .filter(Boolean);
+
+  return {
+    ok:true,
+    mode:'create',
+    totalScore: total,
+    total01,
+    pass,
+    balance: bal,
+    constraints: con,
+    reasoning: rea,
+    summaryText: `สมดุล ${Math.round(bal.score*100)}% • เงื่อนไข ${Math.round(con.score*100)}% • เหตุผล ${Math.round(rea.score*100)}%`,
+    feedbackText: feedback.slice(0,4).join(' | ') || 'ลองเพิ่มความหลากหลายและชี้เหตุผลให้ตรงโจทย์มากขึ้น',
+    labels
+  };
+}
+function scoreCreate(payload){
+  try{
+    if(SCORE_CORE && typeof SCORE_CORE.scorePlateCreate === 'function'){
+      return SCORE_CORE.scorePlateCreate(payload);
+    }
+  }catch(e){}
+  return fallbackScoreCreate(payload);
+}
+
+// ---------------- AI hooks (optional) ----------------
+function createAI(state){
+  const H = ROOT.HHA && typeof ROOT.HHA.createAIHooks === 'function'
+    ? ROOT.HHA.createAIHooks
+    : null;
+
+  const runMode = String(state.cfg?.runMode || 'play').toLowerCase();
+  const deterministic = (runMode === 'study' || runMode === 'research');
+
+  if(!H){
+    return { enabled: !deterministic, deterministic, onEvent(){}, getTip(){return null;}, reset(){} };
+  }
+
+  try{
+    const ai = H({
+      game:'plate-create',
+      runMode: state.cfg?.runMode || 'play',
+      diff: state.cfg?.diff || 'normal',
+      seed: state.cfg?.seed || 0,
+      deterministic
+    });
+    return ai || { enabled: !deterministic, deterministic, onEvent(){}, getTip(){return null;}, reset(){} };
+  }catch{
+    return { enabled: !deterministic, deterministic, onEvent(){}, getTip(){return null;}, reset(){} };
+  }
+}
+
+// ---------------- State ----------------
 const STATE = {
   booted:false,
   running:false,
@@ -165,834 +404,862 @@ const STATE = {
 
   cfg:null,
   rng:Math.random,
-  mountEl:null,
+  AI:null,
 
+  startedAt:0,
+  tStartIso:'',
   timePlannedSec:0,
   timeLeft:0,
-  roundsPlanned:0,
-  roundIndex:0,
-  roundActive:false,
+  timerHandle:null,
+  featureHandle:null,
 
+  roundIndex:0,
+  roundsPlanned:4,
+  currentScenario:null,
+  currentPool:[],
+  currentSelectedIds:[],
+  currentReasonChipIds:[],
+  submittedThisRound:false,
+
+  historyRounds:[],
   scoreTotal:0,
-  submitCount:0,
-  passCount:0,      // create score >= threshold
+  passCount:0,
   failCount:0,
 
-  // interactions
-  poolClicks:0,
-  plateAdds:0,
-  plateRemoves:0,
-  chipToggles:0,
-  shuffleCount:0,
-  clearCount:0,
-  choiceChanges:0, // alias-ish metric for consistency
-
-  submitLatencyMsList:[],
-
-  // current round
-  currentScenario:null,
-  foodPoolIds:[],
-  selectedPlateIds:[],
-  selectedReasonChipIds:[],
-  lastRoundStartedAtMs:0,
-  lastRoundResult:null,
-
-  // per-second deltas
-  _lastTickScore:0,
-  _lastTickSubmit:0,
-  _lastTickPass:0,
-  _lastTickFail:0,
-  _lastTickPoolClicks:0,
-  _lastTickAdds:0,
-  _lastTickRemoves:0,
-  _lastTickChipToggles:0,
-
-  _gameTimer:null,
-  _featuresTimer:null,
+  // analytics counters
+  uiActionCount:0,
+  addCount:0,
+  removeCount:0,
+  chipToggleCount:0,
+  textInputCount:0,
+  submitCount:0,
+  lastFeaturesScore:0,
 
   // pause bridge
   __pauseBridgeWired:false,
-  __onPause:null,
-  __onResume:null
+  __onPauseReq:null,
+  __onResumeReq:null,
 };
 
-// --------------------------------------------------
-// Food helpers
-// --------------------------------------------------
-function allFoodIds(){
-  return Object.keys(FOOD_MAP || {});
-}
-function foodById(id){ return FOOD_MAP?.[id] || null; }
-function foodHasTag(id, tag){
-  const tags = Array.isArray(foodById(id)?.tags) ? foodById(id).tags : [];
-  return tags.map(String).includes(String(tag));
-}
-function foodGroup(id){ return String(foodById(id)?.group || ''); }
+// ---------------- Helpers ----------------
+function playedSec(){ return STATE.startedAt ? Math.max(0, Math.floor((now()-STATE.startedAt)/1000)) : 0; }
+function roundNo(){ return clamp(STATE.roundIndex+1, 1, STATE.roundsPlanned||1); }
 
-function getReasonChipsData(){
-  if(Array.isArray(ROOT.HHA_PLATE_REASON_CHIPS) && ROOT.HHA_PLATE_REASON_CHIPS.length){
-    return ROOT.HHA_PLATE_REASON_CHIPS;
+function markUIAction(type='ui'){
+  STATE.uiActionCount++;
+  if(type==='add') STATE.addCount++;
+  if(type==='remove') STATE.removeCount++;
+  if(type==='chip') STATE.chipToggleCount++;
+  if(type==='text') STATE.textInputCount++;
+  emit('hha:ui', { game:'plate-create', type, tPlayedSec: playedSec() });
+}
+
+function coach(msg, mood='neutral'){
+  emit('hha:coach', { game:'plate-create', msg, mood });
+}
+
+function setPaused(p){
+  STATE.paused = !!p;
+  emit('hha:pause_state', { game:'plate-create', paused:STATE.paused });
+  if(STATE.paused){
+    const fb = qs('crFeedback');
+    if(fb) fb.textContent = 'หยุดชั่วคราว — กด Resume เพื่อเล่นต่อ';
   }
-  return REASON_CHIPS_FALLBACK;
 }
 
-// --------------------------------------------------
-// Pool builder (Constraint Plate)
-// --------------------------------------------------
-function buildPoolForScenario(scenario, cfg, rng=Math.random){
-  const ids = allFoodIds();
-  const c = scenario?.constraints || {};
-  const t = scenario?.targetProfile || {};
+function wirePauseBridge(){
+  if(STATE.__pauseBridgeWired) return;
+  STATE.__pauseBridgeWired = true;
 
-  const pool = new Set();
+  STATE.__onPauseReq = ()=>{ if(STATE.running && !STATE.ended) setPaused(true); };
+  STATE.__onResumeReq = ()=>{ if(STATE.running && !STATE.ended) setPaused(false); };
 
-  // 1) Must-cover groups
-  const wantGroups = Array.isArray(t.wantGroups) ? t.wantGroups : ['carb','protein','veg','fruit'];
-  for(const g of wantGroups){
-    const cand = shuffle(ids.filter(id => foodGroup(id) === g), rng);
-    if(cand[0]) pool.add(cand[0]);
-    if(cand[1] && rng() < 0.45) pool.add(cand[1]);
-  }
-
-  // 2) Optional groups
-  const optionalGroups = Array.isArray(t.optionalGroups) ? t.optionalGroups : ['fat'];
-  for(const g of optionalGroups){
-    const cand = shuffle(ids.filter(id => foodGroup(id) === g), rng);
-    if(cand[0] && rng() < 0.75) pool.add(cand[0]);
-  }
-
-  // 3) Add "temptation" decoys
-  const decoyBias = (cfg?.diff === 'hard') ? 0.75 : (cfg?.diff === 'easy' ? 0.35 : 0.55);
-
-  if(c.avoidHighSugar || decoyBias > 0.4){
-    const sugary = shuffle(ids.filter(id => foodHasTag(id, 'high_sugar')), rng);
-    if(sugary[0]) pool.add(sugary[0]);
-    if(sugary[1] && rng() < decoyBias) pool.add(sugary[1]);
-  }
-
-  if(t.preferNotFried || decoyBias > 0.45){
-    const fried = shuffle(ids.filter(id => foodHasTag(id, 'fried')), rng);
-    if(fried[0]) pool.add(fried[0]);
-    if(fried[1] && rng() < decoyBias) pool.add(fried[1]);
-  }
-
-  // 4) Allergy scenario: include some dairy as trap (for analyze/create challenge)
-  if(Array.isArray(c.allergy) && c.allergy.includes('dairy')){
-    const dairy = shuffle(ids.filter(id => foodHasTag(id, 'dairy')), rng);
-    if(dairy[0]) pool.add(dairy[0]);
-    if(dairy[1] && rng() < 0.5) pool.add(dairy[1]);
-  }
-
-  // 5) Top up to poolSize
-  const targetSize = clamp(cfg?.poolSize || 10, 6, 24);
-  const remain = shuffle(ids.filter(id => !pool.has(id)), rng);
-  for(const id of remain){
-    if(pool.size >= targetSize) break;
-    pool.add(id);
-  }
-
-  // 6) Trim to exact size but preserve diversity
-  let out = [...pool];
-  out = shuffle(out, rng).slice(0, targetSize);
-
-  // Ensure at least one carb/protein/veg appears if possible
-  const mustGroups = ['carb','protein','veg'];
-  for(const g of mustGroups){
-    if(!out.some(id => foodGroup(id) === g)){
-      const replacement = pickOne(shuffle(ids.filter(id => foodGroup(id) === g && !out.includes(id)), rng), rng);
-      if(replacement){
-        const idx = Math.floor(rng()*out.length);
-        out[idx] = replacement;
-      }
-    }
-  }
-
-  return uniq(out);
+  ROOT.addEventListener('hha:pause', STATE.__onPauseReq, { passive:true });
+  ROOT.addEventListener('hha:resume', STATE.__onResumeReq, { passive:true });
 }
 
-// --------------------------------------------------
-// UI render
-// --------------------------------------------------
-function renderFoodChip(id, opts={}){
-  const f = foodById(id);
-  if(!f) return `<button type="button" class="food-chip unknown" data-food-id="${esc(id)}">${esc(id)}</button>`;
+// ---------------- Config ----------------
+function parseCfgFromUrl(){
+  const U = new URL(location.href);
+  const runRaw = (U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
+  const diff = (U.searchParams.get('diff') || 'normal').toLowerCase();
+  const time = clamp(U.searchParams.get('time') || 240, 30, 3600);
+  const rounds = clamp(U.searchParams.get('rounds') || 4, 1, 20);
+  const pool = clamp(U.searchParams.get('pool') || 10, 6, 24);
+  const maxpick = clamp(U.searchParams.get('maxpick') || 5, 3, 8);
+  const seedP = U.searchParams.get('seed');
 
-  const emoji = f.emoji || '🍽️';
-  const label = foodChipLabelTH ? foodChipLabelTH(id) : (f.labelTH || f.nameTH || id);
-  const group = f.groupLabelTH || f.groupTH || f.group || '';
-  const extraCls = opts.className ? ` ${opts.className}` : '';
-  const title = `${label} • ${group}`;
+  const runMode = (runRaw === 'study' || runRaw === 'research') ? runRaw : 'play';
+  const isStudy = (runMode === 'study' || runMode === 'research');
+  const seed = isStudy
+    ? (Number(seedP) || 24680)
+    : (seedP != null ? (Number(seedP) || 24680) : ((Date.now() ^ (Math.random()*1e9))|0));
 
-  return `<button type="button" class="food-chip${extraCls}" data-food-id="${esc(id)}" title="${esc(title)}">${esc(emoji)} ${esc(label)}</button>`;
+  return { runMode, diff: ['easy','normal','hard'].includes(diff)?diff:'normal', durationPlannedSec: time, roundsPlanned: rounds, poolSize: pool, maxPick: maxpick, seed };
 }
 
-function renderPool(){
-  const box = q('crFoodPool');
-  if(!box) return;
+function normalizeCfg(inputCfg){
+  const f = parseCfgFromUrl();
+  const c = Object.assign({}, f, (inputCfg && typeof inputCfg==='object' ? inputCfg : {}));
 
-  const selected = new Set(STATE.selectedPlateIds);
-  box.innerHTML = STATE.foodPoolIds.map(id => {
-    const onPlate = selected.has(id);
-    return renderFoodChip(id, { className: onPlate ? 'is-used' : '' });
-  }).join('');
+  c.runMode = String(c.runMode || c.run || f.runMode || 'play').toLowerCase();
+  if(c.runMode !== 'study' && c.runMode !== 'research') c.runMode = 'play';
+
+  c.diff = String(c.diff || f.diff || 'normal').toLowerCase();
+  if(!['easy','normal','hard'].includes(c.diff)) c.diff = 'normal';
+
+  c.durationPlannedSec = clamp(c.durationPlannedSec ?? c.time ?? f.durationPlannedSec ?? 240, 30, 3600);
+  c.roundsPlanned = clamp(c.roundsPlanned ?? c.rounds ?? f.roundsPlanned ?? 4, 1, 20);
+  c.poolSize = clamp(c.poolSize ?? c.pool ?? f.poolSize ?? 10, 6, 24);
+  c.maxPick = clamp(c.maxPick ?? c.maxpick ?? f.maxPick ?? 5, 3, 8);
+
+  const isStudy = (c.runMode === 'study' || c.runMode === 'research');
+  if(isStudy) c.seed = Number(c.seed) || 24680;
+  else c.seed = Number(c.seed) || ((Date.now() ^ (Math.random()*1e9))|0);
+
+  return c;
 }
 
-function renderPlateSlots(){
-  const box = q('crPlateSlots');
-  if(!box) return;
-
-  if(!STATE.selectedPlateIds.length){
-    box.innerHTML = `<div class="plate-empty">ยังไม่ได้เลือกอาหาร • แตะรายการด้านบนเพื่อเพิ่มลงจาน</div>`;
-    return;
-  }
-
-  const stats = computePlateStats(STATE.selectedPlateIds);
-  box.innerHTML = `
-    <div class="plate-selected-list">
-      ${STATE.selectedPlateIds.map(id => `
-        <div class="plate-selected-item">
-          ${renderFoodChip(id, { className:'is-onplate' })}
-          <button type="button" class="plate-remove-btn" data-remove-food-id="${esc(id)}" aria-label="ลบ ${esc(id)}">ลบ</button>
-        </div>
-      `).join('')}
-    </div>
-    <div class="plate-live-stats">
-      <div class="row"><span>จำนวนรายการ</span><b>${STATE.selectedPlateIds.length}/${STATE.cfg.maxPick}</b></div>
-      <div class="row"><span>หมู่ที่มี</span><b>${Object.entries(stats.groups||{}).filter(([,v])=>v>0).map(([k])=>k).join(', ') || '-'}</b></div>
-      <div class="row"><span>โปรตีน/คาร์บ/ไขมัน/น้ำตาล</span><b>${round1(stats.macros?.protein||0)} / ${round1(stats.macros?.carb||0)} / ${round1(stats.macros?.fat||0)} / ${round1(stats.macros?.sugar||0)}</b></div>
-      <div class="row"><span>งบ / เวลาเตรียม</span><b>${round1(stats.cost||0)} / ${round1(stats.prepMin||0)} นาที</b></div>
-    </div>
-  `;
+// ---------------- Scenario / pool ----------------
+function structuredCloneSafe(obj){
+  try{ return structuredClone(obj); }catch{ return JSON.parse(JSON.stringify(obj)); }
 }
 
-function renderReasonChips(selectedIds=[]){
-  const box = q('crReasonChips');
-  if(!box) return;
-  const selected = new Set(uniq(selectedIds));
-  const chips = getReasonChipsData();
-
-  box.innerHTML = chips.map(ch => {
-    const on = selected.has(String(ch.id));
-    const cls = `reason-chip ${on?'is-on':''} ${ch.polarity==='bad'?'neg':'pos'}`;
-    return `<button type="button" class="${cls}" data-chip-id="${esc(ch.id)}" aria-pressed="${on?'true':'false'}">${esc(ch.labelTH || ch.id)}</button>`;
-  }).join('');
-}
-
-function renderCurrentRound(){
-  const scn = STATE.currentScenario;
-  if(!scn) return;
-
-  setText('crRoundPill', `รอบ ${STATE.roundIndex+1}/${STATE.roundsPlanned}`);
-  setText('crScenarioTitle', scn.titleTH || scn.title || 'Constraint Plate');
-  setText('crScenarioMeta', summarizeConstraintsTH ? summarizeConstraintsTH(scn) : '');
-
-  renderPool();
-  renderPlateSlots();
-  renderReasonChips(STATE.selectedReasonChipIds);
-
-  const explain = q('crExplain');
-  if(explain) explain.value = '';
-
-  setText('crFeedback', '');
-  setText('crSummary', '');
-  show(q('crNext'), false);
-  const submit = q('crSubmit');
-  if(submit){ submit.disabled = false; submit.textContent = 'ส่งจานนี้'; }
-
-  renderTopSummary();
-  emitScorePulse();
-}
-
-function renderTopSummary(){
-  setText('crScore', STATE.scoreTotal|0);
-  setText('crCorrect', `${STATE.passCount}/${STATE.submitCount || 0}`); // ใช้ passCount แทน "correct"
-  setText('crRound', `${Math.min(STATE.roundIndex+1, STATE.roundsPlanned)}/${STATE.roundsPlanned}`);
-  setText('crTimer', `${Math.max(0, STATE.timeLeft|0)}s`);
-}
-
-// --------------------------------------------------
-// Game flow
-// --------------------------------------------------
 function chooseScenarioForRound(){
-  const fixed = String(STATE.cfg?.scenario || '').trim();
-  if(fixed){
-    const sc = getScenarioById(fixed);
-    if(sc) return sc;
+  const sp = new URL(location.href).searchParams;
+  const explicit = sp.get('scenario');
+  if(explicit){
+    const s = SCENARIOS.find(x=>x.id===explicit);
+    if(s) return structuredCloneSafe(s);
   }
 
-  const ids = (typeof listScenarioIds === 'function') ? listScenarioIds() : [];
-  if(!ids.length){
-    throw new Error('plate-create.js: no scenario IDs found from plate-reasoning-scenarios.js');
-  }
-
-  let pool = ids;
-  if(STATE.currentScenario?.id && ids.length > 1){
-    pool = ids.filter(id => id !== STATE.currentScenario.id);
-    if(!pool.length) pool = ids;
-  }
-
-  const id = pickOne(pool, STATE.rng);
-  const sc = getScenarioById(id);
-  if(!sc) throw new Error(`plate-create.js: scenario not found: ${id}`);
-  return sc;
+  const used = STATE.historyRounds.map(r=>r.scenarioId);
+  const unplayed = SCENARIOS.filter(s=>!used.includes(s.id));
+  const pool = unplayed.length ? unplayed : SCENARIOS;
+  return structuredCloneSafe(pick(pool, STATE.rng));
 }
 
-function startRound(){
-  if(STATE.ended) return;
+function buildPoolForScenario(s){
+  const rng = STATE.rng;
+  const poolSize = clamp(s.poolSize ?? STATE.cfg.poolSize, 6, 24);
 
-  STATE.roundActive = true;
-  STATE.currentScenario = chooseScenarioForRound();
-  STATE.foodPoolIds = buildPoolForScenario(STATE.currentScenario, STATE.cfg, STATE.rng);
-  STATE.selectedPlateIds = [];
-  STATE.selectedReasonChipIds = [];
-  STATE.lastRoundStartedAtMs = nowMs();
-  STATE.lastRoundResult = null;
+  // Build a base list ensuring diversity
+  const forced = [];
+  for(let g=1; g<=5; g++){
+    const arr = FOODS.filter(f=>f.g===g && !f.processed);
+    shuffleInPlace(arr, rng);
+    if(arr[0]) forced.push(arr[0]);
+  }
 
-  renderCurrentRound();
+  if(s.constraints?.highProtein){
+    const proteins = FOODS.filter(f=>f.g===1 || f.highProtein);
+    shuffleInPlace(proteins, rng);
+    forced.push(...proteins.slice(0,2));
+  }
 
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'round_start',
-    round: STATE.roundIndex+1,
-    scenarioId: STATE.currentScenario.id,
-    poolSize: STATE.foodPoolIds.length
+  if(s.constraints?.preWorkout){
+    const pre = FOODS.filter(f=>f.preWorkout);
+    shuffleInPlace(pre, rng);
+    forced.push(...pre.slice(0,2));
+  }
+
+  // If noDairy, keep 1-2 dairy as distractor, but ensure most are non-dairy
+  let candidates = FOODS.slice();
+  if(s.constraints?.noDairy){
+    const non = candidates.filter(f=>!f.dairy);
+    const dairy = candidates.filter(f=>f.dairy);
+    shuffleInPlace(non, rng);
+    shuffleInPlace(dairy, rng);
+    candidates = non.concat(dairy.slice(0,2));
+  }
+
+  // Remove duplicates from forced
+  const forcedIds = uniq(forced.map(f=>f.id));
+  const forcedUniq = forcedIds.map(id=>FOODS.find(f=>f.id===id)).filter(Boolean);
+
+  const rest = candidates.filter(f=>!forcedIds.includes(f.id));
+  shuffleInPlace(rest, rng);
+
+  const finalPool = shuffleInPlace(forcedUniq.concat(rest).slice(0, poolSize), rng);
+  return finalPool;
+}
+
+// ---------------- UI render ----------------
+function groupEmoji(g){ return GROUPS[g]?.emoji || '⚠️'; }
+function groupShort(g){ return GROUPS[g]?.short || 'นอกโจทย์'; }
+
+function renderScenario(){
+  const s = STATE.currentScenario;
+  if(!s) return;
+
+  setText('crRound', `${roundNo()}/${STATE.roundsPlanned}`);
+  setText('crRoundPill', `รอบ ${roundNo()}/${STATE.roundsPlanned}`);
+  setText('crScenarioTitle', s.title || 'Scenario');
+  setText('crScenarioMeta', s.meta || '');
+
+  // also set timer/score quickly
+  setText('crTimer', `${STATE.timeLeft|0}s`);
+  setText('crScore', `${STATE.scoreTotal|0}`);
+  setText('crCorrect', `${STATE.passCount|0}/${STATE.historyRounds.length|0}`);
+}
+
+function renderReasonChips(){
+  const wrap = qs('crReasonChips');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const wanted = STATE.currentScenario?.preferReasonTags || [];
+  const chips = REASON_CHIPS.slice().sort((a,b)=>{
+    const aw = (a.tags||[]).some(t=>wanted.includes(t)) ? 1 : 0;
+    const bw = (b.tags||[]).some(t=>wanted.includes(t)) ? 1 : 0;
+    return bw-aw;
   });
+
+  for(const c of chips){
+    const btn = DOC.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reason-chip';
+    btn.dataset.id = c.id;
+    btn.textContent = c.text;
+    if(STATE.currentReasonChipIds.includes(c.id)) btn.classList.add('is-on');
+
+    btn.addEventListener('click', ()=>{
+      if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+      const i = STATE.currentReasonChipIds.indexOf(c.id);
+      if(i>=0) STATE.currentReasonChipIds.splice(i,1);
+      else STATE.currentReasonChipIds.push(c.id);
+      btn.classList.toggle('is-on');
+      markUIAction('chip');
+      refreshLiveHints();
+    }, { passive:true });
+
+    wrap.appendChild(btn);
+  }
 }
 
-function nextRoundOrEnd(){
-  if(STATE.roundIndex + 1 >= STATE.roundsPlanned){
-    endGame('rounds_done');
+function renderFoodPool(){
+  const wrap = qs('crFoodPool');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const used = new Set(STATE.currentSelectedIds);
+
+  for(const f of STATE.currentPool){
+    const btn = DOC.createElement('button');
+    btn.type = 'button';
+    const unknown = ![1,2,3,4,5].includes(Number(f.g));
+    btn.className = `food-chip${used.has(f.id)?' is-used':''}${unknown?' unknown':''}`;
+    btn.dataset.id = f.id;
+    btn.innerHTML = `
+      <div>${groupEmoji(f.g)} ${f.nameTH}</div>
+      <div style="font-size:11px;color:var(--mut);margin-top:2px;">
+        ${groupShort(f.g)} • ${f.prepMin ?? '-'} นาที • ${f.budget || '-'}
+      </div>
+    `;
+    btn.addEventListener('click', ()=>{
+      if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+      addFood(f.id);
+    }, { passive:true });
+    wrap.appendChild(btn);
+  }
+}
+
+function getSelectedFoods(){
+  return STATE.currentSelectedIds
+    .map(id => STATE.currentPool.find(f=>f.id===id) || FOODS.find(f=>f.id===id))
+    .filter(Boolean);
+}
+
+function renderPlate(){
+  const wrap = qs('crPlateSlots');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const selected = getSelectedFoods();
+  const maxPick = clamp(STATE.currentScenario?.maxPick ?? STATE.cfg.maxPick, 3, 8);
+
+  if(!selected.length){
+    const empty = DOC.createElement('div');
+    empty.className = 'plate-empty';
+    empty.innerHTML = `ยังไม่ได้เลือกอาหารลงจาน<br><span style="font-size:12px;color:var(--mut)">เลือกจากฝั่งซ้าย แล้วอธิบายเหตุผลด้านล่าง</span>`;
+    wrap.appendChild(empty);
+  }else{
+    const list = DOC.createElement('div');
+    list.className = 'plate-selected-list';
+
+    for(const f of selected){
+      const row = DOC.createElement('div');
+      row.className = 'plate-selected-item';
+
+      const chip = DOC.createElement('div');
+      chip.className = 'plate-selected-chip';
+      chip.innerHTML = `
+        <div>${groupEmoji(f.g)} ${f.nameTH}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px;">
+          ${groupShort(f.g)} • ${f.prepMin ?? '-'} นาที • ${f.budget || '-'}
+        </div>
+      `;
+
+      const del = DOC.createElement('button');
+      del.type = 'button';
+      del.className = 'plate-remove-btn';
+      del.textContent = 'ลบ';
+      del.addEventListener('click', ()=>{
+        if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+        removeFood(f.id);
+      }, { passive:true });
+
+      row.appendChild(chip);
+      row.appendChild(del);
+      list.appendChild(row);
+    }
+
+    wrap.appendChild(list);
+  }
+
+  // basic live stats
+  const gset = uniq(selected.map(f=>f.g).filter(g=>g>=1&&g<=5)).length;
+  const avgPrep = selected.length ? (selected.reduce((s,f)=>s+(Number(f.prepMin)||0),0)/selected.length) : 0;
+  const processed = selected.filter(f=>f.processed || f.g===0).length;
+  const dairy = selected.filter(f=>f.dairy).length;
+  const protein = selected.filter(f=>f.g===1 || f.highProtein).length;
+
+  const stats = DOC.createElement('div');
+  stats.className = 'plate-live-stats';
+  stats.innerHTML = `
+    <div class="row"><span>เลือกแล้ว</span><b>${selected.length}/${maxPick}</b></div>
+    <div class="row"><span>จำนวนหมู่</span><b>${gset} หมู่</b></div>
+    <div class="row"><span>เวลาเฉลี่ย</span><b>${selected.length ? avgPrep.toFixed(1) : 0} นาที</b></div>
+    <div class="row"><span>โปรตีน / dairy / แปรรูป</span><b>${protein} / ${dairy} / ${processed}</b></div>
+  `;
+  wrap.appendChild(stats);
+}
+
+function refreshButtons(){
+  const submit = qs('crSubmit');
+  const next = qs('crNext');
+  const isLast = (STATE.roundIndex >= STATE.roundsPlanned - 1);
+
+  if(submit){
+    submit.disabled = (!STATE.running || STATE.paused || STATE.ended);
+    submit.style.display = STATE.submittedThisRound ? 'none' : '';
+  }
+  if(next){
+    next.disabled = (!STATE.running || STATE.paused || STATE.ended);
+    next.style.display = (STATE.submittedThisRound && !isLast) ? '' : 'none';
+  }
+}
+
+function writeDebug(extra={}){
+  const el = qs('crDebug');
+  if(!el) return;
+
+  const payload = {
+    cfg: STATE.cfg,
+    running: STATE.running,
+    paused: STATE.paused,
+    ended: STATE.ended,
+    round: `${roundNo()}/${STATE.roundsPlanned}`,
+    scenarioId: STATE.currentScenario?.id,
+    poolCount: STATE.currentPool.length,
+    selectedIds: STATE.currentSelectedIds,
+    reasonChipIds: STATE.currentReasonChipIds,
+    submittedThisRound: STATE.submittedThisRound,
+    timeLeft: STATE.timeLeft,
+    scoreTotal: STATE.scoreTotal,
+    passCount: STATE.passCount,
+    failCount: STATE.failCount,
+    ...extra
+  };
+
+  try{ el.textContent = JSON.stringify(payload, null, 2); }
+  catch{ el.textContent = String(payload); }
+}
+
+function refreshLiveHints(){
+  if(STATE.submittedThisRound) return;
+
+  const selected = getSelectedFoods();
+  const s = STATE.currentScenario;
+  if(!s) return;
+
+  const distinct = uniq(selected.map(f=>f.g).filter(g=>g>=1&&g<=5)).length;
+  const processed = selected.filter(f=>f.processed || f.g===0).length;
+  const dairy = selected.filter(f=>f.dairy).length;
+  const protein = selected.filter(f=>f.g===1 || f.highProtein).length;
+  const chipCount = STATE.currentReasonChipIds.length;
+  const txtLen = (qs('crExplain')?.value || '').trim().length;
+
+  const msgs = [];
+  if(selected.length === 0) msgs.push('แตะอาหารเพื่อเพิ่มลงจาน');
+  else msgs.push(`เลือกแล้ว ${selected.length}/${s.maxPick}`);
+
+  if((s.constraints?.requireGroupsMin||0) > distinct) msgs.push(`เพิ่มให้ถึง ${s.constraints.requireGroupsMin} หมู่`);
+  else if(distinct >= 3) msgs.push('ความหลากหลายดีขึ้น 👍');
+
+  if(s.constraints?.noDairy && dairy>0) msgs.push('โจทย์นี้แพ้นม — เอา dairy ออก');
+  if(s.constraints?.highProtein && protein<1) msgs.push('โจทย์นี้ต้องการโปรตีนสูง — เพิ่มหมู่โปรตีน');
+  if(s.constraints?.avoidProcessed && processed>0) msgs.push('ลดของแปรรูป/หวาน/ทอด');
+
+  setText('crFeedback', msgs.slice(0,2).join(' | '));
+  setText('crSummary', `หมู่: ${distinct} • ชิป: ${chipCount} • เหตุผล: ${txtLen} ตัวอักษร`);
+}
+
+// ---------------- Round mechanics ----------------
+function addFood(foodId){
+  const s = STATE.currentScenario;
+  if(!s) return;
+  if(STATE.currentSelectedIds.includes(foodId)) return;
+
+  const maxPick = clamp(s.maxPick ?? STATE.cfg.maxPick, 3, 8);
+  if(STATE.currentSelectedIds.length >= maxPick){
+    coach(`เลือกได้สูงสุด ${maxPick} รายการ`, 'neutral');
+    setText('crFeedback', `เต็มแล้ว (${maxPick}) — ลบก่อน`);
     return;
   }
-  STATE.roundIndex++;
-  startRound();
+
+  STATE.currentSelectedIds.push(foodId);
+  markUIAction('add');
+  renderFoodPool();
+  renderPlate();
+  refreshLiveHints();
+  writeDebug();
 }
 
-// --------------------------------------------------
-// Actions
-// --------------------------------------------------
-function addFoodToPlate(foodId){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
-  const id = String(foodId || '');
-  if(!id || !STATE.foodPoolIds.includes(id)) return;
-  if(STATE.selectedPlateIds.includes(id)) return;
-
-  if(STATE.selectedPlateIds.length >= STATE.cfg.maxPick){
-    setText('crFeedback', `เลือกได้สูงสุด ${STATE.cfg.maxPick} รายการ`);
-    emit('hha:judge', {
-      game:'plate-create', kind:'add_blocked_maxpick',
-      round: STATE.roundIndex+1, maxPick: STATE.cfg.maxPick
-    });
-    return;
-  }
-
-  STATE.selectedPlateIds = [...STATE.selectedPlateIds, id];
-  STATE.poolClicks++;
-  STATE.plateAdds++;
-  STATE.choiceChanges++;
-
-  renderPool();
-  renderPlateSlots();
-
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'add_food',
-    round: STATE.roundIndex+1,
-    foodId:id,
-    plateCount: STATE.selectedPlateIds.length
-  });
-}
-
-function removeFoodFromPlate(foodId){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
-  const id = String(foodId || '');
-  if(!id) return;
-
-  const before = STATE.selectedPlateIds.length;
-  STATE.selectedPlateIds = STATE.selectedPlateIds.filter(x => x !== id);
-  if(STATE.selectedPlateIds.length === before) return;
-
-  STATE.plateRemoves++;
-  STATE.choiceChanges++;
-
-  renderPool();
-  renderPlateSlots();
-
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'remove_food',
-    round: STATE.roundIndex+1,
-    foodId:id,
-    plateCount: STATE.selectedPlateIds.length
-  });
-}
-
-function toggleReasonChip(chipId){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
-  const id = String(chipId || '');
-  if(!id) return;
-
-  const set = new Set(STATE.selectedReasonChipIds);
-  if(set.has(id)) set.delete(id);
-  else set.add(id);
-  STATE.selectedReasonChipIds = [...set];
-  STATE.chipToggles++;
-
-  renderReasonChips(STATE.selectedReasonChipIds);
-
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'toggle_reason_chip',
-    round: STATE.roundIndex+1,
-    chipId:id,
-    selectedCount: STATE.selectedReasonChipIds.length
-  });
+function removeFood(foodId){
+  const i = STATE.currentSelectedIds.indexOf(foodId);
+  if(i<0) return;
+  STATE.currentSelectedIds.splice(i,1);
+  markUIAction('remove');
+  renderFoodPool();
+  renderPlate();
+  refreshLiveHints();
+  writeDebug();
 }
 
 function clearPlate(){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
-  if(!STATE.selectedPlateIds.length) return;
-
-  STATE.selectedPlateIds = [];
-  STATE.clearCount++;
-  STATE.choiceChanges++;
-
-  renderPool();
-  renderPlateSlots();
-  setText('crFeedback', 'ล้างจานแล้ว • เลือกใหม่ได้');
-
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'clear_plate',
-    round: STATE.roundIndex+1
-  });
+  if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+  if(!STATE.currentSelectedIds.length) return;
+  STATE.currentSelectedIds = [];
+  markUIAction('remove');
+  renderFoodPool();
+  renderPlate();
+  refreshLiveHints();
+  writeDebug({ action:'clearPlate' });
 }
 
 function shufflePool(){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
-  STATE.foodPoolIds = shuffle(STATE.foodPoolIds, STATE.rng);
-  STATE.shuffleCount++;
-
-  renderPool();
-  setText('crFeedback', 'สลับลำดับตัวเลือกแล้ว');
-
-  emit('hha:judge', {
-    game:'plate-create',
-    kind:'shuffle_pool',
-    round: STATE.roundIndex+1
-  });
+  if(!STATE.currentPool.length) return;
+  shuffleInPlace(STATE.currentPool, STATE.rng);
+  markUIAction('ui');
+  renderFoodPool();
+  writeDebug({ action:'shufflePool' });
 }
 
-// --------------------------------------------------
-// Submit / scoring
-// --------------------------------------------------
-function handleSubmit(){
-  if(!STATE.running || STATE.paused || STATE.ended || !STATE.roundActive) return;
+function setupRound(){
+  STATE.currentScenario = chooseScenarioForRound();
+  STATE.currentScenario.maxPick = clamp(STATE.currentScenario.maxPick ?? STATE.cfg.maxPick, 3, 8);
+  STATE.currentScenario.poolSize = clamp(STATE.currentScenario.poolSize ?? STATE.cfg.poolSize, 6, 24);
 
-  const submitBtn = q('crSubmit');
-  if(submitBtn) submitBtn.disabled = true;
+  STATE.currentPool = buildPoolForScenario(STATE.currentScenario);
+  STATE.currentSelectedIds = [];
+  STATE.currentReasonChipIds = [];
+  STATE.submittedThisRound = false;
 
-  if(!STATE.selectedPlateIds.length){
-    setText('crFeedback', 'ยังไม่ได้จัดจาน เลือกอาหารก่อน');
-    if(submitBtn) submitBtn.disabled = false;
+  const ta = qs('crExplain');
+  if(ta) ta.value = '';
+
+  renderScenario();
+  renderReasonChips();
+  renderFoodPool();
+  renderPlate();
+  refreshButtons();
+  refreshLiveHints();
+  writeDebug({ action:'setupRound' });
+}
+
+function compileRoundPayload(){
+  const selectedFoods = getSelectedFoods();
+  const reasonText = (qs('crExplain')?.value || '').trim();
+  return {
+    game:'plate-create',
+    mode:'create',
+    scenario: structuredCloneSafe(STATE.currentScenario),
+    selectedFoods: selectedFoods.map(f=>({ ...f })),
+    selectedReasonChipIds: [...STATE.currentReasonChipIds],
+    reasonText,
+    cfg: structuredCloneSafe(STATE.cfg),
+    meta:{
+      round: roundNo(),
+      roundsPlanned: STATE.roundsPlanned,
+      tPlayedSec: playedSec(),
+      seed: STATE.cfg?.seed || 0
+    }
+  };
+}
+
+function submitRound(){
+  if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+
+  const selected = getSelectedFoods();
+  if(selected.length === 0){
+    setText('crFeedback', 'ยังไม่ได้เลือกอาหารลงจาน');
+    coach('เลือกอาหารก่อนแล้วค่อยส่งจาน 🍽️', 'neutral');
     return;
   }
 
-  const explainText = String(q('crExplain')?.value || '').trim();
+  const payload = compileRoundPayload();
+  const scored = scoreCreate(payload);
 
-  const result = scoreCreatePlate({
-    scenario: STATE.currentScenario,
-    plateItemIds: STATE.selectedPlateIds,
-    selectedReasonChipIds: STATE.selectedReasonChipIds,
-    explanationText: explainText
-  });
-
-  STATE.lastRoundResult = result;
-  STATE.roundActive = false;
+  STATE.submittedThisRound = true;
   STATE.submitCount++;
 
-  const rtMs = Math.max(0, Math.round(nowMs() - STATE.lastRoundStartedAtMs));
-  STATE.submitLatencyMsList.push(rtMs);
+  const roundResult = {
+    round: roundNo(),
+    scenarioId: STATE.currentScenario?.id || '',
+    scenarioTitle: STATE.currentScenario?.title || '',
+    payload,
+    scored,
+    timestampIso: new Date().toISOString()
+  };
+  STATE.historyRounds.push(roundResult);
 
-  const scoreRound = Number(result?.score || 0);
+  const scoreRound = Number(scored?.totalScore || 0) || 0;
   STATE.scoreTotal += scoreRound;
-
-  // pass/fail threshold (Bloom Create challenge)
-  const passThreshold = (STATE.cfg.diff === 'hard') ? 75 : (STATE.cfg.diff === 'easy' ? 55 : 65);
-  const passed = scoreRound >= passThreshold;
-  if(passed) STATE.passCount++;
+  if(scored?.pass) STATE.passCount++;
   else STATE.failCount++;
 
-  renderTopSummary();
-
-  const sum = summarizeScoreTH(result);
-  setText('crSummary', (sum?.shortTH || `คะแนน ${scoreRound}/100`) + ` • เกณฑ์ผ่าน ${passThreshold}`);
-  setText('crFeedback', result?.feedbackTH || (passed ? 'ผ่านโจทย์ 🎉' : 'ยังไม่ผ่าน ลองปรับสัดส่วน/เงื่อนไขอีกนิด'));
-
-  show(q('crNext'), true);
-  if(submitBtn) submitBtn.textContent = 'ส่งแล้ว';
-
-  // emit score + labels
-  emit('hha:score', {
-    game:'plate-create',
-    round: STATE.roundIndex+1,
-    roundsPlanned: STATE.roundsPlanned,
-    scoreRound,
-    scoreTotal: STATE.scoreTotal|0,
-    passCount: STATE.passCount|0,
-    failCount: STATE.failCount|0,
-    passed,
-    passThreshold,
-    leftSec: STATE.timeLeft|0,
-    timeLeftSec: STATE.timeLeft|0
-  });
+  setText('crFeedback', `${scored?.pass ? '✅ ผ่าน' : '⚠️ ยังไม่ผ่าน'} • ${scored?.feedbackText || ''}`);
+  setText('crSummary', `${scored?.summaryText || ''} • คะแนนรอบนี้ ${scoreRound}`);
 
   emit('hha:judge', {
     game:'plate-create',
-    kind:'create_submit',
-    round: STATE.roundIndex+1,
+    kind:'round_submit',
+    round: roundNo(),
     scenarioId: STATE.currentScenario?.id || '',
-    plateCount: STATE.selectedPlateIds.length,
-    reasonChipCount: STATE.selectedReasonChipIds.length,
+    pass: !!scored?.pass,
     scoreRound,
-    passed,
-    passThreshold,
-    rtMs
+    scoreTotal: STATE.scoreTotal|0
   });
 
   emit('hha:labels', {
     game:'plate-create',
     type:'round_end',
-    round: STATE.roundIndex+1,
+    round: roundNo(),
     scenarioId: STATE.currentScenario?.id || '',
-    y_score_round: scoreRound,
-    y_pass: passed ? 1 : 0,
-    y_balance_score: Number(result?.breakdown?.balanceScore || 0),
-    y_constraint_score: Number(result?.breakdown?.constraintScore || 0),
-    y_reason_score: Number(result?.breakdown?.reasonScore || 0),
-    y_explain_score: Number(result?.breakdown?.explanationScore || 0),
-    y_plate_count: STATE.selectedPlateIds.length
+    ...(scored?.labels || {}),
+    y_round_pass: scored?.pass ? 1 : 0,
+    y_round_score: scoreRound
   });
 
-  try{
-    const dbg = q('crDebug');
-    if(dbg) dbg.textContent = JSON.stringify({
-      result,
-      selectedPlateIds: STATE.selectedPlateIds,
-      stats: computePlateStats(STATE.selectedPlateIds)
-    }, null, 2);
-  }catch(e){}
+  try{ STATE.AI?.onEvent?.('round_submit', { roundResult }); }catch{}
+
+  refreshButtons();
+  renderFoodPool();
+  renderPlate();
+  renderScenario();
+  writeDebug({ roundScored: scored });
+
+  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  const deterministic = (runMode === 'study' || runMode === 'research');
+  if(!deterministic){
+    try{
+      const tip = STATE.AI?.getTip?.({ type:'round_submit', scored, round: roundNo(), tPlayedSec: playedSec() });
+      if(tip?.msg) coach(tip.msg, tip.mood || (scored?.pass?'happy':'neutral'));
+      else coach(scored?.pass ? 'ดีมาก! ผ่านโจทย์รอบนี้ 🎉' : 'ใกล้แล้ว! ลองปรับให้ตรงเงื่อนไขมากขึ้น 💪', scored?.pass?'happy':'neutral');
+    }catch{
+      coach(scored?.pass ? 'ดีมาก! ผ่านโจทย์รอบนี้ 🎉' : 'ใกล้แล้ว! ลองปรับให้ตรงเงื่อนไขมากขึ้น 💪', scored?.pass?'happy':'neutral');
+    }
+  }
+
+  // last round -> end
+  if(STATE.roundIndex >= STATE.roundsPlanned - 1){
+    endGame('all-rounds-complete');
+  }
 }
 
-function endGame(reason='end'){
-  if(STATE.ended) return;
-  STATE.ended = true;
-  STATE.running = false;
-  STATE.roundActive = false;
+function nextRound(){
+  if(!STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+  if(STATE.roundIndex >= STATE.roundsPlanned - 1) return;
 
-  stopTimers();
-
-  const avgScore = STATE.submitCount ? (STATE.scoreTotal / STATE.submitCount) : 0;
-  const avgRtMs = STATE.submitLatencyMsList.length
-    ? (STATE.submitLatencyMsList.reduce((a,b)=>a+b,0) / STATE.submitLatencyMsList.length)
-    : 0;
-
-  const summary = {
-    timestampIso: new Date().toISOString(),
-    game:'plate-create',
-    gameMode:'plate-create',
-    runMode: STATE.cfg?.runMode || 'play',
-    diff: STATE.cfg?.diff || 'normal',
-    seed: STATE.cfg?.seed || 0,
-    roundsPlanned: STATE.roundsPlanned|0,
-    roundsPlayed: STATE.submitCount|0,
-    scoreTotal: STATE.scoreTotal|0,
-    scoreAvg: round1(avgScore),
-    passCount: STATE.passCount|0,
-    failCount: STATE.failCount|0,
-    passPct: STATE.submitCount ? round1((STATE.passCount / STATE.submitCount) * 100) : 0,
-    avgRtMs: round0(avgRtMs),
-    timePlannedSec: STATE.timePlannedSec|0,
-    timeLeftSec: STATE.timeLeft|0,
-    reason
-  };
-
-  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(e){}
-
-  setText('crSummary', `จบโหมด Create • เฉลี่ย ${summary.scoreAvg}/100 • ผ่าน ${summary.passCount}/${summary.roundsPlayed}`);
-  setText('crFeedback', 'ได้โหมด Create แล้ว ✅ (Bloom ครบสาย Plate มากขึ้น)');
-
-  emit('hha:end', summary);
-  emit('hha:labels', {
-    game:'plate-create',
-    type:'end',
-    reason,
-    y_score_total: summary.scoreTotal,
-    y_score_avg: summary.scoreAvg,
-    y_pass: summary.passCount,
-    y_fail: summary.failCount,
-    y_pass_pct: summary.passPct,
-    y_avg_rt_ms: summary.avgRtMs
-  });
-
-  tryFlush('plate-create-end');
+  STATE.roundIndex++;
+  setupRound();
+  coach(`รอบ ${roundNo()} มาแล้ว! อ่านโจทย์แล้วจัดจานใหม่ ✨`, 'neutral');
 }
 
-// --------------------------------------------------
-// Timers / features_1s
-// --------------------------------------------------
-function emitScorePulse(){
+// ---------------- HUD + loops ----------------
+function updateHud(){
+  setText('crTimer', `${Math.max(0, STATE.timeLeft|0)}s`);
+  setText('crScore', `${STATE.scoreTotal|0}`);
+  setText('crCorrect', `${STATE.passCount|0}/${STATE.historyRounds.length|0}`);
+  setText('crRound', `${roundNo()}/${STATE.roundsPlanned}`);
+  setText('crRoundPill', `รอบ ${roundNo()}/${STATE.roundsPlanned}`);
+
   emit('hha:score', {
     game:'plate-create',
-    leftSec: STATE.timeLeft|0,
-    timeLeftSec: STATE.timeLeft|0,
+    runMode: STATE.cfg?.runMode || 'play',
+    diff: STATE.cfg?.diff || 'normal',
     scoreTotal: STATE.scoreTotal|0,
     passCount: STATE.passCount|0,
     failCount: STATE.failCount|0,
-    round: STATE.roundIndex+1,
-    roundsPlanned: STATE.roundsPlanned|0
+    round: roundNo(),
+    roundsPlanned: STATE.roundsPlanned|0,
+    submittedThisRound: !!STATE.submittedThisRound,
+    timeLeftSec: STATE.timeLeft|0,
+    leftSec: STATE.timeLeft|0
   });
 }
 
 function emitFeatures1s(){
-  const scoreDelta = (STATE.scoreTotal - STATE._lastTickScore)|0;
-  const submitDelta = (STATE.submitCount - STATE._lastTickSubmit)|0;
-  const passDelta = (STATE.passCount - STATE._lastTickPass)|0;
-  const failDelta = (STATE.failCount - STATE._lastTickFail)|0;
-  const poolClickDelta = (STATE.poolClicks - STATE._lastTickPoolClicks)|0;
-  const addDelta = (STATE.plateAdds - STATE._lastTickAdds)|0;
-  const removeDelta = (STATE.plateRemoves - STATE._lastTickRemoves)|0;
-  const chipToggleDelta = (STATE.chipToggles - STATE._lastTickChipToggles)|0;
+  const selected = getSelectedFoods();
+  const distinctGroups = uniq(selected.map(f=>f.g).filter(g=>g>=1&&g<=5)).length;
+  const processedCount = selected.filter(f=>f.processed || f.g===0).length;
+  const dairyCount = selected.filter(f=>f.dairy).length;
+  const reasonLen = ((qs('crExplain')?.value || '')+'').trim().length;
 
-  STATE._lastTickScore = STATE.scoreTotal|0;
-  STATE._lastTickSubmit = STATE.submitCount|0;
-  STATE._lastTickPass = STATE.passCount|0;
-  STATE._lastTickFail = STATE.failCount|0;
-  STATE._lastTickPoolClicks = STATE.poolClicks|0;
-  STATE._lastTickAdds = STATE.plateAdds|0;
-  STATE._lastTickRemoves = STATE.plateRemoves|0;
-  STATE._lastTickChipToggles = STATE.chipToggles|0;
-
-  const avgRtMs = STATE.submitLatencyMsList.length
-    ? (STATE.submitLatencyMsList.reduce((a,b)=>a+b,0) / STATE.submitLatencyMsList.length)
-    : 0;
-
-  const currentStats = computePlateStats(STATE.selectedPlateIds || []);
-  const groupCount = Object.values(currentStats.groups || {}).filter(v => Number(v) > 0).length;
-
-  emit('hha:features_1s', {
+  const feat = {
     game:'plate-create',
     runMode: STATE.cfg?.runMode || 'play',
     diff: STATE.cfg?.diff || 'normal',
     seed: STATE.cfg?.seed || 0,
+
+    tPlayedSec: playedSec(),
     timeLeftSec: STATE.timeLeft|0,
-    roundNow: STATE.roundIndex+1,
+
+    round: roundNo(),
     roundsPlanned: STATE.roundsPlanned|0,
+    scenarioId: STATE.currentScenario?.id || '',
+    submittedThisRound: !!STATE.submittedThisRound,
 
-    scoreNow: STATE.scoreTotal|0,
-    scoreDelta1s: scoreDelta,
-    submitNow: STATE.submitCount|0,
-    submitDelta1s: submitDelta,
-    passNow: STATE.passCount|0,
-    passDelta1s: passDelta,
-    failNow: STATE.failCount|0,
-    failDelta1s: failDelta,
+    scoreTotal: STATE.scoreTotal|0,
+    scoreDelta1s: (STATE.scoreTotal - (STATE.lastFeaturesScore||0))|0,
 
-    poolClicksNow: STATE.poolClicks|0,
-    poolClicksDelta1s: poolClickDelta,
-    plateAddsNow: STATE.plateAdds|0,
-    plateAddsDelta1s: addDelta,
-    plateRemovesNow: STATE.plateRemoves|0,
-    plateRemovesDelta1s: removeDelta,
-    chipToggleNow: STATE.chipToggles|0,
-    chipToggleDelta1s: chipToggleDelta,
+    plateItemCount: selected.length|0,
+    distinctGroups: distinctGroups|0,
+    processedCount: processedCount|0,
+    dairyCount: dairyCount|0,
 
-    roundActive: !!STATE.roundActive,
+    reasonChipCount: (STATE.currentReasonChipIds.length|0),
+    reasonTextLen: reasonLen|0,
+
+    uiActionCountNow: STATE.uiActionCount|0,
+    addCountNow: STATE.addCount|0,
+    removeCountNow: STATE.removeCount|0,
+    chipToggleCountNow: STATE.chipToggleCount|0,
+    textInputCountNow: STATE.textInputCount|0,
+
     paused: !!STATE.paused,
+    ended: !!STATE.ended
+  };
+  STATE.lastFeaturesScore = STATE.scoreTotal;
 
-    // live plate composition proxies
-    plateCountNow: STATE.selectedPlateIds.length|0,
-    plateMaxPick: STATE.cfg?.maxPick || 5,
-    groupCountNow: groupCount|0,
-    proteinNow: round1(currentStats.macros?.protein || 0),
-    carbNow: round1(currentStats.macros?.carb || 0),
-    fatNow: round1(currentStats.macros?.fat || 0),
-    sugarNow: round1(currentStats.macros?.sugar || 0),
-    costNow: round1(currentStats.cost || 0),
-    prepNowMin: round1(currentStats.prepMin || 0),
-
-    avgRtMs: round0(avgRtMs)
-  });
+  emit('hha:features_1s', feat);
+  try{ STATE.AI?.onEvent?.('features_1s', feat); }catch{}
 }
 
-function startTimers(){
-  stopTimers();
+function startLoops(){
+  stopLoops();
 
-  STATE._gameTimer = setInterval(()=>{
+  STATE.timerHandle = setInterval(()=>{
     if(!STATE.running || STATE.ended || STATE.paused) return;
-    STATE.timeLeft--;
-    renderTopSummary();
 
-    emit('hha:time', {
-      game:'plate-create',
-      leftSec: STATE.timeLeft|0,
-      timeLeftSec: STATE.timeLeft|0
-    });
-    emitScorePulse();
+    STATE.timeLeft--;
+    emit('hha:time', { game:'plate-create', timeLeftSec: STATE.timeLeft|0, leftSec: STATE.timeLeft|0 });
+    updateHud();
 
     if(STATE.timeLeft <= 0){
-      endGame('timeup');
+      endGame('timeout');
     }
   }, 1000);
 
-  STATE._featuresTimer = setInterval(()=>{
+  STATE.featureHandle = setInterval(()=>{
     if(!STATE.running || STATE.ended || STATE.paused) return;
     emitFeatures1s();
   }, 1000);
 }
 
-function stopTimers(){
-  try{ clearInterval(STATE._gameTimer); }catch(e){}
-  try{ clearInterval(STATE._featuresTimer); }catch(e){}
-  STATE._gameTimer = null;
-  STATE._featuresTimer = null;
+function stopLoops(){
+  try{ if(STATE.timerHandle) clearInterval(STATE.timerHandle); }catch{}
+  try{ if(STATE.featureHandle) clearInterval(STATE.featureHandle); }catch{}
+  STATE.timerHandle = null;
+  STATE.featureHandle = null;
 }
 
-// --------------------------------------------------
-// Pause bridge / flush
-// --------------------------------------------------
-function setPaused(p){
-  STATE.paused = !!p;
-  emit('hha:pause_state', { game:'plate-create', paused: STATE.paused });
-  const badge = q('crPaused');
-  if(badge) badge.style.display = STATE.paused ? '' : 'none';
-}
-function wirePauseBridge(){
-  if(STATE.__pauseBridgeWired) return;
-  STATE.__pauseBridgeWired = true;
+// ---------------- Buttons wiring ----------------
+function wireButtons(){
+  qs('crShufflePool')?.addEventListener('click', ()=> shufflePool(), { passive:true });
+  qs('crClearPlate')?.addEventListener('click', ()=> clearPlate(), { passive:true });
+  qs('crSubmit')?.addEventListener('click', ()=> submitRound(), { passive:true });
+  qs('crNext')?.addEventListener('click', ()=> nextRound(), { passive:true });
 
-  STATE.__onPause = ()=>{ if(STATE.running && !STATE.ended) setPaused(true); };
-  STATE.__onResume = ()=>{ if(STATE.running && !STATE.ended) setPaused(false); };
-
-  ROOT.addEventListener('hha:pause', STATE.__onPause, { passive:true });
-  ROOT.addEventListener('hha:resume', STATE.__onResume, { passive:true });
-}
-
-async function tryFlush(reason){
-  try{
-    const L = ROOT.HHA_LOGGER || ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || null;
-    if(L && typeof L.flush === 'function'){
-      await Promise.race([ Promise.resolve(L.flush(reason||'manual')), new Promise(res=>setTimeout(res,650)) ]);
-    }else if(L && typeof L.flushNow === 'function'){
-      await Promise.race([ Promise.resolve(L.flushNow({ reason })), new Promise(res=>setTimeout(res,650)) ]);
-    }
-  }catch(e){}
-}
-
-// --------------------------------------------------
-// Wiring UI
-// --------------------------------------------------
-function wireUIEvents(){
-  // Pool click (add)
-  q('crFoodPool')?.addEventListener('click', (e)=>{
-    const btn = e.target?.closest?.('[data-food-id]');
-    if(!btn) return;
-    addFoodToPlate(btn.getAttribute('data-food-id'));
-  });
-
-  // Plate remove
-  q('crPlateSlots')?.addEventListener('click', (e)=>{
-    const btn = e.target?.closest?.('[data-remove-food-id]');
-    if(!btn) return;
-    removeFoodFromPlate(btn.getAttribute('data-remove-food-id'));
-  });
-
-  // Reason chips
-  q('crReasonChips')?.addEventListener('click', (e)=>{
-    const btn = e.target?.closest?.('[data-chip-id]');
-    if(!btn) return;
-    toggleReasonChip(btn.getAttribute('data-chip-id'));
-  });
-
-  q('crSubmit')?.addEventListener('click', ()=> handleSubmit(), { passive:true });
-  q('crNext')?.addEventListener('click', ()=> nextRoundOrEnd(), { passive:true });
-
-  q('crClearPlate')?.addEventListener('click', ()=> clearPlate(), { passive:true });
-  q('crShufflePool')?.addEventListener('click', ()=> shufflePool(), { passive:true });
-
-  q('crRestart')?.addEventListener('click', async ()=>{
-    await tryFlush('plate-create-restart');
+  qs('crRestart')?.addEventListener('click', async ()=>{
+    await flushHardened('restart');
     location.reload();
   }, { passive:true });
 
-  q('crBackHub')?.addEventListener('click', async ()=>{
-    await tryFlush('plate-create-back-hub');
+  qs('crBackHub')?.addEventListener('click', async ()=>{
+    await flushHardened('back-hub');
     const U = new URL(location.href);
     const hub = U.searchParams.get('hub') || '';
     if(hub) location.href = hub;
     else location.href = '../hub.html';
   }, { passive:true });
 
-  q('crExplain')?.addEventListener('keydown', (e)=>{
-    if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
-      e.preventDefault();
-      handleSubmit();
-    }
-  });
+  const ta = qs('crExplain');
+  if(ta){
+    let tmr = null;
+    ta.addEventListener('input', ()=>{
+      if(STATE.submittedThisRound || !STATE.running || STATE.paused || STATE.ended) return;
+      if(tmr) clearTimeout(tmr);
+      tmr = setTimeout(()=>{
+        markUIAction('text');
+        refreshLiveHints();
+        writeDebug();
+      }, 120);
+    });
+
+    ta.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+        e.preventDefault();
+        submitRound();
+      }
+    });
+  }
+
+  ROOT.addEventListener('beforeunload', ()=>{ try{ flushHardened('beforeunload'); }catch{} });
+  DOC.addEventListener('visibilitychange', ()=>{ if(DOC.hidden) try{ flushHardened('hidden'); }catch{} }, { passive:true });
 }
 
-// --------------------------------------------------
-// Start / boot
-// --------------------------------------------------
-function resetStateForGame(){
-  STATE.running = true;
-  STATE.ended = false;
-  STATE.paused = false;
+// ---------------- End summary ----------------
+function buildSummary(reason='end'){
+  const roundsDone = STATE.historyRounds.length|0;
+  const passPct = roundsDone ? (STATE.passCount / roundsDone) * 100 : 0;
+  const avg = roundsDone ? (STATE.scoreTotal / roundsDone) : 0;
 
-  STATE.timePlannedSec = Number(STATE.cfg?.durationPlannedSec || 240) || 240;
-  STATE.timeLeft = STATE.timePlannedSec|0;
-  STATE.roundsPlanned = Number(STATE.cfg?.roundsPlanned || 4) || 4;
-  STATE.roundIndex = 0;
-  STATE.roundActive = false;
+  return {
+    timestampIso: new Date().toISOString(),
+    projectTag:'HHA',
+    sessionId:`PLATECREATE_${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
+    game:'plate-create',
+    gameMode:'plate-create',
+    runMode: STATE.cfg?.runMode || 'play',
+    diff: STATE.cfg?.diff || 'normal',
+    seed: STATE.cfg?.seed || 0,
 
-  STATE.scoreTotal = 0;
-  STATE.submitCount = 0;
-  STATE.passCount = 0;
-  STATE.failCount = 0;
+    timePlannedSec: Number(STATE.timePlannedSec||0)||0,
+    durationPlannedSec: Number(STATE.timePlannedSec||0)||0,
+    durationPlayedSec: playedSec(),
 
-  STATE.poolClicks = 0;
-  STATE.plateAdds = 0;
-  STATE.plateRemoves = 0;
-  STATE.chipToggles = 0;
-  STATE.shuffleCount = 0;
-  STATE.clearCount = 0;
-  STATE.choiceChanges = 0;
+    roundsPlanned: STATE.roundsPlanned|0,
+    roundsCompleted: roundsDone,
 
-  STATE.submitLatencyMsList = [];
+    scoreFinal: STATE.scoreTotal|0,
+    avgRoundScore: Math.round(avg*10)/10,
 
-  STATE.currentScenario = null;
-  STATE.foodPoolIds = [];
-  STATE.selectedPlateIds = [];
-  STATE.selectedReasonChipIds = [];
-  STATE.lastRoundStartedAtMs = 0;
-  STATE.lastRoundResult = null;
+    passCount: STATE.passCount|0,
+    failCount: STATE.failCount|0,
+    passPct: Math.round(passPct*10)/10,
 
-  STATE._lastTickScore = 0;
-  STATE._lastTickSubmit = 0;
-  STATE._lastTickPass = 0;
-  STATE._lastTickFail = 0;
-  STATE._lastTickPoolClicks = 0;
-  STATE._lastTickAdds = 0;
-  STATE._lastTickRemoves = 0;
-  STATE._lastTickChipToggles = 0;
+    submitCount: STATE.submitCount|0,
+    addCount: STATE.addCount|0,
+    removeCount: STATE.removeCount|0,
+    chipToggleCount: STATE.chipToggleCount|0,
+    textInputCount: STATE.textInputCount|0,
 
-  const deterministic = (STATE.cfg.runMode === 'study' || STATE.cfg.runMode === 'research');
-  STATE.rng = deterministic ? seededRng(STATE.cfg.seed) : Math.random;
+    reason
+  };
+}
+
+function endGame(reason='end'){
+  if(STATE.ended) return;
+  STATE.ended = true;
+  STATE.running = false;
+
+  stopLoops();
+  refreshButtons();
+
+  const summary = buildSummary(reason);
+
+  saveJson(LS_LAST, summary);
+  const hist = loadJson(LS_HIST, []);
+  const next = Array.isArray(hist) ? hist : [];
+  next.unshift(summary);
+  while(next.length > 50) next.pop();
+  saveJson(LS_HIST, next);
+
+  emit('hha:end', summary);
+
+  emit('hha:labels', {
+    game:'plate-create',
+    type:'end',
+    reason,
+    y_score_final: summary.scoreFinal,
+    y_pass_count: summary.passCount,
+    y_fail_count: summary.failCount,
+    y_pass_pct: summary.passPct,
+    y_rounds_completed: summary.roundsCompleted,
+    y_avg_round_score: summary.avgRoundScore
+  });
+
+  setText('crFeedback', `🏁 จบโหมด Plate Create แล้ว • ผ่าน ${summary.passCount}/${summary.roundsCompleted} รอบ`);
+  setText('crSummary', `คะแนนรวม ${summary.scoreFinal} • เฉลี่ย ${summary.avgRoundScore} • ผ่าน ${summary.passPct}%`);
+  coach('จบเกมแล้ว! ดูสรุปผลได้เลย 🏁', summary.passCount>0 ? 'happy' : 'neutral');
+
+  writeDebug({ endSummary: summary });
+  flushHardened(reason);
+}
+
+// ---------------- Start game ----------------
+function resetRuntime(){
+  STATE.running=false; STATE.ended=false; STATE.paused=false;
+  STATE.startedAt=0; STATE.tStartIso='';
+  STATE.timePlannedSec=0; STATE.timeLeft=0;
+  STATE.roundIndex=0;
+  STATE.currentScenario=null;
+  STATE.currentPool=[];
+  STATE.currentSelectedIds=[];
+  STATE.currentReasonChipIds=[];
+  STATE.submittedThisRound=false;
+  STATE.historyRounds=[];
+  STATE.scoreTotal=0;
+  STATE.passCount=0;
+  STATE.failCount=0;
+  STATE.uiActionCount=0;
+  STATE.addCount=0;
+  STATE.removeCount=0;
+  STATE.chipToggleCount=0;
+  STATE.textInputCount=0;
+  STATE.submitCount=0;
+  STATE.lastFeaturesScore=0;
+  stopLoops();
 }
 
 function startGame(){
-  resetStateForGame();
-  renderTopSummary();
+  resetRuntime();
+
+  STATE.running=true;
+  STATE.ended=false;
+  STATE.paused=false;
+
+  STATE.startedAt = now();
+  STATE.tStartIso = new Date().toISOString();
+
+  STATE.roundsPlanned = clamp(STATE.cfg?.roundsPlanned || 4, 1, 20);
+  STATE.timePlannedSec = Number(STATE.cfg?.durationPlannedSec || 240) || 240;
+  STATE.timeLeft = STATE.timePlannedSec;
+
+  // RNG policy
+  const runMode = String(STATE.cfg?.runMode || 'play').toLowerCase();
+  STATE.rng = (runMode === 'study' || runMode === 'research')
+    ? seededRng(STATE.cfg.seed)
+    : Math.random;
+
+  // AI hooks
+  STATE.AI = createAI(STATE);
+  try{ STATE.AI.reset?.(); }catch{}
+
+  setupRound();
+  updateHud();
 
   emit('hha:start', {
     projectTag:'HHA',
@@ -1001,55 +1268,47 @@ function startGame(){
     runMode: STATE.cfg.runMode,
     diff: STATE.cfg.diff,
     seed: STATE.cfg.seed,
+    timePlannedSec: STATE.timePlannedSec,
     durationPlannedSec: STATE.timePlannedSec,
     roundsPlanned: STATE.roundsPlanned,
     poolSize: STATE.cfg.poolSize,
     maxPick: STATE.cfg.maxPick,
-    aiDeterministic: (STATE.cfg.runMode === 'study' || STATE.cfg.runMode === 'research')
+    startTimeIso: STATE.tStartIso,
+    aiDeterministic: !!STATE.AI?.deterministic
   });
 
-  setText('crSummary', 'จัดจานใหม่ให้ผ่านเงื่อนไข แล้วอธิบายเหตุผล');
-  setText('crFeedback', 'แตะอาหารจากตัวเลือกเพื่อเพิ่มลงจาน');
+  coach('เริ่มโหมด Create! อ่านโจทย์ แล้วสร้างจานให้ผ่านข้อจำกัด 🍽️✨', 'neutral');
+  emit('hha:time', { game:'plate-create', timeLeftSec: STATE.timeLeft|0, leftSec: STATE.timeLeft|0 });
 
-  startTimers();
-  startRound();
+  startLoops();
 }
 
+// ---------------- Exported API ----------------
 export function boot({ mount, cfg } = {}){
-  STATE.mountEl = mount || document.body;
-  STATE.cfg = normalizeCfg(cfg);
+  if(!mount) throw new Error('plate-create.js: missing mount');
 
   if(!STATE.booted){
     STATE.booted = true;
-    wireUIEvents();
+    wireButtons();
     wirePauseBridge();
-
-    window.addEventListener('beforeunload', ()=>{ try{ tryFlush('beforeunload'); }catch(e){} });
-    document.addEventListener('visibilitychange', ()=>{
-      if(document.hidden) try{ tryFlush('hidden'); }catch(e){}
-    }, { passive:true });
   }
 
-  renderReasonChips([]);
-  renderTopSummary();
-  show(q('crNext'), false);
+  STATE.cfg = normalizeCfg(cfg);
 
+  // Start immediately when called by run page
   startGame();
 
   return {
-    stop(reason='stop'){ endGame(reason); },
+    stop(reason='stop'){ try{ endGame(reason); }catch{} },
     pause(){ setPaused(true); },
     resume(){ setPaused(false); },
-    getState(){ return STATE; }
+    getState(){ return STATE; },
+    submitRound,
+    nextRound
   };
 }
 
-// Optional auto-init
-(function autoInitMaybe(){
-  try{
-    const auto = document.documentElement?.getAttribute('data-plate-create-auto');
-    if(auto !== '1') return;
-    if(STATE.booted) return;
-    boot({ mount: document.body, cfg: null });
-  }catch(e){}
+// ---------------- Minimal compat (do not autostart) ----------------
+(function initCompat(){
+  // If someone imports this module on a page that doesn't call boot(), do nothing.
 })();
