@@ -1,6 +1,6 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
 GoodJunkVR CSS — PRODUCTION (PC/Mobile/VR/cVR) + HUD-safe + target FX helpers
-FULL v20260225p3-CSS-PRO
+FULL v20260225p3-CSS-PRO + PATCH A+B (bigger targets for VR/cVR adaptive) + SAFE cVR strict
 */
 
 :root{
@@ -19,7 +19,7 @@ FULL v20260225p3-CSS-PRO
 
   --r: 14px;
 
-  /* target sizing */
+  /* target sizing (base) */
   --tSize: 56px;
   --tShadow: 0 18px 45px rgba(0,0,0,.42);
 
@@ -102,27 +102,46 @@ body{
 /* --- compact mobile tuning --- */
 @media (max-width: 520px){
   :root{
-    --tSize: 52px;
+    --tSize: 52px; /* base mobile */
     --safeTop: calc(env(safe-area-inset-top, 0px) + 140px);
     --safeBot: calc(env(safe-area-inset-bottom, 0px) + 130px);
   }
-}
-
-/* --- VR/cVR tuning (bigger targets slightly) --- */
-@media (min-width: 700px){
-  :root{ --tSize: 58px; }
-}
-
-/* ========= OPTIONAL cVR STRICT CSS (safe even if not used) =========
-   If you later set: document.body.dataset.view = 'cvr'
-   this will enforce crosshair-only touches at CSS level too.
-*/
-body[data-view="cvr"] .gj-target{
-  pointer-events:none !important;
 }
 
 /* ===== helper: debug readable on bright bg ===== */
 #gjDebug{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+/* ============================================================
+   PATCH A+B: Adaptive bigger targets for VR/cVR (PC/Mobile unchanged)
+   Requires: goodjunk-vr.html sets: document.body.dataset.view = qs('view')
+   ============================================================ */
+
+/* Only scale in vr/cvr */
+body[data-view="vr"]{
+  --tSize: clamp(64px, 7.2vw, 86px);
+}
+body[data-view="cvr"]{
+  --tSize: clamp(70px, 8.0vw, 94px);
+}
+
+/* Small phones: extra help */
+@media (max-width: 520px){
+  body[data-view="vr"]{
+    --tSize: clamp(66px, 9.0vw, 92px);
+  }
+  body[data-view="cvr"]{
+    --tSize: clamp(74px, 9.8vw, 100px);
+  }
+}
+
+/* ============================================================
+   SAFE cVR STRICT (OPTIONAL)
+   อย่า block pointer-events ใน cVR ปกติ เพราะเกมใช้ pointerdown บน target
+   ถ้าต้องการ “ยิงอย่างเดียว” ให้เติม class strict: body.classList.add('strict')
+   ============================================================ */
+body[data-view="cvr"].strict .gj-target{
+  pointer-events:none !important;
 }
