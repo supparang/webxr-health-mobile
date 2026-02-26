@@ -1,16 +1,8 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION (PATCH D1–D15 + FIX v20260216a)
-D1–D3:
-✅ D1: Context parse + passthrough (hub/run/diff/time/seed/log/studyId/phase/conditionGroup/ai/cvrStrict/practice)
-✅ D2: Universal VR UI (/vr/vr-ui.js) + lockPx shim by view
-✅ D3: Start Gate overlay (tap-to-start) for mobile/cVR (toggle with ?gate=0)
-Other packs:
-✅ D7: Warmup/Cooldown Buff intake + HUD pill (no-effect in research)
-✅ D8: End Summary + Save last summary/history + Back HUB button
-✅ D9: Flush-hardened + bindFlush guard (no duplicate listeners)
-✅ D13: Calibration helper for cVR + Fullscreen/Landscape helper
-✅ D14: Practice mode 15s before real run (disable with ?practice=0)
-✅ D15: AI hooks module include (./ai-hooks.js) — enable only with ?ai=1 in play (engine enforces)
+GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION (PATCH LAYOUT v20260226)
+✅ Mobile layout: stage ใหญ่ขึ้น / HUD บางลง / coach เป็น toast
+✅ Move VIEW/SEED to topbar pills (ไม่บัง vr-ui)
+✅ Keep D7–D15 features (buff intake, summary, flush, practice, calibration, ai-hooks)
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-groups/groups.safe.js
@@ -154,12 +146,7 @@ Requires:
       overflow:hidden;
     }
     .bar > i{
-      display:block;          /* FIX */
-      height:100%;
-      width:0%;
-      min-width:0;
-      max-width:100%;
-      will-change: width;
+      display:block; height:100%; width:0%;
       background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
       transition: width .10s linear;
     }
@@ -195,35 +182,7 @@ Requires:
     .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; }
     .coachWrap .sub{ color:var(--muted); font-size:12px; font-weight:900; }
 
-    /* D3 Start gate */
-    #startGate{
-      position:absolute; inset:0;
-      background: rgba(0,0,0,.62);
-      backdrop-filter: blur(10px);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding: 14px;
-      z-index: 9500;
-    }
-    .gateCard{
-      width: min(860px, 100%);
-      border-radius: var(--radius);
-      border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.64));
-      box-shadow: 0 30px 120px rgba(0,0,0,.55);
-      overflow:hidden;
-    }
-    .gateCard header{
-      padding: 12px 12px;
-      border-bottom:1px solid rgba(148,163,184,.14);
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    }
-    .gateCard header b{ font-weight:1000; }
-    .gateCard main{ padding: 12px; display:flex; flex-direction:column; gap:10px; }
-    .gateBtns{ padding: 12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-
-    /* D8 End screen */
+    /* End screen */
     #endOverlay{
       position:absolute; inset:0;
       background: rgba(0,0,0,.60);
@@ -287,7 +246,7 @@ Requires:
       pointer-events:auto;
     }
 
-    /* D13 overlays: practice + calibration */
+    /* Practice + calibration overlays */
     .overlay{
       position:absolute; inset:0;
       display:none;
@@ -347,6 +306,85 @@ Requires:
       letter-spacing: .4px;
       opacity: .92;
     }
+
+    /* ==============================
+       PATCH LAYOUT v20260226-mobile-clean
+       ============================== */
+    :root{
+      --gap: 8px;
+      --hudTopPad: calc(6px + var(--sat));
+      --hudBottomPad: calc(72px + var(--sab)); /* กัน vr-ui บัง */
+      --cardR: 18px;
+    }
+    #app{
+      padding: calc(8px + var(--sat)) 8px calc(8px + var(--sab));
+      gap: var(--gap);
+    }
+    .topbar{
+      padding: 8px 10px;
+      border-radius: var(--cardR);
+    }
+    .title span{ font-size:12px; }
+    .title b{ font-size:14px; }
+    button{
+      padding: 8px 10px;
+      border-radius: 14px;
+    }
+    .stage{ border-radius: var(--cardR); }
+    .hudTop{ top: var(--hudTopPad); }
+
+    .hudBox{
+      padding: 7px 9px;
+      border-radius: 16px;
+      gap: 8px;
+    }
+    .hudBox .k{ font-size:11px; }
+    .hudBox .v{ font-size:12.5px; }
+
+    .questTop{
+      padding: 7px 9px;
+      border-radius: 16px;
+      gap: 6px;
+      max-width: min(520px, 100%);
+    }
+    .bar{ height: 10px; }
+
+    .powerWrap{
+      max-width: 260px;
+      padding: 7px 9px;
+      border-radius: 16px;
+    }
+
+    .hudBottom{
+      bottom: var(--hudBottomPad);
+    }
+
+    .coachWrap{
+      max-width: min(440px, 100%);
+      padding: 7px 9px;
+      border-radius: 16px;
+    }
+    .coachWrap .face{
+      width: 34px; height: 34px;
+      border-radius: 12px;
+    }
+    .coachWrap .txt{ font-size:13px; }
+    .coachWrap .sub{ font-size:11.5px; }
+
+    .tgt{
+      width: 74px; height: 74px;
+      font-size: 34px;
+      border-radius: 18px;
+    }
+
+    @media (max-width: 420px){
+      .title span{ display:none; }
+      #hudSeed{ display:none; }
+    }
+
+    body[data-view="cvr"]{
+      --hudBottomPad: calc(92px + var(--sab));
+    }
   </style>
 </head>
 
@@ -362,7 +400,11 @@ Requires:
       <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
 
-      <!-- D7 buff pill -->
+      <!-- ✅ moved VIEW/SEED to topbar (ไม่บัง vr-ui) -->
+      <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
+      <div class="pill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
+
+      <!-- buff pill -->
       <div class="pill" id="buffPill" style="display:none;">
         <span class="dot pink"></span> <span>BUFF:</span> <b id="buffText">—</b>
       </div>
@@ -422,37 +464,10 @@ Requires:
           <div class="sub" id="coachSub">แตะ/ยิงเป้าให้ถูกหมู่</div>
         </div>
       </div>
-      <div class="hudBox">
-        <span class="k">VIEW</span> <span class="v" id="hudView">—</span>
-        <span class="k">SEED</span> <span class="v" id="hudSeed">—</span>
-      </div>
+      <!-- ✅ removed VIEW/SEED box from bottom -->
     </div>
 
-    <!-- D3 Start gate overlay -->
-    <div id="startGate">
-      <div class="gateCard">
-        <header>
-          <div><b>▶️ แตะเพื่อเริ่ม (Start Gate)</b> <span style="color:var(--muted); font-weight:900;" id="gateSub">ปลดล็อก gesture สำหรับมือถือ/VR</span></div>
-          <div class="pill"><span class="dot"></span> <span>Gate:</span> <b id="gateTag">ON</b></div>
-        </header>
-        <main>
-          <div class="hint">
-            โหมด Mobile/cVR บางเครื่องต้อง “แตะเริ่ม” ก่อน เพื่อให้ยิง/เสียง/VR ทำงานเสถียร
-            (ปิดได้ด้วย <b>?gate=0</b>)
-          </div>
-          <div class="crossBox">
-            <div class="cross">🎯 เล็ง + ยิง</div>
-            <div class="hint" id="gateHint">แตะ “เริ่ม” แล้วค่อยเข้า practice/เกมจริง</div>
-          </div>
-        </main>
-        <div class="gateBtns">
-          <button class="ghost" id="btnGateSkip">ข้าม Gate</button>
-          <button class="primary" id="btnGateStart">เริ่ม</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- D14 Practice overlay -->
+    <!-- Practice overlay -->
     <div class="overlay" id="practiceOverlay">
       <div class="overlayCard">
         <header>
@@ -474,7 +489,7 @@ Requires:
       </div>
     </div>
 
-    <!-- D13 Calibration overlay (cVR) -->
+    <!-- Calibration overlay (cVR) -->
     <div class="overlay" id="calibOverlay">
       <div class="overlayCard">
         <header>
@@ -500,7 +515,7 @@ Requires:
       </div>
     </div>
 
-    <!-- D8 End overlay -->
+    <!-- End overlay -->
     <div id="endOverlay">
       <div id="endCard">
         <header>
@@ -531,7 +546,7 @@ Requires:
 <!-- Universal VR UI -->
 <script src="../vr/vr-ui.js"></script>
 
-<!-- D15 AI hooks -->
+<!-- AI hooks -->
 <script src="./ai-hooks.js"></script>
 
 <!-- Groups engine -->
@@ -548,12 +563,7 @@ Requires:
   const QS = getQS();
   const q = (k, def='') => (QS.get(k) ?? def);
 
-  // D1 context passthrough
   const HUB = q('hub','') || '../hub.html';
-  const LOG = q('log','') || '';
-  const STUDY = q('studyId','');
-  const PHASE = q('phase','');
-  const COND  = q('conditionGroup','');
 
   const RUN  = String(q('run','play')).toLowerCase();
   const DIFF = String(q('diff','normal')).toLowerCase();
@@ -561,16 +571,9 @@ Requires:
   const TIME = Number(q('time','90')||90);
   const SEED = String(q('seed','') || Date.now());
 
-  // D3 gate default ON for mobile/cVR (toggle ?gate=0)
-  const GATE_ON = (String(q('gate','1')||'1') !== '0') && (VIEW !== 'pc');
-
-  // D14 practice gate default ON, except research (toggle ?practice=0)
   const PRACTICE_ON = (String(q('practice','1')||'1') !== '0') && (RUN !== 'research');
-
-  // cVR strict default ON (toggle ?cvrStrict=0)
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
 
-  // D7 buff keys
   const BUFF_QS = {
     wType: q('wType',''),
     wPct:  q('wPct',''),
@@ -621,21 +624,12 @@ Requires:
   const endSummary = $('#endSummary');
   const endBuff = $('#endBuff');
 
-  // D3 gate
-  const startGate = $('#startGate');
-  const gateTag = $('#gateTag');
-  const gateHint = $('#gateHint');
-  const btnGateSkip = $('#btnGateSkip');
-  const btnGateStart = $('#btnGateStart');
-
-  // D14 practice overlay
   const practiceOverlay = $('#practiceOverlay');
   const practiceTag = $('#practiceTag');
   const practiceHint = $('#practiceHint');
   const btnSkipPractice = $('#btnSkipPractice');
   const btnStartPractice = $('#btnStartPractice');
 
-  // D13 calib overlay
   const calibOverlay = $('#calibOverlay');
   const strictTag = $('#strictTag');
   const btnFS = $('#btnFS');
@@ -653,11 +647,6 @@ Requires:
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
-  // init bars robust
-  qBar.style.width = '0%';
-  pBar.style.width = '0%';
-
-  // ---- D7 parse buff ----
   const BUFF = parseBuffFromQS(BUFF_QS);
 
   function num(v){
@@ -702,7 +691,6 @@ Requires:
   }
   renderBuffPill();
 
-  // ---- HUD init ----
   modePill.textContent = (RUN||'play').toUpperCase();
   diffPill.textContent = DIFF;
   hudView.textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
@@ -716,8 +704,6 @@ Requires:
   }
 
   let lastSummary = null;
-  let flushBound = false;   // FIX: guard
-  let inPractice = false;
 
   function setCoach(text, mood){
     coachTxt.textContent = text || '';
@@ -794,7 +780,6 @@ Requires:
     dirPill.style.display = '';
   });
 
-  // ---- D8 Save summary ----
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -843,6 +828,8 @@ Requires:
   }
   function hideEnd(){ endOverlay.style.display = 'none'; }
 
+  let inPractice = false;
+
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
     lastSummary = s;
@@ -856,18 +843,11 @@ Requires:
 
     const saved = saveLastSummary(s, BUFF, {
       view: VIEW, run: RUN, diff: DIFF, time: TIME, seed: SEED,
-      cvrStrict: CVR_STRICT ? 1 : 0,
-      gate: GATE_ON ? 1 : 0,
-      practice: PRACTICE_ON ? 1 : 0,
-      log: LOG || '',
-      studyId: STUDY || '',
-      phase: PHASE || '',
-      conditionGroup: COND || ''
+      cvrStrict: CVR_STRICT ? 1 : 0
     });
     showEnd(s, BUFF, saved);
   });
 
-  // ---- D9 Flush hardened ----
   function flushAll(summary){
     try{
       const T = window.GroupsVR && window.GroupsVR.Telemetry;
@@ -876,26 +856,19 @@ Requires:
       }
     }catch(_){}
   }
-
   function bindFlush(){
-    if(flushBound) return;       // FIX: no duplicate listeners
-    flushBound = true;
-
     try{
       if(window.GroupsVR && typeof window.GroupsVR.bindFlushOnLeave === 'function'){
         window.GroupsVR.bindFlushOnLeave(()=>lastSummary || null);
       }
     }catch(_){}
-
     window.addEventListener('pagehide', ()=>flushAll(), { passive:true });
     window.addEventListener('beforeunload', ()=>flushAll(), { passive:true });
-
     document.addEventListener('visibilitychange', ()=>{
       if(document.visibilityState === 'hidden') flushAll();
     });
   }
 
-  // ---- D13 Fullscreen / Orientation helpers ----
   async function requestFullscreen(){
     const el = document.documentElement;
     try{
@@ -925,7 +898,6 @@ Requires:
   });
   btnCloseCalib.addEventListener('click', ()=>hideCalib());
 
-  // ---- D14 practice overlay ----
   function showPractice(){
     practiceTag.textContent = PRACTICE_ON ? 'ON' : 'OFF';
     practiceHint.textContent = (VIEW==='cvr')
@@ -944,57 +916,8 @@ Requires:
     startPracticeRun();
   });
 
-  // ---- D3 gate overlay ----
-  function showGate(){
-    gateTag.textContent = GATE_ON ? 'ON' : 'OFF';
-    gateHint.textContent = (VIEW==='cvr')
-      ? 'แตะ “เริ่ม” แล้วจะไป calibration/practice ต่อ'
-      : 'แตะ “เริ่ม” แล้วจะไป practice/เกมจริงต่อ';
-    startGate.style.display = 'flex';
-  }
-  function hideGate(){ startGate.style.display = 'none'; }
-
-  btnGateSkip.addEventListener('click', ()=>{
-    hideGate();
-    afterGate();
-  });
-  btnGateStart.addEventListener('click', ()=>{
-    // unlock gesture (sound/vr/fullscreen can happen later)
-    try{ window.dispatchEvent(new CustomEvent('hha:gate', { detail:{ ok:true, at: Date.now() } })); }catch(_){}
-    hideGate();
-    afterGate();
-  });
-
-  function afterGate(){
-    // cVR: show calibration helper first (still useful)
-    if(VIEW === 'cvr'){
-      setCoach('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
-      coachSub.textContent = CVR_STRICT ? 'STRICT: ยิงจาก crosshair เท่านั้น' : 'แตะ/ยิงได้ทั้ง crosshair และแตะเป้า';
-      showCalib();
-    }
-
-    // practice gate
-    if(PRACTICE_ON){
-      showPractice();
-      return;
-    }
-
-    startRealRun();
-  }
-
-  // ---- ctx for engine ----
   function buildCtx(runMode, timeSec, seedStr){
-    const ctx = {
-      runMode: runMode,
-      time: timeSec,
-      seed: seedStr,
-      // pass-through research meta (optional)
-      studyId: STUDY || '',
-      phase: PHASE || '',
-      conditionGroup: COND || '',
-      // telemetry endpoint (optional)
-      log: LOG || ''
-    };
+    const ctx = { runMode: runMode, time: timeSec, seed: seedStr };
     if(BUFF){
       ctx.buff = { ...BUFF };
       ctx.buffLocked = (RUN === 'research');
@@ -1011,8 +934,6 @@ Requires:
   function restart(){
     hideEnd();
     stop();
-    // reset flush guard so re-bind is OK after full restart
-    flushBound = false;
     setTimeout(()=>bootFlow(), 40);
   }
 
@@ -1023,7 +944,7 @@ Requires:
     catch(_){ location.href = '../hub.html'; }
   }
 
-  // ---- D2 lockPx shim ----
+  // lockPx shim
   function installLockPxShim(){
     window.addEventListener('hha:shoot', (ev)=>{
       try{
@@ -1038,10 +959,8 @@ Requires:
     }, true);
   }
 
-  // ---- start engine ----
   function startEngine(runMode, timeSec, seedStr){
     try{ window.GroupsVR.GameEngine.setLayerEl(document.getElementById('playLayer')); }catch(_){}
-
     try{
       const ctx = buildCtx(runMode, timeSec, seedStr);
       window.GroupsVR.GameEngine.start(DIFF, ctx);
@@ -1077,18 +996,21 @@ Requires:
   function bootFlow(){
     installLockPxShim();
 
-    // D3 gate first (if enabled)
-    if(GATE_ON){
-      showGate();
+    if(VIEW === 'cvr'){
+      setCoach('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
+      coachSub.textContent = CVR_STRICT ? 'STRICT: ยิงจาก crosshair เท่านั้น' : 'แตะ/ยิงได้ทั้ง crosshair และแตะเป้า';
+      showCalib();
+    }
+
+    if(PRACTICE_ON){
+      showPractice();
       return;
     }
 
-    afterGate();
+    startRealRun();
   }
 
-  // ---- init ----
   bootFlow();
-
 })();
 </script>
 </body>
