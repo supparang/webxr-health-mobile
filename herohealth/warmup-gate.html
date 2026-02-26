@@ -10,6 +10,7 @@ HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL (v20260225p1)
 ✅ P5 mini-games: risky/skill-based (streak, decoys, perfect timing)
 ✅ Cooldown breath ring timing with perfect window
 Works PC/Mobile. Safe, no external deps.
+PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on domain root)
 -->
 <!doctype html>
 <html lang="th">
@@ -404,6 +405,9 @@ Works PC/Mobile. Safe, no external deps.
     </div>
   </div>
 
+<!-- ✅ PATCH v20260226: load canonical path helper (non-module) -->
+<script src="./js/hha-path.inline.js"></script>
+
 <script>
 (function(){
   'use strict';
@@ -419,6 +423,16 @@ Works PC/Mobile. Safe, no external deps.
   function absUrlMaybe(url){
     if(!url) return '';
     try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
+  }
+
+  function resolveHubSafe(raw){
+    // Prefer global resolver (GitHub Pages safe)
+    try{
+      if(WIN.HHA_RESOLVE_HUB) return WIN.HHA_RESOLVE_HUB(raw);
+    }catch(e){}
+    // fallback: at least make absolute relative to current
+    const u = absUrlMaybe(raw || './hub.html');
+    return u || raw || './hub.html';
   }
 
   function getLocalDayKey(){
@@ -479,8 +493,14 @@ Works PC/Mobile. Safe, no external deps.
   const phase = String(q('gatePhase', q('phase','warmup'))).toLowerCase();
   const cat   = String(q('cat','nutrition')).toLowerCase();
   const themeFromQs = String(q('theme','')).toLowerCase().trim();
-  const hub   = absUrlMaybe(q('hub','../hub.html')) || '../hub.html';
-  const next0 = absUrlMaybe(q('next','')) || hub;
+
+  // ✅ PATCH v20260226: canonical HUB (GitHub Pages safe)
+  const hubRaw = String(q('hub','')).trim();
+  const hub = resolveHubSafe(hubRaw);
+
+  // next may be absolute already; fallback to canonical hub
+  const nextRaw = String(q('next','')).trim();
+  const next0 = absUrlMaybe(nextRaw) || hub;
 
   let pid = String(q('pid','')).trim() || 'anon';
   const run = String(q('run','play')).toLowerCase().trim();
@@ -702,14 +722,18 @@ Works PC/Mobile. Safe, no external deps.
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
 
+    // ✅ Always enforce canonical hub to downstream pages
+    try{ u.searchParams.set('hub', hub); }catch(e){}
+
     if(phase==='cooldown'){
       u.searchParams.set('calm', '1');
       if(isP5) u.searchParams.set('grade','p5');
       return u.toString();
     }
 
+    // pass-through (skip 'hub' here because we force it above)
     [
-      'hub','run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase','grade'
+      'run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase','grade'
     ].forEach(k=>{
       const v = q(k,'');
       if(v!=='' && !u.searchParams.has(k)) u.searchParams.set(k, v);
@@ -775,6 +799,7 @@ Works PC/Mobile. Safe, no external deps.
         ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
         : (missions.doneCount>=2 ? 'สุดยอด! ทำภารกิจได้ ≥ 2 ข้อ ได้โบนัสบัฟด้วย!' : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง');
 
+    // ✅ canonical hub always
     btnToHub.onclick = ()=> location.href = hub;
     btnContinue.onclick = ()=> location.replace(nextUrl || hub);
   }
@@ -872,7 +897,7 @@ Works PC/Mobile. Safe, no external deps.
 
       const roll = Math.random();
       const goodRate = (opts.goodRate ?? 0.70);
-      const bombRate = (opts.bombRate ?? 0.12);
+      const bombRate = (opts.bombSet && (opts.bombRate ?? 0.12)) || 0;
       let kind='good';
       if(roll > goodRate){
         kind = (opts.bombSet && roll > (1 - bombRate)) ? 'bomb' : 'bad';
@@ -1348,7 +1373,11 @@ Works PC/Mobile. Safe, no external deps.
 
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
+
+    // ✅ enforce canonical hub downstream even on skip
+    try{ u.searchParams.set('hub', hub); }catch(e){}
     if(isP5 && !u.searchParams.get('grade')) u.searchParams.set('grade','p5');
+
     location.replace(u.toString());
   }
 
