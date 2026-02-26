@@ -1,918 +1,508 @@
 // === /herohealth/plate/plate-reasoning-score.js ===
-// HeroHealth Plate Reasoning Score Core (Analyze / Evaluate / Create) — v1.0
-// ✅ Shared scoring engine for Plate reasoning tasks
-// ✅ Uses scenario bank + food metadata from plate-reasoning-scenarios.js
-// ✅ Supports:
-//    - scoreAnalyzeSelection()   : ผู้เล่นจัดจาน + เลือกเหตุผลชิป
-//    - scoreEvaluateChoice()     : ผู้เล่นเลือกจาน A/B + เหตุผล
-//    - scoreCreatePlate()        : ผู้เล่นสร้างจานตาม constraints
-// ✅ Returns detailed rubric breakdown + feedback + misconception tags
-// ✅ Deterministic-friendly (pure scoring, no randomness)
+// Plate Reasoning Score Core — PRODUCTION+ — v1.0
+// Shared scoring for: Analyze (Scenario), Evaluate (A/B Critique), Create (Constraint)
 //
-// Notes:
-// - คะแนนรวมมาตรฐาน = 100
-//   Analyze/Create: balance 40 + constraints 40 + reasons 20
-//   Evaluate     : choice 60 + reasons 30 + explanation 10 (optional)
-// - This module is UI-agnostic.
+// Exports:
+//   scorePlateEvaluateAB(payload)
+//   scorePlateCreate(payload)
+//   scorePlateAnalyzeScenario(payload)
 //
-// Usage:
-//   import {
-//     scoreAnalyzeSelection,
-//     scoreEvaluateChoice,
-//     scoreCreatePlate,
-//     detectMisconceptions,
-//     summarizeScoreTH
-//   } from './plate-reasoning-score.js';
+// Common output:
+//   {
+//     ok:true,
+//     mode:'evaluate'|'create'|'analyze',
+//     totalScore: 0..100,
+//     total01: 0..1,
+//     pass: boolean,
+//     breakdown: { balance01, constraints01, reasoning01, ... },
+//     feedbackText: string,
+//     summaryText: string,
+//     labels: { ... }   // ML-ready targets/features
+//   }
 
 'use strict';
 
-import {
-  FOOD_MAP,
-  REASON_CHIP_MAP,
-  computePlateStats,
-  getScenarioById,
-  summarizeConstraintsTH
-} from './plate-reasoning-scenarios.js';
+// ---------------- Thai 5 food groups mapping (fixed) ----------------
+// 1 โปรตีน (เนื้อ นม ไข่ ถั่วเมล็ดแห้ง)
+// 2 คาร์โบไฮเดรต (ข้าว แป้ง เผือก มัน น้ำตาล)
+// 3 ผัก
+// 4 ผลไม้
+// 5 ไขมัน
+export const FOOD_GROUPS_TH = {
+  1: { id:1, th:'โปรตีน', short:'โปรตีน' },
+  2: { id:2, th:'คาร์โบไฮเดรต', short:'คาร์บ' },
+  3: { id:3, th:'ผัก', short:'ผัก' },
+  4: { id:4, th:'ผลไม้', short:'ผลไม้' },
+  5: { id:5, th:'ไขมัน', short:'ไขมัน' },
+};
 
-// --------------------------------------------------
-// utilities
-// --------------------------------------------------
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return v < a ? a : (v > b ? b : v);
+const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+const uniq = (arr)=>[...new Set(Array.isArray(arr)?arr:[])];
+
+function budgetRank(b){
+  if(b === 'low') return 1;
+  if(b === 'mid') return 2;
+  if(b === 'high') return 3;
+  return 2;
 }
-function asArr(v){
-  return Array.isArray(v) ? v : [];
-}
-function asSet(v){
-  return new Set(asArr(v).map(String));
-}
-function uniq(arr){
-  return [...new Set(asArr(arr).map(String))];
-}
-function intersectCount(a=[], b=[]){
-  const B = new Set(asArr(b).map(String));
-  let n = 0;
-  for(const x of asArr(a)) if(B.has(String(x))) n++;
-  return n;
-}
-function hasAny(arr=[], candidates=[]){
-  const S = new Set(asArr(arr).map(String));
-  return asArr(candidates).some(x => S.has(String(x)));
-}
-function round1(v){
-  return Math.round((Number(v)||0) * 10) / 10;
-}
-function round0(v){
-  return Math.round(Number(v)||0);
-}
-function pct(n, d){
-  if(!d) return 0;
-  return (Number(n)||0) / (Number(d)||1);
-}
-function txt(s){
-  return String(s || '').trim();
-}
+
 function normText(s){
-  return txt(s).toLowerCase();
+  return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
 }
 
-// --------------------------------------------------
-// Helpers: infer condition checks from scenario constraints
-// --------------------------------------------------
-function getScenario(input){
-  if(!input) return null;
-  if(typeof input === 'string') return getScenarioById(input);
-  if(typeof input === 'object' && input.id) return input;
-  return null;
-}
-
-function plateHasAllergyViolation(stats, scenario){
-  const allergy = asArr(scenario?.constraints?.allergy).map(String);
-  if(!allergy.length) return false;
-  if(allergy.includes('dairy') && (stats?.dairyCount || 0) > 0) return true;
-
-  // extendable:
-  // if (allergy.includes('egg')) check egg items by tags later
-  return false;
-}
-
-function plateBudgetOver(stats, scenario){
-  const max = Number(scenario?.constraints?.budgetMax || 0);
-  if(!max || max >= 999) return false;
-  return Number(stats?.cost || 0) > max;
-}
-
-function platePrepOver(stats, scenario){
-  const max = Number(scenario?.constraints?.prepTimeMaxMin || 0);
-  if(!max) return false;
-  return Number(stats?.prepMin || 0) > max;
-}
-
-function plateHasHighSugar(stats, scenario){
-  if(!scenario?.constraints?.avoidHighSugar) return false;
-  return Number(stats?.macros?.sugar || 0) >= 6; // threshold heuristic
-}
-
-function plateHasTooMuchFried(stats, scenario){
-  const preferNotFried = !!scenario?.targetProfile?.preferNotFried;
-  if(!preferNotFried) return false;
-  return Number(stats?.friedCount || 0) >= 1;
-}
-
-function plateGroupCoverageScore(stats, scenario){
-  const want = asArr(scenario?.targetProfile?.wantGroups);
-  if(!want.length){
-    // generic all-5 coverage heuristic
-    const distinct = Number(stats?.distinctGroupCount || 0);
-    return clamp((distinct / 5) * 100, 0, 100);
+function countGroups(selectedFoods){
+  const gCount = {1:0,2:0,3:0,4:0,5:0,0:0};
+  for(const f of (selectedFoods||[])){
+    const g = Number(f?.g)||0;
+    if(gCount[g] == null) gCount[g] = 0;
+    gCount[g]++;
   }
-
-  const groups = stats?.groups || {};
-  let hit = 0;
-  for(const g of want){
-    if((groups[g] || 0) > 0) hit++;
-  }
-
-  const base = pct(hit, want.length) * 100;
-
-  // bonus for optional groups
-  const opt = asArr(scenario?.targetProfile?.optionalGroups);
-  let optHit = 0;
-  for(const g of opt){
-    if((groups[g] || 0) > 0) optHit++;
-  }
-  const optBonus = opt.length ? pct(optHit, opt.length) * 10 : 0; // max +10
-
-  return clamp(base + optBonus, 0, 100);
+  const distinct = [1,2,3,4,5].filter(g=>gCount[g]>0).length;
+  return { gCount, distinct };
 }
 
-function plateMacroBalanceScore(stats, scenario){
-  const m = stats?.macros || {};
-  const protein = Number(m.protein || 0);
-  const carb    = Number(m.carb || 0);
-  const fat     = Number(m.fat || 0);
-  const sugar   = Number(m.sugar || 0);
+// ---------------- Balance model ----------------
+// Outputs score01, distinct, imbalance01, processedPenalty
+function evaluateBalance(selectedFoods){
+  const { gCount, distinct } = countGroups(selectedFoods);
+  const a = [1,2,3,4,5].map(g=>gCount[g]||0);
+  const sum = a.reduce((s,v)=>s+v,0);
 
-  let score = 100;
+  const processedCount = (gCount[0]||0);
+  const mean = sum>0 ? sum/5 : 0;
 
-  // protein target
-  const minProtein = Number(scenario?.targetProfile?.minProteinScore || 0);
-  if(minProtein > 0 && protein < minProtein){
-    score -= clamp((minProtein - protein) * 12, 0, 40);
-  }
+  // mean absolute deviation normalized
+  let mad = 0;
+  for(const v of a) mad += Math.abs(v-mean);
+  mad = (sum>0) ? (mad/5) : 0;
 
-  // carb too high (simple heuristic)
-  if(carb >= 11) score -= 18;
-  else if(carb >= 9) score -= 10;
+  // normalize imbalance 0..1
+  const imbalance01 = clamp(mean>0 ? (mad/(mean*2)) : 1, 0, 1);
 
-  // fat too high / too many fried
-  if(fat >= 10) score -= 18;
-  else if(fat >= 8) score -= 10;
+  // base: distinct coverage
+  let score01 = distinct / 5;
 
-  if((stats?.friedCount || 0) >= 1 && scenario?.targetProfile?.preferNotFried) score -= 14;
-  if(scenario?.constraints?.avoidHighSugar && sugar >= 6) score -= 18;
-  else if(scenario?.constraints?.avoidHighSugar && sugar >= 4) score -= 8;
+  // penalty if over-dominant single group
+  const maxOne = Math.max(...a, 0);
+  if(maxOne >= 3) score01 -= 0.12;
+  if(maxOne >= 4) score01 -= 0.12;
 
-  // reward variety lightly
-  const distinct = Number(stats?.distinctGroupCount || 0);
-  if(distinct >= 4) score += 6;
-  if(distinct >= 5) score += 4;
+  // penalty for processed/out-of-scope
+  const processedPenalty = clamp(processedCount * 0.12, 0, 0.36);
+  score01 -= processedPenalty;
 
-  return clamp(score, 0, 100);
+  // penalty for imbalance
+  score01 -= clamp(imbalance01 * 0.22, 0, 0.22);
+
+  score01 = clamp(score01, 0, 1);
+
+  return { score01, distinct, gCount, imbalance01, processedCount, processedPenalty };
 }
 
-function plateContextFitScore(stats, scenario){
+// ---------------- Constraint model ----------------
+function evaluateConstraints(selectedFoods, scenario){
   const c = scenario?.constraints || {};
-  const ctx = String(c.context || '');
-  const m = stats?.macros || {};
-
-  let score = 100;
-
-  if(ctx === 'preworkout'){
-    // pre-workout: some carb + adequate protein + not too heavy/fried/sugary
-    if((m.carb||0) < 3) score -= 18;
-    if((m.protein||0) < 4) score -= 20;
-    if((m.fat||0) > 9) score -= 18;
-    if((stats?.friedCount||0) >= 1) score -= 12;
-    if((m.sugar||0) >= 6) score -= 12;
-  } else if(ctx === 'postworkout'){
-    // post-workout: protein + carb matter
-    if((m.protein||0) < 5) score -= 22;
-    if((m.carb||0) < 4) score -= 18;
-    if((stats?.friedCount||0) >= 1) score -= 10;
-    if((m.sugar||0) >= 6) score -= 10;
-  } else if(ctx === 'school_morning' || ctx === 'exam_day'){
-    // quick, not too sugary, not too heavy
-    if((m.protein||0) < 2) score -= 12;
-    if((m.carb||0) < 2) score -= 10;
-    if((m.sugar||0) >= 6) score -= 20;
-    if((m.fat||0) >= 10) score -= 14;
-  } else if(ctx === 'lunch_weight_control'){
-    if((stats?.groups?.veg||0) <= 0) score -= 25;
-    if((m.carb||0) >= 10) score -= 18;
-    if((m.fat||0) >= 10) score -= 18;
-    if((m.sugar||0) >= 6) score -= 12;
-  } else if(ctx === 'home_limited'){
-    // emphasize "best use of what's available" elsewhere via reasons; keep neutral
-    score -= 0;
-  }
-
-  return clamp(score, 0, 100);
-}
-
-function scoreBalance(stats, scenario){
-  // Weighted blend => 0..40
-  const coverage = plateGroupCoverageScore(stats, scenario); // 0..100
-  const macroBal = plateMacroBalanceScore(stats, scenario);  // 0..100
-  const context  = plateContextFitScore(stats, scenario);    // 0..100
-
-  const composite = (coverage * 0.40) + (macroBal * 0.35) + (context * 0.25);
-  const score40 = clamp(Math.round(composite * 0.40), 0, 40);
-
-  return {
-    score: score40,
-    max: 40,
-    metrics: {
-      coverageScore100: round1(coverage),
-      macroBalanceScore100: round1(macroBal),
-      contextFitScore100: round1(context),
-      composite100: round1(composite)
-    }
-  };
-}
-
-function scoreConstraints(stats, scenario){
-  let s = 40;
-  const penalties = [];
-  const bonuses = [];
-
-  if(plateBudgetOver(stats, scenario)){
-    s -= 15;
-    penalties.push('budget_over');
-  } else if(Number(scenario?.constraints?.budgetMax || 0) < 999 && Number(scenario?.constraints?.budgetMax || 0) > 0){
-    bonuses.push('budget_fit');
-  }
-
-  if(platePrepOver(stats, scenario)){
-    s -= 15;
-    penalties.push('time_over');
-  } else if(Number(scenario?.constraints?.prepTimeMaxMin || 0) > 0){
-    bonuses.push('time_fit');
-  }
-
-  if(plateHasAllergyViolation(stats, scenario)){
-    s -= 22;
-    penalties.push('allergy_violated');
-  } else if(asArr(scenario?.constraints?.allergy).length){
-    bonuses.push('allergy_safe');
-  }
-
-  if(plateHasHighSugar(stats, scenario)){
-    s -= 8;
-    penalties.push('sugar_high');
-  }
-
-  if(plateHasTooMuchFried(stats, scenario)){
-    s -= 8;
-    penalties.push('fried_high');
-  }
-
-  s = clamp(s, 0, 40);
-
-  return {
-    score: s,
-    max: 40,
-    penalties,
-    bonuses
-  };
-}
-
-function inferPositiveReasonTargets(stats, scenario){
-  const out = new Set();
-
-  // from scenario recommended list (positive ones)
-  for(const id of asArr(scenario?.recommendedReasonChipIds)){
-    const chip = REASON_CHIP_MAP[id];
-    if(chip && chip.polarity === 'good') out.add(id);
-  }
-
-  // dynamic checks (positive)
-  if(!plateBudgetOver(stats, scenario) && Number(scenario?.constraints?.budgetMax||0) < 999) out.add('budget_fit');
-  if(!platePrepOver(stats, scenario) && Number(scenario?.constraints?.prepTimeMaxMin||0) > 0) out.add('time_fit');
-  if(!plateHasAllergyViolation(stats, scenario) && asArr(scenario?.constraints?.allergy).length) out.add('allergy_safe');
-
-  // balance-ish
-  if((stats?.groups?.veg || 0) > 0) out.add('veg_enough');
-  if((stats?.groups?.protein || 0) > 0) out.add('protein_ok');
-  if((stats?.groups?.carb || 0) > 0) out.add('carb_ok');
-
-  // context
-  const ctx = String(scenario?.constraints?.context || '');
-  if(ctx === 'preworkout') out.add('preworkout_fit');
-  if(ctx === 'postworkout') out.add('postworkout_fit');
-  if(ctx === 'school_morning' || ctx === 'exam_day') out.add('school_morning_fit');
-  if(ctx === 'home_limited') out.add('home_ingredient_fit');
-
-  // fat / sugar
-  if((stats?.macros?.sugar || 0) <= 3) out.add('fat_ok');
-
-  return [...out];
-}
-
-function inferNegativeReasonTargets(stats, scenario){
-  const out = new Set();
-
-  // dynamic negatives
-  if(plateBudgetOver(stats, scenario)) out.add('budget_over');
-  if(platePrepOver(stats, scenario)) out.add('time_over');
-  if(plateHasAllergyViolation(stats, scenario)) out.add('allergy_violated');
-  if(plateHasHighSugar(stats, scenario)) out.add('sugar_high');
-  if(plateHasTooMuchFried(stats, scenario)) out.add('fried_high');
-
-  const groups = stats?.groups || {};
-  const m = stats?.macros || {};
-
-  if((groups.veg || 0) <= 0) out.add('veg_too_low');
-  if((groups.protein || 0) <= 0 || (m.protein || 0) < Number(scenario?.targetProfile?.minProteinScore || 0)) out.add('protein_too_low');
-  if((m.carb || 0) >= 10) out.add('carb_too_high');
-  if((m.fat || 0) >= 10 || (stats?.friedCount||0) >= 1) out.add('fried_high');
-
-  // context-specific energy cues
-  const ctx = String(scenario?.constraints?.context || '');
-  if((ctx === 'lunch_weight_control' || ctx === 'school_morning' || ctx === 'exam_day') && ((m.carb||0)+(m.fat||0)+(m.sugar||0) >= 20)){
-    out.add('energy_too_high');
-  }
-  if((ctx === 'preworkout' || ctx === 'postworkout') && ((m.protein||0)+(m.carb||0) < 6)){
-    out.add('energy_too_low');
-  }
-
-  return [...out];
-}
-
-function scoreReasonsForPlate({ selectedReasonChipIds=[], stats, scenario, explanationText='' } = {}){
-  const selected = uniq(selectedReasonChipIds);
-  const selectedSet = new Set(selected);
-
-  const posTargets = inferPositiveReasonTargets(stats, scenario);
-  const negTargets = inferNegativeReasonTargets(stats, scenario);
-
-  let score = 20;
-  const matchedGood = [];
-  const matchedBad  = [];
-  const wrongClaims = [];
-  const noiseClaims = [];
-
-  for(const id of selected){
-    const chip = REASON_CHIP_MAP[id];
-    if(!chip){
-      noiseClaims.push(id);
-      score -= 1;
-      continue;
-    }
-    if(chip.polarity === 'good'){
-      if(posTargets.includes(id)){
-        matchedGood.push(id);
-        score += 2;
-      }else{
-        wrongClaims.push(id);
-        score -= 3;
-      }
-    }else{
-      if(negTargets.includes(id)){
-        matchedBad.push(id);
-        score += 2;
-      }else{
-        wrongClaims.push(id);
-        score -= 2;
-      }
-    }
-  }
-
-  // Encourage at least 1-2 relevant reasons
-  if(matchedGood.length + matchedBad.length === 0){
-    score -= 6;
-  }else if(matchedGood.length + matchedBad.length >= 2){
-    score += 2;
-  }
-
-  // Penalize selecting too many random chips (spray-and-pray)
-  if(selected.length > 5){
-    score -= Math.min(6, (selected.length - 5));
-  }
-
-  // Tiny bonus if explanation text exists and is nontrivial
-  if(txt(explanationText).length >= 8) score += 1;
-  if(txt(explanationText).length >= 20) score += 1;
-
-  score = clamp(score, 0, 20);
-
-  return {
-    score,
-    max: 20,
-    selected,
-    matchedGood,
-    matchedBad,
-    wrongClaims,
-    noiseClaims,
-    targets: { positive: posTargets, negative: negTargets }
-  };
-}
-
-// --------------------------------------------------
-// Misconception detection
-// --------------------------------------------------
-export function detectMisconceptions({ stats, scenario, selectedReasonChipIds=[] } = {}){
-  const tags = [];
-  const m = stats?.macros || {};
-  const groups = stats?.groups || {};
-  const selected = uniq(selectedReasonChipIds);
-
-  if((groups.veg || 0) <= 0) tags.push('veg_missing');
-  if((groups.protein || 0) <= 0) tags.push('protein_missing');
-  if((m.carb || 0) >= 10) tags.push('carb_overload');
-  if((m.sugar || 0) >= 6) tags.push('sugar_high');
-  if((stats?.friedCount || 0) >= 1) tags.push('fried_item_used');
-  if(plateHasAllergyViolation(stats, scenario)) tags.push('allergy_violation');
-  if(plateBudgetOver(stats, scenario)) tags.push('budget_over');
-  if(platePrepOver(stats, scenario)) tags.push('time_over');
-
-  // reasoning misconceptions
-  if(selected.includes('allergy_safe') && plateHasAllergyViolation(stats, scenario)){
-    tags.push('reason_contradiction_allergy');
-  }
-  if(selected.includes('budget_fit') && plateBudgetOver(stats, scenario)){
-    tags.push('reason_contradiction_budget');
-  }
-  if(selected.includes('time_fit') && platePrepOver(stats, scenario)){
-    tags.push('reason_contradiction_time');
-  }
-  if(selected.includes('fat_ok') && ((m.fat||0)>=10 || (stats?.friedCount||0)>=1)){
-    tags.push('reason_contradiction_fat');
-  }
-  if(selected.includes('veg_enough') && (groups.veg||0) <= 0){
-    tags.push('reason_contradiction_veg');
-  }
-
-  return uniq(tags);
-}
-
-// --------------------------------------------------
-// Analyze / Create scoring
-// --------------------------------------------------
-function scorePlateSelectionCore({ scenario, itemIds=[], selectedReasonChipIds=[], explanationText='' } = {}){
-  const scn = getScenario(scenario);
-  if(!scn){
-    return {
-      ok: false,
-      error: 'SCENARIO_NOT_FOUND',
-      score: 0
-    };
-  }
-
-  const cleanedItemIds = uniq(itemIds).filter(id => !!FOOD_MAP[id]);
-  const stats = computePlateStats(cleanedItemIds);
-
-  const balance = scoreBalance(stats, scn);        // /40
-  const constraints = scoreConstraints(stats, scn);// /40
-  const reasons = scoreReasonsForPlate({
-    selectedReasonChipIds,
-    stats,
-    scenario: scn,
-    explanationText
-  }); // /20
-
-  const total = clamp(balance.score + constraints.score + reasons.score, 0, 100);
-  const misconceptions = detectMisconceptions({
-    stats,
-    scenario: scn,
-    selectedReasonChipIds
-  });
-
-  const passLevel = total >= 75 ? 'good' : (total >= 55 ? 'fair' : 'needs_improve');
-
-  return {
-    ok: true,
-    score: total,
-    max: 100,
-    passLevel,
-    breakdown: {
-      balanceScore: balance.score,
-      balanceMax: balance.max,
-      constraintScore: constraints.score,
-      constraintMax: constraints.max,
-      reasonScore: reasons.score,
-      reasonMax: reasons.max
-    },
-    rubric: {
-      balance,
-      constraints,
-      reasons
-    },
-    stats,
-    scenario: {
-      id: scn.id,
-      titleTH: scn.titleTH,
-      constraintsSummaryTH: summarizeConstraintsTH(scn)
-    },
-    misconceptions,
-    feedbackTH: buildPlateFeedbackTH({
-      score: total,
-      stats,
-      scenario: scn,
-      balance,
-      constraints,
-      reasons,
-      misconceptions
-    })
-  };
-}
-
-export function scoreAnalyzeSelection(payload={}){
-  const res = scorePlateSelectionCore(payload);
-  if(!res.ok) return res;
-  return {
-    ...res,
-    taskType: 'analyze'
-  };
-}
-
-export function scoreCreatePlate(payload={}){
-  const res = scorePlateSelectionCore(payload);
-  if(!res.ok) return res;
-  return {
-    ...res,
-    taskType: 'create'
-  };
-}
-
-// --------------------------------------------------
-// Evaluate (A/B critique) scoring
-// --------------------------------------------------
-function scoreEvaluateReasons({
-  selectedReasonChipIds=[],
-  correctPlateStats,
-  wrongPlateStats,
-  scenario,
-  explanationText=''
-} = {}){
-  const selected = uniq(selectedReasonChipIds);
-  let score = 20; // base for reasons only (will normalize to 30)
-  const matched = [];
-  const wrongClaims = [];
-
-  const goodTargets = new Set(inferPositiveReasonTargets(correctPlateStats, scenario));
-  const badTargets  = new Set(inferNegativeReasonTargets(wrongPlateStats, scenario));
-
-  for(const id of selected){
-    const chip = REASON_CHIP_MAP[id];
-    if(!chip){
-      score -= 1;
-      continue;
-    }
-    if(chip.polarity === 'good'){
-      if(goodTargets.has(id)){ matched.push(id); score += 2; }
-      else { wrongClaims.push(id); score -= 2; }
-    }else{
-      if(badTargets.has(id)){ matched.push(id); score += 2; }
-      else { wrongClaims.push(id); score -= 2; }
-    }
-  }
-
-  if(matched.length === 0) score -= 6;
-  if(selected.length > 5) score -= Math.min(5, selected.length - 5);
-
-  // explanation text bonus on the "reasons" part
-  if(txt(explanationText).length >= 12) score += 1;
-  if(txt(explanationText).length >= 24) score += 1;
-
-  score = clamp(score, 0, 20);
-
-  // normalize 20 -> 30
-  const score30 = clamp(Math.round(score * 1.5), 0, 30);
-
-  return {
-    score: score30,
-    max: 30,
-    raw20: score,
-    matched,
-    wrongClaims,
-    targets: {
-      positiveOnBetterPlate: [...goodTargets],
-      negativeOnWorsePlate: [...badTargets]
-    }
-  };
-}
-
-function scoreEvaluateExplanationText(explanationText=''){
-  const s = txt(explanationText);
-  if(!s) return { score: 0, max: 10, flags:['missing_text'] };
-
-  let score = 4;
-  const flags = [];
-
-  if(s.length >= 12) score += 2; else flags.push('too_short');
-  if(s.length >= 24) score += 2;
-  if(s.length >= 40) score += 1;
-
-  // crude keyword cues (Thai)
-  const t = normText(s);
-  const cues = ['ผัก','โปรตีน','แป้ง','คาร์บ','น้ำตาล','หวาน','ทอด','งบ','เวลา','แพ้','สมดุล','เหมาะ'];
-  const hitCue = cues.some(k => t.includes(k));
-  if(hitCue) score += 1; else flags.push('low_specificity');
-
-  return { score: clamp(score, 0, 10), max: 10, flags };
-}
-
-/**
- * scoreEvaluateChoice
- * payload:
- * {
- *   scenario,                // scenario object or id
- *   pair,                    // result from buildEvaluatePair()
- *   selectedChoice,          // 'A' | 'B'
- *   selectedReasonChipIds,   // [chip ids]
- *   explanationText          // optional
- * }
- */
-export function scoreEvaluateChoice(payload={}){
-  const scn = getScenario(payload.scenario || payload?.pair?.scenarioId);
-  if(!scn){
-    return { ok:false, error:'SCENARIO_NOT_FOUND', score:0 };
-  }
-
-  const pair = payload.pair || null;
-  if(!pair || !pair.A || !pair.B || !pair.correctChoice){
-    return { ok:false, error:'PAIR_INVALID', score:0 };
-  }
-
-  const selectedChoice = String(payload.selectedChoice || '').toUpperCase();
-  const selectedReasonChipIds = uniq(payload.selectedReasonChipIds || []);
-  const explanationText = txt(payload.explanationText || '');
-
-  const isChoiceValid = (selectedChoice === 'A' || selectedChoice === 'B');
-  const choiceCorrect = isChoiceValid && selectedChoice === String(pair.correctChoice).toUpperCase();
-
-  // choice score /60
-  const choiceScore = choiceCorrect ? 60 : (isChoiceValid ? 12 : 0);
-
-  const better = String(pair.correctChoice).toUpperCase() === 'A' ? pair.A : pair.B;
-  const worse  = String(pair.correctChoice).toUpperCase() === 'A' ? pair.B : pair.A;
-
-  const betterStats = better.stats || computePlateStats(better.itemIds || []);
-  const worseStats  = worse.stats || computePlateStats(worse.itemIds || []);
-
-  const reasons = scoreEvaluateReasons({
-    selectedReasonChipIds,
-    correctPlateStats: betterStats,
-    wrongPlateStats: worseStats,
-    scenario: scn,
-    explanationText
-  }); // /30
-
-  const expl = scoreEvaluateExplanationText(explanationText); // /10
-
-  const total = clamp(choiceScore + reasons.score + expl.score, 0, 100);
-
-  // misconception typing specific to evaluate
-  let misconceptionType = '';
-  if(!isChoiceValid){
-    misconceptionType = 'no_choice';
-  }else if(!choiceCorrect){
-    // infer possible reason
-    const badStats = worseStats;
-    const m = badStats.macros || {};
-    const g = badStats.groups || {};
-    if((g.veg||0) <= 0) misconceptionType = 'chose_low_veg_plate';
-    else if((m.sugar||0) >= 6) misconceptionType = 'chose_high_sugar_plate';
-    else if((badStats.friedCount||0) >= 1) misconceptionType = 'chose_fried_heavy_plate';
-    else if(plateHasAllergyViolation(badStats, scn)) misconceptionType = 'ignored_allergy_constraint';
-    else if(plateBudgetOver(badStats, scn)) misconceptionType = 'ignored_budget_constraint';
-    else misconceptionType = 'wrong_plate_choice';
-  } else if(reasons.score < 12){
-    misconceptionType = 'correct_choice_weak_reasoning';
-  } else {
-    misconceptionType = 'none';
-  }
-
-  return {
-    ok: true,
-    taskType: 'evaluate',
-    score: total,
-    max: 100,
-    choiceCorrect: !!choiceCorrect,
-    selectedChoice: isChoiceValid ? selectedChoice : '',
-    correctChoice: String(pair.correctChoice).toUpperCase(),
-    misconceptionType,
-    breakdown: {
-      choiceScore,
-      choiceMax: 60,
-      reasonScore: reasons.score,
-      reasonMax: reasons.max,
-      explanationScore: expl.score,
-      explanationMax: expl.max
-    },
-    rubric: {
-      reasons,
-      explanation: expl
-    },
-    scenario: {
-      id: scn.id,
-      titleTH: scn.titleTH,
-      constraintsSummaryTH: summarizeConstraintsTH(scn)
-    },
-    pairSummary: {
-      A: { itemIds: asArr(pair.A.itemIds), stats: pair.A.stats || computePlateStats(pair.A.itemIds || []) },
-      B: { itemIds: asArr(pair.B.itemIds), stats: pair.B.stats || computePlateStats(pair.B.itemIds || []) }
-    },
-    feedbackTH: buildEvaluateFeedbackTH({
-      total,
-      choiceCorrect,
-      pair,
-      selectedChoice,
-      reasons,
-      explanation: expl,
-      misconceptionType
-    })
-  };
-}
-
-// --------------------------------------------------
-// Feedback generators (Thai)
-// --------------------------------------------------
-function topPlateIssues(stats, scenario){
+  let score01 = 1;
+  let pass = true;
   const issues = [];
-  const groups = stats?.groups || {};
-  const m = stats?.macros || {};
+  const positives = [];
 
-  if((groups.veg || 0) <= 0) issues.push('ผักน้อย/ไม่มีผัก');
-  if((groups.protein || 0) <= 0 || (m.protein || 0) < Number(scenario?.targetProfile?.minProteinScore || 0)) issues.push('โปรตีนยังไม่พอ');
-  if((m.carb || 0) >= 10) issues.push('คาร์โบไฮเดรตค่อนข้างมาก');
-  if((m.sugar || 0) >= 6) issues.push('น้ำตาลสูง');
-  if((stats?.friedCount || 0) >= 1) issues.push('มีของทอด/ไขมันสูง');
-  if(plateBudgetOver(stats, scenario)) issues.push('เกินงบประมาณ');
-  if(platePrepOver(stats, scenario)) issues.push('ใช้เวลาเตรียมนานเกินเงื่อนไข');
-  if(plateHasAllergyViolation(stats, scenario)) issues.push('มีอาหารที่ขัดกับข้อจำกัดการแพ้');
+  const { distinct, gCount } = countGroups(selectedFoods);
 
-  return issues.slice(0, 3);
+  if(c.requireGroupsMin != null){
+    if(distinct < Number(c.requireGroupsMin||0)){
+      pass = false;
+      score01 -= 0.25;
+      issues.push(`ยังไม่ถึง ${c.requireGroupsMin} หมู่`);
+    }else{
+      positives.push(`มีอย่างน้อย ${distinct} หมู่`);
+    }
+  }
+
+  if(c.noDairy){
+    const dairyHit = (selectedFoods||[]).some(f=>!!f?.dairy);
+    if(dairyHit){
+      pass = false;
+      score01 -= 0.35;
+      issues.push('มีอาหารที่มีนม/ผลิตภัณฑ์นม');
+    }else{
+      positives.push('หลีกเลี่ยงนมได้ถูกต้อง');
+    }
+  }
+
+  if(c.highProtein){
+    const hasP = (selectedFoods||[]).some(f=>(Number(f?.g)===1) || !!f?.highProtein);
+    if(!hasP){
+      pass = false;
+      score01 -= 0.25;
+      issues.push('โจทย์นี้ต้องการโปรตีนสูง');
+    }else{
+      positives.push('มีแหล่งโปรตีน');
+    }
+  }
+
+  if(c.preWorkout){
+    const bad = (selectedFoods||[]).filter(f => (f?.preWorkout === false) || !!f?.processed || (Number(f?.g)===0));
+    if(bad.length >= 2){
+      pass = false;
+      score01 -= 0.25;
+      issues.push('มีของที่ไม่เหมาะก่อนออกกำลังมากไป');
+    }else{
+      positives.push('ค่อนข้างเหมาะก่อนออกกำลังกาย');
+    }
+  }
+
+  if(c.avoidProcessed){
+    const p = (selectedFoods||[]).filter(f=>!!f?.processed || (Number(f?.g)===0)).length;
+    if(p >= 2){
+      pass = false;
+      score01 -= 0.25;
+      issues.push('มีอาหารแปรรูป/หวาน/ทอดมากเกินไป');
+    }else if(p === 1){
+      score01 -= 0.08;
+      issues.push('มีอาหารแปรรูป 1 รายการ');
+    }else{
+      positives.push('หลีกเลี่ยงอาหารแปรรูปได้ดี');
+    }
+  }
+
+  if(c.timeMaxMin != null){
+    const avgPrep = (selectedFoods||[]).length
+      ? (selectedFoods.reduce((s,f)=>s+(Number(f?.prepMin)||0),0) / selectedFoods.length)
+      : 99;
+    if(avgPrep > Number(c.timeMaxMin) + 0.2){
+      pass = false;
+      score01 -= 0.20;
+      issues.push(`ใช้เวลานาน (เฉลี่ย ~${avgPrep.toFixed(1)} นาที)`);
+    }else{
+      positives.push(`เตรียมได้ทันเวลา (${c.timeMaxMin} นาที)`);
+    }
+  }
+
+  if(c.budgetMax){
+    const maxAllowed = (c.budgetMax === 'low-mid') ? 2 : budgetRank(c.budgetMax);
+    const avgB = (selectedFoods||[]).length
+      ? (selectedFoods.reduce((s,f)=>s+budgetRank(f?.budget),0) / selectedFoods.length)
+      : 99;
+    if(avgB > maxAllowed + 0.05){
+      pass = false;
+      score01 -= 0.20;
+      issues.push('เกินงบโดยรวม');
+    }else{
+      positives.push('อยู่ในงบประมาณ');
+    }
+  }
+
+  // gentle bonus if veg (G3) present
+  if((gCount[3]||0) > 0) score01 += 0.04;
+
+  score01 = clamp(score01, 0, 1);
+
+  return { pass, score01, issues, positives };
 }
 
-function topPlateStrengths(stats, scenario){
-  const out = [];
-  const groups = stats?.groups || {};
-  const m = stats?.macros || {};
+// ---------------- Reasoning model ----------------
+// Supports:
+// - reasonChipIds: array
+// - reasonText: string
+// - scenario.preferReasonTags: array<string>
+// - optional: reasonBank: [{id,text,tags}] (if caller wants custom bank)
+function evaluateReasoning(reasonChipIds, reasonText, scenario, reasonBank){
+  const chips = Array.isArray(reasonChipIds) ? reasonChipIds : [];
+  const text = String(reasonText||'').trim();
+  const wanted = Array.isArray(scenario?.preferReasonTags) ? scenario.preferReasonTags : [];
 
-  if((stats?.distinctGroupCount || 0) >= 4) out.push('มีความหลากหลายของหมู่อาหารดี');
-  if((groups.veg || 0) > 0) out.push('มีผักในจาน');
-  if((groups.protein || 0) > 0) out.push('มีแหล่งโปรตีน');
-  if(!plateBudgetOver(stats, scenario) && Number(scenario?.constraints?.budgetMax||0) < 999) out.push('อยู่ในงบประมาณ');
-  if(!platePrepOver(stats, scenario)) out.push('อยู่ในเวลาที่กำหนด');
-  if(!plateHasAllergyViolation(stats, scenario) && asArr(scenario?.constraints?.allergy).length) out.push('หลีกเลี่ยงอาหารที่แพ้ได้ถูกต้อง');
-  if((m.sugar || 0) <= 3 && scenario?.constraints?.avoidHighSugar) out.push('น้ำตาลไม่สูงเกินไป');
+  const bank = Array.isArray(reasonBank) ? reasonBank : [];
+  const picked = chips.map(id => bank.find(c=>c.id===id)).filter(Boolean);
+  const tags = uniq(picked.flatMap(c => c.tags||[]));
 
-  return uniq(out).slice(0, 3);
+  let score01 = 0.40;
+  const issues = [];
+  const positives = [];
+
+  if(chips.length > 0){
+    score01 += 0.18;
+    positives.push('เลือกชิปเหตุผล');
+  }else{
+    issues.push('ยังไม่เลือกชิปเหตุผล');
+  }
+
+  if(text.length >= 10){
+    score01 += 0.18;
+    positives.push('มีคำอธิบาย');
+  }else{
+    issues.push('คำอธิบายสั้นเกินไป');
+  }
+
+  // heuristic keyword match from text (fallback)
+  const tx = normText(text);
+  const textTags = [];
+  if(/งบ|ประหยัด|ถูก/.test(tx)) textTags.push('budget');
+  if(/เวลา|เร็ว|ทัน/.test(tx)) textTags.push('time');
+  if(/โปรตีน|อิ่ม|กล้าม/.test(tx)) textTags.push('protein');
+  if(/ผัก/.test(tx)) textTags.push('veg');
+  if(/แพ้|นม|โยเกิร์ต|dairy/.test(tx)) textTags.push('dairy');
+  if(/ออกกำลัง|ก่อนซ้อม|pre/.test(tx)) textTags.push('preworkout');
+  if(/หวาน|ทอด|แปรรูป|น้ำอัดลม/.test(tx)) textTags.push('processed');
+
+  const allTags = uniq(tags.concat(textTags));
+
+  // preference alignment
+  const matchWanted = wanted.filter(t=>allTags.includes(t)).length;
+  if(wanted.length){
+    score01 += Math.min(0.18, matchWanted * 0.07);
+    if(matchWanted>0) positives.push('เหตุผลสอดคล้องเงื่อนไขโจทย์');
+    else issues.push('เหตุผลยังไม่ชี้เงื่อนไขโจทย์');
+  }
+
+  // discourage weak reason
+  if(allTags.includes('weak_reason')){ score01 -= 0.14; issues.push('เหตุผลยังเน้นความชอบมากไป'); }
+
+  score01 = clamp(score01, 0, 1);
+
+  return { score01, tags: allTags, matchWanted, issues, positives };
 }
 
-function buildPlateFeedbackTH({ score, stats, scenario, balance, constraints, reasons, misconceptions } = {}){
-  const lines = [];
-  const strengths = topPlateStrengths(stats, scenario);
-  const issues = topPlateIssues(stats, scenario);
+// ---------------- Helpers: compose response ----------------
+function composeFeedback(balance, constraints, reasoning){
+  const fb = []
+    .concat(constraints.positives||[])
+    .concat(constraints.issues||[])
+    .concat(reasoning.positives||[])
+    .concat(reasoning.issues||[])
+    .filter(Boolean);
 
-  if(score >= 85){
-    lines.push('ยอดเยี่ยม! จานนี้ตรงโจทย์และมีเหตุผลสอดคล้องดีมาก');
-  }else if(score >= 70){
-    lines.push('ดีมาก จานนี้ค่อนข้างเหมาะสมกับสถานการณ์');
-  }else if(score >= 55){
-    lines.push('พอใช้ได้ แต่ยังมีจุดที่ควรปรับเพื่อให้ตรงเงื่อนไขมากขึ้น');
-  }else{
-    lines.push('ยังไม่ผ่านโจทย์มากนัก ลองปรับองค์ประกอบจานและเหตุผลอีกครั้ง');
-  }
-
-  if(strengths.length){
-    lines.push(`จุดดี: ${strengths.join(' / ')}`);
-  }
-  if(issues.length){
-    lines.push(`ควรปรับ: ${issues.join(' / ')}`);
-  }
-
-  // rubric hint
-  if((balance?.score || 0) < 24) lines.push('ลองเพิ่มความสมดุลของหมู่อาหาร (โดยเฉพาะผัก/โปรตีน)');
-  if((constraints?.score || 0) < 24) lines.push('ตรวจเงื่อนไขโจทย์อีกครั้ง เช่น งบ เวลา หรือข้อจำกัดการแพ้');
-  if((reasons?.score || 0) < 10) lines.push('เลือกเหตุผลให้สอดคล้องกับจานมากขึ้น (อย่าเลือกชิปหลายอันแบบสุ่ม)');
-
-  if(asArr(misconceptions).includes('reason_contradiction_allergy')){
-    lines.push('มีความขัดแย้งในเหตุผล: เลือกว่า “ปลอดภัยต่อการแพ้” แต่จานยังมีอาหารที่แพ้');
-  }
-
-  return lines.join(' • ');
+  const short = fb.slice(0,4).join(' | ');
+  return short || 'ลองเพิ่มความหลากหลายของหมู่ และชี้เหตุผลให้ตรงโจทย์มากขึ้น';
 }
 
-function buildEvaluateFeedbackTH({ total, choiceCorrect, pair, selectedChoice, reasons, explanation, misconceptionType } = {}){
-  const lines = [];
-
-  if(choiceCorrect){
-    lines.push('เลือกจานได้ถูกต้อง ✅');
-  }else{
-    lines.push('การเลือกจานยังไม่ถูกต้อง ❌');
-  }
-
-  if(total >= 85){
-    lines.push('การวิเคราะห์และให้เหตุผลทำได้ดีมาก');
-  }else if(total >= 70){
-    lines.push('ให้เหตุผลได้ดี แต่ยังเพิ่มความเฉพาะเจาะจงได้อีก');
-  }else if(total >= 55){
-    lines.push('เริ่มจับประเด็นได้ แต่เหตุผลยังไม่ชัดหรือไม่ครบ');
-  }else{
-    lines.push('ควรฝึกดูความต่างของ “ความสมดุล + ข้อจำกัดโจทย์” ให้มากขึ้น');
-  }
-
-  if((reasons?.score || 0) < 15){
-    lines.push('ลองใช้เหตุผลที่อธิบายทั้ง “จุดดีของจานที่เลือก” และ “จุดอ่อนของอีกจาน”');
-  }
-  if((explanation?.score || 0) < 5){
-    lines.push('เพิ่มคำอธิบายสั้น ๆ เช่น ผัก/โปรตีน/น้ำตาล/งบ/เวลา จะช่วยให้คะแนนดีขึ้น');
-  }
-
-  // misconception tip
-  if(misconceptionType && misconceptionType !== 'none'){
-    const m = {
-      no_choice: 'ยังไม่ได้เลือก A หรือ B',
-      chose_low_veg_plate: 'อาจมองข้ามเรื่องปริมาณผัก',
-      chose_high_sugar_plate: 'อาจมองข้ามน้ำตาลสูง',
-      chose_fried_heavy_plate: 'อาจมองข้ามของทอด/ไขมันสูง',
-      ignored_allergy_constraint: 'อาจมองข้ามข้อจำกัดการแพ้อาหาร',
-      ignored_budget_constraint: 'อาจมองข้ามงบประมาณ',
-      wrong_plate_choice: 'ลองเทียบความสมดุลและข้อจำกัดให้ครบทุกด้าน',
-      correct_choice_weak_reasoning: 'เลือกถูกแล้ว แต่เหตุผลยังไม่ชัดพอ'
-    };
-    lines.push(`ข้อสังเกต: ${m[misconceptionType] || misconceptionType}`);
-  }
-
-  return lines.join(' • ');
+function composeSummary(balance, constraints, reasoning){
+  const b = Math.round(balance.score01*100);
+  const c = Math.round(constraints.score01*100);
+  const r = Math.round(reasoning.score01*100);
+  return `สมดุล ${b}% • เงื่อนไข ${c}% • เหตุผล ${r}%`;
 }
 
-// --------------------------------------------------
-// Compact summary helpers (for UI chips / logs)
-// --------------------------------------------------
-export function summarizeScoreTH(result){
-  if(!result || !result.ok){
-    return {
-      titleTH: 'ให้คะแนนไม่สำเร็จ',
-      gradeLike: '—',
-      colorKey: 'muted',
-      shortTH: 'ไม่พบข้อมูลโจทย์หรือข้อมูลไม่ครบ'
-    };
-  }
+function finalPassRule(totalScore, constraintsPass, distinct, minDistinct){
+  const need = Number(minDistinct||3);
+  return (totalScore >= 65) && constraintsPass && (distinct >= need);
+}
 
-  const score = Number(result.score || 0);
-  let gradeLike = 'D';
-  let colorKey = 'danger';
-  let levelTH = 'ควรปรับปรุง';
+// ---------------- CREATE ----------------
+// payload: { scenario, selectedFoods, selectedReasonChipIds, reasonText, reasonBank? }
+export function scorePlateCreate(payload){
+  const scenario = payload?.scenario || null;
+  const selectedFoods = Array.isArray(payload?.selectedFoods) ? payload.selectedFoods : [];
+  const reasonChipIds = payload?.selectedReasonChipIds || payload?.reasonChipIds || [];
+  const reasonText = payload?.reasonText || '';
+  const reasonBank = payload?.reasonBank || payload?.reasonChips || null;
 
-  if(score >= 90){ gradeLike='S'; colorKey='success'; levelTH='ยอดเยี่ยม'; }
-  else if(score >= 80){ gradeLike='A'; colorKey='success'; levelTH='ดีมาก'; }
-  else if(score >= 70){ gradeLike='B'; colorKey='info'; levelTH='ดี'; }
-  else if(score >= 55){ gradeLike='C'; colorKey='warning'; levelTH='พอใช้'; }
+  const balance = evaluateBalance(selectedFoods);
+  const constraints = evaluateConstraints(selectedFoods, scenario);
+  const reasoning = evaluateReasoning(reasonChipIds, reasonText, scenario, reasonBank);
 
-  let shortTH = `${levelTH} (${score}/100)`;
+  const total01 = clamp((balance.score01*0.40) + (constraints.score01*0.38) + (reasoning.score01*0.22), 0, 1);
+  const totalScore = Math.round(total01 * 100);
 
-  if(result.taskType === 'evaluate'){
-    shortTH += result.choiceCorrect ? ' • เลือกจานถูก' : ' • เลือกจานผิด';
-  }else{
-    const b = result.breakdown || {};
-    shortTH += ` • สมดุล ${b.balanceScore ?? 0}/${b.balanceMax ?? 40}`;
-    shortTH += ` • เงื่อนไข ${b.constraintScore ?? 0}/${b.constraintMax ?? 40}`;
-    shortTH += ` • เหตุผล ${b.reasonScore ?? 0}/${b.reasonMax ?? 20}`;
-  }
+  const minDistinct = scenario?.constraints?.requireGroupsMin ?? 3;
+  const pass = finalPassRule(totalScore, constraints.pass, balance.distinct, minDistinct);
+
+  const labels = {
+    y_mode_create: 1,
+    y_pass: pass?1:0,
+    y_score: totalScore,
+    y_balance: Math.round(balance.score01*100),
+    y_constraints: Math.round(constraints.score01*100),
+    y_reasoning: Math.round(reasoning.score01*100),
+    y_distinct_groups: balance.distinct,
+    y_processed_count: balance.processedCount,
+    y_imbalance01: Math.round(balance.imbalance01*1000)/1000,
+    y_reason_match: reasoning.matchWanted|0,
+  };
 
   return {
-    titleTH: `ผลการประเมิน: ${levelTH}`,
-    gradeLike,
-    colorKey,
-    shortTH
+    ok:true,
+    mode:'create',
+    totalScore,
+    total01,
+    pass,
+    breakdown:{
+      balance01: balance.score01,
+      constraints01: constraints.score01,
+      reasoning01: reasoning.score01,
+      distinct: balance.distinct,
+      processedCount: balance.processedCount,
+      imbalance01: balance.imbalance01,
+      constraintsPass: constraints.pass
+    },
+    balance, constraints, reasoning,
+    summaryText: composeSummary(balance, constraints, reasoning),
+    feedbackText: composeFeedback(balance, constraints, reasoning),
+    labels
   };
 }
 
-// --------------------------------------------------
-// Debug helper (optional)
-// --------------------------------------------------
-export function explainPlateQuick({ scenario, itemIds=[] } = {}){
-  const scn = getScenario(scenario);
-  if(!scn) return { ok:false, error:'SCENARIO_NOT_FOUND' };
+// ---------------- ANALYZE (Scenario Puzzle) ----------------
+// Similar to create, but heavier weight on constraints alignment + reasoning.
+// payload: { scenario, selectedFoods, selectedReasonChipIds, reasonText, reasonBank? }
+export function scorePlateAnalyzeScenario(payload){
+  const scenario = payload?.scenario || null;
+  const selectedFoods = Array.isArray(payload?.selectedFoods) ? payload.selectedFoods : [];
+  const reasonChipIds = payload?.selectedReasonChipIds || payload?.reasonChipIds || [];
+  const reasonText = payload?.reasonText || '';
+  const reasonBank = payload?.reasonBank || payload?.reasonChips || null;
 
-  const stats = computePlateStats(itemIds);
-  const balance = scoreBalance(stats, scn);
-  const constraints = scoreConstraints(stats, scn);
+  const balance = evaluateBalance(selectedFoods);
+  const constraints = evaluateConstraints(selectedFoods, scenario);
+  const reasoning = evaluateReasoning(reasonChipIds, reasonText, scenario, reasonBank);
+
+  // Analyze: constraints + reasoning matter more
+  const total01 = clamp((balance.score01*0.30) + (constraints.score01*0.44) + (reasoning.score01*0.26), 0, 1);
+  const totalScore = Math.round(total01 * 100);
+
+  const minDistinct = scenario?.constraints?.requireGroupsMin ?? 3;
+  const pass = finalPassRule(totalScore, constraints.pass, balance.distinct, minDistinct);
+
+  const labels = {
+    y_mode_analyze: 1,
+    y_pass: pass?1:0,
+    y_score: totalScore,
+    y_balance: Math.round(balance.score01*100),
+    y_constraints: Math.round(constraints.score01*100),
+    y_reasoning: Math.round(reasoning.score01*100),
+    y_distinct_groups: balance.distinct,
+    y_processed_count: balance.processedCount,
+    y_reason_match: reasoning.matchWanted|0,
+  };
 
   return {
-    ok: true,
-    scenarioId: scn.id,
-    stats,
-    preview: {
-      balanceScore40: balance.score,
-      constraintScore40: constraints.score,
-      likelyIssues: topPlateIssues(stats, scn),
-      likelyStrengths: topPlateStrengths(stats, scn)
-    }
+    ok:true,
+    mode:'analyze',
+    totalScore,
+    total01,
+    pass,
+    breakdown:{
+      balance01: balance.score01,
+      constraints01: constraints.score01,
+      reasoning01: reasoning.score01,
+      distinct: balance.distinct,
+      processedCount: balance.processedCount,
+      constraintsPass: constraints.pass
+    },
+    balance, constraints, reasoning,
+    summaryText: composeSummary(balance, constraints, reasoning),
+    feedbackText: composeFeedback(balance, constraints, reasoning),
+    labels
+  };
+}
+
+// ---------------- EVALUATE (Plate Critique A/B) ----------------
+// payload: { scenario?, plateA:{foods, reasonChipIds, reasonText}, plateB:{...}, chosen:'A'|'B', reasonText?, reasonChipIds? }
+// This returns:
+// - scores for A and B
+// - correctness of player choice vs "better plate"
+// - explanation quality scoring
+export function scorePlateEvaluateAB(payload){
+  const scenario = payload?.scenario || null;
+  const reasonBank = payload?.reasonBank || payload?.reasonChips || null;
+
+  const A = payload?.plateA || {};
+  const B = payload?.plateB || {};
+  const chosen = String(payload?.chosen || '').toUpperCase(); // 'A'|'B'
+
+  const foodsA = Array.isArray(A.foods) ? A.foods : [];
+  const foodsB = Array.isArray(B.foods) ? B.foods : [];
+
+  // Plate quality score = balance + (optional) constraints alignment
+  const balA = evaluateBalance(foodsA);
+  const balB = evaluateBalance(foodsB);
+
+  // If scenario exists, evaluate constraints too (light)
+  const conA = scenario ? evaluateConstraints(foodsA, scenario) : { pass:true, score01: 1, issues:[], positives:[] };
+  const conB = scenario ? evaluateConstraints(foodsB, scenario) : { pass:true, score01: 1, issues:[], positives:[] };
+
+  const plateA01 = clamp(balA.score01*0.62 + conA.score01*0.38, 0, 1);
+  const plateB01 = clamp(balB.score01*0.62 + conB.score01*0.38, 0, 1);
+
+  const better = (plateA01 > plateB01 + 0.02) ? 'A' : (plateB01 > plateA01 + 0.02) ? 'B' : 'TIE';
+  const correct = (better === 'TIE') ? (chosen === 'A' || chosen === 'B') : (chosen === better);
+
+  // Player explanation quality (reasons about imbalance / veg low / carb high / processed etc.)
+  const playerReasonText = payload?.reasonText || '';
+  const playerChipIds = payload?.reasonChipIds || payload?.selectedReasonChipIds || [];
+
+  // Use a "virtual scenario" preference tags for Evaluate
+  const evalScenario = {
+    preferReasonTags: ['balance','veg','processed','protein','time','budget']
+  };
+  const reasoning = evaluateReasoning(playerChipIds, playerReasonText, evalScenario, reasonBank);
+
+  // Add "insight" bonus if they mention specific critique
+  const tx = normText(playerReasonText);
+  let insight01 = 0;
+  const insightHits = [];
+  if(/ผักน้อย|เพิ่มผัก|ขาดผัก/.test(tx)) { insight01 += 0.16; insightHits.push('veg'); }
+  if(/แป้งเกิน|คาร์บเกิน|ลดแป้ง/.test(tx)) { insight01 += 0.16; insightHits.push('carb'); }
+  if(/หวาน|ทอด|แปรรูป|น้ำอัดลม/.test(tx)) { insight01 += 0.14; insightHits.push('processed'); }
+  if(/โปรตีน(น้อย|มาก)|เพิ่มโปรตีน|อิ่มนาน/.test(tx)) { insight01 += 0.12; insightHits.push('protein'); }
+  insight01 = clamp(insight01, 0, 0.40);
+
+  // Total Evaluate score focuses on decision correctness + reasoning quality
+  // correctness 55%, reasoning 30%, insight 15%
+  const correctness01 = (better === 'TIE') ? 0.85 : (correct ? 1 : 0);
+  const total01 = clamp(correctness01*0.55 + reasoning.score01*0.30 + (insight01/0.40)*0.15, 0, 1);
+  const totalScore = Math.round(total01*100);
+
+  // Pass rule (Evaluate): choose correctly AND decent explanation
+  const pass = (correctness01 >= 0.95 || (better==='TIE' && correctness01>=0.8)) && (reasoning.score01 >= 0.52) && (totalScore >= 65);
+
+  const labels = {
+    y_mode_evaluate: 1,
+    y_pass: pass?1:0,
+    y_score: totalScore,
+    y_correct_choice: correct?1:0,
+    y_better: better,
+    y_plateA_score: Math.round(plateA01*100),
+    y_plateB_score: Math.round(plateB01*100),
+    y_reasoning: Math.round(reasoning.score01*100),
+    y_insight: Math.round((insight01/0.40)*100),
+    y_insight_hits: insightHits.join(','),
+  };
+
+  const fb = [];
+  if(better !== 'TIE'){
+    fb.push(correct ? `✅ เลือกถูก: ${better} ดีกว่า` : `❌ เลือกพลาด: ${better} ดีกว่า`);
+  }else{
+    fb.push('⚖️ ทั้งสองจานใกล้เคียงกัน (TIE)');
+  }
+  if(reasoning.score01 < 0.55) fb.push('เพิ่มเหตุผลให้ชัดเจนขึ้น (ชิป+คำอธิบาย)');
+  if(insightHits.length === 0) fb.push('ลองชี้ “พลาดส่วนไหน” เช่น ผักน้อย/แป้งเกิน/แปรรูป');
+  const feedbackText = fb.slice(0,4).join(' | ');
+
+  const summaryText = `A ${Math.round(plateA01*100)}% • B ${Math.round(plateB01*100)}% • เหตุผล ${Math.round(reasoning.score01*100)}%`;
+
+  return {
+    ok:true,
+    mode:'evaluate',
+    totalScore,
+    total01,
+    pass,
+    breakdown:{
+      correctness01,
+      reasoning01: reasoning.score01,
+      insight01: (insight01/0.40),
+      plateA01,
+      plateB01,
+      better,
+      correct
+    },
+    plates:{
+      A:{ balance:balA, constraints:conA, plate01:plateA01 },
+      B:{ balance:balB, constraints:conB, plate01:plateB01 },
+    },
+    reasoning,
+    summaryText,
+    feedbackText,
+    labels
   };
 }
