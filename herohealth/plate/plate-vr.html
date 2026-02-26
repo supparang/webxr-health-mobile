@@ -8,9 +8,15 @@
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- Optional logger / shared libs (safe if missing) -->
-  <script src="../api/hha-cloud-logger.js" defer></script>
+  <!-- ✅ PATCH: cloud logger อยู่ /herohealth/vr/hha-cloud-logger.js -->
+  <script src="../vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Universal VR UI (crosshair + ENTER VR/EXIT/RECENTER + hha:shoot) -->
   <script src="../vr/vr-ui.js" defer></script>
-  <script src="../vr/ai-hooks.js" defer></script>
+
+  <!-- ❌ PATCH: ai-hooks.js เป็น ES module (มี export) ห้ามโหลดแบบ defer script
+       จะ import ใน <script type="module"> ด้านล่างแทน -->
+  <!-- <script src="../vr/ai-hooks.js" defer></script> -->
 
   <style>
     :root{
@@ -464,6 +470,22 @@
   <script type="module">
     import { boot as bootPlate } from './plate.safe.js';
 
+    // ✅ PATCH: import ai-hooks module correctly (fix "Unexpected token export")
+    // If file missing, we'll keep going without AI hooks.
+    try{
+      const mod = await import('../vr/ai-hooks.js');
+      // support either named export or default style (future-proof)
+      const createAIHooks = mod.createAIHooks || mod.default?.createAIHooks;
+      if (createAIHooks){
+        window.HHA_AI_HOOKS = { createAIHooks };
+        // console.log('[AI Hooks] loaded');
+      }else{
+        // console.warn('[AI Hooks] loaded but createAIHooks not found');
+      }
+    }catch(e){
+      // console.warn('[AI Hooks] not loaded:', e);
+    }
+
     const $ = (s)=>document.querySelector(s);
     const U = new URL(location.href);
     const DEBUG = U.searchParams.get('debug') === '1';
@@ -678,7 +700,9 @@
       dlog('boot:start', {
         href: location.href,
         cfg: parseCfg(),
-        mountBefore: mountRectInfo($('#plate-layer'))
+        mountBefore: mountRectInfo($('#plate-layer')),
+        cloudLogger: !!window.HHA_CloudLogger,
+        aiHooks: !!window.HHA_AI_HOOKS
       });
 
       const stable = await waitLayoutStable(28);
