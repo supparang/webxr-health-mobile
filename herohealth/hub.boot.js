@@ -1,9 +1,11 @@
 // === /herohealth/hub.boot.js ===
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
 // PATCH v20260225: Bloom per-zone per-day (pid+zone+day) + Bloom -> Warmup -> Game wrapper
+// PATCH v20260226: Canonical HUB URL (GitHub Pages safe)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
+import { resolveHub, hhaHub } from './js/hha-path.js';
 
 function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
 function nowSeed(){ return String(Date.now()); }
@@ -15,7 +17,9 @@ const P = {
   diff: String(qs('diff','normal')).toLowerCase() || 'normal',
   time: clamp(qs('time','80'), 20, 300),
   seed: String(qs('seed','')) || nowSeed(),
-  hub:  String(qs('hub','./hub.html')) || './hub.html',
+
+  // ✅ IMPORTANT: do NOT default to './hub.html' (relative) because it breaks after passing to other folders
+  hub:  String(qs('hub','')) || '',
 
   pid: String(qs('pid','')).trim(),
   studyId: String(qs('studyId','')).trim(),
@@ -45,6 +49,13 @@ const P = {
   bloom: String(qs('bloom','c')).toLowerCase().trim(),
 };
 
+// === PATCH v20260226: Canonical HUB URL (GitHub Pages safe) ===
+try{
+  P.hub = resolveHub(P.hub) || hhaHub();
+}catch(e){
+  P.hub = hhaHub();
+}
+
 function absUrlMaybe(url){
   if(!url) return '';
   try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
@@ -72,7 +83,7 @@ function isBloomDone(zone, pid){
 function addCommonParams(u){
   const set = (k,v)=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k, String(v)); };
 
-  set('hub', P.hub);
+  set('hub', P.hub);                 // ✅ canonical absolute hub
   set('api', API_ENDPOINT);
 
   set('run', P.run);
