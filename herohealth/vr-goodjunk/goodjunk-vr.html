@@ -2,6 +2,7 @@
 GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
 FULL v20260225p3-FULLPATCH-BKKDAY-CVRSTRICT-FLUSH-TELEM + A+B target-size
 PATCH v20260227: +HHA Shield +correct vr-ui loading +cloud-logger path
+PATCH v20260227: +Battle RTDB (optional via ?battle=1)
 Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 -->
 <!doctype html>
@@ -19,7 +20,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
   <!-- ✅ HHA Shield (กัน network noise/403 + กัน scroll/overlay แปลกๆ) -->
   <script src="../vr/hha-shield.js" defer></script>
 
-  <!-- ✅ Cloud logger อยู่ที่ /herohealth/vr/hha-cloud-logger.js (คุณยืนยันแล้ว) -->
+  <!-- ✅ Cloud logger อยู่ที่ /herohealth/vr/hha-cloud-logger.js -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <!-- ✅ Universal VR UI: ใช้ defer (ไม่ใช่ module) -->
@@ -426,7 +427,18 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       });
     }catch(e){}
 
-    // ✅ 2) ai-hooks เป็น ES module (แก้ export error)
+    // ✅ 1.5) Firebase config (สำหรับ Battle เท่านั้น)
+    // ใส่ค่าจริงจาก Firebase Console → Project settings → SDK setup
+    // หมายเหตุ: apiKey ของ Firebase เป็น public key ได้ (ไม่ใช่ secret)
+    window.HHA_FIREBASE_CONFIG = window.HHA_FIREBASE_CONFIG || {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "YOUR_PROJECT_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // ✅ 2) ai-hooks เป็น ES module
     import { createAIHooks } from '../vr/ai-hooks.js';
 
     // ✅ 3) game boot
@@ -449,7 +461,8 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
 
     window.HHA_AI = ai;
 
-    bootGoodJunk({ ai });
+    // ✅ PATCH: ส่ง seed/run/diff/view เข้าเกมด้วย (solo ก็ชัวร์, battle ก็ยังได้)
+    bootGoodJunk({ ai, seed, run: runMode, diff, view });
   </script>
 </body>
 </html>
