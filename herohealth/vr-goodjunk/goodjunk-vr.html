@@ -460,13 +460,15 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
     // ✅ 1.5) Firebase config (สำหรับ Battle เท่านั้น)
     // ใส่ค่าจริงจาก Firebase Console → Project settings → SDK setup
     // หมายเหตุ: apiKey ของ Firebase เป็น public key ได้ (ไม่ใช่ secret)
-    window.HHA_FIREBASE_CONFIG = window.HHA_FIREBASE_CONFIG || {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "YOUR_PROJECT_ID",
-      appId: "YOUR_APP_ID"
-    };
+    <script>
+window.HHA_FIREBASE_CONFIG = {
+  apiKey: "AIza........",
+  authDomain: "herohealth-d7f8c.firebaseapp.com",
+  databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "herohealth-d7f8c",
+  appId: "1:XXXXXXXX:web:XXXXXXX"
+};
+</script>
 
     // ✅ 2) ai-hooks เป็น ES module
     import { createAIHooks } from '../vr/ai-hooks.js';
