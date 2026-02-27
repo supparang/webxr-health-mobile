@@ -415,7 +415,37 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
   </div>
 
   <div id="gjDebug" aria-hidden="true">dbg</div>
-
+  <!-- ========= BATTLE OVERLAY (MIN) ========= -->
+<div id="battleOverlay" style="
+  position:fixed; inset:0; z-index:999;
+  display:none; align-items:center; justify-content:center;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(8px);">
+  <div style="
+    width:min(720px, 94vw);
+    border-radius:18px;
+    border:1px solid rgba(148,163,184,.18);
+    background: rgba(2,6,23,.86);
+    color: rgba(229,231,235,.95);
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    padding: 16px;">
+    <div style="font-weight:1000; font-size:18px;">⚔️ GoodJunk Battle</div>
+    <div id="battleStatus" style="margin-top:6px; opacity:.92; font-weight:800;">—</div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <div style="font-weight:1000; opacity:.9">ROOM:</div>
+      <div id="battleRoomCode" style="
+        font: 1000 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing:1px;
+        padding:10px 12px; border-radius:14px;
+        border:1px solid rgba(148,163,184,.18);
+        background: rgba(2,6,23,.55);">—</div>
+      <button id="battleCopyBtn" class="btn">Copy Code</button>
+      <button id="battleStartBtn" class="btn primary" style="display:none;">Start (3s)</button>
+    </div>
+    <div id="battleHint" style="margin-top:10px; font-size:12px; opacity:.86;">
+      * ต้องตั้งค่า Firebase Config + RTDB Rules ให้เขียนได้ก่อน
+    </div>
+  </div>
+</div>
   <script type="module">
     // ✅ 1) Shield ต้องถูกติดตั้ง “หลังจากไฟล์โหลด” (เราใช้ defer แล้ว)
     try{
