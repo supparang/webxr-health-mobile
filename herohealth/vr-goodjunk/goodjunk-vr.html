@@ -1,9 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (End Summary -> Next Cooldown (daily-first) + correct HUB)
-FULL v20260225p3-FULLPATCH-BKKDAY-CVRSTRICT-FLUSH-TELEM + A+B target-size
-PATCH v20260227: +HHA Shield +correct vr-ui loading +cloud-logger path
-PATCH v20260227: +Battle RTDB (optional via ?battle=1)
-Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
+GoodJunkVR RUN — PRODUCTION (solo + battle)
+FULL v20260227-FULL-BATTLE-RTDB-SOLO-FALLBACK
+Requires:
+- ./goodjunk.safe.js
+- ./goodjunk-vr.css
+- ../vr/hha-shield.js
+- ../vr/hha-cloud-logger.js
+- ../vr/vr-ui.js
+- ../vr/ai-hooks.js  (ES module)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,16 +19,29 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
   <meta name="grammarly" content="false">
   <title>HeroHealth • GoodJunk VR</title>
 
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260225p3"/>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260227"/>
 
-  <!-- ✅ HHA Shield (กัน network noise/403 + กัน scroll/overlay แปลกๆ) -->
+  <!-- ✅ HHA Shield -->
   <script src="../vr/hha-shield.js" defer></script>
 
-  <!-- ✅ Cloud logger อยู่ที่ /herohealth/vr/hha-cloud-logger.js -->
+  <!-- ✅ Cloud logger -->
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ Universal VR UI: ใช้ defer (ไม่ใช่ module) -->
-  <script src="../vr/vr-ui.js?v=20260225p3" defer></script>
+  <!-- ✅ Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260227" defer></script>
+
+  <!-- ✅ Firebase config MUST be in HEAD (before module) -->
+  <script>
+    // TODO: Replace with your real config from Firebase Console → Project settings → Web app
+    // apiKey is public (OK to be in client)
+    window.HHA_FIREBASE_CONFIG = {
+      apiKey: "REPLACE_ME",
+      authDomain: "herohealth-d7f8c.firebaseapp.com",
+      databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "herohealth-d7f8c",
+      appId: "REPLACE_ME"
+    };
+  </script>
 
   <style>
     html,body{height:100%;margin:0;}
@@ -43,7 +60,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       transform: translate(-50%,-50%);
       user-select:none;
       pointer-events:auto;
-      font-size:56px; /* CSS file will override via --tSize */
+      font-size:56px;
       will-change: transform, opacity;
     }
 
@@ -83,6 +100,7 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
     }
     .gj-stat .k{opacity:.78;font-weight:700;}
     .gj-stat .v{font-variant-numeric: tabular-nums;}
+
     .gj-mini{
       margin-top:8px;
       display:flex;
@@ -240,17 +258,8 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 16px;
     }
-    .end-title{
-      font-weight:1000;
-      font-size: 20px;
-      letter-spacing:.2px;
-    }
-    .end-sub{
-      margin-top:6px;
-      font-size: 12px;
-      opacity:.92;
-      word-break: break-all;
-    }
+    .end-title{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+    .end-sub{ margin-top:6px; font-size: 12px; opacity:.92; word-break: break-all; }
     .end-grid{
       margin-top:12px;
       display:grid;
@@ -310,6 +319,9 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       opacity:.9;
     }
     #gjDebug[aria-hidden="true"]{ display:none; }
+
+    /* battle overlay button */
+    .battle-btn-row{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
 
     @media (max-width: 520px){
       .end-grid{ grid-template-columns: 1fr; }
@@ -404,50 +416,59 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       <div class="end-actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
         <button class="btn danger" id="btnReplay">Replay</button>
-
-        <!-- show only when cooldown=1 AND cooldown not done today -->
         <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
-
-        <!-- shown when cooldown not required OR already done today -->
         <button class="btn primary" id="btnBackHub">Back HUB</button>
       </div>
     </div>
   </div>
 
   <div id="gjDebug" aria-hidden="true">dbg</div>
-  <!-- ========= BATTLE OVERLAY (MIN) ========= -->
-<div id="battleOverlay" style="
-  position:fixed; inset:0; z-index:999;
-  display:none; align-items:center; justify-content:center;
-  background: rgba(0,0,0,.55); backdrop-filter: blur(8px);">
-  <div style="
-    width:min(720px, 94vw);
-    border-radius:18px;
-    border:1px solid rgba(148,163,184,.18);
-    background: rgba(2,6,23,.86);
-    color: rgba(229,231,235,.95);
-    box-shadow: 0 18px 60px rgba(0,0,0,.45);
-    padding: 16px;">
-    <div style="font-weight:1000; font-size:18px;">⚔️ GoodJunk Battle</div>
-    <div id="battleStatus" style="margin-top:6px; opacity:.92; font-weight:800;">—</div>
-    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <div style="font-weight:1000; opacity:.9">ROOM:</div>
-      <div id="battleRoomCode" style="
-        font: 1000 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-        letter-spacing:1px;
-        padding:10px 12px; border-radius:14px;
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(2,6,23,.55);">—</div>
-      <button id="battleCopyBtn" class="btn">Copy Code</button>
-      <button id="battleStartBtn" class="btn primary" style="display:none;">Start (3s)</button>
-    </div>
-    <div id="battleHint" style="margin-top:10px; font-size:12px; opacity:.86;">
-      * ต้องตั้งค่า Firebase Config + RTDB Rules ให้เขียนได้ก่อน
+
+  <!-- ========= BATTLE OVERLAY ========= -->
+  <div id="battleOverlay" style="
+    position:fixed; inset:0; z-index:999;
+    display:none; align-items:center; justify-content:center;
+    background: rgba(0,0,0,.55); backdrop-filter: blur(8px);">
+    <div style="
+      width:min(760px, 94vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.86);
+      color: rgba(229,231,235,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 16px;">
+      <div style="font-weight:1000; font-size:18px;">⚔️ GoodJunk Duel</div>
+      <div id="battleStatus" style="margin-top:6px; opacity:.92; font-weight:800;">—</div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div style="font-weight:1000; opacity:.9">ROOM:</div>
+        <div id="battleRoomCode" style="
+          font: 1000 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+          letter-spacing:1px;
+          padding:10px 12px; border-radius:14px;
+          border:1px solid rgba(148,163,184,.18);
+          background: rgba(2,6,23,.55);">—</div>
+        <button id="battleCopyBtn" class="btn">Copy Code</button>
+        <button id="battleStartBtn" class="btn primary" style="display:none;">Start (3s)</button>
+      </div>
+
+      <div class="battle-btn-row">
+        <button id="battleBackBtn" class="btn">Back HUB</button>
+      </div>
+
+      <div id="battleHint" style="margin-top:10px; font-size:12px; opacity:.86;">
+        * ถ้าค้าง Connecting: ให้เช็ค Firebase config (apiKey/appId) + RTDB rules
+      </div>
     </div>
   </div>
-</div>
+
   <script type="module">
-    // ✅ 1) Shield ต้องถูกติดตั้ง “หลังจากไฟล์โหลด” (เราใช้ defer แล้ว)
+    // ---------- Debug helpers ----------
+    const log = (...a)=>console.log('[GJ-BATTLE]', ...a);
+    const warn = (...a)=>console.warn('[GJ-BATTLE]', ...a);
+    const err = (...a)=>console.error('[GJ-BATTLE]', ...a);
+
+    // ---------- Install Shield ----------
     try{
       window.HHA_Shield?.install({
         watchDOM: true,
@@ -457,32 +478,49 @@ Pairs with: /herohealth/vr-goodjunk/goodjunk-vr.css (v20260225p3)
       });
     }catch(e){}
 
-    // ✅ 1.5) Firebase config (สำหรับ Battle เท่านั้น)
-    // ใส่ค่าจริงจาก Firebase Console → Project settings → SDK setup
-    // หมายเหตุ: apiKey ของ Firebase เป็น public key ได้ (ไม่ใช่ secret)
-    <script>
-window.HHA_FIREBASE_CONFIG = {
-  apiKey: "AIza........",
-  authDomain: "herohealth-d7f8c.firebaseapp.com",
-  databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "herohealth-d7f8c",
-  appId: "1:XXXXXXXX:web:XXXXXXX"
-};
-</script>
-
-    // ✅ 2) ai-hooks เป็น ES module
+    // ---------- Imports ----------
     import { createAIHooks } from '../vr/ai-hooks.js';
-
-    // ✅ 3) game boot
     import { boot as bootGoodJunk } from './goodjunk.safe.js';
 
+    // ---------- Params ----------
     const U = new URL(location.href);
     const runMode = String(U.searchParams.get('run') || 'play').toLowerCase(); // play/research
     const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
-    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+    const pid  = String(U.searchParams.get('pid') || 'anon').trim() || 'anon';
+    const time = Number(U.searchParams.get('time') || 80);
+    const hub  = String(U.searchParams.get('hub') || '../hub.html');
 
-    // ✅ สร้าง ai hooks (research-safe)
+    const battle = (U.searchParams.get('battle') === '1');
+    const brole  = String(U.searchParams.get('brole') || '');
+    const joinRoom = String(U.searchParams.get('room') || '').trim();
+
+    // seed (solo uses this; battle will override from room.seed)
+    let seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+
+    // ---------- UI refs ----------
+    const ov = document.getElementById('battleOverlay');
+    const st = document.getElementById('battleStatus');
+    const codeEl = document.getElementById('battleRoomCode');
+    const copyBtn = document.getElementById('battleCopyBtn');
+    const startBtn = document.getElementById('battleStartBtn');
+    const backBtn = document.getElementById('battleBackBtn');
+
+    function showBattle(msg){
+      if(!ov) return;
+      ov.style.display = 'flex';
+      if(st) st.textContent = msg || '—';
+    }
+    function hideBattle(){
+      if(!ov) return;
+      ov.style.display = 'none';
+    }
+
+    backBtn?.addEventListener('click', ()=>{
+      location.href = hub;
+    });
+
+    // ---------- AI hooks ----------
     const ai = createAIHooks({
       seed: String(seed),
       runMode,
@@ -490,11 +528,166 @@ window.HHA_FIREBASE_CONFIG = {
       diff,
       device: view
     });
-
     window.HHA_AI = ai;
 
-    // ✅ PATCH: ส่ง seed/run/diff/view เข้าเกมด้วย (solo ก็ชัวร์, battle ก็ยังได้)
-    bootGoodJunk({ ai, seed, run: runMode, diff, view });
+    // ---------- Solo start helper ----------
+    function startSolo(){
+      log('Start SOLO', { seed, runMode, diff, view, pid, time });
+      bootGoodJunk({ ai, seed, run: runMode, diff, view, pid, time, hub });
+    }
+
+    // ---------- Battle ----------
+    function mkCode(){
+      const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s = '';
+      for(let i=0;i<4;i++) s += a[(Math.random()*a.length)|0];
+      return 'GJ' + s;
+    }
+
+    async function battleFlow(){
+      const cfg = window.HHA_FIREBASE_CONFIG || null;
+      log('Firebase config =', cfg);
+
+      const isCreate = battle && brole === 'create';
+      const isJoin   = battle && brole === 'join';
+
+      if(!isCreate && !isJoin){
+        return { mode:'none' };
+      }
+
+      if(!cfg || !cfg.databaseURL || !cfg.apiKey || !cfg.appId || String(cfg.apiKey).includes('REPLACE_ME') || String(cfg.appId).includes('REPLACE_ME')){
+        showBattle('❌ Firebase config ยังไม่ใส่ของจริง (apiKey/appId)');
+        if(codeEl) codeEl.textContent = 'NO_CFG';
+        return { mode:'none' };
+      }
+
+      showBattle('Loading Firebase RTDB…');
+
+      // Firebase v9 modular via CDN
+      let initializeApp, getDatabase, ref, set, update, onValue, serverTimestamp;
+      try{
+        ({ initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'));
+        ({ getDatabase, ref, set, update, onValue, serverTimestamp } =
+          await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js'));
+      }catch(e){
+        err('Failed to import Firebase CDN modules', e);
+        showBattle('❌ โหลด Firebase CDN ไม่ได้ (ลองเปลี่ยนเน็ต/เครือข่าย)');
+        return { mode:'none' };
+      }
+
+      let app, db;
+      try{
+        app = initializeApp(cfg);
+        db  = getDatabase(app);
+      }catch(e){
+        err('Firebase init failed', e);
+        showBattle('❌ Firebase init failed (config ไม่ถูกต้อง)');
+        return { mode:'none' };
+      }
+
+      // quick write test (helps diagnose PERMISSION_DENIED immediately)
+      try{
+        const testRef = ref(db, 'hh_test/ping');
+        await set(testRef, { t: Date.now(), pid });
+        log('RTDB write ok');
+      }catch(e){
+        err('RTDB write failed', e?.code, e?.message);
+        showBattle(`❌ RTDB write fail: ${e?.code || 'ERR'}`);
+        return { mode:'none' };
+      }
+
+      const basePath = 'hh_battle/goodjunk';
+      const roomCode = isCreate ? mkCode() : joinRoom;
+
+      if(!roomCode){
+        showBattle('❌ Missing room code (?room=GJXXXX)');
+        if(codeEl) codeEl.textContent = 'NO_ROOM';
+        return { mode:'none' };
+      }
+      if(codeEl) codeEl.textContent = roomCode;
+
+      copyBtn?.addEventListener('click', async ()=>{
+        try{ await navigator.clipboard.writeText(roomCode); showBattle('✅ Copied'); }
+        catch(e){ showBattle('Copy failed'); }
+      });
+
+      const roomRef = ref(db, `${basePath}/${roomCode}`);
+
+      try{
+        if(isCreate){
+          await set(roomRef, {
+            createdAt: serverTimestamp(),
+            status: 'lobby',
+            seed: String(seed),
+            hostPid: pid,
+            players: { [pid]: { pid, joinedAt: Date.now() } }
+          });
+          showBattle('✅ Room created. Share code to Player B.');
+        }else{
+          await update(roomRef, { [`players/${pid}`]: { pid, joinedAt: Date.now() } });
+          showBattle('✅ Joined. Waiting host to start…');
+        }
+      }catch(e){
+        err('Create/join room failed', e?.code, e?.message);
+        showBattle(`❌ Room op failed: ${e?.code || 'ERR'}`);
+        return { mode:'none' };
+      }
+
+      // creator start handler
+      if(isCreate){
+        startBtn.style.display = 'none';
+        startBtn.onclick = async ()=>{
+          const startAt = Date.now() + 3000;
+          try{
+            await update(roomRef, { status:'starting', startAt });
+            setTimeout(()=> update(roomRef, { status:'playing' }), 3100);
+          }catch(e){
+            err('Start failed', e?.code, e?.message);
+            showBattle(`❌ Start failed: ${e?.code || 'ERR'}`);
+          }
+        };
+      }
+
+      // watch room state
+      onValue(roomRef, (snap)=>{
+        const room = snap.val();
+        if(!room){
+          showBattle('❌ ROOM_NOT_FOUND');
+          return;
+        }
+        const pCount = room.players ? Object.keys(room.players).length : 0;
+
+        // sync seed
+        if(room.seed && String(room.seed) !== String(seed)){
+          seed = String(room.seed);
+          // rebuild ai if you want strict; for now keep inputs updated
+          try{ window.HHA_AI?.updateInputs?.({ seed }); }catch(e){}
+        }
+
+        if(room.status === 'lobby'){
+          if(st) st.textContent = `Lobby: ${pCount}/2 players`;
+          if(isCreate){
+            startBtn.style.display = (pCount >= 2) ? 'inline-flex' : 'none';
+          }
+        }else if(room.status === 'starting' && room.startAt){
+          const ms = Math.max(0, Number(room.startAt) - Date.now());
+          if(st) st.textContent = `Starting… ${Math.ceil(ms/1000)}s`;
+          startBtn.style.display = 'none';
+        }else if(room.status === 'playing'){
+          hideBattle();
+          log('Start BATTLE', { roomCode, seed, pid });
+          bootGoodJunk({ ai, seed, run: runMode, diff, view, pid, time, hub, room: roomCode, battle:1 });
+        }
+      });
+
+      return { mode:'battle', roomCode };
+    }
+
+    // ---------- Run ----------
+    const info = await battleFlow();
+    if(info.mode === 'none'){
+      startSolo();
+    }
   </script>
 </body>
 </html>
