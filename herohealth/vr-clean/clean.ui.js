@@ -1,542 +1,513 @@
 // === /herohealth/vr-clean/clean.ui.js ===
-// Clean Objects UI — Grid renderer + HUD + Summary — MVP v20260223
-'use strict';
+// Clean Objects UI — SAFE/PRODUCTION — v20260228-FULL
+// Works with: clean.core.js (createCleanCore) + run page home-clean.html
+//
+// ✅ Heat overlay (risk pulse)
+// ✅ A mode: Evaluate (tap markers) + quick reason chips
+// ✅ B mode: Create route (tap markers OR hha:shoot target) + realtime bars (from coach plan_live)
+// ✅ Summary: Go Cooldown / Back HUB / Replay
+// ✅ Coach toast (rate-limited by core)
+//
+// The run page passes functions in opts:
+//  snapshot(), selectA(id, reasonTag), toggleRouteB(id), undoB(), clearB(), submitB(), cfg
 
-import { ZONES, MAP } from './clean.data.js';
+'use strict';
 
 function el(tag, cls, html){
   const n = document.createElement(tag);
   if(cls) n.className = cls;
-  if(html!==undefined) n.innerHTML = html;
+  if(html !== undefined) n.innerHTML = html;
   return n;
 }
-
+function clamp(v,a,b){ v = Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+function fmt(v){ v = Number(v)||0; return String(Math.round(v)); }
 function escapeHtml(s){
   s = String(s ?? '');
-  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
 
-function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
-
-function fmt(n){
-  n = Number(n||0);
-  if(!Number.isFinite(n)) n = 0;
-  return String(Math.round(n));
+function qs(k, d=''){
+  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+  catch(e){ return d; }
+}
+function normalizeView(v){
+  v = String(v||'').toLowerCase();
+  if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
+  if(v==='mobile' || v==='m') return 'mobile';
+  if(v==='pc' || v==='desktop') return 'pc';
+  return v || '';
 }
 
-function zoneName(id){
-  const z = ZONES.find(z=>z.id===id);
-  return z ? z.name : id;
-}
-
-function surfaceLabel(s){
-  const m = {
-    metal:'Metal', plastic:'Plastic', glass:'Glass', wood:'Wood', tile:'Tile', fabric:'Fabric'
-  };
-  return m[String(s||'').toLowerCase()] || String(s||'');
-}
-
-function touchLabel(t){
-  t = Number(t||0);
-  if(t>=0.9) return 'High';
-  if(t>=0.55) return 'Med';
-  return 'Low';
-}
-
-function trafficLabel(t){
-  t = Number(t||0);
-  if(t>=0.9) return 'High';
-  if(t>=0.55) return 'Med';
-  return 'Low';
-}
-
-function makeReasonChips(){
-  const wrap = el('div','reasonChips');
-  const items = [
-    { tag:'risk_high',   txt:'เสี่ยงสูง' },
-    { tag:'touch_high',  txt:'จุดสัมผัสบ่อย' },
-    { tag:'traffic_high',txt:'คนใช้/ผ่านบ่อย' },
-    { tag:'old_clean',   txt:'ไม่ได้ทำความสะอาดนาน' },
-    { tag:'shared_use',  txt:'ใช้ร่วมกัน' },
-    { tag:'wet_area',    txt:'พื้นที่เปียก' },
+function reasonChipHTML(){
+  // minimal set; core will auto-map to explainable text
+  const chips = [
+    ['risk_high','เสี่ยงสูง'],
+    ['touch_high','สัมผัสบ่อย'],
+    ['traffic_high','คนผ่านบ่อย'],
+    ['old_clean','ไม่ได้ทำความสะอาดนาน'],
+    ['shared_use','ใช้ร่วมกัน'],
   ];
-  wrap.innerHTML = items.map(i=>`<button class="chip" type="button" data-tag="${i.tag}">${escapeHtml(i.txt)}</button>`).join('');
-  return wrap;
+  return chips.map(([tag,lab])=>`<button class="chip" data-tag="${tag}" type="button">${lab}</button>`).join('');
 }
 
-export function mountCleanUI(root, core){
-  // --- layout
-  root.innerHTML = '';
-  root.classList.add('cleanApp');
+function barsHTML(bd){
+  if(!bd) return '';
+  const bar = (label, v)=>`
+    <div class="barRow">
+      <div class="barLab">${label}</div>
+      <div class="barTrack"><div class="barFill" style="width:${clamp(v,0,100)}%"></div></div>
+      <div class="barVal">${fmt(v)}%</div>
+    </div>`;
+  return `
+    <div class="bars">
+      ${bar('Coverage', bd.coverageB)}
+      ${bar('Balance',  bd.balanceScore)}
+      ${bar('Remain',   bd.remainScore)}
+    </div>
+  `;
+}
 
-  const top = el('header','hud');
-  top.innerHTML = `
+export function mountCleanUI(root, opts){
+  opts = opts || {};
+  root.innerHTML = '';
+
+  // ---------- shell ----------
+  const app = el('div','cleanApp');
+  root.appendChild(app);
+
+  const hud = el('div','hud');
+  hud.innerHTML = `
     <div class="hudRow">
       <div class="pill" id="pillMode">MODE: —</div>
-      <div class="pill" id="pillTime">TIME: —</div>
-      <div class="pill" id="pillRes">—</div>
-    </div>
-    <div class="hudRow">
-      <div class="pill" id="pillScore">SCORE: —</div>
-      <div class="pill" id="pillHint">—</div>
+      <div class="pill" id="pillTime">TIME: 0</div>
+      <div class="pill" id="pillBudget">BUDGET: —</div>
+      <div class="pill" id="pillGoal">GOAL: —</div>
     </div>
   `;
+  app.appendChild(hud);
 
-  const board = el('main','board');
+  const board = el('div','board');
   const grid = el('div','grid');
-  const overlay = el('div','overlay');
-
-  const info = el('aside','info');
-  info.innerHTML = `
-    <div class="infoH">
-      <div class="infoT" id="infoTitle">Select a spot</div>
-      <div class="infoSub" id="infoSub">ดูข้อมูลจุดเสี่ยง แล้วตัดสินใจ</div>
-    </div>
-    <div class="infoBody" id="infoBody">
-      <div class="kv"><span>Risk</span><b id="iRisk">—</b></div>
-      <div class="kv"><span>Traffic</span><b id="iTraffic">—</b></div>
-      <div class="kv"><span>Surface</span><b id="iSurf">—</b></div>
-      <div class="kv"><span>Touch</span><b id="iTouch">—</b></div>
-      <div class="kv"><span>Last cleaned</span><b id="iOld">—</b></div>
-      <div class="tags" id="iTags"></div>
-
-      <div class="actions" id="actionsA" style="display:none;">
-        <button class="btn primary" id="btnClean" type="button">Clean (ใช้ 1 น้ำยา)</button>
-        <div class="mut" id="reasonHint">เลือกเหตุผล (optional) แล้วกด Clean</div>
-        <div id="reasonWrap"></div>
-      </div>
-
-      <div class="actions" id="actionsB" style="display:none;">
-        <button class="btn primary" id="btnRouteToggle" type="button">Add to Route</button>
-        <button class="btn ghost" id="btnUndo" type="button">Undo</button>
-        <button class="btn ghost" id="btnClear" type="button">Clear</button>
-        <button class="btn" id="btnSubmit" type="button">Submit plan</button>
-        <div class="mut" id="routeHint">เลือกจุดให้ครบตามจำนวน แล้ว Submit</div>
-      </div>
-    </div>
-  `;
-
-  const routePanel = el('section','routePanel');
-  routePanel.innerHTML = `
-    <div class="rpH">
-      <div class="rpT">Route</div>
-      <div class="rpSub" id="rpSub">—</div>
-    </div>
-    <div class="rpList" id="rpList"></div>
-  `;
-
-  const summary = el('section','summary', '');
-  summary.style.display = 'none';
-
   board.appendChild(grid);
-  board.appendChild(overlay);
 
-  root.appendChild(top);
-  root.appendChild(board);
-  root.appendChild(info);
-  root.appendChild(routePanel);
-  root.appendChild(summary);
-
-  // --- build grid background
-  buildGrid(grid);
-
-  // --- state
-  let selectedHotspotId = null;
-  let selectedUserReasonTag = null; // A mode optional
-  const reasonWrap = info.querySelector('#reasonWrap');
-  const chips = makeReasonChips();
-  reasonWrap.appendChild(chips);
-
-  chips.addEventListener('click', (e)=>{
-    const b = e.target.closest('.chip');
-    if(!b) return;
-    selectedUserReasonTag = b.getAttribute('data-tag') || null;
-    chips.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on', x===b));
-  });
-
-  // --- create hotspot markers layer
+  const heatLayer = el('div','heatLayer');
   const markerLayer = el('div','markerLayer');
+  grid.appendChild(heatLayer);
   grid.appendChild(markerLayer);
 
-  function renderHotspots(S){
+  const overlay = el('div','overlay');
+  overlay.innerHTML = `
+    <div class="ovHint" id="ovHint">
+      <div class="ovT">Clean Objects</div>
+      <div class="ovS">แตะจุดบนแผนที่เพื่อทำความสะอาด/วางแผน • โหมด Cardboard ยิงด้วย crosshair ได้</div>
+    </div>
+  `;
+  board.appendChild(overlay);
+
+  app.appendChild(board);
+
+  const info = el('div','info');
+  info.innerHTML = `
+    <div style="font-weight:1000;margin-bottom:6px">ภารกิจ</div>
+    <div id="missionText" style="opacity:.9;line-height:1.45;font-size:13px"></div>
+    <div style="margin-top:12px;font-weight:1000">เหตุผล (Evaluate)</div>
+    <div id="reasonBox" style="margin-top:8px"></div>
+    <div id="reasonNote" style="margin-top:8px;opacity:.85;font-size:12px;line-height:1.4"></div>
+    <div id="helpBox" style="margin-top:12px;opacity:.85;font-size:12px;line-height:1.45"></div>
+  `;
+  app.appendChild(info);
+
+  const routePanel = el('div','routePanel');
+  routePanel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:1000">Route / รายการ</div>
+        <div id="rpSub" style="opacity:.85;font-size:12px;margin-top:2px">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btnUndo" type="button">Undo</button>
+        <button class="btn" id="btnClear" type="button">Clear</button>
+        <button class="btn primary" id="btnSubmit" type="button">Submit</button>
+      </div>
+    </div>
+    <div id="rpList" style="margin-top:10px"></div>
+  `;
+  app.appendChild(routePanel);
+
+  // Coach toast (polish)
+  const coachToast = el('div','coachToast');
+  coachToast.style.display = 'none';
+  coachToast.innerHTML = `<div class="ctInner">🤖 …</div>`;
+  root.appendChild(coachToast);
+
+  let toastTimer = null;
+  function showCoach(text){
+    coachToast.querySelector('.ctInner').innerHTML = `🤖 ${escapeHtml(text)}`;
+    coachToast.style.display = '';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ coachToast.style.display='none'; }, 2600);
+  }
+
+  // Summary modal (simple)
+  const summary = el('div','summary');
+  summary.style.cssText = `
+    position:fixed; inset:0; z-index:200; display:none;
+    padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+    background: rgba(0,0,0,.55);
+  `;
+  summary.innerHTML = `
+    <div style="max-width:860px;margin:0 auto;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.86);border-radius:22px;padding:14px;box-shadow:0 30px 90px rgba(0,0,0,.45)">
+      <div style="font-weight:1100;font-size:18px">สรุปผล — Clean Objects</div>
+      <div id="sumMeta" style="margin-top:6px;opacity:.9;font-size:12px;line-height:1.4"></div>
+      <div id="sumBody" style="margin-top:10px;opacity:.95;font-size:13px;line-height:1.5"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;justify-content:flex-end">
+        <button class="btn primary" id="btnCooldown" type="button">Go Cooldown</button>
+        <button class="btn" id="btnBackHub" type="button">Back to HUB</button>
+        <button class="btn" id="btnReplay" type="button">Replay</button>
+      </div>
+    </div>
+  `;
+  root.appendChild(summary);
+
+  // add minimal button styling if run page doesn't already include
+  // (run page does, but safe)
+  const style = el('style');
+  style.textContent = `
+    .btn{ border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
+      padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
+    .btn.primary{ background: rgba(59,130,246,.28); border-color: rgba(59,130,246,.38); }
+    .btn:active{ transform: translateY(1px); }
+    .chip{ border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.38); color: rgba(229,231,235,.92);
+      padding: 8px 10px; border-radius: 999px; font-weight: 900; cursor:pointer; font-size:12px; }
+    .chip.sel{ border-color: rgba(59,130,246,.55); background: rgba(59,130,246,.18); }
+    .markerLayer{ position:absolute; inset:0; }
+    .mk{
+      position:absolute; width:28px; height:28px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.25); background: rgba(2,6,23,.55);
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:1000; cursor:pointer; user-select:none;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
+    .mk.on{ border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.16); }
+    .mk.warn{ border-color: rgba(251,191,36,.55); background: rgba(251,191,36,.12); }
+    .mk.hot{ border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.12); }
+  `;
+  root.appendChild(style);
+
+  // ---------- UI state ----------
+  let lastState = null;
+  let lastPlanBreakdown = null;
+  let selectedReasonTag = 'risk_high';
+
+  // ---------- elements ----------
+  const $ = (id)=> root.querySelector('#'+id);
+  const pillMode = $('pillMode');
+  const pillTime = $('pillTime');
+  const pillBudget = $('pillBudget');
+  const pillGoal = $('pillGoal');
+  const missionText = $('missionText');
+  const reasonBox = $('reasonBox');
+  const reasonNote = $('reasonNote');
+  const helpBox = $('helpBox');
+  const rpSub = $('rpSub');
+  const rpList = $('rpList');
+
+  // ---------- reason chips ----------
+  reasonBox.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">${reasonChipHTML()}</div>`;
+  reasonNote.textContent = 'เลือกเหตุผล 1 ข้อ แล้วแตะ “จุด” เพื่อทำความสะอาด (ระบบจะใช้เหตุผลนี้ประกอบสรุป)';
+  reasonBox.addEventListener('click', (e)=>{
+    const b = e.target && e.target.closest('.chip');
+    if(!b) return;
+    selectedReasonTag = String(b.dataset.tag||'risk_high');
+    for(const c of reasonBox.querySelectorAll('.chip')) c.classList.remove('sel');
+    b.classList.add('sel');
+  });
+  // default selection
+  const firstChip = reasonBox.querySelector('.chip');
+  if(firstChip) firstChip.classList.add('sel');
+
+  // ---------- marker / heat render ----------
+  function renderHeat(S){
+    heatLayer.innerHTML = '';
+    const hs = S.hotspots || [];
+    const w = (S.map && S.map.w) ? S.map.w : 10;
+    const hN = (S.map && S.map.h) ? S.map.h : 10;
+
+    for(const h of hs){
+      const r = clamp(h.risk,0,100);
+      const size = 22 + (r/100)*58;        // 22..80
+      const alpha = 0.10 + (r/100)*0.30;   // 0.10..0.40
+      const hueClass = (r>=75) ? 'hot' : (r>=55 ? 'warm' : 'cool');
+
+      const n = el('div', `heat ${hueClass}`);
+      n.style.left = `calc(${(Number(h.x)+0.5)/w*100}% - ${size/2}px)`;
+      n.style.top  = `calc(${(Number(h.y)+0.5)/hN*100}% - ${size/2}px)`;
+      n.style.width = `${size}px`;
+      n.style.height = `${size}px`;
+      n.style.opacity = String(alpha);
+      heatLayer.appendChild(n);
+    }
+  }
+
+  function markerClassForRisk(r){
+    r = Number(r)||0;
+    if(r >= 75) return 'hot';
+    if(r >= 55) return 'warn';
+    return '';
+  }
+
+  function renderMarkers(S){
     markerLayer.innerHTML = '';
     const hs = S.hotspots || [];
+    const w = (S.map && S.map.w) ? S.map.w : 10;
+    const hN = (S.map && S.map.h) ? S.map.h : 10;
+
+    const chosenA = new Set((S.A?.selected||[]).map(x=>x.id));
+    const chosenB = new Set((S.B?.routeIds||[]));
+
     for(const h of hs){
-      const m = el('button','spot');
-      m.type = 'button';
-      m.dataset.id = h.id;
-      m.style.left = `calc(${(h.x + 0.5)/MAP.w*100}% - 14px)`;
-      m.style.top  = `calc(${(h.y + 0.5)/MAP.h*100}% - 14px)`;
+      const mk = el('div', `mk ${markerClassForRisk(h.risk)}`);
+      const id = String(h.id);
+      mk.dataset.id = id;
 
-      // visual weight: risk level
-      const r = clamp(h.risk,0,100);
-      m.classList.toggle('rHigh', r>=75);
-      m.classList.toggle('rMed', r>=55 && r<75);
-      m.classList.toggle('rLow', r<55);
+      const x = (Number(h.x)+0.5)/w*100;
+      const y = (Number(h.y)+0.5)/hN*100;
 
-      // selected indicator
-      m.classList.toggle('isFocus', h.id === selectedHotspotId);
+      mk.style.left = `calc(${x}% - 14px)`;
+      mk.style.top  = `calc(${y}% - 14px)`;
 
-      // A: cleaned marker if selected list contains it
-      const selA = (S.A?.selected || []).some(s=>s.id===h.id);
-      m.classList.toggle('isCleaned', !!selA);
+      const picked = (S.mode==='A') ? chosenA.has(id) : chosenB.has(id);
+      if(picked) mk.classList.add('on');
 
-      // B: in route marker
-      const inRoute = (S.B?.routeIds || []).includes(h.id);
-      m.classList.toggle('isRoute', !!inRoute);
+      // label: show index or short id
+      mk.textContent = String(h.label || id).slice(0,2);
 
-      // label (short)
-      m.innerHTML = `<span class="dot"></span><span class="lab">${escapeHtml(h.name)}</span>`;
-      markerLayer.appendChild(m);
+      mk.addEventListener('click', ()=>{
+        if(!lastState || lastState.ended) return;
+        if(lastState.mode === 'A'){
+          opts.selectA && opts.selectA(id, selectedReasonTag);
+        }else{
+          opts.toggleRouteB && opts.toggleRouteB(id);
+        }
+      });
+
+      markerLayer.appendChild(mk);
     }
   }
 
-  // --- UI helpers
-  function setInfoForHotspot(h, S){
-    if(!h){
-      info.querySelector('#infoTitle').textContent = 'Select a spot';
-      info.querySelector('#infoSub').textContent = 'ดูข้อมูลจุดเสี่ยง แล้วตัดสินใจ';
-      info.querySelector('#iRisk').textContent = '—';
-      info.querySelector('#iTraffic').textContent = '—';
-      info.querySelector('#iSurf').textContent = '—';
-      info.querySelector('#iTouch').textContent = '—';
-      info.querySelector('#iOld').textContent = '—';
-      info.querySelector('#iTags').innerHTML = '';
-      return;
-    }
-
-    info.querySelector('#infoTitle').textContent = h.name;
-    info.querySelector('#infoSub').textContent = `${zoneName(h.zone)} • ${surfaceLabel(h.surfaceType)}`;
-
-    info.querySelector('#iRisk').textContent = fmt(h.risk);
-    info.querySelector('#iTraffic').textContent = trafficLabel(h.traffic);
-    info.querySelector('#iSurf').textContent = surfaceLabel(h.surfaceType);
-    info.querySelector('#iTouch').textContent = touchLabel(h.touchLevel);
-
-    const mins = Number(h.timeLastCleanedMin||0);
-    const hours = Math.round(mins/60);
-    info.querySelector('#iOld').textContent = hours>=24 ? `${Math.round(hours/24)}d` : `${hours}h`;
-
-    const tags = (h.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('');
-    info.querySelector('#iTags').innerHTML = tags || '<span class="mut">—</span>';
-
-    // mode actions
-    const isA = (S.mode === 'A');
-    const aA = info.querySelector('#actionsA');
-    const aB = info.querySelector('#actionsB');
-
-    aA.style.display = isA ? '' : 'none';
-    aB.style.display = (!isA) ? '' : 'none';
-
-    if(isA){
-      // clean button enabled?
-      const can = (S.A?.spraysLeft||0) > 0 && !(S.A?.selected||[]).some(s=>s.id===h.id);
-      const btn = info.querySelector('#btnClean');
-      btn.disabled = !can;
-    }else{
-      const inRoute = (S.B?.routeIds || []).includes(h.id);
-      const btn = info.querySelector('#btnRouteToggle');
-      btn.textContent = inRoute ? 'Remove from Route' : 'Add to Route';
-      btn.disabled = (!inRoute) && ((S.B?.routeIds||[]).length >= (S.B?.maxPoints||5));
-    }
-  }
-
-  function setHUD(S){
-    const pillMode = top.querySelector('#pillMode');
-    const pillTime = top.querySelector('#pillTime');
-    const pillRes = top.querySelector('#pillRes');
-    const pillScore = top.querySelector('#pillScore');
-    const pillHint = top.querySelector('#pillHint');
-
-    pillMode.textContent = `MODE: ${S.mode === 'A' ? 'A (Evaluate)' : 'B (Create)'}`;
-    pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
-
-    if(S.mode === 'A'){
-      pillRes.textContent = `SPRAY: ${fmt(S.A?.spraysLeft||0)} / ${fmt((S.A?.selected||[]).length)} chosen`;
-      pillHint.textContent = 'เลือก 3 จุดที่คุ้มที่สุดภายในทรัพยากรจำกัด';
-    } else {
-      pillRes.textContent = `ROUTE: ${fmt((S.B?.routeIds||[]).length)} / ${fmt(S.B?.maxPoints||5)} points`;
-      pillHint.textContent = 'วางแผนเส้นทางให้ครอบคลุมและสมดุล';
-    }
-
-    // score preview (simple): show selected count / route count; real score on summary
-    if(S.mode === 'A'){
-      const rr = (S.A?.selected||[]).reduce((a,b)=> a+Number(b.rr||0), 0);
-      pillScore.textContent = `SCORE: RR ${fmt(rr)} (preview)`;
-    } else {
-      pillScore.textContent = `SCORE: plan building…`;
-    }
-  }
-
+  // ---------- route panel ----------
   function renderRoutePanel(S){
-    const rpSub = routePanel.querySelector('#rpSub');
-    const rpList = routePanel.querySelector('#rpList');
-
-    if(S.mode === 'A'){
-      rpSub.textContent = `Selected ${fmt((S.A?.selected||[]).length)} / 3`;
-      const list = (S.A?.selected||[]).map((s, i)=>{
-        const h = (S.hotspots||[]).find(x=>x.id===s.id);
-        const name = h ? h.name : s.id;
-        return `
-          <div class="rpItem">
-            <div class="rpIdx">${i+1}</div>
-            <div class="rpMain">
-              <div class="rpName">${escapeHtml(name)}</div>
-              <div class="rpMeta">RR ${fmt(s.rr)} • ${escapeHtml(s.reasonText||'—')}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-      rpList.innerHTML = list || `<div class="mut">—</div>`;
+    const mode = S.mode;
+    const hs = S.hotspots || [];
+    if(mode === 'A'){
+      routePanel.style.display = 'none';
       return;
     }
+    routePanel.style.display = '';
+    const ids = (S.B && S.B.routeIds) ? S.B.routeIds : [];
+    rpSub.textContent = `Route ${fmt(ids.length)} / ${fmt(S.B?.maxPoints||5)}`;
 
-    rpSub.textContent = `Route ${fmt((S.B?.routeIds||[]).length)} / ${fmt(S.B?.maxPoints||5)}`;
-    const list = (S.B?.routeIds||[]).map((id, i)=>{
-      const h = (S.hotspots||[]).find(x=>x.id===id);
-      const name = h ? h.name : id;
-      const z = h ? zoneName(h.zone) : '';
-      return `
-        <div class="rpItem">
-          <div class="rpIdx">${i+1}</div>
-          <div class="rpMain">
-            <div class="rpName">${escapeHtml(name)}</div>
-            <div class="rpMeta">${escapeHtml(z)} • ${escapeHtml(h ? surfaceLabel(h.surfaceType) : '')}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-    rpList.innerHTML = list || `<div class="mut">—</div>`;
-  }
-
-  function showSummary(payload){
-    summary.style.display = '';
-    const m = payload.metrics || {};
-    const b = m.breakdown || {};
-    const isA = (m.mode === 'A');
-
-    const items = isA
-      ? (m.reasons || []).map(r=>{
-          const h = getHotspot(r.id);
-          const name = h ? h.name : r.id;
-          return `<li><b>${escapeHtml(name)}</b> — RR ${fmt(r.rr)} • ${escapeHtml(r.reasonText||'—')}</li>`;
+    const list = ids.length
+      ? ids.map((id, i)=>{
+          const h = hs.find(x=>String(x.id)===String(id));
+          const t = h ? `${escapeHtml(h.name||h.title||id)} <span style="opacity:.75">(${escapeHtml(h.surfaceType||'')}, risk ${fmt(h.risk)}%)</span>` : escapeHtml(id);
+          return `<div style="padding:8px 0;border-top:1px solid rgba(148,163,184,.10)"><b>${i+1}.</b> ${t}</div>`;
         }).join('')
-      : (m.routeIds || []).map(id=>{
-          const h = getHotspot(id);
-          const name = h ? h.name : id;
-          const z = h ? zoneName(h.zone) : '';
-          return `<li><b>${escapeHtml(name)}</b> — ${escapeHtml(z)} • ${escapeHtml(h ? surfaceLabel(h.surfaceType) : '')}</li>`;
-        }).join('');
+      : `<div style="opacity:.8">ยังไม่มี route — แตะจุดเพื่อเพิ่ม</div>`;
 
-    const breakdownHtml = isA
-      ? `
-        <div class="sumGrid">
-          <div class="sumBox"><div class="k">RR</div><div class="v">${fmt(b.rrTotal)}</div></div>
-          <div class="sumBox"><div class="k">Coverage</div><div class="v">${fmt(b.coverage)}%</div></div>
-          <div class="sumBox"><div class="k">DQ</div><div class="v">${fmt(b.dq)}%</div></div>
-          <div class="sumBox"><div class="k">Score</div><div class="v">${fmt(payload.score)}</div></div>
-        </div>
-      `
-      : `
-        <div class="sumGrid">
-          <div class="sumBox"><div class="k">Coverage</div><div class="v">${fmt(b.coverageB)}%</div></div>
-          <div class="sumBox"><div class="k">Balance</div><div class="v">${fmt(b.balanceScore)}%</div></div>
-          <div class="sumBox"><div class="k">Remain</div><div class="v">${fmt(b.remainScore)}%</div></div>
-          <div class="sumBox"><div class="k">Score</div><div class="v">${fmt(payload.score)}</div></div>
-        </div>
-      `;
-
-    const badges = (payload.badges||[]).slice(0,10).map(x=>`<span class="badge">🏅 ${escapeHtml(x)}</span>`).join(' ') || '—';
-
-    summary.innerHTML = `
-      <div class="sumCard">
-        <div class="sumTop">
-          <div>
-            <div class="sumTitle">${escapeHtml(payload.title || 'Clean Objects')}</div>
-            <div class="sumSub">${escapeHtml(payload.zone)} • ${escapeHtml(payload.game)} • ${escapeHtml(payload.view||'')}</div>
-          </div>
-          <button class="btn ghost" id="btnCloseSum" type="button">Close</button>
-        </div>
-
-        ${breakdownHtml}
-
-        <div class="sumBadges">${badges}</div>
-
-        <div class="sumList">
-          <div class="sumListH">${isA ? 'Choices (with reasons)' : 'Planned route'}</div>
-          <ul>${items || '<li>—</li>'}</ul>
-        </div>
-
-        <div class="sumActions">
-          <button class="btn primary" id="btnBackHub" type="button">Back to HUB</button>
-          <button class="btn" id="btnReplay" type="button">Replay</button>
-        </div>
-      </div>
-    `;
-
-    summary.querySelector('#btnCloseSum').onclick = ()=> { summary.style.display='none'; };
+    rpList.innerHTML = (barsHTML(lastPlanBreakdown) || '') + list;
   }
 
-  function goHub(){
-    const hub = core.cfg?.hub;
+  // ---------- mission/help ----------
+  function renderMission(S){
+    if(S.mode === 'A'){
+      missionText.innerHTML = `
+        <b>Evaluate:</b> เลือกทำความสะอาด “คุ้มที่สุด” ภายใต้น้ำยา <b>${fmt(S.A?.maxSelect||3)}</b> ครั้ง และเวลา <b>${fmt(S.timeTotal||45)}s</b><br/>
+        คะแนนเน้น <b>risk reduction</b> + <b>coverage</b> + <b>decision quality</b> (เลือกจุดสำคัญ)
+      `;
+      helpBox.innerHTML = `Tip: เลือกเหตุผลก่อน แล้วแตะจุดบนแผนที่ • ถ้า <code>run=research</code> ความเสี่ยงจะเพิ่มแบบ deterministic ตาม seed`;
+    }else{
+      missionText.innerHTML = `
+        <b>Create:</b> วางแผน route/checklist ภายในเวลา <b>${fmt(S.timeTotal||60)}s</b> เลือกได้ <b>${fmt(S.B?.maxPoints||5)}</b> จุด<br/>
+        คะแนนเน้น <b>Coverage</b> + <b>Balance</b> (พื้นผิว/โซน) + <b>Remain</b> (เหลือจุดสำคัญแค่ไหน)
+      `;
+      helpBox.innerHTML = `Tip: แตะจุดเพื่อเพิ่มใน route • โหมด Cardboard ใช้ crosshair ยิงได้ (อีเวนต์ <code>hha:shoot</code>)`;
+    }
+  }
+
+  // ---------- HUD ----------
+  function renderHud(S){
+    pillMode.textContent = `MODE: ${S.mode==='A' ? 'A (Evaluate)' : 'B (Create)'}`;
+    pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
+    if(S.mode === 'A'){
+      pillBudget.textContent = `SPRAYS: ${fmt(S.A?.spraysLeft||0)}/${fmt(S.A?.maxSelect||3)}`;
+      pillGoal.textContent = `GOAL: Max Risk Reduction`;
+    }else{
+      pillBudget.textContent = `POINTS: ${fmt((S.B?.routeIds||[]).length)}/${fmt(S.B?.maxPoints||5)}`;
+      pillGoal.textContent = `GOAL: Best Routine/Route`;
+    }
+  }
+
+  // ---------- summary ----------
+  function goHubDirect(){
+    const hub = qs('hub','');
     if(hub) location.href = hub;
     else location.href = '../hub.html';
   }
 
+  function goCooldown(){
+    const hub = qs('hub','') || '../hub.html';
+    const base = new URL(location.href);
+
+    const g = new URL('../warmup-gate.html', base);
+    g.searchParams.set('cat','hygiene');
+    g.searchParams.set('theme','cleanobjects');
+    g.searchParams.set('cd','1');
+    g.searchParams.set('next', hub);
+
+    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade'];
+    keep.forEach(k=>{
+      const v = base.searchParams.get(k);
+      if(v !== null && v !== '') g.searchParams.set(k, v);
+    });
+    g.searchParams.set('hub', hub);
+
+    location.href = g.toString();
+  }
+
   function replay(){
-    // keep base URL but renew seed (optional)
-    const u = new URL(location.href);
-    if(u.searchParams.get('run') !== 'research'){
-      u.searchParams.set('seed', String(Date.now()));
-    }
-    location.href = u.toString();
+    // reload while keeping params
+    location.reload();
   }
 
-  // --- interactions
-  markerLayer.addEventListener('click', (e)=>{
-    const b = e.target.closest('.spot');
-    if(!b) return;
-    const id = b.dataset.id;
-    selectHotspot(id);
-  });
+  function showSummary(payload){
+    summary.style.display = '';
+    const meta = summary.querySelector('#sumMeta');
+    const body = summary.querySelector('#sumBody');
 
-  // Support “shoot” event from vr-ui.js (crosshair tap-to-shoot)
-  window.addEventListener('hha:shoot', (e)=>{
-    // Prefer coords if provided; else shoot from center
-    let x = window.innerWidth/2;
-    let y = window.innerHeight/2;
-    try{
-      if(e && e.detail){
-        if(Number.isFinite(e.detail.clientX)) x = e.detail.clientX;
-        if(Number.isFinite(e.detail.clientY)) y = e.detail.clientY;
-      }
-    }catch(_){}
+    const m = payload || {};
+    const mode = (m.metrics && m.metrics.mode) ? m.metrics.mode : (lastState ? lastState.mode : '?');
+    meta.innerHTML = `
+      PID: <b>${escapeHtml(m.pid||qs('pid','anon'))}</b> •
+      Run: <b>${escapeHtml(m.run||qs('run','play'))}</b> •
+      Day: <b>${escapeHtml(m.day||'')}</b> •
+      Mode: <b>${escapeHtml(mode)}</b> •
+      Score: <b>${escapeHtml(String(m.score||0))}</b>
+    `;
 
-    const hit = document.elementFromPoint(x, y);
-    const b = hit ? hit.closest('.spot') : null;
-    if(b){
-      selectHotspot(b.dataset.id);
-      // for mode B: quick add/remove
-      const S = core.snapshot();
-      if(S.mode === 'B'){
-        core.toggleRouteB(b.dataset.id);
-      }
-      // for mode A: just focus; user presses Clean
-    }
-  });
-
-  function selectHotspot(id){
-    selectedHotspotId = id;
-    selectedUserReasonTag = null;
-    chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
-    const S = core.snapshot();
-    const h = (S.hotspots||[]).find(x=>x.id===id) || null;
-    setInfoForHotspot(h, S);
-    renderHotspots(S);
-  }
-
-  // Buttons
-  info.querySelector('#btnClean').onclick = ()=>{
-    const id = selectedHotspotId;
-    if(!id) return;
-    const res = core.selectA(id, selectedUserReasonTag);
-    if(!res?.ok) return;
-    selectedUserReasonTag = null;
-    chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
-    const S = core.snapshot();
-    const h = (S.hotspots||[]).find(x=>x.id===id) || null;
-    setInfoForHotspot(h, S);
-    renderHotspots(S);
-    renderRoutePanel(S);
-    setHUD(S);
-  };
-
-  info.querySelector('#btnRouteToggle').onclick = ()=>{
-    const id = selectedHotspotId;
-    if(!id) return;
-    core.toggleRouteB(id);
-    const S = core.snapshot();
-    const h = (S.hotspots||[]).find(x=>x.id===id) || null;
-    setInfoForHotspot(h, S);
-    renderHotspots(S);
-    renderRoutePanel(S);
-    setHUD(S);
-  };
-
-  info.querySelector('#btnUndo').onclick = ()=>{ core.undoB(); const S=core.snapshot(); renderHotspots(S); renderRoutePanel(S); setHUD(S); };
-  info.querySelector('#btnClear').onclick = ()=>{ core.clearB(); const S=core.snapshot(); renderHotspots(S); renderRoutePanel(S); setHUD(S); };
-  info.querySelector('#btnSubmit').onclick = ()=>{ core.submitB(); };
-
-  // --- render loop hooks
-  function onState(S){
-    setHUD(S);
-    renderHotspots(S);
-    renderRoutePanel(S);
-
-    // keep info panel synced with focused
-    const h = selectedHotspotId ? (S.hotspots||[]).find(x=>x.id===selectedHotspotId) : null;
-    setInfoForHotspot(h, S);
-
-    // route panel only really relevant in B, but useful in A too (show selected)
-    routePanel.style.display = '';
-
-    // overlay hint for cVR
-    if(S.mode === 'B' && String(S.cfg?.view||'').toLowerCase()==='cvr'){
-      overlay.innerHTML = `
-        <div class="ovHint">
-          <div class="ovT">Cardboard Mode</div>
-          <div class="ovS">เล็งที่จุดแล้ว “ยิง/แตะ” เพื่อเพิ่มเข้า Route</div>
-        </div>
+    if(mode === 'A'){
+      const bd = (m.metrics && m.metrics.breakdown) ? m.metrics.breakdown : {};
+      const reasons = (m.metrics && m.metrics.reasons) ? m.metrics.reasons : [];
+      body.innerHTML = `
+        <div><b>Breakdown:</b> RR ${fmt(bd.rrTotal)} • Coverage ${fmt(bd.coverage)}% • Decision ${fmt(bd.dq)}%</div>
+        <div style="margin-top:10px"><b>เหตุผลที่เลือก:</b></div>
+        <div style="margin-top:6px;opacity:.95">${reasons.length ? reasons.map(r=>`• ${escapeHtml(r.id)} — ${escapeHtml(r.reasonText||'')}`).join('<br/>') : '—'}</div>
       `;
-      overlay.style.pointerEvents = 'none';
     }else{
-      overlay.innerHTML = '';
+      const bd = (m.metrics && m.metrics.breakdown) ? m.metrics.breakdown : {};
+      const routeIds = (m.metrics && m.metrics.routeIds) ? m.metrics.routeIds : [];
+      body.innerHTML = `
+        <div><b>Breakdown:</b> Coverage ${fmt(bd.coverageB)}% • Balance ${fmt(bd.balanceScore)}% • Remain ${fmt(bd.remainScore)}%</div>
+        <div style="margin-top:10px"><b>Route:</b> ${routeIds.length ? routeIds.map(x=>escapeHtml(String(x))).join(' → ') : '—'}</div>
+      `;
     }
+
+    summary.querySelector('#btnCooldown').onclick = goCooldown;
+    summary.querySelector('#btnBackHub').onclick = goHubDirect;
+    summary.querySelector('#btnReplay').onclick = replay;
   }
 
-  function onTick(S){
-    setHUD(S);
+  // ---------- hha:shoot support (Cardboard crosshair) ----------
+  // In view=cvr, vr-ui.js emits CustomEvent('hha:shoot', {detail:{lockPx}}).
+  // We'll raycast-ish by picking the closest marker to screen center (simple heuristic).
+  function handleShoot(){
+    if(!lastState || lastState.ended) return;
+    if(lastState.mode !== 'B') return;
+
+    // choose closest marker to center by DOM positions (cheap)
+    const rect = markerLayer.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+
+    let best = null;
+    let bestD = 1e18;
+    markerLayer.querySelectorAll('.mk').forEach(mk=>{
+      const r = mk.getBoundingClientRect();
+      const mx = r.left + r.width/2;
+      const my = r.top + r.height/2;
+      const dx = mx - cx;
+      const dy = my - cy;
+      const d2 = dx*dx + dy*dy;
+      if(d2 < bestD){
+        bestD = d2;
+        best = mk;
+      }
+    });
+
+    // threshold: within ~90px radius
+    if(best && bestD <= (90*90)){
+      const id = best.dataset.id;
+      if(id) opts.toggleRouteB && opts.toggleRouteB(id);
+    }
+  }
+  window.addEventListener('hha:shoot', handleShoot);
+
+  // ---------- route panel buttons ----------
+  routePanel.querySelector('#btnUndo').onclick = ()=> opts.undoB && opts.undoB();
+  routePanel.querySelector('#btnClear').onclick = ()=> opts.clearB && opts.clearB();
+  routePanel.querySelector('#btnSubmit').onclick = ()=> opts.submitB && opts.submitB();
+
+  // ---------- public hooks ----------
+  function onState(S){
+    lastState = S;
+    renderHud(S);
+    renderMission(S);
+    renderHeat(S);
+    renderMarkers(S);
+    renderRoutePanel(S);
+
+    // hint visibility
+    const v = normalizeView(qs('view',''));
+    const ov = root.querySelector('#ovHint');
+    if(ov){
+      ov.style.display = S.ended ? 'none' : '';
+      if(v === 'cvr') ov.querySelector('.ovS').textContent = 'Cardboard: ยิง (hha:shoot) เพื่อเลือกจุด • หรือแตะจุดบนแผนที่';
+      else ov.querySelector('.ovS').textContent = 'แตะจุดบนแผนที่เพื่อทำความสะอาด/วางแผน • เลือกเหตุผลก่อน (Evaluate)';
+    }
+
+    // hide reason UI in mode B
+    const showReason = (S.mode === 'A');
+    reasonBox.style.display = showReason ? '' : 'none';
+    reasonNote.style.display = showReason ? '' : 'none';
+  }
+
+  function onTick(S, dt){
+    // time update already done in onState via snapshot in core emitState,
+    // but keep it resilient:
+    if(S) pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
+  }
+
+  function onCoach(msg){
+    if(!msg) return;
+    // plan_live breakdown drives realtime bars
+    if(msg.kind === 'plan_live' && msg.data && msg.data.breakdown){
+      lastPlanBreakdown = msg.data.breakdown;
+      // refresh route panel only
+      if(lastState) renderRoutePanel(lastState);
+    }
+    if(msg.text) showCoach(msg.text);
   }
 
   function onSummary(payload){
+    // stop overlay and show modal
     showSummary(payload);
-
-    // wire summary buttons (after DOM injected)
-    const btnBack = summary.querySelector('#btnBackHub');
-    const btnReplay = summary.querySelector('#btnReplay');
-    if(btnBack) btnBack.onclick = goHub;
-    if(btnReplay) btnReplay.onclick = replay;
   }
 
-  return { onState, onTick, onSummary };
-}
+  // ---------- initial help ----------
+  helpBox.innerHTML = `
+    <div>• โหมด A: เลือก “คุ้มที่สุด” ภายใต้ทรัพยากรจำกัด</div>
+    <div>• โหมด B: สร้าง routine/route ให้ครอบคลุมและสมดุล</div>
+  `;
 
-function buildGrid(grid){
-  // background zones
-  const bg = el('div','gridBg');
-  bg.innerHTML = ZONES.map(z=>{
-    const left = (z.x / MAP.w) * 100;
-    const top  = (z.y / MAP.h) * 100;
-    const w    = (z.w / MAP.w) * 100;
-    const h    = (z.h / MAP.h) * 100;
-    return `
-      <div class="zoneRect" style="left:${left}%;top:${top}%;width:${w}%;height:${h}%;">
-        <span class="zoneLab">${escapeHtml(z.name)}</span>
-      </div>
-    `;
-  }).join('');
-  grid.appendChild(bg);
-
-  // grid lines
-  const lines = el('div','gridLines');
-  const v = [];
-  for(let x=0;x<=MAP.w;x++){
-    v.push(`<div class="vLine" style="left:${(x/MAP.w)*100}%;"></div>`);
-  }
-  const h = [];
-  for(let y=0;y<=MAP.h;y++){
-    h.push(`<div class="hLine" style="top:${(y/MAP.h)*100}%;"></div>`);
-  }
-  lines.innerHTML = v.join('') + h.join('');
-  grid.appendChild(lines);
+  return { onState, onTick, onCoach, onSummary };
 }
