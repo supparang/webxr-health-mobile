@@ -1,39 +1,70 @@
 // === /herohealth/vr/score-rank.js ===
-// Universal rank comparator for HeroHealth (tie-break ready)
-// Rule: score → acc → miss → medianRT (GOOD hit median)
-// FULL v20260228-RANK-SCORE-ACC-MISS-MEDRT
+// Score comparator: score → acc → miss → medianRT (GOOD hit only median)
+// FULL v20260228-SCORE-RANK
 'use strict';
 
-export function normalizeResult(r){
-  r = r || {};
-  const score = Number(r.scoreFinal ?? r.score ?? 0) || 0;
-  const acc   = Number(r.accPct ?? r.acc ?? 0) || 0;
-  const miss  = Number(r.missTotal ?? r.miss ?? 0) || 0;
-  const medRT = Number(r.medianRtGoodMs ?? r.medianRT ?? r.medRtGoodMs ?? 0) || 0;
-  return { score, acc, miss, medRT, raw:r };
+export function normalizeResult(x){
+  x = x || {};
+  // accept both live payload and end summary shapes
+  const score =
+    Number(x.scoreFinal ?? x.score ?? 0) || 0;
+
+  const acc =
+    Number(x.accPct ?? x.acc ?? 0) || 0;
+
+  const miss =
+    Number(x.missTotal ?? x.miss ?? 0) || 0;
+
+  const medRT =
+    Number(x.medianRtGoodMs ?? x.medRT ?? x.medianRT ?? 0) || 0;
+
+  return {
+    score: Math.round(score),
+    acc: Math.round(acc),
+    miss: Math.round(miss),
+    medRT: Math.round(medRT),
+    pid: (x.pid!=null? String(x.pid): undefined),
+    gameKey: (x.gameKey!=null? String(x.gameKey): undefined),
+    zone: (x.zone!=null? String(x.zone): undefined),
+    ts: Number(x.ts ?? x.endTs ?? Date.now()) || Date.now(),
+    raw: x
+  };
 }
 
-export function compareResults(a, b){
-  const A = normalizeResult(a);
-  const B = normalizeResult(b);
+/**
+ * Returns:
+ *  +1 if A better than B
+ *  -1 if A worse than B
+ *   0 tie
+ */
+export function compareResults(A, B){
+  A = normalizeResult(A);
+  B = normalizeResult(B);
 
   // 1) score DESC
-  if(B.score !== A.score) return B.score - A.score;
+  if(A.score !== B.score) return (A.score > B.score) ? 1 : -1;
 
   // 2) acc DESC
-  if(B.acc !== A.acc) return B.acc - A.acc;
+  if(A.acc !== B.acc) return (A.acc > B.acc) ? 1 : -1;
 
   // 3) miss ASC
-  if(A.miss !== B.miss) return A.miss - B.miss;
+  if(A.miss !== B.miss) return (A.miss < B.miss) ? 1 : -1;
 
-  // 4) medianRT ASC
-  if(A.medRT !== B.medRT) return A.medRT - B.medRT;
+  // 4) median RT ASC (lower is better)
+  if(A.medRT !== B.medRT) return (A.medRT < B.medRT) ? 1 : -1;
 
   return 0;
 }
 
-export function rankList(list){
-  const arr = Array.isArray(list) ? list.slice() : [];
-  arr.sort(compareResults);
-  return arr;
+export function sortBestFirst(list){
+  list = Array.isArray(list) ? list.slice() : [];
+  list.sort((a,b)=> -compareResults(a,b)); // best first
+  return list;
+}
+
+export function pickWinner(a,b){
+  const cmp = compareResults(a,b);
+  if(cmp > 0) return { winner: 'a', cmp };
+  if(cmp < 0) return { winner: 'b', cmp };
+  return { winner: 'tie', cmp: 0 };
 }
