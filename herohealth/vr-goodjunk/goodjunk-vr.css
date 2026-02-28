@@ -1,275 +1,50 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PRODUCTION (PC/Mobile/VR/cVR) + HUD-safe + target FX helpers
-FULL v20260226-FULL-CSS (A+B targets + SAFE cVR strict + HELP UI)
+GoodJunkVR CSS — PRODUCTION
+FULL v20260228-GJ-CSS
 */
 
 :root{
-  --bg:#050814;
-  --fg: rgba(229,231,235,.95);
-  --mut: rgba(148,163,184,.92);
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 
-  --panel: rgba(2,6,23,.68);
-  --panel2: rgba(2,6,23,.55);
-  --line: rgba(148,163,184,.18);
-
-  --pri: rgba(99,102,241,.95);
-  --warn: rgba(251,191,36,.96);
-  --bad: rgba(244,63,94,.92);
-  --ok: rgba(34,197,94,.92);
-
-  --r: 14px;
-
-  /* target sizing (base) */
-  --tSize: 56px;
-  --tShadow: 0 18px 45px rgba(0,0,0,.42);
-
-  /* layer pads (fallback when spawn-safe not injected) */
-  --safeTop: calc(env(safe-area-inset-top, 0px) + 128px);
-  --safeBot: calc(env(safe-area-inset-bottom, 0px) + 120px);
-  --safeSide: calc(env(safe-area-inset-left, 0px) + 18px);
+  --tSize: 56px; /* default target size */
 }
 
-html,body{
-  height:100%;
-  margin:0;
-  background: var(--bg);
-  color: var(--fg);
+@media (max-width: 520px){
+  :root{ --tSize: 52px; }
+}
+@media (min-width: 900px){
+  :root{ --tSize: 60px; }
+}
+
+/* Slightly larger in VR/cVR for readability */
+body.view-vr, body.view-cvr{
+  --tSize: 60px;
+}
+
+/* If your app sets body class by query, keep compatibility */
+body{
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
+    radial-gradient(900px 700px at 95% 20%, rgba(99,102,241,.12), transparent 60%),
+    linear-gradient(180deg, #020617, #020b1b);
+  color: rgba(229,231,235,.96);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
-body{
-  overflow:hidden;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+/* Smooth taps */
+#gj-layer{
+  transform: translateZ(0);
+  will-change: contents;
 }
 
-/* --- stage/layers --- */
-.gj-stage{
-  position:relative;
-  width:100%;
-  height:100%;
-}
-
-#gj-layer, #gj-layer-r{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-  touch-action: manipulation;
-}
-
-/* --- targets --- */
+/* Targets extra polish */
 .gj-target{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform: translate(-50%,-50%);
-  font-size: var(--tSize);
-  line-height: 1;
-  user-select:none;
-  -webkit-user-select:none;
-  pointer-events:auto;
-  filter: drop-shadow(var(--tShadow));
-  will-change: transform, opacity, left, top;
+  filter: drop-shadow(0 10px 26px rgba(0,0,0,.35));
+  transition: transform .08s ease, opacity .14s ease;
 }
-
-/* hover feedback (PC) */
-@media (hover:hover){
-  .gj-target:hover{
-    transform: translate(-50%,-50%) scale(1.06);
-    filter: drop-shadow(0 22px 55px rgba(0,0,0,.55));
-  }
-}
-
-/* tap feedback */
 .gj-target:active{
-  transform: translate(-50%,-50%) scale(0.96);
-}
-
-/* --- end overlay buttons feel --- */
-.btn{
-  transition: filter .12s ease, transform .12s ease;
-}
-.btn:active{
-  transform: translateY(1px);
-}
-
-/* --- reduced motion --- */
-@media (prefers-reduced-motion: reduce){
-  *{ transition:none !important; animation:none !important; }
-}
-
-/* --- compact mobile tuning --- */
-@media (max-width: 520px){
-  :root{
-    --tSize: 52px; /* base mobile */
-    --safeTop: calc(env(safe-area-inset-top, 0px) + 140px);
-    --safeBot: calc(env(safe-area-inset-bottom, 0px) + 130px);
-  }
-}
-
-/* ===== helper: debug readable on bright bg ===== */
-#gjDebug{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* ============================================================
-   PATCH A+B: Adaptive bigger targets for VR/cVR (PC/Mobile unchanged)
-   Requires: goodjunk-vr.html sets: document.body.dataset.view = qs('view')
-   ============================================================ */
-body[data-view="vr"]{
-  --tSize: clamp(64px, 7.2vw, 86px);
-}
-body[data-view="cvr"]{
-  --tSize: clamp(70px, 8.0vw, 94px);
-}
-@media (max-width: 520px){
-  body[data-view="vr"]{
-    --tSize: clamp(66px, 9.0vw, 92px);
-  }
-  body[data-view="cvr"]{
-    --tSize: clamp(74px, 9.8vw, 100px);
-  }
-}
-
-/* ============================================================
-   SAFE cVR STRICT (OPTIONAL)
-   - อย่า block pointer-events ใน cVR ปกติ เพราะเกมใช้ pointerdown บน target
-   - ถ้าต้องการ “ยิงอย่างเดียว” ให้เติม class strict: body.classList.add('strict')
-   ============================================================ */
-body[data-view="cvr"].strict .gj-target{
-  pointer-events:none !important;
-}
-
-/* =========================
-   HELP UI (always-on) — v20260226
-   ========================= */
-#gjHelpBtn{
-  position: fixed;
-  right: calc(env(safe-area-inset-right, 0px) + 10px);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
-  z-index: 220; /* above HUD(120) and coach(210) */
-  pointer-events: auto;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.62);
-  color: rgba(229,231,235,.96);
-  padding: 10px 12px;
-  border-radius: 14px;
-  font-weight: 1000;
-  letter-spacing: .2px;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 16px 50px rgba(0,0,0,.38);
-  user-select: none;
-  -webkit-user-select: none;
-}
-#gjHelpBtn:active{ transform: translateY(1px); }
-#gjHelpBtn .sub{
-  display:block;
-  margin-top:2px;
-  font: 800 11px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  opacity:.82;
-}
-
-#gjHelpOverlay{
-  position: fixed;
-  inset: 0;
-  z-index: 320; /* above endOverlay(300) */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  background: rgba(0,0,0,.58);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: auto;
-}
-#gjHelpOverlay[aria-hidden="true"]{ display:none; }
-
-.gj-help-card{
-  width: min(780px, 96vw);
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.86);
-  color: rgba(229,231,235,.96);
-  box-shadow: 0 18px 70px rgba(0,0,0,.55);
-  padding: 14px;
-}
-.gj-help-top{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap: 10px;
-}
-.gj-help-title{
-  font-weight: 1100;
-  font-size: 18px;
-  letter-spacing: .2px;
-}
-.gj-help-note{
-  margin-top: 4px;
-  font-size: 12px;
-  opacity: .9;
-}
-.gj-help-close{
-  pointer-events:auto;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  color: rgba(229,231,235,.95);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 1000;
-  cursor: pointer;
-}
-.gj-help-close:hover{ filter: brightness(1.05); }
-
-.gj-tabs{
-  margin-top: 12px;
-  display:flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.gj-tab{
-  pointer-events:auto;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.45);
-  color: rgba(229,231,235,.92);
-  border-radius: 999px;
-  padding: 8px 10px;
-  font-weight: 1000;
-  cursor: pointer;
-}
-.gj-tab[aria-selected="true"]{
-  border-color: rgba(99,102,241,.42);
-  background: rgba(99,102,241,.18);
-}
-
-.gj-help-body{
-  margin-top: 12px;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.52);
-  border-radius: 16px;
-  padding: 12px 12px;
-}
-.gj-help-body h4{
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 1100;
-}
-.gj-help-body ul{
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.5;
-  font-size: 13px;
-  opacity: .96;
-}
-.gj-kbd{
-  display:inline-flex;
-  padding: 2px 6px;
-  border-radius: 8px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.45);
-  font: 900 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  opacity: .96;
+  transform: translate(-50%,-50%) scale(.92);
 }
