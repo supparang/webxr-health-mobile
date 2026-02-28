@@ -1,0 +1,196 @@
+<!-- === /herohealth/vr/leaderboard-view.html ===
+Leaderboard View (LocalStorage Top N) — score→acc→miss→medianRT
+FULL v20260228-LEADERBOARD-VIEW
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Leaderboard</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{ --bg:#070b16; --fg:#e8eefc; --mut:#9fb0d0; --card:rgba(15,23,42,.55); --bd:rgba(148,163,184,.16); --acc:rgba(59,130,246,.92); }
+    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--fg); }
+    .wrap{ max-width:980px; margin:0 auto; padding:22px 14px 40px; }
+    .top{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+    .title{ font-size:18px; font-weight:1000; letter-spacing:.2px; }
+    .sub{ opacity:.75; font-weight:900; font-size:12.5px; margin-top:6px; }
+    .card{ margin-top:14px; padding:14px; border:1px solid var(--bd); border-radius:18px; background:var(--card); box-shadow:0 20px 70px rgba(0,0,0,.35); }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    select,input{ background:rgba(2,6,23,.45); color:var(--fg); border:1px solid var(--bd); border-radius:14px; padding:10px 10px; font-weight:900; }
+    button{ appearance:none; border:1px solid var(--bd); background:rgba(148,163,184,.10); color:var(--fg);
+      padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
+    button.primary{ border-color: rgba(59,130,246,.28); background: rgba(59,130,246,.16); }
+    table{ width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:14px; border:1px solid var(--bd); }
+    th,td{ padding:10px 10px; font-weight:900; font-size:12.5px; border-bottom:1px solid rgba(148,163,184,.10); }
+    th{ text-align:left; opacity:.8; background:rgba(2,6,23,.35); }
+    tr:last-child td{ border-bottom:0; }
+    .pill{ display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--bd); background:rgba(2,6,23,.35); font-weight:1000; font-size:12px; }
+    .mut{ opacity:.72; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">🏆 Leaderboard (Local)</div>
+        <div class="sub">ตัดสินอันดับ: <b>score → acc → miss → medianRT</b> (medianRT = GOOD hit only)</div>
+      </div>
+      <div class="row">
+        <button id="btnBack" class="primary">← กลับ HUB</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="row">
+          <span class="pill">🎮 เกม
+            <select id="selGame">
+              <option value="goodjunk">goodjunk</option>
+              <option value="groups">groups</option>
+              <option value="hydration">hydration</option>
+              <option value="plate">plate</option>
+              <option value="maskcough">maskcough</option>
+              <option value="germdetective">germdetective</option>
+            </select>
+          </span>
+
+          <span class="pill">⚙️ diff
+            <select id="selDiff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </span>
+
+          <span class="pill">🏷️ run
+            <select id="selRun">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </span>
+        </div>
+
+        <div class="row">
+          <button id="btnReload">รีเฟรช</button>
+          <button id="btnClear" style="border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10);">ล้าง Top</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;" class="row">
+        <span class="pill">📦 key: <span id="lbKey" class="mut">—</span></span>
+        <span class="pill">จำนวน: <span id="lbCount" class="mut">0</span></span>
+      </div>
+
+      <div style="margin-top:12px; overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>pid</th>
+              <th>score</th>
+              <th>acc%</th>
+              <th>miss</th>
+              <th>medianRT</th>
+              <th>เวลา</th>
+            </tr>
+          </thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { loadLeaderboard, clearLeaderboard } from './leaderboard.js';
+
+    const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+
+    const selGame = document.getElementById('selGame');
+    const selDiff = document.getElementById('selDiff');
+    const selRun  = document.getElementById('selRun');
+    const tb = document.getElementById('tb');
+    const lbKey = document.getElementById('lbKey');
+    const lbCount = document.getElementById('lbCount');
+
+    const hub = qs('hub', '../hub.html');
+
+    function meta(){
+      return {
+        gameKey: String(selGame.value || 'goodjunk'),
+        diff: String(selDiff.value || 'normal'),
+        runMode: String(selRun.value || 'play')
+      };
+    }
+
+    function keyOf(m){
+      const g = String(m.gameKey).toLowerCase();
+      const d = String(m.diff).toLowerCase();
+      const r = String(m.runMode).toLowerCase();
+      return `HHA_LB:${g}:${d}:${r}`;
+    }
+
+    function fmtTime(ts){
+      try{
+        const d = new Date(ts);
+        return d.toLocaleString('th-TH', { hour12:false });
+      }catch(e){
+        return String(ts||'');
+      }
+    }
+
+    function render(){
+      const m = meta();
+      const list = loadLeaderboard(m);
+      lbKey.textContent = keyOf(m);
+      lbCount.textContent = String(list.length||0);
+
+      tb.innerHTML = '';
+      if(!list.length){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" style="opacity:.72;">ยังไม่มีข้อมูล — เล่นเกมสักรอบก่อน</td>`;
+        tb.appendChild(tr);
+        return;
+      }
+
+      list.forEach((r, i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${(r.pid||'anon')}</td>
+          <td>${(r.score||0)}</td>
+          <td>${(r.acc||0)}%</td>
+          <td>${(r.miss||0)}</td>
+          <td>${(r.medRT||0)} ms</td>
+          <td>${fmtTime(r.ts)}</td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    // init from query
+    const qGame = qs('game','');
+    const qDiff = qs('diff','');
+    const qRun  = qs('run','');
+    if(qGame) selGame.value = qGame;
+    if(qDiff) selDiff.value = qDiff;
+    if(qRun)  selRun.value  = qRun;
+
+    document.getElementById('btnReload').addEventListener('click', render);
+    document.getElementById('btnClear').addEventListener('click', ()=>{
+      if(confirm('ล้าง Top ทั้งหมดของ key นี้?')){
+        clearLeaderboard(meta());
+        render();
+      }
+    });
+
+    document.getElementById('btnBack').addEventListener('click', ()=>{
+      location.href = hub;
+    });
+
+    [selGame, selDiff, selRun].forEach(el=> el.addEventListener('change', render));
+    render();
+  </script>
+</body>
+</html>
