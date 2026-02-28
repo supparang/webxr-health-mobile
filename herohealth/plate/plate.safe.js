@@ -1,11 +1,24 @@
-// === /herohealth/vr-plate/plate.safe.js ===
+// === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR SAFE — PRODUCTION
+// ✅ Works with /herohealth/plate/plate-vr.html (ids: plate-layer, uiScore...)
 // ✅ ESM + hha:shoot + deterministic + AI hooks wired + end summary hardened + cooldown daily-first
-// FULL v20260228-PLATE-SAFE-AIWIRED
+// FULL v20260228-PLATE-SAFE-AIWIRED-PATCH-HTMLMAP
 'use strict';
 
-export function boot(cfg){
-  cfg = cfg || {};
+export function boot(arg){
+  // รองรับทั้งแบบ boot(cfg) และ boot({mount,cfg,ai})
+  let cfg = arg || {};
+  let mount = null;
+  let ai = null;
+
+  if (cfg && (cfg.mount || cfg.cfg || cfg.ai)){
+    mount = cfg.mount || null;
+    ai = cfg.ai || (cfg.cfg && cfg.cfg.ai) || null;
+    cfg = cfg.cfg || cfg; // flatten
+  } else {
+    ai = cfg.ai || null;
+  }
+
   const WIN = window, DOC = document;
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
@@ -86,11 +99,11 @@ export function boot(cfg){
   }
 
   const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
+  const runMode = String(cfg.runMode || cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
+  const plannedSec = clamp(cfg.durationPlannedSec ?? cfg.time ?? qs('time','90'), 20, 300);
 
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
+  const seedStr = String(cfg.seed ?? qs('seed', String(Date.now())));
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const pick = (arr)=> arr[(r01()*arr.length)|0];
@@ -101,31 +114,66 @@ export function boot(cfg){
   const HH_GAME='plate';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
-  // DOM
-  const layer = DOC.getElementById('layer');
-  if(!layer){ console.warn('[Plate] Missing #layer'); return; }
+  // ✅ Layer (match plate-vr.html)
+  const layer = mount || DOC.getElementById('plate-layer') || DOC.getElementById('layer');
+  if(!layer){
+    console.warn('[Plate] Missing mount (#plate-layer)');
+    return;
+  }
+  // ต้องให้ layer แตะได้
+  try{ layer.style.pointerEvents = 'auto'; }catch(e){}
+  try{ layer.style.touchAction = 'manipulation'; }catch(e){}
+
+  // ✅ UI mapping (match plate-vr.html)
+  const $ = (id)=> DOC.getElementById(id);
 
   const ui = {
-    score: DOC.getElementById('score'),
-    time: DOC.getElementById('time'),
-    miss: DOC.getElementById('miss'),
-    grade: DOC.getElementById('grade'),
-    target: DOC.getElementById('target'),
-    ok: DOC.getElementById('ok'),
-    wrong: DOC.getElementById('wrong'),
-    aiRisk: DOC.getElementById('aiRisk'),
-    aiHint: DOC.getElementById('aiHint'),
-    end: DOC.getElementById('end'),
-    endTitle: DOC.getElementById('endTitle'),
-    endSub: DOC.getElementById('endSub'),
-    endGrade: DOC.getElementById('endGrade'),
-    endScore: DOC.getElementById('endScore'),
-    endOk: DOC.getElementById('endOk'),
-    endWrong: DOC.getElementById('endWrong'),
-    btnCopy: DOC.getElementById('btnCopy'),
-    btnReplay: DOC.getElementById('btnReplay'),
-    btnNextCooldown: DOC.getElementById('btnNextCooldown'),
-    btnBackHub: DOC.getElementById('btnBackHub')
+    uiScore: $('uiScore'),
+    uiTime: $('uiTime'),
+    uiMiss: $('uiMiss'),
+    uiGrade: $('uiGrade'),
+    uiCombo: $('uiCombo'),
+    uiComboMax: $('uiComboMax'),
+    uiAcc: $('uiAcc'),
+
+    uiPlateHave: $('uiPlateHave'),
+
+    uiGoalTitle: $('uiGoalTitle'),
+    uiGoalCount: $('uiGoalCount'),
+    uiGoalFill: $('uiGoalFill'),
+
+    uiFever: $('uiFever'),
+    uiFeverFill: $('uiFeverFill'),
+    uiShield: $('uiShield'),
+
+    uiG1: $('uiG1'),
+    uiG2: $('uiG2'),
+    uiG3: $('uiG3'),
+    uiG4: $('uiG4'),
+    uiG5: $('uiG5'),
+
+    uiMiniTitle: $('uiMiniTitle'),
+    uiMiniTime: $('uiMiniTime'),
+    uiMiniCount: $('uiMiniCount'),
+    uiMiniFill: $('uiMiniFill'),
+
+    stormFx: $('stormFx'),
+    bossFx: $('bossFx'),
+    stormHud: $('stormHud'),
+    bossHud: $('bossHud'),
+
+    // End overlay (ถ้ายังไม่ได้ทำ end UI ใน plate-vr.html ก็ไม่พัง)
+    end: $('endOverlay') || $('end'),
+    endTitle: $('endTitle'),
+    endSub: $('endSub'),
+    endGrade: $('endGrade'),
+    endScore: $('endScore'),
+    endOk: $('endOk'),
+    endWrong: $('endWrong'),
+    btnCopy: $('btnCopy'),
+    btnReplay: $('btnReplay'),
+    btnNextCooldown: $('btnNextCooldown'),
+    btnBackHub: $('btnBackHub'),
   };
 
   // Tuning
@@ -137,7 +185,7 @@ export function boot(cfg){
     return { spawnBase, ttl, missLimit };
   })();
 
-  // Thai 5 food groups mapping (your fixed memory)
+  // Thai 5 food groups mapping (ตามที่คุณ fix)
   const GROUPS = [
     { id:1, name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
@@ -146,23 +194,27 @@ export function boot(cfg){
     { id:5, name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
   ];
 
-  // game state
+  // state
   const startTimeIso = nowIso();
   let playing=true;
   let paused=false;
   let tLeft=plannedSec;
   let lastTick=nowMs();
 
-  // pause hook like others
+  // pause hook
   WIN.__PLATE_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
   let score=0, miss=0, ok=0, wrong=0;
   let combo=0, bestCombo=0;
 
-  // current “target group” mission
+  // progress: เก็บครบ 5 หมู่
+  const haveGroup = { 1:0, 2:0, 3:0, 4:0, 5:0 };
+  let haveCount = 0;
+
+  // mission: เป้าหมายปัจจุบัน (กลุ่มที่ต้องเก็บ)
   let targetGroup = pick(GROUPS);
 
-  // target objects
+  // objects
   const foods = new Map();
   let idSeq=1;
 
@@ -179,28 +231,49 @@ export function boot(cfg){
     return 'D';
   }
 
+  function accPct(){
+    const total = Math.max(1, ok + wrong);
+    return Math.round((ok/total)*100);
+  }
+
+  function updateHaveUI(){
+    ui.uiG1 && (ui.uiG1.textContent = String(haveGroup[1]|0));
+    ui.uiG2 && (ui.uiG2.textContent = String(haveGroup[2]|0));
+    ui.uiG3 && (ui.uiG3.textContent = String(haveGroup[3]|0));
+    ui.uiG4 && (ui.uiG4.textContent = String(haveGroup[4]|0));
+    ui.uiG5 && (ui.uiG5.textContent = String(haveGroup[5]|0));
+    ui.uiPlateHave && (ui.uiPlateHave.textContent = String(haveCount|0));
+
+    ui.uiGoalTitle && (ui.uiGoalTitle.textContent = 'เติมจานให้ครบ 5 หมู่');
+    ui.uiGoalCount && (ui.uiGoalCount.textContent = `${haveCount|0}/5`);
+    if(ui.uiGoalFill){
+      const pct = clamp((haveCount/5)*100, 0, 100);
+      ui.uiGoalFill.style.width = `${pct}%`;
+    }
+  }
+
   function setHUD(){
-    ui.score && (ui.score.textContent=String(score|0));
-    ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
-    ui.miss && (ui.miss.textContent=String(miss|0));
-    ui.grade && (ui.grade.textContent=gradeFromScore(score));
-    ui.ok && (ui.ok.textContent=String(ok|0));
-    ui.wrong && (ui.wrong.textContent=String(wrong|0));
-    ui.target && (ui.target.textContent=targetGroup?.name || '—');
+    ui.uiScore && (ui.uiScore.textContent=String(score|0));
+    ui.uiTime && (ui.uiTime.textContent=String(Math.ceil(tLeft)));
+    ui.uiMiss && (ui.uiMiss.textContent=String(miss|0));
+    ui.uiGrade && (ui.uiGrade.textContent=gradeFromScore(score));
+
+    ui.uiCombo && (ui.uiCombo.textContent=String(combo|0));
+    ui.uiComboMax && (ui.uiComboMax.textContent=String(bestCombo|0));
+    ui.uiAcc && (ui.uiAcc.textContent = `${accPct()}%`);
+
+    // เป้าหมาย: กลุ่มที่ต้องเก็บตอนนี้
+    // (คุณอยากแสดงตรงไหนก็ได้ — ตอนนี้เอาไปแสดงใน uiMiniTitle)
+    ui.uiMiniTitle && (ui.uiMiniTitle.textContent = `เป้าหมาย: ${targetGroup?.name || '—'}`);
+
+    updateHaveUI();
   }
 
-  function setAIHud(pred){
-    try{
-      if(!pred) return;
-      if(ui.aiRisk) ui.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(ui.aiHint) ui.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
-    }catch(e){}
-  }
-
+  // ===== Targets =====
   function makeFood(kind, emoji, ttlSec){
     const id=String(idSeq++);
     const el=DOC.createElement('div');
-    el.className='food';
+    el.className='plateTarget';         // ✅ match CSS
     el.textContent=emoji;
     el.dataset.id=id;
     el.dataset.kind=kind;
@@ -208,7 +281,7 @@ export function boot(cfg){
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
     const x = pad + r01()*(Math.max(1, r.width - pad*2));
-    const y = Math.max(pad+80, pad + r01()*(Math.max(1, r.height - pad*2)));
+    const y = pad + r01()*(Math.max(1, r.height - pad*2));
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -221,7 +294,7 @@ export function boot(cfg){
     foods.set(id,obj);
 
     // AI spawn
-    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+    try{ ai?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
     return obj;
   }
 
@@ -232,8 +305,22 @@ export function boot(cfg){
     try{ f.el.remove(); }catch(e){}
   }
 
+  function groupIdFromEmoji(emoji){
+    for(const g of GROUPS){
+      if(g.items.includes(emoji)) return g.id;
+    }
+    return 0;
+  }
+
   function isCorrectEmojiForTarget(emoji){
     return (targetGroup?.items || []).includes(emoji);
+  }
+
+  function addGroupToPlate(gid){
+    if(!gid) return;
+    if(haveGroup[gid] > 0) return; // เก็บกลุ่มละ 1 ครั้งเพื่อเติมจาน
+    haveGroup[gid] = 1;
+    haveCount = Object.values(haveGroup).reduce((a,b)=>a+(b?1:0),0);
   }
 
   function onHitFood(f, x, y){
@@ -242,30 +329,33 @@ export function boot(cfg){
     if(correct){
       ok++;
       combo++; bestCombo=Math.max(bestCombo, combo);
-      let add = 12 + Math.min(10, combo);
+      const add = 12 + Math.min(10, combo);
       score += add;
 
-      // rotate target group occasionally
+      const gid = groupIdFromEmoji(f.emoji);
+      addGroupToPlate(gid);
+
+      // เปลี่ยนเป้าหมายเมื่อเล่นไปเรื่อย ๆ
       if(ok % 6 === 0){
         targetGroup = pick(GROUPS);
       }
 
-      try{ cfg.ai?.onHit?.('food_ok', { id:f.id }); }catch(e){}
+      try{ ai?.onHit?.('food_ok', { id:f.id, gid }); }catch(e){}
     }else{
       wrong++;
       miss++;
       combo=0;
       score = Math.max(0, score - 8);
-      try{ cfg.ai?.onHit?.('food_wrong', { id:f.id }); }catch(e){}
+      try{ ai?.onHit?.('food_wrong', { id:f.id }); }catch(e){}
     }
 
     removeFood(f.id);
   }
 
-  // pointer hits (pc/mobile) — disabled in cVR strict via pointerEvents none in run HTML
+  // pointer hits (pc/mobile)
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
-    const el = ev.target?.closest?.('.food');
+    const el = ev.target?.closest?.('.plateTarget');
     if(!el) return;
     const id=el.dataset.id;
     const f=foods.get(String(id));
@@ -300,7 +390,7 @@ export function boot(cfg){
     }
   });
 
-  // end summary
+  // ===== End summary =====
   const END_SENT_KEY='__HHA_PLATE_END_SENT__';
   function dispatchEndOnce(summary){
     try{
@@ -313,7 +403,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'PlateVR',
-      gameVersion: 'PlateVR_SAFE_2026-02-28_AIWired',
+      gameVersion: 'PlateVR_SAFE_2026-02-28_AIWired_PATCH_HTMLMAP',
       device: view,
       runMode,
       diff,
@@ -326,11 +416,14 @@ export function boot(cfg){
       wrong: wrong|0,
       missTotal: miss|0,
       comboMax: bestCombo|0,
+      plateHave: haveCount|0,
+      haveGroup: { ...haveGroup },
       targetGroup: targetGroup?.name || '—',
+      accuracyPct: accPct(),
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
+      aiPredictionLast: (function(){ try{ return ai?.getPrediction?.() || null; }catch(e){ return null; } })()
     };
   }
 
@@ -387,13 +480,14 @@ export function boot(cfg){
 
     // AI onEnd
     try{
-      const aiEnd = cfg.ai?.onEnd?.(summary);
+      const aiEnd = ai?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
     }catch(e){}
 
     WIN.__HHA_LAST_SUMMARY = summary;
     dispatchEndOnce(summary);
 
+    // ถ้าไม่มี end UI ในหน้า ก็ไม่เป็นไร
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
       ui.endTitle && (ui.endTitle.textContent='Game Over');
@@ -406,8 +500,9 @@ export function boot(cfg){
     }
   }
 
-  // spawn loop
+  // ===== Loop =====
   let spawnAcc=0;
+
   function spawnTick(dt){
     spawnAcc += TUNE.spawnBase * dt;
     while(spawnAcc >= 1){
@@ -419,7 +514,6 @@ export function boot(cfg){
       if(correct){
         emoji = pick(targetGroup.items);
       }else{
-        // pick from other groups
         const others = GROUPS.filter(g=>g.id!==targetGroup.id);
         emoji = pick(pick(others).items);
       }
@@ -432,7 +526,7 @@ export function boot(cfg){
     for(const f of Array.from(foods.values())){
       const age=t - f.born;
       if(age >= f.ttl){
-        try{ cfg.ai?.onExpire?.('food', { id:f.id }); }catch(e){}
+        try{ ai?.onExpire?.('food', { id:f.id }); }catch(e){}
         miss++;
         wrong++;
         score = Math.max(0, score - 4);
@@ -445,6 +539,8 @@ export function boot(cfg){
   function checkEnd(){
     if(tLeft<=0){ showEnd('time'); return true; }
     if(miss>=TUNE.missLimit){ showEnd('miss-limit'); return true; }
+    // ✅ จบเมื่อ “ครบ 5 หมู่”
+    if(haveCount >= 5){ showEnd('plate-complete'); return true; }
     return false;
   }
 
@@ -467,10 +563,9 @@ export function boot(cfg){
     spawnTick(dt);
     updateFoods();
 
-    // AI tick
+    // AI tick (prediction only)
     try{
-      const pred = cfg.ai?.onTick?.(dt, { miss, ok, wrong, combo }) || null;
-      setAIHud(pred);
+      ai?.onTick?.(dt, { miss, ok, wrong, combo, plateHave: haveCount });
     }catch(e){}
 
     setHUD();
