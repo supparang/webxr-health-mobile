@@ -7,18 +7,14 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ FIX 404: logger อยู่ใน /herohealth/vr/ -->
+  <!-- ✅ logger อยู่ใน /herohealth/vr/ -->
   <script type="module" src="../vr/hha-cloud-logger.js?v=20260228"></script>
 
-  <!-- ✅ vr-ui ควรเป็น module เพื่อรองรับ event hha:shoot -->
+  <!-- ✅ vr-ui เป็น module -->
   <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
 
-  <!-- ❌ REMOVE: ห้ามโหลด ai-hooks แบบ defer ธรรมดา เพราะมี export
-       <script src="../vr/ai-hooks.js" defer></script>
-  -->
-
   <style>
-    /* ===== (คง CSS ของคุณเดิมทั้งหมดได้) ===== */
+    /* ===== CSS ของคุณเดิมทั้งหมด (คงไว้) ===== */
     :root{
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -73,7 +69,6 @@
     }
     #bossFx.boss-panic{ opacity:.28; }
 
-    /* spawn mount */
     #plate-layer{
       position:absolute; inset:0;
       z-index:30;
@@ -108,7 +103,6 @@
     #plate-layer .plateTarget.hit{ transform: scale(.88); opacity:.25; }
     #plate-layer .plateTarget.expire{ transform: scale(.78); opacity:0; }
 
-    /* HUD */
     .hud{
       position:absolute;
       left:max(10px, calc(var(--sal) + 10px));
@@ -305,11 +299,11 @@
     <div id="plate-layer" aria-label="plate targets layer"></div>
     <div id="hudPaused"><div class="inner">⏸️ Paused</div></div>
 
-    <!-- top HUD -->
     <div id="hudTop" class="hud">
       <button id="debugToggle" class="btn" type="button" style="padding:6px 10px;min-height:34px;">🐞 debug</button>
       <div id="debugPanel">debug init…</div>
 
+      <!-- (คง HUD ของคุณเดิม) -->
       <div class="row cols-3">
         <div class="card">
           <h4>คะแนน / คอมโบ / พลาด</h4>
@@ -392,7 +386,6 @@
       </div>
     </div>
 
-    <!-- bottom HUD -->
     <div id="hudBottom" class="hud">
       <div id="coachCard" class="card">
         <div id="coachBox">
@@ -427,9 +420,9 @@
     </div>
   </div>
 
-  <!-- ✅ MAIN BOOT: ใส่ Shield + import ai-hooks + bootPlate -->
+  <!-- ✅ MAIN BOOT -->
   <script type="module">
-    // 1) Shield install
+    // 0) Shield install (safe)
     try{
       window.HHA_Shield?.install({
         watchDOM: true,
@@ -440,15 +433,16 @@
       });
     }catch(e){}
 
-    // 2) Imports
+    // 1) Imports
     import { createAIHooks } from '../vr/ai-hooks.js';
     import { boot as bootPlate } from './plate.safe.js';
 
     const $ = (s)=>document.querySelector(s);
     const U = new URL(location.href);
+
+    // --- debug toggle ---
     const DEBUG = U.searchParams.get('debug') === '1';
     if(!DEBUG) document.body.classList.add('no-debug');
-
     const debugEl = $('#debugPanel');
     const debugBtn = $('#debugToggle');
     let debugOpen = !!DEBUG;
@@ -481,13 +475,14 @@
       return {
         runMode: isStudy ? runQ : 'play',
         diff: ['easy','normal','hard'].includes(diff) ? diff : 'normal',
-        seed: isStudy ? (num(seedQ, 13579) || 13579) : (seedQ!=null ? (num(seedQ, 13579) || 13579) : ((Date.now() ^ (Math.random()*1e9))|0)),
+        seed: isStudy ? (num(seedQ, 13579) || 13579)
+          : (seedQ!=null ? (num(seedQ, 13579) || 13579) : ((Date.now() ^ (Math.random()*1e9))|0)),
         durationPlannedSec: time,
         view
       };
     }
 
-    // ✅ Create AI hooks (prediction only)
+    // 2) Create AI hooks (prediction only)
     const cfg0 = parseCfg();
     const ai = createAIHooks({
       seed: String(cfg0.seed),
@@ -498,7 +493,7 @@
     });
     window.HHA_AI = ai;
 
-    // coach/score bridge (ของคุณเดิม)
+    // 3) Coach / score bridge (เหมือนเดิม)
     const coachMap = {
       happy: '../img/coach-happy.png',
       neutral: '../img/coach-neutral.png',
@@ -529,7 +524,7 @@
       const sh = $('#uiShield');    if (sh) sh.textContent = String(Math.max(0, shield));
     }, { passive:true });
 
-    // pause bridge
+    // 4) Pause bridge
     let paused = false;
     const btnPause = $('#btnPause');
     function setPauseBtn(){
@@ -550,7 +545,37 @@
       dlog('pause-state', d);
     }, { passive:true });
 
-    // layer sanity (ของคุณเดิมได้)
+    // 5) Controls wiring (BackHub / Restart / EnterVR)
+    function hubUrl(){
+      const hub = U.searchParams.get('hub');
+      return hub ? String(hub) : '../hub.html';
+    }
+
+    $('#btnBackHub')?.addEventListener('click', ()=>{
+      location.href = hubUrl();
+    });
+
+    $('#btnRestart')?.addEventListener('click', ()=>{
+      // restart with same query
+      location.href = location.pathname + location.search;
+    });
+
+    $('#btnEnterVR')?.addEventListener('click', ()=>{
+      // vr-ui.js มักจะ inject ปุ่ม ENTER VR เอง — เราช่วยกดให้
+      const cand =
+        document.querySelector('[data-hha-enter-vr]') ||
+        document.querySelector('#btnEnterVRReal') ||
+        document.querySelector('button[aria-label*="ENTER VR"]') ||
+        document.querySelector('button[title*="ENTER VR"]');
+      if (cand && cand.click){
+        cand.click();
+        return;
+      }
+      // fallback: ขอให้ user กดปุ่ม enter vr ที่ vr-ui แสดง
+      dlog('enter-vr: fallback (no injected button found)');
+    });
+
+    // 6) Layer sanity
     function ensureLayerSanity(){
       const mount = $('#plate-layer');
       if (!mount) return;
@@ -595,13 +620,9 @@
 
       const mount = ensureMountReady();
 
-      // ✅ Boot Plate + inject ai
       bootPlate({
         mount,
-        cfg: {
-          ...parseCfg(),
-          ai
-        },
+        cfg: { ...parseCfg(), ai },
         ai
       });
 
