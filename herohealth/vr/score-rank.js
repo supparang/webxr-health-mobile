@@ -1,6 +1,6 @@
 // === /herohealth/vr/score-rank.js ===
 // Universal rank comparator for HeroHealth (tie-break ready)
-// Rule: score → acc → miss → medianRT (GOOD hit median)  [score/acc high better, miss/median low better]
+// Rule: score → acc → miss → medianRT (GOOD hit median)
 // FULL v20260228-RANK-SCORE-ACC-MISS-MEDRT
 'use strict';
 
@@ -26,7 +26,7 @@ export function compareResults(a, b){
   // 3) miss ASC
   if(A.miss !== B.miss) return A.miss - B.miss;
 
-  // 4) medianRT ASC (lower is better)
+  // 4) medianRT ASC
   if(A.medRT !== B.medRT) return A.medRT - B.medRT;
 
   return 0;
