@@ -1,149 +1,21 @@
-/* === /herohealth/plate/plate-vr.css ===
-HeroHealth — Balanced Plate VR (RUN UI) — PRODUCTION v20260215b
-✅ Safe-area ready
-✅ HUD-safe spawn vars (mode-factory reads --plate-*-safe from :root in HTML)
-✅ cVR: keep targets tappable, but allow crosshair shooting (vr-ui.js -> hha:shoot)
-✅ Nice motion + readability on mobile
+/* === /herohealth/vr-plate/plate-vr.css ===
+Plate VR CSS — PRODUCTION
+FULL v20260228-PLATE-CSS
 */
-
-/* ---------- global helpers ---------- */
 :root{
-  /* fallback if HTML inline style missing */
-  --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.70);
-  --stroke:rgba(148,163,184,.18);
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-
-  --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-
-  /* if someone loads CSS without the HTML inline */
-  --plate-top-safe: calc(150px + var(--sat));
-  --plate-bottom-safe: calc(160px + var(--sab));
-  --plate-left-safe: 12px;
-  --plate-right-safe: 12px;
+  --tSize: 56px;
 }
-
-html,body{
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
-}
-
-body{
-  overscroll-behavior: none;
-}
-
-/* reduce accidental selection */
-*{
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* ---------- targets ---------- */
-#plate-layer{
-  /* ensure mount is above A-Frame but under overlays */
-  z-index: 10;
-}
-
-.plateTarget{
-  /* base is set in HTML inline too; keep here for override safety */
-  position:absolute;
-  display:grid;
-  place-items:center;
-  border-radius:999px;
-  font-weight:1200;
-  line-height:1;
-  background:rgba(15,23,42,.70);
-  border:1px solid rgba(148,163,184,.22);
-  box-shadow: 0 22px 70px rgba(0,0,0,.35);
-  backdrop-filter: blur(10px);
-  transform: translate(-50%,-50%);
-  user-select:none;
-
-  /* motion */
-  will-change: transform, opacity;
-  animation: plate-pop .12s ease-out;
-}
-
-.plateTarget[data-kind="junk"]{
-  background:rgba(239,68,68,.12);
-  border-color:rgba(239,68,68,.26);
-}
-
-@keyframes plate-pop{
-  from{ transform: translate(-50%,-50%) scale(.92); opacity:.65; }
-  to  { transform: translate(-50%,-50%) scale(1);   opacity:1; }
-}
-
-/* subtle hover for PC */
-@media (hover:hover){
-  .plateTarget:hover{
-    filter: brightness(1.05);
-    transform: translate(-50%,-50%) scale(1.03);
-    transition: transform .08s ease, filter .08s ease;
-  }
-}
-
-/* ---------- HUD safe on very small screens ---------- */
 @media (max-width: 520px){
-  .hudTop{
-    gap: 8px !important;
-  }
-  .card{
-    min-width: 150px !important;
-    padding: 9px 10px !important;
-  }
-  .bar{ width: 120px !important; }
-  #miniPanel{ top: calc(92px + var(--sat)) !important; }
+  :root{ --tSize: 52px; }
 }
-
-/* ---------- cVR mode tweaks ---------- */
-/* if HTML sets: documentElement.dataset.view = 'cvr' */
-:root[data-view="cvr"] #plate-layer{
-  /* keep targets clickable/tappable, but discourage double taps */
-  touch-action: none;
+@media (min-width: 900px){
+  :root{ --tSize: 60px; }
 }
-
-:root[data-view="cvr"] .plateTarget{
-  /* make it a bit bigger for cardboard aiming */
-  font-size: 30px;
-  box-shadow: 0 26px 85px rgba(0,0,0,.40);
-}
-
-/* If you want "strict cVR" (disable pointer interaction entirely and rely on crosshair),
-   uncomment this block. I’m leaving it OFF by default because mobile users also tap targets.
-*/
-/*
-:root[data-view="cvr"] #plate-layer{ pointer-events:none !important; }
-:root[data-view="cvr"] .plateTarget{ pointer-events:none !important; }
-*/
-
-/* ---------- overlays quality ---------- */
-#startOverlay, #hudPaused, #resultBackdrop{
-  animation: overlay-fade .14s ease-out;
-}
-@keyframes overlay-fade{
-  from{ opacity:0; transform: translateY(6px); }
-  to  { opacity:1; transform: translateY(0); }
-}
-
-/* ---------- accessibility ---------- */
-@media (prefers-reduced-motion: reduce){
-  .plateTarget{ animation: none !important; }
-  #startOverlay, #hudPaused, #resultBackdrop{ animation:none !important; }
-}
-
-/* ---------- debug helpers (optional) ----------
-   เปิดใช้งานง่าย ๆ โดยใส่ ?debug=1 แล้วใน JS ไปเติม class ให้ html เช่น document.documentElement.classList.add('debug');
-*/
-:root.debug #plate-layer{
-  outline: 2px dashed rgba(34,211,238,.35);
-  outline-offset: -6px;
-}
-:root.debug .hudTop{
-  outline: 2px dashed rgba(167,139,250,.28);
-  outline-offset: -6px;
+body{
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(34,197,94,.16), transparent 60%),
+    radial-gradient(900px 700px at 95% 20%, rgba(99,102,241,.12), transparent 60%),
+    linear-gradient(180deg, #020617, #020b1b);
+  color: rgba(229,231,235,.96);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
