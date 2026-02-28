@@ -1,10 +1,7 @@
 // === /herohealth/vr/battle-rtdb.js ===
 // Firebase RTDB battle room: join/create, live score sync, autostart, end sync, forfeit
-// Emits:
-//  - hha:battle-players {room, me, opponent, players}
-//  - hha:battle-state {room, status:'waiting'|'started'|'ended', startAt?, endAt?}
-//  - hha:battle-ended {room, a, b, winner, rule}
-// FULL v20260228-BATTLE-RTDB
+// + anti-cheat: clamp + rate-limit + sanitize summary
+// FULL v20260228-BATTLE-RTDB-ANTICHEAT
 'use strict';
 
 import { pickWinner, normalizeResult } from './score-rank.js';
@@ -14,20 +11,18 @@ const DOC = WIN.document;
 
 function qs(k, d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
 function now(){ return Date.now(); }
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
 
 function emit(name, detail){
   try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
 }
 
 function getCfg(){
-  // prefer explicit cfg, else global
   const cfg = WIN.HHA_BATTLE_CFG || null;
   return cfg;
 }
 
 async function loadFirebase(){
-  // Uses Firebase modular CDN (v10+) – you can also bundle locally later
   const v = (WIN.HHA_FIREBASE_VERSION || '10.12.2');
   const base = `https://www.gstatic.com/firebasejs/${v}`;
   const appMod = await import(`${base}/firebase-app.js`);
@@ -63,9 +58,7 @@ async function ensureAuth(app){
     if(!auth.currentUser){
       await signInAnonymously(auth);
     }
-  }catch(e){
-    // auth may be optional depending on rules; proceed anyway
-  }
+  }catch(e){}
   return auth;
 }
 
@@ -77,6 +70,45 @@ function safeRoom(room){
   room = String(room||'').trim();
   room = room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0, 24);
   return room || `R${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+}
+
+// ---- anti-cheat helpers ----
+function clampScorePayload(payload){
+  payload = payload || {};
+  const score = clamp(payload.score, 0, 999999) | 0;
+  const miss  = clamp(payload.miss, 0, 9999) | 0;
+  const accPct= clamp(payload.accPct, 0, 100) | 0;
+  const medRT = clamp(payload.medianRtGoodMs, 0, 5000) | 0;
+
+  return {
+    score, miss, accPct,
+    medianRtGoodMs: medRT,
+    lastSeen: now()
+  };
+}
+
+function sanitizeEndSummary(s){
+  s = s || {};
+  return {
+    pid: (s.pid!=null? String(s.pid): undefined),
+    gameKey: (s.gameKey!=null? String(s.gameKey): undefined),
+    zone: (s.zone!=null? String(s.zone): undefined),
+    diff: (s.diff!=null? String(s.diff): undefined),
+    runMode: (s.runMode!=null? String(s.runMode): undefined),
+    seed: (s.seed!=null? String(s.seed): undefined),
+
+    // scoreboard fields (clamped)
+    scoreFinal: clamp(s.scoreFinal ?? s.score, 0, 999999) | 0,
+    missTotal:  clamp(s.missTotal ?? s.miss, 0, 9999) | 0,
+    accPct:     clamp(s.accPct ?? s.acc, 0, 100) | 0,
+    medianRtGoodMs: clamp(s.medianRtGoodMs ?? s.medRT ?? s.medianRT, 0, 5000) | 0,
+
+    // optional
+    grade: (s.grade!=null? String(s.grade): undefined),
+    reason: (s.reason!=null? String(s.reason): undefined),
+
+    ts: clamp(s.ts ?? now(), 0, 9e15)
+  };
 }
 
 export async function initBattle(opts){
@@ -99,8 +131,7 @@ export async function initBattle(opts){
 
   const { dbMod } = await loadFirebase();
   const {
-    ref, child, get, set, update, onValue, onDisconnect, serverTimestamp,
-    runTransaction, remove
+    ref, child, set, update, onValue, onDisconnect, runTransaction, remove
   } = dbMod;
 
   const root = ref(db, `hha_battle/${gameKey}/${room}`);
@@ -125,9 +156,7 @@ export async function initBattle(opts){
   });
 
   // Cleanup when disconnect
-  try{
-    await onDisconnect(myRef).remove();
-  }catch(e){}
+  try{ await onDisconnect(myRef).remove(); }catch(e){}
 
   // Create/init state if absent
   await runTransaction(stateRef, (cur)=>{
@@ -160,38 +189,25 @@ export async function initBattle(opts){
   let unsubPlayers = null;
   let unsubState = null;
 
-  // Players listener
   unsubPlayers = onValue(playersRef, (snap)=>{
     const val = snap.val() || {};
     battle.players = val;
 
-    // determine opponent (first other key)
     const keys = Object.keys(val);
     const opp = keys.find(k=>k !== meKey) || null;
     battle.opponentKey = opp;
 
-    emit('hha:battle-players', {
-      room,
-      me: meKey,
-      opponent: opp,
-      players: val
-    });
+    emit('hha:battle-players', { room, me: meKey, opponent: opp, players: val });
 
-    // autostart logic: when 2 players and still waiting
     tryAutostart();
-  }, (err)=>{
-    console.warn('[battle] players onValue err', err);
-  });
+  }, (err)=> console.warn('[battle] players onValue err', err));
 
-  // State listener
   unsubState = onValue(stateRef, (snap)=>{
     const s = snap.val() || { status:'waiting' };
     battle.state = s;
     emit('hha:battle-state', { room, ...s });
 
-    // If ended, emit battle-ended once with payload a/b
     if(String(s.status) === 'ended'){
-      // gather endSummary from both players
       const p = battle.players || {};
       const keys = Object.keys(p);
 
@@ -203,71 +219,57 @@ export async function initBattle(opts){
         const b = normalizeResult({ ...B, pid: p[keys[1]]?.pid, gameKey, room });
 
         const w = pickWinner(a, b);
-        emit('hha:battle-ended', {
-          room,
-          a, b,
-          winner: w.winner,
-          rule: 'score→acc→miss→medianRT'
-        });
+        emit('hha:battle-ended', { room, a, b, winner: w.winner, rule: 'score→acc→miss→medianRT' });
       }
     }
-  }, (err)=>{
-    console.warn('[battle] state onValue err', err);
-  });
+  }, (err)=> console.warn('[battle] state onValue err', err));
 
-  // ping lastSeen (light)
   const pingInt = setInterval(()=>{
-    try{
-      update(myRef, { lastSeen: now() });
-    }catch(e){}
+    try{ update(myRef, { lastSeen: now() }); }catch(e){}
   }, 2500);
 
   async function tryAutostart(){
-    // Autostart only if 2 players and state waiting
     if(String(battle.state?.status||'') !== 'waiting') return;
     const p = battle.players || {};
     const keys = Object.keys(p);
     if(keys.length < 2) return;
 
-    // use transaction to set startAt once
     await runTransaction(stateRef, (cur)=>{
       cur = cur || {};
       if(cur.status !== 'waiting') return cur;
       const t0 = now() + autostartMs;
       return { ...cur, status:'started', startAt: t0 };
     });
-
-    // forfeit timer: if opponent missing after started
-    // handled by finalizeEnd() fallback
   }
 
+  // rate-limit pushScore (anti spam)
+  let lastPushMs = 0;
   async function pushScore(payload){
-    // payload is hha:score detail {score, miss, accPct, medianRtGoodMs...}
-    if(!payload) return;
-    const d = {
-      score: Number(payload.score||0) || 0,
-      miss: Number(payload.miss||0) || 0,
-      accPct: Number(payload.accPct||0) || 0,
-      medianRtGoodMs: Number(payload.medianRtGoodMs||0) || 0,
-      lastSeen: now()
-    };
-    try{ await update(myRef, d); }catch(e){}
+    const t = now();
+    if(t - lastPushMs < 250) return; // <= 4x/sec
+    lastPushMs = t;
+
+    try{
+      const safe = clampScorePayload(payload);
+      await update(myRef, safe);
+    }catch(e){}
   }
 
   async function finalizeEnd(endSummary){
-    // mark ended + attach endSummary
-    const s = endSummary || {};
     const endedAt = now();
-    try{
-      await update(myRef, { ended:true, endSummary: { ...s, ts: endedAt } });
-    }catch(e){}
+    const safeSummary = sanitizeEndSummary({ ...(endSummary||{}), ts: endedAt, pid, gameKey });
 
-    // check if both ended; if so set state ended
-    // else start forfeit timer
-    let tStart = endedAt;
     try{
-      const st = battle.state || {};
-      tStart = Number(st.startAt || endedAt);
+      await update(myRef, {
+        ended: true,
+        endSummary: safeSummary,
+        // also mirror quick fields (optional)
+        score: safeSummary.scoreFinal,
+        miss: safeSummary.missTotal,
+        accPct: safeSummary.accPct,
+        medianRtGoodMs: safeSummary.medianRtGoodMs,
+        lastSeen: endedAt
+      });
     }catch(e){}
 
     const deadline = endedAt + forfeitMs;
@@ -277,7 +279,6 @@ export async function initBattle(opts){
       const keys = Object.keys(p);
       const endedCount = keys.filter(k=> !!p[k]?.ended).length;
 
-      // if someone left room, treat as forfeit
       if(keys.length < 2){
         clearInterval(timer);
         await runTransaction(stateRef, (cur)=>{
@@ -300,7 +301,6 @@ export async function initBattle(opts){
 
       if(now() >= deadline){
         clearInterval(timer);
-        // force end; whoever ended wins; if none ended -> tie (will compute from whatever data exists)
         await runTransaction(stateRef, (cur)=>{
           cur = cur || {};
           if(cur.status === 'ended') return cur;
@@ -314,12 +314,9 @@ export async function initBattle(opts){
     clearInterval(pingInt);
     try{ unsubPlayers && unsubPlayers(); }catch(e){}
     try{ unsubState && unsubState(); }catch(e){}
-    // leave player node
     try{ await remove(myRef); }catch(e){}
   }
 
-  // expose for debug
   WIN.__HHA_BATTLE__ = battle;
-
   return battle;
 }
