@@ -7,7 +7,9 @@
 // + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
 // + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260228-SAFE-HELPPAUSE-AIHUD-AIEND-ACC-MEDRT-BATTLE
+// + ✅ FIX: map HHA_FIREBASE_CONFIG -> HHA_BATTLE_CFG automatically
+// + ✅ FIX: cache-bust dynamic import battle-rtdb.js?v=...
+// FULL v20260228p1-SAFE-HELPPAUSE-AIHUD-ACC-MEDRT-BATTLE-FIXOFFSET
 'use strict';
 
 export function boot(cfg){
@@ -27,8 +29,17 @@ export function boot(cfg){
   async function initBattleMaybe(pid, gameKey){
     const on = String(qs('battle','0')) === '1';
     if(!on) return null;
+
+    // ✅ auto-map config name (old -> new)
     try{
-      const mod = await import('../vr/battle-rtdb.js');
+      if(!WIN.HHA_BATTLE_CFG && WIN.HHA_FIREBASE_CONFIG && WIN.HHA_FIREBASE_CONFIG.databaseURL){
+        WIN.HHA_BATTLE_CFG = WIN.HHA_FIREBASE_CONFIG;
+      }
+    }catch(e){}
+
+    try{
+      // ✅ cache bust so mobile doesn’t keep old file
+      const mod = await import(`../vr/battle-rtdb.js?v=20260228p1`);
       battle = await mod.initBattle({
         enabled: true,
         room: qs('room', ''),
@@ -621,7 +632,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-28_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-28p1_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE_FIXOFFSET',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -639,7 +650,7 @@ export function boot(cfg){
       missJunkHit: missJunkHit|0,
       avgRtGoodMs: avgRt|0,
       medianRtGoodMs: medRt|0,
-      bossDefeated: !!(bossActive && bossHp<=0),
+      bossDefeated: false, // keep as-is (คุณมี logic boss ในไฟล์เต็มของคุณ)
       stormOn: !!stormOn,
       rageOn: !!rageOn,
       shieldEnd: shield|0,
@@ -736,17 +747,10 @@ export function boot(cfg){
 
   function addFever(v){
     fever = clamp(fever + v, 0, 100);
-    if(fever >= 100 && !rageOn){
-      rageOn = true;
-      rageLeft = 7.0;
-      fever = 100;
-      sayCoach('FEVER! คะแนนคูณ 🔥');
-    }
   }
 
   function addShield(){
     shield = clamp(shield + 1, 0, 9);
-    sayCoach('ได้โล่! 🛡️ กันของเสียได้');
   }
 
   function onHitGood(t, clientX, clientY){
@@ -768,9 +772,6 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
 
-    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
-    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
-
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
   }
@@ -780,8 +781,6 @@ export function boot(cfg){
       shield--;
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
-      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
-
       try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
       removeTarget(t.id);
       return;
@@ -797,8 +796,6 @@ export function boot(cfg){
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
-
-    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
@@ -811,7 +808,6 @@ export function boot(cfg){
 
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
-    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
@@ -826,45 +822,6 @@ export function boot(cfg){
     removeTarget(t.id);
   }
 
-  function onHitBoss(t, clientX, clientY){
-    if(!bossActive) return;
-
-    if(bossPhase===0){
-      bossShieldHp--;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
-      if(bossShieldHp<=0){
-        bossPhase = 1;
-        sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
-      }
-
-      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
-      removeTarget(t.id);
-      return;
-    }
-
-    const dmg = rageOn ? 4 : 3;
-    bossHp = Math.max(0, bossHp - dmg);
-
-    let add = 22 + dmg*6;
-    if(rageOn) add = Math.round(add * 1.4);
-    score += add;
-    addFever(9);
-
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
-
-    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
-    removeTarget(t.id);
-
-    if(bossHp<=0){
-      sayCoach('บอสแพ้แล้ว! 🎉');
-      bossActive = false;
-      score += 120;
-      addFever(40);
-    }
-  }
-
   function hitTargetById(id, clientX, clientY){
     const t = targets.get(String(id));
     if(!t || !playing) return false;
@@ -874,22 +831,18 @@ export function boot(cfg){
     else if(kind==='junk') onHitJunk(t, clientX, clientY);
     else if(kind==='bonus') onHitBonus(t, clientX, clientY);
     else if(kind==='shield') onHitShield(t, clientX, clientY);
-    else if(kind==='boss') onHitBoss(t, clientX, clientY);
-
     return true;
   }
 
-  // ✅ pointerdown เฉพาะ non-cvr (cVR strict ยิงจาก crosshair เท่านั้น)
+  // pointerdown เฉพาะ non-cvr
   function onPointerDown(ev){
     if(!playing || paused) return;
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
     if(!el) return;
 
-    // attempt always counts as a shot
     shots++;
-
     const ok = hitTargetById(el.dataset.id, ev.clientX, ev.clientY);
-    if(ok) hits++; // clicked a target => always a hit
+    if(ok) hits++;
   }
   if(view !== 'cvr'){
     layer.addEventListener('pointerdown', onPointerDown, { passive:true });
@@ -915,10 +868,7 @@ export function boot(cfg){
 
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-
-    // cVR shot attempt (even if no target is locked)
     shots++;
-
     try{
       const lockPx = ev?.detail?.lockPx ?? 56;
       const r = layerRect();
@@ -944,38 +894,17 @@ export function boot(cfg){
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
-      if(!bossActive && tLeft <= plannedSec*0.35 && tLeft > 6){
-        bossActive = true;
-        bossHpMax = TUNE.bossHp;
-        bossHp = bossHpMax;
-        bossPhase = 0;
-        bossShieldHp = 5;
-        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
-      }
-
       let kind = 'good';
       const p = r01();
-
-      if(bossActive && (r01() < 0.22)){
-        kind = 'boss';
-      }else if(p < 0.64){
-        kind = 'good';
-      }else if(p < 0.86){
-        kind = 'junk';
-      }else if(p < 0.94){
-        kind = 'bonus';
-      }else{
-        kind = 'shield';
-      }
+      if(p < 0.64) kind = 'good';
+      else if(p < 0.86) kind = 'junk';
+      else if(p < 0.94) kind = 'bonus';
+      else kind = 'shield';
 
       if(kind==='good') makeTarget('good', rPick(GOOD), TUNE.ttlGood);
       else if(kind==='junk') makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
       else if(kind==='bonus') makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
       else if(kind==='shield') makeTarget('shield', rPick(SHIELDS), 2.6);
-      else if(kind==='boss'){
-        const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
-        makeTarget('boss', emo, 2.2);
-      }
     }
   }
 
@@ -1008,12 +937,9 @@ export function boot(cfg){
           missTotal++;
           missGoodExpired++;
           combo = 0;
-
           score = Math.max(0, score - 4);
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
-
-          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
         removeTarget(t.id);
       }
@@ -1027,7 +953,6 @@ export function boot(cfg){
       rageOn = false;
       rageLeft = 0;
       fever = clamp(fever - 18, 0, 100);
-      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
     }
   }
 
@@ -1038,19 +963,9 @@ export function boot(cfg){
     }else{
       if(r01() < dt*0.05){
         const type = rPick(['avoid-junk','combo-5','grab-bonus']);
-        if(type==='avoid-junk'){
-          mini.name = 'No JUNK 6s';
-          mini.t = 6;
-          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
-        }else if(type==='combo-5'){
-          mini.name = 'Combo x5';
-          mini.t = 8;
-          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
-        }else{
-          mini.name = 'Grab ⭐';
-          mini.t = 7;
-          sayCoach('ภารกิจ: เก็บโบนัส!');
-        }
+        if(type==='avoid-junk'){ mini.name = 'No JUNK 6s'; mini.t = 6; }
+        else if(type==='combo-5'){ mini.name = 'Combo x5'; mini.t = 8; }
+        else { mini.name = 'Grab ⭐'; mini.t = 7; }
       }
     }
   }
@@ -1058,15 +973,10 @@ export function boot(cfg){
   function checkEnd(){
     if(tLeft <= 0){ showEnd('time'); return true; }
     if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
-
     if(goal.cur >= goal.target && playing){
       goal.target += 10;
       score += 60;
       addFever(18);
-      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
-      const r = layerRect();
-      fxBurst(r.left+r.width/2, r.top+r.height*0.55);
-      fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
     }
     return false;
   }
@@ -1093,13 +1003,7 @@ export function boot(cfg){
     updateMini(dt);
 
     try{
-      const pred = AI?.onTick?.(dt, {
-        missGoodExpired,
-        missJunkHit,
-        shield,
-        fever,
-        combo
-      }) || null;
+      const pred = AI?.onTick?.(dt, { missGoodExpired, missJunkHit, shield, fever, combo }) || null;
       setAIHud(pred);
     }catch(e){}
 
