@@ -1,1054 +1,1462 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — VR Fitness (DOM)</title>
+// === /fitness/js/balance-hold.js ===
+// Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
+// FULL BUILD (T) — includes A–S:
+// ✅ URL prefill (diff/time/run/view/pid/group/phase)
+// ✅ view mode classes (pc/mobile/cvr)
+// ✅ practice + countdown phases (practiceOn/practice)
+// ✅ deterministic seeded RNG (seed / research-safe repeatable)
+// ✅ warmup passthrough buffs (wType/wPct/rank/wCrit/wDmg/wHeal)
+// ✅ scoring + combo + perfect
+// ✅ pause/resume/stop
+// ✅ result hero + rank + insight + badges/missions (basic)
+// ✅ tutorial overlay + end modal (optional IDs)
+// ✅ back HUB + return summary query (lastGame/lastScore/lastRank/lastStab)
+// ✅ local exports (sessions CSV, debug JSON) — light + safe
+'use strict';
 
-  <!--
-    ถ้ามีไฟล์ CSS แยก ให้ใช้:
-    <link rel="stylesheet" href="./css/balance-hold.css" />
-    และแปะ CSS patch (แพ็ก M) ต่อท้ายไฟล์นั้น
-  -->
+/* ------------------------------------------------------------
+ * DOM helpers
+ * ------------------------------------------------------------ */
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>document.querySelectorAll(s);
 
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#050814;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.72);
-      --line: rgba(148,163,184,.18);
-      --txt: rgba(241,245,249,.96);
-      --mut: rgba(148,163,184,.96);
-      --good: rgba(16,185,129,.95);
-      --warn: rgba(251,191,36,.95);
-      --bad: rgba(248,113,113,.95);
-      --blue: rgba(59,130,246,.95);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sat: env(safe-area-inset-top, 0px);
-    }
+function setText(selOrEl, v){
+  const el = (typeof selOrEl === 'string') ? $(selOrEl) : selOrEl;
+  if (el) el.textContent = String(v ?? '');
+}
+function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); }
+function fmtPercent(v){ v = Number(v); if(!Number.isFinite(v)) return '-'; return (v*100).toFixed(1)+'%'; }
+function fmtFloat(v, d=3){ v = Number(v); if(!Number.isFinite(v)) return '-'; return v.toFixed(d); }
 
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; }
-    body{
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-      background:
-        radial-gradient(1000px 700px at 10% 0%, rgba(59,130,246,.18), transparent 55%),
-        radial-gradient(900px 700px at 95% 15%, rgba(16,185,129,.12), transparent 55%),
-        var(--bg);
-      color: var(--txt);
-      overflow-x:hidden;
-    }
+/* ------------------------------------------------------------
+ * URL helpers
+ * ------------------------------------------------------------ */
+function qv(k, def=''){
+  try{
+    const u = new URL(window.location.href);
+    const v = u.searchParams.get(k);
+    return (v == null || v === '') ? def : v;
+  }catch(e){
+    return def;
+  }
+}
+function qn(k, def=0){
+  const v = Number(qv(k,''));
+  return Number.isFinite(v) ? v : def;
+}
+function clampNum(v, min, max, def){
+  v = Number(v);
+  if (!Number.isFinite(v)) v = def;
+  return Math.max(min, Math.min(max, v));
+}
+function parseBoolLike(v, fallback=false){
+  if (v == null) return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (['1','true','yes','y','on'].includes(s)) return true;
+  if (['0','false','no','n','off'].includes(s)) return false;
+  return fallback;
+}
 
-    .hidden{ display:none !important; }
+/* ------------------------------------------------------------
+ * Seeded RNG (deterministic)
+ * ------------------------------------------------------------ */
+function xmur3(str){
+  str = String(str ?? '');
+  let h = 1779033703 ^ str.length;
+  for (let i=0; i<str.length; i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return h >>> 0;
+  };
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+function buildSeedString(meta){
+  const qSeed = String(qv('seed','')).trim();
+  if (qSeed) return qSeed;
 
-    .app{
-      width:min(1000px, 100%);
-      margin:0 auto;
-      padding: calc(10px + var(--sat)) 10px calc(12px + var(--sab));
-    }
+  const day = new Date();
+  const yyyy = day.getFullYear();
+  const mm = String(day.getMonth()+1).padStart(2,'0');
+  const dd = String(day.getDate()).padStart(2,'0');
+  const ymd = `${yyyy}${mm}${dd}`;
 
-    .card{
-      background: linear-gradient(180deg, rgba(15,23,42,.76), rgba(2,6,23,.68));
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:12px;
-      box-shadow: 0 8px 30px rgba(2,6,23,.24);
-    }
+  return [
+    'balance-hold',
+    meta?.mode || 'play',
+    meta?.playerId || qv('pid','anon'),
+    meta?.difficulty || qv('diff','normal'),
+    meta?.durationSec || qv('time','60'),
+    ymd
+  ].join('|');
+}
+function makeRng(seedStr){
+  const seed = xmur3(seedStr);
+  return sfc32(seed(), seed(), seed(), seed());
+}
 
-    .title{
-      margin:0;
-      font-size:1.1rem;
-      font-weight:800;
-      letter-spacing:.2px;
-    }
-    .sub{
-      margin:.25rem 0 0 0;
-      color:var(--mut);
-      line-height:1.35;
-      font-size:.92rem;
-    }
+/* ------------------------------------------------------------
+ * View handling
+ * ------------------------------------------------------------ */
+const viewMenu     = $('#view-menu');
+const viewResearch = $('#view-research');
+const viewPlay     = $('#view-play');
+const viewResult   = $('#view-result');
 
-    .stack{ display:grid; gap:10px; }
-    .grid-2{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
-    }
-    @media (min-width: 760px){
-      .grid-2{ grid-template-columns: 1fr 1fr; }
-    }
+function showView(name){
+  [viewMenu, viewResearch, viewPlay, viewResult].forEach(v=> v && v.classList.add('hidden'));
+  if (name==='menu')     viewMenu && viewMenu.classList.remove('hidden');
+  if (name==='research') viewResearch && viewResearch.classList.remove('hidden');
+  if (name==='play')     viewPlay && viewPlay.classList.remove('hidden');
+  if (name==='result')   viewResult && viewResult.classList.remove('hidden');
+}
+function applyViewModeClass(mode){
+  document.body.classList.remove('view-pc','view-mobile','view-cvr');
+  const m = (mode === 'mobile' || mode === 'cvr') ? mode : 'pc';
+  document.body.classList.add('view-' + m);
 
-    .field-row{
-      display:grid;
-      grid-template-columns: 110px 1fr;
-      gap:8px;
-      align-items:center;
-      margin-top:8px;
-    }
-    .field-row label{
-      color:var(--mut);
-      font-size:.9rem;
-    }
-    .field-row input,
-    .field-row select{
-      width:100%;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.65);
-      color:var(--txt);
-      padding:9px 10px;
-      font: inherit;
-      min-height:40px;
-    }
+  const cvr = $('#cvrOverlay');
+  if (cvr) cvr.classList.toggle('hidden', m !== 'cvr');
+}
 
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.28);
-      background: rgba(15,23,42,.72);
-      color: rgba(241,245,249,.96);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font: inherit;
-      line-height: 1.15;
-      transition: transform .08s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
-    }
-    .btn:hover{ background: rgba(30,41,59,.84); border-color: rgba(148,163,184,.42); }
-    .btn:active, .btn.is-pressing{ transform: translateY(1px) scale(.99); }
-    .btn-primary{
-      background: rgba(37,99,235,.88);
-      border-color: rgba(96,165,250,.65);
-    }
-    .btn-primary:hover{ background: rgba(37,99,235,.98); }
-    .btn-danger{
-      background: rgba(127,29,29,.78);
-      border-color: rgba(248,113,113,.45);
-    }
+/* ------------------------------------------------------------
+ * DOM refs (core)
+ * ------------------------------------------------------------ */
+const elDiffSel = $('#difficulty');
+const elDurSel  = $('#sessionDuration');
+const elViewSel = $('#viewMode');
 
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+const hudMode   = $('#hud-mode');
+const hudDiff   = $('#hud-diff');
+const hudDur    = $('#hud-dur');
+const hudTime   = $('#hud-time');
+const hudStab   = $('#hud-stability');
+const hudObsA   = $('#hud-obstacles'); // legacy
+const hudObsB   = $('#hud-obs');       // patch-U
+const hudStatus = $('#hud-status');
+const hudPhase  = $('#hud-phase');
+const hudScore  = $('#hud-score');
+const hudCombo  = $('#hud-combo');
 
-    /* --- PLAY VIEW --- */
-    .play-shell{
-      display:grid;
-      gap:10px;
-    }
+const stabilityFill = $('#stabilityFill');
+const centerPulse   = $('#centerPulse');
 
-    .hud{
-      border-radius:14px;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.52);
-      padding:10px;
-    }
-    .hud-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .hud-chip, .hud-pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:.88rem;
-      color:var(--txt);
-      line-height:1.1;
-    }
-    .hud-chip b, .hud-pill b{ color:#fff; font-weight:800; }
+const playArea      = $('#playArea');
+const platformWrap  = $('#platform-wrap');
+const platformEl    = $('#platform');
+const indicatorEl   = $('#indicator');
+const obstacleLayer = $('#obstacle-layer');
 
-    .hud-row-extra{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:8px;
-    }
+const coachLabel  = $('#coachLabel');
+const coachBubble = $('#coachBubble');
 
-    .hud-stability-bar{
-      position: relative;
-      height: 10px;
-      margin-top: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.14);
-      border:1px solid rgba(148,163,184,.12);
-      overflow: hidden;
-    }
-    .hud-stability-fill{
-      position:absolute;
-      left:0; top:0; bottom:0;
-      width:0%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(59,130,246,.85));
-      transition: width .2s linear;
-    }
-    .hud-center-pulse{
-      position:absolute;
-      left:50%; top:50%;
-      width:12px; height:12px;
-      border-radius:999px;
-      transform: translate(-50%,-50%);
-      background: rgba(248,250,252,.75);
-      box-shadow: 0 0 0 0 rgba(255,255,255,.16);
-      opacity:.85;
-    }
-    .hud-center-pulse.good{
-      background: rgba(16,185,129,.92);
-      box-shadow: 0 0 0 4px rgba(16,185,129,.14);
-    }
+/* result refs (optional but recommended) */
+const rankBadgeEl     = $('#rankBadge');
+const resultHeroSub   = $('#resultHeroSub');
+const heroInsightEl   = $('#heroInsight');
+const heroBadgesEl    = $('#heroBadges');
+const heroMissionEl   = $('#heroMissionChips');
 
-    .coach-wrap{
-      display:grid;
-      gap:8px;
-      justify-items:center;
-    }
-    #coachLabel{
-      color: var(--mut);
-      text-align:center;
-      font-size:.9rem;
-      line-height:1.3;
-      margin:0;
-    }
-    #coachBubble{
-      max-width: min(94vw, 760px);
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.72);
-      color: rgba(241,245,249,.97);
-      padding: 10px 12px;
-      line-height: 1.35;
-      box-shadow: 0 8px 28px rgba(2,6,23,.22);
-      text-align:center;
-    }
+const resMode      = $('#res-mode');
+const resDiff      = $('#res-diff');
+const resDur       = $('#res-dur');
+const resEnd       = $('#res-end');
+const resStability = $('#res-stability');
+const resMeanTilt  = $('#res-meanTilt');
+const resRmsTilt   = $('#res-rmsTilt');
+const resAvoid     = $('#res-avoid');
+const resHit       = $('#res-hit');
+const resAvoidRate = $('#res-avoidRate');
+const resFatigue   = $('#res-fatigue');
+const resSamples   = $('#res-samples');
 
-    #playArea{
-      position:relative;
-      min-height: 360px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:
-        radial-gradient(600px 240px at 50% 0%, rgba(59,130,246,.10), transparent 70%),
-        linear-gradient(180deg, rgba(15,23,42,.58), rgba(2,6,23,.72));
-      overflow:hidden;
-      touch-action:none;
-      user-select:none;
-    }
+const resScoreEl   = $('#res-score');
+const resRankEl    = $('#res-rank');
+const resPerfectEl = $('#res-perfect');
+const resComboEl   = $('#res-maxCombo');
+const resAiTipEl   = $('#res-aiTip');
+const resDailyEl   = $('#res-daily');
 
-    /* play area center guide */
-    #playArea::before{
-      content:'';
-      position:absolute;
-      left:50%; top:0; bottom:0;
-      width:2px;
-      transform:translateX(-50%);
-      background: linear-gradient(180deg, transparent, rgba(148,163,184,.18), transparent);
-      pointer-events:none;
-      z-index:0;
-    }
+/* overlays (optional) */
+const tutorialOverlay = $('#tutorialOverlay');
+const tutorialDontShowAgain = $('#tutorialDontShowAgain');
+const endModal = $('#endModal');
+const endModalRank = $('#endModalRank');
+const endModalScore= $('#endModalScore');
+const endModalInsight = $('#endModalInsight');
 
-    #platform-wrap{
-      position:absolute;
-      left:50%;
-      bottom:72px;
-      width:min(80vw, 520px);
-      height:120px;
-      transform:translateX(-50%);
-      display:grid;
-      place-items:center;
-      z-index:2;
-    }
-    #platform{
-      width:100%;
-      height:22px;
-      border-radius:999px;
-      background: linear-gradient(180deg, rgba(203,213,225,.95), rgba(148,163,184,.92));
-      border:1px solid rgba(255,255,255,.22);
-      box-shadow: 0 6px 20px rgba(2,6,23,.28);
-      transform-origin:center center;
-      transition: transform .05s linear;
-      position:relative;
-    }
-    #platform::before{
-      content:'';
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:22px;height:22px;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      background: rgba(2,6,23,.85);
-      border:2px solid rgba(241,245,249,.9);
-      box-shadow: 0 0 0 3px rgba(59,130,246,.14);
-    }
+/* cVR label (optional) */
+const cvrStrictLabel = $('#cvrStrictLabel');
 
-    #indicator{
-      position:absolute;
-      left:50%;
-      bottom:92px;
-      width:34px;
-      height:34px;
-      border-radius:999px;
-      transform: translateX(0) translateY(-18px);
-      background: radial-gradient(circle at 35% 30%, #fff, rgba(59,130,246,.95) 45%, rgba(29,78,216,.95));
-      border:1px solid rgba(255,255,255,.28);
-      box-shadow: 0 10px 20px rgba(2,6,23,.28);
-      z-index:3;
-      pointer-events:none;
-    }
+/* ------------------------------------------------------------
+ * Config
+ * ------------------------------------------------------------ */
+const GAME_DIFF = {
+  easy:   { safeHalf:0.35, disturbMinMs:1400, disturbMaxMs:2600, disturbStrength:0.18, passiveDrift:0.010 },
+  normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.23, passiveDrift:0.020 },
+  hard:   { safeHalf:0.18, disturbMinMs: 900, disturbMaxMs:1800, disturbStrength:0.30, passiveDrift:0.030 }
+};
+function pickDiff(k){ return GAME_DIFF[k] || GAME_DIFF.normal; }
 
-    /* safe-zone visual hint */
-    .safe-zone{
-      position:absolute;
-      left:50%;
-      bottom:52px;
-      width:min(80vw, 520px);
-      height:10px;
-      transform:translateX(-50%);
-      border-radius:999px;
-      background: rgba(148,163,184,.08);
-      border:1px dashed rgba(148,163,184,.12);
-      overflow:hidden;
-      z-index:1;
-      pointer-events:none;
-    }
-    .safe-zone-inner{
-      position:absolute;
-      left:50%;
-      top:0; bottom:0;
-      width:40%;
-      transform:translateX(-50%);
-      border-radius:999px;
-      background: rgba(16,185,129,.18);
-      border-left:1px solid rgba(16,185,129,.22);
-      border-right:1px solid rgba(16,185,129,.22);
-    }
+function mapEndReason(code){
+  switch(code){
+    case 'timeout': return 'ครบเวลาที่กำหนด / Timeout';
+    case 'manual':  return 'หยุดเอง / Stopped by player';
+    default:        return code || '-';
+  }
+}
 
-    #obstacle-layer{
-      position:absolute;
-      inset:0;
-      z-index:4;
-      pointer-events:none;
-    }
-    .obstacle{
-      position:absolute;
-      top:18px;
-      transform: translateX(-50%);
-      font-size: 30px;
-      line-height:1;
-      filter: drop-shadow(0 4px 8px rgba(2,6,23,.35));
-      animation: obstacleDrop 1.2s linear forwards;
-      will-change: transform, top, opacity;
-      opacity:.98;
-    }
-    .obstacle.avoid{
-      animation: obstacleFadeGood .45s ease-out forwards;
-    }
-    .obstacle.hit{
-      animation: obstacleFadeBad .48s ease-out forwards;
-    }
-    .obstacle.telegraph{
-      filter: drop-shadow(0 0 10px rgba(255,255,255,.25));
-      animation: obstacleTelegraph .28s ease-out 1, obstacleDrop 1.2s linear forwards;
-    }
+/* ------------------------------------------------------------
+ * Warmup passthrough buffs
+ * ------------------------------------------------------------ */
+function readWarmupBuff(){
+  const wType = qv('wType','');
+  const wPct  = clampNum(qv('wPct','0'), 0, 100, 0);
+  const wCrit = clampNum(qv('wCrit','0'), 0, 10, 0);
+  const wDmg  = clampNum(qv('wDmg','0'), 0, 10, 0);
+  const wHeal = clampNum(qv('wHeal','0'), 0, 10, 0);
+  const rank  = qv('rank','');
 
-    @keyframes obstacleDrop{
-      0%   { top:18px; opacity:1; transform: translateX(-50%) scale(.9); }
-      80%  { opacity:1; }
-      100% { top:68%; opacity:1; transform: translateX(-50%) scale(1); }
+  return {
+    wType, wPct, wCrit, wDmg, wHeal, rank,
+    scoreBoostMul: 1 + (wPct / 100) * 0.5,
+    critBonusChance: Math.min(0.35, wCrit * 0.03),
+    dmgReduceMul: Math.max(0.5, 1 - wDmg * 0.05),
+    healOnAvoid: Math.round(wHeal * 0.6)
+  };
+}
+
+/* ------------------------------------------------------------
+ * Tutorial / modal helpers
+ * ------------------------------------------------------------ */
+function openTutorial(){
+  if (!tutorialOverlay) return;
+  tutorialOverlay.classList.remove('hidden');
+  tutorialOverlay.setAttribute('aria-hidden','false');
+}
+function closeTutorial(){
+  if (!tutorialOverlay) return;
+  tutorialOverlay.classList.add('hidden');
+  tutorialOverlay.setAttribute('aria-hidden','true');
+}
+function openEndModal(){
+  if (!endModal) return;
+  endModal.classList.remove('hidden');
+  endModal.setAttribute('aria-hidden','false');
+}
+function closeEndModal(){
+  if (!endModal) return;
+  endModal.classList.add('hidden');
+  endModal.setAttribute('aria-hidden','true');
+}
+
+/* ------------------------------------------------------------
+ * Prefill UI from URL
+ * ------------------------------------------------------------ */
+function applyQueryToUI(){
+  const qDiff = String(qv('diff','')).toLowerCase();
+  const qTime = qv('time','');
+  const qRun  = String(qv('run','')).toLowerCase();
+  const qView = String(qv('view','')).toLowerCase();
+
+  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)){
+    elDiffSel.value = qDiff;
+  }
+  if (elDurSel && qTime){
+    const t = clampNum(qTime, 10, 600, 60);
+    const tStr = String(t);
+    const has = [...elDurSel.options].some(o => o.value === tStr);
+    if (!has){
+      const opt = document.createElement('option');
+      opt.value = tStr;
+      opt.textContent = tStr;
+      elDurSel.appendChild(opt);
     }
-    @keyframes obstacleFadeGood{
-      0%   { opacity:1; transform: translateX(-50%) scale(1); }
-      100% { opacity:0; transform: translateX(-50%) scale(1.25) rotate(-12deg); }
-    }
-    @keyframes obstacleFadeBad{
-      0%   { opacity:1; transform: translateX(-50%) scale(1); }
-      100% { opacity:0; transform: translateX(-50%) scale(1.35) rotate(12deg); }
-    }
-    @keyframes obstacleTelegraph{
-      0%{ opacity:.75; transform: translateX(-50%) scale(.82); }
-      100%{ opacity:1; transform: translateX(-50%) scale(1); }
+    elDurSel.value = tStr;
+  }
+
+  // research fields
+  const pid = qv('pid','');
+  const grp = qv('group','');
+  const phs = qv('phase','');
+  if ($('#researchId') && pid) $('#researchId').value = pid;
+  if ($('#researchGroup') && grp) $('#researchGroup').value = grp;
+  if ($('#researchPhase') && phs) $('#researchPhase').value = phs;
+
+  if (elViewSel && ['pc','mobile','cvr'].includes(qView)){
+    elViewSel.value = qView;
+  }
+  applyViewModeClass(qView || (elViewSel ? elViewSel.value : 'pc'));
+
+  if (qRun === 'research'){
+    showView('research');
+  }
+}
+
+/* ------------------------------------------------------------
+ * FX helpers (simple)
+ * ------------------------------------------------------------ */
+function fxEnabled(){ return String(qv('fx','1')) !== '0'; }
+function spawnFloatFx(text, kind, pxX, pxY){
+  if (!fxEnabled() || !playArea) return;
+  const el = document.createElement('div');
+  el.className = `fx-float ${kind||''}`;
+  el.textContent = text;
+  el.style.left = `${pxX}px`;
+  el.style.top  = `${pxY}px`;
+  playArea.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 820);
+}
+function pulseEl(el){
+  if (!el || !fxEnabled()) return;
+  el.classList.remove('count-pop');
+  void el.offsetWidth;
+  el.classList.add('count-pop');
+}
+
+/* ------------------------------------------------------------
+ * Input
+ * ------------------------------------------------------------ */
+function attachInput(){
+  if (!playArea) return;
+  let active = false;
+
+  function updateTargetFromEvent(ev){
+    if (!state) return;
+    const rect = playArea.getBoundingClientRect();
+    const x = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX);
+    if (x == null) return;
+
+    const relX = (x - rect.left) / rect.width; // 0..1
+    let norm = (relX - 0.5) * 2;               // -1..1
+
+    // input profile
+    const view = (elViewSel?.value || qv('view','pc')).toLowerCase();
+    const p = (view === 'mobile') ? { deadzone:0.04, smoothing:0.22, maxTarget:0.95 }
+            : (view === 'cvr')    ? { deadzone:0.06, smoothing:0.18, maxTarget:0.85 }
+            :                      { deadzone:0.02, smoothing:0.35, maxTarget:1.00 };
+
+    if (Math.abs(norm) < p.deadzone) norm = 0;
+    norm = clamp(norm, -p.maxTarget, p.maxTarget);
+
+    // apply simple cVR strict hint (if label exists + ON)
+    const isCvr = view === 'cvr';
+    if (isCvr && cvrStrictLabel && String(cvrStrictLabel.textContent||'OFF').toUpperCase() === 'ON'){
+      norm *= 0.78;
     }
 
-    .play-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-      margin-top: 10px;
+    const curr = Number(state.targetAngle || 0);
+    state.targetAngle = curr + (norm - curr) * p.smoothing;
+  }
+
+  playArea.addEventListener('pointerdown', ev=>{
+    active = true;
+    try{ playArea.setPointerCapture(ev.pointerId); }catch(e){}
+    updateTargetFromEvent(ev);
+    ev.preventDefault();
+  }, {passive:false});
+
+  playArea.addEventListener('pointermove', ev=>{
+    if (!active) return;
+    updateTargetFromEvent(ev);
+    ev.preventDefault();
+  }, {passive:false});
+
+  playArea.addEventListener('pointerup', ev=>{
+    active = false;
+    try{ playArea.releasePointerCapture(ev.pointerId); }catch(e){}
+    ev.preventDefault();
+  }, {passive:false});
+
+  playArea.addEventListener('pointercancel', ev=>{
+    active = false;
+    ev.preventDefault();
+  }, {passive:false});
+}
+
+/* ------------------------------------------------------------
+ * Game State
+ * ------------------------------------------------------------ */
+let gameMode = 'play';
+let state = null;
+let rafId = null;
+
+let isPaused = false;
+let pausedAt = 0;
+
+let tutorialAccepted = false;
+
+/* session rows local */
+const SESS_KEY = 'vrfit_sessions_balance-hold';
+
+function recordSessionToLocal(summary){
+  try{
+    const arr = JSON.parse(localStorage.getItem(SESS_KEY) || '[]');
+    arr.push({ ...summary, ts: Date.now() });
+    localStorage.setItem(SESS_KEY, JSON.stringify(arr));
+  }catch(e){}
+}
+
+/* ------------------------------------------------------------
+ * RNG helpers
+ * ------------------------------------------------------------ */
+function rand01(){
+  return (state && typeof state.rand === 'function') ? state.rand() : Math.random();
+}
+function randomBetween(a,b){
+  const r = rand01();
+  return a + r*(b-a);
+}
+
+/* ------------------------------------------------------------
+ * Practice / Countdown phases (S)
+ * ------------------------------------------------------------ */
+function resetMotionForNewPhase(){
+  if (!state) return;
+  state.angle = 0;
+  state.targetAngle = 0;
+  state.lastFrame = performance.now();
+  if (obstacleLayer) obstacleLayer.innerHTML = '';
+}
+function beginPracticePhase(now){
+  if (!state) return;
+  state.phase = 'practice';
+  state.phaseLabel = 'Practice';
+  state.practiceStartedAt = now;
+  state.nextObstacleAt = now + randomBetween(state.cfg.disturbMinMs, state.cfg.disturbMaxMs);
+  setText(hudStatus, 'Practice');
+  setText(hudPhase, `Practice ${Math.round(state.practiceDurationMs/1000)}s • seed:${String(state.seedStr||'').slice(0,10)}`);
+  resetMotionForNewPhase();
+}
+function beginMainPhase(now){
+  if (!state) return;
+  state.phase = 'main';
+  state.phaseLabel = 'Main';
+
+  // reset MAIN metrics (critical)
+  state.startTime = now;
+  state.elapsed = 0;
+  state.lastFrame = now;
+  state.nextSampleAt = now + state.sampleEveryMs;
+  state.nextObstacleAt = now + randomBetween(state.cfg.disturbMinMs, state.cfg.disturbMaxMs);
+
+  state.totalSamples = 0;
+  state.stableSamples = 0;
+  state.sumTiltAbs = 0;
+  state.sumTiltSq  = 0;
+  state.samples = [];
+
+  state.obstaclesTotal = 0;
+  state.obstaclesAvoided = 0;
+  state.obstaclesHit = 0;
+
+  state.score = 0;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.perfects = 0;
+
+  const wu = state.warmup || {};
+  if (wu && (wu.wType || wu.wPct)){
+    setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct||0}%`);
+  }else{
+    setText(hudStatus, 'Playing');
+  }
+  setText(hudPhase, `Main • seed:${String(state.seedStr||'').slice(0,10)}`);
+  setText(hudScore, '0'); setText(hudCombo, '0');
+  setText(hudStab, '0%');
+  if (hudObsA) setText(hudObsA, '0 / 0');
+  if (hudObsB) setText(hudObsB, '0 / 0');
+  if (stabilityFill) stabilityFill.style.width = '0%';
+  if (centerPulse) centerPulse.classList.remove('good');
+
+  resetMotionForNewPhase();
+}
+function runCountdownPhase(now){
+  if (!state) return false;
+  const elapsed = now - state.countdownStartedAt;
+  const remain = Math.max(0, state.countdownMs - elapsed);
+  const sec = remain / 1000;
+
+  setText(hudTime, sec.toFixed(1));
+  setText(hudStatus, 'Get Ready');
+  setText(hudPhase, `Countdown • seed:${String(state.seedStr||'').slice(0,10)}`);
+
+  if (coachBubble){
+    const n = Math.ceil(sec);
+    coachBubble.textContent = (n > 0) ? `เริ่มใน ${n}... / Starting in ${n}...` : 'ไปเลย! / Go!';
+    coachBubble.classList.remove('hidden');
+  }
+
+  updateVisuals();
+
+  if (remain <= 0){
+    if (coachBubble) coachBubble.classList.add('hidden');
+    if (state.practiceEnabled && !state.practiceEnded){
+      beginPracticePhase(now);
+    }else{
+      beginMainPhase(now);
+    }
+  }
+  return true;
+}
+function runPracticePhase(now){
+  if (!state) return false;
+  const pe = now - state.practiceStartedAt;
+  const remain = Math.max(0, state.practiceDurationMs - pe);
+  setText(hudTime, (remain/1000).toFixed(1));
+
+  if (remain <= 0){
+    state.practiceEnded = true;
+    state.phase = 'countdown';
+    state.phaseLabel = 'Countdown';
+    state.countdownMs = 2000;
+    state.countdownStartedAt = now;
+    setText(hudStatus, 'Practice Complete');
+    setText(hudPhase, `Countdown to Main • seed:${String(state.seedStr||'').slice(0,10)}`);
+    if (coachBubble){
+      coachBubble.textContent = 'ซ้อมเสร็จแล้ว! เตรียมเข้าสู่รอบจริง / Practice complete! Main round starts...';
+      coachBubble.classList.remove('hidden');
+      setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 1200);
+    }
+    resetMotionForNewPhase();
+    return true;
+  }
+  return false;
+}
+
+/* ------------------------------------------------------------
+ * Start / Pause / Resume / Stop
+ * ------------------------------------------------------------ */
+function buildSessionMeta(diffKey, durSec){
+  let playerId='anon', group='', phase='';
+  if (gameMode === 'research'){
+    playerId = ($('#researchId')?.value.trim()) || qv('pid','anon') || 'anon';
+    group    = ($('#researchGroup')?.value.trim()) || qv('group','') || '';
+    phase    = ($('#researchPhase')?.value.trim()) || qv('phase','') || '';
+  }else{
+    playerId = qv('pid','anon') || 'anon';
+    group    = qv('group','') || '';
+    phase    = qv('phase','') || '';
+  }
+  return { mode: gameMode, difficulty: diffKey, durationSec: durSec, playerId, group, phase };
+}
+
+function maybeShowTutorialBeforeStart(kind){
+  const tutorialFlag = String(qv('tutorial','0'));
+  const dontShow = localStorage.getItem('bh_tutorial_skip') === '1';
+  if (tutorialFlag === '1' && !dontShow && !tutorialAccepted){
+    openTutorial();
+    document.body.dataset.pendingStartKind = (kind === 'research' ? 'research' : 'play');
+    return true;
+  }
+  return false;
+}
+
+function startGame(kind){
+  gameMode = (kind==='research' ? 'research' : 'play');
+
+  const diffKey = (elDiffSel?.value || qv('diff','normal') || 'normal').toLowerCase();
+  const durSec  = parseInt(elDurSel?.value || qv('time','60') || '60', 10) || 60;
+  const cfg     = pickDiff(diffKey);
+
+  // warmup buffs
+  const warmup = readWarmupBuff();
+
+  // seed + rng
+  const meta = buildSessionMeta(diffKey, durSec);
+  const seedStr = buildSeedString(meta);
+  const rng = makeRng(seedStr);
+
+  const now = performance.now();
+  state = {
+    diffKey, cfg,
+    durationMs: durSec*1000,
+    startTime: now,
+    elapsed: 0,
+    lastFrame: now,
+
+    // motion
+    angle: 0,
+    targetAngle: 0,
+
+    // sampling (main only)
+    sampleEveryMs: 120,
+    nextSampleAt: now + 120,
+    totalSamples: 0,
+    stableSamples: 0,
+    sumTiltAbs: 0,
+    sumTiltSq: 0,
+    samples: [],
+
+    // obstacles
+    nextObstacleAt: now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs),
+    obstacleSeq: 1,
+    obstaclesTotal: 0,
+    obstaclesAvoided: 0,
+    obstaclesHit: 0,
+
+    // practice metrics
+    practiceEnabled: false,
+    practiceDurationMs: 0,
+    practiceStartedAt: 0,
+    practiceEnded: false,
+    practiceSamples: 0,
+    practiceStableSamples: 0,
+    practiceObstaclesTotal: 0,
+    practiceObstaclesAvoided: 0,
+    practiceObstaclesHit: 0,
+    practiceScore: 0,
+
+    // scoring
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    perfects: 0,
+
+    // fatigue
+    fatigueIndex: 0,
+
+    // deterministic & buffs
+    seedStr,
+    rand: rng,
+    warmup,
+
+    // phase
+    phase: 'main',
+    phaseLabel: 'Main',
+    countdownMs: 0,
+    countdownStartedAt: 0
+  };
+
+  // UI basics
+  setText(hudMode, gameMode === 'research' ? 'Research' : 'Play');
+  setText(hudDiff, diffKey);
+  setText(hudDur, String(durSec));
+  setText(hudTime, durSec.toFixed(1));
+  setText(hudStab, '0%');
+  if (hudObsA) setText(hudObsA, '0 / 0');
+  if (hudObsB) setText(hudObsB, '0 / 0');
+  setText(hudScore, '0');
+  setText(hudCombo, '0');
+
+  // view mode
+  applyViewModeClass(elViewSel?.value || qv('view','pc'));
+
+  // safe zone visual width hint (optional element)
+  const safeInner = $('.safe-zone-inner');
+  if (safeInner){
+    const pct = Math.max(14, Math.min(75, cfg.safeHalf * 100));
+    safeInner.style.width = `${pct}%`;
+  }
+
+  // reset overlays
+  closeEndModal();
+  closeTutorial();
+
+  // reset fx/hud bars
+  if (stabilityFill) stabilityFill.style.width = '0%';
+  if (centerPulse) centerPulse.classList.remove('good');
+
+  // reset obstacles layer
+  if (obstacleLayer) obstacleLayer.innerHTML = '';
+
+  // set label
+  if (coachLabel){
+    coachLabel.textContent = 'จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance';
+  }
+  if (coachBubble) coachBubble.classList.add('hidden');
+
+  // Practice setup (S)
+  const practiceOn = parseBoolLike(qv('practiceOn', qv('practice','0') !== '0' ? '1':'0'), true);
+  const practiceSec = clampNum(qv('practice','15'), 0, 60, 15);
+
+  if (practiceOn && practiceSec > 0){
+    state.practiceEnabled = true;
+    state.practiceDurationMs = practiceSec * 1000;
+    state.phase = 'countdown';
+    state.phaseLabel = 'Countdown';
+    state.countdownMs = 3000;
+    state.countdownStartedAt = now;
+    setText(hudStatus, 'Get Ready');
+    setText(hudPhase, `Countdown • seed:${String(seedStr).slice(0,10)}`);
+  }else{
+    state.phase = 'main';
+    state.phaseLabel = 'Main';
+    setText(hudStatus, warmup && (warmup.wType || warmup.wPct) ? `Playing • ${warmup.wType || 'buff'} +${warmup.wPct||0}%` : 'Playing');
+    setText(hudPhase, `Main • seed:${String(seedStr).slice(0,10)}`);
+    beginMainPhase(now);
+  }
+
+  // pause state
+  isPaused = false;
+  pausedAt = 0;
+  $('[data-action="pause"]')?.classList.remove('hidden');
+  $('[data-action="resume"]')?.classList.add('hidden');
+
+  // start RAF
+  if (rafId != null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+
+  showView('play');
+}
+
+function pauseGame(){
+  if (!state || isPaused) return;
+  isPaused = true;
+  pausedAt = performance.now();
+  if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
+  setText(hudStatus, 'Paused');
+  $('[data-action="pause"]')?.classList.add('hidden');
+  $('[data-action="resume"]')?.classList.remove('hidden');
+}
+
+function resumeGame(){
+  if (!state || !isPaused) return;
+  const now = performance.now();
+  const pausedMs = Math.max(0, now - pausedAt);
+  isPaused = false;
+
+  // shift anchors forward
+  state.startTime += pausedMs;
+  state.lastFrame = now;
+  state.nextSampleAt += pausedMs;
+  state.nextObstacleAt += pausedMs;
+  state.countdownStartedAt += pausedMs;
+  state.practiceStartedAt += pausedMs;
+
+  setText(hudStatus, state.phase === 'practice' ? 'Practice' : 'Playing');
+  $('[data-action="pause"]')?.classList.remove('hidden');
+  $('[data-action="resume"]')?.classList.add('hidden');
+
+  if (rafId != null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ------------------------------------------------------------
+ * Physics + visuals
+ * ------------------------------------------------------------ */
+function updateVisuals(){
+  if (!state) return;
+
+  // platform rotation
+  if (platformEl){
+    const maxDeg = 16;
+    const angleDeg = state.angle * maxDeg;
+    platformEl.style.transform = `rotate(${angleDeg}deg)`;
+  }
+
+  // indicator position
+  if (indicatorEl && platformWrap){
+    const wrapRect = platformWrap.getBoundingClientRect();
+    const halfW = wrapRect.width * 0.34;
+    const x = state.angle * halfW;
+    indicatorEl.style.transform = `translateX(${x}px) translateY(-18px)`;
+  }
+
+  // HUD obstacles
+  if (state.phase === 'practice'){
+    const a = state.practiceObstaclesAvoided || 0;
+    const t = state.practiceObstaclesTotal || 0;
+    if (hudObsA) setText(hudObsA, `${a} / ${t}`);
+    if (hudObsB) setText(hudObsB, `${a} / ${t}`);
+  }else{
+    if (hudObsA) setText(hudObsA, `${state.obstaclesAvoided} / ${state.obstaclesTotal}`);
+    if (hudObsB) setText(hudObsB, `${state.obstaclesAvoided} / ${state.obstaclesTotal}`);
+  }
+}
+
+/* ------------------------------------------------------------
+ * Obstacles
+ * ------------------------------------------------------------ */
+function spawnObstacle(now){
+  if (!state || !obstacleLayer || !playArea) return;
+  const cfg = state.cfg;
+  const isPractice = state.phase === 'practice';
+
+  const id = state.obstacleSeq++;
+  if (isPractice) state.practiceObstaclesTotal++;
+  else state.obstaclesTotal++;
+
+  const kind = (rand01() < 0.6) ? 'gust' : 'bomb';
+  const emoji = (kind === 'gust') ? '💨' : '💣';
+
+  const span = document.createElement('div');
+  span.className = 'obstacle telegraph';
+  span.textContent = emoji;
+
+  const wrapRect = playArea.getBoundingClientRect();
+  let xNorm = (rand01()*2 - 1); // deterministic by seed
+  const pxX = (wrapRect.width/2 + xNorm*(wrapRect.width*0.32));
+  span.style.left = pxX + 'px';
+  obstacleLayer.appendChild(span);
+
+  setTimeout(()=>{ try{ span.remove(); }catch(e){} }, 1400);
+
+  const impactAt = now + 950;
+  setTimeout(()=>{
+    if (!state) return;
+
+    const safeHalf = cfg.safeHalf;
+    const absTilt = Math.abs(state.angle);
+    const inSafe = absTilt <= safeHalf;
+    const nearPerfect = absTilt <= Math.max(0.06, safeHalf * 0.28);
+
+    if (isPractice){
+      // practice-only feedback (no main score/log)
+      if (inSafe){
+        state.practiceObstaclesAvoided++;
+        state.practiceScore = (state.practiceScore || 0) + (nearPerfect ? 20 : 10);
+        spawnFloatFx(nearPerfect ? 'Practice Perfect' : 'Practice Avoid', nearPerfect ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+        span.classList.add('avoid');
+      }else{
+        state.practiceObstaclesHit++;
+        spawnFloatFx('Practice Hit', 'bad', pxX, (playArea.clientHeight || 300) * 0.55);
+        span.classList.add('hit');
+        playArea.classList.add('shake-hit');
+        setTimeout(()=> playArea.classList.remove('shake-hit'), 240);
+      }
+      setText(hudScore, `P:${state.practiceScore || 0}`);
+      setText(hudCombo, 'P');
+      updateVisuals();
+
+      // next obstacle
+      state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs);
+      return;
     }
 
-    /* floating FX */
-    .fx-float{
-      position:absolute;
-      z-index:30;
-      transform: translate(-50%,-50%);
-      pointer-events:none;
-      font-weight:800;
-      font-size:.95rem;
-      text-shadow: 0 1px 0 rgba(2,6,23,.5);
-      animation: fxFloatUp .72s ease-out forwards;
-    }
-    .fx-float.good{ color: rgba(52,211,153,.98); }
-    .fx-float.bad{ color: rgba(248,113,113,.98); }
-    .fx-float.gold{ color: rgba(251,191,36,.98); }
-    @keyframes fxFloatUp{
-      0%   { opacity:0; transform: translate(-50%,-40%) scale(.92); }
-      12%  { opacity:1; }
-      100% { opacity:0; transform: translate(-50%,-110%) scale(1.06); }
+    // MAIN scoring with warmup buffs
+    const wu = state.warmup || {};
+
+    if (inSafe){
+      span.classList.add('avoid');
+      state.obstaclesAvoided++;
+
+      state.combo = (state.combo || 0) + 1;
+      state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
+
+      let add = 10 + Math.min(20, (state.combo-1)*2);
+
+      // warmup crit chance may promote to perfect
+      let perfectNow = nearPerfect;
+      if (!perfectNow && (wu.critBonusChance||0) > 0 && rand01() < wu.critBonusChance){
+        perfectNow = true;
+      }
+
+      if (perfectNow){
+        add += 10;
+        state.perfects = (state.perfects || 0) + 1;
+      }
+
+      add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
+
+      state.score = (state.score || 0) + add;
+
+      spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+    }else{
+      span.classList.add('hit');
+      state.obstaclesHit++;
+
+      state.combo = 0;
+
+      const basePenalty = 8;
+      const penalty = Math.max(2, Math.round(basePenalty * (wu.dmgReduceMul || 1)));
+      state.score = Math.max(0, (state.score || 0) - penalty);
+
+      const knockDir = (state.angle>=0 ? 1 : -1);
+      const knockMul = Math.max(0.65, (wu.dmgReduceMul || 1));
+      state.angle += knockDir * cfg.disturbStrength * 0.7 * knockMul;
+
+      spawnFloatFx(`Hit -${penalty}`, 'bad', pxX, (playArea.clientHeight || 300) * 0.55);
+      playArea.classList.add('shake-hit');
+      setTimeout(()=> playArea.classList.remove('shake-hit'), 240);
     }
 
-    .shake-hit{ animation: shakeHit .22s linear; }
-    @keyframes shakeHit{
-      0%{ transform: translateX(0); }
-      20%{ transform: translateX(-3px); }
-      40%{ transform: translateX(3px); }
-      60%{ transform: translateX(-2px); }
-      80%{ transform: translateX(2px); }
-      100%{ transform: translateX(0); }
-    }
+    setText(hudScore, String(state.score || 0));
+    setText(hudCombo, String(state.combo || 0));
+    pulseEl(hudScore); pulseEl(hudCombo);
 
-    /* --- cVR preview overlay --- */
-    .cvr-overlay{
-      position:absolute;
-      inset:0;
-      z-index:8;
-      pointer-events:none;
-    }
-    .cvr-overlay.hidden{ display:none; }
-    .cvr-crosshair{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:20px;height:20px;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.9);
-      box-shadow: 0 0 0 2px rgba(2,6,23,.45), 0 0 14px rgba(255,255,255,.2);
-      opacity:.95;
-    }
-    .cvr-crosshair::before,.cvr-crosshair::after{
-      content:'';
-      position:absolute;
-      background: rgba(255,255,255,.9);
-    }
-    .cvr-crosshair::before{
-      width:2px;height:28px; left:50%; top:50%; transform:translate(-50%,-50%);
-    }
-    .cvr-crosshair::after{
-      width:28px;height:2px; left:50%; top:50%; transform:translate(-50%,-50%);
-    }
-    .cvr-controls{
-      position:absolute;
-      left:50%;
-      bottom: calc(10px + var(--sab));
-      transform: translateX(-50%);
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-      pointer-events:auto;
-      background: rgba(2,6,23,.45);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius: 12px;
-      padding: 8px;
-      backdrop-filter: blur(3px);
-      width:min(96%, 760px);
-    }
+    updateVisuals();
 
-    /* --- RESULT --- */
-    .result-grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
+  }, Math.max(0, impactAt - performance.now()));
+
+  // next obstacle (deterministic)
+  state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs);
+}
+
+/* ------------------------------------------------------------
+ * Analytics
+ * ------------------------------------------------------------ */
+function computeAnalytics(){
+  if (!state) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
+
+  const n = state.totalSamples || 0;
+  if (!n) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
+
+  const stabRatio = state.stableSamples / n;
+  const meanTilt  = state.sumTiltAbs / n;
+  const rmsTilt   = Math.sqrt(state.sumTiltSq / n);
+
+  // fatigue compare early vs late
+  let fatigue = 0;
+  if (state.samples && state.samples.length >= 8){
+    const arr = state.samples;
+    const seg = Math.max(2, Math.floor(arr.length * 0.25));
+    const early = arr.slice(0, seg);
+    const late  = arr.slice(-seg);
+    const mE = early.reduce((a,b)=>a+b.tilt,0)/early.length;
+    const mL = late.reduce((a,b)=>a+b.tilt,0)/late.length;
+    if (mE > 0) fatigue = (mL - mE) / mE;
+  }
+
+  return { stabilityRatio:stabRatio, meanTilt, rmsTilt, fatigueIndex:fatigue, samples:n };
+}
+
+/* ------------------------------------------------------------
+ * Ranking / insight / badges
+ * ------------------------------------------------------------ */
+function calcRank(summary){
+  const stab = Number(summary.stabilityRatio || 0);
+  const avoidTotal = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const avoidRate = avoidTotal ? (summary.obstaclesAvoided/avoidTotal) : 0;
+  const fat = Number(summary.fatigueIndex || 0);
+  const perfects = Number(summary.perfects || 0);
+  const comboMax = Number(summary.comboMax || 0);
+
+  let pts = 0;
+  pts += stab * 55;
+  pts += avoidRate * 25;
+  pts += Math.min(10, perfects);
+  pts += Math.min(10, comboMax * 0.7);
+  if (fat > 0.35) pts -= 8;
+  if (fat > 0.60) pts -= 8;
+
+  if (pts >= 85) return 'S';
+  if (pts >= 70) return 'A';
+  if (pts >= 55) return 'B';
+  if (pts >= 40) return 'C';
+  return 'D';
+}
+function buildInsight(summary){
+  const stab = Number(summary.stabilityRatio || 0);
+  const avoidTotal = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const avoidRate = avoidTotal ? (summary.obstaclesAvoided/avoidTotal) : 0;
+  const fat = Number(summary.fatigueIndex || 0);
+
+  if (stab >= 0.72 && avoidRate >= 0.8){
+    return 'ยอดเยี่ยมมาก! คุณคุมสมดุลนิ่งและหลบแรงรบกวนได้สม่ำเสมอ ลองเพิ่มความยากเพื่อท้าทายต่อได้เลย';
+  }
+  if (stab < 0.45){
+    return 'โฟกัสการคุมใกล้กึ่งกลางให้มากขึ้นก่อน แล้วค่อยเร่งการตอบสนองตอน obstacle เข้ามา จะช่วยให้คะแนนขึ้นเร็วมาก';
+  }
+  if (avoidRate < 0.5){
+    return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
+  }
+  if (fat > 0.35){
+    return 'ช่วงท้ายเริ่มล้า (fatigue สูงขึ้น) ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+  }
+  return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
+}
+function renderBadgesAndMissions(summary){
+  if (heroBadgesEl) heroBadgesEl.innerHTML = '';
+  if (heroMissionEl) heroMissionEl.innerHTML = '';
+
+  const badges = [];
+  if ((summary.perfects||0) >= 5) badges.push({t:'✨ Perfect Keeper', c:'good'});
+  if ((summary.comboMax||0) >= 8) badges.push({t:'🔥 Combo Flow', c:'good'});
+  if ((summary.obstaclesHit||0) === 0 && ((summary.obstaclesAvoided||0) > 0)) badges.push({t:'🛡️ No Hit Run', c:'good'});
+  if ((summary.fatigueIndex||0) > 0.35) badges.push({t:'😮‍💨 Fatigue Alert', c:'warn'});
+
+  const missions = [];
+  if ((summary.perfects||0) < 5) missions.push('ทำ Perfect ≥ 5 ครั้ง');
+  if ((summary.comboMax||0) < 10) missions.push('ทำ Max Combo ≥ 10');
+  if ((summary.stabilityRatio||0) < 0.70) missions.push('ดัน Stability ≥ 70%');
+  if ((summary.obstaclesHit||0) > 0) missions.push('ลองรอบไร้ Hit');
+
+  if (heroBadgesEl){
+    if (!badges.length){
+      const el = document.createElement('div');
+      el.className = 'mini-badge';
+      el.textContent = 'เริ่มสะสม badges ได้จาก Perfect / Combo / No-hit run';
+      heroBadgesEl.appendChild(el);
+    }else{
+      badges.forEach(b=>{
+        const el = document.createElement('div');
+        el.className = `mini-badge ${b.c||''}`;
+        el.textContent = b.t;
+        heroBadgesEl.appendChild(el);
+      });
     }
-    @media (min-width: 860px){
-      .result-grid{
-        grid-template-columns: 1.1fr .9fr;
+  }
+
+  if (heroMissionEl){
+    if (!missions.length){
+      const el = document.createElement('div');
+      el.className = 'mini-badge good';
+      el.textContent = 'พร้อมขยับไปโหมด Hard ได้เลย';
+      heroMissionEl.appendChild(el);
+    }else{
+      missions.slice(0,3).forEach(t=>{
+        const el = document.createElement('div');
+        el.className = 'mini-badge';
+        el.textContent = '🎯 ' + t;
+        heroMissionEl.appendChild(el);
+      });
+    }
+  }
+}
+
+/* ------------------------------------------------------------
+ * Save last summary for HUB + return query
+ * ------------------------------------------------------------ */
+function saveLastSummaryForHub(summary, endedBy){
+  try{
+    const payload = {
+      gameId: 'balance-hold',
+      endedBy: endedBy || '',
+      ts: Date.now(),
+      mode: summary.mode,
+      difficulty: summary.difficulty,
+      durationSec: summary.durationSec,
+      score: summary.score || 0,
+      rank: summary.rank || 'D',
+      stabilityRatio: summary.stabilityRatio || 0,
+      meanTilt: summary.meanTilt || 0,
+      rmsTilt: summary.rmsTilt || 0,
+      fatigueIndex: summary.fatigueIndex || 0,
+      obstaclesAvoided: summary.obstaclesAvoided || 0,
+      obstaclesHit: summary.obstaclesHit || 0,
+      comboMax: summary.comboMax || 0,
+      perfects: summary.perfects || 0,
+      seed: summary.seed || qv('seed','')
+    };
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+    localStorage.setItem('HHA_LAST_SUMMARY_balance-hold', JSON.stringify(payload));
+  }catch(e){}
+}
+function goHubOrMenu(){
+  const hub = String(qv('hub',''));
+  if (!hub){
+    showView('menu');
+    return;
+  }
+  try{
+    const u = new URL(hub, location.href);
+    const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
+    if (raw){
+      const s = JSON.parse(raw);
+      if (s && s.gameId === 'balance-hold'){
+        u.searchParams.set('lastGame', 'balance-hold');
+        u.searchParams.set('lastScore', String(s.score || 0));
+        u.searchParams.set('lastRank', String(s.rank || 'D'));
+        u.searchParams.set('lastStab', String(Math.round((s.stabilityRatio || 0)*100)));
       }
     }
+    location.href = u.toString();
+  }catch(e){
+    location.href = hub;
+  }
+}
 
-    .result-table{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:8px;
-    }
-    .kv{
-      border-radius:12px;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.48);
-      padding:10px;
-    }
-    .kv .k{
-      color:var(--mut);
-      font-size:.82rem;
-      margin-bottom:4px;
-    }
-    .kv .v{
-      font-weight:700;
-      color:#fff;
-      line-height:1.2;
-      word-break: break-word;
-    }
+/* ------------------------------------------------------------
+ * Result views
+ * ------------------------------------------------------------ */
+function fillResultView(endedBy, summary){
+  const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
 
-    .result-hero{
-      margin-top: 0;
-      padding: 12px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.62));
-      display:grid;
-      gap:12px;
-    }
-    .result-hero-left{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-    }
-    .result-hero-text h3{
-      margin:0 0 4px 0;
-      font-size:1.05rem;
-    }
-    .result-hero-text p{
-      margin:0;
-      color: rgba(203,213,225,.95);
-    }
-    .hero-insight{
-      margin-top:6px !important;
-      line-height: 1.35;
-      color: rgba(226,232,240,.96);
-    }
-    .result-hero-right{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:8px;
-    }
-    @media (min-width:760px){
-      .result-hero{
-        grid-template-columns: 1.1fr 1fr;
-        align-items:start;
-      }
-      .result-hero-right{
-        grid-template-columns: repeat(3, minmax(0,1fr));
-      }
-    }
+  if (resMode) setText(resMode, modeLabel);
+  if (resDiff) setText(resDiff, summary.difficulty || '-');
+  if (resDur) setText(resDur, String(summary.durationSec || '-'));
+  if (resEnd) setText(resEnd, mapEndReason(endedBy));
 
-    .stat-card{
-      border-radius: 12px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.48);
-      padding: 10px;
-    }
-    .stat-card .label{
-      font-size: .78rem;
-      color: rgba(148,163,184,.96);
-      margin-bottom: 4px;
-    }
-    .stat-card .value{
-      font-size: 1rem;
-      font-weight: 700;
-      color: rgba(248,250,252,.98);
-      line-height: 1.2;
-      word-break: break-word;
-    }
-    .stat-card .value.text-sm{
-      font-size: .84rem;
-      font-weight: 600;
-      line-height: 1.3;
-    }
+  if (resStability) setText(resStability, fmtPercent(summary.stabilityRatio || 0));
+  if (resMeanTilt) setText(resMeanTilt, fmtFloat(summary.meanTilt || 0, 3));
+  if (resRmsTilt) setText(resRmsTilt, fmtFloat(summary.rmsTilt || 0, 3));
+  if (resAvoid) setText(resAvoid, String(summary.obstaclesAvoided || 0));
+  if (resHit) setText(resHit, String(summary.obstaclesHit || 0));
 
-    .rank-badge{
-      width:64px; height:64px; min-width:64px;
-      border-radius:16px;
-      display:grid; place-items:center;
-      font-weight:900; font-size:1.5rem;
-      color:#fff;
-      border:1px solid rgba(255,255,255,.18);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
-      background: rgba(71,85,105,.65);
-    }
-    .rank-badge.rank-S{ background: linear-gradient(135deg, rgba(245,158,11,.95), rgba(251,191,36,.92)); }
-    .rank-badge.rank-A{ background: linear-gradient(135deg, rgba(16,185,129,.9), rgba(52,211,153,.88)); }
-    .rank-badge.rank-B{ background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(96,165,250,.86)); }
-    .rank-badge.rank-C{ background: linear-gradient(135deg, rgba(139,92,246,.9), rgba(167,139,250,.86)); }
-    .rank-badge.rank-D{ background: linear-gradient(135deg, rgba(100,116,139,.88), rgba(148,163,184,.82)); }
+  const totalObs = (summary.obstaclesAvoided||0)+(summary.obstaclesHit||0);
+  const avoidRate = totalObs ? (summary.obstaclesAvoided/totalObs) : 0;
+  if (resAvoidRate) setText(resAvoidRate, fmtPercent(avoidRate));
+  if (resFatigue) setText(resFatigue, fmtFloat(summary.fatigueIndex || 0, 3));
+  if (resSamples) setText(resSamples, String(summary.samples ?? 0));
 
-    .rank-pop{ animation: rankPop .45s cubic-bezier(.2,.85,.2,1.15); }
-    @keyframes rankPop{
-      0%{ transform: scale(.75) rotate(-10deg); opacity:.25; }
-      100%{ transform: scale(1) rotate(0); opacity:1; }
-    }
-    .count-pop{ animation: countPop .25s ease-out; }
-    @keyframes countPop{
-      0%{ transform: scale(.96); }
-      60%{ transform: scale(1.06); }
-      100%{ transform: scale(1); }
-    }
+  if (resScoreEl) setText(resScoreEl, summary.score || 0);
+  if (resRankEl) setText(resRankEl, summary.rank || 'D');
+  if (resPerfectEl) setText(resPerfectEl, summary.perfects || 0);
+  if (resComboEl) setText(resComboEl, summary.comboMax || 0);
 
-    .section-title{
-      margin-top: 10px;
-      margin-bottom: 6px;
-      color: rgba(226,232,240,.95);
-      font-weight: 700;
-    }
-    .mini-badge-wrap{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:8px;
-    }
-    .mini-badge{
-      border-radius:999px;
-      padding:6px 10px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.66);
-      color: rgba(241,245,249,.96);
-      font-size:.84rem;
-      line-height:1.1;
-    }
-    .mini-badge.good{
-      background: rgba(6,95,70,.55);
-      border-color: rgba(16,185,129,.24);
-    }
-    .mini-badge.warn{
-      background: rgba(120,53,15,.48);
-      border-color: rgba(251,191,36,.24);
-    }
+  if (resAiTipEl) setText(resAiTipEl, summary.insight || '-');
+  if (resDailyEl){
+    try{ setText(resDailyEl, new Date().toLocaleDateString('th-TH')); }catch(e){ setText(resDailyEl, '-'); }
+  }
 
-    .result-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top: 12px;
-    }
+  // Hero header
+  if (rankBadgeEl){
+    rankBadgeEl.textContent = summary.rank || 'D';
+    rankBadgeEl.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
+    rankBadgeEl.classList.add('rank-' + (summary.rank || 'D'));
+    rankBadgeEl.classList.remove('rank-pop'); void rankBadgeEl.offsetWidth; rankBadgeEl.classList.add('rank-pop');
+  }
+  if (resultHeroSub){
+    const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided||0}/${totalObs||0}`;
+    setText(resultHeroSub, sub);
+  }
+  if (heroInsightEl) setText(heroInsightEl, summary.insight || '-');
 
-    /* --- overlay --- */
-    .overlay{
-      position: fixed;
-      inset:0;
-      z-index: 100;
-      background: rgba(2,6,23,.62);
-      backdrop-filter: blur(4px);
-      display:grid;
-      place-items:center;
-      padding: 12px;
-    }
-    .overlay-card{
-      position: relative;
-      width: min(720px, 96vw);
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(15,23,42,.95), rgba(2,6,23,.93));
-      color: rgba(248,250,252,.98);
-      padding: 14px;
-      box-shadow: 0 18px 60px rgba(2,6,23,.4);
-    }
-    .overlay-card h3{ margin:0 0 8px 0; }
-    .overlay-card ol{
-      margin: 0 0 10px 18px;
-      padding:0;
-      line-height: 1.4;
-    }
-    .overlay-card li{ margin-bottom:4px; }
+  renderBadgesAndMissions(summary);
+}
 
-    .overlay-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      margin-top: 12px;
-    }
-    .checkline{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      color: rgba(226,232,240,.96);
-      font-size: .9rem;
-    }
+function fillEndModal(summary){
+  if (!endModal) return;
+  if (endModalRank){
+    endModalRank.textContent = summary.rank || 'D';
+    endModalRank.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
+    endModalRank.classList.add('rank-' + (summary.rank || 'D'));
+  }
+  if (endModalScore) setText(endModalScore, summary.score || 0);
+  if (endModalInsight) setText(endModalInsight, summary.insight || '-');
+}
 
-    .icon-btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.2);
-      width:34px; height:34px;
-      border-radius:999px;
-      background: rgba(15,23,42,.65);
-      color:#fff; cursor:pointer;
-    }
-    .end-card{ padding-top:16px; }
-    .end-close{ position:absolute; top:10px; right:10px; }
-    .end-rank-wrap{ display:flex; align-items:center; gap:12px; }
-    .end-score{ font-size:1.05rem; color: rgba(226,232,240,.98); }
+/* ------------------------------------------------------------
+ * Stop & summary
+ * ------------------------------------------------------------ */
+function stopGame(endedBy){
+  if (!state) return;
+  if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
 
-    /* mobile */
-    @media (max-width: 640px){
-      .field-row{ grid-template-columns: 1fr; }
-      .rank-badge{
-        width:56px; height:56px; min-width:56px;
-        font-size:1.25rem;
-        border-radius:14px;
-      }
-      .result-hero-right{
-        grid-template-columns: repeat(2, minmax(0,1fr));
-      }
-      .overlay-actions{ justify-content:stretch; }
-      .overlay-actions .btn{ flex:1 1 140px; }
-      #platform-wrap{
-        width:min(92vw, 520px);
-        bottom:84px;
-      }
-      .safe-zone{
-        width:min(92vw, 520px);
-        bottom:58px;
-      }
+  const finalState = state; // snapshot
+
+  const a = computeAnalytics();
+  const summary = {
+    gameId: 'balance-hold',
+    mode: gameMode,
+    difficulty: finalState.diffKey,
+    durationSec: (finalState.durationMs/1000),
+    stabilityRatio: a.stabilityRatio,
+    meanTilt: a.meanTilt,
+    rmsTilt: a.rmsTilt,
+    fatigueIndex: a.fatigueIndex,
+    samples: a.samples,
+
+    obstaclesAvoided: finalState.obstaclesAvoided,
+    obstaclesHit: finalState.obstaclesHit,
+
+    score: finalState.score || 0,
+    comboMax: finalState.maxCombo || 0,
+    perfects: finalState.perfects || 0,
+
+    seed: finalState.seedStr || qv('seed','')
+  };
+
+  summary.rank = calcRank(summary);
+  summary.insight = buildInsight(summary);
+
+  // optional: attach practice info
+  if (finalState.practiceEnabled){
+    const ps = finalState.practiceSamples || 0;
+    const pr = ps ? (finalState.practiceStableSamples/ps) : 0;
+    summary.practiceEnabled = true;
+    summary.practiceDurationSec = Math.round((finalState.practiceDurationMs||0)/1000);
+    summary.practiceStabilityRatio = pr;
+    summary.practiceObstaclesAvoided = finalState.practiceObstaclesAvoided || 0;
+    summary.practiceObstaclesHit = finalState.practiceObstaclesHit || 0;
+  }
+
+  // save local
+  recordSessionToLocal(summary);
+  saveLastSummaryForHub(summary, endedBy);
+
+  fillResultView(endedBy, summary);
+  fillEndModal(summary);
+
+  // cleanup
+  state = null;
+  isPaused = false;
+  pausedAt = 0;
+
+  showView('result');
+
+  // open modal on timeout by default
+  if (endedBy !== 'manual'){
+    setTimeout(()=> openEndModal(), 120);
+  }
+}
+
+/* ------------------------------------------------------------
+ * Main loop
+ * ------------------------------------------------------------ */
+function loop(now){
+  if (!state) return;
+  if (isPaused){
+    // paused: do nothing
+    return;
+  }
+
+  const dt = now - state.lastFrame;
+  state.lastFrame = now;
+
+  // countdown phase
+  if (state.phase === 'countdown'){
+    runCountdownPhase(now);
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
+
+  // practice phase timer handling
+  if (state.phase === 'practice'){
+    if (runPracticePhase(now)){
+      rafId = requestAnimationFrame(loop);
+      return;
+    }
+  }
+
+  // main timer handling
+  if (state.phase === 'main'){
+    state.elapsed = now - state.startTime;
+    const remainMs = Math.max(0, state.durationMs - state.elapsed);
+    setText(hudTime, (remainMs/1000).toFixed(1));
+
+    if (state.elapsed >= state.durationMs){
+      stopGame('timeout');
+      return;
+    }
+  }
+
+  // deterministic passive drift
+  const cfg = state.cfg;
+  const lerp = 0.11;
+  const driftDir = (rand01() < 0.5 ? -1 : 1) * cfg.passiveDrift * (dt/1000);
+  const target = state.targetAngle + driftDir;
+  state.angle += (target - state.angle) * lerp;
+
+  state.angle = clamp(state.angle, -1.2, 1.2);
+  state.targetAngle = clamp(state.targetAngle, -1, 1);
+
+  updateVisuals();
+
+  // sampling — only meaningful for main; practice can show stability too
+  if (now >= state.nextSampleAt){
+    const safeHalf = cfg.safeHalf;
+    const inSafe = Math.abs(state.angle) <= safeHalf;
+    const absTilt = Math.abs(state.angle);
+
+    const isPractice = state.phase === 'practice';
+    if (isPractice){
+      state.practiceSamples++;
+      if (inSafe) state.practiceStableSamples++;
+    }else{
+      state.totalSamples++;
+      if (inSafe) state.stableSamples++;
+      state.sumTiltAbs += absTilt;
+      state.sumTiltSq  += absTilt*absTilt;
+      const tNorm = state.durationMs ? (state.elapsed / state.durationMs) : 0;
+      state.samples.push({ tNorm, tilt: absTilt });
+      if (state.samples.length > 4000) state.samples.splice(0, state.samples.length - 4000);
     }
 
-    /* view mode helpers */
-    body.view-mobile #playArea{ min-height: 420px; }
-    body.view-cvr #playArea{ min-height: 460px; }
-    body.view-cvr .cvr-overlay{ display:block; }
-
-    /* reduced motion */
-    .reduced-motion .rank-pop,
-    .reduced-motion .count-pop,
-    .reduced-motion .shake-hit,
-    .reduced-motion .fx-float,
-    .reduced-motion .obstacle.telegraph{
-      animation:none !important;
+    let stabRatio = 0;
+    if (isPractice){
+      stabRatio = state.practiceSamples ? (state.practiceStableSamples/state.practiceSamples) : 0;
+    }else{
+      stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
     }
-    .reduced-motion .hud-stability-fill,
-    .reduced-motion .btn{
-      transition:none !important;
+    setText(hudStab, fmtPercent(stabRatio));
+    if (stabilityFill) stabilityFill.style.width = `${clamp(stabRatio*100, 0, 100)}%`;
+    if (centerPulse){
+      centerPulse.classList.toggle('good', Math.abs(state.angle) <= (state.cfg.safeHalf * 0.55));
     }
-  </style>
-</head>
-<body>
-  <div class="app">
 
-    <!-- =========================
-         VIEW: MENU
-         ========================= -->
-    <section id="view-menu" class="stack">
-      <div class="card">
-        <h1 class="title">⚖️ Balance Hold — Platform Stability</h1>
-        <p class="sub">
-          เกมฝึกทรงตัวแบบ DOM-based: คุมแท่นให้สมดุล พร้อมหลบแรงรบกวน (gust / bomb)
-          เพื่อเก็บ Stability, Score, Combo และ Rank
-        </p>
-      </div>
+    state.nextSampleAt = now + state.sampleEveryMs;
+  }
 
-      <div class="grid-2">
-        <div class="card">
-          <h2 class="title" style="font-size:1rem;">ตั้งค่าเกม</h2>
+  // spawn obstacle in practice or main
+  if ((state.phase === 'practice' || state.phase === 'main') && now >= state.nextObstacleAt){
+    spawnObstacle(now);
+  }
 
-          <div class="field-row">
-            <label for="difficulty">Difficulty</label>
-            <select id="difficulty">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
+  rafId = requestAnimationFrame(loop);
+}
 
-          <div class="field-row">
-            <label for="sessionDuration">Duration (sec)</label>
-            <select id="sessionDuration">
-              <option value="30">30</option>
-              <option value="45">45</option>
-              <option value="60" selected>60</option>
-              <option value="90">90</option>
-              <option value="120">120</option>
-            </select>
-          </div>
+/* ------------------------------------------------------------
+ * Exports (sessions CSV + debug JSON)
+ * ------------------------------------------------------------ */
+function downloadTextFile(filename, text, type='text/plain'){
+  try{
+    const blob = new Blob([text], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 120);
+  }catch(e){}
+}
+function arrToCSV(rows){
+  return rows.map(r => r.map(v=>{
+    const s = String(v ?? '');
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }).join(',')).join('\r\n');
+}
+function exportSessionsCSV(){
+  let arr = [];
+  try{ arr = JSON.parse(localStorage.getItem(SESS_KEY)||'[]'); }catch(e){ arr = []; }
 
-          <div class="field-row">
-            <label for="viewMode">View</label>
-            <select id="viewMode">
-              <option value="pc" selected>PC</option>
-              <option value="mobile">Mobile</option>
-              <option value="cvr">Cardboard (cVR Preview)</option>
-            </select>
-          </div>
+  const rows = [[
+    'ts','mode','difficulty','durationSec',
+    'stabilityRatio','meanTilt','rmsTilt','fatigueIndex',
+    'obstaclesAvoided','obstaclesHit','score','rank','comboMax','perfects','seed'
+  ]];
+  arr.forEach(x=>{
+    rows.push([
+      x.ts || '',
+      x.mode || '',
+      x.difficulty || '',
+      x.durationSec || '',
+      x.stabilityRatio ?? '',
+      x.meanTilt ?? '',
+      x.rmsTilt ?? '',
+      x.fatigueIndex ?? '',
+      x.obstaclesAvoided ?? '',
+      x.obstaclesHit ?? '',
+      x.score ?? '',
+      x.rank ?? '',
+      x.comboMax ?? '',
+      x.perfects ?? '',
+      x.seed ?? ''
+    ]);
+  });
+  downloadTextFile(`balance-hold-sessions-${Date.now()}.csv`, arrToCSV(rows), 'text/csv');
+}
+function exportReleaseDebug(){
+  const debug = {
+    href: location.href,
+    ua: navigator.userAgent,
+    bodyClass: document.body.className,
+    ui: {
+      diff: elDiffSel?.value || null,
+      time: elDurSel?.value || null,
+      view: elViewSel?.value || null
+    },
+    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold')||'null'); }catch(e){ return null; }})(),
+    now: new Date().toISOString()
+  };
+  downloadTextFile(`balance-hold-debug-${Date.now()}.json`, JSON.stringify(debug, null, 2), 'application/json');
+}
 
-          <div class="actions">
-            <button class="btn btn-primary" data-action="start-normal">▶ Start Play</button>
-            <button class="btn" data-action="goto-research">🧪 Research Mode</button>
-          </div>
-        </div>
+/* ------------------------------------------------------------
+ * Init / bindings
+ * ------------------------------------------------------------ */
+function init(){
+  // menu actions
+  $('[data-action="start-normal"]')?.addEventListener('click', ()=>{
+    if (maybeShowTutorialBeforeStart('play')) return;
+    startGame('play');
+  });
+  $('[data-action="goto-research"]')?.addEventListener('click', ()=> showView('research'));
+  $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click', ()=> showView('menu')));
+  $('[data-action="start-research"]')?.addEventListener('click', ()=>{
+    if (maybeShowTutorialBeforeStart('research')) return;
+    startGame('research');
+  });
 
-        <div class="card">
-          <h2 class="title" style="font-size:1rem;">วิธีเล่นสั้น ๆ</h2>
-          <ul class="sub" style="margin:.4rem 0 0 1rem; padding:0;">
-            <li>กด/ลากในพื้นที่เล่นเพื่อคุมแท่นซ้าย–ขวา</li>
-            <li>ให้ตัวชี้อยู่ใกล้กึ่งกลาง = Stability สูงขึ้น</li>
-            <li>ช่วง obstacle impact ถ้าอยู่ใน safe zone = Avoid ✅</li>
-            <li>ใกล้กึ่งกลางมากเป็นพิเศษ = Perfect ✨ + โบนัส</li>
-            <li>โดนชน = Hit ❌ เสียคะแนนและคอมโบ</li>
-          </ul>
+  // play controls
+  $('[data-action="stop"]')?.addEventListener('click', ()=> state && stopGame('manual'));
+  $('[data-action="pause"]')?.addEventListener('click', pauseGame);
+  $('[data-action="resume"]')?.addEventListener('click', resumeGame);
 
-          <div class="actions">
-            <button class="btn" data-action="export-sessions-csv">⬇ Sessions CSV</button>
-            <button class="btn" data-action="export-events-csv">⬇ Events CSV</button>
-            <button class="btn" data-action="export-release-debug">🧪 Export Debug</button>
-          </div>
-        </div>
-      </div>
-    </section>
+  // result actions
+  $('[data-action="play-again"]')?.addEventListener('click', ()=> showView('menu'));
+  $('[data-action="result-play-again"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
 
-    <!-- =========================
-         VIEW: RESEARCH
-         ========================= -->
-    <section id="view-research" class="stack hidden">
-      <div class="card">
-        <h2 class="title">🧪 Research Mode</h2>
-        <p class="sub">
-          สำหรับเก็บข้อมูลผู้เข้าร่วม (player/group/phase) และดาวน์โหลด CSV ท้ายรอบอัตโนมัติ
-          เมื่อจบเกมในโหมด Research
-        </p>
-      </div>
+  // end modal actions
+  $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
+  $('[data-action="end-retry"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=> { closeEndModal(); goHubOrMenu(); });
 
-      <div class="card">
-        <div class="field-row">
-          <label for="researchId">Player ID</label>
-          <input id="researchId" type="text" placeholder="เช่น P001" />
-        </div>
+  // tutorial actions
+  $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
+    if (tutorialDontShowAgain?.checked){
+      try{ localStorage.setItem('bh_tutorial_skip','1'); }catch(e){}
+    }
+    tutorialAccepted = true;
+    closeTutorial();
+    const kind = document.body.dataset.pendingStartKind || 'play';
+    startGame(kind);
+  });
+  $('[data-action="tutorial-start"]')?.addEventListener('click', ()=>{
+    if (tutorialDontShowAgain?.checked){
+      try{ localStorage.setItem('bh_tutorial_skip','1'); }catch(e){}
+    }
+    tutorialAccepted = true;
+    closeTutorial();
+    const kind = document.body.dataset.pendingStartKind || 'play';
+    startGame(kind);
+  });
 
-        <div class="field-row">
-          <label for="researchGroup">Group</label>
-          <input id="researchGroup" type="text" placeholder="เช่น A / control / exp" />
-        </div>
+  // exports
+  $$('[data-action="export-sessions-csv"]').forEach(btn=> btn.addEventListener('click', exportSessionsCSV));
+  $$('[data-action="export-release-debug"]').forEach(btn=> btn.addEventListener('click', exportReleaseDebug));
 
-        <div class="field-row">
-          <label for="researchPhase">Phase</label>
-          <input id="researchPhase" type="text" placeholder="เช่น pre / post / wk2" />
-        </div>
+  // view mode
+  elViewSel?.addEventListener('change', (e)=>{
+    applyViewModeClass(String(e.target.value || 'pc'));
+  });
 
-        <div class="actions">
-          <button class="btn btn-primary" data-action="start-research">▶ Start Research</button>
-          <button class="btn" data-action="back-menu">← Back Menu</button>
-        </div>
-      </div>
-    </section>
+  // cVR controls (preview stubs)
+  $('[data-action="cvr-recenter"]')?.addEventListener('click', ()=>{
+    if (!state) return;
+    state.targetAngle = 0;
+    state.angle *= 0.5;
+  });
+  $('[data-action="cvr-calibrate-left"]')?.addEventListener('click', ()=>{
+    if (!state) return;
+    state.targetAngle = Math.max(-1, (state.targetAngle||0) - 0.08);
+  });
+  $('[data-action="cvr-calibrate-right"]')?.addEventListener('click', ()=>{
+    if (!state) return;
+    state.targetAngle = Math.min(1, (state.targetAngle||0) + 0.08);
+  });
+  $('[data-action="cvr-toggle-strict"]')?.addEventListener('click', ()=>{
+    if (!cvrStrictLabel) return;
+    cvrStrictLabel.textContent = (String(cvrStrictLabel.textContent||'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
+  });
 
-    <!-- =========================
-         VIEW: PLAY
-         ========================= -->
-    <section id="view-play" class="stack hidden">
-      <div class="play-shell">
-        <!-- HUD -->
-        <div class="hud">
-          <div class="hud-row">
-            <div class="hud-chip">Mode: <b id="hud-mode">Play</b></div>
-            <div class="hud-chip">Diff: <b id="hud-diff">normal</b></div>
-            <div class="hud-chip">Dur: <b id="hud-dur">60</b>s</div>
-            <div class="hud-chip">Stability: <b id="hud-stability">0%</b></div>
-            <div class="hud-chip">Avoid/Total: <b id="hud-obstacles">0 / 0</b></div>
-            <div class="hud-chip">Time: <b id="hud-time">60.0</b></div>
-          </div>
+  // auto pause on hide
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'hidden'){
+      if (state && !isPaused) pauseGame();
+    }
+  });
 
-          <!-- Extra HUD (A-K optional hooks) -->
-          <div class="hud-row hud-row-extra">
-            <div class="hud-pill">Status: <b id="hud-status">Ready</b></div>
-            <div class="hud-pill">Phase: <b id="hud-phase">-</b></div>
-            <div class="hud-pill">Score: <b id="hud-score">0</b></div>
-            <div class="hud-pill">Combo: <b id="hud-combo">0</b></div>
-          </div>
+  attachInput();
 
-          <div class="hud-stability-bar" aria-hidden="true">
-            <div id="stabilityFill" class="hud-stability-fill"></div>
-            <div id="centerPulse" class="hud-center-pulse"></div>
-          </div>
-        </div>
+  // default view
+  showView('menu');
 
-        <div class="coach-wrap">
-          <p id="coachLabel">จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance</p>
-          <div id="coachBubble" class="hidden">พร้อมทรงตัวแล้วนะ ✨</div>
-        </div>
+  // query -> ui
+  applyQueryToUI();
+}
 
-        <!-- PLAY AREA -->
-        <div id="playArea" aria-label="Balance play area">
-          <div class="safe-zone" aria-hidden="true">
-            <div class="safe-zone-inner"></div>
-          </div>
-
-          <div id="platform-wrap">
-            <div id="platform"></div>
-          </div>
-
-          <div id="indicator" aria-hidden="true"></div>
-          <div id="obstacle-layer" aria-hidden="true"></div>
-
-          <!-- cVR preview overlay -->
-          <div id="cvrOverlay" class="cvr-overlay hidden" aria-hidden="true">
-            <div class="cvr-crosshair" id="cvrCrosshair" aria-hidden="true"></div>
-
-            <div class="cvr-controls">
-              <button class="btn" data-action="cvr-recenter">🎯 Recenter</button>
-              <button class="btn" data-action="cvr-calibrate-left">◀ Cal-</button>
-              <button class="btn" data-action="cvr-calibrate-right">Cal+ ▶</button>
-              <button class="btn" data-action="cvr-toggle-strict">
-                cVR Strict: <span id="cvrStrictLabel">OFF</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="play-actions">
-          <button class="btn" data-action="pause">⏸ Pause</button>
-          <button class="btn hidden" data-action="resume">▶ Resume</button>
-          <button class="btn btn-danger" data-action="stop">⏹ Stop</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- =========================
-         VIEW: RESULT
-         ========================= -->
-    <section id="view-result" class="stack hidden">
-      <div class="card">
-        <h2 class="title">📊 Result Summary</h2>
-        <p class="sub">สรุปผลการทรงตัว + หลบ obstacle + score/combo/rank + insight</p>
-      </div>
-
-      <!-- Hero result (A-K) -->
-      <section class="result-hero">
-        <div class="result-hero-left">
-          <div id="rankBadge" class="rank-badge rank-D">D</div>
-          <div class="result-hero-text">
-            <h3>Balance Hold Result</h3>
-            <p id="resultHeroSub">-</p>
-            <p id="heroInsight" class="hero-insight">-</p>
-          </div>
-        </div>
-
-        <div class="result-hero-right">
-          <div class="stat-card">
-            <div class="label">Score</div>
-            <div class="value" id="res-score">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">Rank</div>
-            <div class="value" id="res-rank">D</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">Perfect</div>
-            <div class="value" id="res-perfect">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">Max Combo</div>
-            <div class="value" id="res-maxCombo">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">AI Tip</div>
-            <div class="value text-sm" id="res-aiTip">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">Daily</div>
-            <div class="value" id="res-daily">-</div>
-          </div>
-        </div>
-      </section>
-
-      <div id="heroBadges" class="mini-badge-wrap"></div>
-      <div class="section-title">Next Missions</div>
-      <div id="heroMissionChips" class="mini-badge-wrap"></div>
-
-      <div class="result-grid">
-        <!-- base result fields (original JS refs) -->
-        <div class="card">
-          <h3 class="title" style="font-size:1rem;">Core Metrics</h3>
-
-          <div class="result-table" style="margin-top:10px;">
-            <div class="kv"><div class="k">Mode</div><div class="v" id="res-mode">-</div></div>
-            <div class="kv"><div class="k">Difficulty</div><div class="v" id="res-diff">-</div></div>
-
-            <div class="kv"><div class="k">Duration (s)</div><div class="v" id="res-dur">-</div></div>
-            <div class="kv"><div class="k">End</div><div class="v" id="res-end">-</div></div>
-
-            <div class="kv"><div class="k">Stability</div><div class="v" id="res-stability">-</div></div>
-            <div class="kv"><div class="k">Avoid Rate</div><div class="v" id="res-avoidRate">-</div></div>
-
-            <div class="kv"><div class="k">Mean Tilt</div><div class="v" id="res-meanTilt">-</div></div>
-            <div class="kv"><div class="k">RMS Tilt</div><div class="v" id="res-rmsTilt">-</div></div>
-
-            <div class="kv"><div class="k">Avoid</div><div class="v" id="res-avoid">-</div></div>
-            <div class="kv"><div class="k">Hit</div><div class="v" id="res-hit">-</div></div>
-
-            <div class="kv"><div class="k">Fatigue Index</div><div class="v" id="res-fatigue">-</div></div>
-            <div class="kv"><div class="k">Samples</div><div class="v" id="res-samples">-</div></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 class="title" style="font-size:1rem;">Actions</h3>
-          <p class="sub">เล่นใหม่ / กลับ HUB / Export logs จาก localStorage</p>
-
-          <div class="result-actions">
-            <!-- รองรับทั้ง data-action="play-again" และ result-play-again -->
-            <button class="btn btn-primary" data-action="result-play-again">🔁 Play Again</button>
-            <button class="btn" data-action="play-again">↩ Menu</button>
-            <button class="btn" data-action="result-back-hub">🏠 Back HUB</button>
-
-            <button class="btn" data-action="export-sessions-csv">⬇ Sessions CSV</button>
-            <button class="btn" data-action="export-events-csv">⬇ Events CSV</button>
-            <button class="btn" data-action="export-release-debug">🧪 Export Debug</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </div><!-- /.app -->
-
-  <!-- =========================
-       TUTORIAL OVERLAY (A-K optional)
-       ========================= -->
-  <div id="tutorialOverlay" class="overlay hidden" aria-hidden="true">
-    <div class="overlay-card tutorial-card">
-      <h3>วิธีเล่น Balance Hold</h3>
-      <ol>
-        <li>กด/ลากซ้าย–ขวาเพื่อคุมแท่นให้สมดุล</li>
-        <li>พยายามให้ตัวชี้อยู่ใกล้กึ่งกลาง (safe zone) ให้มากที่สุด</li>
-        <li>เมื่อ obstacle กำลัง impact ให้คุมอยู่ใน safe zone เพื่อ <b>Avoid</b></li>
-        <li>ถ้าคุมใกล้กึ่งกลางมากเป็นพิเศษจะได้ <b>Perfect</b> + bonus</li>
-        <li>โหมด cVR ใช้ Recenter / Calibrate / Strict ได้ (preview)</li>
-      </ol>
-
-      <label class="checkline">
-        <input type="checkbox" id="tutorialDontShowAgain" />
-        ไม่ต้องแสดงอีก / Don’t show again
-      </label>
-
-      <div class="overlay-actions">
-        <button class="btn" data-action="tutorial-skip">Skip</button>
-        <button class="btn btn-primary" data-action="tutorial-start">Start</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- =========================
-       END MODAL (A-K optional)
-       ========================= -->
-  <div id="endModal" class="overlay hidden" aria-hidden="true">
-    <div class="overlay-card end-card">
-      <button class="icon-btn end-close" data-action="close-end-modal" aria-label="Close">✕</button>
-
-      <div class="end-rank-wrap">
-        <div id="endModalRank" class="rank-badge rank-D">D</div>
-        <div class="end-score">Score: <b id="endModalScore">0</b></div>
-      </div>
-
-      <p id="endModalInsight" class="hero-insight">-</p>
-
-      <div class="overlay-actions">
-        <button class="btn" data-action="end-retry">🔁 Retry</button>
-        <button class="btn" data-action="end-next-mission">🎯 Next Mission</button>
-        <button class="btn btn-primary" data-action="end-back-hub">🏠 Back HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- JS -->
-  <script src="./js/balance-hold.js"></script>
-</body>
-</html>
+window.addEventListener('DOMContentLoaded', init);
