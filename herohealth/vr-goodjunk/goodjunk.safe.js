@@ -4,10 +4,9 @@
 // + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
 // + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
 // + ✅ AI HUD: hazardRisk + next watchout
-// + ✅ Stats: shots/hits/accPct + median RT (good hits) for tie-break
-// + ✅ Optional: performanceIndex (PI) computed for leaderboard/matchmaking
-// + ✅ Emits hha:score + hha:game-ended
-// FULL v20260228-SAFE-HELPPAUSE-AIHUD-AIEND + ACC+MEDRT+PI
+// + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
+// + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
+// FULL v20260228-SAFE-HELPPAUSE-AIHUD-AIEND-ACC-MEDRT
 'use strict';
 
 export function boot(cfg){
@@ -20,8 +19,6 @@ export function boot(cfg){
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
-  const n = (v, d=0)=>{ v=Number(v); return Number.isFinite(v)?v:d; };
-
   function $(id){ return DOC.getElementById(id); }
 
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
@@ -291,8 +288,8 @@ export function boot(cfg){
   }
 
   function fxBurst(x,y){
-    const nDots = 10 + ((r01()*6)|0);
-    for(let i=0;i<nDots;i++){
+    const n = 10 + ((r01()*6)|0);
+    for(let i=0;i<n;i++){
       const dot = DOC.createElement('div');
       dot.style.position = 'absolute';
       dot.style.left = `${x}px`;
@@ -377,43 +374,9 @@ export function boot(cfg){
   function setAIHud(pred){
     try{
       if(!pred) return;
-      if(hud.aiRisk && Number.isFinite(+pred.hazardRisk)) hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
+      if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
       if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
     }catch(e){}
-  }
-
-  // ---------- stats helpers ----------
-  function median(arr){
-    if(!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const m = (a.length/2)|0;
-    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
-  }
-  function accPct(){
-    return shots>0 ? Math.round((hits/shots)*100) : 0;
-  }
-
-  // Optional PI (single index) — stable & lightweight
-  function calcPI(pack){
-    const s  = n(pack?.scoreFinal ?? pack?.score, 0);
-    const a  = n(pack?.accPct ?? pack?.acc, 0);
-    const m  = n(pack?.missTotal ?? pack?.miss, 0);
-    const rt = n(pack?.medianRtGoodMs ?? pack?.mrt, 0);
-
-    const Sref = (n(pack?.durationPlannedSec, plannedSec) >= 120) ? 1400 : 900;
-    const Mref = Math.max(1, n(TUNE.lifeMissLimit, 10));
-
-    let scoreN = clamp(s / Sref, 0, 1.6) / 1.6;                 // 0..1
-    let accN   = clamp(a / 100, 0, 1);                          // 0..1
-    let stabN  = 1 - clamp(m / Mref, 0, 1);                     // 0..1
-
-    const RTfast = 450, RTslow = 1200;
-    let rtN = 1 - clamp((rt - RTfast) / (RTslow - RTfast), 0, 1);// 0..1
-
-    let PI = 1000 * (0.55*scoreN + 0.25*accN + 0.15*stabN + 0.05*rtN);
-    if(a < 40) PI *= 0.92;
-    if(a < 25) PI *= 0.82;
-    return Math.max(0, Math.round(PI));
   }
 
   // ---------- game state ----------
@@ -430,8 +393,6 @@ export function boot(cfg){
   };
 
   let score = 0;
-
-  // ✅ MISS = good expired + junk hit (blocked not count)
   let missTotal = 0;
   let missGoodExpired = 0;
   let missJunkHit = 0;
@@ -446,12 +407,12 @@ export function boot(cfg){
   let shield = 0;
   let stormOn = false;
 
-  // ✅ RT list (good hits)
+  // RT (GOOD hit only)
   let goodHitCount = 0;
   let rtSum = 0;
   const rtList = [];
 
-  // ✅ Accuracy stats
+  // ACC
   let shots = 0;
   let hits  = 0;
 
@@ -473,9 +434,9 @@ export function boot(cfg){
     get score(){ return score; },
     get combo(){ return combo; },
     get fever(){ return fever; },
-    get shield(){ return shield; },
     get shots(){ return shots; },
-    get hits(){ return hits; }
+    get hits(){ return hits; },
+    get accPct(){ return shots>0 ? Math.round((hits/shots)*100) : 0; }
   };
 
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -530,21 +491,33 @@ export function boot(cfg){
     return 'D';
   }
 
+  function median(arr){
+    if(!arr || !arr.length) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = (a.length/2)|0;
+    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
+  }
+
+  function accPct(){
+    return shots>0 ? Math.round((hits/shots)*100) : 0;
+  }
+
   function emitScoreEvent(){
     try{
       WIN.dispatchEvent(new CustomEvent('hha:score', {
         detail: {
           score: score|0,
           miss: missTotal|0,
+          accPct: accPct()|0,
+          shots: shots|0,
+          hits: hits|0,
           combo: combo|0,
           comboMax: bestCombo|0,
           feverPct: +clamp(fever,0,100),
           shield: shield|0,
           missGoodExpired: missGoodExpired|0,
           missJunkHit: missJunkHit|0,
-          shots: shots|0,
-          hits: hits|0,
-          accPct: accPct()|0
+          medianRtGoodMs: Math.round(median(rtList))|0
         }
       }));
     }catch(e){}
@@ -618,10 +591,9 @@ export function boot(cfg){
     const avgRt = goodHitCount>0 ? Math.round(rtSum/goodHitCount) : 0;
     const medRt = Math.round(median(rtList));
     const acc = accPct();
-
-    const summary = {
+    return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-28_HELPPAUSE_AIHUD_AIEND_ACC_MEDRT_PI',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-28_HELPPAUSE_AIHUD_ACC_MEDRT',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -630,37 +602,28 @@ export function boot(cfg){
       durationPlannedSec: plannedSec,
       durationPlayedSec: playedSec,
       scoreFinal: score|0,
-      comboMax: bestCombo|0,
       missTotal: missTotal|0,
-      missGoodExpired: missGoodExpired|0,
-      missJunkHit: missJunkHit|0,
-
+      accPct: acc|0,
       shots: shots|0,
       hits: hits|0,
-      accPct: acc|0,
-
-      avgRtGoodMs: avgRt,
-      medianRtGoodMs: medRt,
-
+      comboMax: bestCombo|0,
+      missGoodExpired: missGoodExpired|0,
+      missJunkHit: missJunkHit|0,
+      avgRtGoodMs: avgRt|0,
+      medianRtGoodMs: medRt|0,
       bossDefeated: !!(bossActive && bossHp<=0),
       stormOn: !!stormOn,
       rageOn: !!rageOn,
       shieldEnd: shield|0,
-
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-
-      // snapshot prediction (optional)
+      // tie-break rule
+      tieBreakOrder: 'score→acc→miss→medianRT',
       aiPredictionLast: (function(){
         try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
       })(),
     };
-
-    // Optional PI
-    summary.performanceIndex = calcPI(summary);
-
-    return summary;
   }
 
   function showEnd(reason){
@@ -674,7 +637,7 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
 
-    // ✅ AI onEnd attach (optional)
+    // ✅ AI onEnd attach
     try{
       const aiEnd = AI?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
@@ -686,10 +649,7 @@ export function boot(cfg){
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub){
-        endSub.textContent =
-          `reason=${summary.reason} | mode=${runMode} | view=${view} | score=${summary.scoreFinal} | acc=${summary.accPct}% | miss=${summary.missTotal} | mRT=${summary.medianRtGoodMs}ms`;
-      }
+      if(endSub) endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
       if(endGrade) endGrade.textContent = summary.grade || '—';
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
@@ -764,7 +724,6 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
-    // accuracy stats
     hits++;
 
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
@@ -795,11 +754,11 @@ export function boot(cfg){
   }
 
   function onHitJunk(t, clientX, clientY){
-    // accuracy stats
-    hits++;
-
+    // BLOCK by shield => still counts as hit for ACC (because you successfully shot a target)
     if(shield > 0){
       shield--;
+      hits++;
+
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
@@ -811,6 +770,9 @@ export function boot(cfg){
       return;
     }
 
+    // unblocked junk hit => counts as hit + missJunkHit
+    hits++;
+
     missTotal++;
     missJunkHit++;
     combo = 0;
@@ -821,7 +783,7 @@ export function boot(cfg){
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
 
     // ✅ AI hit hook
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    try{ AI?.onHit?.(t.kind, { id:t.id, blocked:false }); }catch(e){}
 
     removeTarget(t.id);
 
@@ -829,7 +791,6 @@ export function boot(cfg){
   }
 
   function onHitBonus(t, clientX, clientY){
-    // accuracy stats
     hits++;
 
     combo++;
@@ -850,7 +811,6 @@ export function boot(cfg){
   }
 
   function onHitShield(t, clientX, clientY){
-    // accuracy stats
     hits++;
 
     addShield();
@@ -866,7 +826,6 @@ export function boot(cfg){
   function onHitBoss(t, clientX, clientY){
     if(!bossActive) return;
 
-    // accuracy stats
     hits++;
 
     if(bossPhase===0){
@@ -913,9 +872,7 @@ export function boot(cfg){
     const t = targets.get(String(id));
     if(!t || !playing) return;
 
-    // ✅ count a shot only when a target is actually engaged
-    shots++;
-
+    shots++; // ✅ attempt
     const kind = t.kind;
     if(kind==='good') onHitGood(t, clientX, clientY);
     else if(kind==='junk') onHitJunk(t, clientX, clientY);
@@ -963,6 +920,10 @@ export function boot(cfg){
       const y = r.top  + r.height/2;
       const t = pickTargetAt(x,y, lockPx);
       if(t) hitTargetById(t.id, x, y);
+      else{
+        // no target in lock window => still a "shot attempt"
+        shots++;
+      }
     }catch(e){}
   });
 
@@ -1109,7 +1070,7 @@ export function boot(cfg){
   function tick(){
     if(!playing) return;
 
-    // ✅ Pause-safe: do not advance timers/spawn while paused
+    // ✅ Pause-safe
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
       setHUD();
