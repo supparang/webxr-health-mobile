@@ -264,7 +264,6 @@
       }, options||{});
 
       if(state.opts.lockScroll){
-        // wait body ready
         if(DOC.body) lockScrollOn();
         else DOC.addEventListener('DOMContentLoaded', ()=>lockScrollOn(), { once:true });
       }
@@ -275,7 +274,6 @@
 
       state.installed = true;
 
-      // show current latch info (if any)
       try{
         const info = disabledInfo();
         if(info.disabled){
