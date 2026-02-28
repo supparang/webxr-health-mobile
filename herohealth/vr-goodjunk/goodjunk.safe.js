@@ -456,6 +456,14 @@ export function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
+  WIN.__GJ_STATE__ = {
+    targets,
+    get miss(){ return missTotal; },
+    get score(){ return score; },
+    get combo(){ return combo; },
+    get fever(){ return fever; }
+  };
+
   function layerRect(){ return layer.getBoundingClientRect(); }
 
   function getSpawnSafeLocal(){
@@ -536,8 +544,6 @@ export function boot(cfg){
         medianRtGoodMs: Math.round(median(rtList))|0
       };
       WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload }));
-
-      // push to battle realtime (if enabled)
       try{ battle?.pushScore?.(payload); }catch(e){}
     }catch(e){}
   }
@@ -658,7 +664,6 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
 
-    // ✅ AI onEnd attach
     try{
       const aiEnd = AI?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
@@ -667,7 +672,6 @@ export function boot(cfg){
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
-    // ✅ finalize battle (winner decided by comparator inside battle module)
     try{ battle?.finalizeEnd?.(summary); }catch(e){}
 
     if(endOverlay){
@@ -688,15 +692,431 @@ export function boot(cfg){
     setHUD();
   }
 
-  // ---- (ส่วนเกมเพลย์ที่เหลือเหมือนของคุณ: spawn/update/hit/expire/tick) ----
-  // เพื่อไม่ให้ยาวทะลุเกินไปในแชท ผม “คงพฤติกรรมทั้งหมด” จากเวอร์ชันที่คุณส่งไว้ (ACC/MEDRT/HHA:score) แล้วเพิ่มเฉพาะ battle hook ด้านบน
-  // ✅ ถ้าคุณต้องการ “แปะทั้งไฟล์เต็มทั้งดุ้น” แบบ 100% ทุกบรรทัด (ไม่ย่อ) บอกได้ ผมจะส่งเป็น 2 ตอนต่อเนื่องให้ครบแบบไม่ตัด
+  function makeTarget(kind, emoji, ttlSec){
+    const id = String(idSeq++);
+    const el = DOC.createElement('div');
+    el.className = 'gj-target';
+    el.textContent = emoji;
+    el.dataset.id = id;
+    el.dataset.kind = kind;
 
-  // --------- IMPORTANT: ใส่โค้ดส่วน gameplay ต่อจากเวอร์ชันก่อนหน้าของคุณตรงนี้ ---------
-  // (เนื่องจากข้อความต้นทางยาวมาก ระบบแชทมีโอกาสตัด/ข้ามบรรทัดได้)
-  // ✅ วิธีที่ปลอดภัยสุด: คุณ paste ต่อ “ช่วง spawnTick/updateTargets/tick” เดิมของคุณมาอีกครั้ง
-  // แล้วผมจะ “ประกบ” ให้เป็นไฟล์เต็ม 100% แบบไม่ตกหล่นในข้อความเดียว/สองข้อความ
+    const safe = getSpawnSafeLocal();
+    const rPad = (view==='mobile') ? 32 : 38;
+    const xMin = safe.xMin + rPad;
+    const xMax = safe.xMax - rPad;
+    const yMin = safe.yMin + rPad;
+    const yMax = safe.yMax - rPad;
 
-  // ---------- minimal fallback to prevent blank screen ----------
-  sayCoach('โหลดระบบ Battle/Leaderboard แล้ว ✅ เริ่มเกมได้เลย!');
+    const x = xMin + r01()*(Math.max(1, xMax - xMin));
+    const y = yMin + r01()*(Math.max(1, yMax - yMin));
+
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+    el.style.opacity = '1';
+
+    const drift = (r01()*2-1) * (view==='mobile' ? 16 : 22);
+    const born = nowMs();
+    const ttl = Math.max(0.8, ttlSec) * 1000;
+
+    layer.appendChild(el);
+
+    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
+    targets.set(id, tObj);
+
+    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+    return tObj;
+  }
+
+  function removeTarget(id){
+    const t = targets.get(String(id));
+    if(!t) return;
+    targets.delete(String(id));
+    try{ t.el.remove(); }catch(e){}
+  }
+
+  function addFever(v){
+    fever = clamp(fever + v, 0, 100);
+    if(fever >= 100 && !rageOn){
+      rageOn = true;
+      rageLeft = 7.0;
+      fever = 100;
+      sayCoach('FEVER! คะแนนคูณ 🔥');
+    }
+  }
+
+  function addShield(){
+    shield = clamp(shield + 1, 0, 9);
+    sayCoach('ได้โล่! 🛡️ กันของเสียได้');
+  }
+
+  function onHitGood(t, clientX, clientY){
+    const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
+    goodHitCount++;
+    rtSum += rt;
+    rtList.push(rt);
+
+    combo++;
+    bestCombo = Math.max(bestCombo, combo);
+
+    let add = 10 + Math.min(12, combo);
+    if(rageOn) add = Math.round(add * 1.6);
+
+    score += add;
+    goal.cur = clamp(goal.cur + 1, 0, 9999);
+    addFever(6.5);
+
+    fxBurst(clientX, clientY);
+    fxFloatText(clientX, clientY-10, `+${add}`, false);
+
+    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
+    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
+
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    removeTarget(t.id);
+  }
+
+  function onHitJunk(t, clientX, clientY){
+    if(shield > 0){
+      shield--;
+      fxBurst(clientX, clientY);
+      fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
+      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
+
+      try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
+      removeTarget(t.id);
+      return;
+    }
+
+    missTotal++;
+    missJunkHit++;
+    combo = 0;
+
+    const sub = 8;
+    score = Math.max(0, score - sub);
+    fxFloatText(clientX, clientY-10, `-${sub}`, true);
+
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    removeTarget(t.id);
+
+    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
+  }
+
+  function onHitBonus(t, clientX, clientY){
+    combo++;
+    bestCombo = Math.max(bestCombo, combo);
+
+    let add = rPick([25,30,35]);
+    if(rageOn) add = Math.round(add * 1.5);
+    score += add;
+
+    fxBurst(clientX, clientY);
+    fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
+    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
+
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    removeTarget(t.id);
+  }
+
+  function onHitShield(t, clientX, clientY){
+    addShield();
+    fxBurst(clientX, clientY);
+    fxFloatText(clientX, clientY-10, '+SHIELD', false);
+
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    removeTarget(t.id);
+  }
+
+  function onHitBoss(t, clientX, clientY){
+    if(!bossActive) return;
+
+    if(bossPhase===0){
+      bossShieldHp--;
+      fxBurst(clientX, clientY);
+      fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
+      if(bossShieldHp<=0){
+        bossPhase = 1;
+        sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
+      }
+
+      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
+      removeTarget(t.id);
+      return;
+    }
+
+    const dmg = rageOn ? 4 : 3;
+    bossHp = Math.max(0, bossHp - dmg);
+
+    let add = 22 + dmg*6;
+    if(rageOn) add = Math.round(add * 1.4);
+    score += add;
+    addFever(9);
+
+    fxBurst(clientX, clientY);
+    fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
+
+    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
+    removeTarget(t.id);
+
+    if(bossHp<=0){
+      sayCoach('บอสแพ้แล้ว! 🎉');
+      bossActive = false;
+      score += 120;
+      addFever(40);
+    }
+  }
+
+  function hitTargetById(id, clientX, clientY){
+    const t = targets.get(String(id));
+    if(!t || !playing) return false;
+
+    const kind = t.kind;
+    if(kind==='good') onHitGood(t, clientX, clientY);
+    else if(kind==='junk') onHitJunk(t, clientX, clientY);
+    else if(kind==='bonus') onHitBonus(t, clientX, clientY);
+    else if(kind==='shield') onHitShield(t, clientX, clientY);
+    else if(kind==='boss') onHitBoss(t, clientX, clientY);
+
+    return true;
+  }
+
+  // ✅ pointerdown เฉพาะ non-cvr (cVR strict ยิงจาก crosshair เท่านั้น)
+  function onPointerDown(ev){
+    if(!playing || paused) return;
+    const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
+    if(!el) return;
+
+    // attempt always counts as a shot
+    shots++;
+
+    const ok = hitTargetById(el.dataset.id, ev.clientX, ev.clientY);
+    if(ok) hits++; // clicked a target => always a hit
+  }
+  if(view !== 'cvr'){
+    layer.addEventListener('pointerdown', onPointerDown, { passive:true });
+  }
+
+  function pickTargetAt(x,y, lockPx){
+    lockPx = clamp(lockPx ?? 44, 16, 120);
+    let best = null;
+    let bestD = 1e9;
+    for(const t of targets.values()){
+      const r = t.el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      const d = Math.hypot(cx-x, cy-y);
+      if(d < bestD){
+        bestD = d;
+        best = t;
+      }
+    }
+    if(best && bestD <= lockPx) return best;
+    return null;
+  }
+
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    if(!playing || paused) return;
+
+    // cVR shot attempt (even if no target is locked)
+    shots++;
+
+    try{
+      const lockPx = ev?.detail?.lockPx ?? 56;
+      const r = layerRect();
+      const x = r.left + r.width/2;
+      const y = r.top  + r.height/2;
+      const t = pickTargetAt(x,y, lockPx);
+      if(t){
+        const ok = hitTargetById(t.id, x, y);
+        if(ok) hits++;
+      }
+    }catch(e){}
+  });
+
+  let spawnAcc = 0;
+  function spawnTick(dt){
+    stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
+    const mult = stormOn ? TUNE.stormMult : 1.0;
+    const base = TUNE.spawnBase * mult;
+    const rageBoost = rageOn ? 1.18 : 1.0;
+
+    spawnAcc += base * rageBoost * dt;
+
+    while(spawnAcc >= 1){
+      spawnAcc -= 1;
+
+      if(!bossActive && tLeft <= plannedSec*0.35 && tLeft > 6){
+        bossActive = true;
+        bossHpMax = TUNE.bossHp;
+        bossHp = bossHpMax;
+        bossPhase = 0;
+        bossShieldHp = 5;
+        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
+      }
+
+      let kind = 'good';
+      const p = r01();
+
+      if(bossActive && (r01() < 0.22)){
+        kind = 'boss';
+      }else if(p < 0.64){
+        kind = 'good';
+      }else if(p < 0.86){
+        kind = 'junk';
+      }else if(p < 0.94){
+        kind = 'bonus';
+      }else{
+        kind = 'shield';
+      }
+
+      if(kind==='good') makeTarget('good', rPick(GOOD), TUNE.ttlGood);
+      else if(kind==='junk') makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
+      else if(kind==='bonus') makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
+      else if(kind==='shield') makeTarget('shield', rPick(SHIELDS), 2.6);
+      else if(kind==='boss'){
+        const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
+        makeTarget('boss', emo, 2.2);
+      }
+    }
+  }
+
+  function updateTargets(dt){
+    const tNow = nowMs();
+    const safe = getSpawnSafeLocal();
+    const rPad = (view==='mobile') ? 32 : 38;
+
+    for(const t of Array.from(targets.values())){
+      const age = tNow - t.born;
+      const p = age / t.ttl;
+
+      const dx = t.drift * dt;
+      t.x += dx;
+
+      const xMin = safe.xMin + rPad;
+      const xMax = safe.xMax - rPad;
+      t.x = clamp(t.x, xMin, xMax);
+      t.el.style.left = `${t.x}px`;
+
+      if(p > 0.75){
+        t.el.style.opacity = String(clamp(1 - (p-0.75)/0.25, 0.15, 1));
+        t.el.style.transform = `translate(-50%,-50%) scale(${1 - 0.08*(p-0.75)/0.25})`;
+      }
+
+      if(age >= t.ttl){
+        try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
+
+        if(t.kind === 'good'){
+          missTotal++;
+          missGoodExpired++;
+          combo = 0;
+
+          score = Math.max(0, score - 4);
+          const r = t.el.getBoundingClientRect();
+          fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
+
+          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
+        }
+        removeTarget(t.id);
+      }
+    }
+  }
+
+  function updateRage(dt){
+    if(!rageOn) return;
+    rageLeft -= dt;
+    if(rageLeft <= 0){
+      rageOn = false;
+      rageLeft = 0;
+      fever = clamp(fever - 18, 0, 100);
+      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
+    }
+  }
+
+  function updateMini(dt){
+    if(mini.t > 0){
+      mini.t = Math.max(0, mini.t - dt);
+      if(mini.t<=0) mini.name = '—';
+    }else{
+      if(r01() < dt*0.05){
+        const type = rPick(['avoid-junk','combo-5','grab-bonus']);
+        if(type==='avoid-junk'){
+          mini.name = 'No JUNK 6s';
+          mini.t = 6;
+          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
+        }else if(type==='combo-5'){
+          mini.name = 'Combo x5';
+          mini.t = 8;
+          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
+        }else{
+          mini.name = 'Grab ⭐';
+          mini.t = 7;
+          sayCoach('ภารกิจ: เก็บโบนัส!');
+        }
+      }
+    }
+  }
+
+  function checkEnd(){
+    if(tLeft <= 0){ showEnd('time'); return true; }
+    if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
+
+    if(goal.cur >= goal.target && playing){
+      goal.target += 10;
+      score += 60;
+      addFever(18);
+      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
+      const r = layerRect();
+      fxBurst(r.left+r.width/2, r.top+r.height*0.55);
+      fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
+    }
+    return false;
+  }
+
+  function tick(){
+    if(!playing) return;
+
+    if(paused){
+      try{ lastTick = nowMs(); }catch(e){}
+      setHUD();
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    const t = nowMs();
+    const dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
+    lastTick = t;
+
+    tLeft = Math.max(0, tLeft - dt);
+
+    spawnTick(dt);
+    updateTargets(dt);
+    updateRage(dt);
+    updateMini(dt);
+
+    try{
+      const pred = AI?.onTick?.(dt, {
+        missGoodExpired,
+        missJunkHit,
+        shield,
+        fever,
+        combo
+      }) || null;
+      setAIHud(pred);
+    }catch(e){}
+
+    setHUD();
+
+    if(checkEnd()) return;
+    requestAnimationFrame(tick);
+  }
+
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.hidden && playing){
+      showEnd('background');
+    }
+  });
+
+  try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
+  sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
+  setHUD();
+  requestAnimationFrame(tick);
 }
