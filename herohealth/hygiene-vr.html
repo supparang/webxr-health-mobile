@@ -1,38 +1,31 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (HHA Standard)
-PATCH v20260215b
-✅ View: pc/mobile/vr/cvr
-✅ Run: practice (15s) / play
-✅ Diff/Time/Seed
-✅ Remember last settings
-✅ Pass-through all params (hub/studyId/phase/conditionGroup/log/pid etc.)
-✅ Sends to: ./hygiene-vr/hygiene-vr.html
+HygieneVR Launcher — ROOT (AUTO) — v20260219b
+✅ Auto-detect view if no ?view=
+✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
+✅ Root=launcher, folder=run
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR Launcher</title>
+  <title>HeroHealth — HygieneVR (Auto Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --warn:#f59e0b;
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
       --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
       --r:22px;
     }
     *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
     .card{
-      width:min(900px,100%);
+      width:min(760px,100%);
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.72);
       border-radius: var(--r);
@@ -41,121 +34,43 @@ PATCH v20260215b
     }
     .title{font-weight:950;font-size:18px;letter-spacing:.2px}
     .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-    @media (max-width:760px){ .grid{grid-template-columns:1fr;} }
-    .box{
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.55);
-      border-radius: 18px;
-      padding: 12px;
-    }
-    .box h3{margin:0;font-size:13px;font-weight:950;letter-spacing:.2px}
-    .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .chip{
-      border-radius: 999px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      padding: 8px 10px;
-      font-weight:900;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .chip.on{border-color: rgba(34,211,238,.26); background: rgba(34,211,238,.12);}
-    .chip.good.on{border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.14);}
-    .chip.warn.on{border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.14);}
-    .field{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
-    label{font-size:12px;color:rgba(148,163,184,.95);font-weight:900}
-    input{
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      color: rgba(229,231,235,.95);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight:900;
-      width: 170px;
-      max-width: 100%;
-    }
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
     .btn{
       border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.72);
       color: rgba(229,231,235,.95);
       padding: 10px 12px;
-      font-weight:950;
+      font-weight:900;
       cursor:pointer;
     }
     .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
-    .btn.cyan{ background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.24); }
     code{color:rgba(34,197,94,.95)}
-    .hint{margin-top:10px;font-size:12px;color:rgba(148,163,184,.95);line-height:1.4}
-    .preview{margin-top:10px;font-size:12px;color:rgba(148,163,184,.95);word-break:break-all}
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="title">🧼 HygieneVR — Handwash Survival (Launcher)</div>
-    <div class="sub">เลือกมุมมอง + โหมด + ความยาก แล้วกดเข้าเกม (จำค่าล่าสุดอัตโนมัติ)</div>
+    <div class="title">🧼 HygieneVR — Handwash Survival</div>
+    <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
 
-    <div class="grid">
-      <div class="box">
-        <h3>VIEW</h3>
-        <div class="row" id="viewRow"></div>
-        <div class="hint">แนะนำ: <code>mobile</code> สำหรับมือถือ, <code>cvr</code> สำหรับ Cardboard/ยิงกลางจอ</div>
-      </div>
-
-      <div class="box">
-        <h3>RUN MODE</h3>
-        <div class="row" id="runRow"></div>
-        <div class="hint"><code>practice</code> = วอร์มอัป 15s แล้วจะเข้า <code>play</code> อัตโนมัติ</div>
-      </div>
-
-      <div class="box">
-        <h3>DIFFICULTY</h3>
-        <div class="row" id="diffRow"></div>
-
-        <div class="field">
-          <label for="timeInp">TIME (sec)</label>
-          <input id="timeInp" type="number" min="20" max="9999" step="1" />
-          <label for="seedInp">SEED</label>
-          <input id="seedInp" type="number" step="1" />
-          <button class="btn" id="btnRandSeed" type="button">สุ่ม seed</button>
-        </div>
-        <div class="hint">ถ้าลงวิจัยให้ล็อก seed; ถ้าเล่นสนุก สุ่มได้เลย</div>
-      </div>
-
-      <div class="box">
-        <h3>OPTIONS</h3>
-        <div class="hint">
-          เปิด AI hooks ได้ด้วย <code>?ai=1</code> (play เท่านั้น)<br>
-          ถ้าจะแปะจาก HUB: ส่งต่อ <code>hub, studyId, phase, conditionGroup, log, pid</code> ได้หมด
-        </div>
-      </div>
+    <div class="row">
+      <button class="btn primary" id="btnGo">เข้าเกม</button>
+      <button class="btn" id="btnHub">กลับ HUB</button>
     </div>
 
-    <div class="actions">
-      <button class="btn primary" id="btnGo" type="button">▶ เข้าเกม</button>
-      <button class="btn cyan" id="btnGoPractice" type="button">🧪 Practice 15s แล้วเข้าเกมจริง</button>
-      <button class="btn" id="btnHub" type="button">↩ กลับ HUB</button>
+    <div class="sub" style="margin-top:10px">
+      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code>
     </div>
-
-    <div class="preview" id="preview">กำลังเตรียมลิงก์…</div>
   </div>
 </div>
 
 <script>
 (function(){
   'use strict';
-
-  const LS_KEY = 'HHA_LAUNCH_HYGIENE_VR';
-  const RUN_URL = './hygiene-vr/hygiene-vr.html';
-
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const pass = new URL(location.href);
-  const hubDefault = String(qs('hub','./hub.html'));
+  const hub = String(qs('hub','./hub.html'));
+  const RUN_URL = './hygiene-vr/hygiene-vr.html';
 
   function detectView(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
@@ -169,126 +84,28 @@ PATCH v20260215b
     return 'pc';
   }
 
-  function loadState(){
-    try{
-      const s = localStorage.getItem(LS_KEY);
-      if(!s) return null;
-      const o = JSON.parse(s);
-      return o && typeof o==='object' ? o : null;
-    }catch(_){ return null; }
-  }
-  function saveState(o){
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(_){}
-  }
-
-  const state = Object.assign({
-    view: detectView(),
-    run: 'play',
-    diff: 'normal',
-    time: 70,
-    seed: Date.now()
-  }, loadState() || {});
-
-  const viewRow = document.getElementById('viewRow');
-  const runRow  = document.getElementById('runRow');
-  const diffRow = document.getElementById('diffRow');
-  const timeInp = document.getElementById('timeInp');
-  const seedInp = document.getElementById('seedInp');
-  const preview = document.getElementById('preview');
-
-  const VIEWS = [{k:'pc',t:'🖥️ pc'},{k:'mobile',t:'📱 mobile'},{k:'vr',t:'🥽 vr'},{k:'cvr',t:'📦 cvr'}];
-  const RUNS  = [{k:'play',t:'▶ play',cls:'good'},{k:'practice',t:'🧪 practice',cls:''}];
-  const DIFFS = [{k:'easy',t:'🙂 easy',cls:'good'},{k:'normal',t:'😎 normal',cls:''},{k:'hard',t:'🔥 hard',cls:'warn'}];
-
-  function mkChip(item, groupKey){
-    const b = document.createElement('button');
-    b.type='button';
-    b.className = 'chip ' + (item.cls || '');
-    b.textContent = item.t;
-    b.dataset.k = item.k;
-    b.addEventListener('click', ()=>{
-      state[groupKey] = item.k;
-      render(); persist();
-    });
-    return b;
-  }
-
-  function persist(){
-    saveState({ view:state.view, run:state.run, diff:state.diff, time:state.time, seed:state.seed });
-  }
-
-  function buildUrl(overrideRun){
+  function buildRunUrl(){
     const u = new URL(RUN_URL, location.href);
+    const cur = new URL(location.href);
 
-    pass.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
-    if(!u.searchParams.get('hub')) u.searchParams.set('hub', hubDefault);
+    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    u.searchParams.set('view', state.view);
-    u.searchParams.set('run', overrideRun || state.run);
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('time', String(Math.max(20, Number(state.time)||70)));
-    u.searchParams.set('seed', String(Number(state.seed)||Date.now()));
-
+    if (!cur.searchParams.get('view')){
+      u.searchParams.set('view', detectView());
+    }
+    if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
     return u.toString();
   }
 
-  function render(){
-    viewRow.innerHTML = '';
-    VIEWS.forEach(it=>{
-      const c = mkChip(it,'view');
-      if(state.view===it.k) c.classList.add('on');
-      viewRow.appendChild(c);
-    });
+  function go(){ location.href = buildRunUrl(); }
 
-    runRow.innerHTML = '';
-    RUNS.forEach(it=>{
-      const c = mkChip(it,'run');
-      if(state.run===it.k) c.classList.add('on');
-      runRow.appendChild(c);
-    });
+  document.getElementById('btnGo')?.addEventListener('click', go);
+  document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
 
-    diffRow.innerHTML = '';
-    DIFFS.forEach(it=>{
-      const c = mkChip(it,'diff');
-      if(state.diff===it.k) c.classList.add('on');
-      diffRow.appendChild(c);
-    });
+  const txt = document.getElementById('txt');
+  if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
 
-    timeInp.value = String(state.time);
-    seedInp.value = String(state.seed);
-
-    preview.textContent = 'Preview: ' + buildUrl();
-  }
-
-  timeInp.addEventListener('change', ()=>{
-    state.time = Math.max(20, Number(timeInp.value)||70);
-    render(); persist();
-  });
-  seedInp.addEventListener('change', ()=>{
-    state.seed = Number(seedInp.value)||Date.now();
-    render(); persist();
-  });
-
-  document.getElementById('btnRandSeed')?.addEventListener('click', ()=>{
-    state.seed = Date.now();
-    render(); persist();
-  });
-
-  document.getElementById('btnGo')?.addEventListener('click', ()=>{
-    persist();
-    location.href = buildUrl(state.run);
-  });
-
-  document.getElementById('btnGoPractice')?.addEventListener('click', ()=>{
-    persist();
-    location.href = buildUrl('practice');
-  });
-
-  document.getElementById('btnHub')?.addEventListener('click', ()=>{
-    location.href = hubDefault;
-  });
-
-  render();
+  setTimeout(go, 120);
 })();
 </script>
 </body>
