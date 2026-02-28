@@ -6,7 +6,6 @@
 import { autoMount } from './leaderboard.js';
 
 try{
-  // prevent double init
   if(!window.__HHA_LB_AUTO__){
     window.__HHA_LB_AUTO__ = 1;
     autoMount();
