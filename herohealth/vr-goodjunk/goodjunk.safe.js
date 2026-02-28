@@ -3,20 +3,21 @@
 // + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
 // + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
 // + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// + ✅ hha:score + hha:coach events for universal HUD/coach bridge
-// + ✅ Battle RTDB (optional, ONLY when ?battle=1): Room create/join, AutoStart 3s, Forfeit 5s, Opponent HUD
-// FULL v20260227-SAFE-HELPPAUSE-AIWIRED + BATTLE-RTDB
+// + ✅ AI HUD: hazardRisk + next watchout
+// FULL v20260228-SAFE-HELPPAUSE-AIHUD-AIEND
 'use strict';
 
 export function boot(cfg){
   cfg = cfg || {};
   const WIN = window, DOC = document;
+  const AI = cfg.ai || null;
 
   // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
+
   function $(id){ return DOC.getElementById(id); }
 
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
@@ -52,9 +53,7 @@ export function boot(cfg){
     [
       'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade',
-      // allow battle passthrough
-      'battle','brole','room'
+      'plannedGame','finalGame','zone','cdnext','grade'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -73,7 +72,7 @@ export function boot(cfg){
     const nextAfterCooldown = cdnext || hub || '../hub.html';
     const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
 
-    const panel = endOverlayEl.querySelector('.end-card') || endOverlayEl.querySelector('.panel') || endOverlayEl;
+    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
     let row = panel.querySelector('.hh-end-actions');
     if(!row){
       row = DOC.createElement('div');
@@ -106,7 +105,7 @@ export function boot(cfg){
     row.appendChild(btn);
   }
 
-  // ---------- deterministic RNG (xmur3 + sfc32) ----------
+  // deterministic RNG (xmur3 + sfc32)
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -137,45 +136,10 @@ export function boot(cfg){
     const seed = xmur3(seedStr);
     return sfc32(seed(), seed(), seed(), seed());
   }
-
-  // ✅ Seed can be overridden later (battle room seed)
-  let seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  let rng = makeRng(seedStr);
+  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
+  const rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
-  function setSeedStr(newSeed){
-    seedStr = String(newSeed || seedStr);
-    rng = makeRng(seedStr);
-  }
-
-  // ---------- AI Hooks (optional) ----------
-  const ai = cfg.ai || WIN.HHA_AI || null;
-
-  function aiKindFrom(kind, emoji){
-    // ai-hooks supports: good, junk, star, shield, diamond, skull, bomb
-    if(kind === 'good') return 'good';
-    if(kind === 'junk') return 'junk';
-    if(kind === 'shield') return 'shield';
-    if(kind === 'bonus'){
-      if(emoji === '⭐') return 'star';
-      if(emoji === '💎') return 'diamond';
-      return 'star'; // ⚡ -> treat as star baseline
-    }
-    if(kind === 'boss'){
-      // boss presence -> skull baseline
-      return 'skull';
-    }
-    return 'good';
-  }
-
-  function aiSafe(fn, ...args){
-    try{
-      if(!ai || typeof ai[fn] !== 'function') return null;
-      return ai[fn](...args);
-    }catch(e){
-      return null;
-    }
-  }
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
@@ -190,6 +154,8 @@ export function boot(cfg){
     goalDesc: $('goalDesc'),
     mini: $('hud-mini'),
     miniTimer: $('miniTimer'),
+    aiRisk: $('aiRisk'),
+    aiHint: $('aiHint'),
   };
   const feverFill = $('feverFill');
   const feverText = $('feverText');
@@ -210,6 +176,11 @@ export function boot(cfg){
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
 
+  // optional debug pills
+  const uiView = $('uiView');
+  const uiRun  = $('uiRun');
+  const uiDiff = $('uiDiff');
+
   if(!layer){
     console.warn('[GoodJunk] Missing #gj-layer');
     return;
@@ -227,427 +198,12 @@ export function boot(cfg){
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
 
-  // ---------- Battle (RTDB) optional ----------
-  const battleOn0 = (qs('battle','0') === '1');
-  // (optional) do not allow battle in research mode unless explicitly allow
-  const battleAllowResearch = (qs('battleResearch','0') === '1');
-  const battleOn = battleOn0 && (runMode !== 'research' || battleAllowResearch);
-
-  const battleRole = String(qs('brole','')).toLowerCase(); // create|join
-  let battleRoomId = String(qs('room','')).trim();
-  let battlePlayerKey = '';
-  let battleOffset = 0;
-  let battleRoom = null;
-  let battleClient = null;
-
-  // gameplay gate: in battle, we start only when startAt reached
-  let started = !battleOn;
-  let battleSeedLocked = false;
-
-  // ---------- Battle UI overlay (no HTML change) ----------
-  const battleUI = DOC.createElement('div');
-  battleUI.id = 'gjBattleUI';
-  battleUI.style.position = 'fixed';
-  battleUI.style.inset = '0';
-  battleUI.style.zIndex = '320';
-  battleUI.style.display = battleOn ? 'flex' : 'none';
-  battleUI.style.alignItems = 'center';
-  battleUI.style.justifyContent = 'center';
-  battleUI.style.pointerEvents = 'auto';
-  battleUI.style.background = 'rgba(0,0,0,.45)';
-  battleUI.innerHTML = `
-    <div style="
-      width:min(540px, calc(100vw - 24px));
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.85);
-      color:rgba(229,231,235,.96);
-      border-radius:18px;
-      padding:14px 14px;
-      box-shadow:0 22px 60px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      font:900 14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-        <div>⚔️ GoodJunk Duel</div>
-        <div id="gjBattleStatus" style="opacity:.85;font-weight:800;">—</div>
-      </div>
-      <div style="margin-top:10px;opacity:.95;white-space:pre-wrap" id="gjBattleBody">Preparing…</div>
-      <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-        <button id="gjBattleCopy" class="btn" style="display:none;border-radius:14px;padding:10px 12px;font-weight:1000">Copy Code</button>
-        <button id="gjBattleBack" class="btn" style="border-radius:14px;padding:10px 12px;font-weight:1000">Back HUB</button>
-      </div>
-    </div>
-  `;
-  DOC.body.appendChild(battleUI);
-
-  const elBStatus = battleUI.querySelector('#gjBattleStatus');
-  const elBBody   = battleUI.querySelector('#gjBattleBody');
-  const btnCopy   = battleUI.querySelector('#gjBattleCopy');
-  const btnBack   = battleUI.querySelector('#gjBattleBack');
-
-  btnBack?.addEventListener('click', ()=>{ location.href = hubUrl; });
-  btnCopy?.addEventListener('click', async ()=>{
-    try{
-      await navigator.clipboard.writeText(String(battleRoomId||''));
-      if(elBStatus) elBStatus.textContent = 'Copied ✅';
-      setTimeout(()=>{ if(elBStatus) elBStatus.textContent = ''; }, 900);
-    }catch(e){}
-  });
-
-  function showBattleUI(on){ battleUI.style.display = on ? 'flex' : 'none'; }
-  function setBattleText(status, body){
-    if(elBStatus) elBStatus.textContent = status || '';
-    if(elBBody) elBBody.textContent = body || '';
-  }
-  function serverNow(){ return Date.now() + (Number(battleOffset)||0); }
-
-  // ---------- Opponent HUD ----------
-  const oppHud = DOC.createElement('div');
-  oppHud.style.position='fixed';
-  oppHud.style.top=`calc(env(safe-area-inset-top, 0px) + 10px)`;
-  oppHud.style.right=`calc(env(safe-area-inset-right, 0px) + 10px)`;
-  oppHud.style.zIndex='221';
-  oppHud.style.pointerEvents='none';
-  oppHud.style.padding='8px 10px';
-  oppHud.style.border='1px solid rgba(148,163,184,.16)';
-  oppHud.style.background='rgba(2,6,23,.55)';
-  oppHud.style.color='rgba(229,231,235,.96)';
-  oppHud.style.borderRadius='14px';
-  oppHud.style.font='900 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial';
-  oppHud.style.backdropFilter='blur(10px)';
-  oppHud.style.webkitBackdropFilter='blur(10px)';
-  oppHud.style.display = battleOn ? 'block' : 'none';
-  oppHud.innerHTML = `<div style="opacity:.85">Opponent</div><div id="gjOppLine" style="margin-top:3px">—</div>`;
-  DOC.body.appendChild(oppHud);
-  const oppLine = oppHud.querySelector('#gjOppLine');
-
-  // ---------- Battle: Firebase dynamic loader + RTDB mini-client ----------
-  async function loadFirebaseRTDB(){
-    // Load only when battleOn=true
-    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
-    const dbMod  = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js");
-    return { appMod, dbMod };
-  }
-
-  function battleRoomCode(){
-    const n = Math.floor(1000 + Math.random()*9000);
-    return "GJ" + n;
-  }
-
-  async function setupBattle(){
-    if(!battleOn) return;
-
-    // config can be provided via:
-    // - window.HHA_FIREBASE_CONFIG (recommended)
-    // - cfg.firebaseConfig (optional)
-    const firebaseConfig = WIN.HHA_FIREBASE_CONFIG || cfg.firebaseConfig || null;
-    if(!firebaseConfig || !firebaseConfig.databaseURL){
-      setBattleText('Battle error', 'Missing Firebase config (HHA_FIREBASE_CONFIG). Back HUB.');
-      showBattleUI(true);
-      return;
-    }
-
-    try{
-      setBattleText('Connecting…', 'Loading Firebase RTDB…');
-      showBattleUI(true);
-
-      const { appMod, dbMod } = await loadFirebaseRTDB();
-      const { initializeApp } = appMod;
-      const {
-        getDatabase, ref, get, set, update, onValue, off, runTransaction,
-        onDisconnect, serverTimestamp
-      } = dbMod;
-
-      const app = initializeApp(firebaseConfig);
-      const db  = getDatabase(app);
-
-      async function getServerOffsetMs(){
-        const s = await get(ref(db, ".info/serverTimeOffset"));
-        return Number(s.val() || 0);
-      }
-      battleOffset = await getServerOffsetMs();
-
-      function mkName(){
-        const n = String(qs('name','') || (battleRole==='create'?'Player A':'Player B') || 'Player');
-        return n.slice(0,24);
-      }
-
-      async function createRoomRT(){
-        let roomId = battleRoomCode();
-        for(let i=0;i<6;i++){
-          const s = await get(ref(db, `gjRooms/${roomId}`));
-          if(!s.exists()) break;
-          roomId = battleRoomCode();
-        }
-        const createdAt = serverNow();
-        const seed = Date.now(); // shared seed for mirror spawns
-        const room = {
-          ver: 1,
-          createdAt,
-          status: "waiting",
-          maxPlayers: 2,
-          seed,
-          mode: "score_race_mirror",
-          countdownMs: 3000,
-          forfeitGraceMs: 5000,
-          startAt: 0,
-          endAt: 0,
-          players: {
-            P1: {
-              pid: String(pid||"anon"),
-              name: mkName(),
-              joinedAt: createdAt,
-              connected: true,
-              lastSeen: createdAt,
-              score: 0, combo: 0, miss: 0, acc: 0
-            }
-          },
-          forfeit: { active:false, victim:"", deadline:0 },
-          winner: "",
-          endedReason: ""
-        };
-        await set(ref(db, `gjRooms/${roomId}`), room);
-        return { roomId, playerKey:"P1", seed };
-      }
-
-      async function joinRoomRT(roomId){
-        const roomRef = ref(db, `gjRooms/${roomId}`);
-        await runTransaction(roomRef, (room)=>{
-          if(!room) return room;
-          if(room.status === "ended") return room;
-          room.players = room.players || {};
-          const keys = Object.keys(room.players);
-
-          // already joined by pid
-          for(const k of keys){
-            if(String(room.players[k]?.pid||"") === String(pid||"")) return room;
-          }
-          if(keys.length >= 2) return room;
-
-          const newKey = keys.includes("P1") ? "P2" : "P1";
-          const t = serverNow();
-          room.players[newKey] = {
-            pid: String(pid||"anon"),
-            name: mkName(),
-            joinedAt: t,
-            connected: true,
-            lastSeen: t,
-            score: 0, combo: 0, miss: 0, acc: 0
-          };
-
-          const keys2 = Object.keys(room.players);
-          if(keys2.length >= 2 && (room.status === "waiting" || room.status === "countdown")){
-            room.status = "countdown";
-            room.startAt = serverNow() + Number(room.countdownMs || 3000);
-            room.forfeit = { active:false, victim:"", deadline:0 };
-          }
-          return room;
-        }, { applyLocally:false });
-
-        const snap = await get(roomRef);
-        if(!snap.exists()) throw new Error("ROOM_NOT_FOUND");
-        const room = snap.val();
-        if(room.status === "ended") throw new Error("ROOM_ENDED");
-
-        let myKey = "";
-        for(const k of Object.keys(room.players||{})){
-          if(String(room.players[k]?.pid||"") === String(pid||"")) { myKey = k; break; }
-        }
-        if(!myKey){
-          const n = Object.keys(room.players||{}).length;
-          if(n>=2) throw new Error("ROOM_FULL");
-          throw new Error("JOIN_FAILED");
-        }
-        return { room, playerKey: myKey };
-      }
-
-      function attachPresence(roomId, playerKey){
-        const pRef  = ref(db, `gjPresence/${roomId}/${playerKey}`);
-        const plyRef = ref(db, `gjRooms/${roomId}/players/${playerKey}`);
-        set(pRef, { connected:true, lastSeen: serverTimestamp() }).catch(()=>{});
-        update(plyRef, { connected:true, lastSeen: serverTimestamp() }).catch(()=>{});
-        onDisconnect(pRef).set({ connected:false, lastSeen: serverTimestamp() }).catch(()=>{});
-        onDisconnect(plyRef).update({ connected:false, lastSeen: serverTimestamp() }).catch(()=>{});
-      }
-
-      function makeBattleClient(roomId, playerKey){
-        const roomRef = ref(db, `gjRooms/${roomId}`);
-        const myRef   = ref(db, `gjRooms/${roomId}/players/${playerKey}`);
-        let lastRoom = null;
-        let cb = null;
-        let lastReportAt = 0;
-        let disposed = false;
-
-        function onState(fn){
-          cb = (snap)=>{ lastRoom = snap.val() || null; fn(lastRoom); };
-          onValue(roomRef, cb);
-          return ()=>{ try{ off(roomRef, "value", cb); }catch(e){} };
-        }
-        function getOpponent(){
-          if(!lastRoom || !lastRoom.players) return null;
-          const oppKey = (playerKey === "P1") ? "P2" : "P1";
-          return lastRoom.players[oppKey] || null;
-        }
-        async function reportStats({ score, combo, miss, acc }){
-          if(disposed) return;
-          const t = Date.now();
-          if(t - lastReportAt < 120) return;
-          lastReportAt = t;
-          try{
-            await update(myRef, {
-              score: Number(score||0),
-              combo: Number(combo||0),
-              miss:  Number(miss||0),
-              acc:   Number(acc||0),
-              connected: true,
-              lastSeen: serverTimestamp()
-            });
-          }catch(e){}
-        }
-
-        async function ensurePlaying(){
-          if(!lastRoom) return;
-          if(lastRoom.status !== "countdown") return;
-          const st = Number(lastRoom.startAt||0);
-          if(!st) return;
-          if(serverNow() >= st){
-            try{
-              await runTransaction(roomRef, (room)=>{
-                if(!room) return room;
-                if(room.status === "countdown") room.status = "playing";
-                return room;
-              }, { applyLocally:false });
-            }catch(e){}
-          }
-        }
-
-        async function forfeitTick(){
-          if(!lastRoom || lastRoom.status !== "playing") return;
-
-          const oppKey = (playerKey === "P1") ? "P2" : "P1";
-          const opp = lastRoom.players?.[oppKey];
-          if(!opp) return;
-
-          const sNow = serverNow();
-          const grace = Number(lastRoom.forfeitGraceMs || 5000);
-          const lastSeen = Number(opp.lastSeen || 0);
-          const connected = !!opp.connected;
-          const stale = (lastSeen && (sNow - lastSeen > 2500));
-          const disconnected = (!connected) || stale;
-
-          if(!disconnected){
-            if(lastRoom.forfeit?.active && lastRoom.forfeit?.victim === oppKey){
-              try{ await update(roomRef, { forfeit:{active:false, victim:"", deadline:0} }); }catch(e){}
-            }
-            return;
-          }
-
-          if(!lastRoom.forfeit?.active){
-            const deadline = sNow + grace;
-            try{
-              await runTransaction(roomRef, (room)=>{
-                if(!room) return room;
-                if(room.status !== "playing") return room;
-                if(room.forfeit?.active) return room;
-                room.forfeit = { active:true, victim: oppKey, deadline };
-                return room;
-              }, { applyLocally:false });
-            }catch(e){}
-            return;
-          }
-
-          const f = lastRoom.forfeit || {};
-          if(f.active && f.victim === oppKey && Number(f.deadline||0) && sNow >= Number(f.deadline||0)){
-            const winner = playerKey;
-            try{
-              await runTransaction(roomRef, (room)=>{
-                if(!room) return room;
-                if(room.status === "ended") return room;
-                room.status = "ended";
-                room.winner = winner;
-                room.endedReason = "forfeit";
-                room.endAt = serverNow();
-                return room;
-              }, { applyLocally:false });
-            }catch(e){}
-          }
-        }
-
-        const timer = setInterval(()=>{
-          if(disposed) return;
-          ensurePlaying().catch(()=>{});
-          forfeitTick().catch(()=>{});
-        }, 250);
-
-        function dispose(){
-          disposed = true;
-          clearInterval(timer);
-          try{ if(cb) off(roomRef, "value", cb); }catch(e){}
-        }
-
-        return { onState, getOpponent, reportStats, dispose, get lastRoom(){ return lastRoom; } };
-      }
-
-      // ---- create/join ----
-      if(battleRole === 'create'){
-        const info = await createRoomRT();
-        battleRoomId = info.roomId;
-        battlePlayerKey = info.playerKey;
-        btnCopy.style.display = 'inline-flex';
-        setBattleText('Room created', `Room Code: ${battleRoomId}\nShare this code to opponent.`);
-      }else{
-        if(!battleRoomId){
-          setBattleText('Missing room', 'No ?room= provided.\nBack HUB.');
-          showBattleUI(true);
-          return;
-        }
-        const { room, playerKey } = await joinRoomRT(battleRoomId);
-        battlePlayerKey = playerKey;
-        setBattleText('Joined', `Joined Room: ${battleRoomId}`);
-        // lock seed immediately if room already has it
-        if(room && room.seed && !battleSeedLocked){
-          setSeedStr(String(room.seed));
-          battleSeedLocked = true;
-        }
-      }
-
-      attachPresence(battleRoomId, battlePlayerKey);
-
-      battleClient = makeBattleClient(battleRoomId, battlePlayerKey);
-      battleClient.onState((room)=>{
-        battleRoom = room || null;
-        if(!battleRoom) return;
-
-        // lock seed once
-        if(!battleSeedLocked && battleRoom.seed){
-          setSeedStr(String(battleRoom.seed));
-          battleSeedLocked = true;
-        }
-
-        if(battleRoom.status === 'waiting'){
-          setBattleText('Waiting…', `Room ${battleRoomId}\nWaiting for opponent…`);
-          showBattleUI(true);
-        }else if(battleRoom.status === 'countdown'){
-          const st = Number(battleRoom.startAt||0);
-          const rem = st ? Math.max(0, Math.ceil((st - serverNow())/1000)) : 3;
-          setBattleText('Starting…', `Room ${battleRoomId}\nGame starts in ${rem}s`);
-          showBattleUI(true);
-        }else if(battleRoom.status === 'playing'){
-          if(started) showBattleUI(false);
-        }else if(battleRoom.status === 'ended'){
-          // handled in tick
-        }
-      });
-
-      // Done
-      return;
-    }catch(e){
-      console.warn('[Battle] setup failed', e);
-      setBattleText('Battle error', 'Failed to connect.\nBack HUB.');
-      showBattleUI(true);
-      return;
-    }
-  }
+  // UI pill show
+  try{
+    if(uiView) uiView.textContent = view;
+    if(uiRun)  uiRun.textContent  = runMode;
+    if(uiDiff) uiDiff.textContent = diff;
+  }catch(e){}
 
   // ---------- difficulty tuning ----------
   const TUNE = (function(){
@@ -800,14 +356,6 @@ export function boot(cfg){
 
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
-
-  function coachMoodFromMsg(msg){
-    msg = String(msg||'');
-    if(/บอสแพ้|ดีมาก|สำเร็จ|โบนัส|คอมโบ|FEVER!|บล็อกได้/.test(msg)) return 'happy';
-    if(/ระวัง|MISS|โดนของเสีย|พลาด|หมดแล้ว/.test(msg)) return 'sad';
-    return 'neutral';
-  }
-
   function sayCoach(msg){
     const t = nowMs();
     if(t - coachLatchMs < 4500) return;
@@ -815,18 +363,19 @@ export function boot(cfg){
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
     coach.style.transform = 'translateY(0)';
-
-    // ✅ universal coach event (optional)
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:coach', {
-        detail: { mood: coachMoodFromMsg(msg), msg: String(msg||'') }
-      }));
-    }catch(e){}
-
     setTimeout(()=>{
       coach.style.opacity = '0';
       coach.style.transform = 'translateY(6px)';
     }, 2200);
+  }
+
+  // ---------- AI HUD ----------
+  function setAIHud(pred){
+    try{
+      if(!pred) return;
+      if(hud.aiRisk) hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
+      if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
+    }catch(e){}
   }
 
   // ---------- game state ----------
@@ -843,8 +392,6 @@ export function boot(cfg){
   };
 
   let score = 0;
-
-  // ✅ MISS definition (per your standard)
   let missTotal = 0;
   let missGoodExpired = 0;
   let missJunkHit = 0;
@@ -863,10 +410,6 @@ export function boot(cfg){
   let rtSum = 0;
   const rtList = [];
 
-  // battle stats
-  let shots = 0;
-  let hits  = 0;
-
   const goal = { name:'Daily', desc:'Hit GOOD 20', cur:0, target:20 };
   const mini = { name:'—', t:0 };
 
@@ -884,8 +427,7 @@ export function boot(cfg){
     get miss(){ return missTotal; },
     get score(){ return score; },
     get combo(){ return combo; },
-    get fever(){ return fever; },
-    get shield(){ return shield; }
+    get fever(){ return fever; }
   };
 
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -940,23 +482,6 @@ export function boot(cfg){
     return 'D';
   }
 
-  function emitScoreEvent(){
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:score', {
-        detail: {
-          score: score|0,
-          miss: missTotal|0,
-          combo: combo|0,
-          comboMax: bestCombo|0,
-          feverPct: +clamp(fever,0,100),
-          shield: shield|0,
-          missGoodExpired: missGoodExpired|0,
-          missJunkHit: missJunkHit|0
-        }
-      }));
-    }catch(e){}
-  }
-
   function setHUD(){
     if(hud.score) hud.score.textContent = String(score|0);
     if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
@@ -1007,27 +532,6 @@ export function boot(cfg){
         lowTimeOverlay.setAttribute('aria-hidden','true');
       }
     }
-
-    // battle: opponent HUD + report stats
-    if(battleOn){
-      if(oppLine && battleClient){
-        const opp = battleClient.getOpponent();
-        if(opp){
-          oppLine.textContent = `Score ${opp.score|0} • Combo ${opp.combo|0} • Miss ${opp.miss|0} • Acc ${(opp.acc|0)}%`;
-        }else{
-          oppLine.textContent = 'Waiting…';
-        }
-      }else if(oppLine){
-        oppLine.textContent = '—';
-      }
-
-      if(battleClient && started && playing){
-        const acc = shots>0 ? Math.round((hits/shots)*100) : 0;
-        battleClient.reportStats({ score, combo, miss: missTotal, acc });
-      }
-    }
-
-    emitScoreEvent();
   }
 
   const __HHA_END_SENT_KEY = '__HHA_GJ_END_SENT__';
@@ -1050,10 +554,9 @@ export function boot(cfg){
     const playedSec = Math.round(plannedSec - tLeft);
     const avgRt = goodHitCount>0 ? Math.round(rtSum/goodHitCount) : 0;
     const medRt = Math.round(median(rtList));
-
-    const base = {
+    return {
       projectTag: 'GoodJunkVR',
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-27_HELPPAUSE_AIWIRED_BATTLE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-02-28_HELPPAUSE_AIHUD',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -1071,23 +574,13 @@ export function boot(cfg){
       bossDefeated: !!(bossActive && bossHp<=0),
       stormOn: !!stormOn,
       rageOn: !!rageOn,
-      shieldEnd: shield|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      battle: battleOn ? 1 : 0
+      aiPredictionLast: (function(){
+        try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
+      })(),
     };
-
-    if(battleOn){
-      base.battleRoomId = String(battleRoomId||'');
-      base.battlePlayerKey = String(battlePlayerKey||'');
-      try{
-        const oppKey = (battlePlayerKey==='P1')?'P2':'P1';
-        const opp = battleRoom?.players?.[oppKey] || null;
-        if(opp) base.opponentPid = String(opp.pid||'');
-      }catch(e){}
-    }
-    return base;
   }
 
   function showEnd(reason){
@@ -1101,15 +594,11 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
 
-    // ✅ AI end pack (keep small; do NOT attach huge events array)
-    const aiPack = aiSafe('onEnd', summary);
-    if(aiPack && aiPack.meta){
-      summary.ai = {
-        meta: aiPack.meta,
-        predictionLast: aiPack.predictionLast || null,
-        stats: aiPack.stats || null
-      };
-    }
+    // ✅ AI onEnd attach
+    try{
+      const aiEnd = AI?.onEnd?.(summary);
+      if(aiEnd) summary.aiEnd = aiEnd;
+    }catch(e){}
 
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
@@ -1117,10 +606,7 @@ export function boot(cfg){
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub){
-        const btxt = battleOn ? ` | battle=1 room=${battleRoomId||'-'}` : '';
-        endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view}${btxt}`;
-      }
+      if(endSub) endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view}`;
       if(endGrade) endGrade.textContent = summary.grade || '—';
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
@@ -1163,11 +649,11 @@ export function boot(cfg){
 
     layer.appendChild(el);
 
-    const tObj = { id, el, kind, emoji, born, ttl, x, y, drift, promptMs: nowMs() };
+    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
     targets.set(id, tObj);
 
-    // ✅ AI spawn
-    aiSafe('onSpawn', aiKindFrom(kind, emoji), { id, kind, emoji, ttlMs: Math.round(ttl) });
+    // ✅ AI spawn hook
+    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
 
     return tObj;
   }
@@ -1195,11 +681,6 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
-    // ✅ AI hit
-    aiSafe('onHit', aiKindFrom('good', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
-
-    hits++;
-
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
     goodHitCount++;
     rtSum += rt;
@@ -1221,30 +702,25 @@ export function boot(cfg){
     if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
     if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
 
+    // ✅ AI hit hook
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
     removeTarget(t.id);
   }
 
   function onHitJunk(t, clientX, clientY){
-    // shield block => not miss
     if(shield > 0){
       shield--;
-
-      // ✅ AI hit (still a hit event)
-      aiSafe('onHit', aiKindFrom('junk', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, blocked:true });
-
-      hits++;
-
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
+
+      // ✅ AI hit hook
+      try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
+
       removeTarget(t.id);
       return;
     }
-
-    // ✅ AI hit
-    aiSafe('onHit', aiKindFrom('junk', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, blocked:false });
-
-    hits++;
 
     missTotal++;
     missJunkHit++;
@@ -1254,16 +730,16 @@ export function boot(cfg){
     score = Math.max(0, score - sub);
 
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
+
+    // ✅ AI hit hook
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
     removeTarget(t.id);
 
     if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
-    aiSafe('onHit', aiKindFrom('bonus', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
-
-    hits++;
-
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
@@ -1275,26 +751,25 @@ export function boot(cfg){
     fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
     sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
 
+    // ✅ AI hit hook
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
     removeTarget(t.id);
   }
 
   function onHitShield(t, clientX, clientY){
-    aiSafe('onHit', aiKindFrom('shield', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
-
-    hits++;
-
     addShield();
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
+
+    // ✅ AI hit hook
+    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
     removeTarget(t.id);
   }
 
   function onHitBoss(t, clientX, clientY){
     if(!bossActive) return;
-
-    aiSafe('onHit', aiKindFrom('boss', t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji, bossPhase });
-
-    hits++;
 
     if(bossPhase===0){
       bossShieldHp--;
@@ -1304,6 +779,10 @@ export function boot(cfg){
         bossPhase = 1;
         sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
       }
+
+      // ✅ AI hit hook
+      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
+
       removeTarget(t.id);
       return;
     }
@@ -1319,6 +798,9 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
+    // ✅ AI hit hook
+    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
+
     removeTarget(t.id);
 
     if(bossHp<=0){
@@ -1333,8 +815,6 @@ export function boot(cfg){
     const t = targets.get(String(id));
     if(!t || !playing) return;
 
-    shots++;
-
     const kind = t.kind;
     if(kind==='good') onHitGood(t, clientX, clientY);
     else if(kind==='junk') onHitJunk(t, clientX, clientY);
@@ -1343,6 +823,7 @@ export function boot(cfg){
     else if(kind==='boss') onHitBoss(t, clientX, clientY);
   }
 
+  // ✅ pointerdown เฉพาะ non-cvr (cVR strict ยิงจาก crosshair เท่านั้น)
   function onPointerDown(ev){
     if(!playing || paused) return;
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
@@ -1350,7 +831,9 @@ export function boot(cfg){
     const id = el.dataset.id;
     hitTargetById(id, ev.clientX, ev.clientY);
   }
-  layer.addEventListener('pointerdown', onPointerDown, { passive:true });
+  if(view !== 'cvr'){
+    layer.addEventListener('pointerdown', onPointerDown, { passive:true });
+  }
 
   function pickTargetAt(x,y, lockPx){
     lockPx = clamp(lockPx ?? 44, 16, 120);
@@ -1452,11 +935,10 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
-        // ✅ AI expire
-        aiSafe('onExpire', aiKindFrom(t.kind, t.emoji), { id: t.id, kind: t.kind, emoji: t.emoji });
+        // ✅ AI expire hook
+        try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
 
         if(t.kind === 'good'){
-          // ✅ GOOD expire counts as miss
           missTotal++;
           missGoodExpired++;
           combo = 0;
@@ -1526,37 +1008,6 @@ export function boot(cfg){
   function tick(){
     if(!playing) return;
 
-    // ---------- Battle start gate ----------
-    if(battleOn && !started){
-      const st = Number(battleRoom?.startAt || 0);
-      const status = String(battleRoom?.status || '');
-
-      if(status === 'ended'){
-        showEnd('battle-ended');
-        return;
-      }
-
-      if(status === 'waiting'){
-        setBattleText('Waiting…', `Room ${battleRoomId || '-'}\nWaiting for opponent…`);
-        showBattleUI(true);
-      }else if(status === 'countdown' && st){
-        const rem = Math.max(0, Math.ceil((st - serverNow())/1000));
-        setBattleText('Starting…', `Room ${battleRoomId || '-'}\nGame starts in ${rem}s`);
-        showBattleUI(true);
-      }
-
-      if((status === 'playing' || status === 'countdown') && st && serverNow() >= st && battleSeedLocked){
-        started = true;
-        showBattleUI(false);
-        try{ lastTick = nowMs(); }catch(e){}
-        tLeft = plannedSec;
-      }else{
-        setHUD();
-        requestAnimationFrame(tick);
-        return;
-      }
-    }
-
     // ✅ Pause-safe: do not advance timers/spawn while paused
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
@@ -1571,52 +1022,24 @@ export function boot(cfg){
 
     tLeft = Math.max(0, tLeft - dt);
 
-    // ✅ AI tick (prediction only)
-    const pred = aiSafe('onTick', dt, {
-      missGoodExpired: missGoodExpired|0,
-      missJunkHit: missJunkHit|0,
-      shield: shield|0,
-      fever: +fever,
-      combo: combo|0
-    });
-
-    // Optional: micro hint from prediction (rate-limited by sayCoach latch already)
-    try{
-      if(pred && typeof pred.hazardRisk === 'number' && pred.hazardRisk >= 0.66 && r01() < dt*0.35){
-        sayCoach('AI: ระวัง! โอกาสพลาดสูงขึ้น—โฟกัสของดี + เก็บ 🛡️');
-      }
-    }catch(e){}
-
     spawnTick(dt);
     updateTargets(dt);
     updateRage(dt);
     updateMini(dt);
 
-    setHUD();
+    // ✅ AI prediction tick (research-safe)
+    try{
+      const pred = AI?.onTick?.(dt, {
+        missGoodExpired,
+        missJunkHit,
+        shield,
+        fever,
+        combo
+      }) || null;
+      setAIHud(pred);
+    }catch(e){}
 
-    // ---------- Battle forfeit overlay + ended resolution ----------
-    if(battleOn && battleRoom){
-      if(battleRoom.status === 'ended' && playing){
-        const w = String(battleRoom.winner||'');
-        if(w){
-          if(w === battlePlayerKey) showEnd('battle-win-forfeit');
-          else showEnd('battle-lose-forfeit');
-          return;
-        }
-      }
-      if(battleRoom?.forfeit?.active){
-        const vic = String(battleRoom.forfeit.victim||'');
-        const dl  = Number(battleRoom.forfeit.deadline||0);
-        const rem = dl ? Math.max(0, Math.ceil((dl - serverNow())/1000)) : 0;
-        const oppKey = (battlePlayerKey==='P1') ? 'P2' : 'P1';
-        if(vic === oppKey){
-          setBattleText('Reconnect…', `Opponent reconnecting… ${rem}s`);
-          showBattleUI(true);
-        }
-      }else{
-        if(started) showBattleUI(false);
-      }
-    }
+    setHUD();
 
     if(checkEnd()) return;
     requestAnimationFrame(tick);
@@ -1629,21 +1052,6 @@ export function boot(cfg){
   });
 
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
-
-  // ✅ AI meta init snapshot (optional)
-  aiSafe('updateInputs', { missGoodExpired:0, missJunkHit:0, shield:0, fever:0, combo:0 });
-
-  // start battle setup (non-blocking)
-  if(battleOn){
-    setBattleText('Connecting…', 'Preparing battle room…');
-    showBattleUI(true);
-    setupBattle().catch((e)=>{
-      console.warn('[Battle] setup failed', e);
-      setBattleText('Battle error', 'Failed to connect.\nBack HUB.');
-      showBattleUI(true);
-    });
-  }
-
   sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
   setHUD();
   requestAnimationFrame(tick);
