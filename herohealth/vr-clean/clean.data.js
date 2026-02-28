@@ -1,181 +1,156 @@
 // === /herohealth/vr-clean/clean.data.js ===
-// Clean Objects — Home Grid Map (MVP) — v20260223
+// Clean Objects DATA — HOME GRID (10 hotspots) — v20260228-FULL
+// Map: 10 (w) x 8 (h)
+// Zones: kitchen / bathroom / living / bedroom
+//
+// Fields:
+//  id, label, name, zone, x, y,
+//  risk (0..100), traffic (0..1), touchLevel (0..1),
+//  surfaceType (metal/plastic/glass/wood/tile/fabric),
+//  timeLastCleanedMin (minutes since last cleaned)
+
 'use strict';
 
 export const MAP = {
-  id: 'home',
-  title: 'Home',
-  w: 12,
+  w: 10,
   h: 8,
-  // grid units are abstract; UI can map to pixels
+  title: 'Home Grid'
 };
 
-// Zones are rectangles in grid coordinates (x,y,w,h)
-export const ZONES = [
-  { id:'entry',   name:'Entry',   x:0,  y:0, w:3,  h:2 },
-  { id:'living',  name:'Living',  x:3,  y:0, w:5,  h:4 },
-  { id:'kitchen', name:'Kitchen', x:8,  y:0, w:4,  h:3 },
-  { id:'bath',    name:'Bath',    x:8,  y:3, w:4,  h:3 },
-  { id:'bed',     name:'Bed',     x:0,  y:2, w:3,  h:6 },
-  { id:'hall',    name:'Hall',    x:3,  y:4, w:5,  h:4 },
-];
+// optional, if you want zone meta later
+export const ZONES = {
+  kitchen: { label: 'ครัว' },
+  bathroom:{ label: 'ห้องน้ำ' },
+  living:  { label: 'ห้องนั่งเล่น' },
+  bedroom: { label: 'ห้องนอน' }
+};
 
-// Touch level normalized: low=0.3, med=0.6, high=1.0
-// Traffic normalized: low=0.3, med=0.6, high=1.0
-// timeLastCleanedMin: minutes since last cleaned
 export const HOTSPOTS = [
+  // --- KITCHEN (ซ้ายบน) ---
   {
-    id:'door_knob',
-    name:'Door knob',
-    zone:'entry',
-    x:2, y:1,
-    risk: 78,
-    traffic: 1.0,
-    surfaceType: 'metal',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 720, // 12h
-    tags: ['touchHigh','shared']
-  },
-  {
-    id:'light_switch',
-    name:'Light switch',
-    zone:'living',
-    x:4, y:1,
-    risk: 62,
-    traffic: 0.8,
-    surfaceType: 'plastic',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 1440, // 24h
-    tags: ['touchHigh']
-  },
-  {
-    id:'dining_table',
-    name:'Dining table',
-    zone:'living',
-    x:6, y:2,
-    risk: 55,
-    traffic: 0.6,
-    surfaceType: 'wood',
-    touchLevel: 0.6,
-    timeLastCleanedMin: 480,
-    tags: ['shared']
-  },
-  {
-    id:'tv_remote',
-    name:'TV remote',
-    zone:'living',
-    x:7, y:1,
-    risk: 70,
-    traffic: 0.7,
-    surfaceType: 'plastic',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 2880, // 2 days
-    tags: ['touchHigh','shared']
-  },
-  {
-    id:'faucet',
-    name:'Faucet',
-    zone:'bath',
-    x:9, y:4,
-    risk: 66,
-    traffic: 0.8,
-    surfaceType: 'metal',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 960, // 16h
-    tags: ['touchHigh','wet']
-  },
-  {
-    id:'fridge_handle',
-    name:'Fridge handle',
-    zone:'kitchen',
-    x:10, y:1,
-    risk: 74,
-    traffic: 1.0,
-    surfaceType: 'metal',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 1440,
-    tags: ['touchHigh','shared']
-  },
-  {
-    id:'toilet_flush',
-    name:'Toilet flush / handle',
-    zone:'bath',
-    x:11, y:5,
+    id: 'door_knob',
+    label: 'D',
+    name: 'มือจับประตูทางเข้า',
+    zone: 'living',
+    x: 1, y: 1,
     risk: 82,
-    traffic: 0.7,
-    surfaceType: 'plastic',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 2880,
-    tags: ['touchHigh','wet']
+    traffic: 0.95,
+    touchLevel: 0.95,
+    surfaceType: 'metal',
+    timeLastCleanedMin: 18*60
   },
   {
-    id:'phone_tablet',
-    name:'Phone / tablet',
-    zone:'bed',
-    x:1, y:4,
+    id: 'light_switch',
+    label: 'L',
+    name: 'สวิตช์ไฟ (โถง/ทางเข้า)',
+    zone: 'living',
+    x: 2, y: 2,
+    risk: 76,
+    traffic: 0.85,
+    touchLevel: 0.92,
+    surfaceType: 'plastic',
+    timeLastCleanedMin: 22*60
+  },
+  {
+    id: 'kitchen_counter',
+    label: 'K',
+    name: 'เคาน์เตอร์ครัว (เตรียมอาหาร)',
+    zone: 'kitchen',
+    x: 3, y: 1,
     risk: 68,
-    traffic: 0.6,
-    surfaceType: 'glass',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 2160,
-    tags: ['touchHigh','shared']
-  },
-  {
-    id:'entry_floor',
-    name:'Entry floor spot',
-    zone:'entry',
-    x:1, y:0,
-    risk: 58,
-    traffic: 1.0,
+    traffic: 0.70,
+    touchLevel: 0.80,
     surfaceType: 'tile',
-    touchLevel: 0.3,
-    timeLastCleanedMin: 720,
-    tags: ['trafficHigh']
+    timeLastCleanedMin: 10*60
   },
   {
-    id:'shared_toys',
-    name:'Shared items (toys)',
-    zone:'hall',
-    x:5, y:6,
-    risk: 72,
-    traffic: 0.7,
-    surfaceType: 'plastic',
-    touchLevel: 1.0,
-    timeLastCleanedMin: 4320, // 3 days
-    tags: ['touchHigh','shared']
+    id: 'fridge_handle',
+    label: 'F',
+    name: 'มือจับตู้เย็น',
+    zone: 'kitchen',
+    x: 4, y: 2,
+    risk: 74,
+    traffic: 0.65,
+    touchLevel: 0.88,
+    surfaceType: 'metal',
+    timeLastCleanedMin: 16*60
   },
+
+  // --- BATHROOM (ซ้ายล่าง) ---
+  {
+    id: 'tap_faucet',
+    label: 'T',
+    name: 'ก๊อกน้ำ',
+    zone: 'bathroom',
+    x: 2, y: 6,
+    risk: 80,
+    traffic: 0.75,
+    touchLevel: 0.90,
+    surfaceType: 'metal',
+    timeLastCleanedMin: 14*60
+  },
+  {
+    id: 'toilet_flush',
+    label: 'W',
+    name: 'ปุ่มกดชักโครก',
+    zone: 'bathroom',
+    x: 3, y: 7,
+    risk: 86,
+    traffic: 0.70,
+    touchLevel: 0.95,
+    surfaceType: 'plastic',
+    timeLastCleanedMin: 26*60
+  },
+
+  // --- LIVING (กลางขวา) ---
+  {
+    id: 'remote_control',
+    label: 'R',
+    name: 'รีโมททีวี',
+    zone: 'living',
+    x: 7, y: 3,
+    risk: 72,
+    traffic: 0.55,
+    touchLevel: 0.90,
+    surfaceType: 'plastic',
+    timeLastCleanedMin: 30*60
+  },
+  {
+    id: 'table_surface',
+    label: 'B',
+    name: 'โต๊ะกินข้าว/โต๊ะกลาง',
+    zone: 'living',
+    x: 6, y: 4,
+    risk: 60,
+    traffic: 0.60,
+    touchLevel: 0.65,
+    surfaceType: 'wood',
+    timeLastCleanedMin: 12*60
+  },
+
+  // --- BEDROOM (ขวาล่าง) ---
+  {
+    id: 'phone_screen',
+    label: 'P',
+    name: 'หน้าจอโทรศัพท์',
+    zone: 'bedroom',
+    x: 8, y: 6,
+    risk: 78,
+    traffic: 0.40,
+    touchLevel: 0.98,
+    surfaceType: 'glass',
+    timeLastCleanedMin: 36*60
+  },
+  {
+    id: 'pillow_case',
+    label: 'S',
+    name: 'ปลอกหมอน',
+    zone: 'bedroom',
+    x: 7, y: 7,
+    risk: 58,
+    traffic: 0.35,
+    touchLevel: 0.50,
+    surfaceType: 'fabric',
+    timeLastCleanedMin: 3*24*60
+  }
 ];
-
-// Surface cleaning efficiency (fraction risk reduced)
-// MVP: higher for metal/plastic/glass, lower for wood/tile
-export const SURFACE_EFF = {
-  metal: 0.75,
-  plastic: 0.65,
-  glass: 0.70,
-  wood: 0.55,
-  tile: 0.50,
-  fabric: 0.40,
-};
-
-export function zoneIds(){
-  return Array.from(new Set(ZONES.map(z=>z.id)));
-}
-
-export function surfaceTypes(){
-  return Array.from(new Set(HOTSPOTS.map(h=>h.surfaceType)));
-}
-
-export function getHotspot(id){
-  return HOTSPOTS.find(h=>h.id===id) || null;
-}
-
-export function clamp(v,min,max){
-  v = Number(v);
-  if(!Number.isFinite(v)) v = min;
-  return Math.max(min, Math.min(max, v));
-}
-
-export function norm01(v, min, max){
-  if(max <= min) return 0;
-  return clamp((v - min) / (max - min), 0, 1);
-}
