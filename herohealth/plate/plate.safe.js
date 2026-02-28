@@ -1,489 +1,962 @@
-// === /herohealth/vr-plate/plate.safe.js ===
-// Balanced Plate VR SAFE — PRODUCTION
-// ✅ ESM + hha:shoot + deterministic + AI hooks wired + end summary hardened + cooldown daily-first
-// FULL v20260228-PLATE-SAFE-AIWIRED
+ได้เลยครับ ✅ รอบนี้ “แปะตัวเต็ม” ให้เลย 2 ไฟล์แบบ SAFE/PRODUCTION ตามแพ็กทั้งหมดที่คุยกัน (A+B + heat/coach + hha:event + end-harden + backguard + local day BKK + deterministic research drift)
+
+ด้านล่างคือ:
+
+1. /herohealth/vr-clean/clean.core.js (ตัวเต็ม)
+
+
+2. /herohealth/vr-clean/home-clean.html (ตัวเต็ม, run page)
+
+
+
+> หมายเหตุ: ไฟล์นี้ใช้ clean.data.js ที่มี HOTSPOTS, MAP และ ZONES (ตามที่เราเคยตั้ง) และใช้ clean.ui.js ที่คุณมีอยู่แล้ว (มี onCoach ด้วย)
+
+
+
+
+---
+
+1) /herohealth/vr-clean/clean.core.js (FULL)
+
+// === /herohealth/vr-clean/clean.core.js ===
+// Clean Objects CORE — SAFE/PRODUCTION — v20260228-FULL
+// Modes:
+//  A) Evaluate (PC/Mobile): timeA (fallback time), sprays=3, pick best risk reduction under constraints
+//  B) Create (Cardboard/cVR): timeB (fallback time), maxPoints=N, build route
+//
+// ✅ Local day key (Asia/Bangkok) for payload.day
+// ✅ Deterministic research drift (run=research) based on seed
+// ✅ Event bridge: hha:score + hha:coach + hha:event
+// ✅ End-event hardened (no double end/summary)
+// ✅ Coach micro-tips (explainable + rate-limit)
+//
+// Depends on: ./clean.data.js exports { HOTSPOTS, MAP, ZONES }
+
 'use strict';
 
-export function boot(cfg){
-  cfg = cfg || {};
-  const WIN = window, DOC = document;
+import { HOTSPOTS, MAP } from './clean.data.js';
 
-  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-  const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
-  const nowIso = ()=> new Date().toISOString();
-  const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
+function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); }
+function qs(k, d=''){
+  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+  catch(e){ return d; }
+}
+function nowIso(){ return new Date().toISOString(); }
 
-  // --- cooldown helpers (per-game daily) ---
-  function hhDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function cooldownDone(cat, game, pid){
-    const day=hhDayKey();
-    pid=String(pid||'anon').trim()||'anon';
-    cat=String(cat||'nutrition').toLowerCase();
-    game=String(game||'plate').toLowerCase();
-    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
-    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
-    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
-  }
-  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'plate'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+function localYMD_BKK(ts=Date.now()){
+  // Asia/Bangkok = UTC+7 fixed
+  const d = new Date(ts + 7*60*60*1000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth()+1).padStart(2,'0');
+  const da = String(d.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${da}`;
+}
 
-    const sp = new URL(location.href).searchParams;
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade'
-    ].forEach(k=>{
-      const v=sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k,v);
-    });
-    return gate.toString();
-  }
+function emitEvt(name, detail){
+  try{ window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(e){}
+}
 
-  // --- deterministic rng ---
-  function xmur3(str){
-    str=String(str||'');
-    let h=1779033703^str.length;
-    for(let i=0;i<str.length;i++){
-      h=Math.imul(h^str.charCodeAt(i),3432918353);
-      h=(h<<13)|(h>>>19);
-    }
-    return function(){
-      h=Math.imul(h^(h>>>16),2246822507);
-      h=Math.imul(h^(h>>>13),3266489909);
-      return (h^=(h>>>16))>>>0;
-    };
-  }
-  function sfc32(a,b,c,d){
-    return function(){
-      a>>>=0;b>>>=0;c>>>=0;d>>>=0;
-      let t=(a+b)|0;
-      a=b^(b>>>9);
-      b=(c+(c<<3))|0;
-      c=(c<<21)|(c>>>11);
-      d=(d+1)|0;
-      t=(t+d)|0;
-      c=(c+t)|0;
-      return (t>>>0)/4294967296;
-    };
-  }
-  function makeRng(seedStr){
-    const s=xmur3(seedStr);
-    return sfc32(s(),s(),s(),s());
-  }
-
-  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
-  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const rng = makeRng(seedStr);
-  const r01 = ()=> rng();
-  const pick = (arr)=> arr[(r01()*arr.length)|0];
-
-  const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
-  const HH_CAT='nutrition';
-  const HH_GAME='plate';
-  const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
-
-  // DOM
-  const layer = DOC.getElementById('layer');
-  if(!layer){ console.warn('[Plate] Missing #layer'); return; }
-
-  const ui = {
-    score: DOC.getElementById('score'),
-    time: DOC.getElementById('time'),
-    miss: DOC.getElementById('miss'),
-    grade: DOC.getElementById('grade'),
-    target: DOC.getElementById('target'),
-    ok: DOC.getElementById('ok'),
-    wrong: DOC.getElementById('wrong'),
-    aiRisk: DOC.getElementById('aiRisk'),
-    aiHint: DOC.getElementById('aiHint'),
-    end: DOC.getElementById('end'),
-    endTitle: DOC.getElementById('endTitle'),
-    endSub: DOC.getElementById('endSub'),
-    endGrade: DOC.getElementById('endGrade'),
-    endScore: DOC.getElementById('endScore'),
-    endOk: DOC.getElementById('endOk'),
-    endWrong: DOC.getElementById('endWrong'),
-    btnCopy: DOC.getElementById('btnCopy'),
-    btnReplay: DOC.getElementById('btnReplay'),
-    btnNextCooldown: DOC.getElementById('btnNextCooldown'),
-    btnBackHub: DOC.getElementById('btnBackHub')
+function makeRateLimit(ms){
+  let last = 0;
+  return function ok(now=Date.now()){
+    if(now - last >= ms){ last = now; return true; }
+    return false;
   };
+}
 
-  // Tuning
-  const TUNE = (function(){
-    let spawnBase=0.80, ttl=2.8, missLimit=12;
-    if(diff==='easy'){ spawnBase=0.68; ttl=3.1; missLimit=16; }
-    if(diff==='hard'){ spawnBase=0.95; ttl=2.35; missLimit=9; }
-    if(view==='cvr'||view==='vr') ttl += 0.15;
-    return { spawnBase, ttl, missLimit };
-  })();
+// --- deterministic RNG (seeded)
+function xmur3(str){
+  let h = 1779033703 ^ str.length;
+  for (let i=0;i<str.length;i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= (h >>> 16)) >>> 0;
+  };
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+function makeRng(seedStr){
+  const seedFn = xmur3(String(seedStr||'seed'));
+  return sfc32(seedFn(), seedFn(), seedFn(), seedFn());
+}
 
-  // Thai 5 food groups mapping (your fixed memory)
-  const GROUPS = [
-    { id:1, name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
-    { id:2, name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
-    { id:3, name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
-  ];
+function normalizeView(v){
+  v = String(v||'').toLowerCase();
+  if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
+  if(v==='mobile' || v==='m') return 'mobile';
+  if(v==='pc' || v==='desktop') return 'pc';
+  return v || '';
+}
 
-  // game state
-  const startTimeIso = nowIso();
-  let playing=true;
-  let paused=false;
-  let tLeft=plannedSec;
-  let lastTick=nowMs();
+function makeSessionId(){
+  const pid = String(qs('pid','anon')||'anon');
+  const seed = String(qs('seed', String(Date.now()))||Date.now());
+  const run  = String(qs('run','play')||'play');
+  return `CO_${pid}_${run}_${seed}_${Math.floor(Date.now()/1000)}`;
+}
 
-  // pause hook like others
-  WIN.__PLATE_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
+function emitHHAEvent(type, payload){
+  const base = {
+    schema: 'hha_event_v1',
+    type: String(type||'event'),
+    game: 'cleanobjects',
+    zone: 'hygiene',
+    theme: 'cleanobjects',
+    ts: nowIso(),
+    tsMs: Date.now(),
+    pid: String(qs('pid','anon')||'anon'),
+    run: String(qs('run','play')||'play'),
+    diff: String(qs('diff','normal')||'normal'),
+    seed: String(qs('seed','')||''),
+    view: String(qs('view','')||''),
+    hub: String(qs('hub','')||''),
+    studyId: String(qs('studyId','')||''),
+    phase: String(qs('phase','')||''),
+    conditionGroup: String(qs('conditionGroup','')||''),
+    sessionId: String(payload?.sessionId || ''),
+  };
+  const d = Object.assign(base, payload || {});
+  emitEvt('hha:event', d);
+}
 
-  let score=0, miss=0, ok=0, wrong=0;
-  let combo=0, bestCombo=0;
+// --- scoring helpers
+function valueScoreHotspot(h){
+  // "คุ้ม" = risk * (touch + traffic) * surfaceWeight * stalenessWeight
+  const risk = clamp(h.risk, 0, 100) / 100;
+  const touch = clamp(h.touchLevel, 0, 1);
+  const traffic = clamp(h.traffic, 0, 1);
+  const mins = Math.max(0, Number(h.timeLastCleanedMin||0));
+  const staleness = clamp(mins / (24*60), 0, 2); // 0..2 days scale
+  const staleW = 0.6 + 0.4*clamp(staleness/2, 0, 1);
 
-  // current “target group” mission
-  let targetGroup = pick(GROUPS);
+  const surface = String(h.surfaceType||'').toLowerCase();
+  const surfaceW =
+    (surface==='metal' || surface==='plastic') ? 1.15 :
+    (surface==='glass') ? 1.05 :
+    (surface==='tile') ? 1.00 :
+    (surface==='wood') ? 0.95 :
+    (surface==='fabric') ? 0.90 : 1.0;
 
-  // target objects
-  const foods = new Map();
-  let idSeq=1;
+  const intensity = 0.45*touch + 0.35*traffic + 0.20;
+  const v = risk * intensity * surfaceW * staleW; // ~0.. >1
+  return v;
+}
 
-  function layerRect(){ return layer.getBoundingClientRect(); }
+function rankHotspotsByValue(hs){
+  return (hs||[]).slice().sort((a,b)=> valueScoreHotspot(b) - valueScoreHotspot(a));
+}
 
-  function gradeFromScore(s){
-    const played = Math.max(1, plannedSec - tLeft);
-    const sps = s/played;
-    const x = sps*10 - miss*0.5;
-    if(x>=70) return 'S';
-    if(x>=55) return 'A';
-    if(x>=40) return 'B';
-    if(x>=28) return 'C';
-    return 'D';
+function reasonAuto(h){
+  const parts = [];
+  if(Number(h.risk||0) >= 75) parts.push('เสี่ยงสูง');
+  if(Number(h.touchLevel||0) >= 0.8) parts.push('จุดสัมผัสบ่อย');
+  if(Number(h.traffic||0) >= 0.8) parts.push('คนใช้/ผ่านบ่อย');
+  const mins = Number(h.timeLastCleanedMin||0);
+  if(mins >= 12*60) parts.push('ไม่ได้ทำความสะอาดนาน');
+  if(parts.length===0) parts.push('ลดความเสี่ยงรวม');
+  return parts.slice(0,2).join(' + ');
+}
+
+function mapUserReason(tag, h){
+  // optional tag->text mapping
+  const m = {
+    risk_high: 'เสี่ยงสูง',
+    touch_high: 'จุดสัมผัสบ่อย',
+    traffic_high: 'คนใช้/ผ่านบ่อย',
+    old_clean: 'ไม่ได้ทำความสะอาดนาน',
+    shared_use: 'ใช้ร่วมกัน',
+    wet_area: 'พื้นที่เปียก'
+  };
+  const t = m[String(tag||'')] || '';
+  if(t) return t;
+  return reasonAuto(h);
+}
+
+function scoreA(state){
+  const sel = state.A.selected || [];
+  const top = rankHotspotsByValue(state.hotspots).slice(0,3).map(h=>h.id);
+
+  // Risk reduction: sum of risk removed (we assume cleaning reduces risk to near 5)
+  let rrTotal = 0;
+  for(const s of sel){
+    rrTotal += Number(s.rr||0);
   }
 
-  function setHUD(){
-    ui.score && (ui.score.textContent=String(score|0));
-    ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
-    ui.miss && (ui.miss.textContent=String(miss|0));
-    ui.grade && (ui.grade.textContent=gradeFromScore(score));
-    ui.ok && (ui.ok.textContent=String(ok|0));
-    ui.wrong && (ui.wrong.textContent=String(wrong|0));
-    ui.target && (ui.target.textContent=targetGroup?.name || '—');
+  const coverage = clamp((sel.length / Math.max(1,state.A.maxSelect)) * 100, 0, 100);
+
+  // Decision quality: how many of chosen are in top3 by value
+  let hit = 0;
+  for(const s of sel){
+    if(top.includes(s.id)) hit++;
   }
+  const dq = clamp((hit / Math.max(1, state.A.maxSelect)) * 100, 0, 100);
 
-  function setAIHud(pred){
-    try{
-      if(!pred) return;
-      if(ui.aiRisk) ui.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(ui.aiHint) ui.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
-    }catch(e){}
+  // Final score
+  const score = Math.round(rrTotal * 1.6 + coverage * 1.1 + dq * 1.2);
+
+  return {
+    score,
+    breakdown: { rrTotal: Math.round(rrTotal), coverage: Math.round(coverage), dq: Math.round(dq) },
+    top3: top
+  };
+}
+
+function scoreB(state){
+  const ids = state.B.routeIds || [];
+  const hs = state.hotspots || [];
+  const chosen = ids.map(id=>hs.find(h=>h.id===id)).filter(Boolean);
+
+  // Coverage: cover high-touch points + high-risk points
+  // Use weighted coverage: average of (touch + risk + traffic)
+  let covSum = 0;
+  for(const h of chosen){
+    const touch = clamp(h.touchLevel,0,1);
+    const risk = clamp(h.risk,0,100)/100;
+    const traffic = clamp(h.traffic,0,1);
+    covSum += (0.45*touch + 0.35*risk + 0.20*traffic);
   }
+  const covMax = Math.max(1, state.B.maxPoints) * 1.0;
+  const coverageB = clamp((covSum / covMax) * 100, 0, 100);
 
-  function makeFood(kind, emoji, ttlSec){
-    const id=String(idSeq++);
-    const el=DOC.createElement('div');
-    el.className='food';
-    el.textContent=emoji;
-    el.dataset.id=id;
-    el.dataset.kind=kind;
-
-    const r=layerRect();
-    const pad = (view==='mobile') ? 18 : 22;
-    const x = pad + r01()*(Math.max(1, r.width - pad*2));
-    const y = Math.max(pad+80, pad + r01()*(Math.max(1, r.height - pad*2)));
-
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-
-    layer.appendChild(el);
-
-    const born=nowMs();
-    const ttl=Math.max(1.0, ttlSec)*1000;
-    const obj={ id, el, kind, emoji, born, ttl, promptMs: nowMs() };
-    foods.set(id,obj);
-
-    // AI spawn
-    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
-    return obj;
+  // Balance: encourage diverse surfaces + zones
+  const surfaces = {};
+  const zones = {};
+  for(const h of chosen){
+    const s = String(h.surfaceType||'').toLowerCase();
+    surfaces[s] = (surfaces[s]||0)+1;
+    const z = String(h.zone||'');
+    zones[z] = (zones[z]||0)+1;
   }
+  const surfaceKinds = Object.keys(surfaces).length;
+  const zoneKinds = Object.keys(zones).length;
+  const surfaceScore = clamp((surfaceKinds / 4) * 100, 0, 100); // target 4 types
+  const zoneScore = clamp((zoneKinds / 3) * 100, 0, 100);       // target 3 zones
+  const balanceScore = Math.round(0.6*surfaceScore + 0.4*zoneScore);
 
-  function removeFood(id){
-    const f=foods.get(String(id));
-    if(!f) return;
-    foods.delete(String(id));
-    try{ f.el.remove(); }catch(e){}
+  // Remaining risk: penalize leaving very high value points unchosen
+  const ranked = rankHotspotsByValue(hs);
+  const topK = ranked.slice(0, Math.max(3, state.B.maxPoints)).map(h=>h.id);
+  let miss = 0;
+  for(const id of topK){
+    if(!ids.includes(id)) miss++;
   }
+  const remainScore = Math.round(clamp(100 - (miss / Math.max(1, topK.length)) * 100, 0, 100));
 
-  function isCorrectEmojiForTarget(emoji){
-    return (targetGroup?.items || []).includes(emoji);
-  }
+  const score = Math.round(coverageB*1.2 + balanceScore*0.9 + remainScore*1.1);
 
-  function onHitFood(f, x, y){
-    const correct = (f.kind==='food') && isCorrectEmojiForTarget(f.emoji);
+  return {
+    score,
+    breakdown: { coverageB: Math.round(coverageB), balanceScore, remainScore },
+    routeIds: ids.slice(0)
+  };
+}
 
-    if(correct){
-      ok++;
-      combo++; bestCombo=Math.max(bestCombo, combo);
-      let add = 12 + Math.min(10, combo);
-      score += add;
+// --- CORE
+export function createCleanCore(cfg={}, hooks={}){
+  // config parse
+  const runMode = String(qs('run', cfg.run || 'play') || 'play');
+  const seedStr = String(qs('seed', cfg.seed || String(Date.now())) || Date.now());
+  const view = normalizeView(qs('view', cfg.view || ''));
+  const isCVR = (view === 'cvr');
 
-      // rotate target group occasionally
-      if(ok % 6 === 0){
-        targetGroup = pick(GROUPS);
-      }
+  // support hub standard ?time=... as fallback for both modes
+  const timeStd = qs('time', '');
+  const timeA = clamp(qs('timeA', cfg.timeA ?? (timeStd || '45')), 15, 180);
+  const timeB = clamp(qs('timeB', cfg.timeB ?? (timeStd || '60')), 20, 240);
 
-      try{ cfg.ai?.onHit?.('food_ok', { id:f.id }); }catch(e){}
-    }else{
-      wrong++;
-      miss++;
-      combo=0;
-      score = Math.max(0, score - 8);
-      try{ cfg.ai?.onHit?.('food_wrong', { id:f.id }); }catch(e){}
-    }
+  const sprays = clamp(qs('sprays', cfg.sprays ?? '3'), 1, 9);
+  const maxPoints = clamp(qs('maxPoints', cfg.maxPoints ?? '5'), 2, 12);
 
-    removeFood(f.id);
-  }
-
-  // pointer hits (pc/mobile) — disabled in cVR strict via pointerEvents none in run HTML
-  layer.addEventListener('pointerdown', (ev)=>{
-    if(!playing || paused) return;
-    const el = ev.target?.closest?.('.food');
-    if(!el) return;
-    const id=el.dataset.id;
-    const f=foods.get(String(id));
-    if(f) onHitFood(f, ev.clientX, ev.clientY);
-  }, { passive:true });
-
-  // crosshair shoot (VR/cVR)
-  function pickClosestToCenter(lockPx){
-    lockPx = clamp(lockPx ?? 56, 16, 140);
-    let best=null, bestD=1e9;
-    const r=layerRect();
-    const cx=r.left + r.width/2;
-    const cy=r.top  + r.height/2;
-    for(const f of foods.values()){
-      const b=f.el.getBoundingClientRect();
-      const fx=b.left + b.width/2;
-      const fy=b.top  + b.height/2;
-      const d=Math.hypot(fx-cx, fy-cy);
-      if(d<bestD){ bestD=d; best=f; }
-    }
-    if(best && bestD<=lockPx) return best;
-    return null;
-  }
-
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    if(!playing || paused) return;
-    const lockPx = ev?.detail?.lockPx ?? 56;
-    const f = pickClosestToCenter(lockPx);
-    if(f){
-      const r=layerRect();
-      onHitFood(f, r.left+r.width/2, r.top+r.height/2);
-    }
+  cfg = Object.assign({}, cfg, {
+    run: runMode,
+    seed: seedStr,
+    view,
+    hub: qs('hub', cfg.hub || ''),
+    sessionId: cfg.sessionId || makeSessionId(),
   });
 
-  // end summary
-  const END_SENT_KEY='__HHA_PLATE_END_SENT__';
-  function dispatchEndOnce(summary){
+  const rng = makeRng(seedStr + '::cleanobjects');
+  const coachOK = makeRateLimit(3500);
+
+  // Deep copy hotspots so we can drift risk in research
+  const hotspots = (HOTSPOTS || []).map(h=>Object.assign({}, h));
+
+  // Mode policy: PC/Mobile => A, Cardboard => B (per your spec)
+  const mode = isCVR ? 'B' : 'A';
+
+  const state = {
+    cfg,
+    mode,
+    map: MAP,
+    hotspots,
+    started: false,
+    ended: false,
+    endEmitted: false,
+    t0: 0,
+    lastMs: 0,
+    timeTotal: (mode==='A') ? timeA : timeB,
+    timeLeft: (mode==='A') ? timeA : timeB,
+
+    A: {
+      spraysLeft: sprays,
+      maxSelect: sprays,
+      selected: [] // {id, rr, reasonTag, reasonText}
+    },
+
+    B: {
+      maxPoints: maxPoints,
+      routeIds: []
+    }
+  };
+
+  function emitCoach(kind, text, data){
+    try{ hooks.onCoach && hooks.onCoach({ kind, text, data: data||{}, ts: Date.now() }); }catch(e){}
+    emitEvt('hha:coach', {
+      game: 'cleanobjects',
+      kind: kind,
+      text: text,
+      data: data || {},
+      ts: Date.now()
+    });
+  }
+
+  function emitScore(phase){
     try{
-      if(WIN[END_SENT_KEY]) return;
-      WIN[END_SENT_KEY]=1;
-      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary || null }));
+      let preview = {};
+      if(state.mode === 'A'){
+        const rr = (state.A.selected||[]).reduce((a,b)=>a+Number(b.rr||0),0);
+        preview = {
+          spraysLeft: state.A.spraysLeft,
+          chosen: (state.A.selected||[]).length,
+          rrPreview: Math.round(rr)
+        };
+      } else {
+        preview = {
+          routeN: (state.B.routeIds||[]).length,
+          maxPoints: state.B.maxPoints
+        };
+      }
+
+      emitEvt('hha:score', {
+        game: 'cleanobjects',
+        mode: state.mode,
+        phase: phase || 'tick',
+        timeLeft: Math.round(state.timeLeft || 0),
+        preview,
+        ts: Date.now()
+      });
     }catch(e){}
   }
 
-  function buildSummary(reason){
+  function emitState(){
+    try{ hooks.onState && hooks.onState(snapshot()); }catch(e){}
+    emitScore('state');
+  }
+
+  function snapshot(){
+    // keep small; hotspots can be big but ok for 10 points
     return {
-      projectTag: 'PlateVR',
-      gameVersion: 'PlateVR_SAFE_2026-02-28_AIWired',
-      device: view,
-      runMode,
-      diff,
-      seed: seedStr,
-      reason: String(reason||''),
-      durationPlannedSec: plannedSec,
-      durationPlayedSec: Math.round(plannedSec - tLeft),
-      scoreFinal: score|0,
-      ok: ok|0,
-      wrong: wrong|0,
-      missTotal: miss|0,
-      comboMax: bestCombo|0,
-      targetGroup: targetGroup?.name || '—',
-      startTimeIso,
-      endTimeIso: nowIso(),
-      grade: gradeFromScore(score),
-      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
+      cfg: state.cfg,
+      mode: state.mode,
+      map: state.map,
+      hotspots: state.hotspots,
+      started: state.started,
+      ended: state.ended,
+      timeTotal: state.timeTotal,
+      timeLeft: state.timeLeft,
+      A: {
+        spraysLeft: state.A.spraysLeft,
+        maxSelect: state.A.maxSelect,
+        selected: state.A.selected.slice(0)
+      },
+      B: {
+        maxPoints: state.B.maxPoints,
+        routeIds: state.B.routeIds.slice(0)
+      }
     };
   }
 
-  function setEndButtons(summary){
-    const done = cooldownDone(HH_CAT, HH_GAME, pid);
-    const needCooldown = cooldownRequired && !done;
+  function applyRiskDrift(dt){
+    if(runMode !== 'research') return;
+    if(state.mode !== 'A') return;
+    if(state.ended) return;
 
-    if(ui.btnNextCooldown){
-      ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
-      ui.btnNextCooldown.onclick = null;
-      if(needCooldown){
-        const sp = new URL(location.href).searchParams;
-        const cdnext = sp.get('cdnext') || '';
-        const nextAfterCooldown = cdnext || hubUrl || '../hub.html';
-        const url = buildCooldownUrl({ hub: hubUrl, nextAfterCooldown, cat: HH_CAT, gameKey: HH_GAME, pid });
-        ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
-      }
+    for(const h of state.hotspots){
+      const traffic = Number(h.traffic||0);
+      const touch = Number(h.touchLevel||0);
+      const base = 0.6*traffic + 0.4*touch; // 0..1
+      const jitter = (rng()-0.5) * 0.08;
+      const inc = (0.9*base + jitter) * dt * 1.8;
+
+      const wasCleaned = (state.A.selected||[]).some(s=>s.id===h.id);
+      const mult = wasCleaned ? 0.25 : 1.0;
+
+      h.risk = clamp(Number(h.risk||0) + inc*mult, 0, 100);
     }
-    if(ui.btnBackHub){
-      ui.btnBackHub.textContent = needCooldown ? 'Back HUB (หลัง Cooldown)' : 'Back HUB';
-      ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
-    }
-    if(ui.btnReplay){
-      ui.btnReplay.onclick = ()=>{
-        try{
-          const u = new URL(location.href);
-          if(runMode!=='research'){
-            u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-          }
-          location.href = u.toString();
-        }catch(e){ location.reload(); }
+  }
+
+  function buildSummaryPayload(finalScore, metrics){
+    const pid = String(qs('pid','anon')||'anon');
+    const u = new URL(location.href);
+    return {
+      schema: 'hha_summary_v1',
+      title: 'Clean Objects',
+      zone: 'hygiene',
+      game: 'cleanobjects',
+      theme: 'cleanobjects',
+      day: localYMD_BKK(),
+      run: runMode,
+      diff: String(qs('diff','normal')||'normal'),
+      view: normalizeView(qs('view','')),
+      pid,
+      seed: seedStr,
+      sessionId: state.cfg.sessionId,
+      ts: nowIso(),
+      score: finalScore,
+      metrics
+    };
+  }
+
+  function endGame(reason){
+    if(state.ended) return;
+    state.ended = true;
+
+    let score = 0;
+    let metrics = {};
+    if(state.mode === 'A'){
+      const r = scoreA(state);
+      score = r.score;
+      metrics = {
+        mode: 'A',
+        breakdown: r.breakdown,
+        top3: r.top3,
+        reasons: state.A.selected.map(s=>({ id:s.id, rr:s.rr, reasonTag:s.reasonTag||'', reasonText:s.reasonText||'' }))
+      };
+    } else {
+      const r = scoreB(state);
+      score = r.score;
+      metrics = {
+        mode: 'B',
+        breakdown: r.breakdown,
+        routeIds: r.routeIds
       };
     }
-    if(ui.btnCopy){
-      ui.btnCopy.onclick = async ()=>{
-        try{
-          const text = safeJson(summary);
-          await navigator.clipboard.writeText(text);
-        }catch(e){
-          try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){}
-        }
-      };
+
+    const payload = buildSummaryPayload(score, metrics);
+
+    // session_end event once
+    if(!state.endEmitted){
+      state.endEmitted = true;
+
+      emitHHAEvent('session_end', {
+        sessionId: state.cfg.sessionId,
+        reason: String(reason||'timeup'),
+        mode: state.mode,
+        finalScore: score,
+        metrics: payload.metrics || {},
+        timeLeft: Math.round(state.timeLeft||0),
+        day: payload.day
+      });
+
+      emitEvt('hha:score', {
+        game: 'cleanobjects',
+        mode: state.mode,
+        phase: 'end',
+        timeLeft: Math.round(state.timeLeft || 0),
+        finalScore: score,
+        metrics: payload.metrics || {},
+        ts: Date.now()
+      });
+
+      try{ hooks.onSummary && hooks.onSummary(payload); }catch(e){}
     }
   }
 
-  function showEnd(reason){
-    playing=false;
-    paused=false;
+  function start(){
+    if(state.started) return;
+    state.started = true;
+    state.t0 = performance.now ? performance.now() : Date.now();
+    state.lastMs = state.t0;
 
-    for(const f of foods.values()){ try{ f.el.remove(); }catch(e){} }
-    foods.clear();
+    emitHHAEvent('session_start', {
+      sessionId: state.cfg.sessionId,
+      day: localYMD_BKK(),
+      mode: state.mode,
+      timeTotal: state.timeTotal
+    });
 
-    const summary = buildSummary(reason);
-
-    // AI onEnd
-    try{
-      const aiEnd = cfg.ai?.onEnd?.(summary);
-      if(aiEnd) summary.aiEnd = aiEnd;
-    }catch(e){}
-
-    WIN.__HHA_LAST_SUMMARY = summary;
-    dispatchEndOnce(summary);
-
-    if(ui.end){
-      ui.end.setAttribute('aria-hidden','false');
-      ui.endTitle && (ui.endTitle.textContent='Game Over');
-      ui.endSub && (ui.endSub.textContent=`reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`);
-      ui.endGrade && (ui.endGrade.textContent=summary.grade||'—');
-      ui.endScore && (ui.endScore.textContent=String(summary.scoreFinal|0));
-      ui.endOk && (ui.endOk.textContent=String(summary.ok|0));
-      ui.endWrong && (ui.endWrong.textContent=String(summary.wrong|0));
-      setEndButtons(summary);
-    }
-  }
-
-  // spawn loop
-  let spawnAcc=0;
-  function spawnTick(dt){
-    spawnAcc += TUNE.spawnBase * dt;
-    while(spawnAcc >= 1){
-      spawnAcc -= 1;
-
-      // mostly “food” + sometimes distractor
-      const correct = (r01() < 0.65);
-      let emoji='🍚';
-      if(correct){
-        emoji = pick(targetGroup.items);
-      }else{
-        // pick from other groups
-        const others = GROUPS.filter(g=>g.id!==targetGroup.id);
-        emoji = pick(pick(others).items);
-      }
-      makeFood('food', emoji, TUNE.ttl);
-    }
-  }
-
-  function updateFoods(){
-    const t=nowMs();
-    for(const f of Array.from(foods.values())){
-      const age=t - f.born;
-      if(age >= f.ttl){
-        try{ cfg.ai?.onExpire?.('food', { id:f.id }); }catch(e){}
-        miss++;
-        wrong++;
-        score = Math.max(0, score - 4);
-        combo=0;
-        removeFood(f.id);
-      }
-    }
-  }
-
-  function checkEnd(){
-    if(tLeft<=0){ showEnd('time'); return true; }
-    if(miss>=TUNE.missLimit){ showEnd('miss-limit'); return true; }
-    return false;
+    emitState();
   }
 
   function tick(){
-    if(!playing) return;
+    if(!state.started || state.ended) return;
+    const now = performance.now ? performance.now() : Date.now();
+    let dt = (now - state.lastMs) / 1000;
+    state.lastMs = now;
+    dt = clamp(dt, 0, 0.25);
 
-    if(paused){
-      lastTick=nowMs();
-      setHUD();
-      requestAnimationFrame(tick);
-      return;
+    state.timeLeft = Math.max(0, state.timeLeft - dt);
+
+    // research drift
+    applyRiskDrift(dt);
+
+    try{ hooks.onTick && hooks.onTick(snapshot(), dt); }catch(e){}
+    emitScore('tick');
+
+    if(state.timeLeft <= 0){
+      endGame('timeup');
     }
-
-    const t=nowMs();
-    const dt=Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
-    lastTick=t;
-
-    tLeft=Math.max(0, tLeft - dt);
-
-    spawnTick(dt);
-    updateFoods();
-
-    // AI tick
-    try{
-      const pred = cfg.ai?.onTick?.(dt, { miss, ok, wrong, combo }) || null;
-      setAIHud(pred);
-    }catch(e){}
-
-    setHUD();
-
-    if(checkEnd()) return;
-    requestAnimationFrame(tick);
   }
 
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && playing){ showEnd('background'); }
-  });
+  function selectA(id, userReasonTag=null){
+    if(state.mode !== 'A' || state.ended) return { ok:false, reason:'mode' };
+    id = String(id||'');
+    if(!id) return { ok:false, reason:'id' };
+    if(state.A.spraysLeft <= 0) return { ok:false, reason:'no_sprays' };
+    if(state.A.selected.some(s=>s.id===id)) return { ok:false, reason:'already' };
 
-  try{ WIN[END_SENT_KEY]=0; }catch(e){}
-  setHUD();
-  requestAnimationFrame(tick);
+    const h = state.hotspots.find(x=>x.id===id);
+    if(!h) return { ok:false, reason:'missing' };
+
+    // RR: reduce risk to 5
+    const before = clamp(h.risk, 0, 100);
+    const after = 5;
+    const rr = Math.max(0, before - after);
+
+    const reasonText = mapUserReason(userReasonTag, h);
+
+    state.A.selected.push({
+      id,
+      rr: Math.round(rr),
+      reasonTag: String(userReasonTag||''),
+      reasonText
+    });
+
+    state.A.spraysLeft = Math.max(0, state.A.spraysLeft - 1);
+
+    emitHHAEvent('clean_select', {
+      sessionId: state.cfg.sessionId,
+      mode: 'A',
+      hotspotId: id,
+      reasonTag: String(userReasonTag||''),
+      reasonText: reasonText || '',
+      spraysLeft: state.A.spraysLeft,
+      timeLeft: Math.round(state.timeLeft||0)
+    });
+
+    if(coachOK()){
+      const top3 = rankHotspotsByValue(state.hotspots).slice(0,3).map(x=>x.id);
+      const hitTop = top3.includes(id);
+      const msg = hitTop
+        ? `ดีมาก! จุดนี้คุ้ม เพราะ ${reasonText}`
+        : `โอเค! แต่ลองดูจุดสัมผัสสูง/เสี่ยงสูงอีกที (เช่น มือจับ/สวิตช์/ที่ใช้ร่วมกัน)`;
+      emitCoach('evaluate_pick', msg, { id, hitTop, reasonText });
+    }
+
+    emitState();
+
+    // if selected all sprays, end early (optional)
+    if(state.A.spraysLeft <= 0){
+      endGame('done');
+    }
+
+    return { ok:true };
+  }
+
+  function toggleRouteB(id){
+    if(state.mode !== 'B' || state.ended) return { ok:false, reason:'mode' };
+    id = String(id||'');
+    if(!id) return { ok:false, reason:'id' };
+    const h = state.hotspots.find(x=>x.id===id);
+    if(!h) return { ok:false, reason:'missing' };
+
+    const idx = state.B.routeIds.indexOf(id);
+    if(idx >= 0){
+      state.B.routeIds.splice(idx,1);
+    } else {
+      if(state.B.routeIds.length >= state.B.maxPoints) return { ok:false, reason:'full' };
+      state.B.routeIds.push(id);
+    }
+
+    emitHHAEvent('route_toggle', {
+      sessionId: state.cfg.sessionId,
+      mode: 'B',
+      hotspotId: id,
+      routeN: state.B.routeIds.length,
+      maxPoints: state.B.maxPoints,
+      timeLeft: Math.round(state.timeLeft||0)
+    });
+
+    if(coachOK()){
+      const bd = scoreB(state).breakdown;
+      const n = state.B.routeIds.length;
+      let msg = `แผนตอนนี้: Coverage ${bd.coverageB}% • Balance ${bd.balanceScore}% • Remain ${bd.remainScore}%`;
+      if(n < state.B.maxPoints){
+        if(bd.coverageB < 60) msg += ` — เพิ่ม “จุดสัมผัสสูง” เพื่อดัน Coverage`;
+        else if(bd.balanceScore < 55) msg += ` — เลือกพื้นผิวให้หลากหลายขึ้น`;
+        else msg += ` — ใกล้ดีมาก! เลือกอีก ${state.B.maxPoints - n} จุดเพื่อปิดความเสี่ยงที่เหลือ`;
+      }
+      emitCoach('plan_live', msg, { breakdown: bd, n, max: state.B.maxPoints });
+    }
+
+    emitState();
+    return { ok:true };
+  }
+
+  function undoB(){
+    if(state.mode !== 'B' || state.ended) return { ok:false };
+    if(state.B.routeIds.length <= 0) return { ok:false };
+    const id = state.B.routeIds.pop();
+    emitHHAEvent('route_undo', {
+      sessionId: state.cfg.sessionId,
+      mode: 'B',
+      hotspotId: id,
+      routeN: state.B.routeIds.length,
+      maxPoints: state.B.maxPoints,
+      timeLeft: Math.round(state.timeLeft||0)
+    });
+    emitState();
+    return { ok:true };
+  }
+
+  function clearB(){
+    if(state.mode !== 'B' || state.ended) return { ok:false };
+    state.B.routeIds = [];
+    emitHHAEvent('route_clear', {
+      sessionId: state.cfg.sessionId,
+      mode: 'B',
+      routeN: 0,
+      maxPoints: state.B.maxPoints,
+      timeLeft: Math.round(state.timeLeft||0)
+    });
+    emitState();
+    return { ok:true };
+  }
+
+  function submitB(){
+    if(state.mode !== 'B' || state.ended) return { ok:false };
+    emitHHAEvent('route_submit', {
+      sessionId: state.cfg.sessionId,
+      mode: 'B',
+      routeIds: state.B.routeIds.slice(0),
+      timeLeft: Math.round(state.timeLeft||0)
+    });
+    endGame('submit');
+    return { ok:true };
+  }
+
+  return {
+    cfg,
+    start,
+    tick,
+    snapshot,
+
+    // actions
+    selectA,
+    toggleRouteB,
+    undoB,
+    clearB,
+    submitB
+  };
 }
+
+
+---
+
+2) /herohealth/vr-clean/home-clean.html (FULL RUN PAGE)
+
+> เวอร์ชันนี้รวม: UI + hooks onCoach + saveSummary + flush-harden + backbutton guard (confirm)
+
+
+
+<!-- === /herohealth/vr-clean/home-clean.html ===
+Clean Objects (Evaluate → Create) — RUN PAGE — v20260228-FULL
+A: PC/Mobile Evaluate (fallback time=45, sprays=3)
+B: cVR Create (fallback time=60, maxPoints=5)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Clean Objects</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#050814;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(2,6,23,.55);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.94);
+      --mut: rgba(148,163,184,.92);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 60%),
+      radial-gradient(700px 500px at 40% 100%, rgba(244,114,182,.10), transparent 55%),
+      var(--bg);
+      color:var(--txt);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    *{box-sizing:border-box}
+
+    /* --- from previous run page (UI layout) --- */
+    .cleanApp{
+      height:100%;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+    }
+    .hud{
+      grid-column: 1 / -1;
+      border:1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    }
+    .hudRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      padding: 7px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      font-weight: 900;
+      letter-spacing:.02em;
+      font-size: 12px;
+      opacity:.95;
+    }
+    .board{
+      grid-column: 1 / 2;
+      border:1px solid var(--line);
+      background: var(--panel2);
+      border-radius: 18px;
+      position:relative;
+      overflow:hidden;
+      min-height: 360px;
+    }
+    .grid{
+      position:absolute; inset: 10px;
+      border-radius: 16px;
+      background: rgba(2,6,23,.35);
+      border:1px solid rgba(148,163,184,.12);
+      overflow:hidden;
+    }
+    .overlay{ position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; padding: 12px; }
+    .ovHint{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.60);
+      border-radius: 16px;
+      padding: 10px 12px;
+      max-width: 520px;
+      text-align:center;
+      box-shadow: 0 10px 30px rgba(0,0,0,.22);
+    }
+    .ovT{ font-weight: 1000; }
+    .ovS{ font-size: 12px; opacity:.85; margin-top:4px; }
+
+    .info{
+      grid-column: 2 / 3;
+      border:1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 12px;
+      overflow:auto;
+      min-height: 360px;
+    }
+    .routePanel{
+      grid-column: 1 / -1;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.50);
+      border-radius: 18px;
+      padding: 10px 12px;
+      max-height: 220px;
+      overflow:auto;
+    }
+
+    /* --- POLISH PACK: heat overlay, bars, coach toast --- */
+    .heatLayer{ position:absolute; inset:0; pointer-events:none; }
+    .heat{
+      position:absolute;
+      border-radius: 999px;
+      filter: blur(1px);
+      transform: translateZ(0);
+      animation: heatPulse 1.8s ease-in-out infinite;
+    }
+    .heat.hot{ background: radial-gradient(circle, rgba(239,68,68,.55), rgba(239,68,68,0) 70%); }
+    .heat.warm{ background: radial-gradient(circle, rgba(251,191,36,.50), rgba(251,191,36,0) 70%); }
+    .heat.cool{ background: radial-gradient(circle, rgba(34,197,94,.35), rgba(34,197,94,0) 70%); }
+    @keyframes heatPulse{ 0%,100%{ transform: scale(0.95);} 50%{ transform: scale(1.08);} }
+
+    .bars{ margin-top: 10px; display:flex; flex-direction:column; gap:8px; }
+    .barRow{ display:grid; grid-template-columns: 78px 1fr 46px; gap:8px; align-items:center; }
+    .barLab{ font-size:12px; opacity:.85; font-weight:900; }
+    .barTrack{ height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; border:1px solid rgba(148,163,184,.14); }
+    .barFill{ height:100%; background: rgba(59,130,246,.40); border-right:1px solid rgba(59,130,246,.50); }
+    .barVal{ font-size:12px; opacity:.85; text-align:right; font-weight:900; }
+
+    .coachToast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(14px + var(--sab));
+      transform: translateX(-50%);
+      z-index: 120;
+      pointer-events: none;
+    }
+    .ctInner{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.78);
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+
+    @media (max-width: 980px){
+      .cleanApp{ grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto; }
+      .board{ grid-column: 1 / -1; min-height: 340px; }
+      .info{ grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { createCleanCore } from './clean.core.js';
+    import { mountCleanUI } from './clean.ui.js';
+    import { saveSummary } from '../analytics/summary-store.js';
+
+    // Optional: if you want universal VR UI on this run page, uncomment:
+    // import '../vr/vr-ui.js';
+
+    const root = document.getElementById('app');
+
+    // UI first (needs core ref)
+    let core = null;
+    const ui = mountCleanUI(root, {
+      snapshot: ()=> core ? core.snapshot() : null,
+      toggleRouteB: (id)=> core && core.toggleRouteB(id),
+      selectA: (id, reason)=> core && core.selectA(id, reason),
+      undoB: ()=> core && core.undoB(),
+      clearB: ()=> core && core.clearB(),
+      submitB: ()=> core && core.submitB(),
+      cfg: null
+    });
+
+    core = createCleanCore({}, {
+      onState: (S)=> ui.onState(S),
+      onTick: (S,dt)=> ui.onTick(S,dt),
+      onCoach: (msg)=> ui.onCoach(msg),
+      onSummary: (payload)=> {
+        try{ saveSummary(payload); }catch(e){}
+        ui.onSummary(payload);
+      }
+    });
+
+    // patch ui core reference
+    ui && (ui.core = core);
+
+    core.start();
+
+    function loop(){
+      core.tick();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // --- flush-hardened (safe no-op if HHA.flush missing)
+    function safeFlush(tag){
+      try{
+        if(window.HHA && typeof window.HHA.flush === 'function'){
+          window.HHA.flush({ reason: tag || 'pagehide', game:'cleanobjects' });
+        }
+      }catch(e){}
+    }
+    window.addEventListener('pagehide', ()=> safeFlush('pagehide'));
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden') safeFlush('hidden');
+    });
+    window.addEventListener('beforeunload', ()=> safeFlush('beforeunload'));
+
+    // --- Backbutton guard (confirm)
+    (function(){
+      let armed = false;
+      function arm(){
+        if(armed) return;
+        armed = true;
+        try{ history.pushState({hha_guard:1}, '', location.href); }catch(e){}
+      }
+      arm();
+
+      window.addEventListener('popstate', ()=>{
+        // if ended, allow back normally
+        try{
+          const snap = core.snapshot();
+          if(snap && snap.ended) return;
+        }catch(_){}
+
+        const ok = confirm('ออกจากเกมตอนนี้? ระบบจะพยายามบันทึกข้อมูลก่อนกลับ HUB');
+        if(ok){
+          safeFlush('back');
+          const hub = new URL(location.href).searchParams.get('hub');
+          if(hub) location.href = hub;
+          else history.back();
+        }else{
+          // re-arm
+          armed = false;
+          arm();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+
+
+---
+
+เช็กให้ชัวร์หลังวางไฟล์
+
+เปิด launcher root:
+.../herohealth/clean-objects.html?... → auto redirect → .../herohealth/vr-clean/home-clean.html?...
+
+โหมด A (pc/mobile) = Evaluate + risk drift เฉพาะ run=research
+
+โหมด B (view=cvr) = Create + route bars + submit
+
+จะมี event bridge:
+
+hha:event (session_start / clean_select / route_toggle / route_submit / session_end)
+
+hha:score
+
+hha:coach
+
+
+
+พิมพ์ ต่อ อีกที เดี๋ยวผม “แปะตัวเต็ม” ไฟล์ clean.ui.js เวอร์ชันที่เข้ากับ core ตัวนี้แบบ 100% (รวม heatLayer/bars/coach toast/Go Cooldown ปุ่ม) ให้ครบชุดเดียวจบ ✅
