@@ -1,7 +1,7 @@
 // === /herohealth/vr/battle-rtdb.js ===
 // HeroHealth Battle RTDB (optional) — realtime scoreboard + winner by score→acc→miss→medianRT
-// Requires Firebase v9+ (modular) loaded via dynamic import from CDN OR your bundled build.
-// You must provide window.HHA_BATTLE_CFG = { apiKey, authDomain, databaseURL, projectId, appId }
+// Requires: window.HHA_BATTLE_CFG = { apiKey, authDomain, databaseURL, projectId, appId }
+// CDN Firebase modular import (v10.x)
 // FULL v20260228-BATTLE-RTDB
 'use strict';
 
@@ -12,19 +12,14 @@ const WIN = (typeof window!=='undefined') ? window : globalThis;
 function qs(k, d=''){
   try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; }
 }
-
 function now(){ return Date.now(); }
-
 function safeId(s){
   s = String(s||'').trim();
   return s.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,32) || 'room';
 }
 
 async function loadFirebase(){
-  // If you already bundle firebase, expose it on window to skip CDN imports
   if(WIN.firebase && WIN.firebase.initializeApp && WIN.firebase.getDatabase) return WIN.firebase;
-
-  // CDN modular imports
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
   const dbMod  = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
   return Object.assign({}, appMod, dbMod);
@@ -52,13 +47,12 @@ export async function initBattle(opts){
   const forfeitMs   = Number(opts.forfeitMs ?? 5000) || 5000;
 
   const fb = await loadFirebase();
-  const app = fb.initializeApp(cfg, `hha-battle-${room}`);
+  const app = fb.initializeApp(cfg, `hha-battle-${room}-${pid}`);
   const db  = fb.getDatabase(app);
 
-  const { ref, set, update, onValue, get, child } = fb;
+  const { ref, set, update, onValue, get } = fb;
 
   const roomPath = buildRoomPath(room);
-  const roomRef  = ref(db, roomPath);
   const playersRef = ref(db, `${roomPath}/players`);
   const metaRef = ref(db, `${roomPath}/meta`);
   const stateRef = ref(db, `${roomPath}/state`);
@@ -71,7 +65,6 @@ export async function initBattle(opts){
   let opponentKey = null;
 
   async function ensureRoom(){
-    // create meta if not exists
     try{
       const snap = await get(metaRef);
       if(!snap.exists()){
@@ -89,7 +82,6 @@ export async function initBattle(opts){
   async function join(){
     await ensureRoom();
 
-    // Upsert myself
     await update(myRef, {
       pid,
       joinedAt: now(),
@@ -98,7 +90,6 @@ export async function initBattle(opts){
       score: 0, miss: 0, accPct: 0, shots: 0, hits: 0, medianRtGoodMs: 0
     });
 
-    // detect opponent
     onValue(playersRef, (snap)=>{
       const v = snap.val() || {};
       const keys = Object.keys(v);
@@ -108,7 +99,6 @@ export async function initBattle(opts){
         WIN.dispatchEvent(new CustomEvent('hha:battle-players', { detail: { room, me: myKey, opponent: opponentKey, players:v } }));
       }catch(e){}
 
-      // autostart when 2 players ready and not started
       if(keys.length >= 2 && !started && !ended){
         const allReady = keys.every(k=> (v[k]?.status||'') === 'ready');
         if(allReady){
@@ -125,7 +115,6 @@ export async function initBattle(opts){
       }
     });
 
-    // state updates
     onValue(stateRef, (snap)=>{
       const st = snap.val() || {};
       try{
@@ -162,7 +151,6 @@ export async function initBattle(opts){
       });
     }catch(e){}
 
-    // decide winner locally by pulling both players
     let players = {};
     try{
       const snap = await get(playersRef);
@@ -176,19 +164,18 @@ export async function initBattle(opts){
     const a = players[aKey]?.endSummary || players[aKey] || {};
     const b = players[bKey]?.endSummary || players[bKey] || {};
 
-    // normalize to comparator fields
     const A = {
       scoreFinal: a.scoreFinal ?? a.score ?? 0,
       accPct: a.accPct ?? 0,
       missTotal: a.missTotal ?? a.miss ?? 0,
-      medianRtGoodMs: a.medianRtGoodMs ?? a.medianRtGoodMs ?? 0,
+      medianRtGoodMs: a.medianRtGoodMs ?? 0,
       pid: players[aKey]?.pid || a.pid || aKey
     };
     const B = {
       scoreFinal: b.scoreFinal ?? b.score ?? 0,
       accPct: b.accPct ?? 0,
       missTotal: b.missTotal ?? b.miss ?? 0,
-      medianRtGoodMs: b.medianRtGoodMs ?? b.medianRtGoodMs ?? 0,
+      medianRtGoodMs: b.medianRtGoodMs ?? 0,
       pid: players[bKey]?.pid || b.pid || bKey
     };
 
@@ -218,14 +205,13 @@ export async function initBattle(opts){
     ended = true;
     try{
       await update(myRef, { lastSeen: now(), status:'forfeit' });
-      await update(stateRef, { endedAt: now(), status:'ended', winner: opponentKey ? (opponentKey) : 'opponent', by:'forfeit' });
+      await update(stateRef, { endedAt: now(), status:'ended', winner: opponentKey ? opponentKey : 'opponent', by:'forfeit' });
     }catch(e){}
     try{
       WIN.dispatchEvent(new CustomEvent('hha:battle-ended', { detail: { room, winner:'opponent', by:'forfeit' } }));
     }catch(e){}
   }
 
-  // watchdog: if opponent disappears => auto-win after forfeitMs
   let lastOpponentSeen = now();
   onValue(playersRef, (snap)=>{
     const v = snap.val() || {};
@@ -233,7 +219,6 @@ export async function initBattle(opts){
     if(ok) lastOpponentSeen = Number(v[opponentKey].lastSeen)||now();
     const age = now() - lastOpponentSeen;
     if(started && !ended && opponentKey && age > forfeitMs){
-      // opponent gone
       update(stateRef, { endedAt: now(), status:'ended', winner: pid, by:'opponent-timeout' }).catch(()=>{});
       ended = true;
       try{ WIN.dispatchEvent(new CustomEvent('hha:battle-ended', { detail:{ room, winner: pid, by:'opponent-timeout' } })); }catch(e){}
@@ -242,10 +227,5 @@ export async function initBattle(opts){
 
   await join();
 
-  return {
-    room, pid, game,
-    pushScore,
-    finalizeEnd,
-    forfeit,
-  };
+  return { room, pid, game, pushScore, finalizeEnd, forfeit };
 }
