@@ -1,5 +1,5 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION — v20260219b
+// Boot HygieneVR — PRODUCTION — PATCH v20260216a
 // ✅ Wait for deferred globals (Particles + Quiz bank) then boot engine safely
 'use strict';
 
@@ -59,6 +59,7 @@ async function main(){
     return;
   }
 
+  // let deferred scripts populate
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P) showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
 
@@ -67,7 +68,7 @@ async function main(){
 
   let engine;
   try{
-    engine = await import('./hygiene.safe.js');
+    engine = await import('./hygiene.safe.js?v=20260216a');
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
