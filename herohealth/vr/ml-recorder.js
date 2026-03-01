@@ -86,9 +86,8 @@ export function attachMLRecorderUI(meta){
   });
 
   // --- online labeling queue ---
-  // Each frame becomes labeled later when we observe miss changes in future windows.
-  const pending = []; // {tMs, frame, missAtFrame}
-  const MAX_PENDING = 3000; // safety
+  const pending = []; // {tMs, frame}
+  const MAX_PENDING = 3000;
 
   let last = null;
   let lastPushMs = 0;
@@ -139,12 +138,10 @@ export function attachMLRecorderUI(meta){
     };
 
     last = { miss, score, shots, hits, combo };
-    return { frame, miss };
+    return { frame, dMiss };
   }
 
   function flushLabeled(){
-    // Move any labeled frames into rows, keep unlabeled in pending
-    // (We label in-place and only push when both labels resolved or timeout)
     const keep = [];
     for(const it of pending){
       const y = it.frame.y || {};
@@ -163,19 +160,6 @@ export function attachMLRecorderUI(meta){
     updateN();
   }
 
-  function labelByFutureMiss(){
-    // For each pending item, check if miss increased within windows from its timestamp
-    const tNow = nowMs();
-
-    // We'll need current miss to decide future increase, so we keep snapshots of miss over time.
-    // But simpler: we label when we detect miss change events (dMiss>0) and propagate backwards to items within window.
-  }
-
-  // We'll implement miss-event propagation:
-  // When miss increases at time t, then:
-  // - For items with (t - tItem) <= 1000ms => hazardRisk_1s = 1
-  // - For items with (t - tItem) <= 3000ms => miss_3s = 1
-  // Items not receiving any miss by deadlines => label 0 when window passes.
   function propagateMissEvent(tMissMs){
     for(const it of pending){
       const dt = tMissMs - it.tMs;
@@ -189,7 +173,6 @@ export function attachMLRecorderUI(meta){
   }
 
   function finalizeZeros(){
-    // When window has passed and still null => 0
     const t = nowMs();
     for(const it of pending){
       const age = t - it.tMs;
@@ -202,26 +185,21 @@ export function attachMLRecorderUI(meta){
     const detail = ev?.detail || null;
     if(!detail) return;
 
-    // throttle ~5Hz max
     const t = nowMs();
-    if(t - lastPushMs < 200) return;
+    if(t - lastPushMs < 200) return; // ~5Hz
     lastPushMs = t;
 
-    const { frame } = makeFrame(detail);
+    const { frame, dMiss } = makeFrame(detail);
 
-    // push to pending
     pending.push({ tMs: t, frame });
     if(pending.length > MAX_PENDING){
       pending.splice(0, pending.length - MAX_PENDING);
     }
 
-    // detect miss change this tick (from dMiss)
-    const dMiss = Number(frame.x.dMiss||0);
-    if(dMiss > 0){
+    if(Number(dMiss||0) > 0){
       propagateMissEvent(t);
     }
 
-    // finalize windows
     finalizeZeros();
     flushLabeled();
   }
@@ -229,9 +207,7 @@ export function attachMLRecorderUI(meta){
   function onEnd(ev){
     const summary = ev?.detail || null;
 
-    // force finalize remaining
     finalizeZeros();
-    // any remaining null after end => set 0
     for(const it of pending){
       if(it.frame.y.hazardRisk_1s === null) it.frame.y.hazardRisk_1s = 0;
       if(it.frame.y.miss_3s === null) it.frame.y.miss_3s = 0;
