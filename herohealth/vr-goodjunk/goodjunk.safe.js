@@ -1,15 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
-// + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
-// + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// + ✅ AI HUD: hazardRisk + next watchout
-// + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
-// + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
-// + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// + ✅ FIX: map HHA_FIREBASE_CONFIG -> HHA_BATTLE_CFG automatically
-// + ✅ FIX: cache-bust dynamic import battle-rtdb.js?v=...
-// FULL v20260228p1-SAFE-HELPPAUSE-AIHUD-ACC-MEDRT-BATTLE-FIXOFFSET
+// GoodJunkVR SAFE — PRODUCTION
+// + Help Pause Hook (__GJ_SET_PAUSED__)
+// + End Summary + cooldown button inject
+// + AI Hooks (prediction only) + AI HUD
+// + ACC + median RT + hha:score
+// + Battle RTDB (optional ?battle=1) via ../vr/battle-rtdb.js
+// FULL v20260301-SAFE-AIHUD-ACC-MEDRT-BATTLE-STARTGATE
 'use strict';
 
 export function boot(cfg){
@@ -24,125 +20,7 @@ export function boot(cfg){
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
 
-  // ---------- BATTLE (optional) ----------
-  let battle = null;
-  async function initBattleMaybe(pid, gameKey){
-    const on = String(qs('battle','0')) === '1';
-    if(!on) return null;
-
-    // ✅ auto-map config name (old -> new)
-    try{
-      if(!WIN.HHA_BATTLE_CFG && WIN.HHA_FIREBASE_CONFIG && WIN.HHA_FIREBASE_CONFIG.databaseURL){
-        WIN.HHA_BATTLE_CFG = WIN.HHA_FIREBASE_CONFIG;
-      }
-    }catch(e){}
-
-    try{
-      // ✅ cache bust so mobile doesn’t keep old file
-      const mod = await import(`../vr/battle-rtdb.js?v=20260228p1`);
-      battle = await mod.initBattle({
-        enabled: true,
-        room: qs('room', ''),
-        pid,
-        gameKey,
-        autostartMs: Number(qs('autostart','3000'))||3000,
-        forfeitMs: Number(qs('forfeit','5000'))||5000
-      });
-      return battle;
-    }catch(e){
-      console.warn('[GoodJunk] battle init failed', e);
-      return null;
-    }
-  }
-
-  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
-  function hhDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-
-  function hhCooldownDone(cat, gameKey, pid){
-    const day = hhDayKey();
-    const p = String(pid||'anon').trim()||'anon';
-    const c = String(cat||'nutrition').toLowerCase();
-    const g = String(gameKey||'unknown').toLowerCase();
-    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
-    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
-    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
-  }
-
-  function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'unknown'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
-
-    const sp = new URL(location.href).searchParams;
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade',
-      // battle passthrough
-      'battle','room','autostart','forfeit'
-    ].forEach(k=>{
-      const v = sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k, v);
-    });
-
-    return gate.toString();
-  }
-
-  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
-    if(!endOverlayEl) return;
-    const cdDone = hhCooldownDone(cat, gameKey, pid);
-    if(cdDone) return;
-
-    const sp = new URL(location.href).searchParams;
-    const cdnext = sp.get('cdnext') || '';
-    const nextAfterCooldown = cdnext || hub || '../hub.html';
-    const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
-
-    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
-    let row = panel.querySelector('.hh-end-actions');
-    if(!row){
-      row = DOC.createElement('div');
-      row.className = 'hh-end-actions';
-      row.style.display='flex';
-      row.style.gap='10px';
-      row.style.flexWrap='wrap';
-      row.style.justifyContent='center';
-      row.style.marginTop='12px';
-      row.style.paddingTop='10px';
-      row.style.borderTop='1px solid rgba(148,163,184,.16)';
-      panel.appendChild(row);
-    }
-    if(row.querySelector('[data-hh-cd="1"]')) return;
-
-    const btn = DOC.createElement('button');
-    btn.type='button';
-    btn.dataset.hhCd = '1';
-    btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
-    btn.className = 'btn primary';
-    btn.style.border='1px solid rgba(34,197,94,.30)';
-    btn.style.background='rgba(34,197,94,.14)';
-    btn.style.color='rgba(229,231,235,.96)';
-    btn.style.borderRadius='14px';
-    btn.style.padding='10px 12px';
-    btn.style.fontWeight='1000';
-    btn.style.cursor='pointer';
-    btn.style.minHeight='42px';
-    btn.addEventListener('click', ()=> location.href = url);
-    row.appendChild(btn);
-  }
-
-  // deterministic RNG (xmur3 + sfc32)
+  // ---------- deterministic RNG (seed can be updated by battle) ----------
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -173,10 +51,134 @@ export function boot(cfg){
     const seed = xmur3(seedStr);
     return sfc32(seed(), seed(), seed(), seed());
   }
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const rng = makeRng(seedStr);
+
+  let seedStr = String(cfg.seed || qs('seed', String(Date.now())));
+  let rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
+  function setSeed(next){
+    seedStr = String(next || seedStr);
+    rng = makeRng(seedStr);
+  }
+
+  // ---------- BATTLE (optional) ----------
+  let battle = null;
+  let battleStarted = (qs('battle','0') !== '1'); // default started unless battle=1
+  async function initBattleMaybe(pid, gameKey){
+    const on = String(qs('battle','0')) === '1';
+    if(!on) return null;
+
+    try{
+      const mod = await import('../vr/battle-rtdb.js');
+      battle = await mod.initBattle({
+        enabled: true,
+        room: qs('room', ''),
+        pid,
+        gameKey,
+        autostartMs: Number(qs('autostart','3000'))||3000,
+        forfeitMs: Number(qs('forfeit','5000'))||5000
+      });
+
+      // Optional: share seed across room by deterministic mapping from room+createdAt
+      // (If you want real shared seed, do it in battle-rtdb.js state; for now use room string)
+      if(battle?.room) setSeed(`battle:${battle.room}:${seedStr}`);
+
+      // Gate start at state.startAt
+      WIN.addEventListener('hha:battle-state', (ev)=>{
+        try{
+          const s = ev?.detail || {};
+          if(String(s.status) === 'started' && s.startAt){
+            const t = Date.now();
+            if(t >= Number(s.startAt)) battleStarted = true;
+          }
+          if(String(s.status) === 'ended'){
+            // if ended before start
+            battleStarted = true;
+          }
+        }catch(e){}
+      });
+
+      return battle;
+    }catch(e){
+      console.warn('[GoodJunk] battle init failed', e);
+      battleStarted = true; // fail-open
+      return null;
+    }
+  }
+
+  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
+  function hhDayKey(){
+    const d=new Date();
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function hhCooldownDone(cat, gameKey, pid){
+    const day = hhDayKey();
+    const p = String(pid||'anon').trim()||'anon';
+    const c = String(cat||'nutrition').toLowerCase();
+    const g = String(gameKey||'unknown').toLowerCase();
+    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
+    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
+    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
+  }
+  function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+    const gate = new URL('../warmup-gate.html', location.href);
+    gate.searchParams.set('gatePhase','cooldown');
+    gate.searchParams.set('cat', String(cat||'nutrition'));
+    gate.searchParams.set('theme', String(gameKey||'unknown'));
+    gate.searchParams.set('pid', String(pid||'anon'));
+    if(hub) gate.searchParams.set('hub', String(hub));
+    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+
+    const sp = new URL(location.href).searchParams;
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone','cdnext','grade',
+      'battle','room','autostart','forfeit','ai','mlrec'
+    ].forEach(k=>{
+      const v = sp.get(k);
+      if(v!=null && v!=='') gate.searchParams.set(k, v);
+    });
+
+    return gate.toString();
+  }
+  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
+    if(!endOverlayEl) return;
+    if(hhCooldownDone(cat, gameKey, pid)) return;
+
+    const sp = new URL(location.href).searchParams;
+    const cdnext = sp.get('cdnext') || '';
+    const nextAfterCooldown = cdnext || hub || '../hub.html';
+    const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
+
+    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
+    let row = panel.querySelector('.hh-end-actions');
+    if(!row){
+      row = DOC.createElement('div');
+      row.className = 'hh-end-actions';
+      row.style.display='flex';
+      row.style.gap='10px';
+      row.style.flexWrap='wrap';
+      row.style.justifyContent='center';
+      row.style.marginTop='12px';
+      row.style.paddingTop='10px';
+      row.style.borderTop='1px solid rgba(148,163,184,.16)';
+      panel.appendChild(row);
+    }
+    if(row.querySelector('[data-hh-cd="1"]')) return;
+
+    const btn = DOC.createElement('button');
+    btn.type='button';
+    btn.dataset.hhCd='1';
+    btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
+    btn.className='btn primary';
+    btn.addEventListener('click', ()=> location.href = url);
+    row.appendChild(btn);
+  }
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
@@ -213,7 +215,6 @@ export function boot(cfg){
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
 
-  // optional debug pills
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
   const uiDiff = $('uiDiff');
@@ -229,16 +230,14 @@ export function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // hub / pid / cat / gameKey (used for cooldown button)
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
 
   // init battle (optional)
-  initBattleMaybe(pid, HH_GAME).catch(()=>{});
+  initBattleMaybe(pid, HH_GAME).catch(()=>{ battleStarted = true; });
 
-  // UI pill show
   try{
     if(uiView) uiView.textContent = view;
     if(uiRun)  uiRun.textContent  = runMode;
@@ -287,26 +286,26 @@ export function boot(cfg){
 
   // ---------- FX layer ----------
   const fxLayer = DOC.createElement('div');
-  fxLayer.style.position = 'fixed';
-  fxLayer.style.inset = '0';
-  fxLayer.style.pointerEvents = 'none';
-  fxLayer.style.zIndex = '260';
+  fxLayer.style.position='fixed';
+  fxLayer.style.inset='0';
+  fxLayer.style.pointerEvents='none';
+  fxLayer.style.zIndex='260';
   DOC.body.appendChild(fxLayer);
 
   function fxFloatText(x,y,text,isBad){
     const el = DOC.createElement('div');
     el.textContent = text;
-    el.style.position = 'absolute';
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-    el.style.transform = 'translate(-50%,-50%)';
-    el.style.font = '900 18px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial';
-    el.style.letterSpacing = '.2px';
+    el.style.position='absolute';
+    el.style.left=`${x}px`;
+    el.style.top =`${y}px`;
+    el.style.transform='translate(-50%,-50%)';
+    el.style.font='900 18px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial';
+    el.style.letterSpacing='.2px';
     el.style.color = isBad ? 'rgba(255,110,110,.96)' : 'rgba(229,231,235,.98)';
-    el.style.textShadow = '0 10px 30px rgba(0,0,0,.55)';
-    el.style.filter = 'drop-shadow(0 10px 26px rgba(0,0,0,.45))';
-    el.style.opacity = '1';
-    el.style.willChange = 'transform, opacity';
+    el.style.textShadow='0 10px 30px rgba(0,0,0,.55)';
+    el.style.filter='drop-shadow(0 10px 26px rgba(0,0,0,.45))';
+    el.style.opacity='1';
+    el.style.willChange='transform, opacity';
     fxLayer.appendChild(el);
 
     const t0 = nowMs();
@@ -315,7 +314,7 @@ export function boot(cfg){
     function tick(){
       const t = nowMs() - t0;
       const p = Math.min(1, t/dur);
-      const yy = y - rise * (p);
+      const yy = y - rise*p;
       const sc = 1 + 0.08*Math.sin(p*3.14);
       el.style.top = `${yy}px`;
       el.style.opacity = String(1 - p);
@@ -330,16 +329,16 @@ export function boot(cfg){
     const n = 10 + ((r01()*6)|0);
     for(let i=0;i<n;i++){
       const dot = DOC.createElement('div');
-      dot.style.position = 'absolute';
-      dot.style.left = `${x}px`;
-      dot.style.top  = `${y}px`;
-      dot.style.width = '6px';
-      dot.style.height = '6px';
-      dot.style.borderRadius = '999px';
-      dot.style.background = 'rgba(229,231,235,.92)';
-      dot.style.opacity = '1';
-      dot.style.transform = 'translate(-50%,-50%)';
-      dot.style.willChange = 'transform, opacity';
+      dot.style.position='absolute';
+      dot.style.left=`${x}px`;
+      dot.style.top =`${y}px`;
+      dot.style.width='6px';
+      dot.style.height='6px';
+      dot.style.borderRadius='999px';
+      dot.style.background='rgba(229,231,235,.92)';
+      dot.style.opacity='1';
+      dot.style.transform='translate(-50%,-50%)';
+      dot.style.willChange='transform, opacity';
       fxLayer.appendChild(dot);
 
       const ang = r01()*Math.PI*2;
@@ -354,10 +353,10 @@ export function boot(cfg){
         const p = Math.min(1, t/dur);
         const xx = x + vx*p;
         const yy = y + vy*p - 30*p*p;
-        dot.style.left = `${xx}px`;
-        dot.style.top  = `${yy}px`;
-        dot.style.opacity = String(1 - p);
-        dot.style.transform = `translate(-50%,-50%) scale(${1 - 0.4*p})`;
+        dot.style.left=`${xx}px`;
+        dot.style.top =`${yy}px`;
+        dot.style.opacity=String(1 - p);
+        dot.style.transform=`translate(-50%,-50%) scale(${1 - 0.4*p})`;
         if(p<1) requestAnimationFrame(tick);
         else dot.remove();
       }
@@ -367,20 +366,20 @@ export function boot(cfg){
 
   // ---------- Coach (micro tips) ----------
   const coach = DOC.createElement('div');
-  coach.style.position = 'fixed';
-  coach.style.left = '10px';
-  coach.style.right = '10px';
-  coach.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + 10px)`;
-  coach.style.zIndex = '210';
-  coach.style.pointerEvents = 'none';
-  coach.style.display = 'flex';
-  coach.style.justifyContent = 'center';
-  coach.style.opacity = '0';
-  coach.style.transform = 'translateY(6px)';
-  coach.style.transition = 'opacity .18s ease, transform .18s ease';
+  coach.style.position='fixed';
+  coach.style.left='10px';
+  coach.style.right='10px';
+  coach.style.bottom=`calc(env(safe-area-inset-bottom, 0px) + 10px)`;
+  coach.style.zIndex='210';
+  coach.style.pointerEvents='none';
+  coach.style.display='flex';
+  coach.style.justifyContent='center';
+  coach.style.opacity='0';
+  coach.style.transform='translateY(6px)';
+  coach.style.transition='opacity .18s ease, transform .18s ease';
   coach.innerHTML = `
     <div style="
-      max-width:760px; width:100%;
+      max-width:760px;width:100%;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.62);
       color:rgba(229,231,235,.96);
@@ -389,7 +388,7 @@ export function boot(cfg){
       box-shadow:0 18px 55px rgba(0,0,0,.40);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      font: 900 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+      font: 900 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;">
       <span style="opacity:.9">🧑‍⚕️ Coach:</span> <span id="coachText">—</span>
     </div>`;
   DOC.body.appendChild(coach);
@@ -401,11 +400,11 @@ export function boot(cfg){
     if(t - coachLatchMs < 4500) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
-    coach.style.opacity = '1';
-    coach.style.transform = 'translateY(0)';
+    coach.style.opacity='1';
+    coach.style.transform='translateY(0)';
     setTimeout(()=>{
-      coach.style.opacity = '0';
-      coach.style.transform = 'translateY(6px)';
+      coach.style.opacity='0';
+      coach.style.transform='translateY(6px)';
     }, 2200);
   }
 
@@ -424,7 +423,7 @@ export function boot(cfg){
   let tLeft = plannedSec;
   let lastTick = nowMs();
 
-  // ✅ Help Pause Hook
+  // Help Pause Hook
   let paused = false;
   WIN.__GJ_SET_PAUSED__ = function(on){
     paused = !!on;
@@ -467,53 +466,15 @@ export function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
-  WIN.__GJ_STATE__ = {
-    targets,
-    get miss(){ return missTotal; },
-    get score(){ return score; },
-    get combo(){ return combo; },
-    get fever(){ return fever; }
-  };
-
   function layerRect(){ return layer.getBoundingClientRect(); }
 
-  function getSpawnSafeLocal(){
-    const r = layerRect();
-    let s = null;
-    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
-
-    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
-      let xMin = Number(s.xMin) - r.left;
-      let xMax = Number(s.xMax) - r.left;
-      let yMin = Number(s.yMin) - r.top;
-      let yMax = Number(s.yMax) - r.top;
-
-      xMin = clamp(xMin, 0, r.width);
-      xMax = clamp(xMax, 0, r.width);
-      yMin = clamp(yMin, 0, r.height);
-      yMax = clamp(yMax, 0, r.height);
-
-      if((xMax - xMin) >= 120 && (yMax - yMin) >= 140){
-        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
-      }
-    }
-
-    const pad = 18;
-    const yMin = Math.min(r.height - 160, 180);
-    const yMax = Math.max(yMin + 160, r.height - 110);
-    return {
-      xMin: pad,
-      xMax: Math.max(pad + 120, r.width - pad),
-      yMin: clamp(yMin, pad, Math.max(pad, r.height - 200)),
-      yMax: clamp(yMax, Math.max(pad+160, yMin+160), Math.max(pad+200, r.height - pad)),
-      w: r.width,
-      h: r.height
-    };
+  function median(arr){
+    if(!arr || !arr.length) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = (a.length/2)|0;
+    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
   }
-
-  WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){
-    try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){}
-  };
+  function accPct(){ return shots>0 ? Math.round((hits/shots)*100) : 0; }
 
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
@@ -525,17 +486,6 @@ export function boot(cfg){
     if(x >= 40) return 'B';
     if(x >= 28) return 'C';
     return 'D';
-  }
-
-  function median(arr){
-    if(!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const m = (a.length/2)|0;
-    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
-  }
-
-  function accPct(){
-    return shots>0 ? Math.round((hits/shots)*100) : 0;
   }
 
   function emitScoreEvent(){
@@ -589,8 +539,7 @@ export function boot(cfg){
         const hpPct = (bossHpMax>0) ? (bossHp/bossHpMax)*100 : 0;
         if(bossFill) bossFill.style.width = `${clamp(hpPct,0,100)}%`;
         if(bossHint){
-          bossHint.textContent =
-            bossPhase===0 ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
+          bossHint.textContent = (bossPhase===0) ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
         }
       }
     }
@@ -632,7 +581,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-02-28p1_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE_FIXOFFSET',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-01_AIHUD_ACC_MEDRT_BATTLE',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -650,7 +599,7 @@ export function boot(cfg){
       missJunkHit: missJunkHit|0,
       avgRtGoodMs: avgRt|0,
       medianRtGoodMs: medRt|0,
-      bossDefeated: false, // keep as-is (คุณมี logic boss ในไฟล์เต็มของคุณ)
+      bossDefeated: !!(bossActive && bossHp<=0),
       stormOn: !!stormOn,
       rageOn: !!rageOn,
       shieldEnd: shield|0,
@@ -658,9 +607,7 @@ export function boot(cfg){
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
       tieBreakOrder: 'score→acc→miss→medianRT',
-      aiPredictionLast: (function(){
-        try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
-      })(),
+      aiPredictionLast: (function(){ try{ return AI?.getPrediction?.() || null; }catch(e){ return null; } })(),
     };
   }
 
@@ -694,15 +641,57 @@ export function boot(cfg){
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
 
-      try{
-        hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-      }catch(e){}
+      try{ hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid }); }catch(e){}
     }
 
     sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
     setHUD();
   }
 
+  function setAIInputs(){
+    try{
+      AI?.updateInputs?.({
+        missGoodExpired,
+        missJunkHit,
+        shield,
+        fever,
+        combo,
+        tLeft,
+        score
+      });
+    }catch(e){}
+  }
+
+  // ---------- spawn safe ----------
+  function getSpawnSafeLocal(){
+    const r = layerRect();
+    let s = null;
+    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s=null; }
+
+    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
+      let xMin = Number(s.xMin) - r.left;
+      let xMax = Number(s.xMax) - r.left;
+      let yMin = Number(s.yMin) - r.top;
+      let yMax = Number(s.yMax) - r.top;
+      xMin = clamp(xMin, 0, r.width);  xMax = clamp(xMax, 0, r.width);
+      yMin = clamp(yMin, 0, r.height); yMax = clamp(yMax, 0, r.height);
+      if((xMax-xMin) >= 120 && (yMax-yMin) >= 140) return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
+    }
+
+    const pad = 18;
+    const yMin = Math.min(r.height - 160, 180);
+    const yMax = Math.max(yMin + 160, r.height - 110);
+    return {
+      xMin: pad,
+      xMax: Math.max(pad + 120, r.width - pad),
+      yMin: clamp(yMin, pad, Math.max(pad, r.height - 200)),
+      yMax: clamp(yMax, Math.max(pad+160, yMin+160), Math.max(pad+200, r.height - pad)),
+      w: r.width, h: r.height
+    };
+  }
+  WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){ try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){} };
+
+  // ---------- targets ----------
   function makeTarget(kind, emoji, ttlSec){
     const id = String(idSeq++);
     const el = DOC.createElement('div');
@@ -718,8 +707,8 @@ export function boot(cfg){
     const yMin = safe.yMin + rPad;
     const yMax = safe.yMax - rPad;
 
-    const x = xMin + r01()*(Math.max(1, xMax - xMin));
-    const y = yMin + r01()*(Math.max(1, yMax - yMin));
+    const x = xMin + r01()*(Math.max(1, xMax-xMin));
+    const y = yMin + r01()*(Math.max(1, yMax-yMin));
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -731,10 +720,10 @@ export function boot(cfg){
 
     layer.appendChild(el);
 
-    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
+    const tObj = { id, el, kind, emoji, born, ttl, x, y, drift, promptMs: nowMs() };
     targets.set(id, tObj);
 
-    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+    try{ AI?.onSpawn?.(kind, { id, emoji, ttlMs: Math.round(ttl) }); }catch(e){}
     return tObj;
   }
 
@@ -747,21 +736,25 @@ export function boot(cfg){
 
   function addFever(v){
     fever = clamp(fever + v, 0, 100);
+    if(fever >= 100 && !rageOn){
+      rageOn = true;
+      rageLeft = 7.0;
+      fever = 100;
+      sayCoach('FEVER! คะแนนคูณ 🔥');
+    }
   }
 
   function addShield(){
     shield = clamp(shield + 1, 0, 9);
+    sayCoach('ได้โล่! 🛡️ กันของเสียได้');
   }
 
+  // ---------- hit logic ----------
   function onHitGood(t, clientX, clientY){
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
-    goodHitCount++;
-    rtSum += rt;
-    rtList.push(rt);
+    goodHitCount++; rtSum += rt; rtList.push(rt);
 
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
+    combo++; bestCombo = Math.max(bestCombo, combo);
     let add = 10 + Math.min(12, combo);
     if(rageOn) add = Math.round(add * 1.6);
 
@@ -772,7 +765,10 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
 
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
+    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
+
+    try{ AI?.onHit?.('good', { id:t.id, rtMs:rt, add }); }catch(e){}
     removeTarget(t.id);
   }
 
@@ -781,35 +777,35 @@ export function boot(cfg){
       shield--;
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
-      try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
+      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
+
+      try{ AI?.onHit?.('junk', { id:t.id, blocked:true }); }catch(e){}
       removeTarget(t.id);
       return;
     }
 
-    missTotal++;
-    missJunkHit++;
-    combo = 0;
-
+    missTotal++; missJunkHit++; combo = 0;
     const sub = 8;
     score = Math.max(0, score - sub);
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
 
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    try{ AI?.onHit?.('junk', { id:t.id, blocked:false, sub }); }catch(e){}
     removeTarget(t.id);
+
+    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
+    combo++; bestCombo = Math.max(bestCombo, combo);
     let add = rPick([25,30,35]);
     if(rageOn) add = Math.round(add * 1.5);
     score += add;
 
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
+    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
 
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    try{ AI?.onHit?.('bonus', { id:t.id, add }); }catch(e){}
     removeTarget(t.id);
   }
 
@@ -818,8 +814,46 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
 
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    try{ AI?.onHit?.('shield', { id:t.id }); }catch(e){}
     removeTarget(t.id);
+  }
+
+  function onHitBoss(t, clientX, clientY){
+    if(!bossActive) return;
+
+    if(bossPhase===0){
+      bossShieldHp--;
+      fxBurst(clientX, clientY);
+      fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
+      if(bossShieldHp<=0){
+        bossPhase = 1;
+        sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
+      }
+      try{ AI?.onHit?.('boss', { id:t.id, bossPhase, shieldHp: bossShieldHp }); }catch(e){}
+      removeTarget(t.id);
+      return;
+    }
+
+    const dmg = rageOn ? 4 : 3;
+    bossHp = Math.max(0, bossHp - dmg);
+
+    let add = 22 + dmg*6;
+    if(rageOn) add = Math.round(add * 1.4);
+    score += add;
+    addFever(9);
+
+    fxBurst(clientX, clientY);
+    fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
+
+    try{ AI?.onHit?.('boss', { id:t.id, bossPhase, dmg, add }); }catch(e){}
+    removeTarget(t.id);
+
+    if(bossHp<=0){
+      sayCoach('บอสแพ้แล้ว! 🎉');
+      bossActive = false;
+      score += 120;
+      addFever(40);
+    }
   }
 
   function hitTargetById(id, clientX, clientY){
@@ -831,10 +865,12 @@ export function boot(cfg){
     else if(kind==='junk') onHitJunk(t, clientX, clientY);
     else if(kind==='bonus') onHitBonus(t, clientX, clientY);
     else if(kind==='shield') onHitShield(t, clientX, clientY);
+    else if(kind==='boss') onHitBoss(t, clientX, clientY);
+
     return true;
   }
 
-  // pointerdown เฉพาะ non-cvr
+  // pointerdown only when non-cvr
   function onPointerDown(ev){
     if(!playing || paused) return;
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
@@ -850,17 +886,13 @@ export function boot(cfg){
 
   function pickTargetAt(x,y, lockPx){
     lockPx = clamp(lockPx ?? 44, 16, 120);
-    let best = null;
-    let bestD = 1e9;
+    let best=null, bestD=1e9;
     for(const t of targets.values()){
       const r = t.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const d = Math.hypot(cx-x, cy-y);
-      if(d < bestD){
-        bestD = d;
-        best = t;
-      }
+      if(d < bestD){ bestD=d; best=t; }
     }
     if(best && bestD <= lockPx) return best;
     return null;
@@ -894,17 +926,38 @@ export function boot(cfg){
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
+      if(!bossActive && tLeft <= plannedSec*0.35 && tLeft > 6){
+        bossActive = true;
+        bossHpMax = TUNE.bossHp;
+        bossHp = bossHpMax;
+        bossPhase = 0;
+        bossShieldHp = 5;
+        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
+      }
+
       let kind = 'good';
       const p = r01();
-      if(p < 0.64) kind = 'good';
-      else if(p < 0.86) kind = 'junk';
-      else if(p < 0.94) kind = 'bonus';
-      else kind = 'shield';
+
+      if(bossActive && (r01() < 0.22)){
+        kind = 'boss';
+      }else if(p < 0.64){
+        kind = 'good';
+      }else if(p < 0.86){
+        kind = 'junk';
+      }else if(p < 0.94){
+        kind = 'bonus';
+      }else{
+        kind = 'shield';
+      }
 
       if(kind==='good') makeTarget('good', rPick(GOOD), TUNE.ttlGood);
       else if(kind==='junk') makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
       else if(kind==='bonus') makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
       else if(kind==='shield') makeTarget('shield', rPick(SHIELDS), 2.6);
+      else if(kind==='boss'){
+        const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
+        makeTarget('boss', emo, 2.2);
+      }
     }
   }
 
@@ -917,8 +970,7 @@ export function boot(cfg){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      const dx = t.drift * dt;
-      t.x += dx;
+      t.x += t.drift * dt;
 
       const xMin = safe.xMin + rPad;
       const xMax = safe.xMax - rPad;
@@ -931,15 +983,14 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
-        try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
+        try{ AI?.onExpire?.(t.kind, { id:t.id, emoji:t.emoji }); }catch(e){}
 
         if(t.kind === 'good'){
-          missTotal++;
-          missGoodExpired++;
-          combo = 0;
+          missTotal++; missGoodExpired++; combo = 0;
           score = Math.max(0, score - 4);
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
+          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
         removeTarget(t.id);
       }
@@ -953,6 +1004,7 @@ export function boot(cfg){
       rageOn = false;
       rageLeft = 0;
       fever = clamp(fever - 18, 0, 100);
+      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
     }
   }
 
@@ -963,9 +1015,16 @@ export function boot(cfg){
     }else{
       if(r01() < dt*0.05){
         const type = rPick(['avoid-junk','combo-5','grab-bonus']);
-        if(type==='avoid-junk'){ mini.name = 'No JUNK 6s'; mini.t = 6; }
-        else if(type==='combo-5'){ mini.name = 'Combo x5'; mini.t = 8; }
-        else { mini.name = 'Grab ⭐'; mini.t = 7; }
+        if(type==='avoid-junk'){
+          mini.name = 'No JUNK 6s'; mini.t = 6;
+          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
+        }else if(type==='combo-5'){
+          mini.name = 'Combo x5'; mini.t = 8;
+          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
+        }else{
+          mini.name = 'Grab ⭐'; mini.t = 7;
+          sayCoach('ภารกิจ: เก็บโบนัส!');
+        }
       }
     }
   }
@@ -973,16 +1032,28 @@ export function boot(cfg){
   function checkEnd(){
     if(tLeft <= 0){ showEnd('time'); return true; }
     if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
+
     if(goal.cur >= goal.target && playing){
       goal.target += 10;
       score += 60;
       addFever(18);
+      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
+      const r = layerRect();
+      fxBurst(r.left+r.width/2, r.top+r.height*0.55);
+      fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
     }
     return false;
   }
 
   function tick(){
     if(!playing) return;
+
+    // battle gate: wait until started
+    if(!battleStarted){
+      setHUD();
+      requestAnimationFrame(tick);
+      return;
+    }
 
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
@@ -994,7 +1065,6 @@ export function boot(cfg){
     const t = nowMs();
     const dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
     lastTick = t;
-
     tLeft = Math.max(0, tLeft - dt);
 
     spawnTick(dt);
@@ -1002,14 +1072,24 @@ export function boot(cfg){
     updateRage(dt);
     updateMini(dt);
 
+    // AI tick (prediction only)
     try{
-      const pred = AI?.onTick?.(dt, { missGoodExpired, missJunkHit, shield, fever, combo }) || null;
+      setAIInputs();
+      const pred = AI?.onTick?.(dt, {
+        missGoodExpired,
+        missJunkHit,
+        shield,
+        fever,
+        combo,
+        shots,
+        hits
+      }) || null;
       setAIHud(pred);
     }catch(e){}
 
     setHUD();
-
     if(checkEnd()) return;
+
     requestAnimationFrame(tick);
   }
 
