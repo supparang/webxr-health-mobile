@@ -1,16 +1,21 @@
 // === /herohealth/vr-clean/clean.core.js ===
-// Clean Objects CORE — SAFE/PRODUCTION — v20260228-FULL
+// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234
 // Modes:
-//  A) Evaluate (PC/Mobile): timeA (fallback time), sprays=3, pick best risk reduction under constraints
-//  B) Create (Cardboard/cVR): timeB (fallback time), maxPoints=N, build route
+//  A) Evaluate (PC/Mobile): sprays=3, timeA=45s (fallback), choose best
+//  B) Create (Cardboard/cVR): maxPoints=5, timeB=60s (fallback), plan route
 //
-// ✅ Local day key (Asia/Bangkok) for payload.day
-// ✅ Deterministic research drift (run=research) based on seed
+// ✅ Local day key (Asia/Bangkok)
+// ✅ Deterministic seeded RNG
+// ✅ run=research: deterministic risk drift
 // ✅ Event bridge: hha:score + hha:coach + hha:event
-// ✅ End-event hardened (no double end/summary)
-// ✅ Coach micro-tips (explainable + rate-limit)
+// ✅ End-event hardened
+// ✅ Coach micro-tips (rate-limited)
 //
-// Depends on: ./clean.data.js exports { HOTSPOTS, MAP, ZONES }
+// 🔥 EXCITE 1-4:
+// 1) Danger pulse (last N sec) -> emits clean:danger
+// 2) Contamination event once per round (seeded) -> boosts risk of key objects
+// 3) Combo decision (Evaluate): hit top3 streak -> bonus
+// 4) Boss object penalty if not handled (default toilet_flush)
 
 'use strict';
 
@@ -24,7 +29,6 @@ function qs(k, d=''){
 function nowIso(){ return new Date().toISOString(); }
 
 function localYMD_BKK(ts=Date.now()){
-  // Asia/Bangkok = UTC+7 fixed
   const d = new Date(ts + 7*60*60*1000);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth()+1).padStart(2,'0');
@@ -114,14 +118,13 @@ function emitHHAEvent(type, payload){
   emitEvt('hha:event', d);
 }
 
-// --- scoring helpers
+// --- scoring/value helpers
 function valueScoreHotspot(h){
-  // "คุ้ม" = risk * (touch + traffic) * surfaceWeight * stalenessWeight
   const risk = clamp(h.risk, 0, 100) / 100;
   const touch = clamp(h.touchLevel, 0, 1);
   const traffic = clamp(h.traffic, 0, 1);
   const mins = Math.max(0, Number(h.timeLastCleanedMin||0));
-  const staleness = clamp(mins / (24*60), 0, 2); // 0..2 days scale
+  const staleness = clamp(mins / (24*60), 0, 2);
   const staleW = 0.6 + 0.4*clamp(staleness/2, 0, 1);
 
   const surface = String(h.surfaceType||'').toLowerCase();
@@ -133,8 +136,7 @@ function valueScoreHotspot(h){
     (surface==='fabric') ? 0.90 : 1.0;
 
   const intensity = 0.45*touch + 0.35*traffic + 0.20;
-  const v = risk * intensity * surfaceW * staleW; // ~0.. >1
-  return v;
+  return risk * intensity * surfaceW * staleW;
 }
 
 function rankHotspotsByValue(hs){
@@ -153,7 +155,6 @@ function reasonAuto(h){
 }
 
 function mapUserReason(tag, h){
-  // optional tag->text mapping
   const m = {
     risk_high: 'เสี่ยงสูง',
     touch_high: 'จุดสัมผัสบ่อย',
@@ -162,36 +163,40 @@ function mapUserReason(tag, h){
     shared_use: 'ใช้ร่วมกัน',
     wet_area: 'พื้นที่เปียก'
   };
-  const t = m[String(tag||'')] || '';
-  if(t) return t;
-  return reasonAuto(h);
+  return m[String(tag||'')] || reasonAuto(h);
+}
+
+function applyComboBonus(score, streakBest){
+  const s = Number(streakBest||0);
+  const pct = (s>=4) ? 0.09 : (s===3 ? 0.06 : (s===2 ? 0.03 : 0));
+  return Math.round(score * (1 + pct));
 }
 
 function scoreA(state){
   const sel = state.A.selected || [];
   const top = rankHotspotsByValue(state.hotspots).slice(0,3).map(h=>h.id);
 
-  // Risk reduction: sum of risk removed (we assume cleaning reduces risk to near 5)
   let rrTotal = 0;
-  for(const s of sel){
-    rrTotal += Number(s.rr||0);
-  }
+  for(const s of sel) rrTotal += Number(s.rr||0);
 
   const coverage = clamp((sel.length / Math.max(1,state.A.maxSelect)) * 100, 0, 100);
 
-  // Decision quality: how many of chosen are in top3 by value
   let hit = 0;
-  for(const s of sel){
-    if(top.includes(s.id)) hit++;
-  }
+  for(const s of sel) if(top.includes(s.id)) hit++;
   const dq = clamp((hit / Math.max(1, state.A.maxSelect)) * 100, 0, 100);
 
-  // Final score
-  const score = Math.round(rrTotal * 1.6 + coverage * 1.1 + dq * 1.2);
+  const baseScore = Math.round(rrTotal * 1.6 + coverage * 1.1 + dq * 1.2);
+
+  // Boss penalty
+  const bossId = String(state.cfg?.bossId || 'toilet_flush');
+  const bossPicked = sel.some(s=>s.id===bossId);
+  const bossPenalty = bossPicked ? 0 : 120;
+
+  const score = Math.max(0, baseScore - bossPenalty);
 
   return {
     score,
-    breakdown: { rrTotal: Math.round(rrTotal), coverage: Math.round(coverage), dq: Math.round(dq) },
+    breakdown: { rrTotal: Math.round(rrTotal), coverage: Math.round(coverage), dq: Math.round(dq), bossPenalty },
     top3: top
   };
 }
@@ -201,8 +206,6 @@ function scoreB(state){
   const hs = state.hotspots || [];
   const chosen = ids.map(id=>hs.find(h=>h.id===id)).filter(Boolean);
 
-  // Coverage: cover high-touch points + high-risk points
-  // Use weighted coverage: average of (touch + risk + traffic)
   let covSum = 0;
   for(const h of chosen){
     const touch = clamp(h.touchLevel,0,1);
@@ -213,7 +216,6 @@ function scoreB(state){
   const covMax = Math.max(1, state.B.maxPoints) * 1.0;
   const coverageB = clamp((covSum / covMax) * 100, 0, 100);
 
-  // Balance: encourage diverse surfaces + zones
   const surfaces = {};
   const zones = {};
   for(const h of chosen){
@@ -224,37 +226,38 @@ function scoreB(state){
   }
   const surfaceKinds = Object.keys(surfaces).length;
   const zoneKinds = Object.keys(zones).length;
-  const surfaceScore = clamp((surfaceKinds / 4) * 100, 0, 100); // target 4 types
-  const zoneScore = clamp((zoneKinds / 3) * 100, 0, 100);       // target 3 zones
+  const surfaceScore = clamp((surfaceKinds / 4) * 100, 0, 100);
+  const zoneScore = clamp((zoneKinds / 3) * 100, 0, 100);
   const balanceScore = Math.round(0.6*surfaceScore + 0.4*zoneScore);
 
-  // Remaining risk: penalize leaving very high value points unchosen
   const ranked = rankHotspotsByValue(hs);
   const topK = ranked.slice(0, Math.max(3, state.B.maxPoints)).map(h=>h.id);
   let miss = 0;
-  for(const id of topK){
-    if(!ids.includes(id)) miss++;
-  }
+  for(const id of topK) if(!ids.includes(id)) miss++;
   const remainScore = Math.round(clamp(100 - (miss / Math.max(1, topK.length)) * 100, 0, 100));
 
-  const score = Math.round(coverageB*1.2 + balanceScore*0.9 + remainScore*1.1);
+  const baseScore = Math.round(coverageB*1.2 + balanceScore*0.9 + remainScore*1.1);
+
+  // Boss penalty
+  const bossId = String(state.cfg?.bossId || 'toilet_flush');
+  const bossPicked = ids.includes(bossId);
+  const bossPenalty = bossPicked ? 0 : 90;
+
+  const score = Math.max(0, baseScore - bossPenalty);
 
   return {
     score,
-    breakdown: { coverageB: Math.round(coverageB), balanceScore, remainScore },
+    breakdown: { coverageB: Math.round(coverageB), balanceScore, remainScore, bossPenalty },
     routeIds: ids.slice(0)
   };
 }
 
-// --- CORE
 export function createCleanCore(cfg={}, hooks={}){
-  // config parse
   const runMode = String(qs('run', cfg.run || 'play') || 'play');
   const seedStr = String(qs('seed', cfg.seed || String(Date.now())) || Date.now());
   const view = normalizeView(qs('view', cfg.view || ''));
   const isCVR = (view === 'cvr');
 
-  // support hub standard ?time=... as fallback for both modes
   const timeStd = qs('time', '');
   const timeA = clamp(qs('timeA', cfg.timeA ?? (timeStd || '45')), 15, 180);
   const timeB = clamp(qs('timeB', cfg.timeB ?? (timeStd || '60')), 20, 240);
@@ -262,22 +265,31 @@ export function createCleanCore(cfg={}, hooks={}){
   const sprays = clamp(qs('sprays', cfg.sprays ?? '3'), 1, 9);
   const maxPoints = clamp(qs('maxPoints', cfg.maxPoints ?? '5'), 2, 12);
 
+  // Mode policy per spec
+  const mode = isCVR ? 'B' : 'A';
+
+  // 🔥 EXCITE knobs
+  const bossId = String(qs('boss', cfg.bossId || 'toilet_flush') || 'toilet_flush');
+  const contamAtSec = clamp(qs('contamAt', cfg.contamAtSec ?? (mode==='A' ? 22 : 28)), 8, 80);
+  const contamBoost = clamp(qs('contamBoost', cfg.contamBoost ?? 14), 6, 30);
+  const dangerWindowSec = clamp(qs('danger', cfg.dangerWindowSec ?? 10), 5, 20);
+
   cfg = Object.assign({}, cfg, {
     run: runMode,
     seed: seedStr,
     view,
     hub: qs('hub', cfg.hub || ''),
     sessionId: cfg.sessionId || makeSessionId(),
+    bossId,
+    contamAtSec,
+    contamBoost,
+    dangerWindowSec
   });
 
   const rng = makeRng(seedStr + '::cleanobjects');
   const coachOK = makeRateLimit(3500);
 
-  // Deep copy hotspots so we can drift risk in research
   const hotspots = (HOTSPOTS || []).map(h=>Object.assign({}, h));
-
-  // Mode policy: PC/Mobile => A, Cardboard => B (per your spec)
-  const mode = isCVR ? 'B' : 'A';
 
   const state = {
     cfg,
@@ -289,30 +301,36 @@ export function createCleanCore(cfg={}, hooks={}){
     endEmitted: false,
     t0: 0,
     lastMs: 0,
+    elapsed: 0,
     timeTotal: (mode==='A') ? timeA : timeB,
     timeLeft: (mode==='A') ? timeA : timeB,
 
     A: {
       spraysLeft: sprays,
       maxSelect: sprays,
-      selected: [] // {id, rr, reasonTag, reasonText}
+      selected: []
     },
 
     B: {
       maxPoints: maxPoints,
       routeIds: []
+    },
+
+    // 🔥 event + combo
+    events: {
+      contamFired: false,
+      contamAt: contamAtSec,
+      contamTargets: []
+    },
+    combo: {
+      streak: 0,
+      best: 0
     }
   };
 
   function emitCoach(kind, text, data){
     try{ hooks.onCoach && hooks.onCoach({ kind, text, data: data||{}, ts: Date.now() }); }catch(e){}
-    emitEvt('hha:coach', {
-      game: 'cleanobjects',
-      kind: kind,
-      text: text,
-      data: data || {},
-      ts: Date.now()
-    });
+    emitEvt('hha:coach', { game:'cleanobjects', kind, text, data:data||{}, ts: Date.now() });
   }
 
   function emitScore(phase){
@@ -320,36 +338,15 @@ export function createCleanCore(cfg={}, hooks={}){
       let preview = {};
       if(state.mode === 'A'){
         const rr = (state.A.selected||[]).reduce((a,b)=>a+Number(b.rr||0),0);
-        preview = {
-          spraysLeft: state.A.spraysLeft,
-          chosen: (state.A.selected||[]).length,
-          rrPreview: Math.round(rr)
-        };
-      } else {
-        preview = {
-          routeN: (state.B.routeIds||[]).length,
-          maxPoints: state.B.maxPoints
-        };
+        preview = { spraysLeft: state.A.spraysLeft, chosen: (state.A.selected||[]).length, rrPreview: Math.round(rr) };
+      }else{
+        preview = { routeN: (state.B.routeIds||[]).length, maxPoints: state.B.maxPoints };
       }
-
-      emitEvt('hha:score', {
-        game: 'cleanobjects',
-        mode: state.mode,
-        phase: phase || 'tick',
-        timeLeft: Math.round(state.timeLeft || 0),
-        preview,
-        ts: Date.now()
-      });
+      emitEvt('hha:score', { game:'cleanobjects', mode: state.mode, phase: phase||'tick', timeLeft: Math.round(state.timeLeft||0), preview, ts: Date.now() });
     }catch(e){}
   }
 
-  function emitState(){
-    try{ hooks.onState && hooks.onState(snapshot()); }catch(e){}
-    emitScore('state');
-  }
-
   function snapshot(){
-    // keep small; hotspots can be big but ok for 10 points
     return {
       cfg: state.cfg,
       mode: state.mode,
@@ -359,16 +356,14 @@ export function createCleanCore(cfg={}, hooks={}){
       ended: state.ended,
       timeTotal: state.timeTotal,
       timeLeft: state.timeLeft,
-      A: {
-        spraysLeft: state.A.spraysLeft,
-        maxSelect: state.A.maxSelect,
-        selected: state.A.selected.slice(0)
-      },
-      B: {
-        maxPoints: state.B.maxPoints,
-        routeIds: state.B.routeIds.slice(0)
-      }
+      A: { spraysLeft: state.A.spraysLeft, maxSelect: state.A.maxSelect, selected: state.A.selected.slice(0) },
+      B: { maxPoints: state.B.maxPoints, routeIds: state.B.routeIds.slice(0) }
     };
+  }
+
+  function emitState(){
+    try{ hooks.onState && hooks.onState(snapshot()); }catch(e){}
+    emitScore('state');
   }
 
   function applyRiskDrift(dt){
@@ -379,7 +374,7 @@ export function createCleanCore(cfg={}, hooks={}){
     for(const h of state.hotspots){
       const traffic = Number(h.traffic||0);
       const touch = Number(h.touchLevel||0);
-      const base = 0.6*traffic + 0.4*touch; // 0..1
+      const base = 0.6*traffic + 0.4*touch;
       const jitter = (rng()-0.5) * 0.08;
       const inc = (0.9*base + jitter) * dt * 1.8;
 
@@ -390,9 +385,36 @@ export function createCleanCore(cfg={}, hooks={}){
     }
   }
 
+  function fireContaminationEvent(){
+    if(state.events.contamFired || state.ended) return;
+    state.events.contamFired = true;
+
+    const baseIds = ['door_knob','light_switch'];
+    const extraPool = state.hotspots.map(h=>h.id).filter(id=>!baseIds.includes(id));
+    const pickExtra = (rng() < 0.55 && extraPool.length) ? extraPool[Math.floor(rng()*extraPool.length)] : null;
+
+    const ids = baseIds.slice(0);
+    if(pickExtra) ids.push(pickExtra);
+
+    for(const id of ids){
+      const h = state.hotspots.find(x=>String(x.id)===String(id));
+      if(h) h.risk = clamp(Number(h.risk||0) + state.cfg.contamBoost, 0, 100);
+    }
+    state.events.contamTargets = ids.slice(0);
+
+    emitHHAEvent('contamination', {
+      sessionId: state.cfg.sessionId,
+      mode: state.mode,
+      atSec: state.events.contamAt,
+      targets: ids.slice(0),
+      boost: state.cfg.contamBoost
+    });
+
+    emitCoach('contamination', `⚠️ เหตุการณ์ปนเปื้อน! ความเสี่ยงเพิ่มที่ ${ids.join(', ')}`, { targets: ids.slice(0) });
+    emitState();
+  }
+
   function buildSummaryPayload(finalScore, metrics){
-    const pid = String(qs('pid','anon')||'anon');
-    const u = new URL(location.href);
     return {
       schema: 'hha_summary_v1',
       title: 'Clean Objects',
@@ -403,7 +425,7 @@ export function createCleanCore(cfg={}, hooks={}){
       run: runMode,
       diff: String(qs('diff','normal')||'normal'),
       view: normalizeView(qs('view','')),
-      pid,
+      pid: String(qs('pid','anon')||'anon'),
       seed: seedStr,
       sessionId: state.cfg.sessionId,
       ts: nowIso(),
@@ -418,28 +440,34 @@ export function createCleanCore(cfg={}, hooks={}){
 
     let score = 0;
     let metrics = {};
+
     if(state.mode === 'A'){
       const r = scoreA(state);
       score = r.score;
+      // combo bonus
+      score = applyComboBonus(score, state.combo.best || 0);
+
       metrics = {
         mode: 'A',
         breakdown: r.breakdown,
         top3: r.top3,
+        combo: { best: state.combo.best || 0 },
+        bossId: state.cfg.bossId,
         reasons: state.A.selected.map(s=>({ id:s.id, rr:s.rr, reasonTag:s.reasonTag||'', reasonText:s.reasonText||'' }))
       };
-    } else {
+    }else{
       const r = scoreB(state);
       score = r.score;
       metrics = {
         mode: 'B',
         breakdown: r.breakdown,
+        bossId: state.cfg.bossId,
         routeIds: r.routeIds
       };
     }
 
     const payload = buildSummaryPayload(score, metrics);
 
-    // session_end event once
     if(!state.endEmitted){
       state.endEmitted = true;
 
@@ -472,12 +500,14 @@ export function createCleanCore(cfg={}, hooks={}){
     state.started = true;
     state.t0 = performance.now ? performance.now() : Date.now();
     state.lastMs = state.t0;
+    state.elapsed = 0;
 
     emitHHAEvent('session_start', {
       sessionId: state.cfg.sessionId,
       day: localYMD_BKK(),
       mode: state.mode,
-      timeTotal: state.timeTotal
+      timeTotal: state.timeTotal,
+      bossId: state.cfg.bossId
     });
 
     emitState();
@@ -490,10 +520,26 @@ export function createCleanCore(cfg={}, hooks={}){
     state.lastMs = now;
     dt = clamp(dt, 0, 0.25);
 
+    state.elapsed += dt;
     state.timeLeft = Math.max(0, state.timeLeft - dt);
 
     // research drift
     applyRiskDrift(dt);
+
+    // contamination once
+    if(!state.events.contamFired && state.elapsed >= state.events.contamAt){
+      fireContaminationEvent();
+    }
+
+    // danger pulse signal (last N seconds)
+    if(state.timeLeft <= state.cfg.dangerWindowSec && state.timeLeft > 0){
+      emitEvt('clean:danger', {
+        game:'cleanobjects',
+        danger:true,
+        timeLeft: Math.round(state.timeLeft),
+        window: state.cfg.dangerWindowSec
+      });
+    }
 
     try{ hooks.onTick && hooks.onTick(snapshot(), dt); }catch(e){}
     emitScore('tick');
@@ -513,7 +559,6 @@ export function createCleanCore(cfg={}, hooks={}){
     const h = state.hotspots.find(x=>x.id===id);
     if(!h) return { ok:false, reason:'missing' };
 
-    // RR: reduce risk to 5
     const before = clamp(h.risk, 0, 100);
     const after = 5;
     const rr = Math.max(0, before - after);
@@ -526,7 +571,6 @@ export function createCleanCore(cfg={}, hooks={}){
       reasonTag: String(userReasonTag||''),
       reasonText
     });
-
     state.A.spraysLeft = Math.max(0, state.A.spraysLeft - 1);
 
     emitHHAEvent('clean_select', {
@@ -539,9 +583,20 @@ export function createCleanCore(cfg={}, hooks={}){
       timeLeft: Math.round(state.timeLeft||0)
     });
 
+    // 🔥 combo: hit top3 streak
+    const top3 = rankHotspotsByValue(state.hotspots).slice(0,3).map(x=>x.id);
+    const hitTop = top3.includes(id);
+    if(hitTop){
+      state.combo.streak = (state.combo.streak||0) + 1;
+      state.combo.best = Math.max(state.combo.best||0, state.combo.streak);
+      if(coachOK()){
+        emitCoach('combo', `🔥 คอมโบตัดสินใจ! เลือกคุ้ม ${state.combo.streak} ครั้งติด`, { streak: state.combo.streak, best: state.combo.best });
+      }
+    }else{
+      state.combo.streak = 0;
+    }
+
     if(coachOK()){
-      const top3 = rankHotspotsByValue(state.hotspots).slice(0,3).map(x=>x.id);
-      const hitTop = top3.includes(id);
       const msg = hitTop
         ? `ดีมาก! จุดนี้คุ้ม เพราะ ${reasonText}`
         : `โอเค! แต่ลองดูจุดสัมผัสสูง/เสี่ยงสูงอีกที (เช่น มือจับ/สวิตช์/ที่ใช้ร่วมกัน)`;
@@ -550,11 +605,9 @@ export function createCleanCore(cfg={}, hooks={}){
 
     emitState();
 
-    // if selected all sprays, end early (optional)
     if(state.A.spraysLeft <= 0){
       endGame('done');
     }
-
     return { ok:true };
   }
 
@@ -568,7 +621,7 @@ export function createCleanCore(cfg={}, hooks={}){
     const idx = state.B.routeIds.indexOf(id);
     if(idx >= 0){
       state.B.routeIds.splice(idx,1);
-    } else {
+    }else{
       if(state.B.routeIds.length >= state.B.maxPoints) return { ok:false, reason:'full' };
       state.B.routeIds.push(id);
     }
@@ -588,8 +641,12 @@ export function createCleanCore(cfg={}, hooks={}){
       let msg = `แผนตอนนี้: Coverage ${bd.coverageB}% • Balance ${bd.balanceScore}% • Remain ${bd.remainScore}%`;
       if(n < state.B.maxPoints){
         if(bd.coverageB < 60) msg += ` — เพิ่ม “จุดสัมผัสสูง” เพื่อดัน Coverage`;
-        else if(bd.balanceScore < 55) msg += ` — เลือกพื้นผิวให้หลากหลายขึ้น`;
+        else if(bd.balanceScore < 55) msg += ` — เลือกพื้นผิว/โซนให้หลากหลายขึ้น`;
         else msg += ` — ใกล้ดีมาก! เลือกอีก ${state.B.maxPoints - n} จุดเพื่อปิดความเสี่ยงที่เหลือ`;
+      }
+      // remind boss subtly
+      if(!state.B.routeIds.includes(state.cfg.bossId) && n >= Math.max(2, Math.floor(state.B.maxPoints/2))){
+        msg += ` • อย่าลืม “บอส” (${state.cfg.bossId})`;
       }
       emitCoach('plan_live', msg, { breakdown: bd, n, max: state.B.maxPoints });
     }
@@ -640,17 +697,5 @@ export function createCleanCore(cfg={}, hooks={}){
     return { ok:true };
   }
 
-  return {
-    cfg,
-    start,
-    tick,
-    snapshot,
-
-    // actions
-    selectA,
-    toggleRouteB,
-    undoB,
-    clearB,
-    submitB
-  };
+  return { cfg, start, tick, snapshot, selectA, toggleRouteB, undoB, clearB, submitB };
 }
