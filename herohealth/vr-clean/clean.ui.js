@@ -1,15 +1,13 @@
 // === /herohealth/vr-clean/clean.ui.js ===
-// Clean Objects UI — SAFE/PRODUCTION — v20260228-FULL
-// Works with: clean.core.js (createCleanCore) + run page home-clean.html
+// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234
 //
-// ✅ Heat overlay (risk pulse)
-// ✅ A mode: Evaluate (tap markers) + quick reason chips
-// ✅ B mode: Create route (tap markers OR hha:shoot target) + realtime bars (from coach plan_live)
+// ✅ Heat overlay
+// ✅ A reason chips + Evaluate
+// ✅ B route panel + realtime bars (from coach plan_live breakdown)
+// ✅ Coach toast
 // ✅ Summary: Go Cooldown / Back HUB / Replay
-// ✅ Coach toast (rate-limited by core)
-//
-// The run page passes functions in opts:
-//  snapshot(), selectA(id, reasonTag), toggleRouteB(id), undoB(), clearB(), submitB(), cfg
+// ✅ hha:shoot support (Cardboard)
+// 🔥 EXCITE: Danger pulse UI + contamination notice + summary shows bossPenalty + combo
 
 'use strict';
 
@@ -25,7 +23,6 @@ function escapeHtml(s){
   s = String(s ?? '');
   return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
-
 function qs(k, d=''){
   try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
   catch(e){ return d; }
@@ -37,9 +34,7 @@ function normalizeView(v){
   if(v==='pc' || v==='desktop') return 'pc';
   return v || '';
 }
-
 function reasonChipHTML(){
-  // minimal set; core will auto-map to explainable text
   const chips = [
     ['risk_high','เสี่ยงสูง'],
     ['touch_high','สัมผัสบ่อย'],
@@ -49,7 +44,6 @@ function reasonChipHTML(){
   ];
   return chips.map(([tag,lab])=>`<button class="chip" data-tag="${tag}" type="button">${lab}</button>`).join('');
 }
-
 function barsHTML(bd){
   if(!bd) return '';
   const bar = (label, v)=>`
@@ -71,7 +65,6 @@ export function mountCleanUI(root, opts){
   opts = opts || {};
   root.innerHTML = '';
 
-  // ---------- shell ----------
   const app = el('div','cleanApp');
   root.appendChild(app);
 
@@ -98,12 +91,13 @@ export function mountCleanUI(root, opts){
   const overlay = el('div','overlay');
   overlay.innerHTML = `
     <div class="ovHint" id="ovHint">
-      <div class="ovT">Clean Objects</div>
-      <div class="ovS">แตะจุดบนแผนที่เพื่อทำความสะอาด/วางแผน • โหมด Cardboard ยิงด้วย crosshair ได้</div>
+      <div class="ovT" style="font-weight:1000">Clean Objects</div>
+      <div class="ovS" style="font-size:12px;opacity:.85;margin-top:4px">
+        แตะจุดบนแผนที่เพื่อทำความสะอาด/วางแผน • โหมด Cardboard ยิงด้วย crosshair ได้
+      </div>
     </div>
   `;
   board.appendChild(overlay);
-
   app.appendChild(board);
 
   const info = el('div','info');
@@ -134,7 +128,7 @@ export function mountCleanUI(root, opts){
   `;
   app.appendChild(routePanel);
 
-  // Coach toast (polish)
+  // Coach toast
   const coachToast = el('div','coachToast');
   coachToast.style.display = 'none';
   coachToast.innerHTML = `<div class="ctInner">🤖 …</div>`;
@@ -148,7 +142,7 @@ export function mountCleanUI(root, opts){
     toastTimer = setTimeout(()=>{ coachToast.style.display='none'; }, 2600);
   }
 
-  // Summary modal (simple)
+  // Summary modal
   const summary = el('div','summary');
   summary.style.cssText = `
     position:fixed; inset:0; z-index:200; display:none;
@@ -169,8 +163,7 @@ export function mountCleanUI(root, opts){
   `;
   root.appendChild(summary);
 
-  // add minimal button styling if run page doesn't already include
-  // (run page does, but safe)
+  // UI styles (safe)
   const style = el('style');
   style.textContent = `
     .btn{ border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
@@ -180,6 +173,7 @@ export function mountCleanUI(root, opts){
     .chip{ border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.38); color: rgba(229,231,235,.92);
       padding: 8px 10px; border-radius: 999px; font-weight: 900; cursor:pointer; font-size:12px; }
     .chip.sel{ border-color: rgba(59,130,246,.55); background: rgba(59,130,246,.18); }
+
     .markerLayer{ position:absolute; inset:0; }
     .mk{
       position:absolute; width:28px; height:28px; border-radius:999px;
@@ -191,15 +185,22 @@ export function mountCleanUI(root, opts){
     .mk.on{ border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.16); }
     .mk.warn{ border-color: rgba(251,191,36,.55); background: rgba(251,191,36,.12); }
     .mk.hot{ border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.12); }
+    .mk.boss{ outline: 2px solid rgba(239,68,68,.55); outline-offset: 2px; }
+
+    /* danger pulse */
+    .danger .hud{ box-shadow: 0 0 0 1px rgba(239,68,68,.25), 0 20px 60px rgba(239,68,68,.10); }
+    .danger .ovHint{ border-color: rgba(239,68,68,.35); }
   `;
   root.appendChild(style);
 
-  // ---------- UI state ----------
+  // --- state ---
   let lastState = null;
   let lastPlanBreakdown = null;
   let selectedReasonTag = 'risk_high';
+  let dangerOn = false;
+  let bossId = String(qs('boss','toilet_flush')||'toilet_flush');
 
-  // ---------- elements ----------
+  // elements
   const $ = (id)=> root.querySelector('#'+id);
   const pillMode = $('pillMode');
   const pillTime = $('pillTime');
@@ -212,7 +213,7 @@ export function mountCleanUI(root, opts){
   const rpSub = $('rpSub');
   const rpList = $('rpList');
 
-  // ---------- reason chips ----------
+  // reason chips
   reasonBox.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">${reasonChipHTML()}</div>`;
   reasonNote.textContent = 'เลือกเหตุผล 1 ข้อ แล้วแตะ “จุด” เพื่อทำความสะอาด (ระบบจะใช้เหตุผลนี้ประกอบสรุป)';
   reasonBox.addEventListener('click', (e)=>{
@@ -222,11 +223,10 @@ export function mountCleanUI(root, opts){
     for(const c of reasonBox.querySelectorAll('.chip')) c.classList.remove('sel');
     b.classList.add('sel');
   });
-  // default selection
   const firstChip = reasonBox.querySelector('.chip');
   if(firstChip) firstChip.classList.add('sel');
 
-  // ---------- marker / heat render ----------
+  // heat render
   function renderHeat(S){
     heatLayer.innerHTML = '';
     const hs = S.hotspots || [];
@@ -235,8 +235,8 @@ export function mountCleanUI(root, opts){
 
     for(const h of hs){
       const r = clamp(h.risk,0,100);
-      const size = 22 + (r/100)*58;        // 22..80
-      const alpha = 0.10 + (r/100)*0.30;   // 0.10..0.40
+      const size = 22 + (r/100)*58;
+      const alpha = 0.10 + (r/100)*0.30;
       const hueClass = (r>=75) ? 'hot' : (r>=55 ? 'warm' : 'cool');
 
       const n = el('div', `heat ${hueClass}`);
@@ -279,7 +279,8 @@ export function mountCleanUI(root, opts){
       const picked = (S.mode==='A') ? chosenA.has(id) : chosenB.has(id);
       if(picked) mk.classList.add('on');
 
-      // label: show index or short id
+      if(id === bossId) mk.classList.add('boss');
+
       mk.textContent = String(h.label || id).slice(0,2);
 
       mk.addEventListener('click', ()=>{
@@ -295,11 +296,8 @@ export function mountCleanUI(root, opts){
     }
   }
 
-  // ---------- route panel ----------
   function renderRoutePanel(S){
-    const mode = S.mode;
-    const hs = S.hotspots || [];
-    if(mode === 'A'){
+    if(S.mode === 'A'){
       routePanel.style.display = 'none';
       return;
     }
@@ -307,10 +305,11 @@ export function mountCleanUI(root, opts){
     const ids = (S.B && S.B.routeIds) ? S.B.routeIds : [];
     rpSub.textContent = `Route ${fmt(ids.length)} / ${fmt(S.B?.maxPoints||5)}`;
 
+    const hs = S.hotspots || [];
     const list = ids.length
       ? ids.map((id, i)=>{
           const h = hs.find(x=>String(x.id)===String(id));
-          const t = h ? `${escapeHtml(h.name||h.title||id)} <span style="opacity:.75">(${escapeHtml(h.surfaceType||'')}, risk ${fmt(h.risk)}%)</span>` : escapeHtml(id);
+          const t = h ? `${escapeHtml(h.name||id)} <span style="opacity:.75">(${escapeHtml(h.surfaceType||'')}, risk ${fmt(h.risk)}%)</span>` : escapeHtml(id);
           return `<div style="padding:8px 0;border-top:1px solid rgba(148,163,184,.10)"><b>${i+1}.</b> ${t}</div>`;
         }).join('')
       : `<div style="opacity:.8">ยังไม่มี route — แตะจุดเพื่อเพิ่ม</div>`;
@@ -318,37 +317,34 @@ export function mountCleanUI(root, opts){
     rpList.innerHTML = (barsHTML(lastPlanBreakdown) || '') + list;
   }
 
-  // ---------- mission/help ----------
   function renderMission(S){
     if(S.mode === 'A'){
       missionText.innerHTML = `
         <b>Evaluate:</b> เลือกทำความสะอาด “คุ้มที่สุด” ภายใต้น้ำยา <b>${fmt(S.A?.maxSelect||3)}</b> ครั้ง และเวลา <b>${fmt(S.timeTotal||45)}s</b><br/>
-        คะแนนเน้น <b>risk reduction</b> + <b>coverage</b> + <b>decision quality</b> (เลือกจุดสำคัญ)
+        <span style="opacity:.92">🔥 มี “บอส” ที่ต้องจัดการ: <b>${escapeHtml(bossId)}</b> (ถ้าไม่ทำโดนหักหนัก)</span>
       `;
-      helpBox.innerHTML = `Tip: เลือกเหตุผลก่อน แล้วแตะจุดบนแผนที่ • ถ้า <code>run=research</code> ความเสี่ยงจะเพิ่มแบบ deterministic ตาม seed`;
+      helpBox.innerHTML = `Tip: เลือกเหตุผลก่อน แล้วแตะจุด • ช่วงท้ายจะ “เร่ง” • มีเหตุการณ์ปนเปื้อนกลางเกม`;
     }else{
       missionText.innerHTML = `
         <b>Create:</b> วางแผน route/checklist ภายในเวลา <b>${fmt(S.timeTotal||60)}s</b> เลือกได้ <b>${fmt(S.B?.maxPoints||5)}</b> จุด<br/>
-        คะแนนเน้น <b>Coverage</b> + <b>Balance</b> (พื้นผิว/โซน) + <b>Remain</b> (เหลือจุดสำคัญแค่ไหน)
+        <span style="opacity:.92">🔥 อย่าลืม “บอส”: <b>${escapeHtml(bossId)}</b> (ถ้าไม่รวมใน route โดนหัก)</span>
       `;
-      helpBox.innerHTML = `Tip: แตะจุดเพื่อเพิ่มใน route • โหมด Cardboard ใช้ crosshair ยิงได้ (อีเวนต์ <code>hha:shoot</code>)`;
+      helpBox.innerHTML = `Tip: แตะจุดเพื่อเพิ่มใน route • Cardboard ยิงได้ (hha:shoot) • ดู bars แล้วปรับแผน`;
     }
   }
 
-  // ---------- HUD ----------
   function renderHud(S){
     pillMode.textContent = `MODE: ${S.mode==='A' ? 'A (Evaluate)' : 'B (Create)'}`;
     pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
     if(S.mode === 'A'){
       pillBudget.textContent = `SPRAYS: ${fmt(S.A?.spraysLeft||0)}/${fmt(S.A?.maxSelect||3)}`;
-      pillGoal.textContent = `GOAL: Max Risk Reduction`;
+      pillGoal.textContent = `GOAL: Best picks + Boss`;
     }else{
       pillBudget.textContent = `POINTS: ${fmt((S.B?.routeIds||[]).length)}/${fmt(S.B?.maxPoints||5)}`;
-      pillGoal.textContent = `GOAL: Best Routine/Route`;
+      pillGoal.textContent = `GOAL: Best plan + Boss`;
     }
   }
 
-  // ---------- summary ----------
   function goHubDirect(){
     const hub = qs('hub','');
     if(hub) location.href = hub;
@@ -365,7 +361,7 @@ export function mountCleanUI(root, opts){
     g.searchParams.set('cd','1');
     g.searchParams.set('next', hub);
 
-    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade'];
+    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade','boss'];
     keep.forEach(k=>{
       const v = base.searchParams.get(k);
       if(v !== null && v !== '') g.searchParams.set(k, v);
@@ -375,10 +371,7 @@ export function mountCleanUI(root, opts){
     location.href = g.toString();
   }
 
-  function replay(){
-    // reload while keeping params
-    location.reload();
-  }
+  function replay(){ location.reload(); }
 
   function showSummary(payload){
     summary.style.display = '';
@@ -387,6 +380,7 @@ export function mountCleanUI(root, opts){
 
     const m = payload || {};
     const mode = (m.metrics && m.metrics.mode) ? m.metrics.mode : (lastState ? lastState.mode : '?');
+
     meta.innerHTML = `
       PID: <b>${escapeHtml(m.pid||qs('pid','anon'))}</b> •
       Run: <b>${escapeHtml(m.run||qs('run','play'))}</b> •
@@ -398,16 +392,21 @@ export function mountCleanUI(root, opts){
     if(mode === 'A'){
       const bd = (m.metrics && m.metrics.breakdown) ? m.metrics.breakdown : {};
       const reasons = (m.metrics && m.metrics.reasons) ? m.metrics.reasons : [];
+      const comboBest = (m.metrics && m.metrics.combo) ? (m.metrics.combo.best||0) : 0;
+      const bossPenalty = (bd && bd.bossPenalty) ? bd.bossPenalty : 0;
+
       body.innerHTML = `
-        <div><b>Breakdown:</b> RR ${fmt(bd.rrTotal)} • Coverage ${fmt(bd.coverage)}% • Decision ${fmt(bd.dq)}%</div>
+        <div><b>Breakdown:</b> RR ${fmt(bd.rrTotal)} • Coverage ${fmt(bd.coverage)}% • Decision ${fmt(bd.dq)}% • ComboBest ${fmt(comboBest)} • BossPenalty -${fmt(bossPenalty)}</div>
         <div style="margin-top:10px"><b>เหตุผลที่เลือก:</b></div>
         <div style="margin-top:6px;opacity:.95">${reasons.length ? reasons.map(r=>`• ${escapeHtml(r.id)} — ${escapeHtml(r.reasonText||'')}`).join('<br/>') : '—'}</div>
       `;
     }else{
       const bd = (m.metrics && m.metrics.breakdown) ? m.metrics.breakdown : {};
       const routeIds = (m.metrics && m.metrics.routeIds) ? m.metrics.routeIds : [];
+      const bossPenalty = (bd && bd.bossPenalty) ? bd.bossPenalty : 0;
+
       body.innerHTML = `
-        <div><b>Breakdown:</b> Coverage ${fmt(bd.coverageB)}% • Balance ${fmt(bd.balanceScore)}% • Remain ${fmt(bd.remainScore)}%</div>
+        <div><b>Breakdown:</b> Coverage ${fmt(bd.coverageB)}% • Balance ${fmt(bd.balanceScore)}% • Remain ${fmt(bd.remainScore)}% • BossPenalty -${fmt(bossPenalty)}</div>
         <div style="margin-top:10px"><b>Route:</b> ${routeIds.length ? routeIds.map(x=>escapeHtml(String(x))).join(' → ') : '—'}</div>
       `;
     }
@@ -417,14 +416,11 @@ export function mountCleanUI(root, opts){
     summary.querySelector('#btnReplay').onclick = replay;
   }
 
-  // ---------- hha:shoot support (Cardboard crosshair) ----------
-  // In view=cvr, vr-ui.js emits CustomEvent('hha:shoot', {detail:{lockPx}}).
-  // We'll raycast-ish by picking the closest marker to screen center (simple heuristic).
+  // hha:shoot -> pick closest marker to center (cheap aim assist)
   function handleShoot(){
     if(!lastState || lastState.ended) return;
     if(lastState.mode !== 'B') return;
 
-    // choose closest marker to center by DOM positions (cheap)
     const rect = markerLayer.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;
@@ -438,13 +434,9 @@ export function mountCleanUI(root, opts){
       const dx = mx - cx;
       const dy = my - cy;
       const d2 = dx*dx + dy*dy;
-      if(d2 < bestD){
-        bestD = d2;
-        best = mk;
-      }
+      if(d2 < bestD){ bestD = d2; best = mk; }
     });
 
-    // threshold: within ~90px radius
     if(best && bestD <= (90*90)){
       const id = best.dataset.id;
       if(id) opts.toggleRouteB && opts.toggleRouteB(id);
@@ -452,27 +444,44 @@ export function mountCleanUI(root, opts){
   }
   window.addEventListener('hha:shoot', handleShoot);
 
-  // ---------- route panel buttons ----------
+  // route panel buttons
   routePanel.querySelector('#btnUndo').onclick = ()=> opts.undoB && opts.undoB();
   routePanel.querySelector('#btnClear').onclick = ()=> opts.clearB && opts.clearB();
   routePanel.querySelector('#btnSubmit').onclick = ()=> opts.submitB && opts.submitB();
 
-  // ---------- public hooks ----------
+  // Danger pulse event from core
+  function setDanger(on){
+    dangerOn = !!on;
+    root.classList.toggle('danger', dangerOn);
+    if(dangerOn){
+      try{ if(navigator.vibrate) navigator.vibrate([40,40,40]); }catch(e){}
+    }
+  }
+  window.addEventListener('clean:danger', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    if(d && d.danger) setDanger(true);
+  });
+
+  // public hooks
   function onState(S){
     lastState = S;
+
+    // update bossId (in case overridden)
+    try{ bossId = String((S.cfg && S.cfg.bossId) ? S.cfg.bossId : bossId); }catch(e){}
+
     renderHud(S);
     renderMission(S);
     renderHeat(S);
     renderMarkers(S);
     renderRoutePanel(S);
 
-    // hint visibility
     const v = normalizeView(qs('view',''));
     const ov = root.querySelector('#ovHint');
     if(ov){
       ov.style.display = S.ended ? 'none' : '';
-      if(v === 'cvr') ov.querySelector('.ovS').textContent = 'Cardboard: ยิง (hha:shoot) เพื่อเลือกจุด • หรือแตะจุดบนแผนที่';
-      else ov.querySelector('.ovS').textContent = 'แตะจุดบนแผนที่เพื่อทำความสะอาด/วางแผน • เลือกเหตุผลก่อน (Evaluate)';
+      const s = ov.querySelector('.ovS');
+      if(v === 'cvr') s.textContent = 'Cardboard: ยิง (hha:shoot) เพื่อเลือกจุด • หรือแตะจุดบนแผนที่ • อย่าลืมบอส!';
+      else s.textContent = 'แตะจุดเพื่อทำความสะอาด • เลือกเหตุผลก่อน • อย่าลืมบอส! • ช่วงท้ายจะเร่ง';
     }
 
     // hide reason UI in mode B
@@ -482,31 +491,34 @@ export function mountCleanUI(root, opts){
   }
 
   function onTick(S, dt){
-    // time update already done in onState via snapshot in core emitState,
-    // but keep it resilient:
     if(S) pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
   }
 
   function onCoach(msg){
     if(!msg) return;
-    // plan_live breakdown drives realtime bars
+
     if(msg.kind === 'plan_live' && msg.data && msg.data.breakdown){
       lastPlanBreakdown = msg.data.breakdown;
-      // refresh route panel only
       if(lastState) renderRoutePanel(lastState);
+    }
+
+    // ensure contamination message is seen
+    if(msg.kind === 'contamination'){
+      showCoach(msg.text || '⚠️ เหตุการณ์ปนเปื้อน!');
+      return;
     }
     if(msg.text) showCoach(msg.text);
   }
 
   function onSummary(payload){
-    // stop overlay and show modal
     showSummary(payload);
   }
 
-  // ---------- initial help ----------
+  // initial help
   helpBox.innerHTML = `
-    <div>• โหมด A: เลือก “คุ้มที่สุด” ภายใต้ทรัพยากรจำกัด</div>
-    <div>• โหมด B: สร้าง routine/route ให้ครอบคลุมและสมดุล</div>
+    <div>• 🔥 Boss = <b>${escapeHtml(bossId)}</b> (ถ้าไม่ทำโดนหัก)</div>
+    <div>• ⚠️ กลางเกมมีเหตุการณ์ปนเปื้อน 1 ครั้ง/รอบ</div>
+    <div>• ⏱️ 10 วิท้ายจะ “เร่ง” (pulse + vibration)</div>
   `;
 
   return { onState, onTick, onCoach, onSummary };
