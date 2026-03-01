@@ -43,7 +43,8 @@ function defaultEnabled(runMode){
   if(String(runMode||'').toLowerCase() === 'research'){
     return (qAi === '1' || qCoach === '1' || qDirector === '1') ? true : false;
   }
-  return (qAi === '1') ? true : true; // play: allow hooks (no adaptive anyway)
+  // play: hooks allowed (still no adaptive logic here)
+  return true;
 }
 
 function mkNoopApi(base){
@@ -56,13 +57,16 @@ function mkNoopApi(base){
   api.end = noop;
   api.pattern = noop;
   api.director = noop;
+  api.setRisk = noop;
+  api.setHint = noop;
   api._rng = ()=>Math.random();
+  api._state = { risk:null, hint:'—', ended:false };
   return api;
 }
 
 /**
  * createAIHooks(opts)
- * opts: { seed, runMode, game, diff, device }
+ * opts: { seed, runMode, game, diff, device, enabled }
  * Returns: a stable object with no-op safe methods.
  */
 export function createAIHooks(opts = {}){
@@ -75,7 +79,7 @@ export function createAIHooks(opts = {}){
   const diff = String(opts.diff ?? qs('diff','normal')).toLowerCase();
   const device = String(opts.device ?? qs('view','pc')).toLowerCase();
 
-  const enabled = !!opts.enabled || defaultEnabled(runMode);
+  const enabled = (typeof opts.enabled === 'boolean') ? opts.enabled : defaultEnabled(runMode);
 
   const base = {
     enabled,
@@ -110,7 +114,11 @@ export function createAIHooks(opts = {}){
   }
 
   function emit(kind, data){
-    safeDispatch('hha:ai', { kind, data, meta: { game, runMode, diff, device, seed: seedStr, t: Date.now() } });
+    safeDispatch('hha:ai', {
+      kind,
+      data: data || {},
+      meta: { game, runMode, diff, device, seed: seedStr, t: Date.now() }
+    });
   }
 
   function score(data){
@@ -146,7 +154,7 @@ export function createAIHooks(opts = {}){
     hud();
   }
 
-  // These are placeholders for future plug-in modules
+  // Placeholders for future plug-in modules
   function pattern(_){ /* reserved */ }
   function director(_){ /* reserved */ }
 
