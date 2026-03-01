@@ -1,55 +1,62 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — BrushVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;background:#020617;color:#e5e7eb}
     .wrap{height:100%;display:grid;place-items:center;padding:18px}
-    .card{width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;background:rgba(2,6,23,.75);padding:14px}
-    .t{font-weight:1000;font-size:18px}
-    .s{margin-top:6px;color:rgba(148,163,184,1);font-weight:900;font-size:13px;line-height:1.45}
+    .card{width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:20px;background:rgba(2,6,23,.75);padding:16px}
+    .t{font-weight:950;font-size:18px}
+    .s{color:rgba(148,163,184,.95);margin-top:6px;line-height:1.45;font-size:13px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="t">🦷 Launching BrushVR…</div>
-      <div class="s">กำลังพาไปหน้าเกม (vr-brush/brush.html)</div>
+      <div class="t">🦷 BrushVR — Launcher</div>
+      <div class="s">กำลังเข้าเกม…</div>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
+  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } }
+  function clamp(n,a,b){ n=Number(n); if(!Number.isFinite(n)) n=a; return Math.max(a, Math.min(b,n)); }
 
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const runUrl = new URL('./vr-brush/brush-vr.html', location.href);
 
-  const cur = qs();
-  const run = new URL('./vr-brush/brush.html', location.href);
-
-  // pass-through all params (except hub: we will ensure it exists)
-  for (const [k,v] of cur.entries()){
+  // pass-through ทุกพารามิเตอร์เดิม (ยกเว้น hub จะเซ็ตใหม่ให้ถูก)
+  const cur = new URL(location.href).searchParams;
+  for(const [k,v] of cur.entries()){
     if(k === 'hub') continue;
-    run.searchParams.set(k, v);
+    runUrl.searchParams.set(k,v);
   }
 
-  // ensure hub points back to root hub (or keep provided hub)
-  const hub = cur.get('hub') || './hub.html';
-  run.searchParams.set('hub', new URL(hub, location.href).toString());
+  // auto seed ถ้าไม่มี
+  if(!runUrl.searchParams.get('seed')) runUrl.searchParams.set('seed', String(Date.now()));
 
-  // default view if missing
-  if(!run.searchParams.get('view')){
+  // auto view ถ้าไม่มี
+  if(!runUrl.searchParams.get('view')){
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-    run.searchParams.set('view', isMobile ? 'mobile' : 'pc');
+    runUrl.searchParams.set('view', isMobile ? 'mobile' : 'pc');
   }
 
-  location.replace(run.toString());
+  // normalize time
+  const t = clamp(qs('time','80'), 30, 120);
+  runUrl.searchParams.set('time', String(t));
+
+  // ตั้ง hub กลับมาที่ root hub เสมอ
+  const hub = qs('hub','');
+  if(hub) runUrl.searchParams.set('hub', hub);
+  else runUrl.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+
+  location.replace(runUrl.toString());
 })();
 </script>
 </body>
