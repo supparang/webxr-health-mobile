@@ -2,6 +2,7 @@
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
 // PATCH v20260225: Bloom per-zone per-day (pid+zone+day) + Bloom -> Warmup -> Game wrapper
 // PATCH v20260226: Canonical HUB URL (GitHub Pages safe)
+// PATCH v20260301: Balance Hold DOM flags + Return Summary panel (lastGame/lastScore/lastRank/lastStab)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -115,6 +116,27 @@ function addCommonParams(u){
   return u;
 }
 
+/* =========================================================
+ * PATCH v20260301: Game-specific params
+ * - Balance Hold (fitness DOM) needs tutorial/practice flags
+ * ======================================================= */
+function addGameSpecificParams(u, gameKey){
+  const k = String(gameKey||'').toLowerCase();
+
+  if(k === 'balance'){
+    // allow override from hub url
+    const tutorial   = String(qs('tutorial', '1'));
+    const practiceOn = String(qs('practiceOn', '1'));
+    const practice   = String(qs('practice', '15'));
+
+    if(!u.searchParams.get('tutorial'))   u.searchParams.set('tutorial', tutorial);
+    if(!u.searchParams.get('practiceOn')) u.searchParams.set('practiceOn', practiceOn);
+    if(!u.searchParams.get('practice'))   u.searchParams.set('practice', practice);
+  }
+
+  return u;
+}
+
 function gameRunPathByKey(gameKey){
   const k = String(gameKey||'').toLowerCase();
 
@@ -133,7 +155,7 @@ function gameRunPathByKey(gameKey){
   if(k==='shadow')   return '../fitness/shadow-breaker.html';
   if(k==='rhythm')   return '../fitness/rhythm-boxer.html';
   if(k==='jumpduck') return '../fitness/jump-duck.html';
-  if(k==='balance')  return '../fitness/balance-hold.html';
+  if(k==='balance')  return '../fitness/balance-hold.html'; // ✅ DOM Balance Hold
   if(k==='planner')  return '../fitness/fitness-planner/index.html';
 
   return './vr-goodjunk/goodjunk-vr.html';
@@ -151,6 +173,7 @@ function buildGameRunUrlFromGameKey(gameKey){
   const u = new URL(base, location.href);
 
   addCommonParams(u);
+  addGameSpecificParams(u, gameKey); // ✅ PATCH v20260301
 
   if(!u.searchParams.get('zone')){
     u.searchParams.set('zone', inferZoneByGameKey(gameKey));
@@ -228,6 +251,57 @@ function setupHubButtons(){
   });
 }
 
+/* =========================================================
+ * PATCH v20260301: Return summary panel (query + localStorage)
+ * ======================================================= */
+function showReturnSummaryPanel(){
+  const panel = document.getElementById('lastSummary');
+  const t = document.getElementById('lsTitle');
+  const b = document.getElementById('lsBody');
+  const clearBtn = document.getElementById('btnClearSummary');
+  if(!panel || !t || !b) return;
+
+  const lastGame  = String(qs('lastGame','')).trim();
+  const lastScore = String(qs('lastScore','')).trim();
+  const lastRank  = String(qs('lastRank','')).trim();
+  const lastStab  = String(qs('lastStab','')).trim();
+
+  // (1) return via query
+  if(lastGame){
+    panel.style.display = '';
+    t.textContent = 'สรุปล่าสุด (Return)';
+    b.textContent = `✅ ล่าสุด: ${lastGame} | Score ${lastScore||0} | Rank ${lastRank||'-'} | Stability ${lastStab||0}%`;
+  }else{
+    // (2) fallback localStorage
+    let info = null;
+    try{
+      info = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+    }catch(e){ info = null; }
+
+    if(info && info.gameId){
+      const stabPct = Math.round((info.stabilityRatio||0)*100);
+      panel.style.display = '';
+      t.textContent = 'สรุปล่าสุด';
+      b.textContent = `เกม: ${info.gameId} | Score ${info.score||0} | Rank ${info.rank||'-'} | Stability ${stabPct}%`;
+    }else{
+      panel.style.display = 'none';
+    }
+  }
+
+  // clear summary button (safe)
+  if(clearBtn){
+    clearBtn.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      try{
+        localStorage.removeItem('HHA_LAST_SUMMARY');
+        localStorage.removeItem('HHA_LAST_SUMMARY_balance-hold');
+      }catch(e){}
+      panel.style.display = 'none';
+      try{ toast && toast('Cleared last summary'); }catch(_){}
+    }, {passive:false});
+  }
+}
+
 async function boot(){
   try{
     setBanner('API', 'checking…');
@@ -237,6 +311,9 @@ async function boot(){
   }catch(e){
     setBanner('API', 'offline');
   }
+
+  // ✅ PATCH v20260301
+  showReturnSummaryPanel();
 
   setupHubButtons();
 }
