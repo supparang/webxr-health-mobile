@@ -1,171 +1,173 @@
-// === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI (prediction only) — PRODUCTION SAFE
-// Provides: onTick(), getPrediction(), onEnd(), onSpawn(), onHit(), onExpire()
-// NOTE: NO adaptive difficulty. No gameplay manipulation. Prediction + HUD hints only.
-// FULL v20260228-AI-GOODJUNK
+// === /herohealth/vr/ai-hooks.js ===
+// HeroHealth AI Hooks — Universal Stub (Production-safe)
+// v20260301-AIHOOKS-UNIVERSAL
+// Purpose: Provide a stable, shared interface for AI Director/Coach/Pattern (future)
+// This file MUST remain deterministic-friendly and research-safe by default.
 
 'use strict';
 
-export function createGoodJunkAI(opts){
-  opts = opts || {};
-  const seed = String(opts.seed || '');
-  const pid  = String(opts.pid  || 'anon');
-  const diff = String(opts.diff || 'normal');
-  const view = String(opts.view || 'mobile');
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function nowIso(){ try{ return new Date().toISOString(); }catch(e){ return ''; } }
 
-  // lightweight state
-  let t = 0;
-  let lastPred = null;
+function qs(k, d=''){
+  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; }
+}
 
-  // counters
-  let spawnGood=0, spawnJunk=0, spawnBonus=0, spawnShield=0, spawnBoss=0;
-  let hitGood=0, hitJunk=0, hitBonus=0, hitShield=0, hitBoss=0;
-  let expireGood=0, expireJunk=0, expireBonus=0, expireShield=0, expireBoss=0;
-
-  // Next watchout pool (HUD only)
-  const WATCH = [
-    'ระวัง JUNK ใกล้กลางจอ',
-    'เร่งเก็บ GOOD ก่อนหมดเวลา',
-    'ถ้าโล่มี 1+ กล้าเสี่ยงได้',
-    'คุมคอมโบ อย่าหลุด',
-    'บอสมา ยิงแตกโล่ก่อน'
-  ];
-
-  // small stable RNG (deterministic by seed+pid)
-  function xmur3(str){
-    str = String(str||'');
-    let h = 1779033703 ^ str.length;
-    for(let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
-    }
-    return function(){
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      return (h ^= (h >>> 16)) >>> 0;
-    };
-  }
-  function sfc32(a,b,c,d){
-    return function(){
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let tt = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      tt = (tt + d) | 0;
-      c = (c + tt) | 0;
-      return (tt >>> 0) / 4294967296;
-    };
-  }
-  const seedFn = xmur3(`${seed}|${pid}|goodjunk`);
-  const rng = sfc32(seedFn(),seedFn(),seedFn(),seedFn());
-  const r01 = ()=> rng();
-  const rPick = (arr)=> arr[(r01()*arr.length)|0];
-
-  function hazardRiskFrom(features){
-    // features: missGoodExpired, missJunkHit, shield, fever, combo
-    const missGood = Number(features?.missGoodExpired||0);
-    const missJunk = Number(features?.missJunkHit||0);
-    const shield   = Number(features?.shield||0);
-    const fever    = Number(features?.fever||0);
-    const combo    = Number(features?.combo||0);
-
-    // risk rises with junk hits + missed goods, and when shield is low & combo high (more to lose)
-    let risk =
-      0.14 +
-      0.08*Math.min(10, missJunk) +
-      0.04*Math.min(12, missGood) +
-      0.02*Math.min(12, combo) +
-      (shield<=0 ? 0.10 : 0.0) +
-      (fever>=80 ? 0.06 : 0.0);
-
-    // normalize-ish
-    risk = Math.max(0, Math.min(0.99, risk));
-    return risk;
-  }
-
-  function nextWatchout(features){
-    const shield = Number(features?.shield||0);
-    const combo  = Number(features?.combo||0);
-    const missJ  = Number(features?.missJunkHit||0);
-    const missG  = Number(features?.missGoodExpired||0);
-
-    if(shield<=0 && missJ>=2) return 'ระวัง JUNK (ไม่มีโล่)';
-    if(missG>=2) return 'รีบเก็บ GOOD ก่อนหมดเวลา';
-    if(combo>=5) return 'คอมโบสูง! อย่าพลาด JUNK';
-    if(spawnBoss>0) return 'บอสมา: ยิงแตกโล่ก่อน';
-    return rPick(WATCH);
-  }
-
-  function buildPrediction(features){
-    const hazardRisk = hazardRiskFrom(features);
-    const hint = nextWatchout(features);
-    // Provide a short list (HUD uses [0])
-    return {
-      hazardRisk,
-      next5: [hint, rPick(WATCH), rPick(WATCH), rPick(WATCH), rPick(WATCH)],
-      meta: { seed, pid, diff, view, t: +t.toFixed(2) }
-    };
-  }
-
-  return {
-    onSpawn(kind){
-      if(kind==='good') spawnGood++;
-      else if(kind==='junk') spawnJunk++;
-      else if(kind==='bonus') spawnBonus++;
-      else if(kind==='shield') spawnShield++;
-      else if(kind==='boss') spawnBoss++;
-    },
-    onHit(kind, meta){
-      if(kind==='good') hitGood++;
-      else if(kind==='junk'){
-        // blocked junk hit should not be counted as harmful but still "hit" in telemetry
-        hitJunk++;
-      }
-      else if(kind==='bonus') hitBonus++;
-      else if(kind==='shield') hitShield++;
-      else if(kind==='boss') hitBoss++;
-      void meta;
-    },
-    onExpire(kind){
-      if(kind==='good') expireGood++;
-      else if(kind==='junk') expireJunk++;
-      else if(kind==='bonus') expireBonus++;
-      else if(kind==='shield') expireShield++;
-      else if(kind==='boss') expireBoss++;
-    },
-    onTick(dt, features){
-      t += Number(dt||0);
-      // Update prediction ~5Hz to be stable (but caller can call every frame)
-      if(!lastPred || (t - (lastPred.meta?.t||0)) >= 0.20){
-        lastPred = buildPrediction(features);
-      }
-      return lastPred;
-    },
-    getPrediction(){
-      return lastPred;
-    },
-    onEnd(summary){
-      // Attach AI diagnostics (no scoring control)
-      return {
-        aiTag: 'GoodJunkAI_PRED_ONLY',
-        seed, pid, diff, view,
-        counters: {
-          spawn:{ good:spawnGood, junk:spawnJunk, bonus:spawnBonus, shield:spawnShield, boss:spawnBoss },
-          hit:{ good:hitGood, junk:hitJunk, bonus:hitBonus, shield:hitShield, boss:hitBoss },
-          expire:{ good:expireGood, junk:expireJunk, bonus:expireBonus, shield:expireShield, boss:expireBoss }
-        },
-        lastPrediction: lastPred || null,
-        // helpful: recommend tie-break fields present in summary
-        tieBreak: {
-          order: 'score → acc → miss → medianRT',
-          score: summary?.scoreFinal ?? null,
-          acc: summary?.accPct ?? null,
-          miss: summary?.missTotal ?? null,
-          medianRT: summary?.medianRtGoodMs ?? null
-        }
-      };
-    }
+function mulberry32(a){
+  return function(){
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+function safeDispatch(type, detail){
+  try{
+    window.dispatchEvent(new CustomEvent(type, { detail }));
+  }catch(e){}
+}
+
+function setText(id, v){
+  try{
+    const el = document.getElementById(id);
+    if(el) el.textContent = String(v);
+  }catch(e){}
+}
+
+function defaultEnabled(runMode){
+  // research-safe default: OFF in research unless explicitly enabled
+  const qAi = qs('ai','');
+  const qCoach = qs('coach','');
+  const qDirector = qs('director','');
+  if(String(runMode||'').toLowerCase() === 'research'){
+    return (qAi === '1' || qCoach === '1' || qDirector === '1') ? true : false;
+  }
+  return (qAi === '1') ? true : true; // play: allow hooks (no adaptive anyway)
+}
+
+function mkNoopApi(base){
+  const api = Object.assign({}, base);
+  const noop = ()=>{};
+  api.emit = noop;
+  api.score = noop;
+  api.coach = noop;
+  api.snapshot = noop;
+  api.end = noop;
+  api.pattern = noop;
+  api.director = noop;
+  api._rng = ()=>Math.random();
+  return api;
+}
+
+/**
+ * createAIHooks(opts)
+ * opts: { seed, runMode, game, diff, device }
+ * Returns: a stable object with no-op safe methods.
+ */
+export function createAIHooks(opts = {}){
+  const seedStr = String(opts.seed ?? qs('seed', String(Date.now())));
+  let seedNum = 0;
+  for(let i=0;i<seedStr.length;i++) seedNum = (seedNum * 31 + seedStr.charCodeAt(i)) >>> 0;
+
+  const runMode = String(opts.runMode ?? qs('run','play')).toLowerCase();
+  const game = String(opts.game ?? qs('game','unknown'));
+  const diff = String(opts.diff ?? qs('diff','normal')).toLowerCase();
+  const device = String(opts.device ?? qs('view','pc')).toLowerCase();
+
+  const enabled = !!opts.enabled || defaultEnabled(runMode);
+
+  const base = {
+    enabled,
+    seed: seedStr,
+    runMode,
+    game,
+    diff,
+    device,
+    ts0: Date.now(),
+    iso0: nowIso()
+  };
+
+  // Even if disabled, return a valid API (no crash)
+  if(!enabled) return mkNoopApi(base);
+
+  const rng = mulberry32((seedNum ^ 0xA11C0DE) >>> 0);
+
+  // Minimal shared state (for HUD + future AI)
+  const st = {
+    risk: null,
+    hint: '—',
+    lastScore: null,
+    lastCoach: null,
+    lastSnap: null,
+    ended: false
+  };
+
+  function hud(){
+    // Optional HUD ids used across games (if present)
+    if(st.risk !== null) setText('aiRisk', (typeof st.risk === 'number') ? st.risk.toFixed(2) : String(st.risk));
+    if(st.hint) setText('aiHint', st.hint);
+  }
+
+  function emit(kind, data){
+    safeDispatch('hha:ai', { kind, data, meta: { game, runMode, diff, device, seed: seedStr, t: Date.now() } });
+  }
+
+  function score(data){
+    st.lastScore = data || null;
+    emit('score', data || {});
+    // common bridge for universal HUD
+    safeDispatch('hha:score', { game, ...(data||{}) });
+  }
+
+  function coach(text, data){
+    st.lastCoach = { text: String(text||''), data: data||null };
+    emit('coach', { text: String(text||''), ...(data||{}) });
+    safeDispatch('hha:coach', { game, text: String(text||''), ...(data||{}) });
+  }
+
+  function snapshot(data){
+    st.lastSnap = data || null;
+    emit('snapshot', data || {});
+  }
+
+  function end(data){
+    st.ended = true;
+    emit('end', data || {});
+  }
+
+  // Optional: let game set risk/hint for HUD
+  function setRisk(v){
+    st.risk = (v === null || v === undefined) ? null : (typeof v === 'number' ? clamp(v,0,1) : v);
+    hud();
+  }
+  function setHint(t){
+    st.hint = String(t || '—');
+    hud();
+  }
+
+  // These are placeholders for future plug-in modules
+  function pattern(_){ /* reserved */ }
+  function director(_){ /* reserved */ }
+
+  // prime HUD once
+  hud();
+
+  return {
+    ...base,
+    emit,
+    score,
+    coach,
+    snapshot,
+    end,
+    setRisk,
+    setHint,
+    pattern,
+    director,
+    _rng: rng,
+    _state: st
+  };
+}
+
+// Backward-compat: some games may import default
+export default { createAIHooks };
