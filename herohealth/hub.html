@@ -1,10 +1,12 @@
 <!-- === /webxr-health-mobile/herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
-PATCH v20260301-hub-pass-api-exec-safe
+PATCH v20260301b-hub-pass-api-ai-battle-safe
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 403 won't break hub
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
 ✅ FIX: api= Apps Script /exec ส่งต่อแบบถูกต้อง (normalize+auto-encode)
+✅ ADD: pass-through ai/battle/room/autostart/forfeit
+✅ FIX: GoodJunk root launcher = ./goodjunk-vr.html
 -->
 <!doctype html>
 <html lang="th">
@@ -71,7 +73,6 @@ PATCH v20260301-hub-pass-api-exec-safe
     .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
     .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
 
-    /* tiny toast */
     .toast{
       position:fixed; left:50%;
       bottom:calc(14px + var(--sab));
@@ -113,7 +114,6 @@ PATCH v20260301-hub-pass-api-exec-safe
       </div>
     </header>
 
-    <!-- API status banner -->
     <div class="banner" id="apiBanner" aria-live="polite">
       <div class="dot warn" id="apiDot"></div>
       <div>
@@ -132,12 +132,13 @@ PATCH v20260301-hub-pass-api-exec-safe
         <h3>🥗 Nutrition Zone</h3>
         <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
         <div class="btnrow">
-          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr-launcher.html">GoodJunkVR</a>
+          <!-- ✅ FIX: root launcher name -->
+          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
           <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
           <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
           <a class="btn" id="goPlate" href="./plate-vr.html">PlateVR</a>
         </div>
-        <div class="small">* ส่ง run/diff/time/seed/pid/view/log/api + hub ต่อให้เกมอัตโนมัติ</div>
+        <div class="small">* ส่ง run/diff/time/seed/pid/view/log/api/ai/battle + hub ต่อให้เกมอัตโนมัติ</div>
       </div>
 
       <div class="card">
@@ -173,7 +174,6 @@ PATCH v20260301-hub-pass-api-exec-safe
   'use strict';
 
   // ====== CONFIG ======
-  // (ปล่อยเป็นค่าเดิมของคุณได้ — hub จะไม่พังแม้ 403)
   const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/';
 
   // ====== helpers ======
@@ -184,10 +184,13 @@ PATCH v20260301-hub-pass-api-exec-safe
   function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
   function nowSeed(){ return String(Date.now()); }
 
-  // ✅ normalize/clean URL-like params (กันคนส่งมาแบบ encode แล้ว/หรือมี %3A%2F%2F)
+  // ✅ normalize URL-like params (กันส่งมาแบบ encode แล้ว/หรือมี %3A%2F%2F) + กัน null/undefined
   function normalizeMaybeEncodedUrl(v){
     v = String(v ?? '').trim();
     if(!v) return '';
+    if(v === 'null' || v === 'undefined') return '';
+    // remove whitespace/newlines that sometimes sneak in
+    v = v.replace(/\s+/g,'').trim();
     if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
       try { v = decodeURIComponent(v); } catch(e){}
     }
@@ -207,6 +210,13 @@ PATCH v20260301-hub-pass-api-exec-safe
     log:  String(qs('log','')),
     api:  normalizeMaybeEncodedUrl(qs('api','')), // ✅ Apps Script /exec
 
+    // ✅ AI + Battle (optional)
+    ai: String(qs('ai','')),                 // '1' recommended
+    battle: String(qs('battle','')),         // '1'
+    room: String(qs('room','')).trim(),      // room code
+    autostart: String(qs('autostart','')),   // ms
+    forfeit: String(qs('forfeit','')),       // ms
+
     // research params
     studyId: String(qs('studyId','')),
     phase: String(qs('phase','')),
@@ -219,7 +229,6 @@ PATCH v20260301-hub-pass-api-exec-safe
   document.getElementById('cTime').textContent = String(P.time);
   document.getElementById('cPid').textContent = P.pid;
 
-  // build hub url (self) for pass-through
   function buildHubUrl(){
     const u = new URL(location.href);
     u.search = '';
@@ -236,6 +245,13 @@ PATCH v20260301-hub-pass-api-exec-safe
     // ✅ logger pass-through
     if(P.log !== '') sp.set('log', P.log);
     if(P.api) sp.set('api', P.api);
+
+    // ✅ AI + Battle pass-through
+    if(P.ai !== '') sp.set('ai', P.ai);
+    if(P.battle !== '') sp.set('battle', P.battle);
+    if(P.room) sp.set('room', P.room);
+    if(P.autostart) sp.set('autostart', P.autostart);
+    if(P.forfeit) sp.set('forfeit', P.forfeit);
 
     if(P.studyId) sp.set('studyId', P.studyId);
     if(P.phase) sp.set('phase', P.phase);
@@ -261,6 +277,13 @@ PATCH v20260301-hub-pass-api-exec-safe
     if(P.log !== '') sp.set('log', P.log);
     if(P.api) sp.set('api', P.api);
 
+    // ✅ AI + Battle pass-through
+    if(P.ai !== '') sp.set('ai', P.ai);
+    if(P.battle !== '') sp.set('battle', P.battle);
+    if(P.room) sp.set('room', P.room);
+    if(P.autostart) sp.set('autostart', P.autostart);
+    if(P.forfeit) sp.set('forfeit', P.forfeit);
+
     if(P.studyId) sp.set('studyId', P.studyId);
     if(P.phase) sp.set('phase', P.phase);
     if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
@@ -268,13 +291,9 @@ PATCH v20260301-hub-pass-api-exec-safe
     return u.toString();
   }
 
-  // patch all game links to include pass-through params
   const linkIds = [
-    // nutrition
     'goGoodJunk','goGroups','goHydration','goPlate',
-    // hygiene
     'goHandwash','goBrush','goMaskCough',
-    // fitness
     'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
   ];
   for(const id of linkIds){
@@ -283,7 +302,6 @@ PATCH v20260301-hub-pass-api-exec-safe
     a.href = withCommonParams(a.getAttribute('href'));
   }
 
-  // reset today: clears daily gates for all categories (best-effort)
   function getLocalDayKey(){
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -313,7 +331,6 @@ PATCH v20260301-hub-pass-api-exec-safe
     }catch(_){}
   }
 
-  // tiny toast
   let toastT = 0;
   function toast(msg){
     const el = document.getElementById('toast');
@@ -329,7 +346,6 @@ PATCH v20260301-hub-pass-api-exec-safe
     toast('Reset today ✅');
   });
 
-  // ====== 403-safe API probe (no Apollo needed) ======
   const apiDot = document.getElementById('apiDot');
   const apiTitle = document.getElementById('apiTitle');
   const apiMsg = document.getElementById('apiMsg');
