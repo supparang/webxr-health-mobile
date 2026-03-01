@@ -1,12 +1,7 @@
 // === /herohealth/vr/battle-rtdb.js ===
 // Firebase RTDB battle room: join/create, live score sync, autostart, end sync, forfeit
-// + ✅ FIX: use "/.info/serverTimeOffset" (leading slash) to avoid Invalid token in path
-// + ✅ Use serverNow() everywhere (joinedAt/lastSeen/startAt/deadline/endAt)
-// Emits:
-//  - hha:battle-players {room, me, opponent, players}
-//  - hha:battle-state {room, status:'waiting'|'started'|'ended', startAt?, endAt?}
-//  - hha:battle-ended {room, a, b, winner, rule}
-// FULL v20260228p1-BATTLE-RTDB-SERVEROFFSET
+// Requires: window.HHA_BATTLE_CFG = { apiKey, authDomain, databaseURL, projectId, appId ... }
+// FULL v20260301-BATTLE-RTDB-CFG
 'use strict';
 
 import { pickWinner, normalizeResult } from './score-rank.js';
@@ -22,24 +17,16 @@ function emit(name, detail){
 }
 
 function getCfg(){
-  // prefer explicit cfg, else global
-  // expected: { apiKey, authDomain, databaseURL, projectId, ... }
   return WIN.HHA_BATTLE_CFG || null;
 }
 
-let _fbCache = null;
 async function loadFirebase(){
-  // Uses Firebase modular CDN (v10+)
-  if(_fbCache) return _fbCache;
-
   const v = (WIN.HHA_FIREBASE_VERSION || '10.12.2');
   const base = `https://www.gstatic.com/firebasejs/${v}`;
   const appMod = await import(`${base}/firebase-app.js`);
   const dbMod  = await import(`${base}/firebase-database.js`);
   const authMod= await import(`${base}/firebase-auth.js`);
-
-  _fbCache = { appMod, dbMod, authMod };
-  return _fbCache;
+  return { appMod, dbMod, authMod };
 }
 
 async function ensureApp(){
@@ -49,7 +36,6 @@ async function ensureApp(){
   }
   const { appMod } = await loadFirebase();
   const { initializeApp, getApps } = appMod;
-
   const apps = getApps();
   if(apps && apps.length) return apps[0];
   return initializeApp(cfg);
@@ -69,9 +55,7 @@ async function ensureAuth(app){
     if(!auth.currentUser){
       await signInAnonymously(auth);
     }
-  }catch(e){
-    // auth may be optional depending on rules; proceed anyway
-  }
+  }catch(e){}
   return auth;
 }
 
@@ -87,8 +71,7 @@ function safeRoom(room){
 
 export async function initBattle(opts){
   opts = opts || {};
-  const enabled = !!opts.enabled;
-  if(!enabled) return null;
+  if(!opts.enabled) return null;
 
   const room = safeRoom(opts.room || qs('room',''));
   const pid  = String(opts.pid || qs('pid','anon')).trim() || 'anon';
@@ -109,47 +92,24 @@ export async function initBattle(opts){
     runTransaction, remove
   } = dbMod;
 
-  // --- server time offset (✅ FIX: must start with "/") ---
-  let serverOffsetMs = 0;
-  async function getServerOffsetMs(){
-    try{
-      const snap = await get(ref(db, "/.info/serverTimeOffset"));
-      return Number(snap.val() || 0);
-    }catch(e){
-      // if rules block .info, fallback to 0 (still works)
-      return 0;
-    }
-  }
-  serverOffsetMs = await getServerOffsetMs();
-  const serverNow = ()=> Date.now() + (Number(serverOffsetMs)||0);
-
   const root = ref(db, `hha_battle/${gameKey}/${room}`);
   const playersRef = child(root, 'players');
   const stateRef   = child(root, 'state');
 
-  // Join as player
   const myRef = child(playersRef, meKey);
-  const joinedAt = serverNow();
+  const joinedAt = now();
 
   await set(myRef, {
-    pid,
-    gameKey,
+    pid, gameKey,
     joinedAt,
     lastSeen: joinedAt,
-    score: 0,
-    miss: 0,
-    accPct: 0,
-    medianRtGoodMs: 0,
+    score: 0, miss: 0, accPct: 0, medianRtGoodMs: 0,
     ended: false,
     endSummary: null
   });
 
-  // Cleanup when disconnect
-  try{
-    await onDisconnect(myRef).remove();
-  }catch(e){}
+  try{ await onDisconnect(myRef).remove(); }catch(e){}
 
-  // Create/init state if absent
   await runTransaction(stateRef, (cur)=>{
     if(cur) return cur;
     return {
@@ -165,73 +125,48 @@ export async function initBattle(opts){
 
   const battle = {
     enabled: true,
-    room,
-    pid,
-    gameKey,
-    meKey,
+    room, pid, gameKey, meKey,
     opponentKey: null,
     players: {},
     state: { status:'waiting' },
-    serverOffsetMs,
-    serverNow,
     pushScore,
     finalizeEnd,
     destroy
   };
 
-  let unsubPlayers = null;
-  let unsubState = null;
+  let unsubPlayers=null, unsubState=null;
 
   async function tryAutostart(){
-    // Autostart only if 2 players and state waiting
     if(String(battle.state?.status||'') !== 'waiting') return;
     const p = battle.players || {};
     const keys = Object.keys(p);
     if(keys.length < 2) return;
 
-    // use transaction to set startAt once
     await runTransaction(stateRef, (cur)=>{
       cur = cur || {};
       if(cur.status !== 'waiting') return cur;
-      const t0 = serverNow() + autostartMs;
+      const t0 = now() + autostartMs;
       return { ...cur, status:'started', startAt: t0 };
     });
   }
 
-  // Players listener
   unsubPlayers = onValue(playersRef, (snap)=>{
     const val = snap.val() || {};
     battle.players = val;
-
-    // determine opponent (first other key)
     const keys = Object.keys(val);
-    const opp = keys.find(k=>k !== meKey) || null;
-    battle.opponentKey = opp;
-
-    emit('hha:battle-players', {
-      room,
-      me: meKey,
-      opponent: opp,
-      players: val
-    });
-
-    // autostart logic: when 2 players and still waiting
+    battle.opponentKey = keys.find(k=>k !== meKey) || null;
+    emit('hha:battle-players', { room, me: meKey, opponent: battle.opponentKey, players: val });
     tryAutostart().catch(()=>{});
-  }, (err)=>{
-    console.warn('[battle] players onValue err', err);
   });
 
-  // State listener
   unsubState = onValue(stateRef, (snap)=>{
     const s = snap.val() || { status:'waiting' };
     battle.state = s;
     emit('hha:battle-state', { room, ...s });
 
-    // If ended, emit battle-ended once with payload a/b
     if(String(s.status) === 'ended'){
       const p = battle.players || {};
       const keys = Object.keys(p);
-
       if(keys.length >= 2){
         const A = p[keys[0]]?.endSummary || p[keys[0]] || null;
         const B = p[keys[1]]?.endSummary || p[keys[1]] || null;
@@ -240,45 +175,31 @@ export async function initBattle(opts){
         const b = normalizeResult({ ...B, pid: p[keys[1]]?.pid, gameKey, room });
 
         const w = pickWinner(a, b);
-        emit('hha:battle-ended', {
-          room,
-          a, b,
-          winner: w.winner,
-          rule: 'score→acc→miss→medianRT'
-        });
+        emit('hha:battle-ended', { room, a, b, winner: w.winner, rule: 'score→acc→miss→medianRT' });
       }
     }
-  }, (err)=>{
-    console.warn('[battle] state onValue err', err);
   });
 
-  // ping lastSeen (light)
   const pingInt = setInterval(()=>{
-    try{
-      update(myRef, { lastSeen: serverNow() });
-    }catch(e){}
+    try{ update(myRef, { lastSeen: now() }); }catch(e){}
   }, 2500);
 
   async function pushScore(payload){
-    // payload is hha:score detail {score, miss, accPct, medianRtGoodMs...}
     if(!payload) return;
     const d = {
       score: Number(payload.score||0) || 0,
       miss: Number(payload.miss||0) || 0,
       accPct: Number(payload.accPct||0) || 0,
       medianRtGoodMs: Number(payload.medianRtGoodMs||0) || 0,
-      lastSeen: serverNow()
+      lastSeen: now()
     };
     try{ await update(myRef, d); }catch(e){}
   }
 
   async function finalizeEnd(endSummary){
-    // mark ended + attach endSummary
     const s = endSummary || {};
-    const endedAt = serverNow();
-    try{
-      await update(myRef, { ended:true, endSummary: { ...s, ts: endedAt } });
-    }catch(e){}
+    const endedAt = now();
+    try{ await update(myRef, { ended:true, endSummary: { ...s, ts: endedAt } }); }catch(e){}
 
     const deadline = endedAt + forfeitMs;
 
@@ -287,13 +208,12 @@ export async function initBattle(opts){
       const keys = Object.keys(p);
       const endedCount = keys.filter(k=> !!p[k]?.ended).length;
 
-      // if someone left room, treat as forfeit
       if(keys.length < 2){
         clearInterval(timer);
         await runTransaction(stateRef, (cur)=>{
           cur = cur || {};
           if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: serverNow(), forfeit: true };
+          return { ...cur, status:'ended', endAt: now(), forfeit: true };
         });
         return;
       }
@@ -303,17 +223,17 @@ export async function initBattle(opts){
         await runTransaction(stateRef, (cur)=>{
           cur = cur || {};
           if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: serverNow(), forfeit: false };
+          return { ...cur, status:'ended', endAt: now(), forfeit: false };
         });
         return;
       }
 
-      if(serverNow() >= deadline){
+      if(now() >= deadline){
         clearInterval(timer);
         await runTransaction(stateRef, (cur)=>{
           cur = cur || {};
           if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: serverNow(), forfeit: true };
+          return { ...cur, status:'ended', endAt: now(), forfeit: true };
         });
       }
     }, 600);
@@ -323,12 +243,9 @@ export async function initBattle(opts){
     clearInterval(pingInt);
     try{ unsubPlayers && unsubPlayers(); }catch(e){}
     try{ unsubState && unsubState(); }catch(e){}
-    // leave player node
     try{ await remove(myRef); }catch(e){}
   }
 
-  // expose for debug
   WIN.__HHA_BATTLE__ = battle;
-
   return battle;
 }
