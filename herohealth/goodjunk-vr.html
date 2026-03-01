@@ -1,6 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR Launcher (root) — run=folder redirect
-v20260227-goodjunk-launcher
+GoodJunkVR Launcher (root) — redirect to run folder
+PATCH v20260301-goodjunk-launcher-pass-api-hub
+✅ Redirect -> /herohealth/vr-goodjunk/goodjunk-vr.html
+✅ Keep all query params
+✅ Ensure api= (default to latest GAS exec)
+✅ Ensure hub= (default to /herohealth/hub.html with same common params)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,13 +19,56 @@ v20260227-goodjunk-launcher
 <body>
 <script>
 (function(){
+  'use strict';
+
+  const DEFAULT_GAS_EXEC = 'https://script.google.com/macros/s/AKfycbyBakC22343Lm4q7QnVsQbi2L3NA5CUvKycBhAEA2o-ChzcVZoIB5C8VsuRV0R6QV5NfA/exec';
+
+  function safeURL(href){
+    try{ return new URL(href); }catch(_){ return null; }
+  }
+  function qs(u, k, d=''){
+    try{ return u.searchParams.get(k) ?? d; }catch(_){ return d; }
+  }
+  function setIfMissing(u, k, v){
+    try{
+      if(!u.searchParams.has(k) || String(u.searchParams.get(k)||'').trim()===''){
+        u.searchParams.set(k, v);
+      }
+    }catch(_){}
+  }
+
   try{
     const u = new URL(location.href);
-    if(!u.searchParams.has('runner')) u.searchParams.set('runner','folder');
+
+    // keep your runner flag (optional)
+    setIfMissing(u, 'runner', 'folder');
+
+    // ✅ ensure api param (GAS)
+    setIfMissing(u, 'api', DEFAULT_GAS_EXEC);
+
+    // ✅ ensure hub param (back to hub with same params)
+    if(!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
+      const hub = new URL('./hub.html', u);
+
+      // pass common params to hub (only if present, keep hub clean)
+      const passKeys = ['run','diff','time','seed','pid','view','log','api','studyId','phase','conditionGroup','variant'];
+      passKeys.forEach((k)=>{
+        const v = qs(u,k,'');
+        if(String(v||'').trim()!=='') hub.searchParams.set(k, v);
+      });
+
+      // ensure api exists on hub too
+      setIfMissing(hub, 'api', qs(u,'api',DEFAULT_GAS_EXEC));
+
+      u.searchParams.set('hub', hub.toString());
+    }
+
+    // ✅ redirect to run page (folder)
     const dest = new URL('./vr-goodjunk/goodjunk-vr.html', u);
-    dest.search = u.search;
+    dest.search = u.search; // keep all params
     location.replace(dest.href);
   }catch(e){
+    // fallback: plain redirect
     location.href = './vr-goodjunk/goodjunk-vr.html';
   }
 })();
