@@ -1,3 +1,18 @@
+<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260301a (ALL-IN)
+✅ Gameplay: Survival + Practice 15s + Missions + Power-ups + FX
+✅ Quiz: clickable options (mobile/pc) + cVR shoot-to-pick
+✅ Analyze: Heatmap2D + topRisk highlight
+✅ Evaluate: pick zone + pick reason (mobile/pc click) + cVR aim-shoot
+✅ Create: routine 30s pick 3 + score rubric
+Requires:
+- ./hygiene-vr.css
+- ./hygiene.safe.js (export boot)
+- ./hygiene-vr.boot.js (module)
+- ./hygiene-quiz-bank.js (global HHA_HYGIENE_QUIZ_BANK)  [optional but recommended]
+- ../vr/vr-ui.js (defer)
+- ../vr/particles.js (defer, optional FX)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,7 +22,7 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260219c" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260301a" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -15,7 +30,7 @@
   <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- Optional AI packs -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
@@ -24,7 +39,7 @@
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260219c"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260301a"></script>
 </head>
 
 <body class="view-pc">
@@ -47,11 +62,11 @@
         <!-- Progress bars -->
         <div class="hw-bars">
           <div class="hw-bar">
-            <div class="hw-bar-lab">STEP PROGRESS</div>
+            <div class="hw-bar-lab">STEP</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill" id="barStep"></div></div>
           </div>
           <div class="hw-bar">
-            <div class="hw-bar-lab">LOOP / MISSION</div>
+            <div class="hw-bar-lab">LOOP/MISSION</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill cyan" id="barLoop"></div></div>
           </div>
         </div>
@@ -66,28 +81,20 @@
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- ✅ Quiz box (buttons 1–4) -->
+        <!-- Quiz box (clickable options) -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
 
           <div class="hw-quiz-opts" id="quizOpts">
-            <button class="hw-quiz-opt" type="button" data-i="0">
-              <span class="n">1</span><span class="t" id="opt0">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="1">
-              <span class="n">2</span><span class="t" id="opt1">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="2">
-              <span class="n">3</span><span class="t" id="opt2">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="3">
-              <span class="n">4</span><span class="t" id="opt3">—</span>
-            </button>
+            <button class="hw-quiz-opt" id="opt0" type="button"><span class="n">1</span><span class="t">—</span></button>
+            <button class="hw-quiz-opt" id="opt1" type="button"><span class="n">2</span><span class="t">—</span></button>
+            <button class="hw-quiz-opt" id="opt2" type="button"><span class="n">3</span><span class="t">—</span></button>
+            <button class="hw-quiz-opt" id="opt3" type="button"><span class="n">4</span><span class="t">—</span></button>
           </div>
 
           <div class="hw-quiz-hint" id="quizHint">
-            แตะคำตอบที่ถูก • โหมด cVR: เล็งแล้ว “ยิง” เพื่อเลือก
+            Mobile/PC: แตะตัวเลือก • cVR: เล็งแล้ว “ยิง” เพื่อเลือก
           </div>
         </div>
       </div>
@@ -101,8 +108,7 @@
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
           โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -115,11 +121,65 @@
       </div>
     </div>
 
-    <!-- End Overlay -->
+    <!-- End Overlay (scrollable + Evaluate + Create) -->
     <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card">
+      <div class="hw-card hw-card-end">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
+
+        <!-- Analyze + Evaluate -->
+        <div class="hw-eval" id="evalBox">
+          <div class="hw-eval-title">🔎 Analyze/Evaluate (30 วินาที)</div>
+          <div class="hw-eval-sub" id="evalSub">
+            เลือก “จุดเสี่ยงสุด” จาก Heatmap แล้วเลือกเหตุผล 1 ข้อ
+          </div>
+          <div class="hw-eval-sub" id="evalHint">—</div>
+
+          <div class="hw-handmap" id="handMap" aria-label="hand map"></div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
+            <div class="hw-eval-score"  id="evalScore">ผลประเมิน: —</div>
+          </div>
+
+          <div class="hw-reasons" id="evalReasons">
+            <button class="hw-reason" type="button" data-reason="ลืมจุดนี้บ่อย">ลืมจุดนี้บ่อย</button>
+            <button class="hw-reason" type="button" data-reason="ถูยาก/ต้องใช้เวลา">ถูยาก/ต้องใช้เวลา</button>
+            <button class="hw-reason" type="button" data-reason="คิดว่าสะอาดแล้วแต่จริงๆไม่">คิดว่าสะอาดแล้วแต่จริงๆไม่</button>
+            <button class="hw-reason" type="button" data-reason="รีบ/โดนรบกวน">รีบ/โดนรบกวน</button>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ</button>
+            <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
+          </div>
+        </div>
+
+        <!-- Create routine 30s -->
+        <div class="hw-create" id="createBox" style="display:none">
+          <div class="hw-eval-title">✨ Create (ตั้ง Routine 3 ข้อ)</div>
+          <div class="hw-eval-sub">
+            เลือก <b>3 ข้อ</b> ที่คุณจะทำจริง (นับถอยหลัง <span class="hw-mini" id="createTimer">30</span>s)
+          </div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
+            <div class="hw-eval-score"  id="createScore">คะแนน: —</div>
+          </div>
+
+          <div class="hw-routine" id="routineOpts">
+            <button class="hw-rt" type="button" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
+            <button class="hw-rt" type="button" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
+            <button class="hw-rt" type="button" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+            <button class="hw-rt" type="button" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
+            <button class="hw-rt" type="button" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
+            <button class="hw-rt" type="button" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
+          </div>
+        </div>
 
         <pre class="hw-pre" id="endJson"></pre>
 
@@ -140,11 +200,12 @@
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
+    const el = document.getElementById('labView');
+    if(el) el.textContent = view;
   }
   setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
+  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
