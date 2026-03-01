@@ -1,251 +1,279 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB battle room: join/create, live score sync, autostart, end sync, forfeit
-// Requires: window.HHA_BATTLE_CFG = { apiKey, authDomain, databaseURL, projectId, appId ... }
-// FULL v20260301-BATTLE-RTDB-CFG
+// HeroHealth Battle Transport (SAFE)
+// - Default transport: BroadcastChannel (works cross-tab on same device)
+// - Winner: score → accPct → miss → medianRtGoodMs (lower better)
+// - Emits UI event: window.dispatchEvent(new CustomEvent('hha:battle', {detail:{...}}))
 'use strict';
 
-import { pickWinner, normalizeResult } from './score-rank.js';
+import { compareScorePackets } from './score-compare.js';
 
-const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
+
+let __DBG__ = { room:'', status:'idle' };
 
 function qs(k, d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
 function now(){ return Date.now(); }
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-function emit(name, detail){
-  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
+function safePid(p){ p=String(p||'anon').trim(); return p||'anon'; }
+function safeRoom(r){
+  r = String(r||'').trim();
+  if(!r) r = `ROOM-${Math.random().toString(16).slice(2,8).toUpperCase()}`;
+  return r.replace(/[^A-Za-z0-9_-]/g,'').slice(0,32) || 'ROOM';
 }
-
-function getCfg(){
-  return WIN.HHA_BATTLE_CFG || null;
-}
-
-async function loadFirebase(){
-  const v = (WIN.HHA_FIREBASE_VERSION || '10.12.2');
-  const base = `https://www.gstatic.com/firebasejs/${v}`;
-  const appMod = await import(`${base}/firebase-app.js`);
-  const dbMod  = await import(`${base}/firebase-database.js`);
-  const authMod= await import(`${base}/firebase-auth.js`);
-  return { appMod, dbMod, authMod };
-}
-
-async function ensureApp(){
-  const cfg = getCfg();
-  if(!cfg || !cfg.databaseURL){
-    throw new Error('Missing HHA_BATTLE_CFG.databaseURL');
-  }
-  const { appMod } = await loadFirebase();
-  const { initializeApp, getApps } = appMod;
-  const apps = getApps();
-  if(apps && apps.length) return apps[0];
-  return initializeApp(cfg);
-}
-
-async function ensureDb(app){
-  const { dbMod } = await loadFirebase();
-  const { getDatabase } = dbMod;
-  return getDatabase(app);
-}
-
-async function ensureAuth(app){
-  const { authMod } = await loadFirebase();
-  const { getAuth, signInAnonymously } = authMod;
-  const auth = getAuth(app);
+function emit(detail){
   try{
-    if(!auth.currentUser){
-      await signInAnonymously(auth);
-    }
+    ROOT.dispatchEvent(new CustomEvent('hha:battle', { detail }));
   }catch(e){}
-  return auth;
 }
 
-function makeKey(){
-  return `p_${Math.random().toString(36).slice(2,9)}_${now().toString(36)}`;
+function shortScore(p){
+  if(!p) return '—';
+  const s = Number(p.score ?? 0)|0;
+  const a = Number(p.accPct ?? 0)|0;
+  const m = Number(p.miss ?? 0)|0;
+  const r = Number(p.medianRtGoodMs ?? 0)|0;
+  return `${s} | acc ${a}% | miss ${m} | rt ${r}ms`;
 }
 
-function safeRoom(room){
-  room = String(room||'').trim();
-  room = room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0, 24);
-  return room || `R${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+function pickWinnerPacket(a, b){
+  if(!a && !b) return null;
+  if(a && !b) return a;
+  if(!a && b) return b;
+  return compareScorePackets(a,b) <= 0 ? a : b; // best first
+}
+
+// Transport: BroadcastChannel (fallback to localStorage events)
+function makeTransport(room){
+  const chanName = `hha-battle:${room}`;
+  let bc = null;
+
+  try{
+    bc = new BroadcastChannel(chanName);
+  }catch(e){
+    bc = null;
+  }
+
+  const lsKey = `HHA_BATTLE_BUS:${room}`;
+  const listeners = new Set();
+
+  function send(msg){
+    msg = msg || {};
+    msg.ts = now();
+    msg.room = room;
+    try{ bc?.postMessage(msg); }catch(e){}
+    try{
+      localStorage.setItem(lsKey, JSON.stringify(msg));
+      // clear quickly to avoid bloat
+      localStorage.removeItem(lsKey);
+    }catch(e){}
+  }
+
+  function onMessage(fn){
+    listeners.add(fn);
+    return ()=> listeners.delete(fn);
+  }
+
+  if(bc){
+    bc.onmessage = (ev)=>{
+      const msg = ev?.data || null;
+      if(!msg) return;
+      listeners.forEach(fn=>{ try{ fn(msg); }catch(e){} });
+    };
+  }
+
+  ROOT.addEventListener('storage', (ev)=>{
+    if(ev.key !== lsKey) return;
+    const msg = (function(){
+      try{ return JSON.parse(ev.newValue || '{}'); }catch(e){ return null; }
+    })();
+    if(!msg) return;
+    listeners.forEach(fn=>{ try{ fn(msg); }catch(e){} });
+  });
+
+  return { send, onMessage };
+}
+
+export function getBattleDebug(){
+  return __DBG__;
 }
 
 export async function initBattle(opts){
   opts = opts || {};
   if(!opts.enabled) return null;
 
+  const pid = safePid(opts.pid);
+  const gameKey = String(opts.gameKey || 'unknown').toLowerCase();
+
   const room = safeRoom(opts.room || qs('room',''));
-  const pid  = String(opts.pid || qs('pid','anon')).trim() || 'anon';
-  const gameKey = String(opts.gameKey || 'unknown');
+  __DBG__.room = room;
+  __DBG__.status = 'connecting';
 
-  const autostartMs = clamp(opts.autostartMs ?? Number(qs('autostart','3000'))||3000, 500, 15000);
-  const forfeitMs   = clamp(opts.forfeitMs   ?? Number(qs('forfeit','5000'))||5000, 1000, 30000);
+  const transport = makeTransport(room);
 
-  const meKey = makeKey();
-
-  const app = await ensureApp();
-  const db  = await ensureDb(app);
-  await ensureAuth(app);
-
-  const { dbMod } = await loadFirebase();
-  const {
-    ref, child, get, set, update, onValue, onDisconnect, serverTimestamp,
-    runTransaction, remove
-  } = dbMod;
-
-  const root = ref(db, `hha_battle/${gameKey}/${room}`);
-  const playersRef = child(root, 'players');
-  const stateRef   = child(root, 'state');
-
-  const myRef = child(playersRef, meKey);
-  const joinedAt = now();
-
-  await set(myRef, {
-    pid, gameKey,
-    joinedAt,
-    lastSeen: joinedAt,
-    score: 0, miss: 0, accPct: 0, medianRtGoodMs: 0,
-    ended: false,
-    endSummary: null
-  });
-
-  try{ await onDisconnect(myRef).remove(); }catch(e){}
-
-  await runTransaction(stateRef, (cur)=>{
-    if(cur) return cur;
-    return {
-      status: 'waiting',
-      createdAt: joinedAt,
-      startAt: null,
-      endAt: null,
-      rule: 'score→acc→miss→medianRT',
-      autostartMs,
-      forfeitMs
-    };
-  });
-
-  const battle = {
-    enabled: true,
-    room, pid, gameKey, meKey,
-    opponentKey: null,
-    players: {},
-    state: { status:'waiting' },
-    pushScore,
-    finalizeEnd,
-    destroy
+  const state = {
+    room,
+    pid,
+    gameKey,
+    status: 'connecting',
+    you: null,
+    opp: null,
+    youEnd: null,
+    oppEnd: null,
+    winner: null,
+    startedAt: now() + (Number(opts.autostartMs)||3000),
+    forfeitAt: null
   };
 
-  let unsubPlayers=null, unsubState=null;
-
-  async function tryAutostart(){
-    if(String(battle.state?.status||'') !== 'waiting') return;
-    const p = battle.players || {};
-    const keys = Object.keys(p);
-    if(keys.length < 2) return;
-
-    await runTransaction(stateRef, (cur)=>{
-      cur = cur || {};
-      if(cur.status !== 'waiting') return cur;
-      const t0 = now() + autostartMs;
-      return { ...cur, status:'started', startAt: t0 };
+  function setStatus(s){
+    state.status = s;
+    __DBG__.status = s;
+    emit({
+      room: state.room,
+      status: state.status,
+      you: shortScore(state.you),
+      opp: shortScore(state.opp),
+      winner: state.winner ? String(state.winner.pid||'—') : '—'
     });
   }
 
-  unsubPlayers = onValue(playersRef, (snap)=>{
-    const val = snap.val() || {};
-    battle.players = val;
-    const keys = Object.keys(val);
-    battle.opponentKey = keys.find(k=>k !== meKey) || null;
-    emit('hha:battle-players', { room, me: meKey, opponent: battle.opponentKey, players: val });
-    tryAutostart().catch(()=>{});
-  });
+  function broadcastHello(){
+    transport.send({ type:'hello', pid, gameKey });
+  }
 
-  unsubState = onValue(stateRef, (snap)=>{
-    const s = snap.val() || { status:'waiting' };
-    battle.state = s;
-    emit('hha:battle-state', { room, ...s });
+  function broadcastScore(packet){
+    transport.send({ type:'score', pid, gameKey, packet });
+  }
 
-    if(String(s.status) === 'ended'){
-      const p = battle.players || {};
-      const keys = Object.keys(p);
-      if(keys.length >= 2){
-        const A = p[keys[0]]?.endSummary || p[keys[0]] || null;
-        const B = p[keys[1]]?.endSummary || p[keys[1]] || null;
+  function broadcastEnd(summary){
+    transport.send({ type:'end', pid, gameKey, summary });
+  }
 
-        const a = normalizeResult({ ...A, pid: p[keys[0]]?.pid, gameKey, room });
-        const b = normalizeResult({ ...B, pid: p[keys[1]]?.pid, gameKey, room });
+  function calcWinner(){
+    // need both ends OR forfeit decision
+    if(state.youEnd && state.oppEnd){
+      const a = {
+        pid,
+        score: state.youEnd.scoreFinal,
+        accPct: state.youEnd.accPct,
+        miss: state.youEnd.missTotal,
+        medianRtGoodMs: state.youEnd.medianRtGoodMs,
+        ts: Number(state.youEnd.endTimeIso ? Date.parse(state.youEnd.endTimeIso) : now())
+      };
+      const b = {
+        pid: state.oppEnd.pid,
+        score: state.oppEnd.scoreFinal,
+        accPct: state.oppEnd.accPct,
+        miss: state.oppEnd.missTotal,
+        medianRtGoodMs: state.oppEnd.medianRtGoodMs,
+        ts: Number(state.oppEnd.endTimeIso ? Date.parse(state.oppEnd.endTimeIso) : now())
+      };
+      const win = pickWinnerPacket(a,b);
+      state.winner = win;
+      setStatus('ended');
+      emit({
+        room: state.room,
+        status: 'ended',
+        you: shortScore(a),
+        opp: shortScore(b),
+        winner: win ? String(win.pid) : '—'
+      });
+      return;
+    }
 
-        const w = pickWinner(a, b);
-        emit('hha:battle-ended', { room, a, b, winner: w.winner, rule: 'score→acc→miss→medianRT' });
+    // forfeit logic (if one ended and other not within forfeitMs)
+    if(state.youEnd && !state.oppEnd && state.forfeitAt && now() >= state.forfeitAt){
+      state.winner = { pid };
+      setStatus('ended');
+      emit({ room: state.room, status:'ended', winner: pid });
+      return;
+    }
+    if(!state.youEnd && state.oppEnd && state.forfeitAt && now() >= state.forfeitAt){
+      state.winner = { pid: state.oppEnd.pid || 'opponent' };
+      setStatus('ended');
+      emit({ room: state.room, status:'ended', winner: state.winner.pid });
+      return;
+    }
+  }
+
+  // incoming
+  transport.onMessage((msg)=>{
+    if(!msg || msg.room !== room) return;
+    if(msg.gameKey && String(msg.gameKey).toLowerCase() !== gameKey) return;
+
+    if(msg.type === 'hello'){
+      if(msg.pid && msg.pid !== pid){
+        setStatus('ready');
       }
+      return;
+    }
+
+    if(msg.type === 'score'){
+      if(msg.pid === pid) return;
+      state.opp = msg.packet || null;
+      setStatus(state.status === 'connecting' ? 'ready' : state.status);
+      return;
+    }
+
+    if(msg.type === 'end'){
+      if(msg.pid === pid) return;
+      state.oppEnd = msg.summary || null;
+      // if you already ended, start forfeit timer to close quickly
+      if(state.youEnd && !state.forfeitAt){
+        state.forfeitAt = now() + (Number(opts.forfeitMs)||5000);
+      }
+      setStatus(state.status === 'ended' ? 'ended' : 'ready');
+      calcWinner();
+      return;
     }
   });
 
-  const pingInt = setInterval(()=>{
-    try{ update(myRef, { lastSeen: now() }); }catch(e){}
-  }, 2500);
+  // initial
+  setStatus('connecting');
+  broadcastHello();
+  setTimeout(()=> broadcastHello(), 600);
+  setTimeout(()=> setStatus('ready'), 900);
 
-  async function pushScore(payload){
-    if(!payload) return;
-    const d = {
-      score: Number(payload.score||0) || 0,
-      miss: Number(payload.miss||0) || 0,
-      accPct: Number(payload.accPct||0) || 0,
-      medianRtGoodMs: Number(payload.medianRtGoodMs||0) || 0,
-      lastSeen: now()
-    };
-    try{ await update(myRef, d); }catch(e){}
-  }
+  // public API used by goodjunk.safe.js
+  const api = {
+    room,
+    pid,
+    gameKey,
 
-  async function finalizeEnd(endSummary){
-    const s = endSummary || {};
-    const endedAt = now();
-    try{ await update(myRef, { ended:true, endSummary: { ...s, ts: endedAt } }); }catch(e){}
+    pushScore(payload){
+      // payload = {score, miss, accPct, medianRtGoodMs,...}
+      state.you = payload || null;
+      broadcastScore(payload || {});
+      setStatus(state.status === 'connecting' ? 'ready' : state.status);
+    },
 
-    const deadline = endedAt + forfeitMs;
-
-    const timer = setInterval(async ()=>{
-      const p = battle.players || {};
-      const keys = Object.keys(p);
-      const endedCount = keys.filter(k=> !!p[k]?.ended).length;
-
-      if(keys.length < 2){
-        clearInterval(timer);
-        await runTransaction(stateRef, (cur)=>{
-          cur = cur || {};
-          if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: now(), forfeit: true };
-        });
-        return;
+    finalizeEnd(summary){
+      // summary is the full game summary
+      state.youEnd = summary || null;
+      broadcastEnd(summary || {});
+      // start forfeit timer if opp never ends
+      if(!state.forfeitAt){
+        state.forfeitAt = now() + (Number(opts.forfeitMs)||5000);
       }
+      setStatus('ended');
+      calcWinner();
+      // keep checking until winner resolved
+      const tick = ()=>{
+        if(state.winner) return;
+        calcWinner();
+        if(!state.winner) setTimeout(tick, 250);
+      };
+      setTimeout(tick, 250);
+    }
+  };
 
-      if(endedCount >= 2){
-        clearInterval(timer);
-        await runTransaction(stateRef, (cur)=>{
-          cur = cur || {};
-          if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: now(), forfeit: false };
-        });
-        return;
-      }
+  emit({
+    room: state.room,
+    status: state.status,
+    you: '—',
+    opp: '—',
+    winner: '—'
+  });
 
-      if(now() >= deadline){
-        clearInterval(timer);
-        await runTransaction(stateRef, (cur)=>{
-          cur = cur || {};
-          if(cur.status === 'ended') return cur;
-          return { ...cur, status:'ended', endAt: now(), forfeit: true };
-        });
-      }
-    }, 600);
-  }
-
-  async function destroy(){
-    clearInterval(pingInt);
-    try{ unsubPlayers && unsubPlayers(); }catch(e){}
-    try{ unsubState && unsubState(); }catch(e){}
-    try{ await remove(myRef); }catch(e){}
-  }
-
-  WIN.__HHA_BATTLE__ = battle;
-  return battle;
+  return api;
 }
