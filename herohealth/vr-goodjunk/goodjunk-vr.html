@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk.html ===
 GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-FULL v20260228-RUN-AIHUD -->
+PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,7 +8,12 @@ FULL v20260228-RUN-AIHUD -->
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./goodjunk.css" />
+
+  <!-- ✅ favicon (แนะนำให้มีไฟล์จริงที่ /herohealth/favicon.ico) -->
+  <link rel="icon" href="../favicon.ico" />
+
+  <!-- ✅ FIX 404 + cache bust -->
+  <link rel="stylesheet" href="./goodjunk.css?v=20260301" />
 </head>
 <body>
   <div id="app">
@@ -125,7 +130,6 @@ FULL v20260228-RUN-AIHUD -->
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
-    import { createGoodJunkAI } from '../vr/ai-goodjunk.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
@@ -141,15 +145,24 @@ FULL v20260228-RUN-AIHUD -->
       ai: null
     };
 
-    // AI enabled only when ?ai=1 AND not research/practice
+    // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
-      cfg.ai = createGoodJunkAI({
-        seed: cfg.seed,
-        pid: cfg.pid,
-        diff: cfg.diff,
-        view: cfg.view
-      });
+      try{
+        // ✅ dynamic import: ถ้าไฟล์หายจะไม่ทำให้เกมพังทั้งหน้า
+        const mod = await import('../vr/ai-goodjunk.js');
+        const createGoodJunkAI = mod.createGoodJunkAI;
+        if(typeof createGoodJunkAI === 'function'){
+          cfg.ai = createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view
+          });
+        }
+      }catch(e){
+        console.warn('[GoodJunk] AI module load failed', e);
+      }
     }
 
     // Buttons
@@ -157,7 +170,7 @@ FULL v20260228-RUN-AIHUD -->
     const btnHub = document.getElementById('btnHub');
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now())); // new seed for replay (unless you want deterministic keep)
+      u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
