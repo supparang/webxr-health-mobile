@@ -1,5 +1,17 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE — PRODUCTION FINAL PATCH (fix: summary showing + mobile scroll drift)
+// BrushVR SAFE — FINAL PRO (LOGGER + FLUSH + HITS FIX + NO SCROLL DRIFT)
+// Requires DOM ids from brush-vr.html (menu/end/hud/layer)
+// Query:
+//  - view=pc|mobile|cvr
+//  - diff=easy|normal|hard
+//  - time=30..120
+//  - seed=...
+//  - pid=...
+//  - run=play|research
+//  - hub=...
+//  - log=1 (enable logging)
+//  - api=<endpoint> (logging endpoint)  OR log=<endpoint>
+//  - debug=1
 (function(){
   'use strict';
 
@@ -11,28 +23,7 @@
   function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
   function toNum(v,d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
-
-  function toast(msg){
-    const el = $('#toast');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=> el.classList.remove('show'), 1200);
-  }
-
-  function fatal(msg){
-    const el = $('#fatal');
-    if(!el){ alert(msg); return; }
-    el.textContent = msg;
-    el.classList.remove('br-hidden');
-  }
-  WIN.addEventListener('error', (e)=>{
-    fatal('JS ERROR:\n' + (e?.message||e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
-  });
-  WIN.addEventListener('unhandledrejection', (e)=>{
-    fatal('PROMISE REJECTION:\n' + (e?.reason?.message || e?.reason || e));
-  });
+  function tryJson(x, d){ try{ return JSON.parse(x); }catch(_){ return d; } }
 
   function getQS(){
     try{ return new URL(location.href).searchParams; }
@@ -57,6 +48,8 @@
     const qs = getQS();
     return qs.get('hub') || ctx.hub || '../hub.html';
   }
+
+  // deterministic rng
   function seededRng(seed){
     let t = (Number(seed)||Date.now()) >>> 0;
     return function(){
@@ -66,27 +59,54 @@
       return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
   }
+
   function emit(type, detail){
     try{ WIN.dispatchEvent(new CustomEvent(type, { detail })); }catch(_){}
   }
 
+  function toast(msg){
+    const el = $('#toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> el.classList.remove('show'), 1200);
+  }
+
+  function fatal(msg){
+    const el = $('#fatal');
+    if(!el){ alert(msg); return; }
+    el.textContent = msg;
+    el.classList.remove('br-hidden');
+  }
+  WIN.addEventListener('error', (e)=>{
+    fatal('JS ERROR:\n' + (e?.message||e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
+  });
+  WIN.addEventListener('unhandledrejection', (e)=>{
+    fatal('PROMISE REJECTION:\n' + (e?.reason?.message || e?.reason || e));
+  });
+
+  // ---------- DOM ----------
   const wrap = $('#br-wrap');
   const layer = $('#br-layer');
   const menu = $('#br-menu');
   const end  = $('#br-end');
 
   const btnStart = $('#btnStart');
+  const btnRetry = $('#btnRetry');
+  const btnPause = $('#btnPause');
+  const btnHow = $('#btnHow');
+  const btnRecenter = $('#btnRecenter');
+
+  // back hub buttons are <a>
   const btnBack = $('#btnBack');
   const btnBackHub2 = $('#btnBackHub2');
-  const btnRetry = $('#btnRetry');
-  const btnHow = $('#btnHow');
-  const btnPause = $('#btnPause');
-  const btnRecenter = $('#btnRecenter');
 
   const tScore = $('#tScore');
   const tCombo = $('#tCombo');
   const tMiss  = $('#tMiss');
   const tTime  = $('#tTime');
+
   const tClean = $('#tClean');
   const bClean = $('#bClean');
   const tFever = $('#tFever');
@@ -96,6 +116,7 @@
   const ctxSeed = $('#br-ctx-seed');
   const ctxTime = $('#br-ctx-time');
   const diffTag = $('#br-diffTag');
+
   const mDiff = $('#mDiff');
   const mTime = $('#mTime');
 
@@ -110,10 +131,11 @@
 
   if(!wrap || !layer) throw new Error('BrushVR DOM missing (#br-wrap / #br-layer)');
 
+  // ---------- context ----------
   const qs = getQS();
   const ctx = {
     hub: qs.get('hub') || '../hub.html',
-    run: qs.get('run') || qs.get('mode') || 'play',
+    run: (qs.get('run') || qs.get('mode') || 'play').toLowerCase(),
     view: getViewAuto(),
     diff: (qs.get('diff') || 'normal').toLowerCase(),
     time: safeNum(qs.get('time'), 80),
@@ -122,16 +144,28 @@
     studyId: (qs.get('studyId') || '').trim(),
     phase: (qs.get('phase') || '').trim(),
     conditionGroup: (qs.get('conditionGroup') || '').trim(),
-    log: (qs.get('log') || qs.get('api') || '').trim(),
     debug: safeNum(qs.get('debug'), 0) === 1,
-    ai: String(qs.get('ai') ?? '1') !== '0'
-  };
 
+    // logging flags
+    logFlag: String(qs.get('log') ?? '').trim(), // "1" or endpoint
+    api: String(qs.get('api') ?? '').trim()
+  };
   ctx.time = clamp(ctx.time, 30, 120);
   if(!['easy','normal','hard'].includes(ctx.diff)) ctx.diff = 'normal';
+  if(!['play','research'].includes(ctx.run)) ctx.run = 'play';
 
+  // resolve endpoint: log=<endpoint> has priority over api=...
+  let LOG_ENDPOINT = '';
+  if(ctx.logFlag && ctx.logFlag !== '0' && ctx.logFlag !== '1') LOG_ENDPOINT = ctx.logFlag;
+  else if(ctx.api) LOG_ENDPOINT = ctx.api;
+
+  const LOG_ENABLED = (ctx.logFlag === '1' || (!!LOG_ENDPOINT));
+  const GAME_VERSION = 'v20260301b';
+
+  // ---------- view/data attrs ----------
   wrap.dataset.view = ctx.view;
   DOC.body.setAttribute('data-view', ctx.view);
+  wrap.dataset.state = 'menu';
 
   if(ctxView) ctxView.textContent = ctx.view;
   if(ctxSeed) ctxSeed.textContent = String((ctx.seed >>> 0));
@@ -140,26 +174,44 @@
   if(mDiff) mDiff.textContent = ctx.diff;
   if(mTime) mTime.textContent = `${ctx.time}s`;
 
-  function setBackLinks(){
+  // back links: preserve pid/studyId/phase/conditionGroup
+  function buildHubUrl(){
     const hubUrl = passHubUrl(ctx);
-    for (const a of [btnBack, btnBackHub2]){
-      if(!a) continue;
-      try{
-        const u = new URL(hubUrl, location.href);
-        if(ctx.pid) u.searchParams.set('pid', ctx.pid);
-        if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
-        if(ctx.phase) u.searchParams.set('phase', ctx.phase);
-        if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
-        a.href = u.toString();
-      }catch(_){
-        a.href = hubUrl;
-      }
+    try{
+      const u = new URL(hubUrl, location.href);
+      if(ctx.pid) u.searchParams.set('pid', ctx.pid);
+      if(ctx.studyId) u.searchParams.set('studyId', ctx.studyId);
+      if(ctx.phase) u.searchParams.set('phase', ctx.phase);
+      if(ctx.conditionGroup) u.searchParams.set('conditionGroup', ctx.conditionGroup);
+      return u.toString();
+    }catch(_){
+      return hubUrl;
     }
+  }
+  function setBackLinks(){
+    const u = buildHubUrl();
+    if(btnBack) btnBack.href = u;
+    if(btnBackHub2) btnBackHub2.href = u;
   }
   setBackLinks();
 
+  // ---------- anti-scroll (เล่นแล้วจอไม่เลื่อนหลุด) ----------
+  function setPlayScrollLock(on){
+    DOC.documentElement.style.overflow = on ? 'hidden' : '';
+    DOC.body.style.overflow = on ? 'hidden' : '';
+    DOC.body.style.overscrollBehavior = on ? 'none' : '';
+  }
+  function onTouchMove(e){
+    if(S.running && !S.paused && !S.ended){
+      e.preventDefault();
+    }
+  }
+  DOC.addEventListener('touchmove', onTouchMove, { passive:false });
+
+  // ---------- RNG ----------
   const rng = seededRng(ctx.seed);
 
+  // ---------- Fun boost (optional) ----------
   const fun = WIN.HHA?.createFunBoost?.({
     seed: (qs.get('seed') || ctx.pid || 'brush'),
     baseSpawnMul: 1.0,
@@ -171,22 +223,7 @@
   });
   let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
 
-  // ---------- anti-scroll (สำคัญ) ----------
-  function setPlayScrollLock(on){
-    // ใช้ “กันเลื่อน” เฉพาะตอนเล่นจริง
-    DOC.documentElement.style.overflow = on ? 'hidden' : '';
-    DOC.body.style.overflow = on ? 'hidden' : '';
-    DOC.body.style.overscrollBehavior = on ? 'none' : '';
-  }
-  function onTouchMove(e){
-    if(S.running && !S.paused && !S.ended){
-      e.preventDefault();
-    }
-  }
-  // ต้องเป็น passive:false
-  DOC.addEventListener('touchmove', onTouchMove, { passive:false });
-
-  // ---------- FX ----------
+  // ---------- FX layer ----------
   let fx = null;
   function ensureFx(){
     if(fx) return fx;
@@ -231,6 +268,100 @@
     o.fin.classList.toggle('on', !!on);
   }
 
+  // ---------- LOGGER (queue + flush-hardened) ----------
+  // Supports:
+  //  - POST JSON to LOG_ENDPOINT
+  // Payload: { kind:'event'|'session', ... }
+  const Logger = (function(){
+    const q = [];
+    const MAX_Q = 250;
+
+    function canSend(){ return LOG_ENABLED && !!LOG_ENDPOINT; }
+
+    function push(obj){
+      if(!canSend()) return;
+      q.push(obj);
+      if(q.length > MAX_Q) q.splice(0, q.length - MAX_Q);
+    }
+
+    function postJson(payload){
+      // keep alive if possible
+      try{
+        return fetch(LOG_ENDPOINT, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify(payload),
+          keepalive:true
+        });
+      }catch(_){
+        return Promise.resolve(null);
+      }
+    }
+
+    function flush(reason){
+      if(!canSend()) return Promise.resolve();
+      if(!q.length) return Promise.resolve();
+
+      const batch = q.splice(0, q.length);
+      const payload = {
+        kind: 'batch',
+        projectTag: 'HeroHealth',
+        game: 'brush',
+        gameVersion: GAME_VERSION,
+        runMode: ctx.run,
+        pid: ctx.pid || '',
+        studyId: ctx.studyId || '',
+        phase: ctx.phase || '',
+        conditionGroup: ctx.conditionGroup || '',
+        sessionId: S.sessionId || '',
+        reason: reason || 'flush',
+        ts: Date.now(),
+        items: batch
+      };
+      return postJson(payload).then(()=>{}).catch(()=>{});
+    }
+
+    // beacon-style fallback for unload (best effort)
+    function flushBeacon(reason){
+      if(!canSend()) return;
+      if(!q.length) return;
+      const batch = q.splice(0, q.length);
+      const payload = {
+        kind: 'batch',
+        projectTag: 'HeroHealth',
+        game: 'brush',
+        gameVersion: GAME_VERSION,
+        runMode: ctx.run,
+        pid: ctx.pid || '',
+        studyId: ctx.studyId || '',
+        phase: ctx.phase || '',
+        conditionGroup: ctx.conditionGroup || '',
+        sessionId: S.sessionId || '',
+        reason: reason || 'beacon',
+        ts: Date.now(),
+        items: batch
+      };
+      try{
+        const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+        if(navigator.sendBeacon){
+          navigator.sendBeacon(LOG_ENDPOINT, blob);
+          return;
+        }
+      }catch(_){}
+      // fallback try fetch keepalive
+      postJson(payload);
+    }
+
+    return { push, flush, flushBeacon, canSend };
+  })();
+
+  function mkSessionId(){
+    // deterministic-ish but unique: pid + seed + time + ts
+    const a = String(ctx.pid||'anon').slice(0,18);
+    const b = String(ctx.seed>>>0);
+    return `BR-${a}-${b}-${Date.now()}`;
+  }
+
   // ---------- State ----------
   const S = {
     running:false,
@@ -244,9 +375,9 @@
     comboMax:0,
     miss:0,
     totalShots:0,
-    hits:0,
-
+    hits:0,            // ✅ FIX: hits must increase on every successful hit
     clean:0,
+
     cleanGainPerHit: 1.2,
     cleanLosePerMiss: 0.6,
 
@@ -260,8 +391,11 @@
 
     uid:0,
     targets: new Map(),
+
+    sessionId: ''      // ✅ for logging
   };
 
+  // diff tuning
   (function tune(){
     if(ctx.diff==='easy'){
       S.baseSpawnMs = 900;
@@ -311,6 +445,7 @@
     };
   }
 
+  // ---------- Targets ----------
   function updateBossWeakspotPos(t){
     if(!t || t.type !== 'boss' || !t.wsEl) return;
     const ang = rng() * Math.PI * 2;
@@ -324,6 +459,7 @@
 
   function mkTarget({x,y,type,hpMax}){
     const id = String(++S.uid);
+
     const el = DOC.createElement('button');
     el.type = 'button';
     el.className = 'br-t' + (type==='boss' ? ' thick' : '');
@@ -362,6 +498,7 @@
 
     S.targets.set(id, t);
     el.addEventListener('pointerdown', onTargetPointerDown, { passive:false });
+
     layer.appendChild(el);
     updateHpVis(t);
     return t;
@@ -397,6 +534,7 @@
     S.score += 2;
     toast('✨ Perfect!');
     fxFlash(90);
+    Logger.push({ t:'judge', judge:'perfect', ts:Date.now(), score:S.score, combo:S.combo });
   }
 
   function burstPop(n){
@@ -405,6 +543,8 @@
       const pick = arr[Math.floor(rng()*arr.length)];
       if(!pick) break;
       if(!S.targets.has(pick.id)) continue;
+
+      // simulate hit
       S.hits += 1;
       S.combo += 1;
       S.comboMax = Math.max(S.comboMax, S.combo);
@@ -415,10 +555,14 @@
   }
 
   function applyHitRewards(t, remainMs, wasWeakspot){
+    // ✅ FIX: hits increase here for ALL successful hits
     S.hits += 1;
 
     if(remainMs <= S.perfectWindowMs) onPerfect();
-    else fun?.onAction?.({ type:'hit' });
+    else {
+      fun?.onAction?.({ type:'hit' });
+      Logger.push({ t:'judge', judge:'hit', ts:Date.now(), score:S.score, combo:S.combo });
+    }
 
     S.combo += 1;
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -442,6 +586,7 @@
     S.score = Math.max(0, S.score - (kind==='boss'? 2 : 1));
     S.clean = clamp(S.clean - S.cleanLosePerMiss, 0, 100);
     fun?.onAction?.({ type:'timeout' });
+    Logger.push({ t:'miss', kind, ts:Date.now(), score:S.score, clean:S.clean });
   }
 
   function pointInBossWeakspot(t, x, y){
@@ -463,6 +608,7 @@
 
     const weakHit = pointInBossWeakspot(t, x, y);
     const dmg = (t.type === 'boss') ? (weakHit ? 2 : 1) : 1;
+
     t.hp = Math.max(0, t.hp - dmg);
 
     if(weakHit && t.el){
@@ -470,9 +616,7 @@
       setTimeout(()=> t.el && t.el.classList.remove('ws-hit'), 180);
       updateBossWeakspotPos(t);
       toast('🎯 Weakspot!');
-      if(ctx.ai){
-        try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail:{ type:'gate_break' } })); }catch(_){}
-      }
+      Logger.push({ t:'weakspot', ts:Date.now(), bossHp:`${t.hp}/${t.hpMax}` });
     }
 
     updateHpVis(t);
@@ -480,17 +624,31 @@
 
     if(t.hp <= 0){
       removeTarget(t.id, true);
+
       if(t.type==='boss'){
         S.bossActive = false;
         S.nextBossAt = Math.min(100, S.nextBossAt + S.bossEveryPct);
         toast('💥 Boss แตก!');
         fxLaser();
-        emit('hha:coach', { msg:'เยี่ยม! คราบหนาแตกแล้ว ไปต่อ!', ts: Date.now() });
+        Logger.push({ t:'boss_break', ts:Date.now(), nextBossAt:S.nextBossAt });
       }
     }
 
     renderHud(true);
-    emit('hha:score', { score: S.score, combo: S.combo, miss: S.miss, clean: S.clean, ts: Date.now(), source });
+
+    emit('hha:score', { score:S.score, combo:S.combo, miss:S.miss, clean:S.clean, ts:Date.now(), source });
+
+    Logger.push({
+      t:'hit',
+      ts: Date.now(),
+      source,
+      kind: t.type,
+      weak: !!weakHit,
+      hp: (t.type==='boss' ? `${t.hp}/${t.hpMax}` : '1/1'),
+      score: S.score,
+      combo: S.combo,
+      clean: Math.round(S.clean)
+    });
 
     if(S.clean >= 100) endGame('clean');
   }
@@ -498,7 +656,6 @@
   function onTargetPointerDown(ev){
     if(!S.running || S.paused || S.ended) return;
     ev.preventDefault();
-
     const btn = ev.currentTarget;
     const id = btn?.dataset?.id;
     const t = id ? S.targets.get(id) : null;
@@ -508,7 +665,7 @@
     handleHit(t, ev.clientX, ev.clientY, 'pointer');
   }
 
-  // --- Aim assist for hha:shoot ---
+  // Aim assist from vr-ui hha:shoot
   function getTargetScreenCenter(t){
     if(!t || !t.el) return null;
     const r = t.el.getBoundingClientRect();
@@ -584,15 +741,17 @@
       return;
     }
 
+    // miss shot
     S.miss++;
     S.combo = 0;
     fun?.onNearMiss?.({ reason:'whiff' });
     renderHud(true);
     toast('พลาด');
+    Logger.push({ t:'whiff', ts:Date.now(), source:d.source||'shoot', x:Math.round(x), y:Math.round(y) });
   }
   WIN.addEventListener('hha:shoot', handleShootEvent);
 
-  // --- spawn/tick ---
+  // ---------- spawn/tick ----------
   let spawnTimer=null, tickTimer=null;
 
   function clearTimers(){
@@ -603,6 +762,7 @@
 
   function spawnOne(){
     if(!S.running || S.paused || S.ended) return;
+
     director = fun ? fun.tick() : director;
 
     const {x,y} = randomInLayer(56);
@@ -611,11 +771,10 @@
       S.bossActive = true;
       mkTarget({ x, y, type:'boss', hpMax: (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4) });
       toast('💎 BOSS PLAQUE!');
-      emit('hha:coach', { msg:'เจอบอสคราบหนา! ยิง/แตะหลายครั้งให้แตก!', ts: Date.now() });
       fxLaser();
-      if(ctx.ai){
-        try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail:{ type:'boss_start' } })); }catch(_){}
-      }
+
+      Logger.push({ t:'boss_start', ts:Date.now(), hpMax:(ctx.diff==='hard'?5:ctx.diff==='easy'?3:4) });
+
       return;
     }
 
@@ -625,56 +784,80 @@
   function scheduleSpawn(){
     clearTimeout(spawnTimer);
     if(!S.running || S.paused || S.ended) return;
+
     const base = S.baseSpawnMs;
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
-    spawnTimer = setTimeout(()=>{ spawnOne(); scheduleSpawn(); }, every);
+
+    spawnTimer = setTimeout(()=>{
+      spawnOne();
+      scheduleSpawn();
+    }, every);
   }
 
   function tick(){
     if(!S.running || S.paused || S.ended) return;
-    director = fun ? fun.tick() : director;
 
+    director = fun ? fun.tick() : director;
     const t = now();
 
+    // timeouts
     for(const [id,tt] of S.targets){
       if(t >= tt.dieMs){
         removeTarget(id, false);
         if(tt.type==='boss'){
           S.bossActive = false;
           toast('💎 Boss หลุด!');
+          Logger.push({ t:'boss_escape', ts:Date.now() });
         }
         onMiss(tt.type);
       }
     }
 
+    // time left
     const elapsed = (t - S.t0)/1000;
     const left = ctx.time - elapsed;
 
+    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
+
+    // time event logging (rate limited)
+    if(LOG_ENABLED && Math.floor(elapsed*10) % 10 === 0){ // ~ทุก 1s
+      Logger.push({
+        t:'time',
+        ts: Date.now(),
+        left: Math.round(Math.max(0,left)*10)/10,
+        score: S.score,
+        combo: S.combo,
+        miss: S.miss,
+        clean: Math.round(S.clean)
+      });
+    }
+
     if(left <= 10.3 && left >= 9.7){
-      if(ctx.ai){
-        try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail:{ type:'time_10s' } })); }catch(_){}
-      }
       fxFin(true);
       setTimeout(()=>fxFin(false), 900);
     }
 
-    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
     renderHud();
 
     if(left <= 0) endGame('time');
   }
 
+  // ---------- start/end ----------
   function startGame(){
     S.running=true; S.paused=false; S.ended=false;
     S.t0 = now();
-    S.score=0; S.combo=0; S.comboMax=0; S.miss=0; S.totalShots=0; S.hits=0; S.clean=0;
+
+    S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
+    S.totalShots=0; S.hits=0; S.clean=0;
+
     S.nextBossAt = S.bossEveryPct;
     S.bossActive=false;
+
+    S.sessionId = mkSessionId();
 
     for(const [id] of S.targets) removeTarget(id,false);
     S.targets.clear();
 
-    // ✅ ควบคุม overlay ให้ชัวร์
     if(end){ end.hidden = true; end.style.display='none'; }
     if(menu){ menu.style.display='none'; }
 
@@ -687,7 +870,24 @@
     emit('hha:start', {
       game:'brush', category:'hygiene',
       pid: ctx.pid, studyId: ctx.studyId, phase: ctx.phase, conditionGroup: ctx.conditionGroup,
-      seed: ctx.seed, diff: ctx.diff, view: ctx.view, timePlannedSec: ctx.time, ts: Date.now()
+      seed: ctx.seed, diff: ctx.diff, view: ctx.view,
+      timePlannedSec: ctx.time,
+      sessionId: S.sessionId,
+      gameVersion: GAME_VERSION,
+      ts: Date.now()
+    });
+
+    // logger start
+    Logger.push({
+      t:'start',
+      ts: Date.now(),
+      sessionId: S.sessionId,
+      runMode: ctx.run,
+      diff: ctx.diff,
+      view: ctx.view,
+      timePlannedSec: ctx.time,
+      seed: ctx.seed,
+      pid: ctx.pid||''
     });
 
     clearTimers();
@@ -710,29 +910,61 @@
     const elapsed = Math.min(ctx.time, (now() - S.t0)/1000);
 
     const summary = {
-      game:'brush', category:'hygiene', reason,
-      pid: ctx.pid, studyId: ctx.studyId, phase: ctx.phase, conditionGroup: ctx.conditionGroup,
-      seed: ctx.seed, diff: ctx.diff, view: ctx.view,
-      score: S.score, comboMax: S.comboMax, miss: S.miss,
-      shots: S.totalShots, hits: S.hits, accuracyPct: Math.round(acc*10)/10, grade,
+      projectTag:'HeroHealth',
+      game:'brush',
+      category:'hygiene',
+      gameVersion: GAME_VERSION,
+
+      reason,
+      runMode: ctx.run,
+
+      pid: ctx.pid,
+      studyId: ctx.studyId,
+      phase: ctx.phase,
+      conditionGroup: ctx.conditionGroup,
+
+      seed: ctx.seed,
+      diff: ctx.diff,
+      view: ctx.view,
+
+      sessionId: S.sessionId,
+
+      score: S.score,
+      comboMax: S.comboMax,
+      miss: S.miss,
+
+      shots: S.totalShots,
+      hits: S.hits,
+      accuracyPct: Math.round(acc*10)/10,
+      grade,
+
       cleanPct: Math.round(clamp(S.clean,0,100)),
-      timePlannedSec: ctx.time, timePlayedSec: Math.round(elapsed*10)/10,
-      date: ymdLocal(), ts: Date.now()
+      timePlannedSec: ctx.time,
+      timePlayedSec: Math.round(elapsed*10)/10,
+
+      date: ymdLocal(),
+      ts: Date.now()
     };
 
+    // save last summary + history
     try{
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
       const k='HHA_SUMMARY_HISTORY';
-      const arr = JSON.parse(localStorage.getItem(k)||'[]');
+      const arr = tryJson(localStorage.getItem(k) || '[]', []);
       arr.push(summary);
-      localStorage.setItem(k, JSON.stringify(arr.slice(-30)));
+      localStorage.setItem(k, JSON.stringify(arr.slice(-40)));
     }catch(_){}
 
+    // daily gate
     try{ localStorage.setItem(`HHA_ZONE_DONE::hygiene::${ymdLocal()}`, '1'); }catch(_){}
 
-    emit('hha:judge', { ...summary });
-    emit('hha:end', { ...summary });
+    emit('hha:end', { summary });
 
+    // logger end
+    Logger.push({ t:'end', ts:Date.now(), reason, summary });
+    Logger.flush('end');
+
+    // UI summary
     if(sScore) sScore.textContent = String(summary.score);
     if(sAcc)   sAcc.textContent   = `${summary.accuracyPct}%`;
     if(sMiss)  sMiss.textContent  = String(summary.miss);
@@ -740,7 +972,7 @@
     if(sClean) sClean.textContent = `${summary.cleanPct}%`;
     if(sTime)  sTime.textContent  = `${summary.timePlayedSec}s`;
     if(endGrade) endGrade.textContent = summary.grade;
-    if(endNote) endNote.textContent = `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
+    if(endNote) endNote.textContent = `reason=${reason} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'} | session=${summary.sessionId||'-'}`;
 
     if(end){ end.hidden = false; end.style.display='grid'; }
     if(menu){ menu.style.display='none'; }
@@ -754,11 +986,37 @@
     S.paused = !S.paused;
     if(btnPause) btnPause.textContent = S.paused ? 'Resume' : 'Pause';
     toast(S.paused ? '⏸ Pause' : '▶ Resume');
+    Logger.push({ t:'pause', ts:Date.now(), paused:S.paused });
   }
 
-  // controls
+  // ---------- safe exit (Back Hub) ----------
+  function safeExitToHub(){
+    const hubUrl = buildHubUrl();
+    // log exit
+    Logger.push({ t:'exit', ts:Date.now(), to:'hub' });
+
+    // best-effort flush before leaving
+    Logger.flushBeacon('exit_to_hub');
+
+    // go
+    location.href = hubUrl;
+  }
+
+  // override default <a> back buttons to flush first
+  function bindBackFlush(a){
+    if(!a) return;
+    a.addEventListener('click', (e)=>{
+      e.preventDefault();
+      safeExitToHub();
+    }, {passive:false});
+  }
+  bindBackFlush(btnBack);
+  bindBackFlush(btnBackHub2);
+
+  // ---------- controls ----------
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRetry?.addEventListener('click', startGame, { passive:true });
+
   btnPause?.addEventListener('click', togglePause, { passive:true });
 
   btnHow?.addEventListener('click', ()=>{
@@ -768,26 +1026,49 @@
   btnRecenter?.addEventListener('click', ()=>{
     WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ ts:Date.now() } }));
     toast('Recenter');
+    Logger.push({ t:'recenter', ts:Date.now() });
   }, { passive:true });
 
-  // layer click fallback (ไม่ซ้ำกับ target)
+  // layer click fallback (avoid double count with .br-t)
   layer?.addEventListener('pointerdown', (ev)=>{
     if(!S.running || S.paused || S.ended) return;
     const t = ev.target;
-    if(t && t.closest && t.closest('.br-t')) return; // กันนับซ้ำ
-
-    if(String(ctx.view).toLowerCase() === 'cvr') return; // cvr ใช้ crosshair
+    if(t && t.closest && t.closest('.br-t')) return;
+    if(String(ctx.view).toLowerCase() === 'cvr') return;
 
     S.totalShots++;
-    const pick = nearestAssistPick(ev.clientX, ev.clientY, 20, false);
-    if(pick && pick.t) handleHit(pick.t, ev.clientX, ev.clientY, 'layer');
+    // simple assist: pick nearest target within 20px lock
+    const x = ev.clientX, y = ev.clientY;
+    let best=null, bestD=1e9;
+    for(const tt of S.targets.values()){
+      const c = getTargetScreenCenter(tt);
+      if(!c) continue;
+      const dx=x-c.x, dy=y-c.y;
+      const d2=dx*dx+dy*dy;
+      if(d2 < bestD){ bestD=d2; best=tt; }
+    }
+    if(best && bestD <= 20*20) handleHit(best, x, y, 'layer');
     else { S.miss++; S.combo=0; fun?.onNearMiss?.({ reason:'whiff_layer' }); renderHud(true); toast('พลาด'); }
   }, { passive:true });
 
-  // init (สำคัญ: ซ่อน end ด้วย style ด้วย)
+  // ---------- spawn/tick wiring ----------
+  // flush-hardened for tab close / background
+  function hardenFlush(reason){
+    if(S.ended) return;
+    // don't force end on background, but flush queue
+    Logger.flushBeacon(reason || 'pagehide');
+  }
+  WIN.addEventListener('pagehide', ()=> hardenFlush('pagehide'), {passive:true});
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.visibilityState === 'hidden') hardenFlush('hidden');
+  }, {passive:true});
+  WIN.addEventListener('beforeunload', ()=> hardenFlush('beforeunload'));
+
+  // ---------- init (no autostart) ----------
   renderHud(true);
   if(end){ end.hidden = true; end.style.display='none'; }
   if(menu){ menu.style.display='grid'; }
   wrap.dataset.state='menu';
-  toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
+
+  toast(LOG_ENABLED ? 'พร้อมแล้ว! (Logging ON)' : 'พร้อมแล้ว! กดเริ่มเกมได้เลย');
 })();
