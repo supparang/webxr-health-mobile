@@ -1,6 +1,10 @@
 // === /herohealth/vr/score-compare.js ===
-// Shared comparator for HeroHealth competitive modes.
-// Order: score (desc) → accPct (desc) → miss (asc) → medianRtGoodMs (asc)
+// Comparator for battle winner: score → accPct → miss → medianRtGoodMs
+// - Higher score is better
+// - Higher accPct is better
+// - Lower miss is better
+// - Lower medianRtGoodMs is better (tie-break)
+// return: negative => a better, positive => b better, 0 => equal
 'use strict';
 
 function n(v, d=0){
@@ -8,29 +12,41 @@ function n(v, d=0){
   return Number.isFinite(v) ? v : d;
 }
 
-export function compareScorePackets(a, b){
-  const as = n(a?.score ?? a?.scoreFinal, 0);
-  const bs = n(b?.score ?? b?.scoreFinal, 0);
-  if(as !== bs) return (bs - as); // higher score first
-
-  const aa = n(a?.accPct, 0);
-  const ba = n(b?.accPct, 0);
-  if(aa !== ba) return (ba - aa); // higher acc first
-
-  const am = n(a?.miss ?? a?.missTotal, 0);
-  const bm = n(b?.miss ?? b?.missTotal, 0);
-  if(am !== bm) return (am - bm); // lower miss first
-
-  const art = n(a?.medianRtGoodMs, 0);
-  const brt = n(b?.medianRtGoodMs, 0);
-  if(art !== brt) return (art - brt); // lower RT first
-
-  // stable tie-break (older first wins? keep deterministic)
-  const ats = n(a?.ts, 0);
-  const bts = n(b?.ts, 0);
-  return (ats - bts);
+export function normalizeScorePacket(p){
+  p = p || {};
+  return {
+    pid: String(p.pid || 'anon'),
+    score: n(p.score, 0),
+    accPct: n(p.accPct, 0),
+    miss: n(p.miss, 0),
+    medianRtGoodMs: n(p.medianRtGoodMs, 0),
+    ts: n(p.ts, Date.now())
+  };
 }
 
-export function pickWinner(a, b){
-  return compareScorePackets(a,b) <= 0 ? a : b;
+export function compareScorePackets(a, b){
+  a = normalizeScorePacket(a);
+  b = normalizeScorePacket(b);
+
+  // 1) score desc
+  if(a.score !== b.score) return (b.score - a.score);
+
+  // 2) acc desc
+  if(a.accPct !== b.accPct) return (b.accPct - a.accPct);
+
+  // 3) miss asc
+  if(a.miss !== b.miss) return (a.miss - b.miss);
+
+  // 4) median RT asc (lower better)
+  if(a.medianRtGoodMs !== b.medianRtGoodMs) return (a.medianRtGoodMs - b.medianRtGoodMs);
+
+  // 5) older first (stable)
+  if(a.ts !== b.ts) return (a.ts - b.ts);
+
+  return 0;
+}
+
+export function formatPacket(p){
+  p = normalizeScorePacket(p);
+  return `score ${p.score} | acc ${p.accPct}% | miss ${p.miss} | medRT ${p.medianRtGoodMs}ms`;
 }
