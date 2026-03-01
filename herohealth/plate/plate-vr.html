@@ -7,14 +7,11 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ logger อยู่ใน /herohealth/vr/ -->
+  <!-- ✅ logger + vr-ui (module) -->
   <script type="module" src="../vr/hha-cloud-logger.js?v=20260228"></script>
-
-  <!-- ✅ vr-ui เป็น module -->
   <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
 
   <style>
-    /* ===== CSS ของคุณเดิมทั้งหมด (คงไว้) ===== */
     :root{
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -69,15 +66,17 @@
     }
     #bossFx.boss-panic{ opacity:.28; }
 
+    /* ✅ spawn mount (ต้องแตะได้!) */
     #plate-layer{
       position:absolute; inset:0;
       z-index:30;
-      pointer-events:none;
+      pointer-events:auto;   /* ✅ สำคัญมาก */
       overflow:hidden;
       transform: translateZ(0);
       will-change: contents;
       min-width: 1px;
       min-height: 1px;
+      touch-action: manipulation;
     }
     #plate-layer .plateTarget{
       position:absolute;
@@ -103,6 +102,7 @@
     #plate-layer .plateTarget.hit{ transform: scale(.88); opacity:.25; }
     #plate-layer .plateTarget.expire{ transform: scale(.78); opacity:0; }
 
+    /* HUD */
     .hud{
       position:absolute;
       left:max(10px, calc(var(--sal) + 10px));
@@ -216,6 +216,11 @@
       border-color: rgba(245,158,11,.25);
       background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
     }
+    .btn.danger{
+      border-color: rgba(244,63,94,.30);
+      background: linear-gradient(180deg, rgba(136,19,55,.68), rgba(88,28,46,.70));
+    }
+    .is-hidden{ display:none !important; }
 
     #startOverlay{
       position:absolute; inset:0;
@@ -287,6 +292,64 @@
       inset:0 !important;
       z-index:1 !important;
     }
+
+    /* ✅ End Overlay (เหมือน GoodJunk style) */
+    #endOverlay{
+      position:fixed;
+      inset:0;
+      z-index:300;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #endOverlay[aria-hidden="true"]{ display:none; }
+    .end-card{
+      width:min(680px, 94vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      color: rgba(229,231,235,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 16px;
+    }
+    .end-title{
+      font-weight:1000;
+      font-size: 20px;
+      letter-spacing:.2px;
+    }
+    .end-sub{
+      margin-top:6px;
+      font-size: 12px;
+      opacity:.92;
+      word-break: break-all;
+    }
+    .end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+    }
+    .end-item{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:900;
+    }
+    .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
+    .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+
+    .end-actions{
+      margin-top: 14px;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
   </style>
 </head>
 
@@ -299,11 +362,11 @@
     <div id="plate-layer" aria-label="plate targets layer"></div>
     <div id="hudPaused"><div class="inner">⏸️ Paused</div></div>
 
+    <!-- top HUD -->
     <div id="hudTop" class="hud">
       <button id="debugToggle" class="btn" type="button" style="padding:6px 10px;min-height:34px;">🐞 debug</button>
       <div id="debugPanel">debug init…</div>
 
-      <!-- (คง HUD ของคุณเดิม) -->
       <div class="row cols-3">
         <div class="card">
           <h4>คะแนน / คอมโบ / พลาด</h4>
@@ -374,7 +437,7 @@
           <div style="height:8px"></div>
           <div class="stats two">
             <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-              <span id="uiMiniTitle">ความแม่นยำ</span>
+              <span id="uiMiniTitle">เป้าหมาย</span>
             </div>
             <div class="pill" style="justify-content:center;">
               <span id="uiMiniTime">--</span> • <span id="uiMiniCount">0/0</span>
@@ -386,6 +449,7 @@
       </div>
     </div>
 
+    <!-- bottom HUD -->
     <div id="hudBottom" class="hud">
       <div id="coachCard" class="card">
         <div id="coachBox">
@@ -404,25 +468,40 @@
 
       <div id="controls">
         <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
-        <button id="btnEnterVR" class="btn" type="button">🥽 ENTER VR</button>
         <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
         <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
-        <button id="btnStartMain" class="btn primary" type="button" style="display:none;">▶ เริ่ม</button>
       </div>
     </div>
 
-    <div id="startOverlay" aria-hidden="true">
-      <div id="startCard">
-        <div style="font-weight:800;font-size:18px;margin-bottom:8px;">Plate VR พร้อมเล่น</div>
-        <div style="color:#cbd5e1;margin-bottom:12px;">ถ้าไม่ auto-start ให้กดเริ่ม</div>
-        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
+    <!-- ✅ End Overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="end-card">
+        <div class="end-title" id="endTitle">Completed</div>
+        <div class="end-sub" id="endSub">—</div>
+
+        <div class="end-grid">
+          <div class="end-item"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+          <div class="end-item"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="end-item"><div class="k">OK</div><div class="v" id="endOk">0</div></div>
+          <div class="end-item"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
+        </div>
+
+        <div class="end-actions">
+          <button class="btn" id="btnCopy">Copy Summary</button>
+          <button class="btn danger" id="btnReplay">Replay</button>
+
+          <!-- show only when cooldown=1 AND cooldown not done today -->
+          <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+
+          <button class="btn primary" id="btnBackHubEnd">Back HUB</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ✅ MAIN BOOT -->
   <script type="module">
-    // 0) Shield install (safe)
+    // 1) Shield install
     try{
       window.HHA_Shield?.install({
         watchDOM: true,
@@ -433,14 +512,14 @@
       });
     }catch(e){}
 
-    // 1) Imports
+    // 2) Imports (module only)
     import { createAIHooks } from '../vr/ai-hooks.js';
     import { boot as bootPlate } from './plate.safe.js';
 
     const $ = (s)=>document.querySelector(s);
     const U = new URL(location.href);
 
-    // --- debug toggle ---
+    // debug
     const DEBUG = U.searchParams.get('debug') === '1';
     if(!DEBUG) document.body.classList.add('no-debug');
     const debugEl = $('#debugPanel');
@@ -451,7 +530,6 @@
       debugOpen = !debugOpen;
       if (debugEl) debugEl.style.display = debugOpen ? 'block' : 'none';
     });
-
     function dlog(...args){
       if(!debugEl) return;
       const line = args.map(a=>{
@@ -476,13 +554,13 @@
         runMode: isStudy ? runQ : 'play',
         diff: ['easy','normal','hard'].includes(diff) ? diff : 'normal',
         seed: isStudy ? (num(seedQ, 13579) || 13579)
-          : (seedQ!=null ? (num(seedQ, 13579) || 13579) : ((Date.now() ^ (Math.random()*1e9))|0)),
+                      : (seedQ!=null ? (num(seedQ, 13579) || 13579) : ((Date.now() ^ (Math.random()*1e9))|0)),
         durationPlannedSec: time,
         view
       };
     }
 
-    // 2) Create AI hooks (prediction only)
+    // ✅ AI hooks (prediction only)
     const cfg0 = parseCfg();
     const ai = createAIHooks({
       seed: String(cfg0.seed),
@@ -493,103 +571,53 @@
     });
     window.HHA_AI = ai;
 
-    // 3) Coach / score bridge (เหมือนเดิม)
-    const coachMap = {
-      happy: '../img/coach-happy.png',
-      neutral: '../img/coach-neutral.png',
-      sad: '../img/coach-sad.png',
-      fever: '../img/coach-fever.png'
-    };
-
-    window.addEventListener('hha:coach', (e)=>{
-      const d = e.detail || {};
-      const mood = String(d.mood || 'neutral').toLowerCase();
-      const msg  = String(d.msg || '');
-      const img  = $('#coachAvatarImg');
-      const msgEl= $('#coachMsg');
-      if (msgEl && msg) msgEl.textContent = msg;
-      if (img){
-        img.style.display = '';
-        img.src = coachMap[mood] || coachMap.neutral;
-      }
-      dlog('coach', { mood, msg });
-    }, { passive:true });
-
-    window.addEventListener('hha:score', (e)=>{
-      const d = e.detail || {};
-      const feverPct = num(d.feverPct, 0);
-      const shield   = num(d.shield, 0);
-      const ff = $('#uiFeverFill'); if (ff) ff.style.width = `${clamp(feverPct,0,100)}%`;
-      const fv = $('#uiFever');     if (fv) fv.textContent = `${Math.round(clamp(feverPct,0,100))}%`;
-      const sh = $('#uiShield');    if (sh) sh.textContent = String(Math.max(0, shield));
-    }, { passive:true });
-
-    // 4) Pause bridge
+    // pause button -> bridge to engine hook
     let paused = false;
     const btnPause = $('#btnPause');
     function setPauseBtn(){
       if (!btnPause) return;
       btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+      $('#hudPaused')?.style && ($('#hudPaused').style.display = paused ? 'grid' : 'none');
     }
     setPauseBtn();
     btnPause?.addEventListener('click', ()=>{
       paused = !paused;
       setPauseBtn();
-      window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
-      dlog('pause-btn', { paused });
-    });
-    window.addEventListener('hha:pause_state', (e)=>{
-      const d = e.detail || {};
-      paused = !!d.paused;
-      setPauseBtn();
-      dlog('pause-state', d);
-    }, { passive:true });
-
-    // 5) Controls wiring (BackHub / Restart / EnterVR)
-    function hubUrl(){
-      const hub = U.searchParams.get('hub');
-      return hub ? String(hub) : '../hub.html';
-    }
-
-    $('#btnBackHub')?.addEventListener('click', ()=>{
-      location.href = hubUrl();
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+      dlog('pause', { paused });
     });
 
+    // restart/back hub
     $('#btnRestart')?.addEventListener('click', ()=>{
-      // restart with same query
-      location.href = location.pathname + location.search;
+      try{
+        const u = new URL(location.href);
+        if(String(cfg0.runMode)!=='research'){
+          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        }
+        location.href = u.toString();
+      }catch(e){ location.reload(); }
     });
+    const hubUrl = String(U.searchParams.get('hub') || '../hub.html');
+    $('#btnBackHub')?.addEventListener('click', ()=> location.href = hubUrl);
 
-    $('#btnEnterVR')?.addEventListener('click', ()=>{
-      // vr-ui.js มักจะ inject ปุ่ม ENTER VR เอง — เราช่วยกดให้
-      const cand =
-        document.querySelector('[data-hha-enter-vr]') ||
-        document.querySelector('#btnEnterVRReal') ||
-        document.querySelector('button[aria-label*="ENTER VR"]') ||
-        document.querySelector('button[title*="ENTER VR"]');
-      if (cand && cand.click){
-        cand.click();
-        return;
-      }
-      // fallback: ขอให้ user กดปุ่ม enter vr ที่ vr-ui แสดง
-      dlog('enter-vr: fallback (no injected button found)');
-    });
+    // End overlay Back HUB
+    $('#btnBackHubEnd')?.addEventListener('click', ()=> location.href = hubUrl);
 
-    // 6) Layer sanity
-    function ensureLayerSanity(){
-      const mount = $('#plate-layer');
-      if (!mount) return;
-      mount.style.pointerEvents = 'none';
+    // ✅ Boot when stable
+    function ensureMountReady(){
+      const mount = document.getElementById('plate-layer');
+      if (!mount) throw new Error('missing #plate-layer');
+      // อย่าทำ pointerEvents none
+      mount.style.pointerEvents = 'auto';
       mount.style.zIndex = '30';
-      $('#hudTop')?.style.setProperty('z-index', '80');
-      $('#hudBottom')?.style.setProperty('z-index', '80');
+      return mount;
     }
 
     async function waitLayoutStable(maxFrames = 24){
       let last=null, stable=0;
       for (let i=0; i<maxFrames; i++){
         await new Promise(r=>requestAnimationFrame(r));
-        const m = $('#plate-layer');
+        const m = document.getElementById('plate-layer');
         const rect = m ? m.getBoundingClientRect() : { width:0, height:0 };
         const snap = `${Math.round(rect.width)}x${Math.round(rect.height)}@${innerWidth}x${innerHeight}`;
         if (snap === last) stable++; else { stable=0; last=snap; }
@@ -598,35 +626,21 @@
       return false;
     }
 
-    function ensureMountReady(){
-      const mount = $('#plate-layer');
-      if (!mount) throw new Error('missing #plate-layer');
-      const r = mount.getBoundingClientRect();
-      if (r.width>8 && r.height>8) return mount;
-
-      mount.style.position = 'absolute';
-      mount.style.left='0'; mount.style.top='0';
-      mount.style.right='0'; mount.style.bottom='0';
-      mount.style.width='100%'; mount.style.height='100%';
-      mount.style.display='block';
-      void mount.offsetHeight;
-      return mount;
-    }
-
     async function bootWhenStable(){
-      ensureLayerSanity();
       const ok = await waitLayoutStable(28);
       dlog('layout-stable?', ok);
 
       const mount = ensureMountReady();
+      const cfg = parseCfg();
 
+      // ✅ bootPlate: ส่ง mount + cfg + ai
       bootPlate({
         mount,
-        cfg: { ...parseCfg(), ai },
+        cfg: { ...cfg, ai },
         ai
       });
 
-      dlog('boot:done', { ai:true });
+      dlog('boot:done', { ai:true, cfg });
     }
 
     if (document.readyState === 'loading'){
