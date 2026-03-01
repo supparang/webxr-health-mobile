@@ -1,12 +1,8 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION (PATCH LAYOUT v20260226)
-✅ Mobile layout: stage ใหญ่ขึ้น / HUD บางลง / coach เป็น toast
-✅ Move VIEW/SEED to topbar pills (ไม่บัง vr-ui)
-✅ Keep D7–D15 features (buff intake, summary, flush, practice, calibration, ai-hooks)
-Requires:
-- /herohealth/vr/vr-ui.js
-- /herohealth/vr-groups/groups.safe.js
-- /herohealth/vr-groups/ai-hooks.js
+GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION (PATCH LAYOUT v20260226 + HUB FIX + MODULE LOAD v20260301)
+✅ FIX HUB default -> https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
+✅ Load vr-ui.js as module (+ cache-bust) to avoid export/ESM issues
+✅ Load ai-hooks.js as module (+ cache-bust) for safety
 -->
 <!doctype html>
 <html lang="th">
@@ -182,7 +178,6 @@ Requires:
     .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; }
     .coachWrap .sub{ color:var(--muted); font-size:12px; font-weight:900; }
 
-    /* ✅ Coach Toast (mobile): float above bottom, auto-hide animation */
     .coachToast{
       position:absolute;
       left: 10px; right: 10px;
@@ -200,7 +195,6 @@ Requires:
       transform: translateY(0px);
     }
 
-    /* End screen */
     #endOverlay{
       position:absolute; inset:0;
       background: rgba(0,0,0,.60);
@@ -242,7 +236,6 @@ Requires:
     }
     .endBtns{ padding: 12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 
-    /* cVR strict: disable direct tap on targets => only crosshair shoot */
     body[data-view="cvr"][data-cvr-strict="1"] .tgt{
       pointer-events:none !important;
     }
@@ -259,7 +252,6 @@ Requires:
       pointer-events:auto;
     }
 
-    /* Practice + calibration overlays */
     .overlay{
       position:absolute; inset:0;
       display:none;
@@ -320,13 +312,10 @@ Requires:
       opacity: .92;
     }
 
-    /* ==============================
-       PATCH LAYOUT v20260226-mobile-clean
-       ============================== */
     :root{
       --gap: 8px;
       --hudTopPad: calc(6px + var(--sat));
-      --hudBottomPad: calc(72px + var(--sab)); /* กัน vr-ui บัง */
+      --hudBottomPad: calc(72px + var(--sab));
       --cardR: 18px;
     }
     #app{
@@ -399,7 +388,6 @@ Requires:
       --hudBottomPad: calc(92px + var(--sab));
     }
 
-    /* ✅ on mobile: hide persistent bottom coach box, use toast instead */
     body[data-view="mobile"] .hudBottom{ display:none; }
     body[data-view="pc"] .coachToast{ display:none !important; }
     body[data-view="cvr"] .coachToast{
@@ -420,16 +408,13 @@ Requires:
       <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
 
-      <!-- ✅ moved VIEW/SEED to topbar (ไม่บัง vr-ui) -->
       <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
       <div class="pill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
 
-      <!-- buff pill -->
       <div class="pill" id="buffPill" style="display:none;">
         <span class="dot pink"></span> <span>BUFF:</span> <b id="buffText">—</b>
       </div>
 
-      <!-- director pill -->
       <div class="pill" id="dirPill" style="display:none;">
         <span class="dot"></span> <span>DIR:</span> <b id="dirText">PLAY</b>
       </div>
@@ -442,7 +427,6 @@ Requires:
   <div class="stage" id="stage">
     <div id="playLayer"></div>
 
-    <!-- HUD TOP -->
     <div class="hud hudTop">
       <div style="display:flex; flex-direction:column; gap:6px;">
         <div class="hudBox">
@@ -475,7 +459,6 @@ Requires:
       </div>
     </div>
 
-    <!-- HUD BOTTOM (PC/cVR) -->
     <div class="hud hudBottom">
       <div class="coachWrap" id="coachBox">
         <div class="face" id="coachFace">🙂</div>
@@ -486,7 +469,6 @@ Requires:
       </div>
     </div>
 
-    <!-- ✅ Coach Toast (Mobile/cVR optional) -->
     <div class="coachToast" id="coachToast">
       <div class="coachWrap">
         <div class="face" id="toastFace">🙂</div>
@@ -497,7 +479,6 @@ Requires:
       </div>
     </div>
 
-    <!-- Practice overlay -->
     <div class="overlay" id="practiceOverlay">
       <div class="overlayCard">
         <header>
@@ -519,7 +500,6 @@ Requires:
       </div>
     </div>
 
-    <!-- Calibration overlay (cVR) -->
     <div class="overlay" id="calibOverlay">
       <div class="overlayCard">
         <header>
@@ -545,7 +525,6 @@ Requires:
       </div>
     </div>
 
-    <!-- End overlay -->
     <div id="endOverlay">
       <div id="endCard">
         <header>
@@ -573,14 +552,14 @@ Requires:
   </div>
 </div>
 
-<!-- Universal VR UI -->
-<script src="../vr/vr-ui.js"></script>
+<!-- ✅ Universal VR UI (MODULE) -->
+<script type="module" src="../vr/vr-ui.js?v=20260301"></script>
 
-<!-- AI hooks -->
-<script src="./ai-hooks.js"></script>
+<!-- ✅ AI hooks (MODULE-safe) -->
+<script type="module" src="./ai-hooks.js?v=20260301"></script>
 
-<!-- Groups engine -->
-<script src="./groups.safe.js"></script>
+<!-- ✅ Groups engine (classic IIFE, ok as normal script) -->
+<script src="./groups.safe.js?v=20260301"></script>
 
 <script>
 (() => {
@@ -593,7 +572,9 @@ Requires:
   const QS = getQS();
   const q = (k, def='') => (QS.get(k) ?? def);
 
-  const HUB = q('hub','') || '../hub.html';
+  // ✅ FIX: canonical HUB default (absolute)
+  const HUB_DEFAULT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+  const HUB = (q('hub','') || '').trim() || HUB_DEFAULT;
 
   const RUN  = String(q('run','play')).toLowerCase();
   const DIFF = String(q('diff','normal')).toLowerCase();
@@ -769,7 +750,6 @@ Requires:
     coachSub.textContent = mood ? String(mood) : 'coach';
     coachFace.textContent = faceFromMood(mood);
 
-    // ✅ Mobile uses toast (not persistent HUD)
     if(VIEW === 'mobile'){
       showToast(text, mood || 'neutral');
     }
@@ -916,7 +896,6 @@ Requires:
     }catch(_){}
   }
 
-  // ✅ guard: don't bind multiple leave listeners on restart
   let flushBound = false;
   function bindFlush(){
     if(flushBound) return;
@@ -1007,10 +986,9 @@ Requires:
     if(flushFirst) flushAll(lastSummary || null);
     stop();
     try{ location.href = HUB; }
-    catch(_){ location.href = '../hub.html'; }
+    catch(_){ location.href = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'; }
   }
 
-  // lockPx shim
   function installLockPxShim(){
     window.addEventListener('hha:shoot', (ev)=>{
       try{
