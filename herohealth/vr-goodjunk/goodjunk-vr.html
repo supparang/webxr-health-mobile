@@ -1,11 +1,12 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk.html ===
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
 ✅ FIX 404 CSS + cache bust
 ✅ VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
 ✅ Battle UI: ../vr/battle-ui.auto.js (optional, only when ?battle=1)
 ✅ AI dynamic import (optional, only when ?ai=1 AND run=play)
 ✅ End overlay: adds 🏆 Leaderboard button (pass-through params)
-PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
+✅ Stores local leaderboard to localStorage (for offline + quick testing)
+PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
 -->
 <!doctype html>
 <html lang="th">
@@ -15,10 +16,7 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
 
-  <!-- ✅ favicon (แนะนำให้มีไฟล์จริงที่ /herohealth/favicon.ico) -->
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- ✅ FIX 404 + cache bust -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260301" />
 </head>
 <body>
@@ -129,7 +127,7 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
           <button class="btn" id="btnLB" type="button">🏆 Leaderboard</button>
         </div>
 
-        <!-- Cooldown button will be injected here by JS -->
+        <!-- Cooldown button will be injected here by JS (in goodjunk.safe.js) -->
       </div>
     </div>
 
@@ -169,7 +167,6 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
-        // ✅ dynamic import: ถ้าไฟล์หายจะไม่ทำให้เกมพังทั้งหน้า
         const mod = await import('../vr/ai-goodjunk.js');
         const createGoodJunkAI = mod.createGoodJunkAI;
         if(typeof createGoodJunkAI === 'function'){
@@ -185,30 +182,63 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
       }
     }
 
+    // --- Local leaderboard store (offline-friendly) ---
+    const LB_KEY = 'HHA_LB:goodjunk';
+    const LB_MAX = 50;
+
+    function safeJsonParse(s, dflt){
+      try{ return JSON.parse(s); }catch(e){ return dflt; }
+    }
+    function lsGet(k, dflt=null){
+      try{ const v = localStorage.getItem(k); return v==null?dflt:v; }catch(e){ return dflt; }
+    }
+    function lsSet(k, v){
+      try{ localStorage.setItem(k, v); }catch(e){}
+    }
+    function pushLocalLB(summary){
+      if(!summary) return;
+      const row = {
+        ts: Date.now(),
+        game: 'goodjunk',
+        pid: String(summary.pid || cfg.pid || 'anon'),
+        diff: String(summary.diff || cfg.diff || 'normal'),
+        run:  String(summary.runMode || cfg.run || 'play'),
+        view: String(summary.device || cfg.view || 'mobile'),
+        score: Number(summary.scoreFinal || 0) || 0,
+        miss: Number(summary.missTotal || 0) || 0,
+        accPct: Number(summary.accPct || 0) || 0,
+        medianRtGoodMs: Number(summary.medianRtGoodMs || 0) || 0,
+        seed: String(summary.seed || cfg.seed || ''),
+        grade: String(summary.grade || ''),
+      };
+      const arr = safeJsonParse(lsGet(LB_KEY, '[]'), []);
+      arr.unshift(row);
+      while(arr.length > LB_MAX) arr.pop();
+      lsSet(LB_KEY, JSON.stringify(arr));
+    }
+
+    // Listen end summary once
+    window.addEventListener('hha:game-ended', (ev)=>{
+      try{ pushLocalLB(ev.detail); }catch(e){}
+    }, { passive:true });
+
     // Leaderboard URL builder
     function buildLeaderboardUrl(){
       try{
-        // /herohealth/vr/leaderboard-view.html
         const u = new URL('../vr/leaderboard-view.html', location.href);
-
         u.searchParams.set('game', 'goodjunk');
         u.searchParams.set('diff', cfg.diff || 'normal');
         u.searchParams.set('run',  cfg.run  || 'play');
-
-        // back link
         u.searchParams.set('hub', cfg.hub || '../hub.html');
 
-        // passthrough (optional)
         const sp = new URL(location.href).searchParams;
         [
           'pid','view','time','seed','studyId','phase','conditionGroup','log',
-          // battle passthrough (in case LB page wants to show room context)
           'battle','room','autostart','forfeit'
         ].forEach(k=>{
           const v = sp.get(k);
           if(v!=null && v!=='') u.searchParams.set(k, v);
         });
-
         return u.toString();
       }catch(e){
         return '';
