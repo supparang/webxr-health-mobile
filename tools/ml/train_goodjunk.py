@@ -1,126 +1,160 @@
-import json, sys, math
-from collections import defaultdict, deque
+# === /tools/ml/train_goodjunk.py ===
+# Train 2-task logistic models from ML recorder JSONL
+# Outputs: /herohealth/vr/goodjunk-model.js
+# FULL v20260301-TRAIN-EXPORT
+import os, json, argparse
+import numpy as np
 
-def sigmoid(x):
-    if x < -30: return 0.0
-    if x > 30:  return 1.0
-    return 1.0/(1.0+math.exp(-x))
+def load_jsonl(path):
+  rows = []
+  with open(path, "r", encoding="utf-8") as f:
+    for line in f:
+      line = line.strip()
+      if not line: 
+        continue
+      obj = json.loads(line)
+      if obj.get("type") == "frame":
+        rows.append(obj)
+  return rows
 
-def featurize(tick):
-    # match ai-goodjunk.js vector (bias + 13)
-    planned = float(tick.get("plannedSec", 80) or 80)
-    tLeft = float(tick.get("tLeft", 0) or 0)
-    tp = max(0.0, min(1.0, 1.0 - (tLeft/planned if planned>0 else 0.0)))
+FEATURE_ORDER = [
+  "miss","dMiss","accPct","accRecent","combo","feverPct","shield",
+  "missGoodExpired","missJunkHit","medianRtGoodMs"
+]
 
-    miss = float(tick.get("miss", 0) or 0)/20.0
-    missG = float(tick.get("missGoodExpired", 0) or 0)/20.0
-    missJ = float(tick.get("missJunkHit", 0) or 0)/20.0
-    combo = max(0.0, min(1.0, float(tick.get("combo",0) or 0)/12.0))
-    fever = max(0.0, min(1.0, float(tick.get("fever",0) or 0)/100.0))
-    shield = max(0.0, min(1.0, float(tick.get("shield",0) or 0)/9.0))
-    acc = max(0.0, min(1.0, float(tick.get("accPct",0) or 0)/100.0))
-    targets = max(0.0, min(1.0, float(tick.get("targetsN",0) or 0)/18.0))
+def to_xy(rows):
+  X = []
+  y1 = []  # hazardRisk_1s
+  y3 = []  # miss_3s
+  for r in rows:
+    x = r.get("x", {})
+    y = r.get("y", {})
+    if y.get("hazardRisk_1s") is None or y.get("miss_3s") is None:
+      continue
+    vec = []
+    for k in FEATURE_ORDER:
+      v = x.get(k, 0.0)
+      if v is None: v = 0.0
+      vec.append(float(v))
+    X.append(vec)
+    y1.append(int(y["hazardRisk_1s"]))
+    y3.append(int(y["miss_3s"]))
+  return np.asarray(X, dtype=np.float32), np.asarray(y1, dtype=np.int64), np.asarray(y3, dtype=np.int64)
 
-    storm = 1.0 if tick.get("stormOn") else 0.0
-    rage  = 1.0 if tick.get("rageOn") else 0.0
-    boss  = 1.0 if tick.get("bossActive") else 0.0
-    bossPhase = float(tick.get("bossPhase",0) or 0)
-    bossPhase = max(0.0, min(1.0, bossPhase/2.0))
+def standardize_fit(X):
+  mu = X.mean(axis=0)
+  sd = X.std(axis=0) + 1e-6
+  return mu, sd
 
-    return [1.0, tp, miss, missG, missJ, combo, fever, shield, acc, targets, storm, rage, boss, bossPhase]
+def standardize_apply(X, mu, sd):
+  return (X - mu) / sd
 
-def load_jsonl(paths):
-    rows = []
-    for p in paths:
-        with open(p, "r", encoding="utf-8") as f:
-            for line in f:
-                line=line.strip()
-                if not line: continue
-                rows.append(json.loads(line))
-    return rows
+def train_logreg(X, y, lr=0.08, steps=1200, l2=0.02):
+  # simple logistic regression (GD) to avoid dependency
+  n, d = X.shape
+  w = np.zeros((d,), dtype=np.float32)
+  b = 0.0
+  for t in range(steps):
+    z = X @ w + b
+    p = 1.0 / (1.0 + np.exp(-z))
+    # gradients
+    grad_w = (X.T @ (p - y)) / n + l2 * w
+    grad_b = float((p - y).mean())
+    w -= lr * grad_w
+    b -= lr * grad_b
+  return float(b), w.astype(np.float32)
 
-def build_dataset(rows, horizon_ms=2000):
-    # Label: y=1 if a MISS happens within next horizon after tick time
-    ticks = []
-    misses = []
-    for r in rows:
-        kind = r.get("kind")
-        if kind == "tick":
-            ticks.append(r)
-        elif kind == "event" and r.get("type") == "miss":
-            misses.append(r)
+def auc_like(y, p):
+  # quick proxy: accuracy at 0.5 + balanced accuracy (no heavy deps)
+  y = y.astype(np.int64)
+  pred = (p >= 0.5).astype(np.int64)
+  acc = float((pred == y).mean())
+  # balanced
+  pos = (y == 1)
+  neg = (y == 0)
+  tpr = float((pred[pos] == 1).mean()) if pos.any() else 0.0
+  tnr = float((pred[neg] == 0).mean()) if neg.any() else 0.0
+  bal = 0.5 * (tpr + tnr)
+  return acc, bal
 
-    misses.sort(key=lambda x: x.get("t",0))
-    mQ = deque(misses)
-
-    X, y = [], []
-    for tk in sorted(ticks, key=lambda x: x.get("t",0)):
-        t = tk.get("t",0)
-        # drop misses older than t
-        while mQ and mQ[0].get("t",0) < t:
-            mQ.popleft()
-        label = 0
-        if mQ and (mQ[0].get("t",0) - t) <= horizon_ms:
-            label = 1
-        X.append(featurize(tk))
-        y.append(label)
-    return X, y
-
-def train_logreg(X, y, lr=0.25, epochs=18, l2=1e-3):
-    # simple batch GD
-    n = len(X)
-    d = len(X[0])
-    w = [0.0]*d
-    for ep in range(epochs):
-        gw = [0.0]*d
-        loss = 0.0
-        for i in range(n):
-            z = sum(w[j]*X[i][j] for j in range(d))
-            p = sigmoid(z)
-            yi = y[i]
-            # logloss
-            loss += -(yi*math.log(max(1e-9,p)) + (1-yi)*math.log(max(1e-9,1-p)))
-            # grad
-            dz = (p - yi)
-            for j in range(d):
-                gw[j] += dz * X[i][j]
-        # L2
-        for j in range(d):
-            gw[j] = gw[j]/n + l2*w[j]
-        for j in range(d):
-            w[j] -= lr*gw[j]
-        loss = loss/n
-        print(f"epoch {ep+1}/{epochs} loss={loss:.4f}")
-    return w
-
-def export_js(w, out_path="goodjunk-model.js"):
-    js = f"""// === goodjunk-model.js (AUTO-GENERATED) ===
+def export_js(out_path, mu, sd, b1, w1, b3, w3):
+  js = f"""// === /herohealth/vr/goodjunk-model.js ===
+// Exported model for GoodJunk predictions
+// Generated by tools/ml/train_goodjunk.py
+// FULL v20260301-MODEL-EXPORT
 'use strict';
-(function(){{
-  const W = {json.dumps([round(x,6) for x in w])};
-  function sigmoid(x){{ if(x<-30) return 0; if(x>30) return 1; return 1/(1+Math.exp(-x)); }}
-  function predictProba(vec){{
-    let z=0;
-    for(let i=0;i<W.length;i++) z += (W[i]||0) * (vec[i]||0);
-    return sigmoid(z);
+
+function sigmoid(z){{ return 1 / (1 + Math.exp(-z)); }}
+function dot(w, x){{ let s=0; for(let i=0;i<w.length;i++) s += (w[i]||0) * (x[i]||0); return s; }}
+
+export const MODEL_META = {{
+  version: 'logreg-export-v20260301',
+  featureOrder: {json.dumps(FEATURE_ORDER, ensure_ascii=False)}
+}};
+
+// Standardization params
+export const STD = {{
+  mu: {json.dumps(mu.tolist())},
+  sd: {json.dumps(sd.tolist())}
+}};
+
+// Weights
+export const WEIGHTS = {{
+  hazardRisk_1s: {{ b: {b1:.8f}, w: {json.dumps([float(x) for x in w1.tolist()])} }},
+  miss_3s:       {{ b: {b3:.8f}, w: {json.dumps([float(x) for x in w3.tolist()])} }}
+}};
+
+export function predictProba(xVecRaw){{
+  try{{
+    const x = xVecRaw.map((v,i)=> (Number(v||0) - STD.mu[i]) / (STD.sd[i]||1e-6));
+    const h = sigmoid(WEIGHTS.hazardRisk_1s.b + dot(WEIGHTS.hazardRisk_1s.w, x));
+    const m = sigmoid(WEIGHTS.miss_3s.b       + dot(WEIGHTS.miss_3s.w, x));
+    return {{ hazardRisk: h, miss3s: m }};
+  }}catch(e){{
+    return {{ hazardRisk: 0.15, miss3s: 0.08 }};
   }}
-  window.HHA_GJ_MODEL = {{ predictProba, W }};
-  console.log('[HHA_GJ_MODEL] loaded', W.length);
-}})();
+}}
 """
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(js)
-    print("Wrote", out_path)
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  with open(out_path, "w", encoding="utf-8") as f:
+    f.write(js)
+
+def main():
+  ap = argparse.ArgumentParser()
+  ap.add_argument("--jsonl", required=True, help="path to mlrec_*.jsonl")
+  ap.add_argument("--out", default="herohealth/vr/goodjunk-model.js", help="export JS path (repo-relative)")
+  ap.add_argument("--steps", type=int, default=1400)
+  ap.add_argument("--lr", type=float, default=0.08)
+  ap.add_argument("--l2", type=float, default=0.02)
+  args = ap.parse_args()
+
+  rows = load_jsonl(args.jsonl)
+  if not rows:
+    raise SystemExit("No frame rows found in JSONL.")
+
+  X, y1, y3 = to_xy(rows)
+  if len(X) < 200:
+    raise SystemExit(f"Too few samples: {len(X)} (need ~200+)")
+
+  # Standardize
+  mu, sd = standardize_fit(X)
+  Xs = standardize_apply(X, mu, sd)
+
+  # Train both heads
+  b1, w1 = train_logreg(Xs, y1, lr=args.lr, steps=args.steps, l2=args.l2)
+  b3, w3 = train_logreg(Xs, y3, lr=args.lr, steps=args.steps, l2=args.l2)
+
+  # Quick eval
+  p1 = 1/(1+np.exp(-(Xs @ w1 + b1)))
+  p3 = 1/(1+np.exp(-(Xs @ w3 + b3)))
+  acc1, bal1 = auc_like(y1, p1)
+  acc3, bal3 = auc_like(y3, p3)
+  print(f"[hazardRisk_1s] acc={acc1:.3f} bal={bal1:.3f} posRate={y1.mean():.3f}")
+  print(f"[miss_3s]      acc={acc3:.3f} bal={bal3:.3f} posRate={y3.mean():.3f}")
+
+  # Export
+  export_js(args.out, mu, sd, b1, w1, b3, w3)
+  print("Exported:", args.out)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python train_goodjunk.py file1.jsonl [file2.jsonl ...]")
-        sys.exit(1)
-
-    rows = load_jsonl(sys.argv[1:])
-    X, y = build_dataset(rows, horizon_ms=2000)
-    pos = sum(y); n=len(y)
-    print("samples:", n, "pos:", pos, "pos_rate:", (pos/n if n else 0))
-
-    w = train_logreg(X, y, lr=0.35, epochs=20, l2=2e-3)
-    export_js(w, out_path="goodjunk-model.js")
+  main()
