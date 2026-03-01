@@ -1,778 +1,864 @@
 // === /herohealth/fitness-planner/planner.safe.js ===
-// Fitness Planner — Create MVP (Bloom: Create) — SAFE (non-module)
-// A1: URL mapping persistent + TryToday works
-// A2: Auto Storyboard Generator (Create)
-// A3: Sequential Play (1–2 games/day) via hub back-link to planner with next pointer
-// A4: Challenge Cards (daily deterministic) + Rewards (Stickers + XP)
+// HeroHealth • Fitness Planner SAFE — PRODUCTION (Create + Evaluate + Boss Week + Chain + Cooldown + Reward Inbox)
+// FULL v20260301-PLANNER-FULL-AUTONEXT-COOLDOWN-AB-EVAL
+//
+// ✅ MVP Create: 7-day Plan Builder (goals, day limits, load scoring, explainable coach)
+// ✅ MVP Evaluate: A/B Session Today + self-report (ok/tired)
+// ✅ Boss Week: 1 Boss Day/week (theme-enforced) + Trophy bonus
+// ✅ Challenge Chain: Bronze→Silver→Gold (no heavy UI) + Gem bonus
+// ✅ Robust launch: absolute URLs + fallback minimal params + safeAssign
+// ✅ Hub-wrapper compatible (optional): if hub= is present, keeps back-link stable
+// ✅ Seq mode: auto-next second game after return (seq=1&day=&done=)
+// ✅ Cooldown daily-once (exercise+pid+day) with theme by goal + pending reward
+// ✅ Reward Inbox: combine banners into ONE
+//
+// NOTE
+// - This file is designed to be robust even if your HTML is minimal.
+// - Expected HTML: a container #app. If missing, it will build a simple UI.
+// - If you already have a richer planner.html UI, this SAFE file will still work,
+//   but you may want to map element IDs in the "DOM anchors" section below.
 
 'use strict';
 
 (function(){
-  const $ = (s)=>document.querySelector(s);
+  const WIN = window;
+  const DOC = document;
 
-  function qs(name, def=null){
-    const u = new URL(location.href);
-    return u.searchParams.get(name) ?? def;
-  }
-  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+  /* =======================
+   * A) HELPERS
+   * ======================= */
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const qi = (k, d=0)=>{ const n = Number(qs(k,'')); return Number.isFinite(n) ? n : d; };
+  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
+  const nowMs = ()=> Date.now();
+  const safeJson = (o, d='')=>{ try{ return JSON.stringify(o);}catch(_){ return d; } };
+  const parseJson = (s, d=null)=>{ try{ return JSON.parse(s);}catch(_){ return d; } };
 
-  function todayKey(){
-    const d=new Date();
-    const y=d.getFullYear();
-    const m=String(d.getMonth()+1).padStart(2,'0');
-    const da=String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${da}`;
+  function absUrl(maybe){
+    try{ return new URL(String(maybe||''), location.href).toString(); }catch(_){ return ''; }
   }
-  function mondayOfThisWeek(){
-    const d = new Date();
-    const day = (d.getDay()+6)%7; // Mon=0
-    d.setDate(d.getDate()-day);
-    const y=d.getFullYear();
-    const m=String(d.getMonth()+1).padStart(2,'0');
-    const da=String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${da}`;
+  function isUrlOk(u){
+    u = String(u||'').trim();
+    if(!u) return false;
+    if(u.startsWith('javascript:')) return false;
+    return true;
   }
-  function todayIndexMon0(){
-    const d = new Date();
-    return (d.getDay()+6)%7; // Mon=0
+  function looksLikeHtml(u){
+    u = String(u||'');
+    return (u.includes('.html') || u.includes('.htm') || u.includes('/'));
   }
-  function safeParseJSON(s){ try{ return JSON.parse(s); }catch(_){ return null; } }
-  function saveLS(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
-  function loadLS(k,def){ try{ return safeParseJSON(localStorage.getItem(k)||'') ?? def; }catch(_){ return def; } }
-
-  function dlText(filename, text){
-    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1500);
-  }
-  function dlJson(filename, obj){ dlText(filename, JSON.stringify(obj, null, 2)); }
-
-  function toast(msg){
-    const t = document.createElement('div');
-    t.style.cssText = `
-      position:fixed; left:50%; bottom:18px;
-      transform:translateX(-50%);
-      padding:10px 12px; border-radius:14px;
-      background:rgba(15,23,42,.92);
-      border:1px solid rgba(255,255,255,.16);
-      color:rgba(255,255,255,.94);
-      font-weight:900; z-index:99999;
-    `;
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(()=>t.remove(), 1400);
+  function safeAssign(url){
+    try{ location.assign(url); }
+    catch(_){ location.href = url; }
   }
 
-  function copyToClipboard(text){
+  function loadLS(k, d=null){
     try{
-      navigator.clipboard.writeText(text);
-      toast('คัดลอกแล้ว ✅');
-    }catch(_){
-      const ta=document.createElement('textarea');
-      ta.value=text; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy'); ta.remove();
-      toast('คัดลอกแล้ว ✅');
-    }
+      const raw = localStorage.getItem(k);
+      return raw==null ? d : JSON.parse(raw);
+    }catch(_){ return d; }
+  }
+  function saveLS(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+  }
+  function delLS(k){ try{ localStorage.removeItem(k); }catch(_){} }
+
+  /* =======================
+   * B) CANONICAL URLS
+   * ======================= */
+  function siteBase(){
+    try{
+      const u = new URL(location.href);
+      const cut = u.pathname.split('/herohealth/')[0] || '';
+      return `${u.origin}${cut}`;
+    }catch(_){ return ''; }
+  }
+  const SITE_BASE = siteBase();
+
+  function canonHubUrl(){
+    const h = String(qs('hub','')||'').trim();
+    if(h) return h;
+    if(SITE_BASE) return `${SITE_BASE}/herohealth/hub.html`;
+    return '';
   }
 
-  function withParams(url, params){
-    const u = new URL(url, location.href);
-    for(const k in params){
-      if(params[k]!==undefined && params[k]!==null && params[k]!=='' ) u.searchParams.set(k, String(params[k]));
+  function plannerSelfUrl(params){
+    // keep existing params but optionally override / add
+    const u = new URL(location.href);
+    // keep hub/run/pid/seed/view if exists
+    const keep = ['hub','run','pid','seed','view','diff','time'];
+    const base = new URL(location.href);
+    const nu = new URL(base.toString());
+
+    // ensure we keep known ones
+    keep.forEach(k=>{
+      const v = u.searchParams.get(k);
+      if(v!=null && v!=='') nu.searchParams.set(k,v);
+    });
+
+    // remove seq markers by default
+    ['seq','day','done','cooldownNow','return','coolTheme'].forEach(k=> nu.searchParams.delete(k));
+
+    if(params && typeof params === 'object'){
+      Object.keys(params).forEach(k=>{
+        const v = params[k];
+        if(v===undefined || v===null || v==='') nu.searchParams.delete(k);
+        else nu.searchParams.set(k, String(v));
+      });
     }
-    return u.toString();
+    return nu.toString();
   }
 
-  // =====================
-  // URL mapping (persistent)
-  // =====================
-  const KEY_URLS = 'HHA_FITNESS_GAME_URLS_V1';
-  const DEFAULT_URLS = {
-    shadow:   '../fitness/shadow-breaker.html',
-    rhythm:   '../fitness/rhythm-boxer.html',
-    jumpduck: '../fitness/jump-duck.html',
-    balance:  '../fitness/balance-hold.html',
+  /* =======================
+   * C) CONFIG / DATA MODEL
+   * ======================= */
+  const ENERGY_BUDGET = 10; // 0..~15 typical; used for overload penalties
+
+  // Games (exercise)
+  const GAMES = {
+    rhythm:   { id:'rhythm',   name:'Rhythm Boxer',  ico:'🥊', goal:{ endurance:0.55, speed:0.35, balance:0.10 }, baseLoad: 1.0 },
+    shadow:   { id:'shadow',   name:'Shadow Breaker',ico:'⚡', goal:{ endurance:0.25, speed:0.65, balance:0.10 }, baseLoad: 1.2 },
+    jumpduck: { id:'jumpduck', name:'JumpDuck',     ico:'🦆', goal:{ endurance:0.55, speed:0.35, balance:0.10 }, baseLoad: 1.05 },
+    balance:  { id:'balance',  name:'Balance Hold', ico:'🧘', goal:{ endurance:0.25, speed:0.15, balance:0.60 }, baseLoad: 0.95 },
   };
 
-  function loadUrls(){
-    const x = loadLS(KEY_URLS, null);
-    if(!x || typeof x !== 'object') return {...DEFAULT_URLS};
+  // Absolute run URLs (as you confirmed)
+  const DEFAULT_URLS = {
+    shadow:   `${SITE_BASE}/fitness/shadow-breaker.html`,
+    rhythm:   `${SITE_BASE}/fitness/rhythm-boxer.html`,
+    jumpduck: `${SITE_BASE}/fitness/jump-duck.html`,
+    balance:  `${SITE_BASE}/fitness/balance-hold.html`,
+  };
+
+  // Plan state
+  const DEFAULT_PLAN = ()=>{
+    const pid = String(qs('pid','anon')||'anon').trim() || 'anon';
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const time = clamp(qs('time','80'), 20, 300);
+    const seed = String(qs('seed','')||'') || String(Date.now());
+
     return {
-      shadow:   String(x.shadow   || DEFAULT_URLS.shadow),
-      rhythm:   String(x.rhythm   || DEFAULT_URLS.rhythm),
-      jumpduck: String(x.jumpduck || DEFAULT_URLS.jumpduck),
-      balance:  String(x.balance  || DEFAULT_URLS.balance),
-    };
-  }
-  function saveUrls(u){
-    saveLS(KEY_URLS, {
-      shadow: String(u.shadow||''),
-      rhythm: String(u.rhythm||''),
-      jumpduck: String(u.jumpduck||''),
-      balance: String(u.balance||''),
+      ver: 'v20260301',
+      pid,
+      run: (run==='research'?'research':'play'),
+      diff: (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal',
+      time,
+      seed,
+      goals: ['endurance'], // endurance|speed|balance
+      constraints: {
+        limitWeekday: 10, // minutes
+        limitWeekend: 14
+      },
+      urls: Object.assign({}, DEFAULT_URLS),
+      days: Array.from({length:7}, (_,i)=>({ dayIndex:i, items:[] })),
       ts: Date.now()
+    };
+  };
+
+  // Rewards (local, no App Script)
+  const REW_KEY = (pid)=> `HHA_PLANNER_REW:${String(pid||'anon').trim()||'anon'}`;
+  const loadRewards = ()=>{
+    const pid = PLAN.pid || 'anon';
+    const r = loadLS(REW_KEY(pid), null) || { xp:0, stickers:{}, badges:{} };
+    if(!r.stickers) r.stickers = {};
+    if(!r.badges) r.badges = {};
+    if(!Number.isFinite(Number(r.xp))) r.xp = 0;
+    return r;
+  };
+  const saveRewards = (r)=>{
+    const pid = PLAN.pid || 'anon';
+    saveLS(REW_KEY(pid), r);
+  };
+
+  // Plan storage
+  const PLAN_KEY = (pid)=> `HHA_PLANNER_PLAN:${String(pid||'anon').trim()||'anon'}`;
+  const loadPlan = ()=>{
+    const pid = String(qs('pid','anon')||'anon').trim() || 'anon';
+    const raw = loadLS(PLAN_KEY(pid), null);
+    const p = raw && typeof raw === 'object' ? raw : DEFAULT_PLAN();
+    // merge defaults
+    if(!p.urls) p.urls = Object.assign({}, DEFAULT_URLS);
+    Object.keys(DEFAULT_URLS).forEach(k=>{
+      if(!p.urls[k]) p.urls[k] = DEFAULT_URLS[k];
     });
+    if(!p.constraints) p.constraints = { limitWeekday:10, limitWeekend:14 };
+    if(!p.days || !Array.isArray(p.days) || p.days.length!==7){
+      p.days = Array.from({length:7}, (_,i)=>({ dayIndex:i, items:[] }));
+    }else{
+      // normalize items
+      p.days.forEach((d,i)=>{
+        if(!d || typeof d!=='object') p.days[i] = { dayIndex:i, items:[] };
+        if(!Array.isArray(p.days[i].items)) p.days[i].items = [];
+      });
+    }
+    // canonical run/pid/seed from URL (keep research safety)
+    p.pid = String(qs('pid', p.pid||'anon')||'anon').trim() || 'anon';
+    p.run = (String(qs('run', p.run||'play'))||'play').toLowerCase()==='research' ? 'research' : 'play';
+    p.seed = String(qs('seed', p.seed||Date.now())||Date.now());
+    p.diff = String(qs('diff', p.diff||'normal')||'normal').toLowerCase();
+    p.ts = Date.now();
+    return p;
+  };
+  const savePlan = ()=> saveLS(PLAN_KEY(PLAN.pid), PLAN);
+
+  let PLAN = loadPlan();
+  let REW  = loadRewards();
+
+  const RUNTIME = {
+    view: String(qs('view','mobile')||'mobile').trim() || 'mobile'
+  };
+
+  /* =======================
+   * D) DATE / DAY HELPERS
+   * ======================= */
+  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  function dayName(i){ return DAY_NAMES[clamp(i,0,6)]; }
+  function localDayKey(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // map JS Sunday(0) to Mon0..Sun6
+  function todayIndexMon0(){
+    const d = new Date();
+    const js = d.getDay(); // 0 Sun .. 6 Sat
+    return (js===0) ? 6 : (js-1);
+  }
+  function isWeekend(dayIdx){
+    return (dayIdx===5 || dayIdx===6); // Sat/Sun
   }
 
-  let GAME_URL = loadUrls();
-  function gameUrl(id){
-    const u = GAME_URL[id];
-    if(!u) return '';
-    return String(u).trim();
+  /* =======================
+   * E) SCORING / VECTORS
+   * ======================= */
+  function getGame(id){ return GAMES[id] || GAMES.rhythm; }
+
+  function itemLoad(it){
+    const g = getGame(it.game);
+    const min = clamp(it.min,2,20);
+    const diff = String(it.diff||'normal');
+    const diffMult = diff==='hard' ? 1.25 : (diff==='easy' ? 0.85 : 1.0);
+    return g.baseLoad * diffMult * (min/6);
   }
-
-  // --------- registry ----------
-  const GAMES = [
-    { id:'shadow',   name:'Shadow Breaker', ico:'🥊',  goal:{speed: 1.00, endurance:0.35, balance:0.10}, baseLoad:1.10, energyF:1.05 },
-    { id:'rhythm',   name:'Rhythm Boxer',   ico:'🎵',  goal:{speed: 0.60, endurance:0.85, balance:0.10}, baseLoad:1.00, energyF:1.00 },
-    { id:'jumpduck', name:'Jump-Duck',      ico:'🦘',  goal:{speed: 0.45, endurance:0.95, balance:0.20}, baseLoad:1.05, energyF:1.05 },
-    { id:'balance',  name:'Balance Hold',   ico:'⚖️',  goal:{speed: 0.15, endurance:0.35, balance:1.00}, baseLoad:0.95, energyF:0.95 },
-  ];
-  const DIFF = [
-    { id:'easy',   name:'easy',   f:0.82, e:0.80 },
-    { id:'normal', name:'normal', f:1.00, e:1.00 },
-    { id:'hard',   name:'hard',   f:1.25, e:1.35 },
-  ];
-  const GOALS = [
-    { id:'endurance', label:'ความทน',   ico:'🫀' },
-    { id:'speed',     label:'ความไว',   ico:'⚡' },
-    { id:'balance',   label:'ทรงตัว',   ico:'🧘' },
-  ];
-  const ENERGY_BUDGET = 10;
-
-  function getGame(id){ return GAMES.find(g=>g.id===id) || GAMES[0]; }
-  function getDiff(id){ return DIFF.find(d=>d.id===id) || DIFF[1]; }
-  function isWeekend(dayIndex){ return (dayIndex===5 || dayIndex===6); }
-
-  function loadPerItem(item){
-    const g = getGame(item.game);
-    const d = getDiff(item.diff);
-    const min = clamp(item.min, 2, 20);
-    return min * g.baseLoad * d.f;
+  function dayLoad(day){
+    return (day.items||[]).reduce((s,it)=> s + itemLoad(it), 0);
   }
-  function energyPerItem(item){
-    const g = getGame(item.game);
-    const d = getDiff(item.diff);
-    const min = clamp(item.min, 2, 20);
-    return (min * g.energyF * d.e) / 6;
+  function dayEnergy(day){
+    // energy is just scaled load for budget checks
+    return dayLoad(day) * 6; // typical dayLoad ~1.2..2.5 => energy ~7..15
   }
-
-  function dayMinutes(day){ return (day.items||[]).reduce((s,it)=>s + clamp(it.min,2,20), 0); }
-  function dayLoad(day){ return (day.items||[]).reduce((s,it)=>s + loadPerItem(it), 0); }
-  function dayEnergy(day){ return (day.items||[]).reduce((s,it)=>s + energyPerItem(it), 0); }
-  function dayHasHard(day){ return (day.items||[]).some(it => it.diff === 'hard'); }
-  function dayHasAny(day){ return (day.items||[]).length>0; }
-
   function dayGoalVector(day){
     const v = { endurance:0, speed:0, balance:0 };
+    const items = day.items || [];
+    items.forEach(it=>{
+      const g = getGame(it.game);
+      const min = clamp(it.min,2,20);
+      v.endurance += min * g.goal.endurance;
+      v.speed     += min * g.goal.speed;
+      v.balance   += min * g.goal.balance;
+    });
+    return v;
+  }
+
+  function scorePlan(plan){
+    // Balanced load (prefer medium over extremes)
+    let loads = plan.days.map(d=> dayLoad(d));
+    const mean = loads.reduce((a,b)=>a+b,0) / (loads.length||1);
+    const varr = loads.reduce((s,x)=> s + Math.pow(x-mean,2), 0) / (loads.length||1);
+    const balanced = clamp(100 - varr*35, 0, 100);
+
+    // Consistency: count non-empty days
+    const active = plan.days.filter(d=> (d.items||[]).length>0).length;
+    const consistency = clamp(active * 14, 0, 100);
+
+    // Realism: penalize days over limits
+    let realism = 100;
+    for(let i=0;i<7;i++){
+      const d = plan.days[i];
+      const mins = (d.items||[]).reduce((s,it)=> s+clamp(it.min,2,20), 0);
+      const lim = isWeekend(i) ? plan.constraints.limitWeekend : plan.constraints.limitWeekday;
+      if(mins > lim) realism -= (mins-lim)*10;
+      if(dayEnergy(d) > ENERGY_BUDGET*1.15) realism -= 12;
+    }
+    realism = clamp(realism, 0, 100);
+
+    // Goal fit: compare normalized day vectors to plan goals
+    const goals = plan.goals || ['endurance'];
+    let want = { endurance:0, speed:0, balance:0 };
+    goals.forEach(g=>{ if(want[g]!==undefined) want[g]=1; });
+    let wSum = want.endurance + want.speed + want.balance;
+    if(!wSum) wSum=1;
+    want.endurance/=wSum; want.speed/=wSum; want.balance/=wSum;
+
+    let distSum = 0;
+    plan.days.forEach(d=>{
+      const v = dayGoalVector(d);
+      const s = v.endurance+v.speed+v.balance;
+      if(!s) return;
+      const r = { endurance:v.endurance/s, speed:v.speed/s, balance:v.balance/s };
+      const dist = Math.abs(r.endurance-want.endurance)+Math.abs(r.speed-want.speed)+Math.abs(r.balance-want.balance);
+      distSum += dist;
+    });
+    const goalFit = clamp(100 - (distSum*10), 0, 100);
+
+    // Bonus from boss + gold chain
+    const bossIdx = detectBossDay(plan);
+    let bonus = 0;
+    if(bossIdx >= 0) bonus += 4;
+    for(const d of plan.days){
+      if(challengeScore(d) >= 5) bonus += 2;
+    }
+
+    const total = Math.round(balanced*0.30 + consistency*0.25 + realism*0.25 + goalFit*0.20 + bonus);
+    return { total, balanced:Math.round(balanced), consistency:Math.round(consistency), realism:Math.round(realism), goalFit:Math.round(goalFit), bonus };
+  }
+
+  /* =======================
+   * F) BOSS WEEK + CHAIN
+   * ======================= */
+  function detectBossDay(plan){
+    let bestIdx = -1;
+    let bestLoad = 0;
+
+    for(let i=0;i<7;i++){
+      const d = plan.days[i];
+      if(!d.items || d.items.length < 2) continue;
+
+      const load = dayLoad(d);
+      const energy = dayEnergy(d);
+
+      // ต้องท้าทายแต่ไม่ overload
+      if(energy > ENERGY_BUDGET * 1.15) continue;
+
+      if(load > bestLoad){
+        bestLoad = load;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+  function bossTheme(day){
+    const v = dayGoalVector(day);
+    if(v.speed > v.endurance && v.speed > v.balance) return 'speed';
+    if(v.balance > v.endurance) return 'balance';
+    return 'endurance';
+  }
+  function themeLabel(th){
+    return th==='speed'?'ความไว' : th==='balance'?'ทรงตัว' : 'ความทน';
+  }
+  function gameTheme(gameId){
+    if(gameId==='balance') return 'balance';
+    if(gameId==='shadow') return 'speed';
+    if(gameId==='rhythm') return 'endurance';
+    if(gameId==='jumpduck') return 'endurance';
+    return 'endurance';
+  }
+  function normalizeBossDay(plan, bossIdx){
+    if(bossIdx < 0) return;
+    const d = plan.days[bossIdx];
+    if(!d || !d.items || d.items.length < 2) return;
+
+    const th = bossTheme(d);
+    const t0 = gameTheme(d.items[0].game);
+    const t1 = gameTheme(d.items[1].game);
+
+    if(t0 !== th){
+      d.items[0].game = (th==='balance') ? 'balance' : (th==='speed' ? 'shadow' : 'rhythm');
+    }
+    if(t1 !== th){
+      d.items[1].game = (th==='balance') ? 'balance' : (th==='speed' ? 'shadow' : 'jumpduck');
+    }
+
+    if(d.items[0].game==='balance' && d.items[1].game==='balance'){
+      d.items[1].game='rhythm';
+      d.items[1].diff='easy';
+      d.items[1].min = Math.min(4, clamp(d.items[1].min,2,20));
+    }
+  }
+
+  // Challenge Chain
+  function challengeTier(item){
+    const min = clamp(item.min,2,20);
+    if(item.diff === 'hard' && min >= 7) return 'gold';
+    if(item.diff === 'normal' && min >= 5) return 'silver';
+    return 'bronze';
+  }
+  function challengeScore(day){
+    let score = 0;
     for(const it of (day.items||[])){
+      const t = challengeTier(it);
+      score += (t==='gold') ? 3 : (t==='silver' ? 2 : 1);
+    }
+    return score;
+  }
+
+  /* =======================
+   * G) EVALUATE A/B
+   * ======================= */
+  function sessionMinutes(items){
+    return (items||[]).reduce((s,it)=>s + clamp(it.min,2,20), 0);
+  }
+  function sessionEnergy(items){
+    return dayEnergy({ items: items||[] });
+  }
+  function sessionLoad(items){
+    return dayLoad({ items: items||[] });
+  }
+  function goalFitScore(items){
+    const v = { endurance:0, speed:0, balance:0 };
+    for(const it of (items||[])){
       const g = getGame(it.game);
       const min = clamp(it.min,2,20);
       v.endurance += min * g.goal.endurance;
       v.speed     += min * g.goal.speed;
       v.balance   += min * g.goal.balance;
     }
-    return v;
-  }
+    const sum = v.endurance + v.speed + v.balance;
+    if(!sum) return 0;
 
-  // --------- plan ----------
-  const KEY_LAST = 'HHA_FITNESS_PLAN_LAST_V1';
-  const KEY_STORY = 'HHA_FITNESS_STORY_LAST_V1';
-
-  // A4 Rewards state
-  const KEY_REWARD = 'HHA_FITNESS_REWARDS_V1';
-
-  const runRaw = String(qs('run','play') || '').toLowerCase().trim();
-  const runSafe = (runRaw === 'research' || runRaw === 'play') ? runRaw : 'play';
-
-  const diffRaw = String(qs('diff','normal') || '').toLowerCase().trim();
-  const diffSafe = (diffRaw === 'easy' || diffRaw === 'normal' || diffRaw === 'hard') ? diffRaw : 'normal';
-
-  const RUNTIME = {
-    pid: String(qs('pid','anon')),
-    run: runSafe,
-    seed: String(qs('seed', String(Date.now()))),
-    diff: diffSafe,
-    time: clamp(qs('time','80'), 20, 600),
-    view: qs('view', null),
-  };
-
-  const DEFAULT_PLAN = ()=>{
-    const weekStart = mondayOfThisWeek();
-    return {
-      v: 1,
-      pid: RUNTIME.pid,
-      run: RUNTIME.run,
-      seed: RUNTIME.seed,
-      weekStart,
-      goals: ['endurance'],
-      constraints: { limitWeekday: 10, limitWeekend: 12, minDays: 4, restDays: 1 },
-      days: Array.from({length:7}).map((_,i)=>({ dayIndex: i, items: [] })),
-      ts: Date.now()
-    };
-  };
-
-  let PLAN = loadLS(KEY_LAST, null) || DEFAULT_PLAN();
-  PLAN.pid = RUNTIME.pid;
-  PLAN.run = RUNTIME.run;
-  PLAN.seed = RUNTIME.seed;
-
-  // rewards (stickers + xp) scoped by pid+weekStart
-  function rewardKey(){
-    return `${PLAN.pid||'anon'}|${PLAN.weekStart||''}`;
-  }
-  function loadRewards(){
-    const all = loadLS(KEY_REWARD, {});
-    const k = rewardKey();
-    const cur = (all && all[k]) ? all[k] : null;
-    if(cur && typeof cur === 'object'){
-      return {
-        xp: Number(cur.xp)||0,
-        stickers: Array.isArray(cur.stickers) ? cur.stickers.slice(0,7).map(x=>!!x) : Array(7).fill(false),
-        lastEarnTs: Number(cur.lastEarnTs)||0
-      };
-    }
-    return { xp:0, stickers:Array(7).fill(false), lastEarnTs:0 };
-  }
-  function saveRewards(rw){
-    const all = loadLS(KEY_REWARD, {});
-    const k = rewardKey();
-    all[k] = { xp: Number(rw.xp)||0, stickers: (rw.stickers||[]).slice(0,7), lastEarnTs: Number(rw.lastEarnTs)||0 };
-    saveLS(KEY_REWARD, all);
-  }
-  let REW = loadRewards();
-
-  // --------- UI refs ----------
-  const elGoalPills = $('#goalPills');
-  const elWeekGrid  = $('#weekGrid');
-
-  const elChipPid = $('#chipPid');
-  const elChipRun = $('#chipRun');
-  const elChipWeek= $('#chipWeek');
-
-  const elLimitWeekday = $('#limitWeekday');
-  const elLimitWeekend = $('#limitWeekend');
-  const elMinDays = $('#minDays');
-  const elRestDays = $('#restDays');
-
-  const elScoreTotal = $('#scoreTotal');
-  const elScoreBar = $('#scoreBar');
-  const elBreakdown = $('#breakdown');
-  const elCoachList = $('#coachList');
-
-  const elSumMinutes = $('#sumMinutes');
-  const elSumDays = $('#sumDays');
-  const elAvgLoad = $('#avgLoad');
-
-  const elMdPreview = $('#mdPreview');
-
-  const elTodayLabel = $('#todayLabel');
-  const elTryList = $('#tryList');
-
-  const elStoryPreview = $('#storyPreview');
-
-  // Rewards UI
-  const elXpTotal = $('#xpTotal');
-  const elStickersRow = $('#stickersRow');
-
-  // Challenge UI
-  const elCCtag = $('#ccTag');
-  const elCCbody = $('#ccBody');
-  const elCCmeta = $('#ccMeta');
-
-  // Next panel A3 + reward banner
-  const elNextPanel = $('#nextPanel');
-  const elNextTitle = $('#nextTitle');
-  const elNextHint = $('#nextHint');
-  const elRewardBanner = $('#rewardBanner');
-  const elRewardText = $('#rewardText');
-
-  // Modal refs
-  const elUrlModal = $('#urlModal');
-  const elUrlShadow = $('#urlShadow');
-  const elUrlRhythm = $('#urlRhythm');
-  const elUrlJump = $('#urlJump');
-  const elUrlBalance = $('#urlBalance');
-
-  function dayName(i){
-    return ['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'][i] || `Day ${i+1}`;
-  }
-
-  function makeSelect(options, value){
-    const sel = document.createElement('select');
-    for(const op of options){
-      const o = document.createElement('option');
-      o.value = op.value;
-      o.textContent = op.label;
-      if(String(op.value)===String(value)) o.selected = true;
-      sel.appendChild(o);
-    }
-    return sel;
-  }
-
-  function saveNow(){ saveLS(KEY_LAST, PLAN); }
-
-  function syncControlsFromPlan(){
-    elChipPid.textContent = `pid: ${PLAN.pid||'anon'}`;
-    elChipRun.textContent = `run: ${PLAN.run||'play'}`;
-    elChipWeek.textContent = `week: ${PLAN.weekStart || '—'}`;
-
-    elLimitWeekday.value = String(PLAN.constraints.limitWeekday);
-    elLimitWeekend.value = String(PLAN.constraints.limitWeekend);
-    elMinDays.value = String(PLAN.constraints.minDays);
-    elRestDays.value = String(PLAN.constraints.restDays);
-  }
-  function readControlsToPlan(){
-    PLAN.constraints.limitWeekday = clamp(elLimitWeekday.value, 6, 20);
-    PLAN.constraints.limitWeekend = clamp(elLimitWeekend.value, 6, 25);
-    PLAN.constraints.minDays = clamp(elMinDays.value, 1, 7);
-    PLAN.constraints.restDays = clamp(elRestDays.value, 0, 3);
-    PLAN.ts = Date.now();
-  }
-
-  // =====================
-  // scoring
-  // =====================
-  function scorePlan(plan){
-    const c = plan.constraints;
-    const minutesWeek = plan.days.reduce((s,d)=>s + dayMinutes(d), 0);
-    const daysPlayed = plan.days.filter(dayHasAny).length;
-    const loads = plan.days.map(dayLoad);
-    const loadsPlayed = plan.days.filter(dayHasAny).map(dayLoad);
-    const avgLoad = loadsPlayed.length ? (loadsPlayed.reduce((a,b)=>a+b,0)/loadsPlayed.length) : 0;
-
-    let realism = 25;
-    let overCount = 0;
-    let energyOverCount = 0;
-
-    for(let i=0;i<7;i++){
-      const mins = dayMinutes(plan.days[i]);
-      const energy = dayEnergy(plan.days[i]);
-      if(mins<=0) continue;
-      const limit = isWeekend(i) ? c.limitWeekend : c.limitWeekday;
-
-      if(mins > limit){
-        overCount++;
-        realism -= Math.min(8, (mins - limit) * 2.2);
-      }
-      if(energy > ENERGY_BUDGET){
-        energyOverCount++;
-        realism -= Math.min(6, (energy - ENERGY_BUDGET) * 1.6);
-      }
-      if(dayHasHard(plan.days[i]) && mins >= (limit-0)) realism -= 2.5;
-    }
-    realism = clamp(realism, 0, 25);
-
-    let consistency = 0;
-    const meet = daysPlayed >= c.minDays ? 1 : (daysPlayed / Math.max(1,c.minDays));
-    consistency += 16 * meet;
-
-    let gapPenalty = 0;
-    let curGap = 0;
-    for(let i=0;i<7;i++){
-      if(dayHasAny(plan.days[i])) curGap = 0;
-      else { curGap++; if(curGap>=3) gapPenalty += 1.8; }
-    }
-    let clusterPenalty = 0;
-    for(let i=1;i<7;i++){
-      if(dayHasAny(plan.days[i]) && dayHasAny(plan.days[i-1])) clusterPenalty += 1.2;
-    }
-    consistency += (9 - gapPenalty - clusterPenalty);
-    consistency = clamp(consistency, 0, 25);
-
-    let balanced = 30;
-    for(let i=1;i<7;i++){
-      const a = loads[i-1], b = loads[i];
-      const da = Math.abs(b-a);
-      if(da > 8) balanced -= 2.2;
-      if(da > 12) balanced -= 2.2;
-
-      const heavyA = a >= 10;
-      const heavyB = b >= 10;
-      if(heavyA && heavyB) balanced -= 2.2;
-
-      if(dayHasHard(plan.days[i]) && dayHasHard(plan.days[i-1])) balanced -= 2.8;
-    }
-    const rest = 7 - daysPlayed;
-    const restTarget = c.restDays;
-    balanced -= Math.abs(rest - restTarget) * 1.2;
-    balanced = clamp(balanced, 0, 30);
+    const ratio = { endurance:v.endurance/sum, speed:v.speed/sum, balance:v.balance/sum };
 
     const want = { endurance:0, speed:0, balance:0 };
-    const goals = plan.goals || ['endurance'];
+    const goals = PLAN.goals || ['endurance'];
     for(const g of goals) want[g] = 1;
-    const wSum = want.endurance + want.speed + want.balance;
-    want.endurance /= wSum; want.speed /= wSum; want.balance /= wSum;
-
-    const agg = { endurance:0, speed:0, balance:0 };
-    for(const d of plan.days){
-      const v = dayGoalVector(d);
-      agg.endurance += v.endurance;
-      agg.speed     += v.speed;
-      agg.balance   += v.balance;
-    }
-    const aSum = agg.endurance + agg.speed + agg.balance;
-    const ratio = aSum ? {
-      endurance: agg.endurance/aSum,
-      speed: agg.speed/aSum,
-      balance: agg.balance/aSum
-    } : { endurance:0, speed:0, balance:0 };
+    const wSum = want.endurance + want.speed + want.balance || 1;
+    want.endurance/=wSum; want.speed/=wSum; want.balance/=wSum;
 
     const dist = Math.abs(ratio.endurance - want.endurance)
                + Math.abs(ratio.speed     - want.speed)
                + Math.abs(ratio.balance   - want.balance);
 
-    let goalFit = 20 - dist * 12;
-    if(goals.includes('balance') && ratio.balance < 0.18 && daysPlayed>0) goalFit -= 2.0;
-    if(goals.includes('speed')   && ratio.speed   < 0.22 && daysPlayed>0) goalFit -= 2.0;
-    if(goals.includes('endurance') && ratio.endurance < 0.22 && daysPlayed>0) goalFit -= 2.0;
-    goalFit = clamp(goalFit, 0, 20);
+    return clamp(100 - dist*120, 0, 100);
+  }
+  function evaluateSession(items, fatigue){
+    const mins = sessionMinutes(items);
+    const load = sessionLoad(items);
+    const energy = sessionEnergy(items);
 
-    const total = Math.round(balanced + consistency + realism + goalFit);
+    let score = goalFitScore(items) * 0.55;
 
-    return {
-      total,
-      parts: { balanced, consistency, realism, goalFit },
-      meta: { minutesWeek, daysPlayed, avgLoad, overCount, energyOverCount, rest, ratio, want }
-    };
+    const overE = Math.max(0, energy - ENERGY_BUDGET);
+    score -= overE * 10;
+
+    if(fatigue === 'tired'){
+      if(energy > ENERGY_BUDGET*0.95) score -= 12;
+      if((items||[]).some(it=>it.diff==='hard')) score -= 10;
+    }
+
+    const dayLimit = isWeekend(todayIndexMon0()) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
+    if(mins > dayLimit) score -= (mins - dayLimit) * 8;
+
+    if((items||[]).length===2) score += 4;
+
+    score = clamp(score, 0, 100);
+    return { score: Math.round(score), mins, load: Number(load.toFixed(1)), energy: Number(energy.toFixed(1)) };
   }
 
-  function coachReasons(plan, sc){
-    const out = [];
-    const { daysPlayed, avgLoad, overCount, energyOverCount, rest, ratio, want } = sc.meta;
-    const c = plan.constraints;
+  function proposeSessionsForToday(dayIdx){
+    const limit = isWeekend(dayIdx) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
 
-    if(daysPlayed >= c.minDays) out.push({ cls:'good', t:`ดีมาก! วางแผนเล่น ${daysPlayed} วัน/สัปดาห์ ตามขั้นต่ำ ${c.minDays} วัน ✅`});
-    else out.push({ cls:'warn', t:`ตอนนี้เล่น ${daysPlayed} วัน ยังไม่ถึงขั้นต่ำ ${c.minDays} วัน ลองเพิ่มอีก 1 วันแบบ easy`});
+    const A = {
+      name: 'A (Balanced Pair)',
+      items: [
+        { game:'rhythm', diff:'normal', min: Math.min(6, limit) },
+        { game:'balance', diff:'easy',  min: Math.min(4, Math.max(3, limit-6)) },
+      ].slice(0,2)
+    };
 
-    if(overCount===0) out.push({ cls:'good', t:`เวลาต่อวันไม่เกินข้อจำกัด (สมจริงสำหรับวันเรียน) 👍`});
-    else out.push({ cls:'bad', t:`มี ${overCount} วันที่เกินเวลาที่ตั้งไว้ → ลดนาที/ลดเป็น easy เพื่อไม่โอเวอร์โหลด`});
+    const B = {
+      name: 'B (Single Boss)',
+      items: [
+        { game:'shadow', diff:'hard', min: Math.min(8, limit) }
+      ]
+    };
 
-    if(energyOverCount===0) out.push({ cls:'good', t:`Energy/day อยู่ในงบ (≤ ${ENERGY_BUDGET}) ช่วยกันล้า ✅`});
-    else out.push({ cls:'warn', t:`มี ${energyOverCount} วันที่เกิน Energy/day → ลด hard หรือแบ่งเป็นเกมเบา ๆ`});
+    return { A, B };
+  }
 
-    let hardStreak = 0, hardMax = 0;
+  /* =======================
+   * H) AI DIRECTOR (research-safe)
+   * ======================= */
+  const AI_ON = (PLAN.run !== 'research') && (String(qs('ai','0')) === '1');
+
+  function aiDirectorAdjustPlan(plan){
+    if(!AI_ON) return;
+
     for(let i=0;i<7;i++){
-      if(dayHasHard(plan.days[i])){ hardStreak++; hardMax = Math.max(hardMax, hardStreak); }
-      else hardStreak = 0;
-    }
-    if(hardMax>=2) out.push({ cls:'bad', t:`มีวัน hard ติดกัน ${hardMax} วัน เสี่ยงล้า แนะนำสลับเป็น normal/easy`});
-    else if(hardMax===1) out.push({ cls:'good', t:`ใช้ hard ไม่ติดกัน = ท้าทายแต่ปลอดภัย 🎯`});
+      const d = plan.days[i];
+      if(!d.items || !d.items.length) continue;
 
-    const restTarget = c.restDays;
-    if(Math.abs(rest-restTarget)<=1) out.push({ cls:'good', t:`วันพัก ${rest} วัน ใกล้เคียงที่แนะนำ (${restTarget}) ช่วยฟื้นตัว`});
-    else if(rest < restTarget) out.push({ cls:'warn', t:`วันพักน้อยไป (${rest} วัน) ลองเว้น 1 วันเป็นพัก`});
-    else out.push({ cls:'warn', t:`วันพักเยอะไป (${rest} วัน) ถ้าไหว เพิ่มอีก 1 วันเล่นเบา ๆ`});
+      let energy = dayEnergy(d);
+      if(energy <= ENERGY_BUDGET) continue;
 
-    const pct = (x)=>Math.round(x*100);
-    out.push({ cls:'warn', t:`สัดส่วนกิจกรรม: ทน ${pct(ratio.endurance)}% · ไว ${pct(ratio.speed)}% · ทรงตัว ${pct(ratio.balance)}%`});
-
-    const needMore = [];
-    if(plan.goals.includes('endurance') && ratio.endurance < want.endurance - 0.10) needMore.push('ความทน');
-    if(plan.goals.includes('speed')     && ratio.speed     < want.speed     - 0.10) needMore.push('ความไว');
-    if(plan.goals.includes('balance')   && ratio.balance   < want.balance   - 0.10) needMore.push('ทรงตัว');
-    if(needMore.length) out.push({ cls:'warn', t:`เพื่อให้ตรงเป้ามากขึ้น ลองเพิ่ม: ${needMore.join(' + ')} (easy/normal)`});
-    else if(daysPlayed>0) out.push({ cls:'good', t:`สัดส่วนกิจกรรมใกล้เคียงเป้าหมายแล้ว เยี่ยม!`});
-
-    if(avgLoad > 11 && overCount===0) out.push({ cls:'warn', t:`แผนนี้ท้าทายมาก (load เฉลี่ย ${avgLoad.toFixed(1)}) ถ้าวันไหนเหนื่อย ลดเป็น easy ได้`});
-    return out.slice(0, 10);
-  }
-
-  // =====================
-  // A4: Challenge Cards (deterministic)
-  // =====================
-  function hashStr(s){
-    s = String(s||'');
-    let h = 2166136261 >>> 0;
-    for(let i=0;i<s.length;i++){
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-  function mulberry32(a){
-    return function(){
-      let t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function pick(rng, arr){
-    if(!arr.length) return null;
-    return arr[Math.floor(rng()*arr.length)];
-  }
-
-  const CHALLENGES = [
-    { id:'steady', tag:'STEADY', text:'เล่นแบบ “นิ่งและแม่น” — ถ้าพลาด 1 ครั้ง ให้หยุด 3 วินาทีแล้วค่อยเริ่มใหม่', xp: 18 },
-    { id:'tempo',  tag:'TEMPO',  text:'โฟกัส “จังหวะ” — นับ 1–2–3 ในใจให้สม่ำเสมอ (ไม่เร่ง)', xp: 16 },
-    { id:'breath', tag:'BREATH', text:'หายใจ 3 รอบ — ก่อนเริ่มเกม (เข้า 3 วิ / ออก 3 วิ)', xp: 14 },
-    { id:'micro',  tag:'MICRO',  text:'ตั้งเป้าย่อย — วันนี้ขอ “ดีขึ้น 1 อย่าง” เช่น แม่นขึ้น/นิ่งขึ้น/ไวขึ้น', xp: 15 },
-    { id:'safe',   tag:'SAFE',   text:'ถ้าเริ่มล้า ให้ลดเป็น easy ได้ทันที (ฮีโร่ฉลาด = ปลอดภัย)', xp: 14 },
-    { id:'combo',  tag:'COMBO',  text:'ภารกิจคอมโบ — ตั้งใจทำ streak ต่อเนื่อง 5 ครั้ง (หรือ 5 วินาที)', xp: 20 },
-  ];
-
-  function dailyChallenge(dayIdx){
-    const seed = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|ch|${dayIdx}`);
-    const rng = mulberry32(seed);
-    const c = pick(rng, CHALLENGES) || CHALLENGES[0];
-    // Add “context” from plan day
-    const d = PLAN.days[dayIdx];
-    const mins = dayMinutes(d);
-    const items = (d.items||[]).map(it => `${getGame(it.game).ico}${getGame(it.game).name}`).join(' + ') || 'พัก/ยังไม่มีเกม';
-    const meta = (mins>0)
-      ? `วันนี้เล่น: ${items} · รวม ${mins} นาที · รับ XP เมื่อ “เล่นครบตามแผนวันนี้”`
-      : `วันนี้เป็นวันพัก → รับ XP เมื่อทำภารกิจพัก (เดินเบา ๆ 3 นาที + ดื่มน้ำ)`;
-    return { ...c, meta };
-  }
-
-  function renderChallengeToday(){
-    if(!elCCtag || !elCCbody || !elCCmeta) return;
-    const idx = todayIndexMon0();
-    const c = dailyChallenge(idx);
-    elCCtag.textContent = c.tag;
-    elCCbody.textContent = c.text;
-    elCCmeta.textContent = c.meta;
-  }
-
-  // =====================
-  // A4 Rewards (stickers + xp)
-  // =====================
-  const STK_EMOJI = ['⭐','🔥','💎','🌈','🛡️','🚀','🏆'];
-
-  function renderRewards(){
-    REW = loadRewards();
-    if(elXpTotal) elXpTotal.textContent = String(REW.xp || 0);
-    if(elStickersRow){
-      elStickersRow.innerHTML = '';
-      for(let i=0;i<7;i++){
-        const d = document.createElement('div');
-        d.className = 'stk ' + (REW.stickers[i] ? 'on' : 'off');
-        d.title = `${dayName(i)}: ${REW.stickers[i] ? 'ได้แล้ว' : 'ยังไม่ได้'}`;
-        d.textContent = REW.stickers[i] ? STK_EMOJI[i] : '·';
-        elStickersRow.appendChild(d);
+      for(const it of d.items){
+        if(energy <= ENERGY_BUDGET) break;
+        if(it.diff === 'hard'){
+          it.diff = 'normal';
+          energy = dayEnergy(d);
+        }
+      }
+      for(const it of d.items){
+        if(energy <= ENERGY_BUDGET) break;
+        if(it.diff === 'normal'){
+          it.diff = 'easy';
+          energy = dayEnergy(d);
+        }
+      }
+      for(const it of d.items){
+        if(energy <= ENERGY_BUDGET) break;
+        const m = clamp(it.min,2,20);
+        if(m > 4){
+          it.min = m - 1;
+          energy = dayEnergy(d);
+        }
       }
     }
   }
 
+  /* =======================
+   * I) COOLDOWN (daily-once) + THEME + PENDING REWARD
+   * ======================= */
+  function cooldownDoneKey(zone, pid){
+    const z = String(zone||'exercise').toLowerCase().trim() || 'exercise';
+    const p = String(pid||'anon').trim() || 'anon';
+    return `HHA_COOLDOWN_DONE:${z}:${p}:${localDayKey()}`;
+  }
+  function isCooldownDone(zone, pid){
+    try{ return localStorage.getItem(cooldownDoneKey(zone,pid)) === '1'; }catch(_){ return false; }
+  }
+  function setCooldownDone(zone, pid){
+    try{ localStorage.setItem(cooldownDoneKey(zone,pid), '1'); }catch(_){}
+  }
+
+  function cooldownPendingKey(zone, pid){
+    const z = String(zone||'exercise').toLowerCase().trim() || 'exercise';
+    const p = String(pid||'anon').trim() || 'anon';
+    return `HHA_COOLDOWN_PENDING:${z}:${p}:${localDayKey()}`;
+  }
+  function getCooldownPending(zone, pid){
+    try{
+      const raw = localStorage.getItem(cooldownPendingKey(zone,pid));
+      return raw ? JSON.parse(raw) : null;
+    }catch(_){ return null; }
+  }
+  function setCooldownPending(zone, pid, data){
+    try{ localStorage.setItem(cooldownPendingKey(zone,pid), JSON.stringify(data||{})); }catch(_){}
+  }
+  function clearCooldownPending(zone, pid){
+    try{ localStorage.removeItem(cooldownPendingKey(zone,pid)); }catch(_){}
+  }
+
+  function cooldownStreakKey(zone, pid){
+    const z = String(zone||'exercise').toLowerCase().trim() || 'exercise';
+    const p = String(pid||'anon').trim() || 'anon';
+    return `HHA_COOLDOWN_STREAK:${z}:${p}`;
+  }
+  function loadCooldownStreak(zone, pid){
+    try{
+      const raw = localStorage.getItem(cooldownStreakKey(zone,pid));
+      return raw ? JSON.parse(raw) : { day:'', streak:0 };
+    }catch(_){ return { day:'', streak:0 }; }
+  }
+  function saveCooldownStreak(zone, pid, d){
+    try{ localStorage.setItem(cooldownStreakKey(zone,pid), JSON.stringify(d||{})); }catch(_){}
+  }
+
+  function pickCooldownThemeForToday(dayIdx){
+    const d = (PLAN.days && PLAN.days[dayIdx]) ? PLAN.days[dayIdx] : null;
+    if(d && d.items && d.items.length){
+      const v = dayGoalVector(d);
+      if(v.speed > v.endurance && v.speed > v.balance) return 'shadow';
+      if(v.balance > v.endurance) return 'balance';
+      return 'rhythm';
+    }
+    const goals = PLAN.goals || ['endurance'];
+    if(goals.includes('speed')) return 'shadow';
+    if(goals.includes('balance')) return 'balance';
+    return 'rhythm';
+  }
+
+  function maybeStartCooldownNow(){
+    const cnow = String(qs('cooldownNow','')).trim();
+    if(cnow !== '1') return false;
+
+    const pid = PLAN.pid || 'anon';
+    if(isCooldownDone('exercise', pid)){
+      try{
+        const u = new URL(location.href);
+        u.searchParams.delete('cooldownNow');
+        u.searchParams.delete('return');
+        u.searchParams.delete('coolTheme');
+        history.replaceState(null,'',u.toString());
+      }catch(_){}
+      return false;
+    }
+
+    const ret = String(qs('return','')).trim() || plannerSelfUrl(null);
+    const theme = String(qs('coolTheme','')).trim() || 'rhythm';
+
+    // warmup-gate.html lives at /herohealth/warmup-gate.html
+    const gate = `${SITE_BASE}/herohealth/warmup-gate.html`;
+    const g = new URL(gate);
+
+    g.searchParams.set('gatePhase','cooldown');
+    g.searchParams.set('cat','exercise');
+    g.searchParams.set('theme', theme);
+    g.searchParams.set('pid', pid);
+    g.searchParams.set('run', (PLAN.run==='research'?'research':'play'));
+    g.searchParams.set('diff', PLAN.diff || 'normal');
+    g.searchParams.set('seed', PLAN.seed);
+    g.searchParams.set('view', RUNTIME.view);
+    g.searchParams.set('hub', ret);
+    g.searchParams.set('next', ret);
+    g.searchParams.set('cdur', '15');
+
+    // mark done immediately to prevent loops/spam
+    setCooldownDone('exercise', pid);
+    // set pending reward claim back at planner
+    setCooldownPending('exercise', pid, { theme, ts: Date.now(), claimed:false });
+
+    safeAssign(g.toString());
+    return true;
+  }
+
+  function goCooldownGateAfterSession(returnUrl, dayIdxOverride){
+    const pid = PLAN.pid || 'anon';
+    if(isCooldownDone('exercise', pid)) return false;
+
+    const dayIdx = (typeof dayIdxOverride==='number' && dayIdxOverride>=0) ? dayIdxOverride : todayIndexMon0();
+    const coolTheme = pickCooldownThemeForToday(dayIdx);
+
+    const hub = canonHubUrl();
+    const next = String(returnUrl || plannerSelfUrl(null));
+
+    // We bounce through planner with cooldownNow flag (simple & reliable)
+    const u = new URL(next);
+    u.searchParams.set('cooldownNow','1');
+    u.searchParams.set('return', next);
+    u.searchParams.set('coolTheme', coolTheme);
+    safeAssign(u.toString());
+    return true;
+  }
+
+  /* =======================
+   * J) REWARD INBOX (single banner)
+   * ======================= */
+  function rewardInboxKey(pid){
+    const p = String(pid||'anon').trim()||'anon';
+    return `HHA_PLANNER_INBOX:${p}:${localDayKey()}`;
+  }
+  function inboxLoad(pid){
+    try{
+      const raw = sessionStorage.getItem(rewardInboxKey(pid));
+      return raw ? JSON.parse(raw) : [];
+    }catch(_){ return []; }
+  }
+  function inboxPush(pid, item){
+    try{
+      const arr = inboxLoad(pid);
+      arr.push(Object.assign({ ts: Date.now() }, item||{}));
+      sessionStorage.setItem(rewardInboxKey(pid), JSON.stringify(arr));
+    }catch(_){}
+  }
+  function inboxClear(pid){
+    try{ sessionStorage.removeItem(rewardInboxKey(pid)); }catch(_){}
+  }
+
+  // banner UI
+  function showRewardBanner(msg){
+    msg = String(msg||'').trim();
+    if(!msg) return;
+    ensureUI();
+    elBanner.textContent = msg;
+    elBanner.classList.add('show');
+    setTimeout(()=> elBanner.classList.remove('show'), 3600);
+  }
+
+  function showCombinedRewardBannerIfAny(){
+    const pid = PLAN.pid || 'anon';
+    const arr = inboxLoad(pid);
+    if(!arr || !arr.length) return false;
+
+    // throttle
+    const k = 'HHA_PLANNER_LAST_COMBINED_BANNER';
+    const last = Number(loadLS(k, 0)) || 0;
+    if(Date.now() - last < 1200) return false;
+    saveLS(k, Date.now());
+
+    const xp = arr.reduce((s,it)=>s + (Number(it.xp)||0), 0);
+    const stickers = arr.filter(it=>it.sticker).map(it=>it.sticker);
+    const tags = arr.filter(it=>it.tag).map(it=>it.tag);
+    const extras = arr.filter(it=>it.extra).map(it=>it.extra);
+
+    const stTxt = stickers.length ? ` ${stickers.join('')}` : '';
+    const tagTxt = tags.length ? ` · ${tags.join(' · ')}` : '';
+    const exTxt  = extras.length ? ` · โบนัส: ${extras.join(' / ')}` : '';
+
+    showRewardBanner(`🎉 ได้รางวัลแล้ว!${stTxt} +${xp} XP${tagTxt}${exTxt}`);
+    inboxClear(pid);
+    return true;
+  }
+
+  /* =======================
+   * K) DAILY REWARD + COOLDOWN REWARD (push to inbox)
+   * ======================= */
+  const STK_EMOJI = ['🟦','🟥','🟩','🟪','🟨','🟧','⬛'];
+  const TROPHY = '🏆';
+  const GEM = '💎';
+
+  function dailyChallenge(dayIdx){
+    // Simple daily tag based on weekday for motivation
+    const tags = ['FOCUS','POWER','FLOW','BALANCE','SPEED','FUN','BOSS'];
+    const tag = tags[clamp(dayIdx,0,6)];
+    // xp add small
+    const xp = (tag==='BOSS') ? 8 : 4;
+    return { tag, xp };
+  }
+
   function awardTodayIfEligible(dayIdx){
-    // award only once/dayIdx per week
     REW = loadRewards();
     if(REW.stickers[dayIdx]) return { awarded:false };
 
+    const day = PLAN.days[dayIdx] || { items:[] };
+    if(!day.items || !day.items.length) return { awarded:false };
+
+    // require that day has been "played" — MVP rule: if user has arrived with seq done markers OR clicked "Claim"
+    // In this SAFE, we accept that finishing the seq will call this explicitly.
     const ch = dailyChallenge(dayIdx);
-    const baseXP = 20; // completion XP
-    const bonus = Number(ch.xp)||0;
+    const baseXP = 20;
+    const bonusCh = Number(ch.xp)||0;
+
+    const bossIdx = detectBossDay(PLAN);
+    const isBoss = (bossIdx === dayIdx);
+
+    const chain = challengeScore(day);
+    const isGoldChain = (chain >= 5);
+
+    const bossXP = isBoss ? 10 : 0;
+    const chainXP = isGoldChain ? 8 : 0;
+
+    const totalXP = baseXP + bonusCh + bossXP + chainXP;
 
     REW.stickers[dayIdx] = true;
-    REW.xp = (Number(REW.xp)||0) + baseXP + bonus;
+    REW.xp = (Number(REW.xp)||0) + totalXP;
     REW.lastEarnTs = Date.now();
     saveRewards(REW);
     renderRewards();
 
-    return { awarded:true, xp: baseXP + bonus, sticker: STK_EMOJI[dayIdx], tag: ch.tag };
+    const extras = [];
+    if(isBoss) extras.push(`${TROPHY} Boss +${bossXP}`);
+    if(isGoldChain) extras.push(`${GEM} Gold +${chainXP}`);
+
+    inboxPush(PLAN.pid||'anon', {
+      kind: 'daily',
+      xp: totalXP,
+      sticker: STK_EMOJI[dayIdx],
+      tag: `Challenge [${ch.tag}]`,
+      extra: extras.length ? extras.join(' / ') : ''
+    });
+
+    return { awarded:true, xp:totalXP };
   }
 
-  // --------- Plan markdown ----------
-  function planToMarkdown(plan, sc, coach){
-    const lines = [];
-    lines.push(`# HeroHealth Fitness — 7-day Plan (Create)`);
-    lines.push(`- date: ${todayKey()}`);
-    lines.push(`- pid: ${plan.pid||'anon'}`);
-    lines.push(`- run: ${plan.run||'play'}`);
-    lines.push(`- weekStart: ${plan.weekStart}`);
-    lines.push(`- goals: ${plan.goals.join(' + ')}`);
-    lines.push(`- constraints: weekday<=${plan.constraints.limitWeekday}m, weekend<=${plan.constraints.limitWeekend}m, minDays=${plan.constraints.minDays}, restDays=${plan.constraints.restDays}`);
-    lines.push(`- energyBudgetPerDay: ${ENERGY_BUDGET}`);
-    lines.push(``);
-    lines.push(`## Daily Challenge (deterministic)`);
-    for(let i=0;i<7;i++){
-      const c = dailyChallenge(i);
-      lines.push(`- ${dayName(i)}: [${c.tag}] ${c.text}`);
-    }
-    lines.push(``);
-    lines.push(`## Plan Table`);
-    lines.push(`| Day | Session | Minutes | Difficulty | Load | Energy |`);
-    lines.push(`|---|---|---:|---|---:|---:|`);
+  function awardCooldownRewardIfAny(){
+    const pid = PLAN.pid || 'anon';
+    const zone = 'exercise';
 
-    for(let i=0;i<7;i++){
-      const d = plan.days[i];
-      if(!d.items.length){
-        lines.push(`| ${dayName(i)} | พัก | 0 | — | 0.0 | 0.0 |`);
-        continue;
-      }
-      for(const it of d.items){
-        const g = getGame(it.game);
-        const mins = clamp(it.min,2,20);
-        const diff = getDiff(it.diff).name;
-        const load = loadPerItem(it).toFixed(1);
-        const e = energyPerItem(it).toFixed(1);
-        lines.push(`| ${dayName(i)} | ${g.name} | ${mins} | ${diff} | ${load} | ${e} |`);
-      }
-    }
-    lines.push('');
-    lines.push(`## Plan Score (0–100)`);
-    lines.push(`- total: **${sc.total}**`);
-    lines.push(`- balanced_load: ${Math.round(sc.parts.balanced)}/30`);
-    lines.push(`- consistency: ${Math.round(sc.parts.consistency)}/25`);
-    lines.push(`- realism: ${Math.round(sc.parts.realism)}/25`);
-    lines.push(`- goal_fit: ${Math.round(sc.parts.goalFit)}/20`);
-    lines.push('');
-    lines.push(`## Explainable Coach`);
-    for(const x of coach) lines.push(`- ${x.t}`);
-    lines.push('');
-    lines.push(`## Rewards (local-only)`);
-    lines.push(`- XP: ${Number(REW.xp||0)}`);
-    lines.push(`- Stickers: ${REW.stickers.map((v,i)=>v?STK_EMOJI[i]:'·').join(' ')}`);
-    lines.push('');
-    return lines.join('\n');
-  }
+    if(!isCooldownDone(zone, pid)) return false;
 
-  function exportMD(){
-    const sc = scorePlan(PLAN);
-    const coach = coachReasons(PLAN, sc);
-    const md = planToMarkdown(PLAN, sc, coach);
-    dlText(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.md`, md);
-    toast('ดาวน์โหลด Plan.md ✅');
-  }
-  function exportJSON(){
-    dlJson(`HHA_plan_${todayKey()}_${PLAN.pid||'anon'}.json`, PLAN);
-    toast('ดาวน์โหลด Plan.json ✅');
-  }
+    const pending = getCooldownPending(zone, pid);
+    if(!pending || pending.claimed) return false;
 
-  // =====================
-  // A2 Storyboard Generator (ย่อ: ใช้ของเดิม + แทรก Challenge)
-  // =====================
-  const STORY_THEMES = [
-    'ฮีโร่พลังปอด', 'สปีดสายฟ้า', 'สมดุลนักสู้', 'ภารกิจโรงเรียนแอคทีฟ',
-    'ท้าคอมโบ', 'วันแข่งกับตัวเอง', 'แผนแบบมือโปร', 'โหมดช่วยเพื่อน'
-  ];
-  const STORY_LOC = ['หน้าห้องเรียน', 'สนามเด็กเล่น', 'ลานกีฬา', 'โถงฮีโร่อะคาเดมี'];
-  const STORY_RULES = [
-    'โฟกัส “แม่นก่อนเร็ว”', 'หายใจยาว ๆ แล้วค่อยเร่งสปีด', 'ถ้าเริ่มล้า ลดเป็น easy ได้',
-    'ทำให้ได้ “สม่ำเสมอ” ดีกว่า “หนักวันเดียว”', 'ตั้งเป้าเล็ก ๆ แล้วทำให้สำเร็จ'
-  ];
-  const STORY_REFLECT = [
-    'วันนี้ฉันเก่งขึ้นตรงไหน 1 อย่าง?',
-    'ฉันจะปรับแผนพรุ่งนี้ให้ “สมจริงกว่าเดิม” ยังไง?',
-    'ถ้าเพื่อนเหนื่อย ฉันจะแนะนำเขายังไงให้เล่นต่อได้?',
-    'วันนี้ฉันคุมลมหายใจ/จังหวะได้ดีแค่ไหน (1–5)? เพราะอะไร?'
-  ];
+    REW = loadRewards();
 
-  function generateStoryboard(){
-    const sc = scorePlan(PLAN);
-    const seedBase = hashStr(`${PLAN.pid}|${PLAN.weekStart}|${PLAN.seed}|story`);
-    const rng = mulberry32(seedBase ^ (Date.now() & 0xffff)); // allow “สุ่มใหม่”
-    const lines = [];
-    lines.push(`# HeroHealth Fitness — Storyboard (Create)`);
-    lines.push(`- date: ${todayKey()}`);
-    lines.push(`- pid: ${PLAN.pid}`);
-    lines.push(`- weekStart: ${PLAN.weekStart}`);
-    lines.push(`- goals: ${PLAN.goals.join(' + ')}`);
-    lines.push(`- planScore: ${sc.total}/100`);
-    lines.push(``);
-    lines.push(`## กติกาเรื่องเล่า (สำหรับเด็ก ป.5)`);
-    lines.push(`- อ่าน “ภารกิจวันนี้” + “Challenge วันนี้” 20 วินาทีก่อนเล่น`);
-    lines.push(`- เล่นให้สำเร็จแบบ “สม่ำเสมอ” (ไม่ต้องหนักทุกวัน)`);
-    lines.push(`- หลังเล่น ตอบคำถามสะท้อนคิด 1 ข้อ`);
-    lines.push(``);
+    const theme = String(pending.theme || 'rhythm');
+    const themeEmoji = (theme==='shadow')?'⚡' : (theme==='balance')?'🧘' : '🎵';
 
-    for(let i=0;i<7;i++){
-      const d = PLAN.days[i];
-      const isRest = !d.items || !d.items.length;
-      const theme = pick(rng, STORY_THEMES);
-      const loc = pick(rng, STORY_LOC);
-      const rule = pick(rng, STORY_RULES);
-      const refQ = pick(rng, STORY_REFLECT);
-      const ch = dailyChallenge(i);
+    let xp = 12;
 
-      if(isRest){
-        lines.push(`### ${dayName(i)} — วันพัก (Recovery Day)`);
-        lines.push(`**ฉาก:** ${loc}`);
-        lines.push(`**เรื่องเล่า:** วันนี้ฮีโร่เลือก “พักอย่างฉลาด” เพื่อเก็บพลังไว้ทำภารกิจวันถัดไป`);
-        lines.push(`**Challenge:** [${ch.tag}] ${ch.text}`);
-        lines.push(`**ภารกิจเล็ก:** เดินเบา ๆ 3 นาที + ดื่มน้ำ 1 แก้ว`);
-        lines.push(`**โค้ชอธิบาย:** วันพักช่วยให้ร่างกายฟื้นตัว ทำให้สัปดาห์นี้ “สม่ำเสมอ” มากขึ้น`);
-        lines.push(`**คำถามสะท้อนคิด:** ${refQ}`);
-        lines.push(``);
-        continue;
-      }
+    const today = localDayKey();
+    const st = loadCooldownStreak(zone, pid);
 
-      const items = d.items.map((it)=>{
-        const g = getGame(it.game);
-        return `${g.ico} ${g.name} (${it.diff}, ${clamp(it.min,2,20)} นาที)`;
-      }).join(' + ');
+    if(st.day !== today){
+      let isConsecutive = false;
+      try{
+        const d = new Date();
+        const y = new Date(d.getFullYear(), d.getMonth(), d.getDate()-1);
+        const yyyy = y.getFullYear();
+        const mm = String(y.getMonth()+1).padStart(2,'0');
+        const dd = String(y.getDate()).padStart(2,'0');
+        const yKey = `${yyyy}-${mm}-${dd}`;
+        isConsecutive = (st.day === yKey);
+      }catch(_){}
 
-      const mins = dayMinutes(d);
-      const load = dayLoad(d).toFixed(1);
-      const energy = dayEnergy(d).toFixed(1);
-      const limit = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
+      const newStreak = isConsecutive ? (Number(st.streak)||0) + 1 : 1;
+      saveCooldownStreak(zone, pid, { day: today, streak: newStreak });
 
-      lines.push(`### ${dayName(i)} — ${theme}`);
-      lines.push(`**ฉาก:** ${loc}`);
-      lines.push(`**เรื่องเล่า:** วันนี้ฮีโร่ต้องทำภารกิจให้สำเร็จ “แบบไม่โอเวอร์โหลด” เพื่อชนะตัวเอง`);
-      lines.push(``);
-      lines.push(`ทำให้ได้ **“ภารกิจวันนี้”**:`);
-      lines.push(`- เล่นตามแผน: ${items}`);
-      lines.push(`- เป้ารวมเวลา: ${mins} นาที (โควต้า ${limit} นาที)`);
-      lines.push(`- กติกาท้าทาย: ${rule}`);
-      lines.push(`- **Challenge:** [${ch.tag}] ${ch.text}`);
-      lines.push(``);
-      lines.push(`**โค้ชอธิบาย (Why):**`);
-      lines.push(`- วันนี้โหลดประมาณ **${load}** และ Energy **${energy}/${ENERGY_BUDGET}**`);
-      lines.push(mins > limit ? `- ⚠️ เวลาเกินโควต้า → ลด 1–2 นาที หรือเปลี่ยนเป็น easy` : `- ✅ เวลาอยู่ในโควต้า`);
-      lines.push(Number(energy) > ENERGY_BUDGET ? `- ⚠️ Energy/day เกินงบ → ลดความยากก่อน` : `- ✅ Energy/day อยู่ในงบ`);
-      lines.push(``);
-      lines.push(`**คำถามสะท้อนคิด (ป.5):** ${refQ}`);
-      lines.push(``);
+      xp += Math.min(10, newStreak * 2);
     }
 
-    const text = lines.join('\n');
-    saveLS(KEY_STORY, { v:1, weekStart: PLAN.weekStart, pid: PLAN.pid, ts: Date.now(), text });
-    if(elStoryPreview) elStoryPreview.value = text;
-    toast('สร้าง Storyboard แล้ว ✅');
-    return text;
+    const st2 = loadCooldownStreak(zone, pid);
+    const s = Number(st2.streak)||1;
+
+    const b0 = 'cooldown_starter';
+    const b3 = 'cooldown_streak_3';
+    const b7 = 'cooldown_streak_7';
+
+    if(!REW.badges) REW.badges = {};
+    if(!REW.badges[b0]) REW.badges[b0] = { ts: Date.now(), name:'Calm Starter', ico:'🌿' };
+    if(s >= 3 && !REW.badges[b3]) REW.badges[b3] = { ts: Date.now(), name:'Calm Streak 3', ico:'🧊' };
+    if(s >= 7 && !REW.badges[b7]) REW.badges[b7] = { ts: Date.now(), name:'Calm Streak 7', ico:'🏅' };
+
+    REW.xp = (Number(REW.xp)||0) + xp;
+    saveRewards(REW);
+    renderRewards();
+
+    pending.claimed = true;
+    setCooldownPending(zone, pid, pending);
+
+    inboxPush(PLAN.pid||'anon', {
+      kind: 'cooldown',
+      xp: xp,
+      tag: `Cooldown ${themeEmoji}`,
+      extra: `Streak ${s} วัน`
+    });
+
+    clearCooldownPending(zone, pid);
+    return true;
   }
 
-  function loadStoryboardIntoUI(){
-    if(!elStoryPreview) return;
-    const st = loadLS(KEY_STORY, null);
-    if(st && st.text && String(st.weekStart)===String(PLAN.weekStart) && String(st.pid)===String(PLAN.pid)){
-      elStoryPreview.value = String(st.text);
-    } else {
-      elStoryPreview.value = '';
-    }
-  }
-  function exportStoryboardMD(){
-    const txt = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
-    if(!txt.trim()){ toast('ยังไม่มี storyboard (กด “สร้าง Storyboard”)'); return; }
-    dlText(`HHA_story_${todayKey()}_${PLAN.pid||'anon'}.md`, txt);
-    toast('ดาวน์โหลด Storyboard.md ✅');
+  /* =======================
+   * L) LAUNCH (robust) + SEQ
+   * ======================= */
+  function gameUrl(gameId){
+    const u = (PLAN.urls && PLAN.urls[gameId]) ? PLAN.urls[gameId] : (DEFAULT_URLS[gameId]||'');
+    return String(u||'').trim();
   }
 
-  // =====================
-  // A3: Sequential play
-  // =====================
-  function plannerSelfUrl(extra){
-    let u = new URL(location.href);
-    ['seq','day','done'].forEach(k=>u.searchParams.delete(k));
-    if(extra){
-      for(const k in extra){
-        if(extra[k]===null || extra[k]===undefined || extra[k]==='') u.searchParams.delete(k);
-        else u.searchParams.set(k, String(extra[k]));
-      }
-    }
+  function withParams(base, params){
+    const u = new URL(absUrl(base));
+    Object.keys(params||{}).forEach(k=>{
+      const v = params[k];
+      if(v===undefined || v===null || v==='') return;
+      u.searchParams.set(k, String(v));
+    });
     return u.toString();
   }
 
   function launchGameItem(it, dayIdx, itemIdx, seqMode){
-    const url = gameUrl(it.game);
-    if(!url){
-      toast('ยังไม่ตั้ง URL เกม (กด “ตั้งค่า URL เกม”)');
+    const raw = gameUrl(it.game);
+    if(!isUrlOk(raw)){
+      toast('ยังไม่ตั้ง URL เกม หรือ URL ไม่ถูกต้อง');
+      openUrlModal();
+      return;
+    }
+
+    const baseUrl = absUrl(raw);
+    if(!baseUrl || !looksLikeHtml(baseUrl)){
+      toast('URL เกมดูไม่ถูกต้อง (ลองตั้งค่าใหม่)');
       openUrlModal();
       return;
     }
@@ -784,7 +870,7 @@
       ? plannerSelfUrl({ seq: 1, day: dayIdx, done: itemIdx })
       : plannerSelfUrl(null);
 
-    const params = {
+    const paramsFull = {
       pid: PLAN.pid,
       run: (PLAN.run==='research' ? 'research' : 'play'),
       diff,
@@ -793,531 +879,685 @@
       view: RUNTIME.view,
       hub: back
     };
+    const urlFull = withParams(baseUrl, paramsFull);
 
-    location.href = withParams(url, params);
-  }
-
-  function tryTodayGo(seqMode){
-    const idx = todayIndexMon0();
-    const d = PLAN.days[idx];
-    if(!d || !d.items || !d.items.length){
-      toast('วันนี้ไม่มีเกมในแผน');
-      return;
-    }
-    launchGameItem(d.items[0], idx, 0, !!seqMode);
-  }
-
-  function computeNextFromSeqParams(){
-    const seq = String(qs('seq','')||'');
-    if(seq !== '1') return null;
-
-    const day = clamp(qs('day','-1'), -1, 6);
-    const done = clamp(qs('done','-1'), -1, 1);
-
-    if(day < 0 || day > 6) return null;
-    const d = PLAN.days[day];
-    if(!d || !d.items || !d.items.length) return null;
-
-    const nextIdx = done + 1;
-    if(nextIdx >= d.items.length) return { doneAll: true, day, nextIdx: null, item: null };
-
-    return { doneAll: false, day, nextIdx, item: d.items[nextIdx] };
-  }
-
-  function showRewardBanner(msg){
-    if(!elRewardBanner || !elRewardText) return;
-    elRewardText.textContent = msg;
-    elRewardBanner.style.display = 'flex';
-    $('#btnHideReward') && ($('#btnHideReward').onclick = ()=>{ elRewardBanner.style.display='none'; });
-  }
-
-  function showNextPanelIfAny(){
-    if(!elNextPanel) return;
-    const nx = computeNextFromSeqParams();
-    if(!nx) { elNextPanel.style.display='none'; return; }
-
-    elNextPanel.style.display = 'block';
-
-    if(nx.doneAll){
-      elNextTitle.textContent = `วันนี้เล่นครบตามแผนแล้ว ✅`;
-      elNextHint.textContent = `สุดยอด! ได้ Sticker + XP แล้ว (ดูที่ Rewards)`;
-      $('#btnPlayNext').textContent = '🎉 จบภารกิจวันนี้';
-      $('#btnPlayNext').disabled = true;
-
-      // A4: award sticker + xp (once)
-      const got = awardTodayIfEligible(nx.day);
-      if(got.awarded){
-        showRewardBanner(`ได้ ${got.sticker} Sticker + ${got.xp} XP · Challenge [${got.tag}] สำเร็จ!`);
-        toast('ได้รางวัลวันนี้! 🎉');
-      }
-    } else {
-      const g = getGame(nx.item.game);
-      elNextTitle.textContent = `NEXT: ${g.ico} ${g.name} (${nx.item.diff}, ${clamp(nx.item.min,2,20)} นาที)`;
-      elNextHint.textContent = `กดเล่นเกมถัดไป แล้วในเกมกด “กลับ HUB” เพื่อกลับมาที่นี่อีกครั้ง`;
-      $('#btnPlayNext').textContent = '▶️ เล่นเกมถัดไป';
-      $('#btnPlayNext').disabled = false;
-
-      $('#btnPlayNext').onclick = ()=>{
-        launchGameItem(nx.item, nx.day, nx.nextIdx, true);
-      };
-    }
-
-    $('#btnBackToToday').onclick = ()=>{
-      document.getElementById('todayLabel')?.scrollIntoView({behavior:'smooth', block:'center'});
+    const paramsMin = {
+      pid: PLAN.pid,
+      run: (PLAN.run==='research' ? 'research' : 'play'),
+      diff,
+      seed: PLAN.seed
     };
-    $('#btnDismissNext').onclick = ()=>{
-      elNextPanel.style.display='none';
-    };
+    const urlMin = withParams(baseUrl, paramsMin);
+
+    const failKey = 'HHA_PLANNER_LAST_LAUNCH_FAIL';
+    const lastFail = loadLS(failKey, null);
+    const now = Date.now();
+
+    const chosen = (lastFail && lastFail.game===it.game && (now - lastFail.ts) < 8000) ? urlMin : urlFull;
+    saveLS(failKey, { game: it.game, ts: now, mode: (chosen===urlMin?'min':'full') });
+
+    safeAssign(chosen);
   }
 
-  // --- Try Today list render ---
-  function renderTryToday(){
-    const idx = todayIndexMon0();
-    $('#todayLabel').textContent = `วันนี้: ${dayName(idx)} (Day ${idx+1})`;
+  function autoContinueSeqIfAny(){
+    const seq = String(qs('seq','')).trim();
+    if(seq !== '1') return false;
 
-    renderChallengeToday();
+    const dayIdx = qi('day', -1);
+    const doneIdx = qi('done', -1);
 
-    const d = PLAN.days[idx];
-    elTryList.innerHTML = '';
+    if(dayIdx < 0 || doneIdx < 0) return false;
 
-    if(!d || !d.items || !d.items.length){
-      elTryList.innerHTML = `<div class="mut">วันนี้ในแผนเป็น “พัก” หรือยังไม่ได้ใส่เกม</div>`;
-      return;
+    const d = PLAN.days && PLAN.days[dayIdx];
+    if(!d || !d.items || !d.items.length) return false;
+
+    const nextIdx = doneIdx + 1;
+
+    // Clean URL first to prevent loops
+    try{
+      const u = new URL(location.href);
+      ['seq','day','done'].forEach(k=> u.searchParams.delete(k));
+      history.replaceState(null, '', u.toString());
+    }catch(_){}
+
+    if(nextIdx >= d.items.length){
+      // session finished -> award daily + cooldown
+      awardTodayIfEligible(dayIdx);
+
+      const ret = plannerSelfUrl(null);
+      // go cooldown (once/day) after finishing session
+      if(goCooldownGateAfterSession(ret, dayIdx)) return true;
+
+      return false;
     }
 
-    for(let j=0;j<d.items.length;j++){
-      const it = d.items[j];
-      const g = getGame(it.game);
-      const url = gameUrl(it.game);
-      const title = `${g.ico} ${g.name}`;
-      const min = clamp(it.min, 2, 20);
-      const diff = (it.diff==='easy' || it.diff==='normal' || it.diff==='hard') ? it.diff : 'normal';
+    // guard duplicate auto launch
+    const key = 'HHA_PLANNER_SEQ_LAST';
+    const last = loadLS(key, null);
+    const now = Date.now();
+    if(last && last.day===dayIdx && last.next===nextIdx && (now - last.ts) < 1200){
+      return false;
+    }
+    saveLS(key, { day: dayIdx, next: nextIdx, ts: now });
 
-      const back = plannerSelfUrl({ seq: 1, day: idx, done: j });
-      const params = {
-        pid: PLAN.pid,
-        run: (PLAN.run==='research' ? 'research' : 'play'),
-        diff,
-        time: String(min * 60),
-        seed: PLAN.seed,
-        view: RUNTIME.view,
-        hub: back
-      };
+    setTimeout(()=>{
+      launchGameItem(d.items[nextIdx], dayIdx, nextIdx, true);
+    }, 650);
 
-      const li = document.createElement('div');
-      li.className = 'tryItem';
+    return true;
+  }
 
-      const left = document.createElement('div');
-      left.className = 'l';
-      left.innerHTML = `<div class="t">${title}</div><div class="m">${diff} · ${min} นาที</div>`;
+  /* =======================
+   * M) AUTO FILL (MVP Create)
+   * ======================= */
+  function autoFillPlan(){
+    // simple auto build: 5 active days + weekend optional
+    const goals = PLAN.goals || ['endurance'];
+    const main = goals.includes('speed') ? 'speed' : (goals.includes('balance') ? 'balance' : 'endurance');
 
-      const right = document.createElement('div');
-      right.className = 'r';
+    // reset
+    PLAN.days = Array.from({length:7}, (_,i)=>({ dayIndex:i, items:[] }));
 
-      if(url){
-        const open = document.createElement('a');
-        open.href = withParams(url, params);
-        open.target = '_blank';
-        open.rel = 'noopener';
-        open.textContent = 'เปิดเกม';
-        right.appendChild(open);
+    const makeItem = (game, diff, min)=>({ game, diff, min });
 
-        const copy = document.createElement('a');
-        copy.href = '#';
-        copy.textContent = 'คัดลอกลิงก์';
-        copy.addEventListener('click', (e)=>{
-          e.preventDefault();
-          copyToClipboard(withParams(url, params));
-        });
-        right.appendChild(copy);
-      } else {
-        const a = document.createElement('a');
-        a.href = '#';
-        a.className = 'disabled';
-        a.textContent = 'ตั้ง URL ก่อน';
-        a.addEventListener('click', (e)=>{
-          e.preventDefault();
-          openUrlModal();
-        });
-        right.appendChild(a);
+    for(let i=0;i<7;i++){
+      const lim = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
+
+      // choose 0..2 sessions
+      if(i===6) continue; // Sun off by default
+
+      if(main==='speed'){
+        PLAN.days[i].items.push(makeItem('shadow', (i%3===0?'hard':'normal'), Math.min(lim, i%3===0?8:6)));
+        if(i%2===0) PLAN.days[i].items.push(makeItem('jumpduck', 'easy', Math.min(4, Math.max(3, lim-6))));
+      }else if(main==='balance'){
+        PLAN.days[i].items.push(makeItem('balance', (i%3===0?'normal':'easy'), Math.min(lim, 6)));
+        if(i%2===0) PLAN.days[i].items.push(makeItem('rhythm', 'easy', Math.min(4, Math.max(3, lim-6))));
+      }else{
+        PLAN.days[i].items.push(makeItem('rhythm', (i%3===0?'normal':'easy'), Math.min(lim, 6)));
+        if(i%2===0) PLAN.days[i].items.push(makeItem('balance', 'easy', Math.min(4, Math.max(3, lim-6))));
       }
 
-      li.appendChild(left);
-      li.appendChild(right);
-      elTryList.appendChild(li);
+      // enforce per-day limit
+      let mins = PLAN.days[i].items.reduce((s,it)=>s+clamp(it.min,2,20),0);
+      while(mins > lim && PLAN.days[i].items.length){
+        PLAN.days[i].items[PLAN.days[i].items.length-1].min = Math.max(3, PLAN.days[i].items[PLAN.days[i].items.length-1].min - 1);
+        mins = PLAN.days[i].items.reduce((s,it)=>s+clamp(it.min,2,20),0);
+        if(mins <= lim) break;
+        PLAN.days[i].items.pop();
+        mins = PLAN.days[i].items.reduce((s,it)=>s+clamp(it.min,2,20),0);
+      }
+    }
+
+    // ensure Boss Day thematic consistency
+    const bossIdx = detectBossDay(PLAN);
+    normalizeBossDay(PLAN, bossIdx);
+
+    // AI adjust (if enabled)
+    aiDirectorAdjustPlan(PLAN);
+
+    PLAN.ts = Date.now();
+    savePlan();
+  }
+
+  /* =======================
+   * N) COACH (explainable)
+   * ======================= */
+  function coachReasons(plan){
+    const out = [];
+
+    if(AI_ON){
+      out.push({ cls:'good', t:'🤖 AI Director เปิดอยู่ (play เท่านั้น) — ปรับให้ไม่โอเวอร์โหลดอัตโนมัติ' });
+    }
+
+    const s = scorePlan(plan);
+    out.push({ cls:'good', t:`คะแนนแผนรวม ${s.total}/100 (บาลานซ์ ${s.balanced} · สม่ำเสมอ ${s.consistency} · สมจริง ${s.realism} · ตรงเป้าหมาย ${s.goalFit})` });
+
+    const bossIdx = detectBossDay(plan);
+    if(bossIdx >= 0){
+      const theme = bossTheme(plan.days[bossIdx]);
+      out.unshift({ cls:'good', t:`🔥 Boss Day = ${dayName(bossIdx)} (ธีม ${themeLabel(theme)}) — วันท้าทายประจำสัปดาห์!` });
+    }
+
+    // chain hints
+    for(let i=0;i<7;i++){
+      const d = plan.days[i];
+      if(!d.items || !d.items.length) continue;
+
+      const cs = challengeScore(d);
+      if(cs >= 5){
+        out.push({ cls:'good', t:`🏆 ${dayName(i)} ทำ Challenge Chain ระดับ GOLD — ไต่ระดับดีมาก` });
+      }else if(cs >= 3){
+        out.push({ cls:'warn', t:`🥈 ${dayName(i)} มี chain ต่อเนื่อง ลองเพิ่ม hard เพื่อ Gold` });
+      }
+    }
+
+    // overload warnings
+    for(let i=0;i<7;i++){
+      const d = plan.days[i];
+      if(!d.items || !d.items.length) continue;
+      const e = dayEnergy(d);
+      if(e > ENERGY_BUDGET*1.15){
+        out.push({ cls:'warn', t:`⚠️ ${dayName(i)} หนักไปหน่อย (energy ${e.toFixed(1)}/${ENERGY_BUDGET}) ลองลดนาทีหรือ diff` });
+      }
+    }
+
+    return out.slice(0, 10);
+  }
+
+  /* =======================
+   * O) UI (build if missing)
+   * ======================= */
+  let elApp, elTop, elGrid, elTry, elCoach, elRewards, elBanner, elToast;
+  let elUrlModal, elUrlForm;
+
+  function ensureUI(){
+    elApp = DOC.getElementById('app') || DOC.body;
+
+    if(!DOC.getElementById('hhaPlannerStyle')){
+      const st = DOC.createElement('style');
+      st.id = 'hhaPlannerStyle';
+      st.textContent = `
+        :root{ --bg:#050815; --fg:#e8eefc; --mut:#9fb0d0; --card:#0b1226; --bd:rgba(255,255,255,.14); --good:#36d399; --warn:#fbbf24; --bad:#fb7185; }
+        html,body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+        .wrap{ max-width:980px; margin:0 auto; padding:14px 12px 80px; }
+        .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+        .card{ border:1px solid var(--bd); background:rgba(3,8,23,.55); border-radius:16px; padding:12px; }
+        .btn{ border:1px solid var(--bd); background:rgba(255,255,255,.06); color:var(--fg); padding:10px 12px; border-radius:14px; font-weight:900; cursor:pointer; }
+        .btn.ghost{ background:transparent; }
+        .btn.small{ padding:7px 10px; border-radius:12px; font-weight:900; }
+        .pill{ border:1px solid var(--bd); background:rgba(255,255,255,.05); padding:6px 10px; border-radius:999px; font-weight:900; color:var(--mut); }
+        .grid7{ display:grid; grid-template-columns:repeat(7, minmax(120px, 1fr)); gap:10px; overflow:auto; padding-bottom:4px; }
+        .day h4{ margin:0 0 8px; font-size:13px; letter-spacing:.2px; color:var(--mut); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        .item{ border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:8px 10px; margin-bottom:8px; background:rgba(0,0,0,.12); }
+        .item .meta{ color:var(--mut); font-size:12px; margin-top:4px; }
+        .tag.good{ color:var(--good); font-weight:1100; }
+        .tag.warn{ color:var(--warn); font-weight:1100; }
+        .tag.bad{ color:var(--bad); font-weight:1100; }
+        .banner{ position:fixed; left:12px; right:12px; top:10px; max-width:980px; margin:0 auto; z-index:50;
+          border:1px solid var(--bd); background:rgba(0,0,0,.72); padding:10px 12px; border-radius:16px;
+          transform:translateY(-18px); opacity:0; transition:all .18s ease; }
+        .banner.show{ transform:translateY(0); opacity:1; }
+        .toast{ position:fixed; left:12px; right:12px; bottom:14px; max-width:980px; margin:0 auto; z-index:60;
+          border:1px solid var(--bd); background:rgba(0,0,0,.78); padding:10px 12px; border-radius:16px;
+          transform:translateY(18px); opacity:0; transition:all .18s ease; }
+        .toast.show{ transform:translateY(0); opacity:1; }
+        .modal{ position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); }
+        .modal.show{ display:flex; }
+        .modal .panel{ width:min(760px, 94vw); }
+        input,select{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--bd);
+          background:rgba(255,255,255,.06); color:var(--fg); outline:none; font-weight:800; }
+        label{ display:block; color:var(--mut); font-size:12px; font-weight:900; margin:10px 0 6px; }
+      `;
+      DOC.head.appendChild(st);
+    }
+
+    if(!DOC.getElementById('plannerRoot')){
+      const wrap = DOC.createElement('div');
+      wrap.id = 'plannerRoot';
+      wrap.className = 'wrap';
+      wrap.innerHTML = `
+        <div class="banner" id="rewardBanner" aria-live="polite"></div>
+        <div class="toast" id="toast" aria-live="polite"></div>
+
+        <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+          <div class="row">
+            <span class="pill">pid=<b id="uiPid"></b></span>
+            <span class="pill">run=<b id="uiRun"></b></span>
+            <span class="pill">seed=<b id="uiSeed"></b></span>
+          </div>
+          <div class="row">
+            <button class="btn small" id="btnAuto">✨ Auto Plan</button>
+            <button class="btn small" id="btnUrls">🔧 URLs</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:10px;">
+          <div class="row" style="justify-content:space-between;">
+            <div style="font-weight:1200; font-size:16px;">📅 7-day Plan Builder</div>
+            <div class="row">
+              <span class="pill">XP: <b id="uiXp">0</b></span>
+              <span class="pill">Stickers: <b id="uiStk">0</b></span>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <span style="font-weight:1000; color:var(--mut);">Goal:</span>
+            <button class="btn small" id="goalEnd">ความทน</button>
+            <button class="btn small ghost" id="goalSpeed">ความไว</button>
+            <button class="btn small ghost" id="goalBal">ทรงตัว</button>
+
+            <span style="margin-left:auto; font-weight:1000; color:var(--mut);">Limit:</span>
+            <span class="pill">weekday <b id="uiWk">10</b>m</span>
+            <span class="pill">weekend <b id="uiWe">14</b>m</span>
+          </div>
+        </div>
+
+        <div class="grid7" id="weekGrid"></div>
+
+        <div class="row" style="margin-top:12px;">
+          <div class="card" style="flex:1; min-width:280px;">
+            <div style="font-weight:1200;">🧑‍🏫 Coach (Explainable)</div>
+            <div id="coachList" style="margin-top:8px;"></div>
+          </div>
+          <div class="card" style="flex:1; min-width:280px;">
+            <div style="font-weight:1200;">🎯 Try Today</div>
+            <div id="tryList" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div class="modal" id="urlModal" role="dialog" aria-modal="true">
+          <div class="panel card">
+            <div class="row" style="justify-content:space-between;">
+              <div style="font-weight:1200;">🔧 ตั้งค่า URL เกม (Run)</div>
+              <button class="btn small ghost" id="urlClose">ปิด</button>
+            </div>
+            <div id="urlForm"></div>
+            <div class="row" style="justify-content:flex-end; margin-top:12px;">
+              <button class="btn" id="urlSave">บันทึก</button>
+            </div>
+            <div style="margin-top:10px; color:var(--mut); font-size:12px;">
+              แนะนำ: ใช้ URL แบบ absolute เพื่อกันหลุดโฟลเดอร์บน GitHub Pages
+            </div>
+          </div>
+        </div>
+      `;
+      DOC.body.appendChild(wrap);
+    }
+
+    elTop = DOC.getElementById('plannerRoot');
+    elGrid = DOC.getElementById('weekGrid');
+    elTry = DOC.getElementById('tryList');
+    elCoach = DOC.getElementById('coachList');
+    elRewards = DOC.getElementById('uiXp');
+    elBanner = DOC.getElementById('rewardBanner');
+    elToast = DOC.getElementById('toast');
+    elUrlModal = DOC.getElementById('urlModal');
+    elUrlForm = DOC.getElementById('urlForm');
+
+    // top pills
+    const pidEl = DOC.getElementById('uiPid'); if(pidEl) pidEl.textContent = PLAN.pid;
+    const runEl = DOC.getElementById('uiRun'); if(runEl) runEl.textContent = PLAN.run;
+    const seedEl = DOC.getElementById('uiSeed'); if(seedEl) seedEl.textContent = PLAN.seed;
+
+    // limits
+    const wk = DOC.getElementById('uiWk'); if(wk) wk.textContent = PLAN.constraints.limitWeekday;
+    const we = DOC.getElementById('uiWe'); if(we) we.textContent = PLAN.constraints.limitWeekend;
+
+    // buttons
+    const btnAuto = DOC.getElementById('btnAuto');
+    if(btnAuto) btnAuto.onclick = ()=>{ autoFillPlan(); renderAll(); toast('สร้างแผนอัตโนมัติแล้ว'); };
+
+    const btnUrls = DOC.getElementById('btnUrls');
+    if(btnUrls) btnUrls.onclick = openUrlModal;
+
+    const urlClose = DOC.getElementById('urlClose');
+    if(urlClose) urlClose.onclick = closeUrlModal;
+
+    const urlSave = DOC.getElementById('urlSave');
+    if(urlSave) urlSave.onclick = saveUrlModal;
+
+    // goals
+    const gEnd = DOC.getElementById('goalEnd');
+    const gSpeed = DOC.getElementById('goalSpeed');
+    const gBal = DOC.getElementById('goalBal');
+    if(gEnd) gEnd.onclick = ()=> setGoal('endurance');
+    if(gSpeed) gSpeed.onclick = ()=> setGoal('speed');
+    if(gBal) gBal.onclick = ()=> setGoal('balance');
+
+    function setGoal(g){
+      PLAN.goals = [g];
+      savePlan();
+      renderAll();
+      toast('ตั้งเป้าหมายแล้ว');
     }
   }
 
-  // --- goals + week ---
-  function renderGoalPills(){
-    elGoalPills.innerHTML = '';
-    for(const g of GOALS){
-      const on = PLAN.goals.includes(g.id) ? 1 : 0;
-      const b = document.createElement('div');
-      b.className = 'goal';
-      b.dataset.on = String(on);
-      b.innerHTML = `<span class="ico">${g.ico}</span><span>${g.label}</span>`;
-      b.addEventListener('click', ()=>{
-        const has = PLAN.goals.includes(g.id);
-        if(has){
-          if(PLAN.goals.length<=1){ toast('ต้องมีอย่างน้อย 1 เป้าหมาย'); return; }
-          PLAN.goals = PLAN.goals.filter(x=>x!==g.id);
-        } else {
-          if(PLAN.goals.length>=2){ toast('เลือกได้สูงสุด 2 เป้าหมาย'); return; }
-          PLAN.goals = PLAN.goals.concat([g.id]);
-        }
-        renderAll(); saveNow();
-      });
-      elGoalPills.appendChild(b);
-    }
+  function toast(msg){
+    msg = String(msg||'').trim();
+    if(!msg) return;
+    ensureUI();
+    elToast.textContent = msg;
+    elToast.classList.add('show');
+    setTimeout(()=> elToast.classList.remove('show'), 2600);
   }
 
-  function labelWrap(txt, el){
-    const w = document.createElement('div');
-    w.style.display = 'flex';
-    w.style.flexDirection = 'column';
-    w.style.gap = '6px';
-    const lab = document.createElement('small');
-    lab.textContent = txt;
-    lab.style.color = 'rgba(148,163,184,.92)';
-    lab.style.fontWeight = '1000';
-    w.appendChild(lab);
-    w.appendChild(el);
-    return w;
+  function openUrlModal(){
+    ensureUI();
+    elUrlForm.innerHTML = '';
+    const mk = (key, label)=>{
+      const wrap = DOC.createElement('div');
+      wrap.innerHTML = `
+        <label>${label}</label>
+        <input data-urlkey="${key}" value="${String(PLAN.urls[key]||DEFAULT_URLS[key]||'').replace(/"/g,'&quot;')}" />
+      `;
+      return wrap;
+    };
+    elUrlForm.appendChild(mk('shadow','⚡ Shadow Breaker (run URL)'));
+    elUrlForm.appendChild(mk('rhythm','🥊 Rhythm Boxer (run URL)'));
+    elUrlForm.appendChild(mk('jumpduck','🦆 JumpDuck (run URL)'));
+    elUrlForm.appendChild(mk('balance','🧘 Balance Hold (run URL)'));
+
+    elUrlModal.classList.add('show');
+  }
+  function closeUrlModal(){
+    if(elUrlModal) elUrlModal.classList.remove('show');
+  }
+  function saveUrlModal(){
+    const inputs = elUrlForm ? Array.from(elUrlForm.querySelectorAll('input[data-urlkey]')) : [];
+    inputs.forEach(inp=>{
+      const k = inp.getAttribute('data-urlkey');
+      const v = String(inp.value||'').trim();
+      PLAN.urls[k] = v;
+    });
+    savePlan();
+    closeUrlModal();
+    toast('บันทึก URL แล้ว');
+  }
+
+  /* =======================
+   * P) RENDER
+   * ======================= */
+  function renderRewards(){
+    ensureUI();
+    REW = loadRewards();
+    const xpEl = DOC.getElementById('uiXp');
+    const stkEl = DOC.getElementById('uiStk');
+    if(xpEl) xpEl.textContent = String(REW.xp||0);
+    if(stkEl) stkEl.textContent = String(Object.keys(REW.stickers||{}).length);
   }
 
   function renderWeekGrid(){
-    elWeekGrid.innerHTML = '';
+    ensureUI();
+    elGrid.innerHTML = '';
 
-    PLAN.days.forEach((d, idx)=>{
-      const dayEl = document.createElement('div');
-      dayEl.className = 'day';
+    // keep boss day consistent
+    const bossIdx = detectBossDay(PLAN);
+    normalizeBossDay(PLAN, bossIdx);
 
-      const mins = dayMinutes(d);
-      const load = dayLoad(d);
+    for(let i=0;i<7;i++){
+      const d = PLAN.days[i];
+      const card = DOC.createElement('div');
+      card.className = 'card day';
+
+      const mins = (d.items||[]).reduce((s,it)=>s+clamp(it.min,2,20),0);
+      const lim = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
       const energy = dayEnergy(d);
-      const limit = isWeekend(idx) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
 
-      let badgeClass = 'badge';
-      let badgeText = 'พัก';
-      if(mins>0){
-        const over = mins > limit;
-        if(over){ badgeClass += ' bad'; badgeText = `หนักเกิน (${mins}/${limit}m)`; }
-        else if(dayHasHard(d) && mins>=limit-1){ badgeClass += ' warn'; badgeText = `หนัก (${mins}/${limit}m)`; }
-        else { badgeClass += ' good'; badgeText = `${mins}/${limit}m`; }
-      }
+      const badge = (bossIdx===i) ? `🔥 Boss` : (challengeScore(d)>=5 ? `🏅 Gold` : '');
+      const badgeCls = (bossIdx===i || challengeScore(d)>=5) ? 'good' : (energy>ENERGY_BUDGET*1.15 ? 'warn' : 'tag');
 
-      const ePct = Math.round(clamp((energy/ENERGY_BUDGET)*100, 0, 160));
-      let eCls = 'energy';
-      if(energy > ENERGY_BUDGET*1.15) eCls += ' bad';
-      else if(energy > ENERGY_BUDGET) eCls += ' warn';
-
-      const ch = dailyChallenge(idx);
-
-      dayEl.innerHTML = `
-        <div class="dh">
-          <div>
-            <div class="dttl">${dayName(idx)}</div>
-            <div class="dmeta">วัน ${idx+1}/7 · ${isWeekend(idx)?'Weekend':'Weekday'} · load ${load.toFixed(1)} · challenge [${ch.tag}]</div>
-            <div class="${eCls}">
-              <div class="erow">
-                <div>Energy</div>
-                <div><b>${energy.toFixed(1)}</b> / ${ENERGY_BUDGET}</div>
-              </div>
-              <div class="emeter"><div class="ebar" style="width:${ePct}%"></div></div>
-            </div>
-          </div>
-          <div class="${badgeClass}">${badgeText}</div>
+      card.innerHTML = `
+        <h4>
+          <span>${dayName(i)}</span>
+          <span class="tag ${badgeCls}">${badge || `${mins}/${lim}m`}</span>
+        </h4>
+        <div class="items"></div>
+        <div class="row" style="justify-content:space-between; margin-top:6px;">
+          <button class="btn small ghost" data-add="${i}">＋ เพิ่ม</button>
+          <button class="btn small" data-play="${i}">▶️ เล่น</button>
         </div>
-        <div class="items" id="items-${idx}"></div>
-        <div class="actions">
-          <button class="primary" data-add="${idx}">+ เพิ่มเกม</button>
-          <button data-clear="${idx}">ล้างวัน</button>
+        <div class="meta" style="margin-top:6px; color:var(--mut); font-size:12px;">
+          energy ${energy.toFixed(1)}/${ENERGY_BUDGET}
         </div>
       `;
 
-      const itemsWrap = dayEl.querySelector(`#items-${idx}`);
+      const itemsBox = card.querySelector('.items');
 
-      (d.items||[]).forEach((it, j)=>{
-        const itemEl = document.createElement('div');
-        itemEl.className = 'item';
-
-        const selGame = makeSelect(
-          GAMES.map(g=>({value:g.id, label:`${g.ico} ${g.name}`})),
-          it.game
-        );
-        selGame.addEventListener('change', ()=>{
-          it.game = selGame.value;
-          renderAll(); saveNow();
-        });
-
-        const selDiff = makeSelect(
-          DIFF.map(x=>({value:x.id, label:x.name})),
-          it.diff
-        );
-        selDiff.addEventListener('change', ()=>{
-          it.diff = selDiff.value;
-          renderAll(); saveNow();
-        });
-
-        const selMin = makeSelect(
-          [2,3,4,5,6,7,8,9,10,12,15,18,20].map(n=>({value:n, label:`${n} นาที`})),
-          it.min
-        );
-        selMin.addEventListener('change', ()=>{
-          it.min = clamp(selMin.value, 2, 20);
-          renderAll(); saveNow();
-        });
-
+      (d.items||[]).forEach((it, idx)=>{
         const g = getGame(it.game);
-        const d0 = getDiff(it.diff);
-        const loadIt = loadPerItem(it);
-        const eIt = energyPerItem(it);
-
-        const left = document.createElement('div');
-        left.className = 'row';
-        left.appendChild(labelWrap('เกม', selGame));
-
-        const right = document.createElement('div');
-        right.className = 'row';
-        right.appendChild(labelWrap('ความยาก', selDiff));
-        right.appendChild(labelWrap('เวลา', selMin));
-
-        const rm = document.createElement('div');
-        rm.className = 'rm';
-        const rmBtn = document.createElement('button');
-        rmBtn.textContent = 'ลบรายการนี้';
-        rmBtn.addEventListener('click', ()=>{
-          d.items.splice(j,1);
-          renderAll(); saveNow();
-        });
-        rm.appendChild(rmBtn);
-
-        itemEl.appendChild(left);
-        itemEl.appendChild(right);
-        itemEl.appendChild(rm);
-
-        const sm = document.createElement('small');
-        sm.style.gridColumn = '1 / -1';
-        sm.textContent = `สรุป: ${g.name} · ${d0.name} · ${it.min} นาที · load ${loadIt.toFixed(1)} · energy ${eIt.toFixed(1)}`;
-        itemEl.appendChild(sm);
-
-        itemsWrap.appendChild(itemEl);
+        const div = DOC.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+            <div style="font-weight:1100;">${g.ico} ${g.name}</div>
+            <button class="btn small ghost" data-del="${i}:${idx}">ลบ</button>
+          </div>
+          <div class="meta">${it.diff} · ${clamp(it.min,2,20)} นาที · tier ${challengeTier(it).toUpperCase()}</div>
+          <div class="row" style="margin-top:6px;">
+            <select data-game="${i}:${idx}">
+              ${Object.keys(GAMES).map(id=>`<option value="${id}" ${id===it.game?'selected':''}>${GAMES[id].ico} ${GAMES[id].name}</option>`).join('')}
+            </select>
+            <select data-diff="${i}:${idx}">
+              ${['easy','normal','hard'].map(x=>`<option value="${x}" ${x===it.diff?'selected':''}>${x}</option>`).join('')}
+            </select>
+            <input data-min="${i}:${idx}" type="number" min="2" max="20" value="${clamp(it.min,2,20)}" />
+          </div>
+        `;
+        itemsBox.appendChild(div);
       });
 
-      dayEl.querySelector(`[data-add="${idx}"]`).addEventListener('click', ()=>{
-        if((d.items||[]).length>=2){ toast('วันหนึ่งใส่ได้สูงสุด 2 เกม'); return; }
-        d.items.push({ game:'rhythm', diff:'normal', min:6 });
-        renderAll(); saveNow();
-      });
-      dayEl.querySelector(`[data-clear="${idx}"]`).addEventListener('click', ()=>{
-        d.items = [];
-        renderAll(); saveNow();
-      });
-
-      elWeekGrid.appendChild(dayEl);
-    });
-  }
-
-  function renderScore(){
-    const sc = scorePlan(PLAN);
-
-    elScoreTotal.textContent = String(sc.total);
-    elScoreBar.style.width = `${clamp(sc.total,0,100)}%`;
-    elBreakdown.innerHTML = '';
-
-    const parts = [
-      { k:'Balanced load', v: sc.parts.balanced, max:30, d:'กระจายความหนัก ไม่ hard ติดกัน ลดเสี่ยงล้า' },
-      { k:'Consistency',  v: sc.parts.consistency, max:25, d:'เล่นสม่ำเสมอครบตามขั้นต่ำ และไม่เว้นนานเกิน' },
-      { k:'Realism',      v: sc.parts.realism, max:25, d:'เวลา/วันทำได้จริง + ไม่เกิน Energy/day' },
-      { k:'Goal fit',     v: sc.parts.goalFit, max:20, d:'แผนสอดคล้องกับเป้าหมาย (ความทน-ความไว-ทรงตัว)' },
-    ];
-    for(const p of parts){
-      const div = document.createElement('div');
-      div.className = 'kpi';
-      div.innerHTML = `
-        <div class="k">${p.k}</div>
-        <div class="v">${Math.round(p.v)}/${p.max}</div>
-        <div class="d">${p.d}</div>
-      `;
-      elBreakdown.appendChild(div);
+      elGrid.appendChild(card);
     }
 
-    elSumMinutes.textContent = `${sc.meta.minutesWeek} นาที`;
-    elSumDays.textContent = `${sc.meta.daysPlayed} วัน`;
-    elAvgLoad.textContent = sc.meta.daysPlayed ? sc.meta.avgLoad.toFixed(1) : '0';
-
-    const coach = coachReasons(PLAN, sc);
-    elCoachList.innerHTML = '';
-    for(const x of coach){
-      const li = document.createElement('li');
-      li.className = x.cls;
-      li.textContent = x.t;
-      elCoachList.appendChild(li);
-    }
-
-    elMdPreview.value = planToMarkdown(PLAN, sc, coach);
-  }
-
-  // ---------- autofill ----------
-  function autoFillPlan(){
-    for(const d of PLAN.days) d.items = [];
-    const main = (PLAN.goals[0]==='balance') ? 'balance'
-              : (PLAN.goals[0]==='speed')   ? 'shadow'
-              : 'jumpduck';
-    const sup  = 'rhythm';
-    const playIdx = [0,2,4,5]; // Mon/Wed/Fri/Sat
-
-    for(const i of playIdx){
-      const limit = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
-      const items = [];
-      items.push({ game: main, diff: 'normal', min: Math.min(6, limit) });
-      if(limit >= 10) items.push({ game: sup, diff: 'easy', min: 4 });
-      PLAN.days[i].items = items.slice(0,2);
-    }
-    const need = PLAN.constraints.minDays;
-    const have = PLAN.days.filter(dayHasAny).length;
-    if(have < need){
-      const i = 6;
-      const limit = isWeekend(i) ? PLAN.constraints.limitWeekend : PLAN.constraints.limitWeekday;
-      PLAN.days[i].items = [{ game: 'rhythm', diff:'easy', min: Math.min(6, limit) }];
-    }
-    PLAN.ts = Date.now();
-  }
-
-  // =====================
-  // URL modal helpers
-  // =====================
-  function openUrlModal(){
-    if(!elUrlModal) return;
-    GAME_URL = loadUrls();
-    elUrlShadow.value = GAME_URL.shadow || '';
-    elUrlRhythm.value = GAME_URL.rhythm || '';
-    elUrlJump.value = GAME_URL.jumpduck || '';
-    elUrlBalance.value = GAME_URL.balance || '';
-    elUrlModal.dataset.open = '1';
-  }
-  function closeUrlModal(){
-    if(!elUrlModal) return;
-    elUrlModal.dataset.open = '0';
-  }
-  function bindUrlModal(){
-    if(!elUrlModal) return;
-
-    $('#btnSetUrls')?.addEventListener('click', openUrlModal);
-    $('#btnCloseModal')?.addEventListener('click', closeUrlModal);
-
-    elUrlModal.addEventListener('click', (e)=>{
-      if(e.target === elUrlModal) closeUrlModal();
-    });
-
-    $('#btnRestoreDefault')?.addEventListener('click', ()=>{
-      elUrlShadow.value = DEFAULT_URLS.shadow;
-      elUrlRhythm.value = DEFAULT_URLS.rhythm;
-      elUrlJump.value = DEFAULT_URLS.jumpduck;
-      elUrlBalance.value = DEFAULT_URLS.balance;
-      toast('คืนค่าเริ่มต้นแล้ว');
-    });
-
-    $('#btnSaveUrls')?.addEventListener('click', ()=>{
-      const u = {
-        shadow: String(elUrlShadow.value||'').trim(),
-        rhythm: String(elUrlRhythm.value||'').trim(),
-        jumpduck: String(elUrlJump.value||'').trim(),
-        balance: String(elUrlBalance.value||'').trim(),
+    // events
+    elGrid.querySelectorAll('[data-add]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = Number(btn.getAttribute('data-add'));
+        addItem(i);
       };
-      saveUrls(u);
-      GAME_URL = loadUrls();
-      closeUrlModal();
-      renderTryToday();
-      toast('บันทึก URL แล้ว ✅');
+    });
+    elGrid.querySelectorAll('[data-play]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = Number(btn.getAttribute('data-play'));
+        playDay(i);
+      };
+    });
+    elGrid.querySelectorAll('[data-del]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const [di, ii] = String(btn.getAttribute('data-del')).split(':').map(Number);
+        delItem(di, ii);
+      };
+    });
+    elGrid.querySelectorAll('select[data-game]').forEach(sel=>{
+      sel.onchange = ()=>{
+        const [di, ii] = String(sel.getAttribute('data-game')).split(':').map(Number);
+        PLAN.days[di].items[ii].game = sel.value;
+        savePlan();
+        renderAll();
+      };
+    });
+    elGrid.querySelectorAll('select[data-diff]').forEach(sel=>{
+      sel.onchange = ()=>{
+        const [di, ii] = String(sel.getAttribute('data-diff')).split(':').map(Number);
+        PLAN.days[di].items[ii].diff = sel.value;
+        savePlan();
+        renderAll();
+      };
+    });
+    elGrid.querySelectorAll('input[data-min]').forEach(inp=>{
+      inp.onchange = ()=>{
+        const [di, ii] = String(inp.getAttribute('data-min')).split(':').map(Number);
+        PLAN.days[di].items[ii].min = clamp(inp.value,2,20);
+        savePlan();
+        renderAll();
+      };
     });
   }
 
-  // --------- render all ----------
-  function renderAll(){
-    renderGoalPills();
-    renderWeekGrid();
-    renderScore();
-    renderRewards();
-    renderTryToday();
-    syncControlsFromPlan();
-    saveNow();
-  }
-
-  // --------- events ----------
-  function bindEvents(){
-    $('#btnLoad')?.addEventListener('click', ()=>{
-      const last = loadLS(KEY_LAST, null);
-      if(!last){ toast('ยังไม่มีแผนที่บันทึกไว้'); return; }
-      PLAN = last;
-      PLAN.pid = RUNTIME.pid; PLAN.run = RUNTIME.run; PLAN.seed = RUNTIME.seed;
-      REW = loadRewards();
-      syncControlsFromPlan();
-      renderAll();
-      loadStoryboardIntoUI();
-      toast('โหลดแผนล่าสุดแล้ว ✅');
-    });
-
-    $('#btnReset')?.addEventListener('click', ()=>{
-      PLAN = DEFAULT_PLAN();
-      REW = loadRewards();
-      syncControlsFromPlan();
-      renderAll();
-      saveNow();
-      loadStoryboardIntoUI();
-      toast('เริ่มแผนใหม่ ✅');
-    });
-
-    $('#btnClearWeek')?.addEventListener('click', ()=>{
-      for(const d of PLAN.days){ d.items = []; }
-      renderAll(); saveNow();
-      toast('ล้างทั้งสัปดาห์ ✅');
-    });
-
-    $('#btnAutoFill')?.addEventListener('click', ()=>{
-      autoFillPlan();
-      renderAll(); saveNow();
-      toast('เติมแผนแนะนำแล้ว ✅');
-    });
-
-    $('#btnExportMD')?.addEventListener('click', ()=> exportMD());
-    $('#btnExportMD2')?.addEventListener('click', ()=> exportMD());
-    $('#btnExportJSON')?.addEventListener('click', ()=> exportJSON());
-    $('#btnExportJSON2')?.addEventListener('click', ()=> exportJSON());
-    $('#btnCopyMD')?.addEventListener('click', ()=> copyToClipboard(elMdPreview.value));
-
-    // Storyboard
-    $('#btnMakeStory')?.addEventListener('click', ()=> generateStoryboard());
-    $('#btnRegenStory')?.addEventListener('click', ()=> generateStoryboard());
-    $('#btnExportStoryMD')?.addEventListener('click', ()=> exportStoryboardMD());
-    $('#btnCopyStory')?.addEventListener('click', ()=>{
-      const t = (elStoryPreview && elStoryPreview.value) ? elStoryPreview.value : '';
-      if(!t.trim()){ toast('ยังไม่มี storyboard'); return; }
-      copyToClipboard(t);
-    });
-
-    // Try today
-    $('#btnTryToday')?.addEventListener('click', ()=> tryTodayGo(false));
-    $('#btnTryTodaySeq')?.addEventListener('click', ()=> tryTodayGo(true));
-
-    elLimitWeekday?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elLimitWeekend?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elMinDays?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-    elRestDays?.addEventListener('change', ()=>{ readControlsToPlan(); renderAll(); saveNow(); });
-
-    bindUrlModal();
-  }
-
-  function bootImpl(){
-    if(!$('#weekGrid')) return;
-    bindEvents();
-    syncControlsFromPlan();
+  function addItem(dayIdx){
+    const d = PLAN.days[dayIdx];
+    if(d.items.length >= 2){
+      toast('วันนี้เต็มแล้ว (สูงสุด 2 เกม/วันใน MVP)');
+      return;
+    }
+    d.items.push({ game:'rhythm', diff:'normal', min:6 });
+    savePlan();
     renderAll();
-    loadStoryboardIntoUI();
-    showNextPanelIfAny();
-    saveNow();
+  }
+  function delItem(dayIdx, itemIdx){
+    const d = PLAN.days[dayIdx];
+    d.items.splice(itemIdx,1);
+    savePlan();
+    renderAll();
   }
 
-  window.HHA_FITNESS_PLANNER = { boot: bootImpl };
+  function playDay(dayIdx){
+    const d = PLAN.days[dayIdx];
+    if(!d.items || !d.items.length){
+      toast('วันนี้ยังไม่มีเกมในแผน');
+      return;
+    }
+    // start seq play (auto next)
+    launchGameItem(d.items[0], dayIdx, 0, true);
+  }
+
+  function startEvaluateSession(dayIdx, items){
+    if(!items || !items.length){
+      toast('Session ว่าง');
+      return;
+    }
+    PLAN.days[dayIdx] = PLAN.days[dayIdx] || { dayIndex: dayIdx, items: [] };
+    PLAN.days[dayIdx].items = items.slice(0,2);
+    PLAN.ts = Date.now();
+    savePlan();
+    renderAll();
+    launchGameItem(PLAN.days[dayIdx].items[0], dayIdx, 0, true);
+  }
+
+  function renderTryToday(){
+    ensureUI();
+    elTry.innerHTML = '';
+
+    const idx = todayIndexMon0();
+    const prop = proposeSessionsForToday(idx);
+
+    let fatigue = loadLS('HHA_PLANNER_FATIGUE', 'ok');
+    if(fatigue !== 'tired') fatigue = 'ok';
+
+    const evA = evaluateSession(prop.A.items, fatigue);
+    const evB = evaluateSession(prop.B.items, fatigue);
+
+    const box = DOC.createElement('div');
+    box.style.cssText = `
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.14);
+      border-radius:16px;
+      padding:10px 12px;
+      margin: 6px 0 12px;
+    `;
+    box.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div style="font-weight:1100">🧠 Evaluate วันนี้: เลือก Session ที่เหมาะกับร่างกายวันนี้</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span style="color:rgba(148,163,184,.92); font-weight:1000">สภาพร่างกาย:</span>
+          <button id="fatOk" class="btn small ${fatigue==='ok'?'':'ghost'}">😌 ok</button>
+          <button id="fatTired" class="btn small ${fatigue==='tired'?'':'ghost'}">😮‍💨 tired</button>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;" id="abGrid"></div>
+      <div style="color:rgba(148,163,184,.92); font-size:12px; margin-top:8px;">
+        กติกา: เลือก A หรือ B → เล่นต่อเนื่อง (auto-next) → จบวันได้ Sticker + XP (+โบนัส Boss/Gold + Cooldown)
+      </div>
+    `;
+    elTry.appendChild(box);
+
+    const abGrid = box.querySelector('#abGrid');
+    const mkCard = (label, items, ev, key)=> {
+      const itemsTxt = items.map(it=>`${getGame(it.game).ico} ${getGame(it.game).name} (${it.diff}, ${clamp(it.min,2,20)}m)`).join(' + ');
+      const c = DOC.createElement('div');
+      c.style.cssText = `
+        border:1px solid rgba(255,255,255,.14);
+        background: rgba(2,6,23,.55);
+        border-radius:16px;
+        padding:10px 12px;
+      `;
+      c.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div style="font-weight:1200">${label}</div>
+          <div style="font-weight:1200">เหมาะสม: ${ev.score}/100</div>
+        </div>
+        <div style="margin-top:6px; font-weight:1000">${itemsTxt}</div>
+        <div style="margin-top:6px; color:rgba(148,163,184,.92); font-size:12px">
+          นาที ${ev.mins} · load ${ev.load} · energy ${ev.energy}/${ENERGY_BUDGET}
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+          <button class="btn small" id="choose_${key}">เลือก ${label} ▶️ เล่น</button>
+        </div>
+      `;
+      return c;
+    };
+    abGrid.appendChild(mkCard('A', prop.A.items, evA, 'A'));
+    abGrid.appendChild(mkCard('B', prop.B.items, evB, 'B'));
+
+    box.querySelector('#fatOk').onclick = ()=>{
+      saveLS('HHA_PLANNER_FATIGUE', 'ok');
+      renderTryToday();
+    };
+    box.querySelector('#fatTired').onclick = ()=>{
+      saveLS('HHA_PLANNER_FATIGUE', 'tired');
+      renderTryToday();
+    };
+    box.querySelector('#choose_A').onclick = ()=> startEvaluateSession(idx, prop.A.items);
+    box.querySelector('#choose_B').onclick = ()=> startEvaluateSession(idx, prop.B.items);
+
+    // Also show "Play today's planned day" button
+    const d = PLAN.days[idx];
+    const btn = DOC.createElement('div');
+    btn.style.cssText = 'margin-top:10px;';
+    btn.innerHTML = `
+      <button class="btn" id="btnPlayPlan">▶️ เล่นตามแผนวันนี้ (${dayName(idx)})</button>
+    `;
+    elTry.appendChild(btn);
+    btn.querySelector('#btnPlayPlan').onclick = ()=> playDay(idx);
+  }
+
+  function renderCoach(){
+    ensureUI();
+    elCoach.innerHTML = '';
+    const items = coachReasons(PLAN);
+    items.forEach(it=>{
+      const div = DOC.createElement('div');
+      div.style.cssText = 'margin:6px 0; padding:8px 10px; border-radius:14px; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.12);';
+      div.innerHTML = `<span class="tag ${it.cls||'tag'}">${it.t}</span>`;
+      elCoach.appendChild(div);
+    });
+  }
+
+  function renderAll(){
+    // AI adjust on every render (play only)
+    aiDirectorAdjustPlan(PLAN);
+
+    // keep boss thematic
+    const bossIdx = detectBossDay(PLAN);
+    normalizeBossDay(PLAN, bossIdx);
+
+    renderRewards();
+    renderWeekGrid();
+    renderCoach();
+    renderTryToday();
+
+    // goal buttons style
+    const g = (PLAN.goals && PLAN.goals[0]) ? PLAN.goals[0] : 'endurance';
+    const a = (id, on)=>{ const el=DOC.getElementById(id); if(!el) return; el.classList.toggle('ghost', !on); };
+    a('goalEnd', g!=='endurance'?false:true);
+    a('goalSpeed', g!=='speed'?false:true);
+    a('goalBal', g!=='balance'?false:true);
+  }
+
+  /* =======================
+   * Q) BOOT
+   * ======================= */
+  function boot(){
+    ensureUI();
+
+    // If we returned to planner to start cooldown now
+    if(maybeStartCooldownNow()) return;
+
+    renderAll();
+
+    // 1) award cooldown reward if any (push to inbox)
+    awardCooldownRewardIfAny();
+
+    // 2) auto-next if seq markers exist (will award daily + maybe cooldown at end)
+    const launched = autoContinueSeqIfAny();
+    if(launched) return;
+
+    // 3) show combined banner once (if any)
+    showCombinedRewardBannerIfAny();
+  }
+
+  // Start
+  boot();
+
 })();
