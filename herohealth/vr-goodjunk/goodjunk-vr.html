@@ -1,6 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk.html ===
-GoodJunkVR RUN — PRODUCTION (ESM)
-FULL v20260301-RUN-CSSFIX-MLREC-AI -->
+GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
+✅ FIX 404 CSS + cache bust
+✅ VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Battle UI: ../vr/battle-ui.auto.js (optional, only when ?battle=1)
+✅ AI dynamic import (optional, only when ?ai=1 AND run=play)
+✅ End overlay: adds 🏆 Leaderboard button (pass-through params)
+PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC + VRUI + BATTLEUI + LB
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -9,11 +15,11 @@ FULL v20260301-RUN-CSSFIX-MLREC-AI -->
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
 
-  <!-- ✅ FIX: css name -->
-  <link rel="stylesheet" href="./goodjunk-vr.css" />
-
-  <!-- optional favicon (avoid 404 if you have it) -->
+  <!-- ✅ favicon (แนะนำให้มีไฟล์จริงที่ /herohealth/favicon.ico) -->
   <link rel="icon" href="../favicon.ico" />
+
+  <!-- ✅ FIX 404 + cache bust -->
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260301" />
 </head>
 <body>
   <div id="app">
@@ -120,18 +126,23 @@ FULL v20260301-RUN-CSSFIX-MLREC-AI -->
         <div class="endActions">
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
+          <button class="btn" id="btnLB" type="button">🏆 Leaderboard</button>
         </div>
 
-        <!-- Cooldown button will be injected by goodjunk.safe.js -->
+        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
   </div>
 
+  <!-- ✅ Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
+  <script type="module" src="../vr/vr-ui.js"></script>
+
+  <!-- ✅ Battle UI auto (ONLY does anything when ?battle=1) -->
+  <script type="module" src="../vr/battle-ui.auto.js"></script>
+
   <script type="module">
     import { boot } from './goodjunk.safe.js';
-    import { createGoodJunkAI } from '../vr/ai-goodjunk.js';
-    import { attachMLRecorderUI } from '../vr/ml-recorder.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
@@ -147,43 +158,83 @@ FULL v20260301-RUN-CSSFIX-MLREC-AI -->
       ai: null
     };
 
-    // ✅ ML Recorder (labels: hazardRisk_1s + miss_3s)
-    const mlrecOn = (qs('mlrec','0') === '1');
-    if(mlrecOn){
-      attachMLRecorderUI({
-        gameKey: 'goodjunk',
-        pid: cfg.pid,
-        seed: cfg.seed,
-        view: cfg.view,
-        run: cfg.run,
-        diff: cfg.diff
-      });
-    }
+    // Debug pills visibility (optional: ?debug=1)
+    try{
+      const dbgOn = (qs('debug','0') === '1');
+      const dbg = document.getElementById('debugPills');
+      if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
+    }catch(e){}
 
-    // ✅ AI enabled only when ?ai=1 AND run=play (prediction-only)
+    // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
-      cfg.ai = createGoodJunkAI({
-        seed: cfg.seed,
-        pid: cfg.pid,
-        diff: cfg.diff,
-        view: cfg.view
-      });
+      try{
+        // ✅ dynamic import: ถ้าไฟล์หายจะไม่ทำให้เกมพังทั้งหน้า
+        const mod = await import('../vr/ai-goodjunk.js');
+        const createGoodJunkAI = mod.createGoodJunkAI;
+        if(typeof createGoodJunkAI === 'function'){
+          cfg.ai = createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view
+          });
+        }
+      }catch(e){
+        console.warn('[GoodJunk] AI module load failed', e);
+      }
+    }
+
+    // Leaderboard URL builder
+    function buildLeaderboardUrl(){
+      try{
+        // /herohealth/vr/leaderboard-view.html
+        const u = new URL('../vr/leaderboard-view.html', location.href);
+
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('diff', cfg.diff || 'normal');
+        u.searchParams.set('run',  cfg.run  || 'play');
+
+        // back link
+        u.searchParams.set('hub', cfg.hub || '../hub.html');
+
+        // passthrough (optional)
+        const sp = new URL(location.href).searchParams;
+        [
+          'pid','view','time','seed','studyId','phase','conditionGroup','log',
+          // battle passthrough (in case LB page wants to show room context)
+          'battle','room','autostart','forfeit'
+        ].forEach(k=>{
+          const v = sp.get(k);
+          if(v!=null && v!=='') u.searchParams.set(k, v);
+        });
+
+        return u.toString();
+      }catch(e){
+        return '';
+      }
     }
 
     // Buttons
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
+    const btnLB = document.getElementById('btnLB');
 
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now())); // new seed for replay
+      u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
 
     btnHub?.addEventListener('click', ()=>{
       const hub = cfg.hub || '../hub.html';
       location.href = hub;
+    });
+
+    btnLB?.addEventListener('click', ()=>{
+      const url = buildLeaderboardUrl();
+      if(url) location.href = url;
+      else console.warn('[GoodJunk] leaderboard url build failed');
     });
 
     // Boot
