@@ -1,195 +1,184 @@
 <!-- === /herohealth/vr/leaderboard-view.html ===
-Leaderboard View (LocalStorage Top N) — score→acc→miss→medianRT
-FULL v20260228-LEADERBOARD-VIEW
+HeroHealth Leaderboard View — generic
+Reads localStorage:
+- HHA_LB:goodjunk (produced by GoodJunk run page)
+Sort order: score → acc → miss → medianRT (lower better)
+PATCH v20260301-LB-VIEW
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Leaderboard</title>
+  <title>HeroHealth • Leaderboard</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
   <style>
-    :root{ --bg:#070b16; --fg:#e8eefc; --mut:#9fb0d0; --card:rgba(15,23,42,.55); --bd:rgba(148,163,184,.16); --acc:rgba(59,130,246,.92); }
-    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--fg); }
-    .wrap{ max-width:980px; margin:0 auto; padding:22px 14px 40px; }
-    .top{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-    .title{ font-size:18px; font-weight:1000; letter-spacing:.2px; }
-    .sub{ opacity:.75; font-weight:900; font-size:12.5px; margin-top:6px; }
-    .card{ margin-top:14px; padding:14px; border:1px solid var(--bd); border-radius:18px; background:var(--card); box-shadow:0 20px 70px rgba(0,0,0,.35); }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    select,input{ background:rgba(2,6,23,.45); color:var(--fg); border:1px solid var(--bd); border-radius:14px; padding:10px 10px; font-weight:900; }
-    button{ appearance:none; border:1px solid var(--bd); background:rgba(148,163,184,.10); color:var(--fg);
-      padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
-    button.primary{ border-color: rgba(59,130,246,.28); background: rgba(59,130,246,.16); }
-    table{ width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:14px; border:1px solid var(--bd); }
-    th,td{ padding:10px 10px; font-weight:900; font-size:12.5px; border-bottom:1px solid rgba(148,163,184,.10); }
-    th{ text-align:left; opacity:.8; background:rgba(2,6,23,.35); }
-    tr:last-child td{ border-bottom:0; }
-    .pill{ display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--bd); background:rgba(2,6,23,.35); font-weight:1000; font-size:12px; }
-    .mut{ opacity:.72; }
+    :root{
+      --bg:#070b14; --card:#0b1220; --card2:#0e172b;
+      --fg:#e8eefc; --mut:#9fb0d0; --bd:#1f2b46;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --r:16px;
+    }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .wrap{ max-width:1000px; margin:0 auto; padding:18px 14px 40px; }
+    header{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .title{ font-weight:1000; font-size:18px; letter-spacing:.2px; }
+    .sub{ color:var(--mut); font-weight:700; font-size:12px; }
+    .bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+    .pill{ border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.55);
+      padding:8px 10px; border-radius:999px; color:var(--fg); font-weight:900; font-size:12px; }
+    .pill span{ color:var(--mut); font-weight:800; margin-right:6px; }
+    .btn{ border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.55);
+      color:var(--fg); padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
+    .btn.primary{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
+    .card{ margin-top:14px; border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.55);
+      border-radius: var(--r); overflow:hidden; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:10px 10px; border-bottom:1px solid rgba(148,163,184,.10); text-align:left; font-size:13px; }
+    th{ color:var(--mut); font-weight:1000; background:rgba(15,23,42,.35); }
+    .rank{ font-weight:1000; }
+    .mut{ color:var(--mut); font-weight:800; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .empty{ padding:18px; color:var(--mut); font-weight:900; }
+    .right{ text-align:right; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="top">
+    <header>
       <div>
-        <div class="title">🏆 Leaderboard (Local)</div>
-        <div class="sub">ตัดสินอันดับ: <b>score → acc → miss → medianRT</b> (medianRT = GOOD hit only)</div>
+        <div class="title">🏆 Leaderboard</div>
+        <div class="sub" id="subLine">—</div>
       </div>
-      <div class="row">
-        <button id="btnBack" class="primary">← กลับ HUB</button>
+      <div class="bar">
+        <button class="btn" id="btnBack">← กลับ</button>
+        <button class="btn" id="btnClear">ล้างรายการ (เครื่องนี้)</button>
+        <button class="btn primary" id="btnRefresh">รีเฟรช</button>
       </div>
+    </header>
+
+    <div class="bar">
+      <div class="pill"><span>Order</span>score → acc → miss → medianRT</div>
+      <div class="pill"><span>Game</span><b id="gamePill">—</b></div>
+      <div class="pill"><span>Count</span><b id="countPill">0</b></div>
     </div>
 
-    <div class="card">
-      <div class="row" style="justify-content:space-between;">
-        <div class="row">
-          <span class="pill">🎮 เกม
-            <select id="selGame">
-              <option value="goodjunk">goodjunk</option>
-              <option value="groups">groups</option>
-              <option value="hydration">hydration</option>
-              <option value="plate">plate</option>
-              <option value="maskcough">maskcough</option>
-              <option value="germdetective">germdetective</option>
-            </select>
-          </span>
-
-          <span class="pill">⚙️ diff
-            <select id="selDiff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </span>
-
-          <span class="pill">🏷️ run
-            <select id="selRun">
-              <option value="play" selected>play</option>
-              <option value="research">research</option>
-            </select>
-          </span>
-        </div>
-
-        <div class="row">
-          <button id="btnReload">รีเฟรช</button>
-          <button id="btnClear" style="border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10);">ล้าง Top</button>
-        </div>
-      </div>
-
-      <div style="margin-top:12px;" class="row">
-        <span class="pill">📦 key: <span id="lbKey" class="mut">—</span></span>
-        <span class="pill">จำนวน: <span id="lbCount" class="mut">0</span></span>
-      </div>
-
-      <div style="margin-top:12px; overflow:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>pid</th>
-              <th>score</th>
-              <th>acc%</th>
-              <th>miss</th>
-              <th>medianRT</th>
-              <th>เวลา</th>
-            </tr>
-          </thead>
-          <tbody id="tb"></tbody>
-        </table>
-      </div>
+    <div class="card" id="card">
+      <div class="empty" id="empty">กำลังโหลด…</div>
+      <table id="tbl" style="display:none">
+        <thead>
+          <tr>
+            <th style="width:56px">#</th>
+            <th>PID</th>
+            <th>Diff</th>
+            <th>View</th>
+            <th class="right">Score</th>
+            <th class="right">Acc%</th>
+            <th class="right">Miss</th>
+            <th class="right">MedRT</th>
+            <th class="right">Time</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
     </div>
   </div>
 
   <script type="module">
-    import { loadLeaderboard, clearLeaderboard } from './leaderboard.js';
+    import { compareScorePackets } from './score-compare.js';
 
-    const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const selGame = document.getElementById('selGame');
-    const selDiff = document.getElementById('selDiff');
-    const selRun  = document.getElementById('selRun');
-    const tb = document.getElementById('tb');
-    const lbKey = document.getElementById('lbKey');
-    const lbCount = document.getElementById('lbCount');
+    const game = String(qs('game','goodjunk')).toLowerCase();
+    const hub = qs('hub','../hub.html');
 
-    const hub = qs('hub', '../hub.html');
+    const KEY = `HHA_LB:${game}`;
+    const $ = (id)=> document.getElementById(id);
 
-    function meta(){
+    function safeJsonParse(s, dflt){ try{ return JSON.parse(s); }catch{ return dflt; } }
+    function lsGet(k, dflt=null){ try{ const v=localStorage.getItem(k); return v==null?dflt:v; }catch{ return dflt; } }
+    function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch{} }
+    function fmtTs(ts){
+      try{
+        const d = new Date(ts);
+        const hh = String(d.getHours()).padStart(2,'0');
+        const mm = String(d.getMinutes()).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mo = String(d.getMonth()+1).padStart(2,'0');
+        return `${dd}/${mo} ${hh}:${mm}`;
+      }catch{ return '—'; }
+    }
+
+    function normRow(r){
       return {
-        gameKey: String(selGame.value || 'goodjunk'),
-        diff: String(selDiff.value || 'normal'),
-        runMode: String(selRun.value || 'play')
+        score: Number(r?.score ?? r?.scoreFinal ?? 0) || 0,
+        accPct: Number(r?.accPct ?? 0) || 0,
+        miss: Number(r?.miss ?? r?.missTotal ?? 0) || 0,
+        medianRtGoodMs: Number(r?.medianRtGoodMs ?? 0) || 0,
+        pid: String(r?.pid ?? 'anon'),
+        diff: String(r?.diff ?? 'normal'),
+        view: String(r?.view ?? r?.device ?? 'mobile'),
+        ts: Number(r?.ts ?? Date.now()) || Date.now(),
+        grade: String(r?.grade ?? ''),
       };
     }
 
-    function keyOf(m){
-      const g = String(m.gameKey).toLowerCase();
-      const d = String(m.diff).toLowerCase();
-      const r = String(m.runMode).toLowerCase();
-      return `HHA_LB:${g}:${d}:${r}`;
-    }
-
-    function fmtTime(ts){
-      try{
-        const d = new Date(ts);
-        return d.toLocaleString('th-TH', { hour12:false });
-      }catch(e){
-        return String(ts||'');
-      }
-    }
-
     function render(){
-      const m = meta();
-      const list = loadLeaderboard(m);
-      lbKey.textContent = keyOf(m);
-      lbCount.textContent = String(list.length||0);
+      const raw = safeJsonParse(lsGet(KEY, '[]'), []);
+      const rows = raw.map(normRow);
+
+      rows.sort((a,b)=> compareScorePackets(a,b)); // best first
+
+      $('gamePill').textContent = game;
+      $('countPill').textContent = String(rows.length|0);
+
+      const sub = `key=${KEY} • sort=score→acc→miss→medianRT • device-local`;
+      $('subLine').textContent = sub;
+
+      const empty = $('empty');
+      const tbl = $('tbl');
+      const tb = $('tbody');
 
       tb.innerHTML = '';
-      if(!list.length){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="7" style="opacity:.72;">ยังไม่มีข้อมูล — เล่นเกมสักรอบก่อน</td>`;
-        tb.appendChild(tr);
+      if(!rows.length){
+        empty.style.display = 'block';
+        tbl.style.display = 'none';
+        empty.textContent = 'ยังไม่มีข้อมูล — เล่นเกม 1 รอบ แล้วกลับมาดูใหม่ได้เลย';
         return;
       }
+      empty.style.display = 'none';
+      tbl.style.display = 'table';
 
-      list.forEach((r, i)=>{
+      rows.slice(0, 50).forEach((r, i)=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${i+1}</td>
-          <td>${(r.pid||'anon')}</td>
-          <td>${(r.score||0)}</td>
-          <td>${(r.acc||0)}%</td>
-          <td>${(r.miss||0)}</td>
-          <td>${(r.medRT||0)} ms</td>
-          <td>${fmtTime(r.ts)}</td>
+          <td class="rank">${i+1}</td>
+          <td><span class="mono">${r.pid}</span> <span class="mut">${r.grade?('('+r.grade+')'):''}</span></td>
+          <td class="mut">${r.diff}</td>
+          <td class="mut">${r.view}</td>
+          <td class="right"><b>${r.score|0}</b></td>
+          <td class="right">${r.accPct|0}</td>
+          <td class="right">${r.miss|0}</td>
+          <td class="right">${r.medianRtGoodMs|0}</td>
+          <td class="right mut">${fmtTs(r.ts)}</td>
         `;
         tb.appendChild(tr);
       });
     }
 
-    // init from query
-    const qGame = qs('game','');
-    const qDiff = qs('diff','');
-    const qRun  = qs('run','');
-    if(qGame) selGame.value = qGame;
-    if(qDiff) selDiff.value = qDiff;
-    if(qRun)  selRun.value  = qRun;
-
-    document.getElementById('btnReload').addEventListener('click', render);
-    document.getElementById('btnClear').addEventListener('click', ()=>{
-      if(confirm('ล้าง Top ทั้งหมดของ key นี้?')){
-        clearLeaderboard(meta());
-        render();
-      }
+    $('btnBack').addEventListener('click', ()=>{
+      location.href = hub || '../hub.html';
     });
 
-    document.getElementById('btnBack').addEventListener('click', ()=>{
-      location.href = hub;
+    $('btnRefresh').addEventListener('click', render);
+
+    $('btnClear').addEventListener('click', ()=>{
+      lsSet(KEY, JSON.stringify([]));
+      render();
     });
 
-    [selGame, selDiff, selRun].forEach(el=> el.addEventListener('change', render));
     render();
   </script>
 </body>
