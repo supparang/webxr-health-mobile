@@ -1,230 +1,591 @@
 /* === /herohealth/vr-goodjunk/goodjunk.css ===
-GoodJunkVR CSS — PRODUCTION (HUD-safe + end overlay + targets + AI HUD)
-FULL v20260228-CSS-AIHUD */
+   GoodJunkVR — PRODUCTION CSS (HUD + Targets + End Overlay + AI HUD + LowTime + Safe Area)
+   FULL v20260228p1
+*/
 
 :root{
-  --bg:#070b14;
-  --fg:rgba(229,231,235,.96);
-  --mut:rgba(148,163,184,.90);
-  --card:rgba(2,6,23,.62);
-  --bd:rgba(148,163,184,.16);
+  --bg0:#050816;
+  --bg1:#070b1e;
+  --panel: rgba(2,6,23,.62);
+  --panel2: rgba(2,6,23,.82);
+  --bd: rgba(148,163,184,.16);
+  --bd2: rgba(148,163,184,.22);
+  --fg: rgba(229,231,235,.96);
+  --mut: rgba(148,163,184,.86);
+  --mut2: rgba(148,163,184,.72);
   --shadow: 0 18px 55px rgba(0,0,0,.40);
-  --r:16px;
+  --radius: 18px;
+  --radius2: 14px;
+
+  --accent: rgba(56,189,248,.95);    /* cyan */
+  --good: rgba(34,197,94,.95);       /* green */
+  --bad: rgba(248,113,113,.95);      /* red */
+  --warn: rgba(251,191,36,.96);      /* amber */
+  --vio: rgba(167,139,250,.96);      /* violet */
+
+  --hudH: 58px;
+  --hudPadX: 10px;
+  --hudPadY: 10px;
+
+  --targetSize: 58px;
+  --targetFont: 34px;
+
+  --tapGlow: 0 0 0 1px rgba(255,255,255,.04), 0 20px 70px rgba(0,0,0,.55);
 }
 
-html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 *{ box-sizing:border-box; }
-
-#app{ min-height:100%; position:relative; overflow:hidden; }
-
-/* Debug pills */
-#debugPills{
-  position:fixed; left:10px; top:10px;
-  display:flex; gap:8px; z-index:300;
-  opacity:.0; pointer-events:none;
-}
-#debugPills .pill{
-  padding:6px 8px; border-radius:999px;
-  border:1px solid var(--bd);
-  background:rgba(2,6,23,.55);
-  font:800 12px/1 system-ui;
+html,body{
+  height:100%;
+  margin:0;
+  background: radial-gradient(1400px 900px at 20% 0%, rgba(56,189,248,.10), transparent 55%),
+              radial-gradient(1200px 700px at 85% 20%, rgba(167,139,250,.10), transparent 60%),
+              linear-gradient(180deg, var(--bg0), var(--bg1));
+  color: var(--fg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* HUD */
+a{ color: inherit; }
+button{ font: inherit; }
+
+#app{
+  position:fixed;
+  inset:0;
+  display:block;
+}
+
+/* =========================
+   TOP HUD
+========================= */
 #hud{
   position:fixed;
-  left:0; right:0; top:0;
-  padding: 10px 10px 8px;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
-  z-index:200;
-  pointer-events:none;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: calc(env(safe-area-inset-left, 0px) + 8px);
+  right: calc(env(safe-area-inset-right, 0px) + 8px);
+  z-index: 200;
+  pointer-events: none;
 }
-.hud-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px; }
+
+.hud-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.hud-left, .hud-mid, .hud-right{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap: wrap;
+}
+
 .pill{
   pointer-events:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
   border:1px solid var(--bd);
-  background:var(--card);
-  border-radius:999px;
+  background: var(--panel);
+  border-radius: 999px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.30);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .2px;
+  color: var(--fg);
+}
+
+.pill .k{
+  opacity:.82;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .4px;
+}
+.pill .v{
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.pill.small{
   padding:8px 10px;
-  font:900 12px/1.1 system-ui;
-  box-shadow: 0 12px 35px rgba(0,0,0,.28);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  font-size: 12px;
 }
-.pill b{ font-weight:1000; }
-.pill .mut{ margin-left:8px; opacity:.92; font-weight:900; color:var(--mut); }
-.pill-soft{ border-radius:14px; }
-.pill-ai{
-  border:1px solid rgba(99,102,241,.28);
-  background:rgba(2,6,23,.58);
-}
-.mut{ color:var(--mut); font-weight:900; opacity:.92; }
 
-/* Bars */
-.hud-bars{ gap:10px; }
-.barCard{
+.pill.badge{
+  border-color: rgba(56,189,248,.25);
+  background: rgba(2,6,23,.52);
+}
+
+.pill.score{
+  border-color: rgba(34,197,94,.22);
+  background: rgba(34,197,94,.08);
+}
+
+.pill.miss{
+  border-color: rgba(248,113,113,.22);
+  background: rgba(248,113,113,.08);
+}
+
+.pill.time{
+  border-color: rgba(251,191,36,.22);
+  background: rgba(251,191,36,.08);
+}
+
+.pill.grade{
+  border-color: rgba(167,139,250,.22);
+  background: rgba(167,139,250,.08);
+}
+
+.pill.ai{
+  border-color: rgba(56,189,248,.22);
+  background: rgba(56,189,248,.08);
+}
+.pill.ai .k{ opacity:.85; }
+.pill.ai .v{ font-variant-numeric: tabular-nums; }
+
+/* Goal + Mini row (optional area) */
+#hudSecondary{
+  margin-top: 10px;
+  display:flex;
+  gap:10px;
+  flex-wrap: wrap;
   pointer-events:none;
-  min-width: 190px;
-  max-width: 360px;
-  flex: 1 1 220px;
+}
+
+.goalCard, .miniCard{
+  flex: 1 1 260px;
+  min-width: 240px;
   border:1px solid var(--bd);
-  background:var(--card);
-  border-radius:14px;
-  padding:10px 10px;
-  box-shadow: 0 14px 44px rgba(0,0,0,.28);
+  background: rgba(2,6,23,.58);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-.barCard.boss{
-  border-color: rgba(251,191,36,.24);
-}
-.barTop{ display:flex; justify-content:space-between; align-items:center; gap:10px; font:900 12px/1; }
-.bar{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.barFill{ height:100%; width:0%; background:rgba(34,197,94,.55); }
-.barFill.bossFill{ background:rgba(251,191,36,.58); }
 
-/* Progress */
-.gj-progress{
-  margin: 2px auto 0;
-  max-width: 880px;
-  padding: 0 10px;
-  pointer-events:none;
+.cardTitle{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap:10px;
+  font-weight: 1000;
+  letter-spacing: .2px;
+  font-size: 13px;
 }
-.gj-progress-track{
-  height:8px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(2,6,23,.52);
-  overflow:hidden;
+.cardTitle .mut{
+  opacity:.78;
+  font-weight: 900;
+  font-size: 12px;
 }
-.gj-progress-fill{
-  height:100%;
-  width:0%;
-  background:rgba(99,102,241,.50);
+.cardBody{
+  margin-top: 6px;
+  display:flex;
+  align-items: center;
+  justify-content: space-between;
+  gap:10px;
+  flex-wrap: wrap;
+  font-weight: 900;
+}
+.cardBody .desc{
+  opacity:.85;
+  font-size: 12px;
+  font-weight: 900;
+}
+.cardBody .stat{
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 1000;
 }
 
-/* Stage */
-#stage{
-  position:fixed; inset:0;
-  padding-top: 128px;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 128px);
-  padding-bottom: 90px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
-}
+/* =========================
+   MAIN PLAY LAYER
+========================= */
 #gj-layer{
-  position:absolute;
+  position:fixed;
   inset:0;
+  z-index: 120;
   touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-/* Targets */
+/* Center helper text (optional) */
+#centerHint{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  z-index: 140;
+  pointer-events:none;
+  opacity:.0;
+}
+
+/* =========================
+   TARGETS
+========================= */
 .gj-target{
   position:absolute;
   transform: translate(-50%,-50%);
-  font-size: 40px;
-  line-height: 1;
-  user-select: none;
-  cursor: pointer;
-  filter: drop-shadow(0 14px 30px rgba(0,0,0,.52));
-  will-change: transform, opacity, left, top;
-  transition: transform .08s ease;
-}
-.gj-target:active{ transform: translate(-50%,-50%) scale(.92); }
-
-/* Low time overlay */
-#lowTimeOverlay{
-  position:fixed; inset:0;
+  width: var(--targetSize);
+  height: var(--targetSize);
+  border-radius: 18px;
   display:flex;
-  align-items:center; justify-content:center;
-  z-index:240;
+  align-items:center;
+  justify-content:center;
+  font-size: var(--targetFont);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--tapGlow);
+  border: 1px solid rgba(255,255,255,.08);
+  background: radial-gradient(60px 40px at 30% 20%, rgba(255,255,255,.10), transparent 60%),
+              linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.55));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+  will-change: transform, opacity, left, top;
+}
+
+.gj-target:active{
+  transform: translate(-50%,-50%) scale(.96);
+  filter: brightness(1.08);
+}
+
+@media (hover:hover){
+  .gj-target:hover{
+    transform: translate(-50%,-50%) scale(1.03);
+    filter: brightness(1.08);
+  }
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+.gj-progress{
+  position:fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 10px);
+  right: calc(env(safe-area-inset-right, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  z-index: 190;
   pointer-events:none;
 }
-#lowTimeOverlay[aria-hidden="true"]{ display:none; }
-.lowTimeCard{
-  border:1px solid rgba(248,113,113,.28);
-  background:rgba(2,6,23,.66);
-  border-radius: 18px;
-  padding: 16px 18px;
-  box-shadow: var(--shadow);
+
+.gj-progress[aria-hidden="true"]{ display:none; }
+
+.gj-progress .bar{
+  height: 10px;
+  border-radius: 999px;
+  overflow:hidden;
+  border:1px solid var(--bd);
+  background: rgba(2,6,23,.40);
+  box-shadow: 0 18px 55px rgba(0,0,0,.32);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  text-align:center;
-}
-.lowTimeNum{
-  font: 1000 44px/1 system-ui;
-  margin-top:6px;
 }
 
-/* End overlay */
-#endOverlay{
-  position:fixed; inset:0;
+#gjProgressFill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    rgba(34,197,94,.70),
+    rgba(56,189,248,.70),
+    rgba(167,139,250,.70)
+  );
+}
+
+/* =========================
+   FEVER / BOSS / SHIELD (optional UI)
+========================= */
+#feverWrap{
+  position:fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  z-index: 185;
+  pointer-events:none;
+  width: min(320px, 44vw);
+}
+
+.feverBar{
+  height: 10px;
+  border-radius: 999px;
+  overflow:hidden;
+  border:1px solid rgba(251,191,36,.20);
+  background: rgba(251,191,36,.08);
+}
+#feverFill{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(251,191,36,.75), rgba(248,113,113,.75));
+}
+#feverText{
+  margin-top: 6px;
+  font-weight: 1000;
+  font-size: 12px;
+  opacity:.85;
+  text-shadow: 0 12px 36px rgba(0,0,0,.45);
+}
+
+#bossBar{
+  position:fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 10px);
+  right: calc(env(safe-area-inset-right, 0px) + 10px);
+  top: calc(env(safe-area-inset-top, 0px) + 78px);
+  z-index: 195;
+  pointer-events:none;
+  border:1px solid rgba(248,113,113,.20);
+  background: rgba(248,113,113,.06);
+  border-radius: 999px;
+  overflow:hidden;
+  box-shadow: 0 16px 50px rgba(0,0,0,.26);
+}
+#bossBar[aria-hidden="true"]{ display:none; }
+#bossFill{
+  height: 10px;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(248,113,113,.78), rgba(251,191,36,.72));
+}
+#bossHint{
+  position:absolute;
+  inset:auto 10px 0 10px;
+  top: -22px;
+  font-size: 12px;
+  font-weight: 1000;
+  opacity:.82;
+  text-shadow: 0 12px 36px rgba(0,0,0,.45);
+}
+
+/* =========================
+   LOW TIME OVERLAY
+========================= */
+#lowTimeOverlay{
+  position:fixed;
+  inset:0;
+  z-index: 205;
   display:flex;
-  align-items:center; justify-content:center;
-  z-index:280;
-  background: rgba(0,0,0,.42);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  background: radial-gradient(700px 500px at 50% 50%, rgba(248,113,113,.14), transparent 60%);
+  opacity: 1;
 }
+
+#lowTimeOverlay[aria-hidden="true"]{ display:none; }
+
+#lowTimeOverlay .wrap{
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+  gap: 8px;
+  padding: 18px 18px;
+  border: 1px solid rgba(248,113,113,.22);
+  background: rgba(2,6,23,.62);
+  border-radius: 22px;
+  box-shadow: 0 28px 90px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#lowTimeOverlay .t{
+  font-weight: 1000;
+  letter-spacing: .5px;
+  opacity:.88;
+  font-size: 12px;
+}
+#gj-lowtime-num{
+  font-variant-numeric: tabular-nums;
+  font-weight: 1100;
+  font-size: 52px;
+  line-height: 1;
+  text-shadow: 0 20px 70px rgba(0,0,0,.6);
+}
+
+/* =========================
+   END OVERLAY
+========================= */
+#endOverlay{
+  position:fixed;
+  inset:0;
+  z-index: 240;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px)
+           calc(env(safe-area-inset-right, 0px) + 14px)
+           calc(env(safe-area-inset-bottom, 0px) + 18px)
+           calc(env(safe-area-inset-left, 0px) + 14px);
+  background:
+    radial-gradient(900px 600px at 30% 10%, rgba(56,189,248,.14), transparent 60%),
+    radial-gradient(800px 520px at 80% 15%, rgba(167,139,250,.14), transparent 62%),
+    rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 #endOverlay[aria-hidden="true"]{ display:none; }
+
 #endOverlay .panel{
-  width:min(760px, calc(100vw - 22px));
-  border:1px solid var(--bd);
-  background: rgba(2,6,23,.78);
-  color:var(--fg);
-  border-radius: 20px;
-  padding: 16px 14px 14px;
-  box-shadow: var(--shadow);
+  width: min(920px, 100%);
+  border-radius: 24px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.74);
+  box-shadow: 0 28px 110px rgba(0,0,0,.55);
+  overflow:hidden;
 }
-.endTitle{ font: 1000 20px/1.2 system-ui; margin-bottom:6px; text-align:center; }
-.endSub{ font: 900 12px/1.35 system-ui; color:var(--mut); text-align:center; margin-bottom:14px; }
+
+.endHead{
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(148,163,184,.14);
+  display:flex;
+  align-items:flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.endHead .title{
+  font-size: 18px;
+  font-weight: 1100;
+  letter-spacing:.2px;
+}
+.endHead .sub{
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  opacity:.78;
+  word-break: break-word;
+}
+
+.endBody{
+  padding: 14px 16px 16px;
+}
+
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap:10px;
-  margin-bottom:14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
-.endStat{
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(2,6,23,.52);
-  border-radius:14px;
-  padding:10px 10px;
-  text-align:center;
-}
-.endStat span{ display:block; font:900 11px/1 system-ui; color:var(--mut); margin-bottom:6px; }
-.endStat b{ font:1000 18px/1 system-ui; }
-
-.endActions{
-  display:flex;
-  justify-content:center;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:6px;
-}
-.btn{
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(148,163,184,.08);
-  color:rgba(229,231,235,.96);
-  border-radius:14px;
-  padding:10px 12px;
-  font:1000 14px/1 system-ui;
-  cursor:pointer;
-  min-height:42px;
-}
-.btn.primary{
-  border:1px solid rgba(99,102,241,.30);
-  background:rgba(99,102,241,.18);
-}
-.btn:active{ transform: translateY(1px); }
-
-/* Responsive */
-@media (max-width:720px){
-  #stage{ padding-top: 148px; padding-bottom: 94px; }
-  .gj-target{ font-size: 38px; }
+@media (max-width: 720px){
   .endGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+.endCard{
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.44);
+  border-radius: 18px;
+  padding: 10px 12px;
+}
+.endCard .k{
+  font-size: 12px;
+  font-weight: 900;
+  opacity:.78;
+  letter-spacing:.4px;
+}
+.endCard .v{
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 1100;
+  font-variant-numeric: tabular-nums;
+}
+
+.endActions{
+  margin-top: 12px;
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  border-top: 1px solid rgba(148,163,184,.14);
+  padding-top: 12px;
+}
+
+/* Buttons */
+.btn{
+  appearance:none;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.52);
+  color: rgba(229,231,235,.96);
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 1000;
+  letter-spacing: .2px;
+  min-height: 42px;
+  cursor:pointer;
+  box-shadow: 0 18px 55px rgba(0,0,0,.28);
+}
+.btn:active{ transform: translateY(1px) scale(.99); }
+
+.btn.primary{
+  border-color: rgba(56,189,248,.30);
+  background: rgba(56,189,248,.14);
+}
+.btn.good{
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.14);
+}
+.btn.bad{
+  border-color: rgba(248,113,113,.30);
+  background: rgba(248,113,113,.14);
+}
+
+/* =========================
+   DEBUG PILLS (optional)
+========================= */
+#debugPills{
+  position:fixed;
+  right: calc(env(safe-area-inset-right, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  z-index: 180;
+  pointer-events:none;
+  display:flex;
+  gap:8px;
+  flex-wrap: wrap;
+  justify-content:flex-end;
+}
+#debugPills .pill{
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+/* =========================
+   MOBILE TUNING
+========================= */
+@media (max-width: 520px){
+  :root{
+    --targetSize: 54px;
+    --targetFont: 32px;
+  }
+  #hud{
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
+    left: calc(env(safe-area-inset-left, 0px) + 6px);
+    right: calc(env(safe-area-inset-right, 0px) + 6px);
+  }
+  .pill{
+    padding: 9px 10px;
+  }
+  #bossBar{
+    top: calc(env(safe-area-inset-top, 0px) + 72px);
+  }
+}
+
+/* =========================
+   cVR STRICT NOTE
+   - In cVR mode, you typically don't want pointer events on targets
+   - Your JS already disables pointerdown handler when view==='cvr'
+   - This makes targets feel "display-only" (shoot via crosshair)
+========================= */
+html[data-view="cvr"] #gj-layer{
+  touch-action: none;
+}
+html[data-view="cvr"] .gj-target{
+  cursor: default;
+}
+
+/* =========================
+   ACCESSIBILITY
+========================= */
+[aria-hidden="true"]{ visibility: hidden; }
