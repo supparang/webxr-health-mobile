@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk.html ===
-GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
+GoodJunkVR RUN — PRODUCTION (ESM)
+FULL v20260301-RUN-AIABC-DATASET -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,11 +8,7 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
-  <!-- ✅ favicon (แนะนำให้มีไฟล์จริงที่ /herohealth/favicon.ico) -->
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- ✅ FIX 404 + cache bust -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260301" />
 </head>
 <body>
@@ -131,9 +127,14 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
   <script type="module">
     import { boot } from './goodjunk.safe.js';
 
+    // AI ABC multi-head
+    import { createGoodJunkAI } from '../vr/ai-goodjunk.js';
+
+    // Dataset sink -> localStorage CSV (offline backup)
+    import { attachGoodJunkDatasetSink } from '../vr/ai-dataset-sink.js';
+
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    // Build cfg from URL params (pass-through)
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
@@ -145,24 +146,19 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
       ai: null
     };
 
-    // ✅ AI enabled only when ?ai=1 AND run=play
+    // Attach dataset capture always (safe for research because it does not change gameplay)
+    attachGoodJunkDatasetSink({ pid: cfg.pid });
+
+    // AI enabled only when ?ai=1 AND run=play (NO adaptive)
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
-      try{
-        // ✅ dynamic import: ถ้าไฟล์หายจะไม่ทำให้เกมพังทั้งหน้า
-        const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
-        }
-      }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
-      }
+      cfg.ai = createGoodJunkAI({
+        seed: cfg.seed,
+        pid: cfg.pid,
+        diff: cfg.diff,
+        view: cfg.view
+        // model: (optional) -> plug ML/DL later
+      });
     }
 
     // Buttons
@@ -174,11 +170,9 @@ PATCH v20260301-RUN-FIX404-CSS-AI-DYNAMIC -->
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+      location.href = cfg.hub || '../hub.html';
     });
 
-    // Boot
     boot(cfg);
   </script>
 </body>
