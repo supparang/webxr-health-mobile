@@ -1,8 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk.html ===
 GoodJunkVR RUN — PRODUCTION (ESM)
-ROOT: /webxr-health-mobile/herohealth/
-FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
--->
+FULL v20260301-RUN-CSSFIX-MLREC-AI -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,8 +8,12 @@ FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+
+  <!-- ✅ FIX: css name -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
+
+  <!-- optional favicon (avoid 404 if you have it) -->
+  <link rel="icon" href="../favicon.ico" />
 </head>
 <body>
   <div id="app">
@@ -119,14 +121,12 @@ FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button inject by JS -->
+
+        <!-- Cooldown button will be injected by goodjunk.safe.js -->
       </div>
     </div>
 
   </div>
-
-  <!-- Optional: load exported ML model (if exists) -->
-  <script src="../vr/goodjunk-model.js"></script>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
@@ -135,6 +135,7 @@ FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
+    // Build cfg from URL params (pass-through)
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
@@ -146,27 +147,25 @@ FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
       ai: null
     };
 
-    // AI enabled only when ?ai=1 AND run=play
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    if(aiOn){
-      cfg.ai = createGoodJunkAI({
-        seed: cfg.seed,
-        pid: cfg.pid,
-        diff: cfg.diff,
-        view: cfg.view,
-        // optional: exported model object on window.HHA_GOODJUNK_MODEL
-        model: window.HHA_GOODJUNK_MODEL || null
-      });
-    }
-
-    // ML Recorder enabled only when ?mlrec=1
+    // ✅ ML Recorder (labels: hazardRisk_1s + miss_3s)
     const mlrecOn = (qs('mlrec','0') === '1');
     if(mlrecOn){
       attachMLRecorderUI({
         gameKey: 'goodjunk',
         pid: cfg.pid,
         seed: cfg.seed,
+        view: cfg.view,
         run: cfg.run,
+        diff: cfg.diff
+      });
+    }
+
+    // ✅ AI enabled only when ?ai=1 AND run=play (prediction-only)
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    if(aiOn){
+      cfg.ai = createGoodJunkAI({
+        seed: cfg.seed,
+        pid: cfg.pid,
         diff: cfg.diff,
         view: cfg.view
       });
@@ -175,15 +174,19 @@ FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
     // Buttons
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
+
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('seed', String(Date.now())); // new seed for replay
       location.href = u.toString();
     });
+
     btnHub?.addEventListener('click', ()=>{
-      location.href = cfg.hub || '../hub.html';
+      const hub = cfg.hub || '../hub.html';
+      location.href = hub;
     });
 
+    // Boot
     boot(cfg);
   </script>
 </body>
