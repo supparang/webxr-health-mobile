@@ -1,0 +1,8 @@
+{
+  "type": "quantile_heuristic_v1",
+  "thresholds": {
+    "acc_low": 72.5,
+    "miss_high": 6,
+    "rt_high": 650
+  }
+}
