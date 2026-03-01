@@ -1,3 +1,9 @@
+<!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219b (1+2+3)
+✅ (1) cVR: aim-select zones on 2D hand map via hha:shoot
+✅ (2) Heatmap 2D: show risk per zone + store in summary.analyze.heatmap2d
+✅ (3) Post-game 30s Create: pick routine 3 items + score + store in summary.create
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,7 +13,7 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260219c" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260219b" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -24,7 +30,7 @@
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260219c"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260219b"></script>
 </head>
 
 <body class="view-pc">
@@ -59,36 +65,17 @@
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
-          <div class="hw-pill cyan" id="pillQuest">MISSION —</div>
+          <div class="hw-pill cyan" id="pillQuest">QUEST —</div>
           <div class="hw-pill power" id="pillPower">POWER —</div>
 
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- ✅ Quiz box (buttons 1–4) -->
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
-
-          <div class="hw-quiz-opts" id="quizOpts">
-            <button class="hw-quiz-opt" type="button" data-i="0">
-              <span class="n">1</span><span class="t" id="opt0">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="1">
-              <span class="n">2</span><span class="t" id="opt1">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="2">
-              <span class="n">3</span><span class="t" id="opt2">—</span>
-            </button>
-            <button class="hw-quiz-opt" type="button" data-i="3">
-              <span class="n">4</span><span class="t" id="opt3">—</span>
-            </button>
-          </div>
-
-          <div class="hw-quiz-hint" id="quizHint">
-            แตะคำตอบที่ถูก • โหมด cVR: เล็งแล้ว “ยิง” เพื่อเลือก
-          </div>
         </div>
       </div>
 
@@ -121,6 +108,61 @@
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
+        <!-- ✅ 2D Analyze + Evaluate -->
+        <div class="hw-eval" id="evalBox">
+          <div class="hw-eval-title">🧠 Analyze + Evaluate (2D)</div>
+          <div class="hw-eval-sub" id="evalSub">
+            เลือก “จุดเสี่ยงสุด” จากแผนที่มือด้านล่าง แล้วเลือกเหตุผล 1 ข้อ<br>
+            <span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span>
+          </div>
+
+          <div class="hw-handmap" id="handMap" aria-label="Hand map"></div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
+            <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
+          </div>
+
+          <div class="hw-reasons" id="evalReasons">
+            <button class="hw-reason" data-reason="ลืมถูจุดนี้บ่อย" type="button">1) ลืมถูจุดนี้บ่อย</button>
+            <button class="hw-reason" data-reason="ถูเร็วเกินไป" type="button">2) ถูเร็วเกินไป</button>
+            <button class="hw-reason" data-reason="สับสนขั้นตอน/ลำดับ" type="button">3) สับสนขั้นตอน/ลำดับ</button>
+            <button class="hw-reason" data-reason="โดน 🦠 ทำให้เสียจังหวะ" type="button">4) โดน 🦠 ทำให้เสียจังหวะ</button>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ (Evaluate)</button>
+            <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
+          </div>
+        </div>
+
+        <!-- ✅ Create routine (30s) -->
+        <div class="hw-create" id="createBox" style="display:none">
+          <div class="hw-eval-title">✨ Create (30 วินาที)</div>
+          <div class="hw-eval-sub">
+            เลือก “กติกาเตือนตัวเอง” 3 ข้อ เพื่อให้ล้างมือถูกเวลามากขึ้น<br>
+            <b class="hw-mini">เวลาที่เหลือ: <span id="createTimer">30</span>s</b>
+          </div>
+
+          <div class="hw-routine" id="routineOpts">
+            <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม" type="button">🍽️ ก่อนกินอาหาร/ขนม</button>
+            <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ" type="button">🚽 หลังเข้าห้องน้ำ</button>
+            <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ" type="button">🚪📱 หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+            <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก" type="button">😷 หลังไอ/จาม/สั่งน้ำมูก</button>
+            <button class="hw-rt" data-rt="หลังเล่นกับสัตว์" type="button">🐶 หลังเล่นกับสัตว์</button>
+            <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก" type="button">🏠 กลับถึงบ้านจากข้างนอก</button>
+          </div>
+
+          <div class="hw-eval-row">
+            <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
+            <div class="hw-eval-score" id="createScore">คะแนน: —</div>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ ยืนยัน Routine (Create)</button>
+          </div>
+        </div>
+
         <pre class="hw-pre" id="endJson"></pre>
 
         <div class="hw-card-row">
@@ -130,6 +172,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
 <script>
