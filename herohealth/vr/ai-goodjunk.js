@@ -1,10 +1,24 @@
 // === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI (lightweight predictor) — prediction-only (NO adaptive gameplay)
-// Exposes: createGoodJunkAI({seed,pid,diff,view})
-// PATCH v20260301-AI-GOODJUNK-FULL
+// GoodJunk AI — Prediction + ML/DL hooks (research-safe, deterministic)
+// Provides:
+//  - onSpawn(kind, meta)
+//  - onHit(kind, meta)
+//  - onExpire(kind, meta)
+//  - onTick(dt, state) => { hazardRisk, nextWatchout, next5, meta, stats }
+//  - onEnd(summary)
+//  - getPrediction()
+//  - updateInputs(partial)
+//
+// Notes:
+// - This v1 uses a deterministic, explainable predictor (not adaptive difficulty).
+// - ML/DL is supported via optional injected model (predict(features)->risk).
+//
+// FULL v20260301-AI-GOODJUNK-PREDICTOR-MLHOOKS
 'use strict';
 
-// tiny seeded rng (xmur3 + sfc32)
+function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); }
+
+// ---------- deterministic RNG (xmur3 + sfc32) ----------
 function xmur3(str){
   str = String(str||'');
   let h = 1779033703 ^ str.length;
@@ -35,129 +49,224 @@ function makeRng(seedStr){
   const seed = xmur3(seedStr);
   return sfc32(seed(), seed(), seed(), seed());
 }
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+// ---------- feature builder ----------
+function buildFeatures(st){
+  // Inputs are from game tick: { missGoodExpired, missJunkHit, shield, fever, combo }
+  const missGood = Number(st?.missGoodExpired||0);
+  const missJunk = Number(st?.missJunkHit||0);
+  const shield   = Number(st?.shield||0);
+  const fever    = Number(st?.fever||0);
+  const combo    = Number(st?.combo||0);
+
+  // Derived
+  const missTotal = missGood + missJunk;
+
+  return {
+    missGoodExpired: missGood,
+    missJunkHit: missJunk,
+    missTotal,
+    shield,
+    fever,
+    combo,
+    // Normalized
+    nMiss: clamp(missTotal/10, 0, 1),
+    nJunk: clamp(missJunk/8, 0, 1),
+    nGood: clamp(missGood/8, 0, 1),
+    nShield: clamp(shield/6, 0, 1),
+    nFever: clamp(fever/100, 0, 1),
+    nCombo: clamp(combo/10, 0, 1),
+  };
+}
+
+// ---------- explainable predictor (baseline) ----------
+function explainableRisk(feat){
+  // Intuition:
+  // - More junk hits and expired good => higher risk
+  // - Low shield => higher risk
+  // - High combo + high fever => lower risk
+  // This is NOT difficulty adaptation. Just predictive signal for HUD/coaching.
+  const junk = feat.nJunk;
+  const good = feat.nGood;
+  const shield = feat.nShield;
+  const fever = feat.nFever;
+  const combo = feat.nCombo;
+
+  // Weighted sum
+  let r =
+    0.45*junk +
+    0.28*good +
+    0.22*(1 - shield) +
+    0.10*(1 - fever) +
+    0.06*(1 - combo);
+
+  // Slight non-linearity: punish if both miss types are high
+  r += 0.12 * clamp((feat.nJunk*feat.nGood)*2.2, 0, 1);
+
+  return clamp(r, 0, 1);
+}
+
+// ---------- watchout text ----------
+function watchoutFrom(feat){
+  if(feat.shield <= 0 && feat.missJunkHit >= 2) return 'หา 🛡️ ก่อน—กัน JUNK';
+  if(feat.missGoodExpired >= 2) return 'เร่งเก็บของดี—อย่าปล่อยหาย';
+  if(feat.combo <= 1 && feat.missTotal >= 3) return 'ชะลอมือ—เล็งก่อนแตะ';
+  if(feat.fever >= 85) return 'FEVER ใกล้เต็ม—เน้นของดี';
+  return 'โฟกัสของดี + เลี่ยงของเสีย';
+}
+
+// ---------- optional ML/DL model wrapper ----------
+function safePredictModel(model, feat){
+  // model can be:
+  // - function(feat)->risk
+  // - object with predict(feat)->risk
+  try{
+    if(!model) return null;
+    if(typeof model === 'function') return clamp(model(feat), 0, 1);
+    if(typeof model.predict === 'function') return clamp(model.predict(feat), 0, 1);
+  }catch(e){}
+  return null;
+}
 
 export function createGoodJunkAI(opts){
   opts = opts || {};
   const seed = String(opts.seed || Date.now());
-  const pid  = String(opts.pid  || 'anon');
-  const diff = String(opts.diff || 'normal').toLowerCase();
-  const view = String(opts.view || 'mobile').toLowerCase();
+  const pid  = String(opts.pid || 'anon');
+  const diff = String(opts.diff || 'normal');
+  const view = String(opts.view || 'mobile');
 
-  const rng = makeRng(`${seed}|${pid}|${diff}|${view}`);
-  const r01 = ()=> rng();
+  // Deterministic rng for “next5 hint”
+  // (Not the same as game spawn RNG; it’s a stable forecast channel for UI hints only.)
+  const rng = makeRng(`GJ_AI:${seed}:${pid}:${diff}:${view}`);
 
-  // internal counters
-  let missGoodExpired = 0;
-  let missJunkHit = 0;
-  let shield = 0;
-  let fever = 0;
-  let combo = 0;
-
-  // last prediction cache
-  let lastPred = {
-    hazardRisk: 0.0,
-    next5: ['—','—','—','—','—'],
-    meta: { model:'heuristic-v1', seed, pid, diff, view }
+  // Internal state
+  let lastPred = null;
+  let inputs = {
+    missGoodExpired: 0,
+    missJunkHit: 0,
+    shield: 0,
+    fever: 0,
+    combo: 0
   };
 
-  // “next watchout” template list (UI only)
-  const WATCH = [
-    'โฟกัสของดี (🥦🍎) ก่อน',
-    'เห็นของเสีย (🍔🍟) อย่าแตะ',
-    'เก็บ 🛡️ เพื่อกันพลาด',
-    'คุมคอมโบให้ต่อเนื่อง',
-    'ช่วงท้ายสปีดขึ้น—ใจเย็น'
-  ];
+  // Basic stats (for research logging / debugging)
+  const stats = {
+    spawns: 0,
+    hits: 0,
+    expires: 0,
+    lastEvent: '',
+    lastTs: Date.now()
+  };
 
-  function predict(){
-    // heuristic risk: more misses => higher risk; shield + fever reduce risk a bit; high combo reduces risk
-    const miss = missGoodExpired + missJunkHit;
-    let risk = 0.18;
-    risk += clamp(missGoodExpired,0,99) * 0.045;
-    risk += clamp(missJunkHit,0,99) * 0.060;
-    risk -= clamp(shield,0,9) * 0.040;
-    risk -= clamp(combo,0,12) * 0.010;
-    risk -= clamp(fever,0,100) * 0.0012;
+  // Optional ML/DL model injection
+  // You can inject later: createGoodJunkAI({ model: yourModel })
+  const model = opts.model || null;
 
-    // difficulty tweak
-    if(diff==='hard') risk += 0.06;
-    if(diff==='easy') risk -= 0.04;
-
-    // view tweak
-    if(view==='cvr' || view==='vr') risk += 0.02;
-
-    risk = clamp(risk, 0, 0.99);
-
-    // create next5 hints
-    const next5 = [];
+  function getNext5(){
+    // Just a stable “attention cue”, not tied to actual spawns.
+    // Keeps UI from being blank; also deterministic for research.
+    const pool = ['GOOD','JUNK','BONUS','SHIELD'];
+    const out = [];
     for(let i=0;i<5;i++){
-      // bias: when risk high, show more “avoid junk / shield”
-      const p = r01();
-      if(risk >= 0.65 && p < 0.50) next5.push('ระวังของเสีย + หา 🛡️');
-      else if(risk >= 0.50 && p < 0.35) next5.push('ใจเย็น โฟกัสของดี');
-      else next5.push(WATCH[(r01()*WATCH.length)|0]);
+      const p = rng();
+      if(p < 0.58) out.push('GOOD');
+      else if(p < 0.82) out.push('JUNK');
+      else if(p < 0.94) out.push('BONUS');
+      else out.push('SHIELD');
     }
+    return out;
+  }
+
+  function onSpawn(kind, meta){
+    stats.spawns++;
+    stats.lastEvent = `spawn:${String(kind||'')}`;
+    stats.lastTs = Date.now();
+    // no adaptive behavior
+  }
+
+  function onHit(kind, meta){
+    stats.hits++;
+    stats.lastEvent = `hit:${String(kind||'')}`;
+    stats.lastTs = Date.now();
+    // if blocked junk, do nothing special; predictor reads shield/miss from game tick anyway
+  }
+
+  function onExpire(kind, meta){
+    stats.expires++;
+    stats.lastEvent = `expire:${String(kind||'')}`;
+    stats.lastTs = Date.now();
+  }
+
+  function updateInputs(partial){
+    try{
+      partial = partial || {};
+      for(const k of Object.keys(inputs)){
+        if(partial[k] != null) inputs[k] = Number(partial[k]) || 0;
+      }
+    }catch(e){}
+  }
+
+  function onTick(dt, st){
+    // Merge tick state into inputs (authoritative from game)
+    updateInputs(st);
+
+    const feat = buildFeatures(inputs);
+
+    // 1) Model risk (if available)
+    const mRisk = safePredictModel(model, feat);
+
+    // 2) Explainable fallback
+    const eRisk = explainableRisk(feat);
+
+    // Choose model if exists, else fallback
+    const hazardRisk = (mRisk == null) ? eRisk : mRisk;
+
+    const next5 = getNext5();
+    const nextWatchout = watchoutFrom(feat);
 
     lastPred = {
-      hazardRisk: +risk,
+      hazardRisk,
+      nextWatchout,
       next5,
-      meta: { model:'heuristic-v1', seed, pid, diff, view, missGoodExpired, missJunkHit, shield, fever, combo }
+      // small meta only (keep it light)
+      meta: {
+        src: (mRisk == null) ? 'explainable' : 'model',
+        pid, diff, view
+      },
+      stats: {
+        spawns: stats.spawns,
+        hits: stats.hits,
+        expires: stats.expires
+      }
     };
+
     return lastPred;
   }
 
-  const api = {
-    updateInputs(payload){
-      payload = payload || {};
-      if(Number.isFinite(payload.missGoodExpired)) missGoodExpired = payload.missGoodExpired|0;
-      if(Number.isFinite(payload.missJunkHit)) missJunkHit = payload.missJunkHit|0;
-      if(Number.isFinite(payload.shield)) shield = payload.shield|0;
-      if(Number.isFinite(payload.fever)) fever = +payload.fever;
-      if(Number.isFinite(payload.combo)) combo = payload.combo|0;
-      return predict();
-    },
-
-    onSpawn(kind, info){
-      // no-op (prediction only)
-      return null;
-    },
-
-    onHit(kind, info){
-      // no-op (prediction only)
-      return null;
-    },
-
-    onExpire(kind, info){
-      // no-op (prediction only)
-      return null;
-    },
-
-    onTick(dt, state){
-      // state comes from goodjunk.safe.js
-      state = state || {};
-      if(Number.isFinite(state.missGoodExpired)) missGoodExpired = state.missGoodExpired|0;
-      if(Number.isFinite(state.missJunkHit)) missJunkHit = state.missJunkHit|0;
-      if(Number.isFinite(state.shield)) shield = state.shield|0;
-      if(Number.isFinite(state.fever)) fever = +state.fever;
-      if(Number.isFinite(state.combo)) combo = state.combo|0;
-      return predict();
-    },
-
-    onEnd(summary){
-      // keep small pack
+  function onEnd(summary){
+    // return a small AI pack for end summary (no huge arrays)
+    try{
       return {
-        meta: lastPred.meta,
-        predictionLast: { hazardRisk:lastPred.hazardRisk, next:lastPred.next5?.[0] || '—' }
+        predictionLast: lastPred || null,
+        meta: { pid, diff, view, seed },
+        stats: { ...stats }
       };
-    },
-
-    getPrediction(){
-      return lastPred;
+    }catch(e){
+      return null;
     }
-  };
+  }
 
-  // initial
-  predict();
-  return api;
+  function getPrediction(){
+    return lastPred;
+  }
+
+  return {
+    onSpawn,
+    onHit,
+    onExpire,
+    onTick,
+    onEnd,
+    getPrediction,
+    updateInputs
+  };
 }
