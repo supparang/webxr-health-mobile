@@ -1,13 +1,13 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration VR RUN — PRODUCTION
-FULL v20260228-HYDRATION-RUN-SHIELD-AI-CVRSTRICT
+FULL v20260301-HYDRATION-RUN-AIHOOKS-ROBUST
 
 Requires:
 - ./hydration.safe.js (ES module)
 - ./hydration-vr.css
 - ../vr/hha-shield.js (ES module)
 - ../vr/vr-ui.js (ES module)
-- ../vr/ai-hooks.js (ES module)
+- ../vr/ai-hooks.js (ES module)  ✅ must export createAIHooks
 -->
 <!doctype html>
 <html lang="th">
@@ -18,11 +18,11 @@ Requires:
   <meta name="google" content="notranslate"/>
   <title>HeroHealth • Hydration VR</title>
 
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260228"/>
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260301"/>
 
   <!-- ✅ Shared modules -->
-  <script type="module" src="../vr/hha-shield.js?v=20260228"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
+  <script type="module" src="../vr/hha-shield.js?v=20260301"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260301"></script>
 </head>
 
 <body>
@@ -94,9 +94,6 @@ Requires:
       });
     }catch(e){}
 
-    import { createAIHooks } from '../vr/ai-hooks.js';
-    import { boot as bootHydration } from './hydration.safe.js';
-
     const U = new URL(location.href);
     const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
     const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
@@ -111,20 +108,74 @@ Requires:
     const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
     s('uiView',view); s('uiRun',runMode); s('uiDiff',diff);
 
-    const ai = createAIHooks({ seed:String(seed), runMode, game:'hydration', diff, device:view });
-    window.HHA_AI = ai;
+    // ✅ helper: show fatal error on screen (so we don't "silently" fail)
+    function fatal(where, err){
+      console.error('[HY FATAL]', where, err);
+      try{
+        const end = document.getElementById('end');
+        const t = document.getElementById('endTitle');
+        const sub = document.getElementById('endSub');
+        if(t) t.textContent = 'Load failed';
+        if(sub) sub.textContent = `${where}: ${String(err?.message || err)}`;
+        if(end){
+          end.setAttribute('aria-hidden','false');
+          end.style.display = 'block';
+        }
+      }catch(e){}
+    }
 
-    bootHydration({
-      ai,
-      view,
-      run: runMode,
-      diff,
-      seed,
-      pid: U.searchParams.get('pid') || 'anon',
-      hub: U.searchParams.get('hub') || '../hub.html',
-      time: Number(U.searchParams.get('time') || 80),
-      cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
-    });
+    (async()=>{
+      // 1) import ai-hooks (robust)
+      let AIHooks;
+      try{
+        AIHooks = await import('../vr/ai-hooks.js?v=20260301');
+      }catch(e){
+        fatal('import ../vr/ai-hooks.js', e);
+        return;
+      }
+
+      const createAIHooks = AIHooks?.createAIHooks || AIHooks?.default?.createAIHooks;
+      if(typeof createAIHooks !== 'function'){
+        fatal('ai-hooks export', new Error('createAIHooks is missing'));
+        return;
+      }
+
+      // 2) import hydration.safe.js
+      let bootHydration;
+      try{
+        const mod = await import('./hydration.safe.js?v=20260301');
+        bootHydration = mod?.boot;
+      }catch(e){
+        fatal('import ./hydration.safe.js', e);
+        return;
+      }
+
+      if(typeof bootHydration !== 'function'){
+        fatal('hydration.safe export', new Error('boot export is missing'));
+        return;
+      }
+
+      // 3) create ai + boot
+      try{
+        const ai = createAIHooks({ seed:String(seed), runMode, game:'hydration', diff, device:view });
+        window.HHA_AI = ai;
+
+        bootHydration({
+          ai,
+          view,
+          run: runMode,
+          diff,
+          seed,
+          pid: U.searchParams.get('pid') || 'anon',
+          hub: U.searchParams.get('hub') || '../hub.html',
+          time: Number(U.searchParams.get('time') || 80),
+          cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
+        });
+      }catch(e){
+        fatal('bootHydration()', e);
+        return;
+      }
+    })();
   </script>
 </body>
 </html>
