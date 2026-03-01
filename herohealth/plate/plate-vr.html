@@ -7,8 +7,10 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ Shared modules -->
-  <script type="module" src="../vr/hha-cloud-logger.js?v=20260228"></script>
+  <!-- (ถ้ามี logger จริงค่อยใช้) -->
+  <!-- <script type="module" src="../vr/hha-cloud-logger.js?v=20260228"></script> -->
+
+  <!-- ✅ vr-ui: hha:shoot / ENTER VR / RECENTER -->
   <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
 
   <style>
@@ -22,6 +24,7 @@
       --hud-bottom: calc(var(--sab) + 12px);
 
       --panel: rgba(2,6,23,.78);
+      --panel2: rgba(2,6,23,.64);
       --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
       --mut: rgba(148,163,184,.95);
@@ -31,8 +34,11 @@
       --accent: rgba(99,102,241,.95);
     }
     *{ box-sizing:border-box; }
-    html,body{ margin:0; height:100%; overflow:hidden; background:#020617; color:var(--txt);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    html,body{
+      margin:0; height:100%; overflow:hidden;
+      background:#020617; color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
     body{
       background:
         radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
@@ -42,6 +48,7 @@
     #app{ position:fixed; inset:0; overflow:hidden; }
     #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
+    /* spawn mount */
     #plate-layer{
       position:absolute; inset:0;
       z-index:30;
@@ -49,31 +56,35 @@
       overflow:hidden;
       transform: translateZ(0);
       will-change: contents;
-      min-width: 1px; min-height: 1px;
+      min-width: 1px;
+      min-height: 1px;
     }
     #plate-layer .plateTarget{
       position:absolute;
-      display:grid; place-items:center;
-      width:58px; height:58px;
+      display:grid;
+      place-items:center;
+      width:56px; height:56px;
       border-radius:999px;
       background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
       box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 30px;
+      font-size: 28px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
       touch-action:manipulation;
       transition: transform .08s ease, opacity .14s ease;
+      transform: translate(-50%,-50%);
     }
     #plate-layer .plateTarget[data-kind="wrong"]{
       background:rgba(127,29,29,.55);
       border-color: rgba(248,113,113,.25);
       box-shadow: 0 8px 20px rgba(127,29,29,.18);
     }
-    #plate-layer .plateTarget.hit{ transform: scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: scale(.78); opacity:0; }
+    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
+    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
+    /* HUD */
     .hud{
       position:absolute;
       left:max(10px, calc(var(--sal) + 10px));
@@ -84,8 +95,11 @@
       pointer-events:none;
     }
     #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); gap:10px; }
-
+    #hudBottom{
+      bottom:var(--hud-bottom);
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
     .row{ display:grid; gap:8px; }
     .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
     .row.cols-2{ grid-template-columns: 1fr 1fr; }
@@ -99,6 +113,7 @@
       border-radius: 18px;
       padding:10px 12px;
       box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
     }
     .card h4{
       margin:0 0 8px 0;
@@ -120,10 +135,10 @@
       min-height: 42px;
       display:flex; align-items:center; justify-content:center;
       gap:8px; padding: 8px 10px;
-      font-weight:800;
+      font-weight:700;
       font-size: 13px;
     }
-    .pill .v{ font-size:15px; font-weight:1000; }
+    .pill .v{ font-size:15px; font-weight:800; }
     .bar{
       height: 10px;
       border-radius: 999px;
@@ -137,25 +152,6 @@
       transition: width .18s ease;
     }
 
-    #coachBox{
-      display:grid;
-      grid-template-columns: 56px 1fr;
-      gap:10px;
-      align-items:center;
-      pointer-events:none;
-    }
-    #coachAvatar{
-      width:56px;height:56px;border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.75);
-      display:grid; place-items:center;
-      overflow:hidden;
-      font-size: 28px;
-    }
-    #coachAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
-    #coachName{ font-weight:1000; font-size:13px; color:var(--mut); margin-bottom:2px; }
-    #coachMsg{ font-size:14px; font-weight:900; line-height:1.25; }
-
     #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
     .btn{
       appearance:none;
@@ -165,7 +161,7 @@
       border-radius: 999px;
       padding:10px 14px;
       min-height:44px;
-      font-weight:1000;
+      font-weight:800;
       font-size:14px;
       cursor:pointer;
       box-shadow: 0 6px 18px rgba(2,6,23,.22);
@@ -178,76 +174,43 @@
       border-color: rgba(245,158,11,.25);
       background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
     }
-    .btn.good{
-      border-color: rgba(34,197,94,.25);
-      background: linear-gradient(180deg, rgba(20,83,45,.85), rgba(15,70,40,.82));
-    }
 
-    #hudPaused{
-      position:absolute; inset:0;
-      z-index:85;
-      display:none;
-      place-items:center;
-      pointer-events:none;
-      background: rgba(2,6,23,.18);
-    }
-    #hudPaused .inner{
-      background: rgba(2,6,23,.74);
-      border:1px solid rgba(148,163,184,.2);
-      border-radius:16px;
-      padding:12px 16px;
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-
-    /* ✅ End Summary (kid-friendly) */
     #endOverlay{
       position:absolute; inset:0;
-      z-index:200;
-      display:none;
-      place-items:center;
-      padding:18px;
+      z-index:120;
+      display:flex; align-items:center; justify-content:center;
+      padding:16px;
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
-    #endOverlay.show{ display:grid; }
-    .end-card{
-      width:min(680px, 94vw);
+    #endOverlay[aria-hidden="true"]{ display:none; }
+    .endCard{
+      width:min(640px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
       color: rgba(229,231,235,.95);
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 16px;
+      padding: 14px;
     }
-    .end-title{ font-weight:1100; font-size:20px; letter-spacing:.2px; }
-    .end-sub{ margin-top:6px; font-size:12px; opacity:.92; word-break: break-word; }
-    .end-grid{
-      margin-top:12px;
+    .endGrid{
+      margin-top:10px;
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap:10px;
     }
-    .end-item{
+    .endItem{
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.55);
       border-radius: 14px;
       padding: 10px 12px;
       font-weight:900;
     }
-    .end-item .k{ font-size:12px; opacity:.82; font-weight:800; }
-    .end-item .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; font-weight:1100; }
-    .end-kids{
-      margin-top:12px;
-      border:1px dashed rgba(148,163,184,.22);
-      background: rgba(2,6,23,.45);
-      border-radius: 14px;
-      padding: 10px 12px;
-    }
-    .end-kids b{ font-weight:1100; }
-    .end-actions{
-      margin-top: 14px;
+    .endItem .k{ font-size:12px; opacity:.82; font-weight:800; }
+    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+    .endActions{
+      margin-top: 12px;
       display:flex;
       gap: 10px;
       flex-wrap:wrap;
@@ -262,7 +225,6 @@
     <div id="world" aria-hidden="true"></div>
 
     <div id="plate-layer" aria-label="plate targets layer"></div>
-    <div id="hudPaused"><div class="inner">⏸️ Paused</div></div>
 
     <!-- top HUD -->
     <div id="hudTop" class="hud">
@@ -305,51 +267,28 @@
             <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
           </div>
           <div style="height:8px"></div>
-          <div style="font-weight:900; margin-bottom:6px;">FEVER</div>
+          <div style="font-weight:800; margin-bottom:6px;">FEVER</div>
           <div class="bar"><i id="uiFeverFill"></i></div>
         </div>
       </div>
 
       <div class="row">
         <div class="card">
-          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
-          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-            <div class="pill">🍗 <span id="uiG1" class="v">0</span></div>
-            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
-            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
-            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
-            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          <h4>ภารกิจตอนนี้</h4>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🎯 <span id="uiTargetText">—</span>
           </div>
-          <div style="height:8px"></div>
-          <div class="stats two">
-            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-              <span id="uiMiniTitle">ภารกิจย่อย</span>
-            </div>
-            <div class="pill" style="justify-content:center;">
-              <span id="uiMiniTime">--</span> • <span id="uiMiniCount">0/0</span>
-            </div>
-          </div>
-          <div style="height:6px"></div>
-          <div class="bar"><i id="uiMiniFill"></i></div>
         </div>
       </div>
     </div>
 
-    <!-- bottom HUD -->
+    <!-- bottom controls -->
     <div id="hudBottom" class="hud">
-      <div id="coachCard" class="card">
-        <div id="coachBox">
-          <div id="coachAvatar" aria-hidden="true">
-            <img id="coachAvatarImg" src="../img/coach-neutral.png" alt=""
-              onerror="this.style.display='none'; this.parentElement.textContent='🧑‍🏫';">
-          </div>
-          <div>
-            <div id="coachName">👨‍🏫 Coach</div>
-            <div id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-            <div style="font-size:12px;color:var(--mut);margin-top:4px;">
-              แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js) • โหมด Classroom (default)
-            </div>
-          </div>
+      <div class="card">
+        <div style="font-weight:900">🧑‍🏫 Coach</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:800">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px;">
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
         </div>
       </div>
 
@@ -360,171 +299,98 @@
       </div>
     </div>
 
-    <!-- ✅ End Overlay -->
+    <!-- End summary -->
     <div id="endOverlay" aria-hidden="true">
-      <div class="end-card">
-        <div class="end-title" id="endTitle">จบเกม</div>
-        <div class="end-sub" id="endSub">—</div>
+      <div class="endCard">
+        <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
+        <div style="margin-top:6px;font-size:12px;opacity:.9;word-break:break-all" id="endSub">—</div>
 
-        <div class="end-grid">
-          <div class="end-item"><div class="k">เกรด</div><div class="v" id="endGrade">—</div></div>
-          <div class="end-item"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-          <div class="end-item"><div class="k">ถูก / ผิด</div><div class="v"><span id="endOk">0</span> / <span id="endWrong">0</span></div></div>
-          <div class="end-item"><div class="k">พลาด (MISS)</div><div class="v" id="endMiss">0</div></div>
+        <div class="endGrid">
+          <div class="endItem"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+          <div class="endItem"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="endItem"><div class="k">OK</div><div class="v" id="endOk">0</div></div>
+          <div class="endItem"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
         </div>
 
-        <div class="end-kids">
-          <div><b>🧠 สิ่งที่ได้เรียนรู้:</b> <span id="kidLearn">—</span></div>
-          <div style="margin-top:6px;"><b>✅ ทำได้ดี:</b> <span id="kidGood">—</span></div>
-          <div style="margin-top:6px;"><b>🔧 ปรับอีกนิด:</b> <span id="kidFix">—</span></div>
-        </div>
-
-        <div class="end-actions">
-          <!-- debug only -->
-          <button class="btn is-hidden" id="btnCopy">Copy Summary (debug)</button>
-
-          <button class="btn" id="btnReplay">เล่นอีกครั้ง</button>
-          <button class="btn good is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
-          <button class="btn primary" id="btnBackHub2">กลับ HUB</button>
+        <div class="endActions">
+          <button class="btn" id="btnCopy">Copy Summary</button>
+          <button class="btn" id="btnReplay">Replay</button>
+          <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+          <button class="btn primary" id="btnBackHub2">Back HUB</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ✅ MAIN BOOT -->
+  <!-- ✅ BOOT -->
   <script type="module">
-    // 1) Shield install (quiet 403/noise)
+    // Shield install (ถ้ามีไฟล์ shield จริง)
     try{
-      window.HHA_Shield?.install({
-        watchDOM: true,
-        lockScroll: true,
-        quietApollo403: true,
-        quietNetworkNoise: true,
-        showBanner: true
+      window.HHA_Shield?.install?.({
+        watchDOM:true,
+        lockScroll:true,
+        quietApollo403:true,
+        quietNetworkNoise:true,
+        showBanner:true
       });
     }catch(e){}
 
-    // 2) Imports
     import { createAIHooks } from '../vr/ai-hooks.js';
-    import { boot as bootPlate } from '../vr-plate/plate.safe.js';
+    import { boot as bootPlate } from './plate.safe.js';
 
     const U = new URL(location.href);
-    const DEBUG = U.searchParams.get('debug') === '1';
+    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
+    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
-    const $ = (s)=>document.querySelector(s);
-    const img = $('#coachAvatarImg');
-    const msgEl = $('#coachMsg');
-
-    const coachMap = {
-      happy: '../img/coach-happy.png',
-      neutral: '../img/coach-neutral.png',
-      sad: '../img/coach-sad.png',
-      fever: '../img/coach-fever.png'
-    };
-
-    function num(v, fb=0){ v=Number(v); return Number.isFinite(v)?v:fb; }
-    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-    function parseCfg(){
-      const runQ = String(U.searchParams.get('run') || U.searchParams.get('runMode') || 'play').toLowerCase();
-      const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
-      const time = clamp(num(U.searchParams.get('time'), 90), 20, 9999);
-      const seedQ = U.searchParams.get('seed');
-      const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
-
-      // ✅ Classroom default (unless mode=challenge)
-      const modeQ = String(U.searchParams.get('mode') || 'classroom').toLowerCase();
-      const mode = (modeQ === 'challenge') ? 'challenge' : 'classroom';
-
-      const isStudy = (runQ === 'study' || runQ === 'research');
-
-      return {
-        mode,
-        runMode: isStudy ? runQ : 'play',
-        diff: ['easy','normal','hard'].includes(diff) ? diff : 'normal',
-        seed: isStudy ? (seedQ ?? '13579') : (seedQ != null ? String(seedQ) : String((Date.now() ^ (Math.random()*1e9))|0)),
-        time,
-        view
-      };
-    }
-
-    const cfg0 = parseCfg();
-
-    // ✅ Create AI hooks (prediction only)
     const ai = createAIHooks({
-      seed: String(cfg0.seed),
-      runMode: cfg0.runMode,
+      seed: String(seed),
+      runMode,
       game: 'plate',
-      diff: cfg0.diff,
-      device: cfg0.view
+      diff,
+      device: view
     });
     window.HHA_AI = ai;
 
-    // coach events (optional bridge)
-    window.addEventListener('hha:coach', (e)=>{
-      const d = e.detail || {};
-      const mood = String(d.mood || 'neutral').toLowerCase();
-      const msg  = String(d.msg || '');
-      if (msgEl && msg) msgEl.textContent = msg;
-      if (img){
-        img.style.display = '';
-        img.src = coachMap[mood] || coachMap.neutral;
-      }
-    }, { passive:true });
+    bootPlate({
+      mount: document.getElementById('plate-layer'),
+      view, run: runMode, diff,
+      time: Number(U.searchParams.get('time') || 90),
+      seed,
+      pid: String(U.searchParams.get('pid') || 'anon'),
+      hub: String(U.searchParams.get('hub') || '../hub.html'),
+      cooldown: (U.searchParams.get('cooldown')==='1' || U.searchParams.get('cd')==='1'),
+      mode: String(U.searchParams.get('mode') || 'classroom'),
+      ai
+    });
 
-    // pause button -> dispatch pause/resume
+    // UI Buttons
+    const btnPause = document.getElementById('btnPause');
+    const btnRestart = document.getElementById('btnRestart');
+    const btnBackHub = document.getElementById('btnBackHub');
+    const hub = String(U.searchParams.get('hub') || '../hub.html');
+
     let paused = false;
-    const btnPause = $('#btnPause');
-    const pausedHud = $('#hudPaused');
-    function setPauseBtn(){
-      if (!btnPause) return;
-      btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
-      if (pausedHud) pausedHud.style.display = paused ? 'grid' : 'none';
-    }
+    function setPauseBtn(){ btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
     setPauseBtn();
+
     btnPause?.addEventListener('click', ()=>{
       paused = !paused;
       setPauseBtn();
       window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
     });
 
-    // restart/back hub
-    $('#btnRestart')?.addEventListener('click', ()=>{
+    btnRestart?.addEventListener('click', ()=>{
       try{
         const u = new URL(location.href);
-        if(cfg0.runMode !== 'research'){
-          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-        }
+        if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
         location.href = u.toString();
       }catch(e){ location.reload(); }
     });
 
-    const hubUrl = U.searchParams.get('hub') || '../hub.html';
-    $('#btnBackHub')?.addEventListener('click', ()=> location.href = hubUrl);
-
-    // end overlay buttons (wired by safe.js too)
-    $('#btnBackHub2')?.addEventListener('click', ()=> location.href = hubUrl);
-
-    // Boot
-    const mount = $('#plate-layer');
-    if(!mount) throw new Error('Missing #plate-layer');
-
-    bootPlate({
-      mount,
-      mode: cfg0.mode,
-      run: cfg0.runMode,
-      diff: cfg0.diff,
-      time: cfg0.time,
-      seed: cfg0.seed,
-      view: cfg0.view,
-      ai,
-      debug: DEBUG
-    });
-
-    // show debug copy only if debug=1
-    if(DEBUG){
-      $('#btnCopy')?.classList.remove('is-hidden');
-    }
+    btnBackHub?.addEventListener('click', ()=> location.href = hub);
   </script>
 </body>
 </html>
