@@ -1,12 +1,13 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-✅ FIX 404 CSS + cache bust
-✅ VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
-✅ Battle UI: ../vr/battle-ui.auto.js (optional, only when ?battle=1)
-✅ AI dynamic import (optional, only when ?ai=1 AND run=play)
-✅ End overlay: adds 🏆 Leaderboard button (pass-through params)
-✅ Stores local leaderboard to localStorage (for offline + quick testing)
-PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
+<!-- === /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR RUN — PRODUCTION (ESM boot + AI + Battle optional + Google Sheet logger)
+FULL v20260301-RUN-BATTLE-LOGGER-AI
+Query:
+  - ai=1            enable AI (play only)
+  - battle=1        enable dual battle via Firebase RTDB
+  - room=ABC123     battle room code
+  - autostart=3000  ms
+  - forfeit=5000    ms
+  - api=<GAS /exec> Google Apps Script endpoint
 -->
 <!doctype html>
 <html lang="th">
@@ -15,9 +16,8 @@ PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260301" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260301b" />
 </head>
 <body>
   <div id="app">
@@ -27,6 +27,12 @@ PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
+      <span class="pill">log=<b id="uiLog">—</b></span>
+      <span class="pill">sync=<b id="uiSync">—</b></span>
+      <span class="pill">battle=<b id="uiBattle">—</b></span>
+      <span class="pill">room=<b id="uiRoom">—</b></span>
+      <span class="pill">opp=<b id="uiOpp">—</b></span>
+      <span class="pill">state=<b id="uiBState">—</b></span>
     </div>
 
     <!-- Top HUD -->
@@ -124,131 +130,203 @@ PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
         <div class="endActions">
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
-          <button class="btn" id="btnLB" type="button">🏆 Leaderboard</button>
         </div>
 
-        <!-- Cooldown button will be injected here by JS (in goodjunk.safe.js) -->
+        <div class="endActions" id="battleActions" style="display:none">
+          <button class="btn" id="btnCopyRoom" type="button">คัดลอกรหัสห้อง</button>
+          <button class="btn" id="btnRematch" type="button">รีแมตช์ (ห้องเดิม)</button>
+        </div>
+
+        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
   </div>
 
-  <!-- ✅ Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
-  <script type="module" src="../vr/vr-ui.js"></script>
-
-  <!-- ✅ Battle UI auto (ONLY does anything when ?battle=1) -->
-  <script type="module" src="../vr/battle-ui.auto.js"></script>
+  <!-- ✅ Logger (IIFE global) อยู่ใน /herohealth/vr/ -->
+  <script src="../vr/hha-cloud-logger.js?v=20260301"></script>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
+    import { createGoodJunkAI } from '../vr/ai-goodjunk.js';
+    import { initBattle } from '../vr/battle-rtdb.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    // Build cfg from URL params (pass-through)
+    // ---------- cfg ----------
     const cfg = {
       view: qs('view','mobile'),
-      run: qs('run','play'),
+      run:  qs('run','play'),
       diff: qs('diff','normal'),
       time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
-      pid: qs('pid','anon'),
-      hub: qs('hub','../hub.html'),
-      ai: null
+      pid:  qs('pid','anon'),
+      hub:  qs('hub','../hub.html'),
+      ai: null,
+      logger: null,
+
+      // battle passthrough
+      battle: null,
     };
 
-    // Debug pills visibility (optional: ?debug=1)
-    try{
-      const dbgOn = (qs('debug','0') === '1');
-      const dbg = document.getElementById('debugPills');
-      if(dbg) dbg.setAttribute('aria-hidden', dbgOn ? 'false' : 'true');
-    }catch(e){}
+    // ---------- debug pills ----------
+    const debugPills = document.getElementById('debugPills');
+    const uiView  = document.getElementById('uiView');
+    const uiRun   = document.getElementById('uiRun');
+    const uiDiff  = document.getElementById('uiDiff');
+    const uiLog   = document.getElementById('uiLog');
+    const uiSync  = document.getElementById('uiSync');
+    const uiBattle= document.getElementById('uiBattle');
+    const uiRoom  = document.getElementById('uiRoom');
+    const uiOpp   = document.getElementById('uiOpp');
+    const uiBState= document.getElementById('uiBState');
 
-    // ✅ AI enabled only when ?ai=1 AND run=play
+    const logEnabled = (qs('log','') === '' ? 1 : Number(qs('log','1'))||0) ? '1' : '0';
+    const apiEndpoint = String(qs('api','')).trim(); // GAS /exec
+
+    if(qs('debug','0') === '1'){
+      debugPills?.setAttribute('aria-hidden','false');
+    }
+
+    if(uiView) uiView.textContent = cfg.view;
+    if(uiRun)  uiRun.textContent  = cfg.run;
+    if(uiDiff) uiDiff.textContent = cfg.diff;
+
+    // ---------- Logger ----------
+    function initLogger(){
+      const factory = window.createHHACloudLogger || null;
+      if(!factory) return null;
+
+      const logger = factory({
+        endpoint: apiEndpoint,
+        enabled: (logEnabled === '1'),
+        debug: (qs('logdebug','0') === '1'),
+        game: 'goodjunk',
+        zone: 'nutrition',
+        run: cfg.run,
+        pid: cfg.pid,
+        seed: cfg.seed,
+        view: cfg.view,
+        difficulty: cfg.diff,
+        studyId: qs('studyId',''),
+        researchPhase: qs('phase',''),
+        conditionGroup: qs('conditionGroup',''),
+        variant: qs('variant',''),
+        appVersion: qs('appv',''),
+        gameVersion: 'GoodJunkVR_SAFE_2026-03-01_RUN-BATTLE-LOGGER-AI',
+        onStatus: (st)=>{
+          try{
+            if(uiLog) uiLog.textContent = String(st.enabled ? 'on' : 'off');
+            if(uiSync){
+              uiSync.textContent =
+                st.type === 'flush_ok' ? 'ok' :
+                st.type === 'flush_fail' ? 'fail' :
+                st.type;
+            }
+          }catch(e){}
+        }
+      });
+
+      try{
+        logger.hhaSessionStart({
+          game: 'goodjunk',
+          zone: 'nutrition',
+          run: cfg.run,
+          difficulty: cfg.diff,
+          view_mode: cfg.view,
+          session_time_sec_setting: cfg.time,
+          seed: cfg.seed,
+          study_id: qs('studyId',''),
+          research_phase: qs('phase',''),
+          condition_group: qs('conditionGroup',''),
+          variant: qs('variant',''),
+          game_version: 'GoodJunkVR_SAFE_2026-03-01',
+          app_version: qs('appv',''),
+        });
+      }catch(e){}
+
+      return logger;
+    }
+    cfg.logger = initLogger();
+
+    // ---------- AI (play only) ----------
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
+      cfg.ai = createGoodJunkAI({
+        seed: cfg.seed,
+        pid: cfg.pid,
+        diff: cfg.diff,
+        view: cfg.view
+      });
+    }
+
+    // ---------- Dual Battle (optional) ----------
+    const battleOn = (qs('battle','0') === '1');
+    const room = String(qs('room','')).trim();
+
+    if(uiBattle) uiBattle.textContent = battleOn ? 'on' : 'off';
+    if(uiRoom) uiRoom.textContent = room || '—';
+
+    async function initBattleIfNeeded(){
+      if(!battleOn) return null;
+
+      // IMPORTANT: put your Firebase config in window.HHA_BATTLE_CFG (see battle-rtdb.js)
+      // Example:
+      // window.HHA_BATTLE_CFG = { apiKey, authDomain, databaseURL, projectId, appId };
+
       try{
-        const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
-        }
-      }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
-      }
-    }
-
-    // --- Local leaderboard store (offline-friendly) ---
-    const LB_KEY = 'HHA_LB:goodjunk';
-    const LB_MAX = 50;
-
-    function safeJsonParse(s, dflt){
-      try{ return JSON.parse(s); }catch(e){ return dflt; }
-    }
-    function lsGet(k, dflt=null){
-      try{ const v = localStorage.getItem(k); return v==null?dflt:v; }catch(e){ return dflt; }
-    }
-    function lsSet(k, v){
-      try{ localStorage.setItem(k, v); }catch(e){}
-    }
-    function pushLocalLB(summary){
-      if(!summary) return;
-      const row = {
-        ts: Date.now(),
-        game: 'goodjunk',
-        pid: String(summary.pid || cfg.pid || 'anon'),
-        diff: String(summary.diff || cfg.diff || 'normal'),
-        run:  String(summary.runMode || cfg.run || 'play'),
-        view: String(summary.device || cfg.view || 'mobile'),
-        score: Number(summary.scoreFinal || 0) || 0,
-        miss: Number(summary.missTotal || 0) || 0,
-        accPct: Number(summary.accPct || 0) || 0,
-        medianRtGoodMs: Number(summary.medianRtGoodMs || 0) || 0,
-        seed: String(summary.seed || cfg.seed || ''),
-        grade: String(summary.grade || ''),
-      };
-      const arr = safeJsonParse(lsGet(LB_KEY, '[]'), []);
-      arr.unshift(row);
-      while(arr.length > LB_MAX) arr.pop();
-      lsSet(LB_KEY, JSON.stringify(arr));
-    }
-
-    // Listen end summary once
-    window.addEventListener('hha:game-ended', (ev)=>{
-      try{ pushLocalLB(ev.detail); }catch(e){}
-    }, { passive:true });
-
-    // Leaderboard URL builder
-    function buildLeaderboardUrl(){
-      try{
-        const u = new URL('../vr/leaderboard-view.html', location.href);
-        u.searchParams.set('game', 'goodjunk');
-        u.searchParams.set('diff', cfg.diff || 'normal');
-        u.searchParams.set('run',  cfg.run  || 'play');
-        u.searchParams.set('hub', cfg.hub || '../hub.html');
-
-        const sp = new URL(location.href).searchParams;
-        [
-          'pid','view','time','seed','studyId','phase','conditionGroup','log',
-          'battle','room','autostart','forfeit'
-        ].forEach(k=>{
-          const v = sp.get(k);
-          if(v!=null && v!=='') u.searchParams.set(k, v);
+        const b = await initBattle({
+          enabled: true,
+          room: room || '',
+          pid: cfg.pid,
+          gameKey: 'goodjunk',
+          autostartMs: Number(qs('autostart','3000')) || 3000,
+          forfeitMs:   Number(qs('forfeit','5000')) || 5000
         });
-        return u.toString();
-      }catch(e){
-        return '';
+        cfg.battle = b;
+
+        // UI
+        if(uiRoom) uiRoom.textContent = b.room || room || '—';
+
+        return b;
+      }catch(err){
+        console.warn('[battle] init failed', err);
+        if(uiBattle) uiBattle.textContent = 'fail';
+        return null;
       }
     }
+    initBattleIfNeeded();
 
-    // Buttons
+    // Battle listeners for HUD info
+    window.addEventListener('hha:battle-players', (ev)=>{
+      const d = ev?.detail || {};
+      if(uiOpp) uiOpp.textContent = d.opponent ? 'ready' : '—';
+    });
+    window.addEventListener('hha:battle-state', (ev)=>{
+      const d = ev?.detail || {};
+      if(uiBState) uiBState.textContent = d.status || '—';
+    });
+    window.addEventListener('hha:battle-ended', (ev)=>{
+      const d = ev?.detail || {};
+      try{
+        const msg = d.winner === 'a' ? 'คุณชนะ! 🏆' :
+                    d.winner === 'b' ? 'อีกฝ่ายชนะ! ⚡' :
+                    'เสมอ! 🤝';
+        const endSub = document.getElementById('endSub');
+        if(endSub) endSub.textContent = (endSub.textContent || '') + ' • ' + msg;
+      }catch(e){}
+      // show battle action buttons
+      try{
+        const box = document.getElementById('battleActions');
+        if(box) box.style.display = 'flex';
+      }catch(e){}
+    });
+
+    // ---------- Buttons ----------
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
-    const btnLB = document.getElementById('btnLB');
+    const btnCopyRoom = document.getElementById('btnCopyRoom');
+    const btnRematch = document.getElementById('btnRematch');
 
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
@@ -261,13 +339,108 @@ PATCH v20260301-RUN-NAMEFIX-VRUI-BATTLEUI-LB
       location.href = hub;
     });
 
-    btnLB?.addEventListener('click', ()=>{
-      const url = buildLeaderboardUrl();
-      if(url) location.href = url;
-      else console.warn('[GoodJunk] leaderboard url build failed');
+    btnCopyRoom?.addEventListener('click', async ()=>{
+      try{
+        const b = cfg.battle;
+        const code = (b && b.room) ? b.room : (qs('room','') || '');
+        await navigator.clipboard.writeText(code);
+      }catch(e){}
     });
 
-    // Boot
+    btnRematch?.addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      // keep room, set new seed
+      u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('battle', battleOn ? '1' : '0');
+      location.href = u.toString();
+    });
+
+    // ---------- Wire game -> logger + battle ----------
+    // Score pulses
+    window.addEventListener('hha:score', async (ev)=>{
+      const d = ev?.detail || {};
+      const score = Number(d.score ?? d.scoreFinal ?? 0) || 0;
+      const miss  = Number(d.miss ?? 0) || 0;
+      const accPct= Number(d.accPct ?? 0) || 0;
+      const medRT = Number(d.medianRtGoodMs ?? 0) || 0;
+
+      // logger
+      if(cfg.logger){
+        try{
+          cfg.logger.hhaEvent('score_tick', {
+            event_type: 'metric',
+            event_name: 'score_tick',
+            game: 'goodjunk',
+            zone: 'nutrition',
+            run: cfg.run,
+            difficulty: cfg.diff,
+            view_mode: cfg.view,
+            seed: cfg.seed,
+            totalScore: score,
+            combo: d.combo ?? 0,
+            miss: miss,
+            accuracy_pct: accPct,
+            rt_ms: medRT,
+            meta_json: { shots:d.shots, hits:d.hits, stage:d.stage, fever:d.feverPct }
+          });
+        }catch(e){}
+      }
+
+      // battle
+      if(cfg.battle){
+        try{
+          await cfg.battle.pushScore({
+            score,
+            miss,
+            accPct,
+            medianRtGoodMs: medRT
+          });
+        }catch(e){}
+      }
+    });
+
+    // End summary
+    window.addEventListener('hha:game-ended', async (ev)=>{
+      const s = ev?.detail || null;
+      if(!s) return;
+
+      // logger end session
+      if(cfg.logger){
+        try{
+          cfg.logger.hhaSummaryAndEnd({
+            score: s.scoreFinal,
+            hits: s.hits,
+            miss: s.missTotal,
+            combo_max: s.comboMax,
+            completed: 1
+          },{
+            quit_reason: String(s.reason || ''),
+            score: s.scoreFinal ?? 0,
+            hits: s.hits ?? 0,
+            miss: s.missTotal ?? 0,
+            accuracy_pct: s.accPct ?? 0,
+            combo_max: s.comboMax ?? 0,
+            summary_json: s
+          }, { flushNow:true });
+        }catch(e){}
+      }
+
+      // battle finalize
+      if(cfg.battle){
+        try{
+          await cfg.battle.finalizeEnd({
+            score: s.scoreFinal ?? 0,
+            miss: s.missTotal ?? 0,
+            accPct: s.accPct ?? 0,
+            medianRtGoodMs: s.medianRtGoodMs ?? 0,
+            comboMax: s.comboMax ?? 0,
+            reason: s.reason || '',
+          });
+        }catch(e){}
+      }
+    });
+
+    // ---------- Boot ----------
     boot(cfg);
   </script>
 </body>
