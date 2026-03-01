@@ -1,24 +1,9 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
-PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
-✅ No forced ordering: play any game anytime
-✅ Safe network: API 403 won't break hub
-✅ Links to ROOT launchers in /herohealth (root):
-   - ./goodjunk-vr-launcher.html
-   - ./groups-vr.html
-   - ./hydration-vr.html
-   - ./plate-vr.html
-✅ Hygiene launchers:
-   - ./hygiene-vr.html   (Handwash Survival launcher)
-   - ./brush-vr.html     (Brush launcher -> /vr-brush/brush.html)
-   - ./maskcough-vr.html (MaskCough launcher -> /vr-maskcough/maskcough.html)
-✅ Fitness:
-   - ./fitness-planner/planner.html (optional)
-   - ../fitness/shadow-breaker.html
-   - ../fitness/rhythm-boxer.html
-   - ../fitness/jump-duck.html
-   - ../fitness/balance-hold.html
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid
+HeroHealth — Hub (3 Zones) — PRODUCTION (GAS endpoint + Offline fallback)
+PATCH v20260301-hub-gas-endpoint-pass-api-ping
+✅ Default API endpoint -> Google Apps Script (latest)
+✅ Pass-through adds ?api=... to every launcher/run
+✅ Probe uses GET ?ping=1 (GAS-friendly)
 -->
 <!doctype html>
 <html lang="th">
@@ -85,7 +70,6 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
     .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
 
-    /* tiny toast */
     .toast{
       position:fixed; left:50%;
       bottom:calc(14px + var(--sab));
@@ -115,7 +99,7 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
         <div class="logo">HH</div>
         <div>
           <div class="title">HeroHealth — Hub</div>
-          <div class="sub">เข้าเล่นได้ทุกเกม • ปลอดภัยแม้ API ตอบ 403 • ส่งพารามิเตอร์ต่ออัตโนมัติ</div>
+          <div class="sub">เข้าเล่นได้ทุกเกม • ปลอดภัยแม้ API มีปัญหา • ส่งพารามิเตอร์ต่ออัตโนมัติ</div>
         </div>
       </div>
 
@@ -127,12 +111,11 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
       </div>
     </header>
 
-    <!-- API status banner -->
     <div class="banner" id="apiBanner" aria-live="polite">
       <div class="dot warn" id="apiDot"></div>
       <div>
         <h4 id="apiTitle">กำลังตรวจสอบระบบ…</h4>
-        <p id="apiMsg">ถ้า API ล่ม/403 หน้า HUB จะยังใช้งานได้ปกติ (เข้าเกมได้ทุกเกม)</p>
+        <p id="apiMsg">ถ้า API ล่ม หน้า HUB ยังเข้าเกมได้ทุกเกม</p>
       </div>
       <div class="actions">
         <a class="btn warn" href="#" id="btnRetry">Retry</a>
@@ -151,7 +134,7 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
           <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
           <a class="btn" id="goPlate" href="./plate-vr.html">PlateVR</a>
         </div>
-        <div class="small">* ส่ง run/diff/time/seed/pid/view/log + hub ต่อให้เกมอัตโนมัติ</div>
+        <div class="small">* ส่ง run/diff/time/seed/pid/view/log/studyId/phase/conditionGroup/api + hub ต่อให้อัตโนมัติ</div>
       </div>
 
       <div class="card">
@@ -187,8 +170,10 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
   'use strict';
 
   // ====== CONFIG ======
-  // (ปล่อยเป็นค่าเดิมของคุณได้ — hub จะไม่พังแม้ 403)
-  const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/';
+  // ✅ Default to latest Google Apps Script endpoint
+  // Allow override by ?api=...
+  const DEFAULT_GAS_EXEC = 'https://script.google.com/macros/s/AKfycbyBakC22343Lm4q7QnVsQbi2L3NA5CUvKycBhAEA2o-ChzcVZoIB5C8VsuRV0R6QV5NfA/exec';
+  const API_ENDPOINT = String((new URL(location.href)).searchParams.get('api') || DEFAULT_GAS_EXEC).trim() || DEFAULT_GAS_EXEC;
 
   // ====== helpers ======
   function qs(k, d=''){
@@ -207,6 +192,7 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     pid:  String(qs('pid','')).trim() || 'anon',
     view: String(qs('view','')).toLowerCase(),
     log:  String(qs('log','')),
+    api:  String(qs('api','')).trim(), // optional override
     studyId: String(qs('studyId','')),
     phase: String(qs('phase','')),
     conditionGroup: String(qs('conditionGroup',''))
@@ -228,6 +214,10 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     sp.set('time', String(P.time));
     sp.set('seed', P.seed);
     sp.set('pid', P.pid);
+
+    // ✅ pin api to latest (or user override)
+    sp.set('api', (P.api || API_ENDPOINT || DEFAULT_GAS_EXEC));
+
     if(P.view) sp.set('view', P.view);
     if(P.log) sp.set('log', P.log);
     if(P.studyId) sp.set('studyId', P.studyId);
@@ -247,6 +237,9 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     sp.set('seed', P.seed);
     sp.set('pid', P.pid);
 
+    // ✅ always pass api forward
+    sp.set('api', (P.api || API_ENDPOINT || DEFAULT_GAS_EXEC));
+
     if(P.view) sp.set('view', P.view);
     if(P.log) sp.set('log', P.log);
     if(P.studyId) sp.set('studyId', P.studyId);
@@ -258,11 +251,8 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
 
   // patch all game links to include pass-through params
   const linkIds = [
-    // nutrition
     'goGoodJunk','goGroups','goHydration','goPlate',
-    // hygiene
     'goHandwash','goBrush','goMaskCough',
-    // fitness
     'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
   ];
   for(const id of linkIds){
@@ -296,7 +286,6 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
         if(!k.includes(day)) continue;
         const hitCat = cats.some(c=>k.includes(':'+c+':') || k.includes('::'+c+'::') || k.includes('::'+c+':'));
         if(!hitCat) continue;
-        // conservative: allow clearing regardless of pid string format differences
         localStorage.removeItem(k);
       }
     }catch(_){}
@@ -318,7 +307,7 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     toast('Reset today ✅');
   });
 
-  // ====== 403-safe API probe (no Apollo needed) ======
+  // ====== API probe (GAS-friendly) ======
   const apiDot = document.getElementById('apiDot');
   const apiTitle = document.getElementById('apiTitle');
   const apiMsg = document.getElementById('apiMsg');
@@ -336,25 +325,33 @@ PATCH v20260228-hub-hygiene-brush-maskcough-jumpduck-balance
     if(probeLock) return;
     probeLock = true;
 
-    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
+    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (Hub ยังเข้าเกมได้ปกติ)');
 
     try{
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'content-type':'application/json' },
-        body: JSON.stringify({ ping: true })
-      });
+      const u = new URL(API_ENDPOINT);
+      // ✅ your doGet supports ?ping=1
+      u.searchParams.set('ping','1');
+
+      const res = await fetch(u.toString(), { method: 'GET', cache:'no-store' });
 
       if(res.status === 200){
-        setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ (Hub ใช้งานเต็มรูปแบบ)');
+        let ok = true;
+        try{
+          const j = await res.json();
+          if(j && j.ok === false) ok = false;
+        }catch(_){}
+        if(ok){
+          setBanner('ok', 'ออนไลน์ ✅', 'Logger/API พร้อมใช้งาน (Google Sheet)');
+        }else{
+          setBanner('warn', 'ตอบกลับแต่ไม่ OK', 'API ตอบ 200 แต่ payload ไม่ ok (ตรวจ Apps Script)');
+        }
       }else if(res.status === 403){
-        setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin (แต่ Hub ยังเข้าเกมได้ปกติ) — แนะนำแก้ CORS/Authorizer');
+        setBanner('bad', '403 Forbidden ⚠️', 'สิทธิ์/การ deploy ของ Apps Script ยังไม่เปิด (แต่ Hub ยังเข้าเกมได้)');
       }else{
-        setBanner('warn', `API ตอบ ${res.status}`, 'Hub ยังเข้าเกมได้ปกติ • ถ้าต้องใช้ข้อมูลจาก API ให้ตรวจ route/headers');
+        setBanner('warn', `API ตอบ ${res.status}`, 'Hub ยังเข้าเกมได้ปกติ • ตรวจการ deploy/permissions');
       }
     }catch(err){
-      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub ยังเข้าเกมได้ปกติ • ถ้าใช้ Wi-Fi โรงเรียนลองเปลี่ยนเครือข่ายหรือดู CORS');
+      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub ยังเข้าเกมได้ปกติ • ลองเปลี่ยนเครือข่าย/ดูการ deploy');
     }finally{
       probeLock = false;
     }
