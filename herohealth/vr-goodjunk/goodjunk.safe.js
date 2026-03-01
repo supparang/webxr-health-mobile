@@ -1,4 +1,4 @@
-// === /herohealth/vr-goodjunk/goodjunk.safe.js ===
+// === /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
 // + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
 // + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
@@ -7,13 +7,15 @@
 // + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
 // + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260301-SAFE-HELPPAUSE-AIHUD-AIEND-ACC-MEDRT-BATTLE
+// + ✅ Logger integration (Google Sheet via hha-cloud-logger.js) — session + events (basic)
+// FULL v20260301-SAFE-LOGGER
 'use strict';
 
 export function boot(cfg){
   cfg = cfg || {};
   const WIN = window, DOC = document;
   const AI = cfg.ai || null;
+  const LOGGER = cfg.logger || null;
 
   // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
@@ -75,7 +77,7 @@ export function boot(cfg){
 
     const sp = new URL(location.href).searchParams;
     [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log','api',
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       // battle passthrough
@@ -203,7 +205,6 @@ export function boot(cfg){
   const endTime  = $('endTime');
 
   // optional debug pills
-  const debugPills = $('debugPills');
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
   const uiDiff = $('uiDiff');
@@ -228,13 +229,26 @@ export function boot(cfg){
   // init battle (optional)
   initBattleMaybe(pid, HH_GAME).catch(()=>{});
 
-  // UI pill show (and show debug only when ?debug=1)
+  // UI pill show
   try{
-    const dbg = String(qs('debug','0')) === '1';
-    if(debugPills) debugPills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
     if(uiView) uiView.textContent = view;
     if(uiRun)  uiRun.textContent  = runMode;
     if(uiDiff) uiDiff.textContent = diff;
+  }catch(e){}
+
+  // ---------- LOGGER: game start marker ----------
+  try{
+    LOGGER?.hhaEvent?.('game_boot', {
+      event_type:'lifecycle',
+      event_name:'game_boot',
+      game: HH_GAME,
+      zone: HH_CAT,
+      run: runMode,
+      difficulty: diff,
+      view_mode: view,
+      seed: seedStr,
+      meta_json: { plannedSec }
+    });
   }catch(e){}
 
   // ---------- difficulty tuning ----------
@@ -624,7 +638,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-01_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-01_LOGGER',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -670,6 +684,26 @@ export function boot(cfg){
     try{
       const aiEnd = AI?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
+    }catch(e){}
+
+    // LOGGER: final end marker (detail payload)
+    try{
+      LOGGER?.hhaEvent?.('game_end', {
+        event_type:'lifecycle',
+        event_name:'game_end',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        totalScore: summary.scoreFinal,
+        combo: summary.comboMax,
+        miss: summary.missTotal,
+        accuracy_pct: summary.accPct,
+        rt_ms: summary.medianRtGoodMs,
+        meta_json: { reason: summary.reason, ai: summary.aiPredictionLast || null }
+      });
     }catch(e){}
 
     WIN.__HHA_LAST_SUMMARY = summary;
@@ -727,6 +761,24 @@ export function boot(cfg){
     targets.set(id, tObj);
 
     try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+
+    // LOGGER: spawn event (optional, light)
+    try{
+      LOGGER?.hhaEvent?.('spawn', {
+        event_type:'gameplay',
+        event_name:'spawn',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: id,
+        target_type: kind,
+        target_label: emoji
+      });
+    }catch(e){}
+
     return tObj;
   }
 
@@ -775,6 +827,27 @@ export function boot(cfg){
     if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
+    // LOGGER: hit
+    try{
+      LOGGER?.hhaEvent?.('hit_good', {
+        event_type:'hit',
+        event_name:'hit_good',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: t.id,
+        target_type: 'good',
+        target_label: t.el?.textContent || '',
+        rt_ms: rt,
+        score_delta: add,
+        combo
+      });
+    }catch(e){}
+
     removeTarget(t.id);
   }
 
@@ -786,6 +859,24 @@ export function boot(cfg){
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
 
       try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
+
+      try{
+        LOGGER?.hhaEvent?.('hit_junk_block', {
+          event_type:'hit',
+          event_name:'hit_junk_block',
+          game: HH_GAME,
+          zone: HH_CAT,
+          run: runMode,
+          difficulty: diff,
+          view_mode: view,
+          seed: seedStr,
+          target_id: t.id,
+          target_type: 'junk',
+          target_label: t.el?.textContent || '',
+          shield
+        });
+      }catch(e){}
+
       removeTarget(t.id);
       return;
     }
@@ -799,6 +890,25 @@ export function boot(cfg){
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
+    try{
+      LOGGER?.hhaEvent?.('hit_junk', {
+        event_type:'hit',
+        event_name:'hit_junk',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: t.id,
+        target_type: 'junk',
+        target_label: t.el?.textContent || '',
+        score_delta: -sub,
+        miss: missTotal
+      });
+    }catch(e){}
+
     removeTarget(t.id);
 
     if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
@@ -817,6 +927,25 @@ export function boot(cfg){
     sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
+    try{
+      LOGGER?.hhaEvent?.('hit_bonus', {
+        event_type:'hit',
+        event_name:'hit_bonus',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: t.id,
+        target_type: 'bonus',
+        target_label: t.el?.textContent || '',
+        score_delta: add,
+        combo
+      });
+    }catch(e){}
+
     removeTarget(t.id);
   }
 
@@ -826,6 +955,24 @@ export function boot(cfg){
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+
+    try{
+      LOGGER?.hhaEvent?.('hit_shield', {
+        event_type:'hit',
+        event_name:'hit_shield',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: t.id,
+        target_type: 'shield',
+        target_label: t.el?.textContent || '',
+        shield
+      });
+    }catch(e){}
+
     removeTarget(t.id);
   }
 
@@ -842,6 +989,24 @@ export function boot(cfg){
       }
 
       try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
+
+      try{
+        LOGGER?.hhaEvent?.('hit_boss_shield', {
+          event_type:'hit',
+          event_name:'hit_boss_shield',
+          game: HH_GAME,
+          zone: HH_CAT,
+          run: runMode,
+          difficulty: diff,
+          view_mode: view,
+          seed: seedStr,
+          target_id: t.id,
+          target_type: 'boss',
+          target_label: t.el?.textContent || '',
+          value_num: bossShieldHp
+        });
+      }catch(e){}
+
       removeTarget(t.id);
       return;
     }
@@ -858,6 +1023,25 @@ export function boot(cfg){
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
     try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
+
+    try{
+      LOGGER?.hhaEvent?.('hit_boss', {
+        event_type:'hit',
+        event_name:'hit_boss',
+        game: HH_GAME,
+        zone: HH_CAT,
+        run: runMode,
+        difficulty: diff,
+        view_mode: view,
+        seed: seedStr,
+        target_id: t.id,
+        target_type: 'boss',
+        target_label: t.el?.textContent || '',
+        score_delta: add,
+        value_num: dmg
+      });
+    }catch(e){}
+
     removeTarget(t.id);
 
     if(bossHp<=0){
@@ -1016,6 +1200,24 @@ export function boot(cfg){
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
 
+          try{
+            LOGGER?.hhaEvent?.('expire_good', {
+              event_type:'expire',
+              event_name:'expire_good',
+              game: HH_GAME,
+              zone: HH_CAT,
+              run: runMode,
+              difficulty: diff,
+              view_mode: view,
+              seed: seedStr,
+              target_id: t.id,
+              target_type: 'good',
+              target_label: t.el?.textContent || '',
+              score_delta: -4,
+              miss: missTotal
+            });
+          }catch(e){}
+
           if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
         removeTarget(t.id);
@@ -1101,10 +1303,7 @@ export function boot(cfg){
         missJunkHit,
         shield,
         fever,
-        combo,
-        // extra for model builders (safe to ignore)
-        accPct: accPct(),
-        medianRtGoodMs: Math.round(median(rtList))
+        combo
       }) || null;
       setAIHud(pred);
     }catch(e){}
