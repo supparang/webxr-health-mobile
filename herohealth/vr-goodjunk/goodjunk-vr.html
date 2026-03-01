@@ -1,6 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk.html ===
 GoodJunkVR RUN — PRODUCTION (ESM)
-FULL v20260301-RUN-AI-MLREC -->
+ROOT: /webxr-health-mobile/herohealth/
+FULL v20260301-RUN-PATHFIX-AIHUD-MLREC-BATTLE
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -9,7 +11,6 @@ FULL v20260301-RUN-AI-MLREC -->
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <!-- ✅ FIX: correct css name -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 </head>
 <body>
@@ -118,12 +119,14 @@ FULL v20260301-RUN-AI-MLREC -->
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-
-        <!-- Cooldown button injected by JS -->
+        <!-- Cooldown button inject by JS -->
       </div>
     </div>
 
   </div>
+
+  <!-- Optional: load exported ML model (if exists) -->
+  <script src="../vr/goodjunk-model.js"></script>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
@@ -143,24 +146,27 @@ FULL v20260301-RUN-AI-MLREC -->
       ai: null
     };
 
-    // ✅ ML recorder (open when ?mlrec=1)
-    if(qs('mlrec','0') === '1'){
-      attachMLRecorderUI({
-        gameKey: 'goodjunk',
-        pid: cfg.pid,
-        seed: cfg.seed,
-        run: cfg.run,
-        diff: cfg.diff,
-        view: cfg.view
-      });
-    }
-
-    // ✅ AI enabled only when ?ai=1 AND run=play (keep research deterministic)
+    // AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       cfg.ai = createGoodJunkAI({
         seed: cfg.seed,
         pid: cfg.pid,
+        diff: cfg.diff,
+        view: cfg.view,
+        // optional: exported model object on window.HHA_GOODJUNK_MODEL
+        model: window.HHA_GOODJUNK_MODEL || null
+      });
+    }
+
+    // ML Recorder enabled only when ?mlrec=1
+    const mlrecOn = (qs('mlrec','0') === '1');
+    if(mlrecOn){
+      attachMLRecorderUI({
+        gameKey: 'goodjunk',
+        pid: cfg.pid,
+        seed: cfg.seed,
+        run: cfg.run,
         diff: cfg.diff,
         view: cfg.view
       });
@@ -174,7 +180,9 @@ FULL v20260301-RUN-AI-MLREC -->
       u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
-    btnHub?.addEventListener('click', ()=> location.href = (cfg.hub || '../hub.html'));
+    btnHub?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
+    });
 
     boot(cfg);
   </script>
