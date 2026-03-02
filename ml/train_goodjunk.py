@@ -1,121 +1,166 @@
-# === /webxr-health-mobile/herohealth/ml/train_goodjunk.py ===
-# Train GoodJunk risk model (baseline) from exported CSV
-# Output: weights to paste into /herohealth/vr/goodjunk-model.js
-# v20260301
+# === /webxr-health-mobile/ml/train_goodjunk.py ===
+# GoodJunk ML Trainer — PRODUCTION STARTER (logistic regression risk model)
+# FULL v20260302-TRAIN-GOODJUNK
+import json, math, os, sys, csv
+from collections import defaultdict
 
-import json
-import numpy as np
-import pandas as pd
+def sigmoid(z: float) -> float:
+    if z > 18: return 1.0
+    if z < -18: return 0.0
+    return 1.0 / (1.0 + math.exp(-z))
 
-def sigmoid(z):
-    return 1.0 / (1.0 + np.exp(-z))
+def clamp(x,a,b): return a if x<a else (b if x>b else x)
 
-def build_features(df):
-    # Expect columns from logger event rows (best effort)
-    # We'll aggregate per session_id if present; else treat rows as stream.
-    sid = 'session_id' if 'session_id' in df.columns else None
-    if sid:
-        g = df.groupby(sid)
-        agg = g.apply(lambda x: pd.Series({
-            'diff': (x['difficulty'].iloc[0] if 'difficulty' in x.columns else 'normal'),
-            'view': (x['view_mode'].iloc[0] if 'view_mode' in x.columns else 'mobile'),
-            'shots': len(x),
-            'miss': float(x['miss'].fillna(0).max() if 'miss' in x.columns else 0),
-            'hitJunk': float(x['nHitJunk'].fillna(0).max() if 'nHitJunk' in x.columns else 0),
-            'hitGood': float(x['nHitGood'].fillna(0).max() if 'nHitGood' in x.columns else 0),
-            'combo': float(x['combo'].fillna(0).max() if 'combo' in x.columns else 0),
-            'rtGood': float(x['rt_ms'].fillna('').replace('', np.nan).dropna().median() if 'rt_ms' in x.columns else np.nan),
-            'fever': float(x.get('feverPct', pd.Series([0])).fillna(0).max() if 'feverPct' in x.columns else 0),
-            'timeLeft': float(x.get('timeLeftSec', pd.Series([0])).fillna(0).min() if 'timeLeftSec' in x.columns else 0),
-            'timeAll': float(x.get('timeAllSec', pd.Series([80])).fillna(80).max() if 'timeAllSec' in x.columns else 80),
-            # label: "bad outcome" — you can refine this
-            # For baseline: high miss OR high junk rate
-            'label': float(((x['miss'].fillna(0).max() if 'miss' in x.columns else 0) >= 6) or
-                           (((x.get('nHitJunk', pd.Series([0])).fillna(0).max()) / max(1,len(x))) > 0.18))
-        }))
-        df2 = agg.reset_index(drop=True)
-    else:
-        df2 = pd.DataFrame()
+FEATURES = [
+    "missRate","junkRate","rtMedSec","comboNorm","timeLeftNorm","feverNorm","shieldNorm","diffHard","diffEasy"
+]
 
-    # Fill missing
-    df2['diff'] = df2['diff'].fillna('normal')
-    df2['view'] = df2['view'].fillna('mobile')
-    df2['rtGood'] = df2['rtGood'].fillna(600)
+def safe_float(v, default=0.0):
+    try:
+        if v is None: return default
+        s = str(v).strip()
+        if s == "": return default
+        return float(s)
+    except:
+        return default
 
-    shots = df2['shots'].clip(lower=1).astype(float)
-    miss_rate = (df2['miss'].astype(float) / shots).clip(0,1)
-    junk_rate = (df2['hitJunk'].astype(float) / shots).clip(0,1)
+def read_csv(path):
+    rows = []
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append(r)
+    return rows
 
-    combo_norm = (df2['combo'].astype(float) / 25.0).clip(0,1)
-    rt = df2['rtGood'].astype(float).clip(120,2000)
-    rt_norm = ((rt - 250.0) / (1200.0 - 250.0)).clip(0,1)
+def featurize_session(r):
+    # Works with your hha-cloud-logger sessions (fields may differ)
+    shots = max(0.0, safe_float(r.get("shots", r.get("nShots", 0)), 0.0))
+    miss  = max(0.0, safe_float(r.get("miss", r.get("misses", 0)), 0.0))
+    hitJunk = max(0.0, safe_float(r.get("hitsJunk", r.get("nHitJunk", 0)), 0.0))
+    combo = max(0.0, safe_float(r.get("combo_max", r.get("comboMax", 0)), 0.0))
 
-    time_all = df2['timeAll'].astype(float).clip(20,300)
-    time_left = df2['timeLeft'].astype(float).clip(0,999)
-    time_left_norm = (time_left / time_all).clip(0,1)
+    timeLeftSec = max(0.0, safe_float(r.get("timeLeftSec", 0), 0.0))
+    timeAllSec  = max(1.0, safe_float(r.get("session_time_sec_setting", r.get("durationPlannedSec", 80)), 80.0))
 
-    fever_norm = (df2['fever'].astype(float).clip(0,100) / 100.0).clip(0,1)
+    rtMedMs = safe_float(r.get("medianRtGoodMs", r.get("rtMedMs", 0)), 0.0)
+    feverPct = clamp(safe_float(r.get("feverEndPct", r.get("feverPct", 0)), 0.0), 0.0, 100.0)
+    shield = clamp(safe_float(r.get("shieldEnd", r.get("shield", 0)), 0.0), 0.0, 3.0)
 
-    # one-hot diff/view
-    diff_easy = (df2['diff'].str.lower()=='easy').astype(float)
-    diff_normal = (df2['diff'].str.lower()=='normal').astype(float)
-    diff_hard = (df2['diff'].str.lower()=='hard').astype(float)
-    view_mobile = (df2['view'].str.lower().str.contains('mob')).astype(float)
-    view_pc = (df2['view'].str.lower().str.contains('pc')).astype(float)
+    missRate = (miss / shots) if shots > 0 else 0.0
+    junkRate = (hitJunk / shots) if shots > 0 else 0.0
 
-    X = np.stack([
-        np.ones(len(df2)),        # bias
-        diff_easy,
-        diff_normal,
-        diff_hard,
-        view_mobile,
-        view_pc,
-        time_left_norm,
-        miss_rate,
-        junk_rate,
-        combo_norm,
-        rt_norm,
-        fever_norm
-    ], axis=1).astype(np.float64)
+    rtMedSec = (rtMedMs/1000.0) if rtMedMs > 0 else 1.2
+    comboNorm = min(1.0, combo / 25.0)
 
-    y = df2['label'].astype(int).values
-    return X, y
+    timeLeftNorm = min(1.0, timeLeftSec / timeAllSec) if timeAllSec > 0 else 0.0
+    feverNorm = feverPct / 100.0
+    shieldNorm = shield / 3.0
 
-def train_logreg(X, y, lr=0.3, steps=1200, l2=1e-3):
-    w = np.zeros(X.shape[1], dtype=np.float64)
-    for i in range(steps):
-        z = X @ w
-        p = sigmoid(z)
-        grad = (X.T @ (p - y)) / len(y) + l2*w
-        w -= lr * grad
-    return w
+    diff = str(r.get("difficulty", r.get("diff",""))).lower()
+    diffHard = 1.0 if diff == "hard" else 0.0
+    diffEasy = 1.0 if diff == "easy" else 0.0
+
+    x = {
+        "missRate": missRate,
+        "junkRate": junkRate,
+        "rtMedSec": rtMedSec,
+        "comboNorm": comboNorm,
+        "timeLeftNorm": timeLeftNorm,
+        "feverNorm": feverNorm,
+        "shieldNorm": shieldNorm,
+        "diffHard": diffHard,
+        "diffEasy": diffEasy
+    }
+    return x
+
+def label_from_session(r):
+    # Define "risk event" label:
+    # 1 if high miss OR low score OR quit early (adjust later)
+    miss = safe_float(r.get("miss", r.get("misses", 0)), 0.0)
+    shots = safe_float(r.get("shots", r.get("nShots", 0)), 0.0)
+    missRate = (miss/shots) if shots>0 else 0.0
+
+    score = safe_float(r.get("score", r.get("scoreFinal", 0)), 0.0)
+    completed = safe_float(r.get("completed", 1), 1.0)
+
+    y = 1.0 if (missRate >= 0.28 or score < 180 or completed < 1) else 0.0
+    return y
+
+def to_vec(x, wkeys):
+    return [float(x.get(k,0.0)) for k in wkeys]
+
+def train_logreg_gd(X, y, lr=0.35, epochs=600, l2=0.10):
+    # Simple gradient descent logistic regression
+    w = {k:0.0 for k in FEATURES}
+    b = -0.5
+
+    n = len(X)
+    if n == 0:
+        return {"bias": -1.1}
+
+    for ep in range(epochs):
+        gb = 0.0
+        gw = {k:0.0 for k in FEATURES}
+        loss = 0.0
+
+        for i in range(n):
+            z = b
+            for k in FEATURES:
+                z += w[k] * X[i][k]
+            p = sigmoid(z)
+            yi = y[i]
+            # logloss
+            loss += -(yi*math.log(max(1e-9,p)) + (1-yi)*math.log(max(1e-9,1-p)))
+            dz = (p - yi)
+            gb += dz
+            for k in FEATURES:
+                gw[k] += dz * X[i][k]
+
+        # avg + l2
+        gb /= n
+        for k in FEATURES:
+            gw[k] = (gw[k]/n) + l2*w[k]
+
+        b -= lr*gb
+        for k in FEATURES:
+            w[k] -= lr*gw[k]
+
+        if ep % 100 == 0:
+            loss /= n
+            # print minimal progress
+            print(f"epoch {ep:4d} loss={loss:.4f}")
+
+    out = {"bias": b}
+    out.update(w)
+    return out
 
 def main():
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--csv', required=True, help='Exported CSV from GoodJunk (events)')
-    ap.add_argument('--out', default='goodjunk_weights.json')
-    args = ap.parse_args()
+    if len(sys.argv) < 2:
+        print("Usage: python train_goodjunk.py sessions.csv [out.json]")
+        sys.exit(1)
 
-    df = pd.read_csv(args.csv)
-    X, y = build_features(df)
-    if len(y) < 30:
-        print('Not enough data (need >= 30 sessions). Got:', len(y))
-        return
+    sessions_path = sys.argv[1]
+    out_path = sys.argv[2] if len(sys.argv) >= 3 else "goodjunk_weights.json"
 
-    w = train_logreg(X, y)
-    out = {
-        "version":"goodjunk-logreg-v1",
-        "features":[
-            "bias","diff_easy","diff_normal","diff_hard","view_mobile","view_pc",
-            "time_left_norm","miss_rate","junk_rate","combo_norm","rt_good_norm","fever_norm"
-        ],
-        "weights":[float(x) for x in w]
-    }
-    with open(args.out,'w',encoding='utf-8') as f:
-        json.dump(out,f,ensure_ascii=False,indent=2)
-    print('Saved:', args.out)
-    print('Paste weights into /herohealth/vr/goodjunk-model.js -> GOODJUNK_MODEL_V1.weights')
+    rows = read_csv(sessions_path)
 
-if __name__ == '__main__':
+    X = []
+    y = []
+    for r in rows:
+        x = featurize_session(r)
+        X.append(x)
+        y.append(label_from_session(r))
+
+    print(f"Loaded sessions: {len(rows)}")
+
+    # train
+    w = train_logreg_gd(X, y)
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(w, f, ensure_ascii=False, indent=2)
+
+    print("Saved:", out_path)
+    print("Tip: paste JSON into localStorage key HHA_GJ_MODEL_W in browser.")
+
+if __name__ == "__main__":
     main()
