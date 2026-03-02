@@ -1,8 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
 // ✅ ESM + hha:shoot + deterministic + AI hooks wired + end summary hardened + cooldown daily-first
-// FULL v20260228-HYDRATION-SAFE-AIWIRED
+// ✅ AUTO HUD-SAFE SPAWN via SpawnGuard
+// FULL v20260301-HYDRATION-SAFE-SPAWNGUARD
 'use strict';
+
+import { createSpawnGuard } from '../vr/spawn-guard.js';
 
 export function boot(cfg){
   cfg = cfg || {};
@@ -13,6 +16,8 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
+
+  const DEBUG = (qs('debug','0') === '1');
 
   // --- cooldown helpers (per-game daily) ---
   function hhDayKey(){
@@ -26,7 +31,7 @@ export function boot(cfg){
   function cooldownDone(cat, game, pid){
     const day=hhDayKey();
     pid=String(pid||'anon').trim()||'anon';
-    cat=String(cat||'exercise').toLowerCase(); // hydration อยู่ exercise/nutrition ก็ได้ แต่ใน hub ของคุณอยู่ nutrition zone? ปรับได้
+    cat=String(cat||'exercise').toLowerCase();
     game=String(game||'hydration').toLowerCase();
     const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
     const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
@@ -128,6 +133,15 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
+  // ✅ SpawnGuard: compute HUD-safe area automatically
+  const SpawnGuard = createSpawnGuard({
+    hudSelector: '.hud',
+    margin: (view === 'mobile') ? 12 : 14,
+    debug: DEBUG
+  });
+  // keep it fresh (HUD height can vary per device)
+  setInterval(()=>SpawnGuard.tick(false), 500);
+
   // Tuning
   const TUNE = (function(){
     let spawnBase=0.78, ttlGood=2.8, ttlBad=3.0, missLimit=12;
@@ -137,7 +151,6 @@ export function boot(cfg){
     if(diff==='hard'){ spawnBase=0.95; ttlGood=2.35; ttlBad=2.6; missLimit=9;  waterGain=6.8; waterLoss=7.0; }
 
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
-
     return { spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop };
   })();
 
@@ -208,8 +221,15 @@ export function boot(cfg){
 
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
-    const x = pad + r01()*(Math.max(1, r.width - pad*2));
-    const y = Math.max(pad+90, pad + r01()*(Math.max(1, r.height - pad*2)));
+
+    // ✅ spawn inside HUD-safe region (viewport-based) then map to layer rect
+    const pt = SpawnGuard.random01(r01);
+    let x = pt.x01 * WIN.innerWidth;
+    let y = pt.y01 * WIN.innerHeight;
+
+    // map viewport px -> layer local px
+    x = clamp(x - r.left, pad, Math.max(pad, r.width - pad));
+    y = clamp(y - r.top,  pad, Math.max(pad, r.height - pad));
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -232,9 +252,7 @@ export function boot(cfg){
     try{ b.el.remove(); }catch(e){}
   }
 
-  function addShield(){
-    shield = clamp(shield + 1, 0, 9);
-  }
+  function addShield(){ shield = clamp(shield + 1, 0, 9); }
 
   function hit(b, x, y){
     if(!playing || paused) return;
@@ -334,7 +352,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-02-28_AIWired',
+      gameVersion: 'HydrationVR_SAFE_2026-03-01_SpawnGuard',
       device: view,
       runMode,
       diff,
@@ -371,9 +389,7 @@ export function boot(cfg){
         ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
       }
     }
-    if(ui.btnBackHub){
-      ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
-    }
+    if(ui.btnBackHub){ ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; }; }
     if(ui.btnReplay){
       ui.btnReplay.onclick = ()=>{
         try{
@@ -387,11 +403,8 @@ export function boot(cfg){
     }
     if(ui.btnCopy){
       ui.btnCopy.onclick = async ()=>{
-        try{
-          await navigator.clipboard.writeText(safeJson(summary));
-        }catch(e){
-          try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){}
-        }
+        try{ await navigator.clipboard.writeText(safeJson(summary)); }
+        catch(e){ try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){ } }
       };
     }
   }
@@ -445,13 +458,9 @@ export function boot(cfg){
       let kind='good';
       const p=r01();
 
-      if(p < (0.64 - bossMult)){
-        kind='good';
-      }else if(p < (0.88 + bossMult)){
-        kind='bad';
-      }else{
-        kind='shield';
-      }
+      if(p < (0.64 - bossMult)) kind='good';
+      else if(p < (0.88 + bossMult)) kind='bad';
+      else kind='shield';
 
       if(kind==='good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
       else if(kind==='shield') makeBubble('shield', pick(SHLD), 2.6);
@@ -464,7 +473,6 @@ export function boot(cfg){
     for(const b of Array.from(bubbles.values())){
       const age=t - b.born;
       if(age >= b.ttl){
-        // expire
         try{ cfg.ai?.onExpire?.(b.kind, { id:b.id }); }catch(e){}
 
         if(b.kind==='good'){
