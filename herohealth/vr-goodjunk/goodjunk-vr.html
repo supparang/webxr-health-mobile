@@ -1,9 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM)
-✅ Works with ./goodjunk.safe.js
-✅ Battle UI auto injector (battle=1)
-✅ Optional AI (ai=1)
-PATCH v20260302-RUN-BATTLE-UIAUTO
+GoodJunkVR RUN — PRODUCTION (ESM boot)
+PATCH v20260302-RUN-GOODJUNKVR-FOLDERNAME-AI-BATTLE-VRUI
+Requires:
+- ./goodjunk.safe.js
+- ./goodjunk-vr.css
+Optional:
+- ../vr/vr-ui.js          (for VR/cVR hha:shoot)
+- ../vr/ai-goodjunk.js    (?ai=1)
+- ../vr/battle-rtdb.js    (?battle=1)
 -->
 <!doctype html>
 <html lang="th">
@@ -12,6 +16,8 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
+  <meta name="google" content="notranslate"/>
+
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
 </head>
@@ -31,7 +37,7 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
         <div class="pill">SCORE <b id="hud-score">0</b></div>
         <div class="pill">TIME <b id="hud-time">0</b></div>
         <div class="pill">MISS <b id="hud-miss">0</b></div>
-        <div class="pill">GRADE <b id="hud-grade">C</b></div>
+        <div class="pill">GRADE <b id="hud-grade">—</b></div>
       </div>
 
       <div class="hud-row">
@@ -121,7 +127,8 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- battle badge + cooldown will be injected by JS -->
+
+        <!-- Cooldown button will be injected here by JS (hhInjectCooldownButton) -->
       </div>
     </div>
 
@@ -143,12 +150,13 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
       ai: null
     };
 
-    // ✅ Battle UI auto injector (only when ?battle=1)
-    if(qs('battle','0') === '1'){
+    // ✅ load VR UI only when view=vr/cvr (safe on mobile too)
+    const v = String(cfg.view||'').toLowerCase();
+    if(v === 'vr' || v === 'cvr'){
       try{
-        await import('../vr/battle-ui.auto.js?v=20260302');
+        await import('../vr/vr-ui.js'); // emits hha:shoot + recenter/enter/exit
       }catch(e){
-        console.warn('[GoodJunk] battle-ui.auto load failed', e);
+        console.warn('[GoodJunk] vr-ui load failed', e);
       }
     }
 
@@ -157,9 +165,8 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
             seed: cfg.seed,
             pid: cfg.pid,
             diff: cfg.diff,
@@ -180,8 +187,7 @@ PATCH v20260302-RUN-BATTLE-UIAUTO
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+      location.href = (cfg.hub || '../hub.html');
     });
 
     boot(cfg);
