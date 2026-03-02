@@ -2,7 +2,7 @@
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
 // PATCH v20260225: Bloom per-zone per-day (pid+zone+day) + Bloom -> Warmup -> Game wrapper
 // PATCH v20260226: Canonical HUB URL (GitHub Pages safe)
-// PATCH v20260301: Balance Hold DOM flags + Return Summary panel (lastGame/lastScore/lastRank/lastStab)
+// PATCH v20260302: HUB-PASS 1–5 (Balance defaults + global passthrough + bypass + dual-path click)
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
@@ -62,9 +62,8 @@ function absUrlMaybe(url){
   try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
 }
 
-/* ===================== NEW: Bloom per-zone daily ===================== */
+/* ===================== Bloom per-zone daily ===================== */
 function localDayKey(){
-  // ใช้ local device day (เหมือน warmup-gate)
   const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth()+1).padStart(2,'0');
@@ -79,8 +78,22 @@ function bloomDailyKey(zone, pid){
 function isBloomDone(zone, pid){
   try{ return localStorage.getItem(bloomDailyKey(zone,pid)) === '1'; }catch(_){ return false; }
 }
-/* ==================================================================== */
+/* ================================================================= */
 
+/* =========================================================
+ * (3) Global bypass switches
+ * - ?fast=1 or ?skipBW=1 => direct into game (no bloom/warmup)
+ * ======================================================= */
+function shouldSkipBloomWarmup(){
+  const fast = String(qs('fast','')).trim().toLowerCase();
+  const skip = String(qs('skipBW','')).trim().toLowerCase();
+  return (fast === '1' || fast === 'true' || skip === '1' || skip === 'true');
+}
+
+/* =========================================================
+ * Common params
+ * (2) Global passthrough tutorial/practice flags (optional)
+ * ======================================================= */
 function addCommonParams(u){
   const set = (k,v)=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k, String(v)); };
 
@@ -113,18 +126,23 @@ function addCommonParams(u){
   // keep bloom
   if(P.bloom) set('bloom', P.bloom);
 
+  // (2) optional global UX flags: only pass-through when provided on HUB url
+  set('tutorial', qs('tutorial',''));
+  set('practiceOn', qs('practiceOn',''));
+  set('practice', qs('practice',''));
+
   return u;
 }
 
 /* =========================================================
- * PATCH v20260301: Game-specific params
- * - Balance Hold (fitness DOM) needs tutorial/practice flags
+ * (1) Balance Hold defaults only (game-specific)
+ * - Only applies when hub URL did NOT set them
  * ======================================================= */
 function addGameSpecificParams(u, gameKey){
   const k = String(gameKey||'').toLowerCase();
 
   if(k === 'balance'){
-    // allow override from hub url
+    // Defaults for Balance Hold DOM (fitness/balance-hold.html)
     const tutorial   = String(qs('tutorial', '1'));
     const practiceOn = String(qs('practiceOn', '1'));
     const practice   = String(qs('practice', '15'));
@@ -155,7 +173,7 @@ function gameRunPathByKey(gameKey){
   if(k==='shadow')   return '../fitness/shadow-breaker.html';
   if(k==='rhythm')   return '../fitness/rhythm-boxer.html';
   if(k==='jumpduck') return '../fitness/jump-duck.html';
-  if(k==='balance')  return '../fitness/balance-hold.html'; // ✅ DOM Balance Hold
+  if(k==='balance')  return '../fitness/balance-hold.html'; // ✅ Balance Hold DOM (fitness)
   if(k==='planner')  return '../fitness/fitness-planner/index.html';
 
   return './vr-goodjunk/goodjunk-vr.html';
@@ -173,7 +191,7 @@ function buildGameRunUrlFromGameKey(gameKey){
   const u = new URL(base, location.href);
 
   addCommonParams(u);
-  addGameSpecificParams(u, gameKey); // ✅ PATCH v20260301
+  addGameSpecificParams(u, gameKey); // ✅ (1)
 
   if(!u.searchParams.get('zone')){
     u.searchParams.set('zone', inferZoneByGameKey(gameKey));
@@ -198,7 +216,7 @@ function warmupGateUrlFor(gameUrl, gameKey, phase){
 }
 
 function bloomGateUrlFor(nextUrl, gameKey, bloomLevel){
-  const gate = absUrlMaybe('./bloom-gate.html'); // ✅ new root file
+  const gate = absUrlMaybe('./bloom-gate.html'); // ✅ root file
   const u = new URL(gate, location.href);
 
   addCommonParams(u);
@@ -209,10 +227,10 @@ function bloomGateUrlFor(nextUrl, gameKey, bloomLevel){
   u.searchParams.set('next', absUrlMaybe(nextUrl));
   u.searchParams.set('cat', String(P.zone || z || 'nutrition'));  // cat=zone
   u.searchParams.set('theme', String(gameKey||'').toLowerCase());
-  u.searchParams.set('zone', String(P.zone || z || 'nutrition')); // ✅ explicit zone for bloom daily key
-  u.searchParams.set('day', localDayKey());                       // ✅ debug/trace
+  u.searchParams.set('zone', String(P.zone || z || 'nutrition')); // explicit zone for bloom daily key
+  u.searchParams.set('day', localDayKey());                       // debug/trace
 
-  // bloom สั้นกว่า warmup
+  // bloom shorter than warmup
   if(!u.searchParams.get('dur')) u.searchParams.set('dur', '18');
 
   return u.toString();
@@ -226,7 +244,7 @@ function wrapBloomWarmup(gameUrl, gameKey){
   const useBloom = (b === 'a' || b === 'b' || b === 'c');
   if(!useBloom) return warmUrl;
 
-  // ✅ Bloom per-zone per-day
+  // Bloom per-zone per-day
   const z = inferZoneByGameKey(gameKey);
   const pid = P.pid || 'anon';
   if(isBloomDone(z, pid)){
@@ -237,22 +255,55 @@ function wrapBloomWarmup(gameUrl, gameKey){
   return bloomGateUrlFor(warmUrl, gameKey, b);
 }
 
+/* =========================================================
+ * (5) Dual-path button behavior (no HTML changes needed)
+ * - normal click: Bloom->Warmup->Game (default)
+ * - Shift-click OR Alt-click: Direct Game (debug)
+ * ======================================================= */
+function isDirectClick(ev){
+  return !!(ev && (ev.shiftKey || ev.altKey));
+}
+
+/* =========================================================
+ * (4) Selective bypass:
+ * - if fast/skipBW => bypass for all games
+ * - additionally bypass for balance when run=research
+ * ======================================================= */
+function shouldBypassForGame(gameKey, ev){
+  if (shouldSkipBloomWarmup()) return true;       // (3)
+  if (isDirectClick(ev)) return true;             // (5)
+  const k = String(gameKey||'').toLowerCase();
+  if (k === 'balance' && String(P.run||'play').toLowerCase() === 'research') return true; // (4)
+  return false;
+}
+
 function setupHubButtons(){
   const btns = document.querySelectorAll('[data-game]');
   btns.forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       e.preventDefault();
+
       const gameKey = String(btn.getAttribute('data-game')||'goodjunk').toLowerCase();
       const gameUrl = buildGameRunUrlFromGameKey(gameKey);
 
-      const finalUrl = wrapBloomWarmup(gameUrl, gameKey);
+      // Decide path
+      const finalUrl = shouldBypassForGame(gameKey, e)
+        ? gameUrl
+        : wrapBloomWarmup(gameUrl, gameKey);
+
+      // hint toast for direct debug
+      try{
+        if (isDirectClick(e)) toast && toast(`Direct: ${gameKey}`);
+      }catch(_){}
+
       location.href = finalUrl;
     }, {passive:false});
   });
 }
 
 /* =========================================================
- * PATCH v20260301: Return summary panel (query + localStorage)
+ * Return summary panel (query + localStorage)
+ * - reads lastGame/lastScore/lastRank/lastStab or HHA_LAST_SUMMARY
  * ======================================================= */
 function showReturnSummaryPanel(){
   const panel = document.getElementById('lastSummary');
@@ -266,17 +317,14 @@ function showReturnSummaryPanel(){
   const lastRank  = String(qs('lastRank','')).trim();
   const lastStab  = String(qs('lastStab','')).trim();
 
-  // (1) return via query
   if(lastGame){
     panel.style.display = '';
     t.textContent = 'สรุปล่าสุด (Return)';
     b.textContent = `✅ ล่าสุด: ${lastGame} | Score ${lastScore||0} | Rank ${lastRank||'-'} | Stability ${lastStab||0}%`;
   }else{
-    // (2) fallback localStorage
     let info = null;
-    try{
-      info = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
-    }catch(e){ info = null; }
+    try{ info = JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY') || 'null'); }
+    catch(e){ info = null; }
 
     if(info && info.gameId){
       const stabPct = Math.round((info.stabilityRatio||0)*100);
@@ -288,7 +336,6 @@ function showReturnSummaryPanel(){
     }
   }
 
-  // clear summary button (safe)
   if(clearBtn){
     clearBtn.addEventListener('click', (ev)=>{
       ev.preventDefault();
@@ -312,10 +359,14 @@ async function boot(){
     setBanner('API', 'offline');
   }
 
-  // ✅ PATCH v20260301
   showReturnSummaryPanel();
-
   setupHubButtons();
+
+  // optional hint: how to direct debug
+  try{
+    const fastHint = shouldSkipBloomWarmup() ? 'ON' : 'OFF';
+    toast && toast(`HUB ready • fast=${fastHint} • Shift/Alt+Click = Direct`);
+  }catch(_){}
 }
 
 boot();
