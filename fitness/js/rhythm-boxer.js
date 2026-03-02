@@ -1,422 +1,1157 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness — Rhythm Boxer</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
+// === /fitness/js/rhythm-boxer.js ===
+// Rhythm Boxer — PRODUCTION SAFE (MVP) — Planner/Research ready
+// FULL v20260302-RB-SAFE-MVP
+'use strict';
 
-  <!-- ✅ HHA Planner Bridge HUD (safe, light) -->
-  <style>
-    #hhHud{
-      position:fixed; left:10px; right:10px; top:10px; z-index:9999;
-      display:flex; gap:8px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
-    .hhPill{
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(0,0,0,.55);
-      color:#e8eefc;
-      padding:8px 10px;
-      border-radius:999px;
-      font-weight:900;
-      backdrop-filter: blur(6px);
-      max-width: 70vw;
-      overflow:hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .hhBtn{
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.08);
-      color:#e8eefc;
-      padding:8px 12px;
-      border-radius:14px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-    .hhBtn:active{ transform: translateY(1px); }
-    .hhTiny{ opacity:.85; font-weight:800; }
-  </style>
-</head>
-
-<body>
-<!-- ✅ Overlay HUD: shows plan day/slot and provides back -->
-<div id="hhHud" aria-hidden="false">
-  <div class="hhPill">
-    Rhythm 🥊
-    <span class="hhTiny">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span>
-  </div>
-  <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
-</div>
-
-<div id="rb-wrap" data-diff="normal">
-  <div id="rb-flash"></div>
-
-  <!-- ===== VIEW: MENU ===== -->
-  <main id="rb-view-menu" class="rb-view">
-    <header class="rb-header">
-      <div class="rb-head-main">
-        <span class="rb-pill">VR Fitness · Rhythm</span>
-        <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
-        <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
-      </div>
-
-      <!-- ✅ dynamic hub/back (patched by script at bottom) -->
-      <a href="hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
-    </header>
-
-    <section class="rb-section rb-grid-2">
-      <div class="rb-research-box">
-        <h2 class="rb-section-title">โหมดการเล่น</h2>
-
-        <div class="rb-mode-toggle" role="radiogroup" aria-label="mode">
-          <label class="rb-mode-btn">
-            <input type="radio" name="rb-mode" value="normal" checked/>
-            <span>Normal</span>
-          </label>
-          <label class="rb-mode-btn">
-            <input type="radio" name="rb-mode" value="research"/>
-            <span>Research</span>
-          </label>
-        </div>
-
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
-
-        <div id="rb-research-fields" class="rb-section hidden">
-          <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
-
-          <div class="rb-field">
-            <label for="rb-participant">Participant ID</label>
-            <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
-          </div>
-          <div class="rb-field">
-            <label for="rb-group">กลุ่ม / เงื่อนไข</label>
-            <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
-          </div>
-          <div class="rb-field">
-            <label for="rb-note">โน้ตเพิ่มเติม</label>
-            <input id="rb-note" type="text" placeholder="เช่น รอบก่อนฝึก, หลังฝึก, เวลาเล่น ฯลฯ"/>
-          </div>
-
-          <p class="rb-hint-inline">
-            Research จะบันทึก Event CSV + Session CSV (offset, side, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
-          </p>
-        </div>
-      </div>
-
-      <div class="rb-research-box">
-        <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
-
-        <div id="rb-track-options" class="rb-section">
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n1" checked/>
-            <span>Warm-up Groove · ง่าย · 100 BPM</span>
-          </label>
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n2"/>
-            <span>Focus Combo · ปกติ · 120 BPM</span>
-          </label>
-          <label class="rb-mode-btn" data-mode="normal">
-            <input type="radio" name="rb-track" value="n3"/>
-            <span>Speed Rush · ยาก · 140 BPM</span>
-          </label>
-
-          <label class="rb-mode-btn" data-mode="research">
-            <input type="radio" name="rb-track" value="r1"/>
-            <span>Research Track 120 · ทดลอง · 120 BPM</span>
-          </label>
-        </div>
-
-        <div class="rb-hint-block">
-          <p class="rb-hint-title">วิธีเล่น</p>
-          <ul class="rb-hint-list">
-            <li>แตะเลน (L2, L1, C, R1, R2) ให้โน้ตตรงเส้นตีด้านล่าง</li>
-            <li>Perfect / Great / Good เพิ่ม FEVER; Miss ลด HP</li>
-            <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
-            <li>คีย์บอร์ด (PC): A S D J K</li>
-          </ul>
-        </div>
-
-        <div class="rb-section">
-          <button id="rb-btn-start" class="rb-btn rb-btn-primary">▶ เริ่มเล่น Rhythm Boxer</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- ===== VIEW: PLAY ===== -->
-  <main id="rb-view-play" class="rb-view hidden">
-    <header class="rb-play-header">
-      <div>
-        <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · เส้นตีสีเหลืองอยู่ด้านล่าง · ดู FEVER / ACC / HP</p>
-      </div>
-      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
-    </header>
-
-    <section class="rb-research-box rb-hud">
-      <div class="rb-hud-row">
-        <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
-        <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
-      </div>
-
-      <div class="rb-hud-row">
-        <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
-        <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
-        <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
-      </div>
-
-      <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
-        <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
-        <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
-      </div>
-
-      <div class="rb-hud-row rb-hud-row-ai">
-        <span class="rb-chip rb-chip-ai rb-chip-tip">
-          <span class="rb-chip-tip-label">Coach:</span>
-          <b id="rb-hud-ai-tip" class="hidden"></b>
-        </span>
-      </div>
-
-      <div class="rb-hud-row">
-        <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
-        <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
-        <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
-      </div>
-
-      <div class="rb-hud-row rb-hud-judge-row">
-        <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
-        <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
-        <span class="rb-chip">Good: <b id="rb-hud-good">0</b></span>
-        <span class="rb-chip">Miss: <b id="rb-hud-miss">0</b></span>
-      </div>
-
-      <div class="rb-bars">
-        <div class="rb-bar-block">
-          <span class="rb-bar-label">FEVER</span>
-          <div class="rb-bar"><div id="rb-fever-fill" class="rb-bar-fill rb-bar-fever"></div></div>
-          <span id="rb-fever-status" class="rb-bar-status">READY</span>
-        </div>
-        <div class="rb-bar-block">
-          <span class="rb-bar-label">PROG</span>
-          <div class="rb-bar"><div id="rb-progress-fill" class="rb-bar-fill rb-bar-progress"></div></div>
-          <span id="rb-progress-text" class="rb-bar-status">0%</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="rb-field-wrap">
-      <div id="rb-field">
-        <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
-
-        <div class="rb-lanes" id="rb-lanes">
-          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
-          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
-          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
-          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
-          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
-        </div>
-      </div>
-
-      <p class="rb-howto-inline">
-        แตะเลนให้ “หัวโน้ต” ลงมาถึงเส้นตีสีเหลืองด้านล่างแล้วค่อยกด · ใช้ได้ทั้งจอสัมผัสและเมาส์
-      </p>
-    </section>
-
-    <audio id="rb-audio" preload="auto"></audio>
-  </main>
-
-  <!-- ===== VIEW: RESULT ===== -->
-  <main id="rb-view-result" class="rb-view hidden">
-    <header class="rb-header">
-      <div class="rb-head-main">
-        <span class="rb-pill">Result</span>
-        <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
-        <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
-      </div>
-    </header>
-
-    <section class="rb-result-grid">
-      <div class="rb-result-card">
-        <h2 class="rb-result-title">Overview</h2>
-        <div class="rb-result-row"><span>Mode</span><b id="rb-res-mode">-</b></div>
-        <div class="rb-result-row"><span>Track</span><b id="rb-res-track">-</b></div>
-        <div class="rb-result-row"><span>End reason</span><b id="rb-res-endreason">-</b></div>
-        <div class="rb-result-row"><span>Score</span><b id="rb-res-score">0</b></div>
-        <div class="rb-result-row"><span>Max Combo</span><b id="rb-res-maxcombo">0</b></div>
-        <div class="rb-result-row"><span>Hit P/G/Gd/Miss</span><b id="rb-res-detail-hit">0 / 0 / 0 / 0</b></div>
-        <div class="rb-result-row"><span>Accuracy</span><b id="rb-res-acc">0.0 %</b></div>
-        <div class="rb-result-row"><span>Duration</span><b id="rb-res-duration">0.0 s</b></div>
-        <div class="rb-result-row"><span>Rank</span><b id="rb-res-rank">-</b></div>
-      </div>
-
-      <div class="rb-result-card">
-        <h2 class="rb-result-title">Timing / Research</h2>
-        <div class="rb-result-row"><span>Offset mean</span><b id="rb-res-offset-avg">-</b></div>
-        <div class="rb-result-row"><span>Offset std</span><b id="rb-res-offset-std">-</b></div>
-        <div class="rb-result-row"><span>Participant</span><b id="rb-res-participant">-</b></div>
-      </div>
-    </section>
-
-    <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
-
-    <section class="rb-section rb-btn-row">
-      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
-      <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
-
-      <!-- ✅ New: return to planner/hub explicitly -->
-      <button id="rb-btn-return-plan" class="rb-btn rb-btn-ghost">✅ กลับตามแผน</button>
-    </section>
-
-    <section class="rb-research-box rb-section">
-      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
-      <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
-      <div class="rb-btn-row">
-        <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
-        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-sm">⬇ Session CSV</button>
-      </div>
-    </section>
-  </main>
-</div>
-
-<script src="js/ai-predictor.js"></script>
-<script src="js/dom-renderer-rhythm.js"></script>
-<script src="js/rhythm-engine.js"></script>
-<script src="js/rhythm-boxer.js"></script>
-
-<!-- ✅ HHA Planner Bridge (MUST be after main scripts so it can observe DOM safely) -->
-<script>
 (function(){
-  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
-  function abs(u){ try{ return new URL(u, location.href).toString(); }catch(e){ return String(u||''); } }
+  const W = window, D = document;
 
-  // 1) hub / planner back
-  var hub = String(qs('hub','')).trim();
-  var backUrl = hub ? abs(hub) : '';
+  // --------------------------- helpers ---------------------------
+  const qs = (k, d='')=>{
+    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; }
+  };
+  const qbool = (k, d=false)=>{
+    const v = String(qs(k, d?'1':'0')).toLowerCase();
+    return ['1','true','yes','y','on'].includes(v);
+  };
+  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
+  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+  const nowIso = ()=> new Date().toISOString();
+  const rand = (seed)=>{
+    // xorshift32
+    let x = (seed|0) || 123456789;
+    return ()=>{
+      x ^= x << 13; x |= 0;
+      x ^= x >>> 17; x |= 0;
+      x ^= x << 5; x |= 0;
+      return ((x>>>0) / 4294967296);
+    };
+  };
+  const median = (arr)=>{
+    if(!arr || !arr.length) return null;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = Math.floor(a.length/2);
+    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
+  };
+  const mean = (arr)=>{
+    if(!arr || !arr.length) return null;
+    let s=0; for(const x of arr) s+=x;
+    return s/arr.length;
+  };
+  const std = (arr)=>{
+    if(!arr || arr.length<2) return null;
+    const m = mean(arr);
+    let s=0;
+    for(const x of arr){ const d=x-m; s += d*d; }
+    return Math.sqrt(s/(arr.length-1));
+  };
 
-  // patch menu back link
-  var backLink = document.getElementById('rb-back-link');
-  if(backLink){
-    backLink.href = backUrl || 'hub.html';
-    backLink.addEventListener('click', function(e){
-      if(backUrl){
-        e.preventDefault();
-        location.href = backUrl;
+  function $(id){ return D.getElementById(id); }
+
+  // --------------------------- params ---------------------------
+  const RUN = String(qs('run','play')).toLowerCase(); // play|research (planner may pass)
+  const DIFF = String(qs('diff','normal')).toLowerCase();
+  const TIME_SEC = clamp(qs('time','80'), 20, 300);
+  const SEED = Number(qs('seed', String(Date.now()))) || Date.now();
+  const PID = String(qs('pid','')).trim() || 'anon';
+
+  const HUB = String(qs('hub','')).trim(); // optional planner/hub
+  const PLAN_DAY = String(qs('planDay','')).trim();
+  const PLAN_SLOT = String(qs('planSlot','')).trim();
+
+  // --------------------------- DOM refs ---------------------------
+  const VIEW_MENU = $('rb-view-menu');
+  const VIEW_PLAY = $('rb-view-play');
+  const VIEW_RESULT = $('rb-view-result');
+
+  const BTN_START = $('rb-btn-start');
+  const BTN_STOP  = $('rb-btn-stop');
+  const BTN_AGAIN = $('rb-btn-again');
+  const BTN_BACK_MENU = $('rb-btn-back-menu');
+  const BTN_DL_EVENTS = $('rb-btn-dl-events');
+  const BTN_DL_SESS = $('rb-btn-dl-sessions');
+
+  const MODE_DESC = $('rb-mode-desc');
+  const RESEARCH_FIELDS = $('rb-research-fields');
+  const IN_PART = $('rb-participant');
+  const IN_GROUP = $('rb-group');
+  const IN_NOTE = $('rb-note');
+
+  const HUD_MODE = $('rb-hud-mode');
+  const HUD_TRACK = $('rb-hud-track');
+  const HUD_SCORE = $('rb-hud-score');
+  const HUD_COMBO = $('rb-hud-combo');
+  const HUD_ACC = $('rb-hud-acc');
+
+  const HUD_AI_FAT = $('rb-hud-ai-fatigue');
+  const HUD_AI_SKILL = $('rb-hud-ai-skill');
+  const HUD_AI_SUGG = $('rb-hud-ai-suggest');
+  const HUD_AI_TIP = $('rb-hud-ai-tip');
+
+  const HUD_HP = $('rb-hud-hp');
+  const HUD_SHIELD = $('rb-hud-shield');
+  const HUD_TIME = $('rb-hud-time');
+
+  const HUD_PERF = $('rb-hud-perfect');
+  const HUD_GREAT = $('rb-hud-great');
+  const HUD_GOOD = $('rb-hud-good');
+  const HUD_MISS = $('rb-hud-miss');
+
+  const FEVER_FILL = $('rb-fever-fill');
+  const FEVER_STATUS = $('rb-fever-status');
+  const PROG_FILL = $('rb-progress-fill');
+  const PROG_TEXT = $('rb-progress-text');
+
+  const FEEDBACK = $('rb-feedback');
+  const LANES_WRAP = $('rb-lanes');
+
+  const RES_MODE = $('rb-res-mode');
+  const RES_TRACK = $('rb-res-track');
+  const RES_END = $('rb-res-endreason');
+  const RES_SCORE = $('rb-res-score');
+  const RES_MAXCOMBO = $('rb-res-maxcombo');
+  const RES_DETAIL_HIT = $('rb-res-detail-hit');
+  const RES_ACC = $('rb-res-acc');
+  const RES_DUR = $('rb-res-duration');
+  const RES_RANK = $('rb-res-rank');
+  const RES_OFF_AVG = $('rb-res-offset-avg');
+  const RES_OFF_STD = $('rb-res-offset-std');
+  const RES_PART = $('rb-res-participant');
+  const RES_QUALITY_NOTE = $('rb-res-quality-note');
+
+  // safety
+  if(!VIEW_MENU || !VIEW_PLAY || !VIEW_RESULT || !BTN_START || !LANES_WRAP){
+    console.warn('[RB] Missing essential DOM nodes. Check HTML ids.');
+  }
+
+  // --------------------------- HUD top planner pill (optional) ---------------------------
+  (function patchPlanHud(){
+    const elDay = D.getElementById('hhDay');
+    const elSlot = D.getElementById('hhSlot');
+    if(elDay) elDay.textContent = PLAN_DAY ? PLAN_DAY : '—';
+    if(elSlot) elSlot.textContent = PLAN_SLOT ? PLAN_SLOT : '—';
+
+    // back button (if present)
+    const btnBack = D.getElementById('hhBack');
+    if(btnBack){
+      btnBack.addEventListener('click', ()=>{
+        if(HUB){
+          try{ location.href = new URL(HUB, location.href).toString(); }
+          catch{ location.href = HUB; }
+        }else{
+          history.back();
+        }
+      });
+    }
+
+    // menu back link (if present)
+    const backLink = D.getElementById('rb-back-link');
+    if(backLink){
+      if(HUB){
+        try{ backLink.href = new URL(HUB, location.href).toString(); }catch{ backLink.href = HUB; }
       }
+      backLink.addEventListener('click', (e)=>{
+        if(HUB){
+          e.preventDefault();
+          try{ location.href = new URL(HUB, location.href).toString(); }
+          catch{ location.href = HUB; }
+        }
+      }, {passive:false});
+    }
+  })();
+
+  // --------------------------- tracks ---------------------------
+  // lanes: 0..4 => L2 L1 C R1 R2
+  const TRACKS = {
+    n1: { key:'n1', name:'Warm-up Groove', bpm:100, density:0.72, jitter:0.10, feverRate:1.00, missDmg:4, blankPenalty:1 },
+    n2: { key:'n2', name:'Focus Combo',   bpm:120, density:0.90, jitter:0.12, feverRate:1.05, missDmg:5, blankPenalty:1 },
+    n3: { key:'n3', name:'Speed Rush',    bpm:140, density:1.10, jitter:0.14, feverRate:1.10, missDmg:6, blankPenalty:2 },
+    r1: { key:'r1', name:'Research 120',  bpm:120, density:0.88, jitter:0.08, feverRate:1.00, missDmg:5, blankPenalty:1, research:true },
+  };
+
+  function diffScale(){
+    if(DIFF==='easy') return 0.85;
+    if(DIFF==='hard') return 1.15;
+    return 1.0;
+  }
+
+  function getSelectedMode(){
+    const el = D.querySelector('input[name="rb-mode"]:checked');
+    return el ? String(el.value||'normal') : 'normal';
+  }
+  function getSelectedTrack(){
+    const el = D.querySelector('input[name="rb-track"]:checked');
+    const key = el ? String(el.value||'n1') : 'n1';
+    return TRACKS[key] ? key : 'n1';
+  }
+
+  // --------------------------- state ---------------------------
+  const S = {
+    running:false,
+    mode:'normal',
+    trackKey:'n1',
+    t0:0,
+    tEnd:0,
+    tLast:0,
+    seed: SEED,
+    rng: rand(SEED|0),
+
+    // gameplay
+    score:0,
+    combo:0,
+    maxCombo:0,
+    shots:0,
+    hits:0,
+    perfect:0,
+    great:0,
+    good:0,
+    miss:0,
+    hp:100,
+    shield:0,     // blocks one miss
+    fever:0,      // 0..100
+    feverOn:false,
+    lastJudge:'READY',
+
+    // timing
+    offsets: [], // ms (signed)
+    tapTimes: [], // ms timestamps
+    blankTaps:0,
+
+    // engine
+    notes: [], // active notes {id, lane, tHit, spawned, hit, miss, el}
+    nextId:1,
+
+    // logging
+    events: [],
+    sessions: [],
+
+    // AI
+    ai: { fatigue:0, skill:0.5, suggest:'normal', tip:'' },
+    aiLastTipAt:0,
+
+    // end reason
+    endReason:'timeup',
+  };
+
+  // --------------------------- UI: mode toggle visibility ---------------------------
+  function refreshModeUI(){
+    const mode = getSelectedMode();
+    S.mode = mode;
+
+    if(mode==='research'){
+      if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.remove('hidden');
+      if(MODE_DESC) MODE_DESC.textContent = 'Research: เก็บข้อมูล Event/Session เพื่อวิเคราะห์ (แนะนำกรอก Participant ID)';
+    }else{
+      if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.add('hidden');
+      if(MODE_DESC) MODE_DESC.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+    }
+
+    // show only matching track options (simple)
+    const lab = $('rb-track-mode-label');
+    if(lab){
+      lab.textContent = (mode==='research')
+        ? 'โหมด Research — เพลงมาตรฐาน 1 ชุด (ควบคุมเงื่อนไข)'
+        : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+    }
+
+    // disable/enable track radios by data-mode (optional)
+    const opts = D.querySelectorAll('#rb-track-options .rb-mode-btn');
+    opts.forEach(o=>{
+      const m = String(o.getAttribute('data-mode')||'normal');
+      const input = o.querySelector('input[type="radio"]');
+      if(!input) return;
+      const allow = (m===mode);
+      input.disabled = !allow;
+      o.style.opacity = allow ? '1' : '0.45';
+      o.style.pointerEvents = allow ? 'auto' : 'none';
+    });
+
+    // if current selection is disabled, auto-pick
+    const chosen = getSelectedTrack();
+    const chosenMeta = TRACKS[chosen];
+    if(mode==='research' && !chosenMeta.research){
+      // select r1
+      const r = D.querySelector('input[name="rb-track"][value="r1"]');
+      if(r) r.checked = true;
+    }
+    if(mode==='normal' && chosenMeta.research){
+      const n = D.querySelector('input[name="rb-track"][value="n1"]');
+      if(n) n.checked = true;
+    }
+  }
+
+  // --------------------------- view switching ---------------------------
+  function showView(name){
+    const set = (el, on)=>{ if(!el) return; el.classList.toggle('hidden', !on); };
+    set(VIEW_MENU, name==='menu');
+    set(VIEW_PLAY, name==='play');
+    set(VIEW_RESULT, name==='result');
+  }
+
+  // --------------------------- feedback / flash ---------------------------
+  function setFeedback(msg){
+    if(!FEEDBACK) return;
+    FEEDBACK.textContent = msg || '';
+  }
+  function flash(){
+    const f = $('rb-flash');
+    if(!f) return;
+    f.style.opacity = '0.85';
+    setTimeout(()=>{ f.style.opacity = '0'; }, 70);
+  }
+
+  // --------------------------- note rendering ---------------------------
+  function laneEls(){
+    return Array.from(D.querySelectorAll('.rb-lane'));
+  }
+  function makeNoteEl(laneIndex){
+    const lane = laneEls()[laneIndex];
+    if(!lane) return null;
+    const el = D.createElement('div');
+    el.className = 'rb-note';
+    // fallback style if css missing
+    el.style.position = 'absolute';
+    el.style.left = '10%';
+    el.style.right = '10%';
+    el.style.top = '-14px';
+    el.style.height = '14px';
+    el.style.borderRadius = '10px';
+    el.style.background = 'rgba(255,255,255,.85)';
+    el.style.boxShadow = '0 8px 20px rgba(0,0,0,.25)';
+    el.style.pointerEvents = 'none';
+    lane.style.position = lane.style.position || 'relative';
+    lane.appendChild(el);
+    return el;
+  }
+  function removeNoteEl(note){
+    if(note && note.el && note.el.parentNode){
+      note.el.parentNode.removeChild(note.el);
+    }
+    note.el = null;
+  }
+
+  // --------------------------- judge windows (ms) ---------------------------
+  function judgeWindows(){
+    // tighter on hard
+    const base = (DIFF==='hard') ? 70 : (DIFF==='easy' ? 95 : 82);
+    return {
+      perfect: base,
+      great: base * 1.55,
+      good: base * 2.40,
+    };
+  }
+
+  function addScore(judge){
+    // fever boosts
+    const feverMult = S.feverOn ? 1.25 : 1.0;
+    let add = 0;
+    if(judge==='Perfect') add = 120;
+    else if(judge==='Great') add = 85;
+    else if(judge==='Good') add = 50;
+    else add = 0;
+
+    // combo bonus
+    const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
+    S.score += Math.round((add + comboBonus) * feverMult);
+  }
+
+  function addFever(judge, track){
+    const rate = (track.feverRate || 1.0) * diffScale();
+    let inc = 0;
+    if(judge==='Perfect') inc = 9;
+    else if(judge==='Great') inc = 6;
+    else if(judge==='Good') inc = 3;
+    else inc = 0;
+    S.fever = clamp(S.fever + inc*rate, 0, 100);
+    if(S.fever >= 100){
+      S.feverOn = true;
+      S.fever = 100;
+    }
+  }
+  function drainFever(dt){
+    if(!S.feverOn) return;
+    // drain while active
+    S.fever = clamp(S.fever - dt*0.022, 0, 100); // ~45s full drain
+    if(S.fever <= 0){
+      S.feverOn = false;
+      S.fever = 0;
+    }
+  }
+
+  function applyMissDamage(track){
+    if(S.shield > 0){
+      S.shield -= 1;
+      // still counts as miss? (we count miss but no HP loss) — keep fair
+      return;
+    }
+    const dmg = (track.missDmg || 5) * diffScale();
+    S.hp = clamp(S.hp - dmg, 0, 100);
+  }
+
+  function maybeGainShield(){
+    // reward long streak
+    if(S.combo>0 && S.combo % 30 === 0){
+      S.shield = clamp(S.shield + 1, 0, 3);
+    }
+  }
+
+  // --------------------------- AI predictor (safe) ---------------------------
+  function updateAI(now){
+    // fatigue: based on tap rate + miss streak + HP drop
+    const horizonMs = 12000;
+    const recent = S.tapTimes.filter(t => (now - t) <= horizonMs);
+    const tapsPerSec = recent.length / (horizonMs/1000);
+
+    const missRate = (S.shots>0) ? (S.miss / S.shots) : 0;
+    const acc = (S.shots>0) ? (S.hits / S.shots) : 0;
+
+    // skill: accuracy + timing stability
+    const offAbs = S.offsets.slice(-20).map(x=>Math.abs(x));
+    const offMed = median(offAbs);
+    let timingScore = 0.5;
+    if(offMed!=null){
+      timingScore = clamp(1 - (offMed/160), 0, 1);
+    }
+
+    const skill = clamp(0.25*acc + 0.75*timingScore, 0, 1);
+
+    // fatigue proxy
+    const hpLoss = (100 - S.hp) / 100;
+    const fatigue = clamp(0.25*hpLoss + 0.35*missRate + 0.25*(tapsPerSec/6) + 0.15*(S.blankTaps/Math.max(1,S.shots)), 0, 1);
+
+    // suggest diff
+    let suggest = 'normal';
+    if(fatigue > 0.72) suggest = 'easy';
+    else if(skill > 0.78 && fatigue < 0.45) suggest = 'hard';
+
+    // coach tip (rate-limited)
+    let tip = '';
+    const tSince = now - S.aiLastTipAt;
+    if(tSince > 6000){
+      if(S.blankTaps >= 6 && (S.blankTaps/Math.max(1,S.shots)) > 0.22){
+        tip = 'ลอง “รอหัวโน้ตถึงเส้นเหลือง” ก่อนค่อยกด จะได้ไม่กดล่วงหน้า';
+      }else if(offMed!=null && offMed > 95){
+        tip = 'จังหวะยังแกว่งนิดนึง — ลอง “หายใจเข้า-ออก” แล้วกดตามเสียง/ภาพให้ช้าลงเล็กน้อย';
+      }else if(S.combo>0 && S.combo % 20 === 0){
+        tip = 'ดีมาก! คอมโบสูงแล้ว — รักษาจังหวะเดิมไว้';
+      }else if(fatigue>0.7){
+        tip = 'ถ้าเริ่มล้า ให้พักมือ 5 วินาที แล้วกลับมาลุยต่อ';
+      }
+      if(tip){
+        S.aiLastTipAt = now;
+        S.ai.tip = tip;
+      }
+    }
+
+    S.ai.fatigue = fatigue;
+    S.ai.skill = skill;
+    S.ai.suggest = suggest;
+
+    if(HUD_AI_FAT) HUD_AI_FAT.textContent = `${Math.round(fatigue*100)}%`;
+    if(HUD_AI_SKILL) HUD_AI_SKILL.textContent = `${Math.round(skill*100)}%`;
+    if(HUD_AI_SUGG) HUD_AI_SUGG.textContent = suggest;
+    if(HUD_AI_TIP){
+      if(S.ai.tip){
+        HUD_AI_TIP.classList.remove('hidden');
+        HUD_AI_TIP.textContent = S.ai.tip;
+      }else{
+        HUD_AI_TIP.classList.add('hidden');
+        HUD_AI_TIP.textContent = '';
+      }
+    }
+  }
+
+  // --------------------------- logging ---------------------------
+  function logEvent(ev){
+    // minimize in normal
+    if(S.mode!=='research') return;
+    S.events.push(ev);
+  }
+  function sessionMeta(){
+    return {
+      tsIso: nowIso(),
+      pid: PID,
+      participant: (IN_PART && IN_PART.value) ? String(IN_PART.value).trim() : '',
+      group: (IN_GROUP && IN_GROUP.value) ? String(IN_GROUP.value).trim() : '',
+      note: (IN_NOTE && IN_NOTE.value) ? String(IN_NOTE.value).trim() : '',
+      planDay: PLAN_DAY,
+      planSlot: PLAN_SLOT,
+      diff: DIFF,
+      run: RUN,
+      seed: String(S.seed),
+      track: S.trackKey,
+      mode: S.mode,
+    };
+  }
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+    const a = D.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    D.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1200);
+  }
+  function toCSV(rows, cols){
+    const esc = (v)=>{
+      v = (v===undefined || v===null) ? '' : String(v);
+      if(/[",\n]/.test(v)) return `"${v.replace(/"/g,'""')}"`;
+      return v;
+    };
+    const head = cols.join(',');
+    const body = rows.map(r => cols.map(c => esc(r[c])).join(',')).join('\n');
+    return head + '\n' + body + '\n';
+  }
+
+  // --------------------------- engine: generate chart ---------------------------
+  function buildSchedule(track, durSec){
+    // Deterministic schedule: 5 lanes, beat-based
+    const t = TRACKS[track];
+    const bpm = t.bpm;
+    const beatMs = 60000 / bpm;
+    const baseStep = beatMs / 2; // 8th notes
+    const density = (t.density || 0.9) * diffScale();
+    const jitter = (t.jitter || 0.1);
+
+    const r = S.rng;
+    const notes = [];
+    let tt = 1400; // start after 1.4s
+    let lastLane = 2;
+
+    while(tt < durSec*1000 - 900){
+      // maybe spawn this step
+      const p = clamp(density, 0.35, 1.35);
+      const spawn = (r() < Math.min(0.92, p));
+      if(spawn){
+        // choose lane with slight anti-repeat
+        let lane = Math.floor(r()*5);
+        if(lane===lastLane && r()<0.6) lane = (lane + 1 + Math.floor(r()*3)) % 5;
+        lastLane = lane;
+
+        // add jitter ms (for normal; for research keep tighter)
+        let j = (r()*2-1) * jitter * baseStep;
+        if(t.research) j *= 0.4;
+
+        notes.push({ lane, tHit: tt + j });
+      }
+      // occasionally add double notes (challenge)
+      if(!t.research && r() < 0.10 * density){
+        const lane2 = (lastLane + (r()<0.5?2:3))%5;
+        notes.push({ lane: lane2, tHit: tt + 60 });
+      }
+
+      tt += baseStep;
+    }
+    return notes;
+  }
+
+  // --------------------------- play lifecycle ---------------------------
+  function resetStateForRun(){
+    S.running = false;
+    S.t0 = 0;
+    S.tEnd = 0;
+    S.tLast = 0;
+
+    S.score = 0;
+    S.combo = 0;
+    S.maxCombo = 0;
+    S.shots = 0;
+    S.hits = 0;
+
+    S.perfect = 0;
+    S.great = 0;
+    S.good = 0;
+    S.miss = 0;
+
+    S.hp = 100;
+    S.shield = 0;
+    S.fever = 0;
+    S.feverOn = false;
+    S.lastJudge = 'READY';
+
+    S.offsets = [];
+    S.tapTimes = [];
+    S.blankTaps = 0;
+
+    S.notes = [];
+    S.nextId = 1;
+
+    S.endReason = 'timeup';
+
+    // clear lane DOM notes
+    laneEls().forEach(l=>{
+      // remove any rb-note children
+      Array.from(l.querySelectorAll('.rb-note')).forEach(n=>n.remove());
+    });
+
+    // clear AI tip
+    S.ai = { fatigue:0, skill:0.5, suggest:'normal', tip:'' };
+    S.aiLastTipAt = 0;
+  }
+
+  function updateHUD(now){
+    const acc = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+
+    if(HUD_MODE) HUD_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
+    if(HUD_TRACK) HUD_TRACK.textContent = TRACKS[S.trackKey].name;
+
+    if(HUD_SCORE) HUD_SCORE.textContent = String(Math.round(S.score));
+    if(HUD_COMBO) HUD_COMBO.textContent = String(S.combo);
+    if(HUD_ACC) HUD_ACC.textContent = `${acc.toFixed(1)}%`;
+
+    if(HUD_HP) HUD_HP.textContent = String(Math.round(S.hp));
+    if(HUD_SHIELD) HUD_SHIELD.textContent = String(S.shield);
+
+    const t = (now - S.t0)/1000;
+    if(HUD_TIME) HUD_TIME.textContent = t.toFixed(1);
+
+    if(HUD_PERF) HUD_PERF.textContent = String(S.perfect);
+    if(HUD_GREAT) HUD_GREAT.textContent = String(S.great);
+    if(HUD_GOOD) HUD_GOOD.textContent = String(S.good);
+    if(HUD_MISS) HUD_MISS.textContent = String(S.miss);
+
+    // fever bar
+    if(FEVER_FILL){
+      FEVER_FILL.style.width = `${clamp(S.fever,0,100)}%`;
+      FEVER_FILL.style.opacity = S.feverOn ? '1' : '0.85';
+      FEVER_FILL.style.filter = S.feverOn ? 'brightness(1.15)' : 'none';
+    }
+    if(FEVER_STATUS){
+      FEVER_STATUS.textContent = S.feverOn ? 'ON' : (S.fever>=100 ? 'READY' : 'BUILD');
+    }
+
+    // progress
+    const prog = clamp((now - S.t0) / (S.tEnd - S.t0), 0, 1);
+    if(PROG_FILL) PROG_FILL.style.width = `${Math.round(prog*100)}%`;
+    if(PROG_TEXT) PROG_TEXT.textContent = `${Math.round(prog*100)}%`;
+  }
+
+  function spawnNotes(schedule){
+    // map schedule -> active notes with DOM elements created on demand
+    S.notes = schedule.map(n => ({
+      id: S.nextId++,
+      lane: n.lane,
+      tHit: n.tHit,
+      spawned: false,
+      hit: false,
+      miss: false,
+      el: null
+    }));
+  }
+
+  function noteTravelMs(){
+    // how long a note takes to fall to hit line
+    // faster on hard
+    if(DIFF==='hard') return 1050;
+    if(DIFF==='easy') return 1250;
+    return 1150;
+  }
+
+  function renderNotes(now){
+    const travel = noteTravelMs();
+    const lanes = laneEls();
+    if(!lanes.length) return;
+
+    // compute lane rect once
+    const laneRect = lanes[0].getBoundingClientRect();
+    const laneH = laneRect.height || 240;
+    const hitY = laneH * 0.82; // hit line near bottom
+
+    for(const note of S.notes){
+      if(note.hit || note.miss) continue;
+
+      const tRel = (now - S.t0);         // ms since start
+      const dtToHit = note.tHit - tRel;  // ms until hit line
+      const y = hitY - (dtToHit / travel) * hitY;
+
+      // spawn when near top
+      if(!note.spawned && dtToHit < travel){
+        note.spawned = true;
+        note.el = makeNoteEl(note.lane);
+      }
+
+      if(note.el){
+        // clamp y
+        const yy = clamp(y, -24, hitY + 80);
+        note.el.style.transform = `translateY(${yy}px)`;
+
+        // miss if passes window
+        const win = judgeWindows().good;
+        if(dtToHit < -win){
+          note.miss = true;
+          removeNoteEl(note);
+
+          // stats
+          S.shots += 1;
+          S.miss += 1;
+          S.combo = 0;
+          setFeedback('MISS');
+          applyMissDamage(TRACKS[S.trackKey]);
+
+          logEvent({
+            ...sessionMeta(),
+            kind:'event',
+            tMs: Math.round(tRel),
+            lane: note.lane,
+            action:'auto_miss',
+            judge:'Miss',
+            offsetMs: Math.round(dtToHit),
+            score: Math.round(S.score),
+            combo: S.combo,
+            hp: Math.round(S.hp),
+            fever: Math.round(S.fever),
+            shield: S.shield,
+            tsIso: nowIso(),
+          });
+
+          flash();
+        }
+      }
+    }
+  }
+
+  function findNearestNote(lane, now){
+    // choose the note in lane with smallest |dt|
+    const tRel = (now - S.t0);
+    let best = null;
+    let bestAbs = 1e9;
+    for(const n of S.notes){
+      if(n.lane !== lane) continue;
+      if(n.hit || n.miss) continue;
+      if(!n.spawned) continue;
+      const dt = n.tHit - tRel;
+      const a = Math.abs(dt);
+      if(a < bestAbs){
+        bestAbs = a;
+        best = { note:n, dt };
+      }
+    }
+    return best;
+  }
+
+  function handleTap(lane, source){
+    if(!S.running) return;
+    const now = nowMs();
+    const tRel = now - S.t0;
+
+    S.tapTimes.push(now);
+    // keep recent
+    if(S.tapTimes.length > 300) S.tapTimes.splice(0, S.tapTimes.length-300);
+
+    const found = findNearestNote(lane, now);
+    const win = judgeWindows();
+
+    let judge = 'Miss';
+    let dt = 9999;
+    let blank = false;
+
+    if(found){
+      dt = found.dt;
+      const adt = Math.abs(dt);
+      if(adt <= win.perfect) judge = 'Perfect';
+      else if(adt <= win.great) judge = 'Great';
+      else if(adt <= win.good) judge = 'Good';
+      else judge = 'Miss';
+
+      if(judge !== 'Miss'){
+        // register hit
+        found.note.hit = true;
+        removeNoteEl(found.note);
+
+        S.shots += 1;
+        S.hits += 1;
+
+        if(judge==='Perfect') S.perfect += 1;
+        else if(judge==='Great') S.great += 1;
+        else S.good += 1;
+
+        S.combo += 1;
+        S.maxCombo = Math.max(S.maxCombo, S.combo);
+
+        addScore(judge);
+        addFever(judge, TRACKS[S.trackKey]);
+        maybeGainShield();
+
+        setFeedback(judge.toUpperCase());
+        flash();
+
+        S.offsets.push(dt);
+        if(S.offsets.length > 400) S.offsets.splice(0, S.offsets.length-400);
+
+      }else{
+        // miss (late/early too far) — treat as miss and consume note if passed?
+        // we DO NOT consume the note (so player can still hit next), but count a "blank" to discourage spam
+        blank = true;
+      }
+    }else{
+      blank = true;
+    }
+
+    if(blank){
+      S.blankTaps += 1;
+      S.shots += 1; // count as shot to affect acc and anti-spam
+      S.combo = 0;
+
+      const t = TRACKS[S.trackKey];
+      const pen = (t.blankPenalty || 1) * diffScale();
+      S.score = Math.max(0, S.score - pen*8);
+
+      // tiny HP penalty only if spammy
+      if(S.blankTaps >= 6 && (S.blankTaps/S.shots) > 0.25){
+        S.hp = clamp(S.hp - 1.2, 0, 100);
+      }
+
+      setFeedback('MISS');
+      flash();
+      judge = 'Miss';
+      dt = 9999;
+    }
+
+    logEvent({
+      ...sessionMeta(),
+      kind:'event',
+      tMs: Math.round(tRel),
+      lane,
+      action: (blank ? 'blank_tap' : 'tap'),
+      source: source || '',
+      judge,
+      offsetMs: (dt===9999? '' : Math.round(dt)),
+      score: Math.round(S.score),
+      combo: S.combo,
+      hp: Math.round(S.hp),
+      fever: Math.round(S.fever),
+      shield: S.shield,
+      tsIso: nowIso(),
+    });
+  }
+
+  // --------------------------- input wiring ---------------------------
+  function bindInputs(){
+    // lane clicks/taps
+    LANES_WRAP.addEventListener('pointerdown', (e)=>{
+      const laneEl = e.target.closest('.rb-lane');
+      if(!laneEl) return;
+      const lane = Number(laneEl.getAttribute('data-lane'));
+      if(!Number.isFinite(lane)) return;
+      handleTap(lane, 'pointer');
+    });
+
+    // keyboard A S D J K => 0..4
+    const keyMap = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
+    W.addEventListener('keydown', (e)=>{
+      const k = String(e.key||'').toLowerCase();
+      if(!(k in keyMap)) return;
+      e.preventDefault();
+      handleTap(keyMap[k], 'key');
     }, {passive:false});
   }
 
-  // 2) show plan HUD day/slot (Mon0)
-  var day = qs('planDay','—');
-  var slot = qs('planSlot','—');
-  var elDay = document.getElementById('hhDay');
-  var elSlot = document.getElementById('hhSlot');
-  if(elDay) elDay.textContent = day;
-  if(elSlot) elSlot.textContent = slot;
+  // --------------------------- start/stop/end ---------------------------
+  function startGame(){
+    refreshModeUI();
 
-  // 3) Back button behavior (always safe)
-  var btnBack = document.getElementById('hhBack');
-  if(btnBack){
-    btnBack.addEventListener('click', function(){
-      if(backUrl) location.href = backUrl;
-      else history.back();
+    resetStateForRun();
+
+    S.mode = getSelectedMode();
+    S.trackKey = getSelectedTrack();
+
+    // deterministic seed per run (respect provided seed)
+    S.seed = SEED;
+    S.rng = rand((SEED|0) ^ (S.trackKey.charCodeAt(0)<<16) ^ (S.trackKey.charCodeAt(1)<<8));
+
+    // schedule
+    const schedule = buildSchedule(S.trackKey, TIME_SEC);
+    spawnNotes(schedule);
+
+    // hud
+    showView('play');
+    setFeedback('พร้อม!');
+    if(HUD_AI_TIP){ HUD_AI_TIP.classList.add('hidden'); HUD_AI_TIP.textContent=''; }
+
+    S.running = true;
+    S.t0 = nowMs();
+    S.tLast = S.t0;
+    S.tEnd = S.t0 + TIME_SEC*1000;
+
+    // initial hud
+    updateHUD(S.t0);
+    updateAI(S.t0);
+
+    // log session start marker
+    logEvent({
+      ...sessionMeta(),
+      kind:'marker',
+      marker:'start',
+      tsIso: nowIso(),
+      durSec: TIME_SEC,
+      bpm: TRACKS[S.trackKey].bpm,
+      density: TRACKS[S.trackKey].density,
     });
+
+    requestAnimationFrame(tick);
   }
 
-  // 4) Universal end hook — rhythm-boxer.js SHOULD call this at end
-  //    But we also "detect Result view" and auto-return when coming from planner seq flow.
-  window.HH_END_GAME = function(reason, payload){
-    reason = String(reason||'end');
-    payload = payload || {};
+  function stopGame(reason){
+    if(!S.running) return;
+    S.endReason = reason || 'stop';
+    endGame();
+  }
 
-    if(backUrl){
-      try{
-        var u = new URL(backUrl);
-        u.searchParams.set('reason', reason);
+  function computeRank(){
+    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
+    // include survival
+    const survive = S.hp/100;
+    const combo = S.maxCombo;
 
-        // optional telemetry to planner (light)
-        if(payload && typeof payload === 'object'){
-          if(payload.score!=null) u.searchParams.set('score', String(payload.score));
-          if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
-          if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
-        }
-        location.href = u.toString();
-        return;
-      }catch(_){}
+    let score = 0.65*acc + 0.20*survive + 0.15*clamp(combo/80, 0, 1);
+    if(S.mode==='research') score *= 0.98; // strict
+
+    if(score >= 0.88) return 'S';
+    if(score >= 0.78) return 'A';
+    if(score >= 0.68) return 'B';
+    if(score >= 0.55) return 'C';
+    return 'D';
+  }
+
+  function endGame(){
+    S.running = false;
+
+    // clear remaining notes DOM
+    for(const n of S.notes){
+      if(n && n.el) removeNoteEl(n);
     }
-    // fallback
-    alert('จบเกมแล้ว!');
-  };
 
-  // 5) Result view "Return to plan" button
-  var btnReturn = document.getElementById('rb-btn-return-plan');
-  if(btnReturn){
-    btnReturn.addEventListener('click', function(){
-      // gather some values if present
-      var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
-      var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
-      var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
-      window.HH_END_GAME('result', { score: score, acc: acc, miss: miss });
-    });
-  }
+    // summary
+    const endAt = nowMs();
+    const dur = Math.max(0, (endAt - S.t0)/1000);
+    const accPct = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+    const rank = computeRank();
 
-  // 6) Stop button -> end early -> return
-  var btnStop = document.getElementById('rb-btn-stop');
-  if(btnStop){
-    btnStop.addEventListener('click', function(){
-      // let original stop run first (if any), then return
-      setTimeout(function(){
-        window.HH_END_GAME('stop');
-      }, 120);
-    });
-  }
+    const off = S.offsets.filter(x=>Number.isFinite(x));
+    const offAbs = off.map(x=>Math.abs(x));
+    const offAvg = mean(offAbs);
+    const offStd = std(offAbs);
 
-  // 7) Auto-return when:
-  //    - hub contains seq=1 (planner auto-next flow) OR hub points to fitness-planner
-  //    - and Result view becomes visible
-  var autoReturn = false;
-  if(backUrl){
-    autoReturn = (backUrl.indexOf('seq=1')>=0) || (backUrl.indexOf('fitness-planner')>=0) || (qs('autoNext','0')==='1');
-  }
+    // populate result UI
+    showView('result');
+    if(RES_MODE) RES_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
+    if(RES_TRACK) RES_TRACK.textContent = TRACKS[S.trackKey].name;
+    if(RES_END) RES_END.textContent = S.endReason || 'timeup';
+    if(RES_SCORE) RES_SCORE.textContent = String(Math.round(S.score));
+    if(RES_MAXCOMBO) RES_MAXCOMBO.textContent = String(S.maxCombo);
+    if(RES_DETAIL_HIT) RES_DETAIL_HIT.textContent = `${S.perfect} / ${S.great} / ${S.good} / ${S.miss}`;
+    if(RES_ACC) RES_ACC.textContent = `${accPct.toFixed(1)} %`;
+    if(RES_DUR) RES_DUR.textContent = `${dur.toFixed(1)} s`;
+    if(RES_RANK) RES_RANK.textContent = rank;
 
-  function isHidden(el){
-    if(!el) return true;
-    return el.classList.contains('hidden') || el.hasAttribute('hidden');
-  }
+    if(RES_OFF_AVG) RES_OFF_AVG.textContent = (offAvg==null ? '-' : `${offAvg.toFixed(1)} ms`);
+    if(RES_OFF_STD) RES_OFF_STD.textContent = (offStd==null ? '-' : `${offStd.toFixed(1)} ms`);
 
-  var resView = document.getElementById('rb-view-result');
-  if(resView && autoReturn){
-    var fired = false;
-    var obs = new MutationObserver(function(){
-      if(fired) return;
-      if(!isHidden(resView)){
-        fired = true;
-        // short delay so DOM writes settle
-        setTimeout(function(){
-          // If user is in research and might want CSV, we only auto-return when seq flow is explicit
-          var strictSeq = (backUrl.indexOf('seq=1')>=0);
-          if(!strictSeq) return;
+    if(RES_PART) RES_PART.textContent = (IN_PART && IN_PART.value) ? String(IN_PART.value).trim() : '-';
 
-          var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
-          var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
-          var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
-          window.HH_END_GAME('auto', { score: score, acc: acc, miss: miss });
-        }, 900);
+    // quality note (research)
+    if(RES_QUALITY_NOTE){
+      const note = [];
+      if(S.blankTaps > 8) note.push('กดล่วงหน้า/กดรัวค่อนข้างเยอะ (blank tap สูง)');
+      if(S.hp < 45) note.push('ความล้า/พลาดสูง (HP ต่ำ)');
+      if(offAvg!=null && offAvg > 110) note.push('จังหวะยังไม่คงที่ (offset สูง)');
+      if(S.mode==='research' && note.length){
+        RES_QUALITY_NOTE.classList.remove('hidden');
+        RES_QUALITY_NOTE.textContent = 'ข้อสังเกตคุณภาพข้อมูล: ' + note.join(' · ');
+      }else{
+        RES_QUALITY_NOTE.classList.add('hidden');
+        RES_QUALITY_NOTE.textContent = '';
       }
-    });
-    obs.observe(resView, { attributes:true, attributeFilter:['class','hidden'] });
-  }
-})();
-</script>
+    }
 
-</body>
-</html>
+    // save session row (for download)
+    const sess = {
+      ...sessionMeta(),
+      kind:'session',
+      endReason: S.endReason,
+      durationSec: dur.toFixed(2),
+      score: Math.round(S.score),
+      maxCombo: S.maxCombo,
+      shots: S.shots,
+      hits: S.hits,
+      accPct: accPct.toFixed(2),
+      perfect: S.perfect,
+      great: S.great,
+      good: S.good,
+      miss: S.miss,
+      hpEnd: Math.round(S.hp),
+      shieldEnd: S.shield,
+      feverEnd: Math.round(S.fever),
+      offsetAbsMeanMs: (offAvg==null? '' : offAvg.toFixed(2)),
+      offsetAbsStdMs: (offStd==null? '' : offStd.toFixed(2)),
+      rank,
+      tsIsoEnd: nowIso(),
+    };
+    S.sessions.push(sess);
+
+    // marker end
+    logEvent({
+      ...sessionMeta(),
+      kind:'marker',
+      marker:'end',
+      endReason: S.endReason,
+      durationSec: dur.toFixed(2),
+      score: Math.round(S.score),
+      accPct: accPct.toFixed(2),
+      miss: S.miss,
+      tsIso: nowIso(),
+    });
+
+    // ✅ If planner/hub expects end callback: call HH_END_GAME if defined and seq flow indicates autoNext
+    // We'll only auto-return when explicit autoNext/seq=1 is present to avoid interrupting CSV download.
+    const autoNext = (qs('autoNext','0')==='1');
+    const hubHasSeq = HUB && String(HUB).includes('seq=1');
+
+    if((autoNext || hubHasSeq) && typeof W.HH_END_GAME === 'function'){
+      // short delay so user sees result briefly
+      setTimeout(()=>{
+        try{
+          W.HH_END_GAME('result', { score: sess.score, acc: sess.accPct, miss: sess.miss });
+        }catch(_){}
+      }, 900);
+    }
+  }
+
+  function tick(){
+    if(!S.running) return;
+
+    const now = nowMs();
+    const dt = now - S.tLast;
+    S.tLast = now;
+
+    // time end or HP end
+    if(now >= S.tEnd){
+      S.endReason = 'timeup';
+      endGame();
+      return;
+    }
+    if(S.hp <= 0){
+      S.endReason = 'hp0';
+      endGame();
+      return;
+    }
+
+    // fever drain
+    drainFever(dt);
+
+    // render notes
+    renderNotes(now);
+
+    // HUD + AI
+    updateHUD(now);
+    updateAI(now);
+
+    requestAnimationFrame(tick);
+  }
+
+  // --------------------------- result buttons ---------------------------
+  function playAgainSame(){
+    // return to play with same selection (keep current radios)
+    showView('menu');
+    // start again quickly
+    startGame();
+  }
+
+  function backToMenu(){
+    showView('menu');
+  }
+
+  function downloadEventsCSV(){
+    const rows = S.events.slice();
+    const cols = [
+      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode',
+      'kind','marker','tMs','lane','action','source','judge','offsetMs','score','combo','hp','fever','shield',
+      'bpm','density','durSec','endReason'
+    ];
+    const csv = toCSV(rows, cols);
+    const fn = `rhythm_events_${PID}_${S.trackKey}_${Date.now()}.csv`;
+    downloadText(fn, csv);
+  }
+
+  function downloadSessionsCSV(){
+    const rows = S.sessions.slice();
+    const cols = [
+      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode',
+      'endReason','durationSec','score','maxCombo','shots','hits','accPct',
+      'perfect','great','good','miss','hpEnd','shieldEnd','feverEnd',
+      'offsetAbsMeanMs','offsetAbsStdMs','rank'
+    ];
+    const csv = toCSV(rows, cols);
+    const fn = `rhythm_sessions_${PID}_${S.trackKey}_${Date.now()}.csv`;
+    downloadText(fn, csv);
+  }
+
+  // --------------------------- boot ---------------------------
+  function boot(){
+    // bind mode change
+    const modeRadios = D.querySelectorAll('input[name="rb-mode"]');
+    modeRadios.forEach(r=>{
+      r.addEventListener('change', refreshModeUI);
+    });
+
+    // bind start
+    BTN_START.addEventListener('click', ()=>{
+      refreshModeUI();
+      startGame();
+    });
+
+    // stop
+    if(BTN_STOP){
+      BTN_STOP.addEventListener('click', ()=>{
+        stopGame('stop');
+      });
+    }
+
+    if(BTN_AGAIN){
+      BTN_AGAIN.addEventListener('click', ()=>{
+        // play same track again (keeping current selection)
+        startGame();
+      });
+    }
+
+    if(BTN_BACK_MENU){
+      BTN_BACK_MENU.addEventListener('click', backToMenu);
+    }
+
+    if(BTN_DL_EVENTS){
+      BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
+    }
+    if(BTN_DL_SESS){
+      BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
+    }
+
+    bindInputs();
+    refreshModeUI();
+
+    // If planner wants to force run=research or mode, you can auto-check:
+    if(RUN==='research'){
+      const r = D.querySelector('input[name="rb-mode"][value="research"]');
+      if(r) r.checked = true;
+      refreshModeUI();
+      const t = D.querySelector('input[name="rb-track"][value="r1"]');
+      if(t) t.checked = true;
+    }
+
+    // Expose end hook (for planner bridge)
+    if(typeof W.HH_END_GAME !== 'function'){
+      W.HH_END_GAME = function(reason){
+        // fallback: go hub if provided
+        if(HUB){
+          try{ location.href = new URL(HUB, location.href).toString(); }
+          catch{ location.href = HUB; }
+        }
+      };
+    }
+
+    // Small banner in console
+    console.log('[RB] boot OK', {RUN, DIFF, TIME_SEC, PID, track: getSelectedTrack()});
+  }
+
+  boot();
+
+})();
