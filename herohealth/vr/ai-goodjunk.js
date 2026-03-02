@@ -1,161 +1,114 @@
-// === /webxr-health-mobile/herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI — Prediction + Multi-objective Director (spawn/junk/aimAssist)
-// FULL v20260302-AI-GJ-DIRECTOR
+// === /herohealth/vr/ai-goodjunk.js ===
+// Prediction-only AI (NO adaptive) for GoodJunk
+// PATCH v20260302-AI-GOODJUNK
 'use strict';
-
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
-
-// deterministic tiny RNG (optional)
-function xfnv1a(str){
-  let h = 2166136261 >>> 0;
-  for(let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-function mulberry32(a){
-  return function(){
-    let t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export function createGoodJunkAI(cfg){
   cfg = cfg || {};
-  const seed = String(cfg.seed || Date.now());
-  const pid  = String(cfg.pid  || 'anon');
-  const diff = String(cfg.diff || 'normal');
-  const view = String(cfg.view || 'mobile');
+  const seed = String(cfg.seed||'');
+  const pid  = String(cfg.pid||'anon');
+  const diff = String(cfg.diff||'normal');
+  const view = String(cfg.view||'mobile');
 
-  const rnd = mulberry32(xfnv1a(`AI-GJ::${seed}::${pid}::${diff}::${view}`));
+  // rolling counters (lightweight)
+  let tSec = 0;
+  let missGoodExpired = 0;
+  let missJunkHit = 0;
+  let shield = 0;
+  let fever = 0;
+  let combo = 0;
+  let score = 0;
+  let shots = 0;
+  let hits = 0;
 
-  // Director outputs (read by game)
-  const director = {
-    spawnRateMul: 1.00,
-    junkBiasDelta: 0.00,
-    lockPx: 52, // aim assist radius for cVR/tap rescue
-  };
+  // last prediction snapshot
+  let lastPred = null;
 
-  // internal smoothing state
-  let lastHintAt = 0;
-  let emaRisk = 0.25;
+  function clamp(v,a,b){ v=+v||0; return v<a?a:(v>b?b:v); }
+  function accPct(){ return shots>0 ? (hits/shots) : 0; }
 
-  function logistic(x){ return 1 / (1 + Math.exp(-x)); }
+  function predict(){
+    // hazardRisk: higher = more risk (junk/expire)
+    const acc = accPct(); // 0..1
+    const missRate = clamp((missGoodExpired + missJunkHit) / Math.max(1, (hits + missGoodExpired + missJunkHit)), 0, 1);
 
-  // “risk prediction” (heuristic but DL-ready features)
-  function predictRisk(snap){
-    // snap: shots, shotsMiss, miss, hitJunk, combo, timeLeftSec, medianRtGoodMs, feverPct, shield, bossOn, bossHp
-    const tLeft = clamp(snap.timeLeftSec ?? 0, 0, 999);
-    const tAll  = clamp(snap.timeAllSec ?? 80, 20, 300);
-    const tFrac = (tAll>0) ? (tLeft / tAll) : 1;
+    // Heuristic: low acc + high missRate + low shield => higher risk
+    let risk =
+      (1-acc)*0.55 +
+      missRate*0.45 +
+      (shield<=0 ? 0.10 : 0.0) -
+      (fever>=80 ? 0.05 : 0.0) -
+      (combo>=5 ? 0.05 : 0.0);
 
-    const shots = clamp(snap.shots ?? 0, 0, 1e9);
-    const missAttempt = clamp(snap.shotsMiss ?? 0, 0, 1e9);
-    const miss = clamp(snap.miss ?? 0, 0, 1e9);
-    const junk = clamp(snap.hitJunk ?? 0, 0, 1e9);
+    // soften by diff
+    if(diff==='easy') risk -= 0.05;
+    if(diff==='hard') risk += 0.05;
 
-    const combo = clamp(snap.combo ?? 0, 0, 999);
-    const rt = clamp(snap.medianRtGoodMs ?? 0, 0, 4000);
+    risk = clamp(risk, 0, 1);
 
-    const fever = clamp(snap.feverPct ?? 0, 0, 100);
-    const shield = clamp(snap.shield ?? 0, 0, 3);
+    const next5 = [];
+    if(risk > 0.70) next5.push('เลี่ยง JUNK ก่อน');
+    else if(risk > 0.45) next5.push('โฟกัสของดีให้ต่อเนื่อง');
+    else next5.push('เก็บคอมโบได้เลย');
 
-    const attemptRate = shots>0 ? (missAttempt/shots) : 0;
-    const junkRate = shots>0 ? (junk/shots) : 0;
+    if(shield<=0) next5.push('หา 🛡️ ไว้กันพลาด');
+    if(missGoodExpired > missJunkHit) next5.push('รีบแตะ GOOD อย่าปล่อยหาย');
+    if(acc < 0.55) next5.push('ยิงให้ชัวร์ก่อนเร็ว');
 
-    // weighted features
-    let x =
-      + 2.2*(attemptRate - 0.22)
-      + 1.8*(junkRate - 0.10)
-      + 0.035*(rt - 520)
-      + 0.18*(miss - 3)
-      - 0.12*(combo)
-      - 0.018*(fever - 30)
-      - 0.25*(shield);
-
-    // boss makes harder
-    if(snap.bossOn) x += 0.55;
-    if(snap.bossOn && (snap.bossHp ?? 100) > 65) x += 0.25;
-
-    // late game pressure
-    if(tFrac < 0.25) x += 0.35;
-
-    const r = clamp(logistic(x), 0, 1);
-    // smooth
-    emaRisk = clamp(emaRisk*0.72 + r*0.28, 0, 1);
-    return emaRisk;
-  }
-
-  function updateDirector(snap, risk){
-    // Multi-objective:
-    // - If risk high: slightly slow spawn + reduce junk + widen lock
-    // - If risk low and combo high: speed spawn + a bit more junk + narrow lock
-    const combo = clamp(snap.combo ?? 0, 0, 999);
-    const fever = clamp(snap.feverPct ?? 0, 0, 100);
-    const bossOn = !!snap.bossOn;
-
-    // baseline per difficulty
-    const baseSpawn =
-      diff==='hard' ? 1.06 :
-      diff==='easy' ? 0.96 : 1.00;
-
-    let spawn = baseSpawn;
-    let junkBias = 0.00;
-    let lockPx = (view==='cvr' || view==='vr') ? 52 : 44; // tap rescue default tighter
-
-    // risk response
-    spawn += (0.28 - risk) * 0.22;               // risk↑ => spawn↓
-    junkBias += (0.25 - risk) * 0.10;            // risk↑ => junk↓
-    lockPx += (risk - 0.30) * 42;                // risk↑ => lock wider
-
-    // combo/fever flow (keep exciting for strong players)
-    if(combo >= 8) { spawn += 0.04; lockPx -= 4; }
-    if(combo >= 12){ spawn += 0.05; junkBias += 0.02; lockPx -= 6; }
-    if(fever >= 60){ lockPx -= 4; }              // fever on = reward precision
-
-    // boss adjustments
-    if(bossOn){
-      spawn += 0.04;
-      lockPx += 2; // small assist only
-    }
-
-    // clamp to safe ranges
-    director.spawnRateMul = clamp(spawn, 0.90, 1.18);
-    director.junkBiasDelta = clamp(junkBias, -0.08, 0.10);
-    director.lockPx = Math.round(clamp(lockPx, 32, 78));
-  }
-
-  function makeHintText(risk, snap){
-    const bossOn = !!snap.bossOn;
-    if(bossOn && risk > 0.55) return 'โฟกัสของดีต่อเนื่อง! เลี่ยงของหวาน 🧋🍟';
-    if(risk > 0.62) return 'ช้า-แต่ชัวร์: มองก่อนกด (อย่าเผลอโดน junk)';
-    if(risk > 0.45) return 'คุมจังหวะ + ล็อกกลางจอให้แม่น';
-    if(risk < 0.28) return 'โหดได้! เร่งคอมโบต่อเนื่อง 🚀';
-    return 'รักษาคอมโบ + เก็บของดีให้ครบ';
-  }
-
-  function maybeHint(snap){
-    const t = Date.now();
-    // rate-limit hints (avoid spam)
-    if(t - lastHintAt < 900) return null;
-    lastHintAt = t;
-
-    const risk = predictRisk(snap);
-    updateDirector(snap, risk);
-
-    // output
     return {
-      risk,
-      hint: makeHintText(risk, snap),
-      director: { ...director }
+      model: 'heuristic-v1',
+      seed, pid, diff, view,
+      hazardRisk: +risk.toFixed(4),
+      next5
     };
   }
 
   return {
-    director,
-    maybeHint
+    onSpawn(kind, meta){
+      // (optional) keep for future
+    },
+    onHit(kind, meta){
+      // (optional) keep for future
+    },
+    onExpire(kind, meta){
+      // (optional) keep for future
+    },
+    onTick(dt, state){
+      tSec += (+dt||0);
+      missGoodExpired = +state?.missGoodExpired || missGoodExpired;
+      missJunkHit     = +state?.missJunkHit || missJunkHit;
+      shield          = +state?.shield || shield;
+      fever           = +state?.fever || fever;
+      combo           = +state?.combo || combo;
+      score           = +state?.score || score;
+      shots           = +state?.shots || shots;
+      hits            = +state?.hits || hits;
+
+      // update prediction at ~5Hz max
+      if(!lastPred || (tSec - (lastPred._tSec||0)) > 0.20){
+        lastPred = predict();
+        lastPred._tSec = tSec;
+      }
+      return lastPred;
+    },
+    getPrediction(){
+      return lastPred;
+    },
+    onEnd(summary){
+      // attach a simple analysis (still prediction-only)
+      try{
+        const acc = summary?.accPct ?? null;
+        const med = summary?.medianRtGoodMs ?? null;
+        return {
+          note: 'prediction-only',
+          tip:
+            (acc!=null && acc < 55) ? 'ลองลดความรีบ แล้วยิงให้ชัวร์ขึ้น' :
+            (med!=null && med > 850) ? 'ลองอ่านเป้าเร็วขึ้นนิดนึง (RT สูง)' :
+            'ดีมาก! คุมจังหวะได้แล้ว',
+        };
+      }catch(e){
+        return null;
+      }
+    }
   };
 }
