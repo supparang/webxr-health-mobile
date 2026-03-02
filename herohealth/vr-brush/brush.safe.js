@@ -3,7 +3,7 @@
 // FULL v20260301-BRUSH-SAFE-ESM-FIXTARGET-CAMERA403
 'use strict';
 
-export function boot(cfg){
+export function bootGame(cfg){
   cfg = cfg || {};
   const W = window, D = document;
 
@@ -69,6 +69,7 @@ export function boot(cfg){
     accPill:   D.getElementById('accPill'),
     toolPill:  D.getElementById('toolPill'),
     viewPill:  D.getElementById('viewPill'),
+
     btnStart:  D.getElementById('btnStart'),
     btnHelp:   D.getElementById('btnHelp'),
     btnCloseHelp: D.getElementById('btnCloseHelp'),
@@ -96,15 +97,14 @@ export function boot(cfg){
     rtGood:[],
 
     cam3:null,
-    targets:new Map(),
+    targets:new Map(), // id -> {el, kind, good, bornAt, ttlAt}
     seq:0,
 
     spawnEveryMs:900,
     ttlMs:1500,
-    lockPx:44,
 
-    raf: 0,
-    lastSpawn: 0,
+    raf:0,
+    lastSpawn:0,
   };
 
   function tuneByDiff(){
@@ -126,11 +126,10 @@ export function boot(cfg){
 
     if (UI.toolPill) UI.toolPill.textContent = `TOOL: BRUSH`;
     if (UI.viewPill) UI.viewPill.textContent = `VIEW: ${IS_CVR ? 'cVR' : 'PC/Mobile'}`;
-
     if (UI.crosshair) UI.crosshair.style.display = IS_CVR ? 'block' : 'none';
   }
 
-  // ---------- wait for camera ----------
+  // ---------- wait for camera (NO CRASH) ----------
   function getCam3(){
     try{
       const camEl = UI.cam || D.querySelector('#cam') || D.querySelector('[camera]');
@@ -155,7 +154,7 @@ export function boot(cfg){
     });
   }
 
-  // ---------- gameplay ----------
+  // ---------- targets ----------
   function rid(){ return `t${++S.seq}`; }
 
   function spawnTarget(kind='plaque'){
@@ -170,9 +169,11 @@ export function boot(cfg){
     const bornAt = now();
     const ttlAt = bornAt + S.ttlMs;
 
+    // mapping: plaque=good, germ=junk
     const good = (kind === 'plaque');
     if (good) S.goodSpawn++; else S.junkSpawn++;
 
+    // position around tooth (front)
     const x = (Math.random() * 0.9 - 0.45);
     const y = (Math.random() * 0.6 - 0.15);
     const z = -3.0 + (Math.random() * 0.35 - 0.15);
@@ -198,8 +199,8 @@ export function boot(cfg){
     el.appendChild(ring);
 
     el.addEventListener('click', ()=> hitTarget(id));
-    root.appendChild(el);
 
+    root.appendChild(el);
     S.targets.set(id, { el, kind, good, bornAt, ttlAt });
 
     safePost(API, { table:'events', eventType:'target_spawn', sessionId:S.sessionId, pid:PID, kind, targetId:id, ts:Date.now() });
@@ -259,6 +260,7 @@ export function boot(cfg){
     }
   }
 
+  // ---------- cVR shoot ----------
   function findHitTargetIdFromRay(){
     try{
       if (!W.AFRAME || !W.AFRAME.THREE) return null;
@@ -273,6 +275,7 @@ export function boot(cfg){
       dir.applyQuaternion(cam3.quaternion).normalize();
 
       const ray = new THREE.Raycaster(origin, dir, 0.1, 8.0);
+
       const objs = [];
       for (const t of S.targets.values()){
         if (t.el?.object3D) objs.push(t.el.object3D);
@@ -381,23 +384,31 @@ export function boot(cfg){
     hud();
   }
 
+  // ✅ important: boot.js จะเรียก start() หลัง tap-to-start
+  async function start(){
+    tuneByDiff();
+    resetGame();
+    hud();
+    await waitForSceneAndCamera();
+
+    if (UI.btnStart) UI.btnStart.textContent = 'กำลังเล่น...';
+    S.started = true;
+    S.startMs = now();
+    S.lastSpawn = 0;
+
+    safePost(API, { table:'events', eventType:'session_start', sessionId:S.sessionId, pid:PID, runMode:RUN, diff:DIFF, time:TIME, ts:Date.now() });
+    S.raf = requestAnimationFrame(loop);
+  }
+
   function bindUI(){
     UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
     UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
 
+    // ถ้ากดปุ่ม Start ในหน้า (pc) ก็ start ได้
     UI.btnStart?.addEventListener('click', async ()=>{
       if (S.started || S.ended) return;
       UI.btnStart.textContent = 'กำลังเริ่ม...';
-
-      await waitForSceneAndCamera();
-
-      S.started = true;
-      S.startMs = now();
-      S.lastSpawn = 0;
-      UI.btnStart.textContent = 'กำลังเล่น...';
-
-      safePost(API, { table:'events', eventType:'session_start', sessionId:S.sessionId, pid:PID, runMode:RUN, diff:DIFF, time:TIME, ts:Date.now() });
-      S.raf = requestAnimationFrame(loop);
+      await start();
     });
 
     UI.btnReplay?.addEventListener('click', ()=>{
@@ -415,26 +426,17 @@ export function boot(cfg){
     D.addEventListener('pointerdown', ()=>{ if(IS_CVR) onShoot(); }, { passive:true });
   }
 
-  async function init(){
-    tuneByDiff();
-    resetGame();
-    bindUI();
-    hud();
-    await waitForSceneAndCamera();
+  // init + expose API to boot.js
+  bindUI();
+  hud();
 
-    // expose debug
-    W.HHBrush = {
-      state: ()=>({ ...S, targetsSize: S.targets.size }),
-      spawn: ()=>spawnTarget(Math.random()<0.2?'germ':'plaque'),
-      end: ()=>endGame('debug'),
-      reset: ()=>resetGame()
-    };
+  const api = {
+    start,
+    state: ()=>({ ...S, targetsSize: S.targets.size }),
+  };
 
-    console.log('[Brush] ready', { run: RUN, diff: DIFF, time: TIME, pid: PID, cvr: IS_CVR, log: LOG_ON });
-  }
+  // expose for boot.js (A style)
+  W.HHBrush_SAFE = api;
 
-  if (D.readyState === 'loading') D.addEventListener('DOMContentLoaded', init, { once:true });
-  else init();
-
-  return { S, UI, safePost };
+  return api;
 }
