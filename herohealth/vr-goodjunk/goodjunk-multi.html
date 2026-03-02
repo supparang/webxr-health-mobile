@@ -1,0 +1,155 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-multi.html ===
+GoodJunk Multiplayer LOBBY — v1 (Host Authority + Supabase params passthrough)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth • GoodJunk Multiplayer Lobby</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    :root{ --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455; --ok:#27d17f; }
+    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--fg); }
+    .wrap{ max-width:920px; margin:0 auto; padding:20px; }
+    .grid{ display:grid; gap:14px; grid-template-columns:1.2fr .8fr; }
+    @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
+    .card{ background:var(--card); border:1px solid var(--bd); border-radius:16px; padding:14px; }
+    h1{ margin:0 0 10px; font-size:20px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input,select,button{ font:inherit; border-radius:12px; border:1px solid var(--bd); background:#0e1730; color:var(--fg); padding:10px 12px; }
+    input{ width:220px; }
+    button{ cursor:pointer; font-weight:800; }
+    .btn{ background:#16224a; }
+    .btnOk{ background:rgba(39,209,127,.15); border-color:rgba(39,209,127,.5); }
+    .mut{ color:var(--mut); font-size:13px; }
+    .mono{ font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .qr{ width:220px; height:220px; background:#081026; border:1px dashed var(--bd); border-radius:14px; display:grid; place-items:center; overflow:hidden; }
+    .link{ word-break:break-all; font-size:12px; background:#0b1430; border:1px solid var(--bd); padding:10px; border-radius:12px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GoodJunk Multiplayer (2–10)</h1>
+  <div class="mut">ครูสร้างห้อง → เด็กสแกน QR → ใส่ชื่อ → เข้าเล่นพร้อมกัน</div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card">
+      <div class="row">
+        <button id="btnNew" class="btn">สร้างห้องใหม่</button>
+        <input id="room" placeholder="Room ID (เช่น GJ-8K3P2)"/>
+        <button id="btnUse" class="btn">ใช้ห้องนี้</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <input id="nick" placeholder="ชื่อเล่น" />
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+        <select id="time">
+          <option value="60">60s</option>
+          <option value="80" selected>80s</option>
+          <option value="100">100s</option>
+        </select>
+        <button id="btnJoin" class="btnOk">เข้าเล่น</button>
+      </div>
+
+      <div style="margin-top:10px" class="mut">
+        Supabase config (ใส่ครั้งเดียว):<br/>
+        <span class="mono">?sbUrl=...&amp;sbAnon=...</span>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="mut">ลิงก์สำหรับเด็ก (สแกน/ส่งในไลน์ห้อง):</div>
+      <div id="shareLink" class="link mono">-</div>
+    </div>
+
+    <div class="card">
+      <div class="mut">QR Code</div>
+      <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่”</span></div>
+      <div style="height:10px"></div>
+      <div class="mut">Tip: ครูเข้าเป็น <b>host</b> โดยเพิ่ม <span class="mono">host=1</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const qs=(k,d='')=>{try{return(new URL(location.href)).searchParams.get(k)??d}catch(e){return d}};
+  const $=id=>document.getElementById(id);
+  const sbUrl = qs('sbUrl','');
+  const sbAnon= qs('sbAnon','');
+  const runBase = './goodjunk-vr.html';
+
+  function randRoom(){
+    const pool='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let s='GJ-';
+    for(let i=0;i<5;i++) s+=pool[Math.floor(Math.random()*pool.length)];
+    return s;
+  }
+  function buildLink(roomId, nick='', host='0'){
+    const u = new URL(runBase, location.href);
+    u.searchParams.set('room', roomId);
+    if(nick) u.searchParams.set('nick', nick);
+    if(host==='1') u.searchParams.set('host','1');
+    u.searchParams.set('diff', $('diff').value);
+    u.searchParams.set('time', $('time').value);
+    // passthrough supabase
+    if(sbUrl)  u.searchParams.set('sbUrl', sbUrl);
+    if(sbAnon) u.searchParams.set('sbAnon', sbAnon);
+    // passthrough HHA basics
+    const passthru = ['run','log','api','pid','hub','studyId','phase','conditionGroup','debug','seed'];
+    passthru.forEach(k=>{ const v=qs(k,''); if(v) u.searchParams.set(k,v); });
+    return u.toString();
+  }
+
+  function setQR(url){
+    const box=$('qrBox');
+    const img = new Image();
+    img.alt='QR';
+    // ใช้บริการ QR แบบง่าย (ไม่ต้อง lib) — ถ้าคุณไม่ชอบ เดี๋ยวค่อยเปลี่ยนเป็น local generator
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url);
+    img.style.width='220px'; img.style.height='220px';
+    box.innerHTML='';
+    box.appendChild(img);
+  }
+
+  function updateShare(roomId){
+    const share = buildLink(roomId, '', '0');     // สำหรับเด็ก (ไม่เป็น host)
+    $('shareLink').textContent = share;
+    setQR(share);
+  }
+
+  $('btnNew').addEventListener('click', ()=>{
+    const r = randRoom();
+    $('room').value = r;
+    updateShare(r);
+  });
+
+  $('btnUse').addEventListener('click', ()=>{
+    const r = $('room').value.trim();
+    if(!r) return;
+    updateShare(r);
+  });
+
+  $('btnJoin').addEventListener('click', ()=>{
+    const roomId = $('room').value.trim();
+    if(!roomId) return;
+
+    const nick = ($('nick').value.trim() || 'Player').slice(0,20);
+    // ถ้าครูอยากเป็น host ให้พิมพ์ nick = "TEACHER" แล้วเดี๋ยวเราตั้ง host=1 ผ่านปุ่ม/ลิงก์ได้
+    const isHost = (nick.toLowerCase()==='teacher') ? '1' : '0';
+    const url = buildLink(roomId, nick, isHost);
+    location.href = url;
+  });
+
+  // preload from query
+  const r0 = qs('room','');
+  if(r0){ $('room').value=r0; updateShare(r0); }
+  $('nick').value = qs('nick','');
+</script>
+</body>
+</html>
