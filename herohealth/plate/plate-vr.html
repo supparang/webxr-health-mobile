@@ -7,9 +7,6 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- (ถ้ามี logger จริงค่อยใช้) -->
-  <!-- <script type="module" src="../vr/hha-cloud-logger.js?v=20260228"></script> -->
-
   <!-- ✅ vr-ui: hha:shoot / ENTER VR / RECENTER -->
   <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
 
@@ -23,16 +20,11 @@
       --hud-top: calc(var(--sat) + 10px);
       --hud-bottom: calc(var(--sab) + 12px);
 
-      --panel: rgba(2,6,23,.78);
-      --panel2: rgba(2,6,23,.64);
       --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
       --mut: rgba(148,163,184,.95);
-      --good: rgba(16,185,129,.95);
-      --warn: rgba(251,191,36,.95);
-      --bad: rgba(239,68,68,.95);
-      --accent: rgba(99,102,241,.95);
     }
+
     *{ box-sizing:border-box; }
     html,body{
       margin:0; height:100%; overflow:hidden;
@@ -58,7 +50,12 @@
       will-change: contents;
       min-width: 1px;
       min-height: 1px;
+
+      /* ✅ กันเป้าถูก HUD บัง */
+      padding-top: calc(var(--hud-top) + 56px);
+      padding-bottom: calc(var(--hud-bottom) + 148px);
     }
+
     #plate-layer .plateTarget{
       position:absolute;
       display:grid;
@@ -84,7 +81,7 @@
     #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
     #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
-    /* HUD */
+    /* HUD base */
     .hud{
       position:absolute;
       left:max(10px, calc(var(--sal) + 10px));
@@ -98,47 +95,125 @@
     #hudBottom{
       bottom:var(--hud-bottom);
       grid-template-columns: 1fr;
-      gap:10px;
+      gap:8px;
     }
-    .row{ display:grid; gap:8px; }
-    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
-    .row.cols-2{ grid-template-columns: 1fr 1fr; }
-    @media (max-width: 780px){
-      .row.cols-3{ grid-template-columns: 1fr; }
-      .row.cols-2{ grid-template-columns: 1fr; }
+
+    /* ===== Compact Topbar ===== */
+    .hh-topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      pointer-events:auto;
     }
+    .hh-pill{
+      min-height: 36px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(2,6,23,.64);
+      border:1px solid rgba(148,163,184,.16);
+      display:flex; align-items:center; gap:8px;
+      font-weight:900;
+      font-size:13px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
+    .hh-pill .v{ font-weight:1000; font-variant-numeric: tabular-nums; }
+    .hh-pill.wide{ flex: 1; min-width: 180px; justify-content:flex-start; }
+    .hh-miniBar{
+      width: 92px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
+      border:1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    .hh-miniBar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(99,102,241,.9));
+      transition: width .18s ease;
+    }
+
+    /* ===== Bottom Coach + Controls ===== */
     .card{
       background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
-      border:1px solid var(--line);
-      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 16px;
       padding:10px 12px;
-      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      box-shadow: 0 10px 28px rgba(0,0,0,.20);
       pointer-events:none;
     }
-    .card h4{
-      margin:0 0 8px 0;
-      font-size:12px;
-      color:var(--mut);
-      font-weight:700;
-      letter-spacing:.2px;
+
+    #coachMsg{ margin-top:6px; font-weight:900; font-size:13px; line-height:1.2; }
+    #coachHint{ font-size:12px; opacity:.85; margin-top:4px; }
+
+    #controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:8px;
+      pointer-events:auto;
     }
-    .stats{
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius: 999px;
+      padding:10px 10px;
+      min-height:42px;
+      font-weight:1000;
+      font-size:13px;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(2,6,23,.22);
+    }
+    .btn.primary{
+      border-color: rgba(59,130,246,.35);
+      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.25);
+      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+
+    /* ===== Drawer details ===== */
+    .hh-drawer{
+      pointer-events:auto;
+      background: rgba(2,6,23,.64);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 16px;
+      overflow:hidden;
+    }
+    .hh-drawer summary{
+      list-style:none;
+      cursor:pointer;
+      user-select:none;
+      padding:10px 12px;
+      display:flex; align-items:center; justify-content:space-between;
+      font-weight:1000;
+    }
+    .hh-drawer summary::-webkit-details-marker{ display:none; }
+    .hh-drawer .inner{
+      padding: 0 12px 12px 12px;
+      display:grid;
+      gap:10px;
+    }
+    .pillRow{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap:8px;
     }
-    .stats.two{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     .pill{
       background: rgba(15,23,42,.7);
       border:1px solid rgba(148,163,184,.16);
       border-radius: 999px;
-      min-height: 42px;
+      min-height: 40px;
       display:flex; align-items:center; justify-content:center;
       gap:8px; padding: 8px 10px;
-      font-weight:700;
+      font-weight:900;
       font-size: 13px;
     }
-    .pill .v{ font-size:15px; font-weight:800; }
     .bar{
       height: 10px;
       border-radius: 999px;
@@ -152,29 +227,7 @@
       transition: width .18s ease;
     }
 
-    #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius: 999px;
-      padding:10px 14px;
-      min-height:44px;
-      font-weight:800;
-      font-size:14px;
-      cursor:pointer;
-      box-shadow: 0 6px 18px rgba(2,6,23,.22);
-    }
-    .btn.primary{
-      border-color: rgba(59,130,246,.35);
-      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.25);
-      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
-    }
-
+    /* End overlay */
     #endOverlay{
       position:absolute; inset:0;
       z-index:120;
@@ -205,9 +258,9 @@
       background: rgba(2,6,23,.55);
       border-radius: 14px;
       padding: 10px 12px;
-      font-weight:900;
+      font-weight:1000;
     }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:800; }
+    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
     .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
     .endActions{
       margin-top: 12px;
@@ -217,80 +270,65 @@
       justify-content:flex-end;
     }
     .is-hidden{ display:none !important; }
+
+    @media (min-width: 900px){
+      #controls{ grid-template-columns: 180px 180px 180px; justify-content:end; }
+      .hh-miniBar{ width: 140px; }
+    }
   </style>
 </head>
 
 <body>
   <div id="app">
     <div id="world" aria-hidden="true"></div>
-
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
-    <!-- top HUD -->
+    <!-- ✅ TOP HUD: pills -->
     <div id="hudTop" class="hud">
-      <div class="row cols-3">
-        <div class="card">
-          <h4>คะแนน / คอมโบ / พลาด</h4>
-          <div class="stats">
-            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
-            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
-          </div>
+      <div class="hh-topbar">
+        <div class="hh-pill">🏆 <span id="uiScore" class="v">0</span></div>
+        <div class="hh-pill">💥 <span id="uiMiss" class="v">0</span></div>
+        <div class="hh-pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+
+        <div class="hh-pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+        <div class="hh-pill">🏅 <span id="uiGrade" class="v">D</span></div>
+        <div class="hh-pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+
+        <div class="hh-pill" style="gap:10px;">
+          <span id="uiGoalTitle">เติมจาน</span>
+          <span class="v" id="uiGoalCount">0/5</span>
+          <span class="hh-miniBar"><i id="uiGoalFill"></i></span>
         </div>
 
-        <div class="card">
-          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
-          <div class="stats">
-            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
-            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
-            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
-          </div>
-
-          <div style="height:8px"></div>
-          <div class="stats two">
-            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-              <span id="uiGoalTitle">เติมจานให้ครบ 5 หมู่</span>
-            </div>
-            <div class="pill" style="justify-content:center;">
-              <span id="uiGoalCount">0/5</span>
-            </div>
-          </div>
-          <div style="height:6px"></div>
-          <div class="bar"><i id="uiGoalFill"></i></div>
-        </div>
-
-        <div class="card">
-          <h4>เวลา / Fever / Shield</h4>
-          <div class="stats">
-            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-          </div>
-          <div style="height:8px"></div>
-          <div style="font-weight:800; margin-bottom:6px;">FEVER</div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="card">
-          <h4>ภารกิจตอนนี้</h4>
-          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-            🎯 <span id="uiTargetText">—</span>
-          </div>
+        <div class="hh-pill wide">
+          🎯 <span id="uiTargetText">—</span>
         </div>
       </div>
     </div>
 
-    <!-- bottom controls -->
+    <!-- ✅ BOTTOM HUD -->
     <div id="hudBottom" class="hud">
       <div class="card">
-        <div style="font-weight:900">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:800">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
-        </div>
+        <div style="font-weight:1000">🧑‍🏫 Coach</div>
+        <div id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+        <div id="coachHint">ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)</div>
       </div>
+
+      <!-- Drawer (พับได้) -->
+      <details class="hh-drawer">
+        <summary>
+          รายละเอียด (Fever/Shield/Combo)
+          <span style="opacity:.85">แตะเพื่อพับ/ขยาย</span>
+        </summary>
+        <div class="inner">
+          <div class="pillRow">
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> (max <span id="uiComboMax">0</span>)</div>
+          </div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+      </details>
 
       <div id="controls">
         <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
@@ -316,7 +354,7 @@
           <button class="btn" id="btnCopy">Copy Summary</button>
           <button class="btn" id="btnReplay">Replay</button>
           <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
-          <button class="btn primary" id="btnBackHub2">Back HUB</button>
+          <button class="btn primary" id="btnBackHub2" type="button">Back HUB</button>
         </div>
       </div>
     </div>
@@ -369,10 +407,12 @@
     const btnPause = document.getElementById('btnPause');
     const btnRestart = document.getElementById('btnRestart');
     const btnBackHub = document.getElementById('btnBackHub');
+    const btnBackHub2= document.getElementById('btnBackHub2');
+
     const hub = String(U.searchParams.get('hub') || '../hub.html');
 
     let paused = false;
-    function setPauseBtn(){ btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
     setPauseBtn();
 
     btnPause?.addEventListener('click', ()=>{
@@ -391,6 +431,7 @@
     });
 
     btnBackHub?.addEventListener('click', ()=> location.href = hub);
+    btnBackHub2?.addEventListener('click', ()=> location.href = hub);
   </script>
 </body>
 </html>
