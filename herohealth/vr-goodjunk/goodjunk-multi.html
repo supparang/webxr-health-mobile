@@ -39,9 +39,9 @@ FULL v20260302-GJ-MULTI-LOBBY
 </head>
 <body>
 <div class="wrap">
-  <h1>GoodJunk Multiplayer (2–10)</h1>
+  <h1>GoodJunk Multiplayer (2–10) — RACE</h1>
   <div class="mut">
-    ครูสร้างห้อง → เด็กสแกน QR → ใส่ชื่อ → เข้าเล่นพร้อมกัน<br/>
+    ครูสร้างห้อง → เด็กสแกน QR → เข้าเล่น → ครูกด START ให้เริ่มพร้อมกัน<br/>
     <span class="pill mono">ต้องใส่ Supabase: sbUrl / sbAnon</span>
   </div>
 
@@ -56,7 +56,7 @@ FULL v20260302-GJ-MULTI-LOBBY
       <div style="height:10px"></div>
 
       <div class="row">
-        <input id="nick" placeholder="ชื่อเล่น (ถ้าเป็นครู แนะนำพิมพ์ TEACHER)" />
+        <input id="nick" placeholder="ชื่อเล่น (ครูแนะนำ TEACHER)" />
         <select id="diff">
           <option value="easy">easy</option>
           <option value="normal" selected>normal</option>
@@ -86,7 +86,7 @@ FULL v20260302-GJ-MULTI-LOBBY
       <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่”</span></div>
       <div style="height:10px"></div>
       <div class="mut">
-        Tip: ครูเป็น host โดยอัตโนมัติเมื่อชื่อ = <span class="mono">TEACHER</span> (หรือใส่ <span class="mono">host=1</span>)
+        Tip: ครูเป็น host อัตโนมัติเมื่อชื่อ = <span class="mono">TEACHER</span> (หรือ run page ใส่ <span class="mono">host=1</span>)
       </div>
     </div>
   </div>
@@ -116,12 +116,10 @@ FULL v20260302-GJ-MULTI-LOBBY
     u.searchParams.set('diff', $('diff').value);
     u.searchParams.set('time', $('time').value);
 
-    // passthrough supabase
     if(sbUrl)  u.searchParams.set('sbUrl', sbUrl);
     if(sbAnon) u.searchParams.set('sbAnon', sbAnon);
 
-    // passthrough HHA common params (optional)
-    const passthru = ['run','log','api','pid','hub','studyId','phase','conditionGroup','debug','seed','view'];
+    const passthru = ['run','log','api','pid','hub','studyId','phase','conditionGroup','debug','seed','view','battle','autostart','forfeit'];
     passthru.forEach(k=>{ const v=qs(k,''); if(v) u.searchParams.set(k,v); });
 
     return u.toString();
@@ -165,12 +163,10 @@ FULL v20260302-GJ-MULTI-LOBBY
     location.href = url;
   });
 
-  // preload from query
   const r0 = qs('room','');
   if(r0){ $('room').value=r0; updateShare(r0); }
   $('nick').value = qs('nick','');
 
-  // warn if missing sbUrl/sbAnon
   if(!sbUrl || !sbAnon){
     const hint = document.createElement('div');
     hint.className = 'mut';
