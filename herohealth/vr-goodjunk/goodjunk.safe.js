@@ -6,7 +6,7 @@
 // + ✅ AI HUD: hazardRisk + next watchout
 // + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
-// + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
+// + ✅ Battle (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
 // FULL v20260302-SAFE-ACC-MEDRT-BATTLE-FULL
 'use strict';
 
@@ -80,8 +80,8 @@ export function boot(cfg){
       'plannedGame','finalGame','zone','cdnext','grade',
       // battle passthrough
       'battle','room','autostart','forfeit',
-      // ai passthrough
-      'ai'
+      // logger passthrough
+      'api'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -133,7 +133,7 @@ export function boot(cfg){
     row.appendChild(btn);
   }
 
-  // ---------- deterministic RNG (xmur3 + sfc32) ----------
+  // deterministic RNG (xmur3 + sfc32)
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -185,7 +185,6 @@ export function boot(cfg){
     aiRisk: $('aiRisk'),
     aiHint: $('aiHint'),
   };
-
   const feverFill = $('feverFill');
   const feverText = $('feverText');
   const shieldPills = $('shieldPills');
@@ -443,7 +442,7 @@ export function boot(cfg){
   let rtSum = 0;
   const rtList = [];
 
-  // ACC
+  // ACC (shots/hits)
   let shots = 0;
   let hits  = 0;
 
@@ -459,6 +458,7 @@ export function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
+  // expose small debug state
   WIN.__GJ_STATE__ = {
     targets,
     get miss(){ return missTotal; },
@@ -624,7 +624,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_ACC_MEDRT_BATTLE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_ACC_MEDRT_BATTLE_FULL',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -676,14 +676,13 @@ export function boot(cfg){
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
-    // ✅ finalize battle (optional)
+    // ✅ finalize battle
     try{ battle?.finalizeEnd?.(summary); }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub) endSub.textContent =
-        `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
+      if(endSub) endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
       if(endGrade) endGrade.textContent = summary.grade || '—';
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
@@ -698,7 +697,7 @@ export function boot(cfg){
     setHUD();
   }
 
-  // ---------- gameplay ----------
+  // ---------- gameplay core ----------
   function addFever(v){
     fever = clamp(fever + v, 0, 100);
     if(fever >= 100 && !rageOn){
@@ -747,7 +746,6 @@ export function boot(cfg){
 
     // ✅ AI spawn hook
     try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
-
     return tObj;
   }
 
@@ -759,10 +757,13 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
+    // RT (GOOD only)
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
     goodHitCount++;
     rtSum += rt;
     rtList.push(rt);
+
+    hits++;
 
     combo++;
     bestCombo = Math.max(bestCombo, combo);
@@ -789,6 +790,8 @@ export function boot(cfg){
   function onHitJunk(t, clientX, clientY){
     if(shield > 0){
       shield--;
+      hits++;
+
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
@@ -800,6 +803,7 @@ export function boot(cfg){
       return;
     }
 
+    hits++;
     missTotal++;
     missJunkHit++;
     combo = 0;
@@ -813,11 +817,12 @@ export function boot(cfg){
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
 
     removeTarget(t.id);
-
     if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
+    hits++;
+
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
@@ -836,6 +841,8 @@ export function boot(cfg){
   }
 
   function onHitShield(t, clientX, clientY){
+    hits++;
+
     addShield();
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
@@ -848,6 +855,7 @@ export function boot(cfg){
 
   function onHitBoss(t, clientX, clientY){
     if(!bossActive) return;
+    hits++;
 
     if(bossPhase===0){
       bossShieldHp--;
@@ -858,7 +866,9 @@ export function boot(cfg){
         sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
       }
 
+      // ✅ AI hit hook
       try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
+
       removeTarget(t.id);
       return;
     }
@@ -874,7 +884,9 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
+    // ✅ AI hit hook
     try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
+
     removeTarget(t.id);
 
     if(bossHp<=0){
@@ -897,19 +909,19 @@ export function boot(cfg){
     else if(kind==='boss') onHitBoss(t, clientX, clientY);
   }
 
-  // ✅ pointerdown เฉพาะ non-cvr (cVR strict ยิงจาก crosshair เท่านั้น)
+  // ✅ pointerdown: count shots even when miss-click on empty area (non-cvr)
   function onPointerDown(ev){
     if(!playing || paused) return;
+    // do not count if clicking end overlay, etc.
+    if(endOverlay && endOverlay.getAttribute('aria-hidden') !== 'true') return;
 
-    // ACC
     shots++;
 
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
-    if(!el) return;
-
-    // ACC
-    hits++;
-
+    if(!el){
+      // optional tiny feedback (no penalty)
+      return;
+    }
     const id = el.dataset.id;
     hitTargetById(id, ev.clientX, ev.clientY);
   }
@@ -935,23 +947,17 @@ export function boot(cfg){
     return null;
   }
 
-  // ✅ cVR strict: count shots/hits for hha:shoot too
+  // ✅ cVR strict: shots counted per hha:shoot; only hit if lock finds target
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
+    shots++;
     try{
-      // ACC: a shot is fired
-      shots++;
-
       const lockPx = ev?.detail?.lockPx ?? 56;
       const r = layerRect();
       const x = r.left + r.width/2;
       const y = r.top  + r.height/2;
       const t = pickTargetAt(x,y, lockPx);
-      if(t){
-        // ACC: a hit
-        hits++;
-        hitTargetById(t.id, x, y);
-      }
+      if(t) hitTargetById(t.id, x, y);
     }catch(e){}
   });
 
@@ -1025,6 +1031,7 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
+        // ✅ AI expire hook
         try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
 
         if(t.kind === 'good'){
@@ -1124,7 +1131,6 @@ export function boot(cfg){
         shield,
         fever,
         combo,
-        score,
         shots,
         hits
       }) || null;
@@ -1132,7 +1138,6 @@ export function boot(cfg){
     }catch(e){}
 
     setHUD();
-
     if(checkEnd()) return;
     requestAnimationFrame(tick);
   }
