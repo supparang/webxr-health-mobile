@@ -1,13 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
-// + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
-// + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// + ✅ AI HUD: hazardRisk + next watchout
-// + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
-// + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
-// + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + winner by score→acc→miss→medianRT
-// FULL v20260302-SAFE-ACC-MEDRT-BATTLE
+// GoodJunkVR SAFE — PRODUCTION
+// ✅ FX + Coach + deterministic + HUD-safe spawn
+// ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs
+// ✅ hha:score event (each HUD update)
+// ✅ hha:game-ended end event (once)
+// FULL v20260302-SAFE-FULL
 'use strict';
 
 export function boot(cfg){
@@ -21,114 +18,6 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
-
-  // ---------- BATTLE (optional) ----------
-  let battle = null;
-  async function initBattleMaybe(pid, gameKey){
-    const on = String(qs('battle','0')) === '1';
-    if(!on) return null;
-    try{
-      const mod = await import('../vr/battle-rtdb.js');
-      battle = await mod.initBattle({
-        enabled: true,
-        room: qs('room', ''),
-        pid,
-        gameKey,
-        autostartMs: Number(qs('autostart','3000'))||3000,
-        forfeitMs: Number(qs('forfeit','5000'))||5000
-      });
-      return battle;
-    }catch(e){
-      console.warn('[GoodJunk] battle init failed', e);
-      return null;
-    }
-  }
-
-  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
-  function hhDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-
-  function hhCooldownDone(cat, gameKey, pid){
-    const day = hhDayKey();
-    const p = String(pid||'anon').trim()||'anon';
-    const c = String(cat||'nutrition').toLowerCase();
-    const g = String(gameKey||'unknown').toLowerCase();
-    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
-    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
-    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
-  }
-
-  function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'unknown'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
-
-    const sp = new URL(location.href).searchParams;
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade',
-      'battle','room','autostart','forfeit'
-    ].forEach(k=>{
-      const v = sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k, v);
-    });
-
-    return gate.toString();
-  }
-
-  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
-    if(!endOverlayEl) return;
-    const cdDone = hhCooldownDone(cat, gameKey, pid);
-    if(cdDone) return;
-
-    const sp = new URL(location.href).searchParams;
-    const cdnext = sp.get('cdnext') || '';
-    const nextAfterCooldown = cdnext || hub || '../hub.html';
-    const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
-
-    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
-    let row = panel.querySelector('.hh-end-actions');
-    if(!row){
-      row = DOC.createElement('div');
-      row.className = 'hh-end-actions';
-      row.style.display='flex';
-      row.style.gap='10px';
-      row.style.flexWrap='wrap';
-      row.style.justifyContent='center';
-      row.style.marginTop='12px';
-      row.style.paddingTop='10px';
-      row.style.borderTop='1px solid rgba(148,163,184,.16)';
-      panel.appendChild(row);
-    }
-    if(row.querySelector('[data-hh-cd="1"]')) return;
-
-    const btn = DOC.createElement('button');
-    btn.type='button';
-    btn.dataset.hhCd = '1';
-    btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
-    btn.className = 'btn primary';
-    btn.style.border='1px solid rgba(34,197,94,.30)';
-    btn.style.background='rgba(34,197,94,.14)';
-    btn.style.color='rgba(229,231,235,.96)';
-    btn.style.borderRadius='14px';
-    btn.style.padding='10px 12px';
-    btn.style.fontWeight='1000';
-    btn.style.cursor='pointer';
-    btn.style.minHeight='42px';
-    btn.addEventListener('click', ()=> location.href = url);
-    row.appendChild(btn);
-  }
 
   // deterministic RNG (xmur3 + sfc32)
   function xmur3(str){
@@ -161,10 +50,6 @@ export function boot(cfg){
     const seed = xmur3(seedStr);
     return sfc32(seed(), seed(), seed(), seed());
   }
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const rng = makeRng(seedStr);
-  const r01 = ()=> rng();
-  const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
@@ -217,12 +102,16 @@ export function boot(cfg){
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
 
-  initBattleMaybe(pid, HH_GAME).catch(()=>{});
+  // seed
+  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
+  const rng = makeRng(seedStr);
+  const r01 = ()=> rng();
+  const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
+  // UI pill show
   try{
     if(uiView) uiView.textContent = view;
     if(uiRun)  uiRun.textContent  = runMode;
@@ -349,7 +238,7 @@ export function boot(cfg){
     }
   }
 
-  // ---------- Coach (micro tips) ----------
+  // ---------- Coach ----------
   const coach = DOC.createElement('div');
   coach.style.position = 'fixed';
   coach.style.left = '10px';
@@ -408,13 +297,6 @@ export function boot(cfg){
   let tLeft = plannedSec;
   let lastTick = nowMs();
 
-  // ✅ Help Pause Hook
-  let paused = false;
-  WIN.__GJ_SET_PAUSED__ = function(on){
-    paused = !!on;
-    try{ lastTick = nowMs(); }catch(e){}
-  };
-
   let score = 0;
   let missTotal = 0;
   let missGoodExpired = 0;
@@ -455,25 +337,6 @@ export function boot(cfg){
 
   function getSpawnSafeLocal(){
     const r = layerRect();
-    let s = null;
-    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
-
-    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
-      let xMin = Number(s.xMin) - r.left;
-      let xMax = Number(s.xMax) - r.left;
-      let yMin = Number(s.yMin) - r.top;
-      let yMax = Number(s.yMax) - r.top;
-
-      xMin = clamp(xMin, 0, r.width);
-      xMax = clamp(xMax, 0, r.width);
-      yMin = clamp(yMin, 0, r.height);
-      yMax = clamp(yMax, 0, r.height);
-
-      if((xMax - xMin) >= 120 && (yMax - yMin) >= 140){
-        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
-      }
-    }
-
     const pad = 18;
     const yMin = Math.min(r.height - 160, 180);
     const yMax = Math.max(yMin + 160, r.height - 110);
@@ -486,10 +349,6 @@ export function boot(cfg){
       h: r.height
     };
   }
-
-  WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){
-    try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){}
-  };
 
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
@@ -531,9 +390,6 @@ export function boot(cfg){
         medianRtGoodMs: Math.round(median(rtList))|0
       };
       WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload }));
-
-      // push to battle realtime (if enabled)
-      try{ battle?.pushScore?.(payload); }catch(e){}
     }catch(e){}
   }
 
@@ -567,8 +423,7 @@ export function boot(cfg){
         const hpPct = (bossHpMax>0) ? (bossHp/bossHpMax)*100 : 0;
         if(bossFill) bossFill.style.width = `${clamp(hpPct,0,100)}%`;
         if(bossHint){
-          bossHint.textContent =
-            bossPhase===0 ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
+          bossHint.textContent = (bossPhase===0) ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
         }
       }
     }
@@ -610,7 +465,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_ACC_MEDRT_BATTLE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_FULL',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -644,7 +499,6 @@ export function boot(cfg){
 
   function showEnd(reason){
     playing = false;
-    paused = false;
 
     for(const t of targets.values()){
       try{ t.el.remove(); }catch(e){}
@@ -652,18 +506,8 @@ export function boot(cfg){
     targets.clear();
 
     const summary = buildEndSummary(reason);
-
-    // ✅ AI onEnd attach
-    try{
-      const aiEnd = AI?.onEnd?.(summary);
-      if(aiEnd) summary.aiEnd = aiEnd;
-    }catch(e){}
-
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
-
-    // ✅ finalize battle
-    try{ battle?.finalizeEnd?.(summary); }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
@@ -673,13 +517,9 @@ export function boot(cfg){
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
-
-      try{
-        hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-      }catch(e){}
     }
 
-    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
+    sayCoach('จบแล้ว! ลองเล่นใหม่ให้แม่นขึ้นนะ ✨');
     setHUD();
   }
 
@@ -714,9 +554,7 @@ export function boot(cfg){
     const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
     targets.set(id, tObj);
 
-    // ✅ AI spawn hook
     try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
-
     return tObj;
   }
 
@@ -742,7 +580,6 @@ export function boot(cfg){
     sayCoach('ได้โล่! 🛡️ กันของเสียได้');
   }
 
-  // --- hits (count shots/hits consistently) ---
   function countShot(){ shots++; }
   function countHit(){ hits++; }
 
@@ -765,9 +602,6 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
 
-    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
-    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
-
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
   }
@@ -777,8 +611,6 @@ export function boot(cfg){
       shield--;
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
-      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
-
       try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
       removeTarget(t.id);
       return;
@@ -788,15 +620,11 @@ export function boot(cfg){
     missJunkHit++;
     combo = 0;
 
-    const sub = 8;
-    score = Math.max(0, score - sub);
-
-    fxFloatText(clientX, clientY-10, `-${sub}`, true);
+    score = Math.max(0, score - 8);
+    fxFloatText(clientX, clientY-10, `-8`, true);
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
-
-    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
@@ -809,7 +637,6 @@ export function boot(cfg){
 
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
-    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
 
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
@@ -835,8 +662,6 @@ export function boot(cfg){
         bossPhase = 1;
         sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
       }
-
-      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
       removeTarget(t.id);
       return;
     }
@@ -852,24 +677,19 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
-    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
     removeTarget(t.id);
 
     if(bossHp<=0){
-      sayCoach('บอสแพ้แล้ว! 🎉');
       bossActive = false;
       score += 120;
       addFever(40);
+      sayCoach('บอสแพ้แล้ว! 🎉');
     }
   }
 
   function hitTargetById(id, clientX, clientY){
     const t = targets.get(String(id));
     if(!t || !playing) return;
-
-    // count: shot always; hit when a target exists
-    countShot();
-    countHit();
 
     const kind = t.kind;
     if(kind==='good') onHitGood(t, clientX, clientY);
@@ -879,9 +699,9 @@ export function boot(cfg){
     else if(kind==='boss') onHitBoss(t, clientX, clientY);
   }
 
-  // pointerdown: shot attempt on non-cvr; if click not on target => shot only
+  // pointerdown: if click not on target => shot only
   function onPointerDown(ev){
-    if(!playing || paused) return;
+    if(!playing) return;
     countShot();
 
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
@@ -891,9 +711,7 @@ export function boot(cfg){
     countHit();
     hitTargetById(id, ev.clientX, ev.clientY);
   }
-  if(view !== 'cvr'){
-    layer.addEventListener('pointerdown', onPointerDown, { passive:true });
-  }
+  layer.addEventListener('pointerdown', onPointerDown, { passive:true });
 
   function pickTargetAt(x,y, lockPx){
     lockPx = clamp(lockPx ?? 44, 16, 120);
@@ -913,10 +731,9 @@ export function boot(cfg){
     return null;
   }
 
+  // cVR shoot
   WIN.addEventListener('hha:shoot', (ev)=>{
-    if(!playing || paused) return;
-
-    // in cVR, each shoot is a shot
+    if(!playing) return;
     countShot();
 
     try{
@@ -988,8 +805,7 @@ export function boot(cfg){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      const dx = t.drift * dt;
-      t.x += dx;
+      t.x += t.drift * dt;
 
       const xMin = safe.xMin + rPad;
       const xMax = safe.xMax - rPad;
@@ -1008,12 +824,9 @@ export function boot(cfg){
           missTotal++;
           missGoodExpired++;
           combo = 0;
-
           score = Math.max(0, score - 4);
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
-
-          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
         removeTarget(t.id);
       }
@@ -1027,7 +840,6 @@ export function boot(cfg){
       rageOn = false;
       rageLeft = 0;
       fever = clamp(fever - 18, 0, 100);
-      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
     }
   }
 
@@ -1041,15 +853,12 @@ export function boot(cfg){
         if(type==='avoid-junk'){
           mini.name = 'No JUNK 6s';
           mini.t = 6;
-          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
         }else if(type==='combo-5'){
           mini.name = 'Combo x5';
           mini.t = 8;
-          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
         }else{
           mini.name = 'Grab ⭐';
           mini.t = 7;
-          sayCoach('ภารกิจ: เก็บโบนัส!');
         }
       }
     }
@@ -1063,7 +872,6 @@ export function boot(cfg){
       goal.target += 10;
       score += 60;
       addFever(18);
-      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
       const r = layerRect();
       fxBurst(r.left+r.width/2, r.top+r.height*0.55);
       fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
@@ -1073,13 +881,6 @@ export function boot(cfg){
 
   function tick(){
     if(!playing) return;
-
-    if(paused){
-      try{ lastTick = nowMs(); }catch(e){}
-      setHUD();
-      requestAnimationFrame(tick);
-      return;
-    }
 
     const t = nowMs();
     const dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
