@@ -1,9 +1,6 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
-✅ Kid-only End Summary (default)
-✅ Teacher/Research Mode toggle reveals Evaluate + Create + JSON
-✅ End overlay scroll fix (mobile)
-✅ Practice focus from End: 15s
+HygieneVR RUN — PRODUCTION — PATCH v20260222a (AI Coach + AI Prediction)
+✅ HUD: add pillAI
 -->
 <!doctype html>
 <html lang="th">
@@ -14,24 +11,19 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260221a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260222a" />
 
-  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- AI packs (optional) -->
+  <!-- AI packs (optional external) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260221a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260222a"></script>
 </head>
 
 <body class="view-pc">
@@ -68,11 +60,13 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
           <div class="hw-pill cyan" id="pillQuest">MISSION —</div>
           <div class="hw-pill power" id="pillPower">POWER —</div>
 
+          <!-- ✅ NEW: AI Prediction pill -->
+          <div class="hw-pill ai" id="pillAI">🤖 AI: —</div>
+
           <button class="hw-pill btn" id="btnPause" type="button">⏸ Pause</button>
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -87,7 +81,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          เป้าหมาย: แตะ “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน • หลบ 🦠 เชื้อโรค • อย่าแตะขั้นตอนผิด<br>
+          เป้าหมาย: แตะ “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน • หลบ 🦠 • อย่าแตะขั้นตอนผิด<br>
           ✅ Remember: จำขั้นตอน/จุดสำคัญ<br>
           ✅ Apply: ทำตามขั้นตอน + timing + coverage
         </div>
@@ -102,25 +96,24 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
       </div>
     </div>
 
-    <!-- End Overlay -->
+    <!-- End Overlay (scroll) -->
     <div class="hw-overlay hw-overlay-scroll" id="endOverlay" style="display:none">
       <div class="hw-card hw-card-scroll">
-
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
-        <!-- ✅ Kid-only summary (DEFAULT) -->
+        <!-- Kid summary -->
         <div class="hw-kidSum" id="kidSum">
           <div class="hw-kidRow">
             <div class="hw-kidBadge" id="kidBadge">🏅</div>
             <div class="hw-kidStats">
               <div class="hw-kidLine" id="kidLine1">เยี่ยมมาก!</div>
-              <div class="hw-kidMini" id="kidLine2">ถูก — • พลาด — • โดนเชื้อ —</div>
+              <div class="hw-kidMini" id="kidLine2">—</div>
             </div>
           </div>
 
           <div class="hw-kidTip">
-            <div class="hw-kidTipTitle">จุดที่ควรซ้อมเพิ่ม</div>
+            <div class="hw-kidTipTitle">AI แนะนำจุดที่ควรซ้อมเพิ่ม</div>
             <div class="hw-kidTipBody" id="kidTopRisk">—</div>
           </div>
 
@@ -131,23 +124,18 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
           </div>
         </div>
 
-        <!-- ✅ Teacher/Research mode toggle -->
+        <!-- Teacher toggle -->
         <div class="hw-details">
           <button class="hw-details-btn" id="btnToggleDetails" type="button">
             🔍 ดูโหมดครู/วิจัย (Evaluate + Routine + Summary)
           </button>
-
           <div class="hw-details-body" id="detailsBody" style="display:none">
-
-            <!-- ✅ Evaluate + Analyze -->
             <div class="hw-eval" id="evalBox">
-              <div class="hw-eval-title">🧠 Evaluate + Analyze (เลือก “จุดเสี่ยงสุด”)</div>
-              <div class="hw-eval-sub" id="evalSub">
-                ระบบทำ Heatmap 2D แล้วให้ผู้เรียนเลือก “จุดเสี่ยงสุด” พร้อมเหตุผล 1 ข้อ
-              </div>
+              <div class="hw-eval-title">🧠 Evaluate + Analyze</div>
+              <div class="hw-eval-sub" id="evalSub">เลือก “จุดเสี่ยงสุด” พร้อมเหตุผล 1 ข้อ</div>
               <div class="hw-eval-sub"><span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span></div>
 
-              <div class="hw-handmap" id="handMap" aria-label="hand map"></div>
+              <div class="hw-handmap" id="handMap"></div>
 
               <div class="hw-eval-row">
                 <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
@@ -167,12 +155,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
               </div>
             </div>
 
-            <!-- ✅ Create Routine -->
             <div class="hw-create" id="createBox" style="display:none">
-              <div class="hw-eval-title">✨ Create: ตั้ง Routine 3 ข้อ (30 วิ)</div>
-              <div class="hw-eval-sub">
-                เลือกให้ครบ 3 ข้อ ภายใน <b><span id="createTimer">30</span> วิ</b>
-              </div>
+              <div class="hw-eval-title">✨ Create: Routine 3 ข้อ (30 วิ)</div>
+              <div class="hw-eval-sub">เลือกให้ครบ 3 ข้อ ภายใน <b><span id="createTimer">30</span> วิ</b></div>
 
               <div class="hw-routine" id="routineOpts">
                 <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
@@ -193,7 +178,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
               </div>
             </div>
 
-            <!-- ✅ JSON / Research summary -->
             <div class="hw-card-row" style="margin-top:10px">
               <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
             </div>
@@ -203,7 +187,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
 
       </div>
     </div>
-
   </div>
 
 <script>
