@@ -30,7 +30,7 @@ export function comparePackets(a, b){
   if(A.accPct !== B.accPct) return (A.accPct > B.accPct) ? 1 : -1;   // higher better
   if(A.miss !== B.miss) return (A.miss < B.miss) ? 1 : -1;           // lower better
 
-  // median RT: lower better (but if missing -> treat as very large so it won't win)
+  // median RT: lower better (missing => very large so it won't win)
   const rtA = (A.medianRtGoodMs > 0) ? A.medianRtGoodMs : 1e9;
   const rtB = (B.medianRtGoodMs > 0) ? B.medianRtGoodMs : 1e9;
   if(rtA !== rtB) return (rtA < rtB) ? 1 : -1;
