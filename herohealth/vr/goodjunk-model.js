@@ -1,42 +1,47 @@
 // === /webxr-health-mobile/herohealth/vr/goodjunk-model.js ===
-// GoodJunk Model Stub (on-device) — logistic risk predictor
-// FULL v20260301-MODEL-STUB
+// GoodJunk ML Model (Runtime) — v1 (logistic regression stub)
+// Replace weights by exporting from /herohealth/ml/train_goodjunk.py
 'use strict';
 
-export const GOODJUNK_MODEL = {
-  version: 'goodjunk-logit-v1',
-  // feature order (must match featurizeGoodJunk in ai-goodjunk.js)
+export const GOODJUNK_MODEL_V1 = {
+  version: 'goodjunk-logreg-v1',
+  trainedAt: '2026-03-01',
+  // Features (must match order in ai-goodjunk.js extractFeatures())
   features: [
-    'tLeft','stage','score','combo','miss','accPct','medianRtGoodMs','fever','shield','onScreen','spawnMs','lifeMs'
+    'bias',
+    'diff_easy',
+    'diff_normal',
+    'diff_hard',
+    'view_mobile',
+    'view_pc',
+    'time_left_norm',
+    'miss_rate',
+    'junk_rate',
+    'combo_norm',
+    'rt_good_norm',
+    'fever_norm'
   ],
-  // weights roughly tuned for “risk = likely to miss soon / unstable performance”
-  // you will overwrite these with trained weights from train_goodjunk.py output later
-  w: [
-    -0.015,  0.35, -0.0009, -0.06, 0.28, -0.05, 0.0012, -0.01, -0.18, 0.08, -0.0014, -0.0010
+  // Initial hand-tuned weights (reasonable default). Replace after training.
+  // risk = sigmoid(sum(w_i * x_i))
+  weights: [
+    -1.10, // bias
+    -0.35, // diff_easy
+    0.00,  // diff_normal
+    0.45,  // diff_hard
+    0.10,  // view_mobile
+    -0.05, // view_pc
+    0.30,  // time_left_norm  (more time left -> slightly higher risk? can be reversed by training)
+    1.25,  // miss_rate
+    1.55,  // junk_rate
+    -0.55, // combo_norm
+    0.90,  // rt_good_norm
+    0.35   // fever_norm
   ],
-  b: 0.25,
-  // calibration to label
-  thresholds: { low: 0.35, mid: 0.60, high: 0.78 }
-};
-
-export function sigmoid(x){
-  const z = Math.max(-20, Math.min(20, x));
-  return 1 / (1 + Math.exp(-z));
-}
-
-export function predictRiskProba(xVec, model = GOODJUNK_MODEL){
-  let s = Number(model.b || 0) || 0;
-  const w = model.w || [];
-  for(let i=0;i<xVec.length;i++){
-    s += (Number(w[i]||0) * Number(xVec[i]||0));
+  // Calibration (optional)
+  clamp: { min: 0.02, max: 0.98 },
+  thresholds: {
+    low: 0.33,
+    mid: 0.60,
+    high: 0.78
   }
-  return sigmoid(s);
-}
-
-export function riskLabel(p, model = GOODJUNK_MODEL){
-  const th = model.thresholds || { low:.35, mid:.60, high:.78 };
-  if(p >= th.high) return 'HIGH';
-  if(p >= th.mid)  return 'MID';
-  if(p >= th.low)  return 'LOW';
-  return 'OK';
-}
+};
