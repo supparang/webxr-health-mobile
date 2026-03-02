@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (ESM)
 ✅ Works with ./goodjunk.safe.js
+✅ Battle UI auto injector (battle=1)
 ✅ Optional AI (ai=1)
-✅ Optional Battle RTDB (battle=1)
-PATCH v20260302-RUN-BATTLE-AI-SAFE
+PATCH v20260302-RUN-BATTLE-UIAUTO
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +12,6 @@ PATCH v20260302-RUN-BATTLE-AI-SAFE
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
 </head>
@@ -122,7 +121,7 @@ PATCH v20260302-RUN-BATTLE-AI-SAFE
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button will be injected here by JS -->
+        <!-- battle badge + cooldown will be injected by JS -->
       </div>
     </div>
 
@@ -147,8 +146,7 @@ PATCH v20260302-RUN-BATTLE-AI-SAFE
     // ✅ Battle UI auto injector (only when ?battle=1)
     if(qs('battle','0') === '1'){
       try{
-        // must exist: /herohealth/vr/battle-ui.auto.js
-        await import('../vr/battle-ui.auto.js');
+        await import('../vr/battle-ui.auto.js?v=20260302');
       }catch(e){
         console.warn('[GoodJunk] battle-ui.auto load failed', e);
       }
@@ -158,7 +156,7 @@ PATCH v20260302-RUN-BATTLE-AI-SAFE
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
-        const mod = await import('../vr/ai-goodjunk.js'); // optional
+        const mod = await import('../vr/ai-goodjunk.js');
         const createGoodJunkAI = mod.createGoodJunkAI;
         if(typeof createGoodJunkAI === 'function'){
           cfg.ai = createGoodJunkAI({
@@ -186,7 +184,6 @@ PATCH v20260302-RUN-BATTLE-AI-SAFE
       location.href = hub;
     });
 
-    // Boot
     boot(cfg);
   </script>
 </body>
