@@ -124,7 +124,6 @@ export function createAIHooks(opts = {}){
   function score(data){
     st.lastScore = data || null;
     emit('score', data || {});
-    // common bridge for universal HUD
     safeDispatch('hha:score', { game, ...(data||{}) });
   }
 
@@ -144,7 +143,6 @@ export function createAIHooks(opts = {}){
     emit('end', data || {});
   }
 
-  // Optional: let game set risk/hint for HUD
   function setRisk(v){
     st.risk = (v === null || v === undefined) ? null : (typeof v === 'number' ? clamp(v,0,1) : v);
     hud();
@@ -158,7 +156,6 @@ export function createAIHooks(opts = {}){
   function pattern(_){ /* reserved */ }
   function director(_){ /* reserved */ }
 
-  // prime HUD once
   hud();
 
   return {
@@ -177,5 +174,4 @@ export function createAIHooks(opts = {}){
   };
 }
 
-// Backward-compat: some games may import default
 export default { createAIHooks };
