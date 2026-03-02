@@ -6,8 +6,9 @@
 // + ✅ AI HUD: hazardRisk + next watchout
 // + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
-// + ✅ Battle (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260302-SAFE-ACC-MEDRT-BATTLE-FULL
+// + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
+// + ✅ MULTI RACE (optional): room sync start + same seed + score feed + final board placement + final_end
+// FULL v20260302-SAFE-ACC-MEDRT-BATTLE-FULL + RACELOCK v20260302r1
 'use strict';
 
 export function boot(cfg){
@@ -21,6 +22,14 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
+
+  // ---------- MULTI RACE (sync start + same seed + score feed) ----------
+  const MULTI = cfg.multi && cfg.multi.enabled ? cfg.multi : null;
+  const BUS = MULTI?.bus || null;
+  const ROOM = String(MULTI?.roomId || qs('room','') || '').trim();
+  const isMulti = !!(MULTI && BUS && ROOM);
+  let mpStarted = !isMulti;     // solo starts immediately
+  let mpIsHost = false;
 
   // ---------- BATTLE (optional) ----------
   let battle = null;
@@ -80,8 +89,10 @@ export function boot(cfg){
       'plannedGame','finalGame','zone','cdnext','grade',
       // battle passthrough
       'battle','room','autostart','forfeit',
-      // logger passthrough
-      'api'
+      // ai passthrough
+      'ai',
+      // multi passthrough
+      'sbUrl','sbAnon','nick','host'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -133,7 +144,7 @@ export function boot(cfg){
     row.appendChild(btn);
   }
 
-  // deterministic RNG (xmur3 + sfc32)
+  // ---------- deterministic RNG (xmur3 + sfc32) ----------
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -151,7 +162,7 @@ export function boot(cfg){
     return function(){
       a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
       let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
+      a = b ^ (a >>> 9);
       b = (c + (c << 3)) | 0;
       c = (c << 21) | (c >>> 11);
       d = (d + 1) | 0;
@@ -164,8 +175,14 @@ export function boot(cfg){
     const seed = xmur3(seedStr);
     return sfc32(seed(), seed(), seed(), seed());
   }
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const rng = makeRng(seedStr);
+
+  // ✅ seed is mutable (MULTI start will override)
+  let seedStr = String(cfg.seed || qs('seed', String(Date.now())));
+  let rng = makeRng(seedStr);
+  function setSeed(nextSeed){
+    seedStr = String(nextSeed || seedStr || Date.now());
+    rng = makeRng(seedStr);
+  }
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
@@ -185,6 +202,7 @@ export function boot(cfg){
     aiRisk: $('aiRisk'),
     aiHint: $('aiHint'),
   };
+
   const feverFill = $('feverFill');
   const feverText = $('feverText');
   const shieldPills = $('shieldPills');
@@ -442,7 +460,7 @@ export function boot(cfg){
   let rtSum = 0;
   const rtList = [];
 
-  // ACC (shots/hits)
+  // ACC
   let shots = 0;
   let hits  = 0;
 
@@ -458,7 +476,6 @@ export function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
-  // expose small debug state
   WIN.__GJ_STATE__ = {
     targets,
     get miss(){ return missTotal; },
@@ -466,6 +483,68 @@ export function boot(cfg){
     get combo(){ return combo; },
     get fever(){ return fever; }
   };
+
+  // ---------- MULTI: hard reset on synced START ----------
+  function resetGameForStart(seed){
+    setSeed(seed);
+
+    try{
+      for(const t of targets.values()){
+        try{ t.el.remove(); }catch(e){}
+      }
+    }catch(e){}
+    targets.clear();
+
+    playing = true;
+    paused = false;
+
+    tLeft = plannedSec;
+    lastTick = nowMs();
+
+    score = 0;
+    missTotal = 0;
+    missGoodExpired = 0;
+    missJunkHit = 0;
+
+    combo = 0;
+    bestCombo = 0;
+
+    fever = 0;
+    rageOn = false;
+    rageLeft = 0;
+
+    shield = 0;
+    stormOn = false;
+
+    goodHitCount = 0;
+    rtSum = 0;
+    rtList.length = 0;
+
+    shots = 0;
+    hits  = 0;
+
+    goal.cur = 0;
+    goal.target = 20;
+    goal.name = 'Daily';
+    goal.desc = 'Hit GOOD 20';
+
+    mini.name = '—';
+    mini.t = 0;
+
+    bossActive = false;
+    bossHpMax = TUNE.bossHp;
+    bossHp = bossHpMax;
+    bossPhase = 0;
+    bossShieldHp = 5;
+
+    spawnAcc = 0;
+    idSeq = 1;
+
+    try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
+
+    sayCoach('เริ่มพร้อมกันแล้ว! 🏁');
+    setHUD();
+  }
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
@@ -548,6 +627,27 @@ export function boot(cfg){
       };
       WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload }));
       try{ battle?.pushScore?.(payload); }catch(e){}
+
+      // ✅ MULTI: send score to room (rate-limited)
+      try{
+        if(isMulti && BUS && BUS.sendScore){
+          WIN.__GJ_MULTI = WIN.__GJ_MULTI || {};
+          const t = nowMs();
+          const last = WIN.__GJ_MULTI._lastSendMs || 0;
+          const sig = `${payload.score}|${payload.miss}|${payload.accPct}|${payload.medianRtGoodMs}|${payload.comboMax}`;
+          if((t - last) > 250 || WIN.__GJ_MULTI._lastSig !== sig){
+            WIN.__GJ_MULTI._lastSendMs = t;
+            WIN.__GJ_MULTI._lastSig = sig;
+            BUS.sendScore({
+              score: payload.score|0,
+              combo: payload.comboMax|0,
+              misses: payload.miss|0,
+              good: (goal.cur|0),
+              junk: (missJunkHit|0)
+            });
+          }
+        }
+      }catch(e){}
     }catch(e){}
   }
 
@@ -624,7 +724,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_ACC_MEDRT_BATTLE_FULL',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_ACC_MEDRT_BATTLE_RACELOCK',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -653,6 +753,18 @@ export function boot(cfg){
       aiPredictionLast: (function(){
         try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
       })(),
+      multi: (function(){
+        try{
+          if(!isMulti) return null;
+          const fb = WIN.__GJ_MULTI?.finalBoard || [];
+          if(!Array.isArray(fb) || !fb.length) return { room: ROOM, placement: null, players: null };
+          const my = String(pid||'anon');
+          const idx = fb.findIndex(x => String(x.playerId||'') === my);
+          return { room: ROOM, placement: (idx>=0 ? (idx+1) : null), players: fb.length };
+        }catch(e){
+          return { room: ROOM, placement: null, players: null };
+        }
+      })(),
     };
   }
 
@@ -676,13 +788,14 @@ export function boot(cfg){
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
-    // ✅ finalize battle
+    // ✅ finalize battle (optional)
     try{ battle?.finalizeEnd?.(summary); }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub) endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
+      if(endSub) endSub.textContent =
+        `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
       if(endGrade) endGrade.textContent = summary.grade || '—';
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
@@ -697,7 +810,7 @@ export function boot(cfg){
     setHUD();
   }
 
-  // ---------- gameplay core ----------
+  // ---------- gameplay ----------
   function addFever(v){
     fever = clamp(fever + v, 0, 100);
     if(fever >= 100 && !rageOn){
@@ -746,6 +859,7 @@ export function boot(cfg){
 
     // ✅ AI spawn hook
     try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+
     return tObj;
   }
 
@@ -757,13 +871,10 @@ export function boot(cfg){
   }
 
   function onHitGood(t, clientX, clientY){
-    // RT (GOOD only)
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
     goodHitCount++;
     rtSum += rt;
     rtList.push(rt);
-
-    hits++;
 
     combo++;
     bestCombo = Math.max(bestCombo, combo);
@@ -790,8 +901,6 @@ export function boot(cfg){
   function onHitJunk(t, clientX, clientY){
     if(shield > 0){
       shield--;
-      hits++;
-
       fxBurst(clientX, clientY);
       fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
       sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
@@ -803,7 +912,6 @@ export function boot(cfg){
       return;
     }
 
-    hits++;
     missTotal++;
     missJunkHit++;
     combo = 0;
@@ -817,12 +925,11 @@ export function boot(cfg){
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
 
     removeTarget(t.id);
+
     if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
-    hits++;
-
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
@@ -841,8 +948,6 @@ export function boot(cfg){
   }
 
   function onHitShield(t, clientX, clientY){
-    hits++;
-
     addShield();
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, '+SHIELD', false);
@@ -855,7 +960,6 @@ export function boot(cfg){
 
   function onHitBoss(t, clientX, clientY){
     if(!bossActive) return;
-    hits++;
 
     if(bossPhase===0){
       bossShieldHp--;
@@ -866,9 +970,7 @@ export function boot(cfg){
         sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
       }
 
-      // ✅ AI hit hook
       try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
-
       removeTarget(t.id);
       return;
     }
@@ -884,9 +986,7 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
 
-    // ✅ AI hit hook
     try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
-
     removeTarget(t.id);
 
     if(bossHp<=0){
@@ -909,19 +1009,19 @@ export function boot(cfg){
     else if(kind==='boss') onHitBoss(t, clientX, clientY);
   }
 
-  // ✅ pointerdown: count shots even when miss-click on empty area (non-cvr)
+  // ✅ pointerdown เฉพาะ non-cvr (cVR strict ยิงจาก crosshair เท่านั้น)
   function onPointerDown(ev){
     if(!playing || paused) return;
-    // do not count if clicking end overlay, etc.
-    if(endOverlay && endOverlay.getAttribute('aria-hidden') !== 'true') return;
 
+    // ACC
     shots++;
 
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
-    if(!el){
-      // optional tiny feedback (no penalty)
-      return;
-    }
+    if(!el) return;
+
+    // ACC
+    hits++;
+
     const id = el.dataset.id;
     hitTargetById(id, ev.clientX, ev.clientY);
   }
@@ -947,17 +1047,21 @@ export function boot(cfg){
     return null;
   }
 
-  // ✅ cVR strict: shots counted per hha:shoot; only hit if lock finds target
+  // ✅ cVR strict: count shots/hits for hha:shoot too
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    shots++;
     try{
+      shots++;
+
       const lockPx = ev?.detail?.lockPx ?? 56;
       const r = layerRect();
       const x = r.left + r.width/2;
       const y = r.top  + r.height/2;
       const t = pickTargetAt(x,y, lockPx);
-      if(t) hitTargetById(t.id, x, y);
+      if(t){
+        hits++;
+        hitTargetById(t.id, x, y);
+      }
     }catch(e){}
   });
 
@@ -1031,7 +1135,6 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
-        // ✅ AI expire hook
         try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
 
         if(t.kind === 'good'){
@@ -1104,6 +1207,13 @@ export function boot(cfg){
   function tick(){
     if(!playing) return;
 
+    // ✅ MULTI: wait until host START arrives
+    if(isMulti && !mpStarted){
+      setHUD();
+      requestAnimationFrame(tick);
+      return;
+    }
+
     // ✅ Pause-safe: do not advance timers/spawn while paused
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
@@ -1131,6 +1241,7 @@ export function boot(cfg){
         shield,
         fever,
         combo,
+        score,
         shots,
         hits
       }) || null;
@@ -1138,6 +1249,7 @@ export function boot(cfg){
     }catch(e){}
 
     setHUD();
+
     if(checkEnd()) return;
     requestAnimationFrame(tick);
   }
@@ -1148,8 +1260,50 @@ export function boot(cfg){
     }
   });
 
+  // ---------- MULTI: listen room messages (forwarded as gj:net) ----------
+  if(isMulti && BUS){
+    try{
+      const st = BUS.state();
+      mpIsHost = !!st.isHost;
+    }catch(e){}
+
+    mpStarted = false;
+    sayCoach('รอ Host กด START…');
+
+    WIN.addEventListener('gj:net', (ev)=>{
+      const m = ev?.detail || {};
+      if(!m || String(m.roomId||'') !== ROOM) return;
+
+      if(m.t === 'start'){
+        mpStarted = true;
+        resetGameForStart(m.seed || seedStr);
+        return;
+      }
+
+      if(m.t === 'final'){
+        try{
+          WIN.__GJ_MULTI = WIN.__GJ_MULTI || {};
+          WIN.__GJ_MULTI.finalBoard = Array.isArray(m.board) ? m.board : [];
+        }catch(e){}
+        return;
+      }
+
+      if(m.t === 'end'){
+        if(playing) showEnd('room-end');
+        mpStarted = false;
+        return;
+      }
+
+      if(m.t === 'final_end'){
+        if(playing) showEnd('final-end');
+        mpStarted = false;
+        return;
+      }
+    }, { passive:true });
+  }
+
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
-  sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
+  if(!isMulti) sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
   setHUD();
   requestAnimationFrame(tick);
 }
