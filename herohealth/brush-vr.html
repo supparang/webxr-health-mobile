@@ -1,10 +1,10 @@
 <!-- === /herohealth/brush-vr.html ===
-BrushVR Launcher — ROOT (HHA Standard-ish)
-✅ choose view auto/pc/mobile/cvr
-✅ diff/time/seed
-✅ remember last
-✅ passthrough run/pid/studyId/phase/conditionGroup/log/api/hub
-✅ sends to: ./vr-brush/brush.html
+BrushVR Launcher — ROOT (HHA Standard)
+PATCH v20260302-brush-launcher-root
+✅ View auto-detect (pc/mobile/cvr) + remember last
+✅ Diff/Time/Seed
+✅ Pass-through params: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log/view/ai/debug
+✅ Sends to: ./vr-brush/brush.html
 -->
 <!doctype html>
 <html lang="th">
@@ -15,161 +15,212 @@ BrushVR Launcher — ROOT (HHA Standard-ish)
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#050814; --fg:#e5e7eb; --mut:#94a3b8; --card:rgba(2,6,23,.72); --bd:rgba(148,163,184,.18); --good:#10b981; }
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;background:radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),var(--bg);color:var(--fg);}
-    .wrap{max-width:980px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 14px 18px;display:flex;flex-direction:column;gap:12px;}
-    .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
-    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--bd);border-radius:999px;background:rgba(2,6,23,.55);color:var(--mut);font-weight:1000;font-size:12px}
-    h1{margin:8px 0 2px;font-size:24px}
-    p{margin:0;color:rgba(229,231,235,.75);line-height:1.45}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:860px){.grid{grid-template-columns:1fr}}
-    .card{border:1px solid var(--bd);border-radius:22px;background:var(--card);backdrop-filter:blur(12px);padding:14px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
-    label{font-weight:900;color:rgba(229,231,235,.85);font-size:13px}
-    select,input{background:rgba(2,6,23,.65);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;color:var(--fg);font-weight:900}
-    input{width:160px}
-    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{border:1px solid var(--bd);background:rgba(2,6,23,.65);color:var(--fg);border-radius:16px;padding:12px 14px;font-weight:1000;cursor:pointer;user-select:none}
-    .btn.good{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.20)}
-    .btn:active{transform:translateY(1px)}
-    .tiny{margin-top:8px;color:rgba(148,163,184,.95);font-size:12px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.55);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --good:#22c55e; --amber:#f59e0b;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(245,158,11,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+    }
+    .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+    .card{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-radius: var(--radius);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 14px;
+    }
+    h1{margin:0;font-size:22px}
+    p{margin:6px 0 0;color:var(--muted);line-height:1.5}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+    label{display:flex;flex-direction:column;gap:6px;font-weight:900;color:var(--muted);font-size:12px}
+    select,input{
+      padding:12px 12px;border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      font-weight:900;
+      outline:none;
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px}
+    .btn{
+      appearance:none;border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+      user-select:none;
+      text-decoration:none;
+      display:inline-flex;align-items:center;gap:8px;
+    }
+    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.12)}
+    .btn.warn{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.10)}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-weight:900;font-size:12px;
+      width:fit-content;
+    }
+    .pill b{color:var(--text)}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="top">
-      <div>
-        <span class="pill">HeroHealth · Hygiene</span>
-        <h1>🪥 BrushVR — Launcher</h1>
-        <p>เลือกโหมด/เวลา แล้วเข้าเกม RUN ที่ <span class="mono">/herohealth/vr-brush/brush.html</span></p>
-      </div>
-      <div class="pill"><b>remember</b>: เซ็ตล่าสุดจะถูกจำไว้</div>
-    </div>
-
-    <div class="grid">
-      <section class="card">
-        <div class="row">
-          <label for="view">view</label>
+    <div class="card">
+      <div class="pill"><b>HeroHealth · Hygiene</b> · 🪥 BrushVR</div>
+      <h1>BrushVR — Plaque Breaker (Launcher)</h1>
+      <p>เลือกโหมด/เวลา/ความยาก แล้วกด “เริ่มเล่น” → ไปหน้า Run ใน <b>/vr-brush/brush.html</b></p>
+      <div class="grid">
+        <label>View
           <select id="view">
-            <option value="">auto</option>
             <option value="pc">pc</option>
             <option value="mobile">mobile</option>
-            <option value="cvr">cvr (cardboard)</option>
+            <option value="cvr">cvr (Cardboard)</option>
           </select>
+        </label>
 
-          <label for="diff">diff</label>
+        <label>Difficulty
           <select id="diff">
             <option value="easy">easy</option>
             <option value="normal" selected>normal</option>
             <option value="hard">hard</option>
           </select>
+        </label>
 
-          <label for="time">time</label>
-          <input id="time" type="number" min="30" max="120" step="5" value="80"/>
+        <label>Time (sec)
+          <input id="time" type="number" min="30" max="120" step="5" value="80" />
+        </label>
 
-          <label for="seed">seed</label>
-          <input id="seed" type="number" step="1" placeholder="auto"/>
-        </div>
+        <label>Seed
+          <input id="seed" type="number" step="1" />
+        </label>
+      </div>
 
-        <div class="btnrow">
-          <button id="btnPlay" class="btn good">▶ เข้าเกม (RUN)</button>
-          <button id="btnSeed" class="btn">🎲 สุ่ม seed</button>
-          <a id="btnHub" class="btn" href="./hub.html">🏰 ไป HUB</a>
-        </div>
-        <div class="tiny">
-          Tip: โหมด <b>cvr</b> จะยิงจากกากบาทด้วย <span class="mono">vr/vr-ui.js</span>
-        </div>
-      </section>
+      <div class="grid" style="margin-top:10px">
+        <label>AI HUD
+          <select id="ai">
+            <option value="0" selected>ai=0 (off)</option>
+            <option value="1">ai=1 (on)</option>
+          </select>
+        </label>
+        <label>Debug
+          <select id="debug">
+            <option value="0" selected>debug=0</option>
+            <option value="1">debug=1</option>
+          </select>
+        </label>
+      </div>
 
-      <section class="card">
-        <div class="tiny"><b>Passthrough</b> (ส่งต่อจาก query string อัตโนมัติ):</div>
-        <div class="tiny mono" id="ctxLine">—</div>
-        <div class="tiny">รองรับ: pid, run, studyId, phase, conditionGroup, log, api, hub</div>
-      </section>
+      <div class="row">
+        <a id="backHub" class="btn warn" href="./hub.html">🏰 กลับ HUB</a>
+        <button id="go" class="btn good" type="button">▶ เริ่มเล่น</button>
+      </div>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  const LSKEY='HHA_LAUNCH_BRUSH';
-  const qs=()=>{ try{return new URL(location.href).searchParams;}catch(_){return new URLSearchParams();} };
-  const clamp=(v,a,b)=>Math.max(a, Math.min(b, Number(v)||0));
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
+  const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
   const autoView=()=>{
-    const ua=navigator.userAgent||'';
-    const isMobile=/Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && matchMedia('(pointer:coarse)').matches);
+    const v = String(qs('view','')).toLowerCase();
+    if(v) return v;
+    const ua = navigator.userAgent||'';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
     return isMobile ? 'mobile' : 'pc';
   };
-  const P=qs();
+  const rememberKey = 'HHA_LAUNCH_BRUSH';
 
-  const elView=document.getElementById('view');
-  const elDiff=document.getElementById('diff');
-  const elTime=document.getElementById('time');
-  const elSeed=document.getElementById('seed');
-  const ctxLine=document.getElementById('ctxLine');
+  const elView = document.getElementById('view');
+  const elDiff = document.getElementById('diff');
+  const elTime = document.getElementById('time');
+  const elSeed = document.getElementById('seed');
+  const elAI   = document.getElementById('ai');
+  const elDbg  = document.getElementById('debug');
+  const btnGo  = document.getElementById('go');
+  const backHub = document.getElementById('backHub');
 
-  function loadLast(){
-    try{
-      const o=JSON.parse(localStorage.getItem(LSKEY)||'{}');
-      if(o.view!=null) elView.value=o.view;
-      if(o.diff!=null) elDiff.value=o.diff;
-      if(o.time!=null) elTime.value=o.time;
-      if(o.seed!=null) elSeed.value=o.seed;
-    }catch(_){}
-  }
-  function saveLast(){
-    try{
-      localStorage.setItem(LSKEY, JSON.stringify({
-        view: elView.value,
-        diff: elDiff.value,
-        time: elTime.value,
-        seed: elSeed.value
-      }));
-    }catch(_){}
-  }
+  // seed default
+  elSeed.value = String((Number(qs('seed','')) || Date.now()) >>> 0);
 
-  function passthrough(u){
-    const keys=['pid','run','studyId','phase','conditionGroup','log','api','hub'];
-    keys.forEach(k=>{
-      if(!u.searchParams.has(k) && P.has(k)){
-        const v=P.get(k);
-        if(v!=null && String(v).trim()!=='') u.searchParams.set(k,v);
-      }
-    });
-    if(!u.searchParams.has('hub')){
-      u.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+  // restore last settings
+  try{
+    const saved = JSON.parse(localStorage.getItem(rememberKey)||'null');
+    if(saved){
+      if(saved.view) elView.value = saved.view;
+      if(saved.diff) elDiff.value = saved.diff;
+      if(saved.time) elTime.value = saved.time;
+      if(saved.ai!=null) elAI.value = String(saved.ai);
+      if(saved.debug!=null) elDbg.value = String(saved.debug);
+    }else{
+      elView.value = autoView();
     }
+  }catch(_){
+    elView.value = autoView();
   }
 
-  function go(){
-    saveLast();
-    const view = (elView.value || '').trim() || autoView();
-    const diff = (elDiff.value || 'normal').trim();
-    const time = clamp(elTime.value, 30, 120);
-    const seed = (String(elSeed.value||'').trim()==='' ? String(Date.now()) : String(parseInt(elSeed.value,10)||Date.now()));
+  // hub passthrough
+  const hub = qs('hub','./hub.html');
+  backHub.href = hub;
 
+  btnGo.addEventListener('click', ()=>{
+    const view = elView.value;
+    const diff = elDiff.value;
+    const time = clamp(elTime.value, 30, 120);
+    const seed = (Number(elSeed.value)||Date.now()) >>> 0;
+    const ai = elAI.value;
+    const debug = elDbg.value;
+
+    // remember
+    try{
+      localStorage.setItem(rememberKey, JSON.stringify({view,diff,time,ai,debug}));
+    }catch(_){}
+
+    // build run url
     const u = new URL('./vr-brush/brush.html', location.href);
+
+    // passthrough common ctx
+    const PASS = ['pid','run','studyId','phase','conditionGroup','log','api','health'];
+    for(const k of PASS){
+      const v = qs(k,'');
+      if(v) u.searchParams.set(k, v);
+    }
+
+    u.searchParams.set('hub', hub);
     u.searchParams.set('view', view);
     u.searchParams.set('diff', diff);
     u.searchParams.set('time', String(time));
-    u.searchParams.set('seed', seed);
-    passthrough(u);
+    u.searchParams.set('seed', String(seed));
+    u.searchParams.set('ai', String(ai));
+    u.searchParams.set('debug', String(debug));
+
     location.href = u.toString();
-  }
-
-  document.getElementById('btnPlay').addEventListener('click', go);
-  document.getElementById('btnSeed').addEventListener('click', ()=>{
-    elSeed.value = String(Date.now());
-  });
-
-  loadLast();
-
-  // show ctx
-  const showKeys=['pid','run','studyId','phase','conditionGroup','log','api','hub'];
-  const parts=showKeys.filter(k=>P.has(k)).map(k=>`${k}=${P.get(k)}`);
-  ctxLine.textContent = parts.length ? parts.join(' · ') : '(no passthrough params)';
+  }, {passive:true});
 })();
 </script>
 </body>
