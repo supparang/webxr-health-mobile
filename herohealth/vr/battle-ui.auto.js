@@ -1,8 +1,8 @@
 // === /herohealth/vr/battle-ui.auto.js ===
-// Auto Battle HUD injector (no need to edit game HTML beyond importing this file)
-// ✅ shows ⚔️ Battle panel when ?battle=1
+// Auto Battle HUD injector
+// ✅ shows ⚔️ BATTLE panel when ?battle=1
 // ✅ listens to hha:score + hha:game-ended
-// ✅ decides winner by score→acc→miss→medianRT (battle module computes too)
+// ✅ injects badge into End Overlay to prove battle mode is ON
 // PATCH v20260302
 'use strict';
 
@@ -10,7 +10,6 @@ import { initBattle } from './battle-rtdb.js';
 import { comparePackets, normalizeScorePacket } from './score-compare.js';
 
 function qs(k, d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
 function esc(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
 const on = (qs('battle','0') === '1');
@@ -18,10 +17,10 @@ if(!on){
   // do nothing
 }else{
   const pid = String(qs('pid','anon')).trim() || 'anon';
-  const gameKey = String(qs('gameKey','goodjunk')).trim() || 'goodjunk';
+  const gameKey = 'goodjunk';
   const room = String(qs('room','')).trim();
 
-  // inject HUD
+  // inject corner HUD
   const hud = document.createElement('div');
   hud.id = 'hhaBattleHud';
   hud.style.position = 'fixed';
@@ -31,13 +30,12 @@ if(!on){
   hud.style.pointerEvents = 'none';
   hud.innerHTML = `
     <div style="
-      pointer-events:none;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.66);
       color:rgba(229,231,235,.96);
       border-radius:14px;
       padding:10px 10px;
-      min-width:210px;
+      min-width:220px;
       box-shadow:0 18px 55px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -47,18 +45,18 @@ if(!on){
         <div style="opacity:.85">room <span id="hhaRoom">${esc(room||'—')}</span></div>
       </div>
       <div style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:6px;">
-        <div style="display:flex;justify-content:space-between;opacity:.95">
+        <div style="display:flex;justify-content:space-between;">
           <span>Me</span><span id="hhaMe">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;opacity:.95">
+        <div style="display:flex;justify-content:space-between;">
           <span>Opp</span><span id="hhaOpp">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;opacity:.95">
+        <div style="display:flex;justify-content:space-between;">
           <span>Winner</span><span id="hhaWin">—</span>
         </div>
       </div>
-      <div style="margin-top:8px;opacity:.75;font-weight:800">
-        tie-break: score → acc → miss → medianRT
+      <div style="margin-top:8px;opacity:.7;font-weight:900">
+        score → acc → miss → medianRT
       </div>
     </div>
   `;
@@ -77,7 +75,7 @@ if(!on){
     return `${s} | ${a.toFixed(0)}% | m${m} | rt${rt}`;
   }
 
-  // end badge injector
+  // end badge injection (soคุณเห็นแน่ ๆ)
   function injectEndBadge(text){
     try{
       const endOverlay = document.getElementById('endOverlay');
@@ -113,12 +111,15 @@ if(!on){
     }catch(e){}
   }
 
+  // show immediately
+  injectEndBadge('⚔️ BATTLE MODE ON');
+
   let myLatest = null;
   let oppLatest = null;
 
-  // init battle (transport)
+  // init battle transport
   const battle = await initBattle({
-    enabled: true,
+    enabled:true,
     room,
     pid,
     gameKey,
@@ -126,56 +127,43 @@ if(!on){
     forfeitMs: Number(qs('forfeit','5000'))||5000
   });
 
-  // listen score events from game
+  // listen scores from game
   window.addEventListener('hha:score', (ev)=>{
     const p = ev?.detail || null;
     if(!p) return;
 
-    // p = {score, miss, accPct, medianRtGoodMs,...}
     myLatest = normalizeScorePacket({ ...p, pid });
     try{ battle?.pushScore?.(myLatest); }catch(e){}
-
-    // UI
     if($me) $me.textContent = fmt(myLatest);
   }, { passive:true });
 
-  // observe battle state changes (opp + winner)
+  // render opponent + winner
   battle?.onState?.((st)=>{
     try{
-      // In our battle module, st.me/st.opp are already normalized
       myLatest = st?.me || myLatest;
       oppLatest = st?.opp || oppLatest;
 
       if($me) $me.textContent = fmt(myLatest);
       if($op) $op.textContent = fmt(oppLatest);
-
-      // winner
-      let w = st?.winnerPid || '—';
-      if($wi) $wi.textContent = String(w);
-
+      if($wi) $wi.textContent = String(st?.winnerPid || '—');
     }catch(e){}
   });
 
-  // on end: show badge + finalize
+  // on end: finalize + badge result
   window.addEventListener('hha:game-ended', (ev)=>{
     const summary = ev?.detail || null;
 
-    // ensure we have a last packet
     if(summary){
       myLatest = normalizeScorePacket({ ...summary, pid });
       try{ battle?.finalizeEnd?.(summary); }catch(e){}
     }
 
-    // compute local winner (in case)
     let label = '⚔️ BATTLE MODE ON';
     if(myLatest && oppLatest){
       const c = comparePackets(myLatest, oppLatest);
-      if(c === 0) label = '🤝 เสมอ! (TIE)';
+      if(c === 0) label = '🤝 เสมอ (TIE)';
       else label = (c > 0) ? '🏆 YOU WIN!' : '😵 YOU LOSE!';
     }
     injectEndBadge(label);
   }, { passive:true });
-
-  // show “battle mode is on” immediately (soคุณเห็นแน่ ๆ)
-  injectEndBadge('⚔️ BATTLE MODE ON');
 }
