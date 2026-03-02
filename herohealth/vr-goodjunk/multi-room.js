@@ -147,32 +147,6 @@ export function createRoomBus(opts){
     broadcast('end', { by: playerId, reason:String(reason||'time') });
   }
 
-  function sendClaim(targetId){
-    broadcast('claim', { by: playerId, targetId:String(targetId||'') });
-  }
-
-  function sendHit(hit){
-    broadcast('hit', {
-      by: playerId,
-      targetId: String(hit.targetId||''),
-      kind: String(hit.kind||'good'),
-      rtMs: Math.max(0, parseInt(hit.rtMs||0,10) || 0),
-    });
-  }
-
-  function hostConfirm(confirm){
-    if(!state.isHost) return;
-    broadcast('confirm', {
-      by: playerId,
-      targetId: String(confirm.targetId||''),
-      winnerId: String(confirm.winnerId||''),
-      kind: String(confirm.kind||'good'),
-      scoreDelta: parseInt(confirm.scoreDelta||0,10) || 0,
-      combo: parseInt(confirm.combo||0,10) || 0,
-      misses: parseInt(confirm.misses||0,10) || 0,
-    });
-  }
-
   function sendScore(s){
     broadcast('score', {
       by: playerId,
@@ -187,7 +161,6 @@ export function createRoomBus(opts){
   // host publishes final board so everyone logs same placement
   function hostFinalBoard(board){
     if(!state.isHost) return;
-    // board: [{playerId,nick,score,misses}]
     broadcast('final', { by: playerId, board: Array.isArray(board)?board:[] });
   }
 
@@ -201,8 +174,6 @@ export function createRoomBus(opts){
     connect, disconnect,
     broadcast,
     hostStartRound, hostEndRound,
-    sendClaim, sendHit,
-    hostConfirm,
     sendScore,
     hostFinalBoard,
     updateLocal,
