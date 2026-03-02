@@ -1,7 +1,6 @@
 // === /herohealth/vr-goodjunk/multi-room.js ===
-// GoodJunk Multiplayer Room (Supabase Realtime) — v1
-// Host Authority: host confirms claims/hits; clients follow confirm messages.
-
+// GoodJunk Multiplayer Room Bus (Supabase Realtime) — Host Authority v1
+// FULL v20260302-GJ-MULTI-ROOMBUS-FINALSCORE
 'use strict';
 
 function now(){ return Date.now(); }
@@ -13,12 +12,7 @@ function qs(k, d=''){
   try { return (new URL(location.href)).searchParams.get(k) ?? d; }
   catch { return d; }
 }
-function clampInt(v, a, b){
-  v = parseInt(v,10); if(!Number.isFinite(v)) v=a;
-  return Math.max(a, Math.min(b, v));
-}
 
-// Minimal wrapper around Supabase realtime channel + presence
 export function createRoomBus(opts){
   opts = opts || {};
   const roomId = String(opts.roomId || qs('room','')).trim();
@@ -29,13 +23,13 @@ export function createRoomBus(opts){
   const url  = opts.supabaseUrl  || qs('sbUrl','');
   const anon = opts.supabaseAnon || qs('sbAnon','');
 
-  const maxPlayers = clampInt(opts.maxPlayers ?? 10, 2, 10);
+  const maxPlayers = Math.max(2, Math.min(10, (opts.maxPlayers ?? 10) | 0));
 
   if(!roomId) throw new Error('Missing roomId (?room=...)');
   if(!url || !anon) throw new Error('Missing Supabase config (sbUrl/sbAnon)');
 
-  // Lazy import to keep payload small until needed
   let sb = null, ch = null;
+
   let state = {
     roomId, playerId, nick,
     isHost: !!forceHost,
@@ -45,11 +39,7 @@ export function createRoomBus(opts){
     players: {}, // {playerId:{nick, teamId, joinedAt}}
   };
 
-  const handlers = {
-    onPresence: [],
-    onMsg: [],
-    onSystem: [],
-  };
+  const handlers = { onPresence:[], onMsg:[], onSystem:[] };
 
   function emit(kind, payload){
     const list = handlers[kind] || [];
@@ -57,7 +47,6 @@ export function createRoomBus(opts){
       try{ fn(payload); }catch(e){}
     }
   }
-
   function on(kind, fn){
     if(handlers[kind]) handlers[kind].push(fn);
     return ()=> {
@@ -68,18 +57,23 @@ export function createRoomBus(opts){
 
   function broadcast(type, data){
     if(!ch) return;
-    ch.send({ type:'broadcast', event:'gj', payload:{ t:type, ...data, roomId, ts: now() } });
+    ch.send({
+      type:'broadcast',
+      event:'gj',
+      payload:{ t:type, ...data, roomId, ts: now() }
+    });
   }
 
   function pickHostFromPresence(pres){
-    // deterministic: smallest playerId becomes host (unless forceHost exists)
     const ids = Object.keys(pres || {}).sort();
     return ids[0] || '';
   }
 
   async function connect(){
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-    sb = createClient(url, anon, { realtime: { params: { eventsPerSecond: 30 } } });
+    sb = createClient(url, anon, {
+      realtime: { params: { eventsPerSecond: 30 } }
+    });
 
     ch = sb.channel(`goodjunk:${roomId}`, {
       config: { presence: { key: playerId }, broadcast: { self: true } }
@@ -90,7 +84,6 @@ export function createRoomBus(opts){
       const players = {};
       for(const pid of Object.keys(pres)){
         const arr = pres[pid] || [];
-        // use last meta
         const meta = arr[arr.length-1] || {};
         players[pid] = {
           playerId: pid,
@@ -102,7 +95,6 @@ export function createRoomBus(opts){
       state.players = players;
 
       const computedHost = pickHostFromPresence(players);
-      // forceHost: if I force host, I am hostId
       state.hostId = state.isHost ? playerId : computedHost;
       state.isHost = state.isHost || (playerId === computedHost);
 
@@ -150,13 +142,16 @@ export function createRoomBus(opts){
     });
   }
 
-  // claim/hit confirm: host acts as authority
+  function hostEndRound(reason='time'){
+    if(!state.isHost) return;
+    broadcast('end', { by: playerId, reason:String(reason||'time') });
+  }
+
   function sendClaim(targetId){
     broadcast('claim', { by: playerId, targetId:String(targetId||'') });
   }
 
   function sendHit(hit){
-    // hit: {targetId, kind, rtMs}
     broadcast('hit', {
       by: playerId,
       targetId: String(hit.targetId||''),
@@ -167,7 +162,6 @@ export function createRoomBus(opts){
 
   function hostConfirm(confirm){
     if(!state.isHost) return;
-    // confirm: {targetId, winnerId, kind, scoreDelta, combo, misses}
     broadcast('confirm', {
       by: playerId,
       targetId: String(confirm.targetId||''),
@@ -179,6 +173,24 @@ export function createRoomBus(opts){
     });
   }
 
+  function sendScore(s){
+    broadcast('score', {
+      by: playerId,
+      score: (s?.score|0)||0,
+      combo: (s?.combo|0)||0,
+      misses:(s?.misses|0)||0,
+      good:  (s?.good|0)||0,
+      junk:  (s?.junk|0)||0,
+    });
+  }
+
+  // host publishes final board so everyone logs same placement
+  function hostFinalBoard(board){
+    if(!state.isHost) return;
+    // board: [{playerId,nick,score,misses}]
+    broadcast('final', { by: playerId, board: Array.isArray(board)?board:[] });
+  }
+
   function updateLocal(patch){
     state = { ...state, ...(patch||{}) };
   }
@@ -188,9 +200,11 @@ export function createRoomBus(opts){
     on,
     connect, disconnect,
     broadcast,
-    hostStartRound,
+    hostStartRound, hostEndRound,
     sendClaim, sendHit,
     hostConfirm,
+    sendScore,
+    hostFinalBoard,
     updateLocal,
     maxPlayers,
   };
