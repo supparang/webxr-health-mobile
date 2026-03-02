@@ -1,9 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
-✅ Kid End Summary (no JSON spam)
-✅ Teacher/Research details toggle (JSON hidden by default)
-✅ Practice focus from end (15s) + Evaluate + Create UI IDs
-✅ Quiz bank: ./hygiene-quiz-bank.js
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221a
+✅ Kid-only End Summary (default)
+✅ Teacher/Research Mode toggle reveals Evaluate + Create + JSON
+✅ End overlay scroll fix (mobile)
+✅ Practice focus from End: 15s
 -->
 <!doctype html>
 <html lang="th">
@@ -14,7 +14,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260220a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260221a" />
 
   <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -31,7 +31,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260220a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260221a"></script>
 </head>
 
 <body class="view-pc">
@@ -106,10 +106,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
     <div class="hw-overlay hw-overlay-scroll" id="endOverlay" style="display:none">
       <div class="hw-card hw-card-scroll">
 
-        <!-- ✅ Kid Summary -->
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
+        <!-- ✅ Kid-only summary (DEFAULT) -->
         <div class="hw-kidSum" id="kidSum">
           <div class="hw-kidRow">
             <div class="hw-kidBadge" id="kidBadge">🏅</div>
@@ -131,65 +131,69 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
           </div>
         </div>
 
-        <!-- ✅ Evaluate + Analyze -->
-        <div class="hw-eval" id="evalBox">
-          <div class="hw-eval-title">🧠 เกมทาย “จุดเสี่ยงสุด”</div>
-          <div class="hw-eval-sub" id="evalSub">
-            เลือก 1 จุดที่คิดว่า “ล้างไม่ถึง” แล้วเลือกเหตุผล 1 ข้อ
-          </div>
-          <div class="hw-eval-sub"><span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span></div>
-
-          <div class="hw-handmap" id="handMap" aria-label="hand map"></div>
-
-          <div class="hw-eval-row">
-            <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
-            <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
-          </div>
-
-          <div class="hw-reasons" id="evalReasons">
-            <button class="hw-reason" data-reason="forget">ฉันมักลืมจุดนี้</button>
-            <button class="hw-reason" data-reason="hard">จุดนี้ถูยาก</button>
-            <button class="hw-reason" data-reason="rush">ฉันรีบเกินไป</button>
-            <button class="hw-reason" data-reason="slow">เวลาตอบสนองช้า</button>
-          </div>
-
-          <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ</button>
-            <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
-          </div>
-        </div>
-
-        <!-- ✅ Create Routine -->
-        <div class="hw-create" id="createBox" style="display:none">
-          <div class="hw-eval-title">✨ ตั้งกติกาของฉัน 3 ข้อ</div>
-          <div class="hw-eval-sub">
-            เลือกให้ครบ 3 ข้อ ภายใน <b><span id="createTimer">30</span> วิ</b>
-          </div>
-
-          <div class="hw-routine" id="routineOpts">
-            <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
-            <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
-            <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
-            <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
-            <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
-            <button class="hw-rt" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
-          </div>
-
-          <div class="hw-eval-row">
-            <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
-            <div class="hw-eval-score" id="createScore">คะแนน: —</div>
-          </div>
-
-          <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
-          </div>
-        </div>
-
-        <!-- ✅ Teacher/Research details (JSON) -->
+        <!-- ✅ Teacher/Research mode toggle -->
         <div class="hw-details">
-          <button class="hw-details-btn" id="btnToggleDetails" type="button">🔍 ดูรายละเอียดสำหรับครู/วิจัย</button>
+          <button class="hw-details-btn" id="btnToggleDetails" type="button">
+            🔍 ดูโหมดครู/วิจัย (Evaluate + Routine + Summary)
+          </button>
 
           <div class="hw-details-body" id="detailsBody" style="display:none">
+
+            <!-- ✅ Evaluate + Analyze -->
+            <div class="hw-eval" id="evalBox">
+              <div class="hw-eval-title">🧠 Evaluate + Analyze (เลือก “จุดเสี่ยงสุด”)</div>
+              <div class="hw-eval-sub" id="evalSub">
+                ระบบทำ Heatmap 2D แล้วให้ผู้เรียนเลือก “จุดเสี่ยงสุด” พร้อมเหตุผล 1 ข้อ
+              </div>
+              <div class="hw-eval-sub"><span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span></div>
+
+              <div class="hw-handmap" id="handMap" aria-label="hand map"></div>
+
+              <div class="hw-eval-row">
+                <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
+                <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
+              </div>
+
+              <div class="hw-reasons" id="evalReasons">
+                <button class="hw-reason" data-reason="forget">ลืมจุดนี้บ่อย</button>
+                <button class="hw-reason" data-reason="hard">จุดนี้ถูยาก</button>
+                <button class="hw-reason" data-reason="rush">รีบเกินไป</button>
+                <button class="hw-reason" data-reason="slow">ตอบสนองช้า</button>
+              </div>
+
+              <div class="hw-card-row" style="margin-top:10px">
+                <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ</button>
+                <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
+              </div>
+            </div>
+
+            <!-- ✅ Create Routine -->
+            <div class="hw-create" id="createBox" style="display:none">
+              <div class="hw-eval-title">✨ Create: ตั้ง Routine 3 ข้อ (30 วิ)</div>
+              <div class="hw-eval-sub">
+                เลือกให้ครบ 3 ข้อ ภายใน <b><span id="createTimer">30</span> วิ</b>
+              </div>
+
+              <div class="hw-routine" id="routineOpts">
+                <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
+                <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
+                <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+                <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
+                <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
+                <button class="hw-rt" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
+              </div>
+
+              <div class="hw-eval-row">
+                <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
+                <div class="hw-eval-score" id="createScore">คะแนน: —</div>
+              </div>
+
+              <div class="hw-card-row" style="margin-top:10px">
+                <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
+              </div>
+            </div>
+
+            <!-- ✅ JSON / Research summary -->
             <div class="hw-card-row" style="margin-top:10px">
               <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
             </div>
@@ -219,17 +223,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   const ld = document.getElementById('labDiff');
   if(lm) lm.textContent = (qs('run','play')||'play');
   if(ld) ld.textContent = (qs('diff','normal')||'normal');
-
-  // details toggle (safe)
-  const btn = document.getElementById('btnToggleDetails');
-  const body = document.getElementById('detailsBody');
-  if(btn && body){
-    btn.addEventListener('click', ()=>{
-      const on = body.style.display !== 'none';
-      body.style.display = on ? 'none' : 'block';
-      btn.textContent = on ? '🔍 ดูรายละเอียดสำหรับครู/วิจัย' : '🙈 ซ่อนรายละเอียด';
-    });
-  }
 })();
 </script>
 </body>
