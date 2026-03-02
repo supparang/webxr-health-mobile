@@ -1,9 +1,10 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// Brush VR SAFE — PRODUCTION
-// FULL v20260301-BRUSH-SAFE-FIXTARGET-CAMERA403
+// Brush VR SAFE — PRODUCTION (ESM)
+// FULL v20260301-BRUSH-SAFE-ESM-FIXTARGET-CAMERA403
 'use strict';
 
-(function(){
+export function boot(cfg){
+  cfg = cfg || {};
   const W = window, D = document;
 
   // ---------- helpers ----------
@@ -95,12 +96,15 @@
     rtGood:[],
 
     cam3:null,
-    targets:new Map(), // id -> {el, kind, good, bornAt, ttlAt}
+    targets:new Map(),
     seq:0,
 
     spawnEveryMs:900,
     ttlMs:1500,
     lockPx:44,
+
+    raf: 0,
+    lastSpawn: 0,
   };
 
   function tuneByDiff(){
@@ -126,7 +130,7 @@
     if (UI.crosshair) UI.crosshair.style.display = IS_CVR ? 'block' : 'none';
   }
 
-  // ---------- wait for camera (no crash) ----------
+  // ---------- wait for camera ----------
   function getCam3(){
     try{
       const camEl = UI.cam || D.querySelector('#cam') || D.querySelector('[camera]');
@@ -151,7 +155,7 @@
     });
   }
 
-  // ---------- spawn targets ----------
+  // ---------- gameplay ----------
   function rid(){ return `t${++S.seq}`; }
 
   function spawnTarget(kind='plaque'){
@@ -166,11 +170,9 @@
     const bornAt = now();
     const ttlAt = bornAt + S.ttlMs;
 
-    // mapping: plaque=good, germ=junk
     const good = (kind === 'plaque');
     if (good) S.goodSpawn++; else S.junkSpawn++;
 
-    // position around tooth
     const x = (Math.random() * 0.9 - 0.45);
     const y = (Math.random() * 0.6 - 0.15);
     const z = -3.0 + (Math.random() * 0.35 - 0.15);
@@ -186,7 +188,6 @@
     el.setAttribute('data-kind', kind);
     el.setAttribute('data-born', String(bornAt));
 
-    // ring
     const ring = D.createElement('a-entity');
     ring.setAttribute('geometry', 'primitive: ring; radiusInner: 0.12; radiusOuter: 0.16');
     ring.setAttribute('material', good
@@ -196,13 +197,11 @@
     ring.setAttribute('rotation', '90 0 0');
     el.appendChild(ring);
 
-    // click/tap
     el.addEventListener('click', ()=> hitTarget(id));
-
     root.appendChild(el);
+
     S.targets.set(id, { el, kind, good, bornAt, ttlAt });
 
-    // non-blocking log
     safePost(API, { table:'events', eventType:'target_spawn', sessionId:S.sessionId, pid:PID, kind, targetId:id, ts:Date.now() });
   }
 
@@ -260,10 +259,9 @@
     }
   }
 
-  // ---------- cVR shoot ----------
   function findHitTargetIdFromRay(){
     try{
-      if (!W.AFRAME || !W.AFRAME.THREE) return null; // guard
+      if (!W.AFRAME || !W.AFRAME.THREE) return null;
       const cam3 = getCam3();
       if (!cam3) return null;
 
@@ -275,7 +273,6 @@
       dir.applyQuaternion(cam3.quaternion).normalize();
 
       const ray = new THREE.Raycaster(origin, dir, 0.1, 8.0);
-
       const objs = [];
       for (const t of S.targets.values()){
         if (t.el?.object3D) objs.push(t.el.object3D);
@@ -299,7 +296,6 @@
     if (id) hitTarget(id);
   }
 
-  // ---------- end game ----------
   function resetGame(){
     for (const t of S.targets.values()){
       try{ t.el?.parentNode?.removeChild(t.el); }catch(e){}
@@ -314,6 +310,8 @@
     S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
     S.goodSpawn=0; S.junkSpawn=0; S.goodHit=0; S.junkHit=0; S.goodExpire=0;
     S.rtGood=[];
+    S.lastSpawn = 0;
+
     hud();
   }
 
@@ -362,12 +360,8 @@
     });
   }
 
-  // ---------- loop ----------
-  let lastSpawn = 0;
-  let raf = 0;
-
   function loop(){
-    raf = requestAnimationFrame(loop);
+    S.raf = requestAnimationFrame(loop);
     if (!S.started || S.ended) return;
 
     S.timeLeft = Math.max(0, S.timeLeft - (1/60));
@@ -377,8 +371,8 @@
     }
 
     const tnow = now();
-    if (tnow - lastSpawn >= S.spawnEveryMs){
-      lastSpawn = tnow;
+    if (tnow - (S.lastSpawn||0) >= S.spawnEveryMs){
+      S.lastSpawn = tnow;
       const kind = (Math.random() < 0.18) ? 'germ' : 'plaque';
       spawnTarget(kind);
     }
@@ -387,7 +381,6 @@
     hud();
   }
 
-  // ---------- bind UI ----------
   function bindUI(){
     UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
     UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
@@ -396,15 +389,15 @@
       if (S.started || S.ended) return;
       UI.btnStart.textContent = 'กำลังเริ่ม...';
 
-      await waitForSceneAndCamera(); // critical
+      await waitForSceneAndCamera();
 
       S.started = true;
       S.startMs = now();
-      lastSpawn = 0;
+      S.lastSpawn = 0;
       UI.btnStart.textContent = 'กำลังเล่น...';
 
       safePost(API, { table:'events', eventType:'session_start', sessionId:S.sessionId, pid:PID, runMode:RUN, diff:DIFF, time:TIME, ts:Date.now() });
-      raf = requestAnimationFrame(loop);
+      S.raf = requestAnimationFrame(loop);
     });
 
     UI.btnReplay?.addEventListener('click', ()=>{
@@ -422,16 +415,26 @@
     D.addEventListener('pointerdown', ()=>{ if(IS_CVR) onShoot(); }, { passive:true });
   }
 
-  async function boot(){
+  async function init(){
     tuneByDiff();
     resetGame();
     bindUI();
     hud();
+    await waitForSceneAndCamera();
 
-    await waitForSceneAndCamera(); // pre-bind camera safely
-    console.log('[Brush] booted', { run: RUN, diff: DIFF, time: TIME, pid: PID, cvr: IS_CVR, log: LOG_ON });
+    // expose debug
+    W.HHBrush = {
+      state: ()=>({ ...S, targetsSize: S.targets.size }),
+      spawn: ()=>spawnTarget(Math.random()<0.2?'germ':'plaque'),
+      end: ()=>endGame('debug'),
+      reset: ()=>resetGame()
+    };
+
+    console.log('[Brush] ready', { run: RUN, diff: DIFF, time: TIME, pid: PID, cvr: IS_CVR, log: LOG_ON });
   }
 
-  if (D.readyState === 'loading') D.addEventListener('DOMContentLoaded', boot, { once:true });
-  else boot();
-})();
+  if (D.readyState === 'loading') D.addEventListener('DOMContentLoaded', init, { once:true });
+  else init();
+
+  return { S, UI, safePost };
+}
