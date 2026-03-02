@@ -1,588 +1,422 @@
-// === /fitness/js/rhythm-boxer.js — UI glue (menu / play / result) ===
-'use strict';
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>VR Fitness — Rhythm Boxer</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="favicon.ico"/>
+  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 
-(function () {
-  const WIN = window;
-  const DOC = document;
-
-  const $ = (sel, el = DOC) => el.querySelector(sel);
-  const $$ = (sel, el = DOC) => Array.from(el.querySelectorAll(sel));
-
-  // ---------- Root / Views ----------
-  const wrap = $('#rb-wrap');
-  const viewMenu   = $('#rb-view-menu');
-  const viewPlay   = $('#rb-view-play');
-  const viewResult = $('#rb-view-result');
-
-  // ---------- Play field ----------
-  const flashEl    = $('#rb-flash');
-  const fieldEl    = $('#rb-field');
-  const lanesEl    = $('#rb-lanes');
-  const feedbackEl = $('#rb-feedback');
-  const audioEl    = $('#rb-audio');
-
-  // ---------- Menu controls ----------
-  const btnStart      = $('#rb-btn-start');
-  const modeRadios    = $$('input[name="rb-mode"]');
-  const trackRadios   = $$('input[name="rb-track"]');
-  const trackLabels   = $$('#rb-track-options .rb-mode-btn');
-  const modeDescEl    = $('#rb-mode-desc');
-  const trackModeLbl  = $('#rb-track-mode-label');
-  const researchBox   = $('#rb-research-fields');
-
-  // Research fields
-  const inputParticipant = $('#rb-participant');
-  const inputGroup       = $('#rb-group');
-  const inputNote        = $('#rb-note');
-
-  // ---------- Play / Result buttons ----------
-  const btnStop        = $('#rb-btn-stop');
-  const btnAgain       = $('#rb-btn-again');
-  const btnBackMenu    = $('#rb-btn-back-menu');
-  const btnDlEvents    = $('#rb-btn-dl-events');
-  const btnDlSessions  = $('#rb-btn-dl-sessions');
-
-  // ---------- HUD ----------
-  const hud = {
-    mode:   $('#rb-hud-mode'),
-    track:  $('#rb-hud-track'),
-    score:  $('#rb-hud-score'),
-    combo:  $('#rb-hud-combo'),
-    acc:    $('#rb-hud-acc'),
-    hp:     $('#rb-hud-hp'),
-    shield: $('#rb-hud-shield'),
-    time:   $('#rb-hud-time'),
-
-    countPerfect: $('#rb-hud-perfect'),
-    countGreat:   $('#rb-hud-great'),
-    countGood:    $('#rb-hud-good'),
-    countMiss:    $('#rb-hud-miss'),
-
-    feverFill:    $('#rb-fever-fill'),
-    feverStatus:  $('#rb-fever-status'),
-    progFill:     $('#rb-progress-fill'),
-    progText:     $('#rb-progress-text'),
-
-    aiFatigue:    $('#rb-hud-ai-fatigue'),
-    aiSkill:      $('#rb-hud-ai-skill'),
-    aiSuggest:    $('#rb-hud-ai-suggest'),
-    aiTip:        $('#rb-hud-ai-tip')
-  };
-
-  // ---------- Result UI ----------
-  const res = {
-    mode:        $('#rb-res-mode'),
-    track:       $('#rb-res-track'),
-    endReason:   $('#rb-res-endreason'),
-    score:       $('#rb-res-score'),
-    maxCombo:    $('#rb-res-maxcombo'),
-    hits:        $('#rb-res-detail-hit'),
-    acc:         $('#rb-res-acc'),
-    duration:    $('#rb-res-duration'),
-    rank:        $('#rb-res-rank'),
-    offsetAvg:   $('#rb-res-offset-avg'),
-    offsetStd:   $('#rb-res-offset-std'),
-    participant: $('#rb-res-participant'),
-    qualityNote: $('#rb-res-quality-note')
-  };
-
-  // ---------- Track mapping (menu -> engine) ----------
-  const TRACK_CONFIG = {
-    n1: { engineId: 'n1', labelShort: 'Warm-up Groove', diff: 'easy'   },
-    n2: { engineId: 'n2', labelShort: 'Focus Combo',    diff: 'normal' },
-    n3: { engineId: 'n3', labelShort: 'Speed Rush',     diff: 'hard'   },
-    r1: { engineId: 'r1', labelShort: 'Research 120',   diff: 'normal' }
-  };
-
-  let engine = null;
-  let lastStart = null; // remember for "play again"
-
-  // =========================================================
-  // Helpers
-  // =========================================================
-  function qsStr(key, def = '') {
-    try {
-      const v = new URL(location.href).searchParams.get(key);
-      return (v == null ? def : String(v));
-    } catch (_) {
-      return def;
+  <!-- ✅ HHA Planner Bridge HUD (safe, light) -->
+  <style>
+    #hhHud{
+      position:fixed; left:10px; right:10px; top:10px; z-index:9999;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
     }
-  }
-
-  function qsBool(key, def = false) {
-    try {
-      const v = (new URL(location.href).searchParams.get(key) || '').toLowerCase();
-      if (!v) return !!def;
-      return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-    } catch (_) {
-      return !!def;
+    .hhPill{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(0,0,0,.55);
+      color:#e8eefc;
+      padding:8px 10px;
+      border-radius:999px;
+      font-weight:900;
+      backdrop-filter: blur(6px);
+      max-width: 70vw;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-  }
-
-  function qsNum(key, def) {
-    try {
-      const raw = new URL(location.href).searchParams.get(key);
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : def;
-    } catch (_) {
-      return def;
+    .hhBtn{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);
+      color:#e8eefc;
+      padding:8px 12px;
+      border-radius:14px;
+      font-weight:1000;
+      cursor:pointer;
     }
+    .hhBtn:active{ transform: translateY(1px); }
+    .hhTiny{ opacity:.85; font-weight:800; }
+  </style>
+</head>
+
+<body>
+<!-- ✅ Overlay HUD: shows plan day/slot and provides back -->
+<div id="hhHud" aria-hidden="false">
+  <div class="hhPill">
+    Rhythm 🥊
+    <span class="hhTiny">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span>
+  </div>
+  <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
+</div>
+
+<div id="rb-wrap" data-diff="normal">
+  <div id="rb-flash"></div>
+
+  <!-- ===== VIEW: MENU ===== -->
+  <main id="rb-view-menu" class="rb-view">
+    <header class="rb-header">
+      <div class="rb-head-main">
+        <span class="rb-pill">VR Fitness · Rhythm</span>
+        <h1 class="rb-title">Rhythm Boxer</h1>
+        <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
+        <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
+      </div>
+
+      <!-- ✅ dynamic hub/back (patched by script at bottom) -->
+      <a href="hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
+    </header>
+
+    <section class="rb-section rb-grid-2">
+      <div class="rb-research-box">
+        <h2 class="rb-section-title">โหมดการเล่น</h2>
+
+        <div class="rb-mode-toggle" role="radiogroup" aria-label="mode">
+          <label class="rb-mode-btn">
+            <input type="radio" name="rb-mode" value="normal" checked/>
+            <span>Normal</span>
+          </label>
+          <label class="rb-mode-btn">
+            <input type="radio" name="rb-mode" value="research"/>
+            <span>Research</span>
+          </label>
+        </div>
+
+        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)</p>
+
+        <div id="rb-research-fields" class="rb-section hidden">
+          <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
+
+          <div class="rb-field">
+            <label for="rb-participant">Participant ID</label>
+            <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
+          </div>
+          <div class="rb-field">
+            <label for="rb-group">กลุ่ม / เงื่อนไข</label>
+            <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
+          </div>
+          <div class="rb-field">
+            <label for="rb-note">โน้ตเพิ่มเติม</label>
+            <input id="rb-note" type="text" placeholder="เช่น รอบก่อนฝึก, หลังฝึก, เวลาเล่น ฯลฯ"/>
+          </div>
+
+          <p class="rb-hint-inline">
+            Research จะบันทึก Event CSV + Session CSV (offset, side, FEVER, HP) เพื่อใช้วิเคราะห์เชิงสถิติ
+          </p>
+        </div>
+      </div>
+
+      <div class="rb-research-box">
+        <h2 class="rb-section-title">เพลง / ระดับ</h2>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก</p>
+
+        <div id="rb-track-options" class="rb-section">
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n1" checked/>
+            <span>Warm-up Groove · ง่าย · 100 BPM</span>
+          </label>
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n2"/>
+            <span>Focus Combo · ปกติ · 120 BPM</span>
+          </label>
+          <label class="rb-mode-btn" data-mode="normal">
+            <input type="radio" name="rb-track" value="n3"/>
+            <span>Speed Rush · ยาก · 140 BPM</span>
+          </label>
+
+          <label class="rb-mode-btn" data-mode="research">
+            <input type="radio" name="rb-track" value="r1"/>
+            <span>Research Track 120 · ทดลอง · 120 BPM</span>
+          </label>
+        </div>
+
+        <div class="rb-hint-block">
+          <p class="rb-hint-title">วิธีเล่น</p>
+          <ul class="rb-hint-list">
+            <li>แตะเลน (L2, L1, C, R1, R2) ให้โน้ตตรงเส้นตีด้านล่าง</li>
+            <li>Perfect / Great / Good เพิ่ม FEVER; Miss ลด HP</li>
+            <li>กดพลาด (blank tap) จะโดนหักเล็กน้อยเพื่อกัน “กดรัว”</li>
+            <li>คีย์บอร์ด (PC): A S D J K</li>
+          </ul>
+        </div>
+
+        <div class="rb-section">
+          <button id="rb-btn-start" class="rb-btn rb-btn-primary">▶ เริ่มเล่น Rhythm Boxer</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== VIEW: PLAY ===== -->
+  <main id="rb-view-play" class="rb-view hidden">
+    <header class="rb-play-header">
+      <div>
+        <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
+        <p class="rb-sub-sm">แตะเลนให้ตรงจังหวะ · เส้นตีสีเหลืองอยู่ด้านล่าง · ดู FEVER / ACC / HP</p>
+      </div>
+      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
+    </header>
+
+    <section class="rb-research-box rb-hud">
+      <div class="rb-hud-row">
+        <span class="rb-chip">Mode: <b id="rb-hud-mode">Normal</b></span>
+        <span class="rb-chip">Track: <b id="rb-hud-track">Warm-up Groove</b></span>
+      </div>
+
+      <div class="rb-hud-row">
+        <span class="rb-chip">Score: <b id="rb-hud-score">0</b></span>
+        <span class="rb-chip">Combo: <b id="rb-hud-combo">0</b></span>
+        <span class="rb-chip">Acc: <b id="rb-hud-acc">0.0%</b></span>
+      </div>
+
+      <div class="rb-hud-row rb-hud-row-ai">
+        <span class="rb-chip rb-chip-ai">AI Fatigue: <b id="rb-hud-ai-fatigue">0%</b></span>
+        <span class="rb-chip rb-chip-ai">AI Skill: <b id="rb-hud-ai-skill">50%</b></span>
+        <span class="rb-chip rb-chip-ai">Suggest: <b id="rb-hud-ai-suggest">normal</b></span>
+      </div>
+
+      <div class="rb-hud-row rb-hud-row-ai">
+        <span class="rb-chip rb-chip-ai rb-chip-tip">
+          <span class="rb-chip-tip-label">Coach:</span>
+          <b id="rb-hud-ai-tip" class="hidden"></b>
+        </span>
+      </div>
+
+      <div class="rb-hud-row">
+        <span class="rb-chip">HP: <b id="rb-hud-hp">100</b></span>
+        <span class="rb-chip">Shield: <b id="rb-hud-shield">0</b></span>
+        <span class="rb-chip">Time: <b id="rb-hud-time">0.0</b></span>
+      </div>
+
+      <div class="rb-hud-row rb-hud-judge-row">
+        <span class="rb-chip">Perfect: <b id="rb-hud-perfect">0</b></span>
+        <span class="rb-chip">Great: <b id="rb-hud-great">0</b></span>
+        <span class="rb-chip">Good: <b id="rb-hud-good">0</b></span>
+        <span class="rb-chip">Miss: <b id="rb-hud-miss">0</b></span>
+      </div>
+
+      <div class="rb-bars">
+        <div class="rb-bar-block">
+          <span class="rb-bar-label">FEVER</span>
+          <div class="rb-bar"><div id="rb-fever-fill" class="rb-bar-fill rb-bar-fever"></div></div>
+          <span id="rb-fever-status" class="rb-bar-status">READY</span>
+        </div>
+        <div class="rb-bar-block">
+          <span class="rb-bar-label">PROG</span>
+          <div class="rb-bar"><div id="rb-progress-fill" class="rb-bar-fill rb-bar-progress"></div></div>
+          <span id="rb-progress-text" class="rb-bar-status">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="rb-field-wrap">
+      <div id="rb-field">
+        <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+
+        <div class="rb-lanes" id="rb-lanes">
+          <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
+          <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
+          <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
+          <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
+          <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
+        </div>
+      </div>
+
+      <p class="rb-howto-inline">
+        แตะเลนให้ “หัวโน้ต” ลงมาถึงเส้นตีสีเหลืองด้านล่างแล้วค่อยกด · ใช้ได้ทั้งจอสัมผัสและเมาส์
+      </p>
+    </section>
+
+    <audio id="rb-audio" preload="auto"></audio>
+  </main>
+
+  <!-- ===== VIEW: RESULT ===== -->
+  <main id="rb-view-result" class="rb-view hidden">
+    <header class="rb-header">
+      <div class="rb-head-main">
+        <span class="rb-pill">Result</span>
+        <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
+        <p class="rb-sub">ใช้ตารางนี้สำหรับบันทึกคะแนน / วิเคราะห์ภายหลัง</p>
+      </div>
+    </header>
+
+    <section class="rb-result-grid">
+      <div class="rb-result-card">
+        <h2 class="rb-result-title">Overview</h2>
+        <div class="rb-result-row"><span>Mode</span><b id="rb-res-mode">-</b></div>
+        <div class="rb-result-row"><span>Track</span><b id="rb-res-track">-</b></div>
+        <div class="rb-result-row"><span>End reason</span><b id="rb-res-endreason">-</b></div>
+        <div class="rb-result-row"><span>Score</span><b id="rb-res-score">0</b></div>
+        <div class="rb-result-row"><span>Max Combo</span><b id="rb-res-maxcombo">0</b></div>
+        <div class="rb-result-row"><span>Hit P/G/Gd/Miss</span><b id="rb-res-detail-hit">0 / 0 / 0 / 0</b></div>
+        <div class="rb-result-row"><span>Accuracy</span><b id="rb-res-acc">0.0 %</b></div>
+        <div class="rb-result-row"><span>Duration</span><b id="rb-res-duration">0.0 s</b></div>
+        <div class="rb-result-row"><span>Rank</span><b id="rb-res-rank">-</b></div>
+      </div>
+
+      <div class="rb-result-card">
+        <h2 class="rb-result-title">Timing / Research</h2>
+        <div class="rb-result-row"><span>Offset mean</span><b id="rb-res-offset-avg">-</b></div>
+        <div class="rb-result-row"><span>Offset std</span><b id="rb-res-offset-std">-</b></div>
+        <div class="rb-result-row"><span>Participant</span><b id="rb-res-participant">-</b></div>
+      </div>
+    </section>
+
+    <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
+
+    <section class="rb-section rb-btn-row">
+      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
+      <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
+
+      <!-- ✅ New: return to planner/hub explicitly -->
+      <button id="rb-btn-return-plan" class="rb-btn rb-btn-ghost">✅ กลับตามแผน</button>
+    </section>
+
+    <section class="rb-research-box rb-section">
+      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
+      <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
+      <div class="rb-btn-row">
+        <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
+        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-sm">⬇ Session CSV</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/ai-predictor.js"></script>
+<script src="js/dom-renderer-rhythm.js"></script>
+<script src="js/rhythm-engine.js"></script>
+<script src="js/rhythm-boxer.js"></script>
+
+<!-- ✅ HHA Planner Bridge (MUST be after main scripts so it can observe DOM safely) -->
+<script>
+(function(){
+  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
+  function abs(u){ try{ return new URL(u, location.href).toString(); }catch(e){ return String(u||''); } }
+
+  // 1) hub / planner back
+  var hub = String(qs('hub','')).trim();
+  var backUrl = hub ? abs(hub) : '';
+
+  // patch menu back link
+  var backLink = document.getElementById('rb-back-link');
+  if(backLink){
+    backLink.href = backUrl || 'hub.html';
+    backLink.addEventListener('click', function(e){
+      if(backUrl){
+        e.preventDefault();
+        location.href = backUrl;
+      }
+    }, {passive:false});
   }
 
-  function clamp(n, a, b) {
-    n = Number(n);
-    if (!Number.isFinite(n)) n = a;
-    return Math.max(a, Math.min(b, n));
+  // 2) show plan HUD day/slot (Mon0)
+  var day = qs('planDay','—');
+  var slot = qs('planSlot','—');
+  var elDay = document.getElementById('hhDay');
+  var elSlot = document.getElementById('hhSlot');
+  if(elDay) elDay.textContent = day;
+  if(elSlot) elSlot.textContent = slot;
+
+  // 3) Back button behavior (always safe)
+  var btnBack = document.getElementById('hhBack');
+  if(btnBack){
+    btnBack.addEventListener('click', function(){
+      if(backUrl) location.href = backUrl;
+      else history.back();
+    });
   }
 
-  function getSelectedMode() {
-    const r = modeRadios.find(x => x.checked);
-    return r ? r.value : 'normal';
-  }
+  // 4) Universal end hook — rhythm-boxer.js SHOULD call this at end
+  //    But we also "detect Result view" and auto-return when coming from planner seq flow.
+  window.HH_END_GAME = function(reason, payload){
+    reason = String(reason||'end');
+    payload = payload || {};
 
-  function getSelectedTrackKey() {
-    const r = trackRadios.find(x => x.checked);
-    return r ? r.value : 'n1';
-  }
+    if(backUrl){
+      try{
+        var u = new URL(backUrl);
+        u.searchParams.set('reason', reason);
 
-  function setSelectedTrackKey(key) {
-    trackRadios.forEach(r => { r.checked = (r.value === key); });
-  }
-
-  function setModeRadio(mode) {
-    const want = (mode === 'research') ? 'research' : 'normal';
-    const r = modeRadios.find(x => x.value === want);
-    if (r) r.checked = true;
-  }
-
-  function switchView(name) {
-    [viewMenu, viewPlay, viewResult].forEach(v => v && v.classList.add('hidden'));
-    if (name === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    if (name === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    if (name === 'result' && viewResult) viewResult.classList.remove('hidden');
-  }
-
-  function safeText(el, text) {
-    if (el) el.textContent = String(text);
-  }
-
-  function formatEndReason(reason) {
-    const map = {
-      'song-end': 'Song End',
-      'manual-stop': 'Manual Stop',
-      'hp-zero': 'HP Zero'
-    };
-    return map[reason] || String(reason || '-');
-  }
-
-  function downloadCsv(csvText, filename) {
-    if (!csvText) return;
-    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = DOC.createElement('a');
-    a.href = url;
-    a.download = filename;
-    DOC.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  // =========================================================
-  // Lane layout preset (3 / 5 lanes) for PC/Mobile/cVR
-  // =========================================================
-  function applyLanePreset(lanes) {
-    if (!lanesEl) return;
-    const laneEls = $$('.rb-lane', lanesEl);
-    if (!laneEls.length) return;
-
-    const count = (lanes === 3) ? 3 : 5;
-    wrap && wrap.setAttribute('data-lanes', String(count));
-
-    // 5-lane default labels
-    const labels5 = ['L2', 'L1', 'C', 'R1', 'R2'];
-    // 3-lane preset uses indexes 0,2,4 visually relabeled L/C/R
-    // but engine reads data-lane values; easiest = keep first 3 lanes visible as 0,1,2 and relabel.
-    // To avoid remapping complexity in engine, we will:
-    // - show lane 0,1,2
-    // - hide 3,4
-    // - relabel as L,C,R (data-lane stays 0,1,2 => engine laneCount=3 OK)
-    if (count === 3) {
-      laneEls.forEach((el, idx) => {
-        const show = idx < 3;
-        el.classList.toggle('hidden', !show);
-
-        const lbl = $('.rb-lane-label', el);
-        if (lbl) {
-          const labels3 = ['L', 'C', 'R'];
-          if (show) lbl.textContent = labels3[idx] || String(idx);
+        // optional telemetry to planner (light)
+        if(payload && typeof payload === 'object'){
+          if(payload.score!=null) u.searchParams.set('score', String(payload.score));
+          if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
+          if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
         }
-
-        // normalize lane ids 0..2 for visible lanes
-        if (show) el.setAttribute('data-lane', String(idx));
-      });
-
-      // ensure hidden lanes keep ids but hidden (not necessary)
-      if (lanesEl) {
-        lanesEl.style.gridTemplateColumns = 'repeat(3, minmax(0,1fr))';
-        lanesEl.style.maxWidth = '760px';
-        lanesEl.style.margin = '0 auto';
-      }
-    } else {
-      laneEls.forEach((el, idx) => {
-        el.classList.remove('hidden');
-        el.setAttribute('data-lane', String(idx));
-        const lbl = $('.rb-lane-label', el);
-        if (lbl) lbl.textContent = labels5[idx] || String(idx);
-      });
-
-      if (lanesEl) {
-        lanesEl.style.gridTemplateColumns = 'repeat(5, minmax(0,1fr))';
-        lanesEl.style.maxWidth = '';
-        lanesEl.style.margin = '';
-      }
+        location.href = u.toString();
+        return;
+      }catch(_){}
     }
+    // fallback
+    alert('จบเกมแล้ว!');
+  };
 
-    // Update helper text in menu/play if needed
-    const howto = $('.rb-howto-inline');
-    if (howto) {
-      if (count === 3) {
-        howto.textContent = 'แตะเลน L / C / R ให้โน้ตตรงเส้นตี (เหมาะกับมือถือ/VR Cardboard)';
-      } else {
-        howto.textContent = 'แตะเลนให้โน้ตตรงเส้นตี (เส้นอยู่เหนือป้ายเลน) · ใช้ได้ทั้งจอสัมผัสและเมาส์';
-      }
-    }
-  }
-
-  function getLanePresetFromQuery() {
-    const q = clamp(qsNum('lanes', 5), 3, 5);
-    // only allow 3 or 5
-    return (q === 3) ? 3 : 5;
-  }
-
-  // =========================================================
-  // Mode / Track UI
-  // =========================================================
-  function updateModeUI() {
-    const mode = getSelectedMode();
-
-    if (mode === 'normal') {
-      safeText(modeDescEl,
-        'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)');
-      safeText(trackModeLbl,
-        'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก');
-
-      if (researchBox) researchBox.classList.add('hidden');
-
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        lbl.classList.toggle('hidden', m === 'research');
-      });
-
-      if (getSelectedTrackKey() === 'r1') setSelectedTrackKey('n1');
-
-    } else {
-      safeText(modeDescEl,
-        'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV');
-      safeText(trackModeLbl,
-        'โหมด Research — เพลงวิจัย Research Track 120');
-
-      if (researchBox) researchBox.classList.remove('hidden');
-
-      trackLabels.forEach(lbl => {
-        const m = lbl.getAttribute('data-mode') || 'normal';
-        lbl.classList.toggle('hidden', m !== 'research');
-      });
-
-      setSelectedTrackKey('r1');
-    }
-
-    // hint: AI lock badge text (optional, if you want to add DOM later)
-    if (hud.aiTip && mode === 'research' && !hud.aiTip.textContent) {
-      // keep hidden until engine pushes tip
-      hud.aiTip.classList.add('hidden');
-    }
-  }
-
-  function applyModeFromQuery() {
-    const m = (qsStr('mode', '') || '').toLowerCase();
-    if (m === 'research') setModeRadio('research');
-    else if (m === 'play' || m === 'normal') setModeRadio('normal');
-  }
-
-  function applyAutoModeFromHubSource() {
-    // Optional: if hub sends ?from=hub&mode=research
-    const from = (qsStr('from', '') || '').toLowerCase();
-    const mode = (qsStr('mode', '') || '').toLowerCase();
-    if (from === 'hub' && mode === 'research') setModeRadio('research');
-  }
-
-  // =========================================================
-  // Engine wiring
-  // =========================================================
-  function createEngine() {
-    const renderer = new WIN.RbDomRenderer(fieldEl, {
-      flashEl,
-      feedbackEl,
-      wrapEl: DOC.body
-    });
-
-    engine = new WIN.RhythmBoxerEngine({
-      wrap: wrap,
-      field: fieldEl,
-      lanesEl: lanesEl,
-      audio: audioEl,
-      renderer,
-      hud,
-      hooks: {
-        onEnd: handleEngineEnd
-      }
+  // 5) Result view "Return to plan" button
+  var btnReturn = document.getElementById('rb-btn-return-plan');
+  if(btnReturn){
+    btnReturn.addEventListener('click', function(){
+      // gather some values if present
+      var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
+      var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
+      var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
+      window.HH_END_GAME('result', { score: score, acc: acc, miss: miss });
     });
   }
 
-  function ensureEngine() {
-    if (!engine) createEngine();
-    return engine;
+  // 6) Stop button -> end early -> return
+  var btnStop = document.getElementById('rb-btn-stop');
+  if(btnStop){
+    btnStop.addEventListener('click', function(){
+      // let original stop run first (if any), then return
+      setTimeout(function(){
+        window.HH_END_GAME('stop');
+      }, 120);
+    });
   }
 
-  function collectResearchMeta() {
-    return {
-      id:    ((inputParticipant && inputParticipant.value) || '').trim(),
-      group: ((inputGroup && inputGroup.value) || '').trim(),
-      note:  ((inputNote && inputNote.value) || '').trim()
-    };
+  // 7) Auto-return when:
+  //    - hub contains seq=1 (planner auto-next flow) OR hub points to fitness-planner
+  //    - and Result view becomes visible
+  var autoReturn = false;
+  if(backUrl){
+    autoReturn = (backUrl.indexOf('seq=1')>=0) || (backUrl.indexOf('fitness-planner')>=0) || (qs('autoNext','0')==='1');
   }
 
-  function startGame() {
-    if (!WIN.RhythmBoxerEngine) {
-      alert('ยังไม่พบ RhythmBoxerEngine (ตรวจสอบ script js/rhythm-engine.js)');
-      return;
-    }
-    if (!WIN.RbDomRenderer) {
-      alert('ยังไม่พบ RbDomRenderer (ตรวจสอบ script js/dom-renderer-rhythm.js)');
-      return;
-    }
-
-    ensureEngine();
-
-    const mode = getSelectedMode();
-    const trackKey = getSelectedTrackKey();
-    const cfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG.n1;
-    const meta = collectResearchMeta();
-
-    // apply diff for CSS theming
-    if (wrap) wrap.dataset.diff = cfg.diff;
-
-    // HUD top labels
-    safeText(hud.mode, (mode === 'research') ? 'Research' : 'Normal');
-    safeText(hud.track, cfg.labelShort);
-
-    // AI header default (before engine starts ticking)
-    if (hud.aiFatigue) hud.aiFatigue.textContent = '0%';
-    if (hud.aiSkill) hud.aiSkill.textContent = '50%';
-    if (hud.aiSuggest) hud.aiSuggest.textContent = 'normal';
-    if (hud.aiTip) {
-      hud.aiTip.textContent = '';
-      hud.aiTip.classList.add('hidden');
-    }
-
-    // remember last config for replay
-    lastStart = {
-      mode,
-      trackKey,
-      meta: { ...meta }
-    };
-
-    try {
-      engine.start(mode, cfg.engineId, meta);
-      switchView('play');
-    } catch (err) {
-      console.error(err);
-      alert('เริ่มเกมไม่สำเร็จ: ' + (err && err.message ? err.message : err));
-    }
+  function isHidden(el){
+    if(!el) return true;
+    return el.classList.contains('hidden') || el.hasAttribute('hidden');
   }
 
-  function stopGame(reason) {
-    if (engine && typeof engine.stop === 'function') {
-      engine.stop(reason || 'manual-stop');
-    }
+  var resView = document.getElementById('rb-view-result');
+  if(resView && autoReturn){
+    var fired = false;
+    var obs = new MutationObserver(function(){
+      if(fired) return;
+      if(!isHidden(resView)){
+        fired = true;
+        // short delay so DOM writes settle
+        setTimeout(function(){
+          // If user is in research and might want CSV, we only auto-return when seq flow is explicit
+          var strictSeq = (backUrl.indexOf('seq=1')>=0);
+          if(!strictSeq) return;
+
+          var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
+          var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
+          var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
+          window.HH_END_GAME('auto', { score: score, acc: acc, miss: miss });
+        }, 900);
+      }
+    });
+    obs.observe(resView, { attributes:true, attributeFilter:['class','hidden'] });
   }
-
-  function replayLastGame() {
-    if (!lastStart) {
-      startGame();
-      return;
-    }
-    ensureEngine();
-
-    const cfg = TRACK_CONFIG[lastStart.trackKey] || TRACK_CONFIG.n1;
-    if (wrap) wrap.dataset.diff = cfg.diff;
-
-    safeText(hud.mode, (lastStart.mode === 'research') ? 'Research' : 'Normal');
-    safeText(hud.track, cfg.labelShort);
-
-    engine.start(lastStart.mode, cfg.engineId, { ...(lastStart.meta || {}) });
-    switchView('play');
-  }
-
-  // =========================================================
-  // Results
-  // =========================================================
-  function handleEngineEnd(summary) {
-    summary = summary || {};
-
-    safeText(res.mode, summary.modeLabel || '-');
-    safeText(res.track, summary.trackName || '-');
-    safeText(res.endReason, formatEndReason(summary.endReason));
-    safeText(res.score, summary.finalScore != null ? summary.finalScore : 0);
-    safeText(res.maxCombo, summary.maxCombo != null ? summary.maxCombo : 0);
-
-    if (res.hits) {
-      const p = summary.hitPerfect || 0;
-      const g = summary.hitGreat || 0;
-      const gd = summary.hitGood || 0;
-      const m = summary.hitMiss || 0;
-      res.hits.textContent = `${p} / ${g} / ${gd} / ${m}`;
-    }
-
-    if (res.acc) {
-      const acc = Number(summary.accuracyPct);
-      res.acc.textContent = Number.isFinite(acc) ? (acc.toFixed(1) + ' %') : '-';
-    }
-    if (res.duration) {
-      const d = Number(summary.durationSec);
-      res.duration.textContent = Number.isFinite(d) ? (d.toFixed(1) + ' s') : '-';
-    }
-
-    safeText(res.rank, summary.rank || '-');
-
-    if (res.offsetAvg) {
-      const v = Number(summary.offsetMean);
-      res.offsetAvg.textContent = Number.isFinite(v) ? (v.toFixed(3) + ' s') : '-';
-    }
-    if (res.offsetStd) {
-      const v = Number(summary.offsetStd);
-      res.offsetStd.textContent = Number.isFinite(v) ? (v.toFixed(3) + ' s') : '-';
-    }
-
-    safeText(res.participant, summary.participant || '-');
-
-    if (res.qualityNote) {
-      const note = summary.qualityNote || '';
-      res.qualityNote.textContent = note;
-      res.qualityNote.classList.toggle('hidden', !note);
-    }
-
-    switchView('result');
-  }
-
-  // =========================================================
-  // Optional lane tap visual boost (extra feedback)
-  // =========================================================
-  function bindLaneTapFlash() {
-    if (!lanesEl) return;
-
-    lanesEl.addEventListener('pointerdown', (e) => {
-      const laneEl = e.target && e.target.closest ? e.target.closest('.rb-lane') : null;
-      if (!laneEl) return;
-      laneEl.classList.add('is-hit');
-      setTimeout(() => laneEl.classList.remove('is-hit'), 90);
-    }, { passive: true });
-  }
-
-  // =========================================================
-  // Download buttons
-  // =========================================================
-  function bindDownloadButtons() {
-    if (btnDlEvents) {
-      btnDlEvents.addEventListener('click', () => {
-        if (!engine || typeof engine.getEventsCsv !== 'function') return;
-        const mode = getSelectedMode();
-        const track = getSelectedTrackKey();
-        const pid = ((inputParticipant && inputParticipant.value) || 'anon').trim() || 'anon';
-        const ts = new Date().toISOString().replace(/[:.]/g, '-');
-        downloadCsv(engine.getEventsCsv(), `rb-events-${mode}-${track}-${pid}-${ts}.csv`);
-      });
-    }
-
-    if (btnDlSessions) {
-      btnDlSessions.addEventListener('click', () => {
-        if (!engine || typeof engine.getSessionCsv !== 'function') return;
-        const mode = getSelectedMode();
-        const track = getSelectedTrackKey();
-        const pid = ((inputParticipant && inputParticipant.value) || 'anon').trim() || 'anon';
-        const ts = new Date().toISOString().replace(/[:.]/g, '-');
-        downloadCsv(engine.getSessionCsv(), `rb-sessions-${mode}-${track}-${pid}-${ts}.csv`);
-      });
-    }
-  }
-
-  // =========================================================
-  // Optional: URL hints for lanes / view
-  // =========================================================
-  function applyViewHints() {
-    const lanes = getLanePresetFromQuery();
-    applyLanePreset(lanes);
-
-    // hint for cVR style (CSS can read data-view)
-    const view = (qsStr('view', '') || '').toLowerCase();
-    if (wrap && view) wrap.dataset.view = view;
-
-    // if view=cvr and lanes not explicitly set => prefer 3 lanes
-    if (view === 'cvr' && !new URL(location.href).searchParams.has('lanes')) {
-      applyLanePreset(3);
-    }
-  }
-
-  // =========================================================
-  // Wiring
-  // =========================================================
-  function bindEvents() {
-    modeRadios.forEach(r => r.addEventListener('change', updateModeUI));
-
-    if (btnStart) btnStart.addEventListener('click', startGame);
-    if (btnStop) btnStop.addEventListener('click', () => stopGame('manual-stop'));
-
-    if (btnAgain) {
-      btnAgain.addEventListener('click', () => {
-        // keep same song + mode + meta
-        replayLastGame();
-      });
-    }
-
-    if (btnBackMenu) {
-      btnBackMenu.addEventListener('click', () => {
-        switchView('menu');
-      });
-    }
-  }
-
-  // =========================================================
-  // Init
-  // =========================================================
-  function init() {
-    applyModeFromQuery();
-    applyAutoModeFromHubSource();
-    updateModeUI();
-    applyViewHints();
-    bindLaneTapFlash();
-    bindEvents();
-    bindDownloadButtons();
-    switchView('menu');
-
-    // Pre-create engine? keep lazy for cleaner startup.
-    // ensureEngine();
-
-    // Optional debug info
-    if (qsBool('debug', false)) {
-      console.log('[RhythmBoxer UI] init', {
-        mode: getSelectedMode(),
-        track: getSelectedTrackKey(),
-        lanes: getLanePresetFromQuery(),
-        view: qsStr('view', '')
-      });
-    }
-  }
-
-  init();
 })();
+</script>
+
+</body>
+</html>
