@@ -1,6 +1,6 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR SAFE — PRODUCTION (HUD IDs aligned + MISS fair + Shield/Fever + AI prediction + End summary + cooldown daily-first)
-// FULL v20260302-PLATE-SAFE-HUDSAFE-AIWired
+// Plate VR SAFE — PRODUCTION (Practice 15s + Storm + Boss + HUD-safe + MISS fair + Shield/Fever + AI prediction + End summary + cooldown daily-first)
+// FULL v20260302-PLATE-SAFE-PRACTICE-STORM-BOSS-AIWired
 'use strict';
 
 export function boot(cfg){
@@ -9,12 +9,16 @@ export function boot(cfg){
 
   // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const qbool = (k, d=false)=>{
+    const v = String(qs(k, d?'1':'0')).toLowerCase();
+    return ['1','true','yes','y','on'].includes(v);
+  };
   const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
 
-  // ---------- cooldown helpers (per-game daily) ----------
+  // ---------- cooldown helpers ----------
   function hhDayKey(){
     const d=new Date();
     const yyyy=d.getFullYear();
@@ -104,6 +108,16 @@ export function boot(cfg){
   const HH_GAME='plate';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
+  // Practice / Storm / Boss toggles
+  const PRACTICE_ON = qbool('practice', (mode!=='research' && runMode!=='research')); // default ON for classroom
+  const PRACTICE_SEC = clamp(qs('practiceSec', '15'), 8, 30);
+
+  const STORM_ON = qbool('storm', true);
+  const STORM_SEC = clamp(qs('stormSec','10'), 6, 18);
+
+  const BOSS_ON  = qbool('boss', true);
+  const BOSS_SEC = clamp(qs('bossSec','10'), 6, 20);
+
   // ---------- DOM ----------
   const mount = cfg.mount || DOC.getElementById('plate-layer');
   if(!mount){ console.warn('[Plate] Missing #plate-layer'); return; }
@@ -147,22 +161,20 @@ export function boot(cfg){
   const TUNE = (function(){
     let spawnBase=0.78, ttl=2.9, missLimit=14;
     let pWrong=0.28, pShield=0.06, pStar=0.07;
-    let goalNeed=3; // ต่อ “หมู่เป้าหมาย”
+    let goalNeed=3;
+
     if(diff==='easy'){ spawnBase=0.66; ttl=3.2; missLimit=18; pWrong=0.24; pShield=0.08; pStar=0.09; goalNeed=3; }
     if(diff==='hard'){ spawnBase=0.92; ttl=2.35; missLimit=11; pWrong=0.33; pShield=0.05; pStar=0.06; goalNeed=4; }
     if(view==='cvr'||view==='vr') ttl += 0.15;
 
-    // classroom ลดความเครียด: wrong-expire ไม่เป็น miss
-    // research จะเข้มขึ้นนิด (ยัง deterministic)
     if(mode==='research'){
       pWrong = Math.min(0.38, pWrong + 0.04);
       missLimit = Math.max(9, missLimit - 1);
     }
-
     return { spawnBase, ttl, missLimit, pWrong, pShield, pStar, goalNeed };
   })();
 
-  // ---------- Thai 5 food groups mapping (fixed) ----------
+  // ---------- Thai 5 food groups mapping ----------
   const GROUPS = [
     { id:1, name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
@@ -178,13 +190,22 @@ export function boot(cfg){
   let tLeft=plannedSec;
   let lastTick=nowMs();
 
+  // phases
+  // practice -> main -> storm -> main -> boss -> main/end
+  let phase = (PRACTICE_ON ? 'practice' : 'main'); // practice/main/storm/boss
+  let phaseLeft = (phase==='practice') ? PRACTICE_SEC : 0;
+
+  let playedMainSec = 0;        // counts only when phase in main/storm/boss
+  let stormDone = false;
+  let bossDone = false;
+
   WIN.__PLATE_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
   let score=0;
   let ok=0;
   let wrong=0;
 
-  // MISS ทำให้ “ยุติธรรม”: นับเฉพาะ “ของถูกหมู่ที่หมดเวลา” + “ยิงผิด/โดนผิด (ถ้าไม่มีโล่)”
+  // MISS fairness
   let miss=0;
   let missCorrectExpired=0;
   let missWrongHit=0;
@@ -194,23 +215,24 @@ export function boot(cfg){
   let fever=0;          // 0..100
   let shield=0;         // 0..6
 
-  // plate completion (เก็บครบ 5 หมู่) -> เก็บเป็น bitmask
   let haveMask = 0;     // bit 0..4
   function haveCount(){
-    let c=0;
-    for(let i=0;i<5;i++) if(haveMask & (1<<i)) c++;
+    let c=0; for(let i=0;i<5;i++) if(haveMask & (1<<i)) c++;
     return c;
   }
 
-  // mission: target group + need count
   let targetGroup = pick(GROUPS);
   let targetNeed = TUNE.goalNeed;
   let targetCur = 0;
 
+  // boss goal (hit correct streak)
+  let bossNeed = (diff==='hard') ? 9 : 8;
+  let bossStreak = 0;
+
   const foods = new Map();
   let idSeq=1;
 
-  // ---------- spawn safe (avoid HUD overlap) ----------
+  // ---------- spawn safe ----------
   function mountRect(){ return mount.getBoundingClientRect(); }
 
   function getSpawnSafeLocal(){
@@ -223,18 +245,13 @@ export function boot(cfg){
       let xMax = Number(s.xMax) - r.left;
       let yMin = Number(s.yMin) - r.top;
       let yMax = Number(s.yMax) - r.top;
-
       xMin = clamp(xMin, 0, r.width);
       xMax = clamp(xMax, 0, r.width);
       yMin = clamp(yMin, 0, r.height);
       yMax = clamp(yMax, 0, r.height);
-
-      if((xMax - xMin) >= 140 && (yMax - yMin) >= 180){
-        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
-      }
+      if((xMax-xMin) >= 140 && (yMax-yMin) >= 180) return { xMin,xMax,yMin,yMax,w:r.width,h:r.height };
     }
 
-    // fallback: กัน HUD บน/ล่าง
     const pad = 18;
     const yMin = Math.min(r.height - 180, 190);
     const yMax = Math.max(yMin + 200, r.height - 140);
@@ -243,7 +260,7 @@ export function boot(cfg){
       xMax: Math.max(pad + 160, r.width - pad),
       yMin: clamp(yMin, pad, Math.max(pad, r.height - 260)),
       yMax: clamp(yMax, Math.max(pad+200, yMin+200), Math.max(pad+260, r.height - pad)),
-      w: r.width, h: r.height
+      w:r.width, h:r.height
     };
   }
 
@@ -251,7 +268,7 @@ export function boot(cfg){
   let coachLatch = 0;
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatch < 3200) return;
+    if(t - coachLatch < 2800) return;
     coachLatch = t;
     if(ui.coachMsg) ui.coachMsg.textContent = String(msg||'');
     try{
@@ -259,10 +276,8 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ---------- scoring / meters ----------
-  function addFever(v){
-    fever = clamp(fever + v, 0, 100);
-  }
+  // ---------- meters ----------
+  function addFever(v){ fever = clamp(fever + v, 0, 100); }
   function addShield(n=1){
     shield = clamp(shield + (n|0), 0, 6);
     sayCoach('ได้โล่! 🛡️ กันการพลาดได้ 1 ครั้ง');
@@ -278,10 +293,16 @@ export function boot(cfg){
     if(x>=28) return 'C';
     return 'D';
   }
-
   function accPct(){
     const total = Math.max(1, ok + wrong);
     return Math.round((ok/total)*100);
+  }
+
+  function phaseLabel(){
+    if(phase==='practice') return '🧪 ฝึก';
+    if(phase==='storm') return `🌪️ STORM ${Math.ceil(phaseLeft)}s`;
+    if(phase==='boss')  return `👹 BOSS ${bossStreak}/${bossNeed} (${Math.ceil(phaseLeft)}s)`;
+    return '🎯 ภารกิจ';
   }
 
   function setHUD(){
@@ -305,9 +326,8 @@ export function boot(cfg){
     ui.feverFill && (ui.feverFill.style.width = `${clamp(fever,0,100)}%`);
     ui.shield && (ui.shield.textContent = String(shield|0));
 
-    ui.targetText && (ui.targetText.textContent = `${targetGroup.name} (เก็บ ${targetNeed} ชิ้น)`);
+    ui.targetText && (ui.targetText.textContent = `${phaseLabel()} • ${targetGroup.name} (เก็บ ${targetNeed} ชิ้น)`);
 
-    // emit score event (for shared UI)
     try{
       WIN.dispatchEvent(new CustomEvent('hha:score', {
         detail:{
@@ -316,24 +336,28 @@ export function boot(cfg){
           combo, bestCombo,
           feverPct: Math.round(clamp(fever,0,100)),
           shield: shield|0,
-          accPct: accPct()
+          accPct: accPct(),
+          phase
         }
       }));
     }catch(e){}
   }
 
-  // ---------- AI wiring ----------
+  // ---------- AI ----------
   function aiTick(dt){
     try{
       const pred = cfg.ai?.onTick?.(dt, {
+        phase,
         missGoodExpired: missCorrectExpired,
         missJunkHit: missWrongHit,
         shield,
         fever,
-        combo
+        combo,
+        bossStreak,
       }) || null;
-      // classroom: แสดงเป็นคำใบ้ผ่าน coach เป็นบางครั้ง (ไม่ถี่)
-      if(pred && mode!=='research' && pred.hazardRisk >= 0.66 && r01() < 0.18){
+
+      // classroom: coach hint เบา ๆ ตอนเสี่ยง
+      if(pred && mode!=='research' && phase!=='practice' && pred.hazardRisk >= 0.66 && r01() < 0.14){
         sayCoach(pred.next5?.[0] || 'โฟกัสหมู่เป้าหมายก่อนนะ!');
       }
     }catch(e){}
@@ -360,10 +384,10 @@ export function boot(cfg){
 
     const born = nowMs();
     const ttl = Math.max(1.0, ttlSec)*1000;
-    const obj = { id, el, kind, emoji, born, ttl, promptMs: nowMs() };
+    const obj = { id, el, kind, emoji, born, ttl };
     foods.set(id, obj);
 
-    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec, phase }); }catch(e){}
     return obj;
   }
 
@@ -388,45 +412,74 @@ export function boot(cfg){
     return -1;
   }
 
+  function pickWrongEmoji(){
+    const others = GROUPS.filter(g=>g.id !== targetGroup.id);
+    return pick(pick(others).items);
+  }
+
   function applyCorrectHit(f){
     ok++;
     combo++;
     bestCombo = Math.max(bestCombo, combo);
 
+    // score multiplier in storm/boss
+    const mult = (phase==='storm') ? 2.0 : (phase==='boss' ? 1.6 : 1.0);
+
     const base = 12;
-    const add = base + Math.min(10, combo);
-    score += add;
+    const add = (base + Math.min(10, combo)) * mult;
+    score += Math.round(add);
 
     addFever(7.0);
 
-    // mark plate group collected
     const gi = groupIndexOfEmoji(f.emoji);
     if(gi>=0) haveMask |= (1<<gi);
 
+    // boss streak
+    if(phase==='boss'){
+      bossStreak++;
+      if(bossStreak >= bossNeed){
+        score += 180;
+        addFever(22);
+        addShield(1);
+        sayCoach('ชนะบอสแล้ว! 👹🎉 เก่งมาก!');
+        bossDone = true;
+        phase = 'main';
+        phaseLeft = 0;
+        bossStreak = 0;
+      }
+    }
+
     targetCur++;
     if(targetCur >= targetNeed){
-      // reward + rotate mission
-      score += 60;
+      score += (phase==='storm' ? 90 : 60);
       addFever(16);
       sayCoach('เยี่ยม! เปลี่ยนภารกิจหมู่ใหม่ 🎉');
       targetGroup = pick(GROUPS);
-      targetNeed = TUNE.goalNeed + ((haveCount()>=3)?1:0); // late game tougher a bit
+      targetNeed = TUNE.goalNeed + ((haveCount()>=3)?1:0);
       targetCur = 0;
     }else{
       if(combo===4) sayCoach('คอมโบมาแล้ว! 🔥');
-      if(targetCur===1) sayCoach('ดี! เก็บหมู่เป้าหมายต่ออีกนิด');
     }
 
-    try{ cfg.ai?.onHit?.('food_ok', { id:f.id, emoji:f.emoji, combo }); }catch(e){}
+    try{ cfg.ai?.onHit?.('food_ok', { id:f.id, emoji:f.emoji, combo, phase }); }catch(e){}
   }
 
   function applyWrongHit(f){
-    // shield blocks one wrong hit (เด็ก ป.5 ไม่เสียกำลังใจ)
+    // practice: ไม่ลงโทษ
+    if(phase==='practice'){
+      combo=0;
+      addFever(2);
+      sayCoach('ฝึกอยู่ ยิงให้โดนหมู่เป้าหมาย!');
+      try{ cfg.ai?.onHit?.('practice_wrong', { id:f.id, emoji:f.emoji }); }catch(e){}
+      return;
+    }
+
+    // shield blocks
     if(shield > 0){
       shield--;
       addFever(3);
       sayCoach('บล็อกได้! 🛡️ ลองยิงหมู่เป้าหมายต่อ');
-      try{ cfg.ai?.onHit?.('blocked', { id:f.id }); }catch(e){}
+      try{ cfg.ai?.onHit?.('blocked', { id:f.id, phase }); }catch(e){}
       return;
     }
 
@@ -437,40 +490,36 @@ export function boot(cfg){
     score = Math.max(0, score - 8);
     addFever(-10);
 
+    // boss streak reset
+    if(phase==='boss') bossStreak = 0;
+
     if(miss===1) sayCoach('ดู “หมู่เป้าหมาย” ก่อนยิงนะ');
     if(miss===3) sayCoach('ช้าไม่เป็นไร ค่อย ๆ แม่นขึ้นได้');
 
-    try{ cfg.ai?.onHit?.('food_wrong', { id:f.id, emoji:f.emoji }); }catch(e){}
+    try{ cfg.ai?.onHit?.('food_wrong', { id:f.id, emoji:f.emoji, phase }); }catch(e){}
   }
 
   function applyShieldHit(){
+    // practice: ให้โล่ได้เพื่อจูงใจ
     addShield(1);
     addFever(2.5);
-    try{ cfg.ai?.onHit?.('shield', { add:1 }); }catch(e){}
+    try{ cfg.ai?.onHit?.('shield', { add:1, phase }); }catch(e){}
   }
 
   function applyStarHit(){
-    // star = ลด miss 1 (classroom friendly) + fever boost
-    if(miss > 0) miss = Math.max(0, miss - 1);
+    // star = ลด miss 1 + fever boost
+    if(phase!=='practice' && miss > 0) miss = Math.max(0, miss - 1);
     addFever(12);
     score += 25;
     sayCoach('⭐ ช่วยได้! ลดพลาด + เพิ่มพลัง');
-    try{ cfg.ai?.onHit?.('star', { miss }); }catch(e){}
+    try{ cfg.ai?.onHit?.('star', { miss, phase }); }catch(e){}
   }
 
   function onHit(f, x, y){
-    f.el.classList.add('hit');
+    try{ f.el.classList.add('hit'); }catch(e){}
 
-    if(f.kind === 'shield'){
-      applyShieldHit();
-      removeTarget(f.id);
-      return;
-    }
-    if(f.kind === 'star'){
-      applyStarHit();
-      removeTarget(f.id);
-      return;
-    }
+    if(f.kind === 'shield'){ applyShieldHit(); removeTarget(f.id); return; }
+    if(f.kind === 'star'){ applyStarHit(); removeTarget(f.id); return; }
 
     const correct = isCorrectEmoji(f.emoji);
     if(correct) applyCorrectHit(f);
@@ -479,7 +528,7 @@ export function boot(cfg){
     removeTarget(f.id);
   }
 
-  // pointer hits (pc/mobile)
+  // pointer hits
   mount.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.plateTarget');
@@ -489,7 +538,7 @@ export function boot(cfg){
     if(f) onHit(f, ev.clientX, ev.clientY);
   }, { passive:true });
 
-  // crosshair shoot (VR/cVR)
+  // crosshair shoot
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -517,70 +566,134 @@ export function boot(cfg){
     }
   });
 
-  // ---------- spawning ----------
-  function pickWrongEmoji(){
-    const others = GROUPS.filter(g=>g.id !== targetGroup.id);
-    return pick(pick(others).items);
+  // ---------- spawn / expire ----------
+  let spawnAcc=0;
+
+  function spawnParams(){
+    // base
+    let spawnBase = TUNE.spawnBase;
+    let ttl = TUNE.ttl;
+    let pWrong = TUNE.pWrong;
+    let pShield = TUNE.pShield;
+    let pStar = TUNE.pStar;
+
+    // practice = ช้าลง + wrong น้อย
+    if(phase==='practice'){
+      spawnBase *= 0.80;
+      ttl += 0.35;
+      pWrong = Math.max(0.18, pWrong - 0.10);
+      pShield = Math.min(0.12, pShield + 0.03);
+      pStar = Math.min(0.12, pStar + 0.03);
+    }
+
+    // storm = เร็วขึ้น + wrong มากขึ้น + ttl สั้นลง
+    if(phase==='storm'){
+      spawnBase *= 1.55;
+      ttl = Math.max(1.8, ttl - 0.35);
+      pWrong = Math.min(0.46, pWrong + 0.10);
+      pShield = Math.max(0.04, pShield - 0.01);
+      pStar = Math.max(0.04, pStar - 0.01);
+    }
+
+    // boss = โผล่เฉพาะของถูก + ttl สั้นลง (ท้าทาย)
+    if(phase==='boss'){
+      spawnBase *= 1.15;
+      ttl = Math.max(1.9, ttl - 0.20);
+      pWrong = 0.00;
+      pShield = 0.05;
+      pStar = 0.05;
+    }
+
+    // fever boost: spawn เพิ่มนิด
+    if(fever>=100 && phase!=='practice') spawnBase *= 1.08;
+
+    return { spawnBase, ttl, pWrong, pShield, pStar };
   }
 
-  let spawnAcc=0;
   function spawnTick(dt){
-    const mult = (fever>=100) ? 1.10 : 1.0;
-    spawnAcc += TUNE.spawnBase * mult * dt;
+    const sp = spawnParams();
+    spawnAcc += sp.spawnBase * dt;
 
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
-      // Decide type:
-      // - Mostly food: correct vs wrong
-      // - Sometimes shield/star (rare)
       const p = r01();
 
-      if(p < TUNE.pShield){
-        makeTarget('shield', '🛡️', 2.6);
-        continue;
-      }
-      if(p < TUNE.pShield + TUNE.pStar){
-        makeTarget('star', '⭐', 2.4);
-        continue;
-      }
+      if(p < sp.pShield){ makeTarget('shield', '🛡️', 2.6); continue; }
+      if(p < sp.pShield + sp.pStar){ makeTarget('star', '⭐', 2.4); continue; }
 
-      const isWrong = (r01() < TUNE.pWrong);
+      const isWrong = (r01() < sp.pWrong);
       if(isWrong){
-        makeTarget('wrong', pickWrongEmoji(), TUNE.ttl);
+        makeTarget('wrong', pickWrongEmoji(), sp.ttl);
       }else{
-        makeTarget('food', pick(targetGroup.items), TUNE.ttl);
+        // boss/main/storm: ออกของถูกเป็นหลัก
+        makeTarget('food', pick(targetGroup.items), sp.ttl);
       }
     }
   }
 
-  // ---------- update / expire ----------
   function updateExpire(){
     const t = nowMs();
     for(const f of Array.from(foods.values())){
       const age = t - f.born;
       if(age >= f.ttl){
-        // Expire policy (ลด miss ที่ "ไม่ยุติธรรม"):
-        // - ถ้าเป็นของถูกหมู่ แล้วหมดเวลา => MISS
-        // - ถ้าเป็นของผิดหมู่ แล้วหมดเวลา => ไม่ MISS (classroom) / research อาจนับ wrong แต่ไม่เพิ่ม miss
-        if(f.kind === 'food'){
-          // correct food only (food kind means intended correct)
+        // Expire fairness:
+        // - practice: ไม่คิด miss
+        // - food expire => miss (เพราะเป็นของถูกหมู่) ยกเว้น practice
+        // - wrong/shield/star expire => ไม่คิด miss
+        if(phase !== 'practice' && f.kind === 'food'){
           miss++;
           missCorrectExpired++;
-          wrong++; // นับว่า "พลาดภารกิจ" (แต่เราลดโทษ)
+          wrong++;
           combo=0;
           score = Math.max(0, score - 4);
           addFever(-6);
 
+          if(phase==='boss') bossStreak = 0;
+
           if(miss===1) sayCoach('ถ้าช้าไป ของถูกหมู่จะหาย (นับพลาด) นะ');
-          try{ cfg.ai?.onExpire?.('food', { id:f.id, correct:true }); }catch(e){}
+          try{ cfg.ai?.onExpire?.('food', { id:f.id, correct:true, phase }); }catch(e){}
         }else{
-          // wrong/shield/star expire: no miss (classroom-friendly)
-          try{ cfg.ai?.onExpire?.(f.kind, { id:f.id }); }catch(e){}
+          try{ cfg.ai?.onExpire?.(f.kind, { id:f.id, phase }); }catch(e){}
         }
         removeTarget(f.id, true);
       }
     }
+  }
+
+  // ---------- phase control ----------
+  function resetForMainStart(){
+    // clear live targets
+    for(const f of foods.values()){ try{ f.el.remove(); }catch(e){} }
+    foods.clear();
+
+    // reset counters for “เกมจริง”
+    score=0; ok=0; wrong=0;
+    miss=0; missCorrectExpired=0; missWrongHit=0;
+    combo=0; bestCombo=0;
+    fever=0; shield=0;
+    haveMask=0;
+
+    targetGroup = pick(GROUPS);
+    targetNeed = TUNE.goalNeed;
+    targetCur = 0;
+
+    bossStreak = 0;
+
+    sayCoach('เริ่มเกมจริง! โฟกัสหมู่เป้าหมาย แล้วเก็บให้ครบ 5 หมู่ ✨');
+  }
+
+  function startStorm(){
+    phase = 'storm';
+    phaseLeft = STORM_SEC;
+    sayCoach('🌪️ STORM! แต้มคูณ x2 ระวังของหลอก!');
+  }
+
+  function startBoss(){
+    phase = 'boss';
+    phaseLeft = BOSS_SEC;
+    bossStreak = 0;
+    sayCoach(`👹 BOSS! ยิงของถูกติดกัน ${bossNeed} ครั้งภายในเวลา!`);
   }
 
   // ---------- end summary ----------
@@ -594,9 +707,9 @@ export function boot(cfg){
   }
 
   function buildSummary(reason){
-    const summary = {
+    return {
       projectTag: 'PlateVR',
-      gameVersion: 'PlateVR_SAFE_2026-03-02_HUDSAFE_AIWired',
+      gameVersion: 'PlateVR_SAFE_2026-03-02_PRACTICE_STORM_BOSS_AIWired',
       device: view,
       runMode,
       diff,
@@ -622,9 +735,12 @@ export function boot(cfg){
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
 
+      stormOn: STORM_ON,
+      bossOn: BOSS_ON,
+      practiceOn: PRACTICE_ON,
+
       aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
     };
-    return summary;
   }
 
   function wireEndButtons(summary){
@@ -681,7 +797,6 @@ export function boot(cfg){
 
     const summary = buildSummary(reason);
 
-    // AI end packet
     try{
       const aiEnd = cfg.ai?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
@@ -707,9 +822,10 @@ export function boot(cfg){
 
   function checkEnd(){
     if(tLeft<=0){ showEnd('time'); return true; }
-    if(miss>=TUNE.missLimit){ showEnd('miss-limit'); return true; }
-    // win condition (classroom): เก็บครบ 5 หมู่
-    if(mode!=='research' && haveCount()>=5 && tLeft > 2){
+    if(miss>=TUNE.missLimit && phase!=='practice'){ showEnd('miss-limit'); return true; }
+
+    // win condition (classroom): ครบ 5 หมู่ (หลังเริ่มเกมจริงเท่านั้น)
+    if(mode!=='research' && phase!=='practice' && haveCount()>=5 && tLeft > 2){
       showEnd('plate-complete');
       return true;
     }
@@ -731,14 +847,53 @@ export function boot(cfg){
     const dt = Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
     lastTick = t;
 
+    // time always runs (เหมือนเกมอื่น)
     tLeft = Math.max(0, tLeft - dt);
+
+    // phase timers
+    if(phase==='practice'){
+      phaseLeft = Math.max(0, phaseLeft - dt);
+      if(phaseLeft<=0){
+        // start main for real
+        resetForMainStart();
+        phase='main';
+        phaseLeft=0;
+      }
+    }else{
+      playedMainSec += dt;
+
+      if(phase==='storm' || phase==='boss'){
+        phaseLeft = Math.max(0, phaseLeft - dt);
+        if(phaseLeft<=0){
+          if(phase==='boss'){
+            sayCoach('บอสจบเวลา! ได้อีกนิดก็ชนะแล้ว 😅');
+          }else{
+            sayCoach('STORM จบแล้ว กลับสู่ภารกิจปกติ ✨');
+          }
+          phase='main';
+          phaseLeft=0;
+          bossStreak = 0;
+        }
+      }
+
+      // Trigger storm/boss (time-based, deterministic)
+      if(STORM_ON && !stormDone && playedMainSec >= 22){
+        stormDone = true;
+        startStorm();
+      }
+      if(BOSS_ON && !bossDone && playedMainSec >= 52){
+        bossDone = true;
+        startBoss();
+      }
+    }
 
     spawnTick(dt);
     updateExpire();
     aiTick(dt);
 
-    // Fever decay gentle
-    fever = clamp(fever - dt*1.2, 0, 100);
+    // Fever decay (ไม่ decay ระหว่าง practice มาก)
+    const decay = (phase==='practice') ? 0.6 : 1.2;
+    fever = clamp(fever - dt*decay, 0, 100);
 
     setHUD();
 
@@ -751,7 +906,13 @@ export function boot(cfg){
   });
 
   try{ WIN[END_SENT_KEY]=0; }catch(e){}
-  sayCoach('ภารกิจ: ยิง “หมู่เป้าหมาย” ให้ครบ แล้วสะสมให้ครบ 5 หมู่!');
+
+  if(phase==='practice'){
+    sayCoach(`เริ่ม “ฝึกเล็ง” ${PRACTICE_SEC}s — ยิงให้โดนหมู่เป้าหมาย (ยังไม่คิดพลาด)`);
+  }else{
+    sayCoach('ภารกิจ: ยิง “หมู่เป้าหมาย” ให้ครบ แล้วสะสมให้ครบ 5 หมู่!');
+  }
+
   setHUD();
   requestAnimationFrame(tick);
 }
