@@ -1,3 +1,11 @@
+<!-- === /herohealth/plate/plate-vr.html ===
+PlateVR — RUN (PC/Mobile/cVR) — PRODUCTION (Classroom Compact HUD)
+✅ Uses: ./plate.safe.js (ESM)
+✅ Uses: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + hha:shoot)
+✅ Uses: ../vr/ai-hooks.js (optional, safe import)
+✅ Mobile HUD compact + auto-minimize + toggle
+FULL v20260302-PLATE-RUN-CLASSROOM-COMPACT
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,8 +15,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ vr-ui: hha:shoot / ENTER VR / RECENTER -->
-  <script type="module" src="../vr/vr-ui.js?v=20260228"></script>
+  <!-- ✅ Shared VR UI (ENTER VR / EXIT / RECENTER / crosshair shoot -> hha:shoot) -->
+  <script type="module" src="../vr/vr-ui.js?v=20260302"></script>
 
   <style>
     :root{
@@ -17,12 +25,25 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      --hud-top: calc(var(--sat) + 10px);
-      --hud-bottom: calc(var(--sab) + 12px);
+      --hud-top: calc(var(--sat) + 8px);
+      --hud-bottom: calc(var(--sab) + 10px);
 
+      --panel: rgba(2,6,23,.78);
       --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
-      --mut: rgba(148,163,184,.95);
+      --mut: rgba(148,163,184,.92);
+      --good: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
+      --bad: rgba(239,68,68,.95);
+      --accent: rgba(99,102,241,.95);
+
+      --radius: 16px;
+
+      /* compact knobs */
+      --pillH: 38px;
+      --pillFs: 13px;
+      --pillV: 15px;
+      --cardPad: 10px 12px;
     }
 
     *{ box-sizing:border-box; }
@@ -40,7 +61,7 @@
     #app{ position:fixed; inset:0; overflow:hidden; }
     #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
-    /* spawn mount */
+    /* ===== spawn mount ===== */
     #plate-layer{
       position:absolute; inset:0;
       z-index:30;
@@ -50,17 +71,13 @@
       will-change: contents;
       min-width: 1px;
       min-height: 1px;
-
-      /* ✅ กันเป้าถูก HUD บัง */
-      padding-top: calc(var(--hud-top) + 56px);
-      padding-bottom: calc(var(--hud-bottom) + 148px);
     }
 
-    #plate-layer .plateTarget{
+    .plateTarget{
       position:absolute;
       display:grid;
       place-items:center;
-      width:56px; height:56px;
+      width:54px; height:54px;
       border-radius:999px;
       background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
@@ -73,15 +90,15 @@
       transition: transform .08s ease, opacity .14s ease;
       transform: translate(-50%,-50%);
     }
-    #plate-layer .plateTarget[data-kind="wrong"]{
+    .plateTarget[data-kind="wrong"]{
       background:rgba(127,29,29,.55);
       border-color: rgba(248,113,113,.25);
       box-shadow: 0 8px 20px rgba(127,29,29,.18);
     }
-    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
+    .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
+    .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
-    /* HUD base */
+    /* ===== HUD layout ===== */
     .hud{
       position:absolute;
       left:max(10px, calc(var(--sal) + 10px));
@@ -95,76 +112,82 @@
     #hudBottom{
       bottom:var(--hud-bottom);
       grid-template-columns: 1fr;
-      gap:8px;
+      gap:10px;
     }
 
-    /* ===== Compact Topbar ===== */
-    .hh-topbar{
-      display:flex;
-      flex-wrap:wrap;
+    .row{ display:grid; gap:8px; }
+    .row.cols-3{ grid-template-columns: 1.05fr 1.05fr 0.9fr; }
+    @media (max-width: 780px){
+      .row.cols-3{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.70));
+      border:1px solid var(--line);
+      border-radius: 18px;
+      padding: var(--cardPad);
+      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
+    }
+    .card h4{
+      margin:0 0 6px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
       gap:8px;
-      align-items:center;
-      pointer-events:auto;
     }
-    .hh-pill{
-      min-height: 36px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(2,6,23,.64);
+    .stats.two{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+    .pill{
+      background: rgba(15,23,42,.7);
       border:1px solid rgba(148,163,184,.16);
-      display:flex; align-items:center; gap:8px;
-      font-weight:900;
-      font-size:13px;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      border-radius: 999px;
+      min-height: var(--pillH);
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; padding: 8px 10px;
+      font-weight:800;
+      font-size: var(--pillFs);
     }
-    .hh-pill .v{ font-weight:1000; font-variant-numeric: tabular-nums; }
-    .hh-pill.wide{ flex: 1; min-width: 180px; justify-content:flex-start; }
-    .hh-miniBar{
-      width: 92px;
-      height: 8px;
+    .pill .v{ font-size: var(--pillV); font-weight:950; }
+
+    .bar{
+      height: 9px;
       border-radius: 999px;
       background: rgba(148,163,184,.18);
       border:1px solid rgba(148,163,184,.14);
       overflow:hidden;
     }
-    .hh-miniBar > i{
+    .bar > i{
       display:block; height:100%; width:0%;
       background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(99,102,241,.9));
       transition: width .18s ease;
     }
 
-    /* ===== Bottom Coach + Controls ===== */
-    .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 16px;
-      padding:10px 12px;
-      box-shadow: 0 10px 28px rgba(0,0,0,.20);
-      pointer-events:none;
-    }
-
-    #coachMsg{ margin-top:6px; font-weight:900; font-size:13px; line-height:1.2; }
-    #coachHint{ font-size:12px; opacity:.85; margin-top:4px; }
-
+    /* ===== controls ===== */
     #controls{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      display:flex;
+      flex-wrap:wrap;
       gap:8px;
       pointer-events:auto;
+      align-items:center;
+      justify-content:flex-start;
     }
-
     .btn{
       appearance:none;
       border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.78);
       color:var(--txt);
       border-radius: 999px;
-      padding:10px 10px;
-      min-height:42px;
-      font-weight:1000;
-      font-size:13px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:900;
+      font-size:14px;
       cursor:pointer;
       box-shadow: 0 6px 18px rgba(2,6,23,.22);
     }
@@ -177,57 +200,40 @@
       background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
     }
 
-    /* ===== Drawer details ===== */
-    .hh-drawer{
-      pointer-events:auto;
-      background: rgba(2,6,23,.64);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 16px;
-      overflow:hidden;
-    }
-    .hh-drawer summary{
-      list-style:none;
-      cursor:pointer;
-      user-select:none;
-      padding:10px 12px;
-      display:flex; align-items:center; justify-content:space-between;
-      font-weight:1000;
-    }
-    .hh-drawer summary::-webkit-details-marker{ display:none; }
-    .hh-drawer .inner{
-      padding: 0 12px 12px 12px;
-      display:grid;
-      gap:10px;
-    }
-    .pillRow{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
+    /* ===== topbar tools (minimize) ===== */
+    #topTools{
+      position:absolute;
+      top: calc(var(--hud-top) - 2px);
+      right: max(10px, calc(var(--sar) + 10px));
+      z-index: 92;
+      display:flex;
       gap:8px;
+      pointer-events:auto;
     }
-    .pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 999px;
-      min-height: 40px;
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; padding: 8px 10px;
-      font-weight:900;
+    .toolBtn{
+      min-height: 34px;
+      padding: 6px 10px;
       font-size: 13px;
-    }
-    .bar{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.18);
-      border:1px solid rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-    .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(99,102,241,.9));
-      transition: width .18s ease;
+      font-weight: 950;
     }
 
-    /* End overlay */
+    /* ===== compact/minimized HUD ===== */
+    body.hud-min #hudTop{
+      opacity: .18;
+      transform: scale(.985);
+      pointer-events:none;
+    }
+    body.hud-min #hudTop .card{
+      filter: blur(.2px);
+    }
+
+    @media (max-width: 480px){
+      :root{ --pillH: 36px; --pillFs: 12px; --pillV: 14px; --cardPad: 9px 10px; }
+      .plateTarget{ width:50px; height:50px; font-size:26px; }
+      #controls .btn{ flex:1 1 auto; min-width: 46%; }
+    }
+
+    /* ===== End summary overlay ===== */
     #endOverlay{
       position:absolute; inset:0;
       z-index:120;
@@ -238,6 +244,7 @@
       -webkit-backdrop-filter: blur(8px);
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
+
     .endCard{
       width:min(640px, 94vw);
       border-radius: 18px;
@@ -258,9 +265,9 @@
       background: rgba(2,6,23,.55);
       border-radius: 14px;
       padding: 10px 12px;
-      font-weight:1000;
+      font-weight:950;
     }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
+    .endItem .k{ font-size:12px; opacity:.82; font-weight:800; }
     .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
     .endActions{
       margin-top: 12px;
@@ -270,65 +277,85 @@
       justify-content:flex-end;
     }
     .is-hidden{ display:none !important; }
-
-    @media (min-width: 900px){
-      #controls{ grid-template-columns: 180px 180px 180px; justify-content:end; }
-      .hh-miniBar{ width: 140px; }
-    }
   </style>
 </head>
 
 <body>
   <div id="app">
     <div id="world" aria-hidden="true"></div>
+
+    <!-- Spawn mount -->
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
-    <!-- ✅ TOP HUD: pills -->
+    <!-- tools -->
+    <div id="topTools" aria-label="tools">
+      <button id="btnHud" class="btn toolBtn" type="button">🧩 HUD</button>
+    </div>
+
+    <!-- TOP HUD -->
     <div id="hudTop" class="hud">
-      <div class="hh-topbar">
-        <div class="hh-pill">🏆 <span id="uiScore" class="v">0</span></div>
-        <div class="hh-pill">💥 <span id="uiMiss" class="v">0</span></div>
-        <div class="hh-pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
-
-        <div class="hh-pill">🎯 <span id="uiAcc" class="v">0%</span></div>
-        <div class="hh-pill">🏅 <span id="uiGrade" class="v">D</span></div>
-        <div class="hh-pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
-
-        <div class="hh-pill" style="gap:10px;">
-          <span id="uiGoalTitle">เติมจาน</span>
-          <span class="v" id="uiGoalCount">0/5</span>
-          <span class="hh-miniBar"><i id="uiGoalFill"></i></span>
+      <div class="row cols-3">
+        <div class="card">
+          <h4>คะแนน / คอมโบ / พลาด</h4>
+          <div class="stats">
+            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          </div>
         </div>
 
-        <div class="hh-pill wide">
-          🎯 <span id="uiTargetText">—</span>
+        <div class="card">
+          <h4>จาน / ความแม่นยำ / เกรด</h4>
+          <div class="stats">
+            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="stats two">
+            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+              <span id="uiGoalTitle">เติมจาน</span>
+            </div>
+            <div class="pill" style="justify-content:center;">
+              <span id="uiGoalCount">0/5</span>
+            </div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bar"><i id="uiGoalFill"></i></div>
+        </div>
+
+        <div class="card">
+          <h4>เวลา / Fever / Shield</h4>
+          <div class="stats">
+            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+          </div>
+          <div style="height:6px"></div>
+          <div style="font-weight:900; margin-bottom:6px; font-size:12px; color:var(--mut);">FEVER</div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <h4>ภารกิจตอนนี้</h4>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🎯 <span id="uiTargetText">—</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- ✅ BOTTOM HUD -->
+    <!-- BOTTOM HUD -->
     <div id="hudBottom" class="hud">
       <div class="card">
-        <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-        <div id="coachHint">ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)</div>
-      </div>
-
-      <!-- Drawer (พับได้) -->
-      <details class="hh-drawer">
-        <summary>
-          รายละเอียด (Fever/Shield/Combo)
-          <span style="opacity:.85">แตะเพื่อพับ/ขยาย</span>
-        </summary>
-        <div class="inner">
-          <div class="pillRow">
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> (max <span id="uiComboMax">0</span>)</div>
-          </div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
+        <div style="font-weight:950">🧑‍🏫 Coach</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:900">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px;">
+          แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
         </div>
-      </details>
+      </div>
 
       <div id="controls">
         <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
@@ -337,7 +364,7 @@
       </div>
     </div>
 
-    <!-- End summary -->
+    <!-- END SUMMARY -->
     <div id="endOverlay" aria-hidden="true">
       <div class="endCard">
         <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
@@ -354,7 +381,7 @@
           <button class="btn" id="btnCopy">Copy Summary</button>
           <button class="btn" id="btnReplay">Replay</button>
           <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
-          <button class="btn primary" id="btnBackHub2" type="button">Back HUB</button>
+          <button class="btn primary" id="btnBackHub2">Back HUB</button>
         </div>
       </div>
     </div>
@@ -362,7 +389,7 @@
 
   <!-- ✅ BOOT -->
   <script type="module">
-    // Shield install (ถ้ามีไฟล์ shield จริง)
+    // (Optional) Shield if installed globally
     try{
       window.HHA_Shield?.install?.({
         watchDOM:true,
@@ -373,43 +400,43 @@
       });
     }catch(e){}
 
-    import { createAIHooks } from '../vr/ai-hooks.js';
-    import { boot as bootPlate } from './plate.safe.js';
-
     const U = new URL(location.href);
     const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
     const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
     const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+    const time = Number(U.searchParams.get('time') || 90);
+    const pid  = String(U.searchParams.get('pid') || 'anon');
+    const hub  = String(U.searchParams.get('hub') || '../hub.html');
+    const cooldown = (U.searchParams.get('cooldown')==='1' || U.searchParams.get('cd')==='1');
+    const mode = String(U.searchParams.get('mode') || 'classroom');
 
-    const ai = createAIHooks({
-      seed: String(seed),
-      runMode,
-      game: 'plate',
-      diff,
-      device: view
-    });
-    window.HHA_AI = ai;
+    // Optional AI hooks (safe import)
+    let ai = null;
+    try{
+      const m = await import('../vr/ai-hooks.js');
+      ai = m?.createAIHooks?.({ seed:String(seed), runMode, game:'plate', diff, device:view }) || null;
+      window.HHA_AI = ai;
+    }catch(e){
+      ai = null;
+    }
+
+    const { boot: bootPlate } = await import('./plate.safe.js');
 
     bootPlate({
       mount: document.getElementById('plate-layer'),
       view, run: runMode, diff,
-      time: Number(U.searchParams.get('time') || 90),
-      seed,
-      pid: String(U.searchParams.get('pid') || 'anon'),
-      hub: String(U.searchParams.get('hub') || '../hub.html'),
-      cooldown: (U.searchParams.get('cooldown')==='1' || U.searchParams.get('cd')==='1'),
-      mode: String(U.searchParams.get('mode') || 'classroom'),
+      time, seed, pid, hub,
+      cooldown,
+      mode,
       ai
     });
 
-    // UI Buttons
-    const btnPause = document.getElementById('btnPause');
+    // UI buttons
+    const btnPause   = document.getElementById('btnPause');
     const btnRestart = document.getElementById('btnRestart');
     const btnBackHub = document.getElementById('btnBackHub');
     const btnBackHub2= document.getElementById('btnBackHub2');
-
-    const hub = String(U.searchParams.get('hub') || '../hub.html');
 
     let paused = false;
     function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
@@ -420,6 +447,8 @@
       setPauseBtn();
       window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
       try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+      // minimize HUD when playing
+      if(!paused) document.body.classList.add('hud-min');
     });
 
     btnRestart?.addEventListener('click', ()=>{
@@ -430,8 +459,27 @@
       }catch(e){ location.reload(); }
     });
 
-    btnBackHub?.addEventListener('click', ()=> location.href = hub);
-    btnBackHub2?.addEventListener('click', ()=> location.href = hub);
+    function goHub(){ location.href = hub; }
+    btnBackHub?.addEventListener('click', goHub);
+    btnBackHub2?.addEventListener('click', goHub);
+
+    // HUD minimize toggle
+    const btnHud = document.getElementById('btnHud');
+    function setHudBtn(){
+      const on = !document.body.classList.contains('hud-min');
+      btnHud.textContent = on ? '🧩 HUD' : '🧩 HUD';
+    }
+    btnHud?.addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-min');
+      setHudBtn();
+    });
+    setHudBtn();
+
+    // auto minimize after 1.2s on mobile
+    const isSmall = matchMedia('(max-width: 780px)').matches;
+    if(isSmall){
+      setTimeout(()=> document.body.classList.add('hud-min'), 1200);
+    }
   </script>
 </body>
 </html>
