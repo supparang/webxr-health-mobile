@@ -140,3 +140,9 @@ body{
 @media (max-width: 520px){
   .grid{ grid-template-columns: 1fr; }
 }
+/* === PATCH v20260301 HUD non-blocking === */
+/* ให้ยิง/แตะเป้าได้แม้ HUD ซ้อนอยู่ */
+.hud{ pointer-events:none; }
+.hud .card,
+.hud button,
+.hud .btn{ pointer-events:auto; }
