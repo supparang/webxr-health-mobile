@@ -7,8 +7,54 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
   <link rel="stylesheet" href="css/rhythm-boxer.css"/>
+
+  <!-- ✅ HHA Planner Bridge HUD (safe, light) -->
+  <style>
+    #hhHud{
+      position:fixed; left:10px; right:10px; top:10px; z-index:9999;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+    .hhPill{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(0,0,0,.55);
+      color:#e8eefc;
+      padding:8px 10px;
+      border-radius:999px;
+      font-weight:900;
+      backdrop-filter: blur(6px);
+      max-width: 70vw;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hhBtn{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);
+      color:#e8eefc;
+      padding:8px 12px;
+      border-radius:14px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .hhBtn:active{ transform: translateY(1px); }
+    .hhTiny{ opacity:.85; font-weight:800; }
+  </style>
 </head>
+
 <body>
+<!-- ✅ Overlay HUD: shows plan day/slot and provides back -->
+<div id="hhHud" aria-hidden="false">
+  <div class="hhPill">
+    Rhythm 🥊
+    <span class="hhTiny">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span>
+  </div>
+  <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
+</div>
+
 <div id="rb-wrap" data-diff="normal">
   <div id="rb-flash"></div>
 
@@ -21,7 +67,9 @@
         <p class="rb-sub">ต่อยมือตามโน้ตให้ตรงจังหวะ · ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV</p>
         <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อย Research</span>
       </div>
-      <a href="hub.html" class="rb-back">← กลับ HUB</a>
+
+      <!-- ✅ dynamic hub/back (patched by script at bottom) -->
+      <a href="hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
     </header>
 
     <section class="rb-section rb-grid-2">
@@ -224,6 +272,9 @@
     <section class="rb-section rb-btn-row">
       <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
       <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
+
+      <!-- ✅ New: return to planner/hub explicitly -->
+      <button id="rb-btn-return-plan" class="rb-btn rb-btn-ghost">✅ กลับตามแผน</button>
     </section>
 
     <section class="rb-research-box rb-section">
@@ -241,5 +292,131 @@
 <script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
 <script src="js/rhythm-boxer.js"></script>
+
+<!-- ✅ HHA Planner Bridge (MUST be after main scripts so it can observe DOM safely) -->
+<script>
+(function(){
+  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
+  function abs(u){ try{ return new URL(u, location.href).toString(); }catch(e){ return String(u||''); } }
+
+  // 1) hub / planner back
+  var hub = String(qs('hub','')).trim();
+  var backUrl = hub ? abs(hub) : '';
+
+  // patch menu back link
+  var backLink = document.getElementById('rb-back-link');
+  if(backLink){
+    backLink.href = backUrl || 'hub.html';
+    backLink.addEventListener('click', function(e){
+      if(backUrl){
+        e.preventDefault();
+        location.href = backUrl;
+      }
+    }, {passive:false});
+  }
+
+  // 2) show plan HUD day/slot (Mon0)
+  var day = qs('planDay','—');
+  var slot = qs('planSlot','—');
+  var elDay = document.getElementById('hhDay');
+  var elSlot = document.getElementById('hhSlot');
+  if(elDay) elDay.textContent = day;
+  if(elSlot) elSlot.textContent = slot;
+
+  // 3) Back button behavior (always safe)
+  var btnBack = document.getElementById('hhBack');
+  if(btnBack){
+    btnBack.addEventListener('click', function(){
+      if(backUrl) location.href = backUrl;
+      else history.back();
+    });
+  }
+
+  // 4) Universal end hook — rhythm-boxer.js SHOULD call this at end
+  //    But we also "detect Result view" and auto-return when coming from planner seq flow.
+  window.HH_END_GAME = function(reason, payload){
+    reason = String(reason||'end');
+    payload = payload || {};
+
+    if(backUrl){
+      try{
+        var u = new URL(backUrl);
+        u.searchParams.set('reason', reason);
+
+        // optional telemetry to planner (light)
+        if(payload && typeof payload === 'object'){
+          if(payload.score!=null) u.searchParams.set('score', String(payload.score));
+          if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
+          if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
+        }
+        location.href = u.toString();
+        return;
+      }catch(_){}
+    }
+    // fallback
+    alert('จบเกมแล้ว!');
+  };
+
+  // 5) Result view "Return to plan" button
+  var btnReturn = document.getElementById('rb-btn-return-plan');
+  if(btnReturn){
+    btnReturn.addEventListener('click', function(){
+      // gather some values if present
+      var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
+      var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
+      var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
+      window.HH_END_GAME('result', { score: score, acc: acc, miss: miss });
+    });
+  }
+
+  // 6) Stop button -> end early -> return
+  var btnStop = document.getElementById('rb-btn-stop');
+  if(btnStop){
+    btnStop.addEventListener('click', function(){
+      // let original stop run first (if any), then return
+      setTimeout(function(){
+        window.HH_END_GAME('stop');
+      }, 120);
+    });
+  }
+
+  // 7) Auto-return when:
+  //    - hub contains seq=1 (planner auto-next flow) OR hub points to fitness-planner
+  //    - and Result view becomes visible
+  var autoReturn = false;
+  if(backUrl){
+    autoReturn = (backUrl.indexOf('seq=1')>=0) || (backUrl.indexOf('fitness-planner')>=0) || (qs('autoNext','0')==='1');
+  }
+
+  function isHidden(el){
+    if(!el) return true;
+    return el.classList.contains('hidden') || el.hasAttribute('hidden');
+  }
+
+  var resView = document.getElementById('rb-view-result');
+  if(resView && autoReturn){
+    var fired = false;
+    var obs = new MutationObserver(function(){
+      if(fired) return;
+      if(!isHidden(resView)){
+        fired = true;
+        // short delay so DOM writes settle
+        setTimeout(function(){
+          // If user is in research and might want CSV, we only auto-return when seq flow is explicit
+          var strictSeq = (backUrl.indexOf('seq=1')>=0);
+          if(!strictSeq) return;
+
+          var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
+          var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
+          var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
+          window.HH_END_GAME('auto', { score: score, acc: acc, miss: miss });
+        }, 900);
+      }
+    });
+    obs.observe(resView, { attributes:true, attributeFilter:['class','hidden'] });
+  }
+})();
+</script>
+
 </body>
 </html>
