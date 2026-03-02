@@ -1,13 +1,9 @@
-<!-- === /webxr-health-mobile/herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
-PATCH v20260301c-hub-pass-api-ai-battle-safe + germ-detective-link
-✅ No forced ordering: play any game anytime
-✅ Safe network: API 403 won't break hub
+<!-- === /herohealth/hub.html ===
+HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
+PATCH v20260302-HUB-ADD-BRUSH
+✅ Add Hygiene: BrushVR (ROOT launcher: ./brush-vr.html)
+✅ Keep existing Nutrition launchers
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
-✅ FIX: api= Apps Script /exec ส่งต่อแบบถูกต้อง (normalize+auto-encode)
-✅ ADD: pass-through ai/battle/room/autostart/forfeit
-✅ FIX: GoodJunk root launcher = ./goodjunk-vr.html
-✅ ADD: Germ Detective root launcher = ./germ-detective.html
 -->
 <!doctype html>
 <html lang="th">
@@ -17,385 +13,544 @@ PATCH v20260301c-hub-pass-api-ai-battle-safe + germ-detective-link
   <title>HeroHealth — Hub</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa;
+
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    a{color:inherit;text-decoration:none}
-    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
-    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000}
-    .title{font-weight:1000;letter-spacing:.2px}
-    .sub{color:var(--muted);font-size:12px;font-weight:800;margin-top:2px}
-    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
-    .chip b{color:#fff}
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+    }
+    a{ color:inherit; text-decoration:none; }
+    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
 
-    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 6px 6px 0 6px;
+      flex-wrap:wrap;
+    }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{
+      margin:0;
+      font-size: clamp(22px, 2.2vw, 30px);
+      letter-spacing:.2px;
+    }
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.4;
+      max-width: 78ch;
+    }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+    }
+    .pill b{ color:var(--text); font-weight:900; }
 
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .card h3{margin:0;font-size:14px;font-weight:1000}
-    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
-    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
-    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
-    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
-    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
-    .btn.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
-    .small{font-size:12px;color:var(--muted);font-weight:850;margin-top:10px}
+    .zonebar{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .zonebarHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+      flex-wrap:wrap;
+    }
+    .zonebarHead .left{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    .bigPill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .bigPill .dot{
+      width:12px; height:12px; border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .bigPill.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .bigPill.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
 
-    .banner{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
-    .dot{width:10px;height:10px;border-radius:999px;margin-top:5px}
-    .dot.ok{background:var(--good)}
-    .dot.warn{background:var(--warn)}
-    .dot.bad{background:var(--bad)}
-    .banner h4{margin:0;font-size:13px;font-weight:1000}
-    .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
-    .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+    .actions{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;
+    }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+      font-weight:900;
+      font-size:13px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
+    .btn.ghost{ color:var(--muted); }
+    .btn.disabled{ opacity:.5; cursor:not-allowed; }
+
+    .zonebarBody{
+      padding: 12px 12px 14px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 10px;
+    }
+    @media (max-width: 980px){
+      .zonebarBody{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
+    }
+    .zoneCard{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding: 14px;
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      min-height: 160px;
+    }
+    .zoneCard h3{
+      margin:0 0 6px 0;
+      font-size: 16px;
+      letter-spacing:.2px;
+    }
+    .zoneCard p{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+    }
+    .glow{
+      position:absolute; inset:-40% -35% auto auto;
+      width:240px; height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%);
+      filter: blur(10px);
+      transform: rotate(14deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .glow.cyan{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
+    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+
+    .miniStatus{
+      display:flex; gap:8px; flex-wrap:wrap;
+      margin-top:10px;
+      align-items:center;
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.28);
+      color:var(--muted);
+      font-size: 12px;
+      font-weight:800;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .chip b{ color:var(--text); font-weight:900; }
+    .meter{
+      height: 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+      margin-top:10px;
+    }
+    .fill{
+      height:100%;
+      width:0%;
+      background: rgba(34,197,94,.85);
+      transition: width .14s ease;
+    }
+    .fill.cyan{ background: rgba(34,211,238,.85); }
+    .fill.violet{ background: rgba(167,139,250,.85); }
+    .fill.warn{ background: rgba(245,158,11,.88); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+      margin-top: 2px;
+    }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
+
+    .game{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.46);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      position:relative;
+      overflow:hidden;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      min-height: 132px;
+    }
+    .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .game:active{ transform: translateY(1px); }
+    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .gameTitle{ font-weight:900; letter-spacing:.2px; margin:0; font-size: 15px; }
+    .gameSub{ margin:6px 0 0 0; color:var(--muted); font-size: 12px; line-height:1.35; }
+    .tag{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: var(--text);
+      font-weight:900;
+      white-space:nowrap;
+    }
 
     .toast{
-      position:fixed; left:50%;
-      bottom:calc(14px + var(--sab));
-      transform:translateX(-50%);
-      z-index:9999;
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
       padding:10px 12px;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:14px;
-      background:rgba(2,6,23,.78);
-      color:#e5e7eb;
-      font-weight:950;
-      font-size:13px;
-      box-shadow:0 14px 44px rgba(0,0,0,.35);
-      opacity:0;
-      transition:opacity .18s ease;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
       pointer-events:none;
-      max-width:92vw;
     }
-    .toast.show{ opacity:1; }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <header>
+    <div class="top">
       <div class="brand">
-        <div class="logo">HH</div>
-        <div>
-          <div class="title">HeroHealth — Hub</div>
-          <div class="sub">เข้าเล่นได้ทุกเกม • ปลอดภัยแม้ API ตอบ 403 • ส่งพารามิเตอร์ต่ออัตโนมัติ</div>
-        </div>
+        <h1 class="title">🏰 HeroHealth — Hub</h1>
+        <p class="subtitle">
+          เลือกเล่นเกมไหนก่อนก็ได้ (ไม่มีลำดับบังคับ) • ระบบ Daily Gate แยกตาม “โซน” วันละ 1 ครั้ง/โซน
+        </p>
       </div>
-
-      <div class="chiprow" id="chipRow">
-        <div class="chip">run: <b id="cRun">play</b></div>
-        <div class="chip">diff: <b id="cDiff">normal</b></div>
-        <div class="chip">time: <b id="cTime">80</b>s</div>
-        <div class="chip">pid: <b id="cPid">anon</b></div>
-      </div>
-    </header>
-
-    <div class="banner" id="apiBanner" aria-live="polite">
-      <div class="dot warn" id="apiDot"></div>
-      <div>
-        <h4 id="apiTitle">กำลังตรวจสอบระบบ…</h4>
-        <p id="apiMsg">ถ้า API ล่ม/403 หน้า HUB จะยังใช้งานได้ปกติ (เข้าเกมได้ทุกเกม)</p>
-      </div>
-      <div class="actions">
-        <a class="btn warn" href="#" id="btnRetry">Retry</a>
-        <a class="btn" href="#" id="btnResetToday">Reset today</a>
-      </div>
+      <div class="pillrow" id="pillrow"></div>
     </div>
 
-    <div class="grid">
-
-      <div class="card">
-        <h3>🥗 Nutrition Zone</h3>
-        <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
-        <div class="btnrow">
-          <!-- ✅ FIX: root launcher name -->
-          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
-          <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
-          <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
-          <a class="btn" id="goPlate" href="./plate-vr.html">PlateVR</a>
+    <section class="zonebar" aria-label="Zone status">
+      <div class="zonebarHead">
+        <div class="left">
+          <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
+          <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
+          <div class="bigPill" id="pillFitness"><span class="dot"></span><span id="tFitness">🏃 Fitness: —</span></div>
+          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
         </div>
-        <div class="small">* ส่ง run/diff/time/seed/pid/view/log/api/ai/battle + hub ต่อให้เกมอัตโนมัติ</div>
+        <div class="actions">
+          <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
+          <div class="btn warn" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</div>
+        </div>
       </div>
 
-      <div class="card">
-        <h3>🧼 Hygiene Zone</h3>
-        <p>Handwash • Brush • Mask &amp; Cough (Analyze)</p>
-        <div class="btnrow">
-          <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
-          <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
-          <a class="btn cyan" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
-          <!-- ✅ ADD: Germ Detective root launcher -->
-          <a class="btn cyan" id="goGermDetective" href="./germ-detective.html">Germ Detective</a>
+      <div class="zonebarBody">
+        <div class="zoneCard">
+          <div class="glow"></div>
+          <h3>🥗 Nutrition</h3>
+          <p>โภชนาการ: GoodJunk / Groups / Hydration / Plate</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cNutGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::nutrition</span>
+          </div>
+          <div class="meter"><div class="fill" id="mNut"></div></div>
         </div>
-        <div class="small">* ทุกเกม hygiene ใช้ “root launcher” แล้วส่งไป run ในโฟลเดอร์</div>
+
+        <div class="zoneCard">
+          <div class="glow cyan"></div>
+          <h3>🧼 Hygiene</h3>
+          <p>อนามัยส่วนบุคคล: MaskCough / Brush (เพิ่มเกมต่อได้)</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
+          </div>
+          <div class="meter"><div class="fill cyan" id="mHyg"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow violet"></div>
+          <h3>🏃 Fitness</h3>
+          <p>ออกกำลังกาย: Shadow / Rhythm / Jump-Duck / Balance / Planner</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
+          </div>
+          <div class="meter"><div class="fill violet" id="mFit"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Game list">
+      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (ไป Root launcher ใน /herohealth)</div>
+      <div class="grid">
+        <div class="game" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • missions/summary</p>
+        </div>
+
+        <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🧩 Food Groups VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5</p>
+        </div>
+
+        <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">💧 Hydration VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ</p>
+        </div>
+
+        <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">จัดจาน 5 หมู่ • bias เติมหมู่ที่ขาด</p>
+        </div>
       </div>
 
-      <div class="card">
-        <h3>🏃 Fitness Zone</h3>
-        <p>Planner • Shadow Breaker • Rhythm Boxer • Jump-Duck • Balance Hold</p>
-        <div class="btnrow">
-          <a class="btn primary" id="goPlanner" href="./fitness-planner/planner.html">Fitness Planner</a>
-          <a class="btn" id="goShadow" href="../fitness/shadow-breaker.html">Shadow Breaker</a>
-          <a class="btn" id="goRhythm" href="../fitness/rhythm-boxer.html">Rhythm Boxer</a>
-          <a class="btn" id="goJumpDuck" href="../fitness/jump-duck.html">Jump-Duck</a>
-          <a class="btn" id="goBalanceHold" href="../fitness/balance-hold.html">Balance Hold</a>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (ไป Root launcher ใน /herohealth)</div>
+      <div class="grid">
+        <!-- ✅ MaskCough ROOT launcher (คุณมี maskcough-vr.html ที่ root อยู่แล้ว) -->
+        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">😷 Mask & Cough</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">กันละอองไอ/จาม • เก็บโล่ • fever/waves</p>
         </div>
-        <div class="small">* ปรับ path fitness ได้ตามโปรเจกต์จริงของคุณ</div>
+
+        <!-- ✅ BrushVR ROOT launcher (เพิ่มใหม่) -->
+        <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🪥 BrushVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แปรงคราบให้ทัน • Perfect ใกล้หมดเวลา • บอสมีจุดอ่อน 🎯</p>
+        </div>
       </div>
 
-    </div>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Fitness games</b> (ลิงก์โฟลเดอร์ /fitness)</div>
+      <div class="grid">
+        <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
+          <p class="gameSub">reflex • ปรับ path ได้</p>
+        </div>
+        <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag">Run</span></div>
+          <p class="gameSub">ต่อยตามจังหวะ • ปรับ path ได้</p>
+        </div>
+        <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🦘 Jump-Duck</h3><span class="tag">Run</span></div>
+          <p class="gameSub">กระโดด/ก้มหลบ • ปรับ path ได้</p>
+        </div>
+        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag">Run</span></div>
+          <p class="gameSub">ทรงตัว • ปรับ path ได้</p>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <script>
+<script>
+(function(){
   'use strict';
 
-  // ====== CONFIG ======
-  const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/';
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
 
-  // ====== helpers ======
-  function qs(k, d=''){
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch { return d; }
-  }
-  function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
-  function nowSeed(){ return String(Date.now()); }
+  // ✅ passthrough keys (รวม api ด้วย)
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api'];
 
-  // ✅ normalize URL-like params (กันส่งมาแบบ encode แล้ว/หรือมี %3A%2F%2F) + กัน null/undefined
-  function normalizeMaybeEncodedUrl(v){
-    v = String(v ?? '').trim();
-    if(!v) return '';
-    if(v === 'null' || v === 'undefined') return '';
-    v = v.replace(/\s+/g,'').trim();
-    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-      try { v = decodeURIComponent(v); } catch(e){}
-    }
-    return v.trim();
-  }
-
-  // ====== params (pass-through) ======
-  const P = {
-    run:  String(qs('run','play')).toLowerCase() || 'play',
-    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-    time: clamp(qs('time','80'), 20, 300),
-    seed: String(qs('seed','') || nowSeed()),
-    pid:  String(qs('pid','')).trim() || 'anon',
-    view: String(qs('view','')).toLowerCase(),
-
-    // ✅ logger params
-    log:  String(qs('log','')),
-    api:  normalizeMaybeEncodedUrl(qs('api','')), // ✅ Apps Script /exec
-
-    // ✅ AI + Battle (optional)
-    ai: String(qs('ai','')),
-    battle: String(qs('battle','')),
-    room: String(qs('room','')).trim(),
-    autostart: String(qs('autostart','')),
-    forfeit: String(qs('forfeit','')),
-
-    // research params
-    studyId: String(qs('studyId','')),
-    phase: String(qs('phase','')),
-    conditionGroup: String(qs('conditionGroup',''))
-  };
-
-  // show chips
-  document.getElementById('cRun').textContent = P.run;
-  document.getElementById('cDiff').textContent = P.diff;
-  document.getElementById('cTime').textContent = String(P.time);
-  document.getElementById('cPid').textContent = P.pid;
-
-  function buildHubUrl(){
-    const u = new URL(location.href);
-    u.search = '';
-    const sp = u.searchParams;
-
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-
-    if(P.view) sp.set('view', P.view);
-
-    // ✅ logger pass-through
-    if(P.log !== '') sp.set('log', P.log);
-    if(P.api) sp.set('api', P.api);
-
-    // ✅ AI + Battle pass-through
-    if(P.ai !== '') sp.set('ai', P.ai);
-    if(P.battle !== '') sp.set('battle', P.battle);
-    if(P.room) sp.set('room', P.room);
-    if(P.autostart) sp.set('autostart', P.autostart);
-    if(P.forfeit) sp.set('forfeit', P.forfeit);
-
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-
-    return u.toString();
-  }
-
-  function withCommonParams(url){
-    const u = new URL(url, location.href);
-    const sp = u.searchParams;
-
-    sp.set('hub', buildHubUrl());
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-
-    if(P.view) sp.set('view', P.view);
-
-    // ✅ logger pass-through
-    if(P.log !== '') sp.set('log', P.log);
-    if(P.api) sp.set('api', P.api);
-
-    // ✅ AI + Battle pass-through
-    if(P.ai !== '') sp.set('ai', P.ai);
-    if(P.battle !== '') sp.set('battle', P.battle);
-    if(P.room) sp.set('room', P.room);
-    if(P.autostart) sp.set('autostart', P.autostart);
-    if(P.forfeit) sp.set('forfeit', P.forfeit);
-
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-
-    return u.toString();
-  }
-
-  // ✅ ADD: goGermDetective
-  const linkIds = [
-    'goGoodJunk','goGroups','goHydration','goPlate',
-    'goHandwash','goBrush','goMaskCough','goGermDetective',
-    'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
-  ];
-  for(const id of linkIds){
-    const a = document.getElementById(id);
-    if(!a) continue;
-    a.href = withCommonParams(a.getAttribute('href'));
-  }
-
-  function getLocalDayKey(){
+  function ymdLocal(){
     const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
   }
 
-  function resetToday(){
-    const day = getLocalDayKey();
-    const prefixes = ['HHA_WARMUP_DONE','HHA_COOLDOWN_DONE','HHA_ZONE_DONE'];
-    const cats = ['nutrition','hygiene','fitness'];
-    try{
-      const keys = [];
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k) keys.push(k);
-      }
-      for(const k of keys){
-        const hitPrefix = prefixes.some(p=>k.startsWith(p+':') || k.startsWith(p+'::'));
-        if(!hitPrefix) continue;
-        if(!k.includes(day)) continue;
-        const hitCat = cats.some(c=>k.includes(':'+c+':') || k.includes('::'+c+'::') || k.includes('::'+c+':'));
-        if(!hitCat) continue;
-        localStorage.removeItem(k);
-      }
-    }catch(_){}
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function clearZoneToday(zone){
+    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
   }
 
-  let toastT = 0;
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
   function toast(msg){
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toastT);
-    toastT = setTimeout(()=>{ el.classList.remove('show'); }, 1200);
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
   }
 
-  document.getElementById('btnResetToday').addEventListener('click', (e)=>{
-    e.preventDefault();
-    resetToday();
-    toast('Reset today ✅');
-  });
-
-  const apiDot = document.getElementById('apiDot');
-  const apiTitle = document.getElementById('apiTitle');
-  const apiMsg = document.getElementById('apiMsg');
-  const btnRetry = document.getElementById('btnRetry');
-
-  let probeLock = false;
-
-  function setBanner(state, title, msg){
-    apiDot.className = 'dot ' + (state==='ok' ? 'ok' : state==='bad' ? 'bad' : 'warn');
-    apiTitle.textContent = title;
-    apiMsg.textContent = msg;
+  function setPill(el, done){
+    el.classList.remove('ok','bad');
+    el.classList.add(done ? 'ok' : 'bad');
   }
 
-  async function probeAPI(){
-    if(probeLock) return;
-    probeLock = true;
+  function setText(id, v){
+    const el = document.getElementById(id);
+    if(el) el.textContent = v;
+  }
 
-    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
+  function syncBars(){
+    const today = ymdLocal();
+    setText('todayText', today);
 
-    try{
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'content-type':'application/json' },
-        body: JSON.stringify({ ping: true })
-      });
+    const nut = isZoneDoneToday('nutrition');
+    const hyg = isZoneDoneToday('hygiene');
+    const fit = isZoneDoneToday('fitness');
 
-      if(res.status === 200){
-        setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ (Hub ใช้งานเต็มรูปแบบ)');
-      }else if(res.status === 403){
-        setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin (แต่ Hub ยังเข้าเกมได้ปกติ) — แนะนำแก้ CORS/Authorizer');
-      }else{
-        setBanner('warn', `API ตอบ ${res.status}`, 'Hub ยังเข้าเกมได้ปกติ • ถ้าต้องใช้ข้อมูลจาก API ให้ตรวจ route/headers');
+    setPill(document.getElementById('pillNutrition'), nut);
+    setPill(document.getElementById('pillHygiene'), hyg);
+    setPill(document.getElementById('pillFitness'), fit);
+
+    setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tFitness',  `🏃 Fitness: ${fit ? 'DONE TODAY' : 'NOT DONE'}`);
+
+    setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
+    setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
+    setText('cFitGate', fit ? 'DONE TODAY' : 'NEED GATE');
+
+    const mNut = document.getElementById('mNut');
+    const mHyg = document.getElementById('mHyg');
+    const mFit = document.getElementById('mFit');
+
+    mNut.style.width = (nut ? 100 : 35) + '%';
+    mHyg.style.width = (hyg ? 100 : 35) + '%';
+    mFit.style.width = (fit ? 100 : 35) + '%';
+
+    mNut.classList.toggle('warn', !nut);
+    mHyg.classList.toggle('warn', !hyg);
+    mFit.classList.toggle('warn', !fit);
+  }
+
+  function applyPassThrough(href){
+    const u = new URL(href, location.href);
+    for (const k of PASS_KEYS){
+      if (!u.searchParams.has(k) && QS.has(k)){
+        const v = QS.get(k);
+        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
       }
-    }catch(err){
-      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub ยังเข้าเกมได้ปกติ • ถ้าใช้ Wi-Fi โรงเรียนลองเปลี่ยนเครือข่ายหรือดู CORS');
-    }finally{
-      probeLock = false;
     }
+    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
+      u.searchParams.set('hub', location.href);
+    }
+    return u.toString();
   }
 
-  btnRetry.addEventListener('click', (e)=>{
-    e.preventDefault();
-    probeAPI();
-  });
+  function renderPills(){
+    const pills = [
+      ['pid', QS.get('pid')],
+      ['run', QS.get('run')],
+      ['diff', QS.get('diff')],
+      ['time', QS.get('time')],
+      ['seed', QS.get('seed')],
+      ['studyId', QS.get('studyId')],
+      ['phase', QS.get('phase')],
+      ['conditionGroup', QS.get('conditionGroup')],
+      ['log', QS.get('log')],
+      ['view', QS.get('view')],
+      ['api', QS.get('api')],
+    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
 
-  probeAPI();
-  </script>
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .slice(0, 12)
+      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
+
+  function bindGames(){
+    const cards = document.querySelectorAll('.game[data-href]');
+    cards.forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const href = card.getAttribute('data-href');
+        if(!href) return;
+        location.href = applyPassThrough(href);
+      }, { passive:true });
+    });
+  }
+
+  function bindReset(){
+    document.getElementById('btnResetToday').addEventListener('click', ()=>{
+      clearZoneToday('nutrition');
+      clearZoneToday('hygiene');
+      clearZoneToday('fitness');
+      syncBars();
+      toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
+    });
+
+    document.getElementById('btnHow').addEventListener('click', ()=>{
+      toast('Daily Gate: ทำ Quest Gate ของโซนนั้นให้ผ่าน (จบเกม/summary) วันละ 1 ครั้ง/โซน');
+    });
+  }
+
+  renderPills();
+  syncBars();
+  bindGames();
+  bindReset();
+})();
+</script>
+
 </body>
 </html>
