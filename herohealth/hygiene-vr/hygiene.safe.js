@@ -1,7 +1,8 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260220a
-// ✅ Kid End Summary (hide JSON, teacher toggle handled in HTML)
-// ✅ Practice Focus from End: 15s, lock step, friendlier spawn
+// HygieneVR SAFE — SURVIVAL (HHA Standard) — PATCH v20260221a
+// ✅ Kid-only End Summary (default)
+// ✅ Teacher/Research mode toggle reveals Evaluate + Create + JSON (lazy init)
+// ✅ Practice Focus from End: 15s
 // ✅ Keep: Heatmap2D + Evaluate + Create routine
 // ✅ FIX: “ตีแล้วไม่หาย” (is-dying + forced remove), TTL cleanup, watchdog
 // Exports: boot()
@@ -49,6 +50,16 @@ const STEPS = [
 ];
 const ICON_HAZ = '🦠';
 
+const ZONES = [
+  { id:'palm',  name:'ฝ่ามือ', zx:32, zy:62, stepKey:'palm'  },
+  { id:'back',  name:'หลังมือ', zx:68, zy:62, stepKey:'back'  },
+  { id:'gaps',  name:'ซอกนิ้ว', zx:35, zy:34, stepKey:'gaps'  },
+  { id:'knuck', name:'ข้อนิ้ว', zx:50, zy:40, stepKey:'knuck' },
+  { id:'thumb', name:'โป้ง',    zx:22, zy:44, stepKey:'thumb' },
+  { id:'nails', name:'เล็บ',    zx:66, zy:30, stepKey:'nails' },
+  { id:'wrist', name:'ข้อมือ',  zx:50, zy:82, stepKey:'wrist' },
+];
+
 function rectOf(id){
   try{
     const el = DOC.getElementById(id);
@@ -95,14 +106,18 @@ export function boot(){
   const endSub       = DOC.getElementById('endSub');
   const endJson      = DOC.getElementById('endJson');
 
-  // Kid summary UI
+  // Kid summary
   const kidBadge   = DOC.getElementById('kidBadge');
   const kidLine1   = DOC.getElementById('kidLine1');
   const kidLine2   = DOC.getElementById('kidLine2');
   const kidTopRisk = DOC.getElementById('kidTopRisk');
   const btnPracticeRisk = DOC.getElementById('btnPracticeRisk');
 
-  // Evaluate/Create UI
+  // Teacher/Research toggle
+  const btnToggleDetails = DOC.getElementById('btnToggleDetails');
+  const detailsBody = DOC.getElementById('detailsBody');
+
+  // Evaluate/Create UI (inside details)
   const evalBox       = DOC.getElementById('evalBox');
   const evalHint      = DOC.getElementById('evalHint');
   const handMap       = DOC.getElementById('handMap');
@@ -175,41 +190,30 @@ export function boot(){
   const rtOk = [];
   let spawnAcc=0;
 
-  // per-step stats -> heatmap
   const stepStats = STEPS.map(s=>({ key:s.key, label:s.label, ok:0, wrong:0, haz:0, rt:[] }));
 
-  // missions / powerups
   let mission = { id:'', text:'', done:0, t0:0, meta:{} };
   const power = { shield:0, focusUntil:0, freezeUntil:0 };
 
-  // quiz
   let questText = 'ทำ STEP ให้ถูก!';
   let quizOpen = false;
   let quizRight = 0;
   let quizWrong = 0;
 
-  // Practice focus
+  // practice focus
   const practice = { on:false, focusStepIdx:null };
 
   // targets
   const targets = [];
   let nextId=1;
 
-  // End flow
+  // end summary
   let endSummary = null;
+
+  // evaluate/create states
   let evalState = { active:false, pickedZone:null, pickedReason:null, topRiskZone:null, confirmed:false };
   let createState = { active:false, picked:[], score:null, left:30, t:null };
-
-  // 2D zones
-  const ZONES = [
-    { id:'palm',  name:'ฝ่ามือ', zx:32, zy:62, stepKey:'palm'  },
-    { id:'back',  name:'หลังมือ', zx:68, zy:62, stepKey:'back'  },
-    { id:'gaps',  name:'ซอกนิ้ว', zx:35, zy:34, stepKey:'gaps'  },
-    { id:'knuck', name:'ข้อนิ้ว', zx:50, zy:40, stepKey:'knuck' },
-    { id:'thumb', name:'โป้ง',    zx:22, zy:44, stepKey:'thumb' },
-    { id:'nails', name:'เล็บ',    zx:66, zy:30, stepKey:'nails' },
-    { id:'wrist', name:'ข้อมือ',  zx:50, zy:82, stepKey:'wrist' },
-  ];
+  let teacherInitDone = false; // ✅ lazy init once when opening details
 
   function showBanner(msg){
     if(!banner) return;
@@ -295,9 +299,89 @@ export function boot(){
   function getStepAcc(){ return totalStepHits ? (correctHits / totalStepHits) : 0; }
   function elapsedSec(){ return running ? ((nowMs() - tStartMs)/1000) : 0; }
 
+  function median(arr){
+    const a = (arr||[]).slice().sort((x,y)=>x-y);
+    if(!a.length) return 0;
+    const m = (a.length-1)/2;
+    return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
+  }
+
+  function calcHeatmap2D(){
+    const hm = STEPS.map((s,i)=>{
+      const st = stepStats[i];
+      const total = st.ok + st.wrong + st.haz;
+      const risk = total ? ((st.wrong + st.haz) / total) : 0;
+      const rtMed = median(st.rt);
+      return {
+        zoneId: s.key,
+        stepKey: s.key,
+        label: s.label,
+        ok: st.ok,
+        wrong: st.wrong,
+        haz: st.haz,
+        risk,
+        heat: (risk>=0.34) ? 2 : (risk>=0.18 ? 1 : 0),
+        medianRtMs: rtMed
+      };
+    });
+
+    const top = hm.slice().sort((a,b)=>{
+      if(b.risk!==a.risk) return b.risk-a.risk;
+      if(b.haz!==a.haz) return b.haz-a.haz;
+      return b.wrong-a.wrong;
+    })[0] || null;
+
+    return { heatmap: hm, topRisk: top ? top.zoneId : null };
+  }
+
+  function kidBadgeFrom(grade, stepAcc, miss, haz){
+    if(grade==='SSS') return '🏆';
+    if(grade==='SS')  return '🥇';
+    if(grade==='S')   return '🥈';
+    if(grade==='A')   return '🥉';
+    if(stepAcc>=0.55 && miss<=2) return '✨';
+    if(haz>=3 || miss>=3) return '💪';
+    return '🌱';
+  }
+
+  function kidLineFrom(grade){
+    if(grade==='SSS') return 'สุดยอดมาก!';
+    if(grade==='SS')  return 'เก่งมาก!';
+    if(grade==='S')   return 'ดีมาก!';
+    if(grade==='A')   return 'เยี่ยม!';
+    if(grade==='B')   return 'พอใช้ กำลังดี';
+    return 'เริ่มดีแล้ว ซ้อมอีกนิด!';
+  }
+
+  function setKidSummaryUI(summary){
+    if(!summary) return;
+    const grade = summary.grade || 'C';
+    const badge = kidBadgeFrom(grade, summary.stepAcc||0, summary.misses||0, summary.hazHits||0);
+
+    if(kidBadge) kidBadge.textContent = badge;
+    if(kidLine1) kidLine1.textContent = kidLineFrom(grade);
+
+    const ok = summary.hitsCorrect ?? 0;
+    const miss = summary.misses ?? 0;
+    const haz = summary.hazHits ?? 0;
+    if(kidLine2) kidLine2.textContent = `✅ ถูก ${ok} • ⚠️ พลาด ${miss} • 🦠 โดนเชื้อ ${haz}`;
+
+    const top = summary?.analyze?.topRiskZone || null;
+    const name = top ? (ZONES.find(z=>z.id===top)?.name || top) : '—';
+    if(kidTopRisk){
+      kidTopRisk.textContent = top
+        ? `${name} (กด “ซ้อมจุดนี้ 15 วิ”)`
+        : 'วันนี้ทำได้ดีทุกจุด!';
+    }
+
+    if(btnPracticeRisk){
+      btnPracticeRisk.disabled = !top;
+      btnPracticeRisk.dataset.focus = top || '';
+    }
+  }
+
   function getSpawnRect(){
     const w = WIN.innerWidth, h = WIN.innerHeight;
-
     const topSafeVar = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-top-safe')) || 160;
     const bottomSafeVar = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--hw-bottom-safe')) || 160;
 
@@ -310,20 +394,17 @@ export function boot(){
     if(bannerR) topSafe = Math.max(topSafe, bannerR.y + bannerR.h + 8);
     if(quizR && quizR.w>10 && quizR.h>10) topSafe = Math.max(topSafe, quizR.y + quizR.h + 10);
 
-    const bottomSafe = bottomSafeVar;
     const pad = 14;
-
     const x0 = pad, x1 = w - pad;
     const y0 = (topSafe + pad);
-    const y1 = h - bottomSafe - pad;
+    const y1 = h - bottomSafeVar - pad;
 
     return { x0, x1, y0, y1, w, h };
   }
 
   function pickSpawnXY(radius){
     const rect = getSpawnRect();
-    const tries = 18;
-    for(let t=0;t<tries;t++){
+    for(let t=0;t<18;t++){
       const x = clamp(rect.x0 + (rect.x1-rect.x0)*rng(), rect.x0, rect.x1);
       const y = clamp(rect.y0 + (rect.y1-rect.y0)*rng(), rect.y0, rect.y1);
 
@@ -340,25 +421,20 @@ export function boot(){
       }
       if(ok) return {x,y,rect};
     }
-    const x = clamp((rect.x0+rect.x1)/2, rect.x0, rect.x1);
-    const y = clamp((rect.y0+rect.y1)/2, rect.y0, rect.y1);
-    return {x,y,rect};
+    return { x:(rect.x0+rect.x1)/2, y:(rect.y0+rect.y1)/2, rect };
   }
 
   function setHud(){
     const s = STEPS[stepIdx];
-
     pillStep && (pillStep.textContent = `STEP ${stepIdx+1}/7 ${s.icon} ${s.label}`);
     pillHits && (pillHits.textContent = `HITS ${hitsInStep}/${s.hitsNeed}`);
     pillCombo && (pillCombo.textContent = `COMBO ${combo}`);
     pillMiss && (pillMiss.textContent = `MISS ${getMissCount()} / ${missLimit}`);
 
-    // เด็กไม่ต้องเห็น risk เป็นหลัก แต่ยังคงไว้ใน pill ให้ครูดูได้
     const stepAcc = getStepAcc();
     const riskIncomplete = clamp(1 - stepAcc, 0, 1);
     const riskUnsafe = clamp(hazHits / Math.max(1, (loopsDone+1)*2), 0, 1);
     pillRisk && (pillRisk.textContent = `RISK Incomplete ${(riskIncomplete*100).toFixed(0)}% • Unsafe ${(riskUnsafe*100).toFixed(0)}%`);
-
     pillTime && (pillTime.textContent = `TIME ${Math.max(0, Math.ceil(timeLeft))}`);
 
     const mtxt = mission.text || questText;
@@ -416,7 +492,6 @@ export function boot(){
     el.className = `hw-tgt ${kind}`;
     el.innerHTML = `<span class="emoji">${emoji}</span>`;
     el.dataset.id = String(nextId);
-
     stage.appendChild(el);
 
     const tgtSize = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--tgtSize').replace('px','')) || 76;
@@ -445,30 +520,27 @@ export function boot(){
   }
 
   function spawnOne(){
-    // ✅ Practice focus: เน้นเป้าถูกของ step เดียว + ลดความกวน
     if(practice.on && Number.isFinite(practice.focusStepIdx)){
       const s = STEPS[practice.focusStepIdx];
       const r = rng();
-      if(r < 0.06) return createTarget('haz', ICON_HAZ, -1);           // เบาเชื้อ
-      if(r < 0.14) return createTarget('wrong', STEPS[(practice.focusStepIdx+2)%7].icon, (practice.focusStepIdx+2)%7); // เบาหลอก
+      if(r < 0.06) return createTarget('haz', ICON_HAZ, -1);
+      if(r < 0.14) return createTarget('wrong', STEPS[(practice.focusStepIdx+2)%7].icon, (practice.focusStepIdx+2)%7);
       return createTarget('good', s.icon, practice.focusStepIdx);
     }
 
     const s = STEPS[stepIdx];
     const P = dd ? dd.getParams() : base;
     const r = rng();
-    if(r < P.hazardRate){
-      return createTarget('haz', ICON_HAZ, -1);
-    }else if(r < P.hazardRate + P.decoyRate){
+    if(r < P.hazardRate) return createTarget('haz', ICON_HAZ, -1);
+    if(r < P.hazardRate + P.decoyRate){
       let j = stepIdx;
       for(let k=0;k<7;k++){
         const pick = Math.floor(rng()*STEPS.length);
         if(pick !== stepIdx){ j = pick; break; }
       }
       return createTarget('wrong', STEPS[j].icon, j);
-    }else{
-      return createTarget('good', s.icon, stepIdx);
     }
+    return createTarget('good', s.icon, stepIdx);
   }
 
   function onHitByPointer(obj, source){
@@ -476,19 +548,13 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shoot: gameplay OR end-overlay selection
+  // cVR shoot (gameplay only in this patch; end-eval selection is in teacher mode)
   function onShoot(e){
-    const d = (e && e.detail) || {};
-    const lockPx = Number(d.lockPx||30);
-
-    // End overlay aim-pick
-    if(endOverlay && endOverlay.style.display === 'grid' && evalState.active && !evalState.confirmed){
-      aimPickZone(lockPx);
-      return;
-    }
-
     if(!running || paused) return;
     if(view !== 'cvr') return;
+
+    const d = (e && e.detail) || {};
+    const lockPx = Number(d.lockPx||30);
 
     const cx = WIN.innerWidth/2;
     const cy = WIN.innerHeight/2;
@@ -497,125 +563,249 @@ export function boot(){
     for(const t of targets){
       const dx = (t.x - cx), dy = (t.y - cy);
       const dist = Math.hypot(dx, dy);
-      if(dist < lockPx && dist < bestDist){
-        best = t; bestDist = dist;
-      }
+      if(dist < lockPx && dist < bestDist){ best = t; bestDist = dist; }
     }
-    if(best){
-      judgeHit(best, 'shoot', { lockPx, dist: bestDist });
-    }
-  }
-
-  // Missions & power (คงไว้)
-  function startMission(){
-    const t = elapsedSec();
-    const roll = rng();
-    mission.done = 0; mission.t0 = nowMs(); mission.meta = { pct: 0 };
-
-    if(roll < 0.34){
-      mission.id='combo10'; mission.text='ทำคอมโบถึง 10!'; mission.meta.need=10; mission.meta.pct=clamp(combo/10,0,1);
-    }else if(roll < 0.67){
-      mission.id='noHaz10'; mission.text='อย่าโดน 🦠 10 วิ!'; mission.meta.until=t+10; mission.meta.pct=0;
-    }else{
-      mission.id='fastStep'; mission.text='ผ่าน STEP นี้ไว (≤ 6.5 วิ)!'; mission.meta.step=stepIdx; mission.meta.t0=nowMs(); mission.meta.pct=0;
-    }
-    showBanner(`🎯 MISSION: ${mission.text}`);
-  }
-
-  function rewardMission(){
-    mission.done = 1;
-    const roll = rng();
-    if(roll < 0.34){
-      power.shield = clamp(power.shield + 1, 0, 2);
-      showBanner('🏅 ได้พลัง: 🛡️ Soap Shield (+1)');
-    }else if(roll < 0.67){
-      power.focusUntil = nowMs() + 6000;
-      showBanner('🏅 ได้พลัง: 🎯 Focus 6s (เป้าถูกเด่น)');
-    }else{
-      power.freezeUntil = nowMs() + 4500;
-      showBanner('🏅 ได้พลัง: ❄️ Freeze 4.5s (สปอว์นช้าลง)');
-    }
-    timeLeft = clamp(timeLeft + 3, 0, 9999);
-  }
-
-  function updateMissionTick(){
-    if(!running || practice.on) return; // ✅ ไม่ปล่อยภารกิจรบกวนตอนซ้อม
-    const t = elapsedSec();
-    if(!mission.id){ if(t > 6) startMission(); return; }
-    if(mission.done) return;
-
-    if(mission.id === 'combo10'){
-      mission.meta.pct = clamp(combo / 10, 0, 1);
-      if(combo >= 10) rewardMission();
-    }else if(mission.id === 'noHaz10'){
-      const until = Number(mission.meta.until||0);
-      const left = clamp((until - t) / 10, 0, 1);
-      mission.meta.pct = clamp(1 - left, 0, 1);
-      if(t >= until) rewardMission();
-    }else if(mission.id === 'fastStep'){
-      if(stepIdx !== mission.meta.step){
-        const dt = nowMs() - Number(mission.meta.t0||nowMs());
-        mission.meta.pct = 1;
-        if(dt <= 6500) rewardMission();
-        else { mission.done = 1; showBanner('⏱️ พลาดภารกิจไว ลองใหม่รอบหน้า'); }
-      }else{
-        const dt = nowMs() - Number(mission.meta.t0||nowMs());
-        mission.meta.pct = clamp(dt/6500, 0, 1);
-      }
-    }
-
-    if(mission.done) mission._nextAt = t + (10 + rng()*8);
-    if(mission._nextAt && t >= mission._nextAt){
-      mission.id=''; mission.text=''; mission.done=0; mission._nextAt=0;
-    }
+    if(best) judgeHit(best, 'shoot', { lockPx, dist: bestDist });
   }
 
   function onHazHit(){
     if(power.shield > 0){
       power.shield--;
-      coachTip('ดีมาก! โล่สบู่ช่วยกันเชื้อได้ 1 ครั้ง', 1200);
+      coachTip('โล่สบู่ช่วยกันเชื้อได้ 1 ครั้ง', 1200);
       return true;
     }
     return false;
   }
 
-  // ---- Heatmap helpers ----
-  function median(arr){
-    const a = (arr||[]).slice().sort((x,y)=>x-y);
-    if(!a.length) return 0;
-    const m = (a.length-1)/2;
-    return (a.length%2) ? a[m|0] : (a[m|0] + a[(m|0)+1])/2;
+  function judgeHit(obj, source, extra){
+    const rt = computeRt(obj);
+
+    if(obj.kind === 'good'){
+      correctHits++; totalStepHits++; hitsInStep++;
+      combo++; comboMax = Math.max(comboMax, combo);
+      rtOk.push(rt);
+
+      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
+      stepStats[idx].ok++; stepStats[idx].rt.push(rt);
+
+      if(quizOpen && quizOpen._armed){
+        const within = (nowMs() - quizOpen._t0) <= 4000;
+        if(within){
+          quizOpen._streak++;
+          if(quizOpen._streak >= (quizOpen._needStreak||2)){
+            quizRight++; closeQuiz('✅ Quiz ผ่าน!');
+          }
+        }else closeQuiz(null);
+      }
+
+      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo, practice:practice.on });
+      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec(), practice:practice.on });
+      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra, practice:practice.on });
+
+      fxHit('good', obj);
+      removeTarget(obj);
+
+      if(practice.on){
+        if(hitsInStep >= STEPS[idx].hitsNeed) showBanner(`✅ ซ้อม ${STEPS[idx].label} สำเร็จ!`);
+        setHud();
+        return;
+      }
+
+      if(hitsInStep >= STEPS[stepIdx].hitsNeed){
+        stepIdx++; hitsInStep=0;
+        if(stepIdx >= STEPS.length){
+          stepIdx=0; loopsDone++;
+          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
+          if(!quizOpen) openRandomQuiz();
+        }else{
+          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
+          if(!quizOpen && rng() < 0.22) openRandomQuiz();
+        }
+      }else{
+        if(combo===6) coachTip('คอมโบสวย! อีกนิดได้พลังช่วย', 1400);
+      }
+
+      setHud();
+      return;
+    }
+
+    if(obj.kind === 'wrong'){
+      wrongStepHits++; totalStepHits++; combo=0;
+
+      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
+      stepStats[idx].wrong++;
+
+      if(quizOpen && quizOpen._armed){ quizWrong++; closeQuiz('❌ Quiz พลาด!'); }
+
+      fxHit('wrong', obj);
+      removeTarget(obj);
+
+      showBanner('⚠️ ขั้นตอนผิด! ดู STEP ด้านบน');
+      if(getMissCount() >= missLimit && !practice.on) endGame('fail');
+      setHud();
+      return;
+    }
+
+    if(obj.kind === 'haz'){
+      const blocked = onHazHit();
+      if(!blocked){ hazHits++; combo=0; }
+
+      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
+      if(!blocked) stepStats[idx].haz++;
+
+      if(quizOpen && quizOpen._armed){ quizWrong++; closeQuiz('❌ Quiz พลาด!'); }
+
+      fxHit('haz', obj);
+      removeTarget(obj);
+
+      if(!blocked){
+        showBanner('🦠 โดนเชื้อ! ระวัง!');
+        if(getMissCount() >= missLimit && !practice.on) endGame('fail');
+      }else showBanner('🛡️ โล่สบู่กันเชื้อได้!');
+      setHud();
+      return;
+    }
   }
 
-  function calcHeatmap2D(){
-    const hm = STEPS.map((s,i)=>{
-      const st = stepStats[i];
-      const total = st.ok + st.wrong + st.haz;
-      const risk = total ? ((st.wrong + st.haz) / total) : 0;
-      const rtMed = median(st.rt);
-      return {
-        zoneId: s.key,
-        stepKey: s.key,
-        label: s.label,
-        ok: st.ok,
-        wrong: st.wrong,
-        haz: st.haz,
-        risk,
-        heat: (risk>=0.34) ? 2 : (risk>=0.18 ? 1 : 0),
-        medianRtMs: rtMed
-      };
-    });
-
-    const top = hm.slice().sort((a,b)=>{
-      if(b.risk!==a.risk) return b.risk-a.risk;
-      if(b.haz!==a.haz) return b.haz-a.haz;
-      return b.wrong-a.wrong;
-    })[0] || null;
-
-    return { heatmap: hm, topRisk: top ? top.zoneId : null };
+  function cleanupExpiredTargets(){
+    const t = nowMs();
+    for(let i=targets.length-1;i>=0;i--){
+      const obj = targets[i];
+      if(t >= obj.dieAtMs){
+        targets.splice(i,1);
+        killTarget(obj);
+      }
+    }
   }
 
-  // ---- End overlay map UI ----
+  function mobileThrottleFactor(){
+    const touch = isTouchDevice();
+    const n = targets.length|0;
+    if(!touch) return 1.0;
+    if(n >= 14) return 0.65;
+    if(n >= 10) return 0.80;
+    return 0.95;
+  }
+
+  function tick(){
+    if(!running) return;
+
+    const t = nowMs();
+    const dt = Math.max(0, (t - tLastMs)/1000);
+    tLastMs = t;
+    tick._lastBeat = t;
+
+    if(paused){ requestAnimationFrame(tick); return; }
+
+    timeLeft -= dt;
+    emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec(), practice:practice.on });
+
+    if(timeLeft <= 0){ endGame(practice.on ? 'practice_time' : 'time'); return; }
+
+    cleanupExpiredTargets();
+
+    const P = dd ? dd.getParams() : base;
+    const frozen = power.freezeUntil > t;
+    const freezeMul = frozen ? 0.45 : 1.0;
+    const miss = getMissCount();
+    const fairnessMul = (miss>=2 && !practice.on) ? 0.78 : 1.0;
+    const practiceMul = practice.on ? 0.85 : 1.0;
+
+    const mul = mobileThrottleFactor() * freezeMul * fairnessMul * practiceMul;
+    spawnAcc += (P.spawnPerSec * mul * dt);
+
+    const cap = (view==='cvr') ? 16 : (practice.on ? 14 : 18);
+    while(spawnAcc >= 1){
+      spawnAcc -= 1;
+      if(targets.length >= cap) break;
+      spawnOne();
+    }
+
+    setHud();
+    requestAnimationFrame(tick);
+  }
+
+  function startWatchdog(){
+    clearInterval(startWatchdog._t);
+    startWatchdog._t = setInterval(()=>{
+      if(!running || paused) return;
+      const now = nowMs();
+      const last = tick._lastBeat || 0;
+      if(last && (now - last) > 1800){
+        console.warn('[Hygiene] watchdog nudge', now-last);
+        showBanner('⚠️ เกมสะดุด… กำลังดึงกลับมา');
+        try{ requestAnimationFrame(tick); }catch{}
+      }
+    }, 700);
+  }
+  function stopWatchdog(){ clearInterval(startWatchdog._t); }
+
+  function resetGame(){
+    running=false; paused=false;
+    clearTargets();
+    timeLeft = timePlannedSec;
+
+    stepIdx=0; hitsInStep=0; loopsDone=0;
+    combo=0; comboMax=0;
+    wrongStepHits=0; hazHits=0;
+    correctHits=0; totalStepHits=0;
+    rtOk.length=0; spawnAcc=0;
+
+    for(let i=0;i<stepStats.length;i++){
+      stepStats[i].ok=0; stepStats[i].wrong=0; stepStats[i].haz=0;
+      stepStats[i].rt.length=0;
+    }
+
+    mission = { id:'', text:'', done:0, t0:0, meta:{} };
+    power.shield=0; power.focusUntil=0; power.freezeUntil=0;
+
+    quizRight=0; quizWrong=0;
+    setQuizVisible(false);
+
+    practice.on=false; practice.focusStepIdx=null;
+
+    // reset teacher mode
+    teacherInitDone = false;
+    evalState = { active:false, pickedZone:null, pickedReason:null, topRiskZone:null, confirmed:false };
+    createState = { active:false, picked:[], score:null, left:30, t:null };
+    if(createBox) createBox.style.display = 'none';
+
+    setHud();
+  }
+
+  function startGame(playSeconds, opt){
+    resetGame();
+    running=true;
+    tStartMs = nowMs();
+    tLastMs = tStartMs;
+
+    if(Number.isFinite(playSeconds) && playSeconds>0){
+      timeLeft = clamp(playSeconds, 5, timePlannedSec);
+    }
+
+    if(opt && opt.practiceFocus === true && Number.isFinite(opt.focusStepIdx)){
+      practice.on = true;
+      practice.focusStepIdx = clamp(opt.focusStepIdx, 0, STEPS.length-1);
+      stepIdx = practice.focusStepIdx;
+      hitsInStep = 0;
+    }
+
+    if(startOverlay) startOverlay.style.display = 'none';
+    if(endOverlay) endOverlay.style.display = 'none';
+    if(detailsBody) detailsBody.style.display = 'none';
+
+    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec, practice:practice.on, focusStepIdx:practice.focusStepIdx });
+    showBanner(practice.on
+      ? `🧪 ซ้อมจุด: ${STEPS[practice.focusStepIdx].icon} ${STEPS[practice.focusStepIdx].label} (15 วิ)`
+      : `เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`
+    );
+
+    startWatchdog();
+    setHud();
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Teacher mode: Evaluate/Create (lazy init) ----------
   function buildHandMapUI(heatmap2d){
     if(!handMap) return;
     handMap.innerHTML = '';
@@ -673,7 +863,6 @@ export function boot(){
 
   function pickReason(reason){
     evalState.pickedReason = reason;
-
     if(evalReasons){
       const btns = [...evalReasons.querySelectorAll('.hw-reason')];
       for(const b of btns){
@@ -690,30 +879,6 @@ export function boot(){
     if(btnEvalConfirm) btnEvalConfirm.disabled = !ok;
   }
 
-  function aimPickZone(lockPx){
-    if(!handMap) return;
-    const rect = handMap.getBoundingClientRect();
-    const cx = WIN.innerWidth/2;
-    const cy = WIN.innerHeight/2;
-
-    if(cx < rect.left || cx > rect.right || cy < rect.top || cy > rect.bottom) return;
-
-    let best=null, bestDist=1e9;
-    const els = [...handMap.querySelectorAll('.hw-zone')];
-    for(const el of els){
-      const r = el.getBoundingClientRect();
-      const zx = (r.left + r.right)/2;
-      const zy = (r.top + r.bottom)/2;
-      const dist = Math.hypot(zx - cx, zy - cy);
-      if(dist < lockPx && dist < bestDist){ best = el; bestDist = dist; }
-    }
-    if(best){
-      pickZone(best.dataset.zone);
-      showBanner('🎯 เลือกจุดแล้ว!');
-    }
-  }
-
-  // ---- Create routine ----
   function openCreate30s(){
     if(!createBox) return;
     createBox.style.display = 'block';
@@ -723,8 +888,7 @@ export function boot(){
     createState.left = 30;
 
     if(routineOpts){
-      const btns = [...routineOpts.querySelectorAll('.hw-rt')];
-      btns.forEach(b=>b.classList.remove('is-picked'));
+      [...routineOpts.querySelectorAll('.hw-rt')].forEach(b=>b.classList.remove('is-picked'));
     }
     if(createPicked) createPicked.textContent = 'เลือกแล้ว: 0/3';
     if(createScore) createScore.textContent = 'คะแนน: —';
@@ -746,7 +910,6 @@ export function boot(){
 
   function toggleRoutineItem(text){
     if(!createState.active) return;
-
     const idx = createState.picked.indexOf(text);
     if(idx >= 0) createState.picked.splice(idx,1);
     else{
@@ -755,8 +918,7 @@ export function boot(){
     }
 
     if(routineOpts){
-      const btns = [...routineOpts.querySelectorAll('.hw-rt')];
-      for(const b of btns){
+      for(const b of [...routineOpts.querySelectorAll('.hw-rt')]){
         const t = b.getAttribute('data-rt') || '';
         if(createState.picked.includes(t)) b.classList.add('is-picked');
         else b.classList.remove('is-picked');
@@ -785,7 +947,6 @@ export function boot(){
 
   function finalizeCreate(auto){
     if(createState.score) return;
-
     createState.active = false;
     clearInterval(createState.t);
 
@@ -823,321 +984,43 @@ export function boot(){
         secondsLeft: createState.left|0
       };
       if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
+      saveJson(LS_LAST, endSummary);
     }
   }
 
-  // ---- Judge ----
-  function judgeHit(obj, source, extra){
-    const rt = computeRt(obj);
+  function initTeacherModeOnce(){
+    if(teacherInitDone) return;
+    teacherInitDone = true;
 
-    if(obj.kind === 'good'){
-      correctHits++; totalStepHits++;
-      hitsInStep++; combo++; comboMax = Math.max(comboMax, combo);
-      rtOk.push(rt);
+    // prepare evaluate state
+    evalState.active = true;
+    evalState.confirmed = false;
+    evalState.pickedZone = null;
+    evalState.pickedReason = null;
+    evalState.topRiskZone = endSummary?.analyze?.topRiskZone || null;
 
-      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
-      stepStats[idx].ok++;
-      stepStats[idx].rt.push(rt);
-
-      if(quizOpen && quizOpen._armed){
-        const within = (nowMs() - quizOpen._t0) <= 4000;
-        if(within){
-          quizOpen._streak++;
-          if(quizOpen._streak >= (quizOpen._needStreak||2)){
-            quizRight++; closeQuiz('✅ Quiz ผ่าน!');
-          }
-        }else{
-          closeQuiz(null);
-        }
-      }
-
-      coach?.onEvent('step_hit', { stepIdx, ok:true, rtMs: rt, stepAcc: getStepAcc(), combo, practice:practice.on });
-      dd?.onEvent('step_hit', { ok:true, rtMs: rt, elapsedSec: elapsedSec(), practice:practice.on });
-      emit('hha:judge', { kind:'good', stepIdx, rtMs: rt, source, extra, practice:practice.on });
-
-      fxHit('good', obj);
-      removeTarget(obj);
-
-      // ✅ Practice focus: ไม่เลื่อนไป step อื่น
-      if(practice.on){
-        if(hitsInStep >= STEPS[idx].hitsNeed){
-          showBanner(`✅ ซ้อม ${STEPS[idx].label} สำเร็จ!`);
-        }
-        setHud();
-        return;
-      }
-
-      // normal progression
-      if(hitsInStep >= STEPS[stepIdx].hitsNeed){
-        stepIdx++; hitsInStep=0;
-
-        if(stepIdx >= STEPS.length){
-          stepIdx=0; loopsDone++;
-          showBanner(`🏁 ครบ 7 ขั้นตอน! (loops ${loopsDone})`);
-          if(!quizOpen) openRandomQuiz();
-        }else{
-          showBanner(`➡️ ไปขั้นถัดไป: ${STEPS[stepIdx].icon} ${STEPS[stepIdx].label}`);
-          if(!quizOpen && rng() < 0.22) openRandomQuiz();
-        }
-      }else{
-        if(combo===6) coachTip('คอมโบสวย! อีกนิดได้พลังช่วย', 1400);
-      }
-
-      setHud();
-      return;
+    if(evalHint){
+      evalHint.textContent = (view==='cvr')
+        ? 'โหมด cVR: เล็ง crosshair ไปที่วงกลม แล้ว “ยิง” (เฉพาะเล่นเกม) — หน้า Evaluate แนะนำใช้แตะ'
+        : 'แตะวงกลมเพื่อเลือก';
     }
 
-    if(obj.kind === 'wrong'){
-      wrongStepHits++; totalStepHits++; combo = 0;
+    if(evalBox) evalBox.style.display = 'block';
+    if(createBox) createBox.style.display = 'none';
 
-      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
-      stepStats[idx].wrong++;
+    buildHandMapUI(endSummary?.analyze?.heatmap2d || []);
+    setTopRiskPulse(evalState.topRiskZone);
 
-      if(quizOpen && quizOpen._armed){ quizWrong++; closeQuiz('❌ Quiz พลาด!'); }
+    if(evalPicked) evalPicked.textContent = 'เลือก: —';
+    if(evalScore) evalScore.textContent = 'ผลประเมิน: —';
+    if(btnEvalConfirm) btnEvalConfirm.disabled = true;
 
-      coach?.onEvent('step_hit', { stepIdx, ok:false, wrongStepIdx: obj.stepIdx, rtMs: rt, stepAcc: getStepAcc(), combo, practice:practice.on });
-      dd?.onEvent('step_hit', { ok:false, rtMs: rt, elapsedSec: elapsedSec(), practice:practice.on });
-      emit('hha:judge', { kind:'wrong', stepIdx, wrongStepIdx: obj.stepIdx, rtMs: rt, source, extra, practice:practice.on });
-
-      fxHit('wrong', obj);
-      removeTarget(obj);
-
-      showBanner('⚠️ ขั้นตอนผิด! ดู STEP ด้านบน');
-      if(getMissCount() >= missLimit && !practice.on) endGame('fail');
-      setHud();
-      return;
-    }
-
-    if(obj.kind === 'haz'){
-      const blocked = onHazHit();
-      if(!blocked){ hazHits++; combo = 0; }
-
-      const idx = practice.on && Number.isFinite(practice.focusStepIdx) ? practice.focusStepIdx : stepIdx;
-      if(!blocked) stepStats[idx].haz++;
-
-      if(quizOpen && quizOpen._armed){ quizWrong++; closeQuiz('❌ Quiz พลาด!'); }
-
-      coach?.onEvent('haz_hit', { stepAcc: getStepAcc(), combo, blocked, practice:practice.on });
-      dd?.onEvent('haz_hit', { elapsedSec: elapsedSec(), blocked, practice:practice.on });
-      emit('hha:judge', { kind:'haz', stepIdx, rtMs: rt, source, extra, blocked, practice:practice.on });
-
-      fxHit('haz', obj);
-      removeTarget(obj);
-
-      if(!blocked){
-        showBanner('🦠 โดนเชื้อ! ระวัง!');
-        if(getMissCount() >= missLimit && !practice.on) endGame('fail');
-      }else{
-        showBanner('🛡️ โล่สบู่กันเชื้อได้!');
-      }
-      setHud();
-      return;
+    if(evalReasons){
+      [...evalReasons.querySelectorAll('.hw-reason')].forEach(b=>b.classList.remove('is-picked'));
     }
   }
 
-  function onHazHit(){
-    if(power.shield > 0){ power.shield--; coachTip('โล่สบู่ช่วยกันเชื้อได้ 1 ครั้ง', 1200); return true; }
-    return false;
-  }
-
-  // ---- Tick ----
-  function cleanupExpiredTargets(){
-    const t = nowMs();
-    for(let i=targets.length-1;i>=0;i--){
-      const obj = targets[i];
-      if(t >= obj.dieAtMs){
-        targets.splice(i,1);
-        killTarget(obj);
-      }
-    }
-  }
-
-  function mobileThrottleFactor(){
-    const touch = isTouchDevice();
-    const n = targets.length|0;
-    if(!touch) return 1.0;
-    if(n >= 14) return 0.65;
-    if(n >= 10) return 0.80;
-    return 0.95;
-  }
-
-  function tick(){
-    if(!running) return;
-
-    const t = nowMs();
-    const dt = Math.max(0, (t - tLastMs)/1000);
-    tLastMs = t;
-    tick._lastBeat = t;
-
-    if(paused){ requestAnimationFrame(tick); return; }
-
-    timeLeft -= dt;
-    emit('hha:time', { leftSec: timeLeft, elapsedSec: elapsedSec(), practice:practice.on });
-
-    if(timeLeft <= 0){ endGame(practice.on ? 'practice_time' : 'time'); return; }
-
-    cleanupExpiredTargets();
-
-    const P = dd ? dd.getParams() : base;
-    const frozen = power.freezeUntil > t;
-    const freezeMul = frozen ? 0.45 : 1.0;
-
-    const miss = getMissCount();
-    const fairnessMul = (miss>=2 && !practice.on) ? 0.78 : 1.0;
-
-    // ✅ practice: spawn หนืดลงนิดให้เด็กอ่าน/แตะทัน
-    const practiceMul = practice.on ? 0.85 : 1.0;
-
-    const mul = mobileThrottleFactor() * freezeMul * fairnessMul * practiceMul;
-    spawnAcc += (P.spawnPerSec * mul * dt);
-
-    const cap = (view==='cvr') ? 16 : (practice.on ? 14 : 18);
-    while(spawnAcc >= 1){
-      spawnAcc -= 1;
-      if(targets.length >= cap) break;
-      spawnOne();
-    }
-
-    if(targets.length > cap){
-      const over = targets.length - cap;
-      for(let k=0;k<over;k++){
-        const oldest = targets.slice().sort((a,b)=>a.bornMs-b.bornMs)[0];
-        if(oldest) removeTarget(oldest);
-      }
-    }
-
-    dd?.onEvent('tick', { elapsedSec: elapsedSec(), practice:practice.on });
-    updateMissionTick();
-
-    setHud();
-    requestAnimationFrame(tick);
-  }
-
-  function startWatchdog(){
-    clearInterval(startWatchdog._t);
-    startWatchdog._t = setInterval(()=>{
-      if(!running || paused) return;
-      const now = nowMs();
-      const last = tick._lastBeat || 0;
-      if(last && (now - last) > 1800){
-        console.warn('[Hygiene] watchdog nudge', now-last);
-        showBanner('⚠️ เกมสะดุด… กำลังดึงกลับมา');
-        try{ requestAnimationFrame(tick); }catch{}
-      }
-    }, 700);
-  }
-  function stopWatchdog(){ clearInterval(startWatchdog._t); }
-
-  // ---- Reset / Start / End ----
-  function resetGame(){
-    running=false; paused=false;
-    clearTargets();
-    timeLeft = timePlannedSec;
-
-    stepIdx=0; hitsInStep=0; loopsDone=0;
-    combo=0; comboMax=0;
-    wrongStepHits=0; hazHits=0;
-    correctHits=0; totalStepHits=0;
-    rtOk.length=0;
-    spawnAcc=0;
-
-    for(let i=0;i<stepStats.length;i++){
-      stepStats[i].ok=0; stepStats[i].wrong=0; stepStats[i].haz=0;
-      stepStats[i].rt.length=0;
-    }
-
-    mission = { id:'', text:'', done:0, t0:0, meta:{} };
-    power.shield=0; power.focusUntil=0; power.freezeUntil=0;
-
-    questText = 'ทำ STEP ให้ถูก!';
-    quizRight=0; quizWrong=0;
-    setQuizVisible(false);
-
-    practice.on=false; practice.focusStepIdx=null;
-
-    setHud();
-  }
-
-  function startGame(playSeconds, opt){
-    resetGame();
-    running=true;
-    tStartMs = nowMs();
-    tLastMs = tStartMs;
-
-    if(Number.isFinite(playSeconds) && playSeconds>0){
-      timeLeft = clamp(playSeconds, 5, timePlannedSec);
-    }
-
-    // practice focus config
-    if(opt && opt.practiceFocus === true && Number.isFinite(opt.focusStepIdx)){
-      practice.on = true;
-      practice.focusStepIdx = clamp(opt.focusStepIdx, 0, STEPS.length-1);
-      stepIdx = practice.focusStepIdx;
-      hitsInStep = 0;
-    }
-
-    // hide overlays
-    if(startOverlay) startOverlay.style.display = 'none';
-    if(endOverlay) endOverlay.style.display = 'none';
-
-    emit('hha:start', { game:'hygiene', runMode, diff, seed, view, timePlannedSec, practice:practice.on, focusStepIdx:practice.focusStepIdx });
-
-    showBanner(practice.on
-      ? `🧪 ซ้อมจุด: ${STEPS[practice.focusStepIdx].icon} ${STEPS[practice.focusStepIdx].label} (15 วิ)`
-      : `เริ่ม! ทำ STEP 1/7 ${STEPS[0].icon} ${STEPS[0].label}`
-    );
-
-    startWatchdog();
-    setHud();
-    requestAnimationFrame(tick);
-  }
-
-  function kidBadgeFrom(grade, stepAcc, miss, haz){
-    if(grade==='SSS') return '🏆';
-    if(grade==='SS')  return '🥇';
-    if(grade==='S')   return '🥈';
-    if(grade==='A')   return '🥉';
-    if(stepAcc>=0.55 && miss<=2) return '✨';
-    if(haz>=3 || miss>=3) return '💪';
-    return '🌱';
-  }
-
-  function kidLineFrom(grade){
-    if(grade==='SSS') return 'สุดยอดมาก!';
-    if(grade==='SS')  return 'เก่งมาก!';
-    if(grade==='S')   return 'ดีมาก!';
-    if(grade==='A')   return 'เยี่ยม!';
-    if(grade==='B')   return 'พอใช้ กำลังดี';
-    return 'เริ่มดีแล้ว ซ้อมอีกนิด!';
-  }
-
-  function setKidSummaryUI(summary){
-    if(!summary) return;
-    const grade = summary.grade || 'C';
-    const badge = kidBadgeFrom(grade, summary.stepAcc||0, summary.misses||0, summary.hazHits||0);
-
-    if(kidBadge) kidBadge.textContent = badge;
-    if(kidLine1) kidLine1.textContent = kidLineFrom(grade);
-
-    const ok = summary.hitsCorrect ?? 0;
-    const miss = summary.misses ?? 0;
-    const haz = summary.hazHits ?? 0;
-    if(kidLine2) kidLine2.textContent = `✅ ถูก ${ok} • ⚠️ พลาด ${miss} • 🦠 โดนเชื้อ ${haz}`;
-
-    const top = summary?.analyze?.topRiskZone || null;
-    const name = top ? (ZONES.find(z=>z.id===top)?.name || top) : '—';
-    if(kidTopRisk){
-      kidTopRisk.textContent = top
-        ? `${name} (แตะ “ซ้อมจุดนี้ 15 วิ” ได้เลย)`
-        : 'วันนี้ทำได้ดีทุกจุด!';
-    }
-
-    if(btnPracticeRisk){
-      btnPracticeRisk.disabled = !top;
-      btnPracticeRisk.dataset.focus = top || '';
-    }
-  }
-
+  // ---------- End ----------
   function endGame(reason){
     if(!running) return;
     running=false; paused=false;
@@ -1163,13 +1046,10 @@ export function boot(){
     const hm2 = calcHeatmap2D();
 
     const summary = {
-      version:'20260220a',
+      version:'20260221a',
       game:'hygiene',
       gameMode:'hygiene',
-      runMode,
-      diff,
-      view,
-      seed,
+      runMode, diff, view, seed,
       sessionId,
       timestampIso: nowIso(),
 
@@ -1222,95 +1102,31 @@ export function boot(){
         : ((reason==='fail') ? 'จบเกม ❌' : 'จบเกม ✅');
     }
     if(endSub){
-      if(practice.on){
-        const nm = STEPS[practice.focusStepIdx||0]?.label || '';
-        endSub.textContent = `ซ้อมจุด: ${nm} • ถูก ${summary.hitsCorrect} • พลาด ${summary.misses}`;
-      }else{
-        endSub.textContent = `Grade ${grade} • loops ${loopsDone}`;
-      }
+      endSub.textContent = practice.on
+        ? `ซ้อมจุด: ${STEPS[practice.focusStepIdx||0]?.label||''} • ถูก ${summary.hitsCorrect} • พลาด ${summary.misses}`
+        : `Grade ${grade} • stepAcc ${(stepAcc*100).toFixed(0)}% • loops ${loopsDone}`;
     }
 
-    // ✅ JSON ยังเขียนไว้ แต่ซ่อนไว้ใน details
+    // hide teacher mode by default
+    if(detailsBody) detailsBody.style.display = 'none';
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
 
     if(endOverlay) endOverlay.style.display = 'grid';
 
-    // ✅ Kid summary shown always
+    // kid summary always
     setKidSummaryUI(endSummary);
 
-    // ✅ Practice run ends -> ไม่บังคับ Evaluate/Create (ไม่งง)
-    if(practice.on){
-      if(evalBox) evalBox.style.display = 'none';
-      if(createBox) createBox.style.display = 'none';
-      return;
-    }
+    // practice run: teacher mode still available but not auto
+    showBanner('✅ สรุปสั้นพร้อมแล้ว (เด็กอ่านง่าย)');
 
-    // Normal run -> init evaluate/create
-    initEndFlow();
-  }
-
-  function initEndFlow(){
-    evalState.active = true;
-    evalState.confirmed = false;
-    evalState.pickedZone = null;
-    evalState.pickedReason = null;
-
-    const topRisk = endSummary?.analyze?.topRiskZone || null;
-    evalState.topRiskZone = topRisk;
-
-    if(evalHint){
-      evalHint.textContent = (view==='cvr')
-        ? 'โหมด cVR: เล็ง crosshair ไปที่วงกลม แล้ว “ยิง” เพื่อเลือก'
-        : 'แตะวงกลมเพื่อเลือก';
-    }
-
-    if(evalBox) evalBox.style.display = 'block';
-    if(createBox) createBox.style.display = 'none';
-    createState.active = false;
-    clearInterval(createState.t);
-
-    buildHandMapUI(endSummary?.analyze?.heatmap2d || []);
-    setTopRiskPulse(topRisk);
-
-    if(evalPicked) evalPicked.textContent = 'เลือก: —';
-    if(evalScore) evalScore.textContent = 'ผลประเมิน: —';
-    if(btnEvalConfirm) btnEvalConfirm.disabled = true;
-
-    if(evalReasons){
-      const btns = [...evalReasons.querySelectorAll('.hw-reason')];
-      btns.forEach(b=>b.classList.remove('is-picked'));
-    }
-
-    showBanner('🧠 เลือก “จุดเสี่ยงสุด” แล้วเลือกเหตุผล 1 ข้อ');
-  }
-
-  function confirmEvaluate(){
-    if(evalState.confirmed) return;
-    evalState.confirmed = true;
-
-    const picked = evalState.pickedZone;
-    const top = evalState.topRiskZone;
-    const match = (picked && top && picked===top);
-
-    const pickedName = (ZONES.find(z=>z.id===picked)?.name) || picked || '—';
-    if(evalScore){
-      evalScore.textContent = match
-        ? `✅ ถูก! จุดเสี่ยงสุดคือ ${pickedName}`
-        : `⚠️ ลองดูวงที่กระพริบ (จุดเสี่ยงสุดอาจเป็นอีกจุด)`;
-    }
-
-    showBanner(match ? '✅ เก่งมาก! ทายถูก' : 'ดีมาก! รอบหน้าลองสังเกตวงที่กระพริบ');
-    openCreate30s();
+    setHud();
   }
 
   function goHub(){
-    try{
-      if(hub) location.href = hub;
-      else location.href = '../hub.html';
-    }catch{}
+    try{ location.href = hub ? hub : '../hub.html'; }catch{}
   }
 
-  // ---- UI binds ----
+  // ---------- binds ----------
   btnStart?.addEventListener('click', ()=>startGame(), { passive:true });
   btnPractice?.addEventListener('click', ()=>startGame(15), { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
@@ -1326,17 +1142,31 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // ✅ Practice focus from End
   btnPracticeRisk?.addEventListener('click', ()=>{
     const top = btnPracticeRisk?.dataset?.focus || '';
     if(!top) return;
     const idx = STEPS.findIndex(s=>s.key===top);
     if(idx<0) return;
-    // 15s focus practice
     startGame(15, { practiceFocus:true, focusStepIdx: idx });
   }, { passive:true });
 
-  // Evaluate binds
+  // Teacher toggle (lazy init)
+  if(btnToggleDetails && detailsBody){
+    btnToggleDetails.addEventListener('click', ()=>{
+      const on = detailsBody.style.display !== 'none';
+      detailsBody.style.display = on ? 'none' : 'block';
+      btnToggleDetails.textContent = on
+        ? '🔍 ดูโหมดครู/วิจัย (Evaluate + Routine + Summary)'
+        : '🙈 ซ่อนโหมดครู/วิจัย';
+
+      if(!on){
+        // opening
+        initTeacherModeOnce();
+      }
+    }, { passive:true });
+  }
+
+  // Evaluate
   evalReasons?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-reason')) return;
@@ -1346,7 +1176,6 @@ export function boot(){
 
   btnEvalConfirm?.addEventListener('click', ()=>{
     if(btnEvalConfirm.disabled) return;
-
     const picked = evalState.pickedZone;
     const reason = evalState.pickedReason;
     const top = evalState.topRiskZone;
@@ -1359,22 +1188,27 @@ export function boot(){
       pickedReason: reason,
       topRiskZone: top,
       matchTopRisk: !!match,
-      view,
-      seed
+      view, seed
     };
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
+    saveJson(LS_LAST, endSummary);
 
-    confirmEvaluate();
+    evalState.confirmed = true;
+    if(evalScore){
+      evalScore.textContent = match ? `✅ ถูก! จุดเสี่ยงสุดคือ ${pickedName}` : `⚠️ จุดเสี่ยงสุดอาจเป็นอีกจุด (ดูวงกระพริบ)`;
+    }
+    openCreate30s();
   }, { passive:true });
 
   btnEvalSkip?.addEventListener('click', ()=>{
     endSummary.evaluate = { skipped:true, view, seed };
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
+    saveJson(LS_LAST, endSummary);
     evalState.confirmed = true;
-    showBanner('ข้ามแล้ว ไป Create ต่อ');
     openCreate30s();
   }, { passive:true });
 
+  // Create
   routineOpts?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-rt')) return;
@@ -1387,7 +1221,7 @@ export function boot(){
     finalizeCreate(false);
   }, { passive:true });
 
-  // cVR shoot support
+  // cVR shoot gameplay
   WIN.addEventListener('hha:shoot', onShoot);
 
   // initial
