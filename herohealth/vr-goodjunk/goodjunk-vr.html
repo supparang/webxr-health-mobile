@@ -1,13 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM boot)
-PATCH v20260302-RUN-GOODJUNKVR-FOLDERNAME-AI-BATTLE-VRUI
-Requires:
-- ./goodjunk.safe.js
-- ./goodjunk-vr.css
-Optional:
-- ../vr/vr-ui.js          (for VR/cVR hha:shoot)
-- ../vr/ai-goodjunk.js    (?ai=1)
-- ../vr/battle-rtdb.js    (?battle=1)
+GoodJunkVR RUN — PRODUCTION (ESM)
+PATCH v20260302-RUN-FOLDER-GOODJUNKVR
+✅ Loads: ./goodjunk.safe.js (ESM)
+✅ Optional AI: ../vr/ai-goodjunk.js (?ai=1)
+✅ Optional Battle: ../vr/battle-rtdb.js (?battle=1&room=xxx)
+✅ Optional VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + hha:shoot)
 -->
 <!doctype html>
 <html lang="th">
@@ -16,13 +13,20 @@ Optional:
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-  <meta name="google" content="notranslate"/>
-
+  <meta name="google" content="notranslate" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
 </head>
 <body>
   <div id="app">
+
+    <!-- tiny boot overlay -->
+    <div id="bootOverlay" aria-hidden="false"
+      style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:radial-gradient(1200px 800px at 50% 40%, rgba(30,41,59,.35), rgba(2,6,23,.96));
+      color:rgba(226,232,240,.92);font:900 14px/1.4 system-ui;z-index:9999;">
+      Loading GoodJunk…
+    </div>
 
     <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
@@ -37,7 +41,7 @@ Optional:
         <div class="pill">SCORE <b id="hud-score">0</b></div>
         <div class="pill">TIME <b id="hud-time">0</b></div>
         <div class="pill">MISS <b id="hud-miss">0</b></div>
-        <div class="pill">GRADE <b id="hud-grade">—</b></div>
+        <div class="pill">GRADE <b id="hud-grade">C</b></div>
       </div>
 
       <div class="hud-row">
@@ -127,18 +131,21 @@ Optional:
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-
-        <!-- Cooldown button will be injected here by JS (hhInjectCooldownButton) -->
+        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
   </div>
 
+  <!-- ✅ Optional: Universal VR UI (adds ENTER VR/EXIT/RECENTER + crosshair + dispatches hha:shoot) -->
   <script type="module">
-    import { boot } from './goodjunk.safe.js';
+    try{ await import('../vr/vr-ui.js'); }catch(e){ console.warn('[GoodJunk] vr-ui missing', e); }
+  </script>
 
+  <script type="module">
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
+    // Build cfg from URL params (pass-through)
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
@@ -149,16 +156,6 @@ Optional:
       hub: qs('hub','../hub.html'),
       ai: null
     };
-
-    // ✅ load VR UI only when view=vr/cvr (safe on mobile too)
-    const v = String(cfg.view||'').toLowerCase();
-    if(v === 'vr' || v === 'cvr'){
-      try{
-        await import('../vr/vr-ui.js'); // emits hha:shoot + recenter/enter/exit
-      }catch(e){
-        console.warn('[GoodJunk] vr-ui load failed', e);
-      }
-    }
 
     // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
@@ -187,10 +184,19 @@ Optional:
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      location.href = (cfg.hub || '../hub.html');
+      const hub = cfg.hub || '../hub.html';
+      location.href = hub;
     });
 
+    // Boot
+    const { boot } = await import('./goodjunk.safe.js');
     boot(cfg);
+
+    // hide boot overlay after boot
+    try{
+      const bo = document.getElementById('bootOverlay');
+      if(bo){ bo.setAttribute('aria-hidden','true'); bo.style.display='none'; }
+    }catch(e){}
   </script>
 </body>
 </html>
