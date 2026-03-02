@@ -1,114 +1,213 @@
-// === /herohealth/vr/ai-goodjunk.js ===
-// Prediction-only AI (NO adaptive) for GoodJunk
-// PATCH v20260302-AI-GOODJUNK
+// === /webxr-health-mobile/herohealth/vr/ai-goodjunk.js ===
+// GoodJunk AI — PRODUCTION (Prediction + Director + Coach, rate-limited, kid-safe)
+// Uses tiny model if available; fallback to heuristics.
+// FULL v20260302-AI-GOODJUNK-PTEDICT-DIRECTOR-COACH
 'use strict';
 
-export function createGoodJunkAI(cfg){
-  cfg = cfg || {};
-  const seed = String(cfg.seed||'');
-  const pid  = String(cfg.pid||'anon');
-  const diff = String(cfg.diff||'normal');
-  const view = String(cfg.view||'mobile');
+import { predictRisk, DEFAULT_WEIGHTS } from './goodjunk-model.js';
 
-  // rolling counters (lightweight)
-  let tSec = 0;
-  let missGoodExpired = 0;
-  let missJunkHit = 0;
-  let shield = 0;
-  let fever = 0;
-  let combo = 0;
-  let score = 0;
-  let shots = 0;
-  let hits = 0;
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  // last prediction snapshot
-  let lastPred = null;
+// deterministic rng
+function xmur3(str){
+  let h = 1779033703 ^ str.length;
+  for (let i=0;i<str.length;i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= (h >>> 16);
+    return h >>> 0;
+  };
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
 
-  function clamp(v,a,b){ v=+v||0; return v<a?a:(v>b?b:v); }
-  function accPct(){ return shots>0 ? (hits/shots) : 0; }
+function makeRng(seedStr){
+  const f = xmur3(String(seedStr||'seed'));
+  return sfc32(f(), f(), f(), f());
+}
 
-  function predict(){
-    // hazardRisk: higher = more risk (junk/expire)
-    const acc = accPct(); // 0..1
-    const missRate = clamp((missGoodExpired + missJunkHit) / Math.max(1, (hits + missGoodExpired + missJunkHit)), 0, 1);
+function pick(rng, arr){
+  return arr[Math.floor(rng()*arr.length)];
+}
 
-    // Heuristic: low acc + high missRate + low shield => higher risk
-    let risk =
-      (1-acc)*0.55 +
-      missRate*0.45 +
-      (shield<=0 ? 0.10 : 0.0) -
-      (fever>=80 ? 0.05 : 0.0) -
-      (combo>=5 ? 0.05 : 0.0);
+const HINTS = {
+  calm: [
+    'ใจเย็น ๆ แล้วเล็งกลางจอ',
+    'มองก่อนกดยิง 1 จังหวะ',
+    'หายใจลึก ๆ แล้วค่อยยิง'
+  ],
+  avoidJunk: [
+    'ระวังของหวาน/น้ำอัดลม!',
+    'เจอ 🍟🍩 อย่าแตะนะ',
+    'เลี่ยง “JUNK” ก่อนยิง'
+  ],
+  buildCombo: [
+    'เก็บ GOOD ต่อเนื่องให้ได้คอมโบ!',
+    'ลองยิง GOOD รัว ๆ แบบนิ่ง ๆ',
+    'คอมโบสูง = คะแนนพุ่ง!'
+  ],
+  useShield: [
+    'มีโล่แล้ว! ใช้กันพลาดได้',
+    'เห็น 🛡️ รีบเก็บไว้ก่อน',
+    'โล่ช่วยเซฟตอน JUNK โผล่'
+  ],
+  lowTime: [
+    'ใกล้หมดเวลา! โฟกัส GOOD',
+    'เหลือไม่กี่วิ! ยิงแบบชัวร์',
+    'รีบแต่ไม่ลน เลือก GOOD'
+  ]
+};
 
-    // soften by diff
-    if(diff==='easy') risk -= 0.05;
-    if(diff==='hard') risk += 0.05;
+function heuristicRisk(snap){
+  const shots = Math.max(0, Number(snap.shots||0));
+  const miss  = Math.max(0, Number(snap.miss||0));
+  const hitJunk = Math.max(0, Number(snap.hitJunk||snap.hitsJunk||0));
+  const combo = Math.max(0, Number(snap.combo||0));
+  const rt = Number(snap.medianRtGoodMs||0);
 
-    risk = clamp(risk, 0, 1);
+  const missRate = shots>0 ? miss/shots : 0;
+  const junkRate = shots>0 ? hitJunk/shots : 0;
 
-    const next5 = [];
-    if(risk > 0.70) next5.push('เลี่ยง JUNK ก่อน');
-    else if(risk > 0.45) next5.push('โฟกัสของดีให้ต่อเนื่อง');
-    else next5.push('เก็บคอมโบได้เลย');
+  let risk = 0.15 + missRate*0.9 + junkRate*0.6;
+  if(rt>0 && rt<750) risk -= 0.10;
+  if(combo>=10) risk -= 0.10;
+  return clamp(risk, 0, 1);
+}
 
-    if(shield<=0) next5.push('หา 🛡️ ไว้กันพลาด');
-    if(missGoodExpired > missJunkHit) next5.push('รีบแตะ GOOD อย่าปล่อยหาย');
-    if(acc < 0.55) next5.push('ยิงให้ชัวร์ก่อนเร็ว');
+export function createGoodJunkAI(opts = {}){
+  const seed = String(opts.seed || Date.now());
+  const pid  = String(opts.pid || 'anon');
+  const diff = String(opts.diff || 'normal');
+  const view = String(opts.view || 'mobile');
 
-    return {
-      model: 'heuristic-v1',
-      seed, pid, diff, view,
-      hazardRisk: +risk.toFixed(4),
-      next5
-    };
+  // allow custom weights from localStorage (optional)
+  let weights = DEFAULT_WEIGHTS;
+  try{
+    const raw = localStorage.getItem('HHA_GJ_MODEL_W') || '';
+    if(raw){
+      const j = JSON.parse(raw);
+      if(j && typeof j === 'object') weights = Object.assign({}, DEFAULT_WEIGHTS, j);
+    }
+  }catch(_){}
+
+  const rng = makeRng(`${seed}::${pid}::${diff}::${view}`);
+
+  const st = {
+    lastHintAt: 0,
+    lastRisk: 0,
+    lastHint: '',
+    // director knobs (read by game if you want)
+    director: { junkBiasDelta: 0, spawnRateMul: 1 }
+  };
+
+  function chooseHint(snap, risk){
+    const timeLeft = Number(snap.timeLeftSec||0);
+    const timeAll  = Math.max(1, Number(snap.timeAllSec||80));
+    const timeLeftNorm = timeLeft / timeAll;
+
+    const shield = Number(snap.shield||0);
+    const combo = Number(snap.combo||0);
+    const hitJunk = Number(snap.hitJunk||snap.hitsJunk||0);
+    const shots = Number(snap.shots||0);
+    const junkRate = shots>0 ? (hitJunk/shots) : 0;
+
+    if(timeLeftNorm <= 0.10) return pick(rng, HINTS.lowTime);
+    if(shield <= 0 && risk >= 0.55) return pick(rng, HINTS.useShield);
+    if(junkRate >= 0.22) return pick(rng, HINTS.avoidJunk);
+    if(combo < 6 && risk <= 0.55) return pick(rng, HINTS.buildCombo);
+    return pick(rng, HINTS.calm);
+  }
+
+  // Director: “ยุติธรรมแต่เดือด” (ปรับเล็กน้อย ไม่สวิง)
+  function updateDirector(snap, risk){
+    const miss = Number(snap.miss||0);
+    const shots = Math.max(1, Number(snap.shots||1));
+    const missRate = miss/shots;
+
+    // Base: hard > normal > easy
+    let spawnMul = (diff==='hard') ? 1.08 : (diff==='easy') ? 0.92 : 1.00;
+    let junkDelta = (diff==='hard') ? +0.02 : (diff==='easy') ? -0.03 : 0.00;
+
+    // If kid is struggling, ease junk slightly (still challenging)
+    if(missRate > 0.35 && shots > 12){
+      junkDelta -= 0.03;
+      spawnMul *= 0.98;
+    }
+
+    // If kid is crushing it, spice it up a bit
+    if(risk < 0.28 && shots > 14){
+      junkDelta += 0.03;
+      spawnMul *= 1.03;
+    }
+
+    // Clamp deltas (gentle)
+    st.director.junkBiasDelta = clamp(junkDelta, -0.08, +0.08);
+    st.director.spawnRateMul  = clamp(spawnMul, 0.88, 1.15);
+  }
+
+  // Main API used by goodjunk.safe.js
+  function maybeHint(snap = {}){
+    const t = nowMs();
+
+    // Predict risk
+    let out;
+    try{
+      out = predictRisk(Object.assign({}, snap, { diff }), weights);
+    }catch(_){
+      out = { risk: heuristicRisk(snap), z: 0, x: {} };
+    }
+
+    const risk = clamp(out.risk, 0, 1);
+    st.lastRisk = risk;
+
+    // Update director knobs every call
+    updateDirector(snap, risk);
+
+    // Rate limit hint: at most once per ~2.3s (kid-friendly)
+    const coolMs = 2300;
+    if(t - st.lastHintAt < coolMs){
+      return { risk, hint: st.lastHint, top: [], director: st.director, x: out.x };
+    }
+
+    // Show hint when risk is meaningful OR on low-time OR after miss spikes
+    const miss = Number(snap.miss||0);
+    const shots = Math.max(1, Number(snap.shots||1));
+    const missRate = miss/shots;
+    const timeLeft = Number(snap.timeLeftSec||0);
+
+    const shouldHint = (risk >= 0.45) || (timeLeft <= 6) || (missRate >= 0.30 && shots > 10);
+
+    if(!shouldHint){
+      st.lastHint = '';
+      return { risk, hint: '', top: [], director: st.director, x: out.x };
+    }
+
+    const hint = chooseHint(snap, risk);
+    st.lastHintAt = t;
+    st.lastHint = hint;
+
+    return { risk, hint, top: [], director: st.director, x: out.x };
   }
 
   return {
-    onSpawn(kind, meta){
-      // (optional) keep for future
-    },
-    onHit(kind, meta){
-      // (optional) keep for future
-    },
-    onExpire(kind, meta){
-      // (optional) keep for future
-    },
-    onTick(dt, state){
-      tSec += (+dt||0);
-      missGoodExpired = +state?.missGoodExpired || missGoodExpired;
-      missJunkHit     = +state?.missJunkHit || missJunkHit;
-      shield          = +state?.shield || shield;
-      fever           = +state?.fever || fever;
-      combo           = +state?.combo || combo;
-      score           = +state?.score || score;
-      shots           = +state?.shots || shots;
-      hits            = +state?.hits || hits;
-
-      // update prediction at ~5Hz max
-      if(!lastPred || (tSec - (lastPred._tSec||0)) > 0.20){
-        lastPred = predict();
-        lastPred._tSec = tSec;
-      }
-      return lastPred;
-    },
-    getPrediction(){
-      return lastPred;
-    },
-    onEnd(summary){
-      // attach a simple analysis (still prediction-only)
-      try{
-        const acc = summary?.accPct ?? null;
-        const med = summary?.medianRtGoodMs ?? null;
-        return {
-          note: 'prediction-only',
-          tip:
-            (acc!=null && acc < 55) ? 'ลองลดความรีบ แล้วยิงให้ชัวร์ขึ้น' :
-            (med!=null && med > 850) ? 'ลองอ่านเป้าเร็วขึ้นนิดนึง (RT สูง)' :
-            'ดีมาก! คุมจังหวะได้แล้ว',
-        };
-      }catch(e){
-        return null;
-      }
-    }
+    maybeHint,
+    get director(){ return st.director; },
+    get weights(){ return weights; }
   };
 }
