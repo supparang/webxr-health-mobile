@@ -1,80 +1,99 @@
-// === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI — prediction only (research-safe; NO adaptive difficulty)
-// PATCH v20260302-AI-GOODJUNK
+// === /webxr-health-mobile/herohealth/vr/ai-goodjunk.js ===
+// GoodJunk AI (Prediction + Difficulty Director)
+// v20260302-AI-PREDICT-DIRECTOR
 'use strict';
 
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+import { loadGoodJunkWeights, predictGoodJunkRisk } from './goodjunk-model.js';
 
-export function createGoodJunkAI({ seed='0', pid='anon', diff='normal', view='mobile' }={}){
-  let lastPred = { hazardRisk: 0.25, next5: ['เล็งของดี', 'หลบของเสีย', 'รอโบนัส'] };
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  // rolling stats
-  let spawns = { good:0, junk:0, bonus:0, shield:0, boss:0 };
-  let hits   = { good:0, junk:0, bonus:0, shield:0, boss:0 };
-  let exp    = { good:0, junk:0, bonus:0, shield:0, boss:0 };
-
-  function mkHint(){
-    const junkPressure = spawns.junk > 0 ? hits.junk / spawns.junk : 0;
-    const goodDrop = spawns.good > 0 ? exp.good / spawns.good : 0;
-
-    const hints = [];
-    if(junkPressure > 0.18) hints.push('ระวัง 🍔🍟 ใกล้ ๆ');
-    if(goodDrop > 0.22) hints.push('เร็วขึ้นนิด ของดีหาย');
-    if(hits.bonus < 2 && spawns.bonus > 4) hints.push('โบนัสช่วยดึงคะแนน');
-    if(view==='cvr') hints.push('ล็อกเป้าให้อยู่กลางจอ');
-    if(hints.length===0) hints.push('รักษาคอมโบ แล้วค่อยเสี่ยง');
-    return hints.slice(0,5);
-  }
-
-  function updatePrediction(extra){
-    extra = extra || {};
-    // heuristic risk: junk hit + good expired + low shield + high fever (risky play)
-    const missJunk = Number(extra.missJunkHit)||0;
-    const missGood = Number(extra.missGoodExpired)||0;
-    const shield   = Number(extra.shield)||0;
-    const fever    = Number(extra.fever)||0;
-    const combo    = Number(extra.combo)||0;
-
-    const base = 0.20
-      + 0.03*clamp(missJunk,0,50)
-      + 0.02*clamp(missGood,0,50)
-      + (shield<=0 ? 0.12 : 0.02)
-      + (fever>=90 ? 0.08 : 0.00)
-      - 0.01*clamp(combo,0,20);
-
-    lastPred = {
-      hazardRisk: clamp(base, 0, 0.99),
-      next5: mkHint()
-    };
-    return lastPred;
-  }
-
-  return {
-    onSpawn(kind){
-      kind = String(kind||'').toLowerCase();
-      if(spawns[kind] != null) spawns[kind]++;
-    },
-    onHit(kind){
-      kind = String(kind||'').toLowerCase();
-      if(hits[kind] != null) hits[kind]++;
-    },
-    onExpire(kind){
-      kind = String(kind||'').toLowerCase();
-      if(exp[kind] != null) exp[kind]++;
-    },
-    onTick(dt, extra){
-      return updatePrediction(extra);
-    },
-    getPrediction(){
-      return lastPred;
-    },
-    onEnd(summary){
-      // attach lightweight diagnostics
-      return {
-        pid, seed, diff, view,
-        spawns, hits, expired: exp,
-        lastPred
-      };
-    }
+export function createGoodJunkAI(cfg={}){
+  const st = {
+    ready: false,
+    mode: 'fallback',
+    lastHintAt: 0,
+    lastTickAt: 0,
+    hintCooldownMs: 2200,
+    tickMinMs: 900,
+    // director state
+    pressure: 0.0,   // 0..1
+    lastDirectorAt: 0
   };
+
+  async function init(){
+    // load weights if available (non-blocking)
+    const url = String(cfg.weightsUrl || '../vr/goodjunk_weights.json');
+    const r = await loadGoodJunkWeights(url);
+    st.ready = true;
+    st.mode = r.mode || 'fallback';
+    return r;
+  }
+
+  function directorFrom(snap, risk){
+    // ✅ research-safe policy: do NOT change difficulty in research
+    const run = String(cfg.run || 'play').toLowerCase();
+    const allowDirector = (run === 'play'); // only play
+    if(!allowDirector){
+      return { enabled:false, pressure:0, spawnMult:1, junkBias:0, sizeScale:1, note:'director_off_research' };
+    }
+
+    // pressure update: increase when player is strong, decrease when risk high
+    // strong signal = high acc + low miss + decent combo
+    const acc = clamp(snap.accPct,0,100);
+    const miss = Number(snap.miss||0);
+    const combo = clamp(snap.combo,0,999);
+
+    let p = st.pressure;
+    const strong = (acc >= 88 && miss <= 1 && combo >= 6);
+    if(strong && risk < 0.35) p += 0.08;
+    if(risk > 0.70) p -= 0.10;
+    if(miss >= 4) p -= 0.08;
+
+    p = clamp(p, 0, 1);
+    st.pressure = p;
+
+    // map pressure -> knobs
+    // spawnMult: 1.0..1.55 (เร็วขึ้น)
+    const spawnMult = 1 + 0.55*p;
+    // junkBias: 0..0.18 (เพิ่ม junk นิดหน่อย)
+    const junkBias = 0.18*p;
+    // sizeScale: 1..0.86 (เล็กลงนิด)
+    const sizeScale = 1 - 0.14*p;
+
+    return {
+      enabled: true,
+      pressure: p,
+      spawnMult,
+      junkBias,
+      sizeScale,
+      note: strong ? 'player_strong_raise_pressure' : (risk>0.7 ? 'risk_high_lower_pressure' : 'stable')
+    };
+  }
+
+  function maybeHint(snap){
+    const t = Date.now();
+    if(t - st.lastTickAt < st.tickMinMs) return null;
+    st.lastTickAt = t;
+
+    const pred = predictGoodJunkRisk(snap);
+    const risk = clamp(pred.risk, 0, 1);
+
+    // hint rate-limit
+    let hint = '—';
+    if(t - st.lastHintAt >= st.hintCooldownMs){
+      hint = pred.hint || '—';
+      st.lastHintAt = t;
+    }
+
+    const dir = directorFrom(snap, risk);
+
+    return {
+      mode: pred.mode,
+      risk,
+      hint,
+      director: dir
+    };
+  }
+
+  return { init, maybeHint };
 }
