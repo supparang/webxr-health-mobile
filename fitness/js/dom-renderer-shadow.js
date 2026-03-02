@@ -1,12 +1,5 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// DOM renderer for Shadow Breaker targets
-// ✅ spawn/remove targets in #sb-target-layer
-// ✅ click/touch hit -> calls onTargetHit(id, {clientX, clientY})
-// ✅ FX via FxBurst
-// ✅ store targets as { el, type }
-// ✅ expireTarget(id, opts): soft fade/shrink, supports silent expire
-// ✅ UX patch: avoid duplicate expire FX on already-hit target
-
+// PACK G: true safe-rect from HUD/BARS/META + grid slots (3 rows x 2 cols) + jitter
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
@@ -22,8 +15,17 @@ export class DomRendererShadow {
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map(); // id -> { el, type }
+    this.targets = new Map(); // id -> { el, type, slotKey }
     this._onPointer = this._onPointer.bind(this);
+
+    // cache refs for true safe rect
+    this._hudEl  = document.querySelector('.sb-hud');
+    this._barsTopEl = document.querySelector('.sb-bars-top');
+    this._barsBottomEl = document.querySelector('.sb-bars-bottom');
+    this._metaEl = document.getElementById('sb-meta');
+
+    // slot occupancy
+    this._occupied = new Map(); // slotKey -> targetId
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
@@ -35,27 +37,10 @@ export class DomRendererShadow {
       try { el?.remove(); } catch {}
     }
     this.targets.clear();
+    this._occupied.clear();
   }
 
-  _safeAreaRect(){
-    const r = this.layer.getBoundingClientRect();
-
-    // margins driven by CSS vars (helps layout/HUD overlap)
-    const cs = getComputedStyle(document.documentElement);
-    const padBase = Number.parseFloat(cs.getPropertyValue('--sb-safe-pad')) || 18;
-    const padTop  = Number.parseFloat(cs.getPropertyValue('--sb-safe-top')) || 14;
-    const padSide = Number.parseFloat(cs.getPropertyValue('--sb-safe-side')) || 14;
-    const padBot  = Number.parseFloat(cs.getPropertyValue('--sb-safe-bot')) || 14;
-
-    const pad = Math.min(42, Math.max(padBase, r.width * 0.035));
-    const top = pad + padTop;
-    const left = pad + padSide;
-    const right = r.width - pad - padSide;
-    const bottom = r.height - pad - padBot;
-
-    return { r, left, top, right, bottom };
-  }
-
+  // --- helpers ---
   _emojiForType(t, bossEmoji){
     if (t === 'normal') return '🎯';
     if (t === 'decoy') return '👀';
@@ -66,41 +51,154 @@ export class DomRendererShadow {
     return '🎯';
   }
 
+  _readCssSafeVars(){
+    const cs = getComputedStyle(document.documentElement);
+    const n = (k, d)=> {
+      const v = Number.parseFloat(cs.getPropertyValue(k));
+      return Number.isFinite(v) ? v : d;
+    };
+    return {
+      padBase: n('--sb-safe-pad', 16),
+      padTop:  n('--sb-safe-top', 12),
+      padSide: n('--sb-safe-side', 12),
+      padBot:  n('--sb-safe-bot', 14),
+    };
+  }
+
+  // ✅ PACK G: true safe rect based on real HUD/BARS/META overlays (in viewport coords)
+  _safeRectViewport(){
+    const layerR = this.layer.getBoundingClientRect();
+    const { padBase, padTop, padSide, padBot } = this._readCssSafeVars();
+
+    // baseline padding (inside the stage)
+    const pad = Math.min(44, Math.max(padBase, layerR.width * 0.03));
+
+    // measure overlays (viewport coords)
+    const hudR = this._hudEl?.getBoundingClientRect?.();
+    const topBarsR = this._barsTopEl?.getBoundingClientRect?.();
+    const botBarsR = this._barsBottomEl?.getBoundingClientRect?.();
+    const metaR = this._metaEl?.getBoundingClientRect?.();
+
+    // compute forbidden bands relative to stage
+    const topBlock = Math.max(
+      0,
+      Math.max(
+        (hudR ? (hudR.bottom - layerR.top) : 0),
+        (topBarsR ? (topBarsR.bottom - layerR.top) : 0)
+      )
+    );
+
+    const bottomBlock = Math.max(
+      0,
+      (botBarsR ? (layerR.bottom - botBarsR.top) : 0)
+    );
+
+    // meta blocks right side area (only if visible and overlaps stage)
+    let rightBlock = 0;
+    if(metaR && metaR.right > layerR.left && metaR.left < layerR.right && metaR.bottom > layerR.top && metaR.top < layerR.bottom){
+      // block width from stage right edge to meta left edge
+      rightBlock = Math.max(0, layerR.right - metaR.left);
+      // clamp insane
+      rightBlock = Math.min(rightBlock, layerR.width * 0.55);
+    }
+
+    const left = layerR.left + pad + padSide;
+    const right = layerR.right - pad - padSide - rightBlock;
+
+    const top = layerR.top + pad + padTop + topBlock;
+    const bottom = layerR.bottom - pad - padBot - bottomBlock;
+
+    // ensure valid
+    return {
+      left: Math.min(left, right - 80),
+      right: Math.max(right, left + 80),
+      top: Math.min(top, bottom - 80),
+      bottom: Math.max(bottom, top + 80),
+      layerR
+    };
+  }
+
+  // ✅ PACK G: grid slots 3 rows x 2 cols, avoid "rowเดียว"
+  _pickSlot(size){
+    const { left, right, top, bottom } = this._safeRectViewport();
+    const w = Math.max(1, right - left);
+    const h = Math.max(1, bottom - top);
+
+    // 3 rows, 2 cols
+    const cols = 2;
+    const rows = 3;
+
+    const cellW = w / cols;
+    const cellH = h / rows;
+
+    // candidate slots
+    const slots = [];
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const key = `${r}-${c}`;
+        // skip occupied
+        if(this._occupied.has(key)) continue;
+
+        // compute cell center with jitter, keep within cell
+        const cx = left + c*cellW + cellW*0.5;
+        const cy = top + r*cellH + cellH*0.5;
+
+        // available bounds inside cell for top-left placement
+        const minX = left + c*cellW + 8;
+        const maxX = left + (c+1)*cellW - size - 8;
+        const minY = top + r*cellH + 8;
+        const maxY = top + (r+1)*cellH - size - 8;
+
+        // if cell too small, still allow but clamp
+        const x = clamp(rand(cx - cellW*0.18, cx + cellW*0.18), minX, maxX);
+        const y = clamp(rand(cy - cellH*0.18, cy + cellH*0.18), minY, maxY);
+
+        slots.push({ key, x, y });
+      }
+    }
+
+    // if all occupied, allow reuse by picking least recently used (simple: clear one random)
+    if(!slots.length){
+      // free one slot randomly
+      const keys = Array.from(this._occupied.keys());
+      const k = keys[Math.floor(Math.random()*keys.length)];
+      this._occupied.delete(k);
+      // retry once
+      return this._pickSlot(size);
+    }
+
+    // pick random slot among available
+    return slots[Math.floor(Math.random()*slots.length)];
+  }
+
   spawnTarget(data){
     if (!this.layer || !data) return;
-
-    const { left, top, right, bottom } = this._safeAreaRect();
 
     const el = document.createElement('div');
     const type = (data.type || 'normal');
     el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
-    el.dataset.type = type;
-    el.dataset.state = 'alive'; // alive | expiring | removed
 
     const size = clamp(Number(data.sizePx) || 110, 64, 240);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    const x = rand(left, Math.max(left, right - size));
-    const y = rand(top, Math.max(top, bottom - size));
-    el.style.left = Math.round(x) + 'px';
-    el.style.top  = Math.round(y) + 'px';
+    // pick grid slot (prevents rowเดียว)
+    const slot = this._pickSlot(size);
+    el.style.left = Math.round(slot.x) + 'px';
+    el.style.top  = Math.round(slot.y) + 'px';
 
     el.textContent = this._emojiForType(type, data.bossEmoji);
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(Number(data.id), { el, type });
+    this.targets.set(Number(data.id), { el, type, slotKey: slot.key });
+    this._occupied.set(slot.key, Number(data.id));
   }
 
   _onPointer(e){
     const el = e.currentTarget;
     if (!el) return;
-
-    // กันการกดย้ำระหว่าง expiring/removing
-    if (el.dataset.state && el.dataset.state !== 'alive') return;
-
     const id = Number(el.dataset.id);
     if (!Number.isFinite(id)) return;
 
@@ -114,52 +212,29 @@ export class DomRendererShadow {
     const el = obj?.el;
     if (!el) return;
 
-    try { el.dataset.state = 'removed'; } catch {}
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
+
+    // free slot
+    if(obj?.slotKey) this._occupied.delete(obj.slotKey);
 
     this.targets.delete(id);
   }
 
-  /**
-   * expireTarget(id, opts)
-   * opts = {
-   *   silent?: boolean,   // true => no visual "miss" emphasis class
-   *   ttlMs?: number      // fade duration before remove (default 180)
-   * }
-   */
-  expireTarget(id, opts = {}){
+  expireTarget(id){
     const obj = this.targets.get(id);
     const el = obj?.el;
     if (!el) return;
-
-    // already transitioning/removed => do nothing
-    if (el.dataset.state && el.dataset.state !== 'alive') return;
-
-    const silent = !!opts.silent;
-    const ttlMs = clamp(Number(opts.ttlMs) || 180, 90, 420);
-
-    try {
-      el.dataset.state = 'expiring';
-      el.style.pointerEvents = 'none';
-
-      // base expire animation class
+    try{
       el.classList.add('is-expiring');
-
-      // only add miss emphasis when this expiry should feel like a real miss
-      if (!silent) el.classList.add('is-expire-miss');
-
-      // hard remove after animation
-      setTimeout(() => this.removeTarget(id), ttlMs);
-    } catch {
+      el.style.pointerEvents = 'none';
+      setTimeout(()=> this.removeTarget(id), 180);
+    }catch{
       this.removeTarget(id);
     }
   }
 
   playHitFx(id, info = {}){
-    // NOTE:
-    // - If target is already removed, fallback to provided clientX/clientY still works
-    // - Engine should call this BEFORE removeTarget(id) on hit
     const obj = this.targets.get(id);
     const el = obj?.el;
 
@@ -173,37 +248,25 @@ export class DomRendererShadow {
     if (grade === 'perfect') {
       FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
       FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
-
     } else if (grade === 'good') {
       FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
       FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
-
     } else if (grade === 'bad') {
-      // decoy hit (penalty)
-      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-decoy' });
-      FxBurst.popText(x, y, `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, 'sb-fx-decoy');
-
+      FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
+      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
-
     } else if (grade === 'heal') {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-heal' });
       FxBurst.popText(x, y, '+HP', 'sb-fx-heal');
-
     } else if (grade === 'shield') {
       FxBurst.burst(x, y, { n: 12, spread: 60, ttlMs: 620, cls: 'sb-fx-shield' });
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
-
     } else if (grade === 'expire') {
-      // show ONLY when engine decides this is a real miss expire (normal/bossface)
       FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
+      // สำคัญ: engine จะเรียก expire เฉพาะที่นับ miss จริง (normal/bossface)
       FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
-
-    } else if (grade === 'expire-silent') {
-      // no text, just tiny subtle fade sparkle (optional)
-      FxBurst.burst(x, y, { n: 4, spread: 22, ttlMs: 260, cls: 'sb-fx-decoy' });
-
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
     }
