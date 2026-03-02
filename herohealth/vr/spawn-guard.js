@@ -4,15 +4,6 @@
 'use strict';
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
-function rectUnion(a,b){
-  if(!a) return b;
-  if(!b) return a;
-  const x1 = Math.min(a.left, b.left);
-  const y1 = Math.min(a.top,  b.top);
-  const x2 = Math.max(a.right,b.right);
-  const y2 = Math.max(a.bottom,b.bottom);
-  return { left:x1, top:y1, right:x2, bottom:y2, width:x2-x1, height:y2-y1 };
-}
 
 function getPxVar(name, fallback=0){
   try{
@@ -23,34 +14,20 @@ function getPxVar(name, fallback=0){
   }catch(e){ return fallback; }
 }
 
-/**
- * createSpawnGuard(opts)
- * opts:
- *  - hudSelector: default '.hud'
- *  - layerEl: element where targets are placed (optional)
- *  - margin: px (default 12)
- *  - minTop: px additional top safe (optional)
- *  - debug: boolean
- */
 export function createSpawnGuard(opts={}){
   const hudSelector = opts.hudSelector || '.hud';
   const margin = Number(opts.margin ?? 12);
   const minTop = Number(opts.minTop ?? 0);
   const debug = !!opts.debug;
 
-  const st = {
-    hudRect: null,
-    safeRect: null,
-    vw: 0,
-    vh: 0,
-    lastTs: 0
-  };
+  const st = { hudRect:null, safeRect:null, vw:0, vh:0, lastTs:0 };
+  let dbgEl = null;
 
   function measure(){
     const vw = window.innerWidth || 0;
     const vh = window.innerHeight || 0;
 
-    // Safe-area insets (CSS env → may not be readable; use fallback vars if set)
+    // Optional safe-area vars (set by your CSS if you want)
     const insetTop    = getPxVar('--safe-top', 0);
     const insetBottom = getPxVar('--safe-bottom', 0);
     const insetLeft   = getPxVar('--safe-left', 0);
@@ -61,12 +38,11 @@ export function createSpawnGuard(opts={}){
       const hud = document.querySelector(hudSelector);
       if(hud){
         const r = hud.getBoundingClientRect();
-        // ignore if hidden or 0-size
         if(r.width > 10 && r.height > 10) hudRect = r;
       }
     }catch(e){}
 
-    // Base safe rect: whole viewport minus margins/insets
+    // Base safe rect: viewport minus margins/insets
     let safe = {
       left: margin + insetLeft,
       top:  margin + insetTop,
@@ -74,13 +50,10 @@ export function createSpawnGuard(opts={}){
       bottom: vh - margin - insetBottom
     };
 
-    // Extra top (optional)
     safe.top = Math.max(safe.top, minTop);
 
-    // Exclude HUD area (top overlay)
+    // Push safe area below HUD
     if(hudRect){
-      // If HUD overlaps top area, push safe.top down to below HUD
-      // Add a little gap so targets don't "kiss" the HUD edge
       safe.top = Math.max(safe.top, hudRect.bottom + margin);
     }
 
@@ -97,12 +70,9 @@ export function createSpawnGuard(opts={}){
     st.hudRect = hudRect;
     st.safeRect = { ...safe, width: safe.right-safe.left, height: safe.bottom-safe.top };
 
-    if(debug){
-      drawDebug();
-    }
+    if(debug) drawDebug();
   }
 
-  // Convert normalized x01/y01 (0..1) into safe px, then back to normalized
   function clamp01(x01,y01){
     if(!st.safeRect) measure();
     const r = st.safeRect;
@@ -121,7 +91,6 @@ export function createSpawnGuard(opts={}){
     return { x01: clamp(cx / vw, 0, 1), y01: clamp(cy / vh, 0, 1) };
   }
 
-  // Random point in safe rect (normalized)
   function random01(rng=Math.random){
     if(!st.safeRect) measure();
     const r = st.safeRect;
@@ -132,8 +101,6 @@ export function createSpawnGuard(opts={}){
     return { x01: clamp(x / vw, 0, 1), y01: clamp(y / vh, 0, 1) };
   }
 
-  // optional debug overlay
-  let dbgEl = null;
   function drawDebug(){
     try{
       if(!dbgEl){
@@ -157,7 +124,6 @@ export function createSpawnGuard(opts={}){
     }catch(e){}
   }
 
-  // throttle measure
   function tick(force=false){
     const now = Date.now();
     if(force || (now - st.lastTs > 250)){
@@ -166,7 +132,6 @@ export function createSpawnGuard(opts={}){
     }
   }
 
-  // init + listeners
   measure();
   window.addEventListener('resize', ()=>tick(true), { passive:true });
   window.addEventListener('orientationchange', ()=>setTimeout(()=>tick(true), 120), { passive:true });
