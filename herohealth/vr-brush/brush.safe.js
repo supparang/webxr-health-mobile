@@ -1,4 +1,4 @@
-0// === /herohealth/vr-brush/brush.safe.js ===
+// === /herohealth/vr-brush/brush.safe.js ===
 // Brush VR SAFE — PRODUCTION
 // FULL v20260301-BRUSH-SAFE-FIXTARGET-CAMERA403
 'use strict';
@@ -263,10 +263,11 @@
   // ---------- cVR shoot ----------
   function findHitTargetIdFromRay(){
     try{
+      if (!W.AFRAME || !W.AFRAME.THREE) return null; // guard
       const cam3 = getCam3();
       if (!cam3) return null;
 
-      const THREE = AFRAME.THREE;
+      const THREE = W.AFRAME.THREE;
       const origin = new THREE.Vector3();
       const dir = new THREE.Vector3(0,0,-1);
 
@@ -284,7 +285,6 @@
       const hits = ray.intersectObjects(objs, true);
       if (!hits?.length) return null;
 
-      // climb to entity id in map
       let el = hits[0].object.el || hits[0].object.parent?.el;
       while (el && el.id && !S.targets.has(el.id)) el = el.parentEl;
       return (el && S.targets.has(el.id)) ? el.id : null;
@@ -334,7 +334,6 @@
     }
     UI.panelEnd?.classList.remove('hidden');
 
-    // session log (non-blocking)
     safePost(API, {
       table:'sessions',
       timestampIso:new Date().toISOString(),
@@ -371,7 +370,6 @@
     raf = requestAnimationFrame(loop);
     if (!S.started || S.ended) return;
 
-    // timer (60fps approx)
     S.timeLeft = Math.max(0, S.timeLeft - (1/60));
     if (S.timeLeft <= 0){
       endGame('timeout');
@@ -398,7 +396,7 @@
       if (S.started || S.ended) return;
       UI.btnStart.textContent = 'กำลังเริ่ม...';
 
-      await waitForSceneAndCamera(); // critical: prevents camera undefined crash
+      await waitForSceneAndCamera(); // critical
 
       S.started = true;
       S.startMs = now();
@@ -420,10 +418,7 @@
       location.href = hub;
     });
 
-    // cVR shoot: vr-ui.js event
     W.addEventListener('hha:shoot', ()=>{ onShoot(); }, { passive:true });
-
-    // tap anywhere to shoot in cVR
     D.addEventListener('pointerdown', ()=>{ if(IS_CVR) onShoot(); }, { passive:true });
   }
 
@@ -433,9 +428,7 @@
     bindUI();
     hud();
 
-    // pre-bind camera safely (no crash)
-    await waitForSceneAndCamera();
-
+    await waitForSceneAndCamera(); // pre-bind camera safely
     console.log('[Brush] booted', { run: RUN, diff: DIFF, time: TIME, pid: PID, cvr: IS_CVR, log: LOG_ON });
   }
 
