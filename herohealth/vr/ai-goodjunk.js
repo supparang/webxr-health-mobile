@@ -1,87 +1,142 @@
 // === /webxr-health-mobile/herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI — feature extraction + on-device prediction + explainable hint
-// FULL v20260301-AI-GOODJUNK
+// GoodJunk AI Runtime — PRODUCTION (prediction + explainable hints + rate-limit)
+// v20260301-AI-PREDICT-EXPLAIN
 'use strict';
 
-import { GOODJUNK_MODEL, predictRiskProba, riskLabel } from './goodjunk-model.js';
+import { GOODJUNK_MODEL_V1 } from './goodjunk-model.js';
 
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
+function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); }
+function sigmoid(z){ return 1/(1+Math.exp(-z)); }
+function nowMs(){ return Date.now(); }
 
-export function featurizeGoodJunk(feat){
-  // must match GOODJUNK_MODEL.features
-  const tLeft = clamp(feat.tLeft, 0, 999);
-  const stage = clamp(feat.stage, 1, 3);
-  const score = clamp(feat.score, 0, 999999);
-  const combo = clamp(feat.combo, 0, 999);
-  const miss  = clamp(feat.miss, 0, 999);
-  const acc   = clamp(feat.accPct, 0, 100);
-  const rt    = clamp(feat.medianRtGoodMs, 0, 5000);
-  const fever = clamp(feat.fever, 0, 100);
-  const shield= clamp(feat.shield, 0, 3);
-  const onScr = clamp(feat.onScreen, 0, 99);
-  const spawn = clamp(feat.spawnMs, 100, 2000);
-  const life  = clamp(feat.lifeMs, 200, 3000);
-
-  // basic scaling (keep values in reasonable ranges)
-  return [
-    tLeft/100,
-    stage,
-    score/1000,
-    combo/20,
-    miss/10,
-    (100-acc)/50,       // higher is worse
-    (rt-700)/600,       // >700ms increases risk
-    (100-fever)/60,     // low fever => less “buffer”
-    (3-shield)/3,       // no shield => more risk
-    onScr/8,
-    (900-spawn)/400,    // faster spawn => risk
-    (1500-life)/600     // shorter life => risk
-  ];
+function dot(w, x){
+  let s = 0;
+  const n = Math.min(w.length, x.length);
+  for(let i=0;i<n;i++) s += (Number(w[i])||0) * (Number(x[i])||0);
+  return s;
 }
 
-function explainHint(feat, p){
-  // Explainable micro tip for Grade 5
-  const acc = Number(feat.accPct||0) || 0;
-  const miss= Number(feat.miss||0) || 0;
-  const rt  = Number(feat.medianRtGoodMs||0) || 0;
-  const shield = Number(feat.shield||0)||0;
-  const fever = Number(feat.fever||0)||0;
-  const onScr = Number(feat.onScreen||0)||0;
+function softPct(p){ return `${Math.round(clamp(p,0,1)*100)}%`; }
 
-  if(p >= 0.78){
-    if(shield<=0) return 'เก็บ 🛡️ ก่อน แล้วค่อยลุยของดี!';
-    if(acc < 75)  return 'ใจเย็น ๆ เล็งให้ชัวร์ก่อนกด ✅';
-    if(rt > 1100) return 'โฟกัสของ “ดี” ใกล้ ๆ ก่อน 🎯';
-    if(miss >= 10) return 'หยุดกดรัว ๆ เลือกเฉพาะของดี 🥦';
-    return 'ระวังของ “junk” โผล่ถี่! 🚫';
+function explainTop(model, x){
+  // returns top 2 feature contributions (abs)
+  const items = [];
+  for(let i=0;i<model.features.length;i++){
+    const w = Number(model.weights[i])||0;
+    const v = Number(x[i])||0;
+    const c = w*v;
+    if(model.features[i] === 'bias') continue;
+    items.push({ k:model.features[i], c });
   }
-  if(p >= 0.60){
-    if(onScr >= 7) return 'ของเต็มจอ! เลือกของดีที่ง่ายสุดก่อน';
-    if(fever < 50) return 'ทำคอมโบให้ติดเพื่อเข้า FEVER ✨';
-    return 'ระวัง junk แทรก ลองชะลอ 1 จังหวะ';
-  }
-  if(p >= 0.35){
-    if(shield<=0) return 'หา 🛡️ ไว้กันพลาด';
-    return 'ดีมาก! รักษาคอมโบไว้';
-  }
-  return 'เยี่ยม! ลุยต่อได้เลย 🚀';
+  items.sort((a,b)=>Math.abs(b.c)-Math.abs(a.c));
+  return items.slice(0,2);
 }
 
-export function createGoodJunkAI(opts = {}){
-  const model = GOODJUNK_MODEL;
+function hintFromSignals(risk, top){
+  // map feature names to kid-friendly tips
+  const map = {
+    miss_rate: 'ช้าลงนิด แล้วเล็ง “GOOD” ให้ตรงกลาง 🎯',
+    junk_rate: 'หลบ “JUNK” ให้ไว — ดูสี/สัญลักษณ์ก่อนยิง 👀',
+    combo_norm: 'รักษาคอมโบ! ยิงต่อเนื่องจะได้คะแนนพุ่ง 🚀',
+    rt_good_norm: 'รีแอคเร็วขึ้นอีกนิด — ตาไว มือไว ⚡',
+    fever_norm: 'ตอน FEVER มาแล้ว! ลุยเก็บ GOOD รัว ๆ 🔥',
+    time_left_norm: 'เหลือเวลาเยอะ — ตั้งจังหวะให้แม่นก่อนค่อยเร่ง ⏱️'
+  };
+  const t = (top && top[0] && map[top[0].k]) ? map[top[0].k] : '';
+  if(risk >= 0.78) return t || 'โหมดวิกฤต! โฟกัส GOOD 3 ครั้งติดให้ได้ 💥';
+  if(risk >= 0.60) return t || 'ระวังพลาดติด ๆ กัน — เล็งก่อนยิงนะ ✅';
+  if(risk >= 0.33) return t || 'ทำได้ดี! รักษาความนิ่ง แล้วค่อยเร่งสปีด ✨';
+  return 'ฟอร์มดีมาก! ลองทำคอมโบยาว ๆ ดู 😄';
+}
+
+export function createGoodJunkAI(opts={}){
+  const model = GOODJUNK_MODEL_V1;
+  const state = {
+    seed: String(opts.seed||''),
+    pid: String(opts.pid||'anon'),
+    diff: String(opts.diff||'normal'),
+    view: String(opts.view||'mobile'),
+    lastHintAt: 0,
+    lastRisk: 0,
+    lastTop: [],
+  };
+
+  function extractFeatures(t){
+    // t: telemetry snapshot from game
+    const diff = String(t.diff||state.diff||'normal').toLowerCase();
+    const view = String(t.view||state.view||'mobile').toLowerCase();
+    const timeLeft = clamp(t.timeLeftSec ?? 0, 0, 999);
+    const timeAll  = clamp(t.timeAllSec ?? 80, 20, 300);
+
+    const shots = clamp(t.shots ?? 0, 0, 99999);
+    const miss  = clamp(t.miss ?? 0, 0, 99999);
+    const hitJ  = clamp(t.hitJunk ?? 0, 0, 99999);
+    const hitG  = clamp(t.hitGood ?? 0, 0, 99999);
+    const combo = clamp(t.combo ?? 0, 0, 999);
+
+    const missRate = shots > 0 ? miss/shots : 0;
+    const junkRate = shots > 0 ? hitJ/shots : 0;
+
+    const rtGood = clamp(t.medianRtGoodMs ?? t.avgRtGoodMs ?? 600, 120, 2000);
+    const rtNorm = clamp((rtGood-250)/(1200-250), 0, 1);
+
+    const fever = clamp(t.feverPct ?? 0, 0, 100)/100;
+
+    // Normalize
+    const timeLeftNorm = clamp(timeLeft/timeAll, 0, 1);
+    const comboNorm = clamp(combo/25, 0, 1);
+
+    return [
+      1, // bias
+      diff==='easy'?1:0,
+      diff==='normal'?1:0,
+      diff==='hard'?1:0,
+      view.includes('mob')?1:0,
+      view.includes('pc')?1:0,
+      timeLeftNorm,
+      clamp(missRate,0,1),
+      clamp(junkRate,0,1),
+      comboNorm,
+      rtNorm,
+      fever
+    ];
+  }
+
+  function predict(t){
+    const x = extractFeatures(t||{});
+    const z = dot(model.weights, x);
+    let p = sigmoid(z);
+    if(model.clamp) p = clamp(p, model.clamp.min, model.clamp.max);
+
+    const top = explainTop(model, x);
+    const hint = hintFromSignals(p, top);
+
+    state.lastRisk = p;
+    state.lastTop = top;
+
+    return { risk:p, hint, top };
+  }
+
+  function maybeHint(t){
+    const { risk, hint, top } = predict(t);
+    const now = nowMs();
+    // rate limit: at most once per 4s (kid-friendly)
+    if(now - state.lastHintAt < 4000) return { risk, hint:'', top };
+    state.lastHintAt = now;
+    return { risk, hint, top };
+  }
+
+  function emitAIEvent(payload){
+    try{
+      window.dispatchEvent(new CustomEvent('hha:ai', { detail: payload }));
+    }catch(e){}
+  }
 
   return {
-    version: 'goodjunk-ai-v1',
-    modelVersion: model.version,
-    predict: (feat)=>{
-      const x = featurizeGoodJunk(feat);
-      const p = predictRiskProba(x, model);
-      const label = riskLabel(p, model);
-      return {
-        proba: Math.round(p*1000)/1000,
-        riskLabel: label,
-        hint: explainHint(feat, p),
-      };
-    }
+    name: 'GoodJunkAI',
+    version: model.version,
+    predict,
+    maybeHint,
+    emitAIEvent
   };
 }
