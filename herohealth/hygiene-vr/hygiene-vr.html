@@ -1,17 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260301a (ALL-IN)
-✅ Gameplay: Survival + Practice 15s + Missions + Power-ups + FX
-✅ Quiz: clickable options (mobile/pc) + cVR shoot-to-pick
-✅ Analyze: Heatmap2D + topRisk highlight
-✅ Evaluate: pick zone + pick reason (mobile/pc click) + cVR aim-shoot
-✅ Create: routine 30s pick 3 + score rubric
-Requires:
-- ./hygiene-vr.css
-- ./hygiene.safe.js (export boot)
-- ./hygiene-vr.boot.js (module)
-- ./hygiene-quiz-bank.js (global HHA_HYGIENE_QUIZ_BANK)  [optional but recommended]
-- ../vr/vr-ui.js (defer)
-- ../vr/particles.js (defer, optional FX)
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
+✅ Kid End Summary (no JSON spam)
+✅ Teacher/Research details toggle (JSON hidden by default)
+✅ Practice focus from end (15s) + Evaluate + Create UI IDs
+✅ Quiz bank: ./hygiene-quiz-bank.js
 -->
 <!doctype html>
 <html lang="th">
@@ -22,15 +14,15 @@ Requires:
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260301a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260220a" />
 
-  <!-- Universal VR UI (MUST defer) -->
+  <!-- Universal VR UI -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
   <script src="../vr/particles.js" defer></script>
 
-  <!-- Optional AI packs -->
+  <!-- AI packs (optional) -->
   <script src="../vr/hha-ai-coach.js" defer></script>
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
@@ -39,7 +31,7 @@ Requires:
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260301a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260220a"></script>
 </head>
 
 <body class="view-pc">
@@ -59,20 +51,19 @@ Requires:
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- Progress bars -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill" id="barStep"></div></div>
           </div>
           <div class="hw-bar">
-            <div class="hw-bar-lab">LOOP/MISSION</div>
+            <div class="hw-bar-lab">MISSION</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill cyan" id="barLoop"></div></div>
           </div>
         </div>
 
         <div class="hw-row">
-          <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
+          <div class="hw-pill warn" id="pillRisk">RISK —</div>
           <div class="hw-pill" id="pillTime">TIME 70</div>
           <div class="hw-pill cyan" id="pillQuest">MISSION —</div>
           <div class="hw-pill power" id="pillPower">POWER —</div>
@@ -81,21 +72,10 @@ Requires:
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box (clickable options) -->
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
-
-          <div class="hw-quiz-opts" id="quizOpts">
-            <button class="hw-quiz-opt" id="opt0" type="button"><span class="n">1</span><span class="t">—</span></button>
-            <button class="hw-quiz-opt" id="opt1" type="button"><span class="n">2</span><span class="t">—</span></button>
-            <button class="hw-quiz-opt" id="opt2" type="button"><span class="n">3</span><span class="t">—</span></button>
-            <button class="hw-quiz-opt" id="opt3" type="button"><span class="n">4</span><span class="t">—</span></button>
-          </div>
-
-          <div class="hw-quiz-hint" id="quizHint">
-            Mobile/PC: แตะตัวเลือก • cVR: เล็งแล้ว “ยิง” เพื่อเลือก
-          </div>
         </div>
       </div>
 
@@ -107,12 +87,13 @@ Requires:
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”
+          เป้าหมาย: แตะ “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน • หลบ 🦠 เชื้อโรค • อย่าแตะขั้นตอนผิด<br>
+          ✅ Remember: จำขั้นตอน/จุดสำคัญ<br>
+          ✅ Apply: ทำตามขั้นตอน + timing + coverage
         </div>
         <div class="hw-card-row">
-          <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
-          <button class="hw-ghost" id="btnPractice" type="button">🧪 Practice 15s</button>
+          <button class="hw-cta" id="btnStart" type="button">▶ เริ่มเกม</button>
+          <button class="hw-ghost" id="btnPractice" type="button">🧪 ฝึก 15 วิ</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
         </div>
         <div class="hw-card-sub" style="margin-top:10px">
@@ -121,32 +102,55 @@ Requires:
       </div>
     </div>
 
-    <!-- End Overlay (scrollable + Evaluate + Create) -->
-    <div class="hw-overlay" id="endOverlay" style="display:none">
-      <div class="hw-card hw-card-end">
+    <!-- End Overlay -->
+    <div class="hw-overlay hw-overlay-scroll" id="endOverlay" style="display:none">
+      <div class="hw-card hw-card-scroll">
+
+        <!-- ✅ Kid Summary -->
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
-        <!-- Analyze + Evaluate -->
-        <div class="hw-eval" id="evalBox">
-          <div class="hw-eval-title">🔎 Analyze/Evaluate (30 วินาที)</div>
-          <div class="hw-eval-sub" id="evalSub">
-            เลือก “จุดเสี่ยงสุด” จาก Heatmap แล้วเลือกเหตุผล 1 ข้อ
+        <div class="hw-kidSum" id="kidSum">
+          <div class="hw-kidRow">
+            <div class="hw-kidBadge" id="kidBadge">🏅</div>
+            <div class="hw-kidStats">
+              <div class="hw-kidLine" id="kidLine1">เยี่ยมมาก!</div>
+              <div class="hw-kidMini" id="kidLine2">ถูก — • พลาด — • โดนเชื้อ —</div>
+            </div>
           </div>
-          <div class="hw-eval-sub" id="evalHint">—</div>
+
+          <div class="hw-kidTip">
+            <div class="hw-kidTipTitle">จุดที่ควรซ้อมเพิ่ม</div>
+            <div class="hw-kidTipBody" id="kidTopRisk">—</div>
+          </div>
+
+          <div class="hw-card-row">
+            <button class="hw-cta" id="btnPracticeRisk" type="button">🧪 ซ้อมจุดนี้ 15 วิ</button>
+            <button class="hw-ghost" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
+            <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+          </div>
+        </div>
+
+        <!-- ✅ Evaluate + Analyze -->
+        <div class="hw-eval" id="evalBox">
+          <div class="hw-eval-title">🧠 เกมทาย “จุดเสี่ยงสุด”</div>
+          <div class="hw-eval-sub" id="evalSub">
+            เลือก 1 จุดที่คิดว่า “ล้างไม่ถึง” แล้วเลือกเหตุผล 1 ข้อ
+          </div>
+          <div class="hw-eval-sub"><span class="hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</span></div>
 
           <div class="hw-handmap" id="handMap" aria-label="hand map"></div>
 
           <div class="hw-eval-row">
             <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
-            <div class="hw-eval-score"  id="evalScore">ผลประเมิน: —</div>
+            <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
           </div>
 
           <div class="hw-reasons" id="evalReasons">
-            <button class="hw-reason" type="button" data-reason="ลืมจุดนี้บ่อย">ลืมจุดนี้บ่อย</button>
-            <button class="hw-reason" type="button" data-reason="ถูยาก/ต้องใช้เวลา">ถูยาก/ต้องใช้เวลา</button>
-            <button class="hw-reason" type="button" data-reason="คิดว่าสะอาดแล้วแต่จริงๆไม่">คิดว่าสะอาดแล้วแต่จริงๆไม่</button>
-            <button class="hw-reason" type="button" data-reason="รีบ/โดนรบกวน">รีบ/โดนรบกวน</button>
+            <button class="hw-reason" data-reason="forget">ฉันมักลืมจุดนี้</button>
+            <button class="hw-reason" data-reason="hard">จุดนี้ถูยาก</button>
+            <button class="hw-reason" data-reason="rush">ฉันรีบเกินไป</button>
+            <button class="hw-reason" data-reason="slow">เวลาตอบสนองช้า</button>
           </div>
 
           <div class="hw-card-row" style="margin-top:10px">
@@ -155,25 +159,25 @@ Requires:
           </div>
         </div>
 
-        <!-- Create routine 30s -->
+        <!-- ✅ Create Routine -->
         <div class="hw-create" id="createBox" style="display:none">
-          <div class="hw-eval-title">✨ Create (ตั้ง Routine 3 ข้อ)</div>
+          <div class="hw-eval-title">✨ ตั้งกติกาของฉัน 3 ข้อ</div>
           <div class="hw-eval-sub">
-            เลือก <b>3 ข้อ</b> ที่คุณจะทำจริง (นับถอยหลัง <span class="hw-mini" id="createTimer">30</span>s)
+            เลือกให้ครบ 3 ข้อ ภายใน <b><span id="createTimer">30</span> วิ</b>
+          </div>
+
+          <div class="hw-routine" id="routineOpts">
+            <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
+            <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
+            <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+            <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
+            <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
+            <button class="hw-rt" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
           </div>
 
           <div class="hw-eval-row">
             <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
-            <div class="hw-eval-score"  id="createScore">คะแนน: —</div>
-          </div>
-
-          <div class="hw-routine" id="routineOpts">
-            <button class="hw-rt" type="button" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
-            <button class="hw-rt" type="button" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
-            <button class="hw-rt" type="button" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
-            <button class="hw-rt" type="button" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
-            <button class="hw-rt" type="button" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
-            <button class="hw-rt" type="button" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
+            <div class="hw-eval-score" id="createScore">คะแนน: —</div>
           </div>
 
           <div class="hw-card-row" style="margin-top:10px">
@@ -181,31 +185,51 @@ Requires:
           </div>
         </div>
 
-        <pre class="hw-pre" id="endJson"></pre>
+        <!-- ✅ Teacher/Research details (JSON) -->
+        <div class="hw-details">
+          <button class="hw-details-btn" id="btnToggleDetails" type="button">🔍 ดูรายละเอียดสำหรับครู/วิจัย</button>
 
-        <div class="hw-card-row">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+          <div class="hw-details-body" id="detailsBody" style="display:none">
+            <div class="hw-card-row" style="margin-top:10px">
+              <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+            </div>
+            <pre class="hw-pre" id="endJson"></pre>
+          </div>
         </div>
+
       </div>
     </div>
+
   </div>
 
 <script>
 (function(){
   'use strict';
   const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
   function setViewClass(){
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const el = document.getElementById('labView');
-    if(el) el.textContent = view;
+    const lv = document.getElementById('labView');
+    if(lv) lv.textContent = view;
   }
   setViewClass();
-  const m = document.getElementById('labMode'); if(m) m.textContent = (qs('run','play')||'play');
-  const d = document.getElementById('labDiff'); if(d) d.textContent = (qs('diff','normal')||'normal');
+  const lm = document.getElementById('labMode');
+  const ld = document.getElementById('labDiff');
+  if(lm) lm.textContent = (qs('run','play')||'play');
+  if(ld) ld.textContent = (qs('diff','normal')||'normal');
+
+  // details toggle (safe)
+  const btn = document.getElementById('btnToggleDetails');
+  const body = document.getElementById('detailsBody');
+  if(btn && body){
+    btn.addEventListener('click', ()=>{
+      const on = body.style.display !== 'none';
+      body.style.display = on ? 'none' : 'block';
+      btn.textContent = on ? '🔍 ดูรายละเอียดสำหรับครู/วิจัย' : '🙈 ซ่อนรายละเอียด';
+    });
+  }
 })();
 </script>
 </body>
