@@ -139,7 +139,6 @@ export function boot(cfg){
     margin: (view === 'mobile') ? 12 : 14,
     debug: DEBUG
   });
-  // keep it fresh (HUD height can vary per device)
   setInterval(()=>SpawnGuard.tick(false), 500);
 
   // Tuning
@@ -151,6 +150,7 @@ export function boot(cfg){
     if(diff==='hard'){ spawnBase=0.95; ttlGood=2.35; ttlBad=2.6; missLimit=9;  waterGain=6.8; waterLoss=7.0; }
 
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
+
     return { spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop };
   })();
 
@@ -252,7 +252,9 @@ export function boot(cfg){
     try{ b.el.remove(); }catch(e){}
   }
 
-  function addShield(){ shield = clamp(shield + 1, 0, 9); }
+  function addShield(){
+    shield = clamp(shield + 1, 0, 9);
+  }
 
   function hit(b, x, y){
     if(!playing || paused) return;
@@ -389,7 +391,9 @@ export function boot(cfg){
         ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
       }
     }
-    if(ui.btnBackHub){ ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; }; }
+    if(ui.btnBackHub){
+      ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
+    }
     if(ui.btnReplay){
       ui.btnReplay.onclick = ()=>{
         try{
@@ -403,8 +407,11 @@ export function boot(cfg){
     }
     if(ui.btnCopy){
       ui.btnCopy.onclick = async ()=>{
-        try{ await navigator.clipboard.writeText(safeJson(summary)); }
-        catch(e){ try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){ } }
+        try{
+          await navigator.clipboard.writeText(safeJson(summary));
+        }catch(e){
+          try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){}
+        }
       };
     }
   }
@@ -458,9 +465,13 @@ export function boot(cfg){
       let kind='good';
       const p=r01();
 
-      if(p < (0.64 - bossMult)) kind='good';
-      else if(p < (0.88 + bossMult)) kind='bad';
-      else kind='shield';
+      if(p < (0.64 - bossMult)){
+        kind='good';
+      }else if(p < (0.88 + bossMult)){
+        kind='bad';
+      }else{
+        kind='shield';
+      }
 
       if(kind==='good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
       else if(kind==='shield') makeBubble('shield', pick(SHLD), 2.6);
@@ -473,6 +484,7 @@ export function boot(cfg){
     for(const b of Array.from(bubbles.values())){
       const age=t - b.born;
       if(age >= b.ttl){
+        // expire
         try{ cfg.ai?.onExpire?.(b.kind, { id:b.id }); }catch(e){}
 
         if(b.kind==='good'){
