@@ -1,23 +1,22 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR — RUN PAGE (Solo + Multiplayer Host Authority)
-FULL v20260302-GJ-RUN-MULTI-PANEL
+GoodJunkVR — RUN PAGE (Solo + Multiplayer SyncStart+Seed+Scores)
+FULL v20260302-GJ-RUN-MULTI-SYNCSEED
 Requires:
-- ./goodjunk.safe.js  (your existing game)
-- ./multi-room.js     (this patch)
+- ./goodjunk.safe.js  (your game)
+- ./multi-room.js     (supabase realtime bus)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — GoodJunk VR (Run)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
+
   <style>
     :root{
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --panel: rgba(2,6,23,.72);
       --panel2: rgba(15,23,42,.55);
@@ -37,12 +36,12 @@ Requires:
       background: var(--panel);
       border:1px solid var(--stroke);
       border-radius: 14px;
-      padding: 10px 10px;
-      max-width: 340px;
+      padding: 10px;
+      max-width: 350px;
       backdrop-filter: blur(8px);
     }
     #multiPanel .mut{ color:var(--mut); font-size:12px; }
-    #multiPanel .title{ font-weight:900; font-size:13px; }
+    #multiPanel .title{ font-weight:1000; font-size:13px; }
     #multiPanel .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     #multiPanel button{
       border:1px solid var(--stroke);
@@ -50,23 +49,22 @@ Requires:
       color: var(--text);
       padding: 8px 10px;
       border-radius: 12px;
-      font-weight: 900;
+      font-weight: 1000;
       cursor:pointer;
     }
-    #multiPanel .list{
-      font-size:12px; line-height:1.35; max-height:120px; overflow:auto;
-      padding:6px 8px; border:1px solid var(--stroke); border-radius: 12px;
+    #multiPanel .list, #multiPanel .top3{
+      font-size:12px; line-height:1.35;
+      padding:6px 8px;
+      border:1px solid var(--stroke);
+      border-radius: 12px;
       background: rgba(2,6,23,.45);
       margin-top:6px;
+      max-height: 120px;
+      overflow:auto;
     }
-    #multiPanel .top3{
-      font-size:12px; line-height:1.35; max-height:78px; overflow:auto;
-      padding:6px 8px; border:1px solid var(--stroke); border-radius: 12px;
-      background: rgba(2,6,23,.45);
-      margin-top:6px;
-    }
+    #multiPanel .top3{ max-height:78px; }
 
-    /* Minimal stage placeholder — your game will render itself as usual */
+    /* Placeholder (your SAFE will render real UI) */
     #stage{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -76,28 +74,33 @@ Requires:
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="stage">Loading GoodJunk…</div>
+<div id="app">
+  <div id="stage">Loading GoodJunk…</div>
 
-    <div id="multiPanel" style="display:none">
-      <div class="title">Room: <span id="mpRoom">-</span></div>
-      <div class="mut">You: <span id="mpNick">-</span> • <span id="mpRole">guest</span></div>
+  <div id="multiPanel" style="display:none">
+    <div class="title">Room: <span id="mpRoom">-</span></div>
+    <div class="mut">You: <span id="mpNick">-</span> • <span id="mpRole">guest</span></div>
 
-      <div class="mut" style="margin-top:6px">Players (<span id="mpCount">0</span>)</div>
-      <div id="mpList" class="list">-</div>
+    <div class="mut" style="margin-top:6px">Players (<span id="mpCount">0</span>)</div>
+    <div id="mpList" class="list">-</div>
 
-      <div class="mut" style="margin-top:6px">Top 3</div>
-      <div id="mpTop3" class="top3">-</div>
+    <div class="mut" style="margin-top:6px">Top 3 (live)</div>
+    <div id="mpTop3" class="top3">-</div>
 
-      <div id="hostControls" class="row" style="display:none">
-        <button id="btnStartRoom">START</button>
-        <button id="btnEndRoom">END</button>
-        <button id="btnFinalize">FINAL</button>
-      </div>
+    <div id="hostControls" class="row" style="display:none">
+      <button id="btnStartRoom">START</button>
+      <button id="btnEndRoom">END</button>
+      <button id="btnFinalize">FINAL</button>
+      <button id="btnFinalEnd">FINAL END</button>
+    </div>
 
-      <div class="mut" style="margin-top:6px">Tip: Host จะ “กด START” แล้วทุกคนเริ่มพร้อมกัน</div>
+    <div class="mut" style="margin-top:6px">
+      START = ทุกคน reset+เริ่มพร้อมกัน (seed เดียว)<br/>
+      FINAL = ส่งอันดับ/บอร์ดให้ทุกคน log placement<br/>
+      FINAL END = สั่งจบทันทีทุกเครื่อง
     </div>
   </div>
+</div>
 
 <script type="module">
   import { boot } from './goodjunk.safe.js';
@@ -109,19 +112,20 @@ Requires:
   const setHtml=(id,v)=>{ const el=$(id); if(el) el.innerHTML=String(v); };
 
   const roomId = String(qs('room','')).trim();
-  const nick = String(qs('nick','Player')).trim().slice(0,20) || 'Player';
+  const nick   = String(qs('nick','Player')).trim().slice(0,20) || 'Player';
+  const pid    = String(qs('pid','anon')).trim() || 'anon';   // IMPORTANT: use your HHA pid
 
   let bus = null;
 
-  // scoreboard cache for UI/top3/final
-  const scores = {}; // pid -> {score, misses, combo, good, junk}
+  // local score cache for top3/final board (fed by sendScore)
+  const scores = {}; // pid -> {score, misses}
 
   function renderTop3(){
     const st = bus?.state?.() || {};
     const players = st.players || {};
-    const arr = Object.keys(players).map(pid => {
-      const s = scores[pid] || {score:0, misses:0};
-      return { pid, nick: players[pid]?.nick || pid, score:(s.score|0)||0, misses:(s.misses|0)||0 };
+    const arr = Object.keys(players).map(playerId => {
+      const s = scores[playerId] || {score:0, misses:0};
+      return { playerId, nick: players[playerId]?.nick || playerId, score:(s.score|0)||0, misses:(s.misses|0)||0 };
     });
     arr.sort((a,b)=> (b.score-a.score) || (a.misses-b.misses) || String(a.nick).localeCompare(String(b.nick)));
     const top = arr.slice(0,3).map((p,i)=> `${i+1}) ${p.nick} — ${p.score}`).join('<br/>');
@@ -131,33 +135,30 @@ Requires:
   function buildFinalBoard(){
     const st = bus?.state?.() || {};
     const players = st.players || {};
-    const arr = Object.keys(players).map(pid => {
-      const s = scores[pid] || {score:0, misses:0};
-      return { playerId: pid, nick: players[pid]?.nick || pid, score:(s.score|0)||0, misses:(s.misses|0)||0 };
+    const arr = Object.keys(players).map(playerId => {
+      const s = scores[playerId] || {score:0, misses:0};
+      return { playerId, nick: players[playerId]?.nick || playerId, score:(s.score|0)||0, misses:(s.misses|0)||0 };
     });
     arr.sort((a,b)=> (b.score-a.score) || (a.misses-b.misses) || String(a.nick).localeCompare(String(b.nick)));
     return arr;
   }
 
   if(roomId){
-    // show panel
     $('multiPanel').style.display = 'block';
     setText('mpRoom', roomId);
     setText('mpNick', nick);
 
-    // Supabase config (either set in query or hardcode)
     const SB_URL  = qs('sbUrl','');   // REQUIRED
     const SB_ANON = qs('sbAnon','');  // REQUIRED
-
     if(!SB_URL || !SB_ANON){
-      setText('stage', '❌ Missing sbUrl/sbAnon in URL. Go back to goodjunk-multi.html and add them.');
+      $('stage').textContent = '❌ Missing sbUrl/sbAnon. Go back to goodjunk-multi.html and add them.';
       throw new Error('Missing sbUrl/sbAnon');
     }
 
     bus = createRoomBus({
       roomId,
       nick,
-      playerId: qs('pid',''),  // reuse HHA pid if present
+      playerId: pid,          // IMPORTANT: playerId == pid (so placement matches buildEndSummary)
       forceHost: qs('host','0') === '1',
       supabaseUrl: SB_URL,
       supabaseAnon: SB_ANON,
@@ -165,8 +166,7 @@ Requires:
     });
 
     bus.on('onPresence', (st)=>{
-      const count = Object.keys(st.players||{}).length;
-      setText('mpCount', count);
+      setText('mpCount', Object.keys(st.players||{}).length);
       setText('mpRole', st.isHost ? 'HOST' : 'guest');
       $('hostControls').style.display = st.isHost ? 'flex' : 'none';
 
@@ -180,25 +180,19 @@ Requires:
     });
 
     bus.on('onMsg', (m)=>{
-      // update UI score cache
+      // update score cache for UI
       if(m.t === 'score' && m.by){
-        scores[m.by] = {
-          score: (m.score|0)||0,
-          combo: (m.combo|0)||0,
-          misses:(m.misses|0)||0,
-          good:  (m.good|0)||0,
-          junk:  (m.junk|0)||0
-        };
+        scores[m.by] = { score:(m.score|0)||0, misses:(m.misses|0)||0 };
         renderTop3();
       }
 
-      // forward ALL messages to the game
+      // forward ALL messages to safe.js via gj:net
       window.dispatchEvent(new CustomEvent('gj:net', { detail: m }));
     });
 
     await bus.connect();
 
-    // Host controls
+    // Host buttons
     $('btnStartRoom').addEventListener('click', ()=>{
       const seed = String(Date.now());
       bus.hostStartRound({
@@ -206,7 +200,7 @@ Requires:
         diff: qs('diff','normal'),
         time: Number(qs('time','80'))||80,
         mode:'race',
-        gameVersion:'v20260302'
+        gameVersion:'v20260302-syncseed'
       });
     });
 
@@ -215,26 +209,22 @@ Requires:
     });
 
     $('btnFinalize').addEventListener('click', ()=>{
-      const board = buildFinalBoard();
-      bus.hostFinalBoard(board);
+      bus.hostFinalBoard(buildFinalBoard());
+    });
+
+    // FINAL END: force all clients end instantly
+    $('btnFinalEnd').addEventListener('click', ()=>{
+      bus.broadcast('final_end', { by: pid });
     });
 
   }else{
-    // solo
     $('multiPanel').style.display = 'none';
   }
 
-  // Boot the existing game
+  // Boot safe.js (pass multi bus)
   boot({
-    multi: bus ? {
-      enabled: true,
-      roomId,
-      bus,
-      // optional hooks (you can ignore)
-      onStart: ({seed}) => { /* game can start spawner after this */ },
-      onConfirm: (x) => { /* observe confirm */ },
-      onEnd: () => {}
-    } : { enabled:false }
+    pid,
+    multi: bus ? { enabled:true, roomId, bus } : { enabled:false }
   });
 </script>
 </body>
