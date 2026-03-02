@@ -50,9 +50,7 @@ export function createMPSession(opts){
         body: JSON.stringify(payload),
         keepalive: true
       });
-    }catch(e){
-      // 403/blocked/Offline => ignore safely
-    }
+    }catch(e){}
   }
 
   async function join(){
@@ -71,11 +69,7 @@ export function createMPSession(opts){
     await postEvent('MP_END', extra || {});
   }
 
-  // ---- polling snapshot ----
-  // Expected GET:
-  //   `${api}?op=mpScore&sessionId=...`
-  // Response JSON suggestion:
-  //   { sessionId, red:123, blue:95, leader:"red", leadGap:28, ts:... }
+  // GET `${api}?op=mpScore&sessionId=...`
   async function poll(){
     if(!canUse()) return null;
     try{
@@ -88,18 +82,15 @@ export function createMPSession(opts){
       lastSnap = js || null;
       window.dispatchEvent(new CustomEvent('hha:mp-snapshot', { detail: lastSnap }));
       return lastSnap;
-    }catch(e){
-      return null;
-    }
+    }catch(e){ return null; }
   }
 
   function startPolling(){
     if(!canUse()) return;
     if(pollTimer) return;
-    poll(); // immediate
+    poll();
     pollTimer = setInterval(poll, pollMs);
   }
-
   function stopPolling(){
     if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
   }
