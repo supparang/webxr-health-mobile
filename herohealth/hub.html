@@ -1,12 +1,13 @@
 <!-- === /webxr-health-mobile/herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
-PATCH v20260301b-hub-pass-api-ai-battle-safe
+PATCH v20260301c-hub-pass-api-ai-battle-safe + germ-detective-link
 ✅ No forced ordering: play any game anytime
 ✅ Safe network: API 403 won't break hub
 ✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
 ✅ FIX: api= Apps Script /exec ส่งต่อแบบถูกต้อง (normalize+auto-encode)
 ✅ ADD: pass-through ai/battle/room/autostart/forfeit
 ✅ FIX: GoodJunk root launcher = ./goodjunk-vr.html
+✅ ADD: Germ Detective root launcher = ./germ-detective.html
 -->
 <!doctype html>
 <html lang="th">
@@ -148,6 +149,8 @@ PATCH v20260301b-hub-pass-api-ai-battle-safe
           <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
           <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
           <a class="btn cyan" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
+          <!-- ✅ ADD: Germ Detective root launcher -->
+          <a class="btn cyan" id="goGermDetective" href="./germ-detective.html">Germ Detective</a>
         </div>
         <div class="small">* ทุกเกม hygiene ใช้ “root launcher” แล้วส่งไป run ในโฟลเดอร์</div>
       </div>
@@ -189,7 +192,6 @@ PATCH v20260301b-hub-pass-api-ai-battle-safe
     v = String(v ?? '').trim();
     if(!v) return '';
     if(v === 'null' || v === 'undefined') return '';
-    // remove whitespace/newlines that sometimes sneak in
     v = v.replace(/\s+/g,'').trim();
     if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
       try { v = decodeURIComponent(v); } catch(e){}
@@ -211,11 +213,11 @@ PATCH v20260301b-hub-pass-api-ai-battle-safe
     api:  normalizeMaybeEncodedUrl(qs('api','')), // ✅ Apps Script /exec
 
     // ✅ AI + Battle (optional)
-    ai: String(qs('ai','')),                 // '1' recommended
-    battle: String(qs('battle','')),         // '1'
-    room: String(qs('room','')).trim(),      // room code
-    autostart: String(qs('autostart','')),   // ms
-    forfeit: String(qs('forfeit','')),       // ms
+    ai: String(qs('ai','')),
+    battle: String(qs('battle','')),
+    room: String(qs('room','')).trim(),
+    autostart: String(qs('autostart','')),
+    forfeit: String(qs('forfeit','')),
 
     // research params
     studyId: String(qs('studyId','')),
@@ -291,9 +293,10 @@ PATCH v20260301b-hub-pass-api-ai-battle-safe
     return u.toString();
   }
 
+  // ✅ ADD: goGermDetective
   const linkIds = [
     'goGoodJunk','goGroups','goHydration','goPlate',
-    'goHandwash','goBrush','goMaskCough',
+    'goHandwash','goBrush','goMaskCough','goGermDetective',
     'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
   ];
   for(const id of linkIds){
