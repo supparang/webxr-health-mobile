@@ -1,202 +1,231 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM)
-PATCH v20260302-RUN-FOLDER-GOODJUNKVR
-✅ Loads: ./goodjunk.safe.js (ESM)
-✅ Optional AI: ../vr/ai-goodjunk.js (?ai=1)
-✅ Optional Battle: ../vr/battle-rtdb.js (?battle=1&room=xxx)
-✅ Optional VR UI: ../vr/vr-ui.js (ENTER VR/EXIT/RECENTER + hha:shoot)
+GoodJunkVR — RUN PAGE (Solo + Multiplayer RACE SyncStart+Seed+Scores)
+FULL v20260302-GJ-RUN-MULTI-SYNCSEED-RACELOCK
+Requires:
+- ./goodjunk.safe.js
+- ./multi-room.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk VR</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="google" content="notranslate" />
-  <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — GoodJunk VR (Run)</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
+
+  <style>
+    :root{
+      --sat: env(safe-area-inset-top, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(15,23,42,.55);
+      --stroke: rgba(148,163,184,.28);
+      --text: #e8eefc;
+      --mut: rgba(232,238,252,.76);
+    }
+    html,body{ height:100%; margin:0; background:#020617; color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    #app{ position:fixed; inset:0; overflow:hidden; }
+
+    #multiPanel{
+      position:fixed;
+      top: calc(10px + var(--sat));
+      left: calc(10px + var(--sal));
+      z-index: 9999;
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 10px;
+      max-width: 360px;
+      backdrop-filter: blur(8px);
+    }
+    #multiPanel .mut{ color:var(--mut); font-size:12px; }
+    #multiPanel .title{ font-weight:1000; font-size:13px; }
+    #multiPanel .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    #multiPanel button{
+      border:1px solid var(--stroke);
+      background: var(--panel2);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-weight: 1000;
+      cursor:pointer;
+    }
+    #multiPanel .list, #multiPanel .top3{
+      font-size:12px; line-height:1.35;
+      padding:6px 8px;
+      border:1px solid var(--stroke);
+      border-radius: 12px;
+      background: rgba(2,6,23,.45);
+      margin-top:6px;
+      max-height: 120px;
+      overflow:auto;
+    }
+    #multiPanel .top3{ max-height:78px; }
+
+    #stage{
+      position:absolute; inset:0;
+      display:grid; place-items:center;
+      color: rgba(232,238,252,.65);
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
+<div id="app">
+  <div id="stage">Loading GoodJunk…</div>
 
-    <!-- tiny boot overlay -->
-    <div id="bootOverlay" aria-hidden="false"
-      style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      background:radial-gradient(1200px 800px at 50% 40%, rgba(30,41,59,.35), rgba(2,6,23,.96));
-      color:rgba(226,232,240,.92);font:900 14px/1.4 system-ui;z-index:9999;">
-      Loading GoodJunk…
+  <div id="multiPanel" style="display:none">
+    <div class="title">Room: <span id="mpRoom">-</span></div>
+    <div class="mut">You: <span id="mpNick">-</span> • <span id="mpRole">guest</span></div>
+
+    <div class="mut" style="margin-top:6px">Players (<span id="mpCount">0</span>)</div>
+    <div id="mpList" class="list">-</div>
+
+    <div class="mut" style="margin-top:6px">Top 3 (live)</div>
+    <div id="mpTop3" class="top3">-</div>
+
+    <div id="hostControls" class="row" style="display:none">
+      <button id="btnStartRoom">START</button>
+      <button id="btnFinalize">FINAL</button>
+      <button id="btnFinalEnd">FINAL END</button>
     </div>
 
-    <!-- Debug pills (optional) -->
-    <div id="debugPills" aria-hidden="true">
-      <span class="pill">view=<b id="uiView">—</b></span>
-      <span class="pill">run=<b id="uiRun">—</b></span>
-      <span class="pill">diff=<b id="uiDiff">—</b></span>
+    <div class="mut" style="margin-top:6px">
+      START = เริ่มพร้อมกัน (seed เดียว)<br/>
+      FINAL = ส่งอันดับ/บอร์ดให้ทุกคน log placement<br/>
+      FINAL END = สั่งจบทันทีทุกเครื่อง
     </div>
-
-    <!-- Top HUD -->
-    <header id="hud">
-      <div class="hud-row">
-        <div class="pill">SCORE <b id="hud-score">0</b></div>
-        <div class="pill">TIME <b id="hud-time">0</b></div>
-        <div class="pill">MISS <b id="hud-miss">0</b></div>
-        <div class="pill">GRADE <b id="hud-grade">C</b></div>
-      </div>
-
-      <div class="hud-row">
-        <div class="pill pill-soft">
-          GOAL <b id="hud-goal">Daily</b>:
-          <span><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">20</b></span>
-          <span id="goalDesc" class="mut">Hit GOOD 20</span>
-        </div>
-        <div class="pill pill-soft">
-          MINI <b id="hud-mini">—</b>
-          <span class="mut">⏱ <b id="miniTimer">—</b></span>
-        </div>
-      </div>
-
-      <!-- AI HUD -->
-      <div class="hud-row">
-        <div class="pill pill-ai">
-          AI Risk <b id="aiRisk">—</b>
-          <span class="mut">next: <b id="aiHint">—</b></span>
-        </div>
-      </div>
-
-      <!-- Fever + Shield + Boss -->
-      <div class="hud-row hud-bars">
-        <div class="barCard">
-          <div class="barTop">
-            <span class="mut">FEVER</span>
-            <b id="feverText">0%</b>
-          </div>
-          <div class="bar">
-            <div class="barFill" id="feverFill" style="width:0%"></div>
-          </div>
-        </div>
-
-        <div class="barCard">
-          <div class="barTop">
-            <span class="mut">SHIELD</span>
-            <b id="shieldPills">—</b>
-          </div>
-        </div>
-
-        <div class="barCard boss" id="bossBar" aria-hidden="true">
-          <div class="barTop">
-            <span class="mut">BOSS</span>
-            <b id="bossHint">—</b>
-          </div>
-          <div class="bar">
-            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="gj-progress" aria-hidden="false">
-        <div class="gj-progress-track">
-          <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
-        </div>
-      </div>
-    </header>
-
-    <!-- Playfield -->
-    <main id="stage" aria-label="GoodJunk Stage">
-      <div id="gj-layer" aria-label="targets"></div>
-    </main>
-
-    <!-- Low time overlay -->
-    <div id="lowTimeOverlay" aria-hidden="true">
-      <div class="lowTimeCard">
-        <div class="mut">TIME</div>
-        <div class="lowTimeNum" id="gj-lowtime-num">5</div>
-      </div>
-    </div>
-
-    <!-- End overlay -->
-    <div id="endOverlay" aria-hidden="true">
-      <div class="panel">
-        <div class="endTitle" id="endTitle">Game Over</div>
-        <div class="endSub" id="endSub">—</div>
-
-        <div class="endGrid">
-          <div class="endStat"><span>GRADE</span><b id="endGrade">—</b></div>
-          <div class="endStat"><span>SCORE</span><b id="endScore">0</b></div>
-          <div class="endStat"><span>MISS</span><b id="endMiss">0</b></div>
-          <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
-        </div>
-
-        <div class="endActions">
-          <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
-          <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
-        </div>
-        <!-- Cooldown button will be injected here by JS -->
-      </div>
-    </div>
-
   </div>
+</div>
 
-  <!-- ✅ Optional: Universal VR UI (adds ENTER VR/EXIT/RECENTER + crosshair + dispatches hha:shoot) -->
-  <script type="module">
-    try{ await import('../vr/vr-ui.js'); }catch(e){ console.warn('[GoodJunk] vr-ui missing', e); }
-  </script>
+<script type="module">
+  import { boot } from './goodjunk.safe.js';
+  import { createRoomBus } from './multi-room.js';
 
-  <script type="module">
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d } };
+  const $  = (id)=>document.getElementById(id);
+  const setText=(id,v)=>{ const el=$(id); if(el) el.textContent=String(v); };
+  const setHtml=(id,v)=>{ const el=$(id); if(el) el.innerHTML=String(v); };
 
-    // Build cfg from URL params (pass-through)
-    const cfg = {
-      view: qs('view','mobile'),
-      run: qs('run','play'),
-      diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
-      seed: qs('seed', String(Date.now())),
-      pid: qs('pid','anon'),
-      hub: qs('hub','../hub.html'),
-      ai: null
-    };
+  const roomId = String(qs('room','')).trim();
+  const nick   = String(qs('nick','Player')).trim().slice(0,20) || 'Player';
 
-    // ✅ AI enabled only when ?ai=1 AND run=play
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    if(aiOn){
-      try{
-        const mod = await import('../vr/ai-goodjunk.js');
-        if(typeof mod.createGoodJunkAI === 'function'){
-          cfg.ai = mod.createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
-        }
-      }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
-      }
+  // ✅ Force pid for production (avoid anon collision)
+  let pid = String(qs('pid','')).trim();
+  if(!pid){
+    pid = (crypto.randomUUID && crypto.randomUUID()) ? crypto.randomUUID() : ('p'+Math.random().toString(16).slice(2));
+    const u = new URL(location.href);
+    u.searchParams.set('pid', pid);
+    location.replace(u.toString());
+    // stop execution; page will reload
+    throw new Error('pid injected, reloading');
+  }
+
+  let bus = null;
+
+  const scores = {}; // playerId -> {score, misses}
+
+  function renderTop3(){
+    const st = bus?.state?.() || {};
+    const players = st.players || {};
+    const arr = Object.keys(players).map(playerId => {
+      const s = scores[playerId] || {score:0, misses:0};
+      return { playerId, nick: players[playerId]?.nick || playerId, score:(s.score|0)||0, misses:(s.misses|0)||0 };
+    });
+    arr.sort((a,b)=> (b.score-a.score) || (a.misses-b.misses) || String(a.nick).localeCompare(String(b.nick)));
+    const top = arr.slice(0,3).map((p,i)=> `${i+1}) ${p.nick} — ${p.score}`).join('<br/>');
+    setHtml('mpTop3', top || '-');
+  }
+
+  function buildFinalBoard(){
+    const st = bus?.state?.() || {};
+    const players = st.players || {};
+    const arr = Object.keys(players).map(playerId => {
+      const s = scores[playerId] || {score:0, misses:0};
+      return { playerId, nick: players[playerId]?.nick || playerId, score:(s.score|0)||0, misses:(s.misses|0)||0 };
+    });
+    arr.sort((a,b)=> (b.score-a.score) || (a.misses-b.misses) || String(a.nick).localeCompare(String(b.nick)));
+    return arr;
+  }
+
+  if(roomId){
+    $('multiPanel').style.display = 'block';
+    setText('mpRoom', roomId);
+    setText('mpNick', nick);
+
+    const SB_URL  = qs('sbUrl','');   // REQUIRED
+    const SB_ANON = qs('sbAnon','');  // REQUIRED
+    if(!SB_URL || !SB_ANON){
+      $('stage').textContent = '❌ Missing sbUrl/sbAnon. Go back to goodjunk-multi.html and add them.';
+      throw new Error('Missing sbUrl/sbAnon');
     }
 
-    // Buttons
-    const btnRetry = document.getElementById('btnRetry');
-    const btnHub = document.getElementById('btnHub');
-    btnRetry?.addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
-      location.href = u.toString();
-    });
-    btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+    bus = createRoomBus({
+      roomId,
+      nick,
+      playerId: pid,              // IMPORTANT: playerId == pid
+      forceHost: qs('host','0') === '1',
+      supabaseUrl: SB_URL,
+      supabaseAnon: SB_ANON,
+      maxPlayers: 10
     });
 
-    // Boot
-    const { boot } = await import('./goodjunk.safe.js');
-    boot(cfg);
+    bus.on('onPresence', (st)=>{
+      setText('mpCount', Object.keys(st.players||{}).length);
+      setText('mpRole', st.isHost ? 'HOST' : 'guest');
+      $('hostControls').style.display = st.isHost ? 'flex' : 'none';
 
-    // hide boot overlay after boot
-    try{
-      const bo = document.getElementById('bootOverlay');
-      if(bo){ bo.setAttribute('aria-hidden','true'); bo.style.display='none'; }
-    }catch(e){}
-  </script>
+      const rows = Object.values(st.players||{})
+        .sort((a,b)=> String(a.playerId).localeCompare(String(b.playerId)))
+        .map(p => `• ${p.nick}${p.playerId===st.hostId?' (host)':''}`)
+        .join('<br/>');
+      setHtml('mpList', rows || '-');
+
+      renderTop3();
+    });
+
+    bus.on('onMsg', (m)=>{
+      if(m.t === 'score' && m.by){
+        scores[m.by] = { score:(m.score|0)||0, misses:(m.misses|0)||0 };
+        renderTop3();
+      }
+      window.dispatchEvent(new CustomEvent('gj:net', { detail: m }));
+    });
+
+    await bus.connect();
+
+    $('btnStartRoom').addEventListener('click', ()=>{
+      const n = Object.keys(bus.state().players||{}).length;
+      if(n < 2){ alert('ต้องมีอย่างน้อย 2 คนก่อนกด START'); return; }
+
+      const seed = String(Date.now());
+      bus.hostStartRound({
+        seed,
+        diff: qs('diff','normal'),
+        time: Number(qs('time','80'))||80,
+        mode:'race',
+        gameVersion:'v20260302-race-lock'
+      });
+    });
+
+    $('btnFinalize').addEventListener('click', ()=>{
+      bus.hostFinalBoard(buildFinalBoard());
+    });
+
+    $('btnFinalEnd').addEventListener('click', ()=>{
+      bus.broadcast('final_end', { by: pid });
+    });
+
+  }else{
+    $('multiPanel').style.display = 'none';
+  }
+
+  // Boot safe.js
+  boot({
+    pid,
+    multi: bus ? { enabled:true, roomId, bus } : { enabled:false }
+  });
+</script>
 </body>
 </html>
