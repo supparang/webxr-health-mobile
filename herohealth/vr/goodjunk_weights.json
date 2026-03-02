@@ -1,0 +1,54 @@
+{
+  "schema": "goodjunk-risk-logreg-v1",
+  "trainedAtIso": "2026-03-02T00:00:00.000Z",
+  "notes": "Starter weights for GoodJunk risk prediction. Replace with real trained weights from train_goodjunk.py when ready.",
+  "features": [
+    "miss",
+    "hitJunk",
+    "accPct",
+    "medianRtGoodMs",
+    "combo",
+    "feverPct",
+    "timeLeftSec",
+    "bossOn"
+  ],
+  "bias": -0.35,
+  "weights": [
+    0.92,
+    1.18,
+    -0.75,
+    0.64,
+    -0.42,
+    -0.22,
+    -0.18,
+    0.36
+  ],
+  "scaler": {
+    "mean": [
+      1.2,
+      0.4,
+      84.0,
+      820.0,
+      5.5,
+      22.0,
+      38.0,
+      0.15
+    ],
+    "scale": [
+      1.6,
+      0.9,
+      10.0,
+      260.0,
+      4.0,
+      18.0,
+      22.0,
+      0.36
+    ]
+  },
+  "metrics": {
+    "auc": 0.79,
+    "acc": 0.73,
+    "calibration": "rough",
+    "warning": "These metrics are placeholders for starter pack; train to replace."
+  }
+}
