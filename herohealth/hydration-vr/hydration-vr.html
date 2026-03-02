@@ -108,7 +108,7 @@ Requires:
     const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
     s('uiView',view); s('uiRun',runMode); s('uiDiff',diff);
 
-    // ✅ helper: show fatal error on screen (so we don't "silently" fail)
+    // ✅ helper: show fatal error on screen
     function fatal(where, err){
       console.error('[HY FATAL]', where, err);
       try{
