@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
 // ✅ ESM + hha:shoot + deterministic + AI hooks wired + end summary hardened + cooldown daily-first
-// ✅ AUTO HUD-SAFE SPAWN via SpawnGuard
-// FULL v20260301-HYDRATION-SAFE-SPAWNGUARD
+// ✅ AUTO HUD-SAFE SPAWN via SpawnGuard (tighter for small screens)
+// ✅ AI HUD shows real Risk/Hint (rule-based deterministic)
+// FULL v20260301b-HYDRATION-SAFE-SPAWNGUARD-AIHUD
 'use strict';
 
 import { createSpawnGuard } from '../vr/spawn-guard.js';
@@ -102,7 +103,9 @@ export function boot(cfg){
 
   const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
-  const HH_CAT='exercise';       // ✅ ถ้าในระบบคุณจัด hydration เป็น nutrition ให้เปลี่ยนเป็น 'nutrition'
+
+  // ✅ ถ้าในระบบคุณจัด hydration อยู่ Nutrition zone ให้เปลี่ยนเป็น 'nutrition'
+  const HH_CAT='exercise';
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
@@ -133,10 +136,11 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
-  // ✅ SpawnGuard: compute HUD-safe area automatically
+  // ✅ SpawnGuard: tighter safe zone for small screens
   const SpawnGuard = createSpawnGuard({
     hudSelector: '.hud',
-    margin: (view === 'mobile') ? 12 : 14,
+    margin: (view === 'mobile') ? 16 : 14,
+    minTop: (view === 'mobile') ? 8 : 0,
     debug: DEBUG
   });
   setInterval(()=>SpawnGuard.tick(false), 500);
@@ -256,7 +260,7 @@ export function boot(cfg){
     shield = clamp(shield + 1, 0, 9);
   }
 
-  function hit(b, x, y){
+  function hit(b){
     if(!playing || paused) return;
 
     if(b.kind==='good'){
@@ -310,7 +314,7 @@ export function boot(cfg){
     if(!el) return;
     const id=el.dataset.id;
     const b=bubbles.get(String(id));
-    if(b) hit(b, ev.clientX, ev.clientY);
+    if(b) hit(b);
   }, { passive:true });
 
   // crosshair shoot (VR/cVR)
@@ -335,10 +339,7 @@ export function boot(cfg){
     if(!playing || paused) return;
     const lockPx = ev?.detail?.lockPx ?? 56;
     const b = pickClosestToCenter(lockPx);
-    if(b){
-      const r=layerRect();
-      hit(b, r.left+r.width/2, r.top+r.height/2);
-    }
+    if(b) hit(b);
   });
 
   // End summary
@@ -354,7 +355,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-01_SpawnGuard',
+      gameVersion: 'HydrationVR_SAFE_2026-03-01b_AIHUD',
       device: view,
       runMode,
       diff,
@@ -372,7 +373,7 @@ export function boot(cfg){
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
+      aiState: (function(){ try{ return cfg.ai?._state || null; }catch(e){ return null; } })()
     };
   }
 
@@ -425,12 +426,7 @@ export function boot(cfg){
 
     const summary = buildSummary(reason);
 
-    // AI onEnd
-    try{
-      const aiEnd = cfg.ai?.onEnd?.(summary);
-      if(aiEnd) summary.aiEnd = aiEnd;
-    }catch(e){}
-
+    try{ cfg.ai?.end?.(summary); }catch(e){}
     WIN.__HHA_LAST_SUMMARY = summary;
     dispatchEndOnce(summary);
 
@@ -484,8 +480,7 @@ export function boot(cfg){
     for(const b of Array.from(bubbles.values())){
       const age=t - b.born;
       if(age >= b.ttl){
-        // expire
-        try{ cfg.ai?.onExpire?.(b.kind, { id:b.id }); }catch(e){}
+        try{ cfg.ai?.emit?.('expire', { kind:b.kind, id:b.id }); }catch(e){}
 
         if(b.kind==='good'){
           miss++;
@@ -527,16 +522,26 @@ export function boot(cfg){
     spawnTick(dt);
     updateBubbles();
 
-    // AI tick
+    // ✅ AI HUD (deterministic rule-based)
     try{
-      const pred = cfg.ai?.onTick?.(dt, {
-        missGoodExpired: 0,
-        missJunkHit: miss,
-        shield,
-        fever: 0,
-        combo
-      }) || null;
-      setAIHud(pred);
+      const risk =
+        clamp(
+          (miss/Math.max(1, TUNE.missLimit))*0.55 +
+          (waterPct<35 ? (35-waterPct)/35*0.35 : 0) +
+          (combo===0 ? 0.10 : 0),
+          0, 1
+        );
+
+      let hint = 'เล็งกลางจอแล้วกดต่อเนื่อง';
+      if(waterPct < 35) hint = 'ดื่มน้ำเป้า 💧 ให้ถี่ขึ้น!';
+      else if(miss > (TUNE.missLimit*0.5)) hint = 'ระวังพลาด/โดน junk 🧋';
+      else if(combo >= 6) hint = 'คอมโบมาแล้ว! เก็บต่อเลย 🔥';
+
+      cfg.ai?.setRisk?.(risk);
+      cfg.ai?.setHint?.(hint);
+
+      // fallback direct HUD update
+      setAIHud({ hazardRisk: risk, next5: [hint] });
     }catch(e){}
 
     setHUD();
