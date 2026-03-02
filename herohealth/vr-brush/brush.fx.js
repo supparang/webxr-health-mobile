@@ -1,102 +1,61 @@
 // === /herohealth/vr-brush/brush.fx.js ===
-// BrushVR FX Overlay v20260216c
-(function(){
-  'use strict';
-  const WIN = window, DOC = document;
-  const $id = (id)=>DOC.getElementById(id);
+// Brush FX — toast/pulse (optional module)
+// FULL v20260302-BRUSH-FX
+'use strict';
 
-  function ensureFX(){
-    let fx = $id('br-fx');
-    if(fx) return fx;
-
-    fx = DOC.createElement('div');
-    fx.id = 'br-fx';
-    fx.innerHTML = `
-      <div id="fx-stop" class="br-fx-stop" hidden>STOP</div>
-      <div id="fx-banner" class="br-fx-banner" hidden></div>
-
-      <div id="fx-laser" class="br-fx-laser" hidden>
-        <div class="beam"></div>
-        <div class="beam b2"></div>
-      </div>
-
-      <div id="fx-shock" class="br-fx-shock" hidden>
-        <div class="ring"></div>
-      </div>
-
-      <div id="fx-weak" class="br-fx-weak" hidden>🎯 WEAK</div>
+export function bootFx(){
+  const D = document;
+  let layer = D.getElementById('fxLayer');
+  if(!layer){
+    layer = D.createElement('div');
+    layer.id = 'fxLayer';
+    layer.style.cssText = `
+      position:fixed; inset:0; pointer-events:none; z-index:55;
+      display:block;
     `;
-    DOC.body.appendChild(fx);
-    return fx;
+    D.body.appendChild(layer);
   }
 
-  function show(el, ms){
-    if(!el) return;
-    el.hidden = false;
-    el.classList.add('show');
-    clearTimeout(el._t);
-    if(ms) el._t = setTimeout(()=>hide(el), ms);
-  }
-  function hide(el){
-    if(!el) return;
-    el.classList.remove('show');
-    clearTimeout(el._t2);
-    el._t2 = setTimeout(()=>{ el.hidden = true; }, 180);
-  }
+  function toast(text, kind='info', ms=900){
+    const el = D.createElement('div');
+    el.textContent = String(text||'');
+    el.style.cssText = `
+      position:fixed; left:50%; top:14%;
+      transform:translate(-50%,-6px);
+      padding:8px 12px; border-radius:999px;
+      font-weight:900; font-size:14px;
+      background: rgba(15,23,42,.92);
+      border: 1px solid rgba(148,163,184,.24);
+      box-shadow: 0 14px 34px rgba(0,0,0,.30);
+      color: rgba(229,231,235,.95);
+      opacity:0; transition: all .16s ease;
+    `;
+    if (kind === 'good') el.style.borderColor = 'rgba(34,197,94,.35)';
+    if (kind === 'bad')  el.style.borderColor = 'rgba(239,68,68,.35)';
+    if (kind === 'warn') el.style.borderColor = 'rgba(245,158,11,.35)';
+    layer.appendChild(el);
 
-  function banner(msg, ms=900){
-    ensureFX();
-    const el = $id('fx-banner');
-    if(!el) return;
-    el.textContent = msg;
-    show(el, ms);
-  }
-
-  function stop(ms=650){
-    ensureFX();
-    const el = $id('fx-stop');
-    show(el, ms);
-  }
-
-  function laser(ms=1400){
-    ensureFX();
-    const el = $id('fx-laser');
-    show(el, ms);
+    requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translate(-50%,0)'; });
+    setTimeout(()=>{
+      el.style.opacity='0';
+      el.style.transform='translate(-50%,-6px)';
+      setTimeout(()=> el.remove(), 220);
+    }, ms);
   }
 
-  function shockGate(open){
-    ensureFX();
-    const el = $id('fx-shock');
-    if(!el) return;
-    el.hidden = false;
-    el.classList.toggle('gate-open', !!open);
-    el.classList.add('show');
-    clearTimeout(el._t);
-    el._t = setTimeout(()=>{ el.hidden = true; el.classList.remove('show','gate-open'); }, 380);
+  function pulse(kind='good', ms=180){
+    const el = D.createElement('div');
+    el.style.cssText = `
+      position:fixed; inset:0; opacity:0;
+      background: rgba(34,197,94,.10);
+      transition: opacity .10s ease;
+    `;
+    if (kind === 'bad') el.style.background = 'rgba(239,68,68,.10)';
+    if (kind === 'warn') el.style.background = 'rgba(245,158,11,.10)';
+    layer.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.opacity='1'; });
+    setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 160); }, ms);
   }
 
-  function weak(on){
-    ensureFX();
-    const el = $id('fx-weak');
-    if(on) show(el);
-    else hide(el);
-  }
-
-  WIN.addEventListener('brush:ai', (ev)=>{
-    const t = String(ev?.detail?.type||'').toLowerCase();
-    if(t==='boss_start') banner('💎 BOSS INCOMING', 900);
-    if(t==='boss_phase') banner(`🔥 PHASE ${ev.detail.phase||''}`, 800);
-    if(t==='time_10s') banner('⏳ 10s!', 650);
-  });
-
-  WIN.addEventListener('hha:event', (ev)=>{
-    const type = String(ev?.detail?.type||'').toLowerCase();
-    if(type==='whiff') stop(300);
-    if(type==='feat'){
-      // optional: control weak spot later via features
-    }
-  });
-
-  WIN.addEventListener('hha:start', ()=>{ ensureFX(); weak(false); });
-  WIN.addEventListener('hha:end', ()=>{ weak(false); });
-})();
+  return { toast, pulse };
+}
