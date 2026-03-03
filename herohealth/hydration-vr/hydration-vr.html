@@ -1,6 +1,6 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration VR RUN — PRODUCTION
-FULL v20260303-HYDRATION-RUN-STORM-MISS-SPLIT
+FULL v20260303c-HYDRATION-RUN-HUDSPAWN-PAUSE
 
 Requires:
 - ./hydration.safe.js (ES module)
@@ -18,11 +18,10 @@ Requires:
   <meta name="google" content="notranslate"/>
   <title>HeroHealth • Hydration VR</title>
 
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260303"/>
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260303c"/>
 
-  <!-- ✅ Shared modules -->
-  <script type="module" src="../vr/hha-shield.js?v=20260303"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260303"></script>
+  <script type="module" src="../vr/hha-shield.js?v=20260303c"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260303c"></script>
 </head>
 
 <body>
@@ -35,7 +34,7 @@ Requires:
         <!-- ✅ MISS split -->
         <span class="k">MISS</span> <span id="uiMiss" class="v">0</span>
         <span class="k">EXPIRE</span> <span id="uiExpire" class="v">0</span>
-        <span class="k">BAD</span> <span id="uiBad" class="v">0</span>
+        <span class="k">BLOCK</span> <span id="uiBlock" class="v">0</span>
 
         <span class="k">GRADE</span> <span id="uiGrade" class="v">—</span>
       </div>
@@ -47,7 +46,6 @@ Requires:
         <span class="chip">⚡ PHASE <span id="uiPhase">—</span></span>
       </div>
 
-      <!-- ✅ AI HUD -->
       <div class="chips">
         <span class="chip">🤖 RISK <span id="aiRisk">—</span></span>
         <span class="chip"><span id="aiHint">—</span></span>
@@ -64,7 +62,6 @@ Requires:
     </div>
   </div>
 
-  <!-- ✅ Stage wrapper + Storm FX layer -->
   <div class="stage" id="stage">
     <div id="stormFx" aria-hidden="true"></div>
     <div id="layer" aria-label="hydration layer"></div>
@@ -92,7 +89,6 @@ Requires:
   </div>
 
   <script type="module">
-    // ✅ Shield install (quiet 403 + lock scroll + banner)
     try{
       window.HHA_Shield?.install({
         lockScroll: true,
@@ -111,7 +107,6 @@ Requires:
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
     const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
-    // ✅ cVR strict: ไม่ให้แตะเป้าตรง ๆ (ต้องยิง crosshair ผ่าน hha:shoot)
     if(view === 'cvr'){
       try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
     }
