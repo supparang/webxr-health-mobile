@@ -1,52 +1,60 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Battle RTDB (stub-safe) — comparator: score→acc→miss→medianRT
-// PATCH v20260302-BATTLE-STUB
+// Battle RTDB — FAIL-SAFE scaffold
+// PATCH v20260302-BATTLE-SAFE
 'use strict';
-
-function cmp(a,b){
-  // higher score wins
-  if((a.score|0) !== (b.score|0)) return (b.score|0) - (a.score|0);
-
-  // higher acc wins
-  const aAcc = Number(a.accPct||0);
-  const bAcc = Number(b.accPct||0);
-  if(aAcc !== bAcc) return (bAcc - aAcc);
-
-  // lower miss wins
-  if((a.miss|0) !== (b.miss|0)) return (a.miss|0) - (b.miss|0);
-
-  // lower median RT wins
-  return (Number(a.medianRtGoodMs||0) - Number(b.medianRtGoodMs||0));
-}
 
 export async function initBattle(opts){
   opts = opts || {};
   if(!opts.enabled) return null;
 
-  // NOTE: This is a stub. Replace with Firebase/RTDB implementation later.
+  const room = String(opts.room || '').trim() || 'room1';
+  const pid = String(opts.pid || 'anon');
+  const gameKey = String(opts.gameKey || 'game');
+
+  // NOTE: put your real RTDB implementation here (Firebase / WS / etc.)
+  // This scaffold never throws to keep game stable.
+
   const state = {
-    room: opts.room || 'local',
-    pid:  opts.pid || 'anon',
-    gameKey: opts.gameKey || 'game',
-    lastScore: null,
-    ended: false
+    enabled: true,
+    room, pid, gameKey,
+    started: false,
+    last: null,
+    winner: null
   };
 
+  function cmp(a,b){
+    // score → acc → miss → median RT (lower is better)
+    const as = +a.score||0, bs=+b.score||0;
+    if(as !== bs) return bs - as;
+
+    const aa = +a.accPct||0, ba=+b.accPct||0;
+    if(aa !== ba) return ba - aa;
+
+    const am = +a.miss||0, bm=+b.miss||0;
+    if(am !== bm) return am - bm;
+
+    const art = +a.medianRtGoodMs||0, brt=+b.medianRtGoodMs||0;
+    if(art !== brt) return art - brt;
+
+    return 0;
+  }
+
   function pushScore(payload){
-    state.lastScore = payload;
-    // in real impl: write to RTDB
+    state.last = payload || null;
+    // TODO: publish to RTDB
   }
 
   function finalizeEnd(summary){
-    state.ended = true;
-    // in real impl: write end summary + decide winner between players
-    // here: no-op
+    // TODO: fetch opponent + decide winner
+    // For now, just keep local
+    state.started = true;
+    return { ok:true };
   }
 
   return {
     pushScore,
     finalizeEnd,
-    comparator: cmp,
-    getState: ()=> ({...state})
+    _state: state,
+    _cmp: cmp
   };
 }
