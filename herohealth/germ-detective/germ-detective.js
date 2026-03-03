@@ -1,9 +1,11 @@
 // === /herohealth/germ-detective/germ-detective.js ===
-// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + RESULT MODAL
-// ✅ 3-stage mission + chain + budget + AI coach
-// ✅ Result Modal (no alert): score/rank/breakdown + Retry + Back HUB
-// ✅ Save HHA_LAST_SUMMARY
-// ✅ hha:shoot support
+// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + RESULT MODAL ++
+// ✅ Result Modal (no alert): score/rank/breakdown
+// ✅ Badges: Super Sleuth / Chain Master / Budget Hero / Speed Runner
+// ✅ Export CSV (local download)
+// ✅ Flush-hardened Back HUB (save last summary + ensure end event)
+// ✅ 3-stage mission + chain + budget + AI coach + hha:shoot
+// NOTE: No networking / no apps script binding.
 
 export default function GameApp(opts = {}) {
   const cfg = Object.assign({
@@ -16,7 +18,7 @@ export default function GameApp(opts = {}) {
     scene: 'classroom',
     view: 'pc',
     pid: 'anon',
-    hub: '/herohealth/hub.html' // ✅ provided by boot from URL hub=
+    hub: '/herohealth/hub.html'
   }, opts);
 
   const DOC = document;
@@ -53,6 +55,10 @@ export default function GameApp(opts = {}) {
   function emitEvent(name, payload){
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload } })); }catch(_){}
   }
+  function emitLabels(type, payload){
+    try{ WIN.dispatchEvent(new CustomEvent('hha:labels', { detail:{ type, payload } })); }catch(_){}
+  }
+
   function saveLastSummary(reason, score){
     try{
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
@@ -82,7 +88,7 @@ export default function GameApp(opts = {}) {
 
     hotspots: [],
     evidence: [],
-    chain: { nodes: new Map(), edges: [], inferred: [], _truth: [] },
+    chain: { edges: [], inferred: [], _truth: [] },
     score: null
   };
 
@@ -183,13 +189,9 @@ export default function GameApp(opts = {}) {
   }
 
   // ---------------- UI ----------------
-  let STAGE = null;
-  let TOPBAR = null;
-  let PANEL = null;
-  let COACH = null;
-  let MODAL = null;
+  let STAGE=null, TOPBAR=null, PANEL=null, COACH=null, MODAL=null;
 
-  function ensureBaseStyle(){
+  function ensureStyle(){
     if(qs('gdBaseStyle')) return;
     const st = el('style'); st.id='gdBaseStyle';
     st.textContent = `
@@ -283,11 +285,7 @@ export default function GameApp(opts = {}) {
         border-bottom:1px solid rgba(148,163,184,.14);
         display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
       }
-      .gd-rank{
-        font-weight:1100;
-        font-size:18px;
-        letter-spacing:.3px;
-      }
+      .gd-rank{ font-weight:1100; font-size:18px; letter-spacing:.3px; }
       .gd-modal-body{
         padding:14px;
         display:grid;
@@ -308,16 +306,27 @@ export default function GameApp(opts = {}) {
         display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
       }
       .gd-small{ color:rgba(148,163,184,.95); font-weight:850; font-size:12px; line-height:1.35; }
-      @media (max-width: 860px){
-        .gd-modal-body{ grid-template-columns:1fr; }
+      .gd-badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+      .gd-badge{
+        border:1px solid rgba(148,163,184,.18);
+        background:rgba(255,255,255,.02);
+        border-radius:999px;
+        padding:6px 10px;
+        font-weight:1000;
+        font-size:12px;
       }
+      .gd-badge.on{
+        border-color: rgba(34,211,238,.30);
+        background: rgba(34,211,238,.10);
+      }
+      @media (max-width: 860px){ .gd-modal-body{ grid-template-columns:1fr; } }
       @media (max-width: 980px){ .gd-wrap{ grid-template-columns:1fr; } }
     `;
     DOC.head.appendChild(st);
   }
 
   function buildUI(){
-    ensureBaseStyle();
+    ensureStyle();
 
     COACH = qs('gdCoach');
     if(!COACH){ COACH = el('div','gd-coach'); COACH.id='gdCoach'; DOC.body.appendChild(COACH); }
@@ -331,6 +340,7 @@ export default function GameApp(opts = {}) {
             <div>
               <div class="gd-rank" id="gdResTitle">ผลลัพธ์</div>
               <div class="gd-small" id="gdResMeta">-</div>
+              <div class="gd-badges" id="gdResBadges"></div>
             </div>
             <div class="pill" id="gdResPill">-</div>
           </div>
@@ -377,6 +387,7 @@ export default function GameApp(opts = {}) {
 
           <div class="gd-actions">
             <button class="btn" id="gdResClose" type="button">ปิด</button>
+            <button class="btn" id="gdResExport" type="button">⬇️ Export CSV</button>
             <button class="btn warn" id="gdResRetry" type="button">🔁 เล่นใหม่</button>
             <button class="btn good" id="gdResBackHub" type="button">🏠 กลับ HUB</button>
           </div>
@@ -384,16 +395,15 @@ export default function GameApp(opts = {}) {
       `;
       DOC.body.appendChild(MODAL);
 
-      // modal wiring
       qs('gdResClose').onclick = ()=> hideResult();
       qs('gdResRetry').onclick = ()=> { hideResult(); resetAndRestart(); };
-      qs('gdResBackHub').onclick = ()=> { safeGoHub(); };
-      MODAL.addEventListener('click', (e)=>{
-        if(e.target === MODAL) hideResult();
-      });
+      qs('gdResBackHub').onclick = ()=> { flushAndGoHub('backhub'); };
+      qs('gdResExport').onclick = ()=> { exportCSV(); };
+
+      MODAL.addEventListener('click', (e)=>{ if(e.target===MODAL) hideResult(); });
       DOC.addEventListener('keydown', (e)=>{
         if(!MODAL.classList.contains('show')) return;
-        if(e.key === 'Escape') hideResult();
+        if(e.key==='Escape') hideResult();
       });
     }
 
@@ -477,7 +487,7 @@ export default function GameApp(opts = {}) {
     setTimeout(()=>{ try{ COACH.classList.remove('show'); }catch{} }, 3600);
   }
 
-  // ---------------- gameplay helpers (same logic asก่อนหน้า) ----------------
+  // ---------------- gameplay helpers ----------------
   function updateTopPills(){
     const toolTxt = (STATE.tool==='uv'?'UV':STATE.tool==='swab'?'Swab':STATE.tool==='cam'?'Camera':'Clean');
     const m = (STATE.stage===1?'Warm':STATE.stage===2?'Trick':'Boss');
@@ -488,11 +498,13 @@ export default function GameApp(opts = {}) {
   }
   function updateTimerUI(){ const e = qs('gdTimer'); if(e) e.textContent = `เวลา: ${STATE.timeLeft}s`; }
   function mkMini(text){ const d = el('div','mini-item'); d.textContent = text; return d; }
+
   function budgetLeft(){ return Math.max(0, (STATE.budget.points||0) - (STATE.budget.spent||0)); }
   function avgRisk(){ if(!STATE.hotspots.length) return 0; return STATE.hotspots.reduce((a,h)=>a+(Number(h.risk)||0),0)/STATE.hotspots.length; }
   function countScanned(){ return STATE.hotspots.reduce((a,h)=>a+(h.scanned?1:0),0); }
   function verifiedCount(){ return STATE.hotspots.reduce((a,h)=>a+(h.verified?1:0),0); }
   function uniqueTargetsTouched(){ return new Set(STATE.evidence.map(e=>e.target)).size; }
+  function warmTargetCount(){ return cfg.diff==='easy'?3:cfg.diff==='hard'?5:4; }
 
   function updateBudgetUI(){
     const left = budgetLeft();
@@ -506,6 +518,7 @@ export default function GameApp(opts = {}) {
       else last.forEach(a=> list.appendChild(mkMini(`Clean: ${a.target} • -${a.cost} • risk ${a.riskBefore}→${a.riskAfter}`)));
     }
   }
+
   function updateEvidenceUI(){
     const pill = qs('gdEvidencePill'); if(pill) pill.textContent = String(STATE.evidence.length);
     const list = qs('gdEvidenceList');
@@ -513,10 +526,9 @@ export default function GameApp(opts = {}) {
       list.innerHTML = '';
       const last = STATE.evidence.slice(-10).reverse();
       if(!last.length) list.appendChild(mkMini('ยังไม่มีหลักฐาน • เริ่มจาก UV ที่ “ลูกบิด/มือถือ/ช้อนกลาง”'));
-      else last.forEach(r=> list.appendChild(mkMini(`${r.type.toUpperCase()} • ${r.target} • ${r.info||''}`)));
+      else last.forEach(r=> list.appendChild(mkMini(`${String(r.type||'').toUpperCase()} • ${r.target} • ${r.info||''}`)));
     }
   }
-  function warmTargetCount(){ return cfg.diff==='easy'?3:cfg.diff==='hard'?5:4; }
 
   // ---- chain inference ----
   function findHotspotByName(name){ return STATE.hotspots.find(h=>h.name===name)||null; }
@@ -546,442 +558,7 @@ export default function GameApp(opts = {}) {
     const seq = STATE.evidence
       .filter(e=>['hotspot','sample','photo','clean'].includes(e.type))
       .map(e=>({t:e.tIso,target:e.target}))
-      .sort((x,y)=>x.t.localeCompare(y.t));
+      .sort((x,y)=>String(x.t).localeCompare(String(y.t)));
     for(let i=0;i<seq.length-1;i++){
       const a=seq[i].target,b=seq[i+1].target; if(a===b) continue;
-      const ha=findHotspotByName(a), hb=findHotspotByName(b);
-      const wa=ha?(ha.verified?3:ha.scanned?1:0):0;
-      const wb=hb?(hb.verified?3:hb.scanned?1:0):0;
-      addEdge(a,b,1+wa+wb);
-    }
-    const risky = STATE.hotspots.filter(h=>h.scanned||h.swabbed||h.photoed).slice()
-      .sort((a,b)=>(b.risk+b.importance*8)-(a.risk+a.importance*8)).slice(0,4);
-    for(let i=0;i<risky.length-1;i++) addEdge(risky[i].name, risky[i+1].name, 2+risky[i].importance);
-    STATE.chain.inferred = bestChain3(STATE.chain.edges) || [];
-  }
-  function inferredChain(){ updateChainInference(); return STATE.chain.inferred||[]; }
-  function formatChainShort(){ const c=inferredChain(); return (c&&c.length>=2)?c.slice(0,4).join(' → '):''; }
-
-  // ---- mission ----
-  function updateMissionUI(){
-    const box = qs('gdMissionBody'); if(!box) return;
-    const warmNeed=warmTargetCount(), warmDone=countScanned();
-    const trickDone=inferredChain().length>=3;
-    const bossTarget=diffBossTarget(cfg.diff);
-    const bossScore=Math.round(avgRisk());
-    const bossDone=bossScore<=bossTarget;
-
-    box.innerHTML = `
-      <div class="mini-item">Stage 1: UV อย่างน้อย <b>${warmNeed}</b> จุด (ตอนนี้ ${warmDone}/${warmNeed})</div>
-      <div class="mini-item">Stage 2: ต่อ chain A→B→C (ตอนนี้ ${formatChainShort()||'ยังไม่มี'})</div>
-      <div class="mini-item">Stage 3: Clean ลด risk เฉลี่ย ≤ <b>${bossTarget}</b> (ตอนนี้ ${bossScore})</div>
-      <div class="mini-item"><b>Tip:</b> Swab ช่วย “ยืนยัน” ทำให้ chain/คะแนนแม่นขึ้น</div>
-    `;
-
-    if(STATE.stage===1 && warmDone>=warmNeed){ setStage(2); showCoach('เข้าสู่ Trick Stage!', 'ต่อ A→B→C จากลำดับที่คุณสืบ'); }
-    if(STATE.stage===2 && trickDone){ setStage(3); setPhase('intervene'); showCoach('เข้าสู่ Boss Stage!', 'ใช้ Clean แบบคุ้มงบ'); }
-    if(STATE.stage===3 && bossDone){ setPhase('report'); showCoach('สำเร็จ! พร้อมส่งรายงาน 🧾', 'กด “ส่งรายงาน”'); }
-  }
-
-  // ---- tools & actions ----
-  function setTool(t){ STATE.tool=t; updateTopPills(); emitEvent('tool_change',{tool:t,phase:STATE.phase,stage:STATE.stage}); }
-  function setPhase(p){ STATE.phase=String(p||'investigate'); updateTopPills(); emitEvent('phase_change',{phase:STATE.phase,stage:STATE.stage}); }
-  function setStage(s){ s=clamp(s,1,3); if(STATE.stage===s) return; STATE.stage=s; updateTopPills(); emitEvent('stage_change',{stage:s}); }
-  function togglePause(){ STATE.paused=!STATE.paused; const b=qs('gdBtnPause'); if(b) b.textContent=STATE.paused?'▶ Resume':'⏸ Pause'; emitEvent(STATE.paused?'pause':'resume',{paused:STATE.paused}); }
-  function addEvidence(rec){ const r=Object.assign({tIso:isoNow(),tool:STATE.tool},rec); STATE.evidence.push(r); emitEvent('evidence_added',r); updateEvidenceUI(); updateMissionUI(); }
-
-  function renderHotspots(){
-    STATE.hotspots.forEach(h=>{ if(h.el&&h.el.parentNode) h.el.parentNode.removeChild(h.el); h.el=null; });
-    STATE.hotspots.forEach(h=>{
-      const d=el('div','gd-spot');
-      d.dataset.id=h.id;
-      d.style.left=`${h.xp}%`; d.style.top=`${h.yp}%`;
-      d.innerHTML=`${h.name}<span class="sub">${spotSubline(h)}</span>`;
-      d.onclick=()=> onHotspotAction(h,'click');
-      STAGE.appendChild(d); h.el=d; applySpotClass(h);
-    });
-  }
-  function spotSubline(h){
-    const f=[]; if(h.scanned)f.push('UV'); if(h.swabbed)f.push('SWAB'); if(h.photoed)f.push('CAM'); if(h.cleaned)f.push('CLEAN'); if(h.verified)f.push('VERIFIED');
-    return f.length?f.join(' • '):'แตะเพื่อสืบสวน';
-  }
-  function applySpotClass(h){
-    if(!h.el) return;
-    h.el.classList.toggle('cleaned', !!h.cleaned);
-    h.el.classList.toggle('verified', !!h.verified);
-    h.el.classList.toggle('hot', (!h.cleaned) && h.risk>=65);
-    const sub=h.el.querySelector('.sub'); if(sub) sub.textContent=spotSubline(h);
-  }
-
-  function cleanCost(h){
-    const base=12+h.importance*4;
-    const m=cfg.diff==='hard'?1.15:cfg.diff==='easy'?0.9:1.0;
-    return Math.round(base*m);
-  }
-  function cleanEffect(h){
-    const base=18+h.importance*6;
-    const bonus=(h.verified?10:0)+(h.scanned?6:0);
-    const m=cfg.diff==='hard'?0.92:cfg.diff==='easy'?1.06:1.0;
-    return Math.round((base+bonus)*m);
-  }
-
-  function onHotspotAction(h, method){
-    if(!h||STATE.ended||!STATE.running||STATE.paused) return;
-    const tool=STATE.tool;
-
-    if(tool==='uv'){
-      h.scanned=true;
-      addEvidence({type:'hotspot',target:h.name,info:'พบร่องรอยด้วย UV',method,tool:'uv'});
-      h.risk=clamp(h.risk+(h._infected?8:2)+RNG()*4,0,100);
-      applySpotClass(h);
-    }else if(tool==='swab'){
-      h.swabbed=true;
-      const confirm = h._infected ? (RNG()<0.92) : (RNG()<0.15);
-      if(confirm){ h.verified=true; h.risk=clamp(h.risk+10+RNG()*6,0,100); addEvidence({type:'sample',target:h.name,info:'Swab ยืนยัน: เสี่ยงจริง',method,tool:'swab'}); }
-      else { addEvidence({type:'sample',target:h.name,info:'Swab: ไม่พบเชื้อ (อาจ false negative)',method,tool:'swab'}); h.risk=clamp(h.risk-(4+RNG()*6),0,100); }
-      applySpotClass(h);
-    }else if(tool==='cam'){
-      h.photoed=true;
-      addEvidence({type:'photo',target:h.name,info:'ถ่ายภาพหลักฐาน',method,tool:'cam'});
-      applySpotClass(h);
-    }else if(tool==='clean'){
-      if(STATE.phase!=='intervene' && STATE.stage<3){ showCoach('ยังไม่ถึงช่วง Clean แบบคุ้มสุด','ทำ Warm/Trick ก่อน'); return; }
-      const cost=cleanCost(h), left=budgetLeft();
-      if(left<cost){ showCoach('งบไม่พอ!',`เหลือ ${left} แต่ต้องใช้ ${cost}`); return; }
-      const before=Math.round(h.risk);
-      const red=cleanEffect(h);
-      h.risk=clamp(h.risk-red,0,100);
-      h.cleaned=true;
-      STATE.budget.spent += cost;
-      STATE.budget.actions.push({target:h.name,cost,riskBefore:before,riskAfter:Math.round(h.risk),tIso:isoNow()});
-      addEvidence({type:'clean',target:h.name,info:`ทำความสะอาด (-${red} risk)`,method,tool:'clean'});
-      applySpotClass(h);
-      updateBudgetUI();
-    }
-
-    updateMissionUI();
-    coachTick();
-  }
-
-  // ---- AI Coach ----
-  function computeRiskScore(){
-    const avg=Math.round(avgRisk());
-    const importantUnscanned=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).length;
-    const pressure=1-(STATE.timeLeft/STATE.timeTotal);
-    return clamp(Math.round(avg*0.7 + importantUnscanned*8 + pressure*18),0,100);
-  }
-  function nextBestAction(){
-    const candidates=STATE.hotspots.filter(h=>!h.cleaned);
-    candidates.sort((a,b)=>{
-      const sa=(a.risk*1.15+a.importance*10)-(a.scanned?0:12)-(a.verified?0:6);
-      const sb=(b.risk*1.15+b.importance*10)-(b.scanned?0:12)-(b.verified?0:6);
-      return sb-sa;
-    });
-    return candidates[0]?candidates[0].name:null;
-  }
-  function coachTick(){
-    if(!STATE.coach.enabled||STATE.ended) return;
-    const t=nowMs(); if(t-STATE.coach.lastAt<STATE.coach.cooldownMs) return;
-
-    const risk=computeRiskScore();
-    const nba=nextBestAction();
-    const un=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).sort((a,b)=>(b.importance*12+b.risk)-(a.importance*12+a.risk));
-    const r1 = un[0] ? `ยังไม่สแกนจุดสัมผัสสูง: ${un[0].name}` : `ลองตรวจ ${nba||'จุดเสี่ยง'} เพราะคุ้มสุด`;
-    const r2 = un[1] ? `อีกจุดสำคัญ: ${un[1].name}` : (STATE.timeLeft<=Math.max(20,Math.floor(STATE.timeTotal*0.25))?'เวลาใกล้หมด — เลือกจุดคุ้มงบ':'ใช้ Swab เพื่อยืนยันก่อน');
-
-    const key=`${STATE.stage}|${STATE.phase}|${risk}|${nba}|${r1}|${r2}`;
-    if(key===STATE.coach.lastKey) return;
-
-    const stuck=(STATE.stage===1 && countScanned()<warmTargetCount() && STATE.timeLeft<STATE.timeTotal-15);
-    const warn=(risk>=70)||stuck;
-
-    const box=qs('gdCoachBox');
-    const rp=qs('gdRiskPill'); if(rp) rp.textContent=`risk: ${risk}`;
-
-    if(warn && nba){
-      showCoach(`AI Coach: แนะนำไปที่ “${nba}”`, `เหตุผล: (1) ${r1} (2) ${r2}`);
-      if(box) box.textContent = `AI: next=${nba} | 1) ${r1} 2) ${r2}`;
-      emitEvent('ai_coach_tip', { riskScore:risk, nextBestAction:nba, reason1:r1, reason2:r2 });
-      STATE.coach.lastAt=t; STATE.coach.lastKey=key;
-    }else{
-      if(box) box.textContent = `riskScore=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase}`;
-    }
-  }
-
-  // ---- cVR shoot ----
-  function hitTestByPoint(x,y, lockPx){
-    let targetEl=null;
-    try{ targetEl=DOC.elementFromPoint(x,y); }catch(_){}
-    const spotEl=targetEl && targetEl.closest ? targetEl.closest('.gd-spot') : null;
-    if(spotEl && spotEl.dataset && spotEl.dataset.id) return findHotspotById(spotEl.dataset.id);
-
-    lockPx=clamp(lockPx,8,120);
-    let best=null, bestD=1e9;
-    STATE.hotspots.forEach(h=>{
-      if(!h.el) return;
-      const r=h.el.getBoundingClientRect();
-      const cx=r.left+r.width/2, cy=r.top+r.height/2;
-      const d=Math.hypot(cx-x,cy-y);
-      if(d<bestD){ bestD=d; best=h; }
-    });
-    return (best && bestD<=lockPx) ? best : null;
-  }
-  function wireShoot(){
-    WIN.addEventListener('hha:shoot', (ev)=>{
-      const d=ev.detail||{};
-      const x=Number(d.x), y=Number(d.y), lockPx=Number(d.lockPx||28);
-      const h=hitTestByPoint(x,y,lockPx);
-      if(h) onHotspotAction(h, d.source||'shoot');
-    }, false);
-  }
-
-  // ---- score + modal ----
-  function computeScore(reason){
-    const truthInfected = STATE.hotspots.filter(h=>h._infected).map(h=>h.name);
-    const predicted = STATE.hotspots.filter(h=>h.verified).map(h=>h.name);
-
-    const tp = predicted.filter(x=>truthInfected.includes(x)).length;
-    const fp = predicted.filter(x=>!truthInfected.includes(x)).length;
-    const fn = truthInfected.filter(x=>!predicted.includes(x)).length;
-
-    const precision = (tp+fp)? tp/(tp+fp) : 0;
-    const recall = (tp+fn)? tp/(tp+fn) : 0;
-    const accScore = Math.round((precision*0.6 + recall*0.4)*100);
-
-    const inf = inferredChain();
-    const infPairs = [];
-    for(let i=0;i<inf.length-1;i++) infPairs.push(`${inf[i]}>${inf[i+1]}`);
-    const truthPairs = (STATE.chain._truth||[]).map(p=>`${p[0]}>${p[1]}`);
-    const chainHit = infPairs.filter(p=>truthPairs.includes(p)).length;
-    const chainScore = Math.round(clamp((chainHit/Math.max(1,truthPairs.length))*100,0,100));
-
-    const speedScore = Math.round(clamp((STATE.timeLeft/STATE.timeTotal)*100,0,100));
-
-    const avgEnd = Math.round(avgRisk());
-    const avgStart = Math.round(STATE.hotspots.reduce((a,h)=>a+(h.baseRisk||0),0)/Math.max(1,STATE.hotspots.length));
-    const reduce = clamp(avgStart-avgEnd,-100,100);
-    const interventionScore = Math.round(clamp(50+reduce*1.2,0,100));
-
-    const warmOk = countScanned() >= warmTargetCount();
-    const trickOk = inferredChain().length >= 3;
-    const bossOk = avgEnd <= diffBossTarget(cfg.diff);
-    const missionBonus = (warmOk?6:0) + (trickOk?10:0) + (bossOk?14:0);
-
-    const base = accScore*0.30 + chainScore*0.24 + interventionScore*0.26 + speedScore*0.20;
-    const final = Math.round(clamp(base + missionBonus,0,100));
-    const rank = final>=90?'S':final>=80?'A':final>=70?'B':final>=60?'C':'D';
-
-    return {
-      reason, final, rank,
-      accuracy:{score:accScore,tp,fp,fn,precision:+precision.toFixed(3),recall:+recall.toFixed(3)},
-      chain:{score:chainScore,hit:chainHit,truthPairs:truthPairs.length,chain:formatChainShort()},
-      speed:{score:speedScore,timeLeft:STATE.timeLeft,timeTotal:STATE.timeTotal},
-      intervention:{score:interventionScore,avgRiskStart:avgStart,avgRiskEnd:avgEnd,budgetSpent:STATE.budget.spent,budgetLeft:budgetLeft()},
-      mission:{warmOk,trickOk,bossOk,bonus:missionBonus}
-    };
-  }
-
-  function showResult(score){
-    if(!MODAL) return;
-    const title = qs('gdResTitle');
-    const meta = qs('gdResMeta');
-    const pill = qs('gdResPill');
-
-    const final = qs('gdResFinal');
-    const chain = qs('gdResChain');
-    const risk = qs('gdResRisk');
-    const mission = qs('gdResMission');
-
-    const acc = qs('gdResAcc');
-    const accSub = qs('gdResAccSub');
-    const inter = qs('gdResInt');
-    const interSub = qs('gdResIntSub');
-    const chs = qs('gdResChainScore');
-    const chsSub = qs('gdResChainSub');
-    const spd = qs('gdResSpeed');
-    const spdSub = qs('gdResSpeedSub');
-
-    if(title) title.textContent = `ผลลัพธ์ • Rank ${score.rank}`;
-    if(meta) meta.textContent = `scene=${cfg.scene} • diff=${cfg.diff} • run=${cfg.run} • pid=${cfg.pid} • reason=${score.reason}`;
-    if(pill) pill.textContent = `คะแนน ${score.final}/100`;
-
-    if(final) final.textContent = String(score.final);
-    if(chain) chain.textContent = score.chain.chain || '-';
-    if(risk) risk.textContent = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft}`;
-    if(mission) mission.textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus}`;
-
-    if(acc) acc.textContent = String(score.accuracy.score);
-    if(accSub) accSub.textContent = `TP ${score.accuracy.tp} FP ${score.accuracy.fp} FN ${score.accuracy.fn} • P ${score.accuracy.precision} R ${score.accuracy.recall}`;
-
-    if(inter) inter.textContent = String(score.intervention.score);
-    if(interSub) interSub.textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft}`;
-
-    if(chs) chs.textContent = String(score.chain.score);
-    if(chsSub) chsSub.textContent = `match ${score.chain.hit}/${score.chain.truthPairs}`;
-
-    if(spd) spd.textContent = String(score.speed.score);
-    if(spdSub) spdSub.textContent = `timeLeft ${score.speed.timeLeft}/${score.speed.timeTotal}`;
-
-    MODAL.classList.add('show');
-  }
-
-  function hideResult(){
-    if(!MODAL) return;
-    MODAL.classList.remove('show');
-  }
-
-  function safeGoHub(){
-    const hub = String(cfg.hub || '/herohealth/hub.html');
-    location.href = hub;
-  }
-
-  // ---- end / retry ----
-  let _timer=null, _feat=null;
-
-  function stopLoops(){
-    if(_timer) clearInterval(_timer);
-    if(_feat) clearInterval(_feat);
-    _timer=null; _feat=null;
-  }
-
-  function endGame(reason){
-    if(STATE.ended) return;
-    STATE.ended=true; STATE.running=false;
-    stopLoops();
-
-    const score = computeScore(reason);
-    STATE.score = score;
-
-    emitEvent('session_end', { reason, score });
-    try{ WIN.dispatchEvent(new CustomEvent('hha:end', { detail:{ reason, score } })); }catch(_){}
-
-    saveLastSummary(reason, score);
-    showResult(score);
-  }
-
-  function resetStateForRetry(){
-    // fresh RNG (new seed for play; keep deterministic for research)
-    if(cfg.run === 'play'){
-      const nextSeed = String(Date.now());
-      cfg.seed = nextSeed;
-    }
-    RNG = mulberry32(hash32(cfg.seed + '|' + cfg.scene + '|' + cfg.diff + '|' + cfg.run));
-
-    stopLoops();
-
-    // reset state fields
-    STATE.running=false; STATE.paused=false; STATE.ended=false;
-    STATE.timeTotal = clamp(cfg.timeSec, 20, 600);
-    STATE.timeLeft = STATE.timeTotal;
-
-    STATE.tool='uv'; STATE.phase='investigate'; STATE.stage=1;
-    STATE.budget = { points: diffBudget(cfg.diff), spent:0, actions:[] };
-    STATE.coach = { lastAt:0, lastKey:'', cooldownMs:6500, enabled:true };
-
-    STATE.evidence.length = 0;
-    STATE.chain.edges.length = 0;
-    STATE.chain.inferred.length = 0;
-    STATE.score = null;
-
-    // rebuild hotspots fully
-    buildHotspots();
-
-    // rerender UI hotspots & panels
-    if(STAGE) renderHotspots();
-    updateTopPills();
-    updateBudgetUI();
-    updateEvidenceUI();
-    updateMissionUI();
-    updateTimerUI();
-  }
-
-  function startLoops(){
-    STATE.running=true; STATE.paused=false; STATE.ended=false;
-    updateTopPills(); updateTimerUI(); updateBudgetUI(); updateEvidenceUI(); updateMissionUI();
-
-    emitEvent('session_start', { game:'germ-detective', run:cfg.run, diff:cfg.diff, time:STATE.timeTotal, seed:cfg.seed, pid:cfg.pid, scene:cfg.scene, view:cfg.view });
-
-    _timer = setInterval(()=>{
-      if(!STATE.running || STATE.paused || STATE.ended) return;
-      STATE.timeLeft--;
-      updateTimerUI();
-
-      try{
-        const feat = {
-          game:'germ-detective',
-          run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view,
-          timeLeft:STATE.timeLeft, timeTotal:STATE.timeTotal,
-          stage:STATE.stage, phase:STATE.phase,
-          tool:STATE.tool,
-          evidenceCount:STATE.evidence.length,
-          uniqueTargets: uniqueTargetsTouched(),
-          scanned: countScanned(),
-          verified: verifiedCount(),
-          avgRisk: Math.round(avgRisk()),
-          budgetLeft: budgetLeft(),
-          riskScore: computeRiskScore(),
-          nextBestAction: nextBestAction(),
-          chain: (STATE.chain.inferred||[]).slice(0,4).join('>') || ''
-        };
-        WIN.dispatchEvent(new CustomEvent('hha:features_1s', { detail: feat }));
-      }catch(_){}
-
-      coachTick();
-      updateMissionUI();
-      if(STATE.timeLeft <= 0) endGame('timeup');
-    }, 1000);
-
-    _feat = setInterval(()=>{ if(!STATE.paused && !STATE.ended) coachTick(); }, 1500);
-  }
-
-  function resetAndRestart(){
-    resetStateForRetry();
-    startLoops();
-    showCoach('เริ่มรอบใหม่!', 'ลุยเลย: UV → Swab → ต่อ chain → Clean');
-  }
-
-  function submitReport(){
-    if(STATE.phase !== 'report'){
-      showCoach('ส่งได้ แต่ถ้าทำ Trick/Boss ให้สำเร็จก่อนจะได้โบนัสเพิ่ม', 'ลองต่อ chain และลด risk เฉลี่ยตามเป้า');
-    }
-    endGame('submitted');
-  }
-
-  // ---------------- init ----------------
-  function init(){
-    buildHotspots();
-    buildUI();
-    renderHotspots();
-    wireShoot();
-
-    setTool('uv');
-    setPhase('investigate');
-    setStage(1);
-
-    WIN.GD = WIN.GD || {};
-    WIN.GD.started = true;
-
-    WIN.addEventListener('message', (ev)=>{
-      const m = ev.data;
-      if(!m) return;
-      if(m.type === 'command' && m.action === 'setTool' && m.value) setTool(m.value);
-      if(m.type === 'command' && m.action === 'pause') { if(!STATE.paused) togglePause(); }
-      if(m.type === 'command' && m.action === 'resume') { if(STATE.paused) togglePause(); }
-      if(m.type === 'command' && m.action === 'retry') { resetAndRestart(); }
-      if(m.type === 'command' && m.action === 'hub') { safeGoHub(); }
-    }, false);
-
-    startLoops();
-    showCoach('คดีเริ่มแล้ว! มีคนป่วยหลายคน — ต้องหา “จุดแพร่” ให้เร็ว', 'เริ่มจาก UV แล้ว Swab ยืนยัน');
-  }
-
-  return {
-    init,
-    getState: ()=>STATE,
-    setTool,
-    submitReport,
-    resetAndRestart,
-    goHub: safeGoHub,
-    stop: ()=>{ stopLoops(); STATE.running=false; STATE.ended=true; }
-  };
-}
+      const ha=findHotspotByName(a), hb
