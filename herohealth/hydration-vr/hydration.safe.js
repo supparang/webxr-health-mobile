@@ -1,13 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
 // ✅ HUD-aware spawn (never under HUD)
-// ✅ Storm Lightning + Final Boss
-// ✅ MISS = bad hit only (real mistake)
-// ✅ EXPIRE separated (good expired)
-// ✅ BAD BLOCK separated (shield blocks junk)
-// ✅ Background => Pause/Resume (no forced GameOver)
-// ✅ Log throttled (log=1 only)
-// FULL v20260303c-HYDRATION-SAFE-HUDSPAWN-PAUSE
+// ✅ Pause/Resume on background
+// ✅ MISS = bad hit only | EXPIRE separate | BLOCK separate
+// ✅ Storm Boss: lightning requires shield + correct LEFT/RIGHT zone (B)
+// ✅ Zone switches in chunks (S2)
+// FULL v20260303d-HYDRATION-SAFE-LRZONE-STORMBOSS
 'use strict';
 
 export function boot(cfg){
@@ -25,7 +23,7 @@ export function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // --- deterministic rng ---
+  // RNG
   function xmur3(str){
     str=String(str||'');
     let h=1779033703^str.length;
@@ -65,7 +63,7 @@ export function boot(cfg){
   const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
 
-  // ✅ Hydration fits Nutrition zone
+  // zone key
   const HH_CAT='nutrition';
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
@@ -77,9 +75,15 @@ export function boot(cfg){
   const stageEl = DOC.getElementById('stage') || layer.parentElement;
   const stormFx = DOC.getElementById('stormFx');
   const hudEl = DOC.querySelector('.hud');
+  const zoneSign = DOC.getElementById('zoneSign');
 
   function setStorm(on){
     try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
+    try{ stageEl?.classList?.toggle('is-boss', false); }catch(e){}
+    try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
+  }
+  function setBoss(on){
+    try{ stageEl?.classList?.toggle('is-boss', !!on); }catch(e){}
     try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
   }
 
@@ -111,62 +115,106 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
-  // ===== Difficulty tuning =====
+  // tuning by diff
   const TUNE = (function(){
-    let spawnBase=0.78;
-    let ttlGood=2.9, ttlBad=3.0;
-    let missLimit=6;     // REAL miss only
+    let spawnBase=0.78, ttlGood=2.9, ttlBad=3.0;
+    let missLimit=6;
     let waterGain=7.5, waterLoss=6.0;
     let shieldDrop=0.14;
 
-    let stormSec=12, stormSpawnMul=1.30, stormBadP=0.45, stormTtlGoodMul=0.95;
-    let bossHpMax=18, bossSpawnMul=1.15, bossBadP=0.40;
+    // storm
+    let stormSec=12;
+    let stormSpawnMul=1.30;
+    let stormBadP=0.45;
+    let stormTtlGoodMul=0.95;
+
+    // boss
+    let bossNeedHits=18;
+    let bossSpawnMul=1.15;
+    let bossBadP=0.40;
+
+    // lightning
+    let lightningRate=0.9;      // strikes/sec
+    let bossLightningRate=1.2;
+    let lightningDmgWater=7.0;
+    let lightningDmgScore=6;
+
+    // zone switching (S2)
+    let zoneChunkSec=3.0;       // switch every 3s
 
     if(diff==='easy'){
       spawnBase=0.66; ttlGood=3.2; ttlBad=3.2; missLimit=8; waterGain=8.5; waterLoss=5.2; shieldDrop=0.10;
       stormSec=10; stormSpawnMul=1.20; stormBadP=0.38; stormTtlGoodMul=1.00;
-      bossHpMax=14; bossSpawnMul=1.08; bossBadP=0.34;
+      bossNeedHits=14; bossSpawnMul=1.08; bossBadP=0.34;
+      lightningRate=0.65; bossLightningRate=0.90;
+      lightningDmgWater=5.5; lightningDmgScore=4;
+      zoneChunkSec=3.5;
     }
     if(diff==='hard'){
       spawnBase=0.95; ttlGood=2.5; ttlBad=2.6; missLimit=5; waterGain=6.8; waterLoss=7.0; shieldDrop=0.18;
       stormSec=14; stormSpawnMul=1.45; stormBadP=0.55; stormTtlGoodMul=0.92;
-      bossHpMax=22; bossSpawnMul=1.22; bossBadP=0.50;
+      bossNeedHits=22; bossSpawnMul=1.22; bossBadP=0.50;
+      lightningRate=1.05; bossLightningRate=1.55;
+      lightningDmgWater=8.5; lightningDmgScore=8;
+      zoneChunkSec=2.6;
     }
 
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
 
-    return { spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
+    return {
+      spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
       stormSec, stormSpawnMul, stormBadP, stormTtlGoodMul,
-      bossHpMax, bossSpawnMul, bossBadP
+      bossNeedHits, bossSpawnMul, bossBadP,
+      lightningRate, bossLightningRate, lightningDmgWater, lightningDmgScore,
+      zoneChunkSec
     };
   })();
 
-  // ===== State =====
+  // state
   const startTimeIso = nowIso();
   let playing=true;
   let paused=false;
   let tLeft=plannedSec;
   let lastTick=nowMs();
 
-  WIN.__HYD_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
-
   let score=0;
 
-  let missBadHit = 0;       // REAL miss
-  let missGoodExpired = 0;  // expire
-  let badBlocked = 0;       // shield blocks junk
+  // counters
+  let missBadHit=0;
+  let missGoodExpired=0;
+  let blockCount=0;
 
   let combo=0, bestCombo=0;
   let shield=0;
   let waterPct=30;
 
-  let bossOn=false;
-  let bossHpMax=TUNE.bossHpMax;
-  let bossHp=bossHpMax;
-
+  // phases
   let phase='normal'; // normal|storm|boss
   let stormLeft=0;
   let stormDone=false;
+
+  // boss win
+  let bossOn=false;
+  let bossHits=0;
+  let bossGoal=0;
+
+  // lightning zone (B + S2): 'L' or 'R'
+  let needZone='L';
+  let zoneT=0;
+
+  // input aim (for zone check)
+  let aimX01=0.5; // 0..1
+  function updateAimFromEvent(ev){
+    try{
+      const r = layer.getBoundingClientRect();
+      const x = clamp((ev.clientX - r.left) / Math.max(1, r.width), 0, 1);
+      aimX01 = x;
+    }catch(e){}
+  }
+
+  // capture aiming on mobile
+  layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
+  layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
 
   // targets
   const bubbles = new Map();
@@ -192,16 +240,29 @@ export function boot(cfg){
   function setHUD(){
     ui.score && (ui.score.textContent=String(score|0));
     ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
-
     ui.miss && (ui.miss.textContent=String(missBadHit|0));
     ui.expire && (ui.expire.textContent=String(missGoodExpired|0));
-    ui.block && (ui.block.textContent=String(badBlocked|0));
-
+    ui.block && (ui.block.textContent=String(blockCount|0));
     ui.grade && (ui.grade.textContent=gradeFromScore(score));
     ui.water && (ui.water.textContent=`${Math.round(clamp(waterPct,0,100))}%`);
     ui.combo && (ui.combo.textContent=String(combo|0));
     ui.shield && (ui.shield.textContent=String(shield|0));
-    ui.phase && (ui.phase.textContent=String(phase||'—'));
+
+    if(ui.phase){
+      if(phase==='storm') ui.phase.textContent = `STORM ${needZone==='L'?'LEFT':'RIGHT'}`;
+      else if(phase==='boss') ui.phase.textContent = `BOSS ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
+      else ui.phase.textContent = 'NORMAL';
+    }
+
+    if(zoneSign){
+      if(phase==='storm' || phase==='boss'){
+        zoneSign.textContent = (needZone==='L')
+          ? '⬅️ SAFE ZONE: LEFT (ต้องมีโล่)'
+          : '➡️ SAFE ZONE: RIGHT (ต้องมีโล่)';
+      }else{
+        zoneSign.textContent = '';
+      }
+    }
   }
 
   function setAIHud(risk, hint){
@@ -211,7 +272,7 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ===== Storm FX =====
+  // FX
   function lightning(){
     if(!stageEl) return;
     try{
@@ -230,15 +291,13 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ===== HUD-aware spawn =====
-  let _hudBottom = 160; // fallback
+  // HUD-aware spawn (avoid HUD)
+  let _hudBottom = 160;
   function measureHudBottom(){
     try{
       if(!hudEl) return;
       const rect = hudEl.getBoundingClientRect();
-      if(rect && rect.height > 10){
-        _hudBottom = Math.max(0, rect.bottom);
-      }
+      if(rect && rect.height > 10) _hudBottom = Math.max(0, rect.bottom);
     }catch(e){}
   }
   measureHudBottom();
@@ -249,14 +308,9 @@ export function boot(cfg){
   function safeSpawnXY(){
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
-
-    // ✅ dynamic top ban: HUD bottom + gap
     const gap = (view==='mobile') ? 14 : 12;
     const yMin = clamp((_hudBottom - r.top) + gap, pad + 10, r.height - 60);
-
-    // bottom pad to avoid VR UI bar area
     const bottomPad = (view==='mobile') ? 120 : 90;
-
     const x = pad + r01()*(Math.max(1, r.width - pad*2));
     const yMax = Math.max(yMin + 1, r.height - bottomPad);
     const y = yMin + r01()*(Math.max(1, yMax - yMin));
@@ -281,8 +335,6 @@ export function boot(cfg){
     const ttl=Math.max(0.9, ttlSec)*1000;
     const obj={ id, el, kind, emoji, born, ttl };
     bubbles.set(id,obj);
-
-    try{ cfg.ai?.emit?.('spawn', { kind, id, phase, ttlSec }); }catch(e){}
     return obj;
   }
 
@@ -302,7 +354,16 @@ export function boot(cfg){
       combo++; bestCombo=Math.max(bestCombo, combo);
       score += (10 + Math.min(12, combo));
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
-      try{ cfg.ai?.emit?.('hit', { kind:'good', id:b.id, phase }); }catch(e){}
+
+      // boss progress
+      if(phase==='boss'){
+        bossHits++;
+        if(bossHits >= bossGoal){
+          showEnd('boss-clear');
+          return;
+        }
+      }
+
       removeBubble(b.id);
       return;
     }
@@ -310,7 +371,6 @@ export function boot(cfg){
     if(b.kind==='shield'){
       addShield();
       score += 6;
-      try{ cfg.ai?.emit?.('hit', { kind:'shield', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
@@ -318,23 +378,19 @@ export function boot(cfg){
     // bad
     if(shield > 0){
       shield--;
-      badBlocked++;
+      blockCount++;
       score += 2;
-      try{ cfg.ai?.emit?.('hit', { kind:'bad_block', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
 
-    // REAL miss only here
     missBadHit++;
     combo=0;
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
-    try{ cfg.ai?.emit?.('hit', { kind:'bad', id:b.id, phase }); }catch(e){}
     removeBubble(b.id);
   }
 
-  // click/tap
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.bubble');
@@ -343,7 +399,6 @@ export function boot(cfg){
     if(b) hit(b);
   }, { passive:true });
 
-  // hha:shoot
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -362,18 +417,78 @@ export function boot(cfg){
   }
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
+    // cVR ยิงกลางจอ = aimX01 ~ 0.5
+    aimX01 = 0.5;
     const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
     if(b) hit(b);
   });
 
-  // ===== Logging throttle =====
-  let _lastLog = 0;
-  function logThrottled(kind, data){
-    if(qs('log','0') !== '1') return;
-    const t = Date.now();
-    if(t - _lastLog < 2000) return;
-    _lastLog = t;
-    try{ cfg.ai?.emit?.(kind, data); }catch(e){}
+  // ===== LEFT/RIGHT zone logic (B + S2) =====
+  function isInNeededZone(){
+    // L: aimX01 < 0.5, R: aimX01 >= 0.5
+    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
+  }
+
+  function swapZone(){
+    needZone = (needZone === 'L') ? 'R' : 'L';
+  }
+
+  function applyLightningStrike(source){
+    // must have shield + be in correct zone
+    const okZone = isInNeededZone();
+    if(shield > 0 && okZone){
+      shield--;
+      blockCount++;
+      return;
+    }
+
+    // fail: take damage (no MISS)
+    combo = 0;
+    waterPct = clamp(waterPct - TUNE.lightningDmgWater, 0, 100);
+    score = Math.max(0, score - TUNE.lightningDmgScore);
+  }
+
+  // ===== Pause overlay =====
+  let pauseOverlay=null;
+  function showPauseOverlay(){
+    if(pauseOverlay) return;
+    pauseOverlay = DOC.createElement('div');
+    pauseOverlay.style.position='fixed';
+    pauseOverlay.style.inset='0';
+    pauseOverlay.style.zIndex='95';
+    pauseOverlay.style.display='grid';
+    pauseOverlay.style.placeItems='center';
+    pauseOverlay.style.background='rgba(2,6,23,.72)';
+    pauseOverlay.style.backdropFilter='blur(8px)';
+    pauseOverlay.innerHTML = `
+      <div style="width:min(520px, calc(100vw - 24px));
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:22px; padding:16px;
+        background: rgba(2,6,23,.85);
+        box-shadow: 0 18px 40px rgba(0,0,0,.45); text-align:center;">
+        <div style="font-weight:1000;font-size:22px;">Paused</div>
+        <div style="opacity:.8;margin-top:6px;font-size:12px;">แตะเพื่อเล่นต่อ</div>
+        <button id="btnResume" style="margin-top:14px;border:1px solid rgba(255,255,255,.10);
+          background: rgba(56,189,248,.18); color:#e5e7eb;border-radius:14px;padding:10px 14px;font-weight:1000;">
+          Resume
+        </button>
+      </div>
+    `;
+    DOC.body.appendChild(pauseOverlay);
+    const resume = ()=>{
+      hidePauseOverlay();
+      paused=false;
+      lastTick=nowMs();
+      requestAnimationFrame(loop);
+    };
+    pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
+    const btn = DOC.getElementById('btnResume');
+    if(btn) btn.onclick = resume;
+  }
+  function hidePauseOverlay(){
+    if(!pauseOverlay) return;
+    pauseOverlay.remove();
+    pauseOverlay=null;
   }
 
   // ===== End summary =====
@@ -388,71 +503,30 @@ export function boot(cfg){
 
   function buildSummary(reason){
     return {
-      projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-03c_HUDSpawn_Pause',
-      device: view,
-      runMode,
-      diff,
-      seed: seedStr,
-      reason: String(reason||''),
+      projectTag:'HydrationVR',
+      gameVersion:'HydrationVR_SAFE_2026-03-03d_LRZoneStormBoss',
+      device:view, runMode, diff, seed:seedStr,
+      reason:String(reason||''),
       durationPlannedSec: plannedSec,
       durationPlayedSec: Math.round(plannedSec - tLeft),
       scoreFinal: score|0,
       missBadHit: missBadHit|0,
       missGoodExpired: missGoodExpired|0,
-      badBlocked: badBlocked|0,
+      blockCount: blockCount|0,
       comboMax: bestCombo|0,
       shield: shield|0,
       waterPct: Math.round(clamp(waterPct,0,100)),
       phaseFinal: phase,
-      bossOn: !!bossOn,
-      bossHp: bossHp|0,
+      bossHits: bossHits|0,
+      bossGoal: bossGoal|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score)
     };
   }
 
-  // --- cooldown daily helper ---
-  function hhDayKey(){
-    const d=new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function cooldownDone(cat, game, pid){
-    const day=hhDayKey();
-    pid=String(pid||'anon').trim()||'anon';
-    cat=String(cat||'nutrition').toLowerCase();
-    game=String(game||'hydration').toLowerCase();
-    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
-    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
-    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
-  }
-  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'hydration'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
-    return gate.toString();
-  }
-
   function setEndButtons(summary){
-    const done = cooldownDone(HH_CAT, HH_GAME, pid);
-    const needCooldown = cooldownRequired && !done;
-
-    if(ui.btnNextCooldown){
-      ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
-      ui.btnNextCooldown.onclick = null;
-      if(needCooldown){
-        const nextAfterCooldown = hubUrl || '../hub.html';
-        const url = buildCooldownUrl({ hub: hubUrl, nextAfterCooldown, cat: HH_CAT, gameKey: HH_GAME, pid });
-        ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
-      }
-    }
-    if(ui.btnBackHub){ ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; }; }
+    if(ui.btnBackHub) ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
     if(ui.btnReplay){
       ui.btnReplay.onclick = ()=>{
         try{
@@ -478,6 +552,9 @@ export function boot(cfg){
     paused=false;
     hidePauseOverlay();
 
+    setStorm(false);
+    setBoss(false);
+
     for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
     bubbles.clear();
 
@@ -486,7 +563,7 @@ export function boot(cfg){
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
-      ui.endTitle && (ui.endTitle.textContent='Game Over');
+      ui.endTitle && (ui.endTitle.textContent = (reason==='boss-clear') ? 'BOSS CLEAR!' : 'Game Over');
       ui.endSub && (ui.endSub.textContent=`reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`);
       ui.endGrade && (ui.endGrade.textContent=summary.grade||'—');
       ui.endScore && (ui.endScore.textContent=String(summary.scoreFinal|0));
@@ -496,107 +573,75 @@ export function boot(cfg){
     }
   }
 
-  // ===== Pause overlay (background-safe) =====
-  let pauseOverlay = null;
-
-  function showPauseOverlay(){
-    try{
-      if(pauseOverlay) return;
-      pauseOverlay = DOC.createElement('div');
-      pauseOverlay.style.position = 'fixed';
-      pauseOverlay.style.inset = '0';
-      pauseOverlay.style.zIndex = '95';
-      pauseOverlay.style.display = 'grid';
-      pauseOverlay.style.placeItems = 'center';
-      pauseOverlay.style.background = 'rgba(2,6,23,.72)';
-      pauseOverlay.style.backdropFilter = 'blur(8px)';
-      pauseOverlay.innerHTML = `
-        <div style="
-          width:min(520px, calc(100vw - 24px));
-          border:1px solid rgba(255,255,255,.10);
-          border-radius:22px;
-          padding:16px;
-          background: rgba(2,6,23,.85);
-          box-shadow: 0 18px 40px rgba(0,0,0,.45);
-          text-align:center;
-        ">
-          <div style="font-weight:1000;font-size:22px;">Paused</div>
-          <div style="opacity:.8;margin-top:6px;font-size:12px;">
-            เกมหยุดชั่วคราว (แตะเพื่อเล่นต่อ)
-          </div>
-          <button id="btnResume" style="
-            margin-top:14px;
-            border:1px solid rgba(255,255,255,.10);
-            background: rgba(56,189,248,.18);
-            color: #e5e7eb;
-            border-radius:14px;
-            padding:10px 14px;
-            font-weight:1000;
-          ">Resume</button>
-        </div>
-      `;
-      DOC.body.appendChild(pauseOverlay);
-
-      const resume = ()=>{
-        hidePauseOverlay();
-        paused = false;
-        lastTick = nowMs();
-        requestAnimationFrame(loop);
-      };
-
-      const btn = DOC.getElementById('btnResume');
-      if(btn) btn.onclick = resume;
-
-      pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
-    }catch(e){}
-  }
-
-  function hidePauseOverlay(){
-    try{
-      if(!pauseOverlay) return;
-      pauseOverlay.remove();
-      pauseOverlay = null;
-    }catch(e){}
-  }
-
-  // ===== Core loop =====
+  // ===== spawn & phases =====
   let spawnAcc=0;
 
   function spawnTick(dt){
     // shield decay
-    if(shield>0 && r01() < dt*TUNE.shieldDrop){
-      shield = Math.max(0, shield-1);
-    }
+    if(shield>0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield-1);
 
-    // storm once mid-game
-    if(!stormDone && phase === 'normal' && tLeft <= plannedSec*0.62){
-      phase = 'storm';
-      stormLeft = TUNE.stormSec;
-      stormDone = true;
+    // start storm once mid-game
+    if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.62){
+      phase='storm';
+      stormLeft=TUNE.stormSec;
+      stormDone=true;
+      zoneT=0;
+      needZone = (r01()<0.5) ? 'L' : 'R';
       setStorm(true);
       lightning();
     }
 
-    if(phase === 'storm'){
+    // storm zone switching (S2)
+    if(phase==='storm'){
       stormLeft = Math.max(0, stormLeft - dt);
-      if(r01() < dt*1.15) lightning();
+      zoneT += dt;
+      if(zoneT >= TUNE.zoneChunkSec){
+        zoneT = 0;
+        swapZone();
+      }
+
+      // lightning strikes (requires shield+zone)
+      if(r01() < dt * TUNE.lightningRate){
+        lightning();
+        applyLightningStrike('storm');
+      }
+
       if(stormLeft <= 0){
-        phase = 'normal';
+        phase='normal';
         setStorm(false);
       }
     }
 
-    if(!bossOn && stormDone && phase !== 'storm'){
+    // boss trigger after storm happened
+    if(!bossOn && stormDone && phase!=='storm'){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
-        bossOn = true;
-        phase = 'boss';
-        bossHpMax = TUNE.bossHpMax;
-        bossHp = bossHpMax;
+        bossOn=true;
+        phase='boss';
+        bossHits=0;
+        bossGoal=TUNE.bossNeedHits;
+        zoneT=0;
+        needZone = (r01()<0.5) ? 'L' : 'R';
+        setBoss(true);
+        lightning();
       }
     }
 
-    const inStorm = (phase === 'storm');
-    const inBoss  = (phase === 'boss');
+    // boss zone switching + heavier lightning
+    if(phase==='boss'){
+      zoneT += dt;
+      if(zoneT >= TUNE.zoneChunkSec){
+        zoneT = 0;
+        swapZone();
+      }
+
+      if(r01() < dt * TUNE.bossLightningRate){
+        lightning();
+        applyLightningStrike('boss');
+      }
+    }
+
+    const inStorm = (phase==='storm');
+    const inBoss  = (phase==='boss');
 
     const spawnRate = TUNE.spawnBase * (inStorm ? TUNE.stormSpawnMul : inBoss ? TUNE.bossSpawnMul : 1.0);
     const ttlGood = TUNE.ttlGood * (inStorm ? TUNE.stormTtlGoodMul : 1.0);
@@ -606,7 +651,7 @@ export function boot(cfg){
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
-      const p = r01();
+      const p=r01();
       let kind='good';
 
       if(inStorm){
@@ -633,7 +678,6 @@ export function boot(cfg){
     const t=nowMs();
     for(const b of Array.from(bubbles.values())){
       if(t - b.born >= b.ttl){
-        // expire does NOT increase MISS
         if(b.kind==='good'){
           missGoodExpired++;
           combo=0;
@@ -666,7 +710,7 @@ export function boot(cfg){
     const dt=Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
     lastTick=t;
 
-    tLeft=Math.max(0, tLeft - dt);
+    tLeft=Math.max(0, tLeft-dt);
     waterPct = clamp(waterPct - dt*(diff==='hard'?1.35: diff==='easy'?0.95:1.15), 0, 100);
 
     spawnTick(dt);
@@ -679,18 +723,16 @@ export function boot(cfg){
       const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
       const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
-      let hint = 'เล็งกลางจอแล้วกดยิงต่อเนื่อง';
-      if(phase==='storm') hint = '⚡ STORM! เลี่ยง junk แล้วเก็บ 💧';
-      else if(phase==='boss') hint = '👑 BOSS! รักษาน้ำ > 50%';
-      else if(waterPct < 35) hint = 'ดื่มน้ำเป้า 💧 ให้ถี่ขึ้น!';
-      else if(missBadHit > (TUNE.missLimit*0.5)) hint = 'ระวังโดน junk 🧋';
-      else if(combo >= 6) hint = 'คอมโบมาแล้ว! เก็บต่อเลย 🔥';
+      let hint='เล็ง + เก็บน้ำ 💧';
+      if(phase==='storm') hint=`⚡ ฟ้าผ่า! ต้องอยู่ ${needZone==='L'?'ซ้าย':'ขว'} + มีโล่ 🛡️`;
+      else if(phase==='boss') hint=`👑 บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขว'} + โล่`;
+      else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
+      else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
+      else if(combo>=6) hint='คอมโบมาแล้ว!';
 
       cfg.ai?.setRisk?.(risk);
       cfg.ai?.setHint?.(hint);
       setAIHud(risk, hint);
-
-      logThrottled('tick', { phase, diff, missBadHit, missGoodExpired, badBlocked, waterPct, shield, combo });
     }catch(e){}
 
     setHUD();
@@ -698,23 +740,18 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
 
-  // ✅ background => pause (no forced end)
+  // background => pause
   DOC.addEventListener('visibilitychange', ()=>{
     if(!playing) return;
-
     if(DOC.hidden){
-      paused = true;
+      paused=true;
       showPauseOverlay();
       return;
     }
-
-    if(paused){
-      showPauseOverlay(); // keep paused until resume tap
-    }
+    if(paused) showPauseOverlay();
   });
 
   // start
-  try{ WIN[END_SENT_KEY]=0; }catch(e){}
   setHUD();
   requestAnimationFrame(loop);
 }
