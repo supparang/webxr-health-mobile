@@ -1,7 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
-✅ End Summary: 3 cards (เด็กอ่านรู้เรื่อง) + toggle รายละเอียดครู/นักวิจัย
-✅ End overlay scrollable (กัน “เลื่อนตอบไม่ได้”)
+HygieneVR RUN — PRODUCTION (Kid-first + Research toggle) — PATCH v20260221k
+✅ Default UI: Kid Mode (3 cards + simple summary)
+✅ Research Mode: show JSON + English-ish labels
+✅ Evaluate (handmap) + Create routine (30s)
+✅ Overlay scroll fix (works with CSS + body.hw-lock)
 ✅ Quiz bank: ./hygiene-quiz-bank.js
 -->
 <!doctype html>
@@ -13,7 +15,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260221b" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260221k" />
 
   <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
@@ -26,11 +28,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct name) -->
+  <!-- Quiz bank -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260221b"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260221k"></script>
 </head>
 
 <body class="view-pc">
@@ -50,7 +52,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- Progress bars (ถ้ามี CSS/JS รองรับอยู่แล้ว) -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP</div>
@@ -87,9 +88,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
       <div class="hw-card">
         <div class="hw-card-title">Hand Wash — ล้างมือให้ครบจุด ครบขั้นตอน</div>
         <div class="hw-card-sub">
-          เป้าหมาย: แตะไอคอน “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน<br>
-          หลบ 🦠 เชื้อโรค และอย่าแตะขั้นตอนผิด<br>
-          ✅ Remember: จำขั้นตอน/จุดสำคัญ • ✅ Apply: ทำตามขั้นตอน + timing + coverage
+          ✅ เป้าหมาย: แตะไอคอน “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน<br>
+          🦠 หลบเชื้อโรค และอย่าแตะขั้นตอนผิด<br>
+          (Remember: จำขั้นตอน • Apply: ทำตามขั้นตอนจริง)
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ เริ่มเกม</button>
@@ -103,18 +104,32 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
       </div>
     </div>
 
-    <!-- End Overlay (Scrollable) -->
+    <!-- End Overlay -->
     <div class="hw-overlay" id="endOverlay" style="display:none">
       <div class="hw-card hw-card-scroll">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
-        <!-- ✅ Kid Summary 3 Cards -->
+        <!-- Mode switch -->
+        <div class="hw-card-row" style="margin-top:10px">
+          <button class="hw-ghost is-on" id="btnModeKid" type="button">🧒 โหมดเด็ก</button>
+          <button class="hw-ghost" id="btnModeResearch" type="button">🧪 โหมดวิจัย</button>
+        </div>
+
+        <div id="endHeadKid" class="hw-card-sub" style="margin-top:6px">
+          ✅ ดูผลสั้น ๆ แล้วทำ “ชี้จุดเสี่ยง” กับ “ทำรูทีนของฉัน” ต่อ
+        </div>
+        <div id="endHeadResearch" class="hw-card-sub" style="margin-top:6px" hidden>
+          Research view: metrics + analyze/evaluate/create + raw JSON
+        </div>
+
+        <!-- Kid Summary 3 Cards -->
         <div class="hw-kidgrid" id="kidGrid">
           <div class="hw-kidcard">
             <div class="k-h">ผลลัพธ์</div>
             <div class="k-b" id="kidGrade">เกรด: —</div>
             <div class="k-s" id="kidStepAcc">ความถูกต้อง: —</div>
+            <div class="k-s" id="kidSticker">🏅 สติ๊กเกอร์: —</div>
           </div>
           <div class="hw-kidcard">
             <div class="k-h">ความปลอดภัย</div>
@@ -127,9 +142,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
           </div>
         </div>
 
-        <!-- Analyze/Evaluate/Create blocks (ของเดิมคุณมีอยู่แล้ว) -->
+        <!-- Evaluate -->
         <div class="hw-eval" id="evalBox">
-          <div class="hw-eval-title">🧠 Evaluate + Analyze (เลือก “จุดเสี่ยงสุด”)</div>
+          <div class="hw-eval-title" id="evalTitle">🧠 ชี้ “จุดเสี่ยงสุด”</div>
           <div class="hw-eval-sub" id="evalHint">แตะวงกลมเพื่อเลือก</div>
 
           <div class="hw-handmap" id="handMap"></div>
@@ -140,10 +155,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
           </div>
 
           <div class="hw-reasons" id="evalReasons">
-            <button class="hw-reason" type="button" data-reason="wrongHazHigh">พลาดขั้นตอนนี้บ่อย (wrong/haz สูง)</button>
-            <button class="hw-reason" type="button" data-reason="slowRt">เวลาตอบสนองช้า ทำให้จุดนี้เสี่ยง</button>
-            <button class="hw-reason" type="button" data-reason="confuseStep">สับสนขั้นตอน/ไอคอนของจุดนี้</button>
-            <button class="hw-reason" type="button" data-reason="publicTouch">มักเจอเชื้อจากของสาธารณะ จึงต้องระวัง</button>
+            <button class="hw-reason" type="button" data-reason="wrongHazHigh">พลาดขั้นตอนนี้บ่อย (ผิด/โดนเชื้อสูง)</button>
+            <button class="hw-reason" type="button" data-reason="slowRt">ช้า ทำให้เสี่ยง</button>
+            <button class="hw-reason" type="button" data-reason="confuseStep">สับสนไอคอน/ขั้นตอน</button>
+            <button class="hw-reason" type="button" data-reason="publicTouch">จับของสาธารณะบ่อย ต้องระวัง</button>
           </div>
 
           <div class="hw-card-row" style="margin-top:10px">
@@ -152,9 +167,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
           </div>
         </div>
 
+        <!-- Create -->
         <div class="hw-create" id="createBox" style="display:none">
-          <div class="hw-eval-title">✨ Create Routine (30 วิ)</div>
-          <div class="hw-eval-sub">เลือก 3 ช่วง “ต้องล้างมือ” ให้ครบ • เหลือเวลา <b id="createTimer">30</b> วิ</div>
+          <div class="hw-eval-title" id="createTitle">✨ ทำรูทีนของฉัน (30 วิ)</div>
+          <div class="hw-eval-sub" id="createSub">เลือก 3 ช่วง “ต้องล้างมือ” ให้ครบ • เหลือเวลา <b id="createTimer">30</b> วิ</div>
 
           <div class="hw-eval-row">
             <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
@@ -171,41 +187,4 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
           </div>
 
           <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
-          </div>
-        </div>
-
-        <!-- ✅ Details toggle -->
-        <div class="hw-card-row" style="margin-top:12px">
-          <button class="hw-ghost" id="btnToggleDetails" type="button">👩‍🏫 ดูรายละเอียดสำหรับครู/นักวิจัย</button>
-        </div>
-
-        <!-- JSON details (hidden by default) -->
-        <pre class="hw-pre" id="endJson" hidden></pre>
-
-        <div class="hw-card-row" style="margin-top:12px">
-          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBack" type="button">↩ กลับ HUB</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-})();
-</script>
-</body>
-</html>
+            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine
