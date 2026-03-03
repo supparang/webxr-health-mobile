@@ -1,9 +1,6 @@
 <!-- === /herohealth/brush-vr.html ===
 BrushVR ROOT LAUNCHER — redirects to /herohealth/vr-brush/brush.html
 PATCH v20260303-BRUSH-ROOT-LAUNCHER
-✅ Fix 404 by ensuring canonical run path
-✅ Pass-through all params + ensure hub param
-✅ Auto view detect if missing
 -->
 <!doctype html>
 <html lang="th">
@@ -50,20 +47,16 @@ PATCH v20260303-BRUSH-ROOT-LAUNCHER
   const sp = qs();
   const target = new URL('./vr-brush/brush.html', location.href);
 
-  // pass-through EVERYTHING (ยกเว้น hash)
-  for (const [k,v] of sp.entries()){
-    target.searchParams.set(k, v);
-  }
+  // pass-through EVERYTHING
+  for (const [k,v] of sp.entries()) target.searchParams.set(k, v);
 
   // ensure view
   if(!target.searchParams.get('view')) target.searchParams.set('view', detectView());
 
-  // ensure hub
+  // ensure hub (canonical)
   if(!target.searchParams.get('hub')){
-    // default hub = /herohealth/hub.html (canonical)
     const hub = new URL('./hub.html', location.href);
-    // ส่ง context กลับ hub ได้
-    for (const k of ['run','diff','time','seed','pid','studyId','phase','conditionGroup','log','api','view']){
+    for (const k of ['run','diff','time','seed','pid','studyId','phase','conditionGroup','log','api','view','ai','debug']){
       const v = target.searchParams.get(k);
       if(v!=null && String(v).trim()!=='') hub.searchParams.set(k, v);
     }
@@ -71,8 +64,6 @@ PATCH v20260303-BRUSH-ROOT-LAUNCHER
   }
 
   document.getElementById('p').textContent = target.pathname + target.search;
-
-  // redirect now
   location.replace(target.toString());
 })();
 </script>
