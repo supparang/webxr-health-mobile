@@ -1,125 +1,173 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — VR Fitness</title>
-  <meta name="color-scheme" content="dark" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Balance Hold — VR Fitness</title>
+<meta name="color-scheme" content="dark"/>
 
-  <link rel="icon" href="../favicon.ico" />
+<style>
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;
+  background:#0b1020;
+  color:#fff;
+}
+.hidden{display:none!important}
+.wrap{max-width:1100px;margin:auto;padding:16px}
+.card{
+  background:#12182e;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:16px;
+  border:1px solid rgba(255,255,255,.08)
+}
+button{
+  padding:10px 14px;
+  border-radius:10px;
+  border:none;
+  cursor:pointer;
+  font-weight:700;
+}
+.btn-primary{background:#2563eb;color:#fff}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-ghost{background:#334155;color:#fff}
 
-  <style>
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, "Noto Sans Thai", sans-serif;
-      background:#0b1020;
-      color:#fff;
-    }
-    .hidden{display:none!important}
-    .wrap{max-width:980px;margin:auto;padding:16px}
-    .card{
-      background:#12182e;
-      border-radius:14px;
-      padding:16px;
-      margin-bottom:16px;
-      border:1px solid rgba(255,255,255,.08)
-    }
-    button{
-      padding:10px 14px;
-      border-radius:10px;
-      border:none;
-      cursor:pointer;
-      font-weight:700;
-    }
-    .btn-primary{background:#2563eb;color:#fff}
-    .btn-danger{background:#dc2626;color:#fff}
-    .result-big{
-      font-size:2rem;
-      font-weight:900;
-    }
-    .overlay{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.6);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-    .overlay-box{
-      background:#1e293b;
-      padding:20px;
-      border-radius:16px;
-      width:min(420px,90%);
-    }
-  </style>
+.hud{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:12px;
+}
+.pill{
+  background:#1e293b;
+  padding:6px 12px;
+  border-radius:999px;
+  font-size:.9rem;
+}
+
+#playArea{
+  position:relative;
+  height:420px;
+  border-radius:18px;
+  background:linear-gradient(180deg,#1e293b,#0f172a);
+  overflow:hidden;
+}
+
+#platform{
+  position:absolute;
+  bottom:90px;
+  left:50%;
+  transform:translateX(-50%);
+  width:60%;
+  height:20px;
+  border-radius:999px;
+  background:#e2e8f0;
+}
+
+#indicator{
+  position:absolute;
+  bottom:110px;
+  left:50%;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:#38bdf8;
+  transform:translateX(-50%);
+}
+
+.result-big{
+  font-size:2rem;
+  font-weight:900;
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.65);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.overlay-box{
+  background:#1e293b;
+  padding:20px;
+  border-radius:16px;
+  width:min(420px,90%);
+}
+.rank-badge{
+  font-size:2rem;
+  font-weight:900;
+}
+</style>
 </head>
 
 <body>
 <div class="wrap">
 
-  <!-- MENU -->
-  <section id="view-menu" class="card">
-    <h2>⚖️ Balance Hold</h2>
-    <p>ลากซ้าย–ขวาให้สมดุล หลบ obstacle และเก็บคะแนน</p>
+<!-- MENU -->
+<section id="view-menu" class="card">
+  <h2>⚖️ Balance Hold</h2>
+  <p>ลากซ้าย–ขวาให้สมดุล อยู่ใน safe zone ให้นานที่สุด</p>
 
-    <button class="btn-primary" data-action="start-normal">▶ Start</button>
-  </section>
+  <button class="btn-primary" data-action="start-normal">▶ Start</button>
+</section>
 
-  <!-- PLAY -->
-  <section id="view-play" class="card hidden">
-    <h2>Playing...</h2>
-    <div>Time running...</div>
+<!-- PLAY -->
+<section id="view-play" class="card hidden">
 
-    <div style="margin-top:12px">
-      <button class="btn-danger" data-action="stop">⛔ Stop</button>
-    </div>
-  </section>
-
-  <!-- RESULT -->
-  <section id="view-result" class="card hidden">
-    <h2>📊 Result</h2>
-
-    <div class="result-big">
-      Score: <span id="res-score">0</span>
-    </div>
-
-    <div>
-      Rank: <span id="res-rank">-</span>
-    </div>
-
-    <div>
-      Stability: <span id="res-stability">-</span>
-    </div>
-
-    <div style="margin-top:16px">
-      <button class="btn-primary" data-action="result-play-again">🔁 Play Again</button>
-      <button data-action="result-back-hub">🏠 Back HUB</button>
-    </div>
-  </section>
-
-</div>
-
-<!-- Tutorial Overlay -->
-<div id="tutorialOverlay" class="overlay hidden">
-  <div class="overlay-box">
-    <h3>วิธีเล่น</h3>
-    <p>ลากซ้าย–ขวาเพื่อรักษาสมดุล</p>
-    <button onclick="this.closest('.overlay').classList.add('hidden')">Close</button>
+  <div class="hud">
+    <div class="pill">Time: <span id="hud-time">60</span></div>
+    <div class="pill">Score: <span id="hud-score">0</span></div>
+    <div class="pill">Stability: <span id="hud-stability">0%</span></div>
   </div>
+
+  <div id="playArea">
+    <div id="platform"></div>
+    <div id="indicator"></div>
+  </div>
+
+  <div style="margin-top:14px">
+    <button class="btn-danger" data-action="stop">⛔ Stop</button>
+  </div>
+
+</section>
+
+<!-- RESULT -->
+<section id="view-result" class="card hidden">
+
+  <h2>📊 Result</h2>
+
+  <div class="result-big">
+    Score: <span id="res-score">0</span>
+  </div>
+
+  <div class="rank-badge">
+    Rank: <span id="res-rank">-</span>
+  </div>
+
+  <div>
+    Stability: <span id="res-stability">-</span>
+  </div>
+
+  <div style="margin-top:16px">
+    <button class="btn-primary" data-action="result-play-again">🔁 Play Again</button>
+    <button class="btn-ghost" data-action="result-back-hub">🏠 Back HUB</button>
+  </div>
+
+</section>
+
 </div>
 
-<!-- End Modal -->
+<!-- END MODAL -->
 <div id="endModal" class="overlay hidden">
   <div class="overlay-box">
     <h3>Session Complete</h3>
     <p>Score: <span id="endModalScore">0</span></p>
-
     <button data-action="close-end-modal">Close</button>
-    <button data-action="result-play-again">Play Again</button>
   </div>
 </div>
 
-<!-- IMPORTANT: Path ต้องตรง -->
 <script src="./js/balance-hold.js"></script>
 
 </body>
