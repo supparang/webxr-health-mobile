@@ -47,13 +47,10 @@ PATCH v20260303-BRUSH-ROOT-LAUNCHER
   const sp = qs();
   const target = new URL('./vr-brush/brush.html', location.href);
 
-  // pass-through EVERYTHING
   for (const [k,v] of sp.entries()) target.searchParams.set(k, v);
 
-  // ensure view
   if(!target.searchParams.get('view')) target.searchParams.set('view', detectView());
 
-  // ensure hub (canonical)
   if(!target.searchParams.get('hub')){
     const hub = new URL('./hub.html', location.href);
     for (const k of ['run','diff','time','seed','pid','studyId','phase','conditionGroup','log','api','view','ai','debug']){
