@@ -1,71 +1,75 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Battle (Race skeleton) — SAFE NO-OP when backend not configured
-// PATCH v20260303-BATTLE-SAFE-SKELETON
+// Battle RTDB (SAFE stub / drop-in) — PRODUCTION
+// PATCH v20260303-BATTLE-SAFE-STUB
+// ✅ initBattle({enabled, room, pid, gameKey, autostartMs, forfeitMs})
+// ✅ pushScore(payload)
+// ✅ finalizeEnd(summary)
+// ✅ comparator: score→acc→miss→medianRT
+
 'use strict';
 
-function qs(k, d=''){
-  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; }
+function num(v,d=0){ v=+v; return Number.isFinite(v)?v:d; }
+
+function compare(a,b){
+  // higher is better: score, acc; lower is better: miss, medianRT
+  const sA=num(a?.score), sB=num(b?.score);
+  if(sA!==sB) return sB - sA;
+
+  const accA=num(a?.accPct), accB=num(b?.accPct);
+  if(accA!==accB) return accB - accA;
+
+  const mA=num(a?.miss), mB=num(b?.miss);
+  if(mA!==mB) return mA - mB;
+
+  const rtA=num(a?.medianRtGoodMs, 1e9), rtB=num(b?.medianRtGoodMs, 1e9);
+  if(rtA!==rtB) return rtA - rtB;
+
+  return 0;
 }
-function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-export async function initBattle(opts){
-  opts = opts || {};
-  const enabled = !!opts.enabled;
-  const room = String(opts.room || qs('room',''));
-  const pid  = String(opts.pid || 'anon');
-  const gameKey = String(opts.gameKey || 'game');
+export async function initBattle(cfg){
+  cfg = cfg || {};
+  if(!cfg.enabled) return null;
 
-  const autostartMs = Number(opts.autostartMs || 3000) || 3000;
-  const forfeitMs   = Number(opts.forfeitMs || 5000) || 5000;
-
-  // If later you configure real backend, you can pass ?rtdb=... or similar.
-  // For now, keep SAFE local-only.
-  const backend = String(qs('rtdb','')); // empty by default
-
-  let startedAt = nowMs() + autostartMs;
-  let lastPayload = null;
-  let finalized = false;
-
-  // Optional: local "same-device" race via BroadcastChannel (works on same origin)
-  let bc = null;
-  try{
-    bc = new BroadcastChannel('HHA_BATTLE_' + (room||'default') + '_' + gameKey);
-    bc.onmessage = (ev)=>{
-      // could listen opponent updates later
-    };
-    bc.postMessage({ t:'join', pid, gameKey, at: nowMs() });
-  }catch(e){
-    bc = null;
-  }
+  // SAFE local-only session (no network)
+  const state = {
+    room: String(cfg.room||''),
+    pid: String(cfg.pid||'anon'),
+    gameKey: String(cfg.gameKey||''),
+    last: null,
+    ended: false,
+    winner: null
+  };
 
   function pushScore(payload){
-    if(!enabled || finalized) return;
-    lastPayload = payload || null;
-    try{
-      bc?.postMessage({ t:'score', pid, gameKey, at: nowMs(), payload: lastPayload });
-    }catch(e){}
+    state.last = payload || null;
   }
 
   function finalizeEnd(summary){
-    if(finalized) return;
-    finalized = true;
+    state.ended = true;
+
+    // local-only: winner cannot be decided without opponent
+    // but we keep API stable + expose result in window for debug
+    const me = {
+      score: num(summary?.scoreFinal),
+      accPct: num(summary?.accPct),
+      miss: num(summary?.missTotal),
+      medianRtGoodMs: num(summary?.medianRtGoodMs)
+    };
+
+    state.winner = { decided:false, me, note:'RTDB not configured (safe stub)' };
+
     try{
-      bc?.postMessage({ t:'end', pid, gameKey, at: nowMs(), summary });
-      bc?.close?.();
+      window.__HHA_BATTLE_LAST__ = {
+        room: state.room,
+        pid: state.pid,
+        gameKey: state.gameKey,
+        me,
+        tieBreakOrder: 'score→acc→miss→medianRT',
+        decided:false
+      };
     }catch(e){}
   }
 
-  return {
-    enabled,
-    backend,
-    room,
-    pid,
-    gameKey,
-    autostartMs,
-    forfeitMs,
-    startedAt,
-    pushScore,
-    finalizeEnd,
-    getLastScore(){ return lastPayload; }
-  };
+  return { pushScore, finalizeEnd, compare };
 }
