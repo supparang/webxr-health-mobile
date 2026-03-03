@@ -1,38 +1,31 @@
 {
-  "modelName": "GoodJunkTinyMLP-v1",
-  "version": "2026-03-03",
-  "notes": "Prediction-only. Deterministic. No adaptive changes to gameplay. If weights missing -> fallback heuristic.",
+  "model": "logreg",
+  "version": "goodjunk-logreg-v1",
+  "updatedAt": "2026-03-03",
+  "notes": "Baseline weights for Grade5 Solo: risk increases with misses/slow RT/low accuracy; decreases with shield/fever/combo.",
+  "bias": -1.15,
   "features": [
-    "acc",
-    "missRate",
-    "pace",
-    "shield",
-    "fever",
-    "combo",
-    "stormOn"
+    { "name": "miss_good_expired_rate", "w": 2.40 },
+    { "name": "miss_junk_hit_rate",     "w": 2.10 },
+    { "name": "acc_pct",               "w": -0.018 },
+    { "name": "median_rt_good_ms",     "w": 0.00125 },
+    { "name": "combo",                 "w": -0.045 },
+    { "name": "fever_pct",             "w": -0.010 },
+    { "name": "shield",                "w": -0.20 },
+    { "name": "storm_on",              "w": 0.35 },
+    { "name": "boss_active",           "w": 0.45 },
+    { "name": "t_left_norm",           "w": 0.55 }
   ],
-  "normalizer": {
-    "type": "minmax",
-    "min": [0.00, 0.00, 0.30, 0.00, 0.00, 0.00, 0.00],
-    "max": [1.00, 0.60, 4.00, 9.00, 100.0, 12.0, 1.00]
-  },
-  "mlp": {
-    "activation": "tanh",
-    "output": "sigmoid",
-    "W1": [
-      [ 0.92,  0.30,  0.18, -0.22, -0.18, -0.10,  0.10],
-      [-0.75,  0.68,  0.22, -0.30, -0.05, -0.04,  0.14],
-      [ 0.40,  0.55,  0.31, -0.15, -0.10, -0.08,  0.09],
-      [-0.55,  0.25,  0.58, -0.22, -0.06, -0.03,  0.12],
-      [ 0.18,  0.22,  0.44, -0.12, -0.08, -0.06,  0.10],
-      [-0.35,  0.32,  0.26, -0.20, -0.09, -0.05,  0.08],
-      [ 0.15,  0.40,  0.18, -0.10, -0.04, -0.03,  0.06],
-      [-0.22,  0.36,  0.14, -0.12, -0.05, -0.02,  0.08],
-      [ 0.10,  0.28,  0.22, -0.08, -0.06, -0.03,  0.07],
-      [-0.18,  0.44,  0.12, -0.16, -0.04, -0.02,  0.11]
-    ],
-    "b1": [ -0.10, 0.05, 0.02, -0.06, -0.04, -0.03, 0.01, 0.02, 0.00, 0.03 ],
-    "W2": [ 0.95, 1.10, 0.72, 0.80, 0.60, 0.70, 0.40, 0.55, 0.50, 0.75 ],
-    "b2": -0.25
+  "minmax": {
+    "acc_pct": { "min": 0, "max": 100 },
+    "median_rt_good_ms": { "min": 200, "max": 2000 },
+    "combo": { "min": 0, "max": 20 },
+    "fever_pct": { "min": 0, "max": 100 },
+    "shield": { "min": 0, "max": 6 },
+    "t_left_norm": { "min": 0, "max": 1 },
+    "miss_good_expired_rate": { "min": 0, "max": 0.40 },
+    "miss_junk_hit_rate": { "min": 0, "max": 0.40 },
+    "storm_on": { "min": 0, "max": 1 },
+    "boss_active": { "min": 0, "max": 1 }
   }
 }
