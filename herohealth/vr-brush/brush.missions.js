@@ -1,10 +1,8 @@
 // === /herohealth/vr-brush/brush.missions.js ===
 'use strict';
-
 export function bootMissions(cfg){
   cfg = cfg || {};
   const S = { stage:1, stageHit:0, stageNeed:12, junkLimit:3, junkHit:0, cleared:0, total:3 };
-
   function tune(diff){
     diff = String(diff||'normal').toLowerCase();
     if (diff === 'easy'){ S.stageNeed = 10; S.junkLimit = 4; }
@@ -12,15 +10,12 @@ export function bootMissions(cfg){
     else { S.stageNeed = 12; S.junkLimit = 3; }
     reset();
   }
-
   function reset(){ S.stage=1; S.stageHit=0; S.junkHit=0; S.cleared=0; }
-
   function text(){
     if (S.stage === 1) return `M1 เก็บคราบ ${S.stageHit}/${S.stageNeed}`;
     if (S.stage === 2) return `M2 หลีกเชื้อ ${S.junkHit}/${S.junkLimit}`;
     return `M3 เร่งสปีด ${S.stageHit}/${S.stageNeed}`;
   }
-
   function onGoodHit(){
     if (S.stage === 1 || S.stage === 3){
       S.stageHit++;
@@ -40,7 +35,6 @@ export function bootMissions(cfg){
     }
     return { advanced:false };
   }
-
   function onJunkHit(){
     if (S.stage === 2){
       S.junkHit++;
@@ -51,7 +45,6 @@ export function bootMissions(cfg){
     }
     return { failed:false };
   }
-
   tune(cfg.diff || 'normal');
   return { S, tune, reset, text, onGoodHit, onJunkHit };
 }
