@@ -1,12 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
-// ✅ ESM + hha:shoot + deterministic + AI hooks wired + end summary hardened + cooldown daily-first
-// ✅ AUTO HUD-SAFE SPAWN via SpawnGuard (tighter for small screens)
-// ✅ AI HUD shows real Risk/Hint (rule-based deterministic)
-// FULL v20260301b-HYDRATION-SAFE-SPAWNGUARD-AIHUD
+// ✅ ESM + hha:shoot + deterministic + AI hooks wired
+// ✅ STORM (lightning) -> NORMAL -> BOSS
+// ✅ MISS split: missTotal = badHit + goodExpired
+// ✅ HUD-safe-ish spawn (keeps targets away from top HUD zone)
+// FULL v20260302-HYDRATION-SAFE-STORM-MISS-SPLIT
 'use strict';
-
-import { createSpawnGuard } from '../vr/spawn-guard.js';
 
 export function boot(cfg){
   cfg = cfg || {};
@@ -17,8 +16,6 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
-
-  const DEBUG = (qs('debug','0') === '1');
 
   // --- cooldown helpers (per-game daily) ---
   function hhDayKey(){
@@ -32,7 +29,7 @@ export function boot(cfg){
   function cooldownDone(cat, game, pid){
     const day=hhDayKey();
     pid=String(pid||'anon').trim()||'anon';
-    cat=String(cat||'exercise').toLowerCase();
+    cat=String(cat||'nutrition').toLowerCase();
     game=String(game||'hydration').toLowerCase();
     const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
     const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
@@ -41,7 +38,7 @@ export function boot(cfg){
   function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
     const gate = new URL('../warmup-gate.html', location.href);
     gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'exercise'));
+    gate.searchParams.set('cat', String(cat||'nutrition'));
     gate.searchParams.set('theme', String(gameKey||'hydration'));
     gate.searchParams.set('pid', String(pid||'anon'));
     if(hub) gate.searchParams.set('hub', String(hub));
@@ -104,8 +101,8 @@ export function boot(cfg){
   const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
 
-  // ✅ ถ้าในระบบคุณจัด hydration อยู่ Nutrition zone ให้เปลี่ยนเป็น 'nutrition'
-  const HH_CAT='exercise';
+  // ✅ Hydration เหมาะกับ Nutrition zone
+  const HH_CAT='nutrition';
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
@@ -113,16 +110,28 @@ export function boot(cfg){
   const layer = DOC.getElementById('layer');
   if(!layer){ console.warn('[Hydration] Missing #layer'); return; }
 
+  const stageEl = DOC.getElementById('stage') || layer.parentElement;
+  const stormFx = DOC.getElementById('stormFx');
+  function setStorm(on){
+    try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
+    try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
+  }
+
   const ui = {
     score: DOC.getElementById('uiScore'),
     time: DOC.getElementById('uiTime'),
     miss: DOC.getElementById('uiMiss'),
+    expire: DOC.getElementById('uiExpire'),
+    bad: DOC.getElementById('uiBad'),
     grade: DOC.getElementById('uiGrade'),
     water: DOC.getElementById('uiWater'),
     combo: DOC.getElementById('uiCombo'),
     shield: DOC.getElementById('uiShield'),
+    phase: DOC.getElementById('uiPhase'),
+
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
+
     end: DOC.getElementById('end'),
     endTitle: DOC.getElementById('endTitle'),
     endSub: DOC.getElementById('endSub'),
@@ -130,20 +139,12 @@ export function boot(cfg){
     endScore: DOC.getElementById('endScore'),
     endMiss: DOC.getElementById('endMiss'),
     endWater: DOC.getElementById('endWater'),
+
     btnCopy: DOC.getElementById('btnCopy'),
     btnReplay: DOC.getElementById('btnReplay'),
     btnNextCooldown: DOC.getElementById('btnNextCooldown'),
     btnBackHub: DOC.getElementById('btnBackHub')
   };
-
-  // ✅ SpawnGuard: tighter safe zone for small screens
-  const SpawnGuard = createSpawnGuard({
-    hudSelector: '.hud',
-    margin: (view === 'mobile') ? 16 : 14,
-    minTop: (view === 'mobile') ? 8 : 0,
-    debug: DEBUG
-  });
-  setInterval(()=>SpawnGuard.tick(false), 500);
 
   // Tuning
   const TUNE = (function(){
@@ -168,6 +169,8 @@ export function boot(cfg){
   WIN.__HYD_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
   let score=0, miss=0;
+  let missBadHit = 0;       // ✅ junk hit when no shield
+  let missGoodExpired = 0;  // ✅ good expired
   let combo=0, bestCombo=0;
   let shield=0;
 
@@ -176,12 +179,17 @@ export function boot(cfg){
   let bossHpMax=18;
   let bossHp=bossHpMax;
 
+  // === Mission Phases ===
+  let phase = 'normal';           // 'normal' | 'storm' | 'boss'
+  let stormLeft = 0;
+  let stormDone = false;
+
   // Targets
   const bubbles = new Map();
   let idSeq=1;
 
   const GOOD = ['💧','💦','🫗'];
-  const BAD  = ['🧋','🥤','🍟']; // distractors
+  const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
 
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -201,10 +209,13 @@ export function boot(cfg){
     ui.score && (ui.score.textContent=String(score|0));
     ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
     ui.miss && (ui.miss.textContent=String(miss|0));
+    ui.expire && (ui.expire.textContent=String(missGoodExpired|0));
+    ui.bad && (ui.bad.textContent=String(missBadHit|0));
     ui.grade && (ui.grade.textContent=gradeFromScore(score));
     ui.water && (ui.water.textContent=`${Math.round(clamp(waterPct,0,100))}%`);
     ui.combo && (ui.combo.textContent=String(combo|0));
     ui.shield && (ui.shield.textContent=String(shield|0));
+    ui.phase && (ui.phase.textContent=String(phase||'—'));
   }
 
   function setAIHud(pred){
@@ -215,6 +226,39 @@ export function boot(cfg){
     }catch(e){}
   }
 
+  function lightning(){
+    if(!stageEl) return;
+    try{
+      const f = DOC.createElement('div');
+      f.className = 'storm-flash';
+      stageEl.appendChild(f);
+      setTimeout(()=>{ try{ f.remove(); }catch(e){} }, 220);
+
+      const b = DOC.createElement('div');
+      b.className = 'bolt';
+      const x = 10 + r01()*80;
+      b.style.left = `${x}%`;
+      b.style.transform = `translateX(-50%) rotate(${(r01()*18-9).toFixed(1)}deg)`;
+      stageEl.appendChild(b);
+      setTimeout(()=>{ try{ b.remove(); }catch(e){} }, 260);
+    }catch(e){}
+  }
+
+  // ✅ HUD-safe-ish spawn: push y away from top HUD area
+  function safeSpawnXY(){
+    const r=layerRect();
+    const pad = (view==='mobile') ? 18 : 22;
+    const topBan = (view==='mobile') ? 155 : 120;   // กัน HUD โซนบน
+    const botPad = (view==='mobile') ? 22 : 24;
+
+    const x = pad + r01()*(Math.max(1, r.width - pad*2));
+    const yMin = pad + topBan;
+    const yMax = Math.max(yMin+1, r.height - botPad);
+
+    const y = yMin + r01()*(Math.max(1, yMax - yMin));
+    return { x, y };
+  }
+
   function makeBubble(kind, emoji, ttlSec){
     const id=String(idSeq++);
     const el=DOC.createElement('div');
@@ -223,20 +267,9 @@ export function boot(cfg){
     el.dataset.id=id;
     el.dataset.kind=kind;
 
-    const r=layerRect();
-    const pad = (view==='mobile') ? 18 : 22;
-
-    // ✅ spawn inside HUD-safe region (viewport-based) then map to layer rect
-    const pt = SpawnGuard.random01(r01);
-    let x = pt.x01 * WIN.innerWidth;
-    let y = pt.y01 * WIN.innerHeight;
-
-    // map viewport px -> layer local px
-    x = clamp(x - r.left, pad, Math.max(pad, r.width - pad));
-    y = clamp(y - r.top,  pad, Math.max(pad, r.height - pad));
-
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
+    const p = safeSpawnXY();
+    el.style.left = `${p.x}px`;
+    el.style.top  = `${p.y}px`;
 
     layer.appendChild(el);
 
@@ -245,7 +278,7 @@ export function boot(cfg){
     const obj={ id, el, kind, emoji, born, ttl, promptMs: nowMs() };
     bubbles.set(id,obj);
 
-    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
+    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec, phase }); }catch(e){}
     return obj;
   }
 
@@ -269,22 +302,15 @@ export function boot(cfg){
       score += add;
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
 
-      try{ cfg.ai?.onHit?.('good', { id:b.id }); }catch(e){}
+      try{ cfg.ai?.onHit?.('good', { id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
-
-      // boss trigger
-      if(!bossOn && tLeft <= plannedSec*0.38 && waterPct >= 55){
-        bossOn = true;
-        bossHpMax = (diff==='hard') ? 22 : (diff==='easy' ? 16 : 18);
-        bossHp = bossHpMax;
-      }
       return;
     }
 
     if(b.kind==='shield'){
       addShield();
       score += 6;
-      try{ cfg.ai?.onHit?.('shield', { id:b.id }); }catch(e){}
+      try{ cfg.ai?.onHit?.('shield', { id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
@@ -293,17 +319,18 @@ export function boot(cfg){
     if(shield > 0){
       shield--;
       score += 2;
-      try{ cfg.ai?.onHit?.('bad_block', { id:b.id }); }catch(e){}
+      try{ cfg.ai?.onHit?.('bad_block', { id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
 
     miss++;
+    missBadHit++;   // ✅ แยกสาเหตุ
     combo=0;
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
 
-    try{ cfg.ai?.onHit?.('bad', { id:b.id }); }catch(e){}
+    try{ cfg.ai?.onHit?.('bad', { id:b.id, phase }); }catch(e){}
     removeBubble(b.id);
   }
 
@@ -355,7 +382,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-01b_AIHUD',
+      gameVersion: 'HydrationVR_SAFE_2026-03-02_STORM_MISS_SPLIT',
       device: view,
       runMode,
       diff,
@@ -364,16 +391,21 @@ export function boot(cfg){
       durationPlannedSec: plannedSec,
       durationPlayedSec: Math.round(plannedSec - tLeft),
       scoreFinal: score|0,
+
       missTotal: miss|0,
+      missBadHit: missBadHit|0,
+      missGoodExpired: missGoodExpired|0,
+
       comboMax: bestCombo|0,
       shield: shield|0,
       waterPct: Math.round(clamp(waterPct,0,100)),
+      phaseFinal: phase,
       bossOn: !!bossOn,
       bossHp: bossHp|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      aiState: (function(){ try{ return cfg.ai?._state || null; }catch(e){ return null; } })()
+      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
     };
   }
 
@@ -426,7 +458,11 @@ export function boot(cfg){
 
     const summary = buildSummary(reason);
 
-    try{ cfg.ai?.end?.(summary); }catch(e){}
+    try{
+      const aiEnd = cfg.ai?.onEnd?.(summary);
+      if(aiEnd) summary.aiEnd = aiEnd;
+    }catch(e){}
+
     WIN.__HHA_LAST_SUMMARY = summary;
     dispatchEndOnce(summary);
 
@@ -442,7 +478,7 @@ export function boot(cfg){
     }
   }
 
-  // Spawn & TTL
+  // Spawn & TTL + PHASE
   let spawnAcc=0;
 
   function spawnTick(dt){
@@ -451,27 +487,72 @@ export function boot(cfg){
       shield = Math.max(0, shield-1);
     }
 
-    spawnAcc += TUNE.spawnBase * dt;
+    // === Trigger STORM once mid-game ===
+    if(!stormDone && phase === 'normal'){
+      if(tLeft <= plannedSec*0.62){
+        phase = 'storm';
+        stormLeft = 12;      // storm duration sec
+        stormDone = true;
+        setStorm(true);
+        lightning();
+        try{ cfg.ai?.setHint?.('⚡ STORM! หลบ junk แล้วรีบดื่มน้ำ!'); }catch(e){}
+      }
+    }
+
+    // === Storm countdown + lightning ===
+    if(phase === 'storm'){
+      stormLeft = Math.max(0, stormLeft - dt);
+      if(r01() < dt*1.15) lightning();
+      if(stormLeft <= 0){
+        phase = 'normal';
+        setStorm(false);
+        try{ cfg.ai?.setHint?.('พายุซาแล้ว! เก็บน้ำต่อให้ถึงบอส'); }catch(e){}
+      }
+    }
+
+    // === Boss trigger (after storm has happened) ===
+    if(!bossOn && stormDone && phase !== 'storm'){
+      if(tLeft <= plannedSec*0.38 && waterPct >= 55){
+        bossOn = true;
+        phase = 'boss';
+        bossHpMax = (diff==='hard') ? 22 : (diff==='easy' ? 16 : 18);
+        bossHp = bossHpMax;
+        try{ cfg.ai?.setHint?.('👑 BOSS! รักษาน้ำให้เกิน 50%'); }catch(e){}
+      }
+    }
+
+    // === Spawn tuning per phase ===
+    const inStorm = (phase === 'storm');
+    const inBoss  = (phase === 'boss');
+
+    const spawnRate = TUNE.spawnBase * (inStorm ? 1.35 : inBoss ? 1.15 : 1.0);
+    const ttlGood = TUNE.ttlGood * (inStorm ? 0.90 : 1.0);
+    const ttlBad  = TUNE.ttlBad  * (inStorm ? 0.92 : 1.0);
+
+    spawnAcc += spawnRate * dt;
     while(spawnAcc >= 1){
       spawnAcc -= 1;
 
-      // boss mode: เพิ่ม bad ถี่ขึ้น
-      const bossMult = bossOn ? 0.08 : 0.0;
-
+      const p = r01();
       let kind='good';
-      const p=r01();
 
-      if(p < (0.64 - bossMult)){
-        kind='good';
-      }else if(p < (0.88 + bossMult)){
-        kind='bad';
+      if(inStorm){
+        if(p < 0.50) kind='good';
+        else if(p < 0.93) kind='bad';
+        else kind='shield';
+      }else if(inBoss){
+        if(p < 0.58) kind='good';
+        else if(p < 0.90) kind='bad';
+        else kind='shield';
       }else{
-        kind='shield';
+        if(p < 0.64) kind='good';
+        else if(p < 0.88) kind='bad';
+        else kind='shield';
       }
 
-      if(kind==='good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
+      if(kind==='good') makeBubble('good', pick(GOOD), ttlGood);
       else if(kind==='shield') makeBubble('shield', pick(SHLD), 2.6);
-      else makeBubble('bad', pick(BAD), TUNE.ttlBad);
+      else makeBubble('bad', pick(BAD), ttlBad);
     }
   }
 
@@ -480,10 +561,11 @@ export function boot(cfg){
     for(const b of Array.from(bubbles.values())){
       const age=t - b.born;
       if(age >= b.ttl){
-        try{ cfg.ai?.emit?.('expire', { kind:b.kind, id:b.id }); }catch(e){}
+        try{ cfg.ai?.onExpire?.(b.kind, { id:b.id, phase }); }catch(e){}
 
         if(b.kind==='good'){
           miss++;
+          missGoodExpired++;   // ✅ แยกสาเหตุ
           combo=0;
           score = Math.max(0, score - 4);
           waterPct = clamp(waterPct - 4.5, 0, 100);
@@ -522,7 +604,7 @@ export function boot(cfg){
     spawnTick(dt);
     updateBubbles();
 
-    // ✅ AI HUD (deterministic rule-based)
+    // ✅ AI HUD (rule-based, deterministic friendly)
     try{
       const risk =
         clamp(
@@ -533,15 +615,25 @@ export function boot(cfg){
         );
 
       let hint = 'เล็งกลางจอแล้วกดต่อเนื่อง';
-      if(waterPct < 35) hint = 'ดื่มน้ำเป้า 💧 ให้ถี่ขึ้น!';
-      else if(miss > (TUNE.missLimit*0.5)) hint = 'ระวังพลาด/โดน junk 🧋';
+      if(phase==='storm') hint = '⚡ STORM! เลี่ยง junk แล้วเก็บ 💧';
+      else if(phase==='boss') hint = '👑 BOSS! รักษาน้ำ > 50%';
+      else if(waterPct < 35) hint = 'ดื่มน้ำเป้า 💧 ให้ถี่ขึ้น!';
+      else if(missBadHit > (TUNE.missLimit*0.5)) hint = 'ระวังโดน junk 🧋';
       else if(combo >= 6) hint = 'คอมโบมาแล้ว! เก็บต่อเลย 🔥';
 
       cfg.ai?.setRisk?.(risk);
       cfg.ai?.setHint?.(hint);
-
-      // fallback direct HUD update
       setAIHud({ hazardRisk: risk, next5: [hint] });
+
+      // optional: emit tick for logger/future ML
+      cfg.ai?.onTick?.(dt, {
+        missGoodExpired,
+        missJunkHit: missBadHit,
+        shield,
+        combo,
+        waterPct,
+        phase
+      });
     }catch(e){}
 
     setHUD();
