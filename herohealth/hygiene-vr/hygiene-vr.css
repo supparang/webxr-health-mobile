@@ -1,9 +1,9 @@
 /* === /herohealth/hygiene-vr/hygiene-vr.css ===
-HygieneVR CSS — PRODUCTION (Kid-first + End Scroll Fix) — PATCH v20260221k
-✅ FIX: “ตีแล้วไม่หาย” => .hw-tgt.is-dying + JS forced remove
-✅ FIX: HUD occlusion => safe vars + responsive
-✅ FIX: Overlay scroll locked on mobile => body.hw-lock + overlay/card scroll
-✅ NEW: Kid cards + Evaluate handmap + Create routine UI
+HygieneVR CSS — PRODUCTION (Kid-first + BIG TAP UI) — PATCH v20260221m
+✅ Mobile: ปุ่มใหญ่ขึ้นมาก (Evaluate/Reasons/Routine/CTA)
+✅ HandMap: วงกลมใหญ่ขึ้น + ข้อความอ่านง่าย
+✅ Scroll: overlay/card เลื่อนตอบได้แน่น
+✅ Keep: is-dying fix + HUD safe vars
 */
 
 :root{
@@ -29,7 +29,7 @@ HygieneVR CSS — PRODUCTION (Kid-first + End Scroll Fix) — PATCH v20260221k
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* spawn safe zones (JS reads these) */
+  /* spawn safe zones */
   --hw-top-safe: 170px;
   --hw-bottom-safe: 190px;
 
@@ -38,8 +38,20 @@ HygieneVR CSS — PRODUCTION (Kid-first + End Scroll Fix) — PATCH v20260221k
   --tgtFont: clamp(22px, 3.3vh, 34px);
 
   /* hand map sizes */
-  --hmW: min(520px, 100%);
-  --hmH: 260px;
+  --hmW: min(560px, 100%);
+  --hmH: 280px;
+
+  /* BIG TAP defaults (desktop baseline) */
+  --tapMin: 52px;
+  --tapPad: 12px;
+  --tapFont: 14px;
+
+  --zoneSize: 58px;
+  --zoneFont: 12px;
+  --zoneMini: 11px;
+
+  --optPad: 14px;
+  --optFont: 14px;
 }
 
 *{ box-sizing:border-box; }
@@ -52,6 +64,12 @@ html,body{
 }
 
 button{ font: inherit; }
+
+/* iOS tap delay / highlight */
+button, .hw-rt, .hw-reason, .hw-zone, .hw-cta, .hw-ghost{
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 
 .hw-root{
   position: relative;
@@ -111,6 +129,8 @@ button{ font: inherit; }
   pointer-events: auto;
   cursor: pointer;
   background: rgba(15,23,42,.70);
+  min-height: var(--tapMin);
+  padding: 10px 14px;
 }
 .hw-pill.btn:hover{ filter: brightness(1.05); }
 .hw-pill.btn:active{ transform: translateY(1px); }
@@ -178,7 +198,7 @@ button{ font: inherit; }
               rgba(2,6,23,.66);
   z-index: 90;
 
-  /* ✅ scroll container */
+  /* ✅ must scroll */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -186,7 +206,7 @@ button{ font: inherit; }
 }
 
 .hw-card{
-  width: min(760px, 100%);
+  width: min(780px, 100%);
   border-radius: var(--r);
   border: 1px solid var(--stroke);
   background: rgba(2,6,23,.74);
@@ -194,7 +214,7 @@ button{ font: inherit; }
   padding: 16px;
   backdrop-filter: blur(12px);
 
-  /* ✅ allow card scroll */
+  /* ✅ scroll inside card */
   max-height: calc(100vh - (28px + var(--sat) + var(--sab)));
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -215,9 +235,11 @@ button{ font: inherit; }
 .hw-cta, .hw-ghost{
   cursor: pointer;
   border-radius: 16px;
-  padding: 10px 12px;
+  padding: calc(var(--tapPad) - 2px) calc(var(--tapPad) + 2px);
   font-weight: 950;
   border: 1px solid var(--stroke);
+  min-height: var(--tapMin);
+  font-size: var(--tapFont);
 }
 .hw-cta{
   background: rgba(34,197,94,.18);
@@ -266,7 +288,6 @@ button{ font: inherit; }
   cursor: pointer;
   pointer-events: auto;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
   z-index: 10;
   animation: hwPopIn 180ms ease-out both;
 }
@@ -284,7 +305,7 @@ button{ font: inherit; }
   box-shadow: 0 18px 65px rgba(0,0,0,.45), 0 0 0 8px rgba(34,211,238,.10);
 }
 
-/* ✅ FIX: die animation */
+/* die animation */
 .hw-tgt.is-dying{
   pointer-events: none;
   opacity: 0;
@@ -292,9 +313,7 @@ button{ font: inherit; }
   transition: opacity .14s ease, transform .14s ease;
 }
 
-.hw-tgt:active{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98));
-}
+.hw-tgt:active{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .98)); }
 
 @keyframes hwPopIn{
   from{ opacity: 0; transform: translate(-50%,-52%) scale(calc(var(--s,1) * .92)); }
@@ -340,8 +359,8 @@ button{ font: inherit; }
   background: rgba(2,6,23,.40);
   padding: 12px;
 }
-.hw-eval-title{ font-weight: 950; font-size: 14px; }
-.hw-eval-sub{ margin-top: 6px; font-size: 12px; color: rgba(148,163,184,.95); line-height: 1.35; }
+.hw-eval-title{ font-weight: 950; font-size: 15px; }
+.hw-eval-sub{ margin-top: 6px; font-size: 13px; color: rgba(148,163,184,.95); line-height: 1.35; }
 
 .hw-eval-row{
   display:flex;
@@ -351,16 +370,17 @@ button{ font: inherit; }
 }
 .hw-eval-picked, .hw-eval-score{
   flex: 1;
-  min-width: 220px;
+  min-width: 240px;
   border-radius: 14px;
   border: 1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.52);
-  padding: 10px 12px;
-  font-weight: 900;
-  font-size: 12px;
+  padding: 12px 14px;
+  font-weight: 950;
+  font-size: 13px;
   color: rgba(229,231,235,.92);
 }
 
+/* HandMap */
 .hw-handmap{
   margin-top: 10px;
   width: var(--hmW);
@@ -375,14 +395,14 @@ button{ font: inherit; }
   overflow: hidden;
 }
 
-/* zone dots */
+/* zone dots bigger */
 .hw-zone{
   position: absolute;
   left: calc(var(--zx,50) * 1%);
   top:  calc(var(--zy,50) * 1%);
   transform: translate(-50%,-50%);
-  width: 54px;
-  height: 54px;
+  width: var(--zoneSize);
+  height: var(--zoneSize);
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.20);
   background: rgba(15,23,42,.66);
@@ -392,24 +412,25 @@ button{ font: inherit; }
   cursor:pointer;
   user-select:none;
   box-shadow: 0 18px 60px rgba(0,0,0,.40);
+  padding: 6px;
 }
 .hw-zone .zlab{
-  font-size: 12px;
+  font-size: var(--zoneFont);
   font-weight: 950;
   color: rgba(229,231,235,.92);
   text-align:center;
-  line-height: 1.1;
+  line-height: 1.08;
 }
 .hw-zone .zmini{
   display:block;
-  font-size: 11px;
+  font-size: var(--zoneMini);
   font-weight: 950;
   color: rgba(148,163,184,.95);
   margin-top: 2px;
 }
 .hw-zone.is-picked{
   outline: 2px solid rgba(34,211,238,.48);
-  box-shadow: 0 18px 60px rgba(0,0,0,.40), 0 0 0 10px rgba(34,211,238,.12);
+  box-shadow: 0 18px 60px rgba(0,0,0,.40), 0 0 0 12px rgba(34,211,238,.12);
 }
 .hw-zone.heat-0{ background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.22); }
 .hw-zone.heat-1{ background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.22); }
@@ -420,15 +441,24 @@ button{ font: inherit; }
   50%{ transform: translate(-50%,-50%) scale(1.06); }
 }
 
-.hw-reasons{ margin-top: 10px; display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Reasons + Routine => BIG TAP */
+.hw-reasons{
+  margin-top: 12px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 .hw-reason{
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.66);
   color: rgba(229,231,235,.94);
-  padding: 12px 12px;
+  padding: var(--optPad);
   font-weight: 950;
   cursor:pointer;
+  min-height: var(--tapMin);
+  font-size: var(--optFont);
+  line-height: 1.15;
 }
 .hw-reason.is-picked{
   border-color: rgba(34,211,238,.35);
@@ -436,26 +466,29 @@ button{ font: inherit; }
 }
 
 .hw-routine{
-  margin-top: 10px;
+  margin-top: 12px;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 .hw-rt{
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.66);
   color: rgba(229,231,235,.94);
-  padding: 12px 12px;
+  padding: var(--optPad);
   font-weight: 950;
   cursor:pointer;
-  min-height: 54px;
+  min-height: var(--tapMin);
+  font-size: var(--optFont);
+  line-height: 1.15;
 }
 .hw-rt.is-picked{
   border-color: rgba(34,197,94,.35);
   background: rgba(34,197,94,.12);
 }
 
+/* Small screens => 1 col + bigger tap */
 @media (max-width: 520px){
   .hw-kidgrid{ grid-template-columns: 1fr; }
   .hw-reasons{ grid-template-columns: 1fr; }
@@ -465,33 +498,62 @@ button{ font: inherit; }
 
 /* View tweaks */
 body.view-mobile{
-  --hw-top-safe: 200px;
-  --hw-bottom-safe: 230px;
-  --tgtSize: clamp(58px, 10vh, 98px);
-  --tgtFont: clamp(24px, 3.8vh, 36px);
-  --hmH: 280px;
-}
-body.view-cvr{
-  --hw-top-safe: 170px;
-  --hw-bottom-safe: 250px;
-  --tgtSize: clamp(64px, 10.5vh, 104px);
-  --tgtFont: clamp(26px, 4.0vh, 38px);
-  --hmH: 300px;
-}
-body.view-cvr .hw-zone{ pointer-events: none; }
-body.view-vr{
-  --hw-top-safe: 160px;
-  --hw-bottom-safe: 220px;
+  --hw-top-safe: 210px;
+  --hw-bottom-safe: 240px;
+
+  --tgtSize: clamp(60px, 10.5vh, 108px);
+  --tgtFont: clamp(26px, 4.0vh, 40px);
+
+  --hmH: 320px;
+
+  /* ✅ BIG TAP mobile */
+  --tapMin: 58px;
+  --tapPad: 16px;
+  --tapFont: 15px;
+
+  --zoneSize: 70px;
+  --zoneFont: 13px;
+  --zoneMini: 12px;
+
+  --optPad: 16px;
+  --optFont: 15px;
 }
 
-/* =========================================================
-   FIX: Overlay scroll locked on mobile
-   ========================================================= */
+body.view-cvr{
+  --hw-top-safe: 180px;
+  --hw-bottom-safe: 260px;
+
+  --tgtSize: clamp(66px, 11vh, 112px);
+  --tgtFont: clamp(28px, 4.2vh, 42px);
+
+  --hmH: 340px;
+
+  /* ✅ BIG TAP but zones disabled pointer (select by shoot) */
+  --tapMin: 58px;
+  --tapPad: 16px;
+  --tapFont: 15px;
+
+  --zoneSize: 74px;
+  --zoneFont: 13px;
+  --zoneMini: 12px;
+
+  --optPad: 16px;
+  --optFont: 15px;
+}
+
+/* cVR: zones not clickable */
+body.view-cvr .hw-zone{ pointer-events: none; }
+
+/* VR */
+body.view-vr{
+  --hw-top-safe: 170px;
+  --hw-bottom-safe: 240px;
+}
+
+/* Overlay lock */
 body.hw-lock{
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
 }
-body.hw-lock .hw-stage{
-  pointer-events: none !important;
-}
+body.hw-lock .hw-stage{ pointer-events: none !important; }
