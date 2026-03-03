@@ -1,6 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM + vr-ui + spawn-safe + AI dynamic import)
-PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
+GoodJunkVR RUN — PRODUCTION (ESM + safe inject + spawn-safe measure)
+PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
+✅ FIX: End overlay has #endActions anchor for JS inject (Cooldown button always visible)
+✅ ADD: Boot splash "Loading GoodJunk..." (hide when booted)
+✅ ADD: spawn-safe measurement on run page -> prevents HUD blocking targets/miss spikes
+✅ Keep: AI dynamic import (optional), pass-through, retry/hub
 -->
 <!doctype html>
 <html lang="th">
@@ -9,22 +13,17 @@ PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260303" />
-
-  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + hha:shoot crosshair) -->
-  <script type="module" src="../vr/vr-ui.js?v=20260303"></script>
 </head>
-
 <body>
   <div id="app">
 
-    <!-- Loading -->
-    <div id="loading" aria-hidden="false">
-      <div class="loadingCard">
-        <div class="loadingTitle">Loading GoodJunk…</div>
-        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
+    <!-- Boot splash -->
+    <div id="bootSplash" aria-hidden="false">
+      <div class="bootCard">
+        <div class="bootTitle">Loading GoodJunk...</div>
+        <div class="bootSub">กำลังเตรียมฉาก/เลเยอร์</div>
       </div>
     </div>
 
@@ -33,8 +32,6 @@ PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
-      <span class="pill">ai=<b id="uiAi">—</b></span>
-      <span class="pill">battle=<b id="uiBattle">—</b></span>
     </div>
 
     <!-- Top HUD -->
@@ -129,12 +126,12 @@ PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
           <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
         </div>
 
-        <div class="endActions">
+        <!-- ✅ ANCHOR: JS จะ inject ปุ่ม Cooldown “ในแถวนี้” เสมอ -->
+        <div class="endActions" id="endActions">
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
 
-        <!-- ✅ Cooldown button will be injected here by JS -->
       </div>
     </div>
 
@@ -144,111 +141,83 @@ PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-    const qn = (k, d)=>{ const v = Number(qs(k,'')); return Number.isFinite(v) ? v : d; };
 
-    // ---- cfg from URL params (pass-through) ----
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
       diff: qs('diff','normal'),
-      time: qn('time', 80),
+      time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
       pid: qs('pid','anon'),
       hub: qs('hub','../hub.html'),
       ai: null
     };
 
-    // ---- debug pills ----
-    const uiAi = document.getElementById('uiAi');
-    const uiBattle = document.getElementById('uiBattle');
-    try{
-      if(document.getElementById('uiView')) document.getElementById('uiView').textContent = String(cfg.view);
-      if(document.getElementById('uiRun'))  document.getElementById('uiRun').textContent  = String(cfg.run);
-      if(document.getElementById('uiDiff')) document.getElementById('uiDiff').textContent = String(cfg.diff);
-    }catch(e){}
-
-    // ---- SPAWN SAFE: กัน HUD + กันแถบ vr-ui ด้านล่างบังเป้า ----
-    // goodjunk.safe.js จะอ่าน window.__HHA_SPAWN_SAFE__
-    function computeSpawnSafe(){
-      const stage = document.getElementById('stage');
-      const layer = document.getElementById('gj-layer');
-      const hud   = document.getElementById('hud');
-      if(!stage || !layer) return;
-
-      const rStage = stage.getBoundingClientRect();
-      const rHud   = hud ? hud.getBoundingClientRect() : { bottom: rStage.top };
-
-      // vr-ui bar (ENTER VR/RECENTER) อยู่ล่างสุด ใช้ height เผื่อไว้
-      // (เผื่อบางเครื่องสูง/ต่ำต่างกัน)
-      const bottomBar = 92; // px safe default
-      const safePad = 10;
-
-      const xMin = rStage.left + safePad;
-      const xMax = rStage.right - safePad;
-
-      const yMin = Math.max(rStage.top + safePad, rHud.bottom + 12);
-      const yMax = rStage.bottom - bottomBar;
-
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin, xMax, yMin, yMax
-      };
-    }
-
-    window.addEventListener('resize', ()=>{ computeSpawnSafe(); }, { passive:true });
-    window.addEventListener('orientationchange', ()=>{ setTimeout(computeSpawnSafe, 250); }, { passive:true });
-    setTimeout(computeSpawnSafe, 60);
-
-    // ---- AI enabled only when ?ai=1 AND run=play ----
+    // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    try{ if(uiAi) uiAi.textContent = aiOn ? '1' : '0'; }catch(e){}
-
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
         const createGoodJunkAI = mod.createGoodJunkAI;
         if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
+          cfg.ai = createGoodJunkAI({ seed: cfg.seed, pid: cfg.pid, diff: cfg.diff, view: cfg.view });
         }
       }catch(e){
-        console.warn('[GoodJunk] AI module load failed (ok)', e);
+        console.warn('[GoodJunk] AI module load failed', e);
       }
     }
 
-    // ---- battle debug pill ----
-    try{
-      const battleOn = (qs('battle','0') === '1');
-      if(uiBattle) uiBattle.textContent = battleOn ? '1' : '0';
-    }catch(e){}
-
-    // ---- buttons ----
+    // Buttons
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
-
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
       u.searchParams.set('seed', String(Date.now()));
-      u.searchParams.set('run', String(cfg.run||'play'));
       location.href = u.toString();
     });
-
     btnHub?.addEventListener('click', ()=>{
-      location.href = (cfg.hub || '../hub.html');
+      const hub = cfg.hub || '../hub.html';
+      location.href = hub;
     });
 
-    // ---- boot ----
-    const loading = document.getElementById('loading');
-    try{
-      boot(cfg);
-      // hide loading after first paint
-      requestAnimationFrame(()=>{ try{ loading?.setAttribute('aria-hidden','true'); }catch(e){} });
-    }catch(e){
-      console.error('[GoodJunk] boot failed', e);
+    // ✅ Spawn-safe measurement (exclude HUD + bottom safe area / VR buttons)
+    function setSpawnSafe(){
+      const layer = document.getElementById('gj-layer');
+      const hud   = document.getElementById('hud');
+      if(!layer) return;
+
+      const lr = layer.getBoundingClientRect();
+      const hr = hud ? hud.getBoundingClientRect() : { bottom: lr.top };
+
+      // bottom UI (coach/toast + vr-ui bar) เผื่อไว้แบบอนุรักษ์นิยม
+      const bottomPad = Math.max(120, 90 + (window.visualViewport?.offsetTop || 0));
+      const pad = 16;
+
+      const xMin = lr.left + pad;
+      const xMax = lr.right - pad;
+
+      // ✅ yMin เริ่ม “ใต้ HUD” ชัด ๆ
+      const yMin = Math.min(lr.bottom - 200, Math.max(lr.top + pad, hr.bottom + 10));
+
+      // ✅ yMax กันพื้นที่ปุ่มล่าง/ขอบจอ
+      const yMax = Math.max(yMin + 180, lr.bottom - bottomPad);
+
+      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
     }
+
+    // call now + on resize/orientation
+    setSpawnSafe();
+    window.addEventListener('resize', ()=> setSpawnSafe(), { passive:true });
+    window.addEventListener('orientationchange', ()=> setTimeout(setSpawnSafe, 250), { passive:true });
+
+    // Boot + hide splash
+    const splash = document.getElementById('bootSplash');
+    try{ splash?.setAttribute('aria-hidden','false'); }catch(e){}
+    boot(cfg);
+    try{
+      splash?.setAttribute('aria-hidden','true');
+      splash?.classList.add('hide');
+    }catch(e){}
   </script>
 </body>
 </html>
