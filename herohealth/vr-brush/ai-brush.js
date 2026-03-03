@@ -3,26 +3,22 @@
 // FULL v20260302-AI-BRUSH
 'use strict';
 
-export function bootBrushAI(cfg){
-  cfg = cfg || {};
+export function bootBrushAI(){
   const W = window, D = document;
 
-  // ai=0 or boot flag disables completely
-  const aiQ = String((new URL(location.href)).searchParams.get('ai') || '1');
+  const aiQ = String((new URL(location.href)).searchParams.get('ai') || '1').toLowerCase();
   if (aiQ === '0' || W.__BRUSH_AI_OFF__) return { enabled:false };
 
+  const hud = D.getElementById('hud');
+  const rows = hud ? hud.querySelectorAll('.hud-row') : null;
   let pill = D.getElementById('aiPill');
-  if(!pill){
-    // inject pill into HUD row 2 (if exists)
-    const hud = D.getElementById('hud');
-    const rows = hud ? hud.querySelectorAll('.hud-row') : null;
-    if (rows && rows[1]){
-      pill = D.createElement('div');
-      pill.className = 'pill';
-      pill.id = 'aiPill';
-      pill.textContent = 'AI: READY';
-      rows[1].appendChild(pill);
-    }
+
+  if (!pill && rows && rows[1]){
+    pill = D.createElement('div');
+    pill.className = 'pill';
+    pill.id = 'aiPill';
+    pill.textContent = 'AI: READY';
+    rows[1].appendChild(pill);
   }
 
   let lastAt = 0;
