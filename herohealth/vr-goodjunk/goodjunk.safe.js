@@ -1,143 +1,146 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
-// + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
-// + ✅ End Summary: "Go Cooldown (daily-first per-game)" button when needed
-// + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// + ✅ AI HUD: hazardRisk + next watchout
-// + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
-// + ✅ battle (optional): mode=battle OR ?battle=1 (legacy)
-// + ✅ COOP2-PROD: team=R/B, team shield, boss raid, startAt sync, scoreboard+MVP, swap team btn
-// FULL v20260304-GJ-COOP2-PROD-FULL
+// GoodJunkVR SAFE — PRODUCTION (solo + duel battle)
+// ✅ Battle RTDB (optional ?battle=1): create/join UI, autostart, forfeit, opponent HUD
+// ✅ hha:score + end summary -> battle push/end
+// FULL v20260304-SAFE-BATTLE-DUEL-GATE
+
 'use strict';
 
 export function boot(cfg){
   cfg = cfg || {};
   const WIN = window, DOC = document;
-  const AI = cfg.ai || null;
+  const AI  = cfg.ai || null;
 
   // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
-  function $(id){ return DOC.getElementById(id); }
+  const $ = (id)=> DOC.getElementById(id);
 
   // ---------- BATTLE (optional) ----------
   let battle = null;
+  let battleEnabled = (String(qs('battle','0')) === '1');
+  let battleStarted = !battleEnabled;
+
   async function initBattleMaybe(pid, gameKey){
-    const mode = String(cfg.mode || qs('mode','solo')).toLowerCase();
-    const legacyOn = String(qs('battle','0')) === '1';
-    const on = (mode === 'battle') || legacyOn;
-    if(!on) return null;
+    if(!battleEnabled) return null;
     try{
       const mod = await import('../vr/battle-rtdb.js');
       battle = await mod.initBattle({
         enabled: true,
-        room: qs('room', ''),
+        room: qs('room',''),
+        role: qs('brole',''),
         pid,
         gameKey,
+        hub: cfg.hub || qs('hub','../hub.html'),
         autostartMs: Number(qs('autostart','3000'))||3000,
-        forfeitMs: Number(qs('forfeit','5000'))||5000
+        forfeitMs: Number(qs('forfeit','5000'))||5000,
+      });
+      if(!battle){
+        // ถ้าไม่มี config → ปิด battle แล้วกลับไป solo ไม่ให้เกมพัง
+        battleEnabled = false;
+        battleStarted = true;
+        return null;
+      }
+      // watch state
+      WIN.addEventListener('hha:battle-state', (ev)=>{
+        const s = ev?.detail || {};
+        if(String(s.status) === 'playing') battleStarted = true;
       });
       return battle;
     }catch(e){
-      console.warn('[GoodJunk] battle init failed', e);
+      console.warn('[GoodJunk] battle init failed (fallback solo)', e);
+      battleEnabled = false;
+      battleStarted = true;
       return null;
     }
   }
 
-  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
-  function hhDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  // ---------- DOM refs ----------
+  const layer = $('gj-layer');
+  const hud = {
+    score: $('hud-score'),
+    time: $('hud-time'),
+    miss: $('hud-miss'),
+    grade: $('hud-grade'),
+    goal: $('hud-goal'),
+    goalCur: $('hud-goal-cur'),
+    goalTarget: $('hud-goal-target'),
+    goalDesc: $('goalDesc'),
+    mini: $('hud-mini'),
+    miniTimer: $('miniTimer'),
+    aiRisk: $('aiRisk'),
+    aiHint: $('aiHint'),
+  };
+  const feverFill = $('feverFill');
+  const feverText = $('feverText');
+  const shieldPills = $('shieldPills');
+  const bossBar = $('bossBar');
+  const bossFill = $('bossFill');
+  const bossHint = $('bossHint');
+  const lowTimeOverlay = $('lowTimeOverlay');
+  const lowTimeNum = $('gj-lowtime-num');
+  const progressWrap = DOC.querySelector('.gj-progress');
+  const progressFill = $('gjProgressFill');
 
-  function hhCooldownDone(cat, gameKey, pid){
-    const day = hhDayKey();
-    const p = String(pid||'anon').trim()||'anon';
-    const c = String(cat||'nutrition').toLowerCase();
-    const g = String(gameKey||'unknown').toLowerCase();
-    const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
-    const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
-    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
-  }
+  const endOverlay = $('endOverlay');
+  const endTitle = $('endTitle');
+  const endSub = $('endSub');
+  const endGrade = $('endGrade');
+  const endScore = $('endScore');
+  const endMiss  = $('endMiss');
+  const endTime  = $('endTime');
 
-  function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'unknown'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
-
-    const sp = new URL(location.href).searchParams;
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade',
-      // battle passthrough
-      'battle','room','autostart','forfeit',
-      // ai passthrough
-      'ai',
-      // coop2 passthrough
-      'mode','team','nick','sbUrl','sbAnon'
-    ].forEach(k=>{
-      const v = sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k, v);
-    });
-
-    return gate.toString();
+  if(!layer){
+    console.warn('[GoodJunk] Missing #gj-layer');
+    return;
   }
 
-  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
-    if(!endOverlayEl) return;
-    const cdDone = hhCooldownDone(cat, gameKey, pid);
-    if(cdDone) return;
+  // ---------- basic cfg ----------
+  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
+  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
+  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
+  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-    const sp = new URL(location.href).searchParams;
-    const cdnext = sp.get('cdnext') || '';
-    const nextAfterCooldown = cdnext || hub || '../hub.html';
-    const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
+  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
+  const HH_CAT = 'nutrition';
+  const HH_GAME = 'goodjunk';
 
-    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
-    let row = panel.querySelector('.hh-end-actions');
-    if(!row){
-      row = DOC.createElement('div');
-      row.className = 'hh-end-actions';
-      row.style.display='flex';
-      row.style.gap='10px';
-      row.style.flexWrap='wrap';
-      row.style.justifyContent='center';
-      row.style.marginTop='12px';
-      row.style.paddingTop='10px';
-      row.style.borderTop='1px solid rgba(148,163,184,.16)';
-      panel.appendChild(row);
-    }
-    if(row.querySelector('[data-hh-cd="1"]')) return;
+  // seed (solo: from url; battle: still used by AI only; spawn fairness is “mostly” time-aligned)
+  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
 
-    const btn = DOC.createElement('button');
-    btn.type='button';
-    btn.dataset.hhCd = '1';
-    btn.textContent='ไป Cooldown (ครั้งแรกของวันนี้)';
-    btn.className = 'btn primary';
-    btn.style.border='1px solid rgba(34,197,94,.30)';
-    btn.style.background='rgba(34,197,94,.14)';
-    btn.style.color='rgba(229,231,235,.96)';
-    btn.style.borderRadius='14px';
-    btn.style.padding='10px 12px';
-    btn.style.fontWeight='1000';
-    btn.style.cursor='pointer';
-    btn.style.minHeight='42px';
-    btn.addEventListener('click', ()=> location.href = url);
-    row.appendChild(btn);
+  // opponent HUD (small)
+  const oppHud = DOC.createElement('div');
+  oppHud.style.cssText = `
+    position:fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    right: calc(env(safe-area-inset-right, 0px) + 10px);
+    z-index: 222;
+    pointer-events:none;
+    padding: 8px 10px;
+    border: 1px solid rgba(148,163,184,.16);
+    background: rgba(2,6,23,.55);
+    color: rgba(229,231,235,.96);
+    border-radius: 14px;
+    font: 900 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    backdrop-filter: blur(10px);
+  `;
+  oppHud.innerHTML = `<div style="opacity:.85">Opponent</div><div id="gjOppLine" style="margin-top:3px">—</div>`;
+  DOC.body.appendChild(oppHud);
+  const oppLine = oppHud.querySelector('#gjOppLine');
+
+  function setOpponentLine(){
+    if(!battleEnabled || !battle) { oppHud.style.display='none'; return; }
+    oppHud.style.display='block';
+    const opp = battle.getOpponent?.();
+    if(!opp){ if(oppLine) oppLine.textContent = 'Waiting…'; return; }
+    const acc = (Number(opp.accPct)||0);
+    if(oppLine) oppLine.textContent = `Score ${opp.score|0} • Acc ${acc}% • Miss ${opp.miss|0} • RT ${(opp.medianRtGoodMs|0)}ms`;
   }
 
-  // ---------- deterministic RNG (xmur3 + sfc32) ----------
+  // ---------- deterministic RNG for local spawn (solo) ----------
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -164,90 +167,16 @@ export function boot(cfg){
       return (t >>> 0) / 4294967296;
     };
   }
-  function makeRng(seedStr){
-    const seed = xmur3(seedStr);
-    return sfc32(seed(), seed(), seed(), seed());
+  function makeRng(seed){
+    const s = xmur3(seed);
+    return sfc32(s(), s(), s(), s());
   }
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  let rng = makeRng(seedStr);
+  const rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
-  // ---------- DOM refs ----------
-  const layer = $('gj-layer');
-  const hud = {
-    score: $('hud-score'),
-    time: $('hud-time'),
-    miss: $('hud-miss'),
-    grade: $('hud-grade'),
-    goal: $('hud-goal'),
-    goalCur: $('hud-goal-cur'),
-    goalTarget: $('hud-goal-target'),
-    goalDesc: $('goalDesc'),
-    mini: $('hud-mini'),
-    miniTimer: $('miniTimer'),
-    aiRisk: $('aiRisk'),
-    aiHint: $('aiHint'),
-  };
-
-  const feverFill = $('feverFill');
-  const feverText = $('feverText');
-  const shieldPills = $('shieldPills');
-  const bossBar = $('bossBar');
-  const bossFill = $('bossFill');
-  const bossHint = $('bossHint');
-  const lowTimeOverlay = $('lowTimeOverlay');
-  const lowTimeNum = $('gj-lowtime-num');
-  const progressWrap = DOC.querySelector('.gj-progress');
-  const progressFill = $('gjProgressFill');
-
-  const endOverlay = $('endOverlay');
-  const endTitle = $('endTitle');
-  const endSub = $('endSub');
-  const endGrade = $('endGrade');
-  const endScore = $('endScore');
-  const endMiss  = $('endMiss');
-  const endTime  = $('endTime');
-
-  if(!layer){
-    console.warn('[GoodJunk] Missing #gj-layer');
-    return;
-  }
-
-  // ---------- view/run/mode/team/nick ----------
-  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
-
-  const MODE = String(cfg.mode || cfg.multi?.mode || qs('mode','solo')).toLowerCase();
-  const TEAM = (String(cfg.team || cfg.multi?.team || qs('team','R')).trim().toUpperCase()==='B') ? 'B' : 'R';
-  const NICK = String(cfg.nick || qs('nick','')).trim() || String(cfg.pid || qs('pid','anon'));
-
-  function applyTeamTheme(team){
-    const root = DOC.documentElement;
-    if(team === 'B'){
-      root.style.setProperty('--team-accent', '#3b82f6');
-      root.style.setProperty('--team-accent-soft', 'rgba(59,130,246,.18)');
-    }else{
-      root.style.setProperty('--team-accent', '#ef4444');
-      root.style.setProperty('--team-accent-soft', 'rgba(239,68,68,.18)');
-    }
-  }
-  applyTeamTheme(TEAM);
-
-  let diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  let plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
-  // hub / pid / cat / gameKey (used for cooldown button)
-  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
-  const HH_CAT = 'nutrition';
-  const HH_GAME = 'goodjunk';
-
-  // init battle (optional)
-  initBattleMaybe(pid, HH_GAME).catch(()=>{});
-
-  // ---------- difficulty tuning (recomputable) ----------
-  function computeTune(){
+  // ---------- difficulty tuning ----------
+  const TUNE = (function(){
     let spawnBase = 0.78;
     let lifeMissLimit = 10;
     let ttlGood = 2.6;
@@ -276,8 +205,7 @@ export function boot(cfg){
       ttlJunk += 0.15;
     }
     return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, stormMult, bossHp };
-  }
-  let TUNE = computeTune();
+  })();
 
   // ---------- assets ----------
   const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'];
@@ -289,26 +217,22 @@ export function boot(cfg){
 
   // ---------- FX layer ----------
   const fxLayer = DOC.createElement('div');
-  fxLayer.style.position = 'fixed';
-  fxLayer.style.inset = '0';
-  fxLayer.style.pointerEvents = 'none';
-  fxLayer.style.zIndex = '260';
+  fxLayer.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:260;`;
   DOC.body.appendChild(fxLayer);
 
   function fxFloatText(x,y,text,isBad){
     const el = DOC.createElement('div');
     el.textContent = text;
-    el.style.position = 'absolute';
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-    el.style.transform = 'translate(-50%,-50%)';
-    el.style.font = '900 18px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial';
-    el.style.letterSpacing = '.2px';
-    el.style.color = isBad ? 'rgba(255,110,110,.96)' : 'rgba(229,231,235,.98)';
-    el.style.textShadow = '0 10px 30px rgba(0,0,0,.55)';
-    el.style.filter = 'drop-shadow(0 10px 26px rgba(0,0,0,.45))';
-    el.style.opacity = '1';
-    el.style.willChange = 'transform, opacity';
+    el.style.cssText = `
+      position:absolute;left:${x}px;top:${y}px;
+      transform:translate(-50%,-50%);
+      font:900 18px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      letter-spacing:.2px;
+      color:${isBad?'rgba(255,110,110,.96)':'rgba(229,231,235,.98)'};
+      text-shadow:0 10px 30px rgba(0,0,0,.55);
+      filter:drop-shadow(0 10px 26px rgba(0,0,0,.45));
+      opacity:1;will-change:transform,opacity;
+    `;
     fxLayer.appendChild(el);
 
     const t0 = nowMs();
@@ -317,11 +241,9 @@ export function boot(cfg){
     function tick(){
       const t = nowMs() - t0;
       const p = Math.min(1, t/dur);
-      const yy = y - rise * (p);
-      const sc = 1 + 0.08*Math.sin(p*3.14);
-      el.style.top = `${yy}px`;
+      el.style.top = `${y - rise*p}px`;
       el.style.opacity = String(1 - p);
-      el.style.transform = `translate(-50%,-50%) scale(${sc})`;
+      el.style.transform = `translate(-50%,-50%) scale(${1 + 0.08*Math.sin(p*Math.PI)})`;
       if(p<1) requestAnimationFrame(tick);
       else el.remove();
     }
@@ -332,16 +254,11 @@ export function boot(cfg){
     const n = 10 + ((r01()*6)|0);
     for(let i=0;i<n;i++){
       const dot = DOC.createElement('div');
-      dot.style.position = 'absolute';
-      dot.style.left = `${x}px`;
-      dot.style.top  = `${y}px`;
-      dot.style.width = '6px';
-      dot.style.height = '6px';
-      dot.style.borderRadius = '999px';
-      dot.style.background = 'rgba(229,231,235,.92)';
-      dot.style.opacity = '1';
-      dot.style.transform = 'translate(-50%,-50%)';
-      dot.style.willChange = 'transform, opacity';
+      dot.style.cssText = `
+        position:absolute;left:${x}px;top:${y}px;width:6px;height:6px;
+        border-radius:999px;background:rgba(229,231,235,.92);
+        opacity:1;transform:translate(-50%,-50%);will-change:transform,opacity;
+      `;
       fxLayer.appendChild(dot);
 
       const ang = r01()*Math.PI*2;
@@ -354,10 +271,8 @@ export function boot(cfg){
       function tick(){
         const t = nowMs() - t0;
         const p = Math.min(1, t/dur);
-        const xx = x + vx*p;
-        const yy = y + vy*p - 30*p*p;
-        dot.style.left = `${xx}px`;
-        dot.style.top  = `${yy}px`;
+        dot.style.left = `${x + vx*p}px`;
+        dot.style.top  = `${y + vy*p - 30*p*p}px`;
         dot.style.opacity = String(1 - p);
         dot.style.transform = `translate(-50%,-50%) scale(${1 - 0.4*p})`;
         if(p<1) requestAnimationFrame(tick);
@@ -367,22 +282,17 @@ export function boot(cfg){
     }
   }
 
-  // ---------- Coach (micro tips) ----------
+  // ---------- Coach ----------
   const coach = DOC.createElement('div');
-  coach.style.position = 'fixed';
-  coach.style.left = '10px';
-  coach.style.right = '10px';
-  coach.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + 10px)`;
-  coach.style.zIndex = '210';
-  coach.style.pointerEvents = 'none';
-  coach.style.display = 'flex';
-  coach.style.justifyContent = 'center';
-  coach.style.opacity = '0';
-  coach.style.transform = 'translateY(6px)';
-  coach.style.transition = 'opacity .18s ease, transform .18s ease';
+  coach.style.cssText = `
+    position:fixed;left:10px;right:10px;
+    bottom:calc(env(safe-area-inset-bottom, 0px) + 10px);
+    z-index:210;pointer-events:none;display:flex;justify-content:center;
+    opacity:0;transform:translateY(6px);transition:opacity .18s ease, transform .18s ease;
+  `;
   coach.innerHTML = `
     <div style="
-      max-width:760px; width:100%;
+      max-width:760px;width:100%;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.62);
       color:rgba(229,231,235,.96);
@@ -390,8 +300,7 @@ export function boot(cfg){
       padding:10px 12px;
       box-shadow:0 18px 55px rgba(0,0,0,.40);
       backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      font: 900 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+      font: 900 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;">
       <span style="opacity:.9">🧑‍⚕️ Coach:</span> <span id="coachText">—</span>
     </div>`;
   DOC.body.appendChild(coach);
@@ -400,15 +309,12 @@ export function boot(cfg){
   let coachLatchMs = 0;
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 4500) return;
+    if(t - coachLatchMs < 3500) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
     coach.style.transform = 'translateY(0)';
-    setTimeout(()=>{
-      coach.style.opacity = '0';
-      coach.style.transform = 'translateY(6px)';
-    }, 2200);
+    setTimeout(()=>{ coach.style.opacity='0'; coach.style.transform='translateY(6px)'; }, 2200);
   }
 
   // ---------- AI HUD ----------
@@ -426,230 +332,37 @@ export function boot(cfg){
   let tLeft = plannedSec;
   let lastTick = nowMs();
 
-  // ✅ Help Pause Hook
   let paused = false;
-  WIN.__GJ_SET_PAUSED__ = function(on){
-    paused = !!on;
-    try{ lastTick = nowMs(); }catch(e){}
-  };
+  WIN.__GJ_SET_PAUSED__ = (on)=>{ paused = !!on; try{ lastTick = nowMs(); }catch(e){} };
 
   let score = 0;
-  let missTotal = 0;
-  let missGoodExpired = 0;
-  let missJunkHit = 0;
-
-  let combo = 0;
-  let bestCombo = 0;
-
-  let fever = 0;
-  let rageOn = false;
-  let rageLeft = 0;
-
-  let shield = 0;
-  let stormOn = false;
+  let missTotal = 0, missGoodExpired = 0, missJunkHit = 0;
+  let combo = 0, bestCombo = 0;
+  let fever = 0, rageOn = false, rageLeft = 0;
+  let shield = 0, stormOn = false;
 
   // RT (GOOD hit only)
-  let goodHitCount = 0;
-  let rtSum = 0;
+  let goodHitCount = 0, rtSum = 0;
   const rtList = [];
 
   // ACC
-  let shots = 0;
-  let hits  = 0;
+  let shots = 0, hits = 0;
 
-  // goals
   const goal = { name:'Daily', desc:'Hit GOOD 20', cur:0, target:20 };
   const mini = { name:'—', t:0 };
 
-  // boss
-  let bossActive = false;
-  let bossHpMax = TUNE.bossHp;
-  let bossHp = bossHpMax;
-  let bossPhase = 0;
-  let bossShieldHp = 5;
+  let bossActive = false, bossHpMax = TUNE.bossHp, bossHp = bossHpMax, bossPhase = 0, bossShieldHp = 5;
 
   const targets = new Map();
   let idSeq = 1;
 
-  WIN.__GJ_STATE__ = {
-    targets,
-    get miss(){ return missTotal; },
-    get score(){ return score; },
-    get combo(){ return combo; },
-    get fever(){ return fever; }
-  };
-
-  // ---------- COOP2 PRODUCTION ----------
-  const MULTI = cfg.multi || null;
-  const BUS = MULTI?.bus || null;
-  const ROOM = MULTI?.roomId || qs('room','');
-  const isCoop = (MODE === 'coop');
-  const isCoop2 = (MODE === 'coop2');
-
-  function coopTune(){
-    const d = String(diff||'normal');
-    if(d==='easy') return  { goalGood: 80,  limitJunk: 24, graceJunk: 6, teamShield: 14, bossHp: 36, bonusClear: 120 };
-    if(d==='hard') return  { goalGood: 130, limitJunk: 18, graceJunk: 4, teamShield: 10, bossHp: 55, bonusClear: 150 };
-    return               { goalGood: 105, limitJunk: 20, graceJunk: 5, teamShield: 12, bossHp: 44, bonusClear: 130 };
-  }
-  let COOP_TUNE = coopTune();
-
-  const coop = {
-    enabled: ((isCoop || isCoop2) && !!BUS && !!ROOM),
-    room: ROOM,
-    members: new Map(),
-    teams: {
-      R: { good:0, junk:0, boss:0, shieldPool:0, raidCleared:false },
-      B: { good:0, junk:0, boss:0, shieldPool:0, raidCleared:false }
-    },
-    lastSendMs: 0
-  };
-
-  WIN.__GJ_COOP_JUNK_CREDIT_R__ = WIN.__GJ_COOP_JUNK_CREDIT_R__|0;
-  WIN.__GJ_COOP_JUNK_CREDIT_B__ = WIN.__GJ_COOP_JUNK_CREDIT_B__|0;
-  WIN.__GJ_LOCAL_BOSS_DMG__ = WIN.__GJ_LOCAL_BOSS_DMG__|0;
-
-  function coopRecalc(){
-    if(!coop.enabled) return;
-    COOP_TUNE = coopTune();
-
-    const now = nowMs();
-    let rG=0,rJ=0,rB=0, bG=0,bJ=0,bB=0;
-
-    for(const [k,v] of Array.from(coop.members.entries())){
-      if(!v || (now - (v.t||0)) > 6000){ coop.members.delete(k); continue; }
-      const tm = (String(v.team||'R').toUpperCase()==='B') ? 'B' : 'R';
-      if(tm==='R'){ rG += v.g|0; rJ += v.j|0; rB += v.b|0; }
-      else        { bG += v.g|0; bJ += v.j|0; bB += v.b|0; }
-    }
-
-    const cR = (WIN.__GJ_COOP_JUNK_CREDIT_R__|0);
-    const cB = (WIN.__GJ_COOP_JUNK_CREDIT_B__|0);
-
-    coop.teams.R.good = rG|0;
-    coop.teams.R.junk = Math.max(0, (rJ|0) - cR);
-    coop.teams.R.boss = rB|0;
-
-    coop.teams.B.good = bG|0;
-    coop.teams.B.junk = Math.max(0, (bJ|0) - cB);
-    coop.teams.B.boss = bB|0;
-
-    coop.teams.R.shieldPool = Math.max(0, (COOP_TUNE.teamShield|0) - coop.teams.R.junk);
-    coop.teams.B.shieldPool = Math.max(0, (COOP_TUNE.teamShield|0) - coop.teams.B.junk);
-  }
-
-  function teamWinLoseState(teamId){
-    const T = (teamId==='B') ? coop.teams.B : coop.teams.R;
-    const loseAt = (COOP_TUNE.limitJunk|0) + (COOP_TUNE.graceJunk|0);
-    const win  = (T.good >= (COOP_TUNE.goalGood|0)) && (T.junk <= (COOP_TUNE.limitJunk|0));
-    const lose = (T.junk > loseAt);
-    return {
-      win, lose,
-      needGood: Math.max(0,(COOP_TUNE.goalGood|0)-T.good),
-      leftJunk: Math.max(0, loseAt - T.junk),
-      loseAt
-    };
-  }
-
-  function coopSendSnapshot(){
-    if(!coop.enabled) return;
-    const t = nowMs();
-    if(t - coop.lastSendMs < 220) return;
-    coop.lastSendMs = t;
-
-    const snap = {
-      t:'coop-snap',
-      pid,
-      nick: NICK,
-      team: TEAM,
-      g: goodHitCount|0,
-      j: missJunkHit|0,
-      b: (WIN.__GJ_LOCAL_BOSS_DMG__|0),
-      ts: t|0
-    };
-    try{ BUS.send(snap); }catch(e){}
-  }
-
-  function applyCoopRaidClear(teamId){
-    if(TEAM !== teamId) return;
-    bossActive = false;
-    bossHp = 0;
-
-    score += (COOP_TUNE.bonusClear|0);
-    addFever(25);
-
-    const r = layerRect();
-    fxBurst(r.left+r.width/2, r.top+r.height*0.50);
-    fxFloatText(r.left+r.width/2, r.top+r.height*0.50, `TEAM ${teamId} RAID +${COOP_TUNE.bonusClear}`, false);
-    sayCoach(`COOP2: ทีม ${teamId} ล้มบอสแล้ว!`);
-  }
-
-  function buildTeamScoreboard(){
-    if(!coop.enabled) return null;
-    coopRecalc();
-
-    function topPlayer(teamId){
-      let top = null;
-      for(const [pid2,v] of coop.members.entries()){
-        const tm = (String(v.team||'R').toUpperCase()==='B') ? 'B' : 'R';
-        if(tm !== teamId) continue;
-        if(!top || (v.g|0) > (top.g|0)){
-          top = { pid: pid2, nick: String(v.nick||''), g: v.g|0 };
-        }
-      }
-      return top;
-    }
-
-    return {
-      R: coop.teams.R,
-      B: coop.teams.B,
-      mvpR: topPlayer('R'),
-      mvpB: topPlayer('B')
-    };
-  }
-
-  // ---------- spawn safe ----------
   function layerRect(){ return layer.getBoundingClientRect(); }
-
   function getSpawnSafeLocal(){
     const r = layerRect();
-    let s = null;
-    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
-
-    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
-      let xMin = Number(s.xMin) - r.left;
-      let xMax = Number(s.xMax) - r.left;
-      let yMin = Number(s.yMin) - r.top;
-      let yMax = Number(s.yMax) - r.top;
-
-      xMin = clamp(xMin, 0, r.width);
-      xMax = clamp(xMax, 0, r.width);
-      yMin = clamp(yMin, 0, r.height);
-      yMax = clamp(yMax, 0, r.height);
-
-      if((xMax - xMin) >= 120 && (yMax - yMin) >= 140){
-        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
-      }
-    }
-
     const pad = 18;
-    const yMin = Math.min(r.height - 160, 180);
-    const yMax = Math.max(yMin + 160, r.height - 110);
-    return {
-      xMin: pad,
-      xMax: Math.max(pad + 120, r.width - pad),
-      yMin: clamp(yMin, pad, Math.max(pad, r.height - 200)),
-      yMax: clamp(yMax, Math.max(pad+160, yMin+160), Math.max(pad+200, r.height - pad)),
-      w: r.width,
-      h: r.height
-    };
+    return { xMin: pad, xMax: r.width-pad, yMin: 180, yMax: Math.max(220, r.height-130), w:r.width, h:r.height };
   }
 
-  WIN.__GJ_SET_SPAWN_SAFE__ = function(safe){
-    try{ WIN.__HHA_SPAWN_SAFE__ = safe; }catch(e){}
-  };
-
-  // ---------- grading / stats ----------
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
     const sps = s / played;
@@ -670,41 +383,44 @@ export function boot(cfg){
   }
 
   function accPct(){
-    return shots>0 ? Math.round((hits/shots)*100) : 0;
+    return shots>0 ? Math.round((hits/shots)*1000)/10 : 0;
   }
 
-  function emitScoreEvent(){
-    try{
-      const payload = {
-        score: score|0,
-        miss: missTotal|0,
-        accPct: accPct()|0,
-        shots: shots|0,
-        hits: hits|0,
-        combo: combo|0,
-        comboMax: bestCombo|0,
-        feverPct: +clamp(fever,0,100),
-        shield: shield|0,
-        missGoodExpired: missGoodExpired|0,
-        missJunkHit: missJunkHit|0,
-        medianRtGoodMs: Math.round(median(rtList))|0,
-        mode: MODE,
-        team: TEAM
-      };
-      WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload }));
-      try{ battle?.pushScore?.(payload); }catch(e){}
-    }catch(e){}
+  // throttled score pulse + battle push
+  let lastScoreEmitMs = 0;
+  function emitScoreEvent(force=false){
+    const t = nowMs();
+    if(!force && (t - lastScoreEmitMs) < 250) return;
+    lastScoreEmitMs = t;
+
+    const payload = {
+      score: score|0,
+      miss: missTotal|0,
+      accPct: accPct(),
+      shots: shots|0,
+      hits: hits|0,
+      combo: combo|0,
+      comboMax: bestCombo|0,
+      feverPct: +clamp(fever,0,100),
+      shield: shield|0,
+      missGoodExpired: missGoodExpired|0,
+      missJunkHit: missJunkHit|0,
+      medianRtGoodMs: Math.round(median(rtList))|0
+    };
+    try{ WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload })); }catch(e){}
+    try{ battle?.pushScore?.(payload); }catch(e){}
   }
 
   function setHUD(){
     if(hud.score) hud.score.textContent = String(score|0);
-    if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
-    if(hud.miss) hud.miss.textContent = String(missTotal|0);
+    if(hud.time)  hud.time.textContent  = String(Math.ceil(tLeft));
+    if(hud.miss)  hud.miss.textContent  = String(missTotal|0);
     if(hud.grade) hud.grade.textContent = gradeFromScore(score);
 
     if(hud.goal) hud.goal.textContent = goal.name;
     if(hud.goalCur) hud.goalCur.textContent = String(goal.cur|0);
     if(hud.goalTarget) hud.goalTarget.textContent = String(goal.target|0);
+    if(hud.goalDesc) hud.goalDesc.textContent = goal.desc;
 
     if(hud.mini) hud.mini.textContent = mini.name;
     if(hud.miniTimer) hud.miniTimer.textContent = mini.t>0 ? `${Math.ceil(mini.t)}s` : '—';
@@ -712,10 +428,7 @@ export function boot(cfg){
     if(feverFill) feverFill.style.width = `${clamp(fever,0,100)}%`;
     if(feverText) feverText.textContent = `${Math.round(clamp(fever,0,100))}%`;
 
-    if(shieldPills){
-      if(shield<=0) shieldPills.textContent = '—';
-      else shieldPills.textContent = '🛡️'.repeat(Math.min(6, shield));
-    }
+    if(shieldPills) shieldPills.textContent = (shield<=0) ? '—' : '🛡️'.repeat(Math.min(6, shield));
 
     if(bossBar){
       if(!bossActive){
@@ -724,16 +437,12 @@ export function boot(cfg){
         bossBar.setAttribute('aria-hidden','false');
         const hpPct = (bossHpMax>0) ? (bossHp/bossHpMax)*100 : 0;
         if(bossFill) bossFill.style.width = `${clamp(hpPct,0,100)}%`;
-        if(bossHint){
-          bossHint.textContent =
-            bossPhase===0 ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
-        }
+        if(bossHint) bossHint.textContent = bossPhase===0 ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
       }
     }
 
     if(progressWrap && progressFill){
       const p = (plannedSec>0) ? (1 - (tLeft/plannedSec)) : 0;
-      progressWrap.setAttribute('aria-hidden','false');
       progressFill.style.width = `${clamp(p*100,0,100)}%`;
     }
 
@@ -746,24 +455,11 @@ export function boot(cfg){
       }
     }
 
-    // coop2 HUD (grade 5 friendly)
-    if(coop.enabled && isCoop2 && hud.goalDesc){
-      coopRecalc();
-      const my = teamWinLoseState(TEAM);
-      const enemyTeam = (TEAM==='B') ? 'R' : 'B';
-      const enemy = teamWinLoseState(enemyTeam);
-      hud.goalDesc.textContent =
-        `ทีม${TEAM} เก็บของดีอีก ${my.needGood} | โดนของเสียได้อีก ${my.leftJunk}  —  ทีม${enemyTeam} เหลือของดี ${enemy.needGood}`;
-    }else if(hud.goalDesc){
-      hud.goalDesc.textContent = goal.desc;
-    }
-
-    // push coop snapshot
-    if(coop.enabled) coopSendSnapshot();
-
-    emitScoreEvent();
+    setOpponentLine();
+    emitScoreEvent(false);
   }
 
+  // end event
   const __HHA_END_SENT_KEY = '__HHA_GJ_END_SENT__';
   function hhaDispatchEndOnce(summary){
     try{
@@ -777,26 +473,22 @@ export function boot(cfg){
     const playedSec = Math.round(plannedSec - tLeft);
     const avgRt = goodHitCount>0 ? Math.round(rtSum/goodHitCount) : 0;
     const medRt = Math.round(median(rtList));
-    const acc = accPct();
     return {
       projectTag: 'GoodJunkVR',
       gameKey: HH_GAME,
       pid,
-      nick: NICK,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-04_COOP2_PROD',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-04_BATTLE_DUEL',
       device: view,
-      runMode: runMode,
-      mode: MODE,
-      team: TEAM,
-      diff: diff,
+      runMode,
+      diff,
       seed: seedStr,
-      reason: String(reason || ''),
+      reason: String(reason||''),
       durationPlannedSec: plannedSec,
       durationPlayedSec: playedSec,
       scoreFinal: score|0,
       missTotal: missTotal|0,
-      accPct: acc|0,
+      accPct: accPct(),
       shots: shots|0,
       hits: hits|0,
       comboMax: bestCombo|0,
@@ -811,15 +503,11 @@ export function boot(cfg){
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      tieBreakOrder: 'score→acc→miss→medianRT',
-      aiPredictionLast: (function(){
-        try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
-      })(),
+      tieBreakOrder: 'score→acc→miss→medianRT'
     };
   }
 
   function showEnd(reason){
-    if(!playing) return;
     playing = false;
     paused = false;
 
@@ -830,7 +518,6 @@ export function boot(cfg){
 
     const summary = buildEndSummary(reason);
 
-    // AI onEnd attach
     try{
       const aiEnd = AI?.onEnd?.(summary);
       if(aiEnd) summary.aiEnd = aiEnd;
@@ -839,93 +526,25 @@ export function boot(cfg){
     WIN.__HHA_LAST_SUMMARY = summary;
     hhaDispatchEndOnce(summary);
 
+    // finalize battle
     try{ battle?.finalizeEnd?.(summary); }catch(e){}
 
     if(endOverlay){
       endOverlay.setAttribute('aria-hidden','false');
       if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub) endSub.textContent =
-        `reason=${summary.reason} | mode=${MODE} | team=${TEAM} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
+      if(endSub) endSub.textContent = `reason=${summary.reason} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
       if(endGrade) endGrade.textContent = summary.grade || '—';
       if(endScore) endScore.textContent = String(summary.scoreFinal|0);
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
-
-      try{
-        hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-      }catch(e){}
-
-      // COOP2 scoreboard + swap button
-      if(isCoop2 && coop.enabled){
-        const board = buildTeamScoreboard();
-        if(board){
-          const panel = endOverlay.querySelector('.panel') || endOverlay;
-
-          const wrap = DOC.createElement('div');
-          wrap.style.marginTop = '16px';
-          wrap.style.padding = '12px';
-          wrap.style.borderRadius = '14px';
-          wrap.style.background = 'rgba(2,6,23,.65)';
-          wrap.style.border = '1px solid rgba(148,163,184,.18)';
-          wrap.style.fontWeight = '900';
-          wrap.style.lineHeight = '1.5';
-
-          const mvpR = board.mvpR ? (board.mvpR.nick ? `${board.mvpR.nick} (${board.mvpR.pid})` : board.mvpR.pid) : '-';
-          const mvpB = board.mvpB ? (board.mvpB.nick ? `${board.mvpB.nick} (${board.mvpB.pid})` : board.mvpB.pid) : '-';
-
-          wrap.innerHTML = `
-            <div style="font-size:16px;margin-bottom:8px;">🏆 Team Scoreboard</div>
-            <div>🔴 RED  : Good ${board.R.good} | Junk ${board.R.junk} | Raid ${board.R.boss}/${COOP_TUNE.bossHp}</div>
-            <div>🔵 BLUE : Good ${board.B.good} | Junk ${board.B.junk} | Raid ${board.B.boss}/${COOP_TUNE.bossHp}</div>
-            <div style="margin-top:8px;">⭐ MVP R: ${mvpR}</div>
-            <div>⭐ MVP B: ${mvpB}</div>
-          `;
-          panel.appendChild(wrap);
-
-          const btnSwap = DOC.createElement('button');
-          btnSwap.type='button';
-          btnSwap.className='btn';
-          btnSwap.textContent='สลับทีมแล้วเล่นรอบใหม่';
-          btnSwap.style.marginTop='10px';
-          btnSwap.style.border='1px solid rgba(148,163,184,.22)';
-          btnSwap.style.background='rgba(148,163,184,.10)';
-          btnSwap.style.borderRadius='14px';
-          btnSwap.style.padding='10px 12px';
-          btnSwap.style.fontWeight='1000';
-          btnSwap.style.cursor='pointer';
-          btnSwap.onclick=()=>{
-            const u = new URL(location.href);
-            const cur = (u.searchParams.get('team')||'R').toUpperCase()==='B' ? 'B' : 'R';
-            const next = (cur==='B') ? 'R' : 'B';
-            u.searchParams.set('team', next);
-            u.searchParams.set('seed', String(Date.now()));
-            location.href = u.toString();
-          };
-          wrap.appendChild(btnSwap);
-        }
-      }
     }
 
-    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
+    emitScoreEvent(true);
+    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'โฟกัสของดี + เก็บโล่เพิ่มนะ!' : 'ดีมาก! ✨');
     setHUD();
   }
 
-  // ---------- gameplay ----------
-  function addFever(v){
-    fever = clamp(fever + v, 0, 100);
-    if(fever >= 100 && !rageOn){
-      rageOn = true;
-      rageLeft = 7.0;
-      fever = 100;
-      sayCoach('FEVER! คะแนนคูณ 🔥');
-    }
-  }
-
-  function addShield(){
-    shield = clamp(shield + 1, 0, 9);
-    sayCoach('ได้โล่! 🛡️ กันของเสียได้');
-  }
-
+  // gameplay
   function makeTarget(kind, emoji, ttlSec){
     const id = String(idSeq++);
     const el = DOC.createElement('div');
@@ -935,14 +554,15 @@ export function boot(cfg){
     el.dataset.kind = kind;
 
     const safe = getSpawnSafeLocal();
-    const rPad = (view==='mobile') ? 32 : 38;
+    const rPad = (view==='mobile') ? 34 : 42;
+
     const xMin = safe.xMin + rPad;
     const xMax = safe.xMax - rPad;
     const yMin = safe.yMin + rPad;
     const yMax = safe.yMax - rPad;
 
-    const x = xMin + r01()*(Math.max(1, xMax - xMin));
-    const y = yMin + r01()*(Math.max(1, yMax - yMin));
+    const x = xMin + r01()*(Math.max(1, xMax-xMin));
+    const y = yMin + r01()*(Math.max(1, yMax-yMin));
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -950,16 +570,10 @@ export function boot(cfg){
 
     const drift = (r01()*2-1) * (view==='mobile' ? 16 : 22);
     const born = nowMs();
-    const ttl = Math.max(0.8, ttlSec) * 1000;
+    const ttl = Math.max(0.85, ttlSec) * 1000;
 
     layer.appendChild(el);
-
-    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
-    targets.set(id, tObj);
-
-    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
-
-    return tObj;
+    targets.set(id, { id, el, kind, emoji, born, ttl, x, y, drift, promptMs: nowMs() });
   }
 
   function removeTarget(id){
@@ -969,15 +583,26 @@ export function boot(cfg){
     try{ t.el.remove(); }catch(e){}
   }
 
-  function onHitGood(t, clientX, clientY){
+  function addFever(v){
+    fever = clamp(fever + v, 0, 100);
+    if(fever >= 100 && !rageOn){
+      rageOn = true;
+      rageLeft = 7.0;
+      fever = 100;
+      sayCoach('FEVER! คะแนนคูณ 🔥');
+    }
+  }
+  function addShield(){
+    shield = clamp(shield + 1, 0, 9);
+    sayCoach('ได้โล่! 🛡️');
+  }
+
+  function onHitGood(t, x, y){
+    hits++;
     const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
-    goodHitCount++;
-    rtSum += rt;
-    rtList.push(rt);
+    goodHitCount++; rtSum += rt; rtList.push(rt);
 
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
+    combo++; bestCombo = Math.max(bestCombo, combo);
     let add = 10 + Math.min(12, combo);
     if(rageOn) add = Math.round(add * 1.6);
 
@@ -985,329 +610,130 @@ export function boot(cfg){
     goal.cur = clamp(goal.cur + 1, 0, 9999);
     addFever(6.5);
 
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `+${add}`, false);
-
-    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
-    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
-
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    fxBurst(x,y);
+    fxFloatText(x,y-10, `+${add}`, false);
 
     removeTarget(t.id);
   }
 
-  function onHitJunk(t, clientX, clientY){
-    // personal shield
+  function onHitJunk(t, x, y){
+    hits++;
     if(shield > 0){
       shield--;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
-      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
-      try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
+      fxBurst(x,y);
+      fxFloatText(x,y-10, 'BLOCK 🛡️', false);
       removeTarget(t.id);
       return;
     }
-
-    // team shield (coop/coop2)
-    if(coop.enabled){
-      coopRecalc();
-      const myTeam = (TEAM==='B') ? coop.teams.B : coop.teams.R;
-      if(myTeam.shieldPool > 0){
-        fxBurst(clientX, clientY);
-        fxFloatText(clientX, clientY-10, 'TEAM BLOCK 🛡️', false);
-        sayCoach('COOP: โล่ทีมช่วยไว้!');
-        try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true, teamBlocked:true }); }catch(e){}
-        removeTarget(t.id);
-        return;
-      }
-    }
-
-    missTotal++;
-    missJunkHit++;
+    missTotal++; missJunkHit++;
     combo = 0;
-
-    const sub = 8;
-    score = Math.max(0, score - sub);
-
-    fxFloatText(clientX, clientY-10, `-${sub}`, true);
-
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    score = Math.max(0, score - 8);
+    fxFloatText(x,y-10, '-8', true);
     removeTarget(t.id);
-
-    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
-  function onHitBonus(t, clientX, clientY){
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
+  function onHitBonus(t, x, y){
+    hits++;
+    combo++; bestCombo = Math.max(bestCombo, combo);
     let add = rPick([25,30,35]);
     if(rageOn) add = Math.round(add * 1.5);
     score += add;
-
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
-    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
-
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    fxBurst(x,y);
+    fxFloatText(x,y-10, `BONUS +${add}`, false);
     removeTarget(t.id);
   }
 
-  function onHitShield(t, clientX, clientY){
+  function onHitShield(t, x, y){
+    hits++;
     addShield();
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, '+SHIELD', false);
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
+    fxBurst(x,y);
+    fxFloatText(x,y-10, '+SHIELD', false);
     removeTarget(t.id);
   }
 
-  function onHitBoss(t, clientX, clientY){
+  function onHitBoss(t, x, y){
     if(!bossActive) return;
+    hits++;
 
     if(bossPhase===0){
       bossShieldHp--;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
-      if(bossShieldHp<=0){
-        bossPhase = 1;
-        sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
-      }
-      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
+      fxBurst(x,y);
+      fxFloatText(x,y-10, 'SHIELD -1', false);
+      if(bossShieldHp<=0){ bossPhase=1; sayCoach('โล่แตก! ยิง 🎯'); }
       removeTarget(t.id);
       return;
     }
 
     const dmg = rageOn ? 4 : 3;
     bossHp = Math.max(0, bossHp - dmg);
-
-    // contribute team boss dmg
-    try{ WIN.__GJ_LOCAL_BOSS_DMG__ = (WIN.__GJ_LOCAL_BOSS_DMG__|0) + (dmg|0); }catch(e){}
-
     let add = 22 + dmg*6;
-    if(rageOn) add = Math.round(add * 1.4);
+    if(rageOn) add = Math.round(add*1.4);
     score += add;
     addFever(9);
 
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
-
-    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
+    fxBurst(x,y);
+    fxFloatText(x,y-10, `BOSS +${add}`, false);
     removeTarget(t.id);
 
     if(bossHp<=0){
-      sayCoach('บอสแพ้แล้ว! 🎉');
       bossActive = false;
       score += 120;
       addFever(40);
+      sayCoach('บอสแพ้แล้ว! 🎉');
     }
   }
 
-  function hitTargetById(id, clientX, clientY){
+  function hitTargetById(id, x, y){
     const t = targets.get(String(id));
     if(!t || !playing) return;
-
-    const kind = t.kind;
-    if(kind==='good') onHitGood(t, clientX, clientY);
-    else if(kind==='junk') onHitJunk(t, clientX, clientY);
-    else if(kind==='bonus') onHitBonus(t, clientX, clientY);
-    else if(kind==='shield') onHitShield(t, clientX, clientY);
-    else if(kind==='boss') onHitBoss(t, clientX, clientY);
+    shots++;
+    if(t.kind==='good') onHitGood(t,x,y);
+    else if(t.kind==='junk') onHitJunk(t,x,y);
+    else if(t.kind==='bonus') onHitBonus(t,x,y);
+    else if(t.kind==='shield') onHitShield(t,x,y);
+    else if(t.kind==='boss') onHitBoss(t,x,y);
   }
 
-  // pointerdown เฉพาะ non-cvr
   function onPointerDown(ev){
     if(!playing || paused) return;
-
-    shots++;
-
     const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
     if(!el) return;
-
-    hits++;
-
-    const id = el.dataset.id;
-    hitTargetById(id, ev.clientX, ev.clientY);
+    hitTargetById(el.dataset.id, ev.clientX, ev.clientY);
   }
   if(view !== 'cvr'){
     layer.addEventListener('pointerdown', onPointerDown, { passive:true });
   }
 
   function pickTargetAt(x,y, lockPx){
-    lockPx = clamp(lockPx ?? 44, 16, 120);
-    let best = null;
-    let bestD = 1e9;
+    lockPx = clamp(lockPx ?? 64, 16, 140);
+    let best=null, bestD=1e9;
     for(const t of targets.values()){
       const r = t.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
       const d = Math.hypot(cx-x, cy-y);
-      if(d < bestD){
-        bestD = d;
-        best = t;
-      }
+      if(d < bestD){ bestD=d; best=t; }
     }
     if(best && bestD <= lockPx) return best;
     return null;
   }
 
-  // cVR strict: count shots/hits for hha:shoot too
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    try{
-      shots++;
-
-      const lockPx = ev?.detail?.lockPx ?? 56;
-      const r = layerRect();
-      const x = r.left + r.width/2;
-      const y = r.top  + r.height/2;
-      const t = pickTargetAt(x,y, lockPx);
-      if(t){
-        hits++;
-        hitTargetById(t.id, x, y);
-      }
-    }catch(e){}
+    const r = layerRect();
+    const x = r.left + r.width/2;
+    const y = r.top  + r.height/2;
+    const lockPx = ev?.detail?.lockPx ?? 64;
+    const t = pickTargetAt(x,y, lockPx);
+    if(t) hitTargetById(t.id, x, y);
+    else shots++;
   });
 
-  // ---------- multiplayer net (start/snap/raid/win) ----------
-  function resetGameForStart(newSeed){
-    // reset timers + stats + rng
-    const s = String(newSeed || seedStr);
-    rng = makeRng(s);
-
-    // reset
-    playing = true;
-    paused = false;
-    tLeft = plannedSec;
-    lastTick = nowMs();
-
-    score = 0;
-    missTotal = 0;
-    missGoodExpired = 0;
-    missJunkHit = 0;
-    combo = 0;
-    bestCombo = 0;
-    fever = 0;
-    rageOn = false;
-    rageLeft = 0;
-    shield = 0;
-    stormOn = false;
-    goodHitCount = 0;
-    rtSum = 0;
-    rtList.length = 0;
-    shots = 0;
-    hits = 0;
-
-    // boss
-    bossActive = false;
-    bossHpMax = TUNE.bossHp;
-    bossHp = bossHpMax;
-    bossPhase = 0;
-    bossShieldHp = 5;
-
-    // clear targets
-    for(const t of targets.values()){
-      try{ t.el.remove(); }catch(e){}
-    }
-    targets.clear();
-
-    // clear end overlay if present
-    try{
-      if(endOverlay) endOverlay.setAttribute('aria-hidden','true');
-    }catch(e){}
-  }
-
-  let mpStarted = (MODE==='solo' || MODE==='battle'); // for solo/battle start immediately
-
-  WIN.addEventListener('gj:net', (ev)=>{
-    const m = ev?.detail || null;
-    if(!m) return;
-
-    if(m.t === 'start'){
-      // lock diff/time for coop/race/coop2
-      try{
-        if(MODE === 'race' || MODE === 'coop' || MODE === 'coop2'){
-          if(m.diff) diff = String(m.diff).toLowerCase();
-          if(m.time) plannedSec = clamp(m.time, 20, 300);
-          TUNE = computeTune();
-          COOP_TUNE = coopTune();
-        }
-      }catch(e){}
-
-      // startAt sync
-      const startAt = Number(m.startAt || 0);
-      if(startAt > 0){
-        WIN.__GJ_SYNC_START_AT__ = startAt;
-        paused = true;
-        sayCoach('กำลังรอเริ่มพร้อมกัน…');
-        setTimeout(()=>{
-          paused = false;
-          try{ lastTick = nowMs(); }catch(e){}
-        }, Math.max(0, startAt - Date.now()));
-      }
-
-      mpStarted = true;
-      resetGameForStart(m.seed || seedStr);
-      return;
-    }
-
-    if(m.t === 'coop-snap' && coop.enabled){
-      const who = String(m.pid||'').trim() || 'anon';
-      const tm  = (String(m.team||'R').toUpperCase()==='B') ? 'B' : 'R';
-      coop.members.set(who, { team: tm, nick: String(m.nick||''), g:m.g|0, j:m.j|0, b:m.b|0, t:(m.ts|0) || (nowMs()|0) });
-      coopRecalc();
-
-      // raid clear per team
-      const T = (tm==='B') ? coop.teams.B : coop.teams.R;
-      if(!T.raidCleared && T.boss >= (COOP_TUNE.bossHp|0)){
-        T.raidCleared = true;
-        try{ BUS.send({ t:'coop-raid-clear', team: tm, by: pid, t0: nowMs()|0 }); }catch(e){}
-        try{ applyCoopRaidClear(tm); }catch(e){}
-      }
-
-      // coop2 win broadcast
-      if(isCoop2){
-        const stR = teamWinLoseState('R');
-        const stB = teamWinLoseState('B');
-        if(stR.win){
-          try{ BUS.send({ t:'coop2-win', team:'R', by: pid, t0: nowMs()|0 }); }catch(e){}
-        }else if(stB.win){
-          try{ BUS.send({ t:'coop2-win', team:'B', by: pid, t0: nowMs()|0 }); }catch(e){}
-        }else if(stR.lose && !stB.lose){
-          try{ BUS.send({ t:'coop2-win', team:'B', by:'system', t0: nowMs()|0 }); }catch(e){}
-        }else if(stB.lose && !stR.lose){
-          try{ BUS.send({ t:'coop2-win', team:'R', by:'system', t0: nowMs()|0 }); }catch(e){}
-        }
-      }
-      return;
-    }
-
-    if(m.t === 'coop-raid-clear' && coop.enabled){
-      const tm = (String(m.team||'R').toUpperCase()==='B') ? 'B' : 'R';
-      const T = (tm==='B') ? coop.teams.B : coop.teams.R;
-      if(!T.raidCleared){
-        T.raidCleared = true;
-        try{ applyCoopRaidClear(tm); }catch(e){}
-      }
-      return;
-    }
-
-    if(m.t === 'coop2-win' && coop.enabled){
-      const winTeam = (String(m.team||'R').toUpperCase()==='B') ? 'B' : 'R';
-      if(TEAM !== winTeam) showEnd('coop2-lose');
-      else showEnd('coop2-win');
-      return;
-    }
-  });
-
-  // ---------- spawn/update loop ----------
   let spawnAcc = 0;
   function spawnTick(dt){
     stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
     const mult = stormOn ? TUNE.stormMult : 1.0;
-    const base = TUNE.spawnBase * mult;
-    const rageBoost = rageOn ? 1.18 : 1.0;
-
-    spawnAcc += base * rageBoost * dt;
+    spawnAcc += TUNE.spawnBase * mult * (rageOn ? 1.18 : 1.0) * dt;
 
     while(spawnAcc >= 1){
       spawnAcc -= 1;
@@ -1318,23 +744,17 @@ export function boot(cfg){
         bossHp = bossHpMax;
         bossPhase = 0;
         bossShieldHp = 5;
-        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
+        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️');
       }
 
-      let kind = 'good';
+      let kind='good';
       const p = r01();
 
-      if(bossActive && (r01() < 0.22)){
-        kind = 'boss';
-      }else if(p < 0.64){
-        kind = 'good';
-      }else if(p < 0.86){
-        kind = 'junk';
-      }else if(p < 0.94){
-        kind = 'bonus';
-      }else{
-        kind = 'shield';
-      }
+      if(bossActive && (r01()<0.22)) kind='boss';
+      else if(p < 0.64) kind='good';
+      else if(p < 0.86) kind='junk';
+      else if(p < 0.94) kind='bonus';
+      else kind='shield';
 
       if(kind==='good') makeTarget('good', rPick(GOOD), TUNE.ttlGood);
       else if(kind==='junk') makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
@@ -1350,18 +770,14 @@ export function boot(cfg){
   function updateTargets(dt){
     const tNow = nowMs();
     const safe = getSpawnSafeLocal();
-    const rPad = (view==='mobile') ? 32 : 38;
+    const rPad = (view==='mobile') ? 34 : 42;
 
     for(const t of Array.from(targets.values())){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      const dx = t.drift * dt;
-      t.x += dx;
-
-      const xMin = safe.xMin + rPad;
-      const xMax = safe.xMax - rPad;
-      t.x = clamp(t.x, xMin, xMax);
+      t.x += t.drift * dt;
+      t.x = clamp(t.x, safe.xMin + rPad, safe.xMax - rPad);
       t.el.style.left = `${t.x}px`;
 
       if(p > 0.75){
@@ -1370,18 +786,12 @@ export function boot(cfg){
       }
 
       if(age >= t.ttl){
-        try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
-
-        if(t.kind === 'good'){
-          missTotal++;
-          missGoodExpired++;
+        if(t.kind==='good'){
+          missTotal++; missGoodExpired++;
           combo = 0;
-
           score = Math.max(0, score - 4);
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
-
-          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
         }
         removeTarget(t.id);
       }
@@ -1395,62 +805,48 @@ export function boot(cfg){
       rageOn = false;
       rageLeft = 0;
       fever = clamp(fever - 18, 0, 100);
-      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
     }
   }
 
   function updateMini(dt){
     if(mini.t > 0){
       mini.t = Math.max(0, mini.t - dt);
-      if(mini.t<=0) mini.name = '—';
-    }else{
-      if(r01() < dt*0.05){
-        const type = rPick(['avoid-junk','combo-5','grab-bonus']);
-        if(type==='avoid-junk'){
-          mini.name = 'No JUNK 6s';
-          mini.t = 6;
-          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
-        }else if(type==='combo-5'){
-          mini.name = 'Combo x5';
-          mini.t = 8;
-          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
-        }else{
-          mini.name = 'Grab ⭐';
-          mini.t = 7;
-          sayCoach('ภารกิจ: เก็บโบนัส!');
-        }
-      }
+      if(mini.t<=0) mini.name='—';
+      return;
+    }
+    if(r01() < dt*0.05){
+      const type = rPick(['avoid-junk','combo-5','grab-bonus']);
+      if(type==='avoid-junk'){ mini.name='No JUNK 6s'; mini.t=6; }
+      else if(type==='combo-5'){ mini.name='Combo x5'; mini.t=8; }
+      else { mini.name='Grab ⭐'; mini.t=7; }
     }
   }
 
   function checkEnd(){
     if(tLeft <= 0){ showEnd('time'); return true; }
     if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
-
     if(goal.cur >= goal.target && playing){
       goal.target += 10;
       score += 60;
       addFever(18);
-      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
       const r = layerRect();
       fxBurst(r.left+r.width/2, r.top+r.height*0.55);
       fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
     }
-
     return false;
   }
 
   function tick(){
     if(!playing) return;
 
-    // wait for multiplayer start (race/coop/coop2)
-    if((MODE==='race' || MODE==='coop' || MODE==='coop2') && !mpStarted){
+    // battle gate: wait until RTDB state is playing
+    if(battleEnabled && !battleStarted){
+      setOpponentLine();
       setHUD();
       requestAnimationFrame(tick);
       return;
     }
 
-    // pause-safe
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
       setHUD();
@@ -1470,21 +866,11 @@ export function boot(cfg){
     updateMini(dt);
 
     try{
-      const pred = AI?.onTick?.(dt, {
-        missGoodExpired,
-        missJunkHit,
-        shield,
-        fever,
-        combo,
-        score,
-        shots,
-        hits
-      }) || null;
+      const pred = AI?.onTick?.(dt, { missGoodExpired, missJunkHit, shield, fever, combo, shots, hits }) || null;
       setAIHud(pred);
     }catch(e){}
 
     setHUD();
-
     if(checkEnd()) return;
     requestAnimationFrame(tick);
   }
@@ -1495,9 +881,10 @@ export function boot(cfg){
     }
   });
 
-  try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
+  // start battle init early
+  initBattleMaybe(pid, HH_GAME).catch(()=>{});
 
-  sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
+  sayCoach('แตะของดี เลี่ยงของเสีย! 🥦🍎');
   setHUD();
   requestAnimationFrame(tick);
 }
