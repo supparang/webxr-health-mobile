@@ -1,11 +1,8 @@
 // === /herohealth/vr-brush/ai-brush.js ===
-// Brush AI (optional) — listens to brush:ai events + micro-tips
-// FULL v20260302-AI-BRUSH
 'use strict';
 
 export function bootBrushAI(){
   const W = window, D = document;
-
   const aiQ = String((new URL(location.href)).searchParams.get('ai') || '1').toLowerCase();
   if (aiQ === '0' || W.__BRUSH_AI_OFF__) return { enabled:false };
 
