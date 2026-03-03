@@ -1,10 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
-// ✅ ESM + hha:shoot + deterministic + AI hooks wired
-// ✅ STORM (lightning) -> NORMAL -> BOSS
-// ✅ MISS split: missTotal = badHit + goodExpired
-// ✅ HUD-safe spawn: avoid top HUD area (mobile-first)
-// FULL v20260303-HYDRATION-SAFE-STORM-MISS-SPLIT
+// ✅ Storm Lightning + Final Boss
+// ✅ MISS = bad hit only (real mistake)
+// ✅ EXPIRE separated (good expired)
+// ✅ BAD BLOCK separated (junk blocked by shield)
+// ✅ End condition uses MISS (bad hit) only
+// ✅ Log throttled (log=1 only) to avoid quota spam
+// FULL v20260303b-HYDRATION-SAFE-STORM-BOSS-MISSFIX-LOGTHROTTLE
 'use strict';
 
 export function boot(cfg){
@@ -16,6 +18,11 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
+
+  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
+  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
+  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
+  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
   // --- cooldown helpers (per-game daily) ---
   function hhDayKey(){
@@ -88,11 +95,6 @@ export function boot(cfg){
     return sfc32(s(),s(),s(),s());
   }
 
-  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
-  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
@@ -101,7 +103,7 @@ export function boot(cfg){
   const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
 
-  // ✅ Hydration เหมาะกับ Nutrition zone
+  // ✅ Hydration fits Nutrition zone
   const HH_CAT='nutrition';
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
@@ -121,9 +123,12 @@ export function boot(cfg){
   const ui = {
     score: DOC.getElementById('uiScore'),
     time: DOC.getElementById('uiTime'),
-    miss: DOC.getElementById('uiMiss'),
-    expire: DOC.getElementById('uiExpire'),
-    bad: DOC.getElementById('uiBad'),
+
+    miss: DOC.getElementById('uiMiss'),        // MISS (bad hit only)
+    expire: DOC.getElementById('uiExpire'),    // good expired
+    bad: DOC.getElementById('uiBad'),          // bad hit (same as miss)
+    // optional (if you add it later): block: DOC.getElementById('uiBlock'),
+
     grade: DOC.getElementById('uiGrade'),
     water: DOC.getElementById('uiWater'),
     combo: DOC.getElementById('uiCombo'),
@@ -147,20 +152,71 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
-  // Tuning
+  // ===== Difficulty tuning =====
   const TUNE = (function(){
-    let spawnBase=0.78, ttlGood=2.8, ttlBad=3.0, missLimit=12;
-    let waterGain=7.5, waterLoss=6.0, shieldDrop=0.14;
+    // defaults = normal
+    let spawnBase=0.78;
+    let ttlGood=2.9, ttlBad=3.0;
+    let missLimit=6;           // ✅ REAL miss limit (bad hit only)
+    let waterGain=7.5, waterLoss=6.0;
+    let shieldDrop=0.14;
 
-    if(diff==='easy'){ spawnBase=0.66; ttlGood=3.1; ttlBad=3.2; missLimit=16; waterGain=8.5; waterLoss=5.2; }
-    if(diff==='hard'){ spawnBase=0.95; ttlGood=2.35; ttlBad=2.6; missLimit=9;  waterGain=6.8; waterLoss=7.0; }
+    // storm/boss knobs
+    let stormSec=12;
+    let stormSpawnMul=1.30;
+    let stormBadP=0.45;
+    let stormTtlGoodMul=0.95;
 
-    if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
+    let bossHpMax=18;
+    let bossSpawnMul=1.15;
+    let bossBadP=0.40;
 
-    return { spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop };
+    if(diff==='easy'){
+      spawnBase=0.66;
+      ttlGood=3.2; ttlBad=3.2;
+      missLimit=8;
+      waterGain=8.5; waterLoss=5.2;
+      shieldDrop=0.10;
+
+      stormSec=10;
+      stormSpawnMul=1.20;
+      stormBadP=0.38;
+      stormTtlGoodMul=1.00;
+
+      bossHpMax=14;
+      bossSpawnMul=1.08;
+      bossBadP=0.34;
+    }
+
+    if(diff==='hard'){
+      spawnBase=0.95;
+      ttlGood=2.5; ttlBad=2.6;
+      missLimit=5;
+      waterGain=6.8; waterLoss=7.0;
+      shieldDrop=0.18;
+
+      stormSec=14;
+      stormSpawnMul=1.45;
+      stormBadP=0.55;
+      stormTtlGoodMul=0.92;
+
+      bossHpMax=22;
+      bossSpawnMul=1.22;
+      bossBadP=0.50;
+    }
+
+    if(view==='cvr'||view==='vr'){
+      ttlGood += 0.15; ttlBad += 0.15;
+    }
+
+    return {
+      spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
+      stormSec, stormSpawnMul, stormBadP, stormTtlGoodMul,
+      bossHpMax, bossSpawnMul, bossBadP
+    };
   })();
 
-  // Game state
+  // ===== State =====
   const startTimeIso = nowIso();
   let playing=true;
   let paused=false;
@@ -169,24 +225,28 @@ export function boot(cfg){
 
   WIN.__HYD_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
-  let score=0, miss=0;
-  let missBadHit = 0;
-  let missGoodExpired = 0;
+  let score=0;
+
+  // ✅ Split counters
+  let missBadHit = 0;       // REAL miss (bad hit no shield)
+  let missGoodExpired = 0;  // expire
+  let badBlocked = 0;       // bad hit but shield blocks
 
   let combo=0, bestCombo=0;
   let shield=0;
+  let waterPct=30;
 
-  let waterPct=30; // start
+  // boss
   let bossOn=false;
-  let bossHpMax=18;
+  let bossHpMax=TUNE.bossHpMax;
   let bossHp=bossHpMax;
 
-  // === Mission Phases ===
-  let phase = 'normal';           // 'normal' | 'storm' | 'boss'
-  let stormLeft = 0;
-  let stormDone = false;
+  // phases
+  let phase='normal';       // 'normal'|'storm'|'boss'
+  let stormLeft=0;
+  let stormDone=false;
 
-  // Targets
+  // targets
   const bubbles = new Map();
   let idSeq=1;
 
@@ -199,7 +259,8 @@ export function boot(cfg){
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
     const sps = s/played;
-    const x = sps*10 - miss*0.45;
+    // ✅ Use REAL miss only (badHit) to compute grade fairly
+    const x = sps*10 - missBadHit*0.55 - missGoodExpired*0.08;
     if(x>=70) return 'S';
     if(x>=55) return 'A';
     if(x>=40) return 'B';
@@ -210,9 +271,12 @@ export function boot(cfg){
   function setHUD(){
     ui.score && (ui.score.textContent=String(score|0));
     ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
-    ui.miss && (ui.miss.textContent=String(miss|0));
-    ui.expire && (ui.expire.textContent=String(missGoodExpired|0));
+
+    // ✅ MISS = badHit only
+    ui.miss && (ui.miss.textContent=String(missBadHit|0));
     ui.bad && (ui.bad.textContent=String(missBadHit|0));
+    ui.expire && (ui.expire.textContent=String(missGoodExpired|0));
+
     ui.grade && (ui.grade.textContent=gradeFromScore(score));
     ui.water && (ui.water.textContent=`${Math.round(clamp(waterPct,0,100))}%`);
     ui.combo && (ui.combo.textContent=String(combo|0));
@@ -220,14 +284,14 @@ export function boot(cfg){
     ui.phase && (ui.phase.textContent=String(phase||'—'));
   }
 
-  function setAIHud(pred){
+  function setAIHud(risk, hint){
     try{
-      if(!pred) return;
-      if(ui.aiRisk) ui.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(ui.aiHint) ui.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
+      if(ui.aiRisk) ui.aiRisk.textContent = String((+risk).toFixed(2));
+      if(ui.aiHint) ui.aiHint.textContent = String(hint || '—');
     }catch(e){}
   }
 
+  // ===== Storm FX =====
   function lightning(){
     if(!stageEl) return;
     try{
@@ -246,19 +310,18 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ✅ HUD-safe spawn: กันโซนด้านบน (ที่ HUD ครอบ)
+  // ===== Spawn placement (simple HUD-safe band) =====
   function safeSpawnXY(){
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
 
-    // ปรับตามความสูง HUD โดยเผื่อมือถือไว้เยอะหน่อย
-    const topBan = (view==='mobile') ? 165 : 125;
+    // safe band away from HUD (tuned)
+    const topBan = (view==='mobile') ? 170 : 125;
     const botPad = (view==='mobile') ? 22 : 24;
 
     const x = pad + r01()*(Math.max(1, r.width - pad*2));
     const yMin = pad + topBan;
     const yMax = Math.max(yMin+1, r.height - botPad);
-
     const y = yMin + r01()*(Math.max(1, yMax - yMin));
     return { x, y };
   }
@@ -279,10 +342,11 @@ export function boot(cfg){
 
     const born=nowMs();
     const ttl=Math.max(0.9, ttlSec)*1000;
-    const obj={ id, el, kind, emoji, born, ttl, promptMs: nowMs() };
+    const obj={ id, el, kind, emoji, born, ttl };
     bubbles.set(id,obj);
 
-    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec, phase }); }catch(e){}
+    // optional AI hooks
+    try{ cfg.ai?.emit?.('spawn', { kind, id, emoji, ttlSec, phase }); }catch(e){}
     return obj;
   }
 
@@ -293,9 +357,7 @@ export function boot(cfg){
     try{ b.el.remove(); }catch(e){}
   }
 
-  function addShield(){
-    shield = clamp(shield + 1, 0, 9);
-  }
+  function addShield(){ shield = clamp(shield + 1, 0, 9); }
 
   function hit(b){
     if(!playing || paused) return;
@@ -305,8 +367,7 @@ export function boot(cfg){
       const add = 10 + Math.min(12, combo);
       score += add;
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
-
-      try{ cfg.ai?.onHit?.('good', { id:b.id, phase }); }catch(e){}
+      try{ cfg.ai?.emit?.('hit', { kind:'good', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
@@ -314,7 +375,7 @@ export function boot(cfg){
     if(b.kind==='shield'){
       addShield();
       score += 6;
-      try{ cfg.ai?.onHit?.('shield', { id:b.id, phase }); }catch(e){}
+      try{ cfg.ai?.emit?.('hit', { kind:'shield', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
@@ -322,29 +383,28 @@ export function boot(cfg){
     // bad
     if(shield > 0){
       shield--;
+      badBlocked++;
       score += 2;
-      try{ cfg.ai?.onHit?.('bad_block', { id:b.id, phase }); }catch(e){}
+      try{ cfg.ai?.emit?.('hit', { kind:'bad_block', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
       return;
     }
 
-    miss++;
+    // ✅ REAL miss only here
     missBadHit++;
     combo=0;
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
-
-    try{ cfg.ai?.onHit?.('bad', { id:b.id, phase }); }catch(e){}
+    try{ cfg.ai?.emit?.('hit', { kind:'bad', id:b.id, phase }); }catch(e){}
     removeBubble(b.id);
   }
 
-  // click/tap (pc/mobile) — cVR strict จะถูก disable ที่ run.html แล้ว
+  // click/tap (pc/mobile)
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.bubble');
     if(!el) return;
-    const id=el.dataset.id;
-    const b=bubbles.get(String(id));
+    const b=bubbles.get(String(el.dataset.id));
     if(b) hit(b);
   }, { passive:true });
 
@@ -373,7 +433,17 @@ export function boot(cfg){
     if(b) hit(b);
   });
 
-  // End summary
+  // ===== Logging throttle (avoid quota spam) =====
+  let _lastLog = 0;
+  function logThrottled(kind, data){
+    if(qs('log','0') !== '1') return;       // default off
+    const t = Date.now();
+    if(t - _lastLog < 2000) return;         // 1 time / 2s
+    _lastLog = t;
+    try{ cfg.ai?.emit?.(kind, data); }catch(e){}
+  }
+
+  // ===== End summary =====
   const END_SENT_KEY='__HHA_HYD_END_SENT__';
   function dispatchEndOnce(summary){
     try{
@@ -386,7 +456,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-03_STORM_MISS_SPLIT',
+      gameVersion: 'HydrationVR_SAFE_2026-03-03b_MissFix',
       device: view,
       runMode,
       diff,
@@ -396,9 +466,9 @@ export function boot(cfg){
       durationPlayedSec: Math.round(plannedSec - tLeft),
       scoreFinal: score|0,
 
-      missTotal: miss|0,
-      missBadHit: missBadHit|0,
-      missGoodExpired: missGoodExpired|0,
+      missBadHit: missBadHit|0,            // ✅ REAL miss
+      missGoodExpired: missGoodExpired|0,  // expire
+      badBlocked: badBlocked|0,
 
       comboMax: bestCombo|0,
       shield: shield|0,
@@ -408,8 +478,7 @@ export function boot(cfg){
       bossHp: bossHp|0,
       startTimeIso,
       endTimeIso: nowIso(),
-      grade: gradeFromScore(score),
-      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(e){ return null; } })()
+      grade: gradeFromScore(score)
     };
   }
 
@@ -461,13 +530,6 @@ export function boot(cfg){
     bubbles.clear();
 
     const summary = buildSummary(reason);
-
-    try{
-      const aiEnd = cfg.ai?.onEnd?.(summary);
-      if(aiEnd) summary.aiEnd = aiEnd;
-    }catch(e){}
-
-    WIN.__HHA_LAST_SUMMARY = summary;
     dispatchEndOnce(summary);
 
     if(ui.end){
@@ -476,62 +538,59 @@ export function boot(cfg){
       ui.endSub && (ui.endSub.textContent=`reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`);
       ui.endGrade && (ui.endGrade.textContent=summary.grade||'—');
       ui.endScore && (ui.endScore.textContent=String(summary.scoreFinal|0));
-      ui.endMiss && (ui.endMiss.textContent=String(summary.missTotal|0));
+      // show REAL miss in end panel
+      ui.endMiss && (ui.endMiss.textContent=String(summary.missBadHit|0));
       ui.endWater && (ui.endWater.textContent=`${summary.waterPct}%`);
       setEndButtons(summary);
     }
   }
 
-  // Spawn & TTL + PHASE
+  // ===== Core loop =====
   let spawnAcc=0;
 
   function spawnTick(dt){
-    // shield decay over time (เบา ๆ)
+    // shield decay
     if(shield>0 && r01() < dt*TUNE.shieldDrop){
       shield = Math.max(0, shield-1);
     }
 
-    // === Trigger STORM once mid-game ===
+    // Trigger STORM once mid-game
     if(!stormDone && phase === 'normal'){
       if(tLeft <= plannedSec*0.62){
         phase = 'storm';
-        stormLeft = 12;      // storm duration sec
+        stormLeft = TUNE.stormSec;
         stormDone = true;
         setStorm(true);
         lightning();
-        try{ cfg.ai?.setHint?.('⚡ STORM! หลบ junk แล้วเก็บ 💧'); }catch(e){}
       }
     }
 
-    // === Storm countdown + lightning ===
+    // Storm countdown + lightning
     if(phase === 'storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       if(r01() < dt*1.15) lightning();
       if(stormLeft <= 0){
         phase = 'normal';
         setStorm(false);
-        try{ cfg.ai?.setHint?.('พายุซาแล้ว! เก็บน้ำต่อให้ถึงบอส'); }catch(e){}
       }
     }
 
-    // === Boss trigger (after storm has happened) ===
+    // Boss trigger after storm happened
     if(!bossOn && stormDone && phase !== 'storm'){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
         bossOn = true;
         phase = 'boss';
-        bossHpMax = (diff==='hard') ? 22 : (diff==='easy' ? 16 : 18);
+        bossHpMax = TUNE.bossHpMax;
         bossHp = bossHpMax;
-        try{ cfg.ai?.setHint?.('👑 BOSS! รักษาน้ำ > 50%'); }catch(e){}
       }
     }
 
-    // === Spawn tuning per phase ===
     const inStorm = (phase === 'storm');
     const inBoss  = (phase === 'boss');
 
-    const spawnRate = TUNE.spawnBase * (inStorm ? 1.35 : inBoss ? 1.15 : 1.0);
-    const ttlGood = TUNE.ttlGood * (inStorm ? 0.90 : 1.0);
-    const ttlBad  = TUNE.ttlBad  * (inStorm ? 0.92 : 1.0);
+    const spawnRate = TUNE.spawnBase * (inStorm ? TUNE.stormSpawnMul : inBoss ? TUNE.bossSpawnMul : 1.0);
+    const ttlGood = TUNE.ttlGood * (inStorm ? TUNE.stormTtlGoodMul : 1.0);
+    const ttlBad  = TUNE.ttlBad  * (inStorm ? 0.95 : 1.0);
 
     spawnAcc += spawnRate * dt;
     while(spawnAcc >= 1){
@@ -541,14 +600,16 @@ export function boot(cfg){
       let kind='good';
 
       if(inStorm){
-        if(p < 0.50) kind='good';
-        else if(p < 0.93) kind='bad';
+        // storm: bad increases
+        if(p < (1.0 - TUNE.stormBadP - 0.07)) kind='good';
+        else if(p < (1.0 - 0.07)) kind='bad';
         else kind='shield';
       }else if(inBoss){
-        if(p < 0.58) kind='good';
-        else if(p < 0.90) kind='bad';
+        if(p < (1.0 - TUNE.bossBadP - 0.08)) kind='good';
+        else if(p < (1.0 - 0.08)) kind='bad';
         else kind='shield';
       }else{
+        // normal
         if(p < 0.64) kind='good';
         else if(p < 0.88) kind='bad';
         else kind='shield';
@@ -563,12 +624,9 @@ export function boot(cfg){
   function updateBubbles(){
     const t=nowMs();
     for(const b of Array.from(bubbles.values())){
-      const age=t - b.born;
-      if(age >= b.ttl){
-        try{ cfg.ai?.onExpire?.(b.kind, { id:b.id, phase }); }catch(e){}
-
+      if(t - b.born >= b.ttl){
+        // ✅ expire does NOT increase MISS
         if(b.kind==='good'){
-          miss++;
           missGoodExpired++;
           combo=0;
           score = Math.max(0, score - 4);
@@ -581,18 +639,19 @@ export function boot(cfg){
 
   function checkEnd(){
     if(tLeft<=0){ showEnd('time'); return true; }
-    if(miss>=TUNE.missLimit){ showEnd('miss-limit'); return true; }
+    // ✅ end by REAL miss only
+    if(missBadHit >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
     if(waterPct<=0){ showEnd('dehydrated'); return true; }
     return false;
   }
 
-  function tick(){
+  function loop(){
     if(!playing) return;
 
     if(paused){
       lastTick=nowMs();
       setHUD();
-      requestAnimationFrame(tick);
+      requestAnimationFrame(loop);
       return;
     }
 
@@ -608,15 +667,13 @@ export function boot(cfg){
     spawnTick(dt);
     updateBubbles();
 
-    // ✅ AI HUD (rule-based, deterministic friendly)
+    // AI HUD (deterministic)
     try{
-      const risk =
-        clamp(
-          (miss/Math.max(1, TUNE.missLimit))*0.55 +
-          (waterPct<35 ? (35-waterPct)/35*0.35 : 0) +
-          (combo===0 ? 0.10 : 0),
-          0, 1
-        );
+      const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
+      const expirePressure = clamp(missGoodExpired/20, 0, 1);
+      const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
+
+      const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
       let hint = 'เล็งกลางจอแล้วกดยิงต่อเนื่อง';
       if(phase==='storm') hint = '⚡ STORM! เลี่ยง junk แล้วเก็บ 💧';
@@ -627,29 +684,26 @@ export function boot(cfg){
 
       cfg.ai?.setRisk?.(risk);
       cfg.ai?.setHint?.(hint);
-      setAIHud({ hazardRisk: risk, next5: [hint] });
+      setAIHud(risk, hint);
 
-      // optional: tick for hooks/logger
-      cfg.ai?.onTick?.(dt, {
-        missGoodExpired,
-        missJunkHit: missBadHit,
-        shield,
-        combo,
-        waterPct,
-        phase
+      logThrottled('tick', {
+        phase, diff, runMode,
+        missBadHit, missGoodExpired, badBlocked,
+        waterPct: Math.round(waterPct), shield, combo
       });
     }catch(e){}
 
     setHUD();
     if(checkEnd()) return;
-    requestAnimationFrame(tick);
+    requestAnimationFrame(loop);
   }
 
+  // background => end
   DOC.addEventListener('visibilitychange', ()=>{
     if(DOC.hidden && playing){ showEnd('background'); }
   });
 
   try{ WIN[END_SENT_KEY]=0; }catch(e){}
   setHUD();
-  requestAnimationFrame(tick);
+  requestAnimationFrame(loop);
 }
