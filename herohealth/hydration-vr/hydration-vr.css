@@ -1,14 +1,13 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration VR CSS — PRODUCTION
-FULL v20260302-HYDRATION-CSS-STORM-HUDSAFE
+FULL v20260303-HYDRATION-CSS-STORM-HUDSAFE
 */
 
 :root{
   --bg:#020617;
   --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.62);
-  --txt: #e5e7eb;
   --muted: rgba(229,231,235,.72);
+  --txt: #e5e7eb;
   --shadow: 0 12px 30px rgba(0,0,0,.35);
   --r: 18px;
 }
@@ -35,10 +34,10 @@ body{
   gap:10px;
   z-index: 50;
   align-items:flex-start;
-}
 
-/* ✅ HUD input-safe: HUD ไม่กิน input ของเกม (ยกเว้นปุ่ม) */
-.hud{ pointer-events:none; }
+  /* ✅ HUD ไม่กิน input ของเกม (ยกเว้นปุ่ม) */
+  pointer-events:none;
+}
 .hud .card, .hud .btn, .hud button{ pointer-events:auto; }
 
 .card{
