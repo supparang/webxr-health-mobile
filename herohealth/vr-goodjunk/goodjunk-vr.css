@@ -1,117 +1,122 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR CSS — PRODUCTION
-PATCH v20260303-CSS-ENDACTIONS-CD-SPLASH
-✅ FIX: end actions row wraps & can hold 3 buttons (Retry / Hub / Cooldown)
-✅ ADD: boot splash overlay
-✅ Keep: dark glass style, mobile friendly
+PATCH v20260303-UI-LOOSE-HUD-SAFE
 */
 
 :root{
-  --bg1:#020617;
-  --bg2:#030712;
-  --glass: rgba(2,6,23,.62);
-  --stroke: rgba(148,163,184,.16);
-  --text: rgba(229,231,235,.96);
+  --bg:#040610;
+  --panel: rgba(8,12,26,.56);
+  --line: rgba(148,163,184,.16);
+  --txt: rgba(229,231,235,.96);
   --mut: rgba(148,163,184,.86);
-  --shadow: 0 18px 55px rgba(0,0,0,.40);
-  --r: 18px;
+  --soft: rgba(2,6,23,.55);
+  --good: rgba(34,197,94,.90);
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 body{
   margin:0;
+  background: radial-gradient(1200px 800px at 50% -10%, rgba(84,114,255,.16), transparent 60%),
+              radial-gradient(900px 700px at 30% 30%, rgba(34,197,94,.10), transparent 60%),
+              var(--bg);
+  color: var(--txt);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  color: var(--text);
-  background:
-    radial-gradient(1200px 700px at 50% -10%, rgba(56,189,248,.12), transparent 55%),
-    radial-gradient(900px 600px at 20% 10%, rgba(34,197,94,.10), transparent 60%),
-    linear-gradient(180deg, var(--bg2), var(--bg1));
   overflow:hidden;
 }
 
-#app{ height:100%; display:flex; flex-direction:column; }
+#app{ height:100%; width:100%; position:relative; }
 
-.mut{ color: var(--mut); opacity:.92; }
-
-/* Boot splash */
-#bootSplash{
+/* Loading */
+.loading{
   position:fixed; inset:0;
   display:grid; place-items:center;
-  background: radial-gradient(900px 600px at 50% 20%, rgba(2,6,23,.78), rgba(2,6,23,.92));
-  z-index: 9999;
-  transition: opacity .18s ease, transform .18s ease;
+  z-index:999;
+  background: radial-gradient(1200px 800px at 50% 10%, rgba(84,114,255,.10), transparent 60%),
+              rgba(0,0,0,.50);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-#bootSplash[aria-hidden="true"]{ opacity:0; pointer-events:none; }
-#bootSplash.hide{ opacity:0; pointer-events:none; transform: translateY(6px); }
-.bootCard{
-  width:min(520px, 92vw);
-  border:1px solid var(--stroke);
+.loading[aria-hidden="true"]{ display:none; }
+.loadingCard{
+  width:min(520px, calc(100vw - 26px));
+  border:1px solid var(--line);
+  background: rgba(2,6,23,.72);
   border-radius: 22px;
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-  padding: 18px 16px;
-  text-align:center;
+  padding: 16px 16px 14px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
 }
-.bootTitle{ font-weight:1000; font-size:18px; letter-spacing:.2px; }
-.bootSub{ margin-top:6px; font-weight:800; font-size:13px; color: var(--mut); }
-
-/* Debug pills */
-#debugPills{
-  position:fixed;
-  top:10px;
-  left:10px;
-  z-index: 300;
-  display:flex;
-  gap:8px;
-  opacity:.85;
+.loadingTitle{ font-weight:1000; font-size: 20px; letter-spacing:.2px; }
+.loadingSub{ margin-top:6px; opacity:.86; }
+.loadingPills{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.loadErr{
+  margin-top:10px;
+  color: rgba(255,150,150,.96);
+  font-weight: 800;
+  white-space: pre-wrap;
 }
-#debugPills[aria-hidden="true"]{ display:none; }
 
-.pill{
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.48);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 900;
-  letter-spacing:.2px;
-  font-size: 12px;
-}
-.pill b{ margin-left:6px; font-weight:1000; }
-
-.pill-soft{ opacity:.94; }
-.pill-ai{ border-color: rgba(56,189,248,.18); }
-
-/* HUD */
 #hud{
-  position:sticky;
-  top:0;
+  position:fixed;
+  top: 8px;
+  left: 8px;
+  right: 8px;
   z-index: 200;
-  padding: 10px 10px 8px;
-  background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.22));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
 }
-.hud-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.hud-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
 .hud-bars{ align-items:stretch; }
 
-.barCard{
-  flex: 1 1 180px;
-  min-width: 170px;
-  border:1px solid var(--stroke);
-  border-radius: 16px;
-  background: rgba(2,6,23,.46);
-  padding: 10px 12px;
+.pill{
+  pointer-events:none;
+  border:1px solid var(--line);
+  background: rgba(2,6,23,.52);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.30);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.barTop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.pill b{ font-weight:1000; }
+.pill-soft{
+  background: rgba(2,6,23,.40);
+  font-weight: 900;
+}
+.pill-ai{
+  background: rgba(10,14,40,.45);
+}
+
+.mut{ opacity:.82; margin-left:8px; }
+#goalDesc{ margin-left:10px; opacity:.82; }
+
+.barCard{
+  flex:1;
+  min-width: 180px;
+  border:1px solid var(--line);
+  background: rgba(2,6,23,.40);
+  border-radius: 18px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.barTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
 .bar{
   height: 10px;
   border-radius: 999px;
-  background: rgba(148,163,184,.12);
+  background: rgba(148,163,184,.16);
   overflow:hidden;
 }
 .barFill{
@@ -119,135 +124,139 @@ body{
   width:0%;
   background: rgba(34,197,94,.85);
 }
-.bossFill{ background: rgba(248,113,113,.86); }
+.bossFill{ background: rgba(255,190,80,.82); }
 
-.gj-progress{ margin-top:6px; }
+.gj-progress{
+  margin-top: 2px;
+  border-radius: 999px;
+  overflow:hidden;
+}
 .gj-progress-track{
   height: 6px;
+  background: rgba(148,163,184,.14);
   border-radius: 999px;
-  background: rgba(148,163,184,.12);
   overflow:hidden;
 }
 .gj-progress-fill{
   height:100%;
   width:0%;
-  background: rgba(56,189,248,.88);
+  background: rgba(84,114,255,.70);
 }
 
-/* Stage */
 #stage{
-  position:relative;
-  flex:1 1 auto;
-  overflow:hidden;
-  padding: 6px 10px 10px;
+  position:absolute;
+  inset:0;
+  padding-top: 170px; /* space under HUD */
 }
 #gj-layer{
   position:absolute;
   inset:0;
+  touch-action: manipulation;
 }
 
-/* Targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%,-50%);
-  font-size: 64px;
+  font-size: 56px;
   line-height: 1;
   user-select:none;
   -webkit-user-select:none;
-  touch-action: manipulation;
-  filter: drop-shadow(0 14px 28px rgba(0,0,0,.45));
+  cursor:pointer;
+  filter: drop-shadow(0 16px 38px rgba(0,0,0,.45));
+  will-change: transform, opacity, left, top;
 }
 
-/* Low time overlay */
 #lowTimeOverlay{
   position:fixed;
   inset:0;
-  z-index: 400;
   display:grid;
   place-items:center;
   pointer-events:none;
+  z-index: 250;
 }
 #lowTimeOverlay[aria-hidden="true"]{ display:none; }
 .lowTimeCard{
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 16px 18px;
-  box-shadow: var(--shadow);
+  border:1px solid var(--line);
+  background: rgba(2,6,23,.58);
+  border-radius: 22px;
+  padding: 14px 18px;
   text-align:center;
+  box-shadow: 0 28px 80px rgba(0,0,0,.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
-.lowTimeNum{ font-size: 44px; font-weight: 1000; }
+.lowTimeNum{
+  font-size: 54px;
+  font-weight: 1000;
+  margin-top: 4px;
+}
 
-/* End overlay */
 #endOverlay{
   position:fixed;
   inset:0;
-  z-index: 500;
   display:grid;
   place-items:center;
-  background: rgba(0,0,0,.38);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  z-index: 300;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 #endOverlay[aria-hidden="true"]{ display:none; }
 
-#endOverlay .panel{
-  width:min(720px, 92vw);
-  border:1px solid var(--stroke);
-  border-radius: 22px;
+.panel{
+  width:min(720px, calc(100vw - 26px));
+  border:1px solid var(--line);
   background: rgba(2,6,23,.72);
-  box-shadow: var(--shadow);
-  padding: 16px 14px 14px;
+  border-radius: 24px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 34px 100px rgba(0,0,0,.60);
 }
 
-.endTitle{ font-size: 22px; font-weight: 1000; letter-spacing:.2px; }
-.endSub{ margin-top: 4px; color: var(--mut); font-weight: 850; font-size: 12px; }
+.endTitle{ font-size: 28px; font-weight: 1000; }
+.endSub{ margin-top:6px; opacity:.82; font-weight: 800; }
 
 .endGrid{
   margin-top: 12px;
   display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 .endStat{
-  border:1px solid var(--stroke);
-  border-radius: 16px;
+  border:1px solid var(--line);
   background: rgba(2,6,23,.40);
+  border-radius: 18px;
   padding: 12px 12px;
   display:flex;
-  justify-content:space-between;
   align-items:center;
+  justify-content:space-between;
 }
-.endStat span{ color: var(--mut); font-weight: 900; font-size: 12px; }
-.endStat b{ font-weight: 1000; font-size: 18px; }
+.endStat span{ opacity:.82; font-weight: 900; }
+.endStat b{ font-size: 22px; font-weight: 1000; }
 
-/* ✅ IMPORTANT: endActions supports 3 buttons */
 .endActions{
   margin-top: 12px;
   display:flex;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
 }
 .btn{
-  border: 1px solid var(--stroke);
-  background: rgba(2,6,23,.46);
-  color: var(--text);
+  border:1px solid var(--line);
+  background: rgba(2,6,23,.50);
+  color: var(--txt);
   border-radius: 16px;
   padding: 10px 14px;
   font-weight: 1000;
-  min-height: 44px;
   cursor:pointer;
+  min-height: 44px;
 }
 .btn.primary{
-  border-color: rgba(34,197,94,.30);
+  border:1px solid rgba(34,197,94,.30);
   background: rgba(34,197,94,.14);
 }
 
+/* mobile tighten */
 @media (max-width: 420px){
-  .gj-target{ font-size: 58px; }
-  .pill{ font-size: 11px; padding: 7px 10px; }
+  #stage{ padding-top: 190px; }
+  .gj-target{ font-size: 52px; }
 }
