@@ -28,8 +28,7 @@ export function bootMissions(cfg){
     } else if (S.stage === 2){
       S.stageHit++;
       if (S.stageHit >= Math.max(6, Math.floor(S.stageNeed/2))){
-        S.cleared++;
-        S.stage = 3; S.stageHit = 0;
+        S.cleared++; S.stage = 3; S.stageHit = 0;
         return { advanced:true };
       }
     }
