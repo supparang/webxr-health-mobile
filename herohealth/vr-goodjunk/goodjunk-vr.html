@@ -1,595 +1,156 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR — RUNNER (PC/Mobile/cVR) — PRODUCTION
-FULL v20260304-GJ-COOP2-PROD-RUNNER
-
-✅ mode lock: solo|battle|race|coop|coop2
-✅ team=R|B (for coop2)
-✅ supabase room-bus for race/coop/coop2
-✅ host start: startAt sync + seed/diff/time broadcast
-✅ late join: host state broadcast
-✅ pass-through: pid/nick/mode/team/view/run/diff/time/seed/hub/ai/log...
-Requires:
-- ./goodjunk.safe.js
-- ../vr/room-bus.js   (must export createRoomBus)
-Optional:
-- ../vr/vr-ui.js      (if you use hha:shoot crosshair from universal VR UI)
+GoodJunkVR RUN — PRODUCTION (Solo + Duel Battle RTDB + optional logger + optional AI)
+FULL v20260304-RUN-BATTLE-DUEL
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GoodJunk VR</title>
-  <meta name="color-scheme" content="dark light"/>
+  <title>HeroHealth • GoodJunk VR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304"/>
 
-  <style>
-    :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.62);
-      --border: rgba(148,163,184,.18);
-      --text: rgba(229,231,235,.96);
-
-      /* team accent (set by core via CSS vars) */
-      --team-accent:#ef4444;
-      --team-accent-soft:rgba(239,68,68,.18);
-    }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-    *{box-sizing:border-box}
-
-    /* stage */
-    #stage{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      font:900 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      color:rgba(229,231,235,.9);
-      pointer-events:none;
-      z-index:40;
-      opacity:.0;
-      transition:opacity .15s ease;
-    }
-    #stage.show{opacity:1}
-
-    /* play layer */
-    #gj-layer{
-      position:fixed; inset:0;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
-      -webkit-user-select:none;
-      z-index:10;
-    }
-    .gj-target{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-size:42px;
-      line-height:1;
-      filter: drop-shadow(0 16px 26px rgba(0,0,0,.55));
-      will-change: transform, opacity, left, top;
-      cursor:pointer;
-      pointer-events:auto;
-    }
-
-    /* HUD */
-    .gj-hud{
-      position:fixed;
-      left:10px; right:10px;
-      top:calc(env(safe-area-inset-top, 0px) + 10px);
-      z-index:120;
-      pointer-events:none;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:flex-start;
-      justify-content:space-between;
-
-      border:1px solid var(--team-accent);
-      background:rgba(2,6,23,.45);
-      border-radius:16px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      box-shadow:0 18px 55px rgba(0,0,0,.35);
-    }
-    .hud-col{display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap}
-    .pill{
-      display:flex; gap:6px; align-items:baseline;
-      padding:6px 10px;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:999px;
-      background:rgba(2,6,23,.35);
-      font-weight:900;
-      pointer-events:none;
-      white-space:nowrap;
-    }
-    .pill small{opacity:.75; font-weight:900; font-size:11px}
-    .pill b{font-size:13px}
-    .wide{
-      flex:1 1 100%;
-      border-radius:14px;
-      padding:8px 10px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.30);
-      font-weight:900;
-      opacity:.92;
-    }
-
-    /* progress */
-    .gj-progress{
-      position:fixed;
-      left:10px; right:10px;
-      top:calc(env(safe-area-inset-top, 0px) + 92px);
-      height:10px;
-      border-radius:999px;
-      border:1px solid var(--team-accent);
-      background:rgba(148,163,184,.08);
-      overflow:hidden;
-      z-index:118;
-      pointer-events:none;
-    }
-    #gjProgressFill{
-      height:100%;
-      width:0%;
-      background:var(--team-accent);
-      transition:width .08s linear;
-    }
-
-    /* Fever */
-    .fever{
-      position:fixed;
-      left:10px; right:10px;
-      bottom:calc(env(safe-area-inset-bottom, 0px) + 62px);
-      z-index:115;
-      pointer-events:none;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .bar{
-      flex:1;
-      height:10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.08);
-      overflow:hidden;
-    }
-    #feverFill{height:100%; width:0%; background:rgba(251,191,36,.92); transition:width .08s linear}
-    #feverText{font-weight:1000; opacity:.92; min-width:70px; text-align:right}
-
-    /* Boss bar */
-    #bossBar{
-      position:fixed;
-      left:10px; right:10px;
-      bottom:calc(env(safe-area-inset-bottom, 0px) + 22px);
-      z-index:114;
-      pointer-events:none;
-      border:1px solid var(--team-accent);
-      background:rgba(2,6,23,.35);
-      border-radius:14px;
-      padding:8px 10px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    #bossBar[aria-hidden="true"]{display:none}
-    .bossBarInner{
-      flex:1;
-      height:10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.08);
-      overflow:hidden;
-    }
-    #bossFill{height:100%; width:0%; background:rgba(239,68,68,.85); transition:width .08s linear}
-    #bossHint{font-weight:1000; opacity:.9; font-size:12px; white-space:nowrap}
-
-    /* low time overlay */
-    #lowTimeOverlay{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index:200;
-      pointer-events:none;
-      background:rgba(0,0,0,.0);
-      transition:background .12s ease;
-    }
-    #lowTimeOverlay[aria-hidden="true"]{display:none}
-    #lowTimeOverlay .num{
-      font-size:86px;
-      font-weight:1000;
-      opacity:.88;
-      text-shadow:0 18px 55px rgba(0,0,0,.55);
-      transform:translateY(-6px);
-    }
-
-    /* end overlay */
-    #endOverlay{
-      position:fixed; inset:0;
-      z-index:240;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px 14px;
-      background:rgba(2,6,23,.86);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    #endOverlay[aria-hidden="true"]{display:none}
-    #endOverlay .panel{
-      width:min(860px, 96vw);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.62);
-      border-radius:18px;
-      padding:14px 14px 16px;
-      box-shadow:0 18px 75px rgba(0,0,0,.55);
-    }
-    .endGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    .endCard{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:14px;
-      padding:10px 12px;
-      background:rgba(2,6,23,.35);
-      font-weight:1000;
-    }
-    .endCard small{opacity:.72; font-size:11px}
-    .endCard b{font-size:18px}
-
-    /* controls (multi panel) */
-    #multiPanel{
-      position:fixed;
-      right:10px;
-      bottom:calc(env(safe-area-inset-bottom, 0px) + 110px);
-      z-index:130;
-      width:min(320px, 90vw);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:16px;
-      background:rgba(2,6,23,.55);
-      padding:10px 10px 12px;
-      box-shadow:0 18px 55px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    #multiPanel[aria-hidden="true"]{display:none}
-    .mpRow{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between}
-    .btn{
-      pointer-events:auto;
-      cursor:pointer;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:rgba(229,231,235,.95);
-      padding:10px 12px;
-      font-weight:1000;
-      min-height:42px;
-    }
-    .btn.primary{
-      border:1px solid rgba(34,197,94,.30);
-      background:rgba(34,197,94,.14);
-    }
-    .btn.warn{
-      border:1px solid rgba(251,191,36,.30);
-      background:rgba(251,191,36,.12);
-    }
-    .mpMeta{
-      font-weight:900;
-      opacity:.9;
-      font-size:12px;
-      margin-top:8px;
-      border-top:1px solid rgba(148,163,184,.14);
-      padding-top:8px;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:6px;
-    }
-    .mpMeta div{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  </style>
+  <!-- ✅ Firebase config for Battle (public OK) -->
+  <script>
+    // IMPORTANT: ต้องมี apiKey + appId + databaseURL
+    window.HHA_BATTLE_CFG = {
+      apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+      authDomain: "herohealth-d7f8c.firebaseapp.com",
+      databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "herohealth-d7f8c",
+      appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+    };
+    window.HHA_FIREBASE_VERSION = "10.12.5";
+  </script>
 </head>
 
 <body>
-  <div id="stage"></div>
-
-  <div id="gj-layer" aria-label="GoodJunk play layer"></div>
-
-  <!-- HUD -->
-  <div class="gj-hud" aria-label="HUD">
-    <div class="hud-col">
-      <div class="pill"><small>Score</small><b id="hud-score">0</b></div>
-      <div class="pill"><small>Time</small><b id="hud-time">0</b></div>
-      <div class="pill"><small>Miss</small><b id="hud-miss">0</b></div>
-      <div class="pill"><small>Grade</small><b id="hud-grade">—</b></div>
+  <div id="app">
+    <!-- Debug pills (optional) -->
+    <div id="debugPills" aria-hidden="true">
+      <span class="pill">view=<b id="uiView">—</b></span>
+      <span class="pill">run=<b id="uiRun">—</b></span>
+      <span class="pill">diff=<b id="uiDiff">—</b></span>
     </div>
 
-    <div class="hud-col">
-      <div class="pill"><small>Goal</small><b id="hud-goal">Daily</b></div>
-      <div class="pill"><small>Cur</small><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">0</b></div>
-      <div class="pill"><small>Mini</small><b id="hud-mini">—</b></div>
-      <div class="pill"><small>MiniT</small><b id="miniTimer">—</b></div>
-    </div>
+    <header id="hud">
+      <div class="hud-row">
+        <div class="pill">SCORE <b id="hud-score">0</b></div>
+        <div class="pill">TIME <b id="hud-time">0</b></div>
+        <div class="pill">MISS <b id="hud-miss">0</b></div>
+        <div class="pill">GRADE <b id="hud-grade">C</b></div>
+      </div>
 
-    <div class="hud-col">
-      <div class="pill"><small>AI risk</small><b id="aiRisk">—</b></div>
-      <div class="pill"><small>AI hint</small><b id="aiHint">—</b></div>
-      <div class="pill"><small>Shield</small><b id="shieldPills">—</b></div>
-    </div>
-
-    <div class="wide" id="goalDesc">—</div>
-  </div>
-
-  <div class="gj-progress" aria-label="Progress">
-    <div id="gjProgressFill"></div>
-  </div>
-
-  <div class="fever" aria-label="Fever">
-    <div class="bar"><div id="feverFill"></div></div>
-    <div id="feverText">0%</div>
-  </div>
-
-  <div id="bossBar" aria-hidden="true">
-    <div class="bossBarInner"><div id="bossFill"></div></div>
-    <div id="bossHint">—</div>
-  </div>
-
-  <div id="lowTimeOverlay" aria-hidden="true">
-    <div class="num" id="gj-lowtime-num">5</div>
-  </div>
-
-  <!-- multi panel (race/coop/coop2) -->
-  <div id="multiPanel" aria-hidden="true">
-    <div class="mpRow">
-      <button class="btn primary" id="btnStart">START (Host)</button>
-      <button class="btn" id="btnCopyLink">Copy Link</button>
-    </div>
-    <div class="mpMeta">
-      <div>mode: <span id="mpMode">—</span></div>
-      <div>team: <span id="mpTeam">—</span></div>
-      <div>room: <span id="mpRoom">—</span></div>
-      <div>nick: <span id="mpNick">—</span></div>
-    </div>
-  </div>
-
-  <!-- end overlay -->
-  <div id="endOverlay" aria-hidden="true">
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <div id="endTitle" style="font:1000 20px/1.2 system-ui; margin-bottom:4px;">Game Over</div>
-          <div id="endSub" style="opacity:.86; font-weight:900;">—</div>
+      <div class="hud-row">
+        <div class="pill pill-soft">
+          GOAL <b id="hud-goal">Daily</b>:
+          <span><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">20</b></span>
+          <span id="goalDesc" class="mut">Hit GOOD 20</span>
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <div class="endCard"><small>Grade</small><div><b id="endGrade">—</b></div></div>
+        <div class="pill pill-soft">
+          MINI <b id="hud-mini">—</b>
+          <span class="mut">⏱ <b id="miniTimer">—</b></span>
         </div>
       </div>
 
-      <div class="endGrid">
-        <div class="endCard"><small>Score</small><div><b id="endScore">0</b></div></div>
-        <div class="endCard"><small>Miss</small><div><b id="endMiss">0</b></div></div>
-        <div class="endCard"><small>Played</small><div><b id="endTime">0</b> <small>s</small></div></div>
-        <div class="endCard"><small>Tip</small><div style="font-weight:900; opacity:.9">กลับ Hub หรือเล่นใหม่ได้เลย</div></div>
+      <div class="hud-row">
+        <div class="pill pill-ai">
+          AI Risk <b id="aiRisk">—</b>
+          <span class="mut">next: <b id="aiHint">—</b></span>
+        </div>
       </div>
 
-      <div class="hh-end-actions" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(148,163,184,.16)">
-        <button class="btn" id="btnReplay">เล่นใหม่</button>
-        <button class="btn" id="btnBackHub">กลับ Hub</button>
+      <div class="hud-row hud-bars">
+        <div class="barCard">
+          <div class="barTop"><span class="mut">FEVER</span><b id="feverText">0%</b></div>
+          <div class="bar"><div class="barFill" id="feverFill" style="width:0%"></div></div>
+        </div>
+
+        <div class="barCard">
+          <div class="barTop"><span class="mut">SHIELD</span><b id="shieldPills">—</b></div>
+        </div>
+
+        <div class="barCard boss" id="bossBar" aria-hidden="true">
+          <div class="barTop"><span class="mut">BOSS</span><b id="bossHint">—</b></div>
+          <div class="bar"><div class="barFill bossFill" id="bossFill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="gj-progress" aria-hidden="false">
+        <div class="gj-progress-track">
+          <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+        </div>
+      </div>
+    </header>
+
+    <main id="stage" aria-label="GoodJunk Stage">
+      <div id="gj-layer" aria-label="targets"></div>
+    </main>
+
+    <div id="lowTimeOverlay" aria-hidden="true">
+      <div class="lowTimeCard">
+        <div class="mut">TIME</div>
+        <div class="lowTimeNum" id="gj-lowtime-num">5</div>
+      </div>
+    </div>
+
+    <div id="endOverlay" aria-hidden="true">
+      <div class="panel">
+        <div class="endTitle" id="endTitle">Game Over</div>
+        <div class="endSub" id="endSub">—</div>
+
+        <div class="endGrid">
+          <div class="endStat"><span>GRADE</span><b id="endGrade">—</b></div>
+          <div class="endStat"><span>SCORE</span><b id="endScore">0</b></div>
+          <div class="endStat"><span>MISS</span><b id="endMiss">0</b></div>
+          <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
+        </div>
+
+        <div class="endActions">
+          <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
-    import { createRoomBus } from '../vr/room-bus.js';
 
-    const WIN = window, DOC = document;
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const qs = (k, d='')=>{
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
-    };
-    const $ = (id)=> DOC.getElementById(id);
-    const setText = (id, v)=>{ const el=$(id); if(el) el.textContent = String(v ?? ''); };
-
-    const stage = $('stage');
-    function stageShow(msg){
-      if(!stage) return;
-      stage.textContent = String(msg||'');
-      stage.classList.add('show');
-      clearTimeout(WIN.__ST_TMR__);
-      WIN.__ST_TMR__ = setTimeout(()=> stage.classList.remove('show'), 1600);
-    }
-
-    // ---------- LOCK MODE ----------
-    const rawMode = String(qs('mode','')).trim().toLowerCase();
-    const mode = (rawMode==='battle' || rawMode==='race' || rawMode==='coop' || rawMode==='coop2' || rawMode==='solo')
-      ? rawMode : 'solo';
-
-    const roomId = String(qs('room','')).trim();
-    const SB_URL  = qs('sbUrl','');
-    const SB_ANON = qs('sbAnon','');
-
-    const teamRaw = String(qs('team','R')).trim().toUpperCase();
-    const team = (teamRaw==='B' || teamRaw==='BLUE') ? 'B' : 'R';
-
-    const pid  = String(qs('pid','anon')).trim() || 'anon';
-    const nick = String(qs('nick','')).trim() || pid;
-
-    function must(cond, msg){
-      if(cond) return;
-      stageShow('❌ ' + msg);
-      throw new Error(msg);
-    }
-
-    if(mode === 'battle'){
-      must(!!roomId, 'mode=battle ต้องมี room=...');
-    }
-    if(mode === 'race' || mode === 'coop' || mode === 'coop2'){
-      must(!!roomId, 'mode=race/coop/coop2 ต้องมี room=...');
-      must(!!SB_URL && !!SB_ANON, 'mode=race/coop/coop2 ต้องมี sbUrl และ sbAnon');
-    }
-
-    // ---------- ROUND STATE ----------
-    let round = {
-      started:false,
-      startAt:0,
-      seed:String(qs('seed','')),
-      diff:String(qs('diff','normal')),
-      time:Number(qs('time','80'))||80,
-      mode
-    };
-
-    function applyRoundFromMsg(m){
-      if(!m) return;
-      round.started = true;
-      round.startAt = Number(m.startAt||Date.now());
-      round.seed = String(m.seed||round.seed||Date.now());
-      round.diff = String(m.diff||round.diff||'normal');
-      round.time = Number(m.time||round.time||80)||80;
-
-      // reflect in URL
-      const u = new URL(location.href);
-      u.searchParams.set('seed', round.seed);
-      u.searchParams.set('diff', round.diff);
-      u.searchParams.set('time', String(round.time));
-      history.replaceState(null,'',u.toString());
-    }
-
-    // ---------- MULTI BUS ----------
-    let bus = null;
-    const useRoomBus = (mode === 'race' || mode === 'coop' || mode === 'coop2');
-
-    const multiPanel = $('multiPanel');
-    if(multiPanel){
-      multiPanel.setAttribute('aria-hidden', useRoomBus ? 'false' : 'true');
-      setText('mpMode', mode);
-      setText('mpTeam', team);
-      setText('mpRoom', roomId || '—');
-      setText('mpNick', nick);
-    }
-
-    if(useRoomBus){
-      bus = createRoomBus({
-        roomId,
-        nick,
-        playerId: pid,
-        forceHost: qs('host','0') === '1',
-        supabaseUrl: SB_URL,
-        supabaseAnon: SB_ANON,
-        maxPlayers: 10
-      });
-
-      bus.onMsg?.((m)=>{
-        if(!m) return;
-
-        if(m.t === 'start'){
-          applyRoundFromMsg(m);
-          WIN.dispatchEvent(new CustomEvent('gj:net', { detail: m }));
-          return;
-        }
-        if(m.t === 'state'){
-          if(!round.started && m.started){
-            applyRoundFromMsg(m);
-            WIN.dispatchEvent(new CustomEvent('gj:net', { detail: { t:'start', ...m } }));
-          }
-          return;
-        }
-        WIN.dispatchEvent(new CustomEvent('gj:net', { detail: m }));
-      });
-
-      function hostBroadcastState(){
-        if(!bus?.isHost || !round.started) return;
-        try{ bus.send({ t:'state', ...round }); }catch(e){}
-      }
-      setInterval(hostBroadcastState, 2000);
-
-      function tryElectHost(){
-        try{
-          const list = bus.getPresence?.() || [];
-          if(!list.length) return;
-          const first = list[0]?.playerId;
-          const amI = (first && String(first)===String(pid));
-          if(amI && !bus.isHost) bus.becomeHost?.();
-        }catch(e){}
-      }
-      setInterval(tryElectHost, 1500);
-
-      WIN.__GJ_HOST_START__ = function(){
-        if(!bus) return;
-        if(!bus.isHost){
-          stageShow('ต้องเป็น Host ถึงจะเริ่มรอบได้');
-          return;
-        }
-        if(round.started) return;
-
-        const startMsg = {
-          t:'start',
-          started:true,
-          startAt: Date.now() + 800,
-          seed: String(Date.now()),
-          diff: String(qs('diff','normal')),
-          time: Number(qs('time','80'))||80,
-          mode,
-          gameVersion: 'v20260304-coop2-prod'
-        };
-
-        applyRoundFromMsg(startMsg);
-        try{ bus.send(startMsg); }catch(e){}
-        WIN.dispatchEvent(new CustomEvent('gj:net', { detail: startMsg }));
-        stageShow('เริ่มพร้อมกัน!');
-      };
-
-      const btnStart = $('btnStart');
-      if(btnStart){
-        btnStart.onclick = ()=> WIN.__GJ_HOST_START__?.();
-      }
-
-      const btnCopy = $('btnCopyLink');
-      if(btnCopy){
-        btnCopy.onclick = async ()=>{
-          try{
-            await navigator.clipboard.writeText(location.href);
-            stageShow('คัดลอกลิงก์แล้ว');
-          }catch(e){
-            stageShow('คัดลอกไม่สำเร็จ');
-          }
-        };
-      }
-    }
-
-    // ---------- End buttons ----------
-    const btnReplay = $('btnReplay');
-    if(btnReplay){
-      btnReplay.onclick = ()=>{
-        const u = new URL(location.href);
-        u.searchParams.set('seed', String(Date.now()));
-        // keep room/team/mode
-        location.href = u.toString();
-      };
-    }
-    const btnBackHub = $('btnBackHub');
-    if(btnBackHub){
-      btnBackHub.onclick = ()=>{
-        const hub = qs('hub','../hub.html');
-        location.href = hub;
-      };
-    }
-
-    // ---------- BOOT CORE ----------
-    boot({
-      pid,
-      nick,
-      mode,
-      team,
-      // passthrough commonly used
+    const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
       diff: qs('diff','normal'),
-      time: Number(qs('time','80'))||80,
+      time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
+      pid: qs('pid','anon'),
       hub: qs('hub','../hub.html'),
-      ai: null,
-      multi: bus ? { enabled:true, roomId, bus, mode, team } : { enabled:false, mode, team }
+      ai: null
+    };
+
+    // optional debug
+    if(qs('debug','0') === '1'){
+      document.getElementById('debugPills')?.setAttribute('aria-hidden','false');
+      document.getElementById('uiView').textContent = cfg.view;
+      document.getElementById('uiRun').textContent = cfg.run;
+      document.getElementById('uiDiff').textContent = cfg.diff;
+    }
+
+    // Buttons
+    document.getElementById('btnRetry')?.addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
     });
+    document.getElementById('btnHub')?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
+    });
+
+    boot(cfg);
   </script>
 </body>
 </html>
