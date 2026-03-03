@@ -1,226 +1,69 @@
 <!-- === /herohealth/brush-vr.html ===
-BrushVR Launcher — ROOT (HHA Standard)
-PATCH v20260302-brush-launcher-root
-✅ View auto-detect (pc/mobile/cvr) + remember last
-✅ Diff/Time/Seed
-✅ Pass-through params: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log/view/ai/debug
-✅ Sends to: ./vr-brush/brush.html
+BrushVR — ROOT LAUNCHER (canonical)
+PATCH v20260303-brush-root-launcher
+✅ Canonical entrypoint for HUB
+✅ Pass-through ALL params + always set hub=
+✅ Redirect to /herohealth/vr-brush/brush.html
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — BrushVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
   <style>
-    :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.55);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --amber:#f59e0b;
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
-      background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 20%, rgba(245,158,11,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-    }
-    .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-    .card{
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border-radius: var(--radius);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 14px;
-    }
-    h1{margin:0;font-size:22px}
-    p{margin:6px 0 0;color:var(--muted);line-height:1.5}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-    @media (max-width:720px){.grid{grid-template-columns:1fr}}
-    label{display:flex;flex-direction:column;gap:6px;font-weight:900;color:var(--muted);font-size:12px}
-    select,input{
-      padding:12px 12px;border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      font-weight:900;
-      outline:none;
-    }
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px}
-    .btn{
-      appearance:none;border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight:1000;
-      cursor:pointer;
-      user-select:none;
-      text-decoration:none;
-      display:inline-flex;align-items:center;gap:8px;
-    }
-    .btn.good{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.12)}
-    .btn.warn{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.10)}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:8px 10px;border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.42);
-      color:var(--muted);
-      font-weight:900;font-size:12px;
-      width:fit-content;
-    }
-    .pill b{color:var(--text)}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      background:#020617;color:#e5e7eb}
+    .card{width:min(520px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;
+      background:rgba(2,6,23,.72);padding:14px}
+    .mut{color:rgba(148,163,184,.9);font-size:13px;line-height:1.5}
+    a{color:#e5e7eb}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="pill"><b>HeroHealth · Hygiene</b> · 🪥 BrushVR</div>
-      <h1>BrushVR — Plaque Breaker (Launcher)</h1>
-      <p>เลือกโหมด/เวลา/ความยาก แล้วกด “เริ่มเล่น” → ไปหน้า Run ใน <b>/vr-brush/brush.html</b></p>
-      <div class="grid">
-        <label>View
-          <select id="view">
-            <option value="pc">pc</option>
-            <option value="mobile">mobile</option>
-            <option value="cvr">cvr (Cardboard)</option>
-          </select>
-        </label>
-
-        <label>Difficulty
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </label>
-
-        <label>Time (sec)
-          <input id="time" type="number" min="30" max="120" step="5" value="80" />
-        </label>
-
-        <label>Seed
-          <input id="seed" type="number" step="1" />
-        </label>
-      </div>
-
-      <div class="grid" style="margin-top:10px">
-        <label>AI HUD
-          <select id="ai">
-            <option value="0" selected>ai=0 (off)</option>
-            <option value="1">ai=1 (on)</option>
-          </select>
-        </label>
-        <label>Debug
-          <select id="debug">
-            <option value="0" selected>debug=0</option>
-            <option value="1">debug=1</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="row">
-        <a id="backHub" class="btn warn" href="./hub.html">🏰 กลับ HUB</a>
-        <button id="go" class="btn good" type="button">▶ เริ่มเล่น</button>
-      </div>
-    </div>
+  <div class="card">
+    <div style="font-weight:1000;font-size:18px;">🦷 BrushVR — Launcher</div>
+    <div class="mut" style="margin-top:6px">กำลังพาไปหน้าเกม…</div>
+    <div class="mut" style="margin-top:8px"><a id="go" href="./vr-brush/brush.html">Go</a></div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-  const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
-  const autoView=()=>{
-    const v = String(qs('view','')).toLowerCase();
-    if(v) return v;
-    const ua = navigator.userAgent||'';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'mobile' : 'pc';
-  };
-  const rememberKey = 'HHA_LAUNCH_BRUSH';
 
-  const elView = document.getElementById('view');
-  const elDiff = document.getElementById('diff');
-  const elTime = document.getElementById('time');
-  const elSeed = document.getElementById('seed');
-  const elAI   = document.getElementById('ai');
-  const elDbg  = document.getElementById('debug');
-  const btnGo  = document.getElementById('go');
-  const backHub = document.getElementById('backHub');
+  function here(){ return location.href.split('#')[0]; }
 
-  // seed default
-  elSeed.value = String((Number(qs('seed','')) || Date.now()) >>> 0);
+  // Normalize hub param: if missing, use current hub.html in same root
+  function ensureHub(url){
+    const u = new URL(url, location.href);
+    const q = u.searchParams;
 
-  // restore last settings
-  try{
-    const saved = JSON.parse(localStorage.getItem(rememberKey)||'null');
-    if(saved){
-      if(saved.view) elView.value = saved.view;
-      if(saved.diff) elDiff.value = saved.diff;
-      if(saved.time) elTime.value = saved.time;
-      if(saved.ai!=null) elAI.value = String(saved.ai);
-      if(saved.debug!=null) elDbg.value = String(saved.debug);
-    }else{
-      elView.value = autoView();
+    // pass-through current params
+    const cur = new URL(here()).searchParams;
+    for (const [k,v] of cur.entries()){
+      // do not overwrite existing
+      if (!q.has(k) || String(q.get(k)||'').trim()==='') q.set(k, v);
     }
-  }catch(_){
-    elView.value = autoView();
+
+    // always set hub= (so run can go back)
+    if(!q.has('hub') || String(q.get('hub')||'').trim()===''){
+      // default to /herohealth/hub.html (same directory)
+      const hub = new URL('./hub.html', location.href).toString();
+      q.set('hub', hub);
+    }
+    return u.toString();
   }
 
-  // hub passthrough
-  const hub = qs('hub','./hub.html');
-  backHub.href = hub;
+  // Target run page (folder)
+  const target = new URL('./vr-brush/brush.html', location.href);
+  const finalUrl = ensureHub(target.toString());
+  document.getElementById('go').href = finalUrl;
 
-  btnGo.addEventListener('click', ()=>{
-    const view = elView.value;
-    const diff = elDiff.value;
-    const time = clamp(elTime.value, 30, 120);
-    const seed = (Number(elSeed.value)||Date.now()) >>> 0;
-    const ai = elAI.value;
-    const debug = elDbg.value;
-
-    // remember
-    try{
-      localStorage.setItem(rememberKey, JSON.stringify({view,diff,time,ai,debug}));
-    }catch(_){}
-
-    // build run url
-    const u = new URL('./vr-brush/brush.html', location.href);
-
-    // passthrough common ctx
-    const PASS = ['pid','run','studyId','phase','conditionGroup','log','api','health'];
-    for(const k of PASS){
-      const v = qs(k,'');
-      if(v) u.searchParams.set(k, v);
-    }
-
-    u.searchParams.set('hub', hub);
-    u.searchParams.set('view', view);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('time', String(time));
-    u.searchParams.set('seed', String(seed));
-    u.searchParams.set('ai', String(ai));
-    u.searchParams.set('debug', String(debug));
-
-    location.href = u.toString();
-  }, {passive:true});
+  // redirect
+  location.replace(finalUrl);
 })();
 </script>
 </body>
