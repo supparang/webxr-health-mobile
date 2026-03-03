@@ -1,6 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM + vr-ui + spawn-safe + AI dynamic)
-PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
+GoodJunkVR RUN — PRODUCTION (ESM)
+PATCH v20260303-RUN-SPAWNSAFE-VRUI-AI-BATTLE
+✅ file name fixed: goodjunk-vr.html
+✅ load CSS goodjunk-vr.css
+✅ compute window.__HHA_SPAWN_SAFE__ from HUD + VR UI (prevents HUD blocking)
+✅ dynamic import AI + Battle-safe (missing file won't break)
 -->
 <!doctype html>
 <html lang="th">
@@ -10,28 +14,10 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- ✅ CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260303" />
 </head>
 <body>
   <div id="app">
-
-    <!-- Loading overlay -->
-    <div id="loading" class="loading" aria-hidden="false">
-      <div class="loadingCard">
-        <div class="loadingTitle">Loading GoodJunk…</div>
-        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
-        <div class="loadingPills">
-          <span class="pill pill-soft">view=<b id="uiViewL">—</b></span>
-          <span class="pill pill-soft">run=<b id="uiRunL">—</b></span>
-          <span class="pill pill-soft">diff=<b id="uiDiffL">—</b></span>
-          <span class="pill pill-soft">ai=<b id="uiAiL">—</b></span>
-          <span class="pill pill-soft">battle=<b id="uiBattleL">—</b></span>
-        </div>
-        <div id="loadErr" class="loadErr" aria-hidden="true"></div>
-      </div>
-    </div>
 
     <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
@@ -40,13 +26,13 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
       <span class="pill">diff=<b id="uiDiff">—</b></span>
     </div>
 
-    <!-- Top HUD -->
+    <!-- HUD -->
     <header id="hud">
       <div class="hud-row">
         <div class="pill">SCORE <b id="hud-score">0</b></div>
         <div class="pill">TIME <b id="hud-time">0</b></div>
         <div class="pill">MISS <b id="hud-miss">0</b></div>
-        <div class="pill">GRADE <b id="hud-grade">C</b></div>
+        <div class="pill">GRADE <b id="hud-grade">—</b></div>
       </div>
 
       <div class="hud-row">
@@ -61,7 +47,6 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
         </div>
       </div>
 
-      <!-- AI HUD -->
       <div class="hud-row">
         <div class="pill pill-ai">
           AI Risk <b id="aiRisk">—</b>
@@ -69,33 +54,19 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
         </div>
       </div>
 
-      <!-- Fever + Shield + Boss -->
       <div class="hud-row hud-bars">
         <div class="barCard">
-          <div class="barTop">
-            <span class="mut">FEVER</span>
-            <b id="feverText">0%</b>
-          </div>
-          <div class="bar">
-            <div class="barFill" id="feverFill" style="width:0%"></div>
-          </div>
+          <div class="barTop"><span class="mut">FEVER</span><b id="feverText">0%</b></div>
+          <div class="bar"><div class="barFill" id="feverFill" style="width:0%"></div></div>
         </div>
 
         <div class="barCard">
-          <div class="barTop">
-            <span class="mut">SHIELD</span>
-            <b id="shieldPills">—</b>
-          </div>
+          <div class="barTop"><span class="mut">SHIELD</span><b id="shieldPills">—</b></div>
         </div>
 
         <div class="barCard boss" id="bossBar" aria-hidden="true">
-          <div class="barTop">
-            <span class="mut">BOSS</span>
-            <b id="bossHint">—</b>
-          </div>
-          <div class="bar">
-            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
-          </div>
+          <div class="barTop"><span class="mut">BOSS</span><b id="bossHint">—</b></div>
+          <div class="bar"><div class="barFill bossFill" id="bossFill" style="width:0%"></div></div>
         </div>
       </div>
 
@@ -106,7 +77,7 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
       </div>
     </header>
 
-    <!-- Playfield -->
+    <!-- Stage -->
     <main id="stage" aria-label="GoodJunk Stage">
       <div id="gj-layer" aria-label="targets"></div>
     </main>
@@ -136,8 +107,7 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-
-        <!-- ✅ Cooldown button will be injected here by JS (goodjunk.safe.js) -->
+        <!-- Cooldown button injected by goodjunk.safe.js -->
       </div>
     </div>
 
@@ -146,107 +116,71 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
   <script type="module">
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const loading = document.getElementById('loading');
-    const loadErr = document.getElementById('loadErr');
-
-    const setLoadPill = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent = String(v ?? '—'); };
-    const showErr = (e)=>{
-      try{
-        if(loadErr){
-          loadErr.setAttribute('aria-hidden','false');
-          loadErr.textContent = 'Load error: ' + (e?.message || String(e||'unknown'));
-        }
-      }catch(_){}
-    };
-    const hideLoading = ()=>{
-      try{ loading?.setAttribute('aria-hidden','true'); }catch(_){}
-    };
-
-    // Pass-through
-    const cfg = {
-      view: qs('view','mobile'),
-      run: qs('run','play'),
-      diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
-      seed: qs('seed', String(Date.now())),
-      pid: qs('pid','anon'),
-      hub: qs('hub','../hub.html'),
-      ai: null
-    };
-
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    const battleOn = (qs('battle','0') === '1');
-
-    // loading pills
-    setLoadPill('uiViewL', cfg.view);
-    setLoadPill('uiRunL',  cfg.run);
-    setLoadPill('uiDiffL', cfg.diff);
-    setLoadPill('uiAiL',   aiOn ? '1' : '0');
-    setLoadPill('uiBattleL', battleOn ? '1' : '0');
-
-    // ✅ Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+    // 1) VR UI (ENTER VR / EXIT / RECENTER + crosshair + hha:shoot)
     try{
-      const vrui = await import('../vr/vr-ui.js');
-      if(typeof vrui?.attachUniversalVrUi === 'function'){
-        vrui.attachUniversalVrUi({
-          view: cfg.view,
-          // keep HUD visible; vr-ui stays on top
-          zIndex: 240
-        });
-      }
+      await import('../vr/vr-ui.js'); // universal module you already use in other games
     }catch(e){
-      // ok to fail (PC-only)
       console.warn('[GoodJunk] vr-ui load failed (ok)', e);
     }
 
-    // ✅ Spawn-safe region: compute once after layout paint
+    // 2) Build cfg
+    const cfg = {
+      view: qs('view','mobile'),
+      run:  qs('run','play'),
+      diff: qs('diff','normal'),
+      time: Number(qs('time','80')) || 80,
+      seed: qs('seed', String(Date.now())),
+      pid:  qs('pid','anon'),
+      hub:  qs('hub','../hub.html'),
+      ai:   null
+    };
+
+    // 3) Spawn-safe: กัน HUD + กันแถบ vr-ui บังเป้า
+    function rectOf(sel){
+      try{ const el = document.querySelector(sel); return el ? el.getBoundingClientRect() : null; }catch(_){ return null; }
+    }
     function computeSpawnSafe(){
       const layer = document.getElementById('gj-layer');
-      const hud = document.getElementById('hud');
       if(!layer) return;
 
       const r = layer.getBoundingClientRect();
-      const hudR = hud ? hud.getBoundingClientRect() : null;
+      const hud = rectOf('#hud');
+      // vr-ui typically injects buttons bottom-center; we guard by using a bottom reserved area
+      const bottomGuardPx = 110;
 
-      // default safe = whole layer
-      let xMin = r.left, xMax = r.right, yMin = r.top, yMax = r.bottom;
+      const topBlocked = hud ? Math.max(0, hud.bottom - r.top) : 0;
 
-      // avoid HUD: push yMin down below hud
-      if(hudR){
-        yMin = Math.max(yMin, hudR.bottom + 10);
-      }
+      const pad = 18;
+      const xMin = r.left + pad;
+      const xMax = r.right - pad;
 
-      // avoid bottom VR UI area (approx)
-      yMax = Math.min(yMax, window.innerHeight - 78);
+      const yMin = r.top + Math.max(pad, topBlocked + 12);
+      const yMax = r.bottom - Math.max(pad, bottomGuardPx);
 
-      // clamp to layer
-      xMin = Math.max(xMin, r.left);
-      xMax = Math.min(xMax, r.right);
-      yMin = Math.max(yMin, r.top);
-      yMax = Math.min(yMax, r.bottom);
-
-      // store in window so goodjunk.safe.js uses it
-      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
+      // store as viewport coords (goodjunk.safe.js converts)
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin, xMax, yMin, yMax
+      };
     }
+    // compute now + on resize/orientation
+    computeSpawnSafe();
+    window.addEventListener('resize', ()=>setTimeout(computeSpawnSafe, 60), {passive:true});
+    window.addEventListener('orientationchange', ()=>setTimeout(computeSpawnSafe, 120), {passive:true});
 
-    // AI dynamic import (optional)
+    // 4) AI enabled only when ?ai=1 AND run=play
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
-        if(typeof mod?.createGoodJunkAI === 'function'){
-          cfg.ai = mod.createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({ seed: cfg.seed, pid: cfg.pid, diff: cfg.diff, view: cfg.view });
         }
       }catch(e){
         console.warn('[GoodJunk] AI module load failed (ok)', e);
       }
     }
 
-    // Buttons
+    // 5) Buttons
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
     btnRetry?.addEventListener('click', ()=>{
@@ -255,29 +189,12 @@ PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      location.href = cfg.hub || '../hub.html';
+      location.href = (cfg.hub || '../hub.html');
     });
 
-    // Boot game
-    try{
-      const game = await import('./goodjunk.safe.js');
-      // let layout settle then compute safe
-      requestAnimationFrame(()=>{ computeSpawnSafe(); });
-      window.addEventListener('resize', ()=> computeSpawnSafe(), { passive:true });
-
-      // show debug pills when ?debug=1
-      const dbg = (qs('debug','0')==='1');
-      const debugPills = document.getElementById('debugPills');
-      if(debugPills) debugPills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
-      const setP = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
-      setP('uiView', cfg.view); setP('uiRun', cfg.run); setP('uiDiff', cfg.diff);
-
-      game.boot(cfg);
-      hideLoading();
-    }catch(e){
-      console.error(e);
-      showErr(e);
-    }
+    // 6) Boot game
+    const game = await import('./goodjunk.safe.js');
+    game.boot(cfg);
   </script>
 </body>
 </html>
