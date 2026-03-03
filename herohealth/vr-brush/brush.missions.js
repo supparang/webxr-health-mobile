@@ -46,7 +46,6 @@ export function bootMissions(cfg){
         return { advanced:true, stage:S.stage, cleared:S.cleared, total:S.total };
       }
     } else if (S.stage === 2){
-      // stage2 uses good hits as time surrogate: survive N good hits
       S.stageHit++;
       if (S.stageHit >= Math.max(6, Math.floor(S.stageNeed/2))){
         S.cleared++;
