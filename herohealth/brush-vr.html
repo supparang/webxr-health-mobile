@@ -1,9 +1,9 @@
 <!-- === /herohealth/brush-vr.html ===
 BrushVR — ROOT LAUNCHER (canonical)
 PATCH v20260303-brush-root-launcher
-✅ Canonical entrypoint for HUB
-✅ Pass-through ALL params + always set hub=
+✅ Hub uses this file
 ✅ Redirect to /herohealth/vr-brush/brush.html
+✅ Pass-through all params + always set hub=
 -->
 <!doctype html>
 <html lang="th">
@@ -17,7 +17,7 @@ PATCH v20260303-brush-root-launcher
     body{margin:0;min-height:100vh;display:grid;place-items:center;
       font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
       background:#020617;color:#e5e7eb}
-    .card{width:min(520px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;
+    .card{width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;
       background:rgba(2,6,23,.72);padding:14px}
     .mut{color:rgba(148,163,184,.9);font-size:13px;line-height:1.5}
     a{color:#e5e7eb}
@@ -25,7 +25,7 @@ PATCH v20260303-brush-root-launcher
 </head>
 <body>
   <div class="card">
-    <div style="font-weight:1000;font-size:18px;">🦷 BrushVR — Launcher</div>
+    <div style="font-weight:1000;font-size:18px;">🪥 BrushVR — Launcher</div>
     <div class="mut" style="margin-top:6px">กำลังพาไปหน้าเกม…</div>
     <div class="mut" style="margin-top:8px"><a id="go" href="./vr-brush/brush.html">Go</a></div>
   </div>
@@ -34,35 +34,29 @@ PATCH v20260303-brush-root-launcher
 (function(){
   'use strict';
 
-  function here(){ return location.href.split('#')[0]; }
+  function stripHash(u){ return String(u||'').split('#')[0]; }
 
-  // Normalize hub param: if missing, use current hub.html in same root
-  function ensureHub(url){
-    const u = new URL(url, location.href);
-    const q = u.searchParams;
+  function ensureHubParam(u){
+    const url = new URL(u, location.href);
+    const q = url.searchParams;
 
-    // pass-through current params
-    const cur = new URL(here()).searchParams;
-    for (const [k,v] of cur.entries()){
-      // do not overwrite existing
-      if (!q.has(k) || String(q.get(k)||'').trim()==='') q.set(k, v);
+    // pass-through current params (do not overwrite)
+    const cur = new URL(stripHash(location.href), location.href).searchParams;
+    for(const [k,v] of cur.entries()){
+      if(!q.has(k) || String(q.get(k)||'').trim()==='') q.set(k, v);
     }
 
-    // always set hub= (so run can go back)
+    // always set hub=
     if(!q.has('hub') || String(q.get('hub')||'').trim()===''){
-      // default to /herohealth/hub.html (same directory)
-      const hub = new URL('./hub.html', location.href).toString();
-      q.set('hub', hub);
+      q.set('hub', new URL('./hub.html', location.href).toString());
     }
-    return u.toString();
+    return url.toString();
   }
 
-  // Target run page (folder)
-  const target = new URL('./vr-brush/brush.html', location.href);
-  const finalUrl = ensureHub(target.toString());
-  document.getElementById('go').href = finalUrl;
+  const runUrl = new URL('./vr-brush/brush.html', location.href).toString();
+  const finalUrl = ensureHubParam(runUrl);
 
-  // redirect
+  document.getElementById('go').href = finalUrl;
   location.replace(finalUrl);
 })();
 </script>
