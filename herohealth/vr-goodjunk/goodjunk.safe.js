@@ -7,7 +7,8 @@
 // ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield (throttled)
 // ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260302-SAFE-HELPPAUSE-AIHUD-ACC-MEDRT-BATTLE-SPAWNSAFE
+// ✅ SPAWN-SAFE uses window.__HHA_SPAWN_SAFE__ from run page (exclude HUD)
+// FULL v20260303-SAFE-CDANCHOR-SPAWNSAFE
 'use strict';
 
 export function boot(cfg){
@@ -87,31 +88,20 @@ export function boot(cfg){
 
     return gate.toString();
   }
-  function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
-    if(!endOverlayEl) return;
+
+  // ✅ FIX: inject into #endActions (anchor in run page) so button is ALWAYS visible
+  function hhInjectCooldownButton({ hub, cat, gameKey, pid }){
     const cdDone = hhCooldownDone(cat, gameKey, pid);
     if(cdDone) return;
+
+    const actions = DOC.getElementById('endActions') || DOC.querySelector('#endOverlay .endActions');
+    if(!actions) return;
+    if(actions.querySelector('[data-hh-cd="1"]')) return;
 
     const sp = new URL(location.href).searchParams;
     const cdnext = sp.get('cdnext') || '';
     const nextAfterCooldown = cdnext || hub || '../hub.html';
     const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
-
-    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
-    let row = panel.querySelector('.hh-end-actions');
-    if(!row){
-      row = DOC.createElement('div');
-      row.className = 'hh-end-actions';
-      row.style.display='flex';
-      row.style.gap='10px';
-      row.style.flexWrap='wrap';
-      row.style.justifyContent='center';
-      row.style.marginTop='12px';
-      row.style.paddingTop='10px';
-      row.style.borderTop='1px solid rgba(148,163,184,.16)';
-      panel.appendChild(row);
-    }
-    if(row.querySelector('[data-hh-cd="1"]')) return;
 
     const btn = DOC.createElement('button');
     btn.type='button';
@@ -121,13 +111,15 @@ export function boot(cfg){
     btn.style.border='1px solid rgba(34,197,94,.30)';
     btn.style.background='rgba(34,197,94,.14)';
     btn.style.color='rgba(229,231,235,.96)';
-    btn.style.borderRadius='14px';
-    btn.style.padding='10px 12px';
+    btn.style.borderRadius='16px';
+    btn.style.padding='10px 14px';
     btn.style.fontWeight='1000';
     btn.style.cursor='pointer';
-    btn.style.minHeight='42px';
+    btn.style.minHeight='44px';
     btn.addEventListener('click', ()=> location.href = url);
-    row.appendChild(btn);
+
+    // put as first button (เด่นสุด)
+    actions.insertBefore(btn, actions.firstChild);
   }
 
   // ---------- deterministic RNG (xmur3 + sfc32) ----------
@@ -388,7 +380,7 @@ export function boot(cfg){
   let coachLatchMs = 0;
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 3500) return; // a bit faster
+    if(t - coachLatchMs < 3500) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -618,7 +610,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE_SPAWNSAFE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-03_CDANCHOR_SPAWNSAFE',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -682,9 +674,8 @@ export function boot(cfg){
       if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
       if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
 
-      try{
-        hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-      }catch(e){}
+      // ✅ inject cooldown button into #endActions
+      try{ hhInjectCooldownButton({ hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid }); }catch(e){}
     }
 
     emitScoreEvent(true);
@@ -875,7 +866,6 @@ export function boot(cfg){
     const t = targets.get(String(id));
     if(!t || !playing) return;
 
-    // every attempt that resolves to a target counts as a shot
     shots++;
 
     const kind = t.kind;
@@ -927,7 +917,7 @@ export function boot(cfg){
       const y = r.top  + r.height/2;
       const t = pickTargetAt(x,y, lockPx);
       if(t) hitTargetById(t.id, x, y);
-      else shots++; // shoot fired but no target locked (counts as shot)
+      else shots++;
     }catch(e){}
   });
 
@@ -1077,7 +1067,6 @@ export function boot(cfg){
   function tick(){
     if(!playing) return;
 
-    // pause-safe
     if(paused){
       try{ lastTick = nowMs(); }catch(e){}
       setHUD();
