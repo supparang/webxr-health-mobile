@@ -1,6 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-PATCH v20260303-RUN-FILENAME-AI-PASS -->
+PATCH v20260303-RUN-AI-AUTO-SPAWNSAFE-VRUI
+✅ Correct filename: goodjunk-vr.html
+✅ Loads vr-ui.js (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+✅ Spawn-safe computed from HUD + safe areas and pushed to window.__HHA_SPAWN_SAFE__
+✅ AI auto-on in run=play (ai=0 to disable)
+✅ Pass-through params preserved (hub/run/diff/time/seed/pid/log/studyId/phase/conditionGroup/view/battle/room...)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,8 +16,6 @@ PATCH v20260303-RUN-FILENAME-AI-PASS -->
   <meta name="color-scheme" content="dark light" />
 
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- ✅ CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260303" />
 </head>
 <body>
@@ -22,6 +26,7 @@ PATCH v20260303-RUN-FILENAME-AI-PASS -->
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
+      <span class="pill">ai=<b id="uiAI">—</b></span>
     </div>
 
     <!-- Top HUD -->
@@ -120,7 +125,7 @@ PATCH v20260303-RUN-FILENAME-AI-PASS -->
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button will be injected here by JS -->
+        <!-- Cooldown button injected by goodjunk.safe.js -->
       </div>
     </div>
 
@@ -128,34 +133,94 @@ PATCH v20260303-RUN-FILENAME-AI-PASS -->
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
+    import '../vr/vr-ui.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const qsn = (k, d=0)=>{ const v = Number(qs(k,'')); return Number.isFinite(v)? v : d; };
+    const qsl = (k, d='')=> String(qs(k,d)||d);
 
-    // Build cfg from URL params (pass-through)
+    // ---- passthrough base cfg ----
     const cfg = {
-      view: qs('view','mobile'),
-      run: qs('run','play'),
-      diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
-      seed: qs('seed', String(Date.now())),
-      pid: qs('pid','anon'),
-      hub: qs('hub','../hub.html'),
+      view: qsl('view','mobile'),
+      run:  qsl('run','play'),
+      diff: qsl('diff','normal'),
+      time: qsn('time', 80) || 80,
+      seed: qsl('seed', String(Date.now())),
+      pid:  qsl('pid','anon'),
+      hub:  qsl('hub','../hub.html'),
       ai: null
     };
 
-    // ✅ AI enabled only when ?ai=1 AND run=play
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    // Debug pills
+    const pill = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
+    pill('uiView', cfg.view);
+    pill('uiRun',  cfg.run);
+    pill('uiDiff', cfg.diff);
+
+    // ---- Spawn-safe (prevents HUD blocking targets) ----
+    function computeSpawnSafe(){
+      const layer = document.getElementById('gj-layer');
+      const hud   = document.getElementById('hud');
+      if(!layer) return;
+
+      const lr = layer.getBoundingClientRect();
+      const hr = hud ? hud.getBoundingClientRect() : { bottom: 0 };
+
+      const safeTop = Math.max(0, (hr.bottom - lr.top) + 10); // below HUD
+      const pad = 18;
+
+      // keep some bottom room for coach + safe area
+      const safeAreaBottom = (window.visualViewport ? (window.innerHeight - window.visualViewport.height) : 0);
+      const bottomReserve = 140 + Math.max(0, safeAreaBottom);
+
+      const xMin = lr.left + pad;
+      const xMax = lr.right - pad;
+      const yMin = lr.top + Math.max(pad, safeTop);
+      const yMax = lr.bottom - Math.max(pad, bottomReserve);
+
+      // store ABSOLUTE coords (as expected by goodjunk.safe.js converter)
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: xMin,
+        xMax: xMax,
+        yMin: yMin,
+        yMax: yMax
+      };
+    }
+
+    // compute after layout settle
+    requestAnimationFrame(()=>requestAnimationFrame(computeSpawnSafe));
+    window.addEventListener('resize', ()=> requestAnimationFrame(computeSpawnSafe));
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize', ()=> requestAnimationFrame(computeSpawnSafe));
+      window.visualViewport.addEventListener('scroll', ()=> requestAnimationFrame(computeSpawnSafe));
+    }
+
+    // ---- AI auto-on in run=play ----
+    // ai=0 => off, ai=1 => on
+    // default: ON for play, OFF for research
+    const runLower = String(cfg.run).toLowerCase();
+    const aiParam  = qsl('ai', runLower === 'play' ? '1' : '0');
+    const aiOn     = (aiParam === '1') && (runLower === 'play');
+
+    pill('uiAI', aiOn ? '1' : '0');
+    const debugPills = document.getElementById('debugPills');
+    if(debugPills){
+      const dbg = qsl('debug','0') === '1';
+      debugPills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
+      if(dbg) debugPills.style.display = 'flex';
+    }
+
     if(aiOn){
       try{
-        // ✅ dynamic import: ถ้าไฟล์หายจะไม่ทำให้เกมพังทั้งหน้า
         const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
             seed: cfg.seed,
             pid: cfg.pid,
             diff: cfg.diff,
-            view: cfg.view
+            view: cfg.view,
+            // ML/DL-ready: capture examples locally (no network)
+            capture: (qsl('cap','0') === '1') // cap=1 to store feature/label rows
           });
         }
       }catch(e){
@@ -172,8 +237,7 @@ PATCH v20260303-RUN-FILENAME-AI-PASS -->
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+      location.href = cfg.hub || '../hub.html';
     });
 
     // Boot
