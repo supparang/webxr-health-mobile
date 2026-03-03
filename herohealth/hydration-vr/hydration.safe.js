@@ -80,11 +80,11 @@ export function boot(cfg){
   function setStorm(on){
     try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
     try{ stageEl?.classList?.toggle('is-boss', false); }catch(e){}
-    try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
+    try{ if(stormFx) stormFx.style.opacity = (on ? '1' : '0'); }catch(e){}
   }
   function setBoss(on){
     try{ stageEl?.classList?.toggle('is-boss', !!on); }catch(e){}
-    try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
+    try{ if(stormFx) stormFx.style.opacity = (on ? '1' : '0'); }catch(e){}
   }
 
   const ui = {
@@ -211,8 +211,6 @@ export function boot(cfg){
       aimX01 = x;
     }catch(e){}
   }
-
-  // capture aiming on mobile
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
 
@@ -355,7 +353,6 @@ export function boot(cfg){
       score += (10 + Math.min(12, combo));
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
 
-      // boss progress
       if(phase==='boss'){
         bossHits++;
         if(bossHits >= bossGoal){
@@ -363,7 +360,6 @@ export function boot(cfg){
           return;
         }
       }
-
       removeBubble(b.id);
       return;
     }
@@ -375,7 +371,6 @@ export function boot(cfg){
       return;
     }
 
-    // bad
     if(shield > 0){
       shield--;
       blockCount++;
@@ -399,6 +394,7 @@ export function boot(cfg){
     if(b) hit(b);
   }, { passive:true });
 
+  // cVR shoot
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -417,7 +413,6 @@ export function boot(cfg){
   }
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    // cVR ยิงกลางจอ = aimX01 ~ 0.5
     aimX01 = 0.5;
     const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
     if(b) hit(b);
@@ -425,24 +420,17 @@ export function boot(cfg){
 
   // ===== LEFT/RIGHT zone logic (B + S2) =====
   function isInNeededZone(){
-    // L: aimX01 < 0.5, R: aimX01 >= 0.5
     return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
   }
+  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
 
-  function swapZone(){
-    needZone = (needZone === 'L') ? 'R' : 'L';
-  }
-
-  function applyLightningStrike(source){
-    // must have shield + be in correct zone
+  function applyLightningStrike(){
     const okZone = isInNeededZone();
     if(shield > 0 && okZone){
       shield--;
       blockCount++;
       return;
     }
-
-    // fail: take damage (no MISS)
     combo = 0;
     waterPct = clamp(waterPct - TUNE.lightningDmgWater, 0, 100);
     score = Math.max(0, score - TUNE.lightningDmgScore);
@@ -577,10 +565,8 @@ export function boot(cfg){
   let spawnAcc=0;
 
   function spawnTick(dt){
-    // shield decay
     if(shield>0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield-1);
 
-    // start storm once mid-game
     if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.62){
       phase='storm';
       stormLeft=TUNE.stormSec;
@@ -591,7 +577,6 @@ export function boot(cfg){
       lightning();
     }
 
-    // storm zone switching (S2)
     if(phase==='storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       zoneT += dt;
@@ -600,10 +585,9 @@ export function boot(cfg){
         swapZone();
       }
 
-      // lightning strikes (requires shield+zone)
       if(r01() < dt * TUNE.lightningRate){
         lightning();
-        applyLightningStrike('storm');
+        applyLightningStrike();
       }
 
       if(stormLeft <= 0){
@@ -612,7 +596,6 @@ export function boot(cfg){
       }
     }
 
-    // boss trigger after storm happened
     if(!bossOn && stormDone && phase!=='storm'){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
         bossOn=true;
@@ -626,7 +609,6 @@ export function boot(cfg){
       }
     }
 
-    // boss zone switching + heavier lightning
     if(phase==='boss'){
       zoneT += dt;
       if(zoneT >= TUNE.zoneChunkSec){
@@ -636,7 +618,7 @@ export function boot(cfg){
 
       if(r01() < dt * TUNE.bossLightningRate){
         lightning();
-        applyLightningStrike('boss');
+        applyLightningStrike();
       }
     }
 
@@ -716,7 +698,6 @@ export function boot(cfg){
     spawnTick(dt);
     updateBubbles();
 
-    // AI HUD
     try{
       const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
       const expirePressure = clamp(missGoodExpired/25, 0, 1);
@@ -724,8 +705,8 @@ export function boot(cfg){
       const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
       let hint='เล็ง + เก็บน้ำ 💧';
-      if(phase==='storm') hint=`⚡ ฟ้าผ่า! ต้องอยู่ ${needZone==='L'?'ซ้าย':'ขว'} + มีโล่ 🛡️`;
-      else if(phase==='boss') hint=`👑 บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขว'} + โล่`;
+      if(phase==='storm') hint=`⚡ ฟ้าผ่า! ต้องอยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่ 🛡️`;
+      else if(phase==='boss') hint=`👑 บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
       else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
       else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
       else if(combo>=6) hint='คอมโบมาแล้ว!';
@@ -740,7 +721,6 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
 
-  // background => pause
   DOC.addEventListener('visibilitychange', ()=>{
     if(!playing) return;
     if(DOC.hidden){
@@ -751,7 +731,6 @@ export function boot(cfg){
     if(paused) showPauseOverlay();
   });
 
-  // start
   setHUD();
   requestAnimationFrame(loop);
 }
