@@ -1,10 +1,6 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-BrushVR — RUN (Folder)
-PATCH v20260302-brush-AB-RUN
-✅ No-scroll / no-gesture slip
-✅ Menu -> Play -> End (never auto end)
-✅ Uses: ../vr/vr-ui.js (crosshair shoot)
-✅ Loads: brush.safe.js then brush.boot.js
+PATCH v20260302-brush-ABC-AIHUD
++ ✅ AI Risk bar + tip
 -->
 <!doctype html>
 <html lang="th">
@@ -14,17 +10,13 @@ PATCH v20260302-brush-AB-RUN
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260302-brush-AB"/>
-
-  <!-- A-Frame for Enter VR reliability -->
+  <link rel="stylesheet" href="./brush.css?v=20260302-brush-ABC-AIHUD"/>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
 
 <body>
-  <!-- Fatal -->
   <div id="fatal" class="br-fatal br-hidden"></div>
 
-  <!-- Tap-to-start (mobile/vr unlock) -->
   <div id="tapStart" class="br-tap" aria-hidden="true">
     <div class="br-tapCard">
       <div class="br-tapTitle">🪥 BrushVR</div>
@@ -33,7 +25,6 @@ PATCH v20260302-brush-AB-RUN
     </div>
   </div>
 
-  <!-- Minimal A-Frame scene (behind) -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
@@ -47,11 +38,10 @@ PATCH v20260302-brush-AB-RUN
   </a-scene>
 
   <div id="br-wrap" data-view="pc" data-state="menu">
-    <!-- TOP -->
     <header class="br-top">
       <div class="br-brand">
         <span class="br-pill">HeroHealth · Hygiene</span>
-        <h1 class="br-title">BrushVR — Plaque Breaker (AB)</h1>
+        <h1 class="br-title">BrushVR — Plaque Breaker (ABC + AI)</h1>
         <p class="br-sub">A=Scan Sprint → B=Evidence Build → C=Analyze & Decide</p>
       </div>
 
@@ -64,7 +54,6 @@ PATCH v20260302-brush-AB-RUN
       </div>
     </header>
 
-    <!-- STAGE -->
     <main class="br-stage" role="application" aria-label="BrushVR game">
       <div id="br-layer" class="br-layer" aria-label="play layer"></div>
 
@@ -74,7 +63,6 @@ PATCH v20260302-brush-AB-RUN
         <button id="btnRecenter" class="br-btn br-ghost" type="button">Recenter</button>
       </div>
 
-      <!-- HUD -->
       <section class="br-hud">
         <div class="br-hudGrid">
           <div class="br-box">
@@ -100,6 +88,16 @@ PATCH v20260302-brush-AB-RUN
               <span class="k">Evidence</span><span class="v" id="tEvi">0/3</span>
             </div>
             <div class="br-bar"><i id="bEvi" class="fill warn"></i></div>
+
+            <!-- ✅ NEW: AI Risk -->
+            <div class="br-ai">
+              <div class="br-barLabel" style="margin-top:10px">
+                <span class="k">AI Risk</span>
+                <span class="v"><span id="tRisk">0</span>%</span>
+              </div>
+              <div class="br-bar"><i id="bRisk" class="fill risk"></i></div>
+              <div class="br-aiTip" id="tTip">—</div>
+            </div>
           </div>
 
           <div class="br-mini">
@@ -112,20 +110,17 @@ PATCH v20260302-brush-AB-RUN
       </section>
     </main>
 
-    <!-- MENU -->
     <div id="br-menu" class="br-menu" aria-hidden="false">
       <div class="br-card">
         <div class="br-cardHead">
           <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
-          <div class="br-cardSub">
-            A=กวาดคราบเร็ว · B=เก็บหลักฐาน 3 แบบ · C=วิเคราะห์สาเหตุ
-          </div>
+          <div class="br-cardSub">A=กวาดคราบเร็ว · B=เก็บหลักฐาน 3 แบบ · C=วิเคราะห์สาเหตุ</div>
         </div>
 
         <div class="br-cardList">
           <div class="item"><b>แตะ/ยิง</b> ที่เป้าให้โดน (cVR ยิงจาก crosshair)</div>
           <div class="item"><b>Perfect</b> = โดนตอน “ใกล้หมดเวลา” โบนัส</div>
-          <div class="item"><b>Boss</b> = 💎 ต้องหลายครั้ง + มี Weakspot 🎯</div>
+          <div class="item"><b>Boss</b> = 💎 ต้องหลายครั้ง + Weakspot 🎯</div>
         </div>
 
         <div class="br-cardActions">
@@ -135,7 +130,7 @@ PATCH v20260302-brush-AB-RUN
       </div>
     </div>
 
-    <!-- QUIZ (Stage C) -->
+    <!-- QUIZ -->
     <div id="br-quiz" class="br-quiz" hidden>
       <div class="br-quizCard">
         <div class="br-quizTitle">🧠 วิเคราะห์!</div>
@@ -148,7 +143,7 @@ PATCH v20260302-brush-AB-RUN
       </div>
     </div>
 
-    <!-- END SUMMARY -->
+    <!-- END -->
     <div id="br-end" class="br-end" hidden>
       <div class="br-endCard">
         <div class="br-endHead">
@@ -177,15 +172,11 @@ PATCH v20260302-brush-AB-RUN
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <!-- Optional fun boost -->
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
+  <script src="../vr/vr-ui.js?v=20260302-brush-ABC-AIHUD"></script>
 
-  <!-- Universal VR UI -->
-  <script src="../vr/vr-ui.js?v=20260302-brush-AB"></script>
-
-  <!-- Engine then Boot -->
-  <script src="./brush.safe.js?v=20260302-brush-AB"></script>
-  <script src="./brush.boot.js?v=20260302-brush-AB"></script>
+  <script src="./brush.safe.js?v=20260302-brush-ABC-AIHUD"></script>
+  <script src="./brush.boot.js?v=20260302-brush-ABC-AIHUD"></script>
 </body>
 </html>
