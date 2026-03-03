@@ -1,0 +1,87 @@
+<!-- === /herohealth/vr-bath/bath.html ===
+BathVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
+PATCH v20260304-BATH-RUN-UI
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Bath</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="stylesheet" href="./bath.css"/>
+</head>
+<body>
+  <div id="wrap">
+    <!-- HUD -->
+    <div id="hud">
+      <div class="row">
+        <div>Score: <span id="tScore">0</span></div>
+        <div>Clean: <span id="tClean">0</span></div>
+        <div>Mistake: <span id="tMistake">0</span></div>
+        <div>Combo: <span id="tCombo">0</span></div>
+        <div>Time: <span id="tTime">0</span></div>
+      </div>
+
+      <div class="row">
+        <div class="barWrap">
+          <div class="lbl">Clean <span id="tMeter">0%</span></div>
+          <div class="bar"><span id="bMeter"></span></div>
+        </div>
+        <div class="barWrap">
+          <div class="lbl">Risk <span id="tRisk">0%</span></div>
+          <div class="bar"><span id="bRisk"></span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div id="tStage">STAGE 1: WARM</div>
+      </div>
+
+      <div class="bossBarWrap" hidden>
+        <div class="lbl">BOSS HP <span id="tBoss">0/0</span></div>
+        <div class="bossBar"><span id="bBoss"></span></div>
+      </div>
+
+      <div id="tCoach"></div>
+
+      <div class="row">
+        <button id="btnStart">เริ่มเกม</button>
+        <button id="btnPause">พัก</button>
+        <button id="btnRetry">เล่นใหม่</button>
+        <button id="btnBack">กลับ HUB</button>
+      </div>
+    </div>
+
+    <!-- PLAYFIELD -->
+    <div id="layerWrap">
+      <div id="layer"></div>
+      <div id="fx"></div>
+      <div id="toast"></div>
+    </div>
+
+    <!-- END SUMMARY -->
+    <div id="end" hidden>
+      <h2>สรุปผล</h2>
+      <div>Reason: <span id="tReason"></span></div>
+      <div>Score: <span id="sScore"></span></div>
+      <div>Cleaned: <span id="sClean"></span></div>
+      <div>Mistakes: <span id="sMistake"></span></div>
+      <div>Max Combo: <span id="sMaxCombo"></span></div>
+      <div>Accuracy: <span id="sAcc"></span></div>
+      <div>Risk Avg: <span id="sRiskAvg"></span></div>
+      <pre id="endNote"></pre>
+      <div class="row">
+        <button id="btnEndRetry">เล่นใหม่</button>
+        <a id="btnEndBack" href="../hub.html">กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Optional: if you already use vr-ui.js elsewhere, it will emit hha:shoot -->
+  <!-- <script src="../vr/vr-ui.js"></script> -->
+
+  <script src="./ai-hooks.js"></script>
+  <script src="./bath.safe.js"></script>
+</body>
+</html>
