@@ -9,10 +9,7 @@ export function bootFx(){
   if(!layer){
     layer = D.createElement('div');
     layer.id = 'fxLayer';
-    layer.style.cssText = `
-      position:fixed; inset:0; pointer-events:none; z-index:55;
-      display:block;
-    `;
+    layer.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:55;`;
     D.body.appendChild(layer);
   }
 
@@ -45,11 +42,8 @@ export function bootFx(){
 
   function pulse(kind='good', ms=180){
     const el = D.createElement('div');
-    el.style.cssText = `
-      position:fixed; inset:0; opacity:0;
-      background: rgba(34,197,94,.10);
-      transition: opacity .10s ease;
-    `;
+    el.style.cssText = `position:fixed; inset:0; opacity:0; transition: opacity .10s ease;`;
+    el.style.background = 'rgba(34,197,94,.10)';
     if (kind === 'bad') el.style.background = 'rgba(239,68,68,.10)';
     if (kind === 'warn') el.style.background = 'rgba(245,158,11,.10)';
     layer.appendChild(el);
