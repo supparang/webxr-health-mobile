@@ -1,6 +1,6 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration VR RUN — PRODUCTION
-FULL v20260303c-HYDRATION-RUN-HUDSPAWN-PAUSE
+FULL v20260303d-HYDRATION-RUN-LRZONE-STORMBOSS
 
 Requires:
 - ./hydration.safe.js (ES module)
@@ -18,10 +18,9 @@ Requires:
   <meta name="google" content="notranslate"/>
   <title>HeroHealth • Hydration VR</title>
 
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260303c"/>
-
-  <script type="module" src="../vr/hha-shield.js?v=20260303c"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260303c"></script>
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260303d"/>
+  <script type="module" src="../vr/hha-shield.js?v=20260303d"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260303d"></script>
 </head>
 
 <body>
@@ -31,7 +30,6 @@ Requires:
         <span class="k">SCORE</span> <span id="uiScore" class="v">0</span>
         <span class="k">TIME</span> <span id="uiTime" class="v">0</span>
 
-        <!-- ✅ MISS split -->
         <span class="k">MISS</span> <span id="uiMiss" class="v">0</span>
         <span class="k">EXPIRE</span> <span id="uiExpire" class="v">0</span>
         <span class="k">BLOCK</span> <span id="uiBlock" class="v">0</span>
@@ -43,7 +41,9 @@ Requires:
         <span class="chip">💧 WATER <span id="uiWater">0%</span></span>
         <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
         <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
-        <span class="chip">⚡ PHASE <span id="uiPhase">—</span></span>
+
+        <!-- ✅ phase shows storm/boss + zone -->
+        <span class="chip">⚡ <span id="uiPhase">—</span></span>
       </div>
 
       <div class="chips">
@@ -64,6 +64,10 @@ Requires:
 
   <div class="stage" id="stage">
     <div id="stormFx" aria-hidden="true"></div>
+
+    <!-- ✅ zone indicator overlay -->
+    <div id="zoneSign" aria-hidden="true"></div>
+
     <div id="layer" aria-label="hydration layer"></div>
   </div>
 
