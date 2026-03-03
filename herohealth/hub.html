@@ -1,17 +1,13 @@
-<!-- === /webxr-health-mobile/herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (403-safe + Offline fallback)
-PATCH v20260301d-hub-pass-api-ai-battle-safe + germ-detective + scene-switcher-smart
-✅ No forced ordering: play any game anytime
-✅ Safe network: API 403 won't break hub
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api
-✅ FIX: api= Apps Script /exec ส่งต่อแบบถูกต้อง (normalize+auto-encode)
-✅ ADD: pass-through ai/battle/room/autostart/forfeit
-✅ FIX: GoodJunk root launcher = ./goodjunk-vr.html
-✅ ADD: Germ Detective root launcher = ./germ-detective.html
-✅ ADD: scene controls (quick buttons + dropdown + reset) in chiprow
-✅ ADD: per-PID hygiene scene memory (localStorage)
-✅ ADD: attach scene ONLY for scene-supported games (currently: Germ Detective)
-✅ ADD: auto-hide scene controls if no scene-supported link exists
+<!-- === /herohealth/hub.html ===
+HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
+PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
+✅ Zones:
+   - Nutrition: goodjunk, groups, hydration, plate
+   - Hygiene: handwash, brush, bath, clean object, maskcough, germ detective
+   - Exercise: shadow breaker, rhythm boxer, jumpduck, balance hold, fitness planner
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api (+ tutorial/practice/direct flags)
+✅ Daily Gate keys: HHA_ZONE_DONE::nutrition / ::hygiene / ::exercise (local day)
+✅ FIX: Clean Object -> ./clean-objects.html (Root launcher)
 -->
 <!doctype html>
 <html lang="th">
@@ -21,562 +17,790 @@ PATCH v20260301d-hub-pass-api-ai-battle-safe + germ-detective + scene-switcher-s
   <title>HeroHealth — Hub</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-
   <style>
     :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.72);
-      --panel2: rgba(15,23,42,.55);
-      --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.68);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa;
+
+      --nut:#22c55e;
+      --hyg:#22d3ee;
+      --ex:#a78bfa;
+
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    a{color:inherit;text-decoration:none}
-    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
-    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.18));border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000}
-    .title{font-weight:1000;letter-spacing:.2px}
-    .sub{color:var(--muted);font-size:12px;font-weight:800;margin-top:2px}
-    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92);display:inline-flex;gap:8px;align-items:center}
-    .chip b{color:#fff}
 
-    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+    }
+    a{ color:inherit; text-decoration:none; }
 
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .card h3{margin:0;font-size:14px;font-weight:1000}
-    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
-    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
-    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
-    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
-    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
-    .btn.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.12)}
-    .small{font-size:12px;color:var(--muted);font-weight:850;margin-top:10px}
+    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
 
-    .banner{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px 12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
-    .dot{width:10px;height:10px;border-radius:999px;margin-top:5px}
-    .dot.ok{background:var(--good)}
-    .dot.warn{background:var(--warn)}
-    .dot.bad{background:var(--bad)}
-    .banner h4{margin:0;font-size:13px;font-weight:1000}
-    .banner p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
-    .banner .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+    /* ---------- Top ---------- */
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:12px;
+      padding: 6px 6px 0 6px;
+      flex-wrap:wrap;
+    }
+    .brand{ display:flex; flex-direction:column; gap:8px; }
+    .title{
+      margin:0;
+      font-size: clamp(22px, 2.2vw, 32px);
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .title .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.45);
+      color: rgba(229,231,235,.9);
+      font-weight:1000;
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+    }
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+      max-width: 84ch;
+    }
+    .pillrow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      justify-content:flex-end;
+    }
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+    }
+    .pill b{ color:var(--text); font-weight:900; }
+
+    /* ---------- Zone bar ---------- */
+    .zonebar{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .zonebarHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
+      flex-wrap:wrap;
+    }
+    .zonebarHead .left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .bigPill{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      font-size:13px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .bigPill .dot{
+      width:12px; height:12px;
+      border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .bigPill.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .bigPill.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+    .btn{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+      font-weight:1000;
+      font-size:13px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
+    .btn.ghost{ color:var(--muted); }
+    .btn.disabled{ opacity:.5; cursor:not-allowed; }
+
+    .zonebarBody{
+      padding: 12px 12px 14px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 10px;
+    }
+    @media (max-width: 980px){
+      .zonebarBody{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
+    }
+
+    .zoneCard{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding: 14px;
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      min-height: 160px;
+    }
+    .zoneCard h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; display:flex; gap:8px; align-items:center; }
+    .zoneCard p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
+
+    .glow{
+      position:absolute; inset:-40% -35% auto auto;
+      width:240px; height:240px;
+      filter: blur(10px);
+      transform: rotate(14deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .glow.nut{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%); }
+    .glow.hyg{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
+    .glow.ex{  background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+
+    .miniStatus{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.28);
+      color:var(--muted);
+      font-size: 12px;
+      font-weight:900;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .chip b{ color:var(--text); font-weight:1000; }
+
+    .meter{
+      height: 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+      margin-top:10px;
+    }
+    .fill{
+      height:100%;
+      width:0%;
+      background: rgba(34,197,94,.85);
+      transition: width .18s ease;
+    }
+    .fill.hyg{ background: rgba(34,211,238,.85); }
+    .fill.ex{  background: rgba(167,139,250,.85); }
+    .fill.warn{ background: rgba(245,158,11,.88); }
+
+    /* ---------- Section headers ---------- */
+    .section{
+      margin-top: 2px;
+      padding: 12px 12px 14px;
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: rgba(2,6,23,.22);
+      box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    }
+    .sectionHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      padding: 4px 4px 10px;
+      border-bottom: 1px solid rgba(148,163,184,.14);
+      margin-bottom: 12px;
+    }
+    .sTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:1000;
+      letter-spacing:.2px;
+      font-size:14px;
+      margin:0;
+    }
+    .sTitle .dot{
+      width:10px;height:10px;border-radius:999px;
+      background: var(--nut);
+      box-shadow: 0 0 18px rgba(34,197,94,.35);
+    }
+    .sTitle.hyg .dot{ background: var(--hyg); box-shadow: 0 0 18px rgba(34,211,238,.35); }
+    .sTitle.ex .dot{ background: var(--ex); box-shadow: 0 0 18px rgba(167,139,250,.35); }
+
+    .sMeta{
+      margin-top:6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.4;
+      font-weight:800;
+      max-width: 86ch;
+    }
+    .sRight{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+    .countPill{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight:1000;
+      color: rgba(229,231,235,.92);
+      white-space:nowrap;
+    }
+
+    /* ---------- Game grid (smart) ---------- */
+    .grid{
+      display:grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+    }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
+
+    .grid.ex{
+      grid-template-columns: repeat(5, minmax(0,1fr));
+    }
+    @media (max-width: 1100px){ .grid.ex{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 760px){ .grid.ex{ grid-template-columns: 1fr; } }
+
+    /* ---------- Game card ---------- */
+    .game{
+      border:1px solid var(--stroke);
+      background:
+        radial-gradient(340px 220px at 80% 20%, rgba(255,255,255,.07), transparent 60%),
+        rgba(2,6,23,.46);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      position:relative;
+      overflow:hidden;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      min-height: 136px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .game:active{ transform: translateY(1px); }
+
+    .game::after{
+      content:"";
+      position:absolute;
+      inset:-40% -30% auto auto;
+      width:240px; height:240px;
+      filter: blur(16px);
+      opacity:.85;
+      transform: rotate(18deg);
+      pointer-events:none;
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.16), transparent 60%);
+    }
+    .game.hyg::after{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.16), transparent 60%); }
+    .game.ex::after{  background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.16), transparent 60%); }
+
+    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; position:relative; z-index:2; }
+    .gameTitle{ font-weight:1000; letter-spacing:.2px; margin:0; font-size: 15px; }
+    .gameSub{ margin:0; color:rgba(148,163,184,.92); font-size: 12px; line-height:1.35; position:relative; z-index:2; }
+
+    .tag{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: rgba(229,231,235,.92);
+      font-weight:1000;
+      white-space:nowrap;
+      position:relative;
+      z-index:2;
+    }
+    .tag.nut{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
+    .tag.hyg{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
+    .tag.ex { border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.10); }
+
+    .cta{
+      margin-top:auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color: rgba(229,231,235,.86);
+      font-size: 12px;
+      font-weight:900;
+      position:relative;
+      z-index:2;
+      padding-top: 4px;
+      border-top: 1px dashed rgba(148,163,184,.16);
+    }
+    .cta .hint{ color: rgba(148,163,184,.95); font-weight:900; }
 
     .toast{
-      position:fixed; left:50%;
-      bottom:calc(14px + var(--sab));
-      transform:translateX(-50%);
-      z-index:9999;
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
       padding:10px 12px;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:14px;
-      background:rgba(2,6,23,.78);
-      color:#e5e7eb;
-      font-weight:950;
-      font-size:13px;
-      box-shadow:0 14px 44px rgba(0,0,0,.35);
-      opacity:0;
-      transition:opacity .18s ease;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
       pointer-events:none;
-      max-width:92vw;
     }
-    .toast.show{ opacity:1; }
-
-    /* ===== Scene controls (chip-integrated) ===== */
-    #sceneChip{ position:relative; padding-right:12px; }
-    #sceneQuick .sceneQ{
-      appearance:none; -webkit-appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      color:#fff;
-      border-radius:999px;
-      padding:6px 10px;
-      font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      cursor:pointer; user-select:none;
-      display:inline-flex; gap:6px; align-items:center; justify-content:center;
-    }
-    #sceneQuick .sceneQ:active{ transform: translateY(1px); }
-    #sceneQuick .sceneQ.is-on{
-      border-color: rgba(34,211,238,.35);
-      background: rgba(34,211,238,.14);
-      box-shadow: 0 0 0 2px rgba(34,211,238,.12) inset;
-    }
-    #sceneQuick .sceneQ .ico{ font-size:14px; line-height:1; }
-    #sceneQuick .sceneQ .lbl{ font-size:11px; font-weight:1000; color:rgba(229,231,235,.86); letter-spacing:.02em; }
-
-    #scenePick{
-      appearance:none; -webkit-appearance:none;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      color:#fff;
-      border-radius:999px;
-      padding:6px 10px;
-      font:900 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      outline:none;
-      cursor:pointer;
-    }
-    #sceneResetBtn{
-      margin-left:2px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      color:rgba(229,231,235,.9);
-      border-radius:999px;
-      padding:6px 8px;
-      font:1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif;
-      cursor:pointer;
-    }
-    #sceneResetBtn:active{ transform: translateY(1px); }
-
-    @media (max-width: 560px){
-      #sceneQuick .sceneQ{ padding:6px 8px; }
-      #sceneQuick .sceneQ .lbl{ display:none; }
-      #scenePick{ display:none; } /* mobile: icon-first */
-    }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <header>
+    <div class="top">
       <div class="brand">
-        <div class="logo">HH</div>
+        <h1 class="title">
+          🏰 HeroHealth — Hub
+          <span class="badge">3 Zones • 15 Games</span>
+        </h1>
+        <p class="subtitle">
+          เลือกเล่นเกมไหนก่อนก็ได้ (ไม่มีลำดับบังคับ) • Daily Gate แยกตาม “โซน” วันละ 1 ครั้ง/โซน
+        </p>
+      </div>
+      <div class="pillrow" id="pillrow"></div>
+    </div>
+
+    <!-- Zone Status -->
+    <section class="zonebar" aria-label="Zone status">
+      <div class="zonebarHead">
+        <div class="left">
+          <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
+          <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
+          <div class="bigPill" id="pillExercise"><span class="dot"></span><span id="tExercise">🏃 Exercise: —</span></div>
+          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
+        </div>
+        <div class="actions">
+          <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
+          <div class="btn warn" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</div>
+        </div>
+      </div>
+
+      <div class="zonebarBody">
+        <div class="zoneCard">
+          <div class="glow nut"></div>
+          <h3>🥗 Nutrition</h3>
+          <p>GoodJunk / Groups / Hydration / Plate</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cNutGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::nutrition</span>
+          </div>
+          <div class="meter"><div class="fill" id="mNut"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow hyg"></div>
+          <h3>🧼 Hygiene</h3>
+          <p>Handwash / Brush / Bath / Clean Object / MaskCough / Germ Detective</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
+          </div>
+          <div class="meter"><div class="fill hyg" id="mHyg"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow ex"></div>
+          <h3>🏃 Exercise</h3>
+          <p>Shadow Breaker / Rhythm Boxer / JumpDuck / Balance Hold / Fitness Planner</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cExGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::exercise</span>
+          </div>
+          <div class="meter"><div class="fill ex" id="mEx"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Nutrition -->
+    <section class="section" aria-label="Nutrition games">
+      <div class="sectionHead">
         <div>
-          <div class="title">HeroHealth — Hub</div>
-          <div class="sub">เข้าเล่นได้ทุกเกม • ปลอดภัยแม้ API ตอบ 403 • ส่งพารามิเตอร์ต่ออัตโนมัติ</div>
+          <h2 class="sTitle"><span class="dot"></span>Nutrition Zone</h2>
+          <div class="sMeta">เกมโภชนาการสำหรับเด็กป.5 • ฝึกเลือกอาหาร/แยกหมวด/ดื่มน้ำ/จัดจาน 5 หมู่</div>
+        </div>
+        <div class="sRight">
+          <span class="countPill">4 games</span>
+          <span class="pill"><b>Gate</b>: <span id="cNutGate2">—</span></span>
         </div>
       </div>
 
-      <div class="chiprow" id="chipRow">
-        <div class="chip">run: <b id="cRun">play</b></div>
-        <div class="chip">diff: <b id="cDiff">normal</b></div>
-        <div class="chip">time: <b id="cTime">80</b>s</div>
-
-        <!-- ✅ Scene controls chip (auto-hide if not needed) -->
-        <div class="chip" id="sceneChip">
-          scene:
-          <span id="sceneQuick" style="display:inline-flex;gap:6px;align-items:center">
-            <button type="button" class="sceneQ" data-scene="classroom" aria-label="classroom"><span class="ico">🏫</span><span class="lbl">class</span></button>
-            <button type="button" class="sceneQ" data-scene="home" aria-label="home"><span class="ico">🏠</span><span class="lbl">home</span></button>
-            <button type="button" class="sceneQ" data-scene="canteen" aria-label="canteen"><span class="ico">🍱</span><span class="lbl">canteen</span></button>
-          </span>
-          <select id="scenePick" aria-label="scene">
-            <option value="classroom">🏫 classroom</option>
-            <option value="home">🏠 home</option>
-            <option value="canteen">🍱 canteen</option>
-          </select>
-          <button id="sceneResetBtn" type="button" aria-label="reset scene">⟲</button>
+      <div class="grid">
+        <div class="game nut" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk</h3><span class="tag nut">VR • Launcher</span></div>
+          <p class="gameSub">ยิง/แตะอาหารดี–ขยะ • Missions + End Summary</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
         </div>
 
-        <div class="chip">pid: <b id="cPid">anon</b></div>
-      </div>
-    </header>
-
-    <div class="banner" id="apiBanner" aria-live="polite">
-      <div class="dot warn" id="apiDot"></div>
-      <div>
-        <h4 id="apiTitle">กำลังตรวจสอบระบบ…</h4>
-        <p id="apiMsg">ถ้า API ล่ม/403 หน้า HUB จะยังใช้งานได้ปกติ (เข้าเกมได้ทุกเกม)</p>
-      </div>
-      <div class="actions">
-        <a class="btn warn" href="#" id="btnRetry">Retry</a>
-        <a class="btn" href="#" id="btnResetToday">Reset today</a>
-      </div>
-    </div>
-
-    <div class="grid">
-
-      <div class="card">
-        <h3>🥗 Nutrition Zone</h3>
-        <p>GoodJunk • Food Groups • Hydration • Balanced Plate</p>
-        <div class="btnrow">
-          <a class="btn primary" id="goGoodJunk" href="./goodjunk-vr.html">GoodJunkVR</a>
-          <a class="btn" id="goGroups" href="./groups-vr.html">GroupsVR</a>
-          <a class="btn" id="goHydration" href="./hydration-vr.html">HydrationVR</a>
-          <a class="btn" id="goPlate" href="./plate-vr.html">PlateVR</a>
+        <div class="game nut" data-href="./groups-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🧩 Groups</h3><span class="tag nut">VR • Launcher</span></div>
+          <p class="gameSub">แยกหมวดอาหาร • ฝึกจำแนกอย่างเร็ว</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
         </div>
-        <div class="small">* ส่ง run/diff/time/seed/pid/view/log/api/ai/battle + hub ต่อให้เกมอัตโนมัติ</div>
-      </div>
 
-      <div class="card">
-        <h3>🧼 Hygiene Zone</h3>
-        <p>Handwash • Brush • Mask &amp; Cough (Analyze) • Germ Detective</p>
-        <div class="btnrow">
-          <a class="btn primary" id="goHandwash" href="./hygiene-vr.html">Handwash</a>
-          <a class="btn" id="goBrush" href="./brush-vr.html">Brush</a>
-          <a class="btn cyan" id="goMaskCough" href="./maskcough-vr.html">MaskCough</a>
-          <a class="btn cyan" id="goGermDetective" href="./germ-detective.html">Germ Detective</a>
+        <div class="game nut" data-href="./hydration-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">💧 Hydration</h3><span class="tag nut">VR • Launcher</span></div>
+          <p class="gameSub">ดื่มน้ำให้พอดี • Storm + Boss</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
         </div>
-        <div class="small">* ทุกเกม hygiene ใช้ “root launcher” แล้วส่งไป run ในโฟลเดอร์</div>
-      </div>
 
-      <div class="card">
-        <h3>🏃 Fitness Zone</h3>
-        <p>Planner • Shadow Breaker • Rhythm Boxer • Jump-Duck • Balance Hold</p>
-        <div class="btnrow">
-          <a class="btn primary" id="goPlanner" href="./fitness-planner/planner.html">Fitness Planner</a>
-          <a class="btn" id="goShadow" href="../fitness/shadow-breaker.html">Shadow Breaker</a>
-          <a class="btn" id="goRhythm" href="../fitness/rhythm-boxer.html">Rhythm Boxer</a>
-          <a class="btn" id="goJumpDuck" href="../fitness/jump-duck.html">Jump-Duck</a>
-          <a class="btn" id="goBalanceHold" href="../fitness/balance-hold.html">Balance Hold</a>
+        <div class="game nut" data-href="./plate-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate</h3><span class="tag nut">VR • Launcher</span></div>
+          <p class="gameSub">จัดจาน 5 หมู่ • เติมหมู่ที่ขาด</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
         </div>
-        <div class="small">* ปรับ path fitness ได้ตามโปรเจกต์จริงของคุณ</div>
+      </div>
+    </section>
+
+    <!-- Hygiene (จัด 3+3) -->
+    <section class="section" aria-label="Hygiene games">
+      <div class="sectionHead">
+        <div>
+          <h2 class="sTitle hyg"><span class="dot"></span>Hygiene Zone</h2>
+          <div class="sMeta">เกมสุขอนามัย • ล้างมือ/แปรงฟัน/อาบน้ำ/ทำความสะอาดสิ่งของ/หน้ากาก-ไอจาม/สืบหาเชื้อโรค</div>
+        </div>
+        <div class="sRight">
+          <span class="countPill">6 games</span>
+          <span class="pill"><b>Gate</b>: <span id="cHygGate2">—</span></span>
+        </div>
       </div>
 
-    </div>
+      <div class="grid">
+        <!-- Row 1: core habits -->
+        <div class="game hyg" data-href="./hygiene-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🫧 Handwash</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">ล้างมือให้ถูกขั้นตอน • เก็บคะแนน/คอมโบ</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game hyg" data-href="./brush-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🪥 Brush</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">แปรงคราบให้ทัน • Perfect/บอส</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game hyg" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">😷 MaskCough</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">หน้ากาก/ไอจาม • ป้องกันละออง</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <!-- Row 2: deeper missions -->
+        <div class="game hyg" data-href="./bath-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🛁 Bath</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">Hidden Dirt Quest • ค้นหาคราบ/ทำความสะอาด</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <!-- ✅ FIX: Clean Object -> root launcher -->
+        <div class="game hyg" data-href="./clean-objects.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">ทำความสะอาดสิ่งของ • ลดการแพร่เชื้อ</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game hyg" data-href="./germ-detective-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🦠 Germ Detective</h3><span class="tag hyg">VR • Launcher</span></div>
+          <p class="gameSub">สืบหาเชื้อโรค • เลือกพฤติกรรมที่ปลอดภัย</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exercise -->
+    <section class="section" aria-label="Exercise games">
+      <div class="sectionHead">
+        <div>
+          <h2 class="sTitle ex"><span class="dot"></span>Exercise Zone</h2>
+          <div class="sMeta">เกมออกกำลังกาย • reflex/จังหวะ/กระโดด-ก้ม/ทรงตัว/วางแผนการออกกำลัง</div>
+        </div>
+        <div class="sRight">
+          <span class="countPill">5 games</span>
+          <span class="pill"><b>Gate</b>: <span id="cExGate2">—</span></span>
+        </div>
+      </div>
+
+      <div class="grid ex">
+        <div class="game ex" data-href="../fitness/shadow-breaker.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag ex">Run</span></div>
+          <p class="gameSub">Reflex • ตีเป้าให้ทัน • ปรับความยาก</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game ex" data-href="../fitness/rhythm-boxer.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag ex">Run</span></div>
+          <p class="gameSub">ต่อยตามจังหวะ • คอมโบ/คะแนน</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game ex" data-href="../fitness/jump-duck.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🦘 JumpDuck</h3><span class="tag ex">Run</span></div>
+          <p class="gameSub">กระโดด/ก้มหลบ • ฝึก timing</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game ex" data-href="../fitness/balance-hold.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag ex">Run</span></div>
+          <p class="gameSub">ทรงตัว • Practice + Countdown</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+
+        <div class="game ex" data-href="../fitness/fitness-planner/index.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🗓️ Fitness Planner</h3><span class="tag ex">Planner</span></div>
+          <p class="gameSub">วางแผนออกกำลัง • tracker</p>
+          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <script>
+<script>
+(function(){
   'use strict';
 
-  // ====== CONFIG ======
-  const API_ENDPOINT = 'https://sfd8q2ch3k.execute-api.us-east-2.amazonaws.com/';
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
 
-  // ====== helpers ======
-  function qs(k, d=''){
-    try { return new URL(location.href).searchParams.get(k) ?? d; }
-    catch { return d; }
-  }
-  function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
-  function nowSeed(){ return String(Date.now()); }
-
-  // ✅ normalize URL-like params (decode if needed) + guard null/undefined
-  function normalizeMaybeEncodedUrl(v){
-    v = String(v ?? '').trim();
-    if(!v) return '';
-    if(v === 'null' || v === 'undefined') return '';
-    v = v.replace(/\s+/g,'').trim();
-    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-      try { v = decodeURIComponent(v); } catch(e){}
-    }
-    return v.trim();
-  }
-
-  // ====== params (pass-through) ======
-  const P = {
-    run:  String(qs('run','play')).toLowerCase() || 'play',
-    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-    time: clamp(qs('time','80'), 20, 300),
-    seed: String(qs('seed','') || nowSeed()),
-    pid:  String(qs('pid','')).trim() || 'anon',
-    view: String(qs('view','')).toLowerCase(),
-    scene: String(qs('scene','classroom')).toLowerCase(),
-
-    log:  String(qs('log','')),
-    api:  normalizeMaybeEncodedUrl(qs('api','')),
-
-    ai: String(qs('ai','')),
-    battle: String(qs('battle','')),
-    room: String(qs('room','')).trim(),
-    autostart: String(qs('autostart','')),
-    forfeit: String(qs('forfeit','')),
-
-    studyId: String(qs('studyId','')),
-    phase: String(qs('phase','')),
-    conditionGroup: String(qs('conditionGroup',''))
-  };
-
-  // ===== per-PID hygiene scene memory =====
-  function sceneKey(){
-    const pid = (P.pid || 'anon').trim() || 'anon';
-    const zone = 'hygiene';
-    return `HHA_SCENE_LAST::${zone}::${pid}`;
-  }
-  function loadScenePref(){
-    try{
-      const v = localStorage.getItem(sceneKey());
-      return v ? String(v).toLowerCase() : '';
-    }catch(e){ return ''; }
-  }
-  function saveScenePref(scene){
-    try{ localStorage.setItem(sceneKey(), String(scene||'').toLowerCase()); }catch(e){}
-  }
-
-  // init scene from memory if available
-  const _memScene = loadScenePref();
-  if(_memScene) P.scene = _memScene;
-  if(!P.scene) P.scene = 'classroom';
-
-  // ===== show chips =====
-  document.getElementById('cRun').textContent = P.run;
-  document.getElementById('cDiff').textContent = P.diff;
-  document.getElementById('cTime').textContent = String(P.time);
-  document.getElementById('cPid').textContent = P.pid;
-
-  // ===== zone links =====
-  const linkIds = [
-    'goGoodJunk','goGroups','goHydration','goPlate',
-    'goHandwash','goBrush','goMaskCough','goGermDetective',
-    'goPlanner','goShadow','goRhythm','goJumpDuck','goBalanceHold'
+  // passthrough keys (include UX/debug flags)
+  const PASS_KEYS = [
+    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','hub',
+    'tutorial','practiceOn','practice','direct','fast','skipBW'
   ];
 
-  // ===== scene support matrix =====
-  const SCENE_SUPPORTED_IDS = new Set(['goGermDetective']);
-  function shouldAttachSceneById(id){ return SCENE_SUPPORTED_IDS.has(String(id||'')); }
-
-  // ===== hub url builder =====
-  function buildHubUrl(){
-    const u = new URL(location.href);
-    u.search = '';
-    const sp = u.searchParams;
-
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-
-    if(P.view) sp.set('view', P.view);
-
-    // keep scene on hub (back link)
-    if(P.scene) sp.set('scene', P.scene);
-
-    if(P.log !== '') sp.set('log', P.log);
-    if(P.api) sp.set('api', P.api);
-
-    if(P.ai !== '') sp.set('ai', P.ai);
-    if(P.battle !== '') sp.set('battle', P.battle);
-    if(P.room) sp.set('room', P.room);
-    if(P.autostart) sp.set('autostart', P.autostart);
-    if(P.forfeit) sp.set('forfeit', P.forfeit);
-
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-
-    return u.toString();
-  }
-
-  // attach common params to outgoing link; attach scene only if supported
-  function withCommonParams(url, id){
-    const u = new URL(url, location.href);
-    const sp = u.searchParams;
-
-    sp.set('hub', buildHubUrl());
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-
-    if(P.view) sp.set('view', P.view);
-
-    if(P.log !== '') sp.set('log', P.log);
-    if(P.api) sp.set('api', P.api);
-
-    if(P.ai !== '') sp.set('ai', P.ai);
-    if(P.battle !== '') sp.set('battle', P.battle);
-    if(P.room) sp.set('room', P.room);
-    if(P.autostart) sp.set('autostart', P.autostart);
-    if(P.forfeit) sp.set('forfeit', P.forfeit);
-
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-
-    // ✅ scene only for supported games
-    if(P.scene && shouldAttachSceneById(id)){
-      sp.set('scene', P.scene);
-    }else{
-      sp.delete('scene');
-    }
-
-    return u.toString();
-  }
-
-  // patch all links once
-  for(const id of linkIds){
-    const a = document.getElementById(id);
-    if(!a) continue;
-    a.href = withCommonParams(a.getAttribute('href'), id);
-  }
-
-  // reset today: clears daily gates for all categories (best-effort)
-  function getLocalDayKey(){
+  function ymdLocal(){
     const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function resetToday(){
-    const day = getLocalDayKey();
-    const prefixes = ['HHA_WARMUP_DONE','HHA_COOLDOWN_DONE','HHA_ZONE_DONE'];
-    const cats = ['nutrition','hygiene','fitness'];
-    try{
-      const keys = [];
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k) keys.push(k);
-      }
-      for(const k of keys){
-        const hitPrefix = prefixes.some(p=>k.startsWith(p+':') || k.startsWith(p+'::'));
-        if(!hitPrefix) continue;
-        if(!k.includes(day)) continue;
-        const hitCat = cats.some(c=>k.includes(':'+c+':') || k.includes('::'+c+'::') || k.includes('::'+c+':'));
-        if(!hitCat) continue;
-        localStorage.removeItem(k);
-      }
-    }catch(_){}
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
   }
 
-  // toast
-  let toastT = 0;
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function clearZoneToday(zone){
+    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
+  }
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
   function toast(msg){
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toastT);
-    toastT = setTimeout(()=>{ el.classList.remove('show'); }, 1200);
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
   }
 
-  document.getElementById('btnResetToday').addEventListener('click', (e)=>{
-    e.preventDefault();
-    resetToday();
-    toast('Reset today ✅');
-  });
+  function setPill(el, done){
+    if(!el) return;
+    el.classList.remove('ok','bad');
+    el.classList.add(done ? 'ok' : 'bad');
+  }
+  function setText(id, v){
+    const el = document.getElementById(id);
+    if(el) el.textContent = v;
+  }
 
-  // ===== Scene controls (auto-hide + quick + dropdown + reset) =====
-  (function(){
-    const sceneChip = document.getElementById('sceneChip');
-    const scenePick = document.getElementById('scenePick');
-    const sceneResetBtn = document.getElementById('sceneResetBtn');
-    const quickBtns = Array.from(document.querySelectorAll('#sceneQuick .sceneQ[data-scene]'));
+  function syncBars(){
+    const today = ymdLocal();
+    setText('todayText', today);
 
-    function hasAnySceneSupportedLink(){
-      for(const id of linkIds){
-        if(!shouldAttachSceneById(id)) continue;
-        if(document.getElementById(id)) return true;
+    const nut = isZoneDoneToday('nutrition');
+    const hyg = isZoneDoneToday('hygiene');
+    const ex  = isZoneDoneToday('exercise');
+
+    setPill(document.getElementById('pillNutrition'), nut);
+    setPill(document.getElementById('pillHygiene'), hyg);
+    setPill(document.getElementById('pillExercise'), ex);
+
+    setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tExercise', `🏃 Exercise: ${ex ? 'DONE TODAY' : 'NOT DONE'}`);
+
+    setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
+    setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
+    setText('cExGate',  ex  ? 'DONE TODAY' : 'NEED GATE');
+
+    // duplicate gate labels in section heads
+    setText('cNutGate2', nut ? 'DONE TODAY' : 'NEED GATE');
+    setText('cHygGate2', hyg ? 'DONE TODAY' : 'NEED GATE');
+    setText('cExGate2',  ex  ? 'DONE TODAY' : 'NEED GATE');
+
+    const mNut = document.getElementById('mNut');
+    const mHyg = document.getElementById('mHyg');
+    const mEx  = document.getElementById('mEx');
+
+    if(mNut) mNut.style.width = (nut ? 100 : 35) + '%';
+    if(mHyg) mHyg.style.width = (hyg ? 100 : 35) + '%';
+    if(mEx)  mEx.style.width  = (ex  ? 100 : 35) + '%';
+
+    if(mNut) mNut.classList.toggle('warn', !nut);
+    if(mHyg) mHyg.classList.toggle('warn', !hyg);
+    if(mEx)  mEx.classList.toggle('warn', !ex);
+  }
+
+  function applyPassThrough(href){
+    const u = new URL(href, location.href);
+
+    for (const k of PASS_KEYS){
+      if (!u.searchParams.has(k) && QS.has(k)){
+        const v = QS.get(k);
+        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
       }
-      return false;
     }
 
-    if(sceneChip && !hasAnySceneSupportedLink()){
-      sceneChip.style.display = 'none';
-      return;
+    // hub backlink
+    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
+      u.searchParams.set('hub', location.href);
     }
 
-    function rebuildSceneLinks(){
-      for(const id of linkIds){
-        if(!shouldAttachSceneById(id)) continue;
-        const a = document.getElementById(id);
-        if(!a) continue;
-        a.href = withCommonParams(a.getAttribute('href'), id);
-      }
-    }
+    return u.toString();
+  }
 
-    function syncActive(){
-      const cur = String(P.scene || 'classroom').toLowerCase();
-      quickBtns.forEach(b=>{
-        const s = String(b.dataset.scene||'').toLowerCase();
-        b.classList.toggle('is-on', s===cur);
-      });
-      if(scenePick) scenePick.value = cur;
-    }
+  function renderPills(){
+    const pills = [
+      ['pid', QS.get('pid')],
+      ['run', QS.get('run')],
+      ['diff', QS.get('diff')],
+      ['time', QS.get('time')],
+      ['seed', QS.get('seed')],
+      ['studyId', QS.get('studyId')],
+      ['phase', QS.get('phase')],
+      ['conditionGroup', QS.get('conditionGroup')],
+      ['log', QS.get('log')],
+      ['view', QS.get('view')],
+      ['direct', QS.get('direct')],
+    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
 
-    function setScene(next){
-      next = String(next || 'classroom').toLowerCase();
-      if(!next) next = 'classroom';
-      P.scene = next;
-      saveScenePref(P.scene);
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .slice(0, 12)
+      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
 
-      // update hub URL in place (keep other params untouched; only ensure scene exists)
-      try{
-        const u = new URL(location.href);
-        u.searchParams.set('scene', P.scene);
-        history.replaceState(null, '', u.toString());
-      }catch(e){}
-
-      rebuildSceneLinks();
-      syncActive();
-      toast('scene → ' + P.scene + ' ✅');
-    }
-
-    // init UI
-    if(scenePick) scenePick.value = P.scene;
-    syncActive();
-
-    // quick buttons
-    quickBtns.forEach(b=>{
-      b.addEventListener('click', ()=> setScene(b.dataset.scene), {passive:true});
+  function bindGames(){
+    const cards = document.querySelectorAll('.game[data-href]');
+    cards.forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const href = card.getAttribute('data-href');
+        if(!href) return;
+        location.href = applyPassThrough(href);
+      }, { passive:true });
     });
-
-    // dropdown
-    if(scenePick){
-      scenePick.addEventListener('change', ()=> setScene(scenePick.value), {passive:true});
-    }
-
-    // reset
-    if(sceneResetBtn){
-      sceneResetBtn.addEventListener('click', ()=>{
-        setScene('classroom');
-        toast('scene reset → classroom ✅');
-      }, {passive:true});
-    }
-  })();
-
-  // ====== 403-safe API probe ======
-  const apiDot = document.getElementById('apiDot');
-  const apiTitle = document.getElementById('apiTitle');
-  const apiMsg = document.getElementById('apiMsg');
-  const btnRetry = document.getElementById('btnRetry');
-
-  let probeLock = false;
-  function setBanner(state, title, msg){
-    apiDot.className = 'dot ' + (state==='ok' ? 'ok' : state==='bad' ? 'bad' : 'warn');
-    apiTitle.textContent = title;
-    apiMsg.textContent = msg;
   }
 
-  async function probeAPI(){
-    if(probeLock) return;
-    probeLock = true;
-    setBanner('warn', 'กำลังตรวจสอบระบบ…', 'กำลัง ping API แบบสั้น ๆ (ถ้า 403 จะใช้โหมดออฟไลน์)');
-    try{
-      const res = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'content-type':'application/json' },
-        body: JSON.stringify({ ping: true })
+  function bindReset(){
+    const reset = document.getElementById('btnResetToday');
+    if (reset){
+      reset.addEventListener('click', ()=>{
+        clearZoneToday('nutrition');
+        clearZoneToday('hygiene');
+        clearZoneToday('exercise');
+        syncBars();
+        toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
       });
+    }
 
-      if(res.status === 200){
-        setBanner('ok', 'ออนไลน์ ✅', 'API ตอบกลับปกติ (Hub ใช้งานเต็มรูปแบบ)');
-      }else if(res.status === 403){
-        setBanner('bad', '403 Forbidden ⚠️', 'API ปฏิเสธสิทธิ์/Origin (แต่ Hub ยังเข้าเกมได้ปกติ) — แนะนำแก้ CORS/Authorizer');
-      }else{
-        setBanner('warn', `API ตอบ ${res.status}`, 'Hub ยังเข้าเกมได้ปกติ • ถ้าต้องใช้ข้อมูลจาก API ให้ตรวจ route/headers');
-      }
-    }catch(err){
-      setBanner('bad', 'ออฟไลน์/เชื่อมต่อไม่ได้', 'Hub ยังเข้าเกมได้ปกติ • ถ้าใช้ Wi-Fi โรงเรียนลองเปลี่ยนเครือข่ายหรือดู CORS');
-    }finally{
-      probeLock = false;
+    const how = document.getElementById('btnHow');
+    if (how){
+      how.addEventListener('click', ()=>{
+        toast('Daily Gate: ผ่าน end summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
+      });
     }
   }
 
-  btnRetry.addEventListener('click', (e)=>{
-    e.preventDefault();
-    probeAPI();
-  });
+  renderPills();
+  syncBars();
+  bindGames();
+  bindReset();
+})();
+</script>
 
-  probeAPI();
-  </script>
 </body>
 </html>
