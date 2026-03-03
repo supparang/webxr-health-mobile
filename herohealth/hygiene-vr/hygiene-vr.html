@@ -187,4 +187,105 @@ HygieneVR RUN — PRODUCTION (Kid-first + Research toggle) — PATCH v20260221k
           </div>
 
           <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine
+            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
+          </div>
+        </div>
+
+        <!-- Details toggle -->
+        <div class="hw-card-row" style="margin-top:12px">
+          <button class="hw-ghost" id="btnToggleDetails" type="button">👩‍🏫 ดูรายละเอียดสำหรับครู/นักวิจัย</button>
+        </div>
+
+        <pre class="hw-pre" id="endJson" hidden></pre>
+
+        <div class="hw-card-row" style="margin-top:12px">
+          <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
+          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+          <button class="hw-ghost" id="btnBack" type="button">↩ กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+  function setViewClass(){
+    const view = (qs('view','pc')||'pc').toLowerCase();
+    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
+    document.getElementById('labView').textContent = view;
+  }
+  setViewClass();
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
+})();
+</script>
+
+<!-- UI mode switch (Kid default) -->
+<script>
+(function(){
+  'use strict';
+  const qs=(k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+
+  const btnKid = document.getElementById('btnModeKid');
+  const btnRes = document.getElementById('btnModeResearch');
+  const headKid = document.getElementById('endHeadKid');
+  const headRes = document.getElementById('endHeadResearch');
+
+  const evalTitle = document.getElementById('evalTitle');
+  const evalHint  = document.getElementById('evalHint');
+  const createTitle = document.getElementById('createTitle');
+  const createSub   = document.getElementById('createSub');
+
+  const endJson = document.getElementById('endJson');
+  const btnToggleDetails = document.getElementById('btnToggleDetails');
+
+  function setMode(mode){
+    mode = String(mode||'kid').toLowerCase();
+    const isKid = (mode !== 'research');
+
+    if(headKid) headKid.hidden = !isKid;
+    if(headRes) headRes.hidden = isKid;
+
+    if(evalTitle) evalTitle.textContent = isKid ? '🧠 ชี้ “จุดเสี่ยงสุด”' : 'Evaluate + Analyze (Top risk zone)';
+    if(createTitle) createTitle.textContent = isKid ? '✨ ทำรูทีนของฉัน (30 วิ)' : 'Create routine (30s)';
+    if(createSub) createSub.innerHTML = isKid
+      ? 'เลือก 3 ช่วง “ต้องล้างมือ” ให้ครบ • เหลือเวลา <b id="createTimer">30</b> วิ'
+      : 'Pick 3 moments to wash hands • time left <b id="createTimer">30</b>s';
+
+    if(evalHint){
+      const v = String(qs('view','pc')).toLowerCase();
+      evalHint.textContent = isKid
+        ? (v==='cvr' ? 'โหมดแว่น: เล็งวงกลม แล้ว “ยิง” เพื่อเลือก' : 'แตะวงกลมเพื่อเลือก')
+        : (v==='cvr' ? 'cVR: aim crosshair on a zone and shoot to select' : 'Tap a zone to select');
+    }
+
+    if(endJson){
+      if(isKid){
+        endJson.setAttribute('hidden','');
+        if(btnToggleDetails) btnToggleDetails.textContent = '👩‍🏫 ดูรายละเอียดสำหรับครู/นักวิจัย';
+      }else{
+        endJson.removeAttribute('hidden');
+        if(btnToggleDetails) btnToggleDetails.textContent = '🙈 ซ่อนรายละเอียด';
+      }
+    }
+
+    if(btnKid) btnKid.classList.toggle('is-on', isKid);
+    if(btnRes) btnRes.classList.toggle('is-on', !isKid);
+
+    try{ localStorage.setItem('HW_END_MODE', isKid ? 'kid' : 'research'); }catch(_){}
+  }
+
+  btnKid?.addEventListener('click', ()=>setMode('kid'));
+  btnRes?.addEventListener('click', ()=>setMode('research'));
+
+  // ✅ default kid
+  const saved = (function(){ try{return localStorage.getItem('HW_END_MODE');}catch(_){return null;} })();
+  setMode(qs('ui', saved || 'kid'));
+})();
+</script>
+
+</body>
+</html>
