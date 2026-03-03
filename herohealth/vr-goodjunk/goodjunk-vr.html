@@ -1,10 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM + safe inject + spawn-safe measure)
-PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
-✅ FIX: End overlay has #endActions anchor for JS inject (Cooldown button always visible)
-✅ ADD: Boot splash "Loading GoodJunk..." (hide when booted)
-✅ ADD: spawn-safe measurement on run page -> prevents HUD blocking targets/miss spikes
-✅ Keep: AI dynamic import (optional), pass-through, retry/hub
+GoodJunkVR RUN — PRODUCTION (ESM + vr-ui + spawn-safe + AI dynamic)
+PATCH v20260303-RUN-LOADING-SPAWNSAFE-AI-PASS
 -->
 <!doctype html>
 <html lang="th">
@@ -14,16 +10,26 @@ PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
+
+  <!-- ✅ CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260303" />
 </head>
 <body>
   <div id="app">
 
-    <!-- Boot splash -->
-    <div id="bootSplash" aria-hidden="false">
-      <div class="bootCard">
-        <div class="bootTitle">Loading GoodJunk...</div>
-        <div class="bootSub">กำลังเตรียมฉาก/เลเยอร์</div>
+    <!-- Loading overlay -->
+    <div id="loading" class="loading" aria-hidden="false">
+      <div class="loadingCard">
+        <div class="loadingTitle">Loading GoodJunk…</div>
+        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
+        <div class="loadingPills">
+          <span class="pill pill-soft">view=<b id="uiViewL">—</b></span>
+          <span class="pill pill-soft">run=<b id="uiRunL">—</b></span>
+          <span class="pill pill-soft">diff=<b id="uiDiffL">—</b></span>
+          <span class="pill pill-soft">ai=<b id="uiAiL">—</b></span>
+          <span class="pill pill-soft">battle=<b id="uiBattleL">—</b></span>
+        </div>
+        <div id="loadErr" class="loadErr" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -126,22 +132,37 @@ PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
           <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
         </div>
 
-        <!-- ✅ ANCHOR: JS จะ inject ปุ่ม Cooldown “ในแถวนี้” เสมอ -->
-        <div class="endActions" id="endActions">
+        <div class="endActions">
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
 
+        <!-- ✅ Cooldown button will be injected here by JS (goodjunk.safe.js) -->
       </div>
     </div>
 
   </div>
 
   <script type="module">
-    import { boot } from './goodjunk.safe.js';
-
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
+    const loading = document.getElementById('loading');
+    const loadErr = document.getElementById('loadErr');
+
+    const setLoadPill = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent = String(v ?? '—'); };
+    const showErr = (e)=>{
+      try{
+        if(loadErr){
+          loadErr.setAttribute('aria-hidden','false');
+          loadErr.textContent = 'Load error: ' + (e?.message || String(e||'unknown'));
+        }
+      }catch(_){}
+    };
+    const hideLoading = ()=>{
+      try{ loading?.setAttribute('aria-hidden','true'); }catch(_){}
+    };
+
+    // Pass-through
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
@@ -153,17 +174,75 @@ PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
       ai: null
     };
 
-    // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    const battleOn = (qs('battle','0') === '1');
+
+    // loading pills
+    setLoadPill('uiViewL', cfg.view);
+    setLoadPill('uiRunL',  cfg.run);
+    setLoadPill('uiDiffL', cfg.diff);
+    setLoadPill('uiAiL',   aiOn ? '1' : '0');
+    setLoadPill('uiBattleL', battleOn ? '1' : '0');
+
+    // ✅ Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + hha:shoot)
+    try{
+      const vrui = await import('../vr/vr-ui.js');
+      if(typeof vrui?.attachUniversalVrUi === 'function'){
+        vrui.attachUniversalVrUi({
+          view: cfg.view,
+          // keep HUD visible; vr-ui stays on top
+          zIndex: 240
+        });
+      }
+    }catch(e){
+      // ok to fail (PC-only)
+      console.warn('[GoodJunk] vr-ui load failed (ok)', e);
+    }
+
+    // ✅ Spawn-safe region: compute once after layout paint
+    function computeSpawnSafe(){
+      const layer = document.getElementById('gj-layer');
+      const hud = document.getElementById('hud');
+      if(!layer) return;
+
+      const r = layer.getBoundingClientRect();
+      const hudR = hud ? hud.getBoundingClientRect() : null;
+
+      // default safe = whole layer
+      let xMin = r.left, xMax = r.right, yMin = r.top, yMax = r.bottom;
+
+      // avoid HUD: push yMin down below hud
+      if(hudR){
+        yMin = Math.max(yMin, hudR.bottom + 10);
+      }
+
+      // avoid bottom VR UI area (approx)
+      yMax = Math.min(yMax, window.innerHeight - 78);
+
+      // clamp to layer
+      xMin = Math.max(xMin, r.left);
+      xMax = Math.min(xMax, r.right);
+      yMin = Math.max(yMin, r.top);
+      yMax = Math.min(yMax, r.bottom);
+
+      // store in window so goodjunk.safe.js uses it
+      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
+    }
+
+    // AI dynamic import (optional)
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({ seed: cfg.seed, pid: cfg.pid, diff: cfg.diff, view: cfg.view });
+        if(typeof mod?.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view
+          });
         }
       }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
+        console.warn('[GoodJunk] AI module load failed (ok)', e);
       }
     }
 
@@ -176,48 +255,29 @@ PATCH v20260303-RUN-ANCHOR-CD-SPLASH-SPAWNSAFE
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+      location.href = cfg.hub || '../hub.html';
     });
 
-    // ✅ Spawn-safe measurement (exclude HUD + bottom safe area / VR buttons)
-    function setSpawnSafe(){
-      const layer = document.getElementById('gj-layer');
-      const hud   = document.getElementById('hud');
-      if(!layer) return;
-
-      const lr = layer.getBoundingClientRect();
-      const hr = hud ? hud.getBoundingClientRect() : { bottom: lr.top };
-
-      // bottom UI (coach/toast + vr-ui bar) เผื่อไว้แบบอนุรักษ์นิยม
-      const bottomPad = Math.max(120, 90 + (window.visualViewport?.offsetTop || 0));
-      const pad = 16;
-
-      const xMin = lr.left + pad;
-      const xMax = lr.right - pad;
-
-      // ✅ yMin เริ่ม “ใต้ HUD” ชัด ๆ
-      const yMin = Math.min(lr.bottom - 200, Math.max(lr.top + pad, hr.bottom + 10));
-
-      // ✅ yMax กันพื้นที่ปุ่มล่าง/ขอบจอ
-      const yMax = Math.max(yMin + 180, lr.bottom - bottomPad);
-
-      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
-    }
-
-    // call now + on resize/orientation
-    setSpawnSafe();
-    window.addEventListener('resize', ()=> setSpawnSafe(), { passive:true });
-    window.addEventListener('orientationchange', ()=> setTimeout(setSpawnSafe, 250), { passive:true });
-
-    // Boot + hide splash
-    const splash = document.getElementById('bootSplash');
-    try{ splash?.setAttribute('aria-hidden','false'); }catch(e){}
-    boot(cfg);
+    // Boot game
     try{
-      splash?.setAttribute('aria-hidden','true');
-      splash?.classList.add('hide');
-    }catch(e){}
+      const game = await import('./goodjunk.safe.js');
+      // let layout settle then compute safe
+      requestAnimationFrame(()=>{ computeSpawnSafe(); });
+      window.addEventListener('resize', ()=> computeSpawnSafe(), { passive:true });
+
+      // show debug pills when ?debug=1
+      const dbg = (qs('debug','0')==='1');
+      const debugPills = document.getElementById('debugPills');
+      if(debugPills) debugPills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
+      const setP = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
+      setP('uiView', cfg.view); setP('uiRun', cfg.run); setP('uiDiff', cfg.diff);
+
+      game.boot(cfg);
+      hideLoading();
+    }catch(e){
+      console.error(e);
+      showErr(e);
+    }
   </script>
 </body>
 </html>
