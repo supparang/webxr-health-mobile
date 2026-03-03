@@ -1,450 +1,601 @@
+<!-- === /herohealth/hub.html ===
+HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
+PATCH v20260303-HUB-ZONES-FULL
+✅ Zones:
+   - Nutrition: goodjunk, groups, hydration, plate
+   - Hygiene: handwash, brush, bath, clean object, maskcough, germ detective
+   - Exercise: shadow breaker, rhythm boxer, jumpduck, balance hold, fitness planner
+✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api (+ tutorial/practice/direct flags)
+✅ Daily Gate keys: HHA_ZONE_DONE::nutrition / ::hygiene / ::exercise (local day)
+-->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness Academy — Hub</title>
-  <meta name="color-scheme" content="light dark"/>
-  <link rel="icon" href="./favicon.ico"/>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hub</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg: #020617;
-      --card: rgba(15,23,42,0.96);
-      --card-soft: rgba(15,23,42,0.9);
-      --border: rgba(148,163,184,0.75);
-      --accent: #38bdf8;
-      --accent2: #a855f7;
-      --accent3: #22c55e;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --danger: #fb7185;
-      --gold: #facc15;
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --cyan:#22d3ee; --violet:#a78bfa;
+
+      --radius:22px;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-
-    *{box-sizing:border-box;}
-
-    html,body{
-      margin:0;
-      padding:0;
-      height:100%;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(168,85,247,0.22),transparent 55%),
-        var(--bg);
-      color:var(--text);
-    }
-
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
-      display:flex;
-      justify-content:center;
-      align-items:stretch;
-    }
-
-    .fitness-wrap{
-      width:100%;
-      max-width:1100px;
-      margin:0 auto;
-      padding:16px 14px 28px;
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-    }
-
-    header.fitness-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:16px;
-    }
-
-    .fh-left{max-width:640px;}
-
-    .fh-title{
-      margin:0 0 4px;
-      font-size:1.8rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .fh-title span.icon{
-      font-size:1.8rem;
-      filter:drop-shadow(0 0 10px rgba(56,189,248,0.9));
-    }
-    .fh-sub{
       margin:0;
-      font-size:.9rem;
-      color:var(--muted);
-    }
-
-    .mode-toggle{
-      margin-top:10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      font-size:.82rem;
-    }
-
-    .mode-buttons{
-      display:inline-flex;
-      gap:6px;
-      padding:3px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.96);
-      border:1px solid rgba(148,163,184,0.7);
-    }
-
-    .mode-btn{
-      border-radius:999px;
-      border:none;
-      padding:5px 12px;
-      font-size:.8rem;
-      cursor:pointer;
-      background:transparent;
-      color:var(--muted);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    .mode-btn span.icon{font-size:1rem;}
-    .mode-btn.active{
-      background:linear-gradient(135deg,#38bdf8,#a855f7);
-      color:#020617;
-      font-weight:600;
-      box-shadow:0 0 14px rgba(56,189,248,0.9);
-    }
-
-    #mode-desc{
-      color:var(--muted);
-      font-size:.8rem;
-    }
-
-    .fitness-main{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .fitness-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-      gap:14px;
-    }
-
-    .game-card{
-      position:relative;
-      border-radius:22px;
-      padding:14px 14px 16px;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.20),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(15,118,110,0.30),transparent 60%),
-        var(--card);
-      border:1px solid rgba(15,23,42,0.9);
-      box-shadow:0 18px 42px rgba(0,0,0,0.85);
+        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+    }
+    a{ color:inherit; text-decoration:none; }
+    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 6px 6px 0 6px;
+      flex-wrap:wrap;
+    }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{
+      margin:0;
+      font-size: clamp(22px, 2.2vw, 30px);
+      letter-spacing:.2px;
+    }
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.4;
+      max-width: 78ch;
+    }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+    }
+    .pill b{ color:var(--text); font-weight:900; }
+
+    .zonebar{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
       overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
     }
-    .game-card--shadow{
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.26),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(248,113,113,0.28),transparent 60%),
-        var(--card);
-    }
-    .game-card--rhythm{
-      background:
-        radial-gradient(circle at top left,rgba(168,85,247,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(56,189,248,0.26),transparent 60%),
-        var(--card);
-    }
-    .game-card--jump{
-      background:
-        radial-gradient(circle at top left,rgba(34,197,94,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(234,179,8,0.26),transparent 60%),
-        var(--card);
-    }
-    .game-card--balance{
-      background:
-        radial-gradient(circle at top left,rgba(59,130,246,0.30),transparent 60%),
-        radial-gradient(circle at bottom right,rgba(14,165,233,0.26),transparent 60%),
-        var(--card-soft);
-    }
-
-    .gc-header{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:flex-start;
-    }
-    .gc-title{
-      margin:0;
-      font-size:1.05rem;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .gc-title span.icon{font-size:1.4rem;}
-    .gc-sub{
-      margin:0;
-      font-size:.82rem;
-      color:#cbd5f5;
-    }
-    .gc-tag{
-      font-size:.72rem;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:rgba(15,23,42,0.9);
-      color:var(--muted);
-    }
-    .gc-tag.research{
-      border-color:rgba(56,189,248,0.9);
-      color:#bae6fd;
-      box-shadow:0 0 12px rgba(56,189,248,0.6);
-    }
-
-    .gc-body{
-      font-size:.8rem;
-      color:var(--muted);
-    }
-
-    .gc-meta{
-      margin-top:6px;
-      display:flex;
+    .zonebarHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background: rgba(2,6,23,.35);
       flex-wrap:wrap;
-      gap:6px;
-      font-size:.76rem;
     }
-    .gc-chip{
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.65);
-      background:rgba(15,23,42,0.92);
+    .zonebarHead .left{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
     }
+    .bigPill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .bigPill .dot{
+      width:12px; height:12px; border-radius:999px;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    }
+    .bigPill.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .bigPill.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
 
-    .game-actions{
-      margin-top:10px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+    .actions{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;
     }
-
     .btn{
-      border-radius:999px;
-      border:1px solid transparent;
-      padding:7px 12px;
-      font-size:.86rem;
-      font-weight:500;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.42);
+      padding:10px 12px;
+      border-radius: 14px;
+      color: var(--text);
       cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
+      user-select:none;
+      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+      font-weight:900;
+      font-size:13px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.good{ border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.10); }
+    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
+    .btn.ghost{ color:var(--muted); }
+    .btn.disabled{ opacity:.5; cursor:not-allowed; }
+
+    .zonebarBody{
+      padding: 12px 12px 14px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 10px;
+    }
+    @media (max-width: 980px){
+      .zonebarBody{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+      .actions{ justify-content:flex-start; }
+    }
+    .zoneCard{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding: 14px;
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      min-height: 160px;
+    }
+    .zoneCard h3{
+      margin:0 0 6px 0;
+      font-size: 16px;
+      letter-spacing:.2px;
+    }
+    .zoneCard p{
+      margin:0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height:1.45;
+    }
+    .glow{
+      position:absolute; inset:-40% -35% auto auto;
+      width:240px; height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%);
+      filter: blur(10px);
+      transform: rotate(14deg);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .glow.cyan{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
+    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+
+    .miniStatus{
+      display:flex; gap:8px; flex-wrap:wrap;
+      margin-top:10px;
       align-items:center;
-      justify-content:center;
-      gap:6px;
-      transition:transform .1s,box-shadow .1s,filter .1s,background .1s;
-      color:var(--text);
-      background:rgba(15,23,42,0.92);
-      border-color:rgba(148,163,184,0.7);
     }
-    .btn-primary{
-      background:linear-gradient(135deg,#38bdf8,#a855f7);
-      color:#020617;
-      border-color:transparent;
-      box-shadow:0 14px 34px rgba(15,23,42,1);
-    }
-    .btn-primary:hover{
-      filter:brightness(1.05);
-      transform:translateY(-1px);
-      box-shadow:0 18px 40px rgba(15,23,42,1);
-    }
-    .btn-ghost{
-      background:rgba(15,23,42,0.7);
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.28);
       color:var(--muted);
+      font-size: 12px;
+      font-weight:800;
+      user-select:none;
+      white-space:nowrap;
     }
-    .btn-ghost:hover{
-      color:var(--text);
-      background:rgba(15,23,42,0.95);
-      transform:translateY(-1px);
+    .chip b{ color:var(--text); font-weight:900; }
+    .meter{
+      height: 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+      margin-top:10px;
     }
-    .btn-disabled{
-      opacity:.55;
-      cursor:not-allowed;
+    .fill{
+      height:100%;
+      width:0%;
+      background: rgba(34,197,94,.85);
+      transition: width .14s ease;
+    }
+    .fill.cyan{ background: rgba(34,211,238,.85); }
+    .fill.violet{ background: rgba(167,139,250,.85); }
+    .fill.warn{ background: rgba(245,158,11,.88); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+      margin-top: 2px;
+    }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
+
+    .game{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.46);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      position:relative;
+      overflow:hidden;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      min-height: 132px;
+    }
+    .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .game:active{ transform: translateY(1px); }
+    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .gameTitle{ font-weight:900; letter-spacing:.2px; margin:0; font-size: 15px; }
+    .gameSub{ margin:6px 0 0 0; color:var(--muted); font-size: 12px; line-height:1.35; }
+    .tag{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: var(--text);
+      font-weight:900;
+      white-space:nowrap;
     }
 
-    .fitness-footer{
-      margin-top:8px;
-      font-size:.78rem;
-      color:var(--muted);
-      text-align:right;
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
     }
-
-    @media (max-width:768px){
-      .fitness-wrap{padding:12px 10px 24px;}
-      header.fitness-header{flex-direction:column; align-items:flex-start;}
-      .mode-toggle{flex-direction:column; align-items:flex-start;}
-    }
+    .toast.show{ opacity: 1; }
   </style>
 </head>
+
 <body>
-  <div class="fitness-wrap">
-    <header class="fitness-header">
-      <div class="fh-left">
-        <h1 class="fh-title">
-          <span class="icon">🏋️‍♀️</span>
-          <span>VR Fitness Academy — Hub</span>
-        </h1>
-        <p class="fh-sub">
-          ชุดเกมออกกำลังกาย 4 สไตล์ พร้อมโหมด Normal/Research สำหรับใช้งานจริงในห้องเรียนและงานวิจัย
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1 class="title">🏰 HeroHealth — Hub</h1>
+        <p class="subtitle">
+          เลือกเล่นเกมไหนก่อนก็ได้ (ไม่มีลำดับบังคับ) • Daily Gate แยกตาม “โซน” วันละ 1 ครั้ง/โซน
         </p>
+      </div>
+      <div class="pillrow" id="pillrow"></div>
+    </div>
 
-        <div class="mode-toggle">
-          <div class="mode-buttons">
-            <button id="mode-normal" type="button" class="mode-btn active">
-              <span class="icon">🎮</span><span>Normal</span>
-            </button>
-            <button id="mode-research" type="button" class="mode-btn">
-              <span class="icon">📊</span><span>Research</span>
-            </button>
-          </div>
-          <div id="mode-desc">
-            Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
-          </div>
+    <section class="zonebar" aria-label="Zone status">
+      <div class="zonebarHead">
+        <div class="left">
+          <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
+          <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
+          <div class="bigPill" id="pillExercise"><span class="dot"></span><span id="tExercise">🏃 Exercise: —</span></div>
+          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
+        </div>
+        <div class="actions">
+          <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
+          <div class="btn warn" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</div>
         </div>
       </div>
 
-      <div class="fh-right">
-        <div>รองรับ: <strong>PC · Mobile · VR Headset</strong></div>
-        <div>วิจัย: บันทึก CSV (Session / Event) สำหรับ SPSS · R · Python</div>
-        <div style="margin-top:8px">
-          <a href="./stats.html">ดูสรุปผลล่าสุด</a>
+      <div class="zonebarBody">
+        <div class="zoneCard">
+          <div class="glow"></div>
+          <h3>🥗 Nutrition</h3>
+          <p>GoodJunk / Groups / Hydration / Plate</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cNutGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::nutrition</span>
+          </div>
+          <div class="meter"><div class="fill" id="mNut"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow cyan"></div>
+          <h3>🧼 Hygiene</h3>
+          <p>Handwash / Brush / Bath / Clean Object / MaskCough / Germ Detective</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
+          </div>
+          <div class="meter"><div class="fill cyan" id="mHyg"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow violet"></div>
+          <h3>🏃 Exercise</h3>
+          <p>Shadow Breaker / Rhythm Boxer / JumpDuck / Balance Hold / Fitness Planner</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cExGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::exercise</span>
+          </div>
+          <div class="meter"><div class="fill violet" id="mEx"></div></div>
         </div>
       </div>
-    </header>
+    </section>
 
-    <main class="fitness-main">
-      <section class="fitness-grid">
-        <!-- Shadow Breaker -->
-        <article class="game-card game-card--shadow">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title"><span class="icon">🥊</span><span>Shadow Breaker</span></h2>
-              <p class="gc-sub">เกมตีเป้า Boss หลายเฟส พร้อม HP, Shield, FEVER และตัวล่อให้หลบ</p>
-            </div>
-            <div class="gc-tag research">Research-ready</div>
-          </div>
+    <section aria-label="Game list">
+      <div class="pill" style="width:fit-content;"><b>Nutrition games</b></div>
+      <div class="grid">
+        <div class="game" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">เกมยิง/แตะอาหารดี-ขยะ • missions/summary</p>
+        </div>
 
-          <div class="gc-body">
-            <p>
-              วัด Reaction Time, Miss, Combo, FEVER และ Shield —
-              บันทึก CSV แยก Session / Event สำหรับวิเคราะห์เชิงลึก
-            </p>
-            <div class="gc-meta">
-              <span class="gc-chip">RT</span>
-              <span class="gc-chip">HP / Shield</span>
-              <span class="gc-chip">Rank SSS–C</span>
-            </div>
-          </div>
+        <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🧩 Groups</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยกหมวดอาหาร • เหมาะ ป.5</p>
+        </div>
 
-          <div class="game-actions">
-            <button type="button" class="btn btn-primary" data-game="shadow">
-              ▶ เล่น (Shadow Breaker)
-            </button>
-          </div>
-        </article>
+        <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">💧 Hydration</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ</p>
+        </div>
 
-        <!-- Rhythm Boxer -->
-        <article class="game-card game-card--rhythm">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title"><span class="icon">🎵</span><span>Rhythm Boxer</span></h2>
-              <p class="gc-sub">เกมชกตามจังหวะ 5 เลน พร้อม Hit judgment (Perfect / Great / Good / Miss)</p>
-            </div>
-            <div class="gc-tag research">Research-ready</div>
-          </div>
+        <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">จัดจาน 5 หมู่ • balance หมู่</p>
+        </div>
+      </div>
 
-          <div class="gc-body">
-            <p>
-              วัด offset mean/SD, hit count, combo, FEVER, progress และ AI prediction (แสดงผล)
-            </p>
-            <div class="gc-meta">
-              <span class="gc-chip">Offset mean / SD</span>
-              <span class="gc-chip">Judgment</span>
-              <span class="gc-chip">Progress</span>
-            </div>
-          </div>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b></div>
+      <div class="grid">
+        <div class="game" data-href="./hygiene-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🫧 Handwash</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ล้างมือให้ถูกขั้นตอน • เก็บคะแนน</p>
+        </div>
 
-          <div class="game-actions">
-            <button type="button" class="btn btn-primary" data-game="rhythm">
-              ▶ เล่น (Rhythm Boxer)
-            </button>
-          </div>
-        </article>
+        <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🪥 Brush</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แปรงคราบให้ทัน • Perfect/บอส</p>
+        </div>
 
-        <!-- Jump-Duck -->
-        <article class="game-card game-card--jump">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title"><span class="icon">🦘</span><span>Jump-Duck</span></h2>
-              <p class="gc-sub">กระโดด–ก้มหลบสิ่งกีดขวาง เพื่อฝึก core, balance และ decision speed</p>
-            </div>
-            <div class="gc-tag">Prototype</div>
-          </div>
+        <div class="game" data-href="./bath-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🛁 Bath</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">Hidden Dirt Quest • ค้นหาคราบ</p>
+        </div>
 
-          <div class="gc-body">
-            <p>Prototype placeholder — วัด Hit/Miss, Stability score และ RT ต่อ obstacle</p>
-            <div class="gc-meta">
-              <span class="gc-chip">Hit / Miss</span>
-              <span class="gc-chip">Stability</span>
-              <span class="gc-chip">RT</span>
-            </div>
-          </div>
+        <div class="game" data-href="./home-clean.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ทำความสะอาดสิ่งของ • ลดเชื้อโรค</p>
+        </div>
 
-          <div class="game-actions">
-            <button type="button" class="btn btn-ghost btn-disabled" data-game="jump">
-              🔧 ยังไม่เปิด (Prototype)
-            </button>
-          </div>
-        </article>
+        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">😷 MaskCough</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">หน้ากาก/ไอจาม • จังหวะป้องกัน</p>
+        </div>
 
-        <!-- Balance-Hold -->
-        <article class="game-card game-card--balance">
-          <div class="gc-header">
-            <div>
-              <h2 class="gc-title"><span class="icon">🧘‍♀️</span><span>Balance-Hold</span></h2>
-              <p class="gc-sub">เกมฝึกการทรงตัวและคงท่า เน้น static balance และ time-in-pose</p>
-            </div>
-            <div class="gc-tag">Coming soon</div>
-          </div>
+        <div class="game" data-href="./germ-detective-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🦠 Germ Detective</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">สืบหาเชื้อโรค • แยกความเสี่ยง</p>
+        </div>
+      </div>
 
-          <div class="gc-body">
-            <p>Coming soon — ต่อวัดเวลาคงท่า/เสียสมดุล และเปรียบเทียบ Pre–Post</p>
-            <div class="gc-meta">
-              <span class="gc-chip">Time in pose</span>
-              <span class="gc-chip">Postural sway</span>
-              <span class="gc-chip">Pre–Post</span>
-            </div>
-          </div>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Exercise games</b> (อยู่โฟลเดอร์ /fitness)</div>
+      <div class="grid">
+        <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
+          <p class="gameSub">reflex • ปรับความยากได้</p>
+        </div>
 
-          <div class="game-actions">
-            <button type="button" class="btn btn-ghost btn-disabled" data-game="balance">
-              🔧 อยู่ระหว่างพัฒนา
-            </button>
-          </div>
-        </article>
-      </section>
-    </main>
+        <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag">Run</span></div>
+          <p class="gameSub">ต่อยตามจังหวะ • คอมโบ</p>
+        </div>
 
-    <footer class="fitness-footer">
-      VR Fitness Academy · เลือกโหมด Normal / Research แล้วกดเกมที่ต้องการเข้าเล่น
-    </footer>
+        <div class="game" data-href="../fitness/jump-duck.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🦘 JumpDuck</h3><span class="tag">Run</span></div>
+          <p class="gameSub">กระโดด/ก้มหลบ • timing</p>
+        </div>
+
+        <div class="game" data-href="../fitness/balance-hold.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag">Run</span></div>
+          <p class="gameSub">ทรงตัว • practice + countdown</p>
+        </div>
+
+        <div class="game" data-href="../fitness/fitness-planner/index.html" data-zone="exercise">
+          <div class="gameTop"><h3 class="gameTitle">🗓️ Fitness Planner</h3><span class="tag">Run</span></div>
+          <p class="gameSub">วางแผนออกกำลัง • tracker</p>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <script src="./hub.js"></script>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
+
+  // ✅ passthrough keys (เพิ่ม tutorial/practice/direct flags เพื่อใช้กับ Balance Hold / โหมดทดสอบ)
+  const PASS_KEYS = [
+    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','hub',
+    'tutorial','practiceOn','practice','direct','fast','skipBW'
+  ];
+
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function clearZoneToday(zone){
+    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
+  }
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
+
+  function setPill(el, done){
+    if(!el) return;
+    el.classList.remove('ok','bad');
+    el.classList.add(done ? 'ok' : 'bad');
+  }
+
+  function setText(id, v){
+    const el = document.getElementById(id);
+    if(el) el.textContent = v;
+  }
+
+  function syncBars(){
+    const today = ymdLocal();
+    setText('todayText', today);
+
+    const nut = isZoneDoneToday('nutrition');
+    const hyg = isZoneDoneToday('hygiene');
+    const ex  = isZoneDoneToday('exercise');
+
+    setPill(document.getElementById('pillNutrition'), nut);
+    setPill(document.getElementById('pillHygiene'), hyg);
+    setPill(document.getElementById('pillExercise'), ex);
+
+    setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tExercise', `🏃 Exercise: ${ex ? 'DONE TODAY' : 'NOT DONE'}`);
+
+    setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
+    setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
+    setText('cExGate',  ex  ? 'DONE TODAY' : 'NEED GATE');
+
+    const mNut = document.getElementById('mNut');
+    const mHyg = document.getElementById('mHyg');
+    const mEx  = document.getElementById('mEx');
+
+    if(mNut) mNut.style.width = (nut ? 100 : 35) + '%';
+    if(mHyg) mHyg.style.width = (hyg ? 100 : 35) + '%';
+    if(mEx)  mEx.style.width  = (ex  ? 100 : 35) + '%';
+
+    if(mNut) mNut.classList.toggle('warn', !nut);
+    if(mHyg) mHyg.classList.toggle('warn', !hyg);
+    if(mEx)  mEx.classList.toggle('warn', !ex);
+  }
+
+  function applyPassThrough(href){
+    const u = new URL(href, location.href);
+
+    for (const k of PASS_KEYS){
+      // ถ้า next ยังไม่มี key นั้น และ HUB มี -> ส่งต่อ
+      if (!u.searchParams.has(k) && QS.has(k)){
+        const v = QS.get(k);
+        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
+      }
+    }
+
+    // hub backlink
+    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
+      u.searchParams.set('hub', location.href);
+    }
+
+    return u.toString();
+  }
+
+  function renderPills(){
+    const pills = [
+      ['pid', QS.get('pid')],
+      ['run', QS.get('run')],
+      ['diff', QS.get('diff')],
+      ['time', QS.get('time')],
+      ['seed', QS.get('seed')],
+      ['studyId', QS.get('studyId')],
+      ['phase', QS.get('phase')],
+      ['conditionGroup', QS.get('conditionGroup')],
+      ['log', QS.get('log')],
+      ['view', QS.get('view')],
+      ['api', QS.get('api')],
+      ['direct', QS.get('direct')]
+    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
+
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .slice(0, 12)
+      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
+
+  function bindGames(){
+    const cards = document.querySelectorAll('.game[data-href]');
+    cards.forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const href = card.getAttribute('data-href');
+        if(!href) return;
+        location.href = applyPassThrough(href);
+      }, { passive:true });
+    });
+  }
+
+  function bindReset(){
+    const reset = document.getElementById('btnResetToday');
+    if (reset){
+      reset.addEventListener('click', ()=>{
+        clearZoneToday('nutrition');
+        clearZoneToday('hygiene');
+        clearZoneToday('exercise');
+        syncBars();
+        toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
+      });
+    }
+
+    const how = document.getElementById('btnHow');
+    if (how){
+      how.addEventListener('click', ()=>{
+        toast('Daily Gate: ผ่าน end summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
+      });
+    }
+  }
+
+  renderPills();
+  syncBars();
+  bindGames();
+  bindReset();
+})();
+</script>
+
 </body>
 </html>
