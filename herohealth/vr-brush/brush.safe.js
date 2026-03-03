@@ -1,6 +1,6 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// Brush SAFE — BRIDGE-friendly + AUTO DOM-FALLBACK
-// FULL v20260303c-BRUSH-SAFE
+// Brush SAFE — start() works without tap; tap is only unlock
+// FULL v20260303d-BRUSH-SAFE-STARTFIRST
 'use strict';
 
 export function bootGame(){
@@ -10,14 +10,10 @@ export function bootGame(){
   const qbool = (k, d=false)=>{ const v=String(qs(k, d?'1':'0')).toLowerCase(); return ['1','true','yes','y','on'].includes(v); };
   const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
   const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
-  const isoNow = ()=> new Date().toISOString();
 
-  const RUN = String(qs('run','play')).toLowerCase();
   const DIFF = String(qs('diff','normal')).toLowerCase();
   const TIME = clamp(qs('time','80'), 30, 180);
   const PID  = String(qs('pid','anon'));
-  const API  = String(qs('api',''));
-  const LOG_ON = qbool('log', false);
   const VIEW = String(qs('view','')).toLowerCase();
   const IS_CVR = (VIEW === 'cvr');
 
@@ -25,21 +21,7 @@ export function bootGame(){
     plaque: ['🦷','✨','🫧','🪥','💎','⭐'],
     germ:   ['🦠','😈','🤢','💀','☣️','🧫']
   };
-  function pickEmoji(kind){
-    const a = EMOJI[kind] || ['🎯'];
-    return a[Math.floor(Math.random() * a.length)];
-  }
-
-  async function safePost(url, payload){
-    try{
-      if(!LOG_ON || !url) return {ok:false, skipped:true};
-      const r = await fetch(url, {
-        method:'POST', headers:{'content-type':'application/json'},
-        body: JSON.stringify(payload), keepalive:true
-      });
-      return {ok:r.ok, code:r.status};
-    }catch(e){ return {ok:false, error:String(e?.message||e)}; }
-  }
+  const pickEmoji = (kind)=> (EMOJI[kind]||['🎯'])[Math.floor(Math.random()*(EMOJI[kind]||['🎯']).length)];
 
   const UI = {
     phasePill: D.getElementById('phasePill'),
@@ -52,9 +34,8 @@ export function bootGame(){
     toolPill:  D.getElementById('toolPill'),
     viewPill:  D.getElementById('viewPill'),
     crosshair: D.getElementById('crosshair'),
-    scene: D.getElementById('scene') || D.querySelector('a-scene'),
-    spawnRoot: D.getElementById('spawnRoot'),
     domTargets: D.getElementById('domTargets'),
+    scene: D.getElementById('scene') || D.querySelector('a-scene')
   };
 
   const S = {
@@ -64,22 +45,21 @@ export function bootGame(){
     timeLeft: TIME,
     score:0, combo:0, comboMax:0, miss:0,
     goodSpawn:0, junkSpawn:0, goodHit:0, junkHit:0, goodExpire:0,
-    rtGood:[],
     targets:new Map(),
     seq:0,
     spawnEveryMs:900,
     ttlMs:1500,
     raf:0,
     lastSpawn:0,
-    useDomFallback:false
+    useDomFallback:true // ✅ default DOM fallback for mobile reliability
   };
 
-  // optional modules
+  // optional modules (best-effort)
   let FX=null, MISS=null, AI=null;
   (async ()=>{
-    try{ FX = (await import('./brush.fx.js?v=20260303c')).bootFx(); }catch(e){}
-    try{ MISS = (await import('./brush.missions.js?v=20260303c')).bootMissions({ diff: DIFF }); }catch(e){}
-    try{ AI = (await import('./ai-brush.js?v=20260303c')).bootBrushAI(); }catch(e){}
+    try{ FX = (await import('./brush.fx.js?v=20260303d')).bootFx(); }catch(e){}
+    try{ MISS = (await import('./brush.missions.js?v=20260303d')).bootMissions({ diff: DIFF }); }catch(e){}
+    try{ AI = (await import('./ai-brush.js?v=20260303d')).bootBrushAI(); }catch(e){}
   })();
 
   function tuneByDiff(){
@@ -105,24 +85,12 @@ export function bootGame(){
 
     if (UI.missionPill && MISS && typeof MISS.text === 'function') {
       UI.missionPill.textContent = `MISSION: ${MISS.text()}`;
+    } else if (UI.missionPill){
+      UI.missionPill.textContent = `MISSION: —`;
     }
   }
 
   function rid(){ return `t${++S.seq}`; }
-
-  async function detectFallback(){
-    try{
-      const scene = UI.scene;
-      if(!scene) return true;
-      await new Promise(r=>setTimeout(r, 250));
-      const canvas = scene.canvas || scene.querySelector('canvas');
-      if(!canvas) return true;
-      const rect = canvas.getBoundingClientRect();
-      return (rect.width < 10 || rect.height < 10);
-    }catch(e){
-      return true;
-    }
-  }
 
   function spawnDomTarget(id, kind, emoji){
     const layer = UI.domTargets;
@@ -161,67 +129,13 @@ export function bootGame(){
 
     if (good) S.goodSpawn++; else S.junkSpawn++;
 
-    let domEl = null;
-
-    if (S.useDomFallback){
-      domEl = spawnDomTarget(id, kind, emoji);
-    } else {
-      // 3D spawn (simple center) — if fails, switch to DOM
-      try{
-        const scene = UI.scene || D.querySelector('a-scene');
-        const root = UI.spawnRoot || scene;
-        if (scene && root){
-          const a = D.createElement('a-entity');
-          a.setAttribute('id', id);
-          a.setAttribute('position', `0 1.55 -1.8`);
-
-          const plate = D.createElement('a-entity');
-          plate.setAttribute('geometry', 'primitive: plane; width: 0.78; height: 0.78');
-          plate.setAttribute('material',
-            good
-              ? 'shader: flat; color:#22c55e; opacity:0.42; transparent:true'
-              : 'shader: flat; color:#ef4444; opacity:0.42; transparent:true'
-          );
-          a.appendChild(plate);
-
-          const dot = D.createElement('a-entity');
-          dot.setAttribute('geometry', 'primitive: sphere; radius: 0.12');
-          dot.setAttribute('material',
-            good
-              ? 'shader: flat; color:#86efac; opacity:0.98; transparent:true'
-              : 'shader: flat; color:#fecaca; opacity:0.98; transparent:true'
-          );
-          dot.setAttribute('position', '0 0 0.03');
-          a.appendChild(dot);
-
-          const txt = D.createElement('a-text');
-          txt.setAttribute('value', emoji);
-          txt.setAttribute('align', 'center');
-          txt.setAttribute('color', good ? '#dcfce7' : '#fee2e2');
-          txt.setAttribute('width', '3.6');
-          txt.setAttribute('position', '0 0 0.08');
-          txt.setAttribute('baseline', 'center');
-          a.appendChild(txt);
-
-          a.addEventListener('click', ()=> hitTarget(id));
-          root.appendChild(a);
-        }
-      }catch(e){
-        S.useDomFallback = true;
-        domEl = spawnDomTarget(id, kind, emoji);
-      }
-    }
-
+    const domEl = spawnDomTarget(id, kind, emoji);
     S.targets.set(id, { id, kind, good, emoji, bornAt, ttlAt, domEl });
-
-    safePost(API, { table:'events', timestampIso: isoNow(), sessionId:S.sessionId, eventType:'target_spawn', targetId:id, itemType:kind, emoji, isGood: good?1:0 });
   }
 
   function hitTarget(id){
     const t = S.targets.get(id);
     if(!t) return;
-
-    const rt = Math.max(0, Math.round(now() - t.bornAt));
 
     if (t.good){
       S.goodHit++;
@@ -239,15 +153,8 @@ export function bootGame(){
     }
 
     try{ t.domEl?.remove(); }catch(e){}
-    try{
-      const el3d = D.getElementById(id);
-      if (el3d && el3d.parentNode) el3d.parentNode.removeChild(el3d);
-    }catch(e){}
-
     S.targets.delete(id);
     hud();
-
-    safePost(API, { table:'events', timestampIso: isoNow(), sessionId:S.sessionId, eventType:'target_hit', targetId:id, itemType:t.kind, emoji:t.emoji, rtMs:rt, isGood:t.good?1:0, totalScore:Math.round(S.score), combo:S.combo });
   }
 
   function expireTick(){
@@ -256,10 +163,6 @@ export function bootGame(){
       if (tnow >= t.ttlAt){
         if (t.good){ S.goodExpire++; S.miss++; S.combo = 0; }
         try{ t.domEl?.remove(); }catch(e){}
-        try{
-          const el3d = D.getElementById(id);
-          if (el3d && el3d.parentNode) el3d.parentNode.removeChild(el3d);
-        }catch(e){}
         S.targets.delete(id);
       }
     }
@@ -297,16 +200,16 @@ export function bootGame(){
     S.lastSpawn = 0;
 
     try{ UI.domTargets && (UI.domTargets.innerHTML = ''); }catch(e){}
-
-    const forceDom = qbool('dom', false);
-    const needDom = forceDom || await detectFallback();
-    S.useDomFallback = !!needDom;
-    if (UI.domTargets) UI.domTargets.style.pointerEvents = S.useDomFallback ? 'auto' : 'none';
+    if (UI.domTargets) UI.domTargets.style.pointerEvents = 'auto';
 
     hud();
     S.raf = requestAnimationFrame(loop);
   }
 
+  // optional unlock hook (future audio)
+  function onUnlock(){}
+
+  // bind basic buttons
   function bindUI(){
     D.getElementById('btnHelp')?.addEventListener('click', ()=> D.getElementById('panelHelp')?.classList.remove('hidden'));
     D.getElementById('btnCloseHelp')?.addEventListener('click', ()=> D.getElementById('panelHelp')?.classList.add('hidden'));
@@ -316,12 +219,12 @@ export function bootGame(){
   }
 
   bindUI();
-  hud(); // ✅ set PHASE/TIME immediately
+  hud(); // ✅ PHASE/TIME จะไม่เป็น — อีกต่อไปหลัง bootGame ถูกเรียก
 
-  const api = { start, state:()=>({ ...S, targetsSize:S.targets.size, domFallback:S.useDomFallback }) };
+  const api = { start, onUnlock, state:()=>({ ...S, targetsSize:S.targets.size }) };
   W.HHBrush_SAFE = api;
   return api;
 }
 
-// (optional) export bridge
+// bridge
 try{ window.__BRUSH_BOOTGAME__ = bootGame; }catch(e){}
