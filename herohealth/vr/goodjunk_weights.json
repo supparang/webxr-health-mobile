@@ -1,56 +1,38 @@
 {
-  "schema": "goodjunk-risk-logreg-v1",
-  "trainedAtIso": "2026-03-02T00:00:00.000Z",
-  "notes": "STARTER WEIGHTS (demo). Replace with trained weights from train_goodjunk.py when you have real data.",
+  "modelName": "GoodJunkTinyMLP-v1",
+  "version": "2026-03-03",
+  "notes": "Prediction-only. Deterministic. No adaptive changes to gameplay. If weights missing -> fallback heuristic.",
   "features": [
-    "miss",
-    "hitJunk",
-    "accPct",
-    "medianRtGoodMs",
+    "acc",
+    "missRate",
+    "pace",
+    "shield",
+    "fever",
     "combo",
-    "feverPct",
-    "timeLeftSec",
-    "bossOn"
+    "stormOn"
   ],
-  "bias": -0.15,
-  "weights": [
-    0.95,
-    1.25,
-    -0.85,
-    0.55,
-    -0.35,
-    -0.25,
-    -0.15,
-    0.40
-  ],
-  "scaler": {
-    "mean": [
-      3.0,
-      1.2,
-      78.0,
-      520.0,
-      6.0,
-      35.0,
-      28.0,
-      0.25
-    ],
-    "scale": [
-      2.5,
-      1.6,
-      12.0,
-      180.0,
-      4.0,
-      25.0,
-      18.0,
-      0.43
-    ]
+  "normalizer": {
+    "type": "minmax",
+    "min": [0.00, 0.00, 0.30, 0.00, 0.00, 0.00, 0.00],
+    "max": [1.00, 0.60, 4.00, 9.00, 100.0, 12.0, 1.00]
   },
-  "metrics": {
-    "auc": 0.5,
-    "acc": 0.5,
-    "label_window_sec": 3.0,
-    "n_train": 0,
-    "n_test": 0,
-    "pos_rate": 0.5
+  "mlp": {
+    "activation": "tanh",
+    "output": "sigmoid",
+    "W1": [
+      [ 0.92,  0.30,  0.18, -0.22, -0.18, -0.10,  0.10],
+      [-0.75,  0.68,  0.22, -0.30, -0.05, -0.04,  0.14],
+      [ 0.40,  0.55,  0.31, -0.15, -0.10, -0.08,  0.09],
+      [-0.55,  0.25,  0.58, -0.22, -0.06, -0.03,  0.12],
+      [ 0.18,  0.22,  0.44, -0.12, -0.08, -0.06,  0.10],
+      [-0.35,  0.32,  0.26, -0.20, -0.09, -0.05,  0.08],
+      [ 0.15,  0.40,  0.18, -0.10, -0.04, -0.03,  0.06],
+      [-0.22,  0.36,  0.14, -0.12, -0.05, -0.02,  0.08],
+      [ 0.10,  0.28,  0.22, -0.08, -0.06, -0.03,  0.07],
+      [-0.18,  0.44,  0.12, -0.16, -0.04, -0.02,  0.11]
+    ],
+    "b1": [ -0.10, 0.05, 0.02, -0.06, -0.04, -0.03, 0.01, 0.02, 0.00, 0.03 ],
+    "W2": [ 0.95, 1.10, 0.72, 0.80, 0.60, 0.70, 0.40, 0.55, 0.50, 0.75 ],
+    "b2": -0.25
   }
 }
