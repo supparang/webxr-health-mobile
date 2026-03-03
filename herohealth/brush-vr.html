@@ -1,9 +1,9 @@
 <!-- === /herohealth/brush-vr.html ===
-BrushVR — ROOT LAUNCHER (points to /vr-brush/brush.html)
-PATCH v20260303d-BRUSH-ROOT-LAUNCHER
-✅ Fix 404 by using root launcher
-✅ Pass-through: pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/ai/debug
-✅ Always sets hub=... if missing
+BrushVR — ROOT LAUNCHER -> /vr-brush/brush.html
+PATCH v20260303e-BRUSH-ROOT-LAUNCHER-HUBSAFE
+✅ Fix 404 via root launcher
+✅ Pass-through pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/ai/debug
+✅ hub sanitize fallback -> /herohealth/hub.html
 -->
 <!doctype html>
 <html lang="th">
@@ -13,7 +13,6 @@ PATCH v20260303d-BRUSH-ROOT-LAUNCHER
   <title>HeroHealth — BrushVR Launcher</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="./favicon.ico"/>
-  <meta http-equiv="refresh" content="0;url=./vr-brush/brush.html">
 </head>
 <body>
 <script>
@@ -26,21 +25,27 @@ PATCH v20260303d-BRUSH-ROOT-LAUNCHER
   const PASS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug'];
   const to = new URL('./vr-brush/brush.html', location.href);
 
-  // passthrough
   PASS.forEach(k=>{
     const v = Q.get(k);
     if(v!=null && String(v).trim()!=='') to.searchParams.set(k, v);
   });
 
-  // ensure hub back
-  if(!to.searchParams.get('hub')){
-    to.searchParams.set('hub', new URL('./hub.html', location.href).toString());
-  }else{
-    to.searchParams.set('hub', Q.get('hub'));
+  // ✅ hub sanitize: only allow same-origin hub.html under /herohealth/
+  function safeHub(raw){
+    try{
+      const u = new URL(raw, location.href);
+      // enforce same origin
+      if(u.origin !== location.origin) return new URL('./hub.html', location.href).toString();
+      // enforce /herohealth/hub.html
+      if(!u.pathname.endsWith('/herohealth/hub.html')) return new URL('./hub.html', location.href).toString();
+      return u.toString();
+    }catch(_){
+      return new URL('./hub.html', location.href).toString();
+    }
   }
+  const hub = Q.get('hub');
+  to.searchParams.set('hub', safeHub(hub || './hub.html'));
 
-  // normalize view: view=mobile -> keep mobile (touch mode), view=cvr -> cVR
-  // (เกมจะรับ hha:shoot เฉพาะ cvr/vr อยู่แล้ว)
   location.replace(to.toString());
 })();
 </script>
