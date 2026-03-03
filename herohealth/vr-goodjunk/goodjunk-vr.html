@@ -1,9 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
-✅ run file name fixed: goodjunk-vr.html
-✅ reads ?ai=1 to enable AI prediction HUD
-✅ reads ?battle=1 (optional) pass-through
+GoodJunkVR RUN — PRODUCTION (ESM + vr-ui + spawn-safe + AI dynamic import)
+PATCH v20260303-RUN-SPAWNSAFE-AI-COOLDOWN-BATTLE
 -->
 <!doctype html>
 <html lang="th">
@@ -12,20 +9,35 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
+
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260303" />
+
+  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + hha:shoot crosshair) -->
+  <script type="module" src="../vr/vr-ui.js?v=20260303"></script>
 </head>
+
 <body>
   <div id="app">
 
+    <!-- Loading -->
+    <div id="loading" aria-hidden="false">
+      <div class="loadingCard">
+        <div class="loadingTitle">Loading GoodJunk…</div>
+        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
+      </div>
+    </div>
+
+    <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
-      <span class="pill">ai=<b id="uiAI">—</b></span>
+      <span class="pill">ai=<b id="uiAi">—</b></span>
       <span class="pill">battle=<b id="uiBattle">—</b></span>
     </div>
 
+    <!-- Top HUD -->
     <header id="hud">
       <div class="hud-row">
         <div class="pill">SCORE <b id="hud-score">0</b></div>
@@ -46,6 +58,7 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
         </div>
       </div>
 
+      <!-- AI HUD -->
       <div class="hud-row">
         <div class="pill pill-ai">
           AI Risk <b id="aiRisk">—</b>
@@ -53,19 +66,33 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
         </div>
       </div>
 
+      <!-- Fever + Shield + Boss -->
       <div class="hud-row hud-bars">
         <div class="barCard">
-          <div class="barTop"><span class="mut">FEVER</span><b id="feverText">0%</b></div>
-          <div class="bar"><div class="barFill" id="feverFill" style="width:0%"></div></div>
+          <div class="barTop">
+            <span class="mut">FEVER</span>
+            <b id="feverText">0%</b>
+          </div>
+          <div class="bar">
+            <div class="barFill" id="feverFill" style="width:0%"></div>
+          </div>
         </div>
 
         <div class="barCard">
-          <div class="barTop"><span class="mut">SHIELD</span><b id="shieldPills">—</b></div>
+          <div class="barTop">
+            <span class="mut">SHIELD</span>
+            <b id="shieldPills">—</b>
+          </div>
         </div>
 
         <div class="barCard boss" id="bossBar" aria-hidden="true">
-          <div class="barTop"><span class="mut">BOSS</span><b id="bossHint">—</b></div>
-          <div class="bar"><div class="barFill bossFill" id="bossFill" style="width:0%"></div></div>
+          <div class="barTop">
+            <span class="mut">BOSS</span>
+            <b id="bossHint">—</b>
+          </div>
+          <div class="bar">
+            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
+          </div>
         </div>
       </div>
 
@@ -76,10 +103,12 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
       </div>
     </header>
 
+    <!-- Playfield -->
     <main id="stage" aria-label="GoodJunk Stage">
       <div id="gj-layer" aria-label="targets"></div>
     </main>
 
+    <!-- Low time overlay -->
     <div id="lowTimeOverlay" aria-hidden="true">
       <div class="lowTimeCard">
         <div class="mut">TIME</div>
@@ -87,6 +116,7 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
       </div>
     </div>
 
+    <!-- End overlay -->
     <div id="endOverlay" aria-hidden="true">
       <div class="panel">
         <div class="endTitle" id="endTitle">Game Over</div>
@@ -103,6 +133,8 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
+
+        <!-- ✅ Cooldown button will be injected here by JS -->
       </div>
     </div>
 
@@ -112,31 +144,67 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const qn = (k, d)=>{ const v = Number(qs(k,'')); return Number.isFinite(v) ? v : d; };
 
+    // ---- cfg from URL params (pass-through) ----
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
       diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
+      time: qn('time', 80),
       seed: qs('seed', String(Date.now())),
       pid: qs('pid','anon'),
       hub: qs('hub','../hub.html'),
       ai: null
     };
 
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    const battleOn = (qs('battle','0') === '1');
-
-    // debug pills
+    // ---- debug pills ----
+    const uiAi = document.getElementById('uiAi');
+    const uiBattle = document.getElementById('uiBattle');
     try{
-      document.getElementById('uiAI').textContent = aiOn ? '1' : '0';
-      document.getElementById('uiBattle').textContent = battleOn ? '1' : '0';
-    }catch(_){}
+      if(document.getElementById('uiView')) document.getElementById('uiView').textContent = String(cfg.view);
+      if(document.getElementById('uiRun'))  document.getElementById('uiRun').textContent  = String(cfg.run);
+      if(document.getElementById('uiDiff')) document.getElementById('uiDiff').textContent = String(cfg.diff);
+    }catch(e){}
 
-    // ✅ AI dynamic import
+    // ---- SPAWN SAFE: กัน HUD + กันแถบ vr-ui ด้านล่างบังเป้า ----
+    // goodjunk.safe.js จะอ่าน window.__HHA_SPAWN_SAFE__
+    function computeSpawnSafe(){
+      const stage = document.getElementById('stage');
+      const layer = document.getElementById('gj-layer');
+      const hud   = document.getElementById('hud');
+      if(!stage || !layer) return;
+
+      const rStage = stage.getBoundingClientRect();
+      const rHud   = hud ? hud.getBoundingClientRect() : { bottom: rStage.top };
+
+      // vr-ui bar (ENTER VR/RECENTER) อยู่ล่างสุด ใช้ height เผื่อไว้
+      // (เผื่อบางเครื่องสูง/ต่ำต่างกัน)
+      const bottomBar = 92; // px safe default
+      const safePad = 10;
+
+      const xMin = rStage.left + safePad;
+      const xMax = rStage.right - safePad;
+
+      const yMin = Math.max(rStage.top + safePad, rHud.bottom + 12);
+      const yMax = rStage.bottom - bottomBar;
+
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin, xMax, yMin, yMax
+      };
+    }
+
+    window.addEventListener('resize', ()=>{ computeSpawnSafe(); }, { passive:true });
+    window.addEventListener('orientationchange', ()=>{ setTimeout(computeSpawnSafe, 250); }, { passive:true });
+    setTimeout(computeSpawnSafe, 60);
+
+    // ---- AI enabled only when ?ai=1 AND run=play ----
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    try{ if(uiAi) uiAi.textContent = aiOn ? '1' : '0'; }catch(e){}
+
     if(aiOn){
       try{
-        const mod = await import('../vr/ai-goodjunk.js?v=20260302');
+        const mod = await import('../vr/ai-goodjunk.js');
         const createGoodJunkAI = mod.createGoodJunkAI;
         if(typeof createGoodJunkAI === 'function'){
           cfg.ai = createGoodJunkAI({
@@ -147,29 +215,40 @@ PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
           });
         }
       }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
+        console.warn('[GoodJunk] AI module load failed (ok)', e);
       }
-    }else{
-      // show clearer “off”
-      const r = document.getElementById('aiRisk');
-      const h = document.getElementById('aiHint');
-      if(r) r.textContent = 'OFF';
-      if(h) h.textContent = 'add ?ai=1';
     }
 
-    // Buttons
+    // ---- battle debug pill ----
+    try{
+      const battleOn = (qs('battle','0') === '1');
+      if(uiBattle) uiBattle.textContent = battleOn ? '1' : '0';
+    }catch(e){}
+
+    // ---- buttons ----
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
+
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
       u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('run', String(cfg.run||'play'));
       location.href = u.toString();
     });
+
     btnHub?.addEventListener('click', ()=>{
       location.href = (cfg.hub || '../hub.html');
     });
 
-    boot(cfg);
+    // ---- boot ----
+    const loading = document.getElementById('loading');
+    try{
+      boot(cfg);
+      // hide loading after first paint
+      requestAnimationFrame(()=>{ try{ loading?.setAttribute('aria-hidden','true'); }catch(e){} });
+    }catch(e){
+      console.error('[GoodJunk] boot failed', e);
+    }
   </script>
 </body>
 </html>
