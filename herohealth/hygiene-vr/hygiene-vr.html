@@ -1,9 +1,8 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
-✅ Fix: End overlay scrollable (mobile) / no stuck
-✅ Kid summary default, JSON hidden behind toggle
-✅ Practice 15s
-✅ Evaluate (heatmap2d) + Create routine 30s
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260221b
+✅ End Summary: 3 cards (เด็กอ่านรู้เรื่อง) + toggle รายละเอียดครู/นักวิจัย
+✅ End overlay scrollable (กัน “เลื่อนตอบไม่ได้”)
+✅ Quiz bank: ./hygiene-quiz-bank.js
 -->
 <!doctype html>
 <html lang="th">
@@ -14,9 +13,9 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <link rel="stylesheet" href="./hygiene-vr.css?v=20260220a" />
+  <link rel="stylesheet" href="./hygiene-vr.css?v=20260221b" />
 
-  <!-- Universal VR UI -->
+  <!-- Universal VR UI (MUST defer) -->
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- FX -->
@@ -27,11 +26,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank -->
+  <!-- Quiz bank (✅ correct name) -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260220a"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260221b"></script>
 </head>
 
 <body class="view-pc">
@@ -51,13 +50,14 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
+        <!-- Progress bars (ถ้ามี CSS/JS รองรับอยู่แล้ว) -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill" id="barStep"></div></div>
           </div>
           <div class="hw-bar">
-            <div class="hw-bar-lab">MISSION</div>
+            <div class="hw-bar-lab">LOOP</div>
             <div class="hw-bar-rail"><div class="hw-bar-fill cyan" id="barLoop"></div></div>
           </div>
         </div>
@@ -72,6 +72,7 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
+        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -86,54 +87,50 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
       <div class="hw-card">
         <div class="hw-card-title">Hand Wash — ล้างมือให้ครบจุด ครบขั้นตอน</div>
         <div class="hw-card-sub">
-          เป้าหมาย: แตะ/ยิง “ขั้นตอนที่ถูก” ให้ครบ (7 ขั้นตอน) พร้อมหลบ 🦠 เชื้อโรค และหลีกเลี่ยงไอคอนผิดขั้นตอน<br>
+          เป้าหมาย: แตะไอคอน “ขั้นตอนที่ถูก” ให้ครบ 7 ขั้นตอน<br>
+          หลบ 🦠 เชื้อโรค และอย่าแตะขั้นตอนผิด<br>
           ✅ Remember: จำขั้นตอน/จุดสำคัญ • ✅ Apply: ทำตามขั้นตอน + timing + coverage
         </div>
-
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ เริ่มเกม</button>
           <button class="hw-ghost" id="btnPractice" type="button">🧪 ฝึก 15 วิ</button>
           <button class="hw-ghost" id="btnRestart" type="button">↻ Reset</button>
-          <button class="hw-ghost" id="btnHubFromStart" type="button">↩ กลับ HUB</button>
+          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
         </div>
-
-        <div class="hw-card-sub" style="margin-top:10px">
-          STEP: 1) ฝ่ามือ 2) หลังมือ 3) ซอกนิ้ว 4) ข้อนิ้ว 5) หัวแม่มือ 6) ปลายนิ้ว/เล็บ 7) ข้อมือ<br>
-          Tip: เป้าสีเขียว=ถูก • เหลือง=ผิดขั้นตอน • แดง=เชื้อ (อย่าโดน) • ทำคอมโบดีๆ จะได้พลังช่วย
-        </div>
-
         <div class="hw-card-sub" style="margin-top:10px">
           Mode: <span id="labMode">play</span> • Diff: <span id="labDiff">normal</span> • View: <span id="labView">pc</span>
         </div>
       </div>
     </div>
 
-    <!-- End Overlay (SCROLLABLE) -->
-    <div class="hw-overlay scroll" id="endOverlay" style="display:none">
-      <div class="hw-card scroll">
+    <!-- End Overlay (Scrollable) -->
+    <div class="hw-overlay" id="endOverlay" style="display:none">
+      <div class="hw-card hw-card-scroll">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
-        <!-- Kid-friendly summary -->
-        <div class="hw-kidsum" id="kidSum">
-          <div class="krow">
-            <div class="kbox" id="kidGrade">เกรด: —</div>
-            <div class="kbox" id="kidStepAcc">ความถูกต้อง: —</div>
+        <!-- ✅ Kid Summary 3 Cards -->
+        <div class="hw-kidgrid" id="kidGrid">
+          <div class="hw-kidcard">
+            <div class="k-h">ผลลัพธ์</div>
+            <div class="k-b" id="kidGrade">เกรด: —</div>
+            <div class="k-s" id="kidStepAcc">ความถูกต้อง: —</div>
           </div>
-          <div class="krow" style="margin-top:10px">
-            <div class="kbox" id="kidSafe">โดนเชื้อ 🦠: —</div>
-            <div class="kbox" id="kidMiss">พลาดรวม: —</div>
+          <div class="hw-kidcard">
+            <div class="k-h">ความปลอดภัย</div>
+            <div class="k-b" id="kidSafe">โดนเชื้อ 🦠: —</div>
+            <div class="k-s" id="kidMiss">พลาดรวม: —</div>
           </div>
-          <div class="kbig" id="kidTip">คำแนะนำ: —</div>
+          <div class="hw-kidcard">
+            <div class="k-h">แนะนำ</div>
+            <div class="k-b" id="kidTip">คำแนะนำ: —</div>
+          </div>
         </div>
 
-        <!-- Evaluate + Analyze -->
+        <!-- Analyze/Evaluate/Create blocks (ของเดิมคุณมีอยู่แล้ว) -->
         <div class="hw-eval" id="evalBox">
           <div class="hw-eval-title">🧠 Evaluate + Analyze (เลือก “จุดเสี่ยงสุด”)</div>
-          <div class="hw-eval-sub" id="evalSub">
-            หลังเกมระบบจะทำ Heatmap 2D จากจุดที่พลาด/โดนเชื้อ/กดผิด แล้วให้คุณเลือก “จุดเสี่ยงสุด” พร้อมเหตุผล
-          </div>
-          <div class="hw-eval-sub hw-mini" id="evalHint">แตะวงกลมเพื่อเลือก</div>
+          <div class="hw-eval-sub" id="evalHint">แตะวงกลมเพื่อเลือก</div>
 
           <div class="hw-handmap" id="handMap"></div>
 
@@ -142,55 +139,54 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
             <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
           </div>
 
-          <div class="hw-eval-sub" style="margin-top:10px;font-weight:950">เลือกเหตุผล 1 ข้อ</div>
           <div class="hw-reasons" id="evalReasons">
-            <button type="button" class="hw-reason" data-reason="wrongHazHigh">พลาดขั้นตอนนี้บ่อย (wrong/haz สูง)</button>
-            <button type="button" class="hw-reason" data-reason="rtSlow">เวลาตอบสนองช้า ทำให้จุดนี้เสี่ยง</button>
-            <button type="button" class="hw-reason" data-reason="oftenForget">มักลืมถูจุดนี้ในชีวิตจริง</button>
-            <button type="button" class="hw-reason" data-reason="touchMany">จุดนี้จับของบ่อย เสี่ยงสะสมเชื้อ</button>
+            <button class="hw-reason" type="button" data-reason="wrongHazHigh">พลาดขั้นตอนนี้บ่อย (wrong/haz สูง)</button>
+            <button class="hw-reason" type="button" data-reason="slowRt">เวลาตอบสนองช้า ทำให้จุดนี้เสี่ยง</button>
+            <button class="hw-reason" type="button" data-reason="confuseStep">สับสนขั้นตอน/ไอคอนของจุดนี้</button>
+            <button class="hw-reason" type="button" data-reason="publicTouch">มักเจอเชื้อจากของสาธารณะ จึงต้องระวัง</button>
           </div>
 
-          <div class="hw-card-row" style="margin-top:12px">
-            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันคำตอบ</button>
+          <div class="hw-card-row" style="margin-top:10px">
+            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยันจุดเสี่ยง</button>
             <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
           </div>
         </div>
 
-        <!-- Create routine -->
         <div class="hw-create" id="createBox" style="display:none">
-          <div class="hw-eval-title">🧩 Create (30 วินาที) — ออกแบบ Routine ของตัวเอง</div>
-          <div class="hw-eval-sub">เลือก 3 สถานการณ์ที่คุณจะ “เตือนตัวเองให้ล้างมือ” แล้วกดบันทึก</div>
-          <div class="hw-eval-sub hw-mini">เวลาที่เหลือ: <span id="createTimer">30</span> วิ</div>
+          <div class="hw-eval-title">✨ Create Routine (30 วิ)</div>
+          <div class="hw-eval-sub">เลือก 3 ช่วง “ต้องล้างมือ” ให้ครบ • เหลือเวลา <b id="createTimer">30</b> วิ</div>
 
-          <div class="hw-routine" id="routineOpts">
-            <button type="button" class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
-            <button type="button" class="hw-rt" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
-            <button type="button" class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
-            <button type="button" class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
-            <button type="button" class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
-            <button type="button" class="hw-rt" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
-          </div>
-
-          <div class="hw-eval-row" style="margin-top:10px">
+          <div class="hw-eval-row">
             <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
             <div class="hw-eval-score" id="createScore">คะแนน: —</div>
           </div>
 
-          <div class="hw-card-row" style="margin-top:12px">
+          <div class="hw-routine" id="routineOpts">
+            <button class="hw-rt" type="button" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
+            <button class="hw-rt" type="button" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
+            <button class="hw-rt" type="button" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
+            <button class="hw-rt" type="button" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
+            <button class="hw-rt" type="button" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
+            <button class="hw-rt" type="button" data-rt="ก่อนจับหน้า/ตา/ปาก">ก่อนจับหน้า/ตา/ปาก</button>
+          </div>
+
+          <div class="hw-card-row" style="margin-top:10px">
             <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>✅ บันทึก Routine</button>
           </div>
         </div>
 
-        <!-- Details toggle -->
-        <button class="hw-ghost" id="btnToggleDetails" type="button" style="margin-top:12px">
-          👩‍🏫 ดูรายละเอียดสำหรับครู/นักวิจัย
-        </button>
+        <!-- ✅ Details toggle -->
+        <div class="hw-card-row" style="margin-top:12px">
+          <button class="hw-ghost" id="btnToggleDetails" type="button">👩‍🏫 ดูรายละเอียดสำหรับครู/นักวิจัย</button>
+        </div>
+
+        <!-- JSON details (hidden by default) -->
         <pre class="hw-pre" id="endJson" hidden></pre>
 
         <div class="hw-card-row" style="margin-top:12px">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
-          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy สรุป</button>
-          <button class="hw-ghost" id="btnBack2" type="button">↩ กลับ HUB</button>
+          <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
+          <button class="hw-ghost" id="btnBack" type="button">↩ กลับ HUB</button>
         </div>
       </div>
     </div>
@@ -209,10 +205,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260220a
   setViewClass();
   document.getElementById('labMode').textContent = (qs('run','play')||'play');
   document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-
-  // hub from start
-  const hub = qs('hub','../hub.html');
-  document.getElementById('btnHubFromStart')?.addEventListener('click', ()=>location.href = hub);
 })();
 </script>
 </body>
