@@ -1,12 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
+// ✅ HUD-aware spawn (never under HUD)
 // ✅ Storm Lightning + Final Boss
 // ✅ MISS = bad hit only (real mistake)
 // ✅ EXPIRE separated (good expired)
-// ✅ BAD BLOCK separated (junk blocked by shield)
-// ✅ End condition uses MISS (bad hit) only
-// ✅ Log throttled (log=1 only) to avoid quota spam
-// FULL v20260303b-HYDRATION-SAFE-STORM-BOSS-MISSFIX-LOGTHROTTLE
+// ✅ BAD BLOCK separated (shield blocks junk)
+// ✅ Background => Pause/Resume (no forced GameOver)
+// ✅ Log throttled (log=1 only)
+// FULL v20260303c-HYDRATION-SAFE-HUDSPAWN-PAUSE
 'use strict';
 
 export function boot(cfg){
@@ -23,45 +24,6 @@ export function boot(cfg){
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
-  // --- cooldown helpers (per-game daily) ---
-  function hhDayKey(){
-    const d=new Date();
-    const yyyy=d.getFullYear();
-    const mm=String(d.getMonth()+1).padStart(2,'0');
-    const dd=String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function cooldownDone(cat, game, pid){
-    const day=hhDayKey();
-    pid=String(pid||'anon').trim()||'anon';
-    cat=String(cat||'nutrition').toLowerCase();
-    game=String(game||'hydration').toLowerCase();
-    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
-    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
-    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
-  }
-  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
-    const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'hydration'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
-    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
-
-    const sp = new URL(location.href).searchParams;
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade'
-    ].forEach(k=>{
-      const v=sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k,v);
-    });
-    return gate.toString();
-  }
 
   // --- deterministic rng ---
   function xmur3(str){
@@ -114,6 +76,7 @@ export function boot(cfg){
 
   const stageEl = DOC.getElementById('stage') || layer.parentElement;
   const stormFx = DOC.getElementById('stormFx');
+  const hudEl = DOC.querySelector('.hud');
 
   function setStorm(on){
     try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
@@ -123,18 +86,14 @@ export function boot(cfg){
   const ui = {
     score: DOC.getElementById('uiScore'),
     time: DOC.getElementById('uiTime'),
-
-    miss: DOC.getElementById('uiMiss'),        // MISS (bad hit only)
-    expire: DOC.getElementById('uiExpire'),    // good expired
-    bad: DOC.getElementById('uiBad'),          // bad hit (same as miss)
-    // optional (if you add it later): block: DOC.getElementById('uiBlock'),
-
+    miss: DOC.getElementById('uiMiss'),
+    expire: DOC.getElementById('uiExpire'),
+    block: DOC.getElementById('uiBlock'),
     grade: DOC.getElementById('uiGrade'),
     water: DOC.getElementById('uiWater'),
     combo: DOC.getElementById('uiCombo'),
     shield: DOC.getElementById('uiShield'),
     phase: DOC.getElementById('uiPhase'),
-
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
 
@@ -154,63 +113,29 @@ export function boot(cfg){
 
   // ===== Difficulty tuning =====
   const TUNE = (function(){
-    // defaults = normal
     let spawnBase=0.78;
     let ttlGood=2.9, ttlBad=3.0;
-    let missLimit=6;           // ✅ REAL miss limit (bad hit only)
+    let missLimit=6;     // REAL miss only
     let waterGain=7.5, waterLoss=6.0;
     let shieldDrop=0.14;
 
-    // storm/boss knobs
-    let stormSec=12;
-    let stormSpawnMul=1.30;
-    let stormBadP=0.45;
-    let stormTtlGoodMul=0.95;
-
-    let bossHpMax=18;
-    let bossSpawnMul=1.15;
-    let bossBadP=0.40;
+    let stormSec=12, stormSpawnMul=1.30, stormBadP=0.45, stormTtlGoodMul=0.95;
+    let bossHpMax=18, bossSpawnMul=1.15, bossBadP=0.40;
 
     if(diff==='easy'){
-      spawnBase=0.66;
-      ttlGood=3.2; ttlBad=3.2;
-      missLimit=8;
-      waterGain=8.5; waterLoss=5.2;
-      shieldDrop=0.10;
-
-      stormSec=10;
-      stormSpawnMul=1.20;
-      stormBadP=0.38;
-      stormTtlGoodMul=1.00;
-
-      bossHpMax=14;
-      bossSpawnMul=1.08;
-      bossBadP=0.34;
+      spawnBase=0.66; ttlGood=3.2; ttlBad=3.2; missLimit=8; waterGain=8.5; waterLoss=5.2; shieldDrop=0.10;
+      stormSec=10; stormSpawnMul=1.20; stormBadP=0.38; stormTtlGoodMul=1.00;
+      bossHpMax=14; bossSpawnMul=1.08; bossBadP=0.34;
     }
-
     if(diff==='hard'){
-      spawnBase=0.95;
-      ttlGood=2.5; ttlBad=2.6;
-      missLimit=5;
-      waterGain=6.8; waterLoss=7.0;
-      shieldDrop=0.18;
-
-      stormSec=14;
-      stormSpawnMul=1.45;
-      stormBadP=0.55;
-      stormTtlGoodMul=0.92;
-
-      bossHpMax=22;
-      bossSpawnMul=1.22;
-      bossBadP=0.50;
+      spawnBase=0.95; ttlGood=2.5; ttlBad=2.6; missLimit=5; waterGain=6.8; waterLoss=7.0; shieldDrop=0.18;
+      stormSec=14; stormSpawnMul=1.45; stormBadP=0.55; stormTtlGoodMul=0.92;
+      bossHpMax=22; bossSpawnMul=1.22; bossBadP=0.50;
     }
 
-    if(view==='cvr'||view==='vr'){
-      ttlGood += 0.15; ttlBad += 0.15;
-    }
+    if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
 
-    return {
-      spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
+    return { spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
       stormSec, stormSpawnMul, stormBadP, stormTtlGoodMul,
       bossHpMax, bossSpawnMul, bossBadP
     };
@@ -227,22 +152,19 @@ export function boot(cfg){
 
   let score=0;
 
-  // ✅ Split counters
-  let missBadHit = 0;       // REAL miss (bad hit no shield)
+  let missBadHit = 0;       // REAL miss
   let missGoodExpired = 0;  // expire
-  let badBlocked = 0;       // bad hit but shield blocks
+  let badBlocked = 0;       // shield blocks junk
 
   let combo=0, bestCombo=0;
   let shield=0;
   let waterPct=30;
 
-  // boss
   let bossOn=false;
   let bossHpMax=TUNE.bossHpMax;
   let bossHp=bossHpMax;
 
-  // phases
-  let phase='normal';       // 'normal'|'storm'|'boss'
+  let phase='normal'; // normal|storm|boss
   let stormLeft=0;
   let stormDone=false;
 
@@ -259,7 +181,6 @@ export function boot(cfg){
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
     const sps = s/played;
-    // ✅ Use REAL miss only (badHit) to compute grade fairly
     const x = sps*10 - missBadHit*0.55 - missGoodExpired*0.08;
     if(x>=70) return 'S';
     if(x>=55) return 'A';
@@ -272,10 +193,9 @@ export function boot(cfg){
     ui.score && (ui.score.textContent=String(score|0));
     ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
 
-    // ✅ MISS = badHit only
     ui.miss && (ui.miss.textContent=String(missBadHit|0));
-    ui.bad && (ui.bad.textContent=String(missBadHit|0));
     ui.expire && (ui.expire.textContent=String(missGoodExpired|0));
+    ui.block && (ui.block.textContent=String(badBlocked|0));
 
     ui.grade && (ui.grade.textContent=gradeFromScore(score));
     ui.water && (ui.water.textContent=`${Math.round(clamp(waterPct,0,100))}%`);
@@ -310,18 +230,35 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ===== Spawn placement (simple HUD-safe band) =====
+  // ===== HUD-aware spawn =====
+  let _hudBottom = 160; // fallback
+  function measureHudBottom(){
+    try{
+      if(!hudEl) return;
+      const rect = hudEl.getBoundingClientRect();
+      if(rect && rect.height > 10){
+        _hudBottom = Math.max(0, rect.bottom);
+      }
+    }catch(e){}
+  }
+  measureHudBottom();
+  WIN.addEventListener('resize', ()=>setTimeout(measureHudBottom, 120), { passive:true });
+  WIN.addEventListener('orientationchange', ()=>setTimeout(measureHudBottom, 180), { passive:true });
+  setInterval(measureHudBottom, 600);
+
   function safeSpawnXY(){
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
 
-    // safe band away from HUD (tuned)
-    const topBan = (view==='mobile') ? 170 : 125;
-    const botPad = (view==='mobile') ? 22 : 24;
+    // ✅ dynamic top ban: HUD bottom + gap
+    const gap = (view==='mobile') ? 14 : 12;
+    const yMin = clamp((_hudBottom - r.top) + gap, pad + 10, r.height - 60);
+
+    // bottom pad to avoid VR UI bar area
+    const bottomPad = (view==='mobile') ? 120 : 90;
 
     const x = pad + r01()*(Math.max(1, r.width - pad*2));
-    const yMin = pad + topBan;
-    const yMax = Math.max(yMin+1, r.height - botPad);
+    const yMax = Math.max(yMin + 1, r.height - bottomPad);
     const y = yMin + r01()*(Math.max(1, yMax - yMin));
     return { x, y };
   }
@@ -345,8 +282,7 @@ export function boot(cfg){
     const obj={ id, el, kind, emoji, born, ttl };
     bubbles.set(id,obj);
 
-    // optional AI hooks
-    try{ cfg.ai?.emit?.('spawn', { kind, id, emoji, ttlSec, phase }); }catch(e){}
+    try{ cfg.ai?.emit?.('spawn', { kind, id, phase, ttlSec }); }catch(e){}
     return obj;
   }
 
@@ -364,8 +300,7 @@ export function boot(cfg){
 
     if(b.kind==='good'){
       combo++; bestCombo=Math.max(bestCombo, combo);
-      const add = 10 + Math.min(12, combo);
-      score += add;
+      score += (10 + Math.min(12, combo));
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
       try{ cfg.ai?.emit?.('hit', { kind:'good', id:b.id, phase }); }catch(e){}
       removeBubble(b.id);
@@ -390,7 +325,7 @@ export function boot(cfg){
       return;
     }
 
-    // ✅ REAL miss only here
+    // REAL miss only here
     missBadHit++;
     combo=0;
     score = Math.max(0, score - 8);
@@ -399,7 +334,7 @@ export function boot(cfg){
     removeBubble(b.id);
   }
 
-  // click/tap (pc/mobile)
+  // click/tap
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.bubble');
@@ -408,7 +343,7 @@ export function boot(cfg){
     if(b) hit(b);
   }, { passive:true });
 
-  // crosshair shoot (VR/cVR)
+  // hha:shoot
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -425,20 +360,18 @@ export function boot(cfg){
     if(best && bestD<=lockPx) return best;
     return null;
   }
-
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    const lockPx = ev?.detail?.lockPx ?? 56;
-    const b = pickClosestToCenter(lockPx);
+    const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
     if(b) hit(b);
   });
 
-  // ===== Logging throttle (avoid quota spam) =====
+  // ===== Logging throttle =====
   let _lastLog = 0;
   function logThrottled(kind, data){
-    if(qs('log','0') !== '1') return;       // default off
+    if(qs('log','0') !== '1') return;
     const t = Date.now();
-    if(t - _lastLog < 2000) return;         // 1 time / 2s
+    if(t - _lastLog < 2000) return;
     _lastLog = t;
     try{ cfg.ai?.emit?.(kind, data); }catch(e){}
   }
@@ -456,7 +389,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-03b_MissFix',
+      gameVersion: 'HydrationVR_SAFE_2026-03-03c_HUDSpawn_Pause',
       device: view,
       runMode,
       diff,
@@ -465,11 +398,9 @@ export function boot(cfg){
       durationPlannedSec: plannedSec,
       durationPlayedSec: Math.round(plannedSec - tLeft),
       scoreFinal: score|0,
-
-      missBadHit: missBadHit|0,            // ✅ REAL miss
-      missGoodExpired: missGoodExpired|0,  // expire
+      missBadHit: missBadHit|0,
+      missGoodExpired: missGoodExpired|0,
       badBlocked: badBlocked|0,
-
       comboMax: bestCombo|0,
       shield: shield|0,
       waterPct: Math.round(clamp(waterPct,0,100)),
@@ -482,6 +413,32 @@ export function boot(cfg){
     };
   }
 
+  // --- cooldown daily helper ---
+  function hhDayKey(){
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function cooldownDone(cat, game, pid){
+    const day=hhDayKey();
+    pid=String(pid||'anon').trim()||'anon';
+    cat=String(cat||'nutrition').toLowerCase();
+    game=String(game||'hydration').toLowerCase();
+    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
+    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
+    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
+  }
+  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+    const gate = new URL('../warmup-gate.html', location.href);
+    gate.searchParams.set('gatePhase','cooldown');
+    gate.searchParams.set('cat', String(cat||'nutrition'));
+    gate.searchParams.set('theme', String(gameKey||'hydration'));
+    gate.searchParams.set('pid', String(pid||'anon'));
+    if(hub) gate.searchParams.set('hub', String(hub));
+    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+    return gate.toString();
+  }
+
   function setEndButtons(summary){
     const done = cooldownDone(HH_CAT, HH_GAME, pid);
     const needCooldown = cooldownRequired && !done;
@@ -490,16 +447,12 @@ export function boot(cfg){
       ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
       ui.btnNextCooldown.onclick = null;
       if(needCooldown){
-        const sp = new URL(location.href).searchParams;
-        const cdnext = sp.get('cdnext') || '';
-        const nextAfterCooldown = cdnext || hubUrl || '../hub.html';
+        const nextAfterCooldown = hubUrl || '../hub.html';
         const url = buildCooldownUrl({ hub: hubUrl, nextAfterCooldown, cat: HH_CAT, gameKey: HH_GAME, pid });
         ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
       }
     }
-    if(ui.btnBackHub){
-      ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
-    }
+    if(ui.btnBackHub){ ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; }; }
     if(ui.btnReplay){
       ui.btnReplay.onclick = ()=>{
         try{
@@ -513,11 +466,9 @@ export function boot(cfg){
     }
     if(ui.btnCopy){
       ui.btnCopy.onclick = async ()=>{
-        try{
-          await navigator.clipboard.writeText(safeJson(summary));
-        }catch(e){
-          try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(_){}
-        }
+        const txt = safeJson(summary);
+        try{ await navigator.clipboard.writeText(txt); }
+        catch(e){ try{ prompt('Copy Summary JSON:', txt); }catch(_){ } }
       };
     }
   }
@@ -525,6 +476,7 @@ export function boot(cfg){
   function showEnd(reason){
     playing=false;
     paused=false;
+    hidePauseOverlay();
 
     for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
     bubbles.clear();
@@ -538,11 +490,73 @@ export function boot(cfg){
       ui.endSub && (ui.endSub.textContent=`reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`);
       ui.endGrade && (ui.endGrade.textContent=summary.grade||'—');
       ui.endScore && (ui.endScore.textContent=String(summary.scoreFinal|0));
-      // show REAL miss in end panel
       ui.endMiss && (ui.endMiss.textContent=String(summary.missBadHit|0));
       ui.endWater && (ui.endWater.textContent=`${summary.waterPct}%`);
       setEndButtons(summary);
     }
+  }
+
+  // ===== Pause overlay (background-safe) =====
+  let pauseOverlay = null;
+
+  function showPauseOverlay(){
+    try{
+      if(pauseOverlay) return;
+      pauseOverlay = DOC.createElement('div');
+      pauseOverlay.style.position = 'fixed';
+      pauseOverlay.style.inset = '0';
+      pauseOverlay.style.zIndex = '95';
+      pauseOverlay.style.display = 'grid';
+      pauseOverlay.style.placeItems = 'center';
+      pauseOverlay.style.background = 'rgba(2,6,23,.72)';
+      pauseOverlay.style.backdropFilter = 'blur(8px)';
+      pauseOverlay.innerHTML = `
+        <div style="
+          width:min(520px, calc(100vw - 24px));
+          border:1px solid rgba(255,255,255,.10);
+          border-radius:22px;
+          padding:16px;
+          background: rgba(2,6,23,.85);
+          box-shadow: 0 18px 40px rgba(0,0,0,.45);
+          text-align:center;
+        ">
+          <div style="font-weight:1000;font-size:22px;">Paused</div>
+          <div style="opacity:.8;margin-top:6px;font-size:12px;">
+            เกมหยุดชั่วคราว (แตะเพื่อเล่นต่อ)
+          </div>
+          <button id="btnResume" style="
+            margin-top:14px;
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(56,189,248,.18);
+            color: #e5e7eb;
+            border-radius:14px;
+            padding:10px 14px;
+            font-weight:1000;
+          ">Resume</button>
+        </div>
+      `;
+      DOC.body.appendChild(pauseOverlay);
+
+      const resume = ()=>{
+        hidePauseOverlay();
+        paused = false;
+        lastTick = nowMs();
+        requestAnimationFrame(loop);
+      };
+
+      const btn = DOC.getElementById('btnResume');
+      if(btn) btn.onclick = resume;
+
+      pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
+    }catch(e){}
+  }
+
+  function hidePauseOverlay(){
+    try{
+      if(!pauseOverlay) return;
+      pauseOverlay.remove();
+      pauseOverlay = null;
+    }catch(e){}
   }
 
   // ===== Core loop =====
@@ -554,18 +568,15 @@ export function boot(cfg){
       shield = Math.max(0, shield-1);
     }
 
-    // Trigger STORM once mid-game
-    if(!stormDone && phase === 'normal'){
-      if(tLeft <= plannedSec*0.62){
-        phase = 'storm';
-        stormLeft = TUNE.stormSec;
-        stormDone = true;
-        setStorm(true);
-        lightning();
-      }
+    // storm once mid-game
+    if(!stormDone && phase === 'normal' && tLeft <= plannedSec*0.62){
+      phase = 'storm';
+      stormLeft = TUNE.stormSec;
+      stormDone = true;
+      setStorm(true);
+      lightning();
     }
 
-    // Storm countdown + lightning
     if(phase === 'storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       if(r01() < dt*1.15) lightning();
@@ -575,7 +586,6 @@ export function boot(cfg){
       }
     }
 
-    // Boss trigger after storm happened
     if(!bossOn && stormDone && phase !== 'storm'){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
         bossOn = true;
@@ -600,7 +610,6 @@ export function boot(cfg){
       let kind='good';
 
       if(inStorm){
-        // storm: bad increases
         if(p < (1.0 - TUNE.stormBadP - 0.07)) kind='good';
         else if(p < (1.0 - 0.07)) kind='bad';
         else kind='shield';
@@ -609,7 +618,6 @@ export function boot(cfg){
         else if(p < (1.0 - 0.08)) kind='bad';
         else kind='shield';
       }else{
-        // normal
         if(p < 0.64) kind='good';
         else if(p < 0.88) kind='bad';
         else kind='shield';
@@ -625,7 +633,7 @@ export function boot(cfg){
     const t=nowMs();
     for(const b of Array.from(bubbles.values())){
       if(t - b.born >= b.ttl){
-        // ✅ expire does NOT increase MISS
+        // expire does NOT increase MISS
         if(b.kind==='good'){
           missGoodExpired++;
           combo=0;
@@ -639,7 +647,6 @@ export function boot(cfg){
 
   function checkEnd(){
     if(tLeft<=0){ showEnd('time'); return true; }
-    // ✅ end by REAL miss only
     if(missBadHit >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
     if(waterPct<=0){ showEnd('dehydrated'); return true; }
     return false;
@@ -649,7 +656,7 @@ export function boot(cfg){
     if(!playing) return;
 
     if(paused){
-      lastTick=nowMs();
+      lastTick = nowMs();
       setHUD();
       requestAnimationFrame(loop);
       return;
@@ -660,19 +667,16 @@ export function boot(cfg){
     lastTick=t;
 
     tLeft=Math.max(0, tLeft - dt);
-
-    // passive dehydration drift
     waterPct = clamp(waterPct - dt*(diff==='hard'?1.35: diff==='easy'?0.95:1.15), 0, 100);
 
     spawnTick(dt);
     updateBubbles();
 
-    // AI HUD (deterministic)
+    // AI HUD
     try{
       const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
-      const expirePressure = clamp(missGoodExpired/20, 0, 1);
+      const expirePressure = clamp(missGoodExpired/25, 0, 1);
       const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
-
       const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
       let hint = 'เล็งกลางจอแล้วกดยิงต่อเนื่อง';
@@ -686,11 +690,7 @@ export function boot(cfg){
       cfg.ai?.setHint?.(hint);
       setAIHud(risk, hint);
 
-      logThrottled('tick', {
-        phase, diff, runMode,
-        missBadHit, missGoodExpired, badBlocked,
-        waterPct: Math.round(waterPct), shield, combo
-      });
+      logThrottled('tick', { phase, diff, missBadHit, missGoodExpired, badBlocked, waterPct, shield, combo });
     }catch(e){}
 
     setHUD();
@@ -698,11 +698,22 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
 
-  // background => end
+  // ✅ background => pause (no forced end)
   DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && playing){ showEnd('background'); }
+    if(!playing) return;
+
+    if(DOC.hidden){
+      paused = true;
+      showPauseOverlay();
+      return;
+    }
+
+    if(paused){
+      showPauseOverlay(); // keep paused until resume tap
+    }
   });
 
+  // start
   try{ WIN[END_SENT_KEY]=0; }catch(e){}
   setHUD();
   requestAnimationFrame(loop);
