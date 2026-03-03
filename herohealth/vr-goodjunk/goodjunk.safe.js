@@ -7,7 +7,8 @@
 // ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
 // ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield (throttled)
 // ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260302-SAFE-HELPPAUSE-AIHUD-ACC-MEDRT-BATTLE-SPAWNSAFE
+// ✅ TIME DEFAULT BY DIFF (Easy=90 Normal=80 Hard=70) unless overridden by cfg.time or ?time=
+// FULL v20260303-SAFE-HELPPAUSE-AIHUD-ACC-MEDRT-BATTLE-SPAWNSAFE-TIMEBYDIFF
 'use strict';
 
 export function boot(cfg){
@@ -211,7 +212,23 @@ export function boot(cfg){
   const view = String(cfg.view || qs('view','mobile')).toLowerCase();
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
+
+  // ✅ default time by diff (if not overridden by cfg.time or ?time=)
+  function defaultTimeByDiff(d){
+    d = String(d||'normal').toLowerCase();
+    if(d === 'easy') return 90;
+    if(d === 'hard') return 70; // PRO
+    return 80;
+  }
+  function resolvePlannedSec(){
+    // precedence: cfg.time > URL time > diff default
+    const hasCfg = (cfg.time != null && cfg.time !== '');
+    if(hasCfg) return Number(cfg.time);
+    const tUrl = qs('time','');
+    if(String(tUrl).trim() !== '') return Number(tUrl);
+    return defaultTimeByDiff(diff);
+  }
+  const plannedSec = clamp(resolvePlannedSec(), 20, 300);
 
   // hub / pid / cat / gameKey
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
@@ -388,7 +405,7 @@ export function boot(cfg){
   let coachLatchMs = 0;
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 3500) return;
+    if(t - coachLatchMs < 3500) return; // a bit faster
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -618,7 +635,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-02_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE_SPAWNSAFE',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-03_HELPPAUSE_AIHUD_ACC_MEDRT_BATTLE_SPAWNSAFE_TIMEBYDIFF',
       device: view,
       runMode: runMode,
       diff: diff,
