@@ -1,8 +1,7 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-Brush VR RUN — BOOT + SAFE (BRIDGE preload + AUTO DOM-FALLBACK)
-FULL v20260303c-BRUSH-RUN-BRIDGE
+Brush RUN — START-FIRST + Tap unlock
+FULL v20260303d-BRUSH-RUN
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,9 +12,8 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
   <title>HeroHealth • Brush</title>
 
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260303c"/>
+  <link rel="stylesheet" href="./brush.css?v=20260303d"/>
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
 
@@ -23,7 +21,6 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
   <div id="br-wrap" data-state="menu">
     <div id="app">
 
-      <!-- HUD -->
       <header id="hud">
         <div class="hud-row">
           <div class="pill" id="phasePill">PHASE: —</div>
@@ -37,7 +34,6 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
           <div class="pill" id="accPill">ACC: 0%</div>
           <div class="pill" id="toolPill">TOOL: BRUSH</div>
           <div class="pill" id="viewPill">VIEW: —</div>
-          <!-- AI pill injected -->
         </div>
       </header>
 
@@ -46,8 +42,7 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
           background="color: #050914"
           renderer="antialias: true; colorManagement: true"
           vr-mode-ui="enabled: false"
-          embedded
-        >
+          embedded>
           <a-entity id="rig" position="0 0 0">
             <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
           </a-entity>
@@ -57,7 +52,6 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
 
           <a-sky color="#070b1b"></a-sky>
 
-          <!-- Tooth placeholder -->
           <a-entity id="tooth"
             geometry="primitive: box; width: 1.3; height: 1.0; depth: 0.7"
             material="color: #e5e7eb; roughness: 0.9; metalness: 0"
@@ -66,20 +60,19 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
           <a-entity id="spawnRoot"></a-entity>
         </a-scene>
 
-        <!-- DOM fallback overlay (auto) -->
+        <!-- DOM fallback overlay -->
         <div id="domTargets" aria-hidden="true"></div>
 
-        <!-- cVR crosshair -->
+        <!-- crosshair -->
         <div id="crosshair"></div>
 
-        <!-- Panels -->
         <div id="panelHelp" class="panel hidden">
           <div class="panel-card">
             <h2>วิธีเล่น Brush</h2>
             <ol>
-              <li>แตะ/ยิง “คราบ” สีเขียว</li>
-              <li>เลี่ยง “เชื้อ” สีแดง</li>
-              <li>ถ้า WebGL ไม่ขึ้น ระบบจะใช้ “เป้าแบบ 2D” อัตโนมัติ</li>
+              <li>แตะ “คราบ” สีเขียว</li>
+              <li>หลบ “เชื้อ” สีแดง</li>
+              <li>บางรุ่น WebGL งอแง → ระบบใช้เป้าแบบ 2D อัตโนมัติ</li>
             </ol>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -110,11 +103,11 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
 
     </div>
 
-    <!-- Tap-to-start overlay -->
+    <!-- Tap overlay (now ONLY unlock, not block boot) -->
     <div id="tapStart" class="tapStart">
       <div class="tapCard">
-        <div class="tapTitle">แตะเพื่อเริ่มเล่น</div>
-        <div class="tapSub">โหมด VR/cVR ต้องเริ่มจาก tap เพื่อให้อินพุตทำงาน</div>
+        <div class="tapTitle">แตะเพื่อปลดล็อก</div>
+        <div class="tapSub">โหมด Mobile/VR บางเครื่องต้อง tap ก่อนเพื่อให้อินพุต/เสียงทำงานลื่น</div>
         <div class="tapRow">
           <button id="tapBtn" class="btn primary">เริ่ม</button>
         </div>
@@ -135,20 +128,14 @@ FULL v20260303c-BRUSH-RUN-BRIDGE
     }catch(e){}
   </script>
 
-  <!-- ✅ BRIDGE: preload SAFE module (works on mobile) -->
+  <!-- preload safe module -->
   <script type="module">
     try{
-      const m = await import('./brush.safe.js?v=20260303c');
-      if (m && typeof m.bootGame === 'function') {
-        window.__BRUSH_BOOTGAME__ = m.bootGame;
-      }
-    }catch(e){
-      // if this fails, boot.js will fallback to dynamic import
-      console.warn('[Brush] preload safe failed', e);
-    }
+      const m = await import('./brush.safe.js?v=20260303d');
+      if (m && typeof m.bootGame === 'function') window.__BRUSH_BOOTGAME__ = m.bootGame;
+    }catch(e){ console.warn('[Brush] preload safe failed', e); }
   </script>
 
-  <!-- BOOT -->
-  <script src="./brush.boot.js?v=20260303c"></script>
+  <script src="./brush.boot.js?v=20260303d"></script>
 </body>
 </html>
