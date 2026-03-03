@@ -1,6 +1,4 @@
 // === /herohealth/vr-brush/brush.fx.js ===
-// Brush FX — toast/pulse (optional module)
-// FULL v20260302-BRUSH-FX
 'use strict';
 
 export function bootFx(){
