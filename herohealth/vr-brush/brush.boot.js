@@ -1,37 +1,66 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// BrushVR BOOT — SAFE (tap-to-start for mobile/cvr/vr)
-// PATCH v20260303-BRUSH-BOOT-SAFE
+// BrushVR BOOT — PRODUCTION (tap-to-start + optional AI HUD)
+// ✅ ai=0 => ไม่โชว์/ไม่ฟัง brush:ai
 (function(){
   'use strict';
   const WIN = window, DOC = document;
-  if(WIN.__BRUSH_BOOTED__) return;
-  WIN.__BRUSH_BOOTED__ = true;
 
-  function qs(k,d=null){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } }
+  const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  function detectTapNeeded(){
-    const v = String(qs('view', DOC.body.getAttribute('data-view')||'')||'').toLowerCase();
-    return (v==='mobile' || v==='cvr' || v==='vr');
+  function isTapNeeded(view){
+    view = String(view||'').toLowerCase();
+    return (view === 'mobile' || view === 'cvr' || view === 'vr');
+  }
+
+  function setupTapStart(start){
+    const tap = DOC.getElementById('tapStart');
+    const btn = DOC.getElementById('tapBtn');
+    if(!tap || !btn){ start(); return; }
+    tap.style.display = 'grid';
+    const go = ()=>{
+      try{ tap.style.display='none'; }catch(_){}
+      start();
+    };
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+    tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); go(); } }, {passive:false});
   }
 
   function boot(){
-    // safe.js is IIFE and already initialized; nothing required.
-    try{ WIN.dispatchEvent(new CustomEvent('brush:boot', { detail:{ ts:Date.now() } })); }catch(_){}
+    const wrap = DOC.getElementById('br-wrap');
+    if(wrap){
+      wrap.dataset.state = wrap.dataset.state || 'menu';
+      wrap.dataset.state = 'play';
+    }
+
+    const ai = String(qs('ai','1')).toLowerCase();
+    if (ai === '0') WIN.__BRUSH_AI_OFF__ = true;
+
+    startEngine();
   }
 
-  function setup(){
-    const tap = DOC.getElementById('tapStart');
-    const btn = DOC.getElementById('tapBtn');
-    if(!detectTapNeeded() || !tap || !btn){ boot(); return; }
-    tap.style.display='grid';
-    const go=()=>{
-      try{ tap.style.display='none'; }catch(_){}
-      boot();
-    };
-    btn.addEventListener('click',(e)=>{ e.preventDefault(); go(); },{passive:false});
-    tap.addEventListener('click',(e)=>{ if(e.target===tap){ e.preventDefault(); go(); } },{passive:false});
+  async function startEngine(){
+    try{
+      const mod = await import('./brush.safe.js?v=20260302');
+      if (!mod || typeof mod.bootGame !== 'function') {
+        console.error('[BrushBOOT] missing bootGame() in brush.safe.js');
+        return;
+      }
+      const api = mod.bootGame();
+      WIN.HHBrush_BOOT = api;
+      if (api && typeof api.start === 'function') await api.start();
+    }catch(e){
+      console.error('[BrushBOOT] startEngine failed', e);
+    }
   }
 
-  if(DOC.readyState==='loading') DOC.addEventListener('DOMContentLoaded', setup);
-  else setup();
+  function init(){
+    const view = String(qs('view','')||DOC.body.getAttribute('data-view')||'pc').toLowerCase();
+    DOC.body.setAttribute('data-view', view);
+
+    if(isTapNeeded(view)) setupTapStart(boot);
+    else boot();
+  }
+
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
 })();
