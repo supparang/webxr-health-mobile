@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-BrushVR — RUN (ABC + Quiz + AI)
-PATCH v20260303-brush-run-abc-quiz
+BrushVR RUN — ABC + AI Prediction Events (NO adaptive)
+PATCH v20260303-BRUSH-RUN-ABC
 -->
 <!doctype html>
 <html lang="th">
@@ -10,44 +10,26 @@ PATCH v20260303-brush-run-abc-quiz
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260303abc"/>
 
-  <style>
-    html,body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
-    body{position:fixed;inset:0;width:100%;height:100%}
-
-    /* Quiz overlay */
-    .br-quiz{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:18px;
-      background:rgba(2,6,23,.58);backdrop-filter:blur(10px)}
-    .br-quiz[hidden]{display:none}
-    .br-quizCard{width:min(680px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;
-      background:rgba(2,6,23,.82);padding:14px;box-shadow:0 22px 90px rgba(0,0,0,.45)}
-    .br-quizTitle{font-weight:1000;font-size:18px}
-    .br-quizSub{margin-top:6px;color:rgba(148,163,184,.95);font-weight:900;line-height:1.5;font-size:13px}
-    .br-choices{margin-top:12px;display:grid;gap:10px}
-    .br-choice{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(148,163,184,.16);border-radius:18px;
-      background:rgba(15,23,42,.35);padding:10px 12px}
-    .br-choice input{margin-top:3px}
-    .br-quizActions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}
-    .br-quizBtn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:10px 12px;
-      background:rgba(255,255,255,.06);color:rgba(229,231,235,.95);font-weight:1000;cursor:pointer}
-    .br-quizBtn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.18)}
-  </style>
+  <link rel="stylesheet" href="./brush.css?v=20260303a"/>
 </head>
-
 <body data-view="pc">
+
+  <!-- fatal -->
   <div id="fatal" class="br-fatal br-hidden"></div>
 
+  <!-- Tap-to-start overlay (mobile unlock) -->
   <div id="tapStart" class="br-tap" style="display:none">
     <div class="br-tapCard">
       <div class="br-tapTitle">🪥 BrushVR</div>
-      <div class="br-tapSub">แตะเพื่อเริ่มเกม (ปลดล็อกทัช/เสียงบนมือถือ)</div>
+      <div class="br-tapSub">แตะเพื่อเริ่ม (กันเสียง/ทัชโดนบล็อกบนมือถือ)</div>
       <button id="tapBtn" class="br-btn br-primary" type="button">แตะเพื่อเริ่ม</button>
     </div>
   </div>
 
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true" background="color:#060a12">
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+  <!-- Minimal A-Frame scene (Enter VR reliability) -->
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true" background="color:#060a12"
+    style="position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.10">
   </a-scene>
 
   <div id="br-wrap" data-view="pc" data-state="menu">
@@ -55,7 +37,7 @@ PATCH v20260303-brush-run-abc-quiz
       <div class="br-brand">
         <span class="br-pill">HeroHealth · Hygiene</span>
         <h1 class="br-title">BrushVR — Plaque Breaker (ABC)</h1>
-        <p class="br-sub">A ยิงให้โดน • B เก็บหลักฐาน 3 แบบ • C ตอบวิเคราะห์เพื่อปิดเกม</p>
+        <p class="br-sub">A: กวาดคราบ • B: เก็บหลักฐาน • C: วิเคราะห์ (Quiz) + ปิดเกม</p>
       </div>
 
       <div class="br-ctx">
@@ -98,30 +80,34 @@ PATCH v20260303-brush-run-abc-quiz
           </div>
 
           <div class="br-mini">
-            <div class="k">AI Prediction</div>
-            <div class="v">Risk <b id="tRisk">0%</b></div>
+            <div class="k">AI Risk (prediction)</div>
+            <div class="v"><span id="tRisk">0%</span> • <span id="tTip">—</span></div>
             <div class="br-bar" style="margin-top:8px"><i id="bRisk" class="fill bad"></i></div>
-            <div class="k" style="margin-top:10px">Tip</div>
-            <div class="v" id="tTip" style="white-space:normal">—</div>
 
             <div class="k" style="margin-top:10px">ตั้งค่า</div>
             <div class="v">diff=<span id="mDiff">-</span> · time=<span id="mTime">-</span></div>
+
+            <div class="k" style="margin-top:10px">cVR</div>
+            <div class="v">view=cvr ยิงจาก crosshair (vr-ui)</div>
           </div>
         </div>
       </section>
     </main>
 
+    <!-- MENU -->
     <div id="br-menu" class="br-menu" aria-hidden="false">
       <div class="br-card">
         <div class="br-cardHead">
           <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
-          <div class="br-cardSub">A ยิงให้โดน • B เก็บ 🍬🌙🚫🪥 • C ตอบวิเคราะห์</div>
+          <div class="br-cardSub">A → B → C เพื่อจบเกม</div>
         </div>
+
         <div class="br-cardList">
-          <div class="item"><b>A</b> = โฟกัสยิงให้โดน (กันพลาดติด ๆ)</div>
-          <div class="item"><b>B</b> = เจอหลักฐาน 3 แบบ ให้ยิงเก็บ</div>
-          <div class="item"><b>C</b> = ตอบคำถาม “Analyze” เพื่อปิดเกม</div>
+          <div class="item"><b>A</b> กวาดคราบให้ไว (กัน miss ติด ๆ)</div>
+          <div class="item"><b>B</b> เก็บหลักฐานให้ครบ 3 แบบ</div>
+          <div class="item"><b>C</b> ทำ Quiz วิเคราะห์ 1 ข้อ แล้วปิดเกม</div>
         </div>
+
         <div class="br-cardActions">
           <button id="btnStart" class="br-btn br-primary" type="button">▶ เริ่มเกม</button>
           <a id="btnBack" class="br-btn br-ghost br-link" href="../hub.html">🏰 กลับ HUB</a>
@@ -129,6 +115,22 @@ PATCH v20260303-brush-run-abc-quiz
       </div>
     </div>
 
+    <!-- QUIZ (Stage C) -->
+    <div id="br-quiz" class="br-quiz" hidden>
+      <div class="br-card">
+        <div class="br-cardHead">
+          <div class="br-cardTitle">🧠 วิเคราะห์ (Stage C)</div>
+          <div class="br-cardSub">เลือกคำตอบที่ “ถูกที่สุด” เพื่อรับโบนัสแล้วจบเกม</div>
+        </div>
+        <div id="quizChoices" class="br-quizChoices"></div>
+        <div class="br-cardActions">
+          <button id="btnQuizSubmit" class="br-btn br-primary" type="button">ส่งคำตอบ</button>
+          <button id="btnQuizSkip" class="br-btn br-ghost" type="button">ข้าม</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- END -->
     <div id="br-end" class="br-end" hidden>
       <div class="br-endCard">
         <div class="br-endHead">
@@ -151,41 +153,21 @@ PATCH v20260303-brush-run-abc-quiz
       </div>
     </div>
 
-    <!-- ✅ QUIZ overlay -->
-    <div id="br-quiz" class="br-quiz" hidden>
-      <div class="br-quizCard">
-        <div class="br-quizTitle">C — Analyze Quiz</div>
-        <div class="br-quizSub">
-          ข้อถาม: ทำไม “น้ำตาล” ถึงทำให้ฟันผุ/เกิดคราบง่ายขึ้น?
-        </div>
-
-        <div id="quizChoices" class="br-choices">
-          <label class="br-choice"><input type="radio" name="quizA" value="a">
-            เพราะน้ำตาลทำให้ฟัน “ลื่น” จนแปรงไม่ออก</label>
-
-          <label class="br-choice"><input type="radio" name="quizA" value="b" checked>
-            เพราะแบคทีเรียย่อยน้ำตาลแล้วสร้าง “กรด” กัดเคลือบฟัน เกิดคราบ/ฟันผุ</label>
-
-          <label class="br-choice"><input type="radio" name="quizA" value="c">
-            เพราะน้ำตาลทำให้ฟัน “แข็งเกินไป” จนแตกง่าย</label>
-        </div>
-
-        <div class="br-quizActions">
-          <button id="btnQuizSkip" class="br-quizBtn" type="button">ข้าม (ได้คะแนนน้อย)</button>
-          <button id="btnQuizSubmit" class="br-quizBtn primary" type="button">ยืนยันคำตอบ</button>
-        </div>
-      </div>
-    </div>
-
     <div id="toast" class="br-toast"></div>
   </div>
 
+  <!-- libs -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- fun boost (optional) -->
   <script src="../vr/fun-boost.js"></script>
   <script src="../vr/fun-boost.fx.js"></script>
-  <script src="../vr/vr-ui.js?v=20260303abc"></script>
 
-  <script src="./brush.safe.js?v=20260303abc"></script>
-  <script src="./brush.boot.js?v=20260303abc"></script>
+  <!-- universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260303a"></script>
+
+  <!-- engine + boot -->
+  <script src="./brush.safe.js?v=20260303a"></script>
+  <script src="./brush.boot.js?v=20260303a"></script>
 </body>
 </html>
