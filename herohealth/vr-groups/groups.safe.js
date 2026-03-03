@@ -1,13 +1,15 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — PRODUCTION (HUD-safe spawn + fair miss + deterministic + hha:shoot + summary hardened)
-// FULL v20260303-GROUPS-SAFE-HUDMISS-HARDEN
+// GroupsVR SAFE — PRODUCTION (HUD-safe spawn + fair miss + easier pacing + mobile aim assist)
+// FULL v20260303-GROUPS-SAFE-HUDMISS-EASIER-AIM
 //
 // ✅ HUD-safe spawn (avoid HUD rectangles on mobile/pc/cVR)
-// ✅ Fair MISS: expiration over HUD does NOT count as miss (prevents "feel correct but miss huge")
+// ✅ Fair MISS: expiration over HUD does NOT count as miss
+// ✅ Easier pacing: longer life + slower spawn + less crowded
+// ✅ Mobile Aim Assist: wider lockPx auto on mobile/cVR
 // ✅ Deterministic RNG (seed string)
 // ✅ hha:shoot supported (cVR crosshair shoot)
 // ✅ Emits: hha:time, hha:score, hha:rank, hha:coach, quest:update, groups:power, groups:group
-// ✅ Telemetry scaffold (local-only) + flush hooks
+// ✅ Telemetry scaffold + flush hooks
 // ✅ AI hooks wired (window.GroupsAIHooks) prediction-only, optional
 //
 (function(){
@@ -40,7 +42,6 @@
 
   function makeRng(seedStr){
     let s = (hash32(seedStr) || 123456789) >>> 0;
-    // xorshift32
     return function(){
       s ^= (s << 13); s >>>= 0;
       s ^= (s >>> 17); s >>>= 0;
@@ -49,9 +50,7 @@
     };
   }
 
-  function pick(rng, arr){
-    return arr[(rng()*arr.length)|0];
-  }
+  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
 
   function rectsOverlap(a,b){
     return !(a.r <= b.l || a.l >= b.r || a.b <= b.t || a.t >= b.b);
@@ -67,28 +66,31 @@
   }
 
   function toLayerRect(layerEl, rc){
-    // convert viewport rect -> layer-local coordinates
     const L = layerEl.getBoundingClientRect();
     return { l: rc.l - L.left, t: rc.t - L.top, r: rc.r - L.left, b: rc.b - L.top };
   }
 
   function randBetween(rng, a,b){ return a + (b-a)*rng(); }
 
+  function viewNow(){
+    return String(DOC.body.getAttribute('data-view')||qs('view','mobile')||'mobile').toLowerCase();
+  }
+
   // ---------------- content: Thai Food Groups mapping (fixed) ----------------
-  // (ตามที่คุณย้ำไว้: หมู่ 1 โปรตีน, 2 คาร์บ, 3 ผัก, 4 ผลไม้, 5 ไขมัน)
   const GROUPS = [
-    { id:1, name:'หมู่ 1 โปรตีน',   icons:['🍗','🥚','🥛','🫘'], good:['🍗','🥚','🥛','🫘'], bad:['🍚','🍞','🥬','🍎','🥑'] },
-    { id:2, name:'หมู่ 2 คาร์โบไฮเดรต', icons:['🍚','🍞','🥔','🍠'], good:['🍚','🍞','🥔','🍠'], bad:['🍗','🥚','🥬','🍎','🥑'] },
-    { id:3, name:'หมู่ 3 ผัก',     icons:['🥬','🥦','🥕','🍄'], good:['🥬','🥦','🥕','🍄'], bad:['🍗','🍚','🍎','🥑','🍰'] },
-    { id:4, name:'หมู่ 4 ผลไม้',    icons:['🍎','🍌','🍇','🍉'], good:['🍎','🍌','🍇','🍉'], bad:['🍗','🍚','🥬','🥑','🍟'] },
-    { id:5, name:'หมู่ 5 ไขมัน',    icons:['🥑','🧈','🫒','🥜'], good:['🥑','🧈','🫒','🥜'], bad:['🍗','🍚','🥬','🍎','🍩'] },
+    { id:1, name:'หมู่ 1 โปรตีน',          good:['🍗','🥚','🥛','🫘'], bad:['🍚','🍞','🥬','🍎','🥑'] },
+    { id:2, name:'หมู่ 2 คาร์โบไฮเดรต',   good:['🍚','🍞','🥔','🍠'], bad:['🍗','🥚','🥬','🍎','🥑'] },
+    { id:3, name:'หมู่ 3 ผัก',            good:['🥬','🥦','🥕','🍄'], bad:['🍗','🍚','🍎','🥑','🍰'] },
+    { id:4, name:'หมู่ 4 ผลไม้',           good:['🍎','🍌','🍇','🍉'], bad:['🍗','🍚','🥬','🥑','🍟'] },
+    { id:5, name:'หมู่ 5 ไขมัน',           good:['🥑','🧈','🫒','🥜'], bad:['🍗','🍚','🥬','🍎','🍩'] },
   ];
 
-  // ---------------- difficulty tuning ----------------
+  // ---------------- difficulty tuning (EASIER) ----------------
+  // เป้าหมาย: “ตีทัน” บนมือถือ และไม่รู้สึกว่าเป้าหนี
   const DIFFS = {
-    easy:   { spawnEveryMs: 750, lifeMs: 1800, maxOnScreen: 6,  scoreGood: 30, scoreBad:-15 },
-    normal: { spawnEveryMs: 620, lifeMs: 1550, maxOnScreen: 7,  scoreGood: 35, scoreBad:-18 },
-    hard:   { spawnEveryMs: 520, lifeMs: 1350, maxOnScreen: 8,  scoreGood: 40, scoreBad:-22 },
+    easy:   { spawnEveryMs: 980, lifeMs: 2600, maxOnScreen: 5,  scoreGood: 30, scoreBad:-10 },
+    normal: { spawnEveryMs: 860, lifeMs: 2350, maxOnScreen: 6,  scoreGood: 35, scoreBad:-12 },
+    hard:   { spawnEveryMs: 740, lifeMs: 2100, maxOnScreen: 7,  scoreGood: 40, scoreBad:-14 },
   };
 
   function calcGrade(accPct){
@@ -105,14 +107,12 @@
     _layer: null,
     _running: false,
     _t0: 0,
-    _lastTick: 0,
     _lastSpawn: 0,
     _raf: 0,
     _timer: null,
 
     _rng: null,
     _diffKey: 'normal',
-    _cfg: null,
     _ctx: null,
 
     _targets: [],
@@ -127,14 +127,13 @@
     _combo: 0,
     _comboMax: 0,
 
-    // quest/boss-ish
+    // quest
     _groupIdx: 0,
     _goalTotal: 12,
     _goalNow: 0,
     _miniTitle: 'คอมโบติดกัน 5 ครั้ง',
     _miniTotal: 5,
     _miniNow: 0,
-    _miniTimeLeft: 0,
 
     _power: 0,
     _powerNeed: 8,
@@ -144,6 +143,10 @@
     _avoidRects: [],
     _avoidAt: 0,
 
+    // shoot throttle (กัน miss จากการแตะรัว)
+    _lastShootAt: 0,
+    _shootCooldownMs: 65,
+
     setLayerEl(el){
       this._layer = el;
     },
@@ -151,14 +154,19 @@
     start(diffKey, ctx){
       this.stop();
 
-      this._diffKey = (diffKey in DIFFS) ? diffKey : 'normal';
       this._ctx = ctx || {};
       const seedStr = String(this._ctx.seed || Date.now());
       this._rng = makeRng(seedStr);
 
+      // diff
+      this._diffKey = (diffKey in DIFFS) ? diffKey : 'normal';
+
+      // ✅ slow mode for demo/test: ?slow=1 forces easy
+      const slow = String(qs('slow','0')||'0');
+      if(slow === '1') this._diffKey = 'easy';
+
       this._running = true;
       this._t0 = nowMs();
-      this._lastTick = this._t0;
       this._lastSpawn = this._t0;
 
       this._timeLeft = Number(this._ctx.time || 90) | 0;
@@ -178,12 +186,16 @@
       this._goalNow = 0;
 
       this._miniNow = 0;
-      this._miniTimeLeft = 0;
 
       this._power = 0;
       this._bossCleared = false;
 
-      // AI enable: explicit query ai=1 or ctx.aiEnabled
+      this._avoidRects = [];
+      this._avoidAt = 0;
+
+      this._lastShootAt = 0;
+
+      // AI enable (optional)
       const aiQ = String(qs('ai','0')||'0');
       const aiEnabled = (aiQ === '1' || aiQ === 'true' || this._ctx.aiEnabled === true);
       if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.setEnabled === 'function'){
@@ -197,14 +209,12 @@
 
       this._bindInputOnce();
 
-      // timer: countdown each second
+      // countdown
       this._timer = setInterval(()=>{
         if(!this._running) return;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         emit('hha:time', { left: this._timeLeft });
-        if(this._timeLeft <= 0){
-          this._end('time');
-        }
+        if(this._timeLeft <= 0) this._end('time');
       }, 1000);
 
       this._raf = requestAnimationFrame(this._tick.bind(this));
@@ -218,36 +228,29 @@
       this._timer = null;
 
       this._clearTargets();
-      // keep layer but remove remnants
       this._clearLayer();
     },
 
     _clearLayer(){
       const L = this._layer;
       if(!L) return;
-      try{
-        // remove only targets we created
-        const nodes = L.querySelectorAll('.tgt');
-        nodes.forEach(n=>n.remove());
-      }catch(_){}
+      try{ L.querySelectorAll('.tgt').forEach(n=>n.remove()); }catch(_){}
     },
 
     _clearTargets(){
       try{
-        this._targets.forEach(t=>{
-          try{ if(t.el) t.el.remove(); }catch(_){}
-        });
+        this._targets.forEach(t=>{ try{ t.el && t.el.remove(); }catch(_){ } });
       }catch(_){}
       this._targets = [];
     },
 
-    _tick(t){
+    _tick(){
       if(!this._running) return;
 
       const cfg = DIFFS[this._diffKey];
       const now = nowMs();
 
-      // refresh HUD avoid rects every ~350ms (cheap enough)
+      // refresh avoid rects
       if(now - this._avoidAt > 350){
         this._avoidRects = this._computeAvoidRects();
         this._avoidAt = now;
@@ -261,10 +264,10 @@
         }
       }
 
-      // update targets
+      // expire
       this._updateTargets(now);
 
-      // AI tick hook
+      // AI tick
       if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.onTick === 'function'){
         try{ WIN.GroupsAIHooks.onTick(this._ctx, { t: now, miss:this._miss, combo:this._combo, acc:this._accPct() }); }catch(_){}
       }
@@ -276,46 +279,45 @@
       const L = this._layer;
       if(!L) return [];
 
-      // These are the actual HUD blocks in your groups-vr.html
-      const ids = ['.topbar', '.hudTop'];
-      // mobile hides hudBottom; still safe to include if present
-      const maybe = ['.hudBottom', '#coachToast'];
-
       const out = [];
-      const pushEl = (sel, pad)=>{
+      const pushSel = (sel, pad)=>{
         try{
           const el = DOC.querySelector(sel);
           if(!el) return;
           const r = elRect(el);
-          if(r.w < 4 || r.h < 4) return;
-          const infl = rectInflate(r, pad);
-          out.push(toLayerRect(L, infl));
+          if(r.w < 8 || r.h < 8) return;
+          out.push(toLayerRect(L, rectInflate(r, pad)));
         }catch(_){}
       };
 
-      ids.forEach(sel=>pushEl(sel, 10));
-      maybe.forEach(sel=>pushEl(sel, 8));
+      // HUD blocks
+      pushSel('.topbar', 10);
+      pushSel('.hudTop', 10);
+      pushSel('#coachToast', 10);
+      pushSel('.hudBottom', 10);
+      pushSel('#endOverlay', 4);
 
-      // also avoid bottom vr-ui buttons area (ENTER VR / RECENTER)
-      // estimate: bottom band height 86 (mobile) / 106 (cVR)
+      // bottom band for vr-ui
       try{
         const lr = L.getBoundingClientRect();
-        const view = String(DOC.body.getAttribute('data-view')||'').toLowerCase();
-        const bandH = (view === 'cvr') ? 112 : 92;
-        out.push({ l: 0, r: lr.width, t: lr.height - bandH, b: lr.height });
+        const v = viewNow();
+        const bandH = (v === 'cvr') ? 118 : 96;
+        out.push({ l:0, r: lr.width, t: lr.height - bandH, b: lr.height });
       }catch(_){}
 
-      // sanitize: keep only rects that intersect layer bounds
-      const Lr = elRect(L);
-      const W = Lr.w, H = Lr.h;
-      return out
-        .map(rc=>({
+      // clamp
+      try{
+        const lr = L.getBoundingClientRect();
+        const W = lr.width, H = lr.height;
+        return out.map(rc=>({
           l: clamp(rc.l, -80, W+80),
           t: clamp(rc.t, -80, H+80),
           r: clamp(rc.r, -80, W+80),
           b: clamp(rc.b, -80, H+80),
-        }))
-        .filter(rc=> (rc.r-rc.l) > 10 && (rc.b-rc.t) > 10);
+        })).filter(rc=> (rc.r-rc.l) > 10 && (rc.b-rc.t) > 10);
+      }catch(_){
+        return out;
+      }
     },
 
     _spawnOne(){
@@ -323,12 +325,16 @@
       if(!L) return;
 
       const cfg = DIFFS[this._diffKey];
-
       const group = GROUPS[this._groupIdx % GROUPS.length];
-      const icon = pick(this._rng, group.good.concat(group.bad));
+
+      // bias: ให้ของถูกหมู่เยอะขึ้นเล็กน้อย เพื่อ “สนุก-ทันมือ”
+      const roll = this._rng();
+      const icon = (roll < 0.72)
+        ? pick(this._rng, group.good)
+        : pick(this._rng, group.bad);
+
       const isGood = group.good.includes(icon);
 
-      // create element
       const el = DOC.createElement('div');
       el.className = 'tgt';
       el.textContent = icon;
@@ -336,30 +342,27 @@
       el.setAttribute('data-group', String(group.id));
       el.setAttribute('data-id', String(this._targetId++));
 
-      // position (HUD-safe)
       const lr = L.getBoundingClientRect();
       const W = Math.max(1, lr.width);
       const H = Math.max(1, lr.height);
 
-      const size = 74; // css matches
+      const size = 74;
       const pad = 8;
-      const tries = 24;
 
-      let x=pad, y=pad, ok=false, nearHud=false;
+      let x=pad, y=pad, nearHud=false;
 
-      for(let i=0;i<tries;i++){
-        x = randBetween(this._rng, pad, Math.max(pad, W - size - pad));
-        y = randBetween(this._rng, pad, Math.max(pad, H - size - pad));
+      for(let i=0;i<28;i++){
+        const tx = randBetween(this._rng, pad, Math.max(pad, W - size - pad));
+        const ty = randBetween(this._rng, pad, Math.max(pad, H - size - pad));
+        const rc = { l:tx, t:ty, r:tx+size, b:ty+size };
 
-        const rc = { l:x, t:y, r:x+size, b:y+size };
         let bad=false;
         for(const a of this._avoidRects){
           if(rectsOverlap(rc, a)){ bad=true; nearHud=true; break; }
         }
-        if(!bad){ ok=true; break; }
+        if(!bad){ x=tx; y=ty; nearHud=false; break; }
       }
 
-      // if still not ok, place but mark nearHud
       el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
       L.appendChild(el);
 
@@ -378,23 +381,18 @@
 
       this._targets.push(target);
 
-      // click handler (tap to shoot on pc/mobile)
       el.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
         this._onHit(target, 'tap');
       }, { passive:false });
 
-      // AI hook
       if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.onSpawn === 'function'){
         try{ WIN.GroupsAIHooks.onSpawn(this._ctx, { id:target.id, icon, isGood, groupId:group.id, nearHud:target.nearHud }); }catch(_){}
       }
     },
 
     _updateTargets(now){
-      const L = this._layer;
-      if(!L) return;
-
       const keep = [];
       for(const t of this._targets){
         if(!t || !t.el) continue;
@@ -403,22 +401,17 @@
         if(age >= t.lifeMs && !t.expired){
           t.expired = true;
 
-          // MISS fairness: if target overlaps HUD at expiry -> do NOT count miss
+          // ✅ Fair miss: if overlaps HUD at expiry, do not count
           const overHud = this._isTargetOverHud(t);
-
           const countedMiss = (!overHud);
+
           if(countedMiss){
             this._miss++;
             this._combo = 0;
             this._miniNow = 0;
-            emit('hha:coach', { text:'พลาด! ลองช้าลงนิด แล้วดูหมู่ก่อนยิง', mood:'neutral' });
             this._emitScore();
-          } else {
-            // silently ignore (HUD-blocked)
-            // optional: coach only if frequent
           }
 
-          // AI hook
           if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.onExpire === 'function'){
             try{ WIN.GroupsAIHooks.onExpire(this._ctx, { id:t.id, overHud, countedMiss }); }catch(_){}
           }
@@ -440,7 +433,6 @@
         const tr = elRect(t.el);
         const Lr = elRect(L);
         const rc = { l: tr.l - Lr.l, t: tr.t - Lr.t, r: tr.r - Lr.l, b: tr.b - Lr.t };
-
         for(const a of this._avoidRects){
           if(rectsOverlap(rc, a)) return true;
         }
@@ -457,16 +449,26 @@
       // hha:shoot from vr-ui (crosshair/tap-to-shoot)
       WIN.addEventListener('hha:shoot', (ev)=>{
         if(!this._running) return;
+
+        // shot throttle
+        const tn = nowMs();
+        if(tn - (this._lastShootAt||0) < this._shootCooldownMs) return;
+        this._lastShootAt = tn;
+
         const d = ev?.detail || {};
         const x = Number(d.x), y = Number(d.y);
         if(!Number.isFinite(x) || !Number.isFinite(y)) return;
 
-        // choose nearest target within lockPx
-        const lockPx = Number(d.lockPx || 16);
+        // base lockPx from vr-ui, then widen on mobile/cVR
+        let lockPx = Number(d.lockPx || 16);
+        const v = viewNow();
+        if(v === 'mobile') lockPx = Math.max(lockPx, 34);
+        if(v === 'cvr')    lockPx = Math.max(lockPx, 26);
+
         const hit = this._pickTargetByPoint(x, y, lockPx);
         if(hit){
           this._onHit(hit, d.source || 'shoot');
-        } else {
+        }else{
           // shot but no hit
           this._shots++;
           this._combo = 0;
@@ -480,19 +482,18 @@
       const L = this._layer;
       if(!L) return null;
 
-      // layer coords expected from vr-ui? (typically viewport center)
-      // convert viewport coords -> layer coords
       const lr = L.getBoundingClientRect();
       const lx = x - lr.left;
       const ly = y - lr.top;
 
       let best=null, bestD=1e9;
+
       for(const t of this._targets){
         if(!t || !t.el || t.expired) continue;
         try{
           const r = elRect(t.el);
-          const cx = (r.left + r.right)/2 - lr.left;
-          const cy = (r.top + r.bottom)/2 - lr.top;
+          const cx = (r.l + r.r)/2 - lr.left;
+          const cy = (r.t + r.b)/2 - lr.top;
           const dx = cx - lx, dy = cy - ly;
           const d = Math.hypot(dx,dy);
           if(d <= lockPx && d < bestD){
@@ -510,8 +511,9 @@
 
       const cfg = DIFFS[this._diffKey];
       const group = GROUPS[this._groupIdx % GROUPS.length];
-      const shouldBeGood = true; // correct = shoot good of current group
-      const isCorrect = (t.isGood === shouldBeGood) && (t.groupId === group.id);
+
+      // correct = good item of current group
+      const isCorrect = (t.isGood === true) && (t.groupId === group.id);
 
       this._shots++;
 
@@ -521,21 +523,17 @@
         this._comboMax = Math.max(this._comboMax, this._combo);
         this._miniNow = Math.min(this._miniTotal, this._miniNow + 1);
 
-        // quest progress
         this._goalNow = Math.min(this._goalTotal, this._goalNow + 1);
-
-        // power build
         this._power = Math.min(this._powerNeed, this._power + 1);
 
-        this._score += cfg.scoreGood + Math.min(15, this._combo|0);
+        this._score += cfg.scoreGood + Math.min(14, this._combo|0);
 
-        // clear mini when reached
         if(this._miniNow >= this._miniTotal){
-          emit('hha:coach', { text:'MINI สำเร็จ! คอมโบมาแล้ว 🔥', mood:'happy' });
+          emit('hha:coach', { text:'MINI สำเร็จ! +โบนัส 🔥', mood:'happy' });
+          this._score += 45;
           this._miniNow = 0;
         }
 
-        // group switch when goal done
         if(this._goalNow >= this._goalTotal){
           this._goalNow = 0;
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
@@ -544,31 +542,25 @@
           emit('groups:group', { id:ng.id, name: ng.name });
         }
 
-        // boss-ish clear when power full
         if(this._power >= this._powerNeed && !this._bossCleared){
           this._bossCleared = true;
           emit('hha:coach', { text:'POWER เต็ม! ผ่านช่วงยาก ✅', mood:'happy' });
         }
-
-      } else {
-        // wrong hit
+      }else{
         this._combo = 0;
         this._miniNow = 0;
         this._score += cfg.scoreBad;
         emit('hha:coach', { text:'ผิดหมู่! ดูชื่อหมู่ก่อนยิงนะ', mood:'neutral' });
       }
 
-      // remove target
       try{ t.el.remove(); }catch(_){}
       t.expired = true;
       this._targets = this._targets.filter(x=>x!==t);
 
-      // emits
       this._emitScore();
       this._emitQuest();
       emit('groups:power', { charge:this._power, threshold:this._powerNeed });
 
-      // AI hook
       if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.onHit === 'function'){
         try{ WIN.GroupsAIHooks.onHit(this._ctx, { id:t.id, correct:isCorrect, groupId:t.groupId, icon:t.icon, source }); }catch(_){}
       }
@@ -581,7 +573,15 @@
     },
 
     _emitScore(){
-      emit('hha:score', { score:this._score|0, combo:this._combo|0, miss:this._miss|0, misses:this._miss|0, shots:this._shots|0, goodShots:this._goodShots|0, accuracyPct:this._accPct() });
+      emit('hha:score', {
+        score:this._score|0,
+        combo:this._combo|0,
+        miss:this._miss|0,
+        misses:this._miss|0,
+        shots:this._shots|0,
+        goodShots:this._goodShots|0,
+        accuracyPct:this._accPct()
+      });
       emit('hha:rank', { grade: calcGrade(this._accPct()) });
     },
 
@@ -614,7 +614,6 @@
       try{ if(this._timer) clearInterval(this._timer); }catch(_){}
       this._timer = null;
 
-      // summarize
       const acc = this._accPct();
       const summary = {
         reason: reason || 'time',
@@ -624,26 +623,22 @@
         goodShots: this._goodShots|0,
         accuracyPct: acc,
         grade: calcGrade(acc),
-
         seed: String(this._ctx && this._ctx.seed || ''),
         runMode: String(this._ctx && this._ctx.runMode || 'play'),
         diff: String(this._diffKey),
         style: 'mix',
-        view: String(DOC.body.getAttribute('data-view')||qs('view','mobile')||'mobile'),
+        view: viewNow(),
         comboMax: this._comboMax|0,
-        miniCleared: this._bossCleared ? true : (this._comboMax >= 5),
+        miniCleared: (this._comboMax >= 5),
         bossCleared: !!this._bossCleared,
-        aiEnabled: !!(WIN.GroupsAIHooks && WIN.GroupsAIHooks.enabled)
+        aiEnabled: !!(String(qs('ai','0')) === '1')
       };
 
-      // AI hook end
       if(WIN.GroupsAIHooks && typeof WIN.GroupsAIHooks.onEnd === 'function'){
         try{ WIN.GroupsAIHooks.onEnd(this._ctx, summary); }catch(_){}
       }
 
       emit('hha:end', summary);
-
-      // cleanup targets after end screen triggers
       this._clearTargets();
     }
   };
@@ -652,9 +647,7 @@
   const Telemetry = {
     _lastFlushAt: 0,
     flush(summary){
-      // placeholder: your cloud logger can hook here later
       this._lastFlushAt = Date.now();
-      // (no network in this patch)
       return true;
     }
   };
@@ -675,17 +668,14 @@
 
   // expose API
   WIN.GroupsVR = {
-    version: 'v20260303-GROUPS-SAFE-HUDMISS-HARDEN',
+    version: 'v20260303-GROUPS-SAFE-HUDMISS-EASIER-AIM',
     GameEngine: Engine,
     Telemetry,
     bindFlushOnLeave
   };
 
-  // optional debug ping
   try{
     const dbg = String(qs('debug','0')||'0');
-    if(dbg === '1'){
-      console.log('[GroupsVR] loaded', WIN.GroupsVR.version);
-    }
+    if(dbg === '1') console.log('[GroupsVR] loaded', WIN.GroupsVR.version);
   }catch(_){}
 })();
