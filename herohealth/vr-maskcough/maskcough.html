@@ -1,3 +1,10 @@
+<!-- === /herohealth/vr-maskcough/maskcough.html ===
+Mask & Cough (Analyze) — RUN PAGE — PRODUCTION
+PATCH v20260302b
+✅ FIX: CSS path 404 -> use ./maskcough.css (file is in same folder)
+✅ SAFEGUARD: [hidden] always display:none (prevents end overlay showing early)
+✅ BUMP: v=20260302b to bypass cache
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,8 +14,11 @@
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./css/maskcough.css?v=20260223a"/>
+  <!-- ✅ SAFEGUARD -->
+  <style>[hidden]{display:none!important}</style>
+
+  <!-- ✅ CSS (FIXED PATH) -->
+  <link rel="stylesheet" href="./maskcough.css?v=20260302b"/>
 </head>
 <body>
   <!-- Global FX -->
@@ -124,11 +134,11 @@
   </div>
 
   <!-- Optional (if present in /herohealth/vr/) -->
-  <script src="../vr/fun-boost.js?v=20260223a"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260223a"></script>
-  <script src="../vr/vr-ui.js?v=20260223a"></script>
+  <script src="../vr/fun-boost.js?v=20260302b"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260302b"></script>
+  <script src="../vr/vr-ui.js?v=20260302b"></script>
 
   <!-- Engine -->
-  <script src="./maskcough.safe.js?v=20260223a"></script>
+  <script src="./maskcough.safe.js?v=20260302b"></script>
 </body>
 </html>
