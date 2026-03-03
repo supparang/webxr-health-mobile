@@ -1,13 +1,15 @@
-// === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
+// === /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk.safe.js ===
+// GoodJunkVR SAFE — PRODUCTION (FX + Coach + deterministic + end-event hardened + HUD-safe spawn)
 // ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
 // ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// ✅ AI HUD: hazardRisk + next watchout (+ reasons)
-// ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
-// ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield (throttled)
+// ✅ AI Hooks wired (prediction only; NO adaptive). AI Coach explainable: top-2 risk factors
+// ✅ AI HUD: hazardRisk + next watchout (+ reasons in coach)
+// ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only)
+// ✅ hha:score event (throttled) + battle push (optional)
 // ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// FULL v20260303-SAFE-AI-SHOTNONE-REASONS
+// ✅ NEW: 3-phase mini-mission: Warm → Trick → Boss (grade5 C1 fun, not frustrating)
+// ✅ NEW: PRO switch (?pro=1): Trick stronger + fair shields + combo multiplier (combo>=8)
+// FULL v20260303-GOODJUNK-SOLO-WARMTRICKBOSS-PRO-AICOACH-EXPLAIN
 'use strict';
 
 export function boot(cfg){
@@ -21,6 +23,9 @@ export function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const $ = (id)=> DOC.getElementById(id);
+
+  // ---------- PRO switch (grade5 spicy but fair) ----------
+  const PRO = (String(qs('pro','0')) === '1');
 
   // ---------- BATTLE (optional) ----------
   let battle = null;
@@ -73,11 +78,13 @@ export function boot(cfg){
 
     const sp = new URL(location.href).searchParams;
     [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log','api',
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
+      // battle passthrough
       'battle','room','autostart','forfeit',
-      'ai'
+      // ai/pro passthrough
+      'ai','pro'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -262,6 +269,21 @@ export function boot(cfg){
       ttlGood += 0.15;
       ttlJunk += 0.15;
     }
+
+    // PRO: hard+pro => a bit harder but still fair
+    if(PRO && diff==='hard'){
+      spawnBase += 0.08;
+      ttlGood   -= 0.12;
+      ttlJunk   -= 0.08;
+      ttlBonus  -= 0.08;
+      stormMult += 0.06;
+      bossHp    += 3;
+      // fairness: do NOT reduce lifeMissLimit
+    }
+    ttlGood = Math.max(1.75, ttlGood);
+    ttlJunk = Math.max(1.90, ttlJunk);
+    ttlBonus= Math.max(1.65, ttlBonus);
+
     return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, stormMult, bossHp };
   })();
 
@@ -353,7 +375,7 @@ export function boot(cfg){
     }
   }
 
-  // ---------- Coach ----------
+  // ---------- Coach (micro tips + explainable AI reasons) ----------
   const coach = DOC.createElement('div');
   coach.style.position = 'fixed';
   coach.style.left = '10px';
@@ -384,9 +406,10 @@ export function boot(cfg){
 
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
+
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 3500) return;
+    if(t - coachLatchMs < 3200) return; // faster for grade5
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -397,18 +420,12 @@ export function boot(cfg){
     }, 2200);
   }
 
-  // ---------- AI HUD (with reasons) ----------
+  // ---------- AI HUD ----------
   function setAIHud(pred){
     try{
       if(!pred) return;
-      if(hud.aiRisk && typeof pred.hazardRisk === 'number'){
-        hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      }
-      if(hud.aiHint){
-        const hint = String((pred.next5 && pred.next5[0]) || '—');
-        const rs = Array.isArray(pred.reasons) ? pred.reasons.filter(Boolean).slice(0,1) : [];
-        hud.aiHint.textContent = rs.length ? `${hint} • ${rs[0]}` : hint;
-      }
+      if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
+      if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || pred.watchout || '—');
     }catch(e){}
   }
 
@@ -418,7 +435,7 @@ export function boot(cfg){
   let tLeft = plannedSec;
   let lastTick = nowMs();
 
-  // pause hook
+  // Help Pause Hook
   let paused = false;
   WIN.__GJ_SET_PAUSED__ = function(on){
     paused = !!on;
@@ -449,8 +466,28 @@ export function boot(cfg){
   let shots = 0;
   let hits  = 0;
 
-  const goal = { name:'Daily', desc:'Hit GOOD 20', cur:0, target:20 };
-  const mini = { name:'—', t:0 };
+  // ---------- 3-phase mini-mission (Warm -> Trick -> Boss) ----------
+  const mini = {
+    phase: 'warm',     // warm | trick | boss
+    name: 'WARM',
+    warmGoal: 8,
+    warmDone: 0,
+    trickSec: 12,
+    trickLeft: 0,
+    bossReady: false
+  };
+
+  // PRO fairness shield: once per phase
+  let proShieldGiven = { warm:false, trick:false, boss:false };
+  function proGiveShieldOnce(phase){
+    if(!PRO) return;
+    if(proShieldGiven[phase]) return;
+    proShieldGiven[phase] = true;
+    shield = clamp(shield + 1, 0, 9);
+    try{ sayCoach('PRO โบนัสแฟร์: แจกโล่ฟรี 1 🛡️'); }catch(e){}
+  }
+
+  const goal = { name:'Daily', desc:'—', cur:0, target:20 };
 
   let bossActive = false;
   let bossHpMax = TUNE.bossHp;
@@ -461,673 +498,4 @@ export function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
-  function layerRect(){ return layer.getBoundingClientRect(); }
-
-  // spawn-safe from window.__HHA_SPAWN_SAFE__
-  function getSpawnSafeLocal(){
-    const r = layerRect();
-    let s = null;
-    try{ s = WIN.__HHA_SPAWN_SAFE__ || null; }catch(e){ s = null; }
-
-    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
-      let xMin = Number(s.xMin) - r.left;
-      let xMax = Number(s.xMax) - r.left;
-      let yMin = Number(s.yMin) - r.top;
-      let yMax = Number(s.yMax) - r.top;
-
-      xMin = clamp(xMin, 0, r.width);
-      xMax = clamp(xMax, 0, r.width);
-      yMin = clamp(yMin, 0, r.height);
-      yMax = clamp(yMax, 0, r.height);
-
-      if((xMax - xMin) >= 160 && (yMax - yMin) >= 180){
-        return { xMin, xMax, yMin, yMax, w:r.width, h:r.height };
-      }
-    }
-
-    const pad = 18;
-    const yMin = Math.min(r.height - 180, 190);
-    const yMax = Math.max(yMin + 180, r.height - 130);
-    return {
-      xMin: pad,
-      xMax: Math.max(pad + 160, r.width - pad),
-      yMin: clamp(yMin, pad, Math.max(pad, r.height - 220)),
-      yMax: clamp(yMax, Math.max(pad+180, yMin+180), Math.max(pad+240, r.height - pad)),
-      w: r.width,
-      h: r.height
-    };
-  }
-
-  function gradeFromScore(s){
-    const played = Math.max(1, plannedSec - tLeft);
-    const sps = s / played;
-    const pen = missTotal * 6;
-    const x = sps*10 - pen*0.4;
-    if(x >= 70) return 'S';
-    if(x >= 55) return 'A';
-    if(x >= 40) return 'B';
-    if(x >= 28) return 'C';
-    return 'D';
-  }
-
-  function median(arr){
-    if(!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const m = (a.length/2)|0;
-    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
-  }
-
-  function accPct(){
-    return shots>0 ? Math.round((hits/shots)*1000)/10 : 0;
-  }
-
-  // emit score event (throttled) + battle push
-  let lastScoreEmitMs = 0;
-  function emitScoreEvent(force=false){
-    const t = nowMs();
-    if(!force && (t - lastScoreEmitMs) < 250) return;
-    lastScoreEmitMs = t;
-
-    try{
-      const payload = {
-        score: score|0,
-        miss: missTotal|0,
-        accPct: accPct(),
-        shots: shots|0,
-        hits: hits|0,
-        combo: combo|0,
-        comboMax: bestCombo|0,
-        feverPct: +clamp(fever,0,100),
-        shield: shield|0,
-        missGoodExpired: missGoodExpired|0,
-        missJunkHit: missJunkHit|0,
-        medianRtGoodMs: Math.round(median(rtList))|0
-      };
-      WIN.dispatchEvent(new CustomEvent('hha:score', { detail: payload }));
-      try{ battle?.pushScore?.(payload); }catch(e){}
-    }catch(e){}
-  }
-
-  function setHUD(){
-    if(hud.score) hud.score.textContent = String(score|0);
-    if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
-    if(hud.miss) hud.miss.textContent = String(missTotal|0);
-    if(hud.grade) hud.grade.textContent = gradeFromScore(score);
-
-    if(hud.goal) hud.goal.textContent = goal.name;
-    if(hud.goalCur) hud.goalCur.textContent = String(goal.cur|0);
-    if(hud.goalTarget) hud.goalTarget.textContent = String(goal.target|0);
-    if(hud.goalDesc) hud.goalDesc.textContent = goal.desc;
-
-    if(hud.mini) hud.mini.textContent = mini.name;
-    if(hud.miniTimer) hud.miniTimer.textContent = mini.t>0 ? `${Math.ceil(mini.t)}s` : '—';
-
-    if(feverFill) feverFill.style.width = `${clamp(fever,0,100)}%`;
-    if(feverText) feverText.textContent = `${Math.round(clamp(fever,0,100))}%`;
-
-    if(shieldPills){
-      if(shield<=0) shieldPills.textContent = '—';
-      else shieldPills.textContent = '🛡️'.repeat(Math.min(6, shield));
-    }
-
-    if(bossBar){
-      if(!bossActive){
-        bossBar.setAttribute('aria-hidden','true');
-      }else{
-        bossBar.setAttribute('aria-hidden','false');
-        const hpPct = (bossHpMax>0) ? (bossHp/bossHpMax)*100 : 0;
-        if(bossFill) bossFill.style.width = `${clamp(hpPct,0,100)}%`;
-        if(bossHint){
-          bossHint.textContent = bossPhase===0 ? 'Shield up! Break 🛡️ first' : 'Weakspot 🎯 ! Big damage';
-        }
-      }
-    }
-
-    if(progressWrap && progressFill){
-      const p = (plannedSec>0) ? (1 - (tLeft/plannedSec)) : 0;
-      progressWrap.setAttribute('aria-hidden','false');
-      progressFill.style.width = `${clamp(p*100,0,100)}%`;
-    }
-
-    if(lowTimeOverlay){
-      if(tLeft <= 5 && tLeft > 0){
-        lowTimeOverlay.setAttribute('aria-hidden','false');
-        if(lowTimeNum) lowTimeNum.textContent = String(Math.ceil(tLeft));
-      }else{
-        lowTimeOverlay.setAttribute('aria-hidden','true');
-      }
-    }
-
-    emitScoreEvent(false);
-  }
-
-  const __HHA_END_SENT_KEY = '__HHA_GJ_END_SENT__';
-  function hhaDispatchEndOnce(summary){
-    try{
-      if(WIN[__HHA_END_SENT_KEY]) return;
-      WIN[__HHA_END_SENT_KEY] = 1;
-      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary || null }));
-    }catch(e){}
-  }
-
-  function buildEndSummary(reason){
-    const playedSec = Math.round(plannedSec - tLeft);
-    const avgRt = goodHitCount>0 ? Math.round(rtSum/goodHitCount) : 0;
-    const medRt = Math.round(median(rtList));
-    const acc = accPct();
-    return {
-      projectTag: 'GoodJunkVR',
-      gameKey: HH_GAME,
-      pid,
-      zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-03_AI_SHOTNONE_REASONS',
-      device: view,
-      runMode: runMode,
-      diff: diff,
-      seed: seedStr,
-      reason: String(reason || ''),
-      durationPlannedSec: plannedSec,
-      durationPlayedSec: playedSec,
-      scoreFinal: score|0,
-      missTotal: missTotal|0,
-      accPct: acc,
-      shots: shots|0,
-      hits: hits|0,
-      comboMax: bestCombo|0,
-      missGoodExpired: missGoodExpired|0,
-      missJunkHit: missJunkHit|0,
-      avgRtGoodMs: avgRt|0,
-      medianRtGoodMs: medRt|0,
-      bossDefeated: !!(bossActive && bossHp<=0),
-      stormOn: !!stormOn,
-      rageOn: !!rageOn,
-      shieldEnd: shield|0,
-      startTimeIso,
-      endTimeIso: nowIso(),
-      grade: gradeFromScore(score),
-      tieBreakOrder: 'score→acc→miss→medianRT',
-      aiPredictionLast: (function(){
-        try{ return AI?.getPrediction?.() || null; }catch(e){ return null; }
-      })(),
-    };
-  }
-
-  function showEnd(reason){
-    playing = false;
-    paused = false;
-
-    for(const t of targets.values()){
-      try{ t.el.remove(); }catch(e){}
-    }
-    targets.clear();
-
-    const summary = buildEndSummary(reason);
-
-    // AI onEnd attach
-    try{
-      const aiEnd = AI?.onEnd?.(summary);
-      if(aiEnd) summary.aiEnd = aiEnd;
-    }catch(e){}
-
-    WIN.__HHA_LAST_SUMMARY = summary;
-    hhaDispatchEndOnce(summary);
-
-    // finalize battle (optional)
-    try{ battle?.finalizeEnd?.(summary); }catch(e){}
-
-    if(endOverlay){
-      endOverlay.setAttribute('aria-hidden','false');
-      if(endTitle) endTitle.textContent = 'Game Over';
-      if(endSub) endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view} | acc=${summary.accPct}% | medRT=${summary.medianRtGoodMs}ms`;
-      if(endGrade) endGrade.textContent = summary.grade || '—';
-      if(endScore) endScore.textContent = String(summary.scoreFinal|0);
-      if(endMiss)  endMiss.textContent  = String(summary.missTotal|0);
-      if(endTime)  endTime.textContent  = String(summary.durationPlayedSec|0);
-
-      try{
-        hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-      }catch(e){}
-    }
-
-    emitScoreEvent(true);
-    sayCoach(summary.missTotal >= TUNE.lifeMissLimit ? 'ลองโฟกัส “ของดี” ก่อนนะ แล้วค่อยเสี่ยง!' : 'ดีมาก! ไปต่อได้เลย ✨');
-    setHUD();
-  }
-
-  // ---------- gameplay ----------
-  function makeTarget(kind, emoji, ttlSec){
-    const id = String(idSeq++);
-    const el = DOC.createElement('div');
-    el.className = 'gj-target';
-    el.textContent = emoji;
-    el.dataset.id = id;
-    el.dataset.kind = kind;
-
-    const safe = getSpawnSafeLocal();
-    const rPad = (view==='mobile') ? 34 : 42;
-
-    const xMin = safe.xMin + rPad;
-    const xMax = safe.xMax - rPad;
-    const yMin = safe.yMin + rPad;
-    const yMax = safe.yMax - rPad;
-
-    const x = xMin + r01()*(Math.max(1, xMax - xMin));
-    const y = yMin + r01()*(Math.max(1, yMax - yMin));
-
-    el.style.left = `${x}px`;
-    el.style.top  = `${y}px`;
-    el.style.opacity = '1';
-
-    const drift = (r01()*2-1) * (view==='mobile' ? 16 : 22);
-    const born = nowMs();
-    const ttl = Math.max(0.85, ttlSec) * 1000;
-
-    layer.appendChild(el);
-
-    const tObj = { id, el, kind, born, ttl, x, y, drift, promptMs: nowMs() };
-    targets.set(id, tObj);
-
-    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(e){}
-    return tObj;
-  }
-
-  function removeTarget(id){
-    const t = targets.get(String(id));
-    if(!t) return;
-    targets.delete(String(id));
-    try{ t.el.remove(); }catch(e){}
-  }
-
-  function addFever(v){
-    fever = clamp(fever + v, 0, 100);
-    if(fever >= 100 && !rageOn){
-      rageOn = true;
-      rageLeft = 7.0;
-      fever = 100;
-      sayCoach('FEVER! คะแนนคูณ 🔥');
-    }
-  }
-
-  function addShield(){
-    shield = clamp(shield + 1, 0, 9);
-    sayCoach('ได้โล่! 🛡️ กันของเสียได้');
-  }
-
-  function onHitGood(t, clientX, clientY){
-    const rt = Math.max(0, Math.round(nowMs() - (t.promptMs||nowMs())));
-    goodHitCount++;
-    rtSum += rt;
-    rtList.push(rt);
-
-    hits++;
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
-    let add = 10 + Math.min(12, combo);
-    if(rageOn) add = Math.round(add * 1.6);
-
-    score += add;
-    goal.cur = clamp(goal.cur + 1, 0, 9999);
-    addFever(6.5);
-
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `+${add}`, false);
-
-    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
-    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
-
-    try{ AI?.onHit?.(t.kind, { id:t.id, rtMs: rt }); }catch(e){}
-    removeTarget(t.id);
-  }
-
-  function onHitJunk(t, clientX, clientY){
-    if(shield > 0){
-      shield--;
-      hits++;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY-10, 'BLOCK 🛡️', false);
-      sayCoach('บล็อกได้! โดนของเสียไม่เป็นไร');
-      try{ AI?.onHit?.(t.kind, { id:t.id, blocked:true }); }catch(e){}
-      removeTarget(t.id);
-      return;
-    }
-
-    hits++;
-    missTotal++;
-    missJunkHit++;
-    combo = 0;
-
-    const sub = 8;
-    score = Math.max(0, score - sub);
-
-    fxFloatText(clientX, clientY-10, `-${sub}`, true);
-    try{ AI?.onHit?.(t.kind, { id:t.id, blocked:false }); }catch(e){}
-    removeTarget(t.id);
-
-    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
-  }
-
-  function onHitBonus(t, clientX, clientY){
-    hits++;
-    combo++;
-    bestCombo = Math.max(bestCombo, combo);
-
-    let add = rPick([25,30,35]);
-    if(rageOn) add = Math.round(add * 1.5);
-    score += add;
-
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `BONUS +${add}`, false);
-    sayCoach('โบนัสมา! เก็บต่อเนื่องเลย');
-
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
-    removeTarget(t.id);
-  }
-
-  function onHitShield(t, clientX, clientY){
-    hits++;
-    addShield();
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, '+SHIELD', false);
-
-    try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
-    removeTarget(t.id);
-  }
-
-  function onHitBoss(t, clientX, clientY){
-    if(!bossActive) return;
-    hits++;
-
-    if(bossPhase===0){
-      bossShieldHp--;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY-10, 'SHIELD -1', false);
-      if(bossShieldHp<=0){
-        bossPhase = 1;
-        sayCoach('โล่แตก! ยิง 🎯 เพื่อทำดาเมจหนัก');
-      }
-      try{ AI?.onHit?.(t.kind, { id:t.id, phase:bossPhase }); }catch(e){}
-      removeTarget(t.id);
-      return;
-    }
-
-    const dmg = rageOn ? 4 : 3;
-    bossHp = Math.max(0, bossHp - dmg);
-
-    let add = 22 + dmg*6;
-    if(rageOn) add = Math.round(add * 1.4);
-    score += add;
-    addFever(9);
-
-    fxBurst(clientX, clientY);
-    fxFloatText(clientX, clientY-10, `BOSS +${add}`, false);
-
-    try{ AI?.onHit?.(t.kind, { id:t.id, dmg }); }catch(e){}
-    removeTarget(t.id);
-
-    if(bossHp<=0){
-      sayCoach('บอสแพ้แล้ว! 🎉');
-      bossActive = false;
-      score += 120;
-      addFever(40);
-    }
-  }
-
-  function hitTargetById(id, clientX, clientY){
-    const t = targets.get(String(id));
-    if(!t || !playing) return;
-
-    shots++; // every resolved lock/target counts as a shot
-
-    const kind = t.kind;
-    if(kind==='good') onHitGood(t, clientX, clientY);
-    else if(kind==='junk') onHitJunk(t, clientX, clientY);
-    else if(kind==='bonus') onHitBonus(t, clientX, clientY);
-    else if(kind==='shield') onHitShield(t, clientX, clientY);
-    else if(kind==='boss') onHitBoss(t, clientX, clientY);
-  }
-
-  // pointerdown only non-cvr
-  function onPointerDown(ev){
-    if(!playing || paused) return;
-    const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
-    if(!el) return;
-    const id = el.dataset.id;
-    hitTargetById(id, ev.clientX, ev.clientY);
-  }
-  if(view !== 'cvr'){
-    layer.addEventListener('pointerdown', onPointerDown, { passive:true });
-  }
-
-  function pickTargetAt(x,y, lockPx){
-    lockPx = clamp(lockPx ?? 46, 16, 140);
-    let best = null;
-    let bestD = 1e9;
-    for(const t of targets.values()){
-      const r = t.el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const d = Math.hypot(cx-x, cy-y);
-      if(d < bestD){
-        bestD = d;
-        best = t;
-      }
-    }
-    if(best && bestD <= lockPx) return best;
-    return null;
-  }
-
-  // cVR shoot from crosshair
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    if(!playing || paused) return;
-    try{
-      const lockPx = ev?.detail?.lockPx ?? 64;
-      const r = layerRect();
-      const x = r.left + r.width/2;
-      const y = r.top  + r.height/2;
-      const t = pickTargetAt(x,y, lockPx);
-      if(t) hitTargetById(t.id, x, y);
-      else{
-        shots++; // shoot fired but no target locked
-        try{ AI?.onShotNone?.({ view, lockPx }); }catch(e){}
-      }
-    }catch(e){}
-  });
-
-  let spawnAcc = 0;
-
-  function spawnTick(dt){
-    stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
-    const mult = stormOn ? TUNE.stormMult : 1.0;
-    const base = TUNE.spawnBase * mult;
-    const rageBoost = rageOn ? 1.18 : 1.0;
-
-    spawnAcc += base * rageBoost * dt;
-
-    while(spawnAcc >= 1){
-      spawnAcc -= 1;
-
-      if(!bossActive && tLeft <= plannedSec*0.35 && tLeft > 6){
-        bossActive = true;
-        bossHpMax = TUNE.bossHp;
-        bossHp = bossHpMax;
-        bossPhase = 0;
-        bossShieldHp = 5;
-        sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
-      }
-
-      let kind = 'good';
-      const p = r01();
-
-      if(bossActive && (r01() < 0.22)){
-        kind = 'boss';
-      }else if(p < 0.64){
-        kind = 'good';
-      }else if(p < 0.86){
-        kind = 'junk';
-      }else if(p < 0.94){
-        kind = 'bonus';
-      }else{
-        kind = 'shield';
-      }
-
-      if(kind==='good') makeTarget('good', rPick(GOOD), TUNE.ttlGood);
-      else if(kind==='junk') makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
-      else if(kind==='bonus') makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
-      else if(kind==='shield') makeTarget('shield', rPick(SHIELDS), 2.6);
-      else if(kind==='boss'){
-        const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
-        makeTarget('boss', emo, 2.2);
-      }
-    }
-  }
-
-  function updateTargets(dt){
-    const tNow = nowMs();
-    const safe = getSpawnSafeLocal();
-    const rPad = (view==='mobile') ? 34 : 42;
-
-    for(const t of Array.from(targets.values())){
-      const age = tNow - t.born;
-      const p = age / t.ttl;
-
-      // drift
-      const dx = t.drift * dt;
-      t.x += dx;
-
-      const xMin = safe.xMin + rPad;
-      const xMax = safe.xMax - rPad;
-      t.x = clamp(t.x, xMin, xMax);
-      t.el.style.left = `${t.x}px`;
-
-      // fade near end
-      if(p > 0.75){
-        t.el.style.opacity = String(clamp(1 - (p-0.75)/0.25, 0.15, 1));
-        t.el.style.transform = `translate(-50%,-50%) scale(${1 - 0.08*(p-0.75)/0.25})`;
-      }
-
-      // expire
-      if(age >= t.ttl){
-        try{ AI?.onExpire?.(t.kind, { id:t.id }); }catch(e){}
-
-        if(t.kind === 'good'){
-          missTotal++;
-          missGoodExpired++;
-          combo = 0;
-
-          score = Math.max(0, score - 4);
-          const r = t.el.getBoundingClientRect();
-          fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
-
-          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
-        }
-        removeTarget(t.id);
-      }
-    }
-  }
-
-  function updateRage(dt){
-    if(!rageOn) return;
-    rageLeft -= dt;
-    if(rageLeft <= 0){
-      rageOn = false;
-      rageLeft = 0;
-      fever = clamp(fever - 18, 0, 100);
-      sayCoach('FEVER หมดแล้ว แต่ยังไหว!');
-    }
-  }
-
-  function updateMini(dt){
-    if(mini.t > 0){
-      mini.t = Math.max(0, mini.t - dt);
-      if(mini.t<=0) mini.name = '—';
-    }else{
-      if(r01() < dt*0.05){
-        const type = rPick(['avoid-junk','combo-5','grab-bonus']);
-        if(type==='avoid-junk'){
-          mini.name = 'No JUNK 6s';
-          mini.t = 6;
-          sayCoach('ภารกิจ: 6 วิ ห้ามโดนของเสีย!');
-        }else if(type==='combo-5'){
-          mini.name = 'Combo x5';
-          mini.t = 8;
-          sayCoach('ภารกิจ: ทำคอมโบให้ถึง 5!');
-        }else{
-          mini.name = 'Grab ⭐';
-          mini.t = 7;
-          sayCoach('ภารกิจ: เก็บโบนัส!');
-        }
-      }
-    }
-  }
-
-  function checkEnd(){
-    if(tLeft <= 0){ showEnd('time'); return true; }
-    if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
-
-    if(goal.cur >= goal.target && playing){
-      goal.target += 10;
-      score += 60;
-      addFever(18);
-      sayCoach('ทำเป้าหมายสำเร็จ! +60 ✨');
-      const r = layerRect();
-      fxBurst(r.left+r.width/2, r.top+r.height*0.55);
-      fxFloatText(r.left+r.width/2, r.top+r.height*0.55, 'GOAL +60', false);
-    }
-    return false;
-  }
-
-  function tick(){
-    if(!playing) return;
-
-    if(paused){
-      try{ lastTick = nowMs(); }catch(e){}
-      setHUD();
-      requestAnimationFrame(tick);
-      return;
-    }
-
-    const t = nowMs();
-    const dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
-    lastTick = t;
-
-    tLeft = Math.max(0, tLeft - dt);
-
-    spawnTick(dt);
-    updateTargets(dt);
-    updateRage(dt);
-    updateMini(dt);
-
-    // AI tick (prediction-only)
-    try{
-      const pred = AI?.onTick?.(dt, {
-        missGoodExpired,
-        missJunkHit,
-        shield,
-        fever,
-        combo,
-        shots,
-        hits,
-        stormOn,
-        bossActive,
-        rageOn
-      }) || null;
-      setAIHud(pred);
-    }catch(e){}
-
-    setHUD();
-    if(checkEnd()) return;
-    requestAnimationFrame(tick);
-  }
-
-  DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && playing){
-      showEnd('background');
-    }
-  });
-
-  try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
-  sayCoach('แตะ “ของดี” เลี่ยงของเสีย! 🥦🍎');
-  setHUD();
-  requestAnimationFrame(tick);
-}
+  function layerRect(){ return layer
