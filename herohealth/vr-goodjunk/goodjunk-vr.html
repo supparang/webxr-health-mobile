@@ -1,11 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION
-PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
-✅ Correct filename: goodjunk-vr.html (in folder /vr-goodjunk/)
-✅ Loads: ./goodjunk.safe.js + ./goodjunk-vr.css
-✅ Includes: ../vr/vr-ui.js (hha:shoot + enter/exit/recenter)
-✅ Auto compute spawn-safe region (avoid HUD + bottom bars)
-✅ Optional dynamic import: AI + Battle modules (missing files won't break)
+GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
+PATCH v20260302-RUN-AI-BATTLE-PASSTHRU
+✅ run file name fixed: goodjunk-vr.html
+✅ reads ?ai=1 to enable AI prediction HUD
+✅ reads ?battle=1 (optional) pass-through
 -->
 <!doctype html>
 <html lang="th">
@@ -14,25 +12,20 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260302" />
-
-  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair -> hha:shoot) -->
-  <script type="module" src="../vr/vr-ui.js?v=20260302"></script>
 </head>
-
 <body>
   <div id="app">
 
-    <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
+      <span class="pill">ai=<b id="uiAI">—</b></span>
+      <span class="pill">battle=<b id="uiBattle">—</b></span>
     </div>
 
-    <!-- Top HUD -->
     <header id="hud">
       <div class="hud-row">
         <div class="pill">SCORE <b id="hud-score">0</b></div>
@@ -53,7 +46,6 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
         </div>
       </div>
 
-      <!-- AI HUD -->
       <div class="hud-row">
         <div class="pill pill-ai">
           AI Risk <b id="aiRisk">—</b>
@@ -61,33 +53,19 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
         </div>
       </div>
 
-      <!-- Fever + Shield + Boss -->
       <div class="hud-row hud-bars">
         <div class="barCard">
-          <div class="barTop">
-            <span class="mut">FEVER</span>
-            <b id="feverText">0%</b>
-          </div>
-          <div class="bar">
-            <div class="barFill" id="feverFill" style="width:0%"></div>
-          </div>
+          <div class="barTop"><span class="mut">FEVER</span><b id="feverText">0%</b></div>
+          <div class="bar"><div class="barFill" id="feverFill" style="width:0%"></div></div>
         </div>
 
         <div class="barCard">
-          <div class="barTop">
-            <span class="mut">SHIELD</span>
-            <b id="shieldPills">—</b>
-          </div>
+          <div class="barTop"><span class="mut">SHIELD</span><b id="shieldPills">—</b></div>
         </div>
 
         <div class="barCard boss" id="bossBar" aria-hidden="true">
-          <div class="barTop">
-            <span class="mut">BOSS</span>
-            <b id="bossHint">—</b>
-          </div>
-          <div class="bar">
-            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
-          </div>
+          <div class="barTop"><span class="mut">BOSS</span><b id="bossHint">—</b></div>
+          <div class="bar"><div class="barFill bossFill" id="bossFill" style="width:0%"></div></div>
         </div>
       </div>
 
@@ -98,12 +76,10 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
       </div>
     </header>
 
-    <!-- Playfield -->
     <main id="stage" aria-label="GoodJunk Stage">
       <div id="gj-layer" aria-label="targets"></div>
     </main>
 
-    <!-- Low time overlay -->
     <div id="lowTimeOverlay" aria-hidden="true">
       <div class="lowTimeCard">
         <div class="mut">TIME</div>
@@ -111,7 +87,6 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
       </div>
     </div>
 
-    <!-- End overlay -->
     <div id="endOverlay" aria-hidden="true">
       <div class="panel">
         <div class="endTitle" id="endTitle">Game Over</div>
@@ -128,7 +103,6 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
@@ -139,19 +113,51 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    // ---- Pass-through cfg ----
     const cfg = {
       view: qs('view','mobile'),
-      run:  qs('run','play'),
+      run: qs('run','play'),
       diff: qs('diff','normal'),
       time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
-      pid:  qs('pid','anon'),
-      hub:  qs('hub','../hub.html'),
-      ai:   null
+      pid: qs('pid','anon'),
+      hub: qs('hub','../hub.html'),
+      ai: null
     };
 
-    // ---- Buttons ----
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    const battleOn = (qs('battle','0') === '1');
+
+    // debug pills
+    try{
+      document.getElementById('uiAI').textContent = aiOn ? '1' : '0';
+      document.getElementById('uiBattle').textContent = battleOn ? '1' : '0';
+    }catch(_){}
+
+    // ✅ AI dynamic import
+    if(aiOn){
+      try{
+        const mod = await import('../vr/ai-goodjunk.js?v=20260302');
+        const createGoodJunkAI = mod.createGoodJunkAI;
+        if(typeof createGoodJunkAI === 'function'){
+          cfg.ai = createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view
+          });
+        }
+      }catch(e){
+        console.warn('[GoodJunk] AI module load failed', e);
+      }
+    }else{
+      // show clearer “off”
+      const r = document.getElementById('aiRisk');
+      const h = document.getElementById('aiHint');
+      if(r) r.textContent = 'OFF';
+      if(h) h.textContent = 'add ?ai=1';
+    }
+
+    // Buttons
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
     btnRetry?.addEventListener('click', ()=>{
@@ -163,58 +169,6 @@ PATCH v20260302-RUN-SPAWNSAFE-VRUI-AI-BATTLE-OPTIONAL
       location.href = (cfg.hub || '../hub.html');
     });
 
-    // ---- Spawn Safe Zone: avoid HUD & bottom overlays (vr-ui / coach / safe area) ----
-    function computeSpawnSafe(){
-      const layer = document.getElementById('gj-layer');
-      const stage = document.getElementById('stage');
-      const hud   = document.getElementById('hud');
-      if(!layer || !stage) return;
-
-      const rStage = stage.getBoundingClientRect();
-      const rLayer = layer.getBoundingClientRect();
-      const rHud   = hud ? hud.getBoundingClientRect() : { bottom: rStage.top };
-
-      // bottom avoid area: reserve for coach + vr-ui bar
-      const bottomReserve = 120; // conservative; prevents spawn under controls
-      const topReserve    = Math.max(0, (rHud.bottom - rStage.top)) + 10;
-
-      // convert to viewport coords (for safe region expected by safe.js)
-      const xMin = rLayer.left + 10;
-      const xMax = rLayer.right - 10;
-      const yMin = rStage.top + topReserve + 10;
-      const yMax = rStage.bottom - bottomReserve;
-
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin, xMax,
-        yMin, yMax
-      };
-    }
-
-    const ro = new ResizeObserver(()=> computeSpawnSafe());
-    ro.observe(document.documentElement);
-    window.addEventListener('resize', computeSpawnSafe, { passive:true });
-    window.addEventListener('orientationchange', computeSpawnSafe, { passive:true });
-    setTimeout(computeSpawnSafe, 50);
-
-    // ---- Optional AI module (prediction only) ----
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    if(aiOn){
-      try{
-        const mod = await import('../vr/ai-goodjunk.js');
-        if(typeof mod.createGoodJunkAI === 'function'){
-          cfg.ai = mod.createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
-        }
-      }catch(e){
-        console.warn('[GoodJunk] AI module load failed (ok)', e);
-      }
-    }
-
-    // ---- Boot ----
     boot(cfg);
   </script>
 </body>
