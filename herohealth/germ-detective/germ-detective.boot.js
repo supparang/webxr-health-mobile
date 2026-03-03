@@ -1,17 +1,15 @@
 // === /herohealth/germ-detective/germ-detective.boot.js ===
-// Germ Detective BOOT — PRODUCTION SAFE
+// Germ Detective BOOT — PRODUCTION SAFE (A: use germ-detective.js as core)
 // ✅ Deterministic research seed (pid + scene + localDay + seed)
 // ✅ Wires GameApp + emits minimal meta events
 // ✅ No Apps Script / no network
-// Requires: ./app.js (ESM)
 
-import GameApp from './app.js';
+import GameApp from './germ-detective.js';
 
 (function(){
   'use strict';
 
   const WIN = window;
-  const DOC = document;
 
   function qs(k, def=''){
     try{ return new URL(location.href).searchParams.get(k) ?? def; }
@@ -22,8 +20,6 @@ import GameApp from './app.js';
     if(!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
   }
-
-  // local day key (device local timezone)
   function localDayKey(){
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -31,7 +27,6 @@ import GameApp from './app.js';
     const dd = String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-
   function hash32(str){
     str = String(str||'');
     let h = 2166136261 >>> 0;
@@ -42,7 +37,6 @@ import GameApp from './app.js';
     return h >>> 0;
   }
 
-  // params
   const P = {
     run:  String(qs('run','play')).toLowerCase(),
     diff: String(qs('diff','normal')).toLowerCase(),
@@ -54,16 +48,13 @@ import GameApp from './app.js';
     hub:  String(qs('hub','/herohealth/hub.html'))
   };
 
-  // deterministic research seed base
   if(P.run === 'research'){
     const base = `${P.pid}|${P.scene}|${localDayKey()}|${P.seed}|${P.diff}`;
     const h = hash32(base);
     WIN.__GD_RESEARCH_SEED_BASE__ = base;
-    // overwrite seed to hashed number string
     P.seed = String(h);
   }
 
-  // expose minimal global
   WIN.GD = WIN.GD || {};
   WIN.GD.params = P;
 
@@ -71,7 +62,6 @@ import GameApp from './app.js';
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload } })); }catch(_){}
   }
 
-  // boot
   const app = GameApp({
     timeSec: P.time,
     seed: P.seed,
@@ -82,7 +72,6 @@ import GameApp from './app.js';
     pid: P.pid
   });
 
-  // wire end -> save last summary + back hub helper
   WIN.addEventListener('hha:end', (ev)=>{
     const d = ev.detail || {};
     try{
@@ -97,7 +86,6 @@ import GameApp from './app.js';
     emitEvent('summary_saved', { reason:d.reason||'end' });
   }, false);
 
-  // safe: log boot
   emitEvent('boot', {
     game:'germ-detective',
     run:P.run, diff:P.diff, time:P.time, seed:P.seed, pid:P.pid,
@@ -105,7 +93,6 @@ import GameApp from './app.js';
     researchSeedBase: WIN.__GD_RESEARCH_SEED_BASE__ || null
   });
 
-  // init
   try{
     app.init();
   }catch(err){
