@@ -1,220 +1,152 @@
 // === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI — PREDICTION ONLY (NO adaptive difficulty)
-// PATCH v20260303-AI-PRED-EXPLAIN-TOP2-MLDLREADY
-//
-// Provides:
-// - onTick(dt, features) => { hazardRisk, next5, reasonsTop2 }
-// - getPrediction()      => last pred
-// - onEnd(summary)       => attach aiEnd (top2 factors + final risk)
-// - Optional: capture feature/label rows locally (cap=1) for ML/DL later
-//
-// NOTE: This is a lightweight "model" (tiny linear + sigmoid) that is:
-// - deterministic-ish (seeded noise optional but OFF by default)
-// - explainable (top 2 weighted factors)
-// - safe for research mode (does not change gameplay)
-
+// GoodJunk AI — PREDICTION ONLY (NO adaptive) + explainable top2 factors
+// PATCH v20260304-AI-PREDICT-EXPLAINABLE
 'use strict';
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
 function sigmoid(x){ return 1/(1+Math.exp(-x)); }
 
-function hhDayKey(){
-  const d=new Date();
-  const yyyy=d.getFullYear();
-  const mm=String(d.getMonth()+1).padStart(2,'0');
-  const dd=String(d.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
+function hashSeed(str){
+  str = String(str||'');
+  let h = 2166136261 >>> 0;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h>>>0;
 }
 
-function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-function lsSet(k,v){ try{ localStorage.setItem(k, v); }catch(_){ } }
-
-function pushJsonl(key, row, maxLines=4000){
-  try{
-    const raw = lsGet(key) || '';
-    const lines = raw ? raw.split('\n') : [];
-    lines.push(JSON.stringify(row));
-    while(lines.length > maxLines) lines.shift();
-    lsSet(key, lines.join('\n'));
-  }catch(_){}
+function mulberry32(a){
+  a >>>= 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-function normalizeDiff(diff){
-  diff = String(diff||'normal').toLowerCase();
-  if(diff==='easy') return 0;
-  if(diff==='hard') return 2;
-  return 1; // normal
-}
-
-export function createGoodJunkAI(opts = {}){
-  const seed = String(opts.seed || '');
-  const pid  = String(opts.pid  || 'anon');
+export function createGoodJunkAI(opts={}){
+  const seed = String(opts.seed || Date.now());
+  const pid  = String(opts.pid || 'anon');
   const diff = String(opts.diff || 'normal');
   const view = String(opts.view || 'mobile');
-  const capture = !!opts.capture;
 
-  // ---- Tiny model weights (tweakable) ----
-  // Inputs: missRate, junkRate, expireRate, acc, fever, shield, combo
-  // Output: hazardRisk in [0..1]
+  const rnd = mulberry32(hashSeed(seed+'|'+pid+'|'+diff+'|'+view));
+
+  // state
+  let last = null;
+  let risk = 0.25;
+  let watch = ['เล็งของดีไว้ก่อน', 'อย่ารีบโดน 🍔🍟', 'คอมโบสำคัญ'];
+
+  // “model” weights (heuristic-logit)
   const W = {
-    bias: -0.55,
-    missRate:   2.30,   // overall danger
-    junkRate:   1.55,   // junk hit tendency
-    expireRate: 1.35,   // slow/late hits
-    acc:       -1.20,   // accuracy reduces risk
-    fever:     -0.55,   // fever tends to help
-    shield:    -0.35,   // shield buffer
-    combo:     -0.30    // combo stability
+    bias: -0.9,
+    missGoodExpired: 0.22,
+    missJunkHit: 0.30,
+    combo: -0.10,
+    fever: -0.006,
+    shield: -0.12,
+    accLow: 0.018
   };
 
-  // difficulty scaling (prediction only)
-  const d = normalizeDiff(diff);
-  const DIFF_BIAS = (d===0 ? -0.10 : d===2 ? +0.15 : 0);
-
-  // last prediction cache
-  let last = null;
-  let tAcc = 0;
-
-  // sliding aggregates (for stability)
-  let playedSec = 0;
-  let lastShots = 0;
-  let lastHits  = 0;
-
-  function buildNextHint(risk, f){
-    // next "watchout" hint (simple rules)
-    if(risk >= 0.78) return ['โหมดอันตราย: เลี่ยง 🍔🍟 ก่อน', 'ช้าไปของดีจะหาย', 'อย่ายิงมั่ว—เล็งทีละเป้า'];
-    if(f.junkRate > 0.22) return ['โฟกัสของดี แล้วปล่อยของเสียผ่าน', 'เห็น 🍕🍩 ให้หยุดมือ 0.3 วิ'];
-    if(f.expireRate > 0.20) return ['เร่งแตะ “ของดี” ให้ไวขึ้น', 'เลือกเป้าที่อยู่กลางจอ'];
-    if(f.acc < 0.70) return ['ลดการยิงพลาด: ยิงเมื่อ “ล็อกเป้า” เท่านั้น', 'หยุดยิงตอนจอโล่ง'];
-    return ['ดีมาก! รักษาคอมโบไว้', 'เก็บ ⭐/💎 ตอนปลอดภัย'];
-  }
-
-  function explainTop2(features){
-    // compute contributions for explainability
+  function explainTop2(feat){
     const contrib = [
-      { k:'missRate',   w:W.missRate,   v:features.missRate },
-      { k:'junkRate',   w:W.junkRate,   v:features.junkRate },
-      { k:'expireRate', w:W.expireRate, v:features.expireRate },
-      { k:'acc',        w:W.acc,        v:features.acc },
-      { k:'fever',      w:W.fever,      v:features.fever },
-      { k:'shield',     w:W.shield,     v:features.shield },
-      { k:'combo',      w:W.combo,      v:features.combo },
-    ].map(o=>({ ...o, score: o.w * o.v }));
+      {k:'missGoodExpired', v: W.missGoodExpired * feat.missGoodExpired, label:'ของดีหลุด (หมดเวลา)'},
+      {k:'missJunkHit',     v: W.missJunkHit     * feat.missJunkHit,     label:'เผลอโดนของเสีย'},
+      {k:'combo',          v: W.combo          * feat.combo,          label:'คอมโบ'},
+      {k:'shield',         v: W.shield         * feat.shield,         label:'โล่'},
+      {k:'fever',          v: W.fever          * feat.fever,          label:'FEVER'},
+      {k:'accLow',         v: W.accLow         * feat.accLow,         label:'ความแม่นต่ำ'}
+    ].sort((a,b)=>Math.abs(b.v)-Math.abs(a.v)).slice(0,2);
 
-    // sort by absolute impact
-    contrib.sort((a,b)=>Math.abs(b.score)-Math.abs(a.score));
+    return contrib.map(x=>{
+      const dir = x.v >= 0 ? 'เพิ่มความเสี่ยง' : 'ลดความเสี่ยง';
+      return `${x.label} (${dir})`;
+    });
+  }
 
-    function labelOf(k){
-      if(k==='missRate') return 'MISS รวมสูง';
-      if(k==='junkRate') return 'โดนของเสียบ่อย';
-      if(k==='expireRate') return 'ของดีหลุด (หมดเวลา) เยอะ';
-      if(k==='acc') return 'ความแม่นต่ำ';
-      if(k==='fever') return 'FEVER ต่ำ';
-      if(k==='shield') return 'โล่น้อย';
-      if(k==='combo') return 'คอมโบไม่ต่อเนื่อง';
-      return k;
+  function buildNext5(r){
+    // deterministic-ish messages
+    const poolHi = [
+      'ชะลอมือ: เลี่ยง 🍔🍟 ก่อน',
+      'กันพลาด: ล็อก “ของดี” ที่ใกล้สุด',
+      'อย่ายิงมั่ว: หาเป้าแล้วค่อยยิง',
+      'เก็บ 🛡️ ไว้กันโทษ',
+      'ลดการหมดเวลา: รีบเก็บของดีที่ใกล้หาย'
+    ];
+    const poolLo = [
+      'รักษาคอมโบ แล้วคะแนนพุ่ง',
+      'เห็น ⭐💎 ให้เก็บต่อเนื่อง',
+      'FEVER ใกล้เต็ม—เร่งของดี',
+      'ถ้มี 🛡️ แล้ว กล้าเสี่ยงโบนัสได้',
+      'โฟกัส “ของดี” ก่อนเสมอ'
+    ];
+    const src = (r >= 0.55) ? poolHi : poolLo;
+
+    // shuffle-lite
+    const arr = src.slice();
+    for(let i=arr.length-1;i>0;i--){
+      const j = (rnd()*(i+1))|0;
+      [arr[i],arr[j]] = [arr[j],arr[i]];
     }
-
-    // pick top 2 that increase risk (positive contribution) if possible
-    const pos = contrib.filter(x=>x.score > 0.02);
-    const top = (pos.length>=2 ? pos.slice(0,2) : contrib.slice(0,2));
-
-    return top.map(x=>({
-      factor: x.k,
-      label: labelOf(x.k),
-      impact: Math.round(x.score*100)/100,
-      direction: x.score >= 0 ? 'increase' : 'decrease'
-    }));
+    return arr.slice(0,5);
   }
 
-  function toFeatures(state){
-    // state from goodjunk.safe.js onTick payload:
-    // { missGoodExpired, missJunkHit, shield, fever, combo, shots, hits }
-    const shots = Math.max(0, Number(state.shots)||0);
-    const hits  = Math.max(0, Number(state.hits)||0);
-    const missGoodExpired = Math.max(0, Number(state.missGoodExpired)||0);
-    const missJunkHit     = Math.max(0, Number(state.missJunkHit)||0);
-    const shield = clamp(state.shield, 0, 9);
-    const fever  = clamp(state.fever, 0, 100);
-    const combo  = clamp(state.combo, 0, 99);
+  function computeRisk(feat){
+    // accLow: how far below 80%
+    const acc = clamp(feat.accPct ?? 0, 0, 100);
+    const accLow = Math.max(0, 80 - acc);
 
-    const missTotal = missGoodExpired + missJunkHit;
-    const missRate  = shots>0 ? (missTotal / Math.max(1, shots)) : 0;
-    const junkRate  = shots>0 ? (missJunkHit / Math.max(1, shots)) : 0;
-    const expireRate= shots>0 ? (missGoodExpired / Math.max(1, shots)) : 0;
-    const acc       = shots>0 ? (hits / Math.max(1, shots)) : 1;
+    const x =
+      W.bias +
+      W.missGoodExpired * (feat.missGoodExpired||0) +
+      W.missJunkHit * (feat.missJunkHit||0) +
+      W.combo * (feat.combo||0) +
+      W.fever * (feat.fever||0) +
+      W.shield * (feat.shield||0) +
+      W.accLow * accLow;
 
-    return {
-      shots, hits,
-      missTotal, missGoodExpired, missJunkHit,
-      missRate: clamp(missRate, 0, 1),
-      junkRate: clamp(junkRate, 0, 1),
-      expireRate: clamp(expireRate, 0, 1),
-      acc: clamp(acc, 0, 1),
-      fever: clamp(fever/100, 0, 1),
-      shield: clamp(shield/9, 0, 1),
-      combo: clamp(combo/20, 0, 1)
-    };
-  }
-
-  function predict(features){
-    // linear model + sigmoid
-    let z = 0;
-    z += W.bias + DIFF_BIAS;
-    z += W.missRate   * features.missRate;
-    z += W.junkRate   * features.junkRate;
-    z += W.expireRate * features.expireRate;
-    z += W.acc        * features.acc;
-    z += W.fever      * features.fever;
-    z += W.shield     * features.shield;
-    z += W.combo      * features.combo;
-
-    const risk = sigmoid(z);
-    const reasonsTop2 = explainTop2(features);
-    const next5 = buildNextHint(risk, features);
-
-    return { hazardRisk: clamp(risk, 0, 1), next5, reasonsTop2, z: Math.round(z*1000)/1000 };
-  }
-
-  function maybeCaptureRow(kind, row){
-    if(!capture) return;
-    const day = hhDayKey();
-    const key = `HHA_AI_GJ_CAPTURE:${pid}:${day}`;
-    pushJsonl(key, { kind, ...row }, 5000);
+    // convert to 0..1 and smooth
+    const raw = sigmoid(x);
+    risk = clamp(0.72*risk + 0.28*raw, 0, 1);
+    return { risk, raw, accLow };
   }
 
   return {
+    onSpawn(kind, meta){ /* prediction only */ },
+    onHit(kind, meta){ /* prediction only */ },
+    onExpire(kind, meta){ /* prediction only */ },
+
     onTick(dt, state){
-      dt = Number(dt)||0;
-      if(dt <= 0) return last;
+      const shots = Number(state?.shots||0);
+      const hits  = Number(state?.hits||0);
+      const accPct = shots>0 ? (hits/shots)*100 : 0;
 
-      // throttle prediction to ~5Hz
-      tAcc += dt;
-      if(tAcc < 0.20 && last) return last;
-      tAcc = 0;
+      const feat = {
+        missGoodExpired: Number(state?.missGoodExpired||0),
+        missJunkHit: Number(state?.missJunkHit||0),
+        combo: Number(state?.combo||0),
+        fever: Number(state?.fever||0),
+        shield: Number(state?.shield||0),
+        accPct
+      };
 
-      playedSec += dt;
+      const { risk: r } = computeRisk(feat);
+      watch = buildNext5(r);
 
-      const f = toFeatures(state);
-
-      // capture "deltas" too (useful for ML/DL later)
-      const dShots = Math.max(0, f.shots - lastShots);
-      const dHits  = Math.max(0, f.hits  - lastHits);
-      lastShots = f.shots;
-      lastHits  = f.hits;
-
-      const p = predict(f);
-      last = p;
-
-      maybeCaptureRow('tick', {
-        t: Math.round(playedSec*1000)/1000,
-        dt: Math.round(dt*1000)/1000,
-        seed, diff, view,
-        features: f,
-        delta: { dShots, dHits }
+      const top2 = explainTop2({
+        ...feat,
+        accLow: Math.max(0, 80-accPct)
       });
 
-      return p;
+      last = {
+        hazardRisk: r,
+        next5: watch,
+        explainTop2: top2,
+        features: feat
+      };
+      return last;
     },
 
     getPrediction(){
@@ -222,30 +154,17 @@ export function createGoodJunkAI(opts = {}){
     },
 
     onEnd(summary){
-      // attach explainable end card (still prediction-only)
-      const end = {
-        model: 'tiny-linear-sigmoid-v20260303',
-        pid,
-        seed,
-        diff,
-        view,
-        lastRisk: last ? Math.round(last.hazardRisk*1000)/1000 : null,
-        top2: last ? last.reasonsTop2 : [],
-        nextHint: last ? (last.next5?.[0] || null) : null
-      };
-
-      maybeCaptureRow('end', {
-        tEndIso: summary?.endTimeIso || null,
-        summaryLite: {
-          scoreFinal: summary?.scoreFinal,
-          missTotal: summary?.missTotal,
-          accPct: summary?.accPct,
-          medianRtGoodMs: summary?.medianRtGoodMs
-        },
-        aiEnd: end
-      });
-
-      return end;
+      // attach explainable bits at end
+      try{
+        const pred = last || null;
+        return pred ? {
+          hazardRisk: pred.hazardRisk,
+          explainTop2: pred.explainTop2,
+          lastNext: (pred.next5 && pred.next5[0]) || null
+        } : null;
+      }catch(e){
+        return null;
+      }
     }
   };
 }
