@@ -1,203 +1,717 @@
-<!-- === /herohealth/plate/plate-vr.html === -->
+<!-- === /herohealth/plate/plate-vr.html ===
+HeroHealth — Plate VR (Run) — BLOOM FULL EDITION
+FULL v20260304-PLATE-BLOOM-FULL
+✅ P1: HHA-ish UI + safe spawn zones + FAIR MISS breakdown
+✅ P2: 3-stage (Warm → Trick → Boss) + Fever + Shield + FX-ready
+✅ P3: Evaluate Gate + Create Mode (Bloom 5-6) + AI Coach explainable
+✅ Works with ../vr/vr-ui.js (hha:shoot) + ../vr/ai-hooks.js (prediction)
+-->
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>HeroHealth — Plate VR</title>
-<link rel="stylesheet" href="../vr/ui-common.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate VR (Run)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-<style>
-html,body{margin:0;height:100%;background:#0b1220;color:#fff;font-family:system-ui}
-#plate-layer{position:absolute;inset:0;overflow:hidden}
+  <!-- Universal VR UI (ENTER VR / EXIT / RECENTER / crosshair + hha:shoot) -->
+  <script type="module" src="../vr/vr-ui.js?v=20260304"></script>
 
-/* target */
-.plateTarget{
-  position:absolute;
-  font-size:42px;
-  transform:translate(-50%,-50%);
-  cursor:pointer;
-  user-select:none;
-  transition:transform .12s ease, opacity .12s ease;
-}
-.plateTarget.hit{transform:translate(-50%,-50%) scale(.85);opacity:.4}
-.plateTarget.expire{opacity:.2}
+  <style>
+    :root{
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
 
-/* HUD */
-.hudTop{
-  position:absolute;top:0;left:0;right:0;
-  padding:10px 14px;
-  background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.2));
-  z-index:10;
-}
-.hudRow{display:flex;gap:12px;flex-wrap:wrap;font-weight:700;font-size:14px}
+      --hud-top: calc(var(--sat) + 10px);
+      --hud-bottom: calc(var(--sab) + 12px);
 
-.hudBottom{
-  position:absolute;bottom:0;left:0;right:0;
-  padding:10px 14px;
-  background:linear-gradient(0deg,rgba(0,0,0,.8),rgba(0,0,0,.3));
-  z-index:10;
-}
+      --panel: rgba(2,6,23,.78);
+      --line: rgba(148,163,184,.18);
+      --txt: rgba(229,231,235,.96);
+      --mut: rgba(148,163,184,.95);
+      --good: rgba(16,185,129,.95);
+      --warn: rgba(251,191,36,.95);
+      --bad: rgba(239,68,68,.95);
+      --accent: rgba(99,102,241,.95);
+      --r: 18px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%; overflow:hidden;
+      background:#020617; color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+    }
+    body{
+      background:
+        radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
+        radial-gradient(900px 700px at 95% 20%, rgba(99,102,241,.12), transparent 60%),
+        linear-gradient(180deg, #020617, #020b1b);
+    }
+    #app{ position:fixed; inset:0; overflow:hidden; }
 
-/* End Overlay */
-#endOverlay{
-  position:absolute;inset:0;
-  background:rgba(0,0,0,.75);
-  backdrop-filter:blur(6px);
-  display:flex;align-items:center;justify-content:center;
-  z-index:50;
-}
-#endCard{
-  background:#111a2c;
-  padding:20px;
-  border-radius:16px;
-  width:min(520px,92vw);
-  text-align:center;
-}
-#endCard h2{margin:0 0 6px 0}
-#endCard button{
-  margin:6px;
-  padding:8px 14px;
-  border-radius:8px;
-  border:none;
-  cursor:pointer;
-  font-weight:700;
-}
-.btnPrimary{background:#2563eb;color:#fff}
-.btnGhost{background:#1f2937;color:#fff}
-</style>
+    /* FX layers (optional) */
+    #fxStorm,#fxBoss{
+      position:absolute; inset:0; z-index:18;
+      pointer-events:none;
+      opacity:0; transition: opacity .18s ease;
+    }
+    #fxStorm.on{
+      opacity:.16;
+      background:
+        radial-gradient(420px 260px at 20% 20%, rgba(56,189,248,.34), transparent 70%),
+        radial-gradient(520px 320px at 85% 30%, rgba(96,165,250,.22), transparent 70%);
+    }
+    #fxBoss.on{
+      opacity:.18;
+      background:
+        radial-gradient(520px 320px at 50% 18%, rgba(244,63,94,.28), transparent 70%),
+        radial-gradient(640px 360px at 50% 86%, rgba(239,68,68,.16), transparent 70%);
+    }
+
+    /* spawn mount */
+    #plate-layer{
+      position:absolute; inset:0;
+      z-index:30;
+      pointer-events:none;
+      overflow:hidden;
+      transform: translateZ(0);
+      min-width: 1px; min-height: 1px;
+    }
+    .plateTarget{
+      position:absolute;
+      display:grid; place-items:center;
+      width:60px; height:60px;
+      border-radius:999px;
+      background:rgba(15,23,42,.84);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 10px 26px rgba(2,6,23,.35);
+      font-size: 30px;
+      line-height:1;
+      user-select:none;
+      pointer-events:auto;
+      touch-action:manipulation;
+      transition: transform .08s ease, opacity .14s ease, filter .14s ease;
+      transform: translate(-50%,-50%);
+      filter: saturate(1.05);
+    }
+    .plateTarget[data-kind="wrong"]{
+      background:rgba(127,29,29,.55);
+      border-color: rgba(248,113,113,.25);
+      box-shadow: 0 10px 26px rgba(127,29,29,.18);
+    }
+    .plateTarget[data-kind="shield"]{
+      background:rgba(30,58,138,.55);
+      border-color: rgba(147,197,253,.30);
+      box-shadow: 0 10px 26px rgba(30,64,175,.18);
+    }
+    .plateTarget[data-kind="fever"]{
+      background:rgba(88,28,135,.46);
+      border-color: rgba(216,180,254,.22);
+    }
+    .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
+    .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
+
+    /* HUD */
+    .hud{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      z-index:80;
+      display:grid;
+      gap:8px;
+      pointer-events:none;
+    }
+    #hudTop{ top:var(--hud-top); }
+    #hudBottom{
+      bottom:var(--hud-bottom);
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+    .row{ display:grid; gap:8px; }
+    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
+    @media (max-width: 780px){
+      .row.cols-3{ grid-template-columns: 1fr; }
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      padding:10px 12px;
+      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
+    }
+    .card h4{
+      margin:0 0 8px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:8px;
+    }
+    .stats.two{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .pill{
+      background: rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 999px;
+      min-height: 42px;
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; padding: 8px 10px;
+      font-weight:900;
+      font-size: 13px;
+    }
+    .pill .v{ font-size:15px; font-weight:1000; }
+    .bar{
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
+      border:1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(99,102,241,.9));
+      transition: width .18s ease;
+    }
+
+    /* Controls (minimal) */
+    #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius: 999px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(2,6,23,.22);
+    }
+    .btn.primary{
+      border-color: rgba(59,130,246,.35);
+      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.25);
+      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+
+    /* End / Evaluate / Create overlays */
+    .overlay{
+      position:absolute; inset:0;
+      z-index:120;
+      display:none;
+      align-items:center; justify-content:center;
+      padding:16px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .overlay.show{ display:flex; }
+    .cardBig{
+      width:min(760px, 94vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 14px;
+    }
+    .grid2{ margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 760px){ .grid2{ grid-template-columns: 1fr; } }
+    .miniCard{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:1000;
+    }
+    .miniCard .k{ font-size:12px; opacity:.82; font-weight:900; }
+    .miniCard .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+    .actions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+    .choiceRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .choiceBtn{
+      pointer-events:auto;
+      display:inline-flex; align-items:center; gap:10px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: var(--txt);
+      padding: 10px 12px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .platePreview{
+      display:flex; gap:8px; flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .slot{
+      width:58px; height:58px;
+      border-radius: 16px;
+      border:1px dashed rgba(148,163,184,.22);
+      background: rgba(2,6,23,.35);
+      display:flex; align-items:center; justify-content:center;
+      font-size: 28px;
+      pointer-events:auto;
+      cursor:pointer;
+      user-select:none;
+    }
+    .hint{
+      color: var(--mut);
+      font-weight:900;
+      font-size: 12.5px;
+      line-height: 1.35;
+      margin-top:8px;
+    }
+
+    /* Mobile: hide bottom HUD box to reduce clutter (keeps controls) */
+    body[data-view="mobile"] #hudBottom .card{ display:none; }
+  </style>
 </head>
 
 <body>
+  <div id="app">
+    <div id="fxStorm" aria-hidden="true"></div>
+    <div id="fxBoss" aria-hidden="true"></div>
 
-<div id="plate-layer"></div>
+    <div id="plate-layer" aria-label="plate targets layer"></div>
 
-<!-- HUD -->
-<div class="hudTop">
-  <div class="hudRow">
-    <div>⏱ <span id="uiTime">0</span></div>
-    <div>⭐ Score: <span id="uiScore">0</span></div>
-    <div>🔥 Combo: <span id="uiCombo">0</span></div>
-    <div>🎯 Acc: <span id="uiAcc">0%</span></div>
-    <div>❌ Miss: <span id="uiMiss">0</span></div>
-    <div>🏆 Grade: <span id="uiGrade">-</span></div>
-  </div>
-  <div class="hudRow">
-    <div id="uiTargetText">เป้าหมาย: -</div>
-  </div>
-</div>
+    <!-- TOP HUD -->
+    <div id="hudTop" class="hud">
+      <div class="row cols-3">
+        <div class="card" id="hudTopCard">
+          <h4>คะแนน / คอมโบ / พลาด</h4>
+          <div class="stats">
+            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          </div>
+          <div class="hint" id="uiMissBreak">miss: click 0 / expire 0 / storm 0</div>
+        </div>
 
-<div class="hudBottom">
-  <div class="hudRow">
-    <div>🍽 ครบหมู่: <span id="uiPlateHave">0</span>/5</div>
-    <div>⚡ Fever: <span id="uiFever">0%</span></div>
-  </div>
-</div>
+        <div class="card" id="hudGoalCard">
+          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
+          <div class="stats">
+            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+          </div>
 
-<!-- END OVERLAY -->
-<div id="endOverlay" hidden>
-  <div id="endCard">
-    <h2 id="endTitle">RESULT</h2>
-    <div id="endSub"></div>
-    <h3>Grade: <span id="endGrade">-</span></h3>
-    <div>Score: <span id="endScore">0</span></div>
-    <div>Hit: <span id="endOk">0</span> | Wrong: <span id="endWrong">0</span></div>
+          <div style="height:8px"></div>
+          <div class="stats two">
+            <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+              <span id="uiGoalTitle">เติมจานให้ครบ 5 หมู่</span>
+            </div>
+            <div class="pill" style="justify-content:center;">
+              <span id="uiGoalCount">0/5</span>
+            </div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bar"><i id="uiGoalFill"></i></div>
 
-    <div style="margin-top:10px">
-      <button id="btnReplay" class="btnPrimary">Replay</button>
-      <button id="btnBackHub2" class="btnGhost">Back HUB</button>
+          <div style="height:10px"></div>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🎯 <span id="uiTargetText">—</span>
+          </div>
+        </div>
+
+        <div class="card" id="hudPowerCard">
+          <h4>เวลา / Fever / Shield</h4>
+          <div class="stats">
+            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+          </div>
+          <div style="height:8px"></div>
+          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+
+          <div style="height:10px"></div>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🤖 <span id="uiAiExplain">AI: —</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM HUD -->
+    <div id="hudBottom" class="hud">
+      <div class="card">
+        <div style="font-weight:1000">🧑‍🏫 Coach</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px;">
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
+        </div>
+      </div>
+
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <!-- EVALUATE (Bloom 5) -->
+    <div class="overlay" id="evalOverlay" aria-hidden="true">
+      <div class="cardBig">
+        <div style="font-weight:1100;font-size:18px">🧠 EVALUATE (Bloom 5)</div>
+        <div class="hint">เลือก “จานที่สมดุลกว่า” แล้วเลือกเหตุผล (เก็บข้อมูลการตัดสินใจ)</div>
+
+        <div class="grid2">
+          <div class="miniCard">
+            <div class="k">PLATE A</div>
+            <div class="platePreview" id="evalA"></div>
+          </div>
+          <div class="miniCard">
+            <div class="k">PLATE B</div>
+            <div class="platePreview" id="evalB"></div>
+          </div>
+        </div>
+
+        <div class="choiceRow">
+          <button class="choiceBtn" id="btnPickA">เลือก A ✅</button>
+          <button class="choiceBtn" id="btnPickB">เลือก B ✅</button>
+        </div>
+
+        <div style="margin-top:10px;font-weight:1000">เหตุผล (เลือก 1 ข้อ)</div>
+        <div class="choiceRow" id="evalReasons">
+          <button class="choiceBtn" data-r="veg">🥦 ผักพอดี</button>
+          <button class="choiceBtn" data-r="protein">🐟 โปรตีนเหมาะสม</button>
+          <button class="choiceBtn" data-r="carb">🍚 คาร์บไม่มากไป</button>
+          <button class="choiceBtn" data-r="fat">🥑 ไขมันพอดี</button>
+          <button class="choiceBtn" data-r="balance">⚖️ ครบ 5 หมู่</button>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="btnEvalNext">ถัดไป: CREATE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE (Bloom 6) -->
+    <div class="overlay" id="createOverlay" aria-hidden="true">
+      <div class="cardBig">
+        <div style="font-weight:1100;font-size:18px">🍽 CREATE (Bloom 6)</div>
+        <div class="hint">จัดจานของคุณให้ “ครบ 5 หมู่” โดยแตะช่องเพื่อสุ่ม/เปลี่ยนอาหาร แล้วกดตรวจ</div>
+
+        <div class="miniCard">
+          <div class="k">YOUR PLATE</div>
+          <div class="platePreview" id="createSlots"></div>
+          <div class="hint" id="createHint">กติกา: ต้องครบ 5 หมู่ • คาร์บไม่เกิน 2 ชิ้น • ไขมันไม่เกิน 2 ชิ้น</div>
+        </div>
+
+        <div class="choiceRow">
+          <button class="choiceBtn" id="btnCreateCheck">ตรวจจาน ✅</button>
+          <button class="choiceBtn" id="btnCreateReroll">สุ่มใหม่ 🎲</button>
+        </div>
+
+        <div class="miniCard" style="margin-top:10px">
+          <div class="k">RESULT</div>
+          <div id="createResult" style="font-weight:1100;margin-top:6px">—</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="btnCreateFinish">ไปสรุปผล</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- END SUMMARY -->
+    <div class="overlay" id="endOverlay" aria-hidden="true">
+      <div class="cardBig">
+        <div style="font-weight:1100;font-size:18px" id="endTitle">จบเกม</div>
+        <div class="hint" id="endSub">—</div>
+
+        <div class="grid2">
+          <div class="miniCard"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+          <div class="miniCard"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="miniCard"><div class="k">OK</div><div class="v" id="endOk">0</div></div>
+          <div class="miniCard"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
+        </div>
+
+        <div class="miniCard" style="margin-top:10px">
+          <div class="k">BLOOM</div>
+          <div style="margin-top:6px;font-weight:1000" id="endBloom">—</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="btnCopy">Copy Summary</button>
+          <button class="btn" id="btnReplay">Replay</button>
+          <button class="btn primary" id="btnBackHub2">Back HUB</button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<script type="module">
-import { boot } from './plate.safe.js';
+  <!-- ✅ BOOT -->
+  <script type="module">
+    import { createAIHooks } from '../vr/ai-hooks.js';
+    import { boot as bootPlate } from './plate.safe.js';
 
-const U = new URL(location.href);
-const view = U.searchParams.get('view') || 'mobile';
-const run = U.searchParams.get('run') || 'play';
-const diff = U.searchParams.get('diff') || 'normal';
-const time = Number(U.searchParams.get('time') || 90);
-const seed = U.searchParams.get('seed') || Date.now();
-const mode = U.searchParams.get('mode') || 'classroom';
-const practice = U.searchParams.get('practice') ?? '1';
-const miniBoss = U.searchParams.get('miniBoss') ?? '1';
+    const U = new URL(location.href);
+    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
+    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
-const hub = U.searchParams.get('hub') || '../hub.html';
-const pid = U.searchParams.get('pid') || 'anon';
+    document.body.setAttribute('data-view', view);
 
-const layer = document.getElementById('plate-layer');
+    const ai = createAIHooks({
+      seed: String(seed),
+      runMode,
+      game: 'plate',
+      diff,
+      device: view
+    });
+    window.HHA_AI = ai;
 
-boot({
-  mount: layer,
-  view,
-  run,
-  diff,
-  time,
-  seed,
-  mode,
-  practice,
-  miniBoss,
-  pid,
-  hub
-});
+    const hub = String(U.searchParams.get('hub') || '../hub.html');
 
-/* --------------------------
-   LISTEN EVENTS FROM ENGINE
--------------------------- */
+    // Boot engine
+    bootPlate({
+      mount: document.getElementById('plate-layer'),
+      hudTopEl: document.getElementById('hudTop'),
+      hudBottomEl: document.getElementById('hudBottom'),
+      fxStormEl: document.getElementById('fxStorm'),
+      fxBossEl: document.getElementById('fxBoss'),
 
-window.addEventListener('hha:time', e=>{
-  const left = e.detail?.left ?? 0;
-  document.getElementById('uiTime').textContent = left;
-});
+      view, run: runMode, diff,
+      time: Number(U.searchParams.get('time') || 90),
+      seed,
+      pid: String(U.searchParams.get('pid') || 'anon'),
+      hub,
+      mode: String(U.searchParams.get('mode') || 'classroom'),
+      ai
+    });
 
-window.addEventListener('hha:score', e=>{
-  const d = e.detail || {};
-  document.getElementById('uiScore').textContent = d.score ?? 0;
-  document.getElementById('uiCombo').textContent = d.combo ?? 0;
-  document.getElementById('uiMiss').textContent = d.miss ?? d.misses ?? 0;
-  document.getElementById('uiAcc').textContent = (d.accPct ?? 0) + '%';
-  document.getElementById('uiFever').textContent = (d.feverPct ?? 0) + '%';
-});
+    // Buttons + pause bridge
+    const btnPause = document.getElementById('btnPause');
+    const btnRestart = document.getElementById('btnRestart');
+    const btnBackHub = document.getElementById('btnBackHub');
+    const btnBackHub2 = document.getElementById('btnBackHub2');
+    let paused = false;
+    const setPauseBtn = ()=>{ btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; };
+    setPauseBtn();
 
-window.addEventListener('hha:rank', e=>{
-  document.getElementById('uiGrade').textContent = e.detail?.grade ?? '-';
-});
+    btnPause?.addEventListener('click', ()=>{
+      paused = !paused;
+      setPauseBtn();
+      window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+    });
 
-window.addEventListener('quest:update', e=>{
-  const g = e.detail?.groupName || '';
-  if(g){
-    document.getElementById('uiTargetText').textContent = 'เป้าหมาย: ' + g;
-  }
-});
+    btnRestart?.addEventListener('click', ()=>{
+      try{
+        const u = new URL(location.href);
+        if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        location.href = u.toString();
+      }catch(e){ location.reload(); }
+    });
 
-window.addEventListener('hha:end', e=>{
-  const s = e.detail || {};
-  const overlay = document.getElementById('endOverlay');
-  overlay.hidden = false;
+    btnBackHub?.addEventListener('click', ()=> location.href = hub);
+    btnBackHub2?.addEventListener('click', ()=> location.href = hub);
 
-  document.getElementById('endTitle').textContent = 'RESULT';
-  document.getElementById('endSub').textContent =
-    `Accuracy ${s.accuracyPct ?? 0}% · Miss ${s.miss ?? 0}`;
-  document.getElementById('endGrade').textContent = s.grade ?? '-';
-  document.getElementById('endScore').textContent = s.scoreFinal ?? 0;
-  document.getElementById('endOk').textContent = s.hits ?? 0;
-  document.getElementById('endWrong').textContent = s.wrong ?? 0;
+    // --- Overlay wiring (Evaluate/Create/End) ---
+    const $ = (id)=>document.getElementById(id);
 
-  // save last summary
-  try{
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(s));
-  }catch(_){}
-});
+    const coachMsg = $('coachMsg');
+    window.addEventListener('hha:coach', (e)=>{
+      const d = e.detail || {};
+      if (coachMsg && d.msg) coachMsg.textContent = d.msg;
+    }, { passive:true });
 
-/* Buttons */
-document.getElementById('btnReplay').onclick = ()=>{
-  location.reload();
-};
-document.getElementById('btnBackHub2').onclick = ()=>{
-  location.href = hub;
-};
-</script>
+    // HUD updates (engine also sets directly, but we keep this as safety)
+    window.addEventListener('hha:score', (e)=>{
+      const d = e.detail || {};
+      if(d.feverPct!=null) $('uiFeverFill').style.width = `${Math.max(0,Math.min(100,d.feverPct))}%`;
+      if(d.shield!=null) $('uiShield').textContent = String(Math.max(0,d.shield|0));
+    }, { passive:true });
 
+    // Evaluate overlay UI
+    const evalOverlay = $('evalOverlay');
+    const createOverlay = $('createOverlay');
+    const endOverlay = $('endOverlay');
+
+    const evalA = $('evalA'), evalB = $('evalB');
+    const btnPickA = $('btnPickA'), btnPickB = $('btnPickB');
+    const reasonsWrap = $('evalReasons');
+    const btnEvalNext = $('btnEvalNext');
+
+    // Create overlay UI
+    const createSlots = $('createSlots');
+    const btnCreateCheck = $('btnCreateCheck');
+    const btnCreateReroll = $('btnCreateReroll');
+    const btnCreateFinish = $('btnCreateFinish');
+    const createResult = $('createResult');
+
+    // End overlay UI
+    const endTitle = $('endTitle');
+    const endSub = $('endSub');
+    const endGrade = $('endGrade');
+    const endScore = $('endScore');
+    const endOk = $('endOk');
+    const endWrong = $('endWrong');
+    const endBloom = $('endBloom');
+    const btnCopy = $('btnCopy');
+    const btnReplay = $('btnReplay');
+
+    function show(el){ el?.classList?.add('show'); if(el) el.setAttribute('aria-hidden','false'); }
+    function hide(el){ el?.classList?.remove('show'); if(el) el.setAttribute('aria-hidden','true'); }
+
+    // Engine drives these via events:
+    // - plate:eval_show (A,B)
+    // - plate:eval_done
+    // - plate:create_show
+    // - plate:create_update (slots)
+    // - plate:create_result
+    // - plate:final_end (summary)
+    let lastSummary = null;
+
+    window.addEventListener('plate:eval_show', (e)=>{
+      const d = e.detail || {};
+      evalA.innerHTML = '';
+      evalB.innerHTML = '';
+      (d.A||[]).forEach(x=>{ const s=document.createElement('div'); s.className='slot'; s.textContent=x; s.style.pointerEvents='none'; evalA.appendChild(s); });
+      (d.B||[]).forEach(x=>{ const s=document.createElement('div'); s.className='slot'; s.textContent=x; s.style.pointerEvents='none'; evalB.appendChild(s); });
+
+      btnPickA.dataset.pick='A';
+      btnPickB.dataset.pick='B';
+      btnEvalNext.disabled = true;
+      btnEvalNext.style.opacity = '0.6';
+
+      // reset reason selection
+      reasonsWrap.querySelectorAll('[data-r]').forEach(b=>{
+        b.style.outline = 'none';
+      });
+
+      show(evalOverlay);
+    });
+
+    // pick plate
+    function sendEvalPick(pick){
+      window.dispatchEvent(new CustomEvent('plate:eval_pick', { detail:{ pick } }));
+    }
+    btnPickA?.addEventListener('click', ()=> sendEvalPick('A'));
+    btnPickB?.addEventListener('click', ()=> sendEvalPick('B'));
+
+    // choose reason
+    reasonsWrap?.addEventListener('click', (ev)=>{
+      const b = ev.target?.closest?.('[data-r]');
+      if(!b) return;
+      const r = b.getAttribute('data-r');
+      reasonsWrap.querySelectorAll('[data-r]').forEach(x=> x.style.outline='none');
+      b.style.outline = '2px solid rgba(99,102,241,.9)';
+      window.dispatchEvent(new CustomEvent('plate:eval_reason', { detail:{ reason:r } }));
+
+      btnEvalNext.disabled = false;
+      btnEvalNext.style.opacity = '1';
+    });
+
+    btnEvalNext?.addEventListener('click', ()=>{
+      hide(evalOverlay);
+      window.dispatchEvent(new CustomEvent('plate:eval_next'));
+    });
+
+    window.addEventListener('plate:create_show', (e)=>{
+      const d = e.detail || {};
+      createSlots.innerHTML = '';
+      (d.slots||[]).forEach((x, idx)=>{
+        const s=document.createElement('div');
+        s.className='slot';
+        s.textContent = x || '＋';
+        s.title = 'แตะเพื่อเปลี่ยน';
+        s.addEventListener('click', ()=> window.dispatchEvent(new CustomEvent('plate:create_cycle', { detail:{ idx } })));
+        createSlots.appendChild(s);
+      });
+      createResult.textContent = '—';
+      show(createOverlay);
+    });
+
+    btnCreateReroll?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('plate:create_reroll'));
+    });
+    btnCreateCheck?.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('plate:create_check'));
+    });
+    btnCreateFinish?.addEventListener('click', ()=>{
+      hide(createOverlay);
+      window.dispatchEvent(new CustomEvent('plate:create_finish'));
+    });
+
+    window.addEventListener('plate:create_update', (e)=>{
+      const d = e.detail || {};
+      createSlots.innerHTML = '';
+      (d.slots||[]).forEach((x, idx)=>{
+        const s=document.createElement('div');
+        s.className='slot';
+        s.textContent = x || '＋';
+        s.addEventListener('click', ()=> window.dispatchEvent(new CustomEvent('plate:create_cycle', { detail:{ idx } })));
+        createSlots.appendChild(s);
+      });
+    });
+
+    window.addEventListener('plate:create_result', (e)=>{
+      const d = e.detail || {};
+      createResult.textContent = String(d.text || '—');
+    });
+
+    window.addEventListener('plate:final_end', (e)=>{
+      lastSummary = e.detail || null;
+
+      endTitle.textContent = 'RESULT';
+      endSub.textContent = `grade=${lastSummary?.grade || '-'} · acc=${lastSummary?.accuracyGoodPct ?? '-'}% · miss=${lastSummary?.missTotal ?? '-'}`;
+      endGrade.textContent = String(lastSummary?.grade || '—');
+      endScore.textContent = String(lastSummary?.scoreFinal ?? 0);
+      endOk.textContent = String(lastSummary?.ok ?? 0);
+      endWrong.textContent = String(lastSummary?.wrong ?? 0);
+
+      const b = lastSummary?.bloom || {};
+      const bloomText = [
+        b.remember ? '1✅Remember' : '1⬜Remember',
+        b.understand ? '2✅Understand' : '2⬜Understand',
+        b.apply ? '3✅Apply' : '3⬜Apply',
+        b.analyze ? '4✅Analyze' : '4⬜Analyze',
+        b.evaluate ? '5✅Evaluate' : '5⬜Evaluate',
+        b.create ? '6✅Create' : '6⬜Create'
+      ].join(' · ');
+      endBloom.textContent = bloomText;
+
+      show(endOverlay);
+    });
+
+    btnCopy?.addEventListener('click', async ()=>{
+      try{
+        const text = JSON.stringify(lastSummary || {}, null, 2);
+        await navigator.clipboard.writeText(text);
+      }catch(e){
+        try{ prompt('Copy Summary JSON:', JSON.stringify(lastSummary||{}, null, 2)); }catch(_){}
+      }
+    });
+    btnReplay?.addEventListener('click', ()=>{
+      try{
+        const u = new URL(location.href);
+        if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        location.href = u.toString();
+      }catch(e){ location.reload(); }
+    });
+
+    // AI explain line (engine emits too, but safety)
+    window.addEventListener('plate:ai_explain', (e)=>{
+      const d = e.detail || {};
+      const el = $('uiAiExplain');
+      if(el && d.text) el.textContent = 'AI: ' + d.text;
+    }, { passive:true });
+
+    // Hide overlays initially
+    hide(evalOverlay); hide(createOverlay); hide(endOverlay);
+  </script>
 </body>
 </html>
