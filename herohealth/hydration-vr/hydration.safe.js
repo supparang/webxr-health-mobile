@@ -3,8 +3,8 @@
 // ✅ ESM + hha:shoot + deterministic + AI hooks wired
 // ✅ STORM (lightning) -> NORMAL -> BOSS
 // ✅ MISS split: missTotal = badHit + goodExpired
-// ✅ HUD-safe-ish spawn (keeps targets away from top HUD zone)
-// FULL v20260302-HYDRATION-SAFE-STORM-MISS-SPLIT
+// ✅ HUD-safe spawn: avoid top HUD area (mobile-first)
+// FULL v20260303-HYDRATION-SAFE-STORM-MISS-SPLIT
 'use strict';
 
 export function boot(cfg){
@@ -112,6 +112,7 @@ export function boot(cfg){
 
   const stageEl = DOC.getElementById('stage') || layer.parentElement;
   const stormFx = DOC.getElementById('stormFx');
+
   function setStorm(on){
     try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
     try{ if(stormFx) stormFx.style.opacity = on ? '1' : '0'; }catch(e){}
@@ -169,8 +170,9 @@ export function boot(cfg){
   WIN.__HYD_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
   let score=0, miss=0;
-  let missBadHit = 0;       // ✅ junk hit when no shield
-  let missGoodExpired = 0;  // ✅ good expired
+  let missBadHit = 0;
+  let missGoodExpired = 0;
+
   let combo=0, bestCombo=0;
   let shield=0;
 
@@ -244,11 +246,13 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // ✅ HUD-safe-ish spawn: push y away from top HUD area
+  // ✅ HUD-safe spawn: กันโซนด้านบน (ที่ HUD ครอบ)
   function safeSpawnXY(){
     const r=layerRect();
     const pad = (view==='mobile') ? 18 : 22;
-    const topBan = (view==='mobile') ? 155 : 120;   // กัน HUD โซนบน
+
+    // ปรับตามความสูง HUD โดยเผื่อมือถือไว้เยอะหน่อย
+    const topBan = (view==='mobile') ? 165 : 125;
     const botPad = (view==='mobile') ? 22 : 24;
 
     const x = pad + r01()*(Math.max(1, r.width - pad*2));
@@ -325,7 +329,7 @@ export function boot(cfg){
     }
 
     miss++;
-    missBadHit++;   // ✅ แยกสาเหตุ
+    missBadHit++;
     combo=0;
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
@@ -382,7 +386,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag: 'HydrationVR',
-      gameVersion: 'HydrationVR_SAFE_2026-03-02_STORM_MISS_SPLIT',
+      gameVersion: 'HydrationVR_SAFE_2026-03-03_STORM_MISS_SPLIT',
       device: view,
       runMode,
       diff,
@@ -495,7 +499,7 @@ export function boot(cfg){
         stormDone = true;
         setStorm(true);
         lightning();
-        try{ cfg.ai?.setHint?.('⚡ STORM! หลบ junk แล้วรีบดื่มน้ำ!'); }catch(e){}
+        try{ cfg.ai?.setHint?.('⚡ STORM! หลบ junk แล้วเก็บ 💧'); }catch(e){}
       }
     }
 
@@ -517,7 +521,7 @@ export function boot(cfg){
         phase = 'boss';
         bossHpMax = (diff==='hard') ? 22 : (diff==='easy' ? 16 : 18);
         bossHp = bossHpMax;
-        try{ cfg.ai?.setHint?.('👑 BOSS! รักษาน้ำให้เกิน 50%'); }catch(e){}
+        try{ cfg.ai?.setHint?.('👑 BOSS! รักษาน้ำ > 50%'); }catch(e){}
       }
     }
 
@@ -565,7 +569,7 @@ export function boot(cfg){
 
         if(b.kind==='good'){
           miss++;
-          missGoodExpired++;   // ✅ แยกสาเหตุ
+          missGoodExpired++;
           combo=0;
           score = Math.max(0, score - 4);
           waterPct = clamp(waterPct - 4.5, 0, 100);
@@ -614,7 +618,7 @@ export function boot(cfg){
           0, 1
         );
 
-      let hint = 'เล็งกลางจอแล้วกดต่อเนื่อง';
+      let hint = 'เล็งกลางจอแล้วกดยิงต่อเนื่อง';
       if(phase==='storm') hint = '⚡ STORM! เลี่ยง junk แล้วเก็บ 💧';
       else if(phase==='boss') hint = '👑 BOSS! รักษาน้ำ > 50%';
       else if(waterPct < 35) hint = 'ดื่มน้ำเป้า 💧 ให้ถี่ขึ้น!';
@@ -625,7 +629,7 @@ export function boot(cfg){
       cfg.ai?.setHint?.(hint);
       setAIHud({ hazardRisk: risk, next5: [hint] });
 
-      // optional: emit tick for logger/future ML
+      // optional: tick for hooks/logger
       cfg.ai?.onTick?.(dt, {
         missGoodExpired,
         missJunkHit: missBadHit,
