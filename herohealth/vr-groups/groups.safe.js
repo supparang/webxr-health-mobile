@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — PRODUCTION (Classroom-ready + Practice + cVR shoot + RAMP + STREAK + FAIR MISS + AI warn)
-// FULL v20260303d-GROUPS-CLASSROOM-RAMP-STREAK-AIWARN-FAIRMISS
+// GroupsVR SAFE — PRODUCTION (Classroom-ready + Practice + cVR shoot + RAMP + STREAK + FAIR MISS + AI warn + FX)
+// FULL v20260303e-GROUPS-CLASSROOM-RAMP-STREAK-AIWARN-FAIRMISS-FX
 /* global window, document */
 (function(){
   'use strict';
@@ -53,29 +53,214 @@
     emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
   }
 
-  // Safe spawn rect (หลบ HUD)
+  // ---------------------------
+  // FX Pack (popup score, burst, flash, shake)
+  // ---------------------------
+  const FX = (function(){
+    let layerEl=null, fxEl=null, styleInstalled=false, shakeT=0;
+
+    function installStyleOnce(){
+      if(styleInstalled) return;
+      styleInstalled = true;
+      const st = DOC.createElement('style');
+      st.textContent = `
+      .hha-fx{ position:absolute; inset:0; pointer-events:none; overflow:hidden; contain:layout style paint; }
+      .hha-pop{
+        position:absolute;
+        transform: translate(-50%,-50%);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+        font-weight: 1000;
+        font-size: 14px;
+        letter-spacing:.2px;
+        opacity:0;
+        filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+        transition: transform 520ms ease, opacity 520ms ease;
+        will-change: transform, opacity;
+        white-space: nowrap;
+      }
+      .hha-pop.good{ color: rgba(34,197,94,.95); }
+      .hha-pop.bad{  color: rgba(239,68,68,.95); }
+      .hha-pop.neu{  color: rgba(229,231,235,.90); }
+
+      .hha-burst{
+        position:absolute;
+        width: 12px; height: 12px;
+        border-radius: 999px;
+        transform: translate(-50%,-50%) scale(.6);
+        opacity:0;
+        transition: transform 320ms ease, opacity 320ms ease;
+        will-change: transform, opacity;
+      }
+      .hha-burst.good{
+        box-shadow: 0 0 0 0 rgba(34,197,94,.0);
+        background: rgba(34,197,94,.22);
+        border: 1px solid rgba(34,197,94,.34);
+      }
+      .hha-burst.bad{
+        background: rgba(239,68,68,.18);
+        border: 1px solid rgba(239,68,68,.30);
+      }
+
+      .hha-flash{
+        position:absolute; inset:0;
+        opacity:0;
+        pointer-events:none;
+        transition: opacity 140ms ease;
+      }
+      .hha-flash.good{ background: radial-gradient(circle at 50% 50%, rgba(34,197,94,.14), rgba(34,197,94,0)); }
+      .hha-flash.bad{  background: radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+      `;
+      DOC.head.appendChild(st);
+    }
+
+    function ensureFxLayer(){
+      if(!layerEl) return;
+      if(fxEl && layerEl.contains(fxEl)) return;
+      installStyleOnce();
+      fxEl = DOC.createElement('div');
+      fxEl.className = 'hha-fx';
+      layerEl.appendChild(fxEl);
+
+      // flash overlay
+      const flash = DOC.createElement('div');
+      flash.className = 'hha-flash';
+      flash.id = 'hhaFlash';
+      fxEl.appendChild(flash);
+    }
+
+    function init(el){
+      layerEl = el || null;
+      ensureFxLayer();
+    }
+
+    function layerRect(){
+      if(!layerEl) return { left:0, top:0, width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
+      const r = layerEl.getBoundingClientRect();
+      return r;
+    }
+
+    function toLocalXY(clientX, clientY){
+      const r = layerRect();
+      return { x: clientX - r.left, y: clientY - r.top };
+    }
+
+    function popupAtClient(text, clientX, clientY, kind){
+      if(!fxEl) return;
+      const p = toLocalXY(clientX, clientY);
+      popupAtLocal(text, p.x, p.y, kind);
+    }
+
+    function popupAtLocal(text, x, y, kind){
+      if(!fxEl) return;
+      const el = DOC.createElement('div');
+      el.className = 'hha-pop ' + (kind||'neu');
+      el.textContent = String(text||'');
+      el.style.left = `${x}px`;
+      el.style.top  = `${y}px`;
+      fxEl.appendChild(el);
+
+      requestAnimationFrame(()=>{
+        el.style.opacity = '1';
+        el.style.transform = `translate(-50%,-70%)`;
+      });
+
+      setTimeout(()=>{ try{ el.style.opacity='0'; }catch(_){ } }, 420);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 720);
+    }
+
+    function burstAtClient(clientX, clientY, good){
+      if(!fxEl) return;
+      const p = toLocalXY(clientX, clientY);
+      burstAtLocal(p.x, p.y, good);
+    }
+
+    function burstAtLocal(x, y, good){
+      if(!fxEl) return;
+      const el = DOC.createElement('div');
+      el.className = 'hha-burst ' + (good ? 'good' : 'bad');
+      el.style.left = `${x}px`;
+      el.style.top  = `${y}px`;
+      fxEl.appendChild(el);
+
+      requestAnimationFrame(()=>{
+        el.style.opacity = '1';
+        el.style.transform = `translate(-50%,-50%) scale(2.4)`;
+      });
+
+      setTimeout(()=>{ try{ el.style.opacity='0'; }catch(_){ } }, 220);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
+    }
+
+    function flash(good){
+      if(!fxEl) return;
+      const f = fxEl.querySelector('#hhaFlash');
+      if(!f) return;
+      f.className = 'hha-flash ' + (good ? 'good' : 'bad');
+      f.style.opacity = '1';
+      setTimeout(()=>{ try{ f.style.opacity='0'; }catch(_){ } }, 120);
+    }
+
+    function shake(ms){
+      ms = clamp(ms||220, 80, 520);
+      shakeT = nowMs() + ms;
+    }
+
+    function tickShake(){
+      if(!layerEl) return;
+      const t = nowMs();
+      if(t > shakeT){
+        // reset
+        try{ layerEl.style.transform = ''; }catch(_){}
+        return;
+      }
+      // small shake
+      const dx = (Math.random()*2-1) * 1.6;
+      const dy = (Math.random()*2-1) * 1.6;
+      try{ layerEl.style.transform = `translate(${dx}px,${dy}px)`; }catch(_){}
+      requestAnimationFrame(tickShake);
+    }
+
+    function startShake(ms){
+      shake(ms);
+      requestAnimationFrame(tickShake);
+    }
+
+    return { init, popupAtClient, popupAtLocal, burstAtClient, burstAtLocal, flash, startShake };
+  })();
+
+  // ---------------------------
+  // Safe spawn rect (หลบ HUD) — FIX: LOCAL coords
+  // ---------------------------
   function getSafeRect(layerEl){
+    // optional override: window.__HHA_SPAWN_SAFE__ expected LOCAL coords now
     const s = WIN.__HHA_SPAWN_SAFE__;
-    if(s && Number.isFinite(s.xMin)) return s;
+    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
+      return s;
+    }
+
     const r = layerEl.getBoundingClientRect();
     const PAD = 14;
+
+    // local coords inside layer
+    const topSafe = 120; // avoid top HUD area
+    const botSafe = 140; // avoid bottom VR UI
     return {
-      xMin: r.left + PAD,
-      xMax: r.right - PAD,
-      yMin: r.top + 120,
-      yMax: r.bottom - 140
+      xMin: PAD,
+      xMax: Math.max(PAD+1, r.width - PAD),
+      yMin: topSafe,
+      yMax: Math.max(topSafe+1, r.height - botSafe)
     };
   }
 
   // ---------------------------
-  // Content: Thai 5 food groups (fixed)
+  // Content: Thai 5 food groups (fixed mapping)
   // ---------------------------
   const GROUPS = [
-    { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
-    { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
+    { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🫘'] },
+    { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🍠'] },
     { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
     { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
+    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🥜'] },
   ];
 
   // ---------------------------
@@ -178,7 +363,7 @@
 
     // quest/mission
     curGroup: null,
-    goalTotal: 10,
+    goalTotal: 12,
     goalNow: 0,
 
     // power
@@ -201,7 +386,7 @@
     idSeq: 1,
 
     // fairness
-    // ✅ miss นับเฉพาะ “เป้าถูกหมู่” ที่ปล่อยหลุด (ไม่ใช่ทุกอย่าง)
+    // miss นับเฉพาะ “เป้าถูกหมู่” ที่ปล่อยหลุด (ไม่ใช่ทุกอย่าง)
   };
 
   function accPct(){
@@ -219,6 +404,7 @@
 
   function setLayerEl(el){
     STATE.layerEl = el || null;
+    if(STATE.layerEl) FX.init(STATE.layerEl);
   }
 
   function clearTargets(){
@@ -241,13 +427,14 @@
     el.className = 'tgt';
     el.dataset.id = id;
 
-    const gMission = (STATE.stage==='boss') ? STATE.curGroup : STATE.curGroup;
+    const gMission = STATE.curGroup;
     let emoji = '';
     let groupId = gMission.id;
     let mission = !!isMission;
 
     // boss เน้นถูกมากขึ้นให้ “รู้สึกเก่ง”
     const correctP = (STATE.stage==='boss') ? 0.82 : 0.72;
+
     if(STATE.rng() < correctP){
       emoji = pick(STATE.rng, gMission.items);
       mission = true;
@@ -264,11 +451,19 @@
 
     const p = posInSafe();
     el.style.position = 'absolute';
-    el.style.left = `${p.x}px`;
-    el.style.top  = `${p.y}px`;
-    el.style.transform = 'translate(-50%,-50%)';
+    el.style.left = `${p.x}px`; // local
+    el.style.top  = `${p.y}px`; // local
+    el.style.transform = 'translate(-50%,-50%) scale(.86)';
+    el.style.opacity = '0';
 
     STATE.layerEl.appendChild(el);
+
+    // spawn pop
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 160ms ease, opacity 140ms ease';
+      el.style.transform = 'translate(-50%,-50%) scale(1)';
+      el.style.opacity = '1';
+    });
 
     const born = nowMs();
     const ttlMul = ttlShrinkMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
@@ -290,17 +485,23 @@
     STATE.map.delete(String(id));
     try{
       if(cls) t.el.classList.add(cls);
-      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 120);
+      // pop out
+      t.el.style.transition = 'transform 140ms ease, opacity 120ms ease';
+      t.el.style.transform = 'translate(-50%,-50%) scale(.72)';
+      t.el.style.opacity = '0';
+      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 140);
     }catch(_){}
   }
 
   function powerAdd(n){
     STATE.charge = Math.max(0, (STATE.charge|0) + (n|0));
     emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
+
     if(STATE.charge >= STATE.chargeNeed){
       // ได้ “สลับหมู่” (คล้าย power-up)
       STATE.charge = 0;
       STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
+
       STATE.curGroup = pick(STATE.rng, GROUPS);
       emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
       emit('quest:update', {
@@ -312,14 +513,30 @@
         miniNow: (STATE.stage==='boss') ? STATE.bossHits : STATE.charge,
         miniTotal: (STATE.stage==='boss') ? 999 : STATE.chargeNeed
       });
+
       coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
+      FX.flash(true);
+      FX.popupAtLocal(`SWITCH → ${STATE.curGroup.short}`, 120, 56, 'neu');
     }
   }
 
-  function onHit(obj){
+  function onHit(obj, source){
     STATE.shots++;
 
     const isCorrect = (obj.mission === true) && (obj.groupId === STATE.curGroup.id);
+
+    // compute hit position for FX
+    let cx=0, cy=0;
+    try{
+      const b = obj.el.getBoundingClientRect();
+      cx = b.left + b.width/2;
+      cy = b.top + b.height/2;
+    }catch(_){
+      // fallback: center of layer
+      const r = STATE.layerEl.getBoundingClientRect();
+      cx = r.left + r.width/2;
+      cy = r.top + r.height/2;
+    }
 
     if(isCorrect){
       STATE.hits++;
@@ -332,8 +549,14 @@
 
       powerAdd(1);
 
+      // FX good
+      FX.flash(true);
+      FX.burstAtClient(cx, cy, true);
+      FX.popupAtClient(`+${add}`, cx, cy, 'good');
+
       if(STATE.stage==='boss'){
         STATE.bossHits++;
+        FX.startShake(120);
         if(STATE.bossHits === 1) coach('บอสเริ่มแล้ว! คุมคอมโบไว้ ⚡', 'fever');
       }else if(STATE.combo === 4){
         coach('คอมโบมาแล้ว! รักษาจังหวะ 🔥', 'happy');
@@ -341,7 +564,7 @@
         coach(`ดีมาก! ต่อไปเน้น “${STATE.curGroup.short}” 🎯`, 'neutral');
       }
 
-      try{ WIN.HHA_AI?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add }); }catch(_){}
+      try{ WIN.HHA_AI?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add, source:String(source||'') }); }catch(_){}
       removeTarget(obj.id, 'hit');
       return;
     }
@@ -350,7 +573,14 @@
     STATE.combo = 0;
     STATE.score = Math.max(0, STATE.score - 3);
 
-    try{ WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji }); }catch(_){}
+    // FX bad
+    FX.flash(false);
+    FX.burstAtClient(cx, cy, false);
+    FX.popupAtClient('MISS', cx, cy, 'bad');
+
+    coach('ผิดหมู่! ดูชื่อหมู่ก่อนยิงนะ', 'neutral');
+
+    try{ WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji, source:String(source||'') }); }catch(_){}
     removeTarget(obj.id, 'hit');
   }
 
@@ -359,32 +589,45 @@
     const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
     if(!el) return;
     const obj = STATE.map.get(String(el.dataset.id));
-    if(obj) onHit(obj);
+    if(obj) onHit(obj, 'tap');
   }
 
-  function pickClosestToCenter(lockPx){
-    lockPx = clamp(lockPx ?? 22, 16, 140);
+  function pickClosestToPoint(clientX, clientY, lockPx){
+    lockPx = clamp(lockPx ?? 22, 12, 140);
     let best=null, bestD=1e9;
-    const r = STATE.layerEl.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
 
     for(const obj of STATE.map.values()){
       const b = obj.el.getBoundingClientRect();
       const x = b.left + b.width/2;
-      const y = b.top + b.height/2;
-      const d = Math.hypot(x-cx, y-cy);
+      const y = b.top  + b.height/2;
+      const d = Math.hypot(x-clientX, y-clientY);
       if(d < bestD){ bestD=d; best=obj; }
     }
     if(best && bestD <= lockPx) return best;
     return null;
   }
 
+  // ✅ FIX: shoot uses x,y if provided; fallback to center
   function shootHandler(ev){
     if(!STATE.running || STATE.paused) return;
-    const lockPx = ev && ev.detail && ev.detail.lockPx != null ? ev.detail.lockPx : 22;
-    const obj = pickClosestToCenter(lockPx);
-    if(obj) onHit(obj);
+    const d = ev?.detail || {};
+
+    let lockPx = (d.lockPx != null) ? Number(d.lockPx) : 22;
+    // mobile/cVR assist
+    if(STATE.view === 'mobile') lockPx = Math.max(lockPx, 34);
+    if(STATE.view === 'cvr')    lockPx = Math.max(lockPx, 26);
+
+    let x = Number(d.x);
+    let y = Number(d.y);
+
+    if(!Number.isFinite(x) || !Number.isFinite(y)){
+      const r = STATE.layerEl.getBoundingClientRect();
+      x = r.left + r.width/2;
+      y = r.top  + r.height/2;
+    }
+
+    const obj = pickClosestToPoint(x, y, lockPx);
+    if(obj) onHit(obj, d.source || 'shoot');
   }
 
   function setHUD(){
@@ -432,6 +675,14 @@
             STATE.miss++;
             STATE.combo = 0;
             STATE.score = Math.max(0, STATE.score - 2);
+
+            // FX: timeout miss (use last known rect)
+            try{
+              const b = obj.el.getBoundingClientRect();
+              FX.popupAtClient('TIMEOUT', b.left+b.width/2, b.top+b.height/2, 'bad');
+              FX.burstAtClient(b.left+b.width/2, b.top+b.height/2, false);
+            }catch(_){}
+
             try{ WIN.HHA_AI?.onExpire?.('groups_target', { id: obj.id, emoji: obj.emoji }); }catch(_){}
           }else{
             // อันไม่ใช่ภารกิจ: ไม่ควรทำให้เด็ก “รู้สึกผิด” หนัก
@@ -450,14 +701,20 @@
     STATE.bossLeft = STATE.bossSec;
     STATE.bossHits = 0;
     STATE.curGroup = pick(STATE.rng, GROUPS);
+
     emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
     coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้ได้เยอะสุดใน ${STATE.bossSec}s`, 'fever');
+
+    // FX entry
+    FX.startShake(220);
+    FX.flash(true);
+    FX.popupAtLocal('BOSS TIME!', 140, 54, 'neu');
   }
 
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_2026-03-03d',
+      gameVersion: 'GroupsVR_SAFE_2026-03-03e',
       device: STATE.view,
       runMode: STATE.runMode,
       diff: STATE.diff,
@@ -491,7 +748,6 @@
     const summary = buildSummary(reason);
     try{ WIN.HHA_AI?.onEnd?.(summary); }catch(_){}
 
-    // ส่ง event ที่หน้า run ฟังอยู่
     emit('hha:end', summary);
   }
 
@@ -532,12 +788,11 @@
 
     // end conditions
     if(STATE.tLeft <= 0){
-      // classroom: ถ้าไม่ใช่ practice ให้เข้า boss ต่อ (ถ้าเปิด)
       const classroom = !!STATE.ctx?.classroom;
       const bossOn = !!STATE.ctx?.miniBoss;
       if(classroom && bossOn && STATE.stage === 'main' && STATE.runMode !== 'practice'){
         startBoss();
-        // ให้มีเวลาคั่นนิดเดียว
+        // เวลาคั่นก่อนบอสสั้น ๆ
         STATE.tLeft = 6;
         STATE.raf = requestAnimationFrame(tick);
         return;
@@ -553,7 +808,6 @@
     ctx = ctx || {};
     if(!STATE.layerEl){ throw new Error('[GroupsVR] layerEl not set. Call setLayerEl() first'); }
 
-    // stop any previous
     stop();
 
     STATE.diff = String(diff||'normal').toLowerCase();
@@ -605,26 +859,24 @@
 
     // hooks
     try{
-      // pointer for pc/mobile
       STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
     }catch(_){}
     try{
-      WIN.addEventListener('hha:shoot', shootHandler);
+      WIN.addEventListener('hha:shoot', shootHandler, { passive:true });
     }catch(_){}
 
-    // tell UI
     if(STATE.runMode === 'practice'){
-      coach('PRACTICE 15s — ซ้อมก่อน (ไม่คิด miss หนัก) 🧪', 'neutral');
+      coach('PRACTICE — ซ้อมก่อน (ลงโทษเบา) 🧪', 'neutral');
     }else{
       coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🔥`, 'neutral');
     }
 
+    FX.flash(true);
     setHUD();
     STATE.raf = requestAnimationFrame(tick);
   }
 
   function stop(){
-    // remove listeners
     try{ if(STATE.layerEl) STATE.layerEl.removeEventListener('pointerdown', pointerHandler); }catch(_){}
     try{ WIN.removeEventListener('hha:shoot', shootHandler); }catch(_){}
 
@@ -637,6 +889,7 @@
   function setPaused(on){
     STATE.paused = !!on;
     STATE.lastTick = nowMs();
+    coach(STATE.paused ? 'พักก่อน…' : 'ลุยต่อ!', STATE.paused ? 'neutral' : 'happy');
   }
 
   // ---------------------------
