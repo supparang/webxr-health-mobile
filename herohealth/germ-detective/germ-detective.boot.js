@@ -1,8 +1,5 @@
 // === /herohealth/germ-detective/germ-detective.boot.js ===
 // Germ Detective BOOT — PRODUCTION SAFE (A: use germ-detective.js as core)
-// ✅ Deterministic research seed (pid + scene + localDay + seed)
-// ✅ Wires GameApp + emits minimal meta events
-// ✅ No Apps Script / no network
 
 import GameApp from './germ-detective.js';
 
@@ -62,6 +59,7 @@ import GameApp from './germ-detective.js';
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload } })); }catch(_){}
   }
 
+  // ✅ PASS hub into GameApp (for Result Modal "Back HUB")
   const app = GameApp({
     timeSec: P.time,
     seed: P.seed,
@@ -69,7 +67,8 @@ import GameApp from './germ-detective.js';
     diff: P.diff,
     scene: P.scene,
     view: P.view,
-    pid: P.pid
+    pid: P.pid,
+    hub: P.hub
   });
 
   WIN.addEventListener('hha:end', (ev)=>{
@@ -90,6 +89,7 @@ import GameApp from './germ-detective.js';
     game:'germ-detective',
     run:P.run, diff:P.diff, time:P.time, seed:P.seed, pid:P.pid,
     scene:P.scene, view:P.view,
+    hub:P.hub,
     researchSeedBase: WIN.__GD_RESEARCH_SEED_BASE__ || null
   });
 
