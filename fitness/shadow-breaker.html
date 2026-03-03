@@ -1,9 +1,11 @@
 <!-- === /fitness/shadow-breaker.html ===
-Shadow Breaker (DOM) — RUN GAME (latest run shell)
-✅ Menu / Play / Result views
-✅ IDs aligned with engine.js (current patches)
-✅ Meta toggle + Fever button placeholders
-✅ Back HUB passthrough support (engine reads ?hub=)
+Shadow Breaker (DOM) — RUN GAME (latest run shell) + Planner Bridge
+PATCH v20260303-SB-PLANNER-BRIDGE
+✅ hub= passthrough (no hardcoded hub)
+✅ Plan HUD (planDay/planSlot) + Back button
+✅ HH_END_GAME(reason,payload) for planner loop
+✅ Result: "กลับตามแผน" button
+✅ Auto-return when hub has seq=1 or autoNext=1 (planner flow)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,8 +16,59 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260225-run" />
+
+  <!-- ✅ Planner HUD overlay -->
+  <style>
+    #hhHud{
+      position:fixed; left:10px; right:10px; top:10px; z-index:9999;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+    .hhPill{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(0,0,0,.55);
+      color:#e8eefc;
+      padding:8px 10px;
+      border-radius:999px;
+      font-weight:900;
+      backdrop-filter: blur(6px);
+      max-width: 70vw;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hhBtn{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);
+      color:#e8eefc;
+      padding:8px 12px;
+      border-radius:14px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .hhBtn:active{ transform: translateY(1px); }
+    .hhTiny{ opacity:.85; font-weight:800; }
+    /* keep HUD not blocking your native header */
+    @media (max-width: 480px){
+      #hhHud{ top:6px; left:6px; right:6px; }
+      .hhPill{ max-width: 64vw; }
+    }
+  </style>
 </head>
+
 <body>
+  <!-- ✅ Overlay HUD: plan day/slot + back -->
+  <div id="hhHud" aria-hidden="false">
+    <div class="hhPill">
+      Shadow 🥊
+      <span class="hhTiny">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span>
+    </div>
+    <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
+  </div>
+
   <div id="sb-wrap" class="sb-wrap">
 
     <!-- Header -->
@@ -29,6 +82,7 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
       <div class="sb-header-right">
         <div class="sb-tip">Tip: โหมดเล่นเปิด AI ได้ด้วย <code>?ai=1</code></div>
         <div class="sb-links">
+          <!-- ✅ will be patched to hub= if present -->
           <a class="sb-link" id="sb-link-hub" href="./../herohealth/hub.html">← Back HUB</a>
         </div>
       </div>
@@ -70,8 +124,6 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
           </div>
 
           <div class="sb-actions">
-            <!-- หมายเหตุ: engine patch ปัจจุบันใช้ btnPlay/btnResearch start ตรง ๆ -->
-            <!-- ปุ่มนี้เก็บไว้สำหรับ flow เวอร์ชันที่ใช้ form start -->
             <button id="sb-btn-start" class="sb-btn sb-btn-primary" type="button">▶ เริ่มเกม</button>
             <button id="sb-btn-howto" class="sb-btn sb-btn-ghost" type="button">วิธีเล่น</button>
           </div>
@@ -91,7 +143,8 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
             <div>
               <b>Query params</b> ที่รองรับ:
               <code>pid</code>, <code>diff</code>, <code>time</code>,
-              <code>mode</code>/<code>run</code>, <code>hub</code>, <code>ai</code>
+              <code>mode</code>/<code>run</code>, <code>hub</code>, <code>ai</code>,
+              <code>planDay</code>, <code>planSlot</code>, <code>autoNext</code>
             </div>
           </div>
         </form>
@@ -138,15 +191,12 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
 
         <!-- Stage -->
         <div class="sb-stage" id="sb-stage">
-          <!-- center message -->
           <div class="sb-center-msg">
             <div id="sb-msg-main" class="sb-msg-main">Ready</div>
           </div>
 
-          <!-- target layer -->
           <div id="sb-target-layer" class="sb-target-layer" aria-label="target layer"></div>
 
-          <!-- Boss meta card -->
           <aside id="sb-meta" class="sb-meta" aria-label="boss meta">
             <div class="sb-meta-rowtop">
               <div class="sb-meta-emoji" id="sb-meta-emoji">🎯</div>
@@ -220,6 +270,9 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
           <button id="sb-btn-result-menu" class="sb-btn" type="button">☰ เมนู</button>
           <button id="sb-btn-download-events" class="sb-btn sb-btn-ghost" type="button">⬇ Events CSV</button>
           <button id="sb-btn-download-session" class="sb-btn sb-btn-ghost" type="button">⬇ Session CSV</button>
+
+          <!-- ✅ NEW: Return to planner/hub -->
+          <button id="sb-btn-return-plan" class="sb-btn sb-btn-ghost" type="button">✅ กลับตามแผน</button>
         </div>
       </section>
 
@@ -234,7 +287,24 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
       const linkHub = document.getElementById('sb-link-hub');
       if (hub && linkHub) linkHub.href = hub;
 
-      // Prefill menu inputs from query (engine may ignore menu fields in some patch versions)
+      // Planner HUD
+      const day = qs.get('planDay') || '—';
+      const slot = qs.get('planSlot') || '—';
+      const elDay = document.getElementById('hhDay');
+      const elSlot = document.getElementById('hhSlot');
+      if(elDay) elDay.textContent = day;
+      if(elSlot) elSlot.textContent = slot;
+
+      // Back button
+      const btnBack = document.getElementById('hhBack');
+      if(btnBack){
+        btnBack.addEventListener('click', ()=>{
+          if(hub){ location.href = hub; }
+          else{ history.back(); }
+        });
+      }
+
+      // Prefill menu inputs from query
       const pidEl  = document.getElementById('sb-input-pid');
       const diffEl = document.getElementById('sb-input-diff');
       const timeEl = document.getElementById('sb-input-time');
@@ -279,11 +349,75 @@ Shadow Breaker (DOM) — RUN GAME (latest run shell)
 
       if (btnStart){
         btnStart.addEventListener('click', ()=>{
-          // Engine patches บางเวอร์ชัน bind เริ่มเกมกับ btnPlay/btnResearch โดยตรง
-          // เลยยิง click ต่อให้ตามโหมดที่เลือก
           if (mode === 'research') btnResearch?.click();
           else btnPlay?.click();
         });
+      }
+
+      // ✅ Universal planner end hook (engine can call this)
+      window.HH_END_GAME = function(reason, payload){
+        reason = String(reason || 'end');
+        payload = payload || {};
+        if(hub){
+          try{
+            const u = new URL(hub, location.href);
+            u.searchParams.set('reason', reason);
+
+            // optional payload fields -> planner
+            if(payload && typeof payload === 'object'){
+              if(payload.score!=null) u.searchParams.set('score', String(payload.score));
+              if(payload.acc!=null)   u.searchParams.set('acc', String(payload.acc));
+              if(payload.miss!=null)  u.searchParams.set('miss', String(payload.miss));
+              if(payload.phase!=null) u.searchParams.set('phaseEnd', String(payload.phase));
+            }
+            location.href = u.toString();
+            return;
+          }catch(_){}
+          location.href = hub;
+          return;
+        }
+        // fallback
+        history.back();
+      };
+
+      // ✅ Result "Return to plan"
+      const btnReturn = document.getElementById('sb-btn-return-plan');
+      if(btnReturn){
+        btnReturn.addEventListener('click', ()=>{
+          const score = document.getElementById('sb-res-score')?.textContent || '';
+          const acc   = document.getElementById('sb-res-acc')?.textContent || '';
+          const miss  = document.getElementById('sb-res-miss')?.textContent || '';
+          const phase = document.getElementById('sb-res-phase')?.textContent || '';
+          window.HH_END_GAME('result', { score, acc, miss, phase });
+        });
+      }
+
+      // ✅ Auto-return when planner flow is explicit (seq=1 or autoNext=1)
+      const autoNext = (qs.get('autoNext') === '1');
+      const hubHasSeq = (hub && hub.includes('seq=1'));
+
+      if(hub && (autoNext || hubHasSeq)){
+        const resView = document.getElementById('sb-view-result');
+        if(resView){
+          let fired = false;
+          const isActive = ()=> resView.classList.contains('is-active');
+          const obs = new MutationObserver(()=>{
+            if(fired) return;
+            if(isActive()){
+              fired = true;
+              // show result briefly then return (strict only when seq=1)
+              if(!hubHasSeq) return;
+              setTimeout(()=>{
+                const score = document.getElementById('sb-res-score')?.textContent || '';
+                const acc   = document.getElementById('sb-res-acc')?.textContent || '';
+                const miss  = document.getElementById('sb-res-miss')?.textContent || '';
+                const phase = document.getElementById('sb-res-phase')?.textContent || '';
+                window.HH_END_GAME('auto', { score, acc, miss, phase });
+              }, 900);
+            }
+          });
+          obs.observe(resView, { attributes:true, attributeFilter:['class'] });
+        }
       }
     })();
   </script>
