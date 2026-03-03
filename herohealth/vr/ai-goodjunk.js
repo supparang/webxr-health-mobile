@@ -1,120 +1,120 @@
 // === /herohealth/vr/ai-goodjunk.js ===
-// AI GoodJunk — PREDICTION ONLY (research-safe, deterministic by seed)
-// PATCH v20260302-AI-PREDICT
+// GoodJunk AI Prediction — Research-safe (NO adaptive difficulty)
+// PATCH v20260302-AI-PRED
 'use strict';
 
-function xmur3(str){
-  str = String(str||'');
-  let h = 1779033703 ^ str.length;
-  for(let i=0;i<str.length;i++){
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
+export function createGoodJunkAI(cfg){
+  cfg = cfg || {};
+  const seed = String(cfg.seed || Date.now());
+  const pid  = String(cfg.pid  || 'anon');
+  const diff = String(cfg.diff || 'normal');
+  const view = String(cfg.view || 'mobile');
+
+  // tiny deterministic rng (xmur3 + sfc32)
+  function xmur3(str){
+    str = String(str||'');
+    let h = 1779033703 ^ str.length;
+    for(let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
+    };
   }
-  return function(){
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= (h >>> 16)) >>> 0;
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
+  }
+  const seedFn = xmur3(`GJAI:${seed}:${pid}:${diff}:${view}`);
+  const rng = sfc32(seedFn(), seedFn(), seedFn(), seedFn());
+  const r01 = ()=> rng();
+
+  // rolling features
+  let tAcc = 0;
+  let missGoodExpired = 0;
+  let missJunkHit = 0;
+  let shield = 0;
+  let fever = 0;
+  let combo = 0;
+
+  let lastPred = {
+    hazardRisk: 0.25,
+    next5: ['เล็งกลางจอ', 'เก็บของดี', 'เลี่ยงของเสีย', 'คอมโบสำคัญ', 'อย่าปล่อยของดีหาย']
   };
-}
-function sfc32(a,b,c,d){
-  return function(){
-    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-    let t = (a + b) | 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) | 0;
-    c = (c << 21) | (c >>> 11);
-    d = (d + 1) | 0;
-    t = (t + d) | 0;
-    c = (c + t) | 0;
-    return (t >>> 0) / 4294967296;
-  };
-}
-function makeRng(seedStr){
-  const seed = xmur3(seedStr);
-  return sfc32(seed(), seed(), seed(), seed());
-}
-const clamp=(v,a,b)=>Math.max(a,Math.min(b, v));
 
-export function createGoodJunkAI(opts){
-  opts = opts || {};
-  const seed = String(opts.seed || Date.now());
-  const rng = makeRng('AI-GJ:' + seed);
+  function clamp(v,a,b){ v=+v; if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
 
-  // internal state
-  let lastPred = { hazardRisk: 0.15, next5: ['เล็งของดี'], t: 0 };
-  let emaMiss = 0;       // exp moving average of miss pressure
-  let emaAcc  = 0.75;    // acc proxy
-  let emaRt   = 650;     // ms proxy
-  let tickT   = 0;
+  function compute(){
+    // heuristic “prediction” (ML hook-ready)
+    const base = 0.18 + (diff==='hard'?0.08:diff==='easy'?-0.05:0);
+    const riskFromExpired = clamp(missGoodExpired * 0.06, 0, 0.42);
+    const riskFromJunkHit = clamp(missJunkHit  * 0.09, 0, 0.55);
+    const protect = clamp(shield * 0.06, 0, 0.30);
+    const feverBoost = clamp(fever/100 * 0.08, 0, 0.08); // excitement
+    const comboProtect = clamp(combo * 0.02, 0, 0.18);
 
-  const hintPool = [
-    'โฟกัสของดี (GOOD) ก่อน',
-    'เห็นของเสียให้หลบ',
-    'อย่ารีบยิงมั่ว (ลด shots)',
-    'รักษาคอมโบให้ได้',
-    'เก็บโล่ไว้กันพลาด',
-    'เล็งกลางจอแล้วค่อยยิง'
-  ];
+    // tiny deterministic noise so it doesn’t look frozen
+    const jitter = (r01()*2-1) * 0.03;
 
-  function pickHint(){
-    const i = (rng()*hintPool.length)|0;
-    return hintPool[i];
+    const hazardRisk = clamp(base + riskFromExpired + riskFromJunkHit - protect - comboProtect + feverBoost + jitter, 0, 1);
+
+    const hints = [];
+    if(missGoodExpired > missJunkHit) hints.push('ของดีกำลังหายเร็ว');
+    if(missJunkHit > 0) hints.push('ระวังของเสีย');
+    if(shield <= 0) hints.push('หาโล่ 🛡️');
+    if(combo < 3) hints.push('เร่งคอมโบ');
+    if(fever >= 60) hints.push('เข้า FEVER ได้');
+
+    while(hints.length < 5) hints.push(r01() < 0.5 ? 'เล็งกลางจอ' : 'เก็บของดี');
+
+    lastPred = { hazardRisk, next5: hints.slice(0,5) };
+    return lastPred;
   }
 
   return {
-    onSpawn(kind, meta){ /* could log spawn */ },
-    onHit(kind, meta){ /* could log hit */ },
-    onExpire(kind, meta){ /* could log expire */ },
+    getPrediction(){ return lastPred; },
 
-    onTick(dt, state){
-      dt = Number(dt)||0.016;
-      tickT += dt;
+    onSpawn(kind, meta){ /* hook */ },
 
-      const missPressure = (Number(state.missGoodExpired||0) + Number(state.missJunkHit||0)*1.2);
-      emaMiss = emaMiss*0.92 + missPressure*0.08;
+    onHit(kind, meta){ /* hook */ },
 
-      const shots = Number(state.shots||0);
-      const hits  = Number(state.hits||0);
-      const acc   = (shots>0) ? (hits/shots) : 0.75;
-      emaAcc = emaAcc*0.92 + acc*0.08;
+    onExpire(kind, meta){ /* hook */ },
 
-      // crude RT proxy from combo/shield/fever (you'll replace with real ML later)
-      const combo = Number(state.combo||0);
-      const fever = Number(state.fever||0);
-      emaRt = emaRt*0.95 + (700 - combo*18 - fever*1.2)*0.05;
-
-      // hazard risk heuristic (0..1)
-      let risk = 0.10;
-      risk += clamp(emaMiss/12, 0, 0.55);
-      risk += clamp((0.70 - emaAcc), 0, 0.25);
-      risk += clamp((emaRt - 800)/900, 0, 0.18);
-
-      // slight deterministic noise
-      risk += (rng()*0.06 - 0.03);
-      risk = clamp(risk, 0.02, 0.98);
-
-      // update prediction every ~0.5s
-      if(tickT - (lastPred.t||0) >= 0.5){
-        const hint = pickHint();
-        lastPred = {
-          hazardRisk: +risk.toFixed(3),
-          next5: [hint],
-          t: tickT
-        };
+    onTick(dt, feats){
+      // expect feats from game
+      if(feats){
+        missGoodExpired = feats.missGoodExpired|0;
+        missJunkHit = feats.missJunkHit|0;
+        shield = feats.shield|0;
+        fever  = +feats.fever || 0;
+        combo  = feats.combo|0;
+      }
+      tAcc += Math.max(0, +dt || 0);
+      if(tAcc >= 0.35){
+        tAcc = 0;
+        return compute();
       }
       return lastPred;
     },
 
-    getPrediction(){
-      return lastPred || null;
-    },
-
     onEnd(summary){
-      // return extra ai output (still prediction-only)
+      // attach for research logging
       return {
-        hazardRiskFinal: lastPred?.hazardRisk ?? null,
-        hintFinal: (lastPred?.next5 && lastPred.next5[0]) || null,
-        model: 'heuristic-v1 (placeholder for ML/DL)'
+        model: 'heuristic-v1',
+        note: 'prediction only (no adaptive)',
+        lastPred
       };
     }
   };
