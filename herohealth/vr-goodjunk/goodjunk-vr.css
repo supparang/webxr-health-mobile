@@ -1,265 +1,236 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION
-PATCH v20260304-CSS-HUDSAFE-STAGE
+PATCH v20260304-UI-CLEAN
 */
 :root{
-  --bg0: #070a12;
-  --bg1: rgba(2,6,23,.62);
-  --line: rgba(148,163,184,.16);
+  --bg: #050816;
+  --panel: rgba(2,6,23,.55);
+  --panel2: rgba(2,6,23,.40);
+  --stroke: rgba(148,163,184,.16);
   --text: rgba(229,231,235,.96);
-  --mut: rgba(203,213,225,.78);
-
-  --safeTop: env(safe-area-inset-top, 0px);
-  --safeBottom: env(safe-area-inset-bottom, 0px);
+  --mut: rgba(148,163,184,.82);
+  --good: rgba(34,197,94,1);
+  --bad: rgba(255,110,110,1);
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  background:
-    radial-gradient(900px 500px at 50% -120px, rgba(56,189,248,.16), transparent 60%),
-    radial-gradient(700px 500px at 20% 120%, rgba(34,197,94,.10), transparent 55%),
-    linear-gradient(180deg, #050812, #030512);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  overflow:hidden;
+html,body{ height:100%; margin:0; background: radial-gradient(1200px 800px at 50% -10%, #0b1b3a 0%, var(--bg) 55%, #040612 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
+#app{ min-height:100%; }
+
+#bootSplash{
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  color: rgba(229,231,235,.82);
+  font: 900 16px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  letter-spacing:.3px;
+  background: radial-gradient(900px 600px at 50% 25%, rgba(56,189,248,.12) 0%, rgba(2,6,23,.86) 60%, rgba(2,6,23,.96) 100%);
+  z-index:999;
 }
 
-#app{
-  height:100%;
-  display:flex;
-  flex-direction:column;
-}
-
-/* debug pills */
 #debugPills{
-  position:fixed;
-  top: calc(var(--safeTop) + 10px);
-  left:10px;
-  z-index: 240;
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+  position:fixed; left:10px; top:10px;
+  z-index:260;
+  display:flex; gap:8px; flex-wrap:wrap;
 }
 #debugPills[aria-hidden="true"]{ display:none; }
 
 .pill{
-  border:1px solid var(--line);
-  background: rgba(2,6,23,.55);
+  display:inline-flex; gap:6px; align-items:center;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid var(--stroke);
+  background: var(--panel2);
+  color: var(--text);
+  font: 900 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  box-shadow: 0 18px 55px rgba(0,0,0,.25);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: 12px;
-  color: var(--text);
-  box-shadow: 0 18px 55px rgba(0,0,0,.35);
 }
-.pill b{ font-weight: 1000; }
-
-.pill-soft{
-  font-weight: 900;
-  background: rgba(2,6,23,.42);
-}
+.pill b{ font-weight:1000; }
+.pill-soft{ opacity:.92; }
 .pill-ai{
-  border-color: rgba(56,189,248,.30);
-  background: rgba(56,189,248,.10);
+  border-color: rgba(56,189,248,.22);
+  background: rgba(2,6,23,.44);
 }
-.mut{ color: var(--mut); font-weight: 800; margin-left:8px; }
 
-/* HUD */
+.mut{ color:var(--mut); font-weight:900; opacity:.92; }
+
 #hud{
-  padding: calc(var(--safeTop) + 10px) 10px 10px;
+  position:fixed; left:0; right:0; top:0;
+  padding: 10px 10px 8px;
   z-index: 200;
-  position: relative;
+  pointer-events:none;
 }
 .hud-row{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
   margin-bottom:8px;
 }
 .hud-bars{
-  align-items:stretch;
+  gap:10px;
 }
 
-/* bars */
 .barCard{
+  min-width: 170px;
   flex: 1 1 220px;
-  border: 1px solid var(--line);
-  background: rgba(2,6,23,.52);
-  border-radius: 16px;
-  padding: 10px 12px;
+  max-width: 360px;
+  padding:10px 10px;
+  border-radius:18px;
+  border:1px solid var(--stroke);
+  background: var(--panel);
+  box-shadow: 0 18px 55px rgba(0,0,0,.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 18px 55px rgba(0,0,0,.35);
 }
-.barCard.boss{ border-color: rgba(248,113,113,.26); }
-
 .barTop{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  display:flex; justify-content:space-between; align-items:center;
+  font: 1000 12px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color: var(--mut);
   margin-bottom:8px;
-  font-weight: 1000;
-  font-size: 12px;
 }
 .bar{
-  height: 12px;
-  background: rgba(148,163,184,.14);
+  height: 10px;
   border-radius: 999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(148,163,184,.08);
   overflow:hidden;
 }
 .barFill{
   height:100%;
   width:0%;
-  background: rgba(34,197,94,.55);
+  background: rgba(34,197,94,.9);
 }
-.bossFill{ background: rgba(248,113,113,.55); }
+.bossFill{ background: rgba(248,113,113,.92); }
+.barCard.boss{ border-color: rgba(248,113,113,.18); }
 
-/* progress */
 .gj-progress{
-  margin-top: 6px;
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
 }
 .gj-progress-track{
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.14);
+  width:min(880px, calc(100vw - 26px));
+  height:8px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(148,163,184,.06);
   overflow:hidden;
 }
 .gj-progress-fill{
   height:100%;
   width:0%;
-  background: rgba(56,189,248,.55);
+  background: rgba(56,189,248,.78);
 }
 
-/* stage */
 #stage{
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  margin: 0 10px calc(var(--safeBottom) + 10px);
-  border: 1px solid rgba(148,163,184,.12);
-  border-radius: 22px;
-  background: rgba(2,6,23,.30);
-  box-shadow: 0 22px 80px rgba(0,0,0,.38);
-  overflow:hidden;
+  position:fixed;
+  inset:0;
+  padding-top: 190px; /* visual only; real safe area computed in JS */
 }
 
 #gj-layer{
   position:absolute;
   inset:0;
-  /* important: targets will set left/top in local coords */
+  touch-action: manipulation;
+  user-select:none;
 }
 
-/* targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%,-50%);
-  font-size: 44px;
-  line-height:1;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action: manipulation;
-  filter: drop-shadow(0 14px 26px rgba(0,0,0,.55));
+  font-size: 64px;
+  line-height: 1;
+  filter: drop-shadow(0 16px 40px rgba(0,0,0,.45));
   will-change: transform, opacity, left, top;
 }
 
-/* low time overlay */
 #lowTimeOverlay{
-  position: fixed;
-  inset: 0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  z-index: 240;
   pointer-events:none;
-  z-index: 230;
 }
 #lowTimeOverlay[aria-hidden="true"]{ display:none; }
 .lowTimeCard{
-  border:1px solid rgba(248,113,113,.30);
-  background: rgba(248,113,113,.10);
+  width: 160px;
   border-radius: 22px;
-  padding: 18px 22px;
-  text-align:center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border:1px solid rgba(248,113,113,.22);
+  background: rgba(2,6,23,.72);
   box-shadow: 0 30px 90px rgba(0,0,0,.45);
+  padding: 14px 14px;
+  text-align:center;
 }
 .lowTimeNum{
-  font-size: 56px;
-  font-weight: 1100;
+  font: 1100 54px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color: rgba(248,113,113,.96);
+  margin-top:6px;
 }
 
-/* end overlay */
 #endOverlay{
-  position: fixed;
-  inset: 0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  z-index: 300;
   padding: 18px;
-  z-index: 250;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 #endOverlay[aria-hidden="true"]{ display:none; }
-
-.panel{
-  width: min(760px, 100%);
-  border:1px solid var(--line);
-  background: rgba(2,6,23,.70);
-  border-radius: 22px;
-  padding: 16px 16px 14px;
-  box-shadow: 0 30px 120px rgba(0,0,0,.55);
+#endOverlay .panel{
+  width:min(720px, 100%);
+  border-radius: 26px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.72);
+  box-shadow: 0 40px 120px rgba(0,0,0,.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 18px 16px;
 }
 .endTitle{
-  font-weight: 1100;
-  font-size: 22px;
-  margin-bottom: 6px;
+  font: 1100 28px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  margin-bottom:8px;
 }
 .endSub{
-  color: var(--mut);
-  font-weight: 900;
-  font-size: 12px;
-  margin-bottom: 12px;
+  font: 900 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color: rgba(148,163,184,.92);
+  margin-bottom: 14px;
 }
-
 .endGrid{
   display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap:10px;
-  margin-bottom: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 .endStat{
-  border:1px solid rgba(148,163,184,.12);
-  background: rgba(2,6,23,.55);
-  border-radius: 16px;
-  padding: 10px 12px;
+  border-radius: 18px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(148,163,184,.05);
+  padding: 12px 12px;
+  display:flex; justify-content:space-between; align-items:center;
 }
-.endStat span{ display:block; color: var(--mut); font-weight: 900; font-size: 11px; }
-.endStat b{ display:block; font-weight: 1100; font-size: 18px; margin-top: 2px; }
+.endStat span{
+  font: 900 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color: rgba(148,163,184,.9);
+}
+.endStat b{
+  font: 1100 20px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
 
 .endActions{
   display:flex;
-  gap:10px;
+  gap: 10px;
   justify-content:center;
+  margin-top: 14px;
   flex-wrap:wrap;
 }
 
 .btn{
+  appearance:none;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  color: var(--text);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 1000;
-  min-height: 42px;
-  cursor: pointer;
+  background: rgba(148,163,184,.08);
+  color: rgba(229,231,235,.96);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font: 1000 14px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  cursor:pointer;
+  min-height: 46px;
 }
 .btn.primary{
-  border-color: rgba(56,189,248,.30);
-  background: rgba(56,189,248,.14);
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.14);
 }
