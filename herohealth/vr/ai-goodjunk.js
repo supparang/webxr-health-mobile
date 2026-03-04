@@ -1,184 +1,140 @@
 // === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI (Prediction-only, Explainable) — PRODUCTION SAFE
-// PATCH v20260304-AI-PRED-EXPLAIN-TOP2
+// GoodJunk AI — Prediction + Explainable Coach (NO adaptive)
+// FULL v20260304-AI-PRED-EXPLAIN
 'use strict';
 
-function xmur3(str){
-  str = String(str||'');
-  let h = 1779033703 ^ str.length;
-  for(let i=0;i<str.length;i++){
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function(){
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= (h >>> 16)) >>> 0;
+export function createGoodJunkAI(opts = {}){
+  const seed = String(opts.seed ?? '');
+  const pid  = String(opts.pid ?? 'anon');
+  const diff = String(opts.diff ?? 'normal').toLowerCase();
+  const view = String(opts.view ?? 'mobile').toLowerCase();
+
+  // simple stable weights (acts like tiny logistic regression)
+  const W = {
+    missExpired: 1.25,
+    missJunk:    1.05,
+    lowShield:   0.75,
+    lowAcc:      1.00,
+    slowRt:      0.70,
+    hard:        0.25,
+    cvr:         0.15
   };
-}
-function sfc32(a,b,c,d){
-  return function(){
-    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-    let t = (a + b) | 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) | 0;
-    c = (c << 21) | (c >>> 11);
-    d = (d + 1) | 0;
-    t = (t + d) | 0;
-    c = (c + t) | 0;
-    return (t >>> 0) / 4294967296;
-  };
-}
-function makeRng(seedStr){
-  const seed = xmur3(seedStr);
-  return sfc32(seed(), seed(), seed(), seed());
-}
-const clamp=(v,a,b)=>Math.max(a, Math.min(b, v));
-const sigmoid=(x)=> 1/(1+Math.exp(-x));
 
-export function createGoodJunkAI(opts={}){
-  const seed = String(opts.seed || Date.now());
-  const pid  = String(opts.pid  || 'anon');
-  const diff = String(opts.diff || 'normal').toLowerCase();
-  const view = String(opts.view || 'mobile').toLowerCase();
+  let lastPred = null;
 
-  const rng = makeRng(`${seed}|${pid}|AI-GJ`);
-  const r01 = ()=> rng();
+  function clamp01(x){ x=Number(x)||0; return x<0?0:(x>1?1:x); }
+  function sigmoid(x){ return 1/(1+Math.exp(-x)); }
 
-  const st = { t:0, lastPred:null, w:[] };
+  function explainTop2(features){
+    const parts = [];
 
-  function pushWin(kind){
-    const t = st.t;
-    st.w.push({ t, kind });
-    const cutoff = t - 10;
-    while(st.w.length && st.w[0].t < cutoff) st.w.shift();
-  }
-  function rates10(){
-    const cutoff = st.t - 10;
-    let spawn=0, good=0, junk=0, exp=0;
-    for(const e of st.w){
-      if(e.t < cutoff) continue;
-      if(e.kind==='spawn') spawn++;
-      else if(e.kind==='hitGood') good++;
-      else if(e.kind==='hitJunk') junk++;
-      else if(e.kind==='expGood') exp++;
-    }
-    return { spawn, good, junk, exp };
+    // contributions (rough)
+    const missE = clamp01((features.missGoodExpired||0) / 10);
+    const missJ = clamp01((features.missJunkHit||0) / 10);
+    const acc   = clamp01((features.accPct||0) / 100);
+    const lowAcc = clamp01(1 - acc);
+    const shield = Number(features.shield||0);
+    const lowShield = clamp01((2 - Math.min(2, shield)) / 2);
+    const medRT = Number(features.medianRtGoodMs||0);
+    const slowRt = clamp01((medRT - 520) / 420);
+
+    parts.push({ key:'missExpired', score: W.missExpired * missE, text:'ของดีหายบ่อย (ช้าไป)' });
+    parts.push({ key:'missJunk',    score: W.missJunk    * missJ, text:'โดนของเสียหลายครั้ง' });
+    parts.push({ key:'lowAcc',      score: W.lowAcc      * lowAcc, text:'ความแม่นยังตก' });
+    parts.push({ key:'lowShield',   score: W.lowShield   * lowShield, text:'โล่น้อย เสี่ยงโดนของเสีย' });
+    parts.push({ key:'slowRt',      score: W.slowRt      * slowRt, text:'รีแอคช้า (แตะช้า)' });
+
+    parts.sort((a,b)=>b.score-a.score);
+    const top = parts.slice(0,2);
+
+    return {
+      top2: top.map(x=>x.text),
+      detail: parts.slice(0,5).map(x=>({ factor:x.key, weight:x.score }))
+    };
   }
 
-  const W = (function(){
-    let b = -1.35;
-    let wSpawn = 0.035;
-    let wJunk  = 0.22;
-    let wExp   = 0.18;
-    let wShieldLow = 0.26;
-    let wFeverLow  = 0.08;
-    let wView = (view==='cvr' || view==='vr') ? 0.12 : 0.0;
+  function suggestNext(features){
+    // very simple, kid-friendly
+    const shield = Number(features.shield||0);
+    const missE  = Number(features.missGoodExpired||0);
+    const missJ  = Number(features.missJunkHit||0);
+    const combo  = Number(features.combo||0);
+    const fever  = Number(features.fever||0);
 
-    if(diff==='easy'){
-      b = -1.55;
-      wSpawn *= 0.85; wJunk *= 0.90; wExp *= 0.90;
-    }else if(diff==='hard'){
-      b = -1.10;
-      wSpawn *= 1.15; wJunk *= 1.10; wExp *= 1.10;
-    }
-    return { b, wSpawn, wJunk, wExp, wShieldLow, wFeverLow, wView };
-  })();
-
-  function buildExplain({ spawn, junk, exp, shield, fever, combo }){
-    const factors = [];
-    const spawnP = clamp(spawn/18, 0, 1);
-    const junkP  = clamp(junk/4, 0, 1);
-    const expP   = clamp(exp/4, 0, 1);
-    const shieldLow = clamp((2 - shield)/2, 0, 1);
-    const feverLow  = clamp((35 - fever)/35, 0, 1);
-    const comboLow  = clamp((3 - combo)/3, 0, 1);
-
-    factors.push({ k:'spawnPressure', score: spawnP, label:'เป้าออกถี่ (เลือกยิงเร็วขึ้น)' });
-    factors.push({ k:'junkMistake', score: junkP, label:'โดนของเสีย (เลี่ยง 🍔🍟)' });
-    factors.push({ k:'goodMiss', score: expP, label:'ของดีหลุด (โฟกัสของดี)' });
-    factors.push({ k:'lowShield', score: shieldLow, label:'โล่น้อย (หา 🛡️ เติม)' });
-    factors.push({ k:'lowFever', score: feverLow, label:'FEVER ต่ำ (คอมโบยังไม่ติด)' });
-    factors.push({ k:'lowCombo', score: comboLow, label:'คอมโบหลุด (ทำให้ติด 3+)' });
-
-    factors.sort((a,b)=> b.score - a.score);
-    const top2 = factors.slice(0,2);
-
-    let hint = 'โฟกัส “ของดี” ก่อน แล้วค่อยเสี่ยง';
-    if(top2[0]?.k==='junkMistake') hint = 'เห็น 🍔🍟 ให้ “ปล่อยผ่าน” ก่อน';
-    else if(top2[0]?.k==='goodMiss') hint = 'ล็อก “ของดี” ให้ไว (อย่าปล่อยให้หมดเวลา)';
-    else if(top2[0]?.k==='lowShield') hint = 'หา 🛡️ เติมก่อน แล้วค่อยบวกหนัก';
-    else if(top2[0]?.k==='spawnPressure') hint = 'ยิงเฉพาะเป้าที่เห็นชัด/ใกล้กลาง';
-
-    return { top2, hint };
-  }
-
-  function predict(features){
-    const { shield=0, fever=0, combo=0, shots=0, hits=0, missGoodExpired=0, missJunkHit=0 } = features || {};
-    const r = rates10();
-
-    const spawnP = clamp(r.spawn/18, 0, 1);
-    const junkP  = clamp(r.junk/4, 0, 1);
-    const expP   = clamp(r.exp/4, 0, 1);
-    const shieldLow = clamp((2 - (shield||0))/2, 0, 1);
-    const feverLow  = clamp((35 - (fever||0))/35, 0, 1);
-
-    const noise = (r01()*2 - 1) * 0.04;
-
-    const z =
-      W.b
-      + W.wSpawn * (spawnP*10)
-      + W.wJunk  * (junkP*6)
-      + W.wExp   * (expP*6)
-      + W.wShieldLow * (shieldLow*4)
-      + W.wFeverLow  * (feverLow*3)
-      + W.wView;
-
-    const hazardRisk = clamp(sigmoid(z + noise), 0, 1);
-
-    const ex = buildExplain({
-      spawn: r.spawn,
-      junk: r.junk,
-      exp: r.exp,
-      shield: shield||0,
-      fever: fever||0,
-      combo: combo||0
-    });
-
-    const next5 = [
-      `${ex.hint}`,
-      `Top: ${ex.top2.map(x=>x.label).join(' / ')}`,
-      `acc≈${shots>0 ? Math.round((hits/shots)*100) : 0}% | shield=${shield||0}`,
-      `missGood=${missGoodExpired|0} missJunk=${missJunkHit|0}`,
-      diff==='hard' ? 'HARD: “ไม่พลาดของดี” สำคัญสุด' : 'ทำคอมโบให้ติด 3+'
-    ];
-
-    return { hazardRisk, next5, topFactors: ex.top2 };
+    if(shield>0 && missJ>=2) return 'ถ้ามี 🛡️ แล้ว กล้าเสี่ยงโบนัสได้';
+    if(missE>=2) return 'โฟกัส “ของดี” ก่อน อย่าปล่อยให้หาย';
+    if(missJ>=2) return 'เห็น 🍔🍟 แล้ว “หยุดมือ” 1 วิ';
+    if(combo>=4) return 'คอมโบมาแล้ว! เก็บต่อเนื่อง';
+    if(fever>=80) return 'FEVER ใกล้เต็ม! ยิงของดีรัว ๆ';
+    return 'เลือกของดีใกล้มือก่อน แล้วค่อยเสี่ยง';
   }
 
   return {
-    onSpawn(){ pushWin('spawn'); },
-    onHit(kind, meta={}){
-      if(kind==='good') pushWin('hitGood');
-      if(kind==='junk' && !meta.blocked) pushWin('hitJunk');
+    onSpawn(kind, meta){
+      // hook point (no-op for now)
+      void(kind); void(meta);
     },
-    onExpire(kind){
-      if(kind==='good') pushWin('expGood');
+    onHit(kind, meta){
+      void(kind); void(meta);
     },
-    onTick(dt, features){
-      st.t += Math.max(0, Number(dt)||0);
-      const p = predict(features || {});
-      st.lastPred = p;
-      return p;
+    onExpire(kind, meta){
+      void(kind); void(meta);
     },
-    onEnd(){
-      const p = st.lastPred || null;
-      return {
-        aiVersion: 'GJ_AI_PRED_2026-03-04',
-        hazardRiskLast: p ? +p.hazardRisk : null,
-        topFactors: p ? p.topFactors : null
+    onTick(dt, f){
+      void(dt);
+
+      // derive simple acc proxy from shots/hits
+      const shots = Number(f.shots||0);
+      const hits  = Number(f.hits||0);
+      const accPct = shots>0 ? (hits/shots)*100 : 0;
+
+      // NOTE: core provides medianRtGoodMs in score events, but not every tick
+      // so we approximate slowRt from missExpired & combo pressure
+      const approxMed = 520 + Math.min(420, (Number(f.missGoodExpired||0)*35) + Math.max(0, 3-Number(f.combo||0))*22);
+
+      const x =
+        W.missExpired * clamp01((Number(f.missGoodExpired||0))/10) +
+        W.missJunk    * clamp01((Number(f.missJunkHit||0))/10) +
+        W.lowShield   * clamp01((2 - Math.min(2, Number(f.shield||0))) / 2) +
+        W.lowAcc      * clamp01(1 - clamp01(accPct/100)) +
+        W.slowRt      * clamp01((approxMed - 520)/420) +
+        (diff==='hard' ? W.hard : 0) +
+        ((view==='cvr'||view==='vr') ? W.cvr : 0);
+
+      const hazardRisk = clamp01(sigmoid(x) - 0.50); // shift to feel nicer
+      const next = suggestNext({
+        shield: Number(f.shield||0),
+        missGoodExpired: Number(f.missGoodExpired||0),
+        missJunkHit: Number(f.missJunkHit||0),
+        combo: Number(f.combo||0),
+        fever: Number(f.fever||0)
+      });
+
+      lastPred = {
+        hazardRisk,
+        next5: [next],
+        meta: { seed, pid, diff, view }
       };
+      return lastPred;
     },
-    getPrediction(){ return st.lastPred || null; }
+    getPrediction(){
+      return lastPred;
+    },
+    onEnd(summary){
+      // build explain using end summary fields
+      const features = {
+        missGoodExpired: Number(summary.missGoodExpired||0),
+        missJunkHit: Number(summary.missJunkHit||0),
+        shield: Number(summary.shieldEnd||0),
+        accPct: Number(summary.accPct||0),
+        medianRtGoodMs: Number(summary.medianRtGoodMs||0)
+      };
+      const ex = explainTop2(features);
+      return {
+        explainTop2: ex.top2,
+        explainDetail: ex.detail,
+        note: 'prediction-only (no adaptive difficulty)'
+      };
+    }
   };
 }
