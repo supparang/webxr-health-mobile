@@ -1,11 +1,6 @@
 // === /herohealth/vr/ai-goodjunk.js ===
 // GoodJunk AI (Prediction-only, Explainable) — PRODUCTION SAFE
 // PATCH v20260304-AI-PRED-EXPLAIN-TOP2
-//
-// ✅ NO adaptive difficulty (research-safe)
-// ✅ Outputs: hazardRisk (0..1), factors(top), next5 hint
-// ✅ Uses simple weighted model (acts like tiny "ML") + deterministic noise (seed)
-// ✅ Can be replaced later with real ML/DL weights (json) withoutเปลี่ยน interface
 'use strict';
 
 function xmur3(str){
@@ -50,29 +45,16 @@ export function createGoodJunkAI(opts={}){
   const rng = makeRng(`${seed}|${pid}|AI-GJ`);
   const r01 = ()=> rng();
 
-  // rolling window state
-  const st = {
-    t: 0,
-    lastPred: null,
-    nSpawn: 0,
-    nHitGood: 0,
-    nHitJunk: 0,
-    nExpireGood: 0,
-    // short windows (approx 8s)
-    w: [],
-  };
+  const st = { t:0, lastPred:null, w:[] };
 
   function pushWin(kind){
     const t = st.t;
     st.w.push({ t, kind });
-    // keep last ~10s
     const cutoff = t - 10;
     while(st.w.length && st.w[0].t < cutoff) st.w.shift();
   }
-
   function rates10(){
-    const span = 10;
-    const cutoff = st.t - span;
+    const cutoff = st.t - 10;
     let spawn=0, good=0, junk=0, exp=0;
     for(const e of st.w){
       if(e.t < cutoff) continue;
@@ -84,11 +66,8 @@ export function createGoodJunkAI(opts={}){
     return { spawn, good, junk, exp };
   }
 
-  // "model weights" (ปรับได้ภายหลัง/แทนด้วยไฟล์ weights ของ ML/DL)
   const W = (function(){
-    // base shift
     let b = -1.35;
-    // spawn pressure, junk mistakes, good misses, low shield, low fever(combo), cVR penalty
     let wSpawn = 0.035;
     let wJunk  = 0.22;
     let wExp   = 0.18;
@@ -98,22 +77,16 @@ export function createGoodJunkAI(opts={}){
 
     if(diff==='easy'){
       b = -1.55;
-      wSpawn *= 0.85;
-      wJunk  *= 0.90;
-      wExp   *= 0.90;
+      wSpawn *= 0.85; wJunk *= 0.90; wExp *= 0.90;
     }else if(diff==='hard'){
       b = -1.10;
-      wSpawn *= 1.15;
-      wJunk  *= 1.10;
-      wExp   *= 1.10;
+      wSpawn *= 1.15; wJunk *= 1.10; wExp *= 1.10;
     }
     return { b, wSpawn, wJunk, wExp, wShieldLow, wFeverLow, wView };
   })();
 
   function buildExplain({ spawn, junk, exp, shield, fever, combo }){
     const factors = [];
-
-    // normalize-ish
     const spawnP = clamp(spawn/18, 0, 1);
     const junkP  = clamp(junk/4, 0, 1);
     const expP   = clamp(exp/4, 0, 1);
@@ -121,38 +94,35 @@ export function createGoodJunkAI(opts={}){
     const feverLow  = clamp((35 - fever)/35, 0, 1);
     const comboLow  = clamp((3 - combo)/3, 0, 1);
 
-    factors.push({ k:'spawnPressure', score: spawnP, label:'เป้าออกถี่ (ต้องเลือกยิงเร็วขึ้น)' });
-    factors.push({ k:'junkMistake', score: junkP, label:'โดนของเสียบ่อย (ต้องเลี่ยง 🍔🍟)' });
-    factors.push({ k:'goodMiss', score: expP, label:'ของดีหลุด/หมดเวลา (ต้องโฟกัสของดี)' });
-    factors.push({ k:'lowShield', score: shieldLow, label:'โล่น้อย (เสี่ยงโดนของเสีย)' });
+    factors.push({ k:'spawnPressure', score: spawnP, label:'เป้าออกถี่ (เลือกยิงเร็วขึ้น)' });
+    factors.push({ k:'junkMistake', score: junkP, label:'โดนของเสีย (เลี่ยง 🍔🍟)' });
+    factors.push({ k:'goodMiss', score: expP, label:'ของดีหลุด (โฟกัสของดี)' });
+    factors.push({ k:'lowShield', score: shieldLow, label:'โล่น้อย (หา 🛡️ เติม)' });
     factors.push({ k:'lowFever', score: feverLow, label:'FEVER ต่ำ (คอมโบยังไม่ติด)' });
-    factors.push({ k:'lowCombo', score: comboLow, label:'คอมโบหลุดง่าย (ยิงต่อเนื่องให้ติด 3+)' });
+    factors.push({ k:'lowCombo', score: comboLow, label:'คอมโบหลุด (ทำให้ติด 3+)' });
 
     factors.sort((a,b)=> b.score - a.score);
     const top2 = factors.slice(0,2);
 
-    // next hint
     let hint = 'โฟกัส “ของดี” ก่อน แล้วค่อยเสี่ยง';
     if(top2[0]?.k==='junkMistake') hint = 'เห็น 🍔🍟 ให้ “ปล่อยผ่าน” ก่อน';
-    else if(top2[0]?.k==='goodMiss') hint = 'ล็อกเป้า “ของดี” ให้ไว (อย่าปล่อยให้หมดเวลา)';
+    else if(top2[0]?.k==='goodMiss') hint = 'ล็อก “ของดี” ให้ไว (อย่าปล่อยให้หมดเวลา)';
     else if(top2[0]?.k==='lowShield') hint = 'หา 🛡️ เติมก่อน แล้วค่อยบวกหนัก';
-    else if(top2[0]?.k==='spawnPressure') hint = 'เลือกยิงเฉพาะเป้าที่ใกล้กลาง/เห็นชัด';
+    else if(top2[0]?.k==='spawnPressure') hint = 'ยิงเฉพาะเป้าที่เห็นชัด/ใกล้กลาง';
 
     return { top2, hint };
   }
 
   function predict(features){
-    const { missGoodExpired=0, missJunkHit=0, shield=0, fever=0, combo=0, shots=0, hits=0 } = features || {};
+    const { shield=0, fever=0, combo=0, shots=0, hits=0, missGoodExpired=0, missJunkHit=0 } = features || {};
     const r = rates10();
 
-    // normalize to 0..1
     const spawnP = clamp(r.spawn/18, 0, 1);
     const junkP  = clamp(r.junk/4, 0, 1);
     const expP   = clamp(r.exp/4, 0, 1);
     const shieldLow = clamp((2 - (shield||0))/2, 0, 1);
     const feverLow  = clamp((35 - (fever||0))/35, 0, 1);
 
-    // tiny deterministic noise for "human-like" stability (still reproducible by seed)
     const noise = (r01()*2 - 1) * 0.04;
 
     const z =
@@ -180,28 +150,20 @@ export function createGoodJunkAI(opts={}){
       `Top: ${ex.top2.map(x=>x.label).join(' / ')}`,
       `acc≈${shots>0 ? Math.round((hits/shots)*100) : 0}% | shield=${shield||0}`,
       `missGood=${missGoodExpired|0} missJunk=${missJunkHit|0}`,
-      diff==='hard' ? 'โหมด HARD: เน้น “ไม่พลาดของดี” ก่อน' : 'เก็บคอมโบให้ติด 3+'
+      diff==='hard' ? 'HARD: “ไม่พลาดของดี” สำคัญสุด' : 'ทำคอมโบให้ติด 3+'
     ];
 
-    return {
-      hazardRisk,
-      next5,
-      topFactors: ex.top2
-    };
+    return { hazardRisk, next5, topFactors: ex.top2 };
   }
 
   return {
-    onSpawn(kind){
-      st.nSpawn++;
-      pushWin('spawn');
-      // no-op
-    },
+    onSpawn(){ pushWin('spawn'); },
     onHit(kind, meta={}){
-      if(kind==='good') { st.nHitGood++; pushWin('hitGood'); }
-      if(kind==='junk' && !meta.blocked) { st.nHitJunk++; pushWin('hitJunk'); }
+      if(kind==='good') pushWin('hitGood');
+      if(kind==='junk' && !meta.blocked) pushWin('hitJunk');
     },
     onExpire(kind){
-      if(kind==='good'){ st.nExpireGood++; pushWin('expGood'); }
+      if(kind==='good') pushWin('expGood');
     },
     onTick(dt, features){
       st.t += Math.max(0, Number(dt)||0);
@@ -209,8 +171,7 @@ export function createGoodJunkAI(opts={}){
       st.lastPred = p;
       return p;
     },
-    onEnd(summary){
-      // สรุป explainable factors สั้นๆ (ไว้โชว์ในรายงาน/Telemetry)
+    onEnd(){
       const p = st.lastPred || null;
       return {
         aiVersion: 'GJ_AI_PRED_2026-03-04',
@@ -218,8 +179,6 @@ export function createGoodJunkAI(opts={}){
         topFactors: p ? p.topFactors : null
       };
     },
-    getPrediction(){
-      return st.lastPred || null;
-    }
+    getPrediction(){ return st.lastPred || null; }
   };
 }
