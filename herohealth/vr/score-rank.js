@@ -1,7 +1,6 @@
 // === /herohealth/vr/score-rank.js ===
 // Winner rule: score → acc → miss (lower) → medianRT (lower)
 // v20260304
-
 'use strict';
 
 export function normalizeResult(x){
