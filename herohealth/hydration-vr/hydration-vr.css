@@ -1,6 +1,6 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration VR CSS — PRODUCTION
-FULL v20260303d-HYDRATION-CSS-LRZONE
+FULL v20260304-HYDRATION-CSS-LRZONE-CVRPAD
 */
 
 :root{
@@ -160,10 +160,7 @@ body{
     linear-gradient(180deg, rgba(2,6,23,.1), rgba(2,6,23,.35));
   animation: stormGlow 1.6s ease-in-out infinite;
 }
-@keyframes stormGlow{
-  0%,100%{ filter:saturate(1); }
-  50%{ filter:saturate(1.25); }
-}
+@keyframes stormGlow{ 0%,100%{ filter:saturate(1); } 50%{ filter:saturate(1.25); } }
 .stage.is-storm .storm-flash,
 .stage.is-boss  .storm-flash{
   position:absolute; inset:-20%;
@@ -174,9 +171,7 @@ body{
   z-index:6;
   pointer-events:none;
 }
-@keyframes flash{
-  0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;}
-}
+@keyframes flash{ 0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;} }
 .stage.is-storm .bolt,
 .stage.is-boss  .bolt{
   position:absolute;
@@ -192,11 +187,9 @@ body{
   z-index:7;
   pointer-events:none;
 }
-@keyframes bolt{
-  0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;}
-}
+@keyframes bolt{ 0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;} }
 
-/* Left/Right Zone indicator */
+/* Zone indicator */
 #zoneSign{
   position:absolute;
   left: 50%;
@@ -213,6 +206,27 @@ body{
   opacity: 0;
 }
 .stage.is-storm #zoneSign,
-.stage.is-boss  #zoneSign{
-  opacity: 1;
+.stage.is-boss  #zoneSign{ opacity: 1; }
+
+/* ✅ cVR zone pad (tap left/right) */
+#cvrZonePad{
+  position:absolute;
+  inset: 0;
+  z-index: 35;
+  display:none;
+  pointer-events:auto;
+}
+#cvrZonePad[aria-hidden="false"]{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+}
+#cvrZonePad button{
+  border: none;
+  background: rgba(2,6,23,.10);
+  color: rgba(229,231,235,.9);
+  font-weight: 1000;
+  font-size: 14px;
+}
+#cvrZonePad button:active{
+  background: rgba(56,189,248,.10);
 }
