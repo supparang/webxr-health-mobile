@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION (safe.js + race controller)
-FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
+FULL v20260304g-RUN-RACEBATTLE-WAIT1-BATTLESTART
 -->
 <!doctype html>
 <html lang="th">
@@ -28,7 +28,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
       filter: drop-shadow(0 14px 24px rgba(0,0,0,.45));
     }
 
-    /* HUD */
     .hud{
       position:fixed; left:10px; right:10px; top:10px;
       display:flex; gap:10px; flex-wrap:wrap;
@@ -65,7 +64,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
       min-height:42px;
     }
 
-    /* Mission panel (ชัด Warm→Trick→Boss) */
     #missionPanel{
       position:fixed;
       left:10px; right:10px;
@@ -90,13 +88,8 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
       align-items:flex-end;
       font-weight:1000;
     }
-    .missionTitle{
-      font-size:14px; letter-spacing:.2px;
-    }
-    .missionGoal{
-      font-size:12px; opacity:.9;
-      text-align:right;
-    }
+    .missionTitle{ font-size:14px; letter-spacing:.2px; }
+    .missionGoal{ font-size:12px; opacity:.9; text-align:right; }
     .missionHint{
       margin-top:4px;
       font: 900 12px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
@@ -115,7 +108,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
       background:rgba(34,197,94,.30);
     }
 
-    /* Boss bar */
     #bossBar{
       position:fixed; left:10px; right:10px; top:132px;
       z-index:205; pointer-events:none;
@@ -126,7 +118,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
     }
     #bossBar[aria-hidden="true"]{ display:none; }
 
-    /* end */
     #endOverlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -160,7 +151,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
     <div class="pill" style="opacity:.8">diff <span id="uiDiff">—</span></div>
   </div>
 
-  <!-- Mission Panel -->
   <div id="missionPanel" aria-hidden="false">
     <div class="missionBox">
       <div class="missionTop">
@@ -172,7 +162,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
     </div>
   </div>
 
-  <!-- Boss bar -->
   <div id="bossBar" aria-hidden="true">
     <div style="display:flex; justify-content:space-between; gap:10px; font-weight:1000; opacity:.9;">
       <div>Boss</div><div id="bossHint">—</div>
@@ -183,7 +172,6 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
     </div>
   </div>
 
-  <!-- end -->
   <div id="endOverlay" aria-hidden="true">
     <div class="panel" style="max-width:520px; width:calc(100vw - 24px); text-align:center;">
       <div style="font:1000 22px/1.2 system-ui; margin-bottom:6px;" id="endTitle">Game Over</div>
@@ -202,20 +190,31 @@ FULL v20260304f-RUN-RACE-WAIT-MISSIONPANEL
   <script type="module">
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const mode = String(qs('mode','solo')).toLowerCase();
-
-    // Ensure RACE uses wait=1
-    if(mode==='race'){
+    // ✅ Ensure RACE/BATTLE uses wait=1 (so game won't run before sync)
+    {
       const u = new URL(location.href);
-      if(u.searchParams.get('wait')!=='1'){
+      const modeNow = String(u.searchParams.get('mode') || 'solo').toLowerCase();
+      const battleFlag = String(u.searchParams.get('battle') || '0');
+      const isBattle = (modeNow === 'battle') || (battleFlag === '1');
+      const isRace   = (modeNow === 'race');
+
+      if((isRace || isBattle) && u.searchParams.get('wait') !== '1'){
         u.searchParams.set('wait','1');
+        if(isBattle && u.searchParams.get('battle') !== '1') u.searchParams.set('battle','1');
         location.replace(u.toString());
       }
     }
 
+    const mode = String(qs('mode','solo')).toLowerCase();
+
     // Boot game core
     const mod = await import('./goodjunk.safe.js');
     mod.boot({});
+
+    // ✅ Battle start -> unpause now (extra safety)
+    window.addEventListener('hha:battle-start', ()=>{
+      try{ window.__GJ_START_NOW__?.(); }catch(e){}
+    });
 
     // Boot race controller if needed
     if(mode==='race'){
