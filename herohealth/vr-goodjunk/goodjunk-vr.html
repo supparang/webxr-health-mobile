@@ -1,6 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION (safe.js + race controller)
-FULL v20260304g-RUN-RACEBATTLE-WAIT1-BATTLESTART
+HeroHealth • GoodJunk VR — RUN (PC/Mobile/cVR)
+PATCH v20260304-RUNPAGE-MODULE-FIX
+✅ FIX: load goodjunk.safe.js via type="module" (avoid "Unexpected token export" / black screen)
+✅ Has all required DOM ids used by goodjunk.safe.js
+✅ Has panic error overlay (shows JS errors on mobile)
 -->
 <!doctype html>
 <html lang="th">
@@ -11,223 +14,301 @@ FULL v20260304g-RUN-RACEBATTLE-WAIT1-BATTLESTART
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
   <style>
-    html,body{height:100%; margin:0; background:#020617; color:rgba(229,231,235,.96); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-    *{box-sizing:border-box}
-    #gj-layer{
-      position:fixed; inset:0;
-      touch-action: manipulation;
+    :root{
+      --bg:#050814;
+      --panel: rgba(2,6,23,.68);
+      --stroke: rgba(148,163,184,.18);
+      --text: rgba(229,231,235,.96);
+      --muted: rgba(148,163,184,.92);
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --cyan:#22d3ee;
+      --sat: env(safe-area-inset-top,0px);
+      --sab: env(safe-area-inset-bottom,0px);
+      --sal: env(safe-area-inset-left,0px);
+      --sar: env(safe-area-inset-right,0px);
+    }
+    html,body{height:100%; margin:0;}
+    body{
+      background:
+        radial-gradient(900px 520px at 15% 15%, rgba(34,197,94,.16), transparent 55%),
+        radial-gradient(900px 520px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, #020617, var(--bg));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       overflow:hidden;
     }
-    .gj-target{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-size:54px;
+
+    /* main play layer */
+    #gj-layer{
+      position: fixed;
+      inset: 0;
+      overflow:hidden;
+      touch-action: manipulation;
       user-select:none;
-      -webkit-user-select:none;
-      cursor:pointer;
-      filter: drop-shadow(0 14px 24px rgba(0,0,0,.45));
     }
 
-    .hud{
-      position:fixed; left:10px; right:10px; top:10px;
-      display:flex; gap:10px; flex-wrap:wrap;
-      z-index:200;
+    /* HUD */
+    #hud{
+      position: fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      top: calc(10px + var(--sat));
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      justify-content:space-between;
+      z-index: 200;
       pointer-events:none;
+    }
+    .hudBox{
+      pointer-events:none;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      max-width: 96vw;
     }
     .pill{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      border-radius:999px;
-      padding:8px 10px;
-      font-weight:1000;
-      pointer-events:none;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      white-space:nowrap;
     }
-    .panel{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.70);
-      border-radius:18px;
-      padding:14px 14px;
-      box-shadow:0 18px 70px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    .btn{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.08);
-      color:rgba(229,231,235,.96);
-      padding:10px 12px;
-      font-weight:1000;
-      cursor:pointer;
-      min-height:42px;
-    }
+    .pill b{ color:var(--text); font-weight:1000; }
 
-    #missionPanel{
-      position:fixed;
-      left:10px; right:10px;
-      top:62px;
-      z-index:206;
-      pointer-events:none;
-      display:flex; justify-content:center;
-    }
-    #missionPanel[aria-hidden="true"]{ display:none; }
-    .missionBox{
-      max-width:760px; width:100%;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.55);
-      border-radius:18px;
-      padding:10px 12px;
-      box-shadow:0 18px 55px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    .missionTop{
-      display:flex; justify-content:space-between; gap:10px;
-      align-items:flex-end;
-      font-weight:1000;
-    }
-    .missionTitle{ font-size:14px; letter-spacing:.2px; }
-    .missionGoal{ font-size:12px; opacity:.9; text-align:right; }
-    .missionHint{
-      margin-top:4px;
-      font: 900 12px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      opacity:.9;
-    }
     .bar{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.18);
+      width: 160px;
+      height: 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
       overflow:hidden;
     }
-    .bar > div{
+    .bar > i{
+      display:block;
       height:100%;
       width:0%;
-      background:rgba(34,197,94,.30);
+      background: rgba(34,197,94,.88);
+      transition: width .12s ease;
     }
 
+    /* Mission panel (optional ids used by safe.js) */
+    #missionPanel{
+      position: fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      top: calc(66px + var(--sat));
+      z-index: 190;
+      pointer-events:none;
+      display:flex;
+      justify-content:center;
+    }
+    #missionPanel .inner{
+      width: min(820px, 96vw);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.52);
+      border-radius: 18px;
+      padding: 10px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .mtitle{font-weight:1000; letter-spacing:.2px;}
+    .mhint{color:var(--muted); font-size:12px; font-weight:900;}
+    .mfill{height:10px; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.35); width:180px;}
+    .mfill > i{display:block; height:100%; width:0%; background: rgba(34,211,238,.88); transition: width .12s ease;}
+
+    /* Boss UI */
     #bossBar{
-      position:fixed; left:10px; right:10px; top:132px;
-      z-index:205; pointer-events:none;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.40);
-      padding:8px 10px;
+      position: fixed;
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      bottom: calc(88px + var(--sab));
+      z-index: 180;
+      pointer-events:none;
+      display:none;
+      justify-content:center;
     }
-    #bossBar[aria-hidden="true"]{ display:none; }
+    #bossBar .inner{
+      width:min(820px, 96vw);
+      border:1px solid rgba(239,68,68,.28);
+      background: rgba(2,6,23,.55);
+      border-radius: 18px;
+      padding: 10px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    }
+    #bossFill{display:block; height:10px; width:0%; background: rgba(239,68,68,.88); transition: width .12s ease;}
+    .bossTrack{height:10px; width:220px; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.35);}
+    #bossHint{color:var(--muted); font-size:12px; font-weight:900;}
 
+    /* End overlay */
     #endOverlay{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index:280;
+      position: fixed;
+      inset: 0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 300;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
-    #endOverlay[aria-hidden="true"]{ display:none; }
+    #endOverlay .panel{
+      width: min(820px, 96vw);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.78);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 90px rgba(0,0,0,.55);
+      text-align:center;
+    }
+    #endTitle{font-size:20px; font-weight:1100; margin: 0 0 6px 0;}
+    #endSub{color:var(--muted); font-weight:900; font-size:13px; margin:0 0 10px 0;}
+    .endRow{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+    .btn{
+      pointer-events:auto;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(148,163,184,.10);
+      color:var(--text);
+      padding: 12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+      min-height: 44px;
+    }
+    .btn.primary{border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.14);}
+
+    /* Panic error overlay */
+    #panic{
+      position: fixed;
+      inset: 0;
+      display:none;
+      z-index: 9999;
+      padding: 14px;
+      background: rgba(0,0,0,.82);
+      color: #fff;
+      overflow:auto;
+      font: 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
+
 <body>
-  <div id="gj-layer" aria-label="game layer"></div>
+  <div id="gj-layer"></div>
 
-  <div class="hud">
-    <div class="pill">Score <span id="hud-score">0</span></div>
-    <div class="pill">Time <span id="hud-time">0</span></div>
-    <div class="pill">Miss <span id="hud-miss">0</span></div>
-    <div class="pill">Grade <span id="hud-grade">—</span></div>
-
-    <div class="pill"><span id="hud-goal">WIN</span></div>
-    <div class="pill"><span id="hud-goal-cur">0/0</span></div>
-    <div class="pill"><span id="hud-goal-target">0/0</span></div>
-    <div class="pill"><span id="goalDesc">—</span></div>
-
-    <div class="pill">Mini <span id="hud-mini">—</span> <span id="miniTimer">—</span></div>
-    <div class="pill">AI <span id="aiRisk">—</span> <span id="aiHint">—</span></div>
-
-    <div class="pill">Fever <span id="feverText">0%</span></div>
-    <div class="pill">Shield <span id="shieldPills">—</span></div>
-
-    <div class="pill" style="opacity:.8">view <span id="uiView">—</span></div>
-    <div class="pill" style="opacity:.8">run <span id="uiRun">—</span></div>
-    <div class="pill" style="opacity:.8">diff <span id="uiDiff">—</span></div>
+  <div id="hud">
+    <div class="hudBox">
+      <span class="pill"><b>Score</b> <span id="hud-score">0</span></span>
+      <span class="pill"><b>Time</b> <span id="hud-time">0</span></span>
+      <span class="pill"><b>Miss</b> <span id="hud-miss">0</span></span>
+      <span class="pill"><b>Grade</b> <span id="hud-grade">—</span></span>
+      <span class="pill"><b>WIN</b> <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></span>
+      <span class="pill" id="hud-goal"><b>Goal</b> <span id="goalDesc">—</span></span>
+      <span class="pill"><b>Mini</b> <span id="hud-mini">—</span> <span id="miniTimer">—</span></span>
+      <span class="pill"><b>AI</b> <span id="aiRisk">—</span> <span id="aiHint">—</span></span>
+      <span class="pill"><b>Fever</b> <span id="feverText">0%</span></span>
+      <span class="pill"><b>Shield</b> <span id="shieldPills">—</span></span>
+      <span class="pill"><b>view</b> <span id="uiView">—</span></span>
+      <span class="pill"><b>run</b> <span id="uiRun">—</span></span>
+      <span class="pill"><b>diff</b> <span id="uiDiff">—</span></span>
+    </div>
   </div>
 
-  <div id="missionPanel" aria-hidden="false">
-    <div class="missionBox">
-      <div class="missionTop">
-        <div class="missionTitle" id="missionTitle">—</div>
-        <div class="missionGoal" id="missionGoal">—</div>
+  <div id="missionPanel" aria-hidden="true">
+    <div class="inner">
+      <div>
+        <div class="mtitle" id="missionTitle">—</div>
+        <div class="mhint"><span id="missionGoal">—</span> • <span id="missionHint">—</span></div>
       </div>
-      <div class="missionHint" id="missionHint">—</div>
-      <div class="bar"><div id="missionFill"></div></div>
+      <div class="mfill"><i id="missionFill"></i></div>
     </div>
   </div>
 
   <div id="bossBar" aria-hidden="true">
-    <div style="display:flex; justify-content:space-between; gap:10px; font-weight:1000; opacity:.9;">
-      <div>Boss</div><div id="bossHint">—</div>
-    </div>
-    <div style="height:8px"></div>
-    <div style="height:10px; border-radius:999px; background:rgba(148,163,184,.18); overflow:hidden;">
-      <div id="bossFill" style="height:100%; width:0%; background:rgba(239,68,68,.35);"></div>
+    <div class="inner">
+      <div style="font-weight:1100;">Boss</div>
+      <div class="bossTrack"><i id="bossFill"></i></div>
+      <div id="bossHint">—</div>
     </div>
   </div>
 
-  <div id="endOverlay" aria-hidden="true">
-    <div class="panel" style="max-width:520px; width:calc(100vw - 24px); text-align:center;">
-      <div style="font:1000 22px/1.2 system-ui; margin-bottom:6px;" id="endTitle">Game Over</div>
-      <div style="opacity:.85; font-weight:900; margin-bottom:12px;" id="endSub">—</div>
-      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <div class="pill">Grade <span id="endGrade">—</span></div>
-        <div class="pill">Score <span id="endScore">0</span></div>
-        <div class="pill">Miss <span id="endMiss">0</span></div>
-        <div class="pill">Time <span id="endTime">0</span>s</div>
+  <div id="endOverlay">
+    <div class="panel">
+      <h2 id="endTitle">Game Over</h2>
+      <p id="endSub">—</p>
+      <div class="endRow">
+        <div class="pill"><b>Grade</b> <span id="endGrade">—</span></div>
+        <div class="pill"><b>Score</b> <span id="endScore">0</span></div>
+        <div class="pill"><b>Miss</b> <span id="endMiss">0</span></div>
+        <div class="pill"><b>Time</b> <span id="endTime">0 s</span></div>
       </div>
-      <div style="height:12px"></div>
-      <button class="btn" onclick="location.href = (new URL(location.href)).searchParams.get('hub') || '../hub.html'">กลับ HUB</button>
+      <div class="endRow" style="margin-top:12px;">
+        <button class="btn primary" id="btnBackHub">กลับ HUB</button>
+      </div>
     </div>
   </div>
 
+  <div id="panic"></div>
+
+  <script>
+    (function(){
+      const panic = document.getElementById('panic');
+      function showPanic(tag, err){
+        try{
+          panic.style.display='block';
+          panic.textContent =
+            `[${tag}]\n` +
+            String(err && (err.stack || err.message || err) || 'unknown') +
+            `\n\nURL:\n${location.href}`;
+        }catch(_){}
+      }
+      window.addEventListener('error', (e)=> showPanic('window.error', e.error || e.message || e));
+      window.addEventListener('unhandledrejection', (e)=> showPanic('unhandledrejection', e.reason || e));
+      window.__HHA_PANIC__ = showPanic;
+    })();
+  </script>
+
+  <!-- ✅ IMPORTANT: module loader -->
   <script type="module">
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-
-    // ✅ Ensure RACE/BATTLE uses wait=1 (so game won't run before sync)
-    {
-      const u = new URL(location.href);
-      const modeNow = String(u.searchParams.get('mode') || 'solo').toLowerCase();
-      const battleFlag = String(u.searchParams.get('battle') || '0');
-      const isBattle = (modeNow === 'battle') || (battleFlag === '1');
-      const isRace   = (modeNow === 'race');
-
-      if((isRace || isBattle) && u.searchParams.get('wait') !== '1'){
-        u.searchParams.set('wait','1');
-        if(isBattle && u.searchParams.get('battle') !== '1') u.searchParams.set('battle','1');
-        location.replace(u.toString());
-      }
-    }
-
-    const mode = String(qs('mode','solo')).toLowerCase();
-
-    // Boot game core
-    const mod = await import('./goodjunk.safe.js');
-    mod.boot({});
-
-    // ✅ Battle start -> unpause now (extra safety)
-    window.addEventListener('hha:battle-start', ()=>{
-      try{ window.__GJ_START_NOW__?.(); }catch(e){}
-    });
-
-    // Boot race controller if needed
-    if(mode==='race'){
-      await import('./goodjunk-race.js');
-    }
-
-    // Optional: cVR ui module
     try{
-      const view = String(qs('view','mobile')).toLowerCase();
-      if(view==='cvr' || view==='vr'){
-        await import('../vr/vr-ui.js');
-      }
-    }catch(e){}
+      const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+
+      // Import SAFE core
+      import { boot } from './goodjunk.safe.js';
+
+      // Back hub button
+      const btn = document.getElementById('btnBackHub');
+      btn?.addEventListener('click', ()=>{
+        const hub = qs('hub','../hub.html');
+        location.href = hub;
+      });
+
+      // Boot game
+      boot({
+        // (optional) you can pass overrides here; by default goodjunk.safe.js reads from querystring
+      });
+
+    }catch(e){
+      window.__HHA_PANIC__?.('module.boot', e);
+    }
   </script>
 </body>
 </html>
