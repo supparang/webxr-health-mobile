@@ -1,30 +1,14 @@
 // === /herohealth/vr/battle-rtdb.js ===
 // Battle RTDB (optional) for HeroHealth
-// PATCH v20260304-BATTLE-OPTIONAL
+// FULL v20260304-BATTLE-RTDB-REAL
 //
-// Usage: import('../vr/battle-rtdb.js') then initBattle({ room, pid, gameKey ... })
-// Enabled only when caller decides (?battle=1)
-// Safe: if Firebase not configured, it runs "local-only" (no crash).
+// Enabled only when caller passes enabled:true (?battle=1).
+// Safe fallback to BroadcastChannel when Firebase not configured.
 
 'use strict';
 
 function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
-
-const FIREBASE_CONFIG = null; // <-- ใส่ config ทีหลังถ้าจะใช้จริง
-
-async function loadFirebaseIfPossible(){
-  if(!FIREBASE_CONFIG) return null;
-
-  // dynamic import from official CDN (ESM)
-  const appMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
-  const dbMod  = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
-
-  const app = appMod.initializeApp(FIREBASE_CONFIG);
-  const db  = dbMod.getDatabase(app);
-
-  return { db, ...dbMod };
-}
 
 function safeRoomKey(s){
   s = String(s||'').trim();
@@ -33,7 +17,6 @@ function safeRoomKey(s){
 }
 
 function scoreComparator(a,b){
-  // winner by score → acc → miss → medianRT (lower better)
   const as = Number(a?.score||0);
   const bs = Number(b?.score||0);
   if(as!==bs) return bs - as;
@@ -53,6 +36,21 @@ function scoreComparator(a,b){
   return 0;
 }
 
+// -------------------- Firebase Config --------------------
+// ✅ ใส่ config ของคุณตรงนี้ เพื่อใช้ RTDB จริง
+// ตัวอย่าง:
+// const FIREBASE_CONFIG = { apiKey:"...", authDomain:"...", databaseURL:"...", projectId:"...", appId:"..." };
+const FIREBASE_CONFIG = null;
+
+async function loadFirebaseIfPossible(){
+  if(!FIREBASE_CONFIG) return null;
+  const appMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
+  const dbMod  = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  const db  = dbMod.getDatabase(app);
+  return { db, ...dbMod };
+}
+
 export async function initBattle(opts={}){
   const enabled = !!opts.enabled;
   if(!enabled) return null;
@@ -65,97 +63,99 @@ export async function initBattle(opts={}){
 
   const state = {
     enabled:true,
+    mode:'local',         // 'local' | 'rtdb'
     room, pid, gameKey,
     startedAt: nowMs() + autostartMs,
     lastPushAt: 0,
     myScore: null,
     peerScore: null,
+    peerPid: null,
     winner: null,
-    mode: 'local', // or 'rtdb'
   };
 
-  // ---- Local-only bus (works even without Firebase) ----
+  // -------- Local bus fallback (always available) --------
   const bcName = `HHA_BATTLE_${room}_${gameKey}`;
   const bc = ('BroadcastChannel' in window) ? new BroadcastChannel(bcName) : null;
+
+  function pushBus(type, payload){
+    if(!bc) return;
+    try{ bc.postMessage({ type, room, gameKey, pid, payload }); }catch(e){}
+  }
+
   if(bc){
     bc.onmessage = (ev)=>{
       const msg = ev?.data || null;
       if(!msg || msg.gameKey!==gameKey || msg.room!==room) return;
-      if(msg.pid === pid) return; // ignore self
-      if(msg.type==='score') state.peerScore = msg.payload || null;
-      if(msg.type==='end') state.peerScore = msg.payload || null;
+      if(msg.pid === pid) return;
+      if(msg.type==='score' || msg.type==='end'){
+        state.peerPid = msg.pid || 'peer';
+        state.peerScore = Object.assign({ pid: state.peerPid }, msg.payload || {});
+      }
     };
   }
 
-  // ---- Try Firebase RTDB if configured ----
+  // -------- Try RTDB --------
   let fb = null;
+  let unsubPlayers = null;
+  let myRef = null;
+
   try{
     fb = await loadFirebaseIfPossible();
-    if(fb && fb.db){
-      state.mode = 'rtdb';
-    }
+    if(fb && fb.db) state.mode = 'rtdb';
   }catch(e){
-    console.warn('[battle] firebase not ready (ok)', e);
     fb = null;
     state.mode = 'local';
   }
 
-  // ---- RTDB wiring ----
-  let rtdbRefMy = null;
-  let rtdbRefPeer = null;
-  let unsubPeer = null;
-
-  if(state.mode==='rtdb'){
+  if(state.mode === 'rtdb'){
     try{
-      const pathBase = `herohealth/battle/${room}/${gameKey}`;
-      rtdbRefMy = fb.ref(fb.db, `${pathBase}/players/${pid}`);
-      // listen all players, pick first other
-      const playersRef = fb.ref(fb.db, `${pathBase}/players`);
-      unsubPeer = fb.onValue(playersRef, (snap)=>{
+      const base = `herohealth/battle/${room}/${gameKey}`;
+      const playersRef = fb.ref(fb.db, `${base}/players`);
+      myRef = fb.ref(fb.db, `${base}/players/${pid}`);
+
+      // Presence + initial
+      await fb.set(myRef, { pid, ts: Date.now(), score: null });
+
+      // Listen players, pick first other as peer
+      unsubPlayers = fb.onValue(playersRef, (snap)=>{
         const v = snap.val() || {};
         const keys = Object.keys(v);
         let peer = null;
         for(const k of keys){
-          if(k !== pid){ peer = v[k]; break; }
+          if(k !== pid){ peer = v[k]; state.peerPid = k; break; }
         }
-        state.peerScore = peer?.score || null;
+        state.peerScore = peer?.score ? Object.assign({ pid: state.peerPid }, peer.score) : state.peerScore;
       });
-      // mark presence
-      await fb.set(rtdbRefMy, { pid, ts: Date.now(), score: null });
     }catch(e){
-      console.warn('[battle] rtdb setup failed (fallback local)', e);
-      state.mode='local';
-      try{ unsubPeer?.(); }catch(_){}
-      unsubPeer=null;
-    }
-  }
-
-  function pushBus(type, payload){
-    if(bc){
-      try{ bc.postMessage({ type, room, gameKey, pid, payload }); }catch(e){}
+      // fallback to local safely
+      state.mode = 'local';
+      try{ unsubPlayers?.(); }catch(_){}
+      unsubPlayers = null;
+      myRef = null;
     }
   }
 
   async function pushRtdbScore(payload){
-    if(state.mode!=='rtdb' || !fb || !rtdbRefMy) return;
+    if(state.mode!=='rtdb' || !fb || !myRef) return;
     try{
-      await fb.update(rtdbRefMy, { ts: Date.now(), score: payload });
+      await fb.update(myRef, { ts: Date.now(), score: payload });
     }catch(e){
-      console.warn('[battle] rtdb push failed (ok)', e);
+      // ignore
     }
   }
 
   function pushScore(payload){
-    state.myScore = payload || null;
+    const p = Object.assign({ pid }, payload || {});
+    state.myScore = p;
 
-    // local bus always
-    pushBus('score', payload);
+    // local always
+    pushBus('score', p);
 
-    // rtdb optional
+    // rtdb throttle
     const t = nowMs();
-    if(t - state.lastPushAt < 220) return; // throttle
+    if(t - state.lastPushAt < 220) return;
     state.lastPushAt = t;
-    pushRtdbScore(payload).catch(()=>{});
+    pushRtdbScore(p).catch(()=>{});
   }
 
   function decideWinner(){
@@ -163,25 +163,20 @@ export async function initBattle(opts={}){
     const b = state.peerScore || null;
     if(!a && !b) return null;
     if(a && !b) return { winnerPid: pid, why:'peer-missing' };
-    if(!a && b) return { winnerPid: 'peer', why:'self-missing' };
+    if(!a && b) return { winnerPid: (state.peerPid||'peer'), why:'self-missing' };
 
-    // compare
     const cmp = scoreComparator(a,b);
-    if(cmp < 0) return { winnerPid:'peer', why:'compare' };
     if(cmp > 0) return { winnerPid: pid, why:'compare' };
+    if(cmp < 0) return { winnerPid: (state.peerPid||'peer'), why:'compare' };
     return { winnerPid:'draw', why:'tie' };
   }
 
   function finalizeEnd(summary){
-    // ensure latest score pushed
+    // push final
     try{ pushScore(summary); }catch(e){}
+    pushBus('end', Object.assign({ pid }, summary||{}));
 
-    // announce end on bus
-    pushBus('end', summary);
-
-    // if peer hasn't responded, wait briefly then decide
-    const t0 = nowMs();
-    const tEnd = t0 + forfeitMs;
+    const tEnd = nowMs() + forfeitMs;
 
     function poll(){
       const d = decideWinner();
@@ -194,13 +189,11 @@ export async function initBattle(opts={}){
     requestAnimationFrame(poll);
   }
 
-  function getWinner(){
-    return state.winner;
-  }
-
+  function getWinner(){ return state.winner; }
+  function getPeerScore(){ return state.peerScore; }
   function dispose(){
     try{ bc?.close?.(); }catch(e){}
-    try{ unsubPeer?.(); }catch(e){}
+    try{ unsubPlayers?.(); }catch(e){}
   }
 
   return {
@@ -210,6 +203,7 @@ export async function initBattle(opts={}){
     pushScore,
     finalizeEnd,
     getWinner,
+    getPeerScore,
     dispose
   };
 }
