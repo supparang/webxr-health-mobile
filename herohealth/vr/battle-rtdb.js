@@ -1,36 +1,32 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v5 (Seamless Rejoin + Classroom-ready)
-// ✅ Rejoin/resume mid-playing (reuse player key, keep node on disconnect)
-// ✅ Countdown→Playing gate by server time offset
-// ✅ Soft anti-cheat (clamp score by cap approx)
-// ✅ Rematch (same room, new round seed)
-// ✅ Spectator mode
+// Firebase RTDB Battle — v4 (+ ROOM EVENTS BUS)
+// ✅ Reconnect/Resume (reuse player key)
+// ✅ Soft anti-cheat (clamp + winner guard by time/tune cap)
+// ✅ Rematch (same room, new round)
+// ✅ Spectator (read-only)
+// ✅ NEW: Room event bus (emitRoomEvent/onRoomEvent) for SYNC features (Race/Coop)
 // Emits: hha:battle-players, hha:battle-state, hha:battle-ended
-// FULL v20260304-BATTLE-RTDB-V5
+// FULL v20260304-BATTLE-RTDB-V4-ROOMBUS
 'use strict';
 
 import { pickWinner, normalizeResult } from './score-rank.js';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = WIN.document;
 
 function qs(k, d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
 function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
 function emit(name, detail){ try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){} }
-
-function safeKey(s, max=28){
+function safeKey(s, max=24){
   s = String(s||'').trim();
   s = s.replace(/[.#$\[\]]/g,'');
   s = s.replace(/[^a-zA-Z0-9_-]/g,'');
   s = s.slice(0, max);
   return s;
 }
-
 function mkPlayerKey(){ return `p_${Math.random().toString(36).slice(2,9)}_${Date.now().toString(36)}`; }
-function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
-function lsSet(k,v){ try{ localStorage.setItem(k, String(v||'')); }catch(e){} }
 
 function getCfg(){
-  // accept either battle cfg or firebase config
   return WIN.HHA_BATTLE_CFG || WIN.HHA_FIREBASE_CONFIG || null;
 }
 
@@ -57,7 +53,14 @@ async function ensureAuth(app){
   return auth;
 }
 
-// ---- soft score cap (approx) ----
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, String(v||'')); }catch(e){} }
+
+function battleKeyStore(gameKey, room, pid){
+  return `HHA_BATTLE_MEKEY:${String(gameKey)}:${String(room)}:${String(pid)}`;
+}
+
+// ---- soft anti-cheat cap (approx by tune + elapsed)
 function scoreCapApprox({ elapsedSec, plannedSec, tune, diff }){
   elapsedSec = clamp(elapsedSec, 0, 9999);
   plannedSec = clamp(plannedSec, 10, 600);
@@ -70,13 +73,10 @@ function scoreCapApprox({ elapsedSec, plannedSec, tune, diff }){
 
   const estSpawns = normSec * spawnBase + stormSec * (spawnBase*stormMult);
 
-  const maxPerHit = (diff==='hard') ? 32 : (diff==='easy') ? 26 : 29;
-  const cap = Math.round(estSpawns * maxPerHit + 320);
+  // upper bound: assume many hits are good+combo-ish
+  const maxPerHit = (diff==='hard') ? 30 : (diff==='easy') ? 26 : 28;
+  const cap = Math.round(estSpawns * maxPerHit + 260); // + boss/bonus cushion
   return clamp(cap, 0, 999999);
-}
-
-function storeKey(gameKey, room, pid){
-  return `HHA_BATTLE_MEKEY:${String(gameKey)}:${String(room)}:${String(pid)}`;
 }
 
 export async function initBattle(opts){
@@ -94,25 +94,31 @@ export async function initBattle(opts){
   const spectator = String(opts.spectator ?? qs('spectator','0')) === '1';
 
   const room = safeKey(opts.room || qs('room',''), 24);
-  if(!room) return null;
+  if(!room){
+    // v4: allow UI-only usage (host/join handled elsewhere) but if you call from game, must have room
+    return null;
+  }
 
   const autostartMs = clamp(opts.autostartMs ?? Number(qs('autostart','3000'))||3000, 500, 15000);
-  const forfeitMs   = clamp(opts.forfeitMs   ?? Number(qs('forfeit','5000'))||5000, 1000, 60000);
+  const forfeitMs   = clamp(opts.forfeitMs   ?? Number(qs('forfeit','5000'))||5000, 1000, 30000);
 
   const plannedSec  = clamp(opts.plannedSec ?? Number(qs('time','80'))||80, 20, 300);
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const tune = opts.tune || null;
 
-  // reuse key (rejoin/resume)
-  const sk = storeKey(gameKey, room, pid);
-  const reuse = (!spectator) ? safeKey(lsGet(sk) || '', 60) : '';
-  const meKey = spectator ? `spectator_${Math.random().toString(36).slice(2,7)}` : (reuse || mkPlayerKey());
-  if(!spectator) lsSet(sk, meKey);
+  // reuse meKey for reconnect
+  const storeKey = battleKeyStore(gameKey, room, pid);
+  const reused = (!spectator) ? safeKey(lsGet(storeKey) || '', 60) : '';
+  const meKey = spectator ? 'spectator' : (reused || mkPlayerKey());
+  if(!spectator) lsSet(storeKey, meKey);
 
+  // Firebase
   const { dbMod } = await loadFirebase();
   const {
-    getDatabase, ref, child, get, set, update, onValue, onDisconnect,
-    serverTimestamp, runTransaction, remove
+    getDatabase, ref, child, get, set, update,
+    onValue, onDisconnect, serverTimestamp, runTransaction, remove,
+    // ✅ NEW: events bus helpers
+    push, onChildAdded, query, limitToLast
   } = dbMod;
 
   const app = await ensureApp(cfg);
@@ -131,7 +137,10 @@ export async function initBattle(opts){
   const stateRef   = child(root, 'state');
   const myRef      = child(playersRef, meKey);
 
-  // init state once
+  // ✅ NEW: room events path
+  const eventsRef  = child(root, 'events');
+
+  // init state
   await runTransaction(stateRef, (cur)=>{
     if(cur) return cur;
     const t0 = serverNow();
@@ -145,9 +154,10 @@ export async function initBattle(opts){
       rule: 'score→acc→miss→medianRT',
       autostartMs,
       forfeitMs,
+      // keep tune snapshot for guard (optional)
+      tune: tune || null,
       plannedSec,
       diff,
-      tune: tune || null,
       winner:'',
       reason:'',
       forfeit:null,
@@ -155,23 +165,87 @@ export async function initBattle(opts){
     };
   }, { applyLocally:false });
 
-  // join/resume player
+  // join player (or resume)
+  const joinAtServer = serverNow();
   if(!spectator){
-    const t = serverNow();
-
-    // IMPORTANT: use update() first to keep any existing record (resume), then ensure fields exist
-    await update(myRef, {
+    const t = joinAtServer;
+    await set(myRef, {
       pid,
       name: String(opts.name || qs('name', pid) || pid).slice(0,24),
       joinedAt: t,
       lastSeen: t,
       connected: true,
-      ended: false
+      score: 0,
+      miss: 0,
+      accPct: 0,
+      medianRtGoodMs: 0,
+      ended: false,
+      endSummary: null
     });
 
-    // On disconnect: mark offline BUT DO NOT REMOVE (so we can rejoin seamlessly)
     try{ await onDisconnect(myRef).update({ connected:false, lastSeen: serverTimestamp() }); }catch(e){}
+    try{ await onDisconnect(myRef).remove(); }catch(e){}
   }
+
+  // ---- ROOM EVENT BUS (SYNC) ----
+  let _roomHandlers = new Set();
+  let _roomUnsub = null;
+  let _roomLastTs = 0;
+
+  function onRoomEvent(fn){
+    if(typeof fn !== 'function') return ()=>{};
+    _roomHandlers.add(fn);
+    return ()=>{ try{ _roomHandlers.delete(fn); }catch(e){} };
+  }
+
+  async function emitRoomEvent(type, payload){
+    type = String(type || '').trim();
+    if(!type) return false;
+
+    const msg = {
+      type,
+      payload: payload ?? null,
+      ts: serverNow(),
+      from: meKey,
+      pid
+    };
+
+    // write as pushed child under /events
+    try{
+      const r = push(eventsRef);
+      await set(r, msg);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function startRoomEventListener(){
+    if(_roomUnsub) return;
+
+    // listen last N events to catch a fresh GO_AT when joining
+    const q = query(eventsRef, limitToLast(30));
+    _roomUnsub = onChildAdded(q, (snap)=>{
+      const msg = snap.val() || null;
+      if(!msg || typeof msg !== 'object') return;
+
+      const ts = Number(msg.ts || 0);
+      if(ts && ts <= _roomLastTs) return; // dedupe
+      _roomLastTs = Math.max(_roomLastTs, ts || 0);
+
+      // ignore very old history (before we joined, with a tiny grace)
+      if(ts && ts < (joinAtServer - 1200)) return;
+
+      // ignore our own emitted events (room-bus layer can local-dispatch anyway)
+      if(String(msg.from||'') === String(meKey)) return;
+
+      for(const fn of Array.from(_roomHandlers)){
+        try{ fn(msg); }catch(e){}
+      }
+    });
+  }
+
+  startRoomEventListener();
 
   const battle = {
     enabled:true,
@@ -185,16 +259,22 @@ export async function initBattle(opts){
     state:{ status:'waiting' },
     offsetMs,
     serverNow,
+
+    // existing
     pushScore,
     finalizeEnd,
     requestRematch,
     destroy,
-    getOpponent
+    getOpponent,
+
+    // ✅ NEW for room-bus consumers (Race/Coop)
+    onRoomEvent,
+    emitRoomEvent
   };
 
   function computeOpponent(){
     const keys = Object.keys(battle.players||{});
-    battle.opponentKey = keys.find(k => k !== battle.meKey) || null;
+    battle.opponentKey = keys.find(k => k !== meKey) || null;
     return battle.opponentKey;
   }
   function getOpponent(){
@@ -202,7 +282,7 @@ export async function initBattle(opts){
     return k ? (battle.players?.[k] || null) : null;
   }
 
-  // listeners
+  // ----- listeners -----
   let unsubPlayers = null;
   let unsubState = null;
 
@@ -210,20 +290,22 @@ export async function initBattle(opts){
     battle.players = snap.val() || {};
     computeOpponent();
     emit('hha:battle-players', { room, meKey, opponentKey: battle.opponentKey, players: battle.players });
+
+    // autostart when 2 players and waiting
     tryAutostart().catch(()=>{});
   });
 
   unsubState = onValue(stateRef, (snap)=>{
     battle.state = snap.val() || { status:'waiting' };
     emit('hha:battle-state', { room, ...battle.state });
+
     if(String(battle.state.status) === 'ended'){
       maybeEmitEndedOnce().catch(()=>{});
       maybeStartRematchIfBothWant().catch(()=>{});
-      cleanupStalePlayers().catch(()=>{});
     }
   });
 
-  // heartbeat + gates
+  // heartbeat / forfeit check
   const pingInt = setInterval(async ()=>{
     try{
       if(!spectator){
@@ -238,15 +320,13 @@ export async function initBattle(opts){
   async function tryAutostart(){
     if(String(battle.state?.status||'') !== 'waiting') return;
     const keys = Object.keys(battle.players||{});
-    // count only real players (ignore spectators if any)
-    const real = keys.filter(k => String(battle.players?.[k]?.pid||'') !== '' );
-    if(real.length < 2) return;
+    if(keys.length < 2) return;
 
     await runTransaction(stateRef, (cur)=>{
       cur = cur || {};
       if(cur.status !== 'waiting') return cur;
       const st = serverNow() + Number(cur.autostartMs||autostartMs);
-      return { ...cur, status:'countdown', startAt: st, winner:'', reason:'', forfeit:null };
+      return { ...cur, status:'countdown', startAt: st, winner:'', reason:'' };
     }, { applyLocally:false });
   }
 
@@ -263,12 +343,12 @@ export async function initBattle(opts){
     }, { applyLocally:false });
   }
 
-  // push score (7Hz, clamp + cap)
+  // ---- pushScore (anti-spam + clamp + cap) ----
   let lastPushAt = 0;
   async function pushScore(payload){
     if(spectator) return;
     const t = Date.now();
-    if(t - lastPushAt < 140) return;
+    if(t - lastPushAt < 140) return; // ~7Hz
     lastPushAt = t;
 
     const d = payload || {};
@@ -276,6 +356,7 @@ export async function initBattle(opts){
     const accPct = clamp(d.accPct, 0, 100);
     const medRt = clamp(d.medianRtGoodMs, 0, 20000)|0;
 
+    // cap score by elapsed + tune
     const st = Number(battle.state?.startAt || 0);
     const elapsedSec = st ? Math.max(0, (battle.serverNow() - st)/1000) : 0;
     const cap = scoreCapApprox({
@@ -288,32 +369,26 @@ export async function initBattle(opts){
     const score = clamp(d.score, 0, cap)|0;
 
     try{
-      await update(myRef, {
-        score,
-        miss,
-        accPct,
-        medianRtGoodMs: medRt,
-        lastSeen: serverTimestamp(),
-        connected:true
-      });
+      await update(myRef, { score, miss, accPct, medianRtGoodMs: medRt, lastSeen: serverTimestamp(), connected:true });
     }catch(e){}
   }
 
   async function finalizeEnd(endSummary){
     if(spectator) return;
-    const endedAt = battle.serverNow();
+    const endedAt = serverNow();
     try{
       await update(myRef, { ended:true, endSummary: { ...(endSummary||{}), ts: endedAt }, lastSeen: serverTimestamp(), connected:true });
     }catch(e){}
+
+    // if both ended -> mark room ended
     await maybeEndWhenBothEnded();
   }
 
   async function maybeEndWhenBothEnded(){
     const p = battle.players || {};
     const keys = Object.keys(p);
-    const real = keys.filter(k => String(p[k]?.pid||'') !== '');
-    if(real.length < 2) return;
-    const endedCount = real.filter(k => !!p[k]?.ended).length;
+    if(keys.length < 2) return;
+    const endedCount = keys.filter(k => !!p[k]?.ended).length;
     if(endedCount < 2) return;
 
     await runTransaction(stateRef, (cur)=>{
@@ -323,6 +398,7 @@ export async function initBattle(opts){
     }, { applyLocally:false });
   }
 
+  // ---- forfeit ----
   async function maybeForfeitTick(){
     const cur = battle.state || {};
     if(cur.status !== 'playing') return;
@@ -332,16 +408,18 @@ export async function initBattle(opts){
     if(!opp) return;
 
     const lastSeen = Number(opp.lastSeen||0);
-    const stale = (serverNow() - lastSeen) > 3800;
+    const stale = (serverNow() - lastSeen) > 3500;
     const disconnected = (!opp.connected) || stale;
 
     if(!disconnected){
+      // clear forfeit if active
       if(cur.forfeit?.active){
         await update(stateRef, { forfeit: null }).catch(()=>{});
       }
       return;
     }
 
+    // start forfeit if none
     if(!cur.forfeit?.active){
       const deadline = serverNow() + Number(cur.forfeitMs||forfeitMs);
       await runTransaction(stateRef, (x)=>{
@@ -354,6 +432,7 @@ export async function initBattle(opts){
       return;
     }
 
+    // if deadline passed -> end room
     const dl = Number(cur.forfeit.deadline||0);
     if(dl && serverNow() >= dl){
       await runTransaction(stateRef, (x)=>{
@@ -364,7 +443,7 @@ export async function initBattle(opts){
     }
   }
 
-  // rematch
+  // ---- rematch ----
   async function requestRematch(){
     if(spectator) return false;
     try{
@@ -387,11 +466,10 @@ export async function initBattle(opts){
 
     const p = battle.players || {};
     const keys = Object.keys(p);
-    const real = keys.filter(k => String(p[k]?.pid||'') !== '');
-    if(real.length < 2) return;
+    if(keys.length < 2) return;
 
     const want = cur.rematch?.want || {};
-    const allWant = real.every(k => !!want[k]);
+    const allWant = keys.every(k => !!want[k]);
     if(!allWant) return;
 
     const t0 = serverNow();
@@ -415,9 +493,9 @@ export async function initBattle(opts){
       };
     }, { applyLocally:false });
 
-    // reset players for next round
+    // reset players (best effort)
     try{
-      for(const k of real){
+      for(const k of keys){
         await update(child(playersRef, k), {
           score:0, miss:0, accPct:0, medianRtGoodMs:0,
           ended:false, endSummary:null,
@@ -427,7 +505,7 @@ export async function initBattle(opts){
     }catch(e){}
   }
 
-  // end event
+  // ---- ended event (winner guard) ----
   let endedEmitted = false;
   async function maybeEmitEndedOnce(){
     if(endedEmitted) return;
@@ -435,16 +513,16 @@ export async function initBattle(opts){
 
     const p = battle.players || {};
     const keys = Object.keys(p);
-    const real = keys.filter(k => String(p[k]?.pid||'') !== '');
-    if(real.length < 2) return;
+    if(keys.length < 2) return;
 
-    const Akey = real[0], Bkey = real[1];
+    const Akey = keys[0], Bkey = keys[1];
     const Araw = p[Akey]?.endSummary || p[Akey] || {};
     const Braw = p[Bkey]?.endSummary || p[Bkey] || {};
 
     const a = normalizeResult({ ...Araw, pid: p[Akey]?.pid, room, gameKey });
     const b = normalizeResult({ ...Braw, pid: p[Bkey]?.pid, room, gameKey });
 
+    // apply cap again for fairness (guard opponent spoof)
     const st = Number(battle.state?.startAt || 0);
     const elapsedSec = st ? Math.max(0, (battle.serverNow() - st)/1000) : 0;
     const cap = scoreCapApprox({ elapsedSec, plannedSec: Number(battle.state?.plannedSec||plannedSec), tune: battle.state?.tune||tune, diff: String(battle.state?.diff||diff) });
@@ -464,7 +542,7 @@ export async function initBattle(opts){
       tieReason: w.reason
     });
 
-    // persist winner if empty
+    // also write winner once (optional)
     try{
       await runTransaction(stateRef, (cur)=>{
         cur = cur || {};
@@ -475,43 +553,22 @@ export async function initBattle(opts){
     }catch(e){}
   }
 
-  // cleanup stale (after ended only)
-  async function cleanupStalePlayers(){
-    const cur = battle.state || {};
-    if(String(cur.status) !== 'ended') return;
-
-    const p = battle.players || {};
-    const keys = Object.keys(p);
-    if(!keys.length) return;
-
-    const tNow = serverNow();
-    const cutoff = tNow - 1000*60*10; // 10 นาที
-    for(const k of keys){
-      const lastSeen = Number(p[k]?.lastSeen||0);
-      const isReal = String(p[k]?.pid||'') !== '';
-      if(isReal && lastSeen && lastSeen < cutoff){
-        try{ await remove(child(playersRef, k)); }catch(e){}
-      }
-    }
-  }
-
-  async function destroy(opts2={}){
+  async function destroy(){
     clearInterval(pingInt);
     try{ unsubPlayers && unsubPlayers(); }catch(e){}
     try{ unsubState && unsubState(); }catch(e){}
 
-    // default: DO NOT remove node (so reload can rejoin)
-    // if caller really wants to leave room: destroy({ leave:true })
-    if(!spectator && !!opts2.leave){
+    // ✅ NEW: stop room events
+    try{ _roomUnsub && _roomUnsub(); }catch(e){}
+    _roomUnsub = null;
+    _roomHandlers = new Set();
+
+    if(!spectator){
       try{ await remove(myRef); }catch(e){}
-    }else{
-      // best effort mark disconnected
-      if(!spectator){
-        try{ await update(myRef, { connected:false, lastSeen: serverTimestamp() }); }catch(e){}
-      }
     }
   }
 
+  // expose
   WIN.__HHA_BATTLE__ = battle;
   return battle;
 }
