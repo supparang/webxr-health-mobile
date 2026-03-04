@@ -1,10 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (ESM)
 PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
-✅ Correct run filename: goodjunk-vr.html
-✅ Sets window.__HHA_SPAWN_SAFE__ (prevents HUD overlap)
-✅ Optional AI: ?ai=1 (play only)
-✅ Optional Battle: ?battle=1
+✅ Correct filename: goodjunk-vr.html
+✅ CSS path: ./goodjunk-vr.css
+✅ Computes window.__HHA_SPAWN_SAFE__ to prevent HUD blocking targets
+✅ Supports view=mobile|pc|cvr (cVR strict shoot via hha:shoot)
+✅ Optional AI: ?ai=1 (only when run=play)
+✅ Optional Battle: ?battle=1&room=... (safe fallback if module/config missing)
 -->
 <!doctype html>
 <html lang="th">
@@ -13,11 +15,14 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
+
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
 </head>
+
 <body>
   <div id="app">
+
     <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
       <span class="pill">view=<b id="uiView">—</b></span>
@@ -121,9 +126,10 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button injected by JS -->
+        <!-- Cooldown button injected by goodjunk.safe.js -->
       </div>
     </div>
+
   </div>
 
   <script type="module">
@@ -132,90 +138,64 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
     const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
-    // ---- cfg ----
     const cfg = {
       view: qs('view','mobile'),
-      run:  qs('run','play'),
+      run: qs('run','play'),
       diff: qs('diff','normal'),
       time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
-      pid:  qs('pid','anon'),
-      hub:  qs('hub','../hub.html'),
+      pid: qs('pid','anon'),
+      hub: qs('hub','../hub.html'),
       ai: null
     };
 
-    // ---- debug pills ----
-    try{
-      const uiView=document.getElementById('uiView');
-      const uiRun=document.getElementById('uiRun');
-      const uiDiff=document.getElementById('uiDiff');
-      if(uiView) uiView.textContent = String(cfg.view);
-      if(uiRun)  uiRun.textContent  = String(cfg.run);
-      if(uiDiff) uiDiff.textContent = String(cfg.diff);
+    // put view on body (CSS uses this for cVR strict pointer-events)
+    document.body.dataset.view = String(cfg.view||'mobile').toLowerCase();
 
-      // show pills only when ?debug=1
-      const dbg = (qs('debug','0')==='1');
-      const pills = document.getElementById('debugPills');
-      if(pills) pills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
-    }catch(e){}
-
-    // ---- Spawn-safe (prevent HUD overlap) ----
+    // -------- Spawn Safe (กัน HUD บังเป้า) --------
     function computeSpawnSafe(){
-      const layer = document.getElementById('gj-layer');
+      const stage = document.getElementById('stage');
       const hud   = document.getElementById('hud');
-      if(!layer) return null;
+      const layer = document.getElementById('gj-layer');
+      if(!stage || !layer) return;
 
-      const r = layer.getBoundingClientRect();
-      const pad = 10;
+      const sR = stage.getBoundingClientRect();
+      const hR = hud ? hud.getBoundingClientRect() : { bottom: sR.top };
+      const safeTop = Math.max(sR.top, hR.bottom + 10);
 
-      // reserve top HUD + some safe gap
-      let topBlock = 0;
-      if(hud){
-        const hr = hud.getBoundingClientRect();
-        // if HUD overlaps the layer vertically, block that region
-        if(!(hr.bottom < r.top || hr.top > r.bottom)){
-          topBlock = Math.max(0, (hr.bottom - r.top) + 12);
-        }
-      }
+      // เว้นขอบล่างให้พ้น coach/toast/safe-area (เผื่อมือถือ)
+      const safeBottom = Math.min(
+        sR.bottom,
+        (window.innerHeight - (Number(getComputedStyle(document.documentElement).getPropertyValue('--gj-safe-bottom')||0))) - 10
+      );
 
-      // reserve bottom for VR UI buttons safe area (enter vr/recenter)
-      const bottomBlock = 84; // conservative
-      const xMin = r.left + pad;
-      const xMax = r.right - pad;
-      const yMin = r.top + pad + topBlock;
-      const yMax = r.bottom - pad - bottomBlock;
+      // กันขอบซ้าย/ขวาเล็กน้อย
+      const xPad = 14;
+      const yPad = 12;
 
-      const w = r.width, h = r.height;
-      const ok = (xMax-xMin)>=180 && (yMax-yMin)>=220;
-      return ok ? { xMin, xMax, yMin, yMax, w, h } : null;
+      const xMin = sR.left + xPad;
+      const xMax = sR.right - xPad;
+      const yMin = safeTop + yPad;
+      const yMax = safeBottom - yPad;
+
+      // expose absolute coordinates (goodjunk.safe.js will convert to local)
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin, xMax, yMin, yMax
+      };
     }
 
-    function setSpawnSafe(){
-      try{
-        const safe = computeSpawnSafe();
-        if(safe) window.__HHA_SPAWN_SAFE__ = safe;
-      }catch(e){}
+    // recompute a few times (fonts/layout settle) + on resize
+    function armSpawnSafe(){
+      computeSpawnSafe();
+      setTimeout(computeSpawnSafe, 120);
+      setTimeout(computeSpawnSafe, 350);
+      setTimeout(computeSpawnSafe, 900);
     }
+    window.addEventListener('resize', armSpawnSafe);
+    window.addEventListener('orientationchange', armSpawnSafe);
+    armSpawnSafe();
 
-    // keep updated on resize/orientation
-    window.addEventListener('resize', ()=> setSpawnSafe(), { passive:true });
-    window.addEventListener('orientationchange', ()=> setTimeout(setSpawnSafe, 250), { passive:true });
-    setTimeout(setSpawnSafe, 60);
-
-    // ---- Buttons ----
-    const btnRetry = document.getElementById('btnRetry');
-    const btnHub = document.getElementById('btnHub');
-
-    btnRetry?.addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
-      location.href = u.toString();
-    });
-    btnHub?.addEventListener('click', ()=>{
-      location.href = cfg.hub || '../hub.html';
-    });
-
-    // ---- Optional AI (prediction only) ----
+    // -------- Optional AI --------
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
@@ -233,7 +213,19 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
       }
     }
 
-    // ---- Boot ----
+    // Buttons
+    const btnRetry = document.getElementById('btnRetry');
+    const btnHub = document.getElementById('btnHub');
+    btnRetry?.addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+    btnHub?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
+    });
+
+    // Boot
     boot(cfg);
   </script>
 </body>
