@@ -1,0 +1,422 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-launcher.html ===
+GoodJunk Launcher — PRODUCTION (Solo/Battle/Race/Coop/Coop2) + Easy/Normal/Hard
+FULL v20260304-GJ-LAUNCHER-MODES-DIFF
+
+✅ Lock mode via buttons -> inject mode=...
+✅ Diff in all modes: easy|normal|hard
+✅ Room builder for multiplayer modes
+✅ Team select for coop2
+✅ Generates join link + copy
+✅ Grade-5 friendly UI
+
+Target run page:
+- ./goodjunk-vr.html
+
+Requires for race/coop/coop2:
+- sbUrl & sbAnon query OR paste in UI
+
+Notes:
+- battle uses existing battle-rtdb.js via mode=battle (needs room=...)
+- race/coop/coop2 uses ../vr/room-bus.js + Supabase Realtime
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GoodJunk Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#020617;
+      --panel: rgba(2,6,23,.62);
+      --panel2: rgba(2,6,23,.40);
+      --border: rgba(148,163,184,.18);
+      --text: rgba(229,231,235,.96);
+      --muted: rgba(229,231,235,.70);
+      --green: rgba(34,197,94,.16);
+      --greenB: rgba(34,197,94,.35);
+      --amber: rgba(251,191,36,.14);
+      --amberB: rgba(251,191,36,.32);
+      --red: rgba(239,68,68,.12);
+      --redB: rgba(239,68,68,.32);
+      --blue: rgba(59,130,246,.12);
+      --blueB: rgba(59,130,246,.32);
+    }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    *{box-sizing:border-box}
+    .wrap{
+      max-width:980px; margin:0 auto;
+      padding:18px 14px 30px;
+    }
+    .card{
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:18px;
+      padding:14px 14px 16px;
+      box-shadow:0 18px 75px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    h1{margin:4px 0 6px; font:1000 20px/1.2 system-ui}
+    .sub{color:var(--muted); font-weight:900; margin-bottom:12px}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:860px){
+      .grid{grid-template-columns:1fr}
+    }
+    .secTitle{
+      font-weight:1000; margin:0 0 8px; opacity:.92
+    }
+    .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+    .btn{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.08);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1000;
+      cursor:pointer;
+      min-height:44px;
+      transition:transform .08s ease, filter .08s ease;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border:1px solid rgba(34,197,94,.30); background:var(--green)}
+    .btn.warn{border:1px solid rgba(251,191,36,.30); background:var(--amber)}
+    .btn.red{border:1px solid rgba(239,68,68,.28); background:var(--red)}
+    .btn.blue{border:1px solid rgba(59,130,246,.28); background:var(--blue)}
+    .btn.sel{outline: 2px solid rgba(229,231,235,.22); filter: brightness(1.08)}
+    .pill{
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.35);
+      font-weight:1000;
+      color:rgba(229,231,235,.92);
+      font-size:12px;
+      white-space:nowrap;
+    }
+    label{font-weight:1000; opacity:.9; font-size:13px}
+    input,select{
+      width:100%;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.35);
+      color:var(--text);
+      padding:12px 12px;
+      font-weight:900;
+      outline:none;
+    }
+    .hint{
+      font-size:12px; color:rgba(229,231,235,.74);
+      font-weight:900; margin-top:6px;
+    }
+    .out{
+      margin-top:10px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.40);
+      padding:10px 10px;
+      font-weight:900;
+      overflow:auto;
+      word-break:break-all;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .bigStart{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:12px;
+      padding-top:12px;
+      border-top:1px solid rgba(148,163,184,.14);
+    }
+    .note{
+      font-size:12px;
+      font-weight:900;
+      color:rgba(229,231,235,.72);
+      max-width:540px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🎮 GoodJunk — เลือกโหมดก่อนเล่น</h1>
+      <div class="sub">เหมาะกับ ป.5: เลือก 1) โหมด 2) ระดับ 3) ถ้ามีหลายคนใส่ “ชื่อห้อง” แล้วกดเข้าเล่น</div>
+
+      <div class="grid">
+        <!-- LEFT -->
+        <div class="card" style="background:var(--panel2); box-shadow:none;">
+          <div class="secTitle">1) โหมด</div>
+          <div class="row" id="modeRow">
+            <button class="btn primary" data-mode="solo">SOLO</button>
+            <button class="btn warn" data-mode="battle">BATTLE (1v1)</button>
+            <button class="btn red" data-mode="race">RACE (ใครแต้มถึงก่อน)</button>
+            <button class="btn blue" data-mode="coop">COOP (ช่วยกันทีมเดียว)</button>
+            <button class="btn blue" data-mode="coop2">COOP2 (แดง vs น้ำเงิน)</button>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="secTitle">2) ระดับความยาก (มีทุกโหมด)</div>
+          <div class="row" id="diffRow">
+            <button class="btn" data-diff="easy">ง่าย</button>
+            <button class="btn sel" data-diff="normal">ปกติ</button>
+            <button class="btn" data-diff="hard">ยาก</button>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="secTitle">3) เวลาเล่น</div>
+          <div class="row">
+            <div class="pill">แนะนำ ป.5: 80 วิ</div>
+            <div style="flex:1"></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input id="timeSec" type="number" min="20" max="300" value="80"/>
+          </div>
+          <div class="hint">ตั้ง 60–100 วิ จะสนุกและไม่ยาวเกินไป</div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card" style="background:var(--panel2); box-shadow:none;">
+          <div class="secTitle">ข้อมูลผู้เล่น / ห้อง</div>
+
+          <div class="row" style="gap:10px">
+            <div style="flex:1">
+              <label>pid</label>
+              <input id="pid" placeholder="เช่น P01" />
+              <div class="hint">ใช้รหัสนักเรียน/ชื่อย่อก็ได้</div>
+            </div>
+            <div style="flex:1">
+              <label>nick</label>
+              <input id="nick" placeholder="ชื่อเล่น" />
+              <div class="hint">โชว์บน scoreboard (coop2)</div>
+            </div>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <label>room (ใช้เฉพาะ battle/race/coop/coop2)</label>
+          <input id="room" placeholder="เช่น GJ-P5-ROOM1" />
+          <div class="hint">ครูตั้งชื่อห้องแล้วให้เด็กทุกคนใส่ “เหมือนกัน”</div>
+
+          <div style="height:8px"></div>
+
+          <div class="row" style="gap:10px">
+            <div style="flex:1">
+              <label>team (เฉพาะ coop2)</label>
+              <select id="team">
+                <option value="R">🔴 RED</option>
+                <option value="B">🔵 BLUE</option>
+              </select>
+            </div>
+            <div style="flex:1">
+              <label>view</label>
+              <select id="view">
+                <option value="mobile">mobile</option>
+                <option value="pc">pc</option>
+                <option value="cvr">cvr (Cardboard)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <label>hub url (กลับไป hub)</label>
+          <input id="hub" placeholder="../hub.html" />
+          <div class="hint">ถ้าเล่นผ่าน Hub จริง ใส่ hub ของคุณไว้เพื่อปุ่มกลับ</div>
+
+          <div style="height:10px"></div>
+
+          <div class="secTitle">Supabase (เฉพาะ race/coop/coop2)</div>
+          <label>sbUrl</label>
+          <input id="sbUrl" placeholder="https://xxxx.supabase.co" />
+          <label style="margin-top:8px; display:block">sbAnon</label>
+          <input id="sbAnon" placeholder="eyJhbGciOi..." />
+          <div class="hint">ถ้าไม่ใส่ จะเข้าได้แต่ local (ไม่ sync คนอื่น)</div>
+
+          <div class="out" id="outUrl">—</div>
+
+          <div class="bigStart">
+            <button class="btn primary" id="btnGo">เข้าเล่น</button>
+            <button class="btn" id="btnCopy">Copy link</button>
+          </div>
+          <div class="note" id="note">
+            • SOLO: เข้าได้เลยไม่ต้องมี room<br/>
+            • BATTLE: ต้องมี room (ใช้ battle-rtdb เดิม)<br/>
+            • RACE/COOP/COOP2: ต้องมี room + sbUrl/sbAnon เพื่อเล่นพร้อมกันจริง
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const DOC = document;
+    const $ = (id)=> DOC.getElementById(id);
+
+    const clamp = (v,a,b)=>{
+      v = Number(v);
+      if(!Number.isFinite(v)) v=a;
+      return Math.max(a, Math.min(b, v));
+    };
+
+    // default state
+    let state = {
+      mode: 'solo',
+      diff: 'normal'
+    };
+
+    function setSelected(containerId, attr, value){
+      const row = $(containerId);
+      if(!row) return;
+      for(const b of row.querySelectorAll('button')){
+        const v = b.getAttribute(attr);
+        if(v === value) b.classList.add('sel');
+        else b.classList.remove('sel');
+      }
+    }
+
+    function refresh(){
+      setSelected('modeRow','data-mode', state.mode);
+      setSelected('diffRow','data-diff', state.diff);
+
+      const pid = ($('pid').value || 'anon').trim() || 'anon';
+      const nick = ($('nick').value || pid).trim() || pid;
+      const view = $('view').value || 'mobile';
+      const team = $('team').value || 'R';
+
+      const time = clamp(($('timeSec').value || 80), 20, 300);
+
+      const hub = ($('hub').value || '../hub.html').trim() || '../hub.html';
+      const room = ($('room').value || '').trim();
+
+      const sbUrl = ($('sbUrl').value || '').trim();
+      const sbAnon = ($('sbAnon').value || '').trim();
+
+      const base = new URL('./goodjunk-vr.html', location.href);
+      base.searchParams.set('pid', pid);
+      base.searchParams.set('nick', nick);
+      base.searchParams.set('view', view);
+      base.searchParams.set('run', 'play');
+      base.searchParams.set('diff', state.diff);
+      base.searchParams.set('time', String(time));
+      base.searchParams.set('seed', String(Date.now()));
+      base.searchParams.set('hub', hub);
+
+      // lock mode
+      base.searchParams.set('mode', state.mode);
+
+      // mode-specific
+      if(state.mode !== 'solo'){
+        base.searchParams.set('room', room || 'GJ-ROOM');
+      }
+
+      if(state.mode === 'battle'){
+        // legacy battle uses battle=1 in your older logic, but our core accepts mode=battle already
+        // keep room required
+        base.searchParams.set('room', room || 'GJ-BATTLE');
+      }
+
+      if(state.mode === 'race' || state.mode === 'coop' || state.mode === 'coop2'){
+        base.searchParams.set('room', room || 'GJ-MULTI');
+        if(sbUrl) base.searchParams.set('sbUrl', sbUrl);
+        if(sbAnon) base.searchParams.set('sbAnon', sbAnon);
+      }
+
+      if(state.mode === 'coop2'){
+        base.searchParams.set('team', team);
+      }
+
+      $('outUrl').textContent = base.toString();
+
+      // note text
+      const note = $('note');
+      if(note){
+        note.innerHTML =
+          (state.mode==='solo')
+            ? '• SOLO: เข้าได้เลย ไม่ต้องมี room<br/>• แนะนำ ป.5: diff=normal time=80'
+            : (state.mode==='battle')
+              ? '• BATTLE: ต้องมี room (แนะนำ 1 ห้องต่อ 1 คู่)<br/>• diff มีผลกับความถี่เป้าและความโหด'
+              : (state.mode==='race')
+                ? '• RACE: ต้องมี room + sbUrl/sbAnon เพื่อเริ่มพร้อมกัน<br/>• ใครทำคะแนนถึงก่อน = ชนะ'
+                : (state.mode==='coop')
+                  ? '• COOP: ต้องมี room + sbUrl/sbAnon<br/>• ทุกคนช่วยกันทำเป้าหมายร่วม'
+                  : '• COOP2: ต้องมี room + sbUrl/sbAnon<br/>• แดง vs น้ำเงิน (เลือก team) เป้าหมายชัดสำหรับ ป.5';
+      }
+    }
+
+    // bind mode buttons
+    $('modeRow').addEventListener('click', (ev)=>{
+      const b = ev.target.closest('button[data-mode]');
+      if(!b) return;
+      state.mode = b.getAttribute('data-mode');
+      refresh();
+    });
+
+    // bind diff buttons
+    $('diffRow').addEventListener('click', (ev)=>{
+      const b = ev.target.closest('button[data-diff]');
+      if(!b) return;
+      state.diff = b.getAttribute('data-diff');
+      refresh();
+    });
+
+    // bind inputs
+    ['pid','nick','room','team','view','hub','sbUrl','sbAnon','timeSec'].forEach(id=>{
+      const el = $(id);
+      if(!el) return;
+      el.addEventListener('input', refresh);
+      el.addEventListener('change', refresh);
+    });
+
+    // buttons
+    $('btnGo').onclick = ()=>{
+      refresh();
+      location.href = $('outUrl').textContent.trim();
+    };
+
+    $('btnCopy').onclick = async ()=>{
+      refresh();
+      try{
+        await navigator.clipboard.writeText($('outUrl').textContent.trim());
+        alert('คัดลอกลิงก์แล้ว ✅');
+      }catch(e){
+        alert('คัดลอกไม่สำเร็จ (ลองคัดลอกจากช่องลิงก์)');
+      }
+    };
+
+    // preload from query if user opens launcher with params
+    (function initFromQuery(){
+      try{
+        const sp = new URL(location.href).searchParams;
+        const m = sp.get('mode'); if(m) state.mode = m;
+        const d = sp.get('diff'); if(d) state.diff = d;
+
+        const setIf = (id,k,def='')=>{
+          const v = sp.get(k);
+          if(v!=null && v!=='') $(id).value = v;
+          else if(def) $(id).value = def;
+        };
+        setIf('pid','pid');
+        setIf('nick','nick');
+        setIf('room','room');
+        setIf('team','team','R');
+        setIf('view','view','mobile');
+        setIf('hub','hub','../hub.html');
+        setIf('sbUrl','sbUrl');
+        setIf('sbAnon','sbAnon');
+        const t = sp.get('time'); if(t) $('timeSec').value = t;
+      }catch(e){}
+      refresh();
+    })();
+  </script>
+</body>
+</html>
