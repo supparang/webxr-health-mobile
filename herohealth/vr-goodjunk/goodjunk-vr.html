@@ -1,6 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION (safe.js + race)
-FULL v20260304-RUN-MISSION3STAGE-PRO-COACHRT-FIXDASH
+GoodJunkVR RUN — PRODUCTION (folder-run)
+PATCH v20260304-RUN-BATTLE-LOBBY-READY-COUNTDOWN
+✅ Battle Lobby: Create/Join/Room/Ready UI
+✅ Countdown -> fires __GJ_START_NOW__ (sync)
+✅ Shows players status + winner
+Requires:
+- /herohealth/vr/battle-rtdb.js (v5)
+- /herohealth/vr-goodjunk/goodjunk.safe.js (patched to expose __HHA_BATTLE__/__GJ_BATTLE_READY__)
 -->
 <!doctype html>
 <html lang="th">
@@ -10,150 +16,446 @@ FULL v20260304-RUN-MISSION3STAGE-PRO-COACHRT-FIXDASH
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304a" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
+  <style>
+    #battlePanel{
+      position: fixed; inset: 0;
+      display:none;
+      z-index: 320;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #battleCard{
+      max-width: 860px; margin: 16px auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.70);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: 0 22px 70px rgba(0,0,0,.45);
+      color: rgba(229,231,235,.96);
+      font: 900 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    .bRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .bRow > *{ flex: 0 0 auto; }
+    .bInp{
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.60);
+      color: rgba(229,231,235,.96);
+      border-radius: 12px;
+      padding: 10px 10px;
+      min-height: 42px;
+      outline: none;
+      font-weight: 900;
+      letter-spacing: .8px;
+    }
+    .bBtn{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(148,163,184,.10);
+      color: rgba(229,231,235,.96);
+      border-radius: 14px;
+      padding: 10px 12px;
+      min-height: 42px;
+      font-weight: 1000;
+      cursor: pointer;
+    }
+    .bBtn.primary{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.14);
+    }
+    .bBtn.danger{
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.14);
+    }
+    .bTag{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      font-weight: 1000;
+    }
+    .bGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .bBox{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.35);
+      border-radius: 14px;
+      padding: 10px;
+      min-height: 84px;
+    }
+    .mut{ opacity:.85; font-weight:900; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .players li{ margin: 4px 0; }
+    .countBig{ font-size: 24px; font-weight: 1200; letter-spacing: .8px; }
+  </style>
 </head>
+
 <body>
-  <!-- game layer -->
-  <div id="gj-layer" aria-label="game layer"></div>
+  <div id="app">
 
-  <!-- HUD -->
-  <div class="hud">
-    <div class="pill">Score <b id="hud-score">0</b></div>
-    <div class="pill">Time <b id="hud-time">0</b></div>
-    <div class="pill">Miss <b id="hud-miss">0</b></div>
-    <div class="pill">Grade <b id="hud-grade">—</b></div>
-
-    <div class="pill"><span id="hud-goal">WIN</span></div>
-    <div class="pill"><span id="hud-goal-cur">0</span></div>
-    <div class="pill"><span id="hud-goal-target">0</span></div>
-    <div class="pill"><span id="goalDesc">—</span></div>
-
-    <div class="pill">Mini <b id="hud-mini">—</b> <span id="miniTimer">—</span></div>
-
-    <div class="pill">AI <b id="aiRisk">0.00</b> <span id="aiHint">—</span></div>
-
-    <div class="pill">Fever <b id="feverText">0%</b></div>
-    <div class="pill">
-      <span class="feverBar"><i id="feverFill" style="width:0%"></i></span>
+    <!-- Debug pills (optional) -->
+    <div id="debugPills" aria-hidden="true">
+      <span class="pill">view=<b id="uiView">—</b></span>
+      <span class="pill">run=<b id="uiRun">—</b></span>
+      <span class="pill">diff=<b id="uiDiff">—</b></span>
     </div>
 
-    <div class="pill">Shield <b id="shieldPills">—</b></div>
+    <!-- Top HUD -->
+    <header id="hud">
+      <div class="hud-row hud-top">
+        <div class="pill">SCORE <b id="hud-score">0</b></div>
+        <div class="pill">TIME <b id="hud-time">0</b></div>
+        <div class="pill">MISS <b id="hud-miss">0</b></div>
+        <div class="pill">GRADE <b id="hud-grade">C</b></div>
 
-    <div class="pill dim">view <b id="uiView">—</b></div>
-    <div class="pill dim">run <b id="uiRun">—</b></div>
-    <div class="pill dim">diff <b id="uiDiff">—</b></div>
-    <div class="pill dim">mode <b id="uiMode">—</b></div>
-    <div class="pill dim">pro <b id="uiPro">—</b></div>
-
-    <!-- Mission 3-Stage UI -->
-    <div class="gj-mission" id="gjMission" aria-label="mission 3 stages">
-      <div class="gj-mission-top">
-        <div class="gj-stageTitle">
-          <span class="badge" id="stageBadge">WARM</span>
-          <span class="hint" id="stageHint">—</span>
-        </div>
-
-        <div class="gj-stageStats">
-          <span class="stat">StageScore <b id="stageScore">0</b></span>
-          <span class="stat">Goal <b id="stageGoalCur">0</b>/<b id="stageGoalTarget">0</b></span>
-          <span class="stat">Bonus <b id="stageBonus">0</b></span>
+        <!-- Difficulty switch -->
+        <div class="diffSwitch" role="group" aria-label="Difficulty">
+          <button type="button" class="diffBtn" data-diff="easy">EASY</button>
+          <button type="button" class="diffBtn" data-diff="normal">NORMAL</button>
+          <button type="button" class="diffBtn" data-diff="hard">HARD</button>
         </div>
       </div>
 
-      <div class="gj-steps">
-        <div class="step" id="stepWarm"><span>WARM</span><i></i></div>
-        <div class="step" id="stepTrick"><span>TRICK</span><i></i></div>
-        <div class="step" id="stepBoss"><span>BOSS</span><i></i></div>
+      <div class="hud-row">
+        <div class="pill pill-soft">
+          GOAL <b id="hud-goal">WIN</b>:
+          <span><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">0</b></span>
+          <span id="goalDesc" class="mut">Warm</span>
+        </div>
+        <div class="pill pill-soft">
+          MINI <b id="hud-mini">—</b>
+          <span class="mut">⏱ <b id="miniTimer">—</b></span>
+        </div>
       </div>
 
-      <div class="gj-progress-track">
-        <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+      <!-- AI HUD -->
+      <div class="hud-row">
+        <div class="pill pill-ai">
+          AI Risk <b id="aiRisk">—</b>
+          <span class="mut">next: <b id="aiHint">—</b></span>
+        </div>
       </div>
 
-      <div class="gj-mission-sub">
-        <span class="mut">Target:</span> <b id="stageObjective">—</b>
-        <span class="sep">•</span>
-        <span class="mut">Timer:</span> <b id="stageTimer">—</b>
+      <!-- Fever + Shield + Boss -->
+      <div class="hud-row hud-bars">
+        <div class="barCard">
+          <div class="barTop">
+            <span class="mut">FEVER</span>
+            <b id="feverText">0%</b>
+          </div>
+          <div class="bar">
+            <div class="barFill" id="feverFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="barCard">
+          <div class="barTop">
+            <span class="mut">SHIELD</span>
+            <b id="shieldPills">—</b>
+          </div>
+        </div>
+
+        <div class="barCard boss" id="bossBar" aria-hidden="true">
+          <div class="barTop">
+            <span class="mut">BOSS</span>
+            <b id="bossHint">—</b>
+          </div>
+          <div class="bar">
+            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gj-progress" aria-hidden="false">
+        <div class="gj-progress-track">
+          <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Playfield -->
+    <main id="stage" aria-label="GoodJunk Stage">
+      <div id="gj-layer" aria-label="targets"></div>
+    </main>
+
+    <!-- Low time overlay -->
+    <div id="lowTimeOverlay" aria-hidden="true">
+      <div class="lowTimeCard">
+        <div class="mut">TIME</div>
+        <div class="lowTimeNum" id="gj-lowtime-num">5</div>
       </div>
     </div>
-  </div>
 
-  <!-- Boss bar -->
-  <div id="bossBar" aria-hidden="true" class="bossBar">
-    <div class="bossTop">
-      <div>Boss</div><div id="bossHint">—</div>
+    <!-- End overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="panel">
+        <div class="endTitle" id="endTitle">Game Over</div>
+        <div class="endSub" id="endSub">—</div>
+
+        <div class="endGrid">
+          <div class="endStat"><span>GRADE</span><b id="endGrade">—</b></div>
+          <div class="endStat"><span>SCORE</span><b id="endScore">0</b></div>
+          <div class="endStat"><span>MISS</span><b id="endMiss">0</b></div>
+          <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
+        </div>
+
+        <div class="endActions">
+          <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
+        </div>
+      </div>
     </div>
-    <div class="bossTrack"><div id="bossFill" class="bossFill" style="width:0%"></div></div>
+
   </div>
 
-  <!-- Low time -->
-  <div id="lowTimeOverlay" aria-hidden="true" class="lowTime">
-    <div class="lowTimeCard">⏱️ <b id="gj-lowtime-num">5</b></div>
-  </div>
-
-  <!-- End overlay -->
-  <div id="endOverlay" aria-hidden="true" class="endOverlay">
-    <div class="panel endPanel">
-      <div class="endTitle" id="endTitle">Game Over</div>
-      <div class="endSub" id="endSub">—</div>
-
-      <div class="endPills">
-        <div class="pill">Grade <b id="endGrade">—</b></div>
-        <div class="pill">Score <b id="endScore">0</b></div>
-        <div class="pill">Miss <b id="endMiss">0</b></div>
-        <div class="pill">Time <b id="endTime">0</b>s</div>
+  <!-- BATTLE LOBBY OVERLAY -->
+  <div id="battlePanel" aria-hidden="true">
+    <div id="battleCard">
+      <div class="bRow" style="justify-content:space-between">
+        <div class="bRow" style="gap:8px">
+          <span class="bTag">⚔️ BATTLE</span>
+          <span class="bTag mono">ROOM: <span id="bRoom">—</span></span>
+          <span class="bTag">PHASE: <span id="bPhase">—</span></span>
+          <span class="bTag">ROUND: <span id="bRound">1</span></span>
+        </div>
+        <div class="bRow">
+          <button class="bBtn danger" id="bClose" type="button">ปิด</button>
+        </div>
       </div>
 
-      <div style="height:12px"></div>
-      <button class="btn" id="btnBackHub">กลับ HUB</button>
-      <!-- cooldown button injected here by safe.js -->
-    </div>
-  </div>
+      <div class="bRow" style="margin-top:10px">
+        <input id="bRoomInp" class="bInp mono" placeholder="ใส่ ROOM (เช่น A1B2C3)" maxlength="10" />
+        <button class="bBtn" id="bCreate" type="button">สร้างห้อง</button>
+        <button class="bBtn" id="bJoin" type="button">เข้าห้อง</button>
+        <button class="bBtn" id="bCopy" type="button">คัดลอกลิงก์ชวนเพื่อน</button>
+      </div>
 
-  <!-- Realtime Coach (Explainable) -->
-  <div id="coachRealtime" class="gj-coach" aria-hidden="true">
-    <div class="gj-coach-card">
-      <b>🧑‍⚕️ AI Coach:</b>
-      <span id="coachRealtimeText">—</span>
+      <div class="bGrid">
+        <div class="bBox">
+          <div class="mut">ผู้เล่น</div>
+          <ul class="players" id="bPlayers"></ul>
+        </div>
+        <div class="bBox">
+          <div class="mut">สถานะเริ่มเกม</div>
+          <div class="countBig" id="bCount">—</div>
+          <div style="margin-top:10px" class="bRow">
+            <button class="bBtn primary" id="bReady" type="button">READY</button>
+            <button class="bBtn" id="bUnready" type="button">ยกเลิก READY</button>
+            <button class="bBtn" id="bRematch" type="button">REMATCH</button>
+          </div>
+          <div class="mut" style="margin-top:10px" id="bHint">กด READY ทั้งคู่ แล้วจะนับถอยหลัง</div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script type="module">
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    import { boot } from './goodjunk.safe.js';
 
-    // back hub
-    const btn = document.getElementById('btnBackHub');
-    btn?.addEventListener('click', ()=>{
-      const hub = qs('hub','../hub.html');
-      location.href = hub || '../hub.html';
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
+
+    // ---- spawn-safe ----
+    function computeSpawnSafe(){
+      const hud = document.getElementById('hud');
+      const stage = document.getElementById('stage');
+      const layer = document.getElementById('gj-layer');
+      if(!stage || !layer) return;
+
+      const sr = stage.getBoundingClientRect();
+      const hr = hud ? hud.getBoundingClientRect() : { left:sr.left, right:sr.right, bottom: sr.top };
+
+      const pad = 14;
+      const topBlock = Math.max(sr.top + pad, hr.bottom + 10);
+      const bottomBlock = sr.bottom - (pad + 82);
+
+      const xMin = sr.left + pad;
+      const xMax = sr.right - pad;
+      const yMin = topBlock;
+      const yMax = Math.max(yMin + 220, bottomBlock);
+
+      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
+    }
+    window.addEventListener('resize', ()=>{ computeSpawnSafe(); });
+    window.addEventListener('orientationchange', ()=>{ setTimeout(computeSpawnSafe, 60); });
+
+    // ---- cfg from URL ----
+    const cfg = {
+      view: qs('view','mobile'),
+      run: qs('run','play'),
+      diff: qs('diff','normal'),
+      time: clamp(qs('time','80'), 20, 300),
+      seed: qs('seed', String(Date.now())),
+      pid: qs('pid','anon'),
+      hub: qs('hub','../hub.html'),
+      ai: null
+    };
+
+    // ---- diff switch ----
+    const diffBtns = Array.from(document.querySelectorAll('.diffBtn'));
+    function setDiffUI(d){ diffBtns.forEach(b=> b.classList.toggle('on', (b.dataset.diff === d))); }
+    setDiffUI(String(cfg.diff).toLowerCase());
+    diffBtns.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const d = String(btn.dataset.diff || 'normal');
+        const u = new URL(location.href);
+        u.searchParams.set('diff', d);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      });
     });
 
-    // Ensure RACE uses wait=1
-    const mode = String(qs('mode','solo')).toLowerCase();
-    if(mode==='race'){
+    // ---- Buttons ----
+    const btnRetry = document.getElementById('btnRetry');
+    const btnHub = document.getElementById('btnHub');
+    btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
-      if(u.searchParams.get('wait')!=='1'){
-        u.searchParams.set('wait','1');
-        location.replace(u.toString());
-      }
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+    btnHub?.addEventListener('click', ()=> location.href = (cfg.hub || '../hub.html'));
+
+    // ---- Optional: VR UI ----
+    try{ await import('../vr/vr-ui.js'); }catch(e){ console.warn('[GoodJunk] vr-ui.js not found (ok)'); }
+
+    // ---- Optional: AI ----
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    if(aiOn){
+      try{
+        const mod = await import('../vr/ai-goodjunk.js');
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({ seed: cfg.seed, pid: cfg.pid, diff: cfg.diff, view: cfg.view });
+        }
+      }catch(e){ console.warn('[GoodJunk] AI module load failed (ok)', e); }
     }
 
-    // Boot VR UI early so hha:shoot exists before game starts
-    try{
-      const view = String(qs('view','mobile')).toLowerCase();
-      if(view==='cvr' || view==='vr'){
-        await import('../vr/vr-ui.js');
-      }
-    }catch(e){}
+    // ---- Battle Lobby UI ----
+    const battleOn = (qs('battle','0') === '1') || (qs('mode','') === 'battle');
+    const panel = document.getElementById('battlePanel');
+    const bRoom = document.getElementById('bRoom');
+    const bPhase = document.getElementById('bPhase');
+    const bRound = document.getElementById('bRound');
+    const bPlayers = document.getElementById('bPlayers');
+    const bCount = document.getElementById('bCount');
+    const bHint = document.getElementById('bHint');
+    const bRoomInp = document.getElementById('bRoomInp');
 
-    // Boot game core
-    const mod = await import('./goodjunk.safe.js');
-    mod.boot({});
+    const bClose = document.getElementById('bClose');
+    const bCreate = document.getElementById('bCreate');
+    const bJoin = document.getElementById('bJoin');
+    const bCopy = document.getElementById('bCopy');
+    const bReady = document.getElementById('bReady');
+    const bUnready = document.getElementById('bUnready');
+    const bRematch = document.getElementById('bRematch');
 
-    // Boot race controller if needed
-    if(mode==='race'){
-      await import('./goodjunk-race.js');
+    function showBattlePanel(on){
+      if(!panel) return;
+      panel.style.display = on ? 'block' : 'none';
+      panel.setAttribute('aria-hidden', on ? 'false' : 'true');
     }
+
+    function makeRoomCode(){
+      const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let s='';
+      for(let i=0;i<6;i++) s += abc[(Math.random()*abc.length)|0];
+      return s;
+    }
+
+    function reloadToBattle(room){
+      const u = new URL(location.href);
+      u.searchParams.set('mode','battle');
+      u.searchParams.set('battle','1');
+      u.searchParams.set('room', String(room||'').trim().toUpperCase());
+      u.searchParams.set('wait','1');      // ✅ wait start until countdown
+      u.searchParams.set('seed', String(Date.now())); // new round seed
+      location.href = u.toString();
+    }
+
+    bClose?.addEventListener('click', ()=> showBattlePanel(false));
+    bCreate?.addEventListener('click', ()=> reloadToBattle(makeRoomCode()));
+    bJoin?.addEventListener('click', ()=>{
+      const code = String(bRoomInp?.value || '').trim().toUpperCase();
+      if(!code) return;
+      reloadToBattle(code);
+    });
+
+    bCopy?.addEventListener('click', async ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('mode','battle');
+      u.searchParams.set('battle','1');
+      const link = u.toString();
+      try{
+        await navigator.clipboard.writeText(link);
+        bHint.textContent = 'คัดลอกลิงก์แล้ว ✅ ส่งให้เพื่อนเข้าห้องเดียวกัน';
+      }catch(e){
+        bHint.textContent = 'คัดลอกไม่ได้ (เบราว์เซอร์บล็อก) — คัดลอกเองจากแถบ URL';
+      }
+    });
+
+    bReady?.addEventListener('click', ()=> window.__GJ_BATTLE_READY__?.(true));
+    bUnready?.addEventListener('click', ()=> window.__GJ_BATTLE_READY__?.(false));
+    bRematch?.addEventListener('click', ()=> window.__HHA_BATTLE__?.rematch?.());
+
+    if(battleOn){
+      showBattlePanel(true);
+    }
+
+    window.addEventListener('hha:battle-state', (ev)=>{
+      const s = ev?.detail || {};
+      if(bRoom) bRoom.textContent = s.room || qs('room','—');
+      if(bPhase) bPhase.textContent = s.phase || '—';
+      if(bRound) bRound.textContent = String(s.roundId || 1);
+
+      if(s.phase === 'ended' && s.winner){
+        bHint.textContent = `จบแล้ว! ผู้ชนะ: ${s.winner}`;
+      }else if(s.phase === 'running'){
+        bHint.textContent = 'เริ่มแล้ว! ยิงให้ไว 🔥';
+      }else if(s.phase === 'countdown'){
+        bHint.textContent = 'นับถอยหลัง… เตรียมยิง!';
+      }else{
+        bHint.textContent = 'กด READY ทั้งคู่ แล้วจะนับถอยหลัง';
+      }
+    });
+
+    window.addEventListener('hha:battle-players', (ev)=>{
+      const d = ev?.detail || {};
+      const arr = d.players || [];
+      if(!bPlayers) return;
+      bPlayers.innerHTML = '';
+      arr.forEach(p=>{
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="mono">${p.pid || '—'}</span>
+          <span class="mut"> | </span>
+          <span>${p.connected ? '🟢' : '⚫'}${p.ready ? ' READY' : ' …'}</span>
+          ${p.forfeited ? '<span class="mut"> (FORFEIT)</span>' : ''}`;
+        bPlayers.appendChild(li);
+      });
+    });
+
+    window.addEventListener('hha:battle-countdown', (ev)=>{
+      const d = ev?.detail || {};
+      const left = Math.max(0, Number(d.leftMs||0));
+      const sec = Math.ceil(left/1000);
+      if(bCount) bCount.textContent = `เริ่มใน ${sec}`;
+    });
+
+    window.addEventListener('hha:battle-start', ()=>{
+      if(bCount) bCount.textContent = 'GO!';
+      // call game start hook (unpause)
+      try{ window.__GJ_START_NOW__?.(); }catch(e){}
+      // hide panel after a moment
+      setTimeout(()=>{ if(battleOn) showBattlePanel(false); }, 450);
+    });
+
+    // compute spawn-safe before boot
+    computeSpawnSafe();
+
+    // Boot game
+    boot(cfg);
   </script>
 </body>
 </html>
