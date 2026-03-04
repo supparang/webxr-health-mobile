@@ -1,6 +1,6 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration VR CSS — PRODUCTION
-FULL v20260304-HYDRATION-CSS-LRZONE-CVRPAD
+FULL v20260304b-HYDRATION-CSS-EMOJI-STORMBOSSFINAL
 */
 
 :root{
@@ -69,7 +69,7 @@ body{
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 1000;
 }
 .smalltext{ color: var(--muted); font-size:12px; }
 
@@ -152,7 +152,8 @@ body{
   z-index:5;
 }
 .stage.is-storm #stormFx,
-.stage.is-boss  #stormFx{
+.stage.is-boss  #stormFx,
+.stage.is-final #stormFx{
   opacity:1;
   background:
     radial-gradient(circle at 30% 20%, rgba(56,189,248,.18), transparent 55%),
@@ -162,7 +163,8 @@ body{
 }
 @keyframes stormGlow{ 0%,100%{ filter:saturate(1); } 50%{ filter:saturate(1.25); } }
 .stage.is-storm .storm-flash,
-.stage.is-boss  .storm-flash{
+.stage.is-boss  .storm-flash,
+.stage.is-final .storm-flash{
   position:absolute; inset:-20%;
   background: rgba(255,255,255,.65);
   mix-blend-mode: overlay;
@@ -173,7 +175,8 @@ body{
 }
 @keyframes flash{ 0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;} }
 .stage.is-storm .bolt,
-.stage.is-boss  .bolt{
+.stage.is-boss  .bolt,
+.stage.is-final .bolt{
   position:absolute;
   width:6px;
   height:60vh;
@@ -206,9 +209,10 @@ body{
   opacity: 0;
 }
 .stage.is-storm #zoneSign,
-.stage.is-boss  #zoneSign{ opacity: 1; }
+.stage.is-boss  #zoneSign,
+.stage.is-final #zoneSign{ opacity: 1; }
 
-/* ✅ cVR zone pad (tap left/right) */
+/* cVR zone pad */
 #cvrZonePad{
   position:absolute;
   inset: 0;
