@@ -1,0 +1,464 @@
+<!-- === /herohealth/goodjunk-launcher.html ===
+HeroHealth • GoodJunk Launcher (Mode + Diff + Room + Nick)
+FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk — Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
+      --rad:22px;
+    }
+    html,body{height:100%; margin:0;}
+    body{
+      background:
+        radial-gradient(1200px 700px at 18% 10%, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 15%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      padding: 14px;
+      overflow:auto;
+    }
+    *{box-sizing:border-box}
+    a{color:inherit; text-decoration:none;}
+
+    .wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      flex-wrap:wrap;
+      padding: 4px 2px 0;
+    }
+    .brand{display:flex; gap:10px; align-items:center;}
+    .logo{
+      width:46px; height:46px; border-radius:16px;
+      display:grid; place-items:center;
+      background:rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.22);
+      font-size:24px;
+      box-shadow:0 18px 55px rgba(0,0,0,.35);
+    }
+    h1{margin:0; font-size: clamp(20px, 2.4vw, 28px); letter-spacing:.2px;}
+    .subtitle{margin:4px 0 0 0; color:var(--muted); font-size:13px; font-weight:800; line-height:1.4; max-width:70ch;}
+    .pillrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end;}
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+    }
+    .pill b{color:var(--text); font-weight:1000;}
+
+    .card{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-radius: var(--rad);
+      padding: 12px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+
+    .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:12px;}
+    @media (max-width: 840px){ .grid{grid-template-columns:1fr;} }
+
+    .panel{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.42);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .panel h2{margin:0 0 10px 0; font-size:14px; letter-spacing:.2px}
+    .hint{color:var(--muted); font-weight:900; font-size:12px; margin-top:6px; line-height:1.35;}
+
+    .btns{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width: 520px){ .btns{grid-template-columns:1fr;} }
+
+    button{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(148,163,184,.08);
+      color:var(--text);
+      padding:14px 12px;
+      font-weight:1000;
+      cursor:pointer;
+      min-height:54px;
+      text-align:left;
+      box-shadow: 0 10px 24px rgba(0,0,0,.22);
+      transition: transform .12s ease, border-color .12s ease, background .12s ease, opacity .12s ease;
+    }
+    button:active{transform: translateY(1px);}
+    button.sel{
+      border-color: rgba(34,197,94,.34);
+      background: rgba(34,197,94,.14);
+    }
+    .small{opacity:.80; font-size:11px; font-weight:900; margin-top:3px; line-height:1.25;}
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--text);
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .field{flex:1; min-width:210px; display:flex; flex-direction:column; gap:6px;}
+    label{font-size:12px; font-weight:1000; opacity:.9}
+    input, select{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.38);
+      color:var(--text);
+      padding: 12px 12px;
+      font-weight:900;
+      outline:none;
+    }
+    input:disabled{opacity:.65}
+
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center;}
+    .primary{
+      background: rgba(59,130,246,.16);
+      border-color: rgba(59,130,246,.30);
+      min-width: 220px;
+    }
+    .ghost{background:transparent; color:var(--muted);}
+    .danger{
+      background: rgba(239,68,68,.14);
+      border-color: rgba(239,68,68,.26);
+    }
+
+    .msg{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.30);
+      padding:10px 10px;
+      font-weight:900;
+      font-size:12px;
+      opacity:.94;
+      line-height:1.4;
+    }
+    .msg.ok{border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.12);}
+    .msg.warn{border-color: rgba(245,158,11,.24); background: rgba(245,158,11,.12);}
+    .msg.bad{border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.12);}
+
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+    .foot{margin-top:10px; opacity:.7; font-size:11px; font-weight:900;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo">🥦</div>
+        <div>
+          <h1>GoodJunk — เลือกโหมดเกม</h1>
+          <p class="subtitle">กดเลือกโหมด → เลือกความยาก → ใส่ชื่อ/ห้อง → เริ่มเล่น (เหมาะกับ ป.5)</p>
+        </div>
+      </div>
+      <div class="pillrow">
+        <span class="pill"><b>mode</b>: <span id="pillMode">solo</span></span>
+        <span class="pill"><b>diff</b>: <span id="pillDiff">normal</span></span>
+        <span class="pill"><b>view</b>: <span id="pillView">mobile</span></span>
+        <span class="pill"><b>run</b>: <span id="pillRun">play</span></span>
+        <span class="pill"><b>pid</b>: <span id="pillPid">anon</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="panel">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <h2 style="margin:0;">1) เลือกโหมด</h2>
+            <span class="tag" id="tagNeedRoom">👥 Multiplayer ต้องใส่ ROOM</span>
+          </div>
+          <div class="btns" style="margin-top:10px;">
+            <button id="btnSolo" class="sel">🎯 SOLO<div class="small">ฝึกเล่นคนเดียว • สบายใจ ไม่ต้องมีห้อง</div></button>
+            <button id="btnBattle">⚔️ BATTLE<div class="small">แข่งคะแนนในห้องเดียวกัน • score→acc→miss→medianRT</div></button>
+            <button id="btnRace">🏁 RACE<div class="small">เริ่มพร้อมกัน + ใคร CLEAR ก่อนชนะ • เหมือน “วิ่งแข่ง”</div></button>
+            <button id="btnCoop">🤝 COOP<div class="small">เล่นเป็นทีม • (เปิดเต็มในแพ็กถัดไป)</div></button>
+          </div>
+          <div class="hint">ทิป: ให้เด็กทั้งห้องใช้ ROOM เดียวกัน เช่น <b>P5A</b> หรือ <b>CLASS5A</b></div>
+        </div>
+
+        <div class="panel">
+          <h2>2) ตั้งค่า</h2>
+
+          <div class="row">
+            <div class="field">
+              <label>ความยาก (easy / normal / hard)</label>
+              <select id="selDiff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+              <div class="hint">ทุกโหมดมีระดับความยาก</div>
+            </div>
+
+            <div class="field">
+              <label>ชื่อเล่น (nick)</label>
+              <input id="inpNick" placeholder="เช่น Mint / Somchai" autocomplete="nickname" />
+              <div class="hint">ถ้าไม่ใส่ จะใช้ pid แทน</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <div class="field">
+              <label>ROOM (จำเป็นสำหรับ Battle/Race/Coop)</label>
+              <input id="inpRoom" placeholder="เช่น P5A / ROOM1" autocomplete="off" />
+              <div class="hint">ทุกคนต้องใช้ ROOM เดียวกันถึงจะเจอกัน</div>
+            </div>
+
+            <div class="field">
+              <label>เวลาเล่น (วินาที)</label>
+              <input id="inpTime" inputmode="numeric" placeholder="80" />
+              <div class="hint">แนะนำ 70–90 วินาที (ป.5 กำลังสนุก)</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btnStart" class="primary">▶️ เริ่มเล่น</button>
+            <button id="btnBack" class="ghost">↩ กลับ Hub</button>
+            <button id="btnClear" class="danger">🧹 ล้างค่าที่จำไว้</button>
+          </div>
+
+          <div id="msg" class="msg">พร้อมแล้ว กด “เริ่มเล่น” ได้เลย</div>
+
+          <div class="foot">
+            ส่งต่อ ctx จาก Hub: <span class="mono">pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/ai/debug + hub</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  const LS_KEY = 'HHA_GJ_LAUNCHER_PREFS_v1';
+
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const clampInt = (v,a,b,def)=>{
+    const n = Number(v);
+    if(!Number.isFinite(n)) return def;
+    return Math.max(a, Math.min(b, Math.floor(n)));
+  };
+
+  const PASS_KEYS = [
+    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'plannedGame','finalGame','zone','cdnext','grade'
+  ];
+
+  const $ = (id)=> document.getElementById(id);
+
+  const pillMode=$('pillMode'), pillDiff=$('pillDiff'), pillView=$('pillView'), pillRun=$('pillRun'), pillPid=$('pillPid');
+  const tagNeedRoom=$('tagNeedRoom');
+
+  const btnSolo=$('btnSolo'), btnBattle=$('btnBattle'), btnRace=$('btnRace'), btnCoop=$('btnCoop');
+  const selDiff=$('selDiff'), inpNick=$('inpNick'), inpRoom=$('inpRoom'), inpTime=$('inpTime');
+  const msg=$('msg');
+
+  const state = {
+    mode: String(qs('mode','solo')).toLowerCase(),
+    diff: String(qs('diff','normal')).toLowerCase(),
+    view: String(qs('view','mobile')).toLowerCase(),
+    run:  String(qs('run','play')).toLowerCase(),
+    pid:  String(qs('pid','anon')).trim() || 'anon',
+    hub:  String(qs('hub','./hub.html')),
+    time: String(qs('time','80')),
+    seed: String(qs('seed','')) || String(Date.now()),
+  };
+
+  function setMsg(type, text){
+    msg.className = 'msg ' + (type||'');
+    msg.textContent = text || '';
+  }
+
+  function savePrefs(){
+    const prefs = {
+      mode: state.mode,
+      diff: state.diff,
+      nick: String(inpNick.value||'').trim(),
+      room: String(inpRoom.value||'').trim(),
+      time: String(inpTime.value||'').trim()
+    };
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(prefs)); }catch(_){}
+  }
+
+  function loadPrefs(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return null;
+      const j = JSON.parse(raw);
+      return (j && typeof j==='object') ? j : null;
+    }catch(_){ return null; }
+  }
+
+  function clearPrefs(){
+    try{ localStorage.removeItem(LS_KEY); }catch(_){}
+  }
+
+  function setMode(m){
+    state.mode = m;
+    pillMode.textContent = m;
+
+    [btnSolo,btnBattle,btnRace,btnCoop].forEach(b=> b.classList.remove('sel'));
+    if(m==='solo') btnSolo.classList.add('sel');
+    else if(m==='battle') btnBattle.classList.add('sel');
+    else if(m==='race') btnRace.classList.add('sel');
+    else btnCoop.classList.add('sel');
+
+    const needsRoom = (m!=='solo');
+    inpRoom.disabled = !needsRoom;
+    tagNeedRoom.style.opacity = needsRoom ? '1' : '.45';
+
+    if(needsRoom){
+      setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน (เช่น P5A)');
+    }else{
+      setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (ไม่ต้องมี ROOM)');
+    }
+    savePrefs();
+  }
+
+  function init(){
+    pillMode.textContent = state.mode;
+    pillDiff.textContent = state.diff;
+    pillView.textContent = state.view;
+    pillRun.textContent  = state.run;
+    pillPid.textContent  = state.pid;
+
+    // pull prefs (but URL has priority)
+    const prefs = loadPrefs();
+
+    // mode
+    const modeFromUrl = String(qs('mode','')).trim().toLowerCase();
+    if(!modeFromUrl && prefs?.mode) state.mode = String(prefs.mode).toLowerCase();
+
+    // diff
+    const diffFromUrl = String(qs('diff','')).trim().toLowerCase();
+    if(!diffFromUrl && prefs?.diff) state.diff = String(prefs.diff).toLowerCase();
+
+    // nick/room/time
+    const nickFromUrl = String(qs('nick','')).trim();
+    const roomFromUrl = String(qs('room','')).trim();
+    const timeFromUrl = String(qs('time','')).trim();
+
+    inpNick.value = nickFromUrl || (prefs?.nick || '');
+    inpRoom.value = roomFromUrl || (prefs?.room || '');
+    inpTime.value = timeFromUrl || (prefs?.time || state.time || '80');
+
+    // diff select
+    selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
+    pillDiff.textContent = selDiff.value;
+
+    // bind
+    btnSolo.onclick   = ()=> setMode('solo');
+    btnBattle.onclick = ()=> setMode('battle');
+    btnRace.onclick   = ()=> setMode('race');
+    btnCoop.onclick   = ()=> setMode('coop');
+
+    selDiff.onchange = ()=>{
+      state.diff = String(selDiff.value||'normal');
+      pillDiff.textContent = state.diff;
+      savePrefs();
+    };
+
+    $('btnBack').onclick = ()=> location.href = state.hub || './hub.html';
+
+    $('btnClear').onclick = ()=>{
+      clearPrefs();
+      setMsg('ok','ล้างค่าที่จำไว้แล้ว ✅');
+    };
+
+    $('btnStart').onclick = onStart;
+
+    // apply mode UI
+    if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
+    setMode(state.mode);
+  }
+
+  function onStart(){
+    const nick = (inpNick.value || '').trim() || state.pid;
+    const room = (inpRoom.value || '').trim();
+    const time = clampInt(inpTime.value, 20, 300, 80);
+
+    if(state.mode !== 'solo' && !room){
+      setMsg('bad', 'ต้องใส่ ROOM ก่อน (เช่น P5A) แล้วทุกคนใช้ ROOM เดียวกัน');
+      inpRoom.focus();
+      return;
+    }
+
+    // Build run URL
+    const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+
+    runUrl.searchParams.set('mode', state.mode);
+    runUrl.searchParams.set('diff', state.diff);
+    runUrl.searchParams.set('time', String(time));
+    runUrl.searchParams.set('seed', state.seed);
+
+    runUrl.searchParams.set('pid', state.pid);
+    runUrl.searchParams.set('nick', nick);
+    if(room) runUrl.searchParams.set('room', room);
+
+    // pass-through ctx from hub
+    const sp = new URL(location.href).searchParams;
+    PASS_KEYS.forEach(k=>{
+      const v = sp.get(k);
+      if(v!=null && v!=='') runUrl.searchParams.set(k, v);
+    });
+
+    // always set hub back
+    runUrl.searchParams.set('hub', state.hub || sp.get('hub') || './hub.html');
+
+    // Compatibility flags for existing modules
+    if(state.mode === 'battle'){
+      runUrl.searchParams.set('battle','1'); // existing battle-rtdb.js gate
+      // optional knobs if present
+      ['autostart','forfeit'].forEach(k=>{
+        const v = sp.get(k);
+        if(v!=null && v!=='') runUrl.searchParams.set(k, v);
+      });
+    }
+    if(state.mode === 'race'){
+      runUrl.searchParams.set('wait','1'); // run page / safe.js should respect wait-start
+    }
+    if(state.mode === 'coop'){
+      runUrl.searchParams.set('coop','1'); // reserved for next pack
+    }
+
+    savePrefs();
+    location.href = runUrl.toString();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
