@@ -1,8 +1,8 @@
 <!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO) — v20260220a
-✅ Root=launcher, folder=run
+HygieneVR Launcher — ROOT (AUTO) — FULL v20260221n
 ✅ Auto-detect view if no ?view=
 ✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
+✅ Root=launcher, folder=run
 -->
 <!doctype html>
 <html lang="th">
@@ -60,7 +60,7 @@ HygieneVR Launcher — ROOT (AUTO) — v20260220a
     </div>
 
     <div class="sub" style="margin-top:10px">
-      Pass-through: <code>hub, run, diff, time, seed, studyId, phase, conditionGroup, style, log, view</code>
+      Pass-through: <code>hub, run, diff, time, seed, emoji, coach, dd, fx, view</code>
     </div>
   </div>
 </div>
@@ -88,8 +88,10 @@ HygieneVR Launcher — ROOT (AUTO) — v20260220a
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
+    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
+    // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
