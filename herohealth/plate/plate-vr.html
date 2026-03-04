@@ -1,10 +1,16 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-HeroHealth — Plate VR (Run) — BLOOM FULL EDITION + FX + MISSION
-FULL v20260304b-PLATE-BLOOM-FX-MISSION-PRO
-✅ FX: pop score (+x combo), burst ring, screen shake micro, stage banner
-✅ Mission: 3-stage progress (Warm→Trick→Boss) + per-stage goals + bar
-✅ PRO switch: ?pro=1 (play only) -> spawnRate+ / ttl- (fair) + boss storm faster a bit
-✅ Still: Safe spawn zones, FAIR MISS breakdown, shield storm block not miss
+PlateVR — RUN PAGE (Mobile/PC/cVR) — PRODUCTION
+PATCH v20260304-PLATE-CLASSROOM-FX-MISSFIX-HUDSAFE-PRO
+✅ HUD-safe spawn (no spawn under HUD top/bottom)
+✅ Mission 3-stage: Warm → Trick → Boss (progress clear)
+✅ FX: hit/wrong/expire + pop score + phase banner
+✅ PRO switch: ?pro=1 (harder but fair)
+✅ AI hooks wired (prediction-only)
+✅ hha:shoot supported (vr-ui.js)
+Requires:
+- /herohealth/vr/vr-ui.js
+- /herohealth/vr/ai-hooks.js
+- /herohealth/plate/plate.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -15,8 +21,8 @@ FULL v20260304b-PLATE-BLOOM-FX-MISSION-PRO
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- Universal VR UI -->
-  <script type="module" src="../vr/vr-ui.js?v=20260304b"></script>
+  <!-- ✅ Universal VR UI (ESM): ENTER VR / EXIT / RECENTER + hha:shoot -->
+  <script type="module" src="../vr/vr-ui.js?v=20260304a"></script>
 
   <style>
     :root{
@@ -32,11 +38,11 @@ FULL v20260304b-PLATE-BLOOM-FX-MISSION-PRO
       --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
       --mut: rgba(148,163,184,.95);
-      --good: rgba(16,185,129,.95);
-      --warn: rgba(251,191,36,.95);
+      --good: rgba(34,197,94,.95);
+      --warn: rgba(245,158,11,.95);
       --bad: rgba(239,68,68,.95);
-      --accent: rgba(99,102,241,.95);
-      --r: 18px;
+      --accent: rgba(167,139,250,.95);
+      --radius: 18px;
     }
     *{ box-sizing:border-box; }
     html,body{
@@ -47,29 +53,11 @@ FULL v20260304b-PLATE-BLOOM-FX-MISSION-PRO
     body{
       background:
         radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
-        radial-gradient(900px 700px at 95% 20%, rgba(99,102,241,.12), transparent 60%),
+        radial-gradient(900px 700px at 95% 20%, rgba(167,139,250,.12), transparent 60%),
         linear-gradient(180deg, #020617, #020b1b);
     }
     #app{ position:fixed; inset:0; overflow:hidden; }
-
-    /* FX layers */
-    #fxStorm,#fxBoss{
-      position:absolute; inset:0; z-index:18;
-      pointer-events:none;
-      opacity:0; transition: opacity .18s ease;
-    }
-    #fxStorm.on{
-      opacity:.16;
-      background:
-        radial-gradient(420px 260px at 20% 20%, rgba(56,189,248,.34), transparent 70%),
-        radial-gradient(520px 320px at 85% 30%, rgba(96,165,250,.22), transparent 70%);
-    }
-    #fxBoss.on{
-      opacity:.18;
-      background:
-        radial-gradient(520px 320px at 50% 18%, rgba(244,63,94,.28), transparent 70%),
-        radial-gradient(640px 360px at 50% 86%, rgba(239,68,68,.16), transparent 70%);
-    }
+    #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
     /* spawn mount */
     #plate-layer{
@@ -78,42 +66,390 @@ FULL v20260304b-PLATE-BLOOM-FX-MISSION-PRO
       pointer-events:none;
       overflow:hidden;
       transform: translateZ(0);
-      min-width: 1px; min-height: 1px;
+      will-change: contents;
+      min-width: 1px;
+      min-height: 1px;
     }
-    .plateTarget{
+    #plate-layer .plateTarget{
       position:absolute;
-      display:grid; place-items:center;
-      width:60px; height:60px;
+      display:grid;
+      place-items:center;
+      width:56px; height:56px;
       border-radius:999px;
-      background:rgba(15,23,42,.84);
+      background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 10px 26px rgba(2,6,23,.35);
-      font-size: 30px;
+      box-shadow: 0 8px 20px rgba(2,6,23,.35);
+      font-size: 28px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
       touch-action:manipulation;
-      transition: transform .08s ease, opacity .14s ease, filter .14s ease;
+      transition: transform .08s ease, opacity .14s ease, filter .12s ease;
       transform: translate(-50%,-50%);
-      filter: saturate(1.05);
-      will-change: transform, opacity;
     }
-    .plateTarget[data-kind="wrong"]{
+    #plate-layer .plateTarget[data-kind="wrong"]{
       background:rgba(127,29,29,.55);
       border-color: rgba(248,113,113,.25);
-      box-shadow: 0 10px 26px rgba(127,29,29,.18);
+      box-shadow: 0 8px 20px rgba(127,29,29,.18);
+      filter:saturate(1.2);
     }
-    .plateTarget[data-kind="shield"]{
-      background:rgba(30,58,138,.55);
-      border-color: rgba(147,197,253,.30);
-      box-shadow: 0 10px 26px rgba(30,64,175,.18);
+    #plate-layer .plateTarget[data-kind="shield"]{
+      background: rgba(30,58,138,.55);
+      border-color: rgba(96,165,250,.35);
+      box-shadow: 0 10px 26px rgba(59,130,246,.18);
+      filter:saturate(1.1);
     }
-    .plateTarget[data-kind="fever"]{
-      background:rgba(88,28,135,.46);
-      border-color: rgba(216,180,254,.22);
-    }
-    .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
+    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
+    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
 
-    /* FX: burst ring */
-    .burst{
+    /* HUD */
+    .hud{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      z-index:80;
+      display:grid;
+      gap:8px;
+      pointer-events:none;
+    }
+    #hudTop{ top:var(--hud-top); }
+    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
+
+    .row{ display:grid; gap:8px; }
+    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
+    @media (max-width: 780px){
+      .row.cols-3{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding:10px 12px;
+      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
+    }
+    .card h4{
+      margin:0 0 8px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:8px;
+    }
+    .pill{
+      background: rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 999px;
+      min-height: 42px;
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; padding: 8px 10px;
+      font-weight:900;
+      font-size: 13px;
+    }
+    .pill .v{ font-size:15px; font-weight:1000; }
+    .bar{
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.18);
+      border:1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
+      transition: width .12s linear;
+    }
+
+    /* phase banner + pop score */
+    .phaseBanner{
+      position:absolute;
+      top:42%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      font-size:28px;
+      font-weight:1000;
+      background:rgba(0,0,0,.68);
+      padding:14px 24px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.25);
+      z-index:120;
+      pointer-events:none;
+      opacity:0;
+      animation: bannerIn .95s ease forwards;
+      text-align:center;
+      white-space:nowrap;
+    }
+    @keyframes bannerIn{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
+      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
+    }
+    .popScore{
+      position:absolute;
+      z-index:110;
+      pointer-events:none;
+      font-weight:1000;
+      font-size:16px;
+      opacity:0;
+      transform: translate(-50%,-50%) translateY(6px);
+      animation: popUp .55s ease forwards;
+      text-shadow: 0 8px 20px rgba(0,0,0,.35);
+      white-space:nowrap;
+    }
+    @keyframes popUp{
+      0%{ opacity:0; transform: translate(-50%,-50%) translateY(8px) scale(.98); }
+      20%{ opacity:1; }
+      100%{ opacity:0; transform: translate(-50%,-50%) translateY(-16px) scale(1.03); }
+    }
+
+    /* controls */
+    #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius: 999px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(2,6,23,.22);
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.25);
+      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+    .btn.primary{
+      border-color: rgba(59,130,246,.30);
+      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+
+    /* End summary */
+    #endOverlay{
+      position:absolute; inset:0;
+      z-index:120;
+      display:flex; align-items:center; justify-content:center;
+      padding:16px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #endOverlay[aria-hidden="true"]{ display:none; }
+    .endCard{
+      width:min(640px, 94vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      color: rgba(229,231,235,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      padding: 14px;
+    }
+    .endGrid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .endItem{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.55);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight:1000;
+    }
+    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
+    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+    .endActions{
+      margin-top: 12px;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .is-hidden{ display:none !important; }
+
+    /* mobile: hide bottom coach box if too tight */
+    @media (max-width: 420px){
+      #hudBottom .card{ display:none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="world" aria-hidden="true"></div>
+
+    <div id="plate-layer" aria-label="plate targets layer"></div>
+
+    <!-- top HUD -->
+    <div id="hudTop" class="hud">
+      <div class="row cols-3">
+        <div class="card">
+          <h4>คะแนน / คอมโบ / พลาด</h4>
+          <div class="stats">
+            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
+          <div class="stats">
+            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+          </div>
+
+          <div style="height:8px"></div>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🎯 <span id="uiTargetText">—</span>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bar"><i id="uiGoalFill"></i></div>
+          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
+            PRO: <span id="uiProTag">OFF</span> • Phase: <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>เวลา / Fever / Shield</h4>
+          <div class="stats">
+            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+          </div>
+          <div style="height:8px"></div>
+          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
+          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
+            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
+            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
+            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
+            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom controls -->
+    <div id="hudBottom" class="hud">
+      <div class="card">
+        <div style="font-weight:1000">🧑‍🏫 Coach</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px;">
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
+        </div>
+      </div>
+
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <!-- End summary -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="endCard">
+        <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
+        <div style="margin-top:6px;font-size:12px;opacity:.9;word-break:break-all" id="endSub">—</div>
+
+        <div class="endGrid">
+          <div class="endItem"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+          <div class="endItem"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="endItem"><div class="k">OK</div><div class="v" id="endOk">0</div></div>
+          <div class="endItem"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
+        </div>
+
+        <div class="endActions">
+          <button class="btn" id="btnCopy">Copy Summary</button>
+          <button class="btn" id="btnReplay">Replay</button>
+          <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+          <button class="btn primary" id="btnBackHub2">Back HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ BOOT -->
+  <script type="module">
+    import { createAIHooks } from '../vr/ai-hooks.js';
+    import { boot as bootPlate } from './plate.safe.js';
+
+    const U = new URL(location.href);
+    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
+    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+    const pro  = (U.searchParams.get('pro') === '1');
+
+    const ai = createAIHooks({
+      seed: String(seed),
+      runMode,
+      game: 'plate',
+      diff,
+      device: view
+    });
+    window.HHA_AI = ai;
+
+    // UI Buttons
+    const btnPause = document.getElementById('btnPause');
+    const btnRestart = document.getElementById('btnRestart');
+    const btnBackHub = document.getElementById('btnBackHub');
+    const hub = String(U.searchParams.get('hub') || '../hub.html');
+
+    let paused = false;
+    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    setPauseBtn();
+
+    btnPause?.addEventListener('click', ()=>{
+      paused = !paused;
+      setPauseBtn();
+      window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+    });
+
+    btnRestart?.addEventListener('click', ()=>{
+      try{
+        const u = new URL(location.href);
+        if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        location.href = u.toString();
+      }catch(e){ location.reload(); }
+    });
+
+    btnBackHub?.addEventListener('click', ()=> location.href = hub);
+
+    // show PRO tag
+    const proTag = document.getElementById('uiProTag');
+    if(proTag) proTag.textContent = pro ? 'ON' : 'OFF';
+
+    bootPlate({
+      mount: document.getElementById('plate-layer'),
+      view, run: runMode, diff,
+      time: Number(U.searchParams.get('time') || 90),
+      seed,
+      pid: String(U.searchParams.get('pid') || 'anon'),
+      hub,
+      cooldown: (U.searchParams.get('cooldown')==='1' || U.searchParams.get('cd')==='1'),
+      mode: String(U.searchParams.get('mode') || 'classroom'),
+      pro,
+      ai
+    });
+  </script>
+</body>
+</html>
