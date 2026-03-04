@@ -1,13 +1,8 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION (Big Zone Status + Reset today)
-PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
-✅ Zones:
-   - Nutrition: goodjunk, groups, hydration, plate
-   - Hygiene: handwash, brush, bath, clean object, maskcough, germ detective
-   - Exercise: shadow breaker, rhythm boxer, jumpduck, balance hold, fitness planner
-✅ Pass-through hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api (+ tutorial/practice/direct flags)
-✅ Daily Gate keys: HHA_ZONE_DONE::nutrition / ::hygiene / ::exercise (local day)
-✅ FIX: Clean Object -> ./clean-objects.html (Root launcher)
+HeroHealth — Hub (3 Zones) — PRODUCTION
+PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
+✅ Hygiene: MaskCough + Brush (root launchers)
+✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug
 -->
 <!doctype html>
 <html lang="th">
@@ -20,27 +15,19 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.68);
-      --panel2:rgba(15,23,42,.70);
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
-
       --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
       --cyan:#22d3ee; --violet:#a78bfa;
-
-      --nut:#22c55e;
-      --hyg:#22d3ee;
-      --ex:#a78bfa;
-
       --radius:22px;
       --shadow: 0 18px 60px rgba(0,0,0,.45);
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{
@@ -56,50 +43,14 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       overflow:auto;
     }
     a{ color:inherit; text-decoration:none; }
+    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
 
-    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+    .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding: 6px 6px 0 6px; flex-wrap:wrap; }
+    .brand{ display:flex; flex-direction:column; gap:6px; }
+    .title{ margin:0; font-size: clamp(22px, 2.2vw, 30px); letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size: 13px; line-height:1.4; max-width: 78ch; }
 
-    /* ---------- Top ---------- */
-    .top{
-      display:flex; align-items:flex-start; justify-content:space-between;
-      gap:12px;
-      padding: 6px 6px 0 6px;
-      flex-wrap:wrap;
-    }
-    .brand{ display:flex; flex-direction:column; gap:8px; }
-    .title{
-      margin:0;
-      font-size: clamp(22px, 2.2vw, 32px);
-      letter-spacing:.2px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .title .badge{
-      font-size:12px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.45);
-      color: rgba(229,231,235,.9);
-      font-weight:1000;
-      backdrop-filter: blur(8px);
-      white-space:nowrap;
-    }
-    .subtitle{
-      margin:0;
-      color:var(--muted);
-      font-size: 13px;
-      line-height:1.45;
-      max-width: 84ch;
-    }
-    .pillrow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      justify-content:flex-end;
-    }
+    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
     .pill{
       background: rgba(2,6,23,.55);
       border:1px solid var(--stroke);
@@ -113,7 +64,6 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
     }
     .pill b{ color:var(--text); font-weight:900; }
 
-    /* ---------- Zone bar ---------- */
     .zonebar{
       background: linear-gradient(180deg, var(--panel), var(--panel2));
       border:1px solid var(--stroke);
@@ -122,49 +72,32 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       overflow:hidden;
     }
     .zonebarHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
       padding: 12px 14px;
       border-bottom:1px solid var(--stroke);
       background: rgba(2,6,23,.35);
       flex-wrap:wrap;
     }
-    .zonebarHead .left{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
+    .zonebarHead .left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .bigPill{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
+      display:inline-flex; align-items:center; gap:10px;
       padding: 10px 12px;
       border-radius: 999px;
       border:1px solid rgba(255,255,255,.14);
       background: rgba(255,255,255,.06);
       font-size:13px;
-      font-weight:1000;
+      font-weight:900;
       white-space:nowrap;
     }
     .bigPill .dot{
-      width:12px; height:12px;
-      border-radius:999px;
+      width:12px; height:12px; border-radius:999px;
       background: var(--warn);
       box-shadow: 0 0 18px rgba(245,158,11,.35);
     }
     .bigPill.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
     .bigPill.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
 
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      align-items:center;
-    }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
     .btn{
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.42);
@@ -176,13 +109,12 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
       display:flex; align-items:center; gap:8px;
       white-space:nowrap;
-      font-weight:1000;
+      font-weight:900;
       font-size:13px;
     }
     .btn:active{ transform: translateY(1px); }
     .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
     .btn.ghost{ color:var(--muted); }
-    .btn.disabled{ opacity:.5; cursor:not-allowed; }
 
     .zonebarBody{
       padding: 12px 12px 14px;
@@ -195,7 +127,6 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       .pillrow{ justify-content:flex-start; }
       .actions{ justify-content:flex-start; }
     }
-
     .zoneCard{
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.40);
@@ -206,20 +137,19 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       box-shadow: 0 12px 40px rgba(0,0,0,.25);
       min-height: 160px;
     }
-    .zoneCard h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; display:flex; gap:8px; align-items:center; }
+    .zoneCard h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; }
     .zoneCard p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
-
     .glow{
       position:absolute; inset:-40% -35% auto auto;
       width:240px; height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%);
       filter: blur(10px);
       transform: rotate(14deg);
       pointer-events:none;
       opacity:.9;
     }
-    .glow.nut{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%); }
-    .glow.hyg{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
-    .glow.ex{  background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+    .glow.cyan{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
+    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
 
     .miniStatus{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
     .chip{
@@ -230,12 +160,11 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       background: rgba(2,6,23,.28);
       color:var(--muted);
       font-size: 12px;
-      font-weight:900;
+      font-weight:800;
       user-select:none;
       white-space:nowrap;
     }
-    .chip b{ color:var(--text); font-weight:1000; }
-
+    .chip b{ color:var(--text); font-weight:900; }
     .meter{
       height: 10px;
       border-radius: 999px;
@@ -244,99 +173,18 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       overflow:hidden;
       margin-top:10px;
     }
-    .fill{
-      height:100%;
-      width:0%;
-      background: rgba(34,197,94,.85);
-      transition: width .18s ease;
-    }
-    .fill.hyg{ background: rgba(34,211,238,.85); }
-    .fill.ex{  background: rgba(167,139,250,.85); }
+    .fill{ height:100%; width:0%; background: rgba(34,197,94,.85); transition: width .14s ease; }
+    .fill.cyan{ background: rgba(34,211,238,.85); }
+    .fill.violet{ background: rgba(167,139,250,.85); }
     .fill.warn{ background: rgba(245,158,11,.88); }
 
-    /* ---------- Section headers ---------- */
-    .section{
-      margin-top: 2px;
-      padding: 12px 12px 14px;
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      background: rgba(2,6,23,.22);
-      box-shadow: 0 12px 40px rgba(0,0,0,.18);
-    }
-    .sectionHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      padding: 4px 4px 10px;
-      border-bottom: 1px solid rgba(148,163,184,.14);
-      margin-bottom: 12px;
-    }
-    .sTitle{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:1000;
-      letter-spacing:.2px;
-      font-size:14px;
-      margin:0;
-    }
-    .sTitle .dot{
-      width:10px;height:10px;border-radius:999px;
-      background: var(--nut);
-      box-shadow: 0 0 18px rgba(34,197,94,.35);
-    }
-    .sTitle.hyg .dot{ background: var(--hyg); box-shadow: 0 0 18px rgba(34,211,238,.35); }
-    .sTitle.ex .dot{ background: var(--ex); box-shadow: 0 0 18px rgba(167,139,250,.35); }
-
-    .sMeta{
-      margin-top:6px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height:1.4;
-      font-weight:800;
-      max-width: 86ch;
-    }
-    .sRight{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-    }
-    .countPill{
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      border-radius: 999px;
-      padding: 8px 10px;
-      font-size: 12px;
-      font-weight:1000;
-      color: rgba(229,231,235,.92);
-      white-space:nowrap;
-    }
-
-    /* ---------- Game grid (smart) ---------- */
-    .grid{
-      display:grid;
-      gap: 12px;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-    }
+    .grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 2px; }
     @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
     @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
 
-    .grid.ex{
-      grid-template-columns: repeat(5, minmax(0,1fr));
-    }
-    @media (max-width: 1100px){ .grid.ex{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 760px){ .grid.ex{ grid-template-columns: 1fr; } }
-
-    /* ---------- Game card ---------- */
     .game{
       border:1px solid var(--stroke);
-      background:
-        radial-gradient(340px 220px at 80% 20%, rgba(255,255,255,.07), transparent 60%),
-        rgba(2,6,23,.46);
+      background: rgba(2,6,23,.46);
       border-radius: 18px;
       padding: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,.22);
@@ -345,63 +193,23 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       cursor:pointer;
       user-select:none;
       transition: transform .12s ease, background .12s ease, border-color .12s ease;
-      min-height: 136px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+      min-height: 132px;
     }
     .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
     .game:active{ transform: translateY(1px); }
-
-    .game::after{
-      content:"";
-      position:absolute;
-      inset:-40% -30% auto auto;
-      width:240px; height:240px;
-      filter: blur(16px);
-      opacity:.85;
-      transform: rotate(18deg);
-      pointer-events:none;
-      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.16), transparent 60%);
-    }
-    .game.hyg::after{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.16), transparent 60%); }
-    .game.ex::after{  background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.16), transparent 60%); }
-
-    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; position:relative; z-index:2; }
-    .gameTitle{ font-weight:1000; letter-spacing:.2px; margin:0; font-size: 15px; }
-    .gameSub{ margin:0; color:rgba(148,163,184,.92); font-size: 12px; line-height:1.35; position:relative; z-index:2; }
-
+    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .gameTitle{ font-weight:900; letter-spacing:.2px; margin:0; font-size: 15px; }
+    .gameSub{ margin:6px 0 0 0; color:var(--muted); font-size: 12px; line-height:1.35; }
     .tag{
       border:1px solid rgba(255,255,255,.14);
       background: rgba(255,255,255,.06);
       border-radius: 999px;
       padding: 7px 10px;
       font-size: 11px;
-      color: rgba(229,231,235,.92);
-      font-weight:1000;
-      white-space:nowrap;
-      position:relative;
-      z-index:2;
-    }
-    .tag.nut{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.10); }
-    .tag.hyg{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
-    .tag.ex { border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.10); }
-
-    .cta{
-      margin-top:auto;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      color: rgba(229,231,235,.86);
-      font-size: 12px;
+      color: var(--text);
       font-weight:900;
-      position:relative;
-      z-index:2;
-      padding-top: 4px;
-      border-top: 1px dashed rgba(148,163,184,.16);
+      white-space:nowrap;
     }
-    .cta .hint{ color: rgba(148,163,184,.95); font-weight:900; }
 
     .toast{
       position: fixed;
@@ -430,35 +238,29 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
   <div class="wrap">
     <div class="top">
       <div class="brand">
-        <h1 class="title">
-          🏰 HeroHealth — Hub
-          <span class="badge">3 Zones • 15 Games</span>
-        </h1>
-        <p class="subtitle">
-          เลือกเล่นเกมไหนก่อนก็ได้ (ไม่มีลำดับบังคับ) • Daily Gate แยกตาม “โซน” วันละ 1 ครั้ง/โซน
-        </p>
+        <h1 class="title">🏰 HeroHealth — Hub</h1>
+        <p class="subtitle">เลือกเล่นเกมไหนก่อนก็ได้ • Daily Gate แยกตามโซน วันละ 1 ครั้ง/โซน</p>
       </div>
       <div class="pillrow" id="pillrow"></div>
     </div>
 
-    <!-- Zone Status -->
     <section class="zonebar" aria-label="Zone status">
       <div class="zonebarHead">
         <div class="left">
           <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
           <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
-          <div class="bigPill" id="pillExercise"><span class="dot"></span><span id="tExercise">🏃 Exercise: —</span></div>
+          <div class="bigPill" id="pillFitness"><span class="dot"></span><span id="tFitness">🏃 Fitness: —</span></div>
           <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
         </div>
         <div class="actions">
           <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
-          <div class="btn warn" id="btnResetToday">♻️ Reset today (ล้างทั้ง 3 โซน)</div>
+          <div class="btn warn" id="btnResetToday">♻️ Reset today</div>
         </div>
       </div>
 
       <div class="zonebarBody">
         <div class="zoneCard">
-          <div class="glow nut"></div>
+          <div class="glow"></div>
           <h3>🥗 Nutrition</h3>
           <p>GoodJunk / Groups / Hydration / Plate</p>
           <div class="miniStatus">
@@ -469,170 +271,82 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
         </div>
 
         <div class="zoneCard">
-          <div class="glow hyg"></div>
+          <div class="glow cyan"></div>
           <h3>🧼 Hygiene</h3>
-          <p>Handwash / Brush / Bath / Clean Object / MaskCough / Germ Detective</p>
+          <p>MaskCough / Brush</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
           </div>
-          <div class="meter"><div class="fill hyg" id="mHyg"></div></div>
+          <div class="meter"><div class="fill cyan" id="mHyg"></div></div>
         </div>
 
         <div class="zoneCard">
-          <div class="glow ex"></div>
-          <h3>🏃 Exercise</h3>
-          <p>Shadow Breaker / Rhythm Boxer / JumpDuck / Balance Hold / Fitness Planner</p>
+          <div class="glow violet"></div>
+          <h3>🏃 Fitness</h3>
+          <p>Shadow / Rhythm / Jump-Duck / Balance / Planner</p>
           <div class="miniStatus">
-            <span class="chip"><b>Gate</b>: <span id="cExGate">—</span></span>
-            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::exercise</span>
+            <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
           </div>
-          <div class="meter"><div class="fill ex" id="mEx"></div></div>
+          <div class="meter"><div class="fill violet" id="mFit"></div></div>
         </div>
       </div>
     </section>
 
-    <!-- Nutrition -->
-    <section class="section" aria-label="Nutrition games">
-      <div class="sectionHead">
-        <div>
-          <h2 class="sTitle"><span class="dot"></span>Nutrition Zone</h2>
-          <div class="sMeta">เกมโภชนาการสำหรับเด็กป.5 • ฝึกเลือกอาหาร/แยกหมวด/ดื่มน้ำ/จัดจาน 5 หมู่</div>
-        </div>
-        <div class="sRight">
-          <span class="countPill">4 games</span>
-          <span class="pill"><b>Gate</b>: <span id="cNutGate2">—</span></span>
-        </div>
-      </div>
-
+    <section aria-label="Game list">
+      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (root launchers)</div>
       <div class="grid">
-        <div class="game nut" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk</h3><span class="tag nut">VR • Launcher</span></div>
-          <p class="gameSub">ยิง/แตะอาหารดี–ขยะ • Missions + End Summary</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="./goodjunk-vr-launcher.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • missions/summary</p>
         </div>
-
-        <div class="game nut" data-href="./groups-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🧩 Groups</h3><span class="tag nut">VR • Launcher</span></div>
-          <p class="gameSub">แยกหมวดอาหาร • ฝึกจำแนกอย่างเร็ว</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🧩 Food Groups VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5</p>
         </div>
-
-        <div class="game nut" data-href="./hydration-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">💧 Hydration</h3><span class="tag nut">VR • Launcher</span></div>
-          <p class="gameSub">ดื่มน้ำให้พอดี • Storm + Boss</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">💧 Hydration VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ</p>
         </div>
-
-        <div class="game nut" data-href="./plate-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate</h3><span class="tag nut">VR • Launcher</span></div>
-          <p class="gameSub">จัดจาน 5 หมู่ • เติมหมู่ที่ขาด</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Hygiene (จัด 3+3) -->
-    <section class="section" aria-label="Hygiene games">
-      <div class="sectionHead">
-        <div>
-          <h2 class="sTitle hyg"><span class="dot"></span>Hygiene Zone</h2>
-          <div class="sMeta">เกมสุขอนามัย • ล้างมือ/แปรงฟัน/อาบน้ำ/ทำความสะอาดสิ่งของ/หน้ากาก-ไอจาม/สืบหาเชื้อโรค</div>
-        </div>
-        <div class="sRight">
-          <span class="countPill">6 games</span>
-          <span class="pill"><b>Gate</b>: <span id="cHygGate2">—</span></span>
+        <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">จัดจาน 5 หมู่</p>
         </div>
       </div>
 
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (root launchers)</div>
       <div class="grid">
-        <!-- Row 1: core habits -->
-        <div class="game hyg" data-href="./hygiene-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🫧 Handwash</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">ล้างมือให้ถูกขั้นตอน • เก็บคะแนน/คอมโบ</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">😷 Mask & Cough</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">กันละอองไอ/จาม • โล่ • fever/waves</p>
         </div>
-
-        <div class="game hyg" data-href="./brush-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🪥 Brush</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">แปรงคราบให้ทัน • Perfect/บอส</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🪥 BrushVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">A/B/C + evidence + analyze quiz + AI prediction</p>
         </div>
+      </div>
 
-        <div class="game hyg" data-href="./maskcough-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">😷 MaskCough</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">หน้ากาก/ไอจาม • ป้องกันละออง</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Fitness games</b> (/fitness)</div>
+      <div class="grid">
+        <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
+          <p class="gameSub">reflex</p>
         </div>
-
-        <!-- Row 2: deeper missions -->
-        <div class="game hyg" data-href="./bath-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🛁 Bath</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">Hidden Dirt Quest • ค้นหาคราบ/ทำความสะอาด</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag">Run</span></div>
+          <p class="gameSub">timing</p>
         </div>
-
-        <!-- ✅ FIX: Clean Object -> root launcher -->
-        <div class="game hyg" data-href="./clean-objects.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">ทำความสะอาดสิ่งของ • ลดการแพร่เชื้อ</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🦘 Jump-Duck</h3><span class="tag">Run</span></div>
+          <p class="gameSub">agility</p>
         </div>
-
-        <div class="game hyg" data-href="./germ-detective-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🦠 Germ Detective</h3><span class="tag hyg">VR • Launcher</span></div>
-          <p class="gameSub">สืบหาเชื้อโรค • เลือกพฤติกรรมที่ปลอดภัย</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
+        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag">Run</span></div>
+          <p class="gameSub">stability</p>
         </div>
       </div>
     </section>
-
-    <!-- Exercise -->
-    <section class="section" aria-label="Exercise games">
-      <div class="sectionHead">
-        <div>
-          <h2 class="sTitle ex"><span class="dot"></span>Exercise Zone</h2>
-          <div class="sMeta">เกมออกกำลังกาย • reflex/จังหวะ/กระโดด-ก้ม/ทรงตัว/วางแผนการออกกำลัง</div>
-        </div>
-        <div class="sRight">
-          <span class="countPill">5 games</span>
-          <span class="pill"><b>Gate</b>: <span id="cExGate2">—</span></span>
-        </div>
-      </div>
-
-      <div class="grid ex">
-        <div class="game ex" data-href="../fitness/shadow-breaker.html" data-zone="exercise">
-          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag ex">Run</span></div>
-          <p class="gameSub">Reflex • ตีเป้าให้ทัน • ปรับความยาก</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-
-        <div class="game ex" data-href="../fitness/rhythm-boxer.html" data-zone="exercise">
-          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag ex">Run</span></div>
-          <p class="gameSub">ต่อยตามจังหวะ • คอมโบ/คะแนน</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-
-        <div class="game ex" data-href="../fitness/jump-duck.html" data-zone="exercise">
-          <div class="gameTop"><h3 class="gameTitle">🦘 JumpDuck</h3><span class="tag ex">Run</span></div>
-          <p class="gameSub">กระโดด/ก้มหลบ • ฝึก timing</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-
-        <div class="game ex" data-href="../fitness/balance-hold.html" data-zone="exercise">
-          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag ex">Run</span></div>
-          <p class="gameSub">ทรงตัว • Practice + Countdown</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-
-        <div class="game ex" data-href="../fitness/fitness-planner/index.html" data-zone="exercise">
-          <div class="gameTop"><h3 class="gameTitle">🗓️ Fitness Planner</h3><span class="tag ex">Planner</span></div>
-          <p class="gameSub">วางแผนออกกำลัง • tracker</p>
-          <div class="cta"><span class="hint">แตะเพื่อเริ่ม</span><span>→</span></div>
-        </div>
-      </div>
-    </section>
-
   </div>
 
   <div class="toast" id="toast"></div>
@@ -645,11 +359,8 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   const QS = parseQS();
 
-  // passthrough keys (include UX/debug flags)
-  const PASS_KEYS = [
-    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','hub',
-    'tutorial','practiceOn','practice','direct','fast','skipBW'
-  ];
+  // passthrough keys (รวม ai/debug/api)
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug'];
 
   function ymdLocal(){
     const d = new Date();
@@ -692,53 +403,39 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
 
     const nut = isZoneDoneToday('nutrition');
     const hyg = isZoneDoneToday('hygiene');
-    const ex  = isZoneDoneToday('exercise');
+    const fit = isZoneDoneToday('fitness');
 
     setPill(document.getElementById('pillNutrition'), nut);
     setPill(document.getElementById('pillHygiene'), hyg);
-    setPill(document.getElementById('pillExercise'), ex);
+    setPill(document.getElementById('pillFitness'), fit);
 
     setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
     setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
-    setText('tExercise', `🏃 Exercise: ${ex ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tFitness',  `🏃 Fitness: ${fit ? 'DONE TODAY' : 'NOT DONE'}`);
 
     setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
     setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
-    setText('cExGate',  ex  ? 'DONE TODAY' : 'NEED GATE');
-
-    // duplicate gate labels in section heads
-    setText('cNutGate2', nut ? 'DONE TODAY' : 'NEED GATE');
-    setText('cHygGate2', hyg ? 'DONE TODAY' : 'NEED GATE');
-    setText('cExGate2',  ex  ? 'DONE TODAY' : 'NEED GATE');
+    setText('cFitGate', fit ? 'DONE TODAY' : 'NEED GATE');
 
     const mNut = document.getElementById('mNut');
     const mHyg = document.getElementById('mHyg');
-    const mEx  = document.getElementById('mEx');
-
-    if(mNut) mNut.style.width = (nut ? 100 : 35) + '%';
-    if(mHyg) mHyg.style.width = (hyg ? 100 : 35) + '%';
-    if(mEx)  mEx.style.width  = (ex  ? 100 : 35) + '%';
-
-    if(mNut) mNut.classList.toggle('warn', !nut);
-    if(mHyg) mHyg.classList.toggle('warn', !hyg);
-    if(mEx)  mEx.classList.toggle('warn', !ex);
+    const mFit = document.getElementById('mFit');
+    if(mNut){ mNut.style.width = (nut ? 100 : 35) + '%'; mNut.classList.toggle('warn', !nut); }
+    if(mHyg){ mHyg.style.width = (hyg ? 100 : 35) + '%'; mHyg.classList.toggle('warn', !hyg); }
+    if(mFit){ mFit.style.width = (fit ? 100 : 35) + '%'; mFit.classList.toggle('warn', !fit); }
   }
 
   function applyPassThrough(href){
     const u = new URL(href, location.href);
-
     for (const k of PASS_KEYS){
       if (!u.searchParams.has(k) && QS.has(k)){
         const v = QS.get(k);
         if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
       }
     }
-
-    // hub backlink
     if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
       u.searchParams.set('hub', location.href);
     }
-
     return u.toString();
   }
 
@@ -754,7 +451,9 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
       ['conditionGroup', QS.get('conditionGroup')],
       ['log', QS.get('log')],
       ['view', QS.get('view')],
-      ['direct', QS.get('direct')],
+      ['api', QS.get('api')],
+      ['ai', QS.get('ai')],
+      ['debug', QS.get('debug')],
     ].filter(x => x[1] != null && String(x[1]).trim() !== '');
 
     const el = document.getElementById('pillrow');
@@ -776,23 +475,16 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
   }
 
   function bindReset(){
-    const reset = document.getElementById('btnResetToday');
-    if (reset){
-      reset.addEventListener('click', ()=>{
-        clearZoneToday('nutrition');
-        clearZoneToday('hygiene');
-        clearZoneToday('exercise');
-        syncBars();
-        toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
-      });
-    }
-
-    const how = document.getElementById('btnHow');
-    if (how){
-      how.addEventListener('click', ()=>{
-        toast('Daily Gate: ผ่าน end summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
-      });
-    }
+    const btnR = document.getElementById('btnResetToday');
+    const btnH = document.getElementById('btnHow');
+    btnR && btnR.addEventListener('click', ()=>{
+      clearZoneToday('nutrition'); clearZoneToday('hygiene'); clearZoneToday('fitness');
+      syncBars();
+      toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
+    });
+    btnH && btnH.addEventListener('click', ()=>{
+      toast('Daily Gate: จบเกม/summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
+    });
   }
 
   renderPills();
@@ -801,6 +493,5 @@ PATCH v20260303-HUB-ZONES-FULL-UIREFINE+HYGIENE-ORDER+FIX-CLEAN
   bindReset();
 })();
 </script>
-
 </body>
 </html>
