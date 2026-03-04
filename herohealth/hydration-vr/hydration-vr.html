@@ -1,6 +1,6 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration VR RUN — PRODUCTION
-FULL v20260303d-HYDRATION-RUN-LRZONE-STORMBOSS
+FULL v20260304-HYDRATION-RUN-LRZONE-CVR-COOLDOWN
 
 Requires:
 - ./hydration.safe.js (ES module)
@@ -18,9 +18,9 @@ Requires:
   <meta name="google" content="notranslate"/>
   <title>HeroHealth • Hydration VR</title>
 
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260303d"/>
-  <script type="module" src="../vr/hha-shield.js?v=20260303d"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260303d"></script>
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260304"/>
+  <script type="module" src="../vr/hha-shield.js?v=20260304"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260304"></script>
 </head>
 
 <body>
@@ -66,6 +66,12 @@ Requires:
     <!-- zone indicator -->
     <div id="zoneSign" aria-hidden="true"></div>
 
+    <!-- ✅ cVR helper (tap left/right to set zone) -->
+    <div id="cvrZonePad" aria-hidden="true">
+      <button id="btnZoneL" type="button" aria-label="Left zone">LEFT</button>
+      <button id="btnZoneR" type="button" aria-label="Right zone">RIGHT</button>
+    </div>
+
     <div id="layer" aria-label="hydration layer"></div>
   </div>
 
@@ -109,8 +115,10 @@ Requires:
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
     const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
+    // cVR strict: disable touching bubbles directly (must shoot via crosshair)
     if(view === 'cvr'){
       try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
+      try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
     }
 
     const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
