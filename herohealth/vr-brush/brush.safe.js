@@ -1,13 +1,12 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// Brush SAFE — start() works without tap; tap is only unlock
-// FULL v20260303d-BRUSH-SAFE-STARTFIRST
+// Brush SAFE — DOM targets + DT-based timer (fix TIME=0)
+// FULL v20260303e-BRUSH-SAFE-TIMERFIX
 'use strict';
 
 export function bootGame(){
   const W = window, D = document;
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-  const qbool = (k, d=false)=>{ const v=String(qs(k, d?'1':'0')).toLowerCase(); return ['1','true','yes','y','on'].includes(v); };
   const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
   const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
@@ -35,7 +34,6 @@ export function bootGame(){
     viewPill:  D.getElementById('viewPill'),
     crosshair: D.getElementById('crosshair'),
     domTargets: D.getElementById('domTargets'),
-    scene: D.getElementById('scene') || D.querySelector('a-scene')
   };
 
   const S = {
@@ -50,16 +48,15 @@ export function bootGame(){
     spawnEveryMs:900,
     ttlMs:1500,
     raf:0,
-    lastSpawn:0,
-    useDomFallback:true // ✅ default DOM fallback for mobile reliability
+    lastSpawnMs:0,
+    lastFrameMs:0
   };
 
-  // optional modules (best-effort)
   let FX=null, MISS=null, AI=null;
   (async ()=>{
-    try{ FX = (await import('./brush.fx.js?v=20260303d')).bootFx(); }catch(e){}
-    try{ MISS = (await import('./brush.missions.js?v=20260303d')).bootMissions({ diff: DIFF }); }catch(e){}
-    try{ AI = (await import('./ai-brush.js?v=20260303d')).bootBrushAI(); }catch(e){}
+    try{ FX = (await import('./brush.fx.js?v=20260303e')).bootFx(); }catch(e){}
+    try{ MISS = (await import('./brush.missions.js?v=20260303e')).bootMissions({ diff: DIFF }); }catch(e){}
+    try{ AI = (await import('./ai-brush.js?v=20260303e')).bootBrushAI(); }catch(e){}
   })();
 
   function tuneByDiff(){
@@ -70,10 +67,10 @@ export function bootGame(){
 
   function hud(){
     UI.phasePill && (UI.phasePill.textContent = `PHASE: BRUSH`);
-    UI.timePill && (UI.timePill.textContent = `TIME: ${Math.ceil(S.timeLeft)}`);
+    UI.timePill  && (UI.timePill.textContent  = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
     UI.scorePill && (UI.scorePill.textContent = `SCORE: ${Math.round(S.score)}`);
     UI.comboPill && (UI.comboPill.textContent = `COMBO: ${S.combo}`);
-    UI.missPill && (UI.missPill.textContent = `MISS: ${S.miss}`);
+    UI.missPill  && (UI.missPill.textContent  = `MISS: ${S.miss}`);
 
     const den = (S.goodHit + S.goodExpire);
     const acc = den ? Math.round((S.goodHit / Math.max(1, den)) * 100) : 0;
@@ -85,8 +82,6 @@ export function bootGame(){
 
     if (UI.missionPill && MISS && typeof MISS.text === 'function') {
       UI.missionPill.textContent = `MISSION: ${MISS.text()}`;
-    } else if (UI.missionPill){
-      UI.missionPill.textContent = `MISSION: —`;
     }
   }
 
@@ -109,10 +104,7 @@ export function bootGame(){
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
 
-    el.addEventListener('click', (e)=>{
-      e.preventDefault();
-      hitTarget(id);
-    }, { passive:false });
+    el.addEventListener('click', (e)=>{ e.preventDefault(); hitTarget(id); }, { passive:false });
 
     layer.appendChild(el);
     return el;
@@ -157,8 +149,7 @@ export function bootGame(){
     hud();
   }
 
-  function expireTick(){
-    const tnow = now();
+  function expireTick(tnow){
     for (const [id, t] of S.targets.entries()){
       if (tnow >= t.ttlAt){
         if (t.good){ S.goodExpire++; S.miss++; S.combo = 0; }
@@ -172,17 +163,28 @@ export function bootGame(){
     S.raf = requestAnimationFrame(loop);
     if (!S.started || S.ended) return;
 
-    S.timeLeft = Math.max(0, S.timeLeft - (1/60));
-    if (S.timeLeft <= 0){ S.ended = true; return; }
-
     const tnow = now();
-    if (tnow - (S.lastSpawn||0) >= S.spawnEveryMs){
-      S.lastSpawn = tnow;
+    const dtMs = S.lastFrameMs ? Math.min(80, Math.max(0, tnow - S.lastFrameMs)) : 16.7;
+    S.lastFrameMs = tnow;
+
+    // ✅ DT-based timer
+    S.timeLeft = Math.max(0, S.timeLeft - (dtMs / 1000));
+
+    if (S.timeLeft <= 0){
+      S.ended = true;
+      hud();
+      return;
+    }
+
+    // spawn by ms
+    if (!S.lastSpawnMs) S.lastSpawnMs = tnow;
+    if (tnow - S.lastSpawnMs >= S.spawnEveryMs){
+      S.lastSpawnMs = tnow;
       const junkRate = (DIFF==='hard') ? 0.26 : (DIFF==='easy' ? 0.12 : 0.18);
       spawnTarget((Math.random() < junkRate) ? 'germ' : 'plaque');
     }
 
-    expireTick();
+    expireTick(tnow);
     hud();
   }
 
@@ -197,7 +199,8 @@ export function bootGame(){
     S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
     S.goodSpawn=0; S.junkSpawn=0; S.goodHit=0; S.junkHit=0; S.goodExpire=0;
     S.targets.clear();
-    S.lastSpawn = 0;
+    S.lastSpawnMs = 0;
+    S.lastFrameMs = 0;
 
     try{ UI.domTargets && (UI.domTargets.innerHTML = ''); }catch(e){}
     if (UI.domTargets) UI.domTargets.style.pointerEvents = 'auto';
@@ -206,10 +209,8 @@ export function bootGame(){
     S.raf = requestAnimationFrame(loop);
   }
 
-  // optional unlock hook (future audio)
   function onUnlock(){}
 
-  // bind basic buttons
   function bindUI(){
     D.getElementById('btnHelp')?.addEventListener('click', ()=> D.getElementById('panelHelp')?.classList.remove('hidden'));
     D.getElementById('btnCloseHelp')?.addEventListener('click', ()=> D.getElementById('panelHelp')?.classList.add('hidden'));
@@ -219,12 +220,11 @@ export function bootGame(){
   }
 
   bindUI();
-  hud(); // ✅ PHASE/TIME จะไม่เป็น — อีกต่อไปหลัง bootGame ถูกเรียก
+  hud();
 
   const api = { start, onUnlock, state:()=>({ ...S, targetsSize:S.targets.size }) };
   W.HHBrush_SAFE = api;
   return api;
 }
 
-// bridge
 try{ window.__BRUSH_BOOTGAME__ = bootGame; }catch(e){}
