@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-Brush RUN — START-FIRST + Tap unlock
-FULL v20260303d-BRUSH-RUN
+Brush RUN — START-FIRST + Tap unlock + TIMER FIX
+FULL v20260303e-BRUSH-RUN
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +12,7 @@ FULL v20260303d-BRUSH-RUN
   <title>HeroHealth • Brush</title>
 
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260303d"/>
+  <link rel="stylesheet" href="./brush.css?v=20260303e"/>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
@@ -60,10 +60,7 @@ FULL v20260303d-BRUSH-RUN
           <a-entity id="spawnRoot"></a-entity>
         </a-scene>
 
-        <!-- DOM fallback overlay -->
         <div id="domTargets" aria-hidden="true"></div>
-
-        <!-- crosshair -->
         <div id="crosshair"></div>
 
         <div id="panelHelp" class="panel hidden">
@@ -72,7 +69,6 @@ FULL v20260303d-BRUSH-RUN
             <ol>
               <li>แตะ “คราบ” สีเขียว</li>
               <li>หลบ “เชื้อ” สีแดง</li>
-              <li>บางรุ่น WebGL งอแง → ระบบใช้เป้าแบบ 2D อัตโนมัติ</li>
             </ol>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -103,11 +99,10 @@ FULL v20260303d-BRUSH-RUN
 
     </div>
 
-    <!-- Tap overlay (now ONLY unlock, not block boot) -->
     <div id="tapStart" class="tapStart">
       <div class="tapCard">
         <div class="tapTitle">แตะเพื่อปลดล็อก</div>
-        <div class="tapSub">โหมด Mobile/VR บางเครื่องต้อง tap ก่อนเพื่อให้อินพุต/เสียงทำงานลื่น</div>
+        <div class="tapSub">Mobile/VR บางเครื่องต้อง tap ก่อนเพื่อให้อินพุต/เสียงทำงาน</div>
         <div class="tapRow">
           <button id="tapBtn" class="btn primary">เริ่ม</button>
         </div>
@@ -115,27 +110,13 @@ FULL v20260303d-BRUSH-RUN
     </div>
   </div>
 
-  <!-- Universal VR UI (optional) -->
-  <script type="module">
-    const u = new URL('../vr/vr-ui.js', location.href).toString();
-    try{
-      const m = await import(u);
-      window.HHA_VRUI_CONFIG = Object.assign({
-        lockPx: 44,
-        cvrStrict: (new URL(location.href)).searchParams.get('view')?.toLowerCase()==='cvr'
-      }, window.HHA_VRUI_CONFIG||{});
-      if (m && typeof m.boot === 'function') m.boot({ root: document.body });
-    }catch(e){}
-  </script>
-
-  <!-- preload safe module -->
   <script type="module">
     try{
-      const m = await import('./brush.safe.js?v=20260303d');
+      const m = await import('./brush.safe.js?v=20260303e');
       if (m && typeof m.bootGame === 'function') window.__BRUSH_BOOTGAME__ = m.bootGame;
     }catch(e){ console.warn('[Brush] preload safe failed', e); }
   </script>
 
-  <script src="./brush.boot.js?v=20260303d"></script>
+  <script src="./brush.boot.js?v=20260303e"></script>
 </body>
 </html>
