@@ -1,5 +1,5 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — FULL v20260221n
+// Boot HygieneVR — CACHE-BUST + FORCE-STARTOVERLAY — PATCH v20260221n
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -51,6 +51,18 @@ function waitForGlobal(getter, ms){
   });
 }
 
+function forceShowStartOverlayIfMissingUI(){
+  // ถ้า HTML ที่ถูก cache เป็นตัวเก่า (มีแค่ STEP/HITS) ให้ดัน overlay กลับมาเห็นชัด ๆ
+  const startOverlay = $id('startOverlay');
+  const btnStart = $id('btnStart');
+
+  // ถ้าไม่มี btnStart แปลว่า HTML ที่โหลดอยู่ไม่ใช่ตัวใหม่
+  if(startOverlay && !btnStart){
+    startOverlay.style.display = 'grid';
+    showBanner('⚠️ HTML ไม่ตรงเวอร์ชัน (cache) — แนะนำ hard reload หรือเติม ?v=');
+  }
+}
+
 async function main(){
   const stage = $id('stage');
   if(!stage){
@@ -58,15 +70,21 @@ async function main(){
     return;
   }
 
+  // let deferred scripts populate
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P) showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
 
   const bank = await waitForGlobal(()=>window.HHA_HYGIENE_QUIZ_BANK, 900);
   if(!bank) showBanner('⚠️ Quiz bank ไม่พร้อม (hygiene-quiz-bank.js อาจหาย/404)');
 
+  forceShowStartOverlayIfMissingUI();
+
+  // cache-bust for engine import (สำคัญมากบน GitHub Pages)
+  const v = (new URL(location.href)).searchParams.get('v') || '20260221n';
+
   let engine;
   try{
-    engine = await import('./hygiene.safe.js');
+    engine = await import(`./hygiene.safe.js?v=${encodeURIComponent(v)}`);
   }catch(err){
     showFatal('import hygiene.safe.js ไม่สำเร็จ (ไฟล์หาย/พาธผิด/ไม่ใช่ module)', err);
     return;
