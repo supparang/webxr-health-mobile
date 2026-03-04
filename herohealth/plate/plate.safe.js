@@ -1,37 +1,21 @@
 // === /herohealth/plate/plate.safe.js ===
-// HeroHealth — Plate VR SAFE — BLOOM FULL EDITION
-// FULL v20260304-PLATE-BLOOM-FULL
-// ✅ P1: Safe Spawn Zones (avoid HUD) + FAIR MISS breakdown + deterministic research
-// ✅ P2: 3-Stage Warm→Trick→Boss + Fever + Shield + Storm hits (guarded doesn't count as miss)
-// ✅ P3: Evaluate Gate + Create Mode (Bloom 5-6) + Explainable AI Coach (top2 factors)
-// ✅ Input: pointer + hha:shoot (crosshair via vr-ui.js)
-// ✅ Events: hha:time, hha:score, hha:rank, hha:coach, quest:update, hha:end
-// ✅ End: plate:final_end (after evaluate/create flow)
+// PlateVR SAFE — Classroom Combat Edition (FX + Mission 3-Stage + PRO + HUD-safe spawn)
+// FULL v20260304-PLATE-CLASSROOM-FX-MISSFIX-HUDSAFE-PRO
 'use strict';
 
 export function boot(cfg){
   cfg = cfg || {};
-  const WIN = window;
-  const DOC = document;
+  const WIN = window, DOC = document;
 
-  // -----------------------
+  // ---------------------------
   // helpers
-  // -----------------------
+  // ---------------------------
   const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
-  const nowMs=()=> (performance && performance.now) ? performance.now() : Date.now();
-  const nowIso=()=> new Date().toISOString();
-  const safeJson=(o)=>{ try{ return JSON.stringify(o,null,2);}catch(_){ return '{}'; } };
+  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+  const nowIso = ()=> new Date().toISOString();
+  const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(_){return '{}';} };
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  function qs(k, d=''){
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch{ return d; }
-  }
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  }
-
-  // rng deterministic
   function xmur3(str){
     str=String(str||'');
     let h=1779033703^str.length;
@@ -63,349 +47,335 @@ export function boot(cfg){
     return sfc32(s(),s(),s(),s());
   }
 
-  const mount = cfg.mount || DOC.getElementById('plate-layer');
-  if(!mount){ console.warn('[Plate] Missing mount'); return; }
-
-  const hudTopEl = cfg.hudTopEl || DOC.getElementById('hudTop');
-  const hudBottomEl = cfg.hudBottomEl || DOC.getElementById('hudBottom');
-  const fxStormEl = cfg.fxStormEl || DOC.getElementById('fxStorm');
-  const fxBossEl = cfg.fxBossEl || DOC.getElementById('fxBoss');
-
+  // ---------------------------
+  // cfg parse
+  // ---------------------------
   const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase(); // play / research
+  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','90'), 30, 300);
-
-  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
-
+  const plannedSec = clamp(cfg.time ?? qs('time','90'), 20, 300);
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
   const pick = (arr)=> arr[(r01()*arr.length)|0];
 
-  const MODE = String(cfg.mode || qs('mode','classroom')).toLowerCase(); // classroom default
-  const IS_RESEARCH = (runMode === 'research' || runMode === 'study');
+  const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
+  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
+  const PRO = !!cfg.pro || (qs('pro','0')==='1');
 
-  // AI hooks (prediction only)
-  const AI = cfg.ai || WIN.HHA_AI || null;
+  // ---------------------------
+  // DOM bindings (match plate-vr.html)
+  // ---------------------------
+  const layer = cfg.mount || DOC.getElementById('plate-layer');
+  if(!layer){ console.warn('[Plate] Missing mount #plate-layer'); return; }
 
-  // -----------------------
-  // Thai 5 food groups mapping (fixed)
-  // -----------------------
-  const GROUPS = [
-    { id:1, key:'g1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
-    { id:2, key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
-    { id:3, key:'g3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, key:'g4', name:'g4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, key:'g5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
-  ];
-
-  // -----------------------
-  // UI elements (IDs from plate-vr.html)
-  // -----------------------
-  const UI = {
+  const ui = {
     score: DOC.getElementById('uiScore'),
     combo: DOC.getElementById('uiCombo'),
     comboMax: DOC.getElementById('uiComboMax'),
     miss: DOC.getElementById('uiMiss'),
-    missBreak: DOC.getElementById('uiMissBreak'),
-
-    plateHave: DOC.getElementById('uiPlateHave'),
+    time: DOC.getElementById('uiTime'),
     acc: DOC.getElementById('uiAcc'),
     grade: DOC.getElementById('uiGrade'),
-
-    goalTitle: DOC.getElementById('uiGoalTitle'),
-    goalCount: DOC.getElementById('uiGoalCount'),
-    goalFill: DOC.getElementById('uiGoalFill'),
-    targetText: DOC.getElementById('uiTargetText'),
-
-    time: DOC.getElementById('uiTime'),
-    shield: DOC.getElementById('uiShield'),
     fever: DOC.getElementById('uiFever'),
     feverFill: DOC.getElementById('uiFeverFill'),
-
-    aiExplain: DOC.getElementById('uiAiExplain'),
+    shield: DOC.getElementById('uiShield'),
+    plateHave: DOC.getElementById('uiPlateHave'),
+    targetText: DOC.getElementById('uiTargetText'),
+    goalFill: DOC.getElementById('uiGoalFill'),
+    phase: DOC.getElementById('uiPhase'),
+    phaseProg: DOC.getElementById('uiPhaseProg'),
+    proTag: DOC.getElementById('uiProTag'),
     coachMsg: DOC.getElementById('coachMsg'),
+
+    g1: DOC.getElementById('uiG1'),
+    g2: DOC.getElementById('uiG2'),
+    g3: DOC.getElementById('uiG3'),
+    g4: DOC.getElementById('uiG4'),
+    g5: DOC.getElementById('uiG5'),
+
+    endOverlay: DOC.getElementById('endOverlay'),
+    endTitle: DOC.getElementById('endTitle'),
+    endSub: DOC.getElementById('endSub'),
+    endGrade: DOC.getElementById('endGrade'),
+    endScore: DOC.getElementById('endScore'),
+    endOk: DOC.getElementById('endOk'),
+    endWrong: DOC.getElementById('endWrong'),
+    btnCopy: DOC.getElementById('btnCopy'),
+    btnReplay: DOC.getElementById('btnReplay'),
+    btnNextCooldown: DOC.getElementById('btnNextCooldown'),
+    btnBackHub2: DOC.getElementById('btnBackHub2')
   };
 
-  // -----------------------
-  // tuning (base)
-  // -----------------------
+  if(ui.proTag) ui.proTag.textContent = PRO ? 'ON' : 'OFF';
+
+  // ---------------------------
+  // fixed Thai 5 food groups (ตามที่ล็อกไว้)
+  // หมู่ 1 โปรตีน, 2 คาร์โบไฮเดรต, 3 ผัก, 4 ผลไม้, 5 ไขมัน
+  // ---------------------------
+  const GROUPS = [
+    { id:1, key:'g1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
+    { id:2, key:'g2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
+    { id:3, key:'g3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
+    { id:4, key:'g4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, key:'g5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
+  ];
+  const groupByEmoji = new Map();
+  for(const g of GROUPS) for(const e of g.items) groupByEmoji.set(e, g);
+
+  // ---------------------------
+  // tuning (fair)
+  // ---------------------------
   const TUNE = (function(){
-    // “เดือดแบบแฟร์” สำหรับ ป.5 (C1) — ไม่ทำให้ท้อ
-    let spawnRate = 1.05;     // targets per second baseline
-    let ttl = 2.7;            // seconds
-    let missLimit = 18;
-    let stormEvery = 7.0;     // boss lightning interval sec (boss stage)
-    let stormDmg = 1;         // missStorm increment per hit
+    // base: classroom fun, not punishing
+    let spawnPerSec = 1.05;
+    let ttl = 2.85;            // seconds
+    let wrongRatio = 0.22;     // decoy share in warm/trick
+    let shieldRate = 0.035;    // chance of spawning shield
+    let missLimit = 18;        // for play
+    if(diff==='easy'){ spawnPerSec=0.95; ttl=3.10; wrongRatio=0.18; shieldRate=0.045; missLimit=22; }
+    if(diff==='hard'){ spawnPerSec=1.15; ttl=2.60; wrongRatio=0.26; shieldRate=0.030; missLimit=14; }
+    if(view==='cvr'||view==='vr'){ ttl += 0.20; } // VR aim needs a bit more time
 
-    if(diff==='easy'){ spawnRate=0.85; ttl=3.1; missLimit=22; stormEvery=8.0; }
-    if(diff==='hard'){ spawnRate=1.25; ttl=2.35; missLimit=14; stormEvery=6.0; }
+    if(PRO){
+      // harder but fair: faster + more decoys, but also slightly more shield
+      spawnPerSec *= 1.18;
+      ttl = Math.max(2.10, ttl - 0.30);
+      wrongRatio = Math.min(0.34, wrongRatio + 0.06);
+      shieldRate = Math.min(0.055, shieldRate + 0.010);
+      missLimit = Math.max(10, missLimit - 3);
+    }
 
-    // VR/cVR gets tiny grace on ttl
-    if(view==='cvr' || view==='vr'){ ttl += 0.15; }
+    // research: keep stable but not too punishing
+    if(runMode==='research'){
+      spawnPerSec = Math.min(spawnPerSec, 1.10);
+    }
 
-    return { spawnRate, ttl, missLimit, stormEvery, stormDmg };
+    return { spawnPerSec, ttl, wrongRatio, shieldRate, missLimit };
   })();
 
-  // adaptive difficulty (play only)
-  const ADAPT = {
-    enabled: (!IS_RESEARCH),
-    windowSec: 8,
-    lastAdjustMs: 0,
-    // bounds
-    spawnMin: 0.80, spawnMax: 1.55,
-    ttlMin: 2.1, ttlMax: 3.3
-  };
-
-  // -----------------------
+  // ---------------------------
   // state
-  // -----------------------
+  // ---------------------------
   const startTimeIso = nowIso();
-  let playing = true;
-  let paused = false;
-  let tLeft = plannedSec;
-  let lastTick = nowMs();
 
-  // Stage flow: Warm → Trick → Boss
-  // Stage thresholds by time ratio (simple & stable)
-  let stage = 1; // 1 warm, 2 trick, 3 boss
-  const stageAt = (ratio)=>{
-    if(ratio < 0.34) return 1;
-    if(ratio < 0.72) return 2;
-    return 3;
-  };
+  let playing=true;
+  let paused=false;
+  let tLeft=plannedSec;
+  let lastTick=nowMs();
 
-  // Score & metrics
-  let score = 0;
-  let combo = 0;
-  let comboMax = 0;
+  // pause hook (like other games)
+  WIN.__PLATE_SET_PAUSED__ = (on)=>{ paused=!!on; lastTick=nowMs(); };
 
-  let ok = 0;
-  let wrong = 0;
+  // score/miss
+  let score=0;
+  let combo=0, comboMax=0;
+  let ok=0, wrong=0;
+  let missExpire=0;
+  let missWrong=0;
+  let shield=0;
+  let fever=0; // 0..100
 
-  // FAIR MISS breakdown
-  let missClick = 0;
-  let missExpire = 0;
-  let missStorm = 0;
-  let missTotal = 0;
+  // plate counts for boss/win
+  const plateCount = { g1:0,g2:0,g3:0,g4:0,g5:0 };
 
-  // Reaction time sample (GOOD only)
-  const rtGood = [];
-  let shots = 0;
-  let hitsGood = 0;
-  let hitsWrong = 0;
+  // mission flow
+  let phase='warm'; // warm -> trick -> boss
+  let phaseNeed=10; // progress goal for warm/trick
+  let phaseProg=0;
 
-  // Plate progress: 5 groups collected at least once
-  const have = { g1:0, g2:0, g3:0, g4:0, g5:0 };
-  const haveSet = ()=> Object.values(have).filter(v=>v>0).length;
-
-  // Mission target group (current focus)
+  // current target group (warm/trick)
   let targetGroup = pick(GROUPS);
-  let targetSwitchEvery = (diff==='hard') ? 4 : 5; // in trick, faster switching
 
-  // Fever & Shield
-  let fever = 0;       // 0..100
-  let shield = 0;      // integer
-  let stormTimer = 0;  // sec
+  // entities
+  const ents = new Map();
+  let idSeq=1;
 
-  // coach rate-limit
-  let lastCoachMs = 0;
-  let lastExplainMs = 0;
+  // ---------------------------
+  // HUD-safe spawn rectangle
+  // ---------------------------
+  function rectOf(el){
+    try{ return el ? el.getBoundingClientRect() : null; }catch(_){ return null; }
+  }
+  function intersect(a,b){
+    if(!a||!b) return false;
+    return !(a.right<b.left || a.left>b.right || a.bottom<b.top || a.top>b.bottom);
+  }
 
-  // Targets map
-  const targets = new Map();
-  let idSeq = 1;
-
-  // pause hook for run page
-  WIN.__PLATE_SET_PAUSED__ = (on)=>{ paused = !!on; lastTick = nowMs(); };
-
-  // -----------------------
-  // safe spawn rect (avoid HUD)
-  // -----------------------
-  function getSafeRect(){
-    const r = mount.getBoundingClientRect();
+  function safeSpawnRect(){
+    const r = layer.getBoundingClientRect();
+    // base padding
     const pad = (view==='mobile') ? 16 : 18;
-
-    // default safe area
     let left = r.left + pad;
-    let right = r.right - pad;
-    let top = r.top + pad;
+    let right= r.right - pad;
+    let top  = r.top + pad;
     let bottom = r.bottom - pad;
 
-    // avoid top HUD (and a bit extra)
-    try{
-      const ht = hudTopEl?.getBoundingClientRect?.();
-      if(ht && ht.width>10 && ht.height>10){
-        top = Math.max(top, ht.bottom + 10);
-      }
-    }catch(_){}
+    // avoid HUD top + bottom areas if exist
+    const hudTop = DOC.getElementById('hudTop');
+    const hudBottom = DOC.getElementById('hudBottom');
+    const rt = rectOf(hudTop);
+    const rb = rectOf(hudBottom);
 
-    // avoid bottom HUD/controls
-    try{
-      const hb = hudBottomEl?.getBoundingClientRect?.();
-      if(hb && hb.width>10 && hb.height>10){
-        bottom = Math.min(bottom, hb.top - 10);
-      }
-    }catch(_){}
-
-    // ensure sane
-    if(right - left < 120){
-      left = r.left + 10;
-      right = r.right - 10;
+    // if HUD overlaps layer area, carve it out by moving safe top/bottom
+    if(rt && intersect(r, rt)){
+      top = Math.max(top, rt.bottom + 10);
     }
-    if(bottom - top < 160){
-      top = r.top + 90;
-      bottom = r.bottom - 90;
+    if(rb && intersect(r, rb)){
+      bottom = Math.min(bottom, rb.top - 10);
     }
 
-    return { left, right, top, bottom };
+    // guarantee usable
+    if(bottom - top < 140){
+      // fallback: just ensure not negative; allow spawn but keep higher center
+      top = r.top + pad + 70;
+      bottom = r.bottom - pad - 40;
+    }
+
+    return { left, right, top, bottom, width: Math.max(1, right-left), height: Math.max(1, bottom-top) };
   }
 
-  function pickXY(){
-    const s = getSafeRect();
-    const x = s.left + r01()*Math.max(1, (s.right - s.left));
-    const y = s.top  + r01()*Math.max(1, (s.bottom - s.top));
-    return { x, y };
+  // ---------------------------
+  // FX helpers
+  // ---------------------------
+  function banner(text){
+    const el = DOC.createElement('div');
+    el.className='phaseBanner';
+    el.textContent = text;
+    DOC.body.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 1100);
+  }
+  function popText(text, x, y){
+    const el = DOC.createElement('div');
+    el.className='popScore';
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+    DOC.body.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 650);
+  }
+  function coachSay(msg, mood='neutral'){
+    if(ui.coachMsg) ui.coachMsg.textContent = msg;
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ msg, mood } }));
+      // (Groups run page listens "text", but Plate uses "msg" — so also emit "text")
+      WIN.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text: msg, mood } }));
+    }catch(_){}
   }
 
-  // -----------------------
-  // grade + accuracy + median RT
-  // -----------------------
-  function median(arr){
-    const a = arr.slice().filter(n=>Number.isFinite(n)).sort((x,y)=>x-y);
-    if(!a.length) return null;
-    const mid = (a.length/2)|0;
-    return (a.length%2) ? a[mid] : (a[mid-1]+a[mid])/2;
+  function fxHit(el){
+    if(!el) return;
+    el.style.transform = 'translate(-50%,-50%) scale(1.12)';
+    el.style.boxShadow = '0 0 24px rgba(34,197,94,.75)';
+    setTimeout(()=>{ el.style.transform='translate(-50%,-50%)'; el.style.boxShadow=''; }, 120);
+  }
+  function fxWrong(el){
+    if(!el) return;
+    el.style.animation = 'shake .25s';
+    el.style.borderColor = 'rgba(239,68,68,.8)';
+    setTimeout(()=>{ el.style.animation=''; el.style.borderColor=''; }, 250);
+  }
+  function fxExpire(el){
+    if(!el) return;
+    el.classList.add('expire');
   }
 
-  function accuracyGoodPct(){
-    const denom = Math.max(1, shots);
-    return Math.round((hitsGood/denom)*100);
+  // inject shake keyframes once
+  (function ensureShake(){
+    if(DOC.getElementById('__plate_shake_css__')) return;
+    const s=DOC.createElement('style');
+    s.id='__plate_shake_css__';
+    s.textContent = `
+      @keyframes shake{
+        0%{transform:translate(-50%,-50%) translateX(0)}
+        25%{transform:translate(-50%,-50%) translateX(-4px)}
+        50%{transform:translate(-50%,-50%) translateX(4px)}
+        75%{transform:translate(-50%,-50%) translateX(-3px)}
+        100%{transform:translate(-50%,-50%) translateX(0)}
+      }
+    `;
+    DOC.head.appendChild(s);
+  })();
+
+  // ---------------------------
+  // grade / accuracy / fever
+  // ---------------------------
+  function missTotal(){ return (missExpire + missWrong); }
+
+  function accuracyPct(){
+    const shots = ok + wrong;
+    if(shots <= 0) return 0;
+    return Math.round((ok / shots) * 100);
   }
 
   function gradeFrom(){
-    // stable & kid-friendly:
-    // base on: score pace + accuracy - misses
-    const played = Math.max(1, plannedSec - tLeft);
-    const pace = (score / played); // points per sec
-    const acc = accuracyGoodPct();
-    const penalty = (missTotal * 1.2) + (hitsWrong * 0.6);
-
-    const x = (pace*20) + (acc*0.65) - penalty;
-    if(x>=120) return 'S';
-    if(x>=95) return 'A';
-    if(x>=72) return 'B';
-    if(x>=52) return 'C';
+    const acc = accuracyPct();
+    const m = missTotal();
+    const base = score;
+    // fair for P.5: emphasis on correctness + low miss
+    const x = (base * 0.10) + (acc * 0.85) - (m * 1.2);
+    if(x >= 92) return 'S';
+    if(x >= 78) return 'A';
+    if(x >= 62) return 'B';
+    if(x >= 45) return 'C';
     return 'D';
   }
 
-  // -----------------------
-  // UI render
-  // -----------------------
-  function setText(el, v){ try{ if(el) el.textContent = String(v); }catch(_){} }
-  function setWidth(el, pct){ try{ if(el) el.style.width = `${clamp(pct,0,100)}%`; }catch(_){} }
+  function setHUD(){
+    if(ui.score) ui.score.textContent = String(score|0);
+    if(ui.combo) ui.combo.textContent = String(combo|0);
+    if(ui.comboMax) ui.comboMax.textContent = String(comboMax|0);
+    if(ui.miss) ui.miss.textContent = String(missTotal()|0);
+    if(ui.time) ui.time.textContent = String(Math.ceil(tLeft));
+    if(ui.acc) ui.acc.textContent = `${accuracyPct()}%`;
+    if(ui.grade) ui.grade.textContent = gradeFrom();
+    if(ui.shield) ui.shield.textContent = String(shield|0);
 
-  function updateHUD(){
-    setText(UI.score, score|0);
-    setText(UI.combo, combo|0);
-    setText(UI.comboMax, comboMax|0);
+    // plate have (unique groups with >=1)
+    let have=0;
+    for(const k of ['g1','g2','g3','g4','g5']) if((plateCount[k]||0)>0) have++;
+    if(ui.plateHave) ui.plateHave.textContent = String(have);
+    if(ui.g1) ui.g1.textContent = String(plateCount.g1|0);
+    if(ui.g2) ui.g2.textContent = String(plateCount.g2|0);
+    if(ui.g3) ui.g3.textContent = String(plateCount.g3|0);
+    if(ui.g4) ui.g4.textContent = String(plateCount.g4|0);
+    if(ui.g5) ui.g5.textContent = String(plateCount.g5|0);
 
-    setText(UI.miss, missTotal|0);
-    setText(UI.missBreak, `miss: click ${missClick|0} / expire ${missExpire|0} / storm ${missStorm|0}`);
+    if(ui.phase) ui.phase.textContent = String(phase||'warm').toUpperCase();
+    if(ui.phaseProg) ui.phaseProg.textContent = `${phaseProg|0}/${phaseNeed|0}`;
 
-    setText(UI.plateHave, `${haveSet()}`);
-    setText(UI.acc, `${accuracyGoodPct()}%`);
-    setText(UI.grade, gradeFrom());
+    // progress bar for phase
+    const pct = Math.round((phaseProg / Math.max(1, phaseNeed)) * 100);
+    if(ui.goalFill) ui.goalFill.style.width = `${clamp(pct,0,100)}%`;
 
-    const goalNow = haveSet();
-    const goalTot = 5;
-    setText(UI.goalCount, `${goalNow}/${goalTot}`);
-    setWidth(UI.goalFill, Math.round((goalNow/goalTot)*100));
-
-    setText(UI.time, Math.ceil(tLeft));
-    setText(UI.shield, shield|0);
-    setText(UI.fever, `${Math.round(clamp(fever,0,100))}%`);
-    setWidth(UI.feverFill, Math.round(clamp(fever,0,100)));
-
-    const st = (stage===1) ? 'WARM' : (stage===2) ? 'TRICK' : 'BOSS';
-    const tgt = `${st}: ${targetGroup?.name || '—'} (เก็บให้ถูก!)`;
-    setText(UI.targetText, tgt);
-
-    // events for “other HUDs” (standard-ish)
-    emit('hha:time', { left: Math.ceil(tLeft) });
-    emit('hha:rank', { grade: gradeFrom() });
-    emit('hha:score', {
-      score, combo, comboMax,
-      miss: missTotal, misses: missTotal,
-      missClick, missExpire, missStorm,
-      ok, wrong,
-      accuracyGoodPct: accuracyGoodPct(),
-      feverPct: Math.round(clamp(fever,0,100)),
-      shield
-    });
-    emit('quest:update', {
-      goalTitle: 'เติมจานให้ครบ 5 หมู่',
-      goalNow: haveSet(),
-      goalTotal: 5,
-      miniTitle: (stage===1?'Warm-up':'Challenge'),
-      miniNow: ok,
-      miniTotal: ok + wrong + missExpire,
-      miniTimeLeftSec: Math.ceil(tLeft),
-      groupName: targetGroup?.name || '—'
-    });
-  }
-
-  function coach(msg, mood='neutral', force=false){
-    const t = nowMs();
-    if(!force && (t - lastCoachMs) < 1400) return;
-    lastCoachMs = t;
-    setText(UI.coachMsg, msg);
-    emit('hha:coach', { msg, mood });
-  }
-
-  // explainable AI (top2 factors)
-  function buildExplainTop2(){
-    // factors from last window-ish snapshot
-    const denom = Math.max(1, shots);
-    const wrongRate = hitsWrong/denom;
-    const expireRate = missExpire/Math.max(1, (ok+wrong+missExpire));
-    const stormRate = missStorm/Math.max(1, (stage===3 ? 1 : 3));
-
-    // “confidence” heuristics (0..1)
-    const f = [
-      { k:'ยิงผิดหมู่', v: wrongRate },
-      { k:'ปล่อยให้หมดเวลา', v: expireRate },
-      { k:'ตอนบอสโดนฟ้าผ่า', v: stormRate }
-    ].sort((a,b)=>b.v-a.v);
-
-    const top = f.slice(0,2).filter(x=>x.v>0.10);
-    if(!top.length){
-      return { text:'ฟอร์มดี! ต่อไป: เก็บให้ครบ 5 หมู่เร็วขึ้น', top2: [] };
+    if(ui.targetText){
+      if(phase==='boss'){
+        ui.targetText.textContent = `BOSS: เติมให้ครบ 5 หมู่ (อย่างน้อย 2 ต่อหมู่)`;
+      }else{
+        ui.targetText.textContent = `ยิง “${targetGroup.name}”`;
+      }
     }
-    const text = `เสี่ยงเพราะ ${top.map(x=>x.k).join(' + ')}`;
-    return { text, top2: top };
+
+    // fever
+    if(ui.fever) ui.fever.textContent = `${Math.round(clamp(fever,0,100))}%`;
+    if(ui.feverFill) ui.feverFill.style.width = `${Math.round(clamp(fever,0,100))}%`;
+
+    // broadcast minimal score event
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:score', { detail:{
+        score, combo, comboMax,
+        miss: missTotal(),
+        misses: missTotal(),
+        accPct: accuracyPct(),
+        feverPct: Math.round(clamp(fever,0,100)),
+        shield
+      }}));
+    }catch(_){}
   }
 
-  function pushAIExplain(){
-    const t = nowMs();
-    if((t - lastExplainMs) < 2200) return;
-    lastExplainMs = t;
-
-    const ex = buildExplainTop2();
-    if(UI.aiExplain) UI.aiExplain.textContent = 'AI: ' + ex.text;
-    emit('plate:ai_explain', { text: ex.text, top2: ex.top2 });
-
-    // coach uses explainable line occasionally
-    if(ex.top2 && ex.top2.length){
-      coach(`AI บอกว่า: ${ex.text}`, 'neutral');
-    }
-  }
-
-  // -----------------------
-  // targets
-  // -----------------------
+  // ---------------------------
+  // entity spawn
+  // ---------------------------
   function makeTarget(kind, emoji, ttlSec){
     const id = String(idSeq++);
     const el = DOC.createElement('div');
@@ -414,170 +384,238 @@ export function boot(cfg){
     el.dataset.kind = kind;
     el.textContent = emoji;
 
-    const p = pickXY();
-    el.style.left = `${p.x}px`;
-    el.style.top = `${p.y}px`;
+    const sr = safeSpawnRect();
+    const x = sr.left + r01()*sr.width;
+    const y = sr.top  + r01()*sr.height;
 
-    mount.appendChild(el);
+    // place relative to viewport (absolute in page)
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+
+    layer.appendChild(el);
 
     const born = nowMs();
-    const ttl = Math.max(0.8, ttlSec) * 1000;
-    const obj = { id, el, kind, emoji, born, ttl, promptMs: nowMs() };
-    targets.set(id, obj);
+    const ttl = Math.max(1.0, ttlSec) * 1000;
+    const obj = { id, el, kind, emoji, born, ttl };
+    ents.set(id, obj);
 
-    try{ AI?.onSpawn?.(kind, { id, emoji, ttlSec }); }catch(_){}
+    try{ cfg.ai?.onSpawn?.(kind, { id, emoji, ttlSec, phase, diff, pro: PRO?1:0 }); }catch(_){}
     return obj;
   }
 
   function removeTarget(id){
-    const t = targets.get(String(id));
-    if(!t) return;
-    targets.delete(String(id));
-    try{ t.el.remove(); }catch(_){}
+    const o = ents.get(String(id));
+    if(!o) return;
+    ents.delete(String(id));
+    try{ o.el.remove(); }catch(_){}
   }
 
-  function isCorrectFoodForGroup(emoji, group){
-    return (group?.items || []).includes(emoji);
-  }
+  // ---------------------------
+  // mission logic
+  // ---------------------------
+  function setPhase(p){
+    phase = p;
+    phaseProg = 0;
 
-  function groupKeyOfEmoji(emoji){
-    for(const g of GROUPS){
-      if(g.items.includes(emoji)) return g.key;
+    if(phase==='warm'){
+      phaseNeed = PRO ? 12 : 10;
+      targetGroup = pick(GROUPS);
+      banner('WARM UP 🔥');
+      coachSay('WARM: ยิงให้ถูกหมู่ เป้าชัด ๆ เก็บคอมโบ!', 'happy');
     }
-    return null;
+    if(phase==='trick'){
+      phaseNeed = PRO ? 18 : 16;
+      targetGroup = pick(GROUPS);
+      banner('TRICK MODE ⚡');
+      coachSay('TRICK: สลับหมู่ไว + มีหลอก! อย่าหลุดคอมโบ', 'neutral');
+    }
+    if(phase==='boss'){
+      phaseNeed = 10; // not used; boss uses plate completion
+      banner('BOSS PLATE 👑');
+      coachSay('BOSS: เติมจานให้ “ครบ 5 หมู่” ให้สมดุล!', 'fever');
+    }
   }
 
-  function addHaveByEmoji(emoji){
-    const k = groupKeyOfEmoji(emoji);
-    if(k && have[k]!=null) have[k] += 1;
+  function bossCleared(){
+    // boss requirement: each group >=2 (PRO: >=3) — fair but challenging
+    const need = PRO ? 3 : 2;
+    return ['g1','g2','g3','g4','g5'].every(k => (plateCount[k]||0) >= need);
   }
 
-  function hitFX(el){
-    try{
-      el.classList.add('hit');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 90);
-    }catch(_){}
-  }
-
-  function awardFever(delta){
-    fever = clamp(fever + delta, 0, 100);
-  }
-
-  function onHitTarget(obj){
-    shots++;
-
-    const kind = obj.kind;
-    const emoji = obj.emoji;
-
-    // compute RT only for correct food hits
-    const rt = nowMs() - (obj.promptMs || obj.born);
-
-    if(kind === 'shield'){
-      shield = Math.min(9, shield + 1);
-      score += 10;
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-      awardFever(6);
-      hitsGood++;
-      hitFX(obj.el);
-      removeTarget(obj.id);
-      coach('🛡️ ได้โล่! กันฟ้าผ่าได้ 1 ครั้ง', 'happy');
-      try{ AI?.onHit?.('shield', { id: obj.id }); }catch(_){}
+  function maybeAdvance(){
+    if(phase==='warm' && phaseProg >= phaseNeed){
+      setPhase('trick');
       return;
     }
-
-    if(kind === 'fever'){
-      // fever orb
-      score += 8;
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-      awardFever(14);
-      hitsGood++;
-      hitFX(obj.el);
-      removeTarget(obj.id);
-      coach('⚡ Fever เพิ่ม! ยิงต่อเนื่องจะได้แต้มพุ่ง', 'happy');
-      try{ AI?.onHit?.('fever', { id: obj.id }); }catch(_){}
+    if(phase==='trick' && phaseProg >= phaseNeed){
+      setPhase('boss');
       return;
     }
-
-    // kind === food (default)
-    const correct = isCorrectFoodForGroup(emoji, targetGroup);
-
-    if(correct){
-      ok++;
-      hitsGood++;
-      rtGood.push(rt);
-
-      combo++;
-      comboMax = Math.max(comboMax, combo);
-
-      // scoring with fever multiplier
-      const mult = 1 + (clamp(fever,0,100)/100)*0.6;
-      const add = Math.round((12 + Math.min(12, combo)) * mult);
-      score += add;
-
-      awardFever(4);
-
-      addHaveByEmoji(emoji);
-
-      // stage-based target switching
-      if(stage===1){
-        // warm: switch slower
-        if(ok % 7 === 0) targetGroup = pick(GROUPS);
-      }else if(stage===2){
-        // trick: switch faster
-        if(ok % targetSwitchEvery === 0) targetGroup = pick(GROUPS);
-      }else{
-        // boss: prefer missing groups
-        targetGroup = pickBossTargetGroup();
+    if(phase==='boss'){
+      if(bossCleared()){
+        showEnd('boss-clear');
       }
-
-      coach(`✅ ดีมาก! เก็บ ${emoji} ตรงหมู่`, (fever>=70?'fever':'happy'));
-      try{ AI?.onHit?.('food_ok', { id: obj.id, emoji, rtMs: rt }); }catch(_){}
-    }else{
-      wrong++;
-      hitsWrong++;
-
-      // FAIR MISS: click wrong counts as missClick
-      missClick++;
-      missTotal++;
-
-      combo = 0;
-      score = Math.max(0, score - 8);
-
-      awardFever(-8);
-
-      coach(`❌ อันนี้ไม่ใช่หมู่เป้าหมาย! ลองหาใน “${targetGroup.name}”`, 'sad');
-      try{ AI?.onHit?.('food_wrong', { id: obj.id, emoji }); }catch(_){}
     }
-
-    hitFX(obj.el);
-    removeTarget(obj.id);
   }
 
-  // pointer hit (PC/Mobile). In strict cVR, DOM targets may be disabled by run page CSS.
-  mount.addEventListener('pointerdown', (ev)=>{
+  // ---------------------------
+  // hit logic + explainable coach
+  // ---------------------------
+  const stats = {
+    wrongHit:0,
+    expireGood:0,
+    expireShield:0,
+    tooSlow:0,
+    confuse:0
+  };
+
+  function explainTop2(){
+    // “เหตุผล” แบบ explainable (top 2)
+    const arr = [
+      { k:'เล็งช้า (เป้าหมดเวลา)', v: stats.expireGood },
+      { k:'สับสนหมู่ (ยิงผิด)', v: stats.wrongHit },
+      { k:'พลาดจังหวะ (คอมโบหลุด)', v: Math.max(0, (comboMax>=6 ? (comboMax - combo) : 0)) }
+    ].sort((a,b)=>b.v-a.v);
+    return arr.filter(x=>x.v>0).slice(0,2).map(x=>x.k);
+  }
+
+  function onCorrectHit(ent, cx, cy){
+    ok++;
+    combo++;
+    comboMax = Math.max(comboMax, combo);
+
+    // fever (combo raises it)
+    fever = clamp(fever + (combo>=6 ? 3.2 : 2.0), 0, 100);
+
+    const base = 12;
+    const add = base + Math.min(12, combo);
+    score += add;
+
+    fxHit(ent.el);
+    popText(`+${add}`, cx, cy);
+
+    // track plate
+    const g = groupByEmoji.get(ent.emoji);
+    if(g) plateCount[g.key] = (plateCount[g.key]||0) + 1;
+
+    // warm/trick progress counts only when hitting current target group (learning intent)
+    if(phase!=='boss'){
+      if(groupByEmoji.get(ent.emoji)?.id === targetGroup.id){
+        phaseProg++;
+        // rotate target group every 5 correct in trick for Analyze
+        if(phase==='trick' && (phaseProg % 5 === 0)){
+          targetGroup = pick(GROUPS.filter(x=>x.id!==targetGroup.id));
+          coachSay(`สลับหมู่! ต่อไปยิง “${targetGroup.name}”`, 'neutral');
+        }
+      }else{
+        // correct food but not current mission group in warm/trick: small reward, no progress
+        score = Math.max(0, score - 2);
+        coachSay('ถูกอาหาร แต่ “ไม่ใช่หมู่เป้าหมาย” ลองดูภารกิจ 👀', 'neutral');
+      }
+    }else{
+      // boss: any correct contributes
+      phaseProg++;
+    }
+
+    try{ cfg.ai?.onHit?.('food_ok', { id: ent.id, phase, combo, score }); }catch(_){}
+    removeTarget(ent.id);
+
+    maybeAdvance();
+  }
+
+  function applyShieldIfAny(){
+    if(shield > 0){
+      shield--;
+      fever = clamp(fever + 8, 0, 100);
+      coachSay('🛡️ Shield ช่วยกันพลาด 1 ครั้ง!', 'happy');
+      return true;
+    }
+    return false;
+  }
+
+  function onWrongHit(ent, cx, cy){
+    wrong++;
+    stats.wrongHit++;
+    missWrong++;
+
+    if(applyShieldIfAny()){
+      // shield absorbs penalty (still counts as wrong, but no extra score loss)
+      fxWrong(ent.el);
+      popText('🛡️ BLOCK', cx, cy);
+    }else{
+      combo = 0;
+      fever = clamp(fever - 10, 0, 100);
+      score = Math.max(0, score - (PRO ? 10 : 8));
+      fxWrong(ent.el);
+      popText('−', cx, cy);
+    }
+
+    try{ cfg.ai?.onHit?.('food_wrong', { id: ent.id, phase, combo, score }); }catch(_){}
+    removeTarget(ent.id);
+
+    // coach gentle but clear
+    if(wrong % 4 === 0){
+      const top2 = explainTop2();
+      coachSay(`ระวัง! เสี่ยงเพราะ: ${top2.length?top2.join(', '):'ยิงเร็วไป'}`, 'sad');
+    }
+
+    maybeAdvance();
+  }
+
+  function onShieldHit(ent, cx, cy){
+    shield = clamp(shield + 1, 0, 6);
+    score += 6;
+    fxHit(ent.el);
+    popText('+Shield', cx, cy);
+    try{ cfg.ai?.onHit?.('shield', { id: ent.id, shield }); }catch(_){}
+    removeTarget(ent.id);
+  }
+
+  function isCorrectForMission(ent){
+    if(ent.kind!=='food') return false;
+    const g = groupByEmoji.get(ent.emoji);
+    if(!g) return false;
+    if(phase==='boss') return true;
+    return (g.id === targetGroup.id);
+  }
+
+  function onHit(ent, cx, cy){
+    if(ent.kind==='shield'){
+      onShieldHit(ent, cx, cy);
+      return;
+    }
+
+    // food
+    const correct = isCorrectForMission(ent);
+    if(correct) onCorrectHit(ent, cx, cy);
+    else onWrongHit(ent, cx, cy);
+  }
+
+  // pointer hits (pc/mobile)
+  layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.plateTarget');
     if(!el) return;
     const id = el.dataset.id;
-    const obj = targets.get(String(id));
-    if(obj) onHitTarget(obj);
+    const ent = ents.get(String(id));
+    if(ent) onHit(ent, ev.clientX, ev.clientY);
   }, { passive:true });
 
-  // hha:shoot crosshair (VR/cVR)
+  // crosshair shoot (VR/cVR)
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 140);
     let best=null, bestD=1e9;
-    const r = mount.getBoundingClientRect();
+
+    const r = layer.getBoundingClientRect();
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
-    for(const obj of targets.values()){
-      const b = obj.el.getBoundingClientRect();
-      const ox = b.left + b.width/2;
-      const oy = b.top  + b.height/2;
-      const d = Math.hypot(ox-cx, oy-cy);
-      if(d < bestD){ bestD = d; best = obj; }
+
+    for(const ent of ents.values()){
+      const b = ent.el.getBoundingClientRect();
+      const ex = b.left + b.width/2;
+      const ey = b.top  + b.height/2;
+      const d = Math.hypot(ex-cx, ey-cy);
+      if(d < bestD){ bestD = d; best = ent; }
     }
     if(best && bestD <= lockPx) return best;
     return null;
@@ -585,78 +623,62 @@ export function boot(cfg){
 
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    const lockPx = ev?.detail?.lockPx ?? (view==='cvr'?22:56);
-    const obj = pickClosestToCenter(lockPx);
-    if(obj) onHitTarget(obj);
+    const lockPx = ev?.detail?.lockPx ?? 56;
+    const ent = pickClosestToCenter(lockPx);
+    if(ent){
+      const r = layer.getBoundingClientRect();
+      onHit(ent, r.left+r.width/2, r.top+r.height/2);
+    }
   });
 
-  // pause from page
-  WIN.addEventListener('hha:pause', ()=>{ paused=true; lastTick=nowMs(); }, { passive:true });
+  // pause events
+  WIN.addEventListener('hha:pause', ()=>{ paused=true; }, { passive:true });
   WIN.addEventListener('hha:resume', ()=>{ paused=false; lastTick=nowMs(); }, { passive:true });
 
-  // -----------------------
-  // Boss targeting: prefer missing groups
-  // -----------------------
-  function pickBossTargetGroup(){
-    const missing = GROUPS.filter(g => (have[g.key]||0) <= 0);
-    if(missing.length) return pick(missing);
-    // otherwise rotate
-    return pick(GROUPS);
-  }
+  // ---------------------------
+  // spawn scheduling
+  // ---------------------------
+  function nextFoodEmoji(isMission){
+    if(phase==='boss'){
+      // boss: biased toward missing groups (helpful but still challenging)
+      const need = PRO ? 3 : 2;
+      const lacks = GROUPS.filter(g => (plateCount[g.key]||0) < need);
+      const g = (lacks.length>0) ? pick(lacks) : pick(GROUPS);
+      return pick(g.items);
+    }
 
-  // -----------------------
-  // spawn logic
-  // -----------------------
-  let spawnAcc = 0;
+    if(isMission){
+      return pick(targetGroup.items);
+    }
+
+    // decoy from other groups
+    const others = GROUPS.filter(g=>g.id!==targetGroup.id);
+    return pick(pick(others).items);
+  }
 
   function spawnOne(){
-    // probabilities vary by stage
-    const baseTtl = TUNE.ttl;
-
-    // helper to spawn “correct vs wrong”
-    const spawnFood = (preferCorrect)=>{
-      let emoji = '🍚';
-      if(preferCorrect){
-        emoji = pick(targetGroup.items);
-      }else{
-        const others = GROUPS.filter(g=>g.id!==targetGroup.id);
-        emoji = pick(pick(others).items);
-      }
-      makeTarget('food', emoji, baseTtl);
-    };
-
-    if(stage===1){
-      // Warm: mostly correct + occasional wrong
-      const correct = (r01() < 0.72);
-      spawnFood(correct);
-      if(r01() < 0.08) makeTarget('fever', '⚡', baseTtl * 0.95);
+    // shield chance (higher in trick/boss a tiny bit)
+    const shieldChance = TUNE.shieldRate + (phase==='boss' ? 0.010 : (phase==='trick' ? 0.006 : 0));
+    if(r01() < shieldChance){
+      makeTarget('shield', '🛡️', Math.max(1.4, TUNE.ttl - 0.6));
       return;
     }
 
-    if(stage===2){
-      // Trick: more wrong + more fever
-      const correct = (r01() < 0.62);
-      spawnFood(correct);
-      if(r01() < 0.10) makeTarget('fever', '⚡', baseTtl * 0.90);
-      if(r01() < 0.12) makeTarget('shield', '🛡️', baseTtl * 0.95);
-      return;
-    }
+    // food
+    const wrongChance = (phase==='warm') ? TUNE.wrongRatio
+                      : (phase==='trick') ? Math.min(0.40, TUNE.wrongRatio + 0.08)
+                      : Math.min(0.32, TUNE.wrongRatio - 0.02);
 
-    // Boss stage: target missing groups + more shield
-    targetGroup = pickBossTargetGroup();
-    const correct = (r01() < 0.66);
-    spawnFood(correct);
-
-    if(r01() < 0.16) makeTarget('shield', '🛡️', baseTtl * 0.95);
-    if(r01() < 0.10) makeTarget('fever', '⚡', baseTtl * 0.90);
+    const mission = (r01() >= wrongChance);
+    const emoji = nextFoodEmoji(mission);
+    makeTarget('food', emoji, TUNE.ttl);
   }
 
+  let spawnAcc = 0;
   function spawnTick(dt){
-    // dynamic spawn
-    let rate = TUNE.spawnRate;
-
-    // fever makes slightly more spawn (fun), but fair
-    if(fever >= 60) rate *= 1.10;
+    const rate = (phase==='boss') ? (TUNE.spawnPerSec * (PRO ? 1.10 : 1.02))
+               : (phase==='trick') ? (TUNE.spawnPerSec * (PRO ? 1.06 : 1.00))
+               : TUNE.spawnPerSec;
 
     spawnAcc += rate * dt;
     while(spawnAcc >= 1){
@@ -667,476 +689,188 @@ export function boot(cfg){
 
   function updateExpire(){
     const t = nowMs();
-    for(const obj of Array.from(targets.values())){
-      if((t - obj.born) >= obj.ttl){
-        // expire: counts as missExpire for food only (not shield/fever)
-        if(obj.kind === 'food'){
+    for(const ent of Array.from(ents.values())){
+      const age = t - ent.born;
+      if(age >= ent.ttl){
+        // expire penalty only for food (shield expire = no miss)
+        if(ent.kind==='food'){
+          stats.expireGood++;
           missExpire++;
-          missTotal++;
-          wrong++;
-          combo = 0;
-          score = Math.max(0, score - 4);
-          awardFever(-4);
-          try{ AI?.onExpire?.('food', { id: obj.id, emoji: obj.emoji }); }catch(_){}
+
+          if(applyShieldIfAny()){
+            // shield blocks expire penalty once
+          }else{
+            combo = 0;
+            fever = clamp(fever - 8, 0, 100);
+            score = Math.max(0, score - (PRO ? 6 : 4));
+          }
+        }else{
+          stats.expireShield++;
         }
-        try{
-          obj.el.classList.add('expire');
-        }catch(_){}
-        removeTarget(obj.id);
+
+        try{ cfg.ai?.onExpire?.(ent.kind, { id:ent.id, phase }); }catch(_){}
+        fxExpire(ent.el);
+        removeTarget(ent.id);
       }
     }
   }
 
-  // -----------------------
-  // storm (boss only) — guarded doesn't count as miss (shield block)
-  // -----------------------
-  function stormTick(dt){
-    if(stage !== 3) return;
-
-    stormTimer += dt;
-    const interval = TUNE.stormEvery;
-
-    // visuals
-    try{ fxBossEl?.classList?.add('on'); }catch(_){}
-    try{ fxStormEl?.classList?.add('on'); }catch(_){}
-
-    if(stormTimer >= interval){
-      stormTimer = 0;
-
-      if(shield > 0){
-        // block: does NOT count as miss
-        shield = Math.max(0, shield - 1);
-        coach('🛡️ กันฟ้าผ่าได้! โล่ -1', 'happy', true);
-        try{ AI?.onHit?.('storm_block', { shield }); }catch(_){}
-      }else{
-        // hit storm: counts missStorm
-        missStorm += TUNE.stormDmg;
-        missTotal += TUNE.stormDmg;
-        combo = 0;
-        score = Math.max(0, score - 10);
-        awardFever(-10);
-        coach('⚡ ฟ้าผ่า! รีบหา 🛡️ เพื่อกันครั้งต่อไป', 'sad', true);
-        try{ AI?.onHit?.('storm_hit', { missStorm }); }catch(_){}
-      }
-    }
+  // ---------------------------
+  // end summary + events
+  // ---------------------------
+  const END_SENT_KEY='__HHA_PLATE_END_SENT__';
+  function dispatchEndOnce(summary){
+    try{
+      if(WIN[END_SENT_KEY]) return;
+      WIN[END_SENT_KEY]=1;
+      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: summary || null }));
+      WIN.dispatchEvent(new CustomEvent('hha:end', { detail: summary || null }));
+    }catch(_){}
   }
-
-  // -----------------------
-  // stage update
-  // -----------------------
-  function updateStage(){
-    const ratio = (plannedSec - tLeft) / Math.max(1, plannedSec);
-    const st = stageAt(ratio);
-    if(st !== stage){
-      stage = st;
-      if(stage===1){
-        try{ fxStormEl?.classList?.remove('on'); fxBossEl?.classList?.remove('on'); }catch(_){}
-        coach('WARM: เริ่มเบา ๆ ยิงให้ถูกหมู่เป้าหมาย 🥗', 'neutral', true);
-      }else if(stage===2){
-        coach('TRICK: สลับหมู่เร็วขึ้น! อย่ายิงมั่ว 🔥', 'neutral', true);
-      }else{
-        coach('BOSS: เก็บหมู่ที่ “ขาด” ให้ครบ! ฟ้าผ่าเริ่มแล้ว ⚡', 'fever', true);
-        // boss prefers missing groups immediately
-        targetGroup = pickBossTargetGroup();
-      }
-    }
-  }
-
-  // -----------------------
-  // adaptive difficulty (play only)
-  // -----------------------
-  function adaptTick(){
-    if(!ADAPT.enabled) return;
-    const t = nowMs();
-    if((t - ADAPT.lastAdjustMs) < (ADAPT.windowSec*1000)) return;
-    ADAPT.lastAdjustMs = t;
-
-    const acc = accuracyGoodPct();
-    // fair adjustments
-    if(acc >= 86 && missTotal <= 6){
-      TUNE.spawnRate = clamp(TUNE.spawnRate + 0.07, ADAPT.spawnMin, ADAPT.spawnMax);
-      TUNE.ttl = clamp(TUNE.ttl - 0.05, ADAPT.ttlMin, ADAPT.ttlMax);
-      coach('PRO UP! เป้าไวขึ้นนิดแบบแฟร์ 😈', 'happy');
-    }else if(acc <= 58 && missTotal >= 8){
-      TUNE.spawnRate = clamp(TUNE.spawnRate - 0.07, ADAPT.spawnMin, ADAPT.spawnMax);
-      TUNE.ttl = clamp(TUNE.ttl + 0.06, ADAPT.ttlMin, ADAPT.ttlMax);
-      coach('ผ่อนให้หน่อย! โฟกัส “หมู่เป้าหมาย” ก่อนนะ ✅', 'neutral');
-    }
-
-    pushAIExplain();
-  }
-
-  // -----------------------
-  // end conditions
-  // -----------------------
-  function checkEnd(){
-    if(tLeft <= 0) return 'time';
-    if(missTotal >= TUNE.missLimit) return 'miss-limit';
-    // if fill plate early -> keep playing but boost to boss quickly (fun)
-    if(haveSet() >= 5 && stage < 3){
-      stage = 3;
-      coach('ยอด! ครบ 5 หมู่แล้ว — เข้า BOSS ต่อเลย! 👹', 'happy', true);
-    }
-    return null;
-  }
-
-  // -----------------------
-  // Bloom flags
-  // -----------------------
-  const bloom = {
-    remember: true,
-    understand: true,
-    apply: true,
-    analyze: true,
-    evaluate: false,
-    create: false
-  };
-
-  // -----------------------
-  // Evaluate gate (Bloom 5)
-  // -----------------------
-  let evalState = {
-    shown:false,
-    startMs:0,
-    pick:null,
-    reason:null,
-    A:null,
-    B:null,
-    correct:null
-  };
-
-  function buildEvaluatePlates(){
-    // A: balanced-ish, B: unbalanced (or vice versa) deterministic by rng
-    // We make “correct plate” have all 5 groups, wrong misses 1 group + too many carbs/fat
-    const all5 = [
-      pick(GROUPS[0].items), // protein
-      pick(GROUPS[2].items), // veg
-      pick(GROUPS[3].items), // fruit
-      pick(GROUPS[1].items), // carb
-      pick(GROUPS[4].items), // fat
-    ];
-
-    const unbal = [
-      pick(GROUPS[1].items), pick(GROUPS[1].items), // carbs x2
-      pick(GROUPS[4].items), pick(GROUPS[4].items), // fats x2
-      pick(GROUPS[0].items), // protein only, missing veg/fruit
-    ];
-
-    const swap = (r01() < 0.5);
-    const A = swap ? all5 : unbal;
-    const B = swap ? unbal : all5;
-    const correct = swap ? 'A' : 'B';
-    return { A, B, correct };
-  }
-
-  function showEvaluate(){
-    if(evalState.shown) return;
-    evalState.shown = true;
-    evalState.startMs = nowMs();
-
-    const e = buildEvaluatePlates();
-    evalState.A = e.A;
-    evalState.B = e.B;
-    evalState.correct = e.correct;
-
-    emit('plate:eval_show', { A: e.A, B: e.B });
-    coach('EVALUATE: เลือกจานที่สมดุลกว่า แล้วเลือกเหตุผล 🧠', 'neutral', true);
-  }
-
-  function bindEvaluateEvents(){
-    const onPick = (ev)=>{
-      const p = ev?.detail?.pick;
-      if(p==='A' || p==='B') evalState.pick = p;
-    };
-    const onReason = (ev)=>{
-      const r = ev?.detail?.reason;
-      if(r) evalState.reason = String(r);
-    };
-    const onNext = ()=>{
-      // require reason to proceed
-      if(!evalState.reason) return;
-      bloom.evaluate = true;
-      emit('plate:eval_done', {
-        pick: evalState.pick,
-        reason: evalState.reason,
-        correct: evalState.correct,
-        decisionTimeMs: Math.max(0, nowMs()-evalState.startMs)
-      });
-      coach('ดี! ต่อไป CREATE จานของตัวเอง 🍽️', 'happy', true);
-      showCreate();
-    };
-
-    WIN.addEventListener('plate:eval_pick', onPick);
-    WIN.addEventListener('plate:eval_reason', onReason);
-    WIN.addEventListener('plate:eval_next', onNext);
-
-    // stash to remove later (optional)
-    evalState._unbind = ()=> {
-      WIN.removeEventListener('plate:eval_pick', onPick);
-      WIN.removeEventListener('plate:eval_reason', onReason);
-      WIN.removeEventListener('plate:eval_next', onNext);
-    };
-  }
-
-  // -----------------------
-  // Create mode (Bloom 6)
-  // -----------------------
-  let createState = {
-    shown:false,
-    startMs:0,
-    slots: [null,null,null,null,null], // 5 slots
-    attempts: 0,
-    pass: false,
-    finish: false
-  };
-
-  function rerollCreate(){
-    // fill each slot with random from groups, deterministic by rng
-    createState.slots = [
-      pick(GROUPS[0].items),
-      pick(GROUPS[1].items),
-      pick(GROUPS[2].items),
-      pick(GROUPS[3].items),
-      pick(GROUPS[4].items),
-    ];
-    emit('plate:create_update', { slots: createState.slots.slice() });
-  }
-
-  function cycleCreateSlot(idx){
-    idx = clamp(idx, 0, 4) | 0;
-
-    // rotate within the group assigned to slot index:
-    const g = GROUPS[idx];
-    const cur = createState.slots[idx];
-    const arr = g.items;
-    let i = arr.indexOf(cur);
-    i = (i<0) ? 0 : ((i+1) % arr.length);
-    createState.slots[idx] = arr[i];
-
-    emit('plate:create_update', { slots: createState.slots.slice() });
-  }
-
-  function checkCreate(){
-    createState.attempts++;
-
-    // constraints:
-    // - must represent all 5 groups (since slots are mapped to groups, this is always true if filled)
-    // - carb (slot 1) max 2 pieces: in this simplified design = always 1, so pass
-    // - fat (slot 4) max 2 pieces: always 1
-    // We'll add an extra “quality” rule: if player changes less than 1 time -> encourage more thinking
-    const changed = createState.attempts >= 1;
-
-    createState.pass = !!changed;
-
-    const text = createState.pass
-      ? '✅ ผ่าน! จานคุณครบ 5 หมู่และสมดุล 🎉'
-      : '❌ ยังไม่ผ่าน: ลองปรับอาหารในช่องก่อน';
-
-    emit('plate:create_result', { pass: createState.pass, text });
-    coach(createState.pass ? 'CREATE ผ่าน! เก่งมาก 🎉' : 'ลองแตะช่องเพื่อปรับจานอีกนิดนะ', createState.pass?'happy':'neutral', true);
-    return createState.pass;
-  }
-
-  function showCreate(){
-    if(createState.shown) return;
-    createState.shown = true;
-    createState.startMs = nowMs();
-
-    // init slots deterministic
-    rerollCreate();
-
-    emit('plate:create_show', { slots: createState.slots.slice() });
-  }
-
-  function bindCreateEvents(){
-    const onCycle = (ev)=>{
-      const idx = ev?.detail?.idx;
-      if(idx==null) return;
-      cycleCreateSlot(idx);
-    };
-    const onReroll = ()=> rerollCreate();
-    const onCheck = ()=> checkCreate();
-    const onFinish = ()=>{
-      // allow finish even if not pass, but bloom create true only if pass
-      createState.finish = true;
-      if(createState.pass) bloom.create = true;
-      finalizeEnd('post-bloom');
-    };
-
-    WIN.addEventListener('plate:create_cycle', onCycle);
-    WIN.addEventListener('plate:create_reroll', onReroll);
-    WIN.addEventListener('plate:create_check', onCheck);
-    WIN.addEventListener('plate:create_finish', onFinish);
-
-    createState._unbind = ()=>{
-      WIN.removeEventListener('plate:create_cycle', onCycle);
-      WIN.removeEventListener('plate:create_reroll', onReroll);
-      WIN.removeEventListener('plate:create_check', onCheck);
-      WIN.removeEventListener('plate:create_finish', onFinish);
-    };
-  }
-
-  // -----------------------
-  // end summary + finalize flow
-  // -----------------------
-  let ended = false;
-  let endReason = '';
-  let coreSummary = null;
 
   function buildSummary(reason){
-    const med = median(rtGood);
-    const acc = accuracyGoodPct();
-
-    return {
+    // “miss” ตามมาตรฐาน: expireGood + wrongHit
+    const summary = {
       projectTag: 'PlateVR',
-      gameVersion: 'PlateVR_SAFE_2026-03-04_BloomFull',
+      gameVersion: 'v20260304-PLATE-CLASSROOM-FX-MISSFIX-HUDSAFE-PRO',
       device: view,
       runMode,
       diff,
-      mode: MODE,
+      pro: PRO ? 1 : 0,
       seed: seedStr,
       pid,
       reason: String(reason||''),
-
       durationPlannedSec: plannedSec,
       durationPlayedSec: Math.round(plannedSec - tLeft),
 
       scoreFinal: score|0,
       comboMax: comboMax|0,
 
-      // counts
       ok: ok|0,
       wrong: wrong|0,
-
-      // FAIR MISS breakdown
-      missClick: missClick|0,
+      miss: missTotal()|0,
       missExpire: missExpire|0,
-      missStorm: missStorm|0,
-      missTotal: missTotal|0,
+      missWrong: missWrong|0,
 
-      // accuracy/rt
-      shots: shots|0,
-      hitsGood: hitsGood|0,
-      hitsWrong: hitsWrong|0,
-      accuracyGoodPct: acc,
-      medianRtGoodMs: (med==null?null:Math.round(med)),
+      accuracyPct: accuracyPct(),
+      grade: gradeFrom(),
 
-      // plate coverage
-      plateHaveCount: haveSet(),
-      plateHaveDetail: { ...have },
+      phaseEnd: phase,
+      phaseProg: phaseProg|0,
 
-      // powers
-      feverPct: Math.round(clamp(fever,0,100)),
       shield: shield|0,
+      feverPct: Math.round(clamp(fever,0,100)),
 
-      // bloom flags (finalized later)
-      bloom: { ...bloom },
-
-      // AI
-      aiPredictionLast: (function(){ try{ return AI?.getPrediction?.() || null; }catch(_){ return null; } })(),
-      aiExplainTop2: buildExplainTop2(),
+      plateCount: { ...plateCount },
 
       startTimeIso,
       endTimeIso: nowIso(),
-      grade: gradeFrom(),
+
+      aiPredictionLast: (function(){ try{ return cfg.ai?.getPrediction?.() || null; }catch(_){ return null; } })()
     };
+
+    // explainable reasons
+    const top2 = explainTop2();
+    summary.aiExplainTop2 = top2;
+    return summary;
   }
 
-  function dispatchCoreEndOnce(summary){
-    // standard-ish end event (for loggers)
-    try{ emit('hha:end', summary); }catch(_){}
-  }
+  function showEnd(reason){
+    playing=false;
+    paused=false;
 
-  function stopAllTargets(){
-    for(const obj of targets.values()){
-      try{ obj.el.remove(); }catch(_){}
-    }
-    targets.clear();
-  }
+    for(const ent of ents.values()){ try{ ent.el.remove(); }catch(_){} }
+    ents.clear();
 
-  function endGame(reason){
-    if(ended) return;
-    ended = true;
-    endReason = reason || 'end';
+    const summary = buildSummary(reason);
 
-    playing = false;
-    paused = false;
-
-    stopAllTargets();
-
-    coreSummary = buildSummary(endReason);
-
-    // AI end hook
+    // AI onEnd
     try{
-      const aiEnd = AI?.onEnd?.(coreSummary);
-      if(aiEnd) coreSummary.aiEnd = aiEnd;
+      const aiEnd = cfg.ai?.onEnd?.(summary);
+      if(aiEnd) summary.aiEnd = aiEnd;
     }catch(_){}
 
-    // bloom 1-4 achieved by playing stages (always true here)
-    coreSummary.bloom = { ...bloom };
+    WIN.__HHA_LAST_SUMMARY = summary;
+    dispatchEndOnce(summary);
 
-    // emit core end now (so logger can catch gameplay result)
-    dispatchCoreEndOnce(coreSummary);
-
-    // show evaluate/create flow (Bloom 5-6) unless research mode
-    if(IS_RESEARCH){
-      // research: do not force interactive gates, but still mark evaluate/create as false
-      finalizeEnd('research');
-      return;
+    // explainable coach (top2)
+    if(summary.aiExplainTop2 && summary.aiExplainTop2.length){
+      coachSay(`สรุป: เสี่ยงเพราะ ${summary.aiExplainTop2.join(', ')}`, 'neutral');
+    }else{
+      coachSay('สรุป: ดีมาก! ลอง PRO=1 เพิ่มความท้าทาย 🔥', 'happy');
     }
 
-    // play/classroom: run gates
-    showEvaluate();
+    if(ui.endOverlay){
+      ui.endOverlay.setAttribute('aria-hidden','false');
+      if(ui.endTitle) ui.endTitle.textContent = 'RESULT';
+      if(ui.endSub) ui.endSub.textContent =
+        `grade=${summary.grade} · acc=${summary.accuracyPct}% · miss=${summary.miss} · phase=${summary.phaseEnd} · pro=${summary.pro}`;
+
+      if(ui.endGrade) ui.endGrade.textContent = summary.grade || '—';
+      if(ui.endScore) ui.endScore.textContent = String(summary.scoreFinal|0);
+      if(ui.endOk) ui.endOk.textContent = String(summary.ok|0);
+      if(ui.endWrong) ui.endWrong.textContent = String(summary.wrong|0);
+
+      // buttons
+      if(ui.btnBackHub2) ui.btnBackHub2.onclick = ()=>{ location.href = hubUrl; };
+
+      if(ui.btnReplay) ui.btnReplay.onclick = ()=>{
+        try{
+          const u = new URL(location.href);
+          if(runMode!=='research'){
+            u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+          }
+          location.href = u.toString();
+        }catch(_){ location.reload(); }
+      };
+
+      if(ui.btnCopy) ui.btnCopy.onclick = async ()=>{
+        try{
+          const text = safeJson(summary);
+          await navigator.clipboard.writeText(text);
+        }catch(_){
+          try{ prompt('Copy Summary JSON:', safeJson(summary)); }catch(__){}
+        }
+      };
+
+      // cooldown button left as hidden by default (คุณจะผูก warmup-gate ทีหลังได้)
+      if(ui.btnNextCooldown){
+        ui.btnNextCooldown.classList.add('is-hidden');
+      }
+    }
   }
 
-  function finalizeEnd(reason){
-    const final = coreSummary ? { ...coreSummary } : buildSummary(reason||'final');
-
-    // attach eval/create results
-    final.eval = evalState.shown ? {
-      pick: evalState.pick,
-      reason: evalState.reason,
-      correct: evalState.correct,
-      decisionTimeMs: evalState.startMs ? Math.max(0, nowMs()-evalState.startMs) : null
-    } : null;
-
-    final.create = createState.shown ? {
-      slots: createState.slots.slice(),
-      attempts: createState.attempts|0,
-      pass: !!createState.pass,
-      finish: !!createState.finish,
-      timeMs: createState.startMs ? Math.max(0, nowMs()-createState.startMs) : null
-    } : null;
-
-    // finalize bloom flags
-    final.bloom = { ...bloom };
-    if(evalState.shown && evalState.reason) final.bloom.evaluate = true;
-    if(createState.shown && createState.pass) final.bloom.create = true;
-
-    // handy copy for debug
-    WIN.__HHA_LAST_SUMMARY = final;
-
-    // notify run page to show final overlay
-    emit('plate:final_end', final);
+  // ---------------------------
+  // game loop
+  // ---------------------------
+  function checkEnd(){
+    if(tLeft<=0){ showEnd('time'); return true; }
+    if(runMode!=='research' && missTotal() >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
+    if(phase==='boss' && bossCleared()){ showEnd('boss-clear'); return true; }
+    return false;
   }
 
-  // bind gates now
-  bindEvaluateEvents();
-  bindCreateEvents();
+  function aiTick(dt){
+    try{
+      const pred = cfg.ai?.onTick?.(dt, {
+        score, ok, wrong, miss: missTotal(), combo, shield, fever, phase
+      }) || null;
 
-  // Once evaluate is done, create shows from eval_next handler. But if user skips UI somehow:
-  // allow proceed on eval_next without pick too (reason required).
-  // (handled in bindEvaluateEvents)
+      // optional: micro coach based on prediction
+      if(pred && typeof pred.hazardRisk === 'number'){
+        if(pred.hazardRisk >= 0.82 && (missTotal()%3===0)){
+          coachSay('AI เตือน: ระวังพลาดติดกัน—หายใจลึก ๆ แล้วเล็งก่อนยิง', 'sad');
+        }
+      }
+    }catch(_){}
+  }
 
-  // -----------------------
-  // main loop
-  // -----------------------
   function tick(){
     if(!playing) return;
 
     if(paused){
       lastTick = nowMs();
-      updateHUD();
+      setHUD();
       requestAnimationFrame(tick);
       return;
     }
@@ -1147,54 +881,29 @@ export function boot(cfg){
 
     tLeft = Math.max(0, tLeft - dt);
 
-    updateStage();
+    // spawn + expire
     spawnTick(dt);
     updateExpire();
-    stormTick(dt);
 
-    // AI tick (prediction only)
-    try{
-      const pred = AI?.onTick?.(dt, { missTotal, missClick, missExpire, missStorm, ok, wrong, combo, fever, shield, stage }) || null;
-      // allow AI to influence only in play (optional). We keep prediction-only here.
-      if(pred && UI.aiExplain){
-        // show compact numeric risk if available
-        if(pred.hazardRisk != null){
-          const ex = buildExplainTop2();
-          UI.aiExplain.textContent = `AI: risk ${(Number(pred.hazardRisk)).toFixed(2)} · ${ex.text}`;
-          emit('plate:ai_explain', { text: `risk ${(Number(pred.hazardRisk)).toFixed(2)} · ${ex.text}` });
-        }
-      }
-    }catch(_){}
+    // fever decay
+    fever = clamp(fever - (phase==='boss' ? 0.9 : 0.75) * dt, 0, 100);
 
-    // adaptive (play only)
-    adaptTick();
+    // AI tick
+    aiTick(dt);
 
-    // periodic explain line (keeps coach “มีเหตุผล”)
-    if(r01() < 0.03) pushAIExplain();
-
-    updateHUD();
-
-    const end = checkEnd();
-    if(end){
-      endGame(end);
-      return;
-    }
-
+    setHUD();
+    if(checkEnd()) return;
     requestAnimationFrame(tick);
   }
 
-  // visibility -> end (like other games)
+  // background -> end (like your other games)
   DOC.addEventListener('visibilitychange', ()=>{
-    if(DOC.hidden && playing){
-      endGame('background');
-    }
+    if(DOC.hidden && playing){ showEnd('background'); }
   });
 
-  // start messages
-  coach('WARM: ยิงให้ถูกหมู่เป้าหมาย แล้วเติมจานให้ครบ 5 หมู่ 💪', 'neutral', true);
-
-  // set initial target
-  targetGroup = pick(GROUPS);
-  updateHUD();
+  // init
+  try{ WIN[END_SENT_KEY]=0; }catch(_){}
+  setPhase('warm');
+  setHUD();
   requestAnimationFrame(tick);
 }
