@@ -1,970 +1,481 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE — ABC + AI Prediction Events (NO adaptive)
-// PATCH v20260304-BRUSH-SAFE-ABC-AI-FULL
-// ✅ Stage A/B/C
-// ✅ Stage B: Evidence 3 types (🍬🌙🚫🪥) — MUST complete BEFORE entering C
-// ✅ Stage C: Quiz Analyze to finish (clean 100 + quiz done)
-// ✅ AI prediction-only: emits brush:ai {risk/miss_streak/combo_hot/stage/quiz/boss/time}
-// ✅ cVR aim assist + no double-shot
-// ✅ Stable menu/end/quiz (never auto-jump to quiz on start)
-(function(){
-  'use strict';
+// Brush SAFE — BLOOM PACK1 (Quiz + Zones + Residue/Risk + Heatmap)
+// FULL v20260304-BRUSH-SAFE-BLOOM1
+'use strict';
 
-  const WIN = window, DOC = document;
-  const $ = (s)=>DOC.querySelector(s);
+export function bootGame(){
+  const W = window, D = document;
 
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-  function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
-  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
+  const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
-  function emit(type, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(type, { detail })); }catch(_){}
-  }
+  const DIFF = String(qs('diff','normal')).toLowerCase();
+  const TIME = clamp(qs('time','80'), 30, 180);
+  const PID  = String(qs('pid','anon'));
+  const VIEW = String(qs('view','')).toLowerCase();
+  const IS_CVR = (VIEW === 'cvr');
 
-  function toast(msg){
-    const el = $('#toast');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=> el.classList.remove('show'), 1200);
-  }
+  // --- Bloom: zones (6) ---
+  const ZONES = [
+    { id:'U-OUT', label:'บน-นอก' },
+    { id:'U-IN',  label:'บน-ใน'  },
+    { id:'U-CH',  label:'บน-บด'  },
+    { id:'L-OUT', label:'ล่าง-นอก' },
+    { id:'L-IN',  label:'ล่าง-ใน'  },
+    { id:'L-CH',  label:'ล่าง-บด'  },
+  ];
 
-  function fatal(msg){
-    const el = $('#fatal');
-    if(!el){ alert(msg); return; }
-    el.textContent = msg;
-    el.classList.remove('br-hidden');
-  }
-  WIN.addEventListener('error', (e)=>{
-    fatal('JS ERROR:\n' + (e?.message||e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
-  });
-  WIN.addEventListener('unhandledrejection', (e)=>{
-    fatal('PROMISE REJECTION:\n' + (e?.reason?.message || e?.reason || e));
-  });
-
-  function getQS(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
-  function ymdLocal(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
-  }
-  function getViewAuto(){
-    const qs = getQS();
-    const v = (qs.get('view')||'').toLowerCase();
-    if(v) return v;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'cvr' : 'pc';
-  }
-  function seededRng(seed){
-    let t = (Number(seed)||Date.now()) >>> 0;
-    return function(){
-      t += 0x6D2B79F5;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  const wrap = $('#br-wrap');
-  const layer = $('#br-layer');
-  const menu = $('#br-menu');
-  const end  = $('#br-end');
-  const quiz = $('#br-quiz');
-
-  const btnStart = $('#btnStart');
-  const btnRetry = $('#btnRetry');
-  const btnPause = $('#btnPause');
-  const btnHow   = $('#btnHow');
-  const btnRecenter = $('#btnRecenter');
-
-  const btnQuizSubmit = $('#btnQuizSubmit');
-  const btnQuizSkip   = $('#btnQuizSkip');
-  const quizChoices   = $('#quizChoices');
-
-  const tStage = $('#tStage');
-  const tScore = $('#tScore');
-  const tCombo = $('#tCombo');
-  const tMiss  = $('#tMiss');
-  const tTime  = $('#tTime');
-
-  const tClean = $('#tClean');
-  const bClean = $('#bClean');
-  const tFever = $('#tFever');
-  const bFever = $('#bFever');
-
-  const tEvi   = $('#tEvi');
-  const bEvi   = $('#bEvi');
-
-  const tRisk  = $('#tRisk');
-  const bRisk  = $('#bRisk');
-  const tTip   = $('#tTip');
-
-  const sScore = $('#sScore');
-  const sAcc   = $('#sAcc');
-  const sMiss  = $('#sMiss');
-  const sCombo = $('#sCombo');
-  const sClean = $('#sClean');
-  const sTime  = $('#sTime');
-  const endGrade = $('#endGrade');
-  const endNote  = $('#endNote');
-
-  if(!wrap || !layer) throw new Error('BrushVR DOM missing (#br-wrap / #br-layer)');
-
-  const qs = getQS();
-  const ctx = {
-    hub: qs.get('hub') || '../hub.html',
-    run: (qs.get('run')||qs.get('mode')||'play').toLowerCase(),
-    view: getViewAuto(),
-    diff: (qs.get('diff') || 'normal').toLowerCase(),
-    time: safeNum(qs.get('time'), 80),
-    seed: safeNum(qs.get('seed'), Date.now()),
-    pid: (qs.get('pid') || '').trim(),
-    studyId: (qs.get('studyId') || '').trim(),
-    phase: (qs.get('phase') || '').trim(),
-    conditionGroup: (qs.get('conditionGroup') || '').trim(),
-    ai: String(qs.get('ai','1')) !== '0',
-    debug: safeNum(qs.get('debug'), 0) === 1
+  // emoji pools
+  const EMOJI = {
+    plaque: ['🦷','✨','🫧','🪥','💎','⭐'],
+    germ:   ['🦠','😈','🤢','💀','☣️','🧫','☠️']
   };
-  ctx.time = clamp(ctx.time, 30, 120);
-  if(!['easy','normal','hard'].includes(ctx.diff)) ctx.diff = 'normal';
+  const pickEmoji = (kind)=> (EMOJI[kind]||['🎯'])[Math.floor(Math.random()*(EMOJI[kind]||['🎯']).length)];
 
-  const rng = seededRng(ctx.seed);
+  const UI = {
+    phasePill: D.getElementById('phasePill'),
+    timePill:  D.getElementById('timePill'),
+    scorePill: D.getElementById('scorePill'),
+    comboPill: D.getElementById('comboPill'),
+    missionPill: D.getElementById('missionPill'),
+    missPill:  D.getElementById('missPill'),
+    accPill:   D.getElementById('accPill'),
+    toolPill:  D.getElementById('toolPill'),
+    viewPill:  D.getElementById('viewPill'),
+    residuePill: D.getElementById('residuePill'),
+    riskPill: D.getElementById('riskPill'),
 
-  const fun = WIN.HHA?.createFunBoost?.({
-    seed: (qs.get('seed') || ctx.pid || 'brush'),
-    baseSpawnMul: 1.0,
-    waveCycleMs: 20000,
-    feverThreshold: 18,
-    feverDurationMs: 6800,
-    feverSpawnBoost: 1.18,
-    feverTimeScale: 0.92
-  });
-  let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
+    domTargets: D.getElementById('domTargets'),
+
+    panelQuiz: D.getElementById('panelQuiz'),
+    quizBody: D.getElementById('quizBody'),
+    btnQuizNext: D.getElementById('btnQuizNext'),
+
+    panelHelp: D.getElementById('panelHelp'),
+    btnCloseHelp: D.getElementById('btnCloseHelp'),
+
+    panelEnd: D.getElementById('panelEnd'),
+    endSummary: D.getElementById('endSummary'),
+    heatmap: D.getElementById('heatmap'),
+    reasonChips: D.getElementById('reasonChips'),
+
+    btnStart: D.getElementById('btnStart'),
+    btnHelp: D.getElementById('btnHelp'),
+    btnReplay: D.getElementById('btnReplay'),
+    btnBack: D.getElementById('btnBack'),
+    crosshair: D.getElementById('crosshair'),
+  };
 
   const S = {
-    running:false, paused:false, ended:false,
-    t0:0,
+    started:false, ended:false,
+    sessionId:`brush_${PID}_${Date.now()}`,
+    startMs:0,
+    timeLeft: TIME,
 
-    score:0, combo:0, comboMax:0,
-    miss:0, shots:0, hits:0,
+    score:0, combo:0, comboMax:0, miss:0,
+    goodSpawn:0, junkSpawn:0, goodHit:0, junkHit:0, goodExpire:0,
 
-    clean:0,
-    cleanGainPerHit: 1.2,
-    cleanLosePerMiss: 0.6,
+    residue:0,     // 0..100 (B2)
+    gumRisk:0,     // 0..100 (B2)
 
-    baseSpawnMs: 760,
-    ttlMs: 1650,
-    perfectWindowMs: 220,
+    // zone stats (B3-B4)
+    zone: Object.fromEntries(ZONES.map(z=>[z.id, {spawn:0, hit:0, miss:0}] )),
 
-    bossEveryPct: 28,
-    nextBossAt: 28,
-    bossActive:false,
+    targets:new Map(),
+    seq:0,
+    spawnEveryMs: 900,
+    ttlMs: 1500,
+    lastSpawnMs:0,
+    lastFrameMs:0,
 
-    stage:'A', // A/B/C
-    eviNeed:3,
-    eviTotal:0,
-    eviFlags:{ sugar:0, night:0, no_brush:0 },
-
-    quizOpen:false,
-    quizDone:false,
-    quizCorrect:false,
-
-    aiRisk:0,
-    aiRiskBand:'low',
-    aiTip:'—',
-    missStreak:0,
-    lastAiEmit:0,
-    _lastHud:0,
-
-    uid:0,
-    targets:new Map()
+    quizIndex:0,
+    quizCorrect:0,
+    selfReason:'',
   };
 
-  (function tune(){
-    if(ctx.diff==='easy'){
-      S.baseSpawnMs = 900; S.ttlMs = 1950; S.perfectWindowMs = 260;
-      S.cleanGainPerHit = 1.35; S.cleanLosePerMiss = 0.45;
-    }else if(ctx.diff==='hard'){
-      S.baseSpawnMs = 650; S.ttlMs = 1450; S.perfectWindowMs = 200;
-      S.cleanGainPerHit = 1.05; S.cleanLosePerMiss = 0.75;
-    }
+  // Optional modules (best-effort)
+  let MISS=null;
+  (async ()=>{
+    try{ MISS = (await import('./brush.missions.js?v=20260304')).bootMissions({ diff: DIFF }); }catch(e){}
+    try{ await import('./ai-brush.js?v=20260304'); }catch(e){}
+    try{ await import('./brush.fx.js?v=20260304'); }catch(e){}
   })();
 
-  // ---------- AI prediction (NO adaptive) ----------
-  function aiPredict(){
-    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
-    const missRate = (S.shots>0) ? (S.miss/S.shots) : 0;
-    const combo = S.combo;
-    const clean = S.clean/100;
-    const evi = S.eviTotal/3;
-
-    let risk = 0.33;
-    risk += missRate * 0.58;
-    risk += (acc<0.55 ? 0.18 : (acc>0.80 ? -0.08 : 0));
-    risk += (combo===0 ? 0.10 : (combo>=6 ? -0.06 : -0.02));
-    risk += (clean<0.35 ? 0.06 : (clean>0.75 ? -0.04 : 0));
-    risk += (S.stage==='B' && evi<0.67 ? 0.06 : 0);
-    risk = clamp(risk, 0, 1);
-
-    let band = 'low';
-    if(risk >= 0.68) band = 'high';
-    else if(risk >= 0.45) band = 'mid';
-
-    let tip = 'เล็งให้ชัวร์ก่อนยิง';
-    if(S.stage==='A') tip = 'A: กวาดให้ไว แต่ห้ามพลาดติด ๆ';
-    if(S.stage==='B') tip = `B: เก็บ 🍬🌙🚫🪥 ให้ครบ 3 (ตอนนี้ ${S.eviTotal}/3)`;
-    if(S.stage==='C') tip = 'C: ตอบ Quiz วิเคราะห์ 1 ข้อ แล้วปิดเกม';
-
-    if(risk>0.72) tip = 'ช้าลงนิด! เน้นยิงให้โดนก่อน แล้วค่อยเร่ง';
-    else if(risk<0.35 && combo>=6) tip = 'กำลังดีมาก! รักษาคอมโบ แล้วเร่งสปีดได้';
-
-    return { risk, band, tip };
+  function tuneByDiff(){
+    if (DIFF==='easy'){ S.spawnEveryMs=1050; S.ttlMs=1800; }
+    else if (DIFF==='hard'){ S.spawnEveryMs=750; S.ttlMs=1350; }
+    else { S.spawnEveryMs=900; S.ttlMs=1500; }
   }
 
-  function aiEmit(type, detail){
-    if(!ctx.ai) return;
-    try{ WIN.dispatchEvent(new CustomEvent('brush:ai', { detail: Object.assign({ type }, detail||{}) })); }catch(_){}
-  }
+  function hud(){
+    UI.phasePill && (UI.phasePill.textContent = `PHASE: BRUSH`);
+    UI.timePill  && (UI.timePill.textContent  = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
+    UI.scorePill && (UI.scorePill.textContent = `SCORE: ${Math.round(S.score)}`);
+    UI.comboPill && (UI.comboPill.textContent = `COMBO: ${S.combo}`);
+    UI.missPill  && (UI.missPill.textContent  = `MISS: ${S.miss}`);
 
-  function aiTick(force){
-    if(!ctx.ai) return;
-    const t = Date.now();
-    if(!force && (t - S.lastAiEmit) < 520) return;
-    S.lastAiEmit = t;
+    const den = (S.goodHit + S.goodExpire);
+    const acc = den ? Math.round((S.goodHit / Math.max(1, den)) * 100) : 0;
+    UI.accPill && (UI.accPill.textContent = `ACC: ${acc}%`);
 
-    const p = aiPredict();
-    S.aiRisk = p.risk;
-    S.aiRiskBand = p.band;
-    S.aiTip = p.tip;
+    UI.toolPill && (UI.toolPill.textContent = `TOOL: BRUSH`);
+    UI.viewPill && (UI.viewPill.textContent = `VIEW: ${IS_CVR ? 'cVR' : 'PC/Mobile'}`);
+    UI.crosshair && (UI.crosshair.style.display = IS_CVR ? 'block' : 'none');
 
-    aiEmit('risk', { risk:p.risk, band:p.band, tip:p.tip, stage:S.stage, combo:S.combo, missStreak:S.missStreak });
-  }
+    if (UI.residuePill) UI.residuePill.textContent = `RESIDUE: ${Math.round(S.residue)}%`;
+    if (UI.riskPill) UI.riskPill.textContent = `GUM RISK: ${Math.round(S.gumRisk)}%`;
 
-  function onMissStreak(){
-    if(!ctx.ai) return;
-    if(S.missStreak === 2) aiEmit('miss_streak', { n:S.missStreak, band:S.aiRiskBand });
-    if(S.missStreak === 4) aiEmit('miss_streak', { n:S.missStreak, band:'high' });
-  }
-  function onComboHot(){
-    if(!ctx.ai) return;
-    if(S.combo === 6) aiEmit('combo_hot', { combo:S.combo });
-    if(S.combo === 10) aiEmit('combo_hot', { combo:S.combo });
-  }
-
-  // ---------- HUD ----------
-  function renderHud(force){
-    const t = now();
-    if(!force && (t - S._lastHud) < 70) return;
-    S._lastHud = t;
-
-    const elapsed = S.running ? ((t - S.t0)/1000) : 0;
-    const left = S.running ? Math.max(0, ctx.time - elapsed) : ctx.time;
-
-    if(tStage) tStage.textContent = S.stage;
-    if(tScore) tScore.textContent = String(S.score);
-    if(tCombo) tCombo.textContent = String(S.combo);
-    if(tMiss)  tMiss.textContent  = String(S.miss);
-    if(tTime)  tTime.textContent  = left.toFixed(0);
-
-    const clean = clamp(S.clean, 0, 100);
-    if(tClean) tClean.textContent = `${Math.round(clean)}%`;
-    if(bClean) bClean.style.width = `${clean}%`;
-
-    const fb = fun?.getState?.().feverCharge || 0;
-    const th = fun?.cfg?.feverThreshold || 18;
-    const pctF = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
-    if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
-    if(bFever) bFever.style.width = `${pctF}%`;
-
-    const ePct = clamp((S.eviTotal / S.eviNeed) * 100, 0, 100);
-    if(tEvi) tEvi.textContent = `${S.eviTotal}/${S.eviNeed}`;
-    if(bEvi) bEvi.style.width = `${ePct}%`;
-
-    const rPct = clamp(S.aiRisk * 100, 0, 100);
-    if(tRisk) tRisk.textContent = `${Math.round(rPct)}%`;
-    if(bRisk) bRisk.style.width = `${rPct}%`;
-    if(tTip)  tTip.textContent  = S.aiTip || '—';
-  }
-
-  function layerRect(){ return layer.getBoundingClientRect(); }
-  function randomInLayer(pad=56){
-    const r = layerRect();
-    return {
-      x: pad + rng() * Math.max(10, (r.width - pad*2)),
-      y: pad + rng() * Math.max(10, (r.height - pad*2))
-    };
-  }
-
-  // ---------- Targets ----------
-  function mkEvidenceType(){
-    const pool = ['sugar','night','no_brush'];
-    const missing = pool.filter(k => !S.eviFlags[k]);
-    const pickFrom = missing.length ? missing : pool;
-    return pickFrom[Math.floor(rng()*pickFrom.length)];
-  }
-  function eviEmoji(k){
-    if(k==='sugar') return '🍬';
-    if(k==='night') return '🌙';
-    return '🚫🪥';
-  }
-
-  function updateBossWeakspotPos(t){
-    if(!t || t.type !== 'boss' || !t.wsEl) return;
-    const ang = rng() * Math.PI * 2;
-    const rr = 14 + rng()*12;
-    t.weakX = Math.cos(ang) * rr;
-    t.weakY = Math.sin(ang) * rr;
-    t.weakR = 14;
-    t.wsEl.style.left = `calc(50% + ${t.weakX}px)`;
-    t.wsEl.style.top  = `calc(50% + ${t.weakY}px)`;
-  }
-
-  function mkTarget({x,y,type,hpMax,eviType=null}){
-    const id = String(++S.uid);
-    const el = DOC.createElement('button');
-    el.type = 'button';
-    el.className = 'br-t' + (type==='boss' ? ' thick' : '') + (type==='evi' ? ' evi' : '');
-    el.dataset.id = id;
-    el.dataset.kind = type;
-    if(eviType) el.dataset.evi = eviType;
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-
-    const emo = DOC.createElement('div');
-    emo.className = 'emo';
-    emo.textContent =
-      (type==='boss') ? '💎' :
-      (type==='evi')  ? eviEmoji(eviType) :
-      '🦠';
-    el.appendChild(emo);
-
-    const hp = DOC.createElement('div');
-    hp.className = 'hp';
-    const fill = DOC.createElement('i');
-    hp.appendChild(fill);
-    el.appendChild(hp);
-
-    let wsEl=null, weakX=0, weakY=0, weakR=14;
-    if(type==='boss'){
-      wsEl = DOC.createElement('div');
-      wsEl.className = 'br-ws';
-      el.appendChild(wsEl);
+    if (UI.missionPill && MISS && typeof MISS.text === 'function'){
+      UI.missionPill.textContent = `MISSION: ${MISS.text()}`;
     }
+  }
 
-    const born = now();
-    const ttl = S.ttlMs * (director.timeScale || 1);
-    const die = born + ttl;
+  function rid(){ return `t${++S.seq}`; }
 
-    const t = { id, el, type, bornMs:born, dieMs:die, hpMax, hp:hpMax, fillEl:fill, wsEl, weakX, weakY, weakR, eviType };
-    if(type==='boss') updateBossWeakspotPos(t);
+  function pickZone(){
+    // ensure coverage: prefer zones with low spawn count
+    const arr = ZONES.map(z=>({z, w: 1/(1+S.zone[z.id].spawn)}));
+    const sum = arr.reduce((a,b)=>a+b.w,0);
+    let r = Math.random()*sum;
+    for(const it of arr){ r -= it.w; if(r<=0) return it.z; }
+    return ZONES[Math.floor(Math.random()*ZONES.length)];
+  }
 
-    S.targets.set(id, t);
-    el.addEventListener('pointerdown', onTargetPointerDown, { passive:false });
+  function spawnDomTarget(id, kind, emoji, zoneId){
+    const layer = UI.domTargets;
+    if(!layer) return null;
+    const good = (kind === 'plaque');
+
+    const el = D.createElement('div');
+    el.className = `domTarget ${good ? 'good' : 'bad'}`;
+    el.textContent = emoji;
+
+    const ztag = D.createElement('div');
+    ztag.className = 'z';
+    ztag.textContent = zoneId;
+    el.appendChild(ztag);
+
+    const w = window.innerWidth || 360;
+    const h = window.innerHeight || 640;
+    const x = Math.round(w*0.18 + Math.random()*w*0.64);
+    const y = Math.round(h*0.22 + Math.random()*h*0.56);
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+
+    el.addEventListener('click', (e)=>{ e.preventDefault(); hitTarget(id); }, { passive:false });
     layer.appendChild(el);
-    updateHpVis(t);
-    return t;
+    return el;
   }
 
-  function updateHpVis(t){
-    if(!t || !t.fillEl) return;
-    const pct = clamp((t.hp / t.hpMax) * 100, 0, 100);
-    t.fillEl.style.width = pct + '%';
+  function spawnTarget(kind='plaque'){
+    if (!S.started || S.ended) return;
+
+    const id = rid();
+    const bornAt = now();
+    const ttlAt = bornAt + S.ttlMs;
+
+    const emoji = pickEmoji(kind);
+    const good = (kind === 'plaque');
+
+    const z = pickZone();
+    const zoneId = z.id;
+
+    if (good) S.goodSpawn++; else S.junkSpawn++;
+    S.zone[zoneId].spawn++;
+
+    const domEl = spawnDomTarget(id, kind, emoji, zoneId);
+    S.targets.set(id, { id, kind, good, emoji, bornAt, ttlAt, domEl, zoneId });
   }
 
-  function removeTarget(id, popped){
+  function applyResidueRiskOnEvent(t){
+    // Bloom 2 causal model (simple, explainable)
+    // miss plaque => residue↑, hit germ => risk↑
+    if (t.kind === 'plaque'){
+      // missed plaque increases residue
+      S.residue = Math.min(100, S.residue + 3.5);
+    } else {
+      // hit germ increases risk
+      S.gumRisk = Math.min(100, S.gumRisk + 6.0);
+    }
+  }
+
+  function reduceResidueOnGood(){
+    // cleaning effect
+    S.residue = Math.max(0, S.residue - 2.0);
+  }
+  function reduceRiskOnGoodStreak(){
+    if (S.combo >= 5) S.gumRisk = Math.max(0, S.gumRisk - 1.2);
+  }
+
+  function hitTarget(id){
     const t = S.targets.get(id);
     if(!t) return;
-    S.targets.delete(id);
-    const el = t.el;
-    if(!el) return;
-    if(popped) el.classList.add('pop');
-    el.classList.add('fade');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
-  }
 
-  function pointInBossWeakspot(t, x, y){
-    if(!t || t.type !== 'boss' || !t.el) return false;
-    const r = t.el.getBoundingClientRect();
-    const cx = r.left + r.width*0.5 + (t.weakX||0);
-    const cy = r.top  + r.height*0.5 + (t.weakY||0);
-    const rr = Math.max(10, t.weakR || 14);
-    const dx = x - cx, dy = y - cy;
-    return (dx*dx + dy*dy) <= rr*rr;
-  }
-
-  // ---------- Stage logic (LOCK C behind evidence) ----------
-  function stageFromProgress(){
-    if(S.clean < 40) return 'A';
-    if(S.clean < 80) return 'B';
-    if(S.eviTotal < S.eviNeed) return 'B'; // ✅ MUST finish evidence before entering C
-    return 'C';
-  }
-  function advanceStageIfNeeded(){
-    const want = stageFromProgress();
-    if(want !== S.stage){
-      S.stage = want;
-      toast(`เข้าสู่ Stage ${S.stage}`);
-      aiEmit('stage', { stage:S.stage, clean:S.clean, evi:S.eviTotal });
+    if (t.good){
+      S.goodHit++;
+      S.combo++;
+      if (S.combo > S.comboMax) S.comboMax = S.combo;
+      S.score += (10 + Math.min(10, S.combo));
+      reduceResidueOnGood();
+      reduceRiskOnGoodStreak();
+      S.zone[t.zoneId].hit++;
+      if (MISS) MISS.onGoodHit?.();
+    } else {
+      S.junkHit++;
+      S.miss++;
+      S.combo = 0;
+      S.score = Math.max(0, S.score - 8);
+      applyResidueRiskOnEvent(t);
+      S.zone[t.zoneId].miss++;
+      if (MISS) MISS.onJunkHit?.();
     }
-  }
-  function canFinishC(){
-    if(S.stage !== 'C') return true;
-    return !!S.quizDone;
-  }
 
-  function openQuiz(){
-    if(!quiz){ S.quizDone = true; return; }
-    if(S.quizOpen || S.quizDone) return;
-    S.quizOpen = true;
-    quiz.hidden = false;
-    wrap.dataset.state = 'quiz';
-    aiEmit('quiz', { state:'open' });
-    toast('C: ตอบคำถามวิเคราะห์!');
-  }
-  function closeQuiz(){
-    if(!quiz) return;
-    S.quizOpen = false;
-    quiz.hidden = true;
-    wrap.dataset.state = 'play';
-    aiEmit('quiz', { state:'close', done:S.quizDone, correct:S.quizCorrect });
+    try{ t.domEl?.remove(); }catch(e){}
+    S.targets.delete(id);
+    hud();
   }
 
-  // ---------- scoring ----------
-  function onPerfect(){
-    fun?.onAction?.({ type:'perfect' });
-    S.score += 2;
-    toast('✨ Perfect!');
-  }
-
-  function applyHitRewards(t, remainMs, weakHit){
-    S.hits += 1;
-
-    if(remainMs <= S.perfectWindowMs) onPerfect();
-    else fun?.onAction?.({ type:'hit' });
-
-    S.combo += 1;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    onComboHot();
-
-    const comboMul = 1 + Math.min(0.6, S.combo * 0.02);
-    let base = (t.type==='boss') ? 3 : (t.type==='evi' ? 2 : 1);
-    if(weakHit) base += 2;
-    if(S.stage==='C' && S.quizDone && S.quizCorrect) base += 1;
-
-    S.score += Math.round(base * comboMul * (director.feverOn ? 1.25 : 1.0));
-
-    let gain = S.cleanGainPerHit * (t.type==='boss' ? 1.35 : 1.0) * (director.feverOn ? 1.18 : 1.0);
-    if(t.type==='evi') gain *= 0.85;
-    if(weakHit) gain *= 1.22;
-
-    // B gate: if evidence not complete, slow down near 80 so player must go find evidence
-    if(S.stage==='B' && S.eviTotal < S.eviNeed && S.clean >= 79) gain *= 0.18;
-
-    S.clean = clamp(S.clean + gain, 0, 100);
-
-    if(t.type==='evi' && t.eviType){
-      if(!S.eviFlags[t.eviType]){
-        S.eviFlags[t.eviType] = 1;
-        S.eviTotal = clamp(S.eviTotal + 1, 0, S.eviNeed);
-        toast(`หลักฐาน +1 (${S.eviTotal}/3)`);
-        aiEmit('quiz', { state:'evidence', eviType:t.eviType, total:S.eviTotal });
-      }else{
-        toast('หลักฐานซ้ำ (นับไม่เพิ่ม)');
+  function expireTick(tnow){
+    for (const [id, t] of S.targets.entries()){
+      if (tnow >= t.ttlAt){
+        if (t.good){
+          S.goodExpire++;
+          S.miss++;
+          S.combo = 0;
+          S.zone[t.zoneId].miss++;
+          applyResidueRiskOnEvent(t);
+        }
+        try{ t.domEl?.remove(); }catch(e){}
+        S.targets.delete(id);
       }
     }
   }
 
-  function onMiss(kind){
-    S.miss += 1;
-    S.combo = 0;
-    S.score = Math.max(0, S.score - (kind==='boss'? 2 : 1));
-    S.clean = clamp(S.clean - S.cleanLosePerMiss, 0, 100);
-    fun?.onAction?.({ type:'timeout' });
-
-    S.missStreak += 1;
-    onMissStreak();
+  function heatColor(pct){
+    if (pct >= 85) return 'good';
+    if (pct >= 60) return 'mid';
+    return 'bad';
   }
-  function onHit(){ S.missStreak = 0; }
 
-  // ---------- spawning ----------
-  function spawnOne(){
-    if(!S.running || S.paused || S.ended || S.quizOpen) return;
+  function renderHeatmap(){
+    if (!UI.heatmap) return;
+    UI.heatmap.innerHTML = '';
+    for(const z of ZONES){
+      const st = S.zone[z.id];
+      const cov = st.spawn ? Math.round((st.hit / Math.max(1, st.spawn))*100) : 0;
+      const card = D.createElement('div');
+      card.className = `hm ${heatColor(cov)}`;
+      card.innerHTML = `<div class="t">${z.label} (${z.id})</div><div class="v">${cov}%</div>`;
+      UI.heatmap.appendChild(card);
+    }
+  }
 
-    director = fun ? fun.tick() : director;
-    const {x,y} = randomInLayer(56);
+  function topMissZones(){
+    const arr = ZONES.map(z=>{
+      const st = S.zone[z.id];
+      const miss = st.miss;
+      const spawn = st.spawn || 1;
+      const missRate = miss / spawn;
+      return { id:z.id, label:z.label, miss, spawn, missRate };
+    }).sort((a,b)=> b.missRate - a.missRate);
+    return arr.slice(0,2);
+  }
 
-    advanceStageIfNeeded();
+  function renderReasons(){
+    const reasons = [
+      { id:'fast', label:'ฉันรีบเกินไป' },
+      { id:'notsee', label:'ฉันมองไม่ทัน/ไม่เห็น' },
+      { id:'confuse', label:'ฉันสับสนโซนฟัน' },
+      { id:'risk', label:'ฉันหลบเชื้อไม่ทัน' },
+    ];
+    if (!UI.reasonChips) return;
+    UI.reasonChips.innerHTML = '';
+    reasons.forEach(r=>{
+      const c = D.createElement('button');
+      c.className = `chip ${S.selfReason===r.id ? 'on':''}`;
+      c.textContent = r.label;
+      c.addEventListener('click', ()=>{
+        S.selfReason = r.id;
+        renderReasons();
+      });
+      UI.reasonChips.appendChild(c);
+    });
+  }
 
-    // boss
-    if(!S.bossActive && S.clean >= S.nextBossAt && S.clean < 100){
-      S.bossActive = true;
-      mkTarget({ x, y, type:'boss', hpMax: (ctx.diff==='hard'? 5 : ctx.diff==='easy'? 3 : 4) });
-      toast('💎 BOSS PLAQUE!');
-      aiEmit('boss', { state:'start', stage:S.stage });
+  function endGame(){
+    S.ended = true;
+    S.started = false;
+
+    const den = (S.goodHit + S.goodExpire);
+    const acc = den ? Math.round((S.goodHit / Math.max(1, den)) * 100) : 0;
+
+    const top2 = topMissZones();
+    const msgTop = top2.map(t=>`${t.label} (${t.id})`).join(', ');
+
+    if (UI.endSummary){
+      UI.endSummary.innerHTML =
+        `Score <b>${Math.round(S.score)}</b> • ComboMax <b>${S.comboMax}</b> • Miss <b>${S.miss}</b><br/>`+
+        `ACC <b>${acc}%</b> • Residue <b>${Math.round(S.residue)}%</b> • GumRisk <b>${Math.round(S.gumRisk)}%</b><br/>`+
+        `พลาดมากสุด: <b>${msgTop}</b>`;
+    }
+
+    renderHeatmap();
+    renderReasons();
+    UI.panelEnd?.classList.remove('hidden');
+  }
+
+  function loop(){
+    if (S.ended) return;
+    S.lastFrameMs = S.lastFrameMs || now();
+    const tnow = now();
+    const dtMs = Math.min(80, Math.max(0, tnow - S.lastFrameMs));
+    S.lastFrameMs = tnow;
+
+    S.timeLeft = Math.max(0, S.timeLeft - dtMs/1000);
+    if (S.timeLeft <= 0){
+      endGame();
       return;
     }
 
-    // Stage B: evidence spawn until complete
-    if(S.stage==='B' && S.eviTotal < S.eviNeed){
-      const chance = 0.30 + (S.aiRisk > 0.65 ? 0.06 : 0);
-      if(rng() < chance){
-        const eviType = mkEvidenceType();
-        mkTarget({ x, y, type:'evi', hpMax: 1, eviType });
+    if (!S.lastSpawnMs) S.lastSpawnMs = tnow;
+    if (tnow - S.lastSpawnMs >= S.spawnEveryMs){
+      S.lastSpawnMs = tnow;
+      const junkRate = (DIFF==='hard') ? 0.26 : (DIFF==='easy' ? 0.12 : 0.18);
+      spawnTarget((Math.random() < junkRate) ? 'germ' : 'plaque');
+    }
+
+    expireTick(tnow);
+    hud();
+    S.raf = requestAnimationFrame(loop);
+  }
+
+  // --- Quiz (Bloom 1) ---
+  const QUIZ = [
+    {
+      q:'🟢 (เป้าดี) หมายถึงอะไร?',
+      a:['เชื้อ', 'คราบพลัค/เศษอาหาร'],
+      correct:1
+    },
+    {
+      q:'🔴 (เป้าอันตราย) หมายถึงอะไร?',
+      a:['เชื้อ/กรดทำลายฟัน', 'ความสะอาด'],
+      correct:0
+    },
+    {
+      q:'ข้อไหนสำคัญที่สุด?',
+      a:['แปรงให้ครบทุกโซน', 'แปรงแค่ด้านนอกก็พอ'],
+      correct:0
+    }
+  ];
+
+  function showQuiz(){
+    S.quizIndex = 0; S.quizCorrect = 0;
+    renderQuiz();
+    UI.panelQuiz?.classList.remove('hidden');
+  }
+
+  function renderQuiz(){
+    const item = QUIZ[S.quizIndex];
+    if (!UI.quizBody || !item) return;
+    UI.quizBody.innerHTML = '';
+
+    const q = D.createElement('div');
+    q.style.fontWeight = '900';
+    q.style.marginBottom = '10px';
+    q.textContent = `${S.quizIndex+1}/3 — ${item.q}`;
+    UI.quizBody.appendChild(q);
+
+    item.a.forEach((txt, idx)=>{
+      const b = D.createElement('button');
+      b.className = 'chip';
+      b.style.cursor = 'pointer';
+      b.textContent = txt;
+      b.addEventListener('click', ()=>{
+        // mark answer
+        const ok = (idx === item.correct);
+        if (ok) S.quizCorrect++;
+        // visual
+        Array.from(UI.quizBody.querySelectorAll('button.chip')).forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        b.dataset.pick = String(idx);
+      });
+      UI.quizBody.appendChild(b);
+    });
+
+    if (UI.btnQuizNext) UI.btnQuizNext.textContent = (S.quizIndex === QUIZ.length-1) ? 'เริ่มเกม' : 'ข้อถัดไป';
+  }
+
+  function nextQuizOrStart(startFn){
+    const body = UI.quizBody;
+    if (body){
+      const picked = body.querySelector('button.chip.on');
+      if (!picked){
+        // require pick
         return;
       }
     }
-
-    mkTarget({ x, y, type:'plaque', hpMax: 1 });
-  }
-
-  // ---------- hit handling ----------
-  function handleHit(t, x, y, source){
-    if(!t || !S.targets.has(t.id) || S.ended || S.quizOpen) return;
-
-    const tm = now();
-    const remain = t.dieMs - tm;
-
-    const weakHit = (t.type==='boss') ? pointInBossWeakspot(t, x, y) : false;
-    const dmg = (t.type==='boss') ? (weakHit ? 2 : 1) : 1;
-
-    t.hp = Math.max(0, t.hp - dmg);
-    updateHpVis(t);
-
-    if(weakHit && t.el){
-      t.el.classList.add('ws-hit');
-      setTimeout(()=> t.el && t.el.classList.remove('ws-hit'), 180);
-      updateBossWeakspotPos(t);
-      toast('🎯 Weakspot!');
-    }
-
-    applyHitRewards(t, remain, weakHit);
-    onHit();
-
-    if(t.hp <= 0){
-      removeTarget(t.id, true);
-      if(t.type==='boss'){
-        S.bossActive = false;
-        S.nextBossAt = Math.min(100, S.nextBossAt + S.bossEveryPct);
-        toast('💥 Boss แตก!');
-        aiEmit('boss', { state:'down', nextAt:S.nextBossAt });
-      }
-    }
-
-    advanceStageIfNeeded();
-
-    // ✅ Open Quiz only when C is truly reached (evidence complete) and clean high enough
-    if(S.stage==='C' && S.eviTotal >= S.eviNeed && !S.quizDone && !S.quizOpen && S.clean >= 92){
-      openQuiz();
-    }
-
-    aiTick(false);
-    renderHud(true);
-
-    emit('hha:score', { score:S.score, combo:S.combo, miss:S.miss, clean:S.clean, ts:Date.now(), source });
-
-    if(S.clean >= 100 && canFinishC()){
-      endGame('clean');
-    }
-  }
-
-  function onTargetPointerDown(ev){
-    if(!S.running || S.paused || S.ended || S.quizOpen) return;
-    ev.preventDefault();
-    const btn = ev.currentTarget;
-    const id = btn && btn.dataset ? btn.dataset.id : null;
-    const t = id ? S.targets.get(id) : null;
-    if(!t) return;
-
-    S.shots++;
-    handleHit(t, ev.clientX, ev.clientY, 'pointer');
-  }
-
-  // ---------- cVR aim assist (from hha:shoot) ----------
-  function getTargetCenter(t){
-    if(!t || !t.el) return null;
-    const r = t.el.getBoundingClientRect();
-    return { x:r.left + r.width*0.5, y:r.top + r.height*0.5, w:r.width, h:r.height };
-  }
-  function getBossWeakCenter(t){
-    if(!t || t.type!=='boss' || !t.el) return null;
-    const r = t.el.getBoundingClientRect();
-    return {
-      x: r.left + r.width*0.5 + (t.weakX||0),
-      y: r.top  + r.height*0.5 + (t.weakY||0),
-      r: Math.max(10, t.weakR||14)
-    };
-  }
-  function dynLock(baseLock, t, isCVR){
-    const c = getTargetCenter(t);
-    if(!c) return baseLock;
-    const size = Math.max(24, Math.min(c.w, c.h));
-    let bonus = size * (isCVR ? 0.22 : 0.12);
-    if(t.type === 'boss') bonus += isCVR ? 10 : 6;
-    if(t.type === 'evi')  bonus += isCVR ? 6 : 3;
-    return clamp(Math.round(baseLock + bonus), baseLock, isCVR ? 92 : 72);
-  }
-  function nearestPick(x, y, baseLock, isCVR){
-    let best=null, bestScore=Infinity;
-
-    for(const t of S.targets.values()){
-      if(!t || !t.el) continue;
-      const lock = dynLock(baseLock, t, isCVR);
-
-      if(t.type==='boss'){
-        const ws = getBossWeakCenter(t);
-        if(ws){
-          const dx = x - ws.x, dy = y - ws.y;
-          const d2 = dx*dx + dy*dy;
-          const wsLock = Math.max(lock, ws.r + (isCVR?22:12));
-          if(d2 <= wsLock*wsLock){
-            const score = d2*0.55;
-            if(score < bestScore){
-              bestScore = score;
-              best = { t, aimX: ws.x, aimY: ws.y };
-            }
-          }
-        }
-      }
-
-      const c = getTargetCenter(t);
-      if(!c) continue;
-      const dx = x - c.x, dy = y - c.y;
-      const d2 = dx*dx + dy*dy;
-      if(d2 <= lock*lock){
-        const score = d2 * (t.type==='boss' ? 0.92 : 1.0);
-        if(score < bestScore){
-          bestScore = score;
-          best = { t, aimX: x, aimY: y };
-        }
-      }
-    }
-    return best;
-  }
-
-  function onShoot(ev){
-    if(!S.running || S.paused || S.ended || S.quizOpen) return;
-    const d = (ev && ev.detail) || {};
-    const x = safeNum(d.x, WIN.innerWidth/2);
-    const y = safeNum(d.y, WIN.innerHeight/2);
-    const baseLock = clamp(safeNum(d.lockPx, 28), 6, 80);
-
-    const isCVR = String(d.view||ctx.view||'').toLowerCase()==='cvr'
-      || String(DOC.documentElement?.dataset?.view||'').toLowerCase()==='cvr';
-
-    const pick = nearestPick(x, y, baseLock, isCVR);
-    S.shots++;
-
-    if(pick && pick.t){
-      handleHit(pick.t, pick.aimX, pick.aimY, d.source || 'hha:shoot');
+    if (S.quizIndex < QUIZ.length-1){
+      S.quizIndex++;
+      renderQuiz();
       return;
     }
-
-    S.miss++; S.combo=0;
-    S.missStreak += 1;
-    onMissStreak();
-    fun?.onNearMiss?.({ reason:'whiff' });
-    toast('พลาด');
-    aiTick(false);
-    renderHud(true);
-  }
-  WIN.addEventListener('hha:shoot', onShoot);
-
-  // ---------- timers ----------
-  let spawnTimer=null, tickTimer=null;
-
-  function scheduleSpawn(){
-    clearTimeout(spawnTimer);
-    if(!S.running || S.paused || S.ended || S.quizOpen) return;
-
-    const base = S.baseSpawnMs;
-    const every = fun ? fun.scaleIntervalMs(base, director) : base;
-
-    spawnTimer = setTimeout(()=>{
-      spawnOne();
-      scheduleSpawn();
-    }, every);
+    UI.panelQuiz?.classList.add('hidden');
+    startFn();
   }
 
-  function tick(){
-    if(!S.running || S.paused || S.ended) return;
-
-    director = fun ? fun.tick() : director;
-
-    const t = now();
-    for(const [id,tt] of S.targets){
-      if(t >= tt.dieMs){
-        removeTarget(id, false);
-        if(tt.type==='boss'){ S.bossActive=false; toast('💎 Boss หลุด!'); aiEmit('boss', { state:'escape' }); }
-        onMiss(tt.type);
-      }
-    }
-
-    const elapsed = (t - S.t0)/1000;
-    const left = ctx.time - elapsed;
-
-    if(left <= 10.3 && left >= 9.7){
-      aiEmit('time', { left:10 });
-    }
-
-    aiTick(false);
-    renderHud(false);
-    emit('hha:time', { t: Math.max(0,left), elapsed, ts: Date.now() });
-
-    if(left <= 0) endGame('time');
-  }
-
-  function clearTimers(){
-    clearTimeout(spawnTimer);
-    clearInterval(tickTimer);
-    spawnTimer=null; tickTimer=null;
-  }
-
-  // ---------- quiz ----------
-  function quizAnswer(){
-    if(!quizChoices) return '';
-    const checked = quizChoices.querySelector('input[name="quizA"]:checked');
-    return checked ? String(checked.value||'') : '';
-  }
-
-  function applyQuizResult(ok){
-    S.quizDone = true;
-    S.quizCorrect = !!ok;
-    aiEmit('quiz', { state:'done', correct:S.quizCorrect });
-    toast(S.quizCorrect ? '✅ ถูกต้อง! ได้โบนัส' : '❌ ยังไม่ถูก แต่ไปต่อได้');
-    closeQuiz();
-
-    if(S.quizCorrect){
-      S.score += 40;
-      S.clean = clamp(S.clean + 6.5, 0, 100);
-    }else{
-      S.score += 10;
-    }
-
-    aiTick(true);
-    renderHud(true);
-
-    if(S.clean >= 100 && canFinishC()) endGame('clean');
-    else scheduleSpawn();
-  }
-
-  function bindQuiz(){
-    if(!quiz) return;
-    quiz.hidden = true;
-
-    btnQuizSubmit?.addEventListener('click', ()=>{
-      const a = quizAnswer();
-      const ok = (a === 'b');
-      applyQuizResult(ok);
-    }, { passive:true });
-
-    btnQuizSkip?.addEventListener('click', ()=> applyQuizResult(false), { passive:true });
-  }
-
-  // ---------- start/end ----------
-  function gradeFromAcc(acc){
-    if(acc >= 92) return 'S';
-    if(acc >= 82) return 'A';
-    if(acc >= 70) return 'B';
-    if(acc >= 55) return 'C';
-    return 'D';
-  }
-
+  // --- Start ---
   function startGame(){
-    S.running=true; S.paused=false; S.ended=false;
-    S.t0=now();
+    tuneByDiff();
 
-    // ✅ HARD RESET (prevents starting in C/Quiz)
-    S.score=0; S.combo=0; S.comboMax=0;
-    S.miss=0; S.shots=0; S.hits=0;
-    S.clean=0;
+    // reset
+    S.started = true; S.ended = false;
+    S.sessionId = `brush_${PID}_${Date.now()}`;
+    S.startMs = now();
+    S.timeLeft = TIME;
 
-    S.stage='A';
-    S.eviTotal=0;
-    S.eviFlags={ sugar:0, night:0, no_brush:0 };
+    S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
+    S.goodSpawn=0; S.junkSpawn=0; S.goodHit=0; S.junkHit=0; S.goodExpire=0;
+    S.residue=0; S.gumRisk=0;
 
-    S.quizOpen=false; S.quizDone=false; S.quizCorrect=false;
+    for(const z of ZONES) S.zone[z.id] = {spawn:0, hit:0, miss:0};
 
-    S.aiRisk=0; S.aiTip='—'; S.aiRiskBand='low';
-    S.missStreak=0; S.lastAiEmit=0;
-
-    S.nextBossAt=S.bossEveryPct;
-    S.bossActive=false;
-
-    for(const [id] of S.targets) removeTarget(id, false);
     S.targets.clear();
+    S.seq=0;
+    S.lastSpawnMs=0;
+    S.lastFrameMs=0;
+    S.selfReason='';
 
-    if(menu) menu.style.display='none';
-    if(end){ end.hidden=true; end.style.display='none'; }
-    if(quiz){ quiz.hidden=true; }
+    try{ UI.domTargets && (UI.domTargets.innerHTML = ''); }catch(e){}
+    if (UI.domTargets) UI.domTargets.style.pointerEvents = 'auto';
 
-    wrap.dataset.state='play';
-    btnPause && (btnPause.textContent='Pause');
+    UI.panelEnd?.classList.add('hidden');
+    hud();
+    cancelAnimationFrame(S.raf);
+    S.raf = requestAnimationFrame(loop);
+  }
 
-    toast('เริ่ม! แปรงคราบให้ทัน!');
-    aiEmit('stage', { stage:S.stage, clean:S.clean });
-    aiTick(true);
-    renderHud(true);
+  function bindUI(){
+    UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
+    UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
 
-    emit('hha:start', {
-      game:'brush',
-      category:'hygiene',
-      pid: ctx.pid,
-      studyId: ctx.studyId,
-      phase: ctx.phase,
-      conditionGroup: ctx.conditionGroup,
-      seed: ctx.seed,
-      diff: ctx.diff,
-      view: ctx.view,
-      timePlannedSec: ctx.time,
-      ts: Date.now()
+    UI.btnStart?.addEventListener('click', ()=>{
+      // show quiz every start (can later make once/day)
+      showQuiz();
     });
 
-    clearTimers();
-    scheduleSpawn();
-    tickTimer = setInterval(tick, 80);
+    UI.btnQuizNext?.addEventListener('click', ()=> nextQuizOrStart(startGame));
+
+    UI.btnReplay?.addEventListener('click', ()=> showQuiz());
+    UI.btnBack?.addEventListener('click', ()=>{ location.href = qs('hub','../hub.html'); });
   }
 
-  function endGame(reason){
-    if(S.ended) return;
-    S.ended=true; S.running=false;
-    clearTimers();
+  bindUI();
+  hud();
 
-    for(const [id] of S.targets) removeTarget(id, false);
-    S.targets.clear();
+  const api = { start:startGame };
+  W.HHBrush_SAFE = api;
+  return api;
+}
 
-    const acc = (S.shots>0) ? (S.hits/S.shots)*100 : 0;
-    const grade = gradeFromAcc(acc);
-    const elapsed = Math.min(ctx.time, (now()-S.t0)/1000);
-
-    const summary = {
-      game:'brush', category:'hygiene', reason,
-      pid: ctx.pid, studyId: ctx.studyId, phase: ctx.phase, conditionGroup: ctx.conditionGroup,
-      seed: ctx.seed, diff: ctx.diff, view: ctx.view, ai: ctx.ai ? 1 : 0,
-
-      stage: S.stage,
-      evidence: { total:S.eviTotal, flags: Object.assign({}, S.eviFlags) },
-      quiz: { done:S.quizDone, correct:S.quizCorrect },
-
-      score: S.score,
-      comboMax: S.comboMax,
-      miss: S.miss,
-      shots: S.shots,
-      hits: S.hits,
-      accuracyPct: Math.round(acc*10)/10,
-      grade,
-      cleanPct: Math.round(clamp(S.clean,0,100)),
-      timePlannedSec: ctx.time,
-      timePlayedSec: Math.round(elapsed*10)/10,
-      date: ymdLocal(),
-      ts: Date.now()
-    };
-
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      const k='HHA_SUMMARY_HISTORY';
-      const arr = JSON.parse(localStorage.getItem(k)||'[]');
-      arr.push(summary);
-      localStorage.setItem(k, JSON.stringify(arr.slice(-40)));
-    }catch(_){}
-
-    try{
-      localStorage.setItem(`HHA_ZONE_DONE::hygiene::${ymdLocal()}`, '1');
-    }catch(_){}
-
-    emit('hha:end', summary);
-
-    if(sScore) sScore.textContent = String(summary.score);
-    if(sAcc)   sAcc.textContent   = `${summary.accuracyPct}%`;
-    if(sMiss)  sMiss.textContent  = String(summary.miss);
-    if(sCombo) sCombo.textContent = String(summary.comboMax);
-    if(sClean) sClean.textContent = `${summary.cleanPct}%`;
-    if(sTime)  sTime.textContent  = `${summary.timePlayedSec}s`;
-    if(endGrade) endGrade.textContent = summary.grade;
-
-    if(endNote){
-      endNote.textContent =
-        `reason=${reason} | stage=${summary.stage} | evi=${summary.evidence.total}/3 | quiz=${summary.quiz.correct?'ok':'no'} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
-    }
-
-    if(end){ end.hidden=false; end.style.display='grid'; }
-    if(menu) menu.style.display='none';
-    if(quiz) quiz.hidden=true;
-    wrap.dataset.state='end';
-
-    toast(reason==='clean' ? '🦷 สะอาดแล้ว! เยี่ยม!' : 'หมดเวลา!');
-  }
-
-  function togglePause(){
-    if(!S.running || S.ended || S.quizOpen) return;
-    S.paused = !S.paused;
-    btnPause && (btnPause.textContent = S.paused ? 'Resume' : 'Pause');
-    toast(S.paused ? '⏸ Pause' : '▶ Resume');
-    if(!S.paused) scheduleSpawn();
-    else clearTimeout(spawnTimer);
-  }
-
-  btnStart?.addEventListener('click', startGame, { passive:true });
-  btnRetry?.addEventListener('click', startGame, { passive:true });
-  btnPause?.addEventListener('click', togglePause, { passive:true });
-
-  btnHow?.addEventListener('click', ()=>{
-    toast('A: ยิงให้โดน • B: เก็บ 🍬🌙🚫🪥 ให้ครบ 3 • C: ตอบ Quiz วิเคราะห์เพื่อปิดเกม');
-  }, { passive:true });
-
-  btnRecenter?.addEventListener('click', ()=>{
-    WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ ts:Date.now() } }));
-    toast('Recenter');
-  }, { passive:true });
-
-  // layer fallback (pc/mobile) — avoid double count when clicking target
-  layer?.addEventListener('pointerdown', (ev)=>{
-    if(String(ctx.view||'')==='cvr') return;
-    if(!S.running || S.paused || S.ended || S.quizOpen) return;
-    const t = ev.target;
-    if(t && t.closest && t.closest('.br-t')) return;
-
-    S.shots++;
-    let best=null, bestD=1e9;
-    for(const tt of S.targets.values()){
-      const c = getTargetCenter(tt);
-      if(!c) continue;
-      const dx = ev.clientX - c.x, dy = ev.clientY - c.y;
-      const d2 = dx*dx + dy*dy;
-      if(d2 < bestD){ bestD=d2; best=tt; }
-    }
-    const lock = 26;
-    if(best && bestD <= lock*lock){
-      handleHit(best, ev.clientX, ev.clientY, 'layer');
-    }else{
-      S.miss++; S.combo=0;
-      S.missStreak += 1;
-      onMissStreak();
-      toast('พลาด');
-      aiTick(false);
-      renderHud(true);
-    }
-  }, { passive:true });
-
-  bindQuiz();
-
-  // expose API for boot
-  WIN.BrushVR = WIN.BrushVR || {};
-  WIN.BrushVR.boot = function(){
-    // engine already reads QS; boot exists for compatibility
-    if(ctx.debug) console.log('[BrushVR] boot(ctx) ok');
-  };
-
-  // init UI
-  renderHud(true);
-  aiTick(true);
-  if(end){ end.hidden=true; end.style.display='none'; }
-  if(quiz){ quiz.hidden=true; }
-  if(menu) menu.style.display='grid';
-  wrap.dataset.state='menu';
-  toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
-})();
+try{ window.__BRUSH_BOOTGAME__ = bootGame; }catch(e){}
