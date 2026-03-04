@@ -1,7 +1,7 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
-✅ Hygiene: MaskCough + Brush (root launchers)
+PATCH v20260304b-HUB-HYGIENE-6GAMES
+✅ Hygiene: 6 games (Handwash + MaskCough + Brush + Bath + Clean Object + Germ Detective)
 ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug
 -->
 <!doctype html>
@@ -273,7 +273,7 @@ PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
         <div class="zoneCard">
           <div class="glow cyan"></div>
           <h3>🧼 Hygiene</h3>
-          <p>MaskCough / Brush</p>
+          <p>Handwash / MaskCough / Brush / Bath / Clean Object / Germ Detective</p>
           <div class="miniStatus">
             <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
             <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
@@ -317,6 +317,10 @@ PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
 
       <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (root launchers)</div>
       <div class="grid">
+        <div class="game" data-href="./handwash-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧴 HandwashVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ล้างมือถูกขั้นตอน • timing • คราบ/เชื้อ</p>
+        </div>
         <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
           <div class="gameTop"><h3 class="gameTitle">😷 Mask & Cough</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">กันละอองไอ/จาม • โล่ • fever/waves</p>
@@ -324,6 +328,19 @@ PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
         <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
           <div class="gameTop"><h3 class="gameTitle">🪥 BrushVR</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">A/B/C + evidence + analyze quiz + AI prediction</p>
+        </div>
+        <div class="game" data-href="./bath-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🛁 BathVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">Hidden Dirt Quest • ล้างคราบให้ครบ • summary</p>
+        </div>
+
+        <div class="game" data-href="./clean-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยก “สะอาด/ไม่สะอาด” • ตรวจหลักฐาน • ตัดสินใจ</p>
+        </div>
+        <div class="game" data-href="./germ-detective.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🔎 Germ Detective</h3><span class="tag">Run</span></div>
+          <p class="gameSub">UV/Swab/Camera • หาแหล่งเชื้อ • วิเคราะห์</p>
         </div>
       </div>
 
@@ -359,7 +376,6 @@ PATCH v20260304-HUB-HYGIENE-MASKCOUGH-BRUSH
   function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
   const QS = parseQS();
 
-  // passthrough keys (รวม ai/debug/api)
   const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug'];
 
   function ymdLocal(){
