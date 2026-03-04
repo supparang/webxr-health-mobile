@@ -1,9 +1,9 @@
 // === /herohealth/germ-detective/germ-detective.js ===
-// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + RESULT MODAL + BADGES + CSV(2) + SAME-SEED RETRY
-// ✅ Result Modal (no alert)
-// ✅ Badges
-// ✅ Export CSV: summary.csv + events.csv
-// ✅ Retry New Seed (play) + Retry Same Seed (research/reproducible)
+// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + AUTO-REPORT + HHA CONTEXT + CSV(2) + SAME-SEED RETRY
+// ✅ Auto-Report: when Boss cleared -> auto end + show modal (no click)
+// ✅ HHA context passthrough from URL: studyId/phase/conditionGroup/sessionOrder/blockLabel/siteCode/schoolYear/semester
+// ✅ Export CSV: summary.csv + events.csv (with context columns)
+// ✅ Retry + Same Seed
 // ✅ Flush-hardened Back HUB
 // NOTE: No networking / no apps script binding.
 
@@ -18,11 +18,31 @@ export default function GameApp(opts = {}) {
     scene: 'classroom',
     view: 'pc',
     pid: 'anon',
-    hub: '/herohealth/hub.html'
+    hub: '/herohealth/hub.html',
+
+    // ✅ auto-report behavior
+    autoReportOnBossClear: true,
+    autoReportDelayMs: 900
   }, opts);
 
   const DOC = document;
   const WIN = window;
+
+  // ---------- URL params context (HHA-ish) ----------
+  function qsParam(k, def=''){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
+  }
+  const CTX = {
+    studyId: String(qsParam('studyId','')).trim(),
+    phase: String(qsParam('phase','')).trim(),
+    conditionGroup: String(qsParam('conditionGroup','')).trim(),
+    sessionOrder: String(qsParam('sessionOrder','')).trim(),
+    blockLabel: String(qsParam('blockLabel','')).trim(),
+    siteCode: String(qsParam('siteCode','')).trim(),
+    schoolYear: String(qsParam('schoolYear','')).trim(),
+    semester: String(qsParam('semester','')).trim(),
+  };
 
   // ---------------- RNG ----------------
   function hash32(str){
@@ -44,7 +64,7 @@ export default function GameApp(opts = {}) {
     };
   }
 
-  const ORIGINAL_SEED = String(cfg.seed || '0');     // for same-seed retry
+  const ORIGINAL_SEED = String(cfg.seed || '0');
   let RNG = mulberry32(hash32(cfg.seed + '|' + cfg.scene + '|' + cfg.diff + '|' + cfg.run));
 
   // ---------------- helpers ----------------
@@ -54,29 +74,52 @@ export default function GameApp(opts = {}) {
   function nowMs(){ return (WIN.performance && WIN.performance.now) ? WIN.performance.now() : Date.now(); }
   function isoNow(){ return new Date().toISOString(); }
 
-  // ---------------- lightweight event log (for ML export) ----------------
-  const EVENT_LOG = []; // {tIso, ms, name, payloadJson}
+  // ---------------- event log (for ML export) ----------------
+  const EVENT_LOG = []; // {tIso, ms, name, payloadJson, ctx...}
+  function safeJson(v){ try{ return JSON.stringify(v ?? {}); }catch{ return '"[unserializable]"'; } }
+
   function logEvt(name, payload){
-    // keep bounded to avoid memory blow (still enough for session)
-    if(EVENT_LOG.length > 900) EVENT_LOG.shift();
+    if(EVENT_LOG.length > 1200) EVENT_LOG.shift();
     EVENT_LOG.push({
       tIso: isoNow(),
       ms: Math.round(nowMs()),
       name: String(name||''),
-      payloadJson: safeJson(payload)
+      payloadJson: safeJson(payload),
+
+      // context columns
+      pid: cfg.pid,
+      run: cfg.run,
+      diff: cfg.diff,
+      scene: cfg.scene,
+      view: cfg.view,
+      seed: String(cfg.seed||''),
+
+      studyId: CTX.studyId,
+      phase: CTX.phase,
+      conditionGroup: CTX.conditionGroup,
+      sessionOrder: CTX.sessionOrder,
+      blockLabel: CTX.blockLabel,
+      siteCode: CTX.siteCode,
+      schoolYear: CTX.schoolYear,
+      semester: CTX.semester
     });
-  }
-  function safeJson(v){
-    try{ return JSON.stringify(v ?? {}); }catch(e){ return '"[unserializable]"'; }
   }
 
   function emitEvent(name, payload){
-    logEvt(name, payload);
-    try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload } })); }catch(_){}
+    // attach context into payload too (handy for listeners)
+    const payload2 = Object.assign({
+      pid: cfg.pid, run: cfg.run, diff: cfg.diff, scene: cfg.scene, view: cfg.view, seed: String(cfg.seed||'')
+    }, CTX, payload || {});
+    logEvt(name, payload2);
+    try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload: payload2 } })); }catch(_){}
   }
+
   function emitLabels(type, payload){
-    logEvt('label:'+type, payload);
-    try{ WIN.dispatchEvent(new CustomEvent('hha:labels', { detail:{ type, payload } })); }catch(_){}
+    const payload2 = Object.assign({
+      pid: cfg.pid, run: cfg.run, diff: cfg.diff, scene: cfg.scene, view: cfg.view, seed: String(cfg.seed||'')
+    }, CTX, payload || {});
+    logEvt('label:'+type, payload2);
+    try{ WIN.dispatchEvent(new CustomEvent('hha:labels', { detail:{ type, payload: payload2 } })); }catch(_){}
   }
 
   function saveLastSummary(reason, score){
@@ -86,7 +129,8 @@ export default function GameApp(opts = {}) {
         at: isoNow(),
         reason: reason || 'end',
         score: score || null,
-        url: location.href
+        url: location.href,
+        ctx: Object.assign({ pid: cfg.pid, run: cfg.run, diff: cfg.diff, scene: cfg.scene, view: cfg.view, seed: String(cfg.seed||'') }, CTX)
       }));
     }catch(_){}
   }
@@ -109,7 +153,10 @@ export default function GameApp(opts = {}) {
     hotspots: [],
     evidence: [],
     chain: { edges: [], inferred: [], _truth: [] },
-    score: null
+    score: null,
+
+    // auto-report guard
+    _autoReportFired: false
   };
 
   function diffBudget(diff){
@@ -208,72 +255,67 @@ export default function GameApp(opts = {}) {
     STATE.chain._truth = truth;
   }
 
-  // ---------------- UI ----------------
+  // ---------------- UI (same as previous, kept compact) ----------------
   let STAGE=null, TOPBAR=null, PANEL=null, COACH=null, MODAL=null;
 
   function ensureStyle(){
     if(qs('gdBaseStyle')) return;
     const st = el('style'); st.id='gdBaseStyle';
     st.textContent = `
-      .gd-topbar{ position:sticky; top:0; z-index:50; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
-        padding:8px 10px; background:rgba(2,6,23,.82); border-bottom:1px solid rgba(148,163,184,.16); backdrop-filter: blur(8px); }
-      .gd-topbar .left,.gd-topbar .right{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-      .pill{ border:1px solid rgba(148,163,184,.18); border-radius:999px; padding:6px 10px; background:rgba(255,255,255,.02); font-size:12px; font-weight:900; color:rgba(229,231,235,.92); }
-      .btn{ appearance:none; border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.03);
-        color:rgba(229,231,235,.96); border-radius:12px; padding:10px 12px; font-weight:1000; cursor:pointer; }
-      .btn:active{ transform: translateY(1px); }
-      .btn.good{ border-color: rgba(16,185,129,.28); background: rgba(16,185,129,.10); }
-      .btn.cyan{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
-      .btn.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+      .gd-topbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;
+        padding:8px 10px;background:rgba(2,6,23,.82);border-bottom:1px solid rgba(148,163,184,.16);backdrop-filter:blur(8px)}
+      .gd-topbar .left,.gd-topbar .right{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+      .pill{border:1px solid rgba(148,163,184,.18);border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.02);font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+      .btn{appearance:none;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.03);color:rgba(229,231,235,.96);border-radius:12px;padding:10px 12px;font-weight:1000;cursor:pointer}
+      .btn:active{transform:translateY(1px)}
+      .btn.good{border-color:rgba(16,185,129,.28);background:rgba(16,185,129,.10)}
+      .btn.cyan{border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.10)}
+      .btn.warn{border-color:rgba(245,158,11,.28);background:rgba(245,158,11,.10)}
 
-      .gd-wrap{ display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:10px; padding:10px; }
-      .gd-stage{ position:relative; min-height:58vh; border:1px solid rgba(148,163,184,.18); border-radius:16px; background:rgba(255,255,255,.01); overflow:hidden; }
-      .gd-side{ display:grid; gap:10px; align-content:start; }
-      .gd-panel{ border:1px solid rgba(148,163,184,.18); border-radius:16px; background:rgba(2,6,23,.70); overflow:hidden; }
-      .gd-panel .head{ padding:10px 12px; border-bottom:1px solid rgba(148,163,184,.10); display:flex; justify-content:space-between; gap:8px; align-items:center; }
-      .gd-panel .body{ padding:10px; }
+      .gd-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:10px;padding:10px}
+      .gd-stage{position:relative;min-height:58vh;border:1px solid rgba(148,163,184,.18);border-radius:16px;background:rgba(255,255,255,.01);overflow:hidden}
+      .gd-side{display:grid;gap:10px;align-content:start}
+      .gd-panel{border:1px solid rgba(148,163,184,.18);border-radius:16px;background:rgba(2,6,23,.70);overflow:hidden}
+      .gd-panel .head{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.10);display:flex;justify-content:space-between;gap:8px;align-items:center}
+      .gd-panel .body{padding:10px}
 
-      .gd-spot{ position:absolute; border:1px solid rgba(148,163,184,.18); background: rgba(255,255,255,.03);
-        border-radius:14px; padding:10px 12px; font-weight:1000; cursor:pointer; user-select:none; box-shadow: 0 12px 30px rgba(0,0,0,.20); }
-      .gd-spot:hover{ transform: translateY(-1px); }
-      .gd-spot .sub{ display:block; font-size:11px; font-weight:900; opacity:.78; margin-top:2px; }
-      .gd-spot.hot{ box-shadow: 0 0 0 2px rgba(244,63,94,.28), 0 18px 40px rgba(0,0,0,.25); }
-      .gd-spot.cleaned{ outline:2px solid rgba(16,185,129,.55); }
-      .gd-spot.verified{ outline:2px solid rgba(34,211,238,.55); }
+      .gd-spot{position:absolute;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.03);border-radius:14px;padding:10px 12px;font-weight:1000;cursor:pointer;user-select:none;box-shadow:0 12px 30px rgba(0,0,0,.20)}
+      .gd-spot:hover{transform:translateY(-1px)}
+      .gd-spot .sub{display:block;font-size:11px;font-weight:900;opacity:.78;margin-top:2px}
+      .gd-spot.hot{box-shadow:0 0 0 2px rgba(244,63,94,.28),0 18px 40px rgba(0,0,0,.25)}
+      .gd-spot.cleaned{outline:2px solid rgba(16,185,129,.55)}
+      .gd-spot.verified{outline:2px solid rgba(34,211,238,.55)}
 
-      .gd-toolbar{ position:absolute; left:12px; top:12px; z-index:20; display:flex; gap:6px; flex-wrap:wrap; max-width:calc(100% - 24px); }
-      .gd-timer{ position:absolute; left:12px; top:60px; z-index:20; font-weight:1000; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.70); }
+      .gd-toolbar{position:absolute;left:12px;top:12px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 24px)}
+      .gd-timer{position:absolute;left:12px;top:60px;z-index:20;font-weight:1000;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.70)}
 
-      .gd-coach{ position:fixed; left:50%; top:calc(10px + env(safe-area-inset-top,0px)); transform:translateX(-50%); z-index:9998;
-        max-width:min(880px, 92vw); border:1px solid rgba(148,163,184,.18); border-radius:999px; background:rgba(2,6,23,.78);
-        padding:10px 12px; font-weight:950; font-size:13px; color:rgba(229,231,235,.96); box-shadow:0 16px 50px rgba(0,0,0,.35);
-        backdrop-filter: blur(10px); display:none; }
-      .gd-coach.show{ display:block; }
-      .gd-coach small{ display:block; color:rgba(148,163,184,.95); font-weight:900; margin-top:2px; }
+      .gd-coach{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:9998;
+        max-width:min(880px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:999px;background:rgba(2,6,23,.78);padding:10px 12px;
+        font-weight:950;font-size:13px;color:rgba(229,231,235,.96);box-shadow:0 16px 50px rgba(0,0,0,.35);backdrop-filter:blur(10px);display:none}
+      .gd-coach.show{display:block}
+      .gd-coach small{display:block;color:rgba(148,163,184,.95);font-weight:900;margin-top:2px}
 
-      .mini-list{ display:grid; gap:6px; max-height:200px; overflow:auto; }
-      .mini-item{ border:1px solid rgba(148,163,184,.12); border-radius:12px; padding:8px; background:rgba(255,255,255,.02); font-size:12px; line-height:1.35; }
+      .mini-list{display:grid;gap:6px;max-height:200px;overflow:auto}
+      .mini-item{border:1px solid rgba(148,163,184,.12);border-radius:12px;padding:8px;background:rgba(255,255,255,.02);font-size:12px;line-height:1.35}
+      .budgetbar{height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.18)}
+      .budgetfill{height:100%;width:100%;background:linear-gradient(90deg,rgba(16,185,129,.9),rgba(34,211,238,.9))}
 
-      .budgetbar{ height:10px; border-radius:999px; overflow:hidden; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.18); }
-      .budgetfill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(34,211,238,.9)); }
-
-      .gd-modal{ position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; padding:16px; }
-      .gd-modal.show{ display:flex; }
-      .gd-modal-card{ width:min(980px, 96vw); border:1px solid rgba(148,163,184,.18); border-radius:18px; background:rgba(2,6,23,.86);
-        box-shadow:0 26px 90px rgba(0,0,0,.45); overflow:hidden; }
-      .gd-modal-head{ padding:12px 14px; border-bottom:1px solid rgba(148,163,184,.14); display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-      .gd-rank{ font-weight:1100; font-size:18px; letter-spacing:.3px; }
-      .gd-modal-body{ padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-      .gd-kpi{ border:1px solid rgba(148,163,184,.14); border-radius:14px; padding:12px; background:rgba(255,255,255,.02); }
-      .gd-kpi b{ font-size:22px; }
-      .gd-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-      .gd-actions{ padding:12px 14px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-      .gd-small{ color:rgba(148,163,184,.95); font-weight:850; font-size:12px; line-height:1.35; }
-      .gd-badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-      .gd-badge{ border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.02); border-radius:999px; padding:6px 10px; font-weight:1000; font-size:12px; }
-      .gd-badge.on{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
-      @media (max-width: 860px){ .gd-modal-body{ grid-template-columns:1fr; } }
-      @media (max-width: 980px){ .gd-wrap{ grid-template-columns:1fr; } }
+      .gd-modal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
+      .gd-modal.show{display:flex}
+      .gd-modal-card{width:min(980px,96vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;background:rgba(2,6,23,.86);box-shadow:0 26px 90px rgba(0,0,0,.45);overflow:hidden}
+      .gd-modal-head{padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+      .gd-rank{font-weight:1100;font-size:18px;letter-spacing:.3px}
+      .gd-modal-body{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      .gd-kpi{border:1px solid rgba(148,163,184,.14);border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}
+      .gd-kpi b{font-size:22px}
+      .gd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .gd-actions{padding:12px 14px;border-top:1px solid rgba(148,163,184,.14);display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+      .gd-small{color:rgba(148,163,184,.95);font-weight:850;font-size:12px;line-height:1.35}
+      .gd-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+      .gd-badge{border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.02);border-radius:999px;padding:6px 10px;font-weight:1000;font-size:12px}
+      .gd-badge.on{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.10)}
+      @media (max-width:860px){.gd-modal-body{grid-template-columns:1fr}}
+      @media (max-width:980px){.gd-wrap{grid-template-columns:1fr}}
     `;
     DOC.head.appendChild(st);
   }
@@ -351,8 +393,8 @@ export default function GameApp(opts = {}) {
       DOC.body.appendChild(MODAL);
 
       qs('gdResClose').onclick = ()=> hideResult();
-      qs('gdResRetry').onclick = ()=> { hideResult(); resetAndRestart(false); };      // new seed (play)
-      qs('gdResRetrySame').onclick = ()=> { hideResult(); resetAndRestart(true); };  // same seed
+      qs('gdResRetry').onclick = ()=> { hideResult(); resetAndRestart(false); };
+      qs('gdResRetrySame').onclick = ()=> { hideResult(); resetAndRestart(true); };
       qs('gdResBackHub').onclick = ()=> { flushAndGoHub('backhub'); };
       qs('gdResExportSummary').onclick = ()=> { exportSummaryCSV(); };
       qs('gdResExportEvents').onclick = ()=> { exportEventsCSV(); };
@@ -415,9 +457,7 @@ export default function GameApp(opts = {}) {
     const p4 = el('div','gd-panel');
     p4.innerHTML = `
       <div class="head"><strong>🤖 AI Coach</strong><span class="pill" id="gdRiskPill">risk: -</span></div>
-      <div class="body">
-        <div class="mini-item" id="gdCoachBox">เริ่มสืบสวน… ใช้ UV/Swab/Camera เก็บหลักฐาน แล้ว Clean ลดความเสี่ยง</div>
-      </div>
+      <div class="body"><div class="mini-item" id="gdCoachBox">เริ่มสืบสวน… ใช้ UV/Swab/Camera เก็บหลักฐาน แล้ว Clean ลดความเสี่ยง</div></div>
     `;
 
     PANEL.appendChild(p1); PANEL.appendChild(p2); PANEL.appendChild(p3); PANEL.appendChild(p4);
@@ -431,10 +471,7 @@ export default function GameApp(opts = {}) {
 
     qs('gdBtnSubmit').onclick = ()=> submitReport();
     qs('gdBtnPause').onclick = ()=> togglePause();
-    qs('gdBtnHelp').onclick = ()=> showCoach(
-      'วิธีเล่น: UV → ชี้จุดเสี่ยง, Swab → ยืนยัน, Camera → เก็บภาพ, Clean → ลด risk (งบจำกัด)',
-      'เป้าหมาย: ต่อ chain A→B→C และลด risk เฉลี่ยให้ต่ำก่อนหมดเวลา'
-    );
+    qs('gdBtnHelp').onclick = ()=> showCoach('วิธีเล่น: UV/Swab/Camera เก็บหลักฐาน แล้ว Clean ลด risk (งบจำกัด)','เป้าหมาย: ต่อ chain + ลด risk เฉลี่ย');
   }
 
   function showCoach(main, sub){
@@ -487,7 +524,7 @@ export default function GameApp(opts = {}) {
     }
   }
 
-  // ---- chain inference ----
+  // ---- chain inference (same logic) ----
   function findHotspotByName(name){ return STATE.hotspots.find(h=>h.name===name)||null; }
   function findHotspotById(id){ return STATE.hotspots.find(h=>h.id===id)||null; }
   function addEdge(a,b,w){ if(!a||!b||a===b) return; if(STATE.chain.edges.some(e=>e.a===a&&e.b===b)) return; STATE.chain.edges.push({a,b,w}); }
@@ -531,9 +568,10 @@ export default function GameApp(opts = {}) {
   function inferredChain(){ updateChainInference(); return STATE.chain.inferred||[]; }
   function formatChainShort(){ const c=inferredChain(); return (c&&c.length>=2)?c.slice(0,4).join(' → '):''; }
 
-  // ---- mission ----
+  // ---- mission + AUTO-REPORT hook ----
   function updateMissionUI(){
     const box = qs('gdMissionBody'); if(!box) return;
+
     const warmNeed=warmTargetCount(), warmDone=countScanned();
     const trickDone=inferredChain().length>=3;
     const bossTarget=diffBossTarget(cfg.diff);
@@ -544,12 +582,20 @@ export default function GameApp(opts = {}) {
       <div class="mini-item">Stage 1: UV อย่างน้อย <b>${warmNeed}</b> จุด (ตอนนี้ ${warmDone}/${warmNeed})</div>
       <div class="mini-item">Stage 2: ต่อ chain A→B→C (ตอนนี้ ${formatChainShort()||'ยังไม่มี'})</div>
       <div class="mini-item">Stage 3: Clean ลด risk เฉลี่ย ≤ <b>${bossTarget}</b> (ตอนนี้ ${bossScore})</div>
-      <div class="mini-item"><b>Tip:</b> Swab ช่วย “ยืนยัน” ทำให้ chain/คะแนนแม่นขึ้น</div>
     `;
 
     if(STATE.stage===1 && warmDone>=warmNeed){ setStage(2); showCoach('เข้าสู่ Trick Stage!', 'ต่อ A→B→C จากลำดับที่คุณสืบ'); }
     if(STATE.stage===2 && trickDone){ setStage(3); setPhase('intervene'); showCoach('เข้าสู่ Boss Stage!', 'ใช้ Clean แบบคุ้มงบ'); }
-    if(STATE.stage===3 && bossDone){ setPhase('report'); showCoach('สำเร็จ! พร้อมส่งรายงาน 🧾', 'กด “ส่งรายงาน”'); }
+
+    if(STATE.stage===3 && bossDone){
+      setPhase('report');
+      showCoach('ผ่าน Boss แล้ว! ✅', cfg.autoReportOnBossClear ? 'กำลังสรุปผลอัตโนมัติ…' : 'กด “ส่งรายงาน”');
+      // ✅ AUTO-REPORT (only once)
+      if(cfg.autoReportOnBossClear && !STATE._autoReportFired && !STATE.ended){
+        STATE._autoReportFired = true;
+        setTimeout(()=>{ if(!STATE.ended) endGame('auto_report'); }, clamp(cfg.autoReportDelayMs, 200, 4000));
+      }
+    }
   }
 
   // ---- tools & actions ----
@@ -610,20 +656,23 @@ export default function GameApp(opts = {}) {
       addEvidence({type:'hotspot',target:h.name,info:'พบร่องรอยด้วย UV',method,tool:'uv'});
       h.risk=clamp(h.risk+(h._infected?8:2)+RNG()*4,0,100);
       applySpotClass(h);
+      emitEvent('hotspot_uv', { target:h.name, risk:h.risk });
     }else if(tool==='swab'){
       h.swabbed=true;
       const confirm = h._infected ? (RNG()<0.92) : (RNG()<0.15);
       if(confirm){ h.verified=true; h.risk=clamp(h.risk+10+RNG()*6,0,100); addEvidence({type:'sample',target:h.name,info:'Swab ยืนยัน: เสี่ยงจริง',method,tool:'swab'}); }
       else { addEvidence({type:'sample',target:h.name,info:'Swab: ไม่พบเชื้อ (อาจ false negative)',method,tool:'swab'}); h.risk=clamp(h.risk-(4+RNG()*6),0,100); }
       applySpotClass(h);
+      emitEvent('hotspot_swab', { target:h.name, verified:h.verified?1:0, risk:h.risk });
     }else if(tool==='cam'){
       h.photoed=true;
       addEvidence({type:'photo',target:h.name,info:'ถ่ายภาพหลักฐาน',method,tool:'cam'});
       applySpotClass(h);
+      emitEvent('hotspot_cam', { target:h.name });
     }else if(tool==='clean'){
       if(STATE.phase!=='intervene' && STATE.stage<3){ showCoach('ยังไม่ถึงช่วง Clean แบบคุ้มสุด','ทำ Warm/Trick ก่อน'); return; }
       const cost=cleanCost(h), left=budgetLeft();
-      if(left<cost){ showCoach('งบไม่พอ!',`เหลือ ${left} แต่ต้องใช้ ${cost}`); return; }
+      if(left<cost){ showCoach('งบไม่พอ!',`เหลือ ${left} แต่ต้องใช้ ${cost}`); emitEvent('clean_failed',{target:h.name,cost,left}); return; }
       const before=Math.round(h.risk);
       const red=cleanEffect(h);
       h.risk=clamp(h.risk-red,0,100);
@@ -633,14 +682,13 @@ export default function GameApp(opts = {}) {
       addEvidence({type:'clean',target:h.name,info:`ทำความสะอาด (-${red} risk)`,method,tool:'clean'});
       applySpotClass(h);
       updateBudgetUI();
-      emitEvent('clean_done', { target:h.name, cost, riskBefore:before, riskAfter:Math.round(h.risk) });
+      emitEvent('clean_done', { target:h.name, cost, riskBefore:before, riskAfter:Math.round(h.risk), budgetLeft:budgetLeft() });
     }
 
     updateMissionUI();
-    coachTick();
   }
 
-  // ---- AI Coach ----
+  // ---- AI Coach (simplified) ----
   function computeRiskScore(){
     const avg=Math.round(avgRisk());
     const importantUnscanned=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).length;
@@ -662,28 +710,10 @@ export default function GameApp(opts = {}) {
 
     const risk=computeRiskScore();
     const nba=nextBestAction();
-    const un=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned)
-      .sort((a,b)=>(b.importance*12+b.risk)-(a.importance*12+a.risk));
-    const r1 = un[0] ? `ยังไม่สแกนจุดสัมผัสสูง: ${un[0].name}` : `ลองตรวจ ${nba||'จุดเสี่ยง'} เพราะคุ้มสุด`;
-    const r2 = un[1] ? `อีกจุดสำคัญ: ${un[1].name}` : (STATE.timeLeft<=Math.max(20,Math.floor(STATE.timeTotal*0.25))?'เวลาใกล้หมด — เลือกจุดคุ้มงบ':'ใช้ Swab เพื่อยืนยันก่อน');
-
-    const key=`${STATE.stage}|${STATE.phase}|${risk}|${nba}|${r1}|${r2}`;
-    if(key===STATE.coach.lastKey) return;
-
-    const stuck=(STATE.stage===1 && countScanned()<warmTargetCount() && STATE.timeLeft<STATE.timeTotal-15);
-    const warn=(risk>=70)||stuck;
-
-    const box=qs('gdCoachBox');
     const rp=qs('gdRiskPill'); if(rp) rp.textContent=`risk: ${risk}`;
-
-    if(warn && nba){
-      showCoach(`AI Coach: แนะนำไปที่ “${nba}”`, `เหตุผล: (1) ${r1} (2) ${r2}`);
-      if(box) box.textContent = `AI: next=${nba} | 1) ${r1} 2) ${r2}`;
-      emitEvent('ai_coach_tip', { riskScore:risk, nextBestAction:nba, reason1:r1, reason2:r2 });
-      STATE.coach.lastAt=t; STATE.coach.lastKey=key;
-    }else{
-      if(box) box.textContent = `riskScore=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase}`;
-    }
+    const box=qs('gdCoachBox');
+    if(box) box.textContent = `risk=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase}`;
+    STATE.coach.lastAt=t;
   }
 
   // ---- cVR shoot ----
@@ -710,24 +740,25 @@ export default function GameApp(opts = {}) {
       const x=Number(d.x), y=Number(d.y), lockPx=Number(d.lockPx||28);
       const h=hitTestByPoint(x,y,lockPx);
       if(h) onHotspotAction(h, d.source||'shoot');
+      else emitEvent('shoot_miss', { x,y,lockPx, source:d.source||'shoot' });
     }, false);
   }
 
   // ---- badges ----
   function computeBadges(score){
     const badges = [];
-    if(score.final >= 85) badges.push({ id:'super', label:'🕵️ Super Sleuth', why:'คะแนนรวม ≥ 85' });
-    if(score.chain.score >= 80) badges.push({ id:'chain', label:'🧩 Chain Master', why:'Chain Score ≥ 80' });
+    if(score.final >= 85) badges.push({ id:'super', label:'🕵️ Super Sleuth' });
+    if(score.chain.score >= 80) badges.push({ id:'chain', label:'🧩 Chain Master' });
     const spent = score.intervention.budgetSpent || 0;
     const total = (STATE.budget.points || 0);
     const pctSpent = total ? (spent/total) : 1;
-    if(pctSpent <= 0.55 && score.intervention.score >= 70) badges.push({ id:'budget', label:'💰 Budget Hero', why:'ใช้งบ ≤ 55% และ intervention ดี' });
+    if(pctSpent <= 0.55 && score.intervention.score >= 70) badges.push({ id:'budget', label:'💰 Budget Hero' });
     const speedPct = (score.speed.timeTotal ? (score.speed.timeLeft/score.speed.timeTotal) : 0);
-    if(speedPct >= 0.35) badges.push({ id:'speed', label:'⚡ Speed Runner', why:'เหลือเวลา ≥ 35%' });
+    if(speedPct >= 0.35) badges.push({ id:'speed', label:'⚡ Speed Runner' });
     return badges;
   }
 
-  // ---- score + modal ----
+  // ---- scoring ----
   function computeScore(reason){
     const truthInfected = STATE.hotspots.filter(h=>h._infected).map(h=>h.name);
     const predicted = STATE.hotspots.filter(h=>h.verified).map(h=>h.name);
@@ -769,11 +800,11 @@ export default function GameApp(opts = {}) {
       chain:{score:chainScore,hit:chainHit,truthPairs:truthPairs.length,chain:formatChainShort()},
       speed:{score:speedScore,timeLeft:STATE.timeLeft,timeTotal:STATE.timeTotal},
       intervention:{score:interventionScore,avgRiskStart:avgStart,avgRiskEnd:avgEnd,budgetSpent:STATE.budget.spent,budgetLeft:budgetLeft()},
-      mission:{warmOk,trickOk,bossOk,bonus:missionBonus}
+      mission:{warmOk,trickOk,bossOk,bonus:missionBonus},
+      seed: String(cfg.seed||''),
+      ctx: Object.assign({ pid: cfg.pid, run: cfg.run, diff: cfg.diff, scene: cfg.scene, view: cfg.view }, CTX)
     };
     score.badges = computeBadges(score);
-    score.seed = String(cfg.seed || '');
-    score.originalSeed = ORIGINAL_SEED;
     return score;
   }
 
@@ -801,7 +832,17 @@ export default function GameApp(opts = {}) {
     const badgesBox = qs('gdResBadges');
 
     if(title) title.textContent = `ผลลัพธ์ • Rank ${score.rank}`;
-    if(meta) meta.textContent = `scene=${cfg.scene} • diff=${cfg.diff} • run=${cfg.run} • pid=${cfg.pid} • reason=${score.reason} • seed=${score.seed}`;
+    if(meta){
+      const ctxLine = [
+        CTX.studyId && `studyId=${CTX.studyId}`,
+        CTX.phase && `phase=${CTX.phase}`,
+        CTX.conditionGroup && `cond=${CTX.conditionGroup}`,
+        CTX.sessionOrder && `order=${CTX.sessionOrder}`,
+        CTX.blockLabel && `block=${CTX.blockLabel}`,
+        CTX.siteCode && `site=${CTX.siteCode}`,
+      ].filter(Boolean).join(' • ');
+      meta.textContent = `scene=${cfg.scene} • diff=${cfg.diff} • run=${cfg.run} • pid=${cfg.pid} • reason=${score.reason} • seed=${score.seed}` + (ctxLine?` • ${ctxLine}`:'');
+    }
     if(pill) pill.textContent = `คะแนน ${score.final}/100`;
 
     if(final) final.textContent = String(score.final);
@@ -843,7 +884,7 @@ export default function GameApp(opts = {}) {
 
   function hideResult(){ if(MODAL) MODAL.classList.remove('show'); }
 
-  // ---- CSV export (2 files) ----
+  // ---- CSV export (2 files with context columns) ----
   function csvEscape(v){
     const s = String(v ?? '');
     if(/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
@@ -860,18 +901,17 @@ export default function GameApp(opts = {}) {
       a.click();
       a.remove();
       setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} }, 1200);
-    }catch(e){
-      try{
-        const w = WIN.open('', '_blank');
-        if(w) w.document.write('<pre>' + String(text).replace(/[<>&]/g, s=>({ '<':'&lt;','>':'&gt;','&':'&amp;' }[s])) + '</pre>');
-      }catch{}
-    }
+    }catch(e){}
   }
 
   function makeSummaryCSV(score){
     const rows = [];
     rows.push([
+      // core
       'timestampIso','game','pid','run','diff','scene','view','seed',
+      // ctx
+      'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+      // score
       'reason','final','rank',
       'accScore','tp','fp','fn','precision','recall',
       'chainScore','chainHit','chainTruthPairs','chainText',
@@ -883,6 +923,7 @@ export default function GameApp(opts = {}) {
 
     rows.push([
       isoNow(),'germ-detective',cfg.pid,cfg.run,cfg.diff,cfg.scene,cfg.view,String(cfg.seed||''),
+      CTX.studyId,CTX.phase,CTX.conditionGroup,CTX.sessionOrder,CTX.blockLabel,CTX.siteCode,CTX.schoolYear,CTX.semester,
       score.reason,score.final,score.rank,
       score.accuracy.score,score.accuracy.tp,score.accuracy.fp,score.accuracy.fn,score.accuracy.precision,score.accuracy.recall,
       score.chain.score,score.chain.hit,score.chain.truthPairs,score.chain.chain||'',
@@ -905,9 +946,17 @@ export default function GameApp(opts = {}) {
 
   function makeEventsCSV(){
     const rows = [];
-    rows.push(['tIso','ms','name','payloadJson']);
+    rows.push([
+      'tIso','ms','name','payloadJson',
+      'pid','run','diff','scene','view','seed',
+      'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester'
+    ]);
     EVENT_LOG.forEach(e=>{
-      rows.push([e.tIso, e.ms, e.name, e.payloadJson]);
+      rows.push([
+        e.tIso, e.ms, e.name, e.payloadJson,
+        e.pid,e.run,e.diff,e.scene,e.view,e.seed,
+        e.studyId,e.phase,e.conditionGroup,e.sessionOrder,e.blockLabel,e.siteCode,e.schoolYear,e.semester
+      ]);
     });
     return rows.map(r=> r.map(csvEscape).join(',')).join('\n');
   }
@@ -950,7 +999,6 @@ export default function GameApp(opts = {}) {
 
   // ---- end / retry ----
   let _timer=null, _feat=null;
-
   function stopLoops(){
     if(_timer) clearInterval(_timer);
     if(_feat) clearInterval(_feat);
@@ -992,39 +1040,25 @@ export default function GameApp(opts = {}) {
     STATE.chain.edges.length = 0;
     STATE.chain.inferred.length = 0;
     STATE.score = null;
+    STATE._autoReportFired = false;
 
-    // reset event log (new session)
     EVENT_LOG.length = 0;
 
     buildHotspots();
-
     if(STAGE) renderHotspots();
-    updateTopPills();
-    updateBudgetUI();
-    updateEvidenceUI();
-    updateMissionUI();
-    updateTimerUI();
+    updateTopPills(); updateBudgetUI(); updateEvidenceUI(); updateMissionUI(); updateTimerUI();
   }
 
-  // sameSeed=true => use ORIGINAL_SEED (or current cfg.seed in research)
   function resetAndRestart(sameSeed){
-    const useSame = !!sameSeed;
-
-    if(useSame){
-      // research reproducible: always use ORIGINAL_SEED (boot hashed seed already passed in)
+    if(sameSeed){
       rebuildRng(ORIGINAL_SEED);
     } else {
-      // play mode: new seed for variety; research: keep deterministic seed anyway
-      if(cfg.run === 'play'){
-        rebuildRng(String(Date.now()));
-      } else {
-        rebuildRng(String(cfg.seed || ORIGINAL_SEED));
-      }
+      if(cfg.run === 'play') rebuildRng(String(Date.now()));
+      else rebuildRng(String(cfg.seed || ORIGINAL_SEED));
     }
-
     resetStateCore();
     startLoops();
-    showCoach(useSame ? 'เล่นซ้ำแบบ Same Seed ✅' : 'เริ่มรอบใหม่ ✅', 'ลุยเลย: UV → Swab → ต่อ chain → Clean');
+    showCoach(sameSeed?'Same Seed ✅':'Retry ✅', 'UV → Swab → Chain → Clean');
   }
 
   function submitReport(){
@@ -1034,41 +1068,12 @@ export default function GameApp(opts = {}) {
     endGame('submitted');
   }
 
-  // ---- cVR shoot ----
-  function wireShoot(){
-    WIN.addEventListener('hha:shoot', (ev)=>{
-      const d=ev.detail||{};
-      const x=Number(d.x), y=Number(d.y), lockPx=Number(d.lockPx||28);
-      const h=hitTestByPoint(x,y,lockPx);
-      if(h) onHotspotAction(h, d.source||'shoot');
-      else emitEvent('shoot_miss', { x,y,lockPx, source:d.source||'shoot' });
-    }, false);
-  }
-
-  function hitTestByPoint(x,y, lockPx){
-    let targetEl=null;
-    try{ targetEl=DOC.elementFromPoint(x,y); }catch(_){}
-    const spotEl=targetEl && targetEl.closest ? targetEl.closest('.gd-spot') : null;
-    if(spotEl && spotEl.dataset && spotEl.dataset.id) return findHotspotById(spotEl.dataset.id);
-
-    lockPx=clamp(lockPx,8,120);
-    let best=null, bestD=1e9;
-    STATE.hotspots.forEach(h=>{
-      if(!h.el) return;
-      const r=h.el.getBoundingClientRect();
-      const cx=r.left+r.width/2, cy=r.top+r.height/2;
-      const d=Math.hypot(cx-x,cy-y);
-      if(d<bestD){ bestD=d; best=h; }
-    });
-    return (best && bestD<=lockPx) ? best : null;
-  }
-
   // ---- loop ----
   function startLoops(){
     STATE.running=true; STATE.paused=false; STATE.ended=false;
     updateTopPills(); updateTimerUI(); updateBudgetUI(); updateEvidenceUI(); updateMissionUI();
 
-    emitEvent('session_start', { game:'germ-detective', run:cfg.run, diff:cfg.diff, time:STATE.timeTotal, seed:cfg.seed, pid:cfg.pid, scene:cfg.scene, view:cfg.view });
+    emitEvent('session_start', { game:'germ-detective', time:STATE.timeTotal });
 
     _timer = setInterval(()=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
@@ -1076,9 +1081,8 @@ export default function GameApp(opts = {}) {
       updateTimerUI();
 
       try{
-        const feat = {
+        const feat = Object.assign({
           game:'germ-detective',
-          run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view,
           timeLeft:STATE.timeLeft, timeTotal:STATE.timeTotal,
           stage:STATE.stage, phase:STATE.phase,
           tool:STATE.tool,
@@ -1091,8 +1095,10 @@ export default function GameApp(opts = {}) {
           riskScore: computeRiskScore(),
           nextBestAction: nextBestAction(),
           chain: (STATE.chain.inferred||[]).slice(0,4).join('>') || ''
-        };
+        }, { pid: cfg.pid, run: cfg.run, diff: cfg.diff, scene: cfg.scene, view: cfg.view, seed: String(cfg.seed||'') }, CTX);
+
         WIN.dispatchEvent(new CustomEvent('hha:features_1s', { detail: feat }));
+        logEvt('features_1s', feat);
       }catch(_){}
 
       coachTick();
@@ -1114,8 +1120,7 @@ export default function GameApp(opts = {}) {
     setPhase('investigate');
     setStage(1);
 
-    WIN.GD = WIN.GD || {};
-    WIN.GD.started = true;
+    emitEvent('boot', { game:'germ-detective', ctx:CTX });
 
     WIN.addEventListener('message', (ev)=>{
       const m = ev.data;
@@ -1140,15 +1145,13 @@ export default function GameApp(opts = {}) {
     });
 
     startLoops();
-    showCoach('คดีเริ่มแล้ว! มีคนป่วยหลายคน — ต้องหา “จุดแพร่” ให้เร็ว', 'เริ่มจาก UV แล้ว Swab ยืนยัน');
+    showCoach('คดีเริ่มแล้ว! 🦠', 'เริ่มจาก UV แล้ว Swab ยืนยัน');
   }
 
   // public API
   return {
     init,
     getState: ()=>STATE,
-    setTool,
-    submitReport,
     retry: ()=>resetAndRestart(false),
     retrySameSeed: ()=>resetAndRestart(true),
     exportSummaryCSV,
