@@ -1,9 +1,10 @@
-<!-- === /webxr-health-mobile/fitness/balance-hold.html ===
-Balance Hold — VR Fitness (DOM) — RUN PAGE
-PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
-✅ ensure JS path: ./js/balance-hold.js (=> /fitness/js/balance-hold.js)
-✅ result-first: no auto redirect to hub; back hub only by button
-✅ UI IDs aligned with balance-hold.js
+<!-- === /fitness/balance-hold.html ===
+Balance Hold — RUN (Menu -> Play -> Result) — PRODUCTION
+PATCH v20260304-BH-RUN-DIFFMENU-FXFIX-AFKGUARD
+✅ Difficulty/Duration/View selection BEFORE start
+✅ FX layer (popup score) always visible
+✅ No-AFK scoring (must interact before scoring)
+✅ Result shown before Back HUB (no auto jump)
 -->
 <!doctype html>
 <html lang="th">
@@ -262,6 +263,13 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       100% { transform:translateX(-50%) translateY(260px) scale(1.08); opacity:.95; }
     }
 
+    /* ---------- FX layer (TOP) ---------- */
+    #fxLayer{
+      position:absolute;
+      inset:0;
+      z-index: 20;
+      pointer-events:none;
+    }
     .fx-float{
       position:absolute;
       transform: translate(-50%,-50%);
@@ -271,7 +279,6 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       user-select:none;
       animation: fxFloat .8s ease-out forwards;
       text-shadow: 0 1px 4px rgba(0,0,0,.5);
-      z-index: 10;
     }
     .fx-float.good{ color:#86efac; }
     .fx-float.gold{ color:#fde68a; }
@@ -281,7 +288,6 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       15%  { opacity:1; }
       100% { opacity:0; transform:translate(-50%,-140%) scale(1.03); }
     }
-
     .shake-hit{ animation:shakeHit .22s linear; }
     @keyframes shakeHit{
       0%,100%{ transform:translateX(0); }
@@ -347,7 +353,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       color:rgba(248,250,252,.92);
     }
 
-    /* ---------- Overlay (Tutorial / End Modal) ---------- */
+    /* ---------- Overlay ---------- */
     .overlay{
       position:fixed;
       inset:0;
@@ -372,22 +378,6 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       gap:8px;
       justify-content:flex-end;
       margin-top: 12px;
-    }
-    .tutorial-list{
-      margin:0;
-      padding-left:18px;
-      display:grid;
-      gap:6px;
-      color:rgba(226,232,240,.92);
-      line-height:1.35;
-    }
-    .checkbox-row{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      align-items:flex-start;
-      color:rgba(226,232,240,.92);
-      opacity:.95;
     }
 
     /* ---------- Result ---------- */
@@ -493,14 +483,13 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
 <body>
   <div class="app">
 
-    <!-- =========================
-         VIEW: MENU
-         ========================= -->
+    <!-- VIEW: MENU -->
     <section id="view-menu" class="card">
       <div>
         <h1 class="title">⚖️ Balance Hold</h1>
         <p class="sub">
-          เกมฝึกทรงตัว: ลากซ้าย–ขวาให้แท่นสมดุล อยู่ใน safe zone ให้ได้นาน และหลบ obstacle (💨/💣) เพื่อสะสม Score/Combo/Rank
+          เกมฝึกทรงตัว: ลากซ้าย–ขวาให้แท่นสมดุล อยู่ใน safe zone ให้ได้นาน และหลบ obstacle (💨/💣)
+          เพื่อสะสม Score/Combo/Rank
         </p>
       </div>
 
@@ -539,14 +528,15 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
           </div>
 
           <div class="actions">
-            <button type="button" class="btn btn-primary" data-action="start-normal">▶ Start Play</button>
+            <button type="button" class="btn btn-primary" data-action="start-play">▶ Start Play</button>
             <button type="button" class="btn" data-action="goto-research">🧪 Research Mode</button>
             <button type="button" class="btn" data-action="export-sessions-csv">⬇ Export Sessions CSV</button>
             <button type="button" class="btn" data-action="export-release-debug">🧪 Export Debug JSON</button>
           </div>
 
           <p class="sub" style="margin-top:10px;">
-            Tip: เปิดด้วย URL เช่น <code>?run=play&diff=normal&time=80&seed=...&view=mobile</code>
+            Tip: URL เช่น <code>?run=play&diff=normal&time=80&seed=...&view=mobile</code><br/>
+            ถ้าต้องการ “เข้าเล่นทันทีจาก HUB” ค่อยใส่ <code>&autostart=1</code> (ค่าเริ่มต้นคือไม่ autostart)
           </p>
         </div>
 
@@ -557,15 +547,13 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
             <li>ให้อยู่ใน safe zone ให้นานที่สุด (Stability สูงขึ้น)</li>
             <li>หลบ obstacle ตอน impact (Avoid) เพื่อเก็บคะแนน</li>
             <li>คุมใกล้กลางมาก ๆ ตอน impact = Perfect ✨</li>
-            <li>โดนชน = Hit ❌ คอมโบแตก + เสียคะแนน</li>
+            <li>ถ้าไม่แตะ/ไม่คุม ระบบจะ “ไหลออกนอกโซน” แล้วเริ่มโดน Hit (กัน AFK)</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <!-- =========================
-         VIEW: RESEARCH
-         ========================= -->
+    <!-- VIEW: RESEARCH -->
     <section id="view-research" class="card hidden">
       <h2 class="title">🧪 Research Mode</h2>
       <p class="sub">กรอกข้อมูลผู้เข้าร่วม แล้วกด Start Research</p>
@@ -574,12 +562,10 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
         <label for="researchId">Player ID</label>
         <input id="researchId" type="text" placeholder="เช่น P001" />
       </div>
-
       <div class="field-row">
         <label for="researchGroup">Group</label>
         <input id="researchGroup" type="text" placeholder="เช่น control / exp" />
       </div>
-
       <div class="field-row">
         <label for="researchPhase">Phase</label>
         <input id="researchPhase" type="text" placeholder="เช่น pre / post / wk2" />
@@ -591,9 +577,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       </div>
     </section>
 
-    <!-- =========================
-         VIEW: PLAY
-         ========================= -->
+    <!-- VIEW: PLAY -->
     <section id="view-play" class="card hidden">
       <div class="hud-panel" id="playHud">
         <div class="hud-row">
@@ -608,7 +592,6 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
           <div class="pill">Status: <span id="hud-status">Ready</span></div>
           <div class="pill">Stability: <span id="hud-stability">0%</span></div>
           <div class="pill">Obstacles: <span id="hud-obs">0 / 0</span></div>
-          <!-- legacy mirror -->
           <span id="hud-obstacles" class="hidden" aria-hidden="true">0 / 0</span>
         </div>
 
@@ -626,7 +609,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       </div>
 
       <div class="coach-wrap" style="margin-top:10px;">
-        <p id="coachLabel">จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance</p>
+        <p id="coachLabel">แตะ/ลากซ้าย–ขวาเพื่อคุมสมดุล (ต้องมีการคุมจริงจึงเริ่มนับคะแนน)</p>
         <div id="coachBubble" class="hidden">พร้อมทรงตัวแล้วนะ ✨</div>
       </div>
 
@@ -644,6 +627,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
         </div>
 
         <div id="obstacle-layer" aria-hidden="true"></div>
+        <div id="fxLayer" aria-hidden="true"></div>
 
         <div id="cvrOverlay" class="hidden" aria-hidden="true">
           <div class="crosshair" aria-hidden="true"></div>
@@ -667,9 +651,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       </div>
     </section>
 
-    <!-- =========================
-         VIEW: RESULT
-         ========================= -->
+    <!-- VIEW: RESULT -->
     <section id="view-result" class="card hidden">
       <h2 class="title">📊 Result</h2>
       <p class="sub">สรุปผล: Stability/Obstacle/Score/Rank + คำแนะนำ</p>
@@ -722,22 +704,20 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       </div>
     </section>
 
-  </div><!-- /.app -->
+  </div>
 
-  <!-- =========================
-       Tutorial Overlay
-       ========================= -->
+  <!-- Tutorial Overlay -->
   <div id="tutorialOverlay" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <h3>วิธีเล่น Balance Hold</h3>
-      <ol class="tutorial-list">
+      <ol class="sub" style="margin:.5rem 0 0 1.1rem; padding:0;">
         <li>ลากซ้าย–ขวาเพื่อคุมแท่นให้สมดุล</li>
-        <li>อยู่ใน safe zone ให้ได้นานที่สุด (Stability สูงขึ้น)</li>
-        <li>หลบ obstacle (💨/💣) โดยคุมสมดุลตอน impact</li>
-        <li>Perfect เกิดเมื่อคุมใกล้กึ่งกลางมาก ๆ ตอน impact</li>
-        <li>ถ้าเปิด Practice จะมี Countdown → Practice → Main</li>
+        <li>อยู่ใน safe zone ให้นานที่สุด</li>
+        <li>หลบ obstacle ตอน impact</li>
+        <li>Perfect เมื่อคุมใกล้กึ่งกลางมาก ๆ</li>
+        <li>ต้อง “แตะ/ลาก” อย่างน้อย 1 ครั้ง เกมถึงจะเริ่มนับคะแนนจริง</li>
       </ol>
-      <label class="checkbox-row">
+      <label class="sub" style="display:flex; gap:8px; align-items:flex-start; margin-top:10px;">
         <input type="checkbox" id="tutorialDontShowAgain" />
         <span>ไม่ต้องแสดงอีกครั้งบนอุปกรณ์นี้</span>
       </label>
@@ -748,9 +728,7 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
     </div>
   </div>
 
-  <!-- =========================
-       End Modal
-       ========================= -->
+  <!-- End Modal -->
   <div id="endModal" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <div style="display:flex; gap:12px; align-items:center;">
@@ -768,13 +746,12 @@ PATCH v20260304a-BH-RUN-FIXPATH-RESULTLOCK
       <div class="overlay-actions">
         <button type="button" class="btn" data-action="close-end-modal">Close</button>
         <button type="button" class="btn" data-action="end-retry">Play Again</button>
-        <button type="button" class="btn" data-action="end-next-mission">Next Mission</button>
         <button type="button" class="btn btn-primary" data-action="end-back-hub">Back HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- ✅ JS: ต้องอยู่ที่ /webxr-health-mobile/fitness/js/balance-hold.js -->
+  <!-- JS -->
   <script src="./js/balance-hold.js"></script>
 </body>
 </html>
