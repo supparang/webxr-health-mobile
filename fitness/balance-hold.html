@@ -1,165 +1,217 @@
-<!-- === /fitness/balance-hold.html ===
-Balance Hold — VR Fitness (DOM) — PRODUCTION
-PATCH v20260304-BH-HTML-HUD-LAYER-RESULTBTN
-✅ Adds: obstacle-layer, FX layer, full HUD fields, Back HUB button
-✅ Loads: ./css/balance-hold.css + ./js/balance-hold.js
+<!-- === /herohealth/balance-hold-vr.html ===
+Balance Hold — LAUNCHER (HeroHealth Root)
+PATCH v20260304-BALANCEHOLD-LAUNCHER
+✅ Choose diff/time/view BEFORE entering run
+✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup
+✅ Go to /fitness/balance-hold.html (run page)
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — VR Fitness</title>
+  <title>Balance Hold — Launcher</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../herohealth/favicon.ico" />
-  <link rel="stylesheet" href="./css/balance-hold.css" />
+  <style>
+    :root{
+      --bg:#020617;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(15,23,42,.55);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;max-width:880px;margin:0 auto;
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))}
+    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:16px;font-weight:1000}
+    p{margin:8px 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:13px;line-height:1.35}
+    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:6px}
+    select,input{
+      width:100%;min-height:42px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);color:var(--text);padding:9px 10px;font:inherit;font-weight:900
+    }
+    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);font-weight:1000;font-size:13px;color:inherit;text-decoration:none;
+      cursor:pointer
+    }
+    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
+    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
+    .chiprow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .chip b{color:#fff}
+    .small{margin-top:10px;font-size:12px;color:var(--muted);font-weight:850}
+  </style>
 </head>
-
 <body>
-  <!-- MENU -->
-  <section id="view-menu" class="view">
+  <div class="wrap">
     <div class="card">
-      <div class="h1">🧘‍♀️ Balance Hold</div>
-      <div class="p">เกมฝึกทรงตัวบนแพลตฟอร์ม พร้อมหลบแรงรบกวน (Obstacle Avoidance)</div>
-
-      <div class="form">
-        <label>Difficulty</label>
-        <select id="difficulty">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-
-        <label>Session Duration (sec)</label>
-        <select id="sessionDuration">
-          <option value="60" selected>60</option>
-          <option value="80">80</option>
-          <option value="100">100</option>
-        </select>
-      </div>
-
       <div class="row">
-        <button class="btn primary" data-action="start-normal">▶ Start Play</button>
-        <button class="btn" data-action="goto-research">🧪 Research Mode</button>
+        <div>
+          <h1>⚖️ Balance Hold — Launcher</h1>
+          <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น (กันกรณีเข้าจาก HUB แล้ว “วิ่งเลย” ไม่มีให้เลือก)</p>
+        </div>
+        <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
       </div>
 
-      <details class="how">
-        <summary>How to play / วิธีเล่น</summary>
-        <ul>
-          <li>ลากนิ้ว/เมาส์ ซ้าย–ขวา เพื่อควบคุม “จุด” (target balance)</li>
-          <li>รักษาให้จุดอยู่ใน “โซนปลอดภัย” ให้นานที่สุด</li>
-          <li>เมื่อ obstacle (💨/💣/⚡) เข้ามา ให้คุมสมดุลเพื่อ “หลบ” ให้ได้</li>
-          <li>มี 3 ช่วง: Warm → Trick → Boss (ท้ายเกมโซนแคบลง)</li>
-        </ul>
-      </details>
-    </div>
-  </section>
+      <div class="chiprow">
+        <div class="chip">pid: <b id="cPid">anon</b></div>
+        <div class="chip">seed: <b id="cSeed">-</b></div>
+        <div class="chip">run: <b id="cRun">play</b></div>
+      </div>
 
-  <!-- RESEARCH -->
-  <section id="view-research" class="view hidden">
-    <div class="card">
-      <div class="h2">🧪 Research Mode</div>
-      <div class="grid2">
+      <div class="grid">
         <div>
-          <label>Participant ID</label>
-          <input id="researchId" placeholder="เช่น P001" />
+          <label for="diff">Difficulty</label>
+          <select id="diff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
         </div>
         <div>
-          <label>Group</label>
-          <input id="researchGroup" placeholder="เช่น A/B" />
+          <label for="time">Duration (sec)</label>
+          <select id="time">
+            <option value="45">45</option>
+            <option value="60">60</option>
+            <option value="80" selected>80</option>
+            <option value="90">90</option>
+            <option value="120">120</option>
+          </select>
         </div>
         <div>
-          <label>Phase</label>
-          <input id="researchPhase" placeholder="เช่น pre/post" />
+          <label for="view">View</label>
+          <select id="view">
+            <option value="pc">PC</option>
+            <option value="mobile">Mobile</option>
+            <option value="cvr">Cardboard / cVR</option>
+          </select>
         </div>
       </div>
 
-      <div class="row">
-        <button class="btn primary" data-action="start-research">▶ Start Research</button>
-        <button class="btn ghost" data-action="back-menu">← Back</button>
+      <div class="btnrow">
+        <button class="btn primary" id="btnStart">▶ Start</button>
+        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN (no autostart)</a>
+        <button class="btn" id="btnReseed">🎲 Reseed</button>
       </div>
 
-      <div class="note">
-        * research mode จะ export CSV เมื่อจบเกม
-      </div>
-    </div>
-  </section>
-
-  <!-- PLAY -->
-  <section id="view-play" class="view hidden">
-    <div class="hud">
-      <div class="hudrow">
-        <div class="chip">Mode: <b id="hud-mode">Play</b></div>
-        <div class="chip">Diff: <b id="hud-diff">normal</b></div>
-        <div class="chip">Dur: <b id="hud-dur">60</b>s</div>
-        <div class="chip">Time: <b id="hud-time">60.0</b></div>
-      </div>
-
-      <div class="hudrow">
-        <div class="chip">Stage: <b id="hud-stage">Warm</b></div>
-        <div class="chip">Stability: <b id="hud-stability">0%</b></div>
-        <div class="chip">Obstacles: <b id="hud-obstacles">0 / 0</b></div>
-        <div class="chip">HP: <b id="hud-hp">3</b></div>
-        <div class="chip">Score: <b id="hud-score">0</b></div>
-        <div class="chip">Combo: <b id="hud-combo">0</b></div>
-        <div class="chip">RT: <b id="hud-rt">-</b></div>
-      </div>
-
-      <div class="coachline" id="coachLabel">ลากซ้าย–ขวาเพื่อคุมสมดุล / Drag left–right to balance</div>
-      <div class="coachbubble hidden" id="coachBubble">—</div>
-    </div>
-
-    <div id="playArea" class="playArea">
-      <!-- FX layers -->
-      <div id="fx-layer" class="fx-layer"></div>
-
-      <!-- obstacles MUST exist -->
-      <div id="obstacle-layer" class="obstacle-layer"></div>
-
-      <!-- platform -->
-      <div id="platform-wrap" class="platform-wrap">
-        <div id="indicator" class="indicator"></div>
-        <div id="platform" class="platform"></div>
-        <div class="safezone" id="safezone"></div>
+      <div class="small">
+        RUN page: <code>/fitness/balance-hold.html</code> (จะรับพารามิเตอร์จากที่นี่)
       </div>
     </div>
+  </div>
 
-    <div class="controls">
-      <button class="btn ghost" data-action="stop">⏹ Stop</button>
-      <button class="btn ghost" data-action="back-menu">← Menu</button>
-    </div>
-  </section>
+<script>
+'use strict';
 
-  <!-- RESULT -->
-  <section id="view-result" class="view hidden">
-    <div class="card">
-      <div class="h2">Result</div>
+function qs(k, d=''){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; }
+}
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+function nowSeed(){ return String(Date.now()); }
+function setParam(u, k, v){
+  if (v === '' || v == null) u.searchParams.delete(k);
+  else u.searchParams.set(k, String(v));
+}
+function normalizeMaybeEncodedUrl(v){
+  v = String(v ?? '').trim();
+  if(!v || v==='null' || v==='undefined') return '';
+  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){ try{ v = decodeURIComponent(v); }catch(e){} }
+  return v.trim();
+}
 
-      <div class="resgrid">
-        <div class="r"><span>Mode</span><b id="res-mode">—</b></div>
-        <div class="r"><span>Diff</span><b id="res-diff">—</b></div>
-        <div class="r"><span>Dur</span><b id="res-dur">—</b></div>
-        <div class="r"><span>End</span><b id="res-end">—</b></div>
+const P = {
+  hub: normalizeMaybeEncodedUrl(qs('hub','')),
+  run: String(qs('run','play')).toLowerCase() || 'play',
+  diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+  time: clamp(qs('time','80'), 20, 300),
+  seed: String(qs('seed','') || nowSeed()),
+  pid: String(qs('pid','')).trim() || 'anon',
+  view: String(qs('view','pc')).toLowerCase() || 'pc',
 
-        <div class="r"><span>Stability</span><b id="res-stability">—</b></div>
-        <div class="r"><span>Mean Tilt</span><b id="res-meanTilt">—</b></div>
-        <div class="r"><span>RMS Tilt</span><b id="res-rmsTilt">—</b></div>
+  log: String(qs('log','')),
+  api: normalizeMaybeEncodedUrl(qs('api','')),
+  ai: String(qs('ai','')),
+  studyId: String(qs('studyId','')),
+  phase: String(qs('phase','')),
+  conditionGroup: String(qs('conditionGroup',''))
+};
 
-        <div class="r"><span>Avoid</span><b id="res-avoid">—</b></div>
-        <div class="r"><span>Hit</span><b id="res-hit">—</b></div>
-        <div class="r"><span>Avoid rate</span><b id="res-avoidRate">—</b></div>
+document.getElementById('cPid').textContent = P.pid;
+document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
+document.getElementById('cRun').textContent = P.run;
 
-        <div class="r"><span>Fatigue</span><b id="res-fatigue">—</b></div>
-        <div class="r"><span>Samples</span><b id="res-samples">—</b></div>
-      </div>
+const elDiff = document.getElementById('diff');
+const elTime = document.getElementById('time');
+const elView = document.getElementById('view');
 
-      <div class="row">
-        <button class="btn primary" data-action="play-again">↻ Play Again</button>
-        <button class="btn" id="btnBackHub" style="display:none;">⬅ กลับ HUB</button>
-      </div>
-    </div>
-  </section>
+if (['easy','normal','hard'].includes(P.diff)) elDiff.value = P.diff;
+if (P.time) elTime.value = String(P.time);
+if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
 
-  <script src="./js/balance-hold.js"></script>
+// backHub should go to original hub if provided
+const backHub = document.getElementById('backHub');
+if (P.hub) backHub.href = P.hub;
+
+function buildRunUrl(autostart){
+  const u = new URL('../fitness/balance-hold.html', location.href);
+
+  // pass-through
+  setParam(u, 'hub', P.hub || '');
+  setParam(u, 'run', P.run);
+  setParam(u, 'pid', P.pid);
+  setParam(u, 'seed', P.seed);
+
+  setParam(u, 'diff', elDiff.value);
+  setParam(u, 'time', elTime.value);
+  setParam(u, 'view', elView.value);
+
+  setParam(u, 'log', P.log);
+  setParam(u, 'api', P.api);
+  setParam(u, 'ai', P.ai);
+
+  setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
+  setParam(u, 'conditionGroup', P.conditionGroup);
+
+  // ✅ สำคัญ: ให้ RUN ไม่วิ่งเอง unless autostart=1
+  setParam(u, 'autostart', autostart ? '1' : '');
+
+  return u.toString();
+}
+
+document.getElementById('btnStart').addEventListener('click', ()=>{
+  location.href = buildRunUrl(true);
+});
+document.getElementById('btnOpenRun').addEventListener('click', (e)=>{
+  e.preventDefault();
+  location.href = buildRunUrl(false);
+});
+document.getElementById('btnReseed').addEventListener('click', ()=>{
+  P.seed = nowSeed();
+  document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
+  try{
+    const u = new URL(location.href);
+    u.searchParams.set('seed', P.seed);
+    history.replaceState(null,'',u.toString());
+  }catch(e){}
+});
+</script>
 </body>
 </html>
