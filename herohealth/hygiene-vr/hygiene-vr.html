@@ -1,11 +1,5 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION — FULL v20260221n
-✅ Views: pc/mobile/vr/cvr  (via body classes)
-✅ Uses: ../vr/vr-ui.js => crosshair + hha:shoot (cVR)
-✅ FX: ../vr/particles.js
-✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
-✅ Engine: hygiene.safe.js (export boot)
-✅ End flow: Analyze heatmap2d -> Evaluate -> Create routine
+HygieneVR RUN — PATCH v20260221n (CACHE-BUST)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,6 +9,21 @@ HygieneVR RUN — PRODUCTION — FULL v20260221n
   <title>HeroHealth — HygieneVR</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <script>
+    // cache-bust param shared
+    (function(){
+      try{
+        const u = new URL(location.href);
+        if(!u.searchParams.get('v')) u.searchParams.set('v','20260221n');
+        // do NOT redirect if already has v
+        if(location.href !== u.toString() && !location.search.includes('v=')){
+          location.replace(u.toString());
+        }
+        window.__HHA_V = u.searchParams.get('v') || '20260221n';
+      }catch{}
+    })();
+  </script>
 
   <link rel="stylesheet" href="./hygiene-vr.css?v=20260221n" />
 
@@ -59,7 +68,7 @@ HygieneVR RUN — PRODUCTION — FULL v20260221n
 
         <div class="hw-row">
           <div class="hw-pill warn" id="pillRisk">RISK Incomplete 0% • Unsafe 0%</div>
-          <div class="hw-pill" id="pillTime">TIME 70</div>
+          <div class="hw-pill" id="pillTime">TIME 80</div>
           <div class="hw-pill cyan" id="pillQuest">MISSION —</div>
           <div class="hw-pill power" id="pillPower">POWER —</div>
 
@@ -76,13 +85,12 @@ HygieneVR RUN — PRODUCTION — FULL v20260221n
       <div class="hw-banner" id="banner" aria-live="polite"></div>
     </div>
 
+    <!-- ✅ ต้องโชว์เป็นค่าเริ่มต้น -->
     <div class="hw-overlay" id="startOverlay">
       <div class="hw-card">
         <div class="hw-card-title">เริ่มภารกิจล้างมือ 🧼</div>
         <div class="hw-card-sub">
-          โหมด <b>Survival</b> — ทำตาม <b>7 ขั้นตอน</b> ให้ถูก • หลบเชื้อ 🦠 • รักษาคอมโบให้ยาวที่สุด<br>
-          <b>คำท่อง:</b> “ฝ่า-หลัง-ซอก-ข้อ-โป้ง-เล็บ-ข้อมือ”<br>
-          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น
+          แตะ/ยิง “ไอคอนขั้นตอนที่ถูก” เท่านั้น • หลบ 🦠 • รักษาคอมโบ
         </div>
         <div class="hw-card-row">
           <button class="hw-cta" id="btnStart" type="button">▶ Start</button>
@@ -99,64 +107,7 @@ HygieneVR RUN — PRODUCTION — FULL v20260221n
       <div class="hw-card">
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
-
-        <div class="hw-kidcard grade-C" id="kidCard" style="margin-top:10px">
-          <div class="k-h" id="kidTitle">สรุปแบบเด็ก</div>
-          <div class="k-b" id="kidBody">—</div>
-          <div class="k-s" id="kidTip">—</div>
-        </div>
-
-        <div class="hw-eval" id="evalBox" style="margin-top:12px">
-          <div class="hw-eval-title">🧠 Evaluate (30 วิ)</div>
-          <div class="hw-eval-sub">เลือก “จุดเสี่ยงสุด” ที่คุณคิดว่าพลาดบ่อยที่สุด</div>
-          <div class="hw-eval-sub" id="evalHint">—</div>
-
-          <div class="hw-eval-row">
-            <div class="hw-eval-picked" id="evalPicked">เลือก: —</div>
-            <div class="hw-eval-score" id="evalScore">ผลประเมิน: —</div>
-          </div>
-
-          <div class="hw-handmap" id="handMap"></div>
-
-          <div class="hw-reasons" id="evalReasons" style="margin-top:10px">
-            <button class="hw-reason" data-reason="ลืมขั้นตอนนี้บ่อย">ลืมขั้นตอนนี้บ่อย</button>
-            <button class="hw-reason" data-reason="รีบเกินไป/ถูไม่ทั่ว">รีบเกินไป/ถูไม่ทั่ว</button>
-            <button class="hw-reason" data-reason="โดนเชื้อ/พลาดหลบ">โดนเชื้อ/พลาดหลบ</button>
-            <button class="hw-reason" data-reason="คุมคอมโบไม่อยู่">คุมคอมโบไม่อยู่</button>
-          </div>
-
-          <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnEvalConfirm" type="button" disabled>✅ ยืนยัน</button>
-            <button class="hw-ghost" id="btnEvalSkip" type="button">ข้าม</button>
-          </div>
-        </div>
-
-        <div class="hw-create" id="createBox" style="display:none">
-          <div class="hw-eval-title">🛠️ Create Routine (30 วิ)</div>
-          <div class="hw-eval-sub">เลือก “กิจวัตรล้างมือ” 3 ข้อที่คุณจะทำจริง</div>
-          <div class="hw-eval-sub">เวลาเหลือ: <span class="hw-mini" id="createTimer">30</span> วินาที</div>
-
-          <div class="hw-eval-row">
-            <div class="hw-eval-picked" id="createPicked">เลือกแล้ว: 0/3</div>
-            <div class="hw-eval-score" id="createScore">คะแนน: —</div>
-          </div>
-
-          <div class="hw-routine" id="routineOpts">
-            <button class="hw-rt" data-rt="ก่อนกินอาหาร/ขนม">ก่อนกินอาหาร/ขนม</button>
-            <button class="hw-rt" data-rt="หลังเข้าห้องน้ำ">หลังเข้าห้องน้ำ</button>
-            <button class="hw-rt" data-rt="หลังจับของสาธารณะ/ลูกบิด/มือถือ">หลังจับของสาธารณะ/ลูกบิด/มือถือ</button>
-            <button class="hw-rt" data-rt="กลับถึงบ้านจากข้างนอก">กลับถึงบ้านจากข้างนอก</button>
-            <button class="hw-rt" data-rt="หลังไอ/จาม/สั่งน้ำมูก">หลังไอ/จาม/สั่งน้ำมูก</button>
-            <button class="hw-rt" data-rt="ก่อนเตรียมอาหาร/ช่วยทำกับข้าว">ก่อนเตรียมอาหาร/ช่วยทำกับข้าว</button>
-          </div>
-
-          <div class="hw-card-row" style="margin-top:10px">
-            <button class="hw-cta" id="btnCreateConfirm" type="button" disabled>บันทึก</button>
-          </div>
-        </div>
-
         <pre class="hw-pre" id="endJson"></pre>
-
         <div class="hw-card-row">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
           <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
@@ -174,14 +125,11 @@ HygieneVR RUN — PRODUCTION — FULL v20260221n
     const view = (qs('view','pc')||'pc').toLowerCase();
     document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    const labView = document.getElementById('labView');
-    if(labView) labView.textContent = view;
+    document.getElementById('labView').textContent = view;
   }
   setViewClass();
-  const labMode = document.getElementById('labMode');
-  const labDiff = document.getElementById('labDiff');
-  if(labMode) labMode.textContent = (qs('run','play')||'play');
-  if(labDiff) labDiff.textContent = (qs('diff','normal')||'normal');
+  document.getElementById('labMode').textContent = (qs('run','play')||'play');
+  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
 })();
 </script>
 </body>
