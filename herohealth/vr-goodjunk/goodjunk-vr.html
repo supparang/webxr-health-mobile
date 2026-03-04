@@ -1,7 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
-PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
-✅ Adds Difficulty UI that updates URL diff=easy|normal|hard and reloads (preserves all params)
+GoodJunkVR RUN — PRODUCTION (folder-run)
+PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
+✅ File name FIX: goodjunk-vr.html (ตามที่คุณบอก)
+✅ Difficulty switch: easy / normal / hard (UI + URL param)
+✅ Spawn-safe: คำนวณ safe-rect กัน HUD/ขอบจอ + อัปเดต window.__HHA_SPAWN_SAFE__
+✅ AI dynamic import (optional): ?ai=1 (เฉพาะ run=play)
+✅ cVR support hook (optional): dynamic import ../vr/vr-ui.js (ถ้ามี)
 -->
 <!doctype html>
 <html lang="th">
@@ -13,35 +17,6 @@ PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
 
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
-
-  <style>
-    /* small, safe UI additions (won't break existing CSS) */
-    #diffBar{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-      margin-top:8px;
-    }
-    .diffTag{ opacity:.8; font-weight:900; font-size:12px; }
-    .diffBtns{ display:flex; gap:8px; flex-wrap:wrap; }
-    .diffBtn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.35);
-      color: rgba(229,231,235,.96);
-      border-radius: 999px;
-      padding: 8px 10px;
-      font-weight: 1000;
-      font-size: 12px;
-      line-height: 1;
-      cursor: pointer;
-      min-height: 34px;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .diffBtn[aria-pressed="true"]{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.14);
-      box-shadow: 0 10px 26px rgba(0,0,0,.28);
-    }
-    .diffBtn:active{ transform: translateY(1px); }
-  </style>
 </head>
 
 <body>
@@ -56,20 +31,17 @@ PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
 
     <!-- Top HUD -->
     <header id="hud">
-      <div class="hud-row">
+      <div class="hud-row hud-top">
         <div class="pill">SCORE <b id="hud-score">0</b></div>
         <div class="pill">TIME <b id="hud-time">0</b></div>
         <div class="pill">MISS <b id="hud-miss">0</b></div>
         <div class="pill">GRADE <b id="hud-grade">C</b></div>
-      </div>
 
-      <!-- ✅ Difficulty UI -->
-      <div class="hud-row" id="diffBar">
-        <span class="diffTag">DIFF</span>
-        <div class="diffBtns" role="group" aria-label="Difficulty">
-          <button class="diffBtn" id="btnDiffEasy"   type="button" data-diff="easy"   aria-pressed="false">ง่าย</button>
-          <button class="diffBtn" id="btnDiffNormal" type="button" data-diff="normal" aria-pressed="false">ปกติ</button>
-          <button class="diffBtn" id="btnDiffHard"   type="button" data-diff="hard"   aria-pressed="false">ยาก</button>
+        <!-- Difficulty switch -->
+        <div class="diffSwitch" role="group" aria-label="Difficulty">
+          <button type="button" class="diffBtn" data-diff="easy">EASY</button>
+          <button type="button" class="diffBtn" data-diff="normal">NORMAL</button>
+          <button type="button" class="diffBtn" data-diff="hard">HARD</button>
         </div>
       </div>
 
@@ -160,7 +132,6 @@ PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-
         <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
@@ -171,73 +142,69 @@ PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
-    // ---- Difficulty UI (preserve params, just change diff) ----
-    function setPressed(diff){
-      const map = {
-        easy:   document.getElementById('btnDiffEasy'),
-        normal: document.getElementById('btnDiffNormal'),
-        hard:   document.getElementById('btnDiffHard')
-      };
-      Object.keys(map).forEach(k=>{
-        const el = map[k];
-        if(!el) return;
-        el.setAttribute('aria-pressed', String(k===diff));
-      });
+    // ---- spawn-safe: กัน HUD บังเป้า ----
+    function computeSpawnSafe(){
+      const hud = document.getElementById('hud');
+      const stage = document.getElementById('stage');
+      const layer = document.getElementById('gj-layer');
+      if(!stage || !layer) return;
+
+      const sr = stage.getBoundingClientRect();
+      const hr = hud ? hud.getBoundingClientRect() : { left:sr.left, right:sr.right, bottom: sr.top };
+
+      // safe area padding
+      const pad = 14;
+      const topBlock = Math.max(sr.top + pad, hr.bottom + 10);
+
+      // กันพื้นที่ coach/footer (ใน goodjunk.safe.js coach อยู่ล่าง ~10px)
+      // เรากันไว้เพิ่มอีกนิด
+      const bottomBlock = sr.bottom - (pad + 82);
+
+      const xMin = sr.left + pad;
+      const xMax = sr.right - pad;
+      const yMin = topBlock;
+      const yMax = Math.max(yMin + 220, bottomBlock);
+
+      window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
     }
+    window.addEventListener('resize', ()=>{ computeSpawnSafe(); });
+    window.addEventListener('orientationchange', ()=>{ setTimeout(computeSpawnSafe, 60); });
 
-    function gotoDiff(newDiff){
-      const u = new URL(location.href);
-      u.searchParams.set('diff', String(newDiff||'normal'));
-      // keep seed as-is (fair compare) — if you want new run, press "Retry"
-      location.href = u.toString();
-    }
-
-    function wireDiffButtons(currentDiff){
-      setPressed(currentDiff);
-      document.querySelectorAll('[data-diff]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const d = btn.getAttribute('data-diff') || 'normal';
-          gotoDiff(d);
-        });
-      });
-    }
-
-    // Build cfg from URL params (pass-through)
+    // ---- cfg from URL ----
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
       diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
+      time: clamp(qs('time','80'), 20, 300),
       seed: qs('seed', String(Date.now())),
       pid: qs('pid','anon'),
       hub: qs('hub','../hub.html'),
       ai: null
     };
 
-    // wire diff UI now
-    wireDiffButtons(String(cfg.diff).toLowerCase());
-
-    // ✅ AI enabled only when ?ai=1 AND run=play
-    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
-    if(aiOn){
-      try{
-        const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
-            seed: cfg.seed,
-            pid: cfg.pid,
-            diff: cfg.diff,
-            view: cfg.view
-          });
-        }
-      }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
-      }
+    // ---- diff switch UI ----
+    const diffBtns = Array.from(document.querySelectorAll('.diffBtn'));
+    function setDiffUI(d){
+      diffBtns.forEach(b=>{
+        b.classList.toggle('on', (b.dataset.diff === d));
+      });
     }
+    setDiffUI(String(cfg.diff).toLowerCase());
 
-    // Buttons
+    diffBtns.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const d = String(btn.dataset.diff || 'normal');
+        const u = new URL(location.href);
+        u.searchParams.set('diff', d);
+        // กัน seed ค้าง: เปลี่ยนด่านแล้วรีสตาร์ทให้ชัวร์
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      });
+    });
+
+    // ---- Buttons ----
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
     btnRetry?.addEventListener('click', ()=>{
@@ -250,7 +217,38 @@ PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
       location.href = hub;
     });
 
-    // Boot
+    // ---- Optional: VR UI (cVR) ----
+    // ถ้ามีไฟล์ /herohealth/vr/vr-ui.js จะได้ปุ่ม ENTER VR + crosshair ยิง (hha:shoot)
+    try{
+      await import('../vr/vr-ui.js');
+    }catch(e){
+      // ok: ไม่มีก็ไม่พัง
+      console.warn('[GoodJunk] vr-ui.js not found (ok)');
+    }
+
+    // ---- Optional: AI ----
+    // เปิดเมื่อ ?ai=1 และ run=play
+    const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
+    if(aiOn){
+      try{
+        const mod = await import('../vr/ai-goodjunk.js');
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view
+          });
+        }
+      }catch(e){
+        console.warn('[GoodJunk] AI module load failed (ok)', e);
+      }
+    }
+
+    // compute spawn-safe ก่อนเริ่ม
+    computeSpawnSafe();
+
+    // Boot game
     boot(cfg);
   </script>
 </body>
