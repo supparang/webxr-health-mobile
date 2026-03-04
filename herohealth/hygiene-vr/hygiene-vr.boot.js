@@ -1,6 +1,5 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION — PATCH v20260220a
-// ✅ Wait for deferred globals (Particles + Quiz bank) then boot engine safely
+// Boot HygieneVR — FULL v20260221n
 'use strict';
 
 function $id(id){ return document.getElementById(id); }
@@ -59,7 +58,6 @@ async function main(){
     return;
   }
 
-  // let deferred scripts populate
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P) showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
 
