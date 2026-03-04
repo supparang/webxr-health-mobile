@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION
-FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
+GoodJunkVR RUN — PRODUCTION (PC/Mobile/cVR) + Solo core + optional AI + optional Battle + optional Race
+FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
 -->
 <!doctype html>
 <html lang="th">
@@ -10,34 +10,17 @@ FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304f" />
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
 </head>
 <body>
   <div id="app">
 
-    <!-- Loading (กันจอดำ/ค้าง) -->
-    <div id="loading" aria-hidden="false">
-      <div class="loadingCard">
-        <div class="loadingTitle">Loading GoodJunk…</div>
-        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
-        <div class="loadingLine" id="loadingLine">view=? run=? diff=? ai=?</div>
-      </div>
-    </div>
-
-    <!-- Debug pills -->
+    <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
-      <span class="pill">ai=<b id="uiAi">—</b></span>
-      <span class="pill">mode=<b id="uiMode">solo</b></span>
-    </div>
-
-    <!-- Difficulty switch (always visible) -->
-    <div id="diffSwitch" class="diffSwitch" aria-label="difficulty">
-      <button type="button" class="diffBtn" data-d="easy">ง่าย</button>
-      <button type="button" class="diffBtn" data-d="normal">ปกติ</button>
-      <button type="button" class="diffBtn" data-d="hard">ยาก</button>
+      <span class="pill pill-soft">mode=<b id="uiMode">—</b></span>
     </div>
 
     <!-- Top HUD -->
@@ -119,6 +102,15 @@ FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
       </div>
     </div>
 
+    <!-- Race overlay (only mode=race) -->
+    <div id="raceOverlay" aria-hidden="true">
+      <div class="raceCard">
+        <div class="raceTitle">RACE</div>
+        <div class="raceSub mut" id="raceSub">เตรียมตัว…</div>
+        <div class="raceNum" id="raceNum">3</div>
+      </div>
+    </div>
+
     <!-- End overlay -->
     <div id="endOverlay" aria-hidden="true">
       <div class="panel">
@@ -136,101 +128,76 @@ FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button injected by safe.js -->
+        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
   </div>
 
   <script type="module">
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const qsl = (k, d='')=> String(qs(k,d)||d).toLowerCase();
 
-    // ----- parse params -----
+    // ----- Build cfg from URL (pass-through) -----
     const cfg = {
-      view: qs('view','mobile'),          // mobile | pc | cvr | vr
-      run:  qs('run','play'),             // play | research
-      diff: qs('diff','normal'),          // easy | normal | hard
-      time: Number(qs('time','80'))||80,
+      view: qsl('view','mobile'),
+      run:  qsl('run','play'),
+      diff: qsl('diff','normal'),
+      time: Number(qs('time','80')) || 80,
       seed: qs('seed', String(Date.now())),
       pid:  qs('pid','anon'),
       hub:  qs('hub','../hub.html'),
-      ai:   null,
+      ai: null
     };
 
-    const mode = String(qs('mode','solo')).toLowerCase(); // solo | race | battle | coop (future)
-    const aiOn = (qs('ai','0')==='1') && (String(cfg.run).toLowerCase()==='play');
+    const mode = qsl('mode','solo'); // solo | battle | race | coop (future)
+    const uiMode = document.getElementById('uiMode');
+    if(uiMode) uiMode.textContent = mode;
 
-    // ----- debug pills fill (NO MORE "—") -----
-    const setText=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v??''); };
-    setText('uiView', cfg.view);
-    setText('uiRun',  cfg.run);
-    setText('uiDiff', cfg.diff);
-    setText('uiAi',   aiOn ? '1' : '0');
-    setText('uiMode', mode);
+    // Debug pills visibility (?debug=1)
+    const debugOn = (qs('debug','0') === '1');
+    const debugPills = document.getElementById('debugPills');
+    if(debugPills) debugPills.setAttribute('aria-hidden', debugOn ? 'false' : 'true');
 
-    const loadingLine = document.getElementById('loadingLine');
-    if(loadingLine){
-      loadingLine.textContent = `view=${cfg.view} run=${cfg.run} diff=${cfg.diff} ai=${aiOn?1:0} mode=${mode}`;
-    }
-
-    // show debug pills when ?debug=1
-    try{
-      const dbg = (qs('debug','0')==='1');
-      const pills = document.getElementById('debugPills');
-      if(pills) pills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
-    }catch(e){}
-
-    // ----- Difficulty UI -----
-    function applyDiffActive(){
-      document.querySelectorAll('.diffBtn').forEach(b=>{
-        const d = b.getAttribute('data-d');
-        b.classList.toggle('active', d===cfg.diff);
-      });
-    }
-    applyDiffActive();
-    document.querySelectorAll('.diffBtn').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        const d = b.getAttribute('data-d') || 'normal';
-        const u = new URL(location.href);
-        u.searchParams.set('diff', d);
-        // keep seed for fairness if you want; but for kids, reset seed feels better
-        if(qs('keepSeed','0')!=='1') u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      });
-    });
-
-    // ----- Spawn-safe: compute safe rect excluding HUD + bottom safe area -----
+    // ----- spawn-safe rect (avoid HUD + edges) -----
     function computeSpawnSafe(){
-      const hud = document.getElementById('hud');
       const layer = document.getElementById('gj-layer');
-      if(!hud || !layer) return;
+      const hud = document.getElementById('hud');
+      if(!layer) return null;
+      const r = layer.getBoundingClientRect();
 
-      const lr = layer.getBoundingClientRect();
-      const hr = hud.getBoundingClientRect();
+      const pad = 16;
+      const hudH = hud ? Math.ceil(hud.getBoundingClientRect().height) : 160;
 
-      // keep a bottom margin for mobile address bar / VR buttons
-      const bottomPad = Math.max(110, 70 + (window.visualViewport?.offsetTop||0));
+      const xMin = r.left + pad;
+      const xMax = r.right - pad;
 
-      // safe in viewport coords
-      const xMin = lr.left + 18;
-      const xMax = lr.right - 18;
-      const yMin = Math.min(lr.bottom - 220, hr.bottom + 16);
-      const yMax = lr.bottom - bottomPad;
+      // safe y starts below HUD, and ends above bottom "safe" zone (coach/vr-ui)
+      const yMin = r.top + Math.max(140, hudH + 12);
+      const yMax = r.bottom - Math.max(130, 110);
 
-      const safe = {
-        xMin: Math.max(lr.left, xMin),
-        xMax: Math.min(lr.right, xMax),
-        yMin: Math.max(lr.top, yMin),
-        yMax: Math.min(lr.bottom, yMax),
+      return {
+        xMin, xMax,
+        yMin, yMax
       };
-      window.__HHA_SPAWN_SAFE__ = safe;
     }
-    computeSpawnSafe();
-    window.addEventListener('resize', computeSpawnSafe, { passive:true });
-    window.visualViewport?.addEventListener?.('resize', computeSpawnSafe, { passive:true });
-    window.visualViewport?.addEventListener?.('scroll', computeSpawnSafe, { passive:true });
+    try{
+      window.__HHA_SPAWN_SAFE__ = computeSpawnSafe();
+      window.addEventListener('resize', ()=>{ window.__HHA_SPAWN_SAFE__ = computeSpawnSafe(); }, { passive:true });
+      window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ window.__HHA_SPAWN_SAFE__ = computeSpawnSafe(); }, 250); }, { passive:true });
+    }catch(_){}
 
-    // ----- AI dynamic import (safe) -----
+    // ----- Optional VR UI (cVR/VR) -----
+    try{
+      if(cfg.view==='cvr' || cfg.view==='vr'){
+        await import('../vr/vr-ui.js');
+      }
+    }catch(e){
+      console.warn('[GoodJunk] vr-ui load failed (ok)', e);
+    }
+
+    // ----- Optional AI (only ?ai=1 AND run=play) -----
+    const aiOn = (qs('ai','0') === '1') && (cfg.run === 'play');
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
@@ -239,33 +206,11 @@ FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
             seed: cfg.seed,
             pid: cfg.pid,
             diff: cfg.diff,
-            view: cfg.view,
-            mode
+            view: cfg.view
           });
         }
       }catch(e){
-        console.warn('[GoodJunk] AI module load failed', e);
-      }
-    }
-
-    // ----- Optional cVR UI (ENTER VR / RECENTER + hha:shoot) -----
-    try{
-      const v = String(cfg.view).toLowerCase();
-      if(v==='cvr' || v==='vr'){
-        await import('../vr/vr-ui.js'); // should dispatch hha:shoot
-      }
-    }catch(e){}
-
-    // ----- Boot core game -----
-    const core = await import('./goodjunk.safe.js');
-    core.boot(cfg);
-
-    // ----- Optional race controller -----
-    if(mode==='race'){
-      try{
-        await import('./goodjunk-race.js'); // optional file (included below)
-      }catch(e){
-        console.warn('[GoodJunk] race controller missing (ok)', e);
+        console.warn('[GoodJunk] AI module load failed (ok)', e);
       }
     }
 
@@ -281,9 +226,32 @@ FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
       location.href = cfg.hub || '../hub.html';
     });
 
-    // Hide loading once booted
-    const loading = document.getElementById('loading');
-    if(loading) loading.setAttribute('aria-hidden','true');
+    // ----- Boot core game -----
+    const core = await import('./goodjunk.safe.js');
+    core.boot(cfg);
+
+    // ----- Optional Race Controller (mode=race) -----
+    if(mode === 'race'){
+      try{
+        const race = await import('./goodjunk-race.js');
+        race.bootRace?.({
+          overlayId: 'raceOverlay',
+          numId: 'raceNum',
+          subId: 'raceSub',
+          wait: (qs('wait','0') === '1'),
+          autostartMs: Number(qs('autostart','3000')) || 3000
+        });
+      }catch(e){
+        console.warn('[GoodJunk] race module load failed (ok)', e);
+      }
+    }
+
+    // Show debug pills text
+    try{
+      document.getElementById('uiView').textContent = cfg.view;
+      document.getElementById('uiRun').textContent  = cfg.run;
+      document.getElementById('uiDiff').textContent = cfg.diff;
+    }catch(_){}
   </script>
 </body>
 </html>
