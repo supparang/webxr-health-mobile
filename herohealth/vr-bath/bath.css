@@ -70,3 +70,94 @@
   font-size: 13px;
   opacity: .95;
 }
+/* === PATCH v20260304-BATH-OVERLAYS === */
+
+.overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 50;
+}
+
+.overlay .panel{
+  width: min(520px, 92vw);
+  background: rgba(20,20,24,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+
+.overlay h3{ margin: 0 0 8px; }
+.overlay p{ margin: 0 0 10px; line-height: 1.35; opacity: .95; }
+
+.btnLink{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+  color: inherit;
+  text-decoration: none;
+}
+
+#wrap.shake { animation: bathShake .22s ease-in-out 1; }
+@keyframes bathShake{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(-6px,2px,0); }
+  55%{ transform: translate3d(7px,-3px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+
+#fx{ position:absolute; inset:0; pointer-events:none; }
+#fx.fxClean { animation: fxPulse 160ms ease-out 1; }
+#fx.fxBad { animation: fxBad 180ms ease-out 1; }
+#fx.fxMiss { animation: fxMiss 160ms ease-out 1; }
+#fx.fxStreak { animation: fxStreak 150ms ease-out 1; }
+#fx.fxBonus { animation: fxBonus 170ms ease-out 1; }
+#fx.fxBoss { animation: fxBoss 240ms ease-out 1; }
+#fx.fxBossHit { animation: fxBossHit 170ms ease-out 1; }
+#fx.fxFever { animation: fxFever 220ms ease-out 1; }
+
+@keyframes fxPulse{ 0%{ box-shadow: inset 0 0 0 0 rgba(255,255,255,.0);} 100%{ box-shadow: inset 0 0 0 10px rgba(255,255,255,.08);} }
+@keyframes fxBad{ 0%{ box-shadow: inset 0 0 0 0 rgba(255,0,0,.0);} 100%{ box-shadow: inset 0 0 0 12px rgba(255,0,0,.10);} }
+@keyframes fxMiss{ 0%{ box-shadow: inset 0 0 0 0 rgba(255,200,0,.0);} 100%{ box-shadow: inset 0 0 0 10px rgba(255,200,0,.10);} }
+@keyframes fxStreak{ 0%{ box-shadow: inset 0 0 0 0 rgba(0,255,255,.0);} 100%{ box-shadow: inset 0 0 0 10px rgba(0,255,255,.08);} }
+@keyframes fxBonus{ 0%{ box-shadow: inset 0 0 0 0 rgba(160,255,160,.0);} 100%{ box-shadow: inset 0 0 0 12px rgba(160,255,160,.10);} }
+@keyframes fxBoss{ 0%{ box-shadow: inset 0 0 0 0 rgba(255,120,0,.0);} 100%{ box-shadow: inset 0 0 0 14px rgba(255,120,0,.12);} }
+@keyframes fxBossHit{ 0%{ filter: brightness(1.0);} 100%{ filter: brightness(1.25);} }
+@keyframes fxFever{ 0%{ box-shadow: inset 0 0 0 0 rgba(255,0,200,.0);} 100%{ box-shadow: inset 0 0 0 12px rgba(255,0,200,.10);} }
+
+.popScore{
+  position:absolute;
+  transform: translate(-50%,-60%);
+  font-weight:800;
+  font-size:16px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.45);
+  pointer-events:none;
+  animation: popFloat 650ms ease-out 1;
+}
+@keyframes popFloat{
+  0%{ opacity:0; transform: translate(-50%,-30%) scale(.95); }
+  12%{ opacity:1; transform: translate(-50%,-55%) scale(1.05); }
+  100%{ opacity:0; transform: translate(-50%,-95%) scale(.95); }
+}
+
+.bossBarWrap{ margin-top:6px; }
+.bossBar{
+  height:8px;
+  background: rgba(255,255,255,.12);
+  border-radius: 999px;
+  overflow:hidden;
+}
+.bossBar > span{
+  display:block;
+  height:100%;
+  width:0%;
+  background: rgba(255,140,0,.8);
+}
