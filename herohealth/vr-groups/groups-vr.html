@@ -1,13 +1,15 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260304a-HUBSANITIZE-SPAWNSAFE-SPARK
+FULL v20260304b-HUBSANITIZE-PRACTICE-CALIB-SPAWNSAFE-SPARK
 ✅ FIX: HUB sanitize -> always /herohealth/hub.html (under current repo base)
+✅ Practice overlay 15s (auto in play, off with ?practice=0 or run=research)
+✅ cVR Calibration overlay (fullscreen/landscape/recenter)
 ✅ Provide __HHA_SPAWN_SAFE__ (LOCAL coords) so engine never spawns under HUD/VR UI
 ✅ Shot spark/trace on hha:shoot (lightweight)
-✅ Works with groups.safe.js v20260303f (FX/SFX/Wiggle inside engine)
+Works with: /herohealth/vr-groups/groups.safe.js (v20260303f)
 Requires:
 - /herohealth/vr/vr-ui.js
-- /herohealth/vr-groups/ai-hooks.js
+- /herohealth/vr-groups/ai-hooks.js (optional)
 - /herohealth/vr-groups/groups.safe.js
 -->
 <!doctype html>
@@ -30,9 +32,9 @@ Requires:
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      /* safe paddings (used for spawn safe rect) */
-      --topSafe: calc(132px + var(--sat));
-      --botSafe: calc(150px + var(--sab));
+      /* spawn-safe tuning (used by JS updateSpawnSafe) */
+      --topSafePx: 132; /* base, +sat */
+      --botSafePx: 150; /* base, +sab */
     }
     *{ box-sizing:border-box; }
     html,body{ height:100%; margin:0; overflow:hidden; color:var(--text);
@@ -206,7 +208,7 @@ Requires:
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.50);
       backdrop-filter: blur(10px);
-      max-width: min(440px, 100%);
+      max-width: min(520px, 100%);
     }
     .coachWrap .face{
       width:34px; height:34px; border-radius: 12px;
@@ -218,17 +220,17 @@ Requires:
     .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; font-size:13px; }
     .coachWrap .sub{ color:var(--muted); font-size:11.5px; font-weight:900; }
 
-    /* End screen */
-    #endOverlay{
+    /* Overlays (practice/calib/end) */
+    .overlay{
       position:absolute; inset:0;
-      background: rgba(0,0,0,.60);
-      backdrop-filter: blur(10px);
       display:none;
       align-items:center; justify-content:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      z-index: 9000;
       padding: 14px;
-      z-index: 9999;
     }
-    #endCard{
+    .overlayCard{
       width: min(860px, 100%);
       border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.18);
@@ -236,11 +238,51 @@ Requires:
       box-shadow: 0 30px 120px rgba(0,0,0,.55);
       overflow:hidden;
     }
-    #endCard header{
+    .overlayCard header{
       padding: 12px 12px;
       border-bottom:1px solid rgba(148,163,184,.14);
       display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     }
+    .overlayCard main{ padding: 12px; display:flex; flex-direction:column; gap:10px; }
+    .overlayBtns{
+      padding: 12px;
+      border-top:1px solid rgba(148,163,184,.14);
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
+    .bigLine{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      font-weight:1000;
+    }
+    .bigDot{
+      width:12px; height:12px; border-radius:99px;
+      background: var(--cyan);
+      box-shadow: 0 0 16px rgba(34,211,238,.55);
+    }
+    .hint{
+      color: var(--muted);
+      font-weight: 900;
+      line-height: 1.35;
+      font-size: 12.5px;
+    }
+    .crossBox{
+      border-radius: 18px;
+      border:1px dashed rgba(148,163,184,.22);
+      background: rgba(2,6,23,.40);
+      padding: 14px;
+      display:flex; flex-direction:column; gap:8px;
+      align-items:center; justify-content:center;
+      min-height: 160px;
+      text-align:center;
+    }
+    .cross{
+      font-size: 34px;
+      font-weight: 1000;
+      letter-spacing: .4px;
+      opacity: .92;
+    }
+
+    /* End screen */
+    #endOverlay{ z-index: 9999; }
     #endCard main{ padding: 12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     @media (max-width: 860px){ #endCard main{ grid-template-columns: 1fr; } }
     .panel{
@@ -261,7 +303,7 @@ Requires:
     /* cVR strict: disable direct tap on targets => only crosshair shoot */
     body[data-view="cvr"][data-cvr-strict="1"] .tgt{ pointer-events:none !important; }
 
-    /* targets (fallback; engine also styles) */
+    /* targets (fallback) */
     .tgt{
       width: 74px; height: 74px;
       border-radius: 18px;
@@ -283,7 +325,7 @@ Requires:
 
     /* cVR needs more bottom safe space (vr-ui buttons) */
     body[data-view="cvr"]{
-      --botSafe: calc(190px + var(--sab));
+      --botSafePx: 190;
     }
   </style>
 </head>
@@ -301,10 +343,6 @@ Requires:
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
       <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
       <div class="pill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
-
-      <div class="pill" id="buffPill" style="display:none;">
-        <span class="dot pink"></span> <span>BUFF:</span> <b id="buffText">—</b>
-      </div>
 
       <div class="pill" id="dirPill" style="display:none;">
         <span class="dot"></span> <span>DIR:</span> <b id="dirText">PLAY</b>
@@ -353,7 +391,7 @@ Requires:
     </div>
 
     <!-- Coach Toast -->
-    <div class="coachToast" id="coachToast">
+    <div class="coachToast" id="coachToast" aria-live="polite">
       <div class="coachWrap">
         <div class="face" id="toastFace">🙂</div>
         <div>
@@ -363,9 +401,55 @@ Requires:
       </div>
     </div>
 
+    <!-- Practice overlay -->
+    <div class="overlay" id="practiceOverlay" aria-hidden="true">
+      <div class="overlayCard">
+        <header>
+          <div><b>🧪 PRACTICE 15s</b> <span style="color:var(--muted); font-weight:900;" id="practiceSub">ก่อนเข้าเกมจริง</span></div>
+          <div class="pill"><span class="dot"></span> <span>Auto:</span> <b id="practiceTag">ON</b></div>
+        </header>
+        <main>
+          <div class="bigLine"><span class="bigDot"></span> <span>ซ้อม 15 วินาที เพื่อให้มือ “เข้าที่”</span></div>
+          <div class="crossBox">
+            <div class="cross">🎯 เล็ง + ยิง</div>
+            <div class="hint" id="practiceHint">แตะ/ยิงจาก crosshair แล้วลองเก็บคอมโบ</div>
+          </div>
+          <div class="hint">หมดเวลาแล้วจะเข้าเกมจริงให้อัตโนมัติ (ปิดได้ด้วย <b>?practice=0</b>)</div>
+        </main>
+        <div class="overlayBtns">
+          <button class="ghost" id="btnSkipPractice">ข้ามซ้อม</button>
+          <button class="primary" id="btnStartPractice">เริ่มซ้อม</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calibration overlay (cVR) -->
+    <div class="overlay" id="calibOverlay" aria-hidden="true">
+      <div class="overlayCard">
+        <header>
+          <div><b>🥽 cVR CALIBRATION</b> <span style="color:var(--muted); font-weight:900;">ตั้งท่ามอง + Recenter</span></div>
+          <div class="pill"><span class="dot pink"></span> <span>Strict:</span> <b id="strictTag">ON</b></div>
+        </header>
+        <main>
+          <div class="bigLine"><span class="bigDot"></span> <span>ถือมือถือไว้ใน Cardboard แล้วมอง “ตรงกลาง”</span></div>
+          <div class="crossBox">
+            <div class="cross">＋</div>
+            <div class="hint">ให้เครื่องหมาย + อยู่กึ่งกลางพอดี แล้วค่อยเริ่มเล่น</div>
+          </div>
+          <div class="hint">แนะนำ: Fullscreen + ล็อกแนวนอนก่อนเข้าเล่น เพื่อกันจอเด้ง/หมุน</div>
+        </main>
+        <div class="overlayBtns">
+          <button class="ghost" id="btnFS">Fullscreen</button>
+          <button class="ghost" id="btnLand">Lock Landscape</button>
+          <button class="ghost" id="btnRecenter">Recenter</button>
+          <button class="primary" id="btnCloseCalib">พร้อมแล้ว</button>
+        </div>
+      </div>
+    </div>
+
     <!-- End overlay -->
-    <div id="endOverlay">
-      <div id="endCard">
+    <div class="overlay" id="endOverlay" aria-hidden="true">
+      <div class="overlayCard" id="endCard">
         <header>
           <div><b id="endTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
           <div class="pill"><span class="dot good"></span> <span>Saved:</span> <b id="savedTag">yes</b></div>
@@ -387,6 +471,7 @@ Requires:
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -416,17 +501,14 @@ Requires:
   const TIME = Number(q('time','90')||90);
   const SEED = String(q('seed','') || Date.now());
 
+  const PRACTICE_ON = (String(q('practice','1')||'1') !== '0') && (RUN !== 'research');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
 
   // ---------- Root base resolver (fix hub wrong path) ----------
   function herohealthBase(){
-    // derive base ending with "/herohealth/"
     const href = location.href;
     const i = href.indexOf('/herohealth/');
-    if(i >= 0){
-      return href.slice(0, i + '/herohealth/'.length);
-    }
-    // fallback: same folder up one
+    if(i >= 0) return href.slice(0, i + '/herohealth/'.length);
     return new URL('../', location.href).toString();
   }
   const HH_BASE = herohealthBase();
@@ -436,34 +518,25 @@ Requires:
     try{ return new URL(url, location.href).toString(); }
     catch{ return ''; }
   }
-
   function sanitizeHub(u){
     const dflt = HUB_CANON;
     if(!u) return dflt;
-
     const abs = absUrlMaybe(u) || dflt;
-
-    // if someone passes vr-groups/hub.html -> force canonical hub
     const low = abs.toLowerCase();
     if(low.includes('/herohealth/vr-groups/hub.html')) return dflt;
 
-    // if user mistakenly uses /herohealth/hub.html without repo base (rare), still OK as abs
-    // but if it points to another repo root (e.g., https://supparang.github.io/herohealth/hub.html), override:
+    // guard wrong repo root (supparang.github.io/herohealth/...)
     try{
       const a = new URL(abs);
       const want = new URL(dflt);
       if(a.origin === want.origin){
-        // must contain the same path prefix up to /herohealth/
-        if(a.pathname.indexOf('/herohealth/') >= 0 && want.pathname.indexOf('/herohealth/') >= 0){
-          const ap = a.pathname.split('/herohealth/')[0];
-          const wp = want.pathname.split('/herohealth/')[0];
-          if(ap !== wp) return dflt;
-        }
+        const ap = a.pathname.split('/herohealth/')[0];
+        const wp = want.pathname.split('/herohealth/')[0];
+        if(ap !== wp) return dflt;
       }
     }catch(_){}
     return abs;
   }
-
   const HUB = sanitizeHub(q('hub',''));
 
   // ---------- DOM ----------
@@ -497,6 +570,19 @@ Requires:
 
   const dirPill = $('#dirPill');
   const dirText = $('#dirText');
+
+  const practiceOverlay = $('#practiceOverlay');
+  const practiceTag = $('#practiceTag');
+  const practiceHint = $('#practiceHint');
+  const btnSkipPractice = $('#btnSkipPractice');
+  const btnStartPractice = $('#btnStartPractice');
+
+  const calibOverlay = $('#calibOverlay');
+  const strictTag = $('#strictTag');
+  const btnFS = $('#btnFS');
+  const btnLand = $('#btnLand');
+  const btnRecenter = $('#btnRecenter');
+  const btnCloseCalib = $('#btnCloseCalib');
 
   const endOverlay = $('#endOverlay');
   const endSub = $('#endSub');
@@ -543,7 +629,6 @@ Requires:
     coachToast.classList.add('show');
     toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
   }
-
   window.addEventListener('hha:coach', (ev)=>{
     const d = ev?.detail || {};
     if(d.text) showToast(d.text, d.mood || 'neutral');
@@ -554,7 +639,6 @@ Requires:
     const left = ev?.detail?.left;
     if(typeof left === 'number') hudTime.textContent = left + 's';
   });
-
   window.addEventListener('hha:score', (ev)=>{
     const d = ev?.detail || {};
     if(d.score != null) hudScore.textContent = String(d.score|0);
@@ -562,12 +646,10 @@ Requires:
     const m = (d.misses != null) ? d.misses : d.miss;
     if(m != null) hudMiss.textContent = String(m|0);
   });
-
   window.addEventListener('hha:rank', (ev)=>{
     const d = ev?.detail || {};
     if(d.grade) hudRank.textContent = String(d.grade);
   });
-
   window.addEventListener('quest:update', (ev)=>{
     const d = ev?.detail || {};
     if(d.goalTitle) qTitle.textContent = d.goalTitle;
@@ -587,7 +669,6 @@ Requires:
     }
     if(d.groupName) groupName.textContent = d.groupName;
   });
-
   window.addEventListener('groups:power', (ev)=>{
     const d = ev?.detail || {};
     const c = (d.charge!=null) ? d.charge : 0;
@@ -596,12 +677,10 @@ Requires:
     pBar.style.width = pct + '%';
     pText.textContent = `${c}/${t}`;
   });
-
   window.addEventListener('groups:group', (ev)=>{
     const d = ev?.detail || {};
     if(d.name) groupName.textContent = d.name;
   });
-
   window.addEventListener('groups:director', (ev)=>{
     const d = ev?.detail || {};
     if(!d.text){ dirPill.style.display='none'; return; }
@@ -633,19 +712,16 @@ Requires:
     setTimeout(()=>{ try{ el.style.opacity='0'; }catch(_){ } }, 120);
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 420);
   }
-
   function centerPoint(){
     const r = stageEl.getBoundingClientRect();
     return { x: r.left + r.width/2, y: r.top + r.height/2 };
   }
-
   window.addEventListener('hha:shoot', (ev)=>{
     const d = ev?.detail || {};
     const p0 = centerPoint();
     const x = Number(d.x), y = Number(d.y);
     const hasXY = Number.isFinite(x) && Number.isFinite(y);
     const p1 = hasXY ? { x, y } : p0;
-    // short spark (center -> point)
     sparkFromTo(p0.x, p0.y, p1.x, p1.y);
   }, true);
 
@@ -653,13 +729,12 @@ Requires:
   function updateSpawnSafe(){
     try{
       const pr = playLayer.getBoundingClientRect();
-      // local coords for engine: 0..width/height
-      // topSafe/botSafe derive from CSS vars; we compute approximations here
-      const topSafe = (VIEW === 'pc') ? 120 : 130;
+      const pad = 14;
+
+      // top/bot based on view
+      const topSafe = (VIEW === 'pc') ? 118 : 130;
       const botSafe = (VIEW === 'cvr') ? 190 : 150;
 
-      // keep some side padding too
-      const pad = 14;
       window.__HHA_SPAWN_SAFE__ = {
         xMin: pad,
         xMax: Math.max(pad+1, pr.width - pad),
@@ -671,6 +746,53 @@ Requires:
   window.addEventListener('resize', ()=>updateSpawnSafe(), { passive:true });
   setTimeout(updateSpawnSafe, 60);
   setTimeout(updateSpawnSafe, 260);
+
+  // ---------- Practice / Calib overlays ----------
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden','false');
+  }
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden','true');
+  }
+  function showPractice(){
+    practiceTag.textContent = PRACTICE_ON ? 'ON' : 'OFF';
+    practiceHint.textContent = (VIEW==='cvr')
+      ? 'แตะจอเพื่อยิงจาก crosshair (อย่ารัว) แล้วลองเก็บคอมโบ'
+      : 'แตะ/คลิกยิง แล้วลองเก็บคอมโบ';
+    showOverlay(practiceOverlay);
+  }
+  function hidePractice(){ hideOverlay(practiceOverlay); }
+
+  async function requestFullscreen(){
+    const el = document.documentElement;
+    try{
+      if(el.requestFullscreen) await el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }catch(_){}
+  }
+  async function lockLandscape(){
+    try{
+      if(screen.orientation && screen.orientation.lock){
+        await screen.orientation.lock('landscape');
+      }
+    }catch(_){}
+  }
+
+  function showCalib(){
+    strictTag.textContent = CVR_STRICT ? 'ON' : 'OFF';
+    showOverlay(calibOverlay);
+  }
+  function hideCalib(){ hideOverlay(calibOverlay); }
+
+  btnFS.addEventListener('click', ()=>requestFullscreen());
+  btnLand.addEventListener('click', ()=>lockLandscape());
+  btnRecenter.addEventListener('click', ()=>{
+    try{ window.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'calib' } })); }catch(_){}
+    showToast('Recenter แล้ว ✅', 'neutral');
+  });
+  btnCloseCalib.addEventListener('click', ()=>hideCalib());
 
   // ---------- End summary ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
@@ -697,29 +819,20 @@ Requires:
   function showEnd(summary, saved){
     endSub.textContent = `grade=${summary?.grade || '-'} · acc=${summary?.accuracyPct ?? '-'}% · miss=${summary?.miss ?? '-'}`;
     endSummary.textContent = JSON.stringify(summary || {}, null, 2);
-    endBuff.textContent = JSON.stringify({ note:'buff handled by gate/run params if used' }, null, 2);
+    endBuff.textContent = JSON.stringify({ note:'buff via gate (wType/wPct/rank) if used' }, null, 2);
     savedTag.textContent = saved ? 'yes' : 'no';
-    endOverlay.style.display = 'flex';
+    showOverlay(endOverlay);
   }
-  function hideEnd(){ endOverlay.style.display = 'none'; }
+  function hideEnd(){ hideOverlay(endOverlay); }
 
+  // ---------- Engine flow ----------
   let lastSummary = null;
-  window.addEventListener('hha:end', (ev)=>{
-    const s = ev?.detail || {};
-    lastSummary = s;
-    const saved = saveLastSummary(s, { view:VIEW, run:RUN, diff:DIFF, time:TIME, seed:SEED, cvrStrict: CVR_STRICT ? 1 : 0 });
-    showEnd(s, saved);
-  });
+  let inPractice = false;
 
-  // ---------- Boot engine ----------
   function stop(){
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
   }
-  function restart(){
-    hideEnd();
-    stop();
-    setTimeout(()=>boot(), 60);
-  }
+
   function goHub(flushFirst){
     if(flushFirst){
       try{ window.GroupsVR?.Telemetry?.flush?.(lastSummary || null); }catch(_){}
@@ -728,31 +841,59 @@ Requires:
     location.href = HUB;
   }
 
-  function boot(){
-    updateSpawnSafe();
+  function restart(){
+    hideEnd();
+    stop();
+    inPractice = false;
+    setTimeout(()=>bootFlow(), 60);
+  }
 
-    if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
-      showToast('groups.safe.js โหลดไม่สำเร็จ (ดู Console)', 'sad');
+  // bind end once
+  window.addEventListener('hha:end', (ev)=>{
+    const s = ev?.detail || {};
+    lastSummary = s;
+
+    if(inPractice){
+      inPractice = false;
+      showToast('ซ้อมครบแล้ว! เข้าเกมจริง 🔥', 'happy');
+      setTimeout(()=>startRealRun(), 360);
       return;
     }
 
-    try{ window.GroupsVR.GameEngine.setLayerEl(playLayer); }catch(_){}
+    const saved = saveLastSummary(s, { view:VIEW, run:RUN, diff:DIFF, time:TIME, seed:SEED, cvrStrict: CVR_STRICT ? 1 : 0 });
+    showEnd(s, saved);
+  });
 
-    // context (classroom boss enabled by default in play)
-    const ctx = {
-      runMode: (RUN === 'research') ? 'research' : (RUN === 'practice') ? 'practice' : 'play',
-      time: TIME,
-      seed: SEED,
+  // practice buttons
+  btnSkipPractice.addEventListener('click', ()=>{
+    hidePractice();
+    startRealRun();
+  });
+  btnStartPractice.addEventListener('click', ()=>{
+    hidePractice();
+    startPracticeRun();
+  });
+
+  // ---------- Build ctx for engine ----------
+  function buildCtx(runMode, timeSec, seedStr){
+    return {
+      runMode: runMode,
+      time: timeSec,
+      seed: seedStr,
       view: VIEW,
-      classroom: (RUN !== 'practice'),
-      miniBoss: (RUN !== 'practice'),
+      classroom: (runMode !== 'practice'),
+      miniBoss: (runMode !== 'practice'),
       bossSec: 12,
-      // tweak goals/power if you want:
       goalTotal: (DIFF === 'easy') ? 10 : (DIFF === 'hard') ? 14 : 12,
       chargeNeed: (DIFF === 'easy') ? 7 : (DIFF === 'hard') ? 9 : 8,
     };
+  }
 
-    showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+  function startEngine(runMode, timeSec, seedStr){
+    updateSpawnSafe();
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+    const ctx = buildCtx(runMode, timeSec, seedStr);
+
     try{
       window.GroupsVR.GameEngine.start(DIFF, ctx);
     }catch(e){
@@ -761,7 +902,44 @@ Requires:
     }
   }
 
-  boot();
+  function startPracticeRun(){
+    inPractice = true;
+    showToast('PRACTICE 15s — ซ้อมก่อนเข้าเกมจริง 🧪', 'neutral');
+    const pSeed = String(SEED) + '-p15';
+    startEngine('practice', 15, pSeed);
+  }
+
+  function startRealRun(){
+    inPractice = false;
+    showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    startEngine((RUN === 'research') ? 'research' : 'play', TIME, SEED);
+  }
+
+  function bootFlow(){
+    updateSpawnSafe();
+
+    if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
+      showToast('groups.safe.js โหลดไม่สำเร็จ (ดู Console)', 'sad');
+      return;
+    }
+
+    // cVR: show calibration first
+    if(VIEW === 'cvr'){
+      showToast('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
+      showCalib();
+    }
+
+    // practice (play only)
+    if(PRACTICE_ON){
+      showPractice();
+      return;
+    }
+
+    startRealRun();
+  }
+
+  // kick
+  bootFlow();
 })();
 </script>
 </body>
