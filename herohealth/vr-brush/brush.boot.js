@@ -1,74 +1,162 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// START-FIRST: engine starts immediately; tap overlay only unlocks
-// FULL v20260303d-BRUSH-BOOT-STARTFIRST
+// BrushVR BOOT — PRODUCTION (Tap-to-start + AI HUD bridge)
+// PATCH v20260304a-BRUSH-BOOT-AIHUD
 (function(){
   'use strict';
   const WIN = window, DOC = document;
-  const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  function isTapRecommended(view){
-    view = String(view||'').toLowerCase();
-    return (view === 'mobile' || view === 'cvr' || view === 'vr');
+  const qs = (k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const num = (v,d)=>{ const n = Number(v); return Number.isFinite(n)? n : d; };
+
+  function buildCtx(){
+    const view = String(qs('view', DOC.body.getAttribute('data-view')||'')||'').toLowerCase();
+    const hub  = qs('hub','') || '';
+    const seed = num(qs('seed', Date.now()), Date.now());
+    const time = num(qs('time', 80), 80);
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const ai   = String(qs('ai','1')) !== '0';
+    const pid  = String(qs('pid','')||'').trim();
+
+    return {
+      view: view || (/(Android|iPhone|iPad|iPod)/i.test(navigator.userAgent||'') ? 'cvr' : 'pc'),
+      hub, seed, time, diff, ai, pid,
+      studyId: qs('studyId','')||'',
+      phase: qs('phase','')||'',
+      conditionGroup: qs('conditionGroup','')||'',
+      debug: num(qs('debug',0),0)===1
+    };
   }
 
-  function showTapOverlay(onUnlock){
+  function ensureAIHud(){
+    let wrap = DOC.getElementById('hud-ai');
+    if(wrap) return wrap;
+
+    wrap = DOC.createElement('section');
+    wrap.id = 'hud-ai';
+    wrap.style.position='fixed';
+    wrap.style.left='12px';
+    wrap.style.bottom='12px';
+    wrap.style.zIndex='59';
+    wrap.style.width='min(420px, 92vw)';
+    wrap.style.border='1px solid rgba(148,163,184,.18)';
+    wrap.style.borderRadius='20px';
+    wrap.style.padding='10px 12px';
+    wrap.style.background='rgba(2,6,23,.72)';
+    wrap.style.backdropFilter='blur(10px)';
+    wrap.style.webkitBackdropFilter='blur(10px)';
+    wrap.style.boxShadow='0 18px 60px rgba(0,0,0,.35)';
+    wrap.style.pointerEvents='none';
+    wrap.style.opacity='0';
+    wrap.style.transition='opacity .18s ease, transform .18s ease';
+    wrap.style.transform='translateY(6px)';
+
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="ai-emo" style="font-size:18px;line-height:1;">🧠</div>
+        <div style="flex:1;min-width:0">
+          <div id="ai-title" style="font-weight:950;letter-spacing:.2px;">AI Prediction</div>
+          <div id="ai-sub" style="margin-top:2px;color:rgba(229,231,235,.82);font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">พร้อมช่วย!</div>
+        </div>
+        <div id="ai-tag" style="font-size:11px;color:rgba(148,163,184,1);font-weight:900;">TIP</div>
+      </div>
+      <div id="ai-mini" style="margin-top:8px;color:rgba(229,231,235,.86);font-size:13px;line-height:1.45;">—</div>
+    `;
+    DOC.body.appendChild(wrap);
+    return wrap;
+  }
+
+  function showAI(msg){
+    const wrap = ensureAIHud();
+    const emo = DOC.getElementById('ai-emo');
+    const sub = DOC.getElementById('ai-sub');
+    const tag = DOC.getElementById('ai-tag');
+    const mini = DOC.getElementById('ai-mini');
+
+    if(emo) emo.textContent = msg.emo || '🧠';
+    if(sub) sub.textContent = msg.sub || '';
+    if(tag) tag.textContent = msg.tag || 'TIP';
+    if(mini) mini.textContent = msg.mini || '';
+
+    wrap.style.opacity='1';
+    wrap.style.transform='translateY(0)';
+    clearTimeout(showAI._t);
+    showAI._t = setTimeout(()=>{
+      wrap.style.opacity='0';
+      wrap.style.transform='translateY(6px)';
+    }, msg.ms || 1600);
+  }
+
+  function onBrushAI(ev){
+    const d = ev?.detail || {};
+    const t = String(d.type||'').toLowerCase();
+
+    if(t==='risk'){
+      const pct = Math.round((Number(d.risk)||0)*100);
+      const band = String(d.band||'low').toUpperCase();
+      showAI({ emo:'🧠', sub:`RISK ${pct}% • ${band}`, mini: String(d.tip||'—'), tag:'PRED', ms:1700 });
+      return;
+    }
+    if(t==='stage'){
+      showAI({ emo:'🏁', sub:`STAGE ${d.stage||''}`, mini:`Clean ${Math.round(Number(d.clean)||0)}%`, tag:'STAGE', ms:1300 });
+      return;
+    }
+    if(t==='miss_streak'){
+      showAI({ emo:'😵', sub:`พลาดติดกัน ${d.n||0}`, mini:'ช้าลงนิด—เล็งให้ชัวร์', tag:'WARN', ms:1400 });
+      return;
+    }
+    if(t==='combo_hot'){
+      showAI({ emo:'🔥', sub:`COMBO ${d.combo||0}`, mini:'ดีมาก! รักษาคอมโบ', tag:'HOT', ms:1200 });
+      return;
+    }
+    if(t==='boss'){
+      showAI({ emo:'💎', sub:`BOSS ${d.state||''}`, mini:'ยิงจุดอ่อนวงเหลืองแรงกว่า', tag:'BOSS', ms:1500 });
+      return;
+    }
+    if(t==='quiz'){
+      showAI({ emo:'🧩', sub:`QUIZ ${d.state||''}`, mini:'ตอบวิเคราะห์เพื่อรับโบนัส', tag:'C', ms:1500 });
+      return;
+    }
+    if(t==='time'){
+      showAI({ emo:'⏳', sub:'อีก 10 วิ!', mini:'เร่งแบบแม่น ๆ', tag:'TIME', ms:1200 });
+      return;
+    }
+  }
+
+  function boot(){
+    const ctx = buildCtx();
+    DOC.body.setAttribute('data-view', ctx.view);
+    WIN.addEventListener('brush:ai', onBrushAI);
+    // engine is self-started by user click on #btnStart inside safe.js
+  }
+
+  function setupTapStart(){
     const tap = DOC.getElementById('tapStart');
     const btn = DOC.getElementById('tapBtn');
-    if(!tap || !btn) return;
 
-    tap.style.display = 'grid';
+    const viewQ = String(qs('view','')||'').toLowerCase();
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    const showTap = isMobile || viewQ==='mobile' || viewQ==='cvr';
 
-    const go = ()=>{
-      try{ tap.style.display='none'; }catch(_){}
-      try{ onUnlock && onUnlock(); }catch(_){}
-    };
-
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
-    tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); go(); } }, {passive:false});
-  }
-
-  async function startEngine(){
-    const ai = String(qs('ai','1')).toLowerCase();
-    if (ai === '0') WIN.__BRUSH_AI_OFF__ = true;
-
-    let bootGame = WIN.__BRUSH_BOOTGAME__;
-    if (!bootGame){
-      try{
-        const mod = await import('./brush.safe.js?v=20260303d');
-        bootGame = mod && mod.bootGame ? mod.bootGame : null;
-      }catch(e){
-        console.error('[BrushBOOT] cannot load safe', e);
-        return null;
-      }
+    if(!tap || !btn){
+      boot(); return;
     }
 
-    const api = bootGame ? bootGame() : null;
-    WIN.HHBrush_BOOT = api;
-
-    // ✅ start immediately
-    if (api && typeof api.start === 'function') await api.start();
-    return api;
-  }
-
-  async function init(){
-    const wrap = DOC.getElementById('br-wrap');
-    if(wrap){ wrap.dataset.state = 'play'; }
-
-    const view = String(qs('view','')||DOC.body.getAttribute('data-view')||'pc').toLowerCase();
-    DOC.body.setAttribute('data-view', view);
-
-    const api = await startEngine();
-
-    // tap overlay only for “unlock” (does NOT block game)
-    if (isTapRecommended(view)){
-      showTapOverlay(()=>{
-        // optional: if later you add audio, unlock here
-        // For now: just a friendly unlock gate.
-        if (api && typeof api.onUnlock === 'function') api.onUnlock();
-      });
+    if(showTap){
+      tap.style.display = 'grid';
+      const go = ()=>{
+        try{ tap.style.display='none'; }catch(_){}
+        boot();
+      };
+      btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+      tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); go(); } }, {passive:false});
+    }else{
+      boot();
     }
   }
 
-  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init, {once:true});
-  else init();
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', setupTapStart);
+  }else{
+    setupTapStart();
+  }
 })();
