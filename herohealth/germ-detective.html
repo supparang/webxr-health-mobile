@@ -1,340 +1,257 @@
+<!-- === /webxr-health-mobile/herohealth/germ-detective.html ===
+Germ Detective — ROOT LAUNCHER (PC/Mobile/cVR) — PRODUCTION
+PATCH v20260304-GD-LAUNCHER-ROOT-A
+✅ Base: /webxr-health-mobile/herohealth/
+✅ Routes:
+   - Run: ./germ-detective/germ-detective.html
+✅ Pass-through: hub/run/diff/time/seed/pid/view/log/api/ai/battle/room/autostart/forfeit + research
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Germ Detective (Launcher)</title>
+  <title>HeroHealth — Germ Detective</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#070b16; --panel:rgba(2,6,23,.78); --line:rgba(148,163,184,.18);
-      --txt:rgba(241,245,249,.96); --mut:rgba(148,163,184,.95);
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
+      --r:20px;
     }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; background:var(--bg); color:var(--txt);
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
-    .wrap{
-      max-width:1040px; margin:0 auto;
-      padding: calc(max(14px,var(--sat)) + 6px) calc(max(14px,var(--sar)) + 4px)
-               calc(max(14px,var(--sab)) + 18px) calc(max(14px,var(--sal)) + 4px);
-    }
-    .hero{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.60));
-      box-shadow:0 18px 60px rgba(0,0,0,.28);
-      padding:14px;
-      background-image:
-        radial-gradient(circle at 14% 10%, rgba(34,211,238,.08), transparent 40%),
-        radial-gradient(circle at 86% 18%, rgba(16,185,129,.08), transparent 45%);
-    }
-    h1{ margin:0 0 6px; font-size:22px; line-height:1.1; }
-    .mut{ color:var(--mut); font-size:13px; line-height:1.45; }
-    .tagrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-    .tag{
-      border:1px solid var(--line);
-      border-radius:999px;
-      padding:4px 10px;
-      font-size:11px;
-      color:var(--mut);
-      background:rgba(255,255,255,.02);
-    }
-    .grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:12px; margin-top:12px; }
-    .card{
-      border:1px solid var(--line);
-      border-radius:16px;
-      background:rgba(255,255,255,.02);
-      padding:12px;
-    }
-    .card h3{ margin:0 0 10px; font-size:15px; }
-    .fgrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-    .field{ display:grid; gap:6px; }
-    .field label{ font-size:12px; color:var(--mut); font-weight:800; }
-    .field input,.field select{
-      width:100%;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.02);
-      color:var(--txt);
-      padding:10px 12px;
-      font:800 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      outline:none;
-    }
-    .hint{ font-size:11px; color:var(--mut); line-height:1.35; }
-    .btn{
-      appearance:none;
-      border:1px solid var(--line);
-      border-radius:999px;
-      padding:10px 14px;
-      background:rgba(2,6,23,.68);
-      color:var(--txt);
-      font:900 13px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      cursor:pointer;
-      box-shadow: 0 18px 44px rgba(0,0,0,.18);
-      backdrop-filter: blur(10px);
-    }
-    .btn.primary{ border-color:rgba(34,211,238,.30); background:rgba(34,211,238,.10); }
-    .btn.good{ border-color:rgba(16,185,129,.30); background:rgba(16,185,129,.10); }
-    .btn.warn{ border-color:rgba(245,158,11,.30); background:rgba(245,158,11,.10); }
-    .btn:active{ transform: translateY(1px); }
-    .footerActions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-    .preview{
-      border:1px dashed rgba(148,163,184,.22);
-      border-radius:12px;
-      padding:10px;
-      background:rgba(255,255,255,.01);
-      font-size:12px;
-      word-break:break-all;
-      line-height:1.5;
-    }
-    @media (max-width: 900px){
-      .grid{ grid-template-columns:1fr; }
-      .fgrid{ grid-template-columns:1fr; }
-      .btn{ flex:1 1 auto; }
-    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 20% 10%, rgba(34,211,238,.12), transparent 55%),
+                               radial-gradient(900px 600px at 80% 20%, rgba(167,139,250,.10), transparent 55%),
+                               var(--bg);
+      color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    a{color:inherit;text-decoration:none}
+    .wrap{min-height:100%;max-width:980px;margin:0 auto;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))}
+    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.55));
+      border-radius:var(--r);padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .brand{display:flex;gap:10px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, rgba(34,211,238,.22), rgba(167,139,250,.16));
+      border:1px solid var(--stroke);display:grid;place-items:center;font-weight:1000}
+    .title{font-weight:1000;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:12px;font-weight:850;margin-top:2px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .chip b{color:#fff}
+    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .mode{border:1px solid var(--stroke);border-radius:18px;padding:12px;background:rgba(255,255,255,.02)}
+    .mode h3{margin:0;font-size:14px;font-weight:1000}
+    .mode p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:780;font-size:12px;line-height:1.35}
+    .btnrow{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);font-weight:1000;font-size:13px}
+    .btn.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.12)}
+    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;font-weight:850;line-height:1.35}
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <section class="hero">
-      <h1>🕵️ Germ Detective — Launcher (Root)</h1>
-      <div class="mut">
-        เลือก Scene / View / Mode แล้วเริ่มเกมที่หน้า Run<br>
-        รองรับ PC • Mobile • Cardboard (cVR) และส่งกลับ HUB ผ่านพารามิเตอร์ <code>hub=</code>
-      </div>
+    <div class="card">
+      <header>
+        <div class="brand">
+          <div class="logo">GD</div>
+          <div>
+            <div class="title">Germ Detective</div>
+            <div class="sub">Root Launcher — เลือกโหมดเข้าเล่น (PC / Mobile / Cardboard cVR)</div>
+          </div>
+        </div>
 
-      <div class="tagrow">
-        <span class="tag">Root: /herohealth/germ-detective.html</span>
-        <span class="tag">Run: /herohealth/germ-detective/germ-detective.html</span>
-        <span class="tag">SAFE: no Apps Script binding</span>
-      </div>
+        <div class="chips">
+          <div class="chip">run: <b id="cRun">play</b></div>
+          <div class="chip">diff: <b id="cDiff">normal</b></div>
+          <div class="chip">time: <b id="cTime">80</b>s</div>
+          <div class="chip">pid: <b id="cPid">anon</b></div>
+          <div class="chip">seed: <b id="cSeed">-</b></div>
+        </div>
+      </header>
 
       <div class="grid">
-        <div class="card">
-          <h3>⚙️ ตั้งค่าเกม</h3>
-
-          <div class="fgrid">
-            <div class="field">
-              <label for="scene">Scene</label>
-              <select id="scene">
-                <option value="classroom">classroom (ห้องเรียน)</option>
-                <option value="home">home (บ้าน)</option>
-                <option value="canteen">canteen (โรงอาหาร)</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="view">View / Device</label>
-              <select id="view">
-                <option value="pc">pc</option>
-                <option value="mobile">mobile</option>
-                <option value="cvr">cvr (Cardboard)</option>
-              </select>
-              <div class="hint">cvr จะใช้ vr-ui.js ยิงจาก crosshair (hha:shoot)</div>
-            </div>
-
-            <div class="field">
-              <label for="run">Run Mode</label>
-              <select id="run">
-                <option value="play">play</option>
-                <option value="research">research</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="diff">Difficulty</label>
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal">normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="time">Time (sec)</label>
-              <input id="time" type="number" min="20" max="600" step="5" value="80" />
-            </div>
-
-            <div class="field">
-              <label for="pid">PID</label>
-              <input id="pid" type="text" value="anon" />
-            </div>
-
-            <div class="field">
-              <label for="seed">Seed</label>
-              <input id="seed" type="text" placeholder="auto" />
-            </div>
-
-            <div class="field">
-              <label for="hub">Hub URL (Back)</label>
-              <input id="hub" type="text" placeholder="/herohealth/hub.html" />
-            </div>
-          </div>
-
-          <div class="footerActions">
-            <button class="btn" id="btnRandomSeed" type="button">🎲 Random Seed</button>
-            <button class="btn warn" id="btnPresetResearch" type="button">🧪 Preset Research</button>
-            <button class="btn" id="btnSave" type="button">💾 Save</button>
-            <button class="btn" id="btnReset" type="button">♻️ Reset</button>
+        <div class="mode">
+          <h3>🖥️ PC</h3>
+          <p>เหมาะสำหรับเดสก์ท็อป/โน้ตบุ๊ก • คลิก hotspot • ใช้เมาส์</p>
+          <div class="btnrow">
+            <a class="btn good" id="goPC" href="./germ-detective/germ-detective.html">Start PC</a>
           </div>
         </div>
 
-        <div class="card">
-          <h3>▶️ Start</h3>
-          <div class="preview" id="urlPreview">-</div>
-          <div class="footerActions">
-            <button class="btn primary" id="btnStart" type="button">เริ่มเล่น</button>
-            <button class="btn good" id="btnNewTab" type="button">เปิดแท็บใหม่</button>
-            <button class="btn" id="btnCopy" type="button">คัดลอก URL</button>
+        <div class="mode">
+          <h3>📱 Mobile</h3>
+          <p>เหมาะสำหรับมือถือ • แตะ hotspot • UI ชัด</p>
+          <div class="btnrow">
+            <a class="btn cyan" id="goMobile" href="./germ-detective/germ-detective.html">Start Mobile</a>
           </div>
+        </div>
+
+        <div class="mode">
+          <h3>🕶️ Cardboard (cVR)</h3>
+          <p>ยิงจาก crosshair ด้วยการแตะจอ (ผ่าน vr-ui.js → hha:shoot)</p>
+          <div class="btnrow">
+            <a class="btn warn" id="goCVR" href="./germ-detective/germ-detective.html">Start cVR</a>
+          </div>
+          <div class="hint">* เปิดด้วย Chrome Android จะนิ่งสุด</div>
         </div>
       </div>
-    </section>
+
+      <div class="hint" id="hint"></div>
+    </div>
   </div>
 
   <script>
-    (function(){
-      'use strict';
-      const RUN_PATH = '/herohealth/germ-detective/germ-detective.html';
-      const PRESET_KEY = 'GD_LAUNCHER_PRESET_SAFE_V1';
+  'use strict';
 
-      const $ = (id)=> document.getElementById(id);
-      const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
-      const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-      const nowSeed = ()=> String(Date.now());
+  function qs(k, d=''){
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }
+    catch{ return d; }
+  }
+  function clamp(v,a,b){
+    v = Number(v);
+    if(!Number.isFinite(v)) v=a;
+    return Math.max(a, Math.min(b, v));
+  }
+  function nowSeed(){ return String(Date.now()); }
+  function normalizeMaybeEncodedUrl(v){
+    v = String(v ?? '').trim();
+    if(!v) return '';
+    if(v === 'null' || v === 'undefined') return '';
+    v = v.replace(/\s+/g,'').trim();
+    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+      try{ v = decodeURIComponent(v); }catch(e){}
+    }
+    return v.trim();
+  }
 
-      function defaultHub(){
-        const qHub = qs('hub','');
-        if(qHub) return qHub;
-        return '/herohealth/hub.html';
-      }
+  const P = {
+    run:  String(qs('run','play')).toLowerCase() || 'play',
+    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+    time: clamp(qs('time','80'), 20, 600),
+    seed: String(qs('seed','') || nowSeed()),
+    pid:  String(qs('pid','')).trim() || 'anon',
+    scene:String(qs('scene','classroom')).toLowerCase(),
+    view: String(qs('view','')).toLowerCase(),
 
-      function readForm(){
-        return {
-          scene: String($('scene').value || 'classroom'),
-          view:  String($('view').value || 'pc'),
-          run:   String($('run').value || 'play'),
-          diff:  String($('diff').value || 'normal'),
-          time:  clamp($('time').value || 80, 20, 600),
-          pid:   (String($('pid').value || 'anon').trim() || 'anon'),
-          seed:  (String($('seed').value || '').trim() || nowSeed()),
-          hub:   (String($('hub').value || '').trim() || defaultHub())
-        };
-      }
+    // hub/logger
+    hub: String(qs('hub','')),
+    log: String(qs('log','')),
+    api: normalizeMaybeEncodedUrl(qs('api','')),
 
-      function applyForm(v){
-        if(!v) return;
-        if(v.scene) $('scene').value = v.scene;
-        if(v.view)  $('view').value  = v.view;
-        if(v.run)   $('run').value   = v.run;
-        if(v.diff)  $('diff').value  = v.diff;
-        if(v.time)  $('time').value  = v.time;
-        if(v.pid != null) $('pid').value = v.pid;
-        if(v.seed)  $('seed').value  = v.seed;
-        if(v.hub)   $('hub').value   = v.hub;
-      }
+    // ai/battle
+    ai: String(qs('ai','')),
+    battle: String(qs('battle','')),
+    room: String(qs('room','')).trim(),
+    autostart: String(qs('autostart','')),
+    forfeit: String(qs('forfeit','')),
 
-      function buildRunURL(){
-        const v = readForm();
-        const u = new URL(RUN_PATH, location.origin);
-        u.searchParams.set('run', v.run);
-        u.searchParams.set('diff', v.diff);
-        u.searchParams.set('time', String(v.time));
-        u.searchParams.set('seed', v.seed);
-        u.searchParams.set('pid', v.pid);
-        u.searchParams.set('scene', v.scene);
-        u.searchParams.set('view', v.view);
-        u.searchParams.set('hub', v.hub);
+    // research
+    studyId: String(qs('studyId','')),
+    phase: String(qs('phase','')),
+    conditionGroup: String(qs('conditionGroup','')),
+    sessionOrder: String(qs('sessionOrder','')),
+    blockLabel: String(qs('blockLabel','')),
+    siteCode: String(qs('siteCode','')),
+    schoolYear: String(qs('schoolYear','')),
+    semester: String(qs('semester',''))
+  };
 
-        // pass-through from hub (if present)
-        ['log','api','ai','battle','room','autostart','forfeit','studyId','phase','conditionGroup'].forEach(k=>{
-          const val = qs(k,'');
-          if(val !== '') u.searchParams.set(k, val);
-        });
+  document.getElementById('cRun').textContent = P.run;
+  document.getElementById('cDiff').textContent = P.diff;
+  document.getElementById('cTime').textContent = String(P.time);
+  document.getElementById('cPid').textContent = P.pid;
+  document.getElementById('cSeed').textContent = P.seed;
 
-        return u;
-      }
+  // ensure hub fallback (if opened directly)
+  function buildHubFallback(){
+    const u = new URL('./hub.html', location.href);
+    const sp = u.searchParams;
+    sp.set('run', P.run);
+    sp.set('diff', P.diff);
+    sp.set('time', String(P.time));
+    sp.set('seed', P.seed);
+    sp.set('pid', P.pid);
+    if(P.view) sp.set('view', P.view);
+    if(P.log !== '') sp.set('log', P.log);
+    if(P.api) sp.set('api', P.api);
+    if(P.ai !== '') sp.set('ai', P.ai);
+    if(P.battle !== '') sp.set('battle', P.battle);
+    if(P.room) sp.set('room', P.room);
+    if(P.autostart) sp.set('autostart', P.autostart);
+    if(P.forfeit) sp.set('forfeit', P.forfeit);
+    if(P.scene) sp.set('scene', P.scene);
 
-      function render(){
-        $('urlPreview').textContent = buildRunURL().href;
-      }
+    if(P.studyId) sp.set('studyId', P.studyId);
+    if(P.phase) sp.set('phase', P.phase);
+    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
+    if(P.sessionOrder) sp.set('sessionOrder', P.sessionOrder);
+    if(P.blockLabel) sp.set('blockLabel', P.blockLabel);
+    if(P.siteCode) sp.set('siteCode', P.siteCode);
+    if(P.schoolYear) sp.set('schoolYear', P.schoolYear);
+    if(P.semester) sp.set('semester', P.semester);
 
-      function savePreset(){
-        try{ localStorage.setItem(PRESET_KEY, JSON.stringify(readForm())); }catch(e){}
-      }
-      function loadPreset(){
-        try{ return JSON.parse(localStorage.getItem(PRESET_KEY) || 'null'); }catch(e){ return null; }
-      }
+    return u.toString();
+  }
 
-      async function copyText(text){
-        try{
-          await navigator.clipboard.writeText(text);
-          return true;
-        }catch(e){
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          try{ document.execCommand('copy'); ta.remove(); return true; }
-          catch(err){ ta.remove(); return false; }
-        }
-      }
+  function withParams(url, extra={}){
+    const u = new URL(url, location.href);
+    const sp = u.searchParams;
 
-      function init(){
-        const preset = loadPreset();
-        applyForm(preset || {
-          scene: qs('scene','classroom'),
-          view:  qs('view','pc'),
-          run:   qs('run','play'),
-          diff:  qs('diff','normal'),
-          time:  clamp(qs('time','80'), 20, 600),
-          pid:   qs('pid','anon'),
-          seed:  qs('seed', nowSeed()),
-          hub:   defaultHub()
-        });
+    sp.set('run', P.run);
+    sp.set('diff', P.diff);
+    sp.set('time', String(P.time));
+    sp.set('seed', P.seed);
+    sp.set('pid', P.pid);
+    sp.set('scene', P.scene || 'classroom');
 
-        // override by query if provided
-        ['scene','view','run','diff','time','pid','seed','hub'].forEach(k=>{
-          const v = qs(k,'');
-          if(v !== '' && $(k)) $(k).value = v;
-        });
+    // hub passthrough
+    sp.set('hub', P.hub ? String(P.hub) : buildHubFallback());
 
-        $('btnRandomSeed').addEventListener('click', ()=>{ $('seed').value = nowSeed(); render(); }, {passive:true});
-        $('btnPresetResearch').addEventListener('click', ()=>{
-          $('run').value = 'research';
-          if(!String($('pid').value||'').trim()) $('pid').value='anon';
-          if(!String($('seed').value||'').trim()) $('seed').value=nowSeed();
-          render();
-        }, {passive:true});
+    if(P.view) sp.set('view', P.view);
 
-        $('btnSave').addEventListener('click', ()=>{ savePreset(); alert('บันทึก preset แล้ว'); }, {passive:true});
-        $('btnReset').addEventListener('click', ()=>{
-          try{ localStorage.removeItem(PRESET_KEY); }catch(e){}
-          applyForm({ scene:'classroom', view:'pc', run:'play', diff:'normal', time:80, pid:'anon', seed:nowSeed(), hub:defaultHub() });
-          render();
-        }, {passive:true});
+    if(P.log !== '') sp.set('log', P.log);
+    if(P.api) sp.set('api', P.api);
 
-        $('btnStart').addEventListener('click', ()=>{ savePreset(); location.href = buildRunURL().href; }, {passive:true});
-        $('btnNewTab').addEventListener('click', ()=>{ savePreset(); window.open(buildRunURL().href, '_blank', 'noopener'); }, {passive:true});
-        $('btnCopy').addEventListener('click', async ()=>{ const ok = await copyText(buildRunURL().href); alert(ok?'คัดลอก URL แล้ว':'คัดลอกไม่สำเร็จ'); }, {passive:true});
+    if(P.ai !== '') sp.set('ai', P.ai);
+    if(P.battle !== '') sp.set('battle', P.battle);
+    if(P.room) sp.set('room', P.room);
+    if(P.autostart) sp.set('autostart', P.autostart);
+    if(P.forfeit) sp.set('forfeit', P.forfeit);
 
-        ['scene','view','run','diff','time','pid','seed','hub'].forEach(id=>{
-          const el = $(id);
-          if(!el) return;
-          el.addEventListener('input', render, {passive:true});
-          el.addEventListener('change', render, {passive:true});
-        });
+    if(P.studyId) sp.set('studyId', P.studyId);
+    if(P.phase) sp.set('phase', P.phase);
+    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
+    if(P.sessionOrder) sp.set('sessionOrder', P.sessionOrder);
+    if(P.blockLabel) sp.set('blockLabel', P.blockLabel);
+    if(P.siteCode) sp.set('siteCode', P.siteCode);
+    if(P.schoolYear) sp.set('schoolYear', P.schoolYear);
+    if(P.semester) sp.set('semester', P.semester);
 
-        render();
-      }
+    // per-mode overrides
+    Object.entries(extra||{}).forEach(([k,v])=>{
+      if(v === null || v === undefined || v === '') sp.delete(k);
+      else sp.set(k, String(v));
+    });
 
-      init();
-    })();
+    return u.toString();
+  }
+
+  // Build mode links
+  document.getElementById('goPC').href     = withParams('./germ-detective/germ-detective.html', { view: 'pc' });
+  document.getElementById('goMobile').href = withParams('./germ-detective/germ-detective.html', { view: 'mobile' });
+  document.getElementById('goCVR').href    = withParams('./germ-detective/germ-detective.html', { view: 'cvr' });
+
+  document.getElementById('hint').textContent =
+    'Base: /webxr-health-mobile/herohealth/ • ' +
+    'Run: /herohealth/germ-detective/germ-detective.html • ' +
+    'ถ้าเปิดจาก HUB ระบบจะส่ง hub= มาให้อัตโนมัติ';
   </script>
 </body>
 </html>
