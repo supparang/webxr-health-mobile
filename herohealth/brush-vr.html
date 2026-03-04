@@ -1,65 +1,76 @@
 <!-- === /herohealth/brush-vr.html ===
 BrushVR ROOT LAUNCHER — PRODUCTION
-PATCH v20260304-BRUSH-ROOT-LAUNCHER
-✅ Redirect to /herohealth/vr-brush/brush.html
-✅ Pass-through all params + always set hub to current hub (if missing)
+PATCH v20260304-BRUSH-LAUNCHER
+- Root launcher -> /herohealth/vr-brush/brush.html
+- Pass-through: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log/view/api/ai/debug
+- Auto view detect: mobile=>cvr, desktop=>pc (but respect ?view=)
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — BrushVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#020617; --txt:#e5e7eb; --mut:#94a3b8; --stroke:rgba(148,163,184,.18); }
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#020617,#0b1226);color:var(--txt);font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:18px}
-    .card{width:min(560px,92vw);border:1px solid var(--stroke);border-radius:22px;background:rgba(2,6,23,.72);backdrop-filter:blur(10px);padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
-    .t{font-weight:950;font-size:18px}
-    .s{color:var(--mut);margin-top:6px;line-height:1.45;font-size:13px}
-    .pill{display:inline-flex;gap:8px;align-items:center;margin-top:10px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.06);color:var(--mut);font-weight:900;font-size:12px;word-break:break-all}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;background:#020617;color:#e5e7eb}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:16px}
+    .card{width:min(560px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:22px;background:rgba(2,6,23,.75);padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+    .t{font-weight:1000;font-size:18px}
+    .s{margin-top:6px;color:rgba(148,163,184,.95);font-weight:800;line-height:1.4;font-size:13px}
+    .btn{margin-top:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:12px 14px;border-radius:16px;border:1px solid rgba(16,185,129,.35);
+      background:rgba(16,185,129,.18);color:#e5e7eb;font-weight:1000;text-decoration:none}
+    .mini{margin-top:10px;color:rgba(148,163,184,.9);font-size:12px;font-weight:800;word-break:break-word}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <div class="t">🪥 BrushVR — Launcher</div>
-      <div class="s">กำลังพาไปหน้าเล่นเกม…</div>
-      <div class="pill" id="to">target: /herohealth/vr-brush/brush.html</div>
+      <div class="s">กำลังพาเข้าเกม… (ถ้าค้างกดปุ่มด้านล่าง)</div>
+      <a class="btn" id="go" href="#">▶ เข้า BrushVR</a>
+      <div class="mini" id="dbg"></div>
     </div>
   </div>
 
 <script>
 (function(){
   'use strict';
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function qs(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+
+  function qs(){ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } }
+  function autoView(){
+    const Q = qs();
+    const v = (Q.get('view')||'').toLowerCase();
+    if(v) return v; // respect
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+    return isMobile ? 'cvr' : 'pc';
+  }
+
   const Q = qs();
+  const PASS = ['hub','run','diff','time','seed','pid','studyId','phase','conditionGroup','log','api','ai','debug','view'];
 
-  // target run page
-  const target = new URL('./vr-brush/brush.html', location.href);
-
-  // pass-through all current params
-  for(const [k,v] of Q.entries()){
-    if(k==='hub') continue;
-    target.searchParams.set(k,v);
+  const runUrl = new URL('./vr-brush/brush.html', location.href);
+  for(const k of PASS){
+    if(Q.has(k) && String(Q.get(k)||'').trim()!==''){
+      runUrl.searchParams.set(k, Q.get(k));
+    }
   }
-
-  // ensure hub param exists (return back)
-  const hub = Q.get('hub');
-  if(hub && String(hub).trim()){
-    target.searchParams.set('hub', hub);
-  }else{
-    target.searchParams.set('hub', new URL('./hub.html', location.href).toString());
+  if(!runUrl.searchParams.has('view')) runUrl.searchParams.set('view', autoView());
+  if(!runUrl.searchParams.has('hub') || !String(runUrl.searchParams.get('hub')||'').trim()){
+    // default back to hub root
+    runUrl.searchParams.set('hub', './hub.html');
   }
+  if(!runUrl.searchParams.has('seed')) runUrl.searchParams.set('seed', String(Date.now()));
 
-  // view auto: if user passes view=mobile, we keep it. run page auto maps to cvr if needed.
-  document.getElementById('to').textContent = 'target: ' + target.toString();
+  const a = document.getElementById('go');
+  a.href = runUrl.toString();
+  document.getElementById('dbg').textContent = runUrl.toString();
 
-  // go
-  location.replace(target.toString());
+  // auto redirect quickly
+  setTimeout(()=>{ location.replace(runUrl.toString()); }, 80);
 })();
 </script>
 </body>
