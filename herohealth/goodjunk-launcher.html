@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher (Mode + Diff + Room + Nick)
-FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
+FULL v20260304d-LAUNCHER-BATTLE-WAIT1
 -->
 <!doctype html>
 <html lang="th">
@@ -354,18 +354,14 @@ FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
     pillRun.textContent  = state.run;
     pillPid.textContent  = state.pid;
 
-    // pull prefs (but URL has priority)
     const prefs = loadPrefs();
 
-    // mode
     const modeFromUrl = String(qs('mode','')).trim().toLowerCase();
     if(!modeFromUrl && prefs?.mode) state.mode = String(prefs.mode).toLowerCase();
 
-    // diff
     const diffFromUrl = String(qs('diff','')).trim().toLowerCase();
     if(!diffFromUrl && prefs?.diff) state.diff = String(prefs.diff).toLowerCase();
 
-    // nick/room/time
     const nickFromUrl = String(qs('nick','')).trim();
     const roomFromUrl = String(qs('room','')).trim();
     const timeFromUrl = String(qs('time','')).trim();
@@ -374,11 +370,9 @@ FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
     inpRoom.value = roomFromUrl || (prefs?.room || '');
     inpTime.value = timeFromUrl || (prefs?.time || state.time || '80');
 
-    // diff select
     selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
     pillDiff.textContent = selDiff.value;
 
-    // bind
     btnSolo.onclick   = ()=> setMode('solo');
     btnBattle.onclick = ()=> setMode('battle');
     btnRace.onclick   = ()=> setMode('race');
@@ -399,7 +393,6 @@ FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
 
     $('btnStart').onclick = onStart;
 
-    // apply mode UI
     if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
     setMode(state.mode);
   }
@@ -415,7 +408,6 @@ FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
       return;
     }
 
-    // Build run URL
     const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
     runUrl.searchParams.set('mode', state.mode);
@@ -427,30 +419,28 @@ FULL v20260304c-LAUNCHER-MODEDIFF-ROOM-MEM
     runUrl.searchParams.set('nick', nick);
     if(room) runUrl.searchParams.set('room', room);
 
-    // pass-through ctx from hub
     const sp = new URL(location.href).searchParams;
     PASS_KEYS.forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') runUrl.searchParams.set(k, v);
     });
 
-    // always set hub back
     runUrl.searchParams.set('hub', state.hub || sp.get('hub') || './hub.html');
 
-    // Compatibility flags for existing modules
     if(state.mode === 'battle'){
-      runUrl.searchParams.set('battle','1'); // existing battle-rtdb.js gate
-      // optional knobs if present
+      runUrl.searchParams.set('battle','1');
+      runUrl.searchParams.set('wait','1'); // ✅ NEW: battle must wait start
       ['autostart','forfeit'].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') runUrl.searchParams.set(k, v);
       });
     }
     if(state.mode === 'race'){
-      runUrl.searchParams.set('wait','1'); // run page / safe.js should respect wait-start
+      runUrl.searchParams.set('wait','1');
     }
     if(state.mode === 'coop'){
-      runUrl.searchParams.set('coop','1'); // reserved for next pack
+      runUrl.searchParams.set('coop','1');
+      runUrl.searchParams.set('wait','1'); // reserve
     }
 
     savePrefs();
