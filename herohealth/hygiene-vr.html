@@ -88,10 +88,8 @@ HygieneVR Launcher — ROOT (AUTO) — FULL v20260221n
     const u = new URL(RUN_URL, location.href);
     const cur = new URL(location.href);
 
-    // pass-through all params
     cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // DO NOT override if view already present
     if (!cur.searchParams.get('view')){
       u.searchParams.set('view', detectView());
     }
