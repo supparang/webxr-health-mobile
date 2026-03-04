@@ -1,42 +1,95 @@
 // === /herohealth/vr-goodjunk/goodjunk-race.js ===
-// GoodJunk Race Controller — UI countdown only (safe)
-// FULL v20260304-RACE-COUNTDOWN
+// GoodJunk RACE Controller — PRODUCTION
+// FULL v20260304-RACE-OVERLAY-COUNTDOWN
 'use strict';
 
 export function bootRace(opts = {}){
-  const overlay = document.getElementById(opts.overlayId || 'raceOverlay');
-  const numEl   = document.getElementById(opts.numId || 'raceNum');
-  const subEl   = document.getElementById(opts.subId || 'raceSub');
-
-  if(!overlay || !numEl) return;
+  const overlayId = String(opts.overlayId || 'raceOverlay');
+  const numId = String(opts.numId || 'raceNum');
+  const subId = String(opts.subId || 'raceSub');
 
   const wait = !!opts.wait;
-  const autostartMs = Number(opts.autostartMs || 3000);
+  const autostartMs = Number(opts.autostartMs || 3000) || 3000;
+  const onGo = (typeof opts.onGo === 'function') ? opts.onGo : null;
 
-  if(!wait) return; // if not waiting, do nothing
+  const overlay = document.getElementById(overlayId);
+  const numEl = document.getElementById(numId);
+  const subEl = document.getElementById(subId);
 
-  // pause core if exists
-  try{ window.__GJ_SET_PAUSED__?.(true); }catch(_){}
+  if(!overlay || !numEl || !subEl){
+    console.warn('[Race] missing overlay elements');
+    // ถ้าไม่มี overlay ก็ปล่อยเริ่มเลย
+    try{ onGo && onGo(); }catch(_){}
+    return;
+  }
 
-  overlay.setAttribute('aria-hidden','false');
-  if(subEl) subEl.textContent = 'เริ่มพร้อมกันใน…';
+  function show(on){
+    overlay.setAttribute('aria-hidden', on ? 'false' : 'true');
+  }
+  function setNum(v){ numEl.textContent = String(v); }
+  function setSub(v){ subEl.textContent = String(v); }
 
-  const steps = [3,2,1,'GO!'];
-  const stepDur = Math.max(600, Math.floor(autostartMs / 3));
+  // ถ้าไม่ wait ก็แค่โชว์ “RACE” สั้น ๆ แล้วปิด
+  if(!wait){
+    show(true);
+    setSub('RACE! ไปเลย!');
+    setNum('GO');
+    setTimeout(()=> show(false), 900);
+    try{ onGo && onGo(); }catch(_){}
+    return;
+  }
 
-  let i = 0;
-  function next(){
-    const v = steps[i++];
-    numEl.textContent = String(v);
-    if(i <= steps.length){
-      setTimeout(next, stepDur);
+  // wait=1 : นับถอยหลัง
+  show(true);
+  setSub('เตรียมตัว…');
+  setNum('3');
+
+  const t0 = performance.now();
+  let phase = 0; // 0=delay, 1=count, 2=go, 3=hide
+  let lastShown = '';
+
+  function tick(){
+    const t = performance.now() - t0;
+
+    if(phase === 0){
+      if(t < autostartMs){
+        const left = Math.max(0, Math.ceil((autostartMs - t)/1000));
+        const label = `เริ่มใน ${left}s`;
+        if(label !== lastShown){
+          lastShown = label;
+          setSub(label);
+        }
+        requestAnimationFrame(tick);
+        return;
+      }
+      phase = 1;
+      lastShown = '';
     }
-    if(v === 'GO!'){
-      setTimeout(()=>{
-        overlay.setAttribute('aria-hidden','true');
-        try{ window.__GJ_SET_PAUSED__?.(false); }catch(_){}
-      }, 420);
+
+    if(phase === 1){
+      // countdown 3..2..1
+      const elapsed = t - autostartMs;
+      const sec = Math.floor(elapsed / 1000);
+      const n = 3 - sec;
+
+      if(n > 0){
+        setSub('พร้อม…');
+        setNum(String(n));
+        requestAnimationFrame(tick);
+        return;
+      }
+      phase = 2;
+    }
+
+    if(phase === 2){
+      setSub('GO!');
+      setNum('GO');
+      try{ onGo && onGo(); }catch(_){}
+      phase = 3;
+      setTimeout(()=> show(false), 650);
+      return;
     }
   }
-  next();
+
+  requestAnimationFrame(tick);
 }
