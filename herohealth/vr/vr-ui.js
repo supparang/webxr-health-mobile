@@ -1,8 +1,8 @@
 // === /herohealth/vr/vr-ui.js ===
-// Universal VR UI — SAFE UNIVERSAL — v20260304a
-// PATCH v20260304-VRUI-NOSCROLL
-// ✅ pointerdown uses passive:false and preventDefault (except UI buttons) => stops mobile page scroll
-// ✅ Still emits hha:shoot {x,y,lockPx,cooldownMs,source,view}
+// Universal VR UI — SAFE UNIVERSAL
+// PATCH v20260304a-VRUI-ANTISCROLL-FIX
+// ✅ IMPORTANT: pointerdown is passive:false + preventDefault (except on UI buttons/inputs)
+// ✅ cVR strict: tap shoots from center
 (function(){
   'use strict';
 
@@ -21,8 +21,6 @@
     if(!Number.isFinite(v)) v = a;
     return v<a?a:(v>b?b:v);
   }
-  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-
   const CFG0 = WIN.HHA_VRUI_CONFIG || {};
   const VIEW = String(qs('view','') || DOC.documentElement?.dataset?.view || '').toLowerCase();
   const IS_CVR = (VIEW === 'cvr' || VIEW === 'cardboard' || DOC.documentElement?.dataset?.view === 'cvr');
@@ -73,7 +71,6 @@
         -webkit-tap-highlight-color: transparent;
       }
       #hha-vrui .hha-btn:active{ transform: translateY(1px); }
-
       #hha-crosshair{
         position:fixed;
         left:50%;
@@ -102,7 +99,6 @@
         background: rgba(229,231,235,.95);
         box-shadow: 0 0 0 2px rgba(2,6,23,.55);
       }
-
       #hha-vrui-hint{
         position:fixed;
         left: max(10px, env(safe-area-inset-left, 0px));
@@ -132,7 +128,6 @@
         ui.id = 'hha-vrui';
         DOC.body.appendChild(ui);
       }
-
       if(!ui.__built){
         ui.__built = true;
         ui.innerHTML = '';
@@ -145,7 +140,6 @@
           b.textContent = text;
           return b;
         };
-
         const btnEnter = mk('hhaBtnEnterVR', '🕶 ENTER VR');
         const btnExit  = mk('hhaBtnExitVR',  '🚪 EXIT VR');
         const btnRe    = mk('hhaBtnRecenter','🎯 RECENTER');
@@ -186,11 +180,9 @@
     }
   }
 
-  function getScene(){
-    try{ return DOC.querySelector('a-scene'); }catch{ return null; }
-  }
-  function enterVR(){ const s=getScene(); try{ if(s&&typeof s.enterVR==='function') s.enterVR(); }catch{} }
-  function exitVR(){  const s=getScene(); try{ if(s&&typeof s.exitVR==='function') s.exitVR(); }catch{} }
+  function getScene(){ try{ return DOC.querySelector('a-scene'); }catch{ return null; } }
+  function enterVR(){ const s = getScene(); try{ if(s && typeof s.enterVR === 'function') s.enterVR(); }catch{} }
+  function exitVR(){ const s = getScene(); try{ if(s && typeof s.exitVR === 'function') s.exitVR(); }catch{} }
   function recenter(){
     try{ WIN.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'vr-ui' } })); }catch{}
     try{
@@ -216,7 +208,7 @@
   }
 
   function emitShoot(x,y, source){
-    const t = now();
+    const t = (performance && performance.now) ? performance.now() : Date.now();
     if(t - lastShotAt < CFG.cooldownMs) return;
     lastShotAt = t;
 
@@ -233,17 +225,11 @@
       }));
     }catch{}
   }
+  function centerShoot(source){ emitShoot(innerWidth/2, innerHeight/2, source || 'tap'); }
 
-  function centerShoot(source){
-    emitShoot(innerWidth/2, innerHeight/2, source || 'tap');
-  }
-
-  function isUiClickTarget(ev){
-    const t = ev.target;
-    if(!t) return false;
-    // don't block buttons/inputs/links
-    if(t.closest && (t.closest('#hha-vrui') || t.closest('button') || t.closest('a') || t.closest('input') || t.closest('label'))) return true;
-    return false;
+  function isInteractiveTarget(el){
+    if(!el) return false;
+    return !!(el.closest && el.closest('#hha-vrui, button, a, input, select, textarea, [role="button"], [data-no-shoot="1"]'));
   }
 
   function wireTapShoot(){
@@ -251,19 +237,20 @@
     WIN.__HHA_VRUI_TAP_WIRED__ = true;
 
     DOC.addEventListener('pointerdown', (ev)=>{
-      if(ev.defaultPrevented) return;
-
-      // ✅ stop scroll unless clicking UI
-      if(!isUiClickTarget(ev)){
+      // ✅ STOP PAGE SCROLL
+      if(!isInteractiveTarget(ev.target)){
         try{ ev.preventDefault(); }catch{}
       }
+
+      // allow UI buttons without shooting
+      if(isInteractiveTarget(ev.target)) return;
 
       if(IS_CVR && CFG.cvrStrict){
         centerShoot('tap');
       }else{
         emitShoot(ev.clientX, ev.clientY, 'pointer');
       }
-    }, {passive:false});
+    }, { passive:false });
 
     DOC.addEventListener('keydown', (ev)=>{
       if(ev.code === 'Space'){
