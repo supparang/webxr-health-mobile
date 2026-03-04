@@ -1,0 +1,248 @@
+<!-- === /herohealth/battle-board.html ===
+HeroHealth — Classroom Battle Board (RTDB Live)
+FULL v20260304-BOARD
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Battle Board</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.70); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --mut:#94a3b8; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --cyan:#22d3ee;
+      --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{max-width:1100px;margin:0 auto;padding:calc(14px + var(--sat)) 14px calc(16px + var(--sab))}
+    header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+    .title{font-weight:1000;letter-spacing:.2px;font-size:16px}
+    .sub{color:var(--mut);font-weight:800;font-size:12px;margin-top:4px;line-height:1.35}
+    .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input,select,button{
+      border:1px solid var(--stroke); background:rgba(2,6,23,.35); color:var(--text);
+      border-radius:12px; padding:10px 12px; font-weight:900; font-size:13px;
+    }
+    button{cursor:pointer}
+    button.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media(max-width:860px){ .grid{grid-template-columns:1fr;} }
+    .card{
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:18px; padding:12px;
+      box-shadow:0 14px 44px rgba(0,0,0,.35)
+    }
+    .row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+    .chip{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);border-radius:999px;padding:6px 10px;font-weight:950;font-size:12px;color:rgba(229,231,235,.92)}
+    .dot{width:10px;height:10px;border-radius:999px}
+    .dot.ok{background:var(--good)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+    .mono{font:1000 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace}
+    .players{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:560px){ .players{grid-template-columns:1fr;} }
+    .p{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.35);
+      border-radius:14px;padding:10px
+    }
+    .p .name{font-weight:1000}
+    .p .meta{margin-top:4px;color:rgba(229,231,235,.78);font-weight:850;font-size:12px}
+    .mut{color:var(--mut)}
+  </style>
+
+  <script>
+    // ✅ ใส่ Firebase Config ของคุณที่นี่ (หรือ set จาก hub แล้วเปิดหน้านี้)
+    window.HHA_BATTLE_CFG = window.HHA_BATTLE_CFG || {
+      apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+      authDomain: "herohealth-d7f8c.firebaseapp.com",
+      databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "herohealth-d7f8c",
+      appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+    };
+    window.HHA_FIREBASE_VERSION = window.HHA_FIREBASE_VERSION || '10.12.5';
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="title">📊 HeroHealth • Classroom Battle Board</div>
+        <div class="sub">
+          ดูทุกห้องแบบเรียลไทม์ (RTDB) • เหมาะสำหรับครู/ห้องเรียน • รองรับ rejoin กลางเกม
+        </div>
+      </div>
+      <div class="ctl">
+        <select id="gameSel">
+          <option value="goodjunk">goodjunk</option>
+          <option value="groups">groups</option>
+          <option value="hydration">hydration</option>
+          <option value="plate">plate</option>
+        </select>
+        <input id="qRoom" placeholder="ค้นหา room (เช่น GJ1234)" />
+        <button id="btnReload">Reload</button>
+        <button id="btnTop" class="primary">Go Hub</button>
+      </div>
+    </header>
+
+    <div class="sub mut" id="statusLine">Connecting…</div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <script type="module">
+    const $ = (id)=>document.getElementById(id);
+    const grid = $('grid');
+    const statusLine = $('statusLine');
+    const gameSel = $('gameSel');
+    const qRoom = $('qRoom');
+
+    // hub shortcut (if provided)
+    $('btnTop').onclick = ()=>{
+      const u = new URL(location.href);
+      const hub = u.searchParams.get('hub') || './hub.html';
+      location.href = hub;
+    };
+
+    $('btnReload').onclick = ()=> location.reload();
+
+    const cfg = window.HHA_BATTLE_CFG;
+    const v = window.HHA_FIREBASE_VERSION || '10.12.5';
+    const base = `https://www.gstatic.com/firebasejs/${v}`;
+
+    const { initializeApp, getApps } = await import(`${base}/firebase-app.js`);
+    const { getDatabase, ref, onValue, off, child } = await import(`${base}/firebase-database.js`);
+    const { getAuth, signInAnonymously } = await import(`${base}/firebase-auth.js`);
+
+    const app = (getApps() && getApps().length) ? getApps()[0] : initializeApp(cfg);
+    const auth = getAuth(app);
+    try{ if(!auth.currentUser) await signInAnonymously(auth); }catch(e){}
+
+    const db = getDatabase(app);
+
+    let unsub = null;
+
+    function dotClass(st){
+      st = String(st||'');
+      if(st==='playing') return 'ok';
+      if(st==='countdown') return 'warn';
+      if(st==='ended') return 'bad';
+      return 'warn';
+    }
+
+    function fmtMs(ms){
+      ms = Math.max(0, Number(ms)||0);
+      const s = Math.ceil(ms/1000);
+      const m = Math.floor(s/60);
+      const r = s%60;
+      return m>0 ? `${m}m ${r}s` : `${r}s`;
+    }
+
+    function renderRooms(rooms){
+      const gameKey = gameSel.value;
+      const q = String(qRoom.value||'').trim().toUpperCase();
+
+      const entries = Object.entries(rooms || {})
+        .map(([room, obj])=>({ room, obj }))
+        .filter(x=> !q || String(x.room||'').toUpperCase().includes(q))
+        .sort((a,b)=>{
+          const ta = Number(a.obj?.state?.createdAt||0);
+          const tb = Number(b.obj?.state?.createdAt||0);
+          return tb - ta;
+        });
+
+      grid.innerHTML = '';
+
+      for(const it of entries){
+        const room = it.room;
+        const st = it.obj?.state || {};
+        const players = it.obj?.players || {};
+
+        const keys = Object.keys(players);
+        const p1 = keys[0] ? players[keys[0]] : null;
+        const p2 = keys[1] ? players[keys[1]] : null;
+
+        const now = Date.now() + (Number(st._offsetMs||0) || 0); // (optional) if you store offset
+        const startAt = Number(st.startAt||0);
+        const endAt = Number(st.endAt||0);
+
+        let timeTxt = '';
+        if(String(st.status)==='countdown' && startAt){
+          timeTxt = `เริ่มใน ${fmtMs(startAt - Date.now())}`;
+        }else if(String(st.status)==='playing' && startAt){
+          timeTxt = `เล่นมาแล้ว ${fmtMs(Date.now() - startAt)}`;
+        }else if(String(st.status)==='ended' && endAt){
+          timeTxt = `จบแล้ว`;
+        }
+
+        const winner = st.winner ? `winner=${st.winner}` : '';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="row">
+            <div class="chip"><span class="dot ${dotClass(st.status)}"></span>
+              <span class="mono">${room}</span>
+              <span class="mut">• ${String(st.status||'waiting')}</span>
+              <span class="mut">• round ${Number(st.round||1)}</span>
+            </div>
+            <div class="chip">${timeTxt || '&nbsp;'}</div>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <div class="chip">seed: <span class="mono">${String(st.roomSeed||'-')}</span></div>
+            <div class="chip">rule: <span class="mono">${String(st.rule||'-')}</span></div>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <div class="chip">${winner || (st.reason ? `reason=${st.reason}` : '&nbsp;')}</div>
+            <div class="chip">diff: <span class="mono">${String(st.diff||'-')}</span> • time: <span class="mono">${Number(st.plannedSec||'-')}</span></div>
+          </div>
+
+          <div class="players">
+            <div class="p">
+              <div class="name">A: ${p1?.name || p1?.pid || '—'} <span class="mut">(${p1?.connected ? 'online' : 'offline'})</span></div>
+              <div class="meta">score <b>${p1?.score|0}</b> • miss <b>${p1?.miss|0}</b> • acc <b>${Number(p1?.accPct||0).toFixed(1)}%</b> • rt <b>${p1?.medianRtGoodMs|0}</b>ms</div>
+            </div>
+            <div class="p">
+              <div class="name">B: ${p2?.name || p2?.pid || '—'} <span class="mut">(${p2?.connected ? 'online' : 'offline'})</span></div>
+              <div class="meta">score <b>${p2?.score|0}</b> • miss <b>${p2?.miss|0}</b> • acc <b>${Number(p2?.accPct||0).toFixed(1)}%</b> • rt <b>${p2?.medianRtGoodMs|0}</b>ms</div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+
+      statusLine.textContent = `Rooms: ${entries.length} (game=${gameKey})`;
+    }
+
+    async function subscribe(){
+      const gameKey = gameSel.value;
+
+      try{ if(unsub) unsub(); }catch(e){}
+      grid.innerHTML = '';
+      statusLine.textContent = `Connecting… (game=${gameKey})`;
+
+      // listen to /hha_battle/<gameKey>/rooms
+      const roomsRef = ref(db, `hha_battle/${gameKey}/rooms`);
+      const handler = onValue(roomsRef, (snap)=>{
+        const val = snap.val() || {};
+        renderRooms(val);
+      }, (err)=>{
+        statusLine.textContent = `Error: ${String(err?.message||err)}`;
+      });
+
+      unsub = ()=>{ try{ off(roomsRef, 'value', handler); }catch(e){} };
+    }
+
+    gameSel.onchange = ()=> subscribe();
+    qRoom.oninput = ()=> subscribe(); // simple; ok for classroom size
+
+    await subscribe();
+  </script>
+</body>
+</html>
