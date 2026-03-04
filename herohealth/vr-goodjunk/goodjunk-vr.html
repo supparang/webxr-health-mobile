@@ -1,11 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (folder-run)
-PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
-✅ File name FIX: goodjunk-vr.html (ตามที่คุณบอก)
-✅ Difficulty switch: easy / normal / hard (UI + URL param)
-✅ Spawn-safe: คำนวณ safe-rect กัน HUD/ขอบจอ + อัปเดต window.__HHA_SPAWN_SAFE__
-✅ AI dynamic import (optional): ?ai=1 (เฉพาะ run=play)
-✅ cVR support hook (optional): dynamic import ../vr/vr-ui.js (ถ้ามี)
+PATCH v20260304-RUN-PRO-3STAGE-AICOACH
+✅ Difficulty switch: easy / normal / hard
+✅ PRO switch: ?pro=1 (UI + URL param)
+✅ Stage HUD: Warm → Trick → Boss + progress
+✅ Spawn-safe compute -> window.__HHA_SPAWN_SAFE__
+✅ AI dynamic import: ?ai=1 (run=play only)
 -->
 <!doctype html>
 <html lang="th">
@@ -14,7 +14,6 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
-
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
 </head>
@@ -27,6 +26,7 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
       <span class="pill">view=<b id="uiView">—</b></span>
       <span class="pill">run=<b id="uiRun">—</b></span>
       <span class="pill">diff=<b id="uiDiff">—</b></span>
+      <span class="pill">pro=<b id="uiPro">—</b></span>
     </div>
 
     <!-- Top HUD -->
@@ -37,11 +37,14 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
         <div class="pill">MISS <b id="hud-miss">0</b></div>
         <div class="pill">GRADE <b id="hud-grade">C</b></div>
 
-        <!-- Difficulty switch -->
         <div class="diffSwitch" role="group" aria-label="Difficulty">
           <button type="button" class="diffBtn" data-diff="easy">EASY</button>
           <button type="button" class="diffBtn" data-diff="normal">NORMAL</button>
           <button type="button" class="diffBtn" data-diff="hard">HARD</button>
+        </div>
+
+        <div class="proSwitch" role="group" aria-label="Pro Mode">
+          <button type="button" class="proBtn" id="proBtn" aria-pressed="false">PRO</button>
         </div>
       </div>
 
@@ -54,6 +57,14 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
         <div class="pill pill-soft">
           MINI <b id="hud-mini">—</b>
           <span class="mut">⏱ <b id="miniTimer">—</b></span>
+        </div>
+      </div>
+
+      <!-- Stage row -->
+      <div class="hud-row">
+        <div class="pill pill-stage">
+          STAGE <b id="hud-stage">WARM</b>
+          <span class="mut" id="hud-stage-desc">เก็บของดีให้ติดคอมโบ</span>
         </div>
       </div>
 
@@ -148,35 +159,32 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
     function computeSpawnSafe(){
       const hud = document.getElementById('hud');
       const stage = document.getElementById('stage');
-      const layer = document.getElementById('gj-layer');
-      if(!stage || !layer) return;
+      if(!stage) return;
 
       const sr = stage.getBoundingClientRect();
       const hr = hud ? hud.getBoundingClientRect() : { left:sr.left, right:sr.right, bottom: sr.top };
 
-      // safe area padding
       const pad = 14;
       const topBlock = Math.max(sr.top + pad, hr.bottom + 10);
 
-      // กันพื้นที่ coach/footer (ใน goodjunk.safe.js coach อยู่ล่าง ~10px)
-      // เรากันไว้เพิ่มอีกนิด
-      const bottomBlock = sr.bottom - (pad + 82);
+      // กันพื้นที่ coach/footer
+      const bottomBlock = sr.bottom - (pad + 86);
 
       const xMin = sr.left + pad;
       const xMax = sr.right - pad;
       const yMin = topBlock;
-      const yMax = Math.max(yMin + 220, bottomBlock);
+      const yMax = Math.max(yMin + 240, bottomBlock);
 
       window.__HHA_SPAWN_SAFE__ = { xMin, xMax, yMin, yMax };
     }
     window.addEventListener('resize', ()=>{ computeSpawnSafe(); });
     window.addEventListener('orientationchange', ()=>{ setTimeout(computeSpawnSafe, 60); });
 
-    // ---- cfg from URL ----
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
       diff: qs('diff','normal'),
+      pro: (qs('pro','0') === '1'),
       time: clamp(qs('time','80'), 20, 300),
       seed: qs('seed', String(Date.now())),
       pid: qs('pid','anon'),
@@ -184,50 +192,56 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
       ai: null
     };
 
-    // ---- diff switch UI ----
+    // debug pill
+    try{
+      document.getElementById('uiView').textContent = cfg.view;
+      document.getElementById('uiRun').textContent  = cfg.run;
+      document.getElementById('uiDiff').textContent = cfg.diff;
+      document.getElementById('uiPro').textContent  = cfg.pro ? '1' : '0';
+    }catch(e){}
+
+    // diff UI
     const diffBtns = Array.from(document.querySelectorAll('.diffBtn'));
     function setDiffUI(d){
-      diffBtns.forEach(b=>{
-        b.classList.toggle('on', (b.dataset.diff === d));
-      });
+      diffBtns.forEach(b=> b.classList.toggle('on', (b.dataset.diff === d)));
     }
     setDiffUI(String(cfg.diff).toLowerCase());
-
     diffBtns.forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const d = String(btn.dataset.diff || 'normal');
         const u = new URL(location.href);
         u.searchParams.set('diff', d);
-        // กัน seed ค้าง: เปลี่ยนด่านแล้วรีสตาร์ทให้ชัวร์
         u.searchParams.set('seed', String(Date.now()));
         location.href = u.toString();
       });
     });
 
-    // ---- Buttons ----
-    const btnRetry = document.getElementById('btnRetry');
-    const btnHub = document.getElementById('btnHub');
-    btnRetry?.addEventListener('click', ()=>{
+    // PRO toggle UI
+    const proBtn = document.getElementById('proBtn');
+    function setProUI(on){
+      proBtn?.classList.toggle('on', !!on);
+      proBtn?.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    setProUI(cfg.pro);
+    proBtn?.addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      const on = (u.searchParams.get('pro') === '1');
+      u.searchParams.set('pro', on ? '0' : '1');
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+
+    // Buttons
+    document.getElementById('btnRetry')?.addEventListener('click', ()=>{
       const u = new URL(location.href);
       u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
-    btnHub?.addEventListener('click', ()=>{
-      const hub = cfg.hub || '../hub.html';
-      location.href = hub;
+    document.getElementById('btnHub')?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
     });
 
-    // ---- Optional: VR UI (cVR) ----
-    // ถ้ามีไฟล์ /herohealth/vr/vr-ui.js จะได้ปุ่ม ENTER VR + crosshair ยิง (hha:shoot)
-    try{
-      await import('../vr/vr-ui.js');
-    }catch(e){
-      // ok: ไม่มีก็ไม่พัง
-      console.warn('[GoodJunk] vr-ui.js not found (ok)');
-    }
-
-    // ---- Optional: AI ----
-    // เปิดเมื่อ ?ai=1 และ run=play
+    // AI (optional): ?ai=1 และ run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
@@ -245,10 +259,10 @@ PATCH v20260304-RUN-DIFF-SWITCH-SPAWNSAFE-AI-DYN
       }
     }
 
-    // compute spawn-safe ก่อนเริ่ม
+    // compute safe before start
     computeSpawnSafe();
 
-    // Boot game
+    // Boot
     boot(cfg);
   </script>
 </body>
