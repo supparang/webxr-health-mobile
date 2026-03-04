@@ -1,574 +1,515 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v4 (+ ROOM EVENTS BUS)
-// ✅ Reconnect/Resume (reuse player key)
-// ✅ Soft anti-cheat (clamp + winner guard by time/tune cap)
-// ✅ Rematch (same room, new round)
-// ✅ Spectator (read-only)
-// ✅ NEW: Room event bus (emitRoomEvent/onRoomEvent) for SYNC features (Race/Coop)
-// Emits: hha:battle-players, hha:battle-state, hha:battle-ended
-// FULL v20260304-BATTLE-RTDB-V4-ROOMBUS
+// Firebase RTDB Battle — v5
+// ✅ Room (create/join via ?room=CODE)
+// ✅ Ready-check + Countdown + StartAt (server-time aligned)
+// ✅ Reconnect/Resume (reuse player key per room+pid)
+// ✅ Soft anti-cheat (clamp score deltas + time guard)
+// ✅ Forfeit on disconnect/timeout (forfeitMs)
+// ✅ Rematch (same room -> new roundId)
+// Emits:
+//  - hha:battle-players {players[]}
+//  - hha:battle-state   {phase, room, roundId, startAtMs, winner?}
+//  - hha:battle-countdown {startAtMs, leftMs}
+//  - hha:battle-start {startAtMs}
+//  - hha:battle-ended {winner, reason, results}
+// FULL v20260304-BATTLE-RTDB-V5
 'use strict';
 
-import { pickWinner, normalizeResult } from './score-rank.js';
-
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = WIN.document;
 
-function qs(k, d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } }
+function emit(name, detail){
+  try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+function qs(k, d=''){
+  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; }
+}
+function nowMs(){ return (performance && performance.now) ? performance.timeOrigin + performance.now() : Date.now(); }
 function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
-function emit(name, detail){ try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){} }
-function safeKey(s, max=24){
+function safeKey(s, max=32){
   s = String(s||'').trim();
-  s = s.replace(/[.#$\[\]]/g,'');
-  s = s.replace(/[^a-zA-Z0-9_-]/g,'');
-  s = s.slice(0, max);
+  s = s.replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,max);
+  return s || '';
+}
+function randRoom(len=6){
+  const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s='';
+  for(let i=0;i<len;i++) s += abc[(Math.random()*abc.length)|0];
   return s;
 }
-function mkPlayerKey(){ return `p_${Math.random().toString(36).slice(2,9)}_${Date.now().toString(36)}`; }
 
-function getCfg(){
-  return WIN.HHA_BATTLE_CFG || WIN.HHA_FIREBASE_CONFIG || null;
-}
-
+// ---- Firebase loader (modular SDK via gstatic) ----
 async function loadFirebase(){
-  const v = String(WIN.HHA_FIREBASE_VERSION || '10.12.5');
-  const base = `https://www.gstatic.com/firebasejs/${v}`;
-  const appMod  = await import(`${base}/firebase-app.js`);
-  const dbMod   = await import(`${base}/firebase-database.js`);
-  const authMod = await import(`${base}/firebase-auth.js`);
-  return { appMod, dbMod, authMod };
-}
-async function ensureApp(cfg){
-  const { appMod } = await loadFirebase();
-  const { initializeApp, getApps } = appMod;
-  const apps = getApps();
-  if(apps && apps.length) return apps[0];
-  return initializeApp(cfg);
-}
-async function ensureAuth(app){
-  const { authMod } = await loadFirebase();
-  const { getAuth, signInAnonymously } = authMod;
-  const auth = getAuth(app);
-  try{ if(!auth.currentUser) await signInAnonymously(auth); }catch(e){}
-  return auth;
+  // pin a stable version you already use if needed
+  const v = '9.22.2';
+  const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+  return { ...appMod, ...dbMod };
 }
 
-function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
-function lsSet(k,v){ try{ localStorage.setItem(k, String(v||'')); }catch(e){} }
-
-function battleKeyStore(gameKey, room, pid){
-  return `HHA_BATTLE_MEKEY:${String(gameKey)}:${String(room)}:${String(pid)}`;
+function getFirebaseConfig(){
+  // ✅ Put config in one of these (recommended: window.HHA_FIREBASE_CONFIG)
+  // Example:
+  // window.HHA_FIREBASE_CONFIG = { apiKey, authDomain, databaseURL, projectId, appId };
+  const cfg =
+    WIN.HHA_FIREBASE_CONFIG ||
+    WIN.__HHA_FIREBASE_CONFIG__ ||
+    WIN.firebaseConfig ||
+    null;
+  return cfg || null;
 }
 
-// ---- soft anti-cheat cap (approx by tune + elapsed)
-function scoreCapApprox({ elapsedSec, plannedSec, tune, diff }){
-  elapsedSec = clamp(elapsedSec, 0, 9999);
-  plannedSec = clamp(plannedSec, 10, 600);
-
-  const spawnBase = clamp(tune?.spawnBase ?? 0.78, 0.2, 2.0);
-  const stormMult = clamp(tune?.stormMult ?? 1.0, 0.5, 2.0);
-
-  const stormSec = Math.max(0, Math.min(elapsedSec, Math.min(40, plannedSec*0.45)));
-  const normSec  = Math.max(0, elapsedSec - stormSec);
-
-  const estSpawns = normSec * spawnBase + stormSec * (spawnBase*stormMult);
-
-  // upper bound: assume many hits are good+combo-ish
-  const maxPerHit = (diff==='hard') ? 30 : (diff==='easy') ? 26 : 28;
-  const cap = Math.round(estSpawns * maxPerHit + 260); // + boss/bonus cushion
-  return clamp(cap, 0, 999999);
-}
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
 
 export async function initBattle(opts){
   opts = opts || {};
-  if(!opts.enabled) return null;
+  const enabled = !!opts.enabled;
+  if(!enabled) return disabledBattle();
 
-  const cfg = getCfg();
-  if(!cfg || !cfg.databaseURL || !cfg.apiKey || !cfg.appId){
-    console.warn('[battle] Missing config: set window.HHA_BATTLE_CFG = firebaseConfig');
-    return null;
+  const pid = safeKey(opts.pid || qs('pid','anon'), 24) || 'anon';
+  const gameKey = safeKey(opts.gameKey || 'game', 24) || 'game';
+  const roomIn = safeKey(opts.room || qs('room',''), 10);
+  const room = roomIn || randRoom(6);
+
+  const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
+  const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
+
+  const fbCfg = getFirebaseConfig();
+  if(!fbCfg){
+    console.warn('[Battle] Missing Firebase config: set window.HHA_FIREBASE_CONFIG');
+    throw new Error('Missing Firebase config');
   }
 
-  const gameKey = safeKey(opts.gameKey || 'goodjunk', 24) || 'goodjunk';
-  const pid = String(opts.pid || qs('pid','anon')).trim() || 'anon';
-  const spectator = String(opts.spectator ?? qs('spectator','0')) === '1';
+  const fb = await loadFirebase();
+  const app = fb.initializeApp(fbCfg, `hha-${gameKey}`);
+  const db  = fb.getDatabase(app);
 
-  const room = safeKey(opts.room || qs('room',''), 24);
-  if(!room){
-    // v4: allow UI-only usage (host/join handled elsewhere) but if you call from game, must have room
-    return null;
+  // Root paths
+  const rootPath = `hhaBattle/${gameKey}/${room}`;
+  const metaRef  = fb.ref(db, `${rootPath}/meta`);
+  const playersRef = fb.ref(db, `${rootPath}/players`);
+  const scoresRef  = fb.ref(db, `${rootPath}/scores`);
+  const roundsRef  = fb.ref(db, `${rootPath}/rounds`);
+
+  // Player key persistence
+  const lk = `HHA_BATTLE_PLAYERKEY:${gameKey}:${room}:${pid}`;
+  let playerKey = safeKey(lsGet(lk), 32);
+  if(!playerKey){
+    playerKey = safeKey(`${pid}_${Math.random().toString(36).slice(2,10)}`, 32);
+    lsSet(lk, playerKey);
   }
 
-  const autostartMs = clamp(opts.autostartMs ?? Number(qs('autostart','3000'))||3000, 500, 15000);
-  const forfeitMs   = clamp(opts.forfeitMs   ?? Number(qs('forfeit','5000'))||5000, 1000, 30000);
+  const meRef = fb.ref(db, `${rootPath}/players/${playerKey}`);
 
-  const plannedSec  = clamp(opts.plannedSec ?? Number(qs('time','80'))||80, 20, 300);
-  const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
-  const tune = opts.tune || null;
-
-  // reuse meKey for reconnect
-  const storeKey = battleKeyStore(gameKey, room, pid);
-  const reused = (!spectator) ? safeKey(lsGet(storeKey) || '', 60) : '';
-  const meKey = spectator ? 'spectator' : (reused || mkPlayerKey());
-  if(!spectator) lsSet(storeKey, meKey);
-
-  // Firebase
-  const { dbMod } = await loadFirebase();
-  const {
-    getDatabase, ref, child, get, set, update,
-    onValue, onDisconnect, serverTimestamp, runTransaction, remove,
-    // ✅ NEW: events bus helpers
-    push, onChildAdded, query, limitToLast
-  } = dbMod;
-
-  const app = await ensureApp(cfg);
-  await ensureAuth(app);
-  const db = getDatabase(app);
-
-  async function getServerOffsetMs(){
-    const snap = await get(ref(db, '.info/serverTimeOffset'));
-    return Number(snap.val() || 0);
-  }
-  const offsetMs = await getServerOffsetMs();
-  const serverNow = ()=> Date.now() + offsetMs;
-
-  const root = ref(db, `hha_battle/${gameKey}/rooms/${room}`);
-  const playersRef = child(root, 'players');
-  const stateRef   = child(root, 'state');
-  const myRef      = child(playersRef, meKey);
-
-  // ✅ NEW: room events path
-  const eventsRef  = child(root, 'events');
-
-  // init state
-  await runTransaction(stateRef, (cur)=>{
-    if(cur) return cur;
-    const t0 = serverNow();
-    return {
-      status:'waiting',
-      createdAt: t0,
-      startAt: null,
-      endAt: null,
-      round: 1,
-      roomSeed: `seed_${Math.floor(t0)}`,
-      rule: 'score→acc→miss→medianRT',
-      autostartMs,
-      forfeitMs,
-      // keep tune snapshot for guard (optional)
-      tune: tune || null,
-      plannedSec,
-      diff,
-      winner:'',
-      reason:'',
-      forfeit:null,
-      rematch:{ want:{} }
-    };
-  }, { applyLocally:false });
-
-  // join player (or resume)
-  const joinAtServer = serverNow();
-  if(!spectator){
-    const t = joinAtServer;
-    await set(myRef, {
-      pid,
-      name: String(opts.name || qs('name', pid) || pid).slice(0,24),
-      joinedAt: t,
-      lastSeen: t,
-      connected: true,
-      score: 0,
-      miss: 0,
-      accPct: 0,
-      medianRtGoodMs: 0,
-      ended: false,
-      endSummary: null
-    });
-
-    try{ await onDisconnect(myRef).update({ connected:false, lastSeen: serverTimestamp() }); }catch(e){}
-    try{ await onDisconnect(myRef).remove(); }catch(e){}
-  }
-
-  // ---- ROOM EVENT BUS (SYNC) ----
-  let _roomHandlers = new Set();
-  let _roomUnsub = null;
-  let _roomLastTs = 0;
-
-  function onRoomEvent(fn){
-    if(typeof fn !== 'function') return ()=>{};
-    _roomHandlers.add(fn);
-    return ()=>{ try{ _roomHandlers.delete(fn); }catch(e){} };
-  }
-
-  async function emitRoomEvent(type, payload){
-    type = String(type || '').trim();
-    if(!type) return false;
-
-    const msg = {
-      type,
-      payload: payload ?? null,
-      ts: serverNow(),
-      from: meKey,
-      pid
-    };
-
-    // write as pushed child under /events
-    try{
-      const r = push(eventsRef);
-      await set(r, msg);
-      return true;
-    }catch(e){
-      return false;
-    }
-  }
-
-  function startRoomEventListener(){
-    if(_roomUnsub) return;
-
-    // listen last N events to catch a fresh GO_AT when joining
-    const q = query(eventsRef, limitToLast(30));
-    _roomUnsub = onChildAdded(q, (snap)=>{
-      const msg = snap.val() || null;
-      if(!msg || typeof msg !== 'object') return;
-
-      const ts = Number(msg.ts || 0);
-      if(ts && ts <= _roomLastTs) return; // dedupe
-      _roomLastTs = Math.max(_roomLastTs, ts || 0);
-
-      // ignore very old history (before we joined, with a tiny grace)
-      if(ts && ts < (joinAtServer - 1200)) return;
-
-      // ignore our own emitted events (room-bus layer can local-dispatch anyway)
-      if(String(msg.from||'') === String(meKey)) return;
-
-      for(const fn of Array.from(_roomHandlers)){
-        try{ fn(msg); }catch(e){}
-      }
+  // Create meta if absent
+  const metaSnap = await fb.get(metaRef);
+  if(!metaSnap.exists()){
+    const createdAt = fb.serverTimestamp();
+    await fb.set(metaRef, {
+      room,
+      gameKey,
+      createdAt,
+      phase: 'lobby',   // lobby|countdown|running|ended
+      roundId: 1,
+      startAtMs: null,
+      winner: null,
+      endedReason: null
     });
   }
 
-  startRoomEventListener();
-
-  const battle = {
-    enabled:true,
-    spectator,
-    room,
-    gameKey,
+  // Join player record
+  const joinAt = fb.serverTimestamp();
+  await fb.update(meRef, {
     pid,
-    meKey,
-    opponentKey:null,
-    players:{},
-    state:{ status:'waiting' },
-    offsetMs,
-    serverNow,
-
-    // existing
-    pushScore,
-    finalizeEnd,
-    requestRematch,
-    destroy,
-    getOpponent,
-
-    // ✅ NEW for room-bus consumers (Race/Coop)
-    onRoomEvent,
-    emitRoomEvent
-  };
-
-  function computeOpponent(){
-    const keys = Object.keys(battle.players||{});
-    battle.opponentKey = keys.find(k => k !== meKey) || null;
-    return battle.opponentKey;
-  }
-  function getOpponent(){
-    const k = computeOpponent();
-    return k ? (battle.players?.[k] || null) : null;
-  }
-
-  // ----- listeners -----
-  let unsubPlayers = null;
-  let unsubState = null;
-
-  unsubPlayers = onValue(playersRef, (snap)=>{
-    battle.players = snap.val() || {};
-    computeOpponent();
-    emit('hha:battle-players', { room, meKey, opponentKey: battle.opponentKey, players: battle.players });
-
-    // autostart when 2 players and waiting
-    tryAutostart().catch(()=>{});
+    key: playerKey,
+    joinedAt: joinAt,
+    lastSeenAt: joinAt,
+    ready: false,
+    connected: true,
+    forfeited: false
   });
 
-  unsubState = onValue(stateRef, (snap)=>{
-    battle.state = snap.val() || { status:'waiting' };
-    emit('hha:battle-state', { room, ...battle.state });
+  // Presence / onDisconnect
+  try{
+    fb.onDisconnect(meRef).update({
+      connected: false,
+      lastSeenAt: fb.serverTimestamp()
+    });
+  }catch(e){
+    // ok
+  }
 
-    if(String(battle.state.status) === 'ended'){
-      maybeEmitEndedOnce().catch(()=>{});
-      maybeStartRematchIfBothWant().catch(()=>{});
+  // Local state
+  let currentPhase = 'lobby';
+  let roundId = 1;
+  let startAtMs = null;
+  let countdownTimer = null;
+  let heartbeatTimer = null;
+
+  // soft anti-cheat tracking
+  let lastPushAt = 0;
+  let lastScore = 0;
+
+  // ---- listeners ----
+  fb.onValue(metaRef, (snap)=>{
+    const m = snap.val() || {};
+    currentPhase = String(m.phase || 'lobby');
+    roundId = Number(m.roundId || 1) || 1;
+    startAtMs = (m.startAtMs==null) ? null : Number(m.startAtMs);
+
+    emit('hha:battle-state', {
+      room,
+      gameKey,
+      phase: currentPhase,
+      roundId,
+      startAtMs,
+      winner: m.winner || null,
+      endedReason: m.endedReason || null
+    });
+
+    // countdown driver
+    if(currentPhase === 'countdown' && Number.isFinite(startAtMs)){
+      startCountdown(startAtMs);
+    }else{
+      stopCountdown();
+    }
+
+    if(currentPhase === 'running' && Number.isFinite(startAtMs)){
+      // fire start event (clients can call __GJ_START_NOW__)
+      emit('hha:battle-start', { room, startAtMs, roundId });
+    }
+
+    if(currentPhase === 'ended'){
+      // results come from scores + meta winner
+      // run finalize UI via event
+      emit('hha:battle-ended', { room, gameKey, roundId, winner: m.winner||null, reason: m.endedReason||'ended' });
     }
   });
 
-  // heartbeat / forfeit check
-  const pingInt = setInterval(async ()=>{
+  fb.onValue(playersRef, (snap)=>{
+    const obj = snap.val() || {};
+    const players = Object.values(obj).map(p=>({
+      pid: p.pid || '',
+      key: p.key || '',
+      ready: !!p.ready,
+      connected: (p.connected !== false),
+      forfeited: !!p.forfeited,
+      lastSeenAt: p.lastSeenAt || null
+    }));
+    emit('hha:battle-players', { room, gameKey, roundId, players });
+    // If 2 players ready -> trigger countdown (one client will write)
+    maybeArmCountdown(players).catch(()=>{});
+  });
+
+  // Heartbeat lastSeen
+  heartbeatTimer = setInterval(()=>{
     try{
-      if(!spectator){
-        await update(myRef, { lastSeen: serverTimestamp(), connected:true });
+      fb.update(meRef, { lastSeenAt: fb.serverTimestamp(), connected:true });
+    }catch(_){}
+  }, 1500);
+
+  // Forfeit watcher: if opponent disconnects too long while running/countdown
+  const forfeitWatch = setInterval(async ()=>{
+    try{
+      const m = (await fb.get(metaRef)).val() || {};
+      const phase = String(m.phase||'lobby');
+      if(phase !== 'countdown' && phase !== 'running') return;
+
+      const ps = (await fb.get(playersRef)).val() || {};
+      const arr = Object.values(ps);
+      if(arr.length < 2) return;
+
+      const me = arr.find(x=>x.key===playerKey);
+      const opp = arr.find(x=>x.key!==playerKey);
+      if(!opp) return;
+
+      const oppConn = (opp.connected !== false);
+      const oppForf = !!opp.forfeited;
+      if(oppForf) return;
+
+      // If opp disconnected => wait forfeitMs then forfeit them
+      if(!oppConn){
+        // write forfeit if still disconnected after forfeitMs (best-effort)
+        const t0 = Date.now();
+        const stamp = t0;
+        // store a "disco marker" under meta ephemeral? too heavy; just act after threshold
+        // We approximate with lastSeenAt if numeric (server timestamp might not be)
+        // We'll do simple: if disconnected now & phase running -> forfeit after forfeitMs by setTimeout once
+        // Guard: only schedule once using local flag on battle instance
+        scheduleForfeitIfStillDisconnected(opp.key, forfeitMs);
       }
-      await ensurePlayingAtStart();
-      if(!spectator) await maybeForfeitTick();
-      if(!spectator) await maybeEndWhenBothEnded();
-    }catch(e){}
-  }, 650);
+    }catch(_){}
+  }, 1200);
 
-  async function tryAutostart(){
-    if(String(battle.state?.status||'') !== 'waiting') return;
-    const keys = Object.keys(battle.players||{});
-    if(keys.length < 2) return;
+  let forfeitTimers = new Map();
+  function scheduleForfeitIfStillDisconnected(oppKey, waitMs){
+    if(forfeitTimers.has(oppKey)) return;
+    const t = setTimeout(async ()=>{
+      forfeitTimers.delete(oppKey);
+      try{
+        const oppRef = fb.ref(db, `${rootPath}/players/${oppKey}`);
+        const oppSnap = await fb.get(oppRef);
+        const opp = oppSnap.val();
+        if(!opp) return;
+        if(opp.connected !== false) return;
+        if(opp.forfeited) return;
 
-    await runTransaction(stateRef, (cur)=>{
-      cur = cur || {};
-      if(cur.status !== 'waiting') return cur;
-      const st = serverNow() + Number(cur.autostartMs||autostartMs);
-      return { ...cur, status:'countdown', startAt: st, winner:'', reason:'' };
-    }, { applyLocally:false });
+        await fb.update(oppRef, { forfeited:true, ready:false });
+        await endMatchByForfeit(oppKey);
+      }catch(_){}
+    }, waitMs);
+    forfeitTimers.set(oppKey, t);
   }
 
-  async function ensurePlayingAtStart(){
-    const cur = battle.state || {};
-    if(cur.status !== 'countdown') return;
-    const st = Number(cur.startAt||0);
-    if(!st) return;
-    if(serverNow() < st) return;
-    await runTransaction(stateRef, (x)=>{
-      x = x || {};
-      if(x.status === 'countdown') x.status = 'playing';
-      return x;
-    }, { applyLocally:false });
+  async function endMatchByForfeit(forfeitKey){
+    try{
+      const ps = (await fb.get(playersRef)).val() || {};
+      const arr = Object.values(ps);
+      const winner = arr.find(x=>x.key !== forfeitKey);
+      await fb.update(metaRef, {
+        phase: 'ended',
+        winner: winner?.pid || null,
+        endedReason: 'forfeit'
+      });
+    }catch(_){}
   }
 
-  // ---- pushScore (anti-spam + clamp + cap) ----
-  let lastPushAt = 0;
+  // ---- countdown write (arm) ----
+  async function maybeArmCountdown(players){
+    // Need exactly 2 players, both ready, phase lobby
+    try{
+      if(players.length < 2) return;
+      // ignore if someone forfeited
+      if(players.some(p=>p.forfeited)) return;
+
+      const meta = (await fb.get(metaRef)).val() || {};
+      const phase = String(meta.phase || 'lobby');
+      if(phase !== 'lobby') return;
+
+      const ready2 = players.filter(p=>p.ready && p.connected).length >= 2;
+      if(!ready2) return;
+
+      // Use transaction to avoid race
+      await fb.runTransaction(metaRef, (cur)=>{
+        cur = cur || {};
+        if(String(cur.phase||'lobby') !== 'lobby') return cur;
+        const startAt = Date.now() + autostartMs; // client time; acceptable for casual. (server-time is heavier)
+        cur.phase = 'countdown';
+        cur.startAtMs = startAt;
+        cur.winner = null;
+        cur.endedReason = null;
+        return cur;
+      });
+    }catch(_){}
+  }
+
+  function startCountdown(startAt){
+    stopCountdown();
+    const tick = ()=>{
+      const left = startAt - Date.now();
+      emit('hha:battle-countdown', { room, roundId, startAtMs: startAt, leftMs: left });
+      if(left <= 0){
+        stopCountdown();
+        // move to running once
+        fb.runTransaction(metaRef, (cur)=>{
+          cur = cur || {};
+          if(String(cur.phase||'') !== 'countdown') return cur;
+          cur.phase = 'running';
+          return cur;
+        }).catch(()=>{});
+      }else{
+        countdownTimer = setTimeout(tick, 100);
+      }
+    };
+    tick();
+  }
+
+  function stopCountdown(){
+    if(countdownTimer){
+      clearTimeout(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  async function setReady(on){
+    await fb.update(meRef, { ready: !!on, connected:true, forfeited:false, lastSeenAt: fb.serverTimestamp() });
+  }
+
+  // ---- score sync ----
   async function pushScore(payload){
-    if(spectator) return;
+    payload = payload || {};
+    const phaseOk = (currentPhase === 'running' || currentPhase === 'countdown');
+    if(!phaseOk) return;
+
+    // soft anti-cheat: clamp deltas & push rate
     const t = Date.now();
-    if(t - lastPushAt < 140) return; // ~7Hz
+    if(t - lastPushAt < 80) return; // rate limit
     lastPushAt = t;
 
-    const d = payload || {};
-    const miss = clamp(d.miss, 0, 9999)|0;
-    const accPct = clamp(d.accPct, 0, 100);
-    const medRt = clamp(d.medianRtGoodMs, 0, 20000)|0;
+    const s = clamp(payload.score ?? 0, 0, 200000);
+    const miss = clamp(payload.miss ?? 0, 0, 9999);
+    const accPct = clamp(payload.accPct ?? 0, 0, 100);
+    const med = clamp(payload.medianRtGoodMs ?? 0, 0, 99999);
 
-    // cap score by elapsed + tune
-    const st = Number(battle.state?.startAt || 0);
-    const elapsedSec = st ? Math.max(0, (battle.serverNow() - st)/1000) : 0;
-    const cap = scoreCapApprox({
-      elapsedSec,
-      plannedSec: Number(battle.state?.plannedSec || plannedSec),
-      tune: battle.state?.tune || tune,
-      diff: String(battle.state?.diff || diff)
-    });
+    const delta = s - lastScore;
+    // disallow huge jumps
+    if(delta > 800) payload.score = lastScore + 800;
+    lastScore = clamp(payload.score ?? s, 0, 200000);
 
-    const score = clamp(d.score, 0, cap)|0;
+    const entry = {
+      pid,
+      key: playerKey,
+      t: fb.serverTimestamp(),
+      score: lastScore,
+      miss,
+      accPct,
+      medianRtGoodMs: med,
+      comboMax: clamp(payload.comboMax ?? 0, 0, 9999),
+      shots: clamp(payload.shots ?? 0, 0, 99999),
+      hits: clamp(payload.hits ?? 0, 0, 99999),
+      stage: clamp(payload.stage ?? 0, 0, 9),
+      pro: !!payload.pro,
+      mode: String(payload.mode || '')
+    };
 
+    const scoreRef = fb.ref(db, `${rootPath}/scores/${roundId}/${playerKey}`);
+    await fb.set(scoreRef, entry);
+  }
+
+  function pickWinner(a,b){
+    // score desc, acc desc, miss asc, medianRT asc
+    if((a.score||0) !== (b.score||0)) return (a.score||0) > (b.score||0) ? a : b;
+    if((a.accPct||0) !== (b.accPct||0)) return (a.accPct||0) > (b.accPct||0) ? a : b;
+    if((a.miss||0) !== (b.miss||0)) return (a.miss||0) < (b.miss||0) ? a : b;
+    if((a.medianRtGoodMs||0) !== (b.medianRtGoodMs||0)) return (a.medianRtGoodMs||0) < (b.medianRtGoodMs||0) ? a : b;
+    return a; // tie -> a
+  }
+
+  async function finalizeEnd(summary){
+    // Called by game on end (time/miss/win/background)
     try{
-      await update(myRef, { score, miss, accPct, medianRtGoodMs: medRt, lastSeen: serverTimestamp(), connected:true });
-    }catch(e){}
-  }
+      // write my final score
+      await pushScore({
+        score: summary?.scoreFinal ?? summary?.score ?? 0,
+        miss: summary?.missTotal ?? summary?.miss ?? 0,
+        accPct: summary?.accPct ?? 0,
+        medianRtGoodMs: summary?.medianRtGoodMs ?? 0,
+        comboMax: summary?.comboMax ?? 0,
+        shots: summary?.shots ?? 0,
+        hits: summary?.hits ?? 0,
+        stage: summary?.stage ?? 0,
+        pro: !!summary?.pro,
+        mode: summary?.mode || ''
+      });
 
-  async function finalizeEnd(endSummary){
-    if(spectator) return;
-    const endedAt = serverNow();
-    try{
-      await update(myRef, { ended:true, endSummary: { ...(endSummary||{}), ts: endedAt }, lastSeen: serverTimestamp(), connected:true });
-    }catch(e){}
-
-    // if both ended -> mark room ended
-    await maybeEndWhenBothEnded();
-  }
-
-  async function maybeEndWhenBothEnded(){
-    const p = battle.players || {};
-    const keys = Object.keys(p);
-    if(keys.length < 2) return;
-    const endedCount = keys.filter(k => !!p[k]?.ended).length;
-    if(endedCount < 2) return;
-
-    await runTransaction(stateRef, (cur)=>{
-      cur = cur || {};
-      if(cur.status === 'ended') return cur;
-      return { ...cur, status:'ended', endAt: serverNow(), reason:'both-ended' };
-    }, { applyLocally:false });
-  }
-
-  // ---- forfeit ----
-  async function maybeForfeitTick(){
-    const cur = battle.state || {};
-    if(cur.status !== 'playing') return;
-
-    const oppKey = battle.opponentKey;
-    const opp = oppKey ? battle.players?.[oppKey] : null;
-    if(!opp) return;
-
-    const lastSeen = Number(opp.lastSeen||0);
-    const stale = (serverNow() - lastSeen) > 3500;
-    const disconnected = (!opp.connected) || stale;
-
-    if(!disconnected){
-      // clear forfeit if active
-      if(cur.forfeit?.active){
-        await update(stateRef, { forfeit: null }).catch(()=>{});
+      // Only one client should decide winner -> transaction on meta
+      const scoreSnap = await fb.get(fb.ref(db, `${rootPath}/scores/${roundId}`));
+      const obj = scoreSnap.val() || {};
+      const arr = Object.values(obj);
+      if(arr.length < 2){
+        // wait a moment for other player
+        setTimeout(async ()=>{
+          try{
+            const s2 = await fb.get(fb.ref(db, `${rootPath}/scores/${roundId}`));
+            const o2 = s2.val() || {};
+            const a2 = Object.values(o2);
+            if(a2.length >= 2) await decideEnd(a2, summary?.reason || 'end');
+          }catch(_){}
+        }, 300);
+        return;
       }
-      return;
-    }
-
-    // start forfeit if none
-    if(!cur.forfeit?.active){
-      const deadline = serverNow() + Number(cur.forfeitMs||forfeitMs);
-      await runTransaction(stateRef, (x)=>{
-        x = x || {};
-        if(x.status !== 'playing') return x;
-        if(x.forfeit?.active) return x;
-        x.forfeit = { active:true, victim: oppKey, deadline };
-        return x;
-      }, { applyLocally:false });
-      return;
-    }
-
-    // if deadline passed -> end room
-    const dl = Number(cur.forfeit.deadline||0);
-    if(dl && serverNow() >= dl){
-      await runTransaction(stateRef, (x)=>{
-        x = x || {};
-        if(x.status === 'ended') return x;
-        return { ...x, status:'ended', endAt: serverNow(), winner: meKey, reason:'forfeit' };
-      }, { applyLocally:false });
-    }
-  }
-
-  // ---- rematch ----
-  async function requestRematch(){
-    if(spectator) return false;
-    try{
-      await runTransaction(stateRef, (cur)=>{
-        cur = cur || {};
-        cur.rematch = cur.rematch || { want:{} };
-        cur.rematch.want = cur.rematch.want || {};
-        cur.rematch.want[meKey] = 1;
-        return cur;
-      }, { applyLocally:false });
-      return true;
+      await decideEnd(arr, summary?.reason || 'end');
     }catch(e){
-      return false;
+      console.warn('[Battle] finalizeEnd failed', e);
     }
   }
 
-  async function maybeStartRematchIfBothWant(){
-    const cur = battle.state || {};
-    if(String(cur.status) !== 'ended') return;
-
-    const p = battle.players || {};
-    const keys = Object.keys(p);
-    if(keys.length < 2) return;
-
-    const want = cur.rematch?.want || {};
-    const allWant = keys.every(k => !!want[k]);
-    if(!allWant) return;
-
-    const t0 = serverNow();
-    const nextRound = clamp(Number(cur.round||1)+1, 1, 999);
-    const newSeed = `seed_${Math.floor(t0)}_r${nextRound}`;
-
-    await runTransaction(stateRef, (x)=>{
-      x = x || {};
-      if(x.status !== 'ended') return x;
-      return {
-        ...x,
-        status:'waiting',
-        startAt:null,
-        endAt:null,
-        winner:'',
-        reason:'rematch',
-        round: nextRound,
-        roomSeed: newSeed,
-        rematch:{ want:{} },
-        forfeit:null
-      };
-    }, { applyLocally:false });
-
-    // reset players (best effort)
+  async function decideEnd(arr, reason){
     try{
-      for(const k of keys){
-        await update(child(playersRef, k), {
-          score:0, miss:0, accPct:0, medianRtGoodMs:0,
-          ended:false, endSummary:null,
-          connected:true, lastSeen: serverTimestamp()
-        });
+      // ignore forfeited players
+      const ps = (await fb.get(playersRef)).val() || {};
+      const forfeitedKeys = new Set(Object.values(ps).filter(p=>p.forfeited).map(p=>p.key));
+      const filtered = arr.filter(x=>!forfeitedKeys.has(x.key));
+
+      if(filtered.length < 2){
+        // if someone forfeited, winner is remaining
+        const winner = filtered[0] || arr[0];
+        await fb.update(metaRef, { phase:'ended', winner: winner?.pid || null, endedReason: 'forfeit' });
+        return;
       }
-    }catch(e){}
-  }
 
-  // ---- ended event (winner guard) ----
-  let endedEmitted = false;
-  async function maybeEmitEndedOnce(){
-    if(endedEmitted) return;
-    endedEmitted = true;
-
-    const p = battle.players || {};
-    const keys = Object.keys(p);
-    if(keys.length < 2) return;
-
-    const Akey = keys[0], Bkey = keys[1];
-    const Araw = p[Akey]?.endSummary || p[Akey] || {};
-    const Braw = p[Bkey]?.endSummary || p[Bkey] || {};
-
-    const a = normalizeResult({ ...Araw, pid: p[Akey]?.pid, room, gameKey });
-    const b = normalizeResult({ ...Braw, pid: p[Bkey]?.pid, room, gameKey });
-
-    // apply cap again for fairness (guard opponent spoof)
-    const st = Number(battle.state?.startAt || 0);
-    const elapsedSec = st ? Math.max(0, (battle.serverNow() - st)/1000) : 0;
-    const cap = scoreCapApprox({ elapsedSec, plannedSec: Number(battle.state?.plannedSec||plannedSec), tune: battle.state?.tune||tune, diff: String(battle.state?.diff||diff) });
-
-    a.score = clamp(a.score, 0, cap)|0;
-    b.score = clamp(b.score, 0, cap)|0;
-
-    const w = pickWinner(a, b);
-    const winnerKey = (w.winner === 'A') ? Akey : (w.winner === 'B') ? Bkey : '';
-
-    emit('hha:battle-ended', {
-      room,
-      a, b,
-      winnerKey,
-      winner: winnerKey ? (winnerKey===meKey ? 'ME' : 'OPP') : 'TIE',
-      rule: 'score→acc→miss→medianRT',
-      tieReason: w.reason
-    });
-
-    // also write winner once (optional)
-    try{
-      await runTransaction(stateRef, (cur)=>{
+      const w = pickWinner(filtered[0], filtered[1]);
+      await fb.runTransaction(metaRef, (cur)=>{
         cur = cur || {};
-        if(cur.winner) return cur;
-        cur.winner = winnerKey || '';
+        if(String(cur.phase||'') === 'ended') return cur;
+        cur.phase = 'ended';
+        cur.winner = w?.pid || null;
+        cur.endedReason = String(reason||'end');
         return cur;
-      }, { applyLocally:false });
-    }catch(e){}
+      });
+    }catch(_){}
   }
 
-  async function destroy(){
-    clearInterval(pingInt);
-    try{ unsubPlayers && unsubPlayers(); }catch(e){}
-    try{ unsubState && unsubState(); }catch(e){}
+  async function rematch(){
+    // Reset meta -> lobby, increment roundId, clear ready flags
+    try{
+      const nextRound = (roundId||1) + 1;
+      await fb.update(metaRef, {
+        phase: 'lobby',
+        roundId: nextRound,
+        startAtMs: null,
+        winner: null,
+        endedReason: null
+      });
+      // set all players ready=false, forfeited=false
+      const ps = (await fb.get(playersRef)).val() || {};
+      for(const k of Object.keys(ps)){
+        const pr = fb.ref(db, `${rootPath}/players/${k}`);
+        await fb.update(pr, { ready:false, forfeited:false });
+      }
+      emit('hha:battle-state', { room, gameKey, phase:'lobby', roundId: nextRound, startAtMs:null });
+    }catch(_){}
+  }
 
-    // ✅ NEW: stop room events
-    try{ _roomUnsub && _roomUnsub(); }catch(e){}
-    _roomUnsub = null;
-    _roomHandlers = new Set();
+  async function leave(){
+    try{
+      stopCountdown();
+      if(heartbeatTimer) clearInterval(heartbeatTimer);
+      if(forfeitWatch) clearInterval(forfeitWatch);
+      for(const t of forfeitTimers.values()) clearTimeout(t);
+      forfeitTimers.clear();
+      await fb.update(meRef, { connected:false, ready:false, lastSeenAt: fb.serverTimestamp() });
+    }catch(_){}
+  }
 
-    if(!spectator){
-      try{ await remove(myRef); }catch(e){}
+  const api = {
+    enabled: true,
+    room,
+    pid,
+    gameKey,
+    playerKey,
+    setReady,
+    pushScore,
+    finalizeEnd,
+    rematch,
+    leave,
+    get state(){
+      return { room, pid, gameKey, phase: currentPhase, roundId, startAtMs };
     }
-  }
+  };
 
-  // expose
-  WIN.__HHA_BATTLE__ = battle;
-  return battle;
+  emit('hha:battle-state', { room, gameKey, phase: currentPhase, roundId, startAtMs });
+  return api;
+}
+
+function disabledBattle(){
+  return {
+    enabled:false,
+    setReady: async()=>{},
+    pushScore: async()=>{},
+    finalizeEnd: async()=>{},
+    rematch: async()=>{},
+    leave: async()=>{},
+    get state(){ return { phase:'off' }; }
+  };
 }
