@@ -1,12 +1,12 @@
 // === /herohealth/hub.boot.js ===
 // Hub controller: pass-through params, patch links, reset today, probe banner (403-safe)
-// PATCH v20260225: Bloom per-zone per-day (pid+zone+day) + Bloom -> Warmup -> Game wrapper
-// PATCH v20260226: Canonical HUB URL (GitHub Pages safe)
-// PATCH v20260303: FIX clean path to root launcher ./clean-objects.html
+// PATCH v20260304a-HUBSANITIZE-REPOFIX
+// ✅ NEW: Canonical Hub resolver (derive base from current URL -> ".../herohealth/hub.html")
+// ✅ NEW: Sanitize hub param: never "/vr-groups/hub.html", never wrong repo root "/herohealth/hub.html"
+// ✅ Keep: Bloom per-zone per-day + Bloom -> Warmup -> Game wrapper
 'use strict';
 
 import { setBanner, probeAPI, attachRetry, toast, qs } from './api/api-status.js';
-import { resolveHub, hhaHub } from './js/hha-path.js';
 
 function clamp(v,min,max){ v = Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
 function nowSeed(){ return String(Date.now()); }
@@ -18,6 +18,8 @@ const P = {
   diff: String(qs('diff','normal')).toLowerCase() || 'normal',
   time: clamp(qs('time','80'), 20, 300),
   seed: String(qs('seed','')) || nowSeed(),
+
+  // NOTE: P.hub will be sanitized below
   hub:  String(qs('hub','')) || '',
 
   pid: String(qs('pid','')).trim(),
@@ -31,7 +33,7 @@ const P = {
   cooldown: String(qs('cooldown','1')),
   dur: clamp(qs('dur','20'), 5, 60),
   cdur: clamp(qs('cdur','15'), 5, 60),
-  pick: String(qs('pick','')).toLowerCase().trim(),
+  pick: String(qs('pick','')).toLowerCase().trim(), // rand|day|''
 
   planSeq: String(qs('planSeq','')).trim(),
   planDay: String(qs('planDay','')).trim(),
@@ -44,22 +46,59 @@ const P = {
   finalGame: String(qs('finalGame','')).trim(),
   zone: String(qs('zone','')).trim(),
 
+  // ✅ BLOOM level: a|b|c (default c)
   bloom: String(qs('bloom','c')).toLowerCase().trim(),
 };
 
-// canonical hub
-try{
-  P.hub = resolveHub(P.hub) || hhaHub();
-}catch(e){
-  P.hub = hhaHub();
+/* ===================== Canonical Hub resolver ===================== */
+function herohealthBase(){
+  // derive base ending with "/herohealth/" from current URL
+  const href = String(location.href || '');
+  const i = href.indexOf('/herohealth/');
+  if(i >= 0){
+    return href.slice(0, i + '/herohealth/'.length);
+  }
+  // fallback: assume hub is in current folder
+  try{ return new URL('./', location.href).toString(); }catch(_){ return './'; }
 }
+const HH_BASE = herohealthBase();
+const HUB_CANON = (()=>{ try{ return new URL('hub.html', HH_BASE).toString(); }catch(_){ return './hub.html'; } })();
 
 function absUrlMaybe(url){
   if(!url) return '';
-  try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
+  try{ return new URL(url, location.href).toString(); }catch(_){ return String(url||''); }
 }
 
-/* Bloom daily (per zone) */
+function sanitizeHubParam(hubRaw){
+  const dflt = HUB_CANON;
+
+  if(!hubRaw) return dflt;
+
+  const abs = absUrlMaybe(hubRaw) || dflt;
+  const low = abs.toLowerCase();
+
+  // 1) never allow "/herohealth/vr-groups/hub.html" etc.
+  if(low.includes('/herohealth/vr-groups/hub.html')) return dflt;
+
+  // 2) prevent wrong repo root like: https://supparang.github.io/herohealth/hub.html
+  //    while canonical is: https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
+  try{
+    const a = new URL(abs);
+    const want = new URL(dflt);
+    if(a.origin === want.origin){
+      const ap = a.pathname.split('/herohealth/')[0];
+      const wp = want.pathname.split('/herohealth/')[0];
+      if(ap !== wp) return dflt;
+    }
+  }catch(_){}
+
+  return abs;
+}
+
+// apply sanitized hub globally
+P.hub = sanitizeHubParam(P.hub || './hub.html');
+/* ================================================================= */
+
 function localDayKey(){
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -79,7 +118,7 @@ function isBloomDone(zone, pid){
 function addCommonParams(u){
   const set = (k,v)=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k, String(v)); };
 
-  set('hub', P.hub);
+  set('hub', P.hub);               // ✅ always sanitized canonical
   set('api', API_ENDPOINT);
 
   set('run', P.run);
@@ -107,14 +146,6 @@ function addCommonParams(u){
 
   if(P.bloom) set('bloom', P.bloom);
 
-  // passthrough optional UX/debug flags
-  set('tutorial', qs('tutorial',''));
-  set('practiceOn', qs('practiceOn',''));
-  set('practice', qs('practice',''));
-  set('direct', qs('direct',''));
-  set('fast', qs('fast',''));
-  set('skipBW', qs('skipBW',''));
-
   return u;
 }
 
@@ -131,9 +162,7 @@ function gameRunPathByKey(gameKey){
   if(k==='maskcough')return './mask-cough/mask-cough.html';
   if(k==='germdetective') return './germ-detective/germ-detective.html';
   if(k==='bath')     return './vr-bath/bath-vr.html';
-
-  // ✅ FIX: Clean Objects root launcher
-  if(k==='clean')    return './clean-objects.html';
+  if(k==='clean')    return './home-clean/clean-objects.html';
 
   if(k==='shadow')   return '../fitness/shadow-breaker.html';
   if(k==='rhythm')   return '../fitness/rhythm-boxer.html';
@@ -154,10 +183,16 @@ function inferZoneByGameKey(gameKey){
 function buildGameRunUrlFromGameKey(gameKey){
   const base = absUrlMaybe(gameRunPathByKey(gameKey));
   const u = new URL(base, location.href);
+
   addCommonParams(u);
+
   if(!u.searchParams.get('zone')){
     u.searchParams.set('zone', inferZoneByGameKey(gameKey));
   }
+
+  // safety: propagate canonical hub even if caller gave something else
+  u.searchParams.set('hub', P.hub);
+
   return u.toString();
 }
 
@@ -172,6 +207,9 @@ function warmupGateUrlFor(gameUrl, gameKey, phase){
   u.searchParams.set('next', absUrlMaybe(gameUrl));
   u.searchParams.set('cat', String(P.zone || z || 'nutrition'));
   u.searchParams.set('theme', String(gameKey||'').toLowerCase());
+
+  // enforce canonical hub
+  u.searchParams.set('hub', P.hub);
 
   return u.toString();
 }
@@ -192,9 +230,14 @@ function bloomGateUrlFor(nextUrl, gameKey, bloomLevel){
   u.searchParams.set('day', localDayKey());
 
   if(!u.searchParams.get('dur')) u.searchParams.set('dur', '18');
+
+  // enforce canonical hub
+  u.searchParams.set('hub', P.hub);
+
   return u.toString();
 }
 
+// Wrapper: Bloom (per-zone per-day) -> Warmup -> Game
 function wrapBloomWarmup(gameUrl, gameKey){
   const warmUrl = warmupGateUrlFor(gameUrl, gameKey, 'warmup');
 
@@ -207,6 +250,7 @@ function wrapBloomWarmup(gameUrl, gameKey){
   if(isBloomDone(z, pid)){
     return warmUrl;
   }
+
   return bloomGateUrlFor(warmUrl, gameKey, b);
 }
 
@@ -232,6 +276,13 @@ async function boot(){
   }catch(e){
     setBanner('API', 'offline');
   }
+
+  // helpful in console for debugging hub path issues
+  try{
+    console.log('[HubBoot] HH_BASE=', HH_BASE);
+    console.log('[HubBoot] HUB_CANON=', HUB_CANON);
+    console.log('[HubBoot] hub(sanitized)=', P.hub);
+  }catch(_){}
 
   setupHubButtons();
 }
