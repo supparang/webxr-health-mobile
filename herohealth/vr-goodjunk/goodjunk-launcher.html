@@ -1,422 +1,332 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-launcher.html ===
-GoodJunk Launcher — PRODUCTION (Solo/Battle/Race/Coop/Coop2) + Easy/Normal/Hard
-FULL v20260304-GJ-LAUNCHER-MODES-DIFF
-
-✅ Lock mode via buttons -> inject mode=...
-✅ Diff in all modes: easy|normal|hard
-✅ Room builder for multiplayer modes
-✅ Team select for coop2
-✅ Generates join link + copy
-✅ Grade-5 friendly UI
-
-Target run page:
-- ./goodjunk-vr.html
-
-Requires for race/coop/coop2:
-- sbUrl & sbAnon query OR paste in UI
-
-Notes:
-- battle uses existing battle-rtdb.js via mode=battle (needs room=...)
-- race/coop/coop2 uses ../vr/room-bus.js + Supabase Realtime
+<!-- === /herohealth/goodjunk-launcher.html ===
+HeroHealth • GoodJunk Launcher (Mode + Diff + Room + Nick)
+FULL v20260304-LAUNCHER-MODEDIFF-ROOM
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk Launcher</title>
+  <title>HeroHealth • GoodJunk — Launcher</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617;
-      --panel: rgba(2,6,23,.62);
-      --panel2: rgba(2,6,23,.40);
-      --border: rgba(148,163,184,.18);
-      --text: rgba(229,231,235,.96);
-      --muted: rgba(229,231,235,.70);
-      --green: rgba(34,197,94,.16);
-      --greenB: rgba(34,197,94,.35);
-      --amber: rgba(251,191,36,.14);
-      --amberB: rgba(251,191,36,.32);
-      --red: rgba(239,68,68,.12);
-      --redB: rgba(239,68,68,.32);
-      --blue: rgba(59,130,246,.12);
-      --blueB: rgba(59,130,246,.32);
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(229,231,235,.78);
+      --ok:rgba(34,197,94,.18);
+      --warn:rgba(251,191,36,.16);
+      --bad:rgba(239,68,68,.16);
     }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    html,body{height:100%; margin:0; background:radial-gradient(1200px 700px at 20% 0%, #101b3a 0%, var(--bg1) 55%, #020617 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
     *{box-sizing:border-box}
-    .wrap{
-      max-width:980px; margin:0 auto;
-      padding:18px 14px 30px;
-    }
+    .wrap{min-height:100%; display:flex; align-items:center; justify-content:center; padding:14px;}
     .card{
-      border:1px solid var(--border);
-      background:var(--panel);
+      width:min(920px, 100%);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.58));
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 28px 100px rgba(0,0,0,.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .top{display:flex; gap:14px; flex-wrap:wrap; align-items:center; justify-content:space-between;}
+    .title{display:flex; gap:10px; align-items:center;}
+    .logo{
+      width:46px; height:46px; border-radius:16px;
+      display:grid; place-items:center;
+      background:rgba(59,130,246,.14);
+      border:1px solid rgba(59,130,246,.22);
+      font-size:24px;
+    }
+    h1{margin:0; font-size:18px; letter-spacing:.2px}
+    .sub{opacity:.85; font-weight:900; font-size:12px}
+    .pillrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.44);
+      border-radius:999px;
+      padding:8px 10px;
+      font-weight:1000;
+      font-size:12px;
+      opacity:.92;
+    }
+    .grid{display:grid; gap:12px; margin-top:14px; grid-template-columns: 1.1fr .9fr;}
+    @media (max-width: 820px){ .grid{grid-template-columns:1fr;} }
+
+    .panel{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.52);
       border-radius:18px;
-      padding:14px 14px 16px;
-      box-shadow:0 18px 75px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      padding:12px;
     }
-    h1{margin:4px 0 6px; font:1000 20px/1.2 system-ui}
-    .sub{color:var(--muted); font-weight:900; margin-bottom:12px}
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    @media (max-width:860px){
-      .grid{grid-template-columns:1fr}
-    }
-    .secTitle{
-      font-weight:1000; margin:0 0 8px; opacity:.92
-    }
-    .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
-    .btn{
-      border-radius:16px;
+    .panel h2{margin:0 0 10px 0; font-size:14px}
+    .btns{display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;}
+    @media (max-width: 520px){ .btns{grid-template-columns:1fr;} }
+
+    button{
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.22);
       background:rgba(148,163,184,.08);
       color:var(--text);
-      padding:10px 12px;
+      padding:14px 12px;
       font-weight:1000;
       cursor:pointer;
-      min-height:44px;
-      transition:transform .08s ease, filter .08s ease;
+      min-height:52px;
+      text-align:left;
+      box-shadow:0 10px 24px rgba(0,0,0,.25);
     }
-    .btn:active{transform:translateY(1px)}
-    .btn.primary{border:1px solid rgba(34,197,94,.30); background:var(--green)}
-    .btn.warn{border:1px solid rgba(251,191,36,.30); background:var(--amber)}
-    .btn.red{border:1px solid rgba(239,68,68,.28); background:var(--red)}
-    .btn.blue{border:1px solid rgba(59,130,246,.28); background:var(--blue)}
-    .btn.sel{outline: 2px solid rgba(229,231,235,.22); filter: brightness(1.08)}
-    .pill{
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      font-weight:1000;
-      color:rgba(229,231,235,.92);
-      font-size:12px;
-      white-space:nowrap;
+    button:active{transform: translateY(1px);}
+    button.sel{
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.13);
     }
-    label{font-weight:1000; opacity:.9; font-size:13px}
-    input,select{
-      width:100%;
+    .hint{opacity:.82; font-size:12px; font-weight:900; margin-top:6px}
+    .small{opacity:.75; font-size:11px; font-weight:900}
+
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .field{
+      flex:1; min-width:210px;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    label{font-size:12px; font-weight:1000; opacity:.88}
+    input, select{
       border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.42);
       color:var(--text);
       padding:12px 12px;
       font-weight:900;
       outline:none;
     }
-    .hint{
-      font-size:12px; color:rgba(229,231,235,.74);
-      font-weight:900; margin-top:6px;
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center;}
+    .primary{
+      background:rgba(59,130,246,.16);
+      border-color:rgba(59,130,246,.30);
+      min-width:220px;
     }
-    .out{
+    .ghost{
+      background:transparent;
+    }
+    .msg{
       margin-top:10px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.40);
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.35);
       padding:10px 10px;
       font-weight:900;
-      overflow:auto;
-      word-break:break-all;
       font-size:12px;
-      line-height:1.4;
+      opacity:.92;
     }
-    .bigStart{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:space-between;
-      align-items:center;
-      margin-top:12px;
-      padding-top:12px;
-      border-top:1px solid rgba(148,163,184,.14);
-    }
-    .note{
-      font-size:12px;
-      font-weight:900;
-      color:rgba(229,231,235,.72);
-      max-width:540px;
-    }
+    .msg.ok{border-color:rgba(34,197,94,.24); background:var(--ok);}
+    .msg.warn{border-color:rgba(251,191,36,.22); background:var(--warn);}
+    .msg.bad{border-color:rgba(239,68,68,.22); background:var(--bad);}
+    .foot{margin-top:10px; opacity:.65; font-size:11px; font-weight:900}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🎮 GoodJunk — เลือกโหมดก่อนเล่น</h1>
-      <div class="sub">เหมาะกับ ป.5: เลือก 1) โหมด 2) ระดับ 3) ถ้ามีหลายคนใส่ “ชื่อห้อง” แล้วกดเข้าเล่น</div>
+      <div class="top">
+        <div class="title">
+          <div class="logo">🥦</div>
+          <div>
+            <h1>GoodJunk — เลือกโหมดการเล่น</h1>
+            <div class="sub">สำหรับ ป.5: กดเลือกโหมด → เลือกความยาก → ใส่ชื่อ/ห้อง → เริ่มเล่น</div>
+          </div>
+        </div>
+        <div class="pillrow">
+          <div class="pill">mode: <span id="pillMode">solo</span></div>
+          <div class="pill">diff: <span id="pillDiff">normal</span></div>
+          <div class="pill">view: <span id="pillView">mobile</span></div>
+          <div class="pill">run: <span id="pillRun">play</span></div>
+        </div>
+      </div>
 
       <div class="grid">
-        <!-- LEFT -->
-        <div class="card" style="background:var(--panel2); box-shadow:none;">
-          <div class="secTitle">1) โหมด</div>
-          <div class="row" id="modeRow">
-            <button class="btn primary" data-mode="solo">SOLO</button>
-            <button class="btn warn" data-mode="battle">BATTLE (1v1)</button>
-            <button class="btn red" data-mode="race">RACE (ใครแต้มถึงก่อน)</button>
-            <button class="btn blue" data-mode="coop">COOP (ช่วยกันทีมเดียว)</button>
-            <button class="btn blue" data-mode="coop2">COOP2 (แดง vs น้ำเงิน)</button>
+        <div class="panel">
+          <h2>1) เลือกโหมด</h2>
+          <div class="btns">
+            <button id="btnSolo" class="sel">🎯 SOLO<br><span class="small">ฝึกเล่นคนเดียว (ชนะได้ด้วย “คะแนน” หรือ “เก็บของดีครบ”)</span></button>
+            <button id="btnBattle">⚔️ BATTLE<br><span class="small">แข่งกันในห้องเดียวกัน (ต้องใส่ ROOM)</span></button>
+            <button id="btnRace">🏁 RACE<br><span class="small">เริ่มพร้อมกัน + ใคร CLEAR ก่อนชนะ (ต้องใส่ ROOM)</span></button>
+            <button id="btnCoop">🤝 COOP<br><span class="small">เล่นเป็นทีม (ต้องใส่ ROOM) — (จะเปิดเต็มในแพ็กถัดไป)</span></button>
           </div>
-
-          <div style="height:10px"></div>
-
-          <div class="secTitle">2) ระดับความยาก (มีทุกโหมด)</div>
-          <div class="row" id="diffRow">
-            <button class="btn" data-diff="easy">ง่าย</button>
-            <button class="btn sel" data-diff="normal">ปกติ</button>
-            <button class="btn" data-diff="hard">ยาก</button>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="secTitle">3) เวลาเล่น</div>
-          <div class="row">
-            <div class="pill">แนะนำ ป.5: 80 วิ</div>
-            <div style="flex:1"></div>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <input id="timeSec" type="number" min="20" max="300" value="80"/>
-          </div>
-          <div class="hint">ตั้ง 60–100 วิ จะสนุกและไม่ยาวเกินไป</div>
+          <div class="hint">ทิป: Multiplayer = ใส่ ROOM ให้เหมือนกันทุกคน เช่น <b>P5A</b></div>
         </div>
 
-        <!-- RIGHT -->
-        <div class="card" style="background:var(--panel2); box-shadow:none;">
-          <div class="secTitle">ข้อมูลผู้เล่น / ห้อง</div>
-
-          <div class="row" style="gap:10px">
-            <div style="flex:1">
-              <label>pid</label>
-              <input id="pid" placeholder="เช่น P01" />
-              <div class="hint">ใช้รหัสนักเรียน/ชื่อย่อก็ได้</div>
-            </div>
-            <div style="flex:1">
-              <label>nick</label>
-              <input id="nick" placeholder="ชื่อเล่น" />
-              <div class="hint">โชว์บน scoreboard (coop2)</div>
-            </div>
-          </div>
-
-          <div style="height:8px"></div>
-
-          <label>room (ใช้เฉพาะ battle/race/coop/coop2)</label>
-          <input id="room" placeholder="เช่น GJ-P5-ROOM1" />
-          <div class="hint">ครูตั้งชื่อห้องแล้วให้เด็กทุกคนใส่ “เหมือนกัน”</div>
-
-          <div style="height:8px"></div>
-
-          <div class="row" style="gap:10px">
-            <div style="flex:1">
-              <label>team (เฉพาะ coop2)</label>
-              <select id="team">
-                <option value="R">🔴 RED</option>
-                <option value="B">🔵 BLUE</option>
+        <div class="panel">
+          <h2>2) ตั้งค่า</h2>
+          <div class="row">
+            <div class="field">
+              <label>ความยาก (EASY / NORMAL / HARD)</label>
+              <select id="selDiff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
               </select>
+              <div class="small">ทุกโหมดมีระดับความยาก</div>
             </div>
-            <div style="flex:1">
-              <label>view</label>
-              <select id="view">
-                <option value="mobile">mobile</option>
-                <option value="pc">pc</option>
-                <option value="cvr">cvr (Cardboard)</option>
-              </select>
+            <div class="field">
+              <label>ชื่อเล่น (nick)</label>
+              <input id="inpNick" placeholder="เช่น Mint / Somchai" />
+              <div class="small">ถ้าไม่ใส่ จะใช้ pid แทน</div>
             </div>
           </div>
 
-          <div style="height:8px"></div>
-
-          <label>hub url (กลับไป hub)</label>
-          <input id="hub" placeholder="../hub.html" />
-          <div class="hint">ถ้าเล่นผ่าน Hub จริง ใส่ hub ของคุณไว้เพื่อปุ่มกลับ</div>
-
-          <div style="height:10px"></div>
-
-          <div class="secTitle">Supabase (เฉพาะ race/coop/coop2)</div>
-          <label>sbUrl</label>
-          <input id="sbUrl" placeholder="https://xxxx.supabase.co" />
-          <label style="margin-top:8px; display:block">sbAnon</label>
-          <input id="sbAnon" placeholder="eyJhbGciOi..." />
-          <div class="hint">ถ้าไม่ใส่ จะเข้าได้แต่ local (ไม่ sync คนอื่น)</div>
-
-          <div class="out" id="outUrl">—</div>
-
-          <div class="bigStart">
-            <button class="btn primary" id="btnGo">เข้าเล่น</button>
-            <button class="btn" id="btnCopy">Copy link</button>
+          <div class="row" style="margin-top:10px;">
+            <div class="field">
+              <label>ROOM (จำเป็นสำหรับ Battle/Race/Coop)</label>
+              <input id="inpRoom" placeholder="เช่น P5A / CLASS5A / ROOM1" />
+              <div class="small">ทุกคนต้องใช้ ROOM เดียวกันถึงจะเจอกัน</div>
+            </div>
+            <div class="field">
+              <label>เวลาเล่น (วินาที)</label>
+              <input id="inpTime" inputmode="numeric" placeholder="80" />
+              <div class="small">แนะนำ 70–90 วินาทีสำหรับ ป.5</div>
+            </div>
           </div>
-          <div class="note" id="note">
-            • SOLO: เข้าได้เลยไม่ต้องมี room<br/>
-            • BATTLE: ต้องมี room (ใช้ battle-rtdb เดิม)<br/>
-            • RACE/COOP/COOP2: ต้องมี room + sbUrl/sbAnon เพื่อเล่นพร้อมกันจริง
+
+          <div class="actions">
+            <button id="btnStart" class="primary">▶️ เริ่มเล่น</button>
+            <button id="btnBack" class="ghost">↩ กลับ Hub</button>
           </div>
+
+          <div id="msg" class="msg">พร้อมแล้ว กด “เริ่มเล่น” ได้เลย</div>
+          <div class="foot">Launcher นี้จะส่งพารามิเตอร์ทั้งหมดต่อไปที่ run page (hub/run/diff/time/seed/pid/ai/log/view ฯลฯ)</div>
         </div>
       </div>
     </div>
   </div>
 
   <script type="module">
-    const DOC = document;
-    const $ = (id)=> DOC.getElementById(id);
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const clamp = (v,a,b)=>{
-      v = Number(v);
-      if(!Number.isFinite(v)) v=a;
-      return Math.max(a, Math.min(b, v));
+    const state = {
+      mode: String(qs('mode','solo')).toLowerCase(),
+      diff: String(qs('diff','normal')).toLowerCase(),
+      view: String(qs('view','mobile')).toLowerCase(),
+      run:  String(qs('run','play')).toLowerCase(),
+      pid:  String(qs('pid','anon')).trim() || 'anon',
+      hub:  String(qs('hub','./hub.html')),
+      time: String(qs('time','80')),
+      seed: String(qs('seed','')) || String(Date.now()),
     };
 
-    // default state
-    let state = {
-      mode: 'solo',
-      diff: 'normal'
-    };
+    const $ = (id)=> document.getElementById(id);
+    const pillMode = $('pillMode'), pillDiff=$('pillDiff'), pillView=$('pillView'), pillRun=$('pillRun');
+    const selDiff = $('selDiff');
+    const inpNick = $('inpNick');
+    const inpRoom = $('inpRoom');
+    const inpTime = $('inpTime');
+    const msg = $('msg');
 
-    function setSelected(containerId, attr, value){
-      const row = $(containerId);
-      if(!row) return;
-      for(const b of row.querySelectorAll('button')){
-        const v = b.getAttribute(attr);
-        if(v === value) b.classList.add('sel');
-        else b.classList.remove('sel');
+    function setMsg(type, text){
+      msg.className = 'msg ' + (type||'');
+      msg.textContent = text || '';
+    }
+
+    function setMode(m){
+      state.mode = m;
+      pillMode.textContent = m;
+      ['btnSolo','btnBattle','btnRace','btnCoop'].forEach(id=> $(id).classList.remove('sel'));
+      if(m==='solo') $('btnSolo').classList.add('sel');
+      else if(m==='battle') $('btnBattle').classList.add('sel');
+      else if(m==='race') $('btnRace').classList.add('sel');
+      else $('btnCoop').classList.add('sel');
+
+      const needsRoom = (m!=='solo');
+      inpRoom.disabled = !needsRoom;
+      if(needsRoom){
+        setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน');
+      }else{
+        setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (ไม่ต้องมี ROOM)');
       }
     }
 
-    function refresh(){
-      setSelected('modeRow','data-mode', state.mode);
-      setSelected('diffRow','data-diff', state.diff);
-
-      const pid = ($('pid').value || 'anon').trim() || 'anon';
-      const nick = ($('nick').value || pid).trim() || pid;
-      const view = $('view').value || 'mobile';
-      const team = $('team').value || 'R';
-
-      const time = clamp(($('timeSec').value || 80), 20, 300);
-
-      const hub = ($('hub').value || '../hub.html').trim() || '../hub.html';
-      const room = ($('room').value || '').trim();
-
-      const sbUrl = ($('sbUrl').value || '').trim();
-      const sbAnon = ($('sbAnon').value || '').trim();
-
-      const base = new URL('./goodjunk-vr.html', location.href);
-      base.searchParams.set('pid', pid);
-      base.searchParams.set('nick', nick);
-      base.searchParams.set('view', view);
-      base.searchParams.set('run', 'play');
-      base.searchParams.set('diff', state.diff);
-      base.searchParams.set('time', String(time));
-      base.searchParams.set('seed', String(Date.now()));
-      base.searchParams.set('hub', hub);
-
-      // lock mode
-      base.searchParams.set('mode', state.mode);
-
-      // mode-specific
-      if(state.mode !== 'solo'){
-        base.searchParams.set('room', room || 'GJ-ROOM');
-      }
-
-      if(state.mode === 'battle'){
-        // legacy battle uses battle=1 in your older logic, but our core accepts mode=battle already
-        // keep room required
-        base.searchParams.set('room', room || 'GJ-BATTLE');
-      }
-
-      if(state.mode === 'race' || state.mode === 'coop' || state.mode === 'coop2'){
-        base.searchParams.set('room', room || 'GJ-MULTI');
-        if(sbUrl) base.searchParams.set('sbUrl', sbUrl);
-        if(sbAnon) base.searchParams.set('sbAnon', sbAnon);
-      }
-
-      if(state.mode === 'coop2'){
-        base.searchParams.set('team', team);
-      }
-
-      $('outUrl').textContent = base.toString();
-
-      // note text
-      const note = $('note');
-      if(note){
-        note.innerHTML =
-          (state.mode==='solo')
-            ? '• SOLO: เข้าได้เลย ไม่ต้องมี room<br/>• แนะนำ ป.5: diff=normal time=80'
-            : (state.mode==='battle')
-              ? '• BATTLE: ต้องมี room (แนะนำ 1 ห้องต่อ 1 คู่)<br/>• diff มีผลกับความถี่เป้าและความโหด'
-              : (state.mode==='race')
-                ? '• RACE: ต้องมี room + sbUrl/sbAnon เพื่อเริ่มพร้อมกัน<br/>• ใครทำคะแนนถึงก่อน = ชนะ'
-                : (state.mode==='coop')
-                  ? '• COOP: ต้องมี room + sbUrl/sbAnon<br/>• ทุกคนช่วยกันทำเป้าหมายร่วม'
-                  : '• COOP2: ต้องมี room + sbUrl/sbAnon<br/>• แดง vs น้ำเงิน (เลือก team) เป้าหมายชัดสำหรับ ป.5';
-      }
+    function clampInt(v, a, b, def){
+      const n = Number(v);
+      if(!Number.isFinite(n)) return def;
+      return Math.max(a, Math.min(b, Math.floor(n)));
     }
 
-    // bind mode buttons
-    $('modeRow').addEventListener('click', (ev)=>{
-      const b = ev.target.closest('button[data-mode]');
-      if(!b) return;
-      state.mode = b.getAttribute('data-mode');
-      refresh();
-    });
+    // init
+    pillDiff.textContent = state.diff;
+    pillView.textContent = state.view;
+    pillRun.textContent  = state.run;
 
-    // bind diff buttons
-    $('diffRow').addEventListener('click', (ev)=>{
-      const b = ev.target.closest('button[data-diff]');
-      if(!b) return;
-      state.diff = b.getAttribute('data-diff');
-      refresh();
-    });
+    selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
+    inpNick.value = String(qs('nick','')).trim();
+    inpRoom.value = String(qs('room','')).trim();
+    inpTime.value = state.time;
 
-    // bind inputs
-    ['pid','nick','room','team','view','hub','sbUrl','sbAnon','timeSec'].forEach(id=>{
-      const el = $(id);
-      if(!el) return;
-      el.addEventListener('input', refresh);
-      el.addEventListener('change', refresh);
-    });
+    setMode(['solo','battle','race','coop'].includes(state.mode) ? state.mode : 'solo');
 
-    // buttons
-    $('btnGo').onclick = ()=>{
-      refresh();
-      location.href = $('outUrl').textContent.trim();
+    $('btnSolo').onclick = ()=> setMode('solo');
+    $('btnBattle').onclick = ()=> setMode('battle');
+    $('btnRace').onclick = ()=> setMode('race');
+    $('btnCoop').onclick = ()=> setMode('coop');
+
+    selDiff.onchange = ()=>{
+      state.diff = String(selDiff.value || 'normal');
+      pillDiff.textContent = state.diff;
     };
 
-    $('btnCopy').onclick = async ()=>{
-      refresh();
-      try{
-        await navigator.clipboard.writeText($('outUrl').textContent.trim());
-        alert('คัดลอกลิงก์แล้ว ✅');
-      }catch(e){
-        alert('คัดลอกไม่สำเร็จ (ลองคัดลอกจากช่องลิงก์)');
+    $('btnBack').onclick = ()=>{
+      location.href = state.hub || './hub.html';
+    };
+
+    $('btnStart').onclick = ()=>{
+      const nick = (inpNick.value || '').trim() || state.pid;
+      const room = (inpRoom.value || '').trim();
+      const time = clampInt(inpTime.value, 20, 300, 80);
+
+      if(state.mode !== 'solo' && !room){
+        setMsg('bad', 'ต้องใส่ ROOM ก่อน (เช่น P5A) แล้วทุกคนใช้ ROOM เดียวกัน');
+        inpRoom.focus();
+        return;
       }
+
+      // build run url
+      const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      runUrl.searchParams.set('mode', state.mode);
+      runUrl.searchParams.set('diff', state.diff);
+      runUrl.searchParams.set('time', String(time));
+      runUrl.searchParams.set('seed', state.seed);
+
+      runUrl.searchParams.set('pid', state.pid);
+      runUrl.searchParams.set('nick', nick);
+      if(room) runUrl.searchParams.set('room', room);
+
+      // pass-through from hub/standard
+      const sp = new URL(location.href).searchParams;
+      [
+        'hub','run','studyId','phase','conditionGroup','view','log','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade',
+        // supabase room-bus (if you use it)
+        'sbUrl','sbAnon',
+        // battle/race knobs
+        'autostart','forfeit','cd','wait','pro'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v!=null && v!=='') runUrl.searchParams.set(k, v);
+      });
+
+      // Back-to-hub
+      runUrl.searchParams.set('hub', state.hub);
+
+      // Compatibility flags:
+      if(state.mode === 'battle') runUrl.searchParams.set('battle','1'); // ใช้กับ battle-rtdb.js ของเดิม
+      if(state.mode === 'race')   runUrl.searchParams.set('wait','1');   // ให้เริ่มพร้อมกัน
+      if(state.mode === 'coop')   runUrl.searchParams.set('coop','1');   // จุดไว้ก่อน (แพ็กถัดไป)
+
+      location.href = runUrl.toString();
     };
-
-    // preload from query if user opens launcher with params
-    (function initFromQuery(){
-      try{
-        const sp = new URL(location.href).searchParams;
-        const m = sp.get('mode'); if(m) state.mode = m;
-        const d = sp.get('diff'); if(d) state.diff = d;
-
-        const setIf = (id,k,def='')=>{
-          const v = sp.get(k);
-          if(v!=null && v!=='') $(id).value = v;
-          else if(def) $(id).value = def;
-        };
-        setIf('pid','pid');
-        setIf('nick','nick');
-        setIf('room','room');
-        setIf('team','team','R');
-        setIf('view','view','mobile');
-        setIf('hub','hub','../hub.html');
-        setIf('sbUrl','sbUrl');
-        setIf('sbAnon','sbAnon');
-        const t = sp.get('time'); if(t) $('timeSec').value = t;
-      }catch(e){}
-      refresh();
-    })();
   </script>
 </body>
 </html>
