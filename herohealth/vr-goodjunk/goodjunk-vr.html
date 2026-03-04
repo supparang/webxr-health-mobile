@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION (safe.js + race controller)
-FULL v20260304-RUN-RACE-WAIT-SAFE
+GoodJunkVR RUN (PC/Mobile/cVR) — PRODUCTION
+FULL v20260304f-RUN-DIFF-AI-SPAWNSAFE-NODASH
 -->
 <!doctype html>
 <html lang="th">
@@ -10,155 +10,280 @@ FULL v20260304-RUN-RACE-WAIT-SAFE
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <style>
-    html,body{height:100%; margin:0; background:#020617; color:rgba(229,231,235,.96); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-    *{box-sizing:border-box}
-    #gj-layer{
-      position:fixed; inset:0;
-      touch-action: manipulation;
-      overflow:hidden;
-    }
-    .gj-target{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-size:54px;
-      user-select:none;
-      -webkit-user-select:none;
-      cursor:pointer;
-      filter: drop-shadow(0 14px 24px rgba(0,0,0,.45));
-    }
-    /* minimal HUD (ใช้ของเดิมคุณได้—อันนี้เป็น fallback) */
-    .hud{
-      position:fixed; left:10px; right:10px; top:10px;
-      display:flex; gap:10px; flex-wrap:wrap;
-      z-index:200;
-      pointer-events:none;
-    }
-    .pill{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      border-radius:999px;
-      padding:8px 10px;
-      font-weight:1000;
-      pointer-events:none;
-    }
-    .panel{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.70);
-      border-radius:18px;
-      padding:14px 14px;
-      box-shadow:0 18px 70px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    #endOverlay{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index:280;
-    }
-    #endOverlay[aria-hidden="true"]{ display:none; }
-    .btn{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.08);
-      color:rgba(229,231,235,.96);
-      padding:10px 12px;
-      font-weight:1000;
-      cursor:pointer;
-      min-height:42px;
-    }
-  </style>
+  <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304f" />
 </head>
 <body>
-  <div id="gj-layer" aria-label="game layer"></div>
+  <div id="app">
 
-  <!-- HUD (ขั้นต่ำ) ถ้าคุณมี HUD เดิมอยู่แล้ว ปรับให้ id ตรงก็พอ -->
-  <div class="hud">
-    <div class="pill">Score <span id="hud-score">0</span></div>
-    <div class="pill">Time <span id="hud-time">0</span></div>
-    <div class="pill">Miss <span id="hud-miss">0</span></div>
-    <div class="pill">Grade <span id="hud-grade">—</span></div>
-
-    <div class="pill"><span id="hud-goal">WIN</span></div>
-    <div class="pill"><span id="hud-goal-cur">0/0</span></div>
-    <div class="pill"><span id="hud-goal-target">0/0</span></div>
-    <div class="pill"><span id="goalDesc">—</span></div>
-
-    <div class="pill">Mini <span id="hud-mini">—</span> <span id="miniTimer">—</span></div>
-
-    <div class="pill">AI <span id="aiRisk">—</span> <span id="aiHint">—</span></div>
-
-    <div class="pill">Fever <span id="feverText">0%</span></div>
-    <div class="pill">Shield <span id="shieldPills">—</span></div>
-
-    <div class="pill" style="opacity:.8">view <span id="uiView">—</span></div>
-    <div class="pill" style="opacity:.8">run <span id="uiRun">—</span></div>
-    <div class="pill" style="opacity:.8">diff <span id="uiDiff">—</span></div>
-  </div>
-
-  <!-- Boss bar (fallback) -->
-  <div id="bossBar" aria-hidden="true" style="
-    position:fixed; left:10px; right:10px; top:62px;
-    z-index:205; pointer-events:none;
-    border-radius:14px;
-    border:1px solid rgba(148,163,184,.14);
-    background:rgba(2,6,23,.40);
-    padding:8px 10px;
-  ">
-    <div style="display:flex; justify-content:space-between; gap:10px; font-weight:1000; opacity:.9;">
-      <div>Boss</div><div id="bossHint">—</div>
-    </div>
-    <div style="height:8px"></div>
-    <div style="height:10px; border-radius:999px; background:rgba(148,163,184,.18); overflow:hidden;">
-      <div id="bossFill" style="height:100%; width:0%; background:rgba(239,68,68,.35);"></div>
-    </div>
-  </div>
-
-  <!-- end -->
-  <div id="endOverlay" aria-hidden="true">
-    <div class="panel" style="max-width:520px; width:calc(100vw - 24px); text-align:center;">
-      <div style="font:1000 22px/1.2 system-ui; margin-bottom:6px;" id="endTitle">Game Over</div>
-      <div style="opacity:.85; font-weight:900; margin-bottom:12px;" id="endSub">—</div>
-      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <div class="pill">Grade <span id="endGrade">—</span></div>
-        <div class="pill">Score <span id="endScore">0</span></div>
-        <div class="pill">Miss <span id="endMiss">0</span></div>
-        <div class="pill">Time <span id="endTime">0</span>s</div>
+    <!-- Loading (กันจอดำ/ค้าง) -->
+    <div id="loading" aria-hidden="false">
+      <div class="loadingCard">
+        <div class="loadingTitle">Loading GoodJunk…</div>
+        <div class="loadingSub">กำลังเตรียมเกม / UI / AI</div>
+        <div class="loadingLine" id="loadingLine">view=? run=? diff=? ai=?</div>
       </div>
-      <div style="height:12px"></div>
-      <button class="btn" onclick="location.href = (new URL(location.href)).searchParams.get('hub') || '../hub.html'">กลับ HUB</button>
     </div>
+
+    <!-- Debug pills -->
+    <div id="debugPills" aria-hidden="true">
+      <span class="pill">view=<b id="uiView">—</b></span>
+      <span class="pill">run=<b id="uiRun">—</b></span>
+      <span class="pill">diff=<b id="uiDiff">—</b></span>
+      <span class="pill">ai=<b id="uiAi">—</b></span>
+      <span class="pill">mode=<b id="uiMode">solo</b></span>
+    </div>
+
+    <!-- Difficulty switch (always visible) -->
+    <div id="diffSwitch" class="diffSwitch" aria-label="difficulty">
+      <button type="button" class="diffBtn" data-d="easy">ง่าย</button>
+      <button type="button" class="diffBtn" data-d="normal">ปกติ</button>
+      <button type="button" class="diffBtn" data-d="hard">ยาก</button>
+    </div>
+
+    <!-- Top HUD -->
+    <header id="hud">
+      <div class="hud-row">
+        <div class="pill">SCORE <b id="hud-score">0</b></div>
+        <div class="pill">TIME <b id="hud-time">0</b></div>
+        <div class="pill">MISS <b id="hud-miss">0</b></div>
+        <div class="pill">GRADE <b id="hud-grade">C</b></div>
+      </div>
+
+      <div class="hud-row">
+        <div class="pill pill-soft">
+          GOAL <b id="hud-goal">Daily</b>:
+          <span><b id="hud-goal-cur">0</b>/<b id="hud-goal-target">20</b></span>
+          <span id="goalDesc" class="mut">Hit GOOD 20</span>
+        </div>
+        <div class="pill pill-soft">
+          MINI <b id="hud-mini">—</b>
+          <span class="mut">⏱ <b id="miniTimer">—</b></span>
+        </div>
+      </div>
+
+      <!-- AI HUD -->
+      <div class="hud-row">
+        <div class="pill pill-ai">
+          AI Risk <b id="aiRisk">—</b>
+          <span class="mut">next: <b id="aiHint">—</b></span>
+        </div>
+      </div>
+
+      <!-- Fever + Shield + Boss -->
+      <div class="hud-row hud-bars">
+        <div class="barCard">
+          <div class="barTop">
+            <span class="mut">FEVER</span>
+            <b id="feverText">0%</b>
+          </div>
+          <div class="bar">
+            <div class="barFill" id="feverFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="barCard">
+          <div class="barTop">
+            <span class="mut">SHIELD</span>
+            <b id="shieldPills">—</b>
+          </div>
+        </div>
+
+        <div class="barCard boss" id="bossBar" aria-hidden="true">
+          <div class="barTop">
+            <span class="mut">BOSS</span>
+            <b id="bossHint">—</b>
+          </div>
+          <div class="bar">
+            <div class="barFill bossFill" id="bossFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gj-progress" aria-hidden="false">
+        <div class="gj-progress-track">
+          <div class="gj-progress-fill" id="gjProgressFill" style="width:0%"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Playfield -->
+    <main id="stage" aria-label="GoodJunk Stage">
+      <div id="gj-layer" aria-label="targets"></div>
+    </main>
+
+    <!-- Low time overlay -->
+    <div id="lowTimeOverlay" aria-hidden="true">
+      <div class="lowTimeCard">
+        <div class="mut">TIME</div>
+        <div class="lowTimeNum" id="gj-lowtime-num">5</div>
+      </div>
+    </div>
+
+    <!-- End overlay -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="panel">
+        <div class="endTitle" id="endTitle">Game Over</div>
+        <div class="endSub" id="endSub">—</div>
+
+        <div class="endGrid">
+          <div class="endStat"><span>GRADE</span><b id="endGrade">—</b></div>
+          <div class="endStat"><span>SCORE</span><b id="endScore">0</b></div>
+          <div class="endStat"><span>MISS</span><b id="endMiss">0</b></div>
+          <div class="endStat"><span>TIME</span><b id="endTime">0</b></div>
+        </div>
+
+        <div class="endActions">
+          <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
+          <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
+        </div>
+        <!-- Cooldown button injected by safe.js -->
+      </div>
+    </div>
+
   </div>
 
   <script type="module">
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    // Ensure RACE uses wait=1
-    const mode = String(qs('mode','solo')).toLowerCase();
-    if(mode==='race'){
-      const u = new URL(location.href);
-      if(u.searchParams.get('wait')!=='1'){
-        u.searchParams.set('wait','1');
-        location.replace(u.toString());
+    // ----- parse params -----
+    const cfg = {
+      view: qs('view','mobile'),          // mobile | pc | cvr | vr
+      run:  qs('run','play'),             // play | research
+      diff: qs('diff','normal'),          // easy | normal | hard
+      time: Number(qs('time','80'))||80,
+      seed: qs('seed', String(Date.now())),
+      pid:  qs('pid','anon'),
+      hub:  qs('hub','../hub.html'),
+      ai:   null,
+    };
+
+    const mode = String(qs('mode','solo')).toLowerCase(); // solo | race | battle | coop (future)
+    const aiOn = (qs('ai','0')==='1') && (String(cfg.run).toLowerCase()==='play');
+
+    // ----- debug pills fill (NO MORE "—") -----
+    const setText=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v??''); };
+    setText('uiView', cfg.view);
+    setText('uiRun',  cfg.run);
+    setText('uiDiff', cfg.diff);
+    setText('uiAi',   aiOn ? '1' : '0');
+    setText('uiMode', mode);
+
+    const loadingLine = document.getElementById('loadingLine');
+    if(loadingLine){
+      loadingLine.textContent = `view=${cfg.view} run=${cfg.run} diff=${cfg.diff} ai=${aiOn?1:0} mode=${mode}`;
+    }
+
+    // show debug pills when ?debug=1
+    try{
+      const dbg = (qs('debug','0')==='1');
+      const pills = document.getElementById('debugPills');
+      if(pills) pills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
+    }catch(e){}
+
+    // ----- Difficulty UI -----
+    function applyDiffActive(){
+      document.querySelectorAll('.diffBtn').forEach(b=>{
+        const d = b.getAttribute('data-d');
+        b.classList.toggle('active', d===cfg.diff);
+      });
+    }
+    applyDiffActive();
+    document.querySelectorAll('.diffBtn').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const d = b.getAttribute('data-d') || 'normal';
+        const u = new URL(location.href);
+        u.searchParams.set('diff', d);
+        // keep seed for fairness if you want; but for kids, reset seed feels better
+        if(qs('keepSeed','0')!=='1') u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      });
+    });
+
+    // ----- Spawn-safe: compute safe rect excluding HUD + bottom safe area -----
+    function computeSpawnSafe(){
+      const hud = document.getElementById('hud');
+      const layer = document.getElementById('gj-layer');
+      if(!hud || !layer) return;
+
+      const lr = layer.getBoundingClientRect();
+      const hr = hud.getBoundingClientRect();
+
+      // keep a bottom margin for mobile address bar / VR buttons
+      const bottomPad = Math.max(110, 70 + (window.visualViewport?.offsetTop||0));
+
+      // safe in viewport coords
+      const xMin = lr.left + 18;
+      const xMax = lr.right - 18;
+      const yMin = Math.min(lr.bottom - 220, hr.bottom + 16);
+      const yMax = lr.bottom - bottomPad;
+
+      const safe = {
+        xMin: Math.max(lr.left, xMin),
+        xMax: Math.min(lr.right, xMax),
+        yMin: Math.max(lr.top, yMin),
+        yMax: Math.min(lr.bottom, yMax),
+      };
+      window.__HHA_SPAWN_SAFE__ = safe;
+    }
+    computeSpawnSafe();
+    window.addEventListener('resize', computeSpawnSafe, { passive:true });
+    window.visualViewport?.addEventListener?.('resize', computeSpawnSafe, { passive:true });
+    window.visualViewport?.addEventListener?.('scroll', computeSpawnSafe, { passive:true });
+
+    // ----- AI dynamic import (safe) -----
+    if(aiOn){
+      try{
+        const mod = await import('../vr/ai-goodjunk.js');
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
+            seed: cfg.seed,
+            pid: cfg.pid,
+            diff: cfg.diff,
+            view: cfg.view,
+            mode
+          });
+        }
+      }catch(e){
+        console.warn('[GoodJunk] AI module load failed', e);
       }
     }
 
-    // Boot game core
-    const mod = await import('./goodjunk.safe.js');
-    mod.boot({});
-
-    // Boot race controller if needed
-    if(mode==='race'){
-      await import('./goodjunk-race.js');
-    }
-
-    // Optional: cVR ui module (if exists in your repo)
+    // ----- Optional cVR UI (ENTER VR / RECENTER + hha:shoot) -----
     try{
-      const view = String(qs('view','mobile')).toLowerCase();
-      if(view==='cvr' || view==='vr'){
-        await import('../vr/vr-ui.js');
+      const v = String(cfg.view).toLowerCase();
+      if(v==='cvr' || v==='vr'){
+        await import('../vr/vr-ui.js'); // should dispatch hha:shoot
       }
     }catch(e){}
+
+    // ----- Boot core game -----
+    const core = await import('./goodjunk.safe.js');
+    core.boot(cfg);
+
+    // ----- Optional race controller -----
+    if(mode==='race'){
+      try{
+        await import('./goodjunk-race.js'); // optional file (included below)
+      }catch(e){
+        console.warn('[GoodJunk] race controller missing (ok)', e);
+      }
+    }
+
+    // Buttons
+    const btnRetry = document.getElementById('btnRetry');
+    const btnHub = document.getElementById('btnHub');
+    btnRetry?.addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+    btnHub?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
+    });
+
+    // Hide loading once booted
+    const loading = document.getElementById('loading');
+    if(loading) loading.setAttribute('aria-hidden','true');
   </script>
 </body>
 </html>
