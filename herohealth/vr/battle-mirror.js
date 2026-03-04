@@ -1,6 +1,7 @@
 // === /herohealth/vr/battle-mirror.js ===
-// Deterministic mirror spawner for 2-player duel
-// Uses: roomSeed + stepIndex => identical decisions across clients
+// Battle Mirror Spawner — deterministic by roomSeed + timeStep
+// ✅ createMirrorSpawner({ roomSeed, stepMs, getElapsedMs, tune, onSpawn })
+// ✅ reset(), tick(ctx)
 // FULL v20260304-MIRROR
 
 'use strict';
@@ -31,109 +32,109 @@ function sfc32(a,b,c,d){
     return (t >>> 0) / 4294967296;
   };
 }
-function rngFrom(seed){
-  const s = xmur3(seed);
-  return sfc32(s(), s(), s(), s());
+function makeRng(seedStr){
+  const seed = xmur3(seedStr);
+  return sfc32(seed(), seed(), seed(), seed());
 }
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+
+const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'];
+const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'];
+const BONUS = ['⭐','💎','⚡'];
 
 export function createMirrorSpawner(opts){
   opts = opts || {};
-
-  const roomSeed = String(opts.roomSeed || 'seed');
-  const stepMs = Math.max(40, Math.min(250, Number(opts.stepMs || 100))); // 10Hz default
+  const stepMs = clamp(opts.stepMs ?? 100, 40, 500);
   const getElapsedMs = typeof opts.getElapsedMs === 'function' ? opts.getElapsedMs : ()=>0;
-
-  // callouts
   const onSpawn = typeof opts.onSpawn === 'function' ? opts.onSpawn : ()=>{};
-
-  // tuning bundle (all primitives only)
   const tune = Object.assign({
-    spawnBase: 0.85,
-    stormMult: 1.10,
-    ttlGood: 2.4,
-    ttlJunk: 2.7,
-    ttlBonus: 2.2,
+    spawnBase: 0.78,
+    stormMult: 1.0,
+    ttlGood: 2.6,
+    ttlJunk: 2.9,
+    ttlBonus: 2.4,
     bossHp: 18
   }, opts.tune || {});
 
-  const pools = Object.assign({
-    GOOD: ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'],
-    JUNK: ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'],
-    BONUS:['⭐','💎','⚡'],
-    SHIELD:['🛡️','🛡️','🛡️']
-  }, opts.pools || {});
-
+  let roomSeed = String(opts.roomSeed || 'seed');
+  let rng = makeRng(roomSeed + '::0');
   let lastStep = -1;
+  let spawnAcc = 0;
 
-  function pick(arr, r){ return arr[(r()*arr.length)|0]; }
+  function r01(){ return rng(); }
+  function rPick(arr){ return arr[(r01()*arr.length)|0]; }
 
-  function decideSpawn(stepIndex, ctx){
-    // ctx = { tLeftSec, plannedSec, rageOn, bossActive, bossPhase }
-    const r = rngFrom(`${roomSeed}|${stepIndex}`);
+  function reseedForStep(step){
+    rng = makeRng(`${roomSeed}::${step}`);
+  }
 
-    const plannedSec = Number(ctx.plannedSec || 80);
-    const tLeft = Number(ctx.tLeftSec || plannedSec);
-
-    const stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
-    const mult = stormOn ? tune.stormMult : 1.0;
-    const rageBoost = ctx.rageOn ? 1.18 : 1.0;
-    const base = tune.spawnBase * mult * rageBoost;
-
-    // we map base to a probability per step: p = base*(stepMs/1000)
-    const pSpawn = Math.max(0, Math.min(0.98, base * (stepMs/1000)));
-    if(r() > pSpawn) return null;
-
-    // decide kind
-    let kind = 'good';
-    const p = r();
-
-    const bossActive = !!ctx.bossActive;
-    const bossPhase = Number(ctx.bossPhase||0);
-
-    if(bossActive && (r() < 0.22)){
-      kind = 'boss';
-    }else if(p < 0.64){
-      kind = 'good';
-    }else if(p < 0.86){
-      kind = 'junk';
-    }else if(p < 0.94){
-      kind = 'bonus';
-    }else{
-      kind = 'shield';
-    }
-
-    let emoji = '🍎';
-    let ttl = tune.ttlGood;
-
-    if(kind==='good'){ emoji = pick(pools.GOOD, r); ttl = tune.ttlGood; }
-    else if(kind==='junk'){ emoji = pick(pools.JUNK, r); ttl = tune.ttlJunk; }
-    else if(kind==='bonus'){ emoji = pick(pools.BONUS, r); ttl = tune.ttlBonus; }
-    else if(kind==='shield'){ emoji = pick(pools.SHIELD, r); ttl = 2.6; }
-    else if(kind==='boss'){
-      emoji = (bossPhase===0) ? '🛡️' : '🎯';
-      ttl = 2.2;
-    }
-
-    return { kind, emoji, ttlSec: ttl, stepIndex };
+  function reset(newSeed){
+    if(newSeed) roomSeed = String(newSeed);
+    lastStep = -1;
+    spawnAcc = 0;
+    rng = makeRng(roomSeed + '::0');
   }
 
   function tick(ctx){
-    // ctx must be deterministic across both clients (we use server elapsed)
-    const elapsedMs = Math.max(0, Number(getElapsedMs()||0));
+    ctx = ctx || {};
+    const plannedSec = clamp(ctx.plannedSec ?? 80, 10, 600);
+    const tLeftSec = clamp(ctx.tLeftSec ?? plannedSec, 0, plannedSec);
+    const rageOn = !!ctx.rageOn;
+    const bossActive = !!ctx.bossActive;
+    const bossPhase = Number(ctx.bossPhase||0);
+
+    const elapsedMs = Math.max(0, Number(getElapsedMs())||0);
     const step = Math.floor(elapsedMs / stepMs);
     if(step <= lastStep) return;
 
-    // catch up in case of lag
-    for(let i=lastStep+1; i<=step; i++){
-      const s = decideSpawn(i, ctx || {});
-      if(s) onSpawn(s);
+    // catch up each step (deterministic)
+    for(let s = lastStep + 1; s <= step; s++){
+      reseedForStep(s);
+
+      const dt = stepMs / 1000;
+      const stormOn = (tLeftSec <= Math.min(40, plannedSec*0.45));
+      const mult = stormOn ? tune.stormMult : 1.0;
+      const base = tune.spawnBase * mult * (rageOn ? 1.18 : 1.0);
+
+      spawnAcc += base * dt;
+
+      while(spawnAcc >= 1){
+        spawnAcc -= 1;
+
+        let kind = 'good';
+        const p = r01();
+
+        // boss token spawns only if bossActive (game decides when boss activates)
+        if(bossActive && (r01() < 0.22)){
+          kind = 'boss';
+        }else if(p < 0.64){
+          kind = 'good';
+        }else if(p < 0.86){
+          kind = 'junk';
+        }else if(p < 0.94){
+          kind = 'bonus';
+        }else{
+          kind = 'shield';
+        }
+
+        let emoji = '🥦';
+        let ttlSec = 2.5;
+
+        if(kind==='good'){ emoji = rPick(GOOD); ttlSec = tune.ttlGood; }
+        else if(kind==='junk'){ emoji = rPick(JUNK); ttlSec = tune.ttlJunk; }
+        else if(kind==='bonus'){ emoji = rPick(BONUS); ttlSec = tune.ttlBonus; }
+        else if(kind==='shield'){ emoji = '🛡️'; ttlSec = 2.6; }
+        else if(kind==='boss'){
+          emoji = (bossPhase===0) ? '🛡️' : '🎯';
+          ttlSec = 2.2;
+        }
+
+        onSpawn({ kind, emoji, ttlSec });
+      }
     }
+
     lastStep = step;
   }
 
-  function reset(){
-    lastStep = -1;
-  }
-
-  return { tick, reset, stepMs };
+  return { reset, tick };
 }
