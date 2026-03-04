@@ -1,0 +1,121 @@
+<!-- === /herohealth/vr/battle-spectator.html ===
+HeroHealth Battle Spectator — Read-only
+FULL v20260304-SPECTATOR
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
+  <title>HeroHealth — Battle Spectator</title>
+  <style>
+    :root{--bg:#020617;--stroke:rgba(148,163,184,.18);--panel:rgba(2,6,23,.78);--text:#e5e7eb;--mut:#94a3b8}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    .card{border:1px solid var(--stroke);background:var(--panel);border-radius:18px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .pill{border:1px solid var(--stroke);border-radius:999px;padding:8px 10px;background:rgba(2,6,23,.45);font-weight:900}
+    .grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:560px){.grid{grid-template-columns:1fr}}
+    .mono{font:1000 18px/1 ui-monospace,Menlo,monospace}
+    .mut{color:var(--mut);font-weight:800}
+  </style>
+  <script>
+    // ✅ Use same config global as your game pages (copy from your goodjunk-vr.html <head>)
+    window.HHA_BATTLE_CFG = window.HHA_BATTLE_CFG || window.HHA_FIREBASE_CONFIG || {
+      apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+      authDomain: "herohealth-d7f8c.firebaseapp.com",
+      databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "herohealth-d7f8c",
+      appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+    };
+    window.HHA_FIREBASE_VERSION = "10.12.5";
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <div style="font-weight:1000;font-size:18px">👀 Battle Spectator</div>
+          <div class="mut" id="st">loading…</div>
+        </div>
+        <div class="row">
+          <div class="pill">room: <span id="room">—</span></div>
+          <div class="pill">round: <span id="round">—</span></div>
+          <div class="pill">status: <span id="status">—</span></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card" style="margin:0">
+          <div style="font-weight:1000;opacity:.9">PLAYER A</div>
+          <div class="mono" id="aLine">—</div>
+          <div class="mut" id="aPid">—</div>
+        </div>
+        <div class="card" style="margin:0">
+          <div style="font-weight:1000;opacity:.9">PLAYER B</div>
+          <div class="mono" id="bLine">—</div>
+          <div class="mut" id="bPid">—</div>
+        </div>
+      </div>
+
+      <div class="mut" style="margin-top:10px" id="seed">seed: —</div>
+    </div>
+  </div>
+
+  <script type="module">
+    const qs = (k,d='')=>{ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(e){return d;} };
+    const room = String(qs('room','')).trim().toUpperCase();
+    const game = String(qs('game','goodjunk')).trim().toLowerCase();
+
+    document.getElementById('room').textContent = room || '—';
+
+    const { initBattle } = await import('./battle-rtdb.js');
+    const battle = await initBattle({
+      enabled: true,
+      room,
+      gameKey: game,
+      spectator: true
+    });
+
+    const st = document.getElementById('st');
+    const roundEl = document.getElementById('round');
+    const statusEl = document.getElementById('status');
+    const seedEl = document.getElementById('seed');
+
+    const aLine = document.getElementById('aLine');
+    const bLine = document.getElementById('bLine');
+    const aPid = document.getElementById('aPid');
+    const bPid = document.getElementById('bPid');
+
+    function render(){
+      if(!battle){ st.textContent='no battle'; return; }
+
+      const p = battle.players || {};
+      const keys = Object.keys(p);
+      const A = keys[0] ? p[keys[0]] : null;
+      const B = keys[1] ? p[keys[1]] : null;
+
+      roundEl.textContent = String(battle.state?.round || 1);
+      statusEl.textContent = String(battle.state?.status || '—');
+      seedEl.textContent = `seed: ${String(battle.state?.roomSeed || '—')}`;
+
+      const fmt = (x)=> `S ${x?.score|0} • A ${(x?.accPct||0)}% • M ${x?.miss|0} • RT ${x?.medianRtGoodMs|0}ms`;
+
+      aLine.textContent = A ? fmt(A) : '—';
+      bLine.textContent = B ? fmt(B) : '—';
+      aPid.textContent = A ? `pid=${A.pid||''} ${A.connected?'●':'○'}` : 'waiting…';
+      bPid.textContent = B ? `pid=${B.pid||''} ${B.connected?'●':'○'}` : 'waiting…';
+
+      st.textContent = 'live';
+    }
+
+    window.addEventListener('hha:battle-players', render);
+    window.addEventListener('hha:battle-state', render);
+    setInterval(render, 800);
+    render();
+  </script>
+</body>
+</html>
