@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-maskcough/maskcough.html ===
 Mask & Cough (Analyze) — RUN PAGE — PRODUCTION
-PATCH v20260302b
-✅ FIX: CSS path 404 -> use ./maskcough.css (file is in same folder)
-✅ SAFEGUARD: [hidden] always display:none (prevents end overlay showing early)
-✅ BUMP: v=20260302b to bypass cache
+FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
+✅ Mission pill + PRO pill
+✅ Score pop layer
+✅ Cache-bust version tags
 -->
 <!doctype html>
 <html lang="th">
@@ -14,11 +14,8 @@ PATCH v20260302b
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
 
-  <!-- ✅ SAFEGUARD -->
   <style>[hidden]{display:none!important}</style>
-
-  <!-- ✅ CSS (FIXED PATH) -->
-  <link rel="stylesheet" href="./maskcough.css?v=20260302b"/>
+  <link rel="stylesheet" href="./maskcough.css?v=20260304a"/>
 </head>
 <body>
   <!-- Global FX -->
@@ -30,7 +27,7 @@ PATCH v20260302b
 
   <div id="mc-wrap" data-view="pc" data-run="play">
     <!-- Stage -->
-    <main class="mc-stage" role="application" aria-label="Mask & Cough Analyze game">
+    <main class="mc-stage" id="stage" role="application" aria-label="Mask & Cough Analyze game">
       <div id="layer" class="mc-layer" aria-label="play layer"></div>
 
       <!-- threat banner -->
@@ -40,6 +37,9 @@ PATCH v20260302b
 
       <!-- center crosshair hint for cVR -->
       <div id="crosshairHint" class="mc-crosshair-hint" hidden>🎯 cVR ยิงจากกลางจอ</div>
+
+      <!-- score popups live here -->
+      <div id="mc-pop-layer" class="mc-pop-layer" aria-hidden="true"></div>
     </main>
 
     <!-- HUD -->
@@ -53,6 +53,10 @@ PATCH v20260302b
         <span class="mc-pill">Wave <b id="tWave">calm</b></span>
         <span class="mc-pill">Int <b id="tInt">0.00</b></span>
         <span class="mc-pill">Fever <b id="tFever">OFF</b> <span style="opacity:.8">(<span id="tFeverPct">0%</span>)</span></span>
+
+        <!-- NEW -->
+        <span class="mc-pill mc-pill-mission">Mission <b id="tMission">—</b></span>
+        <span class="mc-pill mc-pill-pro">Mode <b id="tPro">NORMAL</b></span>
       </div>
 
       <div class="mc-bars">
@@ -134,11 +138,11 @@ PATCH v20260302b
   </div>
 
   <!-- Optional (if present in /herohealth/vr/) -->
-  <script src="../vr/fun-boost.js?v=20260302b"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260302b"></script>
-  <script src="../vr/vr-ui.js?v=20260302b"></script>
+  <script src="../vr/fun-boost.js?v=20260304a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260304a"></script>
+  <script src="../vr/vr-ui.js?v=20260304a"></script>
 
   <!-- Engine -->
-  <script src="./maskcough.safe.js?v=20260302b"></script>
+  <script src="./maskcough.safe.js?v=20260304a"></script>
 </body>
 </html>
