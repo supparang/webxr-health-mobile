@@ -1,5 +1,5 @@
 /* === /herohealth/vr-brush/brush.css ===
-FULL v20260303d-BRUSH-CSS
+FULL v20260303e-BRUSH-CSS
 */
 :root{ --bg:#0b1220; --fg:#e8eefc; }
 html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
@@ -23,7 +23,6 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
 
 #playfield{ flex:1; position:relative; }
 
-/* force canvas fullscreen */
 a-scene, a-scene canvas{
   position:fixed !important;
   inset:0 !important;
@@ -33,7 +32,6 @@ a-scene, a-scene canvas{
   z-index:1 !important;
 }
 
-/* DOM fallback layer */
 #domTargets{
   position:fixed; inset:0;
   z-index:10;
@@ -113,7 +111,6 @@ a-scene, a-scene canvas{
 #crosshair::before{ left:50%; top:-6px; width:2px; height:34px; transform:translateX(-50%); }
 #crosshair::after{ top:50%; left:-6px; width:34px; height:2px; transform:translateY(-50%); }
 
-/* tap unlock overlay */
 .tapStart{
   display:none;
   position:fixed; inset:0;
