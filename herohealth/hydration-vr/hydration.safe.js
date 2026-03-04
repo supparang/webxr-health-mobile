@@ -5,7 +5,9 @@
 // ✅ MISS = bad hit only | EXPIRE separate | BLOCK separate
 // ✅ Storm Boss: lightning requires shield + correct LEFT/RIGHT zone (B)
 // ✅ Zone switches in chunks (S2)
-// FULL v20260303d-HYDRATION-SAFE-LRZONE-STORMBOSS
+// ✅ cVR zone control: tap L/R pads + (optional) deviceorientation tilt
+// ✅ Cooldown daily-first + NextCooldown button
+// FULL v20260304-HYDRATION-SAFE-LRZONE-CVR-COOLDOWN
 'use strict';
 
 export function boot(cfg){
@@ -23,7 +25,43 @@ export function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // RNG
+  // ---------- cooldown daily-first ----------
+  function hhDayKey(){
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function cooldownDone(cat, game, pid){
+    const day=hhDayKey();
+    pid=String(pid||'anon').trim()||'anon';
+    cat=String(cat||'nutrition').toLowerCase();
+    game=String(game||'hydration').toLowerCase();
+    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
+    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
+    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
+  }
+  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+    const gate = new URL('../warmup-gate.html', location.href);
+    gate.searchParams.set('gatePhase','cooldown');
+    gate.searchParams.set('cat', String(cat||'nutrition'));
+    gate.searchParams.set('theme', String(gameKey||'hydration'));
+    gate.searchParams.set('pid', String(pid||'anon'));
+    if(hub) gate.searchParams.set('hub', String(hub));
+    gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+
+    const sp = new URL(location.href).searchParams;
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone','cdnext','grade'
+    ].forEach(k=>{
+      const v=sp.get(k);
+      if(v!=null && v!=='') gate.searchParams.set(k,v);
+    });
+    return gate.toString();
+  }
+
+  // ---------- RNG ----------
   function xmur3(str){
     str=String(str||'');
     let h=1779033703^str.length;
@@ -63,12 +101,11 @@ export function boot(cfg){
   const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
 
-  // zone key
   const HH_CAT='nutrition';
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
-  // DOM
+  // ---------- DOM ----------
   const layer = DOC.getElementById('layer');
   if(!layer){ console.warn('[Hydration] Missing #layer'); return; }
 
@@ -76,6 +113,10 @@ export function boot(cfg){
   const stormFx = DOC.getElementById('stormFx');
   const hudEl = DOC.querySelector('.hud');
   const zoneSign = DOC.getElementById('zoneSign');
+
+  // cVR pad buttons
+  const btnZoneL = DOC.getElementById('btnZoneL');
+  const btnZoneR = DOC.getElementById('btnZoneR');
 
   function setStorm(on){
     try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
@@ -115,32 +156,20 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
-  // tuning by diff
+  // ---------- tuning ----------
   const TUNE = (function(){
     let spawnBase=0.78, ttlGood=2.9, ttlBad=3.0;
     let missLimit=6;
     let waterGain=7.5, waterLoss=6.0;
     let shieldDrop=0.14;
 
-    // storm
-    let stormSec=12;
-    let stormSpawnMul=1.30;
-    let stormBadP=0.45;
-    let stormTtlGoodMul=0.95;
+    let stormSec=12, stormSpawnMul=1.30, stormBadP=0.45, stormTtlGoodMul=0.95;
+    let bossNeedHits=18, bossSpawnMul=1.15, bossBadP=0.40;
 
-    // boss
-    let bossNeedHits=18;
-    let bossSpawnMul=1.15;
-    let bossBadP=0.40;
+    let lightningRate=0.9, bossLightningRate=1.2;
+    let lightningDmgWater=7.0, lightningDmgScore=6;
 
-    // lightning
-    let lightningRate=0.9;      // strikes/sec
-    let bossLightningRate=1.2;
-    let lightningDmgWater=7.0;
-    let lightningDmgScore=6;
-
-    // zone switching (S2)
-    let zoneChunkSec=3.0;       // switch every 3s
+    let zoneChunkSec=3.0;
 
     if(diff==='easy'){
       spawnBase=0.66; ttlGood=3.2; ttlBad=3.2; missLimit=8; waterGain=8.5; waterLoss=5.2; shieldDrop=0.10;
@@ -158,7 +187,6 @@ export function boot(cfg){
       lightningDmgWater=8.5; lightningDmgScore=8;
       zoneChunkSec=2.6;
     }
-
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
 
     return {
@@ -170,7 +198,7 @@ export function boot(cfg){
     };
   })();
 
-  // state
+  // ---------- state ----------
   const startTimeIso = nowIso();
   let playing=true;
   let paused=false;
@@ -179,7 +207,6 @@ export function boot(cfg){
 
   let score=0;
 
-  // counters
   let missBadHit=0;
   let missGoodExpired=0;
   let blockCount=0;
@@ -188,22 +215,20 @@ export function boot(cfg){
   let shield=0;
   let waterPct=30;
 
-  // phases
   let phase='normal'; // normal|storm|boss
   let stormLeft=0;
   let stormDone=false;
 
-  // boss win
   let bossOn=false;
   let bossHits=0;
   let bossGoal=0;
 
-  // lightning zone (B + S2): 'L' or 'R'
+  // B+S2 zone
   let needZone='L';
   let zoneT=0;
 
-  // input aim (for zone check)
-  let aimX01=0.5; // 0..1
+  // aimX01 for zone check
+  let aimX01=0.5;
   function updateAimFromEvent(ev){
     try{
       const r = layer.getBoundingClientRect();
@@ -213,6 +238,26 @@ export function boot(cfg){
   }
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
+
+  // ✅ cVR fallback: tap L/R pads sets aimX01
+  if(btnZoneL && btnZoneR){
+    btnZoneL.onclick = ()=>{ aimX01 = 0.25; };
+    btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
+  }
+
+  // ✅ optional: deviceorientation tilt controls aimX01 in cVR
+  if(view==='cvr' || view==='vr'){
+    WIN.addEventListener('deviceorientation', (ev)=>{
+      try{
+        // gamma: left(-) right(+)
+        const g = Number(ev?.gamma);
+        if(!Number.isFinite(g)) return;
+        const x01 = clamp((g + 30) / 60, 0, 1); // map [-30..30] => [0..1]
+        // blend slightly so it’s stable
+        aimX01 = clamp(aimX01*0.65 + x01*0.35, 0, 1);
+      }catch(e){}
+    }, { passive:true });
+  }
 
   // targets
   const bubbles = new Map();
@@ -270,7 +315,7 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // FX
+  // FX lightning
   function lightning(){
     if(!stageEl) return;
     try{
@@ -289,7 +334,7 @@ export function boot(cfg){
     }catch(e){}
   }
 
-  // HUD-aware spawn (avoid HUD)
+  // HUD-aware spawn
   let _hudBottom = 160;
   function measureHudBottom(){
     try{
@@ -394,7 +439,7 @@ export function boot(cfg){
     if(b) hit(b);
   }, { passive:true });
 
-  // cVR shoot
+  // shoot center
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -413,12 +458,11 @@ export function boot(cfg){
   }
   WIN.addEventListener('hha:shoot', (ev)=>{
     if(!playing || paused) return;
-    aimX01 = 0.5;
     const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
     if(b) hit(b);
   });
 
-  // ===== LEFT/RIGHT zone logic (B + S2) =====
+  // zone logic
   function isInNeededZone(){
     return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
   }
@@ -436,7 +480,7 @@ export function boot(cfg){
     score = Math.max(0, score - TUNE.lightningDmgScore);
   }
 
-  // ===== Pause overlay =====
+  // pause overlay
   let pauseOverlay=null;
   function showPauseOverlay(){
     if(pauseOverlay) return;
@@ -479,7 +523,7 @@ export function boot(cfg){
     pauseOverlay=null;
   }
 
-  // ===== End summary =====
+  // end summary
   const END_SENT_KEY='__HHA_HYD_END_SENT__';
   function dispatchEndOnce(summary){
     try{
@@ -492,7 +536,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-03d_LRZoneStormBoss',
+      gameVersion:'HydrationVR_SAFE_2026-03-04_LRZone_CVR_Cooldown',
       device:view, runMode, diff, seed:seedStr,
       reason:String(reason||''),
       durationPlannedSec: plannedSec,
@@ -514,7 +558,23 @@ export function boot(cfg){
   }
 
   function setEndButtons(summary){
+    const done = cooldownDone(HH_CAT, HH_GAME, pid);
+    const needCooldown = cooldownRequired && !done;
+
+    if(ui.btnNextCooldown){
+      ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
+      ui.btnNextCooldown.onclick = null;
+      if(needCooldown){
+        const sp = new URL(location.href).searchParams;
+        const cdnext = sp.get('cdnext') || '';
+        const nextAfterCooldown = cdnext || hubUrl || '../hub.html';
+        const url = buildCooldownUrl({ hub: hubUrl, nextAfterCooldown, cat: HH_CAT, gameKey: HH_GAME, pid });
+        ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
+      }
+    }
+
     if(ui.btnBackHub) ui.btnBackHub.onclick = ()=>{ location.href = hubUrl; };
+
     if(ui.btnReplay){
       ui.btnReplay.onclick = ()=>{
         try{
@@ -526,6 +586,7 @@ export function boot(cfg){
         }catch(e){ location.reload(); }
       };
     }
+
     if(ui.btnCopy){
       ui.btnCopy.onclick = async ()=>{
         const txt = safeJson(summary);
@@ -561,7 +622,7 @@ export function boot(cfg){
     }
   }
 
-  // ===== spawn & phases =====
+  // spawn & phases
   let spawnAcc=0;
 
   function spawnTick(dt){
@@ -705,7 +766,7 @@ export function boot(cfg){
       const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
       let hint='เล็ง + เก็บน้ำ 💧';
-      if(phase==='storm') hint=`⚡ ฟ้าผ่า! ต้องอยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่ 🛡️`;
+      if(phase==='storm') hint=`⚡ ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่ 🛡️`;
       else if(phase==='boss') hint=`👑 บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
       else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
       else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
@@ -721,6 +782,7 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
 
+  // background => pause
   DOC.addEventListener('visibilitychange', ()=>{
     if(!playing) return;
     if(DOC.hidden){
@@ -731,6 +793,7 @@ export function boot(cfg){
     if(paused) showPauseOverlay();
   });
 
+  // start
   setHUD();
   requestAnimationFrame(loop);
 }
