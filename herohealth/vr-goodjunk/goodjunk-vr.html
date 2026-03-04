@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (ESM)
-PATCH v20260304-RUN-SPAWNSAFE-AI-LOADSAFE
-- ✅ Uses correct filename goodjunk-vr.html
-- ✅ Computes spawn-safe area to avoid HUD/VR-UI blocking targets
-- ✅ Dynamic import AI (../vr/ai-goodjunk.js) if ?ai=1 AND run=play
-- ✅ Works even if AI module missing (no crash)
+PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
+✅ Correct run filename: goodjunk-vr.html
+✅ Sets window.__HHA_SPAWN_SAFE__ (prevents HUD overlap)
+✅ Optional AI: ?ai=1 (play only)
+✅ Optional Battle: ?battle=1
 -->
 <!doctype html>
 <html lang="th">
@@ -14,14 +14,10 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-LOADSAFE
   <title>HeroHealth • GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
 </head>
 <body>
   <div id="app">
-    <div id="bootSplash" aria-hidden="false">Loading GoodJunk...</div>
-
     <!-- Debug pills (optional) -->
     <div id="debugPills" aria-hidden="true">
       <span class="pill">view=<b id="uiView">—</b></span>
@@ -125,105 +121,107 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-LOADSAFE
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button will be injected here by JS -->
+        <!-- Cooldown button injected by JS -->
       </div>
     </div>
-
   </div>
 
   <script type="module">
+    import { boot } from './goodjunk.safe.js';
+
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
-    // ---- Spawn-safe computation (avoid HUD + bottom VR UI / coach)
-    function setSpawnSafe(){
+    // ---- cfg ----
+    const cfg = {
+      view: qs('view','mobile'),
+      run:  qs('run','play'),
+      diff: qs('diff','normal'),
+      time: Number(qs('time','80')) || 80,
+      seed: qs('seed', String(Date.now())),
+      pid:  qs('pid','anon'),
+      hub:  qs('hub','../hub.html'),
+      ai: null
+    };
+
+    // ---- debug pills ----
+    try{
+      const uiView=document.getElementById('uiView');
+      const uiRun=document.getElementById('uiRun');
+      const uiDiff=document.getElementById('uiDiff');
+      if(uiView) uiView.textContent = String(cfg.view);
+      if(uiRun)  uiRun.textContent  = String(cfg.run);
+      if(uiDiff) uiDiff.textContent = String(cfg.diff);
+
+      // show pills only when ?debug=1
+      const dbg = (qs('debug','0')==='1');
+      const pills = document.getElementById('debugPills');
+      if(pills) pills.setAttribute('aria-hidden', dbg ? 'false' : 'true');
+    }catch(e){}
+
+    // ---- Spawn-safe (prevent HUD overlap) ----
+    function computeSpawnSafe(){
       const layer = document.getElementById('gj-layer');
-      const hud = document.getElementById('hud');
-      const stage = document.getElementById('stage');
-      if(!layer || !stage) return;
+      const hud   = document.getElementById('hud');
+      if(!layer) return null;
 
-      const lr = layer.getBoundingClientRect();
-      const sr = stage.getBoundingClientRect();
-      const hr = hud ? hud.getBoundingClientRect() : { bottom: sr.top };
+      const r = layer.getBoundingClientRect();
+      const pad = 10;
 
-      // Top reserved = HUD bottom + gap
-      const top = Math.max(sr.top, hr.bottom) + 12;
+      // reserve top HUD + some safe gap
+      let topBlock = 0;
+      if(hud){
+        const hr = hud.getBoundingClientRect();
+        // if HUD overlaps the layer vertically, block that region
+        if(!(hr.bottom < r.top || hr.top > r.bottom)){
+          topBlock = Math.max(0, (hr.bottom - r.top) + 12);
+        }
+      }
 
-      // Bottom reserved = safe-area + estimated VR UI bar + coach
-      const safeBottom = (window.visualViewport ? (window.innerHeight - (visualViewport.height + visualViewport.offsetTop)) : 0) || 0;
-      const bottomReserve = 110 + safeBottom; // VR buttons + coach space
+      // reserve bottom for VR UI buttons safe area (enter vr/recenter)
+      const bottomBlock = 84; // conservative
+      const xMin = r.left + pad;
+      const xMax = r.right - pad;
+      const yMin = r.top + pad + topBlock;
+      const yMax = r.bottom - pad - bottomBlock;
 
-      const left = sr.left + 12;
-      const right = sr.right - 12;
-      const bottom = sr.bottom - bottomReserve;
-
-      // store in page coords (same as getBoundingClientRect space)
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin: left,
-        xMax: right,
-        yMin: top,
-        yMax: bottom
-      };
+      const w = r.width, h = r.height;
+      const ok = (xMax-xMin)>=180 && (yMax-yMin)>=220;
+      return ok ? { xMin, xMax, yMin, yMax, w, h } : null;
     }
 
-    // call on load + resize
-    const ro = new ResizeObserver(()=> setSpawnSafe());
-    ro.observe(document.body);
-    window.addEventListener('resize', setSpawnSafe);
-    window.addEventListener('orientationchange', ()=> setTimeout(setSpawnSafe, 250));
-    if(window.visualViewport){
-      visualViewport.addEventListener('resize', setSpawnSafe);
-      visualViewport.addEventListener('scroll', setSpawnSafe);
+    function setSpawnSafe(){
+      try{
+        const safe = computeSpawnSafe();
+        if(safe) window.__HHA_SPAWN_SAFE__ = safe;
+      }catch(e){}
     }
 
-    // Buttons
+    // keep updated on resize/orientation
+    window.addEventListener('resize', ()=> setSpawnSafe(), { passive:true });
+    window.addEventListener('orientationchange', ()=> setTimeout(setSpawnSafe, 250), { passive:true });
+    setTimeout(setSpawnSafe, 60);
+
+    // ---- Buttons ----
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
+
     btnRetry?.addEventListener('click', ()=>{
       const u = new URL(location.href);
       u.searchParams.set('seed', String(Date.now()));
       location.href = u.toString();
     });
+    btnHub?.addEventListener('click', ()=>{
+      location.href = cfg.hub || '../hub.html';
+    });
 
-    // sanitize HUB: always prefer /herohealth/hub.html
-    function sanitizeHub(h){
-      try{
-        const u = new URL(h, location.href);
-        // if someone passes /vr-goodjunk/hub.html by mistake -> fix to /herohealth/hub.html
-        if(u.pathname.includes('/vr-goodjunk/')) u.pathname = u.pathname.replace('/vr-goodjunk/','/herohealth/');
-        if(!u.pathname.endsWith('/hub.html')) u.pathname = u.pathname.replace(/\/[^\/]*$/, '/hub.html');
-        return u.toString();
-      }catch(e){
-        return '../hub.html';
-      }
-    }
-
-    // Build cfg from URL params (pass-through)
-    const cfg = {
-      view: qs('view','mobile'),
-      run: qs('run','play'),
-      diff: qs('diff','normal'),
-      time: Number(qs('time','80')) || 80,
-      seed: qs('seed', String(Date.now())),
-      pid: qs('pid','anon'),
-      hub: sanitizeHub(qs('hub','../hub.html')),
-      ai: null
-    };
-
-    btnHub?.addEventListener('click', ()=> location.href = (cfg.hub || '../hub.html'));
-
-    // show debug pills if ?debug=1
-    const debugOn = (qs('debug','0') === '1');
-    document.getElementById('debugPills')?.setAttribute('aria-hidden', debugOn ? 'false' : 'true');
-
-    // ✅ AI enabled only when ?ai=1 AND run=play
+    // ---- Optional AI (prediction only) ----
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
-        // dynamic import: missing file won't crash
         const mod = await import('../vr/ai-goodjunk.js');
-        const createGoodJunkAI = mod?.createGoodJunkAI;
-        if(typeof createGoodJunkAI === 'function'){
-          cfg.ai = createGoodJunkAI({
+        if(typeof mod.createGoodJunkAI === 'function'){
+          cfg.ai = mod.createGoodJunkAI({
             seed: cfg.seed,
             pid: cfg.pid,
             diff: cfg.diff,
@@ -235,20 +233,8 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-LOADSAFE
       }
     }
 
-    // Compute spawn-safe before boot
-    setSpawnSafe();
-
-    // Boot game
-    const splash = document.getElementById('bootSplash');
-    try{
-      const { boot } = await import('./goodjunk.safe.js');
-      splash?.setAttribute('aria-hidden','true');
-      splash && (splash.style.display='none');
-      boot(cfg);
-    }catch(e){
-      console.error('[GoodJunk] boot failed', e);
-      if(splash) splash.textContent = 'Boot failed (check console)';
-    }
+    // ---- Boot ----
+    boot(cfg);
   </script>
 </body>
 </html>
