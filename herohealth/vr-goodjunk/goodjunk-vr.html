@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR RUN — PRODUCTION (PC/Mobile/cVR) + Solo core + optional AI + optional Battle + optional Race
-FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
+FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE-PATCH1
 -->
 <!doctype html>
 <html lang="th">
@@ -138,8 +138,13 @@ FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
     const qsl = (k, d='')=> String(qs(k,d)||d).toLowerCase();
 
+    const mode = qsl('mode','solo'); // solo | battle | race | coop (future)
+    const uiMode = document.getElementById('uiMode');
+    if(uiMode) uiMode.textContent = mode;
+
     // ----- Build cfg from URL (pass-through) -----
     const cfg = {
+      mode,
       view: qsl('view','mobile'),
       run:  qsl('run','play'),
       diff: qsl('diff','normal'),
@@ -149,10 +154,6 @@ FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
       hub:  qs('hub','../hub.html'),
       ai: null
     };
-
-    const mode = qsl('mode','solo'); // solo | battle | race | coop (future)
-    const uiMode = document.getElementById('uiMode');
-    if(uiMode) uiMode.textContent = mode;
 
     // Debug pills visibility (?debug=1)
     const debugOn = (qs('debug','0') === '1');
@@ -176,10 +177,7 @@ FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
       const yMin = r.top + Math.max(140, hudH + 12);
       const yMax = r.bottom - Math.max(130, 110);
 
-      return {
-        xMin, xMax,
-        yMin, yMax
-      };
+      return { xMin, xMax, yMin, yMax };
     }
     try{
       window.__HHA_SPAWN_SAFE__ = computeSpawnSafe();
@@ -232,17 +230,35 @@ FULL v20260304-RUN-FULL-DIFF-AI-BATTLE-RACE-SPAWNSAFE
 
     // ----- Optional Race Controller (mode=race) -----
     if(mode === 'race'){
+      const wait = (qs('wait','0') === '1');
+
+      // ✅ สำคัญ: ถ้าเป็น race+wait ให้ pause เกมทันที (ก่อน RAF tick แรก)
+      if(wait){
+        try{ window.__GJ_SET_PAUSED__?.(true); }catch(_){}
+      }
+
       try{
         const race = await import('./goodjunk-race.js');
         race.bootRace?.({
           overlayId: 'raceOverlay',
           numId: 'raceNum',
           subId: 'raceSub',
-          wait: (qs('wait','0') === '1'),
-          autostartMs: Number(qs('autostart','3000')) || 3000
+          wait,
+          autostartMs: Number(qs('autostart','3000')) || 3000,
+          // callback ปล่อยเริ่มเกมพร้อมกัน
+          onGo: ()=>{
+            try{
+              window.__GJ_SET_PAUSED__?.(false);
+              window.__GJ_RACE_STARTED__ = 1;
+            }catch(_){}
+          }
         });
       }catch(e){
         console.warn('[GoodJunk] race module load failed (ok)', e);
+        // fallback: ถ้า race load ไม่ได้ แต่ wait=1 อย่าค้าง
+        if(wait){
+          try{ window.__GJ_SET_PAUSED__?.(false); }catch(_){}
+        }
       }
     }
 
