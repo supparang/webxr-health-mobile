@@ -1,4 +1,4 @@
-/* === /fitness/css/jump-duck.css — Jump-Duck UI (HUD/BARS/BOSS/TELE) v20260210a + PATCH === */
+/* === /fitness/css/jump-duck.css — Jump-Duck UI (ABC) v20260304-JD-ABC === */
 :root{
   --bg:#040610;
   --panel: rgba(4,6,16,.78);
@@ -198,15 +198,6 @@ button{ font:inherit; }
   background: rgba(2,6,23,.55);
 }
 
-/* AI HUD */
-.jd-hud-ai{
-  margin-top: 10px;
-  background: rgba(10,16,36,.22);
-  border: 1px solid rgba(148,163,184,.12);
-  border-radius: 18px;
-  padding: 10px 12px;
-}
-
 /* playfield */
 .jd-play-area{
   position: relative;
@@ -255,6 +246,7 @@ button{ font:inherit; }
   background: rgba(10,16,36,.50);
   display:flex; align-items:center; justify-content:center;
   box-shadow: 0 18px 32px rgba(0,0,0,.25);
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 .jd-obstacle--low{ top: 208px; }
 .jd-obstacle--high{ top: 96px; }
@@ -271,12 +263,22 @@ button{ font:inherit; }
   background: rgba(2,6,23,.55);
 }
 
+/* FEINT: ตอนหลอกให้เด่น */
 .jd-feint{
   outline: 2px solid rgba(255,79,216,.35);
   box-shadow: 0 18px 32px rgba(0,0,0,.25), 0 0 0 8px rgba(255,79,216,.08);
 }
-.jd-reveal .jd-obs-tag{ border-color: rgba(255,79,216,.45); }
 
+/* REVEAL: ตอนเฉลยคำตอบจริง */
+.jd-reveal{
+  border-color: rgba(34,211,238,.40);
+  box-shadow: 0 18px 32px rgba(0,0,0,.25), 0 0 0 10px rgba(34,211,238,.08);
+}
+.jd-reveal .jd-obs-tag{
+  border-color: rgba(34,211,238,.50);
+}
+
+/* judge */
 .jd-judge{
   position:absolute;
   left: 50%;
@@ -301,7 +303,7 @@ button{ font:inherit; }
 .jd-tele{
   position:absolute; inset: 0;
   display:flex; align-items:center; justify-content:center;
-  pointer-events:none;   /* ✅ */
+  pointer-events:none;
   opacity: 0;
   transition: opacity .18s ease;
 }
@@ -316,7 +318,7 @@ button{ font:inherit; }
   box-shadow: 0 0 0 10px rgba(34,211,238,.06);
 }
 
-/* actionbar base */
+/* actionbar */
 .jd-actionbar{
   display:flex; gap: 10px;
   justify-content:center;
@@ -333,7 +335,11 @@ button{ font:inherit; }
 .jd-btn-action.jd-jump{ border-color: rgba(34,211,238,.35); }
 .jd-btn-action.jd-duck{ border-color: rgba(245,158,11,.35); }
 
-/* play howto */
+.view-pc .jd-actionbar{ display:none; }
+.view-vr .jd-actionbar{ display:none; }
+.view-cvr .jd-actionbar{ display:flex; }
+.view-mobile .jd-actionbar{ display:flex; }
+
 .jd-howto-play{ margin-top: 8px; }
 
 /* shake */
@@ -362,141 +368,3 @@ button{ font:inherit; }
   background: rgba(10,16,36,.30);
 }
 .jd-note{ margin: 12px 0 0; color: var(--muted); line-height: 1.45; }
-
-/* =========================================================
-   PATCH: Smart actionbar behavior
-   - PC/VR: none
-   - cVR: big buttons (normal)
-   - mobile: floating mini buttons (no block touch) + show only when needed
-   ========================================================= */
-.view-pc .jd-actionbar{ display:none; }
-.view-vr .jd-actionbar{ display:none; }
-
-.view-cvr .jd-actionbar{
-  display:flex;
-  position: relative;
-  margin: 12px 0 6px;
-}
-
-/* mobile floating */
-.view-mobile .jd-actionbar{
-  display:flex;
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: calc(10px + var(--sab));
-  z-index: 50;
-  gap: 10px;
-  justify-content: space-between;
-
-  pointer-events: none; /* ✅ ไม่บังแตะบน/ล่าง */
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity .18s ease, transform .18s ease;
-}
-.view-mobile .jd-actionbar .jd-btn-action{
-  pointer-events: auto; /* ✅ ปุ่มกดได้ */
-  flex: 0 0 auto;
-  width: min(180px, 46vw);
-  padding: 10px 10px;
-  border-radius: 14px;
-  font-weight: 1000;
-  opacity: 0.92;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.22);
-}
-
-/* show on mobile only when body has jd-ab-on */
-.view-mobile.jd-ab-on .jd-actionbar{
-  opacity: 0.92;
-  transform: translateY(0);
-}
-
-/* =========================================================
-   PATCH: AI Highlight for buttons
-   ========================================================= */
-.jd-btn-action.ai-hot{
-  animation: jdPulseHot .28s ease-out 1;
-  filter: brightness(1.15);
-}
-.jd-btn-action.ai-warn{
-  animation: jdPulseWarn .30s ease-out 1;
-  filter: brightness(1.05);
-  opacity: 0.96;
-}
-@keyframes jdPulseHot{
-  0%   { transform: translateY(0) scale(1);   box-shadow: 0 0 0 0 rgba(34,211,238,.0); }
-  40%  { transform: translateY(-1px) scale(1.03); box-shadow: 0 0 0 10px rgba(34,211,238,.12); }
-  100% { transform: translateY(0) scale(1);   box-shadow: 0 0 0 0 rgba(34,211,238,.0); }
-}
-@keyframes jdPulseWarn{
-  0%   { transform: translateY(0) scale(1);   box-shadow: 0 0 0 0 rgba(245,158,11,.0); }
-  45%  { transform: translateY(-1px) scale(1.02); box-shadow: 0 0 0 10px rgba(245,158,11,.10); }
-  100% { transform: translateY(0) scale(1);   box-shadow: 0 0 0 0 rgba(245,158,11,.0); }
-}
-
-/* =========================================================
-   PATCH: Cinematic overlay + flash
-   ========================================================= */
-#jd-cine.jd-cine{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:none;
-  z-index: 20;
-}
-#jd-cine.jd-hidden{ display:none !important; }
-#jd-cine .jd-cine-backdrop{
-  position:absolute;
-  inset:0;
-  background: radial-gradient(800px 420px at 50% 30%, rgba(255,79,216,.18), transparent 60%),
-              rgba(2,6,23,.25);
-  opacity:0;
-  transition: opacity .16s ease;
-}
-#jd-cine .jd-cine-card{
-  position:relative;
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,211,238,.38);
-  background: rgba(2,6,23,.70);
-  box-shadow: 0 0 0 10px rgba(34,211,238,.06);
-  transform: translateY(10px) scale(.98);
-  opacity:0;
-  transition: transform .16s ease, opacity .16s ease;
-  max-width: 86%;
-  text-align:center;
-}
-#jd-cine.on .jd-cine-backdrop{ opacity:1; }
-#jd-cine.on .jd-cine-card{ opacity:1; transform: translateY(0) scale(1); }
-#jd-cine .jd-cine-title{
-  font-weight: 1000;
-  letter-spacing: .6px;
-  font-size: 18px;
-}
-#jd-cine .jd-cine-sub{
-  margin-top: 6px;
-  color: rgba(229,231,235,.88);
-  font-weight: 800;
-  font-size: 13px;
-}
-#jd-cine .jd-cine-badges{
-  margin-top: 10px;
-  display:flex;
-  gap:8px;
-  justify-content:center;
-  flex-wrap:wrap;
-}
-#jd-cine .jd-cine-badge{
-  font-size: 12px;
-  font-weight: 1000;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-}
-#jd-play-area.fx-boss{ box-shadow: 0 0 0 10px rgba(239,68,68,.10), 0 16px 40px rgba(0,0,0,.35); }
-#jd-play-area.fx-phase{ box-shadow: 0 0 0 10px rgba(34,211,238,.10), 0 16px 40px rgba(0,0,0,.35); }
-#jd-play-area.fx-win{ box-shadow: 0 0 0 12px rgba(245,158,11,.12), 0 16px 40px rgba(0,0,0,.35); }
