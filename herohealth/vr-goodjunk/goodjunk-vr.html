@@ -1,12 +1,7 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR RUN — PRODUCTION (ESM)
-PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
-✅ Correct filename: goodjunk-vr.html
-✅ CSS path: ./goodjunk-vr.css
-✅ Computes window.__HHA_SPAWN_SAFE__ to prevent HUD blocking targets
-✅ Supports view=mobile|pc|cvr (cVR strict shoot via hha:shoot)
-✅ Optional AI: ?ai=1 (only when run=play)
-✅ Optional Battle: ?battle=1&room=... (safe fallback if module/config missing)
+GoodJunkVR RUN — PRODUCTION (works with goodjunk.safe.js ESM)
+PATCH v20260304-RUN-DIFF-UI (Easy/Normal/Hard buttons)
+✅ Adds Difficulty UI that updates URL diff=easy|normal|hard and reloads (preserves all params)
 -->
 <!doctype html>
 <html lang="th">
@@ -18,6 +13,35 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
 
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./goodjunk-vr.css?v=20260304" />
+
+  <style>
+    /* small, safe UI additions (won't break existing CSS) */
+    #diffBar{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .diffTag{ opacity:.8; font-weight:900; font-size:12px; }
+    .diffBtns{ display:flex; gap:8px; flex-wrap:wrap; }
+    .diffBtn{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      color: rgba(229,231,235,.96);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-weight: 1000;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      min-height: 34px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .diffBtn[aria-pressed="true"]{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.14);
+      box-shadow: 0 10px 26px rgba(0,0,0,.28);
+    }
+    .diffBtn:active{ transform: translateY(1px); }
+  </style>
 </head>
 
 <body>
@@ -37,6 +61,16 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
         <div class="pill">TIME <b id="hud-time">0</b></div>
         <div class="pill">MISS <b id="hud-miss">0</b></div>
         <div class="pill">GRADE <b id="hud-grade">C</b></div>
+      </div>
+
+      <!-- ✅ Difficulty UI -->
+      <div class="hud-row" id="diffBar">
+        <span class="diffTag">DIFF</span>
+        <div class="diffBtns" role="group" aria-label="Difficulty">
+          <button class="diffBtn" id="btnDiffEasy"   type="button" data-diff="easy"   aria-pressed="false">ง่าย</button>
+          <button class="diffBtn" id="btnDiffNormal" type="button" data-diff="normal" aria-pressed="false">ปกติ</button>
+          <button class="diffBtn" id="btnDiffHard"   type="button" data-diff="hard"   aria-pressed="false">ยาก</button>
+        </div>
       </div>
 
       <div class="hud-row">
@@ -126,7 +160,8 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
           <button class="btn" id="btnRetry" type="button">เล่นอีกครั้ง</button>
           <button class="btn primary" id="btnHub" type="button">กลับ HUB</button>
         </div>
-        <!-- Cooldown button injected by goodjunk.safe.js -->
+
+        <!-- Cooldown button will be injected here by JS -->
       </div>
     </div>
 
@@ -136,8 +171,39 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
     import { boot } from './goodjunk.safe.js';
 
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-    const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
+    // ---- Difficulty UI (preserve params, just change diff) ----
+    function setPressed(diff){
+      const map = {
+        easy:   document.getElementById('btnDiffEasy'),
+        normal: document.getElementById('btnDiffNormal'),
+        hard:   document.getElementById('btnDiffHard')
+      };
+      Object.keys(map).forEach(k=>{
+        const el = map[k];
+        if(!el) return;
+        el.setAttribute('aria-pressed', String(k===diff));
+      });
+    }
+
+    function gotoDiff(newDiff){
+      const u = new URL(location.href);
+      u.searchParams.set('diff', String(newDiff||'normal'));
+      // keep seed as-is (fair compare) — if you want new run, press "Retry"
+      location.href = u.toString();
+    }
+
+    function wireDiffButtons(currentDiff){
+      setPressed(currentDiff);
+      document.querySelectorAll('[data-diff]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const d = btn.getAttribute('data-diff') || 'normal';
+          gotoDiff(d);
+        });
+      });
+    }
+
+    // Build cfg from URL params (pass-through)
     const cfg = {
       view: qs('view','mobile'),
       run: qs('run','play'),
@@ -149,59 +215,17 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
       ai: null
     };
 
-    // put view on body (CSS uses this for cVR strict pointer-events)
-    document.body.dataset.view = String(cfg.view||'mobile').toLowerCase();
+    // wire diff UI now
+    wireDiffButtons(String(cfg.diff).toLowerCase());
 
-    // -------- Spawn Safe (กัน HUD บังเป้า) --------
-    function computeSpawnSafe(){
-      const stage = document.getElementById('stage');
-      const hud   = document.getElementById('hud');
-      const layer = document.getElementById('gj-layer');
-      if(!stage || !layer) return;
-
-      const sR = stage.getBoundingClientRect();
-      const hR = hud ? hud.getBoundingClientRect() : { bottom: sR.top };
-      const safeTop = Math.max(sR.top, hR.bottom + 10);
-
-      // เว้นขอบล่างให้พ้น coach/toast/safe-area (เผื่อมือถือ)
-      const safeBottom = Math.min(
-        sR.bottom,
-        (window.innerHeight - (Number(getComputedStyle(document.documentElement).getPropertyValue('--gj-safe-bottom')||0))) - 10
-      );
-
-      // กันขอบซ้าย/ขวาเล็กน้อย
-      const xPad = 14;
-      const yPad = 12;
-
-      const xMin = sR.left + xPad;
-      const xMax = sR.right - xPad;
-      const yMin = safeTop + yPad;
-      const yMax = safeBottom - yPad;
-
-      // expose absolute coordinates (goodjunk.safe.js will convert to local)
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin, xMax, yMin, yMax
-      };
-    }
-
-    // recompute a few times (fonts/layout settle) + on resize
-    function armSpawnSafe(){
-      computeSpawnSafe();
-      setTimeout(computeSpawnSafe, 120);
-      setTimeout(computeSpawnSafe, 350);
-      setTimeout(computeSpawnSafe, 900);
-    }
-    window.addEventListener('resize', armSpawnSafe);
-    window.addEventListener('orientationchange', armSpawnSafe);
-    armSpawnSafe();
-
-    // -------- Optional AI --------
+    // ✅ AI enabled only when ?ai=1 AND run=play
     const aiOn = (qs('ai','0') === '1') && (String(cfg.run).toLowerCase() === 'play');
     if(aiOn){
       try{
         const mod = await import('../vr/ai-goodjunk.js');
-        if(typeof mod.createGoodJunkAI === 'function'){
-          cfg.ai = mod.createGoodJunkAI({
+        const createGoodJunkAI = mod.createGoodJunkAI;
+        if(typeof createGoodJunkAI === 'function'){
+          cfg.ai = createGoodJunkAI({
             seed: cfg.seed,
             pid: cfg.pid,
             diff: cfg.diff,
@@ -209,7 +233,7 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
           });
         }
       }catch(e){
-        console.warn('[GoodJunk] AI module load failed (ok)', e);
+        console.warn('[GoodJunk] AI module load failed', e);
       }
     }
 
@@ -222,7 +246,8 @@ PATCH v20260304-RUN-SPAWNSAFE-AI-BATTLE
       location.href = u.toString();
     });
     btnHub?.addEventListener('click', ()=>{
-      location.href = cfg.hub || '../hub.html';
+      const hub = cfg.hub || '../hub.html';
+      location.href = hub;
     });
 
     // Boot
