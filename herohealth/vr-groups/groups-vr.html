@@ -1,15 +1,14 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION FULL
-FULL v20260303-GROUPS-RUN-HUBCANON-LAYERWAIT
-
-✅ FIX: HUB sanitize -> always /herohealth/hub.html (avoid /vr-groups/hub.html)
-✅ FIX: waitForLayerEl() before start engine -> prevents "Missing layer element" + miss spikes
-✅ Mobile layout: stage ใหญ่ขึ้น / HUD บางลง / coach เป็น toast
-✅ Keep D7–D15 features: buff intake, summary, flush, practice, calibration, ai-hooks
+GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
+PATCH v20260304a-HUBSANITIZE-SPAWNSAFE-SPARK
+✅ FIX: HUB sanitize -> always /herohealth/hub.html (under current repo base)
+✅ Provide __HHA_SPAWN_SAFE__ (LOCAL coords) so engine never spawns under HUD/VR UI
+✅ Shot spark/trace on hha:shoot (lightweight)
+✅ Works with groups.safe.js v20260303f (FX/SFX/Wiggle inside engine)
 Requires:
 - /herohealth/vr/vr-ui.js
-- /herohealth/vr-groups/groups.safe.js
 - /herohealth/vr-groups/ai-hooks.js
+- /herohealth/vr-groups/groups.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -22,14 +21,18 @@ Requires:
   <style>
     :root{
       --bg:#040610;
-      --panel: rgba(4,6,16,.78);
-      --panel2: rgba(10,16,36,.55);
       --stroke: rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
       --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
-      --radius:22px;
+      --radius:18px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+
+      /* safe paddings (used for spawn safe rect) */
+      --topSafe: calc(132px + var(--sat));
+      --botSafe: calc(150px + var(--sab));
     }
     *{ box-sizing:border-box; }
     html,body{ height:100%; margin:0; overflow:hidden; color:var(--text);
@@ -40,15 +43,16 @@ Requires:
         radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
     }
+
     #app{
       position:relative;
       width:100%; height:100%;
-      padding: calc(8px + var(--sat)) 8px calc(8px + var(--sab));
+      padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
       display:flex; flex-direction:column; gap:8px;
     }
+
     .topbar{
-      position:relative;
-      border-radius: 18px;
+      border-radius: var(--radius);
       border:1px solid var(--stroke);
       background: linear-gradient(180deg, rgba(2,6,23,.78), rgba(2,6,23,.55));
       box-shadow: 0 18px 60px rgba(0,0,0,.38);
@@ -59,6 +63,7 @@ Requires:
     .title{ display:flex; flex-direction:column; gap:2px; }
     .title b{ font-weight:1000; letter-spacing:.2px; font-size:14px; }
     .title span{ color:var(--muted); font-size:12px; }
+
     .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
     .pill{
@@ -97,27 +102,42 @@ Requires:
     .stage{
       position:relative;
       flex: 1 1 auto;
-      border-radius: 18px;
+      border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.26);
       overflow:hidden;
       box-shadow: 0 20px 80px rgba(0,0,0,.35);
-      min-height: 300px;
     }
     #playLayer{ position:absolute; inset:0; overflow:hidden; pointer-events:auto; }
 
+    /* Spark FX layer */
+    #sparkLayer{
+      position:absolute; inset:0;
+      pointer-events:none;
+      z-index: 45;
+      overflow:hidden;
+    }
+    .spark{
+      position:absolute;
+      height:2px;
+      transform-origin: 0 50%;
+      opacity:0;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+      transition: opacity 260ms ease;
+      background: linear-gradient(90deg, rgba(34,211,238,.0), rgba(34,211,238,.95), rgba(167,139,250,.85), rgba(255,79,216,.0));
+    }
+
     .hud{
       position:absolute; left:10px; right:10px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;
       pointer-events:none;
       z-index: 30;
     }
-    .hudTop{ top: calc(6px + var(--sat)); }
-    .hudBottom{ bottom: calc(72px + var(--sab)); } /* กัน vr-ui บัง */
+    .hudTop{ top: calc(10px + var(--sat)); }
 
     .hudBox{
       pointer-events:none;
-      display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;
+      display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap;
       padding: 7px 9px;
       border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
@@ -126,7 +146,7 @@ Requires:
       box-shadow: 0 16px 46px rgba(0,0,0,.25);
     }
     .hudBox .k{ color:var(--muted); font-size:11px; font-weight:900; }
-    .hudBox .v{ font-weight:1000; letter-spacing:.2px; font-size:12.5px; }
+    .hudBox .v{ font-weight:1000; font-size:12.5px; letter-spacing:.2px; }
 
     .questTop{
       margin-top:6px;
@@ -164,6 +184,20 @@ Requires:
       max-width: 260px;
     }
 
+    /* Coach toast (mobile-first) */
+    .coachToast{
+      position:absolute;
+      left: 10px; right: 10px;
+      bottom: calc(10px + var(--sab) + 96px);
+      display:none;
+      z-index: 40;
+      pointer-events:none;
+      transform: translateY(10px);
+      opacity: 0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coachToast.show{ display:block; opacity:1; transform: translateY(0); }
+
     .coachWrap{
       pointer-events:none;
       display:flex; align-items:center; gap:10px;
@@ -184,38 +218,19 @@ Requires:
     .coachWrap .txt{ font-weight:1000; letter-spacing:.2px; font-size:13px; }
     .coachWrap .sub{ color:var(--muted); font-size:11.5px; font-weight:900; }
 
-    /* Coach Toast (mobile/cVR): float above bottom, auto-hide */
-    .coachToast{
-      position:absolute;
-      left: 10px; right: 10px;
-      bottom: calc(10px + var(--sab) + 84px);
-      display:none;
-      z-index: 40;
-      pointer-events:none;
-      transform: translateY(10px);
-      opacity: 0;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    .coachToast.show{
-      display:block;
-      opacity: 1;
-      transform: translateY(0px);
-    }
-
     /* End screen */
     #endOverlay{
       position:absolute; inset:0;
       background: rgba(0,0,0,.60);
       backdrop-filter: blur(10px);
       display:none;
-      align-items:center;
-      justify-content:center;
+      align-items:center; justify-content:center;
       padding: 14px;
       z-index: 9999;
     }
     #endCard{
       width: min(860px, 100%);
-      border-radius: 18px;
+      border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.18);
       background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.64));
       box-shadow: 0 30px 120px rgba(0,0,0,.55);
@@ -226,11 +241,10 @@ Requires:
       border-bottom:1px solid rgba(148,163,184,.14);
       display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     }
-    #endCard header b{ font-weight:1000; }
     #endCard main{ padding: 12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     @media (max-width: 860px){ #endCard main{ grid-template-columns: 1fr; } }
     .panel{
-      border-radius: 16px;
+      border-radius: 18px;
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.50);
       padding: 10px 10px;
@@ -247,6 +261,7 @@ Requires:
     /* cVR strict: disable direct tap on targets => only crosshair shoot */
     body[data-view="cvr"][data-cvr-strict="1"] .tgt{ pointer-events:none !important; }
 
+    /* targets (fallback; engine also styles) */
     .tgt{
       width: 74px; height: 74px;
       border-radius: 18px;
@@ -261,58 +276,15 @@ Requires:
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* Practice + calibration overlays */
-    .overlay{
-      position:absolute; inset:0;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(0,0,0,.62);
-      backdrop-filter: blur(10px);
-      z-index: 9000;
-      padding: 14px;
-    }
-    .overlayCard{
-      width: min(860px, 100%);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.64));
-      box-shadow: 0 30px 120px rgba(0,0,0,.55);
-      overflow:hidden;
-    }
-    .overlayCard header{
-      padding: 12px 12px;
-      border-bottom:1px solid rgba(148,163,184,.14);
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    }
-    .overlayCard header b{ font-weight:1000; }
-    .overlayCard main{ padding: 12px; display:flex; flex-direction:column; gap:10px; }
-    .overlayBtns{
-      padding: 12px;
-      border-top:1px solid rgba(148,163,184,.14);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-    }
-    .bigLine{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:1000; }
-    .bigDot{ width:12px; height:12px; border-radius:99px; background: var(--cyan); box-shadow: 0 0 16px rgba(34,211,238,.55); }
-    .hint{ color: var(--muted); font-weight: 900; line-height: 1.35; font-size: 12.5px; }
-    .crossBox{
-      border-radius: 16px;
-      border:1px dashed rgba(148,163,184,.22);
-      background: rgba(2,6,23,.40);
-      padding: 14px;
-      display:flex; flex-direction:column; gap:8px;
-      align-items:center; justify-content:center;
-      min-height: 160px;
-    }
-    .cross{ font-size: 34px; font-weight: 1000; letter-spacing: .4px; opacity: .92; }
-
     @media (max-width: 420px){
       .title span{ display:none; }
       #hudSeed{ display:none; }
     }
-    body[data-view="cvr"] .hudBottom{ bottom: calc(92px + var(--sab)); }
-    body[data-view="mobile"] .hudBottom{ display:none; }
-    body[data-view="pc"] .coachToast{ display:none !important; }
-    body[data-view="cvr"] .coachToast{ bottom: calc(10px + var(--sab) + 112px); }
+
+    /* cVR needs more bottom safe space (vr-ui buttons) */
+    body[data-view="cvr"]{
+      --botSafe: calc(190px + var(--sab));
+    }
   </style>
 </head>
 
@@ -327,7 +299,6 @@ Requires:
     <div class="row">
       <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
-
       <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
       <div class="pill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
 
@@ -346,6 +317,7 @@ Requires:
 
   <div class="stage" id="stage">
     <div id="playLayer"></div>
+    <div id="sparkLayer"></div>
 
     <!-- HUD TOP -->
     <div class="hud hudTop">
@@ -380,17 +352,6 @@ Requires:
       </div>
     </div>
 
-    <!-- HUD BOTTOM (PC/cVR) -->
-    <div class="hud hudBottom">
-      <div class="coachWrap" id="coachBox">
-        <div class="face" id="coachFace">🙂</div>
-        <div>
-          <div class="txt" id="coachTxt">เริ่มได้เลย!</div>
-          <div class="sub" id="coachSub">แตะ/ยิงเป้าให้ถูกหมู่</div>
-        </div>
-      </div>
-    </div>
-
     <!-- Coach Toast -->
     <div class="coachToast" id="coachToast">
       <div class="coachWrap">
@@ -402,57 +363,11 @@ Requires:
       </div>
     </div>
 
-    <!-- Practice overlay -->
-    <div class="overlay" id="practiceOverlay">
-      <div class="overlayCard">
-        <header>
-          <div><b>🧪 PRACTICE 15s</b> <span style="color:var(--muted); font-weight:900;" id="practiceSub">ก่อนเข้าเกมจริง</span></div>
-          <div class="pill"><span class="dot"></span> <span>Auto:</span> <b id="practiceTag">ON</b></div>
-        </header>
-        <main>
-          <div class="bigLine"><span class="bigDot"></span> <span>ซ้อม 15 วินาที เพื่อให้มือ “เข้าที่”</span></div>
-          <div class="crossBox">
-            <div class="cross">🎯 เล็ง + ยิง</div>
-            <div class="hint" id="practiceHint">แตะจอ/ยิงจาก crosshair แล้วลองเก็บคอมโบ</div>
-          </div>
-          <div class="hint">หมดเวลาแล้วจะเข้าเกมจริงให้อัตโนมัติ (ปิดได้ด้วย <b>?practice=0</b>)</div>
-        </main>
-        <div class="overlayBtns">
-          <button class="ghost" id="btnSkipPractice">ข้ามซ้อม</button>
-          <button class="primary" id="btnStartPractice">เริ่มซ้อม</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Calibration overlay -->
-    <div class="overlay" id="calibOverlay">
-      <div class="overlayCard">
-        <header>
-          <div><b>🥽 cVR CALIBRATION</b> <span style="color:var(--muted); font-weight:900;">ตั้งท่ามอง + Recenter</span></div>
-          <div class="pill"><span class="dot pink"></span> <span>Strict:</span> <b id="strictTag">ON</b></div>
-        </header>
-        <main>
-          <div class="bigLine"><span class="bigDot"></span> <span>ถือมือถือไว้ใน Cardboard แล้วมอง “ตรงกลาง”</span></div>
-          <div class="crossBox">
-            <div class="cross">＋</div>
-            <div class="hint">ให้เครื่องหมาย + อยู่กึ่งกลางพอดี แล้วค่อยเริ่มเล่น</div>
-          </div>
-          <div class="hint">แนะนำ: กด Fullscreen + ล็อกแนวนอนก่อนเข้าเล่น เพื่อกันจอเด้ง/หมุน</div>
-        </main>
-        <div class="overlayBtns">
-          <button class="ghost" id="btnFS">Fullscreen</button>
-          <button class="ghost" id="btnLand">Lock Landscape</button>
-          <button class="ghost" id="btnRecenter">Recenter</button>
-          <button class="primary" id="btnCloseCalib">พร้อมแล้ว</button>
-        </div>
-      </div>
-    </div>
-
     <!-- End overlay -->
     <div id="endOverlay">
       <div id="endCard">
         <header>
-          <div><b id="endTitle">END</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
+          <div><b id="endTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
           <div class="pill"><span class="dot good"></span> <span>Saved:</span> <b id="savedTag">yes</b></div>
         </header>
         <main>
@@ -472,14 +387,13 @@ Requires:
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 <!-- Universal VR UI -->
 <script src="../vr/vr-ui.js"></script>
 
-<!-- AI hooks -->
+<!-- AI hooks (optional) -->
 <script src="./ai-hooks.js"></script>
 
 <!-- Groups engine -->
@@ -496,53 +410,63 @@ Requires:
   const QS = getQS();
   const q = (k, def='') => (QS.get(k) ?? def);
 
-  function canonicalHub(input){
-    let s = String(input || '').trim();
-    if(!s) s = '../hub.html';
-    try{ s = decodeURIComponent(s); }catch(_){}
-
-    // ✅ sanitize wrong hub from folder
-    if(s.includes('/vr-groups/hub.html') || s.endsWith('vr-groups/hub.html')){
-      s = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
-    }
-
-    // ✅ resolve relative -> absolute
-    try{
-      const u = new URL(s, location.href);
-      if(u.pathname.endsWith('/herohealth/vr-groups/hub.html')){
-        u.pathname = '/webxr-health-mobile/herohealth/hub.html';
-      }
-      // ถ้าเผลอส่ง hub=hub.html แบบ relative ใน subfolder
-      if(u.pathname.endsWith('/herohealth/vr-groups/hub.html')){
-        u.pathname = '/webxr-health-mobile/herohealth/hub.html';
-      }
-      return u.toString();
-    }catch(_){
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
-    }
-  }
-
-  const HUB = canonicalHub(q('hub',''));
-
   const RUN  = String(q('run','play')).toLowerCase();
   const DIFF = String(q('diff','normal')).toLowerCase();
   const VIEW = String(q('view','mobile')).toLowerCase();
   const TIME = Number(q('time','90')||90);
   const SEED = String(q('seed','') || Date.now());
 
-  const PRACTICE_ON = (String(q('practice','1')||'1') !== '0') && (RUN !== 'research');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
 
-  const BUFF_QS = {
-    wType: q('wType',''),
-    wPct:  q('wPct',''),
-    rank:  q('rank',''),
-    wCrit: q('wCrit',''),
-    wDmg:  q('wDmg',''),
-    wHeal: q('wHeal',''),
-    calm:  q('calm','')
-  };
+  // ---------- Root base resolver (fix hub wrong path) ----------
+  function herohealthBase(){
+    // derive base ending with "/herohealth/"
+    const href = location.href;
+    const i = href.indexOf('/herohealth/');
+    if(i >= 0){
+      return href.slice(0, i + '/herohealth/'.length);
+    }
+    // fallback: same folder up one
+    return new URL('../', location.href).toString();
+  }
+  const HH_BASE = herohealthBase();
+  const HUB_CANON = new URL('hub.html', HH_BASE).toString();
 
+  function absUrlMaybe(url){
+    try{ return new URL(url, location.href).toString(); }
+    catch{ return ''; }
+  }
+
+  function sanitizeHub(u){
+    const dflt = HUB_CANON;
+    if(!u) return dflt;
+
+    const abs = absUrlMaybe(u) || dflt;
+
+    // if someone passes vr-groups/hub.html -> force canonical hub
+    const low = abs.toLowerCase();
+    if(low.includes('/herohealth/vr-groups/hub.html')) return dflt;
+
+    // if user mistakenly uses /herohealth/hub.html without repo base (rare), still OK as abs
+    // but if it points to another repo root (e.g., https://supparang.github.io/herohealth/hub.html), override:
+    try{
+      const a = new URL(abs);
+      const want = new URL(dflt);
+      if(a.origin === want.origin){
+        // must contain the same path prefix up to /herohealth/
+        if(a.pathname.indexOf('/herohealth/') >= 0 && want.pathname.indexOf('/herohealth/') >= 0){
+          const ap = a.pathname.split('/herohealth/')[0];
+          const wp = want.pathname.split('/herohealth/')[0];
+          if(ap !== wp) return dflt;
+        }
+      }
+    }catch(_){}
+    return abs;
+  }
+
+  const HUB = sanitizeHub(q('hub',''));
+
+  // ---------- DOM ----------
   const $ = (s)=>document.querySelector(s);
 
   const modePill = $('#modePill');
@@ -566,40 +490,23 @@ Requires:
   const qMini  = $('#qMini');
   const qMiniTime = $('#qMiniTime');
 
-  const coachFace = $('#coachFace');
-  const coachTxt  = $('#coachTxt');
-  const coachSub  = $('#coachSub');
-
   const coachToast = $('#coachToast');
   const toastFace = $('#toastFace');
   const toastTxt  = $('#toastTxt');
   const toastSub  = $('#toastSub');
 
-  const buffPill = $('#buffPill');
-  const buffText = $('#buffText');
-
   const dirPill = $('#dirPill');
   const dirText = $('#dirText');
 
   const endOverlay = $('#endOverlay');
-  const endTitle = $('#endTitle');
   const endSub = $('#endSub');
   const savedTag = $('#savedTag');
   const endSummary = $('#endSummary');
   const endBuff = $('#endBuff');
 
-  const practiceOverlay = $('#practiceOverlay');
-  const practiceTag = $('#practiceTag');
-  const practiceHint = $('#practiceHint');
-  const btnSkipPractice = $('#btnSkipPractice');
-  const btnStartPractice = $('#btnStartPractice');
-
-  const calibOverlay = $('#calibOverlay');
-  const strictTag = $('#strictTag');
-  const btnFS = $('#btnFS');
-  const btnLand = $('#btnLand');
-  const btnRecenter = $('#btnRecenter');
-  const btnCloseCalib = $('#btnCloseCalib');
+  const sparkLayer = $('#sparkLayer');
+  const playLayer  = $('#playLayer');
+  const stageEl    = $('#stage');
 
   $('#btnBack').addEventListener('click', ()=>goHub(true));
   $('#btnRestart').addEventListener('click', ()=>restart());
@@ -611,64 +518,13 @@ Requires:
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
-  const BUFF = parseBuffFromQS(BUFF_QS);
-
-  function num(v){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  function calcRankFromPct(pct){
-    pct = Number(pct)||0;
-    if(pct >= 92) return 'S';
-    if(pct >= 78) return 'A';
-    if(pct >= 62) return 'B';
-    if(pct >= 45) return 'C';
-    return 'D';
-  }
-  function parseBuffFromQS(o){
-    const hasAny = Object.keys(o).some(k => String(o[k]||'').trim() !== '');
-    if(!hasAny) return null;
-
-    const b = {
-      wType: String(o.wType||'').toLowerCase(),
-      wPct:  num(o.wPct),
-      rank:  String(o.rank||'').toUpperCase(),
-      wCrit: num(o.wCrit),
-      wDmg:  num(o.wDmg),
-      wHeal: num(o.wHeal),
-      calm:  num(o.calm),
-      raw: {...o}
-    };
-    if(!b.rank && b.wPct != null) b.rank = calcRankFromPct(b.wPct);
-    return b;
-  }
-
-  function renderBuffPill(){
-    if(!BUFF){ buffPill.style.display = 'none'; return; }
-    const isResearch = (RUN === 'research');
-    const label = isResearch
-      ? `LOCKED (research) · ${BUFF.wType||'buff'} ${BUFF.rank||''}`.trim()
-      : `${BUFF.wType||'buff'} · Rank ${BUFF.rank||'-'} · ${BUFF.wPct!=null ? Math.round(BUFF.wPct)+'%' : ''}`.trim();
-
-    buffText.textContent = label;
-    buffPill.style.display = '';
-  }
-  renderBuffPill();
-
   modePill.textContent = (RUN||'play').toUpperCase();
   diffPill.textContent = DIFF;
   hudView.textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
   hudSeed.textContent = String(SEED).slice(0,16);
   hudTime.textContent = TIME + 's';
 
-  function lockPxForView(){
-    if(VIEW === 'pc') return 10;
-    if(VIEW === 'cvr') return 22;
-    return 16;
-  }
-
-  let lastSummary = null;
-
+  // ---------- Coach toast ----------
   function faceFromMood(mood){
     return (
       mood === 'happy' ? '😄' :
@@ -677,30 +533,23 @@ Requires:
       mood === 'neutral' ? '🙂' : '🙂'
     );
   }
-
-  let toastTimer = null;
+  let toastTimer=null;
   function showToast(text, mood){
     if(!coachToast) return;
-    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
-
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer=null; }
     toastTxt.textContent = text || '';
     toastSub.textContent = mood ? String(mood) : 'coach';
     toastFace.textContent = faceFromMood(mood);
-
     coachToast.classList.add('show');
-    toastTimer = setTimeout(()=>{ coachToast.classList.remove('show'); }, 2600);
+    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
   }
 
-  function setCoach(text, mood){
-    coachTxt.textContent = text || '';
-    coachSub.textContent = mood ? String(mood) : 'coach';
-    coachFace.textContent = faceFromMood(mood);
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.text) showToast(d.text, d.mood || 'neutral');
+  });
 
-    if(VIEW === 'mobile'){
-      showToast(text, mood || 'neutral');
-    }
-  }
-
+  // ---------- HUD events ----------
   window.addEventListener('hha:time', (ev)=>{
     const left = ev?.detail?.left;
     if(typeof left === 'number') hudTime.textContent = left + 's';
@@ -753,11 +602,6 @@ Requires:
     if(d.name) groupName.textContent = d.name;
   });
 
-  window.addEventListener('hha:coach', (ev)=>{
-    const d = ev?.detail || {};
-    if(d.text) setCoach(d.text, d.mood || 'neutral');
-  });
-
   window.addEventListener('groups:director', (ev)=>{
     const d = ev?.detail || {};
     if(!d.text){ dirPill.style.display='none'; return; }
@@ -765,259 +609,159 @@ Requires:
     dirPill.style.display = '';
   });
 
+  // ---------- Spark / trace (hha:shoot) ----------
+  function sparkFromTo(x1,y1,x2,y2){
+    if(!sparkLayer) return;
+    const r = stageEl.getBoundingClientRect();
+    const sx1 = x1 - r.left, sy1 = y1 - r.top;
+    const sx2 = x2 - r.left, sy2 = y2 - r.top;
+
+    const dx = sx2 - sx1;
+    const dy = sy2 - sy1;
+    const len = Math.max(8, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx) * 180/Math.PI;
+
+    const el = document.createElement('div');
+    el.className = 'spark';
+    el.style.left = sx1 + 'px';
+    el.style.top  = sy1 + 'px';
+    el.style.width = len + 'px';
+    el.style.transform = `rotate(${ang}deg)`;
+    sparkLayer.appendChild(el);
+
+    requestAnimationFrame(()=>{ el.style.opacity = '1'; });
+    setTimeout(()=>{ try{ el.style.opacity='0'; }catch(_){ } }, 120);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 420);
+  }
+
+  function centerPoint(){
+    const r = stageEl.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+
+  window.addEventListener('hha:shoot', (ev)=>{
+    const d = ev?.detail || {};
+    const p0 = centerPoint();
+    const x = Number(d.x), y = Number(d.y);
+    const hasXY = Number.isFinite(x) && Number.isFinite(y);
+    const p1 = hasXY ? { x, y } : p0;
+    // short spark (center -> point)
+    sparkFromTo(p0.x, p0.y, p1.x, p1.y);
+  }, true);
+
+  // ---------- Spawn Safe Rect (LOCAL coords) ----------
+  function updateSpawnSafe(){
+    try{
+      const pr = playLayer.getBoundingClientRect();
+      // local coords for engine: 0..width/height
+      // topSafe/botSafe derive from CSS vars; we compute approximations here
+      const topSafe = (VIEW === 'pc') ? 120 : 130;
+      const botSafe = (VIEW === 'cvr') ? 190 : 150;
+
+      // keep some side padding too
+      const pad = 14;
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad+1, pr.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe+1, pr.height - botSafe),
+      };
+    }catch(_){}
+  }
+  window.addEventListener('resize', ()=>updateSpawnSafe(), { passive:true });
+  setTimeout(updateSpawnSafe, 60);
+  setTimeout(updateSpawnSafe, 260);
+
+  // ---------- End summary ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
   function readJSON(key, fallback){
-    try{
-      const s = localStorage.getItem(key);
-      return s ? JSON.parse(s) : fallback;
-    }catch(_){ return fallback; }
+    try{ const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
+    catch(_){ return fallback; }
   }
   function writeJSON(key, val){
     try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
     catch(_){ return false; }
   }
-  function saveLastSummary(summary, buff, meta){
+  function saveLastSummary(summary, meta){
     try{
-      const payload = {
-        atISO: new Date().toISOString(),
-        game: 'groups',
-        meta: meta || {},
-        buff: buff || null,
-        summary: summary || null
-      };
+      const payload = { atISO:new Date().toISOString(), game:'groups', meta: meta||{}, summary: summary||null };
       const ok1 = writeJSON(LS_LAST, payload);
       const hist = readJSON(LS_HIST, []);
       hist.unshift(payload);
       const ok2 = writeJSON(LS_HIST, hist.slice(0, 40));
       return !!(ok1 && ok2);
-    }catch(_){
-      return false;
-    }
+    }catch(_){ return false; }
   }
 
-  function showEnd(summary, buff, saved){
-    endTitle.textContent = 'RESULT';
+  function showEnd(summary, saved){
     endSub.textContent = `grade=${summary?.grade || '-'} · acc=${summary?.accuracyPct ?? '-'}% · miss=${summary?.miss ?? '-'}`;
     endSummary.textContent = JSON.stringify(summary || {}, null, 2);
-
-    const showBuff = buff ? {
-      ...buff,
-      note: (RUN === 'research') ? 'LOCKED (research — no effect)' : 'ACTIVE (play/practice)'
-    } : { note: 'no buff' };
-
-    endBuff.textContent = JSON.stringify(showBuff, null, 2);
+    endBuff.textContent = JSON.stringify({ note:'buff handled by gate/run params if used' }, null, 2);
     savedTag.textContent = saved ? 'yes' : 'no';
     endOverlay.style.display = 'flex';
   }
   function hideEnd(){ endOverlay.style.display = 'none'; }
 
-  let inPractice = false;
-
+  let lastSummary = null;
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
     lastSummary = s;
-
-    if (inPractice){
-      inPractice = false;
-      setCoach('ซ้อมครบแล้ว! เข้าเกมจริง 🔥', 'happy');
-      setTimeout(()=>startRealRun(), 350);
-      return;
-    }
-
-    const saved = saveLastSummary(s, BUFF, {
-      view: VIEW, run: RUN, diff: DIFF, time: TIME, seed: SEED,
-      cvrStrict: CVR_STRICT ? 1 : 0
-    });
-    showEnd(s, BUFF, saved);
+    const saved = saveLastSummary(s, { view:VIEW, run:RUN, diff:DIFF, time:TIME, seed:SEED, cvrStrict: CVR_STRICT ? 1 : 0 });
+    showEnd(s, saved);
   });
 
-  function flushAll(summary){
-    try{
-      const T = window.GroupsVR && window.GroupsVR.Telemetry;
-      if(T && typeof T.flush === 'function'){
-        T.flush(summary || lastSummary || null);
-      }
-    }catch(_){}
-  }
-
-  // guard: don't bind multiple leave listeners on restart
-  let flushBound = false;
-  function bindFlush(){
-    if(flushBound) return;
-    flushBound = true;
-
-    try{
-      if(window.GroupsVR && typeof window.GroupsVR.bindFlushOnLeave === 'function'){
-        window.GroupsVR.bindFlushOnLeave(()=>lastSummary || null);
-      }
-    }catch(_){}
-
-    window.addEventListener('pagehide', ()=>flushAll(), { passive:true });
-    window.addEventListener('beforeunload', ()=>flushAll(), { passive:true });
-    document.addEventListener('visibilitychange', ()=>{
-      if(document.visibilityState === 'hidden') flushAll();
-    });
-  }
-
-  async function requestFullscreen(){
-    const el = document.documentElement;
-    try{
-      if(el.requestFullscreen) await el.requestFullscreen();
-      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    }catch(_){}
-  }
-  async function lockLandscape(){
-    try{
-      if(screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock('landscape');
-      }
-    }catch(_){}
-  }
-
-  function showCalib(){
-    strictTag.textContent = CVR_STRICT ? 'ON' : 'OFF';
-    calibOverlay.style.display = 'flex';
-  }
-  function hideCalib(){ calibOverlay.style.display = 'none'; }
-
-  btnFS.addEventListener('click', ()=>requestFullscreen());
-  btnLand.addEventListener('click', ()=>lockLandscape());
-  btnRecenter.addEventListener('click', ()=>{
-    try{ window.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'calib' } })); }catch(_){}
-    setCoach('Recenter แล้ว ✅', 'neutral');
-  });
-  btnCloseCalib.addEventListener('click', ()=>hideCalib());
-
-  function showPractice(){
-    practiceTag.textContent = PRACTICE_ON ? 'ON' : 'OFF';
-    practiceHint.textContent = (VIEW==='cvr')
-      ? 'แตะจอเพื่อยิงจาก crosshair (อย่ารัว) แล้วลองเก็บคอมโบ'
-      : 'แตะ/คลิกยิง แล้วลองเก็บคอมโบ';
-    practiceOverlay.style.display = 'flex';
-  }
-  function hidePractice(){ practiceOverlay.style.display = 'none'; }
-
-  btnSkipPractice.addEventListener('click', ()=>{
-    hidePractice();
-    startRealRun();
-  });
-  btnStartPractice.addEventListener('click', ()=>{
-    hidePractice();
-    startPracticeRun();
-  });
-
-  function buildCtx(runMode, timeSec, seedStr){
-    const ctx = { runMode: runMode, time: timeSec, seed: seedStr };
-    if(BUFF){
-      ctx.buff = { ...BUFF };
-      ctx.buffLocked = (RUN === 'research');
-      if(RUN !== 'research') ctx.buffActive = true;
-    }
-    return ctx;
-  }
-
+  // ---------- Boot engine ----------
   function stop(){
-    try{ window.GroupsVR.GameEngine.stop(); }catch(_){}
-    flushAll(lastSummary || null);
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
   }
-
   function restart(){
     hideEnd();
     stop();
-    setTimeout(()=>bootFlow(), 40);
+    setTimeout(()=>boot(), 60);
   }
-
   function goHub(flushFirst){
-    if(flushFirst) flushAll(lastSummary || null);
+    if(flushFirst){
+      try{ window.GroupsVR?.Telemetry?.flush?.(lastSummary || null); }catch(_){}
+    }
     stop();
-    try{ location.href = HUB; }
-    catch(_){ location.href = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'; }
+    location.href = HUB;
   }
 
-  // lockPx shim (for hha:shoot)
-  function installLockPxShim(){
-    window.addEventListener('hha:shoot', (ev)=>{
-      try{
-        if(!ev || !ev.detail) return;
-        if(ev.detail.lockPx != null) return;
-        const d = ev.detail;
-        ev.stopImmediatePropagation();
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
-        }));
-      }catch(_){}
-    }, true);
-  }
+  function boot(){
+    updateSpawnSafe();
 
-  // ✅ wait layer to avoid Missing layer element
-  function waitForLayerEl(id, ms=1200){
-    return new Promise((resolve)=>{
-      const t0 = Date.now();
-      const tick = ()=>{
-        const el = document.getElementById(id);
-        if(el && el.offsetWidth > 0 && el.offsetHeight > 0) return resolve(el);
-        if(Date.now() - t0 > ms) return resolve(el || null);
-        requestAnimationFrame(tick);
-      };
-      tick();
-    });
-  }
-
-  async function startEngine(runMode, timeSec, seedStr){
-    const layer = await waitForLayerEl('playLayer', 1400);
-    try{ window.GroupsVR.GameEngine.setLayerEl(layer || document.getElementById('playLayer')); }catch(_){}
-    try{
-      const ctx = buildCtx(runMode, timeSec, seedStr);
-      window.GroupsVR.GameEngine.start(DIFF, ctx);
-      bindFlush();
-    }catch(e){
-      console.error(e);
-      setCoach('เริ่มเกมไม่สำเร็จ — เปิด console ดู error', 'sad');
-    }
-  }
-
-  function startPracticeRun(){
-    inPractice = true;
-    setCoach('PRACTICE 15s — ซ้อมก่อนเข้าเกมจริง 🧪', 'neutral');
-    const pSeed = String(SEED) + '-p15';
-    startEngine('practice', 15, pSeed);
-  }
-
-  function startRealRun(){
-    inPractice = false;
-
-    renderBuffPill();
-    if(BUFF && RUN !== 'research'){
-      setCoach(`BUFF ACTIVE: ${BUFF.wType||'warmup'} · Rank ${BUFF.rank||'-'}`, 'happy');
-    } else if(BUFF && RUN === 'research'){
-      setCoach(`BUFF LOCKED (research) · แสดงเพื่อบันทึกเท่านั้น`, 'neutral');
-    } else {
-      setCoach('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
-    }
-
-    startEngine(RUN, TIME, SEED);
-  }
-
-  function bootFlow(){
-    installLockPxShim();
-
-    if(VIEW === 'cvr'){
-      setCoach('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
-      coachSub.textContent = CVR_STRICT ? 'STRICT: ยิงจาก crosshair เท่านั้น' : 'แตะ/ยิงได้ทั้ง crosshair และแตะเป้า';
-      showCalib();
-    }
-
-    if(PRACTICE_ON){
-      showPractice();
+    if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
+      showToast('groups.safe.js โหลดไม่สำเร็จ (ดู Console)', 'sad');
       return;
     }
 
-    startRealRun();
+    try{ window.GroupsVR.GameEngine.setLayerEl(playLayer); }catch(_){}
+
+    // context (classroom boss enabled by default in play)
+    const ctx = {
+      runMode: (RUN === 'research') ? 'research' : (RUN === 'practice') ? 'practice' : 'play',
+      time: TIME,
+      seed: SEED,
+      view: VIEW,
+      classroom: (RUN !== 'practice'),
+      miniBoss: (RUN !== 'practice'),
+      bossSec: 12,
+      // tweak goals/power if you want:
+      goalTotal: (DIFF === 'easy') ? 10 : (DIFF === 'hard') ? 14 : 12,
+      chargeNeed: (DIFF === 'easy') ? 7 : (DIFF === 'hard') ? 9 : 8,
+    };
+
+    showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    try{
+      window.GroupsVR.GameEngine.start(DIFF, ctx);
+    }catch(e){
+      console.error(e);
+      showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
+    }
   }
 
-  bootFlow();
+  boot();
 })();
 </script>
 </body>
