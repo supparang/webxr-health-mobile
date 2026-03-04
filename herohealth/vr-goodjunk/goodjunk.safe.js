@@ -1,16 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + hha:shoot + deterministic + end-event hardened + HUD-safe spawn)
-// + ✅ Help Pause Hook (__GJ_SET_PAUSED__) for always-on Help overlay
-// + ✅ End Summary: show "Go Cooldown (daily-first per-game)" button when needed
-// + ✅ AI Hooks wired (spawn/hit/expire/tick/end) — prediction only (NO adaptive)
-// + ✅ AI HUD: hazardRisk + next watchout
-// + ✅ ACC + median RT: shots/hits/accPct + medianRtGoodMs (GOOD hit only) for tie-break
-// + ✅ hha:score event: score/miss/acc/medianRT/combos/fever/shield
-// + ✅ Battle RTDB (optional, only ?battle=1): sync hha:score + decide winner by score→acc→miss→medianRT
-// + ✅ SOLO: Dual-WIN (Score OR GoodCount) + 3-Stage (Warm→Trick→Boss) + PRO switch (?pro=1 on hard)
-// + ✅ RACE READY: wait-start (?wait=1) + __GJ_START_NOW__ hook for synchronized start
-// + ✅ FIX: no missing functions/vars (prevents black screen)
-// FULL v20260304-SOLO-DUALWIN-3STAGE-PRO-RACEWAIT-FIXBLACK
+// GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + race wait + battle-start hook)
+// + ✅ Easy/Normal/Hard via ?diff=easy|normal|hard
+// + ✅ PRO switch: ?diff=hard&pro=1  (hard++)
+// + ✅ Mission panel: Warm → Trick → Boss (ชัดมากขึ้น)
+// + ✅ AI Coach explain realtime (rate-limit + top2 factors ระหว่างเล่น)
+// + ✅ RACE READY: ?wait=1 + __GJ_START_NOW__
+// + ✅ Battle-start hook: listens to hha:battle-state -> start when playing
+// FULL v20260304f-SOLO-MISSIONPANEL-PRO-COACHRT-RACEWAIT-BATTLESTART
 'use strict';
 
 export function boot(cfg){
@@ -138,7 +134,7 @@ export function boot(cfg){
     row.appendChild(btn);
   }
 
-  // ---------- deterministic RNG (xmur3 + sfc32) ----------
+  // ---------- deterministic RNG ----------
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -191,16 +187,18 @@ export function boot(cfg){
     aiHint: $('aiHint'),
   };
 
-  const feverFill = $('feverFill');
   const feverText = $('feverText');
   const shieldPills = $('shieldPills');
+
   const bossBar = $('bossBar');
   const bossFill = $('bossFill');
   const bossHint = $('bossHint');
-  const lowTimeOverlay = $('lowTimeOverlay');
-  const lowTimeNum = $('gj-lowtime-num');
-  const progressWrap = DOC.querySelector('.gj-progress');
-  const progressFill = $('gjProgressFill');
+
+  // Mission Panel
+  const missionTitle = $('missionTitle');
+  const missionGoal  = $('missionGoal');
+  const missionHint  = $('missionHint');
+  const missionFill  = $('missionFill');
 
   const endOverlay = $('endOverlay');
   const endTitle = $('endTitle');
@@ -242,6 +240,7 @@ export function boot(cfg){
   // ---------- SOLO WIN targets + PRO switch ----------
   let goodCount = 0;
   let stage = 0; // 0=Warm, 1=Trick, 2=Boss
+  const STAGE_NAME = ['WARM', 'TRICK', 'BOSS'];
 
   const WIN_TARGET = (function(){
     let scoreTarget = 650;
@@ -256,7 +255,7 @@ export function boot(cfg){
 
   function bossShieldBase(){
     if(diff==='easy') return 4;
-    if(diff==='hard') return PRO ? 7 : 6; // PRO = หนาขึ้นนิด แต่ยังแฟร์
+    if(diff==='hard') return PRO ? 7 : 6;
     return 5;
   }
 
@@ -291,7 +290,6 @@ export function boot(cfg){
     }
 
     if(PRO){
-      // PRO: โหดขึ้นนิดแบบแฟร์ (ไม่พังสมดุล)
       spawnBase *= 1.08;
       ttlGood   -= 0.10;
       ttlJunk   -= 0.08;
@@ -391,7 +389,7 @@ export function boot(cfg){
     }
   }
 
-  // ---------- Coach ----------
+  // ---------- Coach (rate-limited) ----------
   const coach = DOC.createElement('div');
   coach.style.position = 'fixed';
   coach.style.left = '10px';
@@ -422,6 +420,7 @@ export function boot(cfg){
 
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
+  let lastExplain = '';
 
   function sayCoach(msg){
     const t = nowMs();
@@ -472,30 +471,27 @@ export function boot(cfg){
     try{ lastTick = nowMs(); }catch(e){}
   };
 
-  // NEW: Race controller uses this to start now
   WIN.__GJ_START_NOW__ = function(){
     try{
       paused = false;
       lastTick = nowMs();
+      sayCoach('GO! 🔥');
     }catch(e){}
   };
 
-  // FIX: missing vars (prevents crash)
-  let junkStreak = 0;
-  let missStreak = 0;
+  // Battle-start hook (ถ้า battle-rtdb emit state)
+  WIN.addEventListener('hha:battle-state', (ev)=>{
+    try{
+      const st = ev?.detail?.status || '';
+      if(st === 'playing' || st === 'PLAYING'){
+        if(paused) WIN.__GJ_START_NOW__?.();
+      }
+    }catch(e){}
+  });
 
-  // “PRO fairness” power windows (keep light, deterministic)
-  const power = {
-    slowmoLeft: 0 // after a junk hit in PRO -> brief slow to recover
-  };
+  // “PRO fairness” power windows
+  const power = { slowmoLeft: 0 };
 
-  function stageToCoachLine(){
-    if(stage===0) return 'WARM: เก็บของดีให้ติดมือ 🥦🍎';
-    if(stage===1) return 'TRICK: ของเสียมาเยอะขึ้น ระวัง 🍔🍟';
-    return 'BOSS: แตกโล่ 🛡️ ก่อน แล้วค่อยยิง 🎯';
-  }
-  function setMissionHUD(){ /* ใช้ HUD เดิมใน setHUD() */ }
-  function updateMission(_dt){ /* สำรองไว้ต่อยอด */ }
   function updatePower(dt){
     if(power.slowmoLeft > 0) power.slowmoLeft = Math.max(0, power.slowmoLeft - dt);
   }
@@ -622,6 +618,45 @@ export function boot(cfg){
     }catch(e){}
   }
 
+  // -------- Mission logic (ชัดรายช่วง) --------
+  const stageMeta = {
+    0: { title:'WARM (ช่วง 1/3)',  hint:'เก็บของดีให้ติดมือ 🥦🍎', goal:()=>`เก็บของดี 10 ชิ้น (หรือ +150 คะแนน)`,  goodNeed:10, scoreNeed:150 },
+    1: { title:'TRICK (ช่วง 2/3)', hint:'ของเสียมาเยอะขึ้น ระวัง 🍔🍟', goal:()=>`เพิ่มของดี +15 (หรือ +250 คะแนน)`, goodNeed:15, scoreNeed:250 },
+    2: { title:'BOSS (ช่วง 3/3)',  hint:'บอสมา! แตกโล่ 🛡️ แล้วค่อยยิง 🎯', goal:()=>`โค่นบอส หรือชนะตามเป้ารวม`, goodNeed:0, scoreNeed:0 },
+  };
+  let stageGoodStart = 0;
+  let stageScoreStart = 0;
+
+  function setStage(newStage){
+    if(newStage === stage) return;
+    stage = newStage;
+    stageGoodStart = goodCount;
+    stageScoreStart = score;
+    sayCoach(stageMeta[stage]?.hint || 'ไปต่อ!');
+    renderMissionPanel();
+  }
+
+  function stageProgress(){
+    const meta = stageMeta[stage] || stageMeta[0];
+    if(stage===2){
+      if(bossActive && bossHpMax>0) return clamp(1 - (bossHp/bossHpMax), 0, 1);
+      return clamp(Math.max(score/WIN_TARGET.scoreTarget, goodCount/WIN_TARGET.goodTarget), 0, 1);
+    }
+    const g = meta.goodNeed>0 ? (goodCount - stageGoodStart)/meta.goodNeed : 0;
+    const s = meta.scoreNeed>0 ? (score - stageScoreStart)/meta.scoreNeed : 0;
+    return clamp(Math.max(g,s), 0, 1);
+  }
+
+  function renderMissionPanel(){
+    try{
+      const meta = stageMeta[stage] || stageMeta[0];
+      if(missionTitle) missionTitle.textContent = `${meta.title}${PRO?' • PRO':''}`;
+      if(missionGoal)  missionGoal.textContent  = meta.goal();
+      if(missionHint)  missionHint.textContent  = meta.hint;
+      if(missionFill)  missionFill.style.width  = `${Math.round(stageProgress()*100)}%`;
+    }catch(e){}
+  }
+
   function setHUD(){
     if(hud.score) hud.score.textContent = String(score|0);
     if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
@@ -631,12 +666,11 @@ export function boot(cfg){
     if(hud.goal) hud.goal.textContent = PRO ? 'WIN (PRO)' : 'WIN';
     if(hud.goalCur) hud.goalCur.textContent = `${score|0} / ${WIN_TARGET.scoreTarget}`;
     if(hud.goalTarget) hud.goalTarget.textContent = `${goodCount|0} / ${WIN_TARGET.goodTarget}`;
-    if(hud.goalDesc) hud.goalDesc.textContent = (stage===0?'Warm':(stage===1?'Trick':'Boss'));
+    if(hud.goalDesc) hud.goalDesc.textContent = STAGE_NAME[stage] || '—';
 
     if(hud.mini) hud.mini.textContent = mini.name;
     if(hud.miniTimer) hud.miniTimer.textContent = mini.t>0 ? `${Math.ceil(mini.t)}s` : '—';
 
-    if(feverFill) feverFill.style.width = `${clamp(fever,0,100)}%`;
     if(feverText) feverText.textContent = `${Math.round(clamp(fever,0,100))}%`;
 
     if(shieldPills){
@@ -658,21 +692,7 @@ export function boot(cfg){
       }
     }
 
-    if(progressWrap && progressFill){
-      const p = (plannedSec>0) ? (1 - (tLeft/plannedSec)) : 0;
-      progressWrap.setAttribute('aria-hidden','false');
-      progressFill.style.width = `${clamp(p*100,0,100)}%`;
-    }
-
-    if(lowTimeOverlay){
-      if(tLeft <= 5 && tLeft > 0){
-        lowTimeOverlay.setAttribute('aria-hidden','false');
-        if(lowTimeNum) lowTimeNum.textContent = String(Math.ceil(tLeft));
-      }else{
-        lowTimeOverlay.setAttribute('aria-hidden','true');
-      }
-    }
-
+    renderMissionPanel();
     emitScoreEvent();
   }
 
@@ -696,7 +716,7 @@ export function boot(cfg){
       gameKey: HH_GAME,
       pid,
       zone: HH_CAT,
-      gameVersion: 'GoodJunkVR_SAFE_2026-03-04_SOLO_DUALWIN_3STAGE_PRO_RACEWAIT_FIXBLACK',
+      gameVersion: 'GoodJunkVR_SAFE_2026-03-04f_SOLO_MISSIONPANEL_PRO_COACHRT_RACEWAIT_BATTLESTART',
       device: view,
       runMode: runMode,
       diff: diff,
@@ -721,7 +741,6 @@ export function boot(cfg){
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score),
-      tieBreakOrder: 'score→acc→miss→medianRT',
 
       mode,
       pro: !!PRO,
@@ -769,11 +788,11 @@ export function boot(cfg){
 
     const acc = accPct();
     const rMsg = coachTop2(missGoodExpired, missJunkHit, shots, acc);
-    if(summary.reason==='win'){
-      sayCoach(rMsg ? `เก่งมาก! ${rMsg}` : 'เก่งมาก! ผ่านแล้ว 🎉');
-    }else{
-      sayCoach(rMsg ? `ลองใหม่! ${rMsg}` : 'ลองใหม่! โฟกัส “ของดี” ก่อนนะ');
-    }
+    sayCoach(summary.reason==='win'
+      ? (rMsg ? `เก่งมาก! ${rMsg}` : 'เก่งมาก! ผ่านแล้ว 🎉')
+      : (rMsg ? `ลองใหม่! ${rMsg}` : 'ลองใหม่! โฟกัส “ของดี” ก่อนนะ')
+    );
+
     setHUD();
   }
 
@@ -855,10 +874,6 @@ export function boot(cfg){
     fxBurst(clientX, clientY);
     fxFloatText(clientX, clientY-10, `+${add}`, false);
 
-    if(combo===5) sayCoach('คอมโบเริ่มมาแล้ว! 🔥');
-    if(rt <= 520 && combo>=3) sayCoach('ดี! รีแอคไวมาก');
-
-    // PRO: reward combo a tiny bit (morale + fairness) without changing meta too much
     if(PRO && combo>0 && combo%7===0){
       shield = clamp(shield + 1, 0, 9);
       fxFloatText(clientX, clientY-28, '+BONUS 🛡️', false);
@@ -884,22 +899,23 @@ export function boot(cfg){
     missJunkHit++;
     combo = 0;
 
-    junkStreak++;
-    missStreak++;
-
-    // PRO: brief recovery window (slowmo) after real mistake — FAIR
-    if(PRO){
-      power.slowmoLeft = Math.max(power.slowmoLeft, 1.3);
-    }
+    if(PRO) power.slowmoLeft = Math.max(power.slowmoLeft, 1.3);
 
     const sub = 8;
     score = Math.max(0, score - sub);
 
     fxFloatText(clientX, clientY-10, `-${sub}`, true);
+
+    // realtime explain
+    const acc = accPct();
+    const rMsg = coachTop2(missGoodExpired, missJunkHit, shots, acc);
+    if(rMsg && rMsg !== lastExplain){
+      lastExplain = rMsg;
+      sayCoach(rMsg);
+    }
+
     try{ AI?.onHit?.(t.kind, { id:t.id }); }catch(e){}
     removeTarget(t.id);
-
-    if(missTotal===3) sayCoach('ระวังของเสีย! เห็น 🍔🍟 แล้วเลี่ยง');
   }
 
   function onHitBonus(t, clientX, clientY){
@@ -961,6 +977,7 @@ export function boot(cfg){
       bossActive = false;
       score += 120;
       addFever(40);
+      renderMissionPanel();
     }
   }
 
@@ -1024,29 +1041,32 @@ export function boot(cfg){
   });
 
   let spawnAcc = 0;
+
   function spawnTick(dt){
     stormOn = (tLeft <= Math.min(40, plannedSec*0.45));
     const mult = stormOn ? TUNE.stormMult : 1.0;
     const base = TUNE.spawnBase * mult;
     const rageBoost = rageOn ? 1.18 : 1.0;
 
-    // Stage transitions by progress (Dual-WIN)
-    if(stage===0 && (goodCount >= Math.round(WIN_TARGET.goodTarget*0.25) || score >= Math.round(WIN_TARGET.scoreTarget*0.22))){
-      stage = 1;
-      sayCoach('เข้าสู่ TRICK! ของเสียมาเยอะขึ้น ระวัง 🍔🍟');
-    }
-    if(stage===1 && (goodCount >= Math.round(WIN_TARGET.goodTarget*0.62) || score >= Math.round(WIN_TARGET.scoreTarget*0.62))){
-      stage = 2;
-      sayCoach('เตรียมบอส! ยิงโล่ 🛡️ ให้แตกก่อน');
+    // stage transitions (ชัด)
+    if(stage===0){
+      const meta = stageMeta[0];
+      if((goodCount - stageGoodStart) >= meta.goodNeed || (score - stageScoreStart) >= meta.scoreNeed){
+        setStage(1);
+      }
+    }else if(stage===1){
+      const meta = stageMeta[1];
+      if((goodCount - stageGoodStart) >= meta.goodNeed || (score - stageScoreStart) >= meta.scoreNeed){
+        setStage(2);
+      }
     }
 
-    // Stage distribution
+    // spawn distribution by stage
     let pGood=0.70, pJunk=0.22, pBonus=0.06, pShield=0.02;
     if(stage===0){ pGood=0.78; pJunk=0.16; pBonus=0.04; pShield=0.02; }
     if(stage===1){ pGood=0.62; pJunk=0.28; pBonus=0.07; pShield=0.03; }
     if(stage===2){ pGood=0.58; pJunk=0.30; pBonus=0.08; pShield=0.04; }
 
-    // PRO: slightly tougher in stage2, but still fair
     if(PRO && stage===2){
       pGood = 0.56;
       pJunk = 0.32;
@@ -1064,7 +1084,7 @@ export function boot(cfg){
         bossHpMax = TUNE.bossHp;
         bossHp = bossHpMax;
         bossPhase = 0;
-        bossShieldHp = bossShieldBase(); // FIX: tied to diff/PRO
+        bossShieldHp = bossShieldBase();
         sayCoach('บอสมาแล้ว! แตกโล่ 🛡️ ก่อน');
       }
 
@@ -1089,7 +1109,6 @@ export function boot(cfg){
       else if(kind==='shield') makeTarget('shield', rPick(SHIELDS), 2.6);
       else if(kind==='boss'){
         const emo = (bossPhase===0) ? BOSS_SHIELD : WEAK;
-        // PRO: weakspot appears a bit quicker in phase1 (more “เดือด” แต่แฟร์)
         const ttl = (PRO && bossPhase===1) ? 1.95 : 2.2;
         makeTarget('boss', emo, ttl);
       }
@@ -1105,8 +1124,7 @@ export function boot(cfg){
       const age = tNow - t.born;
       const p = age / t.ttl;
 
-      const dx = t.drift * dt;
-      t.x += dx;
+      t.x += t.drift * dt;
 
       const xMin = safe.xMin + rPad;
       const xMax = safe.xMax - rPad;
@@ -1130,7 +1148,12 @@ export function boot(cfg){
           const r = t.el.getBoundingClientRect();
           fxFloatText(r.left+r.width/2, r.top+r.height/2, 'MISS', true);
 
-          if(missTotal===1) sayCoach('ถ้าช้าไป ของดีจะหาย (นับ MISS) นะ');
+          const acc = accPct();
+          const rMsg = coachTop2(missGoodExpired, missJunkHit, shots, acc);
+          if(rMsg && rMsg !== lastExplain){
+            lastExplain = rMsg;
+            sayCoach(rMsg);
+          }
         }
         removeTarget(t.id);
       }
@@ -1175,7 +1198,7 @@ export function boot(cfg){
   function checkEnd(){
     if(tLeft <= 0){ showEnd('time'); return true; }
     if(missTotal >= TUNE.lifeMissLimit){ showEnd('miss-limit'); return true; }
-    if(playing && (score >= WIN_TARGET.scoreTarget || goodCount >= WIN_TARGET.goodTarget)){
+    if(playing && (score >= WIN_TARGET.scoreTarget || goodCount >= WIN_TARGET.goodTarget || (stage===2 && !bossActive && bossHp<=0))){
       showEnd('win');
       return true;
     }
@@ -1196,10 +1219,7 @@ export function boot(cfg){
     let dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
     lastTick = t;
 
-    // PRO recovery: slow time briefly after real mistake (FAIR)
-    if(power.slowmoLeft > 0){
-      dt *= 0.70;
-    }
+    if(power.slowmoLeft > 0) dt *= 0.70;
 
     tLeft = Math.max(0, tLeft - dt);
 
@@ -1207,7 +1227,6 @@ export function boot(cfg){
     updateTargets(dt);
     updateRage(dt);
     updateMini(dt);
-    updateMission(dt);
     updatePower(dt);
 
     try{
@@ -1241,12 +1260,18 @@ export function boot(cfg){
   });
 
   try{ WIN[__HHA_END_SENT_KEY] = 0; }catch(e){}
-  setMissionHUD();
+
+  // init mission
+  stageGoodStart = 0;
+  stageScoreStart = 0;
+  renderMissionPanel();
+
   if(WAIT_START){
-    sayCoach('RACE: รอเริ่มพร้อมกัน… ⏳');
+    sayCoach(battleOn ? 'BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳' : 'RACE: รอเริ่มพร้อมกัน… ⏳');
   }else{
-    sayCoach((PRO ? 'โหมด PRO: เดือดขึ้นนิด แต่แฟร์! ' : '') + stageToCoachLine());
+    sayCoach((PRO ? 'โหมด PRO: เดือดขึ้นนิด แต่แฟร์! ' : '') + (stageMeta[stage]?.hint || 'เริ่มเลย!'));
   }
+
   setHUD();
   requestAnimationFrame(tick);
 }
