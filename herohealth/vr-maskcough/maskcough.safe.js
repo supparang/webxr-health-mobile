@@ -1,6 +1,6 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — PRODUCTION (A+B FUN NOW + PRO+ARCADE)
-// FULL v20260304a-MASKCOUGH-FUNPRO
+// MaskCough SAFE Engine — PRODUCTION (A+B FUN NOW + PRO+ARCADE + SFX)
+// FULL v20260304b-MASKCOUGH-FUNPRO-SFX
 'use strict';
 
 (function(){
@@ -18,7 +18,6 @@
   }
   function getQS(){ try{return new URL(location.href).searchParams;}catch(_){return new URLSearchParams();} }
   function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
-  const nowMs=()=> (performance && performance.now) ? performance.now() : Date.now();
 
   function getViewAuto(){
     const q=getQS();
@@ -113,7 +112,6 @@
   function shake(){
     if(!stageEl) return;
     stageEl.classList.remove('shake');
-    // reflow
     void stageEl.offsetWidth;
     stageEl.classList.add('shake');
   }
@@ -135,6 +133,71 @@
     DOC.body.classList.add('mc-freeze');
     clearTimeout(freeze._t);
     freeze._t = setTimeout(()=> DOC.body.classList.remove('mc-freeze'), (ms||180)+40);
+  }
+
+  // ===== Vibrate + Sound (WebAudio) =====
+  const FX = {
+    vibOn: String(qs('vib','1')) !== '0',     // ?vib=0 ปิด
+    sndOn: String(qs('snd','1')) !== '0',     // ?snd=0 ปิด
+  };
+  let __ac = null;
+
+  function vib(pattern){
+    try{
+      if(!FX.vibOn) return;
+      if(navigator && navigator.vibrate) navigator.vibrate(pattern);
+    }catch(_){}
+  }
+  function ensureAudio(){
+    if(!FX.sndOn) return null;
+    try{
+      if(__ac && __ac.state !== 'closed') return __ac;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      __ac = new AC();
+      return __ac;
+    }catch(_){ return null; }
+  }
+  function beep(freq, durMs, type='sine', gain=0.05){
+    const ac = ensureAudio();
+    if(!ac) return;
+    const t0 = ac.currentTime;
+
+    if(ac.state === 'suspended'){
+      ac.resume().catch(()=>{});
+    }
+
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + (durMs/1000));
+
+    o.connect(g);
+    g.connect(ac.destination);
+    o.start(t0);
+    o.stop(t0 + (durMs/1000) + 0.02);
+  }
+  function sfxPerfect(){
+    vib([20,20,30]);
+    beep(880, 70, 'triangle', 0.06);
+    setTimeout(()=>beep(1320, 90, 'triangle', 0.05), 60);
+  }
+  function sfxBoss(){
+    vib([35,25,35,25,55]);
+    beep(220, 120, 'sawtooth', 0.05);
+    setTimeout(()=>beep(180, 140, 'sawtooth', 0.04), 80);
+  }
+  function sfxBad(){
+    vib(50);
+    beep(140, 140, 'square', 0.035);
+  }
+  function sfxHit(){
+    vib(10);
+    beep(520, 35, 'sine', 0.03);
   }
 
   // Boss banner + crosshair hint
@@ -594,25 +657,21 @@
     if(tInt) tInt.textContent = (director.intensity||0).toFixed(2);
     if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
     if(tRisk) tRisk.textContent = (st.risk||0).toFixed(2);
-
     if(tThreat) tThreat.textContent = st.threat;
 
     if(tFocus) tFocus.textContent = String(Math.round(st.focus));
     if(bFocus) bFocus.style.width = `${clamp(st.focus,0,100)}%`;
 
-    // fever progress
     const fb = fun?.getState?.().feverCharge || 0;
     const th = fun?.cfg?.feverThreshold || 18;
     const pct = director.feverOn ? 100 : clamp((fb/th)*100, 0, 100);
     if(bFever) bFever.style.width = `${pct}%`;
     if(tFeverPct) tFeverPct.textContent = `${Math.round(pct)}%`;
 
-    // mode label
     if(tPro){
       tPro.textContent = (diff==='hard') ? 'PRO' : (diff==='easy') ? 'EASY' : 'NORMAL';
     }
 
-    // analyze panel
     if(tSafeHits) tSafeHits.textContent = String(st.safeHits);
     if(tRiskHits) tRiskHits.textContent = String(st.riskHits);
     if(tDangerHits) tDangerHits.textContent = String(st.dangerHits);
@@ -665,6 +724,7 @@
         toast('🌀 Trick Phase!');
         showPrompt('Trick: รอ 🤧 ให้ Perfect + ระวัง 🦠');
         logger.push({type:'stage', stage:2});
+        sfxBoss(); // little hype
       }
       if(st.stage===3){
         st.bossSweepOn = true;
@@ -673,6 +733,7 @@
         setBossBanner(true, `👿 BOSS SWEEP! Perfect ${st.bossSweepNeedPerfect} ครั้ง`);
         toast('👿 BOSS SWEEP!');
         shake();
+        sfxBoss();
         logger.push({type:'bossSweep:start', need: st.bossSweepNeedPerfect});
       }
     }
@@ -691,7 +752,7 @@
       st.shield = clamp(st.shield + 10, 0, 100);
       st.focus = clamp(st.focus + 8, 0, 100);
       toast('✅ Warm Mission PASS! +Bonus');
-      popScore(layerRect().width*0.5, layerRect().height*0.25, '+8', 'good');
+      sfxPerfect();
       logger.push({type:'mission:warm_end', pass:true});
     }
   }
@@ -702,6 +763,7 @@
       st.score += 10;
       st.focus = clamp(st.focus + 12, 0, 100);
       toast('✅ Trick Mission PASS! +Bonus');
+      sfxPerfect();
       logger.push({type:'mission:trick_end', pass:true});
     }
   }
@@ -713,20 +775,16 @@
 
     let wDroplet=0.58, wCough=0.24, wMask=0.18;
 
-    // intensity
     wCough += inten*0.16;
     wDroplet -= inten*0.10;
 
-    // stage effects
     if(st.stage===1){ wDroplet += 0.10; wCough -= 0.08; }
     if(st.stage===2){ wCough += 0.08; }
     if(st.stage===3){ wCough += 0.22; wDroplet -= 0.16; wMask += 0.06; }
 
-    // threat effects
     if(st.threat==='HIGH'){ wCough += 0.14; wMask += 0.06; wDroplet -= 0.12; }
     else if(st.threat==='MID'){ wCough += 0.06; wDroplet -= 0.05; }
 
-    // AI assist nudges (play only)
     wMask += ap.maskBonus;
     wCough -= ap.coughPenalty;
     wMask += (st.shield < 35 ? 0.10 : 0.00);
@@ -761,7 +819,6 @@
     const born=performance.now();
     const die=born+ttlMs;
 
-    // telegraph for cough/boss
     let armAtMs=0, perfectAtMs=0;
     if(kind==='cough' || kind==='boss'){
       armAtMs = die - Math.max(240, Math.round(ttlMs*0.30));
@@ -778,43 +835,7 @@
     }, {passive:false});
 
     layer.appendChild(el);
-
     logger.push({type:'spawn', kind, id, x:Math.round(x), y:Math.round(y), ttlMs:Math.round(ttlMs)});
-  }
-
-  function spawn(){
-    if(!st.running || st.over || st.paused) return;
-
-    const r=layerRect();
-    const pad=52;
-
-    const x = pad + rng() * Math.max(10,(r.width - pad*2));
-    const y = pad + rng() * Math.max(10,(r.height - pad*2));
-
-    const ap=ai.assistParams();
-
-    // PRO ramp: speed up slightly over time (play feel)
-    const ratio = clamp01(st.elapsedSec / Math.max(1, timeLimit));
-    const ramp = (diff==='hard') ? (1 - 0.16*ratio) : (diff==='normal') ? (1 - 0.10*ratio) : (1 - 0.06*ratio);
-
-    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost) * (diff==='hard' ? 0.98 : 1.0));
-
-    if(st.bossActive){
-      spawnAt('boss', x, y, Math.max(760, Math.round(ttlMs*0.82)));
-      return;
-    }
-
-    let kind = pickKind();
-
-    // infected appears in trick phase under pressure
-    if(kind==='droplet' && !director.feverOn && st.stage>=2 && (director.intensity||0) > 0.55 && rng() < 0.22){
-      kind='infected';
-    }
-
-    spawnAt(kind, x, y, ttlMs);
-
-    // apply ramp to next spawn by slightly nudging baseSpawnMs on the fly
-    st._ramp = ramp;
   }
 
   function removeTarget(id, popped){
@@ -870,6 +891,7 @@
       st.focus = clamp(st.focus - 6, 0, 100);
       st.risk = Math.min(0.98, st.risk + 0.03);
       popScore(layerRect().width*0.5, layerRect().height*0.80, 'SPAM!', 'bad');
+      sfxBad();
     }else{
       st.focus = clamp(st.focus + 1.1, 0, 100);
     }
@@ -888,13 +910,11 @@
     const it=st.targets.get(id);
     if(!it || st.over || st.paused) return;
 
-    // if freeze active, still allow hit but don't spawn extra chaos
     antiSpamOnAction();
 
     const t=performance.now();
     const remain=it.dieMs - t;
 
-    // fx coords in viewport
     const r=layerRect();
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
@@ -921,10 +941,12 @@
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:'droplet', latencyMs:t - it.bornMs});
         freeze(140);
+        sfxPerfect();
       }else{
         judge='hit';
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:'droplet', latencyMs:t - it.bornMs});
+        sfxHit();
       }
 
       fxSpark(fxX, fxY);
@@ -944,6 +966,7 @@
       judge='bad_hit';
       flashBad();
       toast('🦠 โดนเชื้อ!');
+      sfxBad();
       ai.onEvent({type:'hit', kind:'infected', latencyMs:t - it.bornMs});
       fxShockwave(fxX, fxY);
       popScore(fxX, fxY, `${scoreDelta}`, 'bad');
@@ -956,6 +979,7 @@
       judge='hit';
 
       toast('🛡️ Shield +');
+      sfxHit();
       fun?.onAction?.({type:'hit'});
       ai.onEvent({type:'hit', kind:'mask', latencyMs:t - it.bornMs});
       fxSpark(fxX, fxY);
@@ -965,7 +989,6 @@
       const isPerfect = (t >= it.perfectAtMs) || (remain <= perfectWindow);
 
       if(isPerfect){
-        // PRO reward bigger
         scoreDelta += (it.kind==='boss' ? (diff==='hard'?9:7) : (diff==='hard'?7:5));
         st.streak += 1;
         st.perfect += 1;
@@ -975,6 +998,7 @@
         st.risk = Math.max(0.05, st.risk - 0.08);
 
         toast('✨ Perfect Block!');
+        sfxPerfect();
         fun?.onAction?.({type:'perfect'});
         ai.onEvent({type:'perfect', kind:it.kind, latencyMs:t - it.bornMs});
         fxConfettiBurst(fxX, fxY);
@@ -993,6 +1017,7 @@
         st.focus = clamp(st.focus + 2, 0, 100);
         judge='hit';
 
+        sfxHit();
         fun?.onAction?.({type:'hit'});
         ai.onEvent({type:'hit', kind:it.kind, latencyMs:t - it.bornMs});
         fxSpark(fxX, fxY);
@@ -1010,7 +1035,6 @@
 
     if(director.feverOn && rng()<0.10) burstClear(1);
 
-    // decay recent miss windows
     if(performance.now() - st.lastMissWindowAt > 5000){
       st.missRecent = 0;
       st.coughMissRecent = 0;
@@ -1033,8 +1057,7 @@
       focus: Math.round(st.focus),
       spam: st.spam,
       zone: riskZone(),
-      stage: st.stage,
-      mission: (st.stage===1?'warm':st.stage===2?'trick':'boss')
+      stage: st.stage
     });
 
     setHud();
@@ -1064,9 +1087,9 @@
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:'droplet', latencyMs:t - it.bornMs});
       popScore(fxX, fxY, '-1', 'bad');
+      sfxBad();
 
     } else if(it.kind==='infected'){
-      // good avoid
       st.score += 1;
       st.focus = clamp(st.focus + 1, 0, 100);
       judge='avoid';
@@ -1092,12 +1115,12 @@
       flashBad();
       coughShockwave(fxX, fxY);
       popScore(fxX, fxY, '-2', 'bad');
+      sfxBad();
 
       fun?.onAction?.({type:'timeout'});
       ai.onEvent({type:'timeout', kind:it.kind, latencyMs:t - it.bornMs});
     }
 
-    // recent miss window
     if(t - st.lastMissWindowAt > 5000){
       st.missRecent = 0;
       st.coughMissRecent = 0;
@@ -1163,20 +1186,14 @@
     const ap=ai.assistParams();
     let base=st.baseSpawnMs;
 
-    // stage pacing
     if(st.stage===1) base *= 1.08;
     if(st.stage===2) base *= 0.96;
     if(st.stage===3) base *= 0.86;
 
-    // PRO ramp (stored in st._ramp from spawn)
-    const ramp = (st._ramp || 1.0);
-    base *= ramp;
+    base *= (st._ramp || 1.0);
 
-    // freeze: delay spawn slightly but don't stop time
     const now = performance.now();
     if(now < (st.freezeUntil||0)) base *= 1.25;
-
-    // focus low => slight relief
     if(mode==='play' && st.focus < 30) base *= 1.10;
 
     const every = fun ? fun.scaleIntervalMs(base, director) : base;
@@ -1186,6 +1203,34 @@
       spawn();
       scheduleSpawn();
     }, eff);
+  }
+
+  function spawn(){
+    if(!st.running || st.over || st.paused) return;
+
+    const r=layerRect();
+    const pad=52;
+    const x = pad + rng() * Math.max(10,(r.width - pad*2));
+    const y = pad + rng() * Math.max(10,(r.height - pad*2));
+
+    const ap=ai.assistParams();
+
+    const ratio = clamp01(st.elapsedSec / Math.max(1, timeLimit));
+    const ramp = (diff==='hard') ? (1 - 0.16*ratio) : (diff==='normal') ? (1 - 0.10*ratio) : (1 - 0.06*ratio);
+    st._ramp = ramp;
+
+    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost) * (diff==='hard' ? 0.98 : 1.0));
+
+    if(st.bossActive){
+      spawnAt('boss', x, y, Math.max(760, Math.round(ttlMs*0.82)));
+      return;
+    }
+
+    let kind = pickKind();
+    if(kind==='droplet' && !director.feverOn && st.stage>=2 && (director.intensity||0) > 0.55 && rng() < 0.22){
+      kind='infected';
+    }
+    spawnAt(kind, x, y, ttlMs);
   }
 
   function maybeBoss(now){
@@ -1198,6 +1243,7 @@
       showPrompt('👿 MINI BOSS! ทำ Perfect อย่างน้อย 1 ครั้ง!');
       toast('BOSS INCOMING');
       shake();
+      sfxBoss();
       logger.push({type:'boss:start'});
 
       const bossDur = (diff==='hard'?3200:3800);
@@ -1215,7 +1261,7 @@
             st.risk = Math.min(0.98, st.risk + 0.06);
             flashBad();
             toast('❌ บอสไม่ผ่าน!');
-            popScore(layerRect().width*0.5, layerRect().height*0.25, '-4', 'bad');
+            sfxBad();
             logger.push({type:'boss:end', pass:false});
           }else{
             st.shield=clamp(st.shield+12,0,100);
@@ -1223,7 +1269,7 @@
             st.focus = clamp(st.focus + 6, 0, 100);
             st.risk = Math.max(0.05, st.risk - 0.04);
             toast('✅ ผ่านบอส! +Shield');
-            popScore(layerRect().width*0.5, layerRect().height*0.25, '+6', 'pro');
+            sfxPerfect();
             burstClear(2);
             logger.push({type:'boss:end', pass:true});
           }
@@ -1258,8 +1304,8 @@
 
     let score = 0;
     score += Math.round(100 * (0.44*perfectRate + 0.18*(1-spamRate) + 0.18*(1-dangerOveruse) + 0.20*clamp01(st.routeChain/6)));
-
     if(st.stage===3 && st.bossSweepGotPerfect < st.bossSweepNeedPerfect) score = Math.max(0, score-14);
+
     return {
       analyzeScore: score,
       dangerOverusePct: Math.round(dangerOveruse*100),
@@ -1323,7 +1369,7 @@
 `pid=${pid} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed}
 warm=${st.warmDone?'PASS':'—'} | trick=${st.trickDone?'PASS':'—'} | bossPerfect=${st.bossSweepGotPerfect}/${st.bossSweepNeedPerfect}
 riskAvg=${(ai.riskAvg?ai.riskAvg():st.risk).toFixed(2)} | spam=${st.spam} | route=${st.routeChain}
-log=${logEndpoint||'—'}`;
+snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
     }
 
     byId('end').hidden=false;
@@ -1339,6 +1385,9 @@ log=${logEndpoint||'—'}`;
   }
 
   function startGame(){
+    // wake audio (must be user gesture)
+    ensureAudio();
+
     byId('end').hidden=true;
 
     st.running=true; st.paused=false; st.over=false;
@@ -1371,7 +1420,6 @@ log=${logEndpoint||'—'}`;
     st.shield = (diff==='easy' ? 46 : diff==='hard' ? 38 : 40);
 
     st.missRecent=0; st.coughMissRecent=0; st.lastMissWindowAt=performance.now();
-
     st.freezeUntil = 0;
 
     clearAllTargets();
@@ -1388,7 +1436,6 @@ log=${logEndpoint||'—'}`;
       ? '🎯 cVR: ยิงด้วยกากบาท — รอ 🤧 ให้เข้า Perfect!'
       : 'แตะ 💦 ทำ streak • แตะ 😷 เพิ่มโล่ • รอ 🤧 ให้ Perfect!'
     );
-
     setHud();
 
     logger.push({type:'hha:start', seed, diff, mode, view, timePlannedSec:timeLimit});
@@ -1477,7 +1524,6 @@ log=${logEndpoint||'—'}`;
 
     updateStage();
 
-    // telegraph classes + timeouts
     for(const [id, it] of st.targets){
       if(it.kind==='cough' || it.kind==='boss'){
         if(now >= it.armAtMs) it.el.classList.add('armed');
@@ -1488,17 +1534,14 @@ log=${logEndpoint||'—'}`;
 
     maybeBoss(now);
 
-    // boss sweep pressure
     if(st.stage===3){
       st.risk = Math.min(0.98, st.risk + 0.002);
       if(st.focus < 35) st.focus = clamp(st.focus + 0.6, 0, 100);
     }
 
-    // AI risk (play only)
     st.risk = ai.onTick(now, st.shield, st.focus, st.spam);
     updateThreat();
 
-    // explainable coach
     const hint = ai.coachHint(now, {
       shield: st.shield,
       spam: st.spam,
@@ -1516,7 +1559,6 @@ log=${logEndpoint||'—'}`;
     });
     if(hint){ showPrompt(hint); logger.push({type:'hha:coach', msg:hint}); }
 
-    // heartbeat (1s-ish)
     if(((now - st.t0) % 1000) < 90){
       logger.push({
         type:'hha:time',
@@ -1532,7 +1574,6 @@ log=${logEndpoint||'—'}`;
       });
     }
 
-    // feature snapshot every ~5s
     if(now - lastFeatures > 4950){
       lastFeatures = now;
       logger.push({
@@ -1553,9 +1594,7 @@ log=${logEndpoint||'—'}`;
       });
     }
 
-    // end conditions
     if(st.elapsedSec >= timeLimit){
-      // boss sweep requirement: if fail, small penalty (fair)
       if(st.stage===3 && st.bossSweepGotPerfect < st.bossSweepNeedPerfect){
         st.score = Math.max(0, st.score - 6);
       }
@@ -1564,152 +1603,6 @@ log=${logEndpoint||'—'}`;
     if(st.shield <= 0){ endGame('shield'); return; }
 
     setHud();
-  }
-
-  // spawn scheduler
-  function scheduleSpawn(){
-    if(spawnTimer) clearTimeout(spawnTimer);
-    if(!st.running || st.over || st.paused) return;
-
-    const ap=ai.assistParams();
-    let base=st.baseSpawnMs;
-
-    if(st.stage===1) base *= 1.08;
-    if(st.stage===2) base *= 0.96;
-    if(st.stage===3) base *= 0.86;
-
-    // ramp stored
-    base *= (st._ramp || 1.0);
-
-    // freeze relief
-    const now = performance.now();
-    if(now < (st.freezeUntil||0)) base *= 1.25;
-
-    if(mode==='play' && st.focus < 30) base *= 1.10;
-
-    const every = fun ? fun.scaleIntervalMs(base, director) : base;
-    const eff = Math.max(220, Math.round(every*(1+ap.spawnSlow)));
-
-    spawnTimer=setTimeout(()=>{
-      spawn();
-      scheduleSpawn();
-    }, eff);
-  }
-
-  // spawn fn already uses st._ramp
-  function spawn(){
-    if(!st.running || st.over || st.paused) return;
-
-    const r=layerRect();
-    const pad=52;
-    const x = pad + rng() * Math.max(10,(r.width - pad*2));
-    const y = pad + rng() * Math.max(10,(r.height - pad*2));
-
-    const ap=ai.assistParams();
-
-    const ratio = clamp01(st.elapsedSec / Math.max(1, timeLimit));
-    const ramp = (diff==='hard') ? (1 - 0.16*ratio) : (diff==='normal') ? (1 - 0.10*ratio) : (1 - 0.06*ratio);
-    st._ramp = ramp;
-
-    const ttlMs=Math.round(st.ttlBaseMs*(director.timeScale||1)*(1+ap.ttlBoost) * (diff==='hard' ? 0.98 : 1.0));
-
-    if(st.bossActive){
-      spawnAt('boss', x, y, Math.max(760, Math.round(ttlMs*0.82)));
-      return;
-    }
-
-    let kind = pickKind();
-
-    if(kind==='droplet' && !director.feverOn && st.stage>=2 && (director.intensity||0) > 0.55 && rng() < 0.22){
-      kind='infected';
-    }
-
-    spawnAt(kind, x, y, ttlMs);
-  }
-
-  // pickKind for spawn
-  function pickKind(){
-    const feverOn=!!director.feverOn;
-    const inten=director.intensity||0;
-    const ap=ai.assistParams();
-
-    let wDroplet=0.58, wCough=0.24, wMask=0.18;
-
-    wCough += inten*0.16;
-    wDroplet -= inten*0.10;
-
-    if(st.stage===1){ wDroplet += 0.10; wCough -= 0.08; }
-    if(st.stage===2){ wCough += 0.08; }
-    if(st.stage===3){ wCough += 0.22; wDroplet -= 0.16; wMask += 0.06; }
-
-    if(st.threat==='HIGH'){ wCough += 0.14; wMask += 0.06; wDroplet -= 0.12; }
-    else if(st.threat==='MID'){ wCough += 0.06; wDroplet -= 0.05; }
-
-    wMask += ap.maskBonus;
-    wCough -= ap.coughPenalty;
-    wMask += (st.shield < 35 ? 0.10 : 0.00);
-
-    if(feverOn){ wDroplet += 0.10; wMask -= 0.06; }
-
-    wDroplet=Math.max(0.30,wDroplet);
-    wCough=Math.max(0.10,wCough);
-    wMask=Math.max(0.08,wMask);
-
-    const sum=wDroplet+wCough+wMask;
-    wDroplet/=sum; wCough/=sum; wMask/=sum;
-
-    const r=rng();
-    if(r < wDroplet) return 'droplet';
-    if(r < wDroplet + wCough) return (st.stage===3 && rng()<0.30) ? 'boss' : 'cough';
-    return 'mask';
-  }
-
-  // mini boss
-  function maybeBoss(now){
-    if(!st.running || st.over || st.paused) return;
-    if(st.bossActive) return;
-
-    if(now >= st.nextBossAt){
-      st.bossActive=true;
-      st.bossNeedPerfect=true;
-      showPrompt('👿 MINI BOSS! ทำ Perfect อย่างน้อย 1 ครั้ง!');
-      toast('BOSS INCOMING');
-      shake();
-      logger.push({type:'boss:start'});
-
-      const bossDur = (diff==='hard'?3200:3800);
-      const endAt = now + bossDur;
-
-      const bossTick=()=>{
-        const t=performance.now();
-        if(t>=endAt || st.over || st.paused){
-          st.bossActive=false;
-
-          if(st.bossNeedPerfect){
-            st.shield=clamp(st.shield-18,0,100);
-            st.score=Math.max(0, st.score-4);
-            st.focus = clamp(st.focus - 10, 0, 100);
-            st.risk = Math.min(0.98, st.risk + 0.06);
-            flashBad();
-            toast('❌ บอสไม่ผ่าน!');
-            logger.push({type:'boss:end', pass:false});
-          }else{
-            st.shield=clamp(st.shield+12,0,100);
-            st.score += 6;
-            st.focus = clamp(st.focus + 6, 0, 100);
-            st.risk = Math.max(0.05, st.risk - 0.04);
-            toast('✅ ผ่านบอส! +Shield');
-            burstClear(2);
-            logger.push({type:'boss:end', pass:true});
-          }
-          setHud();
-          st.nextBossAt = performance.now() + st.bossEveryMs;
-          return;
-        }
-        setTimeout(bossTick, 160);
-      };
-      bossTick();
-    }
   }
 
   // bind buttons
