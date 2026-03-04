@@ -1,10 +1,10 @@
 // === /herohealth/germ-detective/germ-detective.js ===
-// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + RESULT MODAL ++
-// ✅ Result Modal (no alert): score/rank/breakdown
-// ✅ Badges: Super Sleuth / Chain Master / Budget Hero / Speed Runner
-// ✅ Export CSV (local download)
-// ✅ Flush-hardened Back HUB (save last summary + ensure end event)
-// ✅ 3-stage mission + chain + budget + AI coach + hha:shoot
+// Germ Detective — core runtime (PC/Mobile/cVR) — PRODUCTION SAFE + RESULT MODAL + BADGES + CSV(2) + SAME-SEED RETRY
+// ✅ Result Modal (no alert)
+// ✅ Badges
+// ✅ Export CSV: summary.csv + events.csv
+// ✅ Retry New Seed (play) + Retry Same Seed (research/reproducible)
+// ✅ Flush-hardened Back HUB
 // NOTE: No networking / no apps script binding.
 
 export default function GameApp(opts = {}) {
@@ -43,6 +43,8 @@ export default function GameApp(opts = {}) {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+
+  const ORIGINAL_SEED = String(cfg.seed || '0');     // for same-seed retry
   let RNG = mulberry32(hash32(cfg.seed + '|' + cfg.scene + '|' + cfg.diff + '|' + cfg.run));
 
   // ---------------- helpers ----------------
@@ -52,10 +54,28 @@ export default function GameApp(opts = {}) {
   function nowMs(){ return (WIN.performance && WIN.performance.now) ? WIN.performance.now() : Date.now(); }
   function isoNow(){ return new Date().toISOString(); }
 
+  // ---------------- lightweight event log (for ML export) ----------------
+  const EVENT_LOG = []; // {tIso, ms, name, payloadJson}
+  function logEvt(name, payload){
+    // keep bounded to avoid memory blow (still enough for session)
+    if(EVENT_LOG.length > 900) EVENT_LOG.shift();
+    EVENT_LOG.push({
+      tIso: isoNow(),
+      ms: Math.round(nowMs()),
+      name: String(name||''),
+      payloadJson: safeJson(payload)
+    });
+  }
+  function safeJson(v){
+    try{ return JSON.stringify(v ?? {}); }catch(e){ return '"[unserializable]"'; }
+  }
+
   function emitEvent(name, payload){
+    logEvt(name, payload);
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:{ name, payload } })); }catch(_){}
   }
   function emitLabels(type, payload){
+    logEvt('label:'+type, payload);
     try{ WIN.dispatchEvent(new CustomEvent('hha:labels', { detail:{ type, payload } })); }catch(_){}
   }
 
@@ -195,18 +215,12 @@ export default function GameApp(opts = {}) {
     if(qs('gdBaseStyle')) return;
     const st = el('style'); st.id='gdBaseStyle';
     st.textContent = `
-      .gd-topbar{
-        position:sticky; top:0; z-index:50;
-        display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
-        padding:8px 10px; background:rgba(2,6,23,.82);
-        border-bottom:1px solid rgba(148,163,184,.16); backdrop-filter: blur(8px);
-      }
+      .gd-topbar{ position:sticky; top:0; z-index:50; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
+        padding:8px 10px; background:rgba(2,6,23,.82); border-bottom:1px solid rgba(148,163,184,.16); backdrop-filter: blur(8px); }
       .gd-topbar .left,.gd-topbar .right{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
       .pill{ border:1px solid rgba(148,163,184,.18); border-radius:999px; padding:6px 10px; background:rgba(255,255,255,.02); font-size:12px; font-weight:900; color:rgba(229,231,235,.92); }
-      .btn{
-        appearance:none; border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.03);
-        color:rgba(229,231,235,.96); border-radius:12px; padding:10px 12px; font-weight:1000; cursor:pointer;
-      }
+      .btn{ appearance:none; border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.03);
+        color:rgba(229,231,235,.96); border-radius:12px; padding:10px 12px; font-weight:1000; cursor:pointer; }
       .btn:active{ transform: translateY(1px); }
       .btn.good{ border-color: rgba(16,185,129,.28); background: rgba(16,185,129,.10); }
       .btn.cyan{ border-color: rgba(34,211,238,.28); background: rgba(34,211,238,.10); }
@@ -219,17 +233,8 @@ export default function GameApp(opts = {}) {
       .gd-panel .head{ padding:10px 12px; border-bottom:1px solid rgba(148,163,184,.10); display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .gd-panel .body{ padding:10px; }
 
-      .gd-spot{
-        position:absolute;
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(255,255,255,.03);
-        border-radius:14px;
-        padding:10px 12px;
-        font-weight:1000;
-        cursor:pointer;
-        user-select:none;
-        box-shadow: 0 12px 30px rgba(0,0,0,.20);
-      }
+      .gd-spot{ position:absolute; border:1px solid rgba(148,163,184,.18); background: rgba(255,255,255,.03);
+        border-radius:14px; padding:10px 12px; font-weight:1000; cursor:pointer; user-select:none; box-shadow: 0 12px 30px rgba(0,0,0,.20); }
       .gd-spot:hover{ transform: translateY(-1px); }
       .gd-spot .sub{ display:block; font-size:11px; font-weight:900; opacity:.78; margin-top:2px; }
       .gd-spot.hot{ box-shadow: 0 0 0 2px rgba(244,63,94,.28), 0 18px 40px rgba(0,0,0,.25); }
@@ -239,21 +244,10 @@ export default function GameApp(opts = {}) {
       .gd-toolbar{ position:absolute; left:12px; top:12px; z-index:20; display:flex; gap:6px; flex-wrap:wrap; max-width:calc(100% - 24px); }
       .gd-timer{ position:absolute; left:12px; top:60px; z-index:20; font-weight:1000; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.70); }
 
-      .gd-coach{
-        position:fixed; left:50%; top:calc(10px + env(safe-area-inset-top,0px));
-        transform:translateX(-50%); z-index:9998;
-        max-width:min(880px, 92vw);
-        border:1px solid rgba(148,163,184,.18);
-        border-radius:999px;
-        background:rgba(2,6,23,.78);
-        padding:10px 12px;
-        font-weight:950;
-        font-size:13px;
-        color:rgba(229,231,235,.96);
-        box-shadow:0 16px 50px rgba(0,0,0,.35);
-        backdrop-filter: blur(10px);
-        display:none;
-      }
+      .gd-coach{ position:fixed; left:50%; top:calc(10px + env(safe-area-inset-top,0px)); transform:translateX(-50%); z-index:9998;
+        max-width:min(880px, 92vw); border:1px solid rgba(148,163,184,.18); border-radius:999px; background:rgba(2,6,23,.78);
+        padding:10px 12px; font-weight:950; font-size:13px; color:rgba(229,231,235,.96); box-shadow:0 16px 50px rgba(0,0,0,.35);
+        backdrop-filter: blur(10px); display:none; }
       .gd-coach.show{ display:block; }
       .gd-coach small{ display:block; color:rgba(148,163,184,.95); font-weight:900; margin-top:2px; }
 
@@ -263,62 +257,21 @@ export default function GameApp(opts = {}) {
       .budgetbar{ height:10px; border-radius:999px; overflow:hidden; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.18); }
       .budgetfill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(34,211,238,.9)); }
 
-      /* ===== Result Modal ===== */
-      .gd-modal{
-        position:fixed; inset:0; z-index:9999;
-        background:rgba(0,0,0,.55);
-        display:none;
-        align-items:center; justify-content:center;
-        padding:16px;
-      }
+      .gd-modal{ position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; padding:16px; }
       .gd-modal.show{ display:flex; }
-      .gd-modal-card{
-        width:min(980px, 96vw);
-        border:1px solid rgba(148,163,184,.18);
-        border-radius:18px;
-        background:rgba(2,6,23,.86);
-        box-shadow:0 26px 90px rgba(0,0,0,.45);
-        overflow:hidden;
-      }
-      .gd-modal-head{
-        padding:12px 14px;
-        border-bottom:1px solid rgba(148,163,184,.14);
-        display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-      }
+      .gd-modal-card{ width:min(980px, 96vw); border:1px solid rgba(148,163,184,.18); border-radius:18px; background:rgba(2,6,23,.86);
+        box-shadow:0 26px 90px rgba(0,0,0,.45); overflow:hidden; }
+      .gd-modal-head{ padding:12px 14px; border-bottom:1px solid rgba(148,163,184,.14); display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
       .gd-rank{ font-weight:1100; font-size:18px; letter-spacing:.3px; }
-      .gd-modal-body{
-        padding:14px;
-        display:grid;
-        grid-template-columns: 1fr 1fr;
-        gap:12px;
-      }
-      .gd-kpi{
-        border:1px solid rgba(148,163,184,.14);
-        border-radius:14px;
-        padding:12px;
-        background:rgba(255,255,255,.02);
-      }
+      .gd-modal-body{ padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+      .gd-kpi{ border:1px solid rgba(148,163,184,.14); border-radius:14px; padding:12px; background:rgba(255,255,255,.02); }
       .gd-kpi b{ font-size:22px; }
       .gd-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-      .gd-actions{
-        padding:12px 14px;
-        border-top:1px solid rgba(148,163,184,.14);
-        display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
-      }
+      .gd-actions{ padding:12px 14px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
       .gd-small{ color:rgba(148,163,184,.95); font-weight:850; font-size:12px; line-height:1.35; }
       .gd-badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-      .gd-badge{
-        border:1px solid rgba(148,163,184,.18);
-        background:rgba(255,255,255,.02);
-        border-radius:999px;
-        padding:6px 10px;
-        font-weight:1000;
-        font-size:12px;
-      }
-      .gd-badge.on{
-        border-color: rgba(34,211,238,.30);
-        background: rgba(34,211,238,.10);
-      }
+      .gd-badge{ border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.02); border-radius:999px; padding:6px 10px; font-weight:1000; font-size:12px; }
+      .gd-badge.on{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
       @media (max-width: 860px){ .gd-modal-body{ grid-template-columns:1fr; } }
       @media (max-width: 980px){ .gd-wrap{ grid-template-columns:1fr; } }
     `;
@@ -387,8 +340,10 @@ export default function GameApp(opts = {}) {
 
           <div class="gd-actions">
             <button class="btn" id="gdResClose" type="button">ปิด</button>
-            <button class="btn" id="gdResExport" type="button">⬇️ Export CSV</button>
-            <button class="btn warn" id="gdResRetry" type="button">🔁 เล่นใหม่</button>
+            <button class="btn" id="gdResExportSummary" type="button">⬇️ summary.csv</button>
+            <button class="btn" id="gdResExportEvents" type="button">⬇️ events.csv</button>
+            <button class="btn warn" id="gdResRetry" type="button">🔁 Retry</button>
+            <button class="btn warn" id="gdResRetrySame" type="button">🔁 Same Seed</button>
             <button class="btn good" id="gdResBackHub" type="button">🏠 กลับ HUB</button>
           </div>
         </div>
@@ -396,9 +351,11 @@ export default function GameApp(opts = {}) {
       DOC.body.appendChild(MODAL);
 
       qs('gdResClose').onclick = ()=> hideResult();
-      qs('gdResRetry').onclick = ()=> { hideResult(); resetAndRestart(); };
+      qs('gdResRetry').onclick = ()=> { hideResult(); resetAndRestart(false); };      // new seed (play)
+      qs('gdResRetrySame').onclick = ()=> { hideResult(); resetAndRestart(true); };  // same seed
       qs('gdResBackHub').onclick = ()=> { flushAndGoHub('backhub'); };
-      qs('gdResExport').onclick = ()=> { exportCSV(); };
+      qs('gdResExportSummary').onclick = ()=> { exportSummaryCSV(); };
+      qs('gdResExportEvents').onclick = ()=> { exportEventsCSV(); };
 
       MODAL.addEventListener('click', (e)=>{ if(e.target===MODAL) hideResult(); });
       DOC.addEventListener('keydown', (e)=>{
@@ -561,4 +518,642 @@ export default function GameApp(opts = {}) {
       .sort((x,y)=>String(x.t).localeCompare(String(y.t)));
     for(let i=0;i<seq.length-1;i++){
       const a=seq[i].target,b=seq[i+1].target; if(a===b) continue;
-      const ha=findHotspotByName(a), hb
+      const ha=findHotspotByName(a), hb=findHotspotByName(b);
+      const wa=ha?(ha.verified?3:ha.scanned?1:0):0;
+      const wb=hb?(hb.verified?3:hb.scanned?1:0):0;
+      addEdge(a,b,1+wa+wb);
+    }
+    const risky = STATE.hotspots.filter(h=>h.scanned||h.swabbed||h.photoed).slice()
+      .sort((a,b)=>(b.risk+b.importance*8)-(a.risk+a.importance*8)).slice(0,4);
+    for(let i=0;i<risky.length-1;i++) addEdge(risky[i].name, risky[i+1].name, 2+risky[i].importance);
+    STATE.chain.inferred = bestChain3(STATE.chain.edges) || [];
+  }
+  function inferredChain(){ updateChainInference(); return STATE.chain.inferred||[]; }
+  function formatChainShort(){ const c=inferredChain(); return (c&&c.length>=2)?c.slice(0,4).join(' → '):''; }
+
+  // ---- mission ----
+  function updateMissionUI(){
+    const box = qs('gdMissionBody'); if(!box) return;
+    const warmNeed=warmTargetCount(), warmDone=countScanned();
+    const trickDone=inferredChain().length>=3;
+    const bossTarget=diffBossTarget(cfg.diff);
+    const bossScore=Math.round(avgRisk());
+    const bossDone=bossScore<=bossTarget;
+
+    box.innerHTML = `
+      <div class="mini-item">Stage 1: UV อย่างน้อย <b>${warmNeed}</b> จุด (ตอนนี้ ${warmDone}/${warmNeed})</div>
+      <div class="mini-item">Stage 2: ต่อ chain A→B→C (ตอนนี้ ${formatChainShort()||'ยังไม่มี'})</div>
+      <div class="mini-item">Stage 3: Clean ลด risk เฉลี่ย ≤ <b>${bossTarget}</b> (ตอนนี้ ${bossScore})</div>
+      <div class="mini-item"><b>Tip:</b> Swab ช่วย “ยืนยัน” ทำให้ chain/คะแนนแม่นขึ้น</div>
+    `;
+
+    if(STATE.stage===1 && warmDone>=warmNeed){ setStage(2); showCoach('เข้าสู่ Trick Stage!', 'ต่อ A→B→C จากลำดับที่คุณสืบ'); }
+    if(STATE.stage===2 && trickDone){ setStage(3); setPhase('intervene'); showCoach('เข้าสู่ Boss Stage!', 'ใช้ Clean แบบคุ้มงบ'); }
+    if(STATE.stage===3 && bossDone){ setPhase('report'); showCoach('สำเร็จ! พร้อมส่งรายงาน 🧾', 'กด “ส่งรายงาน”'); }
+  }
+
+  // ---- tools & actions ----
+  function setTool(t){ STATE.tool=t; updateTopPills(); emitEvent('tool_change',{tool:t,phase:STATE.phase,stage:STATE.stage}); }
+  function setPhase(p){ STATE.phase=String(p||'investigate'); updateTopPills(); emitEvent('phase_change',{phase:STATE.phase,stage:STATE.stage}); }
+  function setStage(s){ s=clamp(s,1,3); if(STATE.stage===s) return; STATE.stage=s; updateTopPills(); emitEvent('stage_change',{stage:s}); }
+  function togglePause(){ STATE.paused=!STATE.paused; const b=qs('gdBtnPause'); if(b) b.textContent=STATE.paused?'▶ Resume':'⏸ Pause'; emitEvent(STATE.paused?'pause':'resume',{paused:STATE.paused}); }
+
+  function addEvidence(rec){
+    const r=Object.assign({tIso:isoNow(),tool:STATE.tool},rec);
+    STATE.evidence.push(r);
+    emitEvent('evidence_added', r);
+    updateEvidenceUI();
+    updateMissionUI();
+  }
+
+  function renderHotspots(){
+    STATE.hotspots.forEach(h=>{ if(h.el&&h.el.parentNode) h.el.parentNode.removeChild(h.el); h.el=null; });
+    STATE.hotspots.forEach(h=>{
+      const d=el('div','gd-spot');
+      d.dataset.id=h.id;
+      d.style.left=`${h.xp}%`; d.style.top=`${h.yp}%`;
+      d.innerHTML=`${h.name}<span class="sub">${spotSubline(h)}</span>`;
+      d.onclick=()=> onHotspotAction(h,'click');
+      STAGE.appendChild(d); h.el=d; applySpotClass(h);
+    });
+  }
+  function spotSubline(h){
+    const f=[]; if(h.scanned)f.push('UV'); if(h.swabbed)f.push('SWAB'); if(h.photoed)f.push('CAM'); if(h.cleaned)f.push('CLEAN'); if(h.verified)f.push('VERIFIED');
+    return f.length?f.join(' • '):'แตะเพื่อสืบสวน';
+  }
+  function applySpotClass(h){
+    if(!h.el) return;
+    h.el.classList.toggle('cleaned', !!h.cleaned);
+    h.el.classList.toggle('verified', !!h.verified);
+    h.el.classList.toggle('hot', (!h.cleaned) && h.risk>=65);
+    const sub=h.el.querySelector('.sub'); if(sub) sub.textContent=spotSubline(h);
+  }
+
+  function cleanCost(h){
+    const base=12+h.importance*4;
+    const m=cfg.diff==='hard'?1.15:cfg.diff==='easy'?0.9:1.0;
+    return Math.round(base*m);
+  }
+  function cleanEffect(h){
+    const base=18+h.importance*6;
+    const bonus=(h.verified?10:0)+(h.scanned?6:0);
+    const m=cfg.diff==='hard'?0.92:cfg.diff==='easy'?1.06:1.0;
+    return Math.round((base+bonus)*m);
+  }
+
+  function onHotspotAction(h, method){
+    if(!h||STATE.ended||!STATE.running||STATE.paused) return;
+    const tool=STATE.tool;
+
+    if(tool==='uv'){
+      h.scanned=true;
+      addEvidence({type:'hotspot',target:h.name,info:'พบร่องรอยด้วย UV',method,tool:'uv'});
+      h.risk=clamp(h.risk+(h._infected?8:2)+RNG()*4,0,100);
+      applySpotClass(h);
+    }else if(tool==='swab'){
+      h.swabbed=true;
+      const confirm = h._infected ? (RNG()<0.92) : (RNG()<0.15);
+      if(confirm){ h.verified=true; h.risk=clamp(h.risk+10+RNG()*6,0,100); addEvidence({type:'sample',target:h.name,info:'Swab ยืนยัน: เสี่ยงจริง',method,tool:'swab'}); }
+      else { addEvidence({type:'sample',target:h.name,info:'Swab: ไม่พบเชื้อ (อาจ false negative)',method,tool:'swab'}); h.risk=clamp(h.risk-(4+RNG()*6),0,100); }
+      applySpotClass(h);
+    }else if(tool==='cam'){
+      h.photoed=true;
+      addEvidence({type:'photo',target:h.name,info:'ถ่ายภาพหลักฐาน',method,tool:'cam'});
+      applySpotClass(h);
+    }else if(tool==='clean'){
+      if(STATE.phase!=='intervene' && STATE.stage<3){ showCoach('ยังไม่ถึงช่วง Clean แบบคุ้มสุด','ทำ Warm/Trick ก่อน'); return; }
+      const cost=cleanCost(h), left=budgetLeft();
+      if(left<cost){ showCoach('งบไม่พอ!',`เหลือ ${left} แต่ต้องใช้ ${cost}`); return; }
+      const before=Math.round(h.risk);
+      const red=cleanEffect(h);
+      h.risk=clamp(h.risk-red,0,100);
+      h.cleaned=true;
+      STATE.budget.spent += cost;
+      STATE.budget.actions.push({target:h.name,cost,riskBefore:before,riskAfter:Math.round(h.risk),tIso:isoNow()});
+      addEvidence({type:'clean',target:h.name,info:`ทำความสะอาด (-${red} risk)`,method,tool:'clean'});
+      applySpotClass(h);
+      updateBudgetUI();
+      emitEvent('clean_done', { target:h.name, cost, riskBefore:before, riskAfter:Math.round(h.risk) });
+    }
+
+    updateMissionUI();
+    coachTick();
+  }
+
+  // ---- AI Coach ----
+  function computeRiskScore(){
+    const avg=Math.round(avgRisk());
+    const importantUnscanned=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).length;
+    const pressure=1-(STATE.timeLeft/STATE.timeTotal);
+    return clamp(Math.round(avg*0.7 + importantUnscanned*8 + pressure*18),0,100);
+  }
+  function nextBestAction(){
+    const candidates=STATE.hotspots.filter(h=>!h.cleaned);
+    candidates.sort((a,b)=>{
+      const sa=(a.risk*1.15+a.importance*10)-(a.scanned?0:12)-(a.verified?0:6);
+      const sb=(b.risk*1.15+b.importance*10)-(b.scanned?0:12)-(b.verified?0:6);
+      return sb-sa;
+    });
+    return candidates[0]?candidates[0].name:null;
+  }
+  function coachTick(){
+    if(!STATE.coach.enabled||STATE.ended) return;
+    const t=nowMs(); if(t-STATE.coach.lastAt<STATE.coach.cooldownMs) return;
+
+    const risk=computeRiskScore();
+    const nba=nextBestAction();
+    const un=STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned)
+      .sort((a,b)=>(b.importance*12+b.risk)-(a.importance*12+a.risk));
+    const r1 = un[0] ? `ยังไม่สแกนจุดสัมผัสสูง: ${un[0].name}` : `ลองตรวจ ${nba||'จุดเสี่ยง'} เพราะคุ้มสุด`;
+    const r2 = un[1] ? `อีกจุดสำคัญ: ${un[1].name}` : (STATE.timeLeft<=Math.max(20,Math.floor(STATE.timeTotal*0.25))?'เวลาใกล้หมด — เลือกจุดคุ้มงบ':'ใช้ Swab เพื่อยืนยันก่อน');
+
+    const key=`${STATE.stage}|${STATE.phase}|${risk}|${nba}|${r1}|${r2}`;
+    if(key===STATE.coach.lastKey) return;
+
+    const stuck=(STATE.stage===1 && countScanned()<warmTargetCount() && STATE.timeLeft<STATE.timeTotal-15);
+    const warn=(risk>=70)||stuck;
+
+    const box=qs('gdCoachBox');
+    const rp=qs('gdRiskPill'); if(rp) rp.textContent=`risk: ${risk}`;
+
+    if(warn && nba){
+      showCoach(`AI Coach: แนะนำไปที่ “${nba}”`, `เหตุผล: (1) ${r1} (2) ${r2}`);
+      if(box) box.textContent = `AI: next=${nba} | 1) ${r1} 2) ${r2}`;
+      emitEvent('ai_coach_tip', { riskScore:risk, nextBestAction:nba, reason1:r1, reason2:r2 });
+      STATE.coach.lastAt=t; STATE.coach.lastKey=key;
+    }else{
+      if(box) box.textContent = `riskScore=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase}`;
+    }
+  }
+
+  // ---- cVR shoot ----
+  function hitTestByPoint(x,y, lockPx){
+    let targetEl=null;
+    try{ targetEl=DOC.elementFromPoint(x,y); }catch(_){}
+    const spotEl=targetEl && targetEl.closest ? targetEl.closest('.gd-spot') : null;
+    if(spotEl && spotEl.dataset && spotEl.dataset.id) return findHotspotById(spotEl.dataset.id);
+
+    lockPx=clamp(lockPx,8,120);
+    let best=null, bestD=1e9;
+    STATE.hotspots.forEach(h=>{
+      if(!h.el) return;
+      const r=h.el.getBoundingClientRect();
+      const cx=r.left+r.width/2, cy=r.top+r.height/2;
+      const d=Math.hypot(cx-x,cy-y);
+      if(d<bestD){ bestD=d; best=h; }
+    });
+    return (best && bestD<=lockPx) ? best : null;
+  }
+  function wireShoot(){
+    WIN.addEventListener('hha:shoot', (ev)=>{
+      const d=ev.detail||{};
+      const x=Number(d.x), y=Number(d.y), lockPx=Number(d.lockPx||28);
+      const h=hitTestByPoint(x,y,lockPx);
+      if(h) onHotspotAction(h, d.source||'shoot');
+    }, false);
+  }
+
+  // ---- badges ----
+  function computeBadges(score){
+    const badges = [];
+    if(score.final >= 85) badges.push({ id:'super', label:'🕵️ Super Sleuth', why:'คะแนนรวม ≥ 85' });
+    if(score.chain.score >= 80) badges.push({ id:'chain', label:'🧩 Chain Master', why:'Chain Score ≥ 80' });
+    const spent = score.intervention.budgetSpent || 0;
+    const total = (STATE.budget.points || 0);
+    const pctSpent = total ? (spent/total) : 1;
+    if(pctSpent <= 0.55 && score.intervention.score >= 70) badges.push({ id:'budget', label:'💰 Budget Hero', why:'ใช้งบ ≤ 55% และ intervention ดี' });
+    const speedPct = (score.speed.timeTotal ? (score.speed.timeLeft/score.speed.timeTotal) : 0);
+    if(speedPct >= 0.35) badges.push({ id:'speed', label:'⚡ Speed Runner', why:'เหลือเวลา ≥ 35%' });
+    return badges;
+  }
+
+  // ---- score + modal ----
+  function computeScore(reason){
+    const truthInfected = STATE.hotspots.filter(h=>h._infected).map(h=>h.name);
+    const predicted = STATE.hotspots.filter(h=>h.verified).map(h=>h.name);
+
+    const tp = predicted.filter(x=>truthInfected.includes(x)).length;
+    const fp = predicted.filter(x=>!truthInfected.includes(x)).length;
+    const fn = truthInfected.filter(x=>!predicted.includes(x)).length;
+
+    const precision = (tp+fp)? tp/(tp+fp) : 0;
+    const recall = (tp+fn)? tp/(tp+fn) : 0;
+    const accScore = Math.round((precision*0.6 + recall*0.4)*100);
+
+    const inf = inferredChain();
+    const infPairs = [];
+    for(let i=0;i<inf.length-1;i++) infPairs.push(`${inf[i]}>${inf[i+1]}`);
+    const truthPairs = (STATE.chain._truth||[]).map(p=>`${p[0]}>${p[1]}`);
+    const chainHit = infPairs.filter(p=>truthPairs.includes(p)).length;
+    const chainScore = Math.round(clamp((chainHit/Math.max(1,truthPairs.length))*100,0,100));
+
+    const speedScore = Math.round(clamp((STATE.timeLeft/STATE.timeTotal)*100,0,100));
+
+    const avgEnd = Math.round(avgRisk());
+    const avgStart = Math.round(STATE.hotspots.reduce((a,h)=>a+(h.baseRisk||0),0)/Math.max(1,STATE.hotspots.length));
+    const reduce = clamp(avgStart-avgEnd,-100,100);
+    const interventionScore = Math.round(clamp(50+reduce*1.2,0,100));
+
+    const warmOk = countScanned() >= warmTargetCount();
+    const trickOk = inferredChain().length >= 3;
+    const bossOk = avgEnd <= diffBossTarget(cfg.diff);
+    const missionBonus = (warmOk?6:0) + (trickOk?10:0) + (bossOk?14:0);
+
+    const base = accScore*0.30 + chainScore*0.24 + interventionScore*0.26 + speedScore*0.20;
+    const final = Math.round(clamp(base + missionBonus,0,100));
+    const rank = final>=90?'S':final>=80?'A':final>=70?'B':final>=60?'C':'D';
+
+    const score = {
+      reason, final, rank,
+      accuracy:{score:accScore,tp,fp,fn,precision:+precision.toFixed(3),recall:+recall.toFixed(3)},
+      chain:{score:chainScore,hit:chainHit,truthPairs:truthPairs.length,chain:formatChainShort()},
+      speed:{score:speedScore,timeLeft:STATE.timeLeft,timeTotal:STATE.timeTotal},
+      intervention:{score:interventionScore,avgRiskStart:avgStart,avgRiskEnd:avgEnd,budgetSpent:STATE.budget.spent,budgetLeft:budgetLeft()},
+      mission:{warmOk,trickOk,bossOk,bonus:missionBonus}
+    };
+    score.badges = computeBadges(score);
+    score.seed = String(cfg.seed || '');
+    score.originalSeed = ORIGINAL_SEED;
+    return score;
+  }
+
+  function showResult(score){
+    if(!MODAL) return;
+
+    const title = qs('gdResTitle');
+    const meta = qs('gdResMeta');
+    const pill = qs('gdResPill');
+
+    const final = qs('gdResFinal');
+    const chain = qs('gdResChain');
+    const risk = qs('gdResRisk');
+    const mission = qs('gdResMission');
+
+    const acc = qs('gdResAcc');
+    const accSub = qs('gdResAccSub');
+    const inter = qs('gdResInt');
+    const interSub = qs('gdResIntSub');
+    const chs = qs('gdResChainScore');
+    const chsSub = qs('gdResChainSub');
+    const spd = qs('gdResSpeed');
+    const spdSub = qs('gdResSpeedSub');
+
+    const badgesBox = qs('gdResBadges');
+
+    if(title) title.textContent = `ผลลัพธ์ • Rank ${score.rank}`;
+    if(meta) meta.textContent = `scene=${cfg.scene} • diff=${cfg.diff} • run=${cfg.run} • pid=${cfg.pid} • reason=${score.reason} • seed=${score.seed}`;
+    if(pill) pill.textContent = `คะแนน ${score.final}/100`;
+
+    if(final) final.textContent = String(score.final);
+    if(chain) chain.textContent = score.chain.chain || '-';
+    if(risk) risk.textContent = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft}`;
+    if(mission) mission.textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus}`;
+
+    if(acc) acc.textContent = String(score.accuracy.score);
+    if(accSub) accSub.textContent = `TP ${score.accuracy.tp} FP ${score.accuracy.fp} FN ${score.accuracy.fn} • P ${score.accuracy.precision} R ${score.accuracy.recall}`;
+
+    if(inter) inter.textContent = String(score.intervention.score);
+    if(interSub) interSub.textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft}`;
+
+    if(chs) chs.textContent = String(score.chain.score);
+    if(chsSub) chsSub.textContent = `match ${score.chain.hit}/${score.chain.truthPairs}`;
+
+    if(spd) spd.textContent = String(score.speed.score);
+    if(spdSub) spdSub.textContent = `timeLeft ${score.speed.timeLeft}/${score.speed.timeTotal}`;
+
+    if(badgesBox){
+      badgesBox.innerHTML = '';
+      const all = [
+        {id:'super', label:'🕵️ Super Sleuth'},
+        {id:'chain', label:'🧩 Chain Master'},
+        {id:'budget', label:'💰 Budget Hero'},
+        {id:'speed', label:'⚡ Speed Runner'},
+      ];
+      const onSet = new Set((score.badges||[]).map(b=>b.id));
+      all.forEach(b=>{
+        const d = el('div','gd-badge' + (onSet.has(b.id)?' on':'')); d.textContent=b.label;
+        badgesBox.appendChild(d);
+      });
+      emitLabels('badges', { badges: (score.badges||[]).map(b=>b.id) });
+      emitEvent('badges_awarded', { badges: score.badges || [] });
+    }
+
+    MODAL.classList.add('show');
+  }
+
+  function hideResult(){ if(MODAL) MODAL.classList.remove('show'); }
+
+  // ---- CSV export (2 files) ----
+  function csvEscape(v){
+    const s = String(v ?? '');
+    if(/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  }
+  function downloadText(filename, text){
+    try{
+      const blob = new Blob([text], { type:'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = DOC.createElement('a');
+      a.href = url;
+      a.download = filename;
+      DOC.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} }, 1200);
+    }catch(e){
+      try{
+        const w = WIN.open('', '_blank');
+        if(w) w.document.write('<pre>' + String(text).replace(/[<>&]/g, s=>({ '<':'&lt;','>':'&gt;','&':'&amp;' }[s])) + '</pre>');
+      }catch{}
+    }
+  }
+
+  function makeSummaryCSV(score){
+    const rows = [];
+    rows.push([
+      'timestampIso','game','pid','run','diff','scene','view','seed',
+      'reason','final','rank',
+      'accScore','tp','fp','fn','precision','recall',
+      'chainScore','chainHit','chainTruthPairs','chainText',
+      'speedScore','timeLeft','timeTotal',
+      'interventionScore','avgRiskStart','avgRiskEnd','budgetSpent','budgetLeft',
+      'missionWarm','missionTrick','missionBoss','missionBonus',
+      'badges'
+    ]);
+
+    rows.push([
+      isoNow(),'germ-detective',cfg.pid,cfg.run,cfg.diff,cfg.scene,cfg.view,String(cfg.seed||''),
+      score.reason,score.final,score.rank,
+      score.accuracy.score,score.accuracy.tp,score.accuracy.fp,score.accuracy.fn,score.accuracy.precision,score.accuracy.recall,
+      score.chain.score,score.chain.hit,score.chain.truthPairs,score.chain.chain||'',
+      score.speed.score,score.speed.timeLeft,score.speed.timeTotal,
+      score.intervention.score,score.intervention.avgRiskStart,score.intervention.avgRiskEnd,score.intervention.budgetSpent,score.intervention.budgetLeft,
+      score.mission.warmOk?1:0,score.mission.trickOk?1:0,score.mission.bossOk?1:0,score.mission.bonus,
+      (score.badges||[]).map(b=>b.id).join('|')
+    ]);
+
+    rows.push([]);
+    rows.push(['EVIDENCE (last 12)']);
+    rows.push(['tIso','type','target','info','tool','method']);
+    const evs = STATE.evidence.slice(-12).reverse();
+    evs.forEach(e=>{
+      rows.push([e.tIso||'', e.type||'', e.target||'', e.info||'', e.tool||'', e.method||'']);
+    });
+
+    return rows.map(r=> r.map(csvEscape).join(',')).join('\n');
+  }
+
+  function makeEventsCSV(){
+    const rows = [];
+    rows.push(['tIso','ms','name','payloadJson']);
+    EVENT_LOG.forEach(e=>{
+      rows.push([e.tIso, e.ms, e.name, e.payloadJson]);
+    });
+    return rows.map(r=> r.map(csvEscape).join(',')).join('\n');
+  }
+
+  function exportSummaryCSV(){
+    const score = STATE.score || computeScore('export');
+    const text = makeSummaryCSV(score);
+    const stamp = isoNow().replace(/[:.]/g,'-');
+    downloadText(`germ-detective_summary_${cfg.pid}_${cfg.scene}_${cfg.diff}_${stamp}.csv`, text);
+    emitEvent('export_summary_csv', { bytes: text.length });
+    emitLabels('export_summary_csv', { bytes: text.length });
+  }
+
+  function exportEventsCSV(){
+    const text = makeEventsCSV();
+    const stamp = isoNow().replace(/[:.]/g,'-');
+    downloadText(`germ-detective_events_${cfg.pid}_${cfg.scene}_${cfg.diff}_${stamp}.csv`, text);
+    emitEvent('export_events_csv', { bytes: text.length, rows: EVENT_LOG.length });
+    emitLabels('export_events_csv', { bytes: text.length, rows: EVENT_LOG.length });
+  }
+
+  // ---- flush-hardened back hub ----
+  function flushAndGoHub(reason){
+    if(!STATE.ended){
+      const score = computeScore(reason || 'exit');
+      STATE.score = score;
+      STATE.ended = true;
+      STATE.running = false;
+      stopLoops();
+
+      emitEvent('session_end', { reason: reason || 'exit', score });
+      try{ WIN.dispatchEvent(new CustomEvent('hha:end', { detail:{ reason: reason || 'exit', score } })); }catch(_){}
+      saveLastSummary(reason || 'exit', score);
+      emitLabels('exit_to_hub', { reason: reason || 'exit' });
+    } else {
+      saveLastSummary(reason || 'exit', STATE.score || null);
+    }
+    setTimeout(()=>{ location.href = String(cfg.hub || '/herohealth/hub.html'); }, 80);
+  }
+
+  // ---- end / retry ----
+  let _timer=null, _feat=null;
+
+  function stopLoops(){
+    if(_timer) clearInterval(_timer);
+    if(_feat) clearInterval(_feat);
+    _timer=null; _feat=null;
+  }
+
+  function endGame(reason){
+    if(STATE.ended) return;
+    STATE.ended=true; STATE.running=false;
+    stopLoops();
+
+    const score = computeScore(reason);
+    STATE.score = score;
+
+    emitEvent('session_end', { reason, score });
+    try{ WIN.dispatchEvent(new CustomEvent('hha:end', { detail:{ reason, score } })); }catch(_){}
+    saveLastSummary(reason, score);
+
+    showResult(score);
+  }
+
+  function rebuildRng(seedStr){
+    cfg.seed = String(seedStr || '0');
+    RNG = mulberry32(hash32(cfg.seed + '|' + cfg.scene + '|' + cfg.diff + '|' + cfg.run));
+  }
+
+  function resetStateCore(){
+    stopLoops();
+
+    STATE.running=false; STATE.paused=false; STATE.ended=false;
+    STATE.timeTotal = clamp(cfg.timeSec, 20, 600);
+    STATE.timeLeft = STATE.timeTotal;
+
+    STATE.tool='uv'; STATE.phase='investigate'; STATE.stage=1;
+    STATE.budget = { points: diffBudget(cfg.diff), spent:0, actions:[] };
+    STATE.coach = { lastAt:0, lastKey:'', cooldownMs:6500, enabled:true };
+
+    STATE.evidence.length = 0;
+    STATE.chain.edges.length = 0;
+    STATE.chain.inferred.length = 0;
+    STATE.score = null;
+
+    // reset event log (new session)
+    EVENT_LOG.length = 0;
+
+    buildHotspots();
+
+    if(STAGE) renderHotspots();
+    updateTopPills();
+    updateBudgetUI();
+    updateEvidenceUI();
+    updateMissionUI();
+    updateTimerUI();
+  }
+
+  // sameSeed=true => use ORIGINAL_SEED (or current cfg.seed in research)
+  function resetAndRestart(sameSeed){
+    const useSame = !!sameSeed;
+
+    if(useSame){
+      // research reproducible: always use ORIGINAL_SEED (boot hashed seed already passed in)
+      rebuildRng(ORIGINAL_SEED);
+    } else {
+      // play mode: new seed for variety; research: keep deterministic seed anyway
+      if(cfg.run === 'play'){
+        rebuildRng(String(Date.now()));
+      } else {
+        rebuildRng(String(cfg.seed || ORIGINAL_SEED));
+      }
+    }
+
+    resetStateCore();
+    startLoops();
+    showCoach(useSame ? 'เล่นซ้ำแบบ Same Seed ✅' : 'เริ่มรอบใหม่ ✅', 'ลุยเลย: UV → Swab → ต่อ chain → Clean');
+  }
+
+  function submitReport(){
+    if(STATE.phase !== 'report'){
+      showCoach('ส่งได้ แต่ถ้าทำ Trick/Boss ให้สำเร็จก่อนจะได้โบนัสเพิ่ม', 'ลองต่อ chain และลด risk เฉลี่ยตามเป้า');
+    }
+    endGame('submitted');
+  }
+
+  // ---- cVR shoot ----
+  function wireShoot(){
+    WIN.addEventListener('hha:shoot', (ev)=>{
+      const d=ev.detail||{};
+      const x=Number(d.x), y=Number(d.y), lockPx=Number(d.lockPx||28);
+      const h=hitTestByPoint(x,y,lockPx);
+      if(h) onHotspotAction(h, d.source||'shoot');
+      else emitEvent('shoot_miss', { x,y,lockPx, source:d.source||'shoot' });
+    }, false);
+  }
+
+  function hitTestByPoint(x,y, lockPx){
+    let targetEl=null;
+    try{ targetEl=DOC.elementFromPoint(x,y); }catch(_){}
+    const spotEl=targetEl && targetEl.closest ? targetEl.closest('.gd-spot') : null;
+    if(spotEl && spotEl.dataset && spotEl.dataset.id) return findHotspotById(spotEl.dataset.id);
+
+    lockPx=clamp(lockPx,8,120);
+    let best=null, bestD=1e9;
+    STATE.hotspots.forEach(h=>{
+      if(!h.el) return;
+      const r=h.el.getBoundingClientRect();
+      const cx=r.left+r.width/2, cy=r.top+r.height/2;
+      const d=Math.hypot(cx-x,cy-y);
+      if(d<bestD){ bestD=d; best=h; }
+    });
+    return (best && bestD<=lockPx) ? best : null;
+  }
+
+  // ---- loop ----
+  function startLoops(){
+    STATE.running=true; STATE.paused=false; STATE.ended=false;
+    updateTopPills(); updateTimerUI(); updateBudgetUI(); updateEvidenceUI(); updateMissionUI();
+
+    emitEvent('session_start', { game:'germ-detective', run:cfg.run, diff:cfg.diff, time:STATE.timeTotal, seed:cfg.seed, pid:cfg.pid, scene:cfg.scene, view:cfg.view });
+
+    _timer = setInterval(()=>{
+      if(!STATE.running || STATE.paused || STATE.ended) return;
+      STATE.timeLeft--;
+      updateTimerUI();
+
+      try{
+        const feat = {
+          game:'germ-detective',
+          run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view,
+          timeLeft:STATE.timeLeft, timeTotal:STATE.timeTotal,
+          stage:STATE.stage, phase:STATE.phase,
+          tool:STATE.tool,
+          evidenceCount:STATE.evidence.length,
+          uniqueTargets: uniqueTargetsTouched(),
+          scanned: countScanned(),
+          verified: verifiedCount(),
+          avgRisk: Math.round(avgRisk()),
+          budgetLeft: budgetLeft(),
+          riskScore: computeRiskScore(),
+          nextBestAction: nextBestAction(),
+          chain: (STATE.chain.inferred||[]).slice(0,4).join('>') || ''
+        };
+        WIN.dispatchEvent(new CustomEvent('hha:features_1s', { detail: feat }));
+      }catch(_){}
+
+      coachTick();
+      updateMissionUI();
+      if(STATE.timeLeft <= 0) endGame('timeup');
+    }, 1000);
+
+    _feat = setInterval(()=>{ if(!STATE.paused && !STATE.ended) coachTick(); }, 1500);
+  }
+
+  // ---------------- init ----------------
+  function init(){
+    buildHotspots();
+    buildUI();
+    renderHotspots();
+    wireShoot();
+
+    setTool('uv');
+    setPhase('investigate');
+    setStage(1);
+
+    WIN.GD = WIN.GD || {};
+    WIN.GD.started = true;
+
+    WIN.addEventListener('message', (ev)=>{
+      const m = ev.data;
+      if(!m) return;
+      if(m.type === 'command' && m.action === 'setTool' && m.value) setTool(m.value);
+      if(m.type === 'command' && m.action === 'pause') { if(!STATE.paused) togglePause(); }
+      if(m.type === 'command' && m.action === 'resume') { if(STATE.paused) togglePause(); }
+      if(m.type === 'command' && m.action === 'retry') { resetAndRestart(false); }
+      if(m.type === 'command' && m.action === 'retrySame') { resetAndRestart(true); }
+      if(m.type === 'command' && m.action === 'hub') { flushAndGoHub('command_hub'); }
+      if(m.type === 'command' && m.action === 'exportSummary') { exportSummaryCSV(); }
+      if(m.type === 'command' && m.action === 'exportEvents') { exportEventsCSV(); }
+    }, false);
+
+    WIN.addEventListener('beforeunload', ()=>{
+      try{
+        if(!STATE.ended){
+          const score = computeScore('unload');
+          saveLastSummary('unload', score);
+        }
+      }catch(_){}
+    });
+
+    startLoops();
+    showCoach('คดีเริ่มแล้ว! มีคนป่วยหลายคน — ต้องหา “จุดแพร่” ให้เร็ว', 'เริ่มจาก UV แล้ว Swab ยืนยัน');
+  }
+
+  // public API
+  return {
+    init,
+    getState: ()=>STATE,
+    setTool,
+    submitReport,
+    retry: ()=>resetAndRestart(false),
+    retrySameSeed: ()=>resetAndRestart(true),
+    exportSummaryCSV,
+    exportEventsCSV,
+    goHub: ()=>flushAndGoHub('api_goHub'),
+    stop: ()=>{ stopLoops(); STATE.running=false; STATE.ended=true; }
+  };
+}
