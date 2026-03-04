@@ -1,4 +1,3 @@
-
 // === /herohealth/vr/vr-ui.js ===
 // Universal VR UI — FULL v20260221n
 (function(){
