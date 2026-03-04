@@ -1,164 +1,217 @@
+<!-- === /herohealth/balance-hold-vr.html ===
+Balance Hold — LAUNCHER (HeroHealth Root)
+PATCH v20260304-BALANCEHOLD-LAUNCHER
+✅ Choose diff/time/view BEFORE entering run
+✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup
+✅ Go to /fitness/balance-hold.html (run page)
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balance Hold (Launcher)</title>
+  <title>Balance Hold — Launcher</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
-      --radius:18px;
+      --bg:#020617;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(15,23,42,.55);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      color:var(--text);
-      background:
-        radial-gradient(900px 520px at 20% 20%, rgba(34,197,94,.16), transparent 55%),
-        radial-gradient(1000px 650px at 80% 30%, rgba(167,139,250,.10), transparent 60%),
-        linear-gradient(180deg, #020617, #0b1226);
-      padding: 18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{min-height:100%;max-width:880px;margin:0 auto;
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))}
+    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:16px;font-weight:1000}
+    p{margin:8px 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:13px;line-height:1.35}
+    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:6px}
+    select,input{
+      width:100%;min-height:42px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);color:var(--text);padding:9px 10px;font:inherit;font-weight:900
     }
-    .card{
-      width:min(680px, 92vw);
-      background: rgba(2,6,23,.72);
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      padding: 18px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-    }
-    .row{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .title{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .sub{ margin:6px 0 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
-    .pillrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-    .pill{
-      border:1px solid var(--stroke);
-      background: rgba(255,255,255,.04);
-      color: var(--muted);
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-    }
-    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
     .btn{
-      border:1px solid var(--stroke);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      cursor:pointer;
-      user-select:none;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);font-weight:1000;font-size:13px;color:inherit;text-decoration:none;
+      cursor:pointer
     }
-    .btn.primary{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.12);
-    }
-    .muted{ color: var(--muted); font-size:12px; margin-top:10px; }
-    code{ color:#bbf7d0; }
+    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
+    .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
+    .chiprow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .chip b{color:#fff}
+    .small{margin-top:10px;font-size:12px;color:var(--muted);font-weight:850}
   </style>
 </head>
-
 <body>
-  <div class="card">
-    <div class="row">
-      <div>
-        <h1 class="title">🧘 Balance Hold — Launcher</h1>
-        <p class="sub">กำลังพาเข้าเกม… (ส่งต่อพารามิเตอร์เดิมครบ และตั้ง <code>hub=</code> ให้กลับ Hub ได้เสมอ)</p>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <h1>⚖️ Balance Hold — Launcher</h1>
+          <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น (กันกรณีเข้าจาก HUB แล้ว “วิ่งเลย” ไม่มีให้เลือก)</p>
+        </div>
+        <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
       </div>
-      <div class="pill" id="viewPill">view: —</div>
+
+      <div class="chiprow">
+        <div class="chip">pid: <b id="cPid">anon</b></div>
+        <div class="chip">seed: <b id="cSeed">-</b></div>
+        <div class="chip">run: <b id="cRun">play</b></div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label for="diff">Difficulty</label>
+          <select id="diff">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div>
+          <label for="time">Duration (sec)</label>
+          <select id="time">
+            <option value="45">45</option>
+            <option value="60">60</option>
+            <option value="80" selected>80</option>
+            <option value="90">90</option>
+            <option value="120">120</option>
+          </select>
+        </div>
+        <div>
+          <label for="view">View</label>
+          <select id="view">
+            <option value="pc">PC</option>
+            <option value="mobile">Mobile</option>
+            <option value="cvr">Cardboard / cVR</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn primary" id="btnStart">▶ Start</button>
+        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN (no autostart)</a>
+        <button class="btn" id="btnReseed">🎲 Reseed</button>
+      </div>
+
+      <div class="small">
+        RUN page: <code>/fitness/balance-hold.html</code> (จะรับพารามิเตอร์จากที่นี่)
+      </div>
     </div>
-
-    <div class="pillrow" id="pillrow"></div>
-
-    <div class="btnrow">
-      <div class="btn primary" id="btnGo">▶️ Tap-to-Start</div>
-      <div class="btn" id="btnCopy">🔗 คัดลอกลิงก์ปลายทาง</div>
-      <div class="btn" id="btnBack">🏫 กลับ Hub</div>
-    </div>
-
-    <div class="muted" id="hint">ถ้าไม่เด้งอัตโนมัติ ให้กด <b>Tap-to-Start</b></div>
   </div>
 
 <script>
-(function(){
-  'use strict';
+'use strict';
 
-  const TARGET = '../fitness/balance-hold.html';
-  const $ = (s)=>document.querySelector(s);
+function qs(k, d=''){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; }
+}
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+function nowSeed(){ return String(Date.now()); }
+function setParam(u, k, v){
+  if (v === '' || v == null) u.searchParams.delete(k);
+  else u.searchParams.set(k, String(v));
+}
+function normalizeMaybeEncodedUrl(v){
+  v = String(v ?? '').trim();
+  if(!v || v==='null' || v==='undefined') return '';
+  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){ try{ v = decodeURIComponent(v); }catch(e){} }
+  return v.trim();
+}
 
-  function hubUrl(){ return location.href.split('#')[0]; }
-  function parseQS(){ try { return new URL(hubUrl()).searchParams; } catch { return new URLSearchParams(); } }
+const P = {
+  hub: normalizeMaybeEncodedUrl(qs('hub','')),
+  run: String(qs('run','play')).toLowerCase() || 'play',
+  diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+  time: clamp(qs('time','80'), 20, 300),
+  seed: String(qs('seed','') || nowSeed()),
+  pid: String(qs('pid','')).trim() || 'anon',
+  view: String(qs('view','pc')).toLowerCase() || 'pc',
 
-  function detectView(){
-    const q = parseQS();
-    const v = (q.get('view') || '').toLowerCase();
-    if (v) return v;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (Math.min(screen.width, screen.height) <= 480);
-    return isMobile ? 'mobile' : 'pc';
-  }
+  log: String(qs('log','')),
+  api: normalizeMaybeEncodedUrl(qs('api','')),
+  ai: String(qs('ai','')),
+  studyId: String(qs('studyId','')),
+  phase: String(qs('phase','')),
+  conditionGroup: String(qs('conditionGroup',''))
+};
 
-  function buildTargetUrl(){
-    const base = new URL(TARGET, location.href);
-    const cur = parseQS();
-    for (const [k,v] of cur.entries()){
-      if (k === 'hub') continue;
-      base.searchParams.set(k, v);
-    }
-    if (!cur.has('view') || String(cur.get('view')||'').trim() === ''){
-      base.searchParams.set('view', detectView());
-    }
-    base.searchParams.set('hub', hubUrl());
-    return base.toString();
-  }
+document.getElementById('cPid').textContent = P.pid;
+document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
+document.getElementById('cRun').textContent = P.run;
 
-  function renderPills(url){
-    const u = new URL(url);
-    const keep = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view'];
-    const pills = [];
-    keep.forEach(k=>{
-      const v = u.searchParams.get(k);
-      if (v && String(v).trim() !== '') pills.push(`${k}: ${v}`);
-    });
-    $('#viewPill').textContent = 'view: ' + (u.searchParams.get('view') || detectView() || '—');
-    $('#pillrow').innerHTML = pills.length
-      ? pills.slice(0,14).map(t=>`<span class="pill">${t.replace(/</g,'&lt;')}</span>`).join('')
-      : `<span class="pill">params: none</span>`;
-  }
+const elDiff = document.getElementById('diff');
+const elTime = document.getElementById('time');
+const elView = document.getElementById('view');
 
-  const finalUrl = buildTargetUrl();
-  renderPills(finalUrl);
+if (['easy','normal','hard'].includes(P.diff)) elDiff.value = P.diff;
+if (P.time) elTime.value = String(P.time);
+if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
 
-  $('#btnGo').addEventListener('click', ()=> location.href = finalUrl);
-  $('#btnCopy').addEventListener('click', async ()=>{
-    try { await navigator.clipboard.writeText(finalUrl); $('#hint').textContent = 'คัดลอกลิงก์ปลายทางแล้ว ✅'; }
-    catch { $('#hint').textContent = 'คัดลอกไม่สำเร็จ ❌'; }
-  });
-  $('#btnBack').addEventListener('click', ()=>{
-    const back = new URL('./hub.html', location.href);
-    const cur = parseQS();
-    for (const [k,v] of cur.entries()){
-      if (k === 'hub') continue;
-      back.searchParams.set(k, v);
-    }
-    location.href = back.toString();
-  });
+// backHub should go to original hub if provided
+const backHub = document.getElementById('backHub');
+if (P.hub) backHub.href = P.hub;
 
-  setTimeout(()=> { try { location.replace(finalUrl); } catch { location.href = finalUrl; } }, 120);
+function buildRunUrl(autostart){
+  const u = new URL('../fitness/balance-hold.html', location.href);
 
-})();
+  // pass-through
+  setParam(u, 'hub', P.hub || '');
+  setParam(u, 'run', P.run);
+  setParam(u, 'pid', P.pid);
+  setParam(u, 'seed', P.seed);
+
+  setParam(u, 'diff', elDiff.value);
+  setParam(u, 'time', elTime.value);
+  setParam(u, 'view', elView.value);
+
+  setParam(u, 'log', P.log);
+  setParam(u, 'api', P.api);
+  setParam(u, 'ai', P.ai);
+
+  setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
+  setParam(u, 'conditionGroup', P.conditionGroup);
+
+  // ✅ สำคัญ: ให้ RUN ไม่วิ่งเอง unless autostart=1
+  setParam(u, 'autostart', autostart ? '1' : '');
+
+  return u.toString();
+}
+
+document.getElementById('btnStart').addEventListener('click', ()=>{
+  location.href = buildRunUrl(true);
+});
+document.getElementById('btnOpenRun').addEventListener('click', (e)=>{
+  e.preventDefault();
+  location.href = buildRunUrl(false);
+});
+document.getElementById('btnReseed').addEventListener('click', ()=>{
+  P.seed = nowSeed();
+  document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
+  try{
+    const u = new URL(location.href);
+    u.searchParams.set('seed', P.seed);
+    history.replaceState(null,'',u.toString());
+  }catch(e){}
+});
 </script>
 </body>
 </html>
