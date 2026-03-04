@@ -1,15 +1,19 @@
 // === /herohealth/vr/ai-goodjunk.js ===
-// GoodJunk AI — prediction only (NO adaptive)
-// PATCH v20260304-AI-PREDICT-EXPLAINABLE
+// GoodJunk AI (Prediction only, research-safe)
+// PATCH v20260304-AI-PRED-EXPLAIN
+//
+// Outputs:
+// - hazardRisk: 0..1
+// - next5: array tips (index 0 shown in HUD)
+// - topFactors: [ {key,label,score} ... ]  (explainable)
+// - onEnd(summary) returns { hazardRisk, topFactors, note }
+//
+// No adaptive difficulty. No networking. Deterministic given seed/pid.
+
 'use strict';
 
-function clamp01(x){
-  x = Number(x);
-  if(!Number.isFinite(x)) x = 0;
-  return Math.max(0, Math.min(1, x));
-}
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); }
 
-// tiny deterministic RNG from seed string
 function xmur3(str){
   str = String(str||'');
   let h = 1779033703 ^ str.length;
@@ -40,136 +44,167 @@ function makeRng(seedStr){
   const seed = xmur3(seedStr);
   return sfc32(seed(), seed(), seed(), seed());
 }
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+
+// Tiny EWMA tracker (stable, no history storage)
+function ewma(prev, x, a){
+  if(!Number.isFinite(prev)) return x;
+  return prev*(1-a) + x*a;
+}
 
 export function createGoodJunkAI(opts={}){
-  const seed = String(opts.seed || Date.now());
-  const rng = makeRng(seed + '::AI::GJ');
+  const seed = String(opts.seed ?? Date.now());
+  const pid  = String(opts.pid ?? 'anon');
+  const diff = String(opts.diff ?? 'normal');
+  const view = String(opts.view ?? 'mobile');
+
+  const rng = makeRng(`GJAI|${seed}|${pid}|${diff}|${view}`);
   const r01 = ()=> rng();
 
-  // rolling stats
-  const st = {
-    t: 0,
-    spawn: { good:0, junk:0, bonus:0, shield:0, boss:0 },
-    hit:   { good:0, junk:0, bonus:0, shield:0, boss:0, junkBlocked:0 },
-    expire:{ good:0, junk:0, bonus:0, shield:0, boss:0 },
-    last: null
-  };
+  // State for prediction
+  let risk = 0.22;                 // baseline
+  let ewAcc = 0.75;
+  let ewMissRate = 0.10;
+  let ewJunkHitRate = 0.05;
+  let ewGoodExpireRate = 0.05;
+  let ewShield = 0.0;
+  let ewCombo = 0.0;
 
-  function top2Reasons(feat){
-    // features -> reason weights (explainable)
-    const reasons = [];
+  let lastPred = null;
 
-    // risk up
-    if(feat.acc < 0.65) reasons.push(['ความแม่นยำยังแกว่ง', (0.65 - feat.acc) * 1.1]);
-    if(feat.missRate > 0.08) reasons.push(['MISS เริ่มถี่', feat.missRate * 0.9]);
-    if(feat.missJunkHit > 0) reasons.push(['โดนของเสีย', Math.min(1, feat.missJunkHit/6) * 0.7]);
-    if(feat.missGoodExpired > 0) reasons.push(['ของดีหลุดมือ', Math.min(1, feat.missGoodExpired/8) * 0.6]);
+  function calcRisk(features){
+    const shots = Math.max(1, Number(features.shots||0));
+    const hits  = clamp(Number(features.hits||0), 0, shots);
+    const acc   = hits/shots;
 
-    // risk down
-    if(feat.shield > 0) reasons.push(['มีโล่กันพลาด', -Math.min(1, feat.shield/3) * 0.55]);
-    if(feat.combo >= 4) reasons.push(['คอมโบกำลังมา', -Math.min(1, (feat.combo-3)/6) * 0.35]);
-    if(feat.fever >= 60) reasons.push(['โหมด FEVER ช่วยเร่ง', -Math.min(1, (feat.fever-60)/40) * 0.25]);
+    const missGoodExpired = Math.max(0, Number(features.missGoodExpired||0));
+    const missJunkHit     = Math.max(0, Number(features.missJunkHit||0));
+    const missTotal       = missGoodExpired + missJunkHit;
 
-    // sort by absolute influence (strongest)
-    reasons.sort((a,b)=> Math.abs(b[1]) - Math.abs(a[1]));
-    return reasons.slice(0,2);
-  }
+    const missRate = missTotal / Math.max(1, shots);
+    const junkRate = missJunkHit / Math.max(1, shots);
+    const goodExpRate = missGoodExpired / Math.max(1, shots);
 
-  function predict(feat){
-    // baseline risk
-    let risk = 0.22;
+    const shield = Math.max(0, Number(features.shield||0));
+    const fever  = clamp(Number(features.fever||0), 0, 100);
+    const combo  = Math.max(0, Number(features.combo||0));
 
-    // accuracy + miss pressure
-    risk += (0.68 - feat.acc) * 0.9;
-    risk += feat.missRate * 1.1;
+    // update EWMA
+    ewAcc = ewma(ewAcc, acc, 0.08);
+    ewMissRate = ewma(ewMissRate, missRate, 0.10);
+    ewJunkHitRate = ewma(ewJunkHitRate, junkRate, 0.12);
+    ewGoodExpireRate = ewma(ewGoodExpireRate, goodExpRate, 0.12);
+    ewShield = ewma(ewShield, clamp(shield/4, 0, 1), 0.10);
+    ewCombo  = ewma(ewCombo, clamp(combo/8, 0, 1), 0.10);
 
-    // specific misses
-    risk += Math.min(1, feat.missJunkHit/8) * 0.18;
-    risk += Math.min(1, feat.missGoodExpired/10) * 0.12;
+    // “ML-ish” linear model (hand-tuned weights, deterministic)
+    // Higher risk when: miss grows, junk hits, low shield, low acc, low combo.
+    // Fever reduces risk a bit (player in flow).
+    let x =
+      -0.95
+      + (1.8 * ewMissRate)
+      + (1.4 * ewJunkHitRate)
+      + (1.1 * ewGoodExpireRate)
+      + (0.9 * (1 - ewAcc))
+      + (0.6 * (1 - ewShield))
+      + (0.5 * (1 - ewCombo))
+      - (0.35 * (fever/100));
 
-    // protection
-    risk -= Math.min(1, feat.shield/3) * 0.18;
+    // diff scaling (prediction only)
+    if(diff==='easy') x -= 0.15;
+    if(diff==='hard') x += 0.15;
 
-    // fever/combo buffer
-    risk -= Math.min(1, feat.combo/10) * 0.07;
-    risk -= Math.min(1, feat.fever/100) * 0.06;
+    let out = sigmoid(x);
+    out = clamp(out, 0, 1);
 
-    // clamp
-    risk = clamp01(risk);
+    // smooth
+    risk = ewma(risk, out, 0.18);
 
-    const reasons = top2Reasons(feat);
+    // explainable top factors
+    const factors = [
+      { key:'missRate', label:'MISS ต่อช็อตสูง', score: 1.8*ewMissRate },
+      { key:'junkHit',  label:'โดนของเสียบ่อย', score: 1.4*ewJunkHitRate },
+      { key:'goodExp',  label:'ของดีหลุดมือ', score: 1.1*ewGoodExpireRate },
+      { key:'lowAcc',   label:'ความแม่นต่ำ', score: 0.9*(1-ewAcc) },
+      { key:'lowShield',label:'โล่น้อย', score: 0.6*(1-ewShield) },
+      { key:'lowCombo', label:'คอมโบไม่ต่อ', score: 0.5*(1-ewCombo) },
+    ].sort((a,b)=> b.score - a.score);
 
-    // next hints (choose from templates deterministically)
-    const hintPool = [];
-    if(feat.shield > 0) hintPool.push('ถ้ามี 🛡️ แล้ว กล้าเสี่ยงโบนัสได้');
-    if(feat.acc < 0.7) hintPool.push('ช้าลงนิด ยิงของดีให้ชัวร์');
-    if(feat.missGoodExpired > 0) hintPool.push('โฟกัสของดีที่ใกล้หายก่อน');
-    if(feat.missJunkHit > 0) hintPool.push('เห็น 🍔🍟 ให้พักนิ้ว 0.2 วิ แล้วค่อยยิง');
-    if(feat.combo >= 4) hintPool.push('รักษาคอมโบ! ยิงของดีต่อเนื่อง');
-    if(feat.fever >= 70) hintPool.push('FEVER มาแล้ว! เก็บ BONUS เพิ่มแต้ม');
-    if(hintPool.length === 0) hintPool.push('โฟกัสของดี แล้วเลี่ยงของเสีย');
+    const top2 = factors.slice(0,2);
 
-    const next = hintPool[(r01()*hintPool.length)|0];
+    // tips pool (deterministic shuffle-ish)
+    const tips = [];
+    // priority tips based on top factors
+    for(const f of top2){
+      if(f.key==='junkHit') tips.push('เห็น 🍟🍔🍕 ให้ “หยุด” ครึ่งวิ ก่อนแตะ');
+      if(f.key==='goodExp') tips.push('เร่งแตะ “ของดี” ที่อยู่ใกล้หมดเวลา');
+      if(f.key==='lowShield') tips.push('เก็บ 🛡️ ก่อน แล้วค่อยเสี่ยงโบนัส');
+      if(f.key==='lowAcc') tips.push('โฟกัสเป้าเดียว อย่าไล่หลายอันพร้อมกัน');
+      if(f.key==='lowCombo') tips.push('ต่อคอมโบ 3–5 จะทำให้เกม “นิ่ง” ขึ้น');
+      if(f.key==='missRate') tips.push('ช้า = MISS: เลือกยิงเฉพาะของดีที่ชัด ๆ');
+    }
+    // add some generic tips
+    const generic = [
+      'ถ้ามี 🛡️ แล้ว กล้าเสี่ยงโบนัสได้',
+      'ตอน Storm เป้าเยอะ: เลือกของดีใหญ่ก่อน',
+      'Boss: แตกโล่ 🛡️ ก่อน แล้วค่อยยิง 🎯',
+      'FEVER ใกล้เต็ม: รักษาคอมโบไว้',
+    ];
+    // deterministic add 1-2 generic
+    if(r01() < 0.7) tips.push(generic[(r01()*generic.length)|0]);
+    if(r01() < 0.35) tips.push(generic[(r01()*generic.length)|0]);
 
-    // build explainable note (top2)
-    const explain = reasons.map(([txt,w])=>{
-      const sign = (w>=0) ? '↑' : '↓';
-      return `${sign}${txt}`;
-    });
+    // clean + unique
+    const uniq = [];
+    const seen = new Set();
+    for(const t of tips){
+      const s = String(t||'').trim();
+      if(!s) continue;
+      if(seen.has(s)) continue;
+      seen.add(s);
+      uniq.push(s);
+    }
 
     return {
       hazardRisk: risk,
-      next5: [next],
-      explainTop2: explain
+      next5: uniq.slice(0,5),
+      topFactors: top2
     };
   }
 
-  function getPrediction(){
-    return st.last;
-  }
-
   return {
-    onSpawn(kind){ st.spawn[kind] = (st.spawn[kind]||0) + 1; },
-    onHit(kind, meta){
-      st.hit[kind] = (st.hit[kind]||0) + 1;
-      if(kind==='junk' && meta && meta.blocked) st.hit.junkBlocked++;
+    onSpawn(kind){ /* optional hook */ },
+    onHit(kind){ /* optional hook */ },
+    onExpire(kind){ /* optional hook */ },
+
+    onTick(dt, features){
+      const pred = calcRisk(features || {});
+      lastPred = pred;
+      return pred;
     },
-    onExpire(kind){ st.expire[kind] = (st.expire[kind]||0) + 1; },
 
-    onTick(dt, feat){
-      st.t += Number(dt)||0;
-
-      const shots = Math.max(1, Number(feat.shots||0));
-      const hits  = Math.max(0, Number(feat.hits||0));
-      const acc   = Math.max(0, Math.min(1, hits / shots));
-
-      const missTotal = (Number(feat.missGoodExpired||0) + Number(feat.missJunkHit||0));
-      const missRate = missTotal / Math.max(1, (Number(feat.shots||0)));
-
-      const f = {
-        acc,
-        missRate,
-        missGoodExpired: Number(feat.missGoodExpired||0),
-        missJunkHit: Number(feat.missJunkHit||0),
-        shield: Number(feat.shield||0),
-        fever: Number(feat.fever||0),
-        combo: Number(feat.combo||0)
-      };
-
-      st.last = predict(f);
-      return st.last;
+    getPrediction(){
+      return lastPred;
     },
 
     onEnd(summary){
-      // attach explainable reasons to summary if possible
-      const p = st.last || null;
-      return {
-        aiVersion: 'GJ_AI_2026-03-04_PRED_EXPLAIN',
-        predictionLast: p,
-        note: p?.explainTop2 ? `Top2: ${p.explainTop2.join(' , ')}` : ''
-      };
-    },
+      // Provide explainable “Top 2” like you requested
+      const pred = lastPred || { hazardRisk: risk, topFactors: [] };
+      const tf = (pred.topFactors || []).slice(0,2);
 
-    getPrediction
+      let msg = 'ปัจจัยเสี่ยงหลัก: ';
+      if(tf.length){
+        msg += tf.map(x=>x.label).join(' + ');
+      }else{
+        msg += '—';
+      }
+
+      return {
+        hazardRisk: clamp(pred.hazardRisk ?? risk, 0, 1),
+        topFactors: tf,
+        note: msg,
+        modelTag: 'GJAI-PRED-v20260304'
+      };
+    }
   };
 }
