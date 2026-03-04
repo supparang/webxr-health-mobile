@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
-HeroHealth • GoodJunk Launcher (Mode + Diff + Room + Nick)
-FULL v20260304d-LAUNCHER-BATTLE-WAIT1
+HeroHealth • GoodJunk Launcher (Mode + Diff + AutoDiff + Room + Nick)
+FULL v20260304e-LAUNCHER-AUTODIFF-PID
 -->
 <!doctype html>
 <html lang="th">
@@ -178,7 +178,7 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
         <div class="logo">🥦</div>
         <div>
           <h1>GoodJunk — เลือกโหมดเกม</h1>
-          <p class="subtitle">กดเลือกโหมด → เลือกความยาก → ใส่ชื่อ/ห้อง → เริ่มเล่น (เหมาะกับ ป.5)</p>
+          <p class="subtitle">กดเลือกโหมด → (Auto) แนะนำระดับ → ใส่ชื่อ/ห้อง → เริ่มเล่น (เหมาะกับ ป.5)</p>
         </div>
       </div>
       <div class="pillrow">
@@ -198,9 +198,9 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
             <span class="tag" id="tagNeedRoom">👥 Multiplayer ต้องใส่ ROOM</span>
           </div>
           <div class="btns" style="margin-top:10px;">
-            <button id="btnSolo" class="sel">🎯 SOLO<div class="small">ฝึกเล่นคนเดียว • สบายใจ ไม่ต้องมีห้อง</div></button>
+            <button id="btnSolo" class="sel">🎯 SOLO<div class="small">ฝึกเล่นคนเดียว • ระบบ (Auto) แนะนำระดับให้</div></button>
             <button id="btnBattle">⚔️ BATTLE<div class="small">แข่งคะแนนในห้องเดียวกัน • score→acc→miss→medianRT</div></button>
-            <button id="btnRace">🏁 RACE<div class="small">เริ่มพร้อมกัน + ใคร CLEAR ก่อนชนะ • เหมือน “วิ่งแข่ง”</div></button>
+            <button id="btnRace">🏁 RACE<div class="small">เริ่มพร้อมกัน + ใคร CLEAR ก่อนชนะ</div></button>
             <button id="btnCoop">🤝 COOP<div class="small">เล่นเป็นทีม • (เปิดเต็มในแพ็กถัดไป)</div></button>
           </div>
           <div class="hint">ทิป: ให้เด็กทั้งห้องใช้ ROOM เดียวกัน เช่น <b>P5A</b> หรือ <b>CLASS5A</b></div>
@@ -211,33 +211,48 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
 
           <div class="row">
             <div class="field">
+              <label>ระดับอัตโนมัติ (Auto diff)</label>
+              <select id="selAuto">
+                <option value="1" selected>เปิด (แนะนำตามผลล่าสุดของ pid)</option>
+                <option value="0">ปิด (เลือกเอง)</option>
+              </select>
+              <div class="hint">ดู score/acc/miss/ชนะ-แพ้ ครั้งล่าสุด</div>
+            </div>
+
+            <div class="field">
               <label>ความยาก (easy / normal / hard)</label>
               <select id="selDiff">
                 <option value="easy">easy</option>
                 <option value="normal" selected>normal</option>
                 <option value="hard">hard</option>
               </select>
-              <div class="hint">ทุกโหมดมีระดับความยาก</div>
-            </div>
-
-            <div class="field">
-              <label>ชื่อเล่น (nick)</label>
-              <input id="inpNick" placeholder="เช่น Mint / Somchai" autocomplete="nickname" />
-              <div class="hint">ถ้าไม่ใส่ จะใช้ pid แทน</div>
+              <div class="hint">ถ้า Auto เปิด ระบบจะปรับให้อัตโนมัติ</div>
             </div>
           </div>
 
           <div class="row" style="margin-top:10px;">
             <div class="field">
+              <label>ชื่อเล่น (nick)</label>
+              <input id="inpNick" placeholder="เช่น Mint / Somchai" autocomplete="nickname" />
+              <div class="hint">ถ้าไม่ใส่ จะใช้ pid แทน</div>
+            </div>
+
+            <div class="field">
               <label>ROOM (จำเป็นสำหรับ Battle/Race/Coop)</label>
               <input id="inpRoom" placeholder="เช่น P5A / ROOM1" autocomplete="off" />
               <div class="hint">ทุกคนต้องใช้ ROOM เดียวกันถึงจะเจอกัน</div>
             </div>
+          </div>
 
+          <div class="row" style="margin-top:10px;">
             <div class="field">
               <label>เวลาเล่น (วินาที)</label>
               <input id="inpTime" inputmode="numeric" placeholder="80" />
               <div class="hint">แนะนำ 70–90 วินาที (ป.5 กำลังสนุก)</div>
+            </div>
+            <div class="field">
+              <label>หมายเหตุ</label>
+              <div class="hint">Battle/Race จะบังคับรอเริ่มพร้อมกัน (wait=1) อัตโนมัติ</div>
             </div>
           </div>
 
@@ -261,7 +276,7 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
 (function(){
   'use strict';
 
-  const LS_KEY = 'HHA_GJ_LAUNCHER_PREFS_v1';
+  const LS_KEY = 'HHA_GJ_LAUNCHER_PREFS_v2';
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clampInt = (v,a,b,def)=>{
@@ -278,36 +293,21 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
 
   const $ = (id)=> document.getElementById(id);
 
-  const pillMode=$('pillMode'), pillDiff=$('pillDiff'), pillView=$('pillView'), pillRun=$('pillRun'), pillPid=$('pillPid');
-  const tagNeedRoom=$('tagNeedRoom');
-
-  const btnSolo=$('btnSolo'), btnBattle=$('btnBattle'), btnRace=$('btnRace'), btnCoop=$('btnCoop');
-  const selDiff=$('selDiff'), inpNick=$('inpNick'), inpRoom=$('inpRoom'), inpTime=$('inpTime');
-  const msg=$('msg');
-
-  const state = {
-    mode: String(qs('mode','solo')).toLowerCase(),
-    diff: String(qs('diff','normal')).toLowerCase(),
-    view: String(qs('view','mobile')).toLowerCase(),
-    run:  String(qs('run','play')).toLowerCase(),
-    pid:  String(qs('pid','anon')).trim() || 'anon',
-    hub:  String(qs('hub','./hub.html')),
-    time: String(qs('time','80')),
-    seed: String(qs('seed','')) || String(Date.now()),
-  };
-
   function setMsg(type, text){
+    const msg = $('msg');
+    if(!msg) return;
     msg.className = 'msg ' + (type||'');
     msg.textContent = text || '';
   }
 
-  function savePrefs(){
+  function savePrefs(state){
     const prefs = {
       mode: state.mode,
       diff: state.diff,
-      nick: String(inpNick.value||'').trim(),
-      room: String(inpRoom.value||'').trim(),
-      time: String(inpTime.value||'').trim()
+      auto: String($('selAuto')?.value || '1'),
+      nick: String($('inpNick')?.value||'').trim(),
+      room: String($('inpRoom')?.value||'').trim(),
+      time: String($('inpTime')?.value||'').trim()
     };
     try{ localStorage.setItem(LS_KEY, JSON.stringify(prefs)); }catch(_){}
   }
@@ -325,35 +325,126 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
     try{ localStorage.removeItem(LS_KEY); }catch(_){}
   }
 
+  // ===== Auto difficulty helpers =====
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+
+  function loadLastSummaryForPid(pid){
+    try{
+      pid = String(pid||'anon').trim() || 'anon';
+      const k = `HHA_LAST_SUMMARY:goodjunk:${pid}`;
+      const raw = lsGet(k) || ''; // ใช้ key เฉพาะ pid ก่อน
+      if(raw){
+        const j = JSON.parse(raw);
+        if(j && String(j.pid||'') === pid) return j;
+      }
+      // fallback: global (แต่ต้อง pid ตรง)
+      const raw2 = lsGet('HHA_LAST_SUMMARY') || '';
+      if(!raw2) return null;
+      const j2 = JSON.parse(raw2);
+      if(j2 && String(j2.pid||'') === pid) return j2;
+      return null;
+    }catch(_){ return null; }
+  }
+
+  function recommendDiffFromSummary(sum){
+    if(!sum) return { diff:'easy', why:'ยังไม่มีประวัติ → เริ่มที่ easy' };
+
+    const reason = String(sum.reason||'').toLowerCase(); // win / miss-limit / time / background
+    const acc = Number(sum.accPct ?? 0) || 0;
+    const miss = Number(sum.missTotal ?? sum.miss ?? 0) || 0;
+    const grade = String(sum.grade||'').toUpperCase();
+    const diffPrev = String(sum.diff||'normal').toLowerCase();
+
+    if(reason === 'background'){
+      return { diff: diffPrev || 'normal', why:'ออกกลางคัน (background) → คงระดับเดิม' };
+    }
+
+    // แพ้หนัก / ท้อ -> ลด
+    const hardLose = (reason === 'miss-limit') || (acc <= 45) || (miss >= 10);
+    if(hardLose){
+      if(diffPrev === 'hard') return { diff:'normal', why:`ยากไป (acc ${acc}%, miss ${miss}) → ลดเป็น normal` };
+      return { diff:'easy', why:`ยากไป (acc ${acc}%, miss ${miss}) → ลดเป็น easy` };
+    }
+
+    // ชนะสวย -> ขึ้น
+    const strongWin = (reason === 'win') && (acc >= 82) && (miss <= 2) && (grade === 'A' || grade === 'S');
+    if(strongWin){
+      if(diffPrev === 'easy') return { diff:'normal', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น normal` };
+      return { diff:'hard', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น hard` };
+    }
+
+    // ชนะดี -> คงหรือขึ้นเล็กน้อย
+    const solidWin = (reason === 'win') && (acc >= 70) && (miss <= 4);
+    if(solidWin){
+      if(diffPrev === 'easy') return { diff:'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → ขึ้นเป็น normal` };
+      return { diff: diffPrev || 'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → คงระดับ ${diffPrev||'normal'}` };
+    }
+
+    // กลาง ๆ -> คง
+    return { diff: diffPrev || 'normal', why:`ผลงานกลาง ๆ (acc ${acc}%, miss ${miss}) → คงระดับ` };
+  }
+
+  // ===== State =====
+  const state = {
+    mode: String(qs('mode','solo')).toLowerCase(),
+    diff: String(qs('diff','normal')).toLowerCase(),
+    view: String(qs('view','mobile')).toLowerCase(),
+    run:  String(qs('run','play')).toLowerCase(),
+    pid:  String(qs('pid','anon')).trim() || 'anon',
+    hub:  String(qs('hub','./hub.html')),
+    time: String(qs('time','80')),
+    seed: String(qs('seed','')) || String(Date.now()),
+  };
+
   function setMode(m){
     state.mode = m;
-    pillMode.textContent = m;
 
-    [btnSolo,btnBattle,btnRace,btnCoop].forEach(b=> b.classList.remove('sel'));
-    if(m==='solo') btnSolo.classList.add('sel');
-    else if(m==='battle') btnBattle.classList.add('sel');
-    else if(m==='race') btnRace.classList.add('sel');
-    else btnCoop.classList.add('sel');
+    $('pillMode').textContent = m;
+    ['btnSolo','btnBattle','btnRace','btnCoop'].forEach(id=> $(id).classList.remove('sel'));
+    if(m==='solo') $('btnSolo').classList.add('sel');
+    else if(m==='battle') $('btnBattle').classList.add('sel');
+    else if(m==='race') $('btnRace').classList.add('sel');
+    else $('btnCoop').classList.add('sel');
 
     const needsRoom = (m!=='solo');
-    inpRoom.disabled = !needsRoom;
-    tagNeedRoom.style.opacity = needsRoom ? '1' : '.45';
+    $('inpRoom').disabled = !needsRoom;
+    $('tagNeedRoom').style.opacity = needsRoom ? '1' : '.45';
 
-    if(needsRoom){
-      setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน (เช่น P5A)');
-    }else{
-      setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (ไม่ต้องมี ROOM)');
+    if(needsRoom) setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน (เช่น P5A)');
+    else setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (Auto diff แนะนำระดับให้)');
+    savePrefs(state);
+  }
+
+  function applyAutoDiffIfNeeded(showWhy){
+    const selAuto = $('selAuto');
+    const selDiff = $('selDiff');
+    const pillDiff = $('pillDiff');
+
+    const useAuto = (selAuto ? selAuto.value === '1' : true);
+    if(!useAuto) return;
+
+    const sum = loadLastSummaryForPid(state.pid);
+    const rec = recommendDiffFromSummary(sum);
+
+    state.diff = rec.diff;
+    selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
+    pillDiff.textContent = selDiff.value;
+
+    if(showWhy){
+      setMsg('ok', `Auto diff: แนะนำ "${selDiff.value}" • ${rec.why}`);
     }
-    savePrefs();
+    savePrefs(state);
   }
 
   function init(){
-    pillMode.textContent = state.mode;
-    pillDiff.textContent = state.diff;
-    pillView.textContent = state.view;
-    pillRun.textContent  = state.run;
-    pillPid.textContent  = state.pid;
+    // pills
+    $('pillMode').textContent = state.mode;
+    $('pillDiff').textContent = state.diff;
+    $('pillView').textContent = state.view;
+    $('pillRun').textContent  = state.run;
+    $('pillPid').textContent  = state.pid;
 
+    // prefs
     const prefs = loadPrefs();
 
     const modeFromUrl = String(qs('mode','')).trim().toLowerCase();
@@ -366,22 +457,45 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
     const roomFromUrl = String(qs('room','')).trim();
     const timeFromUrl = String(qs('time','')).trim();
 
-    inpNick.value = nickFromUrl || (prefs?.nick || '');
-    inpRoom.value = roomFromUrl || (prefs?.room || '');
-    inpTime.value = timeFromUrl || (prefs?.time || state.time || '80');
+    $('inpNick').value = nickFromUrl || (prefs?.nick || '');
+    $('inpRoom').value = roomFromUrl || (prefs?.room || '');
+    $('inpTime').value = timeFromUrl || (prefs?.time || state.time || '80');
 
+    // auto selector
+    const selAuto = $('selAuto');
+    const autoFromUrl = String(qs('auto','')).trim(); // optional
+    let autoOn = true;
+    if(typeof prefs?.auto === 'string') autoOn = (prefs.auto !== '0');
+    if(autoFromUrl) autoOn = (autoFromUrl !== '0');
+    selAuto.value = autoOn ? '1' : '0';
+
+    // diff selector
+    const selDiff = $('selDiff');
     selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
-    pillDiff.textContent = selDiff.value;
+    $('pillDiff').textContent = selDiff.value;
 
-    btnSolo.onclick   = ()=> setMode('solo');
-    btnBattle.onclick = ()=> setMode('battle');
-    btnRace.onclick   = ()=> setMode('race');
-    btnCoop.onclick   = ()=> setMode('coop');
+    // bind mode
+    $('btnSolo').onclick   = ()=> setMode('solo');
+    $('btnBattle').onclick = ()=> setMode('battle');
+    $('btnRace').onclick   = ()=> setMode('race');
+    $('btnCoop').onclick   = ()=> setMode('coop');
 
     selDiff.onchange = ()=>{
       state.diff = String(selDiff.value||'normal');
-      pillDiff.textContent = state.diff;
-      savePrefs();
+      $('pillDiff').textContent = state.diff;
+      savePrefs(state);
+      if(selAuto.value === '1'){
+        setMsg('warn','Auto diff เปิดอยู่: ถ้าจะเลือกเอง ให้ปิด Auto diff ก่อน');
+      }
+    };
+
+    selAuto.onchange = ()=>{
+      savePrefs(state);
+      if(selAuto.value === '1'){
+        applyAutoDiffIfNeeded(true);
+      }else{
+        setMsg('ok','ปิด Auto diff แล้ว: เลือกระดับเองได้เลย');
+      }
     };
 
     $('btnBack').onclick = ()=> location.href = state.hub || './hub.html';
@@ -393,21 +507,29 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
 
     $('btnStart').onclick = onStart;
 
+    // apply mode UI
     if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
     setMode(state.mode);
+
+    // apply auto once on load
+    applyAutoDiffIfNeeded(true);
   }
 
   function onStart(){
-    const nick = (inpNick.value || '').trim() || state.pid;
-    const room = (inpRoom.value || '').trim();
-    const time = clampInt(inpTime.value, 20, 300, 80);
+    const nick = ($('inpNick').value || '').trim() || state.pid;
+    const room = ($('inpRoom').value || '').trim();
+    const time = clampInt($('inpTime').value, 20, 300, 80);
 
     if(state.mode !== 'solo' && !room){
       setMsg('bad', 'ต้องใส่ ROOM ก่อน (เช่น P5A) แล้วทุกคนใช้ ROOM เดียวกัน');
-      inpRoom.focus();
+      $('inpRoom').focus();
       return;
     }
 
+    // ✅ apply auto right before start (in case pid/history changed)
+    applyAutoDiffIfNeeded(false);
+
+    // Build run URL
     const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
     runUrl.searchParams.set('mode', state.mode);
@@ -419,17 +541,20 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
     runUrl.searchParams.set('nick', nick);
     if(room) runUrl.searchParams.set('room', room);
 
+    // pass-through ctx from hub
     const sp = new URL(location.href).searchParams;
     PASS_KEYS.forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') runUrl.searchParams.set(k, v);
     });
 
+    // always set hub back
     runUrl.searchParams.set('hub', state.hub || sp.get('hub') || './hub.html');
 
+    // Compatibility flags
     if(state.mode === 'battle'){
       runUrl.searchParams.set('battle','1');
-      runUrl.searchParams.set('wait','1'); // ✅ NEW: battle must wait start
+      runUrl.searchParams.set('wait','1'); // ✅ battle must wait
       ['autostart','forfeit'].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') runUrl.searchParams.set(k, v);
@@ -440,10 +565,13 @@ FULL v20260304d-LAUNCHER-BATTLE-WAIT1
     }
     if(state.mode === 'coop'){
       runUrl.searchParams.set('coop','1');
-      runUrl.searchParams.set('wait','1'); // reserve
+      runUrl.searchParams.set('wait','1');
     }
 
-    savePrefs();
+    // let user override auto in URL (optional)
+    runUrl.searchParams.set('auto', String($('selAuto').value || '1'));
+
+    savePrefs(state);
     location.href = runUrl.toString();
   }
 
