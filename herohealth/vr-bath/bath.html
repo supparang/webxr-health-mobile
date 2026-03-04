@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-bath/bath.html ===
 BathVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260304-BATH-RUN-UI
+PATCH v20260304-BATH-RUN-PRACTICE-CALIB-COOLDOWN
 -->
 <!doctype html>
 <html lang="th">
@@ -13,7 +13,6 @@ PATCH v20260304-BATH-RUN-UI
 </head>
 <body>
   <div id="wrap">
-    <!-- HUD -->
     <div id="hud">
       <div class="row">
         <div>Score: <span id="tScore">0</span></div>
@@ -53,11 +52,31 @@ PATCH v20260304-BATH-RUN-UI
       </div>
     </div>
 
-    <!-- PLAYFIELD -->
     <div id="layerWrap">
       <div id="layer"></div>
       <div id="fx"></div>
       <div id="toast"></div>
+    </div>
+
+    <!-- ✅ PRACTICE OVERLAY -->
+    <div id="ovPractice" class="overlay" hidden>
+      <div class="panel">
+        <h3>Practice 15s</h3>
+        <p id="tPractice">ซ้อม…</p>
+        <button id="btnSkipPractice">ข้ามการซ้อม</button>
+      </div>
+    </div>
+
+    <!-- ✅ CALIBRATION / RECENTER OVERLAY -->
+    <div id="ovCalib" class="overlay" hidden>
+      <div class="panel">
+        <h3>Calibration / Recenter</h3>
+        <p>1) มองตรงไปด้านหน้า<br/>2) กดปุ่ม Recenter<br/>3) ยิง/แตะจากเป้า + ห้ามให้ HUD บังเป้า</p>
+        <div class="row">
+          <button id="btnRecenter">Recenter</button>
+          <button id="btnCalibClose">ปิด</button>
+        </div>
+      </div>
     </div>
 
     <!-- END SUMMARY -->
@@ -71,14 +90,19 @@ PATCH v20260304-BATH-RUN-UI
       <div>Accuracy: <span id="sAcc"></span></div>
       <div>Risk Avg: <span id="sRiskAvg"></span></div>
       <pre id="endNote"></pre>
+
       <div class="row">
         <button id="btnEndRetry">เล่นใหม่</button>
-        <a id="btnEndBack" href="../hub.html">กลับ HUB</a>
+
+        <!-- ✅ Go Cooldown (daily-first) -->
+        <a id="btnCooldown" class="btnLink" href="../warmup-gate.html" hidden>Go Cooldown</a>
+
+        <a id="btnEndBack" class="btnLink" href="../hub.html">กลับ HUB</a>
       </div>
     </div>
   </div>
 
-  <!-- Optional: if you already use vr-ui.js elsewhere, it will emit hha:shoot -->
+  <!-- แนะนำให้มี vr-ui.js เพื่อใช้ hha:shoot + recenter -->
   <!-- <script src="../vr/vr-ui.js"></script> -->
 
   <script src="./ai-hooks.js"></script>
