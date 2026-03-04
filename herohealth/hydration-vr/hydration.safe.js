@@ -5,9 +5,10 @@
 // ✅ MISS = bad hit only | EXPIRE separate | BLOCK separate
 // ✅ Storm Boss: lightning requires shield + correct LEFT/RIGHT zone (B)
 // ✅ Zone switches in chunks (S2)
-// ✅ cVR zone control: tap L/R pads + (optional) deviceorientation tilt
+// ✅ cVR zone control: tap L/R pads + deviceorientation tilt (optional)
 // ✅ Cooldown daily-first + NextCooldown button
-// FULL v20260304-HYDRATION-SAFE-LRZONE-CVR-COOLDOWN
+// ✅ Emoji STORM/BOSS/FINAL by diff + shown on HUD/sign
+// FULL v20260304b-HYDRATION-SAFE-EMOJI-STORMBOSSFINAL
 'use strict';
 
 export function boot(cfg){
@@ -24,6 +25,31 @@ export function boot(cfg){
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
+
+  // ---------- Emoji mapping ----------
+  function emojiFor(diffKey, phase){
+    diffKey = String(diffKey||'normal').toLowerCase();
+    // phases: normal|storm|boss|final
+    const P = String(phase||'normal').toLowerCase();
+
+    if(diffKey === 'easy'){
+      if(P==='storm') return '🌦️⚡';
+      if(P==='boss')  return '⛈️⚡';
+      if(P==='final') return '🌩️👑⚡';
+      return '💧';
+    }
+    if(diffKey === 'hard'){
+      if(P==='storm') return '🌪️⚡⚡⚡';
+      if(P==='boss')  return '🌀🌩️⚡⚡⚡';
+      if(P==='final') return '🌪️👑⚡⚡⚡🔥';
+      return '💧';
+    }
+    // normal
+    if(P==='storm') return '🌩️⚡⚡';
+    if(P==='boss')  return '⛈️🌀⚡';
+    if(P==='final') return '🌪️👑⚡⚡';
+    return '💧';
+  }
 
   // ---------- cooldown daily-first ----------
   function hhDayKey(){
@@ -118,14 +144,13 @@ export function boot(cfg){
   const btnZoneL = DOC.getElementById('btnZoneL');
   const btnZoneR = DOC.getElementById('btnZoneR');
 
-  function setStorm(on){
-    try{ stageEl?.classList?.toggle('is-storm', !!on); }catch(e){}
-    try{ stageEl?.classList?.toggle('is-boss', false); }catch(e){}
-    try{ if(stormFx) stormFx.style.opacity = (on ? '1' : '0'); }catch(e){}
-  }
-  function setBoss(on){
-    try{ stageEl?.classList?.toggle('is-boss', !!on); }catch(e){}
-    try{ if(stormFx) stormFx.style.opacity = (on ? '1' : '0'); }catch(e){}
+  function setStagePhase(p){
+    try{
+      stageEl?.classList?.toggle('is-storm', p==='storm');
+      stageEl?.classList?.toggle('is-boss',  p==='boss');
+      stageEl?.classList?.toggle('is-final', p==='final');
+    }catch(e){}
+    try{ if(stormFx) stormFx.style.opacity = (p==='storm'||p==='boss'||p==='final') ? '1' : '0'; }catch(e){}
   }
 
   const ui = {
@@ -169,6 +194,13 @@ export function boot(cfg){
     let lightningRate=0.9, bossLightningRate=1.2;
     let lightningDmgWater=7.0, lightningDmgScore=6;
 
+    // FINAL
+    let finalNeedHits=10;          // after boss clear, final phase needs extra hits
+    let finalSec=10;               // final duration cap
+    let finalSpawnMul=1.35;
+    let finalBadP=0.55;
+    let finalLightningRate=1.35;   // harsh lightning
+
     let zoneChunkSec=3.0;
 
     if(diff==='easy'){
@@ -177,6 +209,8 @@ export function boot(cfg){
       bossNeedHits=14; bossSpawnMul=1.08; bossBadP=0.34;
       lightningRate=0.65; bossLightningRate=0.90;
       lightningDmgWater=5.5; lightningDmgScore=4;
+
+      finalNeedHits=7; finalSec=9; finalSpawnMul=1.20; finalBadP=0.45; finalLightningRate=1.05;
       zoneChunkSec=3.5;
     }
     if(diff==='hard'){
@@ -185,8 +219,11 @@ export function boot(cfg){
       bossNeedHits=22; bossSpawnMul=1.22; bossBadP=0.50;
       lightningRate=1.05; bossLightningRate=1.55;
       lightningDmgWater=8.5; lightningDmgScore=8;
+
+      finalNeedHits=12; finalSec=10; finalSpawnMul=1.55; finalBadP=0.62; finalLightningRate=1.75;
       zoneChunkSec=2.6;
     }
+
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
 
     return {
@@ -194,6 +231,7 @@ export function boot(cfg){
       stormSec, stormSpawnMul, stormBadP, stormTtlGoodMul,
       bossNeedHits, bossSpawnMul, bossBadP,
       lightningRate, bossLightningRate, lightningDmgWater, lightningDmgScore,
+      finalNeedHits, finalSec, finalSpawnMul, finalBadP, finalLightningRate,
       zoneChunkSec
     };
   })();
@@ -215,19 +253,22 @@ export function boot(cfg){
   let shield=0;
   let waterPct=30;
 
-  let phase='normal'; // normal|storm|boss
+  // phases: normal|storm|boss|final
+  let phase='normal';
   let stormLeft=0;
   let stormDone=false;
 
-  let bossOn=false;
-  let bossHits=0;
-  let bossGoal=0;
+  let bossHits=0, bossGoal=0;
 
-  // B+S2 zone
+  // final
+  let finalHits=0, finalGoal=0;
+  let finalLeft=0;
+
+  // zone
   let needZone='L';
   let zoneT=0;
 
-  // aimX01 for zone check
+  // aimX01
   let aimX01=0.5;
   function updateAimFromEvent(ev){
     try{
@@ -239,21 +280,16 @@ export function boot(cfg){
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
 
-  // ✅ cVR fallback: tap L/R pads sets aimX01
   if(btnZoneL && btnZoneR){
     btnZoneL.onclick = ()=>{ aimX01 = 0.25; };
     btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
   }
-
-  // ✅ optional: deviceorientation tilt controls aimX01 in cVR
   if(view==='cvr' || view==='vr'){
     WIN.addEventListener('deviceorientation', (ev)=>{
       try{
-        // gamma: left(-) right(+)
         const g = Number(ev?.gamma);
         if(!Number.isFinite(g)) return;
-        const x01 = clamp((g + 30) / 60, 0, 1); // map [-30..30] => [0..1]
-        // blend slightly so it’s stable
+        const x01 = clamp((g + 30) / 60, 0, 1);
         aimX01 = clamp(aimX01*0.65 + x01*0.35, 0, 1);
       }catch(e){}
     }, { passive:true });
@@ -262,7 +298,6 @@ export function boot(cfg){
   // targets
   const bubbles = new Map();
   let idSeq=1;
-
   const GOOD = ['💧','💦','🫗'];
   const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
@@ -280,6 +315,11 @@ export function boot(cfg){
     return 'D';
   }
 
+  function isInNeededZone(){
+    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
+  }
+  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
+
   function setHUD(){
     ui.score && (ui.score.textContent=String(score|0));
     ui.time && (ui.time.textContent=String(Math.ceil(tLeft)));
@@ -292,16 +332,17 @@ export function boot(cfg){
     ui.shield && (ui.shield.textContent=String(shield|0));
 
     if(ui.phase){
-      if(phase==='storm') ui.phase.textContent = `STORM ${needZone==='L'?'LEFT':'RIGHT'}`;
-      else if(phase==='boss') ui.phase.textContent = `BOSS ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
-      else ui.phase.textContent = 'NORMAL';
+      const emo = emojiFor(diff, phase);
+      if(phase==='storm') ui.phase.textContent = `${emo} STORM ${needZone==='L'?'LEFT':'RIGHT'}`;
+      else if(phase==='boss') ui.phase.textContent = `${emo} BOSS ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
+      else if(phase==='final') ui.phase.textContent = `${emo} FINAL ${finalHits}/${finalGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
+      else ui.phase.textContent = `💧 NORMAL`;
     }
 
     if(zoneSign){
-      if(phase==='storm' || phase==='boss'){
-        zoneSign.textContent = (needZone==='L')
-          ? '⬅️ SAFE ZONE: LEFT (ต้องมีโล่)'
-          : '➡️ SAFE ZONE: RIGHT (ต้องมีโล่)';
+      if(phase==='storm' || phase==='boss' || phase==='final'){
+        const emo = emojiFor(diff, phase);
+        zoneSign.textContent = `${emo} SAFE ZONE: ${needZone==='L'?'⬅️ LEFT':'➡️ RIGHT'} + 🛡️`;
       }else{
         zoneSign.textContent = '';
       }
@@ -390,6 +431,21 @@ export function boot(cfg){
 
   function addShield(){ shield = clamp(shield + 1, 0, 9); }
 
+  function applyLightningStrike(rate){
+    if(r01() < rate){
+      lightning();
+      const okZone = isInNeededZone();
+      if(shield > 0 && okZone){
+        shield--;
+        blockCount++;
+      }else{
+        combo = 0;
+        waterPct = clamp(waterPct - TUNE.lightningDmgWater, 0, 100);
+        score = Math.max(0, score - TUNE.lightningDmgScore);
+      }
+    }
+  }
+
   function hit(b){
     if(!playing || paused) return;
 
@@ -401,10 +457,23 @@ export function boot(cfg){
       if(phase==='boss'){
         bossHits++;
         if(bossHits >= bossGoal){
-          showEnd('boss-clear');
+          // ✅ enter FINAL instead of ending immediately
+          phase = 'final';
+          setStagePhase('final');
+          finalHits = 0;
+          finalGoal = TUNE.finalNeedHits;
+          finalLeft = TUNE.finalSec;
+          zoneT = 0;
+          needZone = (r01()<0.5) ? 'L' : 'R';
+        }
+      }else if(phase==='final'){
+        finalHits++;
+        if(finalHits >= finalGoal){
+          showEnd('final-clear');
           return;
         }
       }
+
       removeBubble(b.id);
       return;
     }
@@ -439,7 +508,7 @@ export function boot(cfg){
     if(b) hit(b);
   }, { passive:true });
 
-  // shoot center
+  // cVR shoot
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
@@ -461,24 +530,6 @@ export function boot(cfg){
     const b = pickClosestToCenter(ev?.detail?.lockPx ?? 56);
     if(b) hit(b);
   });
-
-  // zone logic
-  function isInNeededZone(){
-    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
-  }
-  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
-
-  function applyLightningStrike(){
-    const okZone = isInNeededZone();
-    if(shield > 0 && okZone){
-      shield--;
-      blockCount++;
-      return;
-    }
-    combo = 0;
-    waterPct = clamp(waterPct - TUNE.lightningDmgWater, 0, 100);
-    score = Math.max(0, score - TUNE.lightningDmgScore);
-  }
 
   // pause overlay
   let pauseOverlay=null;
@@ -536,7 +587,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-04_LRZone_CVR_Cooldown',
+      gameVersion:'HydrationVR_SAFE_2026-03-04b_Emoji_StormBossFinal',
       device:view, runMode, diff, seed:seedStr,
       reason:String(reason||''),
       durationPlannedSec: plannedSec,
@@ -551,6 +602,8 @@ export function boot(cfg){
       phaseFinal: phase,
       bossHits: bossHits|0,
       bossGoal: bossGoal|0,
+      finalHits: finalHits|0,
+      finalGoal: finalGoal|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score)
@@ -601,8 +654,7 @@ export function boot(cfg){
     paused=false;
     hidePauseOverlay();
 
-    setStorm(false);
-    setBoss(false);
+    setStagePhase('normal');
 
     for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
     bubbles.clear();
@@ -612,7 +664,11 @@ export function boot(cfg){
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
-      ui.endTitle && (ui.endTitle.textContent = (reason==='boss-clear') ? 'BOSS CLEAR!' : 'Game Over');
+      const title =
+        (reason==='final-clear') ? 'FINAL CLEAR!' :
+        (reason==='boss-clear')  ? 'BOSS CLEAR!' :
+        'Game Over';
+      ui.endTitle && (ui.endTitle.textContent = title);
       ui.endSub && (ui.endSub.textContent=`reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`);
       ui.endGrade && (ui.endGrade.textContent=summary.grade||'—');
       ui.endScore && (ui.endScore.textContent=String(summary.scoreFinal|0));
@@ -630,74 +686,81 @@ export function boot(cfg){
 
     if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.62){
       phase='storm';
+      setStagePhase('storm');
       stormLeft=TUNE.stormSec;
       stormDone=true;
       zoneT=0;
       needZone = (r01()<0.5) ? 'L' : 'R';
-      setStorm(true);
       lightning();
     }
 
+    // storm
     if(phase==='storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       zoneT += dt;
-      if(zoneT >= TUNE.zoneChunkSec){
-        zoneT = 0;
-        swapZone();
-      }
-
-      if(r01() < dt * TUNE.lightningRate){
-        lightning();
-        applyLightningStrike();
-      }
-
+      if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
+      applyLightningStrike(dt * TUNE.lightningRate);
       if(stormLeft <= 0){
         phase='normal';
-        setStorm(false);
+        setStagePhase('normal');
       }
     }
 
-    if(!bossOn && stormDone && phase!=='storm'){
+    // boss start
+    if(phase==='normal' && stormDone){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
-        bossOn=true;
         phase='boss';
+        setStagePhase('boss');
         bossHits=0;
         bossGoal=TUNE.bossNeedHits;
         zoneT=0;
         needZone = (r01()<0.5) ? 'L' : 'R';
-        setBoss(true);
         lightning();
       }
     }
 
+    // boss
     if(phase==='boss'){
       zoneT += dt;
-      if(zoneT >= TUNE.zoneChunkSec){
-        zoneT = 0;
-        swapZone();
-      }
+      if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
+      applyLightningStrike(dt * TUNE.bossLightningRate);
+    }
 
-      if(r01() < dt * TUNE.bossLightningRate){
-        lightning();
-        applyLightningStrike();
+    // final
+    if(phase==='final'){
+      finalLeft = Math.max(0, finalLeft - dt);
+      zoneT += dt;
+      if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
+      applyLightningStrike(dt * TUNE.finalLightningRate);
+
+      if(finalLeft <= 0){
+        // time up: if not cleared -> lose
+        showEnd('final-timeout');
+        return;
       }
     }
 
+    // spawn tuning per phase
     const inStorm = (phase==='storm');
     const inBoss  = (phase==='boss');
+    const inFinal = (phase==='final');
 
-    const spawnRate = TUNE.spawnBase * (inStorm ? TUNE.stormSpawnMul : inBoss ? TUNE.bossSpawnMul : 1.0);
+    const spawnRate = TUNE.spawnBase * (inStorm ? TUNE.stormSpawnMul : inBoss ? TUNE.bossSpawnMul : inFinal ? TUNE.finalSpawnMul : 1.0);
     const ttlGood = TUNE.ttlGood * (inStorm ? TUNE.stormTtlGoodMul : 1.0);
-    const ttlBad  = TUNE.ttlBad  * (inStorm ? 0.95 : 1.0);
+    const ttlBad  = TUNE.ttlBad;
 
     spawnAcc += spawnRate * dt;
     while(spawnAcc >= 1){
       spawnAcc -= 1;
-
       const p=r01();
       let kind='good';
 
-      if(inStorm){
+      if(inFinal){
+        // final: bad สูง + shield โผล่บ้าง
+        if(p < (1.0 - TUNE.finalBadP - 0.06)) kind='good';
+        else if(p < (1.0 - 0.06)) kind='bad';
+        else kind='shield';
+      }else if(inStorm){
         if(p < (1.0 - TUNE.stormBadP - 0.07)) kind='good';
         else if(p < (1.0 - 0.07)) kind='bad';
         else kind='shield';
@@ -739,6 +802,49 @@ export function boot(cfg){
     return false;
   }
 
+  // pause overlay
+  let pauseOverlay=null;
+  function showPauseOverlay(){
+    if(pauseOverlay) return;
+    pauseOverlay = DOC.createElement('div');
+    pauseOverlay.style.position='fixed';
+    pauseOverlay.style.inset='0';
+    pauseOverlay.style.zIndex='95';
+    pauseOverlay.style.display='grid';
+    pauseOverlay.style.placeItems='center';
+    pauseOverlay.style.background='rgba(2,6,23,.72)';
+    pauseOverlay.style.backdropFilter='blur(8px)';
+    pauseOverlay.innerHTML = `
+      <div style="width:min(520px, calc(100vw - 24px));
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:22px; padding:16px;
+        background: rgba(2,6,23,.85);
+        box-shadow: 0 18px 40px rgba(0,0,0,.45); text-align:center;">
+        <div style="font-weight:1000;font-size:22px;">Paused</div>
+        <div style="opacity:.8;margin-top:6px;font-size:12px;">แตะเพื่อเล่นต่อ</div>
+        <button id="btnResume" style="margin-top:14px;border:1px solid rgba(255,255,255,.10);
+          background: rgba(56,189,248,.18); color:#e5e7eb;border-radius:14px;padding:10px 14px;font-weight:1000;">
+          Resume
+        </button>
+      </div>
+    `;
+    DOC.body.appendChild(pauseOverlay);
+    const resume = ()=>{
+      hidePauseOverlay();
+      paused=false;
+      lastTick=nowMs();
+      requestAnimationFrame(loop);
+    };
+    pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
+    const btn = DOC.getElementById('btnResume');
+    if(btn) btn.onclick = resume;
+  }
+  function hidePauseOverlay(){
+    if(!pauseOverlay) return;
+    pauseOverlay.remove();
+    pauseOverlay=null;
+  }
+
   function loop(){
     if(!playing) return;
 
@@ -753,21 +859,26 @@ export function boot(cfg){
     const dt=Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
     lastTick=t;
 
+    // planned timer always counts down (pause stops loop)
     tLeft=Math.max(0, tLeft-dt);
+
+    // passive dehydration
     waterPct = clamp(waterPct - dt*(diff==='hard'?1.35: diff==='easy'?0.95:1.15), 0, 100);
 
     spawnTick(dt);
     updateBubbles();
 
+    // AI hint
     try{
       const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
       const expirePressure = clamp(missGoodExpired/25, 0, 1);
       const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
       const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
 
-      let hint='เล็ง + เก็บน้ำ 💧';
-      if(phase==='storm') hint=`⚡ ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่ 🛡️`;
-      else if(phase==='boss') hint=`👑 บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+      let hint='เก็บน้ำ 💧 + หาโล่ 🛡️';
+      if(phase==='storm') hint=`${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
+      else if(phase==='boss') hint=`${emojiFor(diff,'boss')} บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+      else if(phase==='final') hint=`${emojiFor(diff,'final')} FINAL! ${finalHits}/${finalGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
       else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
       else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
       else if(combo>=6) hint='คอมโบมาแล้ว!';
@@ -782,7 +893,6 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
 
-  // background => pause
   DOC.addEventListener('visibilitychange', ()=>{
     if(!playing) return;
     if(DOC.hidden){
@@ -793,7 +903,6 @@ export function boot(cfg){
     if(paused) showPauseOverlay();
   });
 
-  // start
   setHUD();
   requestAnimationFrame(loop);
 }
