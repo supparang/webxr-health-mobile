@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — PRODUCTION (Classroom-ready + Practice + cVR shoot + RAMP + STREAK + FAIR MISS + AI warn + FX)
-// FULL v20260303e-GROUPS-CLASSROOM-RAMP-STREAK-AIWARN-FAIRMISS-FX
+// GroupsVR SAFE — PRODUCTION (Classroom-ready + Practice + cVR shoot + RAMP + STREAK + FAIR MISS + AI warn + FX + SFX + WIGGLE)
+// FULL v20260303f-GROUPS-CLASSROOM-RAMP-STREAK-AIWARN-FAIRMISS-FX-SFX-WIGGLE
 /* global window, document */
 (function(){
   'use strict';
@@ -92,7 +92,6 @@
         will-change: transform, opacity;
       }
       .hha-burst.good{
-        box-shadow: 0 0 0 0 rgba(34,197,94,.0);
         background: rgba(34,197,94,.22);
         border: 1px solid rgba(34,197,94,.34);
       }
@@ -121,7 +120,6 @@
       fxEl.className = 'hha-fx';
       layerEl.appendChild(fxEl);
 
-      // flash overlay
       const flash = DOC.createElement('div');
       flash.className = 'hha-flash';
       flash.id = 'hhaFlash';
@@ -135,10 +133,8 @@
 
     function layerRect(){
       if(!layerEl) return { left:0, top:0, width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
-      const r = layerEl.getBoundingClientRect();
-      return r;
+      return layerEl.getBoundingClientRect();
     }
-
     function toLocalXY(clientX, clientY){
       const r = layerRect();
       return { x: clientX - r.left, y: clientY - r.top };
@@ -149,7 +145,6 @@
       const p = toLocalXY(clientX, clientY);
       popupAtLocal(text, p.x, p.y, kind);
     }
-
     function popupAtLocal(text, x, y, kind){
       if(!fxEl) return;
       const el = DOC.createElement('div');
@@ -173,7 +168,6 @@
       const p = toLocalXY(clientX, clientY);
       burstAtLocal(p.x, p.y, good);
     }
-
     function burstAtLocal(x, y, good){
       if(!fxEl) return;
       const el = DOC.createElement('div');
@@ -204,22 +198,18 @@
       ms = clamp(ms||220, 80, 520);
       shakeT = nowMs() + ms;
     }
-
     function tickShake(){
       if(!layerEl) return;
       const t = nowMs();
       if(t > shakeT){
-        // reset
         try{ layerEl.style.transform = ''; }catch(_){}
         return;
       }
-      // small shake
       const dx = (Math.random()*2-1) * 1.6;
       const dy = (Math.random()*2-1) * 1.6;
       try{ layerEl.style.transform = `translate(${dx}px,${dy}px)`; }catch(_){}
       requestAnimationFrame(tickShake);
     }
-
     function startShake(ms){
       shake(ms);
       requestAnimationFrame(tickShake);
@@ -229,21 +219,80 @@
   })();
 
   // ---------------------------
-  // Safe spawn rect (หลบ HUD) — FIX: LOCAL coords
+  // SFX (WebAudio, no assets)
+  // ---------------------------
+  const SFX = (function(){
+    let ctx=null, master=null;
+    let enabled=true;
+
+    function init(){
+      try{
+        if(ctx) return true;
+        const AC = WIN.AudioContext || WIN.webkitAudioContext;
+        if(!AC) return false;
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = 0.16;
+        master.connect(ctx.destination);
+        return true;
+      }catch(_){ return false; }
+    }
+
+    function unlock(){
+      try{
+        if(!init()) return;
+        if(ctx.state === 'suspended') ctx.resume();
+      }catch(_){}
+    }
+
+    function tone(freq, durMs, type, vol){
+      try{
+        if(!enabled) return;
+        if(!init()) return;
+        if(ctx.state === 'suspended') return;
+
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = type || 'sine';
+        o.frequency.value = Math.max(40, Number(freq)||440);
+
+        const t0 = ctx.currentTime;
+        const d = Math.max(0.02, (Number(durMs)||120)/1000);
+
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0002, Number(vol)||0.35), t0 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+
+        o.connect(g);
+        g.connect(master);
+
+        o.start(t0);
+        o.stop(t0 + d + 0.02);
+      }catch(_){}
+    }
+
+    function good(){ tone(880, 90, 'triangle', 0.40); tone(1320, 70, 'sine', 0.22); }
+    function bad(){  tone(180, 140, 'sawtooth', 0.28); }
+    function pop(){  tone(520, 70, 'square', 0.18); }
+    function boss(){ tone(110, 220, 'sine', 0.35); tone(70, 260, 'triangle', 0.22); }
+
+    function setEnabled(on){ enabled = !!on; }
+
+    return { unlock, setEnabled, good, bad, pop, boss };
+  })();
+
+  // ---------------------------
+  // Safe spawn rect (หลบ HUD) — LOCAL coords
   // ---------------------------
   function getSafeRect(layerEl){
-    // optional override: window.__HHA_SPAWN_SAFE__ expected LOCAL coords now
     const s = WIN.__HHA_SPAWN_SAFE__;
     if(s && Number.isFinite(s.xMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMin) && Number.isFinite(s.yMax)){
       return s;
     }
-
     const r = layerEl.getBoundingClientRect();
     const PAD = 14;
-
-    // local coords inside layer
-    const topSafe = 120; // avoid top HUD area
-    const botSafe = 140; // avoid bottom VR UI
+    const topSafe = 120;
+    const botSafe = 140;
     return {
       xMin: PAD,
       xMax: Math.max(PAD+1, r.width - PAD),
@@ -337,7 +386,6 @@
     paused: false,
     raf: 0,
 
-    // config
     diff: 'normal',
     ctx: null,
     runMode: 'play',
@@ -345,10 +393,8 @@
     seedStr: '',
     view: 'mobile',
 
-    // rng
     rng: null,
 
-    // game
     startMs: 0,
     lastTick: 0,
     tLeft: 0,
@@ -361,32 +407,30 @@
     shots: 0,
     hits: 0,
 
-    // quest/mission
     curGroup: null,
     goalTotal: 12,
     goalNow: 0,
 
-    // power
     charge: 0,
     chargeNeed: 8,
 
-    // stage flow
     stage: 'main', // main | boss
     bossLeft: 0,
     bossSec: 12,
     bossHits: 0,
 
-    // spawn
     spawnAcc: 0,
     baseSpawnPerSec: 1.20,
     baseTtl: 2.9,
 
-    // targets
     map: new Map(),
     idSeq: 1,
 
-    // fairness
-    // miss นับเฉพาะ “เป้าถูกหมู่” ที่ปล่อยหลุด (ไม่ใช่ทุกอย่าง)
+    // --- WIGGLE (fair) ---
+    wiggleOn: true,
+    wiggleHardOnly: true,
+    wiggleAmpPx: 10,
+    wiggleHz: 1.15,
   };
 
   function accPct(){
@@ -421,6 +465,40 @@
     return { x, y };
   }
 
+  function bossWarningFx(){
+    try{
+      const layer = STATE.layerEl;
+      if(!layer) return;
+
+      const ring = DOC.createElement('div');
+      ring.style.cssText =
+        'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.82);' +
+        'width:220px; height:220px; border-radius:999px;' +
+        'border:2px dashed rgba(34,211,238,.55);' +
+        'box-shadow: 0 0 0 10px rgba(34,197,94,.05) inset, 0 0 30px rgba(34,211,238,.18);' +
+        'opacity:0; transition: all 420ms ease; pointer-events:none; z-index:60;';
+      layer.appendChild(ring);
+
+      const bolt = DOC.createElement('div');
+      bolt.style.cssText =
+        'position:absolute; inset:0; pointer-events:none; z-index:59;' +
+        'background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%);' +
+        'opacity:0; transition: opacity 160ms ease;';
+      layer.appendChild(bolt);
+
+      requestAnimationFrame(()=>{
+        ring.style.opacity='1';
+        ring.style.transform='translate(-50%,-50%) scale(1)';
+        bolt.style.opacity='1';
+      });
+
+      setTimeout(()=>{ try{ bolt.style.opacity='0'; }catch(_){ } }, 140);
+      setTimeout(()=>{ try{ ring.style.transform='translate(-50%,-50%) scale(1.12)'; }catch(_){ } }, 220);
+      setTimeout(()=>{ try{ ring.style.opacity='0'; bolt.style.opacity='0'; }catch(_){ } }, 520);
+      setTimeout(()=>{ try{ ring.remove(); }catch(_){ } try{ bolt.remove(); }catch(_){ } }, 900);
+    }catch(_){}
+  }
+
   function createTarget(isMission){
     const id = String(STATE.idSeq++);
     const el = DOC.createElement('div');
@@ -432,7 +510,6 @@
     let groupId = gMission.id;
     let mission = !!isMission;
 
-    // boss เน้นถูกมากขึ้นให้ “รู้สึกเก่ง”
     const correctP = (STATE.stage==='boss') ? 0.82 : 0.72;
 
     if(STATE.rng() < correctP){
@@ -451,26 +528,35 @@
 
     const p = posInSafe();
     el.style.position = 'absolute';
-    el.style.left = `${p.x}px`; // local
-    el.style.top  = `${p.y}px`; // local
+    el.style.left = `${p.x}px`;
+    el.style.top  = `${p.y}px`;
     el.style.transform = 'translate(-50%,-50%) scale(.86)';
     el.style.opacity = '0';
 
     STATE.layerEl.appendChild(el);
 
-    // spawn pop
     requestAnimationFrame(()=>{
       el.style.transition = 'transform 160ms ease, opacity 140ms ease';
       el.style.transform = 'translate(-50%,-50%) scale(1)';
       el.style.opacity = '1';
     });
 
+    // spawn pop (เบา ๆ)
+    if(STATE.runMode !== 'research'){
+      if(STATE.rng() < 0.55) SFX.pop();
+    }
+
     const born = nowMs();
     const ttlMul = ttlShrinkMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
     const ttl = Math.max(1.15, STATE.baseTtl * ttlMul);
     const ttlMs = ttl * 1000;
 
-    const obj = { id, el, emoji, born, ttlMs, mission, groupId };
+    const obj = {
+      id, el, emoji, born, ttlMs, mission, groupId,
+      baseX: p.x,
+      baseY: p.y,
+      wigglePhase: STATE.rng() * Math.PI * 2
+    };
     STATE.map.set(id, obj);
 
     try{
@@ -485,7 +571,6 @@
     STATE.map.delete(String(id));
     try{
       if(cls) t.el.classList.add(cls);
-      // pop out
       t.el.style.transition = 'transform 140ms ease, opacity 120ms ease';
       t.el.style.transform = 'translate(-50%,-50%) scale(.72)';
       t.el.style.opacity = '0';
@@ -498,12 +583,12 @@
     emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
 
     if(STATE.charge >= STATE.chargeNeed){
-      // ได้ “สลับหมู่” (คล้าย power-up)
       STATE.charge = 0;
       STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
 
       STATE.curGroup = pick(STATE.rng, GROUPS);
       emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
+
       emit('quest:update', {
         goalTitle: 'ยิงให้ถูก “หมู่”',
         goalNow: STATE.goalNow,
@@ -516,7 +601,7 @@
 
       coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
       FX.flash(true);
-      FX.popupAtLocal(`SWITCH → ${STATE.curGroup.short}`, 120, 56, 'neu');
+      FX.popupAtLocal(`SWITCH → ${STATE.curGroup.short}`, 140, 56, 'neu');
     }
   }
 
@@ -525,17 +610,15 @@
 
     const isCorrect = (obj.mission === true) && (obj.groupId === STATE.curGroup.id);
 
-    // compute hit position for FX
     let cx=0, cy=0;
     try{
       const b = obj.el.getBoundingClientRect();
       cx = b.left + b.width/2;
       cy = b.top + b.height/2;
     }catch(_){
-      // fallback: center of layer
       const r = STATE.layerEl.getBoundingClientRect();
       cx = r.left + r.width/2;
-      cy = r.top + r.height/2;
+      cy = r.top  + r.height/2;
     }
 
     if(isCorrect){
@@ -549,10 +632,10 @@
 
       powerAdd(1);
 
-      // FX good
       FX.flash(true);
       FX.burstAtClient(cx, cy, true);
       FX.popupAtClient(`+${add}`, cx, cy, 'good');
+      SFX.good();
 
       if(STATE.stage==='boss'){
         STATE.bossHits++;
@@ -573,10 +656,10 @@
     STATE.combo = 0;
     STATE.score = Math.max(0, STATE.score - 3);
 
-    // FX bad
     FX.flash(false);
     FX.burstAtClient(cx, cy, false);
     FX.popupAtClient('MISS', cx, cy, 'bad');
+    SFX.bad();
 
     coach('ผิดหมู่! ดูชื่อหมู่ก่อนยิงนะ', 'neutral');
 
@@ -586,6 +669,7 @@
 
   function pointerHandler(ev){
     if(!STATE.running || STATE.paused) return;
+    SFX.unlock(); // ensure audio on gesture
     const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
     if(!el) return;
     const obj = STATE.map.get(String(el.dataset.id));
@@ -607,13 +691,11 @@
     return null;
   }
 
-  // ✅ FIX: shoot uses x,y if provided; fallback to center
   function shootHandler(ev){
     if(!STATE.running || STATE.paused) return;
     const d = ev?.detail || {};
 
     let lockPx = (d.lockPx != null) ? Number(d.lockPx) : 22;
-    // mobile/cVR assist
     if(STATE.view === 'mobile') lockPx = Math.max(lockPx, 34);
     if(STATE.view === 'cvr')    lockPx = Math.max(lockPx, 26);
 
@@ -630,6 +712,43 @@
     if(obj) onHit(obj, d.source || 'shoot');
   }
 
+  // ---------------------------
+  // Wiggle (fair)
+  // ---------------------------
+  function shouldWiggle(){
+    if(!STATE.wiggleOn) return false;
+    if(STATE.runMode === 'practice') return false;
+    if(STATE.stage === 'boss') return false;
+    if(STATE.wiggleHardOnly && STATE.diff !== 'hard') return false;
+    return true;
+  }
+
+  function wiggleTargets(){
+    if(!shouldWiggle()) return;
+
+    const ramp = Math.min(1, STATE.elapsed / Math.max(1, STATE.plannedSec));
+    const amp = clamp(STATE.wiggleAmpPx * (0.55 + 0.45*ramp), 4, 16);
+    const w = (Math.PI * 2) * clamp(STATE.wiggleHz, 0.6, 1.8);
+    const sr = getSafeRect(STATE.layerEl);
+
+    const tNow = nowMs();
+
+    for(const obj of STATE.map.values()){
+      const age = (tNow - obj.born) / 1000;
+      const dx = Math.sin(obj.wigglePhase + age*w) * amp;
+      const dy = Math.cos(obj.wigglePhase + age*w*0.92) * (amp*0.65);
+
+      const x = clamp(obj.baseX + dx, sr.xMin+10, sr.xMax-10);
+      const y = clamp(obj.baseY + dy, sr.yMin+10, sr.yMax-10);
+
+      obj.el.style.left = `${x}px`;
+      obj.el.style.top  = `${y}px`;
+    }
+  }
+
+  // ---------------------------
+  // HUD / spawn / expire
+  // ---------------------------
   function setHUD(){
     emit('hha:time', { left: Math.ceil(STATE.tLeft) });
     emit('hha:score', {
@@ -669,14 +788,12 @@
     const t = nowMs();
     for(const obj of Array.from(STATE.map.values())){
       if(t - obj.born >= obj.ttlMs){
-        // ✅ FAIR MISS: นับ miss เฉพาะ “mission target” ที่ปล่อยหลุด (ไม่ใช่ทุกอัน)
         if(STATE.runMode !== 'practice'){
           if(obj.mission && obj.groupId === STATE.curGroup.id){
             STATE.miss++;
             STATE.combo = 0;
             STATE.score = Math.max(0, STATE.score - 2);
 
-            // FX: timeout miss (use last known rect)
             try{
               const b = obj.el.getBoundingClientRect();
               FX.popupAtClient('TIMEOUT', b.left+b.width/2, b.top+b.height/2, 'bad');
@@ -685,7 +802,6 @@
 
             try{ WIN.HHA_AI?.onExpire?.('groups_target', { id: obj.id, emoji: obj.emoji }); }catch(_){}
           }else{
-            // อันไม่ใช่ภารกิจ: ไม่ควรทำให้เด็ก “รู้สึกผิด” หนัก
             STATE.score = Math.max(0, STATE.score - 1);
             try{ WIN.HHA_AI?.onExpire?.('groups_other', { id: obj.id, emoji: obj.emoji }); }catch(_){}
           }
@@ -705,7 +821,8 @@
     emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
     coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้ได้เยอะสุดใน ${STATE.bossSec}s`, 'fever');
 
-    // FX entry
+    bossWarningFx();
+    SFX.boss();
     FX.startShake(220);
     FX.flash(true);
     FX.popupAtLocal('BOSS TIME!', 140, 54, 'neu');
@@ -714,7 +831,7 @@
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_2026-03-03e',
+      gameVersion: 'GroupsVR_SAFE_2026-03-03f',
       device: STATE.view,
       runMode: STATE.runMode,
       diff: STATE.diff,
@@ -767,7 +884,6 @@
     STATE.elapsed += dt;
     STATE.tLeft = Math.max(0, STATE.tLeft - dt);
 
-    // stage timers
     if(STATE.stage === 'boss'){
       STATE.bossLeft = Math.max(0, STATE.bossLeft - dt);
       if(STATE.bossLeft <= 0){
@@ -778,21 +894,18 @@
 
     spawnTick(dt);
     expireTick();
+    wiggleTargets(); // ✅ fair wiggle (hard only)
 
-    // AI tick (prediction only)
     try{ WIN.HHA_AI?.onTick?.(dt, { miss: STATE.miss, combo: STATE.combo, acc: accPct(), stage: STATE.stage }); }catch(_){}
 
-    // HUD + coach warn
     setHUD();
     aiWarnMaybe(STATE.elapsed, STATE.plannedSec, accPct(), STATE.miss, STATE.combo, STATE.stage);
 
-    // end conditions
     if(STATE.tLeft <= 0){
       const classroom = !!STATE.ctx?.classroom;
       const bossOn = !!STATE.ctx?.miniBoss;
       if(classroom && bossOn && STATE.stage === 'main' && STATE.runMode !== 'practice'){
         startBoss();
-        // เวลาคั่นก่อนบอสสั้น ๆ
         STATE.tLeft = 6;
         STATE.raf = requestAnimationFrame(tick);
         return;
@@ -815,6 +928,15 @@
     STATE.runMode = String(ctx.runMode || 'play').toLowerCase();
     STATE.view = String(ctx.view || DOC.body.getAttribute('data-view') || 'mobile').toLowerCase();
 
+    // SFX toggle by ?sfx=0
+    try{
+      const sp = new URL(location.href).searchParams;
+      const sfx = String(sp.get('sfx')||'1');
+      SFX.setEnabled(sfx !== '0');
+    }catch(_){}
+
+    SFX.unlock(); // try unlock early
+
     const timeSec = clamp(ctx.time ?? 90, 15, 300);
     STATE.plannedSec = timeSec;
     STATE.seedStr = String(ctx.seed ?? Date.now());
@@ -825,10 +947,10 @@
     STATE.baseTtl = 2.90;
 
     if(STATE.diff === 'easy'){ STATE.baseSpawnPerSec = 1.05; STATE.baseTtl = 3.20; }
-    if(STATE.diff === 'hard'){ STATE.baseSpawnPerSec = 1.38; STATE.baseTtl = 2.60; }
+    // hard: ยังเดือด แต่แฟร์กับ wiggle
+    if(STATE.diff === 'hard'){ STATE.baseSpawnPerSec = 1.32; STATE.baseTtl = 2.70; }
     if(STATE.runMode === 'practice'){ STATE.baseSpawnPerSec *= 0.92; STATE.baseTtl += 0.25; }
 
-    // init state
     STATE.running = true;
     STATE.paused = false;
     STATE.startMs = nowMs();
@@ -857,7 +979,6 @@
     STATE.curGroup = pick(STATE.rng, GROUPS);
     emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
 
-    // hooks
     try{
       STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
     }catch(_){}
@@ -898,7 +1019,6 @@
   const Telemetry = {
     flush: function(summary){
       try{
-        // ถ้ามี cloud logger จริง ให้เรียกตรงนี้
         // WIN.HHA_CloudLogger?.flush?.(summary)
       }catch(_){}
     }
@@ -922,14 +1042,8 @@
   WIN.GroupsVR = WIN.GroupsVR || {};
   WIN.GroupsVR.Telemetry = Telemetry;
   WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
-  WIN.GroupsVR.GameEngine = {
-    setLayerEl,
-    start,
-    stop,
-    setPaused
-  };
+  WIN.GroupsVR.GameEngine = { setLayerEl, start, stop, setPaused };
 
-  // optional: external pause events
   WIN.addEventListener('hha:pause', ()=> setPaused(true), { passive:true });
   WIN.addEventListener('hha:resume', ()=> setPaused(false), { passive:true });
 
