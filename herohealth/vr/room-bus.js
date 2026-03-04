@@ -1,24 +1,6 @@
 // === /herohealth/vr/room-bus.js ===
 // HeroHealth RoomBus — Supabase Realtime (Presence + Broadcast) + Local fallback
 // FULL v20260304-ROOMBUS-SUPABASE-PRESENCE-BROADCAST
-//
-// API (what runner expects):
-//   const bus = createRoomBus({ roomId, playerId, nick, supabaseUrl, supabaseAnon, maxPlayers, forceHost })
-//   bus.send(msg)
-//   bus.onMsg(fn)            -> unsubscribe fn
-//   bus.getPresence()        -> [{ playerId, nick, team, joinedAt }]
-//   bus.isHost (boolean)
-//   bus.becomeHost()         -> try become host (best-effort)
-//
-// Notes:
-// - Requires sbUrl + sbAnon for networked modes.
-// - Uses Broadcast event "bus" and Presence key=playerId.
-// - Host election is deterministic: smallest joinedAt then playerId.
-// - Safe for classroom: throttles + ignores oversized payloads.
-//
-// Security:
-// - This is client-only. Anyone with roomId can join. Use unique roomId per class/round.
-
 'use strict';
 
 export function createRoomBus(opts = {}){
@@ -38,37 +20,29 @@ export function createRoomBus(opts = {}){
   const nick = String(cfg.nick || playerId).trim() || playerId;
   const team = String(cfg.team || '').trim();
 
-  // ---------- Local fallback (no network) ----------
+  // ---------- Local fallback ----------
   if(!cfg.supabaseUrl || !cfg.supabaseAnon || !roomId){
     const listeners = new Set();
     const presence = [{ playerId, nick, team, joinedAt: Date.now() }];
-
-    const local = {
-      get isHost(){ return true; },
-      becomeHost(){ /* noop */ },
-      getPresence(){ return presence.slice(); },
-      send(msg){
-        // loopback (useful for dev)
-        for(const fn of listeners){ try{ fn(msg); }catch(e){} }
-      },
-      onMsg(fn){
-        if(typeof fn === 'function') listeners.add(fn);
-        return ()=> listeners.delete(fn);
-      }
-    };
-
     console.warn('[RoomBus] Using LOCAL fallback (missing sbUrl/sbAnon or roomId).');
-    return local;
+
+    return {
+      get isHost(){ return true; },
+      becomeHost(){},
+      getPresence(){ return presence.slice(); },
+      send(msg){ for(const fn of listeners){ try{ fn(msg); }catch(e){} } },
+      onMsg(fn){ if(typeof fn==='function') listeners.add(fn); return ()=> listeners.delete(fn); },
+      ready: Promise.resolve(true)
+    };
   }
 
-  // ---------- Supabase realtime ----------
   let sb = null;
   let channel = null;
 
   const listeners = new Set();
   const state = {
     isHost: !!cfg.forceHost,
-    presence: new Map(), // key -> { playerId, nick, team, joinedAt }
+    presence: new Map(),
     joinedAt: Date.now(),
     connected: false
   };
@@ -76,13 +50,11 @@ export function createRoomBus(opts = {}){
   const safeJson = (x)=>{
     try{
       const s = JSON.stringify(x);
-      // keep payload small-ish
       if(s.length > 2400) return null;
       return x;
     }catch(_){ return null; }
   };
 
-  // Host election: smallest joinedAt then playerId
   function electHost(){
     const arr = Array.from(state.presence.values());
     if(!arr.length){
@@ -101,7 +73,6 @@ export function createRoomBus(opts = {}){
 
   function getPresenceList(){
     const arr = Array.from(state.presence.values());
-    // keep stable order
     arr.sort((a,b)=>{
       const da = Number(a.joinedAt||0), db = Number(b.joinedAt||0);
       if(da !== db) return da - db;
@@ -112,14 +83,10 @@ export function createRoomBus(opts = {}){
 
   async function ensureSupabase(){
     if(sb) return sb;
-
-    // If supabase already exists globally, use it; else import ESM.
     if(typeof window !== 'undefined' && window.supabase?.createClient){
       sb = window.supabase;
       return sb;
     }
-
-    // ESM import from CDN (works on GitHub Pages)
     const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
     sb = mod;
     return sb;
@@ -134,20 +101,15 @@ export function createRoomBus(opts = {}){
 
     const topic = `hha-room:${roomId}`;
     channel = client.channel(topic, {
-      config: {
-        presence: { key: playerId },
-        broadcast: { self: false }
-      }
+      config: { presence: { key: playerId }, broadcast: { self: false } }
     });
 
-    // broadcast "bus"
     channel.on('broadcast', { event: 'bus' }, (payload)=>{
       const msg = payload?.payload;
       if(!msg) return;
       for(const fn of listeners){ try{ fn(msg); }catch(e){} }
     });
 
-    // presence sync
     channel.on('presence', { event: 'sync' }, ()=>{
       const ps = channel.presenceState?.() || {};
       state.presence.clear();
@@ -188,20 +150,9 @@ export function createRoomBus(opts = {}){
       electHost();
     });
 
-    const status = await channel.subscribe(async (st)=>{
-      // st can be: SUBSCRIBED, TIMED_OUT, CLOSED, CHANNEL_ERROR
-      // We only act when subscribed.
-    });
+    await channel.subscribe(()=>{});
+    await channel.track({ playerId, nick, team, joinedAt: state.joinedAt });
 
-    // track myself
-    await channel.track({
-      playerId,
-      nick,
-      team,
-      joinedAt: state.joinedAt
-    });
-
-    // capacity guard (best effort)
     setTimeout(()=>{
       try{
         const n = getPresenceList().length;
@@ -211,24 +162,18 @@ export function createRoomBus(opts = {}){
       }catch(e){}
     }, 1600);
 
-    return { client, channel };
+    return true;
   }
 
-  // kick off connect now
   const ready = connect().catch((e)=>{
     console.error('[RoomBus] connect failed', e);
+    return false;
   });
 
-  const api = {
+  return {
     get isHost(){ return !!state.isHost; },
-    becomeHost(){
-      // best-effort: forceHost makes you host; caller should use only for teacher device
-      state.isHost = true;
-      return true;
-    },
-    getPresence(){
-      return getPresenceList();
-    },
+    becomeHost(){ state.isHost = true; return true; },
+    getPresence(){ return getPresenceList(); },
     send(msg){
       const m = safeJson(msg);
       if(!m) return false;
@@ -241,13 +186,7 @@ export function createRoomBus(opts = {}){
         return false;
       }
     },
-    onMsg(fn){
-      if(typeof fn === 'function') listeners.add(fn);
-      return ()=> listeners.delete(fn);
-    },
-    // optional: wait for subscribe/track
+    onMsg(fn){ if(typeof fn==='function') listeners.add(fn); return ()=> listeners.delete(fn); },
     ready
   };
-
-  return api;
 }
