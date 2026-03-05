@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305-RUN-FIX-BLACKSCREEN-LAYERS-HUDSAFE
+PATCH v20260306-RUN-HUDSAFE-LAYEROK
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js (module)
@@ -53,7 +53,7 @@ Requires:
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-      pointer-events:none; /* ไม่บังเป้า */
+      pointer-events:none;
     }
     .pill{
       pointer-events:none;
@@ -84,20 +84,6 @@ Requires:
       gap:8px;
       flex-wrap:wrap;
       align-items:center;
-    }
-    .barwrap{
-      width: min(360px, 84vw);
-      height: 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(0,0,0,.35);
-      overflow:hidden;
-    }
-    .barfill{
-      height:100%;
-      width:0%;
-      background: rgba(59,130,246,.80);
-      transition: width .12s ease;
     }
 
     /* Boss HP */
