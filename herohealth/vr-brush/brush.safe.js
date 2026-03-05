@@ -430,8 +430,7 @@
       wsEl = DOC.createElement('div');
       wsEl.className = 'br-ws';
       el.appendChild(wsEl);
-      // phase1: hide weakspot hint until phase2
-      wsEl.style.opacity = '0';
+      wsEl.style.opacity = '0'; // phase1 hidden
     }
 
     const born = now();
@@ -439,10 +438,7 @@
     const die  = born + ttl;
 
     const t = { id, el, type, bornMs:born, dieMs:die, hpMax, hp:hpMax, fillEl:fill, wsEl, weakX, weakY, weakR, eviType };
-    if(type==='boss'){
-      // weakspot position will be used in phase2
-      updateBossWeakspotPos(t);
-    }
+    if(type==='boss') updateBossWeakspotPos(t);
 
     S.targets.set(id, t);
     el.addEventListener('pointerdown', onTargetPointerDown, { passive:false });
@@ -517,7 +513,7 @@
     S.quizOpen = false;
     quiz.hidden = true;
     wrap.dataset.state = 'play';
-    DOC.body.classList.add('br-noscroll'); // still playing
+    DOC.body.classList.add('br-noscroll');
     aiEmit('quiz', { state:'close', done:S.quizDone, correct:S.quizCorrect });
   }
 
@@ -528,6 +524,7 @@
     fun?.onAction?.({ type:'perfect' });
     S.score += 2;
     toast('✨ Perfect!');
+    WIN.BrushFX?.flash?.(90);
   }
 
   function applyHitRewards(t, remainMs, weakHit){
@@ -544,8 +541,6 @@
 
     let base = (t.type==='boss') ? 3 : (t.type==='evi' ? 2 : 1);
     if(weakHit) base += 2;
-
-    // quiz bonus in C
     if(S.stage==='C' && S.quizDone && S.quizCorrect) base += 1;
 
     S.score += Math.round(base * comboMul * (director.feverOn ? 1.25 : 1.0));
@@ -554,14 +549,12 @@
     if(t.type==='evi') gain *= 0.85;
     if(weakHit) gain *= 1.22;
 
-    // Stage B gate: if not enough evidence, slow crossing 80
     if(S.stage==='B' && S.eviTotal < S.eviNeed && S.clean >= 79){
       gain *= 0.18;
     }
 
     S.clean = clamp(S.clean + gain, 0, 100);
 
-    // evidence collect
     if(t.type==='evi' && t.eviType){
       if(!S.eviFlags[t.eviType]){
         S.eviFlags[t.eviType] = 1;
@@ -573,13 +566,11 @@
       }
     }
 
-    // fever fantasy: sometimes auto-pop one plaque
     if(director.feverOn && rng() < 0.16){
-      const arr = Array.from(S.targets.values()).filter(v => v.type==='plaque');
+      const arr = Array.from(S.targets.values()).filter(v => v.type === 'plaque');
       if(arr.length){
         const pick = arr[Math.floor(rng()*arr.length)];
         if(pick && S.targets.has(pick.id)){
-          // count as hit reward lightly
           S.hits += 1;
           S.combo += 1;
           S.comboMax = Math.max(S.comboMax, S.combo);
@@ -607,7 +598,7 @@
   }
 
   // -------------------------
-  // Boss 2-phase logic
+  // Boss 2-phase
   // -------------------------
   function bossInitPhase1(){
     S.bossPhase = 1;
@@ -625,7 +616,7 @@
   }
 
   // -------------------------
-  // spawning
+  // spawn
   // -------------------------
   function spawnOne(){
     if(!S.running || S.paused || S.ended || S.quizOpen) return;
@@ -635,7 +626,6 @@
     const {x,y} = randomInLayer(56);
     advanceStageIfNeeded();
 
-    // boss trigger
     if(!S.bossActive && S.clean >= S.nextBossAt && S.clean < 100){
       S.bossActive = true;
       bossInitPhase1();
@@ -649,13 +639,10 @@
       toast('💎 BOSS PLAQUE!');
       aiEmit('boss', { state:'start', phase:1, shield:`${S.bossShield}/${S.bossShieldMax}` });
 
-      // optional FX hook
       WIN.BrushFX?.laser?.();
-
       return;
     }
 
-    // stage B: evidence spawn until complete
     if(S.stage==='B' && S.eviTotal < S.eviNeed){
       const chance = 0.28 + (S.aiRisk > 0.65 ? 0.06 : 0);
       if(rng() < chance){
@@ -669,7 +656,7 @@
   }
 
   // -------------------------
-  // hit handling
+  // hit logic
   // -------------------------
   function handleHit(t, x, y, source){
     if(!t || !S.targets.has(t.id) || S.ended || S.quizOpen) return;
@@ -677,7 +664,6 @@
     const tm = now();
     const remain = t.dieMs - tm;
 
-    // Boss phase 1: drain shield only (no weakspot / no boss HP damage)
     if(t.type === 'boss' && S.bossPhase === 1){
       S.bossShield = Math.max(0, S.bossShield - 1);
       aiEmit('boss', { state:'phase', phase:1, shield:`${S.bossShield}/${S.bossShieldMax}` });
@@ -694,7 +680,6 @@
       renderHud(true);
       emit('hha:score', { score:S.score, combo:S.combo, miss:S.miss, clean:S.clean, ts:Date.now(), source });
 
-      // Stage C open quiz condition
       advanceStageIfNeeded();
       if(S.stage==='C' && !S.quizDone && S.clean >= 92) openQuiz();
 
@@ -702,7 +687,6 @@
       return;
     }
 
-    // phase2 or non-boss: do damage
     const weakHit = (t.type==='boss' && S.bossPhase===2) ? pointInBossWeakspot(t, x, y) : false;
     const dmg = (t.type==='boss') ? (weakHit ? 2 : 1) : 1;
 
@@ -732,19 +716,14 @@
       }
     }
 
-    // Stage C: open quiz at 92+ if not done
     advanceStageIfNeeded();
-    if(S.stage==='C' && !S.quizDone && S.clean >= 92){
-      openQuiz();
-    }
+    if(S.stage==='C' && !S.quizDone && S.clean >= 92) openQuiz();
 
     aiTick(false);
     renderHud(true);
     emit('hha:score', { score:S.score, combo:S.combo, miss:S.miss, clean:S.clean, ts:Date.now(), source });
 
-    if(S.clean >= 100 && canFinishC()){
-      endGame('clean');
-    }
+    if(S.clean >= 100 && canFinishC()) endGame('clean');
   }
 
   function onTargetPointerDown(ev){
@@ -756,8 +735,7 @@
     const t = id ? S.targets.get(id) : null;
     if(!t) return;
 
-    // ✅ count shot once at source
-    S.shots++;
+    S.shots++; // ✅ count once at source
     handleHit(t, ev.clientX, ev.clientY, 'pointer');
   }
 
@@ -798,7 +776,6 @@
 
       const lock = dynLock(baseLock, t, isCVR);
 
-      // Boss weakspot priority only in phase2
       if(t.type==='boss' && S.bossPhase===2){
         const ws = getBossWeakCenter(t);
         if(ws){
@@ -817,7 +794,6 @@
 
       const c = getTargetCenter(t);
       if(!c) continue;
-
       const dx = x - c.x, dy = y - c.y;
       const d2 = dx*dx + dy*dy;
       if(d2 <= lock*lock){
@@ -844,15 +820,13 @@
 
     const pick = nearestPick(x, y, baseLock, isCVR);
 
-    // ✅ count once
-    S.shots++;
+    S.shots++; // ✅ count once
 
     if(pick && pick.t){
       handleHit(pick.t, pick.aimX, pick.aimY, d.source || 'hha:shoot');
       return;
     }
 
-    // whiff
     S.miss++;
     S.combo = 0;
     S.missStreak += 1;
@@ -898,8 +872,6 @@
     director = fun ? fun.tick() : director;
 
     const t = now();
-
-    // timeouts
     for(const [id,tt] of S.targets){
       if(t >= tt.dieMs){
         removeTarget(id, false);
@@ -923,7 +895,6 @@
       setTimeout(()=> WIN.BrushFX?.fin?.(false), 900);
     }
 
-    // optional ML snapshot (prediction-only)
     if(ctx.ai && WIN.BrushML && typeof WIN.BrushML.snapshot === 'function'){
       const n = Date.now();
       if(!S.mlLast || (n - S.mlLast) >= 1000){
@@ -975,7 +946,6 @@
 
     closeQuiz();
 
-    // bonus
     if(S.quizCorrect){
       S.score += 40;
       S.clean = clamp(S.clean + 6.5, 0, 100);
@@ -999,7 +969,7 @@
 
     btnQuizSubmit?.addEventListener('click', ()=>{
       const a = quizAnswer();
-      const ok = (a === 'b'); // correct answer value="b"
+      const ok = (a === 'b');
       applyQuizResult(ok);
     }, { passive:true });
 
@@ -1009,10 +979,9 @@
   }
 
   // -------------------------
-  // badges (summary)
+  // badges
   // -------------------------
   function buildBadges(summary){
-    // use external if present
     const ext = WIN.BrushMissions?.buildBadges;
     if(typeof ext === 'function'){
       try{ return ext(summary) || []; }catch(_){}
@@ -1069,11 +1038,9 @@
     S.bossActive=false;
     bossInitPhase1();
 
-    // clear targets
     for(const [id] of S.targets) removeTarget(id, false);
     S.targets.clear();
 
-    // UI
     if(menu) menu.style.display='none';
     if(end){ end.hidden=true; end.style.display='none'; }
     if(quiz){ quiz.hidden=true; }
@@ -1164,7 +1131,6 @@
       localStorage.setItem(k, JSON.stringify(arr.slice(-40)));
     }catch(_){}
 
-    // zone gate
     try{ localStorage.setItem(`HHA_ZONE_DONE::hygiene::${ymdLocal()}`, '1'); }catch(_){}
 
     emit('hha:end', summary);
@@ -1182,7 +1148,6 @@
         `reason=${reason} | stage=${summary.stage} | evi=${summary.evidence.total}/3 | quiz=${summary.quiz.correct?'ok':'no'} | seed=${summary.seed} | diff=${summary.diff} | view=${summary.view} | pid=${summary.pid||'-'}`;
     }
 
-    // render badges
     const badgeBox = DOC.getElementById('br-badges');
     if(badgeBox){
       badgeBox.innerHTML = (summary.badges||[]).map(b=>(
@@ -1234,10 +1199,8 @@
     const t = ev.target;
     if(t && t.closest && t.closest('.br-t')) return;
 
-    // count as a shot
     S.shots++;
 
-    // pick nearest within lock
     let best=null, bestD=1e9;
     for(const tt of S.targets.values()){
       const c = getTargetCenter(tt);
@@ -1259,7 +1222,56 @@
     }
   }, { passive:true });
 
-  // bind quiz
+  // -------------------------
+  // quiz bind
+  // -------------------------
+  function applyQuizResult(ok){
+    S.quizDone = true;
+    S.quizCorrect = !!ok;
+
+    aiEmit('quiz', { state:'done', correct:S.quizCorrect });
+    toast(S.quizCorrect ? '✅ ถูกต้อง! ได้โบนัส' : '❌ ยังไม่ถูก แต่ไปต่อได้');
+
+    closeQuiz();
+
+    if(S.quizCorrect){
+      S.score += 40;
+      S.clean = clamp(S.clean + 6.5, 0, 100);
+    }else{
+      S.score += 10;
+    }
+
+    aiTick(true);
+    renderHud(true);
+
+    if(S.clean >= 100 && canFinishC()){
+      endGame('clean');
+    }else{
+      scheduleSpawn();
+    }
+  }
+
+  function quizAnswer(){
+    if(!quizChoices) return '';
+    const checked = quizChoices.querySelector('input[name="quizA"]:checked');
+    return checked ? String(checked.value||'') : '';
+  }
+
+  function bindQuiz(){
+    if(!quiz) return;
+    quiz.hidden = true;
+
+    btnQuizSubmit?.addEventListener('click', ()=>{
+      const a = quizAnswer();
+      const ok = (a === 'b');
+      applyQuizResult(ok);
+    }, { passive:true });
+
+    btnQuizSkip?.addEventListener('click', ()=>{
+      applyQuizResult(false);
+    }, { passive:true });
+  }
+
   bindQuiz();
 
   // -------------------------
