@@ -1,14 +1,15 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
+// ✅ FIX: pauseOverlay duplicate -> HydPause single-owner (no redeclare)
 // ✅ HUD-aware spawn (never under HUD)
 // ✅ Pause/Resume on background
 // ✅ MISS = bad hit only | EXPIRE separate | BLOCK separate
-// ✅ Storm Boss: lightning requires shield + correct LEFT/RIGHT zone (B)
+// ✅ Storm/Boss/Final emoji by diff + shown on HUD/sign
+// ✅ Lightning requires shield + correct LEFT/RIGHT zone (B)
 // ✅ Zone switches in chunks (S2)
 // ✅ cVR zone control: tap L/R pads + deviceorientation tilt (optional)
 // ✅ Cooldown daily-first + NextCooldown button
-// ✅ Emoji STORM/BOSS/FINAL by diff + shown on HUD/sign
-// FULL v20260304b-HYDRATION-SAFE-EMOJI-STORMBOSSFINAL
+// FULL v20260304e-HYDRATION-SAFE-PATCH-PAUSEFIX
 'use strict';
 
 export function boot(cfg){
@@ -29,8 +30,7 @@ export function boot(cfg){
   // ---------- Emoji mapping ----------
   function emojiFor(diffKey, phase){
     diffKey = String(diffKey||'normal').toLowerCase();
-    // phases: normal|storm|boss|final
-    const P = String(phase||'normal').toLowerCase();
+    const P = String(phase||'normal').toLowerCase(); // normal|storm|boss|final
 
     if(diffKey === 'easy'){
       if(P==='storm') return '🌦️⚡';
@@ -140,7 +140,7 @@ export function boot(cfg){
   const hudEl = DOC.querySelector('.hud');
   const zoneSign = DOC.getElementById('zoneSign');
 
-  // cVR pad buttons
+  // cVR pad buttons (optional)
   const btnZoneL = DOC.getElementById('btnZoneL');
   const btnZoneR = DOC.getElementById('btnZoneR');
 
@@ -150,7 +150,9 @@ export function boot(cfg){
       stageEl?.classList?.toggle('is-boss',  p==='boss');
       stageEl?.classList?.toggle('is-final', p==='final');
     }catch(e){}
-    try{ if(stormFx) stormFx.style.opacity = (p==='storm'||p==='boss'||p==='final') ? '1' : '0'; }catch(e){}
+    try{
+      if(stormFx) stormFx.style.opacity = (p==='storm'||p==='boss'||p==='final') ? '1' : '0';
+    }catch(e){}
   }
 
   const ui = {
@@ -195,11 +197,11 @@ export function boot(cfg){
     let lightningDmgWater=7.0, lightningDmgScore=6;
 
     // FINAL
-    let finalNeedHits=10;          // after boss clear, final phase needs extra hits
-    let finalSec=10;               // final duration cap
+    let finalNeedHits=10;
+    let finalSec=10;
     let finalSpawnMul=1.35;
     let finalBadP=0.55;
-    let finalLightningRate=1.35;   // harsh lightning
+    let finalLightningRate=1.35;
 
     let zoneChunkSec=3.0;
 
@@ -264,12 +266,18 @@ export function boot(cfg){
   let finalHits=0, finalGoal=0;
   let finalLeft=0;
 
-  // zone
+  // zone (B + S2)
   let needZone='L';
   let zoneT=0;
 
-  // aimX01
+  // aimX01 for zone check
   let aimX01=0.5;
+
+  function isInNeededZone(){
+    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
+  }
+  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
+
   function updateAimFromEvent(ev){
     try{
       const r = layer.getBoundingClientRect();
@@ -280,10 +288,13 @@ export function boot(cfg){
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
 
+  // cVR pad set aim
   if(btnZoneL && btnZoneR){
     btnZoneL.onclick = ()=>{ aimX01 = 0.25; };
     btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
   }
+
+  // optional tilt in cVR/vr
   if(view==='cvr' || view==='vr'){
     WIN.addEventListener('deviceorientation', (ev)=>{
       try{
@@ -295,9 +306,61 @@ export function boot(cfg){
     }, { passive:true });
   }
 
+  // ====== FIX: Pause overlay single-owner (no redeclare) ======
+  const HydPause = (() => {
+    let overlay = null;
+
+    function show(){
+      if(overlay) return;
+      overlay = DOC.createElement('div');
+      overlay.style.position='fixed';
+      overlay.style.inset='0';
+      overlay.style.zIndex='95';
+      overlay.style.display='grid';
+      overlay.style.placeItems='center';
+      overlay.style.background='rgba(2,6,23,.72)';
+      overlay.style.backdropFilter='blur(8px)';
+      overlay.innerHTML = `
+        <div style="width:min(520px, calc(100vw - 24px));
+          border:1px solid rgba(255,255,255,.10);
+          border-radius:22px; padding:16px;
+          background: rgba(2,6,23,.85);
+          box-shadow: 0 18px 40px rgba(0,0,0,.45); text-align:center;">
+          <div style="font-weight:1000;font-size:22px;">Paused</div>
+          <div style="opacity:.8;margin-top:6px;font-size:12px;">แตะเพื่อเล่นต่อ</div>
+          <button id="btnResume" style="margin-top:14px;border:1px solid rgba(255,255,255,.10);
+            background: rgba(56,189,248,.18); color:#e5e7eb;border-radius:14px;padding:10px 14px;font-weight:1000;">
+            Resume
+          </button>
+        </div>
+      `;
+      DOC.body.appendChild(overlay);
+
+      const resume = ()=>{
+        hide();
+        paused = false;
+        lastTick = nowMs();
+        requestAnimationFrame(loop);
+      };
+
+      overlay.addEventListener('pointerdown', resume, { passive:true });
+      const btn = DOC.getElementById('btnResume');
+      if(btn) btn.onclick = resume;
+    }
+
+    function hide(){
+      if(!overlay) return;
+      try{ overlay.remove(); }catch(e){}
+      overlay = null;
+    }
+
+    return { show, hide };
+  })();
+
   // targets
   const bubbles = new Map();
   let idSeq=1;
+
   const GOOD = ['💧','💦','🫗'];
   const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
@@ -314,11 +377,6 @@ export function boot(cfg){
     if(x>=28) return 'C';
     return 'D';
   }
-
-  function isInNeededZone(){
-    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
-  }
-  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
 
   function setHUD(){
     ui.score && (ui.score.textContent=String(score|0));
@@ -432,6 +490,7 @@ export function boot(cfg){
   function addShield(){ shield = clamp(shield + 1, 0, 9); }
 
   function applyLightningStrike(rate){
+    // rate already scaled by dt outside
     if(r01() < rate){
       lightning();
       const okZone = isInNeededZone();
@@ -457,7 +516,6 @@ export function boot(cfg){
       if(phase==='boss'){
         bossHits++;
         if(bossHits >= bossGoal){
-          // ✅ enter FINAL instead of ending immediately
           phase = 'final';
           setStagePhase('final');
           finalHits = 0;
@@ -500,6 +558,7 @@ export function boot(cfg){
     removeBubble(b.id);
   }
 
+  // click/tap
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.bubble');
@@ -531,49 +590,6 @@ export function boot(cfg){
     if(b) hit(b);
   });
 
-  // pause overlay
-  let pauseOverlay=null;
-  function showPauseOverlay(){
-    if(pauseOverlay) return;
-    pauseOverlay = DOC.createElement('div');
-    pauseOverlay.style.position='fixed';
-    pauseOverlay.style.inset='0';
-    pauseOverlay.style.zIndex='95';
-    pauseOverlay.style.display='grid';
-    pauseOverlay.style.placeItems='center';
-    pauseOverlay.style.background='rgba(2,6,23,.72)';
-    pauseOverlay.style.backdropFilter='blur(8px)';
-    pauseOverlay.innerHTML = `
-      <div style="width:min(520px, calc(100vw - 24px));
-        border:1px solid rgba(255,255,255,.10);
-        border-radius:22px; padding:16px;
-        background: rgba(2,6,23,.85);
-        box-shadow: 0 18px 40px rgba(0,0,0,.45); text-align:center;">
-        <div style="font-weight:1000;font-size:22px;">Paused</div>
-        <div style="opacity:.8;margin-top:6px;font-size:12px;">แตะเพื่อเล่นต่อ</div>
-        <button id="btnResume" style="margin-top:14px;border:1px solid rgba(255,255,255,.10);
-          background: rgba(56,189,248,.18); color:#e5e7eb;border-radius:14px;padding:10px 14px;font-weight:1000;">
-          Resume
-        </button>
-      </div>
-    `;
-    DOC.body.appendChild(pauseOverlay);
-    const resume = ()=>{
-      hidePauseOverlay();
-      paused=false;
-      lastTick=nowMs();
-      requestAnimationFrame(loop);
-    };
-    pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
-    const btn = DOC.getElementById('btnResume');
-    if(btn) btn.onclick = resume;
-  }
-  function hidePauseOverlay(){
-    if(!pauseOverlay) return;
-    pauseOverlay.remove();
-    pauseOverlay=null;
-  }
-
   // end summary
   const END_SENT_KEY='__HHA_HYD_END_SENT__';
   function dispatchEndOnce(summary){
@@ -587,7 +603,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-04b_Emoji_StormBossFinal',
+      gameVersion:'HydrationVR_SAFE_2026-03-04e_PauseFix',
       device:view, runMode, diff, seed:seedStr,
       reason:String(reason||''),
       durationPlannedSec: plannedSec,
@@ -652,8 +668,7 @@ export function boot(cfg){
   function showEnd(reason){
     playing=false;
     paused=false;
-    hidePauseOverlay();
-
+    HydPause.hide();
     setStagePhase('normal');
 
     for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
@@ -682,8 +697,10 @@ export function boot(cfg){
   let spawnAcc=0;
 
   function spawnTick(dt){
+    // shield decay
     if(shield>0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield-1);
 
+    // storm start once
     if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.62){
       phase='storm';
       setStagePhase('storm');
@@ -694,7 +711,6 @@ export function boot(cfg){
       lightning();
     }
 
-    // storm
     if(phase==='storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       zoneT += dt;
@@ -706,7 +722,7 @@ export function boot(cfg){
       }
     }
 
-    // boss start
+    // boss start after storm happened
     if(phase==='normal' && stormDone){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
         phase='boss';
@@ -719,14 +735,12 @@ export function boot(cfg){
       }
     }
 
-    // boss
     if(phase==='boss'){
       zoneT += dt;
       if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * TUNE.bossLightningRate);
     }
 
-    // final
     if(phase==='final'){
       finalLeft = Math.max(0, finalLeft - dt);
       zoneT += dt;
@@ -734,13 +748,11 @@ export function boot(cfg){
       applyLightningStrike(dt * TUNE.finalLightningRate);
 
       if(finalLeft <= 0){
-        // time up: if not cleared -> lose
         showEnd('final-timeout');
         return;
       }
     }
 
-    // spawn tuning per phase
     const inStorm = (phase==='storm');
     const inBoss  = (phase==='boss');
     const inFinal = (phase==='final');
@@ -756,7 +768,6 @@ export function boot(cfg){
       let kind='good';
 
       if(inFinal){
-        // final: bad สูง + shield โผล่บ้าง
         if(p < (1.0 - TUNE.finalBadP - 0.06)) kind='good';
         else if(p < (1.0 - 0.06)) kind='bad';
         else kind='shield';
@@ -802,49 +813,6 @@ export function boot(cfg){
     return false;
   }
 
-  // pause overlay
-  let pauseOverlay=null;
-  function showPauseOverlay(){
-    if(pauseOverlay) return;
-    pauseOverlay = DOC.createElement('div');
-    pauseOverlay.style.position='fixed';
-    pauseOverlay.style.inset='0';
-    pauseOverlay.style.zIndex='95';
-    pauseOverlay.style.display='grid';
-    pauseOverlay.style.placeItems='center';
-    pauseOverlay.style.background='rgba(2,6,23,.72)';
-    pauseOverlay.style.backdropFilter='blur(8px)';
-    pauseOverlay.innerHTML = `
-      <div style="width:min(520px, calc(100vw - 24px));
-        border:1px solid rgba(255,255,255,.10);
-        border-radius:22px; padding:16px;
-        background: rgba(2,6,23,.85);
-        box-shadow: 0 18px 40px rgba(0,0,0,.45); text-align:center;">
-        <div style="font-weight:1000;font-size:22px;">Paused</div>
-        <div style="opacity:.8;margin-top:6px;font-size:12px;">แตะเพื่อเล่นต่อ</div>
-        <button id="btnResume" style="margin-top:14px;border:1px solid rgba(255,255,255,.10);
-          background: rgba(56,189,248,.18); color:#e5e7eb;border-radius:14px;padding:10px 14px;font-weight:1000;">
-          Resume
-        </button>
-      </div>
-    `;
-    DOC.body.appendChild(pauseOverlay);
-    const resume = ()=>{
-      hidePauseOverlay();
-      paused=false;
-      lastTick=nowMs();
-      requestAnimationFrame(loop);
-    };
-    pauseOverlay.addEventListener('pointerdown', resume, { passive:true });
-    const btn = DOC.getElementById('btnResume');
-    if(btn) btn.onclick = resume;
-  }
-  function hidePauseOverlay(){
-    if(!pauseOverlay) return;
-    pauseOverlay.remove();
-    pauseOverlay=null;
-  }
-
   function loop(){
     if(!playing) return;
 
@@ -859,16 +827,12 @@ export function boot(cfg){
     const dt=Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
     lastTick=t;
 
-    // planned timer always counts down (pause stops loop)
     tLeft=Math.max(0, tLeft-dt);
-
-    // passive dehydration
     waterPct = clamp(waterPct - dt*(diff==='hard'?1.35: diff==='easy'?0.95:1.15), 0, 100);
 
     spawnTick(dt);
     updateBubbles();
 
-    // AI hint
     try{
       const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
       const expirePressure = clamp(missGoodExpired/25, 0, 1);
@@ -877,7 +841,7 @@ export function boot(cfg){
 
       let hint='เก็บน้ำ 💧 + หาโล่ 🛡️';
       if(phase==='storm') hint=`${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
-      else if(phase==='boss') hint=`${emojiFor(diff,'boss')} บอส! เก็บน้ำ ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+      else if(phase==='boss') hint=`${emojiFor(diff,'boss')} บอส! ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
       else if(phase==='final') hint=`${emojiFor(diff,'final')} FINAL! ${finalHits}/${finalGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
       else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
       else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
@@ -897,12 +861,13 @@ export function boot(cfg){
     if(!playing) return;
     if(DOC.hidden){
       paused=true;
-      showPauseOverlay();
+      HydPause.show();
       return;
     }
-    if(paused) showPauseOverlay();
+    if(paused) HydPause.show();
   });
 
+  // start
   setHUD();
   requestAnimationFrame(loop);
 }
