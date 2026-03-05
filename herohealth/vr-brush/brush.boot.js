@@ -1,12 +1,57 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// PATCH v20260304-BRUSH-BOOT-MLLISTEN (optional add)
+// Brush BOOT — BLOOM Pack1 (NO auto-start; Start via Quiz)
+// FULL v20260304-BRUSH-BOOT-BLOOM1
 (function(){
   'use strict';
-  const WIN = window;
+  const WIN = window, DOC = document;
+  const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-  // ถ้าคุณมี boot ของคุณอยู่แล้ว ให้ “เพิ่ม” ส่วนนี้พอ:
-  WIN.addEventListener('brush:ml', (ev)=>{
-    // debug only
-    // console.log('[brush:ml]', ev.detail);
-  });
+  function isTapRecommended(view){
+    view = String(view||'').toLowerCase();
+    return (view === 'mobile' || view === 'cvr' || view === 'vr');
+  }
+
+  function showTapOverlay(){
+    const tap = DOC.getElementById('tapStart');
+    const btn = DOC.getElementById('tapBtn');
+    if(!tap || !btn) return;
+    tap.style.display = 'grid';
+    const go = ()=>{
+      try{ tap.style.display='none'; }catch(_){}
+    };
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+    tap.addEventListener('click', (e)=>{ if(e.target===tap){ e.preventDefault(); go(); } }, {passive:false});
+  }
+
+  async function loadSafe(){
+    let bootGame = WIN.__BRUSH_BOOTGAME__;
+    if (!bootGame){
+      const mod = await import('./brush.safe.js?v=20260304');
+      bootGame = mod && mod.bootGame ? mod.bootGame : null;
+    }
+    return bootGame;
+  }
+
+  async function init(){
+    const wrap = DOC.getElementById('br-wrap');
+    if(wrap){ wrap.dataset.state = 'play'; }
+
+    const view = String(qs('view','')||DOC.body.getAttribute('data-view')||'pc').toLowerCase();
+    DOC.body.setAttribute('data-view', view);
+
+    const bootGame = await loadSafe();
+    if (!bootGame){
+      console.error('[BrushBOOT] bootGame not found');
+      return;
+    }
+
+    // ✅ boot only (do not auto-start)
+    const api = bootGame();
+    WIN.HHBrush_BOOT = api;
+
+    if (isTapRecommended(view)) showTapOverlay();
+  }
+
+  if(DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
 })();
