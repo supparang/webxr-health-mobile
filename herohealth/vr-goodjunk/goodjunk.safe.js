@@ -1,18 +1,18 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + race wait + battle start sync)
-// FULL v20260305a-SAFE-SAFERECT-FULLGAME
+// FULL v20260305-SAFE-FIXSKYSPAWN-FULLGAME
 'use strict';
 
 export function boot(cfg){
   cfg = cfg || {};
   const WIN = window, DOC = document;
-  const AI = cfg.ai || null;
 
   // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
+  const pick = (arr, r)=> arr[(r()*arr.length)|0];
   function $(id){ return DOC.getElementById(id); }
 
   // ---------- MODE ----------
@@ -22,8 +22,7 @@ export function boot(cfg){
   // ---------- BATTLE (optional) ----------
   let battle = null;
   async function initBattleMaybe(pid, gameKey){
-    const on = battleOn;
-    if(!on) return null;
+    if(!battleOn) return null;
     try{
       const mod = await import('../vr/battle-rtdb.js');
       battle = await mod.initBattle({
@@ -77,7 +76,7 @@ export function boot(cfg){
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       'battle','room','autostart','forfeit','mode',
-      'ai','pro','wait'
+      'ai','pro','wait','nick'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -163,7 +162,6 @@ export function boot(cfg){
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
-  const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
@@ -181,7 +179,6 @@ export function boot(cfg){
     aiRisk: $('aiRisk'),
     aiHint: $('aiHint'),
   };
-
   const missionTitle = $('missionTitle');
   const missionGoal  = $('missionGoal');
   const missionHint  = $('missionHint');
@@ -194,6 +191,8 @@ export function boot(cfg){
   const endScore = $('endScore');
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
+  const endMode  = $('endMode');
+  const endDiff  = $('endDiff');
 
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
@@ -212,6 +211,7 @@ export function boot(cfg){
 
   // hub / pid / cat / gameKey
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const nick = String(qs('nick', pid)).trim() || pid;
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
@@ -246,11 +246,12 @@ export function boot(cfg){
   const PRO = (diff==='hard' && String(qs('pro','0'))==='1');
 
   const TUNE = (function(){
-    let spawnBase = 0.78;     // spawns/sec
-    let lifeMissLimit = 10;   // game over
+    let spawnBase = 0.78;
+    let lifeMissLimit = 10;
     let ttlGood = 2.6;
     let ttlJunk = 2.9;
     let ttlBonus = 2.4;
+    let stormMult = 1.0;
     let bossHp = 18;
 
     if(diff==='easy'){
@@ -258,12 +259,14 @@ export function boot(cfg){
       lifeMissLimit = 14;
       ttlGood = 3.0;
       ttlJunk = 3.2;
+      stormMult = 0.9;
       bossHp = 16;
     }else if(diff==='hard'){
       spawnBase = 0.95;
       lifeMissLimit = 8;
       ttlGood = 2.2;
       ttlJunk = 2.4;
+      stormMult = 1.12;
       bossHp = 22;
     }
     if(view==='cvr' || view==='vr'){
@@ -274,16 +277,16 @@ export function boot(cfg){
       spawnBase *= 1.08;
       ttlGood   -= 0.10;
       ttlJunk   -= 0.08;
+      stormMult *= 1.05;
       bossHp    += 3;
       lifeMissLimit = Math.max(6, lifeMissLimit - 1);
     }
-    return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, bossHp };
+    return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, stormMult, bossHp };
   })();
 
   const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'];
   const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'];
   const BONUS = ['⭐','💎','⚡'];
-  const WEAK = '🎯';
 
   // ---------- FX layer ----------
   const fxLayer = DOC.createElement('div');
@@ -306,7 +309,6 @@ export function boot(cfg){
     el.style.textShadow = '0 10px 30px rgba(0,0,0,.55)';
     el.style.filter = 'drop-shadow(0 10px 26px rgba(0,0,0,.45))';
     el.style.opacity = '1';
-    el.style.willChange = 'transform, opacity';
     fxLayer.appendChild(el);
 
     const t0 = nowMs();
@@ -315,11 +317,9 @@ export function boot(cfg){
     function tick(){
       const t = nowMs() - t0;
       const p = Math.min(1, t/dur);
-      const yy = y - rise * (p);
-      const sc = 1 + 0.08*Math.sin(p*3.14);
-      el.style.top = `${yy}px`;
+      el.style.top = `${y - rise*p}px`;
       el.style.opacity = String(1 - p);
-      el.style.transform = `translate(-50%,-50%) scale(${sc})`;
+      el.style.transform = `translate(-50%,-50%) scale(${1 + 0.10*Math.sin(p*3.14)})`;
       if(p<1) requestAnimationFrame(tick);
       else el.remove();
     }
@@ -339,7 +339,6 @@ export function boot(cfg){
       dot.style.background = 'rgba(229,231,235,.92)';
       dot.style.opacity = '1';
       dot.style.transform = 'translate(-50%,-50%)';
-      dot.style.willChange = 'transform, opacity';
       fxLayer.appendChild(dot);
 
       const ang = r01()*Math.PI*2;
@@ -352,10 +351,8 @@ export function boot(cfg){
       function tick(){
         const t = nowMs() - t0;
         const p = Math.min(1, t/dur);
-        const xx = x + vx*p;
-        const yy = y + vy*p - 30*p*p;
-        dot.style.left = `${xx}px`;
-        dot.style.top  = `${yy}px`;
+        dot.style.left = `${x + vx*p}px`;
+        dot.style.top  = `${y + vy*p - 30*p*p}px`;
         dot.style.opacity = String(1 - p);
         dot.style.transform = `translate(-50%,-50%) scale(${1 - 0.4*p})`;
         if(p<1) requestAnimationFrame(tick);
@@ -365,7 +362,7 @@ export function boot(cfg){
     }
   }
 
-  // ---------- Coach (rate-limited) ----------
+  // ---------- Coach (rate-limited, simple) ----------
   const coach = DOC.createElement('div');
   coach.style.position = 'fixed';
   coach.style.left = '10px';
@@ -396,10 +393,9 @@ export function boot(cfg){
 
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
-
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 4500) return;
+    if(t - coachLatchMs < 3200) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -407,28 +403,15 @@ export function boot(cfg){
     setTimeout(()=>{
       coach.style.opacity = '0';
       coach.style.transform = 'translateY(6px)';
-    }, 2200);
+    }, 1800);
   }
 
-  function coachTop2(missGoodExpired, missJunkHit, shots, acc){
-    const facts = [];
-    if(missJunkHit >= 2) facts.push({k:'โดนของเสีย', v: missJunkHit});
-    if(missGoodExpired >= 2) facts.push({k:'ช้า ของดีหาย', v: missGoodExpired});
-    if(shots >= 10 && acc <= 55) facts.push({k:'ยิงพลาดเยอะ', v: (100-acc)});
-    facts.sort((a,b)=> (b.v||0)-(a.v||0));
-    const top = facts.slice(0,2).map(x=>x.k);
-    if(!top.length) return null;
-    return `ระวัง: ${top.join(' + ')}`;
-  }
-
-  // ---------- gameplay state ----------
+  // ---------- GAME STATE ----------
   const startTimeIso = nowIso();
   let playing = true;
-  let tLeft = plannedSec;
-  let lastTick = nowMs();
+  let paused = false;
 
   // ✅ wait-start (battle/race)
-  let paused = false;
   const WAIT_START = (String(qs('wait','0')) === '1');
   if(WAIT_START) paused = true;
 
@@ -437,453 +420,433 @@ export function boot(cfg){
     try{ lastTick = nowMs(); }catch(e){}
   };
   WIN.__GJ_START_NOW__ = function(){
-    try{
-      paused = false;
-      lastTick = nowMs();
-      sayCoach('GO! 🔥');
-    }catch(e){}
+    paused = false;
+    lastTick = nowMs();
+    sayCoach('GO! 🔥');
   };
 
-  WIN.addEventListener('hha:battle-start', ()=>{
-    try{ WIN.__GJ_START_NOW__?.(); }catch(e){}
-  });
+  WIN.addEventListener('hha:battle-start', ()=>{ try{ WIN.__GJ_START_NOW__?.(); }catch(e){} });
   WIN.addEventListener('hha:battle-state', (ev)=>{
     try{
       const phase = String(ev?.detail?.phase || '').toLowerCase();
-      if(phase === 'running' && paused){
-        WIN.__GJ_START_NOW__?.();
-      }
+      if(phase === 'running' && paused) WIN.__GJ_START_NOW__?.();
     }catch(e){}
   });
 
-  // scores & counters
+  let tLeft = plannedSec;
+  let lastTick = nowMs();
+
   let score = 0;
   let missTotal = 0;
   let missGoodExpired = 0;
   let missJunkHit = 0;
 
+  let shots = 0;
+  let hits  = 0;
+  let goodHitCount = 0;
+
   let combo = 0;
   let bestCombo = 0;
 
-  let goodHitCount = 0;
-  let shots = 0;
-  let hits  = 0;
-
-  // reaction time (good only)
-  const rtList = [];
-
-  // mini
-  const mini = { name:'—', t:0, on:false };
+  // stage goals
+  let stageGoodNeed = (diff==='easy') ? 10 : (diff==='hard' ? 14 : 12);
+  let stageScoreNeed = (diff==='easy') ? 180 : (diff==='hard' ? 260 : 220);
 
   // boss
   let bossActive = false;
-  const bossHpMax = TUNE.bossHp;
+  let bossHpMax = TUNE.bossHp;
   let bossHp = bossHpMax;
 
   // targets
   const targets = new Map();
   let idSeq = 1;
 
-  // ---------- FIX: Safe spawn rect (กัน HUD/mission) ----------
+  // ---------- SAFE RECT (FIX “ขึ้นสวรรค์”) ----------
+  function layerRect(){ return layer.getBoundingClientRect(); }
+  function getHudSafePad(){
+    // กัน HUD top + mission panel + coach bottom
+    // ใช้ค่าคงที่ “แฟร์” และพึ่งพา safe-area
+    const top = 140 + (parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sat'))||0);
+    const bottom = 170 + (parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sab'))||0);
+    const side = 16;
+    return { top, bottom, left: side, right: side };
+  }
   function safeRect(){
-    const r = layer.getBoundingClientRect();
-    const hudEl = $('hud');
-    const hudR = hudEl ? hudEl.getBoundingClientRect() : null;
-
-    // mission box is fixed below hud
-    const missionBox = missionTitle ? missionTitle.closest('.box') : null;
-    const missionR = missionBox ? missionBox.getBoundingClientRect() : null;
-
-    const topBlock = Math.max(
-      (hudR ? hudR.bottom : (r.top+10)),
-      (missionR ? missionR.bottom : (r.top+70))
-    );
-
-    const pad = 14;
-    const top = Math.min(r.bottom - 120, topBlock + pad);
-    const bottom = r.bottom - (pad + 12);
-    const left = r.left + pad;
-    const right = r.right - pad;
-
-    // fallback if weird
+    const r = layerRect();
+    const pad = getHudSafePad();
+    const x0 = r.left + pad.left;
+    const y0 = r.top  + pad.top;
+    const x1 = r.right - pad.right;
+    const y1 = r.bottom - pad.bottom;
+    const w = Math.max(120, x1 - x0);
+    const h = Math.max(160, y1 - y0);
+    return { x0, y0, x1, y1, w, h };
+  }
+  function safeXY(){
+    const s = safeRect();
     return {
-      l: left,
-      r: Math.max(left+220, right),
-      t: Math.max(r.top+pad, top),
-      b: Math.max(top+260, bottom),
-      w: Math.max(10, right-left),
-      h: Math.max(10, bottom-top),
-      layer: r
+      x: s.x0 + r01()*s.w,
+      y: s.y0 + r01()*s.h
     };
   }
 
-  function gradeFrom(score, accPct, miss){
-    // playful but fair
-    if(miss <= 1 && accPct >= 85 && score >= 900) return 'S';
-    if(accPct >= 82 && miss <= 2) return 'A';
-    if(accPct >= 70 && miss <= 4) return 'B';
-    if(accPct >= 58 && miss <= 7) return 'C';
+  // ---------- HUD ----------
+  function gradeFrom(){
+    // ง่ายๆ: score + miss
+    if(score >= WIN_TARGET.scoreTarget && missTotal <= 2) return 'S';
+    if(score >= WIN_TARGET.scoreTarget) return 'A';
+    if(score >= WIN_TARGET.scoreTarget*0.78) return 'B';
+    if(score >= WIN_TARGET.scoreTarget*0.62) return 'C';
     return 'D';
   }
-
   function setHUD(){
-    const accPct = shots ? Math.round((hits/shots)*100) : 0;
-    const g = gradeFrom(score, accPct, missTotal);
-
     if(hud.score) hud.score.textContent = String(score|0);
     if(hud.time) hud.time.textContent = String(Math.max(0, Math.ceil(tLeft)));
     if(hud.miss) hud.miss.textContent = String(missTotal|0);
+    const g = gradeFrom();
     if(hud.grade) hud.grade.textContent = g;
-
-    const goalText = (stage===0)
-      ? `WARM: score≥${WIN_TARGET.scoreTarget}, good≥${WIN_TARGET.goodTarget}`
-      : (stage===1)
-        ? `TRICK: คอมโบ + โบนัส`
-        : `BOSS: HP ${bossHp}/${bossHpMax}`;
-    if(hud.goal) hud.goal.textContent = goalText;
-
+    if(hud.goal) hud.goal.textContent = `${STAGE_NAME[stage]} • score≥${WIN_TARGET.scoreTarget} & good≥${WIN_TARGET.goodTarget}`;
     if(hud.goalCur) hud.goalCur.textContent = String(score|0);
-    if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.scoreTarget);
-    if(hud.goalDesc) hud.goalDesc.textContent = `เป้าหมาย: score ≥ ${WIN_TARGET.scoreTarget} และ good ≥ ${WIN_TARGET.goodTarget}`;
+    if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.scoreTarget|0);
 
-    if(hud.mini) hud.mini.textContent = mini.name || '—';
-    if(hud.miniTimer) hud.miniTimer.textContent = String(Math.max(0, Math.ceil(mini.t||0)));
-
-    // mission panel
     if(missionTitle) missionTitle.textContent = (stage===0?'WARM-UP':stage===1?'TRICK':'BOSS');
-    if(missionGoal){
-      missionGoal.textContent = (stage===0)
-        ? 'เก็บของดีให้ครบ'
-        : (stage===1)
-          ? 'เก็บโบนัส + รักษาคอมโบ'
-          : 'ตีบอสให้ล้ม (โดน WEAK จะเจ็บมาก)';
-    }
     if(missionHint){
-      missionHint.textContent = (stage===0)
-        ? 'โฟกัสของดี (+) คอมโบ'
-        : (stage===1)
-          ? 'โบนัสช่วยพุ่งคะแนน • อย่าโดน junk'
-          : 'หา 🎯 แล้วกด/ยิงใส่!';
+      if(stage===0) missionHint.textContent = 'โฟกัสของดี (+) ทำคอมโบ';
+      else if(stage===1) missionHint.textContent = 'ของขยะจะถี่ขึ้น! ระวังยิงพลาด';
+      else missionHint.textContent = bossActive ? 'ตีบอสให้แตก! (hit = -HP)' : 'บอสมาแล้ว!';
+    }
+    if(missionGoal){
+      if(stage<2) missionGoal.textContent = `ผ่านด่าน: good≥${stageGoodNeed} + score≥${stageScoreNeed}`;
+      else missionGoal.textContent = bossActive ? `BOSS HP ${bossHp}/${bossHpMax}` : 'BOSS!';
+    }
+    if(hud.goalDesc){
+      hud.goalDesc.textContent = `เป้าหมาย: score ≥ ${WIN_TARGET.scoreTarget} และ good ≥ ${WIN_TARGET.goodTarget}`;
     }
     if(missionFill){
-      let p=0;
-      if(stage===0){
-        const p1 = Math.min(1, score / WIN_TARGET.scoreTarget);
-        const p2 = Math.min(1, goodHitCount / WIN_TARGET.goodTarget);
-        p = 0.55*p1 + 0.45*p2;
-      }else if(stage===1){
-        p = Math.min(1, (score - WIN_TARGET.scoreTarget) / 380);
+      let p = 0;
+      if(stage===0 || stage===1){
+        const pg = Math.min(1, goodHitCount / Math.max(1,stageGoodNeed));
+        const ps = Math.min(1, score / Math.max(1,stageScoreNeed));
+        p = Math.min(1, (pg*0.55 + ps*0.45));
       }else{
-        p = 1 - (bossHp / bossHpMax);
+        p = bossActive ? (1 - (bossHp/Math.max(1,bossHpMax))) : 0.15;
       }
-      missionFill.style.width = `${Math.round(p*100)}%`;
+      missionFill.style.width = `${Math.max(0,Math.min(1,p))*100}%`;
     }
   }
 
-  function makeTarget(kind, emoji, ttl){
-    const id = idSeq++;
+  // ---------- SPAWN ----------
+  function makeTarget(kind){
+    const id = String(idSeq++);
     const el = DOC.createElement('div');
-    el.className = 'tgt';
-    el.dataset.id = String(id);
-    el.dataset.kind = kind;
-    el.innerHTML = `<div class="ring"></div><div class="emo">${emoji}</div>`;
-    layer.appendChild(el);
+    el.className = 'tgt pop';
+    const xy = safeXY();
+
+    let emoji = '🍎';
+    let ttl = 2600;
+    let scoreHit = 20;
+    let bad = false;
+
+    if(kind==='good'){
+      emoji = pick(GOOD, r01);
+      ttl = TUNE.ttlGood*1000;
+      scoreHit = 22;
+      el.classList.toggle('big', r01()<0.18);
+    }else if(kind==='junk'){
+      emoji = pick(JUNK, r01);
+      ttl = TUNE.ttlJunk*1000;
+      scoreHit = -18;
+      bad = true;
+      el.classList.toggle('small', r01()<0.22);
+    }else{
+      emoji = pick(BONUS, r01);
+      ttl = TUNE.ttlBonus*1000;
+      scoreHit = 35;
+      el.classList.toggle('big', true);
+    }
+
+    el.textContent = emoji;
+    el.style.left = `${xy.x}px`;
+    el.style.top  = `${xy.y}px`;
 
     const born = nowMs();
-    const s = safeRect();
-
-    const x = s.l + 34 + r01()*(Math.max(60, s.r - s.l) - 68);
-    const y = s.t + 34 + r01()*(Math.max(120, s.b - s.t) - 68);
-
-    el.style.left = `${x - s.layer.left}px`;
-    el.style.top  = `${y - s.layer.top}px`;
-
-    const obj = { id, kind, emoji, el, born, ttl, x, y, hit:false };
-    targets.set(id, obj);
+    const item = { id, el, kind, emoji, born, ttl, scoreHit, bad, dead:false };
+    targets.set(id, item);
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
-      onHit(id, ev.clientX, ev.clientY);
-    }, {passive:false});
-
-    return obj;
-  }
-
-  function killTarget(id){
-    const t = targets.get(id);
-    if(!t) return;
-    targets.delete(id);
-    try{ t.el.remove(); }catch(e){}
-  }
-
-  function onHit(id, clientX, clientY){
-    const t = targets.get(id);
-    if(!t || t.hit || !playing) return;
-    t.hit = true;
-
-    shots++;
-    hits++;
-
-    const isGood = (t.kind==='good');
-    const isJunk = (t.kind==='junk');
-    const isBonus = (t.kind==='bonus');
-    const isWeak = (t.kind==='weak');
-
-    if(isGood){
-      goodHitCount++;
-      combo++;
-      bestCombo = Math.max(bestCombo, combo);
-      const gain = 10 + Math.min(18, combo);
-      score += gain;
-      rtList.push(Math.max(1, nowMs() - t.born));
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY, `+${gain}`, false);
-    }else if(isBonus){
-      combo++;
-      bestCombo = Math.max(bestCombo, combo);
-      const gain = 28 + ((r01()*12)|0);
-      score += gain;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY, `BONUS +${gain}`, false);
-      if(!mini.on){
-        mini.on = true;
-        mini.name = 'BONUS';
-        mini.t = 6;
-        sayCoach('โบนัสมาแล้ว! เก็บต่อเนื่อง 🔥');
-      }
-    }else if(isWeak){
-      combo++;
-      bestCombo = Math.max(bestCombo, combo);
-      const dmg = 2 + ((r01()*2)|0);
-      bossHp = Math.max(0, bossHp - dmg);
-      score += 18 + dmg*6;
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY, `WEAK! -${dmg}HP`, false);
-    }else if(isJunk){
-      // miss = junk hit
-      missTotal++;
-      missJunkHit++;
-      combo = 0;
-      const lose = 12;
-      score = Math.max(0, score - lose);
-      fxBurst(clientX, clientY);
-      fxFloatText(clientX, clientY, `-MISS`, true);
-    }
-
-    killTarget(id);
-
-    // coach explain
-    const accPct = shots ? Math.round((hits/shots)*100) : 0;
-    const c2 = coachTop2(missGoodExpired, missJunkHit, shots, accPct);
-    if(c2) sayCoach(c2);
-
-    setHUD();
-    checkStageAdvance();
-    checkLose();
-  }
-
-  // allow crosshair shoot
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    if(!playing) return;
-    const s = safeRect();
-    const x = Number(ev?.detail?.x);
-    const y = Number(ev?.detail?.y);
-    const cx = Number.isFinite(x) ? x : (s.layer.left + s.layer.width/2);
-    const cy = Number.isFinite(y) ? y : (s.layer.top + s.layer.height/2);
-
-    // find nearest target within radius
-    let best=null, bestD=99999;
-    targets.forEach(t=>{
-      const dx = (t.x - cx);
-      const dy = (t.y - cy);
-      const d = Math.hypot(dx,dy);
-      if(d < bestD){ bestD = d; best = t; }
+      onHit(item, ev.clientX, ev.clientY);
     });
-    if(best && bestD <= 90){
-      onHit(best.id, cx, cy);
-    }else{
-      shots++;
-      combo = 0;
-      setHUD();
-    }
-  });
 
-  function spawnTick(dt){
-    // base spawn rate
-    const rate = TUNE.spawnBase * (stage===2 ? 1.1 : 1.0) * (mini.on ? 1.15 : 1.0);
-    spawnAccum += dt*rate;
+    layer.appendChild(el);
+    return item;
+  }
 
-    while(spawnAccum >= 1){
-      spawnAccum -= 1;
+  // spawn pacing
+  let spawnAcc = 0;
+  function spawnPlan(dt){
+    // base rate + stage
+    let rate = TUNE.spawnBase; // targets/sec
+    if(stage===1) rate *= 1.12;
+    if(stage===2) rate *= 1.06;
+    if(bossActive) rate *= 0.90;
 
-      // boss stage: spawn weak points + junk
-      if(stage===2){
-        const roll = r01();
-        if(roll < 0.42){
-          makeTarget('weak', WEAK, 1.2);
-        }else if(roll < 0.72){
-          makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
-        }else{
-          makeTarget('good', rPick(GOOD), TUNE.ttlGood);
-        }
-        continue;
-      }
+    spawnAcc += dt * rate;
+    while(spawnAcc >= 1){
+      spawnAcc -= 1;
 
-      // warm/trick
+      // choose kind
+      let kind = 'good';
       const r = r01();
       if(stage===0){
-        if(r < 0.62) makeTarget('good', rPick(GOOD), TUNE.ttlGood);
-        else makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
+        kind = (r < 0.68) ? 'good' : (r < 0.95 ? 'junk' : 'bonus');
+      }else if(stage===1){
+        kind = (r < 0.58) ? 'good' : (r < 0.96 ? 'junk' : 'bonus');
       }else{
-        if(r < 0.50) makeTarget('good', rPick(GOOD), TUNE.ttlGood);
-        else if(r < 0.72) makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
-        else makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
+        kind = (r < 0.60) ? 'good' : (r < 0.98 ? 'junk' : 'bonus');
+      }
+
+      // boss: inject weak-point sometimes
+      if(bossActive && r01()<0.16) kind = 'bonus';
+
+      makeTarget(kind);
+    }
+  }
+
+  // ---------- HIT / EXPIRE ----------
+  function killTarget(it, reason){
+    if(!it || it.dead) return;
+    it.dead = true;
+    try{ it.el.remove(); }catch(e){}
+    targets.delete(it.id);
+
+    if(reason==='expired'){
+      if(it.kind==='good'){
+        missTotal += 1;
+        missGoodExpired += 1;
+        combo = 0;
       }
     }
   }
 
-  function expireTick(){
-    const t = nowMs();
-    targets.forEach((obj, id)=>{
-      if(obj.hit) return;
-      if((t - obj.born) >= (obj.ttl*1000)){
-        // expired
-        if(obj.kind === 'good'){
-          missTotal++;
-          missGoodExpired++;
-          combo = 0;
+  function onHit(it, x, y){
+    if(!playing || paused) return;
+    if(!it || it.dead) return;
+
+    shots += 1;
+
+    if(it.kind==='junk'){
+      // penalty
+      missTotal += 1;
+      missJunkHit += 1;
+      combo = 0;
+      score = Math.max(0, score + it.scoreHit);
+      fxFloatText(x,y,'-MISS', true);
+      fxBurst(x,y);
+      killTarget(it, 'hit');
+      return;
+    }
+
+    // good / bonus
+    hits += 1;
+    if(it.kind==='good'){
+      goodHitCount += 1;
+      combo += 1;
+      bestCombo = Math.max(bestCombo, combo);
+      score += it.scoreHit + Math.min(18, combo);
+      fxFloatText(x,y,`+${it.scoreHit + Math.min(18, combo)}`, false);
+      fxBurst(x,y);
+      if(combo===6) sayCoach('คอมโบมาแล้ว! 🔥');
+      if(combo===10) sayCoach('สุดยอด! รักษาคอมโบไว้!');
+    }else{
+      // bonus
+      combo += 2;
+      bestCombo = Math.max(bestCombo, combo);
+      score += it.scoreHit;
+      fxFloatText(x,y,`+${it.scoreHit} BONUS`, false);
+      fxBurst(x,y);
+      sayCoach('เก็บ BONUS ดีมาก!');
+    }
+
+    // boss damage (stage 2)
+    if(stage===2){
+      if(!bossActive){
+        bossActive = true;
+        bossHpMax = TUNE.bossHp;
+        bossHp = bossHpMax;
+        sayCoach('บอสมา! ตีให้แตก! 👊');
+      }else{
+        bossHp = Math.max(0, bossHp - 1);
+        if(bossHp<=0){
+          // boss clear -> big reward
+          score += 120;
+          sayCoach('บอสแตก! +120 🔥');
+          bossActive = false; // can reappear lightly
+          // end fast if already reach win targets
+          if(score >= WIN_TARGET.scoreTarget && goodHitCount >= WIN_TARGET.goodTarget){
+            endGame('win');
+          }
         }
-        killTarget(id);
       }
-    });
+    }
+
+    killTarget(it, 'hit');
   }
 
-  function checkStageAdvance(){
-    if(stage===0){
-      const ok = (score >= WIN_TARGET.scoreTarget) && (goodHitCount >= WIN_TARGET.goodTarget);
-      if(ok){
-        stage = 1;
-        sayCoach('ผ่าน WARM! เข้าช่วง TRICK 🔥');
+  // cVR shoot support (vr-ui.js emits hha:shoot {x,y} in screen coords)
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    try{
+      const d = ev?.detail || {};
+      const x = Number(d.x), y = Number(d.y);
+      if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+      // find nearest target within radius
+      let best=null, bestDist=1e9;
+      targets.forEach(it=>{
+        if(it.dead) return;
+        const r = it.el.getBoundingClientRect();
+        const cx = r.left + r.width/2;
+        const cy = r.top  + r.height/2;
+        const dx = cx-x, dy = cy-y;
+        const dist = Math.hypot(dx,dy);
+        if(dist < bestDist){
+          bestDist = dist; best = it;
+        }
+      });
+      if(best && bestDist < 90) onHit(best, x, y);
+      else{
+        shots += 1;
+        combo = 0;
       }
-    }else if(stage===1){
-      // after some progress, enter boss
-      if(score >= (WIN_TARGET.scoreTarget + 320)){
-        stage = 2;
-        bossActive = true;
-        bossHp = bossHpMax;
-        sayCoach('บอสมาแล้ว! หา 🎯 แล้วกดเลย!');
+    }catch(e){}
+  });
+
+  // ---------- STAGE PROGRESSION ----------
+  function advanceStageIfNeeded(){
+    if(stage===0 || stage===1){
+      if(goodHitCount >= stageGoodNeed && score >= stageScoreNeed){
+        stage += 1;
+        combo = 0;
+        // tighten goals for next stage
+        stageGoodNeed += (stage===1 ? (diff==='hard'?7:6) : 0);
+        stageScoreNeed += (stage===1 ? (diff==='hard'?180:150) : 0);
+        sayCoach(stage===1 ? 'เข้าสู่ TRICK! ของขยะถี่ขึ้น 😈' : 'เข้าสู่ BOSS! เตรียมตัว! 👹');
       }
     }else{
-      if(bossHp <= 0){
-        endGame('win');
+      if(!bossActive && tLeft < Math.max(12, plannedSec*0.35)){
+        bossActive = true;
+        bossHpMax = TUNE.bossHp;
+        bossHp = bossHpMax;
+        sayCoach('FINAL BOSS โผล่! 🔥');
       }
     }
   }
 
-  function checkLose(){
-    if(missTotal >= TUNE.lifeMissLimit){
-      endGame('miss-limit');
+  // ---------- END ----------
+  function showEnd(){
+    if(!endOverlay) return;
+    endOverlay.classList.add('show');
+
+    if(endTitle) endTitle.textContent = 'จบเกม';
+    const g = gradeFrom();
+    if(endSub) endSub.textContent = `pid=${pid} • ${nick} • reason=${endReason}`;
+    if(endGrade) endGrade.textContent = g;
+    if(endScore) endScore.textContent = String(score|0);
+    if(endMiss)  endMiss.textContent  = String(missTotal|0);
+    if(endTime)  endTime.textContent  = String(plannedSec|0);
+    if(endMode)  endMode.textContent  = String(mode||'solo');
+    if(endDiff)  endDiff.textContent  = String(diff||'normal');
+
+    // inject cooldown button (daily-first per game)
+    hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
+
+    const btnAgain = DOC.getElementById('btnAgain');
+    const btnBackHub = DOC.getElementById('btnBackHub');
+    if(btnAgain){
+      btnAgain.onclick = ()=>{
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      };
+    }
+    if(btnBackHub){
+      btnBackHub.onclick = ()=> location.href = hubUrl || '../hub.html';
     }
   }
 
+  function saveLastSummary(){
+    const accPct = (shots>0) ? Math.round((hits/shots)*100) : 0;
+    const sum = {
+      ts: Date.now(),
+      game: HH_GAME,
+      pid,
+      nick,
+      mode,
+      diff,
+      run: runMode,
+      view,
+      seed: seedStr,
+      time: plannedSec,
+      score, missTotal, missGoodExpired, missJunkHit,
+      shots, hits, accPct,
+      bestCombo,
+      grade: gradeFrom(),
+      reason: endReason,
+      startTimeIso,
+      endTimeIso: nowIso(),
+    };
+    try{
+      hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(sum));
+      hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
+    }catch(e){}
+  }
+
+  let endReason = 'time';
   function endGame(reason){
     if(!playing) return;
     playing = false;
+    endReason = String(reason||'time');
+    // kill all
+    targets.forEach(it=>{ try{ it.el.remove(); }catch(e){} });
+    targets.clear();
 
-    // clear targets
-    targets.forEach((_, id)=> killTarget(id));
-
-    const accPct = shots ? Math.round((hits/shots)*100) : 0;
-    const grade = gradeFrom(score, accPct, missTotal);
-
-    // UI
-    if(endOverlay) endOverlay.classList.add('show');
-    if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
-    if(endSub) endSub.textContent = (reason==='win')
-      ? 'ผ่านบอสสำเร็จ • เก่งมาก!'
-      : (reason==='miss-limit')
-        ? 'Miss เยอะไปหน่อย ลองใหม่ได้!'
-        : 'จบเวลา';
-
-    if(endGrade) endGrade.textContent = grade;
-    if(endScore) endScore.textContent = String(score|0);
-    if(endMiss)  endMiss.textContent  = String(missTotal|0);
-    if(endTime)  endTime.textContent  = String(Math.max(0, Math.ceil(tLeft)));
-
-    // save summary for AutoDiff
-    const summary = {
-      game: 'goodjunk',
-      pid,
-      diff,
-      seed: seedStr,
-      mode,
-      reason,
-      score,
-      missTotal,
-      missGoodExpired,
-      missJunkHit,
-      shots,
-      hits,
-      accPct,
-      goodHitCount,
-      bestCombo,
-      grade,
-      startTimeIso,
-      endTimeIso: nowIso()
-    };
-    try{
-      hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      hhLsSet(`HHA_LAST_SUMMARY:goodjunk:${pid}`, JSON.stringify(summary));
-    }catch(_){}
-
-    // cooldown button injection (daily per game)
-    try{
-      hhInjectCooldownButton({ endOverlayEl: endOverlay, hub: hubUrl, cat: HH_CAT, gameKey: HH_GAME, pid });
-    }catch(_){}
-
-    // emit score for battle (if any)
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:score', { detail: summary }));
-    }catch(_){}
-
-    // coach
-    if(reason==='win') sayCoach('สุดยอด! ไปต่อได้เลย 🔥');
-    else sayCoach('ไม่เป็นไร ลองใหม่อีกรอบ!');
+    setHUD();
+    saveLastSummary();
+    showEnd();
   }
 
-  // ---------- main loop ----------
-  let spawnAccum = 0;
-
+  // ---------- MAIN TICK ----------
   function tick(){
     const t = nowMs();
-    const dt = Math.min(0.08, Math.max(0, (t - lastTick) / 1000));
+    let dt = (t - lastTick)/1000;
+    if(!Number.isFinite(dt) || dt<0) dt = 0;
+    if(dt>0.10) dt = 0.10;
     lastTick = t;
 
     if(playing){
       if(!paused){
         tLeft -= dt;
-        if(mini.on){
-          mini.t -= dt;
-          if(mini.t <= 0){
-            mini.on = false;
-            mini.name = '—';
-            mini.t = 0;
+
+        // expire targets
+        targets.forEach(it=>{
+          if(it.dead) return;
+          if((t - it.born) > it.ttl){
+            killTarget(it, 'expired');
           }
+        });
+
+        spawnPlan(dt);
+        advanceStageIfNeeded();
+
+        // lose condition
+        if(missTotal >= TUNE.lifeMissLimit){
+          endGame('miss-limit');
         }
-
-        spawnTick(dt);
-        expireTick();
-
+        // win condition (solo style)
+        if(score >= WIN_TARGET.scoreTarget && goodHitCount >= WIN_TARGET.goodTarget && stage>=2){
+          endGame('win');
+        }
         if(tLeft <= 0){
-          // if boss not dead -> lose by time
-          endGame(bossActive && bossHp>0 ? 'time' : (stage>=1 ? 'time' : 'time'));
-        }
-
-        // occasional coach tips
-        if(((t|0) % 6000) < 30){
-          const accPct = shots ? Math.round((hits/shots)*100) : 0;
-          const c2 = coachTop2(missGoodExpired, missJunkHit, shots, accPct);
-          if(c2) sayCoach(c2);
+          endGame('time');
         }
       }
       setHUD();
@@ -891,15 +854,13 @@ export function boot(cfg){
     }
   }
 
-  // init HUD
-  setHUD();
-
+  // ---------- start ----------
   if(WAIT_START){
     sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳');
   }else{
-    sayCoach('เริ่มเลย! เก็บของดีให้ไว 🔥');
+    sayCoach('เริ่มเลย! โฟกัสของดี! 🥦');
   }
 
-  // start loop
+  setHUD();
   requestAnimationFrame(tick);
 }
