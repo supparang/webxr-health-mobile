@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + race wait + battle start sync)
-// FULL v20260305k-SAFE-UIBOUNDS-SPAWN-NOHUDOVERLAP
+// GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + battle sync)
+// FULL v20260305m-SAFE-REWARD-ABC-HEROXP
 'use strict';
 
 export async function boot(cfg){
@@ -41,6 +41,11 @@ export async function boot(cfg){
     }
   }
 
+  // ---------- localStorage helpers ----------
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
+  function lsDel(k){ try{ localStorage.removeItem(k); }catch(_){ } }
+
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
   function hhDayKey(){
     const d=new Date();
@@ -49,9 +54,6 @@ export async function boot(cfg){
     const dd=String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function hhLsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){ } }
-
   function hhCooldownDone(cat, gameKey, pid){
     const day = hhDayKey();
     const p = String(pid||'anon').trim()||'anon';
@@ -59,9 +61,8 @@ export async function boot(cfg){
     const g = String(gameKey||'unknown').toLowerCase();
     const kNew = `HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`;
     const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
-    return (hhLsGet(kNew)==='1') || (hhLsGet(kOld)==='1');
+    return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
   }
-
   function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
     const gate = new URL('../warmup-gate.html', location.href);
     gate.searchParams.set('gatePhase','cooldown');
@@ -82,10 +83,8 @@ export async function boot(cfg){
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
     });
-
     return gate.toString();
   }
-
   function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
     if(!endOverlayEl) return;
     const cdDone = hhCooldownDone(cat, gameKey, pid);
@@ -455,7 +454,6 @@ export async function boot(cfg){
     paused = !!on;
     try{ lastTick = nowMs(); }catch(e){}
   };
-
   WIN.__GJ_START_NOW__ = function(){
     try{
       paused = false;
@@ -503,7 +501,7 @@ export async function boot(cfg){
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
-  // ====== UI bounds aware SAFE SPAWN (แก้ HUD ทับ + เป้าไปบนสวรรค์) ======
+  // ====== UI bounds aware SAFE SPAWN (HUD/mission/bossbar) ======
   function getUiBlocks(){
     const b = WIN.HHA_UI_BOUNDS || null;
     const blocks = [];
@@ -520,12 +518,10 @@ export async function boot(cfg){
     }
     return false;
   }
-
   function safeSpawnRect(){
     const r = layerRect();
     const W = r.width, H = r.height;
 
-    // baseline safe padding
     const leftPad = 18, rightPad = 18;
     const topPadBase = (view==='cvr'||view==='vr') ? 130 : 120;
     const bottomPadBase = (view==='cvr'||view==='vr') ? 120 : 110;
@@ -537,20 +533,17 @@ export async function boot(cfg){
 
     return { x1, x2, y1, y2 };
   }
-
   function spawnPoint(){
     const s = safeSpawnRect();
     const blocks = getUiBlocks();
-    const pad = 14; // “กันทับ” เพิ่มอีกนิด
+    const pad = 14;
     const maxTry = 18;
 
-    // try to avoid UI blocks
     for(let i=0;i<maxTry;i++){
       const x = s.x1 + (s.x2 - s.x1) * r01();
       const y = s.y1 + (s.y2 - s.y1) * r01();
       if(!overlapsBlock(x,y, blocks, pad)) return { x, y };
     }
-    // fallback
     return {
       x: s.x1 + (s.x2 - s.x1) * r01(),
       y: s.y1 + (s.y2 - s.y1) * r01()
@@ -575,7 +568,6 @@ export async function boot(cfg){
     if(!bossBar) return;
     bossBar.style.display = on ? 'flex' : 'none';
   }
-
   function setBossHpUI(){
     if(!bossFill) return;
     const p = bossHpMax ? clamp((bossHp/bossHpMax)*100, 0, 100) : 0;
@@ -617,6 +609,89 @@ export async function boot(cfg){
     }catch(e){}
   }
 
+  // ========== REWARD ENGINE: ABC Cards + Hero XP ==========
+  function heroXpKey(pid){ return `HHA_HERO_XP:${String(pid||'anon')}`; }
+  function cardBookKey(pid){ return `HHA_CARD_BOOK:${String(pid||'anon')}`; }
+  function lastRewardKey(pid){ return `HHA_LAST_REWARD:${String(pid||'anon')}`; }
+
+  function parseJson(s, fallback){
+    try{ return JSON.parse(String(s||'')); }catch(_){ return fallback; }
+  }
+
+  // level curve: XP grows => Lv increases smoothly (kids feel progress fast early)
+  function levelFromXp(xp){
+    xp = Math.max(0, Number(xp)||0);
+    // Lv1 at 0; ~Lv5 at ~800; ~Lv10 at ~3000
+    return 1 + Math.floor(Math.sqrt(xp / 80));
+  }
+
+  function awardCardFromGrade(g){
+    // ✅ D = no card
+    if(g==='S' || g==='A' || g==='B' || g==='C') return g;
+    return '';
+  }
+
+  function computeXpGain({ score, accPct, bestCombo, missTotal, reason }){
+    const win = (reason === 'win');
+    // base from score
+    let xp = Math.floor((score||0) / 30);            // 0..~30+
+    xp += Math.floor((accPct||0) / 10);             // 0..10
+    xp += Math.min(12, Math.floor((bestCombo||0) / 3)); // 0..12
+    if(win) xp += 12;                               // win bonus
+    xp -= Math.min(10, Math.floor((missTotal||0) / 2)); // penalty
+    if(PRO && win) xp += 3;                         // PRO bonus
+    // clamp
+    xp = clamp(xp, 0, 45);
+    return xp|0;
+  }
+
+  function updateRewards({ grade, xpGain, sum }){
+    const kXp = heroXpKey(pid);
+    const curXp = Number(lsGet(kXp)||'0') || 0;
+    const nextXp = Math.max(0, curXp + (xpGain|0));
+    lsSet(kXp, String(nextXp));
+
+    // card book
+    const kBook = cardBookKey(pid);
+    const book = parseJson(lsGet(kBook), null) || { pid, cards:{S:0,A:0,B:0,C:0}, last: null, history: [] };
+    const card = awardCardFromGrade(grade);
+    if(card){
+      book.cards[card] = (book.cards[card]||0) + 1;
+    }
+    const level = levelFromXp(nextXp);
+
+    const reward = {
+      pid,
+      game: HH_GAME,
+      at: nowIso(),
+      grade,
+      card: card || '—',
+      xpGain: xpGain|0,
+      xpTotal: nextXp|0,
+      level,
+      reason: sum?.reason || '',
+      score: sum?.score || 0,
+      accPct: sum?.accPct || 0,
+      missTotal: sum?.missTotal || 0,
+      bestCombo: bestCombo|0,
+      // hints for UI
+      cardHint: card ? `รับการ์ด ${card} แล้ว! เก็บสะสมไว้แลก Badge` : `เกรด D ยังไม่ได้การ์ด (ลองลด Miss + ยิงแม่นขึ้น)`,
+    };
+
+    book.last = reward;
+    book.history = Array.isArray(book.history) ? book.history : [];
+    book.history.unshift(reward);
+    book.history = book.history.slice(0, 30);
+    lsSet(kBook, JSON.stringify(book));
+    lsSet(lastRewardKey(pid), JSON.stringify(reward));
+    lsSet('HHA_LAST_REWARD', JSON.stringify(reward)); // global convenience
+
+    // broadcast
+    try{ WIN.dispatchEvent(new CustomEvent('hha:reward', { detail: reward })); }catch(_){}
+
+    return reward;
+  }
+
   function endGame(reason){
     if(!playing) return;
     playing = false;
@@ -647,11 +722,17 @@ export async function boot(cfg){
       endTimeIso: nowIso()
     };
     try{
-      hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(sum));
-      hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
+      lsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(sum));
+      lsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
     }catch(e){}
 
-    try{ WIN.dispatchEvent(new CustomEvent('hha:end', { detail: sum })); }catch(e){}
+    // ✅ REWARD compute + save + emit
+    const xpGain = computeXpGain({ score, accPct, bestCombo, missTotal, reason });
+    const reward = updateRewards({ grade, xpGain, sum });
+
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:end', { detail: sum }));
+    }catch(e){}
 
     if(endOverlay){
       endOverlay.style.display = 'flex';
@@ -694,7 +775,6 @@ export async function boot(cfg){
 
     const id = String(idSeq++);
     const born = nowMs();
-
     const t = { id, type, emoji, ttl, born, el };
     targets.set(id, t);
 
@@ -704,7 +784,6 @@ export async function boot(cfg){
       hitTarget(id, x, y);
     }
     el.addEventListener('pointerdown', onHit, { passive:false });
-
     return t;
   }
 
