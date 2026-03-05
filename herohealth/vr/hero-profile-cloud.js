@@ -1,102 +1,104 @@
 // === /herohealth/vr/hero-profile-cloud.js ===
-// Hero Profile Cloud (Firebase RTDB) — v1
-// Requires: Firebase app initialized somewhere OR provide config here (see initCloud()).
-
+// Hero Profile Cloud (Firebase RTDB) — OPTIONAL
+// Uses same config discovery as battle-rtdb.js:
+// window.HHA_FIREBASE_CONFIG / window.__HHA_FIREBASE_CONFIG__ / window.firebaseConfig
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
 
-function nowIso(){ try{ return new Date().toISOString(); }catch{ return ''; } }
-function clampInt(v,a,b,d){ v=Number(v); if(!Number.isFinite(v)) return d; return Math.max(a, Math.min(b, Math.floor(v))); }
+function getFirebaseConfig(){
+  return WIN.HHA_FIREBASE_CONFIG || WIN.__HHA_FIREBASE_CONFIG__ || WIN.firebaseConfig || null;
+}
+function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+function safeKey(s, max=32){
+  s = String(s||'').trim();
+  s = s.replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,max);
+  return s || '';
+}
+async function loadFirebase(){
+  const v = '9.22.2';
+  const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+  return { ...appMod, ...dbMod };
+}
 
-let _ready = false;
-let _db = null;
-
-/**
- * initCloud({ db }) OR initCloud({ firebaseConfig })
- * - If your battle-rtdb.js already initializes firebase + gives you db, pass {db}.
- * - Else pass firebaseConfig and this module will init firebase app/db itself.
- */
-export async function initCloud(opts={}){
-  if(_ready) return { ok:true, db:_db };
-
-  // Case A) You already have db from your battle module
-  if(opts.db){
-    _db = opts.db;
-    _ready = true;
-    return { ok:true, db:_db };
+let _fb = null;
+async function getDb(){
+  if(_fb && _fb.db) return _fb;
+  const cfg = getFirebaseConfig();
+  if(!cfg) throw new Error('HHA_FIREBASE_CONFIG missing');
+  const fb = await loadFirebase();
+  let app;
+  try{
+    app = fb.getApps().length ? fb.getApps()[0] : fb.initializeApp(cfg);
+  }catch(_){
+    app = fb.initializeApp(cfg);
   }
-
-  // Case B) self-init firebase (CDN ESM)
-  const cfg = opts.firebaseConfig;
-  if(!cfg) return { ok:false, error:'Missing firebaseConfig or db' };
-
-  // Use Firebase modular SDK via CDN
-  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
-  const { getDatabase } = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
-
-  const app = initializeApp(cfg);
-  _db = getDatabase(app);
-  _ready = true;
-  return { ok:true, db:_db };
+  const db = fb.getDatabase(app);
+  _fb = { fb, app, db };
+  return _fb;
 }
 
-function assertReady(){
-  if(!_ready || !_db) throw new Error('hero-profile-cloud not initialized. Call initCloud() first.');
+function lvlFromXp(xp){
+  xp = Math.max(0, Number(xp)||0);
+  return Math.floor(xp / 50) + 1;
 }
 
-function pathProfile(pid){
-  pid = String(pid||'anon').trim() || 'anon';
-  return `herohealth/profiles/${encodeURIComponent(pid)}`;
-}
-
-export async function loadProfile(pid){
-  assertReady();
-  const { ref, get, child } = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
-  const r = ref(_db);
-  const snap = await get(child(r, pathProfile(pid)));
-  if(!snap.exists()) return null;
-  return snap.val();
-}
-
-export async function saveProfile(pid, profile){
-  assertReady();
-  const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');
-  pid = String(pid||'anon').trim() || 'anon';
-
+export async function syncProfileUp({ pid, profile }){
+  pid = safeKey(pid, 24) || 'anon';
+  profile = profile || {};
+  const { fb, db } = await getDb();
+  const ref = fb.ref(db, `herohealth/profiles/${pid}`);
   const data = {
     pid,
-    nick: String(profile?.nick||pid).slice(0,40),
-    heroKey: String(profile?.heroKey||'hero1').slice(0,30),
-    level: clampInt(profile?.level, 1, 99, 1),
-    xp: clampInt(profile?.xp, 0, 999999, 0),
-    updatedAt: nowIso(),
+    nick: String(profile.nick||pid).trim().slice(0,24),
+    xp: Math.max(0, Number(profile.xp)||0),
+    lvl: lvlFromXp(profile.xp||0),
+    updatedAt: Date.now()
   };
-
-  await set(ref(_db, pathProfile(pid)), data);
-  return data;
+  await fb.update(ref, data);
+  return { ok:true, profile:data };
 }
 
-/**
- * addXP(pid, deltaXP, levelingFn?)
- * levelingFn: (level, xp) => {level, xp} after applying rule
- */
-export async function addXP(pid, deltaXP, levelingFn){
-  assertReady();
-  pid = String(pid||'anon').trim() || 'anon';
-  const cur = (await loadProfile(pid)) || { pid, nick: pid, heroKey:'hero1', level:1, xp:0 };
+export async function syncProfileDown({ pid }){
+  pid = safeKey(pid, 24) || 'anon';
+  const { fb, db } = await getDb();
+  const ref = fb.ref(db, `herohealth/profiles/${pid}`);
+  const snap = await fb.get(ref);
+  const val = snap.exists() ? snap.val() : null;
+  if(!val) return { ok:true, profile:null };
+  return { ok:true, profile:val };
+}
 
-  let level = clampInt(cur.level,1,99,1);
-  let xp = clampInt(cur.xp,0,999999,0) + clampInt(deltaXP, -999999, 999999, 0);
+export async function addXp({ pid, nick, xpGain, meta }){
+  pid = safeKey(pid, 24) || 'anon';
+  xpGain = clamp(xpGain, 0, 25);
+  const { fb, db } = await getDb();
+  const ref = fb.ref(db, `herohealth/profiles/${pid}`);
 
-  // default leveling: 50xp per level (เหมือนในภาพของคุณ)
-  const fn = levelingFn || ((lv, x)=>{
-    while(x >= 50 && lv < 99){ x -= 50; lv += 1; }
-    if(x < 0){ x = 0; }
-    return { level: lv, xp: x };
+  await fb.runTransaction(ref, (cur)=>{
+    cur = cur && typeof cur==='object' ? cur : { pid };
+    const xp0 = Math.max(0, Number(cur.xp)||0);
+    const xp1 = xp0 + xpGain;
+    cur.pid = pid;
+    cur.nick = String(nick||cur.nick||pid).trim().slice(0,24);
+    cur.xp = xp1;
+    cur.lvl = lvlFromXp(xp1);
+    cur.updatedAt = Date.now();
+    return cur;
   });
 
-  const after = fn(level, xp);
-  const saved = await saveProfile(pid, { ...cur, ...after });
-  return saved;
+  // optional: append event log
+  try{
+    const evRef = fb.push(fb.ref(db, `herohealth/profileEvents/${pid}`));
+    await fb.set(evRef, {
+      type:'xp',
+      gain: xpGain,
+      game: meta?.game || '',
+      ts: meta?.ts || '',
+      at: Date.now()
+    });
+  }catch(_){}
+
+  return { ok:true };
 }
