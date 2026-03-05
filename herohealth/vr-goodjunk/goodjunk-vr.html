@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305i-RUN-AB-CARDS-SKILL
+PATCH v20260305j-RUN-ABC-CARDS-SKILL
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js (module)
@@ -145,7 +145,7 @@ Requires:
     #missionFill{height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
     #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
 
-    /* ✅ AB Cards row */
+    /* ABC Cards row */
     .cardRow{
       display:flex;
       gap:8px;
@@ -172,7 +172,6 @@ Requires:
       color: rgba(148,163,184,.95);
     }
 
-    /* Skill button */
     #skillDock{
       position: fixed;
       right: calc(10px + var(--sar));
@@ -302,7 +301,7 @@ Requires:
     </div>
     <div class="missionHint" id="missionHint">—</div>
 
-    <!-- ✅ AB Cards -->
+    <!-- ✅ ABC Cards -->
     <div class="cardRow">
       <span class="cardPill" id="cardA"><span class="k">A</span> <span class="v">—</span></span>
       <span class="cardPill dim" id="cardAProg"><span class="k">A prog</span> <span class="v">—</span></span>
@@ -310,6 +309,10 @@ Requires:
     <div class="cardRow">
       <span class="cardPill" id="cardB"><span class="k">B</span> <span class="v">—</span></span>
       <span class="cardPill dim" id="cardBProg"><span class="k">B prog</span> <span class="v">—</span></span>
+    </div>
+    <div class="cardRow">
+      <span class="cardPill" id="cardC"><span class="k">C</span> <span class="v">—</span></span>
+      <span class="cardPill dim" id="cardCProg"><span class="k">C prog</span> <span class="v">—</span></span>
     </div>
 
     <div id="missionFill"></div>
