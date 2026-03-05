@@ -1,6 +1,6 @@
 // === /herohealth/vr-maskcough/maskcough.safe.js ===
-// MaskCough SAFE Engine — PRODUCTION (A+B FUN NOW + PRO+ARCADE + SFX)
-// FULL v20260304b-MASKCOUGH-FUNPRO-SFX
+// MaskCough SAFE Engine — PRODUCTION (A+B FUNPRO + SFX + C6 Create A default + PRO B)
+// FULL v20260304c-MASKCOUGH-FUNPRO-SFX-C6
 'use strict';
 
 (function(){
@@ -55,15 +55,9 @@
   const seed = (safeNum(seedParam, Date.now()) >>> 0);
   const rng = seededRng(seed);
 
-  const wrap = $('#mc-wrap');
   const layer = $('#layer');
   const stageEl = byId('stage');
   const popLayer = byId('mc-pop-layer');
-
-  if(wrap){
-    wrap.dataset.view = view;
-    wrap.dataset.run = mode;
-  }
 
   function applyHubLink(a){
     if(!a) return;
@@ -125,8 +119,6 @@
     popLayer.appendChild(el);
     setTimeout(()=>{ try{el.remove();}catch(_){} }, 650);
   }
-
-  // Perfect freeze (visual + brief stall)
   function freeze(ms){
     const t = performance.now();
     st.freezeUntil = Math.max(st.freezeUntil||0, t + (ms||180));
@@ -137,11 +129,10 @@
 
   // ===== Vibrate + Sound (WebAudio) =====
   const FX = {
-    vibOn: String(qs('vib','1')) !== '0',     // ?vib=0 ปิด
-    sndOn: String(qs('snd','1')) !== '0',     // ?snd=0 ปิด
+    vibOn: String(qs('vib','1')) !== '0',
+    sndOn: String(qs('snd','1')) !== '0',
   };
   let __ac = null;
-
   function vib(pattern){
     try{
       if(!FX.vibOn) return;
@@ -162,43 +153,22 @@
     const ac = ensureAudio();
     if(!ac) return;
     const t0 = ac.currentTime;
-
-    if(ac.state === 'suspended'){
-      ac.resume().catch(()=>{});
-    }
-
+    if(ac.state === 'suspended') ac.resume().catch(()=>{});
     const o = ac.createOscillator();
     const g = ac.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t0);
-
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), t0 + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + (durMs/1000));
-
-    o.connect(g);
-    g.connect(ac.destination);
+    o.connect(g); g.connect(ac.destination);
     o.start(t0);
     o.stop(t0 + (durMs/1000) + 0.02);
   }
-  function sfxPerfect(){
-    vib([20,20,30]);
-    beep(880, 70, 'triangle', 0.06);
-    setTimeout(()=>beep(1320, 90, 'triangle', 0.05), 60);
-  }
-  function sfxBoss(){
-    vib([35,25,35,25,55]);
-    beep(220, 120, 'sawtooth', 0.05);
-    setTimeout(()=>beep(180, 140, 'sawtooth', 0.04), 80);
-  }
-  function sfxBad(){
-    vib(50);
-    beep(140, 140, 'square', 0.035);
-  }
-  function sfxHit(){
-    vib(10);
-    beep(520, 35, 'sine', 0.03);
-  }
+  function sfxPerfect(){ vib([20,20,30]); beep(880, 70, 'triangle', 0.06); setTimeout(()=>beep(1320, 90, 'triangle', 0.05), 60); }
+  function sfxBoss(){ vib([35,25,35,25,55]); beep(220, 120, 'sawtooth', 0.05); setTimeout(()=>beep(180, 140, 'sawtooth', 0.04), 80); }
+  function sfxBad(){ vib(50); beep(140, 140, 'square', 0.035); }
+  function sfxHit(){ vib(10); beep(520, 35, 'sine', 0.03); }
 
   // Boss banner + crosshair hint
   const bossBanner = byId('bossBanner');
@@ -272,21 +242,16 @@
       c.style.opacity='1';
       c.style.transition='transform .65s ease, opacity .65s ease';
       fxLayer.appendChild(c);
-
       const ang = (Math.PI*2) * (i/14);
       const dx = Math.cos(ang) * (70 + Math.random()*60);
       const dy = Math.sin(ang) * (70 + Math.random()*60) + (20 + Math.random()*40);
       const rot = (Math.random()*260 - 130);
-
-      requestAnimationFrame(()=>{
-        c.style.transform=`translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
-        c.style.opacity='0';
-      });
+      requestAnimationFrame(()=>{ c.style.transform=`translate(${dx}px, ${dy}px) rotate(${rot}deg)`; c.style.opacity='0'; });
       setTimeout(()=>{ try{c.remove();}catch(_){} }, 700);
     }
   }
 
-  // ---------------- logger (403-safe, flush-hardened) ----------------
+  // ---------------- logger (403-safe) ----------------
   function createLogger(ctx){
     const q = [];
     let seq = 0;
@@ -312,12 +277,10 @@
         href: location.href.split('#')[0]
       };
     }
-
     function push(ev){
       q.push({ ...base(ev.type), ...ev });
       if(q.length > 1400) q.splice(0, q.length - 1000);
     }
-
     async function flush(reason){
       if(!ctx.log || !q.length) return;
       const payload = q.splice(0, q.length);
@@ -327,23 +290,14 @@
           navigator.sendBeacon(ctx.log, new Blob([body], {type:'text/plain'}));
           return;
         }
-        const res = await fetch(ctx.log, {
-          method:'POST',
-          headers:{'content-type':'text/plain'},
-          body,
-          keepalive:true
-        });
+        const res = await fetch(ctx.log, { method:'POST', headers:{'content-type':'text/plain'}, body, keepalive:true });
         if(res && res.status === 403) console.warn('[maskcough] log 403 (ignored)');
       }catch(_){}
     }
-
     return { sessionId, push, flush };
   }
   const logger = createLogger({ pid, diff, mode, view, seed, timePlannedSec: timeLimit, log: logEndpoint, studyId, phase, conditionGroup });
-
-  WIN.addEventListener('visibilitychange', ()=>{
-    if(DOC.visibilityState === 'hidden') logger.flush('unload');
-  });
+  WIN.addEventListener('visibilitychange', ()=>{ if(DOC.visibilityState === 'hidden') logger.flush('unload'); });
   WIN.addEventListener('beforeunload', ()=> logger.flush('unload'));
 
   // ---------------- Fun Boost (optional) ----------------
@@ -358,19 +312,13 @@
   });
   let director = fun ? fun.tick() : {spawnMul:1,timeScale:1,wave:'calm',intensity:0,feverOn:false};
 
-  // ---------------- AI Director (prediction + small assist only in play) ----------------
-  function sigmoid(x){
-    if(x >= 0){ const z=Math.exp(-x); return 1/(1+z); }
-    const z=Math.exp(x); return z/(1+z);
-  }
+  // ---------------- AI Director (prediction only in play; study OFF) ----------------
+  function sigmoid(x){ if(x >= 0){ const z=Math.exp(-x); return 1/(1+z); } const z=Math.exp(x); return z/(1+z); }
   function nz(v, lo, hi){ return clamp01((v - lo) / (hi - lo)); }
 
   function createRiskModel(){
     const w=[2.2,1.6,2.0,1.3,1.4,1.0,0.9], b=-1.4;
-    return { predict(feat){
-      let s=b; for(let i=0;i<w.length;i++) s += w[i]*(feat[i]||0);
-      return sigmoid(s);
-    }};
+    return { predict(feat){ let s=b; for(let i=0;i<w.length;i++) s += w[i]*(feat[i]||0); return sigmoid(s); } };
   }
   function createTinyMLP(){
     const W1=Array.from({length:8},()=>Array(7).fill(0));
@@ -399,40 +347,18 @@
   function createAIDirector(opts){
     const model=createRiskModel();
     const mlp=createTinyMLP();
-    const cfg={
-      windowMs: 5000,
-      enableDL: !!opts?.enableDL,
-      enabled: !!opts?.enabled,
-      alpha: 0.65,
-      maxAssist: 0.40,
-      coachCooldownMs: 8000,
-    };
-    const stA={
-      lastT: performance.now(),
-      risk: 0.12,
-      taps:0,hits:0,timeouts:0,coughTimeouts:0,perfects:0,
-      latencySum:0,latencyN:0,
-      shieldNow:40,shieldPrev:40,shieldSlope:0,
-      coachT:0,
-      riskSum:0,riskN:0
-    };
+    const cfg={ windowMs: 5000, enableDL: !!opts?.enableDL, enabled: !!opts?.enabled, alpha: 0.65, maxAssist: 0.40, coachCooldownMs: 8000 };
+    const stA={ lastT: performance.now(), risk: 0.12, taps:0,hits:0,timeouts:0,coughTimeouts:0,perfects:0, latencySum:0,latencyN:0, coachT:0, riskSum:0,riskN:0 };
 
     function reset(){
-      stA.lastT=performance.now();
-      stA.risk=0.12;
-      stA.taps=stA.hits=stA.timeouts=0;
-      stA.coughTimeouts=0; stA.perfects=0;
+      stA.lastT=performance.now(); stA.risk=0.12;
+      stA.taps=stA.hits=stA.timeouts=0; stA.coughTimeouts=0; stA.perfects=0;
       stA.latencySum=0; stA.latencyN=0;
-      stA.shieldPrev=stA.shieldNow=40;
-      stA.shieldSlope=0;
-      stA.coachT=0;
-      stA.riskSum=0; stA.riskN=0;
+      stA.coachT=0; stA.riskSum=0; stA.riskN=0;
     }
 
     function onTick(now, shield, focus, spam){
-      stA.shieldNow=shield;
       stA.riskSum += stA.risk; stA.riskN++;
-
       if(!cfg.enabled) return stA.risk;
 
       if(now - stA.lastT >= cfg.windowMs){
@@ -443,17 +369,14 @@
         const coughFail=stA.coughTimeouts/Math.max(1, stA.timeouts);
         const perfectRate=stA.perfects/Math.max(1, stA.hits);
 
-        stA.shieldSlope=(stA.shieldNow - stA.shieldPrev)/100;
-        stA.shieldPrev=stA.shieldNow;
-
         const feat=[
           nz(missRate,0.05,0.55),
           nz(1-hitRate,0.10,0.70),
-          nz(1-(stA.shieldNow/100),0.30,0.95),
-          nz(Math.max(0,-stA.shieldSlope),0.00,0.30),
+          nz(1-(shield/100),0.30,0.95),
           nz(coughFail,0.05,0.60),
           nz(avgLat,180,650),
           nz(1-perfectRate,0.20,0.95),
+          nz((100-focus)/100,0.10,0.80),
         ];
 
         const r1=model.predict(feat);
@@ -461,13 +384,11 @@
         const r=cfg.enableDL ? (0.55*r1 + 0.45*r2) : r1;
 
         const spamN = clamp01((spam||0)/14);
-        const focusN = clamp01((100-(focus||100))/100);
-        const rAdj = clamp01(r + 0.06*spamN + 0.05*focusN);
+        const rAdj = clamp01(r + 0.06*spamN);
 
         stA.risk = cfg.alpha*stA.risk + (1-cfg.alpha)*rAdj;
 
-        stA.taps=stA.hits=stA.timeouts=0;
-        stA.coughTimeouts=0; stA.perfects=0;
+        stA.taps=stA.hits=stA.timeouts=0; stA.coughTimeouts=0; stA.perfects=0;
         stA.latencySum=0; stA.latencyN=0;
         stA.lastT=now;
 
@@ -479,14 +400,7 @@
     function assistParams(){
       if(!cfg.enabled) return {assist:0,maskBonus:0,coughPenalty:0,spawnSlow:0,ttlBoost:0,perfectBoost:0};
       const a=Math.min(cfg.maxAssist, Math.max(0,(stA.risk-0.25)*0.85));
-      return {
-        assist:a,
-        maskBonus:0.10*a,
-        coughPenalty:0.12*a,
-        spawnSlow:0.14*a,
-        ttlBoost:0.12*a,
-        perfectBoost:0.16*a,
-      };
+      return { assist:a, maskBonus:0.10*a, coughPenalty:0.12*a, spawnSlow:0.14*a, ttlBoost:0.12*a, perfectBoost:0.16*a };
     }
 
     function onEvent(ev){
@@ -509,7 +423,6 @@
       const focusLow = clamp01((100 - state.focus)/100);
       const missHigh = clamp01(state.missRecent/8);
       const coughFail = clamp01(state.coughMissRecent/5);
-
       items.push({s: 0.34*shieldLow, t:'โล่ต่ำ'});
       items.push({s: 0.26*spamHigh,  t:'กดยิงรัว'});
       items.push({s: 0.18*focusLow,  t:'สมาธิลด'});
@@ -543,7 +456,7 @@
     return { reset, onTick, onEvent, assistParams, coachHint, riskAvg, topReasons, get risk(){return stA.risk;} };
   }
 
-  const aiEnabled = (mode === 'play'); // study/research OFF
+  const aiEnabled = (mode === 'play');
   const ai = createAIDirector({ enabled: aiEnabled, enableDL: aiEnabled });
 
   // ---------------- game state ----------------
@@ -553,7 +466,6 @@
 
     score:0, streak:0, maxStreak:0, miss:0, perfect:0,
 
-    // analyze
     safeHits:0, riskHits:0, dangerHits:0,
     routeChain:0,
     spam:0,
@@ -561,14 +473,12 @@
     lastActionMs:0,
     focus:100,
 
-    // risk/threat
     risk: 0.12,
     threat:'LOW',
     threatValue:0,
 
     shield:40,
 
-    // mission/stage
     stage:1,
     stage2At: 20,
     stage3At: Math.max(45, timeLimit-15),
@@ -582,28 +492,29 @@
     trickPerfectGot: 0,
     trickDone:false,
 
-    // pacing (PRO tuning)
     baseSpawnMs: (diff==='hard' ? 620 : diff==='easy' ? 900 : 760),
     ttlBaseMs:   (diff==='hard' ? 1320 : diff==='easy' ? 1950 : 1650),
     perfectBaseMs: (diff==='hard' ? 170 : diff==='easy' ? 250 : 220),
 
-    // mini boss
     bossEveryMs: (diff==='hard' ? 20500 : diff==='easy' ? 27000 : 23500),
     nextBossAt: 0,
     bossActive:false,
     bossNeedPerfect:false,
 
-    // freeze
     freezeUntil: 0,
 
-    // targets
     targets: new Map(),
     uid:0,
 
-    // coach windows
     missRecent:0,
     coughMissRecent:0,
-    lastMissWindowAt:0
+    lastMissWindowAt:0,
+
+    // ✅ C6 store
+    c6Mode: 'A',           // 'A' or 'B'
+    c6PlanA: null,         // array of strings (3)
+    c6RuleB: null,         // string
+    c6SavedAt: 0
   };
 
   // HUD refs
@@ -620,10 +531,7 @@
   const tPerfectRate=byId('tPerfectRate'), tSpam=byId('tSpam'), tRouteChain=byId('tRouteChain');
 
   function layerRect(){ return layer.getBoundingClientRect(); }
-
-  function riskZone(){
-    return (st.risk>0.66) ? 'DANGER' : (st.risk>0.33) ? 'RISK' : 'SAFE';
-  }
+  function riskZone(){ return (st.risk>0.66) ? 'DANGER' : (st.risk>0.33) ? 'RISK' : 'SAFE'; }
 
   function updateThreat(){
     const rv = clamp01(st.risk);
@@ -668,9 +576,7 @@
     if(bFever) bFever.style.width = `${pct}%`;
     if(tFeverPct) tFeverPct.textContent = `${Math.round(pct)}%`;
 
-    if(tPro){
-      tPro.textContent = (diff==='hard') ? 'PRO' : (diff==='easy') ? 'EASY' : 'NORMAL';
-    }
+    if(tPro){ tPro.textContent = (diff==='hard') ? 'PRO' : (diff==='easy') ? 'EASY' : 'NORMAL'; }
 
     if(tSafeHits) tSafeHits.textContent = String(st.safeHits);
     if(tRiskHits) tRiskHits.textContent = String(st.riskHits);
@@ -724,7 +630,7 @@
         toast('🌀 Trick Phase!');
         showPrompt('Trick: รอ 🤧 ให้ Perfect + ระวัง 🦠');
         logger.push({type:'stage', stage:2});
-        sfxBoss(); // little hype
+        sfxBoss();
       }
       if(st.stage===3){
         st.bossSweepOn = true;
@@ -743,7 +649,6 @@
     }
   }
 
-  // FUN mission triggers
   function checkWarmMission(){
     if(st.stage!==1 || st.warmDone) return;
     if(st.streak >= st.warmNeedStreak){
@@ -838,21 +743,14 @@
     logger.push({type:'spawn', kind, id, x:Math.round(x), y:Math.round(y), ttlMs:Math.round(ttlMs)});
   }
 
-  function removeTarget(id, popped){
+  function removeTarget(id){
     const it=st.targets.get(id);
     if(!it) return;
     st.targets.delete(id);
     const el=it.el;
     if(!el) return;
-
-    if(popped){
-      el.classList.add('pop');
-      el.classList.add('fade');
-      setTimeout(()=>{ try{el.remove();}catch(_){} }, 220);
-    }else{
-      el.classList.add('fade');
-      setTimeout(()=>{ try{el.remove();}catch(_){} }, 220);
-    }
+    el.classList.add('fade');
+    setTimeout(()=>{ try{el.remove();}catch(_){} }, 220);
   }
 
   function burstClear(n){
@@ -870,7 +768,7 @@
       const dx=it.x-x, dy=it.y-y;
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d<=radius){
-        removeTarget(id,false);
+        removeTarget(id);
         spawnAt('infected', it.x, it.y, Math.max(560, Math.round(st.ttlBaseMs*0.72)));
       }
     }
@@ -919,7 +817,7 @@
     const fxX = r.left + it.x;
     const fxY = r.top + it.y;
 
-    removeTarget(id,true);
+    removeTarget(id);
 
     const ap=ai.assistParams();
     const perfectWindow=Math.round(st.perfectBaseMs*(1+ap.perfectBoost));
@@ -1043,14 +941,10 @@
 
     logger.push({
       type:'hha:judge',
-      judge,
-      kind: it.kind,
-      why,
+      judge, kind: it.kind, why,
       remainMs: Math.round(remain),
-      score: st.score,
-      scoreDelta,
-      streak: st.streak,
-      miss: st.miss,
+      score: st.score, scoreDelta,
+      streak: st.streak, miss: st.miss,
       shield: Math.round(st.shield),
       risk: +st.risk.toFixed(3),
       threat: st.threat,
@@ -1068,7 +962,7 @@
     const it=st.targets.get(id);
     if(!it || st.over || st.paused) return;
 
-    removeTarget(id,false);
+    removeTarget(id);
 
     const t=performance.now();
     const r=layerRect();
@@ -1133,12 +1027,9 @@
 
     logger.push({
       type:'hha:judge',
-      judge,
-      kind: it.kind,
-      why:'timeout',
+      judge, kind: it.kind, why:'timeout',
       score: st.score,
-      streak: st.streak,
-      miss: st.miss,
+      streak: st.streak, miss: st.miss,
       shield: Math.round(st.shield),
       risk: +st.risk.toFixed(3),
       threat: st.threat,
@@ -1166,11 +1057,9 @@
   function onShoot(ev){
     if(!st.running || st.over || st.paused) return;
     if(view!=='cvr') return;
-
     const r=layerRect();
     const x = clamp((ev?.detail?.x ?? (r.left+r.width/2)) - r.left, 0, r.width);
     const y = clamp((ev?.detail?.y ?? (r.top+r.height/2)) - r.top, 0, r.height);
-
     const id=pickTargetAt(x,y);
     if(id) handleHit(id,'shoot');
   }
@@ -1283,6 +1172,7 @@
     }
   }
 
+  // Summary store
   const LS_LAST='HHA_LAST_SUMMARY';
   const LS_HIST='HHA_SUMMARY_HISTORY';
 
@@ -1321,11 +1211,238 @@
     if(st.spam<=3) b.push({id:'CALM_HAND', label:'🧠 Calm Hand'});
     if(st.routeChain>=2) b.push({id:'ROUTE_READER', label:'🧭 Route Reader'});
 
-    const crown = (st.bossSweepGotPerfect >= st.bossSweepNeedPerfect);
-    if(crown) b.unshift({id:'CROWN', label:'👑 Crown Clear', crown:true});
+    if(st.bossSweepGotPerfect >= st.bossSweepNeedPerfect) b.unshift({id:'CROWN', label:'👑 Crown Clear', crown:true});
+
+    // ✅ C6 badges
+    if(st.c6PlanA && st.c6PlanA.length===3) b.push({id:'C6_PLAN', label:'🧩 C6 Plan'});
+    if(st.c6RuleB && st.c6RuleB.trim()) b.push({id:'C6_RULE', label:'🧠 C6 Rule PRO'});
+
     return b;
   }
 
+  // ---------------- ✅ C6 UI & logic ----------------
+  const C6 = (function(){
+    const tabA = byId('c6TabA');
+    const tabB = byId('c6TabB');
+    const panelA = byId('c6PanelA');
+    const panelB = byId('c6PanelB');
+    const status = byId('c6Status');
+
+    const pickedRow = byId('c6PickedRow');
+    const optionsBox = byId('c6Options');
+    const btnSaveA = byId('btnC6SaveA');
+    const btnClearA = byId('btnC6ClearA');
+
+    const selIf = byId('c6If');
+    const selThen = byId('c6Then');
+    const selBecause = byId('c6Because');
+    const rulePreview = byId('c6RulePreview');
+    const btnSaveB = byId('btnC6SaveB');
+
+    const planPool = [
+      'ตอน Threat สูง ฉันจะเก็บ 😷 ก่อน',
+      'ฉันจะรอ 🤧 ให้เข้า Perfect อย่างน้อย 2 ครั้ง',
+      'ฉันจะไม่กดยิงรัว (spam)',
+      'ถ้า Shield < 25% ต้องเติมโล่ทันที',
+      'ช่วง Boss ฉันจะช้าลงและโฟกัส',
+      'ถ้า Risk สูง ฉันจะเคลียร์ 💦 ให้ไว',
+      'ฉันจะหลีกเลี่ยง 🦠 ไม่แตะโดนเชื้อ'
+    ];
+
+    let picked = []; // ordered (max 3)
+    let modeNow = 'A';
+
+    function setMode(m){
+      modeNow = (m==='B') ? 'B' : 'A';
+      if(tabA) tabA.classList.toggle('on', modeNow==='A');
+      if(tabB) tabB.classList.toggle('on', modeNow==='B');
+      if(panelA) panelA.hidden = modeNow!=='A';
+      if(panelB) panelB.hidden = modeNow!=='B';
+      st.c6Mode = modeNow;
+      refreshStatus();
+      if(modeNow==='B') renderRulePreview();
+    }
+
+    function refreshStatus(){
+      if(!status) return;
+      if(st.c6SavedAt){
+        const t = new Date(st.c6SavedAt).toISOString().slice(11,19);
+        status.textContent = `บันทึกแล้ว (${st.c6Mode}) @${t}`;
+      }else{
+        status.textContent = 'ยังไม่บันทึก';
+      }
+    }
+
+    function renderPicked(){
+      if(!pickedRow) return;
+      pickedRow.innerHTML = '';
+
+      if(!picked.length){
+        pickedRow.innerHTML = `<span class="mc-c6-chip" style="opacity:.7; cursor:default;">ยังไม่ได้เลือก</span>`;
+        return;
+      }
+
+      picked.forEach((text, idx)=>{
+        const chip = DOC.createElement('div');
+        chip.className = 'mc-c6-pickedChip';
+        chip.innerHTML = `<span>${idx+1}. ${escapeHtml(text)}</span>`;
+        const btn = DOC.createElement('button');
+        btn.type='button';
+        btn.textContent='ลบ';
+        btn.addEventListener('click', ()=>{
+          picked = picked.filter(x=>x!==text);
+          renderPicked();
+          renderOptions();
+        });
+        chip.appendChild(btn);
+        pickedRow.appendChild(chip);
+      });
+    }
+
+    function renderOptions(){
+      if(!optionsBox) return;
+      optionsBox.innerHTML = '';
+      planPool.forEach(text=>{
+        const b = DOC.createElement('button');
+        b.type='button';
+        b.className = 'mc-c6-chip';
+        if(picked.includes(text)) b.classList.add('on');
+        b.textContent = text;
+
+        b.addEventListener('click', ()=>{
+          if(picked.includes(text)){
+            picked = picked.filter(x=>x!==text);
+          }else{
+            if(picked.length>=3){
+              toast('เลือกได้แค่ 3 ข้อ');
+              return;
+            }
+            picked.push(text);
+          }
+          renderPicked();
+          renderOptions();
+        });
+
+        optionsBox.appendChild(b);
+      });
+    }
+
+    function buildRuleSentence(){
+      const ifMap = {
+        threat_high: 'ถ้า Threat = HIGH',
+        shield_low: 'ถ้า Shield ต่ำกว่า 25%',
+        boss_stage: 'ถ้าอยู่ช่วง Boss Sweep (ท้ายเกม)',
+        spam_high: 'ถ้าฉันเริ่มกดยิงรัว (spam)',
+        risk_high: 'ถ้า Risk สูง (มากกว่า 0.66)'
+      };
+      const thenMap = {
+        get_mask_first: 'ฉันจะเก็บ 😷 เพิ่มโล่ก่อน',
+        wait_perfect: 'ฉันจะรอ 🤧 ให้เข้า Perfect ก่อนค่อยกด',
+        slow_down: 'ฉันจะช้าลงและโฟกัส (ไม่ยิงรัว)',
+        clear_droplets: 'ฉันจะเคลียร์ 💦 ให้เร็วเพื่อลดความเสี่ยง'
+      };
+      const becauseMap = {
+        reduce_risk: 'เพื่อลดความเสี่ยง',
+        save_shield: 'เพื่อกันโล่หมด',
+        get_more_score: 'เพื่อได้คะแนนมากขึ้น',
+        avoid_miss: 'เพื่อลดการพลาด/โดนละออง'
+      };
+
+      const a = ifMap[selIf?.value] || 'ถ้า…';
+      const b = thenMap[selThen?.value] || 'ฉันจะ…';
+      const c = becauseMap[selBecause?.value] || 'เพราะ…';
+      return `${a} — ${b} (${c})`;
+    }
+
+    function renderRulePreview(){
+      if(!rulePreview) return;
+      rulePreview.textContent = buildRuleSentence();
+    }
+
+    function saveA(){
+      if(picked.length !== 3){
+        toast('ต้องเลือกให้ครบ 3 ข้อ');
+        sfxBad();
+        return;
+      }
+      st.c6PlanA = picked.slice(0,3);
+      st.c6SavedAt = Date.now();
+      st.c6Mode = 'A';
+
+      logger.push({
+        type:'c6:save',
+        c6Mode:'A',
+        plan: st.c6PlanA,
+        pid, diff, mode, view
+      });
+
+      toast('บันทึกแผน A แล้ว ✅');
+      sfxPerfect();
+      refreshStatus();
+    }
+
+    function clearA(){
+      picked = [];
+      st.c6PlanA = null;
+      renderPicked();
+      renderOptions();
+      toast('ล้างแล้ว');
+    }
+
+    function saveB(){
+      const rule = buildRuleSentence();
+      if(!rule || rule.trim().length < 6){
+        toast('ยังไม่ครบ');
+        sfxBad();
+        return;
+      }
+      st.c6RuleB = rule;
+      st.c6SavedAt = Date.now();
+      st.c6Mode = 'B';
+
+      logger.push({
+        type:'c6:save',
+        c6Mode:'B',
+        rule: st.c6RuleB,
+        pid, diff, mode, view
+      });
+
+      toast('บันทึกกฎ B แล้ว ✅');
+      sfxPerfect();
+      refreshStatus();
+    }
+
+    function escapeHtml(s){
+      return String(s||'').replace(/[&<>"]/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    }
+
+    function bind(){
+      tabA?.addEventListener('click', ()=> setMode('A'));
+      tabB?.addEventListener('click', ()=> setMode('B'));
+
+      btnSaveA?.addEventListener('click', saveA);
+      btnClearA?.addEventListener('click', clearA);
+
+      selIf?.addEventListener('change', renderRulePreview);
+      selThen?.addEventListener('change', renderRulePreview);
+      selBecause?.addEventListener('change', renderRulePreview);
+
+      btnSaveB?.addEventListener('click', saveB);
+    }
+
+    function init(){
+      bind();
+      renderPicked();
+      renderOptions();
+      setMode('A');
+      renderRulePreview();
+      refreshStatus();
+    }
+
+    return { init, refreshStatus, setMode };
+  })();
+
+  // ---------------- end overlay render ----------------
   function renderEnd(reason){
     const set=(id,v)=>{ const el=byId(id); if(el) el.textContent=String(v); };
     set('tEndReason', reason);
@@ -1351,13 +1468,7 @@
 
     const coachSum=byId('endCoachSummary');
     if(coachSum){
-      const reasons = ai.topReasons({
-        shield: st.shield,
-        spam: st.spam,
-        focus: st.focus,
-        missRecent: st.missRecent,
-        coughMissRecent: st.coughMissRecent
-      });
+      const reasons = ai.topReasons({ shield: st.shield, spam: st.spam, focus: st.focus, missRecent: st.missRecent, coughMissRecent: st.coughMissRecent });
       coachSum.textContent = reasons.length
         ? `เหตุผลที่เสี่ยงสูง (Top 2): ${reasons.join(' + ')}`
         : 'ทำได้ดีมาก — รอ Perfect และอย่ายิงรัว';
@@ -1369,11 +1480,28 @@
 `pid=${pid} | diff=${diff} | mode=${mode} | view=${view} | time=${timeLimit}s | seed=${seed}
 warm=${st.warmDone?'PASS':'—'} | trick=${st.trickDone?'PASS':'—'} | bossPerfect=${st.bossSweepGotPerfect}/${st.bossSweepNeedPerfect}
 riskAvg=${(ai.riskAvg?ai.riskAvg():st.risk).toFixed(2)} | spam=${st.spam} | route=${st.routeChain}
-snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
+C6=${st.c6Mode} | snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
     }
 
     byId('end').hidden=false;
     applyHubLink(byId('btnEndBack'));
+
+    // init C6 controls when end opens
+    try{ C6.init(); }catch(_){}
+  }
+
+  // Summary store
+  const LS_LAST='HHA_LAST_SUMMARY';
+  const LS_HIST='HHA_SUMMARY_HISTORY';
+
+  function saveSummary(sum){
+    try{
+      localStorage.setItem(LS_LAST, JSON.stringify(sum));
+      const arr = JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+      arr.push(sum);
+      while(arr.length>60) arr.shift();
+      localStorage.setItem(LS_HIST, JSON.stringify(arr));
+    }catch(_){}
   }
 
   function clearAllTargets(){
@@ -1385,9 +1513,7 @@ snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
   }
 
   function startGame(){
-    // wake audio (must be user gesture)
     ensureAudio();
-
     byId('end').hidden=true;
 
     st.running=true; st.paused=false; st.over=false;
@@ -1422,6 +1548,12 @@ snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
     st.missRecent=0; st.coughMissRecent=0; st.lastMissWindowAt=performance.now();
     st.freezeUntil = 0;
 
+    // keep C6 from previous end (optional): do not reset
+    st.c6SavedAt = 0; // reset "saved" state each run so kids do it again if desired
+    st.c6Mode = 'A';
+    // keep plan/rule as memory? up to you. Here: keep last choice in summary but allow overwrite
+    // st.c6PlanA / st.c6RuleB stay as last value
+
     clearAllTargets();
 
     director = fun ? fun.tick() : director;
@@ -1436,6 +1568,7 @@ snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
       ? '🎯 cVR: ยิงด้วยกากบาท — รอ 🤧 ให้เข้า Perfect!'
       : 'แตะ 💦 ทำ streak • แตะ 😷 เพิ่มโล่ • รอ 🤧 ให้ Perfect!'
     );
+
     setHud();
 
     logger.push({type:'hha:start', seed, diff, mode, view, timePlannedSec:timeLimit});
@@ -1500,6 +1633,15 @@ snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
       dangerOverusePct: an.dangerOverusePct,
       spamRatePct: an.spamRatePct,
       perfectRatePct: an.perfectRatePct,
+
+      // ✅ C6 attach (may be null until saved)
+      c6Mode: st.c6Mode,
+      c6PlanA: st.c6PlanA,
+      c6RuleB: st.c6RuleB,
+
+      snd: FX.sndOn ? 1 : 0,
+      vib: FX.vibOn ? 1 : 0,
+
       reason
     };
 
@@ -1560,38 +1702,12 @@ snd=${FX.sndOn?1:0} vib=${FX.vibOn?1:0} log=${logEndpoint||'—'}`;
     if(hint){ showPrompt(hint); logger.push({type:'hha:coach', msg:hint}); }
 
     if(((now - st.t0) % 1000) < 90){
-      logger.push({
-        type:'hha:time',
-        t: +st.elapsedSec.toFixed(2),
-        score: st.score,
-        miss: st.miss,
-        shield: +st.shield.toFixed(1),
-        risk: +st.risk.toFixed(3),
-        threat: st.threat,
-        focus: Math.round(st.focus),
-        spam: st.spam,
-        stage: st.stage
-      });
+      logger.push({ type:'hha:time', t: +st.elapsedSec.toFixed(2), score: st.score, miss: st.miss, shield: +st.shield.toFixed(1), risk: +st.risk.toFixed(3), threat: st.threat, focus: Math.round(st.focus), spam: st.spam, stage: st.stage });
     }
 
     if(now - lastFeatures > 4950){
       lastFeatures = now;
-      logger.push({
-        type:'ai:features',
-        risk:+st.risk.toFixed(4),
-        threat: st.threat,
-        focus: Math.round(st.focus),
-        spam: st.spam,
-        miss: st.miss,
-        streak: st.streak,
-        shield: Math.round(st.shield),
-        perfect: st.perfect,
-        stage: st.stage,
-        warmDone: st.warmDone,
-        trickDone: st.trickDone,
-        bossSweepGot: st.bossSweepGotPerfect,
-        bossSweepNeed: st.bossSweepNeedPerfect
-      });
+      logger.push({ type:'ai:features', risk:+st.risk.toFixed(4), threat: st.threat, focus: Math.round(st.focus), spam: st.spam, miss: st.miss, streak: st.streak, shield: Math.round(st.shield), perfect: st.perfect, stage: st.stage });
     }
 
     if(st.elapsedSec >= timeLimit){
