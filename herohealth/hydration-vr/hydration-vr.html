@@ -1,10 +1,11 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 Hydration VR RUN — PRODUCTION (BLACKSCREEN DEBUG FIX)
-FULL v20260304c-HYDRATION-RUN-DEBUG-NOVERSION
+FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
 
 Key fixes:
-- remove ?v=... to avoid 404 mismatch
-- debug overlay for resource/module errors
+- remove ?v=... to avoid mismatch
+- debug overlay for errors
+- ✅ use dynamic import (await import) instead of "import { }" inside try
 -->
 <!doctype html>
 <html lang="th">
@@ -15,15 +16,12 @@ Key fixes:
   <meta name="google" content="notranslate"/>
   <title>HeroHealth • Hydration VR</title>
 
-  <!-- ✅ remove version query to avoid mismatch -->
   <link rel="stylesheet" href="./hydration-vr.css"/>
 
-  <!-- ✅ shared modules -->
   <script type="module" src="../vr/hha-shield.js"></script>
   <script type="module" src="../vr/vr-ui.js"></script>
 
   <style>
-    /* Debug overlay */
     #dbg{
       position:fixed; inset:0; z-index:9999;
       display:none; padding:12px;
@@ -88,7 +86,6 @@ Key fixes:
     <div id="stormFx" aria-hidden="true"></div>
     <div id="zoneSign" aria-hidden="true"></div>
 
-    <!-- cVR helper -->
     <div id="cvrZonePad" aria-hidden="true">
       <button id="btnZoneL" type="button">LEFT</button>
       <button id="btnZoneR" type="button">RIGHT</button>
@@ -119,7 +116,6 @@ Key fixes:
   </div>
 
   <script>
-    // global error capture
     (function(){
       const dbg = document.getElementById('dbg');
       const out = document.getElementById('dbgText');
@@ -148,11 +144,9 @@ Key fixes:
       });
     }catch(e){}
 
-    try{
-      // modules
-      import { createAIHooks } from '../vr/ai-hooks.js';
-      import { boot as bootHydration } from './hydration.safe.js';
+    const showDbg = (msg)=> window.__HYD_SHOW_DEBUG__?.(msg);
 
+    try{
       const U = new URL(location.href);
       const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
       const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
@@ -166,6 +160,16 @@ Key fixes:
         try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
         try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
       }
+
+      // ✅ dynamic import (catchable)
+      const aiMod  = await import('../vr/ai-hooks.js');
+      const gameMod = await import('./hydration.safe.js');
+
+      const createAIHooks = aiMod.createAIHooks;
+      const bootHydration = gameMod.boot;
+
+      if(typeof createAIHooks !== 'function') throw new Error('ai-hooks.js missing export createAIHooks');
+      if(typeof bootHydration !== 'function') throw new Error('hydration.safe.js missing export boot');
 
       const ai = createAIHooks({ seed:String(seed), runMode, game:'hydration', diff, device:view });
       window.HHA_AI = ai;
@@ -182,7 +186,7 @@ Key fixes:
         cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
       });
     }catch(e){
-      window.__HYD_SHOW_DEBUG__?.(`[BOOT ERROR]\n${e && (e.stack||e.message) || e}`);
+      showDbg(`[BOOT ERROR]\n${e && (e.stack||e.message) || e}`);
     }
   </script>
 </body>
