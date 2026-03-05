@@ -1,10 +1,9 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260305d-HUB-HERO-PROFILE-CLOUD-FB1
-✅ GoodJunk entry -> /herohealth/goodjunk-launcher.html
-✅ Hygiene: 6 games
-✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug
-✅ NEW: Hero profile (nick/xp/level) with Firebase RTDB (optional) + localStorage fallback
+PATCH v20260305k-HUB-HERO-PROFILE-LINKS
+✅ Hero Profile (localStorage HHA_PROFILE:pid): nick/xp/lvl + reset
+✅ Quick links: GoodJunk Solo / Solo PRO / Battle
+✅ Pass-through params: run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug + hub
 -->
 <!doctype html>
 <html lang="th">
@@ -20,630 +19,341 @@ PATCH v20260305d-HUB-HERO-PROFILE-CLOUD-FB1
       --panel:rgba(2,6,23,.70);
       --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --cyan:#22d3ee; --violet:#a78bfa;
-      --radius:22px;
-      --shadow: 0 18px 60px rgba(0,0,0,.45);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
+    html,body{height:100%; margin:0; background: radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
+                                   radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
+                                   linear-gradient(180deg, var(--bg1), var(--bg2)); color:var(--text);}
     body{
-      margin:0;
-      color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      overflow:auto;
+      overflow-x:hidden;
     }
-    a{ color:inherit; text-decoration:none; }
-    .wrap{ max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
-
-    .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding: 6px 6px 0 6px; flex-wrap:wrap; }
-    .brand{ display:flex; flex-direction:column; gap:6px; }
-    .title{ margin:0; font-size: clamp(22px, 2.2vw, 30px); letter-spacing:.2px; }
-    .subtitle{ margin:0; color:var(--muted); font-size: 13px; line-height:1.4; max-width: 78ch; }
-
-    .pillrow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
-    .pill{
-      background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;
-      user-select:none;
+    a{color:inherit; text-decoration:none}
+    .wrap{
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
-    .pill b{ color:var(--text); font-weight:900; }
-
-    /* hero card (small) */
-    .heroCard{
-      border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(2,6,23,.60), rgba(15,23,42,.58));
-      border-radius: 22px;
-      padding: 12px 12px;
-      box-shadow: var(--shadow);
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    .topbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
       flex-wrap:wrap;
+      margin-bottom: 12px;
     }
-    .heroLeft{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
-    .heroAvatar{
-      width:46px; height:46px; border-radius:16px;
-      display:grid; place-items:center;
-      background: rgba(59,130,246,.14);
-      border:1px solid rgba(59,130,246,.26);
-      box-shadow: 0 14px 44px rgba(0,0,0,.35);
-      font-size:22px;
-    }
-    .heroName{font-weight:1100; font-size:16px; margin:0;}
-    .heroSub{margin:2px 0 0 0; color:var(--muted); font-weight:900; font-size:12px;}
-    .heroRight{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end;}
-    .btn{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.42);
-      padding:10px 12px;
-      border-radius: 14px;
-      color: var(--text);
-      cursor:pointer;
-      user-select:none;
-      transition: transform .12s ease, opacity .12s ease, border-color .12s ease, background .12s ease;
-      display:flex; align-items:center; gap:8px;
-      white-space:nowrap;
-      font-weight:900;
-      font-size:13px;
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.warn{ border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08); }
-    .btn.ghost{ color:var(--muted); }
-    .btn.primary{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.12); }
-
-    .zonebar{
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .zonebarHead{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding: 12px 14px;
-      border-bottom:1px solid var(--stroke);
-      background: rgba(2,6,23,.35);
-      flex-wrap:wrap;
-    }
-    .zonebarHead .left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .bigPill{
-      display:inline-flex; align-items:center; gap:10px;
+    .brand{
+      display:flex; align-items:center; gap:10px;
       padding: 10px 12px;
+      border-radius: 18px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.48);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+    }
+    .brand b{font-weight:1100}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
       border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size:13px;
-      font-weight:900;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 950;
       white-space:nowrap;
     }
-    .bigPill .dot{
-      width:12px; height:12px; border-radius:999px;
-      background: var(--warn);
-      box-shadow: 0 0 18px rgba(245,158,11,.35);
+    .pill b{color:var(--text)}
+    .hero{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
     }
-    .bigPill.ok .dot{ background: var(--good); box-shadow: 0 0 18px rgba(34,197,94,.35); }
-    .bigPill.bad .dot{ background: var(--bad); box-shadow: 0 0 18px rgba(239,68,68,.35); }
-
-    .zonebarBody{
-      padding: 12px 12px 14px;
+    .btn{
+      cursor:pointer;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(148,163,184,.10);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight:1100;
+      min-height: 44px;
+    }
+    .btn.primary{border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16);}
+    .btn.violet{border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14);}
+    .btn.good{border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14);}
+    .btn.ghost{background: transparent; color: var(--muted);}
+    .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width:900px){ .grid{grid-template-columns:1fr;} }
+
+    .card{
+      border-radius: 22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .card h2{
+      margin:0;
+      font-size:16px;
+      font-weight:1100;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .muted{color:var(--muted); font-weight:900; font-size:12px;}
+    .zoneRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .games{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
     }
-    @media (max-width: 980px){
-      .zonebarBody{ grid-template-columns: 1fr; }
-      .pillrow{ justify-content:flex-start; }
-    }
-    .zoneCard{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.40);
+    @media (max-width:520px){ .games{grid-template-columns:1fr;} }
+
+    .gameBtn{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding: 12px 12px;
       border-radius: 18px;
-      padding: 14px;
-      position:relative;
-      overflow:hidden;
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      min-height: 160px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.46);
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+      min-height: 68px;
     }
-    .zoneCard h3{ margin:0 0 6px 0; font-size: 16px; letter-spacing:.2px; }
-    .zoneCard p{ margin:0; color:var(--muted); font-size: 13px; line-height:1.45; }
-    .glow{
-      position:absolute; inset:-40% -35% auto auto;
-      width:240px; height:240px;
-      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.22), transparent 60%);
-      filter: blur(10px);
-      transform: rotate(14deg);
-      pointer-events:none;
-      opacity:.9;
-    }
-    .glow.cyan{ background: radial-gradient(circle at 30% 30%, rgba(34,211,238,.22), transparent 60%); }
-    .glow.violet{ background: radial-gradient(circle at 30% 30%, rgba(167,139,250,.22), transparent 60%); }
+    .gameBtn .t{font-weight:1100}
+    .gameBtn .s{font-size:12px; font-weight:900; color:var(--muted)}
+    .gameBtn:hover{border-color: rgba(59,130,246,.28);}
 
-    .miniStatus{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
-    .chip{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.28);
-      color:var(--muted);
-      font-size: 12px;
-      font-weight:800;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .chip b{ color:var(--text); font-weight:900; }
-    .meter{
-      height: 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.35);
-      overflow:hidden;
-      margin-top:10px;
-    }
-    .fill{ height:100%; width:0%; background: rgba(34,197,94,.85); transition: width .14s ease; }
-    .fill.cyan{ background: rgba(34,211,238,.85); }
-    .fill.violet{ background: rgba(167,139,250,.85); }
-    .fill.warn{ background: rgba(245,158,11,.88); }
-
-    .grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 2px; }
-    @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
-
-    .game{
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.46);
-      border-radius: 18px;
-      padding: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.22);
-      position:relative;
-      overflow:hidden;
-      cursor:pointer;
-      user-select:none;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease;
-      min-height: 132px;
-    }
-    .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
-    .game:active{ transform: translateY(1px); }
-    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-    .gameTitle{ font-weight:900; letter-spacing:.2px; margin:0; font-size: 15px; }
-    .gameSub{ margin:6px 0 0 0; color:var(--muted); font-size: 12px; line-height:1.35; }
-    .tag{
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      border-radius: 999px;
-      padding: 7px 10px;
-      font-size: 11px;
-      color: var(--text);
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .toast{
-      position: fixed;
-      left: 50%;
-      bottom: calc(18px + var(--sab));
-      transform: translateX(-50%);
-      background: rgba(2,6,23,.85);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      max-width: 92vw;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity .18s ease;
-      pointer-events:none;
-    }
-    .toast.show{ opacity: 1; }
+    .inlineRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .sep{height:1px; background: rgba(148,163,184,.14); margin: 6px 0;}
+    .small{font-size:12px; font-weight:900; color: var(--muted);}
   </style>
-
-  <!-- ✅ (Optional) Firebase config: ใช้ชุดเดียวกับ battle-rtdb.js -->
-  <script>
-    // ใส่จริงเมื่อพร้อม (ถ้ายังไม่ใส่ก็ไม่พัง: จะ fallback เป็น localStorage)
-    // window.HHA_FIREBASE_CONFIG = {
-    //   apiKey: "...",
-    //   authDomain: "...",
-    //   databaseURL: "https://...-default-rtdb.asia-southeast1.firebasedatabase.app",
-    //   projectId: "...",
-    //   appId: "..."
-    // };
-  </script>
 </head>
-
 <body>
   <div class="wrap">
-    <div class="top">
+
+    <div class="topbar">
       <div class="brand">
-        <h1 class="title">🏰 HeroHealth — Hub</h1>
-        <p class="subtitle">เลือกเล่นเกมไหนก่อนก็ได้ • Daily Gate แยกตามโซน วันละ 1 ครั้ง/โซน</p>
+        <span style="font-size:18px">🧠🎮</span>
+        <div>
+          <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
+            <b>HeroHealth</b>
+            <span class="muted">Hub • 3 Zones</span>
+          </div>
+          <div class="muted" id="ctxLine">—</div>
+        </div>
       </div>
-      <div class="pillrow" id="pillrow"></div>
+
+      <div class="hero">
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
+        <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
+        <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
+
+        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
+        <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
+      </div>
     </div>
 
-    <!-- ✅ Hero profile -->
-    <section class="heroCard" aria-label="Hero profile">
-      <div class="heroLeft">
-        <div class="heroAvatar" id="heroAvatar">🦸</div>
-        <div>
-          <p class="heroName" id="heroName">Hero</p>
-          <p class="heroSub" id="heroSub">Level 1 • XP 0/50 • pid=anon</p>
-        </div>
-      </div>
-      <div class="heroRight">
-        <button class="btn primary" id="btnSetName">✏️ ตั้งชื่อ</button>
-        <button class="btn ghost" id="btnSync">☁️ Sync</button>
-      </div>
-    </section>
+    <div class="grid">
 
-    <section class="zonebar" aria-label="Zone status">
-      <div class="zonebarHead">
-        <div class="left">
-          <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
-          <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
-          <div class="bigPill" id="pillFitness"><span class="dot"></span><span id="tFitness">🏃 Fitness: —</span></div>
-          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
-        </div>
-        <div class="heroRight">
-          <button class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</button>
-          <button class="btn warn" id="btnResetToday">♻️ Reset today</button>
-        </div>
-      </div>
-
-      <div class="zonebarBody">
-        <div class="zoneCard">
-          <div class="glow"></div>
-          <h3>🥗 Nutrition</h3>
-          <p>GoodJunk / Groups / Hydration / Plate</p>
-          <div class="miniStatus">
-            <span class="chip"><b>Gate</b>: <span id="cNutGate">—</span></span>
-            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::nutrition</span>
+      <!-- NUTRITION -->
+      <section class="card">
+        <h2>🥦 Nutrition Zone</h2>
+        <div class="zoneRow">
+          <div class="muted">GoodJunk • Groups • Hydration • Plate</div>
+          <div class="inlineRow">
+            <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
+            <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
+            <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
           </div>
-          <div class="meter"><div class="fill" id="mNut"></div></div>
         </div>
+        <div class="sep"></div>
+        <div class="games">
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunkVR</div><div class="s">Solo / PRO / Battle • ABC cards + Skill</div></a>
+          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
+          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
+          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+        </div>
+        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard&pro=1</div>
+      </section>
 
-        <div class="zoneCard">
-          <div class="glow cyan"></div>
-          <h3>🧼 Hygiene</h3>
-          <p>Handwash / MaskCough / Brush / Bath / Clean Object / Germ Detective</p>
-          <div class="miniStatus">
-            <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
-            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
-          </div>
-          <div class="meter"><div class="fill cyan" id="mHyg"></div></div>
+      <!-- HYGIENE -->
+      <section class="card">
+        <h2>🪥 Hygiene Zone</h2>
+        <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
+        <div class="sep"></div>
+        <div class="games">
+          <a class="gameBtn" href="./handwash.html"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
+          <a class="gameBtn" href="./brush.html"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
+          <a class="gameBtn" href="./bath.html"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
+          <a class="gameBtn" href="./clean-object.html"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
+          <a class="gameBtn" href="./maskcough.html"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
+          <a class="gameBtn" href="./germ-detective.html"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
         </div>
+      </section>
 
-        <div class="zoneCard">
-          <div class="glow violet"></div>
-          <h3>🏃 Fitness</h3>
-          <p>Shadow / Rhythm / Jump-Duck / Balance</p>
-          <div class="miniStatus">
-            <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
-            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
-          </div>
-          <div class="meter"><div class="fill violet" id="mFit"></div></div>
+      <!-- EXERCISE -->
+      <section class="card">
+        <h2>🏃 Exercise Zone</h2>
+        <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
+        <div class="sep"></div>
+        <div class="games">
+          <a class="gameBtn" href="./shadow-breaker.html"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
+          <a class="gameBtn" href="./rhythm-boxer.html"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
+          <a class="gameBtn" href="./jumpduck.html"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
+          <a class="gameBtn" href="./balance-hold.html"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
+          <a class="gameBtn" href="./fitness-planner/"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section aria-label="Game list">
-      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (root launchers)</div>
-      <div class="grid">
-        <div class="game" data-href="./goodjunk-launcher.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk VR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • เลือกโหมด/ห้อง/ระดับ</p>
-        </div>
+    </div>
 
-        <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🧩 Food Groups VR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5</p>
-        </div>
-        <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">💧 Hydration VR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ</p>
-        </div>
-        <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
-          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate VR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">จัดจาน 5 หมู่</p>
-        </div>
-      </div>
-
-      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (root launchers)</div>
-      <div class="grid">
-        <div class="game" data-href="./handwash-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🧴 HandwashVR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">ล้างมือถูกขั้นตอน • timing • คราบ/เชื้อ</p>
-        </div>
-        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">😷 Mask & Cough</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">กันละอองไอ/จาม • โล่ • fever/waves</p>
-        </div>
-        <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🪥 BrushVR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">A/B/C + evidence + analyze quiz + AI prediction</p>
-        </div>
-        <div class="game" data-href="./bath-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🛁 BathVR</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">Hidden Dirt Quest • ล้างคราบให้ครบ • summary</p>
-        </div>
-        <div class="game" data-href="./clean-vr.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag">Launcher</span></div>
-          <p class="gameSub">แยก “สะอาด/ไม่สะอาด” • ตรวจหลักฐาน • ตัดสินใจ</p>
-        </div>
-        <div class="game" data-href="./germ-detective.html" data-zone="hygiene">
-          <div class="gameTop"><h3 class="gameTitle">🔎 Germ Detective</h3><span class="tag">Run</span></div>
-          <p class="gameSub">UV/Swab/Camera • หาแหล่งเชื้อ • วิเคราะห์</p>
-        </div>
-      </div>
-
-      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Fitness games</b> (/fitness)</div>
-      <div class="grid">
-        <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
-          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
-          <p class="gameSub">reflex</p>
-        </div>
-        <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
-          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag">Run</span></div>
-          <p class="gameSub">timing</p>
-        </div>
-        <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
-          <div class="gameTop"><h3 class="gameTitle">🦘 Jump-Duck</h3><span class="tag">Run</span></div>
-          <p class="gameSub">agility</p>
-        </div>
-        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
-          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag">Run</span></div>
-          <p class="gameSub">stability</p>
-        </div>
-      </div>
-    </section>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <script>
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
-<script>
-(function(){
-  'use strict';
+    const pid = String(qs('pid','anon')).trim() || 'anon';
+    const run = String(qs('run','play'));
+    const diff = String(qs('diff','normal'));
+    const time = String(qs('time','80'));
+    const seed = String(qs('seed', String(Date.now())));
+    const view = String(qs('view','mobile'));
+    const hub = location.href;
 
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
-  const QS = parseQS();
+    const ctxLine = document.getElementById('ctxLine');
+    const uiPid = document.getElementById('uiPid');
+    const uiNick = document.getElementById('uiNick');
+    const uiLvl = document.getElementById('uiLvl');
+    const uiXp = document.getElementById('uiXp');
 
-  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug'];
+    uiPid.textContent = pid;
+    ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
-  function ymdLocal(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
-  }
-
-  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
-  function isZoneDoneToday(zone){
-    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
-  }
-  function clearZoneToday(zone){
-    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
-  }
-
-  const toastEl = document.getElementById('toast');
-  let toastTimer=null;
-  function toast(msg){
-    clearTimeout(toastTimer);
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
-  }
-
-  function setPill(el, done){
-    if(!el) return;
-    el.classList.remove('ok','bad');
-    el.classList.add(done ? 'ok' : 'bad');
-  }
-  function setText(id, v){
-    const el = document.getElementById(id);
-    if(el) el.textContent = v;
-  }
-
-  function syncBars(){
-    const today = ymdLocal();
-    setText('todayText', today);
-
-    const nut = isZoneDoneToday('nutrition');
-    const hyg = isZoneDoneToday('hygiene');
-    const fit = isZoneDoneToday('fitness');
-
-    setPill(document.getElementById('pillNutrition'), nut);
-    setPill(document.getElementById('pillHygiene'), hyg);
-    setPill(document.getElementById('pillFitness'), fit);
-
-    setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
-    setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
-    setText('tFitness',  `🏃 Fitness: ${fit ? 'DONE TODAY' : 'NOT DONE'}`);
-
-    setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
-    setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
-    setText('cFitGate', fit ? 'DONE TODAY' : 'NEED GATE');
-
-    const mNut = document.getElementById('mNut');
-    const mHyg = document.getElementById('mHyg');
-    const mFit = document.getElementById('mFit');
-    if(mNut){ mNut.style.width = (nut ? 100 : 35) + '%'; mNut.classList.toggle('warn', !nut); }
-    if(mHyg){ mHyg.style.width = (hyg ? 100 : 35) + '%'; mHyg.classList.toggle('warn', !hyg); }
-    if(mFit){ mFit.style.width = (fit ? 100 : 35) + '%'; mFit.classList.toggle('warn', !fit); }
-  }
-
-  function applyPassThrough(href){
-    const u = new URL(href, location.href);
-    for (const k of PASS_KEYS){
-      if (!u.searchParams.has(k) && QS.has(k)){
-        const v = QS.get(k);
-        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
+    function loadHero(){
+      try{
+        const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
+        if(!raw) return { pid, nick: pid, xp:0, lvl:1 };
+        const j = JSON.parse(raw);
+        const xp = Math.max(0, Number(j.xp)||0);
+        const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
+        return { pid, nick: String(j.nick||pid), xp, lvl };
+      }catch(_){
+        return { pid, nick: pid, xp:0, lvl:1 };
       }
     }
-    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
-      u.searchParams.set('hub', location.href);
+
+    function saveHero(h){
+      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(h)); }catch(_){}
     }
-    return u.toString();
-  }
 
-  function renderPills(){
-    const pills = [
-      ['pid', QS.get('pid')],
-      ['run', QS.get('run')],
-      ['diff', QS.get('diff')],
-      ['time', QS.get('time')],
-      ['seed', QS.get('seed')],
-      ['studyId', QS.get('studyId')],
-      ['phase', QS.get('phase')],
-      ['conditionGroup', QS.get('conditionGroup')],
-      ['log', QS.get('log')],
-      ['view', QS.get('view')],
-      ['api', QS.get('api')],
-      ['ai', QS.get('ai')],
-      ['debug', QS.get('debug')],
-    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
-
-    const el = document.getElementById('pillrow');
-    el.innerHTML = (pills.length ? pills : [['ctx','none']])
-      .slice(0, 12)
-      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
-      .join('');
-  }
-
-  function bindGames(){
-    const cards = document.querySelectorAll('.game[data-href]');
-    cards.forEach(card=>{
-      card.addEventListener('click', ()=>{
-        const href = card.getAttribute('data-href');
-        if(!href) return;
-        location.href = applyPassThrough(href);
-      }, { passive:true });
-    });
-  }
-
-  function bindReset(){
-    const btnR = document.getElementById('btnResetToday');
-    const btnH = document.getElementById('btnHow');
-    btnR && btnR.addEventListener('click', ()=>{
-      clearZoneToday('nutrition'); clearZoneToday('hygiene'); clearZoneToday('fitness');
-      syncBars();
-      toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
-    });
-    btnH && btnH.addEventListener('click', ()=>{
-      toast('Daily Gate: จบเกม/summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
-    });
-  }
-
-  // ===== Hero profile (localStorage + optional cloud) =====
-  function qs(k,d=''){ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } }
-  const pid = (qs('pid','anon')||'anon').trim() || 'anon';
-
-  function loadLocalProfile(){
-    try{
-      const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
-      if(!raw) return { pid, nick: qs('nick','')||pid, xp:0, lvl:1 };
-      const j = JSON.parse(raw);
-      if(!j || typeof j!=='object') return { pid, nick: qs('nick','')||pid, xp:0, lvl:1 };
-      j.pid = pid;
-      if(!j.nick) j.nick = qs('nick','')||pid;
-      if(!Number.isFinite(+j.xp)) j.xp = 0;
-      if(!Number.isFinite(+j.lvl)) j.lvl = 1;
-      return j;
-    }catch(_){
-      return { pid, nick: qs('nick','')||pid, xp:0, lvl:1 };
+    function renderHero(){
+      const h = loadHero();
+      uiNick.textContent = h.nick || pid;
+      uiXp.textContent = String(h.xp|0);
+      uiLvl.textContent = String(h.lvl|0);
     }
-  }
-  function saveLocalProfile(p){
-    try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(p)); }catch(_){}
-  }
 
-  function lvlFromXp(xp){
-    xp = Math.max(0, Number(xp)||0);
-    // 50xp per level (ง่าย ๆ ก่อน)
-    return Math.floor(xp / 50) + 1;
-  }
-  function xpToNext(xp){
-    const lvl = lvlFromXp(xp);
-    const curBase = (lvl-1)*50;
-    return { lvl, cur: xp-curBase, need: 50 };
-  }
+    function buildUrl(path, extra){
+      const u = new URL(path, location.href);
+      const sp = new URL(location.href).searchParams;
 
-  function renderHero(p){
-    const nameEl = document.getElementById('heroName');
-    const subEl  = document.getElementById('heroSub');
-    if(nameEl) nameEl.textContent = p.nick || 'Hero';
-    const x = xpToNext(p.xp||0);
-    if(subEl) subEl.textContent = `Level ${x.lvl} • XP ${x.cur}/${x.need} • pid=${pid}`;
-  }
+      // pass-through core
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v!=null && v!=='') u.searchParams.set(k, v);
+      });
 
-  let hero = loadLocalProfile();
-  hero.lvl = lvlFromXp(hero.xp||0);
-  saveLocalProfile(hero);
-  renderHero(hero);
+      u.searchParams.set('hub', hub);
 
-  const btnSetName = document.getElementById('btnSetName');
-  btnSetName && btnSetName.addEventListener('click', async ()=>{
-    const cur = hero.nick || '';
-    const next = prompt('ตั้งชื่อ Hero (nick):', cur);
-    if(next==null) return;
-    const nick = String(next||'').trim().slice(0,24) || pid;
-    hero.nick = nick;
-    hero.lvl = lvlFromXp(hero.xp||0);
-    saveLocalProfile(hero);
-    renderHero(hero);
-    toast('บันทึกชื่อแล้ว ✅');
-    try{
-      // optional cloud sync
-      const mod = await import('./vr/hero-profile-cloud.js');
-      await mod.syncProfileUp?.({ pid, profile: hero });
-      toast('Sync แล้ว ☁️');
-    }catch(_){}
-  });
-
-  const btnSync = document.getElementById('btnSync');
-  btnSync && btnSync.addEventListener('click', async ()=>{
-    try{
-      const mod = await import('./vr/hero-profile-cloud.js');
-      const cloud = await mod.syncProfileDown?.({ pid });
-      if(cloud && cloud.profile){
-        hero = { ...hero, ...cloud.profile, pid };
-        hero.lvl = lvlFromXp(hero.xp||0);
-        saveLocalProfile(hero);
-        renderHero(hero);
+      // override extras
+      if(extra && typeof extra === 'object'){
+        Object.keys(extra).forEach(k=>{
+          const v = extra[k];
+          if(v===null || v===undefined || v==='') u.searchParams.delete(k);
+          else u.searchParams.set(k, String(v));
+        });
       }
-      toast('Sync แล้ว ☁️');
-    }catch(e){
-      toast('ยังไม่ได้ตั้งค่า Cloud (fallback local)');
+      return u.toString();
     }
-  });
 
-  renderPills();
-  syncBars();
-  bindGames();
-  bindReset();
-})();
-</script>
+    // quick links — GoodJunk
+    const btnGJsolo = document.getElementById('btnGJsolo');
+    const btnGJpro = document.getElementById('btnGJpro');
+    const btnGJbattle = document.getElementById('btnGJbattle');
 
-<!-- ✅ NEW helper (optional, safe if missing config) -->
-<script type="module" src="./vr/hero-profile-cloud.js"></script>
+    const linkGoodjunk = document.getElementById('linkGoodjunk');
+    const linkGroups = document.getElementById('linkGroups');
+    const linkHydration = document.getElementById('linkHydration');
+    const linkPlate = document.getElementById('linkPlate');
+
+    // root pages (adjust if your structure differs)
+    linkGoodjunk.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0' });
+    linkGroups.href   = buildUrl('./vr-groups/groups-vr.html', {});
+    linkHydration.href= buildUrl('./hydration-vr/hydration-vr.html', {});
+    linkPlate.href    = buildUrl('./vr-plate/plate-vr.html', {});
+
+    btnGJsolo.onclick = ()=> location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0', pro:'0' });
+    btnGJpro.onclick  = ()=> location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0', diff:'hard', pro:'1' });
+    btnGJbattle.onclick= ()=> {
+      const room = String(qs('room','P51')) || 'P51';
+      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'battle', battle:'1', wait:'1', auto:'1', room });
+    };
+
+    // hero buttons
+    const btnHeroShow = document.getElementById('btnHeroShow');
+    const btnHeroReset = document.getElementById('btnHeroReset');
+
+    btnHeroShow.onclick = ()=>{
+      const h = loadHero();
+      alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(บันทึกใน localStorage: HHA_PROFILE:${pid})`);
+    };
+
+    btnHeroReset.onclick = ()=>{
+      try{
+        if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
+        const h = { pid, nick: pid, xp:0, lvl:1 };
+        saveHero(h);
+        renderHero();
+        alert('Reset Hero เรียบร้อย ✅');
+      }catch(_){}
+    };
+
+    // init
+    renderHero();
+  </script>
 </body>
 </html>
