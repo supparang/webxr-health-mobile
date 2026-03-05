@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher (Mode + Diff + AutoDiff + Room + Nick)
-FULL v20260305a-LAUNCHER-AUTODIFF-PID
+FULL v20260304e-LAUNCHER-AUTODIFF-PID
 -->
 <!doctype html>
 <html lang="th">
@@ -37,7 +37,11 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
     a{color:inherit; text-decoration:none;}
 
     .wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
-    .top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; padding: 4px 2px 0;}
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      flex-wrap:wrap;
+      padding: 4px 2px 0;
+    }
     .brand{display:flex; gap:10px; align-items:center;}
     .logo{
       width:46px; height:46px; border-radius:16px;
@@ -71,6 +75,7 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
       box-shadow: 0 22px 80px rgba(0,0,0,.45);
       overflow:hidden;
     }
+
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:12px;}
     @media (max-width: 840px){ .grid{grid-template-columns:1fr;} }
 
@@ -83,7 +88,11 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
     .panel h2{margin:0 0 10px 0; font-size:14px; letter-spacing:.2px}
     .hint{color:var(--muted); font-weight:900; font-size:12px; margin-top:6px; line-height:1.35;}
 
-    .btns{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;}
+    .btns{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
     @media (max-width: 520px){ .btns{grid-template-columns:1fr;} }
 
     button{
@@ -100,7 +109,10 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
       transition: transform .12s ease, border-color .12s ease, background .12s ease, opacity .12s ease;
     }
     button:active{transform: translateY(1px);}
-    button.sel{border-color: rgba(34,197,94,.34); background: rgba(34,197,94,.14);}
+    button.sel{
+      border-color: rgba(34,197,94,.34);
+      background: rgba(34,197,94,.14);
+    }
     .small{opacity:.80; font-size:11px; font-weight:900; margin-top:3px; line-height:1.25;}
     .tag{
       display:inline-flex; align-items:center; gap:6px;
@@ -276,9 +288,7 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
   const PASS_KEYS = [
     'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug',
     'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'plannedGame','finalGame','zone','cdnext','grade',
-    // 👇 เพิ่มให้ครบโหมด
-    'battle','room','autostart','forfeit','mode','wait','pro'
+    'plannedGame','finalGame','zone','cdnext','grade'
   ];
 
   const $ = (id)=> document.getElementById(id);
@@ -338,7 +348,7 @@ FULL v20260305a-LAUNCHER-AUTODIFF-PID
   function recommendDiffFromSummary(sum){
     if(!sum) return { diff:'easy', why:'ยังไม่มีประวัติ → เริ่มที่ easy' };
 
-    const reason = String(sum.reason||'').toLowerCase(); // win / miss-limit / time / background
+    const reason = String(sum.reason||'').toLowerCase();
     const acc = Number(sum.accPct ?? 0) || 0;
     const miss = Number(sum.missTotal ?? sum.miss ?? 0) || 0;
     const grade = String(sum.grade||'').toUpperCase();
