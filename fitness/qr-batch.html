@@ -174,4 +174,122 @@
 
     <div class="tool-right">
       <button id="btnTop">⬆ Top</button>
-    </
+    </div>
+  </div>
+
+  <div class="note">
+    ถ้าไม่เห็นข้อมูล: กลับไปหน้าเกม → Batch → Generate → Open QR
+    (ระบบอ่านจาก localStorage key <code>SB_BATCH_ROWS_V1</code>)
+  </div>
+
+  <main class="grid cols-auto" id="grid"></main>
+
+  <script src="./js/qrcode-lite.js"></script>
+  <script>
+    const KEY = 'SB_BATCH_ROWS_V1';
+
+    const grid = document.getElementById('grid');
+    const selMode = document.getElementById('selMode');
+    const selCols = document.getElementById('selCols');
+    const selQr = document.getElementById('selQr');
+
+    function getRows(){
+      try{
+        const raw = localStorage.getItem(KEY);
+        if(!raw) return [];
+        const obj = JSON.parse(raw);
+        const rows = obj && obj.rows ? obj.rows : [];
+        return Array.isArray(rows) ? rows : [];
+      }catch{
+        return [];
+      }
+    }
+
+    function setCols(v){
+      grid.classList.remove('cols-auto','cols-2','cols-3');
+      if(v === '2') grid.classList.add('cols-2');
+      else if(v === '3') grid.classList.add('cols-3');
+      else grid.classList.add('cols-auto');
+    }
+
+    function setQrSize(px){
+      document.documentElement.style.setProperty('--qr', px + 'px');
+    }
+
+    function pickLink(row, mode){
+      if(mode === 'research'){
+        return row.link_research || row.linkResearch || '';
+      }
+      return row.link_play || row.linkPlay || row.link || '';
+    }
+
+    function render(){
+      const rows = getRows();
+      const mode = selMode.value || 'play';
+      const cols = selCols.value || 'auto';
+      const qrsz = Number(selQr.value || 240) || 240;
+
+      setCols(cols);
+      setQrSize(qrsz);
+
+      grid.innerHTML = '';
+
+      if(!rows.length){
+        const d = document.createElement('div');
+        d.className = 'card';
+        d.innerHTML = '<div class="pid">ไม่มีข้อมูล</div><div class="meta">กลับไปหน้า Batch generator แล้วกด Generate ก่อน</div>';
+        grid.appendChild(d);
+        return;
+      }
+
+      for(const r of rows){
+        const card = document.createElement('section');
+        card.className = 'card';
+
+        const pid = r.pid || '';
+        const cls = r.class_room || r.classRoom || '';
+        const sch = r.school_code || r.schoolCode || '';
+        const seed = r.seed || '';
+
+        const link = pickLink(r, mode);
+        const meta = `${sch}${cls ? ' • '+cls : ''}${seed ? ' • seed='+seed : ''}`;
+
+        const top = document.createElement('div');
+        top.className = 'top';
+        top.innerHTML = `<div><div class="pid">${pid}</div><div class="meta">${meta}</div></div>`;
+
+        const qrwrap = document.createElement('div');
+        qrwrap.className = 'qrwrap';
+        const canvas = document.createElement('canvas');
+        qrwrap.appendChild(canvas);
+
+        const links = document.createElement('div');
+        links.className = 'links';
+        links.textContent = link;
+
+        card.appendChild(top);
+        card.appendChild(qrwrap);
+        card.appendChild(links);
+        grid.appendChild(card);
+
+        try{
+          window.QRLite.toCanvas(canvas, link, { size: qrsz, margin: 8 });
+        }catch(e){
+          links.textContent = 'QR error: ' + (e && e.message ? e.message : String(e));
+        }
+      }
+    }
+
+    document.getElementById('btnReload').addEventListener('click', render);
+    document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+    document.getElementById('btnBack').addEventListener('click', ()=> history.back());
+    document.getElementById('btnTop').addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
+
+    selMode.addEventListener('change', render);
+    selCols.addEventListener('change', render);
+    selQr.addEventListener('change', render);
+
+    render();
+  </script>
+</body>
+</html>
