@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305g-RUN-CARDS-SKILL
+PATCH v20260305i-RUN-AB-CARDS-SKILL
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js (module)
@@ -145,7 +145,7 @@ Requires:
     #missionFill{height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
     #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
 
-    /* ✅ NEW: Card row */
+    /* ✅ AB Cards row */
     .cardRow{
       display:flex;
       gap:8px;
@@ -172,13 +172,13 @@ Requires:
       color: rgba(148,163,184,.95);
     }
 
-    /* ✅ NEW: Skill button (not blocking targets) */
+    /* Skill button */
     #skillDock{
       position: fixed;
       right: calc(10px + var(--sar));
-      bottom: calc(78px + var(--sab)); /* above ENTER VR bar */
+      bottom: calc(78px + var(--sab));
       z-index: 230;
-      pointer-events: none; /* allow clicks only on button */
+      pointer-events: none;
       display:flex;
       flex-direction:column;
       gap:8px;
@@ -199,10 +199,7 @@ Requires:
       -webkit-backdrop-filter: blur(10px);
       display:flex; align-items:center; gap:8px;
     }
-    #skillBtn[disabled]{
-      opacity:.45;
-      cursor:default;
-    }
+    #skillBtn[disabled]{opacity:.45; cursor:default;}
     #skillHint{
       pointer-events:none;
       font-size:12px;
@@ -305,10 +302,14 @@ Requires:
     </div>
     <div class="missionHint" id="missionHint">—</div>
 
-    <!-- ✅ NEW: Challenge Card -->
+    <!-- ✅ AB Cards -->
     <div class="cardRow">
-      <span class="cardPill" id="cardName"><span class="k">Card</span> <span class="v">—</span></span>
-      <span class="cardPill dim" id="cardProg"><span class="k">Progress</span> <span class="v">—</span></span>
+      <span class="cardPill" id="cardA"><span class="k">A</span> <span class="v">—</span></span>
+      <span class="cardPill dim" id="cardAProg"><span class="k">A prog</span> <span class="v">—</span></span>
+    </div>
+    <div class="cardRow">
+      <span class="cardPill" id="cardB"><span class="k">B</span> <span class="v">—</span></span>
+      <span class="cardPill dim" id="cardBProg"><span class="k">B prog</span> <span class="v">—</span></span>
     </div>
 
     <div id="missionFill"></div>
@@ -319,7 +320,6 @@ Requires:
     <div id="bossFill" style="--hp:0%;"></div>
   </div>
 
-  <!-- ✅ NEW: Skill Dock -->
   <div id="skillDock" aria-label="skill">
     <button id="skillBtn" type="button">✨ Skill</button>
     <div id="skillHint">ใช้ได้ 1 ครั้ง/รอบ</div>
@@ -361,7 +361,6 @@ Requires:
       dbg.style.display = 'block';
       dbg.textContent += (String(msg||'') + '\n');
     }
-
     window.addEventListener('error', (e)=>{ logDbg('ERROR: ' + (e?.message||e)); });
     window.addEventListener('unhandledrejection', (e)=>{ logDbg('REJECT: ' + (e?.reason?.message || e?.reason || e)); });
 
