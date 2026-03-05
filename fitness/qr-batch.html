@@ -9,6 +9,8 @@
     :root{
       --bg:#f8fafc; --card:#ffffff; --stroke:#e2e8f0; --text:#0f172a; --muted:#64748b;
       --r:16px;
+      --cols:auto;
+      --qr:240px;
     }
     *{box-sizing:border-box;}
     body{
@@ -19,24 +21,62 @@
     }
     header{
       display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     h1{ margin:0; font-size: 18px; }
     .sub{ color:var(--muted); font-size: 13px; margin-top:4px; }
-    .btns{ display:flex; gap:8px; flex-wrap:wrap; }
-    button{
-      border-radius: 999px; border:1px solid var(--stroke);
-      background: var(--card); padding:8px 12px;
-      cursor:pointer; font-weight:700;
+
+    .toolbar{
+      margin: 10px 0 14px;
+      padding: 12px;
+      border-radius: 16px;
+      border:1px solid var(--stroke);
+      background: var(--card);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .tool-left, .tool-right{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+    .group{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    select, button{
+      border-radius: 999px;
+      border:1px solid var(--stroke);
+      background: var(--card);
+      padding:8px 12px;
+      cursor:pointer;
+      font-weight:800;
+      color: var(--text);
+      font-size: 13px;
     }
     button.primary{ background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
-    .note{ color:var(--muted); font-size:12px; margin: 10px 0 14px; }
+    button.ghost{ background:#fff; }
+
+    .note{ color:var(--muted); font-size:12px; margin: 8px 0 10px; }
 
     .grid{
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap:12px;
     }
+    /* columns control */
+    .grid.cols-auto{
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .grid.cols-2{
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    .grid.cols-3{
+      grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+
     .card{
       background: var(--card);
       border:1px solid var(--stroke);
@@ -45,12 +85,15 @@
       display:flex;
       flex-direction:column;
       gap:10px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .top{
       display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
     }
-    .pid{ font-weight:900; font-size:16px; }
+    .pid{ font-weight:950; font-size:16px; }
     .meta{ color:var(--muted); font-size:12px; }
+
     .qrwrap{
       display:flex; justify-content:center; align-items:center;
       padding: 8px;
@@ -58,18 +101,31 @@
       border-radius: 14px;
       background:#fff;
     }
-    canvas{ max-width: 100%; height:auto; }
+    canvas{
+      width: var(--qr);
+      height: auto;
+      max-width: 100%;
+    }
 
     .links{
-      font-size:12px; color:var(--muted);
+      font-size:11px; color:var(--muted);
       word-break: break-all;
       line-height: 1.25;
     }
 
+    @media (max-width:860px){
+      .grid.cols-3{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width:640px){
+      .grid.cols-2, .grid.cols-3{ grid-template-columns: 1fr; }
+      canvas{ width: min(260px, 85vw); }
+    }
+
     @media print{
       body{ padding:0; }
-      header, .note { display:none; }
-      .card{ break-inside: avoid; page-break-inside: avoid; }
+      header, .toolbar, .note { display:none; }
+      .grid{ gap: 8px; }
+      .card{ border-color:#cbd5e1; }
     }
   </style>
 </head>
@@ -77,95 +133,45 @@
   <header>
     <div>
       <h1>Shadow Breaker — QR Batch</h1>
-      <div class="sub">ใช้ Batch generator แล้วกด “เปิดหน้า QR” • จากนั้นพิมพ์แจกหน้าห้อง</div>
+      <div class="sub">พิมพ์แจกหน้าห้อง: QR ต่อคน • เลือก Play/Research ได้ • ปรับ 2/3 คอลัมน์</div>
     </div>
-    <div class="btns">
-      <button id="btnReload">↻ Reload from localStorage</button>
+    <div class="tool-right">
+      <button id="btnBack" class="ghost">← Back</button>
       <button id="btnPrint" class="primary">🖨 Print</button>
-      <button id="btnBack">← Back</button>
     </div>
   </header>
 
-  <div class="note">
-    ถ้าไม่เห็นข้อมูล: กลับไปหน้าเกม → Batch → Generate → Open QR •
-    (ระบบอ่านจาก localStorage key <code>SB_BATCH_ROWS_V1</code>)
-  </div>
+  <div class="toolbar">
+    <div class="tool-left">
+      <div class="group">
+        QR:
+        <select id="selMode">
+          <option value="play" selected>Play</option>
+          <option value="research">Research</option>
+        </select>
+      </div>
 
-  <main class="grid" id="grid"></main>
+      <div class="group">
+        Columns:
+        <select id="selCols">
+          <option value="auto" selected>Auto</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </div>
 
-  <script src="./js/qrcode-lite.js"></script>
-  <script>
-    const KEY = 'SB_BATCH_ROWS_V1';
+      <div class="group">
+        QR size:
+        <select id="selQr">
+          <option value="200">200</option>
+          <option value="240" selected>240</option>
+          <option value="280">280</option>
+        </select>
+      </div>
 
-    function getRows(){
-      try{
-        const raw = localStorage.getItem(KEY);
-        if(!raw) return [];
-        const obj = JSON.parse(raw);
-        const rows = obj && obj.rows ? obj.rows : [];
-        return Array.isArray(rows) ? rows : [];
-      }catch{
-        return [];
-      }
-    }
+      <button id="btnReload">↻ Reload</button>
+    </div>
 
-    function render(){
-      const grid = document.getElementById('grid');
-      grid.innerHTML = '';
-      const rows = getRows();
-
-      if(!rows.length){
-        const d = document.createElement('div');
-        d.className = 'card';
-        d.innerHTML = '<div class="pid">ไม่มีข้อมูล</div><div class="meta">กลับไปหน้า Batch generator แล้วกด Generate ก่อน</div>';
-        grid.appendChild(d);
-        return;
-      }
-
-      for(const r of rows){
-        const card = document.createElement('section');
-        card.className = 'card';
-
-        const pid = r.pid || '';
-        const cls = r.class_room || r.classRoom || '';
-        const sch = r.school_code || r.schoolCode || '';
-        const seed = r.seed || '';
-
-        const link = r.link_play || r.link || r.linkPlay || '';
-        const meta = `${sch}${cls ? ' • '+cls : ''}${seed ? ' • seed='+seed : ''}`;
-
-        const top = document.createElement('div');
-        top.className = 'top';
-        top.innerHTML = `<div><div class="pid">${pid}</div><div class="meta">${meta}</div></div>`;
-
-        const qrwrap = document.createElement('div');
-        qrwrap.className = 'qrwrap';
-        const canvas = document.createElement('canvas');
-        qrwrap.appendChild(canvas);
-
-        const links = document.createElement('div');
-        links.className = 'links';
-        links.textContent = link;
-
-        card.appendChild(top);
-        card.appendChild(qrwrap);
-        card.appendChild(links);
-        grid.appendChild(card);
-
-        // render QR
-        try{
-          window.QRLite.toCanvas(canvas, link, { size: 240, margin: 8 });
-        }catch(e){
-          links.textContent = 'QR error: ' + (e && e.message ? e.message : String(e));
-        }
-      }
-    }
-
-    document.getElementById('btnReload').addEventListener('click', render);
-    document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
-    document.getElementById('btnBack').addEventListener('click', ()=> history.back());
-
-    render();
-  </script>
-</body>
-</html>
+    <div class="tool-right">
+      <button id="btnTop">⬆ Top</button>
+    </
